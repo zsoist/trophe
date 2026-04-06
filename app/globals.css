@@ -1,26 +1,214 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* ═══════════════════════════════════════════════
+   τροφή (Trophē) — Premium Design System
+   Dark theme with warm gold accent
+   ═══════════════════════════════════════════════ */
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-gold: #D4A853;
+  --color-gold-light: #E8C878;
+  --color-gold-dark: #B8923E;
+  --color-surface: #141414;
+  --color-surface-elevated: #1a1a1a;
+  --color-surface-hover: #222222;
+  --color-border: #2a2a2a;
+  --color-border-light: #333333;
+  --color-text-primary: #f5f5f4;
+  --color-text-secondary: #a8a29e;
+  --color-text-muted: #78716c;
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  --font-sans: var(--font-inter);
+  --font-serif: var(--font-playfair);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+/* ─── Base ─── */
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: #0a0a0a;
+  color: var(--color-text-primary);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+/* ─── Glass Morphism Cards ─── */
+.glass {
+  background: rgba(26, 26, 26, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+}
+
+.glass-elevated {
+  background: rgba(30, 30, 30, 0.8);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+/* ─── Gold Accent Glow ─── */
+.gold-glow {
+  box-shadow: 0 0 20px rgba(212, 168, 83, 0.15), 0 0 60px rgba(212, 168, 83, 0.05);
+}
+
+.gold-border {
+  border: 1px solid rgba(212, 168, 83, 0.3);
+}
+
+.gold-text {
+  color: var(--color-gold);
+}
+
+/* ─── Streak Progress Bar ─── */
+.streak-bar {
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.streak-fill {
+  background: linear-gradient(90deg, var(--color-gold-dark), var(--color-gold), var(--color-gold-light));
+  border-radius: 999px;
+  transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ─── Macro Ring ─── */
+.macro-ring {
+  transition: stroke-dashoffset 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ─── Button Variants ─── */
+.btn-gold {
+  background: linear-gradient(135deg, var(--color-gold-dark), var(--color-gold));
+  color: #0a0a0a;
+  font-weight: 600;
+  border-radius: 12px;
+  padding: 12px 24px;
+  transition: all 0.2s ease;
+  border: none;
+  cursor: pointer;
+}
+
+.btn-gold:hover {
+  background: linear-gradient(135deg, var(--color-gold), var(--color-gold-light));
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(212, 168, 83, 0.3);
+}
+
+.btn-gold:active {
+  transform: translateY(0);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 12px 24px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.btn-ghost:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-light);
+}
+
+/* ─── Input Styles ─── */
+.input-dark {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 12px 16px;
+  color: var(--color-text-primary);
+  font-size: 16px; /* prevents iOS zoom */
+  transition: border-color 0.2s;
+  outline: none;
+  width: 100%;
+}
+
+.input-dark::placeholder {
+  color: var(--color-text-muted);
+}
+
+.input-dark:focus {
+  border-color: var(--color-gold);
+  box-shadow: 0 0 0 3px rgba(212, 168, 83, 0.1);
+}
+
+/* ─── Status Indicators ─── */
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.status-dot.green { background: var(--color-success); box-shadow: 0 0 8px rgba(34, 197, 94, 0.4); }
+.status-dot.yellow { background: var(--color-warning); box-shadow: 0 0 8px rgba(245, 158, 11, 0.4); }
+.status-dot.red { background: var(--color-danger); box-shadow: 0 0 8px rgba(239, 68, 68, 0.4); }
+
+/* ─── Mood Selector ─── */
+.mood-option {
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 14px;
+}
+
+.mood-option:hover {
+  border-color: var(--color-gold);
+  background: rgba(212, 168, 83, 0.05);
+}
+
+.mood-option.active {
+  border-color: var(--color-gold);
+  background: rgba(212, 168, 83, 0.1);
+  color: var(--color-gold);
+}
+
+/* ─── Confetti Celebration ─── */
+@keyframes confetti-burst {
+  0% { transform: scale(0); opacity: 1; }
+  50% { transform: scale(1.2); opacity: 0.8; }
+  100% { transform: scale(1.5); opacity: 0; }
+}
+
+.confetti-burst {
+  animation: confetti-burst 0.4s ease-out forwards;
+}
+
+/* ─── Water Fill Animation ─── */
+@keyframes water-fill {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+
+.water-fill {
+  transform-origin: bottom;
+  animation: water-fill 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* ─── Safe Area (iOS) ─── */
+.safe-bottom {
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 16px);
+}
+
+/* ─── Scrollbar ─── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-border-light); }
+
+/* ─── Selection ─── */
+::selection {
+  background: rgba(212, 168, 83, 0.3);
+  color: var(--color-text-primary);
 }

@@ -1,0 +1,200 @@
+// ═══════════════════════════════════════════════
+// τροφή (Trophē) — Trilingual i18n System (EN/ES/EL)
+// ═══════════════════════════════════════════════
+
+'use client';
+
+import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import type { Language } from './types';
+
+// ─── Translation Dictionary ───
+const translations: Record<string, Record<Language, string>> = {
+  // ── App ──
+  'app.name': { en: 'Trophē', es: 'Trophē', el: 'τροφή' },
+  'app.tagline': { en: 'One habit. Two weeks. Transform.', es: 'Un hábito. Dos semanas. Transforma.', el: 'Μία συνήθεια. Δύο εβδομάδες. Μεταμόρφωση.' },
+  'app.subtitle': { en: 'Precision Nutrition Coaching', es: 'Coaching de Nutrición de Precisión', el: 'Coaching Διατροφής Ακριβείας' },
+
+  // ── Auth ──
+  'auth.login': { en: 'Log in', es: 'Iniciar sesión', el: 'Σύνδεση' },
+  'auth.signup': { en: 'Sign up', es: 'Registrarse', el: 'Εγγραφή' },
+  'auth.email': { en: 'Email', es: 'Correo electrónico', el: 'Email' },
+  'auth.password': { en: 'Password', es: 'Contraseña', el: 'Κωδικός' },
+  'auth.magic_link': { en: 'Send magic link', es: 'Enviar enlace mágico', el: 'Αποστολή magic link' },
+  'auth.or': { en: 'or', es: 'o', el: 'ή' },
+  'auth.logout': { en: 'Log out', es: 'Cerrar sesión', el: 'Αποσύνδεση' },
+  'auth.role_select': { en: 'I am a...', es: 'Soy un...', el: 'Είμαι...' },
+  'auth.role_client': { en: 'Client', es: 'Cliente', el: 'Πελάτης' },
+  'auth.role_coach': { en: 'Coach', es: 'Coach', el: 'Coach' },
+  'auth.role_both': { en: 'Both (Coach & Client)', es: 'Ambos (Coach y Cliente)', el: 'Και τα δύο (Coach & Πελάτης)' },
+
+  // ── Onboarding ──
+  'onboard.welcome': { en: 'Welcome to Trophē', es: 'Bienvenido a Trophē', el: 'Καλώς ήρθατε στο τροφή' },
+  'onboard.lets_start': { en: "Let's build your profile", es: 'Vamos a crear tu perfil', el: 'Ας φτιάξουμε το προφίλ σου' },
+  'onboard.body_stats': { en: 'Body Stats', es: 'Datos Corporales', el: 'Σωματικά Στοιχεία' },
+  'onboard.your_goal': { en: 'Your Goal', es: 'Tu Objetivo', el: 'Ο Στόχος σου' },
+  'onboard.activity': { en: 'Activity Level', es: 'Nivel de Actividad', el: 'Επίπεδο Δραστηριότητας' },
+  'onboard.your_plan': { en: 'Your Plan', es: 'Tu Plan', el: 'Το Πλάνο σου' },
+  'onboard.age': { en: 'Age', es: 'Edad', el: 'Ηλικία' },
+  'onboard.sex': { en: 'Sex', es: 'Sexo', el: 'Φύλο' },
+  'onboard.male': { en: 'Male', es: 'Masculino', el: 'Άνδρας' },
+  'onboard.female': { en: 'Female', es: 'Femenino', el: 'Γυναίκα' },
+  'onboard.height': { en: 'Height (cm)', es: 'Altura (cm)', el: 'Ύψος (cm)' },
+  'onboard.weight': { en: 'Weight (kg)', es: 'Peso (kg)', el: 'Βάρος (kg)' },
+  'onboard.next': { en: 'Next', es: 'Siguiente', el: 'Επόμενο' },
+  'onboard.back': { en: 'Back', es: 'Atrás', el: 'Πίσω' },
+  'onboard.finish': { en: 'Start my journey', es: 'Comenzar mi viaje', el: 'Ξεκινώ το ταξίδι μου' },
+  'onboard.daily_target': { en: 'Your daily target', es: 'Tu objetivo diario', el: 'Ημερήσιος στόχος' },
+  'onboard.coach_assign': { en: 'Your coach will assign your first habit', es: 'Tu coach te asignará tu primer hábito', el: 'Ο coach σου θα ορίσει την πρώτη συνήθεια' },
+
+  // ── Navigation ──
+  'nav.home': { en: 'Home', es: 'Inicio', el: 'Αρχική' },
+  'nav.track': { en: 'Track', es: 'Registro', el: 'Καταγραφή' },
+  'nav.supplements': { en: 'Supps', es: 'Supps', el: 'Συμπλ.' },
+  'nav.progress': { en: 'Progress', es: 'Progreso', el: 'Πρόοδος' },
+  'nav.profile': { en: 'Profile', es: 'Perfil', el: 'Προφίλ' },
+  'nav.clients': { en: 'Clients', es: 'Clientes', el: 'Πελάτες' },
+  'nav.habits': { en: 'Habits', es: 'Hábitos', el: 'Συνήθειες' },
+  'nav.protocols': { en: 'Protocols', es: 'Protocolos', el: 'Πρωτόκολλα' },
+  'nav.foods': { en: 'Foods', es: 'Alimentos', el: 'Τροφές' },
+
+  // ── Dashboard ──
+  'dash.today': { en: 'Today', es: 'Hoy', el: 'Σήμερα' },
+  'dash.current_habit': { en: 'Current Habit', es: 'Hábito Actual', el: 'Τρέχουσα Συνήθεια' },
+  'dash.no_habit': { en: 'No active habit — ask your coach!', es: 'Sin hábito activo — ¡pregunta a tu coach!', el: 'Χωρίς ενεργή συνήθεια — ρώτα τον coach!' },
+  'dash.day_of': { en: 'Day {n} of {total}', es: 'Día {n} de {total}', el: 'Ημέρα {n} από {total}' },
+  'dash.done_today': { en: '✅ Done today', es: '✅ Hecho hoy', el: '✅ Έγινε σήμερα' },
+  'dash.mark_done': { en: 'Mark as done', es: 'Marcar como hecho', el: 'Ολοκληρώθηκε' },
+  'dash.not_today': { en: 'Not today', es: 'Hoy no', el: 'Όχι σήμερα' },
+  'dash.add_note': { en: 'Add note', es: 'Agregar nota', el: 'Προσθήκη σημείωσης' },
+  'dash.best_streak': { en: 'Best streak', es: 'Mejor racha', el: 'Καλύτερο σερί' },
+  'dash.habit_number': { en: 'Habit #{n} of your plan', es: 'Hábito #{n} de tu plan', el: 'Συνήθεια #{n} του πλάνου' },
+  'dash.water': { en: 'Water', es: 'Agua', el: 'Νερό' },
+  'dash.calories': { en: 'Calories', es: 'Calorías', el: 'Θερμίδες' },
+  'dash.protein': { en: 'Protein', es: 'Proteína', el: 'Πρωτεΐνη' },
+  'dash.carbs': { en: 'Carbs', es: 'Carbohidratos', el: 'Υδατάνθρακες' },
+  'dash.fat': { en: 'Fat', es: 'Grasa', el: 'Λίπος' },
+  'dash.fiber': { en: 'Fiber', es: 'Fibra', el: 'Φυτικές ίνες' },
+  'dash.kcal': { en: 'kcal', es: 'kcal', el: 'kcal' },
+  'dash.grams': { en: 'g', es: 'g', el: 'g' },
+  'dash.ml': { en: 'ml', es: 'ml', el: 'ml' },
+  'dash.liters': { en: 'L', es: 'L', el: 'L' },
+
+  // ── Mood ──
+  'mood.great': { en: '😄 Great', es: '😄 Genial', el: '😄 Τέλεια' },
+  'mood.good': { en: '😊 Good', es: '😊 Bien', el: '😊 Καλά' },
+  'mood.okay': { en: '😐 Okay', es: '😐 Regular', el: '😐 Μέτρια' },
+  'mood.tough': { en: '😓 Tough', es: '😓 Difícil', el: '😓 Δύσκολα' },
+  'mood.struggled': { en: '😰 Struggled', es: '😰 Costó mucho', el: '😰 Δυσκολεύτηκα' },
+
+  // ── Food Logging ──
+  'food.search': { en: 'Search foods...', es: 'Buscar alimentos...', el: 'Αναζήτηση τροφίμων...' },
+  'food.log_meal': { en: 'Log meal', es: 'Registrar comida', el: 'Καταγραφή γεύματος' },
+  'food.breakfast': { en: 'Breakfast', es: 'Desayuno', el: 'Πρωινό' },
+  'food.lunch': { en: 'Lunch', es: 'Almuerzo', el: 'Μεσημεριανό' },
+  'food.dinner': { en: 'Dinner', es: 'Cena', el: 'Βραδινό' },
+  'food.snack': { en: 'Snack', es: 'Snack', el: 'Σνακ' },
+  'food.pre_workout': { en: 'Pre-workout', es: 'Pre-entreno', el: 'Πριν την άσκηση' },
+  'food.post_workout': { en: 'Post-workout', es: 'Post-entreno', el: 'Μετά την άσκηση' },
+  'food.quantity': { en: 'Quantity', es: 'Cantidad', el: 'Ποσότητα' },
+  'food.add': { en: 'Add', es: 'Agregar', el: 'Προσθήκη' },
+  'food.per_serving': { en: 'per serving', es: 'por porción', el: 'ανά μερίδα' },
+  'food.recent': { en: 'Recent', es: 'Recientes', el: 'Πρόσφατα' },
+  'food.ai_suggest': { en: '✨ What should I eat?', es: '✨ ¿Qué debería comer?', el: '✨ Τι να φάω;' },
+  'food.photo_scan': { en: '📸 Scan food photo', es: '📸 Escanear foto de comida', el: '📸 Σκανάρισμα φωτογραφίας' },
+
+  // ── Supplements ──
+  'supps.my_protocol': { en: 'My Protocol', es: 'Mi Protocolo', el: 'Το Πρωτόκολλό μου' },
+  'supps.take': { en: 'Take', es: 'Tomar', el: 'Λήψη' },
+  'supps.taken': { en: 'Taken ✓', es: 'Tomado ✓', el: 'Ελήφθη ✓' },
+  'supps.timing': { en: 'Timing', es: 'Momento', el: 'Χρονισμός' },
+  'supps.dose': { en: 'Dose', es: 'Dosis', el: 'Δόση' },
+  'supps.evidence': { en: 'Evidence', es: 'Evidencia', el: 'Τεκμηρίωση' },
+
+  // ── Coach Dashboard ──
+  'coach.clients': { en: 'My Clients', es: 'Mis Clientes', el: 'Οι Πελάτες μου' },
+  'coach.overview': { en: 'Overview', es: 'Vista general', el: 'Επισκόπηση' },
+  'coach.on_track': { en: 'On track', es: 'En camino', el: 'Σε καλό δρόμο' },
+  'coach.at_risk': { en: 'At risk', es: 'En riesgo', el: 'Σε κίνδυνο' },
+  'coach.inactive': { en: 'Inactive', es: 'Inactivo', el: 'Ανενεργός' },
+  'coach.assign_habit': { en: 'Assign habit', es: 'Asignar hábito', el: 'Ανάθεση συνήθειας' },
+  'coach.progress_habit': { en: 'Progress to next', es: 'Avanzar al siguiente', el: 'Επόμενη συνήθεια' },
+  'coach.add_note': { en: 'Add note', es: 'Agregar nota', el: 'Προσθήκη σημείωσης' },
+  'coach.view_client': { en: 'View details', es: 'Ver detalles', el: 'Προβολή λεπτομερειών' },
+  'coach.ready_progress': { en: 'Ready for progression', es: 'Listo para avanzar', el: 'Έτοιμος για πρόοδο' },
+  'coach.last_checkin': { en: 'Last check-in', es: 'Último check-in', el: 'Τελευταίο check-in' },
+  'coach.days_ago': { en: '{n} days ago', es: 'hace {n} días', el: 'πριν {n} ημέρες' },
+
+  // ── Progress ──
+  'progress.title': { en: 'Progress', es: 'Progreso', el: 'Πρόοδος' },
+  'progress.weight_trend': { en: 'Weight Trend', es: 'Tendencia de Peso', el: 'Τάση Βάρους' },
+  'progress.habit_history': { en: 'Habit History', es: 'Historial de Hábitos', el: 'Ιστορικό Συνηθειών' },
+  'progress.completed': { en: 'Completed', es: 'Completados', el: 'Ολοκληρωμένα' },
+  'progress.add_weight': { en: 'Log weight', es: 'Registrar peso', el: 'Καταγραφή βάρους' },
+
+  // ── General ──
+  'general.save': { en: 'Save', es: 'Guardar', el: 'Αποθήκευση' },
+  'general.cancel': { en: 'Cancel', es: 'Cancelar', el: 'Ακύρωση' },
+  'general.delete': { en: 'Delete', es: 'Eliminar', el: 'Διαγραφή' },
+  'general.edit': { en: 'Edit', es: 'Editar', el: 'Επεξεργασία' },
+  'general.loading': { en: 'Loading...', es: 'Cargando...', el: 'Φόρτωση...' },
+  'general.error': { en: 'Something went wrong', es: 'Algo salió mal', el: 'Κάτι πήγε στραβά' },
+  'general.days': { en: 'days', es: 'días', el: 'ημέρες' },
+  'general.today': { en: 'Today', es: 'Hoy', el: 'Σήμερα' },
+  'general.yesterday': { en: 'Yesterday', es: 'Ayer', el: 'Χθες' },
+  'general.language': { en: 'Language', es: 'Idioma', el: 'Γλώσσα' },
+};
+
+// ─── Context & Hook ───
+
+interface I18nContextType {
+  lang: Language;
+  setLang: (lang: Language) => void;
+  t: (key: string, params?: Record<string, string | number>) => string;
+}
+
+const I18nContext = createContext<I18nContextType>({
+  lang: 'en',
+  setLang: () => {},
+  t: (key: string) => key,
+});
+
+export function I18nProvider({ children, defaultLang = 'en' }: { children: ReactNode; defaultLang?: Language }) {
+  const [lang, setLangState] = useState<Language>(() => {
+    if (typeof window === 'undefined') return defaultLang;
+    return (localStorage.getItem('trophe_lang') as Language) || defaultLang;
+  });
+
+  const setLang = useCallback((newLang: Language) => {
+    setLangState(newLang);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('trophe_lang', newLang);
+      document.documentElement.lang = newLang;
+    }
+  }, []);
+
+  const t = useCallback((key: string, params?: Record<string, string | number>): string => {
+    let text = translations[key]?.[lang] || translations[key]?.['en'] || key;
+    if (params) {
+      Object.entries(params).forEach(([k, v]) => {
+        text = text.replace(`{${k}}`, String(v));
+      });
+    }
+    return text;
+  }, [lang]);
+
+  return (
+    <I18nContext.Provider value={{ lang, setLang, t }}>
+      {children}
+    </I18nContext.Provider>
+  );
+}
+
+export function useI18n() {
+  return useContext(I18nContext);
+}
+
+export const LANGUAGE_OPTIONS: { code: Language; label: string; flag: string }[] = [
+  { code: 'en', label: 'English', flag: '🇬🇧' },
+  { code: 'es', label: 'Español', flag: '🇪🇸' },
+  { code: 'el', label: 'Ελληνικά', flag: '🇬🇷' },
+];
