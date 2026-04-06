@@ -97,7 +97,7 @@ function StreakCalendar({ checkins, startDate }: { checkins: HabitCheckin[]; sta
               ? 'bg-[#D4A853]/20 text-[#D4A853] border border-[#D4A853]/30'
               : day.status === 'missed'
               ? 'bg-red-500/10 text-red-400 border border-red-500/20'
-              : 'bg-white/3 text-stone-600 border border-white/5'
+              : 'bg-white/[0.03] text-stone-600 border border-white/5'
           }`}
           title={`${day.date}: ${day.status}`}
         >
@@ -507,7 +507,7 @@ export default function ClientDetailPage() {
                       </div>
                       <div className="space-y-1">
                         {entries.map((entry) => (
-                          <div key={entry.id} className="flex items-center justify-between text-xs py-1 px-2 rounded-lg bg-white/3">
+                          <div key={entry.id} className="flex items-center justify-between text-xs py-1 px-2 rounded-lg bg-white/[0.03]">
                             <span className="text-stone-300 truncate">{entry.food_name}</span>
                             <span className="text-stone-500 whitespace-nowrap ml-2">
                               {entry.calories || 0} kcal
@@ -576,7 +576,7 @@ export default function ClientDetailPage() {
                 <p className="text-stone-600 text-sm text-center py-2">No notes yet</p>
               ) : (
                 notes.map((note) => (
-                  <div key={note.id} className="p-3 rounded-xl bg-white/3 text-sm">
+                  <div key={note.id} className="p-3 rounded-xl bg-white/[0.03] text-sm">
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-white/5 text-stone-400">
                         {note.session_type ? sessionLabels[note.session_type] : 'Note'}
@@ -598,7 +598,7 @@ export default function ClientDetailPage() {
               <h2 className="font-semibold text-stone-200 mb-3">Habit History</h2>
               <div className="space-y-2">
                 {pastHabits.map((h) => (
-                  <div key={h.id} className="flex items-center justify-between p-3 rounded-xl bg-white/3 text-sm">
+                  <div key={h.id} className="flex items-center justify-between p-3 rounded-xl bg-white/[0.03] text-sm">
                     <div className="flex items-center gap-2">
                       <span>{h.habit?.emoji}</span>
                       <span className="text-stone-300">{h.habit?.name_en}</span>

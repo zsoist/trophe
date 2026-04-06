@@ -123,7 +123,7 @@ export default function CoachDashboard() {
     try {
       // Get current user
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) { window.location.href = "/login"; return; }
 
       // Fetch all client_profiles assigned to this coach
       const { data: clientProfiles } = await supabase

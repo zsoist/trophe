@@ -57,7 +57,7 @@ export default function FoodLogPage() {
 
   const loadTodayLog = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) { window.location.href = "/login"; return; }
     setUserId(user.id);
 
     const { data } = await supabase

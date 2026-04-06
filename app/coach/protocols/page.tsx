@@ -289,7 +289,7 @@ export default function ProtocolsPage() {
                       <div className="px-4 sm:px-5 pb-4 border-t border-white/5">
                         <div className="mt-3 space-y-2">
                           {supplements.map((supp, si) => (
-                            <div key={si} className="flex items-center gap-3 p-3 rounded-xl bg-white/3">
+                            <div key={si} className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03]">
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2">
                                   <span className="text-sm font-medium text-stone-200">{supp.name}</span>
@@ -391,7 +391,7 @@ export default function ProtocolsPage() {
                   </div>
                   <div className="space-y-3">
                     {formSupplements.map((supp, idx) => (
-                      <div key={idx} className="p-3 rounded-xl bg-white/3 space-y-2">
+                      <div key={idx} className="p-3 rounded-xl bg-white/[0.03] space-y-2">
                         <div className="flex items-center gap-2">
                           <input
                             value={supp.name}

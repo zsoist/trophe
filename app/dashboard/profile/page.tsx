@@ -40,7 +40,7 @@ export default function ProfilePage() {
   const loadData = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) { window.location.href = "/login"; return; }
 
       const [profRes, cpRes] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', user.id).single(),

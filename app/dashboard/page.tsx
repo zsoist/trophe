@@ -90,7 +90,7 @@ export default function DashboardPage() {
   const loadData = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) { window.location.href = "/login"; return; }
       setUserId(user.id);
 
       const [cpRes, chRes, flRes, wlRes] = await Promise.all([
