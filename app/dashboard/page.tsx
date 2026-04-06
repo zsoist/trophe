@@ -1,4 +1,5 @@
 'use client';
+import { useRouter } from 'next/navigation';
 
 import { useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
@@ -65,12 +66,13 @@ function MacroRing({
           <span className="text-[9px] text-stone-500">{unit}</span>
         </div>
       </div>
-      <span className="text-[10px] text-stone-400 font-medium">{label}</span>
+      <span className="text-xs text-stone-400 font-medium">{label}</span>
     </div>
   );
 }
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [clientProfile, setClientProfile] = useState<ClientProfile | null>(null);
   const [activeHabit, setActiveHabit] = useState<ClientHabit | null>(null);
@@ -90,7 +92,7 @@ export default function DashboardPage() {
   const loadData = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { window.location.href = "/login"; return; }
+      if (!user) { router.push("/login"); return; }
       setUserId(user.id);
 
       const [cpRes, chRes, flRes, wlRes] = await Promise.all([
@@ -150,6 +152,7 @@ export default function DashboardPage() {
   const handleCheckin = async (completed: boolean) => {
     if (!userId || !activeHabit || submitting) return;
     setSubmitting(true);
+    try {
     const { data } = await supabase
       .from('habit_checkins')
       .upsert(
@@ -184,7 +187,11 @@ export default function DashboardPage() {
         );
       }
     }
-    setSubmitting(false);
+    } catch (err) {
+      console.error('Checkin error:', err);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleMood = async (mood: Mood) => {

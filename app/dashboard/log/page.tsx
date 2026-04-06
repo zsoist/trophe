@@ -1,4 +1,5 @@
 'use client';
+import { useRouter } from 'next/navigation';
 
 import { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -41,6 +42,7 @@ export default function FoodLogPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<FoodSearchResult[]>([]);
+  const router = useRouter();
   const [searching, setSearching] = useState(false);
   const [mealType, setMealType] = useState<MealType>('lunch');
   const [quantity, setQuantity] = useState(1);
@@ -57,7 +59,7 @@ export default function FoodLogPage() {
 
   const loadTodayLog = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { window.location.href = "/login"; return; }
+    if (!user) { router.push("/login"); return; }
     setUserId(user.id);
 
     const { data } = await supabase
@@ -114,8 +116,8 @@ export default function FoodLogPage() {
   };
 
   const deleteEntry = async (id: string) => {
-    await supabase.from('food_log').delete().eq('id', id);
-    setTodayLog((prev) => prev.filter((e) => e.id !== id));
+    const { error } = await supabase.from('food_log').delete().eq('id', id);
+    if (!error) setTodayLog((prev) => prev.filter((e) => e.id !== id));
   };
 
   // Group log entries by meal type

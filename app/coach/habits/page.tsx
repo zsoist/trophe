@@ -1,4 +1,5 @@
 'use client';
+import { useRouter } from 'next/navigation';
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
@@ -55,6 +56,7 @@ const emptyHabit = {
 
 export default function HabitsPage() {
   const [habits, setHabits] = useState<Habit[]>([]);
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -70,7 +72,7 @@ export default function HabitsPage() {
   async function loadData() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { window.location.href = "/login"; return; }
+      if (!user) { router.push("/login"); return; }
       setUserId(user.id);
 
       const { data } = await supabase

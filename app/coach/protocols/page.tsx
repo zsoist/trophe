@@ -188,6 +188,12 @@ export default function ProtocolsPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Deactivate any existing active protocol first
+      await supabase.from('client_supplements')
+        .update({ active: false })
+        .eq('user_id', clientUserId)
+        .eq('active', true);
+
       await supabase.from('client_supplements').insert({
         user_id: clientUserId,
         protocol_id: assigningProtocolId,

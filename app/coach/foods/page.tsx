@@ -1,4 +1,5 @@
 'use client';
+import { useRouter } from 'next/navigation';
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
@@ -51,6 +52,7 @@ const emptyFood = {
 
 export default function FoodsPage() {
   const [foods, setFoods] = useState<CustomFood[]>([]);
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -66,7 +68,7 @@ export default function FoodsPage() {
   async function loadFoods() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { window.location.href = "/login"; return; }
+      if (!user) { router.push("/login"); return; }
       setUserId(user.id);
 
       // Get coach's custom foods + shared foods from other coaches

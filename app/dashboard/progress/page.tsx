@@ -1,4 +1,5 @@
 'use client';
+import { useRouter } from 'next/navigation';
 
 import { useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
@@ -33,7 +34,7 @@ function WeightChart({ measurements }: { measurements: Measurement[] }) {
   const points = measurements
     .filter((m) => m.weight_kg !== null)
     .map((m, i, arr) => {
-      const x = padX + (i / (arr.length - 1)) * chartW;
+      const x = padX + (i / (Math.max(arr.length - 1, 1))) * chartW;
       const y = padY + (1 - ((m.weight_kg as number) - minW) / range) * chartH;
       return `${x},${y}`;
     });
@@ -101,7 +102,7 @@ function WeightChart({ measurements }: { measurements: Measurement[] }) {
         {measurements
           .filter((m) => m.weight_kg !== null)
           .map((m, i, arr) => {
-            const x = padX + (i / (arr.length - 1)) * chartW;
+            const x = padX + (i / (Math.max(arr.length - 1, 1))) * chartW;
             const y = padY + (1 - ((m.weight_kg as number) - minW) / range) * chartH;
             return (
               <circle
@@ -128,6 +129,7 @@ function WeightChart({ measurements }: { measurements: Measurement[] }) {
 }
 
 export default function ProgressPage() {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [clientProfile, setClientProfile] = useState<ClientProfile | null>(null);
@@ -144,7 +146,7 @@ export default function ProgressPage() {
   const loadData = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { window.location.href = "/login"; return; }
+      if (!user) { router.push("/login"); return; }
       setUserId(user.id);
 
       const [measRes, cpRes, habRes] = await Promise.all([

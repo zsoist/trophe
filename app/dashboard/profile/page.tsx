@@ -1,4 +1,5 @@
 'use client';
+import { useRouter } from 'next/navigation';
 
 import { useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
@@ -22,6 +23,7 @@ const LANG_OPTIONS: { value: Language; label: string; flag: string }[] = [
 ];
 
 export default function ProfilePage() {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -40,7 +42,7 @@ export default function ProfilePage() {
   const loadData = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { window.location.href = "/login"; return; }
+      if (!user) { router.push("/login"); return; }
 
       const [profRes, cpRes] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', user.id).maybeSingle(),
@@ -245,7 +247,7 @@ export default function ProfilePage() {
                       : 'border-white/5 text-stone-400 hover:bg-white/[0.02]'
                   }`}
                 >
-                  <span className="font-medium capitalize">{a.replace('_', ' ')}</span>
+                  <span className="font-medium capitalize">{a.replaceAll('_', ' ')}</span>
                   <span className="text-stone-600 text-xs ml-2">
                     {ACTIVITY_DESCRIPTIONS[a].en}
                   </span>
@@ -271,7 +273,7 @@ export default function ProfilePage() {
                     }`}
                   >
                     <span className="mr-1">{info.emoji}</span>
-                    <span className="capitalize text-xs">{g.replace('_', ' ')}</span>
+                    <span className="capitalize text-xs">{g.replaceAll('_', ' ')}</span>
                   </button>
                 );
               })}

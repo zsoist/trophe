@@ -1,4 +1,5 @@
 'use client';
+import { useRouter } from 'next/navigation';
 
 import { useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
@@ -23,6 +24,7 @@ const EVIDENCE_LABELS: Record<string, string> = {
 
 export default function SupplementsPage() {
   const [userId, setUserId] = useState<string | null>(null);
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [clientSupp, setClientSupp] = useState<ClientSupplement | null>(null);
   const [suppLog, setSuppLog] = useState<SupplementLogEntry[]>([]);
@@ -33,7 +35,7 @@ export default function SupplementsPage() {
   const loadData = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { window.location.href = "/login"; return; }
+      if (!user) { router.push("/login"); return; }
       setUserId(user.id);
 
       // Load active supplement protocol

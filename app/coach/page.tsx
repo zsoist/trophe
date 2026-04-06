@@ -1,4 +1,5 @@
 'use client';
+import { useRouter } from 'next/navigation';
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
@@ -112,6 +113,7 @@ function getStatus(daysSince: number): 'green' | 'yellow' | 'red' {
 
 export default function CoachDashboard() {
   const [clients, setClients] = useState<ClientCard[]>([]);
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
 
@@ -123,7 +125,11 @@ export default function CoachDashboard() {
     try {
       // Get current user
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { window.location.href = "/login"; return; }
+      if (!user) { router.push("/login"); return; }
+
+      // Role gate — only coaches can access this page
+      const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
+      if (profile?.role === 'client') { window.location.href = '/dashboard'; return; }
 
       // Fetch all client_profiles assigned to this coach
       const { data: clientProfiles } = await supabase
