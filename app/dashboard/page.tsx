@@ -98,7 +98,7 @@ export default function DashboardPage() {
           .from('client_profiles')
           .select('*')
           .eq('user_id', user.id)
-          .single(),
+          .maybeSingle(),
         supabase
           .from('client_habits')
           .select('*, habit:habits(*)')
@@ -162,7 +162,7 @@ export default function DashboardPage() {
         { onConflict: 'client_habit_id,checked_date' }
       )
       .select()
-      .single();
+      .maybeSingle();
     if (data) {
       setTodayCheckin(data);
       if (completed) {
@@ -196,14 +196,18 @@ export default function DashboardPage() {
     setTodayCheckin((prev) => (prev ? { ...prev, mood } : prev));
   };
 
+  const [addingWater, setAddingWater] = useState(false);
+
   const addWater = async () => {
-    if (!userId) return;
+    if (!userId || addingWater) return;
+    setAddingWater(true);
     const { data } = await supabase
       .from('water_log')
       .insert({ user_id: userId, logged_date: today, amount_ml: 250 })
       .select()
       .single();
     if (data) setWaterLog((prev) => [...prev, data]);
+    setAddingWater(false);
   };
 
   if (loading) {

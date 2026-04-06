@@ -43,8 +43,8 @@ export default function ProfilePage() {
       if (!user) { window.location.href = "/login"; return; }
 
       const [profRes, cpRes] = await Promise.all([
-        supabase.from('profiles').select('*').eq('id', user.id).single(),
-        supabase.from('client_profiles').select('*').eq('user_id', user.id).single(),
+        supabase.from('profiles').select('*').eq('id', user.id).maybeSingle(),
+        supabase.from('client_profiles').select('*').eq('user_id', user.id).maybeSingle(),
       ]);
 
       if (profRes.data) {

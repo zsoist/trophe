@@ -236,8 +236,8 @@ export default function ClientDetailPage() {
         measurementsRes,
         notesRes,
       ] = await Promise.all([
-        supabase.from('profiles').select('*').eq('id', clientId).single(),
-        supabase.from('client_profiles').select('*').eq('user_id', clientId).single(),
+        supabase.from('profiles').select('*').eq('id', clientId).maybeSingle(),
+        supabase.from('client_profiles').select('*').eq('user_id', clientId).maybeSingle(),
         supabase.from('client_habits').select('*, habit:habits(*)').eq('client_id', clientId).order('created_at', { ascending: false }),
         supabase.from('habit_checkins').select('*').eq('user_id', clientId).order('checked_date', { ascending: false }).limit(30),
         supabase.from('food_log').select('*').eq('user_id', clientId).gte('logged_date', threeDaysAgo).order('logged_date', { ascending: false }),
@@ -318,7 +318,7 @@ export default function ClientDetailPage() {
         best_streak: 0,
         total_completions: 0,
         sequence_number: (pastHabits.length || 0) + 2,
-      }).select('*, habit:habits(*)').single();
+      }).select('*, habit:habits(*)').maybeSingle();
 
       if (data) {
         setActiveHabit(data);

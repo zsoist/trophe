@@ -158,7 +158,7 @@ export default function ProgressPage() {
           .from('client_profiles')
           .select('*')
           .eq('user_id', user.id)
-          .single(),
+          .maybeSingle(),
         supabase
           .from('client_habits')
           .select('*, habit:habits(*)')

@@ -128,7 +128,7 @@ export default function ProtocolsPage() {
           supplements: validSupplements,
         })
         .select()
-        .single();
+        .maybeSingle();
 
       if (data) {
         setProtocols([data, ...protocols]);

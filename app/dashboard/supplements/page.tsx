@@ -103,7 +103,7 @@ export default function SupplementsPage() {
           logged_date: today,
         })
         .select()
-        .single();
+        .maybeSingle();
 
       if (data) setSuppLog((prev) => [...prev, data]);
     }

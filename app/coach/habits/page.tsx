@@ -146,7 +146,7 @@ export default function HabitsPage() {
             is_template: false,
           })
           .select()
-          .single();
+          .maybeSingle();
 
         if (data) {
           setHabits([...habits, data]);
