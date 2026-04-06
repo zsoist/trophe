@@ -4,17 +4,19 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Home, UtensilsCrossed, Pill, BarChart3, User } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useI18n } from '@/lib/i18n';
 
 const NAV_ITEMS = [
-  { href: '/dashboard', label: 'Home', icon: Home },
-  { href: '/dashboard/log', label: 'Track', icon: UtensilsCrossed },
-  { href: '/dashboard/supplements', label: 'Supps', icon: Pill },
-  { href: '/dashboard/progress', label: 'Progress', icon: BarChart3 },
-  { href: '/dashboard/profile', label: 'Profile', icon: User },
+  { href: '/dashboard', labelKey: 'nav.home', icon: Home },
+  { href: '/dashboard/log', labelKey: 'nav.track', icon: UtensilsCrossed },
+  { href: '/dashboard/supplements', labelKey: 'nav.supplements', icon: Pill },
+  { href: '/dashboard/progress', labelKey: 'nav.progress', icon: BarChart3 },
+  { href: '/dashboard/profile', labelKey: 'nav.profile', icon: User },
 ];
 
 export default function BottomNav() {
   const pathname = usePathname();
+  const { t } = useI18n();
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 glass-elevated safe-bottom">
@@ -50,7 +52,7 @@ export default function BottomNav() {
                   isActive ? 'gold-text' : 'text-stone-500'
                 }`}
               >
-                {item.label}
+                {t(item.labelKey)}
               </span>
             </Link>
           );

@@ -145,8 +145,11 @@ export default function DashboardPage() {
     loadData();
   }, [loadData]);
 
+  const [submitting, setSubmitting] = useState(false);
+
   const handleCheckin = async (completed: boolean) => {
-    if (!userId || !activeHabit) return;
+    if (!userId || !activeHabit || submitting) return;
+    setSubmitting(true);
     const { data } = await supabase
       .from('habit_checkins')
       .upsert(
@@ -181,6 +184,7 @@ export default function DashboardPage() {
         );
       }
     }
+    setSubmitting(false);
   };
 
   const handleMood = async (mood: Mood) => {

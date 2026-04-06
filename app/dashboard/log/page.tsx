@@ -80,7 +80,7 @@ export default function FoodLogPage() {
     try {
       const res = await fetch(`/api/food/search?q=${encodeURIComponent(query.trim())}`);
       const data = await res.json();
-      setResults(data.results ?? []);
+      setResults(data.foods ?? data.results ?? []);
     } catch (err) {
       console.error('Search error:', err);
     } finally {
