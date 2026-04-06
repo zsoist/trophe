@@ -66,7 +66,8 @@ export default function FoodsPage() {
   async function loadFoods() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (user) setUserId(user.id);
+      if (!user) { window.location.href = "/login"; return; }
+      setUserId(user.id);
 
       // Get coach's custom foods + shared foods from other coaches
       const { data } = await supabase

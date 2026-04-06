@@ -92,7 +92,7 @@ export default function OnboardingPage() {
       </div>
 
       {/* Step content */}
-      <div className="w-full max-w-md relative min-h-[420px]">
+      <div className="w-full max-w-md relative min-h-[480px]">
         <AnimatePresence mode="wait" custom={direction}>
           <motion.div
             key={step}

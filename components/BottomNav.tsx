@@ -48,7 +48,7 @@ export default function BottomNav() {
                 strokeWidth={isActive ? 2.2 : 1.8}
               />
               <span
-                className={`text-[10px] font-medium ${
+                className={`text-[11px] font-medium ${
                   isActive ? 'gold-text' : 'text-stone-500'
                 }`}
               >

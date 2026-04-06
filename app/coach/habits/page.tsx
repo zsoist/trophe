@@ -70,7 +70,8 @@ export default function HabitsPage() {
   async function loadData() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (user) setUserId(user.id);
+      if (!user) { window.location.href = "/login"; return; }
+      setUserId(user.id);
 
       const { data } = await supabase
         .from('habits')
