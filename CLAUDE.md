@@ -57,3 +57,21 @@ git config user.email "zsoist@users.noreply.github.com"
 - i18n file must be .tsx (contains JSX)
 - Framer Motion `ease` arrays need `as const` for TypeScript
 - Vercel Hobby rejects commits from unrecognized GitHub committers (use zsoist identity)
+
+## QA Audit Results (2026-04-06)
+22 bugs found and fixed in deep code audit. Key patterns to avoid:
+- NEVER use `.single()` on SELECT queries — use `.maybeSingle()` (PGRST116 crash on 0 rows)
+- ALWAYS add loading guards on buttons that trigger async operations (double-click = double insert)
+- `bg-white/3` is invalid Tailwind — use `bg-white/[0.03]`
+- Coach pages need role gate — redirect `role === 'client'` to `/dashboard`
+- `window.location.href` causes full reload — use `router.push()` from next/navigation
+- `.replace('_', ' ')` only replaces first occurrence — use `.replaceAll()`
+- Supabase email confirmation is ON by default — use admin API with `email_confirm: true` for signup
+- Vercel Hobby rejects commits from unrecognized GitHub committers — always use `zsoist@users.noreply.github.com`
+
+## Demo Accounts
+| Account | Email | Password | Role |
+|---------|-------|----------|------|
+| Daniel | daniel@reyes.com | trophe2026! | both |
+| Nikos | nikos@biorita.com | trophe2026! | both |
+| Daniela | daniela@trophe.app | trophe2026! | both |
