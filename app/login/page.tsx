@@ -30,32 +30,18 @@ export default function LoginPage() {
         if (authError) throw authError;
         router.push('/dashboard');
       } else {
-        // Sign up
-        const { data, error: authError } = await supabase.auth.signUp({
-          email,
-          password,
-          options: { data: { full_name: fullName, role } },
+        // Sign up via server-side API (bypasses email confirmation)
+        const res = await fetch('/api/auth/signup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password, full_name: fullName, role }),
         });
-        if (authError) throw authError;
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Signup failed');
 
-        // Create profile
-        if (data.user) {
-          const { error: profileError } = await supabase.from('profiles').insert({
-            id: data.user.id,
-            full_name: fullName,
-            email,
-            role,
-          });
-          if (profileError) console.error('Profile creation error:', profileError);
-
-          // Create client_profile for clients and 'both' roles
-          if (role === 'client' || role === 'both') {
-            await supabase.from('client_profiles').insert({
-              user_id: data.user.id,
-              coaching_phase: 'onboarding',
-            });
-          }
-        }
+        // Now sign in with the newly created credentials
+        const { error: loginError } = await supabase.auth.signInWithPassword({ email, password });
+        if (loginError) throw loginError;
 
         setSuccess('Account created! Redirecting...');
         setTimeout(() => router.push('/onboarding'), 1000);
