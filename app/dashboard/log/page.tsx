@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase';
 import type { FoodLogEntry, MealType } from '@/lib/types';
 import BottomNav from '@/components/BottomNav';
 import RecipeSuggestions from '@/components/RecipeSuggestions';
+import MealTimeline from '@/components/MealTimeline';
 
 interface FoodSearchResult {
   fdcId: number;
@@ -52,6 +53,16 @@ export default function FoodLogPage() {
   const [showMealPicker, setShowMealPicker] = useState(false);
   const [adding, setAdding] = useState<number | null>(null);
 
+  const [recentFoods, setRecentFoods] = useState<{
+    food_name: string;
+    calories: number;
+    protein_g: number;
+    carbs_g: number;
+    fat_g: number;
+    unit: string;
+  }[]>([]);
+  const [quickAdding, setQuickAdding] = useState<string | null>(null);
+
   const today = new Date().toISOString().split('T')[0];
 
   const totalCalories = todayLog.reduce((s, f) => s + (f.calories ?? 0), 0);
@@ -72,6 +83,34 @@ export default function FoodLogPage() {
       .order('created_at', { ascending: true });
 
     if (data) setTodayLog(data);
+
+    // Fetch recent unique foods (last 10 distinct by food_name)
+    const { data: recentData } = await supabase
+      .from('food_log')
+      .select('food_name, calories, protein_g, carbs_g, fat_g, unit, created_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    if (recentData) {
+      const seen = new Set<string>();
+      const unique: typeof recentFoods = [];
+      for (const item of recentData) {
+        const key = item.food_name.toLowerCase();
+        if (!seen.has(key) && unique.length < 10) {
+          seen.add(key);
+          unique.push({
+            food_name: item.food_name,
+            calories: item.calories ?? 0,
+            protein_g: item.protein_g ?? 0,
+            carbs_g: item.carbs_g ?? 0,
+            fat_g: item.fat_g ?? 0,
+            unit: item.unit ?? 'serving',
+          });
+        }
+      }
+      setRecentFoods(unique);
+    }
   }, [today]);
 
   useEffect(() => {
@@ -244,6 +283,53 @@ export default function FoodLogPage() {
           </div>
         </div>
 
+        {/* Recent Foods — Quick History */}
+        {recentFoods.length > 0 && results.length === 0 && (
+          <div className="mb-4">
+            <p className="text-stone-500 text-xs font-semibold uppercase tracking-wider mb-2">
+              Recent Foods
+            </p>
+            <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-hide">
+              {recentFoods.map((food) => (
+                <motion.button
+                  key={food.food_name}
+                  whileTap={{ scale: 0.95 }}
+                  disabled={quickAdding === food.food_name}
+                  onClick={async () => {
+                    if (!userId) return;
+                    setQuickAdding(food.food_name);
+                    const entry = {
+                      user_id: userId,
+                      logged_date: today,
+                      meal_type: mealType,
+                      food_name: food.food_name,
+                      quantity: 1,
+                      unit: food.unit,
+                      calories: Math.round(food.calories),
+                      protein_g: Math.round(food.protein_g * 10) / 10,
+                      carbs_g: Math.round(food.carbs_g * 10) / 10,
+                      fat_g: Math.round(food.fat_g * 10) / 10,
+                      source: 'usda' as const,
+                    };
+                    const { data } = await supabase.from('food_log').insert(entry).select().single();
+                    if (data) setTodayLog((prev) => [...prev, data]);
+                    setQuickAdding(null);
+                  }}
+                  className={`flex-shrink-0 glass px-3 py-2 text-xs font-medium transition-all ${
+                    quickAdding === food.food_name
+                      ? 'gold-border gold-text'
+                      : 'text-stone-300 hover:gold-border'
+                  }`}
+                  style={{ borderRadius: 999 }}
+                >
+                  {quickAdding === food.food_name ? '...' : food.food_name}
+                  <span className="text-stone-500 ml-1">{Math.round(food.calories)}</span>
+                </motion.button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Quick Recipe Suggestions */}
         {results.length === 0 && (
           <RecipeSuggestions userId={userId} mealType={mealType} onAdd={loadTodayLog} />
@@ -299,6 +385,9 @@ export default function FoodLogPage() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Meal Distribution Timeline */}
+        <MealTimeline foodLog={todayLog} />
 
         {/* Today's Logged Meals */}
         {sortedMealKeys.length > 0 && (

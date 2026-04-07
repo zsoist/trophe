@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
   ArrowLeft,
@@ -16,12 +16,14 @@ import {
   ChevronRight,
   X,
   FileText,
+  Pill,
 } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import ActivityTimeline from '@/components/ActivityTimeline';
 import ComplianceTrend from '@/components/ComplianceTrend';
 import CoachingSummary from '@/components/CoachingSummary';
+import SupplementCompliance from '@/components/SupplementCompliance';
 import type {
   Profile,
   ClientProfile,
@@ -228,6 +230,7 @@ function WeightChart({ measurements }: { measurements: Measurement[] }) {
 
 export default function ClientDetailPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const clientId = params.id as string;
 
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -296,6 +299,13 @@ export default function ClientDetailPage() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Auto-open assign modal if ?assign=1 (Feature 7)
+  useEffect(() => {
+    if (searchParams.get('assign') === '1' && !loading) {
+      loadTemplates();
+    }
+  }, [loading, searchParams]);
 
   // Auto-suggest next habit when current one is mastered
   useEffect(() => {
@@ -633,6 +643,15 @@ export default function ClientDetailPage() {
             ) : (
               <p className="text-stone-600 text-sm text-center py-4">No active habit assigned</p>
             )}
+          </div>
+
+          {/* ─── Supplement Compliance (Feature 9) ─── */}
+          <div className="glass p-5 mb-4">
+            <h2 className="font-semibold text-stone-200 mb-4 flex items-center gap-2">
+              <Pill size={16} className="text-[#D4A853]" />
+              Supplement Compliance (This Week)
+            </h2>
+            <SupplementCompliance clientId={clientId} />
           </div>
 
           {/* ─── Food Log (last 3 days) ─── */}

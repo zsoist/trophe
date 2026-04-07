@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useToast } from '@/components/Toast';
 import { motion } from 'framer-motion';
 import {
   Plus,
@@ -50,6 +51,7 @@ const emptySupplement: SupplementItem = {
 // ═══════════════════════════════════════════════
 
 export default function ProtocolsPage() {
+  const toast = useToast();
   const [protocols, setProtocols] = useState<SupplementProtocol[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -202,7 +204,7 @@ export default function ProtocolsPage() {
       });
 
       setAssigningProtocolId(null);
-      alert('Protocol assigned successfully');
+      toast.success('Protocol assigned successfully');
     } catch (err) {
       console.error('Error assigning protocol:', err);
     }

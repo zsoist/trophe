@@ -6,15 +6,18 @@ import { motion } from 'framer-motion';
 import { AnimatePresence } from 'framer-motion';
 import { Droplets, Plus, Check, X, Flame, Beef, Wheat, Droplet } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import type { ClientProfile, ClientHabit, HabitCheckin, FoodLogEntry, WaterLogEntry, Mood } from '@/lib/types';
+import type { ClientProfile, ClientHabit, HabitCheckin, FoodLogEntry, WaterLogEntry, Mood, Profile } from '@/lib/types';
 import BottomNav from '@/components/BottomNav';
 import WeeklyCheckin from '@/components/WeeklyCheckin';
 import ComplianceTrend from '@/components/ComplianceTrend';
 import MythCard from '@/components/MythCard';
 import StreakBadges from '@/components/StreakBadges';
 import MealTimingIndicator from '@/components/MealTimingIndicator';
+import { DashboardSkeleton } from '@/components/Skeleton';
+import Avatar from '@/components/Avatar';
 import CarbCyclingSelector from '@/components/CarbCyclingSelector';
-import type { Profile } from '@/lib/types';
+import HabitDetailModal from '@/components/HabitDetailModal';
+import MacroDonut from '@/components/MacroDonut';
 
 // ─── Motivational micro-texts (rotate daily) ───
 const MOTIVATIONAL_TEXTS = [
@@ -46,14 +49,17 @@ function PersonalizedGreeting({ fullName }: { fullName: string | null }) {
   const motivation = getDailyMotivation();
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold text-stone-100">
-        {text}{firstName ? `, ${firstName}` : ''} {emoji}
-      </h1>
-      <p className="text-stone-500 text-sm mt-1">
-        {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-      </p>
-      <p className="text-stone-600 text-xs mt-1.5 italic">{motivation}</p>
+    <div className="flex items-center gap-3">
+      {fullName && <Avatar name={fullName} size={48} />}
+      <div>
+        <h1 className="text-2xl font-bold text-stone-100">
+          {text}{firstName ? `, ${firstName}` : ''} {emoji}
+        </h1>
+        <p className="text-stone-500 text-sm mt-1">
+          {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+        </p>
+        <p className="text-stone-600 text-xs mt-1.5 italic">{motivation}</p>
+      </div>
     </div>
   );
 }
@@ -83,8 +89,13 @@ function MacroRing({
 }) {
   const radius = (size - 8) / 2;
   const circumference = 2 * Math.PI * radius;
-  const pct = Math.min(value / (target || 1), 1);
-  const offset = circumference * (1 - pct);
+  const rawPct = target > 0 ? value / target : 0;
+  const clampedPct = Math.min(rawPct, 1);
+  const displayPct = Math.round(rawPct * 100);
+  const offset = circumference * (1 - clampedPct);
+
+  // Dynamic ring color: stone-700 when <50%, gold when 50-100%, green when 100%+
+  const ringColor = rawPct >= 1 ? '#22c55e' : rawPct >= 0.5 ? '#D4A853' : '#44403c';
 
   return (
     <div className="flex flex-col items-center gap-1">
@@ -98,25 +109,26 @@ function MacroRing({
             stroke="rgba(255,255,255,0.06)"
             strokeWidth={6}
           />
-          <circle
+          <motion.circle
             cx={size / 2}
             cy={size / 2}
             r={radius}
             fill="none"
-            stroke={color}
+            stroke={ringColor}
             strokeWidth={6}
             strokeLinecap="round"
             strokeDasharray={circumference}
-            strokeDashoffset={offset}
-            className="macro-ring"
+            initial={{ strokeDashoffset: circumference }}
+            animate={{ strokeDashoffset: offset }}
+            transition={{ type: 'spring', stiffness: 60, damping: 15, delay: 0.2 }}
           />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-xs font-semibold text-stone-100">{Math.round(value)}</span>
-          <span className="text-[9px] text-stone-500">{unit}</span>
+          <span className="text-xs font-bold text-stone-100">{displayPct}%</span>
         </div>
       </div>
       <span className="text-xs text-stone-400 font-medium">{label}</span>
+      <span className="text-[9px] text-stone-500">{Math.round(value)}/{Math.round(target)}{unit}</span>
     </div>
   );
 }
@@ -134,6 +146,12 @@ export default function DashboardPage() {
   const [carbCycleTargets, setCarbCycleTargets] = useState<{
     calories: number; protein_g: number; carbs_g: number; fat_g: number;
   } | null>(null);
+  const [macroView, setMacroView] = useState<'rings' | 'donut'>('rings');
+  const [daysActive, setDaysActive] = useState(0);
+  const [weeklyAvgCal, setWeeklyAvgCal] = useState(0);
+  const [showHabitModal, setShowHabitModal] = useState(false);
+  const [allCheckins, setAllCheckins] = useState<HabitCheckin[]>([]);
+  const [waterSplash, setWaterSplash] = useState(false);
 
   const today = new Date().toISOString().split('T')[0];
 
@@ -196,6 +214,38 @@ export default function DashboardPage() {
       }
       if (flRes.data) setFoodLog(flRes.data);
       if (wlRes.data) setWaterLog(wlRes.data);
+
+      // Fetch quick stats: days active (distinct food_log dates)
+      const { count: activeDaysCount } = await supabase
+        .from('food_log')
+        .select('logged_date', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+      setDaysActive(activeDaysCount ?? 0);
+
+      // Fetch weekly avg calories (last 7 days)
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+      const weekStart = sevenDaysAgo.toISOString().split('T')[0];
+      const { data: weekFood } = await supabase
+        .from('food_log')
+        .select('calories')
+        .eq('user_id', user.id)
+        .gte('logged_date', weekStart);
+      if (weekFood && weekFood.length > 0) {
+        const totalWeekCal = weekFood.reduce((s, f) => s + (f.calories ?? 0), 0);
+        setWeeklyAvgCal(Math.round(totalWeekCal / 7));
+      }
+
+      // Fetch all checkins for habit detail modal
+      if (chRes.data && chRes.data.length > 0) {
+        const habit = chRes.data[0];
+        const { data: allCh } = await supabase
+          .from('habit_checkins')
+          .select('*')
+          .eq('client_habit_id', habit.id)
+          .order('checked_date', { ascending: true });
+        if (allCh) setAllCheckins(allCh);
+      }
     } catch (err) {
       console.error('Dashboard load error:', err);
     } finally {
@@ -293,11 +343,7 @@ export default function DashboardPage() {
   }, [activeHabit, celebrationChecked]);
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-stone-950 flex items-center justify-center">
-        <div className="gold-text text-lg animate-pulse">Loading...</div>
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   const streakDays = activeHabit?.current_streak ?? 0;
@@ -404,6 +450,33 @@ export default function DashboardPage() {
           <PersonalizedGreeting fullName={userProfile?.full_name ?? null} />
         </div>
 
+        {/* ═══ Quick Stats Bar ═══ */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+          className="mb-4 -mx-1"
+        >
+          <div className="flex gap-2 overflow-x-auto pb-1 px-1 scrollbar-hide">
+            {[
+              { icon: '🔥', label: 'Streak', value: `${streakDays}d` },
+              { icon: '📅', label: 'Active', value: `${daysActive}d` },
+              { icon: '💧', label: 'Water', value: `${totalWater}/${clientProfile?.target_water_ml ?? 2500}` },
+              { icon: '📊', label: 'Wk avg', value: `${weeklyAvgCal}` },
+            ].map((stat) => (
+              <div
+                key={stat.label}
+                className="glass flex-shrink-0 px-3 py-2.5 flex flex-col items-center gap-0.5"
+                style={{ minWidth: 78 }}
+              >
+                <span className="text-sm">{stat.icon}</span>
+                <span className="text-xs font-bold text-stone-100">{stat.value}</span>
+                <span className="text-[9px] text-stone-500 uppercase tracking-wider">{stat.label}</span>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+
         {/* ═══ Weekly Check-in (Sundays only) ═══ */}
         {userId && clientProfile && (
           <WeeklyCheckin userId={userId} coachId={clientProfile.coach_id} />
@@ -414,7 +487,8 @@ export default function DashboardPage() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="glass gold-border p-5 mb-4"
+          className="glass gold-border p-5 mb-4 cursor-pointer"
+          onClick={() => activeHabit?.habit && setShowHabitModal(true)}
         >
           {activeHabit?.habit ? (
             <>
@@ -526,9 +600,45 @@ export default function DashboardPage() {
           transition={{ delay: 0.2 }}
           className="glass p-5 mb-4"
         >
-          <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider mb-4">
-            Today&apos;s Macros
-          </h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider">
+              Today&apos;s Macros
+            </h3>
+            <div className="flex gap-1 p-0.5 rounded-lg bg-white/[0.04]">
+              <button
+                onClick={() => setMacroView('rings')}
+                className={`px-2.5 py-1 rounded-md text-[10px] font-medium transition-colors ${
+                  macroView === 'rings'
+                    ? 'bg-[#D4A853]/15 text-[#D4A853]'
+                    : 'text-stone-500 hover:text-stone-300'
+                }`}
+              >
+                Rings
+              </button>
+              <button
+                onClick={() => setMacroView('donut')}
+                className={`px-2.5 py-1 rounded-md text-[10px] font-medium transition-colors ${
+                  macroView === 'donut'
+                    ? 'bg-[#D4A853]/15 text-[#D4A853]'
+                    : 'text-stone-500 hover:text-stone-300'
+                }`}
+              >
+                Donut
+              </button>
+            </div>
+          </div>
+
+          {macroView === 'donut' ? (
+            <MacroDonut
+              calories={totalCalories}
+              protein={totalProtein}
+              carbs={totalCarbs}
+              fat={totalFat}
+              targetProtein={carbCycleTargets?.protein_g ?? clientProfile?.target_protein_g ?? 150}
+              targetCarbs={carbCycleTargets?.carbs_g ?? clientProfile?.target_carbs_g ?? 200}
+              targetFat={carbCycleTargets?.fat_g ?? clientProfile?.target_fat_g ?? 65}
+            />
+          ) : (
           <div className="flex items-center justify-around">
             <MacroRing
               value={totalCalories}
@@ -559,6 +669,7 @@ export default function DashboardPage() {
               color="#a855f7"
             />
           </div>
+          )}
         </motion.div>
 
         {/* Nutrient Timing */}
@@ -574,14 +685,14 @@ export default function DashboardPage() {
           onAdjust={setCarbCycleTargets}
         />
 
-        {/* Water Tracker */}
+        {/* Water Tracker — Visual Glass */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
           className="glass p-5 mb-4"
         >
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Droplets size={18} className="text-blue-400" />
               <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider">
@@ -593,34 +704,122 @@ export default function DashboardPage() {
             </span>
           </div>
 
-          <div className="streak-bar h-4 mb-3">
-            <motion.div
-              className="h-full rounded-full"
-              style={{
-                background: 'linear-gradient(90deg, #3b82f6, #60a5fa, #93c5fd)',
-              }}
-              initial={{ width: 0 }}
-              animate={{
-                width: `${Math.min(
-                  (totalWater / (clientProfile?.target_water_ml ?? 2500)) * 100,
-                  100
-                )}%`,
-              }}
-              transition={{ duration: 0.6, delay: 0.4 }}
-            />
-          </div>
+          <div className="flex items-center gap-5">
+            {/* SVG Water Glass */}
+            <div className="relative flex-shrink-0" style={{ width: 64, height: 120 }}>
+              <svg viewBox="0 0 64 120" width={64} height={120}>
+                {/* Glass outline */}
+                <path
+                  d="M8 8 L12 110 C12 114 18 118 32 118 C46 118 52 114 52 110 L56 8 Z"
+                  fill="none"
+                  stroke="rgba(255,255,255,0.12)"
+                  strokeWidth={2}
+                  strokeLinejoin="round"
+                />
+                {/* Glass fill area with clip */}
+                <defs>
+                  <clipPath id="glassClip">
+                    <path d="M9 9 L13 109 C13 113 19 117 32 117 C45 117 51 113 51 109 L55 9 Z" />
+                  </clipPath>
+                </defs>
+                {/* Water fill */}
+                <motion.rect
+                  x={0}
+                  width={64}
+                  clipPath="url(#glassClip)"
+                  fill="url(#waterGrad)"
+                  initial={{ y: 117, height: 0 }}
+                  animate={{
+                    y: 117 - (Math.min(totalWater / (clientProfile?.target_water_ml ?? 2500), 1) * 108),
+                    height: Math.min(totalWater / (clientProfile?.target_water_ml ?? 2500), 1) * 108,
+                  }}
+                  transition={{ type: 'spring', stiffness: 50, damping: 12 }}
+                />
+                {/* Water gradient */}
+                <defs>
+                  <linearGradient id="waterGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#60a5fa" stopOpacity={0.9} />
+                    <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.7} />
+                  </linearGradient>
+                </defs>
+                {/* Splash animation overlay */}
+                <AnimatePresence>
+                  {waterSplash && (
+                    <motion.circle
+                      cx={32}
+                      cy={117 - (Math.min(totalWater / (clientProfile?.target_water_ml ?? 2500), 1) * 108)}
+                      r={4}
+                      fill="#93c5fd"
+                      initial={{ r: 2, opacity: 1 }}
+                      animate={{ r: 20, opacity: 0 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.5 }}
+                    />
+                  )}
+                </AnimatePresence>
+                {/* Marker lines at 25%, 50%, 75%, 100% */}
+                {[0.25, 0.5, 0.75, 1].map((mark) => {
+                  const markY = 117 - mark * 108;
+                  return (
+                    <g key={mark}>
+                      <line
+                        x1={14}
+                        y1={markY}
+                        x2={22}
+                        y2={markY}
+                        stroke="rgba(255,255,255,0.15)"
+                        strokeWidth={1}
+                      />
+                      <text
+                        x={56}
+                        y={markY + 3}
+                        fill="rgba(255,255,255,0.2)"
+                        fontSize={7}
+                        textAnchor="end"
+                      >
+                        {Math.round(mark * 100)}%
+                      </text>
+                    </g>
+                  );
+                })}
+              </svg>
+            </div>
 
-          <button
-            onClick={addWater}
-            className="btn-ghost w-full flex items-center justify-center gap-2 text-sm py-2"
-          >
-            <Plus size={16} /> Add 250 ml
-          </button>
+            {/* Right side: percentage + button */}
+            <div className="flex-1 flex flex-col items-center gap-3">
+              <div className="text-center">
+                <span className="text-3xl font-bold text-blue-400">
+                  {Math.min(Math.round((totalWater / (clientProfile?.target_water_ml ?? 2500)) * 100), 100)}%
+                </span>
+                <p className="text-stone-500 text-xs mt-1">hydrated</p>
+              </div>
+              <button
+                onClick={async () => {
+                  setWaterSplash(true);
+                  setTimeout(() => setWaterSplash(false), 600);
+                  await addWater();
+                }}
+                className="btn-ghost w-full flex items-center justify-center gap-2 text-sm py-2"
+              >
+                <Plus size={16} /> Add 250 ml
+              </button>
+            </div>
+          </div>
         </motion.div>
 
         {/* Myth-Busting Card */}
         <MythCard />
       </motion.div>
+
+      {/* Habit Detail Modal */}
+      <HabitDetailModal
+        open={showHabitModal}
+        onClose={() => setShowHabitModal(false)}
+        habit={activeHabit?.habit ?? null}
+        clientHabit={activeHabit}
+        checkins={allCheckins}
+        language={userProfile?.language ?? 'en'}
+      />
 
       <BottomNav />
     </div>

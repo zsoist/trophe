@@ -3,12 +3,13 @@ import { useRouter } from 'next/navigation';
 
 import { useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { TrendingDown, TrendingUp, Scale, Activity, Target, Plus } from 'lucide-react';
+import { TrendingDown, TrendingUp, Scale, Activity, Target, Plus, AlertTriangle, Crosshair } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { Measurement, ClientProfile, ClientHabit } from '@/lib/types';
 import BottomNav from '@/components/BottomNav';
 import ProgressPhotos from '@/components/ProgressPhotos';
 import WeeklyMacroChart from '@/components/WeeklyMacroChart';
+import HabitRadar from '@/components/HabitRadar';
 
 function WeightChart({ measurements }: { measurements: Measurement[] }) {
   if (measurements.length < 2) {
@@ -127,6 +128,118 @@ function WeightChart({ measurements }: { measurements: Measurement[] }) {
         </text>
       </svg>
     </div>
+  );
+}
+
+
+function GoalProjection({ measurements, clientProfile }: { measurements: Measurement[]; clientProfile: ClientProfile | null }) {
+  const weights = measurements.filter((m) => m.weight_kg !== null);
+
+  if (weights.length < 3) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="glass p-5 mb-4"
+      >
+        <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider mb-3 flex items-center gap-2">
+          <Crosshair size={14} /> Goal Projection
+        </h3>
+        <p className="text-stone-500 text-sm text-center py-4">
+          Log at least 3 weights to see projections
+        </p>
+      </motion.div>
+    );
+  }
+
+  // Linear regression: weekly change
+  const earliest = weights[0];
+  const latest = weights[weights.length - 1];
+  const daysBetween = Math.max(
+    1,
+    (new Date(latest.measured_date).getTime() - new Date(earliest.measured_date).getTime()) /
+      (1000 * 60 * 60 * 24)
+  );
+  const weeksBetween = daysBetween / 7;
+  const totalChange = (latest.weight_kg as number) - (earliest.weight_kg as number);
+  const weeklyChange = weeksBetween > 0 ? totalChange / weeksBetween : 0;
+
+  const goalWeight = clientProfile?.weight_kg ?? null;
+  const goal = clientProfile?.goal ?? null;
+  const currentWeight = latest.weight_kg as number;
+
+  // Determine if moving in right direction
+  const isLossGoal = goal === 'fat_loss';
+  const isGainGoal = goal === 'muscle_gain';
+  const movingWrong =
+    (isLossGoal && weeklyChange > 0.05) || (isGainGoal && weeklyChange < -0.05);
+
+  // Calculate weeks to goal (if we have a goal weight from target)
+  let weeksToGoal: number | null = null;
+  let goalWeightTarget: number | null = null;
+
+  // Use a simple target: current - 5kg for fat_loss, current + 3kg for muscle_gain
+  if (isLossGoal && weeklyChange < -0.01) {
+    goalWeightTarget = currentWeight - 5;
+    weeksToGoal = Math.abs(5 / weeklyChange);
+  } else if (isGainGoal && weeklyChange > 0.01) {
+    goalWeightTarget = currentWeight + 3;
+    weeksToGoal = Math.abs(3 / weeklyChange);
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="glass p-5 mb-4"
+    >
+      <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider mb-3 flex items-center gap-2">
+        <Crosshair size={14} /> Goal Projection
+      </h3>
+
+      <div className="space-y-3">
+        {/* Weekly trend */}
+        <div className="flex items-center justify-between">
+          <span className="text-stone-400 text-sm">Weekly trend</span>
+          <span className={`text-sm font-semibold flex items-center gap-1 ${
+            weeklyChange > 0 ? 'text-red-400' : weeklyChange < 0 ? 'text-green-400' : 'text-stone-400'
+          }`}>
+            {weeklyChange > 0 ? <TrendingUp size={14} /> : weeklyChange < 0 ? <TrendingDown size={14} /> : null}
+            {weeklyChange > 0 ? '+' : ''}{weeklyChange.toFixed(2)} kg/week
+          </span>
+        </div>
+
+        {/* Projection */}
+        {weeksToGoal !== null && goalWeightTarget !== null && !movingWrong && (
+          <div className="p-3 rounded-xl bg-[#D4A853]/5 border border-[#D4A853]/10">
+            <p className="text-stone-200 text-sm">
+              At this rate, you&apos;ll reach{' '}
+              <span className="gold-text font-semibold">{goalWeightTarget.toFixed(1)} kg</span>{' '}
+              in ~<span className="gold-text font-semibold">{Math.round(weeksToGoal)}</span> weeks
+            </p>
+          </div>
+        )}
+
+        {/* Warning if wrong direction */}
+        {movingWrong && (
+          <div className="p-3 rounded-xl bg-red-500/5 border border-red-500/10 flex items-start gap-2">
+            <AlertTriangle size={16} className="text-red-400 mt-0.5 shrink-0" />
+            <p className="text-red-300 text-sm">
+              Trend is moving away from your {isLossGoal ? 'fat loss' : 'muscle gain'} goal
+            </p>
+          </div>
+        )}
+
+        {/* No clear trend */}
+        {!movingWrong && weeksToGoal === null && (
+          <p className="text-stone-500 text-sm">
+            {Math.abs(weeklyChange) < 0.05
+              ? 'Weight is stable - maintaining current level'
+              : 'Keep logging to refine your projection'}
+          </p>
+        )}
+      </div>
+    </motion.div>
   );
 }
 
@@ -308,6 +421,9 @@ export default function ProgressPage() {
           )}
         </motion.div>
 
+        {/* Goal Projection */}
+        <GoalProjection measurements={measurements} clientProfile={clientProfile} />
+
         {/* Weekly Macro Averages */}
         <WeeklyMacroChart
           userId={userId}
@@ -421,6 +537,9 @@ export default function ProgressPage() {
             </div>
           )}
         </motion.div>
+
+        {/* Habit Balance Radar */}
+        <HabitRadar userId={userId} />
 
         {/* Progress Photos */}
         <ProgressPhotos />
