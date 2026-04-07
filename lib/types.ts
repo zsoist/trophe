@@ -255,3 +255,78 @@ export interface USDANutrient {
   value: number;
   unitName: string;
 }
+
+// ═══════════════════════════════════════════════
+// Workout Module Types
+// ═══════════════════════════════════════════════
+
+export type MuscleGroup = 'chest' | 'back' | 'shoulders' | 'biceps' | 'triceps' | 'forearms' | 'quads' | 'hamstrings' | 'glutes' | 'calves' | 'core' | 'full_body' | 'cardio';
+
+export interface Exercise {
+  id: string;
+  name: string;
+  name_es: string | null;
+  name_el: string | null;
+  muscle_group: MuscleGroup;
+  secondary_muscles: string[] | null;
+  equipment: string | null;
+  is_compound: boolean;
+  is_template: boolean;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface WorkoutSession {
+  id: string;
+  user_id: string;
+  session_date: string;
+  name: string | null;
+  template_id: string | null;
+  duration_minutes: number | null;
+  notes: string | null;
+  pain_flags: PainFlag[];
+  created_at: string;
+}
+
+export interface WorkoutSet {
+  id: string;
+  session_id: string;
+  exercise_id: string;
+  set_number: number;
+  weight_kg: number | null;
+  reps: number | null;
+  rpe: number | null;
+  is_warmup: boolean;
+  is_pr: boolean;
+  notes: string | null;
+  created_at: string;
+  exercise?: Exercise;
+}
+
+export interface PainFlag {
+  exercise_id: string;
+  body_part: string;
+  severity: number;
+  notes?: string;
+}
+
+export interface WorkoutTemplate {
+  id: string;
+  created_by: string | null;
+  name: string;
+  description: string | null;
+  target_muscles: string[] | null;
+  exercises: TemplateExercise[];
+  day_label: string | null;
+  difficulty: string;
+  shared: boolean;
+  created_at: string;
+}
+
+export interface TemplateExercise {
+  exercise_id: string;
+  target_sets: number;
+  target_reps: string;
+  target_rpe?: number;
+  notes?: string;
+}

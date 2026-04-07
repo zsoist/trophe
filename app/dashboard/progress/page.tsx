@@ -324,8 +324,18 @@ export default function ProgressPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-stone-950 flex items-center justify-center">
-        <div className="gold-text text-lg animate-pulse">Loading...</div>
+      <div className="min-h-screen bg-stone-950 pb-24">
+        <div className="max-w-md mx-auto px-4 pt-12 space-y-4">
+          <div className="h-7 w-40 rounded bg-stone-800/60 animate-pulse" />
+          <div className="glass p-5 space-y-3">
+            <div className="h-4 w-24 rounded bg-stone-800/60 animate-pulse" />
+            <div className="h-40 rounded-xl bg-stone-800/40 animate-pulse" />
+          </div>
+          <div className="glass p-5 space-y-3">
+            <div className="h-4 w-32 rounded bg-stone-800/60 animate-pulse" />
+            <div className="h-32 rounded-xl bg-stone-800/40 animate-pulse" />
+          </div>
+        </div>
       </div>
     );
   }

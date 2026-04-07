@@ -456,8 +456,27 @@ export default function ClientDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-stone-950 flex items-center justify-center text-stone-500">
-        Loading...
+      <div className="min-h-screen bg-stone-950 px-4 py-6">
+        <div className="max-w-5xl mx-auto space-y-4">
+          <div className="h-10 w-48 rounded bg-stone-800/60 animate-pulse" />
+          <div className="glass p-5 space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-stone-800/60 animate-pulse" />
+              <div className="space-y-2 flex-1">
+                <div className="h-5 w-32 rounded bg-stone-800/60 animate-pulse" />
+                <div className="h-3 w-48 rounded bg-stone-800/40 animate-pulse" />
+              </div>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="glass p-4 space-y-2">
+                <div className="h-6 w-12 rounded bg-stone-800/60 animate-pulse" />
+                <div className="h-3 w-16 rounded bg-stone-800/40 animate-pulse" />
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }

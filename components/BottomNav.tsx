@@ -2,13 +2,14 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, UtensilsCrossed, Pill, BarChart3, User } from 'lucide-react';
+import { Home, UtensilsCrossed, Dumbbell, Pill, BarChart3, User } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useI18n } from '@/lib/i18n';
 
 const NAV_ITEMS = [
   { href: '/dashboard', labelKey: 'nav.home', icon: Home },
   { href: '/dashboard/log', labelKey: 'nav.track', icon: UtensilsCrossed },
+  { href: '/dashboard/workout', labelKey: 'nav.workout', icon: Dumbbell },
   { href: '/dashboard/supplements', labelKey: 'nav.supplements', icon: Pill },
   { href: '/dashboard/progress', labelKey: 'nav.progress', icon: BarChart3 },
   { href: '/dashboard/profile', labelKey: 'nav.profile', icon: User },

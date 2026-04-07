@@ -122,8 +122,20 @@ export default function SupplementsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-stone-950 flex items-center justify-center">
-        <div className="gold-text text-lg animate-pulse">Loading...</div>
+      <div className="min-h-screen bg-stone-950 pb-24">
+        <div className="max-w-md mx-auto px-4 pt-12 space-y-4">
+          <div className="h-7 w-36 rounded bg-stone-800/60 animate-pulse" />
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="glass p-5 space-y-3">
+              <div className="h-4 w-28 rounded bg-stone-800/60 animate-pulse" />
+              <div className="h-3 w-48 rounded bg-stone-800/40 animate-pulse" />
+              <div className="space-y-2">
+                <div className="h-10 w-full rounded-xl bg-stone-800/40 animate-pulse" />
+                <div className="h-10 w-full rounded-xl bg-stone-800/40 animate-pulse" />
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }

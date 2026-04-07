@@ -46,6 +46,7 @@ const coachNav = [
   { label: 'Habits', href: '/coach/habits', icon: Dumbbell },
   { label: 'Protocols', href: '/coach/protocols', icon: Pill },
   { label: 'Foods', href: '/coach/foods', icon: UtensilsCrossed },
+  { label: 'Templates', href: '/coach/templates', icon: LayoutGrid },
 ];
 
 function CoachNav({ active }: { active: string }) {
