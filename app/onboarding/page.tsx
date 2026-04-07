@@ -4,8 +4,17 @@ import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
-import { calculateFullProfile, GOAL_DESCRIPTIONS, ACTIVITY_DESCRIPTIONS } from '@/lib/nutrition-engine';
+import { calculateFullProfile, calculateBMR, calculateTDEE, calculateTargetCalories, GOAL_DESCRIPTIONS, ACTIVITY_DESCRIPTIONS } from '@/lib/nutrition-engine';
 import type { Sex, ActivityLevel, Goal } from '@/lib/types';
+
+const GOAL_ADJUSTMENT_LABELS: Record<Goal, string> = {
+  fat_loss: '20% deficit',
+  muscle_gain: '+300 kcal surplus',
+  maintenance: 'No adjustment',
+  recomp: '5% deficit',
+  endurance: '+15%',
+  health: 'No adjustment',
+};
 
 const steps = ['welcome', 'body', 'goal', 'activity', 'plan'] as const;
 type Step = typeof steps[number];
@@ -79,16 +88,21 @@ export default function OnboardingPage() {
 
   return (
     <div className="min-h-screen bg-stone-950 flex flex-col items-center justify-center px-6 py-12">
-      {/* Progress dots */}
-      <div className="flex gap-2 mb-12">
-        {steps.map((_, i) => (
-          <div
-            key={i}
-            className={`h-1.5 rounded-full transition-all duration-500 ${
-              i === stepIdx ? 'w-8 bg-[#D4A853]' : i < stepIdx ? 'w-4 bg-[#D4A853]/40' : 'w-4 bg-stone-800'
-            }`}
-          />
-        ))}
+      {/* Progress dots + percentage */}
+      <div className="flex flex-col items-center gap-2 mb-12">
+        <div className="flex gap-2">
+          {steps.map((_, i) => (
+            <div
+              key={i}
+              className={`h-1.5 rounded-full transition-all duration-500 ${
+                i === stepIdx ? 'w-8 bg-[#D4A853]' : i < stepIdx ? 'w-4 bg-[#D4A853]/40' : 'w-4 bg-stone-800'
+              }`}
+            />
+          ))}
+        </div>
+        <p className="text-stone-600 text-xs">
+          Step {stepIdx + 1} of {steps.length} &mdash; {Math.round(((stepIdx + 1) / steps.length) * 100)}%
+        </p>
       </div>
 
       {/* Step content */}
@@ -111,6 +125,9 @@ export default function OnboardingPage() {
                 <p className="text-stone-500 text-sm max-w-sm mx-auto">
                   We&apos;ll set up your personalized plan in just 4 quick steps.
                   Everything is based on evidence from ISSN, ACSM, and IOC.
+                </p>
+                <p className="text-stone-600 text-xs mt-2">
+                  Trusted by Precision Nutrition certified coaches
                 </p>
                 <div className="pt-6">
                   <button onClick={next} className="btn-gold text-lg px-10 py-4">
@@ -187,6 +204,9 @@ export default function OnboardingPage() {
                 <div className="space-y-3">
                   {(Object.keys(GOAL_DESCRIPTIONS) as Goal[]).map((g) => {
                     const d = GOAL_DESCRIPTIONS[g];
+                    const previewBmr = calculateBMR(weightKg, heightCm, age, sex);
+                    const previewTdee = calculateTDEE(previewBmr, activity);
+                    const previewCals = calculateTargetCalories(previewTdee, g);
                     return (
                       <button
                         key={g}
@@ -197,10 +217,22 @@ export default function OnboardingPage() {
                             : 'border-stone-800 hover:border-stone-600'
                         }`}
                       >
-                        <span className="text-lg mr-2">{d.emoji}</span>
-                        <span className={`font-medium ${goal === g ? 'text-stone-100' : 'text-stone-300'}`}>
-                          {d.en}
-                        </span>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <span className="text-lg mr-2">{d.emoji}</span>
+                            <span className={`font-medium ${goal === g ? 'text-stone-100' : 'text-stone-300'}`}>
+                              {d.en}
+                            </span>
+                          </div>
+                          <span className="text-xs text-stone-500">
+                            ~{previewCals} kcal
+                          </span>
+                        </div>
+                        {goal === g && (
+                          <p className="text-xs text-stone-500 mt-1 ml-8">
+                            {GOAL_ADJUSTMENT_LABELS[g]} = ~{previewCals} kcal/day
+                          </p>
+                        )}
                       </button>
                     );
                   })}
@@ -272,6 +304,17 @@ export default function OnboardingPage() {
                     <span>💧 {(profile.water_ml / 1000).toFixed(1)}L water</span>
                     <span>🌿 {profile.fiber_g}g fiber</span>
                     <span>BMR: {profile.bmr}</span>
+                  </div>
+
+                  {/* Protein per meal & leucine info */}
+                  <div className="pt-2 border-t border-stone-800 space-y-1.5">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-stone-500">Protein per meal (4 meals)</span>
+                      <span className="text-stone-300 font-medium">{Math.round(profile.protein_g / 4)}g</span>
+                    </div>
+                    <p className="text-stone-600 text-xs">
+                      You need ~3g of leucine per meal (~{Math.round(profile.protein_g / 4)}g protein from quality sources)
+                    </p>
                   </div>
                 </div>
 

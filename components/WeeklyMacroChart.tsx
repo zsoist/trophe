@@ -92,7 +92,7 @@ export default function WeeklyMacroChart({
     );
   }
 
-  const maxCal = Math.max(targetCalories, ...weekData.map((d) => d.calories)) * 1.1;
+  const maxCal = Math.max(targetCalories, ...weekData.map((d) => d.calories), 1) * 1.1;
   const chartHeight = 120;
   const barWidth = 28;
   const gap = 8;

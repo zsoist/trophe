@@ -21,6 +21,7 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import ActivityTimeline from '@/components/ActivityTimeline';
 import ComplianceTrend from '@/components/ComplianceTrend';
+import CoachingSummary from '@/components/CoachingSummary';
 import type {
   Profile,
   ClientProfile,
@@ -296,6 +297,67 @@ export default function ClientDetailPage() {
     loadData();
   }, [loadData]);
 
+  // Auto-suggest next habit when current one is mastered
+  useEffect(() => {
+    if (!activeHabit?.habit) return;
+    const isReady = activeHabit.current_streak >= (activeHabit.habit.cycle_days || 14);
+    if (!isReady) { setSuggestedNextHabit(null); return; }
+
+    async function fetchNextHabit() {
+      const currentOrder = activeHabit!.habit!.suggested_order ?? 0;
+      const { data } = await supabase
+        .from('habits')
+        .select('*')
+        .eq('is_template', true)
+        .gt('suggested_order', currentOrder)
+        .order('suggested_order', { ascending: true })
+        .limit(1);
+
+      if (data && data.length > 0) {
+        setSuggestedNextHabit(data[0]);
+      }
+    }
+    fetchNextHabit();
+  }, [activeHabit]);
+
+  // One-click assign next habit
+  async function assignNextHabit() {
+    if (!suggestedNextHabit || !activeHabit || assigningNext) return;
+    setAssigningNext(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Mark current habit as completed
+      await supabase.from('client_habits')
+        .update({ status: 'completed', completed_at: new Date().toISOString() })
+        .eq('id', activeHabit.id);
+
+      // Create new client_habit with next template
+      const { data } = await supabase.from('client_habits').insert({
+        client_id: clientId,
+        habit_id: suggestedNextHabit.id,
+        assigned_by: user.id,
+        status: 'active',
+        started_at: new Date().toISOString(),
+        current_streak: 0,
+        best_streak: 0,
+        total_completions: 0,
+        sequence_number: (pastHabits.length || 0) + 2,
+      }).select('*, habit:habits(*)').maybeSingle();
+
+      if (data) {
+        setPastHabits([{ ...activeHabit, status: 'completed' }, ...pastHabits]);
+        setActiveHabit(data);
+        setSuggestedNextHabit(null);
+      }
+    } catch (err) {
+      console.error('Error assigning next habit:', err);
+    } finally {
+      setAssigningNext(false);
+    }
+  }
+
   async function saveNote() {
     if (!newNote.trim()) return;
     setSavingNote(true);
@@ -424,9 +486,18 @@ export default function ClientDetailPage() {
                 <h1 className="text-xl sm:text-2xl font-bold text-stone-100">{profile.full_name}</h1>
                 <p className="text-stone-500 text-sm mt-0.5">{profile.email}</p>
               </div>
-              <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-[#D4A853]/10 text-[#D4A853] capitalize">
-                {clientProfile.coaching_phase}
-              </span>
+              <div className="flex items-center gap-2">
+                <CoachingSummary
+                  profile={profile}
+                  clientProfile={clientProfile}
+                  activeHabit={activeHabit}
+                  pastHabits={pastHabits}
+                  notes={notes}
+                />
+                <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-[#D4A853]/10 text-[#D4A853] capitalize">
+                  {clientProfile.coaching_phase}
+                </span>
+              </div>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
               <div>
@@ -455,6 +526,53 @@ export default function ClientDetailPage() {
               </div>
             </div>
           </div>
+
+          {/* ═══ Progression Banner ═══ */}
+          {activeHabit?.habit && activeHabit.current_streak >= (activeHabit.habit.cycle_days || 14) && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="glass celebration-glow gold-border p-5 mb-4"
+            >
+              <div className="flex items-center gap-3 mb-3">
+                <span className="text-3xl">🎯</span>
+                <div className="flex-1">
+                  <h3 className="font-bold text-[#D4A853] text-lg">Ready for Progression!</h3>
+                  <p className="text-stone-400 text-xs mt-0.5">
+                    {profile?.full_name} completed the {activeHabit.habit.cycle_days}-day cycle for {activeHabit.habit.name_en}
+                  </p>
+                </div>
+              </div>
+              {suggestedNextHabit ? (
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/5">
+                  <span className="text-xl">{suggestedNextHabit.emoji}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-stone-200">
+                      Suggested next: {suggestedNextHabit.name_en}
+                    </div>
+                    <div className="text-xs text-stone-500">
+                      {suggestedNextHabit.cycle_days}d cycle - {suggestedNextHabit.difficulty}
+                    </div>
+                  </div>
+                  <button
+                    onClick={assignNextHabit}
+                    disabled={assigningNext}
+                    className="btn-gold !py-2 !px-4 text-xs flex items-center gap-1.5 whitespace-nowrap"
+                  >
+                    <ChevronRight size={14} />
+                    {assigningNext ? 'Assigning...' : 'Assign Next'}
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={loadTemplates}
+                  className="btn-gold w-full text-sm py-2.5 flex items-center justify-center gap-2"
+                >
+                  <Plus size={14} /> Choose Next Habit Manually
+                </button>
+              )}
+            </motion.div>
+          )}
 
           {/* ─── Active Habit ─── */}
           <div className="glass p-5 mb-4">
@@ -501,6 +619,16 @@ export default function ClientDetailPage() {
                   checkins={checkins.filter((c) => c.client_habit_id === activeHabit.id)}
                   startDate={activeHabit.started_at}
                 />
+
+                {/* Compliance Trend Heatmap */}
+                <div className="mt-4 pt-3 border-t border-white/5">
+                  <p className="text-stone-500 text-xs mb-2 uppercase tracking-wider font-semibold">14-Day Compliance</p>
+                  <ComplianceTrend
+                    clientHabitId={activeHabit.id}
+                    startDate={activeHabit.started_at}
+                    checkins={checkins.filter((c) => c.client_habit_id === activeHabit.id)}
+                  />
+                </div>
               </div>
             ) : (
               <p className="text-stone-600 text-sm text-center py-4">No active habit assigned</p>

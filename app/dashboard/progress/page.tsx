@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase';
 import type { Measurement, ClientProfile, ClientHabit } from '@/lib/types';
 import BottomNav from '@/components/BottomNav';
 import ProgressPhotos from '@/components/ProgressPhotos';
+import WeeklyMacroChart from '@/components/WeeklyMacroChart';
 
 function WeightChart({ measurements }: { measurements: Measurement[] }) {
   if (measurements.length < 2) {
@@ -306,6 +307,15 @@ export default function ProgressPage() {
             </motion.div>
           )}
         </motion.div>
+
+        {/* Weekly Macro Averages */}
+        <WeeklyMacroChart
+          userId={userId}
+          targetCalories={clientProfile?.target_calories ?? 2000}
+          targetProtein={clientProfile?.target_protein_g ?? 150}
+          targetCarbs={clientProfile?.target_carbs_g ?? 200}
+          targetFat={clientProfile?.target_fat_g ?? 65}
+        />
 
         {/* Current Stats */}
         {clientProfile && (

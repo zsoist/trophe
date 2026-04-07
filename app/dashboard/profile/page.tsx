@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase';
 import { calculateFullProfile, ACTIVITY_DESCRIPTIONS, GOAL_DESCRIPTIONS } from '@/lib/nutrition-engine';
 import type { ClientProfile, Profile, Sex, ActivityLevel, Goal, Language } from '@/lib/types';
 import BottomNav from '@/components/BottomNav';
+import BodyCompCalculator from '@/components/BodyCompCalculator';
 
 const SEX_OPTIONS: { value: Sex; label: string }[] = [
   { value: 'male', label: 'Male' },
@@ -326,6 +327,9 @@ export default function ProfilePage() {
             </div>
           </motion.div>
         )}
+
+        {/* Body Composition Calculator */}
+        <BodyCompCalculator sex={sex} />
 
         {/* Language */}
         <motion.div

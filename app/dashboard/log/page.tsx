@@ -7,6 +7,7 @@ import { Search, Plus, Trash2, ChevronDown } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { FoodLogEntry, MealType } from '@/lib/types';
 import BottomNav from '@/components/BottomNav';
+import RecipeSuggestions from '@/components/RecipeSuggestions';
 
 interface FoodSearchResult {
   fdcId: number;
@@ -243,6 +244,11 @@ export default function FoodLogPage() {
           </div>
         </div>
 
+        {/* Quick Recipe Suggestions */}
+        {results.length === 0 && (
+          <RecipeSuggestions userId={userId} mealType={mealType} onAdd={loadTodayLog} />
+        )}
+
         {/* Search Results */}
         <AnimatePresence>
           {results.length > 0 && (
@@ -263,6 +269,9 @@ export default function FoodLogPage() {
                     <div className="flex-1 min-w-0">
                       <p className="text-stone-100 text-sm font-medium truncate">
                         {food.description}
+                        {food.name_el && (
+                          <span className="text-stone-500 font-normal"> ({food.name_el})</span>
+                        )}
                       </p>
                       {food.brandName && (
                         <p className="text-stone-600 text-xs">{food.brandName}</p>

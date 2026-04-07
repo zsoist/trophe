@@ -279,19 +279,7 @@ export default function DashboardPage() {
     setAddingWater(false);
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-stone-950 flex items-center justify-center">
-        <div className="gold-text text-lg animate-pulse">Loading...</div>
-      </div>
-    );
-  }
-
-  const streakDays = activeHabit?.current_streak ?? 0;
-  const cycleDays = activeHabit?.habit?.cycle_days ?? 14;
-  const streakPct = Math.min((streakDays / cycleDays) * 100, 100);
-
-  // Check for habit mastery celebration
+  // Habit mastery celebration — must be BEFORE any early returns (Rules of Hooks)
   useEffect(() => {
     if (activeHabit && !celebrationChecked) {
       setCelebrationChecked(true);
@@ -303,6 +291,18 @@ export default function DashboardPage() {
       }
     }
   }, [activeHabit, celebrationChecked]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-stone-950 flex items-center justify-center">
+        <div className="gold-text text-lg animate-pulse">Loading...</div>
+      </div>
+    );
+  }
+
+  const streakDays = activeHabit?.current_streak ?? 0;
+  const cycleDays = activeHabit?.habit?.cycle_days ?? 14;
+  const streakPct = Math.min((streakDays / cycleDays) * 100, 100);
 
   function dismissCelebration() {
     if (activeHabit) {
@@ -532,34 +532,47 @@ export default function DashboardPage() {
           <div className="flex items-center justify-around">
             <MacroRing
               value={totalCalories}
-              target={clientProfile?.target_calories ?? 2000}
+              target={carbCycleTargets?.calories ?? clientProfile?.target_calories ?? 2000}
               label="Calories"
               unit="kcal"
               color="#D4A853"
             />
             <MacroRing
               value={totalProtein}
-              target={clientProfile?.target_protein_g ?? 150}
+              target={carbCycleTargets?.protein_g ?? clientProfile?.target_protein_g ?? 150}
               label="Protein"
               unit="g"
               color="#ef4444"
             />
             <MacroRing
               value={totalCarbs}
-              target={clientProfile?.target_carbs_g ?? 200}
+              target={carbCycleTargets?.carbs_g ?? clientProfile?.target_carbs_g ?? 200}
               label="Carbs"
               unit="g"
               color="#3b82f6"
             />
             <MacroRing
               value={totalFat}
-              target={clientProfile?.target_fat_g ?? 65}
+              target={carbCycleTargets?.fat_g ?? clientProfile?.target_fat_g ?? 65}
               label="Fat"
               unit="g"
               color="#a855f7"
             />
           </div>
         </motion.div>
+
+        {/* Nutrient Timing */}
+        <MealTimingIndicator foodLog={foodLog} />
+
+        {/* Carb Cycling Day Type */}
+        <CarbCyclingSelector
+          enabled={!!(clientProfile as Record<string, unknown>)?.carb_cycling_enabled}
+          baseCalories={clientProfile?.target_calories ?? 2000}
+          baseProtein={clientProfile?.target_protein_g ?? 150}
+          baseCarbs={clientProfile?.target_carbs_g ?? 200}
+          baseFat={clientProfile?.target_fat_g ?? 65}
+          onAdjust={setCarbCycleTargets}
+        />
 
         {/* Water Tracker */}
         <motion.div
