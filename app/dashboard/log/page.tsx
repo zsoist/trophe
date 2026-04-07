@@ -11,6 +11,7 @@ import BottomNav from '@/components/BottomNav';
 interface FoodSearchResult {
   fdcId: number;
   description: string;
+  name_el?: string | null;
   calories: number;
   protein_g: number;
   carbs_g: number;

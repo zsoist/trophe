@@ -7,6 +7,7 @@ import { TrendingDown, TrendingUp, Scale, Activity, Target, Plus } from 'lucide-
 import { supabase } from '@/lib/supabase';
 import type { Measurement, ClientProfile, ClientHabit } from '@/lib/types';
 import BottomNav from '@/components/BottomNav';
+import ProgressPhotos from '@/components/ProgressPhotos';
 
 function WeightChart({ measurements }: { measurements: Measurement[] }) {
   if (measurements.length < 2) {
@@ -410,6 +411,9 @@ export default function ProgressPage() {
             </div>
           )}
         </motion.div>
+
+        {/* Progress Photos */}
+        <ProgressPhotos />
       </motion.div>
 
       <BottomNav />

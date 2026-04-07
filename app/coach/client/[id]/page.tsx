@@ -15,9 +15,12 @@ import {
   Play,
   ChevronRight,
   X,
+  FileText,
 } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+import ActivityTimeline from '@/components/ActivityTimeline';
+import ComplianceTrend from '@/components/ComplianceTrend';
 import type {
   Profile,
   ClientProfile,
@@ -49,6 +52,29 @@ const sessionLabels: Record<SessionType, string> = {
   concern: 'Concern',
   general: 'General',
 };
+
+const COACHING_TEMPLATES: { label: string; type: SessionType; text: string }[] = [
+  {
+    label: 'Initial Assessment',
+    type: 'general',
+    text: 'Client goals: ___ | Current habits: ___ | Main challenges: ___ | First habit recommendation: ___',
+  },
+  {
+    label: 'Weekly Check-in',
+    type: 'check_in',
+    text: 'Adherence this week: ___/7 | Energy: ___/5 | Sleep: ___/5 | Challenges: ___ | Adjustments: ___',
+  },
+  {
+    label: 'Habit Progression',
+    type: 'progression',
+    text: 'Completed habit: ___ | Days: ___/14 | Key learnings: ___ | Next habit: ___ | Rationale: ___',
+  },
+  {
+    label: 'Concern/Flag',
+    type: 'concern',
+    text: 'Issue: ___ | Observed pattern: ___ | Recommended action: ___ | Follow-up date: ___',
+  },
+];
 
 function formatDate(d: string) {
   return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -221,6 +247,10 @@ export default function ClientDetailPage() {
   // Assign habit modal
   const [showAssign, setShowAssign] = useState(false);
   const [habitTemplates, setHabitTemplates] = useState<Habit[]>([]);
+
+  // Auto-progression
+  const [suggestedNextHabit, setSuggestedNextHabit] = useState<Habit | null>(null);
+  const [assigningNext, setAssigningNext] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -537,6 +567,28 @@ export default function ClientDetailPage() {
 
             {/* Add note form */}
             <div className="mb-4">
+              {/* Template selector */}
+              <div className="mb-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <FileText size={12} className="text-stone-500" />
+                  <span className="text-[10px] font-medium text-stone-500 uppercase tracking-wider">Template</span>
+                </div>
+                <div className="flex gap-1.5 flex-wrap">
+                  {COACHING_TEMPLATES.map((tmpl) => (
+                    <button
+                      key={tmpl.label}
+                      onClick={() => {
+                        setNewNote(tmpl.text);
+                        setNoteType(tmpl.type);
+                      }}
+                      className="text-[11px] px-2.5 py-1.5 rounded-lg border border-white/5 text-stone-400 hover:border-[#D4A853]/30 hover:text-[#D4A853] hover:bg-[#D4A853]/5 transition-all"
+                    >
+                      {tmpl.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div className="flex gap-2 mb-2">
                 {(['check_in', 'progression', 'concern', 'general'] as SessionType[]).map((t) => (
                   <button
@@ -556,9 +608,9 @@ export default function ClientDetailPage() {
                 <textarea
                   value={newNote}
                   onChange={(e) => setNewNote(e.target.value)}
-                  placeholder="Write a coaching note..."
+                  placeholder="Write a coaching note or select a template..."
                   className="input-dark flex-1 min-h-[60px] resize-none text-sm"
-                  rows={2}
+                  rows={3}
                 />
                 <button
                   onClick={saveNote}
@@ -590,6 +642,20 @@ export default function ClientDetailPage() {
                 ))
               )}
             </div>
+          </div>
+
+          {/* ─── Activity Timeline ─── */}
+          <div className="glass p-5 mb-4">
+            <h2 className="font-semibold text-stone-200 mb-4 flex items-center gap-2">
+              <Calendar size={16} className="text-[#D4A853]" />
+              Activity Timeline
+            </h2>
+            <ActivityTimeline
+              checkins={checkins}
+              notes={notes}
+              measurements={measurements}
+              habits={[...(activeHabit ? [activeHabit] : []), ...pastHabits]}
+            />
           </div>
 
           {/* ─── Past Habits ─── */}

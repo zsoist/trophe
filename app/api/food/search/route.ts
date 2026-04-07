@@ -27,6 +27,62 @@ interface USDAFoodItem {
   servingSizeUnit?: string;
 }
 
+// ─── Greek translations for common foods ───
+const GREEK_FOOD_MAP: Record<string, string> = {
+  chicken: 'κοτόπουλο',
+  rice: 'ρύζι',
+  egg: 'αυγό',
+  eggs: 'αυγά',
+  milk: 'γάλα',
+  bread: 'ψωμί',
+  cheese: 'τυρί',
+  yogurt: 'γιαούρτι',
+  yoghurt: 'γιαούρτι',
+  fish: 'ψάρι',
+  beef: 'βοδινό',
+  potato: 'πατάτα',
+  potatoes: 'πατάτες',
+  tomato: 'ντομάτα',
+  tomatoes: 'ντομάτες',
+  'olive oil': 'ελαιόλαδο',
+  banana: 'μπανάνα',
+  apple: 'μήλο',
+  oats: 'βρώμη',
+  oatmeal: 'βρώμη',
+  salmon: 'σολομός',
+  tuna: 'τόνος',
+  avocado: 'αβοκάντο',
+  almond: 'αμύγδαλο',
+  almonds: 'αμύγδαλα',
+  spinach: 'σπανάκι',
+  broccoli: 'μπρόκολο',
+  carrot: 'καρότο',
+  carrots: 'καρότα',
+  onion: 'κρεμμύδι',
+  garlic: 'σκόρδο',
+  lemon: 'λεμόνι',
+  orange: 'πορτοκάλι',
+  peanut: 'φιστίκι',
+  peanuts: 'φιστίκια',
+  walnut: 'καρύδι',
+  walnuts: 'καρύδια',
+  honey: 'μέλι',
+  cucumber: 'αγγούρι',
+  pork: 'χοιρινό',
+  lamb: 'αρνί',
+  turkey: 'γαλοπούλα',
+  pasta: 'ζυμαρικά',
+  butter: 'βούτυρο',
+};
+
+function getGreekName(description: string): string | null {
+  const lower = description.toLowerCase();
+  for (const [eng, el] of Object.entries(GREEK_FOOD_MAP)) {
+    if (lower.includes(eng)) return el;
+  }
+  return null;
+}
+
 function extractNutrient(nutrients: USDANutrient[], nutrientId: number): number {
   const nutrient = nutrients.find((n) => n.nutrientId === nutrientId);
   return nutrient ? Math.round(nutrient.value * 10) / 10 : 0;
@@ -59,6 +115,7 @@ export async function GET(request: NextRequest) {
     const foods = (data.foods || []).map((item: USDAFoodItem) => ({
       fdcId: item.fdcId,
       description: item.description,
+      name_el: getGreekName(item.description),
       calories: extractNutrient(item.foodNutrients, NUTRIENT_IDS.ENERGY),
       protein_g: extractNutrient(item.foodNutrients, NUTRIENT_IDS.PROTEIN),
       carbs_g: extractNutrient(item.foodNutrients, NUTRIENT_IDS.CARBS),

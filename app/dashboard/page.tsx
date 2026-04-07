@@ -3,10 +3,60 @@ import { useRouter } from 'next/navigation';
 
 import { useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import { Droplets, Plus, Check, X, Flame, Beef, Wheat, Droplet } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { ClientProfile, ClientHabit, HabitCheckin, FoodLogEntry, WaterLogEntry, Mood } from '@/lib/types';
 import BottomNav from '@/components/BottomNav';
+import WeeklyCheckin from '@/components/WeeklyCheckin';
+import ComplianceTrend from '@/components/ComplianceTrend';
+import MythCard from '@/components/MythCard';
+import StreakBadges from '@/components/StreakBadges';
+import MealTimingIndicator from '@/components/MealTimingIndicator';
+import CarbCyclingSelector from '@/components/CarbCyclingSelector';
+import type { Profile } from '@/lib/types';
+
+// ─── Motivational micro-texts (rotate daily) ───
+const MOTIVATIONAL_TEXTS = [
+  'Small habits, big transformations',
+  'Consistency beats perfection',
+  'One day at a time, one habit at a time',
+  'Your body adapts to what you consistently do',
+  'Progress, not perfection',
+];
+
+function getTimeGreeting(): { text: string; emoji: string } {
+  const hour = new Date().getHours();
+  if (hour < 12) return { text: 'Good morning', emoji: '☀️' };
+  if (hour < 17) return { text: 'Good afternoon', emoji: '🌤️' };
+  if (hour < 21) return { text: 'Good evening', emoji: '🌅' };
+  return { text: 'Good night', emoji: '🌙' };
+}
+
+function getDailyMotivation(): string {
+  const dayOfYear = Math.floor(
+    (Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000
+  );
+  return MOTIVATIONAL_TEXTS[dayOfYear % MOTIVATIONAL_TEXTS.length];
+}
+
+function PersonalizedGreeting({ fullName }: { fullName: string | null }) {
+  const { text, emoji } = getTimeGreeting();
+  const firstName = fullName ? fullName.split(' ')[0] : null;
+  const motivation = getDailyMotivation();
+
+  return (
+    <div>
+      <h1 className="text-2xl font-bold text-stone-100">
+        {text}{firstName ? `, ${firstName}` : ''} {emoji}
+      </h1>
+      <p className="text-stone-500 text-sm mt-1">
+        {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+      </p>
+      <p className="text-stone-600 text-xs mt-1.5 italic">{motivation}</p>
+    </div>
+  );
+}
 
 const MOODS: { value: Mood; emoji: string; label: string }[] = [
   { value: 'great', emoji: '😄', label: 'Great' },
@@ -80,6 +130,10 @@ export default function DashboardPage() {
   const [foodLog, setFoodLog] = useState<FoodLogEntry[]>([]);
   const [waterLog, setWaterLog] = useState<WaterLogEntry[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
+  const [userProfile, setUserProfile] = useState<Profile | null>(null);
+  const [carbCycleTargets, setCarbCycleTargets] = useState<{
+    calories: number; protein_g: number; carbs_g: number; fat_g: number;
+  } | null>(null);
 
   const today = new Date().toISOString().split('T')[0];
 
@@ -95,7 +149,7 @@ export default function DashboardPage() {
       if (!user) { router.push("/login"); return; }
       setUserId(user.id);
 
-      const [cpRes, chRes, flRes, wlRes] = await Promise.all([
+      const [cpRes, chRes, flRes, wlRes, profileRes] = await Promise.all([
         supabase
           .from('client_profiles')
           .select('*')
@@ -118,8 +172,14 @@ export default function DashboardPage() {
           .select('*')
           .eq('user_id', user.id)
           .eq('logged_date', today),
+        supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .maybeSingle(),
       ]);
 
+      if (profileRes.data) setUserProfile(profileRes.data);
       if (cpRes.data) setClientProfile(cpRes.data);
       if (chRes.data && chRes.data.length > 0) {
         const habit = chRes.data[0] as ClientHabit;
@@ -148,6 +208,8 @@ export default function DashboardPage() {
   }, [loadData]);
 
   const [submitting, setSubmitting] = useState(false);
+  const [showCelebration, setShowCelebration] = useState(false);
+  const [celebrationChecked, setCelebrationChecked] = useState(false);
 
   const handleCheckin = async (completed: boolean) => {
     if (!userId || !activeHabit || submitting) return;
@@ -229,21 +291,123 @@ export default function DashboardPage() {
   const cycleDays = activeHabit?.habit?.cycle_days ?? 14;
   const streakPct = Math.min((streakDays / cycleDays) * 100, 100);
 
+  // Check for habit mastery celebration
+  useEffect(() => {
+    if (activeHabit && !celebrationChecked) {
+      setCelebrationChecked(true);
+      if (activeHabit.current_streak >= (activeHabit.habit?.cycle_days ?? 14)) {
+        const dismissKey = `trophe_mastery_${activeHabit.id}`;
+        if (!localStorage.getItem(dismissKey)) {
+          setShowCelebration(true);
+        }
+      }
+    }
+  }, [activeHabit, celebrationChecked]);
+
+  function dismissCelebration() {
+    if (activeHabit) {
+      localStorage.setItem(`trophe_mastery_${activeHabit.id}`, 'seen');
+    }
+    setShowCelebration(false);
+  }
+
+  // Confetti colors
+  const confettiColors = ['#D4A853', '#E8C878', '#22c55e', '#3b82f6', '#a855f7', '#ef4444', '#f59e0b'];
+
+  // Calculate completion percentage for celebration
+  const totalDaysTracked = activeHabit?.total_completions ?? 0;
+  const completionPct = cycleDays > 0 ? Math.round((totalDaysTracked / cycleDays) * 100) : 0;
+
   return (
     <div className="min-h-screen bg-stone-950 pb-24">
+      {/* ═══ Habit Mastery Celebration Modal ═══ */}
+      <AnimatePresence>
+        {showCelebration && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+            onClick={dismissCelebration}
+          >
+            {/* Confetti particles */}
+            {Array.from({ length: 30 }).map((_, i) => (
+              <div
+                key={i}
+                className="confetti-particle"
+                style={{
+                  left: `${Math.random() * 100}%`,
+                  backgroundColor: confettiColors[i % confettiColors.length],
+                  width: `${6 + Math.random() * 8}px`,
+                  height: `${6 + Math.random() * 8}px`,
+                  animationDelay: `${Math.random() * 1.5}s`,
+                  borderRadius: Math.random() > 0.5 ? '50%' : '2px',
+                }}
+              />
+            ))}
+
+            <motion.div
+              initial={{ scale: 0.5, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              transition={{ type: 'spring', damping: 15, stiffness: 200 }}
+              className="glass-elevated celebration-glow p-8 max-w-sm w-full text-center relative"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="text-5xl mb-4">🎉</div>
+              <h2 className="text-2xl font-bold gold-text mb-2" style={{ fontFamily: 'var(--font-serif)' }}>
+                Habit Mastered!
+              </h2>
+              <p className="text-stone-400 text-sm mb-6">
+                You completed the {cycleDays}-day cycle for{' '}
+                <span className="text-stone-200 font-medium">{activeHabit?.habit?.name_en}</span>
+              </p>
+
+              <div className="grid grid-cols-3 gap-3 mb-6">
+                <div className="glass p-3 rounded-xl">
+                  <div className="text-lg font-bold text-stone-100">{streakDays}</div>
+                  <div className="text-[10px] text-stone-500 uppercase tracking-wider">Days</div>
+                </div>
+                <div className="glass p-3 rounded-xl">
+                  <div className="text-lg font-bold text-stone-100">{Math.min(completionPct, 100)}%</div>
+                  <div className="text-[10px] text-stone-500 uppercase tracking-wider">Completion</div>
+                </div>
+                <div className="glass p-3 rounded-xl">
+                  <div className="text-lg font-bold text-stone-100">{activeHabit?.best_streak}</div>
+                  <div className="text-[10px] text-stone-500 uppercase tracking-wider">Best Streak</div>
+                </div>
+              </div>
+
+              <p className="text-stone-500 text-xs mb-6">
+                Your coach will assign your next challenge
+              </p>
+
+              <button
+                onClick={dismissCelebration}
+                className="btn-gold w-full text-sm py-3"
+              >
+                Continue
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
         className="max-w-md mx-auto px-4 pt-12"
       >
-        {/* Header */}
+        {/* Personalized Greeting */}
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-stone-100">Today</h1>
-          <p className="text-stone-500 text-sm mt-1">
-            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-          </p>
+          <PersonalizedGreeting fullName={userProfile?.full_name ?? null} />
         </div>
+
+        {/* ═══ Weekly Check-in (Sundays only) ═══ */}
+        {userId && clientProfile && (
+          <WeeklyCheckin userId={userId} coachId={clientProfile.coach_id} />
+        )}
 
         {/* Active Habit Card */}
         <motion.div
@@ -269,6 +433,11 @@ export default function DashboardPage() {
                     Best: {activeHabit.best_streak}
                   </span>
                 </div>
+              </div>
+
+              {/* Streak Badges */}
+              <div className="mb-3">
+                <StreakBadges bestStreak={activeHabit.best_streak} />
               </div>
 
               {/* Streak Bar */}
@@ -328,6 +497,17 @@ export default function DashboardPage() {
                       </button>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {/* ═══ Compliance Heatmap ═══ */}
+              {activeHabit && (
+                <div className="mt-4 pt-3 border-t border-white/5">
+                  <p className="text-stone-500 text-xs mb-2 uppercase tracking-wider font-semibold">14-Day Compliance</p>
+                  <ComplianceTrend
+                    clientHabitId={activeHabit.id}
+                    startDate={activeHabit.started_at}
+                  />
                 </div>
               )}
             </>
@@ -424,6 +604,9 @@ export default function DashboardPage() {
             <Plus size={16} /> Add 250 ml
           </button>
         </motion.div>
+
+        {/* Myth-Busting Card */}
+        <MythCard />
       </motion.div>
 
       <BottomNav />

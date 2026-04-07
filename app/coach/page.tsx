@@ -16,6 +16,7 @@ import {
   Dumbbell,
   Pill,
   UtensilsCrossed,
+  Calendar,
 } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
@@ -215,6 +216,34 @@ export default function CoachDashboard() {
   const onTrack = clients.filter((c) => c.status === 'green').length;
   const atRisk = clients.filter((c) => c.status !== 'green').length;
 
+  // ═══ Weekly Summary calculations ═══
+  const now = new Date();
+  const weekStart = new Date(now);
+  weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1); // Monday
+  weekStart.setHours(0, 0, 0, 0);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekEnd.getDate() + 6); // Sunday
+
+  const weekLabel = `${weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+
+  // Total check-ins this week (clients who checked in today = green status)
+  const totalCheckins = clients.filter((c) => c.daysSinceCheckin <= 6).length;
+
+  // Average streak progress
+  const clientsWithHabits = clients.filter((c) => c.activeHabit?.habit);
+  const avgStreakPct = clientsWithHabits.length > 0
+    ? Math.round(
+        clientsWithHabits.reduce((sum, c) => {
+          const streak = c.activeHabit!.current_streak;
+          const cycle = c.activeHabit!.habit!.cycle_days || 14;
+          return sum + Math.min((streak / cycle) * 100, 100);
+        }, 0) / clientsWithHabits.length
+      )
+    : 0;
+
+  // Clients needing attention
+  const needsAttention = clients.filter((c) => c.status === 'red' || c.daysSinceCheckin >= 3);
+
   return (
     <div className="min-h-screen bg-stone-950 px-4 py-6 sm:px-6 lg:px-8">
       <div className="max-w-5xl mx-auto">
@@ -234,6 +263,58 @@ export default function CoachDashboard() {
               Monitor progress and manage your coaching roster
             </p>
           </div>
+
+          {/* ═══ Weekly Summary Card ═══ */}
+          {!loading && clients.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="glass gold-border p-5 mb-6"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-sm font-semibold text-stone-200 flex items-center gap-2">
+                  <Calendar size={16} className="text-[#D4A853]" />
+                  Weekly Summary
+                </h2>
+                <span className="text-xs text-stone-500">{weekLabel}</span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+                <div className="text-center">
+                  <div className="text-xl font-bold text-stone-100">{totalCheckins}</div>
+                  <div className="text-[10px] text-stone-500 uppercase tracking-wider">Active This Week</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-xl font-bold text-[#D4A853]">{avgStreakPct}%</div>
+                  <div className="text-[10px] text-stone-500 uppercase tracking-wider">Avg. Streak</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-xl font-bold text-green-400">{clients.filter((c) => c.readyForProgression).length}</div>
+                  <div className="text-[10px] text-stone-500 uppercase tracking-wider">Ready to Progress</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-xl font-bold text-red-400">{needsAttention.length}</div>
+                  <div className="text-[10px] text-stone-500 uppercase tracking-wider">Need Attention</div>
+                </div>
+              </div>
+              {needsAttention.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-white/5">
+                  <p className="text-xs text-stone-500 mb-2">Needs attention:</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {needsAttention.slice(0, 5).map((c) => (
+                      <Link
+                        key={c.profile.id}
+                        href={`/coach/client/${c.clientProfile.user_id}`}
+                        className="text-[11px] px-2.5 py-1 rounded-full bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-colors"
+                      >
+                        {c.profile.full_name} ({c.daysSinceCheckin === 999 ? 'never' : `${c.daysSinceCheckin}d`})
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          )}
 
           {/* Summary Bar */}
           <div className="grid grid-cols-3 gap-3 mb-6">
