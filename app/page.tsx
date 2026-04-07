@@ -1,8 +1,40 @@
 'use client';
 
 import Link from 'next/link';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
+
+type Lang = 'en' | 'es' | 'el';
+
+const LANGS: { code: Lang; flag: string; label: string }[] = [
+  { code: 'en', flag: '🇬🇧', label: 'EN' },
+  { code: 'es', flag: '🇪🇸', label: 'ES' },
+  { code: 'el', flag: '🇬🇷', label: 'EL' },
+];
+
+const heroText: Record<Lang, { sub: string; tagline: string; desc: string; cta1: string; cta2: string }> = {
+  en: {
+    sub: 'Precision Nutrition Coaching',
+    tagline: 'One habit. Two weeks. Transform.',
+    desc: 'The coaching platform that enforces behavior change through progressive habit scaffolding. Built for Precision Nutrition certified coaches and their clients.',
+    cta1: 'Get Started',
+    cta2: "I'm a Coach",
+  },
+  es: {
+    sub: 'Coaching de Nutrición de Precisión',
+    tagline: 'Un hábito. Dos semanas. Transforma.',
+    desc: 'La plataforma de coaching que impulsa el cambio de comportamiento a través de hábitos progresivos. Diseñada para coaches certificados en Precision Nutrition.',
+    cta1: 'Comenzar',
+    cta2: 'Soy Coach',
+  },
+  el: {
+    sub: 'Coaching Διατροφής Ακριβείας',
+    tagline: 'Μία συνήθεια. Δύο εβδομάδες. Μεταμόρφωση.',
+    desc: 'Η πλατφόρμα coaching που επιβάλλει αλλαγή συμπεριφοράς μέσω προοδευτικής ανάπτυξης συνηθειών. Για πιστοποιημένους coaches Precision Nutrition.',
+    cta1: 'Ξεκινήστε',
+    cta2: 'Είμαι Coach',
+  },
+};
 
 const fadeUp = {
   hidden: { opacity: 0, y: 30 },
@@ -39,9 +71,30 @@ const features = [
 
 export default function LandingPage() {
   const [activeRole, setActiveRole] = useState<'client' | 'coach'>('client');
+  const [lang, setLang] = useState<Lang>('en');
+  const t = heroText[lang];
 
   return (
     <div className="min-h-screen bg-stone-950">
+      {/* Language Switcher — Fixed Top */}
+      <div className="fixed top-0 left-0 right-0 z-50 flex justify-end px-6 py-4">
+        <div className="flex gap-1 bg-stone-900/80 backdrop-blur-lg rounded-full p-1 border border-stone-800/50">
+          {LANGS.map((l) => (
+            <button
+              key={l.code}
+              onClick={() => setLang(l.code)}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-300 ${
+                lang === l.code
+                  ? 'bg-[#D4A853] text-stone-950'
+                  : 'text-stone-500 hover:text-stone-300'
+              }`}
+            >
+              {l.flag} {l.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Hero */}
       <section className="relative min-h-[85vh] flex items-center justify-center px-6 overflow-hidden">
         <div className="absolute inset-0 pointer-events-none">
@@ -49,51 +102,40 @@ export default function LandingPage() {
         </div>
 
         <div className="relative max-w-2xl text-center">
-          <motion.p
-            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="text-[#D4A853] text-sm font-medium tracking-[0.2em] uppercase mb-6"
-          >
-            Precision Nutrition Coaching
-          </motion.p>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={lang}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.4, ease: 'easeInOut' }}
+            >
+              <p className="text-[#D4A853] text-sm font-medium tracking-[0.2em] uppercase mb-6">
+                {t.sub}
+              </p>
 
-          <motion.h1
-            initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.1, ease: [0.34, 1.56, 0.64, 1] as const }}
-            className="font-serif text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight mb-6"
-          >
-            <span className="text-[#D4A853]">τροφή</span>
-          </motion.h1>
+              <h1 className="font-serif text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight mb-6">
+                <span className="text-[#D4A853]">τροφή</span>
+              </h1>
 
-          <motion.p
-            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.3 }}
-            className="text-xl sm:text-2xl text-stone-300 mb-4 font-light"
-          >
-            One habit. Two weeks. Transform.
-          </motion.p>
+              <p className="text-xl sm:text-2xl text-stone-300 mb-4 font-light">
+                {t.tagline}
+              </p>
 
-          <motion.p
-            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.4 }}
-            className="text-stone-500 mb-10 max-w-lg mx-auto leading-relaxed"
-          >
-            The coaching platform that enforces behavior change through progressive habit scaffolding.
-            Built for Precision Nutrition certified coaches and their clients.
-          </motion.p>
+              <p className="text-stone-500 mb-10 max-w-lg mx-auto leading-relaxed">
+                {t.desc}
+              </p>
 
-          <motion.div
-            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.5 }}
-            className="flex flex-col sm:flex-row gap-4 justify-center"
-          >
-            <Link href="/login" className="btn-gold text-center text-lg px-8 py-3.5 no-underline">
-              Get Started
-            </Link>
-            <Link href="/login" className="btn-ghost text-center text-lg px-8 py-3.5 no-underline">
-              I&apos;m a Coach
-            </Link>
-          </motion.div>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <Link href="/login" className="btn-gold text-center text-lg px-8 py-3.5 no-underline">
+                  {t.cta1}
+                </Link>
+                <Link href="/login" className="btn-ghost text-center text-lg px-8 py-3.5 no-underline">
+                  {t.cta2}
+                </Link>
+              </div>
+            </motion.div>
+          </AnimatePresence>
         </div>
       </section>
 
