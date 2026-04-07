@@ -131,7 +131,7 @@ export default function FoodsPage() {
           .update(payload)
           .eq('id', editingId)
           .select()
-          .single();
+          .maybeSingle();
 
         if (data) {
           setFoods(foods.map((f) => (f.id === editingId ? data : f)));
@@ -144,7 +144,7 @@ export default function FoodsPage() {
             created_by: userId,
           })
           .select()
-          .single();
+          .maybeSingle();
 
         if (data) {
           setFoods([...foods, data].sort((a, b) => a.name.localeCompare(b.name)));
@@ -177,7 +177,7 @@ export default function FoodsPage() {
       .update({ shared: newShared })
       .eq('id', food.id)
       .select()
-      .single();
+      .maybeSingle();
 
     if (data) {
       setFoods(foods.map((f) => (f.id === food.id ? data : f)));

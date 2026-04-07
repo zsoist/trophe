@@ -57,6 +57,9 @@ git config user.email "zsoist@users.noreply.github.com"
 - i18n file must be .tsx (contains JSX)
 - Framer Motion `ease` arrays need `as const` for TypeScript
 - Vercel Hobby rejects commits from unrecognized GitHub committers (use zsoist identity)
+- 2026-04-06: middleware.ts checked cookie PRESENCE only, not JWT validity — any non-empty `sb-access-token` cookie bypassed auth. Always verify token signature, not just existence.
+- 2026-04-06: `ignoreBuildErrors:true` + `eslint.ignoreDuringBuilds:true` were left in `next.config.js` production config. Always remove these before shipping — they mask type errors and linting violations.
+- 2026-04-06: Dead Supabase initialization code found in codebase — remove or activate; dead init code causes confusion and potential double-client bugs.
 
 ## QA Audit Results (2026-04-06)
 22 bugs found and fixed in deep code audit. Key patterns to avoid:

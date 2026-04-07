@@ -324,7 +324,7 @@ export default function DashboardPage() {
       .from('water_log')
       .insert({ user_id: userId, logged_date: today, amount_ml: 250 })
       .select()
-      .single();
+      .maybeSingle();
     if (data) setWaterLog((prev) => [...prev, data]);
     setAddingWater(false);
   };
@@ -677,7 +677,7 @@ export default function DashboardPage() {
 
         {/* Carb Cycling Day Type */}
         <CarbCyclingSelector
-          enabled={!!(clientProfile as Record<string, unknown>)?.carb_cycling_enabled}
+          enabled={!!clientProfile?.carb_cycling_enabled}
           baseCalories={clientProfile?.target_calories ?? 2000}
           baseProtein={clientProfile?.target_protein_g ?? 150}
           baseCarbs={clientProfile?.target_carbs_g ?? 200}

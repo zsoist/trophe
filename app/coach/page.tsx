@@ -22,6 +22,7 @@ import {
   Bell,
   BarChart3,
   Clock,
+  ArrowUpDown,
 } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';

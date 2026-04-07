@@ -135,7 +135,7 @@ export default function HabitsPage() {
           .update(payload)
           .eq('id', editingId)
           .select()
-          .single();
+          .maybeSingle();
 
         if (data) {
           setHabits(habits.map((h) => (h.id === editingId ? data : h)));

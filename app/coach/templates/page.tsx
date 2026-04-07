@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import {
   Plus,
@@ -64,6 +65,7 @@ const emptyExercise: TemplateExercise & { _name?: string } = {
 // ═══════════════════════════════════════════════
 
 export default function TemplatesPage() {
+  const router = useRouter();
   const toast = useToast();
   const [templates, setTemplates] = useState<WorkoutTemplate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -92,8 +94,13 @@ export default function TemplatesPage() {
   const [loadingClients, setLoadingClients] = useState(false);
 
   useEffect(() => {
-    loadTemplates();
-    loadExerciseLibrary();
+    async function checkAuth() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { router.push("/login"); return; }
+      loadTemplates();
+      loadExerciseLibrary();
+    }
+    checkAuth();
   }, []);
 
   async function loadTemplates() {

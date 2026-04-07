@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
   BarChart3,
@@ -100,6 +101,7 @@ interface WeeklyVolume {
 // ═══════════════════════════════════════════════
 
 export default function WorkoutStatsPage() {
+  const router = useRouter();
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [sets, setSets] = useState<(WorkoutSet & { exercise: Exercise; session: WorkoutSession })[]>([]);
@@ -112,7 +114,7 @@ export default function WorkoutStatsPage() {
   async function loadData() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) { router.push("/login"); return; }
       setUserId(user.id);
 
       // Fetch all sessions for this user from last 8 weeks

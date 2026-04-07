@@ -167,7 +167,6 @@ export default function CarbCyclingSelector({
                   : 'bg-white/[0.02] hover:bg-white/[0.04]'
               }`}
               style={{
-                ringColor: isActive ? day.color : 'transparent',
                 borderColor: isActive ? day.color : 'transparent',
                 boxShadow: isActive ? `0 0 12px ${day.color}20` : 'none',
               }}

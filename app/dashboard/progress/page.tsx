@@ -311,7 +311,7 @@ export default function ProgressPage() {
       waist_cm: formWaist ? parseFloat(formWaist) : null,
     };
 
-    const { data } = await supabase.from('measurements').insert(entry).select().single();
+    const { data } = await supabase.from('measurements').insert(entry).select().maybeSingle();
     if (data) {
       setMeasurements((prev) => [...prev, data]);
       setShowForm(false);

@@ -51,6 +51,7 @@ export interface ClientProfile {
   target_fiber_g: number | null;
   target_water_ml: number | null;
   current_habit_id: string | null;
+  carb_cycling_enabled: boolean;
   coaching_phase: CoachingPhase;
   notes: string | null;
   created_at: string;

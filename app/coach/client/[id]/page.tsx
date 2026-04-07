@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useParams, useSearchParams } from 'next/navigation';
+import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
   ArrowLeft,
@@ -229,6 +229,7 @@ function WeightChart({ measurements }: { measurements: Measurement[] }) {
 // ═══════════════════════════════════════════════
 
 export default function ClientDetailPage() {
+  const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
   const clientId = params.id as string;
@@ -258,6 +259,9 @@ export default function ClientDetailPage() {
 
   const loadData = useCallback(async () => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { router.push("/login"); return; }
+
       const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
       const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
@@ -380,7 +384,7 @@ export default function ClientDetailPage() {
         client_id: clientId,
         note: newNote.trim(),
         session_type: noteType,
-      }).select().single();
+      }).select().maybeSingle();
 
       if (data) {
         setNotes([data, ...notes]);

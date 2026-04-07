@@ -246,13 +246,14 @@ function SessionCard({
 // ═══════════════════════════════════════════════
 export default function WorkoutHistoryPage() {
   const { t, lang } = useI18n();
+  const router = useRouter();
   const [sessions, setSessions] = useState<SessionWithSets[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setLoading(false); return; }
+      if (!user) { router.push("/login"); return; }
 
       // Fetch sessions
       const { data: sessionsData } = await supabase

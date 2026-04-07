@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Dumbbell, Plus, Minus, Clock, Trophy, Search, X, AlertTriangle,
@@ -299,6 +300,7 @@ function ElapsedTimer({ startTime }: { startTime: number }) {
 // Main Workout Page
 // ═══════════════════════════════════════════════
 export default function WorkoutPage() {
+  const router = useRouter();
   const { t, lang } = useI18n();
 
   // Session state
@@ -323,7 +325,8 @@ export default function WorkoutPage() {
   useEffect(() => {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser();
-      if (user) setUserId(user.id);
+      if (!user) { router.push("/login"); return; }
+      setUserId(user.id);
 
       const { data } = await supabase
         .from('exercises')
@@ -373,7 +376,7 @@ export default function WorkoutPage() {
         pain_flags: [],
       })
       .select()
-      .single();
+      .maybeSingle();
 
     if (data && !error) {
       setSessionId(data.id);

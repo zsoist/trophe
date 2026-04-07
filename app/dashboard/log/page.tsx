@@ -150,7 +150,7 @@ export default function FoodLogPage() {
       source_id: String(food.fdcId),
     };
 
-    const { data } = await supabase.from('food_log').insert(entry).select().single();
+    const { data } = await supabase.from('food_log').insert(entry).select().maybeSingle();
     if (data) setTodayLog((prev) => [...prev, data]);
     setAdding(null);
     setQuantity(1);
@@ -311,7 +311,7 @@ export default function FoodLogPage() {
                       fat_g: Math.round(food.fat_g * 10) / 10,
                       source: 'usda' as const,
                     };
-                    const { data } = await supabase.from('food_log').insert(entry).select().single();
+                    const { data } = await supabase.from('food_log').insert(entry).select().maybeSingle();
                     if (data) setTodayLog((prev) => [...prev, data]);
                     setQuickAdding(null);
                   }}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useToast } from '@/components/Toast';
 import { motion } from 'framer-motion';
 import {
@@ -51,6 +52,7 @@ const emptySupplement: SupplementItem = {
 // ═══════════════════════════════════════════════
 
 export default function ProtocolsPage() {
+  const router = useRouter();
   const toast = useToast();
   const [protocols, setProtocols] = useState<SupplementProtocol[]>([]);
   const [loading, setLoading] = useState(true);
@@ -70,7 +72,12 @@ export default function ProtocolsPage() {
   const [loadingClients, setLoadingClients] = useState(false);
 
   useEffect(() => {
-    loadProtocols();
+    async function checkAuth() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { router.push("/login"); return; }
+      loadProtocols();
+    }
+    checkAuth();
   }, []);
 
   async function loadProtocols() {
