@@ -321,3 +321,44 @@ INSERT INTO habits (name_en, name_es, name_el, description_en, description_es, d
 ('Eat without screens', 'Comer sin pantallas', 'Φάε χωρίς οθόνες', 'At least one meal per day without phone, TV, or computer. Focus on your food.', 'Al menos una comida al día sin celular, TV o computadora.', 'Τουλάχιστον ένα γεύμα χωρίς κινητό, TV ή υπολογιστή.', '📵', 'mindset', 'intermediate', 1, 'meals', 14, 8, true),
 ('Include healthy fats daily', 'Incluir grasas saludables diariamente', 'Συμπερίλαβε υγιεινά λιπαρά καθημερινά', 'Add avocado, olive oil, nuts, or fatty fish to at least one meal. Supports hormones and satiety.', 'Agrega aguacate, aceite de oliva, frutos secos o pescado graso a al menos una comida.', 'Πρόσθεσε αβοκάντο, ελαιόλαδο, ξηρούς καρπούς ή λιπαρά ψάρια.', '🥑', 'nutrition', 'beginner', 0.8, 'g/kg', 14, 9, true),
 ('Practice 5-min breathing', 'Practicar 5 min de respiración', 'Κάνε 5 λεπτά αναπνοές', 'Spend 5 minutes on deep breathing or meditation. Reduces cortisol and improves recovery.', 'Dedica 5 minutos a respiración profunda o meditación. Reduce cortisol y mejora recuperación.', 'Αφιερώστε 5 λεπτά σε βαθιά αναπνοή ή διαλογισμό.', '🧘', 'recovery', 'beginner', 5, 'minutes', 14, 10, true);
+
+-- ═══════════════════════════════════════════════
+-- FOOD DATABASE (Phase 2: Local food catalog)
+-- ═══════════════════════════════════════════════
+
+CREATE TABLE food_database (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  name_el TEXT,
+  name_es TEXT,
+  calories_per_100g REAL NOT NULL,
+  protein_per_100g REAL NOT NULL,
+  carbs_per_100g REAL NOT NULL,
+  fat_per_100g REAL NOT NULL,
+  fiber_per_100g REAL DEFAULT 0,
+  default_serving_grams REAL DEFAULT 100,
+  default_serving_unit TEXT DEFAULT '100g',
+  common_units JSONB DEFAULT '[]',
+  category TEXT,
+  source TEXT CHECK (source IN ('seed', 'usda', 'openfoodfacts', 'coach')),
+  source_id TEXT,
+  popularity INT DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(name, source)
+);
+
+-- Full-text search index (simple config for multilingual support)
+CREATE INDEX idx_food_db_name ON food_database(name);
+CREATE INDEX idx_food_db_name_el ON food_database(name_el);
+CREATE INDEX idx_food_db_name_es ON food_database(name_es);
+CREATE INDEX idx_food_db_popularity ON food_database(popularity DESC);
+CREATE INDEX idx_food_db_search ON food_database USING GIN(
+  to_tsvector('simple', COALESCE(name, '') || ' ' || COALESCE(name_el, '') || ' ' || COALESCE(name_es, ''))
+);
+
+-- RLS: readable by all authenticated, writable by coaches
+ALTER TABLE food_database ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "All authenticated read food_database" ON food_database FOR SELECT USING (auth.uid() IS NOT NULL);
+CREATE POLICY "Coaches insert food_database" ON food_database FOR INSERT WITH CHECK (
+  auth.uid() IN (SELECT id FROM profiles WHERE role IN ('coach', 'both'))
+);

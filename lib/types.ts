@@ -12,7 +12,7 @@ export type HabitCategory = 'nutrition' | 'hydration' | 'movement' | 'sleep' | '
 export type HabitDifficulty = 'beginner' | 'intermediate' | 'advanced';
 export type HabitStatus = 'active' | 'completed' | 'paused' | 'skipped';
 export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'pre_workout' | 'post_workout';
-export type FoodSource = 'usda' | 'openfoodfacts' | 'custom' | 'photo_ai';
+export type FoodSource = 'usda' | 'openfoodfacts' | 'custom' | 'photo_ai' | 'natural_language';
 export type Mood = 'great' | 'good' | 'okay' | 'tough' | 'struggled';
 export type SessionType = 'check_in' | 'progression' | 'concern' | 'general';
 
