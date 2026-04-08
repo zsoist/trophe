@@ -7,96 +7,138 @@ interface CalorieGaugeProps {
   target: number;
 }
 
-// F15: Speedometer-style calorie gauge
 export default function CalorieGauge({ consumed, target }: CalorieGaugeProps) {
   if (target === 0) return null;
 
-  const pct = Math.min(consumed / target, 2); // cap at 200%
-  const angle = -135 + pct * 270; // sweep from -135° to 135°
-  const r = 60;
-  const cx = 70;
-  const cy = 70;
+  const pct = Math.min(consumed / target, 2);
+  const r = 54;
+  const cx = 75;
+  const cy = 75;
+  const strokeWidth = 10;
 
-  // Arc path for the background track
-  const trackStart = polarToCartesian(cx, cy, r, -135);
-  const trackEnd = polarToCartesian(cx, cy, r, 135);
-  const trackPath = `M ${trackStart.x} ${trackStart.y} A ${r} ${r} 0 1 1 ${trackEnd.x} ${trackEnd.y}`;
+  // Arc spans 270° (from 135° to 405° / -225° to 45°)
+  // Using stroke-dasharray on a circle is simpler and animates well
+  const circumference = 2 * Math.PI * r;
+  const arcLength = circumference * (270 / 360); // 270° arc
+  const fillLength = arcLength * Math.min(pct, 1);
+  const gapLength = circumference - arcLength;
 
-  // Arc path for the filled portion
-  const fillEnd = polarToCartesian(cx, cy, r, Math.min(angle, 135));
-  const largeArc = pct > 0.5 ? 1 : 0;
-  const fillPath = `M ${trackStart.x} ${trackStart.y} A ${r} ${r} 0 ${largeArc} 1 ${fillEnd.x} ${fillEnd.y}`;
+  // Color based on percentage
+  const color = pct > 1.2 ? '#ef4444'
+    : pct > 1.0 ? '#f59e0b'
+    : pct > 0.8 ? '#22c55e'
+    : pct > 0.5 ? '#D4A853'
+    : '#78716c';
 
-  // Color zones
-  const color = pct > 1.2 ? '#ef4444' // red (over)
-    : pct > 1.0 ? '#f59e0b' // amber (slightly over)
-    : pct > 0.8 ? '#22c55e' // green (on target)
-    : pct > 0.5 ? '#D4A853' // gold (getting there)
-    : '#78716c'; // stone (low)
+  const remaining = target - consumed;
 
-  const remaining = Math.max(0, target - consumed);
+  // Zone tick marks at 50%, 80%, 100%, 120%
+  const ticks = [0.5, 0.8, 1.0, 1.2].map(z => {
+    const angle = 135 + z * 270; // start at 135° (bottom-left)
+    const rad = (angle * Math.PI) / 180;
+    const inner = r - strokeWidth / 2 - 2;
+    const outer = r + strokeWidth / 2 + 2;
+    return {
+      z,
+      x1: cx + inner * Math.cos(rad),
+      y1: cy + inner * Math.sin(rad),
+      x2: cx + outer * Math.cos(rad),
+      y2: cy + outer * Math.sin(rad),
+    };
+  });
+
+  // Needle endpoint
+  const needleAngle = 135 + Math.min(pct, 1.3) * 270;
+  const needleRad = (needleAngle * Math.PI) / 180;
+  const needleX = cx + (r - 15) * Math.cos(needleRad);
+  const needleY = cy + (r - 15) * Math.sin(needleRad);
 
   return (
     <div className="flex flex-col items-center">
-      <svg width="140" height="90" viewBox="0 0 140 90">
-        {/* Background track */}
-        <path d={trackPath} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="8" strokeLinecap="round" />
+      <svg width="150" height="110" viewBox="0 0 150 110">
+        {/* Background track — 270° arc */}
+        <circle
+          cx={cx}
+          cy={cy}
+          r={r}
+          fill="none"
+          stroke="rgba(255,255,255,0.06)"
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+          strokeDasharray={`${arcLength} ${gapLength}`}
+          strokeDashoffset={-circumference * (135 / 360)}
+          transform={`rotate(0 ${cx} ${cy})`}
+        />
 
-        {/* Zone indicators (subtle) */}
-        {[0.5, 0.8, 1.0, 1.2].map(z => {
-          const zAngle = -135 + z * 270;
-          const p = polarToCartesian(cx, cy, r + 6, zAngle);
-          return <circle key={z} cx={p.x} cy={p.y} r={1.5} fill="rgba(255,255,255,0.1)" />;
-        })}
+        {/* Tick marks */}
+        {ticks.map(tick => (
+          <line
+            key={tick.z}
+            x1={tick.x1} y1={tick.y1}
+            x2={tick.x2} y2={tick.y2}
+            stroke="rgba(255,255,255,0.15)"
+            strokeWidth="1"
+          />
+        ))}
 
-        {/* Filled arc */}
-        <motion.path
-          d={fillPath}
+        {/* Filled arc — animated */}
+        <motion.circle
+          cx={cx}
+          cy={cy}
+          r={r}
           fill="none"
           stroke={color}
-          strokeWidth="8"
+          strokeWidth={strokeWidth}
           strokeLinecap="round"
-          initial={{ pathLength: 0 }}
-          animate={{ pathLength: 1 }}
-          transition={{ duration: 1, ease: 'easeOut' }}
+          strokeDasharray={`${arcLength} ${gapLength}`}
+          strokeDashoffset={-circumference * (135 / 360)}
+          initial={{ strokeDasharray: `0 ${circumference}` }}
+          animate={{ strokeDasharray: `${fillLength} ${circumference - fillLength}` }}
+          transition={{ duration: 1.2, ease: [0.25, 0.46, 0.45, 0.94] }}
+          style={{ filter: `drop-shadow(0 0 6px ${color}40)` }}
         />
 
         {/* Needle */}
         <motion.line
           x1={cx}
           y1={cy}
-          x2={fillEnd.x}
-          y2={fillEnd.y}
+          x2={needleX}
+          y2={needleY}
           stroke={color}
           strokeWidth="2"
           strokeLinecap="round"
           initial={{ opacity: 0 }}
-          animate={{ opacity: 0.6 }}
-          transition={{ delay: 0.8 }}
+          animate={{ opacity: 0.7 }}
+          transition={{ delay: 1 }}
         />
-
-        {/* Center dot */}
-        <circle cx={cx} cy={cy} r="3" fill={color} />
+        <circle cx={cx} cy={cy} r="4" fill={color} />
+        <circle cx={cx} cy={cy} r="2" fill="#1a1a1a" />
 
         {/* Center text */}
-        <text x={cx} y={cy - 8} textAnchor="middle" className="fill-stone-100 text-lg font-bold" fontSize="18">
+        <text x={cx} y={cy - 6} textAnchor="middle" dominantBaseline="middle" fill="#f5f5f4" fontSize="20" fontWeight="bold">
           {Math.round(consumed)}
         </text>
-        <text x={cx} y={cy + 6} textAnchor="middle" className="fill-stone-500" fontSize="9">
+        <text x={cx} y={cy + 10} textAnchor="middle" dominantBaseline="middle" fill="#78716c" fontSize="9">
           / {target} kcal
         </text>
+
+        {/* Labels at start/end of arc */}
+        <text x="18" y="95" fill="#57534e" fontSize="8">0</text>
+        <text x="125" y="95" fill="#57534e" fontSize="8">{target * 2 > 4000 ? '4k' : target * 2}</text>
       </svg>
-      <p className="text-xs mt-1" style={{ color }}>
-        {remaining > 0 ? `${Math.round(remaining)} kcal remaining` : `${Math.round(consumed - target)} over target`}
-      </p>
+
+      <motion.p
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.5 }}
+        className="text-xs -mt-1"
+        style={{ color }}
+      >
+        {remaining > 0
+          ? `${Math.round(remaining)} kcal remaining`
+          : `${Math.round(Math.abs(remaining))} over target`
+        }
+      </motion.p>
     </div>
   );
-}
-
-function polarToCartesian(cx: number, cy: number, r: number, angleDeg: number) {
-  const rad = (angleDeg * Math.PI) / 180;
-  return {
-    x: cx + r * Math.cos(rad),
-    y: cy + r * Math.sin(rad),
-  };
 }

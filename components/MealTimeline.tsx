@@ -87,76 +87,59 @@ export default function MealTimeline({ foodLog }: MealTimelineProps) {
         Meal Timeline
       </h3>
 
-      <div className="relative">
-        {/* Timeline bar */}
-        <div className="h-1 bg-white/[0.06] rounded-full relative mx-2">
-          {/* Time markers */}
-          {markers.map((h) => {
-            const pct = ((h - startHour) / range) * 100;
-            return (
+      {/* Timeline — simpler horizontal layout */}
+      <div className="relative h-20 mx-1">
+        {/* Background bar */}
+        <div className="absolute top-10 left-0 right-0 h-1 bg-white/[0.06] rounded-full" />
+
+        {/* Time markers */}
+        {markers.map((h) => {
+          const pct = ((h - startHour) / range) * 100;
+          return (
+            <div
+              key={h}
+              className="absolute"
+              style={{ left: `${pct}%`, top: '48px' }}
+            >
+              <div className="w-px h-1.5 bg-white/10 -ml-px" />
+              <span className="text-[9px] text-stone-600 block -ml-2 mt-0.5">
+                {h > 12 ? `${h - 12}p` : h === 12 ? '12p' : `${h}a`}
+              </span>
+            </div>
+          );
+        })}
+
+        {/* Meal dots — positioned above the bar */}
+        {mealEvents.map((event, i) => {
+          const pct = Math.max(2, Math.min(98, ((event.hour - startHour) / range) * 100));
+          const dotSize = 10 + (event.calories / maxCal) * 14;
+          const color = MEAL_COLORS[event.mealType] || '#78716c';
+
+          return (
+            <motion.div
+              key={`${event.mealType}-${i}`}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.1 }}
+              className="absolute"
+              style={{ left: `${pct}%`, top: `${40 - dotSize / 2}px`, marginLeft: -dotSize / 2 }}
+            >
               <div
-                key={h}
-                className="absolute top-full mt-1.5"
-                style={{ left: `${pct}%`, transform: 'translateX(-50%)' }}
-              >
-                <div className="w-px h-1.5 bg-white/10 mx-auto mb-0.5" />
-                <span className="text-[9px] text-stone-600">
-                  {h > 12 ? `${h - 12}p` : h === 12 ? '12p' : `${h}a`}
-                </span>
-              </div>
-            );
-          })}
-
-          {/* Meal dots */}
-          {mealEvents.map((event, i) => {
-            const pct = Math.max(
-              0,
-              Math.min(100, ((event.hour - startHour) / range) * 100)
-            );
-            // Dot size: min 12px, max 28px based on calories
-            const dotSize = 12 + (event.calories / maxCal) * 16;
-            const color = MEAL_COLORS[event.mealType] || '#78716c';
-
-            return (
-              <motion.div
-                key={`${event.mealType}-${i}`}
-                initial={{ scale: 0, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ delay: i * 0.1, type: 'spring', stiffness: 300 }}
-                className="absolute top-1/2 -translate-y-1/2 group cursor-default"
+                className="rounded-full border border-stone-950"
                 style={{
-                  left: `${pct}%`,
-                  transform: `translateX(-50%) translateY(-50%)`,
+                  width: dotSize,
+                  height: dotSize,
+                  backgroundColor: color,
+                  boxShadow: `0 0 6px ${color}30`,
                 }}
-              >
-                {/* Dot */}
-                <div
-                  className="rounded-full border-2 border-stone-950 relative"
-                  style={{
-                    width: dotSize,
-                    height: dotSize,
-                    backgroundColor: color,
-                    boxShadow: `0 0 8px ${color}40`,
-                  }}
-                />
-                {/* Tooltip on hover */}
-                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-10">
-                  <div className="glass-elevated px-2 py-1.5 rounded-lg whitespace-nowrap text-center">
-                    <div className="text-[10px] font-medium text-stone-200">
-                      {event.label}
-                    </div>
-                    <div className="text-[9px] text-stone-400">
-                      {Math.round(event.calories)} kcal
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
-
-        {/* Bottom spacing for markers */}
-        <div className="h-6" />
+              />
+              {/* Label below dot */}
+              <p className="text-[8px] text-stone-500 text-center mt-0.5 whitespace-nowrap" style={{ marginLeft: -10, width: dotSize + 20 }}>
+                {Math.round(event.calories)}
+              </p>
+            </motion.div>
+          );
+        })}
       </div>
 
       {/* Legend */}

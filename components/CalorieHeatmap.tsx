@@ -23,7 +23,7 @@ const GAP = 2;
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 function getIntensity(calories: number): string {
-  if (calories === 0) return 'rgba(212, 168, 83, 0.04)';
+  if (calories === 0) return 'rgba(255, 255, 255, 0.04)';
   if (calories < 500) return 'rgba(212, 168, 83, 0.15)';
   if (calories < 1000) return 'rgba(212, 168, 83, 0.30)';
   if (calories < 1500) return 'rgba(212, 168, 83, 0.50)';
@@ -31,7 +31,7 @@ function getIntensity(calories: number): string {
   return 'rgba(212, 168, 83, 0.90)';
 }
 
-export default function CalorieHeatmap({ userId, weeks = 12 }: CalorieHeatmapProps) {
+export default function CalorieHeatmap({ userId, weeks = 8 }: CalorieHeatmapProps) {
   const [cells, setCells] = useState<DayCell[]>([]);
   const [months, setMonths] = useState<{ label: string; col: number }[]>([]);
   const [loading, setLoading] = useState(true);
