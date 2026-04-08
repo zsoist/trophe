@@ -245,11 +245,11 @@ export default function FoodLogPage() {
 
   // Load persisted state
   useEffect(() => {
-    const storedSkipped = localStorage.getItem(`trophe_skipped_${today}`);
+    const storedSkipped = localStorage.getItem(`trophe_skipped_${selectedDate}`);
     if (storedSkipped) {
       try { setSkippedSlots(new Set(JSON.parse(storedSkipped))); } catch { /* ignore */ }
     }
-    const storedLocked = localStorage.getItem(`trophe_locked_${today}`);
+    const storedLocked = localStorage.getItem(`trophe_locked_${selectedDate}`);
     if (storedLocked) {
       try { setLockedSlots(new Set(JSON.parse(storedLocked))); } catch { /* ignore */ }
     }
@@ -259,16 +259,16 @@ export default function FoodLogPage() {
     if (storedSlots) {
       try { setCustomSlots(JSON.parse(storedSlots)); } catch { /* ignore */ }
     }
-  }, [today]);
+  }, [selectedDate]);
 
   const saveSkipped = (newSkipped: Set<string>) => {
     setSkippedSlots(newSkipped);
-    localStorage.setItem(`trophe_skipped_${today}`, JSON.stringify([...newSkipped]));
+    localStorage.setItem(`trophe_skipped_${selectedDate}`, JSON.stringify([...newSkipped]));
   };
 
   const saveLocked = (newLocked: Set<string>) => {
     setLockedSlots(newLocked);
-    localStorage.setItem(`trophe_locked_${today}`, JSON.stringify([...newLocked]));
+    localStorage.setItem(`trophe_locked_${selectedDate}`, JSON.stringify([...newLocked]));
   };
 
   const lockAll = () => {
@@ -446,7 +446,7 @@ export default function FoodLogPage() {
     if (!userId) return;
     const entry = {
       user_id: userId,
-      logged_date: today,
+      logged_date: selectedDate,
       meal_type: mealType,
       food_name: fav.food_name,
       quantity: 1,
@@ -489,7 +489,7 @@ export default function FoodLogPage() {
       .filter(e => !existingKeys.has(`${e.food_name}::${e.meal_type}`))
       .map(e => ({
         user_id: userId,
-        logged_date: today,
+        logged_date: selectedDate,
         meal_type: e.meal_type,
         food_name: e.food_name,
         quantity: e.quantity,
@@ -791,7 +791,7 @@ export default function FoodLogPage() {
               slot={slot}
               entries={grouped[slot.id] || []}
               userId={userId}
-              date={today}
+              date={selectedDate}
               skipped={skippedSlots.has(slot.id)}
               locked={lockedSlots.has(slot.id)}
               favorites={favorites}
