@@ -561,8 +561,10 @@ export default function FoodLogPage() {
 
         {/* Gauge View */}
         {viewMode === 'gauge' && targets.calories > 0 && (
-          <div className="glass p-4 mb-4 flex justify-center">
-            <CalorieGauge consumed={totalCalories} target={targets.calories} />
+          <div className="glass p-4 mb-4 flex justify-center overflow-hidden">
+            <div className="max-w-[160px]">
+              <CalorieGauge consumed={totalCalories} target={targets.calories} />
+            </div>
           </div>
         )}
 

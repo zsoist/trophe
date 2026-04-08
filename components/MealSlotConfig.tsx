@@ -70,7 +70,7 @@ export default function MealSlotConfig({ slots: initialSlots, onSave, onClose }:
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
         transition={{ type: 'spring', damping: 25 }}
-        className="w-full max-w-md bg-stone-900 rounded-t-2xl p-4 max-h-[80vh] overflow-y-auto"
+        className="w-full max-w-md bg-stone-900 rounded-t-2xl p-4 pb-20 max-h-[85vh] overflow-y-auto"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
@@ -180,8 +180,8 @@ export default function MealSlotConfig({ slots: initialSlots, onSave, onClose }:
           </button>
         )}
 
-        {/* Action buttons — sticky at bottom */}
-        <div className="flex gap-2 sticky bottom-0 pt-2 bg-stone-900">
+        {/* Action buttons — fixed at bottom with safe padding above nav */}
+        <div className="flex gap-2 sticky bottom-0 pt-2 pb-4 bg-stone-900 border-t border-white/[0.05]">
           <button onClick={onClose} className="btn-ghost flex-1 py-3 text-sm">
             {t('general.cancel')}
           </button>
