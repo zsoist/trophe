@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown, ChevronUp, SkipForward, Undo2, Trash2, Pencil, Check, X, Lock, Unlock, Star } from 'lucide-react';
+import { ChevronDown, ChevronUp, SkipForward, Undo2, Trash2, Pencil, Check, X, Lock, Unlock, Star, MessageSquare, Copy } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { supabase } from '@/lib/supabase';
 import type { FoodLogEntry, MealType } from '@/lib/types';
@@ -65,6 +65,29 @@ export default function MealSlotCard({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editQty, setEditQty] = useState(1);
   const [saving, setSaving] = useState(false);
+
+  // F24: Meal notes
+  const noteKey = `trophe_notes_${date}_${slot.id}`;
+  const [note, setNote] = useState('');
+  const [showNote, setShowNote] = useState(false);
+
+  // Load note from localStorage on expand
+  const toggleExpand = () => {
+    if (!expanded) {
+      const stored = localStorage.getItem(noteKey);
+      if (stored) setNote(stored);
+    }
+    setExpanded(!expanded);
+  };
+
+  const saveNote = (text: string) => {
+    setNote(text);
+    if (text.trim()) {
+      localStorage.setItem(noteKey, text);
+    } else {
+      localStorage.removeItem(noteKey);
+    }
+  };
 
   const totalCalories = entries.reduce((s, e) => s + (e.calories ?? 0), 0);
   const totalProtein = entries.reduce((s, e) => s + (e.protein_g ?? 0), 0);
@@ -195,7 +218,7 @@ export default function MealSlotCard({
     <motion.div layout className="glass p-3">
       <div
         className="flex items-center justify-between cursor-pointer"
-        onClick={() => setExpanded(!expanded)}
+        onClick={toggleExpand}
       >
         <div className="flex items-center gap-2">
           <span className="text-lg">{slot.emoji}</span>
@@ -314,43 +337,80 @@ export default function MealSlotCard({
               );
             })}
 
-            {/* Add more / Lock this slot */}
+            {/* F24: Meal notes */}
+            {showNote ? (
+              <div className="pt-1">
+                <textarea
+                  value={note}
+                  onChange={(e) => saveNote(e.target.value)}
+                  placeholder="Add a note about this meal..."
+                  className="input-dark w-full text-xs resize-none min-h-[36px] py-1.5"
+                  rows={1}
+                  autoFocus
+                  onBlur={() => { if (!note.trim()) setShowNote(false); }}
+                />
+              </div>
+            ) : note ? (
+              <button
+                onClick={() => setShowNote(true)}
+                className="pt-1 text-stone-500 text-[10px] italic truncate block w-full text-left"
+              >
+                📝 {note}
+              </button>
+            ) : null}
+
+            {/* Actions row */}
             <div className="pt-1 flex items-center justify-between">
-              {!inputActive ? (
-                <button
-                  onClick={() => setInputActive(true)}
-                  className="text-stone-500 hover:gold-text text-xs transition-colors text-left py-1"
-                >
-                  + Add more
-                </button>
-              ) : (
-                <div className="pt-2 w-full">
-                  <QuickFoodInput
-                    userId={userId}
-                    mealType={slot.mealType}
-                    date={date}
-                    onLogged={() => {
-                      setInputActive(false);
-                      onLogged();
-                    }}
-                    onSearchMode={() => {}}
-                  />
+              <div className="flex items-center gap-2">
+                {!inputActive ? (
                   <button
-                    onClick={() => setInputActive(false)}
-                    className="text-stone-600 hover:text-stone-300 text-xs transition-colors mt-1"
+                    onClick={() => setInputActive(true)}
+                    className="text-stone-500 hover:gold-text text-xs transition-colors text-left py-1"
                   >
-                    {t('general.cancel')}
+                    + Add more
+                  </button>
+                ) : (
+                  <div className="pt-2 w-full">
+                    <QuickFoodInput
+                      userId={userId}
+                      mealType={slot.mealType}
+                      date={date}
+                      onLogged={() => {
+                        setInputActive(false);
+                        onLogged();
+                      }}
+                      onSearchMode={() => {}}
+                    />
+                    <button
+                      onClick={() => setInputActive(false)}
+                      className="text-stone-600 hover:text-stone-300 text-xs transition-colors mt-1"
+                    >
+                      {t('general.cancel')}
+                    </button>
+                  </div>
+                )}
+              </div>
+              {!inputActive && (
+                <div className="flex items-center gap-1.5">
+                  {/* F24: Note toggle */}
+                  {!showNote && !note && (
+                    <button
+                      onClick={() => setShowNote(true)}
+                      className="text-stone-600 hover:text-stone-400 p-1 transition-colors"
+                      title="Add note"
+                    >
+                      <MessageSquare size={11} />
+                    </button>
+                  )}
+                  {/* Lock */}
+                  <button
+                    onClick={onLock}
+                    className="text-stone-600 hover:text-green-400 text-xs flex items-center gap-1 transition-colors py-1"
+                  >
+                    <Lock size={11} />
+                    {t('food.lock_meal')}
                   </button>
                 </div>
-              )}
-              {!inputActive && (
-                <button
-                  onClick={onLock}
-                  className="text-stone-600 hover:text-green-400 text-xs flex items-center gap-1 transition-colors py-1"
-                >
-                  <Lock size={11} />
-                  {t('food.lock_meal')}
-                </button>
               )}
             </div>
           </motion.div>

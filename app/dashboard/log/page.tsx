@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Copy, Lock, Unlock, Flame, Undo2, Star } from 'lucide-react';
+import { Copy, Lock, Unlock, Flame, Undo2, Star, Settings } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
 import type { FoodLogEntry, MealType } from '@/lib/types';
@@ -13,6 +13,7 @@ import MealSlotCard, { type MealSlot } from '@/components/MealSlotCard';
 import DailyInsights from '@/components/DailyInsights';
 import WeeklySummary from '@/components/WeeklySummary';
 import MealBadges from '@/components/MealBadges';
+import MealSlotConfig from '@/components/MealSlotConfig';
 
 const DEFAULT_MEAL_SLOTS: MealSlot[] = [
   { id: 'breakfast', mealType: 'breakfast', label: 'Breakfast', emoji: '🌅', order: 0 },
@@ -112,8 +113,13 @@ export default function FoodLogPage() {
   // F6: Streak
   const [streak, setStreak] = useState(0);
 
+  // F18: Custom meal slots
+  const [customSlots, setCustomSlots] = useState<MealSlot[] | null>(null);
+  const [showSlotConfig, setShowSlotConfig] = useState(false);
+
   const today = new Date().toISOString().split('T')[0];
-  const slots = getLocalizedSlots(t);
+  const defaultSlots = getLocalizedSlots(t);
+  const slots = customSlots || defaultSlots;
 
   const totalCalories = todayLog.reduce((s, f) => s + (f.calories ?? 0), 0);
   const totalProtein = todayLog.reduce((s, f) => s + (f.protein_g ?? 0), 0);
@@ -138,6 +144,11 @@ export default function FoodLogPage() {
       try { setLockedSlots(new Set(JSON.parse(storedLocked))); } catch { /* ignore */ }
     }
     setFavorites(loadFavorites());
+    // F18: Load custom meal slots
+    const storedSlots = localStorage.getItem('trophe_meal_slots');
+    if (storedSlots) {
+      try { setCustomSlots(JSON.parse(storedSlots)); } catch { /* ignore */ }
+    }
   }, [today]);
 
   const saveSkipped = (newSkipped: Set<string>) => {
@@ -378,6 +389,13 @@ export default function FoodLogPage() {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold text-stone-100">Track Food</h1>
+            <button
+              onClick={() => setShowSlotConfig(true)}
+              className="text-stone-600 hover:text-stone-300 p-1 transition-colors"
+              title="Customize meals"
+            >
+              <Settings size={14} />
+            </button>
             {/* F6: Streak */}
             {streak > 0 && (
               <motion.div
@@ -653,6 +671,20 @@ export default function FoodLogPage() {
               </button>
             </div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* F18: Slot config modal */}
+      <AnimatePresence>
+        {showSlotConfig && (
+          <MealSlotConfig
+            slots={slots}
+            onSave={(newSlots) => {
+              setCustomSlots(newSlots);
+              localStorage.setItem('trophe_meal_slots', JSON.stringify(newSlots));
+            }}
+            onClose={() => setShowSlotConfig(false)}
+          />
         )}
       </AnimatePresence>
 
