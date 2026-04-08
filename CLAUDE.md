@@ -8,9 +8,9 @@
 - **Styling**: Tailwind CSS 4 + Framer Motion + Lucide icons
 - **i18n**: Trilingual (EN/ES/EL) via lib/i18n.tsx
 
-## Stats (2026-04-08, end of day)
-- **23,941 lines** | **57 components** | **9 API routes** | **18 pages** | **34 commits**
-- **18 database tables** (+ api_usage_log) | **39+ RLS policies** | **12 indexes**
+## Stats (2026-04-08, final)
+- **23,941 lines** | **57 components** | **9 API routes** | **18 pages** | **36 commits**
+- **18 database tables** (incl api_usage_log) | **41 RLS policies** | **14 indexes**
 - **30 exercises** | **126 foods** | **20 Greek foods** | **10 habits**
 - **85+ features** shipped across 9 iterations
 - **0 TypeScript errors** (strict mode ON) | **0 console errors**
@@ -94,9 +94,11 @@
 
 ## Supabase
 - Project: Trophe (iwbpzwmidzvpiofnqexd)
-- 17 tables, 39+ RLS policies, 15 indexes
+- 18 tables (incl api_usage_log), 41 RLS policies, 14 indexes
 - Service role key in .env.local (never expose)
 - food_log source CHECK: `('usda', 'openfoodfacts', 'custom', 'photo_ai', 'natural_language', 'ai_estimate')`
+- api_usage_log: tracks Anthropic + Gemini API calls (tokens, cost, latency)
+- Migration ran: 2026-04-08 (.forge/migrate-api-usage-log.sql)
 
 ## Deploy
 ```bash
@@ -137,6 +139,10 @@ git config user.email "zsoist@users.noreply.github.com"
 7. Lock per-meal or "Lock All" → localStorage prevents accidental edits
 
 ## Pitfalls (learned the hard way)
+### Security (CRITICAL — Codex audit 2026-04-07)
+- `middleware.ts` checked cookie PRESENCE only, not JWT validity — any non-empty `sb-access-token` cookie bypassed auth. Always use `@supabase/ssr createServerClient` + `supabase.auth.getUser()` for real verification
+- `/api/seed/*` routes had NO auth check but used service-role key — anonymous callers could trigger mass data operations. Seed routes must require admin auth or be removed from production builds
+
 ### Supabase
 - NEVER use `.single()` on ANY query — use `.maybeSingle()` (PGRST116 crash)
 - Supabase email confirmation ON by default — use admin API with `email_confirm: true`
