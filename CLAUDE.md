@@ -8,8 +8,8 @@
 - **Styling**: Tailwind CSS 4 + Framer Motion + Lucide icons
 - **i18n**: Trilingual (EN/ES/EL) via lib/i18n.tsx
 
-## Stats (2026-04-07)
-- **17,335 lines** | **28 components** | **9 API routes** | **17 pages**
+## Stats (2026-04-08)
+- **18,840 lines** | **32 components** | **9 API routes** | **17 pages**
 - **17 database tables** | **39+ RLS policies** | **10 indexes**
 - **30 exercises** | **126 foods** | **20 Greek foods** | **10 habits**
 - **0 TypeScript errors** (strict mode ON) | **0 console errors**
