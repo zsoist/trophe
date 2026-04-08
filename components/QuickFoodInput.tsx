@@ -18,12 +18,14 @@ interface QuickFoodInputProps {
 }
 
 type InputMode = 'idle' | 'parsing' | 'confirming' | 'photo_analyzing';
+type InputSource = 'text' | 'photo';
 
 export default function QuickFoodInput({ userId, mealType, date, onLogged, onSearchMode }: QuickFoodInputProps) {
   const { t, lang } = useI18n();
   const [text, setText] = useState('');
   const [mode, setMode] = useState<InputMode>('idle');
   const [parsedItems, setParsedItems] = useState<ParsedFoodItem[]>([]);
+  const [inputSource, setInputSource] = useState<InputSource>('text');
   const [error, setError] = useState<string | null>(null);
   const [logging, setLogging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -58,6 +60,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, onSea
       }
 
       setParsedItems(data.items);
+      setInputSource('text');
       setMode('confirming');
     } catch {
       setError('Failed to parse food');
@@ -65,15 +68,11 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, onSea
     }
   };
 
-  const handlePhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  const processImageFile = async (file: File) => {
     setError(null);
     setMode('photo_analyzing');
 
     try {
-      // Resize image to max 1024px for speed and cost
       const base64 = await resizeAndEncode(file, 1024);
       const mediaType = file.type || 'image/jpeg';
 
@@ -91,7 +90,6 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, onSea
         return;
       }
 
-      // Convert photo analysis format to ParsedFoodItem format
       const items: ParsedFoodItem[] = data.foods.map((f: {
         name: string;
         estimated_calories: number;
@@ -105,7 +103,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, onSea
         name_localized: f.name,
         quantity: 1,
         unit: 'serving',
-        grams: Math.round((f.estimated_calories / 1.5) || 100), // rough estimate
+        grams: Math.round((f.estimated_calories / 1.5) || 100),
         calories: Math.round(f.estimated_calories),
         protein_g: Math.round(f.estimated_protein_g * 10) / 10,
         carbs_g: Math.round(f.estimated_carbs_g * 10) / 10,
@@ -116,14 +114,37 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, onSea
       }));
 
       setParsedItems(items);
+      setInputSource('photo');
       setMode('confirming');
     } catch {
       setError('Failed to analyze photo');
       setMode('idle');
     }
+  };
 
-    // Reset file input
+  const handlePhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await processImageFile(file);
     if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  // Handle paste — supports pasting images from clipboard
+  const handlePaste = async (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (const item of Array.from(items)) {
+      if (item.type.startsWith('image/')) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) {
+          await processImageFile(file);
+          return;
+        }
+      }
+    }
+    // If no image found, let default paste behavior handle text
   };
 
   const handleConfirm = async (items: ParsedFoodItem[]) => {
@@ -131,6 +152,12 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, onSea
     setLogging(true);
 
     try {
+      // Map source based on how the food was input:
+      // - photo → 'photo_ai' (analyzed from camera/pasted image)
+      // - text + local_db match → 'custom' (matched our food database)
+      // - text + ai_estimate → 'custom' (AI-estimated from text input)
+      const dbSource = inputSource === 'photo' ? 'photo_ai' : 'custom';
+
       const entries = items.map(item => ({
         user_id: userId,
         logged_date: date,
@@ -143,7 +170,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, onSea
         carbs_g: item.carbs_g,
         fat_g: item.fat_g,
         fiber_g: item.fiber_g,
-        source: item.source === 'local_db' ? 'natural_language' : 'photo_ai',
+        source: dbSource,
       }));
 
       const { error: dbError } = await supabase.from('food_log').insert(entries);
@@ -203,6 +230,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, onSea
                 handleParseText();
               }
             }}
+            onPaste={handlePaste}
             placeholder={t('food.quick_placeholder')}
             className="input-dark w-full resize-none text-sm min-h-[44px] pr-10"
             rows={1}
@@ -221,7 +249,6 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, onSea
             ref={fileInputRef}
             type="file"
             accept="image/*"
-            capture="environment"
             onChange={handlePhotoCapture}
             className="hidden"
           />

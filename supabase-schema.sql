@@ -117,7 +117,7 @@ CREATE TABLE food_log (
   carbs_g REAL,
   fat_g REAL,
   fiber_g REAL,
-  source TEXT CHECK (source IN ('usda', 'openfoodfacts', 'custom', 'photo_ai')),
+  source TEXT CHECK (source IN ('usda', 'openfoodfacts', 'custom', 'photo_ai', 'natural_language', 'ai_estimate')),
   source_id TEXT,
   photo_url TEXT,
   created_at TIMESTAMPTZ DEFAULT now()

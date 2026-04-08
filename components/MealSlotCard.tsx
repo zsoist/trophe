@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown, ChevronUp, SkipForward, Undo2, Trash2, Pencil, Check, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, SkipForward, Undo2, Trash2, Pencil, Check, X, Lock, Unlock } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { supabase } from '@/lib/supabase';
 import type { FoodLogEntry, MealType } from '@/lib/types';
@@ -22,9 +22,12 @@ interface MealSlotCardProps {
   userId: string;
   date: string;
   skipped: boolean;
+  locked: boolean;
   onLogged: () => void;
   onSkip: () => void;
   onUndoSkip: () => void;
+  onLock: () => void;
+  onUnlock: () => void;
   onDeleteEntry: (id: string) => void;
 }
 
@@ -34,9 +37,12 @@ export default function MealSlotCard({
   userId,
   date,
   skipped,
+  locked,
   onLogged,
   onSkip,
   onUndoSkip,
+  onLock,
+  onUnlock,
   onDeleteEntry,
 }: MealSlotCardProps) {
   const { t } = useI18n();
@@ -133,6 +139,36 @@ export default function MealSlotCard({
           }}
           onSearchMode={() => {}}
         />
+      </motion.div>
+    );
+  }
+
+  // Locked state — compact, no editing
+  if (locked && hasFoods) {
+    return (
+      <motion.div layout className="glass p-3 border border-green-500/10">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-lg opacity-70">{slot.emoji}</span>
+            <span className="text-stone-300 text-sm font-medium">{slot.label}</span>
+            <Lock size={12} className="text-green-500/60" />
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="flex gap-2 text-xs">
+              <span className="gold-text font-medium">{Math.round(totalCalories)}</span>
+              <span className="text-red-400">P{Math.round(totalProtein)}</span>
+              <span className="text-blue-400">C{Math.round(totalCarbs)}</span>
+              <span className="text-purple-400">F{Math.round(totalFat)}</span>
+            </div>
+            <button
+              onClick={onUnlock}
+              className="text-stone-600 hover:text-stone-300 p-1 transition-colors"
+              title={t('food.unlock')}
+            >
+              <Unlock size={12} />
+            </button>
+          </div>
+        </div>
       </motion.div>
     );
   }
@@ -248,17 +284,17 @@ export default function MealSlotCard({
               );
             })}
 
-            {/* Add more to this slot */}
-            <div className="pt-1">
+            {/* Add more / Lock this slot */}
+            <div className="pt-1 flex items-center justify-between">
               {!inputActive ? (
                 <button
                   onClick={() => setInputActive(true)}
-                  className="text-stone-500 hover:gold-text text-xs transition-colors w-full text-left py-1"
+                  className="text-stone-500 hover:gold-text text-xs transition-colors text-left py-1"
                 >
                   + Add more
                 </button>
               ) : (
-                <div className="pt-2">
+                <div className="pt-2 w-full">
                   <QuickFoodInput
                     userId={userId}
                     mealType={slot.mealType}
@@ -276,6 +312,15 @@ export default function MealSlotCard({
                     {t('general.cancel')}
                   </button>
                 </div>
+              )}
+              {!inputActive && (
+                <button
+                  onClick={onLock}
+                  className="text-stone-600 hover:text-green-400 text-xs flex items-center gap-1 transition-colors py-1"
+                >
+                  <Lock size={11} />
+                  {t('food.lock_meal')}
+                </button>
               )}
             </div>
           </motion.div>

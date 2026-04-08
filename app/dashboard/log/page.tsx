@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Copy } from 'lucide-react';
+import { Copy, Lock, Unlock } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
 import type { FoodLogEntry, MealType } from '@/lib/types';
@@ -71,6 +71,7 @@ export default function FoodLogPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [todayLog, setTodayLog] = useState<FoodLogEntry[]>([]);
   const [skippedSlots, setSkippedSlots] = useState<Set<string>>(new Set());
+  const [lockedSlots, setLockedSlots] = useState<Set<string>>(new Set());
 
   const today = new Date().toISOString().split('T')[0];
   const slots = getLocalizedSlots(t);
@@ -83,11 +84,15 @@ export default function FoodLogPage() {
   const grouped = groupBySlot(todayLog, slots);
   const filledCount = slots.filter(s => grouped[s.id].length > 0 || skippedSlots.has(s.id)).length;
 
-  // Load skipped slots from localStorage
+  // Load skipped and locked slots from localStorage
   useEffect(() => {
-    const stored = localStorage.getItem(`trophe_skipped_${today}`);
-    if (stored) {
-      try { setSkippedSlots(new Set(JSON.parse(stored))); } catch { /* ignore */ }
+    const storedSkipped = localStorage.getItem(`trophe_skipped_${today}`);
+    if (storedSkipped) {
+      try { setSkippedSlots(new Set(JSON.parse(storedSkipped))); } catch { /* ignore */ }
+    }
+    const storedLocked = localStorage.getItem(`trophe_locked_${today}`);
+    if (storedLocked) {
+      try { setLockedSlots(new Set(JSON.parse(storedLocked))); } catch { /* ignore */ }
     }
   }, [today]);
 
@@ -95,6 +100,35 @@ export default function FoodLogPage() {
     setSkippedSlots(newSkipped);
     localStorage.setItem(`trophe_skipped_${today}`, JSON.stringify([...newSkipped]));
   };
+
+  const saveLocked = (newLocked: Set<string>) => {
+    setLockedSlots(newLocked);
+    localStorage.setItem(`trophe_locked_${today}`, JSON.stringify([...newLocked]));
+  };
+
+  const lockAll = () => {
+    const filledSlotIds = slots
+      .filter(s => grouped[s.id].length > 0)
+      .map(s => s.id);
+    saveLocked(new Set(filledSlotIds));
+  };
+
+  const unlockSlot = (slotId: string) => {
+    const next = new Set(lockedSlots);
+    next.delete(slotId);
+    saveLocked(next);
+  };
+
+  const lockSlot = (slotId: string) => {
+    const next = new Set(lockedSlots);
+    next.add(slotId);
+    saveLocked(next);
+  };
+
+  const allMealsLocked = slots.every(s =>
+    lockedSlots.has(s.id) || skippedSlots.has(s.id) || grouped[s.id].length === 0
+  );
+  const hasAnyFood = todayLog.length > 0;
 
   const loadTodayLog = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -165,7 +199,12 @@ export default function FoodLogPage() {
       }));
 
     if (newEntries.length > 0) {
-      await supabase.from('food_log').insert(newEntries);
+      const { error } = await supabase.from('food_log').insert(newEntries);
+      if (error) {
+        console.error('Copy yesterday error:', error);
+        setCopying(false);
+        return;
+      }
       await loadTodayLog();
     }
 
@@ -197,11 +236,34 @@ export default function FoodLogPage() {
                 {copying ? '...' : 'Yesterday'}
               </button>
             )}
+            {hasAnyFood && !allMealsLocked && (
+              <button
+                onClick={lockAll}
+                className="text-stone-500 hover:gold-text text-xs flex items-center gap-1 transition-colors"
+              >
+                <Lock size={12} />
+                {t('food.lock_all')}
+              </button>
+            )}
             <span className="text-stone-500 text-xs">
               {t('food.meals_progress', { done: String(filledCount), total: String(slots.length) })}
             </span>
           </div>
         </div>
+
+        {/* Day locked banner */}
+        {allMealsLocked && hasAnyFood && (
+          <motion.div
+            initial={{ opacity: 0, y: -5 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-3 px-3 py-2 rounded-lg bg-green-500/10 border border-green-500/20 flex items-center justify-between"
+          >
+            <p className="text-xs text-green-400 flex items-center gap-1.5">
+              <Lock size={12} />
+              {t('food.day_locked')}
+            </p>
+          </motion.div>
+        )}
 
         {/* Daily Macro Totals */}
         <div className="glass p-4 mb-4">
@@ -258,6 +320,7 @@ export default function FoodLogPage() {
               userId={userId}
               date={today}
               skipped={skippedSlots.has(slot.id)}
+              locked={lockedSlots.has(slot.id)}
               onLogged={loadTodayLog}
               onSkip={() => {
                 const next = new Set(skippedSlots);
@@ -269,6 +332,8 @@ export default function FoodLogPage() {
                 next.delete(slot.id);
                 saveSkipped(next);
               }}
+              onLock={() => lockSlot(slot.id)}
+              onUnlock={() => unlockSlot(slot.id)}
               onDeleteEntry={deleteEntry}
             />
           ))}

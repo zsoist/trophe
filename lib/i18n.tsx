@@ -119,6 +119,11 @@ const translations: Record<string, Record<Language, string>> = {
   'food.undo_skip': { en: 'Undo skip', es: 'Deshacer', el: 'Αναίρεση' },
   'food.snack_am': { en: 'Morning Snack', es: 'Snack AM', el: 'Σνακ Πρωινό' },
   'food.snack_pm': { en: 'Afternoon Snack', es: 'Snack PM', el: 'Σνακ Απογευματινό' },
+  'food.lock_all': { en: 'Lock All', es: 'Bloquear todo', el: 'Κλείδωμα όλων' },
+  'food.locked': { en: 'Locked ✓', es: 'Bloqueado ✓', el: 'Κλειδωμένο ✓' },
+  'food.unlock': { en: 'Unlock', es: 'Desbloquear', el: 'Ξεκλείδωμα' },
+  'food.lock_meal': { en: 'Lock', es: 'Bloquear', el: 'Κλείδωμα' },
+  'food.day_locked': { en: 'All meals locked for today', es: 'Todas las comidas bloqueadas', el: 'Όλα τα γεύματα κλειδωμένα' },
 
   // ── Supplements ──
   'supps.my_protocol': { en: 'My Protocol', es: 'Mi Protocolo', el: 'Το Πρωτόκολλό μου' },

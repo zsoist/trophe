@@ -184,7 +184,12 @@ export default function RecipeSuggestions({ userId, mealType, onAdd }: RecipeSug
       source: 'custom' as const,
     };
 
-    await supabase.from('food_log').insert(entry);
+    const { error } = await supabase.from('food_log').insert(entry);
+    if (error) {
+      console.error('Recipe log error:', error);
+      setAdding(null);
+      return;
+    }
     setAdding(null);
     onAdd();
   };
