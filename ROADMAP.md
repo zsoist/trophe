@@ -62,6 +62,13 @@
 - [x] ✅ TypeScript strict mode ON (no ignoreBuildErrors)
 - [x] ✅ Deep audit: 16 more fixes (auth redirects, .maybeSingle())
 - [x] ✅ Swap cleaned (killed stale processes, 2.9GB free RAM)
+- [x] ✅ 2026-04-07 Critical meal tracking fix: source CHECK constraint mismatch (meals were silently failing to save)
+- [x] ✅ 2026-04-07 Photo paste support added (clipboard images → AI analysis)
+- [x] ✅ 2026-04-07 Removed capture="environment" (now allows gallery + camera)
+- [x] ✅ 2026-04-07 "Lock All" meal feature built (per-meal + bulk, localStorage)
+- [x] ✅ 2026-04-07 Error handling added to Copy Yesterday + RecipeSuggestions inserts
+- [x] ✅ 2026-04-07 CLAUDE.md optimized with full API reference, pitfalls, deploy notes
+- [x] ✅ 2026-04-07 API integration tests: 4/6 pass (food search, local search, nutrition calc, auth signup)
 - [ ] Walk Nikos through signup + first habit check-in
 - [ ] Have Nikos log 2-3 days of meals + a workout
 - [ ] Coach assigns supplement protocol to Nikos
