@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logAPIUsage, calculateCost, extractAnthropicUsage } from '@/lib/api-cost-logger';
 
 interface PhotoAnalyzeRequest {
   imageBase64: string;
@@ -84,6 +85,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const startTime = Date.now();
     const response = await fetch(ANTHROPIC_API_URL, {
       method: 'POST',
       headers: {
@@ -116,9 +118,12 @@ export async function POST(request: NextRequest) {
       }),
     });
 
+    const latencyMs = Date.now() - startTime;
+
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`Anthropic API error: ${response.status} ${errorText}`);
+      logAPIUsage({ endpoint: '/api/ai/photo-analyze', model: MODEL, provider: 'anthropic', tokens_in: 0, tokens_out: 0, cost_usd: 0, latency_ms: latencyMs, success: false, error_message: errorText.slice(0, 200) });
       return NextResponse.json(
         { error: 'Failed to analyze photo' },
         { status: 502 },
@@ -126,6 +131,10 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await response.json();
+    const { tokensIn, tokensOut } = extractAnthropicUsage(data);
+    const cost = calculateCost(MODEL, tokensIn, tokensOut);
+    logAPIUsage({ endpoint: '/api/ai/photo-analyze', model: MODEL, provider: 'anthropic', tokens_in: tokensIn, tokens_out: tokensOut, cost_usd: cost, latency_ms: latencyMs, success: true });
+
     const textContent = data?.content?.[0]?.text;
 
     if (!textContent) {

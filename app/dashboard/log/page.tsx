@@ -14,6 +14,26 @@ import DailyInsights from '@/components/DailyInsights';
 import WeeklySummary from '@/components/WeeklySummary';
 import MealBadges from '@/components/MealBadges';
 import MealSlotConfig from '@/components/MealSlotConfig';
+import DateNavigator from '@/components/DateNavigator';
+import CalendarView from '@/components/CalendarView';
+import WeekStrip from '@/components/WeekStrip';
+import CalorieGauge from '@/components/CalorieGauge';
+import MacroRadar from '@/components/MacroRadar';
+import ProteinDistribution from '@/components/ProteinDistribution';
+import NutrientDensity from '@/components/NutrientDensity';
+import StreakFreeze from '@/components/StreakFreeze';
+import MacroTrendChart from '@/components/MacroTrendChart';
+import CalorieHeatmap from '@/components/CalorieHeatmap';
+import EatingWindowTracker from '@/components/EatingWindowTracker';
+import FoodFrequency from '@/components/FoodFrequency';
+import FastingTimer from '@/components/FastingTimer';
+import MacroAdherence from '@/components/MacroAdherence';
+import DayPatterns from '@/components/DayPatterns';
+import MonthlyReport from '@/components/MonthlyReport';
+import MealPhotoGallery from '@/components/MealPhotoGallery';
+import DayComparison from '@/components/DayComparison';
+import AnimatedNumber from '@/components/AnimatedNumber';
+import { useTheme } from '@/components/ThemePicker';
 
 const DEFAULT_MEAL_SLOTS: MealSlot[] = [
   { id: 'breakfast', mealType: 'breakfast', label: 'Breakfast', emoji: '🌅', order: 0 },
@@ -117,7 +137,23 @@ export default function FoodLogPage() {
   const [customSlots, setCustomSlots] = useState<MealSlot[] | null>(null);
   const [showSlotConfig, setShowSlotConfig] = useState(false);
 
+  // Date navigation
   const today = new Date().toISOString().split('T')[0];
+  const [selectedDate, setSelectedDate] = useState(today);
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [showComparison, setShowComparison] = useState(false);
+  const [compareDate, setCompareDate] = useState('');
+
+  // Week strip data
+  const [weekData, setWeekData] = useState<{ date: string; calories: number; entries: number }[]>([]);
+
+  // View mode
+  const [viewMode, setViewMode] = useState<'detailed' | 'gauge' | 'radar'>('detailed');
+
+  // Apply theme
+  useTheme();
+
+  const isToday = selectedDate === today;
   const defaultSlots = getLocalizedSlots(t);
   const slots = customSlots || defaultSlots;
 
@@ -192,10 +228,41 @@ export default function FoodLogPage() {
       .from('food_log')
       .select('*')
       .eq('user_id', user.id)
-      .eq('logged_date', today)
+      .eq('logged_date', selectedDate)
       .order('created_at', { ascending: true });
 
     if (data) setTodayLog(data);
+
+    // Load week strip data
+    const weekDates: string[] = [];
+    const d = new Date(selectedDate + 'T12:00:00');
+    const dayOfWeek = d.getDay();
+    const monday = new Date(d);
+    monday.setDate(d.getDate() - ((dayOfWeek + 6) % 7));
+    for (let i = 0; i < 7; i++) {
+      const wd = new Date(monday);
+      wd.setDate(monday.getDate() + i);
+      weekDates.push(wd.toISOString().split('T')[0]);
+    }
+
+    const { data: weekEntries } = await supabase
+      .from('food_log')
+      .select('logged_date, calories')
+      .eq('user_id', user.id)
+      .gte('logged_date', weekDates[0])
+      .lte('logged_date', weekDates[6]);
+
+    if (weekEntries) {
+      const wd = weekDates.map(date => {
+        const dayEntries = weekEntries.filter(e => e.logged_date === date);
+        return {
+          date,
+          calories: dayEntries.reduce((s, e) => s + (e.calories ?? 0), 0),
+          entries: dayEntries.length,
+        };
+      });
+      setWeekData(wd);
+    }
 
     // F4: Load macro targets from client_profiles
     const { data: profile } = await supabase
@@ -240,7 +307,7 @@ export default function FoodLogPage() {
       }
       setStreak(s);
     }
-  }, [today, router]);
+  }, [selectedDate, router]);
 
   useEffect(() => {
     loadTodayLog();
@@ -385,10 +452,33 @@ export default function FoodLogPage() {
         transition={{ duration: 0.4 }}
         className="max-w-md mx-auto px-4 pt-12"
       >
+        {/* Date Navigator */}
+        <DateNavigator
+          selectedDate={selectedDate}
+          onDateChange={setSelectedDate}
+          onOpenCalendar={() => setShowCalendar(true)}
+        />
+
+        {/* Week Strip */}
+        {weekData.length > 0 && (
+          <div className="mb-3">
+            <WeekStrip
+              selectedDate={selectedDate}
+              onSelectDate={setSelectedDate}
+              weekData={weekData}
+            />
+          </div>
+        )}
+
+        {/* Streak Freeze */}
+        <StreakFreeze streak={streak} hasLoggedToday={todayLog.length > 0} />
+
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold text-stone-100">Track Food</h1>
+            <h1 className="text-xl font-bold text-stone-100">
+              {isToday ? 'Track Food' : new Date(selectedDate + 'T12:00:00').toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' })}
+            </h1>
             <button
               onClick={() => setShowSlotConfig(true)}
               className="text-stone-600 hover:text-stone-300 p-1 transition-colors"
@@ -448,13 +538,53 @@ export default function FoodLogPage() {
           </motion.div>
         )}
 
-        {/* F4: Daily Macro Totals with Targets */}
+        {/* View mode toggle */}
+        <div className="flex gap-1 mb-3">
+          {(['detailed', 'gauge', 'radar'] as const).map(mode => (
+            <button
+              key={mode}
+              onClick={() => setViewMode(mode)}
+              className={`px-2.5 py-1 rounded-full text-[10px] transition-colors ${viewMode === mode ? 'bg-white/[0.1] text-stone-200' : 'text-stone-600 hover:text-stone-400'}`}
+            >
+              {mode === 'detailed' ? 'Macros' : mode === 'gauge' ? 'Gauge' : 'Radar'}
+            </button>
+          ))}
+          {!isToday && todayLog.length > 0 && (
+            <button
+              onClick={() => { setCompareDate(today); setShowComparison(true); }}
+              className="ml-auto px-2.5 py-1 rounded-full text-[10px] text-stone-600 hover:gold-text transition-colors"
+            >
+              Compare
+            </button>
+          )}
+        </div>
+
+        {/* Gauge View */}
+        {viewMode === 'gauge' && targets.calories > 0 && (
+          <div className="glass p-4 mb-4 flex justify-center">
+            <CalorieGauge consumed={totalCalories} target={targets.calories} />
+          </div>
+        )}
+
+        {/* Radar View */}
+        {viewMode === 'radar' && targets.calories > 0 && (
+          <div className="mb-4">
+            <MacroRadar
+              current={{ protein: totalProtein, carbs: totalCarbs, fat: totalFat, fiber: totalFiber, water: 0 }}
+              targets={{ protein: targets.protein_g, carbs: targets.carbs_g, fat: targets.fat_g, fiber: 30, water: 2800 }}
+            />
+          </div>
+        )}
+
+        {/* F4: Daily Macro Totals with Targets (detailed view) */}
+        {viewMode === 'detailed' && (
         <div className="glass p-4 mb-4">
           <div className="grid grid-cols-5 gap-2 text-center">
             <div>
-              <p className={`text-lg font-bold ${targets.calories ? getTargetColor(totalCalories, targets.calories) : 'gold-text'}`}>
-                {Math.round(totalCalories)}
-              </p>
+              <AnimatedNumber
+                value={Math.round(totalCalories)}
+                className={`text-lg font-bold ${targets.calories ? getTargetColor(totalCalories, targets.calories) : 'gold-text'}`}
+              />
               {targets.calories > 0 && (
                 <p className="text-[9px] text-stone-600">/ {targets.calories}</p>
               )}
@@ -540,6 +670,7 @@ export default function FoodLogPage() {
             </div>
           )}
         </div>
+        )}
 
         {/* F5: Favorites chips */}
         {favorites.length > 0 && (
@@ -626,6 +757,66 @@ export default function FoodLogPage() {
         {todayLog.length > 0 && (
           <MealTimeline foodLog={todayLog} />
         )}
+
+        {/* Fasting Timer */}
+        {todayLog.length > 0 && isToday && (
+          <div className="mt-4">
+            <FastingTimer todayLog={todayLog} />
+          </div>
+        )}
+
+        {/* Protein Distribution */}
+        {todayLog.length >= 2 && (
+          <div className="mt-4">
+            <ProteinDistribution entries={todayLog} />
+          </div>
+        )}
+
+        {/* Nutrient Density */}
+        {todayLog.length >= 3 && (
+          <div className="mt-4">
+            <NutrientDensity entries={todayLog} />
+          </div>
+        )}
+
+        {/* Photo Gallery */}
+        {userId && (
+          <div className="mt-4">
+            <MealPhotoGallery userId={userId} />
+          </div>
+        )}
+
+        {/* Analytics Section — only show if enough data */}
+        {userId && (
+          <div className="mt-6 space-y-4">
+            <h2 className="text-stone-300 text-sm font-semibold px-1">Analytics</h2>
+
+            {/* Macro Trends */}
+            <MacroTrendChart userId={userId} />
+
+            {/* Calorie Heatmap */}
+            <CalorieHeatmap userId={userId} />
+
+            {/* Food Frequency */}
+            <FoodFrequency userId={userId} />
+
+            {/* Eating Window */}
+            <EatingWindowTracker todayLog={todayLog} />
+
+            {/* Day Patterns */}
+            <DayPatterns userId={userId} />
+
+            {/* Macro Adherence */}
+            {targets.calories > 0 && (
+              <MacroAdherence userId={userId} targets={targets} />
+            )}
+
+            {/* Monthly Report */}
+            {targets.calories > 0 && (
+              <MonthlyReport userId={userId} targets={targets} />
+            )}
+          </div>
+        )}
       </motion.div>
 
       {/* F7: Floating remaining budget counter */}
@@ -671,6 +862,31 @@ export default function FoodLogPage() {
               </button>
             </div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Calendar modal */}
+      <AnimatePresence>
+        {showCalendar && userId && (
+          <CalendarView
+            selectedDate={selectedDate}
+            onSelectDate={(d) => { setSelectedDate(d); setShowCalendar(false); }}
+            onClose={() => setShowCalendar(false)}
+            userId={userId}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Day comparison modal */}
+      <AnimatePresence>
+        {showComparison && userId && compareDate && (
+          <DayComparison
+            userId={userId}
+            currentDate={selectedDate}
+            currentLog={todayLog}
+            compareDate={compareDate}
+            onClose={() => setShowComparison(false)}
+          />
         )}
       </AnimatePresence>
 

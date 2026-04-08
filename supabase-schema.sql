@@ -132,6 +132,28 @@ CREATE TABLE water_log (
 );
 
 -- ═══════════════════════════════════════════════
+-- API USAGE TRACKING (Admin/Cost monitoring)
+-- ═══════════════════════════════════════════════
+
+CREATE TABLE api_usage_log (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  endpoint TEXT NOT NULL,
+  model TEXT NOT NULL,
+  provider TEXT CHECK (provider IN ('anthropic', 'gemini')),
+  tokens_in INT DEFAULT 0,
+  tokens_out INT DEFAULT 0,
+  cost_usd REAL DEFAULT 0,
+  latency_ms INT DEFAULT 0,
+  user_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  success BOOLEAN DEFAULT true,
+  error_message TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX idx_api_usage_created ON api_usage_log(created_at);
+CREATE INDEX idx_api_usage_endpoint ON api_usage_log(endpoint);
+
+-- ═══════════════════════════════════════════════
 -- SUPPLEMENT PROTOCOLS
 -- ═══════════════════════════════════════════════
 
