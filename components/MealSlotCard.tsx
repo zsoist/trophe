@@ -6,6 +6,7 @@ import { ChevronDown, ChevronUp, SkipForward, Undo2, Trash2, Pencil, Check, X, L
 import { useI18n } from '@/lib/i18n';
 import { supabase } from '@/lib/supabase';
 import type { FoodLogEntry, MealType } from '@/lib/types';
+import { calculateMealScore, getScoreBgColor } from '@/lib/meal-score';
 import QuickFoodInput from './QuickFoodInput';
 
 export interface MealSlot {
@@ -71,6 +72,9 @@ export default function MealSlotCard({
   const totalFat = entries.reduce((s, e) => s + (e.fat_g ?? 0), 0);
   const hasFoods = entries.length > 0;
   const isEmpty = !hasFoods && !skipped;
+
+  // F10: Meal quality score
+  const mealScore = calculateMealScore(entries);
 
   // Skipped state
   if (skipped && !hasFoods) {
@@ -197,6 +201,12 @@ export default function MealSlotCard({
           <span className="text-lg">{slot.emoji}</span>
           <span className="text-stone-200 text-sm font-medium">{slot.label}</span>
           <span className="text-stone-500 text-xs">({entries.length})</span>
+          {/* F10: Meal quality score badge */}
+          {mealScore && (
+            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${mealScore.color} ${getScoreBgColor(mealScore.score)}`}>
+              {mealScore.label}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-3">
           <div className="flex gap-2 text-xs">

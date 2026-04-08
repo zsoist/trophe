@@ -10,6 +10,9 @@ import type { FoodLogEntry, MealType } from '@/lib/types';
 import BottomNav from '@/components/BottomNav';
 import MealTimeline from '@/components/MealTimeline';
 import MealSlotCard, { type MealSlot } from '@/components/MealSlotCard';
+import DailyInsights from '@/components/DailyInsights';
+import WeeklySummary from '@/components/WeeklySummary';
+import MealBadges from '@/components/MealBadges';
 
 const DEFAULT_MEAL_SLOTS: MealSlot[] = [
   { id: 'breakfast', mealType: 'breakfast', label: 'Breakfast', emoji: '🌅', order: 0 },
@@ -473,15 +476,51 @@ export default function FoodLogPage() {
             </div>
           </div>
 
+          {/* F17: Mini macro rings */}
+          {targets.calories > 0 && (
+            <div className="mt-3 grid grid-cols-4 gap-2">
+              {[
+                { label: 'Cal', consumed: totalCalories, target: targets.calories, color: '#D4A853' },
+                { label: 'P', consumed: totalProtein, target: targets.protein_g, color: '#f87171' },
+                { label: 'C', consumed: totalCarbs, target: targets.carbs_g, color: '#60a5fa' },
+                { label: 'F', consumed: totalFat, target: targets.fat_g, color: '#a78bfa' },
+              ].map(({ label, consumed, target, color }) => {
+                const pct = target > 0 ? Math.min(consumed / target, 1.2) : 0;
+                const r = 14;
+                const circ = 2 * Math.PI * r;
+                const offset = circ * (1 - Math.min(pct, 1));
+                return (
+                  <div key={label} className="flex items-center justify-center gap-1.5">
+                    <svg width="32" height="32" className="-rotate-90">
+                      <circle cx="16" cy="16" r={r} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="3" />
+                      <motion.circle
+                        cx="16" cy="16" r={r} fill="none"
+                        stroke={pct > 1 ? '#ef4444' : color}
+                        strokeWidth="3" strokeLinecap="round"
+                        strokeDasharray={circ}
+                        initial={{ strokeDashoffset: circ }}
+                        animate={{ strokeDashoffset: offset }}
+                        transition={{ duration: 0.8, ease: 'easeOut' }}
+                      />
+                    </svg>
+                    <span className="text-[9px] text-stone-500">{Math.round(pct * 100)}%</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           {/* Progress bar */}
-          <div className="mt-3 h-1.5 bg-white/[0.05] rounded-full overflow-hidden">
-            <motion.div
-              className="h-full bg-[#D4A853] rounded-full"
-              initial={{ width: 0 }}
-              animate={{ width: `${(filledCount / slots.length) * 100}%` }}
-              transition={{ duration: 0.5, ease: 'easeOut' }}
-            />
-          </div>
+          {!targets.calories && (
+            <div className="mt-3 h-1.5 bg-white/[0.05] rounded-full overflow-hidden">
+              <motion.div
+                className="h-full bg-[#D4A853] rounded-full"
+                initial={{ width: 0 }}
+                animate={{ width: `${(filledCount / slots.length) * 100}%` }}
+                transition={{ duration: 0.5, ease: 'easeOut' }}
+              />
+            </div>
+          )}
         </div>
 
         {/* F5: Favorites chips */}
@@ -551,6 +590,19 @@ export default function FoodLogPage() {
             />
           ))}
         </div>
+
+        {/* F11: Daily Insights */}
+        {todayLog.length >= 3 && (
+          <DailyInsights entries={todayLog} targets={targets} />
+        )}
+
+        {/* F25: Achievement Badges */}
+        <MealBadges todayLog={todayLog} streak={streak} targets={{ protein_g: targets.protein_g }} />
+
+        {/* F16: Weekly Summary */}
+        {userId && (
+          <WeeklySummary userId={userId} />
+        )}
 
         {/* Meal Distribution Timeline */}
         {todayLog.length > 0 && (
