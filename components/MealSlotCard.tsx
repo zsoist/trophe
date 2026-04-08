@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown, ChevronUp, SkipForward, Undo2, Trash2, Pencil, Check, X, Lock, Unlock } from 'lucide-react';
+import { ChevronDown, ChevronUp, SkipForward, Undo2, Trash2, Pencil, Check, X, Lock, Unlock, Star } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { supabase } from '@/lib/supabase';
 import type { FoodLogEntry, MealType } from '@/lib/types';
@@ -16,6 +16,15 @@ export interface MealSlot {
   order: number;
 }
 
+interface FavoriteFood {
+  food_name: string;
+  calories: number;
+  protein_g: number;
+  carbs_g: number;
+  fat_g: number;
+  fiber_g: number;
+}
+
 interface MealSlotCardProps {
   slot: MealSlot;
   entries: FoodLogEntry[];
@@ -23,12 +32,14 @@ interface MealSlotCardProps {
   date: string;
   skipped: boolean;
   locked: boolean;
+  favorites: FavoriteFood[];
   onLogged: () => void;
   onSkip: () => void;
   onUndoSkip: () => void;
   onLock: () => void;
   onUnlock: () => void;
   onDeleteEntry: (id: string) => void;
+  onToggleFavorite: (entry: FoodLogEntry) => void;
 }
 
 export default function MealSlotCard({
@@ -38,12 +49,14 @@ export default function MealSlotCard({
   date,
   skipped,
   locked,
+  favorites,
   onLogged,
   onSkip,
   onUndoSkip,
   onLock,
   onUnlock,
   onDeleteEntry,
+  onToggleFavorite,
 }: MealSlotCardProps) {
   const { t } = useI18n();
   const [expanded, setExpanded] = useState(false);
@@ -266,6 +279,13 @@ export default function MealSlotCard({
                   </div>
                   {!isEditing && (
                     <div className="flex items-center gap-0.5 flex-shrink-0">
+                      <button
+                        onClick={() => onToggleFavorite(entry)}
+                        className={`p-1.5 transition-colors ${favorites.some(f => f.food_name === entry.food_name) ? 'text-[#D4A853]' : 'text-stone-600 hover:text-[#D4A853]'}`}
+                        title={t('food.favorite_added')}
+                      >
+                        <Star size={11} fill={favorites.some(f => f.food_name === entry.food_name) ? 'currentColor' : 'none'} />
+                      </button>
                       <button
                         onClick={() => { setEditingId(entry.id); setEditQty(origQty); }}
                         className="p-1.5 text-stone-600 hover:text-stone-300 transition-colors"
