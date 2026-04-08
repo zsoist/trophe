@@ -148,7 +148,7 @@ function getHealthTip(
   calories: number,
   targets: { calories: number; protein_g: number },
   filledCount: number,
-  nextUnfilled: { emoji: string; label: string } | undefined
+  nextUnfilled: MealSlot | undefined
 ): string {
   const hour = new Date().getHours();
   const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
@@ -168,7 +168,14 @@ function getHealthTip(
     return '📊 You\'re over your calorie target — that\'s OK occasionally. Focus on protein and fiber for the rest of the day';
   }
   if (nextUnfilled && filledCount > 0 && filledCount < 4) {
-    return `${nextUnfilled.emoji} Time for ${nextUnfilled.label.toLowerCase()}! Log it to keep your streak going`;
+    // Only suggest meals that match the current time of day
+    const mealTimeOk = (nextUnfilled.mealType === 'breakfast' && hour < 11)
+      || (nextUnfilled.mealType === 'snack' && hour >= 10 && hour < 20)
+      || (nextUnfilled.mealType === 'lunch' && hour >= 11 && hour < 16)
+      || (nextUnfilled.mealType === 'dinner' && hour >= 17);
+    if (mealTimeOk) {
+      return `${nextUnfilled.emoji} Time for ${nextUnfilled.label.toLowerCase()}! Log it to keep your streak going`;
+    }
   }
   if (filledCount >= 4) {
     return '🌟 Almost done! Lock your meals when finished — consistency is the #1 predictor of success';

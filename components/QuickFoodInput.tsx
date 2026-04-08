@@ -475,31 +475,10 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, onSea
             }}
             onPaste={handlePaste}
             placeholder={mode === 'listening' ? t('food.speak_meal') : t('food.quick_placeholder')}
-            className="input-dark w-full resize-none text-sm min-h-[44px] pr-20"
-            rows={1}
+            className="input-dark w-full resize-none text-sm min-h-[52px] py-3"
+            rows={2}
             disabled={mode !== 'idle'}
           />
-          {/* Action buttons inside input */}
-          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
-            {/* Voice input */}
-            <button
-              onClick={mode === 'listening' ? () => setMode('idle') : startVoiceInput}
-              disabled={mode !== 'idle' && mode !== 'listening'}
-              className={`p-1.5 transition-colors ${mode === 'listening' ? 'text-red-400 animate-pulse' : 'text-stone-500 hover:gold-text'}`}
-              title={t('food.speak_meal')}
-            >
-              {mode === 'listening' ? <MicOff size={14} /> : <Mic size={14} />}
-            </button>
-            {/* Camera */}
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={mode !== 'idle'}
-              className="p-1.5 text-stone-500 hover:gold-text transition-colors"
-              title={t('food.photo_take')}
-            >
-              <Camera size={14} />
-            </button>
-          </div>
           <input
             ref={fileInputRef}
             type="file"
@@ -511,13 +490,47 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, onSea
         <button
           onClick={handleParseText}
           disabled={!text.trim() || mode !== 'idle'}
-          className="btn-gold px-4 text-sm flex items-center gap-1"
+          className="btn-gold px-4 text-sm flex items-center gap-1 self-end"
         >
           {mode === 'parsing' || mode === 'photo_analyzing' ? (
             <Loader2 size={14} className="animate-spin" />
           ) : (
             <Send size={14} />
           )}
+        </button>
+      </div>
+
+      {/* Action buttons row — separate from text input for better touch targets */}
+      <div className="flex items-center gap-3 px-1">
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={mode !== 'idle'}
+          className="flex items-center gap-1.5 text-stone-500 hover:gold-text text-xs transition-colors py-1"
+        >
+          <Camera size={14} />
+          Photo
+        </button>
+        <button
+          onClick={mode === 'listening' ? () => setMode('idle') : startVoiceInput}
+          disabled={mode !== 'idle' && mode !== 'listening'}
+          className={`flex items-center gap-1.5 text-xs transition-colors py-1 ${mode === 'listening' ? 'text-red-400 animate-pulse' : 'text-stone-500 hover:gold-text'}`}
+        >
+          {mode === 'listening' ? <MicOff size={14} /> : <Mic size={14} />}
+          {mode === 'listening' ? 'Stop' : 'Voice'}
+        </button>
+        <button
+          onClick={() => setMode('manual_entry')}
+          className="flex items-center gap-1.5 text-stone-500 hover:gold-text text-xs transition-colors py-1"
+        >
+          <Plus size={14} />
+          {t('food.quick_add')}
+        </button>
+        <button
+          onClick={onSearchMode}
+          className="flex items-center gap-1.5 text-stone-500 hover:text-stone-300 text-xs transition-colors py-1 ml-auto"
+        >
+          <Search size={12} />
+          {t('food.search_db')}
         </button>
       </div>
 
@@ -608,23 +621,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, onSea
         )}
       </AnimatePresence>
 
-      {/* Bottom actions */}
-      <div className="flex items-center justify-between px-1">
-        <button
-          onClick={onSearchMode}
-          className="flex items-center gap-1.5 text-stone-500 hover:text-stone-300 text-xs transition-colors"
-        >
-          <Search size={12} />
-          {t('food.search_db')}
-        </button>
-        <button
-          onClick={() => setMode('manual_entry')}
-          className="flex items-center gap-1.5 text-stone-500 hover:text-stone-300 text-xs transition-colors"
-        >
-          <Plus size={12} />
-          {t('food.quick_add')}
-        </button>
-      </div>
+      {/* Bottom actions moved to action row above */}
     </div>
   );
 }
