@@ -8,10 +8,11 @@
 - **Styling**: Tailwind CSS 4 + Framer Motion + Lucide icons
 - **i18n**: Trilingual (EN/ES/EL) via lib/i18n.tsx
 
-## Stats (2026-04-08)
-- **23,950 lines** | **57 components** | **9 API routes** | **18 pages** (+ /admin/costs)
-- **17 database tables** | **39+ RLS policies** | **10 indexes**
+## Stats (2026-04-08, end of day)
+- **23,941 lines** | **57 components** | **9 API routes** | **18 pages** | **34 commits**
+- **18 database tables** (+ api_usage_log) | **39+ RLS policies** | **12 indexes**
 - **30 exercises** | **126 foods** | **20 Greek foods** | **10 habits**
+- **85+ features** shipped across 9 iterations
 - **0 TypeScript errors** (strict mode ON) | **0 console errors**
 
 ## Architecture
@@ -28,8 +29,55 @@
 - `lib/types.ts` — All TypeScript interfaces matching Supabase schema
 - `lib/supabase.ts` — Supabase client singleton
 - `lib/food-units.ts` — Food unit conversions + 126-food database for AI parsing
-- `supabase-schema.sql` — Nutrition schema (13 tables)
+- `lib/meal-score.ts` — Meal quality scoring (0-100, A/B/C/D)
+- `lib/api-cost-logger.ts` — API usage/cost tracking for Anthropic + Gemini
+- `supabase-schema.sql` — Nutrition schema (14 tables, incl api_usage_log)
 - `supabase-workout-schema.sql` — Workout schema (4 tables)
+
+## New Components (2026-04-08 mega upgrade)
+### Calendar & Navigation
+- `DateNavigator` — left/right arrows, swipe, today button
+- `CalendarView` — monthly grid, color-coded completion, streak fire emojis
+- `WeekStrip` — horizontal 7-day bar strip
+
+### Charts & Visualizations
+- `MacroTrendChart` — 30-day multi-line SVG, toggleable macros
+- `CalorieHeatmap` — GitHub-style contribution grid (8 weeks)
+- `CalorieGauge` — speedometer with zones and needle
+- `MacroRadar` — 5-axis spider chart (P/C/F/Fiber/Water)
+- `ProteinDistribution` — per-meal protein bars
+- `AnimatedNumber` — counting animation for macro values
+
+### Analytics
+- `EatingWindowTracker` — first/last meal, window duration
+- `FoodFrequency` — top 8 most-logged foods ranked
+- `MacroAdherence` — weekly adherence scoring (0-100%)
+- `DayPatterns` — avg calories by day of week
+- `MonthlyReport` — monthly grade card (A-F)
+- `NutrientDensity` — nutrients-per-calorie ranking
+- `DailyInsights` — AI-like contextual nutrition insights (client-side)
+
+### Engagement
+- `MealBadges` — 6 achievement badges with animated unlock
+- `StreakFreeze` — protect streak once per week
+- `DayComparison` — side-by-side two-day macro comparison
+- `CompactMealView` — emoji + calories compact mode
+
+### Customization
+- `ThemePicker` — 6 accent color themes
+- `MealSlotConfig` — add/remove/rename/reorder meal slots
+- `MealTemplates` — save/load full meal templates
+- `FoodSearchModal` — full search with category filters
+- `DataExport` — CSV export with date range
+
+### Coaching & Intelligence
+- `FastingTimer` — eating window bar with duration
+- `MealPhotoGallery` — timeline of food photos
+- `EndOfDaySummary` — shareable summary card
+- `WeeklySummary` — 7-day bar chart with trends
+
+### Admin
+- `/admin/costs` — API cost tracking dashboard (Daniel only)
 
 ## API Routes (9 total)
 | Route | Method | AI | Purpose |
