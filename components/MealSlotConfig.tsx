@@ -73,11 +73,17 @@ export default function MealSlotConfig({ slots: initialSlots, onSave, onClose }:
         className="w-full max-w-md bg-stone-900 rounded-t-2xl p-4 pb-20 max-h-[85vh] overflow-y-auto"
         onClick={e => e.stopPropagation()}
       >
-        {/* Header */}
+        {/* Header with Save/Cancel */}
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-stone-100 font-semibold">Customize Meals</h2>
-          <button onClick={onClose} className="text-stone-500 hover:text-stone-300 p-2 -mr-2">
-            <X size={20} />
+          <button onClick={onClose} className="text-stone-500 hover:text-stone-300 text-sm">
+            Cancel
+          </button>
+          <h2 className="text-stone-100 font-semibold text-sm">Customize Meals</h2>
+          <button
+            onClick={() => { onSave(slots); onClose(); }}
+            className="gold-text font-semibold text-sm"
+          >
+            Save
           </button>
         </div>
 
@@ -180,18 +186,8 @@ export default function MealSlotConfig({ slots: initialSlots, onSave, onClose }:
           </button>
         )}
 
-        {/* Action buttons — fixed at bottom with safe padding above nav */}
-        <div className="flex gap-2 sticky bottom-0 pt-2 pb-4 bg-stone-900 border-t border-white/[0.05]">
-          <button onClick={onClose} className="btn-ghost flex-1 py-3 text-sm">
-            {t('general.cancel')}
-          </button>
-          <button
-            onClick={() => { onSave(slots); onClose(); }}
-            className="btn-gold flex-1 py-3 text-sm font-semibold"
-          >
-            Save
-          </button>
-        </div>
+        {/* Bottom spacer for safe scroll area */}
+        <div className="h-4" />
       </motion.div>
     </motion.div>
   );
