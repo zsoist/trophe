@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft, Brain, Target, Dumbbell, Utensils, BarChart3, Zap, Users, Camera,
   Flame, Sparkles, Heart, Shield, TrendingUp, Eye, Mic, Search, Star,
@@ -109,7 +109,86 @@ function Section({ icon: Icon, title, subtitle, children, defaultOpen = false }:
   );
 }
 
+// Bilingual content
+const T = {
+  en: {
+    demoLabel: 'Demo — April 2026',
+    heroTitle: 'What is Trophē',
+    heroDesc: 'A coaching platform that puts the Precision Nutrition habit methodology into software. Clients log food via text, photo, or voice in any language. The coach sees behavioral signals, assigns habits one at a time, and monitors compliance — all from one dashboard. It also includes workout tracking with AI-powered camera form analysis.',
+    problemLabel: 'The Problem',
+    problems: [
+      'Habit tracking lives in spreadsheets that clients forget to update',
+      'Food logging requires MyFitnessPal — no coaching integration',
+      'Form feedback happens via WhatsApp videos — no data, no tracking',
+      'You manage 3+ tools and still miss when a client is struggling',
+    ],
+    solutionLabel: 'The Solution',
+    solutions: [
+      'One habit at a time, 14-day cycles — the PN methodology automated',
+      'AI food tracking: type, speak, or photograph — in Greek, Spanish, or English',
+      'Camera-based form analysis with real-time scoring — in the browser',
+      'Coach dashboard with behavioral signals: 🟢 🟡 🔴 — see who needs you',
+    ],
+    featuresLabel: '85+ Features Including',
+    deepDiveLabel: 'Deep Dive',
+    bundlesLabel: 'What Trophē Bundles',
+    bundlesDesc: 'Capabilities that typically require separate tools:',
+    bundles: [
+      { feature: 'Habit coaching (14-day cycles, compliance tracking)', alt: 'Spreadsheets / manual follow-up' },
+      { feature: 'Food tracking with AI (text, photo, voice — trilingual)', alt: 'MyFitnessPal / Cronometer' },
+      { feature: 'Exercise form analysis with camera', alt: 'WhatsApp video review' },
+      { feature: 'Workout logging with PR detection', alt: 'Training spreadsheets / Trainerize' },
+      { feature: 'Coach dashboard with behavioral signals', alt: 'Manual client check-ins' },
+      { feature: 'Supplement protocols with evidence levels', alt: 'PDF protocols / email' },
+    ],
+    businessLabel: 'Business Model',
+    businessDesc: 'SaaS per coach. Each coach pays monthly to manage N clients. Clients use the app free. AI cost is under $2/month per coach. White-label ready.',
+    enterBtn: 'Enter Trophē →',
+    enterCoach: 'Enter as Coach →',
+  },
+  el: {
+    demoLabel: 'Demo — Απρίλιος 2026',
+    heroTitle: 'Τι είναι το Trophē',
+    heroDesc: 'Μια πλατφόρμα coaching που μετατρέπει τη μεθοδολογία συνηθειών Precision Nutrition σε λογισμικό. Οι πελάτες καταγράφουν φαγητό μέσω κειμένου, φωτογραφίας ή φωνής σε οποιαδήποτε γλώσσα. Ο coach βλέπει συμπεριφορικά σήματα, αναθέτει μία συνήθεια κάθε φορά και παρακολουθεί τη συμμόρφωση — όλα από ένα dashboard. Περιλαμβάνει επίσης παρακολούθηση προπόνησης με ανάλυση φόρμας μέσω κάμερας AI.',
+    problemLabel: 'Το Πρόβλημα',
+    problems: [
+      'Η παρακολούθηση συνηθειών γίνεται σε spreadsheets που οι πελάτες ξεχνούν να ενημερώσουν',
+      'Η καταγραφή φαγητού απαιτεί MyFitnessPal — χωρίς ενσωμάτωση coaching',
+      'Τα σχόλια φόρμας γίνονται μέσω WhatsApp — χωρίς δεδομένα, χωρίς tracking',
+      'Διαχειρίζεστε 3+ εργαλεία και χάνετε πότε ένας πελάτης δυσκολεύεται',
+    ],
+    solutionLabel: 'Η Λύση',
+    solutions: [
+      'Μία συνήθεια κάθε φορά, κύκλοι 14 ημερών — η μεθοδολογία PN αυτοματοποιημένη',
+      'AI tracking φαγητού: γράψε, μίλησε ή φωτογράφισε — στα Ελληνικά, Ισπανικά ή Αγγλικά',
+      'Ανάλυση φόρμας με κάμερα και βαθμολόγηση σε πραγματικό χρόνο — στον browser',
+      'Coach dashboard με συμπεριφορικά σήματα: 🟢 🟡 🔴 — δες ποιος σε χρειάζεται',
+    ],
+    featuresLabel: '85+ Λειτουργίες Συμπεριλαμβάνουν',
+    deepDiveLabel: 'Λεπτομέρειες',
+    bundlesLabel: 'Τι Συνδυάζει το Trophē',
+    bundlesDesc: 'Δυνατότητες που συνήθως απαιτούν ξεχωριστά εργαλεία:',
+    bundles: [
+      { feature: 'Coaching συνηθειών (κύκλοι 14 ημερών, παρακολούθηση)', alt: 'Spreadsheets / χειροκίνητη παρακολούθηση' },
+      { feature: 'Tracking φαγητού με AI (κείμενο, φωτογραφία, φωνή — τρίγλωσσο)', alt: 'MyFitnessPal / Cronometer' },
+      { feature: 'Ανάλυση φόρμας άσκησης με κάμερα', alt: 'WhatsApp video review' },
+      { feature: 'Καταγραφή προπόνησης με ανίχνευση PR', alt: 'Spreadsheets / Trainerize' },
+      { feature: 'Coach dashboard με συμπεριφορικά σήματα', alt: 'Χειροκίνητα check-ins' },
+      { feature: 'Πρωτόκολλα συμπληρωμάτων με επίπεδα τεκμηρίωσης', alt: 'PDF / email' },
+    ],
+    businessLabel: 'Επιχειρηματικό Μοντέλο',
+    businessDesc: 'SaaS ανά coach. Κάθε coach πληρώνει μηνιαία συνδρομή για N πελάτες. Οι πελάτες χρησιμοποιούν την εφαρμογή δωρεάν. Κόστος AI κάτω από $2/μήνα ανά coach.',
+    enterBtn: 'Είσοδος στο Trophē →',
+    enterCoach: 'Είσοδος ως Coach →',
+  },
+};
+
+type DemoLang = 'en' | 'el';
+
 export default function DemoPage() {
+  const [lang, setLang] = useState<DemoLang>('en');
+  const t = T[lang];
+
   return (
     <div className="min-h-screen bg-stone-950">
       <div className="max-w-lg mx-auto px-4 pt-6 pb-24">
@@ -125,27 +204,49 @@ export default function DemoPage() {
             <h1 className="text-2xl font-bold text-stone-100 font-serif">τροφή</h1>
             <p className="text-[10px] text-[#D4A853] tracking-widest uppercase">Precision Nutrition Coaching</p>
           </div>
+          {/* Language toggle */}
+          <div className="flex rounded-full p-0.5" style={{ background: 'rgba(255,255,255,0.06)' }}>
+            <button
+              onClick={() => setLang('en')}
+              className={`px-3 py-1.5 rounded-full text-[10px] font-semibold transition-all duration-300 ${lang === 'en' ? 'bg-[#D4A853] text-stone-950' : 'text-stone-500'}`}
+            >
+              🇬🇧 EN
+            </button>
+            <button
+              onClick={() => setLang('el')}
+              className={`px-3 py-1.5 rounded-full text-[10px] font-semibold transition-all duration-300 ${lang === 'el' ? 'bg-[#D4A853] text-stone-950' : 'text-stone-500'}`}
+            >
+              🇬🇷 EL
+            </button>
+          </div>
         </div>
 
-        {/* ═══ HERO — THE STORY ═══ */}
-        <motion.div {...fade(0)} className="glass-elevated p-5 mb-6 border border-[#D4A853]/20 relative overflow-hidden">
+        {/* ═══ ALL CONTENT — fades on language switch ═══ */}
+        <AnimatePresence mode="wait">
+        <motion.div
+          key={lang}
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -6 }}
+          transition={{ duration: 0.35 }}
+        >
+
+        {/* ═══ HERO ═══ */}
+        <div className="glass-elevated p-5 mb-6 border border-[#D4A853]/20 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-32 h-32 bg-[#D4A853] rounded-full opacity-[0.05] blur-[60px]" />
           <div className="relative">
             <div className="flex items-center gap-2 mb-2">
               <Sparkles size={14} className="gold-text" />
-              <span className="text-[10px] text-[#D4A853] uppercase tracking-wider font-bold">Demo — April 2026</span>
+              <span className="text-[10px] text-[#D4A853] uppercase tracking-wider font-bold">{t.demoLabel}</span>
             </div>
             <h2 className="text-xl font-bold text-stone-100 mb-2 leading-tight">
-              What is Trophē
+              {t.heroTitle}
             </h2>
             <p className="text-xs text-stone-400 leading-relaxed">
-              A coaching platform that puts the Precision Nutrition habit methodology into software.
-              Clients log food via text, photo, or voice in any language. The coach sees behavioral signals,
-              assigns habits one at a time, and monitors compliance — all from one dashboard.
-              It also includes workout tracking with AI-powered camera form analysis.
+              {t.heroDesc}
             </p>
           </div>
-        </motion.div>
+        </div>
 
         {/* ═══ LIVE METRICS ═══ */}
         <motion.div {...fade(0.1)} className="grid grid-cols-4 gap-2 mb-6">
@@ -198,20 +299,15 @@ export default function DemoPage() {
             </div>
           </div>
           <Link href="/login" className="btn-gold block w-full py-3 text-sm text-center font-bold no-underline">
-            Enter as Coach →
+            {t.enterCoach}
           </Link>
         </motion.div>
 
         {/* ═══ NARRATIVE: THE PROBLEM ═══ */}
         <motion.div {...fade(0.1)} className="mb-6">
-          <p className="text-xs text-stone-500 uppercase tracking-wider mb-2 px-1">The Problem</p>
+          <p className="text-xs text-stone-500 uppercase tracking-wider mb-2 px-1">{t.problemLabel}</p>
           <div className="glass p-4 space-y-2">
-            {[
-              'Habit tracking lives in spreadsheets that clients forget to update',
-              'Food logging requires MyFitnessPal — no coaching integration',
-              'Form feedback happens via WhatsApp videos — no data, no tracking',
-              'You manage 3+ tools and still miss when a client is struggling',
-            ].map((problem, i) => (
+            {t.problems.map((problem, i) => (
               <motion.div key={i} {...fade(i * 0.05)} className="flex items-start gap-2">
                 <span className="text-red-400 text-xs mt-0.5">✗</span>
                 <p className="text-xs text-stone-400">{problem}</p>
@@ -222,14 +318,9 @@ export default function DemoPage() {
 
         {/* ═══ NARRATIVE: THE SOLUTION ═══ */}
         <motion.div {...fade(0.1)} className="mb-6">
-          <p className="text-xs text-stone-500 uppercase tracking-wider mb-2 px-1">The Solution</p>
+          <p className="text-xs text-stone-500 uppercase tracking-wider mb-2 px-1">{t.solutionLabel}</p>
           <div className="glass-elevated p-4 border border-[#D4A853]/10 space-y-2">
-            {[
-              'One habit at a time, 14-day cycles — the PN methodology automated',
-              'AI food tracking: type, speak, or photograph — in Greek, Spanish, or English',
-              'Camera-based form analysis with real-time scoring — in the browser',
-              'Coach dashboard with behavioral signals: 🟢 🟡 🔴 — see who needs you',
-            ].map((solution, i) => (
+            {t.solutions.map((solution, i) => (
               <motion.div key={i} {...fade(i * 0.05)} className="flex items-start gap-2">
                 <CheckCircle2 size={14} className="text-green-400 flex-shrink-0 mt-0.5" />
                 <p className="text-xs text-stone-300">{solution}</p>
@@ -240,7 +331,7 @@ export default function DemoPage() {
 
         {/* ═══ FEATURE GRID ═══ */}
         <motion.div {...fade(0.1)} className="mb-6">
-          <p className="text-xs text-stone-500 uppercase tracking-wider mb-3 px-1">85+ Features Including</p>
+          <p className="text-xs text-stone-500 uppercase tracking-wider mb-3 px-1">{t.featuresLabel}</p>
           <div className="flex flex-wrap gap-1.5">
             <Chip icon={Utensils} label="NLP Food Parse" />
             <Chip icon={Camera} label="Photo Analysis" />
@@ -266,7 +357,7 @@ export default function DemoPage() {
         </motion.div>
 
         {/* ═══ CAPABILITY DEEP DIVES ═══ */}
-        <p className="text-xs text-stone-500 uppercase tracking-wider mb-3 px-1">Deep Dive</p>
+        <p className="text-xs text-stone-500 uppercase tracking-wider mb-3 px-1">{t.deepDiveLabel}</p>
 
         <Section icon={Brain} title="Scientific Foundation" subtitle="Evidence-based methodology" defaultOpen>
           <DetailBlock
@@ -346,18 +437,11 @@ export default function DemoPage() {
 
         {/* ═══ COMPETITIVE EDGE ═══ */}
         <motion.div {...fade(0.1)} className="mb-6">
-          <p className="text-xs text-stone-500 uppercase tracking-wider mb-3 px-1">What Trophē Bundles</p>
+          <p className="text-xs text-stone-500 uppercase tracking-wider mb-3 px-1">{t.bundlesLabel}</p>
           <div className="glass p-4">
-            <p className="text-[11px] text-stone-400 mb-3">Capabilities that typically require separate tools:</p>
+            <p className="text-[11px] text-stone-400 mb-3">{t.bundlesDesc}</p>
             <div className="space-y-2">
-              {[
-                { feature: 'Habit coaching (14-day cycles, compliance tracking)', alt: 'Spreadsheets / manual follow-up' },
-                { feature: 'Food tracking with AI (text, photo, voice — trilingual)', alt: 'MyFitnessPal / Cronometer' },
-                { feature: 'Exercise form analysis with camera', alt: 'WhatsApp video review' },
-                { feature: 'Workout logging with PR detection', alt: 'Training spreadsheets / Trainerize' },
-                { feature: 'Coach dashboard with behavioral signals', alt: 'Manual client check-ins' },
-                { feature: 'Supplement protocols with evidence levels', alt: 'PDF protocols / email' },
-              ].map((row, i) => (
+              {t.bundles.map((row, i) => (
                 <div key={i} className="flex items-start gap-2 py-1.5 border-b border-white/[0.04] last:border-0">
                   <CheckCircle2 size={12} className="text-green-400 flex-shrink-0 mt-0.5" />
                   <div className="flex-1">
@@ -374,19 +458,21 @@ export default function DemoPage() {
         <motion.div {...fade(0.1)} className="glass p-4 mb-8">
           <div className="flex items-center gap-2 mb-2">
             <Target size={14} className="gold-text" />
-            <span className="text-xs text-stone-300 font-bold">Business Model</span>
+            <span className="text-xs text-stone-300 font-bold">{t.businessLabel}</span>
           </div>
           <p className="text-xs text-stone-400 leading-relaxed">
-            SaaS per coach. Each coach pays monthly to manage N clients. Clients use the app free.
-            AI cost is under $2/month per coach. White-label ready.
+            {t.businessDesc}
           </p>
         </motion.div>
+
+        </motion.div>
+        </AnimatePresence>
 
         {/* ═══ CTA ═══ */}
         <motion.div {...fade(0.1)} className="text-center">
           <Link href="/login">
             <button className="btn-gold px-10 py-4 text-base font-bold">
-              Enter Trophē →
+              {t.enterBtn}
             </button>
           </Link>
           <p className="text-[10px] text-stone-600 mt-3 font-mono">
