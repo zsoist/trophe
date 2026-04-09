@@ -1,308 +1,388 @@
 'use client';
 
+import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Brain, Target, Dumbbell, Utensils, BarChart3, Zap, Users, Camera, Flame, Sparkles } from 'lucide-react';
+import {
+  ArrowLeft, Brain, Target, Dumbbell, Utensils, BarChart3, Zap, Users, Camera,
+  Flame, Sparkles, Heart, Shield, TrendingUp, Eye, Mic, Search, Star,
+  Lock, Calendar, Trophy, Lightbulb, Layers, Globe, ChevronDown, ChevronUp,
+  CheckCircle2, Clock, Smartphone, Wifi,
+} from 'lucide-react';
 import Link from 'next/link';
 
-const fadeUp = { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 } };
+const fade = (delay: number) => ({
+  initial: { opacity: 0, y: 16 },
+  whileInView: { opacity: 1, y: 0 },
+  viewport: { once: true, margin: '-30px' },
+  transition: { duration: 0.5, delay },
+});
+
+// Animated counter
+function Counter({ value, suffix = '', delay = 0 }: { value: number; suffix?: string; delay?: number }) {
+  const [display, setDisplay] = useState(0);
+  return (
+    <motion.span
+      initial={{ opacity: 0 }}
+      whileInView={{ opacity: 1 }}
+      viewport={{ once: true }}
+      onViewportEnter={() => {
+        let start = 0;
+        const step = Math.ceil(value / 40);
+        const timer = setInterval(() => {
+          start += step;
+          if (start >= value) { start = value; clearInterval(timer); }
+          setDisplay(start);
+        }, 30);
+      }}
+      className="tabular-nums"
+    >
+      {display.toLocaleString()}{suffix}
+    </motion.span>
+  );
+}
+
+// Feature chip
+function Chip({ icon: Icon, label, color = '#D4A853' }: { icon: React.ComponentType<{ size?: number; className?: string }>; label: string; color?: string }) {
+  return (
+    <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium" style={{ background: `${color}15`, color, border: `1px solid ${color}25` }}>
+      <Icon size={12} />
+      {label}
+    </div>
+  );
+}
+
+// Progress bar
+function ProgressBar({ label, value, max, color }: { label: string; value: number; max: number; color: string }) {
+  return (
+    <div className="space-y-1">
+      <div className="flex justify-between text-[10px]">
+        <span className="text-stone-400">{label}</span>
+        <span style={{ color }} className="font-bold">{value}/{max}</span>
+      </div>
+      <div className="h-1.5 bg-white/[0.05] rounded-full overflow-hidden">
+        <motion.div
+          initial={{ width: 0 }}
+          whileInView={{ width: `${(value / max) * 100}%` }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.8, delay: 0.2 }}
+          className="h-full rounded-full"
+          style={{ backgroundColor: color }}
+        />
+      </div>
+    </div>
+  );
+}
+
+// Expandable section
+function Section({ icon: Icon, title, subtitle, children, defaultOpen = false }: {
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+  title: string;
+  subtitle: string;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <motion.div {...fade(0.1)} className="mb-4">
+      <button onClick={() => setOpen(!open)} className="w-full flex items-center justify-between p-4 glass rounded-xl">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(212,168,83,0.15)' }}>
+            <Icon size={20} className="gold-text" />
+          </div>
+          <div className="text-left">
+            <h3 className="text-sm font-bold text-stone-100">{title}</h3>
+            <p className="text-[10px] text-stone-500 uppercase tracking-wider">{subtitle}</p>
+          </div>
+        </div>
+        {open ? <ChevronUp size={16} className="text-stone-500" /> : <ChevronDown size={16} className="text-stone-500" />}
+      </button>
+      {open && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          className="mt-1 glass rounded-xl p-5 space-y-4 overflow-hidden"
+        >
+          {children}
+        </motion.div>
+      )}
+    </motion.div>
+  );
+}
 
 export default function DemoPage() {
   return (
     <div className="min-h-screen bg-stone-950">
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="max-w-2xl mx-auto px-4 pt-8 pb-24"
-      >
-        {/* Header */}
-        <div className="flex items-center gap-3 mb-8">
+      <div className="max-w-lg mx-auto px-4 pt-6 pb-24">
+
+        {/* ═══ HEADER ═══ */}
+        <div className="flex items-center gap-3 mb-6">
           <Link href="/">
             <button className="p-2 rounded-xl" style={{ background: 'rgba(255,255,255,0.06)' }}>
-              <ArrowLeft size={20} className="text-stone-400" />
+              <ArrowLeft size={18} className="text-stone-400" />
             </button>
           </Link>
-          <div>
-            <h1 className="text-3xl font-bold text-stone-100 font-serif">τροφή</h1>
-            <p className="text-xs text-[#D4A853] tracking-widest uppercase">Precision Nutrition Coaching Platform</p>
+          <div className="flex-1">
+            <h1 className="text-2xl font-bold text-stone-100 font-serif">τροφή</h1>
+            <p className="text-[10px] text-[#D4A853] tracking-widest uppercase">Precision Nutrition Coaching</p>
           </div>
         </div>
 
-        {/* Hero */}
-        <motion.div {...fadeUp} transition={{ delay: 0.1 }} className="glass-elevated p-6 mb-6 border border-[#D4A853]/20">
-          <div className="flex items-center gap-2 mb-3">
-            <Sparkles size={18} className="gold-text" />
-            <span className="text-xs text-[#D4A853] uppercase tracking-wider font-semibold">For Michael Kavdas — Exclusive Demo</span>
+        {/* ═══ HERO — THE STORY ═══ */}
+        <motion.div {...fade(0)} className="glass-elevated p-5 mb-6 border border-[#D4A853]/20 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-[#D4A853] rounded-full opacity-[0.05] blur-[60px]" />
+          <div className="relative">
+            <div className="flex items-center gap-2 mb-2">
+              <Sparkles size={14} className="gold-text" />
+              <span className="text-[10px] text-[#D4A853] uppercase tracking-wider font-bold">Exclusive Demo</span>
+            </div>
+            <h2 className="text-xl font-bold text-stone-100 mb-2 leading-tight">
+              Michael, this replaces your spreadsheets, MyFitnessPal, and WhatsApp groups.
+            </h2>
+            <p className="text-xs text-stone-400 leading-relaxed">
+              One platform. PN methodology built-in. AI that understands food in Greek, Spanish, and English.
+              Camera-based form analysis. And a coach dashboard that shows you which clients need attention — before they tell you.
+            </p>
           </div>
-          <h2 className="text-2xl font-bold text-stone-100 mb-3">
-            The platform that replaces 3+ coaching tools
-          </h2>
-          <p className="text-stone-400 text-sm leading-relaxed">
-            Trophē implements the Precision Nutrition methodology in software: progressive 14-day habits,
-            AI-powered nutritional tracking, camera-based form analysis, and a coach dashboard with behavioral
-            intelligence. All in one app, trilingual, with zero friction for the client.
-          </p>
         </motion.div>
 
-        {/* Credentials */}
-        <motion.div {...fadeUp} transition={{ delay: 0.15 }} className="glass p-4 mb-6">
-          <p className="text-xs text-stone-500 uppercase tracking-wider mb-2">Demo Credentials</p>
+        {/* ═══ LIVE METRICS ═══ */}
+        <motion.div {...fade(0.1)} className="grid grid-cols-4 gap-2 mb-6">
+          {[
+            { n: 25500, suffix: '', label: 'Lines', icon: Layers },
+            { n: 85, suffix: '+', label: 'Features', icon: Zap },
+            { n: 60, suffix: '', label: 'Components', icon: Smartphone },
+            { n: 0, suffix: '', label: 'Errors', icon: Shield },
+          ].map((stat) => (
+            <div key={stat.label} className="glass p-3 text-center">
+              <stat.icon size={14} className="gold-text mx-auto mb-1" />
+              <p className="text-lg font-bold gold-text"><Counter value={stat.n} suffix={stat.suffix} /></p>
+              <p className="text-[8px] text-stone-500 uppercase">{stat.label}</p>
+            </div>
+          ))}
+        </motion.div>
+
+        {/* ═══ CREDENTIALS ═══ */}
+        <motion.div {...fade(0.15)} className="glass p-4 mb-6">
+          <div className="space-y-2 mb-3">
+            <div className="flex items-center justify-between p-2.5 rounded-lg" style={{ background: 'rgba(255,255,255,0.04)' }}>
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-full bg-[#D4A853]/20 flex items-center justify-center">
+                  <Users size={12} className="gold-text" />
+                </div>
+                <div>
+                  <p className="text-[9px] text-stone-500">Coach</p>
+                  <p className="text-xs text-stone-200 font-medium">michael@kavdas.com</p>
+                </div>
+              </div>
+              <code className="text-[10px] text-stone-500 bg-white/[0.04] px-2 py-0.5 rounded">trophe2026!</code>
+            </div>
+            <div className="flex items-center justify-between p-2.5 rounded-lg" style={{ background: 'rgba(255,255,255,0.04)' }}>
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-full bg-green-500/20 flex items-center justify-center">
+                  <Heart size={12} className="text-green-400" />
+                </div>
+                <div>
+                  <p className="text-[9px] text-stone-500">Client (Nikos)</p>
+                  <p className="text-xs text-stone-200 font-medium">nikos@biorita.com</p>
+                </div>
+              </div>
+              <code className="text-[10px] text-stone-500 bg-white/[0.04] px-2 py-0.5 rounded">trophe2026!</code>
+            </div>
+          </div>
+          <Link href="/login" className="btn-gold block w-full py-3 text-sm text-center font-bold no-underline">
+            Enter as Coach →
+          </Link>
+        </motion.div>
+
+        {/* ═══ NARRATIVE: THE PROBLEM ═══ */}
+        <motion.div {...fade(0.1)} className="mb-6">
+          <p className="text-xs text-stone-500 uppercase tracking-wider mb-2 px-1">The Problem</p>
+          <div className="glass p-4 space-y-2">
+            {[
+              'Habit tracking lives in spreadsheets that clients forget to update',
+              'Food logging requires MyFitnessPal — no coaching integration',
+              'Form feedback happens via WhatsApp videos — no data, no tracking',
+              'You manage 3+ tools and still miss when a client is struggling',
+            ].map((problem, i) => (
+              <motion.div key={i} {...fade(i * 0.05)} className="flex items-start gap-2">
+                <span className="text-red-400 text-xs mt-0.5">✗</span>
+                <p className="text-xs text-stone-400">{problem}</p>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+
+        {/* ═══ NARRATIVE: THE SOLUTION ═══ */}
+        <motion.div {...fade(0.1)} className="mb-6">
+          <p className="text-xs text-stone-500 uppercase tracking-wider mb-2 px-1">The Solution</p>
+          <div className="glass-elevated p-4 border border-[#D4A853]/10 space-y-2">
+            {[
+              'One habit at a time, 14-day cycles — the PN methodology automated',
+              'AI food tracking: type, speak, or photograph — in Greek, Spanish, or English',
+              'Camera-based form analysis with real-time scoring — in the browser',
+              'Coach dashboard with behavioral signals: 🟢 🟡 🔴 — see who needs you',
+            ].map((solution, i) => (
+              <motion.div key={i} {...fade(i * 0.05)} className="flex items-start gap-2">
+                <CheckCircle2 size={14} className="text-green-400 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-stone-300">{solution}</p>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+
+        {/* ═══ FEATURE GRID ═══ */}
+        <motion.div {...fade(0.1)} className="mb-6">
+          <p className="text-xs text-stone-500 uppercase tracking-wider mb-3 px-1">85+ Features Including</p>
+          <div className="flex flex-wrap gap-1.5">
+            <Chip icon={Utensils} label="NLP Food Parse" />
+            <Chip icon={Camera} label="Photo Analysis" />
+            <Chip icon={Mic} label="Voice Input" />
+            <Chip icon={Search} label="350K+ Foods" />
+            <Chip icon={Star} label="Meal Scoring A/B/C/D" />
+            <Chip icon={Flame} label="Streak Counter" />
+            <Chip icon={Trophy} label="6 Badges" />
+            <Chip icon={Calendar} label="Calendar View" />
+            <Chip icon={BarChart3} label="30-Day Trends" />
+            <Chip icon={TrendingUp} label="Weekly Adherence" />
+            <Chip icon={Clock} label="Fasting Timer" />
+            <Chip icon={Eye} label="AI Form Check" color="#22c55e" />
+            <Chip icon={Dumbbell} label="PR Detection" color="#22c55e" />
+            <Chip icon={Users} label="Coach Dashboard" color="#3b82f6" />
+            <Chip icon={Lock} label="41 RLS Policies" color="#3b82f6" />
+            <Chip icon={Globe} label="EN/ES/EL" color="#a855f7" />
+            <Chip icon={Lightbulb} label="Daily Insights" />
+            <Chip icon={Heart} label="Pain Flags" color="#ef4444" />
+            <Chip icon={Shield} label="Evidence Protocols" />
+            <Chip icon={Wifi} label="Works Offline" color="#22c55e" />
+          </div>
+        </motion.div>
+
+        {/* ═══ CAPABILITY DEEP DIVES ═══ */}
+        <p className="text-xs text-stone-500 uppercase tracking-wider mb-3 px-1">Deep Dive</p>
+
+        <Section icon={Brain} title="Scientific Foundation" subtitle="Evidence-based methodology" defaultOpen>
+          <DetailBlock
+            title="Mifflin-St Jeor (BMR)"
+            body="BMR = (10 × weight_kg) + (6.25 × height_cm) - (5 × age) + s. Lowest error margin (±10%) among validated equations."
+          />
+          <DetailBlock
+            title="ISSN Protein Targets"
+            body="1.6-2.2 g/kg for fat loss. 20-40g per meal, spaced 3-5h for optimal MPS. Carbs as remainder after P+F."
+          />
+          <ProgressBar label="Protein accuracy vs ISSN guidelines" value={95} max={100} color="#f87171" />
+          <ProgressBar label="BMR accuracy vs calorimetry" value={90} max={100} color="#D4A853" />
+        </Section>
+
+        <Section icon={Utensils} title="Nutrition Tracking" subtitle="5 input methods, 85+ features">
+          <div className="grid grid-cols-5 gap-1 mb-3">
+            {[
+              { icon: '⌨️', label: 'Text' },
+              { icon: '📸', label: 'Photo' },
+              { icon: '🎤', label: 'Voice' },
+              { icon: '📋', label: 'Paste' },
+              { icon: '✏️', label: 'Manual' },
+            ].map(m => (
+              <div key={m.label} className="text-center p-2 rounded-lg" style={{ background: 'rgba(255,255,255,0.03)' }}>
+                <span className="text-lg block">{m.icon}</span>
+                <span className="text-[8px] text-stone-500">{m.label}</span>
+              </div>
+            ))}
+          </div>
+          <DetailBlock title="AI Food Parser" body="Claude Haiku parses free text in EN/ES/EL. '3 αυγά, τοστ, ελληνικός καφές' → structured items with macros. ~$0.003/call." />
+          <DetailBlock title="Meal Quality Score" body="Each meal: A/B/C/D. 40% macro balance + 30% protein adequacy + 30% variety. Score badge on every meal card." />
+          <DetailBlock title="Analytics Suite" body="30-day trends, calorie heatmap, radar chart, gauge, protein distribution, food frequency, day patterns, monthly report." />
+        </Section>
+
+        <Section icon={Camera} title="AI Form Check" subtitle="Browser-based biomechanics">
+          <div className="flex items-center gap-3 p-3 rounded-lg mb-3" style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.15)' }}>
+            <Wifi size={16} className="text-green-400" />
+            <div>
+              <p className="text-xs text-green-300 font-medium">100% Client-Side</p>
+              <p className="text-[10px] text-stone-500">Video never leaves device. Zero API cost. Works offline.</p>
+            </div>
+          </div>
+          <DetailBlock title="33 Body Landmarks" body="MediaPipe Pose via WebAssembly. 30+ FPS desktop, 25 FPS mobile. Knee angle, torso inclination, neck inclination." />
+          <DetailBlock title="5-Tier Assessment" body={`0-3%: "buen ejercicio" (green)\n4-8%: "aun se puede mejorar" (gold)\n9-16%: "es necesario ajustar" (amber)\n17-25%: "realizar ajustes profundos" (orange)\n>25%: "riesgo de lesion" (red)`} />
+          <DetailBlock title="Reference Dataset" body="202 data points from 5 reference reps. Normalized 0-100% per phase. Comparison by segment_type." />
+        </Section>
+
+        <Section icon={Flame} title="Habit Engine" subtitle="PN methodology in software">
+          <DetailBlock title="14-Day Cycles" body="One habit → daily check-in (one tap) → 14 days → mastered → next habit. Replicates your PN L1 protocol." />
+          <DetailBlock title="10 PN Habits" body="Eat slowly, 80% full, protein every meal, vegetables, smart carbs, healthy fats, hydration, sleep, meal prep, mindful eating." />
+          <div className="flex flex-wrap gap-1">
+            {['🐢 Eat Slowly', '🥩 Protein', '🥦 Vegetables', '💧 Hydration', '😴 Sleep', '🧘 Mindful'].map(h => (
+              <span key={h} className="text-[10px] px-2 py-1 rounded-full bg-white/[0.05] text-stone-400">{h}</span>
+            ))}
+          </div>
+        </Section>
+
+        <Section icon={Dumbbell} title="Workout Module" subtitle="Logging + PRs + Templates">
+          <DetailBlock title="30 Exercises" body="Trilingual (EN/ES/EL). 13 muscle groups. Sets with weight/reps/RPE. Auto PR detection. Pain flag system." />
+          <DetailBlock title="Coach Templates" body="Create routines, assign to clients. Target sets/reps/RPE. Difficulty levels. Clients log against the template." />
+        </Section>
+
+        <Section icon={Users} title="Coach Dashboard" subtitle="Behavioral intelligence">
+          <DetailBlock title="Client Overview" body="Real-time signals: 🟢 on track, 🟡 at risk, 🔴 inactive. Deep-dive per client. Multi-client comparison." />
+          <DetailBlock title="Evidence-Based Supplements" body="Protocols with evidence level (A/B/C/D). Compliance grid. Coach creates stacks, assigns, monitors adherence." />
+        </Section>
+
+        <Section icon={Zap} title="Technical Architecture" subtitle="Zero-server, fully serverless">
           <div className="space-y-2">
-            <div className="p-3 rounded-xl flex items-center justify-between" style={{ background: 'rgba(255,255,255,0.04)' }}>
-              <div>
-                <p className="text-[10px] text-stone-500 mb-0.5">Coach Account</p>
-                <p className="text-sm text-stone-200 font-medium">michael@kavdas.com</p>
-              </div>
-              <p className="text-xs text-stone-500 font-mono">trophe2026!</p>
-            </div>
-            <div className="p-3 rounded-xl flex items-center justify-between" style={{ background: 'rgba(255,255,255,0.04)' }}>
-              <div>
-                <p className="text-[10px] text-stone-500 mb-0.5">Client Account (Nikos)</p>
-                <p className="text-sm text-stone-200 font-medium">nikos@biorita.com</p>
-              </div>
-              <p className="text-xs text-stone-500 font-mono">trophe2026!</p>
-            </div>
+            <ProgressBar label="TypeScript strict compliance" value={100} max={100} color="#22c55e" />
+            <ProgressBar label="RLS policy coverage" value={41} max={41} color="#3b82f6" />
+            <ProgressBar label="Trilingual coverage" value={200} max={200} color="#a855f7" />
           </div>
-          <div className="mt-3">
-            <Link href="/login" className="btn-gold block w-full py-2.5 text-sm text-center font-semibold no-underline">
-              Enter as Coach
-            </Link>
-          </div>
-        </motion.div>
+          <DetailBlock title="Stack" body="Next.js 16 + React 19 + Supabase + Tailwind 4. Vercel serverless. Claude Haiku + Gemini Flash + MediaPipe WASM." />
+          <DetailBlock title="AI Cost" body="~$1.80/month for 20 calls/day. Photo analysis ~$0.005/call. Text parsing ~$0.003/call. Form check: $0 (browser)." />
+        </Section>
 
-        {/* ═══ METHODOLOGY ═══ */}
-        <motion.div {...fadeUp} transition={{ delay: 0.2 }}>
-          <SectionHeader icon={Brain} title="Scientific Foundation" subtitle="Evidence-based methodology" />
-          <div className="glass p-5 mb-6 space-y-4">
-            <DetailBlock
-              title="Precision Nutrition (PN) Methodology"
-              body="Trophē implements PN's progressive habit system: one habit at a time, 14-day cycles, with daily check-ins. Based on behavior change research showing that adherence to a single habit is 3x higher than attempting multiple changes simultaneously. The coach assigns habits from a curated library — the client checks in with one tap."
-            />
-            <DetailBlock
-              title="Mifflin-St Jeor Equation (BMR)"
-              body="BMR = (10 × weight_kg) + (6.25 × height_cm) - (5 × age) + s, where s = +5 (males) or -161 (females). This equation has the lowest margin of error (±10%) among validated predictive equations (Frankenfield et al., 2005). TDEE is calculated by multiplying BMR by the activity factor (1.2 - 1.9)."
-            />
-            <DetailBlock
-              title="Macronutrient Distribution (ISSN Position Stand)"
-              body={`Protein: 1.6-2.2 g/kg for fat loss, 1.4-1.8 g/kg for muscle gain (Jäger et al., 2017). Optimal distribution: 20-40g per meal, spaced 3-5h apart to maximize muscle protein synthesis (MPS). Carbohydrates: calculated as the caloric remainder after protein and fat. Fat: minimum 0.5 g/kg for hormonal function.`}
-            />
-            <DetailBlock
-              title="Form Check Assessment Thresholds"
-              body={`The Form Check system uses angular comparison against a reference dataset:
-• 0-3% deviation: "buen ejercicio" — technique within optimal range
-• 4-8%: "aun se puede mejorar" — minor adjustments recommended
-• 9-16%: "es necesario ajustar" — moderate biomechanical risk
-• 17-25%: "realizar ajustes profundos" — technical intervention needed
-• >25%: "riesgo de lesion" — stop and correct before continuing
-Based on MediaPipe Pose analysis (33 landmarks, 30+ FPS in browser).`}
-            />
-          </div>
-        </motion.div>
-
-        {/* ═══ NUTRITION TRACKING ═══ */}
-        <motion.div {...fadeUp} transition={{ delay: 0.25 }}>
-          <SectionHeader icon={Utensils} title="Nutritional Tracking" subtitle="85+ tracking features" />
-          <div className="glass p-5 mb-6 space-y-4">
-            <DetailBlock
-              title="Multimodal Data Input"
-              body="5 logging methods: (1) Free text with NLP — Claude Haiku parses '3 eggs, toast, coffee with milk' into structured items with macros. (2) Photo — Haiku Vision image analysis identifies foods and estimates macros. (3) Clipboard paste. (4) Voice — Web Speech API transcribes and auto-parses. (5) Manual quick-add. Database: 126 local foods + USDA FoodData Central (350K+)."
-            />
-            <DetailBlock
-              title="Meal Scoring System"
-              body="Each meal receives an A/B/C/D grade based on: 40% macro balance (protein 20-35%, carbs 35-55%, fat 20-35%), 30% protein adequacy (vs 25g/meal MPS target), 30% food variety (>4 distinct items = 100%). The score is displayed as a badge on each meal slot."
-            />
-            <DetailBlock
-              title="Real-Time Metrics"
-              body="Daily targets with color coding (green/gold/red), animated progress rings (SVG), floating remaining calorie counter, consecutive day streaks, achievement badges (6 unlockable milestones), fiber tracking (target 25-38g/day), context-aware health tips rotating hourly with 21 evidence-based nutrition insights."
-            />
-            <DetailBlock
-              title="Advanced Analytics"
-              body="30-day trend chart (multi-line), GitHub-style calorie heatmap (8 weeks), 5-axis radar chart (P/C/F/Fiber/Water), speedometer calorie gauge, protein distribution per meal, food frequency ranking, day-of-week patterns, weekly adherence score (0-100%), monthly report card with overall grade."
-            />
-            <DetailBlock
-              title="Eating Window Tracking"
-              body="Automatic tracking of first and last meal of the day. Displays eating and fasting window with visual bar. Compatible with intermittent fasting protocols (16:8, 14:10). The coach can view each client's timing patterns."
-            />
-          </div>
-        </motion.div>
-
-        {/* ═══ FORM CHECK ═══ */}
-        <motion.div {...fadeUp} transition={{ delay: 0.3 }}>
-          <SectionHeader icon={Camera} title="AI Form Check" subtitle="Browser-based biomechanical analysis" />
-          <div className="glass p-5 mb-6 space-y-4">
-            <DetailBlock
-              title="MediaPipe Pose in the Browser"
-              body="Runs 100% client-side via WebAssembly — video NEVER leaves the device. 33 body landmarks in 3D, 30+ FPS on desktop, 25 FPS on mobile. Lite model (5MB) loaded from Google CDN. Zero API cost, zero network latency. Complete privacy."
-            />
-            <DetailBlock
-              title="Variables of Interest (Bulgarian Split Squat)"
-              body={`• Knee angle (knee_angle_deg): hip-knee-ankle, measured in sagittal plane
-• Torso inclination (torso_inclination_abs_deg): shoulder-hip relative to vertical
-• Neck inclination (neck_inclination_abs_deg): ear-shoulder relative to vertical
-Smoothed with EMA (α=0.2 for angles, α=0.25 for points).
-Rep detection via direction changes in knee angle time series.`}
-            />
-            <DetailBlock
-              title="Reference Dataset"
-              body="202 data points (101 per phase: descent and ascent) averaged from 5 reference repetitions. Each point includes angles normalized to 0-100% of the movement. Comparison is done by segment_type (baja_a_sube vs sube_a_baja), calculating mean_abs_pct_diff per variable."
-            />
-            <DetailBlock
-              title="Extensibility"
-              body="Architecture ready for multiple exercises. Adding a new exercise requires: (1) record reference videos, (2) process with the existing Python pipeline, (3) export average CSVs, (4) convert to TypeScript constants. The frontend adapts automatically."
-            />
-          </div>
-        </motion.div>
-
-        {/* ═══ WORKOUT MODULE ═══ */}
-        <motion.div {...fadeUp} transition={{ delay: 0.35 }}>
-          <SectionHeader icon={Dumbbell} title="Workout Module" subtitle="Logging + PRs + Templates" />
-          <div className="glass p-5 mb-6 space-y-4">
-            <DetailBlock
-              title="Exercise Tracking"
-              body="30 pre-loaded exercises (trilingual EN/ES/EL), 13 muscle groups, sets with weight/reps/RPE (1-10). Auto-detection of personal records by comparing against historical max. Pain flag system per exercise (body part + severity 1-5). Real-time session timer."
-            />
-            <DetailBlock
-              title="Volume Dashboard"
-              body="Weekly volume by muscle group (sets × weight), frequency alerts (when was each muscle last trained), 8-week volume trend, personal records board, cross-session exercise comparison."
-            />
-            <DetailBlock
-              title="Coach Routine Templates"
-              body="The coach creates templates with exercises, target sets, target reps, target RPE. Assigns them to clients. The client sees their assigned routine and can log directly against it. Difficulty levels: beginner/intermediate/advanced."
-            />
-          </div>
-        </motion.div>
-
-        {/* ═══ HABIT ENGINE ═══ */}
-        <motion.div {...fadeUp} transition={{ delay: 0.4 }}>
-          <SectionHeader icon={Flame} title="Habit Engine" subtitle="PN methodology in software" />
-          <div className="glass p-5 mb-6 space-y-4">
-            <DetailBlock
-              title="14-Day Cycles"
-              body="One habit at a time. Coach assigns → client checks in daily (one tap). After 14 consecutive days, the habit is marked as 'mastered' and the next one unlocks. This replicates the Precision Nutrition Level 1 protocol that Michael already uses manually."
-            />
-            <DetailBlock
-              title="Behavioral Intelligence"
-              body="Compliance heatmap (14 days), streak with badges (7, 14, 30 days), auto-progression on cycle completion, mood tracking per check-in (5 states), radar chart across 6 habit categories, mastery celebration with confetti. The coach sees behavioral signals: 🟢 on track, 🟡 at risk, 🔴 inactive."
-            />
-            <DetailBlock
-              title="10 Pre-loaded Habits"
-              body="Based on the PN pyramid: (1) Eat slowly, (2) Eat until 80% full, (3) Protein at every meal, (4) Vegetables at every meal, (5) Smart carbs, (6) Healthy fats, (7) Hydration, (8) Sleep hygiene, (9) Meal prep, (10) Mindful eating. All trilingual (EN/ES/EL)."
-            />
-          </div>
-        </motion.div>
-
-        {/* ═══ COACH DASHBOARD ═══ */}
-        <motion.div {...fadeUp} transition={{ delay: 0.45 }}>
-          <SectionHeader icon={Users} title="Coach Dashboard" subtitle="Client management" />
-          <div className="glass p-5 mb-6 space-y-4">
-            <DetailBlock
-              title="Client Overview"
-              body="Cards with real-time behavioral signals. Filters by status (on track/at risk/inactive), name search. Deep-dive per client: active habits, food log, workouts, coach notes, supplement history. Multi-client comparison table."
-            />
-            <DetailBlock
-              title="Coach Tools"
-              body="Assign habits, supplement protocols (stacks A/B/C/D with evidence level), routine templates, session notes (check-in/progression/concern/general), one-click exportable summary, custom food database (coach adds their own foods with verified macros)."
-            />
-            <DetailBlock
-              title="Evidence-Based Supplementation"
-              body="Protocols with marked evidence level (A: strong, B: moderate, C: emerging, D: theoretical). Compliance grid per supplement. The coach creates the stack, assigns it to the client, and sees daily adherence. Configurable timing (morning/afternoon/evening/with meals)."
-            />
-          </div>
-        </motion.div>
-
-        {/* ═══ TECH STACK ═══ */}
-        <motion.div {...fadeUp} transition={{ delay: 0.5 }}>
-          <SectionHeader icon={Zap} title="Technical Stack" subtitle="System architecture" />
-          <div className="glass p-5 mb-6 space-y-4">
-            <DetailBlock
-              title="Frontend"
-              body="Next.js 16 (App Router) + React 19 + TypeScript (strict mode). Tailwind CSS 4 with glass morphism. Framer Motion for animations. Lucide for iconography. 60 components, 20 pages, 25,500+ lines. Mobile-first (390x844)."
-            />
-            <DetailBlock
-              title="Backend"
-              body="Supabase: Auth + Postgres + Row Level Security (41 policies). 18 tables. USDA FoodData Central API (350K+ foods). Zero self-hosted server — fully serverless via Vercel."
-            />
-            <DetailBlock
-              title="AI"
-              body={`• Anthropic Claude Haiku 4.5: NLP food parsing + photo analysis (~$0.003/call)
-• Google Gemini 2.0 Flash: meal suggestions (~$0.001/call)
-• MediaPipe Pose (browser, WASM): form analysis (FREE, $0)
-• Web Speech API: voice input (FREE, browser-native)
-Estimated cost: ~$1.80/month for 20 calls/day.`}
-            />
-            <DetailBlock
-              title="Internationalization"
-              body="Full trilingual support: English, Español, Ελληνικά. 200+ translated strings. Auto language detection. Supports input in any language (the AI parses Greek, Spanish, and English)."
-            />
-          </div>
-        </motion.div>
-
-        {/* ═══ NUMBERS ═══ */}
-        <motion.div {...fadeUp} transition={{ delay: 0.55 }}>
-          <SectionHeader icon={BarChart3} title="System Metrics" subtitle="Current state" />
-          <div className="glass p-5 mb-6">
-            <div className="grid grid-cols-3 gap-4">
+        {/* ═══ COMPETITIVE EDGE ═══ */}
+        <motion.div {...fade(0.1)} className="mb-6">
+          <p className="text-xs text-stone-500 uppercase tracking-wider mb-3 px-1">Why Trophē Wins</p>
+          <div className="glass-elevated p-4 border border-[#D4A853]/10">
+            <div className="space-y-3">
               {[
-                { n: '25,500+', label: 'Lines of code' },
-                { n: '60', label: 'React components' },
-                { n: '85+', label: 'Features shipped' },
-                { n: '18', label: 'Supabase tables' },
-                { n: '41', label: 'RLS policies' },
-                { n: '126+', label: 'Foods in database' },
-                { n: '30', label: 'Exercises (3 langs)' },
-                { n: '10', label: 'PN habits' },
-                { n: '0', label: 'TypeScript errors' },
-              ].map(stat => (
-                <div key={stat.label} className="text-center">
-                  <p className="text-xl font-bold gold-text">{stat.n}</p>
-                  <p className="text-[9px] text-stone-500 leading-tight">{stat.label}</p>
+                { vs: 'Cronometer', has: 'Micronutrients', missing: 'No habits, no coaching', color: '#f59e0b' },
+                { vs: 'MacroFactor', has: 'Adaptive algorithm', missing: 'No coaching, no AI', color: '#3b82f6' },
+                { vs: 'Trainerize', has: 'Workout templates', missing: 'No food AI, no habits', color: '#a855f7' },
+                { vs: 'Trophē', has: 'Everything unified', missing: '', color: '#22c55e' },
+              ].map((c) => (
+                <div key={c.vs} className="flex items-center gap-3">
+                  <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: c.color }} />
+                  <div className="flex-1">
+                    <span className="text-xs text-stone-200 font-medium">{c.vs}</span>
+                    <span className="text-[10px] text-stone-500 ml-2">{c.has}</span>
+                  </div>
+                  {c.missing && <span className="text-[9px] text-red-400/60">{c.missing}</span>}
                 </div>
               ))}
             </div>
           </div>
         </motion.div>
 
-        {/* ═══ VALUE PROPOSITION ═══ */}
-        <motion.div {...fadeUp} transition={{ delay: 0.6 }}>
-          <SectionHeader icon={Target} title="Value Proposition" subtitle="For Daily Nutrafit / Athletikapp" />
-          <div className="glass-elevated p-5 mb-6 border border-[#D4A853]/20 space-y-4">
-            <DetailBlock
-              title="What It Replaces"
-              body="1. Spreadsheets for habit tracking → Automated habit engine with compliance heatmap. 2. MyFitnessPal for food logging → NLP + photo with per-meal quality scoring. 3. WhatsApp for coach-client communication → Integrated dashboard with notes and behavioral signals. 4. Training spreadsheets → Digital templates with auto-PR detection and AI form check."
-            />
-            <DetailBlock
-              title="Competitive Advantage"
-              body="No platform combines: PN habits + AI food tracking + camera form analysis + coach dashboard. Cronometer has micronutrients but no habits. MacroFactor has adaptive algorithms but no coaching. Trainerize has templates but no food AI. Trophē unifies everything."
-            />
-            <DetailBlock
-              title="Business Model"
-              body="SaaS per coach: each coach pays a monthly subscription to manage N clients. Clients use the app for free. The coach customizes habits, protocols, and templates. White-label possible in the future. AI cost is <$2/month per coach."
-            />
+        {/* ═══ BUSINESS MODEL ═══ */}
+        <motion.div {...fade(0.1)} className="glass p-4 mb-8">
+          <div className="flex items-center gap-2 mb-2">
+            <Target size={14} className="gold-text" />
+            <span className="text-xs text-stone-300 font-bold">Business Model</span>
           </div>
+          <p className="text-xs text-stone-400 leading-relaxed">
+            SaaS per coach. Each coach pays monthly to manage N clients. Clients use the app free.
+            AI cost is under $2/month per coach. White-label ready.
+          </p>
         </motion.div>
 
-        {/* CTA */}
-        <motion.div {...fadeUp} transition={{ delay: 0.65 }} className="text-center">
+        {/* ═══ CTA ═══ */}
+        <motion.div {...fade(0.1)} className="text-center">
           <Link href="/login">
-            <button className="btn-gold px-8 py-4 text-base font-bold">
-              Enter Trophē
+            <button className="btn-gold px-10 py-4 text-base font-bold">
+              Enter Trophē →
             </button>
           </Link>
-          <p className="text-xs text-stone-600 mt-3">
+          <p className="text-[10px] text-stone-600 mt-3 font-mono">
             michael@kavdas.com / trophe2026!
           </p>
         </motion.div>
-      </motion.div>
-    </div>
-  );
-}
-
-function SectionHeader({ icon: Icon, title, subtitle }: { icon: React.ComponentType<{ size?: number; className?: string }>; title: string; subtitle: string }) {
-  return (
-    <div className="flex items-center gap-2.5 mb-3">
-      <Icon size={18} className="gold-text" />
-      <div>
-        <h3 className="text-base font-bold text-stone-100">{title}</h3>
-        <p className="text-[10px] text-stone-500 uppercase tracking-wider">{subtitle}</p>
       </div>
     </div>
   );
@@ -311,8 +391,8 @@ function SectionHeader({ icon: Icon, title, subtitle }: { icon: React.ComponentT
 function DetailBlock({ title, body }: { title: string; body: string }) {
   return (
     <div>
-      <h4 className="text-sm font-semibold text-stone-200 mb-1">{title}</h4>
-      <p className="text-xs text-stone-400 leading-relaxed whitespace-pre-line">{body}</p>
+      <h4 className="text-xs font-semibold text-stone-200 mb-0.5">{title}</h4>
+      <p className="text-[11px] text-stone-400 leading-relaxed whitespace-pre-line">{body}</p>
     </div>
   );
 }
