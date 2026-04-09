@@ -283,6 +283,9 @@ export default function LandingPage() {
             <Link href="/login" className="btn-gold text-center text-lg px-10 py-4 no-underline">
               Start Free
             </Link>
+            <Link href="/demo" className="text-center text-sm px-8 py-4 rounded-2xl font-semibold no-underline transition-all" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(212,168,83,0.3)', color: '#D4A853' }}>
+              🏋️ Demo para Coaches
+            </Link>
           </div>
           <p className="text-stone-600 text-xs mt-6">
             🇬🇧 English · 🇪🇸 Español · 🇬🇷 Ελληνικά
