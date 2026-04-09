@@ -8,9 +8,9 @@
 - **Styling**: Tailwind CSS 4 + Framer Motion + Lucide icons
 - **i18n**: Trilingual (EN/ES/EL) via lib/i18n.tsx
 
-## Stats (2026-04-08, final)
-- **23,941 lines** | **57 components** | **9 API routes** | **18 pages** | **36 commits**
-- **18 database tables** (incl api_usage_log) | **41 RLS policies** | **14 indexes**
+## Stats (2026-04-09)
+- **26,023 lines** | **60 components** | **9 API routes** | **20 pages** | **48 commits**
+- **19 database tables** (incl api_usage_log, form_analyses) | **43 RLS policies** | **15 indexes**
 - **30 exercises** | **126 foods** | **20 Greek foods** | **10 habits**
 - **85+ features** shipped across 9 iterations
 - **0 TypeScript errors** (strict mode ON) | **0 console errors**
@@ -94,7 +94,7 @@
 
 ## Supabase
 - Project: Trophe (iwbpzwmidzvpiofnqexd)
-- 18 tables (incl api_usage_log), 41 RLS policies, 14 indexes
+- 19 tables (incl api_usage_log, form_analyses), 43 RLS policies, 15 indexes
 - Service role key in .env.local (never expose)
 - food_log source CHECK: `('usda', 'openfoodfacts', 'custom', 'photo_ai', 'natural_language', 'ai_estimate')`
 - api_usage_log: tracks Anthropic + Gemini API calls (tokens, cost, latency)

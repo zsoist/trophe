@@ -65,6 +65,30 @@ CREATE TABLE workout_templates (
 -- Indexes
 CREATE INDEX idx_workout_sessions_user ON workout_sessions(user_id, session_date);
 CREATE INDEX idx_workout_sets_session ON workout_sets(session_id);
+
+-- ═══════════════════════════════════════════════
+-- FORM ANALYSIS (AI Camera Form Check)
+-- ═══════════════════════════════════════════════
+
+CREATE TABLE form_analyses (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  exercise_id UUID REFERENCES exercises(id),
+  session_id UUID REFERENCES workout_sessions(id),
+  side TEXT DEFAULT 'right',
+  reps_analyzed INT DEFAULT 0,
+  overall_score REAL,
+  overall_assessment TEXT,
+  per_rep_scores JSONB,
+  reference_comparison JSONB,
+  analyzed_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX idx_form_analyses_user ON form_analyses(user_id);
+ALTER TABLE form_analyses ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users manage own form analyses" ON form_analyses FOR ALL USING (user_id = auth.uid());
+CREATE POLICY "Coaches view client form analyses" ON form_analyses FOR SELECT
+  USING (user_id IN (SELECT user_id FROM client_profiles WHERE coach_id = auth.uid()));
 CREATE INDEX idx_workout_sets_exercise ON workout_sets(exercise_id);
 CREATE INDEX idx_exercises_muscle ON exercises(muscle_group);
 

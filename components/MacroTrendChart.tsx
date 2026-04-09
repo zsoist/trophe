@@ -68,7 +68,7 @@ export default function MacroTrendChart({ userId, days = 30 }: MacroTrendChartPr
         .from('client_profiles')
         .select('target_calories')
         .eq('user_id', userId)
-        .single(),
+        .maybeSingle(),
     ]);
 
     if (profileResult.data?.target_calories) {
