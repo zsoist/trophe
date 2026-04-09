@@ -46,16 +46,20 @@ export default function DemoPage() {
         {/* Credentials */}
         <motion.div {...fadeUp} transition={{ delay: 0.15 }} className="glass p-4 mb-6">
           <p className="text-xs text-stone-500 uppercase tracking-wider mb-2">Demo Credentials</p>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)' }}>
-              <p className="text-[10px] text-stone-500 mb-0.5">Coach</p>
-              <p className="text-sm text-stone-200 font-medium">michael@kavdas.com</p>
-              <p className="text-xs text-stone-500">trophe2026!</p>
+          <div className="space-y-2">
+            <div className="p-3 rounded-xl flex items-center justify-between" style={{ background: 'rgba(255,255,255,0.04)' }}>
+              <div>
+                <p className="text-[10px] text-stone-500 mb-0.5">Coach Account</p>
+                <p className="text-sm text-stone-200 font-medium">michael@kavdas.com</p>
+              </div>
+              <p className="text-xs text-stone-500 font-mono">trophe2026!</p>
             </div>
-            <div className="p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)' }}>
-              <p className="text-[10px] text-stone-500 mb-0.5">Client (Nikos)</p>
-              <p className="text-sm text-stone-200 font-medium">nikos@biorita.com</p>
-              <p className="text-xs text-stone-500">trophe2026!</p>
+            <div className="p-3 rounded-xl flex items-center justify-between" style={{ background: 'rgba(255,255,255,0.04)' }}>
+              <div>
+                <p className="text-[10px] text-stone-500 mb-0.5">Client Account (Nikos)</p>
+                <p className="text-sm text-stone-200 font-medium">nikos@biorita.com</p>
+              </div>
+              <p className="text-xs text-stone-500 font-mono">trophe2026!</p>
             </div>
           </div>
           <div className="mt-3">
