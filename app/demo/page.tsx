@@ -133,14 +133,16 @@ export default function DemoPage() {
           <div className="relative">
             <div className="flex items-center gap-2 mb-2">
               <Sparkles size={14} className="gold-text" />
-              <span className="text-[10px] text-[#D4A853] uppercase tracking-wider font-bold">Exclusive Demo</span>
+              <span className="text-[10px] text-[#D4A853] uppercase tracking-wider font-bold">Demo — April 2026</span>
             </div>
             <h2 className="text-xl font-bold text-stone-100 mb-2 leading-tight">
-              Michael, this replaces your spreadsheets, MyFitnessPal, and WhatsApp groups.
+              What is Trophē
             </h2>
             <p className="text-xs text-stone-400 leading-relaxed">
-              One platform. PN methodology built-in. AI that understands food in Greek, Spanish, and English.
-              Camera-based form analysis. And a coach dashboard that shows you which clients need attention — before they tell you.
+              A coaching platform that puts the Precision Nutrition habit methodology into software.
+              Clients log food via text, photo, or voice in any language. The coach sees behavioral signals,
+              assigns habits one at a time, and monitors compliance — all from one dashboard.
+              It also includes workout tracking with AI-powered camera form analysis.
             </p>
           </div>
         </motion.div>
@@ -148,15 +150,21 @@ export default function DemoPage() {
         {/* ═══ LIVE METRICS ═══ */}
         <motion.div {...fade(0.1)} className="grid grid-cols-4 gap-2 mb-6">
           {[
-            { n: 25500, suffix: '', label: 'Lines', icon: Layers },
             { n: 85, suffix: '+', label: 'Features', icon: Zap },
-            { n: 60, suffix: '', label: 'Components', icon: Smartphone },
-            { n: 0, suffix: '', label: 'Errors', icon: Shield },
+            { n: 3, suffix: '', label: 'Languages', icon: Globe },
+            { label: 'AI Camera', icon: Camera, text: true },
+            { label: 'NLP Food', icon: Mic, text: true },
           ].map((stat) => (
             <div key={stat.label} className="glass p-3 text-center">
               <stat.icon size={14} className="gold-text mx-auto mb-1" />
-              <p className="text-lg font-bold gold-text"><Counter value={stat.n} suffix={stat.suffix} /></p>
-              <p className="text-[8px] text-stone-500 uppercase">{stat.label}</p>
+              {'text' in stat ? (
+                <p className="text-[10px] font-bold gold-text mt-1">{stat.label}</p>
+              ) : (
+                <>
+                  <p className="text-lg font-bold gold-text"><Counter value={(stat as any).n} suffix={(stat as any).suffix} /></p>
+                  <p className="text-[8px] text-stone-500 uppercase">{stat.label}</p>
+                </>
+              )}
             </div>
           ))}
         </motion.div>
@@ -338,22 +346,24 @@ export default function DemoPage() {
 
         {/* ═══ COMPETITIVE EDGE ═══ */}
         <motion.div {...fade(0.1)} className="mb-6">
-          <p className="text-xs text-stone-500 uppercase tracking-wider mb-3 px-1">Why Trophē Wins</p>
-          <div className="glass-elevated p-4 border border-[#D4A853]/10">
-            <div className="space-y-3">
+          <p className="text-xs text-stone-500 uppercase tracking-wider mb-3 px-1">What Trophē Bundles</p>
+          <div className="glass p-4">
+            <p className="text-[11px] text-stone-400 mb-3">Capabilities that typically require separate tools:</p>
+            <div className="space-y-2">
               {[
-                { vs: 'Cronometer', has: 'Micronutrients', missing: 'No habits, no coaching', color: '#f59e0b' },
-                { vs: 'MacroFactor', has: 'Adaptive algorithm', missing: 'No coaching, no AI', color: '#3b82f6' },
-                { vs: 'Trainerize', has: 'Workout templates', missing: 'No food AI, no habits', color: '#a855f7' },
-                { vs: 'Trophē', has: 'Everything unified', missing: '', color: '#22c55e' },
-              ].map((c) => (
-                <div key={c.vs} className="flex items-center gap-3">
-                  <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: c.color }} />
+                { feature: 'Habit coaching (14-day cycles, compliance tracking)', alt: 'Spreadsheets / manual follow-up' },
+                { feature: 'Food tracking with AI (text, photo, voice — trilingual)', alt: 'MyFitnessPal / Cronometer' },
+                { feature: 'Exercise form analysis with camera', alt: 'WhatsApp video review' },
+                { feature: 'Workout logging with PR detection', alt: 'Training spreadsheets / Trainerize' },
+                { feature: 'Coach dashboard with behavioral signals', alt: 'Manual client check-ins' },
+                { feature: 'Supplement protocols with evidence levels', alt: 'PDF protocols / email' },
+              ].map((row, i) => (
+                <div key={i} className="flex items-start gap-2 py-1.5 border-b border-white/[0.04] last:border-0">
+                  <CheckCircle2 size={12} className="text-green-400 flex-shrink-0 mt-0.5" />
                   <div className="flex-1">
-                    <span className="text-xs text-stone-200 font-medium">{c.vs}</span>
-                    <span className="text-[10px] text-stone-500 ml-2">{c.has}</span>
+                    <p className="text-[11px] text-stone-200">{row.feature}</p>
+                    <p className="text-[9px] text-stone-600">Replaces: {row.alt}</p>
                   </div>
-                  {c.missing && <span className="text-[9px] text-red-400/60">{c.missing}</span>}
                 </div>
               ))}
             </div>
