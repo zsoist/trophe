@@ -100,6 +100,16 @@
 - api_usage_log: tracks Anthropic + Gemini API calls (tokens, cost, latency)
 - Migration ran: 2026-04-08 (.forge/migrate-api-usage-log.sql)
 
+## Business Context (post-meeting April 9)
+- **Partner**: Michael Kavdas (Greek nutritionist, PN L1, COO Athletikapp)
+- **Status**: Testing phase (April 10-18). 3 subjects: Nikos, Daniel, Daniela
+- **Model**: SaaS per coach. Clients free. AI cost <$2/month/coach
+- **Vision**: AI assistant for nutritionists → eventually AI IS the nutritionist
+- **Docs**: MEETING-NOTES.md, BUSINESS.md, .forge/kavdas-meeting-2026-04-09.pdf
+- **Michael's account**: michael@kavdas.com / trophe2026! (coach)
+- **TEMPORARY**: Gold banner on landing page → remove after testing phase
+- **Next meeting**: April 16-18 with testing results
+
 ## Deploy
 ```bash
 cd /Volumes/SSD/work/forge-projects/trophe

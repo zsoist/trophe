@@ -147,3 +147,57 @@
 - [x] ✅ CalorieHeatmap empty cell visibility fixed
 - [x] ✅ Food input buttons separated from textarea
 - [x] ✅ Health tip time-awareness (no "breakfast" at 11pm)
+
+## Day 8: AI Form Check + Demo Page (2026-04-08→09)
+- [x] ✅ MediaPipe Pose integration (browser WASM, 33 landmarks, 30+ FPS)
+- [x] ✅ Bulgarian Split Squat reference dataset (202 data points from gym-analysis)
+- [x] ✅ lib/form-analysis.ts — ported biomechanics math from Python
+- [x] ✅ FormCheck component (camera + detection loop + rep counting)
+- [x] ✅ PoseOverlay component (green skeleton + angle labels)
+- [x] ✅ FormScore component (gauge + per-rep breakdown)
+- [x] ✅ Form Check page at /dashboard/workout/form-check
+- [x] ✅ Demo page for Michael Kavdas (/demo) with EN/EL toggle
+- [x] ✅ Michael's account created (michael@kavdas.com, coach)
+- [x] ✅ Gold banner on landing page (temporary)
+- [x] ✅ form_analyses table created in Supabase
+- [x] ✅ MacroTrendChart .single() → .maybeSingle() fix
+- [x] ✅ Overnight audit: 97/100, all 10 tasks ran
+
+## Day 9: Kavdas Meeting + Documentation (2026-04-09)
+- [x] ✅ Meeting with Michael Kavdas (1.5h)
+- [x] ✅ Meeting report PDF generated
+- [x] ✅ MEETING-NOTES.md created
+- [x] ✅ BUSINESS.md created (business plan, competitive landscape, roadmap)
+- [x] ✅ SPEC.md updated with Michael's vision
+- [x] ✅ All system docs updated
+
+---
+
+## PHASE 2: Testing (April 10-18, 2026)
+_3 test subjects, daily usage, bug collection_
+
+- [ ] Nikos tests as athlete client (daily meal logging + workouts)
+- [ ] Daniel tests as post-surgery recovery client
+- [ ] Daniela tests as biomechanics/engineer perspective
+- [ ] Michael tests as coach (assigns habits, monitors dashboard)
+- [ ] Collect bug reports and feature requests
+- [ ] Fix critical bugs as they're found
+- [ ] Reconvene meeting (April 16-18)
+
+## PHASE 3: Post-Testing Features (May 2026)
+_Top priorities from Michael's feedback_
+
+- [ ] Nutritional plan generator (AI builds, coach adjusts)
+- [ ] Supermarket list with local products
+- [ ] Client diary → pattern mapping → plan adjustment
+- [ ] Recipe suggestions by culture/city
+- [ ] Gamification improvements (reaffirmation nudges)
+- [ ] Client profile portability
+- [ ] Educational content delivery for nutritionists
+
+## PHASE 4: Launch Prep (June-July 2026)
+- [ ] Legal entity established
+- [ ] Pricing model finalized
+- [ ] Onboard 2-3 more beta nutritionists
+- [ ] Marketing via Michael's network
+- [ ] Eastern medicine research phase begins
