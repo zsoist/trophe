@@ -498,8 +498,8 @@ export default function FormCheck({ exercise, side, onComplete, onBack }: FormCh
             <div className="w-px h-8 bg-stone-800" />
             <div className="text-center">
               <p className="text-2xl font-bold text-stone-200 tabular-nums">
-                {currentAngles?.kneeAngle !== null
-                  ? `${Math.round(currentAngles!.kneeAngle!)}°`
+                {currentAngles && currentAngles.kneeAngle !== null
+                  ? `${Math.round(currentAngles.kneeAngle)}°`
                   : '--'}
               </p>
               <p className="text-[10px] text-stone-500 uppercase tracking-wider">Rodilla</p>
