@@ -106,13 +106,26 @@ export default function FormCheck({ exercise, side, onComplete, onBack }: FormCh
         setState('requesting_camera');
         setLoadingMessage('Solicitando acceso a la camara...');
 
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: 'environment',
-            width: { ideal: 640 },
-            height: { ideal: 480 },
-          },
-        });
+        let stream: MediaStream;
+        try {
+          // Try back camera first (mobile)
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              facingMode: 'environment',
+              width: { ideal: 640 },
+              height: { ideal: 480 },
+            },
+          });
+        } catch {
+          // Fallback to front camera (desktop/laptop)
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              facingMode: 'user',
+              width: { ideal: 640 },
+              height: { ideal: 480 },
+            },
+          });
+        }
 
         if (cancelled) {
           stream.getTracks().forEach((t) => t.stop());
@@ -136,9 +149,13 @@ export default function FormCheck({ exercise, side, onComplete, onBack }: FormCh
         console.error('FormCheck init error:', err);
         setState('error');
         if (err.name === 'NotAllowedError') {
-          setError('Acceso a la camara denegado. Permite el acceso para usar Form Check.');
+          setError('Acceso a la camara denegado. Permite el acceso en la configuracion del navegador.');
+        } else if (err.name === 'NotFoundError' || err.name === 'NotReadableError') {
+          setError('No se encontro una camara disponible. Verifica que tu dispositivo tiene camara.');
+        } else if (err.message?.includes('wasm') || err.message?.includes('fetch')) {
+          setError('Error cargando el modelo de IA. Verifica tu conexion a internet e intenta de nuevo.');
         } else {
-          setError(err.message || 'Error al inicializar');
+          setError(err.message || 'Error al inicializar. Intenta recargar la pagina.');
         }
       }
     }

@@ -81,7 +81,7 @@ function drawAngleLabel(
 
   ctx.fillStyle = 'rgba(0,0,0,0.7)';
   ctx.beginPath();
-  ctx.roundRect(x - bw / 2, y - bh / 2, bw, bh, 4);
+  if (ctx.roundRect) { ctx.roundRect(x - bw / 2, y - bh / 2, bw, bh, 4); } else { ctx.rect(x - bw / 2, y - bh / 2, bw, bh); }
   ctx.fill();
 
   ctx.fillStyle = '#f5f5f4';
@@ -163,7 +163,7 @@ export default function PoseOverlay({
       ctx.strokeStyle = assessmentColor + '66';
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.roundRect(bx, by, bw, bh, 8);
+      if (ctx.roundRect) { ctx.roundRect(bx, by, bw, bh, 8); } else { ctx.rect(bx, by, bw, bh); }
       ctx.fill();
       ctx.stroke();
 
