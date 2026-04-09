@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Dumbbell, Plus, Minus, Clock, Trophy, Search, X, AlertTriangle,
-  ChevronDown, ChevronUp, History, Play, Square, Flame
+  ChevronDown, ChevronUp, History, Play, Square, Flame, Camera
 } from 'lucide-react';
 import BottomNav from '@/components/BottomNav';
 import { supabase } from '@/lib/supabase';
@@ -553,6 +553,15 @@ export default function WorkoutPage() {
               <Play size={22} />
               {t('workout.start')}
             </button>
+
+            {/* AI Form Check button */}
+            <Link href="/dashboard/workout/form-check">
+              <button className="w-full mt-3 flex items-center justify-center gap-3 py-3.5 rounded-2xl text-sm font-semibold transition-all"
+                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#D4A853' }}>
+                <Camera size={18} />
+                AI Form Check
+              </button>
+            </Link>
 
             {/* Quick stats */}
             <div className="mt-6 glass p-4">
