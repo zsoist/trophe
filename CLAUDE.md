@@ -191,3 +191,19 @@ git config user.email "zsoist@users.noreply.github.com"
 - Schema-code drift: if DB CHECK constraint doesn't match code's source values, inserts silently fail
 - When meals "don't log", first check the source value being sent vs what the CHECK allows
 - Paste support requires explicit `onPaste` handler — browsers don't auto-handle clipboard images
+
+### Drag-and-Drop (April 13)
+- HTML5 drag API (`draggable`, `onDragStart/Over/Drop`) works on desktop + iPad but NOT on mobile touch
+- For mobile touch drag: use `onTouchStart/Move/End` on the drag handle + compute step from `slotHeight`
+- `e.preventDefault()` on `onDragOver` is REQUIRED — without it `onDrop` never fires
+- Dragged item visual: `opacity-40 scale-[0.98]`. Drop target: `ring-2 ring-gold -translate-y-0.5`
+
+### Microphone / Speech (April 13)
+- `recognition.start()` cold-fires browser permission prompt with NO context visible — feels unexpected
+- Fix: call `navigator.mediaDevices.getUserMedia({ audio: true })` first → immediately release stream → THEN start recognition. Browser prompt shows app name prominently.
+- Always check `navigator.permissions.query({ name: 'microphone' })` state before starting
+- `recognition.onerror` event has `event.error` string — distinguish `'not-allowed'` vs other errors
+
+### Git / Session hygiene (April 13)
+- After any sprint: commit + push immediately. 29 commits unpushed + 55 dirty files is a debt that takes a session to clean up
+- Vercel preview builds fail if module-scope `createClient()` uses `!` assertions — use `?? 'placeholder.supabase.co'`

@@ -180,6 +180,12 @@
 - [x] ✅ Dimitra Kavdas account created (dimitra@kavdas.com, client, Greek)
 - [x] ✅ middleware.ts deleted (client-side Supabase auth confirmed pattern)
 
+## Michael Feedback #1 — April 13 (same-day turnaround)
+- [x] ✅ **(a)** MealSlotConfig: drag-to-reorder with GripVertical handle (HTML5 drag + touch events)
+- [x] ✅ **(b)** MealSlotConfig: duplicate slot button (Copy icon → creates "Label 2" clone)
+- [x] ✅ **(c)** QuickFoodInput: mic permission UX — `getUserMedia()` warms browser prompt before recognition
+- [ ] **(d)** Personalized insights — Phase 3. Michael has prompts from his years of practice. Build on demand.
+
 ---
 
 ## PHASE 2: Testing (April 10-18, 2026)
