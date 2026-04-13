@@ -158,7 +158,7 @@
 - [x] ✅ Form Check page at /dashboard/workout/form-check
 - [x] ✅ Demo page for Michael Kavdas (/demo) with EN/EL toggle
 - [x] ✅ Michael's account created (michael@kavdas.com, coach)
-- [x] ✅ Gold banner on landing page (temporary)
+- [x] ✅ Gold banner on landing page (temporary, removed April 13)
 - [x] ✅ form_analyses table created in Supabase
 - [x] ✅ MacroTrendChart .single() → .maybeSingle() fix
 - [x] ✅ Overnight audit: 97/100, all 10 tasks ran
@@ -171,15 +171,34 @@
 - [x] ✅ SPEC.md updated with Michael's vision
 - [x] ✅ All system docs updated
 
+## Day 10: April 13 Audit + Hardening
+- [x] ✅ All 29 uncommitted/unpushed commits synced to GitHub
+- [x] ✅ lib/api-guard.ts — per-user + per-IP rate limiting on all 3 AI routes (60 auth/10 anon per 15min)
+- [x] ✅ lib/server-admin.ts — admin bearer-token auth guard for seed routes
+- [x] ✅ Gold demo banner removed from landing page
+- [x] ✅ Form analyses saved to Supabase form_analyses table (was TODO/alert)
+- [x] ✅ Dimitra Kavdas account created (dimitra@kavdas.com, client, Greek)
+- [x] ✅ middleware.ts deleted (client-side Supabase auth confirmed pattern)
+
 ---
 
 ## PHASE 2: Testing (April 10-18, 2026)
-_3 test subjects, daily usage, bug collection_
+_4 test subjects, daily usage, bug collection_
 
-- [ ] Nikos tests as athlete client (daily meal logging + workouts)
-- [ ] Daniel tests as post-surgery recovery client
-- [ ] Daniela tests as biomechanics/engineer perspective
-- [ ] Michael tests as coach (assigns habits, monitors dashboard)
+| Tester | Email | Role | Focus |
+|--------|-------|------|-------|
+| Michael Kavdas | michael@kavdas.com | coach | Assign habits, monitor dashboard |
+| Dimitra Kavdas | dimitra@kavdas.com | client | Greek user, female perspective (added Apr 13) |
+| Nikos | nikos@biorita.com | client | Athlete, daily meal logging + workouts |
+| Daniel | daniel@reyes.com | both | Post-surgery recovery client + dev |
+| Daniela | daniela@trophe.app | both | Biomechanics/engineer perspective |
+
+_All passwords: `trophe2026!`_
+
+- [x] ✅ Test accounts created and verified
+- [ ] Michael creating nutrition plans for test subjects (week of Apr 13)
+- [ ] Dimitra onboarded as Greek-language client
+- [ ] Nikos logs 2-3 days meals + workouts
 - [ ] Collect bug reports and feature requests
 - [ ] Fix critical bugs as they're found
 - [ ] Reconvene meeting (April 16-18)

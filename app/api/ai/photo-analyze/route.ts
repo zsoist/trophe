@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { logAPIUsage, calculateCost, extractAnthropicUsage } from '@/lib/api-cost-logger';
+import { guardAiRoute } from '@/lib/api-guard';
 
 interface PhotoAnalyzeRequest {
   imageBase64: string;
@@ -64,6 +65,9 @@ function extractJSON(text: string): FoodAnalysis[] | null {
 }
 
 export async function POST(request: NextRequest) {
+  const block = guardAiRoute(request);
+  if (block) return block;
+
   try {
     const body = await request.json();
     const validation = validateInput(body);

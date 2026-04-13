@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { guardAiRoute } from '@/lib/api-guard';
 
 interface MealSuggestRequest {
   remaining_calories: number;
@@ -99,6 +100,9 @@ function extractJSON(text: string): MealSuggestion[] | null {
 }
 
 export async function POST(request: NextRequest) {
+  const block = guardAiRoute(request);
+  if (block) return block;
+
   try {
     const body = await request.json();
     const validation = validateInput(body);

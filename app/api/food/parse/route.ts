@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { FOOD_DATABASE, buildFoodReferencePrompt } from '@/lib/food-units';
 import { logAPIUsage, calculateCost, extractAnthropicUsage } from '@/lib/api-cost-logger';
+import { guardAiRoute } from '@/lib/api-guard';
 
 export interface ParsedFoodItem {
   raw_text: string;
@@ -126,6 +127,9 @@ function enrichWithLocalDB(items: ParsedFoodItem[]): ParsedFoodItem[] {
 }
 
 export async function POST(request: NextRequest) {
+  const block = guardAiRoute(request);
+  if (block) return block;
+
   try {
     const body = await request.json();
     const { text, language = 'en' } = body as { text?: string; language?: string };

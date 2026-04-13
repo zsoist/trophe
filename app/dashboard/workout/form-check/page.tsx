@@ -9,6 +9,7 @@ import FormCheck from '@/components/FormCheck';
 import FormScore from '@/components/FormScore';
 import { EXERCISE_REFERENCES } from '@/lib/exercise-references';
 import type { FormAnalysisResult } from '@/lib/form-analysis';
+import { supabase } from '@/lib/supabase';
 
 type Phase = 'setup' | 'recording' | 'results';
 
@@ -37,10 +38,42 @@ export default function FormCheckPage() {
     setPhase('setup');
   };
 
-  const handleSaveResults = () => {
-    // For now, just show results — Supabase integration pending
-    // TODO: Save to form_analyses table when available
-    alert('Resultados guardados (demo)');
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const handleSaveResults = async () => {
+    if (!result || saving || saved) return;
+    setSaving(true);
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setSaving(false); return; }
+
+      // Look up the exercise row by its reference key (stored as name_en or key)
+      const { data: exerciseRow } = await supabase
+        .from('exercises')
+        .select('id')
+        .eq('name_en', selectedExercise)
+        .maybeSingle();
+
+      const { error } = await supabase.from('form_analyses').insert({
+        user_id: user.id,
+        exercise_id: exerciseRow?.id ?? null,
+        side: selectedSide,
+        reps_analyzed: result.repsAnalyzed,
+        overall_score: result.overallScore,
+        overall_assessment: result.overallAssessment,
+        per_rep_scores: result.repScores,
+        reference_comparison: null,
+        analyzed_at: new Date().toISOString(),
+      });
+
+      if (!error) setSaved(true);
+    } catch {
+      // Non-critical — results visible on screen
+    } finally {
+      setSaving(false);
+    }
   };
 
   // ─── Recording phase: fullscreen camera ───
@@ -218,10 +251,11 @@ export default function FormCheckPage() {
                 <motion.button
                   whileTap={{ scale: 0.97 }}
                   onClick={handleSaveResults}
-                  className="flex-1 py-3.5 rounded-2xl flex items-center justify-center gap-2 text-sm font-semibold btn-gold"
+                  disabled={saving || saved}
+                  className="flex-1 py-3.5 rounded-2xl flex items-center justify-center gap-2 text-sm font-semibold btn-gold disabled:opacity-60"
                 >
                   <Save size={16} />
-                  Guardar
+                  {saved ? '¡Guardado!' : saving ? 'Guardando…' : 'Guardar'}
                 </motion.button>
               </div>
             </motion.div>

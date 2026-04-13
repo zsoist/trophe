@@ -80,17 +80,20 @@
 - `/admin/costs` — API cost tracking dashboard (Daniel only)
 
 ## API Routes (9 total)
-| Route | Method | AI | Purpose |
-|-------|--------|-----|---------|
-| `/api/food/parse` | POST | Haiku | NLP text → structured food items |
-| `/api/ai/photo-analyze` | POST | Haiku | Photo → food identification + macros |
-| `/api/ai/meal-suggest` | POST | Gemini | 12+ meal suggestions within remaining macros |
-| `/api/food/search` | GET `?q=` | — | USDA FoodData Central (350K+ foods) |
-| `/api/food/local-search` | GET `?q=` | — | Local Supabase food DB (126+ foods) |
-| `/api/nutrition/calculate` | POST | — | BMR/TDEE/macros (Mifflin-St Jeor) |
-| `/api/auth/signup` | POST | — | Server-side signup (bypasses email confirm) |
-| `/api/seed/food-database` | POST | — | Seed 126-food database |
-| `/api/seed/greek-foods` | POST | — | Seed 20 Greek foods |
+| Route | Method | AI | Guard | Purpose |
+|-------|--------|-----|-------|---------|
+| `/api/food/parse` | POST | Haiku | ✅ guardAiRoute | NLP text → structured food items |
+| `/api/ai/photo-analyze` | POST | Haiku | ✅ guardAiRoute | Photo → food identification + macros |
+| `/api/ai/meal-suggest` | POST | Gemini | ✅ guardAiRoute | 12+ meal suggestions within remaining macros |
+| `/api/food/search` | GET `?q=` | — | — | USDA FoodData Central (350K+ foods) |
+| `/api/food/local-search` | GET `?q=` | — | — | Local Supabase food DB (126+ foods) |
+| `/api/nutrition/calculate` | POST | — | — | BMR/TDEE/macros (Mifflin-St Jeor) |
+| `/api/auth/signup` | POST | — | — | Server-side signup (bypasses email confirm) |
+| `/api/seed/food-database` | POST | — | ✅ requireAdminRequest | Seed 126-food database |
+| `/api/seed/greek-foods` | POST | — | ✅ requireAdminRequest | Seed 20 Greek foods |
+
+**lib/api-guard.ts**: Per-user rate limit (60 req/15min authenticated, 10/15min anonymous).
+**lib/server-admin.ts**: Admin bearer-token + email-whitelist guard for seed routes.
 
 ## Supabase
 - Project: Trophe (iwbpzwmidzvpiofnqexd)
@@ -106,8 +109,6 @@
 - **Model**: SaaS per coach. Clients free. AI cost <$2/month/coach
 - **Vision**: AI assistant for nutritionists → eventually AI IS the nutritionist
 - **Docs**: MEETING-NOTES.md, BUSINESS.md, .forge/kavdas-meeting-2026-04-09.pdf
-- **Michael's account**: michael@kavdas.com / trophe2026! (coach)
-- **TEMPORARY**: Gold banner on landing page → remove after testing phase
 - **Next meeting**: April 16-18 with testing results
 
 ## Deploy
@@ -132,9 +133,11 @@ git config user.email "zsoist@users.noreply.github.com"
 - Buttons: `.btn-gold`, `.btn-ghost` | Inputs: `.input-dark`
 - Inter (sans) + Playfair Display (serif headings)
 
-## Demo Accounts
+## Test Accounts (Phase 2, April 10-18)
 | Account | Email | Password | Role |
 |---------|-------|----------|------|
+| Michael Kavdas | michael@kavdas.com | trophe2026! | coach |
+| Dimitra Kavdas | dimitra@kavdas.com | trophe2026! | client (Greek, added Apr 13) |
 | Daniel | daniel@reyes.com | trophe2026! | both |
 | Nikos | nikos@biorita.com | trophe2026! | both |
 | Daniela | daniela@trophe.app | trophe2026! | both |

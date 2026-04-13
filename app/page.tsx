@@ -76,34 +76,29 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-stone-950">
-      {/* TEMPORARY: Demo banner + Lang switcher — remove after Thursday */}
+      {/* Language Switcher */}
       <div className="fixed top-0 left-0 right-0 z-[60] flex flex-col items-center">
-        <Link href="/demo" className="block w-full py-2.5 px-4 text-center no-underline" style={{ background: 'linear-gradient(135deg, #B8923E, #D4A853)', color: '#0a0a0a' }}>
-          <span className="text-sm font-bold">🏋️ Coach Demo</span>
-          <span className="text-xs ml-2 opacity-70">Exclusive preview for Michael Kavdas →</span>
-        </Link>
-        {/* Language Switcher — right below banner */}
         <div className="flex justify-center py-2">
-        <div className="flex gap-1 bg-stone-900/80 backdrop-blur-lg rounded-full p-1 border border-stone-800/50">
-          {LANGS.map((l) => (
-            <button
-              key={l.code}
-              onClick={() => setLang(l.code)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-300 ${
-                lang === l.code
-                  ? 'bg-[#D4A853] text-stone-950'
-                  : 'text-stone-500 hover:text-stone-300'
-              }`}
-            >
-              {l.flag} {l.label}
-            </button>
-          ))}
+          <div className="flex gap-1 bg-stone-900/80 backdrop-blur-lg rounded-full p-1 border border-stone-800/50 mt-2">
+            {LANGS.map((l) => (
+              <button
+                key={l.code}
+                onClick={() => setLang(l.code)}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-300 ${
+                  lang === l.code
+                    ? 'bg-[#D4A853] text-stone-950'
+                    : 'text-stone-500 hover:text-stone-300'
+                }`}
+              >
+                {l.flag} {l.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
-      </div>
 
-      {/* Hero — pt-28 accounts for fixed banner + lang switcher */}
-      <section className="relative min-h-[85vh] flex items-center justify-center px-6 overflow-hidden pt-28">
+      {/* Hero */}
+      <section className="relative min-h-[85vh] flex items-center justify-center px-6 overflow-hidden pt-16">
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-[#D4A853] rounded-full opacity-[0.03] blur-[120px]" />
         </div>
