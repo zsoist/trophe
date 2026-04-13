@@ -68,7 +68,6 @@ export default function WeeklySummary({ userId }: WeeklySummaryProps) {
   const avgCalories = Math.round(activeDays.reduce((s, d) => s + d.calories, 0) / activeDays.length);
   const avgProtein = Math.round(activeDays.reduce((s, d) => s + d.protein, 0) / activeDays.length);
   const consistency = Math.round((activeDays.length / 7) * 100);
-  const bestDay = activeDays.reduce((a, b) => a.protein > b.protein ? a : b);
   const maxCal = Math.max(...weekData.map(d => d.calories), 1);
 
   // Trend: compare first half vs second half

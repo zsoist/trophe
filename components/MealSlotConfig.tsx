@@ -2,8 +2,7 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Plus, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
-import { useI18n } from '@/lib/i18n';
+import { Plus, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
 import type { MealSlot } from './MealSlotCard';
 import type { MealType } from '@/lib/types';
 
@@ -24,7 +23,6 @@ const MEAL_TYPES: { value: MealType; label: string }[] = [
 ];
 
 export default function MealSlotConfig({ slots: initialSlots, onSave, onClose }: MealSlotConfigProps) {
-  const { t } = useI18n();
   const [slots, setSlots] = useState<MealSlot[]>(initialSlots);
   const [editingEmoji, setEditingEmoji] = useState<string | null>(null);
 

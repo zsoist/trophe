@@ -78,7 +78,7 @@ export default function ProtocolsPage() {
       loadProtocols();
     }
     checkAuth();
-  }, []);
+  }, [router]);
 
   async function loadProtocols() {
     try {

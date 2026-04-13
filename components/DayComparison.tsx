@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { X, ArrowRight } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { FoodLogEntry } from '@/lib/types';

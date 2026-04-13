@@ -13,16 +13,12 @@ interface ComplianceTrendProps {
 }
 
 export default function ComplianceTrend({ clientHabitId, startDate, checkins: externalCheckins }: ComplianceTrendProps) {
-  const [checkins, setCheckins] = useState<HabitCheckin[]>(externalCheckins || []);
-  const [loading, setLoading] = useState(!externalCheckins);
+  const [fetchedCheckins, setFetchedCheckins] = useState<HabitCheckin[] | null>(externalCheckins ?? null);
 
   useEffect(() => {
-    if (externalCheckins) {
-      setCheckins(externalCheckins);
-      setLoading(false);
+    if (externalCheckins || !clientHabitId) {
       return;
     }
-    if (!clientHabitId) { setLoading(false); return; }
 
     async function fetchCheckins() {
       const fourteenDaysAgo = new Date();
@@ -36,12 +32,14 @@ export default function ComplianceTrend({ clientHabitId, startDate, checkins: ex
         .gte('checked_date', startStr)
         .order('checked_date', { ascending: true });
 
-      setCheckins(data || []);
-      setLoading(false);
+      setFetchedCheckins(data || []);
     }
 
-    fetchCheckins();
+    void fetchCheckins();
   }, [clientHabitId, externalCheckins]);
+
+  const checkins = externalCheckins ?? fetchedCheckins ?? [];
+  const loading = !externalCheckins && !!clientHabitId && fetchedCheckins === null;
 
   if (loading) return null;
 

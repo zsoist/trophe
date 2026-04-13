@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft, ChevronDown, ChevronUp, Clock, Dumbbell,
-  Flame, RotateCcw, Trophy, Calendar
+  RotateCcw, Trophy, Calendar
 } from 'lucide-react';
 import BottomNav from '@/components/BottomNav';
 import { supabase } from '@/lib/supabase';
@@ -83,7 +83,7 @@ function SessionCard({
 
   // Group sets by exercise
   const grouped = useMemo(() => {
-    const map = new Map<string, { exercise: Exercise; sets: typeof session.sets }>();
+    const map = new Map<string, { exercise: Exercise; sets: (WorkoutSet & { exercise: Exercise })[] }>();
     session.sets.forEach((set) => {
       const key = set.exercise_id;
       if (!map.has(key)) {
@@ -287,7 +287,7 @@ export default function WorkoutHistoryPage() {
       setLoading(false);
     }
     load();
-  }, []);
+  }, [router]);
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] pb-28">
@@ -331,7 +331,7 @@ export default function WorkoutHistoryPage() {
             <VolumeChart sessions={sessions} />
 
             <div className="space-y-3">
-              {sessions.map((session, i) => (
+              {sessions.map((session) => (
                 <SessionCard
                   key={session.id}
                   session={session}

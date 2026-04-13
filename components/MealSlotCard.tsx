@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown, ChevronUp, SkipForward, Undo2, Trash2, Pencil, Check, X, Lock, Unlock, Star, MessageSquare, Copy } from 'lucide-react';
+import { ChevronDown, ChevronUp, SkipForward, Undo2, Trash2, Pencil, Check, X, Lock, Unlock, Star, MessageSquare } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { supabase } from '@/lib/supabase';
 import type { FoodLogEntry, MealType } from '@/lib/types';

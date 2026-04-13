@@ -65,16 +65,7 @@ export default function CarbCyclingSelector({
   baseFat,
   onAdjust,
 }: CarbCyclingSelectorProps) {
-  const [selected, setSelected] = useState<CarbCycleDay>('moderate');
-
-  // Load from localStorage on mount
-  useEffect(() => {
-    if (!enabled) return;
-    const stored = localStorage.getItem(getStorageKey());
-    if (stored && ['high', 'moderate', 'low'].includes(stored)) {
-      setSelected(stored as CarbCycleDay);
-    }
-  }, [enabled]);
+  const [selected, setSelected] = useState<CarbCycleDay>(() => getStoredCycleDay());
 
   // Calculate and propagate adjustments when selection changes
   useEffect(() => {
@@ -111,7 +102,7 @@ export default function CarbCyclingSelector({
       carbs_g: adjCarbs,
       fat_g: adjFat,
     });
-  }, [selected, enabled, baseCalories, baseProtein, baseCarbs, baseFat]);
+  }, [selected, enabled, baseCalories, baseProtein, baseCarbs, baseFat, onAdjust]);
 
   const handleSelect = (day: CarbCycleDay) => {
     setSelected(day);
@@ -190,4 +181,15 @@ export default function CarbCyclingSelector({
       </div>
     </motion.div>
   );
+}
+
+function getStoredCycleDay(): CarbCycleDay {
+  if (typeof window === 'undefined') {
+    return 'moderate';
+  }
+  const stored = window.localStorage.getItem(getStorageKey());
+  if (stored === 'high' || stored === 'moderate' || stored === 'low') {
+    return stored;
+  }
+  return 'moderate';
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { Component, type ReactNode } from 'react';
+import { useRouter } from 'next/navigation';
 
 // ═══════════════════════════════════════════════
 // τροφή (Trophē) — App-Wide Error Boundary
@@ -15,6 +16,24 @@ interface State {
   hasError: boolean;
   error: Error | null;
   showDetails: boolean;
+}
+
+function GoHomeButton() {
+  const router = useRouter();
+
+  return (
+    <button
+      onClick={() => router.replace('/')}
+      className="flex-1 py-3 rounded-xl text-sm font-medium transition-all"
+      style={{
+        background: 'transparent',
+        color: '#a8a29e',
+        border: '1px solid #2a2a2a',
+      }}
+    >
+      Go Home
+    </button>
+  );
 }
 
 export default class ErrorBoundary extends Component<Props, State> {
@@ -33,10 +52,6 @@ export default class ErrorBoundary extends Component<Props, State> {
 
   handleRetry = () => {
     this.setState({ hasError: false, error: null, showDetails: false });
-  };
-
-  handleGoHome = () => {
-    window.location.href = '/';
   };
 
   render() {
@@ -119,17 +134,7 @@ export default class ErrorBoundary extends Component<Props, State> {
 
             {/* Action buttons */}
             <div className="flex gap-3">
-              <button
-                onClick={this.handleGoHome}
-                className="flex-1 py-3 rounded-xl text-sm font-medium transition-all"
-                style={{
-                  background: 'transparent',
-                  color: '#a8a29e',
-                  border: '1px solid #2a2a2a',
-                }}
-              >
-                Go Home
-              </button>
+              <GoHomeButton />
               <button
                 onClick={this.handleRetry}
                 className="flex-1 py-3 rounded-xl text-sm font-semibold transition-all"

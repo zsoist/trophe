@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import type { FoodLogEntry, MealType } from '@/lib/types';
+import type { FoodLogEntry } from '@/lib/types';
 
 interface MealTimelineProps {
   foodLog: FoodLogEntry[];

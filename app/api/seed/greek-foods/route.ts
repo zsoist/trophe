@@ -1,26 +1,36 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { GREEK_FOODS } from '@/lib/greek-foods-seed';
+import { requireAdminRequest } from '@/lib/server-admin';
 
-// Uses service role key for seeding — only accessible to authenticated coaches
 export async function POST(request: Request) {
   try {
-    const { coachUserId } = await request.json();
-
-    if (!coachUserId) {
-      return NextResponse.json({ error: 'coachUserId is required' }, { status: 400 });
+    const admin = await requireAdminRequest(request);
+    if (admin instanceof NextResponse) {
+      return admin;
     }
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const body = (await request.json().catch(() => ({}))) as { coachUserId?: string };
+    const targetCoachUserId = body.coachUserId?.trim() || admin.userId;
+    const { serviceSupabase, profile } = admin;
+    const foodNames = GREEK_FOODS.map((food) => food.name);
 
-    // If no service key, use the public client (will respect RLS)
-    const supabase = supabaseServiceKey
-      ? createClient(supabaseUrl, supabaseServiceKey)
-      : createClient(supabaseUrl, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+    const { data: existingRows, error: existingError } = await serviceSupabase
+      .from('custom_foods')
+      .select('name')
+      .eq('created_by', targetCoachUserId)
+      .in('name', foodNames);
 
-    const entries = GREEK_FOODS.map((food) => ({
-      created_by: coachUserId,
+    if (existingError) {
+      console.error('Seed preflight error:', existingError);
+      return NextResponse.json({ error: existingError.message }, { status: 500 });
+    }
+
+    const existingNames = new Set((existingRows || []).map((row) => row.name));
+
+    const entries = GREEK_FOODS
+      .filter((food) => !existingNames.has(food.name))
+      .map((food) => ({
+      created_by: targetCoachUserId,
       name: food.name,
       calories: food.calories,
       protein_g: food.protein_g,
@@ -32,23 +42,32 @@ export async function POST(request: Request) {
       shared: true,
     }));
 
-    const { data, error } = await supabase
-      .from('custom_foods')
-      .upsert(entries, { onConflict: 'created_by,name', ignoreDuplicates: true })
-      .select();
+    let insertedRows: { id: string }[] = [];
+    if (entries.length > 0) {
+      const { data, error } = await serviceSupabase
+        .from('custom_foods')
+        .insert(entries)
+        .select('id');
 
-    if (error) {
-      console.error('Seed error:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      if (error) {
+        console.error('Seed error:', error);
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+
+      insertedRows = data || [];
     }
 
     return NextResponse.json({
       success: true,
-      count: data?.length ?? 0,
-      message: `Seeded ${data?.length ?? 0} Greek/Mediterranean foods`,
+      count: existingNames.size + insertedRows.length,
+      inserted: insertedRows.length,
+      skippedExisting: existingNames.size,
+      message: `Seeded ${insertedRows.length} Greek/Mediterranean foods`,
+      seededFor: targetCoachUserId,
+      seededBy: profile.email,
     });
-  } catch (err) {
-    console.error('Seed route error:', err);
+  } catch (error) {
+    console.error('Seed route error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

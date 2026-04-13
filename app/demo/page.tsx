@@ -5,8 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft, Brain, Target, Dumbbell, Utensils, BarChart3, Zap, Users, Camera,
   Flame, Sparkles, Heart, Shield, TrendingUp, Eye, Mic, Search, Star,
-  Lock, Calendar, Trophy, Lightbulb, Layers, Globe, ChevronDown, ChevronUp,
-  CheckCircle2, Clock, Smartphone, Wifi,
+  Lock, Calendar, Trophy, Lightbulb, Globe, ChevronDown, ChevronUp,
+  CheckCircle2, Clock, Wifi,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -18,7 +18,7 @@ const fade = (delay: number) => ({
 });
 
 // Animated counter
-function Counter({ value, suffix = '', delay = 0 }: { value: number; suffix?: string; delay?: number }) {
+function Counter({ value, suffix = '' }: { value: number; suffix?: string }) {
   const [display, setDisplay] = useState(0);
   return (
     <motion.span
@@ -40,6 +40,10 @@ function Counter({ value, suffix = '', delay = 0 }: { value: number; suffix?: st
     </motion.span>
   );
 }
+
+type DemoStat =
+  | { label: string; icon: typeof Zap; text: true }
+  | { n: number; suffix: string; label: string; icon: typeof Zap };
 
 // Feature chip
 function Chip({ icon: Icon, label, color = '#D4A853' }: { icon: React.ComponentType<{ size?: number; className?: string }>; label: string; color?: string }) {
@@ -188,6 +192,12 @@ type DemoLang = 'en' | 'el';
 export default function DemoPage() {
   const [lang, setLang] = useState<DemoLang>('en');
   const t = T[lang];
+  const demoStats: DemoStat[] = [
+    { n: 85, suffix: '+', label: 'Features', icon: Zap },
+    { n: 3, suffix: '', label: 'Languages', icon: Globe },
+    { label: 'AI Camera', icon: Camera, text: true },
+    { label: 'NLP Food', icon: Mic, text: true },
+  ];
 
   return (
     <div className="min-h-screen bg-stone-950">
@@ -250,19 +260,14 @@ export default function DemoPage() {
 
         {/* ═══ LIVE METRICS ═══ */}
         <motion.div {...fade(0.1)} className="grid grid-cols-4 gap-2 mb-6">
-          {[
-            { n: 85, suffix: '+', label: 'Features', icon: Zap },
-            { n: 3, suffix: '', label: 'Languages', icon: Globe },
-            { label: 'AI Camera', icon: Camera, text: true },
-            { label: 'NLP Food', icon: Mic, text: true },
-          ].map((stat) => (
+          {demoStats.map((stat) => (
             <div key={stat.label} className="glass p-3 text-center">
               <stat.icon size={14} className="gold-text mx-auto mb-1" />
               {'text' in stat ? (
                 <p className="text-[10px] font-bold gold-text mt-1">{stat.label}</p>
               ) : (
                 <>
-                  <p className="text-lg font-bold gold-text"><Counter value={(stat as any).n} suffix={(stat as any).suffix} /></p>
+                  <p className="text-lg font-bold gold-text"><Counter value={stat.n} suffix={stat.suffix} /></p>
                   <p className="text-[8px] text-stone-500 uppercase">{stat.label}</p>
                 </>
               )}

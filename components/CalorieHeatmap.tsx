@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Grid3X3 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -37,74 +37,74 @@ export default function CalorieHeatmap({ userId, weeks = 8 }: CalorieHeatmapProp
   const [loading, setLoading] = useState(true);
   const [tooltip, setTooltip] = useState<DayCell | null>(null);
 
-  const loadData = useCallback(async () => {
-    if (!userId) return;
-
-    const endDate = new Date();
-    // End on the current day's week Sunday
-    const endDay = endDate.getDay(); // 0=Sun
-    // Start from `weeks` weeks ago, on Monday
-    const totalDays = weeks * 7;
-    const startDate = new Date(endDate);
-    startDate.setDate(endDate.getDate() - totalDays + 1);
-
-    const startStr = startDate.toISOString().split('T')[0];
-    const endStr = endDate.toISOString().split('T')[0];
-
-    const { data } = await supabase
-      .from('food_log')
-      .select('logged_date, calories')
-      .eq('user_id', userId)
-      .gte('logged_date', startStr)
-      .lte('logged_date', endStr);
-
-    // Aggregate by date
-    const dayMap = new Map<string, { calories: number; entries: number }>();
-    if (data) {
-      for (const entry of data) {
-        const existing = dayMap.get(entry.logged_date) || { calories: 0, entries: 0 };
-        existing.calories += entry.calories ?? 0;
-        existing.entries += 1;
-        dayMap.set(entry.logged_date, existing);
-      }
-    }
-
-    // Build grid cells
-    const gridCells: DayCell[] = [];
-    const monthLabels: { label: string; col: number }[] = [];
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    let lastMonth = -1;
-
-    for (let i = 0; i < totalDays; i++) {
-      const d = new Date(startDate);
-      d.setDate(startDate.getDate() + i);
-      if (d > endDate) break;
-
-      const dateStr = d.toISOString().split('T')[0];
-      // Monday = row 0, Sunday = row 6
-      const jsDay = d.getDay(); // 0=Sun
-      const row = jsDay === 0 ? 6 : jsDay - 1;
-      const col = Math.floor(i / 7);
-
-      const agg = dayMap.get(dateStr) || { calories: 0, entries: 0 };
-      gridCells.push({ date: dateStr, calories: agg.calories, entries: agg.entries, col, row });
-
-      // Month labels
-      const month = d.getMonth();
-      if (month !== lastMonth) {
-        monthLabels.push({ label: monthNames[month], col });
-        lastMonth = month;
-      }
-    }
-
-    setCells(gridCells);
-    setMonths(monthLabels);
-    setLoading(false);
-  }, [userId, weeks]);
-
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    let cancelled = false;
+
+    async function loadData() {
+      if (!userId) return;
+
+      const endDate = new Date();
+      const totalDays = weeks * 7;
+      const startDate = new Date(endDate);
+      startDate.setDate(endDate.getDate() - totalDays + 1);
+
+      const startStr = startDate.toISOString().split('T')[0];
+      const endStr = endDate.toISOString().split('T')[0];
+
+      const { data } = await supabase
+        .from('food_log')
+        .select('logged_date, calories')
+        .eq('user_id', userId)
+        .gte('logged_date', startStr)
+        .lte('logged_date', endStr);
+
+      if (cancelled) return;
+
+      const dayMap = new Map<string, { calories: number; entries: number }>();
+      if (data) {
+        for (const entry of data) {
+          const existing = dayMap.get(entry.logged_date) || { calories: 0, entries: 0 };
+          existing.calories += entry.calories ?? 0;
+          existing.entries += 1;
+          dayMap.set(entry.logged_date, existing);
+        }
+      }
+
+      const gridCells: DayCell[] = [];
+      const monthLabels: { label: string; col: number }[] = [];
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      let lastMonth = -1;
+
+      for (let i = 0; i < totalDays; i++) {
+        const d = new Date(startDate);
+        d.setDate(startDate.getDate() + i);
+        if (d > endDate) break;
+
+        const dateStr = d.toISOString().split('T')[0];
+        const jsDay = d.getDay();
+        const row = jsDay === 0 ? 6 : jsDay - 1;
+        const col = Math.floor(i / 7);
+
+        const agg = dayMap.get(dateStr) || { calories: 0, entries: 0 };
+        gridCells.push({ date: dateStr, calories: agg.calories, entries: agg.entries, col, row });
+
+        const month = d.getMonth();
+        if (month !== lastMonth) {
+          monthLabels.push({ label: monthNames[month], col });
+          lastMonth = month;
+        }
+      }
+
+      setCells(gridCells);
+      setMonths(monthLabels);
+      setLoading(false);
+    }
+
+    void loadData();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, weeks]);
 
   if (loading) {
     return (

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Pill, CheckCircle2, XCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -23,11 +23,7 @@ export default function SupplementCompliance({ clientId }: { clientId: string })
   const [rows, setRows] = useState<SupplementRow[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadCompliance();
-  }, [clientId]);
-
-  async function loadCompliance() {
+  const loadCompliance = useCallback(async () => {
     try {
       // Get current week Mon-Sun
       const now = new Date();
@@ -123,7 +119,11 @@ export default function SupplementCompliance({ clientId }: { clientId: string })
     } finally {
       setLoading(false);
     }
-  }
+  }, [clientId]);
+
+  useEffect(() => {
+    loadCompliance();
+  }, [loadCompliance]);
 
   if (loading) {
     return (

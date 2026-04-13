@@ -17,7 +17,6 @@ const GOAL_ADJUSTMENT_LABELS: Record<Goal, string> = {
 };
 
 const steps = ['welcome', 'body', 'goal', 'activity', 'plan'] as const;
-type Step = typeof steps[number];
 
 const slideVariants = {
   enter: (dir: number) => ({ x: dir > 0 ? 300 : -300, opacity: 0 }),

@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Clock, Zap, Coffee, Moon } from 'lucide-react';
-import type { FoodLogEntry, MealType } from '@/lib/types';
+import type { FoodLogEntry } from '@/lib/types';
 
 interface MealTimingIndicatorProps {
   foodLog: FoodLogEntry[];
@@ -109,18 +109,17 @@ function getTimingWindow(foodLog: FoodLogEntry[]): TimingWindow {
 }
 
 export default function MealTimingIndicator({ foodLog }: MealTimingIndicatorProps) {
-  const [timing, setTiming] = useState<TimingWindow | null>(null);
+  const [, setMinuteTick] = useState(0);
 
   useEffect(() => {
-    setTiming(getTimingWindow(foodLog));
-
-    // Update every minute
     const interval = setInterval(() => {
-      setTiming(getTimingWindow(foodLog));
+      setMinuteTick((tick) => tick + 1);
     }, 60000);
 
     return () => clearInterval(interval);
-  }, [foodLog]);
+  }, []);
+
+  const timing = getTimingWindow(foodLog);
 
   if (!timing) return null;
 

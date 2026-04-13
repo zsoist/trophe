@@ -33,7 +33,6 @@ function GaugeArc({ value, sex }: { value: number; sex: CalcSex }) {
   const minBf = 5;
   const maxBf = 45;
   const pct = Math.min(Math.max((value - minBf) / (maxBf - minBf), 0), 1);
-  const angle = -90 + pct * 180; // -90 to 90 degrees
 
   const zone = getZone(value, sex);
 

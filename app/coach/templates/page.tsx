@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { motion, AnimatePresence, Reorder } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   Plus,
   Trash2,
@@ -52,14 +52,6 @@ const muscleLabels: Record<string, string> = {
   glutes: 'Glutes', calves: 'Calves', core: 'Core', full_body: 'Full Body',
 };
 
-const emptyExercise: TemplateExercise & { _name?: string } = {
-  exercise_id: '',
-  target_sets: 3,
-  target_reps: '8-12',
-  target_rpe: undefined,
-  notes: '',
-};
-
 // ═══════════════════════════════════════════════
 // Main Component
 // ═══════════════════════════════════════════════
@@ -76,7 +68,6 @@ export default function TemplatesPage() {
   const [exerciseLibrary, setExerciseLibrary] = useState<Exercise[]>([]);
   const [exerciseQuery, setExerciseQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Exercise[]>([]);
-  const [searchingIdx, setSearchingIdx] = useState<number | null>(null);
 
   // Form state
   const [formName, setFormName] = useState('');
@@ -101,7 +92,7 @@ export default function TemplatesPage() {
       loadExerciseLibrary();
     }
     checkAuth();
-  }, []);
+  }, [router]);
 
   async function loadTemplates() {
     try {
@@ -173,7 +164,6 @@ export default function TemplatesPage() {
         _name: exercise.name,
       },
     ]);
-    setSearchingIdx(null);
     setExerciseQuery('');
     setSearchResults([]);
   }
@@ -220,7 +210,13 @@ export default function TemplatesPage() {
 
       const exercisesForDB: TemplateExercise[] = formExercises
         .filter((e) => e.exercise_id)
-        .map(({ _name, ...rest }) => rest);
+        .map((exercise) => ({
+          exercise_id: exercise.exercise_id,
+          target_sets: exercise.target_sets,
+          target_reps: exercise.target_reps,
+          target_rpe: exercise.target_rpe,
+          notes: exercise.notes,
+        }));
 
       const { data } = await supabase
         .from('workout_templates')
@@ -679,7 +675,6 @@ export default function TemplatesPage() {
                         <input
                           value={exerciseQuery}
                           onChange={(e) => searchExercises(e.target.value)}
-                          onFocus={() => setSearchingIdx(0)}
                           placeholder="Search exercises to add..."
                           className="input-dark !pl-9 text-sm"
                         />

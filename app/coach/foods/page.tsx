@@ -1,7 +1,7 @@
 'use client';
 import { useRouter } from 'next/navigation';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   Plus,
@@ -61,11 +61,7 @@ export default function FoodsPage() {
   const [search, setSearch] = useState('');
   const [userId, setUserId] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadFoods();
-  }, []);
-
-  async function loadFoods() {
+  const loadFoods = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push("/login"); return; }
@@ -84,7 +80,11 @@ export default function FoodsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [router]);
+
+  useEffect(() => {
+    loadFoods();
+  }, [loadFoods]);
 
   function openCreate() {
     setForm({ ...emptyFood });

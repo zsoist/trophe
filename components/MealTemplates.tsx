@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { BookmarkPlus, Zap, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { BookmarkPlus, X } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { MealType } from '@/lib/types';
 
@@ -59,7 +59,6 @@ export default function MealTemplates({
   const [saveEmoji, setSaveEmoji] = useState('🍽️');
   const [saving, setSaving] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
-  const scrollRef = useState<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setTemplates(loadTemplates());

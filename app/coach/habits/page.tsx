@@ -1,7 +1,7 @@
 'use client';
 import { useRouter } from 'next/navigation';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   Plus,
@@ -65,11 +65,7 @@ export default function HabitsPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [filterCategory, setFilterCategory] = useState<string>('all');
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  async function loadData() {
+  const loadData = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push("/login"); return; }
@@ -86,7 +82,11 @@ export default function HabitsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [router]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   function openCreate() {
     setForm({ ...emptyHabit });

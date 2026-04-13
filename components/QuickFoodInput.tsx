@@ -543,7 +543,8 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, onSea
             exit={{ opacity: 0, height: 0 }}
             className="flex items-center gap-3 glass p-3"
           >
-            <img src={photoPreview} alt="Analyzing" className="w-12 h-12 rounded-lg object-cover" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={photoPreview} alt="Analyzing photo preview" className="w-12 h-12 rounded-lg object-cover" />
             <div className="flex-1">
               <div className="flex items-center gap-2">
                 <Loader2 size={14} className="animate-spin gold-text" />

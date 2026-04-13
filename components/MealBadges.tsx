@@ -35,11 +35,7 @@ function saveEarnedBadge(id: string) {
 export default function MealBadges({ todayLog, streak, targets }: MealBadgesProps) {
   const [expanded, setExpanded] = useState(false);
   const [newBadge, setNewBadge] = useState<string | null>(null);
-  const [earnedSet, setEarnedSet] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    setEarnedSet(loadEarnedBadges());
-  }, []);
+  const [earnedSet, setEarnedSet] = useState<Set<string>>(() => loadEarnedBadges());
 
   const badges: Badge[] = useMemo(() => {
     const mealTypes = new Set(todayLog.map(e => e.meal_type));
@@ -104,15 +100,17 @@ export default function MealBadges({ todayLog, streak, targets }: MealBadgesProp
 
   // Check for newly earned badges
   useEffect(() => {
-    for (const badge of badges) {
-      if (badge.earned && !earnedSet.has(badge.id)) {
-        saveEarnedBadge(badge.id);
-        setEarnedSet(prev => new Set([...prev, badge.id]));
-        setNewBadge(badge.id);
-        setTimeout(() => setNewBadge(null), 3000);
-        break;
-      }
-    }
+    const newlyEarned = badges.find((badge) => badge.earned && !earnedSet.has(badge.id));
+    if (!newlyEarned) return;
+
+    const revealTimer = window.setTimeout(() => {
+      saveEarnedBadge(newlyEarned.id);
+      setEarnedSet((prev) => new Set([...prev, newlyEarned.id]));
+      setNewBadge(newlyEarned.id);
+      window.setTimeout(() => setNewBadge(null), 3000);
+    }, 0);
+
+    return () => window.clearTimeout(revealTimer);
   }, [badges, earnedSet]);
 
   const earnedCount = badges.filter(b => b.earned).length;

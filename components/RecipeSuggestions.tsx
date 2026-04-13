@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, Plus, Sparkles } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -152,13 +152,9 @@ interface RecipeSuggestionsProps {
 }
 
 export default function RecipeSuggestions({ userId, mealType, onAdd }: RecipeSuggestionsProps) {
-  const [suggestions, setSuggestions] = useState<Recipe[]>([]);
+  const [suggestions, setSuggestions] = useState<Recipe[]>(() => getRandomRecipes(3));
   const [expanded, setExpanded] = useState<number | null>(null);
   const [adding, setAdding] = useState<number | null>(null);
-
-  useEffect(() => {
-    setSuggestions(getRandomRecipes(3));
-  }, []);
 
   const refreshSuggestions = () => {
     setSuggestions(getRandomRecipes(3));

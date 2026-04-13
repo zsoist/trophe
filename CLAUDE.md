@@ -180,6 +180,10 @@ git config user.email "zsoist@users.noreply.github.com"
 - Vercel env vars set as "Production" only → preview deploys fail without them
 - Always deploy with `vercel --yes --prod`, never just `vercel --yes`
 
+### Food API / USDA (Codex audit 2026-04-09)
+- USDA `DEMO_KEY` has a ~1000 req/day limit — falls back silently with degraded results, no user-visible error. Upgrade to a registered API key before beta launch
+- Never pass API keys as URL query params (e.g. `?api_key=...`) — they appear in server logs, Vercel function logs, and browser history. Use server-side env vars only
+
 ### Debugging
 - Schema-code drift: if DB CHECK constraint doesn't match code's source values, inserts silently fail
 - When meals "don't log", first check the source value being sent vs what the CHECK allows

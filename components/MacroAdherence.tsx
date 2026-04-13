@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Target, TrendingUp } from 'lucide-react';
+import { Target } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 interface MacroAdherenceProps {
@@ -48,62 +48,68 @@ export default function MacroAdherence({ userId, targets }: MacroAdherenceProps)
   const [dayData, setDayData] = useState<DayTotals[]>([]);
   const [overallScore, setOverallScore] = useState(0);
 
-  const loadData = useCallback(async () => {
-    if (!userId) return;
+  useEffect(() => {
+    let cancelled = false;
 
-    const days: DayTotals[] = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      days.push({
-        date: d.toISOString().split('T')[0],
-        calories: 0,
-        protein_g: 0,
-        carbs_g: 0,
-        fat_g: 0,
-      });
-    }
+    async function loadData() {
+      if (!userId) return;
 
-    const { data } = await supabase
-      .from('food_log')
-      .select('logged_date, calories, protein_g, carbs_g, fat_g')
-      .eq('user_id', userId)
-      .gte('logged_date', days[0].date)
-      .lte('logged_date', days[6].date);
+      const days: DayTotals[] = [];
+      for (let i = 6; i >= 0; i--) {
+        const day = new Date();
+        day.setDate(day.getDate() - i);
+        days.push({
+          date: day.toISOString().split('T')[0],
+          calories: 0,
+          protein_g: 0,
+          carbs_g: 0,
+          fat_g: 0,
+        });
+      }
 
-    if (data) {
-      for (const entry of data) {
-        const day = days.find((d) => d.date === entry.logged_date);
-        if (day) {
-          day.calories += entry.calories ?? 0;
-          day.protein_g += entry.protein_g ?? 0;
-          day.carbs_g += entry.carbs_g ?? 0;
-          day.fat_g += entry.fat_g ?? 0;
+      const { data } = await supabase
+        .from('food_log')
+        .select('logged_date, calories, protein_g, carbs_g, fat_g')
+        .eq('user_id', userId)
+        .gte('logged_date', days[0].date)
+        .lte('logged_date', days[6].date);
+
+      if (cancelled) return;
+
+      if (data) {
+        for (const entry of data) {
+          const matchingDay = days.find((day) => day.date === entry.logged_date);
+          if (matchingDay) {
+            matchingDay.calories += entry.calories ?? 0;
+            matchingDay.protein_g += entry.protein_g ?? 0;
+            matchingDay.carbs_g += entry.carbs_g ?? 0;
+            matchingDay.fat_g += entry.fat_g ?? 0;
+          }
         }
       }
+
+      const activeDays = days.filter((day) => day.calories > 0);
+      setDayData(activeDays);
+
+      if (activeDays.length > 0) {
+        const scores = activeDays.map((day) => {
+          const calScore = adherenceScore(day.calories, targets.calories);
+          const proScore = adherenceScore(day.protein_g, targets.protein_g);
+          const carbScore = adherenceScore(day.carbs_g, targets.carbs_g);
+          const fatScore = adherenceScore(day.fat_g, targets.fat_g);
+          return (calScore + proScore + carbScore + fatScore) / 4;
+        });
+        setOverallScore(Math.round(scores.reduce((sum, value) => sum + value, 0) / scores.length));
+      }
+
+      setLoading(false);
     }
 
-    const activeDays = days.filter((d) => d.calories > 0);
-    setDayData(activeDays);
-
-    // Calculate overall score
-    if (activeDays.length > 0) {
-      const scores = activeDays.map((d) => {
-        const calScore = adherenceScore(d.calories, targets.calories);
-        const proScore = adherenceScore(d.protein_g, targets.protein_g);
-        const carbScore = adherenceScore(d.carbs_g, targets.carbs_g);
-        const fatScore = adherenceScore(d.fat_g, targets.fat_g);
-        return (calScore + proScore + carbScore + fatScore) / 4;
-      });
-      setOverallScore(Math.round(scores.reduce((s, v) => s + v, 0) / scores.length));
-    }
-
-    setLoading(false);
+    void loadData();
+    return () => {
+      cancelled = true;
+    };
   }, [userId, targets]);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
 
   if (loading) {
     return (

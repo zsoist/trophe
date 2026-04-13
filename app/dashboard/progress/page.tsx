@@ -45,8 +45,6 @@ function WeightChart({ measurements }: { measurements: Measurement[] }) {
   const polyline = points.join(' ');
 
   // Gradient area
-  const firstPoint = points[0];
-  const lastPoint = points[points.length - 1];
   const areaPoints = `${padX},${height - padY} ${polyline} ${padX + chartW},${height - padY}`;
 
   const firstWeight = weights[0];
@@ -164,7 +162,6 @@ function GoalProjection({ measurements, clientProfile }: { measurements: Measure
   const totalChange = (latest.weight_kg as number) - (earliest.weight_kg as number);
   const weeklyChange = weeksBetween > 0 ? totalChange / weeksBetween : 0;
 
-  const goalWeight = clientProfile?.weight_kg ?? null;
   const goal = clientProfile?.goal ?? null;
   const currentWeight = latest.weight_kg as number;
 
@@ -293,7 +290,7 @@ export default function ProgressPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     loadData();

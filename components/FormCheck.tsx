@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Camera, ArrowLeft, Loader2, AlertCircle, CircleDot, Square, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Loader2, AlertCircle, CircleDot } from 'lucide-react';
+import type { PoseLandmarker } from '@mediapipe/tasks-vision';
 import PoseOverlay from './PoseOverlay';
 import {
   extractPosePoints,
@@ -16,7 +17,6 @@ import {
   scoreFormAnalysis,
   ALPHA_POINTS,
   ALPHA_ANGLE,
-  POSE_CONNECTIONS,
   type PosePoints,
   type FrameAngles,
   type DirectionChange,
@@ -37,7 +37,7 @@ type LoadingState = 'init' | 'loading_model' | 'requesting_camera' | 'ready' | '
 export default function FormCheck({ exercise, side, onComplete, onBack }: FormCheckProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const poseLandmarkerRef = useRef<any>(null);
+  const poseLandmarkerRef = useRef<PoseLandmarker | null>(null);
   const animationFrameRef = useRef<number>(0);
   const streamRef = useRef<MediaStream | null>(null);
   const lastTimestampRef = useRef<number>(-1);
@@ -144,18 +144,20 @@ export default function FormCheck({ exercise, side, onComplete, onBack }: FormCh
         setVideoSize({ width: w, height: h });
 
         setState('ready');
-      } catch (err: any) {
+      } catch (error: unknown) {
         if (cancelled) return;
-        console.error('FormCheck init error:', err);
+        console.error('FormCheck init error:', error);
         setState('error');
-        if (err.name === 'NotAllowedError') {
+        const message = error instanceof Error ? error.message : 'Unknown initialization error';
+        const name = error instanceof Error ? error.name : 'UnknownError';
+        if (name === 'NotAllowedError') {
           setError('Acceso a la camara denegado. Permite el acceso en la configuracion del navegador.');
-        } else if (err.name === 'NotFoundError' || err.name === 'NotReadableError') {
+        } else if (name === 'NotFoundError' || name === 'NotReadableError') {
           setError('No se encontro una camara disponible. Verifica que tu dispositivo tiene camara.');
-        } else if (err.message?.includes('wasm') || err.message?.includes('fetch')) {
+        } else if (message.includes('wasm') || message.includes('fetch')) {
           setError('Error cargando el modelo de IA. Verifica tu conexion a internet e intenta de nuevo.');
         } else {
-          setError(err.message || 'Error al inicializar. Intenta recargar la pagina.');
+          setError(message || 'Error al inicializar. Intenta recargar la pagina.');
         }
       }
     }
@@ -274,7 +276,7 @@ export default function FormCheck({ exercise, side, onComplete, onBack }: FormCh
         setCurrentPosePoints(smoothed);
         setCurrentAngles(smoothedAng);
       }
-    } catch (err) {
+    } catch {
       // Detection errors are non-fatal, just skip frame
     }
 

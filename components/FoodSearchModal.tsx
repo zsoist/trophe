@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, X, ChevronDown, Clock, Flame, Beef } from 'lucide-react';
+import { Search, X, Clock, Flame, Beef } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { MealType } from '@/lib/types';
 

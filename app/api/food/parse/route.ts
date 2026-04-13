@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { FOOD_DATABASE, GREEK_UNITS, buildFoodReferencePrompt } from '@/lib/food-units';
+import { FOOD_DATABASE, buildFoodReferencePrompt } from '@/lib/food-units';
 import { logAPIUsage, calculateCost, extractAnthropicUsage } from '@/lib/api-cost-logger';
 
 export interface ParsedFoodItem {

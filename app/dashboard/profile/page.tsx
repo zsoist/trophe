@@ -3,7 +3,7 @@ import { useRouter } from 'next/navigation';
 
 import { useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { User, LogOut, Save, Globe, ChevronDown } from 'lucide-react';
+import { User, LogOut, Save, Globe } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { calculateFullProfile, ACTIVITY_DESCRIPTIONS, GOAL_DESCRIPTIONS } from '@/lib/nutrition-engine';
 import type { ClientProfile, Profile, Sex, ActivityLevel, Goal, Language } from '@/lib/types';
@@ -70,7 +70,7 @@ export default function ProfilePage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     loadData();
@@ -124,7 +124,7 @@ export default function ProfilePage() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    window.location.href = '/login';
+    router.replace('/login');
   };
 
   // Preview calculations
@@ -151,8 +151,6 @@ export default function ProfilePage() {
       </div>
     );
   }
-
-  const goalInfo = GOAL_DESCRIPTIONS[goal];
 
   return (
     <div className="min-h-screen bg-stone-950 pb-24">

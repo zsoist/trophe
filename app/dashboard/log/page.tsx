@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Copy, Lock, Unlock, Flame, Undo2, Star, Settings } from 'lucide-react';
+import { Copy, Lock, Flame, Undo2, Star, Settings } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
 import type { FoodLogEntry, MealType } from '@/lib/types';
@@ -102,6 +102,29 @@ function saveFavoritesToStorage(favs: FavoriteFood[]) {
   localStorage.setItem('trophe_favorites', JSON.stringify(favs));
 }
 
+function loadStoredSet(key: string): Set<string> {
+  if (typeof window === 'undefined') {
+    return new Set();
+  }
+  try {
+    return new Set(JSON.parse(window.localStorage.getItem(key) || '[]'));
+  } catch {
+    return new Set();
+  }
+}
+
+function loadStoredMealSlots(): MealSlot[] | null {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  try {
+    const storedSlots = window.localStorage.getItem('trophe_meal_slots');
+    return storedSlots ? JSON.parse(storedSlots) as MealSlot[] : null;
+  } catch {
+    return null;
+  }
+}
+
 // F4: Macro target colors
 function getTargetColor(consumed: number, target: number): string {
   if (target === 0) return 'text-stone-500';
@@ -191,8 +214,10 @@ export default function FoodLogPage() {
   const router = useRouter();
   const [userId, setUserId] = useState<string | null>(null);
   const [todayLog, setTodayLog] = useState<FoodLogEntry[]>([]);
-  const [skippedSlots, setSkippedSlots] = useState<Set<string>>(new Set());
-  const [lockedSlots, setLockedSlots] = useState<Set<string>>(new Set());
+  const today = new Date().toISOString().split('T')[0];
+  const [selectedDate, setSelectedDate] = useState(today);
+  const [skippedSlots, setSkippedSlots] = useState<Set<string>>(() => loadStoredSet(`trophe_skipped_${today}`));
+  const [lockedSlots, setLockedSlots] = useState<Set<string>>(() => loadStoredSet(`trophe_locked_${today}`));
 
   // F3: Undo delete
   const [pendingDelete, setPendingDelete] = useState<{ id: string; entry: FoodLogEntry } | null>(null);
@@ -202,18 +227,16 @@ export default function FoodLogPage() {
   const [targets, setTargets] = useState({ calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 });
 
   // F5: Favorites
-  const [favorites, setFavorites] = useState<FavoriteFood[]>([]);
+  const [favorites, setFavorites] = useState<FavoriteFood[]>(() => loadFavorites());
 
   // F6: Streak
   const [streak, setStreak] = useState(0);
 
   // F18: Custom meal slots
-  const [customSlots, setCustomSlots] = useState<MealSlot[] | null>(null);
+  const [customSlots, setCustomSlots] = useState<MealSlot[] | null>(() => loadStoredMealSlots());
   const [showSlotConfig, setShowSlotConfig] = useState(false);
 
   // Date navigation
-  const today = new Date().toISOString().split('T')[0];
-  const [selectedDate, setSelectedDate] = useState(today);
   const [showCalendar, setShowCalendar] = useState(false);
   const [showComparison, setShowComparison] = useState(false);
   const [compareDate, setCompareDate] = useState('');
@@ -243,23 +266,11 @@ export default function FoodLogPage() {
   // F7: Remaining budget
   const remainingCal = targets.calories - totalCalories;
 
-  // Load persisted state
-  useEffect(() => {
-    const storedSkipped = localStorage.getItem(`trophe_skipped_${selectedDate}`);
-    if (storedSkipped) {
-      try { setSkippedSlots(new Set(JSON.parse(storedSkipped))); } catch { /* ignore */ }
-    }
-    const storedLocked = localStorage.getItem(`trophe_locked_${selectedDate}`);
-    if (storedLocked) {
-      try { setLockedSlots(new Set(JSON.parse(storedLocked))); } catch { /* ignore */ }
-    }
-    setFavorites(loadFavorites());
-    // F18: Load custom meal slots
-    const storedSlots = localStorage.getItem('trophe_meal_slots');
-    if (storedSlots) {
-      try { setCustomSlots(JSON.parse(storedSlots)); } catch { /* ignore */ }
-    }
-  }, [selectedDate]);
+  const handleDateChange = useCallback((date: string) => {
+    setSelectedDate(date);
+    setSkippedSlots(loadStoredSet(`trophe_skipped_${date}`));
+    setLockedSlots(loadStoredSet(`trophe_locked_${date}`));
+  }, []);
 
   const saveSkipped = (newSkipped: Set<string>) => {
     setSkippedSlots(newSkipped);
@@ -384,7 +395,10 @@ export default function FoodLogPage() {
   }, [selectedDate, router]);
 
   useEffect(() => {
-    loadTodayLog();
+    const refreshTimer = window.setTimeout(() => {
+      void loadTodayLog();
+    }, 0);
+    return () => window.clearTimeout(refreshTimer);
   }, [loadTodayLog]);
 
   const [copying, setCopying] = useState(false);
@@ -529,7 +543,7 @@ export default function FoodLogPage() {
         {/* Date Navigator */}
         <DateNavigator
           selectedDate={selectedDate}
-          onDateChange={setSelectedDate}
+          onDateChange={handleDateChange}
           onOpenCalendar={() => setShowCalendar(true)}
         />
 
@@ -538,7 +552,7 @@ export default function FoodLogPage() {
           <div className="mb-3">
             <WeekStrip
               selectedDate={selectedDate}
-              onSelectDate={setSelectedDate}
+              onSelectDate={handleDateChange}
               weekData={weekData}
             />
           </div>
@@ -944,7 +958,7 @@ export default function FoodLogPage() {
         {showCalendar && userId && (
           <CalendarView
             selectedDate={selectedDate}
-            onSelectDate={(d) => { setSelectedDate(d); setShowCalendar(false); }}
+            onSelectDate={(date) => { handleDateChange(date); setShowCalendar(false); }}
             onClose={() => setShowCalendar(false)}
             userId={userId}
           />

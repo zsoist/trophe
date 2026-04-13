@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { BarChart3 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -25,62 +25,65 @@ interface WeeklyMacroChartProps {
 export default function WeeklyMacroChart({
   userId,
   targetCalories,
-  targetProtein,
-  targetCarbs,
-  targetFat,
 }: WeeklyMacroChartProps) {
   const [weekData, setWeekData] = useState<DayData[]>([]);
   const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    let cancelled = false;
 
-  const loadWeekData = useCallback(async () => {
-    if (!userId) return;
+    async function loadWeekData() {
+      if (!userId) return;
 
-    const days: DayData[] = [];
-    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const days: DayData[] = [];
+      const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const dateStr = d.toISOString().split('T')[0];
-      days.push({
-        date: dateStr,
-        dayLabel: dayNames[d.getDay()],
-        calories: 0,
-        protein_g: 0,
-        carbs_g: 0,
-        fat_g: 0,
-      });
-    }
+      for (let i = 6; i >= 0; i--) {
+        const day = new Date();
+        day.setDate(day.getDate() - i);
+        const dateStr = day.toISOString().split('T')[0];
+        days.push({
+          date: dateStr,
+          dayLabel: dayNames[day.getDay()],
+          calories: 0,
+          protein_g: 0,
+          carbs_g: 0,
+          fat_g: 0,
+        });
+      }
 
-    const startDate = days[0].date;
-    const endDate = days[6].date;
+      const startDate = days[0].date;
+      const endDate = days[6].date;
 
-    const { data } = await supabase
-      .from('food_log')
-      .select('logged_date, calories, protein_g, carbs_g, fat_g')
-      .eq('user_id', userId)
-      .gte('logged_date', startDate)
-      .lte('logged_date', endDate);
+      const { data } = await supabase
+        .from('food_log')
+        .select('logged_date, calories, protein_g, carbs_g, fat_g')
+        .eq('user_id', userId)
+        .gte('logged_date', startDate)
+        .lte('logged_date', endDate);
 
-    if (data) {
-      for (const entry of data) {
-        const day = days.find((d) => d.date === entry.logged_date);
-        if (day) {
-          day.calories += entry.calories ?? 0;
-          day.protein_g += entry.protein_g ?? 0;
-          day.carbs_g += entry.carbs_g ?? 0;
-          day.fat_g += entry.fat_g ?? 0;
+      if (cancelled) return;
+
+      if (data) {
+        for (const entry of data) {
+          const matchingDay = days.find((day) => day.date === entry.logged_date);
+          if (matchingDay) {
+            matchingDay.calories += entry.calories ?? 0;
+            matchingDay.protein_g += entry.protein_g ?? 0;
+            matchingDay.carbs_g += entry.carbs_g ?? 0;
+            matchingDay.fat_g += entry.fat_g ?? 0;
+          }
         }
       }
+
+      setWeekData(days);
+      setLoading(false);
     }
 
-    setWeekData(days);
-    setLoading(false);
+    void loadWeekData();
+    return () => {
+      cancelled = true;
+    };
   }, [userId]);
-
-  useEffect(() => {
-    loadWeekData();
-  }, [loadWeekData]);
 
   if (loading) {
     return (

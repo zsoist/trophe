@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TrendingUp, ChevronDown, ChevronUp } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -46,63 +46,68 @@ export default function MacroTrendChart({ userId, days = 30 }: MacroTrendChartPr
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const [targetCalories, setTargetCalories] = useState<number | null>(null);
 
-  const loadData = useCallback(async () => {
-    if (!userId) return;
+  useEffect(() => {
+    let cancelled = false;
 
-    const endDate = new Date();
-    const startDate = new Date();
-    startDate.setDate(endDate.getDate() - (days - 1));
+    async function loadData() {
+      if (!userId) return;
 
-    const startStr = startDate.toISOString().split('T')[0];
-    const endStr = endDate.toISOString().split('T')[0];
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(endDate.getDate() - (days - 1));
 
-    // Fetch food log and target calories in parallel
-    const [logResult, profileResult] = await Promise.all([
-      supabase
-        .from('food_log')
-        .select('logged_date, calories, protein_g, carbs_g, fat_g')
-        .eq('user_id', userId)
-        .gte('logged_date', startStr)
-        .lte('logged_date', endStr),
-      supabase
-        .from('client_profiles')
-        .select('target_calories')
-        .eq('user_id', userId)
-        .maybeSingle(),
-    ]);
+      const startStr = startDate.toISOString().split('T')[0];
+      const endStr = endDate.toISOString().split('T')[0];
 
-    if (profileResult.data?.target_calories) {
-      setTargetCalories(profileResult.data.target_calories);
-    }
+      const [logResult, profileResult] = await Promise.all([
+        supabase
+          .from('food_log')
+          .select('logged_date, calories, protein_g, carbs_g, fat_g')
+          .eq('user_id', userId)
+          .gte('logged_date', startStr)
+          .lte('logged_date', endStr),
+        supabase
+          .from('client_profiles')
+          .select('target_calories')
+          .eq('user_id', userId)
+          .maybeSingle(),
+      ]);
 
-    // Build day buckets
-    const dayMap = new Map<string, DayAggregate>();
-    for (let i = 0; i < days; i++) {
-      const d = new Date(startDate);
-      d.setDate(startDate.getDate() + i);
-      const dateStr = d.toISOString().split('T')[0];
-      dayMap.set(dateStr, { date: dateStr, calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 });
-    }
+      if (cancelled) return;
 
-    if (logResult.data) {
-      for (const entry of logResult.data) {
-        const day = dayMap.get(entry.logged_date);
-        if (day) {
-          day.calories += entry.calories ?? 0;
-          day.protein_g += entry.protein_g ?? 0;
-          day.carbs_g += entry.carbs_g ?? 0;
-          day.fat_g += entry.fat_g ?? 0;
+      if (profileResult.data?.target_calories) {
+        setTargetCalories(profileResult.data.target_calories);
+      }
+
+      const dayMap = new Map<string, DayAggregate>();
+      for (let i = 0; i < days; i++) {
+        const day = new Date(startDate);
+        day.setDate(startDate.getDate() + i);
+        const dateStr = day.toISOString().split('T')[0];
+        dayMap.set(dateStr, { date: dateStr, calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 });
+      }
+
+      if (logResult.data) {
+        for (const entry of logResult.data) {
+          const day = dayMap.get(entry.logged_date);
+          if (day) {
+            day.calories += entry.calories ?? 0;
+            day.protein_g += entry.protein_g ?? 0;
+            day.carbs_g += entry.carbs_g ?? 0;
+            day.fat_g += entry.fat_g ?? 0;
+          }
         }
       }
+
+      setData(Array.from(dayMap.values()));
+      setLoading(false);
     }
 
-    setData(Array.from(dayMap.values()));
-    setLoading(false);
+    void loadData();
+    return () => {
+      cancelled = true;
+    };
   }, [userId, days]);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
 
   const toggle = (key: MacroKey) => {
     setVisible((prev) => ({ ...prev, [key]: !prev[key] }));

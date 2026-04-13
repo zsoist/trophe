@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Send, ClipboardCheck } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -25,11 +25,7 @@ export default function WeeklyCheckin({ userId, coachId }: WeeklyCheckinProps) {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
-  useEffect(() => {
-    checkIfSunday();
-  }, [userId]);
-
-  async function checkIfSunday() {
+  const checkIfSunday = useCallback(async () => {
     const now = new Date();
     // 0 = Sunday
     if (now.getDay() !== 0) return;
@@ -55,7 +51,11 @@ export default function WeeklyCheckin({ userId, coachId }: WeeklyCheckinProps) {
     if ((!data || data.length === 0) && !localDone) {
       setShow(true);
     }
-  }
+  }, [userId]);
+
+  useEffect(() => {
+    checkIfSunday();
+  }, [checkIfSunday]);
 
   function setRating(key: string, value: number) {
     setRatings((prev) => ({ ...prev, [key]: value }));

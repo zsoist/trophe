@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import { motion } from 'framer-motion';
 
 interface MacroDonutProps {
@@ -40,7 +39,6 @@ export default function MacroDonut({
   const cx = size / 2;
   const cy = size / 2;
   const outerR = 72;
-  const innerR = 58;
   const targetR = 80;
 
   function describeArc(

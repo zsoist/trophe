@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { BarChart3, TrendingUp, AlertTriangle } from 'lucide-react';
+import { BarChart3, TrendingUp } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 interface DayPatternsProps {
@@ -25,59 +25,64 @@ export default function DayPatterns({ userId }: DayPatternsProps) {
   const [loading, setLoading] = useState(true);
   const [dayData, setDayData] = useState<DayAvg[]>([]);
 
-  const loadData = useCallback(async () => {
-    if (!userId) return;
-
-    const endDate = new Date().toISOString().split('T')[0];
-    const startDate = new Date(Date.now() - 60 * 86400000).toISOString().split('T')[0];
-
-    const { data } = await supabase
-      .from('food_log')
-      .select('logged_date, calories')
-      .eq('user_id', userId)
-      .gte('logged_date', startDate)
-      .lte('logged_date', endDate);
-
-    if (!data || data.length === 0) {
-      setLoading(false);
-      return;
-    }
-
-    // Aggregate by date first, then by day of week
-    const dateMap: Record<string, number> = {};
-    for (const entry of data) {
-      const d = entry.logged_date;
-      dateMap[d] = (dateMap[d] ?? 0) + (entry.calories ?? 0);
-    }
-
-    // Group by day of week
-    const days: DayAvg[] = Array.from({ length: 7 }, (_, i) => ({
-      dayIndex: i,
-      dayLabel: DAY_LABELS[i],
-      shortLabel: DAY_SHORT[i],
-      totalCalories: 0,
-      count: 0,
-      avg: 0,
-    }));
-
-    for (const [dateStr, cals] of Object.entries(dateMap)) {
-      if (cals === 0) continue;
-      const dayOfWeek = new Date(dateStr + 'T12:00:00').getDay();
-      days[dayOfWeek].totalCalories += cals;
-      days[dayOfWeek].count += 1;
-    }
-
-    for (const day of days) {
-      day.avg = day.count > 0 ? Math.round(day.totalCalories / day.count) : 0;
-    }
-
-    setDayData(days);
-    setLoading(false);
-  }, [userId]);
-
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    let cancelled = false;
+
+    async function loadData() {
+      if (!userId) return;
+
+      const endDate = new Date().toISOString().split('T')[0];
+      const startDate = new Date(Date.now() - 60 * 86400000).toISOString().split('T')[0];
+
+      const { data } = await supabase
+        .from('food_log')
+        .select('logged_date, calories')
+        .eq('user_id', userId)
+        .gte('logged_date', startDate)
+        .lte('logged_date', endDate);
+
+      if (cancelled) return;
+
+      if (!data || data.length === 0) {
+        setLoading(false);
+        return;
+      }
+
+      const dateMap: Record<string, number> = {};
+      for (const entry of data) {
+        const date = entry.logged_date;
+        dateMap[date] = (dateMap[date] ?? 0) + (entry.calories ?? 0);
+      }
+
+      const days: DayAvg[] = Array.from({ length: 7 }, (_, i) => ({
+        dayIndex: i,
+        dayLabel: DAY_LABELS[i],
+        shortLabel: DAY_SHORT[i],
+        totalCalories: 0,
+        count: 0,
+        avg: 0,
+      }));
+
+      for (const [dateStr, calories] of Object.entries(dateMap)) {
+        if (calories === 0) continue;
+        const dayOfWeek = new Date(`${dateStr}T12:00:00`).getDay();
+        days[dayOfWeek].totalCalories += calories;
+        days[dayOfWeek].count += 1;
+      }
+
+      for (const day of days) {
+        day.avg = day.count > 0 ? Math.round(day.totalCalories / day.count) : 0;
+      }
+
+      setDayData(days);
+      setLoading(false);
+    }
+
+    void loadData();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
 
   // Insight: find the biggest outlier
   const insight = useMemo(() => {

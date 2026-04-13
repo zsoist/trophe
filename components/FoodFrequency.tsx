@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Repeat } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -21,54 +21,59 @@ export default function FoodFrequency({ userId, days = 30 }: FoodFrequencyProps)
   const [foods, setFoods] = useState<FoodStat[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const loadData = useCallback(async () => {
-    if (!userId) return;
-
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - days);
-    const startStr = startDate.toISOString().split('T')[0];
-
-    const { data } = await supabase
-      .from('food_log')
-      .select('food_name, calories, protein_g')
-      .eq('user_id', userId)
-      .gte('logged_date', startStr);
-
-    if (!data || data.length === 0) {
-      setFoods([]);
-      setLoading(false);
-      return;
-    }
-
-    // Group by food_name
-    const map = new Map<string, FoodStat>();
-    for (const entry of data) {
-      const name = entry.food_name.trim().toLowerCase();
-      const existing = map.get(name) || {
-        food_name: entry.food_name.trim(),
-        count: 0,
-        totalCalories: 0,
-        totalProtein: 0,
-      };
-      existing.count += 1;
-      existing.totalCalories += entry.calories ?? 0;
-      existing.totalProtein += entry.protein_g ?? 0;
-      // Keep the original casing from first occurrence
-      if (!map.has(name)) existing.food_name = entry.food_name.trim();
-      map.set(name, existing);
-    }
-
-    const sorted = Array.from(map.values())
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 8);
-
-    setFoods(sorted);
-    setLoading(false);
-  }, [userId, days]);
-
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    let cancelled = false;
+
+    async function loadData() {
+      if (!userId) return;
+
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
+      const startStr = startDate.toISOString().split('T')[0];
+
+      const { data } = await supabase
+        .from('food_log')
+        .select('food_name, calories, protein_g')
+        .eq('user_id', userId)
+        .gte('logged_date', startStr);
+
+      if (cancelled) return;
+
+      if (!data || data.length === 0) {
+        setFoods([]);
+        setLoading(false);
+        return;
+      }
+
+      const map = new Map<string, FoodStat>();
+      for (const entry of data) {
+        const name = entry.food_name.trim().toLowerCase();
+        const existing = map.get(name) || {
+          food_name: entry.food_name.trim(),
+          count: 0,
+          totalCalories: 0,
+          totalProtein: 0,
+        };
+        existing.count += 1;
+        existing.totalCalories += entry.calories ?? 0;
+        existing.totalProtein += entry.protein_g ?? 0;
+        if (!map.has(name)) existing.food_name = entry.food_name.trim();
+        map.set(name, existing);
+      }
+
+      const sorted = Array.from(map.values())
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 8);
+
+      setFoods(sorted);
+      setLoading(false);
+    }
+
+    void loadData();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, days]);
 
   if (loading) {
     return (

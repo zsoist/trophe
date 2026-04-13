@@ -53,7 +53,6 @@ export default function CalendarView({
   const [viewMonth, setViewMonth] = useState(selMonth - 1); // 0-indexed
   const [monthDir, setMonthDir] = useState(0);
   const [dayData, setDayData] = useState<Record<string, DaySummary>>({});
-  const [loading, setLoading] = useState(false);
   const [streak, setStreak] = useState<Set<string>>(new Set());
 
   const todayISO = useMemo(() => getTodayISO(), []);
@@ -73,7 +72,6 @@ export default function CalendarView({
     let cancelled = false;
 
     async function fetchMonth() {
-      setLoading(true);
       const { data, error } = await supabase
         .from('food_log')
         .select('logged_date, calories')
@@ -82,7 +80,6 @@ export default function CalendarView({
         .lte('logged_date', monthEnd);
 
       if (cancelled || error) {
-        setLoading(false);
         return;
       }
 
@@ -98,7 +95,7 @@ export default function CalendarView({
       // Compute streak days (consecutive days with entries, going back from today)
       const streakSet = new Set<string>();
       const today = new Date();
-      let cursor = new Date(today);
+      const cursor = new Date(today);
       for (let i = 0; i < 120; i++) {
         const iso = toISO(cursor);
         if (grouped[iso] && grouped[iso].entries > 0) {
@@ -110,7 +107,6 @@ export default function CalendarView({
         cursor.setDate(cursor.getDate() - 1);
       }
       setStreak(streakSet);
-      setLoading(false);
     }
 
     fetchMonth();

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Shield, Flame } from 'lucide-react';
 
@@ -11,20 +11,11 @@ interface StreakFreezeProps {
 
 // F40: Streak freeze — preserve streak if you miss one day per week
 export default function StreakFreeze({ streak, hasLoggedToday }: StreakFreezeProps) {
-  const [freezeUsed, setFreezeUsed] = useState(false);
-  const [freezeAvailable, setFreezeAvailable] = useState(false);
-
-  useEffect(() => {
-    const week = getWeekKey();
-    const used = localStorage.getItem(`trophe_freeze_${week}`);
-    setFreezeUsed(!!used);
-    setFreezeAvailable(!used);
-  }, []);
+  const [freezeAvailable, setFreezeAvailable] = useState(() => getInitialFreezeAvailable());
 
   const useFreeze = () => {
     const week = getWeekKey();
     localStorage.setItem(`trophe_freeze_${week}`, 'true');
-    setFreezeUsed(true);
     setFreezeAvailable(false);
   };
 
@@ -62,4 +53,11 @@ function getWeekKey(): string {
   const startOfWeek = new Date(d);
   startOfWeek.setDate(d.getDate() - d.getDay());
   return startOfWeek.toISOString().split('T')[0];
+}
+
+function getInitialFreezeAvailable(): boolean {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+  return !window.localStorage.getItem(`trophe_freeze_${getWeekKey()}`);
 }

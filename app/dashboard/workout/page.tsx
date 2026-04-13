@@ -5,12 +5,12 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Dumbbell, Plus, Minus, Clock, Trophy, Search, X, AlertTriangle,
-  ChevronDown, ChevronUp, History, Play, Square, Flame, Camera
+  ChevronDown, ChevronUp, History, Play, Square, Camera
 } from 'lucide-react';
 import BottomNav from '@/components/BottomNav';
 import { supabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
-import type { Exercise, WorkoutSession, WorkoutSet, PainFlag, MuscleGroup } from '@/lib/types';
+import type { Exercise, PainFlag, MuscleGroup } from '@/lib/types';
 import Link from 'next/link';
 
 // ─── Muscle group labels & colors ───
@@ -336,7 +336,7 @@ export default function WorkoutPage() {
       if (data) setExercises(data);
     }
     init();
-  }, []);
+  }, [router]);
 
   // Load PR records for user
   const loadPRs = useCallback(async (exerciseIds: string[]) => {

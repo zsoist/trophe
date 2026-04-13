@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 
 const MYTHS = [
@@ -16,10 +17,12 @@ const MYTHS = [
 ];
 
 export default function MythCard() {
-  const dayOfYear = Math.floor(
-    (Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000
-  );
-  const todayMyth = MYTHS[dayOfYear % MYTHS.length];
+  const [todayMyth] = useState(() => {
+    const today = new Date();
+    const startOfYear = new Date(today.getFullYear(), 0, 0);
+    const dayOfYear = Math.floor((today.getTime() - startOfYear.getTime()) / 86400000);
+    return MYTHS[dayOfYear % MYTHS.length];
+  });
 
   return (
     <motion.div

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useCallback, useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
@@ -107,11 +107,7 @@ export default function WorkoutStatsPage() {
   const [sets, setSets] = useState<(WorkoutSet & { exercise: Exercise; session: WorkoutSession })[]>([]);
   const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  async function loadData() {
+  const loadData = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push("/login"); return; }
@@ -152,7 +148,11 @@ export default function WorkoutStatsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [router]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   // ── Computed Data ──
 

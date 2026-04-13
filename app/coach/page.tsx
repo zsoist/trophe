@@ -1,14 +1,13 @@
 'use client';
 import { useRouter } from 'next/navigation';
 
-import { useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users,
   Eye,
   StickyNote,
   ArrowUpRight,
-  TrendingUp,
   AlertTriangle,
   CheckCircle2,
   Search,
@@ -28,7 +27,6 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import Avatar from '@/components/Avatar';
 import ShortcutsModal from '@/components/ShortcutsModal';
-import { CoachSkeleton } from '@/components/Skeleton';
 import type {
   Profile,
   ClientProfile,
@@ -314,7 +312,7 @@ export default function CoachDashboard() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
+  const [viewMode] = useState<'cards' | 'table'>('cards');
   const [sortKey, setSortKey] = useState<'name' | 'streak' | 'compliance' | 'avgKcal' | 'lastCheckin'>('name');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [filter, setFilter] = useState<FilterStatus>('all');
@@ -324,10 +322,6 @@ export default function CoachDashboard() {
   const [weeklyActivity, setWeeklyActivity] = useState<number[]>([0, 0, 0, 0, 0, 0, 0]);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    loadClients();
-  }, []);
 
   // ═══ Keyboard Shortcuts ═══
   const clientsRef = useRef(clients);
@@ -371,7 +365,7 @@ export default function CoachDashboard() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [router]);
 
-  async function loadClients() {
+  const loadClients = useCallback(async () => {
     try {
       // Get current user
       const { data: { user } } = await supabase.auth.getUser();
@@ -379,7 +373,7 @@ export default function CoachDashboard() {
 
       // Role gate — only coaches can access this page
       const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
-      if (profile?.role === 'client') { window.location.href = '/dashboard'; return; }
+      if (profile?.role === 'client') { router.replace('/dashboard'); return; }
 
       // Fetch all client_profiles assigned to this coach
       const { data: clientProfiles } = await supabase
@@ -481,7 +475,11 @@ export default function CoachDashboard() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [router]);
+
+  useEffect(() => {
+    loadClients();
+  }, [loadClients]);
 
   // ═══ Save inline note (Feature 7) ═══
   async function saveInlineNote() {
@@ -857,7 +855,7 @@ export default function CoachDashboard() {
                       <tr
                         key={client.profile.id}
                         className="border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors cursor-pointer"
-                        onClick={() => window.location.href = `/coach/client/${client.clientProfile.user_id}`}
+                        onClick={() => router.push(`/coach/client/${client.clientProfile.user_id}`)}
                       >
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">

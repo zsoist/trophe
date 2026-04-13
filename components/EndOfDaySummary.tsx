@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Share2, Copy, Check, Flame, Trophy, Beef, Wheat, Droplet } from 'lucide-react';
 import type { FoodLogEntry } from '@/lib/types';
 

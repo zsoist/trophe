@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { AnimatePresence } from 'framer-motion';
-import { Droplets, Plus, Check, X, Flame, Beef, Wheat, Droplet } from 'lucide-react';
+import { Droplets, Plus, Check, X } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { ClientProfile, ClientHabit, HabitCheckin, FoodLogEntry, WaterLogEntry, Mood, Profile } from '@/lib/types';
 import BottomNav from '@/components/BottomNav';
@@ -77,14 +77,12 @@ function MacroRing({
   target,
   label,
   unit,
-  color,
   size = 80,
 }: {
   value: number;
   target: number;
   label: string;
   unit: string;
-  color: string;
   size?: number;
 }) {
   const radius = (size - 8) / 2;
@@ -251,7 +249,7 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [today]);
+  }, [today, router]);
 
   useEffect(() => {
     loadData();
@@ -645,28 +643,24 @@ export default function DashboardPage() {
               target={carbCycleTargets?.calories ?? clientProfile?.target_calories ?? 2000}
               label="Calories"
               unit="kcal"
-              color="#D4A853"
             />
             <MacroRing
               value={totalProtein}
               target={carbCycleTargets?.protein_g ?? clientProfile?.target_protein_g ?? 150}
               label="Protein"
               unit="g"
-              color="#ef4444"
             />
             <MacroRing
               value={totalCarbs}
               target={carbCycleTargets?.carbs_g ?? clientProfile?.target_carbs_g ?? 200}
               label="Carbs"
               unit="g"
-              color="#3b82f6"
             />
             <MacroRing
               value={totalFat}
               target={carbCycleTargets?.fat_g ?? clientProfile?.target_fat_g ?? 65}
               label="Fat"
               unit="g"
-              color="#a855f7"
             />
           </div>
           )}

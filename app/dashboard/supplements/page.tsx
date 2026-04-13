@@ -77,7 +77,7 @@ export default function SupplementsPage() {
     } finally {
       setLoading(false);
     }
-  }, [today]);
+  }, [today, router]);
 
   useEffect(() => {
     loadData();

@@ -1,8 +1,9 @@
 'use client';
+/* eslint-disable @next/next/no-img-element */
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Image, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { Image as ImageIcon, X, ChevronDown, ChevronUp } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 interface MealPhotoGalleryProps {
@@ -50,7 +51,7 @@ export default function MealPhotoGallery({ userId }: MealPhotoGalleryProps) {
           className="flex items-center justify-between w-full"
         >
           <div className="flex items-center gap-2">
-            <Image size={14} className="gold-text" />
+            <ImageIcon size={14} className="gold-text" />
             <span className="text-stone-300 text-xs font-medium">Photo Gallery</span>
             <span className="text-stone-600 text-[10px]">({photos.length})</span>
           </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useCallback, useEffect, useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -31,11 +31,7 @@ export default function ExerciseComparison({ exerciseId, userId }: ExerciseCompa
   const [loading, setLoading] = useState(true);
   const [summaries, setSummaries] = useState<SessionSummary[]>([]);
 
-  useEffect(() => {
-    loadComparison();
-  }, [exerciseId, userId]);
-
-  async function loadComparison() {
+  const loadComparison = useCallback(async () => {
     setLoading(true);
     try {
       // Get sessions for this user that contain this exercise
@@ -90,7 +86,11 @@ export default function ExerciseComparison({ exerciseId, userId }: ExerciseCompa
     } finally {
       setLoading(false);
     }
-  }
+  }, [exerciseId, userId]);
+
+  useEffect(() => {
+    loadComparison();
+  }, [loadComparison]);
 
   // ── Trend indicator ──
 

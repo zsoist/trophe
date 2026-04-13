@@ -12,7 +12,6 @@ import {
   Plus,
   Send,
   Pause,
-  Play,
   ChevronRight,
   X,
   FileText,
@@ -34,20 +33,11 @@ import type {
   Measurement,
   CoachNote,
   SessionType,
-  Mood,
 } from '@/lib/types';
 
 // ═══════════════════════════════════════════════
 // Helpers
 // ═══════════════════════════════════════════════
-
-const moodEmoji: Record<Mood, string> = {
-  great: '🌟',
-  good: '😊',
-  okay: '😐',
-  tough: '😓',
-  struggled: '😣',
-};
 
 const sessionLabels: Record<SessionType, string> = {
   check_in: 'Check-in',
@@ -298,7 +288,7 @@ export default function ClientDetailPage() {
     } finally {
       setLoading(false);
     }
-  }, [clientId]);
+  }, [clientId, router]);
 
   useEffect(() => {
     loadData();
