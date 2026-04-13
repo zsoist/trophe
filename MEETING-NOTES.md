@@ -85,3 +85,23 @@ Clients should own their data and be able to switch nutritionists without losing
 - When: Mid-to-end of April (Apr 16-18)
 - Agenda: Testing results, bug reports, feature priorities, legal entity
 - Participants: Michael, Daniel, possibly Daniela (girlfriend)
+
+---
+
+## Michael's Testing Feedback #1 — April 13, 2026
+
+_First notes after testing phase began (April 10-13). Direct from Michael:_
+
+### UX Issues (high priority)
+**(a) Meal slot drag-and-drop** — wants to drag and reorder slots freely, not tap ▲▼ repeatedly. His protocol doesn't follow breakfast→lunch→dinner — e.g. Snack → Lunch → Dinner → Snack. Fixed April 13: drag handle added to MealSlotConfig.
+
+**(b) Copy / duplicate meal slots** — needs to create variants without rebuilding from scratch. Fixed April 13: duplicate button added.
+
+**(c) Microphone permission** — browser asks for mic permission cold when the button is tapped, feels like it's spying. Needs a friendly pre-prompt UX ("We'll use your mic to log food by voice"). Fixed April 13.
+
+**(d) Personalized insights** — current health tips are generic ("eating X leads to Y"). Michael wants context-aware, personalised nudges tied to the client's actual data. He has all the prompts ready from his years of practice — this is his year's work. Will be supplied when ready. Phase 3.
+
+### Emotional Signal
+> "Too good to be true as an expression of what it could be and had in mind! We are so lucky to stepped on each other's path!"
+
+This is a strong signal — Michael sees the vision clearly and is emotionally invested. Partnership is real.

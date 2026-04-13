@@ -182,8 +182,8 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, onSea
     }
   };
 
-  // F15: Voice input via Web Speech API
-  const startVoiceInput = () => {
+  // F15: Voice input via Web Speech API — with explicit mic permission request
+  const startVoiceInput = async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const w = window as any;
     const SpeechRecognition = w.SpeechRecognition || w.webkitSpeechRecognition;
@@ -191,6 +191,37 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, onSea
     if (!SpeechRecognition) {
       setError('Voice input not supported in this browser');
       return;
+    }
+
+    // Check/request mic permission explicitly before starting recognition.
+    // This shows a clear browser permission prompt with context, instead of
+    // the browser silently asking mid-action (which feels unexpected).
+    if (navigator.permissions) {
+      try {
+        const status = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+        if (status.state === 'denied') {
+          setError('Microphone access denied — enable it in browser settings');
+          return;
+        }
+      } catch {
+        // permissions API not available on all browsers — continue anyway
+      }
+    }
+
+    // Warm up the mic permission dialog before starting recognition.
+    // getUserMedia fires the "Allow mic?" prompt with our app context visible.
+    if (navigator.mediaDevices?.getUserMedia) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        // Immediately release the stream — we only needed the permission grant
+        stream.getTracks().forEach(t => t.stop());
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'NotAllowedError') {
+          setError('Microphone access denied — tap Allow to use voice input');
+          return;
+        }
+        // Other errors (NotFoundError, etc.) — try recognition anyway
+      }
     }
 
     const recognition = new SpeechRecognition();
@@ -214,9 +245,13 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, onSea
       }, 300);
     };
 
-    recognition.onerror = () => {
+    recognition.onerror = (event: { error: string }) => {
       setMode('idle');
-      setError('Could not recognize speech');
+      if (event.error === 'not-allowed') {
+        setError('Microphone access denied — enable it in browser settings');
+      } else {
+        setError('Could not recognize speech — try again');
+      }
     };
 
     recognition.onend = () => {
