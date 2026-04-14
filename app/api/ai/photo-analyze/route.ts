@@ -30,6 +30,11 @@ function validateInput(body: unknown): { valid: true; data: PhotoAnalyzeRequest 
     return { valid: false, error: 'imageBase64 is required and must be a non-empty string' };
   }
 
+  // Cap at ~7MB image (base64 is ~33% larger than binary)
+  if (b.imageBase64.length > 10_000_000) {
+    return { valid: false, error: 'Image too large — maximum 7MB' };
+  }
+
   const validMediaTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
   if (typeof b.mediaType !== 'string' || !validMediaTypes.includes(b.mediaType)) {
     return { valid: false, error: `mediaType must be one of: ${validMediaTypes.join(', ')}` };

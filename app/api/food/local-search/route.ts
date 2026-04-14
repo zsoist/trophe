@@ -10,23 +10,26 @@ export async function GET(request: NextRequest) {
   }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  if (!supabaseUrl || !serviceRoleKey) {
+  if (!supabaseUrl || !anonKey) {
     return NextResponse.json({ error: 'Config missing' }, { status: 500 });
   }
 
-  const supabase = createClient(supabaseUrl, serviceRoleKey);
-  const query = q.trim().toLowerCase();
+  // Use anon key for public search — respects RLS, no privilege escalation
+  const supabase = createClient(supabaseUrl, anonKey);
+  // Sanitize ilike input: escape %, _, and backslash to prevent injection
+  const query = q.trim().toLowerCase().replace(/[%_\\]/g, '\\$&');
+  // Clamp limit to prevent table dumps
+  const safeLim = Math.min(Math.max(1, limit), 50);
 
-  // Strategy: try exact ilike first, then full-text search
   // Search across name, name_el, name_es
   const { data, error } = await supabase
     .from('food_database')
     .select('*')
     .or(`name.ilike.%${query}%,name_el.ilike.%${query}%,name_es.ilike.%${query}%`)
     .order('popularity', { ascending: false })
-    .limit(limit);
+    .limit(safeLim);
 
   if (error) {
     console.error('Local search error:', error);

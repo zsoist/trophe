@@ -22,6 +22,7 @@ Professional nutritionists manage clients using spreadsheets, MyFitnessPal, and 
 3. Create supplement protocols with evidence levels → assign to clients
 4. Create workout templates → assign to clients
 5. Deep-dive: food log, workout history, form check results, notes
+6. Set/override client macro targets (calories, protein, carbs, fat, fiber, water) with Auto-calc button (Mifflin-St Jeor + ISSN)
 
 ### AI Form Check Flow (new)
 1. Client opens Form Check → selects exercise + side
@@ -42,6 +43,9 @@ Professional nutritionists manage clients using spreadsheets, MyFitnessPal, and 
 - [x] Michael's account created (coach role)
 - [x] Demo page with EN/EL toggle
 - [x] AI Form Check working in browser
+- [x] 6-agent security audit completed with 28 fixes (April 14)
+- [x] Coach macro targets editor shipped (April 14)
+- [x] Market research and three-tier vision validated (April 14)
 - [ ] 3 test subjects actively using app (April 10-18)
 - [ ] Michael using coach dashboard daily
 - [ ] Bug report and feature feedback collected
@@ -56,3 +60,14 @@ Professional nutritionists manage clients using spreadsheets, MyFitnessPal, and 
 - Mobile-first (390x844)
 - Deploy with `vercel --yes --prod` (env vars are Production-only)
 - AI cost < $2/month per coach
+- Security headers on all responses (CSP, X-Frame-Options, X-XSS-Protection, Referrer-Policy)
+- Server-side auth middleware with JWT verification + role-based routing
+- Input sanitization on all AI routes (500 char cap, control char strip)
+- SQL injection prevention on all search routes (sanitized ilike)
+
+## Three-Tier Product Vision (validated April 14)
+1. **Tier 1 — Coach Tool** (current): SaaS for nutritionists. Per-coach subscription, clients free. Habit methodology + AI food tracking + coach dashboard.
+2. **Tier 2 — Self-Service Tracker**: Consumer app for individuals without a coach. Freemium model. AI-powered food logging + habit engine + insights.
+3. **Tier 3 — B2B Platform**: Multi-tenant for gyms and clinics. Stripe Connect for billing. White-label option. Central admin + multiple coaches + their clients.
+
+Payment standard: Stripe Connect (marketplace model for multi-tenant billing).

@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import { motion } from 'framer-motion';
 
 interface CalorieGaugeProps {
@@ -7,7 +8,7 @@ interface CalorieGaugeProps {
   target: number;
 }
 
-export default function CalorieGauge({ consumed, target }: CalorieGaugeProps) {
+export default memo(function CalorieGauge({ consumed, target }: CalorieGaugeProps) {
   if (target === 0) return null;
 
   const pct = Math.min(consumed / target, 2);
@@ -141,4 +142,4 @@ export default function CalorieGauge({ consumed, target }: CalorieGaugeProps) {
       </motion.p>
     </div>
   );
-}
+});

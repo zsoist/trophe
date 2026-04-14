@@ -8,11 +8,11 @@
 - **Styling**: Tailwind CSS 4 + Framer Motion + Lucide icons
 - **i18n**: Trilingual (EN/ES/EL) via lib/i18n.tsx
 
-## Stats (2026-04-09)
-- **26,023 lines** | **60 components** | **9 API routes** | **20 pages** | **48 commits**
-- **19 database tables** (incl api_usage_log, form_analyses) | **43 RLS policies** | **15 indexes**
+## Stats (2026-04-14)
+- **28,000+ lines** | **63 components** | **9 API routes** | **21 pages** | **55+ commits**
+- **19 database tables** (incl api_usage_log, form_analyses) | **43 RLS policies** | **23 indexes** (8 FK indexes added Apr 14)
 - **30 exercises** | **126 foods** | **20 Greek foods** | **10 habits**
-- **85+ features** shipped across 9 iterations
+- **90+ features** shipped across 11 iterations + 28-fix security audit
 - **0 TypeScript errors** (strict mode ON) | **0 console errors**
 
 ## Architecture
@@ -76,32 +76,42 @@
 - `EndOfDaySummary` — shareable summary card
 - `WeeklySummary` — 7-day bar chart with trends
 
+### Coach Tools
+- `CoachMacroTargets` — set/override client macro targets (cal/protein/carbs/fat/fiber/water) with Auto-calc (Mifflin-St Jeor + ISSN)
+
+### Accessibility & Permissions
+- `MicPermissionHelp` — step-by-step OS-level mic permission instructions (iPhone/Android/desktop)
+
 ### Admin
 - `/admin/costs` — API cost tracking dashboard (Daniel only)
 
 ## API Routes (9 total)
 | Route | Method | AI | Guard | Purpose |
 |-------|--------|-----|-------|---------|
-| `/api/food/parse` | POST | Haiku | ✅ guardAiRoute | NLP text → structured food items |
-| `/api/ai/photo-analyze` | POST | Haiku | ✅ guardAiRoute | Photo → food identification + macros |
-| `/api/ai/meal-suggest` | POST | Gemini | ✅ guardAiRoute | 12+ meal suggestions within remaining macros |
-| `/api/food/search` | GET `?q=` | — | — | USDA FoodData Central (350K+ foods) |
-| `/api/food/local-search` | GET `?q=` | — | — | Local Supabase food DB (126+ foods) |
+| `/api/food/parse` | POST | Haiku | ✅ guardAiRoute + input sanitized (500 char cap) | NLP text → structured food items |
+| `/api/ai/photo-analyze` | POST | Haiku | ✅ guardAiRoute + 7MB base64 cap | Photo → food identification + macros |
+| `/api/ai/meal-suggest` | POST | Gemini | ✅ guardAiRoute + input sanitized (500 char cap) | 12+ meal suggestions within remaining macros |
+| `/api/food/search` | GET `?q=` | — | ✅ sanitized ilike | USDA FoodData Central (350K+ foods) |
+| `/api/food/local-search` | GET `?q=` | — | ✅ limit capped at 50, uses anon key | Local Supabase food DB (126+ foods) |
 | `/api/nutrition/calculate` | POST | — | — | BMR/TDEE/macros (Mifflin-St Jeor) |
-| `/api/auth/signup` | POST | — | — | Server-side signup (bypasses email confirm) |
+| `/api/auth/signup` | POST | — | ✅ rate limited (5/hour/IP) | Server-side signup (bypasses email confirm) |
 | `/api/seed/food-database` | POST | — | ✅ requireAdminRequest | Seed 126-food database |
 | `/api/seed/greek-foods` | POST | — | ✅ requireAdminRequest | Seed 20 Greek foods |
 
 **lib/api-guard.ts**: Per-user rate limit (60 req/15min authenticated, 10/15min anonymous).
 **lib/server-admin.ts**: Admin bearer-token + email-whitelist guard for seed routes.
+**middleware.ts**: Server-side auth middleware — JWT verification via `@supabase/ssr` + role-based routing (clients blocked from /coach/*, coaches redirected from /dashboard/*).
 
 ## Supabase
 - Project: Trophe (iwbpzwmidzvpiofnqexd)
-- 19 tables (incl api_usage_log, form_analyses), 43 RLS policies, 15 indexes
+- 19 tables (incl api_usage_log, form_analyses), 43 RLS policies, 23 indexes (8 FK indexes added Apr 14)
+- RLS enabled on api_usage_log (Apr 14)
+- 5 ON DELETE cascades/SET NULL added (Apr 14)
 - Service role key in .env.local (never expose)
 - food_log source CHECK: `('usda', 'openfoodfacts', 'custom', 'photo_ai', 'natural_language', 'ai_estimate')`
 - api_usage_log: tracks Anthropic + Gemini API calls (tokens, cost, latency)
 - Migration ran: 2026-04-08 (.forge/migrate-api-usage-log.sql)
+- **Migration required**: 2026-04-14 (.forge/migrate-2026-04-14-audit.sql) — run in Supabase SQL Editor before deploy
 
 ## Business Context (post-meeting April 9)
 - **Partner**: Michael Kavdas (Greek nutritionist, PN L1, COO Athletikapp)
@@ -207,3 +217,15 @@ git config user.email "zsoist@users.noreply.github.com"
 ### Git / Session hygiene (April 13)
 - After any sprint: commit + push immediately. 29 commits unpushed + 55 dirty files is a debt that takes a session to clean up
 - Vercel preview builds fail if module-scope `createClient()` uses `!` assertions — use `?? 'placeholder.supabase.co'`
+
+### Security Hardening (April 14, 6-agent audit — 28 fixes)
+- **middleware.ts auth**: Must use `@supabase/ssr createServerClient` + `supabase.auth.getUser()` + verify JWT — never just check cookie presence. Role routing: clients blocked from /coach/*, coaches redirected from /dashboard/*
+- **SQL injection via ilike**: Supabase `.ilike()` passes raw input to Postgres — always sanitize (strip `%`, `_`, `\`) before passing to food search routes
+- **Prompt injection defense**: Cap AI input at 500 chars, strip control characters (`\x00-\x1F` except `\n`), reject prompts with system/instruction keywords
+- **Gemini API key**: Never pass as URL query param — use `x-goog-api-key` header (keys in URL appear in logs)
+- **Base64 payload cap**: photo-analyze must reject base64 payloads > 7MB server-side (client-side 5MB limit is not enough)
+- **Security headers**: Always set CSP, X-Frame-Options DENY, X-Content-Type-Options nosniff, X-XSS-Protection, Referrer-Policy strict-origin-when-cross-origin
+- **Signup rate limiting**: 5/hour per IP — prevents mass account creation
+- **FK indexes**: Always add indexes on foreign key columns (8 were missing before audit)
+- **ON DELETE cascades**: Add CASCADE or SET NULL on FKs to prevent orphaned rows
+- **.env.local.example**: Always maintain a template .env file so new devs know required vars

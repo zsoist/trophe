@@ -315,19 +315,21 @@ export default function MealSlotCard({
                       <button
                         onClick={() => onToggleFavorite(entry)}
                         className={`p-1.5 transition-colors ${favorites.some(f => f.food_name === entry.food_name) ? 'text-[#D4A853]' : 'text-stone-600 hover:text-[#D4A853]'}`}
-                        title={t('food.favorite_added')}
+                        aria-label={`${favorites.some(f => f.food_name === entry.food_name) ? 'Remove from' : 'Add to'} favorites: ${entry.food_name}`}
                       >
                         <Star size={11} fill={favorites.some(f => f.food_name === entry.food_name) ? 'currentColor' : 'none'} />
                       </button>
                       <button
                         onClick={() => { setEditingId(entry.id); setEditQty(origQty); }}
                         className="p-1.5 text-stone-600 hover:text-stone-300 transition-colors"
+                        aria-label={`Edit ${entry.food_name}`}
                       >
                         <Pencil size={11} />
                       </button>
                       <button
                         onClick={() => onDeleteEntry(entry.id)}
                         className="p-1.5 text-stone-600 hover:text-red-400 transition-colors"
+                        aria-label={`Delete ${entry.food_name}`}
                       >
                         <Trash2 size={12} />
                       </button>

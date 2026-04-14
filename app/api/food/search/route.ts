@@ -58,13 +58,15 @@ function extractNutrient(nutrients: USDANutrient[], nutrientId: number): number 
 }
 
 // Try local food_database first
+// Note: uses service role key because it writes popularity + caches results
 async function searchLocal(query: string): Promise<{ foods: Record<string, unknown>[]; count: number } | null> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!supabaseUrl || !serviceRoleKey) return null;
 
   const supabase = createClient(supabaseUrl, serviceRoleKey);
-  const q = query.toLowerCase();
+  // Sanitize ilike input: escape %, _, and backslash to prevent injection
+  const q = query.toLowerCase().replace(/[%_\\]/g, '\\$&');
 
   const { data, error } = await supabase
     .from('food_database')
@@ -150,8 +152,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ foods: local.foods, source: 'local' });
     }
 
-    // Step 2: Fall back to USDA API
-    const url = `${USDA_BASE}?query=${encodeURIComponent(q)}&pageSize=15&dataType=Foundation,SR%20Legacy&api_key=${API_KEY}`;
+    // Step 2: Fall back to USDA API (key sent server-side only — never in client URLs)
+    const params = new URLSearchParams({
+      query: q,
+      pageSize: '15',
+      dataType: 'Foundation,SR Legacy',
+      api_key: API_KEY,
+    });
+    const url = `${USDA_BASE}?${params.toString()}`;
 
     const response = await fetch(url, {
       next: { revalidate: 3600 },
@@ -163,7 +171,10 @@ export async function GET(request: NextRequest) {
       if (local && local.count > 0) {
         return NextResponse.json({ foods: local.foods, source: 'local_partial' });
       }
-      return NextResponse.json({ foods: [] });
+      return NextResponse.json(
+        { foods: [], error: 'Food database temporarily unavailable' },
+        { status: 502 },
+      );
     }
 
     const data = await response.json();
@@ -191,6 +202,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ foods: merged, source: local ? 'hybrid' : 'usda' });
   } catch (error) {
     console.error('Food search error:', error);
-    return NextResponse.json({ foods: [] });
+    return NextResponse.json(
+      { foods: [], error: 'Search failed — please try again' },
+      { status: 500 },
+    );
   }
 }

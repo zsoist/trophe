@@ -141,6 +141,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Sanitize: cap length, strip control chars to prevent prompt injection
+    const MAX_INPUT_LENGTH = 500;
+    const sanitizedText = text.trim()
+      .slice(0, MAX_INPUT_LENGTH)
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
       return NextResponse.json(
@@ -166,7 +172,7 @@ export async function POST(request: NextRequest) {
         messages: [
           {
             role: 'user',
-            content: `Parse this food input (language: ${language}):\n\n"${text.trim()}"`,
+            content: `Parse this food input (language: ${language}):\n\n"${sanitizedText}"`,
           },
         ],
       }),

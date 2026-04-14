@@ -178,13 +178,57 @@
 - [x] ✅ Gold demo banner removed from landing page
 - [x] ✅ Form analyses saved to Supabase form_analyses table (was TODO/alert)
 - [x] ✅ Dimitra Kavdas account created (dimitra@kavdas.com, client, Greek)
-- [x] ✅ middleware.ts deleted (client-side Supabase auth confirmed pattern)
+- [x] ✅ middleware.ts rebuilt: server-side JWT verification + role-based routing
 
 ## Michael Feedback #1 — April 13 (same-day turnaround)
 - [x] ✅ **(a)** MealSlotConfig: drag-to-reorder with GripVertical handle (HTML5 drag + touch events)
 - [x] ✅ **(b)** MealSlotConfig: duplicate slot button (Copy icon → creates "Label 2" clone)
 - [x] ✅ **(c)** QuickFoodInput: mic permission UX — `getUserMedia()` warms browser prompt before recognition
 - [ ] **(d)** Personalized insights — Phase 3. Michael has prompts from his years of practice. Build on demand.
+
+## Day 11: April 14 — Security Audit + Hardening (28 fixes from 6-agent audit)
+
+### Features
+- [x] ✅ Coach macro targets editor: set/override client macro targets (calories, protein, carbs, fat, fiber, water) with Auto-calc button (Mifflin-St Jeor + ISSN)
+- [x] ✅ Microphone permission help card: step-by-step instructions when OS-level mic is denied (iPhone/Android/desktop)
+- [x] ✅ 5MB file size limit on photo uploads (client-side validation)
+
+### Critical Security Fixes
+- [x] ✅ SQL injection in food search routes — sanitized ilike inputs (strip %, _, \)
+- [x] ✅ Prompt injection in food parse + meal suggest — input capped at 500 chars, control chars stripped
+- [x] ✅ Signup rate limiting (5/hour per IP)
+- [x] ✅ Server-side auth middleware (middleware.ts) with JWT verification + role routing
+- [x] ✅ Role gating: clients can't access /coach/*, coaches redirect from /dashboard/*
+- [x] ✅ RLS enabled on api_usage_log
+
+### High Security Fixes
+- [x] ✅ Gemini API key moved from URL to x-goog-api-key header
+- [x] ✅ Base64 payload capped at 7MB on photo-analyze
+- [x] ✅ Security headers: CSP, X-Frame-Options, X-XSS-Protection, Referrer-Policy
+- [x] ✅ FoodSource type drift fixed (added 'ai_estimate')
+- [x] ✅ Supabase client placeholder fallback (no crash on missing env vars)
+
+### Medium Fixes
+- [x] ✅ 8 FK indexes added
+- [x] ✅ 5 ON DELETE cascades/SET NULL added
+- [x] ✅ Escape key on MealSlotConfig modal
+- [x] ✅ ARIA labels on icon buttons (MealSlotCard, QuickFoodInput, MealSlotConfig)
+- [x] ✅ React.memo on CalorieGauge, MacroRadar, ProteinDistribution
+- [x] ✅ Unused pg dependency removed
+- [x] ✅ .env.local.example created
+- [x] ✅ limit param validated on local-search (capped at 50)
+
+### Performance
+- [x] ✅ USDA search uses URLSearchParams (cleaner, no key in plain URL)
+- [x] ✅ local-search uses anon key instead of service role
+
+### Market Research
+- [x] ✅ Full B2B fitness/gym SaaS competitive analysis (Trainerize, TrueCoach, Healthie, Nutrium, etc.)
+- [x] ✅ Three-tier product vision validated: Coach tool → Self-service tracker → B2B platform
+- [x] ✅ Stripe Connect identified as payment standard for multi-tenant billing
+
+### Migration
+- [ ] Run `.forge/migrate-2026-04-14-audit.sql` in Supabase SQL Editor before deploy
 
 ---
 

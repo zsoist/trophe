@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Camera, Search, Loader2, Mic, MicOff, Plus, CheckCircle2, RotateCcw } from 'lucide-react';
+import { Send, Camera, Search, Loader2, Mic, MicOff, Plus, CheckCircle2, RotateCcw, X } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { supabase } from '@/lib/supabase';
 import type { MealType } from '@/lib/types';
@@ -95,7 +95,13 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, onSea
     }
   };
 
+  const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
+
   const processImageFile = async (file: File) => {
+    if (file.size > MAX_IMAGE_SIZE) {
+      setError('Image too large (max 5MB). Try a smaller photo or take one with lower resolution.');
+      return;
+    }
     setError(null);
     setMode('photo_analyzing');
     lastFileRef.current = file;
@@ -182,6 +188,9 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, onSea
     }
   };
 
+  // Mic permission denied at OS level — show helpful guidance
+  const [micDeniedHelp, setMicDeniedHelp] = useState(false);
+
   // F15: Voice input via Web Speech API — with explicit mic permission request
   const startVoiceInput = async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -200,7 +209,9 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, onSea
       try {
         const status = await navigator.permissions.query({ name: 'microphone' as PermissionName });
         if (status.state === 'denied') {
-          setError('Microphone access denied — enable it in browser settings');
+          // OS-level denial — JS cannot re-trigger the system prompt.
+          // Show step-by-step guidance to the user instead.
+          setMicDeniedHelp(true);
           return;
         }
       } catch {
@@ -217,7 +228,8 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, onSea
         stream.getTracks().forEach(t => t.stop());
       } catch (err) {
         if (err instanceof DOMException && err.name === 'NotAllowedError') {
-          setError('Microphone access denied — tap Allow to use voice input');
+          // Could be OS-level or browser-level denial
+          setMicDeniedHelp(true);
           return;
         }
         // Other errors (NotFoundError, etc.) — try recognition anyway
@@ -541,6 +553,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, onSea
           onClick={() => fileInputRef.current?.click()}
           disabled={mode !== 'idle'}
           className="flex items-center gap-1.5 text-stone-500 hover:gold-text text-xs transition-colors py-1"
+          aria-label="Take or upload a food photo"
         >
           <Camera size={14} />
           Photo
@@ -549,6 +562,8 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, onSea
           onClick={mode === 'listening' ? () => setMode('idle') : startVoiceInput}
           disabled={mode !== 'idle' && mode !== 'listening'}
           className={`flex items-center gap-1.5 text-xs transition-colors py-1 ${mode === 'listening' ? 'text-red-400 animate-pulse' : 'text-stone-500 hover:gold-text'}`}
+          aria-label={mode === 'listening' ? 'Stop voice recording' : 'Start voice input'}
+          aria-pressed={mode === 'listening'}
         >
           {mode === 'listening' ? <MicOff size={14} /> : <Mic size={14} />}
           {mode === 'listening' ? 'Stop' : 'Voice'}
@@ -621,6 +636,42 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, onSea
               <Mic size={20} className="text-red-400" />
             </motion.div>
             <span className="text-stone-400 text-sm">{t('food.listening')}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Mic permission denied — step-by-step help card */}
+      <AnimatePresence>
+        {micDeniedHelp && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="glass p-4 space-y-2 border border-amber-500/20"
+          >
+            <div className="flex items-center justify-between">
+              <p className="text-amber-400 text-xs font-semibold">🎤 Microphone Access Needed</p>
+              <button
+                onClick={() => setMicDeniedHelp(false)}
+                className="text-stone-600 hover:text-stone-300 p-1"
+                aria-label="Dismiss microphone help"
+              >
+                <X size={14} />
+              </button>
+            </div>
+            <p className="text-stone-400 text-xs leading-relaxed">
+              {/iPhone|iPad/.test(navigator.userAgent)
+                ? 'Open Settings → Safari → Microphone → Allow. Then come back and tap Voice again.'
+                : /Android/.test(navigator.userAgent)
+                  ? 'Open Settings → Apps → Browser → Permissions → Microphone → Allow. Then tap Voice again.'
+                  : 'Click the lock/site icon in your browser address bar → Site Settings → Microphone → Allow. Then tap Voice again.'}
+            </p>
+            <button
+              onClick={() => { setMicDeniedHelp(false); startVoiceInput(); }}
+              className="text-amber-400 hover:text-amber-300 text-xs font-medium transition-colors"
+            >
+              Try again →
+            </button>
           </motion.div>
         )}
       </AnimatePresence>

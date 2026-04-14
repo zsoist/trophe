@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import { motion } from 'framer-motion';
 import type { FoodLogEntry } from '@/lib/types';
 
@@ -25,7 +26,7 @@ const MEAL_COLORS: Record<string, string> = {
   post_workout: '#ec4899',
 };
 
-export default function ProteinDistribution({ entries }: ProteinDistributionProps) {
+export default memo(function ProteinDistribution({ entries }: ProteinDistributionProps) {
   if (entries.length < 2) return null;
 
   // Group protein by meal
@@ -75,4 +76,4 @@ export default function ProteinDistribution({ entries }: ProteinDistributionProp
       </div>
     </div>
   );
-}
+});

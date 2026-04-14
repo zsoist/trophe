@@ -129,16 +129,20 @@ export async function POST(request: NextRequest) {
       `Fat: ${remaining_fat_g}g`,
     ].join(', ');
 
-    const preferencesNote = preferences ? ` Dietary preferences: ${preferences}.` : '';
-    const mealTypeNote = meal_type ? ` This is for: ${meal_type}.` : '';
+    // Sanitize user inputs to prevent prompt injection
+    const safePreferences = preferences ? preferences.slice(0, 100).replace(/[\x00-\x1F\x7F]/g, '') : '';
+    const safeMealType = meal_type ? meal_type.slice(0, 30).replace(/[\x00-\x1F\x7F]/g, '') : '';
+    const preferencesNote = safePreferences ? ` Dietary preferences: ${safePreferences}.` : '';
+    const mealTypeNote = safeMealType ? ` This is for: ${safeMealType}.` : '';
 
     const prompt = `You are a sports nutritionist. Suggest 3 meal options that fit these remaining macros: ${macroContext}.${preferencesNote}${mealTypeNote} Each meal should include: name, ingredients with quantities, total calories, protein_g, carbs_g, fat_g. Format as JSON array with objects having keys: name, ingredients (array of {item, quantity}), calories, protein_g, carbs_g, fat_g. Keep it practical and delicious. Return ONLY the JSON array, no other text.`;
 
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+    // Use header-based auth instead of URL query param (key in URL appears in logs)
+    const geminiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 
     const response = await fetch(geminiUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
       body: JSON.stringify({
         contents: [{
           parts: [{ text: prompt }],

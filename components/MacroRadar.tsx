@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import { motion } from 'framer-motion';
 
 interface MacroRadarProps {
@@ -8,7 +9,7 @@ interface MacroRadarProps {
 }
 
 // F18: Macro balance radar chart — 5 axes
-export default function MacroRadar({ current, targets }: MacroRadarProps) {
+export default memo(function MacroRadar({ current, targets }: MacroRadarProps) {
   const axes = [
     { label: 'Protein', value: targets.protein > 0 ? current.protein / targets.protein : 0, color: '#f87171' },
     { label: 'Carbs', value: targets.carbs > 0 ? current.carbs / targets.carbs : 0, color: '#60a5fa' },
@@ -126,4 +127,4 @@ export default function MacroRadar({ current, targets }: MacroRadarProps) {
       </svg>
     </div>
   );
-}
+});

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Trash2, GripVertical, Copy } from 'lucide-react';
 import type { MealSlot } from './MealSlotCard';
@@ -31,6 +31,15 @@ export default function MealSlotConfig({ slots: initialSlots, onSave, onClose }:
   // Touch drag state (mobile)
   const touchRef = useRef<{ startY: number; fromIndex: number; slotHeight: number } | null>(null);
   const slotRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+  // Escape key to close modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
 
   // ── Mutations ────────────────────────────────────────────────────────────────
 
@@ -186,6 +195,8 @@ export default function MealSlotConfig({ slots: initialSlots, onSave, onClose }:
                   onTouchStart={e => handleTouchStart(e, index)}
                   onTouchMove={handleTouchMove}
                   onTouchEnd={handleTouchEnd}
+                  aria-label={`Drag to reorder ${slot.label}`}
+                  role="button"
                 >
                   <GripVertical size={18} />
                 </div>

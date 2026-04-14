@@ -16,6 +16,9 @@ import {
   X,
   FileText,
   Pill,
+  Pencil,
+  Check,
+  Calculator,
 } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
@@ -239,6 +242,19 @@ export default function ClientDetailPage() {
   const [noteType, setNoteType] = useState<SessionType>('check_in');
   const [savingNote, setSavingNote] = useState(false);
 
+  // Macro targets editor
+  const [editingMacros, setEditingMacros] = useState(false);
+  const [macroForm, setMacroForm] = useState({
+    target_calories: 0,
+    target_protein_g: 0,
+    target_carbs_g: 0,
+    target_fat_g: 0,
+    target_fiber_g: 0,
+    target_water_ml: 0,
+    goal: '' as string,
+  });
+  const [savingMacros, setSavingMacros] = useState(false);
+
   // Assign habit modal
   const [showAssign, setShowAssign] = useState(false);
   const [habitTemplates, setHabitTemplates] = useState<Habit[]>([]);
@@ -440,6 +456,103 @@ export default function ClientDetailPage() {
     setActiveHabit(null);
   }
 
+  // ── Macro targets editor ──────────────────────────────────────────────────
+  function startEditingMacros() {
+    if (!clientProfile) return;
+    setMacroForm({
+      target_calories: clientProfile.target_calories || 0,
+      target_protein_g: clientProfile.target_protein_g || 0,
+      target_carbs_g: clientProfile.target_carbs_g || 0,
+      target_fat_g: clientProfile.target_fat_g || 0,
+      target_fiber_g: clientProfile.target_fiber_g || 0,
+      target_water_ml: clientProfile.target_water_ml || 0,
+      goal: clientProfile.goal || '',
+    });
+    setEditingMacros(true);
+  }
+
+  async function saveMacros() {
+    if (!clientProfile || savingMacros) return;
+    setSavingMacros(true);
+    try {
+      const { error } = await supabase
+        .from('client_profiles')
+        .update({
+          target_calories: macroForm.target_calories || null,
+          target_protein_g: macroForm.target_protein_g || null,
+          target_carbs_g: macroForm.target_carbs_g || null,
+          target_fat_g: macroForm.target_fat_g || null,
+          target_fiber_g: macroForm.target_fiber_g || null,
+          target_water_ml: macroForm.target_water_ml || null,
+          goal: macroForm.goal || null,
+        })
+        .eq('user_id', clientId);
+
+      if (!error) {
+        setClientProfile({
+          ...clientProfile,
+          target_calories: macroForm.target_calories || null,
+          target_protein_g: macroForm.target_protein_g || null,
+          target_carbs_g: macroForm.target_carbs_g || null,
+          target_fat_g: macroForm.target_fat_g || null,
+          target_fiber_g: macroForm.target_fiber_g || null,
+          target_water_ml: macroForm.target_water_ml || null,
+          goal: (macroForm.goal || null) as ClientProfile['goal'],
+        });
+        setEditingMacros(false);
+      } else {
+        console.error('Error saving macros:', error);
+      }
+    } catch (err) {
+      console.error('Error saving macros:', err);
+    } finally {
+      setSavingMacros(false);
+    }
+  }
+
+  // Recalculate macros from client stats using nutrition engine formulas
+  function recalcMacros() {
+    if (!clientProfile) return;
+    const weight = clientProfile.weight_kg || 70;
+    const height = clientProfile.height_cm || 170;
+    const age = clientProfile.age || 30;
+    const sex = clientProfile.sex || 'male';
+    const activity = clientProfile.activity_level || 'moderate';
+    const goal = macroForm.goal || clientProfile.goal || 'maintenance';
+
+    // Mifflin-St Jeor BMR
+    const bmr = sex === 'male'
+      ? 10 * weight + 6.25 * height - 5 * age + 5
+      : 10 * weight + 6.25 * height - 5 * age - 161;
+
+    const activityMultipliers: Record<string, number> = {
+      sedentary: 1.2, light: 1.375, moderate: 1.55, active: 1.725, very_active: 1.9,
+    };
+    const tdee = Math.round(bmr * (activityMultipliers[activity] || 1.55));
+
+    // Goal adjustments
+    const goalAdjustments: Record<string, number> = {
+      fat_loss: -500, muscle_gain: 300, maintenance: 0, recomp: -200, endurance: 200, health: 0,
+    };
+    const targetCal = tdee + (goalAdjustments[goal] || 0);
+
+    // ISSN protein targets
+    const proteinPerKg = goal === 'muscle_gain' ? 2.0 : goal === 'fat_loss' ? 2.2 : 1.6;
+    const proteinG = Math.round(weight * proteinPerKg);
+    const fatG = Math.round((targetCal * 0.25) / 9);
+    const carbsG = Math.round((targetCal - proteinG * 4 - fatG * 9) / 4);
+
+    setMacroForm(prev => ({
+      ...prev,
+      target_calories: Math.round(targetCal),
+      target_protein_g: proteinG,
+      target_carbs_g: Math.max(carbsG, 50),
+      target_fat_g: fatG,
+      target_fiber_g: sex === 'male' ? 38 : 25,
+      target_water_ml: Math.round(weight * 35),
+    }));
+  }
+
   // Group food by date
   const foodByDate: Record<string, FoodLogEntry[]> = {};
   foodLog.forEach((entry) => {
@@ -522,32 +635,122 @@ export default function ClientDetailPage() {
                 </span>
               </div>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
-              <div>
-                <div className="text-xs text-stone-500">Goal</div>
-                <div className="text-sm font-medium text-stone-200">
-                  {clientProfile.goal ? goalLabels[clientProfile.goal] || clientProfile.goal : '---'}
+            {/* ─── Macro Targets (editable by coach) ─── */}
+            {editingMacros ? (
+              <div className="mt-4 p-4 rounded-xl bg-white/[0.03] border border-[#D4A853]/20 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-semibold text-[#D4A853] uppercase tracking-wider">Edit Macro Targets</h3>
+                  <div className="flex gap-1.5">
+                    <button
+                      onClick={recalcMacros}
+                      className="text-xs text-stone-400 hover:text-[#D4A853] flex items-center gap-1 px-2 py-1 rounded-lg border border-white/5 hover:border-[#D4A853]/30 transition-all"
+                      title="Recalculate from client stats"
+                    >
+                      <Calculator size={12} />
+                      Auto-calc
+                    </button>
+                  </div>
+                </div>
+                {/* Goal selector */}
+                <div>
+                  <label className="text-[10px] text-stone-500 mb-1 block">Goal</label>
+                  <select
+                    value={macroForm.goal}
+                    onChange={e => setMacroForm(prev => ({ ...prev, goal: e.target.value }))}
+                    className="input-dark w-full text-sm py-2"
+                  >
+                    <option value="">Not set</option>
+                    {Object.entries(goalLabels).map(([val, label]) => (
+                      <option key={val} value={val}>{label}</option>
+                    ))}
+                  </select>
+                </div>
+                {/* Macro inputs grid */}
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                  {([
+                    ['target_calories', 'Calories', 'kcal'],
+                    ['target_protein_g', 'Protein', 'g'],
+                    ['target_carbs_g', 'Carbs', 'g'],
+                    ['target_fat_g', 'Fat', 'g'],
+                    ['target_fiber_g', 'Fiber', 'g'],
+                    ['target_water_ml', 'Water', 'ml'],
+                  ] as const).map(([key, label, unit]) => (
+                    <div key={key}>
+                      <label className="text-[10px] text-stone-500 mb-0.5 block">{label}</label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          value={macroForm[key] || ''}
+                          onChange={e => setMacroForm(prev => ({ ...prev, [key]: parseInt(e.target.value) || 0 }))}
+                          className="input-dark w-full text-sm py-2 text-center pr-6"
+                          placeholder="0"
+                        />
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-stone-600">{unit}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {/* Save / Cancel */}
+                <div className="flex gap-2 pt-1">
+                  <button
+                    onClick={saveMacros}
+                    disabled={savingMacros}
+                    className="btn-gold flex-1 py-2 text-sm flex items-center justify-center gap-1.5"
+                  >
+                    <Check size={14} />
+                    {savingMacros ? 'Saving...' : 'Save Targets'}
+                  </button>
+                  <button
+                    onClick={() => setEditingMacros(false)}
+                    className="btn-ghost flex-1 py-2 text-sm"
+                  >
+                    Cancel
+                  </button>
                 </div>
               </div>
-              <div>
-                <div className="text-xs text-stone-500">Calories</div>
-                <div className="text-sm font-medium text-stone-200">
-                  {clientProfile.target_calories || '---'} kcal
+            ) : (
+              <div className="mt-4">
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                  <div>
+                    <div className="text-xs text-stone-500">Goal</div>
+                    <div className="text-sm font-medium text-stone-200">
+                      {clientProfile.goal ? goalLabels[clientProfile.goal] || clientProfile.goal : '---'}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-stone-500">Calories</div>
+                    <div className="text-sm font-medium text-stone-200">
+                      {clientProfile.target_calories || '---'} kcal
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-stone-500">Protein</div>
+                    <div className="text-sm font-medium text-stone-200">
+                      {clientProfile.target_protein_g || '---'}g
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-stone-500">Carbs / Fat</div>
+                    <div className="text-sm font-medium text-stone-200">
+                      {clientProfile.target_carbs_g || '---'}g / {clientProfile.target_fat_g || '---'}g
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-stone-500">Weight</div>
+                    <div className="text-sm font-medium text-stone-200">
+                      {clientProfile.weight_kg || '---'} kg
+                    </div>
+                  </div>
                 </div>
+                <button
+                  onClick={startEditingMacros}
+                  className="mt-3 text-xs text-stone-500 hover:text-[#D4A853] flex items-center gap-1.5 transition-colors"
+                >
+                  <Pencil size={12} />
+                  Edit macro targets
+                </button>
               </div>
-              <div>
-                <div className="text-xs text-stone-500">Protein</div>
-                <div className="text-sm font-medium text-stone-200">
-                  {clientProfile.target_protein_g || '---'}g
-                </div>
-              </div>
-              <div>
-                <div className="text-xs text-stone-500">Weight</div>
-                <div className="text-sm font-medium text-stone-200">
-                  {clientProfile.weight_kg || '---'} kg
-                </div>
-              </div>
-            </div>
+            )}
           </div>
 
           {/* ═══ Progression Banner ═══ */}
