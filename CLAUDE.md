@@ -188,6 +188,15 @@ git config user.email "zsoist@users.noreply.github.com"
 - `capture="environment"` on file inputs forces camera-only on mobile — remove it to allow gallery
 - Coach pages need role gate — redirect `role === 'client'` to `/dashboard`
 
+### Auth / Middleware (April 14 — CRITICAL LESSON)
+- Supabase JS v2 stores auth sessions in `localStorage`, NOT cookies
+- Server-side Next.js middleware CANNOT see the auth token — it lives in the browser only
+- Attempting cookie-based auth in middleware causes infinite redirect loops for ALL users
+- `@supabase/ssr` is required to bridge localStorage ↔ cookies (NOT installed in this project)
+- Current pattern: middleware handles security headers ONLY, auth is 100% client-side
+- Each page checks `supabase.auth.getUser()` in useEffect, role guards check `profile.role`
+- middleware.ts sets: X-Content-Type-Options, X-Frame-Options, X-XSS-Protection, Referrer-Policy
+
 ### Deploy
 - Vercel Hobby rejects commits from unrecognized GitHub committers
 - Vercel env vars set as "Production" only → preview deploys fail without them
