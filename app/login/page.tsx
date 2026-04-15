@@ -26,8 +26,17 @@ export default function LoginPage() {
 
     try {
       if (mode === 'login') {
-        const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
+        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email, password });
         if (authError) throw authError;
+        // Route by role — coaches go to /coach, clients to /dashboard
+        const userId = authData.user?.id;
+        if (userId) {
+          const { data: profile } = await supabase.from('profiles').select('role').eq('id', userId).maybeSingle();
+          if (profile?.role === 'coach') {
+            router.push('/coach');
+            return;
+          }
+        }
         router.push('/dashboard');
       } else {
         // Sign up via server-side API (bypasses email confirmation)
