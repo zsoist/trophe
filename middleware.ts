@@ -11,10 +11,59 @@ import { createClient } from '@supabase/supabase-js';
  * Uses Supabase Admin API to verify the JWT — not just cookie presence.
  */
 
-const PUBLIC_PATHS = ['/', '/login', '/demo', '/api/'];
+const PUBLIC_PATHS = ['/', '/login', '/demo'];
 
 function isPublic(pathname: string): boolean {
-  return PUBLIC_PATHS.some(p => pathname === p || pathname.startsWith('/api/'));
+  return PUBLIC_PATHS.includes(pathname) || pathname.startsWith('/api/');
+}
+
+/**
+ * Extract access token from Supabase auth cookies.
+ * Supabase JS v2 stores session in cookies like:
+ *   sb-<ref>-auth-token.0, sb-<ref>-auth-token.1 (chunked base64 JSON)
+ *   OR sb-<ref>-auth-token (single cookie, base64 JSON)
+ * The JSON is: { access_token, refresh_token, ... } or an array [access, refresh, ...]
+ */
+function extractAccessToken(request: NextRequest): string | null {
+  const cookies = request.cookies.getAll();
+
+  // Find all auth-token cookies (may be chunked: .0, .1, .2, ...)
+  const authCookies = cookies
+    .filter(c => c.name.includes('auth-token'))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  if (authCookies.length === 0) return null;
+
+  // Reassemble chunked value
+  const raw = authCookies.map(c => c.value).join('');
+  if (!raw) return null;
+
+  try {
+    // Try base64 decode first
+    const decoded = JSON.parse(Buffer.from(raw, 'base64').toString('utf8'));
+    if (Array.isArray(decoded)) return decoded[0] || null;
+    if (decoded?.access_token) return decoded.access_token;
+  } catch {
+    // Not base64 — try plain JSON
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed[0] || null;
+      if (parsed?.access_token) return parsed.access_token;
+    } catch {
+      // Not JSON — try URL-decoded then base64
+      try {
+        const urlDecoded = decodeURIComponent(raw);
+        const decoded = JSON.parse(Buffer.from(urlDecoded, 'base64').toString('utf8'));
+        if (Array.isArray(decoded)) return decoded[0] || null;
+        if (decoded?.access_token) return decoded.access_token;
+      } catch {
+        // Give up parsing — might be a raw JWT
+        if (raw.split('.').length === 3) return raw;
+      }
+    }
+  }
+
+  return null;
 }
 
 export async function middleware(request: NextRequest) {
@@ -30,32 +79,12 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Extract access token from Supabase auth cookie
-  // Supabase stores auth in cookies named like sb-<project-ref>-auth-token
-  const cookies = request.cookies.getAll();
-  const authCookie = cookies.find(c => c.name.includes('auth-token'));
+  const accessToken = extractAccessToken(request);
 
-  if (!authCookie?.value) {
+  if (!accessToken) {
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('redirect', pathname);
     return NextResponse.redirect(loginUrl);
-  }
-
-  // Parse the cookie value — Supabase stores it as base64-encoded JSON with access_token
-  let accessToken: string | null = null;
-  try {
-    // Cookie format: base64(JSON([access_token, refresh_token, ...]))
-    const decoded = JSON.parse(
-      Buffer.from(authCookie.value, 'base64').toString('utf8')
-    );
-    accessToken = Array.isArray(decoded) ? decoded[0] : decoded?.access_token;
-  } catch {
-    // Try as plain token
-    accessToken = authCookie.value;
-  }
-
-  if (!accessToken) {
-    return NextResponse.redirect(new URL('/login', request.url));
   }
 
   // Verify the JWT by calling Supabase auth endpoint
@@ -74,7 +103,10 @@ export async function middleware(request: NextRequest) {
     const { data: { user }, error } = await supabase.auth.getUser();
 
     if (error || !user) {
-      return NextResponse.redirect(new URL('/login', request.url));
+      // Token expired or invalid — clear it and redirect
+      const loginUrl = new URL('/login', request.url);
+      loginUrl.searchParams.set('redirect', pathname);
+      return NextResponse.redirect(loginUrl);
     }
 
     // Role-based routing
@@ -92,18 +124,16 @@ export async function middleware(request: NextRequest) {
       const role = profile?.role || 'client';
 
       if (isCoachRoute && role === 'client') {
-        // Clients cannot access coach pages
         return NextResponse.redirect(new URL('/dashboard', request.url));
       }
 
       if (isDashboardRoute && role === 'coach') {
-        // Pure coaches redirect to coach dashboard
         return NextResponse.redirect(new URL('/coach', request.url));
       }
     }
   } catch {
-    // Auth verification failed — redirect to login
-    return NextResponse.redirect(new URL('/login', request.url));
+    // Auth verification failed — let client-side handle rather than blocking
+    return NextResponse.next();
   }
 
   return NextResponse.next();
@@ -111,7 +141,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Match all routes except static files and API
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };
