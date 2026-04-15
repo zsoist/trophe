@@ -237,6 +237,9 @@
 - [x] ✅ Reassigned all 4 testers (Daniela, Nikos, Daniel, Dimitra) to Michael as coach
 - [x] ✅ Full E2E QA: 8/8 client pages clean, coach dashboard 100% functional — health score 95/100
 - [x] ✅ Deployed commit 079a308
+- [x] ✅ MacroFoodIdeas component — protein, fiber, fats, carbs suggestions (Nikos feedback) (commit 584ecea)
+- [x] ✅ George Kavdas account created (coach, for Monday partnership meeting)
+- [x] ✅ E2E QA verified: 8/8 client + 5/5 coach pages clean, Food Ideas renders, all 4 testers assigned to Michael
 
 ---
 

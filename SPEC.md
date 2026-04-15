@@ -15,6 +15,7 @@ Professional nutritionists manage clients using spreadsheets, MyFitnessPal, and 
 3. Daily: check in on assigned habit (one tap) → 14-day cycle → mastered → next habit
 4. Optional: log workouts, track water, take supplements, run AI Form Check
 5. View: calendar, trends, insights, scores, streaks, badges
+6. View: macro food ideas (protein, fiber, fat, carb suggestions based on remaining targets)
 
 ### Coach Flow
 1. Log in → coach dashboard → see all clients with behavioral signals (green/yellow/red)

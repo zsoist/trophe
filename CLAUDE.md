@@ -9,7 +9,7 @@
 - **i18n**: Trilingual (EN/ES/EL) via lib/i18n.tsx
 
 ## Stats (2026-04-15)
-- **28,000+ lines** | **63 components** | **9 API routes** | **21 pages** | **58+ commits**
+- **28,000+ lines** | **64 components** | **9 API routes** | **21 pages** | **59+ commits**
 - **19 database tables** (incl api_usage_log, form_analyses) | **43 RLS policies** | **23 indexes** (8 FK indexes added Apr 14)
 - **30 exercises** | **126 foods** | **20 Greek foods** | **10 habits**
 - **90+ features** shipped across 11 iterations + 28-fix security audit
@@ -56,6 +56,7 @@
 - `MonthlyReport` — monthly grade card (A-F)
 - `NutrientDensity` — nutrients-per-calorie ranking
 - `DailyInsights` — AI-like contextual nutrition insights (client-side)
+- `MacroFoodIdeas` — context-aware food suggestions by macro category (Protein, Fiber, Healthy Fats, Carbs), collapsible, shows when daily targets have gaps (React.memo)
 
 ### Engagement
 - `MealBadges` — 6 achievement badges with animated unlock
@@ -151,6 +152,7 @@ git config user.email "zsoist@users.noreply.github.com"
 | Daniel | daniel@reyes.com | trophe2026! | both |
 | Nikos | nikos@biorita.com | trophe2026! | both |
 | Daniela | daniela@trophe.app | trophe2026! | both |
+| George Kavdas | george@kavdas.com | trophe2026! | coach (Michael's partner, for Monday meeting) |
 
 ## Meal Tracking — How It Works
 1. User types text or pastes/uploads a photo in QuickFoodInput
