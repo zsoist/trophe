@@ -228,7 +228,9 @@
 - [x] ✅ Stripe Connect identified as payment standard for multi-tenant billing
 
 ### Migration
-- [ ] Run `.forge/migrate-2026-04-14-audit.sql` in Supabase SQL Editor before deploy
+- [x] ✅ Migration ran in Supabase SQL Editor (RLS on api_usage_log, 8 FK indexes, 5 cascades, carb_cycling_enabled)
+- [x] ✅ Deployed to production — trophe-mu.vercel.app
+- [x] ✅ Commit 30d23a4 pushed to GitHub
 
 ---
 

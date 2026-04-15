@@ -111,7 +111,7 @@
 - food_log source CHECK: `('usda', 'openfoodfacts', 'custom', 'photo_ai', 'natural_language', 'ai_estimate')`
 - api_usage_log: tracks Anthropic + Gemini API calls (tokens, cost, latency)
 - Migration ran: 2026-04-08 (.forge/migrate-api-usage-log.sql)
-- **Migration required**: 2026-04-14 (.forge/migrate-2026-04-14-audit.sql) — run in Supabase SQL Editor before deploy
+- **Migration ran**: 2026-04-14 (.forge/migrate-2026-04-14-audit.sql) — RLS on api_usage_log, 8 FK indexes, 5 cascades, carb_cycling_enabled column. Deployed to production same day.
 
 ## Business Context (post-meeting April 9)
 - **Partner**: Michael Kavdas (Greek nutritionist, PN L1, COO Athletikapp)
