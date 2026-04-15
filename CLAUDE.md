@@ -8,12 +8,12 @@
 - **Styling**: Tailwind CSS 4 + Framer Motion + Lucide icons
 - **i18n**: Trilingual (EN/ES/EL) via lib/i18n.tsx
 
-## Stats (2026-04-14)
-- **28,000+ lines** | **63 components** | **9 API routes** | **21 pages** | **55+ commits**
+## Stats (2026-04-15)
+- **28,000+ lines** | **63 components** | **9 API routes** | **21 pages** | **58+ commits**
 - **19 database tables** (incl api_usage_log, form_analyses) | **43 RLS policies** | **23 indexes** (8 FK indexes added Apr 14)
 - **30 exercises** | **126 foods** | **20 Greek foods** | **10 habits**
 - **90+ features** shipped across 11 iterations + 28-fix security audit
-- **0 TypeScript errors** (strict mode ON) | **0 console errors**
+- **0 TypeScript errors** (strict mode ON) | **0 console errors** | **QA health score: 95/100** (Apr 15)
 
 ## Architecture
 - Two roles: `client` and `coach` (and `both`)
@@ -115,7 +115,7 @@
 
 ## Business Context (post-meeting April 9)
 - **Partner**: Michael Kavdas (Greek nutritionist, PN L1, COO Athletikapp)
-- **Status**: Testing phase (April 10-18). 3 subjects: Nikos, Daniel, Daniela
+- **Status**: Testing phase (April 10-18). 4 subjects: Nikos, Daniel, Daniela, Dimitra. All assigned to Michael as coach.
 - **Model**: SaaS per coach. Clients free. AI cost <$2/month/coach
 - **Vision**: AI assistant for nutritionists → eventually AI IS the nutritionist
 - **Docs**: MEETING-NOTES.md, BUSINESS.md, .forge/kavdas-meeting-2026-04-09.pdf
@@ -205,6 +205,10 @@ git config user.email "zsoist@users.noreply.github.com"
 ### Food API / USDA (Codex audit 2026-04-09)
 - USDA `DEMO_KEY` has a ~1000 req/day limit — falls back silently with degraded results, no user-visible error. Upgrade to a registered API key before beta launch
 - Never pass API keys as URL query params (e.g. `?api_key=...`) — they appear in server logs, Vercel function logs, and browser history. Use server-side env vars only
+
+### Auth / Routing (April 15)
+- Login page had hardcoded `router.push('/dashboard')` — coaches must route to `/coach` based on `profile.role`. Fixed in commit 079a308.
+- `coach_id` on `client_profiles` must match the actual coach user — test accounts were pointed at wrong coach. Always verify data assignments after account creation.
 
 ### Debugging
 - Schema-code drift: if DB CHECK constraint doesn't match code's source values, inserts silently fail

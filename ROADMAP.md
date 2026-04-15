@@ -232,6 +232,12 @@
 - [x] ✅ Deployed to production — trophe-mu.vercel.app
 - [x] ✅ Commit 30d23a4 pushed to GitHub
 
+## Day 12: April 15 — Login Fix + Data QA
+- [x] ✅ Login routing fix — coaches now route to /coach, not /dashboard (commit 079a308)
+- [x] ✅ Reassigned all 4 testers (Daniela, Nikos, Daniel, Dimitra) to Michael as coach
+- [x] ✅ Full E2E QA: 8/8 client pages clean, coach dashboard 100% functional — health score 95/100
+- [x] ✅ Deployed commit 079a308
+
 ---
 
 ## PHASE 2: Testing (April 10-18, 2026)
