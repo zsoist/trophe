@@ -69,6 +69,9 @@ export default function HabitsPage() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push("/login"); return; }
+      // Role guard — only coaches can access
+      const { data: prof } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
+      if (prof?.role === 'client') { router.push('/dashboard'); return; }
       setUserId(user.id);
 
       const { data } = await supabase
