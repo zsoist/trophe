@@ -33,6 +33,7 @@ import MonthlyReport from '@/components/MonthlyReport';
 import MealPhotoGallery from '@/components/MealPhotoGallery';
 import DayComparison from '@/components/DayComparison';
 import AnimatedNumber from '@/components/AnimatedNumber';
+import MacroFoodIdeas from '@/components/MacroFoodIdeas';
 import { useTheme } from '@/components/ThemePicker';
 
 const DEFAULT_MEAL_SLOTS: MealSlot[] = [
@@ -832,6 +833,22 @@ export default function FoodLogPage() {
         {todayLog.length >= 3 && (
           <DailyInsights entries={todayLog} targets={targets} />
         )}
+
+        {/* Macro Food Ideas — context-aware suggestions by what's remaining */}
+        <MacroFoodIdeas
+          consumed={{
+            protein: todayLog.reduce((s, e) => s + (e.protein_g || 0), 0),
+            carbs: todayLog.reduce((s, e) => s + (e.carbs_g || 0), 0),
+            fat: todayLog.reduce((s, e) => s + (e.fat_g || 0), 0),
+            fiber: todayLog.reduce((s, e) => s + (e.fiber_g || 0), 0),
+          }}
+          targets={{
+            protein: targets.protein_g,
+            carbs: targets.carbs_g,
+            fat: targets.fat_g,
+            fiber: 30,
+          }}
+        />
 
         {/* F25: Achievement Badges */}
         <MealBadges todayLog={todayLog} streak={streak} targets={{ protein_g: targets.protein_g }} />
