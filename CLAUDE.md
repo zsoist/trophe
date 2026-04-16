@@ -8,12 +8,12 @@
 - **Styling**: Tailwind CSS 4 + Framer Motion + Lucide icons
 - **i18n**: Trilingual (EN/ES/EL) via lib/i18n.tsx
 
-## Stats (2026-04-15)
-- **28,000+ lines** | **64 components** | **9 API routes** | **21 pages** | **59+ commits**
+## Stats (2026-04-16)
+- **35,000+ lines** | **114 components** (64 base + 50 coach) | **9 API routes** | **21 pages** | **65+ commits**
 - **19 database tables** (incl api_usage_log, form_analyses) | **43 RLS policies** | **23 indexes** (8 FK indexes added Apr 14)
 - **30 exercises** | **126 foods** | **20 Greek foods** | **10 habits**
-- **90+ features** shipped across 11 iterations + 28-fix security audit
-- **0 TypeScript errors** (strict mode ON) | **0 console errors** | **QA health score: 95/100** (Apr 15)
+- **90+ features** shipped across 11 iterations + 28-fix security audit + 50 coach components
+- **0 TypeScript errors** (strict mode ON) | **0 console errors** | **Codex score: 4.6/10** (Apr 16, 7 warnings beyond critical)
 
 ## Architecture
 - Two roles: `client` and `coach` (and `both`)
@@ -79,6 +79,22 @@
 
 ### Coach Tools
 - `CoachMacroTargets` — set/override client macro targets (cal/protein/carbs/fat/fiber/water) with Auto-calc (Mifflin-St Jeor + ISSN)
+
+### Coach Components (50 files at `components/coach/`, added 2026-04-16)
+#### Wave 1: Dashboard Intelligence (10)
+- `CoachGreeting`, `PulseCards`, `RiskHeatmap`, and 7 more dashboard intelligence components
+
+#### Wave 2: Client Detail (12)
+- `MacroGauge`, `Sparklines`, `MoodTrend`, and 9 more client detail components
+
+#### Wave 3: Smart Coaching (10)
+- `AutoMacroOptimizer`, `PlateauDetector`, and 8 more smart coaching components
+
+#### Wave 4: Visual WOAH (10)
+- `TransformationCard`, `Achievements`, `Confetti`, and 7 more visual engagement components
+
+#### Wave 5: Workflow (8)
+- `MessageTemplates`, `Checklist`, `Calendar`, and 5 more workflow components
 
 ### Accessibility & Permissions
 - `MicPermissionHelp` — step-by-step OS-level mic permission instructions (iPhone/Android/desktop)
@@ -211,6 +227,9 @@ git config user.email "zsoist@users.noreply.github.com"
 ### Auth / Routing (April 15)
 - Login page had hardcoded `router.push('/dashboard')` — coaches must route to `/coach` based on `profile.role`. Fixed in commit 079a308.
 - `coach_id` on `client_profiles` must match the actual coach user — test accounts were pointed at wrong coach. Always verify data assignments after account creation.
+
+### Signup Security (April 16)
+- Signup role bypass: public `/api/auth/signup` accepted `role` param from request body — attackers could self-assign `coach` role. Fix-agent auto-patched: forced `role='client'` for all public signups. Codex evaluator-optimizer loop caught this.
 
 ### Debugging
 - Schema-code drift: if DB CHECK constraint doesn't match code's source values, inserts silently fail

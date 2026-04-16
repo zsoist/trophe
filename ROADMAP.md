@@ -241,6 +241,36 @@
 - [x] ✅ George Kavdas account created (coach, for Monday partnership meeting)
 - [x] ✅ E2E QA verified: 8/8 client + 5/5 coach pages clean, Food Ideas renders, all 4 testers assigned to Michael
 
+## Day 13: April 16 — 50 Coach Components + Evaluator-Optimizer Loop
+
+### Overnight (12/12 tasks — ALL completed, first time ever)
+- [x] ✅ Evaluator-optimizer loop worked on Trophē for first time (Codex found signup role bypass → fix-agent auto-patched)
+- [x] ✅ Codex fact review: 100 facts, 57 kept, 40 demoted, 3 deleted
+- [x] ✅ Codex scored Trophē 4.6/10 (7 warnings beyond the critical)
+
+### 50 Coach Components Built + Integrated
+- [x] ✅ Wave 1: 10 dashboard intelligence (greeting, pulse cards, risk heatmap, etc.)
+- [x] ✅ Wave 2: 12 client detail (macro gauge, sparklines, mood trend, etc.)
+- [x] ✅ Wave 3: 10 smart coaching (auto-macro optimizer, plateau detector, etc.)
+- [x] ✅ Wave 4: 10 visual WOAH (transformation card, achievements, confetti, etc.)
+- [x] ✅ Wave 5: 8 workflow (message templates, checklist, calendar, etc.)
+- [x] ✅ All integrated into coach pages, TypeScript clean, production built and deployed
+
+### Security Fixes
+- [x] ✅ Signup role bypass auto-fixed (forced role='client' for public signups)
+- [x] ✅ 3 Codex warnings fixed (a11y pinch-zoom, useCallback deps, aria-label)
+- [x] ✅ Discord bot codex exec role guard implemented (CRITICAL proposal)
+
+### Proposals Resolved (4/4)
+- [x] ✅ Log rotation script created
+- [x] ✅ Digest psql timeout fix (20s → 5s + graceful fallback)
+- [x] ✅ OpenBrain multi-hop: skipped (already correct defaults)
+- [x] ✅ Discord bot role guard: implemented
+
+### Commits
+- [x] ✅ 37478ea (integration), 0856a26 (components + fixes)
+- [x] ✅ Production deployed: trophe-mu.vercel.app
+
 ---
 
 ## PHASE 2: Testing (April 10-18, 2026)
