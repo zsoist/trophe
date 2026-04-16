@@ -27,6 +27,7 @@ import {
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import Avatar from '@/components/Avatar';
+import { ThemeModeToggle } from '@/components/ThemeMode';
 import ShortcutsModal from '@/components/ShortcutsModal';
 import DashboardGreeting from '@/components/coach/DashboardGreeting';
 import WeeklyPulseCards from '@/components/coach/WeeklyPulseCards';
@@ -737,16 +738,25 @@ export default function CoachDashboard() {
       <div className="max-w-5xl mx-auto">
         <div className="flex items-center justify-between mb-2">
           <div /> {/* spacer */}
-          <button
-            onClick={async () => {
-              await supabase.auth.signOut();
-              router.push('/login');
-            }}
-            className="text-stone-500 hover:text-stone-300 text-xs flex items-center gap-1.5 transition-colors"
-          >
-            <LogOut size={14} />
-            Log out
-          </button>
+          <div className="flex items-center gap-3">
+            <ThemeModeToggle />
+            <Link
+              href="/dashboard"
+              className="text-stone-400 hover:text-stone-200 text-xs flex items-center gap-1.5 transition-colors"
+            >
+              🔄 Client View
+            </Link>
+            <button
+              onClick={async () => {
+                await supabase.auth.signOut();
+                router.push('/login');
+              }}
+              className="text-stone-500 hover:text-stone-300 text-xs flex items-center gap-1.5 transition-colors"
+            >
+              <LogOut size={14} />
+              Log out
+            </button>
+          </div>
         </div>
         <CoachNav active="/coach" />
 

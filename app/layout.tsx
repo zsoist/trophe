@@ -39,7 +39,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${inter.variable} ${playfair.variable} h-full dark`}>
-      <body className="min-h-full bg-stone-950 text-stone-100 font-sans antialiased">
+      <body className="min-h-full font-sans antialiased" style={{ background: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
         <Providers>{children}</Providers>
       </body>
     </html>

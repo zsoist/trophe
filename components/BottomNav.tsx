@@ -1,10 +1,12 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Home, UtensilsCrossed, Dumbbell, Pill, BarChart3, User } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useI18n } from '@/lib/i18n';
+import { supabase } from '@/lib/supabase';
 
 const NAV_ITEMS = [
   { href: '/dashboard', labelKey: 'nav.home', icon: Home },
@@ -18,9 +20,36 @@ const NAV_ITEMS = [
 export default function BottomNav() {
   const pathname = usePathname();
   const { t } = useI18n();
+  const [isCoachToo, setIsCoachToo] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .maybeSingle();
+      if (data && (data.role === 'both' || data.role === 'coach')) {
+        setIsCoachToo(true);
+      }
+    })();
+  }, []);
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 glass-elevated safe-bottom">
+      {/* Coach switch banner for dual-role users */}
+      {isCoachToo && (
+        <div className="max-w-md mx-auto px-2">
+          <Link
+            href="/coach"
+            className="block text-center text-xs text-stone-400 hover:text-[#D4A853] transition-colors py-1.5 border-b border-white/5"
+          >
+            Coach Dashboard &rarr;
+          </Link>
+        </div>
+      )}
       <div className="max-w-md mx-auto flex items-center justify-around px-2 py-2">
         {NAV_ITEMS.map((item) => {
           const isActive =

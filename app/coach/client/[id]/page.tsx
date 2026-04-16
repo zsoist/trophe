@@ -49,6 +49,7 @@ import QuickActionsBar from '@/components/coach/QuickActionsBar';
 import AutoMacroOptimizer from '@/components/coach/AutoMacroOptimizer';
 import CalorieCyclingPlanner from '@/components/coach/CalorieCyclingPlanner';
 import RecoveryScore from '@/components/coach/RecoveryScore';
+import MealPatternView from '@/components/coach/MealPatternView';
 import type {
   Profile,
   ClientProfile,
@@ -1257,49 +1258,13 @@ export default function ClientDetailPage() {
             </div>
           )}
 
-          {/* ─── Food Log (last 3 days) ─── */}
+          {/* ─── Food Log (Pattern + Daily views) ─── */}
           <div className="glass p-5 mb-4">
             <h2 className="font-semibold text-stone-200 mb-4 flex items-center gap-2">
               <Calendar size={16} className="text-[#D4A853]" />
               Recent Food Log
             </h2>
-            {Object.keys(foodByDate).length === 0 ? (
-              <p className="text-stone-600 text-sm text-center py-4">No food logged recently</p>
-            ) : (
-              <div className="space-y-4">
-                {Object.entries(foodByDate).slice(0, 3).map(([date, entries]) => {
-                  const totals = entries.reduce(
-                    (acc, e) => ({
-                      cal: acc.cal + (e.calories || 0),
-                      p: acc.p + (e.protein_g || 0),
-                      c: acc.c + (e.carbs_g || 0),
-                      f: acc.f + (e.fat_g || 0),
-                    }),
-                    { cal: 0, p: 0, c: 0, f: 0 }
-                  );
-                  return (
-                    <div key={date}>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-xs font-medium text-stone-400">{formatDate(date)}</span>
-                        <span className="text-xs text-stone-500">
-                          {Math.round(totals.cal)} kcal | P:{Math.round(totals.p)}g C:{Math.round(totals.c)}g F:{Math.round(totals.f)}g
-                        </span>
-                      </div>
-                      <div className="space-y-1">
-                        {entries.map((entry) => (
-                          <div key={entry.id} className="flex items-center justify-between text-xs py-1 px-2 rounded-lg bg-white/[0.03]">
-                            <span className="text-stone-300 truncate">{entry.food_name}</span>
-                            <span className="text-stone-500 whitespace-nowrap ml-2">
-                              {entry.calories || 0} kcal
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+            <MealPatternView entries={foodLog} />
           </div>
 
           {/* ─── Wave 2+3: Food Analysis ─── */}

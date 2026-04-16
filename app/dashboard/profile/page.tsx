@@ -3,12 +3,13 @@ import { useRouter } from 'next/navigation';
 
 import { useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { User, LogOut, Save, Globe } from 'lucide-react';
+import { User, LogOut, Save, Globe, Sun, Moon } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { calculateFullProfile, ACTIVITY_DESCRIPTIONS, GOAL_DESCRIPTIONS } from '@/lib/nutrition-engine';
 import type { ClientProfile, Profile, Sex, ActivityLevel, Goal, Language } from '@/lib/types';
 import BottomNav from '@/components/BottomNav';
 import BodyCompCalculator from '@/components/BodyCompCalculator';
+import { useThemeMode } from '@/components/ThemeMode';
 
 const SEX_OPTIONS: { value: Sex; label: string }[] = [
   { value: 'male', label: 'Male' },
@@ -30,6 +31,8 @@ export default function ProfilePage() {
   const [saved, setSaved] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [clientProfile, setClientProfile] = useState<ClientProfile | null>(null);
+
+  const { mode, toggleMode } = useThemeMode();
 
   // Form state
   const [age, setAge] = useState('');
@@ -364,6 +367,38 @@ export default function ProfilePage() {
               </button>
             ))}
           </div>
+        </motion.div>
+
+        {/* Appearance */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.27 }}
+          className="glass p-5 mb-4"
+        >
+          <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider mb-3 flex items-center gap-2">
+            {mode === 'dark' ? <Moon size={14} /> : <Sun size={14} />} Appearance
+          </h3>
+          <button
+            onClick={toggleMode}
+            className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm border border-white/5 hover:bg-white/[0.02] transition-all"
+          >
+            <span className="text-stone-400">
+              {mode === 'dark' ? 'Dark Mode' : 'Light Mode'}
+            </span>
+            <motion.div
+              key={mode}
+              initial={{ rotate: -90, opacity: 0 }}
+              animate={{ rotate: 0, opacity: 1 }}
+              transition={{ duration: 0.2 }}
+            >
+              {mode === 'dark' ? (
+                <Moon size={16} className="text-stone-400" />
+              ) : (
+                <Sun size={16} className="text-amber-500" />
+              )}
+            </motion.div>
+          </button>
         </motion.div>
 
         {/* Save Button */}
