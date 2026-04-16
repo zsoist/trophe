@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, Plus, Sparkles } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { MealType } from '@/lib/types';
+import { localToday } from '../lib/dates';
 
 interface Recipe {
   id: number;
@@ -165,7 +166,7 @@ export default function RecipeSuggestions({ userId, mealType, onAdd }: RecipeSug
     if (!userId) return;
     setAdding(recipe.id);
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = localToday();
     const entry = {
       user_id: userId,
       logged_date: today,

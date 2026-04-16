@@ -50,6 +50,7 @@ import AutoMacroOptimizer from '@/components/coach/AutoMacroOptimizer';
 import CalorieCyclingPlanner from '@/components/coach/CalorieCyclingPlanner';
 import RecoveryScore from '@/components/coach/RecoveryScore';
 import MealPatternView from '@/components/coach/MealPatternView';
+import { localToday, localDateStr } from '../../../../lib/dates';
 import type {
   Profile,
   ClientProfile,
@@ -116,7 +117,7 @@ function StreakCalendar({ checkins, startDate }: { checkins: HabitCheckin[]; sta
   for (let i = 13; i >= 0; i--) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
-    const dateStr = d.toISOString().split('T')[0];
+    const dateStr = localDateStr(d);
 
     if (d > today) {
       days.push({ date: dateStr, status: 'future' });
@@ -292,8 +293,8 @@ export default function ClientDetailPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push("/login"); return; }
 
-      const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const threeDaysAgo = localDateStr(new Date(Date.now() - 3 * 24 * 60 * 60 * 1000));
+      const thirtyDaysAgo = localDateStr(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000));
 
       const [
         profileRes,
@@ -589,7 +590,7 @@ export default function ClientDetailPage() {
   // Computed data for Wave 2 + Wave 3 components
   // ═══════════════════════════════════════════════
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = localToday();
   const todayEntries = foodLog.filter((e) => e.logged_date === today);
   const todayTotals = todayEntries.reduce(
     (acc, e) => ({
@@ -664,7 +665,7 @@ export default function ClientDetailPage() {
     const loggedDates = new Set(foodLog.map((e) => e.logged_date));
     const last7 = Array.from({ length: 7 }, (_, i) => {
       const d = new Date(); d.setDate(d.getDate() - i);
-      return d.toISOString().split('T')[0];
+      return localDateStr(d);
     });
     const missedDays = last7.filter((d) => !loggedDates.has(d)).length;
     if (missedDays >= 3) {
@@ -737,7 +738,7 @@ export default function ClientDetailPage() {
     const days: Array<{ date: string; count: number }> = [];
     for (let i = 29; i >= 0; i--) {
       const d = new Date(); d.setDate(d.getDate() - i);
-      const dateStr = d.toISOString().split('T')[0];
+      const dateStr = localDateStr(d);
       days.push({ date: dateStr, count: countByDate[dateStr] || 0 });
     }
     return days;
@@ -774,8 +775,8 @@ export default function ClientDetailPage() {
     const now = new Date();
     const startOfWeek = new Date(now); startOfWeek.setDate(now.getDate() - now.getDay());
     const startOfLastWeek = new Date(startOfWeek); startOfLastWeek.setDate(startOfLastWeek.getDate() - 7);
-    const thisWeekStr = startOfWeek.toISOString().split('T')[0];
-    const lastWeekStr = startOfLastWeek.toISOString().split('T')[0];
+    const thisWeekStr = localDateStr(startOfWeek);
+    const lastWeekStr = localDateStr(startOfLastWeek);
 
     const thisWeekEntries = foodLog.filter((e) => e.logged_date >= thisWeekStr);
     const lastWeekEntries = foodLog.filter((e) => e.logged_date >= lastWeekStr && e.logged_date < thisWeekStr);

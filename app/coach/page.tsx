@@ -42,6 +42,7 @@ import CoachLoadingSkeletons from '@/components/coach/CoachLoadingSkeletons';
 import BatchHabitAssign from '@/components/coach/BatchHabitAssign';
 import ClientComparison from '@/components/coach/ClientComparison';
 import LoadingSkeleton from '@/components/coach/LoadingSkeleton';
+import { localDateStr } from '../../lib/dates';
 import type {
   Profile,
   ClientProfile,
@@ -420,7 +421,7 @@ export default function CoachDashboard() {
           .from('habit_checkins')
           .select('*')
           .in('user_id', userIds)
-          .gte('checked_date', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
+          .gte('checked_date', localDateStr(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)))
           .order('checked_date', { ascending: false }),
       ]);
 
@@ -472,7 +473,7 @@ export default function CoachDashboard() {
       const monday = new Date(now);
       monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
       monday.setHours(0, 0, 0, 0);
-      const mondayStr = monday.toISOString().split('T')[0];
+      const mondayStr = localDateStr(monday);
 
       const { data: weekCheckins } = await supabase
         .from('habit_checkins')

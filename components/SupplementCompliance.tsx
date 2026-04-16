@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Pill, CheckCircle2, XCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { localDateStr } from '../lib/dates';
 
 // ═══════════════════════════════════════════════
 // Types
@@ -30,11 +31,11 @@ export default function SupplementCompliance({ clientId }: { clientId: string })
       const monday = new Date(now);
       monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
       monday.setHours(0, 0, 0, 0);
-      const mondayStr = monday.toISOString().split('T')[0];
+      const mondayStr = localDateStr(monday);
 
       const sunday = new Date(monday);
       sunday.setDate(sunday.getDate() + 6);
-      const sundayStr = sunday.toISOString().split('T')[0];
+      const sundayStr = localDateStr(sunday);
 
       // Get active supplement protocols for this client
       const { data: clientSupps } = await supabase
@@ -87,7 +88,7 @@ export default function SupplementCompliance({ clientId }: { clientId: string })
         for (let i = 0; i < 7; i++) {
           const d = new Date(monday);
           d.setDate(d.getDate() + i);
-          const dateStr = d.toISOString().split('T')[0];
+          const dateStr = localDateStr(d);
 
           if (d > today) {
             days.push('none');

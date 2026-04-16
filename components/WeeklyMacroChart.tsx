@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { BarChart3 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { localDateStr } from '../lib/dates';
 
 interface DayData {
   date: string;
@@ -40,7 +41,7 @@ export default function WeeklyMacroChart({
       for (let i = 6; i >= 0; i--) {
         const day = new Date();
         day.setDate(day.getDate() - i);
-        const dateStr = day.toISOString().split('T')[0];
+        const dateStr = localDateStr(day);
         days.push({
           date: dateStr,
           dayLabel: dayNames[day.getDay()],

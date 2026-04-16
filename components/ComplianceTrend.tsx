@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 import type { HabitCheckin } from '@/lib/types';
+import { localDateStr } from '../lib/dates';
 
 interface ComplianceTrendProps {
   clientHabitId: string | null;
@@ -23,7 +24,7 @@ export default function ComplianceTrend({ clientHabitId, startDate, checkins: ex
     async function fetchCheckins() {
       const fourteenDaysAgo = new Date();
       fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 13);
-      const startStr = fourteenDaysAgo.toISOString().split('T')[0];
+      const startStr = localDateStr(fourteenDaysAgo);
 
       const { data } = await supabase
         .from('habit_checkins')
@@ -61,7 +62,7 @@ export default function ComplianceTrend({ clientHabitId, startDate, checkins: ex
   for (let i = 13; i >= 0; i--) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
-    const dateStr = d.toISOString().split('T')[0];
+    const dateStr = localDateStr(d);
 
     if (completedDates.has(dateStr)) {
       days.push({ date: dateStr, status: 'completed' });

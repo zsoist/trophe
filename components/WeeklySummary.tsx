@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { TrendingUp, TrendingDown, Minus, Calendar } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { localDateStr } from '../lib/dates';
 
 interface WeeklySummaryProps {
   userId: string;
@@ -27,7 +28,7 @@ export default function WeeklySummary({ userId }: WeeklySummaryProps) {
       for (let i = 6; i >= 0; i--) {
         const dd = new Date(d);
         dd.setDate(dd.getDate() - i);
-        dates.push(dd.toISOString().split('T')[0]);
+        dates.push(localDateStr(dd));
       }
 
       const { data } = await supabase

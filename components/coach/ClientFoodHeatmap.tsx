@@ -2,6 +2,7 @@
 
 import { memo, useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
+import { localDateStr } from '../../lib/dates';
 
 interface HeatmapEntry {
   date: string;
@@ -33,7 +34,7 @@ export default memo(function ClientFoodHeatmap({ data }: ClientFoodHeatmapProps)
       for (let dayIdx = 0; dayIdx < 7; dayIdx++) {
         const d = new Date(today);
         d.setDate(d.getDate() - (weekIdx * 7 + (6 - dayIdx)));
-        const dateStr = d.toISOString().split('T')[0];
+        const dateStr = localDateStr(d);
         cells.push({
           date: dateStr,
           count: map.get(dateStr) ?? 0,

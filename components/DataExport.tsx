@@ -4,14 +4,15 @@ import { useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Download, FileSpreadsheet, Calendar } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { localToday, localDateStr } from '../lib/dates';
 
 interface DataExportProps {
   userId: string;
 }
 
 export default function DataExport({ userId }: DataExportProps) {
-  const today = new Date().toISOString().split('T')[0];
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
+  const today = localToday();
+  const thirtyDaysAgo = localDateStr(new Date(Date.now() - 30 * 86400000));
 
   const [fromDate, setFromDate] = useState(thirtyDaysAgo);
   const [toDate, setToDate] = useState(today);

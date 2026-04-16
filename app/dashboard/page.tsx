@@ -18,6 +18,7 @@ import Avatar from '@/components/Avatar';
 import CarbCyclingSelector from '@/components/CarbCyclingSelector';
 import HabitDetailModal from '@/components/HabitDetailModal';
 import MacroDonut from '@/components/MacroDonut';
+import { localToday, localDateStr } from '../../lib/dates';
 
 // ─── Motivational micro-texts (rotate daily) ───
 const MOTIVATIONAL_TEXTS = [
@@ -151,7 +152,7 @@ export default function DashboardPage() {
   const [allCheckins, setAllCheckins] = useState<HabitCheckin[]>([]);
   const [waterSplash, setWaterSplash] = useState(false);
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = localToday();
 
   const totalWater = waterLog.reduce((sum, w) => sum + w.amount_ml, 0);
   const totalCalories = foodLog.reduce((sum, f) => sum + (f.calories ?? 0), 0);
@@ -223,7 +224,7 @@ export default function DashboardPage() {
       // Fetch weekly avg calories (last 7 days)
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
-      const weekStart = sevenDaysAgo.toISOString().split('T')[0];
+      const weekStart = localDateStr(sevenDaysAgo);
       const { data: weekFood } = await supabase
         .from('food_log')
         .select('calories')

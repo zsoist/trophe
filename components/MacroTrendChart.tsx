@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TrendingUp, ChevronDown, ChevronUp } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { localDateStr } from '../lib/dates';
 
 interface DayAggregate {
   date: string;
@@ -56,8 +57,8 @@ export default function MacroTrendChart({ userId, days = 30 }: MacroTrendChartPr
       const startDate = new Date();
       startDate.setDate(endDate.getDate() - (days - 1));
 
-      const startStr = startDate.toISOString().split('T')[0];
-      const endStr = endDate.toISOString().split('T')[0];
+      const startStr = localDateStr(startDate);
+      const endStr = localDateStr(endDate);
 
       const [logResult, profileResult] = await Promise.all([
         supabase
@@ -83,7 +84,7 @@ export default function MacroTrendChart({ userId, days = 30 }: MacroTrendChartPr
       for (let i = 0; i < days; i++) {
         const day = new Date(startDate);
         day.setDate(startDate.getDate() + i);
-        const dateStr = day.toISOString().split('T')[0];
+        const dateStr = localDateStr(day);
         dayMap.set(dateStr, { date: dateStr, calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 });
       }
 

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { BarChart3, TrendingUp } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { localToday, localDateStr } from '../lib/dates';
 
 interface DayPatternsProps {
   userId: string;
@@ -31,8 +32,8 @@ export default function DayPatterns({ userId }: DayPatternsProps) {
     async function loadData() {
       if (!userId) return;
 
-      const endDate = new Date().toISOString().split('T')[0];
-      const startDate = new Date(Date.now() - 60 * 86400000).toISOString().split('T')[0];
+      const endDate = localToday();
+      const startDate = localDateStr(new Date(Date.now() - 60 * 86400000));
 
       const { data } = await supabase
         .from('food_log')

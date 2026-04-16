@@ -3,6 +3,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import type { Habit, ClientHabit, HabitCheckin, Language } from '@/lib/types';
+import { localDateStr } from '../lib/dates';
 
 interface HabitDetailModalProps {
   open: boolean;
@@ -96,7 +97,7 @@ export default function HabitDetailModal({
   for (let i = 13; i >= 0; i--) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
-    const dateStr = d.toISOString().split('T')[0];
+    const dateStr = localDateStr(d);
     const dayNum = d.getDate();
     const mood = moodMap.get(dateStr) ?? undefined;
 

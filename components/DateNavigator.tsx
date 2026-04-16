@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react';
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
+import { localDateStr } from '../lib/dates';
 
 interface DateNavigatorProps {
   selectedDate: string; // ISO date string YYYY-MM-DD
@@ -30,12 +31,7 @@ function formatDate(dateStr: string): string {
   });
 }
 
-function toISO(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-}
+const toISO = localDateStr;
 
 function addDays(dateStr: string, days: number): string {
   const [y, m, d] = dateStr.split('-').map(Number);

@@ -35,6 +35,7 @@ import DayComparison from '@/components/DayComparison';
 import AnimatedNumber from '@/components/AnimatedNumber';
 import MacroFoodIdeas from '@/components/MacroFoodIdeas';
 import { useTheme } from '@/components/ThemePicker';
+import { localToday, localDateStr } from '../../../lib/dates';
 
 const DEFAULT_MEAL_SLOTS: MealSlot[] = [
   { id: 'breakfast', mealType: 'breakfast', label: 'Breakfast', emoji: '🌅', order: 0 },
@@ -215,7 +216,7 @@ export default function FoodLogPage() {
   const router = useRouter();
   const [userId, setUserId] = useState<string | null>(null);
   const [todayLog, setTodayLog] = useState<FoodLogEntry[]>([]);
-  const today = new Date().toISOString().split('T')[0];
+  const today = localToday();
   const [selectedDate, setSelectedDate] = useState(today);
   const [skippedSlots, setSkippedSlots] = useState<Set<string>>(() => loadStoredSet(`trophe_skipped_${today}`));
   const [lockedSlots, setLockedSlots] = useState<Set<string>>(() => loadStoredSet(`trophe_locked_${today}`));
@@ -328,7 +329,7 @@ export default function FoodLogPage() {
     for (let i = 0; i < 7; i++) {
       const wd = new Date(monday);
       wd.setDate(monday.getDate() + i);
-      weekDates.push(wd.toISOString().split('T')[0]);
+      weekDates.push(localDateStr(wd));
     }
 
     const { data: weekEntries } = await supabase
@@ -371,7 +372,7 @@ export default function FoodLogPage() {
       .from('food_log')
       .select('logged_date')
       .eq('user_id', user.id)
-      .gte('logged_date', new Date(Date.now() - 60 * 86400000).toISOString().split('T')[0])
+      .gte('logged_date', localDateStr(new Date(Date.now() - 60 * 86400000)))
       .order('logged_date', { ascending: false });
 
     if (recentLogs) {
@@ -383,7 +384,7 @@ export default function FoodLogPage() {
       let s = 0;
       const d = new Date();
       for (let i = 0; i < 60; i++) {
-        const dateStr = d.toISOString().split('T')[0];
+        const dateStr = localDateStr(d);
         if ((dayCounts.get(dateStr) || 0) >= 3) {
           s++;
         } else if (i > 0) {
@@ -483,7 +484,7 @@ export default function FoodLogPage() {
 
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = yesterday.toISOString().split('T')[0];
+    const yesterdayStr = localDateStr(yesterday);
 
     const { data: yesterdayEntries } = await supabase
       .from('food_log')

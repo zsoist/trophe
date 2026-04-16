@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Grid3X3 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { localDateStr } from '../lib/dates';
 
 interface DayCell {
   date: string;
@@ -48,8 +49,8 @@ export default function CalorieHeatmap({ userId, weeks = 8 }: CalorieHeatmapProp
       const startDate = new Date(endDate);
       startDate.setDate(endDate.getDate() - totalDays + 1);
 
-      const startStr = startDate.toISOString().split('T')[0];
-      const endStr = endDate.toISOString().split('T')[0];
+      const startStr = localDateStr(startDate);
+      const endStr = localDateStr(endDate);
 
       const { data } = await supabase
         .from('food_log')
@@ -80,7 +81,7 @@ export default function CalorieHeatmap({ userId, weeks = 8 }: CalorieHeatmapProp
         d.setDate(startDate.getDate() + i);
         if (d > endDate) break;
 
-        const dateStr = d.toISOString().split('T')[0];
+        const dateStr = localDateStr(d);
         const jsDay = d.getDay();
         const row = jsDay === 0 ? 6 : jsDay - 1;
         const col = Math.floor(i / 7);

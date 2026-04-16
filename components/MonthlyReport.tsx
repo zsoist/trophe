@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { FileText, TrendingUp, TrendingDown, Minus, Award, Calendar } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { localDateStr } from '../lib/dates';
 
 interface MonthlyReportProps {
   userId: string;
@@ -85,13 +86,13 @@ export default function MonthlyReport({ userId, targets }: MonthlyReportProps) {
       const year = now.getFullYear();
       const month = now.getMonth();
 
-      const firstDay = new Date(year, month, 1).toISOString().split('T')[0];
-      const lastDay = new Date(year, month + 1, 0).toISOString().split('T')[0];
+      const firstDay = localDateStr(new Date(year, month, 1));
+      const lastDay = localDateStr(new Date(year, month + 1, 0));
       const daysInMonth = new Date(year, month + 1, 0).getDate();
       const daysSoFar = now.getDate();
 
-      const prevFirst = new Date(year, month - 1, 1).toISOString().split('T')[0];
-      const prevLast = new Date(year, month, 0).toISOString().split('T')[0];
+      const prevFirst = localDateStr(new Date(year, month - 1, 1));
+      const prevLast = localDateStr(new Date(year, month, 0));
       const prevDaysInMonth = new Date(year, month, 0).getDate();
 
       const [currentRes, prevRes] = await Promise.all([

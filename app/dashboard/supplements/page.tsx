@@ -7,6 +7,7 @@ import { Pill, CheckCircle2, Circle, Info } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { ClientSupplement, SupplementItem, SupplementLogEntry } from '@/lib/types';
 import BottomNav from '@/components/BottomNav';
+import { localToday, localDateStr } from '../../../lib/dates';
 
 const EVIDENCE_COLORS: Record<string, string> = {
   A: 'bg-green-500/15 text-green-400 border-green-500/30',
@@ -30,7 +31,7 @@ export default function SupplementsPage() {
   const [suppLog, setSuppLog] = useState<SupplementLogEntry[]>([]);
   const [weekLog, setWeekLog] = useState<SupplementLogEntry[]>([]);
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = localToday();
 
   const loadData = useCallback(async () => {
     try {
@@ -62,7 +63,7 @@ export default function SupplementsPage() {
       // Load past 7 days for compliance
       const weekAgo = new Date();
       weekAgo.setDate(weekAgo.getDate() - 7);
-      const weekStr = weekAgo.toISOString().split('T')[0];
+      const weekStr = localDateStr(weekAgo);
 
       const { data: weekData } = await supabase
         .from('supplement_log')

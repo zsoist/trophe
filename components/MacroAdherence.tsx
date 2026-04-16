@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Target } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { localDateStr } from '../lib/dates';
 
 interface MacroAdherenceProps {
   userId: string;
@@ -59,7 +60,7 @@ export default function MacroAdherence({ userId, targets }: MacroAdherenceProps)
         const day = new Date();
         day.setDate(day.getDate() - i);
         days.push({
-          date: day.toISOString().split('T')[0],
+          date: localDateStr(day),
           calories: 0,
           protein_g: 0,
           carbs_g: 0,

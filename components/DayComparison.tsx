@@ -6,6 +6,7 @@ import { X, ArrowRight } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { FoodLogEntry } from '@/lib/types';
 import { calculateMealScore } from '@/lib/meal-score';
+import { localToday } from '../lib/dates';
 
 interface DayComparisonProps {
   userId: string;
@@ -48,7 +49,7 @@ export default function DayComparison({ userId, currentDate, currentLog, compare
   const compare = summarize(compareLog);
 
   const formatDate = (d: string) => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = localToday();
     if (d === today) return 'Today';
     const date = new Date(d + 'T12:00:00');
     return date.toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' });

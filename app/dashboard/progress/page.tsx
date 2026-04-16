@@ -10,6 +10,7 @@ import BottomNav from '@/components/BottomNav';
 import ProgressPhotos from '@/components/ProgressPhotos';
 import WeeklyMacroChart from '@/components/WeeklyMacroChart';
 import HabitRadar from '@/components/HabitRadar';
+import { localToday } from '../../../lib/dates';
 
 function WeightChart({ measurements }: { measurements: Measurement[] }) {
   if (measurements.length < 2) {
@@ -253,7 +254,7 @@ export default function ProgressPage() {
   const [saving, setSaving] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = localToday();
 
   const loadData = useCallback(async () => {
     try {

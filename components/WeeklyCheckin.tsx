@@ -4,6 +4,7 @@ import { useCallback, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Send, ClipboardCheck } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { localToday, localDateStr } from '../lib/dates';
 
 interface WeeklyCheckinProps {
   userId: string;
@@ -45,7 +46,7 @@ export default function WeeklyCheckin({ userId, coachId }: WeeklyCheckinProps) {
       .limit(1);
 
     // Also check localStorage as a quick guard
-    const localKey = `trophe_checkin_${weekStart.toISOString().split('T')[0]}`;
+    const localKey = `trophe_checkin_${localDateStr(weekStart)}`;
     const localDone = localStorage.getItem(localKey);
 
     if ((!data || data.length === 0) && !localDone) {
@@ -68,7 +69,7 @@ export default function WeeklyCheckin({ userId, coachId }: WeeklyCheckinProps) {
     try {
       const ratingsJson = JSON.stringify({
         type: 'weekly_checkin',
-        week: new Date().toISOString().split('T')[0],
+        week: localToday(),
         ratings,
         average: (Object.values(ratings).reduce((a, b) => a + b, 0) / 5).toFixed(1),
       });
@@ -84,7 +85,7 @@ export default function WeeklyCheckin({ userId, coachId }: WeeklyCheckinProps) {
       const now = new Date();
       const weekStart = new Date(now);
       weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-      const localKey = `trophe_checkin_${weekStart.toISOString().split('T')[0]}`;
+      const localKey = `trophe_checkin_${localDateStr(weekStart)}`;
       localStorage.setItem(localKey, 'done');
 
       setSubmitted(true);

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Shield, Flame } from 'lucide-react';
+import { localDateStr } from '../lib/dates';
 
 interface StreakFreezeProps {
   streak: number;
@@ -52,7 +53,7 @@ function getWeekKey(): string {
   const d = new Date();
   const startOfWeek = new Date(d);
   startOfWeek.setDate(d.getDate() - d.getDay());
-  return startOfWeek.toISOString().split('T')[0];
+  return localDateStr(startOfWeek);
 }
 
 function getInitialFreezeAvailable(): boolean {

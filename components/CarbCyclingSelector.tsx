@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Flame, Lock, TrendingUp, Minus, TrendingDown } from 'lucide-react';
+import { localToday } from '../lib/dates';
 
 export type CarbCycleDay = 'high' | 'moderate' | 'low';
 
@@ -53,7 +54,7 @@ const DAY_TYPES: {
 ];
 
 function getStorageKey(): string {
-  const today = new Date().toISOString().split('T')[0];
+  const today = localToday();
   return `trophe_carb_cycle_${today}`;
 }
 

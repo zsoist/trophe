@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Repeat } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { localDateStr } from '../lib/dates';
 
 interface FoodStat {
   food_name: string;
@@ -29,7 +30,7 @@ export default function FoodFrequency({ userId, days = 30 }: FoodFrequencyProps)
 
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - days);
-      const startStr = startDate.toISOString().split('T')[0];
+      const startStr = localDateStr(startDate);
 
       const { data } = await supabase
         .from('food_log')
