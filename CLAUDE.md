@@ -9,7 +9,7 @@
 - **i18n**: Trilingual (EN/ES/EL) via lib/i18n.tsx
 
 ## Stats (2026-04-16)
-- **35,000+ lines** | **114 components** (64 base + 50 coach) | **9 API routes** | **21 pages** | **65+ commits**
+- **36,000+ lines** | **116 components** (64 base + 52 coach) | **9 API routes** | **21 pages** | **68+ commits**
 - **19 database tables** (incl api_usage_log, form_analyses) | **43 RLS policies** | **23 indexes** (8 FK indexes added Apr 14)
 - **30 exercises** | **126 foods** | **20 Greek foods** | **10 habits**
 - **90+ features** shipped across 11 iterations + 28-fix security audit + 50 coach components
@@ -77,10 +77,14 @@
 - `EndOfDaySummary` — shareable summary card
 - `WeeklySummary` — 7-day bar chart with trends
 
+### Theme & Views
+- `ThemeMode.tsx` — ThemeProvider + useTheme hook + Sun/Moon animated toggle, CSS custom properties, localStorage persistence, .light class
+- `coach/MealPatternView.tsx` — grouped meal analysis by meal type (frequency, avg macros, common foods), toggle between Pattern/Daily view
+
 ### Coach Tools
 - `CoachMacroTargets` — set/override client macro targets (cal/protein/carbs/fat/fiber/water) with Auto-calc (Mifflin-St Jeor + ISSN)
 
-### Coach Components (50 files at `components/coach/`, added 2026-04-16)
+### Coach Components (52 files at `components/coach/`, added 2026-04-16)
 #### Wave 1: Dashboard Intelligence (10)
 - `CoachGreeting`, `PulseCards`, `RiskHeatmap`, and 7 more dashboard intelligence components
 
@@ -230,6 +234,9 @@ git config user.email "zsoist@users.noreply.github.com"
 
 ### Signup Security (April 16)
 - Signup role bypass: public `/api/auth/signup` accepted `role` param from request body — attackers could self-assign `coach` role. Fix-agent auto-patched: forced `role='client'` for all public signups. Codex evaluator-optimizer loop caught this.
+
+### UI Visibility
+- Customize meals button was invisible (14px stone-600 icon only). Always use visible labels + borders for action buttons on dark backgrounds
 
 ### Debugging
 - Schema-code drift: if DB CHECK constraint doesn't match code's source values, inserts silently fail

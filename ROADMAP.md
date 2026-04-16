@@ -271,6 +271,16 @@
 - [x] ✅ 37478ea (integration), 0856a26 (components + fixes)
 - [x] ✅ Production deployed: trophe-mu.vercel.app
 
+### Michael Feedback #3 — April 16 (same-day turnaround)
+- [x] ✅ Light/dark theme toggle — CSS custom properties, .light class, Sun/Moon animated toggle on Profile + coach header, localStorage persistence
+- [x] ✅ Meal Pattern View — coach sees client eating patterns grouped by meal type (frequency, avg macros, common foods), toggle between Pattern/Daily view
+- [x] ✅ Coach+Client role switcher — "Client View" link on coach dashboard, "Coach Dashboard" banner on BottomNav for role=both users
+- [x] ✅ Logout button — added to coach dashboard header
+- [x] ✅ Visible "Customize" button — replaced invisible 14px icon with labeled button + border
+- [x] ✅ Michael upgraded to role 'both' — can experience coach AND client views
+- [x] ✅ New files: `components/ThemeMode.tsx`, `components/coach/MealPatternView.tsx`
+- [x] ✅ Commits: b42c458 (logout + customize visibility), 0a9d993 (light theme + meal patterns + role switcher)
+
 ---
 
 ## PHASE 2: Testing (April 10-18, 2026)
