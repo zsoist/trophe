@@ -570,10 +570,11 @@ export default function FoodLogPage() {
             </h1>
             <button
               onClick={() => setShowSlotConfig(true)}
-              className="text-stone-600 hover:text-stone-300 p-1 transition-colors"
+              className="text-stone-400 hover:text-[#D4A853] text-xs flex items-center gap-1 px-2 py-1 rounded-lg border border-white/[0.06] hover:border-[#D4A853]/30 transition-all"
               title="Customize meals"
             >
               <Settings size={14} />
+              Customize
             </button>
             {/* F6: Streak */}
             {streak > 0 && (

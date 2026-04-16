@@ -22,6 +22,7 @@ import {
   BarChart3,
   Clock,
   ArrowUpDown,
+  LogOut,
 } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
@@ -734,6 +735,19 @@ export default function CoachDashboard() {
   return (
     <div className="min-h-screen bg-stone-950 px-4 py-6 sm:px-6 lg:px-8">
       <div className="max-w-5xl mx-auto">
+        <div className="flex items-center justify-between mb-2">
+          <div /> {/* spacer */}
+          <button
+            onClick={async () => {
+              await supabase.auth.signOut();
+              router.push('/login');
+            }}
+            className="text-stone-500 hover:text-stone-300 text-xs flex items-center gap-1.5 transition-colors"
+          >
+            <LogOut size={14} />
+            Log out
+          </button>
+        </div>
         <CoachNav active="/coach" />
 
         <motion.div
