@@ -38,7 +38,9 @@ export async function POST(req: NextRequest) {
   if (rateBlock) return rateBlock;
 
   try {
-    const { email, password, full_name, role } = await req.json();
+    const { email, password, full_name } = await req.json();
+    // Public signup always creates a 'client' — elevated roles require the invite path
+    const FORCED_ROLE = 'client' as const;
 
     if (!email || !password || !full_name) {
       return NextResponse.json({ error: 'Email, password, and name are required' }, { status: 400 });
@@ -63,7 +65,7 @@ export async function POST(req: NextRequest) {
         email,
         password,
         email_confirm: true,
-        user_metadata: { full_name, role: role || 'client' },
+        user_metadata: { full_name, role: FORCED_ROLE },
       }),
     });
 
@@ -80,7 +82,7 @@ export async function POST(req: NextRequest) {
 
     const userId = authData.id;
 
-    // 2. Create profile record
+    // 2. Create profile record — role is always FORCED_ROLE, never client-supplied
     await fetch(`${supabaseUrl}/rest/v1/profiles`, {
       method: 'POST',
       headers: {
@@ -93,12 +95,12 @@ export async function POST(req: NextRequest) {
         id: userId,
         full_name,
         email,
-        role: role || 'client',
+        role: FORCED_ROLE,
       }),
     });
 
-    // 3. Create client_profile for client/both roles
-    if (role === 'client' || role === 'both' || !role) {
+    // 3. Create client_profile — all public signups are clients
+    if (true) {
       await fetch(`${supabaseUrl}/rest/v1/client_profiles`, {
         method: 'POST',
         headers: {

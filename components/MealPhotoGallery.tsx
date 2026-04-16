@@ -98,7 +98,14 @@ export default function MealPhotoGallery({ userId }: MealPhotoGalleryProps) {
             className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-4"
             onClick={() => setSelected(null)}
           >
-            <button className="absolute top-4 right-4 text-white/50 hover:text-white">
+            <button
+              aria-label="Close fullscreen photo"
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelected(null);
+              }}
+              className="absolute top-4 right-4 text-white/50 hover:text-white"
+            >
               <X size={24} />
             </button>
             <img
