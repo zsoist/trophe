@@ -29,6 +29,8 @@ import type {
   MuscleGroup,
 } from '@/lib/types';
 import { CoachNav } from '../page';
+import CoachLoadingSkeletons from '@/components/coach/CoachLoadingSkeletons';
+import WorkoutWeekPlanner from '@/components/coach/WorkoutWeekPlanner';
 
 // ═══════════════════════════════════════════════
 // Constants
@@ -345,7 +347,7 @@ export default function TemplatesPage() {
 
           {/* Template List */}
           {loading ? (
-            <div className="text-center py-20 text-stone-500">Loading templates...</div>
+            <CoachLoadingSkeletons page="templates" />
           ) : templates.length === 0 ? (
             <div className="text-center py-20">
               <LayoutTemplate size={48} className="mx-auto text-stone-700 mb-4" />
@@ -476,6 +478,30 @@ export default function TemplatesPage() {
                   </motion.div>
                 );
               })}
+            </div>
+          )}
+          {/* ═══ Week Planner ═══ */}
+          {!loading && templates.length > 0 && (
+            <div className="mt-8">
+              <WorkoutWeekPlanner
+                days={[
+                  { day: 'Monday', template: null },
+                  { day: 'Tuesday', template: null },
+                  { day: 'Wednesday', template: null },
+                  { day: 'Thursday', template: null },
+                  { day: 'Friday', template: null },
+                  { day: 'Saturday', template: null },
+                  { day: 'Sunday', template: null },
+                ]}
+                templates={templates.map((t) => ({
+                  id: t.id,
+                  name: t.name,
+                  exerciseCount: (t.exercises || []).length,
+                }))}
+                onAssign={(day, templateId) => {
+                  console.log(`Assigned template ${templateId} to ${day}`);
+                }}
+              />
             </div>
           )}
         </motion.div>

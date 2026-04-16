@@ -16,6 +16,7 @@ import {
 import { supabase } from '@/lib/supabase';
 import type { CustomFood } from '@/lib/types';
 import { CoachNav } from '../page';
+import CoachLoadingSkeletons from '@/components/coach/CoachLoadingSkeletons';
 
 // ═══════════════════════════════════════════════
 // Constants
@@ -232,7 +233,7 @@ export default function FoodsPage() {
 
           {/* My Foods */}
           {loading ? (
-            <div className="text-center py-20 text-stone-500">Loading foods...</div>
+            <CoachLoadingSkeletons page="foods" />
           ) : filtered.length === 0 ? (
             <div className="text-center py-20">
               <UtensilsCrossed size={48} className="mx-auto text-stone-700 mb-4" />

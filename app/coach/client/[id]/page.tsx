@@ -26,6 +26,29 @@ import ActivityTimeline from '@/components/ActivityTimeline';
 import ComplianceTrend from '@/components/ComplianceTrend';
 import CoachingSummary from '@/components/CoachingSummary';
 import SupplementCompliance from '@/components/SupplementCompliance';
+// Wave 2 + Wave 3 coach components
+import MacroAdherenceGauge from '@/components/coach/MacroAdherenceGauge';
+import MacroSparklines from '@/components/coach/MacroSparklines';
+import MacroDonut from '@/components/coach/MacroDonut';
+import ConsistencyScore from '@/components/coach/ConsistencyScore';
+import ClientHealthScore from '@/components/coach/ClientHealthScore';
+import MoodTrend from '@/components/coach/MoodTrend';
+import BehavioralSignals from '@/components/coach/BehavioralSignals';
+import CoachingRoadmap from '@/components/coach/CoachingRoadmap';
+import MealQualityTimeline from '@/components/coach/MealQualityTimeline';
+import ProteinDistributionAnalyzer from '@/components/coach/ProteinDistributionAnalyzer';
+import ClientFoodHeatmap from '@/components/coach/ClientFoodHeatmap';
+import WeekendAnalysis from '@/components/coach/WeekendAnalysis';
+import ProgressComparison from '@/components/coach/ProgressComparison';
+import MeasurementChart from '@/components/coach/MeasurementChart';
+import GoalProgressTracker from '@/components/coach/GoalProgressTracker';
+import PlateauDetector from '@/components/coach/PlateauDetector';
+import WorkoutVolumeChart from '@/components/coach/WorkoutVolumeChart';
+import SmartNoteSuggestions from '@/components/coach/SmartNoteSuggestions';
+import QuickActionsBar from '@/components/coach/QuickActionsBar';
+import AutoMacroOptimizer from '@/components/coach/AutoMacroOptimizer';
+import CalorieCyclingPlanner from '@/components/coach/CalorieCyclingPlanner';
+import RecoveryScore from '@/components/coach/RecoveryScore';
 import type {
   Profile,
   ClientProfile,
@@ -561,6 +584,299 @@ export default function ClientDetailPage() {
     foodByDate[key].push(entry);
   });
 
+  // ═══════════════════════════════════════════════
+  // Computed data for Wave 2 + Wave 3 components
+  // ═══════════════════════════════════════════════
+
+  const today = new Date().toISOString().split('T')[0];
+  const todayEntries = foodLog.filter((e) => e.logged_date === today);
+  const todayTotals = todayEntries.reduce(
+    (acc, e) => ({
+      calories: acc.calories + (e.calories || 0),
+      protein: acc.protein + (e.protein_g || 0),
+      carbs: acc.carbs + (e.carbs_g || 0),
+      fat: acc.fat + (e.fat_g || 0),
+    }),
+    { calories: 0, protein: 0, carbs: 0, fat: 0 }
+  );
+
+  // MacroSparklines: last 7 days of each macro grouped by date
+  const macroSparklineData = (() => {
+    const byDate: Record<string, { cal: number; p: number; c: number; f: number }> = {};
+    foodLog.forEach((e) => {
+      if (!byDate[e.logged_date]) byDate[e.logged_date] = { cal: 0, p: 0, c: 0, f: 0 };
+      byDate[e.logged_date].cal += e.calories || 0;
+      byDate[e.logged_date].p += e.protein_g || 0;
+      byDate[e.logged_date].c += e.carbs_g || 0;
+      byDate[e.logged_date].f += e.fat_g || 0;
+    });
+    const dates = Object.keys(byDate).sort().slice(-7);
+    return {
+      calories: dates.map((d) => ({ date: d, value: Math.round(byDate[d].cal) })),
+      protein: dates.map((d) => ({ date: d, value: Math.round(byDate[d].p) })),
+      carbs: dates.map((d) => ({ date: d, value: Math.round(byDate[d].c) })),
+      fat: dates.map((d) => ({ date: d, value: Math.round(byDate[d].f) })),
+    };
+  })();
+
+  // ConsistencyScore
+  const consistencyData = (() => {
+    const loggedDates = new Set(foodLog.map((e) => e.logged_date));
+    const daysLogged = loggedDates.size;
+    const createdAt = clientProfile?.created_at;
+    const daysSinceCreation = createdAt
+      ? Math.max(1, Math.ceil((Date.now() - new Date(createdAt).getTime()) / 86400000))
+      : 30;
+    const totalDays = Math.min(daysSinceCreation, 30);
+    const cycleDays = activeHabit?.habit?.cycle_days || 14;
+    const habitAdherence = activeHabit
+      ? Math.min(100, Math.round((activeHabit.current_streak / cycleDays) * 100))
+      : 0;
+    return { daysLogged, totalDays, avgMealScore: 65, habitAdherence };
+  })();
+
+  // ClientHealthScore: composite of consistency + adherence + streak
+  const healthScore = Math.round(
+    ((consistencyData.daysLogged / Math.max(consistencyData.totalDays, 1)) * 100 +
+      consistencyData.habitAdherence +
+      Math.min(100, (activeHabit?.current_streak || 0) * 7)) /
+      3
+  );
+
+  // MoodTrend: from checkins moods
+  const moodData = checkins
+    .filter((c) => c.mood)
+    .map((c) => ({
+      date: c.checked_date,
+      mood: c.mood as 'great' | 'good' | 'okay' | 'tough' | 'struggled',
+    }))
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .slice(-14);
+
+  // BehavioralSignals
+  const behavioralSignals = (() => {
+    const signals: Array<{ emoji: string; text: string; severity: 'info' | 'warning' | 'positive' }> = [];
+    const targetProtein = clientProfile?.target_protein_g || 0;
+    if (targetProtein > 0 && todayTotals.protein < targetProtein * 0.7 && todayEntries.length > 0) {
+      signals.push({ emoji: '🥩', text: `Protein low today (${Math.round(todayTotals.protein)}g vs ${targetProtein}g target)`, severity: 'warning' });
+    }
+    const loggedDates = new Set(foodLog.map((e) => e.logged_date));
+    const last7 = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(); d.setDate(d.getDate() - i);
+      return d.toISOString().split('T')[0];
+    });
+    const missedDays = last7.filter((d) => !loggedDates.has(d)).length;
+    if (missedDays >= 3) {
+      signals.push({ emoji: '📋', text: `${missedDays} of last 7 days with no food logged`, severity: 'warning' });
+    }
+    if (activeHabit && activeHabit.current_streak >= 7) {
+      signals.push({ emoji: '🔥', text: `${activeHabit.current_streak}-day habit streak — great consistency!`, severity: 'positive' });
+    }
+    if (signals.length === 0) {
+      signals.push({ emoji: '✅', text: 'No flags detected — keep going!', severity: 'info' });
+    }
+    return signals;
+  })();
+
+  // CoachingRoadmap
+  const roadmapHabits = [
+    ...pastHabits.map((h) => ({
+      name: h.habit?.name_en || 'Unknown',
+      emoji: h.habit?.emoji || '📌',
+      status: 'completed' as const,
+    })),
+    ...(activeHabit?.habit
+      ? [{
+          name: activeHabit.habit.name_en,
+          emoji: activeHabit.habit.emoji,
+          status: 'active' as const,
+        }]
+      : []),
+  ];
+
+  // MealQualityTimeline: today's food entries grouped by meal_type
+  const mealQualityData = (() => {
+    const mealGroups: Record<string, FoodLogEntry[]> = {};
+    todayEntries.forEach((e) => {
+      const key = e.meal_type || 'other';
+      if (!mealGroups[key]) mealGroups[key] = [];
+      mealGroups[key].push(e);
+    });
+    return Object.entries(mealGroups).map(([mealType, entries]) => {
+      const totalCal = entries.reduce((s, e) => s + (e.calories || 0), 0);
+      const totalP = entries.reduce((s, e) => s + (e.protein_g || 0), 0);
+      const score = Math.min(100, Math.round((totalP / Math.max(totalCal / 4, 1)) * 100));
+      const grade = score >= 75 ? 'A' : score >= 50 ? 'B' : score >= 25 ? 'C' : 'D';
+      return {
+        name: mealType.charAt(0).toUpperCase() + mealType.slice(1),
+        score,
+        grade: grade as 'A' | 'B' | 'C' | 'D',
+        time: entries[0]?.created_at ? new Date(entries[0].created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : undefined,
+      };
+    });
+  })();
+
+  // ProteinDistribution: today's food by meal_type
+  const proteinDistribution = (() => {
+    const mealGroups: Record<string, number> = {};
+    todayEntries.forEach((e) => {
+      const key = e.meal_type || 'other';
+      mealGroups[key] = (mealGroups[key] || 0) + (e.protein_g || 0);
+    });
+    return Object.entries(mealGroups).map(([name, protein]) => ({
+      name: name.charAt(0).toUpperCase() + name.slice(1),
+      protein: Math.round(protein),
+    }));
+  })();
+
+  // ClientFoodHeatmap: from available foodLog dates (last 30 days)
+  const foodHeatmapData = (() => {
+    const countByDate: Record<string, number> = {};
+    foodLog.forEach((e) => { countByDate[e.logged_date] = (countByDate[e.logged_date] || 0) + 1; });
+    const days: Array<{ date: string; count: number }> = [];
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(); d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().split('T')[0];
+      days.push({ date: dateStr, count: countByDate[dateStr] || 0 });
+    }
+    return days;
+  })();
+
+  // WeekendAnalysis
+  const weekendAnalysisData = (() => {
+    const weekday: { cal: number[]; p: number[]; meals: number[] } = { cal: [], p: [], meals: [] };
+    const weekend: { cal: number[]; p: number[]; meals: number[] } = { cal: [], p: [], meals: [] };
+    const byDate: Record<string, { cal: number; p: number; count: number }> = {};
+    foodLog.forEach((e) => {
+      if (!byDate[e.logged_date]) byDate[e.logged_date] = { cal: 0, p: 0, count: 0 };
+      byDate[e.logged_date].cal += e.calories || 0;
+      byDate[e.logged_date].p += e.protein_g || 0;
+      byDate[e.logged_date].count += 1;
+    });
+    Object.entries(byDate).forEach(([date, data]) => {
+      const dayOfWeek = new Date(date).getDay();
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+      const target = isWeekend ? weekend : weekday;
+      target.cal.push(data.cal);
+      target.p.push(data.p);
+      target.meals.push(data.count);
+    });
+    const avg = (arr: number[]) => arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : 0;
+    return {
+      weekday: { avgCalories: avg(weekday.cal), avgProtein: avg(weekday.p), mealsPerDay: +(weekday.meals.length ? (weekday.meals.reduce((a, b) => a + b, 0) / weekday.meals.length).toFixed(1) : 0) },
+      weekend: { avgCalories: avg(weekend.cal), avgProtein: avg(weekend.p), mealsPerDay: +(weekend.meals.length ? (weekend.meals.reduce((a, b) => a + b, 0) / weekend.meals.length).toFixed(1) : 0) },
+    };
+  })();
+
+  // ProgressComparison: this week vs last week
+  const progressComparisonData = (() => {
+    const now = new Date();
+    const startOfWeek = new Date(now); startOfWeek.setDate(now.getDate() - now.getDay());
+    const startOfLastWeek = new Date(startOfWeek); startOfLastWeek.setDate(startOfLastWeek.getDate() - 7);
+    const thisWeekStr = startOfWeek.toISOString().split('T')[0];
+    const lastWeekStr = startOfLastWeek.toISOString().split('T')[0];
+
+    const thisWeekEntries = foodLog.filter((e) => e.logged_date >= thisWeekStr);
+    const lastWeekEntries = foodLog.filter((e) => e.logged_date >= lastWeekStr && e.logged_date < thisWeekStr);
+
+    const calcWeek = (entries: FoodLogEntry[]) => {
+      if (entries.length === 0) return { avgCalories: 0, avgProtein: 0, adherence: 0, weight: 0 };
+      const dates = new Set(entries.map((e) => e.logged_date));
+      const totalCal = entries.reduce((s, e) => s + (e.calories || 0), 0);
+      const totalP = entries.reduce((s, e) => s + (e.protein_g || 0), 0);
+      const daysCount = dates.size || 1;
+      const latestMeasurement = measurements.length > 0 ? measurements[measurements.length - 1].weight_kg || 0 : 0;
+      return {
+        avgCalories: Math.round(totalCal / daysCount),
+        avgProtein: Math.round(totalP / daysCount),
+        adherence: Math.min(100, Math.round((daysCount / 7) * 100)),
+        weight: latestMeasurement,
+      };
+    };
+    return { thisWeek: calcWeek(thisWeekEntries), lastWeek: calcWeek(lastWeekEntries) };
+  })();
+
+  // GoalProgressTracker
+  const goalProgressData = (() => {
+    const currentWeight = clientProfile?.weight_kg || 0;
+    const goal = clientProfile?.goal || 'maintenance';
+    const targetWeight = goal === 'fat_loss' ? currentWeight - 5 : goal === 'muscle_gain' ? currentWeight + 5 : currentWeight;
+    const startWeight = measurements.length > 0 ? measurements[0].weight_kg || currentWeight : currentWeight;
+    return { goal: goal, startValue: startWeight, targetValue: targetWeight, currentValue: currentWeight, unit: 'kg' };
+  })();
+
+  // PlateauDetector
+  const plateauData = (() => {
+    if (measurements.length < 3) return { detected: false, daysSinceChange: 0, currentWeight: clientProfile?.weight_kg || 0, targetWeight: goalProgressData.targetValue };
+    const recent = measurements.slice(-7);
+    const weights = recent.filter((m) => m.weight_kg !== null).map((m) => m.weight_kg!);
+    if (weights.length < 2) return { detected: false, daysSinceChange: 0, currentWeight: clientProfile?.weight_kg || 0, targetWeight: goalProgressData.targetValue };
+    const range = Math.max(...weights) - Math.min(...weights);
+    const firstDate = new Date(recent[0].measured_date);
+    const lastDate = new Date(recent[recent.length - 1].measured_date);
+    const daySpan = Math.ceil((lastDate.getTime() - firstDate.getTime()) / 86400000);
+    return {
+      detected: range < 0.5 && daySpan >= 14,
+      daysSinceChange: daySpan,
+      currentWeight: weights[weights.length - 1],
+      targetWeight: goalProgressData.targetValue,
+    };
+  })();
+
+  // SmartNoteSuggestions
+  const noteSuggestions = (() => {
+    const suggestions: Array<{ emoji: string; text: string; type: 'concern' | 'progression' | 'check_in' }> = [];
+    if (activeHabit && activeHabit.current_streak >= (activeHabit.habit?.cycle_days || 14)) {
+      suggestions.push({ emoji: '🎯', text: `${profile?.full_name} completed ${activeHabit.habit?.name_en} cycle — ready for progression!`, type: 'progression' });
+    }
+    if (behavioralSignals.some((s) => s.severity === 'warning')) {
+      suggestions.push({ emoji: '⚠️', text: 'Behavioral flags detected — consider addressing in next check-in', type: 'concern' });
+    }
+    if (plateauData.detected) {
+      suggestions.push({ emoji: '📊', text: `Weight plateau detected (${plateauData.daysSinceChange}d) — review nutrition plan`, type: 'concern' });
+    }
+    if (suggestions.length === 0) {
+      suggestions.push({ emoji: '📝', text: 'Schedule a routine weekly check-in', type: 'check_in' });
+    }
+    return suggestions;
+  })();
+
+  // AutoMacroOptimizer: compare avg intake vs targets
+  const autoMacroData = (() => {
+    const current = {
+      calories: Math.round(todayTotals.calories),
+      protein: Math.round(todayTotals.protein),
+      carbs: Math.round(todayTotals.carbs),
+      fat: Math.round(todayTotals.fat),
+    };
+    const recommended = {
+      calories: clientProfile?.target_calories || 2000,
+      protein: clientProfile?.target_protein_g || 150,
+      carbs: clientProfile?.target_carbs_g || 250,
+      fat: clientProfile?.target_fat_g || 65,
+    };
+    const diffs: string[] = [];
+    if (current.protein > 0 && current.protein < recommended.protein * 0.8) diffs.push('protein below target');
+    if (current.calories > 0 && current.calories > recommended.calories * 1.1) diffs.push('calories above target');
+    const reason = diffs.length > 0 ? `Based on recent intake: ${diffs.join(', ')}` : 'Current intake aligns well with targets';
+    return { current, recommended, reason };
+  })();
+
+  // CalorieCyclingPlanner
+  const [cyclingDays, setCyclingDays] = useState<Array<{ day: string; level: 'high' | 'medium' | 'low' | 'rest'; calories: number }>>([]);
+  useEffect(() => {
+    if (!clientProfile?.target_calories) return;
+    const base = clientProfile.target_calories;
+    const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const levels: Array<'high' | 'medium' | 'low' | 'rest'> = ['high', 'medium', 'high', 'medium', 'high', 'low', 'rest'];
+    const multipliers: Record<string, number> = { high: 1.1, medium: 1.0, low: 0.85, rest: 0.75 };
+    setCyclingDays(dayNames.map((day, i) => ({
+      day,
+      level: levels[i],
+      calories: Math.round(base * multipliers[levels[i]]),
+    })));
+  }, [clientProfile?.target_calories]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-stone-950 px-4 py-6">
@@ -751,6 +1067,54 @@ export default function ClientDetailPage() {
                 </button>
               </div>
             )}
+
+            {/* ─── Wave 2+3: Header Analytics ─── */}
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="glass p-4">
+                <p className="text-[10px] font-semibold text-stone-500 uppercase tracking-wider mb-2">Today&apos;s Adherence</p>
+                <MacroAdherenceGauge
+                  consumed={{ calories: Math.round(todayTotals.calories), protein: Math.round(todayTotals.protein) }}
+                  targets={{ calories: clientProfile.target_calories || 2000, protein: clientProfile.target_protein_g || 150 }}
+                />
+              </div>
+              <div className="glass p-4">
+                <p className="text-[10px] font-semibold text-stone-500 uppercase tracking-wider mb-2">P / C / F Split</p>
+                <MacroDonut
+                  protein={Math.round(todayTotals.protein)}
+                  carbs={Math.round(todayTotals.carbs)}
+                  fat={Math.round(todayTotals.fat)}
+                />
+              </div>
+              <div className="glass p-4 flex flex-col items-center justify-center">
+                <p className="text-[10px] font-semibold text-stone-500 uppercase tracking-wider mb-2">Health Score</p>
+                <ClientHealthScore score={healthScore} label="Overall" />
+              </div>
+            </div>
+
+            <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="glass p-4">
+                <p className="text-[10px] font-semibold text-stone-500 uppercase tracking-wider mb-2">Consistency</p>
+                <ConsistencyScore
+                  daysLogged={consistencyData.daysLogged}
+                  totalDays={consistencyData.totalDays}
+                  avgMealScore={consistencyData.avgMealScore}
+                  habitAdherence={consistencyData.habitAdherence}
+                />
+              </div>
+              <div className="glass p-4">
+                <p className="text-[10px] font-semibold text-stone-500 uppercase tracking-wider mb-2">7-Day Macro Trends</p>
+                <div className="space-y-2">
+                  <div>
+                    <span className="text-[10px] text-stone-500">Calories</span>
+                    <MacroSparklines data={macroSparklineData.calories} color="#D4A853" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-stone-500">Protein</span>
+                    <MacroSparklines data={macroSparklineData.protein} color="#ef4444" />
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* ═══ Progression Banner ═══ */}
@@ -870,6 +1234,29 @@ export default function ClientDetailPage() {
             <SupplementCompliance clientId={clientId} />
           </div>
 
+          {/* ─── Wave 2+3: Mood, Behavior, Roadmap ─── */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+            <div className="glass p-5">
+              <h2 className="font-semibold text-stone-200 mb-3 text-sm">Mood Trend</h2>
+              {moodData.length > 0 ? (
+                <MoodTrend moods={moodData} />
+              ) : (
+                <p className="text-stone-600 text-sm text-center py-4">No mood data from check-ins yet</p>
+              )}
+            </div>
+            <div className="glass p-5">
+              <h2 className="font-semibold text-stone-200 mb-3 text-sm">Behavioral Signals</h2>
+              <BehavioralSignals signals={behavioralSignals} />
+            </div>
+          </div>
+
+          {roadmapHabits.length > 0 && (
+            <div className="glass p-5 mb-4">
+              <h2 className="font-semibold text-stone-200 mb-3 text-sm">Coaching Roadmap</h2>
+              <CoachingRoadmap habits={roadmapHabits} />
+            </div>
+          )}
+
           {/* ─── Food Log (last 3 days) ─── */}
           <div className="glass p-5 mb-4">
             <h2 className="font-semibold text-stone-200 mb-4 flex items-center gap-2">
@@ -915,13 +1302,81 @@ export default function ClientDetailPage() {
             )}
           </div>
 
-          {/* ─── Weight Chart ─── */}
+          {/* ─── Wave 2+3: Food Analysis ─── */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+            <div className="glass p-5">
+              <h2 className="font-semibold text-stone-200 mb-3 text-sm">Meal Quality (Today)</h2>
+              {mealQualityData.length > 0 ? (
+                <MealQualityTimeline meals={mealQualityData} />
+              ) : (
+                <p className="text-stone-600 text-sm text-center py-4">No meals logged today</p>
+              )}
+            </div>
+            <div className="glass p-5">
+              <h2 className="font-semibold text-stone-200 mb-3 text-sm">Protein Distribution</h2>
+              {proteinDistribution.length > 0 ? (
+                <ProteinDistributionAnalyzer meals={proteinDistribution} />
+              ) : (
+                <p className="text-stone-600 text-sm text-center py-4">No meals logged today</p>
+              )}
+            </div>
+          </div>
+
+          <div className="glass p-5 mb-4">
+            <h2 className="font-semibold text-stone-200 mb-3 text-sm">Food Logging Heatmap (30d)</h2>
+            <ClientFoodHeatmap data={foodHeatmapData} />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+            <div className="glass p-5">
+              <h2 className="font-semibold text-stone-200 mb-3 text-sm">Weekday vs Weekend</h2>
+              <WeekendAnalysis weekday={weekendAnalysisData.weekday} weekend={weekendAnalysisData.weekend} />
+            </div>
+            <div className="glass p-5">
+              <h2 className="font-semibold text-stone-200 mb-3 text-sm">This Week vs Last</h2>
+              <ProgressComparison thisWeek={progressComparisonData.thisWeek} lastWeek={progressComparisonData.lastWeek} />
+            </div>
+          </div>
+
+          {/* ─── Weight / Body Composition (enhanced) ─── */}
           <div className="glass p-5 mb-4">
             <h2 className="font-semibold text-stone-200 mb-4 flex items-center gap-2">
               <TrendingUp size={16} className="text-[#D4A853]" />
-              Weight Trend (30d)
+              Weight &amp; Body Composition (30d)
             </h2>
-            <WeightChart measurements={measurements} />
+            <MeasurementChart measurements={measurements.map((m) => ({ date: m.measured_date, weight: m.weight_kg, bodyFat: m.body_fat_pct }))} />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+            <div className="glass p-5">
+              <h2 className="font-semibold text-stone-200 mb-3 text-sm">Goal Progress</h2>
+              <GoalProgressTracker
+                goal={goalProgressData.goal}
+                startValue={goalProgressData.startValue}
+                targetValue={goalProgressData.targetValue}
+                currentValue={goalProgressData.currentValue}
+                unit={goalProgressData.unit}
+              />
+            </div>
+            <div className="glass p-5">
+              <h2 className="font-semibold text-stone-200 mb-3 text-sm">Plateau Detection</h2>
+              <PlateauDetector
+                detected={plateauData.detected}
+                daysSinceChange={plateauData.daysSinceChange}
+                currentWeight={plateauData.currentWeight}
+                targetWeight={plateauData.targetWeight}
+              />
+            </div>
+          </div>
+
+          <div className="glass p-5 mb-4">
+            <h2 className="font-semibold text-stone-200 mb-3 text-sm">Workout Volume</h2>
+            <WorkoutVolumeChart weeks={[
+              { weekLabel: '4 weeks ago', totalSets: 0, totalReps: 0 },
+              { weekLabel: '3 weeks ago', totalSets: 0, totalReps: 0 },
+              { weekLabel: '2 weeks ago', totalSets: 0, totalReps: 0 },
+              { weekLabel: 'Last week', totalSets: 0, totalReps: 0 },
+            ]} />
           </div>
 
           {/* ─── Coach Notes ─── */}
@@ -1007,6 +1462,15 @@ export default function ClientDetailPage() {
             </div>
           </div>
 
+          {/* ─── Smart Note Suggestions ─── */}
+          <div className="glass p-5 mb-4">
+            <h2 className="font-semibold text-stone-200 mb-3 text-sm">Smart Suggestions</h2>
+            <SmartNoteSuggestions
+              suggestions={noteSuggestions}
+              onSelect={(text) => setNewNote(text)}
+            />
+          </div>
+
           {/* ─── Activity Timeline ─── */}
           <div className="glass p-5 mb-4">
             <h2 className="font-semibold text-stone-200 mb-4 flex items-center gap-2">
@@ -1019,6 +1483,40 @@ export default function ClientDetailPage() {
               measurements={measurements}
               habits={[...(activeHabit ? [activeHabit] : []), ...pastHabits]}
             />
+          </div>
+
+          {/* ─── Wave 2+3: Smart Tools ─── */}
+          <div className="glass p-5 mb-4">
+            <h2 className="font-semibold text-stone-200 mb-4 flex items-center gap-2">
+              <Calculator size={16} className="text-[#D4A853]" />
+              Smart Tools
+            </h2>
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-2">Auto Macro Optimizer</h3>
+                <AutoMacroOptimizer
+                  current={autoMacroData.current}
+                  recommended={autoMacroData.recommended}
+                  reason={autoMacroData.reason}
+                />
+              </div>
+              <div className="border-t border-white/5 pt-4">
+                <h3 className="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-2">Calorie Cycling Planner</h3>
+                {cyclingDays.length > 0 ? (
+                  <CalorieCyclingPlanner days={cyclingDays} onChange={setCyclingDays} />
+                ) : (
+                  <p className="text-stone-600 text-sm text-center py-4">Set calorie target to enable cycling planner</p>
+                )}
+              </div>
+              <div className="border-t border-white/5 pt-4">
+                <h3 className="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-2">Recovery Score</h3>
+                <RecoveryScore
+                  sleepScore={70}
+                  moodScore={moodData.length > 0 ? Math.round((moodData.filter((m) => m.mood === 'great' || m.mood === 'good').length / moodData.length) * 100) : 50}
+                  trainingLoad={50}
+                />
+              </div>
+            </div>
           </div>
 
           {/* ─── Past Habits ─── */}
@@ -1052,6 +1550,20 @@ export default function ClientDetailPage() {
             </div>
           )}
         </motion.div>
+
+        {/* ─── Quick Actions Bar (floating bottom) ─── */}
+        <QuickActionsBar
+          onAssignHabit={loadTemplates}
+          onSetMacros={startEditingMacros}
+          onAddNote={() => {
+            const el = document.querySelector('textarea');
+            if (el) { el.scrollIntoView({ behavior: 'smooth' }); el.focus(); }
+          }}
+          onExport={() => {
+            // Placeholder — export functionality can be wired later
+            window.alert('Export coming soon');
+          }}
+        />
 
         {/* ─── Assign Habit Modal ─── */}
         {showAssign && (

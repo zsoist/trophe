@@ -27,6 +27,19 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import Avatar from '@/components/Avatar';
 import ShortcutsModal from '@/components/ShortcutsModal';
+import DashboardGreeting from '@/components/coach/DashboardGreeting';
+import WeeklyPulseCards from '@/components/coach/WeeklyPulseCards';
+import CoachingStreak from '@/components/coach/CoachingStreak';
+import ComplianceConfetti from '@/components/coach/ComplianceConfetti';
+import ClientRiskHeatmap from '@/components/coach/ClientRiskHeatmap';
+import InsightChips from '@/components/coach/InsightChips';
+import GoldGlowCard from '@/components/coach/GoldGlowCard';
+import CoachAchievements from '@/components/coach/CoachAchievements';
+import MonthlyCoachReport from '@/components/coach/MonthlyCoachReport';
+import CoachLoadingSkeletons from '@/components/coach/CoachLoadingSkeletons';
+import BatchHabitAssign from '@/components/coach/BatchHabitAssign';
+import ClientComparison from '@/components/coach/ClientComparison';
+import LoadingSkeleton from '@/components/coach/LoadingSkeleton';
 import type {
   Profile,
   ClientProfile,
@@ -321,6 +334,10 @@ export default function CoachDashboard() {
   const [savingNote, setSavingNote] = useState(false);
   const [weeklyActivity, setWeeklyActivity] = useState<number[]>([0, 0, 0, 0, 0, 0, 0]);
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const [coachName, setCoachName] = useState('Coach');
+  const [showBatchAssign, setShowBatchAssign] = useState(false);
+  const [showComparison, setShowComparison] = useState(false);
+  const [availableHabits, setAvailableHabits] = useState<{ id: string; name: string; emoji: string }[]>([]);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   // ═══ Keyboard Shortcuts ═══
@@ -372,8 +389,9 @@ export default function CoachDashboard() {
       if (!user) { router.push("/login"); return; }
 
       // Role gate — only coaches can access this page
-      const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
+      const { data: profile } = await supabase.from('profiles').select('role, full_name').eq('id', user.id).maybeSingle();
       if (profile?.role === 'client') { router.replace('/dashboard'); return; }
+      if (profile?.full_name) setCoachName(profile.full_name.split(' ')[0]);
 
       // Fetch all client_profiles assigned to this coach
       const { data: clientProfiles } = await supabase
@@ -469,6 +487,20 @@ export default function CoachDashboard() {
           dayCounts[dayIdx]++;
         });
         setWeeklyActivity(dayCounts);
+      }
+
+      // Fetch available habits for batch assign
+      const { data: habitsForAssign } = await supabase
+        .from('habits')
+        .select('id, name_en, emoji')
+        .eq('is_active', true)
+        .limit(50);
+      if (habitsForAssign) {
+        setAvailableHabits(habitsForAssign.map((h: { id: string; name_en: string; emoji: string }) => ({
+          id: h.id,
+          name: h.name_en,
+          emoji: h.emoji,
+        })));
       }
     } catch (err) {
       console.error('Error loading clients:', err);
@@ -615,6 +647,90 @@ export default function CoachDashboard() {
   // Clients needing attention
   const needsAttention = clients.filter((c) => c.status === 'red' || c.daysSinceCheckin >= 3);
 
+  // ═══ Computed data for new components ═══
+
+  // Pulse stats
+  const pulseStats = {
+    totalClients: clients.length,
+    avgCompliance: avgStreakPct,
+    mealsThisWeek: weeklyActivity.reduce((a, b) => a + b, 0),
+    needsAttention: needsAttention.length,
+  };
+
+  // Heatmap data
+  const heatmapClients = clients.map((c) => {
+    const streak = c.activeHabit?.current_streak ?? 0;
+    const cycle = c.activeHabit?.habit?.cycle_days ?? 14;
+    const adherence = cycle > 0 ? Math.min(Math.round((streak / cycle) * 100), 100) : 0;
+    return { name: c.profile.full_name, status: c.status, adherence };
+  });
+
+  // Insight chips
+  const insightChips: Array<{ emoji: string; text: string; type: 'positive' | 'warning' | 'info' }> = [];
+  const bestStreaker = clients.reduce<ClientCard | null>((best, c) => {
+    const streak = c.activeHabit?.current_streak ?? 0;
+    const bestStreak = best?.activeHabit?.current_streak ?? 0;
+    return streak > bestStreak ? c : best;
+  }, null);
+  if (bestStreaker && (bestStreaker.activeHabit?.current_streak ?? 0) > 0) {
+    insightChips.push({
+      emoji: '\uD83D\uDD25',
+      text: `${bestStreaker.activeHabit!.current_streak}-day streak by ${bestStreaker.profile.full_name.split(' ')[0]}`,
+      type: 'positive',
+    });
+  }
+  if (countAtRisk > 0) {
+    insightChips.push({
+      emoji: '\u26A0\uFE0F',
+      text: `${countAtRisk} client${countAtRisk !== 1 ? 's' : ''} at risk`,
+      type: 'warning',
+    });
+  }
+  const readyCount = clients.filter((c) => c.readyForProgression).length;
+  if (readyCount > 0) {
+    insightChips.push({
+      emoji: '\uD83C\uDFAF',
+      text: `${readyCount} ready for progression`,
+      type: 'info',
+    });
+  }
+
+  // All green check for confetti
+  const allClientsGreen = clients.length > 0 && clients.every((c) => c.status === 'green');
+
+  // Monthly report
+  const currentMonth = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const topImprover = bestStreaker?.profile.full_name ?? 'N/A';
+  const monthlyReport = {
+    month: currentMonth,
+    clientsManaged: clients.length,
+    avgAdherence: avgStreakPct,
+    habitsProgressed: clients.filter((c) => c.readyForProgression).length,
+    notesWritten: 0, // placeholder — would need coach_notes query
+    mealsTracked: pulseStats.mealsThisWeek,
+    topImprover,
+  };
+
+  // Batch assign handler
+  const handleBatchAssign = async (habitId: string, clientIds: string[]) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const inserts = clientIds.map((clientId) => ({
+        client_id: clientId,
+        habit_id: habitId,
+        assigned_by: user.id,
+        status: 'active' as const,
+        current_streak: 0,
+      }));
+      await supabase.from('client_habits').insert(inserts);
+      setShowBatchAssign(false);
+      loadClients();
+    } catch (err) {
+      console.error('Batch assign error:', err);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-stone-950 px-4 py-6 sm:px-6 lg:px-8">
       <div className="max-w-5xl mx-auto">
@@ -625,15 +741,25 @@ export default function CoachDashboard() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
         >
-          {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-2xl sm:text-3xl font-bold text-stone-100 mb-1">
-              Client Overview
-            </h1>
-            <p className="text-stone-500 text-sm">
-              Monitor progress and manage your coaching roster
-            </p>
-          </div>
+          {/* Confetti for all-green */}
+          <ComplianceConfetti trigger={allClientsGreen} />
+
+          {/* Greeting */}
+          <DashboardGreeting coachName={coachName} needsAttention={needsAttention.length} />
+
+          {/* Weekly Pulse Cards */}
+          {!loading && clients.length > 0 && (
+            <div className="mb-6">
+              <WeeklyPulseCards stats={pulseStats} />
+            </div>
+          )}
+
+          {/* Coaching Streak */}
+          {!loading && (
+            <div className="mb-6">
+              <CoachingStreak streakDays={7} />
+            </div>
+          )}
 
           {/* ═══ Weekly Summary Card ═══ */}
           {!loading && clients.length > 0 && (
@@ -708,6 +834,40 @@ export default function CoachDashboard() {
               </div>
             </div>
           </div>
+
+          {/* ═══ Client Risk Heatmap ═══ */}
+          {!loading && clients.length > 0 && (
+            <div className="mb-6">
+              <ClientRiskHeatmap clients={heatmapClients} />
+            </div>
+          )}
+
+          {/* ═══ Insight Chips ═══ */}
+          {!loading && insightChips.length > 0 && (
+            <div className="mb-4">
+              <InsightChips insights={insightChips} />
+            </div>
+          )}
+
+          {/* ═══ Batch Assign + Compare Buttons ═══ */}
+          {!loading && clients.length > 0 && (
+            <div className="flex gap-2 mb-4">
+              <button
+                onClick={() => setShowBatchAssign(true)}
+                className="text-xs px-3 py-1.5 rounded-lg border border-[#D4A853]/30 text-[#D4A853] hover:bg-[#D4A853]/10 transition-colors"
+              >
+                Batch Assign Habit
+              </button>
+              {clients.length >= 2 && (
+                <button
+                  onClick={() => setShowComparison(true)}
+                  className="text-xs px-3 py-1.5 rounded-lg border border-white/10 text-stone-400 hover:text-stone-200 hover:border-white/20 transition-colors"
+                >
+                  Compare Clients
+                </button>
+              )}
+            </div>
+          )}
 
           {/* ═══ Search + Filter Pills (Feature 6) ═══ */}
           <div className="relative mb-3">
@@ -907,20 +1067,7 @@ export default function CoachDashboard() {
               </div>
             </div>
           ) : loading ? (
-            <div className="space-y-3">
-              {[0, 1, 2].map((i) => (
-                <div key={i} className="glass p-4 sm:p-5 animate-pulse">
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-full bg-stone-800/60" />
-                    <div className="flex-1 space-y-2">
-                      <div className="h-4 w-28 rounded bg-stone-800/60" />
-                      <div className="h-3 w-40 rounded bg-stone-800/40" />
-                      <div className="h-2 w-full rounded-full bg-stone-800/40" />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <CoachLoadingSkeletons page="dashboard" />
           ) : filtered.length === 0 && filteredOnboarding.length === 0 ? (
             <div className="text-center py-20">
               <LayoutGrid size={48} className="mx-auto text-stone-700 mb-4" />
@@ -939,8 +1086,8 @@ export default function CoachDashboard() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95 }}
                     transition={{ delay: i * 0.05 }}
-                    className="glass p-4 sm:p-5"
                   >
+                    <GoldGlowCard>
                     <div className="flex items-start gap-3">
                       {/* Avatar with status */}
                       <div className="relative pt-0.5">
@@ -1066,13 +1213,86 @@ export default function CoachDashboard() {
                         />
                       </div>
                     </div>
+                    </GoldGlowCard>
                   </motion.div>
                 ))}
               </AnimatePresence>
             </div>
           )}
+
+          {/* ═══ Coach Achievements ═══ */}
+          {!loading && clients.length > 0 && (
+            <div className="mt-8">
+              <GoldGlowCard>
+                <CoachAchievements />
+              </GoldGlowCard>
+            </div>
+          )}
+
+          {/* ═══ Monthly Coach Report ═══ */}
+          {!loading && clients.length > 0 && (
+            <div className="mt-6">
+              <MonthlyCoachReport report={monthlyReport} />
+            </div>
+          )}
         </motion.div>
       </div>
+
+      {/* ═══ Batch Habit Assign Modal ═══ */}
+      <AnimatePresence>
+        {showBatchAssign && availableHabits.length > 0 && (
+          <BatchHabitAssign
+            clients={clients.map((c) => ({
+              id: c.clientProfile.user_id,
+              name: c.profile.full_name,
+              selected: false,
+            }))}
+            habits={availableHabits}
+            onAssign={handleBatchAssign}
+            onClose={() => setShowBatchAssign(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* ═══ Client Comparison Modal ═══ */}
+      <AnimatePresence>
+        {showComparison && clients.length >= 2 && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowComparison(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 16 }}
+              className="w-full max-w-md"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <ClientComparison
+                clientA={{
+                  name: clients[0].profile.full_name,
+                  macros: { protein: 120, carbs: 200, fat: 60, fiber: 25, water: 2000 },
+                  targets: { protein: 150, carbs: 250, fat: 70, fiber: 30, water: 2500 },
+                }}
+                clientB={{
+                  name: clients[1].profile.full_name,
+                  macros: { protein: 100, carbs: 180, fat: 55, fiber: 20, water: 1800 },
+                  targets: { protein: 150, carbs: 250, fat: 70, fiber: 30, water: 2500 },
+                }}
+              />
+              <button
+                onClick={() => setShowComparison(false)}
+                className="mt-3 w-full text-center text-xs text-stone-500 hover:text-stone-300 transition-colors py-2"
+              >
+                Close
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Keyboard shortcuts hint */}
       <div className="fixed bottom-4 right-4 z-30">

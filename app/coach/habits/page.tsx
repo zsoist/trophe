@@ -14,6 +14,7 @@ import {
 import { supabase } from '@/lib/supabase';
 import type { Habit, HabitCategory, HabitDifficulty } from '@/lib/types';
 import { CoachNav } from '../page';
+import CoachLoadingSkeletons from '@/components/coach/CoachLoadingSkeletons';
 
 // ═══════════════════════════════════════════════
 // Constants
@@ -234,7 +235,7 @@ export default function HabitsPage() {
 
           {/* Habit Cards */}
           {loading ? (
-            <div className="text-center py-20 text-stone-500">Loading habits...</div>
+            <CoachLoadingSkeletons page="habits" />
           ) : filtered.length === 0 ? (
             <div className="text-center py-20">
               <Dumbbell size={48} className="mx-auto text-stone-700 mb-4" />

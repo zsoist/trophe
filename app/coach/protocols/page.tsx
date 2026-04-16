@@ -18,6 +18,8 @@ import {
 import { supabase } from '@/lib/supabase';
 import type { SupplementProtocol, SupplementItem, Profile, ClientProfile } from '@/lib/types';
 import { CoachNav } from '../page';
+import CoachLoadingSkeletons from '@/components/coach/CoachLoadingSkeletons';
+import ProtocolTemplateLibrary from '@/components/coach/ProtocolTemplateLibrary';
 
 // ═══════════════════════════════════════════════
 // Constants
@@ -246,9 +248,26 @@ export default function ProtocolsPage() {
             </button>
           </div>
 
+          {/* Protocol Template Library */}
+          <ProtocolTemplateLibrary
+            onSelect={(protocol) => {
+              setFormName(protocol.name);
+              setFormSupplements(
+                protocol.supplements.map((s) => ({
+                  name: s.name,
+                  dose: s.dose,
+                  timing: s.timing,
+                  notes: '',
+                  evidence_level: protocol.evidenceLevel as 'A' | 'B' | 'C' | 'D',
+                }))
+              );
+              setShowForm(true);
+            }}
+          />
+
           {/* Protocol List */}
           {loading ? (
-            <div className="text-center py-20 text-stone-500">Loading protocols...</div>
+            <CoachLoadingSkeletons page="protocols" />
           ) : protocols.length === 0 ? (
             <div className="text-center py-20">
               <FlaskConical size={48} className="mx-auto text-stone-700 mb-4" />
