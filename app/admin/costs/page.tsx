@@ -35,8 +35,8 @@ export default function CostDashboard() {
         .eq('id', user.id)
         .maybeSingle();
 
-      // Allow if email matches Daniel or role is 'both' (coach+client)
-      if (profile?.email === 'daniel@reyes.com' || profile?.role === 'both') {
+      // Only allow Daniel (admin) — role='both' should NOT grant admin access
+      if (profile?.email === 'daniel@reyes.com') {
         setAuthorized(true);
       } else {
         router.push('/dashboard');

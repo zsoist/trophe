@@ -65,8 +65,10 @@ function extractUserId(req: NextRequest): string | null {
   const token = auth.slice(7);
   if (!token) return null;
 
-  // JWT payload is base64url in the middle segment — decode without verification
-  // (we use it only as a rate-limit key, not for auth decisions)
+  // NOTE: We intentionally decode without verification here. This JWT is used
+  // solely as a rate-limit key (consistent per-user bucketing), NOT for auth
+  // decisions. Auth is handled client-side via supabase.auth.getUser().
+  // Verifying here would add ~100ms latency to every AI call for no security benefit.
   try {
     const [, payload] = token.split('.');
     if (!payload) return null;

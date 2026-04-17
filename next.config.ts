@@ -12,9 +12,19 @@ const nextConfig: NextConfig = {
           { key: 'X-Frame-Options', value: 'DENY' },
           { key: 'X-XSS-Protection', value: '1; mode=block' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-          // CSP removed 2026-04-15: was blocking Supabase fetch on mobile browsers.
-          // Wildcard *.supabase.co not reliably supported across all mobile browsers.
-          // Keep the other security headers. Re-add CSP with explicit domain after testing.
+          {
+            key: 'Content-Security-Policy',
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://cdn.jsdelivr.net",
+              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+              "font-src 'self' https://fonts.gstatic.com",
+              "img-src 'self' data: blob: https:",
+              "connect-src 'self' https://iwbpzwmidzvpiofnqexd.supabase.co https://api.nal.usda.gov https://generativelanguage.googleapis.com https://api.anthropic.com",
+              "media-src 'self' blob:",
+              "worker-src 'self' blob:",
+            ].join('; '),
+          },
         ],
       },
     ];

@@ -97,8 +97,8 @@ export default function FoodSearchModal({
         ]);
 
         const localData: SearchResult[] =
-          localRes.status === 'fulfilled' && Array.isArray(localRes.value)
-            ? localRes.value.map((f: Record<string, unknown>) => ({
+          localRes.status === 'fulfilled' && Array.isArray(localRes.value?.foods)
+            ? localRes.value.foods.map((f: Record<string, unknown>) => ({
                 name: f.name as string,
                 calories: (f.calories as number) ?? 0,
                 protein_g: (f.protein_g as number) ?? 0,
