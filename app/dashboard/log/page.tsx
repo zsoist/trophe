@@ -132,9 +132,15 @@ function getTargetColor(consumed: number, target: number): string {
   if (target === 0) return 'text-stone-500';
   const pct = consumed / target;
   if (pct > 1.1) return 'text-red-400';
-  if (pct > 0.85) return 'text-green-400';
-  if (pct > 0.5) return 'gold-text';
-  return 'text-stone-400';
+  if (pct >= 0.9) return 'gold-text';
+  return 'text-green-400';
+}
+
+// Ring stroke color based on percentage
+function getRingColor(pct: number, baseColor: string): string {
+  if (pct > 1.1) return '#ef4444';   // Red — over target
+  if (pct >= 0.9) return '#D4A853';  // Gold — near/at target
+  return baseColor;                   // Base color — under target, keep going
 }
 
 // Health tips — context-aware, rotates hourly. 7 days × ~3 tips/day = 21+ unique tips
@@ -717,8 +723,9 @@ export default function FoodLogPage() {
             </div>
           </div>
 
-          {/* F17: Mini macro rings */}
+          {/* F17: Mini macro rings with labels */}
           {targets.calories > 0 && (
+            <>
             <div className="mt-3 grid grid-cols-4 gap-2">
               {[
                 { label: 'Cal', consumed: totalCalories, target: targets.calories, color: '#D4A853' },
@@ -730,25 +737,41 @@ export default function FoodLogPage() {
                 const r = 14;
                 const circ = 2 * Math.PI * r;
                 const offset = circ * (1 - Math.min(pct, 1));
+                const strokeColor = getRingColor(pct, color);
                 return (
-                  <div key={label} className="flex items-center justify-center gap-1.5">
-                    <svg width="32" height="32" className="-rotate-90">
-                      <circle cx="16" cy="16" r={r} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="3" />
-                      <motion.circle
-                        cx="16" cy="16" r={r} fill="none"
-                        stroke={pct > 1 ? '#ef4444' : color}
-                        strokeWidth="3" strokeLinecap="round"
-                        strokeDasharray={circ}
-                        initial={{ strokeDashoffset: circ }}
-                        animate={{ strokeDashoffset: offset }}
-                        transition={{ duration: 0.8, ease: 'easeOut' }}
-                      />
-                    </svg>
-                    <span className="text-[9px] text-stone-500">{Math.round(pct * 100)}%</span>
+                  <div key={label} className="flex flex-col items-center gap-0.5">
+                    <div className="flex items-center gap-1.5">
+                      <svg width="32" height="32" className="-rotate-90">
+                        <circle cx="16" cy="16" r={r} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="3" />
+                        <motion.circle
+                          cx="16" cy="16" r={r} fill="none"
+                          stroke={strokeColor}
+                          strokeWidth="3" strokeLinecap="round"
+                          strokeDasharray={circ}
+                          initial={{ strokeDashoffset: circ }}
+                          animate={{ strokeDashoffset: offset }}
+                          transition={{ duration: 0.8, ease: 'easeOut' }}
+                        />
+                      </svg>
+                      <span className={`text-[9px] ${pct > 1.1 ? 'text-red-400' : pct >= 0.9 ? 'gold-text' : 'text-stone-500'}`}>{Math.round(pct * 100)}%</span>
+                    </div>
+                    <span className="text-[8px] text-stone-600 text-center">{label}</span>
                   </div>
                 );
               })}
             </div>
+            {/* Sugar estimate from carbs */}
+            {totalCarbs > 0 && (
+              <div className="mt-2 flex items-center justify-center gap-1">
+                <span className="text-stone-500 text-[10px]">
+                  Sugar est: ~{Math.round(totalCarbs * 0.45)}g / 36g limit
+                </span>
+                <span className="text-stone-600 text-[9px]" title="Estimated from total carbs (~45% of carbs). WHO recommends max 25-36g added sugar/day.">
+                  &#9432;
+                </span>
+              </div>
+            )}
+            </>
           )}
 
           {/* Progress bar */}
