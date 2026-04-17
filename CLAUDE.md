@@ -13,7 +13,7 @@
 - **19 database tables** (incl api_usage_log, form_analyses) | **43 RLS policies** | **23 indexes** (8 FK indexes added Apr 14)
 - **113 exercises** (30 base + 83 gym expansion) | **126 foods** | **20 Greek foods** | **10 habits**
 - **90+ features** shipped across 11 iterations + 28-fix security audit + 50 coach components + dashboard overhaul
-- **0 TypeScript errors** (strict mode ON) | **0 console errors** | **Codex score: improved** (Apr 16 evening, admin costs guarded, CSP re-added, dead code removed)
+- **0 TypeScript errors** (strict mode ON) | **0 console errors** | **Codex score: 5.6/10** (Apr 17 morning, up from 4.6 — food accuracy fixes, 0 CRITICAL, 3 HIGH deferred, 7 MEDIUM open)
 
 ## Architecture
 - Two roles: `client` and `coach` (and `both`)
@@ -252,6 +252,8 @@ git config user.email "zsoist@users.noreply.github.com"
 - AI protein calibration needs exact USDA values in system prompt — CRITICAL ACCURACY RULES (eggs 6g, chicken breast 31g/100g, rice 2.7g/100g, etc.)
 - Math validation required: cal = P*4 + C*4 + F*9 (parser must self-check)
 - sugar_g field added to ParsedFoodItem — WHO 36g daily limit for men
+- `2026-04-17`: Serving sizes 20-30% too large, protein overestimated — AI parser inflates portion sizes without explicit gram anchors. Always anchor common foods to USDA gram weights in system prompt; vague "1 portion" drifts large.
+- `2026-04-17` (DEEP FIX): AI food parser was overestimating protein 20-30% due to oversized default serving sizes. Fix: use realistic portions (yogurt 150g not 170g, chicken 120g palm not 175g, feta 30g not 100g, rice 150g not 185g). 22 DB defaults patched + AI parser system prompt updated with SERVING SIZE RULES (13 explicit gram defaults). 21 existing DB rows rewritten (13 eggs 12.4→6.3g/egg, 5 yogurts 17→15g, 1 pork 35.6→32.4g, 2 feta 14.2→4.2g). Commit 90a83c6. Codex score 4.6→5.6.
 
 ### CSP / Security Headers (April 16)
 - CSP must use explicit Supabase domain (iwbpzwmidzvpiofnqexd.supabase.co), not wildcard *.supabase.co
