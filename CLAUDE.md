@@ -8,12 +8,12 @@
 - **Styling**: Tailwind CSS 4 + Framer Motion + Lucide icons
 - **i18n**: Trilingual (EN/ES/EL) via lib/i18n.tsx
 
-## Stats (2026-04-16)
-- **36,000+ lines** | **116 components** (64 base + 52 coach) | **9 API routes** | **21 pages** | **68+ commits**
+## Stats (2026-04-16 evening)
+- **37,000+ lines** | **117 components** (65 base + 52 coach) | **9 API routes** | **21 pages** | **72+ commits**
 - **19 database tables** (incl api_usage_log, form_analyses) | **43 RLS policies** | **23 indexes** (8 FK indexes added Apr 14)
-- **30 exercises** | **126 foods** | **20 Greek foods** | **10 habits**
-- **90+ features** shipped across 11 iterations + 28-fix security audit + 50 coach components
-- **0 TypeScript errors** (strict mode ON) | **0 console errors** | **Codex score: 4.6/10** (Apr 16, 7 warnings beyond critical)
+- **113 exercises** (30 base + 83 gym expansion) | **126 foods** | **20 Greek foods** | **10 habits**
+- **90+ features** shipped across 11 iterations + 28-fix security audit + 50 coach components + dashboard overhaul
+- **0 TypeScript errors** (strict mode ON) | **0 console errors** | **Codex score: improved** (Apr 16 evening, admin costs guarded, CSP re-added, dead code removed)
 
 ## Architecture
 - Two roles: `client` and `coach` (and `both`)
@@ -80,6 +80,15 @@
 ### Theme & Views
 - `ThemeMode.tsx` — ThemeProvider + useTheme hook + Sun/Moon animated toggle, CSS custom properties, localStorage persistence, .light class
 - `coach/MealPatternView.tsx` — grouped meal analysis by meal type (frequency, avg macros, common foods), toggle between Pattern/Daily view
+
+### Dashboard (April 16 overhaul)
+- Hero welcome card with time-aware greeting + avatar + daily motivation
+- 160px CalorieRing (consumed/target/remaining)
+- 4 horizontal MacroBar progress bars (Protein/Carbs/Fat/Fiber) with labels + numbers
+- Meal dots showing X of 5 meals logged
+- Quick Actions 2x2 grid (Log Food, Workout, Water, Progress)
+- Compact water tracker (single line, horizontal segments)
+- Removed: MacroRing, MacroDonut, CarbCyclingSelector, MealTimingIndicator
 
 ### Coach Tools
 - `CoachMacroTargets` — set/override client macro targets (cal/protein/carbs/fat/fiber/water) with Auto-calc (Mifflin-St Jeor + ISSN)
@@ -237,6 +246,17 @@ git config user.email "zsoist@users.noreply.github.com"
 
 ### UI Visibility
 - Customize meals button was invisible (14px stone-600 icon only). Always use visible labels + borders for action buttons on dark backgrounds
+- Macro rings need labels (Cal/P/C/F) — users can't tell which ring is which without them
+
+### AI Food Parser (April 16)
+- AI protein calibration needs exact USDA values in system prompt — CRITICAL ACCURACY RULES (eggs 6g, chicken breast 31g/100g, rice 2.7g/100g, etc.)
+- Math validation required: cal = P*4 + C*4 + F*9 (parser must self-check)
+- sugar_g field added to ParsedFoodItem — WHO 36g daily limit for men
+
+### CSP / Security Headers (April 16)
+- CSP must use explicit Supabase domain (iwbpzwmidzvpiofnqexd.supabase.co), not wildcard *.supabase.co
+- CSP was re-added after middleware refactor removed it
+- Admin costs page (/admin/costs) now requires admin-email-only access
 
 ### Debugging
 - Schema-code drift: if DB CHECK constraint doesn't match code's source values, inserts silently fail

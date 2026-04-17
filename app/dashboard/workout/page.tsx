@@ -154,20 +154,149 @@ function PainFlagModal({
   );
 }
 
+// ─── Custom Exercise Modal ───
+function CustomExerciseModal({
+  onSave,
+  onClose,
+}: {
+  onSave: (ex: Exercise) => void;
+  onClose: () => void;
+}) {
+  const [name, setName] = useState('');
+  const [muscleGroup, setMuscleGroup] = useState<MuscleGroup>('chest');
+  const [equipment, setEquipment] = useState('dumbbell');
+  const [isCompound, setIsCompound] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    if (!name.trim() || saving) return;
+    setSaving(true);
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setSaving(false); return; }
+
+    const { data, error } = await supabase
+      .from('exercises')
+      .insert({
+        name: name.trim(),
+        muscle_group: muscleGroup,
+        equipment,
+        is_compound: isCompound,
+        is_template: false,
+        created_by: user.id,
+      })
+      .select()
+      .maybeSingle();
+
+    if (data && !error) {
+      onSave(data as Exercise);
+      onClose();
+    } else {
+      console.error('Error creating exercise:', error);
+    }
+    setSaving(false);
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[60] flex items-center justify-center px-4"
+      style={{ background: 'rgba(0,0,0,0.8)' }}
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.9, opacity: 0 }}
+        className="glass-elevated p-6 w-full max-w-sm"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center gap-2 mb-4">
+          <Dumbbell size={20} className="gold-text" />
+          <h3 className="text-lg font-semibold">Custom Exercise</h3>
+        </div>
+
+        <input
+          type="text"
+          placeholder="Exercise name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className="input-dark mb-3"
+          autoFocus
+        />
+
+        <div className="mb-3">
+          <label className="text-sm text-stone-400 mb-1 block">Muscle group</label>
+          <select
+            value={muscleGroup}
+            onChange={(e) => setMuscleGroup(e.target.value as MuscleGroup)}
+            className="input-dark w-full"
+          >
+            {MUSCLE_GROUPS.map((mg) => (
+              <option key={mg.key} value={mg.key}>{mg.label}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="mb-3">
+          <label className="text-sm text-stone-400 mb-1 block">Equipment</label>
+          <select
+            value={equipment}
+            onChange={(e) => setEquipment(e.target.value)}
+            className="input-dark w-full"
+          >
+            {['barbell', 'dumbbell', 'machine', 'cable', 'bodyweight', 'band', 'kettlebell'].map((eq) => (
+              <option key={eq} value={eq}>{eq.charAt(0).toUpperCase() + eq.slice(1)}</option>
+            ))}
+          </select>
+        </div>
+
+        <label className="flex items-center gap-2 mb-4 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={isCompound}
+            onChange={(e) => setIsCompound(e.target.checked)}
+            className="rounded border-stone-600"
+          />
+          <span className="text-sm text-stone-400">Compound movement</span>
+        </label>
+
+        <div className="flex gap-2">
+          <button onClick={onClose} className="btn-ghost flex-1 text-sm py-2">
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={!name.trim() || saving}
+            className="btn-gold flex-1 text-sm py-2 font-semibold"
+          >
+            {saving ? 'Saving...' : 'Create'}
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 // ─── Exercise Picker Modal ───
 function ExercisePicker({
   exercises,
   onSelect,
   onClose,
   lang,
+  onCustomCreated,
 }: {
   exercises: Exercise[];
   onSelect: (ex: Exercise) => void;
   onClose: () => void;
   lang: string;
+  onCustomCreated?: (ex: Exercise) => void;
 }) {
   const [search, setSearch] = useState('');
   const [filterMuscle, setFilterMuscle] = useState<MuscleGroup | 'all'>('all');
+  const [showCustomModal, setShowCustomModal] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const { t } = useI18n();
 
@@ -238,6 +367,18 @@ function ExercisePicker({
         </div>
       </div>
 
+      {/* Add Custom Exercise button */}
+      <div className="px-4 pb-2">
+        <button
+          onClick={() => setShowCustomModal(true)}
+          className="w-full py-2.5 rounded-xl text-sm font-medium flex items-center justify-center gap-2 transition-colors"
+          style={{ border: '1px dashed rgba(212,168,83,0.3)', background: 'rgba(212,168,83,0.05)', color: '#D4A853' }}
+        >
+          <Plus size={16} />
+          Add Custom Exercise
+        </button>
+      </div>
+
       {/* Exercise list */}
       <div className="flex-1 overflow-y-auto px-4 pb-24">
         {filtered.length === 0 && (
@@ -273,6 +414,19 @@ function ExercisePicker({
           );
         })}
       </div>
+
+      {/* Custom exercise modal */}
+      <AnimatePresence>
+        {showCustomModal && (
+          <CustomExerciseModal
+            onSave={(ex) => {
+              if (onCustomCreated) onCustomCreated(ex);
+              onSelect(ex);
+            }}
+            onClose={() => setShowCustomModal(false)}
+          />
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
@@ -806,6 +960,7 @@ export default function WorkoutPage() {
             onSelect={addExercise}
             onClose={() => setShowPicker(false)}
             lang={lang}
+            onCustomCreated={(ex) => setExercises((prev) => [...prev, ex])}
           />
         )}
       </AnimatePresence>

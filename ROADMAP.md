@@ -281,6 +281,40 @@
 - [x] ✅ New files: `components/ThemeMode.tsx`, `components/coach/MealPatternView.tsx`
 - [x] ✅ Commits: b42c458 (logout + customize visibility), 0a9d993 (light theme + meal patterns + role switcher)
 
+### Evening Session — April 16 (Dashboard Overhaul + Exercise Expansion + Codex Fixes)
+
+#### Dashboard Overhaul
+- [x] ✅ Hero welcome card with time-aware greeting + avatar + daily motivation
+- [x] ✅ Large 160px CalorieRing (consumed/target/remaining)
+- [x] ✅ 4 horizontal MacroBar progress bars (Protein/Carbs/Fat/Fiber) with labels + numbers
+- [x] ✅ Meal dots showing X of 5 meals logged
+- [x] ✅ Quick Actions 2x2 grid (Log Food, Workout, Water, Progress)
+- [x] ✅ Compact water tracker (single line, horizontal segments)
+- [x] ✅ Removed: MacroRing, MacroDonut, CarbCyclingSelector, MealTimingIndicator
+
+#### AI Food Parser Calibration
+- [x] ✅ CRITICAL ACCURACY RULES in system prompt (exact USDA values for eggs, chicken, rice, etc.)
+- [x] ✅ Math validation: cal = P*4 + C*4 + F*9
+- [x] ✅ sugar_g field added to ParsedFoodItem interface + output
+
+#### Exercise Database Expansion
+- [x] ✅ Expanded from 30 → 113 exercises (83 new gym exercises)
+- [x] ✅ Custom exercise modal added to workout page
+- [x] ✅ Seed script: scripts/seed-exercises.js
+
+#### Nikos Feedback Fixes
+- [x] ✅ Macro ring labels (Cal/P/C/F) — users couldn't tell which ring was which
+- [x] ✅ Nikos targets recalculated (protein 139→154g, fat 77→93g per ISSN)
+- [x] ✅ Sugar estimate with WHO 36g limit
+- [x] ✅ Ring colors: green <90%, gold 90-110%, red >110%
+
+#### Codex Review Fixes
+- [x] ✅ Admin costs page: admin-email-only access
+- [x] ✅ api-guard.ts: documented intentional unverified JWT
+- [x] ✅ CSP re-added with explicit Supabase domain (not wildcard)
+- [x] ✅ FoodSearchModal: fixed dead local search path
+- [x] ✅ Dead WeightChart function removed (~80 lines)
+
 ---
 
 ## PHASE 2: Testing (April 10-18, 2026)

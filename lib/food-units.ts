@@ -25,7 +25,7 @@ export interface FoodEntry {
 
 // Greek measurement unit dictionary (from Kavdas plan)
 export const GREEK_UNITS: Record<string, { en: string; grams_approx: number; description: string }> = {
-  'κ.σ.': { en: 'tablespoon', grams_approx: 15, description: 'κουταλιά σούπας' },
+  'κ.σ.': { en: 'tablespoon', grams_approx: 14, description: 'κουταλιά σούπας' },
   'κ.γ.': { en: 'teaspoon', grams_approx: 5, description: 'κουταλιά γλυκού' },
   'φλ': { en: 'cup', grams_approx: 100, description: 'φλιτζάνι (cooked grains ~100g)' },
   'γρ': { en: 'grams', grams_approx: 1, description: 'γραμμάρια' },
@@ -57,8 +57,8 @@ export const FOOD_DATABASE: FoodEntry[] = [
   {
     name_en: 'Chicken breast, grilled', name_el: 'Στήθος κοτόπουλο ψητό', name_es: 'Pechuga de pollo a la plancha',
     calories_per_100g: 165, protein_per_100g: 31, carbs_per_100g: 0, fat_per_100g: 3.6, fiber_per_100g: 0,
-    default_unit: 'piece', default_grams: 175,
-    common_units: [{ name: 'piece', grams: 175 }, { name: 'palm', grams: 120 }],
+    default_unit: 'palm', default_grams: 120,
+    common_units: [{ name: 'palm', grams: 120 }, { name: 'large', grams: 175 }],
     category: 'protein',
   },
   {
@@ -71,8 +71,8 @@ export const FOOD_DATABASE: FoodEntry[] = [
   {
     name_en: 'Steak, grilled', name_el: 'Μπριζόλα ψητή', name_es: 'Bistec a la plancha',
     calories_per_100g: 271, protein_per_100g: 26, carbs_per_100g: 0, fat_per_100g: 18, fiber_per_100g: 0,
-    default_unit: 'palm', default_grams: 120,
-    common_units: [{ name: 'palm', grams: 120 }, { name: '200g', grams: 200 }],
+    default_unit: 'piece', default_grams: 150,
+    common_units: [{ name: 'piece', grams: 150 }, { name: 'palm', grams: 120 }, { name: '200g', grams: 200 }],
     category: 'protein',
   },
   {
@@ -85,8 +85,8 @@ export const FOOD_DATABASE: FoodEntry[] = [
   {
     name_en: 'Salmon, grilled', name_el: 'Σολομός ψητός', name_es: 'Salmón a la plancha',
     calories_per_100g: 208, protein_per_100g: 20, carbs_per_100g: 0, fat_per_100g: 13, fiber_per_100g: 0,
-    default_unit: 'piece', default_grams: 150,
-    common_units: [{ name: 'piece', grams: 150 }, { name: 'palm', grams: 120 }],
+    default_unit: 'palm', default_grams: 120,
+    common_units: [{ name: 'palm', grams: 120 }, { name: 'large', grams: 150 }],
     category: 'protein',
   },
   {
@@ -108,29 +108,29 @@ export const FOOD_DATABASE: FoodEntry[] = [
   {
     name_en: 'Feta cheese', name_el: 'Φέτα τυρί', name_es: 'Queso feta',
     calories_per_100g: 264, protein_per_100g: 14, carbs_per_100g: 4, fat_per_100g: 21, fiber_per_100g: 0,
-    default_unit: '100g', default_grams: 100,
-    common_units: [{ name: 'slice', grams: 20 }, { name: '60g', grams: 60 }],
+    default_unit: 'serving', default_grams: 30,
+    common_units: [{ name: 'slice', grams: 20 }, { name: 'serving', grams: 30 }, { name: '60g', grams: 60 }],
     category: 'dairy',
   },
   {
     name_en: 'Feta light', name_el: 'Φέτα light', name_es: 'Queso feta light',
     calories_per_100g: 180, protein_per_100g: 18, carbs_per_100g: 4, fat_per_100g: 10, fiber_per_100g: 0,
-    default_unit: '100g', default_grams: 100,
-    common_units: [{ name: '60g', grams: 60 }, { name: 'slice', grams: 20 }],
+    default_unit: 'serving', default_grams: 30,
+    common_units: [{ name: 'serving', grams: 30 }, { name: '60g', grams: 60 }, { name: 'slice', grams: 20 }],
     category: 'dairy',
   },
   {
     name_en: 'Greek yogurt 2%', name_el: 'Γιαούρτι 2%', name_es: 'Yogur griego 2%',
     calories_per_100g: 73, protein_per_100g: 10, carbs_per_100g: 3.6, fat_per_100g: 2, fiber_per_100g: 0,
-    default_unit: 'serving', default_grams: 170,
-    common_units: [{ name: 'serving', grams: 170 }, { name: 'cup', grams: 245 }],
+    default_unit: 'serving', default_grams: 150,
+    common_units: [{ name: 'serving', grams: 150 }, { name: 'cup', grams: 200 }],
     category: 'dairy',
   },
   {
     name_en: 'Cottage cheese', name_el: 'Cottage', name_es: 'Requesón',
     calories_per_100g: 98, protein_per_100g: 11, carbs_per_100g: 3.4, fat_per_100g: 4.3, fiber_per_100g: 0,
-    default_unit: 'serving', default_grams: 113,
-    common_units: [{ name: 'serving', grams: 113 }, { name: 'half', grams: 57 }],
+    default_unit: 'serving', default_grams: 100,
+    common_units: [{ name: 'serving', grams: 100 }, { name: 'half', grams: 50 }],
     category: 'dairy',
   },
   {
@@ -150,8 +150,8 @@ export const FOOD_DATABASE: FoodEntry[] = [
   {
     name_en: 'Philadelphia cream cheese', name_el: 'Φιλαδέλφεια', name_es: 'Queso crema Philadelphia',
     calories_per_100g: 342, protein_per_100g: 6, carbs_per_100g: 4, fat_per_100g: 34, fiber_per_100g: 0,
-    default_unit: 'tbsp', default_grams: 15,
-    common_units: [{ name: 'tbsp', grams: 15 }],
+    default_unit: 'tbsp', default_grams: 14,
+    common_units: [{ name: 'tbsp', grams: 14 }],
     category: 'dairy',
   },
   {
@@ -164,8 +164,8 @@ export const FOOD_DATABASE: FoodEntry[] = [
   {
     name_en: 'Milk', name_el: 'Γάλα', name_es: 'Leche',
     calories_per_100g: 42, protein_per_100g: 3.4, carbs_per_100g: 5, fat_per_100g: 1, fiber_per_100g: 0,
-    default_unit: 'glass', default_grams: 250,
-    common_units: [{ name: 'glass', grams: 250 }, { name: 'half_glass', grams: 125 }],
+    default_unit: 'glass', default_grams: 200,
+    common_units: [{ name: 'glass', grams: 200 }, { name: 'half_glass', grams: 100 }],
     category: 'dairy',
   },
 
@@ -180,22 +180,22 @@ export const FOOD_DATABASE: FoodEntry[] = [
   {
     name_en: 'White rice, cooked', name_el: 'Ρύζι λευκό μαγειρεμένο', name_es: 'Arroz blanco cocido',
     calories_per_100g: 130, protein_per_100g: 2.7, carbs_per_100g: 28, fat_per_100g: 0.3, fiber_per_100g: 0.4,
-    default_unit: 'cup', default_grams: 185,
-    common_units: [{ name: 'cup', grams: 185 }, { name: 'φλ', grams: 100 }],
+    default_unit: 'serving', default_grams: 150,
+    common_units: [{ name: 'serving', grams: 150 }, { name: 'φλ', grams: 100 }],
     category: 'carb',
   },
   {
     name_en: 'Quinoa, cooked', name_el: 'Κινόα μαγειρεμένη', name_es: 'Quinoa cocida',
     calories_per_100g: 120, protein_per_100g: 4.4, carbs_per_100g: 21, fat_per_100g: 1.9, fiber_per_100g: 2.8,
-    default_unit: 'cup', default_grams: 185,
-    common_units: [{ name: 'cup', grams: 185 }, { name: 'φλ', grams: 100 }],
+    default_unit: 'serving', default_grams: 150,
+    common_units: [{ name: 'serving', grams: 150 }, { name: 'φλ', grams: 100 }],
     category: 'carb',
   },
   {
     name_en: 'Pasta, cooked', name_el: 'Μακαρόνια μαγειρεμένα', name_es: 'Pasta cocida',
     calories_per_100g: 131, protein_per_100g: 5, carbs_per_100g: 25, fat_per_100g: 1.1, fiber_per_100g: 1.8,
-    default_unit: 'cup', default_grams: 140,
-    common_units: [{ name: 'cup', grams: 140 }, { name: 'φλ', grams: 140 }],
+    default_unit: 'serving', default_grams: 150,
+    common_units: [{ name: 'serving', grams: 150 }, { name: 'φλ', grams: 100 }],
     category: 'carb',
   },
   {
@@ -245,8 +245,8 @@ export const FOOD_DATABASE: FoodEntry[] = [
   {
     name_en: 'Peanut butter', name_el: 'Φυστικοβούτυρο', name_es: 'Mantequilla de maní',
     calories_per_100g: 588, protein_per_100g: 25, carbs_per_100g: 20, fat_per_100g: 50, fiber_per_100g: 6,
-    default_unit: 'tbsp', default_grams: 15,
-    common_units: [{ name: 'tbsp', grams: 15 }, { name: 'tsp', grams: 5 }],
+    default_unit: 'tbsp', default_grams: 14,
+    common_units: [{ name: 'tbsp', grams: 14 }, { name: 'tsp', grams: 5 }],
     category: 'fat',
   },
   {
@@ -259,8 +259,8 @@ export const FOOD_DATABASE: FoodEntry[] = [
   {
     name_en: 'Avocado', name_el: 'Αβοκάντο', name_es: 'Aguacate',
     calories_per_100g: 160, protein_per_100g: 2, carbs_per_100g: 8.5, fat_per_100g: 15, fiber_per_100g: 7,
-    default_unit: 'half', default_grams: 75,
-    common_units: [{ name: 'half', grams: 75 }, { name: 'whole', grams: 150 }],
+    default_unit: 'half', default_grams: 70,
+    common_units: [{ name: 'half', grams: 70 }, { name: 'whole', grams: 140 }],
     category: 'fat',
   },
   {
@@ -280,8 +280,8 @@ export const FOOD_DATABASE: FoodEntry[] = [
   {
     name_en: 'Tahini', name_el: 'Ταχίνι', name_es: 'Tahini',
     calories_per_100g: 595, protein_per_100g: 17, carbs_per_100g: 21, fat_per_100g: 54, fiber_per_100g: 10,
-    default_unit: 'tbsp', default_grams: 15,
-    common_units: [{ name: 'tbsp', grams: 15 }],
+    default_unit: 'tbsp', default_grams: 14,
+    common_units: [{ name: 'tbsp', grams: 14 }],
     category: 'fat',
   },
 
@@ -356,15 +356,15 @@ export const FOOD_DATABASE: FoodEntry[] = [
   {
     name_en: 'Peas', name_el: 'Αρακάς', name_es: 'Guisantes',
     calories_per_100g: 81, protein_per_100g: 5.4, carbs_per_100g: 14, fat_per_100g: 0.4, fiber_per_100g: 5,
-    default_unit: 'cup', default_grams: 160,
-    common_units: [{ name: 'cup', grams: 160 }],
+    default_unit: 'cup', default_grams: 130,
+    common_units: [{ name: 'cup', grams: 130 }],
     category: 'legume',
   },
   {
     name_en: 'Hummus', name_el: 'Χούμους', name_es: 'Hummus',
     calories_per_100g: 166, protein_per_100g: 8, carbs_per_100g: 14, fat_per_100g: 10, fiber_per_100g: 6,
-    default_unit: 'tbsp', default_grams: 15,
-    common_units: [{ name: 'tbsp', grams: 15 }, { name: 'serving', grams: 50 }],
+    default_unit: 'tbsp', default_grams: 14,
+    common_units: [{ name: 'tbsp', grams: 14 }, { name: 'serving', grams: 50 }],
     category: 'legume',
   },
 
@@ -372,29 +372,29 @@ export const FOOD_DATABASE: FoodEntry[] = [
   {
     name_en: 'Briam (mixed roasted vegetables)', name_el: 'Μπριάμ', name_es: 'Verduras asadas griegas',
     calories_per_100g: 80, protein_per_100g: 1.5, carbs_per_100g: 10, fat_per_100g: 4, fiber_per_100g: 2.5,
-    default_unit: 'serving', default_grams: 250,
-    common_units: [{ name: 'serving', grams: 250 }],
+    default_unit: 'serving', default_grams: 200,
+    common_units: [{ name: 'serving', grams: 200 }],
     category: 'greek',
   },
   {
     name_en: 'Moussaka', name_el: 'Μουσακάς', name_es: 'Musaca',
     calories_per_100g: 140, protein_per_100g: 7, carbs_per_100g: 10, fat_per_100g: 8, fiber_per_100g: 1.5,
-    default_unit: 'serving', default_grams: 250,
-    common_units: [{ name: 'serving', grams: 250 }],
+    default_unit: 'serving', default_grams: 200,
+    common_units: [{ name: 'serving', grams: 200 }],
     category: 'greek',
   },
   {
     name_en: 'Pesto sauce', name_el: 'Πέστο', name_es: 'Pesto',
     calories_per_100g: 418, protein_per_100g: 6, carbs_per_100g: 6, fat_per_100g: 41, fiber_per_100g: 2,
-    default_unit: 'tbsp', default_grams: 15,
-    common_units: [{ name: 'tbsp', grams: 15 }],
+    default_unit: 'tbsp', default_grams: 14,
+    common_units: [{ name: 'tbsp', grams: 14 }],
     category: 'condiment',
   },
   {
     name_en: 'Greek salad (Ntakos)', name_el: 'Σαλάτα Ντάκος', name_es: 'Ensalada Dakos',
     calories_per_100g: 150, protein_per_100g: 5, carbs_per_100g: 18, fat_per_100g: 6, fiber_per_100g: 2,
-    default_unit: 'serving', default_grams: 300,
-    common_units: [{ name: 'serving', grams: 300 }],
+    default_unit: 'serving', default_grams: 250,
+    common_units: [{ name: 'serving', grams: 250 }],
     category: 'greek',
   },
 
@@ -433,7 +433,7 @@ export const FOOD_DATABASE: FoodEntry[] = [
     name_en: 'Honey', name_el: 'Μέλι', name_es: 'Miel',
     calories_per_100g: 304, protein_per_100g: 0.3, carbs_per_100g: 82, fat_per_100g: 0, fiber_per_100g: 0,
     default_unit: 'tsp', default_grams: 7,
-    common_units: [{ name: 'tsp', grams: 7 }, { name: 'tbsp', grams: 21 }],
+    common_units: [{ name: 'tsp', grams: 7 }, { name: 'tbsp', grams: 14 }],
     category: 'condiment',
   },
   {

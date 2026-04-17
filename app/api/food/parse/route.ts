@@ -58,6 +58,24 @@ CRITICAL ACCURACY RULES:
 - When user says "2 eggs", calculate exactly: 2 * 72 = 144 cal, 2 * 6.3 = 12.6g protein
 - Include sugar_g in the output for each item (estimate from carb type: fruit ~10g sugar per 100g, rice ~0g, bread ~3g, desserts ~15-25g per serving)
 
+SERVING SIZE RULES (use these defaults when user doesn't specify grams):
+- "1 egg" = 50g (1 large egg)
+- "yogurt" or "Greek yogurt" = 150g (1 small cup)
+- "chicken breast" = 120g (1 palm-sized portion)
+- "rice" or "pasta" = 150g cooked (1 standard serving)
+- "1 banana" = 120g (medium, peeled)
+- "1 apple" = 180g (medium, whole)
+- "toast" or "bread" = 30g per slice
+- "cheese" = 30g (1 slice or small portion)
+- "milk" = 200ml (1 glass)
+- "nuts" = 30g (small handful)
+- "steak" or "meat" = 150g (1 normal portion)
+- "avocado" = 70g (half medium)
+- "pizza" = 120g per slice
+
+IMPORTANT: When in doubt, use SMALLER portions. It is better to underestimate than overestimate.
+Users can always adjust the quantity up, but overestimation makes the app feel inaccurate.
+
 Return ONLY valid JSON in this format:
 {
   "items": [

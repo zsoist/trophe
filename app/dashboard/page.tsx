@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { AnimatePresence } from 'framer-motion';
-import { Plus, Check, X, Utensils, Dumbbell, Droplets, BarChart3 } from 'lucide-react';
+import { Plus, Check, X, Droplets } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { ClientProfile, ClientHabit, HabitCheckin, FoodLogEntry, WaterLogEntry, Mood, Profile } from '@/lib/types';
 import BottomNav from '@/components/BottomNav';
@@ -15,7 +15,7 @@ import StreakBadges from '@/components/StreakBadges';
 import { DashboardSkeleton } from '@/components/Skeleton';
 import Avatar from '@/components/Avatar';
 import HabitDetailModal from '@/components/HabitDetailModal';
-import { localToday, localDateStr } from '../../lib/dates';
+import { localToday } from '../../lib/dates';
 
 // ─── Motivational micro-texts (rotate daily) ───
 const MOTIVATIONAL_TEXTS = [
@@ -166,8 +166,6 @@ export default function DashboardPage() {
   const [waterLog, setWaterLog] = useState<WaterLogEntry[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   const [userProfile, setUserProfile] = useState<Profile | null>(null);
-  const [daysActive, setDaysActive] = useState(0);
-  const [weeklyAvgCal, setWeeklyAvgCal] = useState(0);
   const [showHabitModal, setShowHabitModal] = useState(false);
   const [allCheckins, setAllCheckins] = useState<HabitCheckin[]>([]);
   const [waterSplash, setWaterSplash] = useState(false);
@@ -235,27 +233,6 @@ export default function DashboardPage() {
       }
       if (flRes.data) setFoodLog(flRes.data);
       if (wlRes.data) setWaterLog(wlRes.data);
-
-      // Fetch quick stats: days active (distinct food_log dates)
-      const { count: activeDaysCount } = await supabase
-        .from('food_log')
-        .select('logged_date', { count: 'exact', head: true })
-        .eq('user_id', user.id);
-      setDaysActive(activeDaysCount ?? 0);
-
-      // Fetch weekly avg calories (last 7 days)
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
-      const weekStart = localDateStr(sevenDaysAgo);
-      const { data: weekFood } = await supabase
-        .from('food_log')
-        .select('calories')
-        .eq('user_id', user.id)
-        .gte('logged_date', weekStart);
-      if (weekFood && weekFood.length > 0) {
-        const totalWeekCal = weekFood.reduce((s, f) => s + (f.calories ?? 0), 0);
-        setWeeklyAvgCal(Math.round(totalWeekCal / 7));
-      }
 
       // Fetch all checkins for habit detail modal
       if (chRes.data && chRes.data.length > 0) {
@@ -385,6 +362,16 @@ export default function DashboardPage() {
   const totalDaysTracked = activeHabit?.total_completions ?? 0;
   const completionPct = cycleDays > 0 ? Math.round((totalDaysTracked / cycleDays) * 100) : 0;
 
+  // Computed targets for the new dashboard layout
+  const targetCalories = clientProfile?.target_calories ?? 2000;
+  const targetProtein = clientProfile?.target_protein_g ?? 150;
+  const targetCarbs = clientProfile?.target_carbs_g ?? 200;
+  const targetFat = clientProfile?.target_fat_g ?? 65;
+  const targetFiber = clientProfile?.target_fiber_g ?? 30;
+  const targetWater = clientProfile?.target_water_ml ?? 2500;
+  const waterGlasses = Math.floor(totalWater / 250);
+  const targetGlasses = Math.ceil(targetWater / 250);
+
   return (
     <div className="min-h-screen bg-stone-950 pb-24">
       {/* ═══ Habit Mastery Celebration Modal ═══ */}
@@ -466,49 +453,71 @@ export default function DashboardPage() {
         transition={{ duration: 0.4 }}
         className="max-w-md mx-auto px-4 pt-12"
       >
-        {/* Personalized Greeting */}
-        <div className="mb-6">
+        {/* ═══ 1. Hero Welcome Card ═══ */}
+        <div className="mb-5">
           <PersonalizedGreeting fullName={userProfile?.full_name ?? null} />
+          {streakDays > 0 && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.2 }}
+              className="inline-flex items-center gap-1.5 mt-3 px-3 py-1.5 rounded-full bg-[#D4A853]/10 border border-[#D4A853]/20"
+            >
+              <span className="text-sm">🔥</span>
+              <span className="text-xs font-semibold gold-text">{streakDays} day streak</span>
+            </motion.div>
+          )}
         </div>
-
-        {/* ═══ Quick Stats Bar ═══ */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.05 }}
-          className="mb-4 -mx-1"
-        >
-          <div className="flex gap-2 overflow-x-auto pb-1 px-1 scrollbar-hide">
-            {[
-              { icon: '🔥', label: 'Streak', value: `${streakDays}d` },
-              { icon: '📅', label: 'Active', value: `${daysActive}d` },
-              { icon: '💧', label: 'Water', value: `${totalWater}/${clientProfile?.target_water_ml ?? 2500}` },
-              { icon: '📊', label: 'Wk avg', value: `${weeklyAvgCal}` },
-            ].map((stat) => (
-              <div
-                key={stat.label}
-                className="glass flex-shrink-0 px-3 py-2.5 flex flex-col items-center gap-0.5"
-                style={{ minWidth: 78 }}
-              >
-                <span className="text-sm">{stat.icon}</span>
-                <span className="text-xs font-bold text-stone-100">{stat.value}</span>
-                <span className="text-[9px] text-stone-500 uppercase tracking-wider">{stat.label}</span>
-              </div>
-            ))}
-          </div>
-        </motion.div>
 
         {/* ═══ Weekly Check-in (Sundays only) ═══ */}
         {userId && clientProfile && (
           <WeeklyCheckin userId={userId} coachId={clientProfile.coach_id} />
         )}
 
-        {/* Active Habit Card */}
+        {/* ═══ 2. Today's Progress Card (THE MAIN CARD) ═══ */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="glass gold-border p-5 mb-4 cursor-pointer"
+          className="glass gold-border p-5 mb-4"
+        >
+          <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider mb-4">
+            Today&apos;s Progress
+          </h3>
+
+          {/* Large Calorie Ring */}
+          <CalorieRing consumed={totalCalories} target={targetCalories} />
+
+          {/* Macro Progress Bars */}
+          <div className="mt-5 space-y-3">
+            <MacroBar label="Protein" value={totalProtein} target={targetProtein} color="#ef4444" />
+            <MacroBar label="Carbs" value={totalCarbs} target={targetCarbs} color="#3b82f6" />
+            <MacroBar label="Fat" value={totalFat} target={targetFat} color="#a855f7" />
+            <MacroBar label="Fiber" value={totalFiber} target={targetFiber} color="#22c55e" />
+          </div>
+
+          {/* Meals logged indicator */}
+          <div className="mt-4 pt-3 border-t border-white/5 flex items-center gap-2">
+            <span className="text-xs text-stone-500">{mealsLogged} of 5 meals logged</span>
+            <div className="flex gap-1.5 ml-auto">
+              {[1, 2, 3, 4, 5].map((n) => (
+                <div
+                  key={n}
+                  className={`w-2 h-2 rounded-full transition-colors ${
+                    n <= mealsLogged ? 'bg-[#D4A853]' : 'bg-white/10'
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
+        </motion.div>
+
+        {/* ═══ 3. Active Habit Card ═══ */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="glass p-5 mb-4 cursor-pointer"
           onClick={() => activeHabit?.habit && setShowHabitModal(true)}
         >
           {activeHabit?.habit ? (
@@ -561,13 +570,13 @@ export default function DashboardPage() {
               ) : (
                 <div className="flex items-center gap-3">
                   <button
-                    onClick={() => handleCheckin(true)}
+                    onClick={(e) => { e.stopPropagation(); handleCheckin(true); }}
                     className="btn-gold flex-1 flex items-center justify-center gap-2 text-sm py-2.5"
                   >
                     <Check size={16} /> Done
                   </button>
                   <button
-                    onClick={() => handleCheckin(false)}
+                    onClick={(e) => { e.stopPropagation(); handleCheckin(false); }}
                     className="btn-ghost flex-1 flex items-center justify-center gap-2 text-sm py-2.5"
                   >
                     <X size={16} /> Not today
@@ -583,7 +592,7 @@ export default function DashboardPage() {
                     {MOODS.map((m) => (
                       <button
                         key={m.value}
-                        onClick={() => handleMood(m.value)}
+                        onClick={(e) => { e.stopPropagation(); handleMood(m.value); }}
                         className={`mood-option text-xs ${
                           todayCheckin.mood === m.value ? 'active' : ''
                         }`}
@@ -595,7 +604,7 @@ export default function DashboardPage() {
                 </div>
               )}
 
-              {/* ═══ Compliance Heatmap ═══ */}
+              {/* Compliance Heatmap */}
               {activeHabit && (
                 <div className="mt-4 pt-3 border-t border-white/5">
                   <p className="text-stone-500 text-xs mb-2 uppercase tracking-wider font-semibold">14-Day Compliance</p>
@@ -614,171 +623,83 @@ export default function DashboardPage() {
           )}
         </motion.div>
 
-        {/* Today's Macros — Clean Progress Bars */}
+        {/* ═══ 4. Quick Actions Grid (2x2) ═══ */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="glass p-5 mb-4"
+          className="grid grid-cols-2 gap-3 mb-4"
         >
-          <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider mb-4">
-            Today&apos;s Macros
-          </h3>
-          <div className="space-y-3">
-            {[
-              { label: 'Calories', value: totalCalories, target: clientProfile?.target_calories ?? 2000, unit: 'kcal', color: '#D4A853' },
-              { label: 'Protein', value: totalProtein, target: clientProfile?.target_protein_g ?? 150, unit: 'g', color: '#f87171' },
-              { label: 'Carbs', value: totalCarbs, target: clientProfile?.target_carbs_g ?? 200, unit: 'g', color: '#60a5fa' },
-              { label: 'Fat', value: totalFat, target: clientProfile?.target_fat_g ?? 65, unit: 'g', color: '#a78bfa' },
-            ].map((macro) => {
-              const pct = macro.target > 0 ? Math.min((macro.value / macro.target) * 100, 100) : 0;
-              const over = macro.target > 0 && macro.value > macro.target * 1.1;
-              return (
-                <div key={macro.label}>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-stone-400 text-xs">{macro.label}</span>
-                    <span className={`text-xs tabular-nums ${over ? 'text-red-400' : 'text-stone-300'}`}>
-                      {Math.round(macro.value)} / {macro.target}{macro.unit}
-                    </span>
-                  </div>
-                  <div className="h-2 bg-white/[0.06] rounded-full overflow-hidden">
-                    <motion.div
-                      className="h-full rounded-full"
-                      style={{ backgroundColor: over ? '#ef4444' : macro.color }}
-                      initial={{ width: 0 }}
-                      animate={{ width: `${pct}%` }}
-                      transition={{ duration: 0.8, ease: 'easeOut' }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </motion.div>
-
-        {/* Water Tracker — Visual Glass */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="glass p-5 mb-4"
-        >
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Droplets size={18} className="text-blue-400" />
-              <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider">
-                Water
-              </h3>
-            </div>
-            <span className="text-stone-400 text-sm">
-              {totalWater} / {clientProfile?.target_water_ml ?? 2500} ml
-            </span>
-          </div>
-
-          <div className="flex items-center gap-5">
-            {/* SVG Water Glass */}
-            <div className="relative flex-shrink-0" style={{ width: 64, height: 120 }}>
-              <svg viewBox="0 0 64 120" width={64} height={120}>
-                {/* Glass outline */}
-                <path
-                  d="M8 8 L12 110 C12 114 18 118 32 118 C46 118 52 114 52 110 L56 8 Z"
-                  fill="none"
-                  stroke="rgba(255,255,255,0.12)"
-                  strokeWidth={2}
-                  strokeLinejoin="round"
-                />
-                {/* Glass fill area with clip */}
-                <defs>
-                  <clipPath id="glassClip">
-                    <path d="M9 9 L13 109 C13 113 19 117 32 117 C45 117 51 113 51 109 L55 9 Z" />
-                  </clipPath>
-                </defs>
-                {/* Water fill */}
-                <motion.rect
-                  x={0}
-                  width={64}
-                  clipPath="url(#glassClip)"
-                  fill="url(#waterGrad)"
-                  initial={{ y: 117, height: 0 }}
-                  animate={{
-                    y: 117 - (Math.min(totalWater / (clientProfile?.target_water_ml ?? 2500), 1) * 108),
-                    height: Math.min(totalWater / (clientProfile?.target_water_ml ?? 2500), 1) * 108,
-                  }}
-                  transition={{ type: 'spring', stiffness: 50, damping: 12 }}
-                />
-                {/* Water gradient */}
-                <defs>
-                  <linearGradient id="waterGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#60a5fa" stopOpacity={0.9} />
-                    <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.7} />
-                  </linearGradient>
-                </defs>
-                {/* Splash animation overlay */}
-                <AnimatePresence>
-                  {waterSplash && (
-                    <motion.circle
-                      cx={32}
-                      cy={117 - (Math.min(totalWater / (clientProfile?.target_water_ml ?? 2500), 1) * 108)}
-                      r={4}
-                      fill="#93c5fd"
-                      initial={{ r: 2, opacity: 1 }}
-                      animate={{ r: 20, opacity: 0 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.5 }}
-                    />
-                  )}
-                </AnimatePresence>
-                {/* Marker lines at 25%, 50%, 75%, 100% */}
-                {[0.25, 0.5, 0.75, 1].map((mark) => {
-                  const markY = 117 - mark * 108;
-                  return (
-                    <g key={mark}>
-                      <line
-                        x1={14}
-                        y1={markY}
-                        x2={22}
-                        y2={markY}
-                        stroke="rgba(255,255,255,0.15)"
-                        strokeWidth={1}
-                      />
-                      <text
-                        x={56}
-                        y={markY + 3}
-                        fill="rgba(255,255,255,0.2)"
-                        fontSize={7}
-                        textAnchor="end"
-                      >
-                        {Math.round(mark * 100)}%
-                      </text>
-                    </g>
-                  );
-                })}
-              </svg>
-            </div>
-
-            {/* Right side: percentage + button */}
-            <div className="flex-1 flex flex-col items-center gap-3">
-              <div className="text-center">
-                <span className="text-3xl font-bold text-blue-400">
-                  {Math.min(Math.round((totalWater / (clientProfile?.target_water_ml ?? 2500)) * 100), 100)}%
-                </span>
-                <p className="text-stone-500 text-xs mt-1">hydrated</p>
-              </div>
-              <button
-                onClick={async () => {
+          {[
+            { emoji: '🍽️', label: 'Log Food', href: '/dashboard/log' },
+            { emoji: '💪', label: 'Workout', href: '/dashboard/workout' },
+            { emoji: '💧', label: 'Water', href: null },
+            { emoji: '📊', label: 'Progress', href: '/dashboard/progress' },
+          ].map((action) => (
+            <button
+              key={action.label}
+              onClick={async () => {
+                if (action.href) {
+                  router.push(action.href);
+                } else {
                   setWaterSplash(true);
                   setTimeout(() => setWaterSplash(false), 600);
                   await addWater();
-                }}
-                className="btn-ghost w-full flex items-center justify-center gap-2 text-sm py-2"
-              >
-                <Plus size={16} /> Add 250 ml
-              </button>
-            </div>
-          </div>
+                }
+              }}
+              className="glass p-4 flex flex-col items-center gap-2 active:scale-95 transition-transform"
+            >
+              <span className="text-2xl">{action.emoji}</span>
+              <span className="text-xs font-medium text-stone-300">{action.label}</span>
+            </button>
+          ))}
         </motion.div>
 
-        {/* Myth-Busting Card */}
+        {/* ═══ 5. Water Tracker (compact) ═══ */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25 }}
+          className="glass p-4 mb-4"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Droplets size={16} className="text-blue-400" />
+              <span className="text-sm text-stone-300 font-medium">
+                {waterGlasses}/{targetGlasses} glasses
+              </span>
+            </div>
+            <button
+              onClick={async () => {
+                setWaterSplash(true);
+                setTimeout(() => setWaterSplash(false), 600);
+                await addWater();
+              }}
+              className="btn-ghost px-3 py-1.5 flex items-center gap-1.5 text-xs"
+            >
+              <Plus size={14} /> Add
+            </button>
+          </div>
+          {/* Water dot indicators */}
+          <div className="flex gap-1.5 mt-3">
+            {Array.from({ length: targetGlasses }).map((_, i) => (
+              <motion.div
+                key={i}
+                className={`h-2 flex-1 rounded-full transition-colors ${
+                  i < waterGlasses ? 'bg-blue-400' : 'bg-white/[0.06]'
+                }`}
+                initial={i < waterGlasses ? { scale: 0 } : {}}
+                animate={i < waterGlasses ? { scale: 1 } : {}}
+                transition={{ delay: 0.3 + i * 0.03 }}
+              />
+            ))}
+          </div>
+          <p className="text-[10px] text-stone-600 mt-2">
+            {totalWater} / {targetWater} ml
+          </p>
+        </motion.div>
+
+        {/* ═══ 6. Health Tip ═══ */}
         <MythCard />
       </motion.div>
 
