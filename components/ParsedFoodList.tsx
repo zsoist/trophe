@@ -23,6 +23,7 @@ function recalcMacros(item: ParsedFoodItem, newGrams: number): ParsedFoodItem {
     carbs_g: Math.round(item.carbs_g * ratio * 10) / 10,
     fat_g: Math.round(item.fat_g * ratio * 10) / 10,
     fiber_g: Math.round(item.fiber_g * ratio * 10) / 10,
+    sugar_g: Math.round((item.sugar_g ?? 0) * ratio * 10) / 10,
   };
 }
 
@@ -177,6 +178,7 @@ export default function ParsedFoodList({ items: initialItems, onConfirm, onCance
                 <span>C: {item.carbs_g}g</span>
                 <span>F: {item.fat_g}g</span>
                 {item.fiber_g > 0 && <span className="text-green-400">Fb: {item.fiber_g}g</span>}
+                {(item.sugar_g ?? 0) > 0 && <span className="text-orange-400">S: {item.sugar_g}g</span>}
               </div>
             </motion.div>
           ))}

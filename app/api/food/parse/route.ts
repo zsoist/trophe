@@ -15,6 +15,7 @@ export interface ParsedFoodItem {
   carbs_g: number;
   fat_g: number;
   fiber_g: number;
+  sugar_g: number;
   confidence: number;
   source: 'local_db' | 'ai_estimate';
 }
@@ -47,6 +48,16 @@ IMPORTANT CONTEXT — Kavdas Nutrition Plan units:
 
 ${foodRef}
 
+CRITICAL ACCURACY RULES:
+- Eggs: 1 large whole egg = 72 cal, 6.3g protein, 0.4g carbs, 5g fat. NEVER estimate higher.
+- Chicken breast (cooked, no skin): per 100g = 165 cal, 31g protein, 0g carbs, 3.6g fat
+- Rice (cooked, white): per 100g = 130 cal, 2.7g protein, 28g carbs, 0.3g fat
+- Greek yogurt (2%): per 100g = 73 cal, 10g protein, 4g carbs, 2g fat
+- Beef patty (grilled, lean): per 100g = 250 cal, 26g protein, 0g carbs, 15g fat
+- Always calculate: calories = (protein * 4) + (carbs * 4) + (fat * 9). If the math doesn't add up, adjust.
+- When user says "2 eggs", calculate exactly: 2 * 72 = 144 cal, 2 * 6.3 = 12.6g protein
+- Include sugar_g in the output for each item (estimate from carb type: fruit ~10g sugar per 100g, rice ~0g, bread ~3g, desserts ~15-25g per serving)
+
 Return ONLY valid JSON in this format:
 {
   "items": [
@@ -62,6 +73,7 @@ Return ONLY valid JSON in this format:
       "carbs_g": 1.1,
       "fat_g": 14.3,
       "fiber_g": 0,
+      "sugar_g": 0.5,
       "confidence": 0.95,
       "source": "local_db"
     }
@@ -120,6 +132,7 @@ function enrichWithLocalDB(items: ParsedFoodItem[]): ParsedFoodItem[] {
       carbs_g: Math.round(match.carbs_per_100g * factor * 10) / 10,
       fat_g: Math.round(match.fat_per_100g * factor * 10) / 10,
       fiber_g: Math.round(match.fiber_per_100g * factor * 10) / 10,
+      sugar_g: item.sugar_g ?? 0,
       source: 'local_db' as const,
       confidence: Math.max(item.confidence, 0.9),
     };

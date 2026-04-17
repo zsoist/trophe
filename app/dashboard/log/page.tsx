@@ -763,10 +763,10 @@ export default function FoodLogPage() {
             {/* Sugar estimate from carbs */}
             {totalCarbs > 0 && (
               <div className="mt-2 flex items-center justify-center gap-1">
-                <span className="text-stone-500 text-[10px]">
-                  Sugar est: ~{Math.round(totalCarbs * 0.45)}g / 36g limit
+                <span className={`text-[10px] ${Math.round(totalCarbs * 0.35) > 36 ? 'text-orange-400' : 'text-stone-500'}`}>
+                  Sugar est: ~{Math.round(totalCarbs * 0.35)}g / 36g limit
                 </span>
-                <span className="text-stone-600 text-[9px]" title="Estimated from total carbs (~45% of carbs). WHO recommends max 25-36g added sugar/day.">
+                <span className="text-stone-600 text-[9px]" title="Estimated from total carbs (~35% of carbs). WHO recommends max 25-36g added sugar/day.">
                   &#9432;
                 </span>
               </div>

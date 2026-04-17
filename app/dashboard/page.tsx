@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { AnimatePresence } from 'framer-motion';
-import { Droplets, Plus, Check, X } from 'lucide-react';
+import { Plus, Check, X, Utensils, Dumbbell, Droplets, BarChart3 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { ClientProfile, ClientHabit, HabitCheckin, FoodLogEntry, WaterLogEntry, Mood, Profile } from '@/lib/types';
 import BottomNav from '@/components/BottomNav';
@@ -12,12 +12,9 @@ import WeeklyCheckin from '@/components/WeeklyCheckin';
 import ComplianceTrend from '@/components/ComplianceTrend';
 import MythCard from '@/components/MythCard';
 import StreakBadges from '@/components/StreakBadges';
-import MealTimingIndicator from '@/components/MealTimingIndicator';
 import { DashboardSkeleton } from '@/components/Skeleton';
 import Avatar from '@/components/Avatar';
-import CarbCyclingSelector from '@/components/CarbCyclingSelector';
 import HabitDetailModal from '@/components/HabitDetailModal';
-import MacroDonut from '@/components/MacroDonut';
 import { localToday, localDateStr } from '../../lib/dates';
 
 // ─── Motivational micro-texts (rotate daily) ───
@@ -73,61 +70,88 @@ const MOODS: { value: Mood; emoji: string; label: string }[] = [
   { value: 'struggled', emoji: '😰', label: 'Struggled' },
 ];
 
-function MacroRing({
-  value,
+// ─── Calorie Ring (large, center of Today's Progress card) ───
+function CalorieRing({
+  consumed,
   target,
-  label,
-  unit,
-  size = 80,
 }: {
-  value: number;
+  consumed: number;
   target: number;
-  label: string;
-  unit: string;
-  size?: number;
 }) {
-  const radius = (size - 8) / 2;
+  const size = 160;
+  const strokeWidth = 12;
+  const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
-  const rawPct = target > 0 ? value / target : 0;
+  const rawPct = target > 0 ? consumed / target : 0;
   const clampedPct = Math.min(rawPct, 1);
-  const displayPct = Math.round(rawPct * 100);
-  const offset = circumference * (1 - clampedPct);
-
-  // Dynamic ring color: stone-700 when <50%, gold when 50-100%, green when 100%+
-  const ringColor = rawPct >= 1 ? '#22c55e' : rawPct >= 0.5 ? '#D4A853' : '#44403c';
+  const remaining = Math.max(target - consumed, 0);
+  const ringColor = rawPct >= 1 ? '#22c55e' : '#D4A853';
 
   return (
-    <div className="flex flex-col items-center gap-1">
-      <div className="relative" style={{ width: size, height: size }}>
-        <svg width={size} height={size} className="-rotate-90">
-          <circle
-            cx={size / 2}
-            cy={size / 2}
-            r={radius}
-            fill="none"
-            stroke="rgba(255,255,255,0.06)"
-            strokeWidth={6}
-          />
-          <motion.circle
-            cx={size / 2}
-            cy={size / 2}
-            r={radius}
-            fill="none"
-            stroke={ringColor}
-            strokeWidth={6}
-            strokeLinecap="round"
-            strokeDasharray={circumference}
-            initial={{ strokeDashoffset: circumference }}
-            animate={{ strokeDashoffset: offset }}
-            transition={{ type: 'spring', stiffness: 60, damping: 15, delay: 0.2 }}
-          />
-        </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-xs font-bold text-stone-100">{displayPct}%</span>
-        </div>
+    <div className="relative mx-auto" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className="-rotate-90">
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="rgba(255,255,255,0.06)"
+          strokeWidth={strokeWidth}
+        />
+        <motion.circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke={ringColor}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          initial={{ strokeDashoffset: circumference }}
+          animate={{ strokeDashoffset: circumference * (1 - clampedPct) }}
+          transition={{ type: 'spring', stiffness: 50, damping: 15, delay: 0.3 }}
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="text-3xl font-bold text-stone-100">{Math.round(consumed)}</span>
+        <span className="text-xs text-stone-500">of {Math.round(target)} kcal</span>
+        <span className="text-[10px] text-stone-600 mt-0.5">{Math.round(remaining)} left</span>
       </div>
-      <span className="text-xs text-stone-400 font-medium">{label}</span>
-      <span className="text-[9px] text-stone-500">{Math.round(value)}/{Math.round(target)}{unit}</span>
+    </div>
+  );
+}
+
+// ─── Macro Progress Bar ───
+function MacroBar({
+  label,
+  value,
+  target,
+  color,
+  unit = 'g',
+}: {
+  label: string;
+  value: number;
+  target: number;
+  color: string;
+  unit?: string;
+}) {
+  const pct = target > 0 ? Math.min((value / target) * 100, 100) : 0;
+
+  return (
+    <div className="flex items-center gap-3">
+      <span className="text-xs text-stone-400 font-medium w-14 text-right">{label}</span>
+      <div className="flex-1 h-2.5 rounded-full bg-white/[0.06] overflow-hidden">
+        <motion.div
+          className="h-full rounded-full"
+          style={{ backgroundColor: color }}
+          initial={{ width: 0 }}
+          animate={{ width: `${pct}%` }}
+          transition={{ type: 'spring', stiffness: 50, damping: 15, delay: 0.4 }}
+        />
+      </div>
+      <span className="text-xs text-stone-400 w-20 text-right tabular-nums">
+        {Math.round(value)}{unit} / {Math.round(target)}{unit}
+      </span>
     </div>
   );
 }
@@ -142,10 +166,6 @@ export default function DashboardPage() {
   const [waterLog, setWaterLog] = useState<WaterLogEntry[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   const [userProfile, setUserProfile] = useState<Profile | null>(null);
-  const [carbCycleTargets, setCarbCycleTargets] = useState<{
-    calories: number; protein_g: number; carbs_g: number; fat_g: number;
-  } | null>(null);
-  const [macroView, setMacroView] = useState<'rings' | 'donut'>('rings');
   const [daysActive, setDaysActive] = useState(0);
   const [weeklyAvgCal, setWeeklyAvgCal] = useState(0);
   const [showHabitModal, setShowHabitModal] = useState(false);
@@ -159,6 +179,8 @@ export default function DashboardPage() {
   const totalProtein = foodLog.reduce((sum, f) => sum + (f.protein_g ?? 0), 0);
   const totalCarbs = foodLog.reduce((sum, f) => sum + (f.carbs_g ?? 0), 0);
   const totalFat = foodLog.reduce((sum, f) => sum + (f.fat_g ?? 0), 0);
+  const totalFiber = foodLog.reduce((sum, f) => sum + (f.fiber_g ?? 0), 0);
+  const mealsLogged = new Set(foodLog.map((f) => f.meal_type)).size;
 
   const loadData = useCallback(async () => {
     try {
@@ -592,93 +614,47 @@ export default function DashboardPage() {
           )}
         </motion.div>
 
-        {/* Macro Summary */}
+        {/* Today's Macros — Clean Progress Bars */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
           className="glass p-5 mb-4"
         >
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider">
-              Today&apos;s Macros
-            </h3>
-            <div className="flex gap-1 p-0.5 rounded-lg bg-white/[0.04]">
-              <button
-                onClick={() => setMacroView('rings')}
-                className={`px-2.5 py-1 rounded-md text-[10px] font-medium transition-colors ${
-                  macroView === 'rings'
-                    ? 'bg-[#D4A853]/15 text-[#D4A853]'
-                    : 'text-stone-500 hover:text-stone-300'
-                }`}
-              >
-                Rings
-              </button>
-              <button
-                onClick={() => setMacroView('donut')}
-                className={`px-2.5 py-1 rounded-md text-[10px] font-medium transition-colors ${
-                  macroView === 'donut'
-                    ? 'bg-[#D4A853]/15 text-[#D4A853]'
-                    : 'text-stone-500 hover:text-stone-300'
-                }`}
-              >
-                Donut
-              </button>
-            </div>
+          <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider mb-4">
+            Today&apos;s Macros
+          </h3>
+          <div className="space-y-3">
+            {[
+              { label: 'Calories', value: totalCalories, target: clientProfile?.target_calories ?? 2000, unit: 'kcal', color: '#D4A853' },
+              { label: 'Protein', value: totalProtein, target: clientProfile?.target_protein_g ?? 150, unit: 'g', color: '#f87171' },
+              { label: 'Carbs', value: totalCarbs, target: clientProfile?.target_carbs_g ?? 200, unit: 'g', color: '#60a5fa' },
+              { label: 'Fat', value: totalFat, target: clientProfile?.target_fat_g ?? 65, unit: 'g', color: '#a78bfa' },
+            ].map((macro) => {
+              const pct = macro.target > 0 ? Math.min((macro.value / macro.target) * 100, 100) : 0;
+              const over = macro.target > 0 && macro.value > macro.target * 1.1;
+              return (
+                <div key={macro.label}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-stone-400 text-xs">{macro.label}</span>
+                    <span className={`text-xs tabular-nums ${over ? 'text-red-400' : 'text-stone-300'}`}>
+                      {Math.round(macro.value)} / {macro.target}{macro.unit}
+                    </span>
+                  </div>
+                  <div className="h-2 bg-white/[0.06] rounded-full overflow-hidden">
+                    <motion.div
+                      className="h-full rounded-full"
+                      style={{ backgroundColor: over ? '#ef4444' : macro.color }}
+                      initial={{ width: 0 }}
+                      animate={{ width: `${pct}%` }}
+                      transition={{ duration: 0.8, ease: 'easeOut' }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
           </div>
-
-          {macroView === 'donut' ? (
-            <MacroDonut
-              calories={totalCalories}
-              protein={totalProtein}
-              carbs={totalCarbs}
-              fat={totalFat}
-              targetProtein={carbCycleTargets?.protein_g ?? clientProfile?.target_protein_g ?? 150}
-              targetCarbs={carbCycleTargets?.carbs_g ?? clientProfile?.target_carbs_g ?? 200}
-              targetFat={carbCycleTargets?.fat_g ?? clientProfile?.target_fat_g ?? 65}
-            />
-          ) : (
-          <div className="flex items-center justify-around">
-            <MacroRing
-              value={totalCalories}
-              target={carbCycleTargets?.calories ?? clientProfile?.target_calories ?? 2000}
-              label="Calories"
-              unit="kcal"
-            />
-            <MacroRing
-              value={totalProtein}
-              target={carbCycleTargets?.protein_g ?? clientProfile?.target_protein_g ?? 150}
-              label="Protein"
-              unit="g"
-            />
-            <MacroRing
-              value={totalCarbs}
-              target={carbCycleTargets?.carbs_g ?? clientProfile?.target_carbs_g ?? 200}
-              label="Carbs"
-              unit="g"
-            />
-            <MacroRing
-              value={totalFat}
-              target={carbCycleTargets?.fat_g ?? clientProfile?.target_fat_g ?? 65}
-              label="Fat"
-              unit="g"
-            />
-          </div>
-          )}
         </motion.div>
-
-        {/* Nutrient Timing */}
-        <MealTimingIndicator foodLog={foodLog} />
-
-        {/* Carb Cycling Day Type */}
-        <CarbCyclingSelector
-          enabled={!!clientProfile?.carb_cycling_enabled}
-          baseCalories={clientProfile?.target_calories ?? 2000}
-          baseProtein={clientProfile?.target_protein_g ?? 150}
-          baseCarbs={clientProfile?.target_carbs_g ?? 200}
-          baseFat={clientProfile?.target_fat_g ?? 65}
-          onAdjust={setCarbCycleTargets}
-        />
 
         {/* Water Tracker — Visual Glass */}
         <motion.div
