@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Copy, Lock, Flame, Undo2, Star, Settings } from 'lucide-react';
+import { Copy, Lock, Flame, Undo2, Star, Settings, ChefHat } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
 import type { FoodLogEntry, MealType } from '@/lib/types';
@@ -34,6 +34,7 @@ import MealPhotoGallery from '@/components/MealPhotoGallery';
 import DayComparison from '@/components/DayComparison';
 import AnimatedNumber from '@/components/AnimatedNumber';
 import MacroFoodIdeas from '@/components/MacroFoodIdeas';
+import RecipeAnalyzerModal from '@/components/RecipeAnalyzerModal';
 import { useTheme } from '@/components/ThemePicker';
 import { localToday, localDateStr } from '../../../lib/dates';
 
@@ -410,6 +411,7 @@ export default function FoodLogPage() {
   }, [loadTodayLog]);
 
   const [copying, setCopying] = useState(false);
+  const [showRecipeModal, setShowRecipeModal] = useState(false);
 
   // F3: Undo delete — soft delete with 5s timeout
   const deleteEntry = (id: string) => {
@@ -606,6 +608,14 @@ export default function FoodLogPage() {
                 {copying ? '...' : 'Yesterday'}
               </button>
             )}
+            <button
+              onClick={() => setShowRecipeModal(true)}
+              className="text-stone-500 hover:gold-text text-xs flex items-center gap-1 transition-colors"
+              title="Paste a recipe and analyze its macros"
+            >
+              <ChefHat size={12} />
+              Recipe
+            </button>
             {hasAnyFood && !allMealsLocked && (
               <button
                 onClick={lockAll}
@@ -1033,6 +1043,17 @@ export default function FoodLogPage() {
           />
         )}
       </AnimatePresence>
+
+      {/* Recipe analyzer modal (Michael #C) */}
+      {userId && (
+        <RecipeAnalyzerModal
+          userId={userId}
+          selectedDate={selectedDate}
+          isOpen={showRecipeModal}
+          onClose={() => setShowRecipeModal(false)}
+          onLogged={() => { void loadTodayLog(); }}
+        />
+      )}
 
       <BottomNav />
     </div>
