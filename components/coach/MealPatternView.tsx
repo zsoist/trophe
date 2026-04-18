@@ -17,7 +17,7 @@ interface MealPattern {
   emoji: string;
   label: string;
   totalEntries: number;
-  topFoods: { name: string; count: number }[];
+  topFoods: { name: string; count: number; avgCalories: number }[];
   avgCalories: number;
   avgProtein: number;
   avgCarbs: number;
@@ -57,16 +57,22 @@ function MealPatternView({ entries }: MealPatternViewProps) {
     });
 
     const result: MealPattern[] = Object.entries(grouped).map(([mealType, items]) => {
-      // Count food frequencies
-      const foodCounts: Record<string, number> = {};
+      // Count food frequencies + sum calories per food name
+      const foodStats: Record<string, { count: number; calTotal: number }> = {};
       items.forEach((item) => {
         const name = item.food_name.toLowerCase().trim();
-        foodCounts[name] = (foodCounts[name] || 0) + 1;
+        if (!foodStats[name]) foodStats[name] = { count: 0, calTotal: 0 };
+        foodStats[name].count += 1;
+        foodStats[name].calTotal += item.calories || 0;
       });
-      const topFoods = Object.entries(foodCounts)
-        .map(([name, count]) => ({ name, count }))
+      const topFoods = Object.entries(foodStats)
+        .map(([name, s]) => ({
+          name,
+          count: s.count,
+          avgCalories: Math.round(s.calTotal / s.count),
+        }))
         .sort((a, b) => b.count - a.count)
-        .slice(0, 5);
+        .slice(0, 6);
 
       // Calculate average per meal occasion (group by date)
       const byDate: Record<string, { cal: number; p: number; c: number; f: number }> = {};
@@ -171,72 +177,64 @@ function MealPatternView({ entries }: MealPatternViewProps) {
             transition={{ duration: 0.2 }}
             className="space-y-3"
           >
-            {patterns.map((pattern) => (
-              <div
-                key={pattern.mealType}
-                className="p-4 rounded-xl bg-white/[0.03] border border-white/5"
-              >
-                {/* Meal header */}
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg">{pattern.emoji}</span>
-                    <div>
-                      <h4 className="text-sm font-semibold text-stone-200">{pattern.label}</h4>
-                      <p className="text-[10px] text-stone-500">
-                        {pattern.uniqueDays} day{pattern.uniqueDays !== 1 ? 's' : ''} logged
-                      </p>
+            {patterns.map((pattern) => {
+              const maxFoodCount = Math.max(...pattern.topFoods.map((f) => f.count), 1);
+              return (
+                <div
+                  key={pattern.mealType}
+                  className="p-4 rounded-xl bg-white/[0.03] border border-white/5"
+                >
+                  {/* Minimal meal header — emoji + label + day count, everything else demoted */}
+                  <div className="flex items-baseline gap-2 mb-3">
+                    <span className="text-base">{pattern.emoji}</span>
+                    <h4 className="text-sm font-semibold text-stone-200">{pattern.label}</h4>
+                    <span className="text-[10px] text-stone-500">
+                      · {pattern.uniqueDays} day{pattern.uniqueDays !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+
+                  {/* FOODS — the hero of the card */}
+                  <div className="space-y-2">
+                    {pattern.topFoods.map((food) => {
+                      const freqPct = (food.count / maxFoodCount) * 100;
+                      return (
+                        <div key={food.name} className="space-y-0.5">
+                          <div className="flex items-baseline justify-between gap-2">
+                            <span className="text-sm text-stone-100 capitalize truncate">
+                              {food.name}
+                            </span>
+                            <span className="text-[10px] text-stone-500 whitespace-nowrap tabular-nums">
+                              {food.count}×{food.avgCalories > 0 ? ` · ~${food.avgCalories} kcal` : ''}
+                            </span>
+                          </div>
+                          <div className="h-1 rounded-full bg-white/[0.05] overflow-hidden">
+                            <motion.div
+                              className="h-full rounded-full bg-[#D4A853]/60"
+                              initial={{ width: 0 }}
+                              animate={{ width: `${freqPct}%` }}
+                              transition={{ duration: 0.4, ease: 'easeOut' }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Demoted footer — totals in small print */}
+                  <div className="mt-3 pt-2 border-t border-white/5 flex items-center justify-between text-[10px] text-stone-500">
+                    <span>
+                      ~{pattern.avgCalories} kcal/day · P{pattern.avgProtein} C{pattern.avgCarbs} F{pattern.avgFat}
+                    </span>
+                    <div className="h-1 w-16 rounded-full bg-white/[0.04] overflow-hidden">
+                      <div
+                        className="h-full bg-[#D4A853]/30 rounded-full"
+                        style={{ width: `${Math.min((pattern.avgCalories / maxAvgCal) * 100, 100)}%` }}
+                      />
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-sm font-bold text-stone-100">
-                      {pattern.avgCalories} <span className="text-[10px] text-stone-500 font-normal">kcal/day</span>
-                    </div>
-                  </div>
                 </div>
-
-                {/* Calorie bar */}
-                <div className="mb-3">
-                  <div className="h-2 rounded-full bg-white/[0.06] overflow-hidden">
-                    <motion.div
-                      className="h-full rounded-full bg-[#D4A853]/70"
-                      initial={{ width: 0 }}
-                      animate={{ width: `${Math.min((pattern.avgCalories / maxAvgCal) * 100, 100)}%` }}
-                      transition={{ duration: 0.5, ease: 'easeOut' }}
-                    />
-                  </div>
-                </div>
-
-                {/* Macros */}
-                <div className="flex gap-4 mb-3 text-xs">
-                  <span className="text-stone-400">
-                    P: <span className="text-stone-200 font-medium">{pattern.avgProtein}g</span>
-                  </span>
-                  <span className="text-stone-400">
-                    C: <span className="text-stone-200 font-medium">{pattern.avgCarbs}g</span>
-                  </span>
-                  <span className="text-stone-400">
-                    F: <span className="text-stone-200 font-medium">{pattern.avgFat}g</span>
-                  </span>
-                </div>
-
-                {/* Top foods */}
-                <div className="space-y-1">
-                  {pattern.topFoods.map((food) => (
-                    <div
-                      key={food.name}
-                      className="flex items-center justify-between text-xs py-0.5"
-                    >
-                      <span className="text-stone-300 capitalize truncate max-w-[70%]">
-                        {food.name}
-                      </span>
-                      <span className="text-stone-500 text-[10px] whitespace-nowrap ml-2">
-                        {food.count}x
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </motion.div>
         ) : (
           <motion.div
