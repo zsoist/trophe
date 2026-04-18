@@ -292,3 +292,24 @@ git config user.email "zsoist@users.noreply.github.com"
 - **FK indexes**: Always add indexes on foreign key columns (8 were missing before audit)
 - **ON DELETE cascades**: Add CASCADE or SET NULL on FKs to prevent orphaned rows
 - **.env.local.example**: Always maintain a template .env file so new devs know required vars
+
+### Theme system (April 18)
+- **Hardcoded `dark` on `<html>` in layout.tsx breaks light mode.** If you define `.light` CSS variables but hardcode `className="dark"` on the root, the classList mutation works but Tailwind `dark:` variants don't re-evaluate, and your `:root` vars never get overridden. Remove the hardcoded class, add an inline pre-paint script that reads localStorage and applies `.dark` or `.light` BEFORE React hydrates.
+- **Tailwind classes like `bg-stone-950` ignore CSS-variable-based themes.** If the page shell uses a hardcoded color class, swapping `.light` on `<html>` does nothing visible — the Tailwind class wins. Use `style={{ background: 'var(--bg-primary)' }}` or `.glass`/`.glass-elevated` utility classes on themed surfaces.
+- **ESLint as a preventative control.** After fixing a regression class, add a rule that bans the pattern going forward. In this repo: `eslint.config.mjs` has a `no-restricted-syntax` rule banning `bg-stone-9xx|bg-neutral-9xx|bg-zinc-9xx` on `app/dashboard/**` + `app/onboarding/**`. Warns, doesn't block — caught 3 `<option>` elements the sweep missed.
+- **Progress ring background tracks need a theme-aware color.** `rgba(255,255,255,0.05)` is nearly invisible on dark and totally invisible on light. Use `var(--border-default)` (`#2a2a2a` dark / `#d6d3d1` light) for arcs and tracks that should always be visible.
+
+### /agents/ architecture pattern (April 18)
+- **LLM prompts belong in versioned `.md` files, not in route strings.** Extract each agent's prompt to `agents/prompts/<name>.v<N>.md`. Bump the version number on any rule change so PR diffs are readable.
+- **Thin adapter routes**: route.ts should be `validate input → call agent.run() → log telemetry → return output`. Food-parse route dropped from 258 LOC → 51 LOC through this refactor.
+- **Prompt caching on Haiku 4.5**: pass `cache_control: { type: 'ephemeral' }` on the system block. Prefix must be ≥2048 tokens; stable prefixes (rules + USDA values + FOOD_DATABASE) work great. Cache hits bill at ~10% of normal input cost.
+- **Recompute derived fields from totals client-side.** When an LLM returns both `total` and `per_serving`, trust the `total` and recompute `per_serving` in the agent wrapper to guarantee math consistency. LLMs drift on division.
+
+### Testing (April 18)
+- **Pure functions in `lib/` are trivially testable** — 25 tests for nutrition-engine.ts took ~1 hour. Route handlers with embedded prompts were untestable until we moved them to `/agents/`.
+- **Golden-case tests should reference real users.** Our `DANIELA` + `MICHAEL` profile constants in `tests/nutrition-engine.test.ts` guard against the exact "protein exaggerated" bug that drove the food-accuracy incident. Write tests for past bugs, not just new features.
+- **Downgrade pre-existing lint errors to warnings rather than failing CI on inherited tech debt.** CI's job is to protect against *new* regressions; fixing pre-existing issues happens in a dedicated refactor wave (v0.2 Wave D). Add `react-hooks/set-state-in-effect: warn` etc. in ESLint config.
+
+### Deploy caching (April 18)
+- **Vercel preserves every production deployment** — rollback = select older deploy in dashboard → "Promote to Production". Takes ~30s. Don't `git revert` + redeploy when you can just re-promote.
+- **CSP wildcard `*.supabase.co` breaks mobile.** Use the explicit project domain `https://iwbpzwmidzvpiofnqexd.supabase.co` in `next.config.ts`. Discovered April 15.

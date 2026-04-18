@@ -317,6 +317,51 @@
 
 ---
 
+## April 18, 2026 — v0.2 Foundations Day
+
+Goal: 10-20 user enterprise discipline at near-zero cost. Two parallel tracks: Michael feedback fixes + first pieces of v0.2 architecture.
+
+### Michael Feedback (6/7 items shipped)
+- [x] ✅ #1 Meal pattern food-focused layout (foods hero, meta demoted)
+- [x] ✅ #3 Light/dark theme toggle works in client mode (structural fix: removed hardcoded `dark` on `<html>`, swept 9 dashboard page backgrounds to `var(--bg-primary)`, pre-paint inline script, ESLint guard)
+- [x] ✅ #5 Logout verified working
+- [x] ✅ #6 Coach/client switcher verified working
+- [x] ✅ #7 Duplicate meal slot inserts at source+1 (not appended to end)
+- [x] ✅ A Set Macros button scrolls editor into view; Export generates Markdown client report
+- [x] ✅ B Macro rings background track visible in both themes
+- [x] ✅ C **Recipe analyzer** — paste recipe → AI extracts ingredients + totals + per-serving → slider to log N servings
+- [ ] #2 Client-specific habits — deferred to phase 2 (Michael's call)
+- [ ] #4 Bi-directional notifications — scoping Sunday
+
+### v0.2 Architecture
+- [x] ✅ `/agents/` folder scaffolded (prompts, clients, schemas, per-agent pipelines + README)
+- [x] ✅ food-parse migrated: route shrunk 258 → 51 LOC
+- [x] ✅ recipe-analyze agent + route + UI modal wired to log page
+- [x] ✅ Prompt caching on Haiku 4.5 system prompts (`cache_control: ephemeral`)
+- [x] ✅ Vitest 4 + 25 unit tests on nutrition engine
+- [x] ✅ GitHub Actions CI: typecheck + lint + test on every PR/push
+- [x] ✅ ESLint rule: ban raw dark-only Tailwind on themed surfaces
+- [x] ✅ Full doc suite: CHANGELOG, ARCHITECTURE, DEPLOYMENT, SECURITY, RUNBOOK
+
+### Deferred to Sunday/Next Week
+- [ ] Supabase Pro upgrade + PITR + migrations folder (needs user click)
+- [ ] Promptfoo golden set for food-parse + recipe-analyze (30 cases)
+- [ ] Playwright E2E on 5 critical flows
+- [ ] `/admin/ops` dashboard (LLM spend, error rate, active users)
+- [ ] Shared-components light-mode sweep (110+ classes in `/components/*`, out of Michael's critical path — spawned as background task)
+- [ ] Large-file refactor (coach/client/[id]/page.tsx 1499 LOC, coach/page.tsx 1338 LOC, dashboard/log/page.tsx 1040 LOC)
+- [ ] `@supabase/ssr` migration → re-enable server-side middleware auth + nonce CSP
+
+### Commits (6 today, all on main + pushed)
+- `fceeeaa` fix(security): server-side admin guard
+- `4a2b31a` fix: Michael feedback batch 1
+- `eeaaa70` refactor(coach): food-first meal pattern view
+- `724c84d` refactor(agents): extract food-parse + prompt caching
+- `88b94d5` ci: Vitest + GitHub Actions
+- `51514f3` feat: recipe analyzer
+
+---
+
 ## PHASE 2: Testing (April 10-18, 2026)
 _4 test subjects, daily usage, bug collection_
 

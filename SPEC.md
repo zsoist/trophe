@@ -25,6 +25,14 @@ Professional nutritionists manage clients using spreadsheets, MyFitnessPal, and 
 5. Deep-dive: food log, workout history, form check results, notes
 6. Set/override client macro targets (calories, protein, carbs, fat, fiber, water) with Auto-calc button (Mifflin-St Jeor + ISSN)
 
+### Recipe Analyzer Flow (April 18)
+1. Client clicks "🍲 Recipe" on food log page
+2. Paste recipe text (English / Spanish / Greek) + specify yield (servings)
+3. AI extracts each ingredient → canonical grams → total + per-serving macros
+4. Preview: recipe name, per-serving hero card (kcal + P/C/F/Fiber), collapsible ingredient breakdown
+5. Slider: how many servings did you eat (0.25× to full recipe)
+6. Meal picker → log as single `food_log` entry named "Recipe Name (1.5 servings)"
+
 ### AI Form Check Flow (new)
 1. Client opens Form Check → selects exercise + side
 2. Camera opens → MediaPipe Pose detects 33 landmarks (browser WASM, 30+ FPS)
@@ -52,6 +60,26 @@ Professional nutritionists manage clients using spreadsheets, MyFitnessPal, and 
 - [ ] Bug report and feature feedback collected
 - [ ] Reconvene meeting (April 16-18)
 - [ ] Legal entity discussion initiated
+
+## AI Architecture (`/agents/` pattern, April 18)
+
+All LLM-backed features live under `/agents/` with a consistent `run(input) → { ok, output, telemetry }` contract:
+
+```
+agents/
+  prompts/<agent>.<version>.md    # versioned prompt templates, git-diffable
+  clients/anthropic.ts            # Messages API wrapper with cache_control
+  schemas/<agent>.ts              # zod-style input/output types + validators
+  <agent>/
+    index.ts                      # public run() — the only export routes call
+    extract.ts                    # LLM output parsing/normalization
+    enrich.ts                     # post-processing (local DB lookups)
+  README.md                       # pattern + versioning conventions
+```
+
+Current agents: `food-parse` (v3, Haiku 4.5 + cache), `recipe-analyze` (v1, Haiku 4.5 + cache). Prompt caching (`cache_control: ephemeral`) on system prompts yields ~90% discount on cached tokens within the 5-minute TTL; projected ~70% Anthropic spend reduction at steady state. Routes shrink to thin adapters (food-parse route: 258 → 51 LOC).
+
+Planned v0.2 additions: promptfoo golden-set evals, Langfuse prompt registry push on deploy, Playwright E2E against the stack.
 
 ## Technical Requirements
 - Trilingual UI (EN/ES/EL) — 200+ translated strings
