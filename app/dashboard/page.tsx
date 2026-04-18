@@ -70,32 +70,43 @@ const MOODS: { value: Mood; emoji: string; label: string }[] = [
   { value: 'struggled', emoji: '😰', label: 'Struggled' },
 ];
 
-// ─── Calorie Ring (large, center of Today's Progress card) ───
-function CalorieRing({
-  consumed,
-  target,
-}: {
-  consumed: number;
+// ─── Hero Ring (large, center of Today's Progress card) ───
+// Generalized from the original CalorieRing — now rendered with a user-chosen metric.
+// Background track uses var(--border-default) so it's visible in both dark + light themes.
+interface HeroRingProps {
+  value: number;
   target: number;
-}) {
+  primary: string; // formatted number, e.g. "1240"
+  unit?: string; // e.g. "kcal"
+  sub?: string; // bottom line, e.g. "760 left"
+  color?: string; // ring color override
+  onPointerClick?: () => void; // tap-to-cycle on mobile (optional)
+}
+
+function HeroRing({ value, target, primary, unit, sub, color, onPointerClick }: HeroRingProps) {
   const size = 160;
   const strokeWidth = 12;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
-  const rawPct = target > 0 ? consumed / target : 0;
-  const clampedPct = Math.min(rawPct, 1);
-  const remaining = Math.max(target - consumed, 0);
-  const ringColor = rawPct >= 1 ? '#22c55e' : '#D4A853';
+  const rawPct = target > 0 ? value / target : 0;
+  const clampedPct = Math.min(Math.max(rawPct, 0), 1);
+  const ringColor = color ?? (rawPct >= 1 ? '#22c55e' : '#D4A853');
 
   return (
-    <div className="relative mx-auto" style={{ width: size, height: size }}>
-      <svg width={size} height={size} className="-rotate-90">
+    <div
+      className="relative mx-auto"
+      style={{ width: size, height: size }}
+      onClick={onPointerClick}
+      role={onPointerClick ? 'button' : undefined}
+      aria-label={onPointerClick ? 'Cycle hero metric' : undefined}
+    >
+      <svg width={size} height={size} className="-rotate-90 block">
         <circle
           cx={size / 2}
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke="rgba(255,255,255,0.06)"
+          stroke="var(--border-default)"
           strokeWidth={strokeWidth}
         />
         <motion.circle
@@ -112,13 +123,42 @@ function CalorieRing({
           transition={{ type: 'spring', stiffness: 50, damping: 15, delay: 0.3 }}
         />
       </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-3xl font-bold text-stone-100">{Math.round(consumed)}</span>
-        <span className="text-xs text-stone-500">of {Math.round(target)} kcal</span>
-        <span className="text-[10px] text-stone-600 mt-0.5">{Math.round(remaining)} left</span>
+      <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-2 pointer-events-none">
+        <span className="text-3xl font-bold text-stone-100 leading-none tabular-nums">{primary}</span>
+        {unit && <span className="text-xs text-stone-500 mt-1">{unit}</span>}
+        {sub && <span className="text-[10px] text-stone-600 mt-0.5">{sub}</span>}
       </div>
     </div>
   );
+}
+
+// ─── Hero metric registry (picker options) ───
+type HeroMetricKey = 'calories' | 'protein' | 'habit' | 'meals' | 'water';
+
+interface HeroMetric {
+  key: HeroMetricKey;
+  label: string;
+  emoji: string;
+}
+
+const HERO_METRICS: HeroMetric[] = [
+  { key: 'calories', label: 'Calories', emoji: '🔥' },
+  { key: 'protein', label: 'Protein', emoji: '💪' },
+  { key: 'habit', label: 'Habit streak', emoji: '🎯' },
+  { key: 'meals', label: 'Meals logged', emoji: '🍽️' },
+  { key: 'water', label: 'Water', emoji: '💧' },
+];
+
+function loadHeroMetric(): HeroMetricKey {
+  if (typeof window === 'undefined') return 'calories';
+  const stored = window.localStorage.getItem('trophe_hero_metric') as HeroMetricKey | null;
+  if (stored && HERO_METRICS.some((m) => m.key === stored)) return stored;
+  return 'calories';
+}
+
+function saveHeroMetric(key: HeroMetricKey) {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem('trophe_hero_metric', key);
 }
 
 // ─── Macro Progress Bar ───
@@ -169,6 +209,19 @@ export default function DashboardPage() {
   const [showHabitModal, setShowHabitModal] = useState(false);
   const [allCheckins, setAllCheckins] = useState<HabitCheckin[]>([]);
   const [waterSplash, setWaterSplash] = useState(false);
+  const [heroMetric, setHeroMetric] = useState<HeroMetricKey>('calories');
+  const [showMetricPicker, setShowMetricPicker] = useState(false);
+
+  // Load hero metric preference once on mount (client-only)
+  useEffect(() => {
+    setHeroMetric(loadHeroMetric());
+  }, []);
+
+  function chooseHeroMetric(key: HeroMetricKey) {
+    setHeroMetric(key);
+    saveHeroMetric(key);
+    setShowMetricPicker(false);
+  }
 
   const today = localToday();
 
@@ -481,12 +534,100 @@ export default function DashboardPage() {
           transition={{ delay: 0.1 }}
           className="glass gold-border p-5 mb-4"
         >
-          <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider mb-4">
-            Today&apos;s Progress
-          </h3>
+          {/* Header: title + metric picker trigger */}
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider">
+              Today&apos;s Progress
+            </h3>
+            <button
+              onClick={() => setShowMetricPicker((v) => !v)}
+              className="text-[11px] text-stone-500 hover:gold-text flex items-center gap-1.5 transition-colors"
+              aria-label="Choose hero metric"
+            >
+              <span>{HERO_METRICS.find((m) => m.key === heroMetric)?.emoji}</span>
+              <span>{HERO_METRICS.find((m) => m.key === heroMetric)?.label}</span>
+              <span className="opacity-60">▾</span>
+            </button>
+          </div>
 
-          {/* Large Calorie Ring */}
-          <CalorieRing consumed={totalCalories} target={targetCalories} />
+          {/* Metric picker (collapsible) */}
+          <AnimatePresence>
+            {showMetricPicker && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="overflow-hidden mb-4"
+              >
+                <div className="grid grid-cols-5 gap-1.5">
+                  {HERO_METRICS.map((m) => {
+                    const active = m.key === heroMetric;
+                    return (
+                      <button
+                        key={m.key}
+                        onClick={() => chooseHeroMetric(m.key)}
+                        className={`py-2 rounded-lg text-[10px] font-medium transition-colors flex flex-col items-center gap-1 ${
+                          active
+                            ? 'bg-[#D4A853]/15 text-[#D4A853] border border-[#D4A853]/30'
+                            : 'border border-white/5 text-stone-500 hover:text-stone-300'
+                        }`}
+                      >
+                        <span className="text-base">{m.emoji}</span>
+                        <span>{m.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Large Hero Ring — driven by selected metric */}
+          {(() => {
+            const cRemaining = Math.max(targetCalories - totalCalories, 0);
+            const pRemaining = Math.max(targetProtein - totalProtein, 0);
+            const waterPct = targetWater > 0 ? Math.round((totalWater / targetWater) * 100) : 0;
+            const ringByKey: Record<HeroMetricKey, HeroRingProps> = {
+              calories: {
+                value: totalCalories,
+                target: targetCalories,
+                primary: Math.round(totalCalories).toString(),
+                unit: `of ${Math.round(targetCalories)} kcal`,
+                sub: `${Math.round(cRemaining)} left`,
+              },
+              protein: {
+                value: totalProtein,
+                target: targetProtein,
+                primary: `${Math.round(totalProtein)}g`,
+                unit: `of ${Math.round(targetProtein)}g`,
+                sub: `${Math.round(pRemaining)}g left`,
+                color: '#ef4444',
+              },
+              habit: {
+                value: streakDays,
+                target: cycleDays,
+                primary: streakDays.toString(),
+                unit: `/ ${cycleDays} days`,
+                sub: activeHabit?.habit?.name_en ?? 'no active habit',
+              },
+              meals: {
+                value: mealsLogged,
+                target: 5,
+                primary: mealsLogged.toString(),
+                unit: 'of 5 meals',
+                sub: mealsLogged >= 5 ? 'all logged 🎉' : `${5 - mealsLogged} to go`,
+              },
+              water: {
+                value: totalWater,
+                target: targetWater,
+                primary: `${waterPct}%`,
+                unit: `${totalWater} / ${targetWater} ml`,
+                sub: waterPct >= 100 ? 'hydrated 💧' : `${Math.max(targetWater - totalWater, 0)} ml left`,
+                color: '#3b82f6',
+              },
+            };
+            return <HeroRing {...ringByKey[heroMetric]} />;
+          })()}
 
           {/* Macro Progress Bars */}
           <div className="mt-5 space-y-3">
