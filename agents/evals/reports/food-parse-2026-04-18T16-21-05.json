@@ -1,0 +1,467 @@
+{
+  "when": "2026-04-18T16:21:05.133Z",
+  "spec": {
+    "model": "claude-haiku-4-5-20251001",
+    "version": "v3"
+  },
+  "summary": {
+    "passed": 8,
+    "total": 10,
+    "rate": "80.0",
+    "avgLatency": 2477
+  },
+  "results": [
+    {
+      "id": "nikos-01-eggs",
+      "input": "3 eggs for breakfast",
+      "passed": true,
+      "item_count": 1,
+      "totals": {
+        "grams": 150,
+        "calories": 215,
+        "protein_g": 18.9,
+        "carbs_g": 1,
+        "fat_g": 14.3,
+        "fiber_g": 0,
+        "sugar_g": 0.5
+      },
+      "failures": [],
+      "latencyMs": 2534,
+      "rawItems": [
+        {
+          "raw_text": "3 eggs for breakfast",
+          "food_name": "Egg, whole",
+          "name_localized": "Eggs",
+          "quantity": 3,
+          "unit": "piece",
+          "grams": 150,
+          "calories": 215,
+          "protein_g": 18.9,
+          "carbs_g": 1,
+          "fat_g": 14.3,
+          "fiber_g": 0,
+          "sugar_g": 0.5,
+          "confidence": 0.95,
+          "source": "local_db"
+        }
+      ]
+    },
+    {
+      "id": "nikos-02-beef-patty",
+      "input": "1 beef patty grilled",
+      "passed": true,
+      "item_count": 1,
+      "totals": {
+        "grams": 100,
+        "calories": 250,
+        "protein_g": 26,
+        "carbs_g": 0,
+        "fat_g": 15,
+        "fiber_g": 0,
+        "sugar_g": 0
+      },
+      "failures": [],
+      "latencyMs": 1457,
+      "rawItems": [
+        {
+          "raw_text": "1 beef patty grilled",
+          "food_name": "Beef patty, grilled",
+          "name_localized": "Beef patty, grilled",
+          "quantity": 1,
+          "unit": "piece",
+          "grams": 100,
+          "calories": 250,
+          "protein_g": 26,
+          "carbs_g": 0,
+          "fat_g": 15,
+          "fiber_g": 0,
+          "sugar_g": 0,
+          "confidence": 0.95,
+          "source": "local_db"
+        }
+      ]
+    },
+    {
+      "id": "nikos-03-feta-small",
+      "input": "60g feta cheese",
+      "passed": true,
+      "item_count": 1,
+      "totals": {
+        "grams": 60,
+        "calories": 158,
+        "protein_g": 8.4,
+        "carbs_g": 2.4,
+        "fat_g": 12.6,
+        "fiber_g": 0,
+        "sugar_g": 0.2
+      },
+      "failures": [],
+      "latencyMs": 1780,
+      "rawItems": [
+        {
+          "raw_text": "60g feta cheese",
+          "food_name": "Feta cheese",
+          "name_localized": "Feta cheese",
+          "quantity": 60,
+          "unit": "g",
+          "grams": 60,
+          "calories": 158,
+          "protein_g": 8.4,
+          "carbs_g": 2.4,
+          "fat_g": 12.6,
+          "fiber_g": 0,
+          "sugar_g": 0.2,
+          "confidence": 0.95,
+          "source": "local_db"
+        }
+      ]
+    },
+    {
+      "id": "nikos-04-compound-lunch",
+      "input": "palm of chicken breast, cup of cooked rice, and one banana",
+      "passed": true,
+      "item_count": 3,
+      "totals": {
+        "grams": 340,
+        "calories": 435,
+        "protein_g": 41.2,
+        "carbs_g": 55.6,
+        "fat_g": 5,
+        "fiber_g": 3.5,
+        "sugar_g": 15.1
+      },
+      "failures": [],
+      "latencyMs": 2977,
+      "rawItems": [
+        {
+          "raw_text": "palm of chicken breast",
+          "food_name": "Chicken breast, grilled",
+          "name_localized": "Chicken breast",
+          "quantity": 1,
+          "unit": "palm",
+          "grams": 120,
+          "calories": 198,
+          "protein_g": 37.2,
+          "carbs_g": 0,
+          "fat_g": 4.3,
+          "fiber_g": 0,
+          "sugar_g": 0,
+          "confidence": 0.95,
+          "source": "local_db"
+        },
+        {
+          "raw_text": "cup of cooked rice",
+          "food_name": "White rice, cooked",
+          "name_localized": "White rice, cooked",
+          "quantity": 1,
+          "unit": "cup",
+          "grams": 100,
+          "calories": 130,
+          "protein_g": 2.7,
+          "carbs_g": 28,
+          "fat_g": 0.3,
+          "fiber_g": 0.4,
+          "sugar_g": 0.1,
+          "confidence": 0.95,
+          "source": "local_db"
+        },
+        {
+          "raw_text": "one banana",
+          "food_name": "Banana",
+          "name_localized": "Banana",
+          "quantity": 1,
+          "unit": "piece",
+          "grams": 120,
+          "calories": 107,
+          "protein_g": 1.3,
+          "carbs_g": 27.6,
+          "fat_g": 0.4,
+          "fiber_g": 3.1,
+          "sugar_g": 15,
+          "confidence": 0.95,
+          "source": "local_db"
+        }
+      ]
+    },
+    {
+      "id": "nikos-05-fish-soup-vague",
+      "input": "fish soup",
+      "passed": true,
+      "item_count": 1,
+      "totals": {
+        "grams": 250,
+        "calories": 120,
+        "protein_g": 18,
+        "carbs_g": 5,
+        "fat_g": 2.5,
+        "fiber_g": 1,
+        "sugar_g": 1
+      },
+      "failures": [],
+      "latencyMs": 2581,
+      "rawItems": [
+        {
+          "raw_text": "fish soup",
+          "food_name": "Fish soup",
+          "name_localized": "Fish soup",
+          "quantity": 1,
+          "unit": "serving",
+          "grams": 250,
+          "calories": 120,
+          "protein_g": 18,
+          "carbs_g": 5,
+          "fat_g": 2.5,
+          "fiber_g": 1,
+          "sugar_g": 1,
+          "confidence": 0.65,
+          "source": "ai_estimate"
+        }
+      ]
+    },
+    {
+      "id": "nikos-06-nutella-biscuits",
+      "input": "3 nutella biscuits",
+      "passed": true,
+      "item_count": 1,
+      "totals": {
+        "grams": 45,
+        "calories": 225,
+        "protein_g": 3.3,
+        "carbs_g": 27,
+        "fat_g": 11.3,
+        "fiber_g": 0.5,
+        "sugar_g": 18
+      },
+      "failures": [],
+      "latencyMs": 4196,
+      "rawItems": [
+        {
+          "raw_text": "3 nutella biscuits",
+          "food_name": "Nutella biscuits",
+          "name_localized": "Nutella biscuits",
+          "quantity": 3,
+          "unit": "piece",
+          "grams": 45,
+          "calories": 225,
+          "protein_g": 3.3,
+          "carbs_g": 27,
+          "fat_g": 11.3,
+          "fiber_g": 0.5,
+          "sugar_g": 18,
+          "confidence": 0.75,
+          "source": "ai_estimate"
+        }
+      ]
+    },
+    {
+      "id": "nikos-07-snack-combo",
+      "input": "1 rice cake with 1 tablespoon of honey",
+      "passed": false,
+      "item_count": 2,
+      "totals": {
+        "grams": 24,
+        "calories": 82,
+        "protein_g": 0.8,
+        "carbs_g": 20.3,
+        "fat_g": 0.3,
+        "fiber_g": 0.2,
+        "sugar_g": 11.6
+      },
+      "failures": [
+        "calories=82.0 outside [140,200]",
+        "carbs_g=20.3 outside [35,48]",
+        "sugar_g=11.6 outside [14,22]"
+      ],
+      "latencyMs": 2152,
+      "rawItems": [
+        {
+          "raw_text": "1 rice cake",
+          "food_name": "Rice cake",
+          "name_localized": "Rice cake",
+          "quantity": 1,
+          "unit": "piece",
+          "grams": 10,
+          "calories": 39,
+          "protein_g": 0.8,
+          "carbs_g": 8.8,
+          "fat_g": 0.3,
+          "fiber_g": 0.2,
+          "sugar_g": 0.1,
+          "confidence": 0.75,
+          "source": "ai_estimate"
+        },
+        {
+          "raw_text": "1 tablespoon of honey",
+          "food_name": "Honey",
+          "name_localized": "Honey",
+          "quantity": 1,
+          "unit": "tbsp",
+          "grams": 14,
+          "calories": 43,
+          "protein_g": 0,
+          "carbs_g": 11.5,
+          "fat_g": 0,
+          "fiber_g": 0,
+          "sugar_g": 11.5,
+          "confidence": 0.95,
+          "source": "local_db"
+        }
+      ]
+    },
+    {
+      "id": "nikos-08-handful-nuts",
+      "input": "a handful of mixed nuts",
+      "passed": true,
+      "item_count": 1,
+      "totals": {
+        "grams": 30,
+        "calories": 182,
+        "protein_g": 6,
+        "carbs_g": 6.3,
+        "fat_g": 16.2,
+        "fiber_g": 2.1,
+        "sugar_g": 1.2
+      },
+      "failures": [],
+      "latencyMs": 1348,
+      "rawItems": [
+        {
+          "raw_text": "a handful of mixed nuts",
+          "food_name": "Mixed nuts",
+          "name_localized": "Mixed nuts",
+          "quantity": 1,
+          "unit": "handful",
+          "grams": 30,
+          "calories": 182,
+          "protein_g": 6,
+          "carbs_g": 6.3,
+          "fat_g": 16.2,
+          "fiber_g": 2.1,
+          "sugar_g": 1.2,
+          "confidence": 0.95,
+          "source": "local_db"
+        }
+      ]
+    },
+    {
+      "id": "nikos-09-greek-unit",
+      "input": "1 φλ ρύζι και 1 παλάμη κοτόπουλο",
+      "passed": true,
+      "item_count": 2,
+      "totals": {
+        "grams": 220,
+        "calories": 328,
+        "protein_g": 39.900000000000006,
+        "carbs_g": 28,
+        "fat_g": 4.6,
+        "fiber_g": 0.4,
+        "sugar_g": 0
+      },
+      "failures": [],
+      "latencyMs": 2799,
+      "rawItems": [
+        {
+          "raw_text": "1 φλ ρύζι",
+          "food_name": "White rice, cooked",
+          "name_localized": "Ρύζι λευκό μαγειρεμένο",
+          "quantity": 1,
+          "unit": "φλ (cup)",
+          "grams": 100,
+          "calories": 130,
+          "protein_g": 2.7,
+          "carbs_g": 28,
+          "fat_g": 0.3,
+          "fiber_g": 0.4,
+          "sugar_g": 0,
+          "confidence": 0.95,
+          "source": "local_db"
+        },
+        {
+          "raw_text": "1 παλάμη κοτόπουλο",
+          "food_name": "Chicken breast, grilled",
+          "name_localized": "Στήθος κοτόπουλο ψητό",
+          "quantity": 1,
+          "unit": "παλάμη (palm)",
+          "grams": 120,
+          "calories": 198,
+          "protein_g": 37.2,
+          "carbs_g": 0,
+          "fat_g": 4.3,
+          "fiber_g": 0,
+          "sugar_g": 0,
+          "confidence": 0.95,
+          "source": "local_db"
+        }
+      ]
+    },
+    {
+      "id": "nikos-10-dinner-complex",
+      "input": "half an avocado, one tortilla wrap, and a scoop of whey protein",
+      "passed": false,
+      "item_count": 3,
+      "totals": {
+        "grams": 165,
+        "calories": 428,
+        "protein_g": 29.1,
+        "carbs_g": 41.4,
+        "fat_g": 17.2,
+        "fiber_g": 6.9,
+        "sugar_g": 3.0999999999999996
+      },
+      "failures": [
+        "calories=428.0 outside [280,420]"
+      ],
+      "latencyMs": 2946,
+      "rawItems": [
+        {
+          "raw_text": "half an avocado",
+          "food_name": "Avocado",
+          "name_localized": "Avocado",
+          "quantity": 0.5,
+          "unit": "whole",
+          "grams": 70,
+          "calories": 112,
+          "protein_g": 1.4,
+          "carbs_g": 5.9,
+          "fat_g": 10.5,
+          "fiber_g": 4.9,
+          "sugar_g": 0.3,
+          "confidence": 0.95,
+          "source": "local_db"
+        },
+        {
+          "raw_text": "one tortilla wrap",
+          "food_name": "Tortilla / wrap",
+          "name_localized": "Tortilla wrap",
+          "quantity": 1,
+          "unit": "piece",
+          "grams": 65,
+          "calories": 202,
+          "protein_g": 5.2,
+          "carbs_g": 32.5,
+          "fat_g": 5.2,
+          "fiber_g": 2,
+          "sugar_g": 2,
+          "confidence": 0.9,
+          "source": "local_db"
+        },
+        {
+          "raw_text": "a scoop of whey protein",
+          "food_name": "Protein powder",
+          "name_localized": "Protein powder (whey)",
+          "quantity": 1,
+          "unit": "scoop",
+          "grams": 30,
+          "calories": 114,
+          "protein_g": 22.5,
+          "carbs_g": 3,
+          "fat_g": 1.5,
+          "fiber_g": 0,
+          "sugar_g": 0.8,
+          "confidence": 0.92,
+          "source": "local_db"
+        }
+      ]
+    }
+  ]
+}

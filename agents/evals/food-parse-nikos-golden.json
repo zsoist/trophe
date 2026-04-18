@@ -1,0 +1,128 @@
+{
+  "description": "Nikos golden set — derived from his actual food_log entries Apr 16-17, 2026. Each case reconstructs a plausible raw-text input a user would type, with expected macro ranges drawn from Nikos's logged entries (which our current local-DB resolves against USDA/Kavdas defaults). Tolerance bands account for serving-size ambiguity.",
+  "model": "claude-haiku-4-5-20251001",
+  "agent_version": "v3",
+  "source": "nikos@biorita.com food_log 2026-04-16 to 2026-04-17 (19 entries, sampled 10)",
+  "cases": [
+    {
+      "id": "nikos-01-eggs",
+      "input": "3 eggs for breakfast",
+      "language": "en",
+      "expect_item_count": 1,
+      "expect_total": {
+        "calories": {"min": 190, "max": 240},
+        "protein_g": {"min": 16, "max": 22},
+        "fat_g": {"min": 12, "max": 18}
+      },
+      "notes": "Canonical egg test. 1 large egg = 72 cal / 6.3g P per our rules."
+    },
+    {
+      "id": "nikos-02-beef-patty",
+      "input": "1 beef patty grilled",
+      "language": "en",
+      "expect_item_count": 1,
+      "expect_total": {
+        "calories": {"min": 200, "max": 290},
+        "protein_g": {"min": 22, "max": 30},
+        "fat_g": {"min": 11, "max": 18}
+      },
+      "notes": "Default serving assumption — was logged at 100g yielding 250/26/15."
+    },
+    {
+      "id": "nikos-03-feta-small",
+      "input": "60g feta cheese",
+      "language": "en",
+      "expect_item_count": 1,
+      "expect_total": {
+        "calories": {"min": 140, "max": 180},
+        "protein_g": {"min": 7, "max": 11},
+        "fat_g": {"min": 11, "max": 15}
+      },
+      "notes": "Explicit 60g — tests whether parser honors explicit grams (Nikos's log showed 60g at 79cal which undercounts; likely a wrong-unit bug worth catching)."
+    },
+    {
+      "id": "nikos-04-compound-lunch",
+      "input": "palm of chicken breast, cup of cooked rice, and one banana",
+      "language": "en",
+      "expect_item_count": 3,
+      "expect_total": {
+        "calories": {"min": 380, "max": 520},
+        "protein_g": {"min": 33, "max": 45},
+        "carbs_g": {"min": 45, "max": 70}
+      },
+      "notes": "Multi-item; Kavdas 'palm' = ~120g chicken; 'cup' rice = 100-150g cooked; banana ~107cal."
+    },
+    {
+      "id": "nikos-05-fish-soup-vague",
+      "input": "fish soup",
+      "language": "en",
+      "expect_item_count": 1,
+      "expect_total": {
+        "calories": {"min": 80, "max": 220},
+        "protein_g": {"min": 8, "max": 20}
+      },
+      "notes": "Vague input; tests reasonable default (Nikos got 100cal/10g P — low end plausible)."
+    },
+    {
+      "id": "nikos-06-nutella-biscuits",
+      "input": "3 nutella biscuits",
+      "language": "en",
+      "expect_item_count": 1,
+      "expect_total": {
+        "calories": {"min": 150, "max": 260},
+        "protein_g": {"min": 2, "max": 5},
+        "carbs_g": {"min": 18, "max": 32},
+        "sugar_g": {"min": 8, "max": 20}
+      },
+      "notes": "Branded item, AI estimate acceptable; tests sugar_g estimation."
+    },
+    {
+      "id": "nikos-07-snack-combo",
+      "input": "1 rice cake with 1 tablespoon of honey",
+      "language": "en",
+      "expect_item_count": 2,
+      "expect_total": {
+        "calories": {"min": 140, "max": 200},
+        "carbs_g": {"min": 35, "max": 48},
+        "sugar_g": {"min": 14, "max": 22}
+      },
+      "notes": "Common Greek snack combo; tests compound parsing + honey sugar accuracy."
+    },
+    {
+      "id": "nikos-08-handful-nuts",
+      "input": "a handful of mixed nuts",
+      "language": "en",
+      "expect_item_count": 1,
+      "expect_total": {
+        "calories": {"min": 150, "max": 220},
+        "protein_g": {"min": 4, "max": 8},
+        "fat_g": {"min": 13, "max": 20}
+      },
+      "notes": "Tests 'handful' = 30g default per our serving-size rules."
+    },
+    {
+      "id": "nikos-09-greek-unit",
+      "input": "1 φλ ρύζι και 1 παλάμη κοτόπουλο",
+      "language": "el",
+      "expect_item_count": 2,
+      "expect_total": {
+        "calories": {"min": 280, "max": 380},
+        "protein_g": {"min": 28, "max": 42},
+        "carbs_g": {"min": 28, "max": 50}
+      },
+      "notes": "Greek-language + Greek units (φλ=cup ~100-150g rice cooked, παλάμη=palm ~120g chicken)."
+    },
+    {
+      "id": "nikos-10-dinner-complex",
+      "input": "half an avocado, one tortilla wrap, and a scoop of whey protein",
+      "language": "en",
+      "expect_item_count": 3,
+      "expect_total": {
+        "calories": {"min": 280, "max": 420},
+        "protein_g": {"min": 22, "max": 32},
+        "fat_g": {"min": 10, "max": 18}
+      },
+      "notes": "Complex compound, mixed food types; tests fractional qty (half), 'scoop' unit."
+    }
+  ]
+}
