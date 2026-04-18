@@ -541,7 +541,7 @@ export default function FoodLogPage() {
   const nextUnfilled = slots.find(s => grouped[s.id].length === 0 && !skippedSlots.has(s.id));
 
   return (
-    <div className="min-h-screen bg-stone-950 pb-24">
+    <div className="min-h-screen pb-24" style={{ background: 'var(--bg-primary)' }}>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -742,7 +742,7 @@ export default function FoodLogPage() {
                   <div key={label} className="flex flex-col items-center gap-0.5">
                     <div className="flex items-center gap-1.5">
                       <svg width="32" height="32" className="-rotate-90">
-                        <circle cx="16" cy="16" r={r} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="3" />
+                        <circle cx="16" cy="16" r={r} fill="none" stroke="var(--border-default)" strokeWidth="3" />
                         <motion.circle
                           cx="16" cy="16" r={r} fill="none"
                           stroke={strokeColor}

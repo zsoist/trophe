@@ -373,7 +373,7 @@ export default function DashboardPage() {
   const targetGlasses = Math.ceil(targetWater / 250);
 
   return (
-    <div className="min-h-screen bg-stone-950 pb-24">
+    <div className="min-h-screen pb-24" style={{ background: 'var(--bg-primary)' }}>
       {/* ═══ Habit Mastery Celebration Modal ═══ */}
       <AnimatePresence>
         {showCelebration && (

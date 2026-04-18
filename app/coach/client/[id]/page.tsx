@@ -868,7 +868,7 @@ export default function ClientDetailPage() {
             </div>
             {/* ─── Macro Targets (editable by coach) ─── */}
             {editingMacros ? (
-              <div className="mt-4 p-4 rounded-xl bg-white/[0.03] border border-[#D4A853]/20 space-y-3">
+              <div id="macro-editor" className="mt-4 p-4 rounded-xl bg-white/[0.03] border border-[#D4A853]/20 space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="text-xs font-semibold text-[#D4A853] uppercase tracking-wider">Edit Macro Targets</h3>
                   <div className="flex gap-1.5">
@@ -1433,14 +1433,62 @@ export default function ClientDetailPage() {
         {/* ─── Quick Actions Bar (floating bottom) ─── */}
         <QuickActionsBar
           onAssignHabit={loadTemplates}
-          onSetMacros={startEditingMacros}
+          onSetMacros={() => {
+            startEditingMacros();
+            requestAnimationFrame(() => {
+              document.getElementById('macro-editor')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            });
+          }}
           onAddNote={() => {
             const el = document.querySelector('textarea');
             if (el) { el.scrollIntoView({ behavior: 'smooth' }); el.focus(); }
           }}
           onExport={() => {
-            // Placeholder — export functionality can be wired later
-            window.alert('Export coming soon');
+            const lines: string[] = [];
+            const name = profile?.full_name || profile?.email || 'Client';
+            const today = new Date().toISOString().slice(0, 10);
+            lines.push(`# ${name} — Coach Report`, `_${today}_`, '');
+            if (clientProfile) {
+              lines.push('## Profile');
+              lines.push(`- Goal: ${clientProfile.goal || '—'}`);
+              lines.push(`- Phase: ${clientProfile.coaching_phase || '—'}`);
+              if (clientProfile.weight_kg) lines.push(`- Weight: ${clientProfile.weight_kg} kg`);
+              if (clientProfile.height_cm) lines.push(`- Height: ${clientProfile.height_cm} cm`);
+              lines.push('');
+              lines.push('## Macro Targets');
+              lines.push(`- Calories: ${clientProfile.target_calories || '—'} kcal`);
+              lines.push(`- Protein: ${clientProfile.target_protein_g || '—'} g`);
+              lines.push(`- Carbs: ${clientProfile.target_carbs_g || '—'} g`);
+              lines.push(`- Fat: ${clientProfile.target_fat_g || '—'} g`);
+              lines.push(`- Fiber: ${clientProfile.target_fiber_g || '—'} g`);
+              lines.push(`- Water: ${clientProfile.target_water_ml || '—'} ml`);
+              lines.push('');
+            }
+            if (activeHabit?.habit) {
+              lines.push('## Active Habit');
+              lines.push(`- ${activeHabit.habit.emoji || ''} ${activeHabit.habit.name_en || ''}`);
+              lines.push(`- Streak: ${activeHabit.current_streak || 0} (best ${activeHabit.best_streak || 0}, ${activeHabit.total_completions || 0} total)`);
+              lines.push('');
+            }
+            if (notes && notes.length > 0) {
+              lines.push('## Recent Notes');
+              notes.slice(0, 10).forEach((n) => {
+                const when = n.created_at ? new Date(n.created_at).toISOString().slice(0, 10) : '';
+                lines.push(`- **${when}** (${n.session_type || 'note'}): ${n.note || ''}`);
+              });
+              lines.push('');
+            }
+            const md = lines.join('\n');
+            const safe = name.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+            const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${safe}-report-${today}.md`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
           }}
         />
 

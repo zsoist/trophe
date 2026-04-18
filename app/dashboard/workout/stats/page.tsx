@@ -391,7 +391,7 @@ export default function WorkoutStatsPage() {
   // ── Render ──
 
   return (
-    <div className="min-h-screen bg-stone-950 px-4 py-6 pb-24 sm:px-6 lg:px-8">
+    <div className="min-h-screen px-4 py-6 pb-24 sm:px-6 lg:px-8" style={{ background: 'var(--bg-primary)' }}>
       <div className="max-w-2xl mx-auto">
         {/* Header */}
         <motion.div

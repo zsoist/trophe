@@ -123,7 +123,7 @@ export default function SupplementsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-stone-950 pb-24">
+      <div className="min-h-screen pb-24" style={{ background: 'var(--bg-primary)' }}>
         <div className="max-w-md mx-auto px-4 pt-12 space-y-4">
           <div className="h-7 w-36 rounded bg-stone-800/60 animate-pulse" />
           {[0, 1, 2].map((i) => (
@@ -142,7 +142,7 @@ export default function SupplementsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-stone-950 pb-24">
+    <div className="min-h-screen pb-24" style={{ background: 'var(--bg-primary)' }}>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}

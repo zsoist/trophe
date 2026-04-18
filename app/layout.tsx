@@ -38,7 +38,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${playfair.variable} h-full dark`}>
+    <html lang="en" className={`${inter.variable} ${playfair.variable} h-full`} suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var m=localStorage.getItem('trophe_theme_mode');var c=m==='light'?'light':'dark';document.documentElement.classList.add(c);}catch(e){document.documentElement.classList.add('dark');}})();`,
+          }}
+        />
+      </head>
       <body className="min-h-full font-sans antialiased" style={{ background: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
         <Providers>{children}</Providers>
       </body>

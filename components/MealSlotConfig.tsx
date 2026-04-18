@@ -56,12 +56,13 @@ export default function MealSlotConfig({ slots: initialSlots, onSave, onClose }:
 
   const duplicateSlot = (slot: MealSlot) => {
     const id = `custom_${Date.now()}`;
-    setSlots(prev => [...prev, {
-      ...slot,
-      id,
-      label: `${slot.label} 2`,
-      order: prev.length,
-    }]);
+    setSlots(prev => {
+      const srcIdx = prev.findIndex(s => s.id === slot.id);
+      const insertAt = srcIdx >= 0 ? srcIdx + 1 : prev.length;
+      const copy: MealSlot = { ...slot, id, label: `${slot.label} 2`, order: insertAt };
+      const next = [...prev.slice(0, insertAt), copy, ...prev.slice(insertAt)];
+      return next.map((s, i) => ({ ...s, order: i }));
+    });
   };
 
   const removeSlot = (id: string) => {
