@@ -16,7 +16,7 @@ function getGreeting(): { text: string; emoji: string } {
 }
 
 export default memo(function DashboardGreeting({ coachName, needsAttention }: DashboardGreetingProps) {
-  const greeting = useMemo(getGreeting, []);
+  const greeting = useMemo(() => getGreeting(), []);
 
   return (
     <motion.div
