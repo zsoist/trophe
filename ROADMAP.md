@@ -362,6 +362,29 @@ Goal: 10-20 user enterprise discipline at near-zero cost. Two parallel tracks: M
 
 ---
 
+## April 19, 2026 — Monday meeting prep day
+
+Scope: no product-ship work. All effort on the April 20 partnership meeting with Michael Kavdas + George Tsatsaronis (first-time introduction, ~21 yrs deal-making background).
+
+### Built
+- [x] ✅ 10-slide HTML meeting deck (`trophe-apr20-deck.html`). Interactive canvas globe on slide 1 (Bogotá ↔ Athens great-circle arc, drag to rotate, traveling pulse dot, Colombia + Greece highlight outlines with ocean-anchored labels, 4 attendees). Flip-card product demo on slide 2. 5-layer architecture diagram on slide 3. Active-tester actor map on slide 4. Strong + moves-we're-building-toward on slide 5. Phases in Greek numerals (ένα · δύο · τρία) on slide 6. Two-column what-I-want-to-hear / input-I-need on slide 7. Profile map on slide 8. Partnership table-setting on slide 9. Close on slide 10.
+- [x] ✅ Slide 1 canvas polish: tilt sign fix, DPR scaling for retina sharpness, horizon-aware polygon clipping on country highlights, ocean-anchored labels with leader lines, traveling pulse dot, `minmax(0, 1fr)` grid fix for max-width honoring, mega-font clamp trim.
+- [x] ✅ 5 `docs/monday-prep/*` docs updated with the April 19 strategic frame.
+
+### Strategic frame landed
+- [x] ✅ Daniel's archetype named: **Technical Co-Founder Who Treats This Like a Paid Apprenticeship**. Top goals A > D > G > H (meaningful side income €500–2K/mo, Dialectica safety, CV credential, fun). 4–8 hrs/week ceiling. Open on equity (20–40%; three-way equal acceptable).
+- [x] ✅ Opening statement scripted (2 min, verbatim in `MEETING-NOTES.md`).
+- [x] ✅ Walk-away doc finalized (must-haves / won't-accept / open-to in `MEETING-NOTES.md`).
+- [x] ✅ `docs/monday-prep/02-agenda-apr20.md` revised with 20-min deck slot.
+- [x] ✅ `docs/monday-prep/03-partnership-options.md` reframed from "defend majority" to "three live options + Daniel's transparent stated position."
+
+### Pending
+- [ ] Sunday afternoon: rehearse deck out loud, time it (target 15 min delivery).
+- [ ] Sunday ~noon Colombia: send agenda + retro as pre-read.
+- [ ] Monday 7am Colombia: re-read walk-away note, join call calm.
+
+---
+
 ## PHASE 2: Testing (April 10-18, 2026)
 _4 test subjects, daily usage, bug collection_
 

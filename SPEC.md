@@ -58,7 +58,8 @@ Professional nutritionists manage clients using spreadsheets, MyFitnessPal, and 
 - [ ] 3 test subjects actively using app (April 10-18)
 - [ ] Michael using coach dashboard daily
 - [ ] Bug report and feature feedback collected
-- [ ] Reconvene meeting (April 16-18)
+- [x] ✅ Reconvene meeting (April 16-18)
+- [ ] April 20 meeting (Kavdas + Tsatsaronis + Reyes + Gutiérrez): product direction aligned, cut list agreed, partnership decision *timeline* set
 - [ ] Legal entity discussion initiated
 
 ## AI Architecture (`/agents/` pattern, April 18)

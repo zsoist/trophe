@@ -193,6 +193,9 @@ git config user.email "zsoist@users.noreply.github.com"
 7. Lock per-meal or "Lock All" → localStorage prevents accidental edits
 
 ## Pitfalls (learned the hard way)
+### AI Food Parser (CRITICAL — recurring pattern Apr 14-21)
+- **AI food parser inflates portion sizes without gram anchors.** LLMs exaggerate serving sizes when no mass reference is provided. Always include USDA gram weights (e.g., "1 medium apple = 182g") in the system prompt. Flagged in weekly syntheses 3 weeks running.
+
 ### Security (CRITICAL — Codex audit 2026-04-07)
 - `middleware.ts` checked cookie PRESENCE only, not JWT validity — any non-empty `sb-access-token` cookie bypassed auth. Always use `@supabase/ssr createServerClient` + `supabase.auth.getUser()` for real verification
 - `/api/seed/*` routes had NO auth check but used service-role key — anonymous callers could trigger mass data operations. Seed routes must require admin auth or be removed from production builds
@@ -313,3 +316,14 @@ git config user.email "zsoist@users.noreply.github.com"
 ### Deploy caching (April 18)
 - **Vercel preserves every production deployment** — rollback = select older deploy in dashboard → "Promote to Production". Takes ~30s. Don't `git revert` + redeploy when you can just re-promote.
 - **CSP wildcard `*.supabase.co` breaks mobile.** Use the explicit project domain `https://iwbpzwmidzvpiofnqexd.supabase.co` in `next.config.ts`. Discovered April 15.
+
+### Canvas + globe rendering (April 18–19, meeting-deck work)
+- **Retina canvas must scale backing store.** Fixed `canvas.width=N` + CSS `width: 100%` = blurry on 2× displays. Fix: `canvas.width = N * devicePixelRatio; canvas.height = N * devicePixelRatio; ctx.scale(dpr, dpr)`. Logical coord system stays 0–N; backing store matches device pixels. One-shot at init, no per-frame cost.
+- **3D sphere tilt: positive angle rotates NORTH pole toward viewer.** In `G_rX(v, a) = [x, y*c − z*s, y*s + z*c]`, positive `a` pushes `y=1` (north) into `+z` (viewer). Negative tilt shows the *southern* hemisphere. If the globe feels like you're "looking from below," flip the sign on the X-axis rotation.
+- **Horizon-aware polygon fill on a canvas globe.** Polygons that cross the globe limb must close along the sphere edge — arc from exit-point to entry-point in the SHORT direction. Straight-line closure = diagonal chord cuts across the continent. Stroke-only passes don't need this, because the pen lifts automatically when a vertex goes invisible.
+- **Label placement on a rotating globe: use a separate lat/lon anchor point.** Screen-space offsets ("push 28px radially outward from globe center") break at certain rotations. Assigning an "ocean coordinate" (e.g., Pacific `[1, −82.5]` for a Colombia label, south Aegean `[34.5, 26.5]` for a Greece label) lets the same projection place labels in open water regardless of yaw/tilt. Add a dashed leader line from the hero dot to the label pill.
+
+### CSS Grid + huge display typography (April 19, meeting-deck work)
+- **`grid-template-columns: 1fr 1fr` silently resolves to `minmax(auto, 1fr)`.** A child with large intrinsic width (e.g., `h1.mega` at `clamp(128px, 19vw, 360px)` on a 5-char Greek word = ~1000px rendered) forces the grid wider than its parent's `max-width`. Symptom: `max-width: 1400px` on the grid "does nothing" on fullscreen. Fix: `minmax(0, 1fr) minmax(0, 1fr)` — the zero minimum lets columns shrink below content size, letting `max-width` actually cap.
+- **Same trap in flex.** `min-width: 0` on flex children is the equivalent fix. Extremely common in full-bleed layouts with display typography.
+- **Cap display-font clamps at a viewport-pixel-sane max.** `clamp(96px, 14vw, 240px)` tops out at 240px on ultrawide. Uncapped `19vw` = 486px on a 2560px screen — fine on laptop, catastrophic on external display during live demo.

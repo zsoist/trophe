@@ -1,13 +1,21 @@
 # Monday Meeting Agenda — April 20, 2026
 
-**Participants**: Michael Kavdas, George (Michael's partner — trainer), Daniel
-**Duration proposed**: 90 minutes
+**Participants**: Michael Kavdas, George Tsatsaronis (Michael's partner — trainer), Daniel Reyes, Daniela Gutiérrez
+**Duration**: 90 minutes (20-min deck overview + ~70-min conversation)
 **Format**: video
 **Sent**: Sunday Apr 19
 
 ---
 
 Michael — short note before you read. Quick recap: 3 days of testing produced clear signals. This agenda front-loads *what we learned* and back-loads *partnership structure* because the product decisions set the frame for the business ones. If 90 min is too long, we can split: first 60 min product, second 30 min structure.
+
+---
+
+## 0 · Opening + deck overview (~25 min)
+
+- 2-min personal framing statement from Daniel (cards on the table: Dialectica + master's continue; Trophē is serious side project at 4–8 hrs/week; interested in technical co-founder role; genuinely open on structure).
+- 20-min visual deck walk-through: what Trophē is today, testing reality, what we shipped + moves we're building toward, Greek-numeral phase plan, table-setting for the partnership conversation.
+- 3-min buffer / clarifying questions.
 
 ---
 

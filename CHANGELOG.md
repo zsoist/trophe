@@ -25,6 +25,23 @@ All notable changes to Trophē are logged here. Format follows [Keep a Changelog
 ### Fixed
 - `fceeeaa` — server-side admin guard for `/admin/*` routes (Codex HIGH #2).
 
+## [Apr 18–19, 2026] Monday meeting prep sprint
+
+No product-ship work; all effort on the April 20 partnership meeting with Michael Kavdas + George Tsatsaronis.
+
+### Added
+- 10-slide HTML meeting deck (`trophe-apr20-deck.html`, outside product bundle). Canvas-rendered interactive globe on slide 1 (Bogotá ↔ Athens great-circle arc, drag to rotate, traveling pulse dot, Colombia + Greece highlight outlines with ocean-anchored labels, τροφή letter-by-letter reveal + shimmer sweep, 4 attendees). Flip-card product demo on slide 2. 5-layer architecture / AI-engineering diagram on slide 3. Active-tester actor map on slide 4. Strong + moves-we're-building-toward on slide 5. Phases in Greek numerals (ένα · δύο · τρία) on slide 6. Two-column what-I-want-to-hear / input-I-need on slide 7. Profile map on slide 8. Partnership table-setting on slide 9. Close on slide 10.
+- `docs/monday-prep/` — five internal prep docs: retro, agenda, partnership options, positioning, cut decision.
+- Strategic frame captured in `MEETING-NOTES.md`: Daniel's archetype (Technical Co-Founder / CTO), top goals A > D > G > H, 4–8 hrs/week ceiling, open equity stance (20–40%; three-way equal acceptable).
+
+### Fixed (slide 1 globe — canvas renderer polish)
+- `G_TILT` sign flip: −32° → +23°. North hemisphere now faces viewer (previous setting showed southern hemisphere).
+- High-DPI canvas: backing store scaled by `devicePixelRatio`, logical coord system unchanged via `ctx.scale(dpr, dpr)`. Retina sharpness restored.
+- Horizon-aware polygon clipping on Colombia + Greece highlight outlines. Fills only when fully on the visible hemisphere (avoids diagonal chord-cut artifacts at the limb). Stroke-only otherwise.
+- Ocean-anchored pill labels: Colombia at Pacific `[1, −82.5]`, Greece at south Aegean `[34.5, 26.5]`, each with dashed gold leader line from hero dot. Labels rotate with globe naturally.
+- Traveling pulse dot along the Bogotá → Athens arc (~5s loop). Reuses pre-computed 100-point great-circle array by index; zero trig per frame.
+- Title grid `minmax(0, 1.1fr) minmax(0, 1fr)` + `max-width: 1400px` + mega-font trim to `clamp(96px, 14vw, 240px)` — prevents display typography from silently forcing the grid wider than its parent cap on fullscreen.
+
 ## [Apr 17, 2026] Codex cycle + food accuracy deep fix
 
 - `7087ea1` — docs: Codex score 5.6, food accuracy pitfall captured

@@ -1,11 +1,45 @@
 # Partnership Structure — Options Document
 
-**Author**: Daniel · **For**: internal prep + Monday 04-20 meeting
-**Status**: draft for discussion — do NOT send to Michael pre-meeting
+**Author**: Daniel · **For**: internal prep + post-Monday debrief
+**Status**: POST-MEETING revision — reflects what George + Mike said 2026-04-20
+**Last updated**: April 20 (post-meeting)
 
-> **Purpose of this doc**: raise the partnership-structure topic before it gets decided by default. We've been collaborating for months without a formal frame. That's fine for testing; it's not fine once a paying coach signs up or a legal entity is required.
->
-> My role is not to pick the answer. It is to make sure we choose deliberately, with both sides' trade-offs visible.
+---
+
+## ⚠️ POST-MEETING UPDATE (2026-04-20) — REVISED AFTER DANIELA CONSULTATION
+
+**Option (i) Daniel standalone**: **DEAD.** Neither Mike nor George entertained it.
+
+**Option (ii) JV entity**: **NOT PURSUED.** Daniela's call: *"from scratch es mucho esfuerzo, tiempo y manos que no tenemos"*. Not worth the fight.
+
+**Option (iii) Absorption into AthletiKapp**: **PREFERRED PATH**, under 3 conditions:
+1. **Fair remuneration** acorde al valor aportado (short-term flexible, long-term big payout)
+2. **Full technical control** of the application (hard line, non-negotiable)
+3. **Clear stakeholder participation / equity** (inferred in conversation, NOT asked frontally)
+
+**Tactical frame**: before any equity conversation, verify AthletiKapp's actual portfolio. Daniela flagged that their "house of apps" may be mostly website + promises. If true, our negotiation weight is significantly higher than the meeting implied. Use "need to understand customer journey" as legitimate pretext to request access to Reventy + Holiday Your Fitness this week.
+
+**Daniela is IN** as partner stakeholder with full technical control on her scope. Potential full-time at AthletiKapp in 15-30 days (she's between jobs), which would scale team capacity 4-8h/wk → ~48h/wk.
+
+**Next action**: Daniela creates Slack group (Mike hasn't responded yet). Then soft message to Mike + George requesting ecosystem access. Full draft in `07-meeting-apr20-decisions.md`. See `08-daniela-consultation.md` for Daniela's full input.
+
+---
+
+> **Original purpose of this doc**: frame the partnership-structure conversation before it gets decided by default. Three options on the table; Daniel's stated position was genuinely open. Goal for Monday: agree a *decision date*, not the decision itself.
+
+## Daniel's stated position (for internal transparency)
+
+Named through reflective work April 19: Daniel's archetype is **Technical Co-Founder / CTO**, not founder-archetype. A high-agency professional optimizing a life portfolio (Dialectica + remote AI master's + Trophē as meaningful side project).
+
+- **Goals, ranked**: (A) €500–2K/mo side income within 12 months ≫ (D) Dialectica + remote AI master's safety ≫ (G) "Co-founder" CV credential ≫ (H) vibe-code with frontier AI tools, learn partnership business from Michael and George.
+- **Time ceiling**: 4–8 hrs/week steady-state.
+- **Role**: Owns code / architecture / AI. Does NOT own commercial / sales / operations.
+- **Equity**: Open 20–40%. Comfortable with three-way equal split. Not defending majority. IP must live in the operating entity (not Michael personally, not Athletikapp).
+- **Walk-away triggers**: contractor-only with no equity; steady-state >10 hrs/week; IP outside new entity; Dialectica proprietary-data conflict; forced commercial/sales responsibility.
+- **Entity**: open — Colombia SAS / Delaware C-corp / Greek — defers to whichever makes legal/tax sense for first paying customer.
+- **Decision timeline proposal**: decide before first paying coach signs up; realistic date mid-to-late May 2026.
+
+This position means all three scenarios below are live options. None is being defended or blocked.
 
 ---
 
@@ -20,6 +54,11 @@
 ## Three scenarios
 
 ### Option (i) — Trophē is a standalone entity · Daniel majority · Michael advisor + equity
+
+**STATUS: DEAD as of Apr 20 meeting.** Neither Mike nor George expressed interest in this path. George explicitly framed partnership at co-founder level inside the AthletiKapp ecosystem, not outside it. Leaving the content below for historical context only.
+
+#### (historical)
+
 
 **Structure**: Daniel incorporates (likely Colombia SAS or Delaware C-corp depending on first-customer location). Daniel holds majority (e.g., 70-85%). Michael receives advisor equity (e.g., 5-15% vesting over 2-4 years) + revenue share on customers he sources.
 

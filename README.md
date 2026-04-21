@@ -72,6 +72,7 @@ npm run test:coverage # vitest + coverage report
 - [`RUNBOOK.md`](./RUNBOOK.md) — on-call playbooks (auth broken, LLM 429, data loss, etc.)
 - [`CLAUDE.md`](./CLAUDE.md) — project rules + pitfalls (for humans and AI agents)
 - [`agents/README.md`](./agents/README.md) — `/agents/` folder pattern and conventions
+- [`docs/monday-prep/`](./docs/monday-prep/) — April 20, 2026 partnership meeting prep (retro, agenda, positioning, partnership options, cut decision)
 
 ## Contributing
 

@@ -4,11 +4,11 @@
 
 ---
 
-## The one-sentence pitch (draft)
+## The one-sentence pitch (locked v1 · for Monday discussion)
 
 > **Trophē is an AI-assisted nutrition coaching tool for professional nutritionists managing a roster of clients.**
 
-That's it. Every feature should justify itself against that sentence.
+That's it. Every feature should justify itself against that sentence. Walk into Monday saying this sentence; leave Monday with Michael saying the same sentence the same way.
 
 ## What Trophē is
 

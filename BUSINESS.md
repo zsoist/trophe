@@ -83,12 +83,20 @@ A platform that makes every nutritionist 10x more effective by handling the work
 4. **East meets West** — potential to integrate traditional medicine knowledge
 5. **Coach-first design** — behavioral signals, not just data dumps
 
-## Partnership: Michael Kavdas
-- **Who**: Greek nutritionist, PN L1 certified, COO of Athletikapp
-- **What he brings**: Domain expertise, 5 years of AI nutrition thinking, client network, Athletikapp infrastructure
-- **What Daniel brings**: Full-stack development, AI engineering, Mac Mini infrastructure, rapid iteration
-- **Structure**: TBD after testing phase. Options: joint venture, new entity, or integration with Athletikapp
-- **Status**: Testing phase (April 10-18, 2026)
+## Partnership: Michael Kavdas + George Tsatsaronis
+
+**Principals** (as of April 19, 2026):
+
+- **Michael Kavdas** — Greek nutritionist, PN L1 certified, COO of Athletikapp. Brings: domain expertise, 5 years of AI-nutrition thinking, Precision Nutrition methodology, client network, Athletikapp infrastructure.
+- **George Tsatsaronis** — Michael's trainer partner, ~21 yrs of deal-making experience. Joining first-time at April 20 meeting. Brings: operations + business discipline, trainer-side product validation, commercial network.
+- **Daniel Reyes** — full-stack + AI engineering, infrastructure, rapid iteration. Position: **technical co-founder / CTO**, 4–8 hrs/week steady-state, NOT seeking CEO or commercial ownership. Open on equity (20–40%, comfortable with three-way equal). Dialectica (Bogotá) + AI master's remain primary.
+- **Daniela Gutiérrez** — technical / AI. Biomechanics/engineer perspective. Contributing on testing + product side.
+
+**Structure**: TBD. Three live options (see `docs/monday-prep/03-partnership-options.md`): (i) Daniel-majority + Michael-advisor standalone entity; (ii) three-way JV with Athletikapp as shareholder/partner; (iii) Trophē built into Athletikapp. Daniel's stance: genuinely open, not defending majority. IP must live in the operating entity — not Michael personally, not Athletikapp.
+
+**Decision timeline target** (proposed April 20): agree a *date*, not the decision itself. Realistic deadline: mid-to-late May 2026 (before first paying coach).
+
+**Status**: Testing phase wrapped April 18. Partnership conversation opens April 20. Pre-read sent Sunday ~noon Colombia (retro doc only).
 
 ## Roadmap
 
