@@ -182,6 +182,7 @@ git config user.email "zsoist@users.noreply.github.com"
 | Nikos | nikos@biorita.com | trophe2026! | both |
 | Daniela | daniela@trophe.app | trophe2026! | both |
 | George Kavdas | george@kavdas.com | trophe2026! | coach (Michael's partner, for Monday meeting) |
+| Alex Katsanas | alex@katsanas.com | trophe2026! | client (added Apr 21, coach = Michael) |
 
 ## Meal Tracking — How It Works
 1. User types text or pastes/uploads a photo in QuickFoodInput
