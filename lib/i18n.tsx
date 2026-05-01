@@ -219,6 +219,45 @@ const translations: Record<string, Record<Language, string>> = {
   'general.today': { en: 'Today', es: 'Hoy', el: 'Σήμερα' },
   'general.yesterday': { en: 'Yesterday', es: 'Ayer', el: 'Χθες' },
   'general.language': { en: 'Language', es: 'Idioma', el: 'Γλώσσα' },
+  'general.week': { en: 'Week', es: 'Semana', el: 'Εβδομάδα' },
+  'general.month': { en: 'Month', es: 'Mes', el: 'Μήνας' },
+  'general.custom': { en: 'Custom', es: 'Personalizado', el: 'Προσαρμογή' },
+  'general.all_time': { en: 'All time', es: 'Todo el tiempo', el: 'Όλος ο χρόνος' },
+  'general.calories': { en: 'Calories', es: 'Calorías', el: 'Θερμίδες' },
+  'general.protein': { en: 'Protein', es: 'Proteína', el: 'Πρωτεΐνη' },
+  'general.carbs': { en: 'Carbs', es: 'Carbohidratos', el: 'Υδατάνθρακες' },
+  'general.fat': { en: 'Fat', es: 'Grasa', el: 'Λίπος' },
+  'general.fiber': { en: 'Fiber', es: 'Fibra', el: 'Φυτικές ίνες' },
+  'general.sugar': { en: 'Sugar', es: 'Azúcar', el: 'Ζάχαρη' },
+  'general.water': { en: 'Water', es: 'Agua', el: 'Νερό' },
+  'general.kcal': { en: 'kcal', es: 'kcal', el: 'kcal' },
+
+  // ── Profile ──
+  'profile.body_stats': { en: 'Body Stats', es: 'Datos Corporales', el: 'Σωματικά Στοιχεία' },
+  'profile.calc_targets': { en: 'Calculated Targets', es: 'Objetivos Calculados', el: 'Υπολογισμένοι Στόχοι' },
+  'profile.target': { en: 'Target', es: 'Objetivo', el: 'Στόχος' },
+  'profile.appearance': { en: 'Appearance', es: 'Apariencia', el: 'Εμφάνιση' },
+  'profile.dark_mode': { en: 'Dark Mode', es: 'Modo Oscuro', el: 'Σκούρα Λειτουργία' },
+  'profile.light_mode': { en: 'Light Mode', es: 'Modo Claro', el: 'Φωτεινή Λειτουργία' },
+  'profile.save_profile': { en: 'Save Profile', es: 'Guardar Perfil', el: 'Αποθήκευση Προφίλ' },
+  'profile.saving': { en: 'Saving...', es: 'Guardando...', el: 'Αποθήκευση...' },
+  'profile.saved': { en: 'Saved', es: 'Guardado', el: 'Αποθηκεύτηκε' },
+  'profile.log_out': { en: 'Log Out', es: 'Cerrar Sesión', el: 'Αποσύνδεση' },
+
+  // ── Goal labels ──
+  'goal.fat_loss': { en: 'Fat Loss', es: 'Pérdida de grasa', el: 'Απώλεια λίπους' },
+  'goal.muscle_gain': { en: 'Muscle Gain', es: 'Ganar músculo', el: 'Αύξηση μυών' },
+  'goal.maintenance': { en: 'Maintenance', es: 'Mantenimiento', el: 'Διατήρηση' },
+  'goal.recomp': { en: 'Recomp', es: 'Recomposición', el: 'Επαναδιαμόρφωση' },
+  'goal.endurance': { en: 'Endurance', es: 'Resistencia', el: 'Αντοχή' },
+  'goal.health': { en: 'Health', es: 'Salud', el: 'Υγεία' },
+
+  // ── Activity level labels ──
+  'activity.sedentary': { en: 'Sedentary', es: 'Sedentario', el: 'Καθιστική ζωή' },
+  'activity.light': { en: 'Light', es: 'Ligero', el: 'Ελαφρύ' },
+  'activity.moderate': { en: 'Moderate', es: 'Moderado', el: 'Μέτριο' },
+  'activity.active': { en: 'Active', es: 'Activo', el: 'Ενεργητικό' },
+  'activity.very_active': { en: 'Very Active', es: 'Muy Activo', el: 'Πολύ Ενεργητικό' },
 };
 
 // ─── Context & Hook ───

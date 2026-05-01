@@ -37,7 +37,7 @@ export default function CalorieHeatmap({ userId, weeks = 8 }: CalorieHeatmapProp
   const [months, setMonths] = useState<{ label: string; col: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [tooltip, setTooltip] = useState<DayCell | null>(null);
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;

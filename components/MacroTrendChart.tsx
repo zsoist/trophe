@@ -43,7 +43,7 @@ export default function MacroTrendChart({ userId, days = 30 }: MacroTrendChartPr
     carbs_g: true,
     fat_g: true,
   });
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const [targetCalories, setTargetCalories] = useState<number | null>(null);
 

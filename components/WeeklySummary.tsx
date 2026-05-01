@@ -20,7 +20,7 @@ interface DaySummary {
 export default function WeeklySummary({ userId }: WeeklySummaryProps) {
   const [weekData, setWeekData] = useState<DaySummary[]>([]);
   const [loading, setLoading] = useState(true);
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     const loadWeekData = async () => {

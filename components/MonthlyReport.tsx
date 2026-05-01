@@ -118,7 +118,7 @@ function getPeriodRange(period: Period, customFrom: string, customTo: string): {
 export default function MonthlyReport({ userId, targets }: MonthlyReportProps) {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<PeriodStats | null>(null);
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
   const [period, setPeriod] = useState<Period>('month');
   // Custom date range
   const todayStr = localDateStr(new Date());

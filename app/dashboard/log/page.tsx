@@ -10,7 +10,6 @@ import { useI18n } from '@/lib/i18n';
 import { useClientNav } from '@/lib/useClientNav';
 import type { FoodLogEntry, MealType } from '@/lib/types';
 import { BotNav } from '@/components/ui/BotNav';
-import MealTimeline from '@/components/MealTimeline';
 import MealSlotCard, { type MealSlot } from '@/components/MealSlotCard';
 import DailyInsights from '@/components/DailyInsights';
 import WeeklySummary from '@/components/WeeklySummary';
@@ -697,11 +696,6 @@ export default function FoodLogPage() {
         {/* F16: Weekly Summary */}
         {userId && (
           <WeeklySummary userId={userId} />
-        )}
-
-        {/* Meal Distribution Timeline */}
-        {todayLog.length > 0 && (
-          <MealTimeline foodLog={todayLog} />
         )}
 
         {/* Fasting Timer */}

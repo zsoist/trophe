@@ -48,7 +48,7 @@ export default function MacroAdherence({ userId, targets }: MacroAdherenceProps)
   const [loading, setLoading] = useState(true);
   const [dayData, setDayData] = useState<DayTotals[]>([]);
   const [overallScore, setOverallScore] = useState(0);
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;

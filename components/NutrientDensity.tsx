@@ -11,7 +11,7 @@ interface NutrientDensityProps {
 
 // F58: Nutrient density score — rates foods by nutrients-per-calorie
 export default function NutrientDensity({ entries }: NutrientDensityProps) {
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
   if (entries.length === 0) return null;
 
   // Calculate nutrient density: (protein + fiber) / calories × 100
