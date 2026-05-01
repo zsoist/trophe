@@ -100,18 +100,21 @@ function MacroCategory({ title, icon, color, remaining, unit, ideas, onSelect }:
           {Math.round(remaining)}{unit} to go
         </span>
       </div>
-      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+      <div className="grid grid-cols-2 gap-2">
         {relevant.map(idea => (
           <button
             key={idea.name}
             onClick={() => onSelect(idea)}
-            className="flex-shrink-0 px-3 py-2 rounded-xl bg-white/[0.04] border border-white/[0.06] hover:border-white/[0.14] hover:bg-white/[0.07] active:scale-95 transition-all text-left"
+            className="px-3 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.06] hover:border-white/[0.14] hover:bg-white/[0.07] active:scale-95 transition-all text-left w-full"
+            style={{ minHeight: 58 }}
           >
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs text-stone-300 whitespace-nowrap">{idea.name}</span>
+            <div className="flex items-start gap-1.5 mb-1">
+              <Icon name={icon} size={11} className={`${color} shrink-0 mt-0.5`} />
+              <span className="text-[11px] font-medium text-stone-200 leading-tight line-clamp-2">{idea.name}</span>
             </div>
-            <div className={`text-[10px] text-stone-500 mt-0.5`}>
-              {idea.amount} · <span className={color}>{idea.macroValue}{unit}</span>
+            <div className="flex items-center justify-between">
+              <span className="text-[9px] text-stone-600">{idea.amount}</span>
+              <span className={`text-[10px] font-bold ${color}`}>{idea.macroValue}{unit}</span>
             </div>
           </button>
         ))}

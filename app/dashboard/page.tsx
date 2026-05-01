@@ -159,8 +159,14 @@ export default function DashboardPage() {
   const [showCelebration, setShowCelebration]   = useState(false);
   const [celebrationChecked, setCelebrationChecked] = useState(false);
   const [addingWater, setAddingWater]       = useState(false);
+  const [waterSize, setWaterSize]           = useState<150|250|330|500>(250);
   const [theme, setTheme]                   = useState<'dark' | 'light'>('dark');
   const [themeFlash, setThemeFlash]         = useState(false);
+  const [coachMessage, setCoachMessage]     = useState('');
+  const [sendingMsg, setSendingMsg]         = useState(false);
+  const [msgSent, setMsgSent]              = useState(false);
+  const [latestCoachNote, setLatestCoachNote] = useState<string | null>(null);
+  const [coachName, setCoachName]           = useState<string | null>(null);
 
   const today = localToday();
 
@@ -228,6 +234,25 @@ export default function DashboardPage() {
       if (flRes.data)      setFoodLog(flRes.data);
       if (wlRes.data)      setWaterLog(wlRes.data);
 
+      // Load latest coach note (non-client messages only)
+      if (cpRes.data?.coach_id) {
+        const [noteRes, coachProfileRes] = await Promise.all([
+          supabase.from('coach_notes')
+            .select('note, created_at')
+            .eq('client_id', user.id)
+            .not('note', 'like', '[Client message]:%')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+          supabase.from('profiles')
+            .select('full_name')
+            .eq('id', cpRes.data.coach_id)
+            .maybeSingle(),
+        ]);
+        if (noteRes.data?.note) setLatestCoachNote(noteRes.data.note);
+        if (coachProfileRes.data?.full_name) setCoachName(coachProfileRes.data.full_name.split(' ')[0]);
+      }
+
       if (chRes.data && chRes.data.length > 0) {
         const habit = chRes.data[0] as ClientHabit;
         setActiveHabit(habit);
@@ -294,13 +319,39 @@ export default function DashboardPage() {
     setTodayCheckin(p => p ? { ...p, mood } : p);
   };
 
-  const addWater = async () => {
+  const addWater = async (ml: number = waterSize) => {
     if (!userId || addingWater) return;
     setAddingWater(true);
     const { data } = await supabase.from('water_log')
-      .insert({ user_id: userId, logged_date: today, amount_ml: 250 }).select().maybeSingle();
+      .insert({ user_id: userId, logged_date: today, amount_ml: ml }).select().maybeSingle();
     if (data) setWaterLog(p => [...p, data]);
     setAddingWater(false);
+  };
+
+  const sendCoachMessage = async () => {
+    if (!coachMessage.trim() || sendingMsg) return;
+    setSendingMsg(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token ?? '';
+      await fetch('/api/client/message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ message: coachMessage.trim() }),
+      });
+      setCoachMessage('');
+      setMsgSent(true);
+      setTimeout(() => setMsgSent(false), 3000);
+    } finally {
+      setSendingMsg(false);
+    }
+  };
+
+  const removeLastWater = async () => {
+    if (!userId || waterLog.length === 0) return;
+    const last = waterLog[waterLog.length - 1];
+    await supabase.from('water_log').delete().eq('id', last.id);
+    setWaterLog(p => p.slice(0, -1));
   };
 
   // ─── Loading state ────────────────────────────────────────────
@@ -544,38 +595,94 @@ export default function DashboardPage() {
           </motion.div>
         )}
 
-        {/* ══ 4 · Water tracker (compact inline card) ═════════ */}
+        {/* ══ 4 · Water tracker — WOAH redesign ══════════════ */}
         <motion.div
           initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.16 }}
           className="card p-3 mb-3"
+          style={{ background: 'linear-gradient(135deg,rgba(125,163,217,.08) 0%,rgba(125,163,217,.02) 100%)', border: '1px solid rgba(125,163,217,.18)' }}
         >
-          <div className="row-b mb-2">
-            <div className="row-i" style={{ gap: 8 }}>
-              <Icon name="i-drop" size={14} style={{ color: 'var(--info,#7DA3D9)' }} />
+          {/* Header row */}
+          <div className="row-b mb-2.5">
+            <div className="row-i" style={{ gap: 6 }}>
+              <Icon name="i-drop" size={13} style={{ color: 'var(--info,#7DA3D9)' }} />
               <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--t1)' }}>Water</span>
+              <span style={{ fontSize: 9, color: 'var(--info,#7DA3D9)', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
+                {totalWater}ml
+              </span>
             </div>
-            <span className="eye" style={{ fontSize: 9 }}>
-              {Math.round((totalWater / targetWater) * 100)}%
-            </span>
+            <div className="row-i" style={{ gap: 5 }}>
+              <span style={{ fontSize: 9, color: 'var(--t4)', fontFamily: 'var(--font-mono)' }}>
+                {waterGlasses}/{targetGlasses}
+              </span>
+              {waterLog.length > 0 && (
+                <button onClick={removeLastWater}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--t5)', padding: 2, display: 'flex' }}>
+                  <Icon name="i-x" size={11} />
+                </button>
+              )}
+            </div>
           </div>
-          <div className="mb-track mb-2">
-            <motion.div className="mb-fill"
-              style={{ background: 'var(--info,#7DA3D9)' }}
-              initial={{ width: 0 }}
-              animate={{ width: `${Math.min(totalWater / targetWater, 1) * 100}%` }}
-              transition={{ duration: 0.7, delay: 0.3 }}
-            />
+
+          {/* Glass icons — animated fill */}
+          <div style={{ display: 'flex', gap: 4, marginBottom: 10, flexWrap: 'wrap' }}>
+            {Array.from({ length: targetGlasses }, (_, i) => {
+              const filled = i < waterGlasses;
+              return (
+                <motion.button
+                  key={i}
+                  onClick={() => filled ? undefined : addWater()}
+                  whileTap={!filled ? { scale: 1.25 } : {}}
+                  style={{ background: 'none', border: 'none', cursor: filled ? 'default' : 'pointer', padding: 0 }}
+                  disabled={addingWater}
+                >
+                  <motion.div
+                    initial={false}
+                    animate={{ scale: filled ? [1, 1.3, 1] : 1, opacity: filled ? 1 : 0.3 }}
+                    transition={{ duration: 0.35, type: 'spring', stiffness: 400, damping: 15 }}
+                    style={{
+                      width: 24, height: 24, borderRadius: 6,
+                      background: filled
+                        ? 'linear-gradient(180deg, rgba(125,163,217,.7) 0%, rgba(59,130,246,.8) 100%)'
+                        : 'rgba(255,255,255,.05)',
+                      border: `1px solid ${filled ? 'rgba(125,163,217,.5)' : 'rgba(255,255,255,.07)'}`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}
+                  >
+                    <Icon name="i-drop" size={11} style={{ color: filled ? '#fff' : 'var(--t5)' }} />
+                  </motion.div>
+                </motion.button>
+              );
+            })}
           </div>
-          <div style={{ display: 'flex', gap: 6 }}>
-            <button className="btn-gold" style={{ flex: 2, padding: '7px', fontSize: 10, borderRadius: 10 }}
-              onClick={addWater} disabled={addingWater}>
+
+          {/* Size selector + Log button */}
+          <div style={{ display: 'flex', gap: 5 }}>
+            {([150, 250, 330, 500] as const).map(ml => (
+              <button
+                key={ml}
+                onClick={() => setWaterSize(ml)}
+                style={{
+                  flex: 1, padding: '5px 2px', borderRadius: 8, fontSize: 9, cursor: 'pointer', fontWeight: 600,
+                  background: waterSize === ml ? 'rgba(125,163,217,.18)' : 'rgba(255,255,255,.04)',
+                  border: `1px solid ${waterSize === ml ? 'rgba(125,163,217,.45)' : 'rgba(255,255,255,.07)'}`,
+                  color: waterSize === ml ? 'var(--info,#7DA3D9)' : 'var(--t4)',
+                  transition: 'all .15s',
+                }}
+              >
+                {ml}ml
+              </button>
+            ))}
+            <motion.button
+              className="btn-gold"
+              whileTap={{ scale: 0.95 }}
+              style={{ flex: 2, padding: '5px 10px', fontSize: 10, borderRadius: 8 }}
+              onClick={() => addWater(waterSize)}
+              disabled={addingWater}
+            >
               <Icon name="i-plus" size={10} style={{ verticalAlign: -1, marginRight: 3 }} />
-              +250 ml
-            </button>
-            <span className="ds-sub" style={{ flex: 1, textAlign: 'right', alignSelf: 'center', fontSize: 9 }}>
-              {waterGlasses}/{targetGlasses} glasses
-            </span>
+              Log
+            </motion.button>
           </div>
         </motion.div>
 
@@ -614,7 +721,7 @@ export default function DashboardPage() {
           {/* Secondary: Water / Supps / Progress / Check-in — 4-col */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
             {([
-              { icon: 'i-drop',     label: 'Water',    action: addWater, sub: `${waterGlasses}/${targetGlasses}` },
+              { icon: 'i-drop',     label: 'Water',    action: () => addWater(), sub: `${waterGlasses}/${targetGlasses}` },
               { icon: 'i-sparkle',  label: 'Supps',    action: () => router.push('/dashboard/supplements'), sub: null },
               { icon: 'i-chart',    label: 'Progress', action: () => router.push('/dashboard/progress'), sub: null },
               { icon: 'i-calendar', label: 'Check-in', action: () => router.push('/dashboard/checkin'), sub: null },
@@ -674,6 +781,68 @@ export default function DashboardPage() {
             </motion.div>
           );
         })()}
+        {/* ══ 7 · Coach message box ════════════════════════════ */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.32 }}
+          className="card mb-3"
+          style={{ padding: '12px 14px', background: 'rgba(255,255,255,.025)' }}
+        >
+          <div className="row-i mb-2.5" style={{ gap: 8 }}>
+            {/* Coach avatar */}
+            <div style={{
+              width: 30, height: 30, borderRadius: 15, flexShrink: 0,
+              background: 'linear-gradient(135deg,rgba(212,168,83,.3),rgba(212,168,83,.1))',
+              border: '1px solid rgba(212,168,83,.3)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <Icon name="i-user" size={14} style={{ color: 'var(--gold-300,#D4A853)' }} />
+            </div>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--t1)' }}>
+                {coachName ? `Coach ${coachName}` : 'Your Coach'}
+              </div>
+              {latestCoachNote && (
+                <div style={{ fontSize: 9, color: 'var(--t4)', marginTop: 1, lineHeight: 1.4, maxWidth: 220 }} className="truncate">
+                  {latestCoachNote.slice(0, 60)}{latestCoachNote.length > 60 ? '…' : ''}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {msgSent ? (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+              style={{ textAlign: 'center', padding: '8px 0', fontSize: 11, color: 'var(--ok,#65D387)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}
+            >
+              <Icon name="i-check" size={12} />
+              Message sent to coach
+            </motion.div>
+          ) : (
+            <div style={{ display: 'flex', gap: 6 }}>
+              <input
+                value={coachMessage}
+                onChange={e => setCoachMessage(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && sendCoachMessage()}
+                placeholder="Quick message to coach..."
+                style={{
+                  flex: 1, background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.08)',
+                  borderRadius: 10, padding: '7px 10px', fontSize: 11, color: 'var(--t1)',
+                  outline: 'none',
+                }}
+              />
+              <motion.button
+                className="btn-gold"
+                whileTap={{ scale: 0.93 }}
+                onClick={sendCoachMessage}
+                disabled={sendingMsg || !coachMessage.trim()}
+                style={{ padding: '7px 12px', fontSize: 10, borderRadius: 10, flexShrink: 0 }}
+              >
+                <Icon name="i-send" size={11} />
+              </motion.button>
+            </div>
+          )}
+        </motion.div>
       </motion.div>
 
       {/* ── Habit detail modal ── */}

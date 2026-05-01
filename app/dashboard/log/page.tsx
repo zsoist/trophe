@@ -12,7 +12,6 @@ import type { FoodLogEntry, MealType } from '@/lib/types';
 import { BotNav } from '@/components/ui/BotNav';
 import MealSlotCard, { type MealSlot } from '@/components/MealSlotCard';
 import DailyInsights from '@/components/DailyInsights';
-import WeeklySummary from '@/components/WeeklySummary';
 import MealBadges from '@/components/MealBadges';
 import MealSlotConfig from '@/components/MealSlotConfig';
 import DateNavigator from '@/components/DateNavigator';
@@ -246,6 +245,7 @@ export default function FoodLogPage() {
   const totalProtein = todayLog.reduce((s, f) => s + (f.protein_g ?? 0), 0);
   const totalCarbs = todayLog.reduce((s, f) => s + (f.carbs_g ?? 0), 0);
   const totalFat = todayLog.reduce((s, f) => s + (f.fat_g ?? 0), 0);
+  const totalSugar = todayLog.reduce((s, f) => s + (f.sugar_g ?? 0), 0);
 
   const grouped = groupBySlot(todayLog, slots);
   const filledCount = slots.filter(s => grouped[s.id].length > 0 || skippedSlots.has(s.id)).length;
@@ -531,21 +531,38 @@ export default function FoodLogPage() {
         transition={{ duration: 0.4 }}
         className="max-w-md mx-auto px-4 pt-12"
       >
-        {/* ── Date navigation (handoff Screen 02) ── */}
+        {/* ── Date navigation ── */}
         <div className="row-b mb-3" style={{ marginTop: 8 }}>
           <button onClick={() => handleDateChange(localDateStr(new Date(new Date(selectedDate + 'T12:00:00').getTime() - 86400000)))}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--t3)' }}>
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--t3)', padding: '6px' }}>
             <Icon name="i-chev-l" size={16} />
           </button>
-          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--t1)' }}>
-            {isToday ? 'Today' : new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-            {' · '}
-            <span style={{ color: 'var(--t4)' }}>
-              {new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+
+          {/* Center: date label + calendar trigger */}
+          <motion.button
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setShowCalendar(true)}
+            style={{
+              background: 'rgba(212,168,83,.07)',
+              border: '1px solid rgba(212,168,83,.18)',
+              borderRadius: 20, padding: '5px 14px',
+              display: 'flex', alignItems: 'center', gap: 7,
+              cursor: 'pointer',
+            }}
+          >
+            <Icon name="i-calendar" size={12} style={{ color: 'var(--gold-300,#D4A853)' }} />
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--t1)' }}>
+              {isToday ? t('log.today') : new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
             </span>
-          </div>
+            {!isToday && (
+              <span style={{ fontSize: 9, color: 'var(--t5)', fontFamily: 'var(--font-mono)' }}>
+                {new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short' })}
+              </span>
+            )}
+          </motion.button>
+
           <button onClick={() => handleDateChange(localDateStr(new Date(new Date(selectedDate + 'T12:00:00').getTime() + 86400000)))}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--t3)' }}>
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--t3)', padding: '6px' }}>
             <Icon name="i-chev-r" size={16} />
           </button>
         </div>
@@ -580,7 +597,7 @@ export default function FoodLogPage() {
               { label: 'Protein',  unit: 'g',    val: Math.round(totalProtein),  color: 'var(--err,#E87A6E)' },
               { label: 'Carbs',    unit: 'g',    val: Math.round(totalCarbs),    color: 'var(--info,#7DA3D9)' },
               { label: 'Fat',      unit: 'g',    val: Math.round(totalFat),      color: '#B89DD9' },
-              { label: 'Sugar~',   unit: 'g',    val: Math.round(totalCarbs * 0.3), color: 'var(--warn,#E8B86E)' },
+              { label: 'Sugar',    unit: 'g',    val: Math.round(totalSugar),        color: totalSugar > 25 ? '#f59e0b' : 'var(--warn,#E8B86E)' },
             ].map(m => (
               <div key={m.label} style={{ borderRight: m.label !== 'Sugar~' ? '1px solid rgba(255,255,255,.04)' : 'none' }}>
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 700, color: m.color, lineHeight: 1.1 }}>{m.val}</div>
@@ -697,10 +714,6 @@ export default function FoodLogPage() {
         {/* F25: Achievement Badges */}
         <MealBadges todayLog={todayLog} streak={streak} targets={{ protein_g: targets.protein_g }} />
 
-        {/* F16: Weekly Summary */}
-        {userId && (
-          <WeeklySummary userId={userId} />
-        )}
 
         {/* Fasting Timer */}
         {todayLog.length > 0 && isToday && (
@@ -733,7 +746,7 @@ export default function FoodLogPage() {
         {/* Analytics Section — only show if enough data */}
         {userId && (
           <div className="mt-6 space-y-4">
-            <h2 className="text-stone-300 text-sm font-semibold px-1">Analytics</h2>
+            <h2 className="text-stone-300 text-sm font-semibold px-1">{t('log.analytics')}</h2>
 
             {/* Macro Trends */}
             <MacroTrendChart userId={userId} />
