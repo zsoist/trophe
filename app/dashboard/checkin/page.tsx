@@ -13,14 +13,7 @@ import { Icon } from '@/components/ui';
 import { BotNav } from '@/components/ui/BotNav';
 import type { ClientHabit, HabitCheckin, Mood } from '@/lib/types';
 import { localToday } from '@/lib/dates';
-
-// ─── Bottom nav (handoff spec) ────────────────────────────────
-const CLIENT_NAV = [
-  { href: '/dashboard',          label: 'Home',     icon: <Icon name="i-home"  size={18} /> },
-  { href: '/dashboard/log',      label: 'Log',      icon: <Icon name="i-book"  size={18} /> },
-  { href: '/dashboard/progress', label: 'Progress', icon: <Icon name="i-chart" size={18} /> },
-  { href: '/dashboard/profile',  label: 'Me',       icon: <Icon name="i-user"  size={18} /> },
-];
+import { useClientNav } from '@/lib/useClientNav';
 
 // ─── Shimmer skeleton atoms ───────────────────────────────────
 const shimmerStyle: React.CSSProperties = {
@@ -34,7 +27,7 @@ function SkimBlock({ h = 16, w = '100%' }: { h?: number; w?: string | number }) 
   return <div style={{ height: h, width: w, ...shimmerStyle }} />;
 }
 
-function CheckinSkeleton() {
+function CheckinSkeleton({ nav }: { nav: ReturnType<typeof useClientNav> }) {
   return (
     <div className="min-h-screen pb-20" style={{ background: 'var(--bg,#0a0a0a)' }}>
       <style>{`@keyframes shimmer { 0%,100%{background-position:200% 0} 50%{background-position:-200% 0} }`}</style>
@@ -80,18 +73,18 @@ function CheckinSkeleton() {
         {/* button */}
         <SkimBlock h={48} />
       </div>
-      <BotNav routes={CLIENT_NAV} />
+      <BotNav routes={nav} />
     </div>
   );
 }
 
 // ─── Mood options ─────────────────────────────────────────────
-const MOOD_OPTIONS: { value: Mood; label: string; emoji: string }[] = [
-  { value: 'great',      label: 'GREAT',     emoji: '🔥' },
-  { value: 'good',       label: 'GOOD',      emoji: '✓'  },
-  { value: 'okay',       label: 'OKAY',      emoji: '~'  },
-  { value: 'tough',      label: 'TOUGH',     emoji: '!'  },
-  { value: 'struggled',  label: 'HARD',      emoji: '↓'  },
+const MOOD_OPTIONS: { value: Mood; label: string; icon: string }[] = [
+  { value: 'great',      label: 'GREAT',     icon: 'i-zap'      },
+  { value: 'good',       label: 'GOOD',      icon: 'i-check'    },
+  { value: 'okay',       label: 'OKAY',      icon: 'i-pulse'    },
+  { value: 'tough',      label: 'TOUGH',     icon: 'i-warning'  },
+  { value: 'struggled',  label: 'HARD',      icon: 'i-graph-down' },
 ];
 
 // ─── Gold button style helper ─────────────────────────────────
@@ -115,6 +108,7 @@ const goldBtnStyle: React.CSSProperties = {
 // MAIN PAGE
 // ═══════════════════════════════════════════════════════════════
 export default function CheckinPage() {
+  const clientNav = useClientNav();
   const router = useRouter();
 
   // ─── Data state ───────────────────────────────────────────
@@ -206,7 +200,7 @@ export default function CheckinPage() {
   };
 
   // ─── Loading skeleton ─────────────────────────────────────
-  if (loading) return <CheckinSkeleton />;
+  if (loading) return <CheckinSkeleton nav={clientNav} />;
 
   // ─── No habit assigned ────────────────────────────────────
   if (noHabit) {
@@ -231,7 +225,9 @@ export default function CheckinPage() {
           </div>
 
           <div className="card-g p-6 text-center">
-            <div style={{ fontSize: 36, marginBottom: 12 }}>🌱</div>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12, color: 'var(--t5)' }}>
+              <Icon name="i-target" size={32} />
+            </div>
             <div className="eye" style={{ marginBottom: 6 }}>NO HABIT ASSIGNED</div>
             <div className="ds-sub">
               No active habit assigned yet. Your coach will assign one soon.
@@ -244,7 +240,7 @@ export default function CheckinPage() {
             </button>
           </div>
         </motion.div>
-        <BotNav routes={CLIENT_NAV} />
+        <BotNav routes={clientNav} />
       </div>
     );
   }
@@ -286,7 +282,7 @@ export default function CheckinPage() {
             <div className="eye" style={{ marginTop: 8, marginBottom: 4 }}>ALREADY LOGGED</div>
             <div className="ds-sub">You checked in earlier today.</div>
             <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--t1)', marginTop: 12 }}>
-              {habit?.habit?.emoji} {habit?.habit?.name_en}
+              {habit?.habit?.name_en}
             </div>
             <div style={{
               marginTop: 6, fontSize: 12,
@@ -314,7 +310,7 @@ export default function CheckinPage() {
             </button>
           </motion.div>
         </motion.div>
-        <BotNav routes={CLIENT_NAV} />
+        <BotNav routes={clientNav} />
       </div>
     );
   }
@@ -354,7 +350,9 @@ export default function CheckinPage() {
         >
           <div className="eye" style={{ marginBottom: 8 }}>TODAY&apos;S HABIT</div>
           <div className="row-i" style={{ gap: 12 }}>
-            <span style={{ fontSize: 28, flexShrink: 0 }}>{h.habit?.emoji ?? '🎯'}</span>
+            <span style={{ flexShrink: 0, color: 'var(--gold-300,#D4A853)' }}>
+              <Icon name="i-target" size={26} />
+            </span>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{
                 fontSize: 14, fontWeight: 700, color: 'var(--t1)',
@@ -539,7 +537,7 @@ export default function CheckinPage() {
                 >
                   ✓
                 </motion.span>
-                Logged! 🎉
+                Logged!
               </motion.button>
             ) : (
               /* ── Default / saving state ── */
@@ -577,7 +575,7 @@ export default function CheckinPage() {
 
       </motion.div>
 
-      <BotNav routes={CLIENT_NAV} />
+      <BotNav routes={clientNav} />
     </div>
   );
 }

@@ -10,14 +10,8 @@ import {
 import { BotNav } from '@/components/ui/BotNav';
 import { Icon } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
-
-const CLIENT_NAV = [
-  { href: '/dashboard',          label: 'Home',     icon: <Icon name="i-home"  size={18} /> },
-  { href: '/dashboard/log',      label: 'Log',      icon: <Icon name="i-book"  size={18} /> },
-  { href: '/dashboard/progress', label: 'Progress', icon: <Icon name="i-chart" size={18} /> },
-  { href: '/dashboard/profile',  label: 'Me',       icon: <Icon name="i-user"  size={18} /> },
-];
 import { useI18n } from '@/lib/i18n';
+import { useClientNav } from '@/lib/useClientNav';
 import type { Exercise, PainFlag, MuscleGroup } from '@/lib/types';
 import Link from 'next/link';
 import { localToday } from '../../../lib/dates';
@@ -463,6 +457,7 @@ function ElapsedTimer({ startTime }: { startTime: number }) {
 // Main Workout Page
 // ═══════════════════════════════════════════════
 export default function WorkoutPage() {
+  const clientNav = useClientNav();
   const router = useRouter();
   const { t, lang } = useI18n();
 
@@ -984,7 +979,7 @@ export default function WorkoutPage() {
         )}
       </AnimatePresence>
 
-      <BotNav routes={CLIENT_NAV} />
+      <BotNav routes={clientNav} />
     </div>
   );
 }

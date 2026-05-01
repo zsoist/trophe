@@ -12,6 +12,7 @@ import { Icon } from '@/components/ui';
 import BodyCompCalculator from '@/components/BodyCompCalculator';
 import { useThemeMode } from '@/components/ThemeMode';
 import { useI18n } from '@/lib/i18n';
+import { useClientNav } from '@/lib/useClientNav';
 
 const SEX_OPTIONS: { value: Sex; label: string }[] = [
   { value: 'male', label: 'Male' },
@@ -40,6 +41,7 @@ export default function ProfilePage() {
 
   const { mode, toggleMode } = useThemeMode();
   const { setLang } = useI18n();
+  const clientNav = useClientNav();
 
   // Form state
   const [age, setAge] = useState('');
@@ -458,12 +460,7 @@ export default function ProfilePage() {
         </motion.div>
       </motion.div>
 
-      <BotNav routes={[
-        { href: '/dashboard',          label: 'Home',     icon: <Icon name="i-home"  size={18} /> },
-        { href: '/dashboard/log',      label: 'Log',      icon: <Icon name="i-book"  size={18} /> },
-        { href: '/dashboard/progress', label: 'Progress', icon: <Icon name="i-chart" size={18} /> },
-        { href: '/dashboard/profile',  label: 'Me',       icon: <Icon name="i-user"  size={18} /> },
-      ]} />
+      <BotNav routes={clientNav} />
     </div>
   );
 }

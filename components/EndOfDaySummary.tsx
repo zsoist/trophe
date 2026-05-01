@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Share2, Copy, Check, Flame, Trophy, Beef, Wheat, Droplet } from 'lucide-react';
+import { Icon, type IconName } from '@/components/ui/Icon';
 import type { FoodLogEntry } from '@/lib/types';
 
 interface EndOfDaySummaryProps {
@@ -27,12 +28,12 @@ function dayScore(
   return Math.round((calScore * 0.5 + proScore * 0.5));
 }
 
-function scoreEmoji(score: number): string {
-  if (score >= 90) return '🏆';
-  if (score >= 75) return '💪';
-  if (score >= 60) return '👍';
-  if (score >= 40) return '😐';
-  return '📈';
+function scoreIcon(score: number): IconName {
+  if (score >= 90) return 'i-trophy';
+  if (score >= 75) return 'i-dumbbell';
+  if (score >= 60) return 'i-check';
+  if (score >= 40) return 'i-pulse';
+  return 'i-graph-up';
 }
 
 function scoreLabel(score: number): string {
@@ -65,19 +66,18 @@ export default function EndOfDaySummary({
   }, [entries, targets]);
 
   const summaryText = useMemo(() => {
-    const emoji = scoreEmoji(summary.score);
     const lines = [
-      `${emoji} Trophe Daily Summary`,
+      `Trophe Daily Summary`,
       ``,
-      `🔥 ${Math.round(summary.totalCalories)} kcal`,
-      `🥩 ${Math.round(summary.totalProtein)}g protein`,
-      `🍞 ${Math.round(summary.totalCarbs)}g carbs`,
-      `🧈 ${Math.round(summary.totalFat)}g fat`,
-      `🥬 ${Math.round(summary.totalFiber)}g fiber`,
+      `${Math.round(summary.totalCalories)} kcal`,
+      `${Math.round(summary.totalProtein)}g protein`,
+      `${Math.round(summary.totalCarbs)}g carbs`,
+      `${Math.round(summary.totalFat)}g fat`,
+      `${Math.round(summary.totalFiber)}g fiber`,
       ``,
-      `📊 Score: ${summary.score}/100`,
-      `🍽️ ${summary.mealCount} meals`,
-      streak > 1 ? `🔥 ${streak} day streak!` : '',
+      `Score: ${summary.score}/100`,
+      `${summary.mealCount} meals`,
+      streak > 1 ? `${streak} day streak!` : '',
     ].filter(Boolean);
     return lines.join('\n');
   }, [summary, streak]);
@@ -146,9 +146,9 @@ export default function EndOfDaySummary({
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ type: 'spring', damping: 12, delay: 0.3 }}
-            className="text-3xl mb-1"
+            className="text-3xl mb-1 flex justify-center text-[#D4A853]"
           >
-            {scoreEmoji(score)}
+            <Icon name={scoreIcon(score)} size={32} />
           </motion.p>
           <p className="text-stone-200 text-sm font-semibold">{scoreLabel(score)}</p>
           <p className="text-stone-500 text-xs">Daily Summary</p>

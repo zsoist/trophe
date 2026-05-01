@@ -1,6 +1,8 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import type { FoodLogEntry } from '@/lib/types';
 
 interface NutrientDensityProps {
@@ -9,6 +11,7 @@ interface NutrientDensityProps {
 
 // F58: Nutrient density score — rates foods by nutrients-per-calorie
 export default function NutrientDensity({ entries }: NutrientDensityProps) {
+  const [expanded, setExpanded] = useState(true);
   if (entries.length === 0) return null;
 
   // Calculate nutrient density: (protein + fiber) / calories × 100
@@ -33,30 +36,44 @@ export default function NutrientDensity({ entries }: NutrientDensityProps) {
 
   return (
     <div className="glass p-3">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-stone-300 text-xs font-medium">Nutrient Density</span>
-        <span className={`text-xs font-bold ${color}`}>{label} ({avgScore.toFixed(1)})</span>
-      </div>
+      <button onClick={() => setExpanded(e => !e)} className="w-full flex items-center justify-between mb-2">
+        <span className="text-stone-300 text-xs font-semibold uppercase tracking-wider">Nutrient Density</span>
+        <div className="flex items-center gap-2">
+          <span className={`text-xs font-bold ${color}`}>{label}</span>
+          {expanded ? <ChevronUp size={13} className="text-stone-500" /> : <ChevronDown size={13} className="text-stone-500" />}
+        </div>
+      </button>
 
-      {/* Top 5 most/least dense */}
-      <div className="space-y-1">
-        {scored.slice(0, 5).map((food, i) => (
-          <div key={`${food.name}-${i}`} className="flex items-center gap-2">
-            <div className="flex-1 min-w-0">
-              <p className="text-[10px] text-stone-400 truncate">{food.name}</p>
+      <AnimatePresence>
+        {expanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            style={{ overflow: 'hidden' }}
+          >
+            <div className="space-y-1">
+              {scored.slice(0, 5).map((food, i) => (
+                <div key={`${food.name}-${i}`} className="flex items-center gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] text-stone-400 truncate">{food.name}</p>
+                  </div>
+                  <div className="w-16 h-1 bg-white/[0.05] rounded-full overflow-hidden">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${Math.min((food.score / maxScore) * 100, 100)}%` }}
+                      transition={{ delay: i * 0.05 }}
+                      className={`h-full rounded-full ${food.score >= 20 ? 'bg-green-400' : food.score >= 10 ? 'bg-[#D4A853]' : 'bg-orange-400'}`}
+                    />
+                  </div>
+                  <span className="text-[9px] text-stone-500 w-8 text-right">{food.score}</span>
+                </div>
+              ))}
             </div>
-            <div className="w-16 h-1 bg-white/[0.05] rounded-full overflow-hidden">
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: `${Math.min((food.score / maxScore) * 100, 100)}%` }}
-                transition={{ delay: i * 0.05 }}
-                className={`h-full rounded-full ${food.score >= 20 ? 'bg-green-400' : food.score >= 10 ? 'bg-[#D4A853]' : 'bg-orange-400'}`}
-              />
-            </div>
-            <span className="text-[9px] text-stone-500 w-8 text-right">{food.score}</span>
-          </div>
-        ))}
-      </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

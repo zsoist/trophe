@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Trophy, ChevronDown, ChevronUp } from 'lucide-react';
+import { Icon, type IconName } from '@/components/ui/Icon';
 import type { FoodLogEntry } from '@/lib/types';
 
 interface MealBadgesProps {
@@ -13,7 +14,7 @@ interface MealBadgesProps {
 
 interface Badge {
   id: string;
-  emoji: string;
+  icon: IconName;
   name: string;
   description: string;
   earned: boolean;
@@ -49,21 +50,21 @@ export default function MealBadges({ todayLog, streak, targets }: MealBadgesProp
     return [
       {
         id: 'first_meal',
-        emoji: '🔥',
+        icon: 'i-flame' as IconName,
         name: 'First Meal',
         description: 'Log your first meal',
         earned: todayLog.length > 0 || earnedSet.has('first_meal'),
       },
       {
         id: 'photo_log',
-        emoji: '📸',
+        icon: 'i-camera' as IconName,
         name: 'Photo Logger',
         description: 'Log a meal via photo',
         earned: hasPhoto || earnedSet.has('photo_log'),
       },
       {
         id: 'streak_7',
-        emoji: '🎯',
+        icon: 'i-target' as IconName,
         name: '7-Day Streak',
         description: 'Log meals 7 days in a row',
         earned: streak >= 7 || earnedSet.has('streak_7'),
@@ -71,7 +72,7 @@ export default function MealBadges({ todayLog, streak, targets }: MealBadgesProp
       },
       {
         id: 'protein_hit',
-        emoji: '💪',
+        icon: 'i-dumbbell' as IconName,
         name: 'Protein Champion',
         description: 'Hit protein target',
         earned: (targets.protein_g > 0 && totalProtein >= targets.protein_g) || earnedSet.has('protein_hit'),
@@ -81,7 +82,7 @@ export default function MealBadges({ todayLog, streak, targets }: MealBadgesProp
       },
       {
         id: 'all_five',
-        emoji: '🌈',
+        icon: 'i-sparkle' as IconName,
         name: 'Full Day',
         description: 'Log all 5 meals in one day',
         earned: allFive || earnedSet.has('all_five'),
@@ -89,7 +90,7 @@ export default function MealBadges({ todayLog, streak, targets }: MealBadgesProp
       },
       {
         id: 'streak_30',
-        emoji: '📊',
+        icon: 'i-trophy' as IconName,
         name: '30-Day Legend',
         description: 'Log meals 30 days straight',
         earned: streak >= 30 || earnedSet.has('streak_30'),
@@ -134,7 +135,7 @@ export default function MealBadges({ todayLog, streak, targets }: MealBadgesProp
         <div className="flex items-center gap-1">
           {/* Mini badge row */}
           {badges.filter(b => b.earned).slice(0, 4).map(b => (
-            <span key={b.id} className="text-xs">{b.emoji}</span>
+            <span key={b.id} className="text-[var(--gold-300)]"><Icon name={b.icon} size={14} /></span>
           ))}
           {expanded ? <ChevronUp size={12} className="text-stone-500 ml-1" /> : <ChevronDown size={12} className="text-stone-500 ml-1" />}
         </div>
@@ -159,7 +160,7 @@ export default function MealBadges({ todayLog, streak, targets }: MealBadgesProp
                     : 'bg-white/[0.02] border-white/[0.05] opacity-40'
                 }`}
               >
-                <span className="text-xl block mb-0.5">{badge.emoji}</span>
+                <span className="block mb-0.5 flex justify-center"><Icon name={badge.icon} size={18} /></span>
                 <p className="text-[10px] text-stone-300 font-medium">{badge.name}</p>
                 {badge.progress && (
                   <p className="text-[9px] text-stone-500 mt-0.5">{badge.progress}</p>

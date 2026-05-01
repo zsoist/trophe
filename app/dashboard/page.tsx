@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Icon } from '@/components/ui';
 import { BotNav } from '@/components/ui/BotNav';
 import { supabase } from '@/lib/supabase';
+import { useI18n } from '@/lib/i18n';
+import { useClientNav } from '@/lib/useClientNav';
 import type { ClientProfile, ClientHabit, HabitCheckin, FoodLogEntry, WaterLogEntry, Mood, Profile } from '@/lib/types';
 import WeeklyCheckin from '@/components/WeeklyCheckin';
 import { DashboardSkeleton } from '@/components/Skeleton';
@@ -14,10 +16,10 @@ import { localToday } from '../../lib/dates';
 // ─── Greeting (no emojis — handoff spec) ───────────────────────
 function getTimeGreeting(): string {
   const h = new Date().getHours();
-  if (h < 12) return 'Good morning';
-  if (h < 17) return 'Good afternoon';
-  if (h < 21) return 'Good evening';
-  return 'Good night';
+  if (h < 12) return 'good_morning';
+  if (h < 17) return 'good_afternoon';
+  if (h < 21) return 'good_evening';
+  return 'good_night';
 }
 
 // ─── Compact 72px calorie ring ──────────────────────────────────
@@ -70,14 +72,6 @@ function habitIconName(emoji?: string): Parameters<typeof Icon>[0]['name'] {
   if (emoji.includes('🔥') || emoji.includes('⚡')) return 'i-zap';
   return 'i-target';
 }
-
-// ─── Client bottom nav ───────────────────────────────────────────
-const CLIENT_NAV = [
-  { href: '/dashboard',          label: 'Home',     icon: <Icon name="i-home"  size={18} /> },
-  { href: '/dashboard/log',      label: 'Log',      icon: <Icon name="i-book"  size={18} /> },
-  { href: '/dashboard/progress', label: 'Progress', icon: <Icon name="i-chart" size={18} /> },
-  { href: '/dashboard/profile',  label: 'Me',       icon: <Icon name="i-user"  size={18} /> },
-];
 
 // ─── Celebration modal (kept from v0.2) ──────────────────────────
 const CONFETTI_COLORS = ['#D4A853','#E8C878','#22c55e','#3b82f6','#a855f7','#ef4444','#f59e0b'];
@@ -142,6 +136,8 @@ function CelebrationModal({ streakDays, cycleDays, completionPct, habitName, bes
 // ══════════════════════════════════════════════════════════════════
 export default function DashboardPage() {
   const router = useRouter();
+  const { t } = useI18n();
+  const clientNav = useClientNav();
   const [loading, setLoading]               = useState(true);
   const [clientProfile, setClientProfile]   = useState<ClientProfile | null>(null);
   const [activeHabit, setActiveHabit]       = useState<ClientHabit | null>(null);
@@ -157,6 +153,7 @@ export default function DashboardPage() {
   const [celebrationChecked, setCelebrationChecked] = useState(false);
   const [addingWater, setAddingWater]       = useState(false);
   const [theme, setTheme]                   = useState<'dark' | 'light'>('dark');
+  const [themeFlash, setThemeFlash]         = useState(false);
 
   const today = localToday();
 
@@ -168,6 +165,9 @@ export default function DashboardPage() {
       localStorage.setItem('trophe-theme', next);
       return next;
     });
+    // WOAH flash
+    setThemeFlash(true);
+    setTimeout(() => setThemeFlash(false), 500);
   }, []);
 
   // ─── Load saved theme ─────────────────────────────────────────
@@ -300,7 +300,7 @@ export default function DashboardPage() {
 
   // ─── Derived display values ───────────────────────────────────
   const firstName   = userProfile?.full_name?.split(' ')[0] ?? null;
-  const greeting    = getTimeGreeting();
+  const greeting    = t(`dash.${getTimeGreeting()}`);
   const remaining   = Math.max(targetCalories - Math.round(totalCalories), 0);
   const waterGlasses    = Math.floor(totalWater / 250);
   const targetGlasses   = Math.ceil(targetWater / 250);
@@ -316,6 +316,25 @@ export default function DashboardPage() {
   // ─── RENDER ───────────────────────────────────────────────────
   return (
     <div className="min-h-screen pb-20" style={{ background: 'var(--bg,#0a0a0a)' }}>
+
+      {/* ── Theme switch WOAH flash ── */}
+      <AnimatePresence>
+        {themeFlash && (
+          <motion.div
+            key="theme-flash"
+            initial={{ opacity: 0.7 }}
+            animate={{ opacity: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.5, ease: 'easeOut' }}
+            style={{
+              position: 'fixed', inset: 0, zIndex: 9999, pointerEvents: 'none',
+              background: theme === 'light'
+                ? 'radial-gradient(ellipse at 50% 30%, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0) 70%)'
+                : 'radial-gradient(ellipse at 50% 30%, rgba(10,10,10,0.95) 0%, rgba(10,10,10,0) 70%)',
+            }}
+          />
+        )}
+      </AnimatePresence>
 
       {/* ── Celebration modal ── */}
       <AnimatePresence>
@@ -356,21 +375,32 @@ export default function DashboardPage() {
                 {streakDays}d
               </span>
             )}
-            {/* Theme toggle */}
-            <button
+            {/* Theme toggle — WOAH animation */}
+            <motion.button
               onClick={toggleTheme}
+              whileTap={{ scale: 0.8 }}
               style={{
-                width: 30, height: 30, borderRadius: 15,
-                background: 'rgba(255,255,255,.05)',
-                border: '1px solid rgba(255,255,255,.08)',
+                width: 34, height: 34, borderRadius: 17,
+                background: theme === 'dark' ? 'rgba(212,168,83,.08)' : 'rgba(212,168,83,.15)',
+                border: `1px solid ${theme === 'dark' ? 'rgba(212,168,83,.2)' : 'rgba(212,168,83,.4)'}`,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 cursor: 'pointer', flexShrink: 0,
               }}
               aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
             >
-              <Icon name={theme === 'dark' ? 'i-sun' : 'i-moon'} size={13}
-                style={{ color: 'var(--gold-300,#D4A853)' }} />
-            </button>
+              <AnimatePresence mode="wait">
+                <motion.span
+                  key={theme}
+                  initial={{ rotate: -90, scale: 0, opacity: 0 }}
+                  animate={{ rotate: 0, scale: 1, opacity: 1 }}
+                  exit={{ rotate: 90, scale: 0, opacity: 0 }}
+                  transition={{ duration: 0.25, type: 'spring', stiffness: 300, damping: 18 }}
+                  style={{ display: 'flex', color: 'var(--gold-300,#D4A853)' }}
+                >
+                  <Icon name={theme === 'dark' ? 'i-sun' : 'i-moon'} size={15} />
+                </motion.span>
+              </AnimatePresence>
+            </motion.button>
           </div>
         </div>
 
@@ -546,7 +576,7 @@ export default function DashboardPage() {
       />
 
       {/* ── Bottom nav (4-tab, handoff spec) ── */}
-      <BotNav routes={CLIENT_NAV} />
+      <BotNav routes={clientNav} />
     </div>
   );
 }

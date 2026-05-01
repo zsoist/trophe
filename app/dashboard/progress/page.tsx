@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 import type { Measurement, ClientProfile, ClientHabit } from '@/lib/types';
 import { BotNav } from '@/components/ui/BotNav';
 import { Icon } from '@/components/ui';
+import { useClientNav } from '@/lib/useClientNav';
 import ProgressPhotos from '@/components/ProgressPhotos';
 import WeeklyMacroChart from '@/components/WeeklyMacroChart';
 import HabitRadar from '@/components/HabitRadar';
@@ -178,6 +179,7 @@ function WeightChart({ measurements }: { measurements: Measurement[] }) {
 
 export default function ProgressPage() {
   const router = useRouter();
+  const clientNav = useClientNav();
   const [loading, setLoading] = useState(true);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [clientProfile, setClientProfile] = useState<ClientProfile | null>(null);
@@ -255,12 +257,6 @@ export default function ProgressPage() {
     setSaving(false);
   };
 
-  const CLIENT_NAV = [
-    { href: '/dashboard',          label: 'Home',     icon: <Icon name="i-home"  size={18} /> },
-    { href: '/dashboard/log',      label: 'Log',      icon: <Icon name="i-book"  size={18} /> },
-    { href: '/dashboard/progress', label: 'Progress', icon: <Icon name="i-chart" size={18} /> },
-    { href: '/dashboard/profile',  label: 'Me',       icon: <Icon name="i-user"  size={18} /> },
-  ];
 
   if (loading) {
     return (
@@ -270,7 +266,7 @@ export default function ProgressPage() {
             <div key={i} className="card" style={{ height: 56, animation: 'pulse 1.5s infinite' }} />
           ))}
         </div>
-        <BotNav routes={CLIENT_NAV} />
+        <BotNav routes={clientNav} />
       </div>
     );
   }
@@ -480,7 +476,7 @@ export default function ProgressPage() {
 
       </motion.div>
 
-      <BotNav routes={CLIENT_NAV} />
+      <BotNav routes={clientNav} />
     </div>
   );
 }

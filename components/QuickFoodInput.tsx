@@ -650,7 +650,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, onSea
             className="glass p-4 space-y-2 border border-amber-500/20"
           >
             <div className="flex items-center justify-between">
-              <p className="text-amber-400 text-xs font-semibold">🎤 Microphone Access Needed</p>
+              <p className="text-amber-400 text-xs font-semibold">Microphone Access Needed</p>
               <button
                 onClick={() => setMicDeniedHelp(false)}
                 className="text-stone-600 hover:text-stone-300 p-1"

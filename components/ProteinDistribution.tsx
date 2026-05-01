@@ -1,7 +1,8 @@
 'use client';
 
-import { memo } from 'react';
-import { motion } from 'framer-motion';
+import { memo, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import type { FoodLogEntry } from '@/lib/types';
 
 interface ProteinDistributionProps {
@@ -27,6 +28,7 @@ const MEAL_COLORS: Record<string, string> = {
 };
 
 export default memo(function ProteinDistribution({ entries }: ProteinDistributionProps) {
+  const [expanded, setExpanded] = useState(true);
   if (entries.length < 2) return null;
 
   // Group protein by meal
@@ -44,36 +46,51 @@ export default memo(function ProteinDistribution({ entries }: ProteinDistributio
 
   return (
     <div className="glass p-3">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-stone-300 text-xs font-medium">Protein per Meal</span>
-        <span className="text-red-400 text-xs font-bold">{Math.round(totalProtein)}g total</span>
-      </div>
+      <button onClick={() => setExpanded(e => !e)} className="w-full flex items-center justify-between mb-2">
+        <span className="text-stone-300 text-xs font-semibold uppercase tracking-wider">Protein per Meal</span>
+        <div className="flex items-center gap-2">
+          <span className="text-red-400 text-xs font-bold">{Math.round(totalProtein)}g</span>
+          {expanded ? <ChevronUp size={13} className="text-stone-500" /> : <ChevronDown size={13} className="text-stone-500" />}
+        </div>
+      </button>
 
-      <div className="space-y-1.5">
-        {meals.map(([meal, protein], i) => {
-          const pct = (protein / maxProtein) * 100;
-          const color = MEAL_COLORS[meal] || '#78716c';
-          return (
-            <div key={meal} className="flex items-center gap-2">
-              <span className="text-[10px] text-stone-500 w-16 text-right truncate">
-                {MEAL_NAMES[meal] || meal}
-              </span>
-              <div className="flex-1 h-2.5 bg-white/[0.05] rounded-full overflow-hidden">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${pct}%` }}
-                  transition={{ delay: i * 0.1, duration: 0.4 }}
-                  className="h-full rounded-full"
-                  style={{ backgroundColor: color }}
-                />
-              </div>
-              <span className="text-[10px] text-stone-400 w-8 text-right font-medium">
-                {Math.round(protein)}g
-              </span>
+      <AnimatePresence>
+        {expanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            style={{ overflow: 'hidden' }}
+          >
+            <div className="space-y-1.5">
+              {meals.map(([meal, protein], i) => {
+                const pct = (protein / maxProtein) * 100;
+                const color = MEAL_COLORS[meal] || '#78716c';
+                return (
+                  <div key={meal} className="flex items-center gap-2">
+                    <span className="text-[10px] text-stone-500 w-16 text-right truncate">
+                      {MEAL_NAMES[meal] || meal}
+                    </span>
+                    <div className="flex-1 h-2.5 bg-white/[0.05] rounded-full overflow-hidden">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${pct}%` }}
+                        transition={{ delay: i * 0.1, duration: 0.4 }}
+                        className="h-full rounded-full"
+                        style={{ backgroundColor: color }}
+                      />
+                    </div>
+                    <span className="text-[10px] text-stone-400 w-8 text-right font-medium">
+                      {Math.round(protein)}g
+                    </span>
+                  </div>
+                );
+              })}
             </div>
-          );
-        })}
-      </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 });

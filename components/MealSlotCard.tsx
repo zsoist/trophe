@@ -360,7 +360,7 @@ export default function MealSlotCard({
                 onClick={() => setShowNote(true)}
                 className="pt-1 text-stone-500 text-[10px] italic truncate block w-full text-left"
               >
-                📝 {note}
+                {note}
               </button>
             ) : null}
 

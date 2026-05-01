@@ -7,6 +7,7 @@ import { Undo2, Star } from 'lucide-react';
 import { Icon } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
+import { useClientNav } from '@/lib/useClientNav';
 import type { FoodLogEntry, MealType } from '@/lib/types';
 import { BotNav } from '@/components/ui/BotNav';
 import MealTimeline from '@/components/MealTimeline';
@@ -22,7 +23,6 @@ import ProteinDistribution from '@/components/ProteinDistribution';
 import NutrientDensity from '@/components/NutrientDensity';
 import MacroTrendChart from '@/components/MacroTrendChart';
 import CalorieHeatmap from '@/components/CalorieHeatmap';
-import EatingWindowTracker from '@/components/EatingWindowTracker';
 import FoodFrequency from '@/components/FoodFrequency';
 import FastingTimer from '@/components/FastingTimer';
 import MacroAdherence from '@/components/MacroAdherence';
@@ -128,32 +128,32 @@ function loadStoredMealSlots(): MealSlot[] | null {
 // Health tips — context-aware, rotates hourly. 7 days × ~3 tips/day = 21+ unique tips
 const HEALTH_TIPS = [
   // Protein
-  '💪 Aim for 20-40g protein per meal — this maximizes muscle protein synthesis (ISSN Position Stand)',
-  '🥚 Spreading protein across 4+ meals improves absorption vs loading it all at dinner',
-  '🐟 Leucine-rich proteins (eggs, dairy, chicken) trigger the strongest anabolic response',
-  '🥩 Your body can use ~0.4g/kg protein per meal. More than that? Still useful, just less efficient',
-  '🧀 Greek yogurt has 2x the protein of regular yogurt — an easy swap for any snack',
+  'Aim for 20-40g protein per meal — this maximizes muscle protein synthesis (ISSN Position Stand)',
+  'Spreading protein across 4+ meals improves absorption vs loading it all at dinner',
+  'Leucine-rich proteins (eggs, dairy, chicken) trigger the strongest anabolic response',
+  'Your body can use ~0.4g/kg protein per meal. More than that? Still useful, just less efficient',
+  'Greek yogurt has 2x the protein of regular yogurt — an easy swap for any snack',
   // Timing
-  '⏰ Eating within 2 hours of waking jumpstarts your metabolism for the day',
-  '🌙 Late-night eating isn\'t inherently bad — total daily calories matter more than timing',
-  '☀️ A protein-rich breakfast reduces ghrelin (hunger hormone) for up to 4 hours',
-  '🏋️ Post-workout protein within 2h optimizes recovery — but the "anabolic window" is wider than you think',
+  'Eating within 2 hours of waking jumpstarts your metabolism for the day',
+  'Late-night eating isn\'t inherently bad — total daily calories matter more than timing',
+  'A protein-rich breakfast reduces ghrelin (hunger hormone) for up to 4 hours',
+  'Post-workout protein within 2h optimizes recovery — but the "anabolic window" is wider than you think',
   // Fiber & Micronutrients
-  '🥦 Only 5% of adults hit the fiber target (25-38g). Vegetables, beans, and whole grains are your best sources',
-  '🫘 Beans and lentils are the only food that\'s both high-protein AND high-fiber',
-  '🥬 Eating vegetables BEFORE carbs in a meal reduces blood sugar spikes by up to 35%',
-  '🍎 An apple has 4.5g fiber — that\'s 15% of your daily target in one snack',
+  'Only 5% of adults hit the fiber target (25-38g). Vegetables, beans, and whole grains are your best sources',
+  'Beans and lentils are the only food that\'s both high-protein AND high-fiber',
+  'Eating vegetables BEFORE carbs in a meal reduces blood sugar spikes by up to 35%',
+  'An apple has 4.5g fiber — that\'s 15% of your daily target in one snack',
   // Hydration
-  '💧 Even 2% dehydration reduces cognitive performance. Drink before you feel thirsty',
-  '🫗 Water with meals aids digestion — the old "don\'t drink during meals" advice is a myth',
+  'Even 2% dehydration reduces cognitive performance. Drink before you feel thirsty',
+  'Water with meals aids digestion — the old "don\'t drink during meals" advice is a myth',
   // Fat
-  '🥑 Healthy fats (avocado, olive oil, nuts) improve vitamin absorption from vegetables',
-  '🐠 Omega-3 fatty acids reduce inflammation — aim for fatty fish 2x per week',
+  'Healthy fats (avocado, olive oil, nuts) improve vitamin absorption from vegetables',
+  'Omega-3 fatty acids reduce inflammation — aim for fatty fish 2x per week',
   // General
-  '📊 People who track food consistently lose 2x more weight than those who don\'t (NIH study)',
-  '🎯 Hitting 80% of your targets consistently beats hitting 100% occasionally',
-  '🔥 Your BMR accounts for 60-75% of daily calories — most energy goes to just existing',
-  '🧠 The gut-brain axis means what you eat directly affects mood and focus within hours',
+  'People who track food consistently lose 2x more weight than those who don\'t (NIH study)',
+  'Hitting 80% of your targets consistently beats hitting 100% occasionally',
+  'Your BMR accounts for 60-75% of daily calories — most energy goes to just existing',
+  'The gut-brain axis means what you eat directly affects mood and focus within hours',
 ];
 
 function getHealthTip(
@@ -168,17 +168,17 @@ function getHealthTip(
 
   // Context-aware tips take priority
   if (filledCount === 0 && hour < 12) {
-    return '🌅 Start your day right — a protein-rich breakfast reduces cravings by up to 60%';
+    return 'Start your day right — a protein-rich breakfast reduces cravings by up to 60%';
   }
   if (filledCount === 0 && hour >= 12) {
-    return '⚡ No meals logged yet today — even a quick entry helps build the tracking habit';
+    return 'No meals logged yet today — even a quick entry helps build the tracking habit';
   }
   if (targets.protein_g > 0 && protein < targets.protein_g * 0.3 && filledCount >= 2) {
     const remaining = Math.round(targets.protein_g - protein);
-    return `💪 ${remaining}g protein to go — high-protein options: chicken (31g/150g), eggs (6g each), Greek yogurt (15g)`;
+    return `${remaining}g protein to go — high-protein options: chicken (31g/150g), eggs (6g each), Greek yogurt (15g)`;
   }
   if (targets.calories > 0 && calories > targets.calories * 1.1) {
-    return '📊 You\'re over your calorie target — that\'s OK occasionally. Focus on protein and fiber for the rest of the day';
+    return 'You\'re over your calorie target — that\'s OK occasionally. Focus on protein and fiber for the rest of the day';
   }
   if (nextUnfilled && filledCount > 0 && filledCount < 4) {
     // Only suggest meals that match the current time of day
@@ -191,7 +191,7 @@ function getHealthTip(
     }
   }
   if (filledCount >= 4) {
-    return '🌟 Almost done! Lock your meals when finished — consistency is the #1 predictor of success';
+    return 'Almost done! Lock your meals when finished — consistency is the #1 predictor of success';
   }
 
   // Rotate through general tips — changes every hour
@@ -201,6 +201,7 @@ function getHealthTip(
 
 export default function FoodLogPage() {
   const { t } = useI18n();
+  const clientNav = useClientNav();
   const router = useRouter();
   const [userId, setUserId] = useState<string | null>(null);
   const [todayLog, setTodayLog] = useState<FoodLogEntry[]>([]);
@@ -569,17 +570,19 @@ export default function FoodLogPage() {
         )}
 
         {/* ── Macro summary card ── */}
-        <div className="card mb-3" style={{ padding: 10 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 4, textAlign: 'center' }}>
+        <div className="card mb-3" style={{ padding: '10px 8px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 3, textAlign: 'center' }}>
             {[
-              { label: 'kcal', val: Math.round(totalCalories), color: 'var(--gold-300,#D4A853)' },
-              { label: 'prot', val: Math.round(totalProtein),  color: 'var(--err,#E87A6E)' },
-              { label: 'carb', val: Math.round(totalCarbs),    color: 'var(--info,#7DA3D9)' },
-              { label: 'fat',  val: Math.round(totalFat),      color: 'var(--plum,#B89DD9)' },
+              { label: 'Calories', unit: 'kcal', val: Math.round(totalCalories), color: 'var(--gold-300,#D4A853)' },
+              { label: 'Protein',  unit: 'g',    val: Math.round(totalProtein),  color: 'var(--err,#E87A6E)' },
+              { label: 'Carbs',    unit: 'g',    val: Math.round(totalCarbs),    color: 'var(--info,#7DA3D9)' },
+              { label: 'Fat',      unit: 'g',    val: Math.round(totalFat),      color: '#B89DD9' },
+              { label: 'Sugar~',   unit: 'g',    val: Math.round(totalCarbs * 0.3), color: 'var(--warn,#E8B86E)' },
             ].map(m => (
-              <div key={m.label}>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700, color: m.color }}>{m.val}</div>
-                <div className="ds-sub" style={{ fontFamily: 'var(--font-mono)', fontSize: 7 }}>{m.label}</div>
+              <div key={m.label} style={{ borderRight: m.label !== 'Sugar~' ? '1px solid rgba(255,255,255,.04)' : 'none' }}>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 700, color: m.color, lineHeight: 1.1 }}>{m.val}</div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 6.5, color: 'var(--t4)', marginTop: 1, lineHeight: 1.2 }}>{m.unit}</div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 6, color: 'var(--t5)', letterSpacing: '.04em', marginTop: 1 }}>{m.label}</div>
               </div>
             ))}
           </div>
@@ -743,8 +746,6 @@ export default function FoodLogPage() {
             {/* Food Frequency */}
             <FoodFrequency userId={userId} />
 
-            {/* Eating Window */}
-            <EatingWindowTracker todayLog={todayLog} />
 
             {/* Day Patterns */}
             <DayPatterns userId={userId} />
@@ -858,12 +859,7 @@ export default function FoodLogPage() {
         />
       )}
 
-      <BotNav routes={[
-        { href: '/dashboard',          label: 'Home',     icon: <Icon name="i-home"  size={18} /> },
-        { href: '/dashboard/log',      label: 'Log',      icon: <Icon name="i-book"  size={18} /> },
-        { href: '/dashboard/progress', label: 'Progress', icon: <Icon name="i-chart" size={18} /> },
-        { href: '/dashboard/profile',  label: 'Me',       icon: <Icon name="i-user"  size={18} /> },
-      ]} />
+      <BotNav routes={clientNav} />
     </div>
   );
 }

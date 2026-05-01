@@ -9,13 +9,7 @@ import { BotNav } from '@/components/ui/BotNav';
 import { supabase } from '@/lib/supabase';
 import type { ClientSupplement, SupplementItem, SupplementLogEntry } from '@/lib/types';
 import { localToday, localDateStr } from '../../../lib/dates';
-
-const CLIENT_NAV = [
-  { href: '/dashboard',          label: 'Home',     icon: <Icon name="i-home"  size={18} /> },
-  { href: '/dashboard/log',      label: 'Log',      icon: <Icon name="i-book"  size={18} /> },
-  { href: '/dashboard/progress', label: 'Progress', icon: <Icon name="i-chart" size={18} /> },
-  { href: '/dashboard/profile',  label: 'Me',       icon: <Icon name="i-user"  size={18} /> },
-];
+import { useClientNav } from '@/lib/useClientNav';
 
 const EVIDENCE_COLORS: Record<string, string> = {
   A: 'bg-green-500/15 text-green-400 border-green-500/30',
@@ -32,6 +26,7 @@ const EVIDENCE_LABELS: Record<string, string> = {
 };
 
 export default function SupplementsPage() {
+  const clientNav = useClientNav();
   const [userId, setUserId] = useState<string | null>(null);
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -280,7 +275,7 @@ export default function SupplementsPage() {
         )}
       </motion.div>
 
-      <BotNav routes={CLIENT_NAV} />
+      <BotNav routes={clientNav} />
     </div>
   );
 }

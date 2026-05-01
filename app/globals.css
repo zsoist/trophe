@@ -142,9 +142,10 @@
 }
 
 .light {
+  /* ── Semantic aliases ── */
   --bg-primary: #fafaf9;
-  --bg-card: rgba(255, 255, 255, 0.85);
-  --bg-card-elevated: rgba(255, 255, 255, 0.95);
+  --bg-card: rgba(255, 255, 255, 0.88);
+  --bg-card-elevated: rgba(255, 255, 255, 0.97);
   --bg-surface: #f5f5f4;
   --bg-surface-hover: #e7e5e4;
   --bg-input: #ffffff;
@@ -156,7 +157,41 @@
   --border-light: #a8a29e;
   --scrollbar-thumb: #d6d3d1;
   --scrollbar-hover: #a8a29e;
-  --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.06);
+  --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.08);
+
+  /* ── Primitive token overrides — flip dark→light ── */
+  --bg:   #fafaf9;
+  --bg-1: #f5f5f4;
+  --bg-2: #e7e5e4;
+  --bg-3: #d6d3d1;
+  --bg-4: #c4c0bb;
+
+  /* Text scale — invert the dark-mode ramp */
+  --t1: #1c1917;
+  --t2: #292524;
+  --t3: #57534e;
+  --t4: #78716c;
+  --t5: #a8a29e;
+  --t6: #d6d3d1;
+
+  /* Lines — use subtle black instead of subtle white */
+  --line:   rgba(0, 0, 0, 0.07);
+  --line-2: rgba(0, 0, 0, 0.12);
+  --line-g: rgba(180, 130, 40, 0.18);
+
+  /* Semantic status — stay readable on white bg */
+  --err:  #c0392b;
+  --warn: #b45309;
+  --info: #1d4ed8;
+  --ok:   #15803d;
+  --plum: #7c3aed;
+}
+
+/* Light mode: make glass borders visible */
+.light .glass,
+.light .glass-elevated {
+  border-color: rgba(0, 0, 0, 0.07);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
 }
 
 /* ─── Base ─── */
