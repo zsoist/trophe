@@ -4,7 +4,7 @@
 
 'use client';
 
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import type { Language } from './types';
 
 // ─── Translation Dictionary ───
@@ -510,6 +510,7 @@ const translations: Record<string, Record<Language, string>> = {
   'adherence.no_data':     { en: 'No data logged this week yet',      es: 'Sin datos registrados esta semana',       el: 'Χωρίς δεδομένα αυτή την εβδομάδα' },
   'adherence.log_meals':   { en: 'Log meals to see your adherence score', es: 'Registra comidas para ver tu puntuación', el: 'Καταγράψε γεύματα για να δεις το σκορ σου' },
   'adherence.target_val':  { en: 'Target: {n}{unit}',      es: 'Objetivo: {n}{unit}',      el: 'Στόχος: {n}{unit}' },
+  'adherence.target_label': { en: 'Target',                es: 'Objetivo',                  el: 'Στόχος' },
 
   // ── MonthlyReport ──
   'report.period_week':     { en: '7 days',     es: '7 días',      el: '7 ημέρες' },
@@ -561,10 +562,18 @@ const I18nContext = createContext<I18nContextType>({
 });
 
 export function I18nProvider({ children, defaultLang = 'en' }: { children: ReactNode; defaultLang?: Language }) {
-  const [lang, setLangState] = useState<Language>(() => {
-    if (typeof window === 'undefined') return defaultLang;
-    return (localStorage.getItem('trophe_lang') as Language) || defaultLang;
-  });
+  // Initialize with defaultLang so server and client first render match (fixes hydration mismatch).
+  // Read localStorage only after mount in useEffect — localStorage is unavailable on the server.
+  const [lang, setLangState] = useState<Language>(defaultLang);
+
+  useEffect(() => {
+    const stored = localStorage.getItem('trophe_lang') as Language | null;
+    if (stored && stored !== defaultLang) {
+      setLangState(stored);
+      document.documentElement.lang = stored;
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const setLang = useCallback((newLang: Language) => {
     setLangState(newLang);

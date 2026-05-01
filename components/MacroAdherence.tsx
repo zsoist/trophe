@@ -240,12 +240,10 @@ export default function MacroAdherence({ userId, targets }: MacroAdherenceProps)
                         <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: macro.color }} />
                         <span style={{ color: 'var(--t2)' }}>{macro.label}</span>
                       </div>
-                      <span style={{ color: 'var(--t4)' }}
-                        dangerouslySetInnerHTML={{ __html: t('adherence.target_val', { n: macro.targetValue, unit: macro.unit }).replace(
-                          String(macro.targetValue) + macro.unit,
-                          `<strong style="color:var(--t2)">${macro.targetValue}${macro.unit}</strong>`
-                        ) }}
-                      />
+                      <span style={{ color: 'var(--t4)' }}>
+                        {t('adherence.target_label')}:{' '}
+                        <strong style={{ color: 'var(--t2)' }}>{macro.targetValue}{macro.unit}</strong>
+                      </span>
                     </div>
                   ))}
                 </div>
