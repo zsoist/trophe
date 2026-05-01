@@ -19,6 +19,7 @@ import {
   Pencil,
   Check,
   Calculator,
+  LayoutList,
 } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
@@ -870,6 +871,29 @@ export default function ClientDetailPage() {
                 profile={profile} clientProfile={clientProfile}
                 activeHabit={activeHabit} pastHabits={pastHabits} notes={notes}
               />
+              <Link
+                href={`/coach/client/${clientId}/plan`}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  padding: '4px 8px',
+                  borderRadius: 8,
+                  border: '1px solid rgba(212,168,83,.3)',
+                  background: 'rgba(212,168,83,.08)',
+                  color: 'var(--gold-300,#D4A853)',
+                  textDecoration: 'none',
+                  fontSize: 10,
+                  fontFamily: 'var(--font-mono)',
+                  fontWeight: 700,
+                  letterSpacing: '.06em',
+                  textTransform: 'uppercase',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                <LayoutList size={11} />
+                Plan
+              </Link>
               <span className="tag tag-g" style={{ fontSize: 8 }}>{clientProfile.coaching_phase}</span>
             </div>
           </div>
