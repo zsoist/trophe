@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Camera, RotateCcw, Save, ChevronDown } from 'lucide-react';
-import BottomNav from '@/components/BottomNav';
+import { BotNav } from '@/components/ui/BotNav';
+import { Icon } from '@/components/ui';
 import FormCheck from '@/components/FormCheck';
 import FormScore from '@/components/FormScore';
 import { EXERCISE_REFERENCES } from '@/lib/exercise-references';
@@ -263,7 +264,12 @@ export default function FormCheckPage() {
         </AnimatePresence>
       </div>
 
-      <BottomNav />
+      <BotNav routes={[
+        { href: '/dashboard',          label: 'Home',     icon: <Icon name="i-home"  size={18} /> },
+        { href: '/dashboard/log',      label: 'Log',      icon: <Icon name="i-book"  size={18} /> },
+        { href: '/dashboard/progress', label: 'Progress', icon: <Icon name="i-chart" size={18} /> },
+        { href: '/dashboard/profile',  label: 'Me',       icon: <Icon name="i-user"  size={18} /> },
+      ]} />
     </div>
   );
 }

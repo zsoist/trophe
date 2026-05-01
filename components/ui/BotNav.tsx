@@ -51,10 +51,7 @@ export function BotNav({ routes, className = '' }: BotNavProps) {
             className={[
               'relative flex flex-col items-center gap-0.5',
               'text-[8px] uppercase tracking-[0.05em]',
-              'transition-colors',
-              active
-                ? 'text-[var(--color-gold)]'
-                : 'text-[var(--text-dim,#57534e)] hover:text-[var(--text-muted)]',
+              active ? 'bnav-active' : 'bnav-dim',
             ].join(' ')}
           >
             <span className="text-[16px] leading-none">{route.icon}</span>

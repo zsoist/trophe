@@ -1,6 +1,6 @@
 'use client';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Icon } from '@/components/ui';
 import { BotNav } from '@/components/ui/BotNav';
@@ -156,8 +156,31 @@ export default function DashboardPage() {
   const [showCelebration, setShowCelebration]   = useState(false);
   const [celebrationChecked, setCelebrationChecked] = useState(false);
   const [addingWater, setAddingWater]       = useState(false);
+  const [theme, setTheme]                   = useState<'dark' | 'light'>('dark');
 
   const today = localToday();
+
+  // ─── Theme toggle ──────────────────────────────────────────────
+  const toggleTheme = useCallback(() => {
+    setTheme(prev => {
+      const next = prev === 'dark' ? 'light' : 'dark';
+      document.documentElement.classList.toggle('light', next === 'light');
+      localStorage.setItem('trophe-theme', next);
+      return next;
+    });
+  }, []);
+
+  // ─── Load saved theme ─────────────────────────────────────────
+  const themeLoaded = useRef(false);
+  useEffect(() => {
+    if (themeLoaded.current) return;
+    themeLoaded.current = true;
+    const saved = localStorage.getItem('trophe-theme') as 'dark' | 'light' | null;
+    if (saved) {
+      setTheme(saved);
+      document.documentElement.classList.toggle('light', saved === 'light');
+    }
+  }, []);
 
   // ─── Derived totals ───────────────────────────────────────────
   const totalCalories = foodLog.reduce((s, f) => s + (f.calories ?? 0), 0);
@@ -326,12 +349,29 @@ export default function DashboardPage() {
               <div className="ds-sub">{dateLabel}</div>
             </div>
           </div>
-          {streakDays > 0 && (
-            <span className="tag tag-g">
-              <Icon name="i-flame" size={9} />
-              {streakDays}d
-            </span>
-          )}
+          <div className="row-i" style={{ gap: 8 }}>
+            {streakDays > 0 && (
+              <span className="tag tag-g">
+                <Icon name="i-flame" size={9} />
+                {streakDays}d
+              </span>
+            )}
+            {/* Theme toggle */}
+            <button
+              onClick={toggleTheme}
+              style={{
+                width: 30, height: 30, borderRadius: 15,
+                background: 'rgba(255,255,255,.05)',
+                border: '1px solid rgba(255,255,255,.08)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', flexShrink: 0,
+              }}
+              aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            >
+              <Icon name={theme === 'dark' ? 'i-sun' : 'i-moon'} size={13}
+                style={{ color: 'var(--gold-300,#D4A853)' }} />
+            </button>
+          </div>
         </div>
 
         {/* ══ 2 · Today macro card (gold) ══════════════════════ */}
@@ -339,6 +379,10 @@ export default function DashboardPage() {
           initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.07 }}
           className="card-g p-3.5 mb-3"
+          style={{
+            background: 'linear-gradient(135deg, rgba(212,168,83,.12), rgba(212,168,83,.04))',
+            border: '1px solid rgba(212,168,83,.3)',
+          }}
         >
           <div className="eye-d mb-2.5">Today</div>
           <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
@@ -467,23 +511,25 @@ export default function DashboardPage() {
           </div>
         </motion.div>
 
-        {/* ══ 5 · Quick actions (4-column) ════════════════════ */}
+        {/* ══ 5 · Quick actions (3+3 grid) ════════════════════ */}
         <motion.div
           initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.20 }}
-          style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 6, marginBottom: 12 }}
+          style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 6, marginBottom: 12 }}
         >
           {([
-            { icon: 'i-bowl',     label: 'Food',  action: () => router.push('/dashboard/log') },
-            { icon: 'i-dumbbell', label: 'Lift',  action: () => router.push('/dashboard/workout') },
-            { icon: 'i-drop',     label: 'Water', action: addWater },
-            { icon: 'i-chart',    label: 'Stats', action: () => router.push('/dashboard/progress') },
+            { icon: 'i-bowl',     label: 'Food',         action: () => router.push('/dashboard/log') },
+            { icon: 'i-dumbbell', label: 'Workout',      action: () => router.push('/dashboard/workout') },
+            { icon: 'i-drop',     label: 'Water',        action: addWater },
+            { icon: 'i-sparkle',  label: 'Supplements',  action: () => router.push('/dashboard/supplements') },
+            { icon: 'i-chart',    label: 'Progress',     action: () => router.push('/dashboard/progress') },
+            { icon: 'i-calendar', label: 'Check-in',     action: () => router.push('/dashboard/checkin') },
           ] as const).map(a => (
-            <button key={a.label} className="card" style={{ padding: 9, textAlign: 'center', cursor: 'pointer' }}
+            <button key={a.label} className="card" style={{ padding: '10px 6px', textAlign: 'center', cursor: 'pointer' }}
               onClick={a.action}>
-              <Icon name={a.icon as Parameters<typeof Icon>[0]['name']} size={16}
+              <Icon name={a.icon as Parameters<typeof Icon>[0]['name']} size={18}
                 style={{ color: 'var(--gold-300,#D4A853)' }} />
-              <div className="ds-sub" style={{ marginTop: 2, fontSize: 8 }}>{a.label}</div>
+              <div className="ds-sub" style={{ marginTop: 3, fontSize: 8 }}>{a.label}</div>
             </button>
           ))}
         </motion.div>

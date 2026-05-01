@@ -6,7 +6,8 @@ import {
   ArrowLeft, ChevronDown, ChevronUp, Clock, Dumbbell,
   RotateCcw, Trophy, Calendar
 } from 'lucide-react';
-import BottomNav from '@/components/BottomNav';
+import { BotNav } from '@/components/ui/BotNav';
+import { Icon } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
 import type { WorkoutSession, WorkoutSet, Exercise } from '@/lib/types';
@@ -343,7 +344,12 @@ export default function WorkoutHistoryPage() {
         )}
       </div>
 
-      <BottomNav />
+      <BotNav routes={[
+        { href: '/dashboard',          label: 'Home',     icon: <Icon name="i-home"  size={18} /> },
+        { href: '/dashboard/log',      label: 'Log',      icon: <Icon name="i-book"  size={18} /> },
+        { href: '/dashboard/progress', label: 'Progress', icon: <Icon name="i-chart" size={18} /> },
+        { href: '/dashboard/profile',  label: 'Me',       icon: <Icon name="i-user"  size={18} /> },
+      ]} />
     </div>
   );
 }

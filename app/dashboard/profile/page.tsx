@@ -5,13 +5,13 @@ import { useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { User, LogOut, Save, Globe, Sun, Moon } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { calculateFullProfile, ACTIVITY_DESCRIPTIONS, GOAL_DESCRIPTIONS } from '@/lib/nutrition-engine';
+import { calculateFullProfile, ACTIVITY_DESCRIPTIONS } from '@/lib/nutrition-engine';
 import type { ClientProfile, Profile, Sex, ActivityLevel, Goal, Language } from '@/lib/types';
-import BottomNav from '@/components/BottomNav';
 import { BotNav } from '@/components/ui/BotNav';
 import { Icon } from '@/components/ui';
 import BodyCompCalculator from '@/components/BodyCompCalculator';
 import { useThemeMode } from '@/components/ThemeMode';
+import { useI18n } from '@/lib/i18n';
 
 const SEX_OPTIONS: { value: Sex; label: string }[] = [
   { value: 'male', label: 'Male' },
@@ -20,10 +20,14 @@ const SEX_OPTIONS: { value: Sex; label: string }[] = [
 
 const ACTIVITY_OPTIONS: ActivityLevel[] = ['sedentary', 'light', 'moderate', 'active', 'very_active'];
 const GOAL_OPTIONS: Goal[] = ['fat_loss', 'muscle_gain', 'maintenance', 'recomp', 'endurance', 'health'];
-const LANG_OPTIONS: { value: Language; label: string; flag: string }[] = [
-  { value: 'en', label: 'English', flag: '🇬🇧' },
-  { value: 'es', label: 'Espanol', flag: '🇪🇸' },
-  { value: 'el', label: 'Ellinika', flag: '🇬🇷' },
+const GOAL_ICONS: Record<Goal, string> = {
+  fat_loss: 'i-flame', muscle_gain: 'i-dumbbell', maintenance: 'i-target',
+  recomp: 'i-zap', endurance: 'i-shoe', health: 'i-heart',
+};
+const LANG_OPTIONS: { value: Language; label: string }[] = [
+  { value: 'en', label: 'EN' },
+  { value: 'es', label: 'ES' },
+  { value: 'el', label: 'EL' },
 ];
 
 export default function ProfilePage() {
@@ -35,6 +39,7 @@ export default function ProfilePage() {
   const [clientProfile, setClientProfile] = useState<ClientProfile | null>(null);
 
   const { mode, toggleMode } = useThemeMode();
+  const { setLang } = useI18n();
 
   // Form state
   const [age, setAge] = useState('');
@@ -44,6 +49,12 @@ export default function ProfilePage() {
   const [activity, setActivity] = useState<ActivityLevel>('moderate');
   const [goal, setGoal] = useState<Goal>('maintenance');
   const [language, setLanguage] = useState<Language>('en');
+
+  // Immediately switch language in the app when user taps a flag
+  const handleLangChange = (lang: Language) => {
+    setLanguage(lang);
+    setLang(lang); // updates i18n context + localStorage immediately
+  };
 
   const loadData = useCallback(async () => {
     try {
@@ -274,23 +285,24 @@ export default function ProfilePage() {
           <div>
             <label className="text-stone-500 text-[10px] uppercase tracking-wider">Goal</label>
             <div className="grid grid-cols-2 gap-1.5 mt-2">
-              {GOAL_OPTIONS.map((g) => {
-                const info = GOAL_DESCRIPTIONS[g];
-                return (
-                  <button
-                    key={g}
-                    onClick={() => setGoal(g)}
-                    className={`text-left px-3 py-2.5 rounded-xl text-sm border transition-all ${
-                      goal === g
-                        ? 'gold-border gold-text bg-white/5'
-                        : 'border-white/5 text-stone-400 hover:bg-white/[0.02]'
-                    }`}
-                  >
-                    <span className="mr-1">{info.emoji}</span>
-                    <span className="capitalize text-xs">{g.replaceAll('_', ' ')}</span>
-                  </button>
-                );
-              })}
+              {GOAL_OPTIONS.map((g) => (
+                <button
+                  key={g}
+                  onClick={() => setGoal(g)}
+                  className={`text-left px-3 py-2.5 rounded-xl text-sm border transition-all flex items-center gap-2 ${
+                    goal === g
+                      ? 'gold-border gold-text bg-white/5'
+                      : 'border-white/5 text-stone-400 hover:bg-white/[0.02]'
+                  }`}
+                >
+                  <Icon
+                    name={GOAL_ICONS[g] as Parameters<typeof Icon>[0]['name']}
+                    size={11}
+                    style={{ flexShrink: 0, color: goal === g ? 'var(--gold-300,#D4A853)' : 'var(--t4,#78716C)' }}
+                  />
+                  <span className="capitalize text-xs">{g.replaceAll('_', ' ')}</span>
+                </button>
+              ))}
             </div>
           </div>
         </motion.div>
@@ -358,14 +370,14 @@ export default function ProfilePage() {
             {LANG_OPTIONS.map((l) => (
               <button
                 key={l.value}
-                onClick={() => setLanguage(l.value)}
+                onClick={() => handleLangChange(l.value)}
                 className={`flex-1 py-2.5 rounded-xl text-sm font-medium border transition-all text-center ${
                   language === l.value
                     ? 'gold-border gold-text bg-white/5'
                     : 'border-white/5 text-stone-400'
                 }`}
               >
-                {l.flag} {l.label}
+                {l.label}
               </button>
             ))}
           </div>

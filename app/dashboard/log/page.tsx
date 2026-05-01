@@ -18,11 +18,8 @@ import MealSlotConfig from '@/components/MealSlotConfig';
 import DateNavigator from '@/components/DateNavigator';
 import CalendarView from '@/components/CalendarView';
 import WeekStrip from '@/components/WeekStrip';
-import CalorieGauge from '@/components/CalorieGauge';
-import MacroRadar from '@/components/MacroRadar';
 import ProteinDistribution from '@/components/ProteinDistribution';
 import NutrientDensity from '@/components/NutrientDensity';
-import StreakFreeze from '@/components/StreakFreeze';
 import MacroTrendChart from '@/components/MacroTrendChart';
 import CalorieHeatmap from '@/components/CalorieHeatmap';
 import EatingWindowTracker from '@/components/EatingWindowTracker';
@@ -33,7 +30,6 @@ import DayPatterns from '@/components/DayPatterns';
 import MonthlyReport from '@/components/MonthlyReport';
 import MealPhotoGallery from '@/components/MealPhotoGallery';
 import DayComparison from '@/components/DayComparison';
-import AnimatedNumber from '@/components/AnimatedNumber';
 import MacroFoodIdeas from '@/components/MacroFoodIdeas';
 import RecipeAnalyzerModal from '@/components/RecipeAnalyzerModal';
 import { useTheme } from '@/components/ThemePicker';
@@ -127,22 +123,6 @@ function loadStoredMealSlots(): MealSlot[] | null {
   } catch {
     return null;
   }
-}
-
-// F4: Macro target colors
-function getTargetColor(consumed: number, target: number): string {
-  if (target === 0) return 'text-stone-500';
-  const pct = consumed / target;
-  if (pct > 1.1) return 'text-red-400';
-  if (pct >= 0.9) return 'gold-text';
-  return 'text-green-400';
-}
-
-// Ring stroke color based on percentage
-function getRingColor(pct: number, baseColor: string): string {
-  if (pct > 1.1) return '#ef4444';   // Red — over target
-  if (pct >= 0.9) return '#D4A853';  // Gold — near/at target
-  return baseColor;                   // Base color — under target, keep going
 }
 
 // Health tips — context-aware, rotates hourly. 7 days × ~3 tips/day = 21+ unique tips
@@ -254,9 +234,6 @@ export default function FoodLogPage() {
   // Week strip data
   const [weekData, setWeekData] = useState<{ date: string; calories: number; entries: number }[]>([]);
 
-  // View mode
-  const [viewMode, setViewMode] = useState<'detailed' | 'gauge' | 'radar'>('detailed');
-
   // Apply theme
   useTheme();
 
@@ -268,7 +245,6 @@ export default function FoodLogPage() {
   const totalProtein = todayLog.reduce((s, f) => s + (f.protein_g ?? 0), 0);
   const totalCarbs = todayLog.reduce((s, f) => s + (f.carbs_g ?? 0), 0);
   const totalFat = todayLog.reduce((s, f) => s + (f.fat_g ?? 0), 0);
-  const totalFiber = todayLog.reduce((s, f) => s + (f.fiber_g ?? 0), 0);
 
   const grouped = groupBySlot(todayLog, slots);
   const filledCount = slots.filter(s => grouped[s.id].length > 0 || skippedSlots.has(s.id)).length;
@@ -624,158 +600,6 @@ export default function FoodLogPage() {
           </motion.div>
         )}
 
-        {/* View mode toggle */}
-        <div className="flex gap-1 mb-3">
-          {(['detailed', 'gauge', 'radar'] as const).map(mode => (
-            <button
-              key={mode}
-              onClick={() => setViewMode(mode)}
-              className={`px-2.5 py-1 rounded-full text-[10px] transition-colors ${viewMode === mode ? 'bg-white/[0.1] text-stone-200' : 'text-stone-600 hover:text-stone-400'}`}
-            >
-              {mode === 'detailed' ? 'Macros' : mode === 'gauge' ? 'Gauge' : 'Radar'}
-            </button>
-          ))}
-          {!isToday && todayLog.length > 0 && (
-            <button
-              onClick={() => { setCompareDate(today); setShowComparison(true); }}
-              className="ml-auto px-2.5 py-1 rounded-full text-[10px] text-stone-600 hover:gold-text transition-colors"
-            >
-              Compare
-            </button>
-          )}
-        </div>
-
-        {/* Gauge View */}
-        {viewMode === 'gauge' && targets.calories > 0 && (
-          <div className="glass p-4 mb-4 flex justify-center overflow-hidden">
-            <div className="max-w-[160px]">
-              <CalorieGauge consumed={totalCalories} target={targets.calories} />
-            </div>
-          </div>
-        )}
-
-        {/* Radar View */}
-        {viewMode === 'radar' && targets.calories > 0 && (
-          <div className="mb-4">
-            <MacroRadar
-              current={{ protein: totalProtein, carbs: totalCarbs, fat: totalFat, fiber: totalFiber, water: 0 }}
-              targets={{ protein: targets.protein_g, carbs: targets.carbs_g, fat: targets.fat_g, fiber: 30, water: 2800 }}
-            />
-          </div>
-        )}
-
-        {/* F4: Daily Macro Totals with Targets (detailed view) */}
-        {viewMode === 'detailed' && (
-        <div className="glass p-4 mb-4">
-          <div className="grid grid-cols-5 gap-2 text-center">
-            <div>
-              <AnimatedNumber
-                value={Math.round(totalCalories)}
-                className={`text-lg font-bold ${targets.calories ? getTargetColor(totalCalories, targets.calories) : 'gold-text'}`}
-              />
-              {targets.calories > 0 && (
-                <p className="text-[9px] text-stone-600">/ {targets.calories}</p>
-              )}
-              <p className="text-[10px] text-stone-500">kcal</p>
-            </div>
-            <div>
-              <p className={`text-lg font-bold ${targets.protein_g ? getTargetColor(totalProtein, targets.protein_g) : 'text-red-400'}`}>
-                {Math.round(totalProtein)}g
-              </p>
-              {targets.protein_g > 0 && (
-                <p className="text-[9px] text-stone-600">/ {targets.protein_g}g</p>
-              )}
-              <p className="text-[10px] text-stone-500">Protein</p>
-            </div>
-            <div>
-              <p className={`text-lg font-bold ${targets.carbs_g ? getTargetColor(totalCarbs, targets.carbs_g) : 'text-blue-400'}`}>
-                {Math.round(totalCarbs)}g
-              </p>
-              {targets.carbs_g > 0 && (
-                <p className="text-[9px] text-stone-600">/ {targets.carbs_g}g</p>
-              )}
-              <p className="text-[10px] text-stone-500">Carbs</p>
-            </div>
-            <div>
-              <p className={`text-lg font-bold ${targets.fat_g ? getTargetColor(totalFat, targets.fat_g) : 'text-purple-400'}`}>
-                {Math.round(totalFat)}g
-              </p>
-              {targets.fat_g > 0 && (
-                <p className="text-[9px] text-stone-600">/ {targets.fat_g}g</p>
-              )}
-              <p className="text-[10px] text-stone-500">Fat</p>
-            </div>
-            <div>
-              <p className="text-lg font-bold text-green-400">{Math.round(totalFiber)}g</p>
-              <p className="text-[9px] text-stone-600">/ 30g</p>
-              <p className="text-[10px] text-stone-500">Fiber</p>
-            </div>
-          </div>
-
-          {/* F17: Mini macro rings with labels */}
-          {targets.calories > 0 && (
-            <>
-            <div className="mt-3 grid grid-cols-4 gap-2">
-              {[
-                { label: 'Cal', consumed: totalCalories, target: targets.calories, color: '#D4A853' },
-                { label: 'P', consumed: totalProtein, target: targets.protein_g, color: '#f87171' },
-                { label: 'C', consumed: totalCarbs, target: targets.carbs_g, color: '#60a5fa' },
-                { label: 'F', consumed: totalFat, target: targets.fat_g, color: '#a78bfa' },
-              ].map(({ label, consumed, target, color }) => {
-                const pct = target > 0 ? Math.min(consumed / target, 1.2) : 0;
-                const r = 14;
-                const circ = 2 * Math.PI * r;
-                const offset = circ * (1 - Math.min(pct, 1));
-                const strokeColor = getRingColor(pct, color);
-                return (
-                  <div key={label} className="flex flex-col items-center gap-0.5">
-                    <div className="flex items-center gap-1.5">
-                      <svg width="32" height="32" className="-rotate-90">
-                        <circle cx="16" cy="16" r={r} fill="none" stroke="var(--border-default)" strokeWidth="3" />
-                        <motion.circle
-                          cx="16" cy="16" r={r} fill="none"
-                          stroke={strokeColor}
-                          strokeWidth="3" strokeLinecap="round"
-                          strokeDasharray={circ}
-                          initial={{ strokeDashoffset: circ }}
-                          animate={{ strokeDashoffset: offset }}
-                          transition={{ duration: 0.8, ease: 'easeOut' }}
-                        />
-                      </svg>
-                      <span className={`text-[9px] ${pct > 1.1 ? 'text-red-400' : pct >= 0.9 ? 'gold-text' : 'text-stone-500'}`}>{Math.round(pct * 100)}%</span>
-                    </div>
-                    <span className="text-[8px] text-stone-600 text-center">{label}</span>
-                  </div>
-                );
-              })}
-            </div>
-            {/* Sugar estimate from carbs */}
-            {totalCarbs > 0 && (
-              <div className="mt-2 flex items-center justify-center gap-1">
-                <span className={`text-[10px] ${Math.round(totalCarbs * 0.35) > 36 ? 'text-orange-400' : 'text-stone-500'}`}>
-                  Sugar est: ~{Math.round(totalCarbs * 0.35)}g / 36g limit
-                </span>
-                <span className="text-stone-600 text-[9px]" title="Estimated from total carbs (~35% of carbs). WHO recommends max 25-36g added sugar/day.">
-                  &#9432;
-                </span>
-              </div>
-            )}
-            </>
-          )}
-
-          {/* Progress bar */}
-          {!targets.calories && (
-            <div className="mt-3 h-1.5 bg-white/[0.05] rounded-full overflow-hidden">
-              <motion.div
-                className="h-full bg-[#D4A853] rounded-full"
-                initial={{ width: 0 }}
-                animate={{ width: `${(filledCount / slots.length) * 100}%` }}
-                transition={{ duration: 0.5, ease: 'easeOut' }}
-              />
-            </div>
-          )}
-        </div>
-        )}
 
         {/* F5: Favorites chips */}
         {favorites.length > 0 && (
