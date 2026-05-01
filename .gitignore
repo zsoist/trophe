@@ -32,6 +32,9 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# allow committed example/template
+!.env.local.example
+!.env.example
 
 # vercel
 .vercel
@@ -41,3 +44,7 @@ yarn-error.log*
 next-env.d.ts
 .forge/
 .gstack/
+
+# v0.3 — drizzle migration artifacts (committed) vs local snapshot caches
+drizzle/.snapshots/
+drizzle/meta/_journal_lock

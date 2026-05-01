@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Trophe · As-Is Screen Handoff</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#0a0a0a;font-family:'Inter',sans-serif;color:#f5f5f4;-webkit-font-smoothing:antialiased}
+body{padding:56px 40px 96px;background:radial-gradient(1200px 600px at 20% -10%,rgba(212,168,83,.04),transparent 60%),#0a0a0a}
+header{margin-bottom:56px;display:flex;justify-content:space-between;align-items:flex-end;border-bottom:1px solid rgba(212,168,83,.12);padding-bottom:24px}
+h1{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:#e7e5e4;font-weight:600;margin-bottom:6px}
+h2{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.22em;text-transform:uppercase;color:#78716c;font-weight:400}
+.brand-mark{font-family:'JetBrains Mono',monospace;font-size:14px;letter-spacing:.18em;color:#D4A853;font-weight:700}
+.section{margin-bottom:64px}
+.section-title{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:#D4A853;font-weight:600;margin-bottom:20px;padding-bottom:10px;border-bottom:1px solid rgba(212,168,83,.15)}
+.row{display:flex;gap:32px;flex-wrap:wrap;align-items:flex-start}
+.col{display:flex;flex-direction:column;gap:10px}
+.label{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:#78716c}
+.label .num{color:#D4A853;margin-right:6px}
+.route{font-family:'JetBrains Mono',monospace;font-size:8px;color:#44403c;margin-top:-4px;letter-spacing:.05em}
+.phone{width:300px;background:#111;border-radius:38px;padding:6px;box-shadow:0 30px 60px -20px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.04);flex-shrink:0}
+.screen{width:100%;background:#0a0a0a;border-radius:32px;overflow:hidden;position:relative;font-family:'Inter',sans-serif;color:#f5f5f4;height:640px}
+.notch{height:36px;position:relative;display:flex;align-items:flex-end;justify-content:space-between;padding:0 18px 4px;font-size:11px;font-weight:600}
+.notch-pill{position:absolute;top:7px;left:50%;transform:translateX(-50%);width:88px;height:22px;background:#000;border-radius:11px}
+.signal{font-size:10px}
+.g{color:#D4A853}
+.muted{color:#a8a29e}
+.faint{color:#78716c}
+.dim{color:#57534e}
+.card{background:rgba(26,26,26,.75);border:1px solid rgba(255,255,255,.06);border-radius:12px}
+.card-g{background:rgba(26,26,26,.75);border:1px solid rgba(212,168,83,.25);border-radius:12px}
+.card-r{background:rgba(26,26,26,.75);border:1px solid rgba(239,68,68,.2);border-radius:12px}
+.mono{font-family:'JetBrains Mono',monospace}
+.btn-g{background:linear-gradient(135deg,#B8923E,#D4A853);color:#0a0a0a;border:none;border-radius:8px;font-weight:600}
+.btn-o{background:transparent;color:#a8a29e;border:1px solid #2a2a2a;border-radius:8px}
+.bot-nav{position:absolute;bottom:0;left:0;right:0;display:flex;justify-content:space-around;padding:10px 14px 18px;background:rgba(10,10,10,.95);border-top:1px solid rgba(255,255,255,.06)}
+.bot-nav .it{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:8px;color:#57534e}
+.bot-nav .it.active{color:#D4A853}
+.bot-nav .it span{font-size:16px}
+.dot-on{width:6px;height:6px;border-radius:3px;background:#22c55e}
+.dot-warn{width:6px;height:6px;border-radius:3px;background:#f59e0b}
+.dot-off{width:6px;height:6px;border-radius:3px;background:#ef4444}
+.body{padding:4px 14px 0;height:calc(100% - 40px);overflow:hidden;display:flex;flex-direction:column}
+.body-pad-bot{padding-bottom:60px}
+.title{font-size:16px;font-weight:700;letter-spacing:-.01em}
+.sub{font-size:10px}
+.tag{font-size:8px;padding:2px 6px;border-radius:99px;display:inline-block}
+.tag-g{background:rgba(212,168,83,.12);color:#D4A853;border:1px solid rgba(212,168,83,.3)}
+.tag-r{background:rgba(239,68,68,.1);color:#ef4444;border:1px solid rgba(239,68,68,.3)}
+.tag-y{background:rgba(245,158,11,.1);color:#f59e0b;border:1px solid rgba(245,158,11,.3)}
+.tag-gn{background:rgba(34,197,94,.1);color:#22c55e;border:1px solid rgba(34,197,94,.3)}
+.tabs{display:flex;gap:3px;padding:3px;background:rgba(26,26,26,.7);border:1px solid rgba(255,255,255,.06);border-radius:10px}
+.tab{flex:1;text-align:center;padding:5px;border-radius:7px;font-size:9px;color:#78716c;white-space:nowrap}
+.tab.active{background:rgba(212,168,83,.12);color:#D4A853}
+.fab{position:absolute;bottom:74px;right:14px;width:40px;height:40px;border-radius:20px;background:linear-gradient(135deg,#B8923E,#D4A853);display:flex;align-items:center;justify-content:center;box-shadow:0 8px 20px rgba(212,168,83,.35);color:#0a0a0a;font-size:20px;font-weight:300}
+.av{width:24px;height:24px;border-radius:12px;background:linear-gradient(135deg,#D4A853,#B8923E);color:#000;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0}
+.av-lg{width:32px;height:32px;border-radius:16px;background:linear-gradient(135deg,#D4A853,#B8923E);color:#000;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0}
+.row-i{display:flex;gap:8px;align-items:center}
+.brand-eye{font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:.2em;color:#D4A853;text-transform:uppercase}
+</style>
+</head>
+<body>
+
+<header>
+<div>
+<h1>As-Is Screen Reference · v1</h1>
+<h2>Developer handoff · iOS mobile · Source: github.com/zsoist/trophe@main</h2>
+</div>
+<div class="brand-mark">τροφή</div>
+</header>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- MARKETING + AUTH                                         -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="section">
+<div class="section-title">Marketing · Auth · Onboarding</div>
+<div class="row">
+
+<!-- 01 LANDING -->
+<div class="col"><div class="label"><span class="num">01</span>Landing Page</div><div class="route">/</div>
+<div class="phone"><div class="screen"><div class="notch"><span>9:41</span><div class="notch-pill"></div><span class="signal">▂▄▆ 🔋</span></div>
+<div class="body">
+<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0">
+  <div class="g" style="font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;letter-spacing:.05em">τροφή</div>
+  <div style="display:flex;gap:8px"><div class="faint" style="font-size:10px">Sign in</div><div class="btn-g" style="padding:5px 10px;font-size:10px">Get started</div></div>
+</div>
+<div style="padding:32px 4px 24px">
+  <div class="brand-eye" style="margin-bottom:14px">A platform for serious nutritionists</div>
+  <div style="font-family:'Inter',sans-serif;font-size:30px;font-weight:700;line-height:1.05;letter-spacing:-.025em;margin-bottom:14px">Make every nutritionist <span class="g" style="font-style:italic;font-weight:500">10× more</span> effective.</div>
+  <div class="faint" style="font-size:12px;line-height:1.55;margin-bottom:20px">Replace spreadsheets, MyFitnessPal, and WhatsApp with one platform built for precision coaching.</div>
+  <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:24px">
+    <button class="btn-g" style="padding:12px;font-size:13px">Start 14-day free trial →</button>
+    <button class="btn-o" style="padding:12px;font-size:13px">Watch demo · 90 sec</button>
+  </div>
+</div>
+<div class="card-g" style="padding:14px;margin-bottom:10px">
+  <div class="brand-eye" style="margin-bottom:8px">For Coaches</div>
+  <div style="font-size:13px;font-weight:600;margin-bottom:5px">Manage 10× more clients</div>
+  <div class="faint" style="font-size:10px;line-height:1.5">AI-assisted check-ins, habit cycles, real-time client view.</div>
+</div>
+<div class="card" style="padding:14px;margin-bottom:10px">
+  <div class="brand-eye" style="margin-bottom:8px">For Clients</div>
+  <div style="font-size:13px;font-weight:600;margin-bottom:5px">Free with your coach</div>
+  <div class="faint" style="font-size:10px;line-height:1.5">Log meals in seconds. Coach feedback in hours.</div>
+</div>
+</div>
+</div></div>
+</div>
+
+<!-- 02 LOGIN -->
+<div class="col"><div class="label"><span class="num">02</span>Sign in</div><div class="route">/login</div>
+<div class="phone"><div class="screen"><div class="notch"><span>9:41</span><div class="notch-pill"></div><span class="signal">▂▄▆ 🔋</span></div>
+<div class="body" style="justify-content:center;padding:0 24px">
+<div style="text-align:center;margin-bottom:32px">
+  <div class="g" style="font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;letter-spacing:.05em">τροφή</div>
+  <div class="faint" style="font-size:10px;margin-top:4px;letter-spacing:.05em">trophē · nourishment</div>
+</div>
+<div style="font-size:18px;font-weight:700;text-align:center;margin-bottom:6px">Welcome back</div>
+<div class="faint" style="font-size:11px;text-align:center;margin-bottom:24px">Sign in to continue your work</div>
+<div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px">
+  <div class="card" style="padding:12px"><div class="faint mono" style="font-size:8px;letter-spacing:.16em;text-transform:uppercase;margin-bottom:3px">Email</div><div style="font-size:13px">michael@trophe.app</div></div>
+  <div class="card" style="padding:12px"><div class="faint mono" style="font-size:8px;letter-spacing:.16em;text-transform:uppercase;margin-bottom:3px">Password</div><div style="font-size:13px;letter-spacing:.2em">••••••••</div></div>
+</div>
+<button class="btn-g" style="padding:12px;font-size:13px;margin-bottom:14px">Sign in</button>
+<div style="text-align:center;font-size:10px"><span class="faint">Forgot password?</span></div>
+<div style="display:flex;align-items:center;gap:8px;margin:18px 0">
+  <div style="flex:1;height:.5px;background:rgba(255,255,255,.08)"></div>
+  <span class="faint" style="font-size:9px">OR</span>
+  <div style="flex:1;height:.5px;background:rgba(255,255,255,.08)"></div>
+</div>
+<button class="btn-o" style="padding:11px;font-size:12px;margin-bottom:8px">Continue with Google</button>
+<button class="btn-o" style="padding:11px;font-size:12px">Continue with Apple</button>
+<div class="faint" style="font-size:10px;text-align:center;margin-top:24px">No account? <span class="g">Get started</span></div>
+</div>
+</div></div>
+</div>
+
+<!-- 03 ONBOARDING (CLIENT) -->
+<div class="col"><div class="label"><span class="num">03</span>Onboarding · Goals</div><div class="route">/onboarding</div>
+<div class="phone"><div class="screen"><div class="notch"><span>9:41</span><div class="notch-pill"></div><span class="signal">▂▄▆ 🔋</span></div>
+<div class="body">
+<div style="padding:6px 0 18px"><div style="display:flex;gap:4px;margin-bottom:6px"><div style="flex:1;height:3px;background:#D4A853;border-radius:2px"></div><div style="flex:1;height:3px;background:#D4A853;border-radius:2px"></div><div style="flex:1;height:3px;background:#D4A853;border-radius:2px"></div><div style="flex:1;height:3px;background:rgba(255,255,255,.08);border-radius:2px"></div><div style="flex:1;height:3px;background:rgba(255,255,255,.08);border-radius:2px"></div></div><div class="faint mono" style="font-size:8px;letter-spacing:.16em">STEP 3 OF 5</div></div>
+<div style="font-size:20px;font-weight:700;line-height:1.2;letter-spacing:-.015em;margin-bottom:6px">What's your primary goal?</div>
+<div class="faint" style="font-size:11px;margin-bottom:18px">Your coach will tailor habits and macros around this.</div>
+<div style="display:flex;flex-direction:column;gap:8px">
+  <div class="card-g" style="padding:14px;display:flex;align-items:center;gap:10px"><span style="font-size:22px">⚖️</span><div style="flex:1"><div style="font-size:13px;font-weight:600">Lose fat, keep muscle</div><div class="faint" style="font-size:10px">Sustainable deficit · 10–24 weeks</div></div><div style="width:18px;height:18px;border-radius:9px;background:#D4A853;color:#000;display:flex;align-items:center;justify-content:center;font-size:11px">✓</div></div>
+  <div class="card" style="padding:14px;display:flex;align-items:center;gap:10px"><span style="font-size:22px">💪</span><div style="flex:1"><div style="font-size:13px;font-weight:600">Build muscle</div><div class="faint" style="font-size:10px">Lean surplus · progressive overload</div></div></div>
+  <div class="card" style="padding:14px;display:flex;align-items:center;gap:10px"><span style="font-size:22px">⚡</span><div style="flex:1"><div style="font-size:13px;font-weight:600">Performance · sport-specific</div><div class="faint" style="font-size:10px">Energy, recovery, training fuel</div></div></div>
+  <div class="card" style="padding:14px;display:flex;align-items:center;gap:10px"><span style="font-size:22px">🌱</span><div style="flex:1"><div style="font-size:13px;font-weight:600">Just eat better</div><div class="faint" style="font-size:10px">No goal weight · build habits</div></div></div>
+  <div class="card" style="padding:14px;display:flex;align-items:center;gap:10px"><span style="font-size:22px">🩺</span><div style="flex:1"><div style="font-size:13px;font-weight:600">Manage a condition</div><div class="faint" style="font-size:10px">PCOS, IBS, diabetes, etc.</div></div></div>
+</div>
+<div style="margin-top:auto;padding:14px 0;display:flex;gap:8px"><button class="btn-o" style="padding:11px;font-size:12px;flex:1">Back</button><button class="btn-g" style="padding:11px;font-size:12px;flex:2">Continue →</button></div>
+</div>
+</div></div>
+</div>
+
+<!-- 04 ONBOARDING — INVITE CODE -->
+<div class="col"><div class="label"><span class="num">04</span>Onboarding · Invite</div><div class="route">/onboarding</div>
+<div class="phone"><div class="screen"><div class="notch"><span>9:41</span><div class="notch-pill"></div><span class="signal">▂▄▆ 🔋</span></div>
+<div class="body">
+<div style="padding:6px 0 18px"><div style="display:flex;gap:4px;margin-bottom:6px"><div style="flex:1;height:3px;background:#D4A853;border-radius:2px"></div><div style="flex:1;height:3px;background:rgba(255,255,255,.08);border-radius:2px"></div><div style="flex:1;height:3px;background:rgba(255,255,255,.08);border-radius:2px"></div><div style="flex:1;height:3px;background:rgba(255,255,255,.08);border-radius:2px"></div><div style="flex:1;height:3px;background:rgba(255,255,255,.08);border-radius:2px"></div></div><div class="faint mono" style="font-size:8px;letter-spacing:.16em">STEP 1 OF 5</div></div>
+<div style="font-size:20px;font-weight:700;line-height:1.2;letter-spacing:-.015em;margin-bottom:6px">Welcome, Nikos.</div>
+<div class="faint" style="font-size:11px;margin-bottom:24px">Connect with your nutritionist to get started.</div>
+<div class="card-g" style="padding:18px;margin-bottom:14px;text-align:center">
+  <div class="brand-eye" style="margin-bottom:10px">Coach Invite Code</div>
+  <div style="display:flex;gap:6px;justify-content:center;margin-bottom:10px">
+    <div style="width:32px;height:40px;border:1px solid rgba(212,168,83,.4);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:600">M</div>
+    <div style="width:32px;height:40px;border:1px solid rgba(212,168,83,.4);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:600">K</div>
+    <div style="width:32px;height:40px;border:1px solid rgba(212,168,83,.4);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:600">7</div>
+    <div style="width:32px;height:40px;border:1px solid rgba(212,168,83,.4);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:600">3</div>
+    <div style="width:32px;height:40px;border:1px solid rgba(212,168,83,.4);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:600">N</div>
+    <div style="width:32px;height:40px;border:1px solid #D4A853;background:rgba(212,168,83,.15);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:18px;color:#D4A853">_</div>
+  </div>
+  <div class="faint" style="font-size:10px">6-character code from your coach</div>
+</div>
+<div class="card" style="padding:12px;display:flex;gap:10px;align-items:center;margin-bottom:10px">
+  <div class="av-lg">M</div>
+  <div style="flex:1"><div style="font-size:12px;font-weight:600">Michael Karagiannis</div><div class="faint" style="font-size:10px">Sports & clinical nutritionist · Athens</div></div>
+  <div style="width:16px;height:16px;border-radius:8px;background:#22c55e;color:#000;display:flex;align-items:center;justify-content:center;font-size:9px">✓</div>
+</div>
+<div style="font-size:10px;text-align:center;margin-top:8px"><span class="faint">No code? </span><span class="g">Browse coaches →</span></div>
+<div style="margin-top:auto;padding:14px 0;display:flex;gap:8px"><button class="btn-g" style="padding:11px;font-size:12px;flex:1">Continue →</button></div>
+</div>
+</div></div>
+</div>
+
+</div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- CLIENT APP                                                -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="section">
+<div class="section-title">Client app · /dashboard/*</div>
+<div class="row">
+
+<!-- 05 DASHBOARD -->
+<div class="col"><div class="label"><span class="num">05</span>Dashboard · Today</div><div class="route">/dashboard</div>
+<div class="phone"><div class="screen"><div class="notch"><span>9:41</span><div class="notch-pill"></div><span class="signal">▂▄▆ 🔋</span></div>
+<div class="body body-pad-bot">
+<div style="display:flex;gap:10px;align-items:center;margin:8px 0 8px">
+  <div class="av-lg">N</div>
+  <div style="flex:1"><div style="font-size:14px;font-weight:700">Good morning, Nikos</div><div class="faint" style="font-size:10px">Fri Apr 18 · "Consistency beats perfection"</div></div>
+</div>
+<div class="tag tag-g" style="margin-bottom:10px;padding:3px 8px">🔥 9 day streak</div>
+<div class="card-g" style="padding:12px;margin-bottom:8px">
+  <div class="faint mono" style="font-size:8px;letter-spacing:.14em;text-transform:uppercase;margin-bottom:8px">Today's Calories</div>
+  <div style="display:flex;gap:10px;align-items:center">
+    <svg width="70" height="70" style="transform:rotate(-90deg);flex-shrink:0">
+      <circle cx="35" cy="35" r="28" fill="none" stroke="rgba(255,255,255,.06)" stroke-width="6"/>
+      <circle cx="35" cy="35" r="28" fill="none" stroke="#D4A853" stroke-width="6" stroke-linecap="round" stroke-dasharray="176" stroke-dashoffset="49"/>
+    </svg>
+    <div style="flex:1">
+      <div style="font-size:22px;font-weight:700;letter-spacing:-.02em">1,584</div>
+      <div class="faint" style="font-size:9px">of 2,200 · 616 left</div>
+      <div style="margin-top:6px;display:flex;flex-direction:column;gap:3px">
+        <div style="display:flex;gap:4px;align-items:center"><span class="faint mono" style="font-size:7px;width:32px">P</span><div style="flex:1;height:3px;background:rgba(255,255,255,.06);border-radius:99px"><div style="width:68%;height:100%;background:#ef4444;border-radius:99px"></div></div><span class="faint mono" style="font-size:7px">112/165</span></div>
+        <div style="display:flex;gap:4px;align-items:center"><span class="faint mono" style="font-size:7px;width:32px">C</span><div style="flex:1;height:3px;background:rgba(255,255,255,.06);border-radius:99px"><div style="width:84%;height:100%;background:#3b82f6;border-radius:99px"></div></div><span class="faint mono" style="font-size:7px">184/220</span></div>
+        <div style="display:flex;gap:4px;align-items:center"><span class="faint mono" style="font-size:7px;width:32px">F</span><div style="flex:1;height:3px;background:rgba(255,255,255,.06);border-radius:99px"><div style="width:69%;height:100%;background:#a855f7;border-radius:99px"></div></div><span class="faint mono" style="font-size:7px">48/70</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="card" style="padding:11px;margin-bottom:8px">
+  <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><span style="font-size:18px">💧</span><div style="flex:1"><div style="font-size:11px;font-weight:600">Drink 3L water · day 9/14</div></div><span class="g mono" style="font-size:9px">64%</span></div>
+  <div style="height:5px;background:rgba(255,255,255,.06);border-radius:99px;margin-bottom:8px"><div style="width:64%;height:100%;background:linear-gradient(90deg,#B8923E,#D4A853);border-radius:99px"></div></div>
+  <div style="display:flex;gap:6px"><button class="btn-g" style="flex:2;padding:7px;font-size:10px">✓ Done</button><button class="btn-o" style="flex:1;padding:7px;font-size:10px">✗ Skip</button></div>
+</div>
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px">
+  <div class="card" style="padding:8px;text-align:center"><div style="font-size:16px">🍽️</div><div style="font-size:8px;color:#d6d3d1;margin-top:2px">Food</div></div>
+  <div class="card" style="padding:8px;text-align:center"><div style="font-size:16px">💪</div><div style="font-size:8px;color:#d6d3d1;margin-top:2px">Workout</div></div>
+  <div class="card" style="padding:8px;text-align:center"><div style="font-size:16px">📊</div><div style="font-size:8px;color:#d6d3d1;margin-top:2px">Progress</div></div>
+  <div class="card" style="padding:8px;text-align:center"><div style="font-size:16px">💊</div><div style="font-size:8px;color:#d6d3d1;margin-top:2px">Supps</div></div>
+</div>
+<div style="font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#a8a29e;margin:10px 0 4px">Coach</div>
+<div class="card-g" style="padding:10px;display:flex;gap:8px;align-items:flex-start">
+  <div class="av">M</div>
+  <div style="flex:1"><div style="font-size:9px" class="g">Michael · 2h ago</div><div style="font-size:11px;line-height:1.4;font-style:italic">"Strong week. Let's add protein at breakfast next cycle."</div></div>
+</div>
+</div>
+<div class="bot-nav"><div class="it active"><span>⌂</span>Today</div><div class="it"><span>📖</span>Log</div><div class="it"><span>📊</span>Progress</div><div class="it"><span>👤</span>Profile</div></div>
+</div></div>
+</div>
+
+<!-- 06 FOOD LOG -->
+<div class="col"><div class="label"><span class="num">06</span>Food Log</div><div class="route">/dashboard/log</div>
+<div class="phone"><div class="screen"><div class="notch"><span>9:41</span><div class="notch-pill"></div><span class="signal">▂▄▆ 🔋</span></div>
+<div class="body body-pad-bot">
+<div style="display:flex;justify-content:space-between;align-items:center;margin:6px 0 8px"><button style="color:#a8a29e;background:none;border:none;font-size:16px">‹</button><div style="font-size:13px;font-weight:600">Today · Fri Apr 18</div><button style="color:#a8a29e;background:none;border:none;font-size:16px">›</button></div>
+<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:8px">
+  <div style="text-align:center;padding:4px 2px;border-radius:6px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.05);font-size:8px;color:#a8a29e"><div>M</div><div style="font-size:9px;font-weight:600;margin-top:1px">12</div></div>
+  <div style="text-align:center;padding:4px 2px;border-radius:6px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.05);font-size:8px;color:#a8a29e"><div>T</div><div style="font-size:9px;font-weight:600;margin-top:1px">13</div></div>
+  <div style="text-align:center;padding:4px 2px;border-radius:6px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.05);font-size:8px;color:#a8a29e"><div>W</div><div style="font-size:9px;font-weight:600;margin-top:1px">14</div></div>
+  <div style="text-align:center;padding:4px 2px;border-radius:6px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.05);font-size:8px;color:#a8a29e"><div>T</div><div style="font-size:9px;font-weight:600;margin-top:1px">15</div></div>
+  <div style="text-align:center;padding:4px 2px;border-radius:6px;background:rgba(212,168,83,.12);border:1px solid #D4A853;font-size:8px;color:#D4A853"><div>F</div><div style="font-size:9px;font-weight:600;margin-top:1px">16</div></div>
+  <div style="text-align:center;padding:4px 2px;border-radius:6px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.05);font-size:8px;color:#78716c"><div>S</div><div style="font-size:9px;font-weight:600;margin-top:1px">17</div></div>
+  <div style="text-align:center;padding:4px 2px;border-radius:6px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.05);font-size:8px;color:#78716c"><div>S</div><div style="font-size:9px;font-weight:600;margin-top:1px">18</div></div>
+</div>
+<div class="card" style="padding:10px;margin-bottom:8px;display:grid;grid-template-columns:repeat(5,1fr);gap:3px;text-align:center">
+  <div><div class="g" style="font-size:11px;font-weight:700">1584</div><div class="faint mono" style="font-size:6px">kcal</div></div>
+  <div><div style="font-size:11px;font-weight:700;color:#f87171">112g</div><div class="faint mono" style="font-size:6px">P</div></div>
+  <div><div style="font-size:11px;font-weight:700;color:#60a5fa">184g</div><div class="faint mono" style="font-size:6px">C</div></div>
+  <div><div style="font-size:11px;font-weight:700;color:#a78bfa">48g</div><div class="faint mono" style="font-size:6px">F</div></div>
+  <div><div style="font-size:11px;font-weight:700;color:#4ade80">22g</div><div class="faint mono" style="font-size:6px">fib</div></div>
+</div>
+<div class="faint" style="font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;margin-bottom:5px">Meals · 3 of 5</div>
+<div style="display:flex;flex-direction:column;gap:5px">
+  <div class="card" style="padding:8px 10px;display:flex;gap:8px;align-items:center"><span style="font-size:14px">🌅</span><div style="flex:1"><div style="font-size:10px;font-weight:600">Breakfast</div><div class="faint" style="font-size:8px">Greek yogurt, berries, honey</div></div><span class="g mono" style="font-size:9px">320</span></div>
+  <div class="card" style="padding:8px 10px;display:flex;gap:8px;align-items:center;border-style:dashed"><span style="font-size:14px;opacity:.4">🍎</span><div style="flex:1"><div class="faint" style="font-size:10px">Morning Snack</div></div><span class="faint" style="font-size:9px">+ Add</span></div>
+  <div class="card" style="padding:8px 10px;display:flex;gap:8px;align-items:center"><span style="font-size:14px">☀️</span><div style="flex:1"><div style="font-size:10px;font-weight:600">Lunch</div><div class="faint" style="font-size:8px">Chicken bowl, tahini</div></div><span class="g mono" style="font-size:9px">520</span></div>
+  <div class="card" style="padding:8px 10px;display:flex;gap:8px;align-items:center;border-style:dashed"><span style="font-size:14px;opacity:.4">🥜</span><div style="flex:1"><div class="faint" style="font-size:10px">Afternoon Snack</div></div><span class="faint" style="font-size:9px">+ Add</span></div>
+  <div class="card" style="padding:8px 10px;display:flex;gap:8px;align-items:center"><span style="font-size:14px">🌙</span><div style="flex:1"><div style="font-size:10px;font-weight:600">Dinner</div><div class="faint" style="font-size:8px">Salmon, roasted veg, wine</div></div><span class="g mono" style="font-size:9px">744</span></div>
+</div>
+<div class="fab">+</div>
+</div>
+<div class="bot-nav"><div class="it"><span>⌂</span>Today</div><div class="it active"><span>📖</span>Log</div><div class="it"><span>📊</span>Progress</div><div class="it"><span>👤</span>Profile</div></div>
+</div></div>
+</div>
+
+<!-- 07 AI MEAL ENTRY -->
+<div class="col"><div class="label"><span class="num">07</span>AI Meal Entry</div><div class="route">/dashboard/log → modal</div>
+<div class="phone"><div class="screen"><div class="notch"><span>9:41</span><div class="notch-pill"></div><span class="signal">▂▄▆ 🔋</span></div>
+<div class="body body-pad-bot">
+<div style="display:flex;justify-content:space-between;align-items:center;margin:6px 0 4px"><div><div class="title">Log a Meal</div><div class="faint sub">Dinner</div></div><button style="color:#a8a29e;background:none;border:none;font-size:16px">✕</button></div>
+<div class="tabs" style="margin:8px 0 12px"><div class="tab active">✏️ Text</div><div class="tab">📷 Photo</div><div class="tab">🎙 Voice</div><div class="tab">🔍 Search</div></div>
+<div style="flex:1;overflow:hidden;display:flex;flex-direction:column;gap:8px">
+<div style="align-self:flex-end;max-width:80%;background:rgba(212,168,83,.12);border:1px solid rgba(212,168,83,.25);border-radius:12px 12px 4px 12px;padding:8px 10px;font-size:11px">salmon fillet, roasted veg, glass of wine</div>
+<div style="align-self:flex-start;max-width:90%">
+  <div class="faint" style="font-size:8px;margin-bottom:3px">τροφή AI · GPT-4</div>
+  <div class="card" style="padding:10px;font-size:11px;line-height:1.5">
+    Got it! Here's what I parsed:
+    <div style="margin-top:6px;display:flex;flex-direction:column;gap:4px">
+      <div style="display:flex;justify-content:space-between"><span>Salmon (180g)</span><span class="g">262 kcal</span></div>
+      <div style="display:flex;justify-content:space-between"><span>Roasted veg (200g)</span><span class="g">120 kcal</span></div>
+      <div style="display:flex;justify-content:space-between"><span>White wine (150ml)</span><span class="g">120 kcal</span></div>
+      <div style="height:.5px;background:rgba(255,255,255,.08);margin:2px 0"></div>
+      <div style="display:flex;justify-content:space-between;font-weight:600"><span>Total</span><span class="g">502 kcal</span></div>
+    </div>
+  </div>
+</div>
+<div style="align-self:flex-start;max-width:90%">
+  <div class="card" style="padding:10px;font-size:11px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;text-align:center;margin-bottom:8px">
+      <div><div style="color:#f87171;font-weight:700;font-size:13px">42g</div><div class="faint" style="font-size:7px">protein</div></div>
+      <div><div style="color:#60a5fa;font-weight:700;font-size:13px">22g</div><div class="faint" style="font-size:7px">carbs</div></div>
+      <div><div style="color:#a78bfa;font-weight:700;font-size:13px">12g</div><div class="faint" style="font-size:7px">fat</div></div>
+    </div>
+    <div style="display:flex;gap:6px"><button class="btn-g" style="flex:1;padding:7px;font-size:10px">Log meal</button><button class="btn-o" style="flex:1;padding:7px;font-size:10px">Edit</button></div>
+  </div>
+</div>
+</div>
+<div style="margin-top:8px;display:flex;gap:6px;align-items:center;padding:8px 10px;background:rgba(26,26,26,.9);border:1px solid rgba(255,255,255,.08);border-radius:12px">
+  <div style="flex:1;font-size:11px;color:#78716c">Describe what you ate…</div>
+  <div style="width:26px;height:26px;border-radius:13px;background:linear-gradient(135deg,#B8923E,#D4A853);display:flex;align-items:center;justify-content:center;color:#000;font-size:12px">↑</div>
+</div>
+</div>
+<div class="bot-nav"><div class="it"><span>⌂</span>Today</div><div class="it active"><span>📖</span>Log</div><div class="it"><span>📊</span>Progress</div><div class="it"><span>👤</span>Profile</div></div>
+</div></div>
+</div>
+
+<!-- 08 PROGRESS -->
+<div class="col"><div class="label"><span class="num">08</span>Progress · Body</div><div class="route">/dashboard/progress</div>
+<div class="phone"><div class="screen"><div class="notch"><span>9:41</span><div class="notch-pill"></div><span class="signal">▂▄▆ 🔋</span></div>
+<div class="body body-pad-bot">
+<div style="margin:6px 0 8px"><div class="title">Body Progress</div><div class="faint sub">10 weeks tracked</div></div>
+<div class="tabs" style="margin-bottom:10px"><div class="tab active">Weight</div><div class="tab">Body</div><div class="tab">Photos</div><div class="tab">Habits</div></div>
+<div class="card-g" style="padding:12px;margin-bottom:8px">
+  <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><div style="font-size:10px;font-weight:600">Weight</div><div class="faint mono" style="font-size:8px">Last 8 weeks</div></div>
+  <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:8px">
+    <span style="font-size:26px;font-weight:700;letter-spacing:-.02em">82.4</span>
+    <span class="faint" style="font-size:11px">kg</span>
+    <span style="font-size:10px;color:#22c55e;font-weight:600">↓ 2.1kg</span>
+  </div>
+  <svg width="100%" height="42" viewBox="0 0 240 42">
+    <polyline points="0,36 30,32 60,26 90,22 120,18 150,14 180,12 210,10 240,8" fill="none" stroke="#D4A853" stroke-width="1.5" stroke-linecap="round"/>
+    <polyline points="0,36 30,32 60,26 90,22 120,18 150,14 180,12 210,10 240,8 240,42 0,42" fill="rgba(212,168,83,.08)"/>
+    <circle cx="240" cy="8" r="2.5" fill="#D4A853"/>
+  </svg>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
+  <div class="card" style="padding:9px"><div class="faint" style="font-size:8px">Body Fat</div><div style="font-size:14px;font-weight:700">18.2%</div><div style="font-size:8px;color:#22c55e">↓ 1.4%</div></div>
+  <div class="card" style="padding:9px"><div class="faint" style="font-size:8px">Muscle</div><div style="font-size:14px;font-weight:700">66.8 kg</div><div style="font-size:8px;color:#22c55e">↑ 0.6kg</div></div>
+  <div class="card" style="padding:9px"><div class="faint" style="font-size:8px">Waist</div><div style="font-size:14px;font-weight:700">86 cm</div><div style="font-size:8px;color:#22c55e">↓ 3cm</div></div>
+  <div class="card" style="padding:9px"><div class="faint" style="font-size:8px">Chest</div><div style="font-size:14px;font-weight:700">102 cm</div><div style="font-size:8px;color:#22c55e">↑ 2cm</div></div>
+</div>
+<div class="faint" style="font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;margin-bottom:5px">Habit cycle · day 9/14</div>
+<div class="card" style="padding:10px">
+  <div style="display:grid;grid-template-columns:repeat(14,1fr);gap:2px">
+    <div style="aspect-ratio:1;background:#D4A853;border-radius:1.5px"></div><div style="aspect-ratio:1;background:#D4A853;border-radius:1.5px"></div><div style="aspect-ratio:1;background:#D4A853;border-radius:1.5px"></div><div style="aspect-ratio:1;background:#D4A853;border-radius:1.5px"></div><div style="aspect-ratio:1;background:#D4A853;border-radius:1.5px"></div><div style="aspect-ratio:1;background:#D4A853;border-radius:1.5px"></div><div style="aspect-ratio:1;background:rgba(212,168,83,.2);border-radius:1.5px"></div><div style="aspect-ratio:1;background:#D4A853;border-radius:1.5px"></div><div style="aspect-ratio:1;background:transparent;border:1px solid #D4A853;border-radius:1.5px"></div><div style="aspect-ratio:1;background:rgba(255,255,255,.04);border-radius:1.5px;border:1px solid rgba(255,255,255,.06)"></div><div style="aspect-ratio:1;background:rgba(255,255,255,.04);border-radius:1.5px;border:1px solid rgba(255,255,255,.06)"></div><div style="aspect-ratio:1;background:rgba(255,255,255,.04);border-radius:1.5px;border:1px solid rgba(255,255,255,.06)"></div><div style="aspect-ratio:1;background:rgba(255,255,255,.04);border-radius:1.5px;border:1px solid rgba(255,255,255,.06)"></div><div style="aspect-ratio:1;background:rgba(255,255,255,.04);border-radius:1.5px;border:1px solid rgba(255,255,255,.06)"></div>
+  </div>
+  <div class="faint mono" style="font-size:7px;margin-top:6px;text-align:center">7/8 done · 87% compliance</div>
+</div>
+<div class="card-g" style="padding:10px;margin-top:8px"><div class="brand-eye" style="margin-bottom:3px">Michael · weekly review</div><div style="font-size:11px;font-style:italic;line-height:1.4">"Waist is down 3cm. Sustainable pace — keep going."</div></div>
+</div>
+<div class="bot-nav"><div class="it"><span>⌂</span>Today</div><div class="it"><span>📖</span>Log</div><div class="it active"><span>📊</span>Progress</div><div class="it"><span>👤</span>Profile</div></div>
+</div></div>
+</div>
+
+</div>
+
+<div class="row" style="margin-top:32px">
+
+<!-- 09 WORKOUT -->
+<div class="col"><div class="label"><span class="num">09</span>Workout · Active</div><div class="route">/dashboard/workout</div>
+<div class="phone"><div class="screen"><div class="notch"><span>9:41</span><div class="notch-pill"></div><span class="signal">▂▄▆ 🔋</span></div>
+<div class="body body-pad-bot">
+<div style="margin:6px 0 8px"><div class="title">Workouts</div><div class="faint sub">Today · Fri Apr 18</div></div>
+<div class="tabs" style="margin-bottom:10px"><div class="tab active">Today</div><div class="tab">History</div><div class="tab">Stats</div><div class="tab">Form</div></div>
+<div class="card-g" style="padding:12px;margin-bottom:8px">
+  <div style="display:flex;justify-content:space-between;margin-bottom:3px"><div style="font-size:11px;font-weight:600">Upper Body Strength</div><div style="font-size:8px;color:#22c55e;font-weight:600">● ACTIVE</div></div>
+  <div class="faint" style="font-size:9px;margin-bottom:8px">42:18 elapsed · 3 done</div>
+  <div style="display:flex;gap:5px"><button style="flex:1;padding:7px;background:rgba(239,68,68,.1);color:#ef4444;border:1px solid rgba(239,68,68,.25);border-radius:7px;font-size:9px;font-weight:600">■ End</button><button class="btn-g" style="flex:1;padding:7px;font-size:9px;border-radius:7px">+ Set</button></div>
+</div>
+<div class="faint" style="font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;margin-bottom:5px">Exercises</div>
+<div style="display:flex;flex-direction:column;gap:5px">
+<div class="card" style="padding:8px 10px"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><div style="font-size:10px;font-weight:600">Bench Press</div><div class="g mono" style="font-size:8px">4 sets</div></div><div style="display:flex;gap:3px"><div style="flex:1;text-align:center;padding:3px;background:rgba(212,168,83,.1);border-radius:4px;font-size:8px">80×8</div><div style="flex:1;text-align:center;padding:3px;background:rgba(212,168,83,.1);border-radius:4px;font-size:8px">80×8</div><div style="flex:1;text-align:center;padding:3px;background:rgba(212,168,83,.1);border-radius:4px;font-size:8px">82.5×7</div><div style="flex:1;text-align:center;padding:3px;background:rgba(212,168,83,.1);border-radius:4px;font-size:8px">82.5×6</div></div></div>
+<div class="card" style="padding:8px 10px"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><div style="font-size:10px;font-weight:600">Pull-ups</div><div class="g mono" style="font-size:8px">3 sets</div></div><div style="display:flex;gap:3px"><div style="flex:1;text-align:center;padding:3px;background:rgba(212,168,83,.1);border-radius:4px;font-size:8px">BW×10</div><div style="flex:1;text-align:center;padding:3px;background:rgba(212,168,83,.1);border-radius:4px;font-size:8px">BW×8</div><div style="flex:1;text-align:center;padding:3px;background:rgba(212,168,83,.1);border-radius:4px;font-size:8px">BW×8</div></div></div>
+<div class="card" style="padding:8px 10px"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><div style="font-size:10px;font-weight:600">OHP</div><div class="g mono" style="font-size:8px">3 sets</div></div><div style="display:flex;gap:3px"><div style="flex:1;text-align:center;padding:3px;background:rgba(212,168,83,.1);border-radius:4px;font-size:8px">60×8</div><div style="flex:1;text-align:center;padding:3px;background:rgba(212,168,83,.1);border-radius:4px;font-size:8px">60×7</div><div style="flex:1;text-align:center;padding:3px;background:rgba(212,168,83,.1);border-radius:4px;font-size:8px">60×7</div></div></div>
+<div class="card" style="padding:8px 10px;border-style:dashed;border-color:rgba(255,255,255,.1);text-align:center;color:#78716c;font-size:10px">+ Add exercise</div>
+<div class="card" style="padding:8px 10px"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><div style="font-size:10px;font-weight:600;opacity:.6">Lat Pulldown</div><div class="faint mono" style="font-size:8px">queued</div></div></div>
+</div>
+</div>
+<div class="bot-nav"><div class="it"><span>⌂</span>Today</div><div class="it"><span>📖</span>Log</div><div class="it active"><span>💪</span>Train</div><div class="it"><span>👤</span>Profile</div></div>
+</div></div>
+</div>
+
+<!-- 10 WORKOUT STATS -->
+<div class="col"><div class="label"><span class="num">10</span>Workout · Stats</div><div class="route">/dashboard/workout/stats</div>
+<div class="phone"><div class="screen"><div class="notch"><span>9:41</span><div class="notch-pill"></div><span class="signal">▂▄▆ 🔋</span></div>
+<div class="body body-pad-bot">
+<div style="margin:6px 0 8px"><div class="title">Stats</div><div class="faint sub">All-time training data</div></div>
+<div class="tabs" style="margin-bottom:10px"><div class="tab">Today</div><div class="tab">History</div><div class="tab active">Stats</div><div class="tab">Form</div></div>
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:8px">
+  <div class="card" style="padding:9px;text-align:center"><div class="g" style="font-size:16px;font-weight:700">142</div><div class="faint mono" style="font-size:7px">workouts</div></div>
+  <div class="card" style="padding:9px;text-align:center"><div class="g" style="font-size:16px;font-weight:700">96h</div><div class="faint mono" style="font-size:7px">trained</div></div>
+  <div class="card" style="padding:9px;text-align:center"><div class="g" style="font-size:16px;font-weight:700">28k</div><div class="faint mono" style="font-size:7px">total kg</div></div>
+</div>
+<div class="card-g" style="padding:11px;margin-bottom:8px">
+  <div class="brand-eye" style="margin-bottom:6px">Bench Press · 1RM est.</div>
+  <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:6px"><span style="font-size:24px;font-weight:700;letter-spacing:-.02em">112.5</span><span class="faint" style="font-size:10px">kg</span><span style="font-size:9px;color:#22c55e;font-weight:600">↑ 7.5kg / 12wk</span></div>
+  <svg width="100%" height="50" viewBox="0 0 240 50">
+    <polyline points="0,38 24,36 48,32 72,30 96,28 120,24 144,22 168,18 192,14 216,12 240,8" fill="none" stroke="#D4A853" stroke-width="1.5"/>
+    <polyline points="0,38 24,36 48,32 72,30 96,28 120,24 144,22 168,18 192,14 216,12 240,8 240,50 0,50" fill="rgba(212,168,83,.08)"/>
+  </svg>
+</div>
+<div class="faint" style="font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;margin-bottom:5px">Personal records · 30d</div>
+<div style="display:flex;flex-direction:column;gap:5px">
+  <div class="card" style="padding:8px 10px;display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:10px;font-weight:600">Deadlift</div><div class="faint" style="font-size:8px">Apr 12</div></div><div class="g mono" style="font-size:11px;font-weight:600">140kg × 5</div></div>
+  <div class="card" style="padding:8px 10px;display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:10px;font-weight:600">Squat</div><div class="faint" style="font-size:8px">Apr 5</div></div><div class="g mono" style="font-size:11px;font-weight:600">120kg × 5</div></div>
+  <div class="card" style="padding:8px 10px;display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:10px;font-weight:600">Bench Press</div><div class="faint" style="font-size:8px">Mar 28</div></div><div class="g mono" style="font-size:11px;font-weight:600">100kg × 3</div></div>
+  <div class="card" style="padding:8px 10px;display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:10px;font-weight:600">Pull-ups (BW+30)</div><div class="faint" style="font-size:8px">Mar 21</div></div><div class="g mono" style="font-size:11px;font-weight:600">8 reps</div></div>
+</div>
+<div class="faint" style="font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;margin:10px 0 5px">Volume by muscle group</div>
+<div style="display:flex;flex-direction:column;gap:4px">
+  <div style="display:flex;gap:6px;align-items:center;font-size:10px"><span style="width:50px" class="faint">Chest</span><div style="flex:1;height:6px;background:rgba(255,255,255,.06);border-radius:99px"><div style="width:88%;height:100%;background:#D4A853;border-radius:99px"></div></div><span class="g mono" style="font-size:8px">8.4t</span></div>
+  <div style="display:flex;gap:6px;align-items:center;font-size:10px"><span style="width:50px" class="faint">Back</span><div style="flex:1;height:6px;background:rgba(255,255,255,.06);border-radius:99px"><div style="width:74%;height:100%;background:#D4A853;border-radius:99px"></div></div><span class="g mono" style="font-size:8px">7.0t</span></div>
+  <div style="display:flex;gap:6px;align-items:center;font-size:10px"><span style="width:50px" class="faint">Legs</span><div style="flex:1;height:6px;background:rgba(255,255,255,.06);border-radius:99px"><div style="width:96%;height:100%;background:#D4A853;border-radius:99px"></div></div><span class="g mono" style="font-size:8px">9.1t</span></div>
+  <div style="display:flex;gap:6px;align-items:center;font-size:10px"><span style="width:50px" class="faint">Arms</span><div style="flex:1;height:6px;background:rgba(255,255,255,.06);border-radius:99px"><div style="width:42%;height:100%;background:#D4A853;border-radius:99px"></div></div><span class="g mono" style="font-size:8px">3.9t</span></div>
+</div>
+</div>
+<div class="bot-nav"><div class="it"><span>⌂</span>Today</div><div class="it"><span>📖</span>Log</div><div class="it active"><span>💪</span>Train</div><div class="it"><span>👤</span>Profile</div></div>
+</div></div>
+</div>
+
+<!-- 11 WORKOUT HISTORY -->
+<div class="col"><div class="label"><span class="num">11</span>Workout · History</div><div class="route">/dashboard/workout/history</div>
+<div class="phone"><div class="screen"><div class="notch"><span>9:41</span><div class="notch-pill"></div><span class="signal">▂▄▆ 🔋</span></div>
+<div class="body body-pad-bot">
+<div style="margin:6px 0 8px"><div class="title">History</div><div class="faint sub">142 sessions logged</div></div>
+<div class="tabs" style="margin-bottom:10px"><div class="tab">Today</div><div class="tab active">History</div><div class="tab">Stats</div><div class="tab">Form</div></div>
+<div style="display:flex;gap:5px;margin-bottom:10px">
+  <div class="tag tag-g" style="padding:3px 7px">All</div>
+  <div class="tag" style="padding:3px 7px;border:1px solid rgba(255,255,255,.08);color:#78716c">Strength</div>
+  <div class="tag" style="padding:3px 7px;border:1px solid rgba(255,255,255,.08);color:#78716c">Cardio</div>
+  <div class="tag" style="padding:3px 7px;border:1px solid rgba(255,255,255,.08);color:#78716c">Mobility</div>
+</div>
+<div class="faint mono" style="font-size:8px;letter-spacing:.16em;margin-bottom:5px">THIS WEEK</div>
+<div style="display:flex;flex-direction:column;gap:5px;margin-bottom:10px">
+<div class="card-g" style="padding:9px 10px"><div style="display:flex;justify-content:space-between;align-items:start"><div><div style="font-size:11px;font-weight:600">Upper Body Strength</div><div class="faint" style="font-size:8px">Today · 42m · 12 sets</div></div><div class="g mono" style="font-size:8px">ACTIVE</div></div></div>
+<div class="card" style="padding:9px 10px"><div style="display:flex;justify-content:space-between"><div><div style="font-size:11px;font-weight:600">Lower Body</div><div class="faint" style="font-size:8px">Wed · 58m · 14 sets</div></div><div class="g mono" style="font-size:8px">8.2t</div></div></div>
+<div class="card" style="padding:9px 10px"><div style="display:flex;justify-content:space-between"><div><div style="font-size:11px;font-weight:600">Pull Day</div><div class="faint" style="font-size:8px">Mon · 52m · 11 sets</div></div><div class="g mono" style="font-size:8px">6.8t</div></div></div>
+</div>
+<div class="faint mono" style="font-size:8px;letter-spacing:.16em;margin-bottom:5px">LAST WEEK</div>
+<div style="display:flex;flex-direction:column;gap:5px;margin-bottom:10px">
+<div class="card" style="padding:9px 10px"><div style="display:flex;justify-content:space-between"><div><div style="font-size:11px;font-weight:600">Upper Body</div><div class="faint" style="font-size:8px">Fri Apr 11 · 45m</div></div><div class="g mono" style="font-size:8px">7.2t</div></div></div>
+<div class="card" style="padding:9px 10px"><div style="display:flex;justify-content:space-between"><div><div style="font-size:11px;font-weight:600">Cardio · run</div><div class="faint" style="font-size:8px">Thu Apr 10 · 32m</div></div><div class="g mono" style="font-size:8px">6.4 km</div></div></div>
+<div class="card" style="padding:9px 10px"><div style="display:flex;justify-content:space-between"><div><div style="font-size:11px;font-weight:600">Lower Body</div><div class="faint" style="font-size:8px">Tue Apr 8 · 56m</div></div><div class="g mono" style="font-size:8px">8.0t</div></div></div>
+</div>
+<div class="faint mono" style="font-size:8px;letter-spacing:.16em;margin-bottom:5px">12 WEEK CALENDAR</div>
+<div style="display:grid;grid-template-columns:repeat(12,1fr);gap:1px;height:60px">
+  <div style="display:flex;flex-direction:column;gap:1px"><div style="flex:1;background:rgba(212,168,83,.4);border-radius:1px"></div><div style="flex:1;background:rgba(212,168,83,.6);border-radius:1px"></div><div style="flex:1;background:rgba(212,168,83,.7);border-radius:1px"></div><div style="flex:1;background:rgba(255,255,255,.04);border-radius:1px"></div><div style="flex:1;background:rgba(212,168,83,.5);border-radius:1px"></div></div>
+  <div style="display:flex;flex-direction:column;gap:1px"><div style="flex:1;background:rgba(212,168,83,.6);border-radius:1px"></div><div style="flex:1;background:rgba(255,255,255,.04);border-radius:1px"></div><div style="flex:1;background:rgba(212,168,83,.7);border-radius:1px"></div><div style="flex:1;background:rgba(212,168,83,.5);border-radius:1px"></div><div style="flex:1;background:rgba(212,168,83,.6);border-radius:1px"></div></div>
+  <div style="display:flex;flex-direction:column;gap:1px"><div style="flex:1;background:rgba(212,168,83,.7);border-radius:1px"></div><div style="flex:1;background:rgba(212,168,83,.5);border-radius:1px"></div><div style="flex:1;background:rgba(212,168,83,.6);border-radius:1px"></div><div style="flex:1;background:rgba(255,255,255,.04);border-radius:1px"></div><div style="flex:1;background:rgba(212,168,83,.7);border-radius:1px"></div></div>
+  <div style="display:flex;flex-direction:column;gap:1px"><div style="flex:1;background:rgba(212,168,83,.4);border-radius:1px"></div><div style="flex:1;background:rgba(212,168,83,.7);border-radius:1px"></div><div style="flex:1;background:rgba(212,168,83,.6);border-radius:1px"></div><div style="flex:1;background:rgba(212,168,83,.5);border-radius:1px"></div><div style="flex:1;background:rgba(212,168,83,.6);border-radius:1px"></div></div>
+  <div style="display:flex;flex-direction:column;gap:1px"><div style="flex:1;background:rgba(212,168,83,.6);border-radius:1px"></div><div style="flex:1;background:rgba(212,168,83,.5);border-radius:1px"></div><div style="flex:1;background:rgba(255,255,255,.04);border-radius:1px"></div><div style="flex:1;background:rgba(212,168,83,.6);border-radius:1px"></div><div style="flex:1;background:rgba(212,168,83,.7);border-radius:1px"></div></div>
+  <div style="display:flex;flex-direction:column;gap:1px"><div style="flex:1;background:rgba(212,168,83,.7);border-radius:1px"></div><div style="flex:1;background:rgba(212,168,83,.6);border-radius:1px"></div><div style="flex:1;background:rgba(212,168,83,.7);border-radius:1px"></div><div style="flex:1;background:rgba(212,168,83,.6);border-radius:1px"></div><div style="flex:1;background:rgba(212,168,83,.5);border-radius:1px"></div></div>
+  <div style="display:flex;flex-direction:column;gap:1px"><div style="flex:1;background:rgba(212,168,83,.6);border-radius:1px"></div><div style="flex:1;background:rgba(212,168,83,.7);border-radius:1px"></div><div style="flex:1;background:rgba(212,168,83,.5);border-radius:1px"></div><div style="flex:1;background:rgba(212,168,83,.7);border-radius:1px"></div><div style="flex:1;background:rgba(212,168,83,.6);border-radius:1px"></div></div>
+  <div style="display:flex;flex-direction:column;gap:1px"><div style="flex:1;background:rgba(212,168,83,.7);border-radius:1px"></div><div style="flex:1;background:rgba(212,168,83,.6);border-radius:1px"></div><div style="flex:1;background:rgba(212,168,83,.7);border-radius:1px"></div><div style="flex:1;background:rgba(212,168,83,.6);border-radius:1px"></div><div style="flex:1;background:rgba(212,168,83,.7);border-radius:1px"></div></div>
+  <div style="display:flex;flex-direction:column;gap:1px"><div style="flex:1;background:rgba(212,168,83,.6);border-radius:1px"></div><div style="flex:1;background:rgba(212,168,83,.7);border-radius:1px"></div><div style="flex:1;background:rgba(212,168,83,.7);border-radius:1px"></div><div style="flex:1;background:rgba(212,168,83,.6);border-radius:1px"></div><div style="flex:1;background:rgba(212,168,83,.7);border-radius:1px"></div></div>
+  <div style="display:flex;flex-direction:column;gap:1px"><div style="flex:1;background:rgba(212,168,83,.7);border-radius:1px"></div><div style="flex:1;background:rgba(212,168,83,.7);border-radius:1px"></div><div style="flex:1;background:rgba(212,168,83,.6);border-radius:1px"></div><div style="flex:1;background:rgba(212,168,83,.7);border-radius:1px"></div><div style="flex:1;background:rgba(212,168,83,.7);border-radius:1px"></div></div>
+  <div style="display:flex;flex-direction:column;gap:1px"><div style="flex:1;background:rgba(212,168,83,.7);border-radius:1px"></div><div style="flex:1;background:rgba(212,168,83,.7);border-radius:1px"></div><div style="flex:1;background:rgba(212,168,83,.7);border-radius:1px"></div><div style="flex:1;background:rgba(212,168,83,.7);border-radius:1px"></div><div style="flex:1;background:rgba(212,168,83,.7);border-radius:1px"></div></div>
+  <div style="display:flex;flex-direction:column;gap:1px"><div style="flex:1;background:rgba(212,168,83,.9);border-radius:1px"></div><div style="flex:1;background:rgba(212,168,83,.9);border-radius:1px"></div><div style="flex:1;background:rgba(212,168,83,.9);border-radius:1px"></div><div style="flex:1;background:rgba(255,255,255,.04);border-radius:1px"></div><div style="flex:1;background:rgba(255,255,255,.04);border-radius:1px"></div></div>
+</div>
+</div>
+<div class="bot-nav"><div class="it"><span>⌂</span>Today</div><div class="it"><span>📖</span>Log</div><div class="it active"><span>💪</span>Train</div><div class="it"><span>👤</span>Profile</div></div>
+</div></div>
+</div>
+
+<!-- 12 FORM CHECK -->
+<div class="col"><div class="label"><span class="num">12</span>Form Check (AI)</div><div class="route">/dashboard/workout/form-check</div>
+<div class="phone"><div class="screen"><div class="notch"><span>9:41</span><div class="notch-pill"></div><span class="signal">▂▄▆ 🔋</span></div>
+<div class="body body-pad-bot">
+<div style="margin:6px 0 8px"><div class="title">Form Check</div><div class="faint sub">AI-powered movement analysis</div></div>
+<div class="tabs" style="margin-bottom:10px"><div class="tab">Today</div><div class="tab">History</div><div class="tab">Stats</div><div class="tab active">Form</div></div>
+<div class="card" style="padding:0;margin-bottom:10px;overflow:hidden;height:170px;background:linear-gradient(135deg,#1a1a1a,#0f0f0f);position:relative;display:flex;align-items:center;justify-content:center">
+  <div style="position:absolute;inset:0;background:repeating-linear-gradient(45deg,rgba(212,168,83,.04) 0px,rgba(212,168,83,.04) 1px,transparent 1px,transparent 8px)"></div>
+  <div style="text-align:center;position:relative">
+    <div style="font-size:48px;margin-bottom:6px;opacity:.4">🎥</div>
+    <div style="font-size:11px;font-weight:600">Record your set</div>
+    <div class="faint" style="font-size:9px;margin-top:2px">5–15 sec from the side</div>
+  </div>
+  <div style="position:absolute;bottom:10px;right:10px;width:36px;height:36px;border-radius:18px;background:#ef4444;border:3px solid #fff"></div>
+</div>
+<div class="faint" style="font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;margin-bottom:5px">Recent analyses</div>
+<div style="display:flex;flex-direction:column;gap:5px">
+<div class="card-g" style="padding:9px 10px"><div style="display:flex;justify-content:space-between;margin-bottom:3px"><div style="font-size:10px;font-weight:600">Squat · Apr 16</div><div class="g mono" style="font-size:8px">88/100</div></div><div class="faint" style="font-size:8px;line-height:1.4">"Depth good. Slight knee valgus on rep 4 — drive knees out."</div></div>
+<div class="card" style="padding:9px 10px"><div style="display:flex;justify-content:space-between;margin-bottom:3px"><div style="font-size:10px;font-weight:600">Deadlift · Apr 12</div><div class="g mono" style="font-size:8px">92/100</div></div><div class="faint" style="font-size:8px;line-height:1.4">"Excellent setup. Bar path clean."</div></div>
+<div class="card" style="padding:9px 10px"><div style="display:flex;justify-content:space-between;margin-bottom:3px"><div style="font-size:10px;font-weight:600">Bench · Apr 9</div><div style="font-size:8px;color:#f59e0b">76/100</div></div><div class="faint" style="font-size:8px;line-height:1.4">"Elbows flaring. Try 45° tuck. Re-shoot at next session."</div></div>
+</div>
+<div class="card" style="padding:10px;margin-top:10px;background:rgba(212,168,83,.06);border:1px solid rgba(212,168,83,.2)"><div class="brand-eye" style="margin-bottom:3px">Coach Michael · seen these</div><div style="font-size:10px;font-style:italic;line-height:1.4">"Your bench needs work. Drop weight 10% next session."</div></div>
+</div>
+<div class="bot-nav"><div class="it"><span>⌂</span>Today</div><div class="it"><span>📖</span>Log</div><div class="it active"><span>💪</span>Train</div><div class="it"><span>👤</span>Profile</div></div>
+</div></div>
+</div>
+
+</div>
+
+<div class="row" style="margin-top:32px">
+
+<!-- 13 SUPPLEMENTS -->
+<div class="col"><div class="label"><span class="num">13</span>Supplements</div><div class="route">/dashboard/supplements</div>
+<div class="phone"><div class="screen"><div class="notch"><span>9:41</span><div class="notch-pill"></div><span class="signal">▂▄▆ 🔋</span></div>
+<div class="body body-pad-bot">
+<div style="margin:6px 0 8px"><div class="title">Supplements</div><div class="faint sub">Today · 3 of 5 taken</div></div>
+<div class="card-g" style="padding:11px;margin-bottom:8px">
+  <div class="brand-eye" style="margin-bottom:6px">Today's stack</div>
+  <div style="display:flex;gap:5px;align-items:center;margin-bottom:4px"><div style="width:6px;height:6px;border-radius:3px;background:#D4A853"></div><div style="flex:1;height:5px;background:rgba(212,168,83,.15);border-radius:99px"><div style="width:60%;height:100%;background:#D4A853;border-radius:99px"></div></div><div class="g mono" style="font-size:9px">3/5</div></div>
+</div>
+<div class="faint mono" style="font-size:8px;letter-spacing:.16em;margin-bottom:5px">MORNING · 7 AM</div>
+<div style="display:flex;flex-direction:column;gap:5px;margin-bottom:10px">
+  <div class="card" style="padding:9px 10px;display:flex;align-items:center;gap:8px"><div style="width:24px;height:24px;border-radius:12px;background:rgba(34,197,94,.15);color:#22c55e;display:flex;align-items:center;justify-content:center;font-size:11px">✓</div><div style="flex:1"><div style="font-size:10px;font-weight:600">Vitamin D3</div><div class="faint" style="font-size:8px">2000 IU · with food</div></div><div class="faint" style="font-size:8px">7:14</div></div>
+  <div class="card" style="padding:9px 10px;display:flex;align-items:center;gap:8px"><div style="width:24px;height:24px;border-radius:12px;background:rgba(34,197,94,.15);color:#22c55e;display:flex;align-items:center;justify-content:center;font-size:11px">✓</div><div style="flex:1"><div style="font-size:10px;font-weight:600">Omega-3</div><div class="faint" style="font-size:8px">2g EPA+DHA · with food</div></div><div class="faint" style="font-size:8px">7:14</div></div>
+  <div class="card" style="padding:9px 10px;display:flex;align-items:center;gap:8px"><div style="width:24px;height:24px;border-radius:12px;background:rgba(34,197,94,.15);color:#22c55e;display:flex;align-items:center;justify-content:center;font-size:11px">✓</div><div style="flex:1"><div style="font-size:10px;font-weight:600">Magnesium glycinate</div><div class="faint" style="font-size:8px">400mg</div></div><div class="faint" style="font-size:8px">7:14</div></div>
+</div>
+<div class="faint mono" style="font-size:8px;letter-spacing:.16em;margin-bottom:5px">PRE-WORKOUT · 5 PM</div>
+<div style="display:flex;flex-direction:column;gap:5px;margin-bottom:10px">
+  <div class="card" style="padding:9px 10px;display:flex;align-items:center;gap:8px"><div style="width:24px;height:24px;border-radius:12px;background:rgba(212,168,83,.15);border:1px solid rgba(212,168,83,.4)"></div><div style="flex:1"><div style="font-size:10px;font-weight:600">Creatine mono</div><div class="faint" style="font-size:8px">5g</div></div><button class="btn-g" style="padding:3px 8px;font-size:8px">Take</button></div>
+  <div class="card" style="padding:9px 10px;display:flex;align-items:center;gap:8px"><div style="width:24px;height:24px;border-radius:12px;background:rgba(212,168,83,.15);border:1px solid rgba(212,168,83,.4)"></div><div style="flex:1"><div style="font-size:10px;font-weight:600">Caffeine</div><div class="faint" style="font-size:8px">200mg · pre-workout</div></div><button class="btn-g" style="padding:3px 8px;font-size:8px">Take</button></div>
+</div>
+<div class="card" style="padding:10px;background:rgba(212,168,83,.06);border:1px solid rgba(212,168,83,.2)"><div class="brand-eye" style="margin-bottom:3px">Stack from Michael</div><div style="font-size:10px;font-style:italic;line-height:1.4">"Built for cutting. Re-evaluate at week 6."</div></div>
+</div>
+<div class="bot-nav"><div class="it"><span>⌂</span>Today</div><div class="it"><span>📖</span>Log</div><div class="it"><span>💪</span>Train</div><div class="it active"><span>💊</span>Supps</div></div>
+</div></div>
+</div>
+
+<!-- 14 PROFILE (CLIENT) -->
+<div class="col"><div class="label"><span class="num">14</span>Profile · Settings</div><div class="route">/dashboard/profile</div>
+<div class="phone"><div class="screen"><div class="notch"><span>9:41</span><div class="notch-pill"></div><span class="signal">▂▄▆ 🔋</span></div>
+<div class="body body-pad-bot">
+<div style="display:flex;gap:10px;align-items:center;margin:8px 0 14px">
+  <div class="av-lg" style="width:44px;height:44px;font-size:16px">N</div>
+  <div style="flex:1"><div style="font-size:14px;font-weight:700">Nikos Papadakis</div><div class="faint" style="font-size:10px">Athens · since Mar 2026</div></div>
+</div>
+<div class="card-g" style="padding:11px;margin-bottom:8px;display:flex;gap:10px;align-items:center">
+  <div class="av">M</div>
+  <div style="flex:1"><div style="font-size:10px;font-weight:600">Michael Karagiannis</div><div class="faint" style="font-size:8px">Your nutritionist · since Mar</div></div>
+  <div class="g" style="font-size:14px">›</div>
+</div>
+<div class="faint mono" style="font-size:8px;letter-spacing:.16em;margin-bottom:5px">PERSONAL</div>
+<div class="card" style="padding:0;margin-bottom:10px;overflow:hidden">
+  <div style="padding:10px 12px;display:flex;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.05)"><span style="font-size:11px">Goal</span><span class="faint" style="font-size:10px">Lose fat ›</span></div>
+  <div style="padding:10px 12px;display:flex;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.05)"><span style="font-size:11px">Target weight</span><span class="faint" style="font-size:10px">78 kg ›</span></div>
+  <div style="padding:10px 12px;display:flex;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.05)"><span style="font-size:11px">Activity level</span><span class="faint" style="font-size:10px">Moderate ›</span></div>
+  <div style="padding:10px 12px;display:flex;justify-content:space-between"><span style="font-size:11px">Daily macros</span><span class="g mono" style="font-size:10px">2200 / P165 ›</span></div>
+</div>
+<div class="faint mono" style="font-size:8px;letter-spacing:.16em;margin-bottom:5px">PREFERENCES</div>
+<div class="card" style="padding:0;margin-bottom:10px;overflow:hidden">
+  <div style="padding:10px 12px;display:flex;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.05)"><span style="font-size:11px">Units</span><span class="faint" style="font-size:10px">Metric ›</span></div>
+  <div style="padding:10px 12px;display:flex;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.05)"><span style="font-size:11px">Notifications</span><div style="width:30px;height:18px;background:#D4A853;border-radius:9px;position:relative"><div style="position:absolute;right:2px;top:2px;width:14px;height:14px;background:#000;border-radius:7px"></div></div></div>
+  <div style="padding:10px 12px;display:flex;justify-content:space-between"><span style="font-size:11px">Theme</span><span class="faint" style="font-size:10px">Dark ›</span></div>
+</div>
+<div class="faint mono" style="font-size:8px;letter-spacing:.16em;margin-bottom:5px">ACCOUNT</div>
+<div class="card" style="padding:0;overflow:hidden">
+  <div style="padding:10px 12px;display:flex;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.05)"><span style="font-size:11px">Subscription</span><span class="g mono" style="font-size:10px">Coach-paid ›</span></div>
+  <div style="padding:10px 12px;display:flex;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.05)"><span style="font-size:11px">Privacy & data</span><span class="faint" style="font-size:10px">›</span></div>
+  <div style="padding:10px 12px;display:flex;justify-content:space-between"><span style="font-size:11px;color:#ef4444">Sign out</span><span class="faint" style="font-size:10px">›</span></div>
+</div>
+</div>
+<div class="bot-nav"><div class="it"><span>⌂</span>Today</div><div class="it"><span>📖</span>Log</div><div class="it"><span>📊</span>Progress</div><div class="it active"><span>👤</span>Profile</div></div>
+</div></div>
+</div>
+
+</div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- COACH APP                                                  -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="section">
+<div class="section-title">Coach app · /coach/*</div>
+<div class="row">
+
+<!-- 15 COACH DASHBOARD -->
+<div class="col"><div class="label"><span class="num">15</span>Coach · Clients</div><div class="route">/coach</div>
+<div class="phone"><div class="screen"><div class="notch"><span>9:41</span><div class="notch-pill"></div><span class="signal">▂▄▆ 🔋</span></div>
+<div class="body body-pad-bot">
+<div class="tabs" style="margin:6px 0 8px;overflow-x:auto"><div class="tab active">Clients</div><div class="tab">Habits</div><div class="tab">Protocols</div><div class="tab">Foods</div><div class="tab">Templates</div></div>
+<div style="margin-bottom:8px"><div style="font-size:14px;font-weight:700">Good morning, Michael</div><div class="faint" style="font-size:10px">2 clients need attention today</div></div>
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:8px">
+  <div class="card" style="padding:7px;text-align:center"><div class="g" style="font-size:14px;font-weight:700">6</div><div class="faint mono" style="font-size:6px">clients</div></div>
+  <div class="card" style="padding:7px;text-align:center"><div class="g" style="font-size:14px;font-weight:700">72%</div><div class="faint mono" style="font-size:6px">avg streak</div></div>
+  <div class="card" style="padding:7px;text-align:center"><div class="g" style="font-size:14px;font-weight:700">41</div><div class="faint mono" style="font-size:6px">meals today</div></div>
+  <div class="card-r" style="padding:7px;text-align:center"><div style="font-size:14px;font-weight:700;color:#ef4444">2</div><div class="faint mono" style="font-size:6px">at risk</div></div>
+</div>
+<div style="display:flex;gap:5px;margin-bottom:8px">
+  <div class="tag tag-g" style="padding:2px 6px">All 6</div>
+  <div class="tag" style="padding:2px 6px;border:1px solid rgba(255,255,255,.08);color:#78716c">On Track 4</div>
+  <div class="tag tag-r" style="padding:2px 6px">At Risk 2</div>
+</div>
+<div class="faint mono" style="font-size:8px;letter-spacing:.16em;margin-bottom:5px">NEEDS ATTENTION</div>
+<div style="display:flex;flex-direction:column;gap:5px;margin-bottom:8px">
+<div class="card-r" style="padding:9px 10px"><div class="row-i"><div class="av" style="background:#2a1a1a;color:#ef4444">D</div><div style="flex:1"><div style="font-size:10px;font-weight:600">Dimitra Kavdas</div><div style="font-size:8px;color:#ef4444">😴 No check-in 3 days</div></div><div class="dot-off"></div></div></div>
+<div class="card-g" style="padding:9px 10px"><div class="row-i"><div class="av">D</div><div style="flex:1"><div class="row-i"><span style="font-size:10px;font-weight:600">Daniel Reyes</span><span class="tag tag-g" style="padding:1px 4px;font-size:6px">CYCLE DONE</span></div><div class="faint" style="font-size:8px">🥗 Protein every meal · ready to advance</div></div></div></div>
+</div>
+<div class="faint mono" style="font-size:8px;letter-spacing:.16em;margin-bottom:5px">ALL CLIENTS</div>
+<div style="display:flex;flex-direction:column;gap:4px">
+<div class="card" style="padding:8px 10px"><div class="row-i"><div class="av">N</div><div style="flex:1"><div style="font-size:10px;font-weight:600">Nikos Papadakis</div><div class="faint" style="font-size:8px">💧 3L water · day 9/14</div></div><div class="dot-on"></div></div></div>
+<div class="card" style="padding:8px 10px"><div class="row-i"><div class="av">D</div><div style="flex:1"><div style="font-size:10px;font-weight:600">Daniela Torres</div><div class="faint" style="font-size:8px">🚶 10k steps · day 1/14</div></div><div class="dot-warn"></div></div></div>
+<div class="card" style="padding:8px 10px"><div class="row-i"><div class="av">A</div><div style="flex:1"><div style="font-size:10px;font-weight:600">Alexis Moreno</div><div class="faint" style="font-size:8px">🧘 Meditate 10m · day 6/14</div></div><div class="dot-on"></div></div></div>
+<div class="card" style="padding:8px 10px"><div class="row-i"><div class="av">S</div><div style="flex:1"><div style="font-size:10px;font-weight:600">Sofia Castaño</div><div class="faint" style="font-size:8px">🥗 Veg every meal · day 4/14</div></div><div class="dot-on"></div></div></div>
+</div>
+</div>
+<div class="bot-nav"><div class="it active"><span>👥</span>Clients</div><div class="it"><span>📊</span>Pulse</div><div class="it"><span>📚</span>Library</div><div class="it"><span>👤</span>Me</div></div>
+</div></div>
+</div>
+
+<!-- 16 COACH CLIENT DETAIL -->
+<div class="col"><div class="label"><span class="num">16</span>Coach · Client Detail</div><div class="route">/coach/client/[id]</div>
+<div class="phone"><div class="screen"><div class="notch"><span>9:41</span><div class="notch-pill"></div><span class="signal">▂▄▆ 🔋</span></div>
+<div class="body body-pad-bot">
+<div style="display:flex;gap:8px;align-items:center;margin:6px 0 10px"><button style="color:#a8a29e;background:none;border:none;font-size:14px">‹</button><div class="av-lg">N</div><div style="flex:1"><div style="font-size:13px;font-weight:700">Nikos Papadakis</div><div class="faint" style="font-size:9px">Active · 9-day streak</div></div><button class="tag tag-g" style="padding:4px 8px;background:rgba(212,168,83,.1)">Message</button></div>
+<div class="tabs" style="margin-bottom:8px"><div class="tab active">Overview</div><div class="tab">Meals</div><div class="tab">Habits</div><div class="tab">Body</div><div class="tab">Protocol</div></div>
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-bottom:8px">
+  <div class="card" style="padding:7px;text-align:center"><div class="g" style="font-size:13px;font-weight:700">9</div><div class="faint mono" style="font-size:6px">streak</div></div>
+  <div class="card" style="padding:7px;text-align:center"><div class="g" style="font-size:13px;font-weight:700">72%</div><div class="faint mono" style="font-size:6px">compliance</div></div>
+  <div class="card" style="padding:7px;text-align:center"><div class="g" style="font-size:13px;font-weight:700">82%</div><div class="faint mono" style="font-size:6px">nutrition</div></div>
+</div>
+<div class="card-g" style="padding:11px;margin-bottom:8px">
+<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><div style="font-size:10px;font-weight:600">Current Habit</div><div class="faint mono" style="font-size:7px">DAY 9 OF 14</div></div>
+<div style="font-size:11px;margin-bottom:8px">💧 Drink 3L water daily</div>
+<div style="display:grid;grid-template-columns:repeat(14,1fr);gap:1.5px;margin-bottom:8px">
+  <div style="aspect-ratio:1;background:#D4A853;border-radius:1px"></div><div style="aspect-ratio:1;background:#D4A853;border-radius:1px"></div><div style="aspect-ratio:1;background:#D4A853;border-radius:1px"></div><div style="aspect-ratio:1;background:#D4A853;border-radius:1px"></div><div style="aspect-ratio:1;background:#D4A853;border-radius:1px"></div><div style="aspect-ratio:1;background:#D4A853;border-radius:1px"></div><div style="aspect-ratio:1;background:rgba(212,168,83,.2);border-radius:1px"></div><div style="aspect-ratio:1;background:#D4A853;border-radius:1px"></div><div style="aspect-ratio:1;background:transparent;border:1px solid #D4A853;border-radius:1px"></div><div style="aspect-ratio:1;background:rgba(255,255,255,.04);border-radius:1px"></div><div style="aspect-ratio:1;background:rgba(255,255,255,.04);border-radius:1px"></div><div style="aspect-ratio:1;background:rgba(255,255,255,.04);border-radius:1px"></div><div style="aspect-ratio:1;background:rgba(255,255,255,.04);border-radius:1px"></div><div style="aspect-ratio:1;background:rgba(255,255,255,.04);border-radius:1px"></div>
+</div>
+<div style="display:flex;gap:5px"><button class="btn-g" style="flex:1;padding:6px;font-size:9px">Design next →</button><button class="btn-o" style="flex:1;padding:6px;font-size:9px">Adjust</button></div>
+</div>
+<div class="faint mono" style="font-size:8px;letter-spacing:.16em;margin-bottom:5px">RECENT MEALS</div>
+<div style="display:flex;flex-direction:column;gap:4px">
+<div class="card" style="padding:7px 10px;display:flex;justify-content:space-between"><div><div style="font-size:10px;font-weight:500">Breakfast · Yogurt bowl</div><div class="faint" style="font-size:7px">7:32 · 320 kcal</div></div><span class="g mono" style="font-size:8px">P:24g</span></div>
+<div class="card" style="padding:7px 10px;display:flex;justify-content:space-between"><div><div style="font-size:10px;font-weight:500">Lunch · Chicken bowl</div><div class="faint" style="font-size:7px">12:48 · 520 kcal</div></div><span class="g mono" style="font-size:8px">P:48g</span></div>
+<div class="card" style="padding:7px 10px;display:flex;justify-content:space-between"><div><div style="font-size:10px;font-weight:500">Dinner · Salmon</div><div class="faint" style="font-size:7px">19:15 · 502 kcal</div></div><span class="g mono" style="font-size:8px">P:42g</span></div>
+</div>
+<div class="card-g" style="padding:9px;margin-top:8px"><div class="brand-eye" style="margin-bottom:3px">Leave a note</div><div class="faint" style="font-size:10px;font-style:italic">"Strong week. Ready for protein add…"</div></div>
+</div>
+<div class="bot-nav"><div class="it active"><span>👥</span>Clients</div><div class="it"><span>📊</span>Pulse</div><div class="it"><span>📚</span>Library</div><div class="it"><span>👤</span>Me</div></div>
+</div></div>
+</div>
+
+<!-- 17 COACH HABITS -->
+<div class="col"><div class="label"><span class="num">17</span>Coach · Habits Library</div><div class="route">/coach/habits</div>
+<div class="phone"><div class="screen"><div class="notch"><span>9:41</span><div class="notch-pill"></div><span class="signal">▂▄▆ 🔋</span></div>
+<div class="body body-pad-bot">
+<div class="tabs" style="margin:6px 0 8px"><div class="tab">Clients</div><div class="tab active">Habits</div><div class="tab">Protocols</div><div class="tab">Foods</div><div class="tab">Templates</div></div>
+<div style="margin-bottom:8px"><div class="title">Habit Library</div><div class="faint sub">28 habits · 14-day cycles</div></div>
+<div style="display:flex;gap:5px;margin-bottom:8px;flex-wrap:wrap">
+  <div class="tag tag-g" style="padding:2px 6px">All 28</div>
+  <div class="tag" style="padding:2px 6px;border:1px solid rgba(255,255,255,.08);color:#78716c">Hydration</div>
+  <div class="tag" style="padding:2px 6px;border:1px solid rgba(255,255,255,.08);color:#78716c">Nutrition</div>
+  <div class="tag" style="padding:2px 6px;border:1px solid rgba(255,255,255,.08);color:#78716c">Movement</div>
+  <div class="tag" style="padding:2px 6px;border:1px solid rgba(255,255,255,.08);color:#78716c">Sleep</div>
+</div>
+<div class="card" style="padding:8px 10px;margin-bottom:8px;display:flex;align-items:center;gap:6px"><span class="faint" style="font-size:11px">🔍</span><span class="faint" style="font-size:10px">Search habits…</span></div>
+<div class="faint mono" style="font-size:8px;letter-spacing:.16em;margin-bottom:5px">HYDRATION · 4</div>
+<div style="display:flex;flex-direction:column;gap:5px;margin-bottom:8px">
+<div class="card-g" style="padding:9px 10px"><div class="row-i"><span style="font-size:18px">💧</span><div style="flex:1"><div style="font-size:10px;font-weight:600">Drink 3L water daily</div><div class="faint" style="font-size:8px">In use · 4 clients · 87% compliance</div></div></div></div>
+<div class="card" style="padding:9px 10px"><div class="row-i"><span style="font-size:18px">🥤</span><div style="flex:1"><div style="font-size:10px;font-weight:600">2L + electrolytes</div><div class="faint" style="font-size:8px">Athlete protocol</div></div></div></div>
+<div class="card" style="padding:9px 10px"><div class="row-i"><span style="font-size:18px">☕</span><div style="flex:1"><div style="font-size:10px;font-weight:600">No caffeine after 2 PM</div><div class="faint" style="font-size:8px">Sleep optimization</div></div></div></div>
+</div>
+<div class="faint mono" style="font-size:8px;letter-spacing:.16em;margin-bottom:5px">NUTRITION · 9</div>
+<div style="display:flex;flex-direction:column;gap:5px">
+<div class="card" style="padding:9px 10px"><div class="row-i"><span style="font-size:18px">🥩</span><div style="flex:1"><div style="font-size:10px;font-weight:600">Protein in every meal</div><div class="faint" style="font-size:8px">In use · 2 clients</div></div></div></div>
+<div class="card" style="padding:9px 10px"><div class="row-i"><span style="font-size:18px">🥗</span><div style="flex:1"><div style="font-size:10px;font-weight:600">Vegetable at every meal</div><div class="faint" style="font-size:8px">In use · 1 client</div></div></div></div>
+<div class="card" style="padding:9px 10px"><div class="row-i"><span style="font-size:18px">🍳</span><div style="flex:1"><div style="font-size:10px;font-weight:600">Eat within 1h of waking</div><div class="faint" style="font-size:8px">Metabolic priming</div></div></div></div>
+<div class="card" style="padding:9px 10px"><div class="row-i"><span style="font-size:18px">🌙</span><div style="flex:1"><div style="font-size:10px;font-weight:600">No food after 9 PM</div><div class="faint" style="font-size:8px">Time-restricted feeding</div></div></div></div>
+</div>
+<div class="fab">+</div>
+</div>
+<div class="bot-nav"><div class="it"><span>👥</span>Clients</div><div class="it"><span>📊</span>Pulse</div><div class="it active"><span>📚</span>Library</div><div class="it"><span>👤</span>Me</div></div>
+</div></div>
+</div>
+
+<!-- 18 COACH PROTOCOLS -->
+<div class="col"><div class="label"><span class="num">18</span>Coach · Protocols</div><div class="route">/coach/protocols</div>
+<div class="phone"><div class="screen"><div class="notch"><span>9:41</span><div class="notch-pill"></div><span class="signal">▂▄▆ 🔋</span></div>
+<div class="body body-pad-bot">
+<div class="tabs" style="margin:6px 0 8px"><div class="tab">Clients</div><div class="tab">Habits</div><div class="tab active">Protocols</div><div class="tab">Foods</div><div class="tab">Templates</div></div>
+<div style="margin-bottom:8px"><div class="title">Protocols</div><div class="faint sub">Multi-cycle plans · 12 active</div></div>
+<div class="faint mono" style="font-size:8px;letter-spacing:.16em;margin-bottom:5px">ACTIVE PROTOCOLS · 4</div>
+<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px">
+<div class="card-g" style="padding:11px"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><div style="font-size:11px;font-weight:600">Body Recomposition · Beginner</div><div class="g mono" style="font-size:8px">3 CLIENTS</div></div><div class="faint" style="font-size:9px;line-height:1.4">12 weeks · 6 habit cycles · weekly weigh-ins · 25%/45%/30% macros</div><div style="display:flex;gap:3px;margin-top:7px"><div style="flex:1;height:3px;background:#D4A853;border-radius:2px"></div><div style="flex:1;height:3px;background:#D4A853;border-radius:2px"></div><div style="flex:1;height:3px;background:rgba(212,168,83,.3);border-radius:2px"></div><div style="flex:1;height:3px;background:rgba(255,255,255,.06);border-radius:2px"></div><div style="flex:1;height:3px;background:rgba(255,255,255,.06);border-radius:2px"></div><div style="flex:1;height:3px;background:rgba(255,255,255,.06);border-radius:2px"></div></div></div>
+<div class="card" style="padding:11px"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><div style="font-size:11px;font-weight:600">Lean Bulk · Intermediate</div><div class="g mono" style="font-size:8px">2 CLIENTS</div></div><div class="faint" style="font-size:9px;line-height:1.4">16 weeks · +250 kcal/day · progressive overload</div></div>
+<div class="card" style="padding:11px"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><div style="font-size:11px;font-weight:600">PCOS Reset</div><div class="g mono" style="font-size:8px">1 CLIENT</div></div><div class="faint" style="font-size:9px;line-height:1.4">8 weeks · low-GI · inositol stack · cycle tracking</div></div>
+<div class="card" style="padding:11px"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><div style="font-size:11px;font-weight:600">Endurance Athlete</div><div class="g mono" style="font-size:8px">1 CLIENT</div></div><div class="faint" style="font-size:9px;line-height:1.4">Periodized · race-day prep · electrolyte plan</div></div>
+</div>
+<div class="faint mono" style="font-size:8px;letter-spacing:.16em;margin-bottom:5px">DRAFTS · 2</div>
+<div style="display:flex;flex-direction:column;gap:5px">
+<div class="card" style="padding:9px 10px;border-style:dashed;opacity:.7"><div class="faint" style="font-size:10px;font-weight:600">Vegan Performance</div><div class="faint" style="font-size:8px">Draft · last edited Mon</div></div>
+<div class="card" style="padding:9px 10px;border-style:dashed;opacity:.7"><div class="faint" style="font-size:10px;font-weight:600">Postpartum Recovery</div><div class="faint" style="font-size:8px">Draft · last edited Apr 5</div></div>
+</div>
+<div class="fab">+</div>
+</div>
+<div class="bot-nav"><div class="it"><span>👥</span>Clients</div><div class="it"><span>📊</span>Pulse</div><div class="it active"><span>📚</span>Library</div><div class="it"><span>👤</span>Me</div></div>
+</div></div>
+</div>
+
+</div>
+
+<div class="row" style="margin-top:32px">
+
+<!-- 19 COACH FOODS -->
+<div class="col"><div class="label"><span class="num">19</span>Coach · Foods Library</div><div class="route">/coach/foods</div>
+<div class="phone"><div class="screen"><div class="notch"><span>9:41</span><div class="notch-pill"></div><span class="signal">▂▄▆ 🔋</span></div>
+<div class="body body-pad-bot">
+<div class="tabs" style="margin:6px 0 8px"><div class="tab">Clients</div><div class="tab">Habits</div><div class="tab">Protocols</div><div class="tab active">Foods</div><div class="tab">Templates</div></div>
+<div style="margin-bottom:8px"><div class="title">Food Database</div><div class="faint sub">12,400 foods · 18 custom</div></div>
+<div class="card" style="padding:8px 10px;margin-bottom:8px;display:flex;align-items:center;gap:6px"><span class="faint" style="font-size:11px">🔍</span><span class="faint" style="font-size:10px">Search foods…</span></div>
+<div style="display:flex;gap:5px;margin-bottom:8px;flex-wrap:wrap">
+  <div class="tag tag-g" style="padding:2px 6px">All</div>
+  <div class="tag" style="padding:2px 6px;border:1px solid rgba(255,255,255,.08);color:#78716c">Greek</div>
+  <div class="tag" style="padding:2px 6px;border:1px solid rgba(255,255,255,.08);color:#78716c">My recipes</div>
+  <div class="tag" style="padding:2px 6px;border:1px solid rgba(255,255,255,.08);color:#78716c">Verified</div>
+</div>
+<div class="faint mono" style="font-size:8px;letter-spacing:.16em;margin-bottom:5px">YOUR CUSTOM · 18</div>
+<div style="display:flex;flex-direction:column;gap:5px;margin-bottom:8px">
+<div class="card-g" style="padding:8px 10px"><div style="display:flex;justify-content:space-between"><div><div style="font-size:10px;font-weight:600">Yiayia's lentil soup</div><div class="faint" style="font-size:7px">100g · house recipe</div></div><div style="text-align:right"><div class="g mono" style="font-size:9px">182 kcal</div><div class="faint mono" style="font-size:7px">P11 C28 F4</div></div></div></div>
+<div class="card-g" style="padding:8px 10px"><div style="display:flex;justify-content:space-between"><div><div style="font-size:10px;font-weight:600">Athens Bowl · v2</div><div class="faint" style="font-size:7px">350g · pre-built</div></div><div style="text-align:right"><div class="g mono" style="font-size:9px">485 kcal</div><div class="faint mono" style="font-size:7px">P38 C42 F18</div></div></div></div>
+<div class="card-g" style="padding:8px 10px"><div style="display:flex;justify-content:space-between"><div><div style="font-size:10px;font-weight:600">Greek yogurt parfait</div><div class="faint" style="font-size:7px">200g · breakfast</div></div><div style="text-align:right"><div class="g mono" style="font-size:9px">228 kcal</div><div class="faint mono" style="font-size:7px">P22 C24 F5</div></div></div></div>
+</div>
+<div class="faint mono" style="font-size:8px;letter-spacing:.16em;margin-bottom:5px">VERIFIED DATABASE</div>
+<div style="display:flex;flex-direction:column;gap:4px">
+<div class="card" style="padding:7px 10px"><div style="display:flex;justify-content:space-between"><div><div style="font-size:10px">Salmon · Atlantic</div><div class="faint" style="font-size:7px">100g · raw</div></div><div class="faint mono" style="font-size:9px">208 kcal</div></div></div>
+<div class="card" style="padding:7px 10px"><div style="display:flex;justify-content:space-between"><div><div style="font-size:10px">Quinoa · cooked</div><div class="faint" style="font-size:7px">100g</div></div><div class="faint mono" style="font-size:9px">120 kcal</div></div></div>
+<div class="card" style="padding:7px 10px"><div style="display:flex;justify-content:space-between"><div><div style="font-size:10px">Kalamata olives</div><div class="faint" style="font-size:7px">10g · 4 olives</div></div><div class="faint mono" style="font-size:9px">19 kcal</div></div></div>
+<div class="card" style="padding:7px 10px"><div style="display:flex;justify-content:space-between"><div><div style="font-size:10px">Feta cheese</div><div class="faint" style="font-size:7px">30g</div></div><div class="faint mono" style="font-size:9px">79 kcal</div></div></div>
+</div>
+<div class="fab">+</div>
+</div>
+<div class="bot-nav"><div class="it"><span>👥</span>Clients</div><div class="it"><span>📊</span>Pulse</div><div class="it active"><span>📚</span>Library</div><div class="it"><span>👤</span>Me</div></div>
+</div></div>
+</div>
+
+<!-- 20 COACH TEMPLATES -->
+<div class="col"><div class="label"><span class="num">20</span>Coach · Templates</div><div class="route">/coach/templates</div>
+<div class="phone"><div class="screen"><div class="notch"><span>9:41</span><div class="notch-pill"></div><span class="signal">▂▄▆ 🔋</span></div>
+<div class="body body-pad-bot">
+<div class="tabs" style="margin:6px 0 8px"><div class="tab">Clients</div><div class="tab">Habits</div><div class="tab">Protocols</div><div class="tab">Foods</div><div class="tab active">Templates</div></div>
+<div style="margin-bottom:8px"><div class="title">Templates</div><div class="faint sub">Reusable plans, programs, messages</div></div>
+<div class="faint mono" style="font-size:8px;letter-spacing:.16em;margin-bottom:5px">MEAL PLANS · 8</div>
+<div style="display:flex;flex-direction:column;gap:5px;margin-bottom:10px">
+<div class="card-g" style="padding:9px 10px"><div style="display:flex;justify-content:space-between"><div><div style="font-size:10px;font-weight:600">Mediterranean · 1800 kcal</div><div class="faint" style="font-size:8px">7 days · 5 meals/day · used 14×</div></div><span class="g" style="font-size:11px">›</span></div></div>
+<div class="card" style="padding:9px 10px"><div style="display:flex;justify-content:space-between"><div><div style="font-size:10px;font-weight:600">High Protein · 2400 kcal</div><div class="faint" style="font-size:8px">7 days · used 8×</div></div><span class="faint" style="font-size:11px">›</span></div></div>
+<div class="card" style="padding:9px 10px"><div style="display:flex;justify-content:space-between"><div><div style="font-size:10px;font-weight:600">Vegetarian · 2000 kcal</div><div class="faint" style="font-size:8px">7 days · used 4×</div></div><span class="faint" style="font-size:11px">›</span></div></div>
+</div>
+<div class="faint mono" style="font-size:8px;letter-spacing:.16em;margin-bottom:5px">WORKOUT PROGRAMS · 6</div>
+<div style="display:flex;flex-direction:column;gap:5px;margin-bottom:10px">
+<div class="card" style="padding:9px 10px"><div style="display:flex;justify-content:space-between"><div><div style="font-size:10px;font-weight:600">3-Day Push/Pull/Legs</div><div class="faint" style="font-size:8px">12 weeks · used 6×</div></div><span class="faint" style="font-size:11px">›</span></div></div>
+<div class="card" style="padding:9px 10px"><div style="display:flex;justify-content:space-between"><div><div style="font-size:10px;font-weight:600">Beginner Full-Body</div><div class="faint" style="font-size:8px">8 weeks · used 9×</div></div><span class="faint" style="font-size:11px">›</span></div></div>
+</div>
+<div class="faint mono" style="font-size:8px;letter-spacing:.16em;margin-bottom:5px">MESSAGE SCRIPTS · 12</div>
+<div style="display:flex;flex-direction:column;gap:5px">
+<div class="card" style="padding:9px 10px"><div style="display:flex;justify-content:space-between"><div><div style="font-size:10px;font-weight:600">Cycle complete · congrats</div><div class="faint" style="font-size:8px">used 47× this year</div></div><span class="faint" style="font-size:11px">›</span></div></div>
+<div class="card" style="padding:9px 10px"><div style="display:flex;justify-content:space-between"><div><div style="font-size:10px;font-weight:600">Missed 3 days · check-in</div><div class="faint" style="font-size:8px">used 18×</div></div><span class="faint" style="font-size:11px">›</span></div></div>
+<div class="card" style="padding:9px 10px"><div style="display:flex;justify-content:space-between"><div><div style="font-size:10px;font-weight:600">Plateau coaching</div><div class="faint" style="font-size:8px">used 11×</div></div><span class="faint" style="font-size:11px">›</span></div></div>
+</div>
+<div class="fab">+</div>
+</div>
+<div class="bot-nav"><div class="it"><span>👥</span>Clients</div><div class="it"><span>📊</span>Pulse</div><div class="it active"><span>📚</span>Library</div><div class="it"><span>👤</span>Me</div></div>
+</div></div>
+</div>
+
+<!-- 21 COACH MESSAGE THREAD -->
+<div class="col"><div class="label"><span class="num">21</span>Coach · Message Thread</div><div class="route">/coach/client/[id]/messages</div>
+<div class="phone"><div class="screen"><div class="notch"><span>9:41</span><div class="notch-pill"></div><span class="signal">▂▄▆ 🔋</span></div>
+<div class="body">
+<div style="display:flex;gap:8px;align-items:center;margin:6px 0 10px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.05)"><button style="color:#a8a29e;background:none;border:none;font-size:14px">‹</button><div class="av">N</div><div style="flex:1"><div style="font-size:11px;font-weight:600">Nikos Papadakis</div><div class="faint" style="font-size:8px">● Online · day 9 · water habit</div></div><span class="faint" style="font-size:13px">⋮</span></div>
+<div style="flex:1;overflow:hidden;display:flex;flex-direction:column;gap:6px;padding-bottom:60px">
+<div class="faint mono" style="font-size:7px;letter-spacing:.18em;text-align:center;margin:4px 0">YESTERDAY · 18:42</div>
+<div style="align-self:flex-start;max-width:80%;background:#1a1a1a;border:1px solid rgba(255,255,255,.06);border-radius:10px 10px 10px 2px;padding:8px 10px;font-size:11px;line-height:1.4">Just finished dinner. 2.4L water, came up short. Long meeting block.</div>
+<div class="faint mono" style="font-size:7px;letter-spacing:.18em;text-align:right;color:#57534e;margin-right:4px">YOU · 19:01</div>
+<div style="align-self:flex-end;max-width:80%;background:rgba(212,168,83,.12);border:1px solid rgba(212,168,83,.25);border-radius:10px 10px 2px 10px;padding:8px 10px;font-size:11px;line-height:1.4">2.4 still counts. Tomorrow set a 11 AM and 3 PM reminder.</div>
+<div class="faint mono" style="font-size:7px;letter-spacing:.18em;text-align:center;margin:4px 0">TODAY · 7:32</div>
+<div style="align-self:flex-start;max-width:80%;background:#1a1a1a;border:1px solid rgba(255,255,255,.06);border-radius:10px 10px 10px 2px;padding:8px 10px;font-size:11px;line-height:1.4">Logged breakfast. Yogurt, berries, honey. 320 kcal.</div>
+<div style="align-self:flex-start;max-width:80%;background:#1a1a1a;border:1px solid rgba(255,255,255,.06);border-radius:10px 10px 10px 2px;padding:8px 10px;font-size:11px;line-height:1.4">Reminders set ✅</div>
+<div class="faint mono" style="font-size:7px;letter-spacing:.18em;text-align:right;color:#57534e;margin-right:4px">YOU · NOW</div>
+<div style="align-self:flex-end;max-width:80%;background:rgba(212,168,83,.12);border:1px solid rgba(212,168,83,.25);border-radius:10px 10px 2px 10px;padding:8px 10px;font-size:11px;line-height:1.4;display:flex;gap:5px;align-items:center"><span class="g" style="font-size:10px;font-style:italic">typing…</span></div>
+</div>
+<div style="position:absolute;bottom:0;left:0;right:0;padding:10px 14px;background:rgba(10,10,10,.95);border-top:1px solid rgba(255,255,255,.06);display:flex;gap:6px;align-items:center">
+<span class="g" style="font-size:14px">📋</span>
+<div style="flex:1;padding:7px 10px;background:rgba(26,26,26,.7);border:1px solid rgba(255,255,255,.06);border-radius:14px;font-size:10px;color:#78716c">Strong week. Ready to add prote</div>
+<div style="width:26px;height:26px;border-radius:13px;background:linear-gradient(135deg,#B8923E,#D4A853);color:#000;display:flex;align-items:center;justify-content:center;font-size:12px">↑</div>
+</div>
+</div>
+</div></div>
+</div>
+
+<!-- 22 COACH HABIT BUILDER -->
+<div class="col"><div class="label"><span class="num">22</span>Coach · Habit Builder</div><div class="route">/coach/habits/new</div>
+<div class="phone"><div class="screen"><div class="notch"><span>9:41</span><div class="notch-pill"></div><span class="signal">▂▄▆ 🔋</span></div>
+<div class="body body-pad-bot">
+<div style="display:flex;justify-content:space-between;align-items:center;margin:6px 0 10px"><div><div class="title">Design Habit</div><div class="faint sub">For Nikos · cycle 4</div></div><button style="color:#a8a29e;background:none;border:none;font-size:14px">✕</button></div>
+<div class="faint mono" style="font-size:8px;letter-spacing:.16em;margin-bottom:5px">CATEGORY</div>
+<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:5px;margin-bottom:10px">
+<div class="card" style="padding:8px;text-align:center"><div style="font-size:18px">💧</div><div style="font-size:9px;margin-top:2px">Hydration</div></div>
+<div class="card-g" style="padding:8px;text-align:center"><div style="font-size:18px">🥩</div><div class="g" style="font-size:9px;margin-top:2px">Nutrition</div></div>
+<div class="card" style="padding:8px;text-align:center"><div style="font-size:18px">🚶</div><div style="font-size:9px;margin-top:2px">Movement</div></div>
+<div class="card" style="padding:8px;text-align:center"><div style="font-size:18px">🌙</div><div style="font-size:9px;margin-top:2px">Sleep</div></div>
+</div>
+<div class="faint mono" style="font-size:8px;letter-spacing:.16em;margin-bottom:5px">HABIT</div>
+<div class="card-g" style="padding:10px;margin-bottom:10px">
+<div style="font-size:11px;font-weight:600;margin-bottom:3px">Protein in every meal</div>
+<div class="faint" style="font-size:9px;line-height:1.4">25g+ protein at breakfast, lunch, dinner</div>
+</div>
+<div class="faint mono" style="font-size:8px;letter-spacing:.16em;margin-bottom:5px">CYCLE LENGTH</div>
+<div style="display:flex;gap:5px;margin-bottom:10px">
+<div class="card" style="flex:1;padding:7px;text-align:center;font-size:10px;color:#78716c">7 days</div>
+<div class="card-g" style="flex:1;padding:7px;text-align:center" ><div class="g" style="font-size:10px">14 days</div></div>
+<div class="card" style="flex:1;padding:7px;text-align:center;font-size:10px;color:#78716c">21 days</div>
+</div>
+<div class="faint mono" style="font-size:8px;letter-spacing:.16em;margin-bottom:5px">CHECK-IN TIME</div>
+<div class="card" style="padding:10px;margin-bottom:10px;display:flex;justify-content:space-between"><span style="font-size:11px">Daily reminder</span><span class="g mono" style="font-size:10px">8:00 PM</span></div>
+<div class="faint mono" style="font-size:8px;letter-spacing:.16em;margin-bottom:5px">COACH NOTE TO CLIENT</div>
+<div class="card" style="padding:10px;margin-bottom:14px;font-style:italic;font-size:10px;color:#a8a29e;line-height:1.4">"Last cycle you nailed water. Let's stack protein on top — same hydration, just intentional protein at every meal."</div>
+<div style="display:flex;gap:6px"><button class="btn-o" style="flex:1;padding:9px;font-size:11px">Save draft</button><button class="btn-g" style="flex:2;padding:9px;font-size:11px">Send to Nikos →</button></div>
+</div>
+<div class="bot-nav"><div class="it active"><span>👥</span>Clients</div><div class="it"><span>📊</span>Pulse</div><div class="it"><span>📚</span>Library</div><div class="it"><span>👤</span>Me</div></div>
+</div></div>
+</div>
+
+</div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- ADMIN + INTERNAL                                          -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="section">
+<div class="section-title">Internal · /admin/* · settings · billing</div>
+<div class="row">
+
+<!-- 23 ADMIN COSTS -->
+<div class="col"><div class="label"><span class="num">23</span>Admin · AI Costs</div><div class="route">/admin/costs</div>
+<div class="phone"><div class="screen" style="height:640px;background:#0a0a0a"><div class="notch"><span>9:41</span><div class="notch-pill"></div><span class="signal">▂▄▆ 🔋</span></div>
+<div class="body">
+<div style="display:flex;justify-content:space-between;align-items:center;margin:6px 0 10px"><div><div class="title">AI Costs</div><div class="faint sub">Last 30 days · all coaches</div></div><div class="tag tag-r" style="padding:2px 6px">ADMIN</div></div>
+<div class="card-g" style="padding:12px;margin-bottom:10px">
+<div class="brand-eye" style="margin-bottom:6px">Total spend · April</div>
+<div style="display:flex;align-items:baseline;gap:6px;margin-bottom:8px"><span style="font-size:28px;font-weight:700;letter-spacing:-.02em">$847</span><span class="faint" style="font-size:11px">.32</span><span style="font-size:10px;color:#22c55e;font-weight:600">↓ 12% vs March</span></div>
+<svg width="100%" height="44" viewBox="0 0 240 44">
+  <polyline points="0,30 24,28 48,32 72,26 96,22 120,24 144,18 168,20 192,16 216,12 240,14" fill="none" stroke="#D4A853" stroke-width="1.5"/>
+  <polyline points="0,30 24,28 48,32 72,26 96,22 120,24 144,18 168,20 192,16 216,12 240,14 240,44 0,44" fill="rgba(212,168,83,.08)"/>
+</svg>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px">
+<div class="card" style="padding:9px"><div class="faint mono" style="font-size:7px;letter-spacing:.14em">MEAL PARSING</div><div class="g" style="font-size:14px;font-weight:700;margin-top:2px">$412</div><div class="faint" style="font-size:8px">3,402 calls</div></div>
+<div class="card" style="padding:9px"><div class="faint mono" style="font-size:7px;letter-spacing:.14em">FORM CHECK</div><div class="g" style="font-size:14px;font-weight:700;margin-top:2px">$218</div><div class="faint" style="font-size:8px">186 videos</div></div>
+<div class="card" style="padding:9px"><div class="faint mono" style="font-size:7px;letter-spacing:.14em">COACH SUGGEST</div><div class="g" style="font-size:14px;font-weight:700;margin-top:2px">$148</div><div class="faint" style="font-size:8px">982 calls</div></div>
+<div class="card" style="padding:9px"><div class="faint mono" style="font-size:7px;letter-spacing:.14em">EMBEDDINGS</div><div class="g" style="font-size:14px;font-weight:700;margin-top:2px">$69</div><div class="faint" style="font-size:8px">vector ops</div></div>
+</div>
+<div class="faint mono" style="font-size:8px;letter-spacing:.16em;margin-bottom:5px">TOP COACHES BY USAGE</div>
+<div style="display:flex;flex-direction:column;gap:4px">
+<div class="card" style="padding:8px 10px;display:flex;justify-content:space-between;align-items:center"><div class="row-i"><div class="av">M</div><span style="font-size:10px;font-weight:500">Michael K.</span></div><div class="g mono" style="font-size:10px">$182</div></div>
+<div class="card" style="padding:8px 10px;display:flex;justify-content:space-between;align-items:center"><div class="row-i"><div class="av">A</div><span style="font-size:10px;font-weight:500">Andrea R.</span></div><div class="g mono" style="font-size:10px">$148</div></div>
+<div class="card" style="padding:8px 10px;display:flex;justify-content:space-between;align-items:center"><div class="row-i"><div class="av">L</div><span style="font-size:10px;font-weight:500">Lila P.</span></div><div class="g mono" style="font-size:10px">$112</div></div>
+</div>
+<div class="card-r" style="padding:9px;margin-top:8px"><div class="brand-eye" style="color:#ef4444;margin-bottom:3px">⚠️ ALERT · 2 ANOMALIES</div><div class="faint" style="font-size:9px;line-height:1.4">Coach #847 form-check usage 4× normal. Investigate.</div></div>
+</div>
+</div></div>
+</div>
+
+<!-- 24 COACH SETTINGS -->
+<div class="col"><div class="label"><span class="num">24</span>Coach · Settings</div><div class="route">/coach/profile</div>
+<div class="phone"><div class="screen"><div class="notch"><span>9:41</span><div class="notch-pill"></div><span class="signal">▂▄▆ 🔋</span></div>
+<div class="body body-pad-bot">
+<div style="display:flex;gap:10px;align-items:center;margin:8px 0 14px">
+  <div class="av-lg" style="width:44px;height:44px;font-size:16px">M</div>
+  <div style="flex:1"><div style="font-size:14px;font-weight:700">Michael Karagiannis</div><div class="faint" style="font-size:10px">Sports Nutritionist · Athens</div></div>
+  <div class="tag tag-g" style="padding:2px 6px">PRO</div>
+</div>
+<div class="card-g" style="padding:11px;margin-bottom:10px">
+<div class="brand-eye" style="margin-bottom:6px">This month</div>
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
+<div><div class="g" style="font-size:16px;font-weight:700">6</div><div class="faint mono" style="font-size:7px">CLIENTS</div></div>
+<div><div class="g" style="font-size:16px;font-weight:700">$1.2k</div><div class="faint mono" style="font-size:7px">REVENUE</div></div>
+<div><div class="g" style="font-size:16px;font-weight:700">96%</div><div class="faint mono" style="font-size:7px">RETENTION</div></div>
+</div>
+</div>
+<div class="faint mono" style="font-size:8px;letter-spacing:.16em;margin-bottom:5px">PRACTICE</div>
+<div class="card" style="padding:0;margin-bottom:10px;overflow:hidden">
+<div style="padding:10px 12px;display:flex;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.05)"><span style="font-size:11px">Invite codes</span><span class="g mono" style="font-size:10px">3 active ›</span></div>
+<div style="padding:10px 12px;display:flex;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.05)"><span style="font-size:11px">Client capacity</span><span class="faint" style="font-size:10px">6 / 25 ›</span></div>
+<div style="padding:10px 12px;display:flex;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.05)"><span style="font-size:11px">Coaching hours</span><span class="faint" style="font-size:10px">Mon-Fri 9-5 ›</span></div>
+<div style="padding:10px 12px;display:flex;justify-content:space-between"><span style="font-size:11px">Public profile</span><span class="g mono" style="font-size:10px">trophe.app/m ›</span></div>
+</div>
+<div class="faint mono" style="font-size:8px;letter-spacing:.16em;margin-bottom:5px">BILLING</div>
+<div class="card" style="padding:0;margin-bottom:10px;overflow:hidden">
+<div style="padding:10px 12px;display:flex;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.05)"><span style="font-size:11px">Plan</span><span class="g mono" style="font-size:10px">Pro · $79/mo ›</span></div>
+<div style="padding:10px 12px;display:flex;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.05)"><span style="font-size:11px">Payment method</span><span class="faint" style="font-size:10px">Visa ····4242 ›</span></div>
+<div style="padding:10px 12px;display:flex;justify-content:space-between"><span style="font-size:11px">Invoices</span><span class="faint" style="font-size:10px">›</span></div>
+</div>
+<div class="faint mono" style="font-size:8px;letter-spacing:.16em;margin-bottom:5px">AI</div>
+<div class="card" style="padding:0;overflow:hidden">
+<div style="padding:10px 12px;display:flex;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.05)"><span style="font-size:11px">Coaching style</span><span class="faint" style="font-size:10px">Direct · evidence ›</span></div>
+<div style="padding:10px 12px;display:flex;justify-content:space-between"><span style="font-size:11px">AI suggestions</span><div style="width:30px;height:18px;background:#D4A853;border-radius:9px;position:relative"><div style="position:absolute;right:2px;top:2px;width:14px;height:14px;background:#000;border-radius:7px"></div></div></div>
+</div>
+</div>
+<div class="bot-nav"><div class="it"><span>👥</span>Clients</div><div class="it"><span>📊</span>Pulse</div><div class="it"><span>📚</span>Library</div><div class="it active"><span>👤</span>Me</div></div>
+</div></div>
+</div>
+
+<!-- 25 COACH PULSE / OVERVIEW -->
+<div class="col"><div class="label"><span class="num">25</span>Coach · Practice Pulse</div><div class="route">/coach/pulse</div>
+<div class="phone"><div class="screen"><div class="notch"><span>9:41</span><div class="notch-pill"></div><span class="signal">▂▄▆ 🔋</span></div>
+<div class="body body-pad-bot">
+<div style="margin:6px 0 10px"><div class="title">Practice Pulse</div><div class="faint sub">7-day rolling window</div></div>
+<div class="card-g" style="padding:11px;margin-bottom:8px">
+<div class="brand-eye" style="margin-bottom:6px">Compliance · all clients</div>
+<div style="display:flex;align-items:baseline;gap:6px;margin-bottom:8px"><span style="font-size:24px;font-weight:700;letter-spacing:-.02em">82%</span><span style="font-size:10px;color:#22c55e;font-weight:600">↑ 4 pts</span></div>
+<div style="display:flex;gap:1px;align-items:flex-end;height:36px">
+  <div style="flex:1;background:rgba(212,168,83,.4);height:62%;border-radius:1px"></div>
+  <div style="flex:1;background:rgba(212,168,83,.5);height:74%;border-radius:1px"></div>
+  <div style="flex:1;background:rgba(212,168,83,.6);height:80%;border-radius:1px"></div>
+  <div style="flex:1;background:rgba(212,168,83,.7);height:78%;border-radius:1px"></div>
+  <div style="flex:1;background:rgba(212,168,83,.8);height:88%;border-radius:1px"></div>
+  <div style="flex:1;background:rgba(212,168,83,.9);height:84%;border-radius:1px"></div>
+  <div style="flex:1;background:#D4A853;height:92%;border-radius:1px"></div>
+</div>
+<div style="display:flex;justify-content:space-between;margin-top:4px"><span class="faint mono" style="font-size:7px">SAT</span><span class="faint mono" style="font-size:7px">SUN</span><span class="faint mono" style="font-size:7px">MON</span><span class="faint mono" style="font-size:7px">TUE</span><span class="faint mono" style="font-size:7px">WED</span><span class="faint mono" style="font-size:7px">THU</span><span class="faint mono" style="font-size:7px">FRI</span></div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px">
+<div class="card" style="padding:9px"><div class="faint mono" style="font-size:7px;letter-spacing:.14em">CHECK-INS</div><div class="g" style="font-size:14px;font-weight:700;margin-top:2px">38 / 42</div><div class="faint" style="font-size:8px">90% rate</div></div>
+<div class="card" style="padding:9px"><div class="faint mono" style="font-size:7px;letter-spacing:.14em">MEALS LOGGED</div><div class="g" style="font-size:14px;font-weight:700;margin-top:2px">183</div><div class="faint" style="font-size:8px">26 avg/client</div></div>
+<div class="card" style="padding:9px"><div class="faint mono" style="font-size:7px;letter-spacing:.14em">CYCLES DONE</div><div class="g" style="font-size:14px;font-weight:700;margin-top:2px">2</div><div class="faint" style="font-size:8px">this week</div></div>
+<div class="card" style="padding:9px"><div class="faint mono" style="font-size:7px;letter-spacing:.14em">RESPONSE TIME</div><div class="g" style="font-size:14px;font-weight:700;margin-top:2px">2.4h</div><div class="faint" style="font-size:8px">your avg</div></div>
+</div>
+<div class="faint mono" style="font-size:8px;letter-spacing:.16em;margin-bottom:5px">HABIT WINNERS · 14d</div>
+<div style="display:flex;flex-direction:column;gap:4px">
+<div class="card-g" style="padding:8px 10px;display:flex;justify-content:space-between;align-items:center"><div class="row-i"><span style="font-size:14px">💧</span><span style="font-size:10px;font-weight:500">Drink 3L water</span></div><div class="g mono" style="font-size:10px">94%</div></div>
+<div class="card" style="padding:8px 10px;display:flex;justify-content:space-between;align-items:center"><div class="row-i"><span style="font-size:14px">🥗</span><span style="font-size:10px">Veg every meal</span></div><div class="g mono" style="font-size:10px">78%</div></div>
+<div class="card" style="padding:8px 10px;display:flex;justify-content:space-between;align-items:center"><div class="row-i"><span style="font-size:14px">🚶</span><span style="font-size:10px">10k steps</span></div><div style="font-size:10px;color:#f59e0b" class="mono">62%</div></div>
+</div>
+</div>
+<div class="bot-nav"><div class="it"><span>👥</span>Clients</div><div class="it active"><span>📊</span>Pulse</div><div class="it"><span>📚</span>Library</div><div class="it"><span>👤</span>Me</div></div>
+</div></div>
+</div>
+
+<!-- 26 NOTIFICATIONS -->
+<div class="col"><div class="label"><span class="num">26</span>Notifications</div><div class="route">/notifications</div>
+<div class="phone"><div class="screen"><div class="notch"><span>9:41</span><div class="notch-pill"></div><span class="signal">▂▄▆ 🔋</span></div>
+<div class="body body-pad-bot">
+<div style="display:flex;justify-content:space-between;align-items:center;margin:6px 0 10px"><div class="title">Notifications</div><span class="faint" style="font-size:10px">Mark all read</span></div>
+<div class="tabs" style="margin-bottom:10px"><div class="tab active">All 12</div><div class="tab">Clients 8</div><div class="tab">System 4</div></div>
+<div class="faint mono" style="font-size:8px;letter-spacing:.16em;margin-bottom:5px">UNREAD</div>
+<div style="display:flex;flex-direction:column;gap:5px;margin-bottom:10px">
+<div class="card-r" style="padding:10px"><div class="row-i" style="align-items:flex-start"><div class="av" style="background:#2a1a1a;color:#ef4444">D</div><div style="flex:1"><div style="font-size:10px;font-weight:600">Dimitra missed 3 days</div><div class="faint" style="font-size:9px;line-height:1.4">No check-in since Tue. Send re-engagement?</div><div class="faint mono" style="font-size:7px;margin-top:3px">2H AGO</div></div></div></div>
+<div class="card-g" style="padding:10px"><div class="row-i" style="align-items:flex-start"><div class="av">D</div><div style="flex:1"><div style="font-size:10px;font-weight:600">Daniel completed cycle 3</div><div class="faint" style="font-size:9px;line-height:1.4">14/14 days · 100% compliance · ready for next</div><div class="faint mono" style="font-size:7px;margin-top:3px">5H AGO</div></div></div></div>
+<div class="card" style="padding:10px"><div class="row-i" style="align-items:flex-start"><div class="av">N</div><div style="flex:1"><div style="font-size:10px;font-weight:600">Nikos logged dinner</div><div class="faint" style="font-size:9px;line-height:1.4">Salmon, veg, wine · 502 kcal · day 9</div><div class="faint mono" style="font-size:7px;margin-top:3px">10H AGO</div></div></div></div>
+<div class="card" style="padding:10px"><div class="row-i" style="align-items:flex-start"><div class="av">A</div><div style="flex:1"><div style="font-size:10px;font-weight:600">Alexis asked a question</div><div class="faint" style="font-size:9px;line-height:1.4">"Should I take creatine on rest days?"</div><div class="faint mono" style="font-size:7px;margin-top:3px">1D AGO</div></div></div></div>
+</div>
+<div class="faint mono" style="font-size:8px;letter-spacing:.16em;margin-bottom:5px">SYSTEM</div>
+<div style="display:flex;flex-direction:column;gap:5px">
+<div class="card" style="padding:10px"><div class="row-i" style="align-items:flex-start"><div style="width:24px;height:24px;border-radius:12px;background:rgba(212,168,83,.15);color:#D4A853;display:flex;align-items:center;justify-content:center;font-size:11px">τ</div><div style="flex:1"><div style="font-size:10px;font-weight:600">Weekly summary ready</div><div class="faint" style="font-size:9px;line-height:1.4">6 clients · 82% compliance · view report</div><div class="faint mono" style="font-size:7px;margin-top:3px">SUN 9 AM</div></div></div></div>
+<div class="card" style="padding:10px"><div class="row-i" style="align-items:flex-start"><div style="width:24px;height:24px;border-radius:12px;background:rgba(212,168,83,.15);color:#D4A853;display:flex;align-items:center;justify-content:center;font-size:11px">$</div><div style="flex:1"><div style="font-size:10px;font-weight:600">Invoice paid · April</div><div class="faint" style="font-size:9px;line-height:1.4">Pro plan · $79.00 · Visa ····4242</div><div class="faint mono" style="font-size:7px;margin-top:3px">3D AGO</div></div></div></div>
+</div>
+</div>
+<div class="bot-nav"><div class="it"><span>👥</span>Clients</div><div class="it"><span>📊</span>Pulse</div><div class="it"><span>📚</span>Library</div><div class="it"><span>👤</span>Me</div></div>
+</div></div>
+</div>
+
+</div>
+</div>
+
+
+<footer style="margin-top:80px;padding-top:32px;border-top:1px solid rgba(255,255,255,.06)">
+<div style="display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.16em;color:#57534e;text-transform:uppercase">
+<span>τροφή · trophē · As-Is reference · 26 screens</span>
+<span>Source: github.com/zsoist/trophe · main</span>
+</div>
+</footer>
+
+</body>
+</html>
