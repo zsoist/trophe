@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Target, ChevronDown, ChevronUp } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { useI18n } from '@/lib/i18n';
 import { localDateStr } from '../lib/dates';
 
 interface MacroAdherenceProps {
@@ -45,6 +46,7 @@ function adherenceScore(actual: number, target: number): number {
 }
 
 export default function MacroAdherence({ userId, targets }: MacroAdherenceProps) {
+  const { t } = useI18n();
   const [loading, setLoading] = useState(true);
   const [dayData, setDayData] = useState<DayTotals[]>([]);
   const [overallScore, setOverallScore] = useState(0);
@@ -195,7 +197,7 @@ export default function MacroAdherence({ userId, targets }: MacroAdherenceProps)
         className="w-full flex items-center justify-between mb-3"
       >
         <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider flex items-center gap-2">
-          <Target size={14} /> Weekly Adherence
+          <Target size={14} /> {t('analytics.weekly_adherence')}
         </h3>
         <div className="flex items-center gap-2">
           {activeDays.length > 0 && (

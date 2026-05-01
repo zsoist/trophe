@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { useI18n } from '@/lib/i18n';
 import { localDateStr } from '../lib/dates';
 
 interface DayCell {
@@ -33,6 +34,7 @@ function getIntensity(calories: number): string {
 }
 
 export default function CalorieHeatmap({ userId, weeks = 8 }: CalorieHeatmapProps) {
+  const { t } = useI18n();
   const [cells, setCells] = useState<DayCell[]>([]);
   const [months, setMonths] = useState<{ label: string; col: number }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -149,7 +151,7 @@ export default function CalorieHeatmap({ userId, weeks = 8 }: CalorieHeatmapProp
         className="w-full flex items-center justify-between mb-3"
       >
         <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider flex items-center gap-2">
-          <span style={{ fontSize: 12 }}>&#9632;&#9632;&#9632;</span> Logging Activity
+          <span style={{ fontSize: 12 }}>&#9632;&#9632;&#9632;</span> {t('analytics.logging_activity')}
         </h3>
         {expanded ? <ChevronUp size={14} className="text-stone-500" /> : <ChevronDown size={14} className="text-stone-500" />}
       </button>

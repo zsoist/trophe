@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Trophy, ChevronDown, ChevronUp } from 'lucide-react';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import type { FoodLogEntry } from '@/lib/types';
+import { useI18n } from '@/lib/i18n';
 
 interface MealBadgesProps {
   todayLog: FoodLogEntry[];
@@ -34,6 +35,7 @@ function saveEarnedBadge(id: string) {
 }
 
 export default function MealBadges({ todayLog, streak, targets }: MealBadgesProps) {
+  const { t } = useI18n();
   const [expanded, setExpanded] = useState(false);
   const [newBadge, setNewBadge] = useState<string | null>(null);
   const [earnedSet, setEarnedSet] = useState<Set<string>>(() => loadEarnedBadges());
@@ -129,7 +131,7 @@ export default function MealBadges({ todayLog, streak, targets }: MealBadgesProp
       >
         <div className="flex items-center gap-2">
           <Trophy size={14} className="gold-text" />
-          <span className="text-stone-300 text-xs font-medium">Achievements</span>
+          <span className="text-stone-300 text-xs font-medium">{t('badge.achievements')}</span>
           <span className="text-stone-600 text-[10px]">{earnedCount}/{badges.length}</span>
         </div>
         <div className="flex items-center gap-1">

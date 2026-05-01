@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import type { FoodLogEntry } from '@/lib/types';
+import { useI18n } from '@/lib/i18n';
 
 interface NutrientDensityProps {
   entries: FoodLogEntry[];
@@ -11,6 +12,7 @@ interface NutrientDensityProps {
 
 // F58: Nutrient density score — rates foods by nutrients-per-calorie
 export default function NutrientDensity({ entries }: NutrientDensityProps) {
+  const { t } = useI18n();
   const [expanded, setExpanded] = useState(false);
   if (entries.length === 0) return null;
 
@@ -31,13 +33,13 @@ export default function NutrientDensity({ entries }: NutrientDensityProps) {
 
   const avgScore = scored.reduce((s, f) => s + f.score, 0) / scored.length;
   const maxScore = scored[0].score;
-  const label = avgScore >= 30 ? 'Excellent' : avgScore >= 20 ? 'Good' : avgScore >= 10 ? 'Fair' : 'Low';
+  const label = avgScore >= 30 ? t('density.excellent') : avgScore >= 20 ? t('density.good') : avgScore >= 10 ? t('density.fair') : t('density.low');
   const color = avgScore >= 30 ? 'text-green-400' : avgScore >= 20 ? 'gold-text' : avgScore >= 10 ? 'text-orange-400' : 'text-red-400';
 
   return (
     <div className="glass p-3">
       <button onClick={() => setExpanded(e => !e)} className="w-full flex items-center justify-between mb-2">
-        <span className="text-stone-300 text-xs font-semibold uppercase tracking-wider">Nutrient Density</span>
+        <span className="text-stone-300 text-xs font-semibold uppercase tracking-wider">{t('analytics.nutrient_density')}</span>
         <div className="flex items-center gap-2">
           <span className={`text-xs font-bold ${color}`}>{label}</span>
           {expanded ? <ChevronUp size={13} className="text-stone-500" /> : <ChevronDown size={13} className="text-stone-500" />}

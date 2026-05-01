@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import type { FoodLogEntry } from '@/lib/types';
+import { useI18n } from '@/lib/i18n';
 
 interface ProteinDistributionProps {
   entries: FoodLogEntry[];
@@ -47,12 +48,13 @@ const MEAL_COLORS: Record<string, string> = {
 };
 
 export default memo(function ProteinDistribution({ entries }: ProteinDistributionProps) {
+  const { t } = useI18n();
   const [expanded, setExpanded]   = useState(false);
   const [macro, setMacro]         = useState<MacroType>('protein');
 
   if (entries.length < 2) return null;
 
-  const tab = MACRO_TABS.find(t => t.key === macro)!;
+  const tab = MACRO_TABS.find(tab => tab.key === macro)!;
 
   // Group selected macro by meal
   const byMeal = new Map<string, number>();
@@ -79,7 +81,7 @@ export default memo(function ProteinDistribution({ entries }: ProteinDistributio
         className="w-full flex items-center justify-between mb-2"
       >
         <span className="text-stone-300 text-xs font-semibold uppercase tracking-wider">
-          Nutrition per Meal
+          {t('analytics.nutrition_per_meal')}
         </span>
         <div className="flex items-center gap-2">
           <span className="text-xs font-bold" style={{ color: tab.color }}>
@@ -102,19 +104,19 @@ export default memo(function ProteinDistribution({ entries }: ProteinDistributio
           >
             {/* Macro type tabs */}
             <div className="flex gap-1.5 mb-3">
-              {MACRO_TABS.map(t => (
+              {MACRO_TABS.map(tab => (
                 <button
-                  key={t.key}
-                  onClick={() => setMacro(t.key)}
+                  key={tab.key}
+                  onClick={() => setMacro(tab.key)}
                   className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-[10px] font-medium border transition-all ${
-                    macro === t.key
+                    macro === tab.key
                       ? 'bg-white/5 border-white/10'
                       : 'border-transparent text-stone-600 hover:text-stone-400'
                   }`}
-                  style={macro === t.key ? { color: t.color, borderColor: `${t.color}33` } : {}}
+                  style={macro === tab.key ? { color: tab.color, borderColor: `${tab.color}33` } : {}}
                 >
-                  <Icon name={t.icon} size={10} />
-                  {t.label}
+                  <Icon name={tab.icon} size={10} />
+                  {tab.label}
                 </button>
               ))}
             </div>

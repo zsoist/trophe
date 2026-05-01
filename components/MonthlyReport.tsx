@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FileText, TrendingUp, TrendingDown, Minus, Award, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { useI18n } from '@/lib/i18n';
 import { localDateStr } from '../lib/dates';
 
 interface MonthlyReportProps {
@@ -116,6 +117,7 @@ function getPeriodRange(period: Period, customFrom: string, customTo: string): {
 }
 
 export default function MonthlyReport({ userId, targets }: MonthlyReportProps) {
+  const { t } = useI18n();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<PeriodStats | null>(null);
   const [expanded, setExpanded] = useState(false);
@@ -249,7 +251,7 @@ export default function MonthlyReport({ userId, targets }: MonthlyReportProps) {
         className="w-full flex items-center justify-between mb-3"
       >
         <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider flex items-center gap-2">
-          <FileText size={14} /> Report
+          <FileText size={14} /> {t('analytics.report')}
           {stats && <span className="text-stone-500 font-normal normal-case tracking-normal">{stats.label}</span>}
         </h3>
         {expanded ? <ChevronUp size={14} className="text-stone-500" /> : <ChevronDown size={14} className="text-stone-500" />}

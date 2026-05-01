@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Icon } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
+import { useI18n } from '@/lib/i18n';
 import { localDateStr } from '../lib/dates';
 
 interface FoodStat {
@@ -30,6 +31,7 @@ const RANK_COLORS = ['#D4A853', '#a8a29e', '#92754a'];
 const BAR_COLOR   = 'rgba(168,162,158,0.35)';
 
 export default function FoodFrequency({ userId, days = 30 }: FoodFrequencyProps) {
+  const { t } = useI18n();
   const [foods,    setFoods]    = useState<FoodStat[]>([]);
   const [loading,  setLoading]  = useState(true);
   const [expanded, setExpanded] = useState(false);
@@ -120,7 +122,7 @@ export default function FoodFrequency({ userId, days = 30 }: FoodFrequencyProps)
     return (
       <div className="glass p-5">
         <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider mb-3 flex items-center gap-2">
-          <Icon name="i-trophy" size={14} /> Top Foods
+          <Icon name="i-trophy" size={14} /> {t('analytics.top_foods')}
         </h3>
         <p className="text-stone-500 text-sm text-center py-3">No food data yet</p>
       </div>

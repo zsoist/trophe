@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, ChevronUp, X } from 'lucide-react';
 import { Icon, type IconName } from '@/components/ui/Icon';
+import { useI18n } from '@/lib/i18n';
 
 interface MacroFoodIdeasProps {
   consumed: { protein: number; carbs: number; fat: number; fiber: number };
@@ -308,6 +309,7 @@ const CATEGORIES: CategoryConfig[] = [
 ];
 
 export default memo(function MacroFoodIdeas({ consumed, targets }: MacroFoodIdeasProps) {
+  const { t } = useI18n();
   const [expanded, setExpanded]   = useState(false);
   const [selected, setSelected]   = useState<{ idea: FoodIdea; cat: CategoryConfig } | null>(null);
 
@@ -330,7 +332,7 @@ export default memo(function MacroFoodIdeas({ consumed, targets }: MacroFoodIdea
         >
           <span className="text-sm font-medium text-stone-200 flex items-center gap-1.5">
             <Icon name="i-sparkle" size={14} className="text-[var(--gold-300)]" />
-            Food Ideas
+            {t('ideas.title')}
           </span>
           {expanded
             ? <ChevronUp size={14} className="text-stone-500" />

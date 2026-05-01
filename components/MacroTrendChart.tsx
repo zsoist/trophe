@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TrendingUp, ChevronDown, ChevronUp } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { useI18n } from '@/lib/i18n';
 import { localDateStr } from '../lib/dates';
 
 interface DayAggregate {
@@ -35,6 +36,7 @@ const PLOT_W = VB_W - PAD.left - PAD.right;
 const PLOT_H = VB_H - PAD.top - PAD.bottom;
 
 export default function MacroTrendChart({ userId, days = 30 }: MacroTrendChartProps) {
+  const { t } = useI18n();
   const [data, setData] = useState<DayAggregate[]>([]);
   const [loading, setLoading] = useState(true);
   const [visible, setVisible] = useState<Record<MacroKey, boolean>>({
@@ -175,7 +177,7 @@ export default function MacroTrendChart({ userId, days = 30 }: MacroTrendChartPr
         className="w-full flex items-center justify-between mb-3"
       >
         <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider flex items-center gap-2">
-          <TrendingUp size={14} /> {days}-Day Trends
+          <TrendingUp size={14} /> {t('analytics.trends')} · {days}d
         </h3>
         {expanded ? (
           <ChevronUp size={14} className="text-stone-500" />

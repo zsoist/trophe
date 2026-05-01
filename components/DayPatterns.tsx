@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { TrendingUp, ChevronDown, ChevronUp, Calendar } from 'lucide-react';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { supabase } from '@/lib/supabase';
+import { useI18n } from '@/lib/i18n';
 import { localToday, localDateStr } from '../lib/dates';
 
 interface DayPatternsProps {
@@ -44,6 +45,7 @@ const DAY_LABELS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday',
 const DAY_SHORT  = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
 export default function DayPatterns({ userId }: DayPatternsProps) {
+  const { t } = useI18n();
   const [loading,    setLoading]    = useState(true);
   const [dayData,    setDayData]    = useState<DayAvg[]>([]);
   const [expanded,   setExpanded]   = useState(false);
@@ -52,7 +54,7 @@ export default function DayPatterns({ userId }: DayPatternsProps) {
   const [customFrom, setCustomFrom] = useState('');
   const [customTo,   setCustomTo]   = useState('');
 
-  const tab = MACRO_TABS.find(t => t.key === macro)!;
+  const tab = MACRO_TABS.find(tab => tab.key === macro)!;
 
   useEffect(() => {
     if (!expanded) return; // only load when open
@@ -185,7 +187,7 @@ export default function DayPatterns({ userId }: DayPatternsProps) {
       >
         <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider flex items-center gap-2">
           <Icon name="i-bars" size={14} className="text-[var(--gold-300)]" />
-          Day Patterns
+          {t('analytics.day_patterns')}
         </h3>
         {expanded
           ? <ChevronUp size={14} className="text-stone-500" />
@@ -253,19 +255,19 @@ export default function DayPatterns({ userId }: DayPatternsProps) {
 
               {/* Macro type pills */}
               <div className="flex gap-1">
-                {MACRO_TABS.map(t => (
+                {MACRO_TABS.map(tab => (
                   <button
-                    key={t.key}
-                    onClick={() => setMacro(t.key)}
+                    key={tab.key}
+                    onClick={() => setMacro(tab.key)}
                     className={`flex-1 flex items-center justify-center gap-0.5 py-1.5 rounded-lg text-[9px] font-medium border transition-all ${
-                      macro === t.key
+                      macro === tab.key
                         ? 'bg-white/5 border-white/10'
                         : 'border-transparent text-stone-600 hover:text-stone-400'
                     }`}
-                    style={macro === t.key ? { color: t.color, borderColor: `${t.color}33` } : {}}
+                    style={macro === tab.key ? { color: tab.color, borderColor: `${tab.color}33` } : {}}
                   >
-                    <Icon name={t.icon} size={9} />
-                    <span className="hidden sm:inline ml-0.5">{t.label}</span>
+                    <Icon name={tab.icon} size={9} />
+                    <span className="hidden sm:inline ml-0.5">{tab.label}</span>
                   </button>
                 ))}
               </div>

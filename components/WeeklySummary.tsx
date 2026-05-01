@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TrendingUp, TrendingDown, Minus, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { useI18n } from '@/lib/i18n';
 import { localDateStr } from '../lib/dates';
 
 interface WeeklySummaryProps {
@@ -18,6 +19,7 @@ interface DaySummary {
 }
 
 export default function WeeklySummary({ userId }: WeeklySummaryProps) {
+  const { t } = useI18n();
   const [weekData, setWeekData] = useState<DaySummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(false);
@@ -91,7 +93,7 @@ export default function WeeklySummary({ userId }: WeeklySummaryProps) {
       <button onClick={() => setExpanded(e => !e)} className="w-full flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           <Calendar size={14} className="gold-text" />
-          <span className="text-stone-300 text-xs font-semibold uppercase tracking-wider">This Week</span>
+          <span className="text-stone-300 text-xs font-semibold uppercase tracking-wider">{t('analytics.this_week')}</span>
           <div className="flex items-center gap-1">
             {trend === 'up' && <TrendingUp size={11} className="text-green-400" />}
             {trend === 'down' && <TrendingDown size={11} className="text-red-400" />}
