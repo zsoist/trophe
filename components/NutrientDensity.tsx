@@ -126,8 +126,7 @@ export default function NutrientDensity({ entries }: NutrientDensityProps) {
                 </div>
                 {/* What the score means */}
                 <p style={{ fontSize: 9, color: 'var(--t4)', lineHeight: 1.5 }}>
-                  Score measures nutrients (protein + fiber) per calorie.
-                  Higher = meals working harder for you.
+                  {t('density.score_desc')}
                 </p>
               </div>
             </div>
@@ -175,7 +174,7 @@ export default function NutrientDensity({ entries }: NutrientDensityProps) {
 
             {/* Scale legend */}
             <div className="flex items-center gap-1 mt-3 pt-2" style={{ borderTop: '1px solid rgba(255,255,255,.04)' }}>
-              <span style={{ fontSize: 8, color: 'var(--t5)' }}>Score scale →</span>
+              <span style={{ fontSize: 8, color: 'var(--t5)' }}>{t('density.scale_label')} →</span>
               {[['< 12', '#E87A6E', 'D'], ['12–22', '#fb923c', 'C'], ['22–35', '#D4A853', 'B'], ['35+', '#65D387', 'A']].map(([range, color, g]) => (
                 <span key={g} style={{
                   fontSize: 7.5, padding: '1px 5px', borderRadius: 5,

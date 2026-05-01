@@ -292,6 +292,72 @@ const translations: Record<string, Record<Language, string>> = {
   'analytics.times':             { en: 'times',               es: 'veces',                    el: 'φορές' },
   'analytics.score':             { en: 'score',               es: 'puntuación',               el: 'βαθμός' },
 
+  // ── Health tips (log page rotating tips) ──
+  'tip.start_day':      { en: 'Start your day right — a protein-rich breakfast reduces cravings by up to 60%', es: 'Empieza bien el día — un desayuno proteico reduce el hambre hasta un 60%', el: 'Ξεκίνα σωστά — ένα πρωινό με πρωτεΐνη μειώνει την πείνα κατά 60%' },
+  'tip.no_meals_yet':   { en: 'No meals logged yet — even a quick entry helps build the habit', es: 'Aún sin comidas registradas — incluso una entrada rápida ayuda a crear el hábito', el: 'Δεν έχεις καταγράψει γεύματα ακόμα — ακόμα και μία γρήγορη εγγραφή βοηθά' },
+  'tip.protein_to_go':  { en: '{n}g protein to go — options: chicken (31g/150g), eggs (6g each), Greek yogurt (15g)', es: 'Faltan {n}g de proteína — opciones: pollo (31g/150g), huevos (6g c/u), yogur griego (15g)', el: 'Λείπουν {n}g πρωτεΐνης — επιλογές: κοτόπουλο (31g/150g), αυγά (6g), γιαούρτι (15g)' },
+  'tip.over_calories':  { en: 'Over your calorie target — focus on protein and fiber for the rest of the day', es: 'Superaste el objetivo calórico — enfócate en proteína y fibra el resto del día', el: 'Ξεπέρασες τον στόχο θερμίδων — εστίασε σε πρωτεΐνη και φυτικές ίνες' },
+  'tip.time_for_meal':  { en: 'Time for {meal}! Log it to keep your streak going', es: '¡Hora del {meal}! Regístralo para mantener tu racha', el: 'Ώρα για {meal}! Καταγράψε το για να κρατήσεις το σερί σου' },
+  'tip.almost_done':    { en: 'Almost done! Lock your meals when finished — consistency is the #1 predictor of success', es: '¡Casi listo! Bloquea tus comidas — la constancia es el predictor #1 del éxito', el: 'Σχεδόν έτοιμο! Κλείδωσε τα γεύματά σου — η συνέπεια είναι το #1 για επιτυχία' },
+  'tip.protein_1':      { en: 'Aim for 20-40g protein per meal — maximizes muscle protein synthesis (ISSN)', es: 'Busca 20-40g proteína por comida — maximiza la síntesis muscular (ISSN)', el: 'Στόχευσε σε 20-40g πρωτεΐνης ανά γεύμα — μεγιστοποιεί τη σύνθεση μυϊκής πρωτεΐνης' },
+  'tip.protein_2':      { en: 'Spreading protein across 4+ meals improves absorption vs loading it all at dinner', es: 'Distribuir proteína en 4+ comidas mejora la absorción vs. concentrarla en la cena', el: 'Κατανομή πρωτεΐνης σε 4+ γεύματα βελτιώνει την απορρόφηση' },
+  'tip.protein_3':      { en: 'Leucine-rich proteins (eggs, dairy, chicken) trigger the strongest anabolic response', es: 'Proteínas ricas en leucina (huevos, lácteos, pollo) generan la respuesta anabólica más fuerte', el: 'Τρόφιμα πλούσια σε λευκίνη (αυγά, γαλακτοκομικά, κοτόπουλο) δίνουν τη δυνατότερη αναβολική απόκριση' },
+  'tip.protein_4':      { en: 'Your body can use ~0.4g/kg protein per meal — more is useful, just less efficient', es: 'Tu cuerpo puede usar ~0.4g/kg proteína por comida — más es útil, solo menos eficiente', el: 'Ο οργανισμός χρησιμοποιεί ~0.4g/kg πρωτεΐνης ανά γεύμα' },
+  'tip.protein_5':      { en: 'Greek yogurt has 2× the protein of regular yogurt — an easy upgrade for any snack', es: 'El yogur griego tiene 2× más proteína que el normal — una mejora fácil para cualquier snack', el: 'Το ελληνικό γιαούρτι έχει 2× πρωτεΐνη από το κανονικό' },
+  'tip.timing_1':       { en: 'Eating within 2 hours of waking jumpstarts your metabolism for the day', es: 'Comer dentro de 2 horas de despertar activa tu metabolismo', el: 'Φαγητό εντός 2 ωρών από την αφύπνιση ενεργοποιεί τον μεταβολισμό' },
+  'tip.timing_2':       { en: 'Late-night eating isn\'t inherently bad — total daily calories matter more than timing', es: 'Comer tarde no es malo per se — las calorías diarias totales importan más que el horario', el: 'Το φαγητό αργά το βράδυ δεν είναι κακό αυτό καθεαυτό — οι συνολικές θερμίδες έχουν σημασία' },
+  'tip.timing_3':       { en: 'A protein-rich breakfast reduces ghrelin (hunger hormone) for up to 4 hours', es: 'Un desayuno rico en proteínas reduce la grelina (hormona del hambre) hasta 4 horas', el: 'Ένα πρωινό πλούσιο σε πρωτεΐνη μειώνει τη γκρελίνη (ορμόνη πείνας) για 4 ώρες' },
+  'tip.timing_4':       { en: 'Post-workout protein within 2h optimizes recovery — the "anabolic window" is wider than you think', es: 'Proteína post-entreno en 2h optimiza recuperación — la "ventana anabólica" es más amplia de lo que crees', el: 'Πρωτεΐνη εντός 2 ωρών από άσκηση βελτιστοποιεί την αποκατάσταση' },
+  'tip.fiber_1':        { en: 'Only 5% of adults hit the fiber target. Vegetables, beans, and whole grains are your best sources', es: 'Solo el 5% de adultos alcanza el objetivo de fibra. Verduras, legumbres y granos enteros son tus mejores fuentes', el: 'Μόνο το 5% των ενηλίκων φτάνει τον στόχο φυτικών ινών. Λαχανικά και όσπρια είναι οι καλύτερες πηγές' },
+  'tip.fiber_2':        { en: 'Beans and lentils are the only food that\'s both high-protein AND high-fiber', es: 'Los frijoles y lentejas son el único alimento alto en proteína Y fibra a la vez', el: 'Τα φασόλια και οι φακές είναι η μόνη τροφή που είναι ταυτόχρονα πλούσια σε πρωτεΐνη ΚΑΙ φυτικές ίνες' },
+  'tip.fiber_3':        { en: 'Eating vegetables BEFORE carbs reduces blood sugar spikes by up to 35%', es: 'Comer verduras ANTES de los carbohidratos reduce picos de azúcar hasta un 35%', el: 'Τρώγοντας λαχανικά ΠΡΙΝ τους υδατάνθρακες μειώνει τις αιχμές σακχάρου κατά 35%' },
+  'tip.fiber_4':        { en: 'An apple has 4.5g fiber — that\'s 15% of your daily target in one snack', es: 'Una manzana tiene 4.5g fibra — 15% de tu objetivo diario en un snack', el: 'Ένα μήλο έχει 4.5g φυτικές ίνες — 15% του ημερήσιου στόχου σε ένα σνακ' },
+  'tip.hydration_1':    { en: 'Even 2% dehydration reduces cognitive performance. Drink before you feel thirsty', es: 'Incluso 2% de deshidratación reduce el rendimiento cognitivo. Bebe antes de sentir sed', el: 'Ακόμα και 2% αφυδάτωση μειώνει τη γνωστική απόδοση. Πίνε πριν διψάσεις' },
+  'tip.hydration_2':    { en: 'Water with meals aids digestion — the "don\'t drink during meals" advice is a myth', es: 'Agua con las comidas ayuda a la digestión — el consejo de "no beber en las comidas" es un mito', el: 'Νερό με τα γεύματα βοηθά στην πέψη — η συμβουλή "μην πίνεις κατά τη διάρκεια" είναι μύθος' },
+  'tip.fat_1':          { en: 'Healthy fats (avocado, olive oil, nuts) improve vitamin absorption from vegetables', es: 'Grasas saludables (aguacate, aceite de oliva, nueces) mejoran absorción de vitaminas de verduras', el: 'Υγιεινά λιπαρά (αβοκάντο, ελαιόλαδο, ξηροί καρποί) βελτιώνουν απορρόφηση βιταμινών' },
+  'tip.fat_2':          { en: 'Omega-3 fatty acids reduce inflammation — aim for fatty fish 2× per week', es: 'Los ácidos grasos omega-3 reducen inflamación — busca pescado graso 2× por semana', el: 'Τα ωμέγα-3 λιπαρά οξέα μειώνουν τη φλεγμονή — στόχευσε σε λιπαρά ψάρια 2× εβδομαδιαίως' },
+  'tip.general_1':      { en: 'People who track food consistently lose 2× more weight (NIH study)', es: 'Las personas que registran su alimentación consistentemente pierden 2× más peso (estudio NIH)', el: 'Άνθρωποι που καταγράφουν τρόφιμα συστηματικά χάνουν 2× περισσότερο βάρος (μελέτη NIH)' },
+  'tip.general_2':      { en: 'Hitting 80% of your targets consistently beats hitting 100% occasionally', es: 'Alcanzar el 80% de tus objetivos consistentemente supera alcanzar el 100% ocasionalmente', el: 'Το 80% των στόχων συστηματικά νικά το 100% περιστασιακά' },
+  'tip.general_3':      { en: 'Your BMR accounts for 60-75% of daily calories — most energy goes to just existing', es: 'Tu TMB representa el 60-75% de tus calorías diarias — la mayoría de energía se usa simplemente para existir', el: 'Ο BMR αντιπροσωπεύει 60-75% των ημερήσιων θερμίδων — η περισσότερη ενέργεια πηγαίνει απλά στο να υπάρχεις' },
+  'tip.general_4':      { en: 'The gut-brain axis means what you eat directly affects mood and focus within hours', es: 'El eje intestino-cerebro significa que lo que comes afecta directamente tu estado de ánimo y concentración', el: 'Ο άξονας εντέρου-εγκεφάλου σημαίνει ότι τι τρως επηρεάζει άμεσα τη διάθεση και εστίαση' },
+
+  // ── Home quick actions (extended) ──
+  'home.water_short':  { en: 'Water',     es: 'Agua',        el: 'Νερό' },
+  'home.entries_n':    { en: 'entries today', es: 'entradas hoy', el: 'εγγραφές σήμερα' },
+
+  // ── Smart insight strip ──
+  'insight.log_first':    { en: 'Log your first meal to start tracking today', es: 'Registra tu primera comida del día', el: 'Καταγράψε το πρώτο γεύμα σήμερα' },
+  'insight.sugar_high':   { en: 'Sugar at {n}g — WHO limit is 25g', es: 'Azúcar en {n}g — límite OMS es 25g', el: 'Ζάχαρη στα {n}g — όριο ΠΟΥ είναι 25g' },
+  'insight.protein_low':  { en: '{n}g protein left — add a lean source', es: 'Faltan {n}g de proteína — añade una fuente magra', el: 'Λείπουν {n}g πρωτεΐνης — πρόσθεσε πηγή' },
+  'insight.hydration_low':{ en: 'Hydration low — drink a glass of water now', es: 'Hidratación baja — bebe un vaso de agua ahora', el: 'Λίγο υγρά — πιες ένα ποτήρι νερό' },
+  'insight.goal_reached': { en: 'Daily calorie goal reached', es: 'Objetivo calórico diario alcanzado', el: 'Ημερήσιος στόχος θερμίδων επιτεύχθηκε' },
+  'insight.almost_there': { en: '{n} kcal remaining — almost there', es: 'Quedan {n} kcal — casi lo logras', el: '{n} kcal υπολείπονται — σχεδόν τελείωσες' },
+  'insight.pct_logged':   { en: '{n}% of daily calories logged', es: '{n}% de calorías diarias registradas', el: '{n}% θερμίδων ημέρας καταγράφηκαν' },
+
+  // ── Coach message box (extended) ──
+  'coach_msg.your_coach':    { en: 'Your Coach',           es: 'Tu Coach',             el: 'Ο Coach σου' },
+  'coach_msg.coach_prefix':  { en: 'Coach',                es: 'Coach',                el: 'Coach' },
+  'coach_msg.sent_confirm':  { en: 'Message sent to coach',es: 'Mensaje enviado al coach', el: 'Το μήνυμα στάλθηκε' },
+
+  // ── Water card (extended) ──
+  'water.log':             { en: 'Log',   es: 'Registrar', el: 'Καταγραφή' },
+
+  // ── Food ideas (extended) ──
+  'ideas.to_go':           { en: 'to go',      es: 'restantes',    el: 'υπόλοιπο' },
+
+  // ── Nutrient density (extended) ──
+  'density.score_desc':    { en: 'Score measures nutrients (protein + fiber) per calorie. Higher = meals working harder for you.', es: 'Mide nutrientes (proteína + fibra) por caloría. Mayor = comidas más eficientes.', el: 'Μετρά θρεπτικά (πρωτεΐνη + φυτικές ίνες) ανά θερμίδα. Υψηλότερο = καλύτερα γεύματα.' },
+  'density.scale_label':   { en: 'Score scale', es: 'Escala',       el: 'Κλίμακα' },
+
+  // ── Achievement badges (extended) ──
+  'badge.triple_log':      { en: 'Triple Log',    es: 'Triple Registro',  el: 'Τριπλή Καταγραφή' },
+  'badge.century':         { en: 'Century',       es: 'Centenario',       el: 'Εκατοντάδα' },
+  'badge.done':            { en: 'Done',          es: 'Hecho',            el: 'Έγινε' },
+  'badge.not_yet':         { en: 'Not yet',       es: 'Aún no',           el: 'Όχι ακόμα' },
+  'badge.total_xp':        { en: 'Total XP earned', es: 'XP total ganado', el: 'Σύνολο XP' },
+  'badge.desc_triple_log': { en: 'Log 3 meals in one day', es: 'Registra 3 comidas en un día', el: 'Καταγράψε 3 γεύματα σε μία ημέρα' },
+  'badge.desc_century':    { en: '100 consecutive days logged', es: '100 días consecutivos', el: '100 συνεχόμενες ημέρες' },
+
   // ── Nutrient density grades ──
   'density.excellent': { en: 'Excellent', es: 'Excelente', el: 'Άριστη' },
   'density.good':      { en: 'Good',      es: 'Buena',     el: 'Καλή' },

@@ -40,9 +40,13 @@ export function BotNav({ routes, className = '' }: BotNavProps) {
       aria-label="Primary"
     >
       {routes.map((route) => {
+        // Exact match OR prefix match — but only for routes with ≥2 real segments.
+        // Without the depth guard, /dashboard/log would also activate the /dashboard (home)
+        // tab because "/dashboard/log".startsWith("/dashboard") is true.
+        const routeDepth = route.href.split('/').filter(Boolean).length;
         const active =
           pathname === route.href ||
-          (route.href !== '/' && pathname?.startsWith(route.href));
+          (routeDepth >= 2 && pathname?.startsWith(route.href + '/'));
         return (
           <Link
             key={route.href}

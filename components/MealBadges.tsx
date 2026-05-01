@@ -91,7 +91,7 @@ export default function MealBadges({ todayLog, streak, targets }: MealBadgesProp
     return [
       {
         id: 'first_meal', icon: 'i-flame' as IconName,
-        name: 'First Meal', description: 'Log your first meal today',
+        name: t('badge.first_meal'), description: t('badge.desc_first_meal'),
         earned: mealsToday > 0 || earnedSet.has('first_meal'),
         progress: Math.min(mealsToday, 1),
         progressLabel: mealsToday > 0 ? '1/1' : '0/1',
@@ -99,7 +99,7 @@ export default function MealBadges({ todayLog, streak, targets }: MealBadgesProp
       },
       {
         id: 'three_meals', icon: 'i-bowl' as IconName,
-        name: 'Triple Log', description: 'Log 3 meals in one day',
+        name: t('badge.triple_log'), description: t('badge.desc_triple_log'),
         earned: mealsToday >= 3 || earnedSet.has('three_meals'),
         progress: Math.min(mealsToday / 3, 1),
         progressLabel: `${Math.min(mealsToday, 3)}/3`,
@@ -107,7 +107,7 @@ export default function MealBadges({ todayLog, streak, targets }: MealBadgesProp
       },
       {
         id: 'protein_hit', icon: 'i-dumbbell' as IconName,
-        name: 'Protein Champion', description: 'Hit your protein target',
+        name: t('badge.protein_champion'), description: t('badge.desc_protein'),
         earned: proteinHit || earnedSet.has('protein_hit'),
         progress: proteinPct,
         progressLabel: targets.protein_g > 0 ? `${Math.round(totalProtein)}/${targets.protein_g}g` : '—',
@@ -115,15 +115,15 @@ export default function MealBadges({ todayLog, streak, targets }: MealBadgesProp
       },
       {
         id: 'photo_log', icon: 'i-camera' as IconName,
-        name: 'Photo Logger', description: 'Log a meal via photo AI',
+        name: t('badge.photo_logger'), description: t('badge.desc_photo'),
         earned: hasPhoto || earnedSet.has('photo_log'),
         progress: hasPhoto ? 1 : 0,
-        progressLabel: hasPhoto ? 'Done' : 'Not yet',
+        progressLabel: hasPhoto ? t('badge.done') : t('badge.not_yet'),
         xp: 30, rarity: 'rare' as const,
       },
       {
         id: 'all_meals', icon: 'i-sparkle' as IconName,
-        name: 'Full Day', description: 'Log breakfast, lunch & dinner',
+        name: t('badge.full_day'), description: t('badge.desc_full_day'),
         earned: allFive || earnedSet.has('all_meals'),
         progress: Math.min(mealTypeCount / 3, 1),
         progressLabel: `${Math.min(mealTypeCount, 3)}/3`,
@@ -131,7 +131,7 @@ export default function MealBadges({ todayLog, streak, targets }: MealBadgesProp
       },
       {
         id: 'streak_7', icon: 'i-target' as IconName,
-        name: '7-Day Streak', description: 'Log meals 7 days in a row',
+        name: t('badge.streak_7'), description: t('badge.desc_streak_7'),
         earned: streak >= 7 || earnedSet.has('streak_7'),
         progress: Math.min(streak / 7, 1),
         progressLabel: `${Math.min(streak, 7)}/7d`,
@@ -139,7 +139,7 @@ export default function MealBadges({ todayLog, streak, targets }: MealBadgesProp
       },
       {
         id: 'streak_30', icon: 'i-trophy' as IconName,
-        name: '30-Day Legend', description: '30-day logging streak',
+        name: t('badge.streak_30'), description: t('badge.desc_streak_30'),
         earned: streak >= 30 || earnedSet.has('streak_30'),
         progress: Math.min(streak / 30, 1),
         progressLabel: `${Math.min(streak, 30)}/30d`,
@@ -147,14 +147,14 @@ export default function MealBadges({ todayLog, streak, targets }: MealBadgesProp
       },
       {
         id: 'streak_100', icon: 'i-zap' as IconName,
-        name: 'Century', description: '100 consecutive days logged',
+        name: t('badge.century'), description: t('badge.desc_century'),
         earned: streak >= 100 || earnedSet.has('streak_100'),
         progress: Math.min(streak / 100, 1),
         progressLabel: `${Math.min(streak, 100)}/100d`,
         xp: 500, rarity: 'legendary' as const,
       },
     ];
-  }, [todayLog, streak, targets, earnedSet]);
+  }, [todayLog, streak, targets, earnedSet, t]);
 
   // Detect newly earned
   useEffect(() => {
@@ -287,7 +287,7 @@ export default function MealBadges({ todayLog, streak, targets }: MealBadgesProp
             {/* XP total bar */}
             <div className="mt-3 pt-2.5" style={{ borderTop: '1px solid rgba(255,255,255,.05)' }}>
               <div className="flex items-center justify-between mb-1.5">
-                <span style={{ fontSize: 9, color: 'var(--t4)' }}>Total XP earned</span>
+                <span style={{ fontSize: 9, color: 'var(--t4)' }}>{t('badge.total_xp')}</span>
                 <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--gold-300,#D4A853)', fontFamily: 'var(--font-mono)' }}>
                   {totalXp} / {badges.reduce((s, b) => s + b.xp, 0)} XP
                 </span>

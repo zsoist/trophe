@@ -606,7 +606,7 @@ export default function DashboardPage() {
           <div className="row-b mb-2.5">
             <div className="row-i" style={{ gap: 6 }}>
               <Icon name="i-drop" size={13} style={{ color: 'var(--info,#7DA3D9)' }} />
-              <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--t1)' }}>Water</span>
+              <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--t1)' }}>{t('water.title')}</span>
               <span style={{ fontSize: 9, color: 'var(--info,#7DA3D9)', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
                 {totalWater}ml
               </span>
@@ -681,7 +681,7 @@ export default function DashboardPage() {
               disabled={addingWater}
             >
               <Icon name="i-plus" size={10} style={{ verticalAlign: -1, marginRight: 3 }} />
-              Log
+              {t('water.log')}
             </motion.button>
           </div>
         </motion.div>
@@ -701,9 +701,9 @@ export default function DashboardPage() {
               onClick={() => router.push('/dashboard/log')}
             >
               <Icon name="i-bowl" size={26} style={{ color: 'var(--gold-300,#D4A853)' }} />
-              <div style={{ fontSize: 13, fontWeight: 700, marginTop: 7, color: 'var(--t1)', letterSpacing: '-.01em' }}>Food</div>
+              <div style={{ fontSize: 13, fontWeight: 700, marginTop: 7, color: 'var(--t1)', letterSpacing: '-.01em' }}>{t('home.food')}</div>
               <div className="ds-sub" style={{ marginTop: 3, fontSize: 9 }}>
-                {foodLog.length > 0 ? `${foodLog.length} entr${foodLog.length === 1 ? 'y' : 'ies'} today` : 'Log a meal'}
+                {foodLog.length > 0 ? `${foodLog.length} ${t('home.entries_n')}` : t('home.log_a_meal')}
               </div>
             </motion.button>
             <motion.button
@@ -713,21 +713,21 @@ export default function DashboardPage() {
               onClick={() => router.push('/dashboard/workout')}
             >
               <Icon name="i-dumbbell" size={26} style={{ color: 'var(--gold-300,#D4A853)' }} />
-              <div style={{ fontSize: 13, fontWeight: 700, marginTop: 7, color: 'var(--t1)', letterSpacing: '-.01em' }}>Workout</div>
-              <div className="ds-sub" style={{ marginTop: 3, fontSize: 9 }}>Log session</div>
+              <div style={{ fontSize: 13, fontWeight: 700, marginTop: 7, color: 'var(--t1)', letterSpacing: '-.01em' }}>{t('home.workout')}</div>
+              <div className="ds-sub" style={{ marginTop: 3, fontSize: 9 }}>{t('home.log_session')}</div>
             </motion.button>
           </div>
 
           {/* Secondary: Water / Supps / Progress / Check-in — 4-col */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
             {([
-              { icon: 'i-drop',     label: 'Water',    action: () => addWater(), sub: `${waterGlasses}/${targetGlasses}` },
-              { icon: 'i-sparkle',  label: 'Supps',    action: () => router.push('/dashboard/supplements'), sub: null },
-              { icon: 'i-chart',    label: 'Progress', action: () => router.push('/dashboard/progress'), sub: null },
-              { icon: 'i-calendar', label: 'Check-in', action: () => router.push('/dashboard/checkin'), sub: null },
+              { icon: 'i-drop',     labelKey: 'home.water_short', action: () => addWater(), sub: `${waterGlasses}/${targetGlasses}` },
+              { icon: 'i-sparkle',  labelKey: 'home.supps',       action: () => router.push('/dashboard/supplements'), sub: null },
+              { icon: 'i-chart',    labelKey: 'home.progress',    action: () => router.push('/dashboard/progress'), sub: null },
+              { icon: 'i-calendar', labelKey: 'home.check_in',    action: () => router.push('/dashboard/checkin'), sub: null },
             ] as const).map(a => (
               <motion.button
-                key={a.label}
+                key={a.labelKey}
                 className="card"
                 whileTap={{ scale: 0.94 }}
                 style={{ padding: '11px 4px 9px', textAlign: 'center', cursor: 'pointer' }}
@@ -735,7 +735,7 @@ export default function DashboardPage() {
               >
                 <Icon name={a.icon as Parameters<typeof Icon>[0]['name']} size={17}
                   style={{ color: 'var(--gold-300,#D4A853)' }} />
-                <div style={{ fontSize: 10, fontWeight: 600, marginTop: 5, color: 'var(--t2)' }}>{a.label}</div>
+                <div style={{ fontSize: 10, fontWeight: 600, marginTop: 5, color: 'var(--t2)' }}>{t(a.labelKey)}</div>
                 {a.sub && <div className="ds-sub" style={{ fontSize: 8, marginTop: 1 }}>{a.sub}</div>}
               </motion.button>
             ))}
@@ -748,22 +748,22 @@ export default function DashboardPage() {
           let text = '';
           let color = 'var(--gold-300,#D4A853)';
           if (foodLog.length === 0) {
-            icon = 'i-leaf'; text = 'Log your first meal to start tracking today'; color = 'var(--t3)';
+            icon = 'i-leaf'; text = t('insight.log_first'); color = 'var(--t3)';
           } else if (totalSugar > 30) {
-            icon = 'i-flame'; text = `Sugar at ${Math.round(totalSugar)}g — WHO limit is 25g`; color = '#f59e0b';
+            icon = 'i-flame'; text = t('insight.sugar_high', { n: Math.round(totalSugar) }); color = '#f59e0b';
           } else if ((totalProtein / targetProtein) < 0.3) {
             icon = 'i-dumbbell';
-            text = `${Math.round(targetProtein - totalProtein)}g protein left — add a lean source`; color = 'var(--err,#E87A6E)';
+            text = t('insight.protein_low', { n: Math.round(targetProtein - totalProtein) }); color = 'var(--err,#E87A6E)';
           } else if (totalWater < 500) {
-            icon = 'i-drop'; text = 'Hydration low — drink a glass of water now'; color = 'var(--info,#7DA3D9)';
+            icon = 'i-drop'; text = t('insight.hydration_low'); color = 'var(--info,#7DA3D9)';
           } else if (totalCalories >= targetCalories) {
-            icon = 'i-target'; text = 'Daily calorie goal reached'; color = 'var(--ok,#65D387)';
+            icon = 'i-target'; text = t('insight.goal_reached'); color = 'var(--ok,#65D387)';
           } else if ((totalCalories / targetCalories) > 0.8) {
             icon = 'i-check';
-            text = `${remaining.toLocaleString()} kcal remaining — almost there`; color = 'var(--ok,#65D387)';
+            text = t('insight.almost_there', { n: remaining.toLocaleString() }); color = 'var(--ok,#65D387)';
           } else {
             icon = 'i-zap';
-            text = `${Math.round((totalCalories / targetCalories) * 100)}% of daily calories logged`; color = 'var(--gold-300,#D4A853)';
+            text = t('insight.pct_logged', { n: Math.round((totalCalories / targetCalories) * 100) }); color = 'var(--gold-300,#D4A853)';
           }
           return (
             <motion.div
@@ -800,7 +800,7 @@ export default function DashboardPage() {
             </div>
             <div>
               <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--t1)' }}>
-                {coachName ? `Coach ${coachName}` : 'Your Coach'}
+                {coachName ? `${t('coach_msg.coach_prefix')} ${coachName}` : t('coach_msg.your_coach')}
               </div>
               {latestCoachNote && (
                 <div style={{ fontSize: 9, color: 'var(--t4)', marginTop: 1, lineHeight: 1.4, maxWidth: 220 }} className="truncate">
@@ -816,7 +816,7 @@ export default function DashboardPage() {
               style={{ textAlign: 'center', padding: '8px 0', fontSize: 11, color: 'var(--ok,#65D387)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}
             >
               <Icon name="i-check" size={12} />
-              Message sent to coach
+              {t('coach_msg.sent_confirm')}
             </motion.div>
           ) : (
             <div style={{ display: 'flex', gap: 6 }}>
@@ -824,7 +824,7 @@ export default function DashboardPage() {
                 value={coachMessage}
                 onChange={e => setCoachMessage(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && sendCoachMessage()}
-                placeholder="Quick message to coach..."
+                placeholder={t('coach_msg.placeholder')}
                 style={{
                   flex: 1, background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.08)',
                   borderRadius: 10, padding: '7px 10px', fontSize: 11, color: 'var(--t1)',

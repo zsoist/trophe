@@ -124,38 +124,18 @@ function loadStoredMealSlots(): MealSlot[] | null {
   }
 }
 
-// Health tips — context-aware, rotates hourly. 7 days × ~3 tips/day = 21+ unique tips
-const HEALTH_TIPS = [
-  // Protein
-  'Aim for 20-40g protein per meal — this maximizes muscle protein synthesis (ISSN Position Stand)',
-  'Spreading protein across 4+ meals improves absorption vs loading it all at dinner',
-  'Leucine-rich proteins (eggs, dairy, chicken) trigger the strongest anabolic response',
-  'Your body can use ~0.4g/kg protein per meal. More than that? Still useful, just less efficient',
-  'Greek yogurt has 2x the protein of regular yogurt — an easy swap for any snack',
-  // Timing
-  'Eating within 2 hours of waking jumpstarts your metabolism for the day',
-  'Late-night eating isn\'t inherently bad — total daily calories matter more than timing',
-  'A protein-rich breakfast reduces ghrelin (hunger hormone) for up to 4 hours',
-  'Post-workout protein within 2h optimizes recovery — but the "anabolic window" is wider than you think',
-  // Fiber & Micronutrients
-  'Only 5% of adults hit the fiber target (25-38g). Vegetables, beans, and whole grains are your best sources',
-  'Beans and lentils are the only food that\'s both high-protein AND high-fiber',
-  'Eating vegetables BEFORE carbs in a meal reduces blood sugar spikes by up to 35%',
-  'An apple has 4.5g fiber — that\'s 15% of your daily target in one snack',
-  // Hydration
-  'Even 2% dehydration reduces cognitive performance. Drink before you feel thirsty',
-  'Water with meals aids digestion — the old "don\'t drink during meals" advice is a myth',
-  // Fat
-  'Healthy fats (avocado, olive oil, nuts) improve vitamin absorption from vegetables',
-  'Omega-3 fatty acids reduce inflammation — aim for fatty fish 2x per week',
-  // General
-  'People who track food consistently lose 2x more weight than those who don\'t (NIH study)',
-  'Hitting 80% of your targets consistently beats hitting 100% occasionally',
-  'Your BMR accounts for 60-75% of daily calories — most energy goes to just existing',
-  'The gut-brain axis means what you eat directly affects mood and focus within hours',
-];
+// Health tips keyed for i18n — used by getHealthTip()
+const HEALTH_TIP_KEYS = [
+  'tip.protein_1','tip.protein_2','tip.protein_3','tip.protein_4','tip.protein_5',
+  'tip.timing_1','tip.timing_2','tip.timing_3','tip.timing_4',
+  'tip.fiber_1','tip.fiber_2','tip.fiber_3','tip.fiber_4',
+  'tip.hydration_1','tip.hydration_2',
+  'tip.fat_1','tip.fat_2',
+  'tip.general_1','tip.general_2','tip.general_3','tip.general_4',
+] as const;
 
 function getHealthTip(
+  t: (key: string, params?: Record<string, string | number>) => string,
   protein: number,
   calories: number,
   targets: { calories: number; protein_g: number },
@@ -165,37 +145,23 @@ function getHealthTip(
   const hour = new Date().getHours();
   const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
 
-  // Context-aware tips take priority
-  if (filledCount === 0 && hour < 12) {
-    return 'Start your day right — a protein-rich breakfast reduces cravings by up to 60%';
-  }
-  if (filledCount === 0 && hour >= 12) {
-    return 'No meals logged yet today — even a quick entry helps build the tracking habit';
-  }
+  if (filledCount === 0 && hour < 12)  return t('tip.start_day');
+  if (filledCount === 0 && hour >= 12) return t('tip.no_meals_yet');
   if (targets.protein_g > 0 && protein < targets.protein_g * 0.3 && filledCount >= 2) {
-    const remaining = Math.round(targets.protein_g - protein);
-    return `${remaining}g protein to go — high-protein options: chicken (31g/150g), eggs (6g each), Greek yogurt (15g)`;
+    return t('tip.protein_to_go', { n: Math.round(targets.protein_g - protein) });
   }
-  if (targets.calories > 0 && calories > targets.calories * 1.1) {
-    return 'You\'re over your calorie target — that\'s OK occasionally. Focus on protein and fiber for the rest of the day';
-  }
+  if (targets.calories > 0 && calories > targets.calories * 1.1) return t('tip.over_calories');
   if (nextUnfilled && filledCount > 0 && filledCount < 4) {
-    // Only suggest meals that match the current time of day
     const mealTimeOk = (nextUnfilled.mealType === 'breakfast' && hour < 11)
       || (nextUnfilled.mealType === 'snack' && hour >= 10 && hour < 20)
       || (nextUnfilled.mealType === 'lunch' && hour >= 11 && hour < 16)
       || (nextUnfilled.mealType === 'dinner' && hour >= 17);
-    if (mealTimeOk) {
-      return `Time for ${nextUnfilled.label.toLowerCase()}! Log it to keep your streak going`;
-    }
+    if (mealTimeOk) return t('tip.time_for_meal', { meal: nextUnfilled.label.toLowerCase() });
   }
-  if (filledCount >= 4) {
-    return 'Almost done! Lock your meals when finished — consistency is the #1 predictor of success';
-  }
+  if (filledCount >= 4) return t('tip.almost_done');
 
-  // Rotate through general tips — changes every hour
-  const tipIndex = (dayOfYear * 24 + hour) % HEALTH_TIPS.length;
-  return HEALTH_TIPS[tipIndex];
+  const tipIndex = (dayOfYear * 24 + hour) % HEALTH_TIP_KEYS.length;
+  return t(HEALTH_TIP_KEYS[tipIndex]);
 }
 
 export default function FoodLogPage() {
@@ -655,7 +621,7 @@ export default function FoodLogPage() {
           className="mb-3 px-3 py-2 rounded-lg bg-[#D4A853]/10 border border-[#D4A853]/20"
         >
           <p className="text-xs text-[#D4A853]">
-            {getHealthTip(totalProtein, totalCalories, targets, filledCount, nextUnfilled)}
+            {getHealthTip(t, totalProtein, totalCalories, targets, filledCount, nextUnfilled)}
           </p>
         </motion.div>
 

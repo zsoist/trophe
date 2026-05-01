@@ -83,6 +83,7 @@ interface CategoryProps {
 }
 
 function MacroCategory({ title, icon, color, remaining, unit, ideas, onSelect }: CategoryProps) {
+  const { t } = useI18n();
   const relevant = ideas
     .filter(f => f.macroValue <= remaining * 1.3)
     .slice(0, 4);
@@ -94,10 +95,10 @@ function MacroCategory({ title, icon, color, remaining, unit, ideas, onSelect }:
       <div className="flex items-center justify-between mb-2">
         <span className={`text-xs font-medium flex items-center gap-1 ${color}`}>
           <Icon name={icon} size={13} />
-          {title}
+          {t(title)}
         </span>
         <span className={`text-[10px] ${color}`}>
-          {Math.round(remaining)}{unit} to go
+          {Math.round(remaining)}{unit} {t('ideas.to_go')}
         </span>
       </div>
       <div className="grid grid-cols-2 gap-2">
@@ -154,6 +155,7 @@ function MacroBar({ label, value, unit, color, max }: { label: string; value: nu
 }
 
 function FoodDetailModal({ idea, color, icon, onClose }: FoodDetailModalProps) {
+  const { t } = useI18n();
   // Lock body scroll
   useEffect(() => {
     const prev = document.body.style.overflow;
@@ -242,7 +244,7 @@ function FoodDetailModal({ idea, color, icon, onClose }: FoodDetailModalProps) {
 
         {/* Macro breakdown */}
         <div className="px-5 pb-4">
-          <p className="text-[10px] text-stone-600 uppercase tracking-wider font-semibold mb-3">Nutrition per serving</p>
+          <p className="text-[10px] text-stone-600 uppercase tracking-wider font-semibold mb-3">{t('ideas.nutrition')}</p>
           <div className="space-y-2.5">
             <MacroBar label="Protein"  value={idea.protein} unit="g" color="#f87171" max={maxMacro} />
             <MacroBar label="Carbs"    value={idea.carbs}   unit="g" color="#60a5fa" max={maxMacro} />
@@ -260,7 +262,7 @@ function FoodDetailModal({ idea, color, icon, onClose }: FoodDetailModalProps) {
               <Icon name="i-sparkle" size={12} className="text-amber-400" />
             </div>
             <div>
-              <p className="text-[10px] text-amber-400 font-semibold uppercase tracking-wider mb-1">Fun fact</p>
+              <p className="text-[10px] text-amber-400 font-semibold uppercase tracking-wider mb-1">{t('ideas.fun_fact')}</p>
               <p className="text-stone-300 text-xs leading-relaxed">{idea.funFact}</p>
             </div>
           </div>
@@ -277,7 +279,7 @@ function FoodDetailModal({ idea, color, icon, onClose }: FoodDetailModalProps) {
             </div>
             <div className="flex-1">
               <div className="flex items-center justify-between mb-1">
-                <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color }}>Quick recipe</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color }}>{t('ideas.quick_recipe')}</p>
                 <span className="text-[9px] text-stone-600 bg-white/5 px-2 py-0.5 rounded-full">{idea.prepTime}</span>
               </div>
               <p className="text-stone-300 text-xs leading-relaxed">{idea.recipe}</p>
@@ -304,11 +306,12 @@ interface CategoryConfig {
 
 const placeholderConsumed = { protein: 0, carbs: 0, fat: 0, fiber: 0 };
 
+// titles are i18n keys — resolved inside MacroCategory via t()
 const CATEGORIES: CategoryConfig[] = [
-  { title: 'Protein',      icon: 'i-dumbbell', color: 'text-red-400',    colorHex: '#f87171', unit: 'g', field: 'protein', ideas: PROTEIN_IDEAS },
-  { title: 'Fiber',        icon: 'i-leaf',     color: 'text-green-400',  colorHex: '#4ade80', unit: 'g', field: 'fiber',   ideas: FIBER_IDEAS   },
-  { title: 'Healthy Fats', icon: 'i-drop',     color: 'text-purple-400', colorHex: '#c084fc', unit: 'g', field: 'fat',     ideas: FAT_IDEAS     },
-  { title: 'Carbs',        icon: 'i-zap',      color: 'text-blue-400',   colorHex: '#60a5fa', unit: 'g', field: 'carbs',   ideas: CARB_IDEAS    },
+  { title: 'ideas.protein', icon: 'i-dumbbell', color: 'text-red-400',    colorHex: '#f87171', unit: 'g', field: 'protein', ideas: PROTEIN_IDEAS },
+  { title: 'ideas.fiber',   icon: 'i-leaf',     color: 'text-green-400',  colorHex: '#4ade80', unit: 'g', field: 'fiber',   ideas: FIBER_IDEAS   },
+  { title: 'ideas.fat',     icon: 'i-drop',     color: 'text-purple-400', colorHex: '#c084fc', unit: 'g', field: 'fat',     ideas: FAT_IDEAS     },
+  { title: 'ideas.carbs',   icon: 'i-zap',      color: 'text-blue-400',   colorHex: '#60a5fa', unit: 'g', field: 'carbs',   ideas: CARB_IDEAS    },
 ];
 
 export default memo(function MacroFoodIdeas({ consumed, targets }: MacroFoodIdeasProps) {
