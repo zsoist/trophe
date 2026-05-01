@@ -5,6 +5,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { AnimatePresence } from 'framer-motion';
 import { Plus, Check, X, Droplets } from 'lucide-react';
+import { Icon } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
 import type { ClientProfile, ClientHabit, HabitCheckin, FoodLogEntry, WaterLogEntry, Mood, Profile } from '@/lib/types';
 import BottomNav from '@/components/BottomNav';
@@ -138,15 +139,15 @@ type HeroMetricKey = 'calories' | 'protein' | 'habit' | 'meals' | 'water';
 interface HeroMetric {
   key: HeroMetricKey;
   label: string;
-  emoji: string;
+  icon: string;
 }
 
 const HERO_METRICS: HeroMetric[] = [
-  { key: 'calories', label: 'Calories', emoji: '🔥' },
-  { key: 'protein', label: 'Protein', emoji: '💪' },
-  { key: 'habit', label: 'Habit streak', emoji: '🎯' },
-  { key: 'meals', label: 'Meals logged', emoji: '🍽️' },
-  { key: 'water', label: 'Water', emoji: '💧' },
+  { key: 'calories', label: 'Calories', icon: 'i-flame' },
+  { key: 'protein', label: 'Protein', icon: 'i-dumbbell' },
+  { key: 'habit', label: 'Habit streak', icon: 'i-target' },
+  { key: 'meals', label: 'Meals logged', icon: 'i-bowl' },
+  { key: 'water', label: 'Water', icon: 'i-drop' },
 ];
 
 function loadHeroMetric(): HeroMetricKey {
@@ -544,7 +545,9 @@ export default function DashboardPage() {
               className="text-[11px] text-stone-500 hover:gold-text flex items-center gap-1.5 transition-colors"
               aria-label="Choose hero metric"
             >
-              <span>{HERO_METRICS.find((m) => m.key === heroMetric)?.emoji}</span>
+              {HERO_METRICS.find((m) => m.key === heroMetric)?.icon && (
+                <Icon name={HERO_METRICS.find((m) => m.key === heroMetric)!.icon as Parameters<typeof Icon>[0]['name']} size={14} />
+              )}
               <span>{HERO_METRICS.find((m) => m.key === heroMetric)?.label}</span>
               <span className="opacity-60">▾</span>
             </button>
@@ -572,7 +575,7 @@ export default function DashboardPage() {
                             : 'border border-white/5 text-stone-500 hover:text-stone-300'
                         }`}
                       >
-                        <span className="text-base">{m.emoji}</span>
+                        <Icon name={m.icon as Parameters<typeof Icon>[0]['name']} size={16} />
                         <span>{m.label}</span>
                       </button>
                     );
@@ -705,7 +708,8 @@ export default function DashboardPage() {
                         : 'bg-red-500/10 text-red-400 border border-red-500/20'
                     }`}
                   >
-                    {todayCheckin.completed ? '✅ Done today' : '❌ Skipped today'}
+                    <Icon name={todayCheckin.completed ? 'i-check' : 'i-x'} size={12} className="inline-block mr-1" />
+                    {todayCheckin.completed ? 'Done today' : 'Skipped today'}
                   </div>
                 </div>
               ) : (
@@ -772,10 +776,10 @@ export default function DashboardPage() {
           className="grid grid-cols-2 gap-3 mb-4"
         >
           {[
-            { emoji: '🍽️', label: 'Log Food', href: '/dashboard/log' },
-            { emoji: '💪', label: 'Workout', href: '/dashboard/workout' },
-            { emoji: '💧', label: 'Water', href: null },
-            { emoji: '📊', label: 'Progress', href: '/dashboard/progress' },
+            { icon: 'i-bowl',     label: 'Log Food', href: '/dashboard/log' },
+            { icon: 'i-dumbbell', label: 'Workout', href: '/dashboard/workout' },
+            { icon: 'i-drop',     label: 'Water', href: null },
+            { icon: 'i-graph-up', label: 'Progress', href: '/dashboard/progress' },
           ].map((action) => (
             <button
               key={action.label}
@@ -790,7 +794,7 @@ export default function DashboardPage() {
               }}
               className="glass p-4 flex flex-col items-center gap-2 active:scale-95 transition-transform"
             >
-              <span className="text-2xl">{action.emoji}</span>
+              <Icon name={action.icon as Parameters<typeof Icon>[0]['name']} size={24} />
               <span className="text-xs font-medium text-stone-300">{action.label}</span>
             </button>
           ))}

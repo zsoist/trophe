@@ -6,39 +6,133 @@
    ═══════════════════════════════════════════════ */
 
 @theme inline {
-  --color-gold: #D4A853;
-  --color-gold-light: #E8C878;
-  --color-gold-dark: #B8923E;
-  --color-surface: #141414;
+  /* ── Gold spectrum (Brand Master v1.0) ── */
+  --color-gold-50:  #FAF3E2;
+  --color-gold-100: #F2E2B8;
+  --color-gold-200: #E8C078;
+  --color-gold-300: #D4A853;  /* primary */
+  --color-gold-400: #B8923E;
+  --color-gold-500: #8B6E2B;
+  --color-gold-600: #5A4719;
+  /* Legacy compat aliases */
+  --color-gold:       #D4A853;
+  --color-gold-light: #E8C078;
+  --color-gold-dark:  #B8923E;
+
+  /* ── Neutral dark surfaces ── */
+  --color-bg:   #0a0a0a;
+  --color-bg-1: #111111;
+  --color-bg-2: #161616;
+  --color-bg-3: #1c1c1c;
+  --color-bg-4: #242424;
+  /* Legacy compat aliases */
+  --color-surface:          #141414;
   --color-surface-elevated: #1a1a1a;
-  --color-surface-hover: #222222;
-  --color-border: #2a2a2a;
-  --color-border-light: #333333;
-  --color-text-primary: #f5f5f4;
-  --color-text-secondary: #a8a29e;
-  --color-text-muted: #78716c;
-  --color-text-faint: #78716c;
-  --color-text-dim: #57534e;
-  --color-text-ink: #44403c;
-  --color-success: #22c55e;
-  --color-warning: #f59e0b;
-  --color-danger: #ef4444;
-  --font-sans: var(--font-inter);
-  --font-serif: var(--font-playfair);
-  --font-mono: var(--font-jetbrains-mono);
+  --color-surface-hover:    #222222;
+  --color-border:           #2a2a2a;
+  --color-border-light:     #333333;
+
+  /* ── Text tokens ── */
+  --color-t1: #FAFAF9;
+  --color-t2: #D6D3D1;
+  --color-t3: #A8A29E;
+  --color-t4: #78716C;
+  --color-t5: #57534E;
+  --color-t6: #3a3633;
+  /* Legacy compat aliases */
+  --color-text-primary:   #FAFAF9;
+  --color-text-secondary: #A8A29E;
+  --color-text-muted:     #78716C;
+  --color-text-faint:     #78716C;
+  --color-text-dim:       #57534E;
+  --color-text-ink:       #44403C;
+
+  /* ── Semantic colors (Brand Master) ── */
+  --color-ok:   #65D387;
+  --color-warn: #E8B86E;
+  --color-err:  #E87A6E;
+  --color-info: #7DA3D9;
+  --color-plum: #B89DD9;
+  /* Legacy compat aliases */
+  --color-success: #65D387;
+  --color-warning: #E8B86E;
+  --color-danger:  #E87A6E;
+
+  /* ── Fonts ── */
+  --font-sans:    var(--font-inter);
+  --font-serif:   var(--font-instrument-serif);
+  --font-display: var(--font-instrument-serif);
+  --font-mono:    var(--font-jetbrains-mono);
+  /* Backward compat: components still referencing --font-playfair get Instrument Serif */
+  --font-playfair: var(--font-instrument-serif);
 }
 
-/* ─── Theme Mode Variables ─── */
+/* ─── Design Tokens (Brand Master v1.0) ─── */
 :root {
+  /* Gold spectrum */
+  --gold-50:  #FAF3E2;
+  --gold-100: #F2E2B8;
+  --gold-200: #E8C078;
+  --gold-300: #D4A853;
+  --gold-400: #B8923E;
+  --gold-500: #8B6E2B;
+  --gold-600: #5A4719;
+
+  /* Ground */
+  --bg:    #0a0a0a;
+  --bg-1:  #111111;
+  --bg-2:  #161616;
+  --bg-3:  #1c1c1c;
+  --bg-4:  #242424;
+
+  /* Text */
+  --t1: #FAFAF9;  --t2: #D6D3D1;  --t3: #A8A29E;
+  --t4: #78716C;  --t5: #57534E;  --t6: #3a3633;
+
+  /* Lines */
+  --line:    rgba(255,255,255,.06);
+  --line-2:  rgba(255,255,255,.10);
+  --line-g:  rgba(212,168,83,.18);
+
+  /* Semantic */
+  --ok:    #65D387;
+  --warn:  #E8B86E;
+  --err:   #E87A6E;
+  --info:  #7DA3D9;
+  --plum:  #B89DD9;
+
+  /* Radius */
+  --r-sm:   6px;
+  --r:      10px;
+  --r-md:   14px;
+  --r-lg:   20px;
+  --r-xl:   28px;
+  --r-pill: 999px;
+
+  /* Shadow */
+  --shadow-soft: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -8px rgba(0,0,0,.5);
+  --shadow-gold: 0 12px 40px -12px rgba(212,168,83,.4);
+
+  /* Type */
+  --font-display: var(--font-instrument-serif);
+  --font-ui:      var(--font-inter);
+  --font-mono:    var(--font-jetbrains-mono);
+
+  /* Spacing · 4pt grid */
+  --s-1: 4px;   --s-2: 8px;   --s-3: 12px;
+  --s-4: 16px;  --s-5: 24px;  --s-6: 32px;
+  --s-7: 48px;  --s-8: 64px;  --s-9: 96px;
+
+  /* ── Legacy aliases (kept for existing component compat) ── */
   --bg-primary: #0a0a0a;
   --bg-card: rgba(26, 26, 26, 0.7);
   --bg-card-elevated: rgba(30, 30, 30, 0.8);
   --bg-surface: #141414;
   --bg-surface-hover: #222222;
   --bg-input: #141414;
-  --text-primary: #f5f5f4;
-  --text-secondary: #a8a29e;
-  --text-muted: #78716c;
+  --text-primary: #FAFAF9;
+  --text-secondary: #A8A29E;
+  --text-muted: #78716C;
   --border-subtle: rgba(255, 255, 255, 0.06);
   --border-default: #2a2a2a;
   --border-light: #333333;

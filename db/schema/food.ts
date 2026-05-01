@@ -13,9 +13,13 @@ import {
   pgPolicy,
   check,
   unique,
+  numeric,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { profiles } from './profiles';
+// Phase 4: FK to canonical foods table. Imported lazily to avoid circular dep.
+// The actual FK constraint is created in the migration SQL.
+// import { foods } from './foods'; // ← use in Phase 4 full queries
 
 /**
  * Food-related tables.
@@ -46,6 +50,29 @@ export const foodLog = pgTable('food_log', {
   source: text(),
   sourceId: text('source_id'),
   photoUrl: text('photo_url'),
+
+  // ── Phase 4 additions — deterministic macro pipeline ──────────────
+  // food_id links to the canonical foods table (nullable — legacy rows have null).
+  // When food_id IS NOT NULL, macros are computed deterministically:
+  //   kcal = qty_g * foods.kcal_per_100g / 100  (no LLM numbers)
+  foodId: uuid('food_id'),
+
+  // Grams resolved via food_unit_conversions lookup. NULL = legacy row.
+  qtyG: numeric('qty_g', { precision: 8, scale: 2 }),
+
+  // Raw qty + unit as the user typed / LLM parsed (preserved for display).
+  qtyInput: numeric('qty_input', { precision: 8, scale: 2 }),
+  qtyInputUnit: text('qty_input_unit'),
+
+  // FK to the specific food_unit_conversions row used for this entry.
+  conversionId: uuid('conversion_id'),
+
+  // How confident the LLM was in the food identification (0–1).
+  parseConfidence: real('parse_confidence'),
+
+  // Was the food name recognized by the LLM (true) or estimated (false)?
+  llmRecognized: boolean('llm_recognized'),
+
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
 }, (table) => [
   index('idx_food_log_user_date').using('btree', table.userId.asc().nullsLast().op('date_ops'), table.loggedDate.asc().nullsLast().op('date_ops')),

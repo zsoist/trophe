@@ -51,6 +51,7 @@ import CalorieCyclingPlanner from '@/components/coach/CalorieCyclingPlanner';
 import RecoveryScore from '@/components/coach/RecoveryScore';
 import MealPatternView from '@/components/coach/MealPatternView';
 import { localToday, localDateStr } from '../../../../lib/dates';
+import { Icon } from '@/components/ui';
 import type {
   Profile,
   ClientProfile,
@@ -1040,7 +1041,7 @@ export default function ClientDetailPage() {
               className="glass celebration-glow gold-border p-5 mb-4"
             >
               <div className="flex items-center gap-3 mb-3">
-                <span className="text-3xl">🎯</span>
+                <Icon name="i-target" size={28} className="text-[#D4A853] flex-shrink-0" />
                 <div className="flex-1">
                   <h3 className="font-bold text-[#D4A853] text-lg">Ready for Progression!</h3>
                   <p className="text-stone-400 text-xs mt-0.5">

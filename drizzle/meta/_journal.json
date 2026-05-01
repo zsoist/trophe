@@ -22,6 +22,20 @@
       "when": 1777648300000,
       "tag": "0002_role_backfill",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1777649617117,
+      "tag": "0003_flashy_molly_hayes",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1777650328020,
+      "tag": "0004_first_mongu",
+      "breakpoints": true
     }
   ]
 }

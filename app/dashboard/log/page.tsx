@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Copy, Lock, Flame, Undo2, Star, Settings, ChefHat } from 'lucide-react';
+import { Icon } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
 import type { FoodLogEntry, MealType } from '@/lib/types';
@@ -39,11 +40,11 @@ import { useTheme } from '@/components/ThemePicker';
 import { localToday, localDateStr } from '../../../lib/dates';
 
 const DEFAULT_MEAL_SLOTS: MealSlot[] = [
-  { id: 'breakfast', mealType: 'breakfast', label: 'Breakfast', emoji: '🌅', order: 0 },
-  { id: 'snack_am', mealType: 'snack', label: 'Morning Snack', emoji: '🍎', order: 1 },
-  { id: 'lunch', mealType: 'lunch', label: 'Lunch', emoji: '☀️', order: 2 },
-  { id: 'snack_pm', mealType: 'snack', label: 'Afternoon Snack', emoji: '🥜', order: 3 },
-  { id: 'dinner', mealType: 'dinner', label: 'Dinner', emoji: '🌙', order: 4 },
+  { id: 'breakfast', mealType: 'breakfast', label: 'Breakfast', icon: 'i-sun', order: 0 },
+  { id: 'snack_am', mealType: 'snack', label: 'Morning Snack', icon: 'i-apple', order: 1 },
+  { id: 'lunch', mealType: 'lunch', label: 'Lunch', icon: 'i-bowl', order: 2 },
+  { id: 'snack_pm', mealType: 'snack', label: 'Afternoon Snack', icon: 'i-leaf', order: 3 },
+  { id: 'dinner', mealType: 'dinner', label: 'Dinner', icon: 'i-moon', order: 4 },
 ];
 
 function getLocalizedSlots(t: (key: string) => string): MealSlot[] {
@@ -206,7 +207,7 @@ function getHealthTip(
       || (nextUnfilled.mealType === 'lunch' && hour >= 11 && hour < 16)
       || (nextUnfilled.mealType === 'dinner' && hour >= 17);
     if (mealTimeOk) {
-      return `${nextUnfilled.emoji} Time for ${nextUnfilled.label.toLowerCase()}! Log it to keep your streak going`;
+      return `Time for ${nextUnfilled.label.toLowerCase()}! Log it to keep your streak going`;
     }
   }
   if (filledCount >= 4) {

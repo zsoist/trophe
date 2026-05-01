@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Playfair_Display, JetBrains_Mono } from "next/font/google";
+import { Inter, Instrument_Serif, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import Providers from "@/components/Providers";
 
@@ -9,19 +9,25 @@ const inter = Inter({
   display: "swap",
 });
 
-const playfair = Playfair_Display({
-  variable: "--font-playfair",
+/**
+ * Brand Master v1.0 — primary display font.
+ * Replaces Playfair Display (Phase 8 design handoff, Apr 18 2026).
+ * Rule: italic 400 only — no bold, no roman in wordmark or display.
+ * Exposed as --font-instrument-serif; --font-serif re-aliased below.
+ * --font-playfair kept as compat alias for legacy component references.
+ */
+const instrumentSerif = Instrument_Serif({
+  variable: "--font-instrument-serif",
+  weight: "400",
+  style: ["normal", "italic"],
   subsets: ["latin"],
   display: "swap",
 });
 
-// v0.3 design handoff uses JetBrains Mono for chrome (route paths, labels,
-// brand eyebrow, mono labels, section titles). Loaded once, exposed as
-// --font-jetbrains-mono → mapped to --font-mono in @theme.
 const jetbrainsMono = JetBrains_Mono({
   variable: "--font-jetbrains-mono",
   subsets: ["latin"],
-  weight: ["400", "600"],
+  weight: ["400", "500", "600"],
   display: "swap",
 });
 
@@ -33,6 +39,13 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: "black-translucent",
     title: "Trophē",
+  },
+  icons: {
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/favicon-32.png", sizes: "32x32", type: "image/png" },
+    ],
+    apple: "/apple-touch-icon.png",
   },
 };
 
@@ -48,7 +61,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${playfair.variable} ${jetbrainsMono.variable} h-full`} suppressHydrationWarning>
+    <html
+      lang="en"
+      className={`${inter.variable} ${instrumentSerif.variable} ${jetbrainsMono.variable} h-full`}
+      suppressHydrationWarning
+    >
       <head>
         <script
           dangerouslySetInnerHTML={{
@@ -56,7 +73,10 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="min-h-full font-sans antialiased" style={{ background: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
+      <body
+        className="min-h-full font-sans antialiased"
+        style={{ background: "var(--bg-primary)", color: "var(--text-primary)" }}
+      >
         <Providers>{children}</Providers>
       </body>
     </html>

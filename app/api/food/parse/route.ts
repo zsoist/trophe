@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { logAPIUsage, calculateCost } from '@/lib/api-cost-logger';
 import { guardAiRoute } from '@/lib/api-guard';
-import { run, FOOD_PARSE_MODEL } from '@/agents/food-parse';
+import { run } from '@/agents/food-parse';
+import { modelFor } from '@/agents/router';
 
 export type { ParsedFoodItem } from '@/agents/schemas/food-parse';
 
@@ -49,4 +50,6 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export { FOOD_PARSE_MODEL };
+// Phase 3: model is now resolved dynamically via the router.
+// Re-export for any consumers that still reference this symbol.
+export const FOOD_PARSE_MODEL = modelFor('food_parse');

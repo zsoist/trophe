@@ -1,11 +1,23 @@
+/**
+ * Trophē v0.3 — recipe-analyze agent.
+ *
+ * Phase 3 changes vs v1:
+ *   - Model resolved via router (agents/router/index.ts).
+ *   - Every call traced to local Langfuse.
+ *   - OTel GenAI semconv attributes emitted.
+ *   - Telemetry extended with traceId + costUsd.
+ */
+
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { buildFoodReferencePrompt } from '@/lib/food-units';
 import { callAnthropicMessages } from '../clients/anthropic';
 import type { RecipeAnalyzeInput, RecipeAnalyzeOutput } from '../schemas/recipe-analyze';
 import { isRecipeAnalyzeOutput } from '../schemas/recipe-analyze';
+import { pick } from '../router';
+import { traced } from '../observability/langfuse';
+import { emitGenAISpan, estimateCostUsd } from '../observability/otel';
 
-export const RECIPE_ANALYZE_MODEL = 'claude-haiku-4-5-20251001';
 export const RECIPE_ANALYZE_VERSION = 'v1';
 
 const PROMPT_PATH = join(process.cwd(), 'agents/prompts/recipe-analyze.v1.md');
@@ -40,11 +52,16 @@ export interface RecipeAnalyzeRunResult {
     cacheReadTokens: number;
     latencyMs: number;
     rawStatus: number;
+    traceId: string | null;
+    costUsd: number;
   };
 }
 
-export async function run(input: RecipeAnalyzeInput): Promise<RecipeAnalyzeRunResult> {
-  const MAX_INPUT_LENGTH = 4000; // recipes are longer than single-food input
+export async function run(
+  input: RecipeAnalyzeInput,
+  opts?: { userId?: string; metadata?: Record<string, unknown> },
+): Promise<RecipeAnalyzeRunResult> {
+  const MAX_INPUT_LENGTH = 4000;
   const sanitizedText = input.text
     .trim()
     .slice(0, MAX_INPUT_LENGTH)
@@ -53,8 +70,10 @@ export async function run(input: RecipeAnalyzeInput): Promise<RecipeAnalyzeRunRe
   const servings = Math.max(1, Math.floor(input.servings || 1));
   const language = input.language ?? 'en';
 
+  const policy = pick('recipe_analyze');
+
   const baseTelemetry = {
-    model: RECIPE_ANALYZE_MODEL,
+    model: policy.model,
     version: RECIPE_ANALYZE_VERSION,
     tokensIn: 0,
     tokensOut: 0,
@@ -62,23 +81,68 @@ export async function run(input: RecipeAnalyzeInput): Promise<RecipeAnalyzeRunRe
     cacheReadTokens: 0,
     latencyMs: 0,
     rawStatus: 0,
+    traceId: null as string | null,
+    costUsd: 0,
   };
 
   if (!sanitizedText) {
-    return { ok: false, error: 'text is required and must be a non-empty string', telemetry: baseTelemetry };
+    return {
+      ok: false,
+      error: 'text is required and must be a non-empty string',
+      telemetry: baseTelemetry,
+    };
   }
 
   const systemPrompt = buildSystemPrompt();
-  const result = await callAnthropicMessages({
-    model: RECIPE_ANALYZE_MODEL,
-    system: systemPrompt,
-    userMessage: `Analyze this recipe (language: ${language}, servings: ${servings}):\n\n${sanitizedText}`,
-    maxTokens: 2048,
-    cacheSystem: true,
+  const userMessage = `Analyze this recipe (language: ${language}, servings: ${servings}):\n\n${sanitizedText}`;
+
+  let traceId: string | null = null;
+
+  const result = await traced(
+    {
+      task: 'recipe_analyze',
+      model: policy.model,
+      provider: policy.provider,
+      prompt: userMessage,
+      systemPrompt,
+      metadata: { userId: opts?.userId, servings, ...opts?.metadata },
+    },
+    async (_generation) => {
+      if (_generation) {
+        traceId = (_generation as { traceId?: string }).traceId ?? null;
+      }
+      return callAnthropicMessages({
+        model: policy.model,
+        system: systemPrompt,
+        userMessage,
+        maxTokens: policy.maxTokens,
+        cacheSystem: policy.cacheSystem,
+      });
+    },
+  );
+
+  const costUsd = estimateCostUsd(
+    policy.model,
+    result.usage.input_tokens,
+    result.usage.output_tokens,
+    result.usage.cache_read_input_tokens ?? 0,
+  );
+
+  emitGenAISpan({
+    task: 'recipe_analyze',
+    system: 'anthropic',
+    model: policy.model,
+    inputTokens: result.usage.input_tokens,
+    outputTokens: result.usage.output_tokens,
+    finishReasons: ['stop'],
+    latencyMs: result.latencyMs,
+    cacheReadTokens: result.usage.cache_read_input_tokens ?? 0,
+    cacheWriteTokens: result.usage.cache_creation_input_tokens ?? 0,
+    error: result.rawError,
   });
 
   const telemetry = {
-    model: RECIPE_ANALYZE_MODEL,
+    model: policy.model,
     version: RECIPE_ANALYZE_VERSION,
     tokensIn: result.usage.input_tokens,
     tokensOut: result.usage.output_tokens,
@@ -86,6 +150,8 @@ export async function run(input: RecipeAnalyzeInput): Promise<RecipeAnalyzeRunRe
     cacheReadTokens: result.usage.cache_read_input_tokens ?? 0,
     latencyMs: result.latencyMs,
     rawStatus: result.rawStatus,
+    traceId,
+    costUsd,
   };
 
   if (result.rawStatus === 0 || !result.text) {
@@ -97,9 +163,8 @@ export async function run(input: RecipeAnalyzeInput): Promise<RecipeAnalyzeRunRe
     return { ok: false, error: 'Could not parse recipe from response', telemetry };
   }
 
-  // Ensure servings from LLM matches user intent (user's value wins)
+  // User's servings value always wins; recompute per-serving from totals.
   parsed.servings = servings;
-  // Recompute per_serving from totals to guarantee math consistency
   parsed.per_serving = {
     calories: Math.round(parsed.total.calories / servings),
     protein_g: Math.round((parsed.total.protein_g / servings) * 10) / 10,

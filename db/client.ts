@@ -29,7 +29,8 @@ import { Pool } from 'pg';
 
 const connectionString =
   process.env.DATABASE_URL ||
-  'postgresql://brain_user@127.0.0.1:5433/trophe_dev';
+  // Include password for local Mac Mini development (brain_user on open_brain_postgres)
+  `postgresql://brain_user:${process.env.PGPASSWORD || 'jDehquqo1Dj0plzyrmaX2ybtzvjeKdFF'}@127.0.0.1:5433/trophe_dev`;
 
 declare global {
   // Reuse the pool across hot reloads in `next dev` to avoid leak warnings.

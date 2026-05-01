@@ -19,7 +19,12 @@
  *   api_usage.ts      — api_usage_log
  *   workouts.ts       — exercises + workout_templates + workout_sessions + workout_sets + form_analyses
  *
- * Phase 4 will add:  foods.ts + food_unit_conversions.ts + food_aliases.ts
+ *   agent_runs.ts     — LLM call audit + Langfuse trace links [Phase 3 NEW]
+ *   foods.ts          — canonical food reference, pgvector 1024-dim [Phase 4 NEW]
+ *   food_unit_conversions.ts — deterministic gram lookup [Phase 4 NEW]
+ *   food_aliases.ts   — multilingual aliases for hybrid retrieval [Phase 4 NEW]
+ *
+ * Phase 5 will add:  memory_chunks.ts + coach_blocks.ts + agent_conversation.ts
  * Phase 5 will add:  memory_chunks.ts + coach_blocks.ts + agent_conversation.ts
  * Phase 6 will add:  wearable_connections.ts + wearable_data.ts
  */
@@ -37,3 +42,7 @@ export * from './coach';
 export * from './measurements';
 export * from './api_usage';
 export * from './workouts';
+export * from './agent_runs';
+export * from './foods';
+export * from './food_unit_conversions';
+export * from './food_aliases';

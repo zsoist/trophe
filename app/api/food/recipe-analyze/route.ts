@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { logAPIUsage, calculateCost } from '@/lib/api-cost-logger';
 import { guardAiRoute } from '@/lib/api-guard';
-import { run, RECIPE_ANALYZE_MODEL } from '@/agents/recipe-analyze';
+import { run } from '@/agents/recipe-analyze';
+import { modelFor } from '@/agents/router';
 
 export async function POST(request: NextRequest) {
   const block = guardAiRoute(request);
@@ -53,4 +54,5 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export { RECIPE_ANALYZE_MODEL };
+// Phase 3: model is now resolved dynamically via the router.
+export const RECIPE_ANALYZE_MODEL = modelFor('recipe_analyze');

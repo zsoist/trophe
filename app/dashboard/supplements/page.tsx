@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Pill, CheckCircle2, Circle, Info } from 'lucide-react';
+import { Icon } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
 import type { ClientSupplement, SupplementItem, SupplementLogEntry } from '@/lib/types';
 import BottomNav from '@/components/BottomNav';
@@ -161,7 +162,7 @@ export default function SupplementsPage() {
             animate={{ opacity: 1, y: 0 }}
             className="glass p-8 text-center"
           >
-            <div className="text-4xl mb-4">💊</div>
+            <div className="mb-4 flex justify-center"><Icon name="i-leaf" size={40} className="text-stone-500" /></div>
             <h2 className="text-stone-200 font-semibold mb-2">No Protocol Assigned</h2>
             <p className="text-stone-500 text-sm">
               Your coach will assign a personalized supplement protocol based on your goals and needs.

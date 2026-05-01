@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, ChevronUp, SkipForward, Undo2, Trash2, Pencil, Check, X, Lock, Unlock, Star, MessageSquare } from 'lucide-react';
+import { Icon, type IconName } from '@/components/ui';
 import { useI18n } from '@/lib/i18n';
 import { supabase } from '@/lib/supabase';
 import type { FoodLogEntry, MealType } from '@/lib/types';
@@ -13,7 +14,9 @@ export interface MealSlot {
   id: string;
   mealType: MealType;
   label: string;
-  emoji: string;
+  /** @deprecated use icon instead — Brand Master v1.0 */
+  emoji?: string;
+  icon?: IconName;
   order: number;
 }
 
@@ -108,7 +111,7 @@ export default function MealSlotCard({
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-lg">{slot.emoji}</span>
+            {slot.icon ? <Icon name={slot.icon} size={20} /> : <span className="text-lg">{slot.emoji}</span>}
             <span className="text-stone-500 text-sm line-through">{slot.label}</span>
             <span className="text-stone-600 text-xs">— {t('food.skipped')}</span>
           </div>
@@ -135,7 +138,7 @@ export default function MealSlotCard({
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-lg">{slot.emoji}</span>
+            {slot.icon ? <Icon name={slot.icon} size={20} /> : <span className="text-lg">{slot.emoji}</span>}
             <span className="text-stone-200 text-sm font-medium">{slot.label}</span>
           </div>
           <div className="flex items-center gap-2">
@@ -159,7 +162,7 @@ export default function MealSlotCard({
       <motion.div layout className="glass p-4">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <span className="text-lg">{slot.emoji}</span>
+            {slot.icon ? <Icon name={slot.icon} size={20} /> : <span className="text-lg">{slot.emoji}</span>}
             <span className="text-stone-200 text-sm font-medium">{slot.label}</span>
           </div>
           <button
@@ -189,7 +192,7 @@ export default function MealSlotCard({
       <motion.div layout className="glass p-3 border border-green-500/10">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-lg opacity-70">{slot.emoji}</span>
+            {slot.icon ? <Icon name={slot.icon} size={20} className="opacity-70" /> : <span className="text-lg opacity-70">{slot.emoji}</span>}
             <span className="text-stone-300 text-sm font-medium">{slot.label}</span>
             <Lock size={12} className="text-green-500/60" />
           </div>

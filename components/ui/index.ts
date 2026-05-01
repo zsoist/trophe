@@ -12,7 +12,9 @@
 
 export { Card, CardGold, CardDanger } from './Card';
 export { Tag } from './Tag';
-export { BrandEye, MonoLabel, SectionTitle, Wordmark } from './Brand';
+export { BrandEye, MonoLabel, SectionTitle, Wordmark, BrandWordmark, BrandMark, BrandMono, BrandLockup } from './Brand';
+export { Icon } from './Icon';
+export type { IconName } from './Icon';
 export { BtnGold, BtnGhost } from './Button';
 export { Tabs } from './Tabs';
 export type { TabOption } from './Tabs';
