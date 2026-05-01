@@ -639,7 +639,7 @@ export default function DashboardPage() {
                   <motion.div
                     initial={false}
                     animate={{ scale: filled ? [1, 1.3, 1] : 1, opacity: filled ? 1 : 0.3 }}
-                    transition={{ duration: 0.35, type: 'spring', stiffness: 400, damping: 15 }}
+                    transition={{ duration: 0.35, type: 'tween', ease: 'easeOut' }}
                     style={{
                       width: 24, height: 24, borderRadius: 6,
                       background: filled

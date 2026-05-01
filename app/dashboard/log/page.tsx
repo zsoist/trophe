@@ -589,13 +589,13 @@ export default function FoodLogPage() {
         <div className="card mb-3" style={{ padding: '10px 8px' }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 3, textAlign: 'center' }}>
             {[
-              { label: 'Calories', unit: 'kcal', val: Math.round(totalCalories), color: 'var(--gold-300,#D4A853)' },
-              { label: 'Protein',  unit: 'g',    val: Math.round(totalProtein),  color: 'var(--err,#E87A6E)' },
-              { label: 'Carbs',    unit: 'g',    val: Math.round(totalCarbs),    color: 'var(--info,#7DA3D9)' },
-              { label: 'Fat',      unit: 'g',    val: Math.round(totalFat),      color: '#B89DD9' },
-              { label: 'Sugar',    unit: 'g',    val: Math.round(totalSugar),        color: totalSugar > 25 ? '#f59e0b' : 'var(--warn,#E8B86E)' },
-            ].map(m => (
-              <div key={m.label} style={{ borderRight: m.label !== 'Sugar~' ? '1px solid rgba(255,255,255,.04)' : 'none' }}>
+              { label: t('general.calories'), unit: 'kcal', val: Math.round(totalCalories), color: 'var(--gold-300,#D4A853)' },
+              { label: t('general.protein'),  unit: 'g',    val: Math.round(totalProtein),  color: 'var(--err,#E87A6E)' },
+              { label: t('general.carbs'),    unit: 'g',    val: Math.round(totalCarbs),    color: 'var(--info,#7DA3D9)' },
+              { label: t('general.fat'),      unit: 'g',    val: Math.round(totalFat),      color: '#B89DD9' },
+              { label: t('general.sugar'),    unit: 'g',    val: Math.round(totalSugar),    color: totalSugar > 25 ? '#f59e0b' : 'var(--warn,#E8B86E)' },
+            ].map((m, mIdx) => (
+              <div key={m.label} style={{ borderRight: mIdx < 4 ? '1px solid rgba(255,255,255,.04)' : 'none' }}>
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 700, color: m.color, lineHeight: 1.1 }}>{m.val}</div>
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: 6.5, color: 'var(--t4)', marginTop: 1, lineHeight: 1.2 }}>{m.unit}</div>
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: 6, color: 'var(--t5)', letterSpacing: '.04em', marginTop: 1 }}>{m.label}</div>
@@ -605,7 +605,7 @@ export default function FoodLogPage() {
         </div>
 
         {/* ── Meals section header ── */}
-        <div className="eye-d mb-2">Meals · {filledCount} of {slots.length}</div>
+        <div className="eye-d mb-2">{t('log.meals_count', { done: filledCount, total: slots.length })}</div>
 
         {/* ── Streak / locked banner (keep existing if present) ── */}
         {allMealsLocked && hasAnyFood && (
@@ -614,7 +614,7 @@ export default function FoodLogPage() {
             style={{ background: 'rgba(101,211,135,.08)', border: '1px solid rgba(101,211,135,.2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <p style={{ fontSize: 11, color: 'var(--ok,#65D387)', display: 'flex', alignItems: 'center', gap: 6 }}>
               <Icon name="i-shield" size={12} />
-              Day locked — great work!
+              {t('log.day_locked')}
             </p>
           </motion.div>
         )}
@@ -691,7 +691,7 @@ export default function FoodLogPage() {
         {/* ════════════════════════════════════════
             INSIGHTS SECTION
         ════════════════════════════════════════ */}
-        <SectionDivider label="Insights" />
+        <SectionDivider label={t('log.section_insights')} />
 
         {/* Achievements */}
         <motion.div
@@ -753,7 +753,7 @@ export default function FoodLogPage() {
         {/* ════════════════════════════════════════
             NUTRITION INTEL SECTION
         ════════════════════════════════════════ */}
-        <SectionDivider label="Nutrition Intel" />
+        <SectionDivider label={t('log.section_nutrition_intel')} />
 
         {/* Fasting Timer */}
         {todayLog.length > 0 && isToday && (

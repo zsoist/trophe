@@ -170,9 +170,9 @@ export default function CalorieHeatmap({ userId, weeks = 18 }: CalorieHeatmapPro
       {/* Summary stats row */}
       <div className="grid grid-cols-3 gap-2 mb-4 text-center">
         {[
-          { label: 'Days logged', val: `${activeDays}`, sub: `last ${weeks * 7}d` },
-          { label: 'Avg calories', val: avgCal > 0 ? `${avgCal}` : '—', sub: 'on logged days' },
-          { label: 'Current streak', val: `${streak}d`, sub: streak > 0 ? 'keep going!' : 'start today' },
+          { label: t('heatmap.days_logged'),    val: `${activeDays}`, sub: `last ${weeks * 7}d` },
+          { label: t('heatmap.avg_calories'),   val: avgCal > 0 ? `${avgCal}` : '—', sub: t('heatmap.on_logged_days') },
+          { label: t('heatmap.current_streak'), val: `${streak}d`, sub: streak > 0 ? t('heatmap.keep_going') : t('heatmap.start_today') },
         ].map(s => (
           <div key={s.label} style={{ padding: '6px 4px', borderRadius: 8, background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.05)' }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--gold-300,#D4A853)', fontFamily: 'var(--font-mono)' }}>{s.val}</div>
@@ -183,8 +183,8 @@ export default function CalorieHeatmap({ userId, weeks = 18 }: CalorieHeatmapPro
       </div>
 
       <p style={{ fontSize: 9, color: 'var(--t5)', marginBottom: 8 }}>
-        Each cell = one day. Darker gold = more calories logged.
-        {maxCal > 0 && ` Best day: ${maxCal.toLocaleString()} kcal.`}
+        {t('heatmap.cell_desc')}
+        {maxCal > 0 && ` ${t('heatmap.best_day', { n: maxCal.toLocaleString() })}`}
       </p>
 
       <div className="pb-1">
@@ -269,7 +269,7 @@ export default function CalorieHeatmap({ userId, weeks = 18 }: CalorieHeatmapPro
 
       {/* Legend */}
       <div className="flex items-center justify-center gap-1.5 mt-3 text-stone-500 text-[10px]">
-        <span style={{ fontSize: 9, color: 'var(--t5)' }}>0 kcal</span>
+        <span style={{ fontSize: 9, color: 'var(--t5)' }}>{t('heatmap.legend_min')}</span>
         {[0, 500, 1000, 1500, 2000].map((cal) => (
           <div
             key={cal}
@@ -277,7 +277,7 @@ export default function CalorieHeatmap({ userId, weeks = 18 }: CalorieHeatmapPro
             style={{ backgroundColor: getIntensity(cal) }}
           />
         ))}
-        <span style={{ fontSize: 9, color: 'var(--t5)' }}>2000+ kcal</span>
+        <span style={{ fontSize: 9, color: 'var(--t5)' }}>{t('heatmap.legend_max')}</span>
       </div>
 
           </motion.div>

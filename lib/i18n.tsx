@@ -426,6 +426,33 @@ const translations: Record<string, Record<Language, string>> = {
   'coach_msg.send':    { en: 'Send',                es: 'Enviar',                 el: 'Αποστολή' },
   'coach_msg.sent':    { en: 'Sent!',               es: '¡Enviado!',              el: 'Εστάλη!' },
   'coach_msg.no_coach':{ en: 'No coach assigned yet', es: 'Sin coach asignado',   el: 'Δεν έχει οριστεί coach' },
+
+  // ── Log page section headers ──
+  'log.section_insights':        { en: 'Insights',           es: 'Perspectivas',          el: 'Συμπεράσματα' },
+  'log.section_nutrition_intel': { en: 'Nutrition Intel',    es: 'Intel Nutricional',     el: 'Διατροφικές Πληροφορίες' },
+
+  // ── Calorie heatmap ──
+  'heatmap.days_logged':    { en: 'Days logged',    es: 'Días registrados',     el: 'Ημέρες καταγραφής' },
+  'heatmap.avg_calories':   { en: 'Avg calories',   es: 'Prom. calorías',       el: 'Μέσες θερμίδες' },
+  'heatmap.on_logged_days': { en: 'on logged days', es: 'en días registrados',  el: 'σε ημέρες καταγραφής' },
+  'heatmap.current_streak': { en: 'Current streak', es: 'Racha actual',         el: 'Τρέχον σερί' },
+  'heatmap.keep_going':     { en: 'keep going!',    es: '¡sigue así!',          el: 'συνέχισε!' },
+  'heatmap.start_today':    { en: 'start today',    es: 'empieza hoy',          el: 'ξεκίνα σήμερα' },
+  'heatmap.cell_desc':      { en: 'Each cell = one day. Darker gold = more calories logged.', es: 'Cada celda = un día. Oro más oscuro = más calorías.', el: 'Κάθε κελί = μία ημέρα. Πιο σκούρο χρυσό = περισσότερες θερμίδες.' },
+  'heatmap.best_day':       { en: 'Best day: {n} kcal.', es: 'Mejor día: {n} kcal.', el: 'Καλύτερη ημέρα: {n} kcal.' },
+  'heatmap.legend_min':     { en: '0 kcal',         es: '0 kcal',               el: '0 kcal' },
+  'heatmap.legend_max':     { en: '2000+ kcal',     es: '2000+ kcal',           el: '2000+ kcal' },
+
+  // ── Coach food recommendations ──
+  'recs.coach_pick':       { en: '⭐ Coach Pick',      es: '⭐ Pick del Coach',              el: '⭐ Επιλογή Coach' },
+  'recs.coach_food_picks': { en: 'Coach Food Picks',  es: 'Alimentos del Coach',            el: 'Τρόφιμα Coach' },
+  'recs.recommended_foods':{ en: 'Recommended Foods', es: 'Alimentos Recomendados',         el: 'Προτεινόμενα Τρόφιμα' },
+  'recs.foods_count':      { en: '{n} foods',         es: '{n} alimentos',                  el: '{n} τρόφιμα' },
+  'recs.logged':           { en: 'Logged!',           es: '¡Registrado!',                   el: 'Καταγράφηκε!' },
+  'recs.coach_footer':     { en: 'Your coach added these recommendations for your goals', es: 'Tu coach añadió estas recomendaciones para tus objetivos', el: 'Ο coach σου πρόσθεσε αυτές τις συστάσεις για τους στόχους σου' },
+  'recs.curated_footer':   { en: 'Evidence-based picks · Tap any food for full macro info + quick-log', es: 'Selecciones basadas en evidencia · Toca para macros completos + registro rápido', el: 'Επιλογές βασισμένες σε αποδείξεις · Πάτα για μακροθρεπτικά + καταγραφή' },
+  'recs.log_to_meal':      { en: 'Log to meal',       es: 'Registrar en comida',            el: 'Καταγραφή σε γεύμα' },
+  'recs.lunch_dinner':     { en: 'Lunch/Dinner',      es: 'Almuerzo/Cena',                  el: 'Μεσ./Βραδινό' },
 };
 
 // ─── Context & Hook ───

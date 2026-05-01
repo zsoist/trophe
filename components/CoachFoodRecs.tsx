@@ -152,6 +152,20 @@ function MacroChip({ label, value, unit = 'g', colorKey }: {
   );
 }
 
+// ─── Category label helper ────────────────────────────────────
+function useCategoryLabel(category: string, t: (key: string) => string): string {
+  const map: Record<string, string> = {
+    'Snack':       t('food.snack'),
+    'Breakfast':   t('food.breakfast'),
+    'Lunch':       t('food.lunch'),
+    'Dinner':      t('food.dinner'),
+    'Lunch/Dinner':t('recs.lunch_dinner'),
+    'coach_pick':  t('recs.coach_pick'),
+    'Coach Pick':  t('recs.coach_pick'),
+  };
+  return map[category] ?? category;
+}
+
 // ─── Food detail overlay ──────────────────────────────────────
 function RecDetailSheet({ rec, onClose, onLog }: {
   rec: CoachRec;
@@ -216,7 +230,7 @@ function RecDetailSheet({ rec, onClose, onLog }: {
               border: '1px solid rgba(212,168,83,.2)',
               color: 'var(--gold-300,#D4A853)', fontWeight: 600,
             }}>
-              {rec.isCoachPick ? '⭐ Coach Pick' : rec.category}
+              {useCategoryLabel(rec.isCoachPick ? 'coach_pick' : rec.category, t)}
             </span>
           </div>
           <button onClick={onClose} style={{ color: 'var(--t5)', background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
@@ -267,7 +281,7 @@ function RecDetailSheet({ rec, onClose, onLog }: {
         {onLog && (
           <div>
             <p style={{ fontSize: 9, color: 'var(--t5)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }}>
-              Log to meal
+              {t('recs.log_to_meal')}
             </p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 6 }}>
               {MEAL_OPTIONS.map(m => (
@@ -303,6 +317,7 @@ function RecCard({ rec, index, onSelect }: {
   index: number;
   onSelect: (rec: CoachRec) => void;
 }) {
+  const { t } = useI18n();
   return (
     <motion.button
       initial={{ opacity: 0, y: 12 }}
@@ -358,7 +373,7 @@ function RecCard({ rec, index, onSelect }: {
               border: '1px solid rgba(212,168,83,.2)',
               fontWeight: 600, flexShrink: 0,
             }}>
-              {rec.category}
+              {useCategoryLabel(rec.category, t)}
             </span>
           </div>
 
@@ -427,7 +442,7 @@ export default function CoachFoodRecs({ userId, onLogFood }: CoachFoodRecsProps)
           return {
             id: n.id,
             food, calories, protein, carbs, fat, fiber, note,
-            emoji: '⭐', category: 'Coach Pick', isCoachPick: true,
+            emoji: '⭐', category: 'coach_pick', isCoachPick: true,
           } as CoachRec;
         });
         setRecs(parsed);
@@ -471,7 +486,7 @@ export default function CoachFoodRecs({ userId, onLogFood }: CoachFoodRecsProps)
         <div className="flex items-center gap-2">
           <Icon name="i-user" size={13} style={{ color: 'var(--gold-300,#D4A853)' }} />
           <span className="text-stone-300 text-xs font-semibold">
-            {isCoachData ? 'Coach Food Picks' : 'Recommended Foods'}
+            {isCoachData ? t('recs.coach_food_picks') : t('recs.recommended_foods')}
           </span>
           {isCoachData && (
             <span style={{
@@ -486,7 +501,7 @@ export default function CoachFoodRecs({ userId, onLogFood }: CoachFoodRecsProps)
           )}
         </div>
         <div className="flex items-center gap-2">
-          <span style={{ fontSize: 9, color: 'var(--t5)' }}>{recs.length} foods</span>
+          <span style={{ fontSize: 9, color: 'var(--t5)' }}>{t('recs.foods_count', { n: recs.length })}</span>
           {expanded
             ? <ChevronUp size={13} className="text-stone-500" />
             : <ChevronDown size={13} className="text-stone-500" />
@@ -525,7 +540,7 @@ export default function CoachFoodRecs({ userId, onLogFood }: CoachFoodRecsProps)
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                           <Icon name="i-check" size={14} style={{ color: 'var(--ok,#65D387)' }} />
-                          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ok,#65D387)' }}>Logged!</span>
+                          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ok,#65D387)' }}>{t('recs.logged')}</span>
                         </div>
                       </motion.div>
                     )}
@@ -543,10 +558,7 @@ export default function CoachFoodRecs({ userId, onLogFood }: CoachFoodRecsProps)
             }}>
               <Zap size={10} style={{ color: 'var(--t5)', flexShrink: 0 }} />
               <p style={{ fontSize: 9, color: 'var(--t5)', lineHeight: 1.4 }}>
-                {isCoachData
-                  ? 'Your coach added these recommendations for your goals'
-                  : 'Evidence-based picks · Tap any food for full macro info + quick-log'
-                }
+                {isCoachData ? t('recs.coach_footer') : t('recs.curated_footer')}
               </p>
             </div>
           </motion.div>
