@@ -12,7 +12,7 @@ import { Icon } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
 import { useClientNav } from '@/lib/useClientNav';
-import type { Exercise, PainFlag, MuscleGroup } from '@/lib/types';
+import type { Exercise, PainFlag, MuscleGroup, WorkoutSession } from '@/lib/types';
 import Link from 'next/link';
 import { localToday } from '../../../lib/dates';
 
@@ -475,6 +475,14 @@ export default function WorkoutPage() {
   const [painModalExerciseId, setPainModalExerciseId] = useState<string | null>(null);
   const [prRecords, setPrRecords] = useState<Record<string, number>>({});
 
+  // Cardio quick-log state
+  const [showCardio, setShowCardio] = useState(false);
+  const [cardioType, setCardioType] = useState<'walk' | 'run' | 'cycle' | 'hiit' | 'swim' | 'other'>('run');
+  const [cardioDuration, setCardioDuration] = useState(30);
+  const [cardioDistance, setCardioDistance] = useState('');
+  const [savingCardio, setSavingCardio] = useState(false);
+  const [recentSessions, setRecentSessions] = useState<WorkoutSession[]>([]);
+
   // UI state
   const [saving, setSaving] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
@@ -486,12 +494,15 @@ export default function WorkoutPage() {
       if (!user) { router.push("/login"); return; }
       setUserId(user.id);
 
-      const { data } = await supabase
-        .from('exercises')
-        .select('*')
-        .order('muscle_group')
-        .order('name');
-      if (data) setExercises(data);
+      const [exercisesRes, sessionsRes] = await Promise.all([
+        supabase.from('exercises').select('*').order('muscle_group').order('name'),
+        supabase.from('workout_sessions').select('*')
+          .eq('user_id', user.id)
+          .order('session_date', { ascending: false })
+          .limit(5),
+      ]);
+      if (exercisesRes.data) setExercises(exercisesRes.data);
+      if (sessionsRes.data) setRecentSessions(sessionsRes.data);
     }
     init();
   }, [router]);
@@ -668,6 +679,35 @@ export default function WorkoutPage() {
     }
   };
 
+  // ─── Log cardio quick session ─────────────────────────────────
+  const logCardio = async () => {
+    if (!userId || savingCardio) return;
+    setSavingCardio(true);
+    try {
+      const today = localToday();
+      const label = cardioType.charAt(0).toUpperCase() + cardioType.slice(1);
+      const name = `${label} — ${cardioDuration}min${cardioDistance ? ` · ${cardioDistance}km` : ''}`;
+      const { data } = await supabase.from('workout_sessions').insert({
+        user_id: userId,
+        session_date: today,
+        name,
+        duration_minutes: cardioDuration,
+        notes: cardioDistance ? `Distance: ${cardioDistance}km` : null,
+        pain_flags: [],
+      }).select().maybeSingle();
+      if (data) {
+        setRecentSessions(prev => [data, ...prev.slice(0, 4)]);
+        setShowCardio(false);
+        setCardioDistance('');
+        setCardioDuration(30);
+      }
+    } catch (err) {
+      console.error('Cardio log error:', err);
+    } finally {
+      setSavingCardio(false);
+    }
+  };
+
   const getExerciseName = (ex: Exercise) => {
     if (lang === 'es' && ex.name_es) return ex.name_es;
     if (lang === 'el' && ex.name_el) return ex.name_el;
@@ -701,34 +741,215 @@ export default function WorkoutPage() {
       </div>
 
       <div className="max-w-md mx-auto px-4 pt-4">
-        {/* Not in session — Start button */}
+        {/* Not in session — Rich landing state */}
         {!sessionActive && (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-            <button
-              onClick={startWorkout}
-              className="btn-gold w-full flex items-center justify-center gap-3 py-4 text-lg"
-            >
-              <Play size={22} />
-              {t('workout.start')}
-            </button>
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
 
-            {/* AI Form Check button */}
+            {/* ── Primary CTA pair ── */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              {/* Strength */}
+              <motion.button
+                whileTap={{ scale: 0.96 }}
+                onClick={startWorkout}
+                className="card"
+                style={{ padding: '20px 12px', textAlign: 'center', cursor: 'pointer' }}
+              >
+                <Dumbbell size={28} className="gold-text mx-auto" />
+                <div style={{ fontSize: 13, fontWeight: 700, marginTop: 8, color: 'var(--t1)', letterSpacing: '-.01em' }}>Strength</div>
+                <div className="ds-sub" style={{ fontSize: 9, marginTop: 3 }}>Weights + sets</div>
+              </motion.button>
+
+              {/* Cardio */}
+              <motion.button
+                whileTap={{ scale: 0.96 }}
+                onClick={() => setShowCardio(v => !v)}
+                className="card"
+                style={{
+                  padding: '20px 12px', textAlign: 'center', cursor: 'pointer',
+                  border: showCardio ? '1px solid rgba(212,168,83,.4)' : undefined,
+                  background: showCardio ? 'rgba(212,168,83,.07)' : undefined,
+                }}
+              >
+                <Play size={28} className="gold-text mx-auto" />
+                <div style={{ fontSize: 13, fontWeight: 700, marginTop: 8, color: 'var(--t1)', letterSpacing: '-.01em' }}>Cardio</div>
+                <div className="ds-sub" style={{ fontSize: 9, marginTop: 3 }}>Run · Cycle · HIIT</div>
+              </motion.button>
+            </div>
+
+            {/* ── Cardio quick-log panel (expandable) ── */}
+            <AnimatePresence>
+              {showCardio && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ type: 'spring', damping: 26, stiffness: 300 }}
+                  style={{ overflow: 'hidden' }}
+                >
+                  <div className="glass p-4 rounded-2xl space-y-4">
+                    {/* Type chips */}
+                    <div>
+                      <p className="ds-sub mb-2" style={{ fontSize: 10 }}>Activity type</p>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        {(['walk', 'run', 'cycle', 'hiit', 'swim', 'other'] as const).map(type => (
+                          <button
+                            key={type}
+                            onClick={() => setCardioType(type)}
+                            style={{
+                              padding: '5px 12px', borderRadius: 20, fontSize: 11, fontWeight: 600,
+                              cursor: 'pointer', transition: 'all .15s',
+                              background: cardioType === type ? 'rgba(212,168,83,.2)' : 'rgba(255,255,255,.04)',
+                              border: cardioType === type ? '1px solid rgba(212,168,83,.5)' : '1px solid rgba(255,255,255,.06)',
+                              color: cardioType === type ? '#D4A853' : 'var(--t3)',
+                            }}
+                          >
+                            {type.charAt(0).toUpperCase() + type.slice(1)}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Duration stepper */}
+                    <div>
+                      <p className="ds-sub mb-2" style={{ fontSize: 10 }}>Duration</p>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <button
+                          onClick={() => setCardioDuration(v => Math.max(5, v - 5))}
+                          style={{
+                            width: 38, height: 38, borderRadius: 12, border: '1px solid rgba(255,255,255,.1)',
+                            background: 'rgba(255,255,255,.04)', fontSize: 18, color: 'var(--t2)', cursor: 'pointer',
+                          }}
+                        >
+                          <Minus size={16} className="mx-auto" />
+                        </button>
+                        <span style={{ fontSize: 22, fontWeight: 800, color: 'var(--t1)', fontFamily: 'var(--font-mono)', minWidth: 60, textAlign: 'center' }}>
+                          {cardioDuration}<span style={{ fontSize: 13, color: 'var(--t4)', fontWeight: 400 }}>min</span>
+                        </span>
+                        <button
+                          onClick={() => setCardioDuration(v => v + 5)}
+                          style={{
+                            width: 38, height: 38, borderRadius: 12, border: '1px solid rgba(255,255,255,.1)',
+                            background: 'rgba(255,255,255,.04)', fontSize: 18, color: 'var(--t2)', cursor: 'pointer',
+                          }}
+                        >
+                          <Plus size={16} className="mx-auto" />
+                        </button>
+                        {/* Quick picks */}
+                        <div style={{ display: 'flex', gap: 5, marginLeft: 4 }}>
+                          {[20, 30, 45, 60].map(m => (
+                            <button
+                              key={m}
+                              onClick={() => setCardioDuration(m)}
+                              style={{
+                                padding: '4px 8px', borderRadius: 8, fontSize: 10, fontWeight: 600,
+                                cursor: 'pointer',
+                                background: cardioDuration === m ? 'rgba(212,168,83,.2)' : 'rgba(255,255,255,.04)',
+                                border: cardioDuration === m ? '1px solid rgba(212,168,83,.4)' : '1px solid rgba(255,255,255,.06)',
+                                color: cardioDuration === m ? '#D4A853' : 'var(--t4)',
+                              }}
+                            >{m}</button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Distance (optional) */}
+                    {(cardioType === 'run' || cardioType === 'walk' || cardioType === 'cycle') && (
+                      <div>
+                        <p className="ds-sub mb-2" style={{ fontSize: 10 }}>Distance (optional)</p>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <input
+                            type="number"
+                            inputMode="decimal"
+                            value={cardioDistance}
+                            onChange={e => setCardioDistance(e.target.value)}
+                            placeholder="0.0"
+                            style={{
+                              width: 80, padding: '8px 10px', borderRadius: 10, textAlign: 'center',
+                              background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.1)',
+                              color: 'var(--t1)', fontSize: 15, fontFamily: 'var(--font-mono)', outline: 'none',
+                            }}
+                          />
+                          <span style={{ fontSize: 12, color: 'var(--t4)' }}>km</span>
+                        </div>
+                      </div>
+                    )}
+
+                    <button
+                      className="btn-gold w-full py-3"
+                      onClick={logCardio}
+                      disabled={savingCardio}
+                    >
+                      <Play size={14} className="inline mr-2" />
+                      {savingCardio ? 'Saving...' : `Log ${cardioType.charAt(0).toUpperCase() + cardioType.slice(1)} Session`}
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* ── AI Form Check ── */}
             <Link href="/dashboard/workout/form-check">
-              <button className="w-full mt-3 flex items-center justify-center gap-3 py-3.5 rounded-2xl text-sm font-semibold transition-all"
-                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#D4A853' }}>
-                <Camera size={18} />
+              <button className="w-full flex items-center justify-center gap-3 py-3 rounded-2xl text-sm font-semibold transition-all"
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#D4A853' }}>
+                <Camera size={16} />
                 AI Form Check
               </button>
             </Link>
 
-            {/* Quick stats */}
-            <div className="mt-6 glass p-4">
-              <p className="text-sm text-stone-400 mb-2">Quick tip</p>
-              <p className="text-xs text-stone-500">
-                Start a workout, add exercises, log sets with weight and reps.
-                PRs are detected automatically.
-              </p>
-            </div>
+            {/* ── Recent sessions ── */}
+            {recentSessions.length > 0 && (
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, marginTop: 4 }}>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '.06em' }}>Recent</span>
+                  <Link href="/dashboard/workout/history">
+                    <span style={{ fontSize: 10, color: 'var(--gold-300,#D4A853)', cursor: 'pointer' }}>See all</span>
+                  </Link>
+                </div>
+                <div className="space-y-2">
+                  {recentSessions.slice(0, 4).map(session => {
+                    const d = new Date(session.session_date + 'T00:00:00');
+                    const label = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                    return (
+                      <motion.div
+                        key={session.id}
+                        whileTap={{ scale: 0.98 }}
+                        className="card"
+                        style={{ padding: '11px 14px', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}
+                      >
+                        <div style={{
+                          width: 32, height: 32, borderRadius: 10, flexShrink: 0,
+                          background: 'rgba(212,168,83,.1)', border: '1px solid rgba(212,168,83,.2)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}>
+                          <Dumbbell size={14} className="gold-text" />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--t1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {session.name ?? 'Workout'}
+                          </div>
+                          <div style={{ fontSize: 10, color: 'var(--t4)', marginTop: 1 }}>{label}</div>
+                        </div>
+                        {session.duration_minutes && (
+                          <span style={{ fontSize: 10, color: 'var(--t4)', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
+                            <Clock size={9} className="inline mr-1" />
+                            {session.duration_minutes}m
+                          </span>
+                        )}
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {recentSessions.length === 0 && (
+              <div className="glass p-5 text-center">
+                <Trophy size={20} className="text-stone-600 mx-auto mb-2" />
+                <p className="text-sm text-stone-400 font-medium">No workouts yet</p>
+                <p className="text-xs text-stone-600 mt-1">Log your first session above to start tracking PRs</p>
+              </div>
+            )}
           </motion.div>
         )}
 

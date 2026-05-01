@@ -92,6 +92,10 @@ export function calculateMacroTargets(
   // Fiber: 14g per 1000 kcal (IOM recommendation)
   const fiber_g = Math.round((targetCalories / 1000) * 14);
 
+  // Sugar: recommended max is ~10% of calories (WHO), track as target ceiling
+  // We use 25g (WHO limit) as default daily target ceiling
+  const sugar_g = 25;
+
   // Hydration: 35ml/kg body weight base
   const water_ml = Math.round(35 * weight_kg);
 
@@ -101,6 +105,7 @@ export function calculateMacroTargets(
     carbs_g,
     fat_g,
     fiber_g,
+    sugar_g,
     water_ml,
   };
 }
@@ -152,7 +157,7 @@ export function caloriesFromSteps(steps: number, weight_kg: number): number {
  */
 export function remainingMacros(
   targets: MacroTargets,
-  consumed: { calories: number; protein_g: number; carbs_g: number; fat_g: number; fiber_g: number; water_ml: number },
+  consumed: { calories: number; protein_g: number; carbs_g: number; fat_g: number; fiber_g: number; sugar_g?: number; water_ml: number },
 ): MacroTargets {
   return {
     calories: Math.max(0, targets.calories - consumed.calories),
@@ -160,6 +165,7 @@ export function remainingMacros(
     carbs_g: Math.max(0, targets.carbs_g - consumed.carbs_g),
     fat_g: Math.max(0, targets.fat_g - consumed.fat_g),
     fiber_g: Math.max(0, targets.fiber_g - consumed.fiber_g),
+    sugar_g: Math.max(0, targets.sugar_g - (consumed.sugar_g ?? 0)),
     water_ml: Math.max(0, targets.water_ml - consumed.water_ml),
   };
 }

@@ -89,6 +89,7 @@ interface FavoriteFood {
   carbs_g: number;
   fat_g: number;
   fiber_g: number;
+  sugar_g: number;
 }
 
 function loadFavorites(): FavoriteFood[] {
@@ -436,6 +437,7 @@ export default function FoodLogPage() {
         carbs_g: entry.carbs_g ?? 0,
         fat_g: entry.fat_g ?? 0,
         fiber_g: entry.fiber_g ?? 0,
+        sugar_g: entry.sugar_g ?? 0,
       }];
     }
     setFavorites(newFavs);
@@ -457,6 +459,7 @@ export default function FoodLogPage() {
       carbs_g: fav.carbs_g,
       fat_g: fav.fat_g,
       fiber_g: fav.fiber_g,
+      sugar_g: fav.sugar_g,
       source: 'custom' as const,
     };
     const { error } = await supabase.from('food_log').insert(entry);
@@ -500,6 +503,7 @@ export default function FoodLogPage() {
         carbs_g: e.carbs_g,
         fat_g: e.fat_g,
         fiber_g: e.fiber_g,
+        sugar_g: e.sugar_g,
         source: e.source,
         source_id: e.source_id,
       }));

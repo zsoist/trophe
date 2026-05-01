@@ -22,39 +22,46 @@ function getTimeGreeting(): string {
   return 'good_night';
 }
 
-// ─── Compact 72px calorie ring ──────────────────────────────────
-function CompactRing({ value, target }: { value: number; target: number }) {
-  const r = 30;
-  const C = 2 * Math.PI * r; // ≈ 188.5
+// ─── 88px calorie hero ring ─────────────────────────────────────
+function CompactRing({ value, target, overGoal }: { value: number; target: number; overGoal?: boolean }) {
+  const r = 37;
+  const C = 2 * Math.PI * r;
   const pct = target > 0 ? Math.min(value / target, 1) : 0;
+  const strokeColor = overGoal ? 'var(--err,#E87A6E)' : 'var(--gold-300,#D4A853)';
   return (
-    <svg width={72} height={72} style={{ transform: 'rotate(-90deg)', flexShrink: 0 }}>
-      <circle cx={36} cy={36} r={r} fill="none" stroke="rgba(255,255,255,.06)" strokeWidth={6} />
+    <svg width={88} height={88} style={{ transform: 'rotate(-90deg)', flexShrink: 0 }}>
+      <circle cx={44} cy={44} r={r} fill="none" stroke="rgba(255,255,255,.05)" strokeWidth={7} />
       <motion.circle
-        cx={36} cy={36} r={r}
-        fill="none" stroke="var(--gold-300,#D4A853)"
-        strokeWidth={6} strokeLinecap="round"
+        cx={44} cy={44} r={r}
+        fill="none" stroke={strokeColor}
+        strokeWidth={7} strokeLinecap="round"
         strokeDasharray={C}
         initial={{ strokeDashoffset: C }}
         animate={{ strokeDashoffset: C * (1 - pct) }}
-        transition={{ type: 'spring', stiffness: 40, damping: 14, delay: 0.25 }}
+        transition={{ type: 'spring', stiffness: 36, damping: 14, delay: 0.25 }}
       />
     </svg>
   );
 }
 
-// ─── Compact inline macro bar ────────────────────────────────────
+// ─── Inline macro progress bar ───────────────────────────────────
 function MacroLine({
-  label, value, target, color, unit = 'g',
-}: { label: string; value: number; target: number; color: string; unit?: string }) {
+  label, value, target, color, unit = 'g', warn,
+}: { label: string; value: number; target: number; color: string; unit?: string; warn?: boolean }) {
   const pct = target > 0 ? Math.min(value / target, 1) : 0;
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--t4)', width: 14 }}>{label}</span>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: warn ? '#f59e0b' : 'var(--t4)', width: 16, fontWeight: warn ? 700 : 400 }}>{label}</span>
       <div className="mb-track" style={{ flex: 1 }}>
-        <div className="mb-fill" style={{ width: `${pct * 100}%`, background: color }} />
+        <motion.div
+          className="mb-fill"
+          style={{ background: color }}
+          initial={{ width: 0 }}
+          animate={{ width: `${pct * 100}%` }}
+          transition={{ duration: 0.6, delay: 0.3 }}
+        />
       </div>
-      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--t4)', width: 34, textAlign: 'right' }}>
+      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: warn ? '#f59e0b' : 'var(--t3)', width: 38, textAlign: 'right' }}>
         {Math.round(value)}{unit}
       </span>
     </div>
@@ -187,6 +194,7 @@ export default function DashboardPage() {
   const totalProtein  = foodLog.reduce((s, f) => s + (f.protein_g ?? 0), 0);
   const totalCarbs    = foodLog.reduce((s, f) => s + (f.carbs_g ?? 0), 0);
   const totalFat      = foodLog.reduce((s, f) => s + (f.fat_g ?? 0), 0);
+  const totalSugar    = foodLog.reduce((s, f) => s + (f.sugar_g ?? 0), 0);
   const totalWater    = waterLog.reduce((s, w) => s + w.amount_ml, 0);
 
   const targetCalories = clientProfile?.target_calories ?? 2000;
@@ -404,30 +412,60 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* ══ 2 · Today macro card (gold) ══════════════════════ */}
+        {/* ══ 2 · Today macro hero card ════════════════════════ */}
         <motion.div
           initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.07 }}
-          className="card-g p-3.5 mb-3"
+          className="card-g mb-3"
           style={{
-            background: 'linear-gradient(135deg, rgba(212,168,83,.12), rgba(212,168,83,.04))',
+            background: 'linear-gradient(135deg, rgba(212,168,83,.13) 0%, rgba(212,168,83,.03) 100%)',
             border: '1px solid rgba(212,168,83,.3)',
+            padding: '16px',
+            position: 'relative', overflow: 'hidden',
           }}
         >
-          <div className="eye-d mb-2.5">Today</div>
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          {/* subtle corner glow */}
+          <div style={{
+            position: 'absolute', top: -20, right: -20, width: 100, height: 100,
+            background: 'radial-gradient(circle, rgba(212,168,83,.15) 0%, transparent 70%)',
+            pointerEvents: 'none',
+          }} />
 
-            {/* 72px ring */}
-            <CompactRing value={totalCalories} target={targetCalories} />
+          <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
+            {/* 88px ring — bigger, more impactful */}
+            <div style={{ position: 'relative', flexShrink: 0 }}>
+              <CompactRing value={totalCalories} target={targetCalories} overGoal={totalCalories > targetCalories} />
+              {/* center percentage */}
+              <div style={{
+                position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexDirection: 'column',
+              }}>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 700, color: 'var(--gold-300,#D4A853)', lineHeight: 1 }}>
+                  {targetCalories > 0 ? Math.round((totalCalories / targetCalories) * 100) : 0}
+                </span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--t4)', marginTop: 1 }}>%</span>
+              </div>
+            </div>
 
-            {/* Right: count + macro bars */}
-            <div style={{ flex: 1 }}>
-              <div className="title-l">{Math.round(totalCalories).toLocaleString()}</div>
-              <div className="ds-sub">of {targetCalories} · {remaining} left</div>
-              <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 5 }}>
+            {/* Right: hero number + macro bars */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 2 }}>
+                <span style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--t1,#FAFAF9)', lineHeight: 1 }}>
+                  {Math.round(totalCalories).toLocaleString()}
+                </span>
+                <span style={{ fontSize: 11, color: 'var(--t4)', fontFamily: 'var(--font-mono)' }}>kcal</span>
+              </div>
+              <div style={{ fontSize: 10, color: 'var(--t4)', marginBottom: 10 }}>
+                {remaining > 0
+                  ? <><span style={{ color: 'var(--gold-300,#D4A853)', fontWeight: 600 }}>{remaining.toLocaleString()}</span> remaining of {targetCalories.toLocaleString()}</>
+                  : <span style={{ color: 'var(--err,#E87A6E)', fontWeight: 600 }}>Goal reached</span>
+                }
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <MacroLine label="P" value={totalProtein} target={targetProtein} color="var(--err,#E87A6E)" />
                 <MacroLine label="C" value={totalCarbs}   target={targetCarbs}   color="var(--info,#7DA3D9)" />
                 <MacroLine label="F" value={totalFat}     target={targetFat}     color="var(--plum,#B89DD9)" />
+                <MacroLine label="S" value={totalSugar}   target={25}            color={totalSugar > 25 ? '#f59e0b' : 'var(--ok,#65D387)'} unit="g" warn={totalSugar > 25} />
               </div>
             </div>
           </div>
@@ -541,28 +579,101 @@ export default function DashboardPage() {
           </div>
         </motion.div>
 
-        {/* ══ 5 · Quick actions (3+3 grid) ════════════════════ */}
+        {/* ══ 5 · Quick actions — primary hero row ════════════ */}
         <motion.div
           initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.20 }}
-          style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 6, marginBottom: 12 }}
+          style={{ marginBottom: 8 }}
         >
-          {([
-            { icon: 'i-bowl',     label: 'Food',         action: () => router.push('/dashboard/log') },
-            { icon: 'i-dumbbell', label: 'Workout',      action: () => router.push('/dashboard/workout') },
-            { icon: 'i-drop',     label: 'Water',        action: addWater },
-            { icon: 'i-sparkle',  label: 'Supplements',  action: () => router.push('/dashboard/supplements') },
-            { icon: 'i-chart',    label: 'Progress',     action: () => router.push('/dashboard/progress') },
-            { icon: 'i-calendar', label: 'Check-in',     action: () => router.push('/dashboard/checkin') },
-          ] as const).map(a => (
-            <button key={a.label} className="card" style={{ padding: '10px 6px', textAlign: 'center', cursor: 'pointer' }}
-              onClick={a.action}>
-              <Icon name={a.icon as Parameters<typeof Icon>[0]['name']} size={18}
-                style={{ color: 'var(--gold-300,#D4A853)' }} />
-              <div className="ds-sub" style={{ marginTop: 3, fontSize: 8 }}>{a.label}</div>
-            </button>
-          ))}
+          {/* Primary: Food + Workout — large 50/50 */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+            <motion.button
+              className="card"
+              whileTap={{ scale: 0.96 }}
+              style={{ padding: '18px 12px', textAlign: 'center', cursor: 'pointer', minHeight: 84 }}
+              onClick={() => router.push('/dashboard/log')}
+            >
+              <Icon name="i-bowl" size={26} style={{ color: 'var(--gold-300,#D4A853)' }} />
+              <div style={{ fontSize: 13, fontWeight: 700, marginTop: 7, color: 'var(--t1)', letterSpacing: '-.01em' }}>Food</div>
+              <div className="ds-sub" style={{ marginTop: 3, fontSize: 9 }}>
+                {foodLog.length > 0 ? `${foodLog.length} entr${foodLog.length === 1 ? 'y' : 'ies'} today` : 'Log a meal'}
+              </div>
+            </motion.button>
+            <motion.button
+              className="card"
+              whileTap={{ scale: 0.96 }}
+              style={{ padding: '18px 12px', textAlign: 'center', cursor: 'pointer', minHeight: 84 }}
+              onClick={() => router.push('/dashboard/workout')}
+            >
+              <Icon name="i-dumbbell" size={26} style={{ color: 'var(--gold-300,#D4A853)' }} />
+              <div style={{ fontSize: 13, fontWeight: 700, marginTop: 7, color: 'var(--t1)', letterSpacing: '-.01em' }}>Workout</div>
+              <div className="ds-sub" style={{ marginTop: 3, fontSize: 9 }}>Log session</div>
+            </motion.button>
+          </div>
+
+          {/* Secondary: Water / Supps / Progress / Check-in — 4-col */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
+            {([
+              { icon: 'i-drop',     label: 'Water',    action: addWater, sub: `${waterGlasses}/${targetGlasses}` },
+              { icon: 'i-sparkle',  label: 'Supps',    action: () => router.push('/dashboard/supplements'), sub: null },
+              { icon: 'i-chart',    label: 'Progress', action: () => router.push('/dashboard/progress'), sub: null },
+              { icon: 'i-calendar', label: 'Check-in', action: () => router.push('/dashboard/checkin'), sub: null },
+            ] as const).map(a => (
+              <motion.button
+                key={a.label}
+                className="card"
+                whileTap={{ scale: 0.94 }}
+                style={{ padding: '11px 4px 9px', textAlign: 'center', cursor: 'pointer' }}
+                onClick={a.action}
+              >
+                <Icon name={a.icon as Parameters<typeof Icon>[0]['name']} size={17}
+                  style={{ color: 'var(--gold-300,#D4A853)' }} />
+                <div style={{ fontSize: 10, fontWeight: 600, marginTop: 5, color: 'var(--t2)' }}>{a.label}</div>
+                {a.sub && <div className="ds-sub" style={{ fontSize: 8, marginTop: 1 }}>{a.sub}</div>}
+              </motion.button>
+            ))}
+          </div>
         </motion.div>
+
+        {/* ══ 6 · Smart insight strip ══════════════════════════ */}
+        {(() => {
+          let icon: Parameters<typeof Icon>[0]['name'] = 'i-zap';
+          let text = '';
+          let color = 'var(--gold-300,#D4A853)';
+          if (foodLog.length === 0) {
+            icon = 'i-leaf'; text = 'Log your first meal to start tracking today'; color = 'var(--t3)';
+          } else if (totalSugar > 30) {
+            icon = 'i-flame'; text = `Sugar at ${Math.round(totalSugar)}g — WHO limit is 25g`; color = '#f59e0b';
+          } else if ((totalProtein / targetProtein) < 0.3) {
+            icon = 'i-dumbbell';
+            text = `${Math.round(targetProtein - totalProtein)}g protein left — add a lean source`; color = 'var(--err,#E87A6E)';
+          } else if (totalWater < 500) {
+            icon = 'i-drop'; text = 'Hydration low — drink a glass of water now'; color = 'var(--info,#7DA3D9)';
+          } else if (totalCalories >= targetCalories) {
+            icon = 'i-target'; text = 'Daily calorie goal reached'; color = 'var(--ok,#65D387)';
+          } else if ((totalCalories / targetCalories) > 0.8) {
+            icon = 'i-check';
+            text = `${remaining.toLocaleString()} kcal remaining — almost there`; color = 'var(--ok,#65D387)';
+          } else {
+            icon = 'i-zap';
+            text = `${Math.round((totalCalories / targetCalories) * 100)}% of daily calories logged`; color = 'var(--gold-300,#D4A853)';
+          }
+          return (
+            <motion.div
+              initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.28 }}
+              className="card"
+              style={{
+                padding: '10px 14px', marginBottom: 12,
+                display: 'flex', alignItems: 'center', gap: 10,
+                background: 'rgba(255,255,255,.025)',
+              }}
+            >
+              <Icon name={icon} size={13} style={{ color, flexShrink: 0 }} />
+              <span style={{ fontSize: 11, color: 'var(--t3)', flex: 1 }}>{text}</span>
+            </motion.div>
+          );
+        })()}
       </motion.div>
 
       {/* ── Habit detail modal ── */}

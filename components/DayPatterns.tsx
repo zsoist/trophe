@@ -151,10 +151,10 @@ export default function DayPatterns({ userId }: DayPatternsProps) {
     return null;
   }, [dayData, tab.label]);
 
-  // Mon–Sun order
-  const ordered = [...dayData.slice(1), dayData[0]];
-  const maxAvg  = Math.max(...ordered.map(d => d.avg), 1);
-  const activeDays  = ordered.filter(d => d.avg > 0);
+  // Mon–Sun order — guard against empty/partial dayData
+  const ordered = dayData.length === 7 ? [...dayData.slice(1), dayData[0]] : [];
+  const maxAvg  = ordered.length > 0 ? Math.max(...ordered.map(d => d?.avg ?? 0), 1) : 1;
+  const activeDays  = ordered.filter(d => d?.avg > 0);
   const overallAvg  = activeDays.length > 0
     ? Math.round(activeDays.reduce((s, d) => s + d.avg, 0) / activeDays.length)
     : 0;
@@ -162,8 +162,8 @@ export default function DayPatterns({ userId }: DayPatternsProps) {
   const highestDay = activeDays.length > 0 ? [...activeDays].sort((a, b) => b.avg - a.avg)[0] : null;
   const lowestDay  = activeDays.length > 1 ? [...activeDays].sort((a, b) => a.avg - b.avg)[0] : null;
 
-  const weekdayList = ordered.filter(d => d.dayIndex >= 1 && d.dayIndex <= 5 && d.avg > 0);
-  const weekendList = ordered.filter(d => (d.dayIndex === 0 || d.dayIndex === 6) && d.avg > 0);
+  const weekdayList = ordered.filter(d => d && d.dayIndex >= 1 && d.dayIndex <= 5 && d.avg > 0);
+  const weekendList = ordered.filter(d => d && (d.dayIndex === 0 || d.dayIndex === 6) && d.avg > 0);
   const weekdayAvg  = weekdayList.length > 0 ? Math.round(weekdayList.reduce((s,d) => s+d.avg,0)/weekdayList.length) : 0;
   const weekendAvg  = weekendList.length > 0 ? Math.round(weekendList.reduce((s,d) => s+d.avg,0)/weekendList.length) : 0;
 
