@@ -1,119 +1,208 @@
 # Deployment
 
-Production hosts on **Vercel**. Database + auth + storage on **Supabase** (project `iwbpzwmidzvpiofnqexd`). Domain `trophe-mu.vercel.app`.
+Production on **Vercel** + **Supabase** (project `iwbpzwmidzvpiofnqexd`). Local dev uses `open_brain_postgres` Docker. Branch `v0.3-overhaul` is the active development branch; `main` is production.
+
+_Last updated: 2026-05-01 (v0.3-overhaul)_
+
+---
 
 ## Environment variables
 
-All set in **Vercel → Project Settings → Environment Variables** (Production scope). See `.env.local.example` for local development.
+Set in **Vercel → Project Settings → Environment Variables** (Production scope). Local: copy `.env.local.example` → `.env.local`.
 
-| Variable | Required | Where | Purpose |
-|---|---|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | yes | prod + local | Supabase project URL (`https://iwbpzwmidzvpiofnqexd.supabase.co`) |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | yes | prod + local | Client-side Supabase key (RLS-bound, safe to ship) |
-| `SUPABASE_SERVICE_ROLE_KEY` | yes | prod + local | Server-only; used by `/api/auth/signup` + `/admin/*` guard. **NEVER** prefix with `NEXT_PUBLIC_`. |
-| `ANTHROPIC_API_KEY` | yes | prod + local | Haiku 4.5 for food-parse, recipe-analyze, photo |
-| `GEMINI_API_KEY` | yes | prod + local | Gemini 2.0 Flash for meal suggestions |
-| `USDA_API_KEY` | optional | prod + local | Food search. Falls back to `DEMO_KEY` (30 req/hr) |
-| `TROPHE_ADMIN_EMAILS` | optional | prod | Comma-separated allowlist for `/admin/*`. Default: `daniel@reyes.com` |
+| Variable | Scope | Purpose |
+|----------|-------|---------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Prod + local | `https://iwbpzwmidzvpiofnqexd.supabase.co` |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Prod + local | Client-side key (RLS-bound, safe) |
+| `SUPABASE_SERVICE_ROLE_KEY` | Prod only | Server-only full-DB access. **NEVER `NEXT_PUBLIC_`** |
+| `DATABASE_URL` | Local only | `postgresql://brain_user:...@127.0.0.1:5433/trophe_dev` |
+| `ANTHROPIC_API_KEY` | Prod + local | Haiku 4.5 + Sonnet 4.6 |
+| `GEMINI_API_KEY` | Prod + local | Gemini 2.5 Flash |
+| `VOYAGE_API_KEY` | Prod + local | Voyage v4 embeddings |
+| `LANGFUSE_PUBLIC_KEY` | Local | Langfuse tracing (dev only) |
+| `LANGFUSE_SECRET_KEY` | Local | Langfuse tracing (dev only) |
+| `LANGFUSE_HOST` | Local | `http://127.0.0.1:3002` |
+| `USDA_API_KEY` | Optional | Food search. Falls back to `DEMO_KEY` (30 req/hr). |
+| `SPIKE_API_KEY` | Phase 6 | Spike wearable API |
+| `SPIKE_WEBHOOK_SECRET` | Phase 6 | HMAC webhook verification |
+| `TROPHE_ADMIN_EMAILS` | Legacy | Replaced by role enum in Phase 1. Keep for compat. |
 
-Local dev: copy `.env.local.example` → `.env.local`, fill in. Never commit `.env.local`.
+---
+
+## Local dev setup
+
+```bash
+# 1. Install dependencies
+npm install
+
+# 2. Local env
+cp .env.local.example .env.local
+# Fill in keys from ~/.local/secrets/{anthropic,providers,voyage}.env + Supabase dashboard
+
+# 3. Local DB (open_brain_postgres Docker must be running)
+npm run db:bootstrap    # createdb + apply migrations + seed
+# or manually:
+psql -h 127.0.0.1 -p 5433 -U brain_user -c "CREATE DATABASE trophe_dev"
+npm run db:migrate
+
+# Note: use 127.0.0.1 NOT localhost — macOS resolves localhost to ::1 first
+
+# 4. Start dev server
+npm run dev             # http://localhost:3000
+
+# 5. Optional: Drizzle Studio
+npm run db:studio       # http://localhost:4983
+```
+
+---
 
 ## Deploy workflow
 
 ```bash
-# Local preview first (unlimited, free)
-npm run dev
-# Browser: http://localhost:3000
+# Always: local verification first
+npm run typecheck       # 0 errors required
+npm run lint            # 0 errors required
+npm test                # all Vitest suites green
+npm run build           # clean production build
 
-# Full verification before production
-npm run typecheck   # 0 errors
-npm run lint        # 0 errors (warnings OK)
-npm test            # green
-npm run build       # clean production build
+# Push to preview (auto-deploys via Vercel)
+git push origin v0.3-overhaul
 
-# Ship to production
-git push origin main
+# Production deploy (max 3 per session)
+git push origin v0.3-overhaul
 vercel --yes --prod
 ```
 
-**Deploy budget**: max 3 production deploys per session. Prefer local preview for iteration.
+**Critical**: always `vercel --yes --prod`. Env vars are Production-scope only in Vercel; preview deploys fail without `--prod`.
 
-Vercel auto-builds on push to `main` (preview deployments for feature branches). Explicit `vercel --yes --prod` produces a new production deployment and promotes it to `trophe-mu.vercel.app`.
+**Deploy budget**: max 3 production deploys per session. Local preview + preview branch catch most issues.
+
+**Git identity** (required for Vercel to accept commits):
+```bash
+git config user.name "zsoist"
+git config user.email "zsoist@users.noreply.github.com"
+```
+
+---
+
+## Drizzle migrations (v0.3)
+
+```bash
+# After changing db/schema/*.ts files:
+npm run db:generate     # generates new SQL migration in drizzle/
+npm run db:migrate      # applies pending migrations to local DB
+
+# For production (Phase 9 cutover only):
+npm run db:migrate      # against DATABASE_URL pointing at Vultr/Supabase
+```
+
+Migration files live in `drizzle/`. Current migrations:
+- `0000_complex_johnny_blaze.sql` — initial schema
+- `0001_tearful_machine_man.sql` — organizations + roles
+- `0002_role_backfill.sql` — seeds Daniel as super_admin
+- `0003…0006` — subsequent schema additions
+
+**Note**: `supabase-schema.sql` and `supabase-workout-schema.sql` in the repo root are **DEPRECATED** — kept as reference only. Drizzle migrations are the source of truth for v0.3+.
+
+---
 
 ## CI (GitHub Actions)
 
-`.github/workflows/ci.yml` runs on every PR and push to `main`:
-1. Install dependencies (Node 20, `npm ci`)
-2. Typecheck (`tsc --noEmit`)
-3. Lint (`eslint`)
-4. Unit tests (`vitest run`)
+`.github/workflows/ci.yml` runs on every PR and push:
 
-10-minute timeout. Concurrency group cancels in-progress runs when a new commit arrives on the same ref.
+1. `npm ci` (Node 20)
+2. `tsc --noEmit` — typecheck
+3. `eslint` — lint
+4. `vitest run` — unit + integration tests
+5. Includes: RLS test suite (100% gate), role-gate suite (100% gate), food-parse accuracy (≥95% gate)
 
-Scheduled additions (v0.2):
-- Promptfoo evals on any `agents/prompts/**` change
-- Playwright E2E against Vercel preview deploy
-- `supabase db diff` dry-run
+10-minute timeout. Concurrency group cancels in-progress runs on same ref.
 
-## Database migrations
-
-**Today (pre-v0.2)**: migrations applied manually via Supabase SQL editor. No runner, no history.
-
-**Scheduled Sunday**: move to `supabase/migrations/*.sql` applied via `supabase db push` in CI. Requires Supabase CLI locally (`supabase start` for local dev DB).
+---
 
 ## Rollback
 
 ### Application code
 ```bash
-# Revert last commit locally
-git revert HEAD
-git push origin main
-# Or: roll back via Vercel dashboard → Deployments → older deploy → "Promote to Production"
-```
+# Option A: Vercel dashboard (fastest, ~30s)
+# Deployments → older deploy → "Promote to Production"
 
-Vercel preserves all prior deployments indefinitely. Rolling back = selecting an older deployment and clicking promote. Takes ~30 seconds to propagate.
+# Option B: git revert
+git revert HEAD
+git push origin v0.3-overhaul
+vercel --yes --prod
+```
 
 ### Database
-**Today**: no automated backup on Supabase Free tier. Recovery = manual replay from `CHANGELOG.md` + last known-good SQL snapshot.
-
-**After Supabase Pro upgrade ($25/mo, scheduled Sunday)**: daily automated backups + 7-day PITR (point-in-time recovery). Any accidental DELETE/UPDATE can be restored to the exact second. See `RUNBOOK.md → Data loss` for the procedure.
-
-## Supabase CLI (local development)
-
+**v0.3 (Drizzle)**: rollback to a prior migration:
 ```bash
-brew install supabase/tap/supabase
-supabase login
-supabase link --project-ref iwbpzwmidzvpiofnqexd
-
-# Pull current schema
-supabase db dump -f schema.sql
-
-# Run local instance for integration tests
-supabase start
-supabase db reset    # apply migrations + seed
+# Drizzle doesn't have built-in down-migration yet.
+# Manual: restore from Supabase Pro backup (PITR) or re-apply SQL.
 ```
+
+**Production Supabase free tier**: no automated backups. Recovery = manual replay.
+**Supabase Pro** ($25/mo): 7-day PITR. Operator decision: upgrade when >10 paying coaches.
+
+---
 
 ## Pre-deploy checklist
 
-- [ ] `npm run typecheck` green
-- [ ] `npm run lint` zero errors
-- [ ] `npm test` all passing
-- [ ] Local preview at `http://localhost:3000` exercised on key flows
+- [ ] `npm run typecheck` — 0 errors
+- [ ] `npm run lint` — 0 errors
+- [ ] `npm test` — all passing
+- [ ] `npm run build` — clean build
+- [ ] Local preview at `http://localhost:3000` tested on changed flows
 - [ ] Mobile viewport 390×844 verified on changed screens
-- [ ] No `.env` secrets in diff (`git diff --staged | grep -E 'sk-|key='`)
-- [ ] CHANGELOG updated if user-visible
-- [ ] Commit message explains the "why"
+- [ ] No secrets in diff: `git diff --staged | grep -E '(sk-ant-|sbp_|AIza|pa-)'`
+- [ ] CHANGELOG.md updated if user-visible change
+- [ ] No new `bg-stone-9xx` on themed surfaces (ESLint catches most)
+
+---
 
 ## Post-deploy verification
 
-1. Curl the homepage: `curl -sI https://trophe-mu.vercel.app | head -1` → `HTTP/2 200`
-2. Load an auth-gated page in browser: `/dashboard` should redirect to `/login` if not logged in, render if logged in
-3. Smoke test one API route (logged in): `POST /api/food/parse` with a trivial input
-4. Check Vercel dashboard → deployment → Function logs for 5xx errors
+```bash
+# 1. Homepage returns 200
+curl -sI https://trophe-mu.vercel.app | head -1   # HTTP/2 200
+
+# 2. Security headers present
+curl -sI https://trophe-mu.vercel.app | grep -E "(X-Frame|Content-Security)"
+
+# 3. Auth redirect works
+# Load /dashboard without session → should redirect to /login
+
+# 4. API smoke test (authenticated)
+# POST /api/food/parse {"input":"100g chicken"} → structured food items
+
+# 5. Vercel function logs
+# Vercel dashboard → deployment → Function logs → watch for 5xx
+```
+
+---
 
 ## Known deploy gotchas
 
-- **CSP wildcard breaks Supabase on mobile**: use the explicit project domain (`https://iwbpzwmidzvpiofnqexd.supabase.co`) in `next.config.ts`, NOT `*.supabase.co`. Mobile browsers don't normalize the wildcard.
-- **Service role key must not be `NEXT_PUBLIC_`**: prefixed env vars are inlined at build time into the client bundle. Service role = full DB access.
-- **Vercel preview deploys use Production env vars by default** unless you scope to "Preview". If a preview is calling prod services, scope env vars deliberately.
-- **Next.js 16 breaking changes**: see `AGENTS.md` for AI agent guidance about reading node_modules docs before writing code.
+| Gotcha | Fix |
+|--------|-----|
+| Preview builds fail | Env vars are Production-only. Use `--prod` or scope vars to Preview branch. |
+| CSP wildcard breaks Supabase on mobile | Use explicit `https://iwbpzwmidzvpiofnqexd.supabase.co` in `next.config.ts`, NOT `*.supabase.co` |
+| `NEXT_PUBLIC_` service role key | Prefixed vars are inlined into client bundle at build time. Service role = full DB access. Never prefix it. |
+| `localhost` vs `127.0.0.1` for local DB | macOS resolves `localhost` to `::1`; Docker only binds IPv4. Use `127.0.0.1` in `DATABASE_URL`. |
+| Vercel preserves all deployments | Rollback = promote older deployment. Don't `git revert` + redeploy when promote is faster. |
+
+---
+
+## Phase 9 production cutover (when triggered)
+
+Currently deferred. Trigger condition: >500 active users OR >5GB Postgres footprint OR need 99.9% SLA.
+
+```bash
+# When operator approves:
+# 1. Provision Vultr HF VPS ($12/mo) with pgvector
+# 2. pg_dump trophe_dev → restore on Vultr trophe_prod
+# 3. Update Vercel DATABASE_URL → Vultr connection string
+# 4. npm run db:migrate against trophe_prod
+# 5. Dual-write window (both DBs active, 24hr verification)
+# 6. DNS cut (TTL ≤300s during window)
+# 7. Rollback: toggle DATABASE_URL back to Supabase
+```
