@@ -407,7 +407,7 @@ export default function CoachFoodRecs({ userId, onLogFood }: CoachFoodRecsProps)
   const { t } = useI18n();
   const [recs, setRecs] = useState<CoachRec[]>([]);
   const [loading, setLoading] = useState(true);
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
   const [selectedRec, setSelectedRec] = useState<CoachRec | null>(null);
   const [loggingId, setLoggingId] = useState<string | null>(null);
   const [loggedId, setLoggedId] = useState<string | null>(null);

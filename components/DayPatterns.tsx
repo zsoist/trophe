@@ -25,24 +25,26 @@ type MacroType  = 'calories' | 'protein' | 'carbs' | 'fat' | 'fiber';
 type PeriodType = '7d' | '30d' | 'custom';
 
 interface MacroTab {
-  key:   MacroType;
-  label: string;
-  icon:  IconName;
-  color: string;
-  unit:  string;
-  field: string;
+  key:      MacroType;
+  label:    string;
+  labelKey: string;
+  icon:     IconName;
+  color:    string;
+  unit:     string;
+  field:    string;
 }
 
 const MACRO_TABS: MacroTab[] = [
-  { key: 'calories', label: 'kcal',    icon: 'i-flame',    color: '#fb923c', unit: 'kcal', field: 'calories'   },
-  { key: 'protein',  label: 'Protein', icon: 'i-dumbbell', color: '#f87171', unit: 'g',    field: 'protein_g'  },
-  { key: 'carbs',    label: 'Carbs',   icon: 'i-zap',      color: '#60a5fa', unit: 'g',    field: 'carbs_g'    },
-  { key: 'fat',      label: 'Fat',     icon: 'i-drop',     color: '#c084fc', unit: 'g',    field: 'fat_g'      },
-  { key: 'fiber',    label: 'Fiber',   icon: 'i-leaf',     color: '#34d399', unit: 'g',    field: 'fiber_g'    },
+  { key: 'calories', label: 'kcal',    labelKey: 'general.calories', icon: 'i-flame',    color: '#fb923c', unit: 'kcal', field: 'calories'   },
+  { key: 'protein',  label: 'Protein', labelKey: 'general.protein',  icon: 'i-dumbbell', color: '#f87171', unit: 'g',    field: 'protein_g'  },
+  { key: 'carbs',    label: 'Carbs',   labelKey: 'general.carbs',    icon: 'i-zap',      color: '#60a5fa', unit: 'g',    field: 'carbs_g'    },
+  { key: 'fat',      label: 'Fat',     labelKey: 'general.fat',      icon: 'i-drop',     color: '#c084fc', unit: 'g',    field: 'fat_g'      },
+  { key: 'fiber',    label: 'Fiber',   labelKey: 'general.fiber',    icon: 'i-leaf',     color: '#34d399', unit: 'g',    field: 'fiber_g'    },
 ];
 
 const DAY_LABELS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-const DAY_SHORT  = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const DAY_LABELS_I18N = ['day.sunday','day.monday','day.tuesday','day.wednesday','day.thursday','day.friday','day.saturday'];
+const DAY_SHORT_I18N  = ['day.sun_short','day.mon_short','day.tue_short','day.wed_short','day.thu_short','day.fri_short','day.sat_short'];
 
 export default function DayPatterns({ userId }: DayPatternsProps) {
   const { t } = useI18n();
@@ -105,7 +107,7 @@ export default function DayPatterns({ userId }: DayPatternsProps) {
       const days: DayAvg[] = Array.from({ length: 7 }, (_, i) => ({
         dayIndex:   i,
         dayLabel:   DAY_LABELS[i],
-        shortLabel: DAY_SHORT[i],
+        shortLabel: DAY_LABELS[i].substring(0, 3),
         total:      0,
         count:      0,
         avg:        0,
@@ -146,12 +148,13 @@ export default function DayPatterns({ userId }: DayPatternsProps) {
     const highest    = [...withData].sort((a, b) => b.avg - a.avg)[0];
     const overallAvg = Math.round(withData.reduce((s, d) => s + d.avg, 0) / withData.length);
     const highestPct = overallAvg > 0 ? Math.round(((highest.avg - overallAvg) / overallAvg) * 100) : 0;
+    const macroLabel = t(tab.labelKey);
 
-    if (highestPct > 15) return `${highest.dayLabel}s you eat ${highestPct}% more ${tab.label} than average`;
-    if (diff > 10)       return `Weekends you consume ${diff}% more ${tab.label} than weekdays`;
-    if (diff < -10)      return `Weekdays you consume ${Math.abs(diff)}% more ${tab.label} than weekends`;
+    if (highestPct > 15) return t('patterns.insight_day_more', { day: t(DAY_LABELS_I18N[highest.dayIndex]), n: highestPct, macro: macroLabel });
+    if (diff > 10)       return t('patterns.insight_weekend_more', { n: diff, macro: macroLabel });
+    if (diff < -10)      return t('patterns.insight_weekday_more', { n: Math.abs(diff), macro: macroLabel });
     return null;
-  }, [dayData, tab.label]);
+  }, [dayData, tab, t]);
 
   // Mon–Sun order — guard against empty/partial dayData
   const ordered = dayData.length === 7 ? [...dayData.slice(1), dayData[0]] : [];
@@ -217,7 +220,7 @@ export default function DayPatterns({ userId }: DayPatternsProps) {
                         : 'border-transparent text-stone-600 hover:text-stone-400'
                     }`}
                   >
-                    {p === '7d' ? '7 days' : p === '30d' ? '30 days' : 'Custom'}
+                    {p === '7d' ? t('patterns.7days') : p === '30d' ? t('patterns.30days') : t('patterns.custom')}
                   </button>
                 ))}
               </div>
@@ -232,7 +235,7 @@ export default function DayPatterns({ userId }: DayPatternsProps) {
                     className="flex gap-2 overflow-hidden"
                   >
                     <div className="flex-1">
-                      <p className="text-[9px] text-stone-600 mb-1">From</p>
+                      <p className="text-[9px] text-stone-600 mb-1">{t('general.from')}</p>
                       <input
                         type="date"
                         value={customFrom}
@@ -241,7 +244,7 @@ export default function DayPatterns({ userId }: DayPatternsProps) {
                       />
                     </div>
                     <div className="flex-1">
-                      <p className="text-[9px] text-stone-600 mb-1">To</p>
+                      <p className="text-[9px] text-stone-600 mb-1">{t('general.to')}</p>
                       <input
                         type="date"
                         value={customTo}
@@ -267,7 +270,7 @@ export default function DayPatterns({ userId }: DayPatternsProps) {
                     style={macro === tab.key ? { color: tab.color, borderColor: `${tab.color}33` } : {}}
                   >
                     <Icon name={tab.icon} size={9} />
-                    <span className="hidden sm:inline ml-0.5">{tab.label}</span>
+                    <span className="hidden sm:inline ml-0.5">{t(tab.labelKey)}</span>
                   </button>
                 ))}
               </div>
@@ -276,13 +279,13 @@ export default function DayPatterns({ userId }: DayPatternsProps) {
             {/* Chart area */}
             {loading ? (
               <div className="h-24 flex items-center justify-center">
-                <p className="text-stone-600 text-xs animate-pulse">Loading…</p>
+                <p className="text-stone-600 text-xs animate-pulse">{t('general.loading')}</p>
               </div>
             ) : overallAvg === 0 ? (
               <div className="text-center py-6">
                 <Calendar size={28} className="text-stone-700 mx-auto mb-2" />
-                <p className="text-stone-500 text-sm">Not enough data yet</p>
-                <p className="text-stone-600 text-xs mt-1">Log meals for 7+ days to see your patterns</p>
+                <p className="text-stone-500 text-sm">{t('patterns.no_data')}</p>
+                <p className="text-stone-600 text-xs mt-1">{t('patterns.log_more')}</p>
               </div>
             ) : (
               <>
@@ -301,7 +304,7 @@ export default function DayPatterns({ userId }: DayPatternsProps) {
                       className="absolute right-0 text-[8px] translate-y-[-100%] pr-0.5"
                       style={{ color: 'var(--t5,#57534e)' }}
                     >
-                      avg {fmtVal(overallAvg)}{tab.unit}
+                      {t('analytics.avg')} {fmtVal(overallAvg)}{tab.unit}
                     </span>
                   </div>
 
@@ -318,6 +321,10 @@ export default function DayPatterns({ userId }: DayPatternsProps) {
                         : isWeekend
                         ? `linear-gradient(180deg, ${tab.color}88, ${tab.color}44)`
                         : `linear-gradient(180deg, ${tab.color}cc, ${tab.color}66)`;
+
+                      // Mon-first ordered array: index 0=Mon(dayIndex=1)...index 5=Sat(dayIndex=6), index 6=Sun(dayIndex=0)
+                      // ordered = dayData.slice(1) + dayData[0], so ordered[i].dayIndex is correct
+                      const shortLabelKey = DAY_SHORT_I18N[day.dayIndex];
 
                       return (
                         <div key={day.dayIndex} className="flex-1 flex flex-col items-center gap-1">
@@ -353,7 +360,7 @@ export default function DayPatterns({ userId }: DayPatternsProps) {
                             fontWeight: isWeekend ? 600 : 400,
                             color: isWeekend ? tab.color : 'var(--t4,#78716c)',
                           }}>
-                            {day.shortLabel}
+                            {t(shortLabelKey)}
                           </span>
                         </div>
                       );
@@ -368,13 +375,13 @@ export default function DayPatterns({ userId }: DayPatternsProps) {
                       <p className="text-[11px] font-bold" style={{ color: tab.color }}>
                         {weekdayAvg > 0 ? `${fmtVal(weekdayAvg)}${tab.unit}` : '—'}
                       </p>
-                      <p className="text-[9px] mt-0.5 text-stone-500">Weekday avg</p>
+                      <p className="text-[9px] mt-0.5 text-stone-500">{t('patterns.weekday_avg')}</p>
                     </div>
                     <div className="rounded-xl p-2.5 text-center" style={{ background: `${tab.color}11`, border: `1px solid ${tab.color}22` }}>
                       <p className="text-[11px] font-bold" style={{ color: tab.color }}>
                         {weekendAvg > 0 ? `${fmtVal(weekendAvg)}${tab.unit}` : '—'}
                       </p>
-                      <p className="text-[9px] mt-0.5 text-stone-500">Weekend avg</p>
+                      <p className="text-[9px] mt-0.5 text-stone-500">{t('patterns.weekend_avg')}</p>
                     </div>
                   </div>
                 )}
@@ -387,13 +394,13 @@ export default function DayPatterns({ userId }: DayPatternsProps) {
                   >
                     <div className="flex items-center justify-between text-xs">
                       <div>
-                        <span className="text-stone-500">Peak: </span>
-                        <span className="font-semibold" style={{ color: tab.color }}>{highestDay.dayLabel}</span>
+                        <span className="text-stone-500">{t('patterns.peak')}: </span>
+                        <span className="font-semibold" style={{ color: tab.color }}>{t(DAY_LABELS_I18N[highestDay.dayIndex])}</span>
                         <span className="text-stone-600"> · {fmtVal(highestDay.avg)}{tab.unit}</span>
                       </div>
                       <div>
-                        <span className="text-stone-500">Low: </span>
-                        <span className="font-semibold text-stone-400">{lowestDay.dayLabel}</span>
+                        <span className="text-stone-500">{t('patterns.low')}: </span>
+                        <span className="font-semibold text-stone-400">{t(DAY_LABELS_I18N[lowestDay.dayIndex])}</span>
                         <span className="text-stone-600"> · {fmtVal(lowestDay.avg)}{tab.unit}</span>
                       </div>
                     </div>

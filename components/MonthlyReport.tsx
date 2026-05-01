@@ -76,15 +76,21 @@ function gradeBg(grade: string): string {
   }
 }
 
-function gradeInsight(grade: string, consistency: number, daysHitProtein: number, daysLogged: number): string {
-  if (daysLogged === 0) return 'Start logging to see your grade here.';
+function gradeInsight(
+  grade: string,
+  consistency: number,
+  daysHitProtein: number,
+  daysLogged: number,
+  t: (key: string, params?: Record<string, string | number>) => string
+): string {
+  if (daysLogged === 0) return t('report.grade_start');
   const pctProtein = daysLogged > 0 ? Math.round((daysHitProtein / daysLogged) * 100) : 0;
   switch (grade) {
-    case 'A': return `Outstanding consistency — you hit protein on ${pctProtein}% of days. Keep it up!`;
-    case 'B': return `Solid work. ${consistency}% logging rate — push protein to 90%+ on logged days.`;
-    case 'C': return `Room to grow. ${pctProtein}% protein days logged. Focus on consistency first.`;
-    case 'D': return `Tracking gaps are hurting your grade. Even partial logs count — start there.`;
-    default: return `Every streak starts somewhere. Log tomorrow and build from there.`;
+    case 'A': return t('report.grade_A', { n: pctProtein });
+    case 'B': return t('report.grade_B', { n: consistency });
+    case 'C': return t('report.grade_C', { n: pctProtein });
+    case 'D': return t('report.grade_D');
+    default:  return t('report.grade_F');
   }
 }
 
@@ -175,7 +181,7 @@ export default function MonthlyReport({ userId, targets }: MonthlyReportProps) {
         dateMap[date].fat += entry.fat_g ?? 0;
       }
 
-      const loggedDates = Object.entries(dateMap).filter(([, t]) => t.calories > 0);
+      const loggedDates = Object.entries(dateMap).filter(([, d]) => d.calories > 0);
       const daysLogged = loggedDates.length;
 
       // Count calendar days in range
@@ -183,25 +189,25 @@ export default function MonthlyReport({ userId, targets }: MonthlyReportProps) {
       const daysSoFar = Math.min(diffDays, Math.round((new Date().getTime() - fromD.getTime()) / 86400000) + 1);
       const consistency = daysSoFar > 0 ? Math.round((daysLogged / Math.max(daysSoFar, 1)) * 100) : 0;
 
-      const totalCalories = loggedDates.reduce((s, [, t]) => s + t.calories, 0);
-      const totalProtein = loggedDates.reduce((s, [, t]) => s + t.protein, 0);
+      const totalCalories = loggedDates.reduce((s, [, d]) => s + d.calories, 0);
+      const totalProtein = loggedDates.reduce((s, [, d]) => s + d.protein, 0);
       const avgCalories = daysLogged > 0 ? Math.round(totalCalories / daysLogged) : 0;
       const avgProtein = daysLogged > 0 ? Math.round(totalProtein / daysLogged) : 0;
-      const avgCarbs = daysLogged > 0 ? Math.round(loggedDates.reduce((s, [, t]) => s + t.carbs, 0) / daysLogged) : 0;
-      const avgFat = daysLogged > 0 ? Math.round(loggedDates.reduce((s, [, t]) => s + t.fat, 0) / daysLogged) : 0;
+      const avgCarbs = daysLogged > 0 ? Math.round(loggedDates.reduce((s, [, d]) => s + d.carbs, 0) / daysLogged) : 0;
+      const avgFat = daysLogged > 0 ? Math.round(loggedDates.reduce((s, [, d]) => s + d.fat, 0) / daysLogged) : 0;
 
-      const daysHitProtein = loggedDates.filter(([, t]) => targets.protein_g > 0 && t.protein >= targets.protein_g * 0.9).length;
-      const daysHitCalories = loggedDates.filter(([, t]) => targets.calories > 0 && t.calories >= targets.calories * 0.85 && t.calories <= targets.calories * 1.15).length;
+      const daysHitProtein = loggedDates.filter(([, d]) => targets.protein_g > 0 && d.protein >= targets.protein_g * 0.9).length;
+      const daysHitCalories = loggedDates.filter(([, d]) => targets.calories > 0 && d.calories >= targets.calories * 0.85 && d.calories <= targets.calories * 1.15).length;
 
       let bestDay: { date: string; score: number } | null = null;
       let worstDay: { date: string; score: number } | null = null;
-      for (const [date, t] of loggedDates) {
-        const score = dayScore(t.calories, t.protein, targets.calories, targets.protein_g);
+      for (const [date, d] of loggedDates) {
+        const score = dayScore(d.calories, d.protein, targets.calories, targets.protein_g);
         if (!bestDay || score > bestDay.score) bestDay = { date, score };
         if (!worstDay || score < worstDay.score) worstDay = { date, score };
       }
 
-      const adherenceScores = loggedDates.map(([, t]) => dayScore(t.calories, t.protein, targets.calories, targets.protein_g));
+      const adherenceScores = loggedDates.map(([, d]) => dayScore(d.calories, d.protein, targets.calories, targets.protein_g));
       const avgAdherence = adherenceScores.length > 0 ? Math.round(adherenceScores.reduce((s, v) => s + v, 0) / adherenceScores.length) : 0;
 
       // Previous period comparison
@@ -233,9 +239,9 @@ export default function MonthlyReport({ userId, targets }: MonthlyReportProps) {
   }, [userId, targets, period, customFrom, customTo]);
 
   const PERIODS: { key: Period; label: string }[] = [
-    { key: 'week', label: '7 days' },
-    { key: 'month', label: 'Month' },
-    { key: 'custom', label: 'Custom' },
+    { key: 'week',   label: t('report.period_week') },
+    { key: 'month',  label: t('report.period_month') },
+    { key: 'custom', label: t('report.period_custom') },
   ];
 
   return (
@@ -293,7 +299,7 @@ export default function MonthlyReport({ userId, targets }: MonthlyReportProps) {
                   className="flex gap-2 mb-4 overflow-hidden"
                 >
                   <div className="flex-1">
-                    <label className="text-[10px] text-[var(--t5)] uppercase tracking-wider block mb-1">From</label>
+                    <label className="text-[10px] text-[var(--t5)] uppercase tracking-wider block mb-1">{t('general.from')}</label>
                     <input
                       type="date"
                       value={customFrom}
@@ -303,7 +309,7 @@ export default function MonthlyReport({ userId, targets }: MonthlyReportProps) {
                     />
                   </div>
                   <div className="flex-1">
-                    <label className="text-[10px] text-[var(--t5)] uppercase tracking-wider block mb-1">To</label>
+                    <label className="text-[10px] text-[var(--t5)] uppercase tracking-wider block mb-1">{t('general.to')}</label>
                     <input
                       type="date"
                       value={customTo}
@@ -319,12 +325,12 @@ export default function MonthlyReport({ userId, targets }: MonthlyReportProps) {
 
             {/* Loading */}
             {loading && (
-              <div className="text-[var(--t5)] text-sm text-center py-6 animate-pulse">Loading report...</div>
+              <div className="text-[var(--t5)] text-sm text-center py-6 animate-pulse">{t('general.loading')}</div>
             )}
 
             {/* No data */}
             {!loading && (!stats || stats.daysLogged === 0) && (
-              <p className="text-[var(--t5)] text-sm text-center py-4">No data logged in this period</p>
+              <p className="text-[var(--t5)] text-sm text-center py-4">{t('report.no_data')}</p>
             )}
 
             {/* Stats */}
@@ -342,10 +348,10 @@ export default function MonthlyReport({ userId, targets }: MonthlyReportProps) {
                   </motion.div>
                   <div className="flex-1 min-w-0">
                     <p className="text-[var(--t2)] text-sm font-semibold mb-1">
-                      {stats.consistency}% consistency
+                      {t('report.consistency_pct', { n: stats.consistency })}
                     </p>
                     <p className="text-[var(--t4)] text-[11px] leading-relaxed">
-                      {gradeInsight(stats.grade, stats.consistency, stats.daysHitProtein, stats.daysLogged)}
+                      {gradeInsight(stats.grade, stats.consistency, stats.daysHitProtein, stats.daysLogged, t)}
                     </p>
                   </div>
                 </div>
@@ -353,54 +359,54 @@ export default function MonthlyReport({ userId, targets }: MonthlyReportProps) {
                 {/* Hit-rate bar */}
                 <div className="space-y-2 mb-4">
                   <HitBar
-                    label="Logged days"
+                    label={t('report.logged_days')}
                     value={stats.daysLogged}
                     total={stats.daysTotal}
                     color="var(--gold-300,#D4A853)"
-                    format={`${stats.daysLogged} / ${stats.daysTotal} days`}
+                    format={t('report.days_format', { n: stats.daysLogged, total: stats.daysTotal })}
                   />
                   <HitBar
-                    label="Protein days"
+                    label={t('report.protein_days')}
                     value={stats.daysHitProtein}
                     total={stats.daysLogged}
                     color="#4ade80"
-                    format={`${stats.daysHitProtein} / ${stats.daysLogged} days ≥90%`}
+                    format={t('report.days_pct_format', { n: stats.daysHitProtein, total: stats.daysLogged })}
                   />
                   <HitBar
-                    label="Calorie target"
+                    label={t('report.calorie_target')}
                     value={stats.daysHitCalories}
                     total={stats.daysLogged}
                     color="#60a5fa"
-                    format={`${stats.daysHitCalories} / ${stats.daysLogged} days on-target`}
+                    format={t('report.days_on_target', { n: stats.daysHitCalories, total: stats.daysLogged })}
                   />
                 </div>
 
                 {/* Metrics grid */}
                 <div className="grid grid-cols-2 gap-2.5 mb-4">
                   <MetricCard
-                    label="Avg Calories"
+                    label={t('report.avg_calories')}
                     value={`${stats.avgCalories}`}
-                    sub="kcal/day"
+                    sub={t('report.kcal_day')}
                     trend={renderTrendIcon(stats.avgCalories, stats.prevAvgCalories)}
-                    explain={targets.calories > 0 ? `Target: ${targets.calories} kcal` : undefined}
+                    explain={targets.calories > 0 ? t('report.target_kcal', { n: targets.calories }) : undefined}
                   />
                   <MetricCard
-                    label="Avg Protein"
+                    label={t('report.avg_protein')}
                     value={`${stats.avgProtein}g`}
-                    sub={targets.protein_g > 0 ? `/ ${targets.protein_g}g` : 'per day'}
-                    explain={targets.protein_g > 0 ? `${Math.round((stats.avgProtein / targets.protein_g) * 100)}% of target` : undefined}
+                    sub={targets.protein_g > 0 ? `/ ${targets.protein_g}g` : t('report.per_day')}
+                    explain={targets.protein_g > 0 ? t('report.pct_target', { n: Math.round((stats.avgProtein / targets.protein_g) * 100) }) : undefined}
                   />
                   <MetricCard
-                    label="Avg Carbs"
+                    label={t('report.avg_carbs')}
                     value={`${stats.avgCarbs}g`}
-                    sub="per day"
-                    explain={targets.carbs_g > 0 ? `Target: ${targets.carbs_g}g` : undefined}
+                    sub={t('report.per_day')}
+                    explain={targets.carbs_g > 0 ? t('report.target_g', { n: targets.carbs_g }) : undefined}
                   />
                   <MetricCard
-                    label="Avg Fat"
+                    label={t('report.avg_fat')}
                     value={`${stats.avgFat}g`}
-                    sub="per day"
-                    explain={targets.fat_g > 0 ? `Target: ${targets.fat_g}g` : undefined}
+                    sub={t('report.per_day')}
+                    explain={targets.fat_g > 0 ? t('report.target_g', { n: targets.fat_g }) : undefined}
                   />
                 </div>
 
@@ -409,19 +415,19 @@ export default function MonthlyReport({ userId, targets }: MonthlyReportProps) {
                   <div className="grid grid-cols-2 gap-2.5">
                     {stats.bestDay && (
                       <MetricCard
-                        label="Best day"
+                        label={t('report.best_day')}
                         value={formatDateShort(stats.bestDay.date)}
                         sub={`${stats.bestDay.score} pts`}
                         icon={<Award size={10} className="text-green-400" />}
-                        explain="Closest to all targets"
+                        explain={t('report.closest_targets')}
                       />
                     )}
                     {stats.worstDay && (
                       <MetricCard
-                        label="Worst day"
+                        label={t('report.worst_day')}
                         value={formatDateShort(stats.worstDay.date)}
                         sub={`${stats.worstDay.score} pts`}
-                        explain="Furthest from targets"
+                        explain={t('report.furthest_targets')}
                       />
                     )}
                   </div>
@@ -430,17 +436,17 @@ export default function MonthlyReport({ userId, targets }: MonthlyReportProps) {
                 {/* Trend vs previous period */}
                 {stats.prevConsistency !== null && (
                   <div className="mt-3 p-3 rounded-xl border border-[var(--line)] bg-[var(--bg-1)]">
-                    <p className="text-[10px] text-[var(--t5)] uppercase tracking-wider mb-1.5">vs. previous period</p>
+                    <p className="text-[10px] text-[var(--t5)] uppercase tracking-wider mb-1.5">{t('report.vs_period')}</p>
                     <div className="flex items-center gap-3">
                       <span className="text-[var(--t3)] text-xs flex items-center gap-1">
-                        Consistency {renderTrendIcon(stats.consistency, stats.prevConsistency)}
+                        {t('report.consistency')} {renderTrendIcon(stats.consistency, stats.prevConsistency)}
                         <span className={stats.consistency >= stats.prevConsistency ? 'text-green-400' : 'text-red-400'}>
                           {stats.consistency > stats.prevConsistency ? '+' : ''}{stats.consistency - stats.prevConsistency}%
                         </span>
                       </span>
                       {stats.prevAvgCalories !== null && (
                         <span className="text-[var(--t3)] text-xs flex items-center gap-1">
-                          Calories {renderTrendIcon(stats.avgCalories, stats.prevAvgCalories)}
+                          {t('general.calories')} {renderTrendIcon(stats.avgCalories, stats.prevAvgCalories)}
                           <span className={Math.abs(stats.avgCalories - stats.prevAvgCalories) < 50 ? 'text-[var(--t4)]' : stats.avgCalories > stats.prevAvgCalories ? 'text-orange-400' : 'text-green-400'}>
                             {stats.avgCalories > stats.prevAvgCalories ? '+' : ''}{stats.avgCalories - stats.prevAvgCalories} kcal
                           </span>

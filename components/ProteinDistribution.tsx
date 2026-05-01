@@ -16,6 +16,7 @@ type MacroType = 'protein' | 'calories' | 'carbs' | 'fat';
 interface MacroTab {
   key: MacroType;
   label: string;
+  labelKey: string;
   icon: IconName;
   color: string;
   unit: string;
@@ -23,20 +24,11 @@ interface MacroTab {
 }
 
 const MACRO_TABS: MacroTab[] = [
-  { key: 'protein',  label: 'Protein',   icon: 'i-dumbbell', color: '#f87171', unit: 'g',    field: 'protein_g'  },
-  { key: 'calories', label: 'Calories',  icon: 'i-flame',    color: '#fb923c', unit: 'kcal', field: 'calories'   },
-  { key: 'carbs',    label: 'Carbs',     icon: 'i-zap',      color: '#60a5fa', unit: 'g',    field: 'carbs_g'    },
-  { key: 'fat',      label: 'Fat',       icon: 'i-drop',     color: '#c084fc', unit: 'g',    field: 'fat_g'      },
+  { key: 'protein',  label: 'Protein',   labelKey: 'general.protein',  icon: 'i-dumbbell', color: '#f87171', unit: 'g',    field: 'protein_g'  },
+  { key: 'calories', label: 'Calories',  labelKey: 'general.calories', icon: 'i-flame',    color: '#fb923c', unit: 'kcal', field: 'calories'   },
+  { key: 'carbs',    label: 'Carbs',     labelKey: 'general.carbs',    icon: 'i-zap',      color: '#60a5fa', unit: 'g',    field: 'carbs_g'    },
+  { key: 'fat',      label: 'Fat',       labelKey: 'general.fat',      icon: 'i-drop',     color: '#c084fc', unit: 'g',    field: 'fat_g'      },
 ];
-
-const MEAL_NAMES: Record<string, string> = {
-  breakfast:    'Breakfast',
-  lunch:        'Lunch',
-  dinner:       'Dinner',
-  snack:        'Snack',
-  pre_workout:  'Pre-WO',
-  post_workout: 'Post-WO',
-};
 
 const MEAL_COLORS: Record<string, string> = {
   breakfast:    '#f59e0b',
@@ -55,6 +47,18 @@ export default memo(function ProteinDistribution({ entries }: ProteinDistributio
   if (entries.length < 2) return null;
 
   const tab = MACRO_TABS.find(tab => tab.key === macro)!;
+
+  const getMealName = (key: string) => {
+    const map: Record<string, string> = {
+      breakfast:    t('food.breakfast'),
+      lunch:        t('food.lunch'),
+      dinner:       t('food.dinner'),
+      snack:        t('food.snack'),
+      pre_workout:  t('food.pre_workout'),
+      post_workout: t('food.post_workout'),
+    };
+    return map[key] ?? key;
+  };
 
   // Group selected macro by meal
   const byMeal = new Map<string, number>();
@@ -116,7 +120,7 @@ export default memo(function ProteinDistribution({ entries }: ProteinDistributio
                   style={macro === tab.key ? { color: tab.color, borderColor: `${tab.color}33` } : {}}
                 >
                   <Icon name={tab.icon} size={10} />
-                  {tab.label}
+                  {t(tab.labelKey)}
                 </button>
               ))}
             </div>
@@ -131,7 +135,7 @@ export default memo(function ProteinDistribution({ entries }: ProteinDistributio
                   return (
                     <div key={meal} className="flex items-center gap-2">
                       <span className="text-[10px] text-stone-500 w-16 text-right truncate shrink-0">
-                        {MEAL_NAMES[meal] || meal}
+                        {getMealName(meal)}
                       </span>
                       <div className="flex-1 h-2.5 bg-white/[0.05] rounded-full overflow-hidden">
                         <motion.div

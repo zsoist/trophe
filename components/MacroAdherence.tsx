@@ -118,7 +118,7 @@ export default function MacroAdherence({ userId, targets }: MacroAdherenceProps)
   if (loading) {
     return (
       <div className="glass p-5 mb-4">
-        <div className="text-stone-500 text-sm text-center py-6 animate-pulse">Loading adherence...</div>
+        <div className="text-stone-500 text-sm text-center py-6 animate-pulse">{t('general.loading')}</div>
       </div>
     );
   }
@@ -128,7 +128,7 @@ export default function MacroAdherence({ userId, targets }: MacroAdherenceProps)
 
   const macros: MacroBar[] = [
     {
-      label: 'Calories',
+      label: t('general.calories'),
       key: 'calories',
       color: '#D4A853',
       unit: 'kcal',
@@ -140,7 +140,7 @@ export default function MacroAdherence({ userId, targets }: MacroAdherenceProps)
       targetValue: targets.calories,
     },
     {
-      label: 'Protein',
+      label: t('general.protein'),
       key: 'protein_g',
       color: '#ef4444',
       unit: 'g',
@@ -152,7 +152,7 @@ export default function MacroAdherence({ userId, targets }: MacroAdherenceProps)
       targetValue: targets.protein_g,
     },
     {
-      label: 'Carbs',
+      label: t('general.carbs'),
       key: 'carbs_g',
       color: '#3b82f6',
       unit: 'g',
@@ -164,7 +164,7 @@ export default function MacroAdherence({ userId, targets }: MacroAdherenceProps)
       targetValue: targets.carbs_g,
     },
     {
-      label: 'Fat',
+      label: t('general.fat'),
       key: 'fat_g',
       color: '#a855f7',
       unit: 'g',
@@ -218,7 +218,7 @@ export default function MacroAdherence({ userId, targets }: MacroAdherenceProps)
           >
             {/* Explanatory subtitle */}
             <p className="text-[10px] mb-3" style={{ color: 'var(--t5, #57534e)' }}>
-              How close you get to your daily targets. 90–110% of target = on track.
+              {t('adherence.subtitle')}
             </p>
 
             {activeDays.length === 0 ? (
@@ -228,8 +228,8 @@ export default function MacroAdherence({ userId, targets }: MacroAdherenceProps)
                   className="rounded-xl p-3 mb-3 text-center"
                   style={{ background: 'var(--line, rgba(255,255,255,0.04))', border: '1px solid var(--line-2)' }}
                 >
-                  <p className="text-xs font-medium" style={{ color: 'var(--t3)' }}>No data logged this week yet</p>
-                  <p className="text-[10px] mt-0.5" style={{ color: 'var(--t5)' }}>Log meals to see your adherence score</p>
+                  <p className="text-xs font-medium" style={{ color: 'var(--t3)' }}>{t('adherence.no_data')}</p>
+                  <p className="text-[10px] mt-0.5" style={{ color: 'var(--t5)' }}>{t('adherence.log_meals')}</p>
                 </div>
                 {/* Show targets anyway */}
                 <div className="space-y-2">
@@ -240,7 +240,12 @@ export default function MacroAdherence({ userId, targets }: MacroAdherenceProps)
                         <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: macro.color }} />
                         <span style={{ color: 'var(--t2)' }}>{macro.label}</span>
                       </div>
-                      <span style={{ color: 'var(--t4)' }}>Target: <strong style={{ color: 'var(--t2)' }}>{macro.targetValue}{macro.unit}</strong></span>
+                      <span style={{ color: 'var(--t4)' }}
+                        dangerouslySetInnerHTML={{ __html: t('adherence.target_val', { n: macro.targetValue, unit: macro.unit }).replace(
+                          String(macro.targetValue) + macro.unit,
+                          `<strong style="color:var(--t2)">${macro.targetValue}${macro.unit}</strong>`
+                        ) }}
+                      />
                     </div>
                   ))}
                 </div>
@@ -269,10 +274,10 @@ export default function MacroAdherence({ userId, targets }: MacroAdherenceProps)
                   </div>
                   <div className="flex-1 space-y-1">
                     <p className="text-xs font-semibold" style={{ color: 'var(--t2)' }}>
-                      {overallScore >= 80 ? 'Excellent consistency!' : overallScore >= 60 ? 'Good — keep pushing' : 'Room to improve'}
+                      {overallScore >= 80 ? t('adherence.excellent') : overallScore >= 60 ? t('adherence.good') : t('adherence.improve')}
                     </p>
                     <p className="text-[10px]" style={{ color: 'var(--t4)' }}>
-                      {activeDays.length} of {totalDays} days logged this week
+                      {t('adherence.days_logged', { n: activeDays.length, total: totalDays })}
                     </p>
                     <div className="flex gap-1 mt-1">
                       {Array.from({ length: totalDays }, (_, i) => (
@@ -297,7 +302,7 @@ export default function MacroAdherence({ userId, targets }: MacroAdherenceProps)
                         </div>
                         <div className="flex items-center gap-2">
                           <span className="text-[10px]" style={{ color: 'var(--t4)' }}>
-                            {macro.daysOnTarget}/{activeDays.length}d on target
+                            {t('adherence.on_target', { n: macro.daysOnTarget, total: activeDays.length })}
                           </span>
                           <span className={`text-[11px] font-bold ${scoreColor(macro.adherence)}`}>
                             {macro.adherence}%
@@ -314,7 +319,7 @@ export default function MacroAdherence({ userId, targets }: MacroAdherenceProps)
                         />
                       </div>
                       <p className="text-[9px] mt-0.5" style={{ color: 'var(--t5)' }}>
-                        avg {macro.avgValue}{macro.unit} · target {macro.targetValue}{macro.unit}
+                        {t('adherence.avg_target', { avg: macro.avgValue, unit: macro.unit, target: macro.targetValue })}
                       </p>
                     </div>
                   ))}
