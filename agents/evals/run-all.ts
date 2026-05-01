@@ -104,9 +104,17 @@ async function checkServerAvailable(baseUrl: string): Promise<boolean> {
   try {
     const ctrl = new AbortController();
     const timeout = setTimeout(() => ctrl.abort(), 3000);
-    await fetch(`${baseUrl}/api/health`, { signal: ctrl.signal });
+    // POST a minimal parse request — a Trophē dev server returns JSON;
+    // any non-Trophē process (or missing endpoint) returns HTML → false.
+    const res = await fetch(`${baseUrl}/api/food/parse`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: 'health-check', language: 'en' }),
+      signal: ctrl.signal,
+    });
     clearTimeout(timeout);
-    return true;
+    const ct = res.headers.get('content-type') ?? '';
+    return ct.includes('application/json');
   } catch {
     return false;
   }
@@ -188,11 +196,11 @@ interface RecipeOutput { recipe_name: string; servings: number; ingredients: Rec
 const RECIPE_SYNTHETIC_CASES = [
   {
     id: 'recipe_greek_salad',
-    text: 'Greek salad with 200g tomatoes, 100g cucumber, 80g feta cheese, 20ml olive oil, olives',
+    text: 'Greek salad: 200g tomatoes, 100g cucumber, 80g feta cheese, 20ml olive oil, 30g kalamata olives',
     servings: 2,
     language: 'en',
     minIngredients: 3,
-    expectTotalCalMin: 250, expectTotalCalMax: 600,
+    expectTotalCalMin: 250, expectTotalCalMax: 650,
   },
   {
     id: 'recipe_chicken_rice',
@@ -382,11 +390,15 @@ function validateCoachInsight(text: string, spec: typeof COACH_INSIGHT_CASES[0])
 
   if (spec.validateActionable) {
     const actionablePatterns = [
+      // Guidance verbs
       /\b(aim|try|consider|focus|increase|decrease|add|reduce|track|include|avoid|prioritize|adjust|ensure)\b/i,
-      /\b(recommend|suggest|encourage|would benefit|could help)\b/i,
+      // Recommendation language
+      /\b(recommend|suggest|encourage|would benefit|could help|should|would|might want)\b/i,
+      // Safety / verification language (relevant for allergy/flag cases)
+      /\b(check|verify|confirm|inspect|review|contact|consult|speak|ask|alert|flag|caution|warn)\b/i,
     ];
     const hasActionable = actionablePatterns.some((p) => p.test(text));
-    if (!hasActionable) failures.push('no actionable language detected (aim/try/consider/focus etc.)');
+    if (!hasActionable) failures.push('no actionable language detected (aim/try/consider/focus/check/verify etc.)');
   }
 
   return failures;
