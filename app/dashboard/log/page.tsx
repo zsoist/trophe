@@ -29,6 +29,7 @@ import MonthlyReport from '@/components/MonthlyReport';
 import MealPhotoGallery from '@/components/MealPhotoGallery';
 import DayComparison from '@/components/DayComparison';
 import MacroFoodIdeas from '@/components/MacroFoodIdeas';
+import CoachFoodRecs from '@/components/CoachFoodRecs';
 import RecipeAnalyzerModal from '@/components/RecipeAnalyzerModal';
 import { useTheme } from '@/components/ThemePicker';
 import { localToday, localDateStr } from '../../../lib/dates';
@@ -151,17 +152,25 @@ function getHealthTip(
     return t('tip.protein_to_go', { n: Math.round(targets.protein_g - protein) });
   }
   if (targets.calories > 0 && calories > targets.calories * 1.1) return t('tip.over_calories');
-  if (nextUnfilled && filledCount > 0 && filledCount < 4) {
-    const mealTimeOk = (nextUnfilled.mealType === 'breakfast' && hour < 11)
-      || (nextUnfilled.mealType === 'snack' && hour >= 10 && hour < 20)
-      || (nextUnfilled.mealType === 'lunch' && hour >= 11 && hour < 16)
-      || (nextUnfilled.mealType === 'dinner' && hour >= 17);
-    if (mealTimeOk) return t('tip.time_for_meal', { meal: nextUnfilled.label.toLowerCase() });
-  }
   if (filledCount >= 4) return t('tip.almost_done');
 
   const tipIndex = (dayOfYear * 24 + hour) % HEALTH_TIP_KEYS.length;
   return t(HEALTH_TIP_KEYS[tipIndex]);
+}
+
+// ─── Premium section divider ────────────────────────────────────
+function SectionDivider({ label }: { label: string }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 20, marginBottom: 10 }}>
+      <span style={{
+        fontSize: 9, fontWeight: 700, color: 'var(--t5)',
+        letterSpacing: '0.12em', textTransform: 'uppercase', flexShrink: 0,
+      }}>
+        {label}
+      </span>
+      <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,.06)' }} />
+    </div>
+  );
 }
 
 export default function FoodLogPage() {
@@ -489,6 +498,27 @@ export default function FoodLogPage() {
 
   const nextUnfilled = slots.find(s => grouped[s.id].length === 0 && !skippedSlots.has(s.id));
 
+  // CoachFoodRecs quick-log handler
+  const logCoachRec = async (rec: { food: string; calories: number; protein: number; carbs: number; fat: number; fiber: number }, mealType: import('@/lib/types').MealType) => {
+    if (!userId) return;
+    await supabase.from('food_log').insert({
+      user_id: userId,
+      logged_date: selectedDate,
+      meal_type: mealType,
+      food_name: rec.food,
+      quantity: 1,
+      unit: 'serving',
+      calories: rec.calories,
+      protein_g: rec.protein,
+      carbs_g: rec.carbs,
+      fat_g: rec.fat,
+      fiber_g: rec.fiber,
+      sugar_g: 0,
+      source: 'custom' as const,
+    });
+    await loadTodayLog();
+  };
+
   return (
     <div className="min-h-screen pb-24" style={{ background: 'var(--bg,#0a0a0a)' }}>
       <motion.div
@@ -590,7 +620,7 @@ export default function FoodLogPage() {
         )}
 
 
-        {/* F5: Favorites chips */}
+        {/* ── Favorites chips ── */}
         {favorites.length > 0 && (
           <div className="mb-3">
             <div className="flex items-center gap-1.5 mb-1.5">
@@ -614,19 +644,21 @@ export default function FoodLogPage() {
           </div>
         )}
 
-        {/* Smart health tip — rotates hourly, 7 days of content */}
-        <motion.div
-          initial={{ opacity: 0, y: -5 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-3 px-3 py-2 rounded-lg bg-[#D4A853]/10 border border-[#D4A853]/20"
-        >
-          <p className="text-xs text-[#D4A853]">
-            {getHealthTip(t, totalProtein, totalCalories, targets, filledCount, nextUnfilled)}
-          </p>
-        </motion.div>
+        {/* ── Rotating tip (non-meal-time only) ── */}
+        {todayLog.length < 4 && (
+          <motion.div
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-3 px-3 py-2 rounded-lg bg-[#D4A853]/10 border border-[#D4A853]/20"
+          >
+            <p className="text-xs text-[#D4A853]">
+              {getHealthTip(t, totalProtein, totalCalories, targets, filledCount, nextUnfilled)}
+            </p>
+          </motion.div>
+        )}
 
-        {/* Meal Slot Cards */}
-        <div className="space-y-2 mb-4">
+        {/* ── Meal Slot Cards ── */}
+        <div className="space-y-2 mb-2">
           {userId && slots.map(slot => (
             <MealSlotCard
               key={slot.id}
@@ -656,87 +688,164 @@ export default function FoodLogPage() {
           ))}
         </div>
 
-        {/* F11: Daily Insights */}
-        {todayLog.length >= 3 && (
-          <DailyInsights entries={todayLog} targets={targets} />
+        {/* ════════════════════════════════════════
+            INSIGHTS SECTION
+        ════════════════════════════════════════ */}
+        <SectionDivider label="Insights" />
+
+        {/* Achievements */}
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.04, duration: 0.28 }}
+          className="mb-3"
+        >
+          <MealBadges todayLog={todayLog} streak={streak} targets={{ protein_g: targets.protein_g }} />
+        </motion.div>
+
+        {/* Coach food recommendations */}
+        {userId && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.08, duration: 0.28 }}
+            className="mb-3"
+          >
+            <CoachFoodRecs userId={userId} onLogFood={logCoachRec} />
+          </motion.div>
         )}
 
-        {/* Macro Food Ideas — context-aware suggestions by what's remaining */}
-        <MacroFoodIdeas
-          consumed={{
-            protein: todayLog.reduce((s, e) => s + (e.protein_g || 0), 0),
-            carbs: todayLog.reduce((s, e) => s + (e.carbs_g || 0), 0),
-            fat: todayLog.reduce((s, e) => s + (e.fat_g || 0), 0),
-            fiber: todayLog.reduce((s, e) => s + (e.fiber_g || 0), 0),
-          }}
-          targets={{
-            protein: targets.protein_g,
-            carbs: targets.carbs_g,
-            fat: targets.fat_g,
-            fiber: 30,
-          }}
-        />
+        {/* Macro Food Ideas */}
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.12, duration: 0.28 }}
+          className="mb-3"
+        >
+          <MacroFoodIdeas
+            consumed={{
+              protein: todayLog.reduce((s, e) => s + (e.protein_g || 0), 0),
+              carbs:   todayLog.reduce((s, e) => s + (e.carbs_g   || 0), 0),
+              fat:     todayLog.reduce((s, e) => s + (e.fat_g     || 0), 0),
+              fiber:   todayLog.reduce((s, e) => s + (e.fiber_g   || 0), 0),
+            }}
+            targets={{
+              protein: targets.protein_g,
+              carbs: targets.carbs_g,
+              fat: targets.fat_g,
+              fiber: 30,
+            }}
+          />
+        </motion.div>
 
-        {/* F25: Achievement Badges */}
-        <MealBadges todayLog={todayLog} streak={streak} targets={{ protein_g: targets.protein_g }} />
+        {/* Daily Insights */}
+        {todayLog.length >= 3 && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.16, duration: 0.28 }}
+            className="mb-3"
+          >
+            <DailyInsights entries={todayLog} targets={targets} />
+          </motion.div>
+        )}
 
+        {/* ════════════════════════════════════════
+            NUTRITION INTEL SECTION
+        ════════════════════════════════════════ */}
+        <SectionDivider label="Nutrition Intel" />
 
         {/* Fasting Timer */}
         {todayLog.length > 0 && isToday && (
-          <div className="mt-4">
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.04, duration: 0.28 }}
+            className="mb-3"
+          >
             <FastingTimer todayLog={todayLog} />
-          </div>
+          </motion.div>
         )}
 
         {/* Protein Distribution */}
         {todayLog.length >= 2 && (
-          <div className="mt-4">
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.08, duration: 0.28 }}
+            className="mb-3"
+          >
             <ProteinDistribution entries={todayLog} />
-          </div>
+          </motion.div>
         )}
 
         {/* Nutrient Density */}
         {todayLog.length >= 3 && (
-          <div className="mt-4">
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.12, duration: 0.28 }}
+            className="mb-3"
+          >
             <NutrientDensity entries={todayLog} />
-          </div>
+          </motion.div>
         )}
 
         {/* Photo Gallery */}
         {userId && (
-          <div className="mt-4">
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.16, duration: 0.28 }}
+            className="mb-3"
+          >
             <MealPhotoGallery userId={userId} />
-          </div>
+          </motion.div>
         )}
 
-        {/* Analytics Section — only show if enough data */}
+        {/* ════════════════════════════════════════
+            ANALYTICS SECTION
+        ════════════════════════════════════════ */}
         {userId && (
-          <div className="mt-6 space-y-4">
-            <h2 className="text-stone-300 text-sm font-semibold px-1">{t('log.analytics')}</h2>
+          <>
+            <SectionDivider label={t('log.analytics')} />
 
-            {/* Macro Trends */}
-            <MacroTrendChart userId={userId} />
+            <div className="space-y-3">
+              {/* Macro Trends */}
+              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.04, duration: 0.28 }}>
+                <MacroTrendChart userId={userId} />
+              </motion.div>
 
-            {/* Calorie Heatmap */}
-            <CalorieHeatmap userId={userId} />
+              {/* Calorie Heatmap */}
+              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08, duration: 0.28 }}>
+                <CalorieHeatmap userId={userId} />
+              </motion.div>
 
-            {/* Food Frequency */}
-            <FoodFrequency userId={userId} />
+              {/* Food Frequency */}
+              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12, duration: 0.28 }}>
+                <FoodFrequency userId={userId} />
+              </motion.div>
 
+              {/* Day Patterns */}
+              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.16, duration: 0.28 }}>
+                <DayPatterns userId={userId} />
+              </motion.div>
 
-            {/* Day Patterns */}
-            <DayPatterns userId={userId} />
+              {/* Macro Adherence */}
+              {targets.calories > 0 && (
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.20, duration: 0.28 }}>
+                  <MacroAdherence userId={userId} targets={targets} />
+                </motion.div>
+              )}
 
-            {/* Macro Adherence */}
-            {targets.calories > 0 && (
-              <MacroAdherence userId={userId} targets={targets} />
-            )}
-
-            {/* Monthly Report */}
-            {targets.calories > 0 && (
-              <MonthlyReport userId={userId} targets={targets} />
-            )}
-          </div>
+              {/* Monthly Report */}
+              {targets.calories > 0 && (
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.24, duration: 0.28 }}>
+                  <MonthlyReport userId={userId} targets={targets} />
+                </motion.div>
+              )}
+            </div>
+          </>
         )}
       </motion.div>
 

@@ -751,19 +751,20 @@ export default function DashboardPage() {
             icon = 'i-leaf'; text = t('insight.log_first'); color = 'var(--t3)';
           } else if (totalSugar > 30) {
             icon = 'i-flame'; text = t('insight.sugar_high', { n: Math.round(totalSugar) }); color = '#f59e0b';
-          } else if ((totalProtein / targetProtein) < 0.3) {
+          } else if (targetProtein > 0 && (totalProtein / targetProtein) < 0.3) {
             icon = 'i-dumbbell';
-            text = t('insight.protein_low', { n: Math.round(targetProtein - totalProtein) }); color = 'var(--err,#E87A6E)';
+            text = t('insight.protein_low', { n: Math.round(Math.max(targetProtein - totalProtein, 0)) }); color = 'var(--err,#E87A6E)';
           } else if (totalWater < 500) {
             icon = 'i-drop'; text = t('insight.hydration_low'); color = 'var(--info,#7DA3D9)';
-          } else if (totalCalories >= targetCalories) {
+          } else if (targetCalories > 0 && totalCalories >= targetCalories) {
             icon = 'i-target'; text = t('insight.goal_reached'); color = 'var(--ok,#65D387)';
-          } else if ((totalCalories / targetCalories) > 0.8) {
+          } else if (targetCalories > 0 && (totalCalories / targetCalories) > 0.8) {
             icon = 'i-check';
             text = t('insight.almost_there', { n: remaining.toLocaleString() }); color = 'var(--ok,#65D387)';
           } else {
             icon = 'i-zap';
-            text = t('insight.pct_logged', { n: Math.round((totalCalories / targetCalories) * 100) }); color = 'var(--gold-300,#D4A853)';
+            const pct = targetCalories > 0 ? Math.round((totalCalories / targetCalories) * 100) : 0;
+            text = t('insight.pct_logged', { n: pct }); color = 'var(--gold-300,#D4A853)';
           }
           return (
             <motion.div

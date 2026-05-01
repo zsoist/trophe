@@ -20,7 +20,7 @@ interface CalorieHeatmapProps {
   weeks?: number;
 }
 
-const CELL_SIZE = 12;
+const CELL_SIZE = 11;
 const GAP = 2;
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -33,7 +33,7 @@ function getIntensity(calories: number): string {
   return 'rgba(212, 168, 83, 0.90)';
 }
 
-export default function CalorieHeatmap({ userId, weeks = 8 }: CalorieHeatmapProps) {
+export default function CalorieHeatmap({ userId, weeks = 18 }: CalorieHeatmapProps) {
   const { t } = useI18n();
   const [cells, setCells] = useState<DayCell[]>([]);
   const [months, setMonths] = useState<{ label: string; col: number }[]>([]);
@@ -112,9 +112,10 @@ export default function CalorieHeatmap({ userId, weeks = 8 }: CalorieHeatmapProp
 
   if (loading) {
     return (
-      <div className="glass p-5 mb-4">
-        <div className="text-stone-500 text-sm text-center py-6 animate-pulse">
-          Loading activity...
+      <div className="glass p-4">
+        <div className="animate-pulse space-y-2">
+          <div className="h-3 bg-white/[0.05] rounded w-1/3" />
+          <div className="h-20 bg-white/[0.03] rounded" />
         </div>
       </div>
     );
@@ -186,11 +187,10 @@ export default function CalorieHeatmap({ userId, weeks = 8 }: CalorieHeatmapProp
         {maxCal > 0 && ` Best day: ${maxCal.toLocaleString()} kcal.`}
       </p>
 
-      <div className="overflow-x-auto -mx-2 px-2 pb-1">
+      <div className="pb-1">
         <svg
-          width={svgWidth}
-          height={svgHeight}
           viewBox={`0 0 ${svgWidth} ${svgHeight}`}
+          style={{ width: '100%', height: 'auto', display: 'block' }}
           className="overflow-visible"
         >
           {/* Month labels */}
