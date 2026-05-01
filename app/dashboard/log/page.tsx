@@ -3,12 +3,12 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Copy, Lock, Flame, Undo2, Star, Settings, ChefHat } from 'lucide-react';
+import { Undo2, Star } from 'lucide-react';
 import { Icon } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
 import type { FoodLogEntry, MealType } from '@/lib/types';
-import BottomNav from '@/components/BottomNav';
+import { BotNav } from '@/components/ui/BotNav';
 import MealTimeline from '@/components/MealTimeline';
 import MealSlotCard, { type MealSlot } from '@/components/MealSlotCard';
 import DailyInsights from '@/components/DailyInsights';
@@ -544,104 +544,82 @@ export default function FoodLogPage() {
   const nextUnfilled = slots.find(s => grouped[s.id].length === 0 && !skippedSlots.has(s.id));
 
   return (
-    <div className="min-h-screen pb-24" style={{ background: 'var(--bg-primary)' }}>
+    <div className="min-h-screen pb-24" style={{ background: 'var(--bg,#0a0a0a)' }}>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
         className="max-w-md mx-auto px-4 pt-12"
       >
-        {/* Date Navigator */}
-        <DateNavigator
-          selectedDate={selectedDate}
-          onDateChange={handleDateChange}
-          onOpenCalendar={() => setShowCalendar(true)}
-        />
+        {/* ── Date navigation (handoff Screen 02) ── */}
+        <div className="row-b mb-3" style={{ marginTop: 8 }}>
+          <button onClick={() => handleDateChange(localDateStr(new Date(new Date(selectedDate + 'T12:00:00').getTime() - 86400000)))}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--t3)' }}>
+            <Icon name="i-chev-l" size={16} />
+          </button>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--t1)' }}>
+            {isToday ? 'Today' : new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+            {' · '}
+            <span style={{ color: 'var(--t4)' }}>
+              {new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+            </span>
+          </div>
+          <button onClick={() => handleDateChange(localDateStr(new Date(new Date(selectedDate + 'T12:00:00').getTime() + 86400000)))}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--t3)' }}>
+            <Icon name="i-chev-r" size={16} />
+          </button>
+        </div>
 
-        {/* Week Strip */}
-        {weekData.length > 0 && (
-          <div className="mb-3">
-            <WeekStrip
-              selectedDate={selectedDate}
-              onSelectDate={handleDateChange}
-              weekData={weekData}
-            />
+        {/* ── 7-day strip (from weekData) ── */}
+        {weekData.length === 7 && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 3, marginBottom: 10 }}>
+            {weekData.map((d, i) => {
+              const dayAbbr = ['M','T','W','T','F','S','S'][i];
+              const dayNum  = new Date(d.date + 'T12:00:00').getDate();
+              const active  = d.date === selectedDate;
+              return (
+                <button key={d.date} onClick={() => handleDateChange(d.date)} style={{
+                  textAlign: 'center', padding: '4px 2px', borderRadius: 6, fontSize: 8, cursor: 'pointer', border: 'none',
+                  background: active ? 'rgba(212,168,83,.12)' : 'rgba(255,255,255,.03)',
+                  outline: active ? '1px solid rgba(212,168,83,.5)' : '1px solid var(--line)',
+                  color: active ? 'var(--gold-300,#D4A853)' : d.entries > 0 ? 'var(--t2)' : 'var(--t5)',
+                }}>
+                  <div>{dayAbbr}</div>
+                  <div style={{ fontWeight: 700, fontSize: 10 }}>{dayNum}</div>
+                </button>
+              );
+            })}
           </div>
         )}
 
-        {/* Streak Freeze */}
-        <StreakFreeze streak={streak} hasLoggedToday={todayLog.length > 0} />
-
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold text-stone-100">
-              {isToday ? 'Track Food' : new Date(selectedDate + 'T12:00:00').toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' })}
-            </h1>
-            <button
-              onClick={() => setShowSlotConfig(true)}
-              className="text-stone-400 hover:text-[#D4A853] text-xs flex items-center gap-1 px-2 py-1 rounded-lg border border-white/[0.06] hover:border-[#D4A853]/30 transition-all"
-              title="Customize meals"
-            >
-              <Settings size={14} />
-              Customize
-            </button>
-            {/* F6: Streak */}
-            {streak > 0 && (
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-500/10 border border-orange-500/20"
-              >
-                <Flame size={12} className="text-orange-400" />
-                <span className="text-orange-400 text-xs font-bold">{streak}</span>
-              </motion.div>
-            )}
-          </div>
-          <div className="flex items-center gap-3">
-            {todayLog.length === 0 && (
-              <button
-                onClick={copyYesterday}
-                disabled={copying}
-                className="text-stone-500 hover:gold-text text-xs flex items-center gap-1 transition-colors"
-              >
-                <Copy size={12} />
-                {copying ? '...' : 'Yesterday'}
-              </button>
-            )}
-            <button
-              onClick={() => setShowRecipeModal(true)}
-              className="text-stone-500 hover:gold-text text-xs flex items-center gap-1 transition-colors"
-              title="Paste a recipe and analyze its macros"
-            >
-              <ChefHat size={12} />
-              Recipe
-            </button>
-            {hasAnyFood && !allMealsLocked && (
-              <button
-                onClick={lockAll}
-                className="text-stone-500 hover:gold-text text-xs flex items-center gap-1 transition-colors"
-              >
-                <Lock size={12} />
-                {t('food.lock_all')}
-              </button>
-            )}
-            <span className="text-stone-500 text-xs">
-              {t('food.meals_progress', { done: String(filledCount), total: String(slots.length) })}
-            </span>
+        {/* ── Macro summary card ── */}
+        <div className="card mb-3" style={{ padding: 10 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 4, textAlign: 'center' }}>
+            {[
+              { label: 'kcal', val: Math.round(totalCalories), color: 'var(--gold-300,#D4A853)' },
+              { label: 'prot', val: Math.round(totalProtein),  color: 'var(--err,#E87A6E)' },
+              { label: 'carb', val: Math.round(totalCarbs),    color: 'var(--info,#7DA3D9)' },
+              { label: 'fat',  val: Math.round(totalFat),      color: 'var(--plum,#B89DD9)' },
+            ].map(m => (
+              <div key={m.label}>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700, color: m.color }}>{m.val}</div>
+                <div className="ds-sub" style={{ fontFamily: 'var(--font-mono)', fontSize: 7 }}>{m.label}</div>
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* Day locked banner */}
+        {/* ── Meals section header ── */}
+        <div className="eye-d mb-2">Meals · {filledCount} of {slots.length}</div>
+
+        {/* ── Streak / locked banner (keep existing if present) ── */}
         {allMealsLocked && hasAnyFood && (
-          <motion.div
-            initial={{ opacity: 0, y: -5 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-3 px-3 py-2 rounded-lg bg-green-500/10 border border-green-500/20 flex items-center justify-between"
-          >
-            <p className="text-xs text-green-400 flex items-center gap-1.5">
-              <Lock size={12} />
-              {t('food.day_locked')}
+          <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }}
+            className="mb-3 px-3 py-2 rounded-lg"
+            style={{ background: 'rgba(101,211,135,.08)', border: '1px solid rgba(101,211,135,.2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <p style={{ fontSize: 11, color: 'var(--ok,#65D387)', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Icon name="i-shield" size={12} />
+              Day locked — great work!
             </p>
           </motion.div>
         )}
@@ -1056,7 +1034,12 @@ export default function FoodLogPage() {
         />
       )}
 
-      <BottomNav />
+      <BotNav routes={[
+        { href: '/dashboard',          label: 'Home',     icon: <Icon name="i-home"  size={18} /> },
+        { href: '/dashboard/log',      label: 'Log',      icon: <Icon name="i-book"  size={18} /> },
+        { href: '/dashboard/progress', label: 'Progress', icon: <Icon name="i-chart" size={18} /> },
+        { href: '/dashboard/profile',  label: 'Me',       icon: <Icon name="i-user"  size={18} /> },
+      ]} />
     </div>
   );
 }

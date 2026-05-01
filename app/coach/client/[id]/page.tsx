@@ -795,7 +795,7 @@ export default function ClientDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-stone-950 px-4 py-6">
+      <div className="min-h-screen px-4 py-6">
         <div className="max-w-5xl mx-auto space-y-4">
           <div className="h-10 w-48 rounded bg-stone-800/60 animate-pulse" />
           <div className="glass p-5 space-y-3">
@@ -822,7 +822,7 @@ export default function ClientDetailPage() {
 
   if (!profile || !clientProfile) {
     return (
-      <div className="min-h-screen bg-stone-950 flex items-center justify-center text-stone-500">
+      <div className="min-h-screen flex items-center justify-center text-stone-500">
         Client not found
       </div>
     );
@@ -834,40 +834,49 @@ export default function ClientDetailPage() {
   };
 
   return (
-    <div className="min-h-screen bg-stone-950 px-4 py-6 sm:px-6 lg:px-8">
+    <div className="min-h-screen px-4 py-6 sm:px-6 lg:px-8" style={{ background: 'var(--bg,#0a0a0a)' }}>
       <div className="max-w-4xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
         >
-          {/* Back link */}
-          <Link href="/coach" className="inline-flex items-center gap-1.5 text-stone-500 hover:text-stone-300 text-sm mb-6 transition-colors">
-            <ArrowLeft size={14} />
-            Back to Clients
-          </Link>
+          {/* ─── Handoff Screen 05 header ─── */}
+          {/* Back row */}
+          <div className="row-b mb-3">
+            <button onClick={() => router.back()}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--t3)' }}>
+              <Icon name="i-chev-l" size={16} />
+            </button>
+            <span className="eye-d">Client</span>
+            <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--t3)' }}>
+              <Icon name="i-more" size={16} />
+            </button>
+          </div>
 
-          {/* ─── Header ─── */}
-          <div className="glass-elevated p-5 sm:p-6 mb-4">
-            <div className="flex items-start justify-between">
-              <div>
-                <h1 className="text-xl sm:text-2xl font-bold text-stone-100">{profile.full_name}</h1>
-                <p className="text-stone-500 text-sm mt-0.5">{profile.email}</p>
+          {/* Client identity row */}
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 12 }}>
+            <div className="av-lg">{profile.full_name?.[0]?.toUpperCase() ?? '?'}</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-.02em', color: 'var(--t1)' }}>
+                {profile.full_name}
               </div>
-              <div className="flex items-center gap-2">
-                <CoachingSummary
-                  profile={profile}
-                  clientProfile={clientProfile}
-                  activeHabit={activeHabit}
-                  pastHabits={pastHabits}
-                  notes={notes}
-                />
-                <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-[#D4A853]/10 text-[#D4A853] capitalize">
-                  {clientProfile.coaching_phase}
-                </span>
+              <div className="ds-sub">
+                {clientProfile.coaching_phase} · {profile.email}
               </div>
             </div>
-            {/* ─── Macro Targets (editable by coach) ─── */}
+            <div className="row-i" style={{ gap: 6 }}>
+              <CoachingSummary
+                profile={profile} clientProfile={clientProfile}
+                activeHabit={activeHabit} pastHabits={pastHabits} notes={notes}
+              />
+              <span className="tag tag-g" style={{ fontSize: 8 }}>{clientProfile.coaching_phase}</span>
+            </div>
+          </div>
+
+          {/* ─── Macro Targets (editable by coach) ─── */}
+          <div className="card-g p-4 mb-4">
+            {/* ─── Macro Targets ─── */}
             {editingMacros ? (
               <div id="macro-editor" className="mt-4 p-4 rounded-xl bg-white/[0.03] border border-[#D4A853]/20 space-y-3">
                 <div className="flex items-center justify-between">

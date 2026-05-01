@@ -7,6 +7,8 @@ import { TrendingDown, TrendingUp, Scale, Activity, Target, Plus, AlertTriangle,
 import { supabase } from '@/lib/supabase';
 import type { Measurement, ClientProfile, ClientHabit } from '@/lib/types';
 import BottomNav from '@/components/BottomNav';
+import { BotNav } from '@/components/ui/BotNav';
+import { Icon } from '@/components/ui';
 import ProgressPhotos from '@/components/ProgressPhotos';
 import WeeklyMacroChart from '@/components/WeeklyMacroChart';
 import HabitRadar from '@/components/HabitRadar';
@@ -322,7 +324,7 @@ export default function ProgressPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen pb-24" style={{ background: 'var(--bg-primary)' }}>
+      <div className="min-h-screen pb-24" style={{ background: 'var(--bg,#0a0a0a)' }}>
         <div className="max-w-md mx-auto px-4 pt-12 space-y-4">
           <div className="h-7 w-40 rounded bg-stone-800/60 animate-pulse" />
           <div className="glass p-5 space-y-3">
@@ -339,7 +341,7 @@ export default function ProgressPage() {
   }
 
   return (
-    <div className="min-h-screen pb-24" style={{ background: 'var(--bg-primary)' }}>
+    <div className="min-h-screen pb-24" style={{ background: 'var(--bg,#0a0a0a)' }}>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -553,7 +555,12 @@ export default function ProgressPage() {
         <ProgressPhotos />
       </motion.div>
 
-      <BottomNav />
+      <BotNav routes={[
+        { href: '/dashboard',          label: 'Home',     icon: <Icon name="i-home"  size={18} /> },
+        { href: '/dashboard/log',      label: 'Log',      icon: <Icon name="i-book"  size={18} /> },
+        { href: '/dashboard/progress', label: 'Progress', icon: <Icon name="i-chart" size={18} /> },
+        { href: '/dashboard/profile',  label: 'Me',       icon: <Icon name="i-user"  size={18} /> },
+      ]} />
     </div>
   );
 }

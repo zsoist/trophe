@@ -1,301 +1,204 @@
 'use client';
 import { useRouter } from 'next/navigation';
-
 import { useEffect, useState, useCallback } from 'react';
-import { motion } from 'framer-motion';
-import { AnimatePresence } from 'framer-motion';
-import { Plus, Check, X, Droplets } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Icon } from '@/components/ui';
+import { BotNav } from '@/components/ui/BotNav';
 import { supabase } from '@/lib/supabase';
 import type { ClientProfile, ClientHabit, HabitCheckin, FoodLogEntry, WaterLogEntry, Mood, Profile } from '@/lib/types';
-import BottomNav from '@/components/BottomNav';
 import WeeklyCheckin from '@/components/WeeklyCheckin';
-import ComplianceTrend from '@/components/ComplianceTrend';
-import MythCard from '@/components/MythCard';
-import StreakBadges from '@/components/StreakBadges';
 import { DashboardSkeleton } from '@/components/Skeleton';
-import Avatar from '@/components/Avatar';
 import HabitDetailModal from '@/components/HabitDetailModal';
 import { localToday } from '../../lib/dates';
 
-// ─── Motivational micro-texts (rotate daily) ───
-const MOTIVATIONAL_TEXTS = [
-  'Small habits, big transformations',
-  'Consistency beats perfection',
-  'One day at a time, one habit at a time',
-  'Your body adapts to what you consistently do',
-  'Progress, not perfection',
-];
-
-function getTimeGreeting(): { text: string; emoji: string } {
-  const hour = new Date().getHours();
-  if (hour < 12) return { text: 'Good morning', emoji: '☀️' };
-  if (hour < 17) return { text: 'Good afternoon', emoji: '🌤️' };
-  if (hour < 21) return { text: 'Good evening', emoji: '🌅' };
-  return { text: 'Good night', emoji: '🌙' };
+// ─── Greeting (no emojis — handoff spec) ───────────────────────
+function getTimeGreeting(): string {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good morning';
+  if (h < 17) return 'Good afternoon';
+  if (h < 21) return 'Good evening';
+  return 'Good night';
 }
 
-function getDailyMotivation(): string {
-  const dayOfYear = Math.floor(
-    (Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000
-  );
-  return MOTIVATIONAL_TEXTS[dayOfYear % MOTIVATIONAL_TEXTS.length];
-}
-
-function PersonalizedGreeting({ fullName }: { fullName: string | null }) {
-  const { text, emoji } = getTimeGreeting();
-  const firstName = fullName ? fullName.split(' ')[0] : null;
-  const motivation = getDailyMotivation();
-
+// ─── Compact 72px calorie ring ──────────────────────────────────
+function CompactRing({ value, target }: { value: number; target: number }) {
+  const r = 30;
+  const C = 2 * Math.PI * r; // ≈ 188.5
+  const pct = target > 0 ? Math.min(value / target, 1) : 0;
   return (
-    <div className="flex items-center gap-3">
-      {fullName && <Avatar name={fullName} size={48} />}
-      <div>
-        <h1 className="text-2xl font-bold text-stone-100">
-          {text}{firstName ? `, ${firstName}` : ''} {emoji}
-        </h1>
-        <p className="text-stone-500 text-sm mt-1">
-          {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-        </p>
-        <p className="text-stone-600 text-xs mt-1.5 italic">{motivation}</p>
-      </div>
-    </div>
+    <svg width={72} height={72} style={{ transform: 'rotate(-90deg)', flexShrink: 0 }}>
+      <circle cx={36} cy={36} r={r} fill="none" stroke="rgba(255,255,255,.06)" strokeWidth={6} />
+      <motion.circle
+        cx={36} cy={36} r={r}
+        fill="none" stroke="var(--gold-300,#D4A853)"
+        strokeWidth={6} strokeLinecap="round"
+        strokeDasharray={C}
+        initial={{ strokeDashoffset: C }}
+        animate={{ strokeDashoffset: C * (1 - pct) }}
+        transition={{ type: 'spring', stiffness: 40, damping: 14, delay: 0.25 }}
+      />
+    </svg>
   );
 }
 
-const MOODS: { value: Mood; emoji: string; label: string }[] = [
-  { value: 'great', emoji: '😄', label: 'Great' },
-  { value: 'good', emoji: '😊', label: 'Good' },
-  { value: 'okay', emoji: '😐', label: 'Okay' },
-  { value: 'tough', emoji: '😓', label: 'Tough' },
-  { value: 'struggled', emoji: '😰', label: 'Struggled' },
-];
-
-// ─── Hero Ring (large, center of Today's Progress card) ───
-// Generalized from the original CalorieRing — now rendered with a user-chosen metric.
-// Background track uses var(--border-default) so it's visible in both dark + light themes.
-interface HeroRingProps {
-  value: number;
-  target: number;
-  primary: string; // formatted number, e.g. "1240"
-  unit?: string; // e.g. "kcal"
-  sub?: string; // bottom line, e.g. "760 left"
-  color?: string; // ring color override
-  onPointerClick?: () => void; // tap-to-cycle on mobile (optional)
-}
-
-function HeroRing({ value, target, primary, unit, sub, color, onPointerClick }: HeroRingProps) {
-  const size = 160;
-  const strokeWidth = 12;
-  const radius = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const rawPct = target > 0 ? value / target : 0;
-  const clampedPct = Math.min(Math.max(rawPct, 0), 1);
-  const ringColor = color ?? (rawPct >= 1 ? '#22c55e' : '#D4A853');
-
+// ─── Compact inline macro bar ────────────────────────────────────
+function MacroLine({
+  label, value, target, color, unit = 'g',
+}: { label: string; value: number; target: number; color: string; unit?: string }) {
+  const pct = target > 0 ? Math.min(value / target, 1) : 0;
   return (
-    <div
-      className="relative mx-auto"
-      style={{ width: size, height: size }}
-      onClick={onPointerClick}
-      role={onPointerClick ? 'button' : undefined}
-      aria-label={onPointerClick ? 'Cycle hero metric' : undefined}
-    >
-      <svg width={size} height={size} className="-rotate-90 block">
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke="var(--border-default)"
-          strokeWidth={strokeWidth}
-        />
-        <motion.circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke={ringColor}
-          strokeWidth={strokeWidth}
-          strokeLinecap="round"
-          strokeDasharray={circumference}
-          initial={{ strokeDashoffset: circumference }}
-          animate={{ strokeDashoffset: circumference * (1 - clampedPct) }}
-          transition={{ type: 'spring', stiffness: 50, damping: 15, delay: 0.3 }}
-        />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-2 pointer-events-none">
-        <span className="text-3xl font-bold text-stone-100 leading-none tabular-nums">{primary}</span>
-        {unit && <span className="text-xs text-stone-500 mt-1">{unit}</span>}
-        {sub && <span className="text-[10px] text-stone-600 mt-0.5">{sub}</span>}
+    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--t4)', width: 14 }}>{label}</span>
+      <div className="mb-track" style={{ flex: 1 }}>
+        <div className="mb-fill" style={{ width: `${pct * 100}%`, background: color }} />
       </div>
-    </div>
-  );
-}
-
-// ─── Hero metric registry (picker options) ───
-type HeroMetricKey = 'calories' | 'protein' | 'habit' | 'meals' | 'water';
-
-interface HeroMetric {
-  key: HeroMetricKey;
-  label: string;
-  icon: string;
-}
-
-const HERO_METRICS: HeroMetric[] = [
-  { key: 'calories', label: 'Calories', icon: 'i-flame' },
-  { key: 'protein', label: 'Protein', icon: 'i-dumbbell' },
-  { key: 'habit', label: 'Habit streak', icon: 'i-target' },
-  { key: 'meals', label: 'Meals logged', icon: 'i-bowl' },
-  { key: 'water', label: 'Water', icon: 'i-drop' },
-];
-
-function loadHeroMetric(): HeroMetricKey {
-  if (typeof window === 'undefined') return 'calories';
-  const stored = window.localStorage.getItem('trophe_hero_metric') as HeroMetricKey | null;
-  if (stored && HERO_METRICS.some((m) => m.key === stored)) return stored;
-  return 'calories';
-}
-
-function saveHeroMetric(key: HeroMetricKey) {
-  if (typeof window === 'undefined') return;
-  window.localStorage.setItem('trophe_hero_metric', key);
-}
-
-// ─── Macro Progress Bar ───
-function MacroBar({
-  label,
-  value,
-  target,
-  color,
-  unit = 'g',
-}: {
-  label: string;
-  value: number;
-  target: number;
-  color: string;
-  unit?: string;
-}) {
-  const pct = target > 0 ? Math.min((value / target) * 100, 100) : 0;
-
-  return (
-    <div className="flex items-center gap-3">
-      <span className="text-xs text-stone-400 font-medium w-14 text-right">{label}</span>
-      <div className="flex-1 h-2.5 rounded-full bg-white/[0.06] overflow-hidden">
-        <motion.div
-          className="h-full rounded-full"
-          style={{ backgroundColor: color }}
-          initial={{ width: 0 }}
-          animate={{ width: `${pct}%` }}
-          transition={{ type: 'spring', stiffness: 50, damping: 15, delay: 0.4 }}
-        />
-      </div>
-      <span className="text-xs text-stone-400 w-20 text-right tabular-nums">
-        {Math.round(value)}{unit} / {Math.round(target)}{unit}
+      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--t4)', width: 34, textAlign: 'right' }}>
+        {Math.round(value)}{unit}
       </span>
     </div>
   );
 }
 
+// ─── Habit → SVG icon mapping ────────────────────────────────────
+function habitIconName(emoji?: string): Parameters<typeof Icon>[0]['name'] {
+  if (!emoji) return 'i-target';
+  if (emoji.includes('💧') || emoji.includes('🥤') || emoji.includes('💦')) return 'i-drop';
+  if (emoji.includes('🏋') || emoji.includes('💪') || emoji.includes('🤸')) return 'i-dumbbell';
+  if (emoji.includes('🌙') || emoji.includes('😴') || emoji.includes('🛌')) return 'i-moon';
+  if (emoji.includes('🧘') || emoji.includes('🧠')) return 'i-meditate';
+  if (emoji.includes('🍎') || emoji.includes('🥗') || emoji.includes('🥦')) return 'i-leaf';
+  if (emoji.includes('🔥') || emoji.includes('⚡')) return 'i-zap';
+  return 'i-target';
+}
+
+// ─── Client bottom nav ───────────────────────────────────────────
+const CLIENT_NAV = [
+  { href: '/dashboard',          label: 'Home',     icon: <Icon name="i-home"  size={18} /> },
+  { href: '/dashboard/log',      label: 'Log',      icon: <Icon name="i-book"  size={18} /> },
+  { href: '/dashboard/progress', label: 'Progress', icon: <Icon name="i-chart" size={18} /> },
+  { href: '/dashboard/profile',  label: 'Me',       icon: <Icon name="i-user"  size={18} /> },
+];
+
+// ─── Celebration modal (kept from v0.2) ──────────────────────────
+const CONFETTI_COLORS = ['#D4A853','#E8C878','#22c55e','#3b82f6','#a855f7','#ef4444','#f59e0b'];
+
+interface CelebProps {
+  streakDays: number; cycleDays: number; completionPct: number;
+  habitName?: string; bestStreak?: number; onDismiss: () => void;
+}
+function CelebrationModal({ streakDays, cycleDays, completionPct, habitName, bestStreak, onDismiss }: CelebProps) {
+  return (
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+      onClick={onDismiss}
+    >
+      {Array.from({ length: 30 }).map((_, i) => (
+        <div key={i} className="confetti-particle"
+          style={{ left: `${Math.random() * 100}%`, backgroundColor: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+            width: `${6 + Math.random() * 8}px`, height: `${6 + Math.random() * 8}px`,
+            animationDelay: `${Math.random() * 1.5}s`, borderRadius: Math.random() > 0.5 ? '50%' : '2px' }} />
+      ))}
+      <motion.div
+        initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.8, opacity: 0 }}
+        transition={{ type: 'spring', damping: 15, stiffness: 200 }}
+        className="glass-elevated celebration-glow p-8 max-w-sm w-full text-center relative"
+        onClick={e => e.stopPropagation()}
+      >
+        <h2 className="text-2xl font-bold gold-text mb-2" style={{ fontFamily: 'var(--font-serif)' }}>
+          Habit Mastered!
+        </h2>
+        <p className="text-stone-400 text-sm mb-6">
+          You completed the {cycleDays}-day cycle
+          {habitName && <> for <span className="text-stone-200 font-medium">{habitName}</span></>}
+        </p>
+        <div className="grid grid-cols-3 gap-3 mb-6">
+          {[['Days', streakDays], ['Completion', `${Math.min(completionPct, 100)}%`], ['Best', bestStreak ?? '—']].map(([l, v]) => (
+            <div key={String(l)} className="glass p-3 rounded-xl">
+              <div className="text-lg font-bold text-stone-100">{v}</div>
+              <div className="text-[10px] text-stone-500 uppercase tracking-wider">{l}</div>
+            </div>
+          ))}
+        </div>
+        <p className="text-stone-500 text-xs mb-6">Your coach will assign your next challenge</p>
+        <button onClick={onDismiss} className="btn-gold w-full text-sm py-3">Continue</button>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════
+// MAIN PAGE
+// ══════════════════════════════════════════════════════════════════
 export default function DashboardPage() {
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
-  const [clientProfile, setClientProfile] = useState<ClientProfile | null>(null);
-  const [activeHabit, setActiveHabit] = useState<ClientHabit | null>(null);
-  const [todayCheckin, setTodayCheckin] = useState<HabitCheckin | null>(null);
-  const [foodLog, setFoodLog] = useState<FoodLogEntry[]>([]);
-  const [waterLog, setWaterLog] = useState<WaterLogEntry[]>([]);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [userProfile, setUserProfile] = useState<Profile | null>(null);
+  const [loading, setLoading]               = useState(true);
+  const [clientProfile, setClientProfile]   = useState<ClientProfile | null>(null);
+  const [activeHabit, setActiveHabit]       = useState<ClientHabit | null>(null);
+  const [todayCheckin, setTodayCheckin]     = useState<HabitCheckin | null>(null);
+  const [foodLog, setFoodLog]               = useState<FoodLogEntry[]>([]);
+  const [waterLog, setWaterLog]             = useState<WaterLogEntry[]>([]);
+  const [userId, setUserId]                 = useState<string | null>(null);
+  const [userProfile, setUserProfile]       = useState<Profile | null>(null);
   const [showHabitModal, setShowHabitModal] = useState(false);
-  const [allCheckins, setAllCheckins] = useState<HabitCheckin[]>([]);
-  const [waterSplash, setWaterSplash] = useState(false);
-  const [heroMetric, setHeroMetric] = useState<HeroMetricKey>('calories');
-  const [showMetricPicker, setShowMetricPicker] = useState(false);
-
-  // Load hero metric preference once on mount (client-only)
-  useEffect(() => {
-    setHeroMetric(loadHeroMetric());
-  }, []);
-
-  function chooseHeroMetric(key: HeroMetricKey) {
-    setHeroMetric(key);
-    saveHeroMetric(key);
-    setShowMetricPicker(false);
-  }
+  const [allCheckins, setAllCheckins]       = useState<HabitCheckin[]>([]);
+  const [submitting, setSubmitting]         = useState(false);
+  const [showCelebration, setShowCelebration]   = useState(false);
+  const [celebrationChecked, setCelebrationChecked] = useState(false);
+  const [addingWater, setAddingWater]       = useState(false);
 
   const today = localToday();
 
-  const totalWater = waterLog.reduce((sum, w) => sum + w.amount_ml, 0);
-  const totalCalories = foodLog.reduce((sum, f) => sum + (f.calories ?? 0), 0);
-  const totalProtein = foodLog.reduce((sum, f) => sum + (f.protein_g ?? 0), 0);
-  const totalCarbs = foodLog.reduce((sum, f) => sum + (f.carbs_g ?? 0), 0);
-  const totalFat = foodLog.reduce((sum, f) => sum + (f.fat_g ?? 0), 0);
-  const totalFiber = foodLog.reduce((sum, f) => sum + (f.fiber_g ?? 0), 0);
-  const mealsLogged = new Set(foodLog.map((f) => f.meal_type)).size;
+  // ─── Derived totals ───────────────────────────────────────────
+  const totalCalories = foodLog.reduce((s, f) => s + (f.calories ?? 0), 0);
+  const totalProtein  = foodLog.reduce((s, f) => s + (f.protein_g ?? 0), 0);
+  const totalCarbs    = foodLog.reduce((s, f) => s + (f.carbs_g ?? 0), 0);
+  const totalFat      = foodLog.reduce((s, f) => s + (f.fat_g ?? 0), 0);
+  const totalWater    = waterLog.reduce((s, w) => s + w.amount_ml, 0);
 
+  const targetCalories = clientProfile?.target_calories ?? 2000;
+  const targetProtein  = clientProfile?.target_protein_g ?? 150;
+  const targetCarbs    = clientProfile?.target_carbs_g ?? 200;
+  const targetFat      = clientProfile?.target_fat_g ?? 65;
+  const targetWater    = clientProfile?.target_water_ml ?? 2500;
+
+  const streakDays = activeHabit?.current_streak ?? 0;
+  const cycleDays  = activeHabit?.habit?.cycle_days ?? 14;
+  const streakPct  = Math.min((streakDays / cycleDays) * 100, 100);
+
+  // ─── Load data ───────────────────────────────────────────────
   const loadData = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { router.push("/login"); return; }
+      if (!user) { router.push('/login'); return; }
       setUserId(user.id);
 
       const [cpRes, chRes, flRes, wlRes, profileRes] = await Promise.all([
-        supabase
-          .from('client_profiles')
-          .select('*')
-          .eq('user_id', user.id)
-          .maybeSingle(),
-        supabase
-          .from('client_habits')
-          .select('*, habit:habits(*)')
-          .eq('client_id', user.id)
-          .eq('status', 'active')
-          .order('sequence_number', { ascending: true })
-          .limit(1),
-        supabase
-          .from('food_log')
-          .select('*')
-          .eq('user_id', user.id)
-          .eq('logged_date', today),
-        supabase
-          .from('water_log')
-          .select('*')
-          .eq('user_id', user.id)
-          .eq('logged_date', today),
-        supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .maybeSingle(),
+        supabase.from('client_profiles').select('*').eq('user_id', user.id).maybeSingle(),
+        supabase.from('client_habits').select('*, habit:habits(*)').eq('client_id', user.id)
+          .eq('status', 'active').order('sequence_number', { ascending: true }).limit(1),
+        supabase.from('food_log').select('*').eq('user_id', user.id).eq('logged_date', today),
+        supabase.from('water_log').select('*').eq('user_id', user.id).eq('logged_date', today),
+        supabase.from('profiles').select('*').eq('id', user.id).maybeSingle(),
       ]);
 
       if (profileRes.data) setUserProfile(profileRes.data);
-      if (cpRes.data) setClientProfile(cpRes.data);
+      if (cpRes.data)      setClientProfile(cpRes.data);
+      if (flRes.data)      setFoodLog(flRes.data);
+      if (wlRes.data)      setWaterLog(wlRes.data);
+
       if (chRes.data && chRes.data.length > 0) {
         const habit = chRes.data[0] as ClientHabit;
         setActiveHabit(habit);
-
         const { data: checkin } = await supabase
-          .from('habit_checkins')
-          .select('*')
-          .eq('client_habit_id', habit.id)
-          .eq('checked_date', today)
-          .limit(1);
+          .from('habit_checkins').select('*')
+          .eq('client_habit_id', habit.id).eq('checked_date', today).limit(1);
+        if (checkin?.length) setTodayCheckin(checkin[0]);
 
-        if (checkin && checkin.length > 0) setTodayCheckin(checkin[0]);
-      }
-      if (flRes.data) setFoodLog(flRes.data);
-      if (wlRes.data) setWaterLog(wlRes.data);
-
-      // Fetch all checkins for habit detail modal
-      if (chRes.data && chRes.data.length > 0) {
-        const habit = chRes.data[0];
         const { data: allCh } = await supabase
-          .from('habit_checkins')
-          .select('*')
-          .eq('client_habit_id', habit.id)
-          .order('checked_date', { ascending: true });
+          .from('habit_checkins').select('*')
+          .eq('client_habit_id', habit.id).order('checked_date', { ascending: true });
         if (allCh) setAllCheckins(allCh);
       }
     } catch (err) {
@@ -305,550 +208,279 @@ export default function DashboardPage() {
     }
   }, [today, router]);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  useEffect(() => { loadData(); }, [loadData]);
 
-  const [submitting, setSubmitting] = useState(false);
-  const [showCelebration, setShowCelebration] = useState(false);
-  const [celebrationChecked, setCelebrationChecked] = useState(false);
-
-  const handleCheckin = async (completed: boolean) => {
-    if (!userId || !activeHabit || submitting) return;
-    setSubmitting(true);
-    try {
-    const { data } = await supabase
-      .from('habit_checkins')
-      .upsert(
-        {
-          client_habit_id: activeHabit.id,
-          user_id: userId,
-          checked_date: today,
-          completed,
-        },
-        { onConflict: 'client_habit_id,checked_date' }
-      )
-      .select()
-      .maybeSingle();
-    if (data) {
-      setTodayCheckin(data);
-      if (completed) {
-        await supabase
-          .from('client_habits')
-          .update({
-            current_streak: (activeHabit.current_streak || 0) + 1,
-            total_completions: (activeHabit.total_completions || 0) + 1,
-          })
-          .eq('id', activeHabit.id);
-        setActiveHabit((prev) =>
-          prev
-            ? {
-                ...prev,
-                current_streak: (prev.current_streak || 0) + 1,
-                total_completions: (prev.total_completions || 0) + 1,
-              }
-            : prev
-        );
-      }
-    }
-    } catch (err) {
-      console.error('Checkin error:', err);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleMood = async (mood: Mood) => {
-    if (!todayCheckin) return;
-    await supabase
-      .from('habit_checkins')
-      .update({ mood })
-      .eq('id', todayCheckin.id);
-    setTodayCheckin((prev) => (prev ? { ...prev, mood } : prev));
-  };
-
-  const [addingWater, setAddingWater] = useState(false);
-
-  const addWater = async () => {
-    if (!userId || addingWater) return;
-    setAddingWater(true);
-    const { data } = await supabase
-      .from('water_log')
-      .insert({ user_id: userId, logged_date: today, amount_ml: 250 })
-      .select()
-      .maybeSingle();
-    if (data) setWaterLog((prev) => [...prev, data]);
-    setAddingWater(false);
-  };
-
-  // Habit mastery celebration — must be BEFORE any early returns (Rules of Hooks)
+  // ─── Habit mastery celebration ────────────────────────────────
   useEffect(() => {
     if (activeHabit && !celebrationChecked) {
       setCelebrationChecked(true);
       if (activeHabit.current_streak >= (activeHabit.habit?.cycle_days ?? 14)) {
-        const dismissKey = `trophe_mastery_${activeHabit.id}`;
-        if (!localStorage.getItem(dismissKey)) {
-          setShowCelebration(true);
-        }
+        const key = `trophe_mastery_${activeHabit.id}`;
+        if (!localStorage.getItem(key)) setShowCelebration(true);
       }
     }
   }, [activeHabit, celebrationChecked]);
 
-  if (loading) {
-    return <DashboardSkeleton />;
-  }
+  // ─── Check-in ────────────────────────────────────────────────
+  const handleCheckin = async (completed: boolean) => {
+    if (!userId || !activeHabit || submitting) return;
+    setSubmitting(true);
+    try {
+      const { data } = await supabase
+        .from('habit_checkins')
+        .upsert({ client_habit_id: activeHabit.id, user_id: userId, checked_date: today, completed },
+          { onConflict: 'client_habit_id,checked_date' })
+        .select().maybeSingle();
+      if (data) {
+        setTodayCheckin(data);
+        if (completed) {
+          await supabase.from('client_habits').update({
+            current_streak: (activeHabit.current_streak || 0) + 1,
+            total_completions: (activeHabit.total_completions || 0) + 1,
+          }).eq('id', activeHabit.id);
+          setActiveHabit(p => p ? { ...p,
+            current_streak: (p.current_streak || 0) + 1,
+            total_completions: (p.total_completions || 0) + 1,
+          } : p);
+        }
+      }
+    } catch (err) { console.error('Checkin error:', err); }
+    finally { setSubmitting(false); }
+  };
 
-  const streakDays = activeHabit?.current_streak ?? 0;
-  const cycleDays = activeHabit?.habit?.cycle_days ?? 14;
-  const streakPct = Math.min((streakDays / cycleDays) * 100, 100);
+  const handleMood = async (mood: Mood) => {
+    if (!todayCheckin) return;
+    await supabase.from('habit_checkins').update({ mood }).eq('id', todayCheckin.id);
+    setTodayCheckin(p => p ? { ...p, mood } : p);
+  };
 
-  function dismissCelebration() {
-    if (activeHabit) {
-      localStorage.setItem(`trophe_mastery_${activeHabit.id}`, 'seen');
-    }
+  const addWater = async () => {
+    if (!userId || addingWater) return;
+    setAddingWater(true);
+    const { data } = await supabase.from('water_log')
+      .insert({ user_id: userId, logged_date: today, amount_ml: 250 }).select().maybeSingle();
+    if (data) setWaterLog(p => [...p, data]);
+    setAddingWater(false);
+  };
+
+  // ─── Loading state ────────────────────────────────────────────
+  if (loading) return <DashboardSkeleton />;
+
+  // ─── Derived display values ───────────────────────────────────
+  const firstName   = userProfile?.full_name?.split(' ')[0] ?? null;
+  const greeting    = getTimeGreeting();
+  const remaining   = Math.max(targetCalories - Math.round(totalCalories), 0);
+  const waterGlasses    = Math.floor(totalWater / 250);
+  const targetGlasses   = Math.ceil(targetWater / 250);
+  const completionPct   = cycleDays > 0 ? Math.round(((activeHabit?.total_completions ?? 0) / cycleDays) * 100) : 0;
+  const dateLabel = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+
+  // ─── Dismiss celebration ──────────────────────────────────────
+  const dismissCelebration = () => {
+    if (activeHabit) localStorage.setItem(`trophe_mastery_${activeHabit.id}`, 'seen');
     setShowCelebration(false);
-  }
+  };
 
-  // Confetti colors
-  const confettiColors = ['#D4A853', '#E8C878', '#22c55e', '#3b82f6', '#a855f7', '#ef4444', '#f59e0b'];
-
-  // Calculate completion percentage for celebration
-  const totalDaysTracked = activeHabit?.total_completions ?? 0;
-  const completionPct = cycleDays > 0 ? Math.round((totalDaysTracked / cycleDays) * 100) : 0;
-
-  // Computed targets for the new dashboard layout
-  const targetCalories = clientProfile?.target_calories ?? 2000;
-  const targetProtein = clientProfile?.target_protein_g ?? 150;
-  const targetCarbs = clientProfile?.target_carbs_g ?? 200;
-  const targetFat = clientProfile?.target_fat_g ?? 65;
-  const targetFiber = clientProfile?.target_fiber_g ?? 30;
-  const targetWater = clientProfile?.target_water_ml ?? 2500;
-  const waterGlasses = Math.floor(totalWater / 250);
-  const targetGlasses = Math.ceil(targetWater / 250);
-
+  // ─── RENDER ───────────────────────────────────────────────────
   return (
-    <div className="min-h-screen pb-24" style={{ background: 'var(--bg-primary)' }}>
-      {/* ═══ Habit Mastery Celebration Modal ═══ */}
+    <div className="min-h-screen pb-20" style={{ background: 'var(--bg,#0a0a0a)' }}>
+
+      {/* ── Celebration modal ── */}
       <AnimatePresence>
         {showCelebration && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
-            onClick={dismissCelebration}
-          >
-            {/* Confetti particles */}
-            {Array.from({ length: 30 }).map((_, i) => (
-              <div
-                key={i}
-                className="confetti-particle"
-                style={{
-                  left: `${Math.random() * 100}%`,
-                  backgroundColor: confettiColors[i % confettiColors.length],
-                  width: `${6 + Math.random() * 8}px`,
-                  height: `${6 + Math.random() * 8}px`,
-                  animationDelay: `${Math.random() * 1.5}s`,
-                  borderRadius: Math.random() > 0.5 ? '50%' : '2px',
-                }}
-              />
-            ))}
-
-            <motion.div
-              initial={{ scale: 0.5, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.8, opacity: 0 }}
-              transition={{ type: 'spring', damping: 15, stiffness: 200 }}
-              className="glass-elevated celebration-glow p-8 max-w-sm w-full text-center relative"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="text-5xl mb-4">🎉</div>
-              <h2 className="text-2xl font-bold gold-text mb-2" style={{ fontFamily: 'var(--font-serif)' }}>
-                Habit Mastered!
-              </h2>
-              <p className="text-stone-400 text-sm mb-6">
-                You completed the {cycleDays}-day cycle for{' '}
-                <span className="text-stone-200 font-medium">{activeHabit?.habit?.name_en}</span>
-              </p>
-
-              <div className="grid grid-cols-3 gap-3 mb-6">
-                <div className="glass p-3 rounded-xl">
-                  <div className="text-lg font-bold text-stone-100">{streakDays}</div>
-                  <div className="text-[10px] text-stone-500 uppercase tracking-wider">Days</div>
-                </div>
-                <div className="glass p-3 rounded-xl">
-                  <div className="text-lg font-bold text-stone-100">{Math.min(completionPct, 100)}%</div>
-                  <div className="text-[10px] text-stone-500 uppercase tracking-wider">Completion</div>
-                </div>
-                <div className="glass p-3 rounded-xl">
-                  <div className="text-lg font-bold text-stone-100">{activeHabit?.best_streak}</div>
-                  <div className="text-[10px] text-stone-500 uppercase tracking-wider">Best Streak</div>
-                </div>
-              </div>
-
-              <p className="text-stone-500 text-xs mb-6">
-                Your coach will assign your next challenge
-              </p>
-
-              <button
-                onClick={dismissCelebration}
-                className="btn-gold w-full text-sm py-3"
-              >
-                Continue
-              </button>
-            </motion.div>
-          </motion.div>
+          <CelebrationModal
+            streakDays={streakDays} cycleDays={cycleDays}
+            completionPct={completionPct} habitName={activeHabit?.habit?.name_en}
+            bestStreak={activeHabit?.best_streak} onDismiss={dismissCelebration}
+          />
         )}
       </AnimatePresence>
 
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="max-w-md mx-auto px-4 pt-12"
+        initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35 }}
+        className="max-w-md mx-auto px-4 pt-3"
       >
-        {/* ═══ 1. Hero Welcome Card ═══ */}
-        <div className="mb-5">
-          <PersonalizedGreeting fullName={userProfile?.full_name ?? null} />
-          {streakDays > 0 && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.2 }}
-              className="inline-flex items-center gap-1.5 mt-3 px-3 py-1.5 rounded-full bg-[#D4A853]/10 border border-[#D4A853]/20"
-            >
-              <span className="text-sm">🔥</span>
-              <span className="text-xs font-semibold gold-text">{streakDays} day streak</span>
-            </motion.div>
-          )}
-        </div>
-
-        {/* ═══ Weekly Check-in (Sundays only) ═══ */}
+        {/* ── Weekly check-in (Sunday, unobtrusive) ── */}
         {userId && clientProfile && (
           <WeeklyCheckin userId={userId} coachId={clientProfile.coach_id} />
         )}
 
-        {/* ═══ 2. Today's Progress Card (THE MAIN CARD) ═══ */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="glass gold-border p-5 mb-4"
-        >
-          {/* Header: title + metric picker trigger */}
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider">
-              Today&apos;s Progress
-            </h3>
-            <button
-              onClick={() => setShowMetricPicker((v) => !v)}
-              className="text-[11px] text-stone-500 hover:gold-text flex items-center gap-1.5 transition-colors"
-              aria-label="Choose hero metric"
-            >
-              {HERO_METRICS.find((m) => m.key === heroMetric)?.icon && (
-                <Icon name={HERO_METRICS.find((m) => m.key === heroMetric)!.icon as Parameters<typeof Icon>[0]['name']} size={14} />
-              )}
-              <span>{HERO_METRICS.find((m) => m.key === heroMetric)?.label}</span>
-              <span className="opacity-60">▾</span>
-            </button>
-          </div>
-
-          {/* Metric picker (collapsible) */}
-          <AnimatePresence>
-            {showMetricPicker && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="overflow-hidden mb-4"
-              >
-                <div className="grid grid-cols-5 gap-1.5">
-                  {HERO_METRICS.map((m) => {
-                    const active = m.key === heroMetric;
-                    return (
-                      <button
-                        key={m.key}
-                        onClick={() => chooseHeroMetric(m.key)}
-                        className={`py-2 rounded-lg text-[10px] font-medium transition-colors flex flex-col items-center gap-1 ${
-                          active
-                            ? 'bg-[#D4A853]/15 text-[#D4A853] border border-[#D4A853]/30'
-                            : 'border border-white/5 text-stone-500 hover:text-stone-300'
-                        }`}
-                      >
-                        <Icon name={m.icon as Parameters<typeof Icon>[0]['name']} size={16} />
-                        <span>{m.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Large Hero Ring — driven by selected metric */}
-          {(() => {
-            const cRemaining = Math.max(targetCalories - totalCalories, 0);
-            const pRemaining = Math.max(targetProtein - totalProtein, 0);
-            const waterPct = targetWater > 0 ? Math.round((totalWater / targetWater) * 100) : 0;
-            const ringByKey: Record<HeroMetricKey, HeroRingProps> = {
-              calories: {
-                value: totalCalories,
-                target: targetCalories,
-                primary: Math.round(totalCalories).toString(),
-                unit: `of ${Math.round(targetCalories)} kcal`,
-                sub: `${Math.round(cRemaining)} left`,
-              },
-              protein: {
-                value: totalProtein,
-                target: targetProtein,
-                primary: `${Math.round(totalProtein)}g`,
-                unit: `of ${Math.round(targetProtein)}g`,
-                sub: `${Math.round(pRemaining)}g left`,
-                color: '#ef4444',
-              },
-              habit: {
-                value: streakDays,
-                target: cycleDays,
-                primary: streakDays.toString(),
-                unit: `/ ${cycleDays} days`,
-                sub: activeHabit?.habit?.name_en ?? 'no active habit',
-              },
-              meals: {
-                value: mealsLogged,
-                target: 5,
-                primary: mealsLogged.toString(),
-                unit: 'of 5 meals',
-                sub: mealsLogged >= 5 ? 'all logged 🎉' : `${5 - mealsLogged} to go`,
-              },
-              water: {
-                value: totalWater,
-                target: targetWater,
-                primary: `${waterPct}%`,
-                unit: `${totalWater} / ${targetWater} ml`,
-                sub: waterPct >= 100 ? 'hydrated 💧' : `${Math.max(targetWater - totalWater, 0)} ml left`,
-                color: '#3b82f6',
-              },
-            };
-            return <HeroRing {...ringByKey[heroMetric]} />;
-          })()}
-
-          {/* Macro Progress Bars */}
-          <div className="mt-5 space-y-3">
-            <MacroBar label="Protein" value={totalProtein} target={targetProtein} color="#ef4444" />
-            <MacroBar label="Carbs" value={totalCarbs} target={targetCarbs} color="#3b82f6" />
-            <MacroBar label="Fat" value={totalFat} target={targetFat} color="#a855f7" />
-            <MacroBar label="Fiber" value={totalFiber} target={targetFiber} color="#22c55e" />
-          </div>
-
-          {/* Meals logged indicator */}
-          <div className="mt-4 pt-3 border-t border-white/5 flex items-center gap-2">
-            <span className="text-xs text-stone-500">{mealsLogged} of 5 meals logged</span>
-            <div className="flex gap-1.5 ml-auto">
-              {[1, 2, 3, 4, 5].map((n) => (
-                <div
-                  key={n}
-                  className={`w-2 h-2 rounded-full transition-colors ${
-                    n <= mealsLogged ? 'bg-[#D4A853]' : 'bg-white/10'
-                  }`}
-                />
-              ))}
+        {/* ══ 1 · Greeting row ══════════════════════════════════ */}
+        <div className="row-b mb-3">
+          <div className="row-i" style={{ gap: 10 }}>
+            <div className="av-lg">{firstName?.[0]?.toUpperCase() ?? 'N'}</div>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-.01em', color: 'var(--t1,#FAFAF9)' }}>
+                {greeting}{firstName ? `, ${firstName}` : ''}
+              </div>
+              <div className="ds-sub">{dateLabel}</div>
             </div>
           </div>
-        </motion.div>
-
-        {/* ═══ 3. Active Habit Card ═══ */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15 }}
-          className="glass p-5 mb-4 cursor-pointer"
-          onClick={() => activeHabit?.habit && setShowHabitModal(true)}
-        >
-          {activeHabit?.habit ? (
-            <>
-              <div className="flex items-center gap-3 mb-3">
-                <span className="text-2xl">{activeHabit.habit.emoji}</span>
-                <div className="flex-1">
-                  <h2 className="text-stone-100 font-semibold text-sm">
-                    {activeHabit.habit.name_en}
-                  </h2>
-                  <p className="text-stone-500 text-xs">
-                    Day {streakDays} of {cycleDays}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <span className="gold-text text-xs font-medium">
-                    Best: {activeHabit.best_streak}
-                  </span>
-                </div>
-              </div>
-
-              {/* Streak Badges */}
-              <div className="mb-3">
-                <StreakBadges bestStreak={activeHabit.best_streak} />
-              </div>
-
-              {/* Streak Bar */}
-              <div className="streak-bar h-3 mb-4">
-                <motion.div
-                  className="streak-fill h-full"
-                  initial={{ width: 0 }}
-                  animate={{ width: `${streakPct}%` }}
-                  transition={{ duration: 0.8, delay: 0.3 }}
-                />
-              </div>
-
-              {/* Check-in Buttons */}
-              {todayCheckin ? (
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`flex-1 text-center py-2.5 rounded-xl text-sm font-medium ${
-                      todayCheckin.completed
-                        ? 'bg-green-500/10 text-green-400 border border-green-500/20'
-                        : 'bg-red-500/10 text-red-400 border border-red-500/20'
-                    }`}
-                  >
-                    <Icon name={todayCheckin.completed ? 'i-check' : 'i-x'} size={12} className="inline-block mr-1" />
-                    {todayCheckin.completed ? 'Done today' : 'Skipped today'}
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleCheckin(true); }}
-                    className="btn-gold flex-1 flex items-center justify-center gap-2 text-sm py-2.5"
-                  >
-                    <Check size={16} /> Done
-                  </button>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleCheckin(false); }}
-                    className="btn-ghost flex-1 flex items-center justify-center gap-2 text-sm py-2.5"
-                  >
-                    <X size={16} /> Not today
-                  </button>
-                </div>
-              )}
-
-              {/* Mood Selector */}
-              {todayCheckin && (
-                <div className="mt-4">
-                  <p className="text-stone-500 text-xs mb-2">How are you feeling?</p>
-                  <div className="flex gap-2 flex-wrap">
-                    {MOODS.map((m) => (
-                      <button
-                        key={m.value}
-                        onClick={(e) => { e.stopPropagation(); handleMood(m.value); }}
-                        className={`mood-option text-xs ${
-                          todayCheckin.mood === m.value ? 'active' : ''
-                        }`}
-                      >
-                        {m.emoji} {m.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Compliance Heatmap */}
-              {activeHabit && (
-                <div className="mt-4 pt-3 border-t border-white/5">
-                  <p className="text-stone-500 text-xs mb-2 uppercase tracking-wider font-semibold">14-Day Compliance</p>
-                  <ComplianceTrend
-                    clientHabitId={activeHabit.id}
-                    startDate={activeHabit.started_at}
-                  />
-                </div>
-              )}
-            </>
-          ) : (
-            <div className="text-center py-6">
-              <p className="text-stone-400 text-sm">No active habit</p>
-              <p className="text-stone-600 text-xs mt-1">Ask your coach to assign one!</p>
-            </div>
+          {streakDays > 0 && (
+            <span className="tag tag-g">
+              <Icon name="i-flame" size={9} />
+              {streakDays}d
+            </span>
           )}
+        </div>
+
+        {/* ══ 2 · Today macro card (gold) ══════════════════════ */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.07 }}
+          className="card-g p-3.5 mb-3"
+        >
+          <div className="eye-d mb-2.5">Today</div>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+
+            {/* 72px ring */}
+            <CompactRing value={totalCalories} target={targetCalories} />
+
+            {/* Right: count + macro bars */}
+            <div style={{ flex: 1 }}>
+              <div className="title-l">{Math.round(totalCalories).toLocaleString()}</div>
+              <div className="ds-sub">of {targetCalories} · {remaining} left</div>
+              <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 5 }}>
+                <MacroLine label="P" value={totalProtein} target={targetProtein} color="var(--err,#E87A6E)" />
+                <MacroLine label="C" value={totalCarbs}   target={targetCarbs}   color="var(--info,#7DA3D9)" />
+                <MacroLine label="F" value={totalFat}     target={targetFat}     color="var(--plum,#B89DD9)" />
+              </div>
+            </div>
+          </div>
         </motion.div>
 
-        {/* ═══ 4. Quick Actions Grid (2x2) ═══ */}
+        {/* ══ 3 · Active habit card ════════════════════════════ */}
+        {activeHabit?.habit ? (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.12 }}
+            className="card p-3 mb-3"
+            style={{ cursor: 'pointer' }}
+            onClick={() => setShowHabitModal(true)}
+          >
+            <div className="row-b mb-2">
+              <div className="row-i" style={{ gap: 8 }}>
+                <Icon name={habitIconName(activeHabit.habit.emoji)} size={14}
+                  style={{ color: 'var(--info,#7DA3D9)', flexShrink: 0 }} />
+                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--t1)' }}>
+                  {activeHabit.habit.name_en}
+                </span>
+              </div>
+              <span className="eye" style={{ fontSize: 9 }}>
+                {Math.round(streakPct)}%
+              </span>
+            </div>
+
+            {/* streak bar */}
+            <div className="mb-track mb-2">
+              <motion.div
+                className="mb-fill"
+                style={{ background: 'linear-gradient(90deg,var(--gold-400,#B8923E),var(--gold-200,#E8C078))' }}
+                initial={{ width: 0 }} animate={{ width: `${streakPct}%` }}
+                transition={{ duration: 0.8, delay: 0.3 }}
+              />
+            </div>
+
+            {/* buttons */}
+            {todayCheckin ? (
+              <div style={{
+                fontSize: 10, textAlign: 'center', padding: '6px 0',
+                color: todayCheckin.completed ? 'var(--ok,#65D387)' : 'var(--t4)',
+              }}>
+                <Icon name={todayCheckin.completed ? 'i-check' : 'i-x'} size={10}
+                  style={{ verticalAlign: -1, marginRight: 3 }} />
+                {todayCheckin.completed ? 'Done today' : 'Skipped today'}
+              </div>
+            ) : (
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button
+                  className="btn-gold"
+                  style={{ flex: 2, padding: '7px', fontSize: 10, borderRadius: 10 }}
+                  disabled={submitting}
+                  onClick={e => { e.stopPropagation(); handleCheckin(true); }}
+                >
+                  <Icon name="i-check" size={10} style={{ verticalAlign: -1, marginRight: 3 }} />
+                  Done
+                </button>
+                <button
+                  className="btn-ghost"
+                  style={{ flex: 1, padding: '7px', fontSize: 10, borderRadius: 10 }}
+                  onClick={e => { e.stopPropagation(); handleCheckin(false); }}
+                >
+                  Skip
+                </button>
+              </div>
+            )}
+          </motion.div>
+        ) : (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.12 }}
+            className="card p-4 mb-3 text-center"
+          >
+            <p className="ds-sub">No active habit · ask your coach</p>
+          </motion.div>
+        )}
+
+        {/* ══ 4 · Water tracker (compact inline card) ═════════ */}
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="grid grid-cols-2 gap-3 mb-4"
+          initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.16 }}
+          className="card p-3 mb-3"
         >
-          {[
-            { icon: 'i-bowl',     label: 'Log Food', href: '/dashboard/log' },
-            { icon: 'i-dumbbell', label: 'Workout', href: '/dashboard/workout' },
-            { icon: 'i-drop',     label: 'Water', href: null },
-            { icon: 'i-graph-up', label: 'Progress', href: '/dashboard/progress' },
-          ].map((action) => (
-            <button
-              key={action.label}
-              onClick={async () => {
-                if (action.href) {
-                  router.push(action.href);
-                } else {
-                  setWaterSplash(true);
-                  setTimeout(() => setWaterSplash(false), 600);
-                  await addWater();
-                }
-              }}
-              className="glass p-4 flex flex-col items-center gap-2 active:scale-95 transition-transform"
-            >
-              <Icon name={action.icon as Parameters<typeof Icon>[0]['name']} size={24} />
-              <span className="text-xs font-medium text-stone-300">{action.label}</span>
+          <div className="row-b mb-2">
+            <div className="row-i" style={{ gap: 8 }}>
+              <Icon name="i-drop" size={14} style={{ color: 'var(--info,#7DA3D9)' }} />
+              <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--t1)' }}>Water</span>
+            </div>
+            <span className="eye" style={{ fontSize: 9 }}>
+              {Math.round((totalWater / targetWater) * 100)}%
+            </span>
+          </div>
+          <div className="mb-track mb-2">
+            <motion.div className="mb-fill"
+              style={{ background: 'var(--info,#7DA3D9)' }}
+              initial={{ width: 0 }}
+              animate={{ width: `${Math.min(totalWater / targetWater, 1) * 100}%` }}
+              transition={{ duration: 0.7, delay: 0.3 }}
+            />
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button className="btn-gold" style={{ flex: 2, padding: '7px', fontSize: 10, borderRadius: 10 }}
+              onClick={addWater} disabled={addingWater}>
+              <Icon name="i-plus" size={10} style={{ verticalAlign: -1, marginRight: 3 }} />
+              +250 ml
+            </button>
+            <span className="ds-sub" style={{ flex: 1, textAlign: 'right', alignSelf: 'center', fontSize: 9 }}>
+              {waterGlasses}/{targetGlasses} glasses
+            </span>
+          </div>
+        </motion.div>
+
+        {/* ══ 5 · Quick actions (4-column) ════════════════════ */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.20 }}
+          style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 6, marginBottom: 12 }}
+        >
+          {([
+            { icon: 'i-bowl',     label: 'Food',  action: () => router.push('/dashboard/log') },
+            { icon: 'i-dumbbell', label: 'Lift',  action: () => router.push('/dashboard/workout') },
+            { icon: 'i-drop',     label: 'Water', action: addWater },
+            { icon: 'i-chart',    label: 'Stats', action: () => router.push('/dashboard/progress') },
+          ] as const).map(a => (
+            <button key={a.label} className="card" style={{ padding: 9, textAlign: 'center', cursor: 'pointer' }}
+              onClick={a.action}>
+              <Icon name={a.icon as Parameters<typeof Icon>[0]['name']} size={16}
+                style={{ color: 'var(--gold-300,#D4A853)' }} />
+              <div className="ds-sub" style={{ marginTop: 2, fontSize: 8 }}>{a.label}</div>
             </button>
           ))}
         </motion.div>
-
-        {/* ═══ 5. Water Tracker (compact) ═══ */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.25 }}
-          className="glass p-4 mb-4"
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Droplets size={16} className="text-blue-400" />
-              <span className="text-sm text-stone-300 font-medium">
-                {waterGlasses}/{targetGlasses} glasses
-              </span>
-            </div>
-            <button
-              onClick={async () => {
-                setWaterSplash(true);
-                setTimeout(() => setWaterSplash(false), 600);
-                await addWater();
-              }}
-              className="btn-ghost px-3 py-1.5 flex items-center gap-1.5 text-xs"
-            >
-              <Plus size={14} /> Add
-            </button>
-          </div>
-          {/* Water dot indicators */}
-          <div className="flex gap-1.5 mt-3">
-            {Array.from({ length: targetGlasses }).map((_, i) => (
-              <motion.div
-                key={i}
-                className={`h-2 flex-1 rounded-full transition-colors ${
-                  i < waterGlasses ? 'bg-blue-400' : 'bg-white/[0.06]'
-                }`}
-                initial={i < waterGlasses ? { scale: 0 } : {}}
-                animate={i < waterGlasses ? { scale: 1 } : {}}
-                transition={{ delay: 0.3 + i * 0.03 }}
-              />
-            ))}
-          </div>
-          <p className="text-[10px] text-stone-600 mt-2">
-            {totalWater} / {targetWater} ml
-          </p>
-        </motion.div>
-
-        {/* ═══ 6. Health Tip ═══ */}
-        <MythCard />
       </motion.div>
 
-      {/* Habit Detail Modal */}
+      {/* ── Habit detail modal ── */}
       <HabitDetailModal
         open={showHabitModal}
         onClose={() => setShowHabitModal(false)}
@@ -858,7 +490,8 @@ export default function DashboardPage() {
         language={userProfile?.language ?? 'en'}
       />
 
-      <BottomNav />
+      {/* ── Bottom nav (4-tab, handoff spec) ── */}
+      <BotNav routes={CLIENT_NAV} />
     </div>
   );
 }

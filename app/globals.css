@@ -581,3 +581,149 @@ body {
 .light .border-t.border-white\/5 {
   border-color: #e7e5e4 !important;
 }
+
+/* ═══════════════════════════════════════════════
+   Handoff v2 — screen primitive classes
+   Exact spec from Trophe Handoff.html
+   ═══════════════════════════════════════════════ */
+
+/* ─── Card variants ─── */
+.card {
+  background: rgba(22, 22, 22, 0.7);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.card-g {
+  background: linear-gradient(135deg, rgba(212,168,83,.06), rgba(212,168,83,.02));
+  border: 1px solid rgba(212,168,83,.2);
+  border-radius: 14px;
+}
+.card-r {
+  background: rgba(232,122,110,.04);
+  border: 1px solid rgba(232,122,110,.18);
+  border-radius: 14px;
+}
+
+/* ─── Avatar circles ─── */
+.av {
+  width: 26px; height: 26px; border-radius: 13px;
+  background: linear-gradient(135deg, var(--gold-200, #E8C078), var(--gold-400, #B8923E));
+  color: #0a0a0a;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; flex-shrink: 0;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.2);
+}
+.av-lg {
+  width: 36px; height: 36px; border-radius: 18px;
+  background: linear-gradient(135deg, var(--gold-200, #E8C078), var(--gold-400, #B8923E));
+  color: #0a0a0a;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700; flex-shrink: 0;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.2);
+}
+
+/* ─── Eyebrow labels ─── */
+.eye {
+  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 8px; letter-spacing: .22em; color: var(--gold-300, #D4A853);
+  text-transform: uppercase; font-weight: 500;
+}
+.eye-d {
+  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 8px; letter-spacing: .18em; color: var(--t4, #78716C);
+  text-transform: uppercase;
+}
+
+/* ─── Macro progress bar ─── */
+.mb-track {
+  height: 4px; background: rgba(255,255,255,.05);
+  border-radius: 99px; overflow: hidden; position: relative;
+}
+.mb-fill {
+  height: 100%; border-radius: 99px; position: relative;
+}
+.mb-fill::after {
+  content: ""; position: absolute; right: 0; top: 0; bottom: 0; width: 8px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.4));
+  border-radius: 99px;
+}
+
+/* ─── Layout micro-helpers ─── */
+.row-b { display: flex; justify-content: space-between; align-items: center; }
+.row-i { display: flex; gap: 8px; align-items: center; }
+
+/* ─── Type scale additions ─── */
+.title-l {
+  font-size: 22px; font-weight: 700; letter-spacing: -.025em; line-height: 1.05;
+}
+.ds-sub {
+  font-size: 10px; color: var(--t4, #78716C);
+}
+
+/* ─── Tabs (handoff spec) ─── */
+.hs-tabs {
+  display: flex; gap: 2px; padding: 3px;
+  background: rgba(255,255,255,.03);
+  border: 1px solid var(--line); border-radius: 10px;
+}
+.hs-tab {
+  flex: 1; text-align: center; padding: 6px 4px;
+  border-radius: 7px; font-size: 9px; color: var(--t4);
+  font-weight: 500; white-space: nowrap; letter-spacing: -.01em;
+  cursor: pointer; transition: background 0.15s, color 0.15s;
+}
+.hs-tab.active {
+  background: rgba(212,168,83,.12); color: var(--gold-300, #D4A853);
+  box-shadow: inset 0 0 0 1px rgba(212,168,83,.18);
+}
+
+/* ─── Status dots (handoff names) ─── */
+.hs-dot { width: 7px; height: 7px; border-radius: 99px; flex-shrink: 0; display: inline-block; }
+.hs-dot-on   { background: var(--ok,  #65D387); box-shadow: 0 0 0 3px rgba(101,211,135,.15); }
+.hs-dot-warn { background: var(--warn,#E8B86E); box-shadow: 0 0 0 3px rgba(232,184,110,.15); }
+.hs-dot-off  { background: var(--err, #E87A6E); box-shadow: 0 0 0 3px rgba(232,122,110,.15); }
+
+/* ─── Ring animation ─── */
+@keyframes ringDraw {
+  from { stroke-dashoffset: 565.5; }
+  to   { stroke-dashoffset: var(--ring-end, 170); }
+}
+.ring-draw { animation: ringDraw 1.8s cubic-bezier(.4,0,.2,1) forwards; }
+
+/* ─── Ambient animations ─── */
+@keyframes liveGlow {
+  0%,100% { box-shadow: 0 0 0 0 rgba(101,211,135,.4); }
+  50%      { box-shadow: 0 0 0 6px rgba(101,211,135,0); }
+}
+.live-glow { animation: liveGlow 2s ease-out infinite; }
+
+@keyframes floatY {
+  0%,100% { transform: translateY(0); }
+  50%      { transform: translateY(-3px); }
+}
+.float-y { animation: floatY 4s ease-in-out infinite; }
+
+/* ─── Tag: update to flex + mono (backward compatible) ─── */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+}
+
+/* ─── FAB (gold, floating action) ─── */
+.fab {
+  position: absolute; bottom: 78px; right: 14px;
+  width: 44px; height: 44px; border-radius: 22px;
+  background: linear-gradient(135deg, var(--gold-400, #B8923E), var(--gold-200, #E8C078));
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 12px 28px -6px rgba(212,168,83,.45), inset 0 1px 0 rgba(255,255,255,.3);
+  color: #0a0a0a; cursor: pointer; border: none;
+}
+
+/* light mode .card */
+.light .card   { background: rgba(255,255,255,.9); border-color: rgba(0,0,0,.08); }
+.light .card-g { background: linear-gradient(135deg,rgba(212,168,83,.08),rgba(212,168,83,.03)); }
+.light .card-r { background: rgba(232,122,110,.06); }

@@ -43,6 +43,8 @@ import BatchHabitAssign from '@/components/coach/BatchHabitAssign';
 import ClientComparison from '@/components/coach/ClientComparison';
 import LoadingSkeleton from '@/components/coach/LoadingSkeleton';
 import { localDateStr } from '../../lib/dates';
+import { BotNav } from '@/components/ui/BotNav';
+import { Icon } from '@/components/ui';
 import type {
   Profile,
   ClientProfile,
@@ -735,7 +737,7 @@ export default function CoachDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-stone-950 px-4 py-6 sm:px-6 lg:px-8">
+    <div className="min-h-screen px-4 py-6 sm:px-6 lg:px-8" style={{ background: 'var(--bg,#0a0a0a)' }}>
       <div className="max-w-5xl mx-auto">
         <div className="flex items-center justify-between mb-2">
           <div /> {/* spacer */}
@@ -1333,6 +1335,13 @@ export default function CoachDashboard() {
       <AnimatePresence>
         {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
       </AnimatePresence>
+
+      <BotNav routes={[
+        { href: '/coach',         label: 'Today',   icon: <Icon name="i-grid"    size={18} /> },
+        { href: '/coach/clients', label: 'Clients', icon: <Icon name="i-users"   size={18} /> },
+        { href: '/coach/inbox',   label: 'Inbox',   icon: <Icon name="i-message" size={18} /> },
+        { href: '/coach/profile', label: 'Me',      icon: <Icon name="i-user"    size={18} /> },
+      ]} />
     </div>
   );
 }

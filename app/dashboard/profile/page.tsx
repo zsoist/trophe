@@ -8,6 +8,8 @@ import { supabase } from '@/lib/supabase';
 import { calculateFullProfile, ACTIVITY_DESCRIPTIONS, GOAL_DESCRIPTIONS } from '@/lib/nutrition-engine';
 import type { ClientProfile, Profile, Sex, ActivityLevel, Goal, Language } from '@/lib/types';
 import BottomNav from '@/components/BottomNav';
+import { BotNav } from '@/components/ui/BotNav';
+import { Icon } from '@/components/ui';
 import BodyCompCalculator from '@/components/BodyCompCalculator';
 import { useThemeMode } from '@/components/ThemeMode';
 
@@ -139,7 +141,7 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen pb-24" style={{ background: 'var(--bg-primary)' }}>
+      <div className="min-h-screen pb-24" style={{ background: 'var(--bg,#0a0a0a)' }}>
         <div className="max-w-md mx-auto px-4 pt-12 space-y-4">
           <div className="h-7 w-32 rounded bg-stone-800/60 animate-pulse" />
           <div className="glass p-5 space-y-4">
@@ -156,7 +158,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen pb-24" style={{ background: 'var(--bg-primary)' }}>
+    <div className="min-h-screen pb-24" style={{ background: 'var(--bg,#0a0a0a)' }}>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -444,7 +446,12 @@ export default function ProfilePage() {
         </motion.div>
       </motion.div>
 
-      <BottomNav />
+      <BotNav routes={[
+        { href: '/dashboard',          label: 'Home',     icon: <Icon name="i-home"  size={18} /> },
+        { href: '/dashboard/log',      label: 'Log',      icon: <Icon name="i-book"  size={18} /> },
+        { href: '/dashboard/progress', label: 'Progress', icon: <Icon name="i-chart" size={18} /> },
+        { href: '/dashboard/profile',  label: 'Me',       icon: <Icon name="i-user"  size={18} /> },
+      ]} />
     </div>
   );
 }
