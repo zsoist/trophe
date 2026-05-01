@@ -303,7 +303,7 @@ export default function CheckinPage() {
                 fontSize: 12, color: 'var(--t3)', textAlign: 'left',
                 fontStyle: 'italic',
               }}>
-                "{todayCheckin.note}"
+                &ldquo;{todayCheckin.note}&rdquo;
               </div>
             )}
             <button

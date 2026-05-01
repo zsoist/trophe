@@ -31,6 +31,15 @@ import type {
 import { CoachNav } from '../page';
 import CoachLoadingSkeletons from '@/components/coach/CoachLoadingSkeletons';
 import WorkoutWeekPlanner from '@/components/coach/WorkoutWeekPlanner';
+import { BotNav } from '@/components/ui/BotNav';
+import { Icon } from '@/components/ui';
+
+const COACH_NAV = [
+  { href: '/coach',         label: 'Today',   icon: <Icon name="i-grid"    size={18} /> },
+  { href: '/coach/clients', label: 'Clients', icon: <Icon name="i-users"   size={18} /> },
+  { href: '/coach/inbox',   label: 'Inbox',   icon: <Icon name="i-message" size={18} /> },
+  { href: '/coach/profile', label: 'Me',      icon: <Icon name="i-user"    size={18} /> },
+];
 
 // ═══════════════════════════════════════════════
 // Constants
@@ -315,7 +324,7 @@ export default function TemplatesPage() {
   // ── Render ──
 
   return (
-    <div className="min-h-screen bg-stone-950 px-4 py-6 sm:px-6 lg:px-8">
+    <div className="min-h-screen pb-20 px-4 py-6 sm:px-6 lg:px-8" style={{ background: 'var(--bg,#0a0a0a)' }}>
       <div className="max-w-5xl mx-auto">
         <CoachNav active="/coach/templates" />
 
@@ -505,6 +514,8 @@ export default function TemplatesPage() {
             </div>
           )}
         </motion.div>
+
+        <BotNav routes={COACH_NAV} />
 
         {/* ─── Create Template Modal ─── */}
         {showForm && (

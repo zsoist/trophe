@@ -5,10 +5,17 @@ import { useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Pill, CheckCircle2, Circle, Info } from 'lucide-react';
 import { Icon } from '@/components/ui';
+import { BotNav } from '@/components/ui/BotNav';
 import { supabase } from '@/lib/supabase';
 import type { ClientSupplement, SupplementItem, SupplementLogEntry } from '@/lib/types';
-import BottomNav from '@/components/BottomNav';
 import { localToday, localDateStr } from '../../../lib/dates';
+
+const CLIENT_NAV = [
+  { href: '/dashboard',          label: 'Home',     icon: <Icon name="i-home"  size={18} /> },
+  { href: '/dashboard/log',      label: 'Log',      icon: <Icon name="i-book"  size={18} /> },
+  { href: '/dashboard/progress', label: 'Progress', icon: <Icon name="i-chart" size={18} /> },
+  { href: '/dashboard/profile',  label: 'Me',       icon: <Icon name="i-user"  size={18} /> },
+];
 
 const EVIDENCE_COLORS: Record<string, string> = {
   A: 'bg-green-500/15 text-green-400 border-green-500/30',
@@ -124,7 +131,7 @@ export default function SupplementsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen pb-24" style={{ background: 'var(--bg-primary)' }}>
+      <div className="min-h-screen pb-24" style={{ background: 'var(--bg,#0a0a0a)' }}>
         <div className="max-w-md mx-auto px-4 pt-12 space-y-4">
           <div className="h-7 w-36 rounded bg-stone-800/60 animate-pulse" />
           {[0, 1, 2].map((i) => (
@@ -143,7 +150,7 @@ export default function SupplementsPage() {
   }
 
   return (
-    <div className="min-h-screen pb-24" style={{ background: 'var(--bg-primary)' }}>
+    <div className="min-h-screen pb-24" style={{ background: 'var(--bg,#0a0a0a)' }}>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -273,7 +280,7 @@ export default function SupplementsPage() {
         )}
       </motion.div>
 
-      <BottomNav />
+      <BotNav routes={CLIENT_NAV} />
     </div>
   );
 }

@@ -7,8 +7,16 @@ import {
   Dumbbell, Plus, Minus, Clock, Trophy, Search, X, AlertTriangle,
   ChevronDown, ChevronUp, History, Play, Square, Camera
 } from 'lucide-react';
-import BottomNav from '@/components/BottomNav';
+import { BotNav } from '@/components/ui/BotNav';
+import { Icon } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
+
+const CLIENT_NAV = [
+  { href: '/dashboard',          label: 'Home',     icon: <Icon name="i-home"  size={18} /> },
+  { href: '/dashboard/log',      label: 'Log',      icon: <Icon name="i-book"  size={18} /> },
+  { href: '/dashboard/progress', label: 'Progress', icon: <Icon name="i-chart" size={18} /> },
+  { href: '/dashboard/profile',  label: 'Me',       icon: <Icon name="i-user"  size={18} /> },
+];
 import { useI18n } from '@/lib/i18n';
 import type { Exercise, PainFlag, MuscleGroup } from '@/lib/types';
 import Link from 'next/link';
@@ -672,7 +680,7 @@ export default function WorkoutPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] pb-28">
+    <div className="min-h-screen pb-28" style={{ background: 'var(--bg,#0a0a0a)' }}>
       {/* Header */}
       <div className="sticky top-0 z-40 glass-elevated px-4 py-3">
         <div className="max-w-md mx-auto flex items-center justify-between">
@@ -976,7 +984,7 @@ export default function WorkoutPage() {
         )}
       </AnimatePresence>
 
-      <BottomNav />
+      <BotNav routes={CLIENT_NAV} />
     </div>
   );
 }

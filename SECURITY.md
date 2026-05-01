@@ -1,113 +1,161 @@
 # Security
 
-Threat model, controls, and guidelines for Trophē. This is a low-traffic app (10-20 users during testing, targeting 100-500 in B2B pilot) handling health data. Controls sized accordingly.
+Threat model, controls, and guidelines for Trophē v0.3. This is a low-traffic app (5–20 testers now, targeting 100–500 in B2B pilot) handling personal health data.
+
+_Last updated: 2026-05-01 (v0.3-overhaul)_
+
+---
 
 ## Threat model (STRIDE-lite)
 
 | Threat | Asset | Likelihood | Impact | Control |
-|---|---|---|---|---|
-| Account takeover | User session | Medium | High (client health data exposed) | Supabase Auth + RLS + rate-limited AI routes |
-| Cross-client data leak | Other users' food logs, notes | Low | High (GDPR) | Postgres RLS policies — `auth.uid() = user_id` on every client table |
+|--------|-------|------------|--------|---------|
+| Account takeover | User session | Medium | High (health data exposed) | `@supabase/ssr` HTTP-only cookies + middleware role gate + RLS |
+| Cross-client data leak | Other users' food logs, notes | Low | High (GDPR) | Postgres RLS — `auth.uid() = user_id` on every client table |
 | Coach sees wrong client | client_profile of non-roster client | Medium | Medium | Coach RLS: `auth.uid() IN (SELECT coach_id FROM client_profiles WHERE user_id = row.user_id)` |
-| Prompt injection via food input | LLM goes off-script | Medium | Low (read-only LLM output) | Input sanitization: 500-char cap, control-char strip, LLM system prompt has explicit output contract |
-| SQL injection on search | DB compromise | Low | High | All `ilike` calls use parameterized queries + sanitized input |
-| Admin bypass | Full DB access | Low | Critical | Server-side admin guard in `app/admin/layout.tsx` — verifies JWT + email against `TROPHE_ADMIN_EMAILS`, uses service role key |
-| Secret exfiltration | API keys | Low | High | `.env.local` in `.gitignore`; service role key only server-side; `grep` in pre-deploy checklist |
-| LLM cost abuse | Anthropic bill | Medium | Low ($) | Per-user rate limit via `guardAiRoute`; prompt caching on system prompts |
-| XSS via user content | Session hijack | Low | High | React auto-escapes; CSP header; no `dangerouslySetInnerHTML` except for pre-paint theme script (content is hardcoded) |
+| Role escalation | Accessing /admin or /super routes | Low | Critical | Middleware role gate (server-side, pre-render). `require-role.ts` checks `profiles.role` enum. RLS secondary barrier. |
+| Prompt injection via food input | LLM goes off-script | Medium | Low | 500-char cap, control-char strip, LLM output contract enforced by `extract.ts` type-guard |
+| Wearable token theft | Spike OAuth tokens | Low | Medium | Tokens stored encrypted via `pgcrypto pgp_sym_encrypt` in `wearable_connections` |
+| SQL injection | DB compromise | Low | High | All queries use Drizzle parameterized or Supabase PostgREST parameterized. No raw `ilike` on unsanitized input. |
+| Admin bypass | Full DB access | Low | Critical | 4-tier role enum in `profiles.role`. `super_admin` required for `/super/*`; `admin+` for `/admin/*`. Enforced in middleware before render. |
+| Secret exfiltration | API keys | Low | High | `.env.local` in `.gitignore`; service role key never `NEXT_PUBLIC_`; `grep` in pre-deploy checklist |
+| LLM cost abuse | Anthropic/Gemini bill | Medium | Low ($) | `guardAiRoute` rate limiter (20 req/60s auth, 5 req/60s anon); Langfuse cost tracking per trace |
+| XSS via user content | Session hijack | Low | High | React auto-escapes; CSP header; no `dangerouslySetInnerHTML` except hardcoded pre-paint theme script |
 | Clickjacking | Phishing | Low | Medium | `X-Frame-Options: DENY`, `frame-ancestors 'none'` in CSP |
+| Memory poisoning | Agent reads false facts | Low | Medium | `memory_chunks` RLS — `user_id = auth.uid()`; coach block writes verified by coach JWT |
+
+---
 
 ## Controls
 
-### Authentication
-- **Supabase Auth**: email + password, JWT-based, 1-hour access token + 30-day refresh
-- **Session storage**: localStorage (Supabase JS v2 default). Means auth cannot be read by server middleware — auth happens client-side on each protected page
-- **Admin gate**: `app/admin/layout.tsx` (server component) uses the service role key to verify the Supabase JWT, checks email against `TROPHE_ADMIN_EMAILS`, redirects non-admins to `/dashboard`
-- **Role gates**: every `/dashboard/*` page checks `profile.role !== 'client'` client-side; every `/coach/*` page checks `profile.role !== 'coach'` client-side
+### Authentication (v0.3)
+
+- **`@supabase/ssr`** replaces localStorage sessions. Tokens live in HTTP-only cookies — inaccessible to JavaScript, readable by server middleware.
+- **`proxy.ts` (Next.js middleware)** runs before every request. Creates a server Supabase client from `request.cookies`, calls `getUser()` (not `getSession()` — re-validates against auth server), enforces role routing:
+  - `/coach/*` → role ∈ `{coach, both, admin, super_admin}` required
+  - `/admin/*` → role ∈ `{admin, super_admin}` required
+  - `/super/*` → role = `super_admin` required
+  - Unauthenticated or wrong role → 302 to `/login` or `/dashboard`
+- **`lib/auth/require-role.ts`** — callable from server components and route handlers for double-checking inside a route.
+- **Auth methods**: email+password (default) + magic link (`/auth/login/magic-link`). Sign-in-with-Apple/Google wired but OAuth client provisioning is operator-gated.
+- **Admin gate**: replaced v0.2 `TROPHE_ADMIN_EMAILS` allowlist with `profiles.role = 'admin'|'super_admin'` check. No hardcoded emails.
 
 ### Authorization (RLS)
-Every client-accessed table has Row-Level Security enabled. Policy examples:
+
+Every client-accessed table has Row-Level Security enabled. Examples:
 
 ```sql
 -- Users see only their own food log
 CREATE POLICY "Users access own food_log"
-  ON food_log FOR ALL
-  USING (auth.uid() = user_id);
+  ON food_log FOR ALL USING (auth.uid() = user_id);
 
--- Coaches see only their clients
+-- Coaches see only their assigned clients
 CREATE POLICY "Coaches access roster food_log"
   ON food_log FOR SELECT
   USING (auth.uid() IN (
     SELECT coach_id FROM client_profiles WHERE user_id = food_log.user_id
   ));
+
+-- Memory chunks: scope-isolated, user-owned
+CREATE POLICY "Users access own memory_chunks"
+  ON memory_chunks FOR ALL USING (user_id = auth.uid());
 ```
 
-Scheduled v0.2: pgTAP tests in CI to lock in RLS behavior and catch policy regressions.
+CI gate: `tests/db/rls.test.ts` runs on every PR. Uses `SET LOCAL "request.jwt.claims"` to impersonate each role tier and asserts correct row visibility.
 
 ### Input sanitization (AI routes)
+
 All `/api/food/*` and `/api/meals/*` routes:
 - Cap input length (food-parse 500 chars, recipe-analyze 4000)
 - Strip control chars: `replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')`
 - System prompt has explicit output contract; `extract.ts` validates JSON shape with type-guard before returning
+- **v0.3**: LLM never emits macro numbers — all nutrition values come from `foods` table. Eliminates a class of injection where crafted input inflates macros.
+
+### Wearable token security
+
+`wearable_connections` stores Spike OAuth tokens encrypted at rest:
+```sql
+access_token_encrypted bytea — pgcrypto pgp_sym_encrypt(token, app_secret)
+```
+Tokens are decrypted server-side only when making Spike API calls. Never serialized to client JSON.
+Webhook endpoint (`/api/integrations/spike/webhook`) verifies HMAC signature before processing any payload.
 
 ### Rate limiting
+
 `lib/api-guard.ts` → `guardAiRoute(req)`:
 - 20 req / 60s for authenticated users
 - 5 req / 60s for anonymous (by IP)
-- Returns 429 with Retry-After header
-
-Scheduled v0.2: per-user quota via Upstash free tier for more sophisticated limits.
+- Returns 429 with `Retry-After` header
 
 ### Transport + headers
+
 `next.config.ts` emits on every response:
-- `Content-Security-Policy` — explicit Supabase domain (NOT `*.supabase.co` — breaks mobile), Anthropic, Gemini, Google Fonts. `unsafe-inline` for now (nonce migration scheduled v0.2)
+- `Content-Security-Policy` — explicit Supabase domain, Anthropic, Gemini, Google Fonts. `unsafe-inline` retained for Framer Motion style attributes (tracked below).
 - `X-Frame-Options: DENY`
 - `X-Content-Type-Options: nosniff`
 - `Referrer-Policy: strict-origin-when-cross-origin`
-- `Permissions-Policy: camera=(), microphone=(self)` (mic allowed for voice-to-food)
+- `Permissions-Policy: camera=(), microphone=(self)`
 
 ### Secrets management
+
 - `.env.local` in `.gitignore`
-- `.env.local.example` committed (shows names, no values)
-- Pre-deploy: `git diff --staged | grep -E '(sk-ant-|sbp_|AIza|key=)'` → empty
+- `.env.local.example` committed (names only, no values)
+- Pre-deploy check: `git diff --staged | grep -E '(sk-ant-|sbp_|AIza|key=)'` → must be empty
 - Service role key: server-only (no `NEXT_PUBLIC_` prefix)
-- Vercel env vars: Production scope only for service role key
-- Rotation: quarterly or after suspected compromise; Anthropic + Supabase both support key rotation without downtime
+- Vercel env vars: `SUPABASE_SERVICE_ROLE_KEY` is Production-scope only; `NEXT_PUBLIC_*` vars scoped to Production + `v0.3-overhaul` preview branch
+- Rotation: quarterly or after suspected compromise
+
+### Audit trail
+
+`audit_log` table (v0.3 Phase 1): append-only log of sensitive mutations (client_profile updates, habit reassignment, coach_notes creation, role changes). Written via Drizzle in service-role context — bypasses RLS write but is itself RLS-read-protected.
+
+---
 
 ## Data classification
 
 | Data | Classification | Where | Retention |
-|---|---|---|---|
+|------|----------------|-------|-----------|
 | User email, hashed password | PII | `auth.users` | Life of account |
 | Body stats (weight, height, age, sex) | PII / Health | `client_profiles` | Life of account; export on request (GDPR) |
 | Food log | Health | `food_log` | Life of account |
 | Habit check-ins | Behavioral | `habit_checkins` | Life of account |
 | Coach notes about clients | PII / Sensitive | `coach_notes` | Coach-deletable, client cannot read |
-| API usage log (tokens, cost, endpoint) | Operational | `api_usage_log` | 90 days (scheduled v0.2 archive) |
-| Form Check videos | — | Not stored; all processing in-browser | — |
+| Memory chunks | Behavioral / PII | `memory_chunks` | 365d (user scope), 30d (session scope), indefinite (agent scope until cleared) |
+| Wearable data | Health | `wearable_data` | Life of connection; deletable via settings |
+| API usage log (tokens, cost, endpoint) | Operational | `api_usage_log` | 90 days |
+| Form Check video | — | Not stored; all processing in-browser (MediaPipe WASM) | — |
+| Langfuse traces | Operational | Local `localhost:3002` (dev only) | 30 days |
+
+---
 
 ## Incident response
 
 See `RUNBOOK.md` for operational playbooks. For security incidents:
 
-1. **Containment**: rotate affected key (Anthropic / Supabase / admin email allowlist) via each provider's dashboard
-2. **Assessment**: pull `api_usage_log` + Vercel function logs for the affected window
-3. **Notification**: if user data exposed, notify affected users + Michael (as co-business) within 72 hours (GDPR baseline)
+1. **Containment**: rotate affected key (Anthropic / Supabase / Spike) via each provider's dashboard; if session compromise suspected, invalidate all sessions via Supabase Auth dashboard
+2. **Assessment**: pull `audit_log` + `api_usage_log` + Vercel function logs for the affected window
+3. **Notification**: if user data exposed, notify affected users + Michael (co-business) within 72 hours (GDPR baseline)
 4. **Post-mortem**: document in `docs/incidents/YYYY-MM-DD-summary.md`; capture as OpenBrain `PITFALL:` entry
+
+---
 
 ## Known residual risks
 
-- **Pre-v0.2 middleware auth is client-side only**. A malicious client could bypass role gates in their own browser, but RLS at the DB prevents them reading data they shouldn't. Trust boundary = Postgres, not Next.js middleware. Scheduled to migrate to `@supabase/ssr` with cookie-based sessions in Wave D.
-- **`unsafe-inline` in CSP**. Needed for Framer Motion + style attributes. Nonce-based CSP scheduled Wave D.
-- **No audit trail**. Sensitive mutations (client_profile updates, coach_notes creation, habit reassignment) are not logged. `audit_log` table with triggers scheduled for Wave C.
-- **No brute-force protection beyond Supabase defaults**. Free tier allows 5 signins / 5 min per IP. Adequate for 10-20 users; revisit at 100+.
+| Risk | Status | Mitigation |
+|------|--------|------------|
+| `unsafe-inline` in CSP | Open | Needed for Framer Motion inline styles. Nonce-based CSP deferred to v1.0. |
+| No brute-force protection beyond Supabase defaults | Open | Free tier: 5 signins/5 min/IP. Adequate for ≤20 users; revisit at 100+. |
+| No per-user rate limiting (in-memory map resets on deploy) | Open | Upstash-based persistent rate limiting deferred to v1.0. |
+| Wearable token encryption uses symmetric key (pgcrypto) | Open | KMS-style envelope encryption deferred to v1.0. Symmetric key is `SUPABASE_SERVICE_ROLE_KEY` — server-only. |
+| Vercel preview env vars scoped to `v0.3-overhaul` branch | Note | `NEXT_PUBLIC_*` keys are visible in preview deploys. Acceptable for anon-key + public URL. Service role key is Production-only. |
 
-## Scheduled security work (v0.2)
+## Completed (was v0.2 scheduled work)
 
-- [ ] Migrate to `@supabase/ssr` → restore server-side middleware auth with cookies
-- [ ] Nonce-based CSP (replace `unsafe-inline`)
-- [ ] Per-user rate limiting via Upstash (replace in-memory map)
-- [ ] `audit_log` table + triggers on sensitive writes
-- [ ] pgTAP RLS tests in CI
-- [ ] Quarterly dependency audit (`npm audit fix` + Snyk free tier)
-- [ ] Supabase Pro ($25/mo): enables PITR — backup/restore is a security control, not just ops
+- ✅ Migrated to `@supabase/ssr` — server-side middleware auth with HTTP-only cookies (Phase 2)
+- ✅ `TROPHE_ADMIN_EMAILS` allowlist replaced with 4-tier role enum (Phase 1)
+- ✅ Middleware now enforces role gates server-side before any page render (Phase 2)
+- ✅ `audit_log` table + Drizzle writes on sensitive mutations (Phase 1)
+- ✅ RLS test suite in CI (`tests/db/rls.test.ts`) (Phase 1)
+- ⬜ Nonce-based CSP — deferred v1.0
+- ⬜ Upstash rate limiting — deferred v1.0
+- ⬜ Supabase Pro (PITR) — deferred v1.0

@@ -25,7 +25,7 @@ import { createSupabaseMiddlewareClient } from '@/lib/supabase/middleware';
  *
  * Closes codex HIGH #1: "middleware.ts admits auth is handled client-side".
  */
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { supabase, response } = createSupabaseMiddlewareClient(request);
 
   // Always call getUser() — this is what triggers the cookie refresh.

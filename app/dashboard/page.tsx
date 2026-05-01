@@ -81,6 +81,15 @@ const CLIENT_NAV = [
 
 // ─── Celebration modal (kept from v0.2) ──────────────────────────
 const CONFETTI_COLORS = ['#D4A853','#E8C878','#22c55e','#3b82f6','#a855f7','#ef4444','#f59e0b'];
+// Pre-computed at module load — Math.random() is not allowed during render (react-hooks/purity)
+const CONFETTI_PARTICLES = Array.from({ length: 30 }).map((_, i) => ({
+  left: `${Math.random() * 100}%`,
+  color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+  width: `${6 + Math.random() * 8}px`,
+  height: `${6 + Math.random() * 8}px`,
+  delay: `${Math.random() * 1.5}s`,
+  borderRadius: Math.random() > 0.5 ? '50%' : '2px',
+}));
 
 interface CelebProps {
   streakDays: number; cycleDays: number; completionPct: number;
@@ -93,11 +102,11 @@ function CelebrationModal({ streakDays, cycleDays, completionPct, habitName, bes
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
       onClick={onDismiss}
     >
-      {Array.from({ length: 30 }).map((_, i) => (
+      {CONFETTI_PARTICLES.map((p, i) => (
         <div key={i} className="confetti-particle"
-          style={{ left: `${Math.random() * 100}%`, backgroundColor: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
-            width: `${6 + Math.random() * 8}px`, height: `${6 + Math.random() * 8}px`,
-            animationDelay: `${Math.random() * 1.5}s`, borderRadius: Math.random() > 0.5 ? '50%' : '2px' }} />
+          style={{ left: p.left, backgroundColor: p.color,
+            width: p.width, height: p.height,
+            animationDelay: p.delay, borderRadius: p.borderRadius }} />
       ))}
       <motion.div
         initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
