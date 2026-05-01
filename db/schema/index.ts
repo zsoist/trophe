@@ -50,3 +50,5 @@ export * from './memory_chunks';
 export * from './coach_blocks';
 export * from './agent_conversation';
 export * from './raw_captures';
+export * from './wearable_connections';
+export * from './wearable_data';

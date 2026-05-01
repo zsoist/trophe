@@ -43,6 +43,13 @@
       "when": 1777651595068,
       "tag": "0005_spotty_baron_zemo",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1777652188355,
+      "tag": "0006_red_maximus",
+      "breakpoints": true
     }
   ]
 }
