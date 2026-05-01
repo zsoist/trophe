@@ -1,17 +1,19 @@
 import { NextResponse } from 'next/server';
 import { GREEK_FOODS } from '@/lib/greek-foods-seed';
-import { requireAdminRequest } from '@/lib/server-admin';
+import { requireAdmin } from '@/lib/server-admin';
+import { createSupabaseServiceClient } from '@/lib/supabase/server';
 
 export async function POST(request: Request) {
   try {
-    const admin = await requireAdminRequest(request);
-    if (admin instanceof NextResponse) {
-      return admin;
-    }
+    const guard = await requireAdmin();
+    if (guard instanceof NextResponse) return guard;
+
+    const { session } = guard;
+    const serviceSupabase = createSupabaseServiceClient();
+    const profile = session.profile;
 
     const body = (await request.json().catch(() => ({}))) as { coachUserId?: string };
-    const targetCoachUserId = body.coachUserId?.trim() || admin.userId;
-    const { serviceSupabase, profile } = admin;
+    const targetCoachUserId = body.coachUserId?.trim() || session.user.id;
     const foodNames = GREEK_FOODS.map((food) => food.name);
 
     const { data: existingRows, error: existingError } = await serviceSupabase

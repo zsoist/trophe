@@ -1,15 +1,16 @@
 import { NextResponse } from 'next/server';
 import { FOOD_SEED } from '@/lib/food-database-seed';
-import { requireAdminRequest } from '@/lib/server-admin';
+import { requireAdmin } from '@/lib/server-admin';
+import { createSupabaseServiceClient } from '@/lib/supabase/server';
 
-export async function POST(request: Request) {
+export async function POST() {
   try {
-    const admin = await requireAdminRequest(request);
-    if (admin instanceof NextResponse) {
-      return admin;
-    }
+    const guard = await requireAdmin();
+    if (guard instanceof NextResponse) return guard;
 
-    const { serviceSupabase, profile } = admin;
+    const { session } = guard;
+    const serviceSupabase = createSupabaseServiceClient();
+    const profile = session.profile;
 
     const entries = FOOD_SEED.map((food) => ({
       name: food.name,
