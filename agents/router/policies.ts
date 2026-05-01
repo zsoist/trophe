@@ -33,7 +33,9 @@ export type TaskName =
   | 'coach_insight'
   | 'meal_suggest'
   | 'photo_analyze'
-  | 'embed';
+  | 'embed'
+  | 'memory_extract'  // Phase 5: extract structured facts from conversation turns
+  | 'memory_embed';   // Phase 5: embed memory fact text for kNN retrieval
 
 export interface RoutingPolicy {
   provider: Provider;
@@ -86,6 +88,25 @@ export const taskPolicies: Record<TaskName, RoutingPolicy> = {
   },
   embed: {
     // Voyage v4 is called directly in agents/observability — not via this router.
+    provider: 'openai',
+    model: 'voyage-4',
+    costClass: 'cheap',
+    latencyClass: 'fast',
+    maxTokens: 0,
+  },
+  memory_extract: {
+    // Sonnet 4.6 for nuanced fact extraction — runs async after each conversation turn.
+    // Strict zod schema output: fact_text, fact_type, confidence, scope, expires_at.
+    provider: 'anthropic',
+    model: 'claude-sonnet-4-5-20251022',
+    costClass: 'mid',
+    latencyClass: 'medium',
+    maxTokens: 1024,
+    cacheSystem: true,
+  },
+  memory_embed: {
+    // Voyage v4 — same embedding model as food/general embeddings for consistency.
+    // Called directly via Voyage API in agents/memory/write.ts.
     provider: 'openai',
     model: 'voyage-4',
     costClass: 'cheap',
