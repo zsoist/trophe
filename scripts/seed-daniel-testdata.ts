@@ -9,8 +9,8 @@
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
-  'https://iwbpzwmidzvpiofnqexd.supabase.co',
-  'REDACTED_ROTATE_NOW',
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
 );
 
 const USER_ID = 'faaa2ba2-0a3f-44d5-ac0c-adbc08f374b5';
