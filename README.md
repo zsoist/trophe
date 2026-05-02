@@ -36,7 +36,7 @@ Partnership with Michael Kavdas (Greek nutritionist, PN L1 certified, COO Athlet
 
 ## Getting started
 
-Prerequisites: Node 20+, Supabase CLI, a Supabase project.
+Prerequisites: Node 20+, OrbStack or another Docker-compatible runtime, and a Supabase project for hosted env vars.
 
 ```bash
 git clone git@github.com:zsoist/trophe.git
@@ -44,6 +44,7 @@ cd trophe
 npm install
 cp .env.local.example .env.local
 # Fill in the 5 required env vars (see DEPLOYMENT.md)
+npm run db:bootstrap
 npm run dev
 # http://localhost:3000
 ```
@@ -58,7 +59,22 @@ npm run lint          # eslint
 npm test              # vitest run (unit tests)
 npm run test:watch    # vitest watch mode
 npm run test:coverage # vitest + coverage report
+npm run db:doctor     # OrbStack/Docker/Supabase readiness
+npm run db:local:start
+npm run db:bootstrap  # canonical local DB bootstrap (Supabase local + Drizzle)
+npm run db:verify     # schema / RLS inventory checks
+npm run db:explain    # capture explain plans to artifacts/db/
 ```
+
+## Truth table
+
+| Concern | Canonical source |
+|---|---|
+| Schema source of truth | `drizzle/*.sql` migrations |
+| Local DB source of truth | Supabase CLI local stack on `127.0.0.1:54322` |
+| Auth/RLS local test model | Supabase-style `auth.uid()` + `authenticated` role |
+| CI DB model | pgvector Postgres service + same compatibility bootstrap |
+| Legacy bridge | `open_brain_postgres` is temporary only and not the documented target path |
 
 ## Docs
 
@@ -76,7 +92,7 @@ npm run test:coverage # vitest + coverage report
 
 ## Contributing
 
-- Branch from `main`, PR back to `main`. CI must be green (typecheck + lint + test).
+- Branch from `v0.3-overhaul`, PR back to `v0.3-overhaul` until cutover. CI must be green.
 - Follow the coding style in `CLAUDE.md`. Mobile-first (390×844).
 - No new `bg-stone-9xx` on themed pages — use CSS variables or `.glass` utility classes (ESLint enforces).
 - Add a test in `tests/` for any new `lib/` business logic.

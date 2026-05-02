@@ -23,7 +23,7 @@ export const measurements = pgTable('measurements', {
   notes: text(),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
 }, (table) => [
-  index('idx_measurements_user_date').using('btree', table.userId.asc().nullsLast().op('date_ops'), table.measuredDate.asc().nullsLast().op('date_ops')),
+  index('idx_measurements_user_date').using('btree', table.userId.asc().nullsLast().op('uuid_ops'), table.measuredDate.asc().nullsLast().op('date_ops')),
   foreignKey({ columns: [table.userId], foreignColumns: [profiles.id], name: 'measurements_user_id_fkey' }).onDelete('cascade'),
   pgPolicy('Clients manage own measurements', { as: 'permissive', for: 'all', to: ['public'], using: sql`(user_id = auth.uid())` }),
   pgPolicy('Coaches view client measurements', { as: 'permissive', for: 'select', to: ['public'] }),

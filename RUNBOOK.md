@@ -9,6 +9,17 @@ Operational playbooks for Trophē. Designed for one-person on-call (Daniel), dur
 - **GitHub Actions**: https://github.com/zsoist/trophe/actions — CI runs
 - **Production**: https://trophe-mu.vercel.app
 - **Local telemetry**: `lib/api-cost-logger.ts` writes to `api_usage_log` table (per-endpoint tokens, cost, latency, success)
+- **Local DB doctor**: `npm run db:doctor` verifies OrbStack, Docker, Supabase CLI, and local stack status
+
+## Canonical local DB
+
+- Runtime: OrbStack Docker
+- Stack manager: Supabase CLI
+- DB URL: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`
+- Bootstrap: `npm run db:bootstrap`
+- Verification artifacts: `artifacts/db/*`
+
+Legacy `open_brain_postgres` on `127.0.0.1:5433` is a temporary bridge only.
 
 ## Common scenarios
 

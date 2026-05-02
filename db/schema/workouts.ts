@@ -69,7 +69,7 @@ export const workoutSessions = pgTable('workout_sessions', {
   painFlags: jsonb('pain_flags').default([]),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
 }, (table) => [
-  index('idx_workout_sessions_user').using('btree', table.userId.asc().nullsLast().op('date_ops'), table.sessionDate.asc().nullsLast().op('date_ops')),
+  index('idx_workout_sessions_user').using('btree', table.userId.asc().nullsLast().op('uuid_ops'), table.sessionDate.asc().nullsLast().op('date_ops')),
   foreignKey({ columns: [table.userId], foreignColumns: [profiles.id], name: 'workout_sessions_user_id_fkey' }).onDelete('cascade'),
   pgPolicy('Users manage own sessions', { as: 'permissive', for: 'all', to: ['public'], using: sql`(user_id = auth.uid())` }),
   pgPolicy('Coaches view client sessions', { as: 'permissive', for: 'select', to: ['public'] }),

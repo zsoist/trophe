@@ -1,6 +1,6 @@
 # Deployment
 
-Production on **Vercel** + **Supabase** (project `iwbpzwmidzvpiofnqexd`). Local dev uses `open_brain_postgres` Docker. Branch `v0.3-overhaul` is the active development branch; `main` is production.
+Production on **Vercel** + **Supabase** (project `iwbpzwmidzvpiofnqexd`). Local dev is standardized on the Supabase CLI stack running on OrbStack. Branch `v0.3-overhaul` is the active development branch; `main` is production.
 
 _Last updated: 2026-05-01 (v0.3-overhaul)_
 
@@ -15,7 +15,7 @@ Set in **Vercel → Project Settings → Environment Variables** (Production sco
 | `NEXT_PUBLIC_SUPABASE_URL` | Prod + local | `https://iwbpzwmidzvpiofnqexd.supabase.co` |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Prod + local | Client-side key (RLS-bound, safe) |
 | `SUPABASE_SERVICE_ROLE_KEY` | Prod only | Server-only full-DB access. **NEVER `NEXT_PUBLIC_`** |
-| `DATABASE_URL` | Local only | `postgresql://brain_user:...@127.0.0.1:5433/trophe_dev` |
+| `DATABASE_URL` | Local only | `postgresql://postgres:postgres@127.0.0.1:54322/postgres` |
 | `ANTHROPIC_API_KEY` | Prod + local | Haiku 4.5 + Sonnet 4.6 |
 | `GEMINI_API_KEY` | Prod + local | Gemini 2.5 Flash |
 | `VOYAGE_API_KEY` | Prod + local | Voyage v4 embeddings |
@@ -39,13 +39,14 @@ npm install
 cp .env.local.example .env.local
 # Fill in keys from ~/.local/secrets/{anthropic,providers,voyage}.env + Supabase dashboard
 
-# 3. Local DB (open_brain_postgres Docker must be running)
-npm run db:bootstrap    # createdb + apply migrations + seed
-# or manually:
-psql -h 127.0.0.1 -p 5433 -U brain_user -c "CREATE DATABASE trophe_dev"
-npm run db:migrate
+# 3. Local DB
+npm run db:doctor
+npm run db:local:start
+npm run db:bootstrap
 
-# Note: use 127.0.0.1 NOT localhost — macOS resolves localhost to ::1 first
+# Canonical local DB:
+#   postgresql://postgres:postgres@127.0.0.1:54322/postgres
+# Note: use 127.0.0.1 NOT localhost
 
 # 4. Start dev server
 npm run dev             # http://localhost:3000
@@ -68,14 +69,18 @@ npm run build           # clean production build
 # Push to preview (auto-deploys via Vercel)
 git push origin v0.3-overhaul
 
-# Production deploy (max 3 per session)
-git push origin v0.3-overhaul
-vercel --yes --prod
+# Production deploy remains operator-gated and is intentionally omitted here.
 ```
 
-**Critical**: always `vercel --yes --prod`. Env vars are Production-scope only in Vercel; preview deploys fail without `--prod`.
+## Truth table
 
-**Deploy budget**: max 3 production deploys per session. Local preview + preview branch catch most issues.
+| Concern | Ground truth |
+|---|---|
+| Schema source of truth | `drizzle/*.sql` |
+| Local DB source of truth | Supabase CLI local stack |
+| Local bootstrap entrypoint | `npm run db:bootstrap` |
+| CI DB model | pgvector Postgres service + compatibility bootstrap |
+| Legacy bridge | `open_brain_postgres` is non-canonical and not required for this flow |
 
 **Git identity** (required for Vercel to accept commits):
 ```bash
@@ -114,7 +119,7 @@ Migration files live in `drizzle/`. Current migrations:
 2. `tsc --noEmit` — typecheck
 3. `eslint` — lint
 4. `vitest run` — unit + integration tests
-5. Includes: RLS test suite (100% gate), role-gate suite (100% gate), food-parse accuracy (≥95% gate)
+5. Includes: RLS suite, DB verification, explain-plan artifacts, Playwright smoke, food-parse accuracy gate
 
 10-minute timeout. Concurrency group cancels in-progress runs on same ref.
 
@@ -184,10 +189,10 @@ curl -sI https://trophe-mu.vercel.app | grep -E "(X-Frame|Content-Security)"
 
 | Gotcha | Fix |
 |--------|-----|
-| Preview builds fail | Env vars are Production-only. Use `--prod` or scope vars to Preview branch. |
+| Local DB won’t start | Run `orbctl start`, confirm `docker ps`, then `npm run db:local:start` |
 | CSP wildcard breaks Supabase on mobile | Use explicit `https://iwbpzwmidzvpiofnqexd.supabase.co` in `next.config.ts`, NOT `*.supabase.co` |
 | `NEXT_PUBLIC_` service role key | Prefixed vars are inlined into client bundle at build time. Service role = full DB access. Never prefix it. |
-| `localhost` vs `127.0.0.1` for local DB | macOS resolves `localhost` to `::1`; Docker only binds IPv4. Use `127.0.0.1` in `DATABASE_URL`. |
+| `localhost` vs `127.0.0.1` for local DB | macOS resolves `localhost` to `::1`; the committed local stack uses `127.0.0.1` everywhere. |
 | Vercel preserves all deployments | Rollback = promote older deployment. Don't `git revert` + redeploy when promote is faster. |
 
 ---

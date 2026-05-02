@@ -70,8 +70,9 @@
 | **Active branch** | `v0.3-overhaul` |
 | **Production branch** | `main` (no direct commits during v0.3) |
 | **Preview URL** | auto-generated from `v0.3-overhaul` pushes |
-| **CI** | GitHub Actions `.github/workflows/ci.yml` — typecheck + lint + vitest + rls + role-gate |
-| **Local DB** | `open_brain_postgres` Docker @ `127.0.0.1:5433` (NOT localhost — macOS IPv6 binding) |
+| **CI** | GitHub Actions `.github/workflows/ci.yml` — typecheck + lint + vitest + RLS + Playwright + DB verification |
+| **Local DB** | Supabase CLI local stack on OrbStack @ `127.0.0.1:54322` |
+| **Legacy DB bridge** | `open_brain_postgres` @ `127.0.0.1:5433` (temporary compatibility only) |
 | **Supabase project** | `iwbpzwmidzvpiofnqexd` (`https://iwbpzwmidzvpiofnqexd.supabase.co`) |
 | **Langfuse** | self-hosted `localhost:3002` (dev only) |
 
@@ -84,7 +85,7 @@
 | `NEXT_PUBLIC_SUPABASE_URL` | Prod + local | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Prod + local | Client-side Supabase key (RLS-bound, safe) |
 | `SUPABASE_SERVICE_ROLE_KEY` | Prod only | Server-only full-DB access. **NEVER `NEXT_PUBLIC_`** |
-| `DATABASE_URL` | Local dev only | `postgresql://brain_user:...@127.0.0.1:5433/trophe_dev` |
+| `DATABASE_URL` | Local dev only | `postgresql://postgres:postgres@127.0.0.1:54322/postgres` |
 | `ANTHROPIC_API_KEY` | Prod + local | Haiku 4.5 (recipe-analyze, photo) + Sonnet 4.6 (coach insights) |
 | `GEMINI_API_KEY` | Prod + local | Gemini 2.5 Flash (food-parse, meal-suggest) |
 | `VOYAGE_API_KEY` | Prod + local | Voyage v4 `voyage-large-2` embeddings |
@@ -186,7 +187,7 @@ agent.run(input)
 | Table | Key columns | Purpose |
 |-------|------------|---------|
 | `organizations` | `id, name, owner_id, created_at` | Each coach auto-creates on signup |
-| `organization_members` | `org_id, user_id, role_in_org` | Org membership |
+| `organization_members` | `org_id, user_id, role` | Org membership |
 | `audit_log` | `id, actor_id, action, target_table, target_id, diff jsonb, created_at` | Immutable append-only sensitive mutation log |
 
 ### Memory (Mem0/Letta hybrid)
@@ -257,6 +258,16 @@ agents/evals/
     regression.ts                  # layer 3: golden set comparison
 ```
 **Hard CI gate**: food-parse accuracy ≥95% on Nikos golden set. Current accuracy with lookup.ts: deterministic (≥95%). Previous LLM-guessed approach: ~81%.
+
+### Truth table
+
+| Concern | Ground truth |
+|---------|--------------|
+| Schema source of truth | `drizzle/*.sql` |
+| Local DB source of truth | `supabase/config.toml` + `npm run db:bootstrap` |
+| Auth/RLS local test role | `authenticated` |
+| CI DB model | pgvector Postgres service with Supabase-compat bootstrap |
+| Operator-gated items | Production deploy, hosted Supabase/Vercel changes, live-provider eval keys |
 
 ### Prompt caching strategy
 System prompt `cache_control: ephemeral` on Haiku 4.5 agents. Prefix must be ≥2048 tokens. Stable prefix = rules + USDA reference data + FOOD_DATABASE constants. Cache TTL 5 min. Cache hit = ~10% of normal input cost. Projected: ~70% Anthropic spend reduction at steady state.
