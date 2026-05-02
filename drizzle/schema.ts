@@ -205,7 +205,7 @@ export const foodLog = pgTable("food_log", {
 	photoUrl: text("photo_url"),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
 }, (table) => [
-	index("idx_food_log_user_date").using("btree", table.userId.asc().nullsLast().op("date_ops"), table.loggedDate.asc().nullsLast().op("date_ops")),
+	index("idx_food_log_user_date").using("btree", table.userId.asc().nullsLast().op("uuid_ops"), table.loggedDate.asc().nullsLast().op("date_ops")),
 	foreignKey({
 			columns: [table.userId],
 			foreignColumns: [profiles.id],
@@ -224,7 +224,7 @@ export const waterLog = pgTable("water_log", {
 	amountMl: integer("amount_ml").notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
 }, (table) => [
-	index("idx_water_log_user_date").using("btree", table.userId.asc().nullsLast().op("date_ops"), table.loggedDate.asc().nullsLast().op("date_ops")),
+	index("idx_water_log_user_date").using("btree", table.userId.asc().nullsLast().op("uuid_ops"), table.loggedDate.asc().nullsLast().op("date_ops")),
 	foreignKey({
 			columns: [table.userId],
 			foreignColumns: [profiles.id],
@@ -260,7 +260,7 @@ export const supplementLog = pgTable("supplement_log", {
 	loggedDate: date("logged_date").default(sql`CURRENT_DATE`).notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
 }, (table) => [
-	index("idx_supplement_log_user_date").using("btree", table.userId.asc().nullsLast().op("date_ops"), table.loggedDate.asc().nullsLast().op("date_ops")),
+	index("idx_supplement_log_user_date").using("btree", table.userId.asc().nullsLast().op("uuid_ops"), table.loggedDate.asc().nullsLast().op("date_ops")),
 	foreignKey({
 			columns: [table.userId],
 			foreignColumns: [profiles.id],
@@ -408,7 +408,7 @@ export const measurements = pgTable("measurements", {
 	notes: text(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
 }, (table) => [
-	index("idx_measurements_user_date").using("btree", table.userId.asc().nullsLast().op("date_ops"), table.measuredDate.asc().nullsLast().op("date_ops")),
+	index("idx_measurements_user_date").using("btree", table.userId.asc().nullsLast().op("uuid_ops"), table.measuredDate.asc().nullsLast().op("date_ops")),
 	foreignKey({
 			columns: [table.userId],
 			foreignColumns: [profiles.id],
@@ -537,7 +537,7 @@ export const workoutSessions = pgTable("workout_sessions", {
 	painFlags: jsonb("pain_flags").default([]),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
 }, (table) => [
-	index("idx_workout_sessions_user").using("btree", table.userId.asc().nullsLast().op("date_ops"), table.sessionDate.asc().nullsLast().op("date_ops")),
+	index("idx_workout_sessions_user").using("btree", table.userId.asc().nullsLast().op("uuid_ops"), table.sessionDate.asc().nullsLast().op("date_ops")),
 	foreignKey({
 			columns: [table.userId],
 			foreignColumns: [profiles.id],

@@ -93,10 +93,10 @@ ALTER TABLE memory_chunks
   ON DELETE SET NULL
   DEFERRABLE INITIALLY DEFERRED;
 
--- 3. Partial HNSW index on active memory embeddings (skips superseded rows).
---    Built post-ingest. Deferred here as placeholder.
--- (deferred: CREATE INDEX CONCURRENTLY idx_mc_embedding ON memory_chunks
---   USING hnsw (embedding vector_cosine_ops) WHERE active = true)
+-- 3. HNSW index on memory embeddings for semantic retrieval.
+CREATE INDEX IF NOT EXISTS idx_mc_embedding
+  ON memory_chunks
+  USING hnsw (embedding vector_cosine_ops);
 
 -- 4. Composite partial index for fast kNN retrieval by user + scope:
 --    Used in agents/memory/read.ts Stage 2 (cosine re-rank within scope).

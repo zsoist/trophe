@@ -90,9 +90,9 @@ CREATE INDEX IF NOT EXISTS idx_foods_search ON foods USING gin(search_text);
 
 -- 4. HNSW index on embedding (approximate nearest-neighbor, much faster than IVFFlat
 --    for <1M rows; ef_construction=128 is the recommended default).
---    Created CONCURRENTLY-style by embedding script after initial batch load.
---    Added here as a placeholder; the real build runs post-ingest.
--- (deferred: CREATE INDEX CONCURRENTLY idx_foods_embedding ON foods USING hnsw (embedding vector_cosine_ops))
+CREATE INDEX IF NOT EXISTS idx_foods_embedding
+  ON foods
+  USING hnsw (embedding vector_cosine_ops);
 
 -- 5. Universal unit conversion seed — dimensionless conversions that apply to any food.
 --    These are the fallback rows used when no food-specific conversion exists.

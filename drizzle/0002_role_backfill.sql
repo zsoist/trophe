@@ -13,7 +13,7 @@ VALUES (
   'a0000000-0000-0000-0000-000000000001',
   'd.reyesusma@gmail.com'
 )
-ON CONFLICT (email) DO NOTHING;
+ON CONFLICT (id) DO NOTHING;
 
 -- ─── 2. Profiles: upsert super_admin row ──────────────────────────────────
 INSERT INTO profiles (id, full_name, email, role, language, timezone)
