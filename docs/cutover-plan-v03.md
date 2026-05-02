@@ -1,5 +1,7 @@
 # v0.3-overhaul Production Cutover Plan
 
+> **Historical plan.** Cutover has executed and this file is retained for audit history. Do not use this as current operational truth. Current production URL is `https://trophe.app`; Supabase ref is `iwbpzwmidzvpiofnqexd`; Next.js 16 uses `proxy.ts` with `export async function proxy()`; final branch governance should merge `v0.3-overhaul` into `main` after verification.
+
 > **Author**: Daniel R + Claude  
 > **Created**: 2026-05-02  
 > **Status**: ✅ EXECUTED — 2026-05-02 10:32 COT  
@@ -26,7 +28,7 @@ These were discovered during inventory and MUST be addressed before cutover:
 
 | # | Finding | Severity | Action Required |
 |---|---------|----------|-----------------|
-| 1 | **`proxy.ts` is dead code** — exports `proxy` not `middleware`, file not named `middleware.ts`. Auth gate (codex HIGH #1 fix) is NOT active. | BLOCKER | Rename file + export before cutover |
+| 1 | **Historical finding resolved** — Next.js 16 uses `proxy.ts` with `export async function proxy()`. | RESOLVED | Keep `proxy.ts` |
 | 2 | **Migration 0000 will fail** — `CREATE TABLE profiles` etc. against existing tables, no `IF NOT EXISTS` | BLOCKER | Skip 0000, seed Drizzle journal |
 | 3 | **Migration 0002 `INSERT INTO auth.users`** — Supabase owns `auth` schema, direct INSERT will fail | BLOCKER | Use production-safe version (skip auth.users INSERT) |
 | 4 | **pgvector + pg_trgm not installed** on production Supabase | BLOCKER | Enable via Dashboard before migration 0004 |
@@ -43,7 +45,7 @@ Complete these a full week before the target deploy date.
 
 - [ ] CI on v0.3-overhaul has been green for >=3 consecutive runs
 - [ ] All BLOCKER findings above are resolved (code committed, tested)
-- [ ] `proxy.ts` renamed to `middleware.ts`, export renamed to `middleware`
+- [x] Next.js 16 proxy convention verified: `proxy.ts` exports `proxy`
 - [ ] Production-safe migration script created (`scripts/db/migrate-production.sh`)
 - [ ] Migration 0002 production-safe version created (no `INSERT INTO auth.users`)
 - [ ] Drizzle journal seeding script tested locally
@@ -283,26 +285,26 @@ Run these immediately after deploy completes:
 
 ```bash
 # 1. Homepage loads
-curl -sI https://trophe-mu.vercel.app/ | grep "HTTP/"
+curl -sI https://trophe.app/ | grep "HTTP/"
 # Expected: HTTP/2 200
 
 # 2. Dashboard redirects to login (auth gate working)
-curl -sI -o /dev/null -w "%{http_code} %{redirect_url}" https://trophe-mu.vercel.app/dashboard
+curl -sI -o /dev/null -w "%{http_code} %{redirect_url}" https://trophe.app/dashboard
 # Expected: 307 .../login?redirectTo=%2Fdashboard
 
 # 3. Login page renders
-curl -sI https://trophe-mu.vercel.app/login | grep "HTTP/"
+curl -sI https://trophe.app/login | grep "HTTP/"
 # Expected: HTTP/2 200
 
 # 4. Meal suggest returns real suggestions (not fallbacks)
-curl -sS -X POST https://trophe-mu.vercel.app/api/ai/meal-suggest \
+curl -sS -X POST https://trophe.app/api/ai/meal-suggest \
   -H 'content-type: application/json' \
   -d '{"remaining_calories":600,"remaining_protein_g":40,"remaining_carbs_g":50,"remaining_fat_g":20}' \
   | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['suggestions'][0]['name'])"
 # Expected: NOT "Grilled Chicken with Rice & Vegetables" (that's a fallback)
 
 # 5. CSP header has no unsafe-eval
-curl -sI https://trophe-mu.vercel.app/ | grep content-security-policy | grep -o 'unsafe-eval' || echo "OK: no unsafe-eval"
+curl -sI https://trophe.app/ | grep content-security-policy | grep -o 'unsafe-eval' || echo "OK: no unsafe-eval"
 
 # 6. Food parse works (requires auth in v0.3 — may need token)
 # This test requires a valid session cookie — test via browser after login
@@ -315,7 +317,7 @@ curl -sI https://trophe-mu.vercel.app/ | grep content-security-policy | grep -o 
 ### Step 10 — Tester verification
 
 Have one tester (preferably Daniel):
-1. Open https://trophe-mu.vercel.app/login
+1. Open https://trophe.app/login
 2. Log in with existing credentials (magic link or OAuth)
 3. Navigate to /dashboard — verify data loads
 4. Log a meal: "200g feta cheese"
@@ -405,7 +407,7 @@ All 11 profiles in production. Key contacts:
 > Hi [name], we're shipping a major Trophe update on Saturday May [17/24].
 > 
 > After the update, you'll need to log in again — your existing session
-> will be cleared. Same URL (trophe-mu.vercel.app), same credentials.
+> will be cleared. Same URL (trophe.app), same credentials.
 > 
 > What's new: more accurate food tracking, better meal suggestions,
 > and improved security. If anything looks wrong after the update,
@@ -417,7 +419,7 @@ Send via the channel each tester uses (WhatsApp/Telegram/email).
 
 ### T+0 (deploy complete): Confirmation
 
-> Update is live! Please log in again at trophe-mu.vercel.app.
+> Update is live! Please log in again at trophe.app.
 > Let me know if you run into any issues.
 
 ### If rollback needed:
@@ -486,7 +488,7 @@ Resolve these before T-7 days. Each is a research or code item.
 | 3 | Testers can't log in after cutover (cookie domain mismatch, etc.) | MEDIUM | MEDIUM | Comms include "if login fails, try clearing cookies and using this magic link: ___". Test login flow in preview deploy first. |
 | 4 | `agent_runs` writes silently fail in production | LOW | MEDIUM | Monitor in first 30 minutes. Fire-and-forget pattern means user-facing features still work. Fix post-cutover. |
 | 5 | Food parse accuracy drops because foods table is empty or missing embeddings | HIGH | LOW | Step 6 seeds data. Step 10 tester verification catches this. |
-| 6 | Gemini 2.0 shutdown happens before cutover (before June 1) | MEDIUM | LOW | Meal suggest already migrated to Haiku 4.5 on v0.3. Only affects production main if cutover is delayed past June 1. |
+| 6 | Gemini 2.0 shutdown happens before cutover (before June 1) | MEDIUM | LOW | Meal suggest already migrated to Haiku 4.5 on v0.3. Historical risk before cutover; no longer current operational guidance. |
 | 7 | Supabase free tier DB size exceeded by foods data + embeddings | MEDIUM | LOW | 7,918 foods × ~4KB vectors = ~32MB. Current DB ~2MB. Total ~34MB, well under 500MB limit. |
 | 8 | Role coercion (`both` → `coach`) breaks a tester's workflow | LOW | LOW | Only 4 profiles affected. Daniel gets `super_admin` via 0002. Others become `coach` which is their actual role. |
 

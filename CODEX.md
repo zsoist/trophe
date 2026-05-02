@@ -1,7 +1,7 @@
 # τροφή (Trophē) — Comprehensive Codex Handoff
 
 > **This is the single-source-of-truth document for AI agents, operators, and new contributors.**
-> It reflects actual ground-truth state as of **2026-05-01, branch `v0.3-overhaul`**.
+> It reflects actual ground-truth state as of **2026-05-02, production readiness pass**.
 > For agent-specific coding rules see `CLAUDE.md`. For the architecture diagram see `ARCHITECTURE.md`.
 
 ---
@@ -20,7 +20,7 @@
 
 ## 2. Production State
 
-### Live (production `trophe-mu.vercel.app` on Supabase Postgres)
+### Live (production `trophe.app` on Supabase Postgres)
 
 | Feature | Status |
 |---------|--------|
@@ -28,10 +28,10 @@
 | Client dashboard (Home, Log, Progress, Profile, Workout, Supplements, Checkin) | ✅ Live |
 | Coach dashboard + 30+ coach tools | ✅ Live |
 | Food logging (text NLP, photo, voice, USDA search, paste) | ✅ Live |
-| AI food-parse (Haiku 4.5, ~81% accuracy) | ✅ Live |
+| AI food-parse deterministic lookup gate | ✅ 27/27 local accuracy gate |
 | AI recipe-analyze | ✅ Live |
 | AI photo-analyze | ✅ Live |
-| AI meal-suggest (Gemini) | ✅ Live |
+| AI meal-suggest (Haiku 4.5) | ✅ Live |
 | AI Form Check (MediaPipe WASM, browser-only) | ✅ Live |
 | Habit engine (14-day cycles) | ✅ Live |
 | Workout module (exercises, sets, PRs, pain flags) | ✅ Live |
@@ -40,7 +40,7 @@
 | Trilingual UI (EN/ES/EL) | ✅ Live |
 | Testers active | 5–7 (Michael, Nikos, Daniel, Daniela, Dimitra, Alex) |
 
-### v0.3-overhaul branch (NOT yet in production)
+### v0.3-overhaul branch
 
 | Feature | Status |
 |---------|--------|
@@ -55,7 +55,7 @@
 | tRPC v11 | ✅ Built, local only |
 | Handoff v2 UI (new design system) | ✅ Built, local only |
 | Food ingest scripts (USDA, OFF, HHF) | ✅ Scripts ready |
-| Phase 9 prod cutover | ⬜ Operator-gated |
+| Production cutover | ✅ Executed; branch governance remains |
 
 ---
 
@@ -64,11 +64,12 @@
 | Item | Value |
 |------|-------|
 | **GitHub** | `zsoist/trophe` (private) |
-| **Vercel project** | `trophe` → `trophe-mu.vercel.app` |
+| **Vercel project** | `trophe` → `trophe.app` |
 | **Vercel org** | `zsoist` |
 | **Git identity** | `zsoist` / `zsoist@users.noreply.github.com` |
 | **Active branch** | `v0.3-overhaul` |
-| **Production branch** | `main` (no direct commits during v0.3) |
+| **Production branch** | temporary `v0.3-overhaul`; merge to `main` after final gates |
+| **Production URL** | `https://trophe.app` |
 | **Preview URL** | auto-generated from `v0.3-overhaul` pushes |
 | **CI** | GitHub Actions `.github/workflows/ci.yml` — typecheck + lint + vitest + RLS + Playwright + DB verification |
 | **Local DB** | Supabase CLI local stack on OrbStack @ `127.0.0.1:54322` |
@@ -98,6 +99,10 @@
 | `TROPHE_ADMIN_EMAILS` | Legacy | Replaced by role enum in Phase 1. Keep for backward compat. |
 
 **Security**: `.env.local` is in `.gitignore`. Pre-deploy grep: `git diff --staged | grep -E '(sk-ant-|sbp_|AIza|pa-)'` must be empty.
+
+**Verification sequence**: `npm run typecheck && npm run lint && npm test && npm run readiness && npm run build && npm run test:e2e && npm run canary:prod`.
+
+**Cost/observability**: `agent_runs` is canonical for task_name, provider, model, tokens, cache tokens, cost_usd, latency_ms, raw_status, user_id, and trace_id. `api_usage_log` is legacy compatibility only.
 
 ---
 
@@ -207,7 +212,8 @@ agent.run(input)
 ### Operational
 | Table | Purpose |
 |-------|---------|
-| `api_usage_log` | Anthropic + Gemini API calls — tokens, cost, latency, endpoint. 90-day retention. |
+| `agent_runs` | Canonical AI call audit — task_name, provider, model, tokens, cache tokens, cost, latency, status, user, trace. |
+| `api_usage_log` | Legacy compatibility table only. Do not use as the source of truth. |
 | `form_analyses` | AI Form Check results — exercise, per-rep scores, summary |
 
 **RLS invariant**: Every client-accessible table enforces `auth.uid() = user_id`. Coach tables enforce roster check. Zero SQL runs without RLS active.
@@ -463,7 +469,7 @@ npm run build            # full production build
 - Target: <$2/month/coach at steady state
 - Gemini 2.5 Flash (food-parse): ~$0.05/active-day vs Haiku ~$0.40 (8× cheaper)
 - Haiku 4.5 + prompt cache: ~70% cost reduction on cached tokens within 5-min TTL
-- `api_usage_log` table tracks every LLM call with tokens + cost in cents
+- `agent_runs` tracks every LLM call with tokens, cost, status, user_id, and trace_id
 - `/admin/costs` dashboard (super_admin only) shows spend breakdown
 
 ### Database indexes

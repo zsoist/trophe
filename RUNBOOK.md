@@ -7,8 +7,8 @@ Operational playbooks for Trophē. Designed for one-person on-call (Daniel), dur
 - **Vercel**: https://vercel.com/2p6y54z6w9-4465s-projects/trophe — deployments, function logs, analytics
 - **Supabase**: https://supabase.com/dashboard/project/iwbpzwmidzvpiofnqexd — DB, auth, logs
 - **GitHub Actions**: https://github.com/zsoist/trophe/actions — CI runs
-- **Production**: https://trophe-mu.vercel.app
-- **Local telemetry**: `lib/api-cost-logger.ts` writes to `api_usage_log` table (per-endpoint tokens, cost, latency, success)
+- **Production**: https://trophe.app
+- **AI cost/observability**: `agent_runs` is canonical; `api_usage_log` is legacy compatibility only
 - **Local DB doctor**: `npm run db:doctor` verifies OrbStack, Docker, Supabase CLI, and local stack status
 
 ## Canonical local DB
@@ -25,7 +25,7 @@ Legacy `open_brain_postgres` on `127.0.0.1:5433` is a temporary bridge only.
 
 ### 1. Site is down (500 / 502 / timeout)
 
-**Detect**: user report, or `curl -sI https://trophe-mu.vercel.app` → non-200.
+**Detect**: user report, or `curl -sI https://trophe.app` → non-200.
 
 **Diagnose**:
 ```bash
@@ -33,7 +33,7 @@ Legacy `open_brain_postgres` on `127.0.0.1:5433` is a temporary bridge only.
 vercel ls --prod | head -3
 
 # Fetch function logs for the last hour
-vercel logs trophe-mu.vercel.app --since 1h
+vercel logs trophe.app --since 1h
 
 # Is Supabase up?
 curl -sI https://iwbpzwmidzvpiofnqexd.supabase.co/rest/v1/ | head -1
@@ -44,7 +44,7 @@ curl -sI https://iwbpzwmidzvpiofnqexd.supabase.co/rest/v1/ | head -1
 - If Supabase is down → check https://status.supabase.com ; wait or failover read-only page (not built yet)
 - If env var missing → Vercel → Settings → Environment Variables → add/fix → redeploy
 
-**Verify**: `curl -sI https://trophe-mu.vercel.app` → `HTTP/2 200`; load `/dashboard` in browser.
+**Verify**: `npm run canary:prod`; then load `/dashboard` in browser.
 
 ### 2. Auth broken / users can't log in
 
@@ -74,15 +74,15 @@ Common causes:
 
 ### 3. LLM route returning 429 / 502 / timeout
 
-**Detect**: user reports "food parse broken", or `api_usage_log` shows spike in `success = false`.
+**Detect**: user reports "food parse broken", or `agent_runs` shows recent non-200 `raw_status` rows.
 
 **Diagnose**:
 ```bash
 # Recent API usage log from Supabase SQL editor
-SELECT endpoint, model, success, error_message, cost_usd, latency_ms, logged_at
-FROM api_usage_log
-WHERE logged_at > now() - interval '1 hour'
-ORDER BY logged_at DESC
+SELECT task_name, provider, model, raw_status, error_message, cost_usd, latency_ms, created_at
+FROM agent_runs
+WHERE created_at > now() - interval '1 hour'
+ORDER BY created_at DESC
 LIMIT 50;
 ```
 
@@ -156,7 +156,7 @@ Common causes:
 ### 7. Michael or tester reports a bug
 
 1. Reproduce locally with their account credentials (if shareable) or against a test account
-2. Check `api_usage_log` for LLM-related bugs
+2. Check `agent_runs` for LLM-related bugs
 3. Check browser console (ask them to screenshot) — for client-side errors
 4. File on the tracker (today: ROADMAP.md "known issues" section); fix + deploy; notify them when shipped
 
@@ -180,7 +180,7 @@ git diff <last-good-commit> agents/prompts/food-parse.v3.md
 
 ## Weekly operational tasks
 
-- [ ] Review `api_usage_log` sum — confirm < $2/week/coach
+- [ ] Review `agent_runs` cost sum — confirm < $2/week/coach
 - [ ] Spot-check Vercel function error rate (should be <1% of requests)
 - [ ] Check Supabase storage usage (Free tier = 500MB)
 - [ ] Run `npm audit` — triage new high/critical advisories
@@ -189,6 +189,6 @@ git diff <last-good-commit> agents/prompts/food-parse.v3.md
 ## Monthly operational tasks
 
 - [ ] Rotate Anthropic + Supabase keys (recommended every 90 days)
-- [ ] Archive `api_usage_log` entries >90 days old (scheduled v0.2)
+- [ ] Archive legacy `api_usage_log` only if compatibility retention requires it
 - [ ] `npm outdated` — review dependency updates; bump patch/minor freely, plan major
 - [ ] Re-run `/cso` comprehensive security audit

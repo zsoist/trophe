@@ -2,7 +2,16 @@
 
 **Precision Nutrition Coaching Platform** — AI-assisted nutrition coaching for professional nutritionists and their clients. One habit. Two weeks. Transform.
 
-Production: [trophe-mu.vercel.app](https://trophe-mu.vercel.app)
+Production: [trophe.app](https://trophe.app)
+
+Canonical repo path: `/Volumes/SSD/work/forge-projects/trophe`
+
+Production readiness as of 2026-05-02:
+- Supabase project/ref: `iwbpzwmidzvpiofnqexd`
+- Branch policy: `main` is GitHub default; `v0.3-overhaul` remains the temporary production branch until final verification and merge.
+- AI auth: async `guardAiRoute()` verifies bearer tokens with Supabase and returns the verified `userId`.
+- Cost/observability: `agent_runs` is canonical; `api_usage_log` is legacy compatibility only.
+- Verification sequence: `npm run typecheck && npm run lint && npm test && npm run readiness && npm run build && npm run test:e2e && npm run canary:prod`.
 
 ## What it is
 
@@ -18,7 +27,7 @@ Partnership with Michael Kavdas (Greek nutritionist, PN L1 certified, COO Athlet
 - Next.js 16 App Router · React 19 · TypeScript strict · Tailwind CSS 4 · Framer Motion
 - Supabase (Postgres + Auth + RLS + Storage)
 - Anthropic Claude Haiku 4.5 (food-parse, recipe-analyze, photo)
-- Google Gemini 2.0 Flash (meal suggestions)
+- Anthropic Claude Haiku 4.5 (meal suggestions)
 - MediaPipe Pose (browser AI Form Check)
 - Vitest + GitHub Actions CI
 - Trilingual UI: EN / ES / EL
@@ -64,6 +73,7 @@ npm run db:local:start
 npm run db:bootstrap  # canonical local DB bootstrap (Supabase local + Drizzle)
 npm run db:verify     # schema / RLS inventory checks
 npm run db:explain    # capture explain plans to artifacts/db/
+npm run canary:prod   # read-only production canary for trophe.app
 ```
 
 ## Truth table
@@ -92,7 +102,7 @@ npm run db:explain    # capture explain plans to artifacts/db/
 
 ## Contributing
 
-- Branch from `v0.3-overhaul`, PR back to `v0.3-overhaul` until cutover. CI must be green.
+- Branch from `v0.3-overhaul` until it is merged back to `main`; CI and the production canary must be green before branch-policy changes.
 - Follow the coding style in `CLAUDE.md`. Mobile-first (390×844).
 - No new `bg-stone-9xx` on themed pages — use CSS variables or `.glass` utility classes (ESLint enforces).
 - Add a test in `tests/` for any new `lib/` business logic.

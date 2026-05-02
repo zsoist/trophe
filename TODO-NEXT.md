@@ -1,7 +1,6 @@
-# TODO-NEXT — Working tree status as of 2026-05-02
+# TODO-NEXT — Production readiness follow-ups as of 2026-05-02
 
-All items below are in the working tree but NOT yet committed.
-Read this at the start of the next session before touching anything.
+Read this at the start of the next session before touching branch, deploy, or production data.
 
 ---
 
@@ -47,26 +46,22 @@ Also fixed: Haiku 4.5 pricing was wrong ($0.25/$1.25 → $1.00/$5.00).
 | `61cda79` | Route refactor: Gemini REST → Anthropic SDK + tool_choice |
 | `c2baee8` | Policy + pricing update |
 
-**⚠️ Production `main` still uses gemini-2.0-flash** (silently broken).
-Cutover to v0.3-overhaul must happen before June 1, 2026.
+Production now serves `https://trophe.app` from the v0.3 stack. `main` is still the GitHub default branch, but `v0.3-overhaul` remains the temporary production truth until the final local gates, production canary, and branch merge are completed.
+
+## CURRENT BLOCKERS / FOLLOW-UPS
+
+1. Make `main` the production source of truth after `npm run typecheck && npm run lint && npm test && npm run readiness && npm run build && npm run test:e2e && npm run canary:prod` are green.
+2. Confirm Vercel production branch setting after merge so production no longer depends on `v0.3-overhaul`.
+3. Keep `agent_runs` as the canonical AI cost table. Treat `api_usage_log` as legacy compatibility only.
+4. Keep production writes read-only unless a migration or deploy step explicitly requires them.
 
 ---
 
 ## TRACKED FOLLOW-UPS
 
-### Accuracy test silent DB fallback (priority: medium)
+### Accuracy test silent DB fallback (resolved 2026-05-02)
 
-`tests/agents/food-parse.accuracy.test.ts` defaults `DATABASE_URL` to
-`postgresql://postgres:postgres@127.0.0.1:54322/postgres` (Supabase
-local) when unset. This caused inconsistent gate results across
-sessions: earlier runs against 54322 (different `food_unit_conversions`
-data) failed 21/23 (91.3%); runs against 5433 pass 27/27. Fix options:
-
-1. Require `DATABASE_URL` explicitly (no fallback) — hard failure if unset
-2. Verify the `foods` table has expected reference rows before computing the gate
-3. Log the connection target prominently so divergence is visible
-
-Pick one. The test should fail loudly if it can't trust its data source.
+Root cause was lookup precedence: generic universal `slice/piece` conversions beat the food's curated default serving for feta and spanakopita when no food-specific conversion row existed. `lookupFood()` now lets matching `default_serving_unit/default_serving_grams` win before universal fallbacks. Gate result: 27/27.
 
 ### rls.test.ts requires superuser (priority: low)
 

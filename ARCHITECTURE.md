@@ -2,7 +2,7 @@
 
 High-level map of how Trophē v0.3 fits together. For per-agent LLM details see `agents/README.md`. For deploy+env setup see `DEPLOYMENT.md`. For threat model see `SECURITY.md`.
 
-_Last updated: 2026-05-01 (v0.3-overhaul branch)_
+_Last updated: 2026-05-02 (production readiness pass)_
 
 ---
 
@@ -22,11 +22,15 @@ _Last updated: 2026-05-01 (v0.3-overhaul branch)_
 | **Wearables** | Spike API — Apple Health, Whoop, Oura, Strava, Garmin, Fitbit via single integration |
 | **Testing** | Vitest 4 + `@vitest/coverage-v8` |
 | **CI** | GitHub Actions (typecheck + lint + unit + RLS + Playwright + DB verification + food-parse accuracy) |
-| **Hosting** | Vercel (production `trophe-mu.vercel.app`; preview from `v0.3-overhaul` branch) |
+| **Hosting** | Vercel (production `https://trophe.app`; temporary production branch `v0.3-overhaul`) |
 
 ---
 
 ## Deployment surface
+
+Production governance: `main` is the GitHub default branch. `v0.3-overhaul` remains the temporary production truth until the full verification sequence and `npm run canary:prod` are green, then it should be merged into `main` and Vercel should deploy from `main`.
+
+AI cost governance: `agent_runs` is the trusted table for cost and LLM observability. `api_usage_log` remains legacy compatibility only.
 
 ```
 ┌──────────────┐   HTTPS    ┌──────────────┐   direct    ┌─────────────────────┐

@@ -30,6 +30,11 @@ All notable changes to Trophē are logged here. Format follows [Keep a Changelog
 
 ## [Unreleased] — Enterprise hardening on `v0.3-overhaul`
 
+- Verified AI route auth through Supabase `auth.getUser(token)` in async `guardAiRoute()`; routes now use verified `userId` for rate limiting and `agent_runs`.
+- Fixed deterministic food-parse lookup precedence so curated food default servings beat generic universal portion fallbacks; accuracy gate is 27/27.
+- Renamed root `middleware.ts` to `proxy.ts` with `export async function proxy()` for Next.js 16.
+- Made `agent_runs` the primary AI cost/observability source and moved `/admin/costs` to a server summary endpoint.
+- Added read-only production canary: `scripts/ops/canary-readonly.sh` and `npm run canary:prod`.
 - **`proxy.ts` convention**: Confirmed Next.js 16 uses `proxy.ts` + `export function proxy()` (not `middleware.ts`). File and function name verified correct; deprecation warning eliminated. E2E auth-gate test (anonymous → /login redirect) confirms proxy is active.
 - **Zero lint warnings**: Resolved all 42 ESLint warnings across 28 files — removed dead imports/variables, applied `eslint-disable-next-line` for documented tech debt (`react-hooks/set-state-in-effect` in effects that use localStorage), replaced banned `bg-stone-9xx` Tailwind classes with CSS variable equivalents in dashboard/onboarding paths.
 - **CI eval gate wired**: Added `ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}` to `.github/workflows/ci.yml` so `npm run evals` runs the `recipe_analyze` and `coach_insight` LLM-judge suites instead of silently skipping. GitHub Actions secret must be set by operator.

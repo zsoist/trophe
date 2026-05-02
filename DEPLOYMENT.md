@@ -1,8 +1,8 @@
 # Deployment
 
-Production on **Vercel** + **Supabase** (project `iwbpzwmidzvpiofnqexd`). Local dev is standardized on the Supabase CLI stack running on OrbStack. Branch `v0.3-overhaul` is the active development branch; `main` is production.
+Production on **Vercel** + **Supabase** (project `iwbpzwmidzvpiofnqexd`). Production URL is `https://trophe.app`. Local dev is standardized on the Supabase CLI stack running on OrbStack. `main` is the GitHub default branch; `v0.3-overhaul` is the temporary production branch until the readiness gates and merge are complete.
 
-_Last updated: 2026-05-01 (v0.3-overhaul)_
+_Last updated: 2026-05-02 (production readiness)_
 
 ---
 
@@ -64,12 +64,18 @@ npm run db:studio       # http://localhost:4983
 npm run typecheck       # 0 errors required
 npm run lint            # 0 errors required
 npm test                # all Vitest suites green
+npm run readiness       # enterprise readiness checks
 npm run build           # clean production build
+npm run test:e2e        # Playwright smoke
+npm run canary:prod     # read-only checks against https://trophe.app
 
-# Push to preview (auto-deploys via Vercel)
+# Temporary production branch until merge to main
 git push origin v0.3-overhaul
 
-# Production deploy remains operator-gated and is intentionally omitted here.
+# Preferred branch governance after gates:
+#   merge v0.3-overhaul into main
+#   push main
+#   configure Vercel production to deploy main
 ```
 
 ## Truth table
@@ -168,10 +174,10 @@ vercel --yes --prod
 
 ```bash
 # 1. Homepage returns 200
-curl -sI https://trophe-mu.vercel.app | head -1   # HTTP/2 200
+curl -sI https://trophe.app | head -1   # HTTP/2 200
 
 # 2. Security headers present
-curl -sI https://trophe-mu.vercel.app | grep -E "(X-Frame|Content-Security)"
+curl -sI https://trophe.app | grep -E "(X-Frame|Content-Security)"
 
 # 3. Auth redirect works
 # Load /dashboard without session → should redirect to /login

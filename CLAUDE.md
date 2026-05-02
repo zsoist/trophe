@@ -2,7 +2,18 @@
 
 > **Read this first.** This file is the primary context document for AI coding agents (Claude Code, Codex, Cursor). For the comprehensive operator handoff see `CODEX.md`.
 
-_Last synced to codebase: 2026-05-01 — v0.3-overhaul branch_
+_Last synced to codebase: 2026-05-02 — production readiness pass_
+
+## Current Production Truth (2026-05-02)
+
+- Canonical repo path: `/Volumes/SSD/work/forge-projects/trophe`
+- Production URL: `https://trophe.app`
+- Supabase project/ref: `iwbpzwmidzvpiofnqexd`
+- GitHub default branch: `main`
+- Temporary production branch/source: `v0.3-overhaul` until final verification and merge to `main`
+- Cost/AI observability source of truth: `agent_runs`; `api_usage_log` is legacy compatibility only
+- Required verification sequence: `npm run typecheck && npm run lint && npm test && npm run readiness && npm run build && npm run test:e2e && npm run canary:prod`
+- AI route auth must use async `guardAiRoute()` and the verified Supabase `userId`; do not decode JWTs for auth decisions.
 
 ---
 
@@ -53,16 +64,16 @@ Initial audit findings are hypotheses. Sanity checks are the verification. Don't
 | **Wearables** | Spike API — Apple Health, Whoop, Oura, Strava, Garmin, Fitbit |
 | **Testing** | Vitest 4 + `@vitest/coverage-v8` |
 | **CI** | GitHub Actions (typecheck + lint + test + rls + role-gate + food-parse accuracy) |
-| **Hosting** | Vercel — production `trophe-mu.vercel.app` |
+| **Hosting** | Vercel — production `https://trophe.app` |
 
 ---
 
 ## Project state (2026-05-01)
 
-**Branch**: `v0.3-overhaul` (all development here; `main` = production, no direct commits)
-**Production**: `https://trophe-mu.vercel.app` — live with 5+ testers (Michael, Nikos, Daniel, Daniela, Dimitra, Alex)
+**Branch**: `v0.3-overhaul` (temporary production truth; merge to `main` after final gates)
+**Production**: `https://trophe.app` — live with 5+ testers (Michael, Nikos, Daniel, Daniela, Dimitra, Alex)
 
-Phases 0–8 complete and green locally. Phase 9 (production cutover from Supabase Postgres to local Postgres) is **operator-gated** — not triggered yet.
+Production cutover has executed. The remaining governance task is to make `main` the production source of truth once final verification and canary are green.
 
 ### What IS running in production (on Supabase Postgres)
 - Auth, all 19 original tables, RLS, food logging, coach dashboard, workouts, supplements, habits
@@ -70,7 +81,7 @@ Phases 0–8 complete and green locally. Phase 9 (production cutover from Supaba
 - AI Form Check (MediaPipe, browser-only, no server)
 - All analytics components, trilingual UI (EN/ES/EL)
 
-### What is on v0.3-overhaul branch only (NOT yet in production)
+### v0.3-overhaul branch contents
 - Drizzle ORM + versioned migrations (`drizzle/`)
 - 4-tier role enum (`super_admin|admin|coach|client`) — organizations table
 - `@supabase/ssr` HTTP-only cookie auth (Phase 2)
@@ -236,7 +247,7 @@ Public signup always forces `role = 'client'`. Invite token required for elevate
 - All dates via `lib/dates.ts` `localDateStr()` — UTC caused day-boundary bugs
 - food_log `source` CHECK: `('usda','openfoodfacts','custom','photo_ai','natural_language','ai_estimate')`
 - RLS on every client-accessible table; `auth.uid() = user_id` is the baseline policy
-- `api_usage_log` table tracks token + cost per AI call (Anthropic + Gemini)
+- `agent_runs` tracks token + cost per AI call; `api_usage_log` is legacy compatibility
 
 ---
 
@@ -293,7 +304,7 @@ npm run typecheck && npm run lint && npm test && npm run build
 # Production deploy is operator-gated. Do not deploy from this branch without explicit approval.
 ```
 
-- Production: `https://trophe-mu.vercel.app`
+- Production: `https://trophe.app`
 - GitHub: `zsoist/trophe`
 - Production deploy remains operator-gated after local + CI verification.
 
