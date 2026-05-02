@@ -15,6 +15,7 @@
     "test:e2e:install": "playwright install --with-deps chromium",
     "evals": "tsx agents/evals/run-all.ts",
     "readiness": "tsx scripts/check-enterprise-readiness.ts",
+    "canary:prod": "bash scripts/ops/canary-readonly.sh",
     "verify": "npm run typecheck && npm run lint && npm test && npm run build",
     "db:bootstrap": "bash scripts/db/bootstrap-local.sh",
     "db:doctor": "tsx scripts/db/doctor.ts",
