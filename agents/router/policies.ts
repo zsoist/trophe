@@ -72,14 +72,16 @@ export const taskPolicies: Record<TaskName, RoutingPolicy> = {
     cacheSystem: true,
   },
   meal_suggest: {
-    // Route currently calls Gemini REST API directly (not via agents/clients/).
-    // Model pinned to gemini-2.0-flash (what HEAD already uses). The 2.5-flash
-    // upgrade is gated on a 15-prompt eval — see TODO-NEXT.md.
-    provider: 'google',
-    model: 'gemini-2.0-flash',
+    // Migrated from gemini-2.0-flash (deprecated June 1, 2026) to Haiku 4.5.
+    // Eval: 50/50 (100%) on 10-prompt suite with tool_choice enforcement.
+    // See agents/evals/run-meal-suggest.ts and commit fe0ad58.
+    // Uses tool_use + tool_choice for structural guarantee (no regex extraction).
+    provider: 'anthropic',
+    model: 'claude-haiku-4-5-20251001',
     costClass: 'cheap',
     latencyClass: 'fast',
     maxTokens: 2048,
+    cacheSystem: true,
   },
   photo_analyze: {
     provider: 'anthropic',

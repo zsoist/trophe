@@ -73,10 +73,10 @@ describe('router.modelFor()', () => {
 
 describe('estimateCostUsd()', () => {
   it('calculates Haiku cost correctly', () => {
-    // 1000 input tokens @ $0.25/M + 500 output tokens @ $1.25/M
+    // 1000 input tokens @ $1.00/M + 500 output tokens @ $5.00/M
     const cost = estimateCostUsd('claude-haiku-4-5-20251001', 1000, 500);
-    // input: 1000 * 0.25/1M = $0.00025; output: 500 * 1.25/1M = $0.000625
-    expect(cost).toBeCloseTo(0.00025 + 0.000625, 8);
+    // input: 1000 * 1.00/1M = $0.001; output: 500 * 5.00/1M = $0.0025
+    expect(cost).toBeCloseTo(0.001 + 0.0025, 8);
   });
 
   it('calculates Sonnet cost correctly', () => {

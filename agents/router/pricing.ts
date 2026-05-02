@@ -12,20 +12,20 @@ export const modelPricing: Record<string, ModelPricing> = {
     outputPerMillion: 0.30,
   },
   [taskPolicies.recipe_analyze.model]: {
-    inputPerMillion: 0.25,
-    outputPerMillion: 1.25,
-    cacheReadPerMillion: 0.03,
+    // claude-haiku-4-5: $1.00/M in, $5.00/M out, cache read $0.10/M
+    // Also used by meal_suggest (same model string, shared entry).
+    inputPerMillion: 1.00,
+    outputPerMillion: 5.00,
+    cacheReadPerMillion: 0.10,
   },
   [taskPolicies.coach_insight.model]: {
     inputPerMillion: 3.00,
     outputPerMillion: 15.00,
     cacheReadPerMillion: 0.30,
   },
-  [taskPolicies.meal_suggest.model]: {
-    // gemini-2.0-flash — legacy model, will be upgraded to 2.5-flash after eval
-    inputPerMillion: 0.10,
-    outputPerMillion: 0.40,
-  },
+  // meal_suggest now uses claude-haiku-4-5 (same as recipe_analyze).
+  // Pricing entry shared — keyed by model string, not task name.
+  // Old gemini-2.0-flash entry removed (model deprecated June 1, 2026).
   [taskPolicies.memory_embed.model]: {
     inputPerMillion: 0.12,
     outputPerMillion: 0,
