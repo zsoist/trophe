@@ -1,14 +1,15 @@
 /**
- * api-guard.ts — Rate limiting for Trophē AI API routes.
+ * api-guard.ts — Auth + rate limiting for Trophē AI API routes.
  *
- * Applies two-tier rate limiting before any Anthropic/Gemini call:
- *   • Authenticated users: 60 req / 15 min per Supabase user_id
- *   • Anonymous (no JWT):  10 req / 15 min per IP — very strict
+ * Two-phase protection before any Anthropic/Gemini call:
+ *   1. Auth check: requires a valid JWT in the Authorization header.
+ *      Rejects anonymous requests with 401 to prevent cost-abuse.
+ *   2. Rate limiting: 60 req / 15 min per Supabase user_id.
  *
- * Returns NextResponse (429) if rate-limited, null if allowed.
+ * Returns NextResponse (401 or 429) if blocked, null if allowed.
  *
  * Usage:
- *   const block = await guardAiRoute(req);
+ *   const block = guardAiRoute(req);
  *   if (block) return block;
  */
 
@@ -16,12 +17,10 @@ import { NextRequest, NextResponse } from 'next/server';
 
 // --- Config ---
 const AUTH_LIMIT = 60;     // requests per window for authenticated users
-const ANON_LIMIT = 10;     // requests per window for anonymous (IP-based)
 const WINDOW_MS = 15 * 60 * 1_000; // 15 minutes
 
-// In-memory maps — reset on Vercel cold start (acceptable for abuse prevention)
+// In-memory map — resets on Vercel cold start (acceptable for abuse prevention)
 const authMap = new Map<string, { n: number; resetAt: number }>();
-const anonMap = new Map<string, { n: number; resetAt: number }>();
 
 function checkLimit(
   map: Map<string, { n: number; resetAt: number }>,
@@ -83,15 +82,17 @@ function extractUserId(req: NextRequest): string | null {
 export function guardAiRoute(req: NextRequest): NextResponse | null {
   const userId = extractUserId(req);
 
-  if (userId) {
-    // Authenticated: generous limit, keyed by user
-    return checkLimit(authMap, userId, AUTH_LIMIT);
+  // Phase 2 auth gate: AI routes require a valid session.
+  // Without this, anonymous users can consume LLM tokens at $0.004/call.
+  // The JWT is decoded (not cryptographically verified) for speed — full
+  // verification happens via middleware's getUser() on the same request.
+  if (!userId) {
+    return NextResponse.json(
+      { error: 'Authentication required' },
+      { status: 401 },
+    );
   }
 
-  // Anonymous: strict limit, keyed by IP
-  const ip =
-    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
-    req.headers.get('x-real-ip') ??
-    'unknown';
-  return checkLimit(anonMap, ip, ANON_LIMIT);
+  // Authenticated: generous limit, keyed by user
+  return checkLimit(authMap, userId, AUTH_LIMIT);
 }
