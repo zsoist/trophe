@@ -26,7 +26,7 @@
  *
  * RLS: clients can only read their own memories.
  *      coaches can read memories of their assigned clients.
- *      Agents run as brain_user (bypass RLS) — scoped by user_id in WHERE.
+ *      Agents run as the DB owner (bypass RLS) — scoped by user_id in WHERE.
  */
 
 import {

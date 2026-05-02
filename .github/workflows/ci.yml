@@ -73,14 +73,16 @@ jobs:
           echo "✅ No uncommitted drizzle-kit introspect wrappers found"
 
       - name: Guard against hardcoded local DB credentials in source
+        # Scripts (scripts/**) are intentionally excluded; they default to
+        # local ports by design (operator-run only).
+        # rg exits 0 when matches are found (fires if-branch → exit 1),
+        # exits 1 when no matches (guard passes).  No || true suppressor.
         run: |
-          hits=$(rg -rn 'brain_user|127\.0\.0\.1:5433|localhost:5433' \
-            tests/ agents/ lib/ app/ db/ \
-            --type ts --type tsx \
-            -g '!node_modules' -g '!.next' 2>/dev/null || true)
-          if [ -n "$hits" ]; then
-            echo "$hits"
-            echo "::error::Source files contain hardcoded local DB credentials (brain_user / port 5433). Use DATABASE_URL instead — see .env.local.example."
+          set -euo pipefail
+          if rg -n 'brain_user|127\.0\.0\.1:5433|localhost:5433' \
+               -g '*.ts' -g '*.tsx' \
+               tests/ agents/ lib/ app/ db/; then
+            echo "::error::Source files contain hardcoded local DB credentials. Use DATABASE_URL — see .env.local.example."
             exit 1
           fi
           echo "✅ No hardcoded local DB credentials found in source code"

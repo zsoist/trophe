@@ -14,9 +14,8 @@
  *
  * Run:
  *   npm run test tests/agents/food-parse.accuracy.test.ts
- *   # or, pointing at the Mac Mini food DB:
- *   DATABASE_URL=postgresql://brain_user@127.0.0.1:5433/trophe_dev \
- *     npx vitest run tests/agents/food-parse.accuracy.test.ts
+ *   # or with a specific DB (see .env.local.example for Mac Mini setup):
+ *   DATABASE_URL=<see .env.local.example> npx vitest run tests/agents/food-parse.accuracy.test.ts
  *
  * Why these specific goldens:
  *   Derived from Nikos Kavdas' reported discrepancies (Apr 25 tester feedback).
