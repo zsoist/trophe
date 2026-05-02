@@ -4,6 +4,30 @@ All notable changes to Trophē are logged here. Format follows [Keep a Changelog
 
 ---
 
+## [v0.3.1] — 2026-05-02 — Production Cutover
+
+> **Status**: ✅ LIVE on `trophe.app`
+> **Deployment**: `dpl_FTUnpfMJsJsfc1knBSUXYMWem2dZ`
+
+### Production cutover executed
+- Supabase database password reset and credentials secured (`chmod 600`)
+- Extensions enabled: `pgvector 0.8.0`, `pg_trgm 1.6`, `pgcrypto 1.3`
+- Drizzle journal seeded (skip migration 0000 — tables pre-exist)
+- Migration 0001 applied: `user_role` enum, 4 `both`→`coach` coercions, organizations + audit_log tables
+- Production-safe 0002 applied: Daniel → `super_admin`, 3 RLS helper functions (`is_super_admin`, `is_admin_of`, `is_coach_of`)
+- Migrations 0003–0006 applied via Drizzle migrator (foods, memory, wearables, agent_runs schemas)
+- Foods table seeded: 7,918 rows (7,888 USDA + 30 HHF), all with Voyage embeddings, 89 aliases, 72 unit conversions
+- 12 Vercel env vars configured (DATABASE_URL, DIRECT_URL, API keys)
+- Custom domain `trophe.app` live (Cloudflare DNS, SSL verified)
+- Zero data loss: 224 food logs, 121 water logs, 16 workout sessions preserved
+- Auth gate server-side: all `/dashboard`, `/coach`, `/admin` routes → 307 to login
+- IPv6 note: Supabase direct connection IPv6-only; both URLs use Transaction pooler
+
+### Pre-cutover fixes
+- Corrected super_admin email from `d.reyesusma@gmail.com` to `daniel@reyes.com` across 4 files
+
+---
+
 ## [Unreleased] — Enterprise hardening on `v0.3-overhaul`
 
 - **`proxy.ts` convention**: Confirmed Next.js 16 uses `proxy.ts` + `export function proxy()` (not `middleware.ts`). File and function name verified correct; deprecation warning eliminated. E2E auth-gate test (anonymous → /login redirect) confirms proxy is active.

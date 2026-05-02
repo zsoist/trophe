@@ -2,8 +2,9 @@
 
 > **Author**: Daniel R + Claude  
 > **Created**: 2026-05-02  
-> **Status**: DRAFT — do not execute until all open questions are resolved  
-> **Branch**: `v0.3-overhaul` (commit 9ea02c9+)
+> **Status**: ✅ EXECUTED — 2026-05-02 10:32 COT  
+> **Branch**: `v0.3-overhaul` (commit 55890c0)  
+> **Deployment**: `dpl_FTUnpfMJsJsfc1knBSUXYMWem2dZ` → https://trophe.app
 
 ---
 
