@@ -173,12 +173,38 @@ const GOLDENS: GoldenCase[] = [
     },
   },
   {
-    description: '1 bowl fassolada (300g)',
+    // NOTE: this tests φακές (lentil soup / Fakes), NOT fassolada (bean soup).
+    // HHF "Lentil Soup Fakes": 59 kcal/100g. Bowl food-specific = 300g.
+    // 59 × 3 = 177 kcal, 4.2 × 3 = 12.6g protein, 8.8 × 3 = 26.4g carb, 0.8 × 3 = 2.4g fat.
+    description: '1 bowl φακές / lentil soup fakes = 300g (HHF)',
     input: { foodName: 'lentil soup', unit: 'bowl', qty: 1 },
     expected: {
       matchNameIncludes: 'lentil',
       macros: { kcal: 177, protein: 12.6, carb: 26.4, fat: 2.4 },
-      tolerancePct: 10, // soups have more serving-size variance
+      tolerancePct: 12, // composite dish: ±12% per DietAI24 academic standard
+    },
+  },
+  {
+    // HHF "Fasolada Bean Soup": 73 kcal/100g, 4g protein, 2g fat, 10.7g carb.
+    // Per academic research (BJN 2025 systematic review): composite dishes
+    // warrant ±12-15% tolerance — no lab-analyzed per-100g value in any public DB.
+    description: '100g φασολάδα / fasolada bean soup (HHF)',
+    input: { foodName: 'fasolada bean soup', unit: 'g', qty: 100 },
+    expected: {
+      matchNameIncludes: 'fasolada',
+      macros: { kcal: 73, protein: 4, carb: 10.7, fat: 2 },
+      tolerancePct: 12,
+    },
+  },
+  {
+    // HHF "Chickpea Revithosoupa": 75 kcal/100g, 4.5g protein, 1.5g fat, 11.5g carb.
+    // Greek chickpea soup — tests non-obvious HHF food retrieval.
+    description: '100g ρεβιθόσουπα / chickpea revithosoupa (HHF)',
+    input: { foodName: 'chickpea revithosoupa', unit: 'g', qty: 100 },
+    expected: {
+      matchNameIncludes: 'chickpea',
+      macros: { kcal: 75, protein: 4.5, carb: 11.5, fat: 1.5 },
+      tolerancePct: 12,
     },
   },
 
@@ -252,6 +278,39 @@ const GOLDENS: GoldenCase[] = [
       matchNameIncludes: 'olive',
       macros: { kcal: 123.76, protein: 0, carb: 0, fat: 14 },
       tolerancePct: 5,
+    },
+  },
+  {
+    // "κοτόπουλο στήθος" = chicken breast in Greek (two tokens, unambiguous).
+    // "κοτόπουλο" alone matches both Souvlaki Chicken and Chicken Breast Grilled
+    // (same ts_rank, non-deterministic), so the two-token query is required.
+    // HHF "Chicken Breast Grilled": 165 kcal/100g, 31g protein, 3.6g fat, 0g carb.
+    description: 'κοτόπουλο στήθος → chicken breast grilled (cross-lingual)',
+    input: { foodName: 'κοτόπουλο στήθος', unit: 'g', qty: 100 },
+    expected: {
+      matchNameIncludes: 'chicken',
+      macros: { kcal: 165, protein: 31, carb: 0, fat: 3.6 },
+    },
+  },
+  {
+    // Greek name_el "Σπανακόπιτα" indexed in search_text.
+    // 215 kcal/100g, 7.7g protein, 13.8g fat, 16.9g carb (HHF traditional recipe).
+    description: 'σπανακόπιτα lookup → spanakopita (cross-lingual)',
+    input: { foodName: 'σπανακόπιτα', unit: 'g', qty: 100 },
+    expected: {
+      matchNameIncludes: 'spanakopita',
+      macros: { kcal: 215, protein: 7.7, carb: 16.9, fat: 13.8 },
+    },
+  },
+  {
+    // Alias: φασολάδα → "Fasolada Bean Soup" (HHF).
+    // Tests that Greek compound food names route to the correct composite dish.
+    description: 'φασολάδα lookup → fasolada bean soup (cross-lingual)',
+    input: { foodName: 'φασολάδα', unit: 'g', qty: 100 },
+    expected: {
+      matchNameIncludes: 'fasolada',
+      macros: { kcal: 73, protein: 4, carb: 10.7, fat: 2 },
+      tolerancePct: 12,
     },
   },
 ];
