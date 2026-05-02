@@ -27,10 +27,14 @@
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 
-const connectionString =
-  process.env.DATABASE_URL ||
-  // Supabase local default — set DATABASE_URL in .env.local for Mac Mini or custom DBs
-  'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
+// In production, DATABASE_URL MUST be set to the Supabase Transaction pooler URL.
+// Fail hard if missing — silent fallback to localhost would cause every query to
+// hang for 5s then throw ECONNREFUSED, which is worse than a clear startup error.
+const connectionString = process.env.DATABASE_URL || (
+  process.env.NODE_ENV === 'production'
+    ? (() => { throw new Error('[db/client] DATABASE_URL is required in production'); })()
+    : 'postgresql://postgres:postgres@127.0.0.1:54322/postgres'
+);
 
 declare global {
   // Reuse the pool across hot reloads in `next dev` to avoid leak warnings.
