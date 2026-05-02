@@ -1,0 +1,641 @@
+{
+  "when": "2026-05-02T13:18:49.435Z",
+  "model": "claude-haiku-4-5-20251001",
+  "totalCases": 10,
+  "totalPoints": 50,
+  "maxPoints": 50,
+  "pct": 100,
+  "passed": true,
+  "avgLatencyMs": 4157,
+  "totalCostUsd": 0.039959999999999996,
+  "avgCostPerCall": 0.0039959999999999996,
+  "totalTokensIn": 9260,
+  "totalTokensOut": 6140,
+  "results": [
+    {
+      "id": "balanced_lunch",
+      "scenario": "Balanced lunch for an office worker",
+      "score": {
+        "schemaValid": true,
+        "suggestionCount": true,
+        "macroFit": true,
+        "diversity": true,
+        "realism": true,
+        "points": 5,
+        "failures": [],
+        "latencyMs": 4387,
+        "suggestions": [
+          {
+            "name": "Grilled Chicken & Brown Rice Bowl",
+            "description": "A protein-packed lunch featuring grilled chicken breast with seasoned brown rice, steamed broccoli, and a light drizzle of olive oil. Perfect for sustained energy throughout the afternoon.",
+            "ingredients": [
+              "Grilled chicken breast (150g)",
+              "Brown rice (3/4 cup cooked)",
+              "Broccoli florets (1.5 cups steamed)",
+              "Olive oil (1 tsp)",
+              "Salt and pepper to taste"
+            ],
+            "estimated_calories": 595,
+            "estimated_protein_g": 36,
+            "estimated_carbs_g": 68,
+            "estimated_fat_g": 19
+          },
+          {
+            "name": "Turkey & Quinoa Power Bowl",
+            "description": "Lean ground turkey sautéed with quinoa, bell peppers, and spinach. A nutrient-dense meal that's quick to prepare and keeps you full without being heavy.",
+            "ingredients": [
+              "Ground turkey (150g, 93% lean)",
+              "Quinoa (2/3 cup cooked)",
+              "Mixed bell peppers (1 cup diced)",
+              "Fresh spinach (2 cups)",
+              "Olive oil (1.5 tsp)",
+              "Garlic and herbs to taste"
+            ],
+            "estimated_calories": 598,
+            "estimated_protein_g": 38,
+            "estimated_carbs_g": 70,
+            "estimated_fat_g": 20
+          },
+          {
+            "name": "Tuna Salad Sandwich with Sweet Potato",
+            "description": "A classic tuna salad made with whole wheat bread, paired with roasted sweet potato fries. Combines lean protein with complex carbs for a satisfying lunch.",
+            "ingredients": [
+              "Canned tuna in water (140g drained)",
+              "Whole wheat bread (2 slices)",
+              "Light mayo (1.5 tbsp)",
+              "Roasted sweet potato (150g)",
+              "Lettuce and tomato for sandwich",
+              "Black pepper to taste"
+            ],
+            "estimated_calories": 602,
+            "estimated_protein_g": 35,
+            "estimated_carbs_g": 69,
+            "estimated_fat_g": 20
+          }
+        ]
+      }
+    },
+    {
+      "id": "high_protein_deficit",
+      "scenario": "Evening meal, need high protein to hit daily target",
+      "score": {
+        "schemaValid": true,
+        "suggestionCount": true,
+        "macroFit": true,
+        "diversity": true,
+        "realism": true,
+        "points": 5,
+        "failures": [],
+        "latencyMs": 4575,
+        "suggestions": [
+          {
+            "name": "Grilled Chicken Breast with Sweet Potato & Broccoli",
+            "description": "Lean protein-packed dinner with complex carbs and roasted vegetables. The sweet potato provides sustained energy while broccoli adds micronutrients and fiber.",
+            "ingredients": [
+              "Grilled chicken breast (200g)",
+              "Medium sweet potato (180g), roasted",
+              "Broccoli (250g), roasted with 1 tsp olive oil",
+              "Sea salt and black pepper to taste"
+            ],
+            "estimated_calories": 795,
+            "estimated_protein_g": 78,
+            "estimated_carbs_g": 58,
+            "estimated_fat_g": 24
+          },
+          {
+            "name": "Turkey & Quinoa Power Bowl",
+            "description": "High-protein grain bowl loaded with lean ground turkey, quinoa, and colorful vegetables. Perfect for post-workout nutrition with balanced macros.",
+            "ingredients": [
+              "Ground turkey (95/5 lean, 190g cooked)",
+              "Cooked quinoa (150g)",
+              "Bell peppers (100g), diced",
+              "Cucumber (100g), diced",
+              "Cherry tomatoes (80g)",
+              "1 tbsp olive oil-based dressing"
+            ],
+            "estimated_calories": 805,
+            "estimated_protein_g": 81,
+            "estimated_carbs_g": 60,
+            "estimated_fat_g": 25
+          },
+          {
+            "name": "Salmon Fillet with Brown Rice & Asparagus",
+            "description": "Omega-3 rich salmon paired with whole grains and asparagus. The healthy fats support recovery and hormone health while meeting protein goals.",
+            "ingredients": [
+              "Baked salmon fillet (180g)",
+              "Cooked brown rice (160g)",
+              "Fresh asparagus (300g), sautéed with 1 tsp olive oil",
+              "Lemon juice and herbs for seasoning"
+            ],
+            "estimated_calories": 800,
+            "estimated_protein_g": 79,
+            "estimated_carbs_g": 61,
+            "estimated_fat_g": 25
+          }
+        ]
+      }
+    },
+    {
+      "id": "low_cal_snack",
+      "scenario": "Light snack to close out the day under budget",
+      "score": {
+        "schemaValid": true,
+        "suggestionCount": true,
+        "macroFit": true,
+        "diversity": true,
+        "realism": true,
+        "points": 5,
+        "failures": [],
+        "latencyMs": 3347,
+        "suggestions": [
+          {
+            "name": "Greek Yogurt Protein Bowl",
+            "description": "High-protein yogurt snack with fresh berries and granola, providing excellent satiety with minimal fat",
+            "ingredients": [
+              "Non-fat Greek yogurt - 150g",
+              "Mixed berries (blueberries, raspberries) - 80g",
+              "Low-sugar granola - 15g",
+              "Honey drizzle - 5g"
+            ],
+            "estimated_calories": 195,
+            "estimated_protein_g": 16,
+            "estimated_carbs_g": 20,
+            "estimated_fat_g": 4
+          },
+          {
+            "name": "Protein Smoothie",
+            "description": "Quick and convenient protein shake with banana and almond butter, balanced macros for post-workout recovery",
+            "ingredients": [
+              "Vanilla protein powder - 25g (1 scoop)",
+              "Unsweetened almond milk - 200ml",
+              "Banana - 60g (half medium)",
+              "Almond butter - 8g (0.5 tbsp)"
+            ],
+            "estimated_calories": 205,
+            "estimated_protein_g": 17,
+            "estimated_carbs_g": 18,
+            "estimated_fat_g": 5
+          },
+          {
+            "name": "Protein Energy Bites & Apple",
+            "description": "No-bake protein-packed snack with an apple for added fiber and natural sweetness",
+            "ingredients": [
+              "Vanilla protein powder - 15g",
+              "Rolled oats - 20g",
+              "Peanut butter - 7g (0.5 tbsp)",
+              "Medium apple - 150g"
+            ],
+            "estimated_calories": 198,
+            "estimated_protein_g": 15,
+            "estimated_carbs_g": 22,
+            "estimated_fat_g": 5
+          }
+        ]
+      }
+    },
+    {
+      "id": "vegetarian_dinner",
+      "scenario": "Vegetarian needing to hit protein without meat",
+      "score": {
+        "schemaValid": true,
+        "suggestionCount": true,
+        "macroFit": true,
+        "diversity": true,
+        "realism": true,
+        "points": 5,
+        "failures": [],
+        "latencyMs": 4475,
+        "suggestions": [
+          {
+            "name": "Mediterranean Chickpea Buddha Bowl",
+            "description": "A nutrient-dense vegetarian bowl featuring roasted chickpeas, quinoa, fresh vegetables, and tahini dressing. Perfect for a satisfying dinner that supports muscle recovery.",
+            "ingredients": [
+              "1 cup cooked quinoa",
+              "3/4 cup canned chickpeas (roasted with spices)",
+              "1 cup mixed greens",
+              "1/2 cup cherry tomatoes",
+              "1/4 cucumber",
+              "1/4 red bell pepper",
+              "2 tbsp tahini dressing",
+              "Fresh herbs (parsley, mint)"
+            ],
+            "estimated_calories": 640,
+            "estimated_protein_g": 44,
+            "estimated_carbs_g": 58,
+            "estimated_fat_g": 20
+          },
+          {
+            "name": "Spinach and Feta Pasta Primavera",
+            "description": "Whole wheat pasta tossed with sautéed seasonal vegetables, protein-rich spinach, and crumbled feta cheese. A comforting yet balanced dinner option.",
+            "ingredients": [
+              "1.5 cups whole wheat pasta",
+              "2 cups fresh spinach",
+              "1 cup mixed vegetables (zucchini, bell peppers, mushrooms)",
+              "1/4 cup crumbled feta cheese",
+              "2 cloves garlic",
+              "1 tbsp olive oil",
+              "Lemon juice and black pepper to taste"
+            ],
+            "estimated_calories": 645,
+            "estimated_protein_g": 46,
+            "estimated_carbs_g": 59,
+            "estimated_fat_g": 19
+          },
+          {
+            "name": "Black Bean and Sweet Potato Tacos",
+            "description": "Seasoned black bean and roasted sweet potato tacos with fresh toppings. A protein-packed, satisfying dinner with excellent micronutrient content.",
+            "ingredients": [
+              "3 small corn tortillas",
+              "1 cup roasted sweet potato cubes",
+              "3/4 cup black beans",
+              "1/4 cup diced red onion",
+              "1/2 cup shredded cabbage",
+              "2 tbsp Greek yogurt (as sour cream)",
+              "Fresh cilantro",
+              "Lime wedge",
+              "1 tbsp avocado or oil-based topping"
+            ],
+            "estimated_calories": 650,
+            "estimated_protein_g": 45,
+            "estimated_carbs_g": 60,
+            "estimated_fat_g": 20
+          }
+        ]
+      }
+    },
+    {
+      "id": "breakfast_quick",
+      "scenario": "Quick breakfast before work",
+      "score": {
+        "schemaValid": true,
+        "suggestionCount": true,
+        "macroFit": true,
+        "diversity": true,
+        "realism": true,
+        "points": 5,
+        "failures": [],
+        "latencyMs": 3534,
+        "suggestions": [
+          {
+            "name": "Greek Yogurt Protein Parfait",
+            "description": "Quick and filling breakfast with creamy Greek yogurt layered with granola and berries. Perfect for grabbing on the go.",
+            "ingredients": [
+              "Greek yogurt (150g)",
+              "Granola (30g)",
+              "Mixed berries (80g)",
+              "Honey drizzle (0.5 tbsp)"
+            ],
+            "estimated_calories": 280,
+            "estimated_protein_g": 20,
+            "estimated_carbs_g": 40,
+            "estimated_fat_g": 5
+          },
+          {
+            "name": "Peanut Butter Banana Toast",
+            "description": "Simple yet satisfying whole grain toast topped with natural peanut butter and fresh banana slices. Ready in 3 minutes.",
+            "ingredients": [
+              "Whole grain bread (2 slices, 60g)",
+              "Natural peanut butter (1.5 tbsp)",
+              "Banana (1 medium, 100g)",
+              "Dash of cinnamon"
+            ],
+            "estimated_calories": 380,
+            "estimated_protein_g": 13,
+            "estimated_carbs_g": 44,
+            "estimated_fat_g": 12
+          },
+          {
+            "name": "Veggie Egg Scramble with Toast",
+            "description": "Quick scrambled eggs packed with vegetables, served with whole grain toast. Nutrient-dense and ready in 8 minutes.",
+            "ingredients": [
+              "Large eggs (2)",
+              "Spinach (handful, 30g)",
+              "Diced tomato (80g)",
+              "Whole grain toast (1 slice, 30g)",
+              "Olive oil spray (minimal)"
+            ],
+            "estimated_calories": 340,
+            "estimated_protein_g": 18,
+            "estimated_carbs_g": 25,
+            "estimated_fat_g": 12
+          }
+        ]
+      }
+    },
+    {
+      "id": "mediterranean_style",
+      "scenario": "Mediterranean diet adherent in Greece",
+      "score": {
+        "schemaValid": true,
+        "suggestionCount": true,
+        "macroFit": true,
+        "diversity": true,
+        "realism": true,
+        "points": 5,
+        "failures": [],
+        "latencyMs": 4581,
+        "suggestions": [
+          {
+            "name": "Grilled Mediterranean Chicken with Quinoa",
+            "description": "Herb-marinated grilled chicken breast served with fluffy quinoa pilaf, roasted vegetables, and a drizzle of extra virgin olive oil. A protein-rich, balanced meal with healthy fats from olive oil.",
+            "ingredients": [
+              "Chicken breast (150g)",
+              "Quinoa (50g dry)",
+              "Cherry tomatoes (100g)",
+              "Zucchini (100g)",
+              "Extra virgin olive oil (1.5 tbsp)",
+              "Lemon juice",
+              "Oregano, garlic, salt, pepper"
+            ],
+            "estimated_calories": 695,
+            "estimated_protein_g": 36,
+            "estimated_carbs_g": 73,
+            "estimated_fat_g": 27
+          },
+          {
+            "name": "Baked White Fish with Farro & Roasted Vegetables",
+            "description": "Mediterranean-style baked white fish topped with lemon and herbs, served alongside hearty farro grain and a medley of roasted bell peppers, eggplant, and tomatoes with olive oil.",
+            "ingredients": [
+              "White fish fillet - sea bass or halibut (160g)",
+              "Farro (45g dry)",
+              "Bell peppers (100g)",
+              "Eggplant (80g)",
+              "Kalamata olives (10 olives)",
+              "Extra virgin olive oil (1.5 tbsp)",
+              "Lemon, garlic, thyme, salt, pepper"
+            ],
+            "estimated_calories": 698,
+            "estimated_protein_g": 34,
+            "estimated_carbs_g": 74,
+            "estimated_fat_g": 28
+          },
+          {
+            "name": "Mediterranean Chickpea & Spinach Bowl",
+            "description": "Hearty vegetarian bowl featuring seasoned roasted chickpeas, fresh spinach, tomatoes, and cucumber, tossed with extra virgin olive oil, feta cheese, and finished with fresh herbs. Perfect plant-based protein source.",
+            "ingredients": [
+              "Canned chickpeas (160g)",
+              "Fresh spinach (150g)",
+              "Cherry tomatoes (80g)",
+              "Cucumber (80g)",
+              "Feta cheese (40g)",
+              "Whole grain bread (1 slice, 40g)",
+              "Extra virgin olive oil (2 tbsp)",
+              "Lemon, cumin, oregano, salt, pepper"
+            ],
+            "estimated_calories": 702,
+            "estimated_protein_g": 35,
+            "estimated_carbs_g": 75,
+            "estimated_fat_g": 28
+          }
+        ]
+      }
+    },
+    {
+      "id": "post_workout",
+      "scenario": "Post-workout meal, need carb-heavy recovery",
+      "score": {
+        "schemaValid": true,
+        "suggestionCount": true,
+        "macroFit": true,
+        "diversity": true,
+        "realism": true,
+        "points": 5,
+        "failures": [],
+        "latencyMs": 4014,
+        "suggestions": [
+          {
+            "name": "Grilled Chicken & Sweet Potato Bowl",
+            "description": "A classic post-workout meal combining lean protein with complex carbs for glycogen replenishment. Features grilled chicken breast, roasted sweet potato, broccoli, and a drizzle of olive oil.",
+            "ingredients": [
+              "Grilled chicken breast - 200g",
+              "Sweet potato - 250g roasted",
+              "Broccoli - 150g steamed",
+              "Olive oil - 1 tbsp",
+              "Salt and pepper to taste"
+            ],
+            "estimated_calories": 990,
+            "estimated_protein_g": 58,
+            "estimated_carbs_g": 118,
+            "estimated_fat_g": 28
+          },
+          {
+            "name": "Greek Yogurt Parfait with Granola & Berries",
+            "description": "A lighter option ideal for post-workout recovery. Greek yogurt provides protein and probiotics, while granola and berries offer fast-digesting carbs and antioxidants for muscle recovery.",
+            "ingredients": [
+              "Greek yogurt (0% fat) - 250g",
+              "Granola - 60g",
+              "Mixed berries - 150g",
+              "Honey - 1 tbsp",
+              "Almonds - 15g sliced"
+            ],
+            "estimated_calories": 995,
+            "estimated_protein_g": 25,
+            "estimated_carbs_g": 128,
+            "estimated_fat_g": 28
+          },
+          {
+            "name": "Turkey & Whole Grain Pasta with Marinara",
+            "description": "A satisfying post-workout meal with lean ground turkey for quick-absorbing protein and whole grain pasta for sustained carb replenishment. Marinara sauce adds flavor and antioxidants.",
+            "ingredients": [
+              "Ground turkey (93% lean) - 220g cooked",
+              "Whole grain pasta - 140g cooked",
+              "Marinara sauce - 150ml",
+              "Spinach - 100g",
+              "Parmesan cheese - 20g",
+              "Olive oil - 1 tsp"
+            ],
+            "estimated_calories": 1005,
+            "estimated_protein_g": 62,
+            "estimated_carbs_g": 120,
+            "estimated_fat_g": 29
+          }
+        ]
+      }
+    },
+    {
+      "id": "minimal_remaining",
+      "scenario": "Very little budget left, something satisfying but tiny",
+      "score": {
+        "schemaValid": true,
+        "suggestionCount": true,
+        "macroFit": true,
+        "diversity": true,
+        "realism": true,
+        "points": 5,
+        "failures": [],
+        "latencyMs": 4280,
+        "suggestions": [
+          {
+            "name": "Greek Yogurt & Berries Parfait",
+            "description": "Light and protein-rich snack with creamy Greek yogurt layered with fresh berries and a drizzle of honey for natural sweetness",
+            "ingredients": [
+              "Plain nonfat Greek yogurt - 5 oz (140g)",
+              "Mixed fresh berries (blueberries, strawberries) - 1/2 cup (75g)",
+              "Raw honey - 1/2 tsp (3g)"
+            ],
+            "estimated_calories": 145,
+            "estimated_protein_g": 10,
+            "estimated_carbs_g": 15,
+            "estimated_fat_g": 2.5
+          },
+          {
+            "name": "Turkey & Vegetables Lettuce Wrap",
+            "description": "Fresh and satisfying wrap using crispy lettuce leaves instead of bread, filled with lean turkey and crunchy vegetables",
+            "ingredients": [
+              "Sliced deli turkey breast - 2 oz (56g)",
+              "Butter lettuce leaves - 3-4 leaves",
+              "Sliced tomato - 3 slices",
+              "Sliced cucumber - 1/3 cup (50g)",
+              "Dijon mustard - 1 tsp"
+            ],
+            "estimated_calories": 148,
+            "estimated_protein_g": 10,
+            "estimated_carbs_g": 14,
+            "estimated_fat_g": 3
+          },
+          {
+            "name": "Egg White & Veggie Scramble",
+            "description": "Quick and easy scrambled egg whites with sautéed bell peppers and spinach, seasoned with herbs for flavor without extra calories",
+            "ingredients": [
+              "Egg whites - 3 large (100ml)",
+              "Fresh spinach - 1 cup (30g)",
+              "Red bell pepper - 1/3 medium (50g)",
+              "Cooking spray - 1 spray",
+              "Black pepper & garlic powder to taste"
+            ],
+            "estimated_calories": 150,
+            "estimated_protein_g": 10,
+            "estimated_carbs_g": 15,
+            "estimated_fat_g": 2.5
+          }
+        ]
+      }
+    },
+    {
+      "id": "high_cal_bulk",
+      "scenario": "Bulking phase, lots of calories remaining",
+      "score": {
+        "schemaValid": true,
+        "suggestionCount": true,
+        "macroFit": true,
+        "diversity": true,
+        "realism": true,
+        "points": 5,
+        "failures": [],
+        "latencyMs": 3874,
+        "suggestions": [
+          {
+            "name": "Grilled Chicken Breast with Sweet Potato and Broccoli",
+            "description": "A classic, balanced meal featuring a lean protein source paired with complex carbs and nutrient-dense vegetables. Perfect for muscle recovery and sustained energy.",
+            "ingredients": [
+              "Grilled chicken breast (180g)",
+              "Baked sweet potato (200g)",
+              "Steamed broccoli (150g)",
+              "Olive oil (1 tbsp)",
+              "Salt and pepper to taste"
+            ],
+            "estimated_calories": 495,
+            "estimated_protein_g": 42,
+            "estimated_carbs_g": 48,
+            "estimated_fat_g": 12
+          },
+          {
+            "name": "Salmon Fillet with Quinoa and Asparagus",
+            "description": "A nutrient-rich meal combining omega-3 rich salmon with complete-protein quinoa and fresh asparagus. Excellent for inflammation reduction and overall health.",
+            "ingredients": [
+              "Baked salmon fillet (160g)",
+              "Cooked quinoa (150g dry → ~450g cooked)",
+              "Roasted asparagus (120g)",
+              "Lemon juice (1 lemon)",
+              "Herbs (garlic, dill)"
+            ],
+            "estimated_calories": 510,
+            "estimated_protein_g": 38,
+            "estimated_carbs_g": 52,
+            "estimated_fat_g": 18
+          },
+          {
+            "name": "Turkey and Veggie Stir-Fry with Brown Rice",
+            "description": "A flavorful, quick-to-prepare meal with lean ground turkey, mixed vegetables, and whole grain rice. Great for busy days and packed with nutrients.",
+            "ingredients": [
+              "Ground turkey (170g)",
+              "Cooked brown rice (140g dry → ~420g cooked)",
+              "Mixed vegetables: bell peppers (100g), snap peas (80g), carrots (80g)",
+              "Low-sodium soy sauce (1 tbsp)",
+              "Sesame oil (1 tsp)",
+              "Garlic and ginger to taste"
+            ],
+            "estimated_calories": 495,
+            "estimated_protein_g": 35,
+            "estimated_carbs_g": 60,
+            "estimated_fat_g": 12
+          }
+        ]
+      }
+    },
+    {
+      "id": "near_zero_carb",
+      "scenario": "Near-zero carb budget remaining",
+      "score": {
+        "schemaValid": true,
+        "suggestionCount": true,
+        "macroFit": true,
+        "diversity": true,
+        "realism": true,
+        "points": 5,
+        "failures": [],
+        "latencyMs": 4504,
+        "suggestions": [
+          {
+            "name": "Grilled Salmon with Garlic Butter and Asparagus",
+            "description": "A rich, protein-packed keto meal featuring omega-3 loaded salmon topped with herb garlic butter, paired with sautéed asparagus. Perfect for finishing a day on keto.",
+            "ingredients": [
+              "Salmon fillet (120g)",
+              "Butter (1 tbsp / 14g)",
+              "Fresh garlic (2 cloves)",
+              "Fresh asparagus (100g)",
+              "Olive oil (1 tsp)",
+              "Salt and pepper to taste",
+              "Fresh lemon juice"
+            ],
+            "estimated_calories": 305,
+            "estimated_protein_g": 32,
+            "estimated_carbs_g": 3,
+            "estimated_fat_g": 18
+          },
+          {
+            "name": "Creamy Egg Salad with Bacon and Celery",
+            "description": "A satisfying, creamy egg salad loaded with crispy bacon pieces and fresh celery. Made with full-fat mayo for authentic keto flavor without the carb load.",
+            "ingredients": [
+              "Large eggs (3)",
+              "Bacon slices (2, cooked and crumbled)",
+              "Mayonnaise (2 tbsp)",
+              "Celery (50g, chopped)",
+              "Salt, pepper, and paprika to taste"
+            ],
+            "estimated_calories": 295,
+            "estimated_protein_g": 31,
+            "estimated_carbs_g": 2,
+            "estimated_fat_g": 18
+          },
+          {
+            "name": "Beef and Cream Cheese Steak Bites",
+            "description": "Tender, juicy steak cubes pan-seared and coated in a rich cream cheese and herb sauce. Ultra-low carb comfort food that hits all your macro targets.",
+            "ingredients": [
+              "Beef ribeye steak (140g, cubed)",
+              "Cream cheese (2 tbsp / 30g)",
+              "Butter (1 tsp)",
+              "Fresh parsley (1 tbsp, chopped)",
+              "Garlic powder (1/4 tsp)",
+              "Salt and pepper to taste"
+            ],
+            "estimated_calories": 298,
+            "estimated_protein_g": 30,
+            "estimated_carbs_g": 2,
+            "estimated_fat_g": 18
+          }
+        ]
+      }
+    }
+  ]
+}
