@@ -136,13 +136,12 @@ if [ "$history_count" = "0" ] && [ -n "$profiles_exists" ]; then
       -c "INSERT INTO drizzle.__drizzle_migrations (hash, created_at) VALUES ('${hash}', ${created_at});" >/dev/null
   done < <(node -e 'const j=require("./drizzle/meta/_journal.json"); for (const e of j.entries) console.log(`${e.tag}|${e.when}`)')
 else
-  # Fresh DB or partially-migrated DB: let drizzle-kit apply all pending migrations.
-  # drizzle-kit correctly handles -->statement-breakpoint markers (splitting each
-  # chunk into a separate statement/transaction) which raw psql -f cannot do.
-  echo "   - running drizzle-kit migrate"
+  # Fresh DB or partially-migrated DB: apply pending migrations via the
+  # drizzle-orm migrator (not drizzle-kit CLI, which swallows errors in CI).
+  echo "   - running drizzle-orm migrator"
   DIRECT_URL="postgresql://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}" \
   DATABASE_URL="postgresql://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}" \
-    npx drizzle-kit migrate
+    npx tsx scripts/db/run-migrations.ts
 fi
 
 if [ "$COMPAT_MODE" = "1" ]; then
