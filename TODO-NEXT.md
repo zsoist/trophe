@@ -27,20 +27,28 @@ Read this at the start of the next session before touching anything.
 
 ---
 
-## EVAL-GATED — meal_suggest model upgrade (deadline: 2026-05-09)
+## ✅ COMPLETED — meal_suggest model migration (was deadline: 2026-05-09)
 
-The `meal_suggest` policy is currently `google/gemini-2.0-flash` (documenting
-what HEAD's route already used). The proposed upgrade to `gemini-2.5-flash`
-requires a 15-prompt eval comparing both models on meal suggestion quality.
+**Completed 2026-05-02.** Migrated to `anthropic/claude-haiku-4-5-20251001`.
 
-**Action**: Build the eval, run it, commit the `policies.ts` change if quality
-parity is confirmed. If not built by **2026-05-09**, accept `gemini-2.0-flash`
-permanently and delete this entry.
+Research showed gemini-2.0-flash deprecated (hard-shutdown June 1, 2026).
+Production was already silently returning FALLBACK_SUGGESTIONS (3 hardcoded meals).
+Gemini 2.5 Flash had thinking-mode latency tax + markdown-fence JSON issues.
 
-| File | Change |
+Haiku 4.5 with `tool_choice` scored 50/50 (100%) on 10-prompt eval.
+Avg latency 4.2s, $0.004/call. Route refactored from Gemini REST to Anthropic SDK.
+Cost logging via `agent_runs` (Drizzle) verified end-to-end.
+
+Also fixed: Haiku 4.5 pricing was wrong ($0.25/$1.25 → $1.00/$5.00).
+
+| Commit | Change |
 |---|---|
-| `agents/router/policies.ts` | `meal_suggest.model`: `gemini-2.0-flash` -> `gemini-2.5-flash` |
-| `agents/router/pricing.ts` | Update pricing entry from 2.0-flash to 2.5-flash rates |
+| `fe0ad58` | Eval suite: `agents/evals/run-meal-suggest.ts` |
+| `61cda79` | Route refactor: Gemini REST → Anthropic SDK + tool_choice |
+| `c2baee8` | Policy + pricing update |
+
+**⚠️ Production `main` still uses gemini-2.0-flash** (silently broken).
+Cutover to v0.3-overhaul must happen before June 1, 2026.
 
 ---
 
