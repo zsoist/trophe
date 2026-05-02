@@ -24,6 +24,16 @@ If a session must end mid-task, leave a `TODO-NEXT.md` file at repo root listing
 
 Before every `git commit`, run `git diff --cached --stat` and confirm the staged file list matches the intended commit scope. `git stash pop` and IDE auto-staging can silently widen the index beyond what you ran `git add` against. If the staged list doesn't match intent, run `git reset` to clear the index, then `git add` only the intended files.
 
+## Audit pattern
+
+When writing diagnostic or audit documents:
+1. Write findings as initial claims, evidence-cited.
+2. Pick the highest-severity findings and run sanity checks against them — at minimum the P0/P1 items.
+3. Note corrections inline AND in a "Corrections after sanity checks" section at the bottom of the doc.
+4. Re-derive priorities from the corrected state, not the initial draft.
+
+Initial audit findings are hypotheses. Sanity checks are the verification. Don't ship audit conclusions without at least one verification pass — this arc produced two false-positive findings (Supabase 401 was a missing header, dashboard "broken" was actually shell-only with data protected by RLS) that would have driven wrong priorities if treated as fact.
+
 ---
 
 ## Stack (ground truth)
