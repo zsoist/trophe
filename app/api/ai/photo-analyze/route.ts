@@ -16,6 +16,8 @@ interface FoodAnalysis {
   estimated_carbs_g: number;
   estimated_fat_g: number;
   confidence: number;
+  source?: 'ai_estimate';
+  accuracy_note?: string;
 }
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
@@ -121,7 +123,7 @@ export async function POST(request: NextRequest) {
               },
               {
                 type: 'text',
-                text: 'Analyze this food photo. Identify each food item and estimate nutritional values per serving. Return JSON: { foods: [{ name, estimated_calories, estimated_protein_g, estimated_carbs_g, estimated_fat_g, confidence }] }. confidence is a number from 0 to 1. Return ONLY the JSON, no other text.',
+                text: 'Analyze this food photo. Identify visible food items and make a conservative rough macro estimate only. Photo-only portion estimation is uncertain unless a scale, label, or known container is visible. Do not imply precision. Return JSON: { foods: [{ name, estimated_calories, estimated_protein_g, estimated_carbs_g, estimated_fat_g, confidence, source, accuracy_note }] }. source must be "ai_estimate". confidence is 0 to 1 and should be below 0.75 unless portion size is visually anchored. accuracy_note should briefly say what makes the estimate uncertain. Return ONLY the JSON, no other text.',
               },
             ],
           },
@@ -185,7 +187,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({ foods });
+    return NextResponse.json({
+      foods: foods.map((food) => ({
+        ...food,
+        source: 'ai_estimate' as const,
+        confidence: Math.min(food.confidence, 0.75),
+        accuracy_note: food.accuracy_note ?? 'Photo-only nutrition is an estimate; confirm weight or serving size for accurate tracking.',
+      })),
+    });
   } catch (error) {
     console.error('Photo analysis error:', error);
     return NextResponse.json(

@@ -25,8 +25,8 @@ export function enrichWithLocalDB(items: ParsedFoodItem[]): ParsedFoodItem[] {
       fat_g: Math.round(match.fat_per_100g * factor * 10) / 10,
       fiber_g: Math.round(match.fiber_per_100g * factor * 10) / 10,
       sugar_g: item.sugar_g ?? 0,
-      source: 'local_db' as const,
-      confidence: Math.max(item.confidence, 0.9),
+      source: item.source,
+      confidence: item.confidence,
     };
   });
 }

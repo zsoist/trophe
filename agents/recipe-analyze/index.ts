@@ -17,6 +17,7 @@ import { isRecipeAnalyzeOutput } from '../schemas/recipe-analyze';
 import { pick } from '../router';
 import { traced } from '../observability/langfuse';
 import { emitGenAISpan, estimateCostUsd } from '../observability/otel';
+import { normalizeRecipeWithLookup } from './normalize';
 
 export const RECIPE_ANALYZE_VERSION = 'v1';
 
@@ -163,16 +164,7 @@ export async function run(
     return { ok: false, error: 'Could not parse recipe from response', telemetry };
   }
 
-  // User's servings value always wins; recompute per-serving from totals.
-  parsed.servings = servings;
-  parsed.per_serving = {
-    calories: Math.round(parsed.total.calories / servings),
-    protein_g: Math.round((parsed.total.protein_g / servings) * 10) / 10,
-    carbs_g: Math.round((parsed.total.carbs_g / servings) * 10) / 10,
-    fat_g: Math.round((parsed.total.fat_g / servings) * 10) / 10,
-    fiber_g: Math.round((parsed.total.fiber_g / servings) * 10) / 10,
-    sugar_g: Math.round((parsed.total.sugar_g / servings) * 10) / 10,
-  };
+  const normalized = await normalizeRecipeWithLookup(parsed, servings);
 
-  return { ok: true, output: parsed, telemetry };
+  return { ok: true, output: normalized, telemetry };
 }
