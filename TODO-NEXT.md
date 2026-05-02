@@ -17,14 +17,40 @@ These files must NOT be committed until `trophe_user` is created on
 | `scripts/ingest/embed-foods.ts:113` | Same | Rotate first |
 | `scripts/db/migrate-production.sh:52,56` | Same | Rotate first |
 
-Phase 4 plan: see `CLAUDE.md` (the block labelled "TOMORROW — phase 4 plan").
-Short version:
-1. `CREATE ROLE trophe_user WITH LOGIN PASSWORD '<new>';`
-2. `GRANT CONNECT ON DATABASE trophe_dev TO trophe_user;` + table/seq grants
-3. Update `.env.local` → `DATABASE_URL=postgresql://trophe_user:...@...`
-4. Verify `npm test` still passes
-5. Then edit these 4 files: replace literal with `process.env.DATABASE_URL` hard-fail
-6. Commit: "security: migrate Trophē from shared brain_user to trophe_user"
+**Phase 4 steps (self-contained):**
+
+```bash
+# 1. Create trophe_user on Mac Mini open_brain_postgres
+NEW_PASS=$(openssl rand -base64 32 | tr -dc 'A-Za-z0-9' | cut -c1-32)
+echo "TROPHE_DB_PASS=$NEW_PASS" >> ~/.local/secrets/trophe.env
+
+psql -h 127.0.0.1 -p 5433 -U postgres -d postgres \
+  -c "CREATE ROLE trophe_user WITH LOGIN PASSWORD '$NEW_PASS';" \
+  -c "GRANT CONNECT ON DATABASE trophe_dev TO trophe_user;"
+psql -h 127.0.0.1 -p 5433 -U postgres -d trophe_dev \
+  -c "GRANT USAGE ON SCHEMA public TO trophe_user;" \
+  -c "GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO trophe_user;" \
+  -c "GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO trophe_user;"
+
+# 2. Update .env.local
+# DATABASE_URL=postgresql://trophe_user:<new-pass>@127.0.0.1:5433/trophe_dev
+# PGPASSWORD=<new-pass>
+
+# 3. Verify Trophee still works
+psql "$DATABASE_URL" -c "SELECT 1;"
+npm test
+
+# 4. Verify brain_user (OpenBrain) is untouched
+psql -h 127.0.0.1 -p 5433 -U brain_user -d open_brain -c "SELECT 1;"
+
+# 5. Edit source files: replace literal in each with DATABASE_URL env-fail
+#    TS: const dbUrl = process.env.DATABASE_URL;
+#        if (!dbUrl) throw new Error('DATABASE_URL required. See .env.local.example.');
+#        const pool = new Pool({ connectionString: dbUrl, max: 5 });
+#    SH: LOCAL_DB="${DATABASE_URL:?Set DATABASE_URL — see .env.local.example}"
+
+# 6. Commit: "security: migrate Trophee from shared brain_user to trophe_user"
+```
 
 ---
 
