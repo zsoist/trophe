@@ -6,6 +6,24 @@ _Last synced to codebase: 2026-05-01 — v0.3-overhaul branch_
 
 ---
 
+## Working tree discipline
+
+No session ends with uncommitted working-tree files. At session end, every modified or untracked file must be one of:
+- **committed and pushed** — the work shipped
+- **reverted** — the work was abandoned
+- **stashed with a labeled note** — the work is paused
+
+"Working tree fixes" that never reach git are how:
+- migration `0000_complex_johnny_blaze.sql` had `/* */` wrappers in HEAD while local was clean
+- the CI hardcode guard was a no-op for multiple sessions while claiming ✅
+- 21 files of "shipped" enterprise hardening sat untracked while sessions claimed the feature was done
+
+If a session must end mid-task, leave a `TODO-NEXT.md` file at repo root listing every uncommitted file, why it isn't committed, and what the next session must do with it. This file may be committed or left in the working tree — either is better than silence.
+
+**For agents**: never report a feature as "shipped" unless `git log` shows the commit. Working tree ≠ shipped.
+
+---
+
 ## Stack (ground truth)
 
 | Layer | Technology |
