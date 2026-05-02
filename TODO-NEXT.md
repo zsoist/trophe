@@ -5,7 +5,7 @@ Read this at the start of the next session before touching anything.
 
 ---
 
-## CI state (run 25251115031 on commit 847106a)
+## CI state (run 25251519709 on commit 4609077)
 
 | Step | Status |
 |---|---|
@@ -20,59 +20,10 @@ Read this at the start of the next session before touching anything.
 | Enterprise readiness | ✅ |
 | Agent eval smoke | ✅ |
 | Playwright install | ✅ |
-| E2E smoke tests | ✅ (8 passed, 14.4s) |
+| E2E smoke tests | ✅ (8 passed) |
 | Production build | ✅ |
 
-**First fully green CI run on `v0.3-overhaul`.**
-
----
-
-## BLOCKED on Phase 4 (trophe_user creation)
-
-These files must NOT be committed until `trophe_user` is created on
-`open_brain_postgres` and `.env.local` is updated to use it.
-
-| File | Change | Blocker |
-|---|---|---|
-| `scripts/ingest/usda.ts:154` | Remove `brain_user:jDehquqo1...@5433` literal | Rotate first |
-| `scripts/ingest/hhf-dishes.ts:341` | Same | Rotate first |
-| `scripts/ingest/embed-foods.ts:113` | Same | Rotate first |
-| `scripts/db/migrate-production.sh:52,56` | Same | Rotate first |
-
-**Phase 4 steps (self-contained):**
-
-```bash
-# 1. Create trophe_user on Mac Mini open_brain_postgres
-NEW_PASS=$(openssl rand -base64 32 | tr -dc 'A-Za-z0-9' | cut -c1-32)
-echo "TROPHE_DB_PASS=$NEW_PASS" >> ~/.local/secrets/trophe.env
-
-psql -h 127.0.0.1 -p 5433 -U postgres -d postgres \
-  -c "CREATE ROLE trophe_user WITH LOGIN PASSWORD '$NEW_PASS';" \
-  -c "GRANT CONNECT ON DATABASE trophe_dev TO trophe_user;"
-psql -h 127.0.0.1 -p 5433 -U postgres -d trophe_dev \
-  -c "GRANT USAGE ON SCHEMA public TO trophe_user;" \
-  -c "GRANT SELECT,INSERT,UPDATE,DELETE ON ALL TABLES IN SCHEMA public TO trophe_user;" \
-  -c "GRANT USAGE,SELECT ON ALL SEQUENCES IN SCHEMA public TO trophe_user;"
-
-# 2. Update .env.local
-# DATABASE_URL=postgresql://trophe_user:<new-pass>@127.0.0.1:5433/trophe_dev
-# PGPASSWORD=<new-pass>
-
-# 3. Verify Trophee still works
-psql "$DATABASE_URL" -c "SELECT 1;"
-npm test
-
-# 4. Verify brain_user (OpenBrain) is untouched
-psql -h 127.0.0.1 -p 5433 -U brain_user -d open_brain -c "SELECT 1;"
-
-# 5. Edit source files: replace literal in each with DATABASE_URL env-fail
-#    TS: const dbUrl = process.env.DATABASE_URL;
-#        if (!dbUrl) throw new Error('DATABASE_URL required. See .env.local.example.');
-#        const pool = new Pool({ connectionString: dbUrl, max: 5 });
-#    SH: LOCAL_DB="${DATABASE_URL:?Set DATABASE_URL — see .env.local.example}"
-
-# 6. Commit: "security: migrate Trophee from shared brain_user to trophe_user"
-```
+**Third consecutive fully green CI run on `v0.3-overhaul`.**
 
 ---
 
@@ -93,37 +44,57 @@ permanently and delete this entry.
 
 ---
 
-## READY — commit in dependency order
+## TRACKED FOLLOW-UPS
 
-### Commit E: schema operator-class sync (no DB change needed)
-| File | Change |
-|---|---|
-| `db/schema/food.ts` | `userId` index: `date_ops` -> `uuid_ops` (sync with 0000.sql) |
-| `db/schema/measurements.ts` | Same |
-| `db/schema/supplements.ts` | Same |
-| `db/schema/water_log.ts` | Same |
-| `db/schema/workouts.ts` | Same |
+### Accuracy test silent DB fallback (priority: medium)
 
-Safe: `0000_complex_johnny_blaze.sql` already has `uuid_ops`. This is a
-TypeScript-only sync, no migration needed.
+`tests/agents/food-parse.accuracy.test.ts` defaults `DATABASE_URL` to
+`postgresql://postgres:postgres@127.0.0.1:54322/postgres` (Supabase
+local) when unset. This caused inconsistent gate results across
+sessions: earlier runs against 54322 (different `food_unit_conversions`
+data) failed 21/23 (91.3%); runs against 5433 pass 27/27. Fix options:
 
-### Commit F: docs (last)
-| File | Change |
-|---|---|
-| `CODEX.md` | Updated |
-| `DEPLOYMENT.md` | Updated |
-| `README.md` | Updated |
-| `RUNBOOK.md` | Updated |
+1. Require `DATABASE_URL` explicitly (no fallback) — hard failure if unset
+2. Verify the `foods` table has expected reference rows before computing the gate
+3. Log the connection target prominently so divergence is visible
+
+Pick one. The test should fail loudly if it can't trust its data source.
+
+### rls.test.ts requires superuser (priority: low)
+
+`tests/db/rls.test.ts` inserts into `auth.users` and uses `SET LOCAL ROLE`,
+both requiring superuser. Works in CI (`postgres` role) but fails locally
+as `trophe_user`. Fix: introduce `RLS_TEST_DATABASE_URL` env var for the
+test's superuser needs, fall back to `DATABASE_URL` for CI. Until fixed,
+locally run as: `DATABASE_URL=postgresql://brain_user:...@5433/trophe_dev
+npx vitest run tests/db/rls.test.ts` (or skip; CI covers it).
+
+### OpenBrain credential audit (priority: low — separate repos)
+
+`forge-discord-bot/src/services/dashboard.ts` and other repos hardcode
+`brain_user`/`jDehquqo1...`. Same pattern Trophe just fixed. Sweep:
+
+```bash
+grep -rn 'brain_user\|jDehquqo1' \
+  /Volumes/SSD/work/forge-projects/ \
+  /Volumes/SSD/servers/ \
+  /Volumes/SSD/work/openBrain/ \
+  --include='*.ts' --include='*.py' --include='*.sh' \
+  2>/dev/null | grep -v node_modules | grep -v __pycache__
+```
+
+Each hit needs the same treatment Trophe got: route through env var
+with a hard failure if unset. This is separate-repo work, not Trophe.
 
 ---
 
 ## brain_user architectural note
 
 `brain_user` is OpenBrain's system account, shared across 7+ Mac Mini services.
-Trophe's ingest scripts used it as a convenience. The plan:
+Trophe's ingest scripts used it as a convenience. Status after Phase 4:
 
-- Create `trophe_user` on `open_brain_postgres` with least-privilege grants on `trophe_dev`
-- Update Trophe's `DATABASE_URL` to use `trophe_user`
-- Remove literal password from 4 source files (Phase 4 commits above)
-- Leave `brain_user` and OpenBrain untouched
-- Separate audit: `forge-discord-bot` and other repos also hardcode `brain_user` — separate task
+- ✅ Created `trophe_user` on `open_brain_postgres` with least-privilege grants
+- ✅ Updated Trophe's `DATABASE_URL` to use `trophe_user`
+- ✅ Removed literal password from 4 source files (commit 4609077)
+- ✅ `brain_user` and OpenBrain verified untouched (2016 rows, 3 checkpoints)
+- Separate audit: `forge-discord-bot` and other repos still hardcode `brain_user`
