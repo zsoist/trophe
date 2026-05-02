@@ -249,7 +249,29 @@ async function resolveUnit(
     }
   }
 
-  // 3. Universal fallback (food_id IS NULL)
+  // 3. Food default serving when the requested unit matches the food's own
+  // canonical serving unit. This keeps curated HHF/Kavdas defaults such as
+  // feta slice = 30g and spanakopita piece = 130g ahead of generic universal
+  // portion rows like slice/piece.
+  const defaultServing = await db
+    .select({
+      id: foods.id,
+      defaultServingGrams: foods.defaultServingGrams,
+      defaultServingUnit: foods.defaultServingUnit,
+    })
+    .from(foods)
+    .where(eq(foods.id, foodId))
+    .limit(1);
+
+  if (
+    defaultServing.length > 0 &&
+    defaultServing[0].defaultServingGrams &&
+    defaultServing[0].defaultServingUnit?.toLowerCase().trim() === normalizedUnit
+  ) {
+    return { id: null, gramsPerUnit: defaultServing[0].defaultServingGrams };
+  }
+
+  // 4. Universal fallback (food_id IS NULL)
   const universal = await db
     .select()
     .from(foodUnitConversions)
@@ -268,7 +290,7 @@ async function resolveUnit(
     return { id: universal[0].id, gramsPerUnit: universal[0].gramsPerUnit };
   }
 
-  // 4. Universal without qualifier
+  // 5. Universal without qualifier
   if (qualifier) {
     const universalNoQual = await db
       .select()
@@ -286,13 +308,7 @@ async function resolveUnit(
     }
   }
 
-  // 5. Last resort: try to find default serving for this food
-  const defaultServing = await db
-    .select({ id: foods.id, defaultServingGrams: foods.defaultServingGrams })
-    .from(foods)
-    .where(eq(foods.id, foodId))
-    .limit(1);
-
+  // 6. Last resort: use the food's default serving even if the unit differs.
   if (defaultServing.length > 0 && defaultServing[0].defaultServingGrams) {
     return { id: null, gramsPerUnit: defaultServing[0].defaultServingGrams };
   }
