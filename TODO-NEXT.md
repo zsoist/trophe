@@ -57,6 +57,42 @@ Production now serves `https://trophe.app` from the v0.3 stack. `main` is still 
 
 ---
 
+## FOOD-PARSE ACCURACY — P1 follow-ups (2026-05-02)
+
+Current gate: 38/48 = 79.2% (threshold: 75%). Canonical foods seeded: 127/129.
+
+### Must-fix (next session)
+
+1. **Query specificity**: BM25 for generic queries ("eggs", "oats", "whole milk")
+   matches wrong USDA entries despite canonical injection + metadataBoost.
+   Root cause: lexical ambiguity. "eggs" → "Egg, whole, cooked, hard-boiled"
+   instead of "Egg, whole, raw, fresh". Need to investigate why metadataBoost
+   canonical +5 isn't overriding — possibly the boiled egg IS canonical
+   (egg_chicken_whole_boiled). Fix: review golden expected values or add
+   query-to-canonical-key direct mapping.
+
+2. **Golden macro alignment**: 3 cases fail on tight tolerances (<10% off)
+   because golden expected values were hand-calculated, not from actual DB.
+   Fix: query actual `kcal_per_100g` etc. from seeded foods and update goldens.
+
+3. **127 vs 129 canonical foods**: `cheddar_cheese` and `white_cheese_cheddar`
+   both map to FDC ID 170899. Dedup needed — pick one canonical key.
+
+4. **CI gate enforcement**: Accuracy tests skip in CI (no canonical foods
+   seeded in CI Postgres). Need: seed canonical foods in CI bootstrap, or
+   accept local-only gate for now.
+
+### Nice-to-have (later)
+
+5. **Fuzzy fallback path**: canonical injection covers the main BM25 path
+   but not the ILIKE fuzzy fallback. Low priority — fuzzy path only fires
+   when BM25 returns zero results.
+
+6. **HTTP eval runner**: extend `agents/evals/food-parse-nikos-golden.json`
+   with the 20 new cases from the Vitest golden set.
+
+---
+
 ## TRACKED FOLLOW-UPS
 
 ### Accuracy test silent DB fallback (resolved 2026-05-02)
