@@ -8,12 +8,13 @@
  *   - Unit conversion accuracy: correct grams resolved?
  *   - Macro accuracy: kcal within ±5% of authoritative reference?
  *
- * These tests are DB-backed (require trophe_dev running at 127.0.0.1:5433).
+ * These tests are DB-backed (require a bootstrapped DB reachable via DATABASE_URL).
  * They do NOT make LLM calls — they test the lookup layer directly.
+ * All goldens skip gracefully if the DB has no food data (e.g. CI without ingest).
  *
  * Run:
  *   npm run test tests/agents/food-parse.accuracy.test.ts
- *   # or, with DB env:
+ *   # or, pointing at the Mac Mini food DB:
  *   DATABASE_URL=postgresql://brain_user@127.0.0.1:5433/trophe_dev \
  *     npx vitest run tests/agents/food-parse.accuracy.test.ts
  *
@@ -33,8 +34,8 @@ let dbAvailable = false;
 beforeAll(async () => {
   const connectionString =
     process.env.DATABASE_URL ||
-    // Include password for local Mac Mini development
-    `postgresql://brain_user:${process.env.PGPASSWORD || 'jDehquqo1Dj0plzyrmaX2ybtzvjeKdFF'}@127.0.0.1:5433/trophe_dev`;
+    // Supabase local default — set DATABASE_URL for Mac Mini or any other host
+    'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
 
   pool = new Pool({ connectionString, max: 2 });
 

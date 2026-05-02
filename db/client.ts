@@ -14,8 +14,8 @@
  * The Supabase JS client is still used for AUTH only (Phase 2 cookie-based
  * sessions via @supabase/ssr). Data reads/writes go through this Drizzle pool.
  *
- * RLS enforcement note: this Pool connects as `brain_user` (table owner) so
- * RLS is BYPASSED by default. For per-request RLS, scripts/API routes that
+ * RLS enforcement note: this Pool connects as the DB owner (per DATABASE_URL)
+ * so RLS is BYPASSED by default. For per-request RLS, scripts/API routes that
  * need user-scoped queries must wrap their work with:
  *
  *   await db.execute(sql`SET LOCAL request.jwt.claim.sub = ${userId}`);
@@ -29,8 +29,8 @@ import { Pool } from 'pg';
 
 const connectionString =
   process.env.DATABASE_URL ||
-  // Include password for local Mac Mini development (brain_user on open_brain_postgres)
-  `postgresql://brain_user:${process.env.PGPASSWORD || 'jDehquqo1Dj0plzyrmaX2ybtzvjeKdFF'}@127.0.0.1:5433/trophe_dev`;
+  // Supabase local default — set DATABASE_URL in .env.local for Mac Mini or custom DBs
+  'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
 
 declare global {
   // Reuse the pool across hot reloads in `next dev` to avoid leak warnings.

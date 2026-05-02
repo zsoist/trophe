@@ -6,8 +6,9 @@
  *   2. Performs the operation under test
  *   3. ROLLBACKs so fixtures don't persist
  *
- * The local auth shim (bootstrap-local.sh) makes `auth.uid()` read from that GUC,
- * so these tests exercise the same RLS policies that run in production Supabase.
+ * The local bootstrap creates Supabase-compatible `auth.uid()` / `auth.role()`
+ * helpers, so these tests exercise the same RLS policy shape that runs in
+ * production Supabase.
  *
  * Run: npm test tests/db/rls.test.ts
  * Prereq: trophe_dev must be bootstrapped + Phases 0–1 migrations applied.
@@ -17,13 +18,14 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import pg from 'pg';
 
 // ─── connection ──────────────────────────────────────────────────────────────
+// Use DATABASE_URL as the canonical source so CI, Supabase local, and custom
+// setups all work identically.  Falling back to individual PG_* vars is
+// unreliable: vitest's env loading can silently shadow them.
 
 const pool = new pg.Pool({
-  host: '127.0.0.1',
-  port: 5433,
-  user: 'brain_user',
-  password: process.env.PGPASSWORD || 'jDehquqo1Dj0plzyrmaX2ybtzvjeKdFF',
-  database: 'trophe_dev',
+  connectionString:
+    process.env.DATABASE_URL ||
+    `postgresql://${process.env.PG_USER || 'postgres'}:${process.env.PG_PASS || process.env.PGPASSWORD || 'postgres'}@${process.env.PG_HOST || '127.0.0.1'}:${process.env.PG_PORT || '54322'}/${process.env.PG_DB || 'postgres'}`,
   max: 5,
 });
 
@@ -51,16 +53,14 @@ async function asUser<T>(
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    // Switch to trophe_anon role so RLS policies are enforced.
-    // brain_user is a superuser (bypasses RLS by default) — SET LOCAL ROLE
-    // drops to a non-privileged role for the duration of this transaction.
-    await client.query(`SET LOCAL ROLE trophe_anon`);
-    // The local auth shim reads request.jwt.claim.sub (singular), not the JSON
-    // claims envelope. Set both for compatibility.
+    // Drop from the connection's owner role to Supabase's authenticated role so
+    // RLS is enforced even when the underlying DB user is a superuser.
+    await client.query(`SET LOCAL ROLE authenticated`);
     await client.query(
       `SELECT set_config('request.jwt.claim.sub', $1, true)`,
       [userId],
     );
+    await client.query(`SELECT set_config('request.jwt.claim.role', 'authenticated', true)`);
     const result = await fn(client);
     return result;
   } finally {
