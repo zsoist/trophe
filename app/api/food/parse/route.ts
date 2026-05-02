@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { logAPIUsage, calculateCost } from '@/lib/api-cost-logger';
 import { guardAiRoute } from '@/lib/api-guard';
 import { run } from '@/agents/food-parse';
-import { modelFor } from '@/agents/router';
+import { modelFor, pick } from '@/agents/router';
 
 export type { ParsedFoodItem } from '@/agents/schemas/food-parse';
 
@@ -23,13 +23,14 @@ export async function POST(request: NextRequest) {
 
     const result = await run({ text, language });
     const t = result.telemetry;
+    const policy = pick('food_parse');
     const effectiveTokensIn = t.tokensIn + t.cacheCreationTokens + t.cacheReadTokens;
     const cost = calculateCost(t.model, effectiveTokensIn, t.tokensOut);
 
     logAPIUsage({
       endpoint: '/api/food/parse',
       model: t.model,
-      provider: 'anthropic',
+      provider: policy.provider === 'google' ? 'gemini' : 'anthropic',
       tokens_in: effectiveTokensIn,
       tokens_out: t.tokensOut,
       cost_usd: cost,

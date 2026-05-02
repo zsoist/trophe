@@ -15,13 +15,15 @@
  *   emitGenAISpan({
  *     task: 'food_parse',
  *     system: 'google',
- *     model: 'gemini-2.5-flash',
+ *     model: attrs.model,
  *     inputTokens: 312,
  *     outputTokens: 88,
  *     finishReason: 'stop',
  *     latencyMs: 420,
  *   });
  */
+
+import { estimateModelCostUsd } from '../router/pricing';
 
 export interface GenAISpanAttributes {
   /** Trophē task name — stored as custom attribute `trophe.task` */
@@ -84,19 +86,5 @@ export function estimateCostUsd(
   outputTokens: number,
   cacheReadTokens = 0,
 ): number {
-  const RATES: Record<string, { in: number; out: number; cacheRead?: number }> = {
-    'gemini-2.5-flash': { in: 0.075 / 1_000_000, out: 0.30 / 1_000_000 },
-    'claude-haiku-4-5-20251001': { in: 0.25 / 1_000_000, out: 1.25 / 1_000_000, cacheRead: 0.03 / 1_000_000 },
-    'claude-sonnet-4-5-20251022': { in: 3.00 / 1_000_000, out: 15.00 / 1_000_000, cacheRead: 0.30 / 1_000_000 },
-  };
-
-  const rate = RATES[model];
-  if (!rate) return 0;
-
-  const billableInput = inputTokens - cacheReadTokens;
-  return (
-    billableInput * rate.in +
-    outputTokens * rate.out +
-    cacheReadTokens * (rate.cacheRead ?? rate.in)
-  );
+  return estimateModelCostUsd(model, inputTokens, outputTokens, cacheReadTokens);
 }

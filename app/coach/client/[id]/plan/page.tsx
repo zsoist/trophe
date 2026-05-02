@@ -240,7 +240,7 @@ export default function PlanEditorPage() {
       .select(
         'id, status, sequence_number, coach_note, habit:habits(id, name_en, emoji, category, difficulty)'
       )
-      .single();
+      .maybeSingle();
     if (data) {
       const typed = data as unknown as ClientHabit;
       setActiveHabits((prev) => [...prev, typed]);

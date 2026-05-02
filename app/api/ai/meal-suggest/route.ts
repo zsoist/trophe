@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { guardAiRoute } from '@/lib/api-guard';
+import { pick } from '@/agents/router';
 
 interface MealSuggestRequest {
   remaining_calories: number;
@@ -115,6 +116,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { remaining_calories, remaining_protein_g, remaining_carbs_g, remaining_fat_g, preferences, meal_type } = validation.data;
+    const policy = pick('meal_suggest');
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
@@ -138,7 +140,7 @@ export async function POST(request: NextRequest) {
     const prompt = `You are a sports nutritionist. Suggest 3 meal options that fit these remaining macros: ${macroContext}.${preferencesNote}${mealTypeNote} Each meal should include: name, ingredients with quantities, total calories, protein_g, carbs_g, fat_g. Format as JSON array with objects having keys: name, ingredients (array of {item, quantity}), calories, protein_g, carbs_g, fat_g. Keep it practical and delicious. Return ONLY the JSON array, no other text.`;
 
     // Use header-based auth instead of URL query param (key in URL appears in logs)
-    const geminiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${policy.model}:generateContent`;
 
     const response = await fetch(geminiUrl, {
       method: 'POST',
@@ -149,7 +151,7 @@ export async function POST(request: NextRequest) {
         }],
         generationConfig: {
           temperature: 0.7,
-          maxOutputTokens: 2048,
+          maxOutputTokens: policy.maxTokens,
         },
       }),
     });

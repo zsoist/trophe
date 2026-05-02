@@ -9,6 +9,7 @@ import { describe, it, expect } from 'vitest';
 import { pick, modelFor, taskPolicies } from '../../agents/router';
 import type { TaskName } from '../../agents/router';
 import { estimateCostUsd } from '../../agents/observability/otel';
+import { modelPricing } from '../../agents/router/pricing';
 
 // ─── Router: policy dispatch ──────────────────────────────────────────────
 
@@ -47,6 +48,13 @@ describe('router.pick()', () => {
       expect(policy.costClass, `${task}.costClass`).toBeTruthy();
       expect(policy.latencyClass, `${task}.latencyClass`).toBeTruthy();
       expect(typeof policy.maxTokens, `${task}.maxTokens`).toBe('number');
+    }
+  });
+
+  it('all routed generation models have pricing entries', () => {
+    for (const [task, policy] of Object.entries(taskPolicies)) {
+      if (policy.maxTokens === 0) continue;
+      expect(modelPricing[policy.model], `${task}.model pricing`).toBeTruthy();
     }
   });
 });

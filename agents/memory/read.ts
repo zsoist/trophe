@@ -23,6 +23,7 @@ import { db } from '@/db/client';
 import { memoryChunks } from '@/db/schema/memory_chunks';
 import { eq, and, inArray, desc, sql } from 'drizzle-orm';
 import type { SelectMemoryChunk } from '@/db/schema/memory_chunks';
+import { pick } from '@/agents/router';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -70,7 +71,7 @@ async function embedQuery(text: string): Promise<number[] | null> {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'voyage-3-large',
+        model: pick('memory_embed').model,
         input: [text],
         input_type: 'query', // 'query' vs 'document' for asymmetric retrieval
       }),

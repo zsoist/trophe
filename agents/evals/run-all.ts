@@ -28,7 +28,7 @@ const args = process.argv.slice(2);
 const url = args.find((a) => a.startsWith('--url='))?.split('=')[1] ?? 'http://localhost:3333';
 const suiteFilter = args.find((a) => a.startsWith('--suite='))?.split('=')[1];
 
-const reportDir = join(process.cwd(), 'agents/evals/reports');
+const reportDir = process.env.EVAL_REPORT_DIR || join(process.cwd(), 'agents/evals/reports');
 mkdirSync(reportDir, { recursive: true });
 
 // ── Shared types ──────────────────────────────────────────────────────────────

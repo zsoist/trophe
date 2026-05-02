@@ -3,6 +3,7 @@
 // Admin dashboard at /admin/costs
 
 import { supabase } from './supabase';
+import { estimateModelCostUsd } from '@/agents/router/pricing';
 
 export interface APIUsageEntry {
   endpoint: string;
@@ -17,15 +18,8 @@ export interface APIUsageEntry {
   error_message?: string;
 }
 
-// Pricing per million tokens (as of April 2026)
-const PRICING = {
-  'claude-haiku-4-5-20251001': { input: 0.80, output: 4.00 },
-  'gemini-2.0-flash': { input: 0.075, output: 0.30 },
-} as Record<string, { input: number; output: number }>;
-
 export function calculateCost(model: string, tokensIn: number, tokensOut: number): number {
-  const pricing = PRICING[model] || { input: 1.0, output: 3.0 }; // fallback
-  return (tokensIn * pricing.input + tokensOut * pricing.output) / 1_000_000;
+  return estimateModelCostUsd(model, tokensIn, tokensOut);
 }
 
 export async function logAPIUsage(entry: APIUsageEntry): Promise<void> {

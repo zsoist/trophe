@@ -6,7 +6,7 @@
  *
  * Design:
  *   - Runs async / fire-and-forget AFTER each agent response (non-blocking).
- *   - Uses claude-sonnet-4-5 with strict JSON schema output (via policies.ts).
+ *   - Uses the router-selected reasoning model with strict JSON schema output.
  *   - Implements Letta supersedence: new facts that contradict existing ones
  *     mark old facts superseded_by=newId, preserving full history.
  *   - Embeds fact_text via Voyage v4 for kNN retrieval (agents/memory/read.ts).
@@ -25,7 +25,7 @@ import { db } from '@/db/client';
 import { memoryChunks } from '@/db/schema/memory_chunks';
 import { eq, and, isNull, sql } from 'drizzle-orm';
 import { callAnthropicMessages } from '@/agents/clients/anthropic';
-import { taskPolicies } from '@/agents/router/policies';
+import { pick, taskPolicies } from '@/agents/router';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -120,7 +120,7 @@ async function embedText(text: string): Promise<number[] | null> {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'voyage-3-large',
+        model: pick('memory_embed').model,
         input: [text],
         input_type: 'document',
       }),
