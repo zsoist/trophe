@@ -136,21 +136,13 @@ if [ "$history_count" = "0" ] && [ -n "$profiles_exists" ]; then
       -c "INSERT INTO drizzle.__drizzle_migrations (hash, created_at) VALUES ('${hash}', ${created_at});" >/dev/null
   done < <(node -e 'const j=require("./drizzle/meta/_journal.json"); for (const e of j.entries) console.log(`${e.tag}|${e.when}`)')
 else
-while IFS='|' read -r tag created_at; do
-  file="drizzle/${tag}.sql"
-  hash="$(shasum -a 256 "$file" | awk '{print $1}')"
-  applied="$(psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -tAc "SELECT 1 FROM drizzle.__drizzle_migrations WHERE hash = '${hash}'")"
-
-  if [ -n "$applied" ]; then
-    echo "   - ${tag} already applied"
-    continue
-  fi
-
-  echo "   - applying ${tag}"
-  psql -v ON_ERROR_STOP=1 -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -f "$file" >/dev/null
-  psql -v ON_ERROR_STOP=1 -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" \
-    -c "INSERT INTO drizzle.__drizzle_migrations (hash, created_at) VALUES ('${hash}', ${created_at});" >/dev/null
-done < <(node -e 'const j=require("./drizzle/meta/_journal.json"); for (const e of j.entries) console.log(`${e.tag}|${e.when}`)')
+  # Fresh DB or partially-migrated DB: let drizzle-kit apply all pending migrations.
+  # drizzle-kit correctly handles -->statement-breakpoint markers (splitting each
+  # chunk into a separate statement/transaction) which raw psql -f cannot do.
+  echo "   - running drizzle-kit migrate"
+  DIRECT_URL="postgresql://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}" \
+  DATABASE_URL="postgresql://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}" \
+    npx drizzle-kit migrate
 fi
 
 if [ "$COMPAT_MODE" = "1" ]; then
