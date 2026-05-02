@@ -621,7 +621,7 @@ These must never be broken:
 
 | Person | Role | Email | Notes |
 |--------|------|-------|-------|
-| Daniel Reyes | Technical co-founder / operator | d.reyesusma@gmail.com | Bogotá, GMT-5. Single final decision-maker. |
+| Daniel Reyes | Technical co-founder / operator | daniel@reyes.com | Bogotá, GMT-5. Single final decision-maker. |
 | Michael Kavdas | Business co-founder / lead coach | michael@kavdas.com | Athens. Greek nutritionist, PN L1, COO Athletikapp. |
 | George Tsatsaronis | Partner (potential) | george@kavdas.com | 21+ years deal-making. Met April 20. |
 

@@ -3,7 +3,7 @@
 -- This migration is idempotent (ON CONFLICT DO NOTHING for the UPDATE,
 -- CREATE OR REPLACE for the functions).
 --
--- In local dev: sets the auth.users + profiles row for d.reyesusma@gmail.com.
+-- In local dev: sets the auth.users + profiles row for daniel@reyes.com.
 -- In production (Phase 9+): Supabase Auth already owns auth.users; only the
 -- profiles UPDATE runs (the INSERT is a no-op on conflict).
 
@@ -17,7 +17,7 @@ BEGIN
   INSERT INTO auth.users (id, email)
   VALUES (
     'a0000000-0000-0000-0000-000000000001',
-    'd.reyesusma@gmail.com'
+    'daniel@reyes.com'
   )
   ON CONFLICT (id) DO NOTHING;
 EXCEPTION WHEN insufficient_privilege THEN
@@ -29,15 +29,15 @@ INSERT INTO profiles (id, full_name, email, role, language, timezone)
 SELECT
   au.id,
   'Daniel R',
-  'd.reyesusma@gmail.com',
+  'daniel@reyes.com',
   'super_admin',
   'en',
   'America/Bogota'
 FROM auth.users au
-WHERE au.email = 'd.reyesusma@gmail.com'
+WHERE au.email = 'daniel@reyes.com'
 ON CONFLICT (id) DO UPDATE
   SET role = 'super_admin'
-WHERE profiles.email = 'd.reyesusma@gmail.com';
+WHERE profiles.email = 'daniel@reyes.com';
 
 -- ─── 3. RLS helper functions ───────────────────────────────────────────────
 -- These are SECURITY DEFINER so they execute with owner privileges,

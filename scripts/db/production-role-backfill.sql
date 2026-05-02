@@ -23,15 +23,15 @@ INSERT INTO profiles (id, full_name, email, role, language, timezone)
 SELECT
   au.id,
   'Daniel R',
-  'd.reyesusma@gmail.com',
+  'daniel@reyes.com',
   'super_admin',
   'en',
   'America/Bogota'
 FROM auth.users au
-WHERE au.email = 'd.reyesusma@gmail.com'
+WHERE au.email = 'daniel@reyes.com'
 ON CONFLICT (id) DO UPDATE
   SET role = 'super_admin'
-WHERE profiles.email = 'd.reyesusma@gmail.com';
+WHERE profiles.email = 'daniel@reyes.com';
 
 -- ─── 2. RLS helper functions ───────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION is_super_admin()

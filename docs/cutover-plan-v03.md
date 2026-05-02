@@ -189,7 +189,7 @@ psql "$DIRECT_URL" -f scripts/db/production-role-backfill.sql
 
 **Verify**:
 ```sql
-SELECT role FROM profiles WHERE email = 'd.reyesusma@gmail.com';
+SELECT role FROM profiles WHERE email = 'daniel@reyes.com';
 -- Must return 'super_admin'
 
 SELECT routine_name FROM information_schema.routines 
@@ -396,7 +396,7 @@ If migrations were applied and you need to fully revert:
 ### Testers to notify
 
 All 11 profiles in production. Key contacts:
-- Daniel (self) — d.reyesusma@gmail.com
+- Daniel (self) — daniel@reyes.com
 - Nikos, Kavdas, Michael, Daniela, Alex (active testers)
 
 ### T-7 days: Draft message
@@ -472,7 +472,7 @@ Resolve these before T-7 days. Each is a research or code item.
 | 7 | Should gap #3 (session check on meal-suggest) be fixed before or after cutover? | Before is safer (prevents cost-abuse from day one). 10-minute fix. | OPEN |
 | 8 | What's the actual Vercel deployment ID for the current production deploy? | `vercel ls --prod` — needed for rollback command | OPEN |
 | 9 | Does the `proxy.ts` → `middleware.ts` rename require any other changes? | Check: `next.config.ts` for middleware config, `tsconfig.json` paths | OPEN |
-| 10 | Is Daniel's auth.users row already on production Supabase? | `SELECT id, email FROM auth.users WHERE email = 'd.reyesusma@gmail.com'` — needed for 0002 profiles upsert to find the FK | OPEN |
+| 10 | Is Daniel's auth.users row already on production Supabase? | `SELECT id, email FROM auth.users WHERE email = 'daniel@reyes.com'` — needed for 0002 profiles upsert to find the FK | OPEN |
 
 ---
 
