@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { guardAiRoute } from '@/lib/api-guard';
 
+// ─── Types ──────────────────────────────────────────────────────────────────
+
 interface MealSuggestRequest {
   remaining_calories: number;
   remaining_protein_g: number;
@@ -12,12 +14,15 @@ interface MealSuggestRequest {
 
 interface MealSuggestion {
   name: string;
+  description?: string;
   ingredients: { item: string; quantity: string }[];
-  calories: number;
-  protein_g: number;
-  carbs_g: number;
-  fat_g: number;
+  estimated_calories: number;
+  estimated_protein_g: number;
+  estimated_carbs_g: number;
+  estimated_fat_g: number;
 }
+
+// ─── Fallbacks (network errors only) ────────────────────────────────────────
 
 const FALLBACK_SUGGESTIONS: MealSuggestion[] = [
   {
@@ -28,10 +33,10 @@ const FALLBACK_SUGGESTIONS: MealSuggestion[] = [
       { item: 'Mixed vegetables', quantity: '150g' },
       { item: 'Olive oil', quantity: '1 tsp' },
     ],
-    calories: 420,
-    protein_g: 40,
-    carbs_g: 35,
-    fat_g: 12,
+    estimated_calories: 420,
+    estimated_protein_g: 40,
+    estimated_carbs_g: 35,
+    estimated_fat_g: 12,
   },
   {
     name: 'Greek Yogurt Protein Bowl',
@@ -41,10 +46,10 @@ const FALLBACK_SUGGESTIONS: MealSuggestion[] = [
       { item: 'Granola', quantity: '30g' },
       { item: 'Honey', quantity: '1 tsp' },
     ],
-    calories: 350,
-    protein_g: 24,
-    carbs_g: 48,
-    fat_g: 8,
+    estimated_calories: 350,
+    estimated_protein_g: 24,
+    estimated_carbs_g: 48,
+    estimated_fat_g: 8,
   },
   {
     name: 'Tuna Salad Wrap',
@@ -55,12 +60,57 @@ const FALLBACK_SUGGESTIONS: MealSuggestion[] = [
       { item: 'Avocado', quantity: '1/4' },
       { item: 'Lemon juice', quantity: '1 tbsp' },
     ],
-    calories: 380,
-    protein_g: 35,
-    carbs_g: 30,
-    fat_g: 14,
+    estimated_calories: 380,
+    estimated_protein_g: 35,
+    estimated_carbs_g: 30,
+    estimated_fat_g: 14,
   },
 ];
+
+// ─── Anthropic tool definition ──────────────────────────────────────────────
+// tool_choice forces the model to call this tool, guaranteeing JSON schema
+// compliance at the decoding layer. No regex extraction needed.
+
+const MEAL_SUGGEST_TOOL = {
+  name: 'submit_meal_suggestions',
+  description: 'Submit 3 meal suggestions that fit the remaining macros.',
+  input_schema: {
+    type: 'object' as const,
+    properties: {
+      suggestions: {
+        type: 'array' as const,
+        items: {
+          type: 'object' as const,
+          properties: {
+            name: { type: 'string' as const, description: 'Meal name' },
+            description: { type: 'string' as const, description: 'Short description of the meal' },
+            ingredients: {
+              type: 'array' as const,
+              items: {
+                type: 'object' as const,
+                properties: {
+                  item: { type: 'string' as const },
+                  quantity: { type: 'string' as const },
+                },
+                required: ['item', 'quantity'],
+              },
+            },
+            estimated_calories: { type: 'number' as const },
+            estimated_protein_g: { type: 'number' as const },
+            estimated_carbs_g: { type: 'number' as const },
+            estimated_fat_g: { type: 'number' as const },
+          },
+          required: ['name', 'ingredients', 'estimated_calories', 'estimated_protein_g', 'estimated_carbs_g', 'estimated_fat_g'],
+        },
+        minItems: 3,
+        maxItems: 3,
+      },
+    },
+    required: ['suggestions'],
+  },
+};
+
+// ─── Validation ─────────────────────────────────────────────────────────────
 
 function validateInput(body: unknown): { valid: true; data: MealSuggestRequest } | { valid: false; error: string } {
   if (!body || typeof body !== 'object') {
@@ -85,19 +135,10 @@ function validateInput(body: unknown): { valid: true; data: MealSuggestRequest }
   return { valid: true, data: b as unknown as MealSuggestRequest };
 }
 
-function extractJSON(text: string): MealSuggestion[] | null {
-  // Try to extract JSON array from the response text
-  const jsonMatch = text.match(/\[[\s\S]*\]/);
-  if (!jsonMatch) return null;
+// ─── Route handler ──────────────────────────────────────────────────────────
 
-  try {
-    const parsed = JSON.parse(jsonMatch[0]);
-    if (Array.isArray(parsed)) return parsed;
-  } catch {
-    // JSON parse failed
-  }
-  return null;
-}
+const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
+const MODEL = 'claude-haiku-4-5-20251001';
 
 export async function POST(request: NextRequest) {
   const block = guardAiRoute(request);
@@ -116,9 +157,9 @@ export async function POST(request: NextRequest) {
 
     const { remaining_calories, remaining_protein_g, remaining_carbs_g, remaining_fat_g, preferences, meal_type } = validation.data;
 
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
-      console.error('GEMINI_API_KEY not configured');
+      console.error('[meal-suggest] ANTHROPIC_API_KEY not configured');
       return NextResponse.json({ suggestions: FALLBACK_SUGGESTIONS });
     }
 
@@ -135,48 +176,67 @@ export async function POST(request: NextRequest) {
     const preferencesNote = safePreferences ? ` Dietary preferences: ${safePreferences}.` : '';
     const mealTypeNote = safeMealType ? ` This is for: ${safeMealType}.` : '';
 
-    const prompt = `You are a sports nutritionist. Suggest 3 meal options that fit these remaining macros: ${macroContext}.${preferencesNote}${mealTypeNote} Each meal should include: name, ingredients with quantities, total calories, protein_g, carbs_g, fat_g. Format as JSON array with objects having keys: name, ingredients (array of {item, quantity}), calories, protein_g, carbs_g, fat_g. Keep it practical and delicious. Return ONLY the JSON array, no other text.`;
+    const systemPrompt = 'You are a sports nutritionist. Suggest practical, delicious meals that fit the client\'s remaining macros for the day. Use the submit_meal_suggestions tool to return your suggestions.';
 
-    // Use header-based auth instead of URL query param (key in URL appears in logs)
-    const geminiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+    const userMessage = `Suggest 3 meal options that fit these remaining macros: ${macroContext}.${preferencesNote}${mealTypeNote}`;
 
-    const response = await fetch(geminiUrl, {
+    const response = await fetch(ANTHROPIC_API_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
       body: JSON.stringify({
-        contents: [{
-          parts: [{ text: prompt }],
-        }],
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 2048,
-        },
+        model: MODEL,
+        max_tokens: 1024,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userMessage }],
+        tools: [MEAL_SUGGEST_TOOL],
+        tool_choice: { type: 'tool', name: 'submit_meal_suggestions' },
       }),
     });
 
     if (!response.ok) {
-      console.error(`Gemini API error: ${response.status} ${response.statusText}`);
+      const errText = await response.text().catch(() => '');
+      console.error(`[meal-suggest] Anthropic API error: ${response.status} — ${errText.slice(0, 200)}`);
       return NextResponse.json({ suggestions: FALLBACK_SUGGESTIONS });
     }
 
-    const data = await response.json();
-    const textContent = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    const data = await response.json() as {
+      content?: Array<{ type: string; input?: { suggestions?: MealSuggestion[] } }>;
+    };
 
-    if (!textContent) {
-      console.error('No text content in Gemini response');
+    // tool_choice guarantees a tool_use block — extract the suggestions
+    const toolBlock = data?.content?.find((c) => c.type === 'tool_use');
+    const suggestions = toolBlock?.input?.suggestions;
+
+    if (!suggestions || !Array.isArray(suggestions) || suggestions.length === 0) {
+      console.error('[meal-suggest] No suggestions in tool_use response');
       return NextResponse.json({ suggestions: FALLBACK_SUGGESTIONS });
     }
 
-    const suggestions = extractJSON(textContent);
+    // Normalize field names for backward compatibility with the client
+    // Client expects: calories, protein_g, carbs_g, fat_g
+    // Tool returns: estimated_calories, estimated_protein_g, etc.
+    const normalized = suggestions.map((s) => ({
+      name: s.name,
+      description: s.description,
+      ingredients: s.ingredients,
+      calories: s.estimated_calories,
+      protein_g: s.estimated_protein_g,
+      carbs_g: s.estimated_carbs_g,
+      fat_g: s.estimated_fat_g,
+      // Keep estimated_* fields too for future clients
+      estimated_calories: s.estimated_calories,
+      estimated_protein_g: s.estimated_protein_g,
+      estimated_carbs_g: s.estimated_carbs_g,
+      estimated_fat_g: s.estimated_fat_g,
+    }));
 
-    if (!suggestions || suggestions.length === 0) {
-      console.error('Could not parse meal suggestions from Gemini response');
-      return NextResponse.json({ suggestions: FALLBACK_SUGGESTIONS });
-    }
-
-    return NextResponse.json({ suggestions });
+    return NextResponse.json({ suggestions: normalized });
   } catch (error) {
-    console.error('Meal suggestion error:', error);
+    console.error('[meal-suggest] Error:', error);
     return NextResponse.json({ suggestions: FALLBACK_SUGGESTIONS });
   }
 }
