@@ -326,6 +326,26 @@ function withinTolerance(actual: number, expected: number, tolerancePct: number)
 describe('food-parse v4 accuracy (lookup layer)', () => {
   const results: Array<{ name: string; passed: boolean; reason?: string }> = [];
 
+  it('prefers plain single-ingredient foods over compound keyword matches', async () => {
+    if (!dbAvailable) {
+      console.warn(`[accuracy] SKIP: DB not available`);
+      return;
+    }
+
+    const banana = await lookupFood({ foodName: 'banana', unit: '100g', region: 'GR' });
+    const honey = await lookupFood({ foodName: 'honey', unit: '100g', region: 'GR' });
+
+    if (!banana || !honey) {
+      console.warn('[accuracy] SKIP: single-ingredient USDA foods not available in this DB seed');
+      return;
+    }
+
+    expect(banana.food.nameEn.toLowerCase()).toContain('banana');
+    expect(banana.food.nameEn.toLowerCase()).toContain('raw');
+    expect(banana.food.nameEn.toLowerCase()).not.toContain('dehydrated');
+    expect(honey.food.nameEn).toBe('Honey');
+  });
+
   for (const golden of GOLDENS) {
     it(golden.description, async () => {
       if (!dbAvailable) {

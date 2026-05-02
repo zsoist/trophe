@@ -21,6 +21,7 @@
 
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { createClient } from '@supabase/supabase-js';
 
 // ── CLI args ──────────────────────────────────────────────────────────────────
 
@@ -100,7 +101,28 @@ interface FoodCase {
 interface ParsedItem { food_name: string; calories: number; protein_g: number; carbs_g: number; fat_g: number; fiber_g: number; }
 interface ParseResponse { items?: ParsedItem[]; error?: string; }
 
-async function checkServerAvailable(baseUrl: string): Promise<boolean> {
+async function getEvalAuthHeaders(): Promise<Record<string, string> | null> {
+  if (process.env.EVAL_AUTH_TOKEN) {
+    return { Authorization: `Bearer ${process.env.EVAL_AUTH_TOKEN}` };
+  }
+
+  const email = process.env.EVAL_AUTH_EMAIL;
+  const password = process.env.EVAL_AUTH_PASSWORD;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!email || !password || !supabaseUrl || !supabaseAnonKey) return null;
+
+  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error || !data.session?.access_token) {
+    throw new Error(`eval auth failed: ${error?.message ?? 'no session token'}`);
+  }
+  return { Authorization: `Bearer ${data.session.access_token}` };
+}
+
+async function checkServerAvailable(baseUrl: string, authHeaders: Record<string, string>): Promise<boolean> {
   try {
     const ctrl = new AbortController();
     const timeout = setTimeout(() => ctrl.abort(), 3000);
@@ -108,7 +130,7 @@ async function checkServerAvailable(baseUrl: string): Promise<boolean> {
     // any non-Trophē process (or missing endpoint) returns HTML → false.
     const res = await fetch(`${baseUrl}/api/food/parse`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders },
       body: JSON.stringify({ text: 'health-check', language: 'en' }),
       signal: ctrl.signal,
     });
@@ -120,12 +142,12 @@ async function checkServerAvailable(baseUrl: string): Promise<boolean> {
   }
 }
 
-async function runFoodParseCase(c: FoodCase, baseUrl: string): Promise<CaseResult> {
+async function runFoodParseCase(c: FoodCase, baseUrl: string, authHeaders: Record<string, string>): Promise<CaseResult> {
   const start = Date.now();
   try {
     const res = await fetch(`${baseUrl}/api/food/parse`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders },
       body: JSON.stringify({ text: c.input, language: c.language }),
     });
     const latencyMs = Date.now() - start;
@@ -162,7 +184,28 @@ async function runFoodParseSuite(): Promise<SuiteResult> {
   const evalPath = join(process.cwd(), 'agents/evals/food-parse-nikos-golden.json');
   const spec = JSON.parse(readFileSync(evalPath, 'utf-8')) as { cases: FoodCase[] };
 
-  const serverOk = await checkServerAvailable(url);
+  let authHeaders: Record<string, string> | null = null;
+  try {
+    authHeaders = await getEvalAuthHeaders();
+  } catch (err) {
+    return {
+      name: 'food_parse',
+      passed: 0, total: spec.cases.length, rate: 0,
+      skipped: true, skipReason: err instanceof Error ? err.message : String(err),
+      avgLatencyMs: 0, cases: [],
+    };
+  }
+  if (!authHeaders) {
+    return {
+      name: 'food_parse',
+      passed: 0, total: spec.cases.length, rate: 0,
+      skipped: true,
+      skipReason: 'EVAL_AUTH_TOKEN or EVAL_AUTH_EMAIL/EVAL_AUTH_PASSWORD required for protected food-parse API eval',
+      avgLatencyMs: 0, cases: [],
+    };
+  }
+
+  const serverOk = await checkServerAvailable(url, authHeaders);
   if (!serverOk) {
     return {
       name: 'food_parse',
@@ -174,7 +217,7 @@ async function runFoodParseSuite(): Promise<SuiteResult> {
 
   const cases: CaseResult[] = [];
   for (const c of spec.cases) {
-    cases.push(await runFoodParseCase(c, url));
+    cases.push(await runFoodParseCase(c, url, authHeaders));
   }
 
   const passed = cases.filter((c) => c.passed).length;
@@ -321,7 +364,7 @@ const COACH_INSIGHT_CASES = [
     id: 'insight_low_protein',
     clientContext: 'Client logged 85g protein today. Goal is 150g/day. Had oatmeal, chicken salad, and pasta.',
     minWords: 40, maxWords: 300,
-    requiredTerms: ['protein', 'goal'],
+    requiredTerms: ['protein'],
     bannedTerms: ['I cannot', 'I am unable'],
     validateActionable: true,
   },

@@ -100,19 +100,42 @@ async function keywordCandidates(foodName: string): Promise<SelectFood[]> {
     .orderBy(sql`ts_rank(search_text, to_tsquery('simple', ${tsQuery})) DESC`)
     .limit(KEYWORD_LIMIT);
 
+  const simpleQuery = tokens.join(' ');
+  const exactishPattern = `${simpleQuery}%`;
+  const pluralExactishPattern = tokens.length === 1 ? `${simpleQuery}s%` : exactishPattern;
+  const exactishRows = await db
+    .select()
+    .from(foods)
+    .where(
+      sql`(name_en ILIKE ${exactishPattern} OR name_en ILIKE ${pluralExactishPattern} OR name_el ILIKE ${exactishPattern})`
+    )
+    .limit(10);
+
+  const mergeUnique = (primary: SelectFood[], secondary: SelectFood[]): SelectFood[] => {
+    const seen = new Set<string>();
+    const merged: SelectFood[] = [];
+    for (const food of [...primary, ...secondary]) {
+      if (seen.has(food.id)) continue;
+      seen.add(food.id);
+      merged.push(food);
+    }
+    return merged;
+  };
+
   // If tsvector returned nothing, fall back to fuzzy ILIKE on name_en + name_el
   if (rows.length === 0) {
     const pattern = `%${tokens.join('%')}%`;
-    return db
+    const fuzzyRows = await db
       .select()
       .from(foods)
       .where(
         sql`(name_en ILIKE ${pattern} OR name_el ILIKE ${pattern})`
       )
       .limit(KEYWORD_LIMIT);
+    return mergeUnique(exactishRows, fuzzyRows);
   }
 
-  return rows;
+  return mergeUnique(exactishRows, rows);
 }
 
 // ── Stage 1B: direct vector arm (HNSW cosine kNN, no pre-filter) ─────────────
@@ -187,7 +210,51 @@ function rrfMerge(
 }
 
 // ── Stage 3: metadata boost ───────────────────────────────────────────────────
-function metadataBoost(candidates: SelectFood[], region: string): SelectFood[] {
+function normalizeLexicalName(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-zα-ωά-ώ0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function singularize(value: string): string {
+  return value
+    .split(' ')
+    .map((token) => token.length > 3 && token.endsWith('s') ? token.slice(0, -1) : token)
+    .join(' ');
+}
+
+function lexicalIntentScore(candidate: SelectFood, query: string): number {
+  const normalizedQuery = normalizeLexicalName(query);
+  const normalizedName = normalizeLexicalName(candidate.nameEn);
+  if (!normalizedQuery || !normalizedName) return 0;
+
+  const singularQuery = singularize(normalizedQuery);
+  const singularName = singularize(normalizedName);
+  const queryTokens = singularQuery.split(' ').filter(Boolean);
+  const nameTokens = singularName.split(' ').filter(Boolean);
+
+  let score = 0;
+  if (singularName === singularQuery) score += 12;
+  if (nameTokens[0] === queryTokens[0]) score += 3;
+  if (singularName.startsWith(`${singularQuery} `)) score += 2;
+  if (queryTokens.every((token) => nameTokens.includes(token))) score += 2;
+
+  // Generic one-food queries should not resolve to mixtures, desserts, baby foods,
+  // or processed variants just because they share the token.
+  if (queryTokens.length === 1 && nameTokens.length > 3) score -= 2;
+  if (queryTokens.length === 1 && /babyfood|cereal|dessert|doughnut|donut|cookies|candies|beverages/.test(singularName)) {
+    score -= 4;
+  }
+  if (queryTokens.length === 1 && /dehydrated|powder|dried/.test(singularName) && !/dehydrated|powder|dried/.test(singularQuery)) {
+    score -= 5;
+  }
+
+  return score;
+}
+
+function metadataBoost(candidates: SelectFood[], region: string, query: string): SelectFood[] {
   if (candidates.length <= 1) return candidates;
 
   // Score: quality weight + region match
@@ -195,6 +262,7 @@ function metadataBoost(candidates: SelectFood[], region: string): SelectFood[] {
   const scored = candidates.map(c => ({
     food: c,
     score:
+      lexicalIntentScore(c, query) +
       qualityScore(c.dataQuality) +
       (c.region?.includes(region) ? 2 : 0) +
       (c.popularity ?? 0) * 0.01, // popularity is a small tie-breaker
@@ -348,7 +416,7 @@ export async function lookupFood(input: LookupInput): Promise<LookupResult | nul
   if (candidates.length === 0) return null;
 
   // Stage 3: metadata boost
-  const ranked = metadataBoost(candidates, region);
+  const ranked = metadataBoost(candidates, region, input.foodName);
   if (ranked.length === 0) return null;
 
   const food = ranked[0];
