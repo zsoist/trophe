@@ -14,7 +14,7 @@
  */
 
 import { useEffect, useState, useCallback } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { ArrowLeft, Pencil, Trash2, Eye, EyeOff, Plus, Save, X, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
@@ -74,7 +74,6 @@ const FACT_TYPE_LABELS: Record<string, string> = {
 
 export default function ClientMemoryPage() {
   const params = useParams<{ id: string }>();
-  const router = useRouter();
   const clientId = params.id;
 
   const [chunks, setChunks] = useState<MemoryChunk[]>([]);
@@ -170,7 +169,7 @@ export default function ClientMemoryPage() {
           })
           .eq('id', existing.id)
           .select()
-          .single();
+          .maybeSingle();
         if (error) throw error;
         setBlocks((prev) => prev.map((b) => (b.id === existing.id ? (data as CoachBlock) : b)));
       } else {
@@ -187,7 +186,7 @@ export default function ClientMemoryPage() {
             visible_to_client: false,
           })
           .select()
-          .single();
+          .maybeSingle();
         if (error) throw error;
         setBlocks((prev) => [...prev, data as CoachBlock]);
       }
@@ -207,7 +206,7 @@ export default function ClientMemoryPage() {
       .update({ visible_to_client: !block.visible_to_client })
       .eq('id', block.id)
       .select()
-      .single();
+      .maybeSingle();
     if (!error && data) {
       setBlocks((prev) => prev.map((b) => (b.id === block.id ? (data as CoachBlock) : b)));
     }

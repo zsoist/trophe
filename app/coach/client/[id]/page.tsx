@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
-  ArrowLeft,
   Calendar,
   TrendingUp,
   Flame,

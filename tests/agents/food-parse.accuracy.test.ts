@@ -41,7 +41,7 @@ beforeAll(async () => {
   try {
     await pool.query('SELECT 1');
     dbAvailable = true;
-  } catch (err) {
+  } catch {
     console.warn('[accuracy] DB not available — all lookup tests will be skipped.');
     console.warn('[accuracy] Set DATABASE_URL or run: source ~/.local/secrets/pg.env');
     dbAvailable = false;

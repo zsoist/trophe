@@ -42,6 +42,7 @@ const PERIODS: { label: string; value: Period }[] = [
   { label: '90d', value: 90 },
 ];
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export default function MacroTrendChart({ userId, days: _days = 30 }: MacroTrendChartProps) {
   const { t } = useI18n();
   const [period, setPeriod] = useState<Period>(30);

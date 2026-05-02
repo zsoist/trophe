@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FileText, TrendingUp, TrendingDown, Minus, Award, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
+import { FileText, TrendingUp, TrendingDown, Minus, Award, ChevronDown, ChevronUp } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
 import { localDateStr } from '../lib/dates';
@@ -139,6 +139,7 @@ export default function MonthlyReport({ userId, targets }: MonthlyReportProps) {
 
   useEffect(() => {
     let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
 
     async function loadData() {

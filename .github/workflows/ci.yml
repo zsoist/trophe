@@ -3,7 +3,11 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, v0.3-overhaul]
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -12,7 +16,38 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 25
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      PG_HOST: 127.0.0.1
+      PG_PORT: 5432
+      PG_USER: postgres
+      PG_PASS: postgres
+      PG_DB: trophe_dev
+      PGPASSWORD: postgres
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/trophe_dev
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-anon-key
+      SUPABASE_SERVICE_ROLE_KEY: ci-service-role-key
+      CI: true
+      SKIP_SUPABASE_START: 1
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
     steps:
       - uses: actions/checkout@v4
 
@@ -21,8 +56,20 @@ jobs:
           node-version: 20
           cache: npm
 
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
       - name: Install dependencies
         run: npm ci
+
+      - name: Bootstrap local database
+        run: npm run db:bootstrap
+
+      - name: Verify DB inventory
+        run: npm run db:verify
+
+      - name: Capture DB explain plans
+        run: npm run db:explain
 
       - name: Typecheck
         run: npm run typecheck
@@ -30,5 +77,46 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Unit tests
+      - name: Unit and integration tests
         run: npm test
+
+      - name: Enterprise readiness checks
+        run: npm run readiness
+
+      - name: Agent eval smoke
+        run: npm run evals
+        env:
+          EVAL_REPORT_DIR: artifacts/evals
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: E2E smoke tests
+        run: npm run test:e2e
+
+      - name: Production build
+        run: npm run build
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          if-no-files-found: ignore
+
+      - name: Upload eval reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-eval-reports
+          path: artifacts/evals/
+          if-no-files-found: ignore
+
+      - name: Upload DB artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-artifacts
+          path: artifacts/db/
+          if-no-files-found: ignore

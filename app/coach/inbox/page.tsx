@@ -103,6 +103,7 @@ export default function CoachInboxPage() {
     setLoading(false);
   }, [router]);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { load(); }, [load]);
 
   const unread = clients.filter(c => c.days_since_log >= 3).length;

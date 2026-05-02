@@ -26,7 +26,7 @@
 import { db } from '../../db/client';
 import { foods, type SelectFood } from '../../db/schema/foods';
 import { foodUnitConversions } from '../../db/schema/food_unit_conversions';
-import { sql, and, eq, isNull, or } from 'drizzle-orm';
+import { sql, and, eq, isNull } from 'drizzle-orm';
 
 // ── Config ────────────────────────────────────────────────────────────────────
 /** Minimum cosine similarity to accept a vector match (0–1). */
@@ -129,7 +129,8 @@ async function vectorRerank(
   // Filter by minimum similarity threshold
   return (rows.rows as Array<SelectFood & { similarity: number }>)
     .filter(r => r.similarity >= MIN_SIMILARITY)
-    .map(({ similarity: _, ...food }) => food as SelectFood);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    .map(({ similarity: _sim, ...food }) => food as SelectFood);
 }
 
 // ── Stage 3: metadata boost ───────────────────────────────────────────────────

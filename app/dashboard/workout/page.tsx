@@ -8,7 +8,6 @@ import {
   ChevronDown, ChevronUp, History, Play, Square, Camera
 } from 'lucide-react';
 import { BotNav } from '@/components/ui/BotNav';
-import { Icon } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
 import { useClientNav } from '@/lib/useClientNav';

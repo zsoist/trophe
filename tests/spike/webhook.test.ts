@@ -170,8 +170,9 @@ describe('buildSpikeAuthUrl()', () => {
 
 describe('wearable_data schema constraints', () => {
   it('wearable_data has UNIQUE on (user_id, provider, data_type, recorded_at)', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { wearableData } = await import('../../db/schema/wearable_data');
-    // Verify the type is exported correctly
+    // Verify the type is exported correctly — wearableData used as type reference
     type InsertType = typeof wearableData.$inferInsert;
     const testRow: InsertType = {
       userId: '00000000-0000-0000-0000-000000000000',

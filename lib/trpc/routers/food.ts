@@ -12,7 +12,7 @@
  */
 
 import { z } from 'zod';
-import { router, protectedProcedure, coachProcedure } from '../init';
+import { router, protectedProcedure } from '../init';
 import { foodLog } from '@/db/schema/food';
 import { foods } from '@/db/schema/foods';
 import { eq, and, desc, ilike, sql } from 'drizzle-orm';
@@ -32,9 +32,6 @@ export const foodRouter = router({
       .query(async ({ ctx, input }) => {
         // If userId is provided, must be coach querying their client
         const targetUserId = input.userId ?? ctx.user!.id;
-
-        const dateStart = new Date(`${input.date}T00:00:00Z`);
-        const dateEnd = new Date(`${input.date}T23:59:59Z`);
 
         const rows = await ctx.db
           .select()

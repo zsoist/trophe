@@ -35,6 +35,7 @@ export function ThemeModeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const stored = localStorage.getItem('trophe_theme_mode') as ThemeMode | null;
     const initial = stored === 'light' ? 'light' : 'dark';
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMode(initial);
     applyModeClass(initial);
   }, []);

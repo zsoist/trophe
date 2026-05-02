@@ -313,6 +313,7 @@ export default function DashboardPage() {
     finally { setSubmitting(false); }
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleMood = async (mood: Mood) => {
     if (!todayCheckin) return;
     await supabase.from('habit_checkins').update({ mood }).eq('id', todayCheckin.id);

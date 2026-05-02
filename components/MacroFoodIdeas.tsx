@@ -304,6 +304,7 @@ interface CategoryConfig {
   ideas:    FoodIdea[];
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const placeholderConsumed = { protein: 0, carbs: 0, fat: 0, fiber: 0 };
 
 // titles are i18n keys — resolved inside MacroCategory via t()

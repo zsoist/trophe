@@ -117,7 +117,7 @@ export default function MonthlyCoachReport({ report }: MonthlyCoachReportProps) 
 
         {/* Stats grid */}
         <div className="grid grid-cols-2 gap-3 mb-5">
-          {STAT_CONFIG.map((stat, i) => {
+          {STAT_CONFIG.map((stat) => {
             const value = report[stat.key as keyof MonthlyReport] as number;
             return (
               <motion.div

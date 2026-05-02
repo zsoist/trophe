@@ -14,9 +14,7 @@ import MealSlotCard, { type MealSlot } from '@/components/MealSlotCard';
 import DailyInsights from '@/components/DailyInsights';
 import MealBadges from '@/components/MealBadges';
 import MealSlotConfig from '@/components/MealSlotConfig';
-import DateNavigator from '@/components/DateNavigator';
 import CalendarView from '@/components/CalendarView';
-import WeekStrip from '@/components/WeekStrip';
 import ProteinDistribution from '@/components/ProteinDistribution';
 import NutrientDensity from '@/components/NutrientDensity';
 import MacroTrendChart from '@/components/MacroTrendChart';
@@ -141,7 +139,8 @@ function getHealthTip(
   calories: number,
   targets: { calories: number; protein_g: number },
   filledCount: number,
-  nextUnfilled: MealSlot | undefined
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _nextUnfilled: MealSlot | undefined
 ): string {
   const hour = new Date().getHours();
   const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
@@ -204,7 +203,7 @@ export default function FoodLogPage() {
   // Date navigation
   const [showCalendar, setShowCalendar] = useState(false);
   const [showComparison, setShowComparison] = useState(false);
-  const [compareDate, setCompareDate] = useState('');
+  const [compareDate] = useState('');
 
   // Week strip data
   const [weekData, setWeekData] = useState<{ date: string; calories: number; entries: number }[]>([]);
@@ -244,6 +243,7 @@ export default function FoodLogPage() {
     localStorage.setItem(`trophe_locked_${selectedDate}`, JSON.stringify([...newLocked]));
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const lockAll = () => {
     const filledSlotIds = slots.filter(s => grouped[s.id].length > 0).map(s => s.id);
     saveLocked(new Set(filledSlotIds));
@@ -441,6 +441,7 @@ export default function FoodLogPage() {
     if (!error) await loadTodayLog();
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const copyYesterday = async () => {
     if (!userId || copying) return;
     setCopying(true);

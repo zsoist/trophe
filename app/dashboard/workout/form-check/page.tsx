@@ -147,7 +147,7 @@ export default function FormCheckPage() {
                     }}
                   >
                     {EXERCISES.map((ex) => (
-                      <option key={ex.key} value={ex.key} className="bg-stone-900">
+                      <option key={ex.key} value={ex.key}>
                         {ex.name}
                       </option>
                     ))}

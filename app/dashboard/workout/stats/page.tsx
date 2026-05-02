@@ -558,9 +558,9 @@ export default function WorkoutStatsPage() {
                   onChange={(e) => setSelectedExerciseId(e.target.value || null)}
                   className="input-dark text-sm mb-4"
                 >
-                  <option value="" className="bg-stone-900">Select an exercise...</option>
+                  <option value="">Select an exercise...</option>
                   {uniqueExercises.map((ex) => (
-                    <option key={ex.id} value={ex.id} className="bg-stone-900">
+                    <option key={ex.id} value={ex.id}>
                       {ex.name}
                     </option>
                   ))}

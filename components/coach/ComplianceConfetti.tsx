@@ -57,6 +57,7 @@ export default function ComplianceConfetti({ trigger }: ComplianceConfettiProps)
 
   useEffect(() => {
     if (trigger) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setShow(true);
       const timer = setTimeout(() => setShow(false), 3000);
       return () => clearTimeout(timer);

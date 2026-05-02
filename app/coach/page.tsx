@@ -41,7 +41,6 @@ import MonthlyCoachReport from '@/components/coach/MonthlyCoachReport';
 import CoachLoadingSkeletons from '@/components/coach/CoachLoadingSkeletons';
 import BatchHabitAssign from '@/components/coach/BatchHabitAssign';
 import ClientComparison from '@/components/coach/ClientComparison';
-import LoadingSkeleton from '@/components/coach/LoadingSkeleton';
 import { localDateStr } from '../../lib/dates';
 import { BotNav } from '@/components/ui/BotNav';
 import { Icon } from '@/components/ui';

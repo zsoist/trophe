@@ -34,7 +34,6 @@ const connectionString =
 
 declare global {
   // Reuse the pool across hot reloads in `next dev` to avoid leak warnings.
-  // eslint-disable-next-line no-var
   var __trophe_pg_pool: Pool | undefined;
 }
 

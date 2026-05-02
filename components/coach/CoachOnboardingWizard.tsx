@@ -38,6 +38,7 @@ export default memo(function CoachOnboardingWizard({
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored === 'true') {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setDismissed(true);
       } else {
         setDismissed(false);

@@ -6,7 +6,7 @@
  *   v4: LLM emits {food_name, qty, unit} only → DB supplies macros → ≥95% accuracy
  *
  * Pipeline:
- *   1. Gemini 2.5 Flash identifies foods + quantities (fast, cheap)
+ *   1. Router-selected extraction model identifies foods + quantities (fast, cheap)
  *   2. lookupFood() retrieves food row + unit conversion from DB
  *   3. Macros computed deterministically: grams × food.kcal_per_100g / 100
  *   4. Falls back to enrichWithLocalDB (v3 behavior) if lookup returns null
@@ -26,7 +26,6 @@ import { join } from 'node:path';
 import { callAnthropicMessages } from '../clients/anthropic';
 import { callGeminiMessages } from '../clients/google';
 import type { FoodParseInput, FoodParseOutput, ParsedFoodItem } from '../schemas/food-parse';
-import { extractJSON } from './extract';
 import { enrichWithLocalDB } from './enrich';
 import { lookupFoodBatch } from './lookup';
 import type { LookupInput } from './lookup';
@@ -136,7 +135,6 @@ export async function run(
           traceId = (_generation as { traceId?: string }).traceId ?? null;
         }
 
-        // Use Gemini 2.5 Flash as per router policy (food identification is cheap + fast)
         if (policy.provider === 'google') {
           return callGeminiMessages({
             model: policy.model,
@@ -146,9 +144,12 @@ export async function run(
           });
         }
 
-        // Anthropic fallback (e.g. if GEMINI_API_KEY not set)
+        if (policy.provider !== 'anthropic') {
+          throw new Error(`[food_parse] Unsupported provider: ${policy.provider}`);
+        }
+
         return callAnthropicMessages({
-          model: 'claude-haiku-4-5-20251001',
+          model: policy.model,
           system: PROMPT_TEMPLATE,
           userMessage,
           maxTokens: policy.maxTokens,

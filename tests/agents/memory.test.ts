@@ -254,7 +254,7 @@ describe('memory integration (DB round-trip)', () => {
   it.skipIf(!dbAvailable)('supersedence: new goal marks old goal inactive', async () => {
     const { db: dbClient } = await import('../../db/client');
     const { memoryChunks } = await import('../../db/schema/memory_chunks');
-    const { eq, isNull } = await import('drizzle-orm');
+    const { eq } = await import('drizzle-orm');
 
     // Insert an old weight goal
     const [oldFact] = await dbClient

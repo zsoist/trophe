@@ -17,7 +17,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
-import { exchangeSpikeCode, getSpikeUserProfile } from '@/lib/spike/client';
+import { exchangeSpikeCode } from '@/lib/spike/client';
 import { encryptToken } from '@/lib/spike/tokens';
 import { db } from '@/db/client';
 import { wearableConnections, type InsertWearableConnection } from '@/db/schema/wearable_connections';
