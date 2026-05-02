@@ -13,11 +13,11 @@ _Last synced to codebase: 2026-05-01 — v0.3-overhaul branch_
 | **Web** | Next.js 16.2.2 App Router · React 19.2.4 · TypeScript strict |
 | **Styling** | Tailwind CSS 4 · Framer Motion 12 · Lucide icons |
 | **Auth** | `@supabase/ssr` 0.10 — HTTP-only cookie sessions (NOT localStorage) |
-| **Database** | Supabase Postgres (production) + local `open_brain_postgres` @ `127.0.0.1:5433` (dev) |
+| **Database** | Supabase Postgres (production) + Supabase CLI local stack @ `127.0.0.1:54322` (dev) |
 | **ORM** | Drizzle ORM + Drizzle Kit — schema in `db/schema/`, migrations in `drizzle/` |
 | **API** | tRPC v11 (coach UI) + REST `/api/*` (public / webhooks) |
 | **AI** | LLM router (`agents/router/`) — Gemini 2.5 Flash (food-parse) · Haiku 4.5 (recipe) · Sonnet 4.6 (coach insights) |
-| **Embeddings** | Voyage v4 `voyage-large-2` 1024-dim via `scripts/ingest/embed-foods.ts` |
+| **Embeddings** | Voyage v4 `voyage-3-large` 1024-dim via `scripts/ingest/embed-foods.ts` |
 | **Observability** | Langfuse self-hosted @ `localhost:3002` — OTel GenAI semconv per span |
 | **Computer Vision** | MediaPipe Pose (browser WASM, 33 landmarks, 30+ FPS) for AI Form Check |
 | **Wearables** | Spike API — Apple Health, Whoop, Oura, Strava, Garmin, Fitbit |
@@ -245,8 +245,9 @@ npm run db:studio       # Drizzle Studio GUI (port 4983)
 npm run db:push         # push schema directly (dev only, skips migration)
 ```
 
-Local DB: `postgresql://brain_user:CHANGEME@127.0.0.1:5433/trophe_dev`
-Note: **use `127.0.0.1` not `localhost`** — macOS resolves `localhost` to `::1` first; Docker container only binds IPv4.
+Local DB: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`
+Canonical local flow: `npm run db:doctor` → `npm run db:local:start` → `npm run db:bootstrap`
+Legacy `open_brain_postgres` on `127.0.0.1:5433` is temporary compatibility only.
 
 ---
 
@@ -259,16 +260,12 @@ npm run dev              # http://localhost:3000
 # Before every production deploy
 npm run typecheck && npm run lint && npm test && npm run build
 
-# Production deploy (from v0.3-overhaul)
-git push origin v0.3-overhaul
-vercel --yes --prod
+# Production deploy is operator-gated. Do not deploy from this branch without explicit approval.
 ```
 
 - Production: `https://trophe-mu.vercel.app`
 - GitHub: `zsoist/trophe`
-- **ALWAYS `--prod`**: env vars are scoped to Production only in Vercel; preview builds fail without them.
-- **Max 3 production deploys per session** — local preview catches most issues.
-- Rollback: Vercel dashboard → Deployments → older deploy → "Promote to Production" (~30s).
+- Production deploy remains operator-gated after local + CI verification.
 
 ---
 

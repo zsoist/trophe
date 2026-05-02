@@ -12,16 +12,16 @@ _Last updated: 2026-05-01 (v0.3-overhaul branch)_
 |-------|------------|
 | **Web** | Next.js 16.2 App Router, React 19, TypeScript strict, Tailwind CSS 4, Framer Motion |
 | **Auth** | Supabase Auth + `@supabase/ssr` — HTTP-only cookie sessions, server-readable |
-| **Database** | Supabase Postgres (cloud, production) + local `open_brain_postgres` Docker @ `localhost:5433` (dev) |
+| **Database** | Supabase Postgres (cloud, production) + Supabase CLI local stack on OrbStack @ `127.0.0.1:54322` (dev) |
 | **ORM** | Drizzle ORM + Drizzle Kit — versioned migrations in `drizzle/`, schema in `db/schema/` |
 | **API layer** | tRPC v11 (internal coach UI) + REST `/api/v1/*` (external / webhooks) |
 | **LLM router** | `agents/router/` — task-based model selection: parse→Gemini Flash, recipe→Haiku 4.5, coach→Sonnet 4.6 |
-| **Embeddings** | Voyage v4 (`voyage-large-2`, 1024-dim) via `scripts/ingest/embed-foods.ts` |
+| **Embeddings** | Voyage v4 (`voyage-3-large`, 1024-dim) via `scripts/ingest/embed-foods.ts` |
 | **Observability** | Langfuse self-hosted @ `localhost:3002` — OTel GenAI semconv per span |
 | **Computer Vision** | MediaPipe Pose (browser WASM, 33 landmarks, 30+ FPS) for AI Form Check |
 | **Wearables** | Spike API — Apple Health, Whoop, Oura, Strava, Garmin, Fitbit via single integration |
 | **Testing** | Vitest 4 + `@vitest/coverage-v8` |
-| **CI** | GitHub Actions (typecheck + lint + unit + role-gate + food-parse accuracy) |
+| **CI** | GitHub Actions (typecheck + lint + unit + RLS + Playwright + DB verification + food-parse accuracy) |
 | **Hosting** | Vercel (production `trophe-mu.vercel.app`; preview from `v0.3-overhaul` branch) |
 
 ---
@@ -136,6 +136,16 @@ _Last updated: 2026-05-01 (v0.3-overhaul branch)_
 | `wearable_data` | Steps/HRV/sleep/workout/weight — indexed `(user_id, data_type, recorded_at desc)` |
 
 **RLS invariant**: every client-accessed table enforces `auth.uid() = user_id` or coach roster check. Zero SQL runs without RLS.
+
+## Local and CI truth table
+
+| Concern | Ground truth |
+|---|---|
+| Schema installer | Drizzle migrations in `drizzle/` |
+| Local runtime | Supabase CLI stack from `supabase/config.toml` |
+| Local DB host rule | `127.0.0.1`, never `localhost` |
+| RLS test role | `authenticated` via `SET LOCAL ROLE authenticated` |
+| CI DB | pgvector Postgres service using the same bootstrap compatibility path |
 
 ---
 

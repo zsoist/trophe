@@ -4,6 +4,25 @@ All notable changes to Trophē are logged here. Format follows [Keep a Changelog
 
 ---
 
+## [Unreleased] — Enterprise hardening on `v0.3-overhaul`
+
+- **`proxy.ts` convention**: Confirmed Next.js 16 uses `proxy.ts` + `export function proxy()` (not `middleware.ts`). File and function name verified correct; deprecation warning eliminated. E2E auth-gate test (anonymous → /login redirect) confirms proxy is active.
+- **Zero lint warnings**: Resolved all 42 ESLint warnings across 28 files — removed dead imports/variables, applied `eslint-disable-next-line` for documented tech debt (`react-hooks/set-state-in-effect` in effects that use localStorage), replaced banned `bg-stone-9xx` Tailwind classes with CSS variable equivalents in dashboard/onboarding paths.
+- **CI eval gate wired**: Added `ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}` to `.github/workflows/ci.yml` so `npm run evals` runs the `recipe_analyze` and `coach_insight` LLM-judge suites instead of silently skipping. GitHub Actions secret must be set by operator.
+- **HHF food seed + embeddings**: Ingested 30 Greek traditional foods (HHF dishes + existing seed), 89 multilingual aliases, all with Voyage `voyage-3-large` 1024-dim vectors. HNSW index confirmed via `\d foods`. Foods table is now queryable for the v4 food-parse pipeline.
+- **USDA FDC ingest + embeddings**: Pulled 7,888 foods from FDC FoundationFoods (95 lab-verified) + SR Legacy (7,793). All rows have `voyage-3-large` 1024-dim embeddings. Foods table total: **7,918 rows**, all vectorised, HNSW index rebuilt. API key stored locally; not committed to repo.
+- Fixed stale embedding model name in docs (`voyage-large-2` → `voyage-3-large` in `CLAUDE.md` and `ARCHITECTURE.md`).
+
+- Added CI gates for `v0.3-overhaul`: Postgres/pgvector service, DB bootstrap, typecheck, lint, Vitest, readiness checks, eval smoke, Playwright smoke, and production build.
+- Added enterprise invariant tests for banned Supabase `.single()`, AI model literals outside router/client boundaries, and unsafe HTML usage outside the layout theme script.
+- Switched food-parse default export to the v4 deterministic pipeline and removed runtime/telemetry model mismatch.
+- Centralized model pricing in `agents/router/pricing.ts`; API cost logging and OTel cost estimation now share the same pricing source.
+- Routed photo analysis, meal suggestions, memory embeddings, and food parse through router-owned model policies instead of route-local model literals.
+- Added Playwright mobile/desktop smoke coverage for public landing, login controls, anonymous dashboard redirect, and mobile overflow.
+- Added local readiness checks that verify CI branch coverage, pgvector DB service, no production deploy command, E2E script, security headers, and router coverage for live AI tasks.
+- Fixed remaining `.single()` calls in coach plan and memory pages.
+- No production deploy performed.
+
 ## [v0.3.0] — 2026-05-01 — EXTREME Local-First Overhaul (`v0.3-overhaul` branch)
 
 > **Status**: all 8 local phases green. Production cutover (Phase 9) is operator-gated.

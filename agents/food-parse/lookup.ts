@@ -1,22 +1,28 @@
 /**
- * agents/food-parse/lookup.ts — Hybrid food retrieval engine.
+ * agents/food-parse/lookup.ts — Hybrid food retrieval engine (v2 RRF).
  *
  * DietAI24 2026 paper implementation: LLM identifies, DB supplies macros.
  * Achieves ±1.2% MAPE vs the 19% error rate of LLM-invented macros.
  *
- * Two-stage retrieval pipeline:
- *   Stage 1 — Keyword filter (tsvector, fast)
- *     Drops 99%+ of the table instantly. Uses the generated search_text column.
- *   Stage 2 — kNN re-rank (cosine similarity on embedding, approximate)
- *     Among the keyword-filtered candidates, picks the closest vector match.
- *     Falls back to purely keyword results if no embedding exists yet.
- *   Stage 3 — Metadata boost (optional)
- *     Boosts by region match and data_quality. Returns top-1.
+ * Retrieval pipeline (upgraded to parallel RRF in Phase 9/10):
+ *
+ *   Stage 1 — Parallel dual retrieval
+ *     A. BM25/tsvector arm: keyword search on search_text (top KEYWORD_LIMIT)
+ *     B. Vector arm: HNSW cosine kNN on embedding (top VECTOR_LIMIT)
+ *     Both run simultaneously. Falls back to ILIKE if BM25 returns nothing.
+ *
+ *   Stage 2 — RRF merge (Reciprocal Rank Fusion, research-optimal 70/30)
+ *     score = 0.7 × (1 / (k + vector_rank)) + 0.3 × (1 / (k + bm25_rank))
+ *     where k = 60 (standard RRF constant).
+ *     This outperforms sequential filtering (old Stage 1→2) for cross-lingual
+ *     queries ("φέτα" matching "feta cheese") where BM25 fails but vector succeeds.
+ *
+ *   Stage 3 — Metadata boost
+ *     Boosts by data_quality (lab_verified > label > crowdsourced) + region match.
  *
  * Unit resolution:
- *   Looks up food_unit_conversions with priority:
- *     1. food-specific row (food_id = target food)
- *     2. universal fallback (food_id IS NULL)
+ *   food-specific → food-specific no qualifier → universal → universal no qualifier
+ *   → default serving grams.
  *
  * Returns:
  *   { food, conversionId, gramsPerUnit, gramsTotal, macros }
@@ -31,10 +37,13 @@ import { sql, and, eq, isNull } from 'drizzle-orm';
 // ── Config ────────────────────────────────────────────────────────────────────
 /** Minimum cosine similarity to accept a vector match (0–1). */
 const MIN_SIMILARITY    = 0.72;
-/** Max keyword candidates to pass to vector re-rank. */
-const KEYWORD_LIMIT     = 20;
-/** Max final results returned (usually 1). */
-const TOP_K             = 1;
+/** Max BM25/tsvector candidates (keyword arm). 40 ensures regional foods
+ *  (seeded after USDA bulk ingest) aren't cut off by heap-scan ordering. */
+const KEYWORD_LIMIT     = 40;
+/** Max direct HNSW candidates (vector arm). */
+const VECTOR_LIMIT      = 20;
+/** Standard RRF constant — lower k = top ranks dominate more. */
+const RRF_K             = 60;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 export interface LookupInput {
@@ -86,6 +95,9 @@ async function keywordCandidates(foodName: string): Promise<SelectFood[]> {
     .where(
       sql`search_text @@ to_tsquery('simple', ${tsQuery})`
     )
+    // Order by ts_rank so shorter, more specific names rank above long USDA variants.
+    // This prevents heap-scan order from burying regional (HHF/HelTH) foods.
+    .orderBy(sql`ts_rank(search_text, to_tsquery('simple', ${tsQuery})) DESC`)
     .limit(KEYWORD_LIMIT);
 
   // If tsvector returned nothing, fall back to fuzzy ILIKE on name_en + name_el
@@ -103,34 +115,75 @@ async function keywordCandidates(foodName: string): Promise<SelectFood[]> {
   return rows;
 }
 
-// ── Stage 2: vector re-rank ───────────────────────────────────────────────────
-async function vectorRerank(
-  candidates: SelectFood[],
+// ── Stage 1B: direct vector arm (HNSW cosine kNN, no pre-filter) ─────────────
+/**
+ * Query the HNSW index directly — NOT filtered to BM25 candidates.
+ * This is the key upgrade: cross-lingual queries ("φέτα" → "feta cheese") where
+ * BM25 returns nothing will still find matches via semantic embedding similarity.
+ */
+async function vectorSearch(
   queryEmbedding: number[],
 ): Promise<SelectFood[]> {
-  if (candidates.length === 0) return [];
+  if (queryEmbedding.length !== 1024) return [];
 
-  const ids = candidates.map(c => c.id);
   const vectorLiteral = `[${queryEmbedding.join(',')}]`;
 
-  // Cosine similarity = 1 - cosine_distance.
-  // pgvector <=> operator = cosine distance (lower = more similar).
   const rows = await db.execute<SelectFood & { similarity: number }>(
     sql`
       SELECT *, 1 - (embedding <=> ${vectorLiteral}::vector) AS similarity
       FROM foods
-      WHERE id = ANY(${ids}::uuid[])
-        AND embedding IS NOT NULL
+      WHERE embedding IS NOT NULL
+        AND 1 - (embedding <=> ${vectorLiteral}::vector) >= ${MIN_SIMILARITY}
       ORDER BY embedding <=> ${vectorLiteral}::vector
-      LIMIT ${TOP_K}
+      LIMIT ${VECTOR_LIMIT}
     `
   );
 
-  // Filter by minimum similarity threshold
   return (rows.rows as Array<SelectFood & { similarity: number }>)
-    .filter(r => r.similarity >= MIN_SIMILARITY)
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    .map(({ similarity: _sim, ...food }) => food as SelectFood);
+    // Strip the `similarity` column — it's only used for the WHERE filter above.
+    // Destructured on its own statement so the eslint-disable targets exactly this line.
+    .map((row) => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { similarity, ...food } = row;
+      return food as SelectFood;
+    });
+}
+
+// ── Stage 2: RRF merge (Reciprocal Rank Fusion 70/30) ────────────────────────
+/**
+ * Merge vector + BM25 results using RRF.
+ *   score = 0.7 × (1 / (k + vector_rank)) + 0.3 × (1 / (k + bm25_rank))
+ *
+ * Foods appearing in both arms receive both contributions (best case).
+ * Foods appearing in only one arm still get their single contribution.
+ */
+function rrfMerge(
+  vectorResults: SelectFood[],
+  bm25Results: SelectFood[],
+): SelectFood[] {
+  const scores = new Map<string, { food: SelectFood; score: number }>();
+
+  // Vector arm — 70% weight
+  vectorResults.forEach((food, idx) => {
+    const rank = idx + 1;
+    scores.set(food.id, { food, score: 0.7 * (1 / (RRF_K + rank)) });
+  });
+
+  // BM25 arm — 30% weight (additive for foods in both arms)
+  bm25Results.forEach((food, idx) => {
+    const rank = idx + 1;
+    const contribution = 0.3 * (1 / (RRF_K + rank));
+    const existing = scores.get(food.id);
+    if (existing) {
+      existing.score += contribution;
+    } else {
+      scores.set(food.id, { food, score: contribution });
+    }
+  });
+
+  return Array.from(scores.values())
+    .sort((a, b) => b.score - a.score)
+    .map(entry => entry.food);
 }
 
 // ── Stage 3: metadata boost ───────────────────────────────────────────────────
@@ -256,19 +309,27 @@ async function resolveUnit(
  */
 export async function lookupFood(input: LookupInput): Promise<LookupResult | null> {
   const region = input.region ?? 'GR';
+  const hasEmbedding = (input.queryEmbedding?.length ?? 0) === 1024;
 
-  // Stage 1: keyword filter
-  let candidates = await keywordCandidates(input.foodName);
-  if (candidates.length === 0) return null;
+  // Stage 1: Parallel dual retrieval (BM25 arm + vector arm simultaneously)
+  const [bm25Results, vectorResults] = await Promise.all([
+    keywordCandidates(input.foodName),
+    hasEmbedding ? vectorSearch(input.queryEmbedding!) : Promise.resolve([] as SelectFood[]),
+  ]);
 
-  // Stage 2: vector re-rank (if embedding provided)
-  if (input.queryEmbedding && input.queryEmbedding.length === 1024) {
-    const vectorResults = await vectorRerank(candidates, input.queryEmbedding);
-    if (vectorResults.length > 0) {
-      candidates = vectorResults;
-    }
-    // else: fall through to metadata boost on keyword results
+  if (bm25Results.length === 0 && vectorResults.length === 0) return null;
+
+  // Stage 2: RRF merge — cross-lingual queries benefit here:
+  // if BM25 returns nothing for "φέτα", vector arm still finds "feta cheese"
+  let candidates: SelectFood[];
+  if (hasEmbedding) {
+    candidates = rrfMerge(vectorResults, bm25Results);
+  } else {
+    // No embedding provided — use BM25 results directly
+    candidates = bm25Results;
   }
+
+  if (candidates.length === 0) return null;
 
   // Stage 3: metadata boost
   const ranked = metadataBoost(candidates, region);
