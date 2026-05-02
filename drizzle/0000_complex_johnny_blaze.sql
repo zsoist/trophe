@@ -1,17 +1,24 @@
 -- Current sql file was generated after introspecting the database
 -- If you want to run this migration please uncomment this code before executing migrations
-/*
-CREATE SCHEMA "auth";
+CREATE SCHEMA IF NOT EXISTS "auth";
 --> statement-breakpoint
-CREATE TABLE "auth"."users" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"email" text,
-	"raw_app_meta_data" jsonb DEFAULT '{}'::jsonb,
-	"raw_user_meta_data" jsonb DEFAULT '{}'::jsonb,
-	"created_at" timestamp with time zone DEFAULT now(),
-	"updated_at" timestamp with time zone DEFAULT now(),
-	CONSTRAINT "users_email_key" UNIQUE("email")
-);
+DO $$
+BEGIN
+	IF to_regclass('auth.users') IS NULL THEN
+		EXECUTE $create_auth_users$
+			CREATE TABLE "auth"."users" (
+				"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+				"email" text,
+				"raw_app_meta_data" jsonb DEFAULT '{}'::jsonb,
+				"raw_user_meta_data" jsonb DEFAULT '{}'::jsonb,
+				"created_at" timestamp with time zone DEFAULT now(),
+				"updated_at" timestamp with time zone DEFAULT now(),
+				CONSTRAINT "users_email_key" UNIQUE("email")
+			)
+		$create_auth_users$;
+	END IF;
+END
+$$;
 --> statement-breakpoint
 CREATE TABLE "form_analyses" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
@@ -363,24 +370,28 @@ CREATE INDEX "idx_client_profiles_coach" ON "client_profiles" USING btree ("coac
 CREATE INDEX "idx_client_profiles_user" ON "client_profiles" USING btree ("user_id" uuid_ops);--> statement-breakpoint
 CREATE INDEX "idx_client_habits_client" ON "client_habits" USING btree ("client_id" uuid_ops);--> statement-breakpoint
 CREATE INDEX "idx_client_habits_status" ON "client_habits" USING btree ("status" text_ops);--> statement-breakpoint
-CREATE INDEX "idx_food_log_user_date" ON "food_log" USING btree ("user_id" date_ops,"logged_date" date_ops);--> statement-breakpoint
-CREATE INDEX "idx_water_log_user_date" ON "water_log" USING btree ("user_id" date_ops,"logged_date" date_ops);--> statement-breakpoint
-CREATE INDEX "idx_supplement_log_user_date" ON "supplement_log" USING btree ("user_id" date_ops,"logged_date" date_ops);--> statement-breakpoint
+CREATE INDEX "idx_food_log_user_date" ON "food_log" USING btree ("user_id" uuid_ops,"logged_date" date_ops);--> statement-breakpoint
+CREATE INDEX "idx_water_log_user_date" ON "water_log" USING btree ("user_id" uuid_ops,"logged_date" date_ops);--> statement-breakpoint
+CREATE INDEX "idx_supplement_log_user_date" ON "supplement_log" USING btree ("user_id" uuid_ops,"logged_date" date_ops);--> statement-breakpoint
 CREATE INDEX "idx_api_usage_created" ON "api_usage_log" USING btree ("created_at" timestamptz_ops);--> statement-breakpoint
 CREATE INDEX "idx_api_usage_endpoint" ON "api_usage_log" USING btree ("endpoint" text_ops);--> statement-breakpoint
 CREATE INDEX "idx_coach_notes_client" ON "coach_notes" USING btree ("client_id" uuid_ops);--> statement-breakpoint
 CREATE INDEX "idx_habit_checkins_date" ON "habit_checkins" USING btree ("checked_date" date_ops);--> statement-breakpoint
 CREATE INDEX "idx_habit_checkins_user" ON "habit_checkins" USING btree ("user_id" uuid_ops);--> statement-breakpoint
-CREATE INDEX "idx_measurements_user_date" ON "measurements" USING btree ("user_id" date_ops,"measured_date" date_ops);--> statement-breakpoint
+CREATE INDEX "idx_measurements_user_date" ON "measurements" USING btree ("user_id" uuid_ops,"measured_date" date_ops);--> statement-breakpoint
 CREATE INDEX "idx_food_db_name" ON "food_database" USING btree ("name" text_ops);--> statement-breakpoint
 CREATE INDEX "idx_food_db_name_el" ON "food_database" USING btree ("name_el" text_ops);--> statement-breakpoint
 CREATE INDEX "idx_food_db_name_es" ON "food_database" USING btree ("name_es" text_ops);--> statement-breakpoint
 CREATE INDEX "idx_food_db_popularity" ON "food_database" USING btree ("popularity" int4_ops);--> statement-breakpoint
-CREATE INDEX "idx_food_db_search" ON "food_database" USING gin (to_tsvector('simple'::regconfig, ((((COALESCE(name, ''::text) | tsvector_ops);--> statement-breakpoint
+CREATE INDEX "idx_food_db_search" ON "food_database" USING gin (
+  to_tsvector('simple'::regconfig,
+    (((COALESCE(name, ''::text) || ' '::text) || COALESCE(name_el, ''::text)) || ' '::text) || COALESCE(name_es, ''::text)
+  )
+);--> statement-breakpoint
 CREATE INDEX "idx_workout_sets_exercise" ON "workout_sets" USING btree ("exercise_id" uuid_ops);--> statement-breakpoint
 CREATE INDEX "idx_workout_sets_session" ON "workout_sets" USING btree ("session_id" uuid_ops);--> statement-breakpoint
 CREATE INDEX "idx_exercises_muscle" ON "exercises" USING btree ("muscle_group" text_ops);--> statement-breakpoint
-CREATE INDEX "idx_workout_sessions_user" ON "workout_sessions" USING btree ("user_id" date_ops,"session_date" date_ops);--> statement-breakpoint
+CREATE INDEX "idx_workout_sessions_user" ON "workout_sessions" USING btree ("user_id" uuid_ops,"session_date" date_ops);--> statement-breakpoint
 CREATE POLICY "Users manage own form analyses" ON "form_analyses" AS PERMISSIVE FOR ALL TO public USING ((user_id = auth.uid()));--> statement-breakpoint
 CREATE POLICY "Coaches view client form analyses" ON "form_analyses" AS PERMISSIVE FOR SELECT TO public;--> statement-breakpoint
 CREATE POLICY "All users see template habits" ON "habits" AS PERMISSIVE FOR SELECT TO public USING ((is_template = true));--> statement-breakpoint
@@ -428,4 +439,3 @@ CREATE POLICY "Users see own exercises" ON "exercises" AS PERMISSIVE FOR SELECT 
 CREATE POLICY "Users create exercises" ON "exercises" AS PERMISSIVE FOR INSERT TO public;--> statement-breakpoint
 CREATE POLICY "Users manage own sessions" ON "workout_sessions" AS PERMISSIVE FOR ALL TO public USING ((user_id = auth.uid()));--> statement-breakpoint
 CREATE POLICY "Coaches view client sessions" ON "workout_sessions" AS PERMISSIVE FOR SELECT TO public;
-*/
