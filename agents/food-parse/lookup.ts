@@ -86,8 +86,17 @@ async function keywordCandidates(foodName: string): Promise<SelectFood[]> {
 
   if (tokens.length === 0) return [];
 
-  // Try plainto_tsquery first (tolerant), fall back to prefix match with ILIKE
-  const tsQuery = tokens.map(t => `${t}:*`).join(' & ');
+  // Singularize tokens for BM25 — 'simple' tsconfig has no stemmer, so
+  // "eggs" must become "egg" to match "Egg, whole, raw, fresh".
+  const singularTokens = tokens.map(t =>
+    t.length > 3 && t.endsWith('s') && !t.endsWith('ss') ? t.slice(0, -1) : t
+  );
+
+  // Build tsquery with BOTH forms: "egg:* | eggs:*" so we catch singular AND plural
+  const tsQuery = tokens.map((t, i) => {
+    const s = singularTokens[i];
+    return s !== t ? `(${s}:* | ${t}:*)` : `${t}:*`;
+  }).join(' & ');
 
   const rows = await db
     .select()
@@ -101,13 +110,15 @@ async function keywordCandidates(foodName: string): Promise<SelectFood[]> {
     .limit(KEYWORD_LIMIT);
 
   const simpleQuery = tokens.join(' ');
+  const singularQuery = singularTokens.join(' ');
   const exactishPattern = `${simpleQuery}%`;
+  const singularExactishPattern = singularQuery !== simpleQuery ? `${singularQuery}%` : exactishPattern;
   const pluralExactishPattern = tokens.length === 1 ? `${simpleQuery}s%` : exactishPattern;
   const exactishRows = await db
     .select()
     .from(foods)
     .where(
-      sql`(name_en ILIKE ${exactishPattern} OR name_en ILIKE ${pluralExactishPattern} OR name_el ILIKE ${exactishPattern})`
+      sql`(name_en ILIKE ${exactishPattern} OR name_en ILIKE ${singularExactishPattern} OR name_en ILIKE ${pluralExactishPattern} OR name_el ILIKE ${exactishPattern})`
     )
     .limit(10);
 
@@ -122,6 +133,20 @@ async function keywordCandidates(foodName: string): Promise<SelectFood[]> {
     return merged;
   };
 
+  // Canonical injection pattern: canonical entries have verified unit conversions
+  // and macros, but may rank low in BM25 due to USDA's verbose naming.
+  // E.g. "eggs" → "Egg, whole, raw, fresh" ranks #94 in BM25 because
+  // "Eggs, Grade A, Large, egg whole" has higher term frequency. Injecting
+  // ensures metadataBoost can give canonical entries their +5 advantage.
+  const canonPattern = `%${singularTokens.join('%')}%`;
+  const canonicalMatches = await db
+    .select()
+    .from(foods)
+    .where(
+      sql`canonical_food_key IS NOT NULL AND (name_en ILIKE ${canonPattern} OR name_el ILIKE ${canonPattern})`
+    )
+    .limit(10);
+
   // If tsvector returned nothing, fall back to fuzzy ILIKE on name_en + name_el
   if (rows.length === 0) {
     const pattern = `%${tokens.join('%')}%`;
@@ -132,10 +157,10 @@ async function keywordCandidates(foodName: string): Promise<SelectFood[]> {
         sql`(name_en ILIKE ${pattern} OR name_el ILIKE ${pattern})`
       )
       .limit(KEYWORD_LIMIT);
-    return mergeUnique(exactishRows, fuzzyRows);
+    return mergeUnique(exactishRows, mergeUnique(fuzzyRows, canonicalMatches));
   }
 
-  return mergeUnique(exactishRows, rows);
+  return mergeUnique(exactishRows, mergeUnique(rows, canonicalMatches));
 }
 
 // ── Stage 1B: direct vector arm (HNSW cosine kNN, no pre-filter) ─────────────
@@ -270,6 +295,7 @@ function metadataBoost(candidates: SelectFood[], region: string, query: string):
       lexicalIntentScore(c, query) +
       qualityScore(c.dataQuality) +
       (c.region?.includes(region) ? 2 : 0) +
+      (c.canonicalFoodKey ? 5 : 0) + // canonical foods have verified conversions
       (c.popularity ?? 0) * 0.01, // popularity is a small tie-breaker
   }));
 
