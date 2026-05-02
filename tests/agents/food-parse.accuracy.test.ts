@@ -40,10 +40,20 @@ beforeAll(async () => {
 
   try {
     await pool.query('SELECT 1');
+    // Probe for migration 0007 columns — Supabase local may lack them
+    await pool.query('SELECT usda_fdc_id, canonical_food_key FROM foods LIMIT 0');
     dbAvailable = true;
-  } catch {
-    console.warn('[accuracy] DB not available — all lookup tests will be skipped.');
-    console.warn('[accuracy] Set DATABASE_URL or run: source ~/.local/secrets/pg.env');
+  } catch (err: unknown) {
+    const pgCode = (err as { code?: string })?.code;
+    if (pgCode === '42703') {
+      // Column doesn't exist — DB is reachable but schema is pre-migration-0007
+      console.warn('[accuracy] DB reachable but missing migration 0007 columns (usda_fdc_id, canonical_food_key).');
+      console.warn('[accuracy] Run: DATABASE_URL=<mac-mini-url> npx drizzle-kit migrate');
+      console.warn('[accuracy] All lookup tests will be skipped.');
+    } else {
+      console.warn('[accuracy] DB not available — all lookup tests will be skipped.');
+      console.warn('[accuracy] Set DATABASE_URL or run: source ~/.local/secrets/pg.env');
+    }
     dbAvailable = false;
   }
 });
