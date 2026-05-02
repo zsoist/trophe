@@ -48,3 +48,8 @@ next-env.d.ts
 # v0.3 — drizzle migration artifacts (committed) vs local snapshot caches
 drizzle/.snapshots/
 drizzle/meta/_journal_lock
+
+# CI and test output — never commit build artifacts
+artifacts/
+test-results/
+playwright-report/
