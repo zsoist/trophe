@@ -22,6 +22,8 @@ If a session must end mid-task, leave a `TODO-NEXT.md` file at repo root listing
 
 **For agents**: never report a feature as "shipped" unless `git log` shows the commit. Working tree ≠ shipped.
 
+Before every `git commit`, run `git diff --cached --stat` and confirm the staged file list matches the intended commit scope. `git stash pop` and IDE auto-staging can silently widen the index beyond what you ran `git add` against. If the staged list doesn't match intent, run `git reset` to clear the index, then `git add` only the intended files.
+
 ---
 
 ## Stack (ground truth)
