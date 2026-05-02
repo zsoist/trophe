@@ -335,6 +335,39 @@ npm run build        # clean production build
 
 ---
 
+## Nutrition data quality taxonomy
+
+Trophē tracks the source and confidence of every food's macro data. This is a credibility requirement: anyone evaluating Trophē's nutrition accuracy needs to know what's lab-verified vs. AI-estimated.
+
+### Tiers (column: `foods.data_quality` × `foods.source`)
+
+1. **`lab_verified`** — Macros measured in a laboratory. Currently only USDA Foundation Foods qualify (~95 foods). Confidence: ≥0.95.
+2. **`label` + `source=usda`** — Sourced from USDA SR Legacy or FNDDS Survey datasets. Standard reference (~7,793 foods). Confidence: 0.85–0.95.
+3. **`label` + `source=hhf|helth`** — Community-curated Mediterranean foods, sourced from published research (PubMed 28731641) or the Hellenic Food Thesaurus. Confidence: 0.7–0.9.
+4. **`crowdsourced`** — Open Food Facts or similar user-submitted databases. Quality varies. Confidence: 0.5–0.75.
+5. **`estimated`** — LLM-generated (Anthropic, Gemini). Use only when no DB match exists. Always flag in UI as "estimate". Confidence: ≤0.75 (capped by `agents/food-parse/`).
+
+### Provenance columns on `foods` table
+
+- `data_quality`: NOT NULL enum — `lab_verified | label | crowdsourced | estimated`
+- `source`: NOT NULL enum — `usda | off | helth | hhf | custom`
+- `macro_confidence`: NOT NULL real 0.0–1.0 (default 0.7)
+- `usda_fdc_id`: nullable integer — populated when data sourced from USDA FDC
+- `provenance_notes`: nullable text — free-form source details
+- `canonical_food_key`: nullable text — lowercase ASCII identifier for cross-region food matching (e.g., `egg_chicken_whole_raw`)
+- `unit_conversion_verified`: NOT NULL boolean (default false) — set true when `food_unit_conversions` has been human-verified for this food
+- `data_reviewed_at`: nullable timestamp — set when a human reviewed the entry
+
+### Rules
+
+- Never silently downgrade an estimate to a higher tier
+- Never silently upgrade lab data to estimate (no losing provenance)
+- Frontend MUST display confidence/tier when below 0.85
+- New foods added via curation MUST cite `provenance_notes`
+- `usda_fdc_id` MUST be populated when `source = 'usda'`
+
+---
+
 ## Pitfalls (hard-won)
 
 ### Auth

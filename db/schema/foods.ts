@@ -28,6 +28,8 @@ import {
   text,
   real,
   smallint,
+  integer,
+  boolean,
   jsonb,
   timestamp,
   index,
@@ -94,6 +96,14 @@ export const foods = pgTable(
     // ── Vector embedding (Voyage v4, 1024-dim) ─────────────────────
     // Stored as vector(1024). Column created raw in migration due to Drizzle
     // lacking pgvector column type in this version. Populated by embed-foods.ts.
+
+    // ── Provenance tracking ──────────────────────────────────────────
+    usdaFdcId: integer('usda_fdc_id'),                  // USDA FoodData Central ID (FK reference)
+    macroConfidence: real('macro_confidence').notNull().default(0.7),  // 0.0–1.0
+    unitConversionVerified: boolean('unit_conversion_verified').notNull().default(false),
+    canonicalFoodKey: text('canonical_food_key'),        // e.g. 'egg_chicken_whole_raw'
+    provenanceNotes: text('provenance_notes'),           // free text: source details
+    dataReviewedAt: timestamp('data_reviewed_at', { withTimezone: true }),
 
     // ── Popularity / curation ──────────────────────────────────────
     popularity: smallint('popularity').default(0),   // 0-100, used in rerank
