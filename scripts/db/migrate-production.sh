@@ -3,10 +3,12 @@
 #
 # Safe Supabase production migration runner for Trophē v0.3-overhaul.
 #
-# Applies all 7 Drizzle migrations to Supabase production then seeds:
-#   1. Runs drizzle-kit migrate (migrations 0000-0006) via DIRECT_URL
-#   2. Runs the Supabase-safe role backfill (skips auth.users INSERT)
-#   3. Optionally seeds foods table from local pg_dump
+# Strategy:
+#   1. Seed Drizzle journal to skip migration 0000 (tables already exist from
+#      the old supabase-schema.sql)
+#   2. Run drizzle migrate (applies 0001–0006; 0002 has exception handling for
+#      auth.users INSERT on Supabase)
+#   3. Optionally seed foods table from local pg_dump
 #
 # Prerequisites:
 #   export DIRECT_URL="postgresql://postgres.<ref>:<pass>@aws-0-*.pooler.supabase.com:5432/postgres"
@@ -32,27 +34,26 @@ echo "  Trophē v0.3 — Production migration"
 echo "  Target: ${DIRECT_URL%@*}@*** (password redacted)"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-# ── Step 1: Drizzle migrations (0000–0006) ─────────────────────────────────────
+# ── Step 1: Seed Drizzle journal (skip 0000) ──────────────────────────────────
 echo ""
-echo "📦  Step 1/3 — Running Drizzle migrations..."
-DATABASE_URL="$DIRECT_URL" npx drizzle-kit migrate
-echo "✅  Drizzle migrations applied."
+echo "📋  Step 1/3 — Seeding Drizzle journal to skip migration 0000..."
+psql "$DIRECT_URL" -f scripts/db/seed-drizzle-journal.sql
+echo "✅  Journal seeded — migration 0000 will be skipped."
 
-# ── Step 2: Production-safe role backfill ─────────────────────────────────────
+# ── Step 2: Drizzle migrations (0001–0006) ────────────────────────────────────
 echo ""
-echo "👤  Step 2/3 — Applying Supabase-safe role backfill..."
-psql "$DIRECT_URL" -f scripts/db/production-role-backfill.sql
-echo "✅  Role backfill applied."
+echo "📦  Step 2/3 — Running Drizzle migrations (0001–0006)..."
+echo "    Note: 0002 wraps auth.users INSERT in exception handling — safe on Supabase."
+DATABASE_URL="$DIRECT_URL" npx tsx scripts/db/run-migrations.ts
+echo "✅  Drizzle migrations applied."
 
 # ── Step 3: (optional) Seed foods from local pg_dump ──────────────────────────
 if [[ "${1:-}" == "--seed-foods" ]]; then
   echo ""
   echo "🌿  Step 3/3 — Seeding foods table from local Mac Mini Postgres..."
 
-  LOCAL_DB="${DATABASE_URL:?Set DATABASE_URL — see .env.local.example}"
-
-  # Dump foods + aliases + conversions from local
-  # PGPASSWORD is picked up from env automatically — do not hardcode
+  # Dump foods + aliases + conversions from local Mac Mini DB (port 5433)
+  # PGPASSWORD must be set in the environment for trophe_user
   DUMP_FILE="/tmp/trophe-foods-seed-$(date +%Y%m%d%H%M%S).sql"
   pg_dump -h 127.0.0.1 -p 5433 -U "${PGUSER:-trophe_user}" -d trophe_dev \
     --table=foods --table=food_aliases --table=food_unit_conversions \

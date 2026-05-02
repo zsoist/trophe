@@ -8,12 +8,21 @@
 -- profiles UPDATE runs (the INSERT is a no-op on conflict).
 
 -- ─── 1. Auth shim: ensure Daniel's user row exists in dev ──────────────────
-INSERT INTO auth.users (id, email)
-VALUES (
-  'a0000000-0000-0000-0000-000000000001',
-  'd.reyesusma@gmail.com'
-)
-ON CONFLICT (id) DO NOTHING;
+-- Wrapped in DO block with exception handling: on Supabase production,
+-- auth.users is owned by Supabase Auth and direct INSERTs are denied
+-- with "permission denied for table users". The block catches this
+-- gracefully so the rest of the migration continues.
+DO $$
+BEGIN
+  INSERT INTO auth.users (id, email)
+  VALUES (
+    'a0000000-0000-0000-0000-000000000001',
+    'd.reyesusma@gmail.com'
+  )
+  ON CONFLICT (id) DO NOTHING;
+EXCEPTION WHEN insufficient_privilege THEN
+  RAISE NOTICE 'auth.users INSERT skipped (Supabase owns auth schema) — this is expected in production';
+END $$;
 
 -- ─── 2. Profiles: upsert super_admin row ──────────────────────────────────
 INSERT INTO profiles (id, full_name, email, role, language, timezone)
