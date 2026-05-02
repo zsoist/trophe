@@ -250,6 +250,11 @@ function lexicalIntentScore(candidate: SelectFood, query: string): number {
   if (queryTokens.length === 1 && /dehydrated|powder|dried/.test(singularName) && !/dehydrated|powder|dried/.test(singularQuery)) {
     score -= 5;
   }
+  // "egg" → "egg whole" not "egg white"; "milk" → whole milk not "milk fat"
+  // Penalize sub-component / processed variants when query is a plain food noun.
+  if (queryTokens.length <= 2 && /\bwhite\b|\byolk\b|\bsubstitute\b|\bshell\b|\bsolid\b/.test(singularName) && !/\bwhite\b|\byolk\b|\bsubstitute\b|\bshell\b|\bsolid\b/.test(singularQuery)) {
+    score -= 3;
+  }
 
   return score;
 }
