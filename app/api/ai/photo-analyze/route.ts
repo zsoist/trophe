@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { logAPIUsage, calculateCost, extractAnthropicUsage } from '@/lib/api-cost-logger';
+import { calculateCost, extractAnthropicUsage } from '@/lib/api-cost-logger';
 import { guardAiRoute } from '@/lib/api-guard';
 import { pick } from '@/agents/router';
+import { logAgentRun } from '@/lib/agent-run-logger';
 
 interface PhotoAnalyzeRequest {
   imageBase64: string;
@@ -70,8 +71,8 @@ function extractJSON(text: string): FoodAnalysis[] | null {
 }
 
 export async function POST(request: NextRequest) {
-  const block = guardAiRoute(request);
-  if (block) return block;
+  const guard = await guardAiRoute(request);
+  if (!guard.ok) return guard.response;
 
   try {
     const body = await request.json();
@@ -133,7 +134,16 @@ export async function POST(request: NextRequest) {
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`Anthropic API error: ${response.status} ${errorText}`);
-      logAPIUsage({ endpoint: '/api/ai/photo-analyze', model: policy.model, provider: 'anthropic', tokens_in: 0, tokens_out: 0, cost_usd: 0, latency_ms: latencyMs, success: false, error_message: errorText.slice(0, 200) });
+      logAgentRun({
+        taskName: 'photo_analyze',
+        model: policy.model,
+        provider: 'anthropic',
+        costUsd: 0,
+        latencyMs,
+        rawStatus: response.status,
+        userId: guard.userId,
+        errorMessage: errorText.slice(0, 200),
+      });
       return NextResponse.json(
         { error: 'Failed to analyze photo' },
         { status: 502 },
@@ -143,7 +153,17 @@ export async function POST(request: NextRequest) {
     const data = await response.json();
     const { tokensIn, tokensOut } = extractAnthropicUsage(data);
     const cost = calculateCost(policy.model, tokensIn, tokensOut);
-    logAPIUsage({ endpoint: '/api/ai/photo-analyze', model: policy.model, provider: 'anthropic', tokens_in: tokensIn, tokens_out: tokensOut, cost_usd: cost, latency_ms: latencyMs, success: true });
+    logAgentRun({
+      taskName: 'photo_analyze',
+      model: policy.model,
+      provider: 'anthropic',
+      tokensIn,
+      tokensOut,
+      costUsd: cost,
+      latencyMs,
+      rawStatus: response.status,
+      userId: guard.userId,
+    });
 
     const textContent = data?.content?.[0]?.text;
 

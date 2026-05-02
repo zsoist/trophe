@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { logAPIUsage, calculateCost } from '@/lib/api-cost-logger';
 import { guardAiRoute } from '@/lib/api-guard';
 import { run } from '@/agents/food-parse';
-import { modelFor, pick } from '@/agents/router';
+import { modelFor } from '@/agents/router';
 
 export type { ParsedFoodItem } from '@/agents/schemas/food-parse';
 
 export async function POST(request: NextRequest) {
-  const block = guardAiRoute(request);
-  if (block) return block;
+  const guard = await guardAiRoute(request);
+  if (!guard.ok) return guard.response;
 
   try {
     const body = await request.json();
@@ -21,23 +20,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result = await run({ text, language });
+    const result = await run({ text, language }, { userId: guard.userId });
     const t = result.telemetry;
-    const policy = pick('food_parse');
-    const effectiveTokensIn = t.tokensIn + t.cacheCreationTokens + t.cacheReadTokens;
-    const cost = calculateCost(t.model, effectiveTokensIn, t.tokensOut);
-
-    logAPIUsage({
-      endpoint: '/api/food/parse',
-      model: t.model,
-      provider: policy.provider === 'google' ? 'gemini' : 'anthropic',
-      tokens_in: effectiveTokensIn,
-      tokens_out: t.tokensOut,
-      cost_usd: cost,
-      latency_ms: t.latencyMs,
-      success: result.ok,
-      error_message: result.ok ? undefined : result.error?.slice(0, 200),
-    });
 
     if (!result.ok) {
       const status = t.rawStatus >= 400 && t.rawStatus < 600 ? 502 : 422;

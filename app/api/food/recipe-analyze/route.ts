@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { logAPIUsage, calculateCost } from '@/lib/api-cost-logger';
 import { guardAiRoute } from '@/lib/api-guard';
 import { run } from '@/agents/recipe-analyze';
 import { modelFor } from '@/agents/router';
+import { logAgentRun } from '@/lib/agent-run-logger';
 
 export async function POST(request: NextRequest) {
-  const block = guardAiRoute(request);
-  if (block) return block;
+  const guard = await guardAiRoute(request);
+  if (!guard.ok) return guard.response;
 
   try {
     const body = await request.json();
@@ -25,21 +25,23 @@ export async function POST(request: NextRequest) {
 
     const servingsNum = typeof servings === 'number' && servings > 0 ? servings : 1;
 
-    const result = await run({ text, servings: servingsNum, language });
+    const result = await run({ text, servings: servingsNum, language }, { userId: guard.userId });
     const t = result.telemetry;
-    const effectiveTokensIn = t.tokensIn + t.cacheCreationTokens + t.cacheReadTokens;
-    const cost = calculateCost(t.model, effectiveTokensIn, t.tokensOut);
 
-    logAPIUsage({
-      endpoint: '/api/food/recipe-analyze',
+    logAgentRun({
+      taskName: 'recipe_analyze',
       model: t.model,
       provider: 'anthropic',
-      tokens_in: effectiveTokensIn,
-      tokens_out: t.tokensOut,
-      cost_usd: cost,
-      latency_ms: t.latencyMs,
-      success: result.ok,
-      error_message: result.ok ? undefined : result.error?.slice(0, 200),
+      tokensIn: t.tokensIn,
+      tokensOut: t.tokensOut,
+      cacheReadTokens: t.cacheReadTokens,
+      cacheWriteTokens: t.cacheCreationTokens,
+      costUsd: t.costUsd,
+      latencyMs: t.latencyMs,
+      rawStatus: t.rawStatus,
+      traceId: t.traceId,
+      userId: guard.userId,
+      errorMessage: result.ok ? undefined : result.error?.slice(0, 200),
     });
 
     if (!result.ok) {

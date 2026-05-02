@@ -121,8 +121,8 @@ function validateInput(body: unknown): { valid: true; data: MealSuggestRequest }
 // ── Route handler ───────────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
-  const block = guardAiRoute(request);
-  if (block) return block;
+  const guard = await guardAiRoute(request);
+  if (!guard.ok) return guard.response;
 
   try {
     const body = await request.json();
@@ -211,6 +211,7 @@ export async function POST(request: NextRequest) {
       costUsd,
       latencyMs,
       rawStatus: response.status,
+      userId: guard.userId,
     }).catch(err => {
       console.error('[meal-suggest] Failed to write agent_runs:', err);
     });

@@ -5,7 +5,6 @@ import { motion } from 'framer-motion';
 import { ArrowLeft, DollarSign, Zap, Clock, TrendingUp, AlertTriangle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { getCostSummary } from '@/lib/api-cost-logger';
 
 interface CostSummary {
   totalCost: number;
@@ -43,7 +42,17 @@ export default function CostDashboard() {
         return;
       }
 
-      const data = await getCostSummary(period);
+      const { data: sessionData } = await supabase.auth.getSession();
+      const response = await fetch(`/api/admin/costs?days=${period}`, {
+        headers: sessionData.session?.access_token
+          ? { Authorization: `Bearer ${sessionData.session.access_token}` }
+          : undefined,
+      });
+      if (!response.ok) {
+        router.push('/dashboard');
+        return;
+      }
+      const data = await response.json() as CostSummary;
       setSummary(data);
       setLoading(false);
     };
