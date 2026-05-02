@@ -62,6 +62,16 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Guard against drizzle-kit introspect wrapper
+        run: |
+          for f in drizzle/0*.sql; do
+            if head -3 "$f" | grep -qE '^[[:space:]]*/\*'; then
+              echo "::error file=$f::Migration starts with /* — drizzle-kit introspect wrapper not stripped. Run the migration through bootstrap-local.sh before committing."
+              exit 1
+            fi
+          done
+          echo "✅ No uncommitted drizzle-kit introspect wrappers found"
+
       - name: Bootstrap local database
         run: npm run db:bootstrap
 
