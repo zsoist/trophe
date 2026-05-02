@@ -49,12 +49,12 @@ if [[ "${1:-}" == "--seed-foods" ]]; then
   echo ""
   echo "🌿  Step 3/3 — Seeding foods table from local Mac Mini Postgres..."
 
-  LOCAL_DB="postgresql://brain_user:jDehquqo1Dj0plzyrmaX2ybtzvjeKdFF@127.0.0.1:5433/trophe_dev"
+  LOCAL_DB="${DATABASE_URL:?Set DATABASE_URL — see .env.local.example}"
 
   # Dump foods + aliases + conversions from local
+  # PGPASSWORD is picked up from env automatically — do not hardcode
   DUMP_FILE="/tmp/trophe-foods-seed-$(date +%Y%m%d%H%M%S).sql"
-  PGPASSWORD=jDehquqo1Dj0plzyrmaX2ybtzvjeKdFF \
-    pg_dump -h 127.0.0.1 -p 5433 -U brain_user -d trophe_dev \
+  pg_dump -h 127.0.0.1 -p 5433 -U "${PGUSER:-trophe_user}" -d trophe_dev \
     --table=foods --table=food_aliases --table=food_unit_conversions \
     --data-only --no-owner --no-privileges \
     --format=plain > "$DUMP_FILE"

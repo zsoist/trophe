@@ -148,12 +148,11 @@ async function fetchPage(dataType: string, pageNumber: number): Promise<{ foods:
 
 // ── Main ────────────────────────────────────────────────────────────────────
 async function main() {
-  const pool = new Pool({
-    connectionString:
-      process.env.DATABASE_URL ||
-      `postgresql://brain_user:${process.env.PGPASSWORD || 'jDehquqo1Dj0plzyrmaX2ybtzvjeKdFF'}@127.0.0.1:5433/trophe_dev`,
-    max: 5,
-  });
+  const dbUrl = process.env.DATABASE_URL;
+  if (!dbUrl) {
+    throw new Error('DATABASE_URL is required. See .env.local.example.');
+  }
+  const pool = new Pool({ connectionString: dbUrl, max: 5 });
   const db = drizzle(pool);
 
   const checkpoint = loadCheckpoint();

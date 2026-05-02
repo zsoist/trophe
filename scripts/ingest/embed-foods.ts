@@ -107,12 +107,11 @@ async function embedBatch(texts: string[]): Promise<number[][]> {
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 async function main() {
-  const pool = new Pool({
-    connectionString:
-      process.env.DATABASE_URL ||
-      `postgresql://brain_user:${process.env.PGPASSWORD || 'jDehquqo1Dj0plzyrmaX2ybtzvjeKdFF'}@127.0.0.1:5433/trophe_dev`,
-    max: 3,
-  });
+  const dbUrl = process.env.DATABASE_URL;
+  if (!dbUrl) {
+    throw new Error('DATABASE_URL is required. See .env.local.example.');
+  }
+  const pool = new Pool({ connectionString: dbUrl, max: 3 });
   const db = drizzle(pool);
 
   // Count un-embedded rows
