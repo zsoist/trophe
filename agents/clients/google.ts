@@ -18,6 +18,12 @@ export interface GeminiMessagesInput {
   maxTokens?: number;
   /** Accepted for interface parity; no-op for Gemini. */
   cacheSystem?: boolean;
+  /**
+   * Disable Gemini 2.5 "thinking" mode. When true, sets thinkingBudget: 0.
+   * Use for simple structured-output tasks where thinking tokens would eat
+   * into the maxOutputTokens budget and truncate the response.
+   */
+  disableThinking?: boolean;
 }
 
 export interface GeminiMessagesResult {
@@ -59,6 +65,9 @@ export async function callGeminiMessages(
         maxOutputTokens: input.maxTokens ?? 2048,
         // JSON-friendly output — no safety filters on food parsing
         responseMimeType: 'text/plain',
+        // Gemini 2.5 Flash "thinking" can consume maxOutputTokens budget,
+        // truncating the actual response. Disable for simple structured tasks.
+        ...(input.disableThinking && { thinkingConfig: { thinkingBudget: 0 } }),
       },
     });
 
