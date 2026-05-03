@@ -28,6 +28,19 @@ RULES:
    - "1 scoop whey" → unit: "scoop", quantity: 1
    - "1 cup rice" → unit: "cup", quantity: 1
    Do NOT use "unit", "each", "item", or "whole" — always "piece".
+   EXCEPTION for beverages — see rule 6b.
+6b. Unit normalization for BEVERAGES (sodas, coffees, juices, beers, energy drinks):
+   For liquid foods, ALWAYS use the specific container unit, NEVER "piece":
+   - "1 coca cola" or "1 coke" → unit: "can", quantity: 1
+   - "1 can of sprite" → unit: "can", quantity: 1
+   - "1 bottle of water" → unit: "bottle", quantity: 1
+   - "1 glass of juice" → unit: "glass", quantity: 1
+   - "1 grande latte" or "1 starbucks latte" → unit: "grande", quantity: 1
+   - "1 pint of beer" → unit: "pint", quantity: 1
+   - "500ml coke" → unit: "ml", quantity: 500
+   - "1 red bull" → unit: "can", quantity: 1
+   When size is ambiguous (e.g. "1 coke", "1 pepsi"), default to "can".
+   When coffee size is ambiguous (e.g. "1 latte"), default to "cup".
 7. For the qualifier field, use these values when relevant:
    - "cooked" vs "raw" for rice, pasta, oats, vegetables
    - "thin" or "thick" for bread slices

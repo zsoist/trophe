@@ -363,10 +363,25 @@ const UNIT_SYNONYMS: Record<string, string> = {
   'τεμάχιο': 'piece', 'τεμάχια': 'piece', 'κομμάτι': 'piece', 'κομμάτια': 'piece',
 };
 
+// Beverage detection: canonical keys containing these tokens indicate liquid foods
+// where "piece" should resolve to a liquid container unit (can > bottle > glass > cup).
+const BEVERAGE_KEY_TOKENS = [
+  'cola', 'soda', 'beer', 'juice', 'latte', 'coffee', 'tea', 'water',
+  'gatorade', 'pepsi', 'sprite', 'fanta', 'milk', 'energy_drink', 'cappuccino',
+];
+const LIQUID_UNIT_PRIORITY = ['can', 'bottle', 'glass', 'cup', 'serving'];
+
+function isBeverageByKey(canonicalFoodKey: string | null | undefined): boolean {
+  if (!canonicalFoodKey) return false;
+  const key = canonicalFoodKey.toLowerCase();
+  return BEVERAGE_KEY_TOKENS.some(token => key.includes(token));
+}
+
 async function resolveUnit(
   foodId: string,
   unit: string,
   qualifier?: string,
+  canonicalFoodKey?: string | null,
 ): Promise<{ id: string | null; gramsPerUnit: number } | null> {
   const raw = unit.toLowerCase().trim();
   const normalizedUnit = UNIT_SYNONYMS[raw] ?? raw;
@@ -388,6 +403,29 @@ async function resolveUnit(
 
   if (specific.length > 0) {
     return { id: specific[0].id, gramsPerUnit: specific[0].gramsPerUnit };
+  }
+
+  // 1b. Beverage override: when LLM emits "piece" for a liquid food,
+  // prefer the best liquid container unit (can > bottle > glass > cup).
+  // This fixes "1 coca cola can" → piece=80g fallback bug.
+  if (normalizedUnit === 'piece' && isBeverageByKey(canonicalFoodKey)) {
+    for (const liquidUnit of LIQUID_UNIT_PRIORITY) {
+      const liquidConversion = await db
+        .select()
+        .from(foodUnitConversions)
+        .where(
+          and(
+            eq(foodUnitConversions.foodId, foodId),
+            eq(foodUnitConversions.unit, liquidUnit),
+            isNull(foodUnitConversions.qualifier),
+          )
+        )
+        .limit(1);
+
+      if (liquidConversion.length > 0) {
+        return { id: liquidConversion[0].id, gramsPerUnit: liquidConversion[0].gramsPerUnit };
+      }
+    }
   }
 
   // 2. Food-specific without qualifier
@@ -554,8 +592,8 @@ export async function lookupFood(input: LookupInput): Promise<LookupResult | nul
 
   const food = ranked[0];
 
-  // Unit resolution
-  const conversion = await resolveUnit(food.id, input.unit, input.qualifier);
+  // Unit resolution (pass canonicalFoodKey for beverage override logic)
+  const conversion = await resolveUnit(food.id, input.unit, input.qualifier, food.canonicalFoodKey);
   const gramsPerUnit = conversion?.gramsPerUnit ?? food.defaultServingGrams ?? 100;
 
   return {
