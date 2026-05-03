@@ -59,6 +59,13 @@ CRITICAL:
   - "huevos fritos" / "αυγά τηγανητά" / "fried eggs" → food_name: "fried egg" (NOT just "eggs")
   - "huevo revuelto" / "scrambled eggs" → food_name: "scrambled egg"
   - For eggs: INCLUDE cooking method in food_name when specified (fried, scrambled, boiled, poached). Plain "eggs" without method → "eggs".
+- COMPOSITE DISHES (food + accompaniment): Keep the FULL composite name as food_name.
+  - "σουβλάκι με πίτα" → food_name: "souvlaki chicken pita" (NOT just "souvlaki")
+  - "arepa con queso" → food_name: "arepa with cheese" (NOT just "arepa")
+  - "sancocho de gallina" → food_name: "sancocho"
+  - "bandeja paisa" → food_name: "bandeja paisa"
+  - If the dish includes a bread/wrap/side (pita, tortilla, rice), include it in food_name.
+  - Do NOT split composite dishes into separate items. Keep as 1 item, unit: "serving" or "piece".
 - If you cannot identify a food with confidence > 0.5, set recognized: false.
 
 Return ONLY valid JSON in this format:
