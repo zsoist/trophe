@@ -548,6 +548,15 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
   // Eggs: "fried egg" should match cooked-fried entry, not raw
   'fried egg': 'egg fried',
   'fried eggs': 'egg fried',
+  // Oats: "oatmeal" should match cooked oats cereal, not oatmeal bread
+  'oatmeal': 'cereals oats regular cooked',
+  'oats': 'cereals oats regular',
+  'oatmeal cooked': 'cereals oats regular cooked',
+  // Fish: LLM emits "salmon fillet" but DB has USDA "Fish, salmon, Atlantic"
+  'salmon fillet': 'fish salmon atlantic',
+  'salmon': 'fish salmon atlantic farmed',
+  'tuna': 'fish tuna light canned',
+  'tuna canned': 'fish tuna light canned',
 };
 
 function correctFoodName(name: string): string {
