@@ -545,6 +545,9 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
   'peanut butter': 'peanut butter',  // keep as-is
   'peanut': 'peanuts',
   'mani': 'peanuts',
+  // Eggs: "fried egg" should match cooked-fried entry, not raw
+  'fried egg': 'egg fried',
+  'fried eggs': 'egg fried',
 };
 
 function correctFoodName(name: string): string {
