@@ -18,9 +18,11 @@
 import { describe, it, expect } from 'vitest';
 import { lookupFood } from '../../agents/food-parse/lookup';
 
-const HAS_DB = !!process.env.DATABASE_URL;
+// These tests require the local DB with seeded foods (canonical entries).
+// CI has a DATABASE_URL but no seeded foods table — skip there.
+const HAS_SEEDED_DB = !!process.env.DATABASE_URL && !process.env.CI;
 
-describe.skipIf(!HAS_DB)('food-parse ranking (Wave 2 regression)', () => {
+describe.skipIf(!HAS_SEEDED_DB)('food-parse ranking (Wave 2 regression)', () => {
   // ── Fix 1: Canonical boost does not promote unrelated foods ──────────────
 
   describe('Fix 1: conditional canonical boost', () => {
