@@ -71,7 +71,18 @@ export async function traced(
     return fn(null);
   }
 
-  const lf = new Langfuse({ secretKey, publicKey, baseUrl: host });
+  // Optional: Cloudflare Access service token headers.
+  // Currently unused — /api/public/* path is bypassed in CF Access.
+  // Kept for forward-compatibility if we tighten the policy later.
+  const additionalHeaders: Record<string, string> = {};
+  const cfClientId = process.env.LANGFUSE_CF_ACCESS_CLIENT_ID;
+  const cfClientSecret = process.env.LANGFUSE_CF_ACCESS_CLIENT_SECRET;
+  if (cfClientId && cfClientSecret) {
+    additionalHeaders['CF-Access-Client-Id'] = cfClientId;
+    additionalHeaders['CF-Access-Client-Secret'] = cfClientSecret;
+  }
+
+  const lf = new Langfuse({ secretKey, publicKey, baseUrl: host, additionalHeaders });
 
   // Trace groups multiple generations from the same request together.
   const trace = lf.trace({
