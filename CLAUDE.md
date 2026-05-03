@@ -308,6 +308,23 @@ npm run typecheck && npm run lint && npm test && npm run build
 - GitHub: `zsoist/trophe`
 - Production deploy remains operator-gated after local + CI verification.
 
+### Vercel deploy discipline
+
+Production deployments require explicit `vercel --yes --prod`.
+`git push` to `v0.3-overhaul` or any non-main branch creates Preview
+deploys only. Preview deploys FAIL because env vars are scoped
+to Production environment.
+
+After every push to `v0.3-overhaul` intended to ship to production:
+1. Run `vercel --yes --prod` from the repo root
+2. Wait for "Ready" status
+3. Verify production responds with the new code (curl headers, smoke test endpoints)
+4. Do NOT assume `git push` = deploy
+
+P1 follow-up: change Vercel's production branch to `v0.3-overhaul`
+(or `main` after governance merge) so `git push` auto-deploys to
+production.
+
 ---
 
 ## Verification sequence (before any PR merge)
@@ -412,6 +429,14 @@ Trophē tracks the source and confidence of every food's macro data. This is a c
 ### Drag-and-drop
 - HTML5 drag API works on desktop + iPad, NOT mobile touch. Use `onTouchStart/Move/End` for touch.
 - `e.preventDefault()` on `onDragOver` is required or `onDrop` never fires.
+
+### Food-Parse Lookup (added May 2)
+- BM25 with `'simple'` tsconfig has NO stemmer. "eggs" does NOT match "Egg" (singular). Always singularize tokens in tsquery.
+- Canonical foods can rank #94+ in BM25 due to USDA verbose naming. Canonical injection into candidate pool is required — metadataBoost can't help if the food never enters the candidate list.
+- USDA FDC search queries are fragile. `chicken breast without skin raw` matched Apples. Use USDA naming conventions: `chicken broilers breast meat only raw`.
+- `ON CONFLICT DO NOTHING` requires a unique constraint. `food_unit_conversions` has none on `(food_id, unit)`. Use `INSERT ... WHERE NOT EXISTS` pattern.
+- `db/client.ts` defaults to Supabase local (port 54322) when `DATABASE_URL` unset. Canonical foods are on Mac Mini (port 5433). Set `DATABASE_URL` explicitly for accuracy tests.
+- Dry-run pattern (`--emit-sql`) for seed scripts is the single best QA investment. Review SQL before applying to production.
 
 ### Canvas / Globe
 - Retina canvas: `canvas.width = N * devicePixelRatio; ctx.scale(dpr, dpr)`.
