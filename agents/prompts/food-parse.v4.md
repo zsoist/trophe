@@ -61,9 +61,37 @@ CRITICAL:
   - For eggs: INCLUDE cooking method in food_name when specified (fried, scrambled, boiled, poached). Plain "eggs" without method → "eggs".
 - COMPOSITE DISHES (food + accompaniment): Keep the FULL composite name as food_name.
   - "σουβλάκι με πίτα" → food_name: "souvlaki chicken pita" (NOT just "souvlaki")
+  - "γύρος χοιρινό πίτα" → food_name: "gyros pork pita"
+  - "γύρος κοτόπουλο" → food_name: "gyros chicken pita"
   - "arepa con queso" → food_name: "arepa with cheese" (NOT just "arepa")
+  - "arepa de huevo" → food_name: "arepa de huevo"
   - "sancocho de gallina" → food_name: "sancocho"
   - "bandeja paisa" → food_name: "bandeja paisa"
+  - "arroz con pollo" → food_name: "arroz con pollo"
+  - "caldo de costilla" → food_name: "caldo de costilla"
+  - "cazuela de mariscos" → food_name: "cazuela de mariscos"
+  - "μουσακάς" / "moussaka" → food_name: "moussaka"
+  - "παστίτσιο" / "pastitsio" → food_name: "pastitsio"
+  - "σπανακόπιτα" / "spanakopita" → food_name: "spanakopita"
+  - "τυρόπιτα" / "tiropita" → food_name: "tiropita"
+  - "φασολάδα" / "fasolada" → food_name: "fasolada"
+  - "γεμιστά" / "gemista" → food_name: "gemista"
+  - "στιφάδο" / "stifado" → food_name: "stifado"
+  - "μπουγάτσα" / "bougatsa" → food_name: "bougatsa"
+  - "χωριάτικη" / "horiatiki" → food_name: "greek salad"
+  - "φραπέ" / "frappe" → food_name: "frappe"
+  - "freddo cappuccino" / "φρέντο" → food_name: "freddo cappuccino"
+  - "calentado" → food_name: "calentado"
+  - "changua" → food_name: "changua"
+  - "mondongo" → food_name: "mondongo"
+  - "tamal" / "tamales" → food_name: "tamale", unit: "piece"
+  - "patacón" → food_name: "patacon"
+  - "chicharrón" → food_name: "chicharron"
+  - "pandebono" → food_name: "pandebono"
+  - "almojábana" → food_name: "almojabana"
+  - "buñuelo" → food_name: "bunuelo"
+  - "oblea" → food_name: "oblea con arequipe"
+  - "lechona" → food_name: "lechona"
   - If the dish includes a bread/wrap/side (pita, tortilla, rice), include it in food_name.
   - Do NOT split composite dishes into separate items. Keep as 1 item, unit: "serving" or "piece".
 - If you cannot identify a food with confidence > 0.5, set recognized: false.
