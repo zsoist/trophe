@@ -158,6 +158,10 @@ async function estimateMacrosViaLLM(
         system: MACRO_ESTIMATE_PROMPT,
         userMessage,
         maxTokens: 1024,
+        // Disable thinking for macro estimation — it's a simple structured-output
+        // task and thinking tokens consume the maxOutputTokens budget, causing
+        // truncated JSON responses (root cause of ZERO_KCAL for Colombian dishes).
+        disableThinking: true,
       });
       responseText = result.text;
     } else {
@@ -173,6 +177,12 @@ async function estimateMacrosViaLLM(
 
     // Strip markdown code fences — Gemini Flash often wraps JSON in ```json...```
     responseText = responseText.replace(/```(?:json)?\s*/g, '').trim();
+
+    // Guard: detect truncated responses (incomplete JSON from token budget exhaustion)
+    if (responseText.length > 0 && !responseText.endsWith('}') && !responseText.endsWith(']')) {
+      console.warn('[food-parse] LLM macro estimation: response appears truncated (no closing brace). Length:', responseText.length, 'Tail:', responseText.slice(-60));
+      return items.map(() => null);
+    }
 
     // Extract JSON — try multiple patterns
     interface MacroEstimate {
