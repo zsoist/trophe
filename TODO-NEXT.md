@@ -8,24 +8,15 @@ Read this at the start of the next session before touching branch, deploy, or pr
 
 Screenshots saved by Daniel. Vercel logs analyzed — see root causes below.
 
-### Bug 4: Hard parse failure on Spanish input [P0 — fix first]
+### Bug 4: Hard parse failure on Spanish input [P0] ✅ FIXED
 - Input: "2 huevos revueltos con envueltos"
 - Error: `TypeError: Cannot read properties of null (reading 'toLowerCase')`
-- Returns HTTP 500, user sees "Failed to parse food input"
-- Root cause: LLM returned null `food_name` for "envueltos" (Colombian corn
-  pastry). Null-safety check missing in food-parse pipeline.
-- Fix: add null guard on `food_name` before `.toLowerCase()`. Graceful
-  fallback: if food_name is null, skip that item or return unrecognized.
+- **Fix (PR #2)**: Null safety + graceful error recovery in food-parse pipeline.
 
-### Bug 2: AI fallback returning 0 kcal for branded items [P0]
+### Bug 2: AI fallback returning 0 kcal for branded items [P0] ✅ FIXED
 - Input: "cokes original" (no volume specified)
 - Result: 0 kcal, 0 protein, 0 carbs, 0 fat
-- Root cause: LLM macro estimation response wrapped in markdown fences
-  (`` ```json {...} `` ``). The three regex patterns in `estimateMacrosViaLLM()`
-  don't strip the `` ```json `` prefix. The actual JSON is valid — Coke shows
-  378 kcal in the Vercel log — but the parser can't extract it.
-- Fix: strip markdown code fences from `responseText` before applying
-  regex patterns. One line: `responseText = responseText.replace(/```json\s*/g, '').replace(/```\s*/g, '')`
+- **Fix (PR #3)**: Strip markdown fences from LLM macro estimation response.
 
 ### ✅ Bug 3: Branded fast food portions massively wrong [FIXED — Wave 3, 2026-05-03]
 - Fixed by: `feat/wave3-usda-branded-foods` branch
@@ -54,8 +45,7 @@ Screenshots saved by Daniel. Vercel logs analyzed — see root causes below.
   `/api/public/*`. Vercel env var `LANGFUSE_HOST` points to tunnel URL.
   Tunnel health verified (200). Traces will appear on next authenticated parse.
 
-Estimated fix time: Bug 4 (30 min) → Bug 2 (15 min) → Bug 3 (2 hrs) → Bug 1 (30 min).
-Recommended order: Bug 4 → Bug 2 → Langfuse → Bug 3 → Bug 1.
+**All P0 bugs resolved as of 2026-05-03.** PRs #2→#8 shipped same day.
 
 ---
 
@@ -102,7 +92,7 @@ Migrated to `anthropic/claude-haiku-4-5-20251001` with `tool_choice`.
 
 ## FOOD-PARSE ACCURACY — P1 follow-ups (2026-05-02)
 
-Current gate: 38/48 = 79.2% (threshold: 75%). Canonical foods seeded: 127/129.
+Current gate: **48/48 = 100%** (threshold: 75%). Up from 79.2% pre-Wave 3. Canonical foods seeded: 127/129.
 
 ### Must-fix (next session)
 
