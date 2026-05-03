@@ -4,6 +4,51 @@ All notable changes to Trophē are logged here. Format follows [Keep a Changelog
 
 ---
 
+## [v0.3.2] — 2026-05-03 — Composite Foods + Restaurant Data + UX Fixes
+
+> **Status**: ✅ LIVE on `trophe.app`
+> **Commits**: 33 commits across 3 sprints (accuracy, data, UX)
+
+### Composite dish decomposition pipeline
+- New `dish_recipes` table + `lookupDishRecipe()` — caches LLM-decomposed composite dishes
+- 44 cached recipe mappings in decomposition prompt (souvlaki, arepa, bandeja paisa, etc.)
+- 38 traditional Colombian + Greek dish recipes seeded as pre-cached decompositions
+- Pipeline: LLM decomposes → ingredients lookup → aggregate macros → cache for next time
+- Cache-only recipe check in hot path (no LLM call if dish already decomposed)
+
+### Restaurant chain data (76 items)
+- **MenuStat US** (48 items): McDonald's, Starbucks, Subway, Chick-fil-A, Taco Bell, Wendy's, Burger King, Chipotle, Domino's, Pizza Hut, Dunkin, Popeyes, Panda Express
+- **Colombian chains** (28 items): Crepes & Waffles, El Corral, Frisby, Juan Valdez, Sandwich Qbano
+- All items with `piece` + `serving` unit conversions (correct gram weights)
+- Big Mac: 215g/piece → 553 kcal ✅ (was 220 kcal with 80g fallback)
+
+### Food accuracy improvements
+- Fried egg canonical key + aliases + piece=50g conversion (gr-12 fix)
+- Phase 3 portion-size corrections for traditional dishes
+- Oatmeal/salmon name corrections + 50-case eval
+- LLM taught to preserve composite dish names
+- CI lint parity enforced across CI, Vercel, and local (`--no-cache` + `vercel.json buildCommand`)
+
+### UX performance fixes (Daniela's bug report)
+- **Loading skeleton** on food log page — no more blank screen while auth resolves
+- **Promise.all parallelization** of 4 sequential Supabase queries (~800ms → ~200ms)
+- **15s timeout** on food parse API + 20s on photo analysis with clear error messages
+- **Session refresh on mobile foreground** — `visibilitychange` listener calls `getUser()` after >2min background
+- Improved food_log insert error handling (detect session expiry vs constraint violations)
+- Network error handling (don't false-redirect to login on connection issues)
+
+### Observability
+- Langfuse production traces via Cloudflare Tunnel (`langfuse.danielreyes.work`)
+- Beverage unit normalization (Wave 3.5)
+- Volume unit display fix (ml/L shown instead of grams for beverages)
+
+### Branded foods (Wave 3)
+- 23 branded fast food + beverage items with correct portions
+- 98 unit conversions (can=355ml, grande=473ml, Big Mac=215g, etc.)
+- Aliases for common queries: "coke", "latte", "cerveza", "red bull"
+
+---
+
 ## [v0.3.1] — 2026-05-02 — Production Cutover
 
 > **Status**: ✅ LIVE on `trophe.app`
@@ -28,29 +73,9 @@ All notable changes to Trophē are logged here. Format follows [Keep a Changelog
 
 ---
 
-## [Unreleased] — Enterprise hardening on `v0.3-overhaul`
+## [Unreleased]
 
-- Verified AI route auth through Supabase `auth.getUser(token)` in async `guardAiRoute()`; routes now use verified `userId` for rate limiting and `agent_runs`.
-- Fixed deterministic food-parse lookup precedence so curated food default servings beat generic universal portion fallbacks; accuracy gate is 27/27.
-- Renamed root `middleware.ts` to `proxy.ts` with `export async function proxy()` for Next.js 16.
-- Made `agent_runs` the primary AI cost/observability source and moved `/admin/costs` to a server summary endpoint.
-- Added read-only production canary: `scripts/ops/canary-readonly.sh` and `npm run canary:prod`.
-- **`proxy.ts` convention**: Confirmed Next.js 16 uses `proxy.ts` + `export function proxy()` (not `middleware.ts`). File and function name verified correct; deprecation warning eliminated. E2E auth-gate test (anonymous → /login redirect) confirms proxy is active.
-- **Zero lint warnings**: Resolved all 42 ESLint warnings across 28 files — removed dead imports/variables, applied `eslint-disable-next-line` for documented tech debt (`react-hooks/set-state-in-effect` in effects that use localStorage), replaced banned `bg-stone-9xx` Tailwind classes with CSS variable equivalents in dashboard/onboarding paths.
-- **CI eval gate wired**: Added `ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}` to `.github/workflows/ci.yml` so `npm run evals` runs the `recipe_analyze` and `coach_insight` LLM-judge suites instead of silently skipping. GitHub Actions secret must be set by operator.
-- **HHF food seed + embeddings**: Ingested 30 Greek traditional foods (HHF dishes + existing seed), 89 multilingual aliases, all with Voyage `voyage-3-large` 1024-dim vectors. HNSW index confirmed via `\d foods`. Foods table is now queryable for the v4 food-parse pipeline.
-- **USDA FDC ingest + embeddings**: Pulled 7,888 foods from FDC FoundationFoods (95 lab-verified) + SR Legacy (7,793). All rows have `voyage-3-large` 1024-dim embeddings. Foods table total: **7,918 rows**, all vectorised, HNSW index rebuilt. API key stored locally; not committed to repo.
-- Fixed stale embedding model name in docs (`voyage-large-2` → `voyage-3-large` in `CLAUDE.md` and `ARCHITECTURE.md`).
-
-- Added CI gates for `v0.3-overhaul`: Postgres/pgvector service, DB bootstrap, typecheck, lint, Vitest, readiness checks, eval smoke, Playwright smoke, and production build.
-- Added enterprise invariant tests for banned Supabase `.single()`, AI model literals outside router/client boundaries, and unsafe HTML usage outside the layout theme script.
-- Switched food-parse default export to the v4 deterministic pipeline and removed runtime/telemetry model mismatch.
-- Centralized model pricing in `agents/router/pricing.ts`; API cost logging and OTel cost estimation now share the same pricing source.
-- Routed photo analysis, meal suggestions, memory embeddings, and food parse through router-owned model policies instead of route-local model literals.
-- Added Playwright mobile/desktop smoke coverage for public landing, login controls, anonymous dashboard redirect, and mobile overflow.
-- Added local readiness checks that verify CI branch coverage, pgvector DB service, no production deploy command, E2E script, security headers, and router coverage for live AI tasks.
-- Fixed remaining `.single()` calls in coach plan and memory pages.
-- No production deploy performed.
+_Nothing unreleased — all v0.3 features shipped to production._
 
 ## [v0.3.0] — 2026-05-01 — EXTREME Local-First Overhaul (`v0.3-overhaul` branch)
 

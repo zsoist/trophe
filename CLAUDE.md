@@ -2,18 +2,19 @@
 
 > **Read this first.** This file is the primary context document for AI coding agents (Claude Code, Codex, Cursor). For the comprehensive operator handoff see `CODEX.md`.
 
-_Last synced to codebase: 2026-05-02 — production readiness pass_
+_Last synced to codebase: 2026-05-03_
 
-## Current Production Truth (2026-05-02)
+## Current Production Truth (2026-05-03)
 
 - Canonical repo path: `/Volumes/SSD/work/forge-projects/trophe`
 - Production URL: `https://trophe.app`
 - Supabase project/ref: `iwbpzwmidzvpiofnqexd`
-- GitHub default branch: `main`
-- Temporary production branch/source: `v0.3-overhaul` until final verification and merge to `main`
+- GitHub default branch: `main` (deploys auto to Vercel)
+- Production branch: `main` (v0.3-overhaul merged 2026-05-03, archived as `archive/v0.3-overhaul-2026-05-03`)
 - Cost/AI observability source of truth: `agent_runs`; `api_usage_log` is legacy compatibility only
-- Required verification sequence: `npm run typecheck && npm run lint && npm test && npm run readiness && npm run build && npm run test:e2e && npm run canary:prod`
+- Required verification sequence: `npm run typecheck && npm run lint && npm test && npm run build`
 - AI route auth must use async `guardAiRoute()` and the verified Supabase `userId`; do not decode JWTs for auth decisions.
+- Food data: 7,918 USDA + 30 HHF + 76 restaurant chains + 38 dish recipes. All with Voyage embeddings.
 
 ---
 
@@ -68,30 +69,36 @@ Initial audit findings are hypotheses. Sanity checks are the verification. Don't
 
 ---
 
-## Project state (2026-05-01)
+## Project state (2026-05-03)
 
-**Branch**: `v0.3-overhaul` (temporary production truth; merge to `main` after final gates)
+**Branch**: `main` (production)
 **Production**: `https://trophe.app` — live with 5+ testers (Michael, Nikos, Daniel, Daniela, Dimitra, Alex)
 
-Production cutover has executed. The remaining governance task is to make `main` the production source of truth once final verification and canary are green.
+v0.3-overhaul merged to main 2026-05-03. All features live. Vercel auto-deploys from `main` pushes.
 
 ### What IS running in production (on Supabase Postgres)
-- Auth, all 19 original tables, RLS, food logging, coach dashboard, workouts, supplements, habits
-- AI food-parse (Haiku 4.5 via `/api/food/parse`), photo-analyze, meal-suggest, recipe-analyze
+- Auth (cookie-based @supabase/ssr), 30+ tables, RLS, food logging, coach dashboard, workouts, supplements, habits
+- AI food-parse (Gemini 2.5 Flash via `/api/food/parse`), photo-analyze, meal-suggest, recipe-analyze
+- Deterministic food lookup: 7,918 USDA + 30 HHF + 76 restaurant chains, all with Voyage embeddings
+- Composite dish decomposition: 38 cached recipes + LLM decompose-on-miss pipeline
+- Langfuse traces via Cloudflare Tunnel (`langfuse.danielreyes.work`)
+- Session refresh on mobile foreground (visibilitychange hook)
 - AI Form Check (MediaPipe, browser-only, no server)
 - All analytics components, trilingual UI (EN/ES/EL)
 
-### v0.3-overhaul branch contents
-- Drizzle ORM + versioned migrations (`drizzle/`)
+### v0.3 features (all merged to main, live in production)
+- Drizzle ORM + versioned migrations (`drizzle/` — 13 migrations)
 - 4-tier role enum (`super_admin|admin|coach|client`) — organizations table
-- `@supabase/ssr` HTTP-only cookie auth (Phase 2)
-- LLM router (Gemini Flash + Langfuse traces)
-- `foods` canonical DB + `food_unit_conversions` (the accuracy fix)
+- `@supabase/ssr` HTTP-only cookie auth + session refresh on mobile foreground
+- LLM router (Gemini Flash + Langfuse traces via CF Tunnel)
+- `foods` canonical DB + `food_unit_conversions` (deterministic accuracy fix)
+- Composite dish decomposition pipeline (`dish_recipes` table + LLM decompose)
+- Restaurant chain data (76 items: MenuStat US + Colombian chains)
 - Memory system (`memory_chunks`, `coach_blocks`)
 - Spike wearable layer
 - tRPC v11
 - Handoff v2 UI (new `components/ui/`, `app/globals.css` primitives)
-- `proxy.ts` (middleware renamed)
+- `proxy.ts` (Next.js 16 middleware convention)
 
 ---
 

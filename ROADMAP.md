@@ -406,9 +406,38 @@ _All passwords: `trophe2026!`_
 - [ ] Fix critical bugs as they're found
 - [ ] Reconvene meeting (April 16-18)
 
+## May 3, 2026 — Composite Foods + Restaurant Data + UX Fixes (33 commits)
+
+### Sprint 1: Food Accuracy (morning)
+- [x] ✅ Branded fast food Wave 3 (23 items + 98 unit conversions)
+- [x] ✅ Beverage unit normalization (Wave 3.5)
+- [x] ✅ Langfuse production traces via Cloudflare Tunnel
+- [x] ✅ Volume unit display fix (ml/L instead of grams)
+- [x] ✅ Fried egg canonical fix (gr-12)
+
+### Sprint 2: Composite Dishes + Restaurant Chains (afternoon)
+- [x] ✅ Composite dish decomposition pipeline (`dish_recipes` table + LLM decompose-on-miss)
+- [x] ✅ 44 cached recipe mappings in decomposition prompt
+- [x] ✅ 38 traditional Colombian + Greek dish recipes seeded
+- [x] ✅ 76 restaurant chain items (48 MenuStat US + 28 Colombian chains)
+- [x] ✅ CI lint parity enforced (--no-cache + vercel.json buildCommand)
+- [x] ✅ Oatmeal/salmon name corrections + 50-case eval
+
+### Sprint 3: UX Bug Fixes — Daniela's report (evening)
+- [x] ✅ Loading skeleton on food log page (no blank screen)
+- [x] ✅ Promise.all parallelization of 4 Supabase queries (~800ms → ~200ms)
+- [x] ✅ 15s timeout on food parse + 20s on photo analysis
+- [x] ✅ Session refresh on mobile foreground (visibilitychange hook)
+- [x] ✅ Better error messages (session expired, timeout, connection)
+- [x] ✅ Network error handling (don't false-redirect to login)
+
+---
+
 ## PHASE 3: Post-Testing Features (May 2026)
 _Top priorities from Michael's feedback_
 
+- [x] ✅ Composite dish decomposition (souvlaki, arepa, bandeja paisa)
+- [x] ✅ Restaurant chain data (McDonald's, Starbucks, Crepes & Waffles, El Corral, Frisby)
 - [ ] Nutritional plan generator (AI builds, coach adjusts)
 - [ ] Supermarket list with local products
 - [ ] Client diary → pattern mapping → plan adjustment

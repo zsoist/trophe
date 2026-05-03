@@ -1,6 +1,16 @@
-# TODO-NEXT — Production follow-ups as of 2026-05-03
+# TODO-NEXT — Production follow-ups as of 2026-05-03 (evening)
 
 Read this at the start of the next session before touching branch, deploy, or production data.
+
+---
+
+## Session 2026-05-03 evening — completed
+
+- ✅ Composite dish decomposition pipeline built + 38 recipes cached
+- ✅ Restaurant chain data seeded (76 items: MenuStat US + Colombian chains)
+- ✅ Food logging UX fix: loading skeleton, Promise.all parallelization, timeouts
+- ✅ Mobile session fix: visibilitychange refresh on foreground (>2min background)
+- ✅ CI lint parity enforced (--no-cache + vercel.json buildCommand)
 
 ---
 
@@ -63,11 +73,7 @@ Migrated to `anthropic/claude-haiku-4-5-20251001` with `tool_choice`.
 
 ### P1
 
-1. **CI lint inconsistency**: `index.v4.ts` line 162 `any` type passed CI on
-   every v0.3-overhaul push but failed on the first main push. Either the CI
-   config differs by branch (check `.github/workflows/ci.yml` for branch-specific
-   lint flags), or eslint cache was masking the error. False-confidence CI gates
-   are worse than no CI gates. Investigate and fix.
+1. ~~**CI lint inconsistency**~~ ✅ FIXED (2026-05-03) — Added `--no-cache` to CI lint + explicit `buildCommand` in vercel.json. Parity guaranteed.
 
 2. Keep `agent_runs` as the canonical AI cost table. Treat `api_usage_log` as legacy compatibility only.
 

@@ -2,7 +2,7 @@
 
 Threat model, controls, and guidelines for Trophē v0.3. This is a low-traffic app (5–20 testers now, targeting 100–500 in B2B pilot) handling personal health data.
 
-_Last updated: 2026-05-01 (v0.3-overhaul)_
+_Last updated: 2026-05-03_
 
 ---
 

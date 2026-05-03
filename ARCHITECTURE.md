@@ -2,7 +2,7 @@
 
 High-level map of how Trophē v0.3 fits together. For per-agent LLM details see `agents/README.md`. For deploy+env setup see `DEPLOYMENT.md`. For threat model see `SECURITY.md`.
 
-_Last updated: 2026-05-02 (production readiness pass)_
+_Last updated: 2026-05-03_
 
 ---
 
@@ -22,13 +22,13 @@ _Last updated: 2026-05-02 (production readiness pass)_
 | **Wearables** | Spike API — Apple Health, Whoop, Oura, Strava, Garmin, Fitbit via single integration |
 | **Testing** | Vitest 4 + `@vitest/coverage-v8` |
 | **CI** | GitHub Actions (typecheck + lint + unit + RLS + Playwright + DB verification + food-parse accuracy) |
-| **Hosting** | Vercel (production `https://trophe.app`; temporary production branch `v0.3-overhaul`) |
+| **Hosting** | Vercel (production `https://trophe.app`; deploys from `main`) |
 
 ---
 
 ## Deployment surface
 
-Production governance: `main` is the GitHub default branch. `v0.3-overhaul` remains the temporary production truth until the full verification sequence and `npm run canary:prod` are green, then it should be merged into `main` and Vercel should deploy from `main`.
+Production governance: `main` is the production branch. Vercel auto-deploys on push. v0.3-overhaul was merged 2026-05-03 and archived.
 
 AI cost governance: `agent_runs` is the trusted table for cost and LLM observability. `api_usage_log` remains legacy compatibility only.
 
@@ -102,7 +102,8 @@ AI cost governance: `agent_runs` is the trusted table for cost and LLM observabi
 | `profiles` | Identity + role + locale (1:1 with `auth.users`) |
 | `client_profiles` | Body stats, goals, macro targets, coaching phase |
 | `food_log` | Every logged food — includes `food_id FK → foods`, `qty_g`, `parse_confidence` |
-| `foods` | Canonical food database (USDA FDC + OpenFoodFacts GR/ES/US + HHF 48 dishes). `kcal_per_100g`, `protein_g`, `carb_g`, `fat_g`, `embedding vector(1024)`, `search_text tsvector` |
+| `foods` | Canonical food database (7,918 USDA + 30 HHF + 76 restaurant chains). `kcal_per_100g`, `protein_g`, `carb_g`, `fat_g`, `embedding vector(1024)`, `search_text tsvector` |
+| `dish_recipes` | Cached composite dish decompositions (38 recipes). LLM decomposes on miss, caches for next lookup |
 | `food_unit_conversions` | Deterministic gram anchors per food+unit. **This is the bug-fix table.** |
 | `food_aliases` | Multilingual aliases for hybrid retrieval |
 | `habit_checkins` | Daily habit completion (completed bool + mood + note) |

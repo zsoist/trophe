@@ -1,6 +1,6 @@
 # τροφή (Trophē) — Product Specification
 
-_Last updated: 2026-05-01 (v0.3-overhaul)_
+_Last updated: 2026-05-03_
 
 ---
 

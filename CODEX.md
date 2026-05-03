@@ -1,7 +1,7 @@
 # τροφή (Trophē) — Comprehensive Codex Handoff
 
 > **This is the single-source-of-truth document for AI agents, operators, and new contributors.**
-> It reflects actual ground-truth state as of **2026-05-02, production readiness pass**.
+> It reflects actual ground-truth state as of **2026-05-03**.
 > For agent-specific coding rules see `CLAUDE.md`. For the architecture diagram see `ARCHITECTURE.md`.
 
 ---
@@ -40,22 +40,25 @@
 | Trilingual UI (EN/ES/EL) | ✅ Live |
 | Testers active | 5–7 (Michael, Nikos, Daniel, Daniela, Dimitra, Alex) |
 
-### v0.3-overhaul branch
+### v0.3 features (all merged to main, live in production)
 
 | Feature | Status |
 |---------|--------|
-| Drizzle ORM + versioned migrations | ✅ Built, local only |
-| 4-tier role enum + organizations | ✅ Built, local only |
-| `@supabase/ssr` HTTP-only cookie auth | ✅ Built, local only |
-| LLM router (Gemini Flash + Haiku + Sonnet) | ✅ Built, local only |
-| Langfuse OTel traces | ✅ Built, local only |
-| `foods` canonical DB + deterministic accuracy fix | ✅ Built, local only |
-| Memory system (Mem0/Letta hybrid) | ✅ Built, local only |
-| Spike wearable layer | ✅ Built, local only |
-| tRPC v11 | ✅ Built, local only |
-| Handoff v2 UI (new design system) | ✅ Built, local only |
-| Food ingest scripts (USDA, OFF, HHF) | ✅ Scripts ready |
-| Production cutover | ✅ Executed; branch governance remains |
+| Drizzle ORM + versioned migrations (13 migrations) | ✅ Live |
+| 4-tier role enum + organizations | ✅ Live |
+| `@supabase/ssr` HTTP-only cookie auth + mobile session refresh | ✅ Live |
+| LLM router (Gemini Flash + Haiku + Sonnet) | ✅ Live |
+| Langfuse OTel traces via Cloudflare Tunnel | ✅ Live |
+| `foods` canonical DB (7,918 USDA + 30 HHF + 76 restaurants) | ✅ Live |
+| Composite dish decomposition (38 cached recipes + LLM on-miss) | ✅ Live |
+| Deterministic food accuracy (48/48 = 100%) | ✅ Live |
+| Memory system (Mem0/Letta hybrid) | ✅ Live |
+| Spike wearable layer | ✅ Live |
+| tRPC v11 | ✅ Live |
+| Handoff v2 UI (new design system) | ✅ Live |
+| Food ingest scripts (USDA, HHF, restaurants) | ✅ Seeded |
+| Production cutover | ✅ Complete (2026-05-02) |
+| Branch merge to main | ✅ Complete (2026-05-03) |
 
 ---
 
@@ -67,8 +70,8 @@
 | **Vercel project** | `trophe` → `trophe.app` |
 | **Vercel org** | `zsoist` |
 | **Git identity** | `zsoist` / `zsoist@users.noreply.github.com` |
-| **Active branch** | `v0.3-overhaul` |
-| **Production branch** | temporary `v0.3-overhaul`; merge to `main` after final gates |
+| **Active branch** | `main` |
+| **Production branch** | `main` (v0.3-overhaul merged 2026-05-03) |
 | **Production URL** | `https://trophe.app` |
 | **Preview URL** | auto-generated from `v0.3-overhaul` pushes |
 | **CI** | GitHub Actions `.github/workflows/ci.yml` — typecheck + lint + vitest + RLS + Playwright + DB verification |
@@ -89,7 +92,7 @@
 | `DATABASE_URL` | Local dev only | `postgresql://postgres:postgres@127.0.0.1:54322/postgres` |
 | `ANTHROPIC_API_KEY` | Prod + local | Haiku 4.5 (recipe-analyze, photo) + Sonnet 4.6 (coach insights) |
 | `GEMINI_API_KEY` | Prod + local | Gemini 2.5 Flash (food-parse, meal-suggest) |
-| `VOYAGE_API_KEY` | Prod + local | Voyage v4 `voyage-large-2` embeddings |
+| `VOYAGE_API_KEY` | Prod + local | Voyage v4 `voyage-3-large` embeddings |
 | `LANGFUSE_PUBLIC_KEY` | Local | Langfuse tracing public key |
 | `LANGFUSE_SECRET_KEY` | Local | Langfuse tracing secret key |
 | `LANGFUSE_HOST` | Local | `http://127.0.0.1:3002` |
@@ -241,7 +244,7 @@ agent.run(input)
   food_parse:    { provider: 'google',    model: 'gemini-2.5-flash' },
   recipe:        { provider: 'anthropic', model: 'claude-haiku-4-5-20251001', cacheSystem: true },
   coach_insight: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
-  embed:         { provider: 'voyage',    model: 'voyage-large-2' },
+  embed:         { provider: 'voyage',    model: 'voyage-3-large' },
 }
 ```
 

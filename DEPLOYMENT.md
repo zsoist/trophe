@@ -1,8 +1,8 @@
 # Deployment
 
-Production on **Vercel** + **Supabase** (project `iwbpzwmidzvpiofnqexd`). Production URL is `https://trophe.app`. Local dev is standardized on the Supabase CLI stack running on OrbStack. `main` is the GitHub default branch; `v0.3-overhaul` is the temporary production branch until the readiness gates and merge are complete.
+Production on **Vercel** + **Supabase** (project `iwbpzwmidzvpiofnqexd`). Production URL is `https://trophe.app`. Local dev is standardized on the Supabase CLI stack running on OrbStack. `main` is the production branch; Vercel auto-deploys on push.
 
-_Last updated: 2026-05-02 (production readiness)_
+_Last updated: 2026-05-03_
 
 ---
 
@@ -19,9 +19,9 @@ Set in **Vercel → Project Settings → Environment Variables** (Production sco
 | `ANTHROPIC_API_KEY` | Prod + local | Haiku 4.5 + Sonnet 4.6 |
 | `GEMINI_API_KEY` | Prod + local | Gemini 2.5 Flash |
 | `VOYAGE_API_KEY` | Prod + local | Voyage v4 embeddings |
-| `LANGFUSE_PUBLIC_KEY` | Local | Langfuse tracing (dev only) |
-| `LANGFUSE_SECRET_KEY` | Local | Langfuse tracing (dev only) |
-| `LANGFUSE_HOST` | Local | `http://127.0.0.1:3002` |
+| `LANGFUSE_PUBLIC_KEY` | Prod + local | Langfuse tracing |
+| `LANGFUSE_SECRET_KEY` | Prod + local | Langfuse tracing |
+| `LANGFUSE_HOST` | Prod + local | Prod: `https://langfuse.danielreyes.work` (CF Tunnel); Local: `http://127.0.0.1:3002` |
 | `USDA_API_KEY` | Optional | Food search. Falls back to `DEMO_KEY` (30 req/hr). |
 | `SPIKE_API_KEY` | Phase 6 | Spike wearable API |
 | `SPIKE_WEBHOOK_SECRET` | Phase 6 | HMAC webhook verification |
