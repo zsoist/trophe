@@ -92,11 +92,11 @@ Migrated to `anthropic/claude-haiku-4-5-20251001` with `tool_choice`.
 
 **Lookup issues (category b):**
 
-1. **gr-12** — "2 αυγά τηγανητά" (fried eggs)
-   - Current: matches raw egg (143 kcal/100g) instead of fried (196 kcal/100g)
-   - Needed: qualifier-aware lookup ("fried"/"τηγανητά" → route to cooked egg entry)
-   - Impact: +36 kcal per 2-egg portion, takes total from 244→280 (passes min)
-   - Effort: medium (qualifier mapping in lookup.ts)
+1. **gr-12** — "2 αυγά τηγανητά" (fried eggs) ✅ FIXED (2026-05-03)
+   - Fix: canonical_food_key + popularity=40 + aliases (en/es/el) + prompt disambiguation
+   - Fried egg now resolves correctly in all 3 languages
+   - Eval still "fails" on tight bounds (protein 27.2 vs max 26, fat 30.3 vs max 30)
+   - Remaining: add food-specific piece=50g conversion OR widen golden by ~5%
 
 2. **co-04** — "1 taza de arroz blanco" (white rice)
    - Current: sometimes matches brown rice (195g/cup) vs white (158g/cup)
@@ -122,7 +122,7 @@ Migrated to `anthropic/claude-haiku-4-5-20251001` with `tool_choice`.
 
 ## FOOD-PARSE ACCURACY — P1 follow-ups (2026-05-02)
 
-Current gate: **48/48 = 100%** (threshold: 75%). Up from 79.2% pre-Wave 3. Canonical foods seeded: 127/129.
+Current gate: **48/48 = 100%** (threshold: 75%). Up from 79.2% pre-Wave 3. Canonical foods: 150 (no duplicates remaining — cheddar dedup confirmed resolved 2026-05-03).
 
 ### Must-fix (next session)
 
@@ -138,8 +138,8 @@ Current gate: **48/48 = 100%** (threshold: 75%). Up from 79.2% pre-Wave 3. Canon
    because golden expected values were hand-calculated, not from actual DB.
    Fix: query actual `kcal_per_100g` etc. from seeded foods and update goldens.
 
-3. **127 vs 129 canonical foods**: `cheddar_cheese` and `white_cheese_cheddar`
-   both map to FDC ID 170899. Dedup needed — pick one canonical key.
+3. ~~**127 vs 129 canonical foods**~~: ✅ RESOLVED 2026-05-03. Only one `cheddar_cheese`
+   entry exists (FDC 170899). Zero duplicate FDC IDs among 150 canonical foods.
 
 4. **CI gate enforcement**: Accuracy tests skip in CI (no canonical foods
    seeded in CI Postgres). Need: seed canonical foods in CI bootstrap, or
