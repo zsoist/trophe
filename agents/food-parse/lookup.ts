@@ -434,13 +434,54 @@ async function resolveUnit(
  * @param input - Food name, unit, optional qualifier and region
  * @returns LookupResult with food row + computed macros, or null if not found
  */
+/**
+ * Food name corrections for common LLM confusions.
+ * The LLM sometimes outputs the wrong canonical English name
+ * (e.g. "banana" for "plátano maduro" which should be "plantain").
+ * These overrides fix the search query before BM25/vector lookup.
+ */
+const FOOD_NAME_CORRECTIONS: Record<string, string> = {
+  // LLM confuses plantain ↔ banana for Spanish inputs
+  'fried ripe plantain': 'plantain fried',
+  'ripe plantain': 'plantain yellow',
+  'fried plantain': 'plantain fried',
+  'green plantain': 'plantain green',
+  // Spanish → English disambiguation
+  'platano': 'plantain',
+  'platano maduro': 'plantain yellow',
+  'maduro frito': 'plantain fried',
+  // Beans: "frijoles" should match kidney/black beans, not snap beans
+  'green bean': 'beans snap green',
+  'beans': 'beans kidney',
+  'frijoles': 'beans kidney',
+  'frijol': 'beans kidney',
+  // Peanuts: "maní" should match raw peanuts, not peanut butter
+  'peanut butter': 'peanut butter',  // keep as-is
+  'peanut': 'peanuts',
+  'mani': 'peanuts',
+};
+
+function correctFoodName(name: string): string {
+  const lower = name.toLowerCase().trim();
+  // Check exact match first
+  if (FOOD_NAME_CORRECTIONS[lower]) return FOOD_NAME_CORRECTIONS[lower];
+  // Check if any key is contained in the name
+  for (const [key, replacement] of Object.entries(FOOD_NAME_CORRECTIONS)) {
+    if (lower.includes(key) && key.length >= 4) {
+      return lower.replace(key, replacement);
+    }
+  }
+  return name;
+}
+
 export async function lookupFood(input: LookupInput): Promise<LookupResult | null> {
   const region = input.region ?? 'GR';
   const hasEmbedding = (input.queryEmbedding?.length ?? 0) === 1024;
+  const correctedFoodName = correctFoodName(input.foodName);
 
   // Stage 1: Parallel dual retrieval (BM25 arm + vector arm simultaneously)
   const [bm25Results, vectorResults] = await Promise.all([
-    keywordCandidates(input.foodName),
+    keywordCandidates(correctedFoodName),
     hasEmbedding ? vectorSearch(input.queryEmbedding!) : Promise.resolve([] as SelectFood[]),
   ]);
 
@@ -458,8 +499,8 @@ export async function lookupFood(input: LookupInput): Promise<LookupResult | nul
 
   if (candidates.length === 0) return null;
 
-  // Stage 3: metadata boost
-  const ranked = metadataBoost(candidates, region, input.foodName);
+  // Stage 3: metadata boost (use corrected name for scoring)
+  const ranked = metadataBoost(candidates, region, correctedFoodName);
   if (ranked.length === 0) return null;
 
   const food = ranked[0];

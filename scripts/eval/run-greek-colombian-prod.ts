@@ -357,18 +357,21 @@ function printSummary(results: CaseResult[]) {
   console.log('\n' + '═'.repeat(72));
 }
 
-// ─── Main ───────────────────────────────────────────────────────────────────
+// ─── Multi-run support ──────────────────────────────────────────────────────
 
-async function main() {
-  // Load golden cases
-  const goldenPath = resolve(__dirname, '../../agents/evals/food-parse-greek-colombian-golden.json');
-  const golden: GoldenFile = JSON.parse(readFileSync(goldenPath, 'utf-8'));
-  console.log(`📋 Loaded ${golden.cases.length} cases from golden file`);
+function parseArgs(): { runs: number } {
+  const runsArg = process.argv.find((a) => a.startsWith('--runs='));
+  return { runs: runsArg ? parseInt(runsArg.split('=')[1], 10) || 1 : 1 };
+}
 
-  // Authenticate
-  const token = await getAccessToken();
+async function runOnce(
+  golden: GoldenFile,
+  token: string,
+  runIndex: number,
+  totalRuns: number,
+): Promise<CaseResult[]> {
+  if (totalRuns > 1) console.log(`\n── Run ${runIndex + 1}/${totalRuns} ${'─'.repeat(50)}`);
 
-  // Run cases sequentially (avoid overwhelming production)
   const results: CaseResult[] = [];
   for (let i = 0; i < golden.cases.length; i++) {
     const c = golden.cases[i];
@@ -380,30 +383,107 @@ async function main() {
 
     // Small delay to be polite to production
     if (i < golden.cases.length - 1) {
-      await new Promise((r) => setTimeout(r, 500));
+      await new Promise((r) => setTimeout(r, 300));
+    }
+  }
+  return results;
+}
+
+function printMultiRunSummary(allRuns: CaseResult[][], golden: GoldenFile) {
+  const numRuns = allRuns.length;
+  const numCases = golden.cases.length;
+
+  // Per-run pass rates
+  console.log('\n' + '═'.repeat(72));
+  console.log(` GREEK + COLOMBIAN EVAL — ${numRuns}-RUN SUMMARY`);
+  console.log('═'.repeat(72));
+
+  for (let r = 0; r < numRuns; r++) {
+    const passed = allRuns[r].filter((c) => c.passed).length;
+    console.log(`  Run ${r + 1}: ${passed}/${numCases} (${((passed / numCases) * 100).toFixed(1)}%)`);
+  }
+
+  // Per-case consistency
+  console.log('\n📊 Per-case consistency:');
+  let allPassCount = 0;
+  let anyPassCount = 0;
+  const inconsistent: string[] = [];
+
+  for (let i = 0; i < numCases; i++) {
+    const caseId = golden.cases[i].id;
+    const passes = allRuns.map((run) => run[i].passed);
+    const passCount = passes.filter(Boolean).length;
+    if (passCount === numRuns) allPassCount++;
+    if (passCount > 0) anyPassCount++;
+    if (passCount > 0 && passCount < numRuns) {
+      inconsistent.push(`${caseId} (${passCount}/${numRuns})`);
     }
   }
 
-  // Print summary
-  printSummary(results);
+  console.log(`   All-pass (${numRuns}/${numRuns}): ${allPassCount}/${numCases} (${((allPassCount / numCases) * 100).toFixed(1)}%)`);
+  console.log(`   Any-pass (≥1/${numRuns}):  ${anyPassCount}/${numCases}`);
+  if (inconsistent.length > 0) {
+    console.log(`   ⚠️  Non-deterministic: ${inconsistent.join(', ')}`);
+  }
+
+  // Use last run for detailed summary
+  console.log('\n── Detailed (last run) ──');
+  printSummary(allRuns[allRuns.length - 1]);
+}
+
+// ─── Main ───────────────────────────────────────────────────────────────────
+
+async function main() {
+  const { runs } = parseArgs();
+
+  // Load golden cases
+  const goldenPath = resolve(__dirname, '../../agents/evals/food-parse-greek-colombian-golden.json');
+  const golden: GoldenFile = JSON.parse(readFileSync(goldenPath, 'utf-8'));
+  console.log(`📋 Loaded ${golden.cases.length} cases from golden file (${runs} run${runs > 1 ? 's' : ''})`);
+
+  // Authenticate
+  const token = await getAccessToken();
+
+  // Run N times
+  const allRuns: CaseResult[][] = [];
+  for (let r = 0; r < runs; r++) {
+    const results = await runOnce(golden, token, r, runs);
+    allRuns.push(results);
+
+    // Delay between runs
+    if (r < runs - 1) {
+      console.log('  ⏳ Waiting 3s between runs...');
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+    }
+  }
+
+  // Summary
+  if (runs > 1) {
+    printMultiRunSummary(allRuns, golden);
+  } else {
+    printSummary(allRuns[0]);
+  }
 
   // Save full report
   const ts = new Date().toISOString().replace(/[:.]/g, '-');
   const reportPath = `/tmp/eval-greek-colombian-${ts}.json`;
+  const lastRun = allRuns[allRuns.length - 1];
   const report = {
     timestamp: new Date().toISOString(),
     apiBase: TROPHE_API,
     evalUser: EVAL_EMAIL,
     goldenVersion: golden.version,
-    totalCases: results.length,
-    totalPassed: results.filter((r) => r.passed).length,
-    passRate: results.filter((r) => r.passed).length / results.length,
+    numRuns: runs,
+    totalCases: lastRun.length,
+    totalPassed: lastRun.filter((r) => r.passed).length,
+    passRate: lastRun.filter((r) => r.passed).length / lastRun.length,
+    perRunPassRates: allRuns.map((run) => run.filter((r) => r.passed).length / run.length),
     latency: {
-      p50: results.map((r) => r.latencyMs).sort((a, b) => a - b)[Math.floor(results.length * 0.5)],
-      p95: results.map((r) => r.latencyMs).sort((a, b) => a - b)[Math.floor(results.length * 0.95)],
-      p99: results.map((r) => r.latencyMs).sort((a, b) => a - b)[Math.floor(results.length * 0.99)],
+      p50: lastRun.map((r) => r.latencyMs).sort((a, b) => a - b)[Math.floor(lastRun.length * 0.5)],
+      p95: lastRun.map((r) => r.latencyMs).sort((a, b) => a - b)[Math.floor(lastRun.length * 0.95)],
+      p99: lastRun.map((r) => r.latencyMs).sort((a, b) => a - b)[Math.floor(lastRun.length * 0.99)],
     },
-    results,
+    allRuns,
   };
 
   writeFileSync(reportPath, JSON.stringify(report, null, 2));

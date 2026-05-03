@@ -92,13 +92,15 @@
       "language": "el",
       "input": "μια σπανακόπιτα",
       "category": "composite_recipe",
-      "expectedFallbackToAI": true,
-      "notes": "One spanakopita — traditional pastry, may be in HHF DB",
+      "expectedFallbackToAI": false,
+      "notes": "One spanakopita — in HHF DB (130g serving, 215 kcal/100g)",
       "expected": {
         "items": 1,
-        "fallbackFlag": true,
-        "confidenceMax": 0.85,
-        "kcalReasonable": { "min": 150, "max": 500 }
+        "primaryFood": ["spanakopita", "σπανακόπιτα"],
+        "totalKcal": { "min": 220, "max": 340 },
+        "totalProtein": { "min": 7, "max": 14 },
+        "totalFat": { "min": 14, "max": 22 },
+        "totalCarbs": { "min": 17, "max": 27 }
       }
     },
     {
@@ -138,13 +140,15 @@
       "language": "el",
       "input": "1 χωριάτικη σαλάτα",
       "category": "composite_recipe",
-      "expectedFallbackToAI": true,
-      "notes": "Greek salad — composite traditional, multiple ingredients",
+      "expectedFallbackToAI": false,
+      "notes": "Greek salad — in HHF DB (200g serving, 90 kcal/100g)",
       "expected": {
         "items": 1,
-        "fallbackFlag": true,
-        "confidenceMax": 0.85,
-        "kcalReasonable": { "min": 200, "max": 600 }
+        "primaryFood": ["greek salad", "horiatiki", "salad"],
+        "totalKcal": { "min": 140, "max": 230 },
+        "totalProtein": { "min": 4, "max": 9 },
+        "totalFat": { "min": 10, "max": 18 },
+        "totalCarbs": { "min": 5, "max": 12 }
       }
     },
     {
@@ -168,13 +172,15 @@
       "language": "el",
       "input": "2 κομμάτια μπακλαβά",
       "category": "composite_recipe",
-      "expectedFallbackToAI": true,
-      "notes": "2 pieces baklava — pastry, likely not in USDA",
+      "expectedFallbackToAI": false,
+      "notes": "2 pieces baklava — in HHF DB (80g/piece, 425 kcal/100g)",
       "expected": {
         "items": 1,
-        "fallbackFlag": true,
-        "confidenceMax": 0.85,
-        "kcalReasonable": { "min": 200, "max": 800 }
+        "primaryFood": ["baklava", "μπακλαβά"],
+        "totalKcal": { "min": 540, "max": 820 },
+        "totalProtein": { "min": 9, "max": 16 },
+        "totalFat": { "min": 28, "max": 44 },
+        "totalCarbs": { "min": 66, "max": 100 }
       }
     },
     {

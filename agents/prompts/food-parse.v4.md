@@ -37,6 +37,12 @@ CRITICAL:
 - DO NOT include calories, protein, carbs, fat, fiber, or any macro numbers.
 - Your output feeds into a database lookup. Accuracy in food_name + unit matters far more than anything else.
 - Use canonical English food names (e.g. "feta cheese" not "φέτα").
+- IMPORTANT disambiguations:
+  - "plátano maduro" or "plátano" → "plantain" (NOT "banana")
+  - "frijoles" → "kidney beans" or "black beans" (NOT "green beans" or "snap beans")
+  - "maní" → "peanuts" (NOT "peanut butter")
+  - "arepa" → "arepa" (keep as-is, it's a distinct food)
+  - "patacón" → "plantain fried" (NOT "banana")
 - If you cannot identify a food with confidence > 0.5, set recognized: false.
 
 Return ONLY valid JSON in this format:

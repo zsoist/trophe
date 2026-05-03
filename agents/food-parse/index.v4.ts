@@ -158,15 +158,42 @@ async function estimateMacrosViaLLM(
       responseText = result.text;
     }
 
-    // Extract JSON
-    const jsonMatch = responseText.match(/\{[\s\S]*"estimates"\s*:\s*\[[\s\S]*\][\s\S]*\}/);
-    if (!jsonMatch) return items.map(() => null);
+    // Extract JSON — try multiple patterns
+    let estimates: any[] | null = null;
 
-    const parsed = JSON.parse(jsonMatch[0]);
-    if (!Array.isArray(parsed.estimates)) return items.map(() => null);
+    // Pattern 1: { "estimates": [...] }
+    const wrapperMatch = responseText.match(/\{[\s\S]*"estimates"\s*:\s*(\[[\s\S]*?\])[\s\S]*?\}/);
+    if (wrapperMatch) {
+      try { estimates = JSON.parse(wrapperMatch[1]); } catch {}
+    }
+
+    // Pattern 2: direct array [...]
+    if (!estimates) {
+      const arrayMatch = responseText.match(/\[[\s\S]*\]/);
+      if (arrayMatch) {
+        try { estimates = JSON.parse(arrayMatch[0]); } catch {}
+      }
+    }
+
+    // Pattern 3: full wrapper object
+    if (!estimates) {
+      const fullMatch = responseText.match(/\{[\s\S]*\}/);
+      if (fullMatch) {
+        try {
+          const obj = JSON.parse(fullMatch[0]);
+          if (Array.isArray(obj.estimates)) estimates = obj.estimates;
+          else if (typeof obj.calories === 'number') estimates = [obj]; // single item
+        } catch {}
+      }
+    }
+
+    if (!estimates || !Array.isArray(estimates)) {
+      console.warn('[food-parse] LLM macro estimation: no parseable JSON. Response:', responseText.slice(0, 300));
+      return items.map(() => null);
+    }
 
     return items.map((_, i) => {
-      const est = parsed.estimates[i];
+      const est = estimates![i];
       if (!est || typeof est.calories !== 'number') return null;
       return {
         food_name: est.food_name ?? items[i].food_name,
@@ -373,21 +400,23 @@ export async function run(
     }
   }
 
-  // ── Step 3b: LLM macro estimation for DB misses ─────────────────────────
+  // ── Step 3b: LLM macro estimation for DB misses (parallel, per-item) ─────
   if (dbMissFallbacks.length > 0) {
-    const estimated = await estimateMacrosViaLLM(
-      dbMissFallbacks.map((f) => ({
+    const estimatePromises = dbMissFallbacks.map((f) =>
+      estimateMacrosViaLLM([{
         food_name: f.candidate.food_name,
         quantity: f.candidate.quantity,
         unit: f.candidate.unit,
         raw_text: f.candidate.raw_text,
-      })),
+      }]).then((results) => results[0]),
     );
+
+    const estimates = await Promise.all(estimatePromises);
 
     for (let i = 0; i < dbMissFallbacks.length; i++) {
       const { index, candidate } = dbMissFallbacks[i];
-      const est = estimated[i];
-      if (est) {
+      const est = estimates[i];
+      if (est && est.calories > 0) {
         finalItems[index] = {
           raw_text:       candidate.raw_text,
           food_name:      candidate.food_name,
