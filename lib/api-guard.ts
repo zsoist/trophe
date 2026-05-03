@@ -16,6 +16,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 // --- Config ---
 const AUTH_LIMIT = 60;     // requests per window for authenticated users
@@ -90,17 +91,43 @@ async function verifySupabaseUser(token: string): Promise<string | null> {
   return data.user.id;
 }
 
-export async function guardAiRoute(req: NextRequest): Promise<AiRouteGuardResult> {
-  const token = extractBearerToken(req);
-  if (!token) return unauthorized();
+/**
+ * Try cookie-based auth via @supabase/ssr (v0.3 browser sessions).
+ * Uses the same pattern as lib/supabase/server.ts — reads HTTP-only
+ * cookies set by the middleware + browser client.
+ */
+async function getUserFromCookie(): Promise<string | null> {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error || !user?.id) return null;
+    return user.id;
+  } catch {
+    // cookies() can throw in edge cases — treat as unauthenticated
+    return null;
+  }
+}
 
-  const userId = await verifySupabaseUser(token);
-  if (!userId) {
-    return unauthorized();
+export async function guardAiRoute(req: NextRequest): Promise<AiRouteGuardResult> {
+  // Path 1: Bearer token (eval runner, server-to-server, legacy clients)
+  const token = extractBearerToken(req);
+  if (token) {
+    const userId = await verifySupabaseUser(token);
+    if (userId) {
+      const rateLimit = checkLimit(authMap, userId, AUTH_LIMIT);
+      if (rateLimit) return { ok: false, response: rateLimit };
+      return { ok: true, userId };
+    }
+    // Invalid Bearer token — fall through to cookie check
   }
 
-  const rateLimit = checkLimit(authMap, userId, AUTH_LIMIT);
-  if (rateLimit) return { ok: false, response: rateLimit };
+  // Path 2: Cookie-based auth (browser sessions via @supabase/ssr)
+  const cookieUserId = await getUserFromCookie();
+  if (cookieUserId) {
+    const rateLimit = checkLimit(authMap, cookieUserId, AUTH_LIMIT);
+    if (rateLimit) return { ok: false, response: rateLimit };
+    return { ok: true, userId: cookieUserId };
+  }
 
-  return { ok: true, userId };
+  return unauthorized();
 }
