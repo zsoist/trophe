@@ -300,30 +300,42 @@ npm run dev              # http://localhost:3000
 
 # Before every production deploy
 npm run typecheck && npm run lint && npm test && npm run build
-
-# Production deploy is operator-gated. Do not deploy from this branch without explicit approval.
 ```
 
 - Production: `https://trophe.app`
 - GitHub: `zsoist/trophe`
-- Production deploy remains operator-gated after local + CI verification.
 
-### Vercel deploy discipline
+### Vercel deploy discipline (updated 2026-05-03)
 
-Production deployments require explicit `vercel --yes --prod`.
-`git push` to `v0.3-overhaul` or any non-main branch creates Preview
-deploys only. Preview deploys FAIL because env vars are scoped
-to Production environment.
+**Production branch**: `main`. Auto-deploys to https://trophe.app on every push.
 
-After every push to `v0.3-overhaul` intended to ship to production:
-1. Run `vercel --yes --prod` from the repo root
-2. Wait for "Ready" status
-3. Verify production responds with the new code (curl headers, smoke test endpoints)
-4. Do NOT assume `git push` = deploy
+**Normal workflow**:
+1. Branch off main: `git checkout -b feat/X`
+2. Make changes, commit
+3. Open PR to main, get review (if applicable)
+4. Merge PR → Vercel auto-deploys to production
+5. Verify: `vercel ls --prod` and `curl -sI https://trophe.app/`
 
-P1 follow-up: change Vercel's production branch to `v0.3-overhaul`
-(or `main` after governance merge) so `git push` auto-deploys to
-production.
+**Emergency hotfix workflow**:
+- Same as normal — commit on a branch, merge to main
+- Only use `vercel --yes --prod` if auto-deploy fails for some reason
+
+**Long-lived feature branches: avoid.**
+v0.3-overhaul existed Apr 5 → May 3 and accumulated 82 commits
+before merging. During that time:
+- Production deployed via manual `vercel --yes --prod` overrides
+- main was stale and didn't reflect what was live
+- Yesterday's silent 24-hour breakage was caused in part by this
+  workflow gap (auth fix shipped to v0.3-overhaul on May 2 but
+  `git push` triggered failing Preview deploys, not production)
+
+**Rule**: feature branches should merge to main within ~1 week.
+Long-lived branches diverge and create operational risk.
+
+**Rollback**:
+- Recent v0.3-overhaul state preserved at tag `archive/v0.3-overhaul-2026-05-03`
+- Vercel dashboard → Deployments → "Promote to Production" on any past deployment
+- Or: `git revert <commit>` on main and push (auto-deploys revert)
 
 ---
 
@@ -421,7 +433,8 @@ Trophē tracks the source and confidence of every food's macro data. This is a c
 - Coach pages need role gate — redirect `role === 'client'` to `/dashboard`.
 
 ### Deploy
-- Vercel env vars are Production-only → preview deploys fail without explicit Preview scope.
+- Production branch is `main` — push to main auto-deploys. See "Vercel deploy discipline" section above.
+- Vercel env vars are Production-scoped. Preview deploys from non-main branches will fail without explicit Preview env var scope.
 - CSP: use explicit `https://iwbpzwmidzvpiofnqexd.supabase.co`, NOT `*.supabase.co` (wildcard breaks mobile).
 - Pre-deploy: `git diff --staged | grep -E '(sk-ant-|sbp_|AIza|pa-)'` must be empty.
 - Git identity for Vercel: `zsoist` / `zsoist@users.noreply.github.com`.

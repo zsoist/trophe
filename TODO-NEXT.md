@@ -1,59 +1,47 @@
-# TODO-NEXT — Production readiness follow-ups as of 2026-05-02
+# TODO-NEXT — Production follow-ups as of 2026-05-03
 
 Read this at the start of the next session before touching branch, deploy, or production data.
 
 ---
 
-## CI state (run 25251519709 on commit 4609077)
+## ✅ COMPLETED — Branch governance (2026-05-03)
 
-| Step | Status |
-|---|---|
-| Guard (fixture self-test) | ✅ |
-| Guard (real source scan) | ✅ |
-| Bootstrap | ✅ |
-| Verify DB | ✅ |
-| Explain plans | ✅ |
-| Typecheck | ✅ |
-| Lint | ✅ |
-| Unit + integration tests | ✅ |
-| Enterprise readiness | ✅ |
-| Agent eval smoke | ✅ |
-| Playwright install | ✅ |
-| E2E smoke tests | ✅ (8 passed) |
-| Production build | ✅ |
+v0.3-overhaul (82 commits) merged into main. Vercel auto-deploys from main confirmed working.
+Tag: `archive/v0.3-overhaul-2026-05-03`. Branch kept alive until 2026-05-10.
 
-**Third consecutive fully green CI run on `v0.3-overhaul`.**
+## ✅ COMPLETED — meal_suggest model migration (2026-05-02)
 
----
-
-## ✅ COMPLETED — meal_suggest model migration (was deadline: 2026-05-09)
-
-**Completed 2026-05-02.** Migrated to `anthropic/claude-haiku-4-5-20251001`.
-
-Research showed gemini-2.0-flash deprecated (hard-shutdown June 1, 2026).
-Production was already silently returning FALLBACK_SUGGESTIONS (3 hardcoded meals).
-Gemini 2.5 Flash had thinking-mode latency tax + markdown-fence JSON issues.
-
-Haiku 4.5 with `tool_choice` scored 50/50 (100%) on 10-prompt eval.
-Avg latency 4.2s, $0.004/call. Route refactored from Gemini REST to Anthropic SDK.
-Cost logging via `agent_runs` (Drizzle) verified end-to-end.
-
-Also fixed: Haiku 4.5 pricing was wrong ($0.25/$1.25 → $1.00/$5.00).
-
-| Commit | Change |
-|---|---|
-| `fe0ad58` | Eval suite: `agents/evals/run-meal-suggest.ts` |
-| `61cda79` | Route refactor: Gemini REST → Anthropic SDK + tool_choice |
-| `c2baee8` | Policy + pricing update |
-
-Production now serves `https://trophe.app` from the v0.3 stack. `main` is still the GitHub default branch, but `v0.3-overhaul` remains the temporary production truth until the final local gates, production canary, and branch merge are completed.
+Migrated to `anthropic/claude-haiku-4-5-20251001` with `tool_choice`.
+100% eval pass rate, $0.004/call. Cost logging via `agent_runs`.
 
 ## CURRENT BLOCKERS / FOLLOW-UPS
 
-1. Make `main` the production source of truth after `npm run typecheck && npm run lint && npm test && npm run readiness && npm run build && npm run test:e2e && npm run canary:prod` are green.
-2. Confirm Vercel production branch setting after merge so production no longer depends on `v0.3-overhaul`.
-3. Keep `agent_runs` as the canonical AI cost table. Treat `api_usage_log` as legacy compatibility only.
-4. Keep production writes read-only unless a migration or deploy step explicitly requires them.
+### P1
+
+1. **CI lint inconsistency**: `index.v4.ts` line 162 `any` type passed CI on
+   every v0.3-overhaul push but failed on the first main push. Either the CI
+   config differs by branch (check `.github/workflows/ci.yml` for branch-specific
+   lint flags), or eslint cache was masking the error. False-confidence CI gates
+   are worse than no CI gates. Investigate and fix.
+
+2. Keep `agent_runs` as the canonical AI cost table. Treat `api_usage_log` as legacy compatibility only.
+
+3. Keep production writes read-only unless a migration or deploy step explicitly requires them.
+
+### P2
+
+4. **Schedule v0.3-overhaul branch deletion**: tagged at
+   `archive/v0.3-overhaul-2026-05-03`. Delete branch after 2026-05-10 if
+   no rollback needed: `git push origin --delete v0.3-overhaul`
+
+5. **Phase 3 eval improvements (Greek + Colombian)**:
+   - AI fallback 0-kcal for 5 regional dishes (bandeja paisa, sancocho, lulo, changua, caldo de costilla)
+   - Greek salad portion fix (`default_serving_grams`)
+   - Handful unit conversion
+   - Fried egg cooking oil macro adjustment
+   - Code-switched parse failures (mixed Greek/English input)
+   - Reference: `agents/evals/baseline-greek-colombian-2026-05-03.json`
+   - Current: 13/30 (43.3%) all-pass, target: 80%+
 
 ---
 
