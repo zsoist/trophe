@@ -56,6 +56,9 @@ CRITICAL:
   - "maní" → "peanuts" (NOT "peanut butter")
   - "arepa" → "arepa" (keep as-is, it's a distinct food)
   - "patacón" → "plantain fried" (NOT "banana")
+  - "huevos fritos" / "αυγά τηγανητά" / "fried eggs" → food_name: "fried egg" (NOT just "eggs")
+  - "huevo revuelto" / "scrambled eggs" → food_name: "scrambled egg"
+  - For eggs: INCLUDE cooking method in food_name when specified (fried, scrambled, boiled, poached). Plain "eggs" without method → "eggs".
 - If you cannot identify a food with confidence > 0.5, set recognized: false.
 
 Return ONLY valid JSON in this format:
