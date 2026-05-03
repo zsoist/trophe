@@ -4,7 +4,9 @@ const isDev = process.env.NODE_ENV !== 'production';
 
 const nextConfig: NextConfig = {
   /* TypeScript and ESLint errors are now caught at build time.
-     ignoreBuildErrors was removed 2026-04-07 — build passes clean. */
+     ignoreBuildErrors was removed 2026-04-07 — build passes clean.
+     Next 16 removed eslint config from NextConfig — lint parity is enforced
+     via vercel.json buildCommand and CI --no-cache flag instead. */
   async headers() {
     return [
       {

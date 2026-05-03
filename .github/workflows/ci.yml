@@ -114,7 +114,7 @@ jobs:
         run: npm run typecheck
 
       - name: Lint
-        run: npm run lint
+        run: npm run lint -- --no-cache
 
       - name: Unit and integration tests
         run: npm test
