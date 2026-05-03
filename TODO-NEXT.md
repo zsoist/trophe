@@ -27,16 +27,14 @@ Screenshots saved by Daniel. Vercel logs analyzed — see root causes below.
 - Fix: strip markdown code fences from `responseText` before applying
   regex patterns. One line: `responseText = responseText.replace(/```json\s*/g, '').replace(/```\s*/g, '')`
 
-### Bug 3: Branded fast food portions massively wrong [P0]
-- Inputs: 2 big macs, 2 papas grandes, 2 cones mc donalds grandes
-- Big Mac at 80g/piece (real: 215g), kcal 187 (real: 540)
-- Large fries at 100g/serving (real: 154g), kcal 148 (real: ~510)
-- Total shown: 1237 kcal. Real: ~3000 kcal.
-- Root cause: no branded fast food in canonical foods or USDA seed.
-  Universal "piece = 80g" default applies. These foods need explicit
-  food_unit_conversions entries.
-- Fix: add top 30-50 branded fast food items from USDA Branded Foods
-  database with accurate piece/serving weights.
+### ✅ Bug 3: Branded fast food portions massively wrong [FIXED — Wave 3, 2026-05-03]
+- Fixed by: `feat/wave3-usda-branded-foods` branch
+- 23 items seeded (15 fast food + 8 beverages), 98 unit conversions
+- Big Mac now 215g/piece (553 kcal), McNuggets 17g/piece, Whopper 290g
+- Coca-Cola, Sprite, Pepsi, Fanta, Red Bull, Starbucks, OJ, Beer all with
+  correct container sizes (can=355ml, grande=473ml, etc.)
+- Aliases seeded for common queries: "coke", "latte", "cerveza", "red bull"
+- Tier 3 gaps (Colombian chains) documented in `docs/wave3-tier3-gaps.md`
 
 ### Bug 1: Volume input shown as grams [P1]
 - Input: "cokes original 450ml" with quantity 2
