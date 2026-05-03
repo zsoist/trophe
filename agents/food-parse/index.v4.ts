@@ -159,7 +159,17 @@ async function estimateMacrosViaLLM(
     }
 
     // Extract JSON — try multiple patterns
-    let estimates: any[] | null = null;
+    interface MacroEstimate {
+      food_name?: string;
+      grams?: number;
+      calories: number;
+      protein_g?: number;
+      carbs_g?: number;
+      fat_g?: number;
+      fiber_g?: number;
+      sugar_g?: number;
+    }
+    let estimates: MacroEstimate[] | null = null;
 
     // Pattern 1: { "estimates": [...] }
     const wrapperMatch = responseText.match(/\{[\s\S]*"estimates"\s*:\s*(\[[\s\S]*?\])[\s\S]*?\}/);
