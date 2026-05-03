@@ -13,11 +13,31 @@ interface ParsedFoodListProps {
   logging: boolean;
 }
 
+/** Volume units where we display ml/L/cl instead of grams */
+const VOLUME_UNITS = new Set(['ml', 'l', 'cl', 'fl_oz', 'fl oz']);
+
+function isVolumeUnit(unit: string): boolean {
+  return VOLUME_UNITS.has(unit.toLowerCase());
+}
+
+/** Get the display quantity for volume items (derived from gram ratio) */
+function getDisplayQuantity(item: ParsedFoodItem): number {
+  if (!isVolumeUnit(item.unit)) return item.grams;
+  // Preserve the original quantity-to-grams ratio
+  // e.g. 450ml coke → grams=450 (density ~1), display=450ml
+  const gramsPerInputUnit = item.quantity > 0 ? item.grams / item.quantity : 1;
+  return Math.round(item.grams / gramsPerInputUnit);
+}
+
 function recalcMacros(item: ParsedFoodItem, newGrams: number): ParsedFoodItem {
   const ratio = item.grams > 0 ? newGrams / item.grams : 1;
   return {
     ...item,
     grams: newGrams,
+    // Update quantity to match new grams (keeps ratio consistent)
+    quantity: item.quantity > 0
+      ? Math.round((item.quantity * ratio) * 10) / 10
+      : item.quantity,
     calories: Math.round(item.calories * ratio),
     protein_g: Math.round(item.protein_g * ratio * 10) / 10,
     carbs_g: Math.round(item.carbs_g * ratio * 10) / 10,
@@ -144,31 +164,54 @@ export default function ParsedFoodList({ items: initialItems, onConfirm, onCance
                 </button>
               </div>
 
-              {/* Grams adjuster */}
+              {/* Quantity adjuster — shows volume unit (ml/L) for liquids, grams otherwise */}
               <div className="flex items-center gap-2 mt-2">
-                <button
-                  onClick={() => updateGrams(index, -25)}
-                  className="p-1 glass text-stone-400 hover:text-stone-200 transition-colors"
-                >
-                  <Minus size={12} />
-                </button>
-                <input
-                  type="number"
-                  value={item.grams}
-                  onChange={(e) => setGrams(index, parseInt(e.target.value) || 1)}
-                  className="input-dark text-center text-xs w-16 py-1"
-                  min={1}
-                />
-                <span className="text-stone-500 text-xs">g</span>
-                <button
-                  onClick={() => updateGrams(index, 25)}
-                  className="p-1 glass text-stone-400 hover:text-stone-200 transition-colors"
-                >
-                  <Plus size={12} />
-                </button>
-                <span className="text-stone-600 text-xs ml-auto">
-                  {item.quantity} {item.unit}
-                </span>
+                {(() => {
+                  const vol = isVolumeUnit(item.unit);
+                  const step = vol ? 50 : 25;
+                  const displayVal = vol ? getDisplayQuantity(item) : item.grams;
+                  const displayUnit = vol ? item.unit : 'g';
+                  // Convert display delta to gram delta
+                  const gramsPerDisplayUnit = item.quantity > 0 ? item.grams / item.quantity : 1;
+                  const gramStep = vol ? Math.round(step * gramsPerDisplayUnit) : step;
+
+                  return (
+                    <>
+                      <button
+                        onClick={() => updateGrams(index, -gramStep)}
+                        className="p-1 glass text-stone-400 hover:text-stone-200 transition-colors"
+                      >
+                        <Minus size={12} />
+                      </button>
+                      <input
+                        type="number"
+                        value={displayVal}
+                        onChange={(e) => {
+                          const newDisplay = parseInt(e.target.value) || 1;
+                          const newGrams = vol
+                            ? Math.round(newDisplay * gramsPerDisplayUnit)
+                            : newDisplay;
+                          setGrams(index, newGrams);
+                        }}
+                        className="input-dark text-center text-xs w-16 py-1"
+                        min={1}
+                      />
+                      <span className="text-stone-500 text-xs">{displayUnit}</span>
+                      <button
+                        onClick={() => updateGrams(index, gramStep)}
+                        className="p-1 glass text-stone-400 hover:text-stone-200 transition-colors"
+                      >
+                        <Plus size={12} />
+                      </button>
+                      {/* Show original input as hint (for non-volume, show quantity+unit) */}
+                      {!vol && (
+                        <span className="text-stone-600 text-xs ml-auto">
+                          {item.quantity} {item.unit}
+                        </span>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
 
               {/* Macros */}

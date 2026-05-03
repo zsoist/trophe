@@ -36,22 +36,23 @@ Screenshots saved by Daniel. Vercel logs analyzed — see root causes below.
 - Aliases seeded for common queries: "coke", "latte", "cerveza", "red bull"
 - Tier 3 gaps (Colombian chains) documented in `docs/wave3-tier3-gaps.md`
 
-### Bug 1: Volume input shown as grams [P1]
+### Bug 1: Volume input shown as grams [P1] ✅ FIXED
 - Input: "cokes original 450ml" with quantity 2
 - Display: "900 g" and "2 piece" simultaneously
 - Math is approximately correct (900ml ≈ 900g for liquids) but UX is
   confusing — user typed ml, system shows g.
-- Fix: when input contains volume unit (ml/L), preserve and display
-  volume unit in UI, or show both.
+- **Fix (2026-05-03)**: ParsedFoodList.tsx now detects volume units
+  (ml, L, cl, fl oz) and displays the volume quantity + unit instead of
+  grams. Adjuster uses ±50ml steps for volumes (vs ±25g for solids).
+  Internal macro calculations still use grams via density ratio.
 
-### Cross-cutting: Langfuse traces failing on production
+### Cross-cutting: Langfuse traces failing on production ✅ FIXED
 - All 8 requests show: `[Langfuse SDK] SyntaxError: Unexpected token '<'`
-- Langfuse is configured to POST to localhost:3002 (Mac Mini). Vercel
-  can't reach localhost → gets HTML error page → JSON parse fails.
-- Not causing user-facing bugs but means NO production traces are being
-  recorded. Cloudflare Tunnel (Phase 9.4) was never set up.
-- Fix: either set up CF Tunnel for Langfuse, or disable Langfuse in
-  production until tunnel is ready (suppress noisy error logs).
+- Langfuse was configured to POST to localhost:3002. Vercel can't reach localhost.
+- **Fix (2026-05-03, PR #8)**: Set up Cloudflare Tunnel at
+  `langfuse.danielreyes.work` with path-specific CF Access bypass for
+  `/api/public/*`. Vercel env var `LANGFUSE_HOST` points to tunnel URL.
+  Tunnel health verified (200). Traces will appear on next authenticated parse.
 
 Estimated fix time: Bug 4 (30 min) → Bug 2 (15 min) → Bug 3 (2 hrs) → Bug 1 (30 min).
 Recommended order: Bug 4 → Bug 2 → Langfuse → Bug 3 → Bug 1.
