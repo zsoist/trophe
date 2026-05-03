@@ -86,7 +86,37 @@ Migrated to `anthropic/claude-haiku-4-5-20251001` with `tool_choice`.
    - Fried egg cooking oil macro adjustment
    - Code-switched parse failures (mixed Greek/English input)
    - Reference: `agents/evals/baseline-greek-colombian-2026-05-03.json`
-   - Current: 13/30 (43.3%) all-pass, target: 80%+
+   - Current: **20/30 (66.7%)** after Phase 3 fixes (was 13/30 at baseline, 18/30 pre-Phase3)
+
+### Phase 3 deferred cases (post-2026-05-03)
+
+**Lookup issues (category b):**
+
+1. **gr-12** — "2 αυγά τηγανητά" (fried eggs)
+   - Current: matches raw egg (143 kcal/100g) instead of fried (196 kcal/100g)
+   - Needed: qualifier-aware lookup ("fried"/"τηγανητά" → route to cooked egg entry)
+   - Impact: +36 kcal per 2-egg portion, takes total from 244→280 (passes min)
+   - Effort: medium (qualifier mapping in lookup.ts)
+
+2. **co-04** — "1 taza de arroz blanco" (white rice)
+   - Current: sometimes matches brown rice (195g/cup) vs white (158g/cup)
+   - Needed: "blanco"/"white" in query should prefer white rice entry
+   - Impact: marginal (240 vs 230 max — 10 kcal over). Consider widening golden.
+   - Effort: low (alias or embedding fix)
+
+**AI fallback issues (category c):**
+
+3. **gr-05** — "1 σουβλάκι κοτόπουλο με πίτα" (souvlaki with pita)
+   - Current: LLM treats "souvlaki + pita" as composite → AI estimate → 100g/160kcal
+   - DB HAS souvlaki_chicken at 150g, but "with pita" triggers composite path
+   - Needed: either teach LLM to decompose (souvlaki 150g + pita 60g), or seed
+     a "souvlaki_with_pita" composite entry (~210g, ~320kcal)
+   - Effort: medium (prompt or seed)
+
+4. **gr-04** — "γιαούρτι με μέλι και καρύδια" (yogurt with honey and walnuts)
+   - Current: fat=31.9g (above max 30). Items resolve OK but walnut portion large.
+   - Needed: review walnut default quantity or golden tolerance
+   - Effort: low (data adjustment)
 
 ---
 
