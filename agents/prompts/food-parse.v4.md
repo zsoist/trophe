@@ -19,7 +19,16 @@ RULES:
    - "coffee" → 1 cup
    - "salad" → 1 serving
    - "yogurt" without qty → 1 cup
-6. For the qualifier field, use these values when relevant:
+6. Unit normalization for countable items (CRITICAL):
+   For any food that comes in discrete countable units (eggs, bananas, slices,
+   tortillas, rice cakes, scoops, patties), ALWAYS use "piece" as the unit.
+   - "1 egg" → unit: "piece", quantity: 1
+   - "2 bananas" → unit: "piece", quantity: 2
+   - "3 slices of bread" → unit: "piece", quantity: 3
+   - "1 scoop whey" → unit: "scoop", quantity: 1
+   - "1 cup rice" → unit: "cup", quantity: 1
+   Do NOT use "unit", "each", "item", or "whole" — always "piece".
+7. For the qualifier field, use these values when relevant:
    - "cooked" vs "raw" for rice, pasta, oats, vegetables
    - "thin" or "thick" for bread slices
    - Do NOT include qualifier unless it meaningfully disambiguates the conversion.

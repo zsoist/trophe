@@ -304,12 +304,24 @@ function metadataBoost(candidates: SelectFood[], region: string, query: string):
 }
 
 // ── Unit conversion lookup ────────────────────────────────────────────────────
+// Synonym map: LLM may emit any of these for countable items.
+// Normalize to 'piece' which matches food_unit_conversions rows.
+const UNIT_SYNONYMS: Record<string, string> = {
+  unit: 'piece', units: 'piece', each: 'piece', item: 'piece', items: 'piece',
+  count: 'piece', whole: 'piece', pieces: 'piece', pcs: 'piece',
+  // Spanish
+  unidad: 'piece', unidades: 'piece',
+  // Greek
+  'τεμάχιο': 'piece', 'τεμάχια': 'piece', 'κομμάτι': 'piece', 'κομμάτια': 'piece',
+};
+
 async function resolveUnit(
   foodId: string,
   unit: string,
   qualifier?: string,
 ): Promise<{ id: string | null; gramsPerUnit: number } | null> {
-  const normalizedUnit = unit.toLowerCase().trim();
+  const raw = unit.toLowerCase().trim();
+  const normalizedUnit = UNIT_SYNONYMS[raw] ?? raw;
 
   // 1. Food-specific conversion (highest priority)
   const specific = await db
