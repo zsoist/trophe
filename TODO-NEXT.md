@@ -4,6 +4,62 @@ Read this at the start of the next session before touching branch, deploy, or pr
 
 ---
 
+## P0 — Real-user bugs surfaced 2026-05-03 (Daniel's account, midnight test)
+
+Screenshots saved by Daniel. Vercel logs analyzed — see root causes below.
+
+### Bug 4: Hard parse failure on Spanish input [P0 — fix first]
+- Input: "2 huevos revueltos con envueltos"
+- Error: `TypeError: Cannot read properties of null (reading 'toLowerCase')`
+- Returns HTTP 500, user sees "Failed to parse food input"
+- Root cause: LLM returned null `food_name` for "envueltos" (Colombian corn
+  pastry). Null-safety check missing in food-parse pipeline.
+- Fix: add null guard on `food_name` before `.toLowerCase()`. Graceful
+  fallback: if food_name is null, skip that item or return unrecognized.
+
+### Bug 2: AI fallback returning 0 kcal for branded items [P0]
+- Input: "cokes original" (no volume specified)
+- Result: 0 kcal, 0 protein, 0 carbs, 0 fat
+- Root cause: LLM macro estimation response wrapped in markdown fences
+  (`` ```json {...} `` ``). The three regex patterns in `estimateMacrosViaLLM()`
+  don't strip the `` ```json `` prefix. The actual JSON is valid — Coke shows
+  378 kcal in the Vercel log — but the parser can't extract it.
+- Fix: strip markdown code fences from `responseText` before applying
+  regex patterns. One line: `responseText = responseText.replace(/```json\s*/g, '').replace(/```\s*/g, '')`
+
+### Bug 3: Branded fast food portions massively wrong [P0]
+- Inputs: 2 big macs, 2 papas grandes, 2 cones mc donalds grandes
+- Big Mac at 80g/piece (real: 215g), kcal 187 (real: 540)
+- Large fries at 100g/serving (real: 154g), kcal 148 (real: ~510)
+- Total shown: 1237 kcal. Real: ~3000 kcal.
+- Root cause: no branded fast food in canonical foods or USDA seed.
+  Universal "piece = 80g" default applies. These foods need explicit
+  food_unit_conversions entries.
+- Fix: add top 30-50 branded fast food items from USDA Branded Foods
+  database with accurate piece/serving weights.
+
+### Bug 1: Volume input shown as grams [P1]
+- Input: "cokes original 450ml" with quantity 2
+- Display: "900 g" and "2 piece" simultaneously
+- Math is approximately correct (900ml ≈ 900g for liquids) but UX is
+  confusing — user typed ml, system shows g.
+- Fix: when input contains volume unit (ml/L), preserve and display
+  volume unit in UI, or show both.
+
+### Cross-cutting: Langfuse traces failing on production
+- All 8 requests show: `[Langfuse SDK] SyntaxError: Unexpected token '<'`
+- Langfuse is configured to POST to localhost:3002 (Mac Mini). Vercel
+  can't reach localhost → gets HTML error page → JSON parse fails.
+- Not causing user-facing bugs but means NO production traces are being
+  recorded. Cloudflare Tunnel (Phase 9.4) was never set up.
+- Fix: either set up CF Tunnel for Langfuse, or disable Langfuse in
+  production until tunnel is ready (suppress noisy error logs).
+
+Estimated fix time: Bug 4 (30 min) → Bug 2 (15 min) → Bug 3 (2 hrs) → Bug 1 (30 min).
+Recommended order: Bug 4 → Bug 2 → Langfuse → Bug 3 → Bug 1.
+
+---
+
 ## ✅ COMPLETED — Branch governance (2026-05-03)
 
 v0.3-overhaul (82 commits) merged into main. Vercel auto-deploys from main confirmed working.
