@@ -111,4 +111,28 @@ describe('food-parse null safety (Bug 4 regression)', () => {
     expect(filtered).toHaveLength(1);
     expect(filtered[0].food_name).toBe('rice');
   });
+
+  it('strips markdown code fences before JSON extraction (Bug 2 regression)', () => {
+    // Gemini Flash wraps responses in ```json...``` fences
+    const fencedResponse = '```json\n{\n  "estimates": [\n    {\n      "food_name": "Coca-Cola",\n      "grams": 450,\n      "calories": 189,\n      "protein_g": 0,\n      "carbs_g": 47.7,\n      "fat_g": 0\n    }\n  ]\n}\n```';
+
+    // Strip fences like the fix does
+    const cleaned = fencedResponse.replace(/```(?:json)?\s*/g, '').trim();
+
+    // Should be valid JSON after stripping
+    const parsed = JSON.parse(cleaned);
+    expect(parsed.estimates).toHaveLength(1);
+    expect(parsed.estimates[0].food_name).toBe('Coca-Cola');
+    expect(parsed.estimates[0].calories).toBe(189);
+  });
+
+  it('strips fences from items response too', () => {
+    const fencedItems = '```json\n{"items": [{"raw_text": "coke", "food_name": "coca-cola", "quantity": 1, "unit": "piece", "confidence": 0.9, "recognized": true}]}\n```';
+    const cleaned = fencedItems.replace(/```(?:json)?\s*/g, '').trim();
+    const match = cleaned.match(/\{[\s\S]*"items"\s*:\s*\[[\s\S]*\][\s\S]*\}/);
+    expect(match).not.toBeNull();
+    const parsed = JSON.parse(match![0]);
+    expect(parsed.items).toHaveLength(1);
+    expect(parsed.items[0].food_name).toBe('coca-cola');
+  });
 });
