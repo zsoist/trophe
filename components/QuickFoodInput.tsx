@@ -58,12 +58,17 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, onSea
     lastTextRef.current = text.trim();
 
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000); // 15s timeout
+
       const res = await fetch('/api/food/parse', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: text.trim(), language: lang }),
+        signal: controller.signal,
       });
 
+      clearTimeout(timeout);
       const data = await res.json();
 
       if (!res.ok || !data.items || data.items.length === 0) {
@@ -77,8 +82,12 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, onSea
       setParsedItems(data.items);
       setInputSource('text');
       setMode('confirming');
-    } catch {
-      setError('Failed to parse food');
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        setError('Request timed out — try again or enter manually');
+      } else {
+        setError('Failed to parse food — check your connection');
+      }
       setRetryCount(prev => prev + 1);
       setMode('idle');
     }
@@ -115,11 +124,17 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, onSea
       const base64 = await resizeAndEncode(file, 1024);
       const mediaType = file.type || 'image/jpeg';
 
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 20000); // 20s for photo
+
       const res = await fetch('/api/ai/photo-analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ imageBase64: base64, mediaType }),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeout);
 
       const data = await res.json();
 
@@ -157,8 +172,12 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, onSea
       setParsedItems(items);
       setInputSource('photo');
       setMode('confirming');
-    } catch {
-      setError('Failed to analyze photo');
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        setError('Photo analysis timed out — try again');
+      } else {
+        setError('Failed to analyze photo — check your connection');
+      }
       setRetryCount(prev => prev + 1);
       setMode('idle');
     }
@@ -340,7 +359,15 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, onSea
 
       if (dbError) {
         console.error('Insert error:', dbError);
-        setError('Failed to save entries');
+        // RLS violation or auth issue — session likely expired
+        if (dbError.code === '42501' || dbError.message?.includes('policy') || dbError.code === 'PGRST301') {
+          setError('Session expired — please refresh the page to log in again');
+        } else if (dbError.code === '23514') {
+          // CHECK constraint violation (e.g. invalid source value)
+          setError('Failed to save — invalid entry format');
+        } else {
+          setError('Failed to save entries — try again');
+        }
         setLogging(false);
         return;
       }

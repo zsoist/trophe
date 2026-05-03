@@ -333,6 +333,8 @@ export default function DashboardPage() {
     if (!coachMessage.trim() || sendingMsg) return;
     setSendingMsg(true);
     try {
+      // Get access token for the Authorization header — this route requires Bearer auth.
+      // getSession() reads from cache so it's fast; the token is still validated server-side.
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token ?? '';
       await fetch('/api/client/message', {
