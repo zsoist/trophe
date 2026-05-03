@@ -29,6 +29,7 @@ import type { FoodParseInput, FoodParseOutput, ParsedFoodItem } from '../schemas
 import { enrichWithLocalDB } from './enrich';
 import { lookupFoodBatch } from './lookup';
 import type { LookupInput } from './lookup';
+import { decomposeAndLookup } from './decompose';
 import { pick } from '../router';
 import { traced } from '../observability/langfuse';
 import { emitGenAISpan, estimateCostUsd } from '../observability/otel';
@@ -429,9 +430,24 @@ export async function run(
         // enrichWithLocalDB found a match in the small static DB
         finalItems.push({ ...enriched, source: 'ai_estimate' });
       } else {
-        // No match anywhere — use LLM to estimate macros
-        dbMissFallbacks.push({ index: finalItems.length, candidate });
-        finalItems.push(legacyItem); // placeholder, will be overwritten
+        // Try composite dish decomposition before raw LLM estimation
+        // (DietAI24 pattern: decompose → lookup ingredients → aggregate)
+        const decomposed = await decomposeAndLookup({
+          foodName: candidate.food_name,
+          nameLocalized: candidate.name_localized,
+          quantity: candidate.quantity,
+          unit: candidate.unit,
+          rawText: candidate.raw_text,
+          region: language === 'el' ? 'GR' : language === 'es' ? 'CO' : 'US',
+        });
+
+        if (decomposed) {
+          finalItems.push(decomposed);
+        } else {
+          // No match anywhere — use LLM to estimate macros
+          dbMissFallbacks.push({ index: finalItems.length, candidate });
+          finalItems.push(legacyItem); // placeholder, will be overwritten
+        }
       }
     }
   }
