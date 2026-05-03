@@ -36,3 +36,13 @@ VALUES
   ('029b3ece-d8e2-4827-82ae-558700adf9ed', 'el', 'αυγό τηγανητό', true),
   ('029b3ece-d8e2-4827-82ae-558700adf9ed', 'el', 'αυγά τηγανητά', false)
 ON CONFLICT DO NOTHING;
+
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- 3. Add food-specific piece conversion (50g per fried egg)
+-- Universal fallback is 80g/piece which is too generous for eggs.
+-- USDA large egg ~50g raw, ~46g fried. Using 50g as standard.
+-- ═══════════════════════════════════════════════════════════════════════════════
+
+INSERT INTO food_unit_conversions (food_id, unit, grams_per_unit, source)
+VALUES ('029b3ece-d8e2-4827-82ae-558700adf9ed', 'piece', 50, 'usda')
+ON CONFLICT DO NOTHING;
