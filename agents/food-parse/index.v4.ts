@@ -58,7 +58,9 @@ interface V4LLMOutput {
 }
 
 function extractV4JSON(text: string): V4LLMOutput | null {
-  const match = text.match(/\{[\s\S]*"items"\s*:\s*\[[\s\S]*\][\s\S]*\}/);
+  // Strip markdown code fences — LLMs often wrap JSON in ```json...```
+  const cleaned = text.replace(/```(?:json)?\s*/g, '').trim();
+  const match = cleaned.match(/\{[\s\S]*"items"\s*:\s*\[[\s\S]*\][\s\S]*\}/);
   if (!match) return null;
   try {
     const parsed = JSON.parse(match[0]);
@@ -168,6 +170,9 @@ async function estimateMacrosViaLLM(
       });
       responseText = result.text;
     }
+
+    // Strip markdown code fences — Gemini Flash often wraps JSON in ```json...```
+    responseText = responseText.replace(/```(?:json)?\s*/g, '').trim();
 
     // Extract JSON — try multiple patterns
     interface MacroEstimate {
