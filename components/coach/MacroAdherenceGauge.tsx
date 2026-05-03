@@ -13,24 +13,6 @@ interface MacroAdherenceGaugeProps {
   targets: MacroValues;
 }
 
-function describeArc(
-  cx: number,
-  cy: number,
-  r: number,
-  startAngle: number,
-  endAngle: number,
-): string {
-  const start = {
-    x: cx + r * Math.cos(((startAngle - 90) * Math.PI) / 180),
-    y: cy + r * Math.sin(((startAngle - 90) * Math.PI) / 180),
-  };
-  const end = {
-    x: cx + r * Math.cos(((endAngle - 90) * Math.PI) / 180),
-    y: cy + r * Math.sin(((endAngle - 90) * Math.PI) / 180),
-  };
-  const largeArc = endAngle - startAngle > 180 ? 1 : 0;
-  return `M ${start.x} ${start.y} A ${r} ${r} 0 ${largeArc} 1 ${end.x} ${end.y}`;
-}
 
 export default memo(function MacroAdherenceGauge({
   consumed,

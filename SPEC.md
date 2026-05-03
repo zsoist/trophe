@@ -1,103 +1,161 @@
-# τροφή (Trophe) — Precision Nutrition Coaching Platform
+# τροφή (Trophē) — Product Specification
+
+_Last updated: 2026-05-01 (v0.3-overhaul)_
+
+---
 
 ## Problem
-Professional nutritionists manage clients using spreadsheets, MyFitnessPal, and WhatsApp groups. No platform enforces Precision Nutrition's habit-based methodology at scale while providing AI-powered food tracking and coach analytics.
+
+Professional nutritionists manage clients using spreadsheets, MyFitnessPal, and WhatsApp groups. No platform enforces Precision Nutrition's habit-based methodology at scale while providing AI-powered food tracking, coach analytics, and persistent client memory.
+
+---
 
 ## Users
-- **Primary: Coaches** — Professional nutritionists managing 10-50+ clients (B2B, paying customer)
-- **Secondary: Clients** — Athletes, health-conscious individuals seeking guided coaching (free)
 
-## Core Flows
+- **Primary: Coaches** — Professional nutritionists managing 10–50+ clients (B2B, paying customer)
+- **Secondary: Clients** — Athletes, health-conscious individuals seeking guided coaching (free tier)
+
+---
+
+## Core User Flows
 
 ### Client Flow
-1. Sign up → onboarding wizard → body stats → calculated macros (Mifflin-St Jeor + ISSN)
-2. Daily: log food (text/photo/voice/paste/manual) → AI parses → review → confirm
-3. Daily: check in on assigned habit (one tap) → 14-day cycle → mastered → next habit
-4. Optional: log workouts, track water, take supplements, run AI Form Check
-5. View: calendar, trends, insights, scores, streaks, badges
-6. View: macro food ideas (protein, fiber, fat, carb suggestions based on remaining targets)
+1. Sign up → onboarding wizard (5 screens: body stats, goal, activity, plan, targets)
+2. Daily: log food via text / photo / voice / paste / USDA search / manual entry
+3. AI parses input → client reviews and adjusts → confirms → food_log entry saved
+4. Daily: check in on assigned habit (one tap) → 14-day cycle → mastered → next
+5. Optional: log workouts (sets/reps/RPE, PR detection), track water, log supplements
+6. Optional: AI Form Check (MediaPipe Pose, browser WASM — no server)
+7. View: calendar, analytics (heatmap, adherence, patterns, monthly report), streaks, badges
+8. View: macro food ideas (protein/fiber/fat/carb suggestions based on remaining targets)
+9. Recipe Analyzer: paste recipe → AI extracts ingredients + totals → log N servings
 
 ### Coach Flow
 1. Log in → coach dashboard → see all clients with behavioral signals (green/yellow/red)
-2. Assign habits one at a time → monitor compliance → adjust when needed
-3. Create supplement protocols with evidence levels → assign to clients
-4. Create workout templates → assign to clients
-5. Deep-dive: food log, workout history, form check results, notes
-6. Set/override client macro targets (calories, protein, carbs, fat, fiber, water) with Auto-calc button (Mifflin-St Jeor + ISSN)
+2. Assign one habit at a time → monitor compliance → adjust when needed
+3. Set/override client macro targets (Mifflin-St Jeor + ISSN auto-calc button)
+4. Deep-dive any client: food log, workout history, notes, trends, patterns, memory blocks
+5. Create supplement protocols → assign to clients
+6. Create workout templates → assign to clients
+7. Coach inbox: urgency-sorted client activity feed (gold border = ≥3 days off-plan)
+8. Export client report (Markdown)
+9. View/edit Letta memory blocks about clients
 
-### Recipe Analyzer Flow (April 18)
-1. Client clicks "🍲 Recipe" on food log page
-2. Paste recipe text (English / Spanish / Greek) + specify yield (servings)
-3. AI extracts each ingredient → canonical grams → total + per-serving macros
-4. Preview: recipe name, per-serving hero card (kcal + P/C/F/Fiber), collapsible ingredient breakdown
-5. Slider: how many servings did you eat (0.25× to full recipe)
-6. Meal picker → log as single `food_log` entry named "Recipe Name (1.5 servings)"
+### Recipe Analyzer Flow
+1. Click "🍲 Recipe" on food log page
+2. Paste recipe text (EN/ES/EL) + specify yield
+3. AI (Haiku 4.5) extracts ingredients → canonical grams → totals + per-serving macros
+4. Preview: per-serving hero card (kcal + P/C/F/Fiber) + collapsible ingredient list
+5. Slider: choose servings eaten (0.25× to full)
+6. Select meal slot → log as single `food_log` entry
 
-### AI Form Check Flow (new)
+### AI Form Check Flow
 1. Client opens Form Check → selects exercise + side
 2. Camera opens → MediaPipe Pose detects 33 landmarks (browser WASM, 30+ FPS)
-3. Real-time: skeleton overlay (green), angle readout, rep counter
+3. Real-time: green skeleton overlay, angle readout, rep counter
 4. Finish → per-rep scoring against reference dataset
-5. Results: 5-tier assessment (buen ejercicio → riesgo de lesion)
+5. Results: 5-tier assessment → saved to `form_analyses` table
 
-## Michael Kavdas Vision (from April 9 meeting)
-- The nutritionist is the customer, not the athlete
-- AI as assistant, not replacement (human-in-the-loop)
-- East meets West: Greek ancient medicine + Chinese medicine + Western research
-- Per-client AI agents with persistent "core memories"
-- Endgame: distill model from nutritionist decisions → AI IS the nutritionist
+---
 
-## Success Criteria
-- [x] Michael demo delivered (April 9)
-- [x] Michael's account created (coach role)
-- [x] Demo page with EN/EL toggle
-- [x] AI Form Check working in browser
-- [x] 6-agent security audit completed with 28 fixes (April 14)
-- [x] Coach macro targets editor shipped (April 14)
-- [x] Market research and three-tier vision validated (April 14)
-- [ ] 3 test subjects actively using app (April 10-18)
-- [ ] Michael using coach dashboard daily
-- [ ] Bug report and feature feedback collected
-- [x] ✅ Reconvene meeting (April 16-18)
-- [ ] April 20 meeting (Kavdas + Tsatsaronis + Reyes + Gutiérrez): product direction aligned, cut list agreed, partnership decision *timeline* set
-- [ ] Legal entity discussion initiated
+## AI Architecture (v0.3 — `/agents/` pattern)
 
-## AI Architecture (`/agents/` pattern, April 18)
-
-All LLM-backed features live under `/agents/` with a consistent `run(input) → { ok, output, telemetry }` contract:
+Every LLM-backed feature has a consistent `run(input) → { ok, output, telemetry }` contract:
 
 ```
 agents/
-  prompts/<agent>.<version>.md    # versioned prompt templates, git-diffable
-  clients/anthropic.ts            # Messages API wrapper with cache_control
-  schemas/<agent>.ts              # zod-style input/output types + validators
-  <agent>/
-    index.ts                      # public run() — the only export routes call
-    extract.ts                    # LLM output parsing/normalization
-    enrich.ts                     # post-processing (local DB lookups)
-  README.md                       # pattern + versioning conventions
+  router/           # task → model selection (never hardcode models in agents)
+  clients/          # anthropic.ts, google.ts (thin API wrappers)
+  observability/    # langfuse.ts (OTel traces), otel.ts (semconv)
+  memory/           # read.ts, write.ts, coach-blocks.ts (Mem0/Letta hybrid)
+  food-parse/       # index.ts (LLM identifies only), lookup.ts (deterministic macros)
+  recipe-analyze/   # index.ts
+  insights/         # wearable-summary.ts (Spike → Sonnet 4.6 → coach text)
+  evals/            # run-all.ts + multi-layer/ (schema, LLM judge, regression)
+  prompts/          # versioned .md prompt files
+  schemas/          # input/output types per agent
 ```
 
-Current agents: `food-parse` (v3, Haiku 4.5 + cache), `recipe-analyze` (v1, Haiku 4.5 + cache). Prompt caching (`cache_control: ephemeral`) on system prompts yields ~90% discount on cached tokens within the 5-minute TTL; projected ~70% Anthropic spend reduction at steady state. Routes shrink to thin adapters (food-parse route: 258 → 51 LOC).
+**v0.3 food-parse fix**: LLM identifies `{food_name, qty, unit}` only. `lookup.ts` does pgvector + pg_trgm hybrid retrieval → `foods` table supplies all macros. Macros computed as `grams × kcal_per_100g / 100`. **LLM never emits a number.** Target accuracy: ≥95% (was ~81% with LLM-guessed values).
 
-Planned v0.2 additions: promptfoo golden-set evals, Langfuse prompt registry push on deploy, Playwright E2E against the stack.
+**LLM routing** (cost-optimized):
+- `food_parse` → Gemini 2.5 Flash (~$0.05/active-day vs Haiku $0.40)
+- `recipe` → Haiku 4.5 + ephemeral cache (~70% spend reduction)
+- `coach_insight` → Sonnet 4.6 (reasoning over week of data)
+- `embed` → Voyage v4 `voyage-large-2` 1024-dim
+
+---
+
+## Michael Kavdas Vision (April 9, 2026)
+
+- The nutritionist is the customer, not the athlete
+- AI as assistant, not replacement (human-in-the-loop)
+- East meets West: Greek ancient medicine + Chinese medicine + Western research
+- Per-client AI agents with persistent "core memories" (implemented in Phase 5)
+- Endgame: distill model from nutritionist decisions → AI IS the nutritionist
+
+---
 
 ## Technical Requirements
-- Trilingual UI (EN/ES/EL) — 200+ translated strings
-- Evidence-based calculations (Mifflin-St Jeor BMR, ISSN protein targets)
-- Zero .single() calls (use .maybeSingle() always)
-- TypeScript strict mode, 0 errors
-- Mobile-first (390x844)
-- Deploy with `vercel --yes --prod` (env vars are Production-only)
-- AI cost < $2/month per coach
-- Security headers on all responses (CSP, X-Frame-Options, X-XSS-Protection, Referrer-Policy)
-- Server-side auth middleware with JWT verification + role-based routing
-- Input sanitization on all AI routes (500 char cap, control char strip)
-- SQL injection prevention on all search routes (sanitized ilike)
 
-## Three-Tier Product Vision (validated April 14)
+| Requirement | Status |
+|-------------|--------|
+| Trilingual UI (EN/ES/EL) — 600+ translated strings | ✅ |
+| Evidence-based calculations (Mifflin-St Jeor BMR, ISSN protein targets) | ✅ |
+| Never `.single()` — always `.maybeSingle()` | ✅ |
+| TypeScript strict mode, 0 errors | ✅ |
+| Mobile-first (390×844) | ✅ |
+| AI cost < $2/month/coach | ✅ (target; Gemini Flash routing helps) |
+| Security headers (CSP, X-Frame-Options, X-XSS-Protection, Referrer-Policy) | ✅ |
+| Server-side auth middleware with JWT verification + role routing | ✅ (Phase 2) |
+| Input sanitization on all AI routes (length cap + control char strip) | ✅ |
+| SQL injection prevention on search routes | ✅ |
+| Prompt injection defense on AI routes | ✅ |
+| RLS on every client-accessible table | ✅ |
+| 4-tier role enum (super_admin > admin > coach > client) | ✅ (Phase 1) |
+| HTTP-only cookie sessions (`@supabase/ssr`) | ✅ (Phase 2) |
+| Versioned DB migrations (Drizzle Kit) | ✅ (Phase 0) |
+| LLM observability (Langfuse + OTel) | ✅ (Phase 3) |
+| Deterministic food macros (≥95% accuracy) | ✅ (Phase 4) |
+| Agent memory system (Mem0/Letta hybrid) | ✅ (Phase 5) |
+| Wearable integrations (Spike API) | ✅ (Phase 6) |
+| tRPC v11 internal API | ✅ (Phase 7) |
+
+---
+
+## Three-Tier Product Vision (validated April 14, 2026)
+
 1. **Tier 1 — Coach Tool** (current): SaaS for nutritionists. Per-coach subscription, clients free. Habit methodology + AI food tracking + coach dashboard.
-2. **Tier 2 — Self-Service Tracker**: Consumer app for individuals without a coach. Freemium model. AI-powered food logging + habit engine + insights.
+2. **Tier 2 — Self-Service Tracker**: Consumer app for individuals without a coach. Freemium. AI-powered food logging + habit engine + insights.
 3. **Tier 3 — B2B Platform**: Multi-tenant for gyms and clinics. Stripe Connect for billing. White-label option. Central admin + multiple coaches + their clients.
 
-Payment standard: Stripe Connect (marketplace model for multi-tenant billing).
+Payment standard: **Stripe Connect** (marketplace model for multi-tenant billing).
+
+---
+
+## Success Criteria
+
+### Shipped ✅
+- Michael demo delivered (April 9)
+- Michael's account created (coach role)
+- Demo page with EN/EL toggle
+- AI Form Check working in browser
+- 6-agent security audit completed with 28 fixes (April 14)
+- Coach macro targets editor shipped (April 14)
+- Market research and three-tier vision validated (April 14)
+- 50 coach components built + integrated (April 16)
+- Light/dark theme toggle (Michael Feedback #3)
+- April 20 partnership meeting held (Michael + George Tsatsaronis)
+- v0.3 overhaul: Phases 0–8 complete and locally green
+- Food accuracy fix: deterministic pipeline (lookup.ts), ≥95% CI gate
+
+### Pending
+- [ ] Phase 9 production cutover (operator-gated)
+- [ ] USDA registered API key (replace DEMO_KEY)
+- [ ] Supabase Pro (PITR backups)
+- [ ] Spike sandbox + wearable testing
+- [ ] Apple/Google OAuth provisioning
+- [ ] Playwright E2E test suite
+- [ ] Legal entity established
+- [ ] Pricing model finalized
+- [ ] Onboard 2–3 more beta nutritionists

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
+import { Icon } from '@/components/ui';
 
 const MYTHS = [
   'Eating every 2-3h doesn\'t speed up metabolism. Total daily intake matters more.',
@@ -33,7 +34,7 @@ export default function MythCard() {
       style={{ borderColor: 'rgba(212, 168, 83, 0.2)', borderWidth: 1 }}
     >
       <div className="flex items-start gap-3">
-        <span className="text-lg flex-shrink-0 mt-0.5">💡</span>
+        <span className="flex-shrink-0 mt-0.5 text-[#D4A853]"><Icon name="i-sparkle" size={18} /></span>
         <div className="flex-1 min-w-0">
           <h4 className="text-xs font-semibold text-[#D4A853] uppercase tracking-wider mb-1.5">
             Did you know?

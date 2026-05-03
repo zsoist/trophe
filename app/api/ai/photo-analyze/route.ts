@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { logAPIUsage, calculateCost, extractAnthropicUsage } from '@/lib/api-cost-logger';
+import { calculateCost, extractAnthropicUsage } from '@/lib/api-cost-logger';
 import { guardAiRoute } from '@/lib/api-guard';
+import { pick } from '@/agents/router';
+import { logAgentRun } from '@/lib/agent-run-logger';
 
 interface PhotoAnalyzeRequest {
   imageBase64: string;
@@ -14,10 +16,11 @@ interface FoodAnalysis {
   estimated_carbs_g: number;
   estimated_fat_g: number;
   confidence: number;
+  source?: 'ai_estimate';
+  accuracy_note?: string;
 }
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
-const MODEL = 'claude-haiku-4-5-20251001';
 
 function validateInput(body: unknown): { valid: true; data: PhotoAnalyzeRequest } | { valid: false; error: string } {
   if (!body || typeof body !== 'object') {
@@ -70,8 +73,8 @@ function extractJSON(text: string): FoodAnalysis[] | null {
 }
 
 export async function POST(request: NextRequest) {
-  const block = guardAiRoute(request);
-  if (block) return block;
+  const guard = await guardAiRoute(request);
+  if (!guard.ok) return guard.response;
 
   try {
     const body = await request.json();
@@ -85,6 +88,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { imageBase64, mediaType } = validation.data;
+    const policy = pick('photo_analyze');
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
@@ -103,8 +107,8 @@ export async function POST(request: NextRequest) {
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: MODEL,
-        max_tokens: 1024,
+        model: policy.model,
+        max_tokens: policy.maxTokens,
         messages: [
           {
             role: 'user',
@@ -119,7 +123,7 @@ export async function POST(request: NextRequest) {
               },
               {
                 type: 'text',
-                text: 'Analyze this food photo. Identify each food item and estimate nutritional values per serving. Return JSON: { foods: [{ name, estimated_calories, estimated_protein_g, estimated_carbs_g, estimated_fat_g, confidence }] }. confidence is a number from 0 to 1. Return ONLY the JSON, no other text.',
+                text: 'Analyze this food photo. Identify visible food items and make a conservative rough macro estimate only. Photo-only portion estimation is uncertain unless a scale, label, or known container is visible. Do not imply precision. Return JSON: { foods: [{ name, estimated_calories, estimated_protein_g, estimated_carbs_g, estimated_fat_g, confidence, source, accuracy_note }] }. source must be "ai_estimate". confidence is 0 to 1 and should be below 0.75 unless portion size is visually anchored. accuracy_note should briefly say what makes the estimate uncertain. Return ONLY the JSON, no other text.',
               },
             ],
           },
@@ -132,7 +136,16 @@ export async function POST(request: NextRequest) {
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`Anthropic API error: ${response.status} ${errorText}`);
-      logAPIUsage({ endpoint: '/api/ai/photo-analyze', model: MODEL, provider: 'anthropic', tokens_in: 0, tokens_out: 0, cost_usd: 0, latency_ms: latencyMs, success: false, error_message: errorText.slice(0, 200) });
+      logAgentRun({
+        taskName: 'photo_analyze',
+        model: policy.model,
+        provider: 'anthropic',
+        costUsd: 0,
+        latencyMs,
+        rawStatus: response.status,
+        userId: guard.userId,
+        errorMessage: errorText.slice(0, 200),
+      });
       return NextResponse.json(
         { error: 'Failed to analyze photo' },
         { status: 502 },
@@ -141,8 +154,18 @@ export async function POST(request: NextRequest) {
 
     const data = await response.json();
     const { tokensIn, tokensOut } = extractAnthropicUsage(data);
-    const cost = calculateCost(MODEL, tokensIn, tokensOut);
-    logAPIUsage({ endpoint: '/api/ai/photo-analyze', model: MODEL, provider: 'anthropic', tokens_in: tokensIn, tokens_out: tokensOut, cost_usd: cost, latency_ms: latencyMs, success: true });
+    const cost = calculateCost(policy.model, tokensIn, tokensOut);
+    logAgentRun({
+      taskName: 'photo_analyze',
+      model: policy.model,
+      provider: 'anthropic',
+      tokensIn,
+      tokensOut,
+      costUsd: cost,
+      latencyMs,
+      rawStatus: response.status,
+      userId: guard.userId,
+    });
 
     const textContent = data?.content?.[0]?.text;
 
@@ -164,7 +187,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({ foods });
+    return NextResponse.json({
+      foods: foods.map((food) => ({
+        ...food,
+        source: 'ai_estimate' as const,
+        confidence: Math.min(food.confidence, 0.75),
+        accuracy_note: food.accuracy_note ?? 'Photo-only nutrition is an estimate; confirm weight or serving size for accurate tracking.',
+      })),
+    });
   } catch (error) {
     console.error('Photo analysis error:', error);
     return NextResponse.json(

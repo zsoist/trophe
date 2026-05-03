@@ -3,28 +3,22 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Copy, Lock, Flame, Undo2, Star, Settings, ChefHat } from 'lucide-react';
+import { Undo2, Star } from 'lucide-react';
+import { Icon } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
+import { useClientNav } from '@/lib/useClientNav';
 import type { FoodLogEntry, MealType } from '@/lib/types';
-import BottomNav from '@/components/BottomNav';
-import MealTimeline from '@/components/MealTimeline';
+import { BotNav } from '@/components/ui/BotNav';
 import MealSlotCard, { type MealSlot } from '@/components/MealSlotCard';
 import DailyInsights from '@/components/DailyInsights';
-import WeeklySummary from '@/components/WeeklySummary';
 import MealBadges from '@/components/MealBadges';
 import MealSlotConfig from '@/components/MealSlotConfig';
-import DateNavigator from '@/components/DateNavigator';
 import CalendarView from '@/components/CalendarView';
-import WeekStrip from '@/components/WeekStrip';
-import CalorieGauge from '@/components/CalorieGauge';
-import MacroRadar from '@/components/MacroRadar';
 import ProteinDistribution from '@/components/ProteinDistribution';
 import NutrientDensity from '@/components/NutrientDensity';
-import StreakFreeze from '@/components/StreakFreeze';
 import MacroTrendChart from '@/components/MacroTrendChart';
 import CalorieHeatmap from '@/components/CalorieHeatmap';
-import EatingWindowTracker from '@/components/EatingWindowTracker';
 import FoodFrequency from '@/components/FoodFrequency';
 import FastingTimer from '@/components/FastingTimer';
 import MacroAdherence from '@/components/MacroAdherence';
@@ -32,18 +26,18 @@ import DayPatterns from '@/components/DayPatterns';
 import MonthlyReport from '@/components/MonthlyReport';
 import MealPhotoGallery from '@/components/MealPhotoGallery';
 import DayComparison from '@/components/DayComparison';
-import AnimatedNumber from '@/components/AnimatedNumber';
 import MacroFoodIdeas from '@/components/MacroFoodIdeas';
+import CoachFoodRecs from '@/components/CoachFoodRecs';
 import RecipeAnalyzerModal from '@/components/RecipeAnalyzerModal';
 import { useTheme } from '@/components/ThemePicker';
 import { localToday, localDateStr } from '../../../lib/dates';
 
 const DEFAULT_MEAL_SLOTS: MealSlot[] = [
-  { id: 'breakfast', mealType: 'breakfast', label: 'Breakfast', emoji: '🌅', order: 0 },
-  { id: 'snack_am', mealType: 'snack', label: 'Morning Snack', emoji: '🍎', order: 1 },
-  { id: 'lunch', mealType: 'lunch', label: 'Lunch', emoji: '☀️', order: 2 },
-  { id: 'snack_pm', mealType: 'snack', label: 'Afternoon Snack', emoji: '🥜', order: 3 },
-  { id: 'dinner', mealType: 'dinner', label: 'Dinner', emoji: '🌙', order: 4 },
+  { id: 'breakfast', mealType: 'breakfast', label: 'Breakfast', icon: 'i-sun', order: 0 },
+  { id: 'snack_am', mealType: 'snack', label: 'Morning Snack', icon: 'i-apple', order: 1 },
+  { id: 'lunch', mealType: 'lunch', label: 'Lunch', icon: 'i-bowl', order: 2 },
+  { id: 'snack_pm', mealType: 'snack', label: 'Afternoon Snack', icon: 'i-leaf', order: 3 },
+  { id: 'dinner', mealType: 'dinner', label: 'Dinner', icon: 'i-moon', order: 4 },
 ];
 
 function getLocalizedSlots(t: (key: string) => string): MealSlot[] {
@@ -93,6 +87,7 @@ interface FavoriteFood {
   carbs_g: number;
   fat_g: number;
   fiber_g: number;
+  sugar_g: number;
 }
 
 function loadFavorites(): FavoriteFood[] {
@@ -128,98 +123,58 @@ function loadStoredMealSlots(): MealSlot[] | null {
   }
 }
 
-// F4: Macro target colors
-function getTargetColor(consumed: number, target: number): string {
-  if (target === 0) return 'text-stone-500';
-  const pct = consumed / target;
-  if (pct > 1.1) return 'text-red-400';
-  if (pct >= 0.9) return 'gold-text';
-  return 'text-green-400';
-}
-
-// Ring stroke color based on percentage
-function getRingColor(pct: number, baseColor: string): string {
-  if (pct > 1.1) return '#ef4444';   // Red — over target
-  if (pct >= 0.9) return '#D4A853';  // Gold — near/at target
-  return baseColor;                   // Base color — under target, keep going
-}
-
-// Health tips — context-aware, rotates hourly. 7 days × ~3 tips/day = 21+ unique tips
-const HEALTH_TIPS = [
-  // Protein
-  '💪 Aim for 20-40g protein per meal — this maximizes muscle protein synthesis (ISSN Position Stand)',
-  '🥚 Spreading protein across 4+ meals improves absorption vs loading it all at dinner',
-  '🐟 Leucine-rich proteins (eggs, dairy, chicken) trigger the strongest anabolic response',
-  '🥩 Your body can use ~0.4g/kg protein per meal. More than that? Still useful, just less efficient',
-  '🧀 Greek yogurt has 2x the protein of regular yogurt — an easy swap for any snack',
-  // Timing
-  '⏰ Eating within 2 hours of waking jumpstarts your metabolism for the day',
-  '🌙 Late-night eating isn\'t inherently bad — total daily calories matter more than timing',
-  '☀️ A protein-rich breakfast reduces ghrelin (hunger hormone) for up to 4 hours',
-  '🏋️ Post-workout protein within 2h optimizes recovery — but the "anabolic window" is wider than you think',
-  // Fiber & Micronutrients
-  '🥦 Only 5% of adults hit the fiber target (25-38g). Vegetables, beans, and whole grains are your best sources',
-  '🫘 Beans and lentils are the only food that\'s both high-protein AND high-fiber',
-  '🥬 Eating vegetables BEFORE carbs in a meal reduces blood sugar spikes by up to 35%',
-  '🍎 An apple has 4.5g fiber — that\'s 15% of your daily target in one snack',
-  // Hydration
-  '💧 Even 2% dehydration reduces cognitive performance. Drink before you feel thirsty',
-  '🫗 Water with meals aids digestion — the old "don\'t drink during meals" advice is a myth',
-  // Fat
-  '🥑 Healthy fats (avocado, olive oil, nuts) improve vitamin absorption from vegetables',
-  '🐠 Omega-3 fatty acids reduce inflammation — aim for fatty fish 2x per week',
-  // General
-  '📊 People who track food consistently lose 2x more weight than those who don\'t (NIH study)',
-  '🎯 Hitting 80% of your targets consistently beats hitting 100% occasionally',
-  '🔥 Your BMR accounts for 60-75% of daily calories — most energy goes to just existing',
-  '🧠 The gut-brain axis means what you eat directly affects mood and focus within hours',
-];
+// Health tips keyed for i18n — used by getHealthTip()
+const HEALTH_TIP_KEYS = [
+  'tip.protein_1','tip.protein_2','tip.protein_3','tip.protein_4','tip.protein_5',
+  'tip.timing_1','tip.timing_2','tip.timing_3','tip.timing_4',
+  'tip.fiber_1','tip.fiber_2','tip.fiber_3','tip.fiber_4',
+  'tip.hydration_1','tip.hydration_2',
+  'tip.fat_1','tip.fat_2',
+  'tip.general_1','tip.general_2','tip.general_3','tip.general_4',
+] as const;
 
 function getHealthTip(
+  t: (key: string, params?: Record<string, string | number>) => string,
   protein: number,
   calories: number,
   targets: { calories: number; protein_g: number },
   filledCount: number,
-  nextUnfilled: MealSlot | undefined
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _nextUnfilled: MealSlot | undefined
 ): string {
   const hour = new Date().getHours();
   const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
 
-  // Context-aware tips take priority
-  if (filledCount === 0 && hour < 12) {
-    return '🌅 Start your day right — a protein-rich breakfast reduces cravings by up to 60%';
-  }
-  if (filledCount === 0 && hour >= 12) {
-    return '⚡ No meals logged yet today — even a quick entry helps build the tracking habit';
-  }
+  if (filledCount === 0 && hour < 12)  return t('tip.start_day');
+  if (filledCount === 0 && hour >= 12) return t('tip.no_meals_yet');
   if (targets.protein_g > 0 && protein < targets.protein_g * 0.3 && filledCount >= 2) {
-    const remaining = Math.round(targets.protein_g - protein);
-    return `💪 ${remaining}g protein to go — high-protein options: chicken (31g/150g), eggs (6g each), Greek yogurt (15g)`;
+    return t('tip.protein_to_go', { n: Math.round(targets.protein_g - protein) });
   }
-  if (targets.calories > 0 && calories > targets.calories * 1.1) {
-    return '📊 You\'re over your calorie target — that\'s OK occasionally. Focus on protein and fiber for the rest of the day';
-  }
-  if (nextUnfilled && filledCount > 0 && filledCount < 4) {
-    // Only suggest meals that match the current time of day
-    const mealTimeOk = (nextUnfilled.mealType === 'breakfast' && hour < 11)
-      || (nextUnfilled.mealType === 'snack' && hour >= 10 && hour < 20)
-      || (nextUnfilled.mealType === 'lunch' && hour >= 11 && hour < 16)
-      || (nextUnfilled.mealType === 'dinner' && hour >= 17);
-    if (mealTimeOk) {
-      return `${nextUnfilled.emoji} Time for ${nextUnfilled.label.toLowerCase()}! Log it to keep your streak going`;
-    }
-  }
-  if (filledCount >= 4) {
-    return '🌟 Almost done! Lock your meals when finished — consistency is the #1 predictor of success';
-  }
+  if (targets.calories > 0 && calories > targets.calories * 1.1) return t('tip.over_calories');
+  if (filledCount >= 4) return t('tip.almost_done');
 
-  // Rotate through general tips — changes every hour
-  const tipIndex = (dayOfYear * 24 + hour) % HEALTH_TIPS.length;
-  return HEALTH_TIPS[tipIndex];
+  const tipIndex = (dayOfYear * 24 + hour) % HEALTH_TIP_KEYS.length;
+  return t(HEALTH_TIP_KEYS[tipIndex]);
+}
+
+// ─── Premium section divider ────────────────────────────────────
+function SectionDivider({ label }: { label: string }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 20, marginBottom: 10 }}>
+      <span style={{
+        fontSize: 9, fontWeight: 700, color: 'var(--t5)',
+        letterSpacing: '0.12em', textTransform: 'uppercase', flexShrink: 0,
+      }}>
+        {label}
+      </span>
+      <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,.06)' }} />
+    </div>
+  );
 }
 
 export default function FoodLogPage() {
   const { t } = useI18n();
+  const clientNav = useClientNav();
   const router = useRouter();
   const [userId, setUserId] = useState<string | null>(null);
   const [todayLog, setTodayLog] = useState<FoodLogEntry[]>([]);
@@ -248,13 +203,10 @@ export default function FoodLogPage() {
   // Date navigation
   const [showCalendar, setShowCalendar] = useState(false);
   const [showComparison, setShowComparison] = useState(false);
-  const [compareDate, setCompareDate] = useState('');
+  const [compareDate] = useState('');
 
   // Week strip data
   const [weekData, setWeekData] = useState<{ date: string; calories: number; entries: number }[]>([]);
-
-  // View mode
-  const [viewMode, setViewMode] = useState<'detailed' | 'gauge' | 'radar'>('detailed');
 
   // Apply theme
   useTheme();
@@ -267,7 +219,7 @@ export default function FoodLogPage() {
   const totalProtein = todayLog.reduce((s, f) => s + (f.protein_g ?? 0), 0);
   const totalCarbs = todayLog.reduce((s, f) => s + (f.carbs_g ?? 0), 0);
   const totalFat = todayLog.reduce((s, f) => s + (f.fat_g ?? 0), 0);
-  const totalFiber = todayLog.reduce((s, f) => s + (f.fiber_g ?? 0), 0);
+  const totalSugar = todayLog.reduce((s, f) => s + (f.sugar_g ?? 0), 0);
 
   const grouped = groupBySlot(todayLog, slots);
   const filledCount = slots.filter(s => grouped[s.id].length > 0 || skippedSlots.has(s.id)).length;
@@ -291,6 +243,7 @@ export default function FoodLogPage() {
     localStorage.setItem(`trophe_locked_${selectedDate}`, JSON.stringify([...newLocked]));
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const lockAll = () => {
     const filledSlotIds = slots.filter(s => grouped[s.id].length > 0).map(s => s.id);
     saveLocked(new Set(filledSlotIds));
@@ -459,6 +412,7 @@ export default function FoodLogPage() {
         carbs_g: entry.carbs_g ?? 0,
         fat_g: entry.fat_g ?? 0,
         fiber_g: entry.fiber_g ?? 0,
+        sugar_g: entry.sugar_g ?? 0,
       }];
     }
     setFavorites(newFavs);
@@ -480,12 +434,14 @@ export default function FoodLogPage() {
       carbs_g: fav.carbs_g,
       fat_g: fav.fat_g,
       fiber_g: fav.fiber_g,
+      sugar_g: fav.sugar_g,
       source: 'custom' as const,
     };
     const { error } = await supabase.from('food_log').insert(entry);
     if (!error) await loadTodayLog();
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const copyYesterday = async () => {
     if (!userId || copying) return;
     setCopying(true);
@@ -523,6 +479,7 @@ export default function FoodLogPage() {
         carbs_g: e.carbs_g,
         fat_g: e.fat_g,
         fiber_g: e.fiber_g,
+        sugar_g: e.sugar_g,
         source: e.source,
         source_id: e.source_id,
       }));
@@ -542,263 +499,129 @@ export default function FoodLogPage() {
 
   const nextUnfilled = slots.find(s => grouped[s.id].length === 0 && !skippedSlots.has(s.id));
 
+  // CoachFoodRecs quick-log handler
+  const logCoachRec = async (rec: { food: string; calories: number; protein: number; carbs: number; fat: number; fiber: number }, mealType: import('@/lib/types').MealType) => {
+    if (!userId) return;
+    await supabase.from('food_log').insert({
+      user_id: userId,
+      logged_date: selectedDate,
+      meal_type: mealType,
+      food_name: rec.food,
+      quantity: 1,
+      unit: 'serving',
+      calories: rec.calories,
+      protein_g: rec.protein,
+      carbs_g: rec.carbs,
+      fat_g: rec.fat,
+      fiber_g: rec.fiber,
+      sugar_g: 0,
+      source: 'custom' as const,
+    });
+    await loadTodayLog();
+  };
+
   return (
-    <div className="min-h-screen pb-24" style={{ background: 'var(--bg-primary)' }}>
+    <div className="min-h-screen pb-24" style={{ background: 'var(--bg,#0a0a0a)' }}>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
         className="max-w-md mx-auto px-4 pt-12"
       >
-        {/* Date Navigator */}
-        <DateNavigator
-          selectedDate={selectedDate}
-          onDateChange={handleDateChange}
-          onOpenCalendar={() => setShowCalendar(true)}
-        />
+        {/* ── Date navigation ── */}
+        <div className="row-b mb-3" style={{ marginTop: 8 }}>
+          <button onClick={() => handleDateChange(localDateStr(new Date(new Date(selectedDate + 'T12:00:00').getTime() - 86400000)))}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--t3)', padding: '6px' }}>
+            <Icon name="i-chev-l" size={16} />
+          </button>
 
-        {/* Week Strip */}
-        {weekData.length > 0 && (
-          <div className="mb-3">
-            <WeekStrip
-              selectedDate={selectedDate}
-              onSelectDate={handleDateChange}
-              weekData={weekData}
-            />
+          {/* Center: date label + calendar trigger */}
+          <motion.button
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setShowCalendar(true)}
+            style={{
+              background: 'rgba(212,168,83,.07)',
+              border: '1px solid rgba(212,168,83,.18)',
+              borderRadius: 20, padding: '5px 14px',
+              display: 'flex', alignItems: 'center', gap: 7,
+              cursor: 'pointer',
+            }}
+          >
+            <Icon name="i-calendar" size={12} style={{ color: 'var(--gold-300,#D4A853)' }} />
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--t1)' }}>
+              {isToday ? t('log.today') : new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+            </span>
+            {!isToday && (
+              <span style={{ fontSize: 9, color: 'var(--t5)', fontFamily: 'var(--font-mono)' }}>
+                {new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short' })}
+              </span>
+            )}
+          </motion.button>
+
+          <button onClick={() => handleDateChange(localDateStr(new Date(new Date(selectedDate + 'T12:00:00').getTime() + 86400000)))}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--t3)', padding: '6px' }}>
+            <Icon name="i-chev-r" size={16} />
+          </button>
+        </div>
+
+        {/* ── 7-day strip (from weekData) ── */}
+        {weekData.length === 7 && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 3, marginBottom: 10 }}>
+            {weekData.map((d, i) => {
+              const dayAbbr = ['M','T','W','T','F','S','S'][i];
+              const dayNum  = new Date(d.date + 'T12:00:00').getDate();
+              const active  = d.date === selectedDate;
+              return (
+                <button key={d.date} onClick={() => handleDateChange(d.date)} style={{
+                  textAlign: 'center', padding: '4px 2px', borderRadius: 6, fontSize: 8, cursor: 'pointer', border: 'none',
+                  background: active ? 'rgba(212,168,83,.12)' : 'rgba(255,255,255,.03)',
+                  outline: active ? '1px solid rgba(212,168,83,.5)' : '1px solid var(--line)',
+                  color: active ? 'var(--gold-300,#D4A853)' : d.entries > 0 ? 'var(--t2)' : 'var(--t5)',
+                }}>
+                  <div>{dayAbbr}</div>
+                  <div style={{ fontWeight: 700, fontSize: 10 }}>{dayNum}</div>
+                </button>
+              );
+            })}
           </div>
         )}
 
-        {/* Streak Freeze */}
-        <StreakFreeze streak={streak} hasLoggedToday={todayLog.length > 0} />
-
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold text-stone-100">
-              {isToday ? 'Track Food' : new Date(selectedDate + 'T12:00:00').toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' })}
-            </h1>
-            <button
-              onClick={() => setShowSlotConfig(true)}
-              className="text-stone-400 hover:text-[#D4A853] text-xs flex items-center gap-1 px-2 py-1 rounded-lg border border-white/[0.06] hover:border-[#D4A853]/30 transition-all"
-              title="Customize meals"
-            >
-              <Settings size={14} />
-              Customize
-            </button>
-            {/* F6: Streak */}
-            {streak > 0 && (
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-500/10 border border-orange-500/20"
-              >
-                <Flame size={12} className="text-orange-400" />
-                <span className="text-orange-400 text-xs font-bold">{streak}</span>
-              </motion.div>
-            )}
-          </div>
-          <div className="flex items-center gap-3">
-            {todayLog.length === 0 && (
-              <button
-                onClick={copyYesterday}
-                disabled={copying}
-                className="text-stone-500 hover:gold-text text-xs flex items-center gap-1 transition-colors"
-              >
-                <Copy size={12} />
-                {copying ? '...' : 'Yesterday'}
-              </button>
-            )}
-            <button
-              onClick={() => setShowRecipeModal(true)}
-              className="text-stone-500 hover:gold-text text-xs flex items-center gap-1 transition-colors"
-              title="Paste a recipe and analyze its macros"
-            >
-              <ChefHat size={12} />
-              Recipe
-            </button>
-            {hasAnyFood && !allMealsLocked && (
-              <button
-                onClick={lockAll}
-                className="text-stone-500 hover:gold-text text-xs flex items-center gap-1 transition-colors"
-              >
-                <Lock size={12} />
-                {t('food.lock_all')}
-              </button>
-            )}
-            <span className="text-stone-500 text-xs">
-              {t('food.meals_progress', { done: String(filledCount), total: String(slots.length) })}
-            </span>
+        {/* ── Macro summary card ── */}
+        <div className="card mb-3" style={{ padding: '10px 8px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 3, textAlign: 'center' }}>
+            {[
+              { label: t('general.calories'), unit: 'kcal', val: Math.round(totalCalories), color: 'var(--gold-300,#D4A853)' },
+              { label: t('general.protein'),  unit: 'g',    val: Math.round(totalProtein),  color: 'var(--err,#E87A6E)' },
+              { label: t('general.carbs'),    unit: 'g',    val: Math.round(totalCarbs),    color: 'var(--info,#7DA3D9)' },
+              { label: t('general.fat'),      unit: 'g',    val: Math.round(totalFat),      color: '#B89DD9' },
+              { label: t('general.sugar'),    unit: 'g',    val: Math.round(totalSugar),    color: totalSugar > 25 ? '#f59e0b' : 'var(--warn,#E8B86E)' },
+            ].map((m, mIdx) => (
+              <div key={m.label} style={{ borderRight: mIdx < 4 ? '1px solid rgba(255,255,255,.04)' : 'none' }}>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 700, color: m.color, lineHeight: 1.1 }}>{m.val}</div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 6.5, color: 'var(--t4)', marginTop: 1, lineHeight: 1.2 }}>{m.unit}</div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 6, color: 'var(--t5)', letterSpacing: '.04em', marginTop: 1 }}>{m.label}</div>
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* Day locked banner */}
+        {/* ── Meals section header ── */}
+        <div className="eye-d mb-2">{t('log.meals_count', { done: filledCount, total: slots.length })}</div>
+
+        {/* ── Streak / locked banner (keep existing if present) ── */}
         {allMealsLocked && hasAnyFood && (
-          <motion.div
-            initial={{ opacity: 0, y: -5 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-3 px-3 py-2 rounded-lg bg-green-500/10 border border-green-500/20 flex items-center justify-between"
-          >
-            <p className="text-xs text-green-400 flex items-center gap-1.5">
-              <Lock size={12} />
-              {t('food.day_locked')}
+          <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }}
+            className="mb-3 px-3 py-2 rounded-lg"
+            style={{ background: 'rgba(101,211,135,.08)', border: '1px solid rgba(101,211,135,.2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <p style={{ fontSize: 11, color: 'var(--ok,#65D387)', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Icon name="i-shield" size={12} />
+              {t('log.day_locked')}
             </p>
           </motion.div>
         )}
 
-        {/* View mode toggle */}
-        <div className="flex gap-1 mb-3">
-          {(['detailed', 'gauge', 'radar'] as const).map(mode => (
-            <button
-              key={mode}
-              onClick={() => setViewMode(mode)}
-              className={`px-2.5 py-1 rounded-full text-[10px] transition-colors ${viewMode === mode ? 'bg-white/[0.1] text-stone-200' : 'text-stone-600 hover:text-stone-400'}`}
-            >
-              {mode === 'detailed' ? 'Macros' : mode === 'gauge' ? 'Gauge' : 'Radar'}
-            </button>
-          ))}
-          {!isToday && todayLog.length > 0 && (
-            <button
-              onClick={() => { setCompareDate(today); setShowComparison(true); }}
-              className="ml-auto px-2.5 py-1 rounded-full text-[10px] text-stone-600 hover:gold-text transition-colors"
-            >
-              Compare
-            </button>
-          )}
-        </div>
 
-        {/* Gauge View */}
-        {viewMode === 'gauge' && targets.calories > 0 && (
-          <div className="glass p-4 mb-4 flex justify-center overflow-hidden">
-            <div className="max-w-[160px]">
-              <CalorieGauge consumed={totalCalories} target={targets.calories} />
-            </div>
-          </div>
-        )}
-
-        {/* Radar View */}
-        {viewMode === 'radar' && targets.calories > 0 && (
-          <div className="mb-4">
-            <MacroRadar
-              current={{ protein: totalProtein, carbs: totalCarbs, fat: totalFat, fiber: totalFiber, water: 0 }}
-              targets={{ protein: targets.protein_g, carbs: targets.carbs_g, fat: targets.fat_g, fiber: 30, water: 2800 }}
-            />
-          </div>
-        )}
-
-        {/* F4: Daily Macro Totals with Targets (detailed view) */}
-        {viewMode === 'detailed' && (
-        <div className="glass p-4 mb-4">
-          <div className="grid grid-cols-5 gap-2 text-center">
-            <div>
-              <AnimatedNumber
-                value={Math.round(totalCalories)}
-                className={`text-lg font-bold ${targets.calories ? getTargetColor(totalCalories, targets.calories) : 'gold-text'}`}
-              />
-              {targets.calories > 0 && (
-                <p className="text-[9px] text-stone-600">/ {targets.calories}</p>
-              )}
-              <p className="text-[10px] text-stone-500">kcal</p>
-            </div>
-            <div>
-              <p className={`text-lg font-bold ${targets.protein_g ? getTargetColor(totalProtein, targets.protein_g) : 'text-red-400'}`}>
-                {Math.round(totalProtein)}g
-              </p>
-              {targets.protein_g > 0 && (
-                <p className="text-[9px] text-stone-600">/ {targets.protein_g}g</p>
-              )}
-              <p className="text-[10px] text-stone-500">Protein</p>
-            </div>
-            <div>
-              <p className={`text-lg font-bold ${targets.carbs_g ? getTargetColor(totalCarbs, targets.carbs_g) : 'text-blue-400'}`}>
-                {Math.round(totalCarbs)}g
-              </p>
-              {targets.carbs_g > 0 && (
-                <p className="text-[9px] text-stone-600">/ {targets.carbs_g}g</p>
-              )}
-              <p className="text-[10px] text-stone-500">Carbs</p>
-            </div>
-            <div>
-              <p className={`text-lg font-bold ${targets.fat_g ? getTargetColor(totalFat, targets.fat_g) : 'text-purple-400'}`}>
-                {Math.round(totalFat)}g
-              </p>
-              {targets.fat_g > 0 && (
-                <p className="text-[9px] text-stone-600">/ {targets.fat_g}g</p>
-              )}
-              <p className="text-[10px] text-stone-500">Fat</p>
-            </div>
-            <div>
-              <p className="text-lg font-bold text-green-400">{Math.round(totalFiber)}g</p>
-              <p className="text-[9px] text-stone-600">/ 30g</p>
-              <p className="text-[10px] text-stone-500">Fiber</p>
-            </div>
-          </div>
-
-          {/* F17: Mini macro rings with labels */}
-          {targets.calories > 0 && (
-            <>
-            <div className="mt-3 grid grid-cols-4 gap-2">
-              {[
-                { label: 'Cal', consumed: totalCalories, target: targets.calories, color: '#D4A853' },
-                { label: 'P', consumed: totalProtein, target: targets.protein_g, color: '#f87171' },
-                { label: 'C', consumed: totalCarbs, target: targets.carbs_g, color: '#60a5fa' },
-                { label: 'F', consumed: totalFat, target: targets.fat_g, color: '#a78bfa' },
-              ].map(({ label, consumed, target, color }) => {
-                const pct = target > 0 ? Math.min(consumed / target, 1.2) : 0;
-                const r = 14;
-                const circ = 2 * Math.PI * r;
-                const offset = circ * (1 - Math.min(pct, 1));
-                const strokeColor = getRingColor(pct, color);
-                return (
-                  <div key={label} className="flex flex-col items-center gap-0.5">
-                    <div className="flex items-center gap-1.5">
-                      <svg width="32" height="32" className="-rotate-90">
-                        <circle cx="16" cy="16" r={r} fill="none" stroke="var(--border-default)" strokeWidth="3" />
-                        <motion.circle
-                          cx="16" cy="16" r={r} fill="none"
-                          stroke={strokeColor}
-                          strokeWidth="3" strokeLinecap="round"
-                          strokeDasharray={circ}
-                          initial={{ strokeDashoffset: circ }}
-                          animate={{ strokeDashoffset: offset }}
-                          transition={{ duration: 0.8, ease: 'easeOut' }}
-                        />
-                      </svg>
-                      <span className={`text-[9px] ${pct > 1.1 ? 'text-red-400' : pct >= 0.9 ? 'gold-text' : 'text-stone-500'}`}>{Math.round(pct * 100)}%</span>
-                    </div>
-                    <span className="text-[8px] text-stone-600 text-center">{label}</span>
-                  </div>
-                );
-              })}
-            </div>
-            {/* Sugar estimate from carbs */}
-            {totalCarbs > 0 && (
-              <div className="mt-2 flex items-center justify-center gap-1">
-                <span className={`text-[10px] ${Math.round(totalCarbs * 0.35) > 36 ? 'text-orange-400' : 'text-stone-500'}`}>
-                  Sugar est: ~{Math.round(totalCarbs * 0.35)}g / 36g limit
-                </span>
-                <span className="text-stone-600 text-[9px]" title="Estimated from total carbs (~35% of carbs). WHO recommends max 25-36g added sugar/day.">
-                  &#9432;
-                </span>
-              </div>
-            )}
-            </>
-          )}
-
-          {/* Progress bar */}
-          {!targets.calories && (
-            <div className="mt-3 h-1.5 bg-white/[0.05] rounded-full overflow-hidden">
-              <motion.div
-                className="h-full bg-[#D4A853] rounded-full"
-                initial={{ width: 0 }}
-                animate={{ width: `${(filledCount / slots.length) * 100}%` }}
-                transition={{ duration: 0.5, ease: 'easeOut' }}
-              />
-            </div>
-          )}
-        </div>
-        )}
-
-        {/* F5: Favorites chips */}
+        {/* ── Favorites chips ── */}
         {favorites.length > 0 && (
           <div className="mb-3">
             <div className="flex items-center gap-1.5 mb-1.5">
@@ -822,19 +645,21 @@ export default function FoodLogPage() {
           </div>
         )}
 
-        {/* Smart health tip — rotates hourly, 7 days of content */}
-        <motion.div
-          initial={{ opacity: 0, y: -5 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-3 px-3 py-2 rounded-lg bg-[#D4A853]/10 border border-[#D4A853]/20"
-        >
-          <p className="text-xs text-[#D4A853]">
-            {getHealthTip(totalProtein, totalCalories, targets, filledCount, nextUnfilled)}
-          </p>
-        </motion.div>
+        {/* ── Rotating tip (non-meal-time only) ── */}
+        {todayLog.length < 4 && (
+          <motion.div
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-3 px-3 py-2 rounded-lg bg-[#D4A853]/10 border border-[#D4A853]/20"
+          >
+            <p className="text-xs text-[#D4A853]">
+              {getHealthTip(t, totalProtein, totalCalories, targets, filledCount, nextUnfilled)}
+            </p>
+          </motion.div>
+        )}
 
-        {/* Meal Slot Cards */}
-        <div className="space-y-2 mb-4">
+        {/* ── Meal Slot Cards ── */}
+        <div className="space-y-2 mb-2">
           {userId && slots.map(slot => (
             <MealSlotCard
               key={slot.id}
@@ -864,98 +689,164 @@ export default function FoodLogPage() {
           ))}
         </div>
 
-        {/* F11: Daily Insights */}
-        {todayLog.length >= 3 && (
-          <DailyInsights entries={todayLog} targets={targets} />
-        )}
+        {/* ════════════════════════════════════════
+            INSIGHTS SECTION
+        ════════════════════════════════════════ */}
+        <SectionDivider label={t('log.section_insights')} />
 
-        {/* Macro Food Ideas — context-aware suggestions by what's remaining */}
-        <MacroFoodIdeas
-          consumed={{
-            protein: todayLog.reduce((s, e) => s + (e.protein_g || 0), 0),
-            carbs: todayLog.reduce((s, e) => s + (e.carbs_g || 0), 0),
-            fat: todayLog.reduce((s, e) => s + (e.fat_g || 0), 0),
-            fiber: todayLog.reduce((s, e) => s + (e.fiber_g || 0), 0),
-          }}
-          targets={{
-            protein: targets.protein_g,
-            carbs: targets.carbs_g,
-            fat: targets.fat_g,
-            fiber: 30,
-          }}
-        />
+        {/* Achievements */}
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.04, duration: 0.28 }}
+          className="mb-3"
+        >
+          <MealBadges todayLog={todayLog} streak={streak} targets={{ protein_g: targets.protein_g }} />
+        </motion.div>
 
-        {/* F25: Achievement Badges */}
-        <MealBadges todayLog={todayLog} streak={streak} targets={{ protein_g: targets.protein_g }} />
-
-        {/* F16: Weekly Summary */}
+        {/* Coach food recommendations */}
         {userId && (
-          <WeeklySummary userId={userId} />
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.08, duration: 0.28 }}
+            className="mb-3"
+          >
+            <CoachFoodRecs userId={userId} onLogFood={logCoachRec} />
+          </motion.div>
         )}
 
-        {/* Meal Distribution Timeline */}
-        {todayLog.length > 0 && (
-          <MealTimeline foodLog={todayLog} />
+        {/* Macro Food Ideas */}
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.12, duration: 0.28 }}
+          className="mb-3"
+        >
+          <MacroFoodIdeas
+            consumed={{
+              protein: todayLog.reduce((s, e) => s + (e.protein_g || 0), 0),
+              carbs:   todayLog.reduce((s, e) => s + (e.carbs_g   || 0), 0),
+              fat:     todayLog.reduce((s, e) => s + (e.fat_g     || 0), 0),
+              fiber:   todayLog.reduce((s, e) => s + (e.fiber_g   || 0), 0),
+            }}
+            targets={{
+              protein: targets.protein_g,
+              carbs: targets.carbs_g,
+              fat: targets.fat_g,
+              fiber: 30,
+            }}
+          />
+        </motion.div>
+
+        {/* Daily Insights */}
+        {todayLog.length >= 3 && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.16, duration: 0.28 }}
+            className="mb-3"
+          >
+            <DailyInsights entries={todayLog} targets={targets} />
+          </motion.div>
         )}
+
+        {/* ════════════════════════════════════════
+            NUTRITION INTEL SECTION
+        ════════════════════════════════════════ */}
+        <SectionDivider label={t('log.section_nutrition_intel')} />
 
         {/* Fasting Timer */}
         {todayLog.length > 0 && isToday && (
-          <div className="mt-4">
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.04, duration: 0.28 }}
+            className="mb-3"
+          >
             <FastingTimer todayLog={todayLog} />
-          </div>
+          </motion.div>
         )}
 
         {/* Protein Distribution */}
         {todayLog.length >= 2 && (
-          <div className="mt-4">
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.08, duration: 0.28 }}
+            className="mb-3"
+          >
             <ProteinDistribution entries={todayLog} />
-          </div>
+          </motion.div>
         )}
 
         {/* Nutrient Density */}
         {todayLog.length >= 3 && (
-          <div className="mt-4">
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.12, duration: 0.28 }}
+            className="mb-3"
+          >
             <NutrientDensity entries={todayLog} />
-          </div>
+          </motion.div>
         )}
 
         {/* Photo Gallery */}
         {userId && (
-          <div className="mt-4">
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.16, duration: 0.28 }}
+            className="mb-3"
+          >
             <MealPhotoGallery userId={userId} />
-          </div>
+          </motion.div>
         )}
 
-        {/* Analytics Section — only show if enough data */}
+        {/* ════════════════════════════════════════
+            ANALYTICS SECTION
+        ════════════════════════════════════════ */}
         {userId && (
-          <div className="mt-6 space-y-4">
-            <h2 className="text-stone-300 text-sm font-semibold px-1">Analytics</h2>
+          <>
+            <SectionDivider label={t('log.analytics')} />
 
-            {/* Macro Trends */}
-            <MacroTrendChart userId={userId} />
+            <div className="space-y-3">
+              {/* Macro Trends */}
+              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.04, duration: 0.28 }}>
+                <MacroTrendChart userId={userId} />
+              </motion.div>
 
-            {/* Calorie Heatmap */}
-            <CalorieHeatmap userId={userId} />
+              {/* Calorie Heatmap */}
+              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08, duration: 0.28 }}>
+                <CalorieHeatmap userId={userId} />
+              </motion.div>
 
-            {/* Food Frequency */}
-            <FoodFrequency userId={userId} />
+              {/* Food Frequency */}
+              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12, duration: 0.28 }}>
+                <FoodFrequency userId={userId} />
+              </motion.div>
 
-            {/* Eating Window */}
-            <EatingWindowTracker todayLog={todayLog} />
+              {/* Day Patterns */}
+              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.16, duration: 0.28 }}>
+                <DayPatterns userId={userId} />
+              </motion.div>
 
-            {/* Day Patterns */}
-            <DayPatterns userId={userId} />
+              {/* Macro Adherence */}
+              {targets.calories > 0 && (
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.20, duration: 0.28 }}>
+                  <MacroAdherence userId={userId} targets={targets} />
+                </motion.div>
+              )}
 
-            {/* Macro Adherence */}
-            {targets.calories > 0 && (
-              <MacroAdherence userId={userId} targets={targets} />
-            )}
-
-            {/* Monthly Report */}
-            {targets.calories > 0 && (
-              <MonthlyReport userId={userId} targets={targets} />
-            )}
-          </div>
+              {/* Monthly Report */}
+              {targets.calories > 0 && (
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.24, duration: 0.28 }}>
+                  <MonthlyReport userId={userId} targets={targets} />
+                </motion.div>
+              )}
+            </div>
+          </>
         )}
       </motion.div>
 
@@ -1055,7 +946,7 @@ export default function FoodLogPage() {
         />
       )}
 
-      <BottomNav />
+      <BotNav routes={clientNav} />
     </div>
   );
 }

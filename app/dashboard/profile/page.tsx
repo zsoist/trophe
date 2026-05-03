@@ -5,23 +5,27 @@ import { useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { User, LogOut, Save, Globe, Sun, Moon } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { calculateFullProfile, ACTIVITY_DESCRIPTIONS, GOAL_DESCRIPTIONS } from '@/lib/nutrition-engine';
+import { calculateFullProfile, ACTIVITY_DESCRIPTIONS } from '@/lib/nutrition-engine';
 import type { ClientProfile, Profile, Sex, ActivityLevel, Goal, Language } from '@/lib/types';
-import BottomNav from '@/components/BottomNav';
+import { BotNav } from '@/components/ui/BotNav';
+import { Icon } from '@/components/ui';
 import BodyCompCalculator from '@/components/BodyCompCalculator';
 import { useThemeMode } from '@/components/ThemeMode';
+import { useI18n } from '@/lib/i18n';
+import { useClientNav } from '@/lib/useClientNav';
 
-const SEX_OPTIONS: { value: Sex; label: string }[] = [
-  { value: 'male', label: 'Male' },
-  { value: 'female', label: 'Female' },
-];
+// Labels are rendered inline with t() in the component
 
 const ACTIVITY_OPTIONS: ActivityLevel[] = ['sedentary', 'light', 'moderate', 'active', 'very_active'];
 const GOAL_OPTIONS: Goal[] = ['fat_loss', 'muscle_gain', 'maintenance', 'recomp', 'endurance', 'health'];
-const LANG_OPTIONS: { value: Language; label: string; flag: string }[] = [
-  { value: 'en', label: 'English', flag: '🇬🇧' },
-  { value: 'es', label: 'Espanol', flag: '🇪🇸' },
-  { value: 'el', label: 'Ellinika', flag: '🇬🇷' },
+const GOAL_ICONS: Record<Goal, string> = {
+  fat_loss: 'i-flame', muscle_gain: 'i-dumbbell', maintenance: 'i-target',
+  recomp: 'i-zap', endurance: 'i-shoe', health: 'i-heart',
+};
+const LANG_OPTIONS: { value: Language; label: string }[] = [
+  { value: 'en', label: 'EN' },
+  { value: 'es', label: 'ES' },
+  { value: 'el', label: 'EL' },
 ];
 
 export default function ProfilePage() {
@@ -33,6 +37,8 @@ export default function ProfilePage() {
   const [clientProfile, setClientProfile] = useState<ClientProfile | null>(null);
 
   const { mode, toggleMode } = useThemeMode();
+  const { t, lang, setLang } = useI18n();
+  const clientNav = useClientNav();
 
   // Form state
   const [age, setAge] = useState('');
@@ -42,6 +48,12 @@ export default function ProfilePage() {
   const [activity, setActivity] = useState<ActivityLevel>('moderate');
   const [goal, setGoal] = useState<Goal>('maintenance');
   const [language, setLanguage] = useState<Language>('en');
+
+  // Immediately switch language in the app when user taps a flag
+  const handleLangChange = (lang: Language) => {
+    setLanguage(lang);
+    setLang(lang); // updates i18n context + localStorage immediately
+  };
 
   const loadData = useCallback(async () => {
     try {
@@ -139,7 +151,7 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen pb-24" style={{ background: 'var(--bg-primary)' }}>
+      <div className="min-h-screen pb-24" style={{ background: 'var(--bg,#0a0a0a)' }}>
         <div className="max-w-md mx-auto px-4 pt-12 space-y-4">
           <div className="h-7 w-32 rounded bg-stone-800/60 animate-pulse" />
           <div className="glass p-5 space-y-4">
@@ -156,7 +168,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen pb-24" style={{ background: 'var(--bg-primary)' }}>
+    <div className="min-h-screen pb-24" style={{ background: 'var(--bg,#0a0a0a)' }}>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -184,12 +196,12 @@ export default function ProfilePage() {
           className="glass p-5 mb-4"
         >
           <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider mb-4">
-            Body Stats
+            {t('profile.body_stats')}
           </h3>
 
           <div className="grid grid-cols-2 gap-3 mb-4">
             <div>
-              <label className="text-stone-500 text-[10px] uppercase tracking-wider">Age</label>
+              <label className="text-stone-500 text-[10px] uppercase tracking-wider">{t('onboard.age')}</label>
               <input
                 type="number"
                 value={age}
@@ -199,26 +211,26 @@ export default function ProfilePage() {
               />
             </div>
             <div>
-              <label className="text-stone-500 text-[10px] uppercase tracking-wider">Sex</label>
+              <label className="text-stone-500 text-[10px] uppercase tracking-wider">{t('onboard.sex')}</label>
               <div className="flex gap-2 mt-1">
-                {SEX_OPTIONS.map((s) => (
+                {(['male', 'female'] as Sex[]).map((s) => (
                   <button
-                    key={s.value}
-                    onClick={() => setSex(s.value)}
+                    key={s}
+                    onClick={() => setSex(s)}
                     className={`flex-1 py-2.5 rounded-xl text-sm font-medium border transition-all ${
-                      sex === s.value
+                      sex === s
                         ? 'gold-border gold-text bg-white/5'
                         : 'border-white/5 text-stone-400'
                     }`}
                   >
-                    {s.label}
+                    {t(s === 'male' ? 'onboard.male' : 'onboard.female')}
                   </button>
                 ))}
               </div>
             </div>
             <div>
               <label className="text-stone-500 text-[10px] uppercase tracking-wider">
-                Height (cm)
+                {t('onboard.height')}
               </label>
               <input
                 type="number"
@@ -230,7 +242,7 @@ export default function ProfilePage() {
             </div>
             <div>
               <label className="text-stone-500 text-[10px] uppercase tracking-wider">
-                Weight (kg)
+                {t('onboard.weight')}
               </label>
               <input
                 type="number"
@@ -246,7 +258,7 @@ export default function ProfilePage() {
           {/* Activity Level */}
           <div className="mb-4">
             <label className="text-stone-500 text-[10px] uppercase tracking-wider">
-              Activity Level
+              {t('onboard.activity')}
             </label>
             <div className="space-y-1.5 mt-2">
               {ACTIVITY_OPTIONS.map((a) => (
@@ -259,9 +271,9 @@ export default function ProfilePage() {
                       : 'border-white/5 text-stone-400 hover:bg-white/[0.02]'
                   }`}
                 >
-                  <span className="font-medium capitalize">{a.replaceAll('_', ' ')}</span>
+                  <span className="font-medium">{t(`activity.${a}`)}</span>
                   <span className="text-stone-600 text-xs ml-2">
-                    {ACTIVITY_DESCRIPTIONS[a].en}
+                    {ACTIVITY_DESCRIPTIONS[a][lang] ?? ACTIVITY_DESCRIPTIONS[a].en}
                   </span>
                 </button>
               ))}
@@ -270,25 +282,26 @@ export default function ProfilePage() {
 
           {/* Goal */}
           <div>
-            <label className="text-stone-500 text-[10px] uppercase tracking-wider">Goal</label>
+            <label className="text-stone-500 text-[10px] uppercase tracking-wider">{t('onboard.your_goal')}</label>
             <div className="grid grid-cols-2 gap-1.5 mt-2">
-              {GOAL_OPTIONS.map((g) => {
-                const info = GOAL_DESCRIPTIONS[g];
-                return (
-                  <button
-                    key={g}
-                    onClick={() => setGoal(g)}
-                    className={`text-left px-3 py-2.5 rounded-xl text-sm border transition-all ${
-                      goal === g
-                        ? 'gold-border gold-text bg-white/5'
-                        : 'border-white/5 text-stone-400 hover:bg-white/[0.02]'
-                    }`}
-                  >
-                    <span className="mr-1">{info.emoji}</span>
-                    <span className="capitalize text-xs">{g.replaceAll('_', ' ')}</span>
-                  </button>
-                );
-              })}
+              {GOAL_OPTIONS.map((g) => (
+                <button
+                  key={g}
+                  onClick={() => setGoal(g)}
+                  className={`text-left px-3 py-2.5 rounded-xl text-sm border transition-all flex items-center gap-2 ${
+                    goal === g
+                      ? 'gold-border gold-text bg-white/5'
+                      : 'border-white/5 text-stone-400 hover:bg-white/[0.02]'
+                  }`}
+                >
+                  <Icon
+                    name={GOAL_ICONS[g] as Parameters<typeof Icon>[0]['name']}
+                    size={11}
+                    style={{ flexShrink: 0, color: goal === g ? 'var(--gold-300,#D4A853)' : 'var(--t4,#78716C)' }}
+                  />
+                  <span className="text-xs">{t(`goal.${g}`)}</span>
+                </button>
+              ))}
             </div>
           </div>
         </motion.div>
@@ -302,7 +315,7 @@ export default function ProfilePage() {
             className="glass gold-border p-5 mb-4"
           >
             <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider mb-3">
-              Calculated Targets
+              {t('profile.calc_targets')}
             </h3>
             <div className="grid grid-cols-3 gap-3 text-center mb-3">
               <div>
@@ -314,26 +327,26 @@ export default function ProfilePage() {
                 <p className="text-stone-100 font-semibold">{preview.tdee}</p>
               </div>
               <div>
-                <p className="text-stone-500 text-[10px]">Target</p>
+                <p className="text-stone-500 text-[10px]">{t('profile.target')}</p>
                 <p className="gold-text font-bold">{preview.calories}</p>
               </div>
             </div>
             <div className="grid grid-cols-4 gap-2 text-center pt-3 border-t border-white/5">
               <div>
                 <p className="text-red-400 font-bold text-sm">{preview.protein_g}g</p>
-                <p className="text-stone-600 text-[10px]">Protein</p>
+                <p className="text-stone-600 text-[10px]">{t('general.protein')}</p>
               </div>
               <div>
                 <p className="text-blue-400 font-bold text-sm">{preview.carbs_g}g</p>
-                <p className="text-stone-600 text-[10px]">Carbs</p>
+                <p className="text-stone-600 text-[10px]">{t('general.carbs')}</p>
               </div>
               <div>
                 <p className="text-purple-400 font-bold text-sm">{preview.fat_g}g</p>
-                <p className="text-stone-600 text-[10px]">Fat</p>
+                <p className="text-stone-600 text-[10px]">{t('general.fat')}</p>
               </div>
               <div>
                 <p className="text-blue-300 font-bold text-sm">{(preview.water_ml / 1000).toFixed(1)}L</p>
-                <p className="text-stone-600 text-[10px]">Water</p>
+                <p className="text-stone-600 text-[10px]">{t('general.water')}</p>
               </div>
             </div>
           </motion.div>
@@ -350,20 +363,20 @@ export default function ProfilePage() {
           className="glass p-5 mb-4"
         >
           <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider mb-3 flex items-center gap-2">
-            <Globe size={14} /> Language
+            <Globe size={14} /> {t('general.language')}
           </h3>
           <div className="flex gap-2">
             {LANG_OPTIONS.map((l) => (
               <button
                 key={l.value}
-                onClick={() => setLanguage(l.value)}
+                onClick={() => handleLangChange(l.value)}
                 className={`flex-1 py-2.5 rounded-xl text-sm font-medium border transition-all text-center ${
                   language === l.value
                     ? 'gold-border gold-text bg-white/5'
                     : 'border-white/5 text-stone-400'
                 }`}
               >
-                {l.flag} {l.label}
+                {l.label}
               </button>
             ))}
           </div>
@@ -377,14 +390,14 @@ export default function ProfilePage() {
           className="glass p-5 mb-4"
         >
           <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider mb-3 flex items-center gap-2">
-            {mode === 'dark' ? <Moon size={14} /> : <Sun size={14} />} Appearance
+            {mode === 'dark' ? <Moon size={14} /> : <Sun size={14} />} {t('profile.appearance')}
           </h3>
           <button
             onClick={toggleMode}
             className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm border border-white/5 hover:bg-white/[0.02] transition-all"
           >
             <span className="text-stone-400">
-              {mode === 'dark' ? 'Dark Mode' : 'Light Mode'}
+              {mode === 'dark' ? t('profile.dark_mode') : t('profile.light_mode')}
             </span>
             <motion.div
               key={mode}
@@ -417,12 +430,12 @@ export default function ProfilePage() {
             }`}
           >
             {saved ? (
-              <>Saved</>
+              <>{t('profile.saved')}</>
             ) : saving ? (
-              <>Saving...</>
+              <>{t('profile.saving')}</>
             ) : (
               <>
-                <Save size={16} /> Save Profile
+                <Save size={16} /> {t('profile.save_profile')}
               </>
             )}
           </button>
@@ -439,12 +452,12 @@ export default function ProfilePage() {
             onClick={handleLogout}
             className="w-full py-3 rounded-xl text-sm font-medium text-red-400 border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 transition-all flex items-center justify-center gap-2"
           >
-            <LogOut size={16} /> Log Out
+            <LogOut size={16} /> {t('profile.log_out')}
           </button>
         </motion.div>
       </motion.div>
 
-      <BottomNav />
+      <BotNav routes={clientNav} />
     </div>
   );
 }

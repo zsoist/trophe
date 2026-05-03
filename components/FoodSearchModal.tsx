@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, X, Clock, Flame, Beef } from 'lucide-react';
+import { Icon } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
 import type { MealType } from '@/lib/types';
 
@@ -32,13 +33,13 @@ const MAX_RECENT = 15;
 
 type CategoryFilter = 'all' | 'protein' | 'carbs' | 'vegetable' | 'fruit' | 'dairy';
 
-const CATEGORY_CHIPS: { key: CategoryFilter; label: string; emoji: string }[] = [
-  { key: 'all', label: 'All', emoji: '' },
-  { key: 'protein', label: 'Protein', emoji: '🥩' },
-  { key: 'carbs', label: 'Carbs', emoji: '🍞' },
-  { key: 'vegetable', label: 'Veggie', emoji: '🥦' },
-  { key: 'fruit', label: 'Fruit', emoji: '🍎' },
-  { key: 'dairy', label: 'Dairy', emoji: '🧀' },
+const CATEGORY_CHIPS: { key: CategoryFilter; label: string; icon: string }[] = [
+  { key: 'all',       label: 'All',     icon: 'i-grid'   },
+  { key: 'protein',   label: 'Protein', icon: 'i-dumbbell' },
+  { key: 'carbs',     label: 'Carbs',   icon: 'i-zap'    },
+  { key: 'vegetable', label: 'Veggie',  icon: 'i-leaf'   },
+  { key: 'fruit',     label: 'Fruit',   icon: 'i-apple'  },
+  { key: 'dairy',     label: 'Dairy',   icon: 'i-egg'    },
 ];
 
 function loadRecent(): SearchResult[] {
@@ -248,7 +249,7 @@ export default function FoodSearchModal({
                   : 'border-white/5 text-stone-400 hover:border-white/10'
               }`}
             >
-              {chip.emoji && <span className="mr-1">{chip.emoji}</span>}
+              <Icon name={chip.icon as Parameters<typeof Icon>[0]['name']} size={14} className="mr-1 opacity-70" />
               {chip.label}
             </button>
           ))}

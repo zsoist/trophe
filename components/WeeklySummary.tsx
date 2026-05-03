@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { TrendingUp, TrendingDown, Minus, Calendar } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { TrendingUp, TrendingDown, Minus, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { useI18n } from '@/lib/i18n';
 import { localDateStr } from '../lib/dates';
 
 interface WeeklySummaryProps {
@@ -18,8 +19,10 @@ interface DaySummary {
 }
 
 export default function WeeklySummary({ userId }: WeeklySummaryProps) {
+  const { t } = useI18n();
   const [weekData, setWeekData] = useState<DaySummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     const loadWeekData = async () => {
@@ -86,56 +89,72 @@ export default function WeeklySummary({ userId }: WeeklySummaryProps) {
       animate={{ opacity: 1, y: 0 }}
       className="glass p-4 mb-4"
     >
-      <div className="flex items-center gap-2 mb-3">
-        <Calendar size={14} className="gold-text" />
-        <span className="text-stone-300 text-xs font-medium">This Week</span>
-        <div className="flex items-center gap-1 ml-auto">
-          {trend === 'up' && <TrendingUp size={12} className="text-green-400" />}
-          {trend === 'down' && <TrendingDown size={12} className="text-red-400" />}
-          {trend === 'stable' && <Minus size={12} className="text-stone-500" />}
+      {/* Accordion header */}
+      <button onClick={() => setExpanded(e => !e)} className="w-full flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <Calendar size={14} className="gold-text" />
+          <span className="text-stone-300 text-xs font-semibold uppercase tracking-wider">{t('analytics.this_week')}</span>
+          <div className="flex items-center gap-1">
+            {trend === 'up' && <TrendingUp size={11} className="text-green-400" />}
+            {trend === 'down' && <TrendingDown size={11} className="text-red-400" />}
+            {trend === 'stable' && <Minus size={11} className="text-stone-500" />}
+          </div>
         </div>
-      </div>
+        {expanded ? <ChevronUp size={14} className="text-stone-500" /> : <ChevronDown size={14} className="text-stone-500" />}
+      </button>
 
-      {/* Mini bar chart */}
-      <div className="flex items-end gap-1 h-12 mb-3">
-        {weekData.map((day, i) => {
-          const height = day.calories > 0 ? Math.max(4, (day.calories / maxCal) * 48) : 2;
-          const isToday = i === 6;
-          return (
-            <div key={day.date} className="flex-1 flex flex-col items-center gap-0.5">
-              <motion.div
-                initial={{ height: 0 }}
-                animate={{ height }}
-                transition={{ delay: i * 0.05, duration: 0.3 }}
-                className={`w-full rounded-sm ${
-                  day.entries === 0 ? 'bg-white/[0.05]'
-                  : isToday ? 'bg-[#D4A853]'
-                  : 'bg-[#D4A853]/40'
-                }`}
-              />
-              <span className={`text-[8px] ${isToday ? 'gold-text font-bold' : 'text-stone-600'}`}>
-                {dayLabels[new Date(day.date).getDay() === 0 ? 6 : new Date(day.date).getDay() - 1]}
-              </span>
+      <AnimatePresence>
+        {expanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.22 }}
+            style={{ overflow: 'hidden' }}
+          >
+            {/* Mini bar chart */}
+            <div className="flex items-end gap-1 h-12 mb-3 mt-1">
+              {weekData.map((day, i) => {
+                const height = day.calories > 0 ? Math.max(4, (day.calories / maxCal) * 48) : 2;
+                const isToday = i === 6;
+                return (
+                  <div key={day.date} className="flex-1 flex flex-col items-center gap-0.5">
+                    <motion.div
+                      initial={{ height: 0 }}
+                      animate={{ height }}
+                      transition={{ delay: i * 0.05, duration: 0.3 }}
+                      className={`w-full rounded-sm ${
+                        day.entries === 0 ? 'bg-white/[0.05]'
+                        : isToday ? 'bg-[#D4A853]'
+                        : 'bg-[#D4A853]/40'
+                      }`}
+                    />
+                    <span className={`text-[8px] ${isToday ? 'gold-text font-bold' : 'text-stone-600'}`}>
+                      {dayLabels[new Date(day.date).getDay() === 0 ? 6 : new Date(day.date).getDay() - 1]}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
-          );
-        })}
-      </div>
 
-      {/* Stats row */}
-      <div className="grid grid-cols-3 gap-3 text-center">
-        <div>
-          <p className="text-sm font-bold gold-text">{avgCalories}</p>
-          <p className="text-[9px] text-stone-500">Avg kcal</p>
-        </div>
-        <div>
-          <p className="text-sm font-bold text-red-400">{avgProtein}g</p>
-          <p className="text-[9px] text-stone-500">Avg protein</p>
-        </div>
-        <div>
-          <p className="text-sm font-bold text-green-400">{consistency}%</p>
-          <p className="text-[9px] text-stone-500">Consistency</p>
-        </div>
-      </div>
+            {/* Stats row */}
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <div>
+                <p className="text-sm font-bold gold-text">{avgCalories}</p>
+                <p className="text-[9px] text-stone-500">Avg kcal</p>
+              </div>
+              <div>
+                <p className="text-sm font-bold text-red-400">{avgProtein}g</p>
+                <p className="text-[9px] text-stone-500">Avg protein</p>
+              </div>
+              <div>
+                <p className="text-sm font-bold text-green-400">{consistency}%</p>
+                <p className="text-[9px] text-stone-500">Consistency</p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

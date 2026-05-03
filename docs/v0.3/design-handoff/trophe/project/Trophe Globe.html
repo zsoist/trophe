@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Trophe Globe</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:100%;height:100%;background:#0b0906;display:flex;align-items:center;justify-content:center}
+  canvas{display:block;cursor:grab}
+  canvas:active{cursor:grabbing}
+</style>
+</head>
+<body>
+<canvas id="c" width="700" height="700"></canvas>
+<script>
+// ─── Canvas setup ───────────────────────────────────────────────
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const W=700, H=700, R=262, cx=350, cy=350;
+
+// ─── Cities ─────────────────────────────────────────────────────
+const BOGOTA=[4.71,-74.07], ATHENS=[37.97,23.72];
+const SECONDARY=[[51.5,-0.1],[1.3,103.8],[-33.9,18.4],[-23.5,-46.6],[19.4,-99.1]];
+
+// ─── Continent outlines  [lon, lat] clockwise ────────────────────
+// Deliberately generous detail so shapes are recognisable
+const RINGS=[
+
+// SOUTH AMERICA — verified against reference map
+[[-77,8],[-76,9],[-75,11],[-73,12],[-68,12],[-64,11],[-62,11],
+ [-61,10],[-60,9],[-59,8],[-58,7],[-57,5],[-52,4],[-51,4],
+ [-50,2],[-49,1],[-48,-1],[-45,-2],[-40,-2],[-39,-3],
+ [-37,-5],[-35,-7],[-35,-9],  // NE Brazil bulge (Natal)
+ [-37,-12],[-39,-16],[-39,-19],[-40,-21],[-43,-23],
+ [-48,-26],[-49,-28],[-50,-30],[-51,-32],[-53,-33],
+ [-58,-34],[-58,-38],[-62,-40],[-65,-43],[-66,-47],
+ [-67,-52],[-68,-54],[-66,-55],[-65,-55], // Tierra del Fuego
+ [-70,-52],[-72,-49],[-74,-46],
+ [-75,-40],[-74,-36],[-73,-33],[-72,-28],
+ [-71,-22],[-70,-18],[-70,-15], // Chilean coast
+ [-75,-13],[-77,-10],[-80,-7],[-80,-2],[-80,0],
+ [-78,2],[-77,5],[-77,8]],
+
+// NORTH AMERICA
+[[-117,32],[-120,37],[-124,44],[-124,47],[-128,50],[-133,55],
+ [-136,57],[-140,59],[-145,60],[-150,58],[-155,57],[-158,58],
+ [-162,60],[-165,62],[-168,62],[-168,65],[-165,66],[-160,68],
+ [-156,70],[-148,70],[-140,69],[-130,75],[-120,78],
+ [-105,76],[-90,75],[-80,73],[-78,72],[-72,68],
+ [-68,63],[-64,63],[-60,60],[-56,56],[-54,53],
+ [-57,51],[-60,47],[-66,44],[-70,43],[-72,41],
+ [-76,35],[-80,31],[-80,25],[-82,27],[-85,30],
+ [-89,30],[-91,30],[-96,29],[-97,26],[-97,22],
+ [-92,20],[-90,16],[-85,11],[-79,9],[-78,8],
+ [-80,10],[-83,11],[-88,16],[-90,20],[-92,20],
+ [-97,22],[-105,21],[-110,23],[-115,30],[-117,32]],
+
+// EUROPE
+[[-9,37],[-9,39],[-9,42],[-9,44],[-8,44],
+ [-2,44],[-2,46],[-5,48],[-2,49],[2,51],[4,52],
+ [8,54],[10,55],[10,57],[6,58],[5,62],[6,62],
+ [10,63],[14,65],[16,68],[20,70],[25,71],[28,71],
+ [30,70],[28,64],[26,60],[25,60],[22,58],[22,56],
+ [18,55],[18,54],[14,54],[10,55],[10,53],
+ [14,51],[15,50],[18,50],[20,49],[22,48],
+ [24,47],[28,46],[30,45],[30,43],[28,41],
+ [26,39],[24,38],[23,37],[21,37],[20,38],
+ [19,40],[16,41],[14,42],[15,38],[13,38],
+ [12,37],[13,36],[11,37],[9,38],[5,37],
+ [0,36],[-2,36],[-5,36],[-7,37],[-9,37]],
+
+// AFRICA — corrected N coast: Libya/Egypt at ~31-33°N not 37°N
+[[-5,36],[-2,36],[0,36],[3,37],[5,37],[8,37],[10,37],
+ [11,37],[12,33],[13,32],  // Tunisia → Libya drop south
+ [15,32],[20,31],[25,31],[30,31],[32,30], // Libya/Egypt coast
+ [34,28],[36,24],[38,20],[40,15],[42,12],[44,11],
+ [50,12], // Horn of Africa
+ [44,10],[42,7],[42,4],[42,2],[41,0],[40,-5],
+ [38,-10],[36,-15],[35,-18],[35,-22],
+ [33,-28],[30,-32],[26,-34],[22,-34],[18,-34], // Cape Town
+ [16,-32],[14,-28],[12,-22],[12,-16],[12,-10],
+ [12,-5],[10,-1],[9,2],[8,4],
+ [5,4],[4,6],[2,6],[0,5],[-2,5],
+ [-4,2],[-5,5],[-8,5],[-10,6],
+ [-12,8],[-14,10],[-14,12],[-14,15],
+ [-17,21],[-16,24],[-14,27],
+ [-12,28],[-10,31],[-8,34],[-7,36],[-5,36]],
+
+// ASIA (E Eurasia)
+[[28,71],[40,72],[60,73],[80,74],[100,73],[120,70],
+ [130,65],[140,60],[142,55],[140,50],[135,45],[132,40],
+ [130,35],[125,30],[122,25],[120,22],[116,18],[111,14],
+ [106,10],[104,2],[102,1],[100,3],[100,6],[102,10],
+ [100,14],[98,18],[95,20],[92,22],[90,25],[85,28],
+ [80,32],[75,34],[72,36],[68,38],[62,38],[56,36],
+ [52,40],[50,42],[52,44],[54,48],[58,52],[60,56],
+ [58,60],[56,62],[54,64],[52,66],[50,68],[44,68],
+ [40,70],[36,68],[34,66],[32,64],[30,64],[28,66],[28,71]],
+
+// AUSTRALIA
+[[115,-34],[120,-34],[124,-32],[126,-34],[130,-32],
+ [134,-32],[136,-34],[138,-36],[140,-38],[144,-38],
+ [148,-38],[150,-36],[152,-28],[154,-24],[152,-22],
+ [150,-22],[148,-20],[146,-18],[143,-15],[140,-16],
+ [136,-16],[134,-14],[130,-12],[128,-14],[124,-16],
+ [122,-18],[120,-20],[116,-22],[114,-24],[114,-28],
+ [115,-32],[115,-34]],
+
+// GREENLAND
+[[-44,60],[-48,60],[-52,62],[-56,64],[-58,68],
+ [-58,72],[-52,76],[-48,80],[-40,83],[-20,84],
+ [-15,82],[-12,78],[-18,74],[-24,70],[-28,68],
+ [-34,66],[-38,65],[-44,60]],
+];
+
+// ─── Maths ───────────────────────────────────────────────────────
+function ll2v(lat,lon){
+  const la=lat*Math.PI/180,lo=lon*Math.PI/180;
+  return[Math.cos(la)*Math.cos(lo),Math.sin(la),Math.cos(la)*Math.sin(lo)];
+}
+function rY(v,a){const c=Math.cos(a),s=Math.sin(a);return[v[0]*c-v[2]*s,v[1],v[0]*s+v[2]*c];}
+function rX(v,a){const c=Math.cos(a),s=Math.sin(a);return[v[0],v[1]*c-v[2]*s,v[1]*s+v[2]*c];}
+function proj(v){return[cx-v[0]*R,cy-v[1]*R];}
+
+// Initial: Atlantic facing (midpoint Bogota-Athens lon ≈ -25°; want sin(lon+yaw)=1 → yaw=115°)
+let yaw=115*Math.PI/180;
+const TILT=-18*Math.PI/180;
+let pulse=0;
+let drag={active:false,x:0};
+
+// ─── Great circle ────────────────────────────────────────────────
+function gc(a,b,n=100){
+  const va=ll2v(...a),vb=ll2v(...b);
+  let d=va[0]*vb[0]+va[1]*vb[1]+va[2]*vb[2];
+  d=Math.max(-1,Math.min(1,d));
+  const ang=Math.acos(d);
+  return Array.from({length:n+1},(_,i)=>{
+    const t=i/n,si=Math.sin(ang);
+    if(si<1e-5)return[...va];
+    return[(va[0]*Math.sin((1-t)*ang)+vb[0]*Math.sin(t*ang))/si,
+           (va[1]*Math.sin((1-t)*ang)+vb[1]*Math.sin(t*ang))/si,
+           (va[2]*Math.sin((1-t)*ang)+vb[2]*Math.sin(t*ang))/si];
+  });
+}
+
+// ─── Grain ───────────────────────────────────────────────────────
+const grain=document.createElement('canvas');
+grain.width=W;grain.height=H;
+const gctx=grain.getContext('2d');
+let gt=0;
+function bakeGrain(){
+  const id=gctx.createImageData(W,H);
+  for(let i=0;i<id.data.length;i+=4){const v=Math.random()*20;id.data[i]=v;id.data[i+1]=v;id.data[i+2]=v;id.data[i+3]=18;}
+  gctx.putImageData(id,0,0);
+}
+bakeGrain();
+
+// ─── Drag (window listeners for full 360° scrub) ────────────────
+canvas.addEventListener('mousedown',e=>{drag={active:true,x:e.clientX};canvas.style.cursor='grabbing';});
+window.addEventListener('mousemove',e=>{if(drag.active){yaw-=(e.clientX-drag.x)*0.005;drag.x=e.clientX;}});
+window.addEventListener('mouseup',()=>{drag.active=false;canvas.style.cursor='grab';});
+canvas.addEventListener('touchstart',e=>{drag={active:true,x:e.touches[0].clientX};},{passive:true});
+window.addEventListener('touchmove',e=>{if(drag.active){yaw-=(e.touches[0].clientX-drag.x)*0.006;drag.x=e.touches[0].clientX;}},{passive:true});
+window.addEventListener('touchend',()=>drag.active=false);
+
+// ─── Draw ────────────────────────────────────────────────────────
+function draw(ts){
+  if(!drag.active)yaw+=0.00022;
+  pulse=(ts||0)*0.001;
+  if(++gt>10){gt=0;bakeGrain();}
+
+  // BG
+  ctx.fillStyle='#0b0906';
+  ctx.fillRect(0,0,W,H);
+
+  // Outer atmosphere
+  const atm=ctx.createRadialGradient(cx,cy,R*0.82,cx,cy,R*1.35);
+  atm.addColorStop(0,'rgba(200,140,40,0.07)');
+  atm.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=atm;ctx.fillRect(0,0,W,H);
+
+  // ── Globe clip ──
+  ctx.save();
+  ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);ctx.clip();
+
+  // Globe surface
+  const srf=ctx.createRadialGradient(cx-R*0.15,cy-R*0.2,10,cx,cy,R);
+  srf.addColorStop(0,'#142644');
+  srf.addColorStop(0.6,'#0b1830');
+  srf.addColorStop(1,'#050c1e');
+  ctx.fillStyle=srf;ctx.fillRect(0,0,W,H);
+
+  // Grid
+  ctx.strokeStyle='rgba(212,168,83,0.12)';ctx.lineWidth=0.5;
+  for(let la=-60;la<=60;la+=30){
+    ctx.beginPath();let f=true;
+    for(let lo=-180;lo<=180;lo+=3){
+      let v=ll2v(la,lo);v=rY(v,yaw);v=rX(v,TILT);
+      if(v[2]<=0){f=true;continue;}const p=proj(v);f?ctx.moveTo(...p):ctx.lineTo(...p);f=false;
+    }ctx.stroke();
+  }
+  for(let lo=-180;lo<=180;lo+=30){
+    ctx.beginPath();let f=true;
+    for(let la=-85;la<=85;la+=3){
+      let v=ll2v(la,lo);v=rY(v,yaw);v=rX(v,TILT);
+      if(v[2]<=0){f=true;continue;}const p=proj(v);f?ctx.moveTo(...p):ctx.lineTo(...p);f=false;
+    }ctx.stroke();
+  }
+
+  // Continents — fill then outline for crisp edges
+  ctx.beginPath();
+  for(const ring of RINGS){
+    let pv=false;
+    for(let i=0;i<ring.length;i++){
+      const[lo,la]=ring[i];
+      let v=ll2v(la,lo);v=rY(v,yaw);v=rX(v,TILT);
+      if(v[2]<=0){pv=false;continue;}
+      const p=proj(v);
+      pv?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]);
+      pv=true;
+    }
+  }
+  ctx.fillStyle='rgba(130,90,28,1)';ctx.fill('evenodd');
+  ctx.strokeStyle='rgba(220,170,70,0.9)';ctx.lineWidth=1.2;ctx.stroke();
+
+  ctx.restore();
+
+  // Globe ring
+  ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);
+  ctx.strokeStyle='rgba(212,168,83,0.35)';ctx.lineWidth=1.5;ctx.stroke();
+
+  // ── Arc Bogotá → Athens ──
+  const arcv=gc(BOGOTA,ATHENS);
+  let segs=[],sg=null;
+  for(const raw of arcv){
+    let v=rY(raw,yaw);v=rX(v,TILT);
+    if(v[2]>0){if(!sg){sg=[];segs.push(sg);}sg.push(proj(v));}else sg=null;
+  }
+  for(const seg of segs){
+    if(seg.length<2)continue;
+    const ph=()=>{ctx.beginPath();ctx.moveTo(...seg[0]);for(let i=1;i<seg.length;i++)ctx.lineTo(...seg[i]);};
+    ph();ctx.strokeStyle='rgba(212,168,83,0.08)';ctx.lineWidth=20;ctx.lineCap='round';ctx.stroke();
+    ph();ctx.strokeStyle='rgba(212,168,83,0.18)';ctx.lineWidth=9;ctx.stroke();
+    ph();ctx.strokeStyle='rgba(212,168,83,0.45)';ctx.lineWidth=3;ctx.stroke();
+    ph();ctx.strokeStyle='rgba(240,210,140,0.9)';ctx.lineWidth=1.5;ctx.stroke();
+    ctx.setLineDash([5,8]);ctx.lineDashOffset=-(pulse*22)%13;
+    ph();ctx.strokeStyle='rgba(255,240,180,0.5)';ctx.lineWidth=0.8;ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // ── Secondary nodes ──
+  for(const c of SECONDARY){
+    let v=ll2v(...c);v=rY(v,yaw);v=rX(v,TILT);
+    if(v[2]<0.08)continue;
+    const op=Math.min(1,(v[2]-0.08)*2),p=proj(v);
+    const g=ctx.createRadialGradient(...p,0,...p,14);
+    g.addColorStop(0,`rgba(180,130,50,${op*0.35})`);g.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=g;ctx.fillRect(p[0]-14,p[1]-14,28,28);
+    ctx.beginPath();ctx.arc(...p,2.2,0,Math.PI*2);
+    ctx.fillStyle=`rgba(166,134,64,${op*0.65})`;ctx.fill();
+  }
+
+  // ── Primary nodes ──
+  const node=(ll)=>{
+    let v=ll2v(...ll);v=rY(v,yaw);v=rX(v,TILT);
+    if(v[2]<0)return;
+    const op=Math.min(1,v[2]*5),p=proj(v);
+    const beat=0.2*Math.sin(pulse*1.5+ll[1]*0.03);
+    // halo
+    const h=ctx.createRadialGradient(...p,0,...p,58*(1+beat));
+    h.addColorStop(0,`rgba(255,220,100,${op*0.8})`);
+    h.addColorStop(0.3,`rgba(212,168,83,${op*0.12})`);
+    h.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=h;ctx.fillRect(p[0]-62,p[1]-62,124,124);
+    // pulse ring
+    const rr=9+8*Math.abs(Math.sin(pulse*1.4+ll[1]*0.02));
+    ctx.beginPath();ctx.arc(...p,rr,0,Math.PI*2);
+    ctx.strokeStyle=`rgba(212,168,83,${op*0.22*(1-Math.abs(Math.sin(pulse*1.4))*0.5)})`;
+    ctx.lineWidth=0.9;ctx.stroke();
+    // inner ring
+    ctx.beginPath();ctx.arc(...p,6.5,0,Math.PI*2);
+    ctx.strokeStyle=`rgba(236,201,135,${op*0.9})`;ctx.lineWidth=1.2;ctx.stroke();
+    // core
+    const cg=ctx.createRadialGradient(p[0]-1,p[1]-1.5,0,...p,6);
+    cg.addColorStop(0,`rgba(255,255,230,${op})`);
+    cg.addColorStop(0.5,`rgba(240,210,130,${op})`);
+    cg.addColorStop(1,`rgba(180,130,46,${op})`);
+    ctx.beginPath();ctx.arc(...p,6,0,Math.PI*2);ctx.fillStyle=cg;ctx.fill();
+  };
+  node(BOGOTA);node(ATHENS);
+
+  // Grain
+  ctx.drawImage(grain,0,0);
+
+  requestAnimationFrame(draw);
+}
+// draw first frame synchronously, then enter loop
+draw(0);
+requestAnimationFrame(draw);
+</script>
+</body>
+</html>

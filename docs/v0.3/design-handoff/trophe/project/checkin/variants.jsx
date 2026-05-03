@@ -1,0 +1,545 @@
+/* global React, ReactDOM */
+const { useState, useEffect, useRef } = React;
+
+// Editorial direction tokens (reused)
+const D = {
+  bg: '#f4f1ea',
+  surface: '#ffffff',
+  border: 'rgba(25,23,20,0.08)',
+  borderStrong: 'rgba(25,23,20,0.18)',
+  text: '#191714',
+  textMuted: '#58524a',
+  textFaint: '#8a8277',
+  accent: '#7a2e1f',
+  accentSoft: 'rgba(122,46,31,0.08)',
+  good: '#3f6b3a',
+  bad: '#a8371a',
+  serif: "'EB Garamond', Georgia, serif",
+  sans: "'Inter', system-ui, sans-serif",
+  mono: "'JetBrains Mono', monospace",
+};
+
+// ═══════════════════════════════════════════════════════════════════
+//  Phone frame
+// ═══════════════════════════════════════════════════════════════════
+function Phone({ children, width = 360, height = 720 }) {
+  return (
+    <div style={{
+      width, height, background: '#111', borderRadius: 44, padding: 8,
+      boxShadow: '0 40px 80px -20px rgba(0,0,0,0.22), 0 0 0 1px rgba(0,0,0,0.08)',
+    }}>
+      <div style={{
+        width: '100%', height: '100%', background: D.bg,
+        borderRadius: 36, overflow: 'hidden', position: 'relative',
+        fontFamily: D.sans, color: D.text, display: 'flex', flexDirection: 'column',
+      }}>
+        <div style={{
+          height: 44, display: 'flex', alignItems: 'flex-end',
+          justifyContent: 'space-between', padding: '0 24px 8px',
+          fontSize: 13, fontWeight: 600, position: 'relative', flexShrink: 0,
+        }}>
+          <span>9:41</span>
+          <div style={{ position: 'absolute', top: 10, left: '50%',
+            transform: 'translateX(-50%)', width: 100, height: 28, background: '#000', borderRadius: 14 }}/>
+          <div style={{ display: 'flex', gap: 5, alignItems: 'center', fontSize: 11 }}>● ● ●</div>
+        </div>
+        <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  Shared layout chrome — day, habit line, 14-dot grid
+// ═══════════════════════════════════════════════════════════════════
+function ScreenChrome({ children, committedDays, commitInProgress = 0, committedToday }) {
+  return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '12px 24px 20px' }}>
+      <div style={{ fontFamily: D.mono, fontSize: 10, letterSpacing: '0.18em',
+        color: D.textMuted, textTransform: 'uppercase' }}>Fri · Apr 18 · Day 09</div>
+      <div style={{ fontFamily: D.serif, fontSize: 26, fontWeight: 500,
+        letterSpacing: '-0.015em', lineHeight: 1.15, marginTop: 6, marginBottom: 24 }}>
+        <span style={{ fontStyle: 'italic' }}>Drink</span> 3L of water daily
+      </div>
+
+      {/* 14-dot grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(14,1fr)', gap: 4, marginBottom: 28 }}>
+        {Array.from({ length: 14 }).map((_,i) => {
+          const done = i < committedDays;
+          const today = i === 8;
+          const inProgress = today && commitInProgress > 0;
+          const justCommitted = today && committedToday;
+          return (
+            <div key={i} style={{
+              aspectRatio: '1',
+              borderRadius: 3,
+              background: done || justCommitted ? D.accent :
+                inProgress ? `linear-gradient(to top, ${D.accent} ${commitInProgress*100}%, transparent ${commitInProgress*100}%)` :
+                today ? 'transparent' : D.accentSoft,
+              border: today && !justCommitted ? `1.5px solid ${D.accent}` : 'none',
+              transition: 'background 0.3s, transform 0.3s',
+              transform: justCommitted ? 'scale(1.15)' : 'scale(1)',
+            }}/>
+          );
+        })}
+      </div>
+
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  VARIANT A — The Seal (long-press to commit)
+// ═══════════════════════════════════════════════════════════════════
+function VariantSeal() {
+  const [progress, setProgress] = useState(0);
+  const [committed, setCommitted] = useState(false);
+  const [ripple, setRipple] = useState(false);
+  const rafRef = useRef(null);
+  const startRef = useRef(0);
+  const HOLD_MS = 1200;
+
+  const reset = () => {
+    cancelAnimationFrame(rafRef.current);
+    if (!committed) setProgress(0);
+  };
+
+  const onDown = () => {
+    if (committed) return;
+    startRef.current = performance.now();
+    const tick = () => {
+      const p = Math.min((performance.now() - startRef.current) / HOLD_MS, 1);
+      setProgress(p);
+      if (p >= 1) {
+        setCommitted(true);
+        setRipple(true);
+        setTimeout(() => setRipple(false), 900);
+        if (navigator.vibrate) navigator.vibrate([15, 30, 15]);
+      } else {
+        rafRef.current = requestAnimationFrame(tick);
+      }
+    };
+    rafRef.current = requestAnimationFrame(tick);
+  };
+
+  const resetAll = () => { setCommitted(false); setProgress(0); };
+
+  return (
+    <ScreenChrome committedDays={8} commitInProgress={committed ? 0 : progress} committedToday={committed}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <div style={{
+          fontFamily: D.mono, fontSize: 10, letterSpacing: '0.18em',
+          color: D.textMuted, textTransform: 'uppercase', marginBottom: 20,
+          transition: 'opacity 0.3s',
+        }}>
+          {committed ? 'Committed' : progress > 0 ? 'Hold…' : 'Press & hold to commit'}
+        </div>
+
+        {/* The seal */}
+        <div
+          onMouseDown={onDown} onMouseUp={reset} onMouseLeave={reset}
+          onTouchStart={onDown} onTouchEnd={reset}
+          style={{
+            position: 'relative', width: 180, height: 180, cursor: committed ? 'default' : 'pointer',
+            userSelect: 'none', touchAction: 'none',
+          }}
+        >
+          {/* Ripple on success */}
+          {ripple && <div style={{
+            position: 'absolute', inset: -20, borderRadius: '50%',
+            border: `2px solid ${D.accent}`, opacity: 0,
+            animation: 'seal-ripple 0.9s ease-out forwards',
+          }}/>}
+          {/* Outer ring */}
+          <svg width="180" height="180" style={{ position: 'absolute', inset: 0, transform: 'rotate(-90deg)' }}>
+            <circle cx="90" cy="90" r="84" fill="none" stroke={D.border} strokeWidth="1"/>
+            <circle cx="90" cy="90" r="84" fill="none" stroke={D.accent} strokeWidth="2"
+              strokeDasharray={2*Math.PI*84}
+              strokeDashoffset={2*Math.PI*84 * (1 - (committed ? 1 : progress))}
+              style={{ transition: committed ? 'stroke-dashoffset 0.4s' : 'none' }}
+              strokeLinecap="round"/>
+          </svg>
+          {/* Inner disc */}
+          <div style={{
+            position: 'absolute', inset: 18, borderRadius: '50%',
+            background: committed ? D.accent : D.surface,
+            border: `1px solid ${committed ? D.accent : D.borderStrong}`,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            transition: 'background 0.5s, border 0.5s, transform 0.3s',
+            transform: `scale(${1 + progress * 0.03})`,
+            overflow: 'hidden',
+          }}>
+            {/* Fill meniscus */}
+            <div style={{
+              position: 'absolute', left: 0, right: 0, bottom: 0,
+              height: `${progress * 100}%`, background: D.accentSoft,
+              transition: committed ? 'height 0.3s' : 'none', pointerEvents: 'none',
+            }}/>
+            <div style={{
+              fontFamily: D.serif, fontSize: 48, fontWeight: 600, lineHeight: 1,
+              color: committed ? '#f4f1ea' : D.text, position: 'relative', zIndex: 1,
+              transition: 'color 0.4s',
+            }}>IX</div>
+            <div style={{
+              fontFamily: D.mono, fontSize: 9, letterSpacing: '0.2em',
+              color: committed ? 'rgba(244,241,234,0.7)' : D.textFaint,
+              textTransform: 'uppercase', marginTop: 6, position: 'relative', zIndex: 1,
+              transition: 'color 0.4s',
+            }}>Day Nine</div>
+          </div>
+        </div>
+
+        {committed ? (
+          <div style={{ marginTop: 24, textAlign: 'center' }}>
+            <div style={{ fontFamily: D.serif, fontSize: 16, fontStyle: 'italic', color: D.accent }}>
+              Sealed.
+            </div>
+            <button onClick={resetAll} style={{
+              marginTop: 10, background: 'none', border: 'none', color: D.textFaint,
+              fontFamily: D.mono, fontSize: 9, letterSpacing: '0.16em',
+              textTransform: 'uppercase', cursor: 'pointer' }}>↺ Demo again</button>
+          </div>
+        ) : (
+          <button style={{
+            marginTop: 24, background: 'none', border: 'none',
+            color: D.textMuted, fontFamily: D.sans, fontSize: 12, cursor: 'pointer',
+            borderBottom: `1px solid ${D.border}`, paddingBottom: 2,
+          }}>Skip today, with a note</button>
+        )}
+      </div>
+    </ScreenChrome>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  VARIANT B — The Dial (3-state, drag to set)
+// ═══════════════════════════════════════════════════════════════════
+function VariantDial() {
+  const [state, setState] = useState(null); // 'miss' | 'partial' | 'full'
+  const [committed, setCommitted] = useState(false);
+  const [note, setNote] = useState('');
+  const [showNote, setShowNote] = useState(false);
+  const trackRef = useRef(null);
+
+  const positions = [
+    { key: 'miss',    label: 'Missed',  color: D.bad,    symbol: '×' },
+    { key: 'partial', label: 'Partial', color: '#a86a1a', symbol: '◐' },
+    { key: 'full',    label: 'Full',    color: D.good,   symbol: '✓' },
+  ];
+
+  const commit = () => {
+    if (!state) return;
+    setCommitted(true);
+    if (state === 'partial' || state === 'miss') setShowNote(true);
+  };
+
+  const current = positions.find(p => p.key === state);
+  const resetAll = () => { setState(null); setCommitted(false); setNote(''); setShowNote(false); };
+
+  return (
+    <ScreenChrome committedDays={8} committedToday={committed && state === 'full'}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <div style={{ fontFamily: D.mono, fontSize: 10, letterSpacing: '0.18em',
+          color: D.textMuted, textTransform: 'uppercase', marginBottom: 22 }}>
+          How did today go?
+        </div>
+
+        {/* Dial track */}
+        <div ref={trackRef} style={{
+          width: '100%', maxWidth: 280, position: 'relative',
+          background: D.surface, border: `1px solid ${D.borderStrong}`,
+          borderRadius: 999, padding: 5, display: 'flex', gap: 0,
+        }}>
+          {/* Active pill */}
+          {state && (
+            <div style={{
+              position: 'absolute', top: 5, bottom: 5,
+              left: `calc(${positions.findIndex(p => p.key === state) * 33.33}% + 5px)`,
+              width: 'calc(33.33% - 3px)',
+              background: current.color, borderRadius: 999,
+              transition: 'left 0.25s cubic-bezier(0.3, 1, 0.4, 1)',
+            }}/>
+          )}
+          {positions.map((p, i) => (
+            <button key={p.key}
+              onClick={() => !committed && setState(p.key)}
+              disabled={committed}
+              style={{
+                flex: 1, position: 'relative', zIndex: 1,
+                padding: '14px 0', background: 'transparent', border: 'none',
+                fontFamily: D.sans, fontSize: 13, fontWeight: 500,
+                color: state === p.key ? '#fff' : D.textMuted,
+                cursor: committed ? 'default' : 'pointer',
+                transition: 'color 0.25s',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+              }}>
+              <span style={{ fontSize: 18, lineHeight: 1 }}>{p.symbol}</span>
+              <span style={{ fontSize: 10, letterSpacing: '0.08em' }}>{p.label}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Commit */}
+        {!committed && state && (
+          <button onClick={commit} style={{
+            marginTop: 20, padding: '12px 28px',
+            background: D.text, color: D.bg, border: 'none', borderRadius: 999,
+            fontFamily: D.sans, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+            letterSpacing: '-0.01em',
+          }}>Log as {current.label.toLowerCase()}</button>
+        )}
+
+        {/* Post-commit note for nuance */}
+        {committed && showNote && (
+          <div style={{
+            marginTop: 22, width: '100%', animation: 'fade-in 0.4s',
+          }}>
+            <div style={{
+              fontFamily: D.serif, fontSize: 14, color: D.text, fontStyle: 'italic',
+              textAlign: 'center', marginBottom: 10,
+            }}>
+              {state === 'partial' ? 'What got in the way?' : 'What happened today?'}
+            </div>
+            <input value={note} onChange={e => setNote(e.target.value)}
+              placeholder="One line for Michael…"
+              style={{
+                width: '100%', boxSizing: 'border-box',
+                padding: '10px 14px', background: D.surface,
+                border: `1px solid ${D.borderStrong}`, borderRadius: 4,
+                fontFamily: D.serif, fontSize: 13, color: D.text, outline: 'none',
+              }}/>
+          </div>
+        )}
+
+        {committed && !showNote && (
+          <div style={{
+            marginTop: 22, fontFamily: D.serif, fontSize: 15, fontStyle: 'italic',
+            color: D.accent, animation: 'fade-in 0.4s',
+          }}>
+            Logged. {current.symbol === '✓' ? 'Well done.' : 'Onwards.'}
+          </div>
+        )}
+
+        {committed && (
+          <button onClick={resetAll} style={{
+            marginTop: 18, background: 'none', border: 'none', color: D.textFaint,
+            fontFamily: D.mono, fontSize: 9, letterSpacing: '0.16em',
+            textTransform: 'uppercase', cursor: 'pointer' }}>↺ Demo again</button>
+        )}
+      </div>
+    </ScreenChrome>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  VARIANT C — The Reflection (swipe up, mood + note)
+// ═══════════════════════════════════════════════════════════════════
+function VariantReflection() {
+  const [stage, setStage] = useState('idle'); // 'idle' | 'open' | 'committed'
+  const [mood, setMood] = useState(null);
+  const [note, setNote] = useState('');
+  const [dragY, setDragY] = useState(0);
+  const dragRef = useRef({ start: 0, active: false });
+
+  const onDown = (e) => {
+    if (stage !== 'idle') return;
+    dragRef.current = { start: e.touches ? e.touches[0].clientY : e.clientY, active: true };
+  };
+  const onMove = (e) => {
+    if (!dragRef.current.active) return;
+    const y = e.touches ? e.touches[0].clientY : e.clientY;
+    setDragY(Math.max(0, dragRef.current.start - y));
+  };
+  const onUp = () => {
+    if (!dragRef.current.active) return;
+    dragRef.current.active = false;
+    if (dragY > 40) setStage('open');
+    setDragY(0);
+  };
+
+  const commit = () => { setStage('committed'); };
+  const resetAll = () => { setStage('idle'); setMood(null); setNote(''); setDragY(0); };
+
+  return (
+    <ScreenChrome committedDays={8} committedToday={stage === 'committed'}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', height: '100%' }}>
+        {stage === 'idle' && (
+          <div
+            onMouseDown={onDown} onMouseMove={onMove} onMouseUp={onUp} onMouseLeave={onUp}
+            onTouchStart={onDown} onTouchMove={onMove} onTouchEnd={onUp}
+            style={{
+              position: 'absolute', bottom: 0, left: 0, right: 0,
+              display: 'flex', flexDirection: 'column', alignItems: 'center',
+              cursor: 'grab', userSelect: 'none', touchAction: 'none',
+              transform: `translateY(${-dragY}px)`,
+              transition: dragRef.current.active ? 'none' : 'transform 0.3s',
+              paddingBottom: 20,
+            }}>
+            <div style={{ width: 36, height: 4, background: D.borderStrong, borderRadius: 2, marginBottom: 24 }}/>
+            <div style={{ fontFamily: D.serif, fontSize: 22, fontStyle: 'italic',
+              color: D.text, marginBottom: 8, textAlign: 'center' }}>
+              How did today feel?
+            </div>
+            <div style={{ fontFamily: D.mono, fontSize: 10, letterSpacing: '0.18em',
+              color: D.textFaint, textTransform: 'uppercase' }}>
+              Swipe up to reflect ↑
+            </div>
+          </div>
+        )}
+
+        {stage === 'open' && (
+          <div style={{
+            width: '100%', animation: 'slide-up 0.4s cubic-bezier(0.3, 1, 0.4, 1)',
+            display: 'flex', flexDirection: 'column', gap: 20,
+          }}>
+            <div style={{ fontFamily: D.serif, fontSize: 18, fontStyle: 'italic',
+              color: D.text, textAlign: 'center' }}>
+              How did today feel?
+            </div>
+
+            {/* Mood dots */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0 10px' }}>
+              {[1,2,3,4,5].map(n => (
+                <button key={n} onClick={() => setMood(n)} style={{
+                  width: 44, height: 44, borderRadius: 22,
+                  background: mood === n ? D.accent : 'transparent',
+                  border: `1.5px solid ${mood === n ? D.accent : D.borderStrong}`,
+                  cursor: 'pointer', transition: 'all 0.2s',
+                  fontFamily: D.serif, fontSize: 15, fontWeight: 500,
+                  color: mood === n ? D.bg : D.textMuted,
+                }}>{n}</button>
+              ))}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: D.mono,
+              fontSize: 9, color: D.textFaint, letterSpacing: '0.1em',
+              textTransform: 'uppercase', marginTop: -14 }}>
+              <span>hard</span><span>easy</span>
+            </div>
+
+            {/* Reflection */}
+            <div>
+              <div style={{ fontFamily: D.mono, fontSize: 9, letterSpacing: '0.18em',
+                color: D.textMuted, textTransform: 'uppercase', marginBottom: 8 }}>
+                One line (optional)
+              </div>
+              <input value={note} onChange={e => setNote(e.target.value)}
+                placeholder="Remembered at dinner, caught up before bed."
+                style={{
+                  width: '100%', boxSizing: 'border-box',
+                  padding: '12px 14px', background: D.surface,
+                  border: `1px solid ${D.border}`, borderBottom: `1px solid ${D.borderStrong}`,
+                  borderRadius: 4, fontFamily: D.serif, fontSize: 13, color: D.text,
+                  outline: 'none', fontStyle: 'italic',
+                }}/>
+            </div>
+
+            <button onClick={commit} disabled={!mood} style={{
+              padding: '14px 0', background: mood ? D.text : D.border,
+              color: mood ? D.bg : D.textFaint,
+              border: 'none', borderRadius: 4, fontFamily: D.sans,
+              fontSize: 13, fontWeight: 600, cursor: mood ? 'pointer' : 'default',
+              transition: 'all 0.2s', letterSpacing: '-0.01em',
+            }}>
+              {mood ? 'Commit day 9' : 'Choose how it felt'}
+            </button>
+          </div>
+        )}
+
+        {stage === 'committed' && (
+          <div style={{ textAlign: 'center', animation: 'fade-in 0.5s' }}>
+            <div style={{ fontFamily: D.serif, fontSize: 24, fontStyle: 'italic',
+              color: D.accent, marginBottom: 8 }}>Noted.</div>
+            <div style={{ fontFamily: D.serif, fontSize: 14, color: D.textMuted,
+              lineHeight: 1.5, maxWidth: 240, margin: '0 auto' }}>
+              5 days of mood 4+ in a row. Michael will see this Monday.
+            </div>
+            <button onClick={resetAll} style={{
+              marginTop: 22, background: 'none', border: 'none', color: D.textFaint,
+              fontFamily: D.mono, fontSize: 9, letterSpacing: '0.16em',
+              textTransform: 'uppercase', cursor: 'pointer' }}>↺ Demo again</button>
+          </div>
+        )}
+      </div>
+    </ScreenChrome>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  BASELINE — Simple checkbox (for comparison)
+// ═══════════════════════════════════════════════════════════════════
+function VariantBaseline() {
+  const [done, setDone] = useState(false);
+  return (
+    <ScreenChrome committedDays={8} committedToday={done}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <div style={{ fontFamily: D.mono, fontSize: 10, letterSpacing: '0.18em',
+          color: D.textMuted, textTransform: 'uppercase', marginBottom: 24 }}>
+          Mark as done
+        </div>
+        <button onClick={() => setDone(!done)} style={{
+          padding: '16px 40px', background: done ? D.accent : D.text, color: D.bg,
+          border: 'none', borderRadius: 4, fontFamily: D.sans, fontSize: 14, fontWeight: 600,
+          cursor: 'pointer', letterSpacing: '-0.01em',
+        }}>{done ? '✓ Done today' : 'Check in'}</button>
+        <button onClick={() => setDone(false)} style={{
+          marginTop: 16, background: 'none', border: 'none', color: D.textFaint,
+          fontFamily: D.mono, fontSize: 9, letterSpacing: '0.16em',
+          textTransform: 'uppercase', cursor: 'pointer' }}>↺ Reset</button>
+        <div style={{ marginTop: 60, fontFamily: D.serif, fontSize: 13, fontStyle: 'italic',
+          color: D.textFaint, textAlign: 'center', maxWidth: 260, lineHeight: 1.5 }}>
+          The default. A tap, nothing more. The control against which the other three are measured.
+        </div>
+      </div>
+    </ScreenChrome>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  The variant catalogue
+// ═══════════════════════════════════════════════════════════════════
+const VARIANTS = [
+  {
+    key: 'baseline',
+    num: '00',
+    name: 'Baseline',
+    tagline: 'A checkbox.',
+    hypothesis: 'Frictionless. No ceremony. The thing every habit app does.',
+    tradeoffs: 'Easy to do, easy to lie about. No nuance, no coach data beyond binary. No emotional weight.',
+    Component: VariantBaseline,
+  },
+  {
+    key: 'seal',
+    num: '01',
+    name: 'The Seal',
+    tagline: 'A ritual of one-and-a-half seconds.',
+    hypothesis: 'Ceremony beats speed. The check-in should feel like keeping your word to yourself.',
+    tradeoffs: 'Slightly more friction per day. Rich haptic + visual reward. Best if compliance is the primary metric.',
+    Component: VariantSeal,
+  },
+  {
+    key: 'dial',
+    num: '02',
+    name: 'The Dial',
+    tagline: 'Missed · Partial · Full.',
+    hypothesis: 'Habits aren\u2019t binary. Honesty = better data = better coaching.',
+    tradeoffs: 'Partial/miss triggers a one-line note. Coach gets dramatically richer signal. Slightly more work on hard days \u2014 where data matters most.',
+    Component: VariantDial,
+  },
+  {
+    key: 'reflect',
+    num: '03',
+    name: 'The Reflection',
+    tagline: 'Swipe up to reflect.',
+    hypothesis: 'Consistency is behavioral; change is cognitive. Each check-in is a 10-second reflection.',
+    tradeoffs: 'Slowest per day. Generates the mood curve coaches love. Best for premium tier or clients doing deep work.',
+    Component: VariantReflection,
+  },
+];
+
+window.Phone = Phone;
+window.VARIANTS = VARIANTS;

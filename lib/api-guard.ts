@@ -1,27 +1,42 @@
 /**
- * api-guard.ts — Rate limiting for Trophē AI API routes.
+ * api-guard.ts — Auth + rate limiting for Trophē AI API routes.
  *
- * Applies two-tier rate limiting before any Anthropic/Gemini call:
- *   • Authenticated users: 60 req / 15 min per Supabase user_id
- *   • Anonymous (no JWT):  10 req / 15 min per IP — very strict
+ * Two-phase protection before any Anthropic/Gemini call:
+ *   1. Auth check: requires a valid JWT in the Authorization header.
+ *      Rejects anonymous requests with 401 to prevent cost-abuse.
+ *   2. Rate limiting: 60 req / 15 min per Supabase user_id.
  *
- * Returns NextResponse (429) if rate-limited, null if allowed.
+ * Returns `{ ok: false, response }` (401 or 429) if blocked, otherwise
+ * `{ ok: true, userId }` with the verified Supabase user id.
  *
  * Usage:
- *   const block = await guardAiRoute(req);
- *   if (block) return block;
+ *   const guard = await guardAiRoute(req);
+ *   if (!guard.ok) return guard.response;
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 // --- Config ---
 const AUTH_LIMIT = 60;     // requests per window for authenticated users
-const ANON_LIMIT = 10;     // requests per window for anonymous (IP-based)
 const WINDOW_MS = 15 * 60 * 1_000; // 15 minutes
 
-// In-memory maps — reset on Vercel cold start (acceptable for abuse prevention)
+/**
+ * User IDs that bypass the per-user rate limit.
+ * Used exclusively for automated eval runs that exceed 60 req / 15 min.
+ * Adding/removing requires a code change + deploy (intentional).
+ */
+const RATE_LIMIT_BYPASS_USER_IDS = new Set([
+  '7dbb5644-6a38-4f48-a512-d8be68e97ab7', // eval-tester-2026@trophe.app
+]);
+
+// In-memory map — resets on Vercel cold start (acceptable for abuse prevention)
 const authMap = new Map<string, { n: number; resetAt: number }>();
-const anonMap = new Map<string, { n: number; resetAt: number }>();
+
+export type AiRouteGuardResult =
+  | { ok: true; userId: string }
+  | { ok: false; response: NextResponse };
 
 function checkLimit(
   map: Map<string, { n: number; resetAt: number }>,
@@ -54,44 +69,78 @@ function checkLimit(
   return null;
 }
 
-/**
- * Extract Supabase user_id from the Authorization bearer token.
- * Returns null if no valid token is present — does NOT verify the JWT
- * (verification happens inside Supabase; we only use it for rate-limit keying).
- */
-function extractUserId(req: NextRequest): string | null {
+function unauthorized(): AiRouteGuardResult {
+  return {
+    ok: false,
+    response: NextResponse.json(
+      { error: 'Authentication required' },
+      { status: 401 },
+    ),
+  };
+}
+
+function extractBearerToken(req: NextRequest): string | null {
   const auth = req.headers.get('authorization');
   if (!auth?.startsWith('Bearer ')) return null;
   const token = auth.slice(7);
-  if (!token) return null;
+  return token.trim() || null;
+}
 
-  // NOTE: We intentionally decode without verification here. This JWT is used
-  // solely as a rate-limit key (consistent per-user bucketing), NOT for auth
-  // decisions. Auth is handled client-side via supabase.auth.getUser().
-  // Verifying here would add ~100ms latency to every AI call for no security benefit.
+async function verifySupabaseUser(token: string): Promise<string | null> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !anonKey) return null;
+
+  const supabase = createClient(url, anonKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  const { data, error } = await supabase.auth.getUser(token);
+  if (error || !data.user?.id) return null;
+  return data.user.id;
+}
+
+/**
+ * Try cookie-based auth via @supabase/ssr (v0.3 browser sessions).
+ * Uses the same pattern as lib/supabase/server.ts — reads HTTP-only
+ * cookies set by the middleware + browser client.
+ */
+async function getUserFromCookie(): Promise<string | null> {
   try {
-    const [, payload] = token.split('.');
-    if (!payload) return null;
-    const decoded = Buffer.from(payload, 'base64url').toString('utf8');
-    const parsed = JSON.parse(decoded) as { sub?: string };
-    return parsed.sub ?? null;
+    const supabase = await createSupabaseServerClient();
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error || !user?.id) return null;
+    return user.id;
   } catch {
+    // cookies() can throw in edge cases — treat as unauthenticated
     return null;
   }
 }
 
-export function guardAiRoute(req: NextRequest): NextResponse | null {
-  const userId = extractUserId(req);
-
-  if (userId) {
-    // Authenticated: generous limit, keyed by user
-    return checkLimit(authMap, userId, AUTH_LIMIT);
+export async function guardAiRoute(req: NextRequest): Promise<AiRouteGuardResult> {
+  // Path 1: Bearer token (eval runner, server-to-server, legacy clients)
+  const token = extractBearerToken(req);
+  if (token) {
+    const userId = await verifySupabaseUser(token);
+    if (userId) {
+      if (!RATE_LIMIT_BYPASS_USER_IDS.has(userId)) {
+        const rateLimit = checkLimit(authMap, userId, AUTH_LIMIT);
+        if (rateLimit) return { ok: false, response: rateLimit };
+      }
+      return { ok: true, userId };
+    }
+    // Invalid Bearer token — fall through to cookie check
   }
 
-  // Anonymous: strict limit, keyed by IP
-  const ip =
-    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
-    req.headers.get('x-real-ip') ??
-    'unknown';
-  return checkLimit(anonMap, ip, ANON_LIMIT);
+  // Path 2: Cookie-based auth (browser sessions via @supabase/ssr)
+  const cookieUserId = await getUserFromCookie();
+  if (cookieUserId) {
+    if (!RATE_LIMIT_BYPASS_USER_IDS.has(cookieUserId)) {
+      const rateLimit = checkLimit(authMap, cookieUserId, AUTH_LIMIT);
+      if (rateLimit) return { ok: false, response: rateLimit };
+    }
+    return { ok: true, userId: cookieUserId };
+  }
+
+  return unauthorized();
 }

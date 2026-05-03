@@ -1,0 +1,47 @@
+{
+  "when": "2026-05-01T16:47:02.692Z",
+  "url": "http://localhost:3333",
+  "threshold": 95,
+  "aggregate": {
+    "passed": 3,
+    "total": 3,
+    "rate": 100,
+    "passed_gate": true
+  },
+  "suites": [
+    {
+      "name": "coach_insight",
+      "passed": 3,
+      "total": 3,
+      "rate": 100,
+      "skipped": false,
+      "avgLatencyMs": 3382,
+      "cases": [
+        {
+          "id": "insight_low_protein",
+          "input": "Client logged 85g protein today. Goal is 150g/day. Had oatme…",
+          "passed": true,
+          "failures": [],
+          "latencyMs": 3305,
+          "detail": "**Your Win:** You're building consistency by logging meals—that's the foundation of hitting your protein goal.\n\n**Primary Opportunity:** You're currently at 57% of your 150g target, so there's a clear"
+        },
+        {
+          "id": "insight_great_macros",
+          "input": "Client hit all macro targets today: 2100 kcal, 155g protein,…",
+          "passed": true,
+          "failures": [],
+          "latencyMs": 3165,
+          "detail": "**Great execution today!** You nailed all your macro targets and stayed consistent with your training—that's the foundation of solid progress. Your protein intake is particularly strong at 155g, which"
+        },
+        {
+          "id": "insight_allergy_flag",
+          "input": "Client has a peanut allergy (confirmed in memory). Today's l…",
+          "passed": true,
+          "failures": [],
+          "latencyMs": 3676,
+          "detail": "**Action First: Verify That Snack Bar**\n\nBefore anything else, check the ingredient list on that snack bar immediately. Peanut allergies require zero guesswork—even trace amounts or shared manufacturi"
+        }
+      ]
+    }
+  ]
+}

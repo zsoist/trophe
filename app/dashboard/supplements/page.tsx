@@ -4,10 +4,12 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Pill, CheckCircle2, Circle, Info } from 'lucide-react';
+import { Icon } from '@/components/ui';
+import { BotNav } from '@/components/ui/BotNav';
 import { supabase } from '@/lib/supabase';
 import type { ClientSupplement, SupplementItem, SupplementLogEntry } from '@/lib/types';
-import BottomNav from '@/components/BottomNav';
 import { localToday, localDateStr } from '../../../lib/dates';
+import { useClientNav } from '@/lib/useClientNav';
 
 const EVIDENCE_COLORS: Record<string, string> = {
   A: 'bg-green-500/15 text-green-400 border-green-500/30',
@@ -24,6 +26,7 @@ const EVIDENCE_LABELS: Record<string, string> = {
 };
 
 export default function SupplementsPage() {
+  const clientNav = useClientNav();
   const [userId, setUserId] = useState<string | null>(null);
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -123,7 +126,7 @@ export default function SupplementsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen pb-24" style={{ background: 'var(--bg-primary)' }}>
+      <div className="min-h-screen pb-24" style={{ background: 'var(--bg,#0a0a0a)' }}>
         <div className="max-w-md mx-auto px-4 pt-12 space-y-4">
           <div className="h-7 w-36 rounded bg-stone-800/60 animate-pulse" />
           {[0, 1, 2].map((i) => (
@@ -142,7 +145,7 @@ export default function SupplementsPage() {
   }
 
   return (
-    <div className="min-h-screen pb-24" style={{ background: 'var(--bg-primary)' }}>
+    <div className="min-h-screen pb-24" style={{ background: 'var(--bg,#0a0a0a)' }}>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -161,7 +164,7 @@ export default function SupplementsPage() {
             animate={{ opacity: 1, y: 0 }}
             className="glass p-8 text-center"
           >
-            <div className="text-4xl mb-4">💊</div>
+            <div className="mb-4 flex justify-center"><Icon name="i-leaf" size={40} className="text-stone-500" /></div>
             <h2 className="text-stone-200 font-semibold mb-2">No Protocol Assigned</h2>
             <p className="text-stone-500 text-sm">
               Your coach will assign a personalized supplement protocol based on your goals and needs.
@@ -272,7 +275,7 @@ export default function SupplementsPage() {
         )}
       </motion.div>
 
-      <BottomNav />
+      <BotNav routes={clientNav} />
     </div>
   );
 }

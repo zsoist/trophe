@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Lightbulb, ChevronDown, ChevronUp } from 'lucide-react';
 import type { FoodLogEntry } from '@/lib/types';
+import { useI18n } from '@/lib/i18n';
 
 interface DailyInsightsProps {
   entries: FoodLogEntry[];
@@ -12,7 +13,8 @@ interface DailyInsightsProps {
 
 function generateInsights(
   entries: FoodLogEntry[],
-  targets: { calories: number; protein_g: number; carbs_g: number; fat_g: number }
+  targets: { calories: number; protein_g: number; carbs_g: number; fat_g: number },
+  t: (key: string, params?: Record<string, string | number>) => string
 ): string[] {
   if (entries.length === 0) return [];
 
@@ -32,13 +34,13 @@ function generateInsights(
     const max = proteinMeals.reduce((a, b) => a[1] > b[1] ? a : b);
     const min = proteinMeals.reduce((a, b) => a[1] < b[1] ? a : b);
     if (max[1] > min[1] * 3 && min[1] < 15) {
-      insights.push(`Your protein is concentrated at ${max[0]} (${Math.round(max[1])}g). Spreading it across meals improves muscle protein synthesis.`);
+      insights.push(t('insights.protein_concentrated', { meal: max[0], n: Math.round(max[1]) }));
     }
   }
 
   // Fiber check
   if (totalFiber < 10 && entries.length >= 3) {
-    insights.push(`Fiber is only ${Math.round(totalFiber)}g so far. Adding vegetables, fruits, or whole grains helps with satiety and digestion.`);
+    insights.push(t('insights.fiber_low', { n: Math.round(totalFiber) }));
   }
 
   // Calorie pacing
@@ -49,30 +51,31 @@ function generateInsights(
     const pace = totalCal / expectedCal;
 
     if (pace > 1.3 && hour < 18) {
-      insights.push(`You're ahead of your calorie pace for this time of day. Consider lighter meals for the rest of the day.`);
+      insights.push(t('insights.calorie_ahead'));
     } else if (pace < 0.5 && hour > 14) {
-      insights.push(`You're behind on calories for this time of day. Make sure to eat enough for energy and recovery.`);
+      insights.push(t('insights.calorie_behind'));
     }
   }
 
   // Protein target
   if (targets.protein_g > 0 && totalProtein < targets.protein_g * 0.3 && entries.length >= 2) {
     const remaining = Math.round(targets.protein_g - totalProtein);
-    insights.push(`${remaining}g protein remaining today. High-protein options: Greek yogurt (15g), chicken breast (31g/150g), eggs (6g each).`);
+    insights.push(t('insights.protein_remaining', { n: remaining }));
   }
 
   // Variety
   const uniqueFoods = new Set(entries.map(e => e.food_name)).size;
   if (uniqueFoods >= 8) {
-    insights.push(`Great food variety today! ${uniqueFoods} different foods logged. Diverse diets provide broader micronutrient coverage.`);
+    insights.push(t('insights.variety', { n: uniqueFoods }));
   }
 
   return insights.slice(0, 3);
 }
 
 export default function DailyInsights({ entries, targets }: DailyInsightsProps) {
+  const { t } = useI18n();
   const [expanded, setExpanded] = useState(false);
-  const insights = useMemo(() => generateInsights(entries, targets), [entries, targets]);
+  const insights = useMemo(() => generateInsights(entries, targets, t), [entries, targets, t]);
 
   if (insights.length === 0) return null;
 
@@ -88,7 +91,7 @@ export default function DailyInsights({ entries, targets }: DailyInsightsProps) 
       >
         <div className="flex items-center gap-2">
           <Lightbulb size={14} className="gold-text" />
-          <span className="text-stone-300 text-xs font-medium">Daily Insights</span>
+          <span className="text-stone-300 text-xs font-medium">{t('insights.title')}</span>
           <span className="text-stone-600 text-[10px]">({insights.length})</span>
         </div>
         {expanded ? <ChevronUp size={12} className="text-stone-500" /> : <ChevronDown size={12} className="text-stone-500" />}

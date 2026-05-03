@@ -1,157 +1,273 @@
 # Architecture
 
-High-level map of how Trophē's pieces fit together. For per-agent LLM details, see `agents/README.md`. For deploy+env setup, see `DEPLOYMENT.md`. For threat model, see `SECURITY.md`.
+High-level map of how Trophē v0.3 fits together. For per-agent LLM details see `agents/README.md`. For deploy+env setup see `DEPLOYMENT.md`. For threat model see `SECURITY.md`.
+
+_Last updated: 2026-05-02 (production readiness pass)_
+
+---
 
 ## Stack
 
-- **Web**: Next.js 16.2 App Router, React 19, TypeScript strict, Tailwind CSS 4, Framer Motion
-- **Auth + DB**: Supabase (Postgres + Auth + Storage + RLS); `@supabase/supabase-js` v2 (localStorage sessions)
-- **LLM**: Anthropic Claude Haiku 4.5 (food parsing, recipe analysis, photo analysis) via Messages API with prompt caching
-- **LLM (alt)**: Google Gemini 2.0 Flash (meal suggestions — cheaper for creative text)
-- **Computer Vision**: MediaPipe Pose (browser WASM, 33 landmarks at 30+ FPS) for AI Form Check
-- **Testing**: Vitest 4 + `@vitest/coverage-v8`
-- **CI**: GitHub Actions (typecheck + lint + unit)
-- **Hosting**: Vercel (production) — `trophe-mu.vercel.app`
-- **Observability**: Langfuse self-hosted (OTEL traces); scheduled v0.2
+| Layer | Technology |
+|-------|------------|
+| **Web** | Next.js 16.2 App Router, React 19, TypeScript strict, Tailwind CSS 4, Framer Motion |
+| **Auth** | Supabase Auth + `@supabase/ssr` — HTTP-only cookie sessions, server-readable |
+| **Database** | Supabase Postgres (cloud, production) + Supabase CLI local stack on OrbStack @ `127.0.0.1:54322` (dev) |
+| **ORM** | Drizzle ORM + Drizzle Kit — versioned migrations in `drizzle/`, schema in `db/schema/` |
+| **API layer** | tRPC v11 (internal coach UI) + REST `/api/v1/*` (external / webhooks) |
+| **LLM router** | `agents/router/` — task-based model selection: parse→Gemini Flash, recipe→Haiku 4.5, coach→Sonnet 4.6 |
+| **Embeddings** | Voyage v4 (`voyage-3-large`, 1024-dim) via `scripts/ingest/embed-foods.ts` |
+| **Observability** | Langfuse self-hosted @ `localhost:3002` — OTel GenAI semconv per span |
+| **Computer Vision** | MediaPipe Pose (browser WASM, 33 landmarks, 30+ FPS) for AI Form Check |
+| **Wearables** | Spike API — Apple Health, Whoop, Oura, Strava, Garmin, Fitbit via single integration |
+| **Testing** | Vitest 4 + `@vitest/coverage-v8` |
+| **CI** | GitHub Actions (typecheck + lint + unit + RLS + Playwright + DB verification + food-parse accuracy) |
+| **Hosting** | Vercel (production `https://trophe.app`; temporary production branch `v0.3-overhaul`) |
+
+---
 
 ## Deployment surface
 
-```
-┌──────────────┐   HTTPS    ┌──────────────┐   direct    ┌─────────────┐
-│  iOS / Web  │ ─────────→ │   Vercel    │ ──────────→ │  Supabase   │
-│  (PWA)      │            │   Next.js   │             │  Postgres   │
-└──────────────┘            │   16        │             │  + Auth     │
-                            └──────┬──────┘             │  + Storage  │
-                                   │                    └─────────────┘
-                                   │  /api/food/parse
-                                   │  /api/food/recipe-analyze
-                                   │  /api/food/photo
-                                   │  /api/meals/suggest
-                                   ▼
-                            ┌─────────────┐
-                            │  Anthropic  │
-                            │  Gemini     │  (external LLM providers)
-                            └─────────────┘
-```
+Production governance: `main` is the GitHub default branch. `v0.3-overhaul` remains the temporary production truth until the full verification sequence and `npm run canary:prod` are green, then it should be merged into `main` and Vercel should deploy from `main`.
 
-## Auth flow
-
-Supabase JS v2 stores sessions in **localStorage, not cookies** (critical pitfall — see CLAUDE.md). This means:
-
-1. Signup/login — client-side `supabase.auth.signUp/signInWithPassword` writes session to `localStorage`
-2. All DB reads/writes — client-side `supabase.from(...)` sends the session token in `Authorization` header
-3. RLS policies on Postgres tables enforce per-user + per-role access
-4. **Middleware cannot authenticate** — it only sees cookies. Auth is verified via client-side role guards on each protected page + RLS at the DB
-
-After signup, `role` column on `profiles` determines routing:
-- `client` → `/dashboard`
-- `coach` → `/coach`
-- `both` → `/coach` (with client-view toggle)
-
-Admin access is a server-side guard in `app/admin/layout.tsx` that verifies the Supabase JWT against `TROPHE_ADMIN_EMAILS` using the service role key.
-
-## Data model (19 tables)
-
-**Core**:
-- `profiles` — user identity + role + locale (1:1 with `auth.users`)
-- `client_profiles` — body stats, goals, macro targets (1:1 with profile where role=client)
-- `food_log` — every logged food entry (user_id, date, meal_type, food_name, macros, source)
-- `habit_checkins` — daily habit completion log
-- `measurements` — weight + body fat tracking
-
-**Coaching**:
-- `habits` — habit template library (trilingual: name_en/es/el)
-- `client_habits` — assigned habits with sequence + streak
-- `coach_notes` — per-client notes by category (check_in, message, concern, progression)
-- `supplements_protocols` + `supplements_items` — nutritionist-authored stacks
-- `workout_templates` + `workout_sessions` + `workout_sets`
-
-**AI**:
-- `form_analyses` — MediaPipe Form Check results (per-exercise scoring)
-- `api_usage_log` — per-endpoint LLM cost + token + latency tracking
-
-RLS: Every client-accessed table enforces `auth.uid() = user_id` or `auth.uid() IN (SELECT coach_id FROM client_profiles WHERE user_id = row.user_id)` for coach access. Zero SQL runs without RLS.
-
-## LLM surface (`/agents/` pattern — April 18)
-
-All LLM-backed features are organized as agents with a consistent contract:
+AI cost governance: `agent_runs` is the trusted table for cost and LLM observability. `api_usage_log` remains legacy compatibility only.
 
 ```
-agents/
-  prompts/<agent>.<version>.md     # versioned prompt templates (git-diffable)
-  clients/
-    anthropic.ts                   # Messages API wrapper with cache_control
-  schemas/<agent>.ts               # input/output types + validators
-  <agent>/
-    index.ts                       # run() — the only export routes call
-    extract.ts                     # LLM-output parsing
-    enrich.ts                      # local-DB canonicalization
+┌──────────────┐   HTTPS    ┌──────────────┐   direct    ┌─────────────────────┐
+│  iOS / Web  │ ─────────→ │   Vercel    │ ──────────→ │  Supabase (cloud)   │
+│  (PWA)      │            │   Next.js   │             │  Postgres + Auth    │
+└──────────────┘            │   16        │             │  + Storage + RLS    │
+                            └──────┬──────┘             └─────────────────────┘
+                                   │
+                    ┌──────────────┼──────────────────────────────┐
+                    │              │                              │
+                    ▼              ▼                              ▼
+             ┌───────────┐  ┌───────────┐                ┌──────────────┐
+             │ Anthropic │  │  Gemini   │                │  Spike API   │
+             │ (Sonnet/  │  │  2.5 Flash│                │  (wearables) │
+             │  Haiku)   │  └───────────┘                └──────────────┘
+             └───────────┘
+                    │
+                    ▼
+             ┌───────────┐
+             │ Langfuse  │  (self-hosted, localhost:3002 in dev)
+             │ (traces)  │
+             └───────────┘
 ```
 
-**Contract** (every agent's `run(input)`):
+---
+
+## Auth flow (v0.3 — cookie-based SSR)
+
+`@supabase/ssr` replaced the v0.2 localStorage approach. Sessions now live in **HTTP-only cookies**, readable by middleware and server components.
+
+```
+1. User submits login form
+   → app/auth/login/page.tsx calls lib/supabase/browser.ts (createBrowserClient)
+
+2. Cookie set in response
+   → supabase/ssr automatically refreshes the cookie on each response via middleware
+
+3. Middleware (proxy.ts) reads the cookie
+   → lib/supabase/middleware.ts creates a server client against request.cookies
+   → lib/auth/require-role.ts checks profile.role:
+       /coach/*   requires role ∈ {coach, both, admin, super_admin}
+       /admin/*   requires role ∈ {admin, super_admin}
+       /super/*   requires role = super_admin
+   → Unauthenticated → 302 to /login
+   → Wrong role     → 302 to /dashboard
+
+4. Server components / Route Handlers
+   → lib/supabase/server.ts createSupabaseServerClient() reads cookies()
+   → ALWAYS call getUser() not getSession() (re-validates against auth server)
+
+5. RLS at Postgres
+   → auth.uid() is set from the JWT in the cookie
+   → All client-accessed tables enforce row-level security
+```
+
+**Role enum** (4-tier, `profiles.role`):
+- `super_admin` — full access, Daniel only
+- `admin` — org-level access, Kavdas team
+- `coach` — assigned clients only
+- `client` — own data only
+
+---
+
+## Data model (v0.3 — 30+ tables)
+
+### Core
+| Table | Purpose |
+|-------|---------|
+| `profiles` | Identity + role + locale (1:1 with `auth.users`) |
+| `client_profiles` | Body stats, goals, macro targets, coaching phase |
+| `food_log` | Every logged food — includes `food_id FK → foods`, `qty_g`, `parse_confidence` |
+| `foods` | Canonical food database (USDA FDC + OpenFoodFacts GR/ES/US + HHF 48 dishes). `kcal_per_100g`, `protein_g`, `carb_g`, `fat_g`, `embedding vector(1024)`, `search_text tsvector` |
+| `food_unit_conversions` | Deterministic gram anchors per food+unit. **This is the bug-fix table.** |
+| `food_aliases` | Multilingual aliases for hybrid retrieval |
+| `habit_checkins` | Daily habit completion (completed bool + mood + note) |
+| `measurements` | Weight + body fat tracking |
+
+### Coaching
+| Table | Purpose |
+|-------|---------|
+| `habits` | Habit template library (trilingual: name_en/es/el) |
+| `client_habits` | Assigned habits with sequence + streak |
+| `coach_notes` | Per-client notes by category |
+| `supplements_protocols` + `supplements_items` | Nutritionist-authored stacks |
+| `workout_templates` + `workout_sessions` + `workout_sets` | Exercise tracking |
+| `coach_blocks` | Letta-style editable memory blocks coaches write about clients |
+
+### Organizations (multi-tenancy)
+| Table | Purpose |
+|-------|---------|
+| `organizations` | Each coach auto-creates an org on signup |
+| `organization_members` | user_id + org_id + role in org |
+| `audit_log` | Immutable append-only log of sensitive mutations |
+
+### Memory (Mem0/Letta hybrid)
+| Table | Purpose |
+|-------|---------|
+| `memory_chunks` | `scope` (user/session/agent) + `fact_text` + `embedding` + `salience` + Letta supersedence chain |
+| `agent_conversation` | Full turn history with token/cost accounting |
+| `agent_runs` | Links Langfuse trace IDs to food_log rows for explainability |
+| `raw_captures` | Incoming event firehose (OpenBrain pattern) |
+
+### Wearables (Spike)
+| Table | Purpose |
+|-------|---------|
+| `wearable_connections` | Provider OAuth tokens (pgcrypto encrypted) |
+| `wearable_data` | Steps/HRV/sleep/workout/weight — indexed `(user_id, data_type, recorded_at desc)` |
+
+**RLS invariant**: every client-accessed table enforces `auth.uid() = user_id` or coach roster check. Zero SQL runs without RLS.
+
+## Local and CI truth table
+
+| Concern | Ground truth |
+|---|---|
+| Schema installer | Drizzle migrations in `drizzle/` |
+| Local runtime | Supabase CLI stack from `supabase/config.toml` |
+| Local DB host rule | `127.0.0.1`, never `localhost` |
+| RLS test role | `authenticated` via `SET LOCAL ROLE authenticated` |
+| CI DB | pgvector Postgres service using the same bootstrap compatibility path |
+
+---
+
+## LLM surface (`/agents/` pattern)
+
+### Router (`agents/router/`)
+Declarative `taskPolicies` map selects provider+model per task:
+
+| Task | Provider | Model | Rationale |
+|------|----------|-------|-----------|
+| `food_parse` | Google | Gemini 2.5 Flash | Cheapest structured output; ~$0.05/active-day vs $0.40 |
+| `recipe_analyze` | Anthropic | Haiku 4.5 | Prompt-cached system prompt; fast |
+| `coach_insight` | Anthropic | Sonnet 4.6 | Needs reasoning over week of data |
+| `embed` | Voyage | voyage-large-2 | 1024-dim, MTEB 67, consistent with OpenBrain |
+
+### Food parse pipeline (v0.3 deterministic)
+**Old (v0.2)**: LLM emitted invented macro numbers → ~81% accuracy.
+**New (v0.3)**: LLM identifies `{food_name, qty, unit}` only. `agents/food-parse/lookup.ts` does pgvector + pg_trgm hybrid retrieval → `foods` table supplies macros. Macros computed as `grams * food.kcal_per_100g / 100`. **LLM never sees a number.** Target: ≥95% accuracy on Nikos golden set.
+
+### Observability
+Every `agent.run()` is wrapped in a Langfuse generation span (via `agents/observability/langfuse.ts`) and emits OTel GenAI semconv attributes: `gen_ai.system`, `gen_ai.request.model`, `gen_ai.usage.input_tokens`, `gen_ai.response.finish_reasons`.
+
+### Memory reads
+At agent-call time, `agents/memory/read.ts` does kNN over scope-filtered `memory_chunks` and packs top-k facts into the system prompt within a token budget.
+
+### Agent contract
 ```ts
 Promise<{
   ok: boolean;
   output?: AgentOutput;
   error?: string;
-  telemetry: {
-    model, version,
-    tokensIn, tokensOut,
-    cacheCreationTokens, cacheReadTokens,
-    latencyMs, rawStatus
-  };
+  telemetry: { model, provider, tokensIn, tokensOut, latencyMs, langfuseTraceId };
 }>
 ```
 
-Routes become thin adapters:
-```
-1. validate input
-2. result = await agent.run(input)
-3. logAPIUsage(result.telemetry)
-4. return result.output
-```
+---
 
-Food-parse route shrank 258 LOC → 51 LOC through this refactor.
+## tRPC layer (`lib/trpc/`)
 
-### Prompt caching
+Type-safe internal API for coach UI. Public REST stays at `/api/v1/*` for external partners + Spike webhooks.
 
-All agents pass `cacheSystem: true` to `callAnthropicMessages()`. This wraps the system prompt in Anthropic's `cache_control: { type: 'ephemeral' }` block. The stable prefix (rules, USDA values, FOOD_DATABASE reference ~3-5K tokens) is cached server-side for ~5 minutes. Subsequent calls within that window bill cached tokens at ~10% of normal input cost.
+Routers: `clients`, `coach`, `food`, `memory`. React Query v5 provider wraps the app. Coach pages fetch via tRPC hooks; REST routes remain as thin adapters.
 
-Telemetry captures `cache_creation_input_tokens` (first-call miss) and `cache_read_input_tokens` (subsequent hits) so we can observe cache hit rate per endpoint once Langfuse is wired in Wave C.
+---
 
-## Theme system
+## Theme + design system (Handoff v2)
 
-- `app/globals.css` defines CSS custom properties on `:root` (dark default) and `.light` overrides
-- `components/ThemeMode.tsx` applies `.light` or `.dark` class to `<html>` + persists to `localStorage.trophe_theme_mode`
-- `app/layout.tsx` has an inline pre-paint script that reads localStorage and applies the class BEFORE React hydrates — prevents flash of wrong theme
-- **Invariant**: themed surfaces (page shells, cards, text) must use CSS variables OR `.glass`/`.glass-elevated` utility classes, NEVER raw `bg-stone-9xx` or `text-white`. ESLint rule enforces this on `app/dashboard/**` + `app/onboarding/**`
+- `app/globals.css` — CSS custom properties on `:root` (dark default). Key tokens: `--bg`, `--t1..t5`, `--gold-300`, `--line`, `--surface`, `--font-mono`
+- Utility classes: `.card`, `.card-g`, `.card-r`, `.av`, `.av-lg`, `.eye`, `.eye-d`, `.mb-track`, `.mb-fill`, `.row-b`, `.row-i`, `.ds-sub`, `.hs-dot-on/warn/off`
+- Icon sprite: `public/sprite.svg` — 56 SVG icons, consumed via `<Icon name="i-*" size={N} />`
+- Bottom nav: `components/ui/BotNav.tsx` — 4 tabs, client nav vs coach nav, active highlight via `usePathname`
 
-## Folder layout
+---
+
+## Folder layout (v0.3)
 
 ```
 trophe/
-  agents/           # LLM surface (see above)
-  app/              # Next.js App Router pages + API routes
+  agents/
+    router/           # task→model policy routing
+    clients/          # anthropic.ts, google.ts, openai.ts
+    observability/    # langfuse.ts, otel.ts
+    memory/           # read.ts, write.ts, coach-blocks.ts
+    food-parse/       # index.ts (LLM-identify only), lookup.ts (deterministic)
+    recipe-analyze/
+    insights/         # wearable-summary.ts
+    evals/            # run-all.ts, multi-layer/
+    prompts/          # versioned .md prompt templates
+    schemas/          # input/output types
+  app/
     api/
-      food/{parse, recipe-analyze, photo, search}/route.ts
-      meals/suggest/route.ts
-    dashboard/      # client-facing pages
-    coach/          # coach-facing pages
-    admin/          # admin-only (guarded server-side)
-  components/       # 117 React components (65 base + 52 coach)
-  lib/              # pure business logic (nutrition, food units, meal scoring, i18n, etc.)
-  tests/            # Vitest unit tests
-  supabase/         # SQL migrations (scheduled Sunday)
-  scripts/          # one-off Node scripts (seed, maintenance)
-  .github/workflows/ci.yml
-  public/           # static assets, PWA manifest
+      trpc/[trpc]/    # tRPC handler
+      food/{parse,recipe-analyze,photo,search}/
+      integrations/spike/{connect,callback,webhook}/
+      auth/{callback,magic-link,oauth}/
+    dashboard/        # client pages (Home, Log, Progress, Profile, Checkin, Workout, Supplements)
+    coach/            # coach pages (Today, Clients, Client/:id, Client/:id/plan, Inbox, Profile)
+    admin/            # admin-only (server-guarded)
+    auth/             # login, magic-link pages
+  components/
+    ui/               # Icon, BotNav, + base primitives
+    [feature]/        # coach/, dashboard/ etc.
+  db/
+    schema/           # one file per domain (profiles, food_log, foods, memory_chunks, …)
+    client.ts         # Drizzle + pg.Pool
+    queries/          # typed query helpers
+  drizzle/            # versioned migration SQL (0001_organizations_and_roles.sql …)
+  lib/
+    supabase/         # browser.ts, server.ts, middleware.ts
+    auth/             # get-session.ts, require-role.ts
+    trpc/             # server.ts, router.ts, context.ts, client.ts
+    spike/            # client.ts (REST wrapper)
+    nutrition-engine.ts
+    dates.ts
+  scripts/
+    ingest/           # usda.ts, openfoodfacts.ts, helth.ts, hhf-dishes.ts, embed-foods.ts
+    db/               # bootstrap-local.sh
+  tests/
+    db/rls.test.ts
+    auth/role-gate.test.ts
+    agents/router.test.ts, food-parse.accuracy.test.ts, memory.test.ts
+    spike/webhook.test.ts
+  public/
+    sprite.svg        # 56-icon SVG sprite
+  drizzle.config.ts
+  proxy.ts            # Next.js middleware (renamed from middleware.ts in v0.3)
+  .env.local.example
 ```
+
+---
 
 ## Key invariants
 
-1. **No `.single()` on Supabase queries** — always `.maybeSingle()`. Avoids crashes on legitimate empty results.
+1. **No `.single()` on Supabase queries** — always `.maybeSingle()`.
 2. **All dates use local timezone** via `lib/dates.ts` (`localToday`, `localDateStr`). UTC caused day-boundary bugs.
-3. **All AI routes cap input at 500 chars (food-parse) / 4000 chars (recipe-analyze)** and strip control chars to prevent prompt injection.
-4. **Routes return server errors via `NextResponse.json({error}, {status})` — never leak stack traces.**
-5. **Supabase service role key is server-only** (never shipped to client). Used for admin guard + server-side signup only.
-6. **Mobile-first**: design + verify at 390×844 (iPhone 14 Pro) before desktop.
+3. **All AI routes cap input** at 500 chars (food-parse) / 4000 chars (recipe-analyze) + strip control chars.
+4. **Routes return errors via `NextResponse.json({error}, {status})`** — never leak stack traces.
+5. **Supabase service role key is server-only** (no `NEXT_PUBLIC_` prefix).
+6. **LLM never emits macro numbers** (v0.3 food pipeline) — all nutrition values come from `foods` table.
+7. **Mobile-first**: design + verify at 390×844 (iPhone 14 Pro) before desktop.
+8. **Never push to `main` during v0.3 development** — all work on `v0.3-overhaul` branch until Phase 9 cutover.

@@ -13,7 +13,8 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
-import BottomNav from '@/components/BottomNav';
+import { BotNav } from '@/components/ui/BotNav';
+import { Icon } from '@/components/ui';
 import ExerciseComparison from '@/components/ExerciseComparison';
 import type { WorkoutSet, WorkoutSession, Exercise, MuscleGroup } from '@/lib/types';
 
@@ -557,9 +558,9 @@ export default function WorkoutStatsPage() {
                   onChange={(e) => setSelectedExerciseId(e.target.value || null)}
                   className="input-dark text-sm mb-4"
                 >
-                  <option value="" className="bg-stone-900">Select an exercise...</option>
+                  <option value="">Select an exercise...</option>
                   {uniqueExercises.map((ex) => (
-                    <option key={ex.id} value={ex.id} className="bg-stone-900">
+                    <option key={ex.id} value={ex.id}>
                       {ex.name}
                     </option>
                   ))}
@@ -583,7 +584,12 @@ export default function WorkoutStatsPage() {
           )}
         </motion.div>
       </div>
-      <BottomNav />
+      <BotNav routes={[
+        { href: '/dashboard',          label: 'Home',     icon: <Icon name="i-home"  size={18} /> },
+        { href: '/dashboard/log',      label: 'Log',      icon: <Icon name="i-book"  size={18} /> },
+        { href: '/dashboard/progress', label: 'Progress', icon: <Icon name="i-chart" size={18} /> },
+        { href: '/dashboard/profile',  label: 'Me',       icon: <Icon name="i-user"  size={18} /> },
+      ]} />
     </div>
   );
 }

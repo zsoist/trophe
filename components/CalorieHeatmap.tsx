@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
-import { Grid3X3 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { useI18n } from '@/lib/i18n';
 import { localDateStr } from '../lib/dates';
 
 interface DayCell {
@@ -19,7 +20,7 @@ interface CalorieHeatmapProps {
   weeks?: number;
 }
 
-const CELL_SIZE = 12;
+const CELL_SIZE = 11;
 const GAP = 2;
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -32,11 +33,13 @@ function getIntensity(calories: number): string {
   return 'rgba(212, 168, 83, 0.90)';
 }
 
-export default function CalorieHeatmap({ userId, weeks = 8 }: CalorieHeatmapProps) {
+export default function CalorieHeatmap({ userId, weeks = 18 }: CalorieHeatmapProps) {
+  const { t } = useI18n();
   const [cells, setCells] = useState<DayCell[]>([]);
   const [months, setMonths] = useState<{ label: string; col: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [tooltip, setTooltip] = useState<DayCell | null>(null);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -109,9 +112,10 @@ export default function CalorieHeatmap({ userId, weeks = 8 }: CalorieHeatmapProp
 
   if (loading) {
     return (
-      <div className="glass p-5 mb-4">
-        <div className="text-stone-500 text-sm text-center py-6 animate-pulse">
-          Loading activity...
+      <div className="glass p-4">
+        <div className="animate-pulse space-y-2">
+          <div className="h-3 bg-white/[0.05] rounded w-1/3" />
+          <div className="h-20 bg-white/[0.03] rounded" />
         </div>
       </div>
     );
@@ -122,6 +126,19 @@ export default function CalorieHeatmap({ userId, weeks = 8 }: CalorieHeatmapProp
   const monthBarHeight = 14;
   const svgHeight = monthBarHeight + 7 * (CELL_SIZE + GAP);
 
+  // Summary stats
+  const activeDays  = cells.filter(c => c.entries > 0).length;
+  const activeCals  = cells.filter(c => c.calories > 0);
+  const avgCal      = activeCals.length > 0 ? Math.round(activeCals.reduce((s, c) => s + c.calories, 0) / activeCals.length) : 0;
+  const maxCal      = activeCals.length > 0 ? Math.round(Math.max(...activeCals.map(c => c.calories))) : 0;
+  // Current streak
+  const sorted = [...cells].sort((a, b) => b.date.localeCompare(a.date));
+  let streak = 0;
+  for (const c of sorted) {
+    if (c.entries > 0) streak++;
+    else break;
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -129,15 +146,51 @@ export default function CalorieHeatmap({ userId, weeks = 8 }: CalorieHeatmapProp
       transition={{ delay: 0.2 }}
       className="glass p-5 mb-4"
     >
-      <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider mb-4 flex items-center gap-2">
-        <Grid3X3 size={14} /> Activity
-      </h3>
+      {/* Accordion header */}
+      <button
+        onClick={() => setExpanded(e => !e)}
+        className="w-full flex items-center justify-between mb-3"
+      >
+        <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider flex items-center gap-2">
+          <span style={{ fontSize: 12 }}>&#9632;&#9632;&#9632;</span> {t('analytics.logging_activity')}
+        </h3>
+        {expanded ? <ChevronUp size={14} className="text-stone-500" /> : <ChevronDown size={14} className="text-stone-500" />}
+      </button>
 
-      <div className="overflow-x-auto -mx-2 px-2 pb-1">
+      <AnimatePresence>
+        {expanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.22 }}
+            style={{ overflow: 'hidden' }}
+          >
+
+      {/* Summary stats row */}
+      <div className="grid grid-cols-3 gap-2 mb-4 text-center">
+        {[
+          { label: t('heatmap.days_logged'),    val: `${activeDays}`, sub: `last ${weeks * 7}d` },
+          { label: t('heatmap.avg_calories'),   val: avgCal > 0 ? `${avgCal}` : '—', sub: t('heatmap.on_logged_days') },
+          { label: t('heatmap.current_streak'), val: `${streak}d`, sub: streak > 0 ? t('heatmap.keep_going') : t('heatmap.start_today') },
+        ].map(s => (
+          <div key={s.label} style={{ padding: '6px 4px', borderRadius: 8, background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.05)' }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--gold-300,#D4A853)', fontFamily: 'var(--font-mono)' }}>{s.val}</div>
+            <div style={{ fontSize: 9, color: 'var(--t3)', marginTop: 1, lineHeight: 1.2 }}>{s.label}</div>
+            <div style={{ fontSize: 8, color: 'var(--t5)', marginTop: 1 }}>{s.sub}</div>
+          </div>
+        ))}
+      </div>
+
+      <p style={{ fontSize: 9, color: 'var(--t5)', marginBottom: 8 }}>
+        {t('heatmap.cell_desc')}
+        {maxCal > 0 && ` ${t('heatmap.best_day', { n: maxCal.toLocaleString() })}`}
+      </p>
+
+      <div className="pb-1">
         <svg
-          width={svgWidth}
-          height={svgHeight}
           viewBox={`0 0 ${svgWidth} ${svgHeight}`}
+          style={{ width: '100%', height: 'auto', display: 'block' }}
           className="overflow-visible"
         >
           {/* Month labels */}
@@ -216,7 +269,7 @@ export default function CalorieHeatmap({ userId, weeks = 8 }: CalorieHeatmapProp
 
       {/* Legend */}
       <div className="flex items-center justify-center gap-1.5 mt-3 text-stone-500 text-[10px]">
-        <span>Less</span>
+        <span style={{ fontSize: 9, color: 'var(--t5)' }}>{t('heatmap.legend_min')}</span>
         {[0, 500, 1000, 1500, 2000].map((cal) => (
           <div
             key={cal}
@@ -224,8 +277,12 @@ export default function CalorieHeatmap({ userId, weeks = 8 }: CalorieHeatmapProp
             style={{ backgroundColor: getIntensity(cal) }}
           />
         ))}
-        <span>More</span>
+        <span style={{ fontSize: 9, color: 'var(--t5)' }}>{t('heatmap.legend_max')}</span>
       </div>
+
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

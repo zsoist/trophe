@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TrendingUp, ChevronDown, ChevronUp } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { useI18n } from '@/lib/i18n';
 import { localDateStr } from '../lib/dates';
 
 interface DayAggregate {
@@ -34,7 +35,18 @@ const PAD = { top: 16, right: 42, bottom: 28, left: 42 };
 const PLOT_W = VB_W - PAD.left - PAD.right;
 const PLOT_H = VB_H - PAD.top - PAD.bottom;
 
-export default function MacroTrendChart({ userId, days = 30 }: MacroTrendChartProps) {
+type Period = 7 | 30 | 90;
+const PERIODS: { label: string; value: Period }[] = [
+  { label: '7d', value: 7 },
+  { label: '30d', value: 30 },
+  { label: '90d', value: 90 },
+];
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export default function MacroTrendChart({ userId, days: _days = 30 }: MacroTrendChartProps) {
+  const { t } = useI18n();
+  const [period, setPeriod] = useState<Period>(30);
+  const days = period;
   const [data, setData] = useState<DayAggregate[]>([]);
   const [loading, setLoading] = useState(true);
   const [visible, setVisible] = useState<Record<MacroKey, boolean>>({
@@ -43,7 +55,7 @@ export default function MacroTrendChart({ userId, days = 30 }: MacroTrendChartPr
     carbs_g: true,
     fat_g: true,
   });
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const [targetCalories, setTargetCalories] = useState<number | null>(null);
 
@@ -175,7 +187,7 @@ export default function MacroTrendChart({ userId, days = 30 }: MacroTrendChartPr
         className="w-full flex items-center justify-between mb-3"
       >
         <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider flex items-center gap-2">
-          <TrendingUp size={14} /> {days}-Day Trends
+          <TrendingUp size={14} /> {t('analytics.trends')} · {days}d
         </h3>
         {expanded ? (
           <ChevronUp size={14} className="text-stone-500" />
@@ -193,7 +205,24 @@ export default function MacroTrendChart({ userId, days = 30 }: MacroTrendChartPr
             transition={{ duration: 0.25 }}
             className="overflow-hidden"
           >
-            {/* Toggle buttons */}
+            {/* Period switcher */}
+            <div className="flex gap-1.5 mb-3">
+              {PERIODS.map(p => (
+                <button
+                  key={p.value}
+                  onClick={() => { setPeriod(p.value); setHoverIdx(null); setLoading(true); }}
+                  className={`flex-1 py-1.5 rounded-lg text-[10px] font-semibold border transition-all ${
+                    period === p.value
+                      ? 'bg-white/[0.06] border-white/10 text-stone-200'
+                      : 'border-transparent text-stone-600 hover:text-stone-400'
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Macro toggle buttons */}
             <div className="flex flex-wrap gap-2 mb-3">
               {LINES.map((line) => (
                 <button

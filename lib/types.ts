@@ -121,6 +121,7 @@ export interface FoodLogEntry {
   carbs_g: number | null;
   fat_g: number | null;
   fiber_g: number | null;
+  sugar_g: number | null;
   source: FoodSource | null;
   source_id: string | null;
   photo_url: string | null;
@@ -190,6 +191,7 @@ export interface CustomFood {
   carbs_g: number | null;
   fat_g: number | null;
   fiber_g: number | null;
+  sugar_g: number | null;
   unit: string;
   category: string | null;
   shared: boolean;
@@ -217,6 +219,7 @@ export interface MacroTargets {
   carbs_g: number;
   fat_g: number;
   fiber_g: number;
+  sugar_g: number;
   water_ml: number;
 }
 
@@ -227,6 +230,7 @@ export interface DailyMacroSummary {
   carbs_g: number;
   fat_g: number;
   fiber_g: number;
+  sugar_g: number;
   water_ml: number;
   meals: FoodLogEntry[];
 }

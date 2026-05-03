@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
-import { Target } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Target, ChevronDown, ChevronUp } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { useI18n } from '@/lib/i18n';
 import { localDateStr } from '../lib/dates';
 
 interface MacroAdherenceProps {
@@ -45,9 +46,11 @@ function adherenceScore(actual: number, target: number): number {
 }
 
 export default function MacroAdherence({ userId, targets }: MacroAdherenceProps) {
+  const { t } = useI18n();
   const [loading, setLoading] = useState(true);
   const [dayData, setDayData] = useState<DayTotals[]>([]);
   const [overallScore, setOverallScore] = useState(0);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -115,7 +118,7 @@ export default function MacroAdherence({ userId, targets }: MacroAdherenceProps)
   if (loading) {
     return (
       <div className="glass p-5 mb-4">
-        <div className="text-stone-500 text-sm text-center py-6 animate-pulse">Loading adherence...</div>
+        <div className="text-stone-500 text-sm text-center py-6 animate-pulse">{t('general.loading')}</div>
       </div>
     );
   }
@@ -125,7 +128,7 @@ export default function MacroAdherence({ userId, targets }: MacroAdherenceProps)
 
   const macros: MacroBar[] = [
     {
-      label: 'Calories',
+      label: t('general.calories'),
       key: 'calories',
       color: '#D4A853',
       unit: 'kcal',
@@ -137,7 +140,7 @@ export default function MacroAdherence({ userId, targets }: MacroAdherenceProps)
       targetValue: targets.calories,
     },
     {
-      label: 'Protein',
+      label: t('general.protein'),
       key: 'protein_g',
       color: '#ef4444',
       unit: 'g',
@@ -149,7 +152,7 @@ export default function MacroAdherence({ userId, targets }: MacroAdherenceProps)
       targetValue: targets.protein_g,
     },
     {
-      label: 'Carbs',
+      label: t('general.carbs'),
       key: 'carbs_g',
       color: '#3b82f6',
       unit: 'g',
@@ -161,7 +164,7 @@ export default function MacroAdherence({ userId, targets }: MacroAdherenceProps)
       targetValue: targets.carbs_g,
     },
     {
-      label: 'Fat',
+      label: t('general.fat'),
       key: 'fat_g',
       color: '#a855f7',
       unit: 'g',
@@ -188,55 +191,142 @@ export default function MacroAdherence({ userId, targets }: MacroAdherenceProps)
       transition={{ delay: 0.15 }}
       className="glass p-5 mb-4"
     >
-      <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider mb-4 flex items-center gap-2">
-        <Target size={14} /> Weekly Adherence
-      </h3>
+      {/* Accordion header */}
+      <button
+        onClick={() => setExpanded(e => !e)}
+        className="w-full flex items-center justify-between mb-3"
+      >
+        <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider flex items-center gap-2">
+          <Target size={14} /> {t('analytics.weekly_adherence')}
+        </h3>
+        <div className="flex items-center gap-2">
+          {activeDays.length > 0 && (
+            <span className={`text-xs font-bold ${scoreColor(overallScore)}`}>{overallScore}%</span>
+          )}
+          {expanded ? <ChevronUp size={14} className="text-stone-500" /> : <ChevronDown size={14} className="text-stone-500" />}
+        </div>
+      </button>
 
-      {/* Overall score */}
-      <div className="text-center mb-4">
-        <motion.p
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          transition={{ type: 'spring', damping: 15, delay: 0.2 }}
-          className={`text-4xl font-bold ${scoreColor(overallScore)}`}
-        >
-          {overallScore}%
-        </motion.p>
-        <p className="text-stone-500 text-xs mt-1">
-          {activeDays.length} of {totalDays} days logged
-        </p>
-      </div>
+      <AnimatePresence>
+        {expanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.22 }}
+            style={{ overflow: 'hidden' }}
+          >
+            {/* Explanatory subtitle */}
+            <p className="text-[10px] mb-3" style={{ color: 'var(--t5, #57534e)' }}>
+              {t('adherence.subtitle')}
+            </p>
 
-      {/* Per-macro bars */}
-      <div className="space-y-3">
-        {macros.map((macro, i) => (
-          <div key={macro.key}>
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-stone-300 text-xs font-medium">{macro.label}</span>
-              <span className="text-stone-400 text-[10px]">
-                {macro.daysOnTarget}/{activeDays.length} days on target
-              </span>
-            </div>
-            <div className="relative h-2 rounded-full bg-white/[0.04] overflow-hidden">
-              <motion.div
-                className="absolute left-0 top-0 h-full rounded-full"
-                style={{ backgroundColor: macro.color }}
-                initial={{ width: 0 }}
-                animate={{ width: `${Math.min(100, macro.adherence)}%` }}
-                transition={{ duration: 0.6, delay: 0.1 + i * 0.08 }}
-              />
-            </div>
-            <div className="flex items-center justify-between mt-0.5">
-              <span className="text-stone-600 text-[9px]">
-                avg {macro.avgValue}{macro.unit} / {macro.targetValue}{macro.unit}
-              </span>
-              <span className={`text-[10px] font-medium ${scoreColor(macro.adherence)}`}>
-                {macro.adherence}%
-              </span>
-            </div>
-          </div>
-        ))}
-      </div>
+            {activeDays.length === 0 ? (
+              /* Empty state — still show targets so user knows what they're working toward */
+              <div>
+                <div
+                  className="rounded-xl p-3 mb-3 text-center"
+                  style={{ background: 'var(--line, rgba(255,255,255,0.04))', border: '1px solid var(--line-2)' }}
+                >
+                  <p className="text-xs font-medium" style={{ color: 'var(--t3)' }}>{t('adherence.no_data')}</p>
+                  <p className="text-[10px] mt-0.5" style={{ color: 'var(--t5)' }}>{t('adherence.log_meals')}</p>
+                </div>
+                {/* Show targets anyway */}
+                <div className="space-y-2">
+                  {macros.map((macro) => (
+                    <div key={macro.key} className="flex items-center justify-between text-xs py-1"
+                      style={{ borderBottom: '1px solid var(--line)', paddingBottom: 6 }}>
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: macro.color }} />
+                        <span style={{ color: 'var(--t2)' }}>{macro.label}</span>
+                      </div>
+                      <span style={{ color: 'var(--t4)' }}>
+                        {t('adherence.target_label')}:{' '}
+                        <strong style={{ color: 'var(--t2)' }}>{macro.targetValue}{macro.unit}</strong>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Score ring + days info */}
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="relative w-16 h-16 flex-shrink-0">
+                    <svg viewBox="0 0 48 48" className="w-full h-full -rotate-90">
+                      <circle cx="24" cy="24" r="20" fill="none" stroke="var(--line-2,rgba(255,255,255,0.08))" strokeWidth="4" />
+                      <motion.circle
+                        cx="24" cy="24" r="20" fill="none"
+                        stroke={overallScore >= 80 ? '#65D387' : overallScore >= 60 ? '#D4A853' : '#E87A6E'}
+                        strokeWidth="4"
+                        strokeLinecap="round"
+                        strokeDasharray={`${2 * Math.PI * 20}`}
+                        initial={{ strokeDashoffset: 2 * Math.PI * 20 }}
+                        animate={{ strokeDashoffset: 2 * Math.PI * 20 * (1 - overallScore / 100) }}
+                        transition={{ duration: 1, delay: 0.3, ease: 'easeOut' }}
+                      />
+                    </svg>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className={`text-sm font-black ${scoreColor(overallScore)}`}>{overallScore}%</span>
+                    </div>
+                  </div>
+                  <div className="flex-1 space-y-1">
+                    <p className="text-xs font-semibold" style={{ color: 'var(--t2)' }}>
+                      {overallScore >= 80 ? t('adherence.excellent') : overallScore >= 60 ? t('adherence.good') : t('adherence.improve')}
+                    </p>
+                    <p className="text-[10px]" style={{ color: 'var(--t4)' }}>
+                      {t('adherence.days_logged', { n: activeDays.length, total: totalDays })}
+                    </p>
+                    <div className="flex gap-1 mt-1">
+                      {Array.from({ length: totalDays }, (_, i) => (
+                        <div
+                          key={i}
+                          className="flex-1 h-1.5 rounded-full"
+                          style={{ background: i < activeDays.length ? '#D4A853' : 'var(--line-2, rgba(255,255,255,0.08))' }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Per-macro bars */}
+                <div className="space-y-3">
+                  {macros.map((macro, i) => (
+                    <div key={macro.key}>
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: macro.color }} />
+                          <span className="text-xs font-medium" style={{ color: 'var(--t2)' }}>{macro.label}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px]" style={{ color: 'var(--t4)' }}>
+                            {t('adherence.on_target', { n: macro.daysOnTarget, total: activeDays.length })}
+                          </span>
+                          <span className={`text-[11px] font-bold ${scoreColor(macro.adherence)}`}>
+                            {macro.adherence}%
+                          </span>
+                        </div>
+                      </div>
+                      <div className="relative h-2 rounded-full overflow-hidden" style={{ background: 'var(--line-2, rgba(255,255,255,0.06))' }}>
+                        <motion.div
+                          className="absolute left-0 top-0 h-full rounded-full"
+                          style={{ backgroundColor: macro.color, opacity: 0.8 }}
+                          initial={{ width: 0 }}
+                          animate={{ width: `${Math.min(100, macro.adherence)}%` }}
+                          transition={{ duration: 0.7, delay: 0.1 + i * 0.09, ease: 'easeOut' }}
+                        />
+                      </div>
+                      <p className="text-[9px] mt-0.5" style={{ color: 'var(--t5)' }}>
+                        {t('adherence.avg_target', { avg: macro.avgValue, unit: macro.unit, target: macro.targetValue })}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

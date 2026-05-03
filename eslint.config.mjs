@@ -47,6 +47,12 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // One-off Node scripts (legacy require-style, not part of the app bundle):
     "scripts/**",
+    // v0.3 Claude design-handoff prototypes — reference HTML/JSX, NOT production
+    // source. They use `window.X`, in-browser Babel JSX, and other patterns that
+    // wouldn't pass strict lint. Kept as reference under docs/.
+    "docs/v0.3/design-handoff/**",
+    // Drizzle Kit auto-generated artifacts (introspect output and migrations).
+    "drizzle/**",
   ]),
 ]);
 

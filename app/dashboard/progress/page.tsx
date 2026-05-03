@@ -1,16 +1,62 @@
 'use client';
 import { useRouter } from 'next/navigation';
-
 import { useEffect, useState, useCallback } from 'react';
-import { motion } from 'framer-motion';
-import { TrendingDown, TrendingUp, Scale, Activity, Target, Plus, AlertTriangle, Crosshair } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { TrendingDown, TrendingUp, Plus, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { Measurement, ClientProfile, ClientHabit } from '@/lib/types';
-import BottomNav from '@/components/BottomNav';
+import { BotNav } from '@/components/ui/BotNav';
+import { Icon } from '@/components/ui';
+import { useClientNav } from '@/lib/useClientNav';
 import ProgressPhotos from '@/components/ProgressPhotos';
 import WeeklyMacroChart from '@/components/WeeklyMacroChart';
 import HabitRadar from '@/components/HabitRadar';
 import { localToday } from '../../../lib/dates';
+
+// ─── Glass accordion card ─────────────────────────────────────────
+function Section({
+  title, icon, children, defaultOpen = true, accent = false,
+}: {
+  title: string; icon: string; children: React.ReactNode;
+  defaultOpen?: boolean; accent?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className={accent ? 'card-g mb-3' : 'card mb-3'} style={{ overflow: 'hidden' }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full"
+        style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '13px 14px', cursor: 'pointer', background: 'transparent', border: 'none',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Icon name={icon as Parameters<typeof Icon>[0]['name']} size={13}
+            style={{ color: accent ? 'var(--gold-300,#D4A853)' : 'var(--t3,#A8A29E)' }} />
+          <span className="eye-d">{title}</span>
+        </div>
+        <motion.span animate={{ rotate: open ? 180 : 0 }} transition={{ duration: 0.2 }}>
+          <Icon name="i-chev-d" size={12} style={{ color: 'var(--t4,#78716C)' }} />
+        </motion.span>
+      </button>
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            key="body"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.22, ease: 'easeInOut' }}
+            style={{ overflow: 'hidden' }}
+          >
+            <div style={{ padding: '0 14px 14px' }}>{children}</div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
 
 function WeightChart({ measurements }: { measurements: Measurement[] }) {
   if (measurements.length < 2) {
@@ -131,118 +177,9 @@ function WeightChart({ measurements }: { measurements: Measurement[] }) {
 }
 
 
-function GoalProjection({ measurements, clientProfile }: { measurements: Measurement[]; clientProfile: ClientProfile | null }) {
-  const weights = measurements.filter((m) => m.weight_kg !== null);
-
-  if (weights.length < 3) {
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="glass p-5 mb-4"
-      >
-        <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider mb-3 flex items-center gap-2">
-          <Crosshair size={14} /> Goal Projection
-        </h3>
-        <p className="text-stone-500 text-sm text-center py-4">
-          Log at least 3 weights to see projections
-        </p>
-      </motion.div>
-    );
-  }
-
-  // Linear regression: weekly change
-  const earliest = weights[0];
-  const latest = weights[weights.length - 1];
-  const daysBetween = Math.max(
-    1,
-    (new Date(latest.measured_date).getTime() - new Date(earliest.measured_date).getTime()) /
-      (1000 * 60 * 60 * 24)
-  );
-  const weeksBetween = daysBetween / 7;
-  const totalChange = (latest.weight_kg as number) - (earliest.weight_kg as number);
-  const weeklyChange = weeksBetween > 0 ? totalChange / weeksBetween : 0;
-
-  const goal = clientProfile?.goal ?? null;
-  const currentWeight = latest.weight_kg as number;
-
-  // Determine if moving in right direction
-  const isLossGoal = goal === 'fat_loss';
-  const isGainGoal = goal === 'muscle_gain';
-  const movingWrong =
-    (isLossGoal && weeklyChange > 0.05) || (isGainGoal && weeklyChange < -0.05);
-
-  // Calculate weeks to goal (if we have a goal weight from target)
-  let weeksToGoal: number | null = null;
-  let goalWeightTarget: number | null = null;
-
-  // Use a simple target: current - 5kg for fat_loss, current + 3kg for muscle_gain
-  if (isLossGoal && weeklyChange < -0.01) {
-    goalWeightTarget = currentWeight - 5;
-    weeksToGoal = Math.abs(5 / weeklyChange);
-  } else if (isGainGoal && weeklyChange > 0.01) {
-    goalWeightTarget = currentWeight + 3;
-    weeksToGoal = Math.abs(3 / weeklyChange);
-  }
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="glass p-5 mb-4"
-    >
-      <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider mb-3 flex items-center gap-2">
-        <Crosshair size={14} /> Goal Projection
-      </h3>
-
-      <div className="space-y-3">
-        {/* Weekly trend */}
-        <div className="flex items-center justify-between">
-          <span className="text-stone-400 text-sm">Weekly trend</span>
-          <span className={`text-sm font-semibold flex items-center gap-1 ${
-            weeklyChange > 0 ? 'text-red-400' : weeklyChange < 0 ? 'text-green-400' : 'text-stone-400'
-          }`}>
-            {weeklyChange > 0 ? <TrendingUp size={14} /> : weeklyChange < 0 ? <TrendingDown size={14} /> : null}
-            {weeklyChange > 0 ? '+' : ''}{weeklyChange.toFixed(2)} kg/week
-          </span>
-        </div>
-
-        {/* Projection */}
-        {weeksToGoal !== null && goalWeightTarget !== null && !movingWrong && (
-          <div className="p-3 rounded-xl bg-[#D4A853]/5 border border-[#D4A853]/10">
-            <p className="text-stone-200 text-sm">
-              At this rate, you&apos;ll reach{' '}
-              <span className="gold-text font-semibold">{goalWeightTarget.toFixed(1)} kg</span>{' '}
-              in ~<span className="gold-text font-semibold">{Math.round(weeksToGoal)}</span> weeks
-            </p>
-          </div>
-        )}
-
-        {/* Warning if wrong direction */}
-        {movingWrong && (
-          <div className="p-3 rounded-xl bg-red-500/5 border border-red-500/10 flex items-start gap-2">
-            <AlertTriangle size={16} className="text-red-400 mt-0.5 shrink-0" />
-            <p className="text-red-300 text-sm">
-              Trend is moving away from your {isLossGoal ? 'fat loss' : 'muscle gain'} goal
-            </p>
-          </div>
-        )}
-
-        {/* No clear trend */}
-        {!movingWrong && weeksToGoal === null && (
-          <p className="text-stone-500 text-sm">
-            {Math.abs(weeklyChange) < 0.05
-              ? 'Weight is stable - maintaining current level'
-              : 'Keep logging to refine your projection'}
-          </p>
-        )}
-      </div>
-    </motion.div>
-  );
-}
-
 export default function ProgressPage() {
   const router = useRouter();
+  const clientNav = useClientNav();
   const [loading, setLoading] = useState(true);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [clientProfile, setClientProfile] = useState<ClientProfile | null>(null);
@@ -320,240 +257,226 @@ export default function ProgressPage() {
     setSaving(false);
   };
 
+
   if (loading) {
     return (
-      <div className="min-h-screen pb-24" style={{ background: 'var(--bg-primary)' }}>
-        <div className="max-w-md mx-auto px-4 pt-12 space-y-4">
-          <div className="h-7 w-40 rounded bg-stone-800/60 animate-pulse" />
-          <div className="glass p-5 space-y-3">
-            <div className="h-4 w-24 rounded bg-stone-800/60 animate-pulse" />
-            <div className="h-40 rounded-xl bg-stone-800/40 animate-pulse" />
-          </div>
-          <div className="glass p-5 space-y-3">
-            <div className="h-4 w-32 rounded bg-stone-800/60 animate-pulse" />
-            <div className="h-32 rounded-xl bg-stone-800/40 animate-pulse" />
-          </div>
+      <div className="min-h-screen pb-24" style={{ background: 'var(--bg,#0a0a0a)' }}>
+        <div className="max-w-md mx-auto px-4 pt-12 space-y-3">
+          {[1,2,3].map(i => (
+            <div key={i} className="card" style={{ height: 56, animation: 'pulse 1.5s infinite' }} />
+          ))}
         </div>
+        <BotNav routes={clientNav} />
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen pb-24" style={{ background: 'var(--bg-primary)' }}>
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="max-w-md mx-auto px-4 pt-12"
-      >
-        <h1 className="text-2xl font-bold text-stone-100 mb-6">Progress</h1>
+  // Goal projection logic
+  const weights = measurements.filter(m => m.weight_kg !== null);
+  const earliest = weights[0];
+  const latest   = weights[weights.length - 1];
+  const daysBetween = weights.length > 1
+    ? Math.max(1, (new Date(latest.measured_date).getTime() - new Date(earliest.measured_date).getTime()) / 86400000)
+    : 0;
+  const weeklyChange  = daysBetween > 0 ? ((latest.weight_kg as number) - (earliest.weight_kg as number)) / (daysBetween / 7) : 0;
+  const isLossGoal    = clientProfile?.goal === 'fat_loss';
+  const isGainGoal    = clientProfile?.goal === 'muscle_gain';
+  const movingWrong   = (isLossGoal && weeklyChange > 0.05) || (isGainGoal && weeklyChange < -0.05);
+  const currentWeight = latest?.weight_kg as number ?? 0;
+  let weeksToGoal: number | null = null;
+  let goalWeightTarget: number | null = null;
+  if (isLossGoal && weeklyChange < -0.01) { goalWeightTarget = currentWeight - 5; weeksToGoal = Math.abs(5 / weeklyChange); }
+  if (isGainGoal && weeklyChange > 0.01)  { goalWeightTarget = currentWeight + 3; weeksToGoal = Math.abs(3 / weeklyChange); }
 
-        {/* Weight Trend */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="glass p-5 mb-4"
-        >
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider flex items-center gap-2">
-              <Scale size={14} /> Weight Trend
-            </h3>
+  return (
+    <div className="min-h-screen pb-24" style={{ background: 'var(--bg,#0a0a0a)' }}>
+      <motion.div
+        initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35 }}
+        className="max-w-md mx-auto px-4 pt-4"
+      >
+        {/* Header */}
+        <div className="row-b mb-4">
+          <div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--t1,#FAFAF9)', letterSpacing: '-.02em' }}>Progress</div>
+            <div className="ds-sub">Track your body & habits</div>
+          </div>
+          <span className="tag tag-g">
+            <Icon name="i-graph-up" size={9} />
+            {measurements.length} entries
+          </span>
+        </div>
+
+        {/* ── Weight Trend (accent, open by default) ── */}
+        <Section title="Weight Trend" icon="i-pulse" accent defaultOpen>
+          <WeightChart measurements={measurements} />
+          <div style={{ marginTop: 10, borderTop: '1px solid rgba(255,255,255,.05)', paddingTop: 10 }}>
             <button
-              onClick={() => setShowForm(!showForm)}
-              className="text-xs gold-text flex items-center gap-1 font-medium"
+              onClick={() => setShowForm(f => !f)}
+              className="btn-ghost w-full"
+              style={{ fontSize: 11, padding: '7px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}
             >
-              <Plus size={14} /> Log
+              <Plus size={12} />
+              {showForm ? 'Cancel' : 'Log measurement'}
             </button>
           </div>
-
-          <WeightChart measurements={measurements} />
-
-          {/* Add Weight Form */}
-          {showForm && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="mt-4 pt-4 border-t border-white/5"
-            >
-              <div className="grid grid-cols-3 gap-2 mb-3">
-                <div>
-                  <label className="text-stone-500 text-[10px] uppercase tracking-wider">
-                    Weight (kg)*
-                  </label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={formWeight}
-                    onChange={(e) => setFormWeight(e.target.value)}
-                    className="input-dark text-sm mt-1"
-                    placeholder="75.0"
-                  />
-                </div>
-                <div>
-                  <label className="text-stone-500 text-[10px] uppercase tracking-wider">
-                    Body Fat %
-                  </label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={formBf}
-                    onChange={(e) => setFormBf(e.target.value)}
-                    className="input-dark text-sm mt-1"
-                    placeholder="18.0"
-                  />
-                </div>
-                <div>
-                  <label className="text-stone-500 text-[10px] uppercase tracking-wider">
-                    Waist (cm)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.5"
-                    value={formWaist}
-                    onChange={(e) => setFormWaist(e.target.value)}
-                    className="input-dark text-sm mt-1"
-                    placeholder="82"
-                  />
-                </div>
-              </div>
-              <button
-                onClick={addMeasurement}
-                disabled={saving || !formWeight}
-                className="btn-gold w-full text-sm py-2"
+          <AnimatePresence>
+            {showForm && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                style={{ overflow: 'hidden', marginTop: 8 }}
               >
-                {saving ? 'Saving...' : 'Save Measurement'}
-              </button>
-            </motion.div>
-          )}
-        </motion.div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 8 }}>
+                  {[
+                    { label: 'Weight (kg)*', val: formWeight, set: setFormWeight, step: '0.1', ph: '75.0' },
+                    { label: 'Body Fat %',   val: formBf,     set: setFormBf,     step: '0.1', ph: '18.0' },
+                    { label: 'Waist (cm)',   val: formWaist,  set: setFormWaist,  step: '0.5', ph: '82' },
+                  ].map(f => (
+                    <div key={f.label}>
+                      <div className="eye-d" style={{ marginBottom: 4 }}>{f.label}</div>
+                      <input type="number" step={f.step} value={f.val}
+                        onChange={e => f.set(e.target.value)}
+                        className="input-dark" style={{ fontSize: 12, width: '100%' }}
+                        placeholder={f.ph} />
+                    </div>
+                  ))}
+                </div>
+                <button onClick={addMeasurement} disabled={saving || !formWeight}
+                  className="btn-gold w-full" style={{ fontSize: 11, padding: '8px' }}>
+                  {saving ? 'Saving…' : 'Save'}
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </Section>
 
-        {/* Goal Projection */}
-        <GoalProjection measurements={measurements} clientProfile={clientProfile} />
-
-        {/* Weekly Macro Averages */}
-        <WeeklyMacroChart
-          userId={userId}
-          targetCalories={clientProfile?.target_calories ?? 2000}
-          targetProtein={clientProfile?.target_protein_g ?? 150}
-          targetCarbs={clientProfile?.target_carbs_g ?? 200}
-          targetFat={clientProfile?.target_fat_g ?? 65}
-        />
-
-        {/* Current Stats */}
-        {clientProfile && (
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="glass p-5 mb-4"
-          >
-            <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider mb-4 flex items-center gap-2">
-              <Target size={14} /> Current Stats
-            </h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-stone-500 text-[10px] uppercase">Weight</p>
-                <p className="text-stone-100 text-lg font-semibold">
-                  {clientProfile.weight_kg ?? '—'} <span className="text-xs text-stone-500">kg</span>
-                </p>
-              </div>
-              <div>
-                <p className="text-stone-500 text-[10px] uppercase">BMR</p>
-                <p className="text-stone-100 text-lg font-semibold">
-                  {clientProfile.bmr ?? '—'} <span className="text-xs text-stone-500">kcal</span>
-                </p>
-              </div>
-              <div>
-                <p className="text-stone-500 text-[10px] uppercase">TDEE</p>
-                <p className="text-stone-100 text-lg font-semibold">
-                  {clientProfile.tdee ?? '—'} <span className="text-xs text-stone-500">kcal</span>
-                </p>
-              </div>
-              <div>
-                <p className="text-stone-500 text-[10px] uppercase">Target</p>
-                <p className="gold-text text-lg font-semibold">
-                  {clientProfile.target_calories ?? '—'} <span className="text-xs">kcal</span>
-                </p>
-              </div>
-            </div>
-            <div className="mt-4 pt-4 border-t border-white/5 grid grid-cols-3 gap-3 text-center">
-              <div>
-                <p className="text-red-400 font-bold text-sm">
-                  {clientProfile.target_protein_g ?? '—'}g
-                </p>
-                <p className="text-stone-600 text-[10px]">Protein</p>
-              </div>
-              <div>
-                <p className="text-blue-400 font-bold text-sm">
-                  {clientProfile.target_carbs_g ?? '—'}g
-                </p>
-                <p className="text-stone-600 text-[10px]">Carbs</p>
-              </div>
-              <div>
-                <p className="text-purple-400 font-bold text-sm">
-                  {clientProfile.target_fat_g ?? '—'}g
-                </p>
-                <p className="text-stone-600 text-[10px]">Fat</p>
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        {/* Habit History */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="glass p-5"
-        >
-          <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider mb-4 flex items-center gap-2">
-            <Activity size={14} /> Completed Habits
-          </h3>
-          {completedHabits.length === 0 ? (
-            <p className="text-stone-500 text-sm text-center py-4">
-              No completed habits yet. Keep going!
+        {/* ── Goal Projection ── */}
+        <Section title="Goal Projection" icon="i-target">
+          {weights.length < 3 ? (
+            <p className="ds-sub" style={{ textAlign: 'center', padding: '12px 0' }}>
+              Log at least 3 weights to see projections
             </p>
           ) : (
-            <div className="space-y-3">
-              {completedHabits.map((ch) => (
-                <div
-                  key={ch.id}
-                  className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02]"
-                >
-                  <span className="text-xl">{ch.habit?.emoji ?? '✅'}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-stone-200 text-sm font-medium truncate">
-                      {ch.habit?.name_en ?? 'Habit'}
-                    </p>
-                    <p className="text-stone-500 text-xs">
-                      {ch.completed_at
-                        ? new Date(ch.completed_at).toLocaleDateString()
-                        : ''}
-                      {' '}&middot; Best streak: {ch.best_streak} days
-                    </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div className="row-b">
+                <span className="ds-sub">Weekly trend</span>
+                <span style={{
+                  fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4,
+                  color: weeklyChange > 0 ? 'var(--err,#E87A6E)' : weeklyChange < 0 ? 'var(--ok,#65D387)' : 'var(--t4)',
+                }}>
+                  {weeklyChange > 0 ? <TrendingUp size={12}/> : weeklyChange < 0 ? <TrendingDown size={12}/> : null}
+                  {weeklyChange > 0 ? '+' : ''}{weeklyChange.toFixed(2)} kg/wk
+                </span>
+              </div>
+              {weeksToGoal !== null && goalWeightTarget !== null && !movingWrong && (
+                <div style={{ padding: '8px 10px', borderRadius: 10, background: 'rgba(212,168,83,.06)', border: '1px solid rgba(212,168,83,.15)' }}>
+                  <span style={{ fontSize: 12, color: 'var(--t2)' }}>
+                    At this rate, you&apos;ll reach{' '}
+                    <span style={{ color: 'var(--gold-300,#D4A853)', fontWeight: 700 }}>{goalWeightTarget.toFixed(1)} kg</span>
+                    {' '}in ~<span style={{ color: 'var(--gold-300,#D4A853)', fontWeight: 700 }}>{Math.round(weeksToGoal)}</span> weeks
+                  </span>
+                </div>
+              )}
+              {movingWrong && (
+                <div style={{ padding: '8px 10px', borderRadius: 10, background: 'rgba(232,122,110,.05)', border: '1px solid rgba(232,122,110,.15)', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                  <AlertTriangle size={13} style={{ color: 'var(--err,#E87A6E)', flexShrink: 0, marginTop: 1 }} />
+                  <span style={{ fontSize: 12, color: 'var(--err,#E87A6E)' }}>
+                    Trend moving away from your {isLossGoal ? 'fat loss' : 'muscle gain'} goal
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+        </Section>
+
+        {/* ── Weekly Macros ── */}
+        <Section title="Weekly Macros" icon="i-bars">
+          <WeeklyMacroChart
+            userId={userId}
+            targetCalories={clientProfile?.target_calories ?? 2000}
+            targetProtein={clientProfile?.target_protein_g ?? 150}
+            targetCarbs={clientProfile?.target_carbs_g ?? 200}
+            targetFat={clientProfile?.target_fat_g ?? 65}
+          />
+        </Section>
+
+        {/* ── Current Stats ── */}
+        {clientProfile && (
+          <Section title="Current Stats" icon="i-database">
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 16px', marginBottom: 10 }}>
+              {[
+                { label: 'Weight', val: clientProfile.weight_kg, unit: 'kg' },
+                { label: 'BMR',    val: clientProfile.bmr,        unit: 'kcal' },
+                { label: 'TDEE',   val: clientProfile.tdee,       unit: 'kcal' },
+                { label: 'Target', val: clientProfile.target_calories, unit: 'kcal', gold: true },
+              ].map(s => (
+                <div key={s.label}>
+                  <div className="eye-d">{s.label}</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: s.gold ? 'var(--gold-300,#D4A853)' : 'var(--t1,#FAFAF9)', marginTop: 2 }}>
+                    {s.val ?? '—'}<span style={{ fontSize: 10, color: 'var(--t4)', marginLeft: 3 }}>{s.unit}</span>
                   </div>
-                  <div className="text-right">
-                    <p className="gold-text text-sm font-semibold">
-                      {ch.total_completions}
-                    </p>
-                    <p className="text-stone-600 text-[10px]">check-ins</p>
+                </div>
+              ))}
+            </div>
+            <div style={{ borderTop: '1px solid rgba(255,255,255,.05)', paddingTop: 10, display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
+              {[
+                { label: 'Protein', val: clientProfile.target_protein_g, color: 'var(--err,#E87A6E)' },
+                { label: 'Carbs',   val: clientProfile.target_carbs_g,   color: 'var(--info,#7DA3D9)' },
+                { label: 'Fat',     val: clientProfile.target_fat_g,     color: '#B89DD9' },
+              ].map(m => (
+                <div key={m.label} style={{ textAlign: 'center', padding: '8px 4px', borderRadius: 10, background: 'rgba(255,255,255,.03)' }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: m.color }}>{m.val ?? '—'}g</div>
+                  <div className="eye-d">{m.label}</div>
+                </div>
+              ))}
+            </div>
+          </Section>
+        )}
+
+        {/* ── Completed Habits ── */}
+        <Section title="Completed Habits" icon="i-trophy" defaultOpen={false}>
+          {completedHabits.length === 0 ? (
+            <p className="ds-sub" style={{ textAlign: 'center', padding: '12px 0' }}>No completed habits yet. Keep going!</p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {completedHabits.map(ch => (
+                <div key={ch.id} style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '8px 10px', borderRadius: 10, background: 'rgba(255,255,255,.02)',
+                }}>
+                  <Icon name="i-check" size={12} style={{ color: 'var(--ok,#65D387)', flexShrink: 0 }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--t1)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {ch.habit?.name_en ?? 'Habit'}
+                    </div>
+                    <div className="ds-sub">
+                      Best streak: {ch.best_streak}d
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--gold-300,#D4A853)' }}>{ch.total_completions}</div>
+                    <div className="eye-d">check-ins</div>
                   </div>
                 </div>
               ))}
             </div>
           )}
-        </motion.div>
+        </Section>
 
-        {/* Habit Balance Radar */}
-        <HabitRadar userId={userId} />
+        {/* ── Habit Balance Radar ── */}
+        <Section title="Habit Balance" icon="i-target" defaultOpen={false}>
+          <HabitRadar userId={userId} />
+        </Section>
 
-        {/* Progress Photos */}
-        <ProgressPhotos />
+        {/* ── Progress Photos ── */}
+        <Section title="Progress Photos" icon="i-image" defaultOpen={false}>
+          <ProgressPhotos />
+        </Section>
+
       </motion.div>
 
-      <BottomNav />
+      <BotNav routes={clientNav} />
     </div>
   );
 }

@@ -6,35 +6,133 @@
    ═══════════════════════════════════════════════ */
 
 @theme inline {
-  --color-gold: #D4A853;
-  --color-gold-light: #E8C878;
-  --color-gold-dark: #B8923E;
-  --color-surface: #141414;
+  /* ── Gold spectrum (Brand Master v1.0) ── */
+  --color-gold-50:  #FAF3E2;
+  --color-gold-100: #F2E2B8;
+  --color-gold-200: #E8C078;
+  --color-gold-300: #D4A853;  /* primary */
+  --color-gold-400: #B8923E;
+  --color-gold-500: #8B6E2B;
+  --color-gold-600: #5A4719;
+  /* Legacy compat aliases */
+  --color-gold:       #D4A853;
+  --color-gold-light: #E8C078;
+  --color-gold-dark:  #B8923E;
+
+  /* ── Neutral dark surfaces ── */
+  --color-bg:   #0a0a0a;
+  --color-bg-1: #111111;
+  --color-bg-2: #161616;
+  --color-bg-3: #1c1c1c;
+  --color-bg-4: #242424;
+  /* Legacy compat aliases */
+  --color-surface:          #141414;
   --color-surface-elevated: #1a1a1a;
-  --color-surface-hover: #222222;
-  --color-border: #2a2a2a;
-  --color-border-light: #333333;
-  --color-text-primary: #f5f5f4;
-  --color-text-secondary: #a8a29e;
-  --color-text-muted: #78716c;
-  --color-success: #22c55e;
-  --color-warning: #f59e0b;
-  --color-danger: #ef4444;
-  --font-sans: var(--font-inter);
-  --font-serif: var(--font-playfair);
+  --color-surface-hover:    #222222;
+  --color-border:           #2a2a2a;
+  --color-border-light:     #333333;
+
+  /* ── Text tokens ── */
+  --color-t1: #FAFAF9;
+  --color-t2: #D6D3D1;
+  --color-t3: #A8A29E;
+  --color-t4: #78716C;
+  --color-t5: #57534E;
+  --color-t6: #3a3633;
+  /* Legacy compat aliases */
+  --color-text-primary:   #FAFAF9;
+  --color-text-secondary: #A8A29E;
+  --color-text-muted:     #78716C;
+  --color-text-faint:     #78716C;
+  --color-text-dim:       #57534E;
+  --color-text-ink:       #44403C;
+
+  /* ── Semantic colors (Brand Master) ── */
+  --color-ok:   #65D387;
+  --color-warn: #E8B86E;
+  --color-err:  #E87A6E;
+  --color-info: #7DA3D9;
+  --color-plum: #B89DD9;
+  /* Legacy compat aliases */
+  --color-success: #65D387;
+  --color-warning: #E8B86E;
+  --color-danger:  #E87A6E;
+
+  /* ── Fonts ── */
+  --font-sans:    var(--font-inter);
+  --font-serif:   var(--font-instrument-serif);
+  --font-display: var(--font-instrument-serif);
+  --font-mono:    var(--font-jetbrains-mono);
+  /* Backward compat: components still referencing --font-playfair get Instrument Serif */
+  --font-playfair: var(--font-instrument-serif);
 }
 
-/* ─── Theme Mode Variables ─── */
+/* ─── Design Tokens (Brand Master v1.0) ─── */
 :root {
+  /* Gold spectrum */
+  --gold-50:  #FAF3E2;
+  --gold-100: #F2E2B8;
+  --gold-200: #E8C078;
+  --gold-300: #D4A853;
+  --gold-400: #B8923E;
+  --gold-500: #8B6E2B;
+  --gold-600: #5A4719;
+
+  /* Ground */
+  --bg:    #0a0a0a;
+  --bg-1:  #111111;
+  --bg-2:  #161616;
+  --bg-3:  #1c1c1c;
+  --bg-4:  #242424;
+
+  /* Text */
+  --t1: #FAFAF9;  --t2: #D6D3D1;  --t3: #A8A29E;
+  --t4: #78716C;  --t5: #57534E;  --t6: #3a3633;
+
+  /* Lines */
+  --line:    rgba(255,255,255,.06);
+  --line-2:  rgba(255,255,255,.10);
+  --line-g:  rgba(212,168,83,.18);
+
+  /* Semantic */
+  --ok:    #65D387;
+  --warn:  #E8B86E;
+  --err:   #E87A6E;
+  --info:  #7DA3D9;
+  --plum:  #B89DD9;
+
+  /* Radius */
+  --r-sm:   6px;
+  --r:      10px;
+  --r-md:   14px;
+  --r-lg:   20px;
+  --r-xl:   28px;
+  --r-pill: 999px;
+
+  /* Shadow */
+  --shadow-soft: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -8px rgba(0,0,0,.5);
+  --shadow-gold: 0 12px 40px -12px rgba(212,168,83,.4);
+
+  /* Type */
+  --font-display: var(--font-instrument-serif);
+  --font-ui:      var(--font-inter);
+  --font-mono:    var(--font-jetbrains-mono);
+
+  /* Spacing · 4pt grid */
+  --s-1: 4px;   --s-2: 8px;   --s-3: 12px;
+  --s-4: 16px;  --s-5: 24px;  --s-6: 32px;
+  --s-7: 48px;  --s-8: 64px;  --s-9: 96px;
+
+  /* ── Legacy aliases (kept for existing component compat) ── */
   --bg-primary: #0a0a0a;
   --bg-card: rgba(26, 26, 26, 0.7);
   --bg-card-elevated: rgba(30, 30, 30, 0.8);
   --bg-surface: #141414;
   --bg-surface-hover: #222222;
   --bg-input: #141414;
-  --text-primary: #f5f5f4;
-  --text-secondary: #a8a29e;
-  --text-muted: #78716c;
+  --text-primary: #FAFAF9;
+  --text-secondary: #A8A29E;
+  --text-muted: #78716C;
   --border-subtle: rgba(255, 255, 255, 0.06);
   --border-default: #2a2a2a;
   --border-light: #333333;
@@ -44,9 +142,10 @@
 }
 
 .light {
+  /* ── Semantic aliases ── */
   --bg-primary: #fafaf9;
-  --bg-card: rgba(255, 255, 255, 0.85);
-  --bg-card-elevated: rgba(255, 255, 255, 0.95);
+  --bg-card: rgba(255, 255, 255, 0.88);
+  --bg-card-elevated: rgba(255, 255, 255, 0.97);
   --bg-surface: #f5f5f4;
   --bg-surface-hover: #e7e5e4;
   --bg-input: #ffffff;
@@ -58,15 +157,123 @@
   --border-light: #a8a29e;
   --scrollbar-thumb: #d6d3d1;
   --scrollbar-hover: #a8a29e;
-  --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.06);
+  --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.08);
+
+  /* ── Primitive token overrides — flip dark→light ── */
+  --bg:   #fafaf9;
+  --bg-1: #f5f5f4;
+  --bg-2: #e7e5e4;
+  --bg-3: #d6d3d1;
+  --bg-4: #c4c0bb;
+
+  /* Text scale — invert the dark-mode ramp */
+  --t1: #1c1917;
+  --t2: #292524;
+  --t3: #57534e;
+  --t4: #78716c;
+  --t5: #a8a29e;
+  --t6: #d6d3d1;
+
+  /* Lines — use subtle black instead of subtle white */
+  --line:   rgba(0, 0, 0, 0.07);
+  --line-2: rgba(0, 0, 0, 0.12);
+  --line-g: rgba(180, 130, 40, 0.18);
+
+  /* Semantic status — stay readable on white bg */
+  --err:  #c0392b;
+  --warn: #b45309;
+  --info: #1d4ed8;
+  --ok:   #15803d;
+  --plum: #7c3aed;
+}
+
+/* Light mode: make glass borders visible */
+.light .glass,
+.light .glass-elevated {
+  border-color: rgba(0, 0, 0, 0.07);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
 }
 
 /* ─── Base ─── */
 body {
-  background: var(--bg-primary);
+  background:
+    radial-gradient(1200px 600px at 20% -10%, rgba(212, 168, 83, 0.04), transparent 60%),
+    var(--bg-primary);
   color: var(--text-primary);
   font-family: var(--font-sans), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
   transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Light mode neutralises the gold radial wash. */
+.light body {
+  background: var(--bg-primary);
+}
+
+/* ─── Brand Eyebrow + Mono Chrome (from v0.3 design handoff) ─── */
+.brand-eye {
+  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 8px;
+  letter-spacing: 0.2em;
+  color: var(--color-gold);
+  text-transform: uppercase;
+}
+
+.mono-label {
+  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.section-title {
+  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-gold);
+  font-weight: 600;
+}
+
+/* ─── Tag/Pill Status System (g=gold, r=danger, y=warn, gn=success) ─── */
+.tag {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 9999px;
+  font-size: 8px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  border: 1px solid transparent;
+}
+
+.tag-g {
+  background: rgba(212, 168, 83, 0.12);
+  color: var(--color-gold);
+  border-color: rgba(212, 168, 83, 0.3);
+}
+
+.tag-r {
+  background: rgba(239, 68, 68, 0.10);
+  color: var(--color-danger);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.tag-y {
+  background: rgba(245, 158, 11, 0.10);
+  color: var(--color-warning);
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.tag-gn {
+  background: rgba(34, 197, 94, 0.10);
+  color: var(--color-success);
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+/* ─── FAB shadow recipe (gold glow + lift) ─── */
+.fab-shadow {
+  box-shadow: 0 8px 20px rgba(212, 168, 83, 0.35);
 }
 
 /* ─── Glass Morphism Cards ─── */
@@ -409,3 +616,154 @@ body {
 .light .border-t.border-white\/5 {
   border-color: #e7e5e4 !important;
 }
+
+/* ═══════════════════════════════════════════════
+   Handoff v2 — screen primitive classes
+   Exact spec from Trophe Handoff.html
+   ═══════════════════════════════════════════════ */
+
+/* ─── Card variants ─── */
+.card {
+  background: rgba(22, 22, 22, 0.7);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.card-g {
+  background: linear-gradient(135deg, rgba(212,168,83,.06), rgba(212,168,83,.02));
+  border: 1px solid rgba(212,168,83,.2);
+  border-radius: 14px;
+}
+.card-r {
+  background: rgba(232,122,110,.04);
+  border: 1px solid rgba(232,122,110,.18);
+  border-radius: 14px;
+}
+
+/* ─── Avatar circles ─── */
+.av {
+  width: 26px; height: 26px; border-radius: 13px;
+  background: linear-gradient(135deg, var(--gold-200, #E8C078), var(--gold-400, #B8923E));
+  color: #0a0a0a;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; flex-shrink: 0;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.2);
+}
+.av-lg {
+  width: 36px; height: 36px; border-radius: 18px;
+  background: linear-gradient(135deg, var(--gold-200, #E8C078), var(--gold-400, #B8923E));
+  color: #0a0a0a;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700; flex-shrink: 0;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.2);
+}
+
+/* ─── Eyebrow labels ─── */
+.eye {
+  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 8px; letter-spacing: .22em; color: var(--gold-300, #D4A853);
+  text-transform: uppercase; font-weight: 500;
+}
+.eye-d {
+  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 8px; letter-spacing: .18em; color: var(--t4, #78716C);
+  text-transform: uppercase;
+}
+
+/* ─── Macro progress bar ─── */
+.mb-track {
+  height: 4px; background: rgba(255,255,255,.05);
+  border-radius: 99px; overflow: hidden; position: relative;
+}
+.mb-fill {
+  height: 100%; border-radius: 99px; position: relative;
+}
+.mb-fill::after {
+  content: ""; position: absolute; right: 0; top: 0; bottom: 0; width: 8px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.4));
+  border-radius: 99px;
+}
+
+/* ─── Layout micro-helpers ─── */
+.row-b { display: flex; justify-content: space-between; align-items: center; }
+.row-i { display: flex; gap: 8px; align-items: center; }
+
+/* ─── Type scale additions ─── */
+.title-l {
+  font-size: 22px; font-weight: 700; letter-spacing: -.025em; line-height: 1.05;
+}
+.ds-sub {
+  font-size: 10px; color: var(--t4, #78716C);
+}
+
+/* ─── Tabs (handoff spec) ─── */
+.hs-tabs {
+  display: flex; gap: 2px; padding: 3px;
+  background: rgba(255,255,255,.03);
+  border: 1px solid var(--line); border-radius: 10px;
+}
+.hs-tab {
+  flex: 1; text-align: center; padding: 6px 4px;
+  border-radius: 7px; font-size: 9px; color: var(--t4);
+  font-weight: 500; white-space: nowrap; letter-spacing: -.01em;
+  cursor: pointer; transition: background 0.15s, color 0.15s;
+}
+.hs-tab.active {
+  background: rgba(212,168,83,.12); color: var(--gold-300, #D4A853);
+  box-shadow: inset 0 0 0 1px rgba(212,168,83,.18);
+}
+
+/* ─── Status dots (handoff names) ─── */
+.hs-dot { width: 7px; height: 7px; border-radius: 99px; flex-shrink: 0; display: inline-block; }
+.hs-dot-on   { background: var(--ok,  #65D387); box-shadow: 0 0 0 3px rgba(101,211,135,.15); }
+.hs-dot-warn { background: var(--warn,#E8B86E); box-shadow: 0 0 0 3px rgba(232,184,110,.15); }
+.hs-dot-off  { background: var(--err, #E87A6E); box-shadow: 0 0 0 3px rgba(232,122,110,.15); }
+
+/* ─── Ring animation ─── */
+@keyframes ringDraw {
+  from { stroke-dashoffset: 565.5; }
+  to   { stroke-dashoffset: var(--ring-end, 170); }
+}
+.ring-draw { animation: ringDraw 1.8s cubic-bezier(.4,0,.2,1) forwards; }
+
+/* ─── Ambient animations ─── */
+@keyframes liveGlow {
+  0%,100% { box-shadow: 0 0 0 0 rgba(101,211,135,.4); }
+  50%      { box-shadow: 0 0 0 6px rgba(101,211,135,0); }
+}
+.live-glow { animation: liveGlow 2s ease-out infinite; }
+
+@keyframes floatY {
+  0%,100% { transform: translateY(0); }
+  50%      { transform: translateY(-3px); }
+}
+.float-y { animation: floatY 4s ease-in-out infinite; }
+
+/* ─── Tag: update to flex + mono (backward compatible) ─── */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+}
+
+/* ─── FAB (gold, floating action) ─── */
+.fab {
+  position: absolute; bottom: 78px; right: 14px;
+  width: 44px; height: 44px; border-radius: 22px;
+  background: linear-gradient(135deg, var(--gold-400, #B8923E), var(--gold-200, #E8C078));
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 12px 28px -6px rgba(212,168,83,.45), inset 0 1px 0 rgba(255,255,255,.3);
+  color: #0a0a0a; cursor: pointer; border: none;
+}
+
+/* light mode .card */
+.light .card   { background: rgba(255,255,255,.9); border-color: rgba(0,0,0,.08); }
+.light .card-g { background: linear-gradient(135deg,rgba(212,168,83,.08),rgba(212,168,83,.03)); }
+.light .card-r { background: rgba(232,122,110,.06); }
+
+/* ─── BotNav active/inactive colors (replaces Tailwind arbitrary CSS-var) ─── */
+.bnav-active { color: #D4A853 !important; }
+.bnav-dim    { color: var(--t5, #57534E); transition: color 0.15s; }
+.bnav-dim:hover { color: var(--t3, #A8A29E); }

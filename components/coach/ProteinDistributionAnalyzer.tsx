@@ -34,8 +34,6 @@ export default memo(function ProteinDistributionAnalyzer({
   }
 
   const maxProtein = Math.max(...meals.map((m) => m.protein), idealPerMeal);
-  const barWidth = 240;
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}

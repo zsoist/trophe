@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createSupabaseServiceClient } from '@/lib/supabase/server';
 
 // ─── Rate limiting for signup ───────────────────────────────────
 const SIGNUP_LIMIT = 5; // max per window
@@ -46,75 +47,34 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Email, password, and name are required' }, { status: 400 });
     }
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+    const service = createSupabaseServiceClient();
 
-    if (!serviceKey) {
-      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
-    }
-
-    // 1. Create auth user with auto-confirm via Admin API
-    const authRes = await fetch(`${supabaseUrl}/auth/v1/admin/users`, {
-      method: 'POST',
-      headers: {
-        'apikey': serviceKey,
-        'Authorization': `Bearer ${serviceKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        email,
-        password,
-        email_confirm: true,
-        user_metadata: { full_name, role: FORCED_ROLE },
-      }),
+    // 1. Create auth user with auto-confirm via Admin SDK
+    const { data: authData, error: authError } = await service.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: { full_name, role: FORCED_ROLE },
     });
 
-    const authData = await authRes.json();
-
-    if (!authRes.ok) {
-      const msg = authData.msg || authData.message || 'Signup failed';
-      // Handle duplicate email
+    if (authError || !authData.user) {
+      const msg = authError?.message ?? 'Signup failed';
       if (msg.includes('already been registered') || msg.includes('already exists')) {
         return NextResponse.json({ error: 'Email already registered. Try logging in.' }, { status: 409 });
       }
-      return NextResponse.json({ error: msg }, { status: authRes.status });
+      return NextResponse.json({ error: msg }, { status: 400 });
     }
 
-    const userId = authData.id;
+    const userId = authData.user.id;
 
     // 2. Create profile record — role is always FORCED_ROLE, never client-supplied
-    await fetch(`${supabaseUrl}/rest/v1/profiles`, {
-      method: 'POST',
-      headers: {
-        'apikey': serviceKey,
-        'Authorization': `Bearer ${serviceKey}`,
-        'Content-Type': 'application/json',
-        'Prefer': 'return=minimal',
-      },
-      body: JSON.stringify({
-        id: userId,
-        full_name,
-        email,
-        role: FORCED_ROLE,
-      }),
-    });
+    await service.from('profiles').insert({ id: userId, full_name, email, role: FORCED_ROLE });
 
     // 3. Create client_profile — all public signups are clients
-    if (true) {
-      await fetch(`${supabaseUrl}/rest/v1/client_profiles`, {
-        method: 'POST',
-        headers: {
-          'apikey': serviceKey,
-          'Authorization': `Bearer ${serviceKey}`,
-          'Content-Type': 'application/json',
-          'Prefer': 'return=minimal',
-        },
-        body: JSON.stringify({
-          user_id: userId,
-          coaching_phase: 'onboarding',
-        }),
-      });
-    }
+    await service.from('client_profiles').insert({
+      user_id: userId,
+      coaching_phase: 'onboarding',
+    });
 
     return NextResponse.json({ success: true, user_id: userId });
   } catch (err) {

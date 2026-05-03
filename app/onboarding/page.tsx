@@ -86,7 +86,7 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-stone-950 flex flex-col items-center justify-center px-6 py-12">
+    <div className="min-h-screen flex flex-col items-center justify-center px-6 py-12" style={{ background: 'var(--bg-primary, #0a0a0a)' }}>
       {/* Progress dots + percentage */}
       <div className="flex flex-col items-center gap-2 mb-12">
         <div className="flex gap-2">
@@ -285,15 +285,15 @@ export default function OnboardingPage() {
                   </div>
 
                   <div className="grid grid-cols-3 gap-3 text-center">
-                    <div className="bg-stone-900/50 rounded-xl p-3">
+                    <div className="glass rounded-xl p-3">
                       <p className="text-lg font-semibold text-blue-400">{profile.protein_g}g</p>
                       <p className="text-xs text-stone-500">Protein</p>
                     </div>
-                    <div className="bg-stone-900/50 rounded-xl p-3">
+                    <div className="glass rounded-xl p-3">
                       <p className="text-lg font-semibold text-amber-400">{profile.carbs_g}g</p>
                       <p className="text-xs text-stone-500">Carbs</p>
                     </div>
-                    <div className="bg-stone-900/50 rounded-xl p-3">
+                    <div className="glass rounded-xl p-3">
                       <p className="text-lg font-semibold text-rose-400">{profile.fat_g}g</p>
                       <p className="text-xs text-stone-500">Fat</p>
                     </div>

@@ -175,10 +175,10 @@ describe('caloriesFromSteps', () => {
 });
 
 describe('remainingMacros', () => {
-  const targets = { calories: 2000, protein_g: 150, carbs_g: 200, fat_g: 70, fiber_g: 28, water_ml: 2500 };
+  const targets = { calories: 2000, protein_g: 150, carbs_g: 200, fat_g: 70, fiber_g: 28, sugar_g: 25, water_ml: 2500 };
 
   it('subtracts consumed from targets', () => {
-    const consumed = { calories: 500, protein_g: 40, carbs_g: 50, fat_g: 20, fiber_g: 5, water_ml: 500 };
+    const consumed = { calories: 500, protein_g: 40, carbs_g: 50, fat_g: 20, fiber_g: 5, sugar_g: 10, water_ml: 500 };
     const r = remainingMacros(targets, consumed);
     expect(r.calories).toBe(1500);
     expect(r.protein_g).toBe(110);
@@ -186,7 +186,7 @@ describe('remainingMacros', () => {
   });
 
   it('clamps at zero (never negative when consumed exceeds target)', () => {
-    const consumed = { calories: 3000, protein_g: 200, carbs_g: 300, fat_g: 100, fiber_g: 50, water_ml: 3000 };
+    const consumed = { calories: 3000, protein_g: 200, carbs_g: 300, fat_g: 100, fiber_g: 50, sugar_g: 50, water_ml: 3000 };
     const r = remainingMacros(targets, consumed);
     expect(r.calories).toBe(0);
     expect(r.protein_g).toBe(0);

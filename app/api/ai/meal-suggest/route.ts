@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { guardAiRoute } from '@/lib/api-guard';
+import { pick } from '@/agents/router';
+import { estimateModelCostUsd } from '@/agents/router/pricing';
+import { db } from '@/db/client';
+import { agentRuns } from '@/db/schema/agent_runs';
 
-// ─── Types ──────────────────────────────────────────────────────────────────
+// ── Types ───────────────────────────────────────────────────────────────────
 
 interface MealSuggestRequest {
   remaining_calories: number;
@@ -14,25 +18,21 @@ interface MealSuggestRequest {
 
 interface MealSuggestion {
   name: string;
-  description?: string;
-  ingredients: { item: string; quantity: string }[];
+  description: string;
+  ingredients: string[];
   estimated_calories: number;
   estimated_protein_g: number;
   estimated_carbs_g: number;
   estimated_fat_g: number;
 }
 
-// ─── Fallbacks (network errors only) ────────────────────────────────────────
+// ── Fallbacks (network error only — tool_choice prevents parse failures) ────
 
 const FALLBACK_SUGGESTIONS: MealSuggestion[] = [
   {
     name: 'Grilled Chicken with Rice & Vegetables',
-    ingredients: [
-      { item: 'Chicken breast', quantity: '150g' },
-      { item: 'Brown rice', quantity: '100g cooked' },
-      { item: 'Mixed vegetables', quantity: '150g' },
-      { item: 'Olive oil', quantity: '1 tsp' },
-    ],
+    description: 'A balanced meal with lean protein, complex carbs, and fiber.',
+    ingredients: ['150g chicken breast', '100g cooked brown rice', '150g mixed vegetables', '1 tsp olive oil'],
     estimated_calories: 420,
     estimated_protein_g: 40,
     estimated_carbs_g: 35,
@@ -40,12 +40,8 @@ const FALLBACK_SUGGESTIONS: MealSuggestion[] = [
   },
   {
     name: 'Greek Yogurt Protein Bowl',
-    ingredients: [
-      { item: 'Greek yogurt (2%)', quantity: '200g' },
-      { item: 'Banana', quantity: '1 medium' },
-      { item: 'Granola', quantity: '30g' },
-      { item: 'Honey', quantity: '1 tsp' },
-    ],
+    description: 'Quick and satisfying, with natural protein and slow carbs.',
+    ingredients: ['200g Greek yogurt (2%)', '1 medium banana', '30g granola', '1 tsp honey'],
     estimated_calories: 350,
     estimated_protein_g: 24,
     estimated_carbs_g: 48,
@@ -53,13 +49,8 @@ const FALLBACK_SUGGESTIONS: MealSuggestion[] = [
   },
   {
     name: 'Tuna Salad Wrap',
-    ingredients: [
-      { item: 'Canned tuna', quantity: '120g' },
-      { item: 'Whole wheat tortilla', quantity: '1 large' },
-      { item: 'Mixed greens', quantity: '50g' },
-      { item: 'Avocado', quantity: '1/4' },
-      { item: 'Lemon juice', quantity: '1 tbsp' },
-    ],
+    description: 'High protein wrap with healthy fats from avocado.',
+    ingredients: ['120g canned tuna', '1 large whole wheat tortilla', '50g mixed greens', '1/4 avocado', '1 tbsp lemon juice'],
     estimated_calories: 380,
     estimated_protein_g: 35,
     estimated_carbs_g: 30,
@@ -67,13 +58,11 @@ const FALLBACK_SUGGESTIONS: MealSuggestion[] = [
   },
 ];
 
-// ─── Anthropic tool definition ──────────────────────────────────────────────
-// tool_choice forces the model to call this tool, guaranteeing JSON schema
-// compliance at the decoding layer. No regex extraction needed.
+// ── Tool schema for Anthropic tool_use ──────────────────────────────────────
 
 const MEAL_SUGGEST_TOOL = {
   name: 'submit_meal_suggestions',
-  description: 'Submit 3 meal suggestions that fit the remaining macros.',
+  description: 'Submit 3 meal suggestions matching the macro budget',
   input_schema: {
     type: 'object' as const,
     properties: {
@@ -82,35 +71,29 @@ const MEAL_SUGGEST_TOOL = {
         items: {
           type: 'object' as const,
           properties: {
-            name: { type: 'string' as const, description: 'Meal name' },
-            description: { type: 'string' as const, description: 'Short description of the meal' },
-            ingredients: {
-              type: 'array' as const,
-              items: {
-                type: 'object' as const,
-                properties: {
-                  item: { type: 'string' as const },
-                  quantity: { type: 'string' as const },
-                },
-                required: ['item', 'quantity'],
-              },
-            },
+            name: { type: 'string' as const },
+            description: { type: 'string' as const },
+            ingredients: { type: 'array' as const, items: { type: 'string' as const } },
             estimated_calories: { type: 'number' as const },
             estimated_protein_g: { type: 'number' as const },
             estimated_carbs_g: { type: 'number' as const },
             estimated_fat_g: { type: 'number' as const },
           },
-          required: ['name', 'ingredients', 'estimated_calories', 'estimated_protein_g', 'estimated_carbs_g', 'estimated_fat_g'],
+          required: [
+            'name', 'description', 'ingredients',
+            'estimated_calories', 'estimated_protein_g',
+            'estimated_carbs_g', 'estimated_fat_g',
+          ],
         },
-        minItems: 3,
-        maxItems: 3,
       },
     },
     required: ['suggestions'],
   },
 };
 
-// ─── Validation ─────────────────────────────────────────────────────────────
+const SYSTEM_PROMPT = `You are a sports nutritionist. Given a client's remaining macro budget for the day, suggest 3 practical, delicious meal options that fit within the budget. Each suggestion should include a name, brief description, ingredients list with approximate quantities, and estimated macros. Be realistic with portions and calorie estimates.`;
+
+// ── Input validation ────────────────────────────────────────────────────────
 
 function validateInput(body: unknown): { valid: true; data: MealSuggestRequest } | { valid: false; error: string } {
   if (!body || typeof body !== 'object') {
@@ -135,14 +118,11 @@ function validateInput(body: unknown): { valid: true; data: MealSuggestRequest }
   return { valid: true, data: b as unknown as MealSuggestRequest };
 }
 
-// ─── Route handler ──────────────────────────────────────────────────────────
-
-const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
-const MODEL = 'claude-haiku-4-5-20251001';
+// ── Route handler ───────────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
-  const block = guardAiRoute(request);
-  if (block) return block;
+  const guard = await guardAiRoute(request);
+  if (!guard.ok) return guard.response;
 
   try {
     const body = await request.json();
@@ -156,13 +136,15 @@ export async function POST(request: NextRequest) {
     }
 
     const { remaining_calories, remaining_protein_g, remaining_carbs_g, remaining_fat_g, preferences, meal_type } = validation.data;
+    const policy = pick('meal_suggest');
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
-      console.error('[meal-suggest] ANTHROPIC_API_KEY not configured');
+      console.error('ANTHROPIC_API_KEY not configured');
       return NextResponse.json({ suggestions: FALLBACK_SUGGESTIONS });
     }
 
+    // Build user message
     const macroContext = [
       `Calories: ${remaining_calories} kcal`,
       `Protein: ${remaining_protein_g}g`,
@@ -170,17 +152,16 @@ export async function POST(request: NextRequest) {
       `Fat: ${remaining_fat_g}g`,
     ].join(', ');
 
-    // Sanitize user inputs to prevent prompt injection
     const safePreferences = preferences ? preferences.slice(0, 100).replace(/[\x00-\x1F\x7F]/g, '') : '';
     const safeMealType = meal_type ? meal_type.slice(0, 30).replace(/[\x00-\x1F\x7F]/g, '') : '';
     const preferencesNote = safePreferences ? ` Dietary preferences: ${safePreferences}.` : '';
     const mealTypeNote = safeMealType ? ` This is for: ${safeMealType}.` : '';
 
-    const systemPrompt = 'You are a sports nutritionist. Suggest practical, delicious meals that fit the client\'s remaining macros for the day. Use the submit_meal_suggestions tool to return your suggestions.';
+    const userMessage = `Remaining macro budget: ${macroContext}.${preferencesNote}${mealTypeNote} Suggest 3 meal options.`;
 
-    const userMessage = `Suggest 3 meal options that fit these remaining macros: ${macroContext}.${preferencesNote}${mealTypeNote}`;
-
-    const response = await fetch(ANTHROPIC_API_URL, {
+    // Call Anthropic with tool_use + tool_choice
+    const startTime = Date.now();
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -188,55 +169,61 @@ export async function POST(request: NextRequest) {
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: MODEL,
-        max_tokens: 1024,
-        system: systemPrompt,
+        model: policy.model,
+        max_tokens: policy.maxTokens,
+        system: SYSTEM_PROMPT,
         messages: [{ role: 'user', content: userMessage }],
         tools: [MEAL_SUGGEST_TOOL],
         tool_choice: { type: 'tool', name: 'submit_meal_suggestions' },
       }),
     });
+    const latencyMs = Date.now() - startTime;
 
     if (!response.ok) {
-      const errText = await response.text().catch(() => '');
-      console.error(`[meal-suggest] Anthropic API error: ${response.status} — ${errText.slice(0, 200)}`);
+      console.error(`Anthropic API error: ${response.status} ${response.statusText}`);
       return NextResponse.json({ suggestions: FALLBACK_SUGGESTIONS });
     }
 
     const data = await response.json() as {
-      content?: Array<{ type: string; input?: { suggestions?: MealSuggestion[] } }>;
+      content: Array<{ type: string; name?: string; input?: { suggestions?: MealSuggestion[] } }>;
+      usage: { input_tokens: number; output_tokens: number; cache_creation_input_tokens?: number; cache_read_input_tokens?: number };
     };
 
-    // tool_choice guarantees a tool_use block — extract the suggestions
-    const toolBlock = data?.content?.find((c) => c.type === 'tool_use');
-    const suggestions = toolBlock?.input?.suggestions;
+    const toolUse = data.content.find(c => c.type === 'tool_use' && c.name === 'submit_meal_suggestions');
+    const suggestions = toolUse?.input?.suggestions;
 
-    if (!suggestions || !Array.isArray(suggestions) || suggestions.length === 0) {
-      console.error('[meal-suggest] No suggestions in tool_use response');
+    // Log to agent_runs (fire-and-forget, matches food_parse pattern)
+    const costUsd = estimateModelCostUsd(
+      policy.model,
+      data.usage.input_tokens,
+      data.usage.output_tokens,
+      data.usage.cache_read_input_tokens ?? 0,
+    );
+
+    db.insert(agentRuns).values({
+      taskName: 'meal_suggest',
+      provider: policy.provider,
+      model: policy.model,
+      tokensIn: data.usage.input_tokens,
+      tokensOut: data.usage.output_tokens,
+      cacheReadTokens: data.usage.cache_read_input_tokens ?? 0,
+      cacheWriteTokens: data.usage.cache_creation_input_tokens ?? 0,
+      costUsd,
+      latencyMs,
+      rawStatus: response.status,
+      userId: guard.userId,
+    }).catch(err => {
+      console.error('[meal-suggest] Failed to write agent_runs:', err);
+    });
+
+    if (!suggestions || suggestions.length === 0) {
+      console.error('No suggestions in tool_use response');
       return NextResponse.json({ suggestions: FALLBACK_SUGGESTIONS });
     }
 
-    // Normalize field names for backward compatibility with the client
-    // Client expects: calories, protein_g, carbs_g, fat_g
-    // Tool returns: estimated_calories, estimated_protein_g, etc.
-    const normalized = suggestions.map((s) => ({
-      name: s.name,
-      description: s.description,
-      ingredients: s.ingredients,
-      calories: s.estimated_calories,
-      protein_g: s.estimated_protein_g,
-      carbs_g: s.estimated_carbs_g,
-      fat_g: s.estimated_fat_g,
-      // Keep estimated_* fields too for future clients
-      estimated_calories: s.estimated_calories,
-      estimated_protein_g: s.estimated_protein_g,
-      estimated_carbs_g: s.estimated_carbs_g,
-      estimated_fat_g: s.estimated_fat_g,
-    }));
-
-    return NextResponse.json({ suggestions: normalized });
+    return NextResponse.json({ suggestions });
   } catch (error) {
-    console.error('[meal-suggest] Error:', error);
+    console.error('Meal suggestion error:', error);
     return NextResponse.json({ suggestions: FALLBACK_SUGGESTIONS });
   }
 }

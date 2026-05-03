@@ -1,0 +1,475 @@
+{
+  "version": "1.0",
+  "description": "30 natural-language food cases (15 Greek, 15 Colombian) for production eval",
+  "created": "2026-05-03",
+  "pass_criteria": {
+    "item_count_match": true,
+    "portion_tolerance_pct": 20,
+    "macro_tolerance_pct": 15,
+    "latency_p95_ms": 8000
+  },
+  "cases": [
+    {
+      "id": "gr-01",
+      "language": "el",
+      "input": "3 αυγά για πρωινό",
+      "category": "simple_quantity",
+      "expectedFallbackToAI": false,
+      "notes": "3 eggs for breakfast — Greek with quantity",
+      "expected": {
+        "items": 1,
+        "primaryFood": ["egg", "αυγό"],
+        "totalKcal": { "min": 190, "max": 240 },
+        "totalProtein": { "min": 16, "max": 22 },
+        "totalFat": { "min": 12, "max": 17 },
+        "totalCarbs": { "min": 0, "max": 4 }
+      }
+    },
+    {
+      "id": "gr-02",
+      "language": "el",
+      "input": "200γρ φέτα με ντομάτα",
+      "category": "explicit_grams_multi",
+      "expectedFallbackToAI": false,
+      "notes": "200g feta + 1 tomato — explicit grams + implicit quantity",
+      "expected": {
+        "items": 2,
+        "primaryFood": ["feta", "tomato"],
+        "totalKcal": { "min": 540, "max": 580 },
+        "totalProtein": { "min": 28, "max": 34 },
+        "totalFat": { "min": 42, "max": 48 },
+        "totalCarbs": { "min": 8, "max": 16 }
+      }
+    },
+    {
+      "id": "gr-03",
+      "language": "el",
+      "input": "1 κουταλιά μέλι",
+      "category": "volume_unit",
+      "expectedFallbackToAI": false,
+      "notes": "1 tbsp honey — Greek abbreviation κ.σ. variant",
+      "expected": {
+        "items": 1,
+        "primaryFood": ["honey", "μέλι"],
+        "totalKcal": { "min": 55, "max": 75 },
+        "totalProtein": { "min": 0, "max": 1 },
+        "totalFat": { "min": 0, "max": 1 },
+        "totalCarbs": { "min": 15, "max": 20 }
+      }
+    },
+    {
+      "id": "gr-04",
+      "language": "el",
+      "input": "γιαούρτι με μέλι και καρύδια",
+      "category": "implicit_quantities",
+      "expectedFallbackToAI": false,
+      "notes": "Yogurt + honey + walnuts — no quantities given, tests defaults",
+      "expected": {
+        "items": 3,
+        "primaryFood": ["yogurt", "honey", "walnut"],
+        "totalKcal": { "min": 200, "max": 500 },
+        "totalProtein": { "min": 8, "max": 30 },
+        "totalFat": { "min": 8, "max": 30 },
+        "totalCarbs": { "min": 20, "max": 50 }
+      }
+    },
+    {
+      "id": "gr-05",
+      "language": "el",
+      "input": "1 σουβλάκι κοτόπουλο με πίτα",
+      "category": "composite_recipe",
+      "expectedFallbackToAI": true,
+      "notes": "Chicken souvlaki with pita — composite dish, likely AI fallback",
+      "expected": {
+        "items": 1,
+        "fallbackFlag": true,
+        "confidenceMax": 0.85,
+        "kcalReasonable": { "min": 200, "max": 600 }
+      }
+    },
+    {
+      "id": "gr-06",
+      "language": "el",
+      "input": "μια σπανακόπιτα",
+      "category": "composite_recipe",
+      "expectedFallbackToAI": false,
+      "notes": "One spanakopita — in HHF DB (130g serving, 215 kcal/100g)",
+      "expected": {
+        "items": 1,
+        "primaryFood": ["spanakopita", "σπανακόπιτα"],
+        "totalKcal": { "min": 220, "max": 340 },
+        "totalProtein": { "min": 7, "max": 14 },
+        "totalFat": { "min": 14, "max": 22 },
+        "totalCarbs": { "min": 17, "max": 27 }
+      }
+    },
+    {
+      "id": "gr-07",
+      "language": "el",
+      "input": "μια χούφτα ελιές",
+      "category": "vague_portion",
+      "expectedFallbackToAI": false,
+      "notes": "A handful of olives — vague unit, tests handful conversion",
+      "expected": {
+        "items": 1,
+        "primaryFood": ["olive", "ελιά"],
+        "totalKcal": { "min": 30, "max": 120 },
+        "totalProtein": { "min": 0, "max": 3 },
+        "totalFat": { "min": 3, "max": 12 },
+        "totalCarbs": { "min": 0, "max": 5 }
+      }
+    },
+    {
+      "id": "gr-08",
+      "language": "el",
+      "input": "1 φλιτζάνι ρύζι με 100γρ κοτόπουλο",
+      "category": "mixed_units_multi",
+      "expectedFallbackToAI": false,
+      "notes": "1 cup rice + 100g chicken — mixed units, multi-item",
+      "expected": {
+        "items": 2,
+        "primaryFood": ["rice", "chicken"],
+        "totalKcal": { "min": 310, "max": 380 },
+        "totalProtein": { "min": 24, "max": 30 },
+        "totalFat": { "min": 3, "max": 8 },
+        "totalCarbs": { "min": 40, "max": 50 }
+      }
+    },
+    {
+      "id": "gr-09",
+      "language": "el",
+      "input": "1 χωριάτικη σαλάτα",
+      "category": "composite_recipe",
+      "expectedFallbackToAI": false,
+      "notes": "Greek salad — in HHF DB (200g serving, 90 kcal/100g)",
+      "expected": {
+        "items": 1,
+        "primaryFood": ["greek salad", "horiatiki", "salad"],
+        "totalKcal": { "min": 140, "max": 230 },
+        "totalProtein": { "min": 4, "max": 9 },
+        "totalFat": { "min": 10, "max": 18 },
+        "totalCarbs": { "min": 5, "max": 12 }
+      }
+    },
+    {
+      "id": "gr-10",
+      "language": "el",
+      "input": "50γρ ελαιόλαδο",
+      "category": "explicit_grams",
+      "expectedFallbackToAI": false,
+      "notes": "50g olive oil — exact grams, high calorie density",
+      "expected": {
+        "items": 1,
+        "primaryFood": ["olive oil", "ελαιόλαδο"],
+        "totalKcal": { "min": 400, "max": 470 },
+        "totalProtein": { "min": 0, "max": 1 },
+        "totalFat": { "min": 45, "max": 55 },
+        "totalCarbs": { "min": 0, "max": 1 }
+      }
+    },
+    {
+      "id": "gr-11",
+      "language": "el",
+      "input": "2 κομμάτια μπακλαβά",
+      "category": "composite_recipe",
+      "expectedFallbackToAI": false,
+      "notes": "2 pieces baklava — in HHF DB (80g/piece, 425 kcal/100g)",
+      "expected": {
+        "items": 1,
+        "primaryFood": ["baklava", "μπακλαβά"],
+        "totalKcal": { "min": 540, "max": 820 },
+        "totalProtein": { "min": 9, "max": 16 },
+        "totalFat": { "min": 28, "max": 44 },
+        "totalCarbs": { "min": 66, "max": 100 }
+      }
+    },
+    {
+      "id": "gr-12",
+      "language": "el",
+      "input": "πρωινό: 2 αυγά τηγανητά με 30γρ φέτα και 1 ντομάτα",
+      "category": "multi_item_meal",
+      "expectedFallbackToAI": false,
+      "notes": "Breakfast: 2 fried eggs + 30g feta + 1 tomato — 3 items",
+      "expected": {
+        "items": 3,
+        "primaryFood": ["egg", "feta", "tomato"],
+        "totalKcal": { "min": 280, "max": 380 },
+        "totalProtein": { "min": 18, "max": 26 },
+        "totalFat": { "min": 20, "max": 30 },
+        "totalCarbs": { "min": 3, "max": 10 }
+      }
+    },
+    {
+      "id": "gr-13",
+      "language": "el",
+      "input": "I had 2 eggs με φέτα",
+      "category": "code_switched",
+      "expectedFallbackToAI": false,
+      "notes": "Code-switched English+Greek — 2 eggs + feta (default portion)",
+      "expected": {
+        "items": 2,
+        "primaryFood": ["egg", "feta"],
+        "totalKcal": { "min": 200, "max": 340 },
+        "totalProtein": { "min": 16, "max": 24 },
+        "totalFat": { "min": 14, "max": 26 },
+        "totalCarbs": { "min": 1, "max": 6 }
+      }
+    },
+    {
+      "id": "gr-14",
+      "language": "el",
+      "input": "μερικά αμύγδαλα",
+      "category": "vague_portion",
+      "expectedFallbackToAI": false,
+      "notes": "Some almonds — very vague quantity, tests default portion",
+      "expected": {
+        "items": 1,
+        "primaryFood": ["almond", "αμύγδαλο"],
+        "totalKcal": { "min": 80, "max": 350 },
+        "totalProtein": { "min": 3, "max": 15 },
+        "totalFat": { "min": 7, "max": 30 },
+        "totalCarbs": { "min": 3, "max": 12 }
+      }
+    },
+    {
+      "id": "gr-15",
+      "language": "el",
+      "input": "ένα ποτήρι γάλα",
+      "category": "volume_unit",
+      "expectedFallbackToAI": false,
+      "notes": "A glass of milk — 'ποτήρι' = glass, should map to ~244ml",
+      "expected": {
+        "items": 1,
+        "primaryFood": ["milk", "γάλα"],
+        "totalKcal": { "min": 130, "max": 165 },
+        "totalProtein": { "min": 7, "max": 9 },
+        "totalFat": { "min": 7, "max": 9 },
+        "totalCarbs": { "min": 10, "max": 14 }
+      }
+    },
+    {
+      "id": "co-01",
+      "language": "es",
+      "input": "2 huevos revueltos",
+      "category": "simple_quantity",
+      "expectedFallbackToAI": false,
+      "notes": "2 scrambled eggs — simple Spanish",
+      "expected": {
+        "items": 1,
+        "primaryFood": ["egg", "huevo"],
+        "totalKcal": { "min": 130, "max": 200 },
+        "totalProtein": { "min": 10, "max": 16 },
+        "totalFat": { "min": 9, "max": 18 },
+        "totalCarbs": { "min": 0, "max": 4 }
+      }
+    },
+    {
+      "id": "co-02",
+      "language": "es",
+      "input": "1 arepa con queso",
+      "category": "composite_recipe",
+      "expectedFallbackToAI": true,
+      "notes": "1 arepa with cheese — Colombian staple, composite",
+      "expected": {
+        "items": 1,
+        "fallbackFlag": true,
+        "confidenceMax": 0.85,
+        "kcalReasonable": { "min": 150, "max": 500 }
+      }
+    },
+    {
+      "id": "co-03",
+      "language": "es",
+      "input": "1 plátano maduro frito",
+      "category": "simple_quantity",
+      "expectedFallbackToAI": false,
+      "notes": "1 fried ripe plantain — tests plantain lookup + fried qualifier",
+      "expected": {
+        "items": 1,
+        "primaryFood": ["plantain", "plátano"],
+        "totalKcal": { "min": 200, "max": 400 },
+        "totalProtein": { "min": 1, "max": 4 },
+        "totalFat": { "min": 5, "max": 20 },
+        "totalCarbs": { "min": 40, "max": 75 }
+      }
+    },
+    {
+      "id": "co-04",
+      "language": "es",
+      "input": "1 taza de arroz blanco",
+      "category": "volume_unit",
+      "expectedFallbackToAI": false,
+      "notes": "1 cup white rice — taza = cup, cooked rice",
+      "expected": {
+        "items": 1,
+        "primaryFood": ["rice", "arroz"],
+        "totalKcal": { "min": 180, "max": 230 },
+        "totalProtein": { "min": 3, "max": 6 },
+        "totalFat": { "min": 0, "max": 2 },
+        "totalCarbs": { "min": 38, "max": 50 }
+      }
+    },
+    {
+      "id": "co-05",
+      "language": "es",
+      "input": "desayuno: 2 huevos, 1 arepa, café con leche",
+      "category": "multi_item_meal",
+      "expectedFallbackToAI": false,
+      "notes": "Breakfast: 2 eggs + 1 arepa + coffee with milk — 3 items",
+      "expected": {
+        "items": 3,
+        "primaryFood": ["egg", "arepa", "coffee"],
+        "totalKcal": { "min": 300, "max": 600 },
+        "totalProtein": { "min": 14, "max": 28 },
+        "totalFat": { "min": 10, "max": 25 },
+        "totalCarbs": { "min": 20, "max": 55 }
+      }
+    },
+    {
+      "id": "co-06",
+      "language": "es",
+      "input": "1 bandeja paisa",
+      "category": "composite_recipe",
+      "expectedFallbackToAI": true,
+      "notes": "Bandeja paisa — massive Colombian combo plate, highly regional",
+      "expected": {
+        "items": 1,
+        "fallbackFlag": true,
+        "confidenceMax": 0.85,
+        "kcalReasonable": { "min": 600, "max": 2000 }
+      }
+    },
+    {
+      "id": "co-07",
+      "language": "es",
+      "input": "ajiaco santafereño",
+      "category": "composite_recipe",
+      "expectedFallbackToAI": true,
+      "notes": "Bogota-style chicken soup — very regional, not in USDA",
+      "expected": {
+        "items": 1,
+        "fallbackFlag": true,
+        "confidenceMax": 0.85,
+        "kcalReasonable": { "min": 200, "max": 800 }
+      }
+    },
+    {
+      "id": "co-08",
+      "language": "es",
+      "input": "un puñado de maní",
+      "category": "vague_portion",
+      "expectedFallbackToAI": false,
+      "notes": "A handful of peanuts — vague portion, tests handful conversion",
+      "expected": {
+        "items": 1,
+        "primaryFood": ["peanut", "maní"],
+        "totalKcal": { "min": 80, "max": 350 },
+        "totalProtein": { "min": 4, "max": 16 },
+        "totalFat": { "min": 7, "max": 30 },
+        "totalCarbs": { "min": 2, "max": 10 }
+      }
+    },
+    {
+      "id": "co-09",
+      "language": "es",
+      "input": "sancocho de gallina",
+      "category": "composite_recipe",
+      "expectedFallbackToAI": true,
+      "notes": "Chicken sancocho — traditional stew, not in USDA",
+      "expected": {
+        "items": 1,
+        "fallbackFlag": true,
+        "confidenceMax": 0.85,
+        "kcalReasonable": { "min": 200, "max": 800 }
+      }
+    },
+    {
+      "id": "co-10",
+      "language": "es",
+      "input": "1 vaso de jugo de lulo",
+      "category": "volume_unit",
+      "expectedFallbackToAI": true,
+      "notes": "1 glass of lulo juice — highly regional fruit, not in USDA",
+      "expected": {
+        "items": 1,
+        "fallbackFlag": true,
+        "confidenceMax": 0.85,
+        "kcalReasonable": { "min": 50, "max": 250 }
+      }
+    },
+    {
+      "id": "co-11",
+      "language": "es",
+      "input": "2 empanadas de carne",
+      "category": "simple_quantity",
+      "expectedFallbackToAI": true,
+      "notes": "2 beef empanadas — may be in HHF or generic DB",
+      "expected": {
+        "items": 1,
+        "fallbackFlag": true,
+        "confidenceMax": 0.85,
+        "kcalReasonable": { "min": 300, "max": 800 }
+      }
+    },
+    {
+      "id": "co-12",
+      "language": "es",
+      "input": "1 patacón con suero",
+      "category": "composite_recipe",
+      "expectedFallbackToAI": true,
+      "notes": "1 patacon + sour cream — regional fried plantain dish",
+      "expected": {
+        "items": 1,
+        "fallbackFlag": true,
+        "confidenceMax": 0.85,
+        "kcalReasonable": { "min": 150, "max": 600 }
+      }
+    },
+    {
+      "id": "co-13",
+      "language": "es",
+      "input": "I had un protein shake con banana",
+      "category": "code_switched",
+      "expectedFallbackToAI": false,
+      "notes": "Code-switched English+Spanish — protein shake + banana",
+      "expected": {
+        "items": 2,
+        "primaryFood": ["protein", "banana"],
+        "totalKcal": { "min": 180, "max": 400 },
+        "totalProtein": { "min": 20, "max": 40 },
+        "totalFat": { "min": 1, "max": 10 },
+        "totalCarbs": { "min": 20, "max": 45 }
+      }
+    },
+    {
+      "id": "co-14",
+      "language": "es",
+      "input": "1 cucharón de frijoles",
+      "category": "volume_unit",
+      "expectedFallbackToAI": false,
+      "notes": "1 ladle of beans — cucharón is ~120g, regional unit",
+      "expected": {
+        "items": 1,
+        "primaryFood": ["bean", "frijol"],
+        "totalKcal": { "min": 100, "max": 220 },
+        "totalProtein": { "min": 6, "max": 16 },
+        "totalFat": { "min": 0, "max": 3 },
+        "totalCarbs": { "min": 18, "max": 40 }
+      }
+    },
+    {
+      "id": "co-15",
+      "language": "es",
+      "input": "una changua bogotana",
+      "category": "composite_recipe",
+      "expectedFallbackToAI": true,
+      "notes": "Bogota milk+egg soup — very regional, not in USDA",
+      "expected": {
+        "items": 1,
+        "fallbackFlag": true,
+        "confidenceMax": 0.85,
+        "kcalReasonable": { "min": 100, "max": 500 }
+      }
+    }
+  ]
+}

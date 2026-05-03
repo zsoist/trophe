@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChefHat, Loader2, Check } from 'lucide-react';
+import { Icon } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
 import type { MealType } from '@/lib/types';
 import type { RecipeAnalyzeOutput } from '@/agents/schemas/recipe-analyze';
@@ -16,11 +17,11 @@ interface RecipeAnalyzerModalProps {
   onLogged: () => void;
 }
 
-const MEAL_OPTIONS: { value: MealType; label: string; emoji: string }[] = [
-  { value: 'breakfast', label: 'Breakfast', emoji: '🌅' },
-  { value: 'lunch', label: 'Lunch', emoji: '☀️' },
-  { value: 'dinner', label: 'Dinner', emoji: '🌙' },
-  { value: 'snack', label: 'Snack', emoji: '🍎' },
+const MEAL_OPTIONS: { value: MealType; label: string; icon: string }[] = [
+  { value: 'breakfast', label: 'Breakfast', icon: 'i-sun'    },
+  { value: 'lunch',     label: 'Lunch',     icon: 'i-bowl'   },
+  { value: 'dinner',    label: 'Dinner',    icon: 'i-moon'   },
+  { value: 'snack',     label: 'Snack',     icon: 'i-apple'  },
 ];
 
 export default function RecipeAnalyzerModal({
@@ -294,7 +295,7 @@ export default function RecipeAnalyzerModal({
                                 : 'border border-white/5 text-stone-500 hover:text-stone-300'
                             }`}
                           >
-                            <div>{opt.emoji}</div>
+                            <div><Icon name={opt.icon as Parameters<typeof Icon>[0]['name']} size={16} /></div>
                             <div>{opt.label}</div>
                           </button>
                         ))}

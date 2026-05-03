@@ -1,6 +1,6 @@
 'use client';
 
-import { memo, useState } from 'react';
+import { memo } from 'react';
 import { motion } from 'framer-motion';
 
 interface Measurement {
@@ -20,8 +20,6 @@ function buildPath(
 }
 
 export default memo(function MeasurementChart({ measurements }: MeasurementChartProps) {
-  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
-
   if (measurements.length < 2) {
     return (
       <motion.div

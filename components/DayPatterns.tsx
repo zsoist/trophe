@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { motion } from 'framer-motion';
-import { BarChart3, TrendingUp } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { TrendingUp, ChevronDown, ChevronUp, Calendar } from 'lucide-react';
+import { Icon, type IconName } from '@/components/ui/Icon';
 import { supabase } from '@/lib/supabase';
+import { useI18n } from '@/lib/i18n';
 import { localToday, localDateStr } from '../lib/dates';
 
 interface DayPatternsProps {
@@ -11,68 +13,115 @@ interface DayPatternsProps {
 }
 
 interface DayAvg {
-  dayIndex: number;
-  dayLabel: string;
+  dayIndex:  number;
+  dayLabel:  string;
   shortLabel: string;
-  totalCalories: number;
-  count: number;
-  avg: number;
+  total:     number;
+  count:     number;
+  avg:       number;
 }
 
-const DAY_LABELS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+type MacroType  = 'calories' | 'protein' | 'carbs' | 'fat' | 'fiber';
+type PeriodType = '7d' | '30d' | 'custom';
+
+interface MacroTab {
+  key:      MacroType;
+  label:    string;
+  labelKey: string;
+  icon:     IconName;
+  color:    string;
+  unit:     string;
+  field:    string;
+}
+
+const MACRO_TABS: MacroTab[] = [
+  { key: 'calories', label: 'kcal',    labelKey: 'general.calories', icon: 'i-flame',    color: '#fb923c', unit: 'kcal', field: 'calories'   },
+  { key: 'protein',  label: 'Protein', labelKey: 'general.protein',  icon: 'i-dumbbell', color: '#f87171', unit: 'g',    field: 'protein_g'  },
+  { key: 'carbs',    label: 'Carbs',   labelKey: 'general.carbs',    icon: 'i-zap',      color: '#60a5fa', unit: 'g',    field: 'carbs_g'    },
+  { key: 'fat',      label: 'Fat',     labelKey: 'general.fat',      icon: 'i-drop',     color: '#c084fc', unit: 'g',    field: 'fat_g'      },
+  { key: 'fiber',    label: 'Fiber',   labelKey: 'general.fiber',    icon: 'i-leaf',     color: '#34d399', unit: 'g',    field: 'fiber_g'    },
+];
+
+const DAY_LABELS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const DAY_LABELS_I18N = ['day.sunday','day.monday','day.tuesday','day.wednesday','day.thursday','day.friday','day.saturday'];
+const DAY_SHORT_I18N  = ['day.sun_short','day.mon_short','day.tue_short','day.wed_short','day.thu_short','day.fri_short','day.sat_short'];
 
 export default function DayPatterns({ userId }: DayPatternsProps) {
-  const [loading, setLoading] = useState(true);
-  const [dayData, setDayData] = useState<DayAvg[]>([]);
+  const { t } = useI18n();
+  const [loading,    setLoading]    = useState(true);
+  const [dayData,    setDayData]    = useState<DayAvg[]>([]);
+  const [expanded,   setExpanded]   = useState(false);
+  const [macro,      setMacro]      = useState<MacroType>('calories');
+  const [period,     setPeriod]     = useState<PeriodType>('30d');
+  const [customFrom, setCustomFrom] = useState('');
+  const [customTo,   setCustomTo]   = useState('');
+
+  const tab = MACRO_TABS.find(tab => tab.key === macro)!;
 
   useEffect(() => {
+    if (!expanded) return; // only load when open
     let cancelled = false;
 
     async function loadData() {
       if (!userId) return;
+      setLoading(true);
 
-      const endDate = localToday();
-      const startDate = localDateStr(new Date(Date.now() - 60 * 86400000));
+      let startStr: string;
+      let endStr = localToday();
 
-      const { data } = await supabase
+      if (period === '7d') {
+        startStr = localDateStr(new Date(Date.now() - 7 * 86400000));
+      } else if (period === '30d') {
+        startStr = localDateStr(new Date(Date.now() - 30 * 86400000));
+      } else {
+        // custom
+        startStr = customFrom || localDateStr(new Date(Date.now() - 30 * 86400000));
+        endStr   = customTo   || localToday();
+      }
+
+      const { data: rawData } = await supabase
         .from('food_log')
-        .select('logged_date, calories')
+        .select(`logged_date, ${tab.field}`)
         .eq('user_id', userId)
-        .gte('logged_date', startDate)
-        .lte('logged_date', endDate);
+        .gte('logged_date', startStr)
+        .lte('logged_date', endStr);
 
       if (cancelled) return;
 
+      const data = rawData as Array<Record<string, unknown>> | null;
+
       if (!data || data.length === 0) {
+        setDayData([]);
         setLoading(false);
         return;
       }
 
+      // Aggregate per date first, then map to day-of-week
       const dateMap: Record<string, number> = {};
       for (const entry of data) {
-        const date = entry.logged_date;
-        dateMap[date] = (dateMap[date] ?? 0) + (entry.calories ?? 0);
+        const date = entry.logged_date as string;
+        const val  = (entry[tab.field] as number | null) ?? 0;
+        dateMap[date] = (dateMap[date] ?? 0) + val;
       }
 
       const days: DayAvg[] = Array.from({ length: 7 }, (_, i) => ({
-        dayIndex: i,
-        dayLabel: DAY_LABELS[i],
-        shortLabel: DAY_SHORT[i],
-        totalCalories: 0,
-        count: 0,
-        avg: 0,
+        dayIndex:   i,
+        dayLabel:   DAY_LABELS[i],
+        shortLabel: DAY_LABELS[i].substring(0, 3),
+        total:      0,
+        count:      0,
+        avg:        0,
       }));
 
-      for (const [dateStr, calories] of Object.entries(dateMap)) {
-        if (calories === 0) continue;
-        const dayOfWeek = new Date(`${dateStr}T12:00:00`).getDay();
-        days[dayOfWeek].totalCalories += calories;
-        days[dayOfWeek].count += 1;
+      for (const [dateStr, val] of Object.entries(dateMap)) {
+        if (val === 0) continue;
+        const dow = new Date(`${dateStr}T12:00:00`).getDay();
+        days[dow].total += val;
+        days[dow].count += 1;
       }
 
       for (const day of days) {
-        day.avg = day.count > 0 ? Math.round(day.totalCalories / day.count) : 0;
+        day.avg = day.count > 0 ? Math.round(day.total / day.count) : 0;
       }
 
       setDayData(days);
@@ -80,182 +129,299 @@ export default function DayPatterns({ userId }: DayPatternsProps) {
     }
 
     void loadData();
-    return () => {
-      cancelled = true;
-    };
-  }, [userId]);
+    return () => { cancelled = true; };
+  }, [userId, macro, period, customFrom, customTo, expanded, tab.field]);
 
-  // Insight: find the biggest outlier
+  // Insight computation
   const insight = useMemo(() => {
-    const withData = dayData.filter((d) => d.avg > 0);
+    const withData = dayData.filter(d => d.avg > 0);
     if (withData.length < 3) return null;
 
-    // Weekday average vs weekend
-    const weekdays = dayData.filter((d) => d.dayIndex >= 1 && d.dayIndex <= 5 && d.avg > 0);
-    const weekend = dayData.filter((d) => (d.dayIndex === 0 || d.dayIndex === 6) && d.avg > 0);
+    const weekdays = dayData.filter(d => d.dayIndex >= 1 && d.dayIndex <= 5 && d.avg > 0);
+    const weekend  = dayData.filter(d => (d.dayIndex === 0 || d.dayIndex === 6) && d.avg > 0);
+    if (!weekdays.length || !weekend.length) return null;
 
-    if (weekdays.length === 0 || weekend.length === 0) return null;
+    const wdAvg  = Math.round(weekdays.reduce((s, d) => s + d.avg, 0) / weekdays.length);
+    const weAvg  = Math.round(weekend.reduce((s,  d) => s + d.avg, 0) / weekend.length);
+    const diff   = wdAvg > 0 ? Math.round(((weAvg - wdAvg) / wdAvg) * 100) : 0;
 
-    const weekdayAvg = Math.round(weekdays.reduce((s, d) => s + d.avg, 0) / weekdays.length);
-    const weekendAvg = Math.round(weekend.reduce((s, d) => s + d.avg, 0) / weekend.length);
-
-    if (weekdayAvg === 0) return null;
-
-    const diff = Math.round(((weekendAvg - weekdayAvg) / weekdayAvg) * 100);
-    if (Math.abs(diff) < 5) return null;
-
-    // Find the single highest day
-    const highest = [...withData].sort((a, b) => b.avg - a.avg)[0];
+    const highest    = [...withData].sort((a, b) => b.avg - a.avg)[0];
     const overallAvg = Math.round(withData.reduce((s, d) => s + d.avg, 0) / withData.length);
-    const highestPct = Math.round(((highest.avg - overallAvg) / overallAvg) * 100);
+    const highestPct = overallAvg > 0 ? Math.round(((highest.avg - overallAvg) / overallAvg) * 100) : 0;
+    const macroLabel = t(tab.labelKey);
 
-    if (highestPct > 10) {
-      return `${highest.dayLabel}s you eat ${highestPct}% more than average`;
-    }
-
-    if (diff > 10) {
-      return `Weekends you eat ${diff}% more than weekdays`;
-    } else if (diff < -10) {
-      return `Weekdays you eat ${Math.abs(diff)}% more than weekends`;
-    }
-
+    if (highestPct > 15) return t('patterns.insight_day_more', { day: t(DAY_LABELS_I18N[highest.dayIndex]), n: highestPct, macro: macroLabel });
+    if (diff > 10)       return t('patterns.insight_weekend_more', { n: diff, macro: macroLabel });
+    if (diff < -10)      return t('patterns.insight_weekday_more', { n: Math.abs(diff), macro: macroLabel });
     return null;
-  }, [dayData]);
+  }, [dayData, tab, t]);
 
-  if (loading) {
-    return (
-      <div className="glass p-5 mb-4">
-        <div className="text-stone-500 text-sm text-center py-6 animate-pulse">Loading patterns...</div>
-      </div>
-    );
-  }
-
-  const maxAvg = Math.max(...dayData.map((d) => d.avg), 1);
-  const overallAvg = dayData.filter((d) => d.avg > 0).length > 0
-    ? Math.round(dayData.filter((d) => d.avg > 0).reduce((s, d) => s + d.avg, 0) / dayData.filter((d) => d.avg > 0).length)
+  // Mon–Sun order — guard against empty/partial dayData
+  const ordered = dayData.length === 7 ? [...dayData.slice(1), dayData[0]] : [];
+  const maxAvg  = ordered.length > 0 ? Math.max(...ordered.map(d => d?.avg ?? 0), 1) : 1;
+  const activeDays  = ordered.filter(d => d?.avg > 0);
+  const overallAvg  = activeDays.length > 0
+    ? Math.round(activeDays.reduce((s, d) => s + d.avg, 0) / activeDays.length)
     : 0;
 
-  // Reorder to Mon-Sun
-  const ordered = [...dayData.slice(1), dayData[0]];
+  const highestDay = activeDays.length > 0 ? [...activeDays].sort((a, b) => b.avg - a.avg)[0] : null;
+  const lowestDay  = activeDays.length > 1 ? [...activeDays].sort((a, b) => a.avg - b.avg)[0] : null;
 
-  const chartHeight = 100;
-  const barWidth = 30;
-  const gap = 8;
-  const totalWidth = ordered.length * (barWidth + gap) - gap;
+  const weekdayList = ordered.filter(d => d && d.dayIndex >= 1 && d.dayIndex <= 5 && d.avg > 0);
+  const weekendList = ordered.filter(d => d && (d.dayIndex === 0 || d.dayIndex === 6) && d.avg > 0);
+  const weekdayAvg  = weekdayList.length > 0 ? Math.round(weekdayList.reduce((s,d) => s+d.avg,0)/weekdayList.length) : 0;
+  const weekendAvg  = weekendList.length > 0 ? Math.round(weekendList.reduce((s,d) => s+d.avg,0)/weekendList.length) : 0;
+
+  const fmtVal = (v: number) => macro === 'calories'
+    ? (v >= 1000 ? `${(v/1000).toFixed(1)}k` : v.toString())
+    : `${v}`;
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.15 }}
-      className="glass p-5 mb-4"
+      className="glass p-4"
     >
-      <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider mb-4 flex items-center gap-2">
-        <BarChart3 size={14} /> Day Patterns
-      </h3>
+      {/* Header */}
+      <button
+        onClick={() => setExpanded(e => !e)}
+        className="w-full flex items-center justify-between"
+      >
+        <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider flex items-center gap-2">
+          <Icon name="i-bars" size={14} className="text-[var(--gold-300)]" />
+          {t('analytics.day_patterns')}
+        </h3>
+        {expanded
+          ? <ChevronUp size={14} className="text-stone-500" />
+          : <ChevronDown size={14} className="text-stone-500" />}
+      </button>
 
-      {overallAvg === 0 ? (
-        <p className="text-stone-500 text-sm text-center py-4">Not enough data yet (need 7+ days)</p>
-      ) : (
-        <>
-          {/* SVG Bar Chart */}
-          <div className="flex justify-center mb-3">
-            <svg
-              width={totalWidth + 20}
-              height={chartHeight + 28}
-              viewBox={`0 0 ${totalWidth + 20} ${chartHeight + 28}`}
-              className="overflow-visible"
-            >
-              {/* Average line */}
-              {overallAvg > 0 && (
-                <>
-                  <line
-                    x1={0}
-                    y1={chartHeight - (overallAvg / maxAvg) * chartHeight}
-                    x2={totalWidth + 20}
-                    y2={chartHeight - (overallAvg / maxAvg) * chartHeight}
-                    stroke="#78716c"
-                    strokeWidth={1}
-                    strokeDasharray="3 3"
-                    opacity={0.4}
-                  />
-                  <text
-                    x={totalWidth + 18}
-                    y={chartHeight - (overallAvg / maxAvg) * chartHeight - 4}
-                    textAnchor="end"
-                    fill="#78716c"
-                    fontSize={8}
-                    opacity={0.6}
+      <AnimatePresence>
+        {expanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.22 }}
+            style={{ overflow: 'hidden' }}
+          >
+            {/* Controls row: period + macro */}
+            <div className="mt-3 space-y-2">
+              {/* Period pills */}
+              <div className="flex gap-1.5">
+                {(['7d','30d','custom'] as PeriodType[]).map(p => (
+                  <button
+                    key={p}
+                    onClick={() => setPeriod(p)}
+                    className={`flex-1 py-1.5 rounded-lg text-[10px] font-medium border transition-all ${
+                      period === p
+                        ? 'bg-white/5 border-white/10 text-stone-200'
+                        : 'border-transparent text-stone-600 hover:text-stone-400'
+                    }`}
                   >
-                    avg
-                  </text>
-                </>
-              )}
+                    {p === '7d' ? t('patterns.7days') : p === '30d' ? t('patterns.30days') : t('patterns.custom')}
+                  </button>
+                ))}
+              </div>
 
-              {/* Bars */}
-              {ordered.map((day, i) => {
-                const x = 10 + i * (barWidth + gap);
-                const barH = day.avg > 0 ? (day.avg / maxAvg) * chartHeight : 3;
-                const y = chartHeight - barH;
-                const isWeekend = day.dayIndex === 0 || day.dayIndex === 6;
-                const isHigh = day.avg > overallAvg * 1.15;
-                const color = day.avg === 0
-                  ? 'rgba(255,255,255,0.04)'
-                  : isHigh
-                  ? '#ef4444'
-                  : isWeekend
-                  ? '#a855f7'
-                  : '#D4A853';
+              {/* Custom date range */}
+              <AnimatePresence>
+                {period === 'custom' && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="flex gap-2 overflow-hidden"
+                  >
+                    <div className="flex-1">
+                      <p className="text-[9px] text-stone-600 mb-1">{t('general.from')}</p>
+                      <input
+                        type="date"
+                        value={customFrom}
+                        onChange={e => setCustomFrom(e.target.value)}
+                        className="input-dark text-xs py-1.5"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-[9px] text-stone-600 mb-1">{t('general.to')}</p>
+                      <input
+                        type="date"
+                        value={customTo}
+                        onChange={e => setCustomTo(e.target.value)}
+                        className="input-dark text-xs py-1.5"
+                      />
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
-                return (
-                  <g key={day.dayIndex}>
-                    <motion.rect
-                      x={x}
-                      y={y}
-                      width={barWidth}
-                      height={barH}
-                      rx={4}
-                      fill={color}
-                      initial={{ height: 0, y: chartHeight }}
-                      animate={{ height: barH, y }}
-                      transition={{ duration: 0.5, delay: i * 0.05 }}
-                    />
-                    {day.avg > 0 && (
-                      <text
-                        x={x + barWidth / 2}
-                        y={y - 4}
-                        textAnchor="middle"
-                        fill="#a8a29e"
-                        fontSize={8}
-                      >
-                        {day.avg}
-                      </text>
-                    )}
-                    <text
-                      x={x + barWidth / 2}
-                      y={chartHeight + 14}
-                      textAnchor="middle"
-                      fill={isWeekend ? '#a855f7' : '#78716c'}
-                      fontSize={9}
-                      fontWeight={isWeekend ? 600 : 400}
-                    >
-                      {day.shortLabel}
-                    </text>
-                  </g>
-                );
-              })}
-            </svg>
-          </div>
-
-          {/* Insight */}
-          {insight && (
-            <div className="flex items-start gap-2 border-t border-white/5 pt-3">
-              <TrendingUp size={12} className="text-[#D4A853] mt-0.5 flex-shrink-0" />
-              <p className="text-stone-400 text-xs">{insight}</p>
+              {/* Macro type pills */}
+              <div className="flex gap-1">
+                {MACRO_TABS.map(tab => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setMacro(tab.key)}
+                    className={`flex-1 flex items-center justify-center gap-0.5 py-1.5 rounded-lg text-[9px] font-medium border transition-all ${
+                      macro === tab.key
+                        ? 'bg-white/5 border-white/10'
+                        : 'border-transparent text-stone-600 hover:text-stone-400'
+                    }`}
+                    style={macro === tab.key ? { color: tab.color, borderColor: `${tab.color}33` } : {}}
+                  >
+                    <Icon name={tab.icon} size={9} />
+                    <span className="hidden sm:inline ml-0.5">{t(tab.labelKey)}</span>
+                  </button>
+                ))}
+              </div>
             </div>
-          )}
-        </>
-      )}
+
+            {/* Chart area */}
+            {loading ? (
+              <div className="h-24 flex items-center justify-center">
+                <p className="text-stone-600 text-xs animate-pulse">{t('general.loading')}</p>
+              </div>
+            ) : overallAvg === 0 ? (
+              <div className="text-center py-6">
+                <Calendar size={28} className="text-stone-700 mx-auto mb-2" />
+                <p className="text-stone-500 text-sm">{t('patterns.no_data')}</p>
+                <p className="text-stone-600 text-xs mt-1">{t('patterns.log_more')}</p>
+              </div>
+            ) : (
+              <>
+                {/* Bar chart */}
+                <div className="relative mt-3 mb-1">
+                  {/* Average line */}
+                  <div
+                    className="absolute left-0 right-0 border-t border-dashed pointer-events-none z-10"
+                    style={{
+                      borderColor: 'var(--t4,#78716c)',
+                      opacity: 0.35,
+                      bottom: `calc(22px + ${(overallAvg / maxAvg) * 80}px)`,
+                    }}
+                  >
+                    <span
+                      className="absolute right-0 text-[8px] translate-y-[-100%] pr-0.5"
+                      style={{ color: 'var(--t5,#57534e)' }}
+                    >
+                      {t('analytics.avg')} {fmtVal(overallAvg)}{tab.unit}
+                    </span>
+                  </div>
+
+                  <div className="flex items-end gap-1.5 h-[102px]">
+                    {ordered.map((day, i) => {
+                      const isWeekend = day.dayIndex === 0 || day.dayIndex === 6;
+                      const isHigh    = day.avg > overallAvg * 1.2;
+                      const pct       = day.avg > 0 ? Math.max((day.avg / maxAvg) * 80, 4) : 3;
+
+                      const barColor = day.avg === 0
+                        ? 'var(--line-2,rgba(255,255,255,0.10))'
+                        : isHigh
+                        ? `linear-gradient(180deg, ${tab.color}, ${tab.color}88)`
+                        : isWeekend
+                        ? `linear-gradient(180deg, ${tab.color}88, ${tab.color}44)`
+                        : `linear-gradient(180deg, ${tab.color}cc, ${tab.color}66)`;
+
+                      // Mon-first ordered array: index 0=Mon(dayIndex=1)...index 5=Sat(dayIndex=6), index 6=Sun(dayIndex=0)
+                      // ordered = dayData.slice(1) + dayData[0], so ordered[i].dayIndex is correct
+                      const shortLabelKey = DAY_SHORT_I18N[day.dayIndex];
+
+                      return (
+                        <div key={day.dayIndex} className="flex-1 flex flex-col items-center gap-1">
+                          <div style={{ height: 16, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+                            {day.avg > 0 && (
+                              <motion.span
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                transition={{ delay: 0.3 + i * 0.04 }}
+                                style={{
+                                  fontSize: 8,
+                                  color: isHigh ? tab.color : 'var(--t4,#78716c)',
+                                  fontWeight: isHigh ? 700 : 400,
+                                  lineHeight: 1,
+                                }}
+                              >
+                                {fmtVal(day.avg)}
+                              </motion.span>
+                            )}
+                          </div>
+
+                          <motion.div
+                            key={`${macro}-${day.dayIndex}`}
+                            initial={{ height: 0 }}
+                            animate={{ height: pct }}
+                            transition={{ duration: 0.4, delay: i * 0.05, ease: 'easeOut' }}
+                            className="w-full rounded-t-md"
+                            style={{ background: barColor, minHeight: 3 }}
+                          />
+
+                          <span style={{
+                            fontSize: 9,
+                            fontWeight: isWeekend ? 600 : 400,
+                            color: isWeekend ? tab.color : 'var(--t4,#78716c)',
+                          }}>
+                            {t(shortLabelKey)}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Weekday vs Weekend stats */}
+                {(weekdayAvg > 0 || weekendAvg > 0) && (
+                  <div className="grid grid-cols-2 gap-2 mt-3">
+                    <div className="rounded-xl p-2.5 text-center" style={{ background: `${tab.color}11`, border: `1px solid ${tab.color}22` }}>
+                      <p className="text-[11px] font-bold" style={{ color: tab.color }}>
+                        {weekdayAvg > 0 ? `${fmtVal(weekdayAvg)}${tab.unit}` : '—'}
+                      </p>
+                      <p className="text-[9px] mt-0.5 text-stone-500">{t('patterns.weekday_avg')}</p>
+                    </div>
+                    <div className="rounded-xl p-2.5 text-center" style={{ background: `${tab.color}11`, border: `1px solid ${tab.color}22` }}>
+                      <p className="text-[11px] font-bold" style={{ color: tab.color }}>
+                        {weekendAvg > 0 ? `${fmtVal(weekendAvg)}${tab.unit}` : '—'}
+                      </p>
+                      <p className="text-[9px] mt-0.5 text-stone-500">{t('patterns.weekend_avg')}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* High / low callout */}
+                {highestDay && lowestDay && highestDay.dayLabel !== lowestDay.dayLabel && (
+                  <div
+                    className="rounded-xl p-3 mt-2"
+                    style={{ background: 'var(--line,rgba(255,255,255,0.05))', border: '1px solid var(--line-2,rgba(255,255,255,0.08))' }}
+                  >
+                    <div className="flex items-center justify-between text-xs">
+                      <div>
+                        <span className="text-stone-500">{t('patterns.peak')}: </span>
+                        <span className="font-semibold" style={{ color: tab.color }}>{t(DAY_LABELS_I18N[highestDay.dayIndex])}</span>
+                        <span className="text-stone-600"> · {fmtVal(highestDay.avg)}{tab.unit}</span>
+                      </div>
+                      <div>
+                        <span className="text-stone-500">{t('patterns.low')}: </span>
+                        <span className="font-semibold text-stone-400">{t(DAY_LABELS_I18N[lowestDay.dayIndex])}</span>
+                        <span className="text-stone-600"> · {fmtVal(lowestDay.avg)}{tab.unit}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Insight */}
+                {insight && (
+                  <div
+                    className="flex items-start gap-2 pt-2 mt-2 border-t"
+                    style={{ borderColor: 'var(--line,rgba(255,255,255,0.05))' }}
+                  >
+                    <TrendingUp size={12} className="mt-0.5 shrink-0" style={{ color: tab.color }} />
+                    <p className="text-xs text-stone-400">{insight}</p>
+                  </div>
+                )}
+              </>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

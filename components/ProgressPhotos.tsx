@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { Camera } from 'lucide-react';
+import { Icon } from '@/components/ui';
 
 export default function ProgressPhotos() {
   return (
@@ -18,8 +19,8 @@ export default function ProgressPhotos() {
       </h3>
 
       <div className="flex flex-col items-center justify-center py-8 rounded-xl border-2 border-dashed border-white/10 bg-white/[0.02]">
-        <div className="w-14 h-14 rounded-full bg-[#D4A853]/10 flex items-center justify-center mb-3">
-          <span className="text-2xl">📸</span>
+        <div className="w-14 h-14 rounded-full bg-[#D4A853]/10 flex items-center justify-center mb-3 text-[#D4A853]">
+          <Icon name="i-camera" size={26} />
         </div>
         <p className="text-stone-300 text-sm font-medium mb-1">
           Upload your first progress photo
