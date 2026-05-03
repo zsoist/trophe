@@ -22,6 +22,15 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 const AUTH_LIMIT = 60;     // requests per window for authenticated users
 const WINDOW_MS = 15 * 60 * 1_000; // 15 minutes
 
+/**
+ * User IDs that bypass the per-user rate limit.
+ * Used exclusively for automated eval runs that exceed 60 req / 15 min.
+ * Adding/removing requires a code change + deploy (intentional).
+ */
+const RATE_LIMIT_BYPASS_USER_IDS = new Set([
+  '7dbb5644-6a38-4f48-a512-d8be68e97ab7', // eval-tester-2026@trophe.app
+]);
+
 // In-memory map — resets on Vercel cold start (acceptable for abuse prevention)
 const authMap = new Map<string, { n: number; resetAt: number }>();
 
@@ -114,8 +123,10 @@ export async function guardAiRoute(req: NextRequest): Promise<AiRouteGuardResult
   if (token) {
     const userId = await verifySupabaseUser(token);
     if (userId) {
-      const rateLimit = checkLimit(authMap, userId, AUTH_LIMIT);
-      if (rateLimit) return { ok: false, response: rateLimit };
+      if (!RATE_LIMIT_BYPASS_USER_IDS.has(userId)) {
+        const rateLimit = checkLimit(authMap, userId, AUTH_LIMIT);
+        if (rateLimit) return { ok: false, response: rateLimit };
+      }
       return { ok: true, userId };
     }
     // Invalid Bearer token — fall through to cookie check
@@ -124,8 +135,10 @@ export async function guardAiRoute(req: NextRequest): Promise<AiRouteGuardResult
   // Path 2: Cookie-based auth (browser sessions via @supabase/ssr)
   const cookieUserId = await getUserFromCookie();
   if (cookieUserId) {
-    const rateLimit = checkLimit(authMap, cookieUserId, AUTH_LIMIT);
-    if (rateLimit) return { ok: false, response: rateLimit };
+    if (!RATE_LIMIT_BYPASS_USER_IDS.has(cookieUserId)) {
+      const rateLimit = checkLimit(authMap, cookieUserId, AUTH_LIMIT);
+      if (rateLimit) return { ok: false, response: rateLimit };
+    }
     return { ok: true, userId: cookieUserId };
   }
 

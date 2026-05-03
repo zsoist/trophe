@@ -337,13 +337,14 @@ function printSummary(results: CaseResult[]) {
       const failedChecks = Object.entries(f.checks)
         .filter(([, v]) => !v.pass)
         .map(([k, v]) => {
-          if ('expected' in v && v.expected !== null) {
-            const exp = typeof v.expected === 'object' && 'min' in v.expected
-              ? `[${v.expected.min}–${v.expected.max}]`
-              : JSON.stringify(v.expected);
-            return `${k}: got ${JSON.stringify(v.actual)}, expected ${exp}`;
+          const vAny = v as Record<string, unknown>;
+          if ('expected' in vAny && vAny.expected !== null) {
+            const exp = typeof vAny.expected === 'object' && vAny.expected !== null && 'min' in (vAny.expected as Record<string, unknown>)
+              ? `[${(vAny.expected as any).min}–${(vAny.expected as any).max}]`
+              : JSON.stringify(vAny.expected);
+            return `${k}: got ${JSON.stringify(vAny.actual ?? vAny.found)}, expected ${exp}`;
           }
-          return `${k}: ${JSON.stringify(v.actual)}`;
+          return `${k}: ${JSON.stringify(vAny.actual ?? vAny.found)}`;
         });
       console.log(`\n   ${f.id} — "${f.input}"`);
       if (f.error) console.log(`      ERROR: ${f.error}`);
