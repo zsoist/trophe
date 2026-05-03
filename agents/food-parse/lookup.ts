@@ -34,6 +34,11 @@ import { foods, type SelectFood } from '../../db/schema/foods';
 import { foodUnitConversions } from '../../db/schema/food_unit_conversions';
 import { sql, and, eq, isNull } from 'drizzle-orm';
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 // ── Config ────────────────────────────────────────────────────────────────────
 /** Minimum cosine similarity to accept a vector match (0–1). */
 const MIN_SIMILARITY    = 0.72;
@@ -151,13 +156,26 @@ async function keywordCandidates(foodName: string): Promise<SelectFood[]> {
   // If tsvector returned nothing, fall back to fuzzy ILIKE on name_en + name_el
   if (rows.length === 0) {
     const pattern = `%${tokens.join('%')}%`;
-    const fuzzyRows = await db
+    let fuzzyRows = await db
       .select()
       .from(foods)
       .where(
         sql`(name_en ILIKE ${pattern} OR name_el ILIKE ${pattern})`
       )
       .limit(KEYWORD_LIMIT);
+
+    // Word-boundary post-filter: reject matches where query tokens appear
+    // only as substrings of longer words (e.g. "latte" inside "platter").
+    // At least one query token (length ≥ 3) must appear as a whole word.
+    fuzzyRows = fuzzyRows.filter(food => {
+      const name = (food.nameEn ?? '').toLowerCase() + ' ' + (food.nameEl ?? '').toLowerCase();
+      return tokens.some(token => {
+        if (token.length < 3) return false;
+        const regex = new RegExp(`\\b${escapeRegex(token)}\\b`, 'i');
+        return regex.test(name);
+      });
+    });
+
     return mergeUnique(exactishRows, mergeUnique(fuzzyRows, canonicalMatches));
   }
 
@@ -285,6 +303,35 @@ function lexicalIntentScore(candidate: SelectFood, query: string): number {
   return score;
 }
 
+/**
+ * Conditional canonical boost: only award the +5 ranking bonus to canonical
+ * foods whose name (or canonical_food_key tokens) shares at least one
+ * meaningful token with the query.
+ *
+ * Prevents false-positive boosts like plantain_fried winning for "fries" query,
+ * while preserving the boost for true matches like egg_chicken_whole_raw for "egg".
+ */
+function canonicalRelevanceBoost(food: SelectFood, query: string): number {
+  const queryNormalized = singularize(normalizeLexicalName(query));
+  const queryTokens = queryNormalized.split(/\s+/).filter(t => t.length >= 3);
+  if (queryTokens.length === 0) return 5; // very short query, give benefit of doubt
+
+  const nameNormalized = singularize(normalizeLexicalName(food.nameEn));
+  const nameTokens = nameNormalized.split(/\s+/);
+
+  // Also check canonical_food_key tokens (e.g. "egg_chicken_whole_raw" → ["egg","chicken","whole","raw"])
+  const keyTokens = (food.canonicalFoodKey ?? '').split(/[_-]+/).filter(t => t.length >= 3);
+  const allFoodTokens = [...nameTokens, ...keyTokens];
+
+  // Exact token match only (not prefix) — prevents "frie" (from "fries")
+  // matching "fried" in "Plantains, green, fried"
+  const overlap = queryTokens.some(qt =>
+    allFoodTokens.some(ft => ft === qt),
+  );
+
+  return overlap ? 5 : 0;
+}
+
 function metadataBoost(candidates: SelectFood[], region: string, query: string): SelectFood[] {
   if (candidates.length <= 1) return candidates;
 
@@ -296,7 +343,7 @@ function metadataBoost(candidates: SelectFood[], region: string, query: string):
       lexicalIntentScore(c, query) +
       qualityScore(c.dataQuality) +
       (c.region?.includes(region) ? 2 : 0) +
-      (c.canonicalFoodKey ? 5 : 0) + // canonical foods have verified conversions
+      (c.canonicalFoodKey ? canonicalRelevanceBoost(c, query) : 0) +
       (c.popularity ?? 0) * 0.01, // popularity is a small tie-breaker
   }));
 
