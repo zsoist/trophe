@@ -76,6 +76,7 @@ export interface LookupResult {
 
 // ── Stage 1: keyword filter ───────────────────────────────────────────────────
 async function keywordCandidates(foodName: string): Promise<SelectFood[]> {
+  if (!foodName || typeof foodName !== 'string') return [];
   // Tokenize input: split on spaces, clean, build tsquery
   const tokens = foodName
     .toLowerCase()
@@ -462,6 +463,7 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
 };
 
 function correctFoodName(name: string): string {
+  if (!name || typeof name !== 'string') return name ?? '';
   const lower = name.toLowerCase().trim();
   // Check exact match first
   if (FOOD_NAME_CORRECTIONS[lower]) return FOOD_NAME_CORRECTIONS[lower];
