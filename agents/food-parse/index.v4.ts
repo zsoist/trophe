@@ -29,7 +29,7 @@ import type { FoodParseInput, FoodParseOutput, ParsedFoodItem } from '../schemas
 import { enrichWithLocalDB } from './enrich';
 import { lookupFoodBatch } from './lookup';
 import type { LookupInput } from './lookup';
-import { decomposeAndLookup } from './decompose';
+import { decomposeAndLookup, lookupCachedRecipeAsItem } from './decompose';
 import { pick } from '../router';
 import { traced } from '../observability/langfuse';
 import { emitGenAISpan, estimateCostUsd } from '../observability/otel';
@@ -369,15 +369,44 @@ export async function run(
     return { ok: false, error: 'Could not parse food items from LLM response', telemetry };
   }
 
-  // ── Step 2: DB lookup for each identified food ────────────────────────────
-  const lookupInputs: LookupInput[] = v4Parsed.items.map(item => ({
-    foodName:  item.food_name,
-    unit:      item.unit,
-    qualifier: item.qualifier ?? undefined,
-    region:    language === 'el' ? 'GR' : 'US',
-  }));
+  // ── Step 2: Check dish_recipes cache (cheap, no LLM) ──────────────────────
+  // Composite dishes (souvlaki with pita, arepa con queso) should match
+  // dish_recipes BEFORE the foods table to avoid partial matches.
+  // This is a single DB query per item — no LLM cost.
+  const recipeResults: Array<ParsedFoodItem | null> = [];
+  for (const item of v4Parsed.items) {
+    const cached = await lookupCachedRecipeAsItem({
+      foodName: item.food_name,
+      nameLocalized: item.name_localized,
+      quantity: item.quantity,
+      unit: item.unit,
+      rawText: item.raw_text,
+      region: language === 'el' ? 'GR' : language === 'es' ? 'CO' : 'US',
+    });
+    recipeResults.push(cached);
+  }
+
+  // Only look up items that didn't hit the recipe cache (saves DB queries)
+  const nonCachedIndices: number[] = [];
+  const lookupInputs: LookupInput[] = [];
+  for (let i = 0; i < v4Parsed.items.length; i++) {
+    if (recipeResults[i] !== null) continue; // recipe cache hit, skip
+    nonCachedIndices.push(i);
+    lookupInputs.push({
+      foodName:  v4Parsed.items[i].food_name,
+      unit:      v4Parsed.items[i].unit,
+      qualifier: v4Parsed.items[i].qualifier ?? undefined,
+      region:    language === 'el' ? 'GR' : 'US',
+    });
+  }
 
   const lookupResults = await lookupFoodBatch(lookupInputs);
+
+  // Re-expand results to match original item indices
+  const expandedLookupResults: Array<Awaited<ReturnType<typeof lookupFoodBatch>>[number] | null> = v4Parsed.items.map(() => null);
+  for (let j = 0; j < nonCachedIndices.length; j++) {
+    expandedLookupResults[nonCachedIndices[j]] = lookupResults[j] ?? null;
+  }
 
   // ── Step 3: Build final ParsedFoodItem[] with deterministic macros ────────
   const finalItems: ParsedFoodItem[] = [];
@@ -385,7 +414,15 @@ export async function run(
 
   for (let i = 0; i < v4Parsed.items.length; i++) {
     const candidate = v4Parsed.items[i];
-    const lookup = lookupResults[i];
+    const recipeHit = recipeResults[i];
+    const lookup = expandedLookupResults[i];
+
+    // Priority 1: dish_recipes cache hit (composite dish with pre-computed macros)
+    if (recipeHit) {
+      telemetry.dbHits++;
+      finalItems.push(recipeHit);
+      continue;
+    }
 
     if (lookup) {
       // DB hit — deterministic macros

@@ -81,7 +81,7 @@ function getDecomposePrompt(): string {
  * Search dish_recipes by tsvector for a cached decomposition.
  * Returns null if no match found.
  */
-async function lookupCachedRecipe(dishName: string): Promise<CachedRecipe | null> {
+export async function lookupCachedRecipe(dishName: string): Promise<CachedRecipe | null> {
   const normalized = dishName.toLowerCase().trim();
 
   const results = await db.execute(sql`
@@ -195,6 +195,37 @@ async function cacheRecipe(
     // Non-critical — cache miss is OK, just means next call will re-decompose
     console.warn('[decompose] Cache write failed:', err instanceof Error ? err.message : err);
   }
+}
+
+// ── Cache-only lookup (no LLM) ──────────────────────────────────────────────
+
+/**
+ * Check ONLY the dish_recipes cache for a pre-computed decomposition.
+ * Returns a ParsedFoodItem if found, null otherwise.
+ * This is cheap (single DB query) and safe to call for every item in the pipeline.
+ * Does NOT trigger LLM decomposition — use decomposeAndLookup for that.
+ */
+export async function lookupCachedRecipeAsItem(input: DecomposeInput): Promise<ParsedFoodItem | null> {
+  const cached = await lookupCachedRecipe(input.foodName);
+  if (!cached) return null;
+
+  const scale = input.quantity;
+  return {
+    raw_text: input.rawText,
+    food_name: cached.dish_name,
+    name_localized: cached.dish_name_localized ?? input.nameLocalized ?? input.foodName,
+    quantity: input.quantity,
+    unit: input.unit,
+    grams: Math.round(cached.total_grams * scale),
+    calories: Math.round(cached.total_kcal * scale * 10) / 10,
+    protein_g: Math.round(cached.total_protein * scale * 10) / 10,
+    carbs_g: Math.round(cached.total_carbs * scale * 10) / 10,
+    fat_g: Math.round(cached.total_fat * scale * 10) / 10,
+    fiber_g: Math.round((cached.total_fiber ?? 0) * scale * 10) / 10,
+    sugar_g: 0,
+    confidence: cached.confidence,
+    source: 'local_db',
+  };
 }
 
 // ── Main entry point ─────────────────────────────────────────────────────────
