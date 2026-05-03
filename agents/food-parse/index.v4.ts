@@ -62,7 +62,18 @@ function extractV4JSON(text: string): V4LLMOutput | null {
   if (!match) return null;
   try {
     const parsed = JSON.parse(match[0]);
-    if (Array.isArray(parsed.items)) return parsed as V4LLMOutput;
+    if (Array.isArray(parsed.items)) {
+      // Filter out items with null/empty food_name — LLM sometimes returns null
+      // for foods it can't identify, which would crash downstream .toLowerCase()
+      parsed.items = parsed.items.filter((item: V4Candidate) => {
+        if (!item.food_name || typeof item.food_name !== 'string' || item.food_name.trim() === '') {
+          console.warn('[food-parse] Skipping item with null/empty food_name:', item.raw_text ?? '(no raw_text)');
+          return false;
+        }
+        return true;
+      });
+      return parsed as V4LLMOutput;
+    }
   } catch {}
   return null;
 }
