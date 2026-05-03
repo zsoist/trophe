@@ -557,6 +557,19 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
   'salmon': 'fish salmon atlantic farmed',
   'tuna': 'fish tuna light canned',
   'tuna canned': 'fish tuna light canned',
+  // Restaurant shorthand — users rarely say the full menu name
+  'big mac': 'Big Mac',
+  'mcchicken': 'McChicken',
+  'egg mcmuffin': 'Egg McMuffin',
+  'whopper': 'Whopper',
+  'crunchwrap': 'Crunchwrap Supreme',
+  'baconator': 'Baconator',
+  'chicken sandwich chick-fil-a': 'Chick-fil-A Chicken Sandwich',
+  'orange chicken': 'Orange Chicken',
+  // Colombian chains
+  'hamburguesa corral': 'Corral Burger',
+  'todoterreno': 'Todoterreno Burger',
+  'pollo frisby': 'Frisby Fried Chicken Breast',
 };
 
 function correctFoodName(name: string): string {

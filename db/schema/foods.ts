@@ -42,6 +42,8 @@ export const foodSourceEnum = pgEnum('food_source', [
   'helth',
   'hhf',
   'custom',
+  'menustat',
+  'chain_co',
 ]);
 
 export const dataQualityEnum = pgEnum('data_quality', [
