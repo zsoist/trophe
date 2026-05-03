@@ -89,6 +89,102 @@ export interface FoodParseRunResultV4 {
   };
 }
 
+// ── LLM macro estimation fallback ────────────────────────────────────────────
+interface MacroEstimate {
+  food_name: string;
+  grams: number;
+  calories: number;
+  protein_g: number;
+  carbs_g: number;
+  fat_g: number;
+  fiber_g: number;
+  sugar_g: number;
+}
+
+const MACRO_ESTIMATE_PROMPT = `You are a nutrition database. Given food items with quantities, estimate their macronutrient values.
+Return ONLY valid JSON in this exact format:
+{
+  "estimates": [
+    {
+      "food_name": "the food name",
+      "grams": <estimated total grams for the given quantity>,
+      "calories": <total kcal>,
+      "protein_g": <total protein in grams>,
+      "carbs_g": <total carbohydrates in grams>,
+      "fat_g": <total fat in grams>,
+      "fiber_g": <total fiber in grams>,
+      "sugar_g": <total sugar in grams>
+    }
+  ]
+}
+
+Rules:
+- Use standard serving sizes for the region (e.g., 1 arepa ~120g, 1 empanada ~100g, 1 serving soup ~350g).
+- All values should be for the TOTAL quantity specified, not per 100g.
+- Round to 1 decimal place.
+- Be conservative — better to slightly underestimate than overestimate.
+- Consider cooking method (fried adds fat, boiled doesn't).`;
+
+async function estimateMacrosViaLLM(
+  items: { food_name: string; quantity: number; unit: string; raw_text: string }[],
+): Promise<(MacroEstimate | null)[]> {
+  if (items.length === 0) return [];
+
+  const userMessage = items
+    .map((it, i) => `${i + 1}. ${it.raw_text} (${it.quantity} ${it.unit} of ${it.food_name})`)
+    .join('\n');
+
+  try {
+    const policy = pick('food_parse'); // Use the same model for consistency
+
+    let responseText = '';
+
+    if (policy.provider === 'google') {
+      const result = await callGeminiMessages({
+        model: policy.model,
+        system: MACRO_ESTIMATE_PROMPT,
+        userMessage,
+        maxTokens: 1024,
+      });
+      responseText = result.text;
+    } else {
+      const result = await callAnthropicMessages({
+        model: policy.model,
+        system: MACRO_ESTIMATE_PROMPT,
+        userMessage,
+        maxTokens: 1024,
+        cacheSystem: false,
+      });
+      responseText = result.text;
+    }
+
+    // Extract JSON
+    const jsonMatch = responseText.match(/\{[\s\S]*"estimates"\s*:\s*\[[\s\S]*\][\s\S]*\}/);
+    if (!jsonMatch) return items.map(() => null);
+
+    const parsed = JSON.parse(jsonMatch[0]);
+    if (!Array.isArray(parsed.estimates)) return items.map(() => null);
+
+    return items.map((_, i) => {
+      const est = parsed.estimates[i];
+      if (!est || typeof est.calories !== 'number') return null;
+      return {
+        food_name: est.food_name ?? items[i].food_name,
+        grams: Math.round(est.grams ?? items[i].quantity * 100),
+        calories: Math.round(est.calories),
+        protein_g: Math.round((est.protein_g ?? 0) * 10) / 10,
+        carbs_g: Math.round((est.carbs_g ?? 0) * 10) / 10,
+        fat_g: Math.round((est.fat_g ?? 0) * 10) / 10,
+        fiber_g: Math.round((est.fiber_g ?? 0) * 10) / 10,
+        sugar_g: Math.round((est.sugar_g ?? 0) * 10) / 10,
+      };
+    });
+  } catch (err) {
+    console.error('[food-parse] LLM macro estimation failed:', err);
+    return items.map(() => null);
+  }
+}
+
 // ── Main run function ─────────────────────────────────────────────────────────
 export async function run(
   input: FoodParseInput,
@@ -221,6 +317,7 @@ export async function run(
 
   // ── Step 3: Build final ParsedFoodItem[] with deterministic macros ────────
   const finalItems: ParsedFoodItem[] = [];
+  const dbMissFallbacks: { index: number; candidate: V4Candidate }[] = [];
 
   for (let i = 0; i < v4Parsed.items.length; i++) {
     const candidate = v4Parsed.items[i];
@@ -247,11 +344,10 @@ export async function run(
         source:         'local_db',
       });
     } else {
-      // DB miss — fall back to v3 enrich (LLM knowledge, flagged as ai_estimate)
+      // DB miss — try enrichWithLocalDB first, then LLM macro estimation
       telemetry.dbMisses++;
 
-      // Re-use v3 enrich on a minimal item
-      const legacyItem = {
+      const legacyItem: ParsedFoodItem = {
         food_name: candidate.food_name,
         name_localized: candidate.name_localized,
         raw_text: candidate.raw_text,
@@ -265,10 +361,50 @@ export async function run(
       };
 
       const [enriched] = enrichWithLocalDB([legacyItem]);
-      finalItems.push({
-        ...enriched,
-        source: 'ai_estimate',
-      });
+
+      if (enriched.calories > 0) {
+        // enrichWithLocalDB found a match in the small static DB
+        finalItems.push({ ...enriched, source: 'ai_estimate' });
+      } else {
+        // No match anywhere — use LLM to estimate macros
+        dbMissFallbacks.push({ index: finalItems.length, candidate });
+        finalItems.push(legacyItem); // placeholder, will be overwritten
+      }
+    }
+  }
+
+  // ── Step 3b: LLM macro estimation for DB misses ─────────────────────────
+  if (dbMissFallbacks.length > 0) {
+    const estimated = await estimateMacrosViaLLM(
+      dbMissFallbacks.map((f) => ({
+        food_name: f.candidate.food_name,
+        quantity: f.candidate.quantity,
+        unit: f.candidate.unit,
+        raw_text: f.candidate.raw_text,
+      })),
+    );
+
+    for (let i = 0; i < dbMissFallbacks.length; i++) {
+      const { index, candidate } = dbMissFallbacks[i];
+      const est = estimated[i];
+      if (est) {
+        finalItems[index] = {
+          raw_text:       candidate.raw_text,
+          food_name:      candidate.food_name,
+          name_localized: candidate.name_localized,
+          quantity:       candidate.quantity,
+          unit:           candidate.unit,
+          grams:          est.grams,
+          calories:       est.calories,
+          protein_g:      est.protein_g,
+          carbs_g:        est.carbs_g,
+          fat_g:          est.fat_g,
+          fiber_g:        est.fiber_g,
+          sugar_g:        est.sugar_g,
+          confidence:     candidate.confidence * 0.7,
+          source:         'ai_estimate',
+        };
+      }
     }
   }
 
