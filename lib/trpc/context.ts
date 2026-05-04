@@ -21,12 +21,13 @@ import { db } from '@/db/client';
 import { profiles } from '@/db/schema/profiles';
 import { eq } from 'drizzle-orm';
 import type { User } from '@supabase/supabase-js';
+import type { UserRole } from '@/lib/auth/get-session';
 
 // ── Context type ───────────────────────────────────────────────────────────
 
 export interface Context {
   user: User | null;
-  profile: { id: string; role: string; fullName: string; email: string } | null;
+  profile: { id: string; role: UserRole; fullName: string; email: string } | null;
   db: typeof db;
   /** Raw request headers — available for logging/tracing. */
   headers: Headers;
@@ -74,7 +75,7 @@ export async function createContext(
       .from(profiles)
       .where(eq(profiles.id, user.id))
       .limit(1);
-    profile = row ?? null;
+    profile = row ? { ...row, role: row.role as UserRole } : null;
   }
 
   return {

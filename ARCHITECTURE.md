@@ -15,9 +15,9 @@ _Last updated: 2026-05-03_
 | **Database** | Supabase Postgres (cloud, production) + Supabase CLI local stack on OrbStack @ `127.0.0.1:54322` (dev) |
 | **ORM** | Drizzle ORM + Drizzle Kit — versioned migrations in `drizzle/`, schema in `db/schema/` |
 | **API layer** | tRPC v11 (internal coach UI) + REST `/api/v1/*` (external / webhooks) |
-| **LLM router** | `agents/router/` — task-based model selection: parse→Gemini Flash, recipe→Haiku 4.5, coach→Sonnet 4.6 |
+| **LLM router** | `agents/router/` — task-based model selection: parse→Gemini Flash, recipe/meal→Haiku 4.5, coach/memory→Sonnet 4.5 |
 | **Embeddings** | Voyage v4 (`voyage-3-large`, 1024-dim) via `scripts/ingest/embed-foods.ts` |
-| **Observability** | Langfuse self-hosted @ `localhost:3002` — OTel GenAI semconv per span |
+| **Observability** | Langfuse via `LANGFUSE_HOST` — OTel GenAI semconv per span |
 | **Computer Vision** | MediaPipe Pose (browser WASM, 33 landmarks, 30+ FPS) for AI Form Check |
 | **Wearables** | Spike API — Apple Health, Whoop, Oura, Strava, Garmin, Fitbit via single integration |
 | **Testing** | Vitest 4 + `@vitest/coverage-v8` |
@@ -50,7 +50,7 @@ AI cost governance: `agent_runs` is the trusted table for cost and LLM observabi
                     │
                     ▼
              ┌───────────┐
-             │ Langfuse  │  (self-hosted, localhost:3002 in dev)
+             │ Langfuse  │  (self-hosted endpoint from LANGFUSE_HOST)
              │ (traces)  │
              └───────────┘
 ```
@@ -71,9 +71,10 @@ AI cost governance: `agent_runs` is the trusted table for cost and LLM observabi
 3. Middleware (proxy.ts) reads the cookie
    → lib/supabase/middleware.ts creates a server client against request.cookies
    → lib/auth/require-role.ts checks profile.role:
-       /coach/*   requires role ∈ {coach, both, admin, super_admin}
+       /coach/*   requires role ∈ {coach, admin, super_admin}
        /admin/*   requires role ∈ {admin, super_admin}
        /super/*   requires role = super_admin
+       /api/admin/* and /api/seed/* require privileged auth
    → Unauthenticated → 302 to /login
    → Wrong role     → 302 to /dashboard
 
@@ -163,7 +164,7 @@ Declarative `taskPolicies` map selects provider+model per task:
 |------|----------|-------|-----------|
 | `food_parse` | Google | Gemini 2.5 Flash | Cheapest structured output; ~$0.05/active-day vs $0.40 |
 | `recipe_analyze` | Anthropic | Haiku 4.5 | Prompt-cached system prompt; fast |
-| `coach_insight` | Anthropic | Sonnet 4.6 | Needs reasoning over week of data |
+| `coach_insight` | Anthropic | Sonnet 4.5 | Needs reasoning over week of data |
 | `embed` | Voyage | voyage-large-2 | 1024-dim, MTEB 67, consistent with OpenBrain |
 
 ### Food parse pipeline (v0.3 deterministic)
@@ -271,4 +272,4 @@ trophe/
 5. **Supabase service role key is server-only** (no `NEXT_PUBLIC_` prefix).
 6. **LLM never emits macro numbers** (v0.3 food pipeline) — all nutrition values come from `foods` table.
 7. **Mobile-first**: design + verify at 390×844 (iPhone 14 Pro) before desktop.
-8. **Never push to `main` during v0.3 development** — all work on `v0.3-overhaul` branch until Phase 9 cutover.
+8. **Privileged route invariant** — `/api/admin/*`, `/api/seed/*`, and future privileged HTTP routes must be covered by proxy auth and route-level role guards.

@@ -26,6 +26,7 @@ import { createCallerFactory } from '../../lib/trpc/init';
 import { appRouter } from '../../lib/trpc/router';
 import { db } from '../../db/client';
 import type { Context } from '../../lib/trpc/context';
+import type { UserRole } from '../../lib/auth/get-session';
 
 // ── Caller factory ─────────────────────────────────────────────────────────
 
@@ -55,7 +56,7 @@ function roleId(role: string): string {
   return ROLE_ID[role] ?? `00000000-0000-4000-8000-${String(Object.keys(ROLE_ID).length + 1).padStart(12, '0')}`;
 }
 
-function authedCtx(role: string = 'client'): Context {
+function authedCtx(role: UserRole = 'client'): Context {
   const id = roleId(role);
   return makeCtx({
     user: {

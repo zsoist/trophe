@@ -70,7 +70,7 @@ agents/
   memory/           # read.ts, write.ts, coach-blocks.ts (Mem0/Letta hybrid)
   food-parse/       # index.ts (LLM identifies only), lookup.ts (deterministic macros)
   recipe-analyze/   # index.ts
-  insights/         # wearable-summary.ts (Spike → Sonnet 4.6 → coach text)
+  insights/         # wearable-summary.ts (Spike → Sonnet 4.5 → coach text)
   evals/            # run-all.ts + multi-layer/ (schema, LLM judge, regression)
   prompts/          # versioned .md prompt files
   schemas/          # input/output types per agent
@@ -81,7 +81,7 @@ agents/
 **LLM routing** (cost-optimized):
 - `food_parse` → Gemini 2.5 Flash (~$0.05/active-day vs Haiku $0.40)
 - `recipe` → Haiku 4.5 + ephemeral cache (~70% spend reduction)
-- `coach_insight` → Sonnet 4.6 (reasoning over week of data)
+- `coach_insight` → Sonnet 4.5 (reasoning over week of data)
 - `embed` → Voyage v4 `voyage-large-2` 1024-dim
 
 ---

@@ -6,19 +6,19 @@ Production: [trophe.app](https://trophe.app)
 
 Canonical repo path: `/Volumes/SSD/work/forge-projects/trophe`
 
-Production readiness as of 2026-05-02:
+Production readiness as of 2026-05-03:
 - Supabase project/ref: `iwbpzwmidzvpiofnqexd`
-- Branch policy: `main` is GitHub default; `v0.3-overhaul` remains the temporary production branch until final verification and merge.
+- Branch policy: `main` is the production branch. CI runs on `main`, and Vercel auto-deploys production from `main`.
 - AI auth: async `guardAiRoute()` verifies bearer tokens with Supabase and returns the verified `userId`.
 - Cost/observability: `agent_runs` is canonical; `api_usage_log` is legacy compatibility only.
-- Verification sequence: `npm run typecheck && npm run lint && npm test && npm run readiness && npm run build && npm run test:e2e && npm run canary:prod`.
+- Verification sequence: `npm run typecheck && npm run lint && npm test && npm run readiness && npm run evals && npm run build && npm run test:e2e && npm run canary:prod`.
 
 ## What it is
 
 A three-tier product:
 1. **Coach Tool** (current focus) — SaaS for nutritionists managing 10-50+ clients. Habit-based methodology, AI-powered food tracking, coach analytics.
 2. **Self-service tracker** (planned) — Consumer app for individuals without a coach.
-3. **B2B platform** (planned) — Multi-tenant for gyms and clinics.
+3. **B2B platform** (pilot-ready core) — Multi-tenant gyms and clinics with org admin, role gates, and billing metadata. External paid controls remain launch-gating.
 
 Partnership with Michael Kavdas (Greek nutritionist, PN L1 certified, COO Athletikapp). Testing phase Apr 16-18, 2026 with 5 users.
 
@@ -27,7 +27,7 @@ Partnership with Michael Kavdas (Greek nutritionist, PN L1 certified, COO Athlet
 - Next.js 16 App Router · React 19 · TypeScript strict · Tailwind CSS 4 · Framer Motion
 - Supabase (Postgres + Auth + RLS + Storage)
 - Anthropic Claude Haiku 4.5 (food-parse, recipe-analyze, photo)
-- Anthropic Claude Haiku 4.5 (meal suggestions)
+- Anthropic Claude Haiku 4.5 (meal suggestions), Sonnet 4.5 (coach insights/memory), Gemini 2.5 Flash (food parse)
 - MediaPipe Pose (browser AI Form Check)
 - Vitest + GitHub Actions CI
 - Trilingual UI: EN / ES / EL
@@ -102,7 +102,7 @@ npm run canary:prod   # read-only production canary for trophe.app
 
 ## Contributing
 
-- Branch from `v0.3-overhaul` until it is merged back to `main`; CI and the production canary must be green before branch-policy changes.
+- Branch from `main`; CI and the production canary must be green before production changes.
 - Follow the coding style in `CLAUDE.md`. Mobile-first (390×844).
 - No new `bg-stone-9xx` on themed pages — use CSS variables or `.glass` utility classes (ESLint enforces).
 - Add a test in `tests/` for any new `lib/` business logic.

@@ -58,9 +58,9 @@ Initial audit findings are hypotheses. Sanity checks are the verification. Don't
 | **Database** | Supabase Postgres (production) + Supabase CLI local stack @ `127.0.0.1:54322` (dev) |
 | **ORM** | Drizzle ORM + Drizzle Kit — schema in `db/schema/`, migrations in `drizzle/` |
 | **API** | tRPC v11 (coach UI) + REST `/api/*` (public / webhooks) |
-| **AI** | LLM router (`agents/router/`) — Gemini 2.5 Flash (food-parse) · Haiku 4.5 (recipe) · Sonnet 4.6 (coach insights) |
+| **AI** | LLM router (`agents/router/`) — Gemini 2.5 Flash (food-parse) · Haiku 4.5 (recipe) · Sonnet 4.5 (coach insights) |
 | **Embeddings** | Voyage v4 `voyage-3-large` 1024-dim via `scripts/ingest/embed-foods.ts` |
-| **Observability** | Langfuse self-hosted @ `localhost:3002` — OTel GenAI semconv per span |
+| **Observability** | Langfuse via `LANGFUSE_HOST` — OTel GenAI semconv per span |
 | **Computer Vision** | MediaPipe Pose (browser WASM, 33 landmarks, 30+ FPS) for AI Form Check |
 | **Wearables** | Spike API — Apple Health, Whoop, Oura, Strava, Garmin, Fitbit |
 | **Testing** | Vitest 4 + `@vitest/coverage-v8` |
@@ -216,7 +216,7 @@ Public signup always forces `role = 'client'`. Invite token required for elevate
 - Creates server Supabase client from `request.cookies` via `lib/supabase/middleware.ts`
 - Calls `getUser()` (not `getSession()` — re-validates JWT against auth server)
 - Enforces role routing:
-  - `/coach/*` → role ∈ `{coach, both, admin, super_admin}` required
+  - `/coach/*` → role ∈ `{coach, admin, super_admin}` required
   - `/admin/*` → role ∈ `{admin, super_admin}` required
   - `/super/*` → role = `super_admin` only
   - Unauthenticated → 302 `/login` | Wrong role → 302 `/dashboard`
@@ -364,9 +364,9 @@ npm run build        # clean production build
 | Michael Kavdas | michael@kavdas.com | trophe2026! | coach |
 | George Kavdas | george@kavdas.com | trophe2026! | coach |
 | Dimitra Kavdas | dimitra@kavdas.com | trophe2026! | client (Greek) |
-| Daniel Reyes | daniel@reyes.com | trophe2026! | both |
-| Nikos | nikos@biorita.com | trophe2026! | both |
-| Daniela | daniela@trophe.app | trophe2026! | both |
+| Daniel Reyes | daniel@reyes.com | trophe2026! | super_admin |
+| Nikos | nikos@biorita.com | trophe2026! | coach |
+| Daniela | daniela@trophe.app | trophe2026! | coach |
 | Alex Katsanas | alex@katsanas.com | trophe2026! | client |
 
 ---

@@ -134,7 +134,7 @@ export default function PlanEditorPage() {
         .maybeSingle();
 
       const role = coachProfile?.role ?? '';
-      if (role !== 'coach' && role !== 'both') {
+      if (!['coach', 'admin', 'super_admin'].includes(role)) {
         setAuthError(true);
         setLoading(false);
         return;

@@ -195,7 +195,7 @@ export const foodLog = pgTable("food_log", {
 	foodName: text("food_name").notNull(),
 	quantity: real().default(1).notNull(),
 	unit: text().default('serving'),
-	calories: integer(),
+	calories: real(),
 	proteinG: real("protein_g"),
 	carbsG: real("carbs_g"),
 	fatG: real("fat_g"),

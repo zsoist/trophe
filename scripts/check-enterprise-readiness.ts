@@ -17,13 +17,14 @@ function assert(name: string, ok: boolean, detail: string): void {
 const workflow = read('.github/workflows/ci.yml');
 const packageJson = JSON.parse(read('package.json')) as { scripts?: Record<string, string> };
 const nextConfig = read('next.config.ts');
+const proxy = read('proxy.ts');
 const routerPolicies = read('agents/router/policies.ts');
 const supabaseConfig = read('supabase/config.toml');
 
 assert(
-  'CI runs on v0.3-overhaul',
-  workflow.includes('v0.3-overhaul'),
-  'workflow must protect the active overhaul branch',
+  'CI runs on main',
+  workflow.includes('branches: [main]') && !workflow.includes('v0.3-overhaul'),
+  'workflow must protect main as the production branch and not reference archived branches',
 );
 
 assert(
@@ -69,6 +70,13 @@ assert(
   ['food_parse', 'recipe_analyze', 'photo_analyze', 'meal_suggest', 'coach_insight', 'memory_extract', 'memory_embed']
     .every((task) => routerPolicies.includes(task)),
   'all live AI tasks must be represented in agents/router/policies.ts',
+);
+
+assert(
+  'Privileged API prefixes are proxy-protected',
+  proxy.includes("pathname.startsWith('/api/admin')") &&
+    proxy.includes("pathname.startsWith('/api/seed')"),
+  'proxy.ts must require authentication before privileged API route handlers run',
 );
 
 assert(

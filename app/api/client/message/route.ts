@@ -1,21 +1,18 @@
 /**
  * POST /api/client/message
  * Client sends a quick message to their assigned coach.
- * Uses service role to insert into coach_notes (bypasses RLS).
+ * Uses a server-only service client after verifying the caller.
  */
-import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
+import { createSupabaseServiceClient } from '@/lib/supabase/server';
 
 export async function POST(req: NextRequest) {
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const url        = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  if (!serviceKey || !url) return NextResponse.json({ error: 'Missing env' }, { status: 500 });
-
-  const admin = createClient(url, serviceKey);
+  const admin = createSupabaseServiceClient();
 
   // Auth check via Bearer token
   const auth = req.headers.get('Authorization') ?? '';
-  const token = auth.replace('Bearer ', '');
+  const token = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
+  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const { data: { user }, error: authErr } = await admin.auth.getUser(token);
   if (authErr || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 

@@ -1,3 +1,4 @@
+-- LEGACY REFERENCE ONLY — use db/schema/* and drizzle/ migrations.
 -- ═══════════════════════════════════════════════
 -- τροφή (Trophē) — Full Database Schema
 -- Run this in Supabase SQL Editor after creating the project

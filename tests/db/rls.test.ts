@@ -120,9 +120,9 @@ beforeAll(async () => {
 
   await asOwner(`
     INSERT INTO organization_members (org_id, user_id, role)
-    VALUES ($1, $2, 'coach'), ($1, $3, 'client')
+    VALUES ($1, $2, 'coach'), ($1, $3, 'client'), ($1, $4, 'admin')
     ON CONFLICT (org_id, user_id) DO NOTHING;
-  `, [IDS.org, IDS.coach, IDS.client]);
+  `, [IDS.org, IDS.coach, IDS.client, IDS.admin]);
 });
 
 afterAll(async () => {
@@ -277,6 +277,22 @@ describe('is_coach_of() helper', () => {
   it('returns false for unassigned client', async () => {
     const result = await asUser(IDS.coach, (c) =>
       c.query('SELECT is_coach_of($1) AS val', [IDS.otherClient]),
+    );
+    expect(result.rows[0].val).toBe(false);
+  });
+});
+
+describe('is_admin_of() helper', () => {
+  it('returns true for an admin member of the organization', async () => {
+    const result = await asUser(IDS.admin, (c) =>
+      c.query('SELECT is_admin_of($1) AS val', [IDS.org]),
+    );
+    expect(result.rows[0].val).toBe(true);
+  });
+
+  it('returns false for a coach member without admin role', async () => {
+    const result = await asUser(IDS.coach, (c) =>
+      c.query('SELECT is_admin_of($1) AS val', [IDS.org]),
     );
     expect(result.rows[0].val).toBe(false);
   });

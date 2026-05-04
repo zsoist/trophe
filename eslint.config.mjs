@@ -44,6 +44,9 @@ const eslintConfig = defineConfig([
     ".next/**",
     "out/**",
     "build/**",
+    "test-results/**",
+    "playwright-report/**",
+    "coverage/**",
     "next-env.d.ts",
     // One-off Node scripts (legacy require-style, not part of the app bundle):
     "scripts/**",

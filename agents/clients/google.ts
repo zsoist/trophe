@@ -63,8 +63,9 @@ export async function callGeminiMessages(
       config: {
         systemInstruction: input.system,
         maxOutputTokens: input.maxTokens ?? 2048,
-        // JSON-friendly output — no safety filters on food parsing
-        responseMimeType: 'text/plain',
+        // Extraction tasks expect machine-readable JSON; callers still validate
+        // the final shape before trusting any model output.
+        responseMimeType: 'application/json',
         // Gemini 2.5 Flash "thinking" can consume maxOutputTokens budget,
         // truncating the actual response. Disable for simple structured tasks.
         ...(input.disableThinking && { thinkingConfig: { thinkingBudget: 0 } }),

@@ -1,7 +1,7 @@
 /**
  * Trophē v0.3 — Wearable summary agent (Phase 6).
  *
- * Uses Sonnet 4.6 (per memory_extract policy — mid cost, medium latency)
+ * Uses Sonnet 4.5 (per memory_extract policy — mid cost, medium latency)
  * to synthesize the last 7 days of HRV, sleep, and training load data
  * into a concise coaching insight block for the coach dashboard.
  *
@@ -175,7 +175,7 @@ export async function generateWearableSummary(
   const dataPrompt = `Last ${days} days of wearable data:\n${lines.join('\n')}`;
 
   // ── LLM synthesis ──────────────────────────────────────────────────────
-  const policy = taskPolicies.coach_insight; // Sonnet 4.6 for nuanced coaching language
+  const policy = taskPolicies.coach_insight; // Sonnet 4.5 for nuanced coaching language
   const llmResult = await callAnthropicMessages({
     model: policy.model,
     system: WEARABLE_SYSTEM,

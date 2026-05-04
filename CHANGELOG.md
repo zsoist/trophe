@@ -4,6 +4,13 @@ All notable changes to Trophē are logged here. Format follows [Keep a Changelog
 
 ---
 
+## [B2B readiness hardening] — 2026-05-03
+
+- Hardened privileged HTTP routes: `/api/admin/*` and `/api/seed/*` are proxy-protected, admin APIs use shared role guards, and the unauthenticated service-role migration endpoint was removed.
+- Standardized application roles to `super_admin | admin | coach | client`; public signup now creates client accounts only.
+- Added organization-aware client access helpers, admin organization dashboard, billing readiness metadata, and security invariant tests.
+- Updated AI routing and observability docs to current Gemini 2.5 Flash, Haiku 4.5, and Sonnet 4.5 policy names.
+
 ## [v0.3.2] — 2026-05-03 — Composite Foods + Restaurant Data + UX Fixes
 
 > **Status**: ✅ LIVE on `trophe.app`
@@ -92,7 +99,7 @@ _Nothing unreleased — all v0.3 features shipped to production._
 ### Phase 1 — Schema discipline + 4-tier roles + organizations
 
 - **Drizzle migrations** replace hand-curated `supabase-schema.sql`. Schema now in `db/schema/` (one file per domain), versioned SQL in `drizzle/`
-- **4-tier role enum** in `profiles.role`: `super_admin > admin > coach > client`. Replaces `TROPHE_ADMIN_EMAILS` string allowlist (closes Apr 25 HIGH #2)
+- **4-tier role enum** in `profiles.role`: `super_admin > admin > coach > client`. Replaces email allowlists for admin access (closes Apr 25 HIGH #2)
 - `organizations` + `organization_members` tables for multi-tenancy. Coaches auto-create an org on signup; clients inherit coach's `org_id`
 - `audit_log` — append-only table for sensitive mutations (role changes, client_profile updates, habit reassignment)
 - RLS recreated as discrete `db/policies/*.sql` files with new helpers `is_super_admin()`, `is_admin_of(org_id)`, `is_coach_of(client_id)`
@@ -110,8 +117,8 @@ _Nothing unreleased — all v0.3 features shipped to production._
 
 ### Phase 3+4 — Frontier LLM stack + food data layer
 
-- **LLM router** (`agents/router/`) — task-based model selection: parse→Gemini 2.5 Flash, recipe→Haiku 4.5, coach→Sonnet 4.6. Replaces hardcoded `FOOD_PARSE_MODEL = 'claude-haiku-4-5-20251001'`
-- **Langfuse OTEL traces** — every `agent.run()` wrapped in a generation span. Local Langfuse @ `localhost:3002`. `gen_ai.*` semconv attributes per span.
+- **LLM router** (`agents/router/`) — task-based model selection: parse→Gemini 2.5 Flash, recipe→Haiku 4.5, coach→Sonnet 4.5. Replaces route-level hardcoded model IDs.
+- **Langfuse OTEL traces** — every `agent.run()` wrapped in a generation span. Endpoint configured via `LANGFUSE_HOST`. `gen_ai.*` semconv attributes per span.
 - **Multi-layer evals** — `agents/evals/multi-layer/{schema-validation,llm-judge,regression}.ts`; aggregate runner `run-all.ts`; CI gate ≥95%
 - **`foods` table** — canonical food database. Sources: USDA FDC FoundationFoods + SR Legacy (~7,800 rows), OpenFoodFacts GR/ES/US slice (~50k rows), Hellenic Food Thesaurus, 48 HHF traditional Greek dishes (PubMed 28731641). HNSW index on `embedding vector(1024)`, GIN on `search_text tsvector`
 - **`food_unit_conversions`** — deterministic gram anchors. **This closes the ~19% accuracy bug.** LLM now emits `{food_name, qty, unit}` only; macros computed as `grams × kcal_per_100g / 100`. LLM never sees a number.
@@ -125,7 +132,7 @@ _Nothing unreleased — all v0.3 features shipped to production._
 - `memory_chunks` — scoped facts (`user/session/agent`) with Voyage embeddings, HNSW index, Letta supersedence chain, `salience`, `expires_at`, `retrieval_count`
 - `coach_blocks` — Letta-style human-editable coach notes (versioned, `edited_by`)
 - `agent_conversation` + `raw_captures` — full turn history with token/cost accounting
-- `agents/memory/{read,write,coach-blocks}.ts` — kNN scope-filtered retrieval, post-turn memory extraction (Sonnet 4.6 with zod schema), Letta block rendering
+- `agents/memory/{read,write,coach-blocks}.ts` — kNN scope-filtered retrieval, post-turn memory extraction (Sonnet 4.5 with zod schema), Letta block rendering
 - `app/coach/[clientId]/memory/page.tsx` — coach UI to view/edit memory blocks
 - `MEMORY_V1` feature flag — fallback to skip hooks if disabled
 - `tests/agents/memory.test.ts` — round-trip + scope isolation + RLS enforcement
@@ -136,7 +143,7 @@ _Nothing unreleased — all v0.3 features shipped to production._
 - `wearable_data` — steps/HRV/sleep/workout/weight, indexed `(user_id, data_type, recorded_at desc)`
 - `lib/spike/client.ts` — Spike REST client
 - `/api/integrations/spike/{connect,callback,webhook}/route.ts` — OAuth flow + HMAC-verified webhooks
-- `agents/insights/wearable-summary.ts` — Sonnet 4.6 reads last 7 days HRV/sleep/training-load → coach insight text
+- `agents/insights/wearable-summary.ts` — Sonnet 4.5 reads last 7 days HRV/sleep/training-load → coach insight text
 - `tests/spike/webhook.test.ts` — HMAC verification + idempotency
 
 ### Phase 7 — tRPC v11

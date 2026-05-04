@@ -5,7 +5,7 @@
  * operator decisions in the plan:
  *   - food_parse   → Gemini 2.5 Flash  (cost-optimised, fast, good at extraction)
  *   - recipe       → Haiku 4.5         (well-calibrated for recipe JSON)
- *   - coach_insight→ Sonnet 4.6        (nuanced coaching language)
+ *   - coach_insight→ Sonnet 4.5        (nuanced coaching language)
  *   - embed        → Voyage voyage-4   (1024-dim, MTEB 67, matches OpenBrain)
  *
  * Costs ($/M tokens, approximate 2026-05):
@@ -99,7 +99,7 @@ export const taskPolicies: Record<TaskName, RoutingPolicy> = {
     maxTokens: 0,
   },
   memory_extract: {
-    // Sonnet 4.6 for nuanced fact extraction — runs async after each conversation turn.
+    // Sonnet 4.5 for nuanced fact extraction — runs async after each conversation turn.
     // Strict zod schema output: fact_text, fact_type, confidence, scope, expires_at.
     provider: 'anthropic',
     model: 'claude-sonnet-4-5-20251022',

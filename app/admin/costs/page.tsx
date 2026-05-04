@@ -13,6 +13,11 @@ interface CostSummary {
   byDay: { date: string; cost: number; calls: number }[];
   avgCostPerCall: number;
   avgLatency: number;
+  budget?: {
+    monthlyBudgetUsd: number;
+    projectedMonthlyCost: number;
+    overBudget: boolean;
+  };
 }
 
 export default function CostDashboard() {
@@ -24,18 +29,16 @@ export default function CostDashboard() {
 
   useEffect(() => {
     const init = async () => {
-      // Only allow Daniel (admin check by email)
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push('/login'); return; }
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('email, role')
+        .select('role')
         .eq('id', user.id)
         .maybeSingle();
 
-      // Only allow Daniel (admin) — role='both' should NOT grant admin access
-      if (profile?.email === 'daniel@reyes.com') {
+      if (profile?.role === 'admin' || profile?.role === 'super_admin') {
         setAuthorized(true);
       } else {
         router.push('/dashboard');
@@ -137,7 +140,7 @@ export default function CostDashboard() {
             </div>
 
             {/* Budget Alert */}
-            {summary.totalCost / period > dailyBudget && (
+            {(summary.totalCost / period > dailyBudget || summary.budget?.overBudget) && (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -146,7 +149,9 @@ export default function CostDashboard() {
                 <div className="flex items-center gap-2">
                   <AlertTriangle size={14} className="text-red-400" />
                   <span className="text-red-400 text-xs">
-                    Daily average (${(summary.totalCost / period).toFixed(3)}) exceeds ${dailyBudget}/day budget
+                    {summary.budget?.overBudget
+                      ? `Projected monthly AI spend ($${summary.budget.projectedMonthlyCost.toFixed(2)}) exceeds $${summary.budget.monthlyBudgetUsd.toFixed(2)} budget`
+                      : `Daily average ($${(summary.totalCost / period).toFixed(3)}) exceeds $${dailyBudget}/day budget`}
                   </span>
                 </div>
               </motion.div>

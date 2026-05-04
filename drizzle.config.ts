@@ -4,8 +4,8 @@ import { defineConfig } from 'drizzle-kit';
  * Drizzle Kit configuration for Trophē v0.3.
  *
  * - `schema`: barrel export at db/schema/index.ts (20+ tables split per domain)
- * - `out`: versioned migrations in drizzle/, replacing the root supabase-schema.sql
- *   files (which are now DEPRECATED — kept only as Phase 0 ingestion source).
+ * - `out`: versioned migrations in drizzle/, replacing legacy schema dumps
+ *   archived under docs/legacy/.
  * - `dbCredentials.url` reads DATABASE_URL from the environment. The fallback
  *   targets the canonical local Supabase CLI database on `127.0.0.1:54322`.
  */

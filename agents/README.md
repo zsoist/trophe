@@ -3,7 +3,7 @@
 Single source of truth for all LLM-backed features in Trophē v0.3.
 Routes are thin adapters. Prompts are versioned files. Every call is traced.
 
-_Last updated: 2026-05-01 (v0.3-overhaul)_
+_Last updated: 2026-05-03 (B2B readiness hardening)_
 
 ---
 
@@ -53,9 +53,9 @@ agents/
 | `food-parse` | Gemini 2.5 Flash | — | ✅ v0.3 deterministic pipeline |
 | `recipe-analyze` | Haiku 4.5 | ephemeral (system) | ✅ live |
 | `photo-analyze` (inline route) | Haiku 4.5 | — | ✅ live |
-| `meal-suggest` (inline route) | Gemini 2.5 Flash | — | ✅ live |
-| `coach-insight` / `wearable-summary` | Sonnet 4.6 | — | ✅ live |
-| `memory-write` | Sonnet 4.6 | — | ✅ live |
+| `meal-suggest` (inline route) | Haiku 4.5 | — | ✅ live |
+| `coach-insight` / `wearable-summary` | Sonnet 4.5 | — | ✅ live |
+| `memory-write` | Sonnet 4.5 | — | ✅ live |
 
 ---
 
@@ -65,8 +65,8 @@ agents/
 // agents/router/policies.ts
 const taskPolicies = {
   food_parse:    { provider: 'google',    model: 'gemini-2.5-flash' },
-  recipe:        { provider: 'anthropic', model: 'claude-haiku-4-5-20251001', cacheSystem: true },
-  coach_insight: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
+  recipe_analyze:{ provider: 'anthropic', model: 'claude-haiku-4-5-20251001', cacheSystem: true },
+  coach_insight: { provider: 'anthropic', model: 'claude-sonnet-4-5-20251022' },
   embed:         { provider: 'voyage',    model: 'voyage-large-2' },
 };
 ```
@@ -149,7 +149,7 @@ User input: "200g feta, 1 banana"
 ## Observability
 
 Every `run()` call:
-1. Creates a Langfuse generation span (local `localhost:3002` in dev, production endpoint TBD)
+1. Creates a Langfuse generation span (`LANGFUSE_HOST`; production uses the configured Langfuse endpoint, local dev can use `http://localhost:3002`)
 2. Emits OTel GenAI semconv attributes: `gen_ai.system`, `gen_ai.request.model`, `gen_ai.usage.input_tokens`, `gen_ai.response.finish_reasons`
 3. Writes a row to `agent_runs` table with `langfuse_trace_id` FK for explainability
 
@@ -175,4 +175,4 @@ const safe = input
   .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');  // strip control chars
 ```
 
-`guardAiRoute(req)` also enforces: 20 req/60s (auth), 5 req/60s (anon). Returns 429 + `Retry-After`.
+`guardAiRoute(req)` also enforces authenticated access and 60 req/15 min per user. Returns 429 + `Retry-After`.

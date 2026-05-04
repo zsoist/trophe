@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # scripts/db/migrate-production.sh
 #
-# Safe Supabase production migration runner for Trophē v0.3-overhaul.
+# Safe Supabase production migration runner for Trophē main.
 #
 # Strategy:
 #   1. Seed Drizzle journal to skip migration 0000 (tables already exist from
-#      the old supabase-schema.sql)
+#      archived root schema dumps)
 #   2. Run drizzle migrate (applies 0001–0006; 0002 has exception handling for
 #      auth.users INSERT on Supabase)
 #   3. Optionally seed foods table from local pg_dump

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { requireRole } from '@/lib/auth/require-role';
 
 const USDA_BASE = 'https://api.nal.usda.gov/fdc/v1/foods/search';
 const API_KEY = process.env.USDA_API_KEY || 'DEMO_KEY';
@@ -57,25 +58,68 @@ function extractNutrient(nutrients: USDANutrient[], nutrientId: number): number 
   return nutrient ? Math.round(nutrient.value * 10) / 10 : 0;
 }
 
-// Try local food_database first
-// Note: uses service role key because it writes popularity + caches results
-async function searchLocal(query: string): Promise<{ foods: Record<string, unknown>[]; count: number } | null> {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!supabaseUrl || !serviceRoleKey) return null;
+function rankLocalFoods(
+  foods: Array<Record<string, unknown>>,
+  query: string,
+  tokens: string[],
+): Array<Record<string, unknown>> {
+  const q = query.toLowerCase();
+  const meaningfulTokens = tokens.filter((token) => !['colombian', 'colombiano', 'colombiana', 'bogota', 'bogotano'].includes(token));
 
-  const supabase = createClient(supabaseUrl, serviceRoleKey);
+  function score(food: Record<string, unknown>): number {
+    const text = `${food.name ?? ''} ${food.name_es ?? ''} ${food.name_el ?? ''}`.toLowerCase();
+    const name = String(food.name ?? '').toLowerCase();
+    let value = 0;
+    if (name === q) value += 1000;
+    if (name.includes(q)) value += 500;
+    for (const token of meaningfulTokens) {
+      if (text.includes(token)) value += 120;
+      if (name.includes(token)) value += 80;
+    }
+    for (const token of tokens) {
+      if (text.includes(token)) value += 10;
+    }
+    value += Number(food.popularity ?? 0) / 100;
+    return value;
+  }
+
+  return [...foods].sort((a, b) => score(b) - score(a));
+}
+
+// Try local food_database first. Auth is checked by the route before this runs.
+async function searchLocal(query: string): Promise<{ foods: Record<string, unknown>[]; count: number } | null> {
+  const supabase = createSupabaseServiceClient();
   // Sanitize ilike input: escape %, _, and backslash to prevent injection
   const q = query.toLowerCase().replace(/[%_\\]/g, '\\$&');
+  const tokens = q
+    .split(/\s+/)
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 3 && !['con', 'una', 'uno', 'the', 'and', 'para'].includes(token))
+    .slice(0, 5);
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('food_database')
     .select('*')
     .or(`name.ilike.%${q}%,name_el.ilike.%${q}%,name_es.ilike.%${q}%`)
     .order('popularity', { ascending: false })
     .limit(15);
 
+  if ((!data || data.length === 0) && tokens.length > 0) {
+    const tokenFilter = tokens
+      .flatMap((token) => [`name.ilike.%${token}%`, `name_el.ilike.%${token}%`, `name_es.ilike.%${token}%`])
+      .join(',');
+    const fallback = await supabase
+      .from('food_database')
+      .select('*')
+      .or(tokenFilter)
+      .order('popularity', { ascending: false })
+      .limit(15);
+    data = fallback.data;
+    error = fallback.error;
+  }
+
   if (error || !data || data.length === 0) return null;
+  data = rankLocalFoods(data, q, tokens);
 
   // Bump popularity for returned results
   const ids = data.map(d => d.id);
@@ -101,11 +145,7 @@ async function searchLocal(query: string): Promise<{ foods: Record<string, unkno
 
 // Cache USDA results into food_database for future local hits
 async function cacheUSDAResults(foods: Record<string, unknown>[]) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!supabaseUrl || !serviceRoleKey) return;
-
-  const supabase = createClient(supabaseUrl, serviceRoleKey);
+  const supabase = createSupabaseServiceClient();
 
   const entries = foods
     .filter((f: Record<string, unknown>) => (f.calories as number) > 0)
@@ -136,6 +176,9 @@ async function cacheUSDAResults(foods: Record<string, unknown>[]) {
 
 export async function GET(request: NextRequest) {
   try {
+    const guard = await requireRole(['client', 'coach', 'admin', 'super_admin'], { request });
+    if (guard instanceof NextResponse) return guard;
+
     const { searchParams } = new URL(request.url);
     const q = searchParams.get('q');
 
@@ -149,6 +192,10 @@ export async function GET(request: NextRequest) {
     // Step 1: Try local database first
     const local = await searchLocal(q.trim());
     if (local && local.count >= 3) {
+      return NextResponse.json({ foods: local.foods, source: 'local' });
+    }
+
+    if (local && local.count > 0) {
       return NextResponse.json({ foods: local.foods, source: 'local' });
     }
 

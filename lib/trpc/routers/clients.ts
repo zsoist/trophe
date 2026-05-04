@@ -16,6 +16,7 @@ import { router, coachProcedure } from '../init';
 import { profiles, clientProfiles } from '@/db/schema/profiles';
 import { eq, and, ilike, or, desc } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
+import { clientAccessPredicate } from '@/lib/auth/tenant-access';
 
 export const clientsRouter = router({
   // ── List all clients assigned to this coach ──────────────────────────
@@ -28,6 +29,7 @@ export const clientsRouter = router({
     )
     .query(async ({ ctx, input }) => {
       const coachId = ctx.user!.id;
+      const role = ctx.profile!.role;
 
       const rows = await ctx.db
         .select({
@@ -46,7 +48,7 @@ export const clientsRouter = router({
         })
         .from(clientProfiles)
         .innerJoin(profiles, eq(profiles.id, clientProfiles.userId))
-        .where(eq(clientProfiles.coachId, coachId))
+        .where(clientAccessPredicate(coachId, role))
         .orderBy(desc(profiles.createdAt))
         .limit(input.limit)
         .offset(input.offset);
@@ -59,6 +61,7 @@ export const clientsRouter = router({
     .input(z.object({ clientId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       const coachId = ctx.user!.id;
+      const role = ctx.profile!.role;
 
       const [row] = await ctx.db
         .select({
@@ -75,7 +78,7 @@ export const clientsRouter = router({
         .where(
           and(
             eq(clientProfiles.userId, input.clientId),
-            eq(clientProfiles.coachId, coachId),
+            clientAccessPredicate(coachId, role),
           ),
         )
         .limit(1);
@@ -95,6 +98,7 @@ export const clientsRouter = router({
     .input(z.object({ query: z.string().min(1).max(100) }))
     .query(async ({ ctx, input }) => {
       const coachId = ctx.user!.id;
+      const role = ctx.profile!.role;
       const q = `%${input.query}%`;
 
       const rows = await ctx.db
@@ -108,7 +112,7 @@ export const clientsRouter = router({
         .innerJoin(profiles, eq(profiles.id, clientProfiles.userId))
         .where(
           and(
-            eq(clientProfiles.coachId, coachId),
+            clientAccessPredicate(coachId, role),
             or(ilike(profiles.fullName, q), ilike(profiles.email, q)),
           ),
         )

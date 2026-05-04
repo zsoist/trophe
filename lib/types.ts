@@ -2,7 +2,7 @@
 // τροφή (Trophē) — Core Type Definitions
 // ═══════════════════════════════════════════════
 
-export type Role = 'client' | 'coach' | 'both';
+export type Role = 'super_admin' | 'admin' | 'coach' | 'client';
 export type Language = 'en' | 'es' | 'el';
 export type Sex = 'male' | 'female';
 export type ActivityLevel = 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';

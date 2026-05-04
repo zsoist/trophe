@@ -15,31 +15,8 @@ import { z } from 'zod';
 import { router, coachProcedure } from '../init';
 import { coachNotes } from '@/db/schema/coach';
 import { coachBlocks } from '@/db/schema/coach_blocks';
-import { clientProfiles } from '@/db/schema/profiles';
 import { eq, and, desc } from 'drizzle-orm';
-import { TRPCError } from '@trpc/server';
-import { db as dbType } from '@/db/client';
-
-// ── Guard: verify coach owns this client ──────────────────────────────────
-
-async function assertCoachOwnsClient(
-  db: typeof dbType,
-  coachId: string,
-  clientId: string,
-): Promise<void> {
-  const [row] = await db
-    .select({ userId: clientProfiles.userId })
-    .from(clientProfiles)
-    .where(and(eq(clientProfiles.coachId, coachId), eq(clientProfiles.userId, clientId)))
-    .limit(1);
-
-  if (!row) {
-    throw new TRPCError({
-      code: 'FORBIDDEN',
-      message: 'Client not assigned to you',
-    });
-  }
-}
+import { assertCanAccessClient } from '@/lib/auth/tenant-access';
 
 // ── Router ────────────────────────────────────────────────────────────────
 
@@ -54,7 +31,7 @@ export const coachRouter = router({
         }),
       )
       .query(async ({ ctx, input }) => {
-        await assertCoachOwnsClient(ctx.db, ctx.user!.id, input.clientId);
+        await assertCanAccessClient(ctx.db, ctx.user!.id, ctx.profile!.role, input.clientId);
 
         const rows = await ctx.db
           .select()
@@ -75,7 +52,7 @@ export const coachRouter = router({
         }),
       )
       .mutation(async ({ ctx, input }) => {
-        await assertCoachOwnsClient(ctx.db, ctx.user!.id, input.clientId);
+        await assertCanAccessClient(ctx.db, ctx.user!.id, ctx.profile!.role, input.clientId);
 
         const [note] = await ctx.db
           .insert(coachNotes)
@@ -94,7 +71,7 @@ export const coachRouter = router({
     list: coachProcedure
       .input(z.object({ clientId: z.string().uuid() }))
       .query(async ({ ctx, input }) => {
-        await assertCoachOwnsClient(ctx.db, ctx.user!.id, input.clientId);
+        await assertCanAccessClient(ctx.db, ctx.user!.id, ctx.profile!.role, input.clientId);
 
         const rows = await ctx.db
           .select()
@@ -119,7 +96,7 @@ export const coachRouter = router({
         }),
       )
       .mutation(async ({ ctx, input }) => {
-        await assertCoachOwnsClient(ctx.db, ctx.user!.id, input.clientId);
+        await assertCanAccessClient(ctx.db, ctx.user!.id, ctx.profile!.role, input.clientId);
 
         const existing = await ctx.db
           .select({ id: coachBlocks.id, version: coachBlocks.version })
@@ -172,7 +149,7 @@ export const coachRouter = router({
         }),
       )
       .mutation(async ({ ctx, input }) => {
-        await assertCoachOwnsClient(ctx.db, ctx.user!.id, input.clientId);
+        await assertCanAccessClient(ctx.db, ctx.user!.id, ctx.profile!.role, input.clientId);
 
         await ctx.db
           .update(coachBlocks)

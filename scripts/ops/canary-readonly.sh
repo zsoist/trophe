@@ -26,6 +26,18 @@ dashboard_location="$(printf '%s\n' "$dashboard_headers" | header_value location
 [[ "$dashboard_status" =~ ^30[12378]$ ]] || fail "$BASE_URL/dashboard did not redirect anonymous user: HTTP $dashboard_status"
 [[ "$dashboard_location" == *"/login"* ]] || fail "$BASE_URL/dashboard redirected to unexpected location: ${dashboard_location:-<empty>}"
 
+for protected_path in "/coach" "/admin/costs" "/admin/orgs" "/api/admin/costs" "/api/seed/food-database"; do
+  headers="$(curl -sSI "$BASE_URL$protected_path")"
+  status="$(printf '%s\n' "$headers" | awk 'NR==1 { print $2 }')"
+  location="$(printf '%s\n' "$headers" | header_value location)"
+  if [[ "$protected_path" == /api/* ]]; then
+    [[ "$status" =~ ^(30[12378]|401|403|405)$ ]] || fail "$BASE_URL$protected_path is anonymously accessible: HTTP $status"
+  else
+    [[ "$status" =~ ^30[12378]$ ]] || fail "$BASE_URL$protected_path did not redirect anonymous user: HTTP $status"
+    [[ "$location" == *"/login"* ]] || fail "$BASE_URL$protected_path redirected to unexpected location: ${location:-<empty>}"
+  fi
+done
+
 meal_status="$(
   curl -sS -o /dev/null -w '%{http_code}' \
     -X POST "$BASE_URL/api/ai/meal-suggest" \

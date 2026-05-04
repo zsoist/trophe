@@ -32,13 +32,14 @@ _Last updated: 2026-05-03_
 
 - **`@supabase/ssr`** replaces localStorage sessions. Tokens live in HTTP-only cookies — inaccessible to JavaScript, readable by server middleware.
 - **`proxy.ts` (Next.js middleware)** runs before every request. Creates a server Supabase client from `request.cookies`, calls `getUser()` (not `getSession()` — re-validates against auth server), enforces role routing:
-  - `/coach/*` → role ∈ `{coach, both, admin, super_admin}` required
+  - `/coach/*` → role ∈ `{coach, admin, super_admin}` required
   - `/admin/*` → role ∈ `{admin, super_admin}` required
   - `/super/*` → role = `super_admin` required
+  - `/api/admin/*` and `/api/seed/*` → authenticated privileged session required
   - Unauthenticated or wrong role → 302 to `/login` or `/dashboard`
 - **`lib/auth/require-role.ts`** — callable from server components and route handlers for double-checking inside a route.
 - **Auth methods**: email+password (default) + magic link (`/auth/login/magic-link`). Sign-in-with-Apple/Google wired but OAuth client provisioning is operator-gated.
-- **Admin gate**: replaced v0.2 `TROPHE_ADMIN_EMAILS` allowlist with `profiles.role = 'admin'|'super_admin'` check. No hardcoded emails.
+- **Admin gate**: admin access uses `profiles.role = 'admin'|'super_admin'` plus organization membership where applicable. No hardcoded emails.
 
 ### Authorization (RLS)
 
@@ -83,9 +84,9 @@ Webhook endpoint (`/api/integrations/spike/webhook`) verifies HMAC signature bef
 ### Rate limiting
 
 `lib/api-guard.ts` → `guardAiRoute(req)`:
-- 20 req / 60s for authenticated users
-- 5 req / 60s for anonymous (by IP)
-- Returns 429 with `Retry-After` header
+- Requires a verified Supabase user from bearer token or cookie session
+- 60 req / 15 min per authenticated user
+- Returns 401, 429, or user-safe typed errors with `Retry-After` when limited
 
 ### Transport + headers
 
@@ -102,7 +103,7 @@ Webhook endpoint (`/api/integrations/spike/webhook`) verifies HMAC signature bef
 - `.env.local.example` committed (names only, no values)
 - Pre-deploy check: `git diff --staged | grep -E '(sk-ant-|sbp_|AIza|key=)'` → must be empty
 - Service role key: server-only (no `NEXT_PUBLIC_` prefix)
-- Vercel env vars: `SUPABASE_SERVICE_ROLE_KEY` is Production-scope only; `NEXT_PUBLIC_*` vars scoped to Production + `v0.3-overhaul` preview branch
+- Vercel env vars: `SUPABASE_SERVICE_ROLE_KEY` is server-only and Production-scoped; `NEXT_PUBLIC_*` vars are safe public anon URL/key values.
 - Rotation: quarterly or after suspected compromise
 
 ### Audit trail
@@ -124,7 +125,7 @@ Webhook endpoint (`/api/integrations/spike/webhook`) verifies HMAC signature bef
 | Wearable data | Health | `wearable_data` | Life of connection; deletable via settings |
 | API usage log (tokens, cost, endpoint) | Operational | `api_usage_log` | 90 days |
 | Form Check video | — | Not stored; all processing in-browser (MediaPipe WASM) | — |
-| Langfuse traces | Operational | Local `localhost:3002` (dev only) | 30 days |
+| Langfuse traces | Operational | Configured `LANGFUSE_HOST` endpoint | 30 days |
 
 ---
 
@@ -147,12 +148,12 @@ See `RUNBOOK.md` for operational playbooks. For security incidents:
 | No brute-force protection beyond Supabase defaults | Open | Free tier: 5 signins/5 min/IP. Adequate for ≤20 users; revisit at 100+. |
 | No per-user rate limiting (in-memory map resets on deploy) | Open | Upstash-based persistent rate limiting deferred to v1.0. |
 | Wearable token encryption uses symmetric key (pgcrypto) | Open | KMS-style envelope encryption deferred to v1.0. Symmetric key is `SUPABASE_SERVICE_ROLE_KEY` — server-only. |
-| Vercel preview env vars scoped to `v0.3-overhaul` branch | Note | `NEXT_PUBLIC_*` keys are visible in preview deploys. Acceptable for anon-key + public URL. Service role key is Production-only. |
+| Vercel preview env vars | Note | `NEXT_PUBLIC_*` keys are visible in preview deploys. Acceptable for anon-key + public URL. Service role key is Production-only. |
 
 ## Completed (was v0.2 scheduled work)
 
 - ✅ Migrated to `@supabase/ssr` — server-side middleware auth with HTTP-only cookies (Phase 2)
-- ✅ `TROPHE_ADMIN_EMAILS` allowlist replaced with 4-tier role enum (Phase 1)
+- ✅ Email allowlist admin gates replaced with canonical role guards and invariant tests
 - ✅ Middleware now enforces role gates server-side before any page render (Phase 2)
 - ✅ `audit_log` table + Drizzle writes on sensitive mutations (Phase 1)
 - ✅ RLS test suite in CI (`tests/db/rls.test.ts`) (Phase 1)

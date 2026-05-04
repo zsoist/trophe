@@ -1,34 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { gte, asc } from 'drizzle-orm';
 import { db } from '@/db/client';
 import { agentRuns } from '@/db/schema/agent_runs';
-
-const ADMIN_EMAILS = new Set(['daniel@reyes.com']);
-
-function unauthorized(status = 401) {
-  return NextResponse.json({ error: 'Unauthorized' }, { status });
-}
-
-async function verifyAdmin(request: NextRequest) {
-  const auth = request.headers.get('authorization');
-  if (!auth?.startsWith('Bearer ')) return false;
-  const token = auth.slice(7).trim();
-  if (!token) return false;
-
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !anonKey) return false;
-
-  const supabase = createClient(url, anonKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-  const { data, error } = await supabase.auth.getUser(token);
-  return !error && !!data.user?.email && ADMIN_EMAILS.has(data.user.email);
-}
+import { requireAdminRequest } from '@/lib/auth/require-role';
 
 export async function GET(request: NextRequest) {
-  if (!(await verifyAdmin(request))) return unauthorized();
+  const guard = await requireAdminRequest(request);
+  if (guard instanceof NextResponse) return guard;
 
   const daysParam = Number(request.nextUrl.searchParams.get('days') ?? '30');
   const days = Number.isFinite(daysParam) ? Math.min(Math.max(Math.floor(daysParam), 1), 90) : 30;
@@ -43,6 +21,8 @@ export async function GET(request: NextRequest) {
 
   const totalCost = rows.reduce((sum, row) => sum + (row.costUsd ?? 0), 0);
   const totalCalls = rows.length;
+  const monthlyBudgetUsd = Number(process.env.AI_MONTHLY_BUDGET_USD ?? '50');
+  const projectedMonthlyCost = totalCost / days * 30;
   const avgLatency = totalCalls
     ? rows.reduce((sum, row) => sum + (row.latencyMs ?? 0), 0) / totalCalls
     : 0;
@@ -70,5 +50,10 @@ export async function GET(request: NextRequest) {
     byDay: Array.from(byDayMap.entries()).map(([date, value]) => ({ date, ...value })),
     avgCostPerCall: totalCalls ? totalCost / totalCalls : 0,
     avgLatency,
+    budget: {
+      monthlyBudgetUsd,
+      projectedMonthlyCost,
+      overBudget: projectedMonthlyCost > monthlyBudgetUsd,
+    },
   });
 }

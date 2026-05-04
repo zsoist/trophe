@@ -49,7 +49,7 @@ Screenshots saved by Daniel. Vercel logs analyzed — see root causes below.
 
 ### Cross-cutting: Langfuse traces failing on production ✅ FIXED
 - All 8 requests show: `[Langfuse SDK] SyntaxError: Unexpected token '<'`
-- Langfuse was configured to POST to localhost:3002. Vercel can't reach localhost.
+- Langfuse must use the configured production `LANGFUSE_HOST`; local dev may use `http://localhost:3002`.
 - **Fix (2026-05-03, PR #8)**: Set up Cloudflare Tunnel at
   `langfuse.danielreyes.work` with path-specific CF Access bypass for
   `/api/public/*`. Vercel env var `LANGFUSE_HOST` points to tunnel URL.
@@ -62,7 +62,7 @@ Screenshots saved by Daniel. Vercel logs analyzed — see root causes below.
 ## ✅ COMPLETED — Branch governance (2026-05-03)
 
 v0.3-overhaul (82 commits) merged into main. Vercel auto-deploys from main confirmed working.
-Tag: `archive/v0.3-overhaul-2026-05-03`. Branch kept alive until 2026-05-10.
+Tag: `archive/v0.3-overhaul-2026-05-03`. Current production work branches from `main`.
 
 ## ✅ COMPLETED — meal_suggest model migration (2026-05-02)
 
@@ -81,9 +81,8 @@ Migrated to `anthropic/claude-haiku-4-5-20251001` with `tool_choice`.
 
 ### P2
 
-4. **Schedule v0.3-overhaul branch deletion**: tagged at
-   `archive/v0.3-overhaul-2026-05-03`. Delete branch after 2026-05-10 if
-   no rollback needed: `git push origin --delete v0.3-overhaul`
+4. **Keep branch governance normalized**: production work branches from `main`; historical
+   v0.3 state is retained at `archive/v0.3-overhaul-2026-05-03`.
 
 5. **Phase 3 eval improvements (Greek + Colombian)**:
    - AI fallback 0-kcal for 5 regional dishes (bandeja paisa, sancocho, lulo, changua, caldo de costilla)

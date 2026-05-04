@@ -59,4 +59,60 @@ describe('enterprise hardening invariants', () => {
 
     expect(offenders).toEqual([]);
   });
+
+  it('does not use email allowlists for production authorization', () => {
+    const offenders = [
+      ...sourceFiles('app'),
+      ...sourceFiles('components'),
+      ...sourceFiles('lib'),
+      ...sourceFiles('agents'),
+    ]
+      .filter((file) => /ADMIN_EMAILS|TROPHE_ADMIN_EMAILS/.test(readFileSync(file, 'utf8')))
+      .map((file) => relative(root, file));
+
+    expect(offenders).toEqual([]);
+  });
+
+  it('does not expose service-role credentials directly from route handlers', () => {
+    const offenders = sourceFiles('app/api')
+      .filter((file) => readFileSync(file, 'utf8').includes('SUPABASE_SERVICE_ROLE_KEY'))
+      .map((file) => relative(root, file));
+
+    expect(offenders).toEqual([]);
+  });
+
+  it('does not run arbitrary SQL from HTTP route handlers', () => {
+    const offenders = sourceFiles('app/api')
+      .filter((file) => /run_sql|rpc\(['"]run_sql['"]/.test(readFileSync(file, 'utf8')))
+      .map((file) => relative(root, file));
+
+    expect(offenders).toEqual([]);
+  });
+
+  it('keeps the legacy both role out of application code', () => {
+    const offenders = [
+      ...sourceFiles('app'),
+      ...sourceFiles('components'),
+      ...sourceFiles('lib'),
+      ...sourceFiles('agents'),
+    ]
+      .filter((file) => /\brole[_-]?both\b|['"]both['"]|\|\s*['"]both['"]/.test(readFileSync(file, 'utf8')))
+      .map((file) => relative(root, file));
+
+    expect(offenders).toEqual([]);
+  });
+
+  it('keeps deprecated root Supabase schema dumps out of the repo root', () => {
+    const offenders = ['supabase-schema.sql', 'supabase-workout-schema.sql']
+      .filter((file) => {
+        try {
+          statSync(join(root, file));
+          return true;
+        } catch {
+          return false;
+        }
+      });
+
+    expect(offenders).toEqual([]);
+  });
 });

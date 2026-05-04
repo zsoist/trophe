@@ -17,6 +17,8 @@ import { createSupabaseMiddlewareClient } from '@/lib/supabase/middleware';
  * Route protection matrix:
  *   /coach/*        → must be authenticated (role check inside route/page)
  *   /admin/*        → must be authenticated (role check inside route/page)
+ *   /api/admin/*    → must be authenticated (role check inside route handler)
+ *   /api/seed/*     → must be authenticated (role check inside route handler)
  *   /super/*        → must be authenticated (role check inside route/page)
  *   /dashboard/*    → must be authenticated
  *   /onboarding     → must be authenticated
@@ -25,7 +27,7 @@ import { createSupabaseMiddlewareClient } from '@/lib/supabase/middleware';
  *
  * Closes codex HIGH #1: "middleware.ts admits auth is handled client-side".
  */
-export async function proxy(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { supabase, response } = createSupabaseMiddlewareClient(request);
 
   // Always call getUser() — this is what triggers the cookie refresh.
@@ -38,6 +40,8 @@ export async function proxy(request: NextRequest) {
   const isProtected =
     pathname.startsWith('/coach') ||
     pathname.startsWith('/admin') ||
+    pathname.startsWith('/api/admin') ||
+    pathname.startsWith('/api/seed') ||
     pathname.startsWith('/super') ||
     pathname.startsWith('/dashboard') ||
     pathname === '/onboarding';

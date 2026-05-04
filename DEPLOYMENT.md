@@ -16,7 +16,7 @@ Set in **Vercel → Project Settings → Environment Variables** (Production sco
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Prod + local | Client-side key (RLS-bound, safe) |
 | `SUPABASE_SERVICE_ROLE_KEY` | Prod only | Server-only full-DB access. **NEVER `NEXT_PUBLIC_`** |
 | `DATABASE_URL` | Local only | `postgresql://postgres:postgres@127.0.0.1:54322/postgres` |
-| `ANTHROPIC_API_KEY` | Prod + local | Haiku 4.5 + Sonnet 4.6 |
+| `ANTHROPIC_API_KEY` | Prod + local | Haiku 4.5 + Sonnet 4.5 |
 | `GEMINI_API_KEY` | Prod + local | Gemini 2.5 Flash |
 | `VOYAGE_API_KEY` | Prod + local | Voyage v4 embeddings |
 | `LANGFUSE_PUBLIC_KEY` | Prod + local | Langfuse tracing |
@@ -25,7 +25,11 @@ Set in **Vercel → Project Settings → Environment Variables** (Production sco
 | `USDA_API_KEY` | Optional | Food search. Falls back to `DEMO_KEY` (30 req/hr). |
 | `SPIKE_API_KEY` | Phase 6 | Spike wearable API |
 | `SPIKE_WEBHOOK_SECRET` | Phase 6 | HMAC webhook verification |
-| `TROPHE_ADMIN_EMAILS` | Legacy | Replaced by role enum in Phase 1. Keep for compat. |
+| Admin access | Database role | Governed by `profiles.role` and organization membership. No email allowlist env var. |
+
+Stripe Connect and banking are documented only in `docs/stripe-connect-readiness.md`.
+Do not add live Stripe keys, account-link creation, transfers, payouts, or bank
+collection until the legal/tax launch gates in that document are complete.
 
 ---
 
@@ -69,13 +73,8 @@ npm run build           # clean production build
 npm run test:e2e        # Playwright smoke
 npm run canary:prod     # read-only checks against https://trophe.app
 
-# Temporary production branch until merge to main
-git push origin v0.3-overhaul
-
-# Preferred branch governance after gates:
-#   merge v0.3-overhaul into main
-#   push main
-#   configure Vercel production to deploy main
+git push origin main
+# main deploys to production after CI
 ```
 
 ## Truth table
@@ -140,7 +139,7 @@ Migration files live in `drizzle/`. Current migrations:
 
 # Option B: git revert
 git revert HEAD
-git push origin v0.3-overhaul
+git push origin main
 vercel --yes --prod
 ```
 

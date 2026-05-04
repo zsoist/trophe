@@ -50,7 +50,7 @@ export default function CoachInboxPage() {
     // Verify coach role
     const { data: profile } = await supabase
       .from('profiles').select('role').eq('id', user.id).maybeSingle();
-    if (!profile || (profile.role !== 'coach' && profile.role !== 'both')) {
+    if (!profile || !['coach', 'admin', 'super_admin'].includes(profile.role)) {
       router.push('/dashboard'); return;
     }
 

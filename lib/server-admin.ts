@@ -3,7 +3,7 @@
  *
  * The old implementation:
  *   - Fetched supabase.co/auth/v1/user on every call (~100ms extra latency)
- *   - Checked TROPHE_ADMIN_EMAILS env var (email allowlist, not role-based)
+ *   - Checked a hardcoded email allowlist instead of database roles
  *
  * This replacement:
  *   - Reads the session from the HTTP-only cookie set by @supabase/ssr (0ms overhead)

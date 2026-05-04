@@ -21,6 +21,42 @@ interface FoodAnalysis {
 }
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
+const PHOTO_ANALYZE_TOOL = {
+  name: 'submit_food_photo_analysis',
+  description: 'Submit conservative nutrition estimates for visible foods in a photo.',
+  input_schema: {
+    type: 'object' as const,
+    properties: {
+      foods: {
+        type: 'array' as const,
+        items: {
+          type: 'object' as const,
+          properties: {
+            name: { type: 'string' as const },
+            estimated_calories: { type: 'number' as const },
+            estimated_protein_g: { type: 'number' as const },
+            estimated_carbs_g: { type: 'number' as const },
+            estimated_fat_g: { type: 'number' as const },
+            confidence: { type: 'number' as const },
+            source: { type: 'string' as const, enum: ['ai_estimate'] },
+            accuracy_note: { type: 'string' as const },
+          },
+          required: [
+            'name',
+            'estimated_calories',
+            'estimated_protein_g',
+            'estimated_carbs_g',
+            'estimated_fat_g',
+            'confidence',
+            'source',
+            'accuracy_note',
+          ],
+        },
+      },
+    },
+    required: ['foods'],
+  },
+};
 
 function validateInput(body: unknown): { valid: true; data: PhotoAnalyzeRequest } | { valid: false; error: string } {
   if (!body || typeof body !== 'object') {
@@ -44,32 +80,6 @@ function validateInput(body: unknown): { valid: true; data: PhotoAnalyzeRequest 
   }
 
   return { valid: true, data: b as unknown as PhotoAnalyzeRequest };
-}
-
-function extractJSON(text: string): FoodAnalysis[] | null {
-  // Try to find a JSON object with a "foods" array
-  const objectMatch = text.match(/\{[\s\S]*"foods"\s*:\s*\[[\s\S]*\][\s\S]*\}/);
-  if (objectMatch) {
-    try {
-      const parsed = JSON.parse(objectMatch[0]);
-      if (Array.isArray(parsed.foods)) return parsed.foods;
-    } catch {
-      // Try array extraction instead
-    }
-  }
-
-  // Try to find a bare JSON array
-  const arrayMatch = text.match(/\[[\s\S]*\]/);
-  if (arrayMatch) {
-    try {
-      const parsed = JSON.parse(arrayMatch[0]);
-      if (Array.isArray(parsed)) return parsed;
-    } catch {
-      // JSON parse failed
-    }
-  }
-
-  return null;
 }
 
 export async function POST(request: NextRequest) {
@@ -123,11 +133,13 @@ export async function POST(request: NextRequest) {
               },
               {
                 type: 'text',
-                text: 'Analyze this food photo. Identify visible food items and make a conservative rough macro estimate only. Photo-only portion estimation is uncertain unless a scale, label, or known container is visible. Do not imply precision. Return JSON: { foods: [{ name, estimated_calories, estimated_protein_g, estimated_carbs_g, estimated_fat_g, confidence, source, accuracy_note }] }. source must be "ai_estimate". confidence is 0 to 1 and should be below 0.75 unless portion size is visually anchored. accuracy_note should briefly say what makes the estimate uncertain. Return ONLY the JSON, no other text.',
+                text: 'Analyze this food photo. Identify visible food items and make a conservative rough macro estimate only. Photo-only portion estimation is uncertain unless a scale, label, or known container is visible. Do not imply precision. source must be "ai_estimate". confidence is 0 to 1 and should be below 0.75 unless portion size is visually anchored. accuracy_note should briefly say what makes the estimate uncertain.',
               },
             ],
           },
         ],
+        tools: [PHOTO_ANALYZE_TOOL],
+        tool_choice: { type: 'tool', name: 'submit_food_photo_analysis' },
       }),
     });
 
@@ -167,22 +179,15 @@ export async function POST(request: NextRequest) {
       userId: guard.userId,
     });
 
-    const textContent = data?.content?.[0]?.text;
-
-    if (!textContent) {
-      console.error('No text content in Anthropic response');
-      return NextResponse.json(
-        { error: 'No analysis returned' },
-        { status: 502 },
-      );
-    }
-
-    const foods = extractJSON(textContent);
+    const toolUse = data?.content?.find((c: { type?: string; name?: string }) =>
+      c.type === 'tool_use' && c.name === 'submit_food_photo_analysis',
+    );
+    const foods = toolUse?.input?.foods as FoodAnalysis[] | undefined;
 
     if (!foods || foods.length === 0) {
-      console.error('Could not parse food analysis from response');
+      console.error('No tool_use food analysis in Anthropic response');
       return NextResponse.json(
-        { error: 'Could not parse food analysis' },
+        { error: 'No analysis returned' },
         { status: 502 },
       );
     }

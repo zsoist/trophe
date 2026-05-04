@@ -25,7 +25,6 @@ const translations: Record<string, Record<Language, string>> = {
   'auth.role_select': { en: 'I am a...', es: 'Soy un...', el: 'Είμαι...' },
   'auth.role_client': { en: 'Client', es: 'Cliente', el: 'Πελάτης' },
   'auth.role_coach': { en: 'Coach', es: 'Coach', el: 'Coach' },
-  'auth.role_both': { en: 'Both (Coach & Client)', es: 'Ambos (Coach y Cliente)', el: 'Και τα δύο (Coach & Πελάτης)' },
 
   // ── Onboarding ──
   'onboard.welcome': { en: 'Welcome to Trophē', es: 'Bienvenido a Trophē', el: 'Καλώς ήρθατε στο τροφή' },

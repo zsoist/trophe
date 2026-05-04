@@ -3,7 +3,7 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main, v0.3-overhaul]
+    branches: [main]
   workflow_dispatch:
 
 permissions:

@@ -1,3 +1,4 @@
+-- LEGACY REFERENCE ONLY — use db/schema/* and drizzle/ migrations.
 -- ═══════════════════════════════════════════════
 -- τροφή (Trophē) — Workout Module Schema
 -- ═══════════════════════════════════════════════

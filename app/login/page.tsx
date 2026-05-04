@@ -1,19 +1,26 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import type { Role } from '@/lib/types';
 
-export default function LoginPage() {
+function safeRedirectTo(value: string | null): string | null {
+  if (!value || !value.startsWith('/') || value.startsWith('//') || value.startsWith('/login')) {
+    return null;
+  }
+  return value;
+}
+
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = safeRedirectTo(searchParams.get('redirectTo'));
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
-  const [role, setRole] = useState<Role>('client');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -28,22 +35,26 @@ export default function LoginPage() {
       if (mode === 'login') {
         const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email, password });
         if (authError) throw authError;
+        if (redirectTo) {
+          router.replace(redirectTo);
+          return;
+        }
         // Route by role — coaches go to /coach, clients to /dashboard
         const userId = authData.user?.id;
         if (userId) {
           const { data: profile } = await supabase.from('profiles').select('role').eq('id', userId).maybeSingle();
           if (profile?.role === 'coach') {
-            router.push('/coach');
+            router.replace('/coach');
             return;
           }
         }
-        router.push('/dashboard');
+        router.replace('/dashboard');
       } else {
         // Sign up via server-side API (bypasses email confirmation)
         const res = await fetch('/api/auth/signup', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password, full_name: fullName, role }),
+          body: JSON.stringify({ email, password, full_name: fullName }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Signup failed');
@@ -53,7 +64,7 @@ export default function LoginPage() {
         if (loginError) throw loginError;
 
         setSuccess('Account created! Redirecting...');
-        setTimeout(() => router.push('/onboarding'), 1000);
+        setTimeout(() => router.replace('/onboarding'), 1000);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
@@ -162,30 +173,9 @@ export default function LoginPage() {
           </div>
 
           {mode === 'signup' && (
-            <div>
-              <label className="block text-stone-400 text-sm mb-2">I am a...</label>
-              <div className="grid grid-cols-3 gap-2">
-                {([
-                  { value: 'client' as Role, label: '🏃 Client', desc: 'Track my nutrition' },
-                  { value: 'coach' as Role, label: '📋 Coach', desc: 'Manage clients' },
-                  { value: 'both' as Role, label: '⚡ Both', desc: 'Coach + track' },
-                ]).map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => setRole(opt.value)}
-                    className={`p-3 rounded-xl border text-center transition-all ${
-                      role === opt.value
-                        ? 'border-[#D4A853] bg-[rgba(212,168,83,0.08)] text-stone-100'
-                        : 'border-stone-800 text-stone-500 hover:border-stone-600'
-                    }`}
-                  >
-                    <span className="block text-lg mb-1">{opt.label.split(' ')[0]}</span>
-                    <span className="block text-xs">{opt.label.split(' ')[1]}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
+            <p className="rounded-xl border border-stone-800 bg-stone-900/60 px-3 py-2 text-xs text-stone-500">
+              Public signup creates a client account. Coach and admin seats are provisioned by invite.
+            </p>
           )}
 
           {error && (
@@ -228,5 +218,13 @@ export default function LoginPage() {
         )}
       </motion.div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-stone-950" />}>
+      <LoginForm />
+    </Suspense>
   );
 }

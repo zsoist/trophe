@@ -31,7 +31,7 @@ export default function BottomNav() {
         .select('role')
         .eq('id', user.id)
         .maybeSingle();
-      if (data && (data.role === 'both' || data.role === 'coach')) {
+      if (data && ['coach', 'admin', 'super_admin'].includes(data.role)) {
         setIsCoachToo(true);
       }
     })();

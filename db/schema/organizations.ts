@@ -8,6 +8,7 @@ import {
   pgPolicy,
   unique,
   check,
+  jsonb,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { userRoleEnum } from './enums';
@@ -34,6 +35,11 @@ export const organizations = pgTable('organizations', {
   slug: text().notNull(),
   ownerId: uuid('owner_id'),
   plan: text().default('free').notNull(),
+  billingEmail: text('billing_email'),
+  stripeCustomerId: text('stripe_customer_id'),
+  stripeConnectAccountId: text('stripe_connect_account_id'),
+  subscriptionStatus: text('subscription_status').default('not_configured').notNull(),
+  planLimits: jsonb('plan_limits').default({ coaches: 1, clients: 25 }).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
 }, (table) => [
   unique('organizations_slug_key').on(table.slug),
@@ -47,6 +53,7 @@ export const organizations = pgTable('organizations', {
   pgPolicy('Org admins can update org', { as: 'permissive', for: 'update', to: ['public'] }),
   pgPolicy('Super admins full org access', { as: 'permissive', for: 'all', to: ['public'] }),
   check('organizations_plan_check', sql`plan = ANY (ARRAY['free'::text, 'pro'::text, 'enterprise'::text])`),
+  check('organizations_subscription_status_check', sql`subscription_status = ANY (ARRAY['not_configured'::text, 'trialing'::text, 'active'::text, 'past_due'::text, 'canceled'::text])`),
 ]);
 
 export const organizationMembers = pgTable('organization_members', {
