@@ -30,8 +30,9 @@ import { Pool } from 'pg';
 // In production, DATABASE_URL MUST be set to the Supabase Transaction pooler URL.
 // Fail hard if missing — silent fallback to localhost would cause every query to
 // hang for 5s then throw ECONNREFUSED, which is worse than a clear startup error.
+const isBuildPhase = process.env.NEXT_PHASE === 'phase-production-build';
 const connectionString = process.env.DATABASE_URL || (
-  process.env.NODE_ENV === 'production'
+  process.env.NODE_ENV === 'production' && !isBuildPhase
     ? (() => { throw new Error('[db/client] DATABASE_URL is required in production'); })()
     : 'postgresql://postgres:postgres@127.0.0.1:54322/postgres'
 );
