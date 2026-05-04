@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { guardAiRoute } from '@/lib/api-guard';
 import { pick } from '@/agents/router';

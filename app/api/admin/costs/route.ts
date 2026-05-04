@@ -4,6 +4,8 @@ import { db } from '@/db/client';
 import { agentRuns } from '@/db/schema/agent_runs';
 import { requireAdminRequest } from '@/lib/auth/require-role';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   const guard = await requireAdminRequest(request);
   if (guard instanceof NextResponse) return guard;

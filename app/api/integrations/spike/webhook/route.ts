@@ -22,6 +22,8 @@
  * ⚠ Register this URL in the Spike dashboard: {NEXT_PUBLIC_APP_URL}/api/integrations/spike/webhook
  */
 
+export const dynamic = 'force-dynamic';
+
 import { NextRequest, NextResponse } from 'next/server';
 import {
   verifySpikeWebhookSignature,
