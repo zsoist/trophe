@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npm run build",
+  "buildCommand": "npx next build",
   "functions": {
     "app/api/**": {
       "memory": 1024,
