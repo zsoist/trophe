@@ -17,7 +17,7 @@ function assert(name: string, ok: boolean, detail: string): void {
 const workflow = read('.github/workflows/ci.yml');
 const packageJson = JSON.parse(read('package.json')) as { scripts?: Record<string, string> };
 const nextConfig = read('next.config.ts');
-const proxy = read('proxy.ts');
+const middleware = read('middleware.ts');
 const routerPolicies = read('agents/router/policies.ts');
 const supabaseConfig = read('supabase/config.toml');
 
@@ -74,9 +74,9 @@ assert(
 
 assert(
   'Privileged API prefixes are proxy-protected',
-  proxy.includes("pathname.startsWith('/api/admin')") &&
-    proxy.includes("pathname.startsWith('/api/seed')"),
-  'proxy.ts must require authentication before privileged API route handlers run',
+  middleware.includes("pathname.startsWith('/api/admin')") &&
+    middleware.includes("pathname.startsWith('/api/seed')"),
+  'middleware.ts must require authentication before privileged API route handlers run',
 );
 
 assert(

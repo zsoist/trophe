@@ -18,6 +18,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { buildSpikeAuthUrl } from '@/lib/spike/client';
+import { createSpikeState } from '@/lib/spike/state';
 
 const VALID_PROVIDERS = [
   'apple_health', 'whoop', 'oura', 'strava', 'garmin', 'fitbit', 'polar', 'coros',
@@ -62,12 +63,7 @@ export async function POST(req: NextRequest) {
   const redirectUri = `${appUrl}/api/integrations/spike/callback`;
 
   // ── CSRF state token ──────────────────────────────────────────────────
-  // State = base64(userId + '|' + provider + '|' + randomHex)
-  // Verified in /callback to prevent CSRF
-  const randomBytes = crypto.getRandomValues(new Uint8Array(16));
-  const randomHex = Array.from(randomBytes).map((b) => b.toString(16).padStart(2, '0')).join('');
-  const statePayload = `${user.id}|${provider}|${randomHex}`;
-  const state = Buffer.from(statePayload).toString('base64url');
+  const state = await createSpikeState(user.id, provider);
 
   // ── Build auth URL ────────────────────────────────────────────────────
   let authUrl: string;

@@ -115,4 +115,68 @@ describe('enterprise hardening invariants', () => {
 
     expect(offenders).toEqual([]);
   });
+
+  it('guards cross-user food log reads with tenant access checks', () => {
+    const foodRouter = readFileSync(join(root, 'lib/trpc/routers/food.ts'), 'utf8');
+
+    expect(foodRouter).toContain('assertCanAccessClient');
+    expect(foodRouter).toContain('resolveFoodLogTargetUser');
+  });
+
+  it('does not commit shared tester passwords or live API keys', () => {
+    const trackedTextFiles = walk(root)
+      .filter((file) => !file.includes('/tests/_guard_fixtures/'))
+      .filter((file) => file !== __filename)
+      .filter((file) => /\.(ts|tsx|js|md|sql|json|yml|yaml)$/.test(file));
+    const forbidden = /(trophe2026!|TestDaniel#2026|USDA_API_KEY=[A-Za-z0-9_-]{20,})/;
+    const offenders = trackedTextFiles
+      .filter((file) => forbidden.test(readFileSync(file, 'utf8')))
+      .map((file) => relative(root, file));
+
+    expect(offenders).toEqual([]);
+  });
+
+  it('exports every domain schema file from the canonical schema barrel', () => {
+    const schemaDir = join(root, 'db/schema');
+    const barrel = readFileSync(join(schemaDir, 'index.ts'), 'utf8');
+    const missing = readdirSync(schemaDir)
+      .filter((file) => file.endsWith('.ts') && file !== 'index.ts')
+      .map((file) => file.replace(/\.ts$/, ''))
+      .filter((name) => !barrel.includes(`export * from './${name}'`));
+
+    expect(missing).toEqual([]);
+  });
+
+  it('does not reveal server secret names from public health routes', () => {
+    const healthRoutes = sourceFiles('app/api')
+      .filter((file) => file.endsWith('/health/route.ts'));
+    const offenders = healthRoutes
+      .filter((file) => /missing\s*:/.test(readFileSync(file, 'utf8')))
+      .map((file) => relative(root, file));
+
+    expect(offenders).toEqual([]);
+  });
+
+  it('cleans up auth users when public signup profile creation fails', () => {
+    const signupRoute = readFileSync(join(root, 'app/api/auth/signup/route.ts'), 'utf8');
+
+    expect(signupRoute).toContain('profileError');
+    expect(signupRoute).toContain('clientProfileError');
+    expect(signupRoute.match(/auth\.admin\.deleteUser/g)?.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('keeps OpenBrain database references out of runtime code and active scripts', () => {
+    const offenders = [
+      ...sourceFiles('app'),
+      ...sourceFiles('components'),
+      ...sourceFiles('lib'),
+      ...sourceFiles('agents'),
+      ...sourceFiles('db'),
+      ...sourceFiles('scripts'),
+    ]
+      .filter((file) => /open_brain|brain_user|localhost:5433|127\.0\.0\.1:5433/i.test(readFileSync(file, 'utf8')))
+      .map((file) => relative(root, file));
+
+    expect(offenders).toEqual([]);
+  });
 });

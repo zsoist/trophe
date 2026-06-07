@@ -275,7 +275,7 @@ export default function DemoPage() {
           ))}
         </motion.div>
 
-        {/* ═══ CREDENTIALS ═══ */}
+        {/* ═══ DEMO ACCESS ═══ */}
         <motion.div {...fade(0.15)} className="glass p-4 mb-6">
           <div className="space-y-2 mb-3">
             <div className="flex items-center justify-between p-2.5 rounded-lg" style={{ background: 'rgba(255,255,255,0.04)' }}>
@@ -285,10 +285,10 @@ export default function DemoPage() {
                 </div>
                 <div>
                   <p className="text-[9px] text-stone-500">Coach</p>
-                  <p className="text-xs text-stone-200 font-medium">michael@kavdas.com</p>
+                  <p className="text-xs text-stone-200 font-medium">Request coach demo access</p>
                 </div>
               </div>
-              <code className="text-[10px] text-stone-500 bg-white/[0.04] px-2 py-0.5 rounded">trophe2026!</code>
+              <code className="text-[10px] text-stone-500 bg-white/[0.04] px-2 py-0.5 rounded">managed access</code>
             </div>
             <div className="flex items-center justify-between p-2.5 rounded-lg" style={{ background: 'rgba(255,255,255,0.04)' }}>
               <div className="flex items-center gap-2">
@@ -297,10 +297,10 @@ export default function DemoPage() {
                 </div>
                 <div>
                   <p className="text-[9px] text-stone-500">Client (Nikos)</p>
-                  <p className="text-xs text-stone-200 font-medium">nikos@biorita.com</p>
+                  <p className="text-xs text-stone-200 font-medium">Request client demo access</p>
                 </div>
               </div>
-              <code className="text-[10px] text-stone-500 bg-white/[0.04] px-2 py-0.5 rounded">trophe2026!</code>
+              <code className="text-[10px] text-stone-500 bg-white/[0.04] px-2 py-0.5 rounded">managed access</code>
             </div>
           </div>
           <Link href="/login" className="btn-gold block w-full py-3 text-sm text-center font-bold no-underline">
@@ -481,7 +481,7 @@ export default function DemoPage() {
             </button>
           </Link>
           <p className="text-[10px] text-stone-600 mt-3 font-mono">
-            michael@kavdas.com / trophe2026!
+            Demo credentials are issued individually.
           </p>
         </motion.div>
       </div>

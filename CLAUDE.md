@@ -359,15 +359,9 @@ npm run build        # clean production build
 
 ## Test accounts
 
-| Name | Email | Password | Role |
-|------|-------|----------|------|
-| Michael Kavdas | michael@kavdas.com | trophe2026! | coach |
-| George Kavdas | george@kavdas.com | trophe2026! | coach |
-| Dimitra Kavdas | dimitra@kavdas.com | trophe2026! | client (Greek) |
-| Daniel Reyes | daniel@reyes.com | trophe2026! | super_admin |
-| Nikos | nikos@biorita.com | trophe2026! | coach |
-| Daniela | daniela@trophe.app | trophe2026! | coach |
-| Alex Katsanas | alex@katsanas.com | trophe2026! | client |
+Test-account identities and credentials are managed outside the repository.
+Use environment variables or the team password manager; never document shared
+passwords in source control.
 
 ---
 
@@ -410,6 +404,7 @@ Trophē tracks the source and confidence of every food's macro data. This is a c
 - `@supabase/ssr` IS installed and in use. Sessions in HTTP-only cookies, NOT localStorage. Don't revert to localStorage pattern.
 - Always call `getUser()` not `getSession()` — `getSession()` doesn't re-validate against auth server.
 - middleware lives in `proxy.ts` (not `middleware.ts`) — Next.js 16 convention.
+- 2026-05-03: Renaming `proxy.ts` → `middleware.ts` silently breaks auth gating in Next.js 16. The file compiles fine but Next.js 16 ignores the legacy name; routes appear public. Always validate auth gating after file moves.
 - Hydration mismatch: never read `localStorage` inside `useState` lazy initializer — use `useEffect` after mount.
 
 ### Supabase / DB
@@ -445,6 +440,7 @@ Trophē tracks the source and confidence of every food's macro data. This is a c
 - CSP: use explicit `https://iwbpzwmidzvpiofnqexd.supabase.co`, NOT `*.supabase.co` (wildcard breaks mobile).
 - Pre-deploy: `git diff --staged | grep -E '(sk-ant-|sbp_|AIza|pa-)'` must be empty.
 - Git identity for Vercel: `zsoist` / `zsoist@users.noreply.github.com`.
+- 2026-05-03: ESLint cache (`.eslintcache`) masks CI lint failures across branches. Local lint passes because cache hits prior passing results; Vercel `next build` runs include lint and fail. Delete `.eslintcache` before pushing or add it to `.gitignore`.
 
 ### Drag-and-drop
 - HTML5 drag API works on desktop + iPad, NOT mobile touch. Use `onTouchStart/Move/End` for touch.

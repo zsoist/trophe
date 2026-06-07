@@ -68,13 +68,24 @@ export async function POST(req: NextRequest) {
     const userId = authData.user.id;
 
     // 2. Create profile record — role is always FORCED_ROLE, never client-supplied
-    await service.from('profiles').insert({ id: userId, full_name, email, role: FORCED_ROLE });
+    const { error: profileError } = await service
+      .from('profiles')
+      .insert({ id: userId, full_name, email, role: FORCED_ROLE });
+    if (profileError) {
+      await service.auth.admin.deleteUser(userId);
+      throw new Error(`Profile creation failed: ${profileError.message}`);
+    }
 
     // 3. Create client_profile — all public signups are clients
-    await service.from('client_profiles').insert({
+    const { error: clientProfileError } = await service.from('client_profiles').insert({
       user_id: userId,
       coaching_phase: 'onboarding',
     });
+    if (clientProfileError) {
+      await service.from('profiles').delete().eq('id', userId);
+      await service.auth.admin.deleteUser(userId);
+      throw new Error(`Client profile creation failed: ${clientProfileError.message}`);
+    }
 
     return NextResponse.json({ success: true, user_id: userId });
   } catch (err) {

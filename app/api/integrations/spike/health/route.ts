@@ -19,11 +19,5 @@ export async function GET() {
     ok: configured,
     service: 'spike_integration',
     configured,
-    missing: [
-      !process.env.SPIKE_CLIENT_ID && 'SPIKE_CLIENT_ID',
-      !process.env.SPIKE_CLIENT_SECRET && 'SPIKE_CLIENT_SECRET',
-      !process.env.SPIKE_WEBHOOK_SECRET && 'SPIKE_WEBHOOK_SECRET',
-      !process.env.WEARABLE_ENCRYPT_KEY && 'WEARABLE_ENCRYPT_KEY',
-    ].filter(Boolean),
   });
 }

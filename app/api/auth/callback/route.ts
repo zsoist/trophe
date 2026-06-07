@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { safeRedirectPath } from '@/lib/auth/safe-redirect';
 
 /**
  * OAuth + magic-link callback handler — Phase 2.
@@ -43,7 +44,7 @@ export async function GET(request: NextRequest) {
 
     // Successful auth — redirect to intended destination.
     // Use a relative URL to avoid open-redirect attacks; validate `next`.
-    const safeNext = next.startsWith('/') ? next : '/dashboard';
+    const safeNext = safeRedirectPath(next);
     return NextResponse.redirect(new URL(safeNext, origin));
   }
 

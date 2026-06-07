@@ -70,7 +70,7 @@ Common causes:
 - If single user: query `profiles` table → confirm `role` matches expected value
 - If all users: rotate anon key + redeploy
 
-**Verify**: log in as test account (`daniel@reyes.com` / `trophe2026!`); should land on `/coach`.
+**Verify**: log in with a password-manager-backed test account; it should land on its role-appropriate page.
 
 ### 3. LLM route returning 429 / 502 / timeout
 

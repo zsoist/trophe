@@ -253,30 +253,60 @@ describe('audit_log — RLS', () => {
 describe('is_super_admin() helper', () => {
   it('returns true for super_admin session', async () => {
     const result = await asUser(IDS.superAdmin, (c) =>
-      c.query('SELECT is_super_admin() AS val'),
+      c.query('SELECT private.is_super_admin() AS val'),
     );
     expect(result.rows[0].val).toBe(true);
   });
 
   it('returns false for coach session', async () => {
     const result = await asUser(IDS.coach, (c) =>
-      c.query('SELECT is_super_admin() AS val'),
+      c.query('SELECT private.is_super_admin() AS val'),
     );
     expect(result.rows[0].val).toBe(false);
+  });
+});
+
+describe('repository-wide RLS posture', () => {
+  it('enables RLS on every public table', async () => {
+    const result = await asOwner(`
+      SELECT tablename
+      FROM pg_tables
+      WHERE schemaname = 'public'
+        AND NOT rowsecurity
+      ORDER BY tablename
+    `);
+
+    expect(result.rows).toEqual([]);
+  });
+
+  it('does not contain permissive policies without explicit predicates', async () => {
+    const result = await asOwner(`
+      SELECT tablename, policyname, cmd
+      FROM pg_policies
+      WHERE schemaname = 'public'
+        AND permissive = 'PERMISSIVE'
+        AND (
+          (cmd <> 'INSERT' AND qual IS NULL)
+          OR (cmd IN ('INSERT', 'UPDATE', 'ALL') AND with_check IS NULL)
+        )
+      ORDER BY tablename, policyname
+    `);
+
+    expect(result.rows).toEqual([]);
   });
 });
 
 describe('is_coach_of() helper', () => {
   it('returns true when coach is assigned to client', async () => {
     const result = await asUser(IDS.coach, (c) =>
-      c.query('SELECT is_coach_of($1) AS val', [IDS.client]),
+      c.query('SELECT private.is_coach_of($1) AS val', [IDS.client]),
     );
     expect(result.rows[0].val).toBe(true);
   });
 
   it('returns false for unassigned client', async () => {
     const result = await asUser(IDS.coach, (c) =>
-      c.query('SELECT is_coach_of($1) AS val', [IDS.otherClient]),
+      c.query('SELECT private.is_coach_of($1) AS val', [IDS.otherClient]),
     );
     expect(result.rows[0].val).toBe(false);
   });
@@ -285,14 +315,14 @@ describe('is_coach_of() helper', () => {
 describe('is_admin_of() helper', () => {
   it('returns true for an admin member of the organization', async () => {
     const result = await asUser(IDS.admin, (c) =>
-      c.query('SELECT is_admin_of($1) AS val', [IDS.org]),
+      c.query('SELECT private.is_admin_of($1) AS val', [IDS.org]),
     );
     expect(result.rows[0].val).toBe(true);
   });
 
   it('returns false for a coach member without admin role', async () => {
     const result = await asUser(IDS.coach, (c) =>
-      c.query('SELECT is_admin_of($1) AS val', [IDS.org]),
+      c.query('SELECT private.is_admin_of($1) AS val', [IDS.org]),
     );
     expect(result.rows[0].val).toBe(false);
   });

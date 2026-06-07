@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { z } from 'zod';
+import { safeRedirectPath } from '@/lib/auth/safe-redirect';
 
 const MagicLinkBody = z.object({
   email: z.string().email('Invalid email address'),
@@ -39,8 +40,8 @@ export async function POST(request: NextRequest) {
 
   // Safe redirect URL — must stay on the same origin.
   const callbackUrl = new URL('/api/auth/callback', process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000');
-  if (redirectTo?.startsWith('/')) {
-    callbackUrl.searchParams.set('next', redirectTo);
+  if (redirectTo) {
+    callbackUrl.searchParams.set('next', safeRedirectPath(redirectTo));
   }
 
   const supabase = await createSupabaseServerClient();

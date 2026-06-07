@@ -19,7 +19,7 @@
  *
  * Usage:
  *   source ~/.local/secrets/usda.env
- *   DATABASE_URL="postgresql://brain_user:...@localhost:5433/trophe_dev" \
+ *   DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
  *     npx tsx scripts/data/seed-canonical-foods.ts --dry-run
  */
 

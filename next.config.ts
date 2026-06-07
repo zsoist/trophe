@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const isDev = process.env.NODE_ENV !== 'production';
+const supabaseOrigin = process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'http://127.0.0.1:54321';
 
 const nextConfig: NextConfig = {
   /* TypeScript and ESLint errors are now caught at build time.
@@ -31,7 +32,7 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
               "img-src 'self' data: blob: https:",
-              "connect-src 'self' https://iwbpzwmidzvpiofnqexd.supabase.co https://api.nal.usda.gov https://generativelanguage.googleapis.com https://api.anthropic.com",
+              `connect-src 'self' ${supabaseOrigin} https://api.nal.usda.gov https://generativelanguage.googleapis.com https://api.anthropic.com`,
               "media-src 'self' blob:",
               "worker-src 'self' blob:",
             ].join('; '),

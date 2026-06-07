@@ -46,6 +46,7 @@ export * from './agent_runs';
 export * from './foods';
 export * from './food_unit_conversions';
 export * from './food_aliases';
+export * from './dish_recipes';
 export * from './memory_chunks';
 export * from './coach_blocks';
 export * from './agent_conversation';

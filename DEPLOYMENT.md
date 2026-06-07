@@ -15,7 +15,8 @@ Set in **Vercel → Project Settings → Environment Variables** (Production sco
 | `NEXT_PUBLIC_SUPABASE_URL` | Prod + local | `https://iwbpzwmidzvpiofnqexd.supabase.co` |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Prod + local | Client-side key (RLS-bound, safe) |
 | `SUPABASE_SERVICE_ROLE_KEY` | Prod only | Server-only full-DB access. **NEVER `NEXT_PUBLIC_`** |
-| `DATABASE_URL` | Local only | `postgresql://postgres:postgres@127.0.0.1:54322/postgres` |
+| `DATABASE_URL` | Prod + local | Runtime connection. Vercel uses Supavisor transaction mode (`:6543`); local uses `127.0.0.1:54322`. |
+| `DIRECT_URL` | Prod only | Migration/backup connection. Use direct connection or Supavisor session mode (`:5432`), never transaction mode. |
 | `ANTHROPIC_API_KEY` | Prod + local | Haiku 4.5 + Sonnet 4.5 |
 | `GEMINI_API_KEY` | Prod + local | Gemini 2.5 Flash |
 | `VOYAGE_API_KEY` | Prod + local | Voyage v4 embeddings |
@@ -23,8 +24,10 @@ Set in **Vercel → Project Settings → Environment Variables** (Production sco
 | `LANGFUSE_SECRET_KEY` | Prod + local | Langfuse tracing |
 | `LANGFUSE_HOST` | Prod + local | Prod: `https://langfuse.danielreyes.work` (CF Tunnel); Local: `http://127.0.0.1:3002` |
 | `USDA_API_KEY` | Optional | Food search. Falls back to `DEMO_KEY` (30 req/hr). |
-| `SPIKE_API_KEY` | Phase 6 | Spike wearable API |
+| `SPIKE_CLIENT_ID` | On hold | Spike wearable OAuth client |
+| `SPIKE_CLIENT_SECRET` | On hold | Spike wearable OAuth secret |
 | `SPIKE_WEBHOOK_SECRET` | Phase 6 | HMAC webhook verification |
+| `WEARABLE_ENCRYPT_KEY` | On hold | Encrypts wearable OAuth tokens and signs OAuth state |
 | Admin access | Database role | Governed by `profiles.role` and organization membership. No email allowlist env var. |
 
 Stripe Connect and banking are documented only in `docs/stripe-connect-readiness.md`.
@@ -41,7 +44,7 @@ npm install
 
 # 2. Local env
 cp .env.local.example .env.local
-# Fill in keys from ~/.local/secrets/{anthropic,providers,voyage}.env + Supabase dashboard
+# Fill in keys from the team password manager + Supabase dashboard
 
 # 3. Local DB
 npm run db:doctor
@@ -103,7 +106,7 @@ npm run db:generate     # generates new SQL migration in drizzle/
 npm run db:migrate      # applies pending migrations to local DB
 
 # For production (Phase 9 cutover only):
-npm run db:migrate      # against DATABASE_URL pointing at Vultr/Supabase
+DIRECT_URL=... npm run db:migrate  # direct/session connection, never transaction pooler
 ```
 
 Migration files live in `drizzle/`. Current migrations:

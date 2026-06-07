@@ -23,6 +23,7 @@ import { exchangeSpikeCode } from '@/lib/spike/client';
 import { encryptToken } from '@/lib/spike/tokens';
 import { db } from '@/db/client';
 import { wearableConnections, type InsertWearableConnection } from '@/db/schema/wearable_connections';
+import { verifySpikeState } from '@/lib/spike/state';
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
@@ -68,23 +69,13 @@ export async function GET(req: NextRequest) {
   }
 
   // ── Verify CSRF state ─────────────────────────────────────────────────
-  let userId: string;
-  let provider: string;
-
-  try {
-    const decoded = Buffer.from(state, 'base64url').toString('utf-8');
-    const parts = decoded.split('|');
-    if (parts.length !== 3) throw new Error('invalid state shape');
-    [userId, provider] = parts;
-
-    if (userId !== user.id) {
-      throw new Error('state user_id mismatch');
-    }
-  } catch {
+  const verifiedState = await verifySpikeState(state, user.id);
+  if (!verifiedState) {
     return NextResponse.redirect(
       `${appUrl}/dashboard/integrations?error=invalid_state`,
     );
   }
+  const { provider } = verifiedState;
 
   // ── Exchange code for tokens ──────────────────────────────────────────
   const redirectUri = `${appUrl}/api/integrations/spike/callback`;

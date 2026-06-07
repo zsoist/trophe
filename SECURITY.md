@@ -103,7 +103,7 @@ Webhook endpoint (`/api/integrations/spike/webhook`) verifies HMAC signature bef
 - `.env.local.example` committed (names only, no values)
 - Pre-deploy check: `git diff --staged | grep -E '(sk-ant-|sbp_|AIza|key=)'` → must be empty
 - Service role key: server-only (no `NEXT_PUBLIC_` prefix)
-- Vercel env vars: `SUPABASE_SERVICE_ROLE_KEY` is server-only and Production-scoped; `NEXT_PUBLIC_*` vars are safe public anon URL/key values.
+- Vercel env vars: `SUPABASE_SERVICE_ROLE_KEY` is server-only and Production-scoped; preview deployments receive only publishable `NEXT_PUBLIC_*` Supabase values.
 - Rotation: quarterly or after suspected compromise
 
 ### Audit trail

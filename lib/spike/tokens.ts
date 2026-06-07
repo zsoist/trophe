@@ -10,7 +10,7 @@
  *   - Tokens are only decrypted when needed (in the DB transaction)
  *   - Key rotation: re-run UPDATE ... SET encrypted = pgp_sym_encrypt(pgp_sym_decrypt(..., old_key), new_key)
  *
- * Requires: CREATE EXTENSION IF NOT EXISTS pgcrypto — already enabled on open_brain_postgres.
+ * Requires: CREATE EXTENSION IF NOT EXISTS pgcrypto — enabled by the canonical database bootstrap.
  *
  * ⚠ MANUAL STEP: Set WEARABLE_ENCRYPT_KEY in .env.local to a random 32+ char string.
  *   Generate: openssl rand -base64 32

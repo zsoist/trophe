@@ -29,6 +29,7 @@ import {
   index,
   unique,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 import { profiles } from './profiles';
 
 export const recipeSourceEnum = pgEnum('recipe_source', [
@@ -81,7 +82,7 @@ export const dishRecipes = pgTable(
     // Prevent duplicate recipes for same dish
     unique('dish_recipes_name_lang_key').on(t.dishName, t.lang),
     // Text search on dish name
-    index('idx_dish_recipes_name_gin').using('gin', t.dishName),
+    index('idx_dish_recipes_name_gin').using('gin', sql`to_tsvector('simple', ${t.dishName})`),
     // Region-filtered queries
     index('idx_dish_recipes_region').using('gin', t.region),
   ],

@@ -10,12 +10,12 @@
  *   --limit N      Only process first N foods (for testing)
  *
  * Usage:
- *   USDA_API_KEY=Yw6KN9Y3oV8cfZco5d8v6RPPbEBWdPe6qZNWNCh0 \
- *   DATABASE_URL="postgresql://brain_user:...@localhost:5433/trophe_dev" \
+ *   USDA_API_KEY="$USDA_API_KEY" \
+ *   DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
  *     npx tsx scripts/data/seed-wave3-branded.ts
  *
  *   # Dry run (no DB needed):
- *   USDA_API_KEY=Yw6KN9Y3oV8cfZco5d8v6RPPbEBWdPe6qZNWNCh0 \
+ *   USDA_API_KEY="$USDA_API_KEY" \
  *     npx tsx scripts/data/seed-wave3-branded.ts --dry-run
  */
 

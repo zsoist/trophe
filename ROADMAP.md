@@ -396,7 +396,7 @@ _4 test subjects, daily usage, bug collection_
 | Daniel | daniel@reyes.com | super_admin | Post-surgery recovery client + dev |
 | Daniela | daniela@trophe.app | coach | Biomechanics/engineer perspective |
 
-_All passwords: `trophe2026!`_
+_Credentials are managed outside source control and must be unique per tester._
 
 - [x] ✅ Test accounts created and verified
 - [ ] Michael creating nutrition plans for test subjects (week of Apr 13)

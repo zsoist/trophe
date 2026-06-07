@@ -16,6 +16,24 @@ import { router, protectedProcedure } from '../init';
 import { foodLog } from '@/db/schema/food';
 import { foods } from '@/db/schema/foods';
 import { eq, and, desc, ilike, sql } from 'drizzle-orm';
+import { TRPCError } from '@trpc/server';
+import { assertCanAccessClient } from '@/lib/auth/tenant-access';
+import type { Context } from '../context';
+
+async function resolveFoodLogTargetUser(
+  ctx: Context,
+  requestedUserId?: string,
+): Promise<string> {
+  const ownUserId = ctx.user!.id;
+  if (!requestedUserId || requestedUserId === ownUserId) return ownUserId;
+
+  if (!ctx.profile) {
+    throw new TRPCError({ code: 'FORBIDDEN', message: 'Profile required for cross-user access' });
+  }
+
+  await assertCanAccessClient(ctx.db, ownUserId, ctx.profile.role, requestedUserId);
+  return requestedUserId;
+}
 
 // ── Router ────────────────────────────────────────────────────────────────
 
@@ -30,8 +48,7 @@ export const foodRouter = router({
         }),
       )
       .query(async ({ ctx, input }) => {
-        // If userId is provided, must be coach querying their client
-        const targetUserId = input.userId ?? ctx.user!.id;
+        const targetUserId = await resolveFoodLogTargetUser(ctx, input.userId);
 
         const rows = await ctx.db
           .select()
@@ -125,15 +142,12 @@ export const foodRouter = router({
         }),
       )
       .query(async ({ ctx, input }) => {
-        const targetUserId = input.userId ?? ctx.user!.id;
-
-        const start = new Date(`${input.dateStart}T00:00:00Z`);
-        const end = new Date(`${input.dateEnd}T23:59:59Z`);
+        const targetUserId = await resolveFoodLogTargetUser(ctx, input.userId);
 
         const result = await ctx.db.execute(
           sql`
             SELECT
-              DATE(logged_at AT TIME ZONE 'UTC') AS date,
+              logged_date AS date,
               SUM(calories)::real  AS total_kcal,
               SUM(protein_g)::real AS total_protein,
               SUM(carbs_g)::real   AS total_carbs,
@@ -141,8 +155,8 @@ export const foodRouter = router({
               COUNT(*)::int        AS entry_count
             FROM food_log
             WHERE user_id = ${targetUserId}
-              AND logged_at BETWEEN ${start.toISOString()} AND ${end.toISOString()}
-            GROUP BY DATE(logged_at AT TIME ZONE 'UTC')
+              AND logged_date BETWEEN ${input.dateStart}::date AND ${input.dateEnd}::date
+            GROUP BY logged_date
             ORDER BY date DESC
           `,
         );

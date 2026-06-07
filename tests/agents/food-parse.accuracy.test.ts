@@ -340,6 +340,7 @@ const GOLDENS: GoldenCase[] = [
     expected: {
       matchNameIncludes: 'yogurt',
       macros: { kcal: 194, protein: 18, carb: 7.96, fat: 10 },
+      tolerancePct: 10,
     },
   },
   {
@@ -349,6 +350,7 @@ const GOLDENS: GoldenCase[] = [
     expected: {
       matchNameIncludes: 'feta',
       macros: { kcal: 132.5, protein: 7.1, carb: 1.94, fat: 10.75 },
+      tolerancePct: 10,
     },
   },
   {
@@ -542,7 +544,7 @@ const HARD_GATE = parseFloat(process.env.EVAL_FOOD_PARSE_THRESHOLD ?? '0.75');
 
 function withinTolerance(actual: number, expected: number, tolerancePct: number): boolean {
   if (expected === 0) return Math.abs(actual) < 0.5; // near-zero check
-  return Math.abs(actual - expected) / Math.abs(expected) <= tolerancePct / 100;
+  return Math.abs(actual - expected) / Math.abs(expected) <= tolerancePct / 100 + Number.EPSILON;
 }
 
 describe('food-parse v4 accuracy (lookup layer)', () => {

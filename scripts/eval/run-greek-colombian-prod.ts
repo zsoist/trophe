@@ -101,12 +101,12 @@ interface CaseResult {
 const EVAL_EMAIL = process.env.EVAL_EMAIL || 'eval-tester-2026@trophe.app';
 const EVAL_PASSWORD = process.env.EVAL_PASSWORD;
 const TROPHE_API = process.env.TROPHE_API || 'https://trophe.app';
-const SUPABASE_URL = 'https://iwbpzwmidzvpiofnqexd.supabase.co';
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'sb_publishable_mEkTXGkdpQyH9ZWqgAWoBQ_b8iTG2cZ';
 const MAX_LATENCY_MS = 8000;
 
-if (!EVAL_PASSWORD) {
-  console.error('❌ EVAL_PASSWORD env var required');
+if (!EVAL_PASSWORD || !SUPABASE_URL) {
+  console.error('❌ EVAL_PASSWORD and NEXT_PUBLIC_SUPABASE_URL env vars required');
   console.error('   Source it: source ~/.local/secrets/trophe-eval.env');
   process.exit(1);
 }

@@ -28,7 +28,7 @@ const expectations: Expectation[] = [
         AND table_name IN (
           'profiles', 'client_profiles', 'food_log', 'organizations',
           'organization_members', 'audit_log', 'foods', 'food_unit_conversions',
-          'memory_chunks', 'wearable_data', 'agent_runs'
+          'dish_recipes', 'memory_chunks', 'wearable_data', 'agent_runs'
         )
       ORDER BY table_name;
     `,
@@ -36,6 +36,7 @@ const expectations: Expectation[] = [
       'agent_runs',
       'audit_log',
       'client_profiles',
+      'dish_recipes',
       'food_log',
       'food_unit_conversions',
       'foods',
@@ -53,20 +54,20 @@ const expectations: Expectation[] = [
       FROM pg_policies
       WHERE schemaname = 'public'
         AND policyname IN (
-          'Users can view own profile',
-          'Clients manage own food log',
-          'Members view own membership',
-          'Org members can view own org',
-          'Super admins read audit log'
+          'profiles_own_select',
+          'food_log_own_all',
+          'organization_members_own_select',
+          'organizations_member_select',
+          'audit_log_super_admin_select'
         )
       ORDER BY policyname;
     `,
     expected: [
-      'Clients manage own food log',
-      'Members view own membership',
-      'Org members can view own org',
-      'Super admins read audit log',
-      'Users can view own profile',
+      'audit_log_super_admin_select',
+      'food_log_own_all',
+      'organization_members_own_select',
+      'organizations_member_select',
+      'profiles_own_select',
     ],
   },
   {
@@ -78,9 +79,9 @@ const expectations: Expectation[] = [
       WHERE (n.nspname, p.proname) IN (
         ('auth', 'uid'),
         ('auth', 'role'),
-        ('public', 'is_super_admin'),
-        ('public', 'is_admin_of'),
-        ('public', 'is_coach_of'),
+        ('private', 'is_super_admin'),
+        ('private', 'is_admin_of'),
+        ('private', 'is_coach_of'),
         ('public', 'memory_decay_salience')
       )
       ORDER BY 1;
@@ -88,9 +89,9 @@ const expectations: Expectation[] = [
     expected: [
       'auth.role',
       'auth.uid',
-      'public.is_admin_of',
-      'public.is_coach_of',
-      'public.is_super_admin',
+      'private.is_admin_of',
+      'private.is_coach_of',
+      'private.is_super_admin',
       'public.memory_decay_salience',
     ],
   },
@@ -158,6 +159,27 @@ withPool(config, async (pool) => {
   }
 
   report.embedding_columns = embeddingColumns.rows.map((row) => `${row.table_name}:${row.udt_name}`);
+
+  const unsafeRls = await pool.query<{ table_name: string }>(`
+    SELECT tablename AS table_name
+    FROM pg_tables
+    WHERE schemaname = 'public' AND NOT rowsecurity
+    UNION ALL
+    SELECT tablename || ':' || policyname
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND permissive = 'PERMISSIVE'
+      AND (
+        (cmd <> 'INSERT' AND qual IS NULL)
+        OR (cmd IN ('INSERT', 'UPDATE', 'ALL') AND with_check IS NULL)
+      )
+    ORDER BY 1;
+  `);
+  if (unsafeRls.rowCount !== 0) {
+    throw new Error(`unsafe RLS posture: ${unsafeRls.rows.map((row) => row.table_name).join(', ')}`);
+  }
+  report.rls_posture = ['all_public_tables_enabled', 'all_permissive_policies_predicated'];
+
   writeArtifact('verify.json', JSON.stringify(report, null, 2));
   console.log('Verified DB schema, policies, functions, and index inventory.');
 }).catch((error) => {
