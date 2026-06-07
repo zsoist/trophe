@@ -50,6 +50,7 @@ import AutoMacroOptimizer from '@/components/coach/AutoMacroOptimizer';
 import CalorieCyclingPlanner from '@/components/coach/CalorieCyclingPlanner';
 import RecoveryScore from '@/components/coach/RecoveryScore';
 import MealPatternView from '@/components/coach/MealPatternView';
+import CoachInsightPanel from '@/components/coach/CoachInsightPanel';
 import { localToday, localDateStr } from '../../../../lib/dates';
 import { Icon } from '@/components/ui';
 import type {
@@ -1372,6 +1373,11 @@ export default function ClientDetailPage() {
                 ))
               )}
             </div>
+          </div>
+
+          {/* ─── Permission-aware AI coach insight ─── */}
+          <div className="mb-4">
+            <CoachInsightPanel clientId={clientId} />
           </div>
 
           {/* ─── Smart Note Suggestions ─── */}
