@@ -29,7 +29,7 @@ const expectations: Expectation[] = [
           'profiles', 'client_profiles', 'food_log', 'organizations',
           'organization_members', 'audit_log', 'foods', 'food_unit_conversions',
           'dish_recipes', 'memory_chunks', 'wearable_data', 'agent_runs',
-          'knowledge_documents', 'knowledge_chunks'
+          'knowledge_documents', 'knowledge_chunks', 'consents', 'data_requests'
         )
       ORDER BY table_name;
     `,
@@ -37,6 +37,8 @@ const expectations: Expectation[] = [
       'agent_runs',
       'audit_log',
       'client_profiles',
+      'consents',
+      'data_requests',
       'dish_recipes',
       'food_log',
       'food_unit_conversions',
@@ -86,7 +88,8 @@ const expectations: Expectation[] = [
         ('private', 'is_admin_of'),
         ('private', 'is_coach_of'),
         ('public', 'memory_decay_salience'),
-        ('public', 'hybrid_search_knowledge')
+        ('public', 'hybrid_search_knowledge'),
+        ('public', 'prevent_audit_log_mutation')
       )
       ORDER BY 1;
     `,
@@ -98,6 +101,7 @@ const expectations: Expectation[] = [
       'private.is_super_admin',
       'public.memory_decay_salience',
       'public.hybrid_search_knowledge',
+      'public.prevent_audit_log_mutation',
     ],
   },
   {
@@ -191,6 +195,16 @@ withPool(config, async (pool) => {
   );
   if (missingRunColumns.length) throw new Error(`agent_runs missing governed columns: ${missingRunColumns.join(', ')}`);
   report.agent_runs_governance = expectedRunColumns;
+
+  const immutableAudit = await pool.query<{ tgname: string }>(`
+    SELECT tgname
+    FROM pg_trigger
+    WHERE tgrelid = 'public.audit_log'::regclass
+      AND NOT tgisinternal
+      AND tgname = 'audit_log_immutable';
+  `);
+  if (immutableAudit.rowCount !== 1) throw new Error('audit_log immutable trigger missing');
+  report.audit_immutability = ['audit_log_immutable'];
 
   const unsafeRls = await pool.query<{ table_name: string }>(`
     SELECT tablename AS table_name

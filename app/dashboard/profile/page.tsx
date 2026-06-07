@@ -13,6 +13,7 @@ import BodyCompCalculator from '@/components/BodyCompCalculator';
 import { useThemeMode } from '@/components/ThemeMode';
 import { useI18n } from '@/lib/i18n';
 import { useClientNav } from '@/lib/useClientNav';
+import PrivacyRequests from '@/components/PrivacyRequests';
 
 // Labels are rendered inline with t() in the component
 
@@ -440,6 +441,8 @@ export default function ProfilePage() {
             )}
           </button>
         </motion.div>
+
+        <PrivacyRequests />
 
         {/* Logout */}
         <motion.div

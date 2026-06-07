@@ -55,3 +55,5 @@ export * from './wearable_connections';
 export * from './wearable_data';
 export * from './knowledge_documents';
 export * from './knowledge_chunks';
+export * from './consents';
+export * from './data_requests';
