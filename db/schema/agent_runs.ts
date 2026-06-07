@@ -21,6 +21,7 @@ import {
   real,
   timestamp,
   index,
+  jsonb,
 } from 'drizzle-orm/pg-core';
 import { userRoleEnum } from './enums';
 
@@ -28,6 +29,9 @@ export const agentRuns = pgTable(
   'agent_runs',
   {
     id: uuid('id').primaryKey().defaultRandom(),
+    generationId: uuid('generation_id').notNull().defaultRandom(),
+    requestId: text('request_id'),
+    organizationId: uuid('organization_id'),
 
     /** Langfuse trace ID — use to deep-link into the Langfuse UI. */
     traceId: text('trace_id'),
@@ -40,15 +44,24 @@ export const agentRuns = pgTable(
 
     /** Exact model string sent to the provider API. */
     model: text('model').notNull(),
+    promptVersion: text('prompt_version'),
+    promptHash: text('prompt_hash'),
+    providerGenerationId: text('provider_generation_id'),
+    status: text('status').notNull().default('pending'),
+    fallbackFrom: text('fallback_from'),
 
     /** Token counts */
     tokensIn: integer('tokens_in').notNull().default(0),
     tokensOut: integer('tokens_out').notNull().default(0),
     cacheReadTokens: integer('cache_read_tokens').notNull().default(0),
     cacheWriteTokens: integer('cache_write_tokens').notNull().default(0),
+    reasoningTokens: integer('reasoning_tokens').notNull().default(0),
+    cachedTokens: integer('cached_tokens').notNull().default(0),
 
     /** Estimated USD cost computed at run time from otel.estimateCostUsd(). */
     costUsd: real('cost_usd'),
+    estimatedCostUsd: real('estimated_cost_usd'),
+    actualCostUsd: real('actual_cost_usd'),
 
     /** Wall-clock latency in milliseconds. */
     latencyMs: integer('latency_ms'),
@@ -58,6 +71,8 @@ export const agentRuns = pgTable(
 
     /** Error message if rawStatus !== 200. */
     errorMessage: text('error_message'),
+    metadata: jsonb('metadata').$type<Record<string, unknown>>(),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
 
     /**
      * Linked food_log row (nullable).
@@ -79,5 +94,8 @@ export const agentRuns = pgTable(
     index('idx_agent_runs_user_created').on(t.userId, t.createdAt),
     index('idx_agent_runs_task_model').on(t.taskName, t.model),
     index('idx_agent_runs_food_log').on(t.foodLogId),
+    index('idx_agent_runs_generation').on(t.generationId),
+    index('idx_agent_runs_org_created').on(t.organizationId, t.createdAt),
+    index('idx_agent_runs_status_created').on(t.status, t.createdAt),
   ],
 );

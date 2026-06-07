@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { calculateCost, extractAnthropicUsage } from '@/lib/api-cost-logger';
 import { guardAiRoute } from '@/lib/api-guard';
-import { pick } from '@/agents/router';
-import { logAgentRun } from '@/lib/agent-run-logger';
+import { executeAiTask } from '@/agents/runtime';
+import { invokeAnthropicJson } from '@/agents/runtime/providers/anthropic';
 
 interface PhotoAnalyzeRequest {
   imageBase64: string;
@@ -20,7 +19,6 @@ interface FoodAnalysis {
   accuracy_note?: string;
 }
 
-const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 const PHOTO_ANALYZE_TOOL = {
   name: 'submit_food_photo_analysis',
   description: 'Submit conservative nutrition estimates for visible foods in a photo.',
@@ -98,28 +96,24 @@ export async function POST(request: NextRequest) {
     }
 
     const { imageBase64, mediaType } = validation.data;
-    const policy = pick('photo_analyze');
-
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
+    if (!process.env.ANTHROPIC_API_KEY) {
       return NextResponse.json(
         { error: 'ANTHROPIC_API_KEY not configured' },
         { status: 500 },
       );
     }
 
-    const startTime = Date.now();
-    const response = await fetch(ANTHROPIC_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: policy.model,
-        max_tokens: policy.maxTokens,
-        messages: [
+    const prompt = 'Analyze this food photo conservatively and return structured nutrition estimates.';
+    const result = await executeAiTask({
+      task: 'photo_analyze',
+      prompt,
+      context: { userId: guard.userId, requestId: request.headers.get('x-request-id') ?? undefined },
+      invoke: ({ policy, signal }) => invokeAnthropicJson({
+        signal,
+        body: {
+          model: policy.model,
+          max_tokens: policy.maxTokens,
+          messages: [
           {
             role: 'user',
             content: [
@@ -138,46 +132,12 @@ export async function POST(request: NextRequest) {
             ],
           },
         ],
-        tools: [PHOTO_ANALYZE_TOOL],
-        tool_choice: { type: 'tool', name: 'submit_food_photo_analysis' },
+          tools: [PHOTO_ANALYZE_TOOL],
+          tool_choice: { type: 'tool', name: 'submit_food_photo_analysis' },
+        },
       }),
     });
-
-    const latencyMs = Date.now() - startTime;
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`Anthropic API error: ${response.status} ${errorText}`);
-      logAgentRun({
-        taskName: 'photo_analyze',
-        model: policy.model,
-        provider: 'anthropic',
-        costUsd: 0,
-        latencyMs,
-        rawStatus: response.status,
-        userId: guard.userId,
-        errorMessage: errorText.slice(0, 200),
-      });
-      return NextResponse.json(
-        { error: 'Failed to analyze photo' },
-        { status: 502 },
-      );
-    }
-
-    const data = await response.json();
-    const { tokensIn, tokensOut } = extractAnthropicUsage(data);
-    const cost = calculateCost(policy.model, tokensIn, tokensOut);
-    logAgentRun({
-      taskName: 'photo_analyze',
-      model: policy.model,
-      provider: 'anthropic',
-      tokensIn,
-      tokensOut,
-      costUsd: cost,
-      latencyMs,
-      rawStatus: response.status,
-      userId: guard.userId,
-    });
+    const data = result.output as { content?: Array<{ type?: string; name?: string; input?: { foods?: FoodAnalysis[] } }> };
 
     const toolUse = data?.content?.find((c: { type?: string; name?: string }) =>
       c.type === 'tool_use' && c.name === 'submit_food_photo_analysis',

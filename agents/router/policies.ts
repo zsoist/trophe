@@ -45,6 +45,10 @@ export interface RoutingPolicy {
   maxTokens: number;
   /** Enable Anthropic prompt-cache on system prompt (ignored for non-Anthropic). */
   cacheSystem?: boolean;
+  timeoutMs: number;
+  maxInputChars: number;
+  maxCostUsd: number;
+  promptVersion: string;
 }
 
 export const taskPolicies: Record<TaskName, RoutingPolicy> = {
@@ -54,6 +58,7 @@ export const taskPolicies: Record<TaskName, RoutingPolicy> = {
     costClass: 'cheap',
     latencyClass: 'fast',
     maxTokens: 2048,
+    timeoutMs: 20_000, maxInputChars: 12_000, maxCostUsd: 0.02, promptVersion: 'food-parse-v4',
   },
   recipe_analyze: {
     provider: 'anthropic',
@@ -62,6 +67,7 @@ export const taskPolicies: Record<TaskName, RoutingPolicy> = {
     latencyClass: 'fast',
     maxTokens: 4096,
     cacheSystem: true,
+    timeoutMs: 25_000, maxInputChars: 30_000, maxCostUsd: 0.05, promptVersion: 'recipe-analyze-v1',
   },
   coach_insight: {
     provider: 'anthropic',
@@ -70,6 +76,7 @@ export const taskPolicies: Record<TaskName, RoutingPolicy> = {
     latencyClass: 'medium',
     maxTokens: 2048,
     cacheSystem: true,
+    timeoutMs: 30_000, maxInputChars: 40_000, maxCostUsd: 0.25, promptVersion: 'coach-insight-v1',
   },
   meal_suggest: {
     // Migrated from gemini-2.0-flash (deprecated June 1, 2026) to Haiku 4.5.
@@ -82,6 +89,7 @@ export const taskPolicies: Record<TaskName, RoutingPolicy> = {
     latencyClass: 'fast',
     maxTokens: 2048,
     cacheSystem: true,
+    timeoutMs: 25_000, maxInputChars: 8_000, maxCostUsd: 0.05, promptVersion: 'meal-suggest-v1',
   },
   photo_analyze: {
     provider: 'anthropic',
@@ -89,6 +97,7 @@ export const taskPolicies: Record<TaskName, RoutingPolicy> = {
     costClass: 'cheap',
     latencyClass: 'fast',
     maxTokens: 2048,
+    timeoutMs: 30_000, maxInputChars: 10_000_000, maxCostUsd: 0.08, promptVersion: 'photo-analyze-v1',
   },
   embed: {
     // Voyage v4 is called directly in agents/observability — not via this router.
@@ -97,6 +106,7 @@ export const taskPolicies: Record<TaskName, RoutingPolicy> = {
     costClass: 'cheap',
     latencyClass: 'fast',
     maxTokens: 0,
+    timeoutMs: 15_000, maxInputChars: 100_000, maxCostUsd: 0.02, promptVersion: 'embed-v1',
   },
   memory_extract: {
     // Sonnet 4.5 for nuanced fact extraction — runs async after each conversation turn.
@@ -107,6 +117,7 @@ export const taskPolicies: Record<TaskName, RoutingPolicy> = {
     latencyClass: 'medium',
     maxTokens: 1024,
     cacheSystem: true,
+    timeoutMs: 30_000, maxInputChars: 30_000, maxCostUsd: 0.15, promptVersion: 'memory-extract-v1',
   },
   memory_embed: {
     // Voyage v4 — same embedding model as food/general embeddings for consistency.
@@ -116,5 +127,6 @@ export const taskPolicies: Record<TaskName, RoutingPolicy> = {
     costClass: 'cheap',
     latencyClass: 'fast',
     maxTokens: 0,
+    timeoutMs: 15_000, maxInputChars: 30_000, maxCostUsd: 0.01, promptVersion: 'memory-embed-v1',
   },
 };
