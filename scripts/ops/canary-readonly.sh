@@ -20,6 +20,9 @@ login_headers="$(curl -sSI "$BASE_URL/login")"
 login_status="$(printf '%s\n' "$login_headers" | awk 'NR==1 { print $2 }')"
 [[ "$login_status" =~ ^(200|30[178])$ ]] || fail "$BASE_URL/login unhealthy: HTTP $login_status"
 
+health_status="$(curl -sS -o /dev/null -w '%{http_code}' "$BASE_URL/api/health")"
+[[ "$health_status" == "200" ]] || fail "$BASE_URL/api/health unhealthy: HTTP $health_status"
+
 dashboard_headers="$(curl -sSI "$BASE_URL/dashboard")"
 dashboard_status="$(printf '%s\n' "$dashboard_headers" | awk 'NR==1 { print $2 }')"
 dashboard_location="$(printf '%s\n' "$dashboard_headers" | header_value location)"

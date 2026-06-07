@@ -52,7 +52,9 @@ export async function executeAiTask<T>(input: ExecuteAiTaskInput<T>): Promise<Ex
     await completeGeneration({ generationId, ...providerResult, estimatedCostUsd });
     return { generationId, estimatedCostUsd, ...providerResult };
   } catch (error) {
-    await failGeneration(generationId, error);
+    await failGeneration(generationId, error).catch((persistenceError) => {
+      console.error('[ai-runtime] Failed to persist generation failure:', persistenceError);
+    });
     throw error;
   } finally {
     clearTimeout(timeout);

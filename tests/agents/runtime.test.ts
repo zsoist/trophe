@@ -25,6 +25,26 @@ describe('AI runtime governance', () => {
     expect(Number.isFinite(cost)).toBe(true);
   });
 
+  it('charges Anthropic cache writes at the cache-write rate', () => {
+    const standard = estimateUsageCost('claude-haiku-4-5-20251001', {
+      inputTokens: 1_000,
+      outputTokens: 0,
+    });
+    const cacheWrite = estimateUsageCost('claude-haiku-4-5-20251001', {
+      inputTokens: 1_000,
+      outputTokens: 0,
+      cacheWriteTokens: 1_000,
+    });
+
+    expect(cacheWrite).toBeGreaterThan(standard);
+    expect(cacheWrite).toBeCloseTo(0.00125, 8);
+  });
+
+  it('attributes Voyage embedding tasks to Voyage', () => {
+    expect(taskPolicies.embed.provider).toBe('voyage');
+    expect(taskPolicies.memory_embed.provider).toBe('voyage');
+  });
+
   it('defines governance limits and a prompt version for every task', () => {
     for (const policy of Object.values(taskPolicies)) {
       expect(policy.timeoutMs).toBeGreaterThan(0);

@@ -4,6 +4,7 @@ export interface ModelPricing {
   inputPerMillion: number;
   outputPerMillion: number;
   cacheReadPerMillion?: number;
+  cacheWritePerMillion?: number;
 }
 
 export const modelPricing: Record<string, ModelPricing> = {
@@ -17,11 +18,13 @@ export const modelPricing: Record<string, ModelPricing> = {
     inputPerMillion: 1.00,
     outputPerMillion: 5.00,
     cacheReadPerMillion: 0.10,
+    cacheWritePerMillion: 1.25,
   },
   [taskPolicies.coach_insight.model]: {
     inputPerMillion: 3.00,
     outputPerMillion: 15.00,
     cacheReadPerMillion: 0.30,
+    cacheWritePerMillion: 3.75,
   },
   // meal_suggest now uses claude-haiku-4-5 (same as recipe_analyze).
   // Pricing entry shared — keyed by model string, not task name.
@@ -37,14 +40,16 @@ export function estimateModelCostUsd(
   inputTokens: number,
   outputTokens: number,
   cacheReadTokens = 0,
+  cacheWriteTokens = 0,
 ): number {
   const pricing = modelPricing[model];
   if (!pricing) return 0;
 
-  const billableInputTokens = Math.max(0, inputTokens - cacheReadTokens);
+  const billableInputTokens = Math.max(0, inputTokens - cacheReadTokens - cacheWriteTokens);
   const inputCost = billableInputTokens * pricing.inputPerMillion / 1_000_000;
   const outputCost = outputTokens * pricing.outputPerMillion / 1_000_000;
   const cacheCost = cacheReadTokens * (pricing.cacheReadPerMillion ?? pricing.inputPerMillion) / 1_000_000;
+  const cacheWriteCost = cacheWriteTokens * (pricing.cacheWritePerMillion ?? pricing.inputPerMillion) / 1_000_000;
 
-  return inputCost + outputCost + cacheCost;
+  return inputCost + outputCost + cacheCost + cacheWriteCost;
 }

@@ -255,6 +255,9 @@ END
 $$;
 
 -- AI, memory, wearable, and operational data.
+-- Operational records are intentionally written only through trusted
+-- server/service-role connections. Never add direct authenticated INSERT
+-- policies that let clients spoof AI runs, cost, usage, or ingestion records.
 CREATE POLICY memory_chunks_own_all ON memory_chunks FOR ALL TO authenticated
 USING (user_id = (SELECT auth.uid())) WITH CHECK (user_id = (SELECT auth.uid()));
 CREATE POLICY memory_chunks_coach_select ON memory_chunks FOR SELECT TO authenticated

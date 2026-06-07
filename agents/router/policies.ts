@@ -23,7 +23,7 @@
  * To disable a task (force Anthropic): set provider to 'anthropic'.
  */
 
-export type Provider = 'anthropic' | 'google' | 'openai';
+export type Provider = 'anthropic' | 'google' | 'openai' | 'voyage';
 export type CostClass = 'cheap' | 'mid' | 'high';
 export type LatencyClass = 'fast' | 'medium' | 'slow';
 
@@ -101,7 +101,7 @@ export const taskPolicies: Record<TaskName, RoutingPolicy> = {
   },
   embed: {
     // Voyage v4 is called directly in agents/observability — not via this router.
-    provider: 'openai',
+    provider: 'voyage',
     model: 'voyage-4',
     costClass: 'cheap',
     latencyClass: 'fast',
@@ -122,7 +122,7 @@ export const taskPolicies: Record<TaskName, RoutingPolicy> = {
   memory_embed: {
     // Voyage v4 — same embedding model as food/general embeddings for consistency.
     // Called directly via Voyage API in agents/memory/write.ts.
-    provider: 'openai',
+    provider: 'voyage',
     model: 'voyage-4',
     costClass: 'cheap',
     latencyClass: 'fast',

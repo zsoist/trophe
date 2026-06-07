@@ -138,7 +138,10 @@ export async function POST(request: NextRequest) {
     const { remaining_calories, remaining_protein_g, remaining_carbs_g, remaining_fat_g, preferences, meal_type } = validation.data;
     if (!process.env.ANTHROPIC_API_KEY) {
       console.error('ANTHROPIC_API_KEY not configured');
-      return NextResponse.json({ suggestions: FALLBACK_SUGGESTIONS });
+      return NextResponse.json(
+        { error: 'Meal suggestion service is unavailable', suggestions: FALLBACK_SUGGESTIONS },
+        { status: 503 },
+      );
     }
 
     // Build user message
@@ -182,12 +185,18 @@ export async function POST(request: NextRequest) {
 
     if (!suggestions || suggestions.length === 0) {
       console.error('No suggestions in tool_use response');
-      return NextResponse.json({ suggestions: FALLBACK_SUGGESTIONS });
+      return NextResponse.json(
+        { error: 'No AI suggestions returned', suggestions: FALLBACK_SUGGESTIONS },
+        { status: 502 },
+      );
     }
 
     return NextResponse.json({ suggestions });
   } catch (error) {
     console.error('Meal suggestion error:', error);
-    return NextResponse.json({ suggestions: FALLBACK_SUGGESTIONS });
+    return NextResponse.json(
+      { error: 'Meal suggestion provider failed', suggestions: FALLBACK_SUGGESTIONS },
+      { status: 502 },
+    );
   }
 }

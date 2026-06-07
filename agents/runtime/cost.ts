@@ -7,5 +7,6 @@ export function estimateUsageCost(model: string, usage: AiUsage): number {
     usage.inputTokens,
     usage.outputTokens,
     usage.cacheReadTokens ?? 0,
+    usage.cacheWriteTokens ?? 0,
   );
 }

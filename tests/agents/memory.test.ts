@@ -181,9 +181,9 @@ describe('router: memory task policies', () => {
     expect(policy.costClass).toBe('mid');
   });
 
-  it('memory_embed maps to openai/voyage-4', () => {
+  it('memory_embed maps to voyage/voyage-4', () => {
     const policy = pick('memory_embed');
-    expect(policy.provider).toBe('openai');
+    expect(policy.provider).toBe('voyage');
     expect(policy.model).toBe('voyage-4');
     expect(policy.costClass).toBe('cheap');
   });

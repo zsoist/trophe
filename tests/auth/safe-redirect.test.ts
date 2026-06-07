@@ -14,4 +14,9 @@ describe('safeRedirectPath', () => {
   ])('rejects external redirect form %s', (value) => {
     expect(safeRedirectPath(value)).toBe('/dashboard');
   });
+
+  it('rejects encoded control characters and malformed encoding', () => {
+    expect(safeRedirectPath('/%09/evil.com')).toBe('/dashboard');
+    expect(safeRedirectPath('/%ZZ')).toBe('/dashboard');
+  });
 });
