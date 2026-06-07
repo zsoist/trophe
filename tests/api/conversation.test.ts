@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   invokeTextProvider: vi.fn(),
   after: vi.fn(),
   markRetrieved: vi.fn(),
+  retrieveKnowledge: vi.fn(),
 }));
 
 vi.mock('@/lib/api-guard', () => ({ guardAiRoute: mocks.guardAiRoute }));
@@ -20,6 +21,7 @@ vi.mock('@/agents/memory/read', () => ({ readMemory: mocks.readMemory }));
 vi.mock('@/agents/memory/write', () => ({ writeMemory: mocks.writeMemory }));
 vi.mock('@/agents/runtime', () => ({ executeAiTask: mocks.executeAiTask }));
 vi.mock('@/agents/runtime/providers/text', () => ({ invokeTextProvider: mocks.invokeTextProvider }));
+vi.mock('@/agents/rag/retrieve', () => ({ retrieveKnowledge: mocks.retrieveKnowledge }));
 vi.mock('next/server', async (importOriginal) => ({
   ...await importOriginal<typeof import('next/server')>(),
   after: mocks.after,
@@ -46,6 +48,15 @@ describe('POST /api/ai/conversation', () => {
       systemPromptBlock: 'Approved memory context',
       chunks: [{ id: 'chunk-1', createdAt: new Date('2026-06-07T00:00:00Z') }],
       markRetrieved: mocks.markRetrieved,
+    });
+    mocks.retrieveKnowledge.mockResolvedValue({
+      systemPromptBlock: 'Approved knowledge context',
+      chunks: [{
+        id: 'knowledge-1',
+        documentId: 'document-1',
+        source: 'protocol',
+        createdAt: new Date('2026-06-06T00:00:00Z'),
+      }],
     });
     mocks.executeAiTask.mockResolvedValue({
       generationId: 'generation-1',
@@ -82,7 +93,10 @@ describe('POST /api/ai/conversation', () => {
     expect(await result.json()).toEqual({
       message: 'Eat a balanced meal.',
       generationId: 'generation-1',
-      citations: [{ chunkId: 'chunk-1', source: 'memory', createdAt: '2026-06-07T00:00:00.000Z' }],
+      citations: [
+        { chunkId: 'chunk-1', source: 'memory', createdAt: '2026-06-07T00:00:00.000Z' },
+        { chunkId: 'knowledge-1', documentId: 'document-1', source: 'protocol', createdAt: '2026-06-06T00:00:00.000Z' },
+      ],
     });
     expect(mocks.readMemory).toHaveBeenCalledWith(expect.objectContaining({
       userId: 'user-1',
@@ -95,7 +109,7 @@ describe('POST /api/ai/conversation', () => {
       context: expect.objectContaining({
         userId: 'user-1',
         requestId: 'request-1',
-        metadata: expect.objectContaining({ memoryChunkIds: ['chunk-1'] }),
+        metadata: expect.objectContaining({ memoryChunkIds: ['chunk-1'], knowledgeChunkIds: ['knowledge-1'] }),
       }),
     }));
     expect(mocks.values).toHaveBeenCalledTimes(2);

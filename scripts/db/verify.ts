@@ -28,7 +28,8 @@ const expectations: Expectation[] = [
         AND table_name IN (
           'profiles', 'client_profiles', 'food_log', 'organizations',
           'organization_members', 'audit_log', 'foods', 'food_unit_conversions',
-          'dish_recipes', 'memory_chunks', 'wearable_data', 'agent_runs'
+          'dish_recipes', 'memory_chunks', 'wearable_data', 'agent_runs',
+          'knowledge_documents', 'knowledge_chunks'
         )
       ORDER BY table_name;
     `,
@@ -41,6 +42,8 @@ const expectations: Expectation[] = [
       'food_unit_conversions',
       'foods',
       'memory_chunks',
+      'knowledge_chunks',
+      'knowledge_documents',
       'organization_members',
       'organizations',
       'profiles',
@@ -82,7 +85,8 @@ const expectations: Expectation[] = [
         ('private', 'is_super_admin'),
         ('private', 'is_admin_of'),
         ('private', 'is_coach_of'),
-        ('public', 'memory_decay_salience')
+        ('public', 'memory_decay_salience'),
+        ('public', 'hybrid_search_knowledge')
       )
       ORDER BY 1;
     `,
@@ -93,6 +97,7 @@ const expectations: Expectation[] = [
       'private.is_coach_of',
       'private.is_super_admin',
       'public.memory_decay_salience',
+      'public.hybrid_search_knowledge',
     ],
   },
   {
@@ -110,7 +115,9 @@ const expectations: Expectation[] = [
           'idx_mc_user_scope_active',
           'idx_mc_user_scope_active_embed',
           'idx_mc_embedding',
-          'idx_wd_user_type_recorded'
+          'idx_wd_user_type_recorded',
+          'idx_kc_fts',
+          'idx_kc_embedding'
         )
       ORDER BY indexname;
     `,
@@ -121,6 +128,8 @@ const expectations: Expectation[] = [
       'idx_mc_embedding',
       'idx_mc_user_scope_active',
       'idx_mc_user_scope_active_embed',
+      'idx_kc_embedding',
+      'idx_kc_fts',
       'idx_org_members_org',
       'idx_org_members_user',
       'idx_wd_user_type_recorded',
@@ -150,11 +159,11 @@ withPool(config, async (pool) => {
     FROM information_schema.columns
     WHERE table_schema = 'public'
       AND column_name = 'embedding'
-      AND table_name IN ('foods', 'memory_chunks')
+      AND table_name IN ('foods', 'memory_chunks', 'knowledge_chunks')
     ORDER BY table_name;
   `);
 
-  if (embeddingColumns.rowCount !== 2 || embeddingColumns.rows.some((row) => row.udt_name !== 'vector')) {
+  if (embeddingColumns.rowCount !== 3 || embeddingColumns.rows.some((row) => row.udt_name !== 'vector')) {
     throw new Error('embedding columns are missing or not typed as vector');
   }
 

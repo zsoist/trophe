@@ -7,6 +7,7 @@ import { readMemory } from '@/agents/memory/read';
 import { writeMemory } from '@/agents/memory/write';
 import { executeAiTask } from '@/agents/runtime';
 import { invokeTextProvider } from '@/agents/runtime/providers/text';
+import { retrieveKnowledge } from '@/agents/rag/retrieve';
 
 const requestSchema = z.object({
   sessionId: z.string().min(1).max(200),
@@ -33,7 +34,12 @@ export async function POST(request: NextRequest) {
     queryText: message,
     scopes: ['user', 'session', 'agent'],
   });
-  const systemPrompt = [SYSTEM_PROMPT, memory.systemPromptBlock].filter(Boolean).join('\n\n');
+  const knowledge = await retrieveKnowledge({
+    requesterId: guard.userId,
+    subjectUserId: guard.userId,
+    queryText: message,
+  });
+  const systemPrompt = [SYSTEM_PROMPT, memory.systemPromptBlock, knowledge.systemPromptBlock].filter(Boolean).join('\n\n');
 
   await db.insert(agentConversation).values({
     userId: guard.userId, agentName: 'conversation', sessionId, role: 'user', content: message,
@@ -46,7 +52,12 @@ export async function POST(request: NextRequest) {
     context: {
       userId: guard.userId,
       requestId: request.headers.get('x-request-id') ?? undefined,
-      metadata: { surface: 'conversation', sessionId, memoryChunkIds: memory.chunks.map((chunk) => chunk.id) },
+      metadata: {
+        surface: 'conversation',
+        sessionId,
+        memoryChunkIds: memory.chunks.map((chunk) => chunk.id),
+        knowledgeChunkIds: knowledge.chunks.map((chunk) => chunk.id),
+      },
     },
     invoke: ({ policy, signal }) => invokeTextProvider({
       policy, signal, system: systemPrompt, prompt: message,
@@ -75,10 +86,13 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({
     message: generation.output,
     generationId: generation.generationId,
-    citations: memory.chunks.map((chunk) => ({
-      chunkId: chunk.id,
-      source: 'memory',
-      createdAt: chunk.createdAt,
-    })),
+    citations: [
+      ...memory.chunks.map((chunk) => ({
+        chunkId: chunk.id, source: 'memory', createdAt: chunk.createdAt,
+      })),
+      ...knowledge.chunks.map((chunk) => ({
+        chunkId: chunk.id, documentId: chunk.documentId, source: chunk.source, createdAt: chunk.createdAt,
+      })),
+    ],
   });
 }
