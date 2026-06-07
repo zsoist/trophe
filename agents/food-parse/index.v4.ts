@@ -23,18 +23,15 @@
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { callAnthropicMessages } from '../clients/anthropic';
-import { callGeminiMessages } from '../clients/google';
 import type { FoodParseInput, FoodParseOutput, ParsedFoodItem } from '../schemas/food-parse';
 import { enrichWithLocalDB } from './enrich';
 import { lookupFoodBatch } from './lookup';
 import type { LookupInput } from './lookup';
 import { decomposeAndLookup, lookupCachedRecipeAsItem } from './decompose';
 import { pick } from '../router';
-import { traced } from '../observability/langfuse';
 import { emitGenAISpan, estimateCostUsd } from '../observability/otel';
-import { db } from '../../db/client';
-import { agentRuns } from '../../db/schema/agent_runs';
+import { executeAiTask } from '../runtime';
+import { invokeTextProvider } from '../runtime/providers/text';
 
 export const FOOD_PARSE_VERSION = 'v4';
 
@@ -149,32 +146,19 @@ async function estimateMacrosViaLLM(
     .join('\n');
 
   try {
-    const policy = pick('food_parse'); // Use the same model for consistency
-
     let responseText = '';
 
-    if (policy.provider === 'google') {
-      const result = await callGeminiMessages({
-        model: policy.model,
-        system: MACRO_ESTIMATE_PROMPT,
-        userMessage,
-        maxTokens: 1024,
-        // Disable thinking for macro estimation — it's a simple structured-output
-        // task and thinking tokens consume the maxOutputTokens budget, causing
-        // truncated JSON responses (root cause of ZERO_KCAL for Colombian dishes).
-        disableThinking: true,
-      });
-      responseText = result.text;
-    } else {
-      const result = await callAnthropicMessages({
-        model: policy.model,
-        system: MACRO_ESTIMATE_PROMPT,
-        userMessage,
-        maxTokens: 1024,
-        cacheSystem: false,
-      });
-      responseText = result.text;
-    }
+    const generation = await executeAiTask({
+      task: 'food_parse',
+      prompt: userMessage,
+      systemPrompt: MACRO_ESTIMATE_PROMPT,
+      context: { metadata: { operation: 'macro-estimate' } },
+      invoke: ({ policy: selected, signal }) => invokeTextProvider({
+        policy: selected, signal, system: MACRO_ESTIMATE_PROMPT, prompt: userMessage,
+        maxTokens: 1024, disableThinking: true,
+      }),
+    });
+    responseText = generation.output;
 
     // Strip markdown code fences — Gemini Flash often wraps JSON in ```json...```
     responseText = responseText.replace(/```(?:json)?\s*/g, '').trim();
@@ -275,48 +259,43 @@ export async function run(
 
   const userMessage = `Parse this food input (language: ${language}):\n\n"${sanitizedText}"`;
 
+  // ── Step 1: LLM identifies foods (no macro numbers) ──────────────────────
+  let llmResult: {
+    text: string;
+    usage: {
+      input_tokens: number;
+      output_tokens: number;
+      cache_read_input_tokens?: number;
+      cache_creation_input_tokens?: number;
+    };
+    latencyMs: number;
+    rawStatus: number;
+    rawError?: string;
+  };
   let traceId: string | null = null;
 
-  // ── Step 1: LLM identifies foods (no macro numbers) ──────────────────────
-  let llmResult: Awaited<ReturnType<typeof callAnthropicMessages>>;
-
   try {
-    llmResult = await traced(
-      {
-        task: 'food_parse',
-        model: policy.model,
-        provider: policy.provider,
-        prompt: userMessage,
-        systemPrompt: PROMPT_TEMPLATE,
-        metadata: { version: 'v4', userId: opts?.userId, ...opts?.metadata },
+    const generation = await executeAiTask({
+      task: 'food_parse',
+      prompt: userMessage,
+      systemPrompt: PROMPT_TEMPLATE,
+      context: { userId: opts?.userId, metadata: { version: 'v4', ...opts?.metadata } },
+      invoke: ({ policy: selected, signal }) => invokeTextProvider({
+        policy: selected, signal, system: PROMPT_TEMPLATE, prompt: userMessage,
+      }),
+    });
+    traceId = generation.generationId;
+    llmResult = {
+      text: generation.output,
+      usage: {
+        input_tokens: generation.usage.inputTokens,
+        output_tokens: generation.usage.outputTokens,
+        cache_read_input_tokens: generation.usage.cacheReadTokens,
+        cache_creation_input_tokens: generation.usage.cacheWriteTokens,
       },
-      async (_generation) => {
-        if (_generation) {
-          traceId = (_generation as { traceId?: string }).traceId ?? null;
-        }
-
-        if (policy.provider === 'google') {
-          return callGeminiMessages({
-            model: policy.model,
-            system: PROMPT_TEMPLATE,
-            userMessage,
-            maxTokens: policy.maxTokens,
-          });
-        }
-
-        if (policy.provider !== 'anthropic') {
-          throw new Error(`[food_parse] Unsupported provider: ${policy.provider}`);
-        }
-
-        return callAnthropicMessages({
-          model: policy.model,
-          system: PROMPT_TEMPLATE,
-          userMessage,
-          maxTokens: policy.maxTokens,
-          cacheSystem: policy.cacheSystem,
-        });
-      },
-    );
+      latencyMs: generation.latencyMs,
+      rawStatus: generation.rawStatus,
+    };
   } catch (err) {
     return {
       ok: false,
@@ -525,25 +504,6 @@ export async function run(
       }
     }
   }
-
-  // ── Step 4: Write agent_runs row (fire-and-forget) ────────────────────────
-  db.insert(agentRuns).values({
-    traceId:    traceId ?? undefined,
-    taskName:   'food_parse',
-    provider:   policy.provider,
-    model:      policy.model,
-    tokensIn:   telemetry.tokensIn,
-    tokensOut:  telemetry.tokensOut,
-    cacheReadTokens:  telemetry.cacheReadTokens,
-    cacheWriteTokens: telemetry.cacheCreationTokens,
-    costUsd:    telemetry.costUsd,
-    latencyMs:  telemetry.latencyMs,
-    rawStatus:  telemetry.rawStatus,
-    userId:     opts?.userId ?? undefined,
-  }).catch(err => {
-    // Non-blocking — never fail the food parse because of telemetry
-    console.error('[food-parse v4] Failed to write agent_runs:', err);
-  });
 
   return {
     ok: true,

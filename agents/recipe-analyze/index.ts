@@ -11,11 +11,11 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { buildFoodReferencePrompt } from '@/lib/food-units';
-import { callAnthropicMessages } from '../clients/anthropic';
+import { executeAiTask } from '../runtime';
+import { invokeTextProvider } from '../runtime/providers/text';
 import type { RecipeAnalyzeInput, RecipeAnalyzeOutput } from '../schemas/recipe-analyze';
 import { isRecipeAnalyzeOutput } from '../schemas/recipe-analyze';
 import { pick } from '../router';
-import { traced } from '../observability/langfuse';
 import { emitGenAISpan, estimateCostUsd } from '../observability/otel';
 import { normalizeRecipeWithLookup } from './normalize';
 
@@ -97,30 +97,28 @@ export async function run(
   const systemPrompt = buildSystemPrompt();
   const userMessage = `Analyze this recipe (language: ${language}, servings: ${servings}):\n\n${sanitizedText}`;
 
-  let traceId: string | null = null;
-
-  const result = await traced(
-    {
-      task: 'recipe_analyze',
-      model: policy.model,
-      provider: policy.provider,
-      prompt: userMessage,
-      systemPrompt,
-      metadata: { userId: opts?.userId, servings, ...opts?.metadata },
+  const generation = await executeAiTask({
+    task: 'recipe_analyze',
+    prompt: userMessage,
+    systemPrompt,
+    context: { userId: opts?.userId, metadata: { servings, ...opts?.metadata } },
+    invoke: ({ policy: selected, signal }) => invokeTextProvider({
+      policy: selected, signal, system: systemPrompt, prompt: userMessage,
+    }),
+  });
+  const result = {
+    text: generation.output,
+    usage: {
+      input_tokens: generation.usage.inputTokens,
+      output_tokens: generation.usage.outputTokens,
+      cache_read_input_tokens: generation.usage.cacheReadTokens,
+      cache_creation_input_tokens: generation.usage.cacheWriteTokens,
     },
-    async (_generation) => {
-      if (_generation) {
-        traceId = (_generation as { traceId?: string }).traceId ?? null;
-      }
-      return callAnthropicMessages({
-        model: policy.model,
-        system: systemPrompt,
-        userMessage,
-        maxTokens: policy.maxTokens,
-        cacheSystem: policy.cacheSystem,
-      });
-    },
-  );
+    latencyMs: generation.latencyMs,
+    rawStatus: generation.rawStatus,
+    rawError: undefined,
+  };
+  const traceId: string | null = generation.generationId;
 
   const costUsd = estimateCostUsd(
     policy.model,

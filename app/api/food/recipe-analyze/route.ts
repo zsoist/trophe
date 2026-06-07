@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { guardAiRoute } from '@/lib/api-guard';
 import { run } from '@/agents/recipe-analyze';
 import { modelFor } from '@/agents/router';
-import { logAgentRun } from '@/lib/agent-run-logger';
 
 export async function POST(request: NextRequest) {
   const guard = await guardAiRoute(request);
@@ -27,22 +26,6 @@ export async function POST(request: NextRequest) {
 
     const result = await run({ text, servings: servingsNum, language }, { userId: guard.userId });
     const t = result.telemetry;
-
-    logAgentRun({
-      taskName: 'recipe_analyze',
-      model: t.model,
-      provider: 'anthropic',
-      tokensIn: t.tokensIn,
-      tokensOut: t.tokensOut,
-      cacheReadTokens: t.cacheReadTokens,
-      cacheWriteTokens: t.cacheCreationTokens,
-      costUsd: t.costUsd,
-      latencyMs: t.latencyMs,
-      rawStatus: t.rawStatus,
-      traceId: t.traceId,
-      userId: guard.userId,
-      errorMessage: result.ok ? undefined : result.error?.slice(0, 200),
-    });
 
     if (!result.ok) {
       const status = t.rawStatus >= 400 && t.rawStatus < 600 ? 502 : 422;

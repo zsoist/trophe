@@ -51,6 +51,31 @@ describe('enterprise hardening invariants', () => {
     expect(offenders).toEqual([]);
   });
 
+  it('routes every production model call through the governed runtime provider boundary', () => {
+    const allowed = [
+      'agents/runtime/providers/',
+      'agents/clients/',
+      'agents/evals/',
+      'agents/observability/',
+    ];
+    const directCallPattern = /callAnthropicMessages|callGeminiMessages|api\.anthropic\.com|api\.voyageai\.com|generateContent\(/;
+    const offenders = [...sourceFiles('agents'), ...sourceFiles('app/api'), ...sourceFiles('lib')]
+      .map((file) => relative(root, file))
+      .filter((rel) => !allowed.some((prefix) => rel.startsWith(prefix)))
+      .filter((rel) => directCallPattern.test(readFileSync(join(root, rel), 'utf8')));
+
+    expect(offenders).toEqual([]);
+  });
+
+  it('keeps agent run persistence inside the governed runtime boundary', () => {
+    const offenders = [...sourceFiles('agents'), ...sourceFiles('app/api'), ...sourceFiles('lib')]
+      .map((file) => relative(root, file))
+      .filter((rel) => !rel.startsWith('agents/runtime/'))
+      .filter((rel) => /insert\(agentRuns\)|update\(agentRuns\)/.test(readFileSync(join(root, rel), 'utf8')));
+
+    expect(offenders).toEqual([]);
+  });
+
   it('only uses dangerouslySetInnerHTML for the layout pre-paint theme script', () => {
     const offenders = [...sourceFiles('app'), ...sourceFiles('components')]
       .filter((file) => readFileSync(file, 'utf8').includes('dangerouslySetInnerHTML'))

@@ -24,8 +24,10 @@
 import { db } from '@/db/client';
 import { memoryChunks } from '@/db/schema/memory_chunks';
 import { eq, and, isNull, sql } from 'drizzle-orm';
-import { callAnthropicMessages } from '@/agents/clients/anthropic';
-import { pick, taskPolicies } from '@/agents/router';
+import { executeAiTask } from '@/agents/runtime';
+import { invokeTextProvider } from '@/agents/runtime/providers/text';
+import { invokeVoyageEmbedding } from '@/agents/runtime/providers/voyage';
+import { z } from 'zod';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -50,22 +52,21 @@ export interface WriteMemoryResult {
 
 // ── Zod-style validated shape (manual, no zod dep needed) ──────────────────
 
-interface ExtractedFact {
-  fact_text: string;
-  fact_type: 'preference' | 'allergy' | 'goal' | 'event' | 'observation';
-  scope: 'user' | 'session' | 'agent';
-  confidence: number;
-  /** ISO string or null. */
-  expires_at: string | null;
-  /** Key terms for supersedence matching (e.g. "dietary", "goal:weight"). */
-  semantic_tags: string[];
-}
-
-interface ExtractionOutput {
-  facts: ExtractedFact[];
-  skip: boolean;
-  skip_reason?: string;
-}
+const extractedFactSchema = z.object({
+  fact_text: z.string().min(1).max(1_000),
+  fact_type: z.enum(['preference', 'allergy', 'goal', 'event', 'observation']),
+  scope: z.enum(['user', 'session', 'agent']),
+  confidence: z.number().min(0).max(1),
+  expires_at: z.string().datetime().nullable(),
+  semantic_tags: z.array(z.string().min(1).max(100)).max(10),
+});
+const extractionOutputSchema = z.object({
+  facts: z.array(extractedFactSchema).max(20),
+  skip: z.boolean(),
+  skip_reason: z.string().max(500).optional(),
+});
+type ExtractedFact = z.infer<typeof extractedFactSchema>;
+type ExtractionOutput = z.infer<typeof extractionOutputSchema>;
 
 // ── System prompt ──────────────────────────────────────────────────────────
 
@@ -109,25 +110,15 @@ Examples of extractable facts:
 // ── Voyage embedding helper ────────────────────────────────────────────────
 
 async function embedText(text: string): Promise<number[] | null> {
-  const apiKey = process.env.VOYAGE_API_KEY;
-  if (!apiKey) return null;
-
   try {
-    const response = await fetch('https://api.voyageai.com/v1/embeddings', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: pick('memory_embed').model,
-        input: [text],
-        input_type: 'document',
+    const result = await executeAiTask({
+      task: 'memory_embed',
+      prompt: text,
+      invoke: ({ policy, signal }) => invokeVoyageEmbedding({
+        model: policy.model, text, inputType: 'document', signal,
       }),
     });
-    if (!response.ok) return null;
-    const data = (await response.json()) as { data?: Array<{ embedding: number[] }> };
-    return data.data?.[0]?.embedding ?? null;
+    return result.output;
   } catch {
     return null;
   }
@@ -210,31 +201,33 @@ export async function writeMemory(input: WriteMemoryInput): Promise<WriteMemoryR
     return { factsExtracted: 0, factsSuperseded: 0, skipped: true, reason: 'content too short' };
   }
 
-  const policy = taskPolicies.memory_extract;
-
   // ── Step 1: Extract facts with LLM ──────────────────────────────────────
-  const llmResult = await callAnthropicMessages({
-    model: policy.model,
-    system: EXTRACTION_SYSTEM,
-    userMessage: `Extract facts from this ${input.role} message:\n\n"${input.content}"`,
-    maxTokens: policy.maxTokens,
-    cacheSystem: policy.cacheSystem,
+  const extractionPrompt = `Extract facts from this ${input.role} message:\n\n"${input.content}"`;
+  const generation = await executeAiTask({
+    task: 'memory_extract',
+    prompt: extractionPrompt,
+    systemPrompt: EXTRACTION_SYSTEM,
+    context: { userId: input.userId, metadata: { sessionId: input.sessionId, agentName: input.agentName } },
+    invoke: ({ policy: selected, signal }) => invokeTextProvider({
+      policy: selected, signal, system: EXTRACTION_SYSTEM, prompt: extractionPrompt,
+    }),
   });
+  const llmText = generation.output;
 
-  if (llmResult.rawError || !llmResult.text) {
+  if (!llmText) {
     return {
       factsExtracted: 0,
       factsSuperseded: 0,
       skipped: true,
-      reason: `LLM error: ${llmResult.rawError ?? 'empty response'}`,
+      reason: 'LLM error: empty response',
     };
   }
 
   // ── Step 2: Parse LLM JSON output ───────────────────────────────────────
   let parsed: ExtractionOutput;
   try {
-    const jsonMatch = llmResult.text.match(/\{[\s\S]*\}/);
-    parsed = JSON.parse(jsonMatch?.[0] ?? llmResult.text) as ExtractionOutput;
+    const jsonMatch = llmText.match(/\{[\s\S]*\}/);
+    parsed = extractionOutputSchema.parse(JSON.parse(jsonMatch?.[0] ?? llmText));
   } catch {
     return {
       factsExtracted: 0,

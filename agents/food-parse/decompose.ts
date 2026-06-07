@@ -20,8 +20,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { db } from '../../db/client';
 import { sql } from 'drizzle-orm';
-import { callGeminiMessages } from '../clients/google';
-import { pick } from '../router';
+import { executeAiTask } from '../runtime';
+import { invokeTextProvider } from '../runtime/providers/text';
 import { lookupFood } from './lookup';
 import type { LookupInput, LookupResult } from './lookup';
 import type { ParsedFoodItem } from '../schemas/food-parse';
@@ -113,32 +113,21 @@ export async function lookupCachedRecipe(dishName: string): Promise<CachedRecipe
  * Call LLM to decompose a composite dish into base ingredients.
  */
 async function llmDecompose(dishName: string, quantity: number, unit: string): Promise<DecompositionResult | null> {
-  const policy = pick('food_parse');
   const prompt = `Decompose this dish into base ingredients:\n\nInput: "${dishName}" (${quantity} ${unit})\n\nReturn ONLY valid JSON.`;
 
   let responseText = '';
   try {
-    if (policy.provider === 'google') {
-      const result = await callGeminiMessages({
-        model: policy.model,
-        system: getDecomposePrompt(),
-        userMessage: prompt,
-        maxTokens: 1024,
-        disableThinking: true,
-      });
-      responseText = result.text;
-    } else {
-      // Anthropic fallback
-      const { callAnthropicMessages } = await import('../clients/anthropic');
-      const result = await callAnthropicMessages({
-        model: policy.model,
-        system: getDecomposePrompt(),
-        userMessage: prompt,
-        maxTokens: 1024,
-        cacheSystem: false,
-      });
-      responseText = result.text;
-    }
+    const generation = await executeAiTask({
+      task: 'food_parse',
+      prompt,
+      systemPrompt: getDecomposePrompt(),
+      context: { metadata: { operation: 'dish-decompose' } },
+      invoke: ({ policy: selected, signal }) => invokeTextProvider({
+        policy: selected, signal, system: getDecomposePrompt(), prompt,
+        maxTokens: 1024, disableThinking: true,
+      }),
+    });
+    responseText = generation.output;
   } catch (err) {
     console.warn('[decompose] LLM call failed:', err instanceof Error ? err.message : err);
     return null;

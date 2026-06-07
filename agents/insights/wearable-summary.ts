@@ -21,8 +21,8 @@
 import { db } from '@/db/client';
 import { wearableData } from '@/db/schema/wearable_data';
 import { eq, and, gte, inArray, desc } from 'drizzle-orm';
-import { callAnthropicMessages } from '@/agents/clients/anthropic';
-import { taskPolicies } from '@/agents/router/policies';
+import { executeAiTask } from '@/agents/runtime';
+import { invokeTextProvider } from '@/agents/runtime/providers/text';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -175,16 +175,17 @@ export async function generateWearableSummary(
   const dataPrompt = `Last ${days} days of wearable data:\n${lines.join('\n')}`;
 
   // ── LLM synthesis ──────────────────────────────────────────────────────
-  const policy = taskPolicies.coach_insight; // Sonnet 4.5 for nuanced coaching language
-  const llmResult = await callAnthropicMessages({
-    model: policy.model,
-    system: WEARABLE_SYSTEM,
-    userMessage: dataPrompt,
-    maxTokens: 350,
-    cacheSystem: policy.cacheSystem,
+  const generation = await executeAiTask({
+    task: 'coach_insight',
+    prompt: dataPrompt,
+    systemPrompt: WEARABLE_SYSTEM,
+    context: { userId, metadata: { source: 'wearable-summary', days } },
+    invoke: ({ policy, signal }) => invokeTextProvider({
+      policy, signal, system: WEARABLE_SYSTEM, prompt: dataPrompt, maxTokens: 350,
+    }),
   });
 
-  if (!llmResult.text || llmResult.rawError) {
+  if (!generation.output) {
     return {
       summaryMarkdown: '',
       systemPromptBlock: '',
@@ -193,7 +194,7 @@ export async function generateWearableSummary(
     };
   }
 
-  const summaryMarkdown = llmResult.text.trim();
+  const summaryMarkdown = generation.output.trim();
   const systemPromptBlock = [
     '## Wearable Data Summary (last 7 days)',
     '',

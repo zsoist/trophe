@@ -23,7 +23,8 @@ import { db } from '@/db/client';
 import { memoryChunks } from '@/db/schema/memory_chunks';
 import { eq, and, inArray, desc, sql } from 'drizzle-orm';
 import type { SelectMemoryChunk } from '@/db/schema/memory_chunks';
-import { pick } from '@/agents/router';
+import { executeAiTask } from '@/agents/runtime';
+import { invokeVoyageEmbedding } from '@/agents/runtime/providers/voyage';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -61,24 +62,15 @@ export interface ReadMemoryResult {
 // ── Voyage embedding helper ────────────────────────────────────────────────
 
 async function embedQuery(text: string): Promise<number[] | null> {
-  const apiKey = process.env.VOYAGE_API_KEY;
-  if (!apiKey) return null;
   try {
-    const response = await fetch('https://api.voyageai.com/v1/embeddings', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: pick('memory_embed').model,
-        input: [text],
-        input_type: 'query', // 'query' vs 'document' for asymmetric retrieval
+    const result = await executeAiTask({
+      task: 'memory_embed',
+      prompt: text,
+      invoke: ({ policy, signal }) => invokeVoyageEmbedding({
+        model: policy.model, text, inputType: 'query', signal,
       }),
     });
-    if (!response.ok) return null;
-    const data = (await response.json()) as { data?: Array<{ embedding: number[] }> };
-    return data.data?.[0]?.embedding ?? null;
+    return result.output;
   } catch {
     return null;
   }
