@@ -21,7 +21,7 @@
 
 import { db } from '@/db/client';
 import { memoryChunks } from '@/db/schema/memory_chunks';
-import { eq, and, inArray, desc, sql } from 'drizzle-orm';
+import { eq, and, or, desc, sql } from 'drizzle-orm';
 import type { SelectMemoryChunk } from '@/db/schema/memory_chunks';
 import { executeAiTask } from '@/agents/runtime';
 import { invokeVoyageEmbedding } from '@/agents/runtime/providers/voyage';
@@ -161,21 +161,18 @@ export async function readMemory(input: ReadMemoryInput): Promise<ReadMemoryResu
 
   // ── Stage 1: Pre-filter via B-tree index ──────────────────────────────
   // Build WHERE conditions for scope-based filtering
-  const conditions = [
-    eq(memoryChunks.userId, userId),
-    eq(memoryChunks.active, true),
-    inArray(memoryChunks.scope, scopes),
+  const scopeConditions = [
+    ...(scopes.includes('user') ? [eq(memoryChunks.scope, 'user' as const)] : []),
+    ...(scopes.includes('session') && sessionId
+      ? [and(eq(memoryChunks.scope, 'session' as const), eq(memoryChunks.sessionId, sessionId))]
+      : []),
+    ...(scopes.includes('agent') && agentName
+      ? [and(eq(memoryChunks.scope, 'agent' as const), eq(memoryChunks.agentName, agentName))]
+      : []),
   ];
-
-  // Session scope: filter to this session only
-  if (scopes.includes('session') && sessionId) {
-    // We want either user-scope (no session filter) or session-scope (this session)
-    // Drizzle doesn't easily express OR conditions with typed filters, use raw sql
-  }
-
-  // Agent scope: filter to this agent only
-  if (scopes.includes('agent') && agentName) {
-    conditions.push(eq(memoryChunks.agentName, agentName));
+  const scopePredicate = or(...scopeConditions);
+  if (!scopePredicate) {
+    return { systemPromptBlock: '', chunks: [], markRetrieved: async () => {} };
   }
 
   // ── Stage 2: kNN re-rank if query embedding available ─────────────────
@@ -193,7 +190,7 @@ export async function readMemory(input: ReadMemoryInput): Promise<ReadMemoryResu
         FROM memory_chunks
         WHERE user_id = ${userId}
           AND active = true
-          AND scope = ANY(${scopes})
+          AND ${scopePredicate}
           AND (expires_at IS NULL OR expires_at > NOW())
           AND embedding IS NOT NULL
         ORDER BY embedding <=> ${vecStr}::vector ASC
@@ -209,7 +206,7 @@ export async function readMemory(input: ReadMemoryInput): Promise<ReadMemoryResu
         FROM memory_chunks
         WHERE user_id = ${userId}
           AND active = true
-          AND scope = ANY(${scopes})
+          AND ${scopePredicate}
           AND (expires_at IS NULL OR expires_at > NOW())
           AND embedding IS NULL
         ORDER BY confidence DESC, salience DESC
@@ -226,7 +223,7 @@ export async function readMemory(input: ReadMemoryInput): Promise<ReadMemoryResu
         and(
           eq(memoryChunks.userId, userId),
           eq(memoryChunks.active, true),
-          inArray(memoryChunks.scope, scopes),
+          scopePredicate,
           sql`(expires_at IS NULL OR expires_at > NOW())`,
         ),
       )
