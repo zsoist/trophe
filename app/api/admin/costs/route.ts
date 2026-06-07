@@ -21,8 +21,19 @@ export async function GET(request: NextRequest) {
     .where(gte(agentRuns.createdAt, since))
     .orderBy(asc(agentRuns.createdAt));
 
-  const totalCost = rows.reduce((sum, row) => sum + (row.costUsd ?? 0), 0);
+  const resolvedCost = (row: typeof rows[number]) => row.actualCostUsd ?? row.estimatedCostUsd ?? row.costUsd ?? 0;
+  const totalCost = rows.reduce((sum, row) => sum + resolvedCost(row), 0);
   const totalCalls = rows.length;
+  const completedCalls = rows.filter((row) => row.status === 'completed');
+  const failedCalls = rows.filter((row) => row.status === 'failed').length;
+  const pendingCalls = rows.filter((row) => row.status === 'pending').length;
+  const fallbackCalls = rows.filter((row) => Boolean(row.fallbackFrom)).length;
+  const missingCostAttribution = completedCalls.filter((row) =>
+    row.actualCostUsd == null && row.estimatedCostUsd == null && row.costUsd == null,
+  ).length;
+  const cacheReadTokens = rows.reduce((sum, row) => sum + row.cacheReadTokens, 0);
+  const cacheWriteTokens = rows.reduce((sum, row) => sum + row.cacheWriteTokens, 0);
+  const tokensIn = rows.reduce((sum, row) => sum + row.tokensIn, 0);
   const monthlyBudgetUsd = Number(process.env.AI_MONTHLY_BUDGET_USD ?? '50');
   const projectedMonthlyCost = totalCost / days * 30;
   const avgLatency = totalCalls
@@ -36,11 +47,11 @@ export async function GET(request: NextRequest) {
     const key = row.taskName;
     byEndpoint[key] ??= { calls: 0, cost: 0 };
     byEndpoint[key].calls++;
-    byEndpoint[key].cost += row.costUsd ?? 0;
+    byEndpoint[key].cost += resolvedCost(row);
 
     const day = row.createdAt.toISOString().slice(0, 10);
     const daySummary = byDayMap.get(day) ?? { cost: 0, calls: 0 };
-    daySummary.cost += row.costUsd ?? 0;
+    daySummary.cost += resolvedCost(row);
     daySummary.calls++;
     byDayMap.set(day, daySummary);
   }
@@ -52,6 +63,17 @@ export async function GET(request: NextRequest) {
     byDay: Array.from(byDayMap.entries()).map(([date, value]) => ({ date, ...value })),
     avgCostPerCall: totalCalls ? totalCost / totalCalls : 0,
     avgLatency,
+    reliability: {
+      failedCalls,
+      pendingCalls,
+      fallbackCalls,
+      missingCostAttribution,
+      failureRate: totalCalls ? failedCalls / totalCalls : 0,
+      fallbackRate: totalCalls ? fallbackCalls / totalCalls : 0,
+      cacheReadRate: tokensIn ? cacheReadTokens / tokensIn : 0,
+      cacheReadTokens,
+      cacheWriteTokens,
+    },
     budget: {
       monthlyBudgetUsd,
       projectedMonthlyCost,

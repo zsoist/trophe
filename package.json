@@ -17,6 +17,7 @@
     "evals:colombian-search": "tsx scripts/eval/run-colombian-search-cases.ts",
     "readiness": "tsx scripts/check-enterprise-readiness.ts",
     "readiness:integrations": "tsx scripts/check-integration-readiness.ts",
+    "ai:budget-check": "tsx scripts/ops/check-ai-budgets.ts",
     "canary:prod": "bash scripts/ops/canary-readonly.sh",
     "verify": "npm run typecheck && npm run lint && npm test && npm run build",
     "db:bootstrap": "bash scripts/db/bootstrap-local.sh",

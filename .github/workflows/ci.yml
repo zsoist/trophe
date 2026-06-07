@@ -126,6 +126,10 @@ jobs:
         run: npm run evals
         env:
           EVAL_REPORT_DIR: artifacts/evals
+          ALLOW_SKIPPED_EVALS: 1
+
+      - name: AI cost attribution and budget gate
+        run: npm run ai:budget-check
 
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium

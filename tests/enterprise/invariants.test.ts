@@ -67,6 +67,12 @@ describe('enterprise hardening invariants', () => {
     expect(offenders).toEqual([]);
   });
 
+  it('fails the aggregate eval release gate when every suite is skipped', () => {
+    const evalRunner = readFileSync(join(root, 'agents/evals/run-all.ts'), 'utf8');
+    expect(evalRunner).toContain("process.exit(process.env.ALLOW_SKIPPED_EVALS === '1' ? 0 : 1)");
+    expect(evalRunner).not.toContain('GATE: inconclusive — no active suites`));\n    process.exit(0)');
+  });
+
   it('keeps agent run persistence inside the governed runtime boundary', () => {
     const offenders = [...sourceFiles('agents'), ...sourceFiles('app/api'), ...sourceFiles('lib')]
       .map((file) => relative(root, file))

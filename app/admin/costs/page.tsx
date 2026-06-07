@@ -18,6 +18,17 @@ interface CostSummary {
     projectedMonthlyCost: number;
     overBudget: boolean;
   };
+  reliability?: {
+    failedCalls: number;
+    pendingCalls: number;
+    fallbackCalls: number;
+    missingCostAttribution: number;
+    failureRate: number;
+    fallbackRate: number;
+    cacheReadRate: number;
+    cacheReadTokens: number;
+    cacheWriteTokens: number;
+  };
 }
 
 export default function CostDashboard() {
@@ -155,6 +166,20 @@ export default function CostDashboard() {
                   </span>
                 </div>
               </motion.div>
+            )}
+
+            {summary.reliability && (
+              <div className="glass p-4 mb-4">
+                <h2 className="text-stone-300 text-sm font-medium mb-3">AI Reliability</h2>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <p className="text-stone-500">Failure rate <span className="float-right text-stone-300">{(summary.reliability.failureRate * 100).toFixed(1)}%</span></p>
+                  <p className="text-stone-500">Fallback rate <span className="float-right text-stone-300">{(summary.reliability.fallbackRate * 100).toFixed(1)}%</span></p>
+                  <p className="text-stone-500">Pending runs <span className="float-right text-stone-300">{summary.reliability.pendingCalls}</span></p>
+                  <p className="text-stone-500">Missing costs <span className="float-right text-stone-300">{summary.reliability.missingCostAttribution}</span></p>
+                  <p className="text-stone-500">Cache read rate <span className="float-right text-stone-300">{(summary.reliability.cacheReadRate * 100).toFixed(1)}%</span></p>
+                  <p className="text-stone-500">Failed runs <span className="float-right text-stone-300">{summary.reliability.failedCalls}</span></p>
+                </div>
+              </div>
             )}
 
             {/* Daily Cost Chart */}

@@ -2,23 +2,28 @@ import { NextRequest, NextResponse } from 'next/server';
 import { guardAiRoute } from '@/lib/api-guard';
 import { run } from '@/agents/food-parse';
 import { modelFor } from '@/agents/router';
+import { z } from 'zod';
 
 export type { ParsedFoodItem } from '@/agents/schemas/food-parse';
+
+const requestSchema = z.object({
+  text: z.string().trim().min(1).max(12_000),
+  language: z.enum(['en', 'es', 'el']).default('en'),
+}).strict();
 
 export async function POST(request: NextRequest) {
   const guard = await guardAiRoute(request);
   if (!guard.ok) return guard.response;
 
   try {
-    const body = await request.json();
-    const { text, language = 'en' } = body as { text?: string; language?: string };
-
-    if (!text || typeof text !== 'string' || text.trim().length === 0) {
+    const parsed = requestSchema.safeParse(await request.json());
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: 'text is required and must be a non-empty string' },
+        { error: 'Invalid food parse request' },
         { status: 400 },
       );
     }
+    const { text, language } = parsed.data;
 
     const result = await run({ text, language }, { userId: guard.userId });
     const t = result.telemetry;

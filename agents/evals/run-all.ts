@@ -524,7 +524,7 @@ async function main() {
   if (active.length === 0) {
     console.log(yellow('  All suites skipped. Set ANTHROPIC_API_KEY and start the dev server to run full eval.'));
     console.log(yellow(`  GATE: inconclusive — no active suites`));
-    process.exit(0);
+    process.exit(process.env.ALLOW_SKIPPED_EVALS === '1' ? 0 : 1);
   }
 
   const gateColor = aggregateRate >= THRESHOLD ? green : red;

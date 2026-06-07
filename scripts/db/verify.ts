@@ -169,6 +169,29 @@ withPool(config, async (pool) => {
 
   report.embedding_columns = embeddingColumns.rows.map((row) => `${row.table_name}:${row.udt_name}`);
 
+  const governedRunColumns = await pool.query<{ column_name: string }>(`
+    SELECT column_name
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'agent_runs'
+      AND column_name IN (
+        'generation_id', 'status', 'prompt_version', 'prompt_hash',
+        'provider_generation_id', 'estimated_cost_usd', 'actual_cost_usd',
+        'organization_id', 'metadata', 'completed_at'
+      )
+    ORDER BY column_name;
+  `);
+  const expectedRunColumns = [
+    'actual_cost_usd', 'completed_at', 'estimated_cost_usd', 'generation_id',
+    'metadata', 'organization_id', 'prompt_hash', 'prompt_version',
+    'provider_generation_id', 'status',
+  ];
+  const missingRunColumns = expectedRunColumns.filter((column) =>
+    !governedRunColumns.rows.some((row) => row.column_name === column),
+  );
+  if (missingRunColumns.length) throw new Error(`agent_runs missing governed columns: ${missingRunColumns.join(', ')}`);
+  report.agent_runs_governance = expectedRunColumns;
+
   const unsafeRls = await pool.query<{ table_name: string }>(`
     SELECT tablename AS table_name
     FROM pg_tables
