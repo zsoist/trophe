@@ -25,7 +25,7 @@ import { db } from '@/db/client';
 import { memoryChunks } from '@/db/schema/memory_chunks';
 import { eq, and, isNull, sql } from 'drizzle-orm';
 import { executeAiTask } from '@/agents/runtime';
-import { invokeGeminiStructured } from '@/agents/runtime/providers/structured';
+import { invokeStructuredProvider } from '@/agents/runtime/providers/structured';
 import { invokeVoyageEmbedding } from '@/agents/runtime/providers/voyage';
 import { memoryExtractionGeminiResponseSchema, memoryExtractionStructuredSchema } from '@/agents/schemas/memory-extraction-structured';
 
@@ -195,13 +195,16 @@ export async function writeMemory(input: WriteMemoryInput): Promise<WriteMemoryR
     prompt: extractionPrompt,
     systemPrompt: EXTRACTION_SYSTEM,
     context: { userId: input.userId, metadata: { sessionId: input.sessionId, agentName: input.agentName } },
-    invoke: ({ policy: selected, signal }) => invokeGeminiStructured({
+    invoke: ({ policy: selected, signal }) => invokeStructuredProvider({
       policy: selected,
       signal,
       system: EXTRACTION_SYSTEM,
       prompt: extractionPrompt,
-      responseSchema: memoryExtractionGeminiResponseSchema,
+      schema: memoryExtractionGeminiResponseSchema,
       validator: memoryExtractionStructuredSchema,
+      toolName: 'extract_memory_facts',
+      toolDescription: 'Extract structured facts from a conversation message',
+      strict: false,  // Schema has nullable fields — non-strict mode is safe with Zod validation
     }),
   });
   const parsed: ExtractionOutput = generation.output;

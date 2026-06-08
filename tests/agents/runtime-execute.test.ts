@@ -120,6 +120,39 @@ describe('executeAiTask integration contract', () => {
     })).rejects.toBe(providerError);
   });
 
+  it('falls back to secondary provider when primary fails', async () => {
+    // meal_suggest has a fallback (Anthropic). The invoke callback is policy-aware.
+    let callCount = 0;
+    const invoke = vi.fn(async ({ policy }: { policy: { provider: string } }) => {
+      callCount++;
+      if (callCount === 1) {
+        // Primary (deepseek) fails
+        expect(policy.provider).toBe('deepseek');
+        throw new Error('DeepSeek rate limited');
+      }
+      // Fallback (anthropic) succeeds
+      expect(policy.provider).toBe('anthropic');
+      return {
+        output: { suggestions: ['fallback meal'] },
+        usage: { inputTokens: 50, outputTokens: 10 },
+        latencyMs: 100,
+        rawStatus: 200,
+      };
+    });
+
+    const result = await executeAiTask({
+      task: 'meal_suggest',
+      prompt: 'suggest a meal',
+      invoke,
+    });
+
+    expect(invoke).toHaveBeenCalledTimes(2);
+    expect(result.output).toEqual({ suggestions: ['fallback meal'] });
+    // Both primary failure and fallback success should be persisted
+    expect(persistence.failGeneration).toHaveBeenCalledOnce();
+    expect(persistence.completeGeneration).toHaveBeenCalledOnce();
+  });
+
   it('aborts provider work when the task timeout expires', async () => {
     vi.useFakeTimers();
     const invoke = vi.fn(({ signal }: { signal: AbortSignal }) => new Promise<never>((_, reject) => {

@@ -173,10 +173,10 @@ describe('loadCoachBlocks() unit', () => {
 // ── 10. Router: memory task policies ──────────────────────────────────────
 
 describe('router: memory task policies', () => {
-  it('memory_extract maps to cost-efficient Gemini structured output', () => {
+  it('memory_extract maps to cost-efficient DeepSeek structured output', () => {
     const policy = pick('memory_extract');
-    expect(policy.provider).toBe('google');
-    expect(policy.model).toBe('gemini-2.5-flash');
+    expect(policy.provider).toBe('deepseek');
+    expect(policy.model).toBe('deepseek-v4-flash');
     expect(policy.costClass).toBe('cheap');
   });
 

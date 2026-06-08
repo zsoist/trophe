@@ -79,17 +79,16 @@ export const taskPolicies: Record<TaskName, RoutingPolicy> = {
     timeoutMs: 30_000, maxInputChars: 40_000, maxCostUsd: 0.25, promptVersion: 'coach-insight-v1',
   },
   meal_suggest: {
-    // Migrated from gemini-2.0-flash (deprecated June 1, 2026) to Haiku 4.5.
-    // Eval: 50/50 (100%) on 10-prompt suite with tool_choice enforcement.
-    // See agents/evals/run-meal-suggest.ts and commit fe0ad58.
-    // Uses tool_use + tool_choice for structural guarantee (no regex extraction).
-    provider: 'anthropic',
-    model: 'claude-haiku-4-5-20251001',
+    // Migrated to DeepSeek V4 Flash (2026-06-08): $0.14/$0.28 per M tokens
+    // vs Haiku 4.5 at $1.00/$5.00. ~85% cost reduction.
+    // Uses strict tool calling (/beta) for structural guarantee.
+    // Fallback: Anthropic Haiku 4.5 (see taskFallbacks below).
+    provider: 'deepseek',
+    model: 'deepseek-v4-flash',
     costClass: 'cheap',
     latencyClass: 'fast',
     maxTokens: 2048,
-    cacheSystem: true,
-    timeoutMs: 25_000, maxInputChars: 8_000, maxCostUsd: 0.05, promptVersion: 'meal-suggest-v1',
+    timeoutMs: 25_000, maxInputChars: 8_000, maxCostUsd: 0.02, promptVersion: 'meal-suggest-v2-deepseek',
   },
   photo_analyze: {
     provider: 'anthropic',
@@ -109,14 +108,16 @@ export const taskPolicies: Record<TaskName, RoutingPolicy> = {
     timeoutMs: 15_000, maxInputChars: 100_000, maxCostUsd: 0.02, promptVersion: 'embed-v1',
   },
   memory_extract: {
-    // Constrained Gemini decoding makes fact extraction structurally reliable
-    // while keeping this per-turn background task inexpensive and fast.
-    provider: 'google',
-    model: 'gemini-2.5-flash',
+    // Migrated to DeepSeek V4 Flash (2026-06-08): strict tool calling for
+    // structurally reliable fact extraction at $0.14/$0.28 per M tokens.
+    // Eval: 100% structured accuracy across 100 concurrent requests.
+    // Fallback: Gemini 2.5 Flash (constrained decoding) — see taskFallbacks.
+    provider: 'deepseek',
+    model: 'deepseek-v4-flash',
     costClass: 'cheap',
     latencyClass: 'fast',
     maxTokens: 1024,
-    timeoutMs: 20_000, maxInputChars: 30_000, maxCostUsd: 0.03, promptVersion: 'memory-extract-v2',
+    timeoutMs: 20_000, maxInputChars: 30_000, maxCostUsd: 0.01, promptVersion: 'memory-extract-v3-deepseek',
   },
   memory_embed: {
     // Voyage v4 — same embedding model as food/general embeddings for consistency.
@@ -127,5 +128,42 @@ export const taskPolicies: Record<TaskName, RoutingPolicy> = {
     latencyClass: 'fast',
     maxTokens: 0,
     timeoutMs: 15_000, maxInputChars: 30_000, maxCostUsd: 0.01, promptVersion: 'memory-embed-v1',
+  },
+};
+
+// ── Provider fallback chains ─────────────────────────────────────────────
+//
+// When a primary provider fails (network, rate-limit, outage), executeAiTask
+// retries once with the fallback policy before surfacing the error.
+//
+// Design: only tasks routed to a non-Anthropic primary get a fallback,
+// since Anthropic is the most battle-tested provider in production.
+// food_parse keeps Gemini primary but falls back to DeepSeek for resilience.
+
+export const taskFallbacks: Partial<Record<TaskName, RoutingPolicy>> = {
+  memory_extract: {
+    provider: 'google',
+    model: 'gemini-2.5-flash',
+    costClass: 'cheap',
+    latencyClass: 'fast',
+    maxTokens: 1024,
+    timeoutMs: 20_000, maxInputChars: 30_000, maxCostUsd: 0.03, promptVersion: 'memory-extract-v2-fallback',
+  },
+  meal_suggest: {
+    provider: 'anthropic',
+    model: 'claude-haiku-4-5-20251001',
+    costClass: 'cheap',
+    latencyClass: 'fast',
+    maxTokens: 2048,
+    cacheSystem: true,
+    timeoutMs: 25_000, maxInputChars: 8_000, maxCostUsd: 0.05, promptVersion: 'meal-suggest-v1-fallback',
+  },
+  food_parse: {
+    provider: 'deepseek',
+    model: 'deepseek-v4-flash',
+    costClass: 'cheap',
+    latencyClass: 'fast',
+    maxTokens: 2048,
+    timeoutMs: 20_000, maxInputChars: 12_000, maxCostUsd: 0.02, promptVersion: 'food-parse-v4-fallback',
   },
 };

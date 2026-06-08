@@ -111,7 +111,7 @@ describe('enterprise hardening invariants', () => {
     const memoryWrite = readFileSync(join(root, 'agents/memory/write.ts'), 'utf8');
     const conversation = readFileSync(join(root, 'app/api/ai/conversation/route.ts'), 'utf8');
     const queue = readFileSync(join(root, 'agents/memory/queue.ts'), 'utf8');
-    expect(memoryWrite).toContain('invokeGeminiStructured');
+    expect(memoryWrite).toContain('invokeStructuredProvider');
     expect(memoryWrite).not.toContain('llmText.match');
     expect(conversation).toContain('enqueueConversationMemory');
     expect(queue).toContain('FOR UPDATE SKIP LOCKED');

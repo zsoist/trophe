@@ -3,7 +3,9 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { guardAiRoute } from '@/lib/api-guard';
 import { executeAiTask } from '@/agents/runtime';
-import { invokeAnthropicJson } from '@/agents/runtime/providers/anthropic';
+import { invokeStructuredProvider } from '@/agents/runtime/providers/structured';
+import { mealSuggestionValidator, mealSuggestJsonSchema } from '@/agents/schemas/meal-suggest';
+import type { MealSuggestionOutput } from '@/agents/schemas/meal-suggest';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -58,39 +60,6 @@ const FALLBACK_SUGGESTIONS: MealSuggestion[] = [
   },
 ];
 
-// ── Tool schema for Anthropic tool_use ──────────────────────────────────────
-
-const MEAL_SUGGEST_TOOL = {
-  name: 'submit_meal_suggestions',
-  description: 'Submit 3 meal suggestions matching the macro budget',
-  input_schema: {
-    type: 'object' as const,
-    properties: {
-      suggestions: {
-        type: 'array' as const,
-        items: {
-          type: 'object' as const,
-          properties: {
-            name: { type: 'string' as const },
-            description: { type: 'string' as const },
-            ingredients: { type: 'array' as const, items: { type: 'string' as const } },
-            estimated_calories: { type: 'number' as const },
-            estimated_protein_g: { type: 'number' as const },
-            estimated_carbs_g: { type: 'number' as const },
-            estimated_fat_g: { type: 'number' as const },
-          },
-          required: [
-            'name', 'description', 'ingredients',
-            'estimated_calories', 'estimated_protein_g',
-            'estimated_carbs_g', 'estimated_fat_g',
-          ],
-        },
-      },
-    },
-    required: ['suggestions'],
-  },
-};
-
 const SYSTEM_PROMPT = `You are a sports nutritionist. Given a client's remaining macro budget for the day, suggest 3 practical, delicious meal options that fit within the budget. Each suggestion should include a name, brief description, ingredients list with approximate quantities, and estimated macros. Be realistic with portions and calorie estimates.`;
 
 // ── Input validation ────────────────────────────────────────────────────────
@@ -136,13 +105,6 @@ export async function POST(request: NextRequest) {
     }
 
     const { remaining_calories, remaining_protein_g, remaining_carbs_g, remaining_fat_g, preferences, meal_type } = validation.data;
-    if (!process.env.ANTHROPIC_API_KEY) {
-      console.error('ANTHROPIC_API_KEY not configured');
-      return NextResponse.json(
-        { error: 'Meal suggestion service is unavailable', suggestions: FALLBACK_SUGGESTIONS },
-        { status: 503 },
-      );
-    }
 
     // Build user message
     const macroContext = [
@@ -159,32 +121,30 @@ export async function POST(request: NextRequest) {
 
     const userMessage = `Remaining macro budget: ${macroContext}.${preferencesNote}${mealTypeNote} Suggest 3 meal options.`;
 
-    const result = await executeAiTask({
+    // Provider-agnostic structured output — routes through policy.provider
+    // (DeepSeek primary → Anthropic fallback via taskFallbacks in execute.ts)
+    const result = await executeAiTask<MealSuggestionOutput>({
       task: 'meal_suggest',
       prompt: userMessage,
       systemPrompt: SYSTEM_PROMPT,
       context: { userId: guard.userId, requestId: request.headers.get('x-request-id') ?? undefined },
-      invoke: ({ policy, signal }) => invokeAnthropicJson({
+      invoke: ({ policy, signal }) => invokeStructuredProvider({
+        policy,
         signal,
-        body: {
-          model: policy.model,
-          max_tokens: policy.maxTokens,
-          system: SYSTEM_PROMPT,
-          messages: [{ role: 'user', content: userMessage }],
-          tools: [MEAL_SUGGEST_TOOL],
-          tool_choice: { type: 'tool', name: 'submit_meal_suggestions' },
-        },
+        system: SYSTEM_PROMPT,
+        prompt: userMessage,
+        schema: mealSuggestJsonSchema as Record<string, unknown>,
+        validator: mealSuggestionValidator,
+        toolName: 'submit_meal_suggestions',
+        toolDescription: 'Submit 3 meal suggestions matching the macro budget',
+        strict: true,
       }),
     });
-    const data = result.output as {
-      content: Array<{ type: string; name?: string; input?: { suggestions?: MealSuggestion[] } }>;
-    };
 
-    const toolUse = data.content.find(c => c.type === 'tool_use' && c.name === 'submit_meal_suggestions');
-    const suggestions = toolUse?.input?.suggestions;
+    const suggestions = result.output.suggestions;
 
     if (!suggestions || suggestions.length === 0) {
-      console.error('No suggestions in tool_use response');
+      console.error('No suggestions in structured response');
       return NextResponse.json(
         { error: 'No AI suggestions returned', suggestions: FALLBACK_SUGGESTIONS },
         { status: 502 },
