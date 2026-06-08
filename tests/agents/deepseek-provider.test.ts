@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { invokeDeepSeekText } from '@/agents/runtime/providers/deepseek';
+import { deepSeekUserId, invokeDeepSeekText } from '@/agents/runtime/providers/deepseek';
 import { estimateModelCostUsd } from '@/agents/router/pricing';
 import { invokeTextProvider } from '@/agents/runtime/providers/text';
 
@@ -12,6 +12,11 @@ describe('DeepSeek governed provider candidate', () => {
   it('uses V4 official pricing', () => {
     expect(estimateModelCostUsd('deepseek-v4-flash', 1_000_000, 1_000_000)).toBeCloseTo(0.42);
     expect(estimateModelCostUsd('deepseek-v4-pro', 1_000_000, 1_000_000)).toBeCloseTo(1.305);
+  });
+
+  it('isolates provider cache/safety identity without sending a raw user id', () => {
+    expect(deepSeekUserId('user@example.com')).toMatch(/^trophe_[a-f0-9]{32}$/);
+    expect(deepSeekUserId('user@example.com')).not.toContain('user@example.com');
   });
 
   it('maps official token usage and generation id', async () => {

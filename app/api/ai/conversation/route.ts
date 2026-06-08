@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
       },
     },
     invoke: ({ policy, signal }) => invokeTextProvider({
-      policy, signal, system: systemPrompt, prompt: message,
+      policy, signal, system: systemPrompt, prompt: message, userId: guard.userId,
     }),
   });
 

@@ -5,11 +5,15 @@
  * They verify the router's policy dispatch logic and the OTel cost estimator.
  */
 
-import { describe, it, expect } from 'vitest';
+import { afterEach, describe, it, expect } from 'vitest';
 import { pick, modelFor, taskPolicies } from '../../agents/router';
 import type { TaskName } from '../../agents/router';
 import { estimateCostUsd } from '../../agents/observability/otel';
 import { modelPricing } from '../../agents/router/pricing';
+
+afterEach(() => {
+  delete process.env.DEEPSEEK_COACH_MODEL;
+});
 
 // ─── Router: policy dispatch ──────────────────────────────────────────────
 
@@ -34,6 +38,12 @@ describe('router.pick()', () => {
     expect(policy.provider).toBe('anthropic');
     expect(policy.model).toBe('claude-sonnet-4-6');
     expect(policy.costClass).toBe('mid');
+  });
+
+  it('allows an explicit DeepSeek coach canary without changing other routes', () => {
+    process.env.DEEPSEEK_COACH_MODEL = 'deepseek-v4-pro';
+    expect(pick('coach_insight')).toMatchObject({ provider: 'deepseek', model: 'deepseek-v4-pro' });
+    expect(pick('food_parse')).toMatchObject({ provider: 'google', model: 'gemini-2.5-flash' });
   });
 
   it('throws for unknown task names', () => {

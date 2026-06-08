@@ -11,6 +11,7 @@ export async function invokeTextProvider(input: {
   signal: AbortSignal;
   maxTokens?: number;
   disableThinking?: boolean;
+  userId?: string;
 }): Promise<ProviderResult<string>> {
   if (input.signal.aborted) throw new Error('AI request aborted');
 
@@ -21,6 +22,7 @@ export async function invokeTextProvider(input: {
       prompt: input.prompt,
       maxTokens: input.maxTokens ?? input.policy.maxTokens,
       signal: input.signal,
+      userId: input.userId,
     });
   }
 
