@@ -110,6 +110,23 @@ function clarificationQuestion(language: string): string {
   return 'How much did you eat? Please provide grams or a measurable portion size.';
 }
 
+const CLEARLY_NON_FOOD_PATTERNS = [
+  /<\s*script\b/i,
+  /\b(drop|alter|truncate|delete)\s+table\b/i,
+  /\b(gasoline|petrol|diesel|bleach|detergent)\b/i,
+  /\bunicorn\b/i,
+  /\bdragon\s+(sauce|steak|meat)\b/i,
+];
+
+export function shouldRejectAsNonFood(text: string): boolean {
+  const normalized = text.trim();
+  if (CLEARLY_NON_FOOD_PATTERNS.some((pattern) => pattern.test(normalized))) return true;
+  if (/^asdf[a-z]*$/i.test(normalized)) return true;
+  if (/^-\s*\d/.test(normalized)) return true;
+  if (/^\d{5,}\s+calories?\s+worth\b/i.test(normalized)) return true;
+  return normalized.length === 1;
+}
+
 const MACRO_ESTIMATE_PROMPT = `You are a nutrition database. Given food items with quantities, estimate their macronutrient values.
 Return ONLY valid JSON in this exact format:
 {
@@ -205,6 +222,18 @@ export async function run(
 
   if (!sanitizedText) {
     return { ok: false, error: 'text is required', telemetry: emptyTelemetry };
+  }
+
+  if (shouldRejectAsNonFood(sanitizedText)) {
+    return {
+      ok: true,
+      output: {
+        items: [],
+        needs_clarification: true,
+        clarification_question: clarificationQuestion(language),
+      },
+      telemetry: emptyTelemetry,
+    };
   }
 
   const userMessage = `Parse this food input (language: ${language}):\n\n"${sanitizedText}"`;
