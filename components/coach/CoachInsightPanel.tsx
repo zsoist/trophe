@@ -15,6 +15,7 @@ interface InsightResponse {
   insight?: string;
   generationId?: string;
   citations?: Citation[];
+  groundingStatus?: 'verified' | 'uncited' | 'not_applicable';
   error?: string;
 }
 
@@ -86,6 +87,14 @@ export default function CoachInsightPanel({ clientId }: { clientId: string }) {
       {insight?.insight && (
         <div className="mt-4 space-y-3" aria-live="polite">
           <p className="whitespace-pre-wrap text-sm leading-relaxed text-stone-300">{insight.insight}</p>
+          {insight.groundingStatus === 'verified' && (
+            <p className="text-xs text-emerald-300">Grounding verified against cited knowledge.</p>
+          )}
+          {insight.groundingStatus === 'uncited' && (
+            <p className="text-xs text-amber-300" role="alert">
+              Knowledge was retrieved, but the response did not cite it directly. Review sources before acting.
+            </p>
+          )}
           <div className="flex flex-wrap items-center gap-2 border-t border-white/5 pt-3 text-[11px] text-stone-500">
             <BookOpen size={13} />
             {insight.citations?.length

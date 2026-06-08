@@ -88,6 +88,7 @@ describe('POST /api/ai/conversation', () => {
       message: 'Eat a balanced meal.',
       generationId: 'generation-1',
       memoryWriteStatus: 'completed',
+      groundingStatus: 'uncited',
       citations: [
         { chunkId: 'chunk-1', source: 'memory', createdAt: '2026-06-07T00:00:00.000Z' },
         { chunkId: 'knowledge-1', documentId: 'document-1', source: 'protocol', createdAt: '2026-06-06T00:00:00.000Z' },

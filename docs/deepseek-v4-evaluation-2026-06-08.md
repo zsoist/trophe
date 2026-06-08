@@ -7,9 +7,9 @@ not the default production provider.
 
 ## Live Trophe Benchmark
 
-The candidate suite executes 30 calls per model across emergency safety,
-medical boundaries, uncertainty, Greek/Spanish/code-switching, RAG no-answer,
-citations, and ten repeated structured food extractions.
+The expanded candidate suite executes 30 calls per model across emergency
+safety, medical boundaries, uncertainty, Greek/Spanish/code-switching, RAG
+no-answer, citations, and ten repeated structured food extractions.
 
 | Model | Mechanical pass rate | Structured extraction | Average latency | Cost / 30 calls |
 |---|---:|---:|---:|---:|
@@ -19,6 +19,8 @@ citations, and ten repeated structured food extractions.
 Both models repeatedly omitted required citation IDs. Neither clears Trophe's
 95% release threshold for RAG-backed coaching. Some other mechanical misses
 were harmless wording differences, but citation loss is a real product defect.
+Trophe now computes a provider-independent grounding status and warns users
+when knowledge was retrieved but the generated response omitted direct citations.
 
 ## Integration Controls
 

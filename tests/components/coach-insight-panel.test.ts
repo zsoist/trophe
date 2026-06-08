@@ -15,6 +15,7 @@ describe('CoachInsightPanel UI contract', () => {
   it('renders citations, generation provenance, and accessible errors', () => {
     expect(source).toContain('insight.citations');
     expect(source).toContain('insight.generationId');
+    expect(source).toContain("insight.groundingStatus === 'uncited'");
     expect(source).toContain('role="alert"');
     expect(source).toContain('aria-live="polite"');
   });

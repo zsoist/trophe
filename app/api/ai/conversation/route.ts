@@ -8,6 +8,7 @@ import { writeMemory } from '@/agents/memory/write';
 import { executeAiTask } from '@/agents/runtime';
 import { invokeTextProvider } from '@/agents/runtime/providers/text';
 import { retrieveKnowledge } from '@/agents/rag/retrieve';
+import { groundingStatus } from '@/agents/rag/grounding';
 
 const requestSchema = z.object({
   sessionId: z.string().min(1).max(200),
@@ -86,6 +87,7 @@ export async function POST(request: NextRequest) {
     message: generation.output,
     generationId: generation.generationId,
     memoryWriteStatus: memoryWriteFailed ? 'degraded' : 'completed',
+    groundingStatus: groundingStatus(generation.output, knowledge.chunks.map((chunk) => chunk.id)),
     citations: [
       ...memory.chunks.map((chunk) => ({
         chunkId: chunk.id, source: 'memory', createdAt: chunk.createdAt,

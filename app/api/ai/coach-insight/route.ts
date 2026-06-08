@@ -10,6 +10,7 @@ import { loadCoachBlocks } from '@/agents/memory/coach-blocks';
 import { retrieveKnowledge } from '@/agents/rag/retrieve';
 import { executeAiTask } from '@/agents/runtime';
 import { invokeTextProvider } from '@/agents/runtime/providers/text';
+import { groundingStatus } from '@/agents/rag/grounding';
 
 const requestSchema = z.object({
   clientId: z.string().uuid(),
@@ -61,6 +62,7 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({
     insight: generation.output,
     generationId: generation.generationId,
+    groundingStatus: groundingStatus(generation.output, knowledge.chunks.map((chunk) => chunk.id)),
     citations: knowledge.chunks.map((chunk) => ({
       chunkId: chunk.id,
       documentId: chunk.documentId,
