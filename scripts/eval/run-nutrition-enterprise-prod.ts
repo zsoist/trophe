@@ -18,10 +18,14 @@ type EvalCase = {
   expect_needs_clarification: boolean;
 };
 type ParsedItem = {
+  food_name: string;
+  grams: number;
   calories: number;
   protein_g: number;
   carbs_g: number;
   fat_g: number;
+  confidence: number;
+  source: string;
 };
 
 const dataset = JSON.parse(readFileSync(
@@ -37,6 +41,19 @@ const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 function within(actual: number, expected?: Range) {
   return !expected || (actual >= expected.min && actual <= expected.max);
+}
+
+function rangeCenter(expected?: Range) {
+  return expected ? (expected.min + expected.max) / 2 : null;
+}
+
+function errorMetrics(actual: number, expected?: Range) {
+  const center = rangeCenter(expected);
+  if (center === null || center === 0) return { signedError: null, absolutePercentageError: null };
+  return {
+    signedError: actual - center,
+    absolutePercentageError: Math.abs(actual - center) / center,
+  };
 }
 
 async function accessToken() {
@@ -83,6 +100,12 @@ async function runCase(test: EvalCase, token: string) {
     fat: within(totals.fat_g, test.expect_total?.fat_g),
     clarification: !test.expect_needs_clarification || data.needs_clarification === true || items.length === 0,
   };
+  const errors = {
+    calories: errorMetrics(totals.calories, test.expect_total?.calories),
+    protein: errorMetrics(totals.protein_g, test.expect_total?.protein_g),
+    carbs: errorMetrics(totals.carbs_g, test.expect_total?.carbs_g),
+    fat: errorMetrics(totals.fat_g, test.expect_total?.fat_g),
+  };
   return {
     id: test.id,
     language: test.language,
@@ -94,6 +117,19 @@ async function runCase(test: EvalCase, token: string) {
     checks,
     totals,
     items: items.length,
+    parsedItems: items.map((item) => ({
+      foodName: item.food_name,
+      grams: item.grams,
+      confidence: item.confidence,
+      source: item.source,
+    })),
+    totalGrams: items.reduce((sum, item) => sum + (item.grams ?? 0), 0),
+    meanConfidence: items.length
+      ? items.reduce((sum, item) => sum + (item.confidence ?? 0), 0) / items.length
+      : null,
+    dbResolved: items.length > 0 && items.every((item) => item.source?.startsWith('local_db')),
+    needsClarification: data.needs_clarification === true,
+    errors,
     error: data.error,
   };
 }
@@ -114,6 +150,21 @@ async function main() {
     const selected = results.filter((item) => item.category === category);
     return { category, passed: selected.filter((item) => item.passed).length, total: selected.length };
   });
+  const metricSummary = (metric: 'calories' | 'protein' | 'carbs' | 'fat') => {
+    const selected = results
+      .map((item) => item.errors[metric])
+      .filter((item) => item.absolutePercentageError !== null);
+    return {
+      sampleSize: selected.length,
+      mape: selected.reduce((sum, item) => sum + item.absolutePercentageError!, 0) / selected.length,
+      meanSignedError: selected.reduce((sum, item) => sum + item.signedError!, 0) / selected.length,
+    };
+  };
+  const sourceCounts = results.flatMap((item) => item.parsedItems)
+    .reduce<Record<string, number>>((counts, item) => {
+      counts[item.source ?? 'unknown'] = (counts[item.source ?? 'unknown'] ?? 0) + 1;
+      return counts;
+    }, {});
   const summary = {
     version: dataset.version,
     baseUrl,
@@ -122,6 +173,15 @@ async function main() {
     passRate: results.filter((item) => item.passed).length / results.length,
     p50LatencyMs: latencies[Math.ceil(latencies.length * 0.5) - 1],
     p95LatencyMs: latencies[Math.ceil(latencies.length * 0.95) - 1],
+    dbResolvedRate: results.filter((item) => item.dbResolved).length / results.length,
+    clarificationRate: results.filter((item) => item.needsClarification).length / results.length,
+    metrics: {
+      calories: metricSummary('calories'),
+      protein: metricSummary('protein'),
+      carbs: metricSummary('carbs'),
+      fat: metricSummary('fat'),
+    },
+    sourceCounts,
     groups,
   };
   mkdirSync(join(process.cwd(), 'artifacts', 'evals'), { recursive: true });

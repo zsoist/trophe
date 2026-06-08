@@ -388,6 +388,18 @@ function isBeverageByKey(canonicalFoodKey: string | null | undefined): boolean {
   return BEVERAGE_KEY_TOKENS.some(token => key.includes(token));
 }
 
+function conservativeDenseFoodServing(
+  unit: string,
+  foodIdentity: string | null | undefined,
+): number | null {
+  const key = foodIdentity?.toLowerCase().replace(/[^a-z]+/g, '_') ?? '';
+  if (!['serving', 'portion', 'some'].includes(unit)) return null;
+  // A vague amount of pure fat must never inherit the generic 100 g serving.
+  // One tablespoon is a conservative provisional amount pending clarification.
+  if (/(^|_)(oil|butter|ghee)(_|$)/.test(key)) return 14;
+  return null;
+}
+
 async function resolveUnit(
   foodId: string,
   unit: string,
@@ -402,6 +414,9 @@ async function resolveUnit(
   if (normalizedUnit === 'g') return { id: null, gramsPerUnit: 1 };
   if (normalizedUnit === 'kg') return { id: null, gramsPerUnit: 1_000 };
   if (normalizedUnit === '100g') return { id: null, gramsPerUnit: 100 };
+
+  const denseFoodServing = conservativeDenseFoodServing(normalizedUnit, canonicalFoodKey);
+  if (denseFoodServing !== null) return { id: null, gramsPerUnit: denseFoodServing };
 
   // 1. Food-specific conversion (highest priority)
   const specific = await db
@@ -657,7 +672,12 @@ export async function lookupFood(input: LookupInput): Promise<LookupResult | nul
   }
 
   // Unit resolution (pass canonicalFoodKey for beverage override logic)
-  const conversion = await resolveUnit(food.id, correctedUnit, input.qualifier, food.canonicalFoodKey);
+  const conversion = await resolveUnit(
+    food.id,
+    correctedUnit,
+    input.qualifier,
+    food.canonicalFoodKey ?? food.nameEn,
+  );
   const gramsPerUnit = conversion?.gramsPerUnit ?? food.defaultServingGrams ?? 100;
 
   return {
