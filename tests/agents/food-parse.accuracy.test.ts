@@ -700,6 +700,13 @@ describe('unit conversion math', () => {
     expect(result.macros(1).protein).toBeGreaterThan(15);
   });
 
+  it('uses a reviewed slice portion for implicit feta', async () => {
+    const result = await lookupFood({ foodName: 'feta cheese', unit: 'serving', region: 'GR' });
+    if (!result) return;
+    expect(result.gramsTotal(1)).toBeLessThanOrEqual(50);
+    expect(result.macros(1).kcal).toBeLessThan(150);
+  });
+
   it('1 φέτα = 20g → 264 kcal/100g → 52.8 kcal', () => {
     const gramsPerUnit = 20; // from food_unit_conversions seed
     const qty = 1;

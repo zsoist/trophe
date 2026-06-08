@@ -30,6 +30,7 @@ RULES:
    - "3 slices of bread" → unit: "piece", quantity: 3
    - "1 scoop whey" → unit: "scoop", quantity: 1
    - "1 protein shake" without a stated ready-to-drink brand → unit: "scoop", quantity: 1
+   - "feta" / "φέτα" without a stated quantity → unit: "slice", quantity: 1
    - "1 cup rice" → unit: "cup", quantity: 1
    Do NOT use "unit", "each", "item", or "whole" — always "piece".
    EXCEPTION for beverages — see rule 6b.

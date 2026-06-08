@@ -610,7 +610,10 @@ export async function lookupFood(input: LookupInput): Promise<LookupResult | nul
   const correctedUnit = correctedFoodName.toLowerCase().includes('protein powder') &&
     ['cup', 'serving', 'glass'].includes(input.unit.toLowerCase().trim())
     ? 'scoop'
-    : input.unit;
+    : correctedFoodName.toLowerCase().includes('feta') &&
+      ['serving', 'piece'].includes(input.unit.toLowerCase().trim())
+      ? 'slice'
+      : input.unit;
 
   // Stage 1: Parallel dual retrieval (BM25 arm + vector arm simultaneously)
   const [bm25Results, vectorResults] = await Promise.all([
