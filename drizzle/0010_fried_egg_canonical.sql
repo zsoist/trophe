@@ -25,7 +25,8 @@ WHERE id = '029b3ece-d8e2-4827-82ae-558700adf9ed'
 -- ═══════════════════════════════════════════════════════════════════════════════
 
 INSERT INTO food_aliases (food_id, lang, alias, preferred)
-VALUES
+SELECT v.food_id::uuid, v.lang, v.alias, v.preferred
+FROM (VALUES
   -- English
   ('029b3ece-d8e2-4827-82ae-558700adf9ed', 'en', 'fried egg', true),
   ('029b3ece-d8e2-4827-82ae-558700adf9ed', 'en', 'fried eggs', false),
@@ -35,6 +36,8 @@ VALUES
   -- Greek
   ('029b3ece-d8e2-4827-82ae-558700adf9ed', 'el', 'αυγό τηγανητό', true),
   ('029b3ece-d8e2-4827-82ae-558700adf9ed', 'el', 'αυγά τηγανητά', false)
+) AS v(food_id, lang, alias, preferred)
+JOIN foods f ON f.id = v.food_id::uuid
 ON CONFLICT DO NOTHING;
 
 -- ═══════════════════════════════════════════════════════════════════════════════
@@ -44,5 +47,7 @@ ON CONFLICT DO NOTHING;
 -- ═══════════════════════════════════════════════════════════════════════════════
 
 INSERT INTO food_unit_conversions (food_id, unit, grams_per_unit, source)
-VALUES ('029b3ece-d8e2-4827-82ae-558700adf9ed', 'piece', 50, 'usda')
+SELECT f.id, 'piece', 50, 'usda'
+FROM foods f
+WHERE f.id = '029b3ece-d8e2-4827-82ae-558700adf9ed'
 ON CONFLICT DO NOTHING;

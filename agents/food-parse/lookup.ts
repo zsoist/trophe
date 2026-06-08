@@ -291,6 +291,9 @@ function lexicalIntentScore(candidate: SelectFood, query: string): number {
   if (queryTokens.length === 1 && /babyfood|cereal|dessert|doughnut|donut|cookies|candies|beverages/.test(singularName)) {
     score -= 4;
   }
+  if (queryTokens.length === 1 && /mcmuffin|sandwich|burger|burrito|pizza|breakfast/.test(singularName)) {
+    score -= 12;
+  }
   if (queryTokens.length === 1 && /dehydrated|powder|dried/.test(singularName) && !/dehydrated|powder|dried/.test(singularQuery)) {
     score -= 5;
   }
@@ -640,6 +643,15 @@ export async function lookupFood(input: LookupInput): Promise<LookupResult | nul
   if (ranked.length === 0) return null;
 
   const food = ranked[0];
+  const normalizedQuery = normalizeLexicalName(correctedFoodName);
+  const normalizedTopName = normalizeLexicalName(food.nameEn);
+  if (
+    normalizedQuery.split(' ').length === 1 &&
+    /mcmuffin|sandwich|burger|burrito|pizza|breakfast/.test(normalizedTopName) &&
+    !/mcmuffin|sandwich|burger|burrito|pizza|breakfast/.test(normalizedQuery)
+  ) {
+    return null;
+  }
 
   // Unit resolution (pass canonicalFoodKey for beverage override logic)
   const conversion = await resolveUnit(food.id, correctedUnit, input.qualifier, food.canonicalFoodKey);

@@ -130,10 +130,8 @@ afterAll(async () => {
   await asOwner(`DELETE FROM organization_members WHERE org_id = $1`, [IDS.org]);
   await asOwner(`DELETE FROM organizations WHERE id = $1`, [IDS.org]);
   await asOwner(`DELETE FROM client_profiles WHERE user_id IN ($1, $2)`, [IDS.client, IDS.otherClient]);
-  await asOwner(`DELETE FROM profiles WHERE id IN ($1,$2,$3,$4,$5)`,
-    [IDS.superAdmin, IDS.admin, IDS.coach, IDS.client, IDS.otherClient]);
-  await asOwner(`DELETE FROM auth.users WHERE id IN ($1,$2,$3,$4,$5)`,
-    [IDS.superAdmin, IDS.admin, IDS.coach, IDS.client, IDS.otherClient]);
+  // Profiles and auth fixtures intentionally remain: deleting them can cascade
+  // into immutable audit records, which correctly reject mutation.
   await pool.end();
 });
 
@@ -220,10 +218,6 @@ describe('audit_log — RLS', () => {
       INSERT INTO audit_log (actor_id, actor_role, action, table_name)
       VALUES ($1, 'coach', 'test_action', 'profiles')
     `, [IDS.coach]);
-  });
-
-  afterAll(async () => {
-    await asOwner(`DELETE FROM audit_log WHERE action = 'test_action'`);
   });
 
   it('super_admin can SELECT audit_log rows', async () => {

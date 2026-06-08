@@ -78,6 +78,48 @@
       "when": 1780852599953,
       "tag": "0010_slow_boomerang",
       "breakpoints": true
+    },
+    {
+      "idx": 11, "version": "7", "when": 1780852599954, "tag": "0008_wave3_branded_foods", "breakpoints": true
+    },
+    {
+      "idx": 12, "version": "7", "when": 1780852599955, "tag": "0009_phase3_portion_fixes", "breakpoints": true
+    },
+    {
+      "idx": 13, "version": "7", "when": 1780852599956, "tag": "0010_fried_egg_canonical", "breakpoints": true
+    },
+    {
+      "idx": 14, "version": "7", "when": 1780852599957, "tag": "0011_dish_recipes", "breakpoints": true
+    },
+    {
+      "idx": 15, "version": "7", "when": 1780852599958, "tag": "0011_permission_aware_rag", "breakpoints": true
+    },
+    {
+      "idx": 16, "version": "7", "when": 1780852599959, "tag": "0012_reconcile_ai_governance", "breakpoints": true
+    },
+    {
+      "idx": 17, "version": "7", "when": 1780852599960, "tag": "0012_seed_traditional_dishes", "breakpoints": true
+    },
+    {
+      "idx": 18, "version": "7", "when": 1780852599961, "tag": "0013_add_restaurant_sources", "breakpoints": true
+    },
+    {
+      "idx": 19, "version": "7", "when": 1780852599962, "tag": "0013_compliance_foundation", "breakpoints": true
+    },
+    {
+      "idx": 20, "version": "7", "when": 1780852599963, "tag": "0014_b2b_billing_readiness", "breakpoints": true
+    },
+    {
+      "idx": 21, "version": "7", "when": 1780852599964, "tag": "0015_food_log_calories_real", "breakpoints": true
+    },
+    {
+      "idx": 22, "version": "7", "when": 1780852599965, "tag": "0016_seed_bogota_colombian_food_database", "breakpoints": true
+    },
+    {
+      "idx": 23, "version": "7", "when": 1780852599966, "tag": "0017_organization_ai_budgets", "breakpoints": true
+    },
+    {
+      "idx": 24, "version": "7", "when": 1780852599967, "tag": "0018_durable_rate_limits", "breakpoints": true
     }
   ]
 }

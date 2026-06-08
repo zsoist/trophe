@@ -80,11 +80,11 @@ ALTER TABLE dish_recipes ENABLE ROW LEVEL SECURITY;
 
 -- All authenticated users can read recipes
 CREATE POLICY dish_recipes_select ON dish_recipes
-  FOR SELECT USING (true);
+  FOR SELECT TO authenticated USING (true);
 
 -- Only service role can insert/update (API routes use service role)
 CREATE POLICY dish_recipes_insert ON dish_recipes
-  FOR INSERT WITH CHECK (true);
+  FOR INSERT TO service_role WITH CHECK (true);
 
 CREATE POLICY dish_recipes_update ON dish_recipes
-  FOR UPDATE USING (true);
+  FOR UPDATE TO service_role USING (true) WITH CHECK (true);
