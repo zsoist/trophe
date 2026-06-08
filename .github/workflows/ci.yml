@@ -138,6 +138,9 @@ jobs:
       - name: AI cost attribution and budget gate
         run: npm run ai:budget-check
 
+      - name: AI cost reconciliation gate
+        run: npm run ai:cost-reconcile
+
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
 
