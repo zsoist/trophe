@@ -9,6 +9,7 @@ import { executeAiTask } from '@/agents/runtime';
 import { invokeTextProvider } from '@/agents/runtime/providers/text';
 import { retrieveKnowledge } from '@/agents/rag/retrieve';
 import { groundingStatus } from '@/agents/rag/grounding';
+import { settleMemoryWrites } from '@/agents/memory/bounded-write';
 
 const requestSchema = z.object({
   sessionId: z.string().min(1).max(200),
@@ -77,16 +78,15 @@ export async function POST(request: NextRequest) {
   });
   await memory.markRetrieved();
 
-  const memoryWrites = await Promise.allSettled([
+  const memoryWriteStatus = await settleMemoryWrites([
     writeMemory({ userId: guard.userId, sessionId, agentName: 'conversation', role: 'user', content: message }),
     writeMemory({ userId: guard.userId, sessionId, agentName: 'conversation', role: 'assistant', content: generation.output }),
   ]);
-  const memoryWriteFailed = memoryWrites.some((result) => result.status === 'rejected');
 
   return NextResponse.json({
     message: generation.output,
     generationId: generation.generationId,
-    memoryWriteStatus: memoryWriteFailed ? 'degraded' : 'completed',
+    memoryWriteStatus,
     groundingStatus: groundingStatus(generation.output, knowledge.chunks.map((chunk) => chunk.id)),
     citations: [
       ...memory.chunks.map((chunk) => ({

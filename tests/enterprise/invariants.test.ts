@@ -112,7 +112,7 @@ describe('enterprise hardening invariants', () => {
     const conversation = readFileSync(join(root, 'app/api/ai/conversation/route.ts'), 'utf8');
     expect(memoryWrite).toContain('invokeGeminiStructured');
     expect(memoryWrite).not.toContain('llmText.match');
-    expect(conversation).toContain('Promise.allSettled');
+    expect(conversation).toContain('settleMemoryWrites');
     expect(conversation).not.toContain('after(async');
   });
 
