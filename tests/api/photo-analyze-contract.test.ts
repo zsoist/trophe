@@ -19,5 +19,7 @@ describe('photo nutrition contract', () => {
     expect(route).toContain('maximum 5MB');
     expect(quickInput).toContain("const mediaType = 'image/jpeg'");
     expect(quickInput).not.toContain('file.size > MAX_IMAGE_SIZE');
+    expect(quickInput).toContain('MAX_UPLOAD_BASE64_LENGTH');
+    expect(quickInput).toContain('while (Math.max(width, height) > 640)');
   });
 });

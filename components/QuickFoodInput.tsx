@@ -749,7 +749,9 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, onSea
   );
 }
 
-// Resize image to max dimension and return base64 (without data: prefix)
+const MAX_UPLOAD_BASE64_LENGTH = Math.ceil((5 * 1024 * 1024) / 3) * 4;
+
+// Resize image and return a JPEG base64 payload guaranteed to fit the API cap.
 async function resizeAndEncode(file: File, maxDim: number): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -769,14 +771,37 @@ async function resizeAndEncode(file: File, maxDim: number): Promise<string> {
           }
         }
 
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d')!;
-        ctx.drawImage(img, 0, 0, width, height);
+        const encode = (quality: number) => {
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) throw new Error('Image compression is unavailable in this browser');
+          ctx.drawImage(img, 0, 0, width, height);
+          return canvas.toDataURL('image/jpeg', quality).split(',')[1];
+        };
 
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-        const base64 = dataUrl.split(',')[1];
-        resolve(base64);
+        try {
+          for (const quality of [0.85, 0.72, 0.6, 0.48]) {
+            const base64 = encode(quality);
+            if (base64.length <= MAX_UPLOAD_BASE64_LENGTH) {
+              resolve(base64);
+              return;
+            }
+          }
+
+          while (Math.max(width, height) > 640) {
+            width = Math.round(width * 0.75);
+            height = Math.round(height * 0.75);
+            const base64 = encode(0.48);
+            if (base64.length <= MAX_UPLOAD_BASE64_LENGTH) {
+              resolve(base64);
+              return;
+            }
+          }
+          reject(new Error('Image could not be compressed below 5MB'));
+        } catch (error) {
+          reject(error);
+        }
       };
       img.onerror = reject;
       img.src = reader.result as string;
