@@ -102,12 +102,12 @@ const GOLDENS: GoldenCase[] = [
     },
   },
   {
-    description: '1 φέτα (unqualified) = 30g universal default',
+    description: '1 φέτα (unqualified) = 28g food-specific override (greek_seed)',
     input: { foodName: 'feta cheese', unit: 'φέτα', qty: 1 },
     expected: {
       matchNameIncludes: 'feta',
-      // φέτα with no qualifier = 30g universal → 264 * 0.30 = 79.2 kcal
-      macros: { kcal: 79.2, protein: 4.26, carb: 1.23, fat: 6.39 },
+      // food-specific (feta_id, φέτα, 28g) overrides 30g universal → 264 * 0.28 = 73.92 kcal
+      macros: { kcal: 73.92, protein: 3.98, carb: 1.15, fat: 5.96 },
       tolerancePct: 5,
     },
   },

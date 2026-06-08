@@ -507,7 +507,7 @@ export default function TemplatesPage() {
                   name: t.name,
                   exerciseCount: (t.exercises || []).length,
                 }))}
-                onAssign={(_day, _templateId) => {
+                onAssign={() => {
                   // TODO: wire up template assignment to API
                 }}
               />
