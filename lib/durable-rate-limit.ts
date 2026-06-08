@@ -7,14 +7,14 @@ export async function consumeRateLimit(
   windowSeconds: number,
 ): Promise<{ allowed: boolean; retryAfter: number }> {
   const result = await db.execute<{ request_count: number; retry_after: number }>(sql`
-    WITH window AS (
+    WITH rate_window AS (
       SELECT
         to_timestamp(floor(extract(epoch FROM now()) / ${windowSeconds}) * ${windowSeconds}) AS started_at
     ),
     consumed AS (
       INSERT INTO rate_limit_windows (key, window_started_at, request_count, expires_at)
       SELECT ${key}, started_at, 1, started_at + (${windowSeconds} * interval '1 second')
-      FROM window
+      FROM rate_window
       ON CONFLICT (key, window_started_at)
       DO UPDATE SET request_count = rate_limit_windows.request_count + 1
       RETURNING request_count, greatest(1, ceil(extract(epoch FROM (expires_at - now()))))::integer AS retry_after
