@@ -568,9 +568,8 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
   'scrambled egg': 'egg whole cooked scrambled',
   'scrambled eggs': 'egg whole cooked scrambled',
   'protein shake': 'protein powder whey',
-  'whole milk': 'Milk, whole, 3.25% milkfat, with added vitamin D',
-  'milk whole': 'Milk, whole, 3.25% milkfat, with added vitamin D',
-  'bacon': 'Pork, cured, bacon, pre-sliced, cooked, pan-fried',
+  'whole milk': 'milk whole',
+  'bacon': 'pork cured bacon',
   // Oats: "oatmeal" should match cooked oats cereal, not oatmeal bread
   'oatmeal': 'cereals oats regular cooked',
   'oats': 'cereals oats regular',
