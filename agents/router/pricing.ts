@@ -8,6 +8,16 @@ export interface ModelPricing {
 }
 
 export const modelPricing: Record<string, ModelPricing> = {
+  'deepseek-v4-flash': {
+    inputPerMillion: 0.14,
+    outputPerMillion: 0.28,
+    cacheReadPerMillion: 0.0028,
+  },
+  'deepseek-v4-pro': {
+    inputPerMillion: 0.435,
+    outputPerMillion: 0.87,
+    cacheReadPerMillion: 0.003625,
+  },
   [taskPolicies.food_parse.model]: {
     inputPerMillion: 0.30,
     outputPerMillion: 2.50,

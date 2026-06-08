@@ -1,5 +1,6 @@
 import { callAnthropicMessages } from '@/agents/clients/anthropic';
 import { callGeminiMessages } from '@/agents/clients/google';
+import { invokeDeepSeekText } from './deepseek';
 import type { RoutingPolicy } from '@/agents/router/policies';
 import type { ProviderResult } from '../types';
 
@@ -12,6 +13,16 @@ export async function invokeTextProvider(input: {
   disableThinking?: boolean;
 }): Promise<ProviderResult<string>> {
   if (input.signal.aborted) throw new Error('AI request aborted');
+
+  if (input.policy.provider === 'deepseek') {
+    return invokeDeepSeekText({
+      model: input.policy.model as 'deepseek-v4-flash' | 'deepseek-v4-pro',
+      system: input.system,
+      prompt: input.prompt,
+      maxTokens: input.maxTokens ?? input.policy.maxTokens,
+      signal: input.signal,
+    });
+  }
 
   const result = input.policy.provider === 'google'
     ? await callGeminiMessages({

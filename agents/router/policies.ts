@@ -23,7 +23,7 @@
  * To disable a task (force Anthropic): set provider to 'anthropic'.
  */
 
-export type Provider = 'anthropic' | 'google' | 'openai' | 'voyage';
+export type Provider = 'anthropic' | 'google' | 'openai' | 'voyage' | 'deepseek';
 export type CostClass = 'cheap' | 'mid' | 'high';
 export type LatencyClass = 'fast' | 'medium' | 'slow';
 

@@ -5,6 +5,7 @@ loadEnvConfig(process.cwd());
 const required = {
   core: ['NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_ANON_KEY', 'DATABASE_URL'],
   ai: ['ANTHROPIC_API_KEY', 'GEMINI_API_KEY', 'VOYAGE_API_KEY'],
+  optional_ai_evaluation: ['DEEPSEEK_API_KEY'],
   observability: ['LANGFUSE_PUBLIC_KEY', 'LANGFUSE_SECRET_KEY', 'LANGFUSE_HOST'],
   wearable_on_hold: ['SPIKE_CLIENT_ID', 'SPIKE_CLIENT_SECRET', 'SPIKE_WEBHOOK_SECRET', 'WEARABLE_ENCRYPT_KEY'],
 } as const;
