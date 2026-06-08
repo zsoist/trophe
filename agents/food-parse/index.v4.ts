@@ -49,35 +49,16 @@ interface V4Candidate {
   quantity:      number;
   unit:          string;
   qualifier?:    string | null;
+  food_state?:    string;
+  portion_explicit?: boolean;
   confidence:    number;
   recognized:    boolean;
 }
 
 interface V4LLMOutput {
   items: V4Candidate[];
-}
-
-function extractV4JSON(text: string): V4LLMOutput | null {
-  // Strip markdown code fences — LLMs often wrap JSON in ```json...```
-  const cleaned = text.replace(/```(?:json)?\s*/g, '').trim();
-  const match = cleaned.match(/\{[\s\S]*"items"\s*:\s*\[[\s\S]*\][\s\S]*\}/);
-  if (!match) return null;
-  try {
-    const parsed = JSON.parse(match[0]);
-    if (Array.isArray(parsed.items)) {
-      // Filter out items with null/empty food_name — LLM sometimes returns null
-      // for foods it can't identify, which would crash downstream .toLowerCase()
-      parsed.items = parsed.items.filter((item: V4Candidate) => {
-        if (!item.food_name || typeof item.food_name !== 'string' || item.food_name.trim() === '') {
-          console.warn('[food-parse] Skipping item with null/empty food_name:', item.raw_text ?? '(no raw_text)');
-          return false;
-        }
-        return true;
-      });
-      return parsed as V4LLMOutput;
-    }
-  } catch {}
-  return null;
+  needs_clarification: boolean;
+  clarification_question: string | null;
 }
 
 // ── Result type ───────────────────────────────────────────────────────────────
@@ -263,7 +244,7 @@ export async function run(
 
   // ── Step 1: LLM identifies foods (no macro numbers) ──────────────────────
   let llmResult: {
-    text: string;
+    output: V4LLMOutput;
     usage: {
       input_tokens: number;
       output_tokens: number;
@@ -293,7 +274,7 @@ export async function run(
     });
     traceId = generation.generationId;
     llmResult = {
-      text: JSON.stringify(generation.output),
+      output: generation.output,
       usage: {
         input_tokens: generation.usage.inputTokens,
         output_tokens: generation.usage.outputTokens,
@@ -346,11 +327,11 @@ export async function run(
     dbMisses: 0,
   };
 
-  if (llmResult.rawStatus === 0 || !llmResult.text) {
+  if (llmResult.rawStatus === 0 || !llmResult.output) {
     return { ok: false, error: llmResult.rawError || 'Empty LLM response', telemetry };
   }
 
-  let v4Parsed = extractV4JSON(llmResult.text);
+  let v4Parsed: V4LLMOutput | null = llmResult.output;
   if (!v4Parsed) {
     try {
       const repair = await executeAiTask({
@@ -358,14 +339,16 @@ export async function run(
         prompt: `${userMessage}\n\nYour previous response was invalid. Return only valid JSON matching the required schema.`,
         systemPrompt: PROMPT_TEMPLATE,
         context: { userId: opts?.userId, metadata: { version: 'v4', operation: 'schema-repair', ...opts?.metadata } },
-        invoke: ({ policy: selected, signal }) => invokeTextProvider({
+        invoke: ({ policy: selected, signal }) => invokeGeminiStructured({
           policy: selected,
           signal,
           system: PROMPT_TEMPLATE,
           prompt: `${userMessage}\n\nReturn only valid JSON matching the required schema.`,
+          responseSchema: foodParseGeminiResponseSchema,
+          validator: foodParseStructuredSchema,
         }),
       });
-      v4Parsed = extractV4JSON(repair.output);
+      v4Parsed = repair.output;
     } catch {
       // The normal safe failure below preserves the original telemetry.
     }
@@ -562,7 +545,11 @@ export async function run(
 
   return {
     ok: true,
-    output: { items: finalItems },
+    output: {
+      items: finalItems,
+      needs_clarification: llmResult.output.needs_clarification,
+      clarification_question: llmResult.output.clarification_question,
+    },
     telemetry: { ...telemetry, dbHits: telemetry.dbHits, dbMisses: telemetry.dbMisses },
   };
 }

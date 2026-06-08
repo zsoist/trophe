@@ -22,6 +22,8 @@ export interface FoodParseInput {
 
 export interface FoodParseOutput {
   items: ParsedFoodItem[];
+  needs_clarification?: boolean;
+  clarification_question?: string | null;
 }
 
 export function isParsedFoodItem(x: unknown): x is ParsedFoodItem {

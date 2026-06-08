@@ -50,6 +50,10 @@ RULES:
    - "cooked" vs "raw" for rice, pasta, oats, vegetables
    - "thin" or "thick" for bread slices
    - Do NOT include qualifier unless it meaningfully disambiguates the conversion.
+8. Set food_state to raw, cooked, fried, grilled, baked, boiled, prepared, or unknown.
+9. Set portion_explicit=true only when the user states a quantity or measurable portion.
+10. Set needs_clarification=true when an unstated or ambiguous portion could materially
+    change calories (for example, an unspecified bowl, plate, or mixed snack).
 
 CRITICAL: 
 - DO NOT include calories, protein, carbs, fat, fiber, or any macro numbers.
@@ -103,6 +107,8 @@ CRITICAL:
 
 Return ONLY valid JSON in this format:
 {
+  "needs_clarification": false,
+  "clarification_question": null,
   "items": [
     {
       "raw_text": "the original text fragment for this item",
@@ -111,6 +117,8 @@ Return ONLY valid JSON in this format:
       "quantity": 2,
       "unit": "tbsp",
       "qualifier": null,
+      "food_state": "cooked",
+      "portion_explicit": true,
       "confidence": 0.95,
       "recognized": true
     }

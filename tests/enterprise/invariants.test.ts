@@ -93,6 +93,11 @@ describe('enterprise hardening invariants', () => {
     expect(workflow).toContain('tests/agents/food-parse-structured-output.test.ts');
   });
 
+  it('does not use regex extraction in the structured food-identification path', () => {
+    const foodParse = readFileSync(join(root, 'agents/food-parse/index.v4.ts'), 'utf8');
+    expect(foodParse).not.toContain('extractV4JSON');
+  });
+
   it('keeps agent run persistence inside the governed runtime boundary', () => {
     const offenders = [...sourceFiles('agents'), ...sourceFiles('app/api'), ...sourceFiles('lib')]
       .map((file) => relative(root, file))

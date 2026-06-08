@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: result.error || 'Failed to parse food input' }, { status });
     }
 
-    return NextResponse.json({ items: result.output!.items });
+    return NextResponse.json(result.output);
   } catch (error) {
     console.error('Food parse error:', error);
     return NextResponse.json(
