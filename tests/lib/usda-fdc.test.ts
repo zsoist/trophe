@@ -11,6 +11,7 @@ import {
   getMacrosFromFood,
   getMacrosFromSearchResult,
   getServingsFromFood,
+  normalizePortionUnit,
   getDataTypeRank,
   type USDAFoodDetail,
   type USDAFoodSearchResult,
@@ -96,7 +97,7 @@ describe('USDA FDC client', () => {
 
       const servings = getServingsFromFood(food);
       expect(servings).toHaveLength(2);
-      expect(servings[0].unit).toBe('1 large');
+      expect(servings[0].unit).toBe('large');
       expect(servings[0].grams).toBe(50);
       expect(servings[0].source).toContain('171287');
       expect(servings[1].grams).toBe(38);
@@ -130,6 +131,18 @@ describe('USDA FDC client', () => {
       const servings = getServingsFromFood(food);
       expect(servings).toHaveLength(1);
       expect(servings[0].unit).toBe('valid');
+    });
+
+    it('normalizes USDA household portion descriptions into lookup units', () => {
+      expect(normalizePortionUnit({
+        id: 1, gramWeight: 8, amount: 1, portionDescription: '1 strip cooked',
+      })).toBe('strip');
+      expect(normalizePortionUnit({
+        id: 2, gramWeight: 240, amount: 1, measureUnit: { name: 'cup', abbreviation: 'cup' },
+      })).toBe('cup');
+      expect(normalizePortionUnit({
+        id: 3, gramWeight: 30, amount: 1, portionDescription: '1 oz',
+      })).toBeNull();
     });
   });
 

@@ -78,6 +78,49 @@ export interface ServingInfo {
   source: string;
 }
 
+const PORTION_UNIT_ALIASES: Record<string, string> = {
+  tablespoon: 'tbsp',
+  tablespoons: 'tbsp',
+  teaspoon: 'tsp',
+  teaspoons: 'tsp',
+  slice: 'slice',
+  slices: 'slice',
+  cup: 'cup',
+  cups: 'cup',
+  piece: 'piece',
+  pieces: 'piece',
+  serving: 'serving',
+  servings: 'serving',
+  can: 'can',
+  bottle: 'bottle',
+  bar: 'bar',
+  scoop: 'scoop',
+  strip: 'strip',
+  strips: 'strip',
+  large: 'large',
+  medium: 'medium',
+  small: 'small',
+};
+
+type USDAFoodPortion = NonNullable<USDAFoodDetail['foodPortions']>[number];
+
+export function normalizePortionUnit(portion: USDAFoodPortion): string | null {
+  const values = [
+    portion.measureUnit?.name,
+    portion.measureUnit?.abbreviation,
+    portion.modifier,
+    portion.portionDescription,
+  ].filter((value): value is string => Boolean(value));
+
+  for (const value of values) {
+    const tokens = value.toLowerCase().replace(/[^a-z\s]/g, ' ').trim().split(/\s+/);
+    for (const token of tokens) {
+      if (PORTION_UNIT_ALIASES[token]) return PORTION_UNIT_ALIASES[token];
+    }
+  }
+  return null;
+}
+
 // ── USDA nutrient number → macro mapping ────────────────────────────────────
 // These are standard USDA nutrient numbers used across all FDC datasets.
 const NUTRIENT_MAP: Record<string, keyof Macros> = {
@@ -266,10 +309,11 @@ export function getServingsFromFood(food: USDAFoodDetail): ServingInfo[] {
   return food.foodPortions
     .filter(p => p.gramWeight > 0)
     .map(p => ({
-      unit: p.portionDescription
+      unit: normalizePortionUnit(p)
+        ?? p.portionDescription
         ?? p.measureUnit?.name
         ?? p.modifier
-        ?? `${p.amount} serving`,
+        ?? 'serving',
       grams: p.gramWeight,
       source: `USDA FDC ${food.fdcId}`,
     }));

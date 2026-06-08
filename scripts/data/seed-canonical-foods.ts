@@ -145,11 +145,19 @@ async function processFood(
     carb: macros.carbs_g,
     fat: macros.fat_g,
   };
+  const detail = await getFoodByFdcId(match.fdcId);
+  const measuredUnits = Object.fromEntries(
+    (detail ? getServingsFromFood(detail) : [])
+      .filter((portion) => /^[a-z]+$/.test(portion.unit))
+      .map((portion) => [portion.unit, portion.grams]),
+  );
+  // Curated regional units remain authoritative when explicitly supplied;
+  // USDA measured portions fill every other household-unit gap.
+  const units = { ...measuredUnits, ...food.commonUnits };
 
   // Skip if core macros are missing
   if (macros.calories === 0 && macros.protein_g === 0 && macros.carbs_g === 0 && macros.fat_g === 0) {
     // Try full detail as fallback
-    const detail = await getFoodByFdcId(match.fdcId);
     if (detail) {
       const detailMacros = getMacrosFromFood(detail);
       if (detailMacros.calories > 0 || detailMacros.protein_g > 0) {
@@ -216,7 +224,7 @@ VALUES (
   region = EXCLUDED.region;`);
 
     // Emit unit conversion SQL (INSERT ... WHERE NOT EXISTS for idempotency)
-    for (const [unit, grams] of Object.entries(food.commonUnits)) {
+    for (const [unit, grams] of Object.entries(units)) {
       emitSQL(`INSERT INTO food_unit_conversions (food_id, unit, grams_per_unit, source)
 SELECT f.id, ${escapeSQL(unit)}, ${grams}, 'usda'
 FROM foods f
@@ -229,16 +237,16 @@ WHERE f.source = 'usda' AND f.source_id = ${escapeSQL(fdcIdStr)}
     emitSQL('');
 
     result.action = 'updated';
-    result.unitsInserted = Object.keys(food.commonUnits).length;
+    result.unitsInserted = Object.keys(units).length;
     return result;
   }
 
   if (DRY_RUN || !db) {
     console.log(`  → Would upsert "${match.description}" (FDC ${match.fdcId}, ${match.dataType})`);
     console.log(`    Macros/100g: ${macros.calories} kcal, ${macros.protein_g}P, ${macros.carbs_g}C, ${macros.fat_g}F`);
-    console.log(`    Units: ${Object.entries(food.commonUnits).map(([u, g]) => `${u}=${g}g`).join(', ')}`);
+    console.log(`    Units: ${Object.entries(units).map(([u, g]) => `${u}=${g}g`).join(', ')}`);
     result.action = 'updated';
-    result.unitsInserted = Object.keys(food.commonUnits).length;
+    result.unitsInserted = Object.keys(units).length;
     return result;
   }
 
@@ -312,7 +320,7 @@ WHERE f.source = 'usda' AND f.source_id = ${escapeSQL(fdcIdStr)}
   result.foodId = foodId;
 
   // 5. UPSERT food_unit_conversions
-  for (const [unit, grams] of Object.entries(food.commonUnits)) {
+  for (const [unit, grams] of Object.entries(units)) {
     // Check if this exact conversion already exists
     const existingConv = await db
       .select({ id: foodUnitConversions.id })
