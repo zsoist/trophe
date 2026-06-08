@@ -73,6 +73,13 @@ describe('enterprise hardening invariants', () => {
     expect(evalRunner).not.toContain('GATE: inconclusive — no active suites`));\n    process.exit(0)');
   });
 
+  it('rejects implausible nutrition values before returning food parse results', () => {
+    const foodParse = readFileSync(join(root, 'agents/food-parse/index.v4.ts'), 'utf8');
+    expect(foodParse).toContain('Nutrition result failed plausibility validation');
+    expect(foodParse).toContain('item.grams > 10_000');
+    expect(foodParse).toContain('item.calories > 10_000');
+  });
+
   it('keeps agent run persistence inside the governed runtime boundary', () => {
     const offenders = [...sourceFiles('agents'), ...sourceFiles('app/api'), ...sourceFiles('lib')]
       .map((file) => relative(root, file))

@@ -511,6 +511,29 @@ export async function run(
     }
   }
 
+  // Safety barrier: reject physically implausible results instead of exposing
+  // silently corrupted nutrition values. These bounds are intentionally broad
+  // enough for large meals while catching unit explosions and malformed data.
+  const unsafeItem = finalItems.find((item) =>
+    !Number.isFinite(item.grams) ||
+    !Number.isFinite(item.calories) ||
+    item.grams <= 0 ||
+    item.grams > 10_000 ||
+    item.calories < 0 ||
+    item.calories > 10_000 ||
+    item.protein_g < 0 ||
+    item.carbs_g < 0 ||
+    item.fat_g < 0 ||
+    item.protein_g + item.carbs_g + item.fat_g > item.grams * 1.15
+  );
+  if (unsafeItem) {
+    return {
+      ok: false,
+      error: 'Nutrition result failed plausibility validation',
+      telemetry,
+    };
+  }
+
   return {
     ok: true,
     output: { items: finalItems },
