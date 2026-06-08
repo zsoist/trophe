@@ -129,6 +129,9 @@
     },
     {
       "idx": 27, "version": "7", "when": 1780852599970, "tag": "0019_greek_food_authoritative_seed", "breakpoints": true
+    },
+    {
+      "idx": 28, "version": "7", "when": 1780852599971, "tag": "0020_food_seed_fixups", "breakpoints": true
     }
   ]
 }
