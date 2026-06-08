@@ -34,6 +34,7 @@ export * from './auth';
 export * from './profiles';
 export * from './organizations';
 export * from './organization_ai_budgets';
+export * from './rate_limit_windows';
 export * from './audit_log';
 export * from './habits';
 export * from './food';

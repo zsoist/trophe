@@ -361,6 +361,8 @@ const UNIT_SYNONYMS: Record<string, string> = {
   unidad: 'piece', unidades: 'piece',
   // Greek
   'τεμάχιο': 'piece', 'τεμάχια': 'piece', 'κομμάτι': 'piece', 'κομμάτια': 'piece',
+  gram: 'g', grams: 'g', gr: 'g', 'γρ': 'g',
+  kilogram: 'kg', kilograms: 'kg', kilo: 'kg', kilos: 'kg', 'κιλό': 'kg', 'κιλά': 'kg',
 };
 
 // Beverage detection: canonical keys containing these tokens indicate liquid foods
@@ -385,6 +387,12 @@ async function resolveUnit(
 ): Promise<{ id: string | null; gramsPerUnit: number } | null> {
   const raw = unit.toLowerCase().trim();
   const normalizedUnit = UNIT_SYNONYMS[raw] ?? raw;
+
+  // Explicit metric mass is authoritative and must never fall back to a food's
+  // default serving. Otherwise "100 g" can become 100 default servings.
+  if (normalizedUnit === 'g') return { id: null, gramsPerUnit: 1 };
+  if (normalizedUnit === 'kg') return { id: null, gramsPerUnit: 1_000 };
+  if (normalizedUnit === '100g') return { id: null, gramsPerUnit: 100 };
 
   // 1. Food-specific conversion (highest priority)
   const specific = await db

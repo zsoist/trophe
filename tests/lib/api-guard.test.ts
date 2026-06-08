@@ -2,12 +2,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 
 const getUser = vi.fn();
+const consumeRateLimit = vi.fn();
 
 vi.mock('@supabase/supabase-js', () => ({
   createClient: vi.fn(() => ({
     auth: { getUser },
   })),
 }));
+vi.mock('@/lib/durable-rate-limit', () => ({ consumeRateLimit }));
 
 async function loadGuard() {
   vi.resetModules();
@@ -26,6 +28,7 @@ describe('guardAiRoute', () => {
     getUser.mockReset();
     process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://project.supabase.co';
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'anon-key';
+    consumeRateLimit.mockResolvedValue({ allowed: true, retryAfter: 900 });
   });
 
   it('returns 401 when the bearer token is missing', async () => {
@@ -63,5 +66,23 @@ describe('guardAiRoute', () => {
 
     expect(result).toEqual({ ok: true, userId: '00000000-0000-4000-8000-000000000123' });
     expect(getUser).toHaveBeenCalledWith('verified.jwt');
+    expect(consumeRateLimit).toHaveBeenCalledWith('ai:00000000-0000-4000-8000-000000000123', 60, 900);
+  });
+
+  it('returns 429 when the durable rate limit is exhausted', async () => {
+    getUser.mockResolvedValue({
+      data: { user: { id: '00000000-0000-4000-8000-000000000123' } },
+      error: null,
+    });
+    consumeRateLimit.mockResolvedValue({ allowed: false, retryAfter: 321 });
+    const { guardAiRoute } = await loadGuard();
+
+    const result = await guardAiRoute(request('Bearer verified.jwt'));
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.response.status).toBe(429);
+      expect(result.response.headers.get('Retry-After')).toBe('321');
+    }
   });
 });

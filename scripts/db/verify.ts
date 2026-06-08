@@ -30,7 +30,7 @@ const expectations: Expectation[] = [
           'organization_members', 'audit_log', 'foods', 'food_unit_conversions',
           'dish_recipes', 'memory_chunks', 'wearable_data', 'agent_runs',
           'knowledge_documents', 'knowledge_chunks', 'consents', 'data_requests',
-          'organization_ai_budgets'
+          'organization_ai_budgets', 'rate_limit_windows'
         )
       ORDER BY table_name;
     `,
@@ -49,6 +49,7 @@ const expectations: Expectation[] = [
       'knowledge_documents',
       'organization_members',
       'organization_ai_budgets',
+      'rate_limit_windows',
       'organizations',
       'profiles',
       'wearable_data',

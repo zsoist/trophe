@@ -17,6 +17,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { consumeRateLimit } from '@/lib/durable-rate-limit';
 
 // --- Config ---
 const AUTH_LIMIT = 60;     // requests per window for authenticated users
@@ -31,42 +32,17 @@ const RATE_LIMIT_BYPASS_USER_IDS = new Set([
   '7dbb5644-6a38-4f48-a512-d8be68e97ab7', // eval-tester-2026@trophe.app
 ]);
 
-// In-memory map — resets on Vercel cold start (acceptable for abuse prevention)
-const authMap = new Map<string, { n: number; resetAt: number }>();
-
 export type AiRouteGuardResult =
   | { ok: true; userId: string }
   | { ok: false; response: NextResponse };
 
-function checkLimit(
-  map: Map<string, { n: number; resetAt: number }>,
-  key: string,
-  limit: number,
-): NextResponse | null {
-  const now = Date.now();
-  const slot = map.get(key);
-
-  if (slot && now < slot.resetAt) {
-    if (slot.n >= limit) {
-      const retryAfter = Math.ceil((slot.resetAt - now) / 1_000);
-      return NextResponse.json(
-        { error: 'Too many AI requests — please wait a few minutes' },
-        { status: 429, headers: { 'Retry-After': String(retryAfter) } },
-      );
-    }
-    slot.n++;
-  } else {
-    map.set(key, { n: 1, resetAt: now + WINDOW_MS });
-  }
-
-  // Periodic cleanup (~1% chance) to prevent unbounded Map growth
-  if (Math.random() < 0.01) {
-    for (const [k, v] of map) {
-      if (now > v.resetAt) map.delete(k);
-    }
-  }
-
-  return null;
+async function checkLimit(key: string, limit: number): Promise<NextResponse | null> {
+  const result = await consumeRateLimit(`ai:${key}`, limit, WINDOW_MS / 1_000);
+  if (result.allowed) return null;
+  return NextResponse.json(
+    { error: 'Too many AI requests — please wait a few minutes' },
+    { status: 429, headers: { 'Retry-After': String(result.retryAfter) } },
+  );
 }
 
 function unauthorized(): AiRouteGuardResult {
@@ -124,7 +100,7 @@ export async function guardAiRoute(req: NextRequest): Promise<AiRouteGuardResult
     const userId = await verifySupabaseUser(token);
     if (userId) {
       if (!RATE_LIMIT_BYPASS_USER_IDS.has(userId)) {
-        const rateLimit = checkLimit(authMap, userId, AUTH_LIMIT);
+        const rateLimit = await checkLimit(userId, AUTH_LIMIT);
         if (rateLimit) return { ok: false, response: rateLimit };
       }
       return { ok: true, userId };
@@ -136,7 +112,7 @@ export async function guardAiRoute(req: NextRequest): Promise<AiRouteGuardResult
   const cookieUserId = await getUserFromCookie();
   if (cookieUserId) {
     if (!RATE_LIMIT_BYPASS_USER_IDS.has(cookieUserId)) {
-      const rateLimit = checkLimit(authMap, cookieUserId, AUTH_LIMIT);
+      const rateLimit = await checkLimit(cookieUserId, AUTH_LIMIT);
       if (rateLimit) return { ok: false, response: rateLimit };
     }
     return { ok: true, userId: cookieUserId };

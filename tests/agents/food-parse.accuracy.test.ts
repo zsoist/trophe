@@ -679,6 +679,13 @@ describe('unit conversion math', () => {
     expect(expected).toBeCloseTo(79.2, 1);
   });
 
+  it('100 explicit grams never multiply by the food default serving', async () => {
+    const result = await lookupFood({ foodName: 'chicken', unit: 'g', region: 'GR' });
+    if (!result) return;
+    expect(result.gramsTotal(100)).toBe(100);
+    expect(result.macros(100).kcal).toBeLessThan(500);
+  });
+
   it('1 φέτα = 20g → 264 kcal/100g → 52.8 kcal', () => {
     const gramsPerUnit = 20; // from food_unit_conversions seed
     const qty = 1;
