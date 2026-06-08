@@ -343,7 +343,26 @@ export async function run(
     return { ok: false, error: llmResult.rawError || 'Empty LLM response', telemetry };
   }
 
-  const v4Parsed = extractV4JSON(llmResult.text);
+  let v4Parsed = extractV4JSON(llmResult.text);
+  if (!v4Parsed) {
+    try {
+      const repair = await executeAiTask({
+        task: 'food_parse',
+        prompt: `${userMessage}\n\nYour previous response was invalid. Return only valid JSON matching the required schema.`,
+        systemPrompt: PROMPT_TEMPLATE,
+        context: { userId: opts?.userId, metadata: { version: 'v4', operation: 'schema-repair', ...opts?.metadata } },
+        invoke: ({ policy: selected, signal }) => invokeTextProvider({
+          policy: selected,
+          signal,
+          system: PROMPT_TEMPLATE,
+          prompt: `${userMessage}\n\nReturn only valid JSON matching the required schema.`,
+        }),
+      });
+      v4Parsed = extractV4JSON(repair.output);
+    } catch {
+      // The normal safe failure below preserves the original telemetry.
+    }
+  }
   if (!v4Parsed || v4Parsed.items.length === 0) {
     return { ok: false, error: 'Could not parse food items from LLM response', telemetry };
   }

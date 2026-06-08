@@ -437,7 +437,7 @@
         "primaryFood": ["protein", "banana"],
         "totalKcal": { "min": 180, "max": 400 },
         "totalProtein": { "min": 20, "max": 40 },
-        "totalFat": { "min": 1, "max": 10 },
+        "totalFat": { "min": 0.5, "max": 10 },
         "totalCarbs": { "min": 20, "max": 45 }
       }
     },

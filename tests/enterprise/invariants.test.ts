@@ -80,6 +80,12 @@ describe('enterprise hardening invariants', () => {
     expect(foodParse).toContain('item.calories > 10_000');
   });
 
+  it('repairs one invalid food parse schema response before failing safely', () => {
+    const foodParse = readFileSync(join(root, 'agents/food-parse/index.v4.ts'), 'utf8');
+    expect(foodParse).toContain("operation: 'schema-repair'");
+    expect(foodParse).toContain('Your previous response was invalid');
+  });
+
   it('keeps agent run persistence inside the governed runtime boundary', () => {
     const offenders = [...sourceFiles('agents'), ...sourceFiles('app/api'), ...sourceFiles('lib')]
       .map((file) => relative(root, file))
