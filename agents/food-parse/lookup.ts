@@ -607,6 +607,10 @@ export async function lookupFood(input: LookupInput): Promise<LookupResult | nul
   const region = input.region ?? 'GR';
   const hasEmbedding = (input.queryEmbedding?.length ?? 0) === 1024;
   const correctedFoodName = correctFoodName(input.foodName);
+  const correctedUnit = correctedFoodName.toLowerCase().includes('protein powder') &&
+    ['cup', 'serving', 'glass'].includes(input.unit.toLowerCase().trim())
+    ? 'scoop'
+    : input.unit;
 
   // Stage 1: Parallel dual retrieval (BM25 arm + vector arm simultaneously)
   const [bm25Results, vectorResults] = await Promise.all([
@@ -635,7 +639,7 @@ export async function lookupFood(input: LookupInput): Promise<LookupResult | nul
   const food = ranked[0];
 
   // Unit resolution (pass canonicalFoodKey for beverage override logic)
-  const conversion = await resolveUnit(food.id, input.unit, input.qualifier, food.canonicalFoodKey);
+  const conversion = await resolveUnit(food.id, correctedUnit, input.qualifier, food.canonicalFoodKey);
   const gramsPerUnit = conversion?.gramsPerUnit ?? food.defaultServingGrams ?? 100;
 
   return {

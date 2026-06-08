@@ -693,6 +693,13 @@ describe('unit conversion math', () => {
     expect(result.macros(1).kcal).toBeLessThan(100);
   });
 
+  it('uses a scoop portion for generic protein shake powder', async () => {
+    const result = await lookupFood({ foodName: 'protein shake', unit: 'cup', region: 'US' });
+    if (!result) return;
+    expect(result.gramsTotal(1)).toBeLessThanOrEqual(50);
+    expect(result.macros(1).protein).toBeGreaterThan(15);
+  });
+
   it('1 φέτα = 20g → 264 kcal/100g → 52.8 kcal', () => {
     const gramsPerUnit = 20; // from food_unit_conversions seed
     const qty = 1;
