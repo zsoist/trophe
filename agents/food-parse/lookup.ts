@@ -363,6 +363,12 @@ const UNIT_SYNONYMS: Record<string, string> = {
   'τεμάχιο': 'piece', 'τεμάχια': 'piece', 'κομμάτι': 'piece', 'κομμάτια': 'piece',
   gram: 'g', grams: 'g', gr: 'g', 'γρ': 'g',
   kilogram: 'kg', kilograms: 'kg', kilo: 'kg', kilos: 'kg', 'κιλό': 'kg', 'κιλά': 'kg',
+  tablespoon: 'tbsp', tablespoons: 'tbsp', spoon: 'tbsp', 'κουταλιά': 'tbsp', 'κουταλιές': 'tbsp', 'κ.σ.': 'tbsp',
+  teaspoon: 'tsp', teaspoons: 'tsp', 'κουταλάκι': 'tsp', 'κουταλάκια': 'tsp', 'κ.γ.': 'tsp',
+  'φλιτζάνι': 'cup', 'φλιτζάνια': 'cup', 'φλ': 'cup', taza: 'cup', tazas: 'cup',
+  'ποτήρι': 'glass', 'ποτήρια': 'glass', vaso: 'glass', vasos: 'glass',
+  'χούφτα': 'handful', 'χούφτες': 'handful', 'puñado': 'handful', 'puñados': 'handful',
+  'παλάμη': 'palm', 'παλάμες': 'palm',
 };
 
 // Beverage detection: canonical keys containing these tokens indicate liquid foods
@@ -556,6 +562,8 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
   // Eggs: "fried egg" should match cooked-fried entry, not raw
   'fried egg': 'egg fried',
   'fried eggs': 'egg fried',
+  'scrambled egg': 'egg whole cooked scrambled',
+  'scrambled eggs': 'egg whole cooked scrambled',
   // Oats: "oatmeal" should match cooked oats cereal, not oatmeal bread
   'oatmeal': 'cereals oats regular cooked',
   'oats': 'cereals oats regular',

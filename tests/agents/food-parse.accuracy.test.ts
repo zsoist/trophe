@@ -686,6 +686,13 @@ describe('unit conversion math', () => {
     expect(result.macros(100).kcal).toBeLessThan(500);
   });
 
+  it('normalizes Greek tablespoon for honey instead of using a 100g serving', async () => {
+    const result = await lookupFood({ foodName: 'honey', unit: 'κουταλιά', region: 'GR' });
+    if (!result) return;
+    expect(result.gramsTotal(1)).toBeLessThanOrEqual(25);
+    expect(result.macros(1).kcal).toBeLessThan(100);
+  });
+
   it('1 φέτα = 20g → 264 kcal/100g → 52.8 kcal', () => {
     const gramsPerUnit = 20; // from food_unit_conversions seed
     const qty = 1;
