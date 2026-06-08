@@ -13,6 +13,8 @@ export interface ParsedFoodItem {
   sugar_g: number;
   confidence: number;
   source: 'local_db' | 'ai_estimate';
+  food_state?: 'raw' | 'cooked' | 'fried' | 'grilled' | 'baked' | 'boiled' | 'prepared' | 'unknown';
+  portion_explicit?: boolean;
 }
 
 export interface FoodParseInput {

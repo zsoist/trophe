@@ -31,9 +31,9 @@ import { decomposeAndLookup, lookupCachedRecipeAsItem } from './decompose';
 import { pick } from '../router';
 import { emitGenAISpan, estimateCostUsd } from '../observability/otel';
 import { executeAiTask } from '../runtime';
-import { invokeTextProvider } from '../runtime/providers/text';
 import { invokeGeminiStructured } from '../runtime/providers/structured';
 import { foodParseGeminiResponseSchema, foodParseStructuredSchema } from '../schemas/food-parse-structured';
+import { macroEstimateGeminiResponseSchema, macroEstimateStructuredSchema } from '../schemas/macro-estimate-structured';
 
 export const FOOD_PARSE_VERSION = 'v4';
 
@@ -95,6 +95,21 @@ interface MacroEstimate {
   sugar_g: number;
 }
 
+const AMBIGUOUS_PORTION_UNITS = new Set(['serving', 'portion', 'bowl', 'plate', 'dish', 'some']);
+
+export function requiresPortionClarification(items: V4Candidate[]): boolean {
+  return items.some((item) =>
+    item.portion_explicit === false &&
+    AMBIGUOUS_PORTION_UNITS.has(item.unit.toLowerCase().trim())
+  );
+}
+
+function clarificationQuestion(language: string): string {
+  if (language === 'el') return 'Πόση ποσότητα έφαγες; Μπορείς να δώσεις γραμμάρια ή ένα μετρήσιμο μέγεθος μερίδας;';
+  if (language === 'es') return '¿Qué cantidad comiste? Indica gramos o un tamaño de porción medible.';
+  return 'How much did you eat? Please provide grams or a measurable portion size.';
+}
+
 const MACRO_ESTIMATE_PROMPT = `You are a nutrition database. Given food items with quantities, estimate their macronutrient values.
 Return ONLY valid JSON in this exact format:
 {
@@ -129,72 +144,21 @@ async function estimateMacrosViaLLM(
     .join('\n');
 
   try {
-    let responseText = '';
-
     const generation = await executeAiTask({
       task: 'food_parse',
       prompt: userMessage,
       systemPrompt: MACRO_ESTIMATE_PROMPT,
       context: { metadata: { operation: 'macro-estimate' } },
-      invoke: ({ policy: selected, signal }) => invokeTextProvider({
-        policy: selected, signal, system: MACRO_ESTIMATE_PROMPT, prompt: userMessage,
-        maxTokens: 1024, disableThinking: true,
+      invoke: ({ policy: selected, signal }) => invokeGeminiStructured({
+        policy: selected,
+        signal,
+        system: MACRO_ESTIMATE_PROMPT,
+        prompt: userMessage,
+        responseSchema: macroEstimateGeminiResponseSchema,
+        validator: macroEstimateStructuredSchema,
       }),
     });
-    responseText = generation.output;
-
-    // Strip markdown code fences — Gemini Flash often wraps JSON in ```json...```
-    responseText = responseText.replace(/```(?:json)?\s*/g, '').trim();
-
-    // Guard: detect truncated responses (incomplete JSON from token budget exhaustion)
-    if (responseText.length > 0 && !responseText.endsWith('}') && !responseText.endsWith(']')) {
-      console.warn('[food-parse] LLM macro estimation: response appears truncated (no closing brace). Length:', responseText.length, 'Tail:', responseText.slice(-60));
-      return items.map(() => null);
-    }
-
-    // Extract JSON — try multiple patterns
-    interface MacroEstimate {
-      food_name?: string;
-      grams?: number;
-      calories: number;
-      protein_g?: number;
-      carbs_g?: number;
-      fat_g?: number;
-      fiber_g?: number;
-      sugar_g?: number;
-    }
-    let estimates: MacroEstimate[] | null = null;
-
-    // Pattern 1: { "estimates": [...] }
-    const wrapperMatch = responseText.match(/\{[\s\S]*"estimates"\s*:\s*(\[[\s\S]*?\])[\s\S]*?\}/);
-    if (wrapperMatch) {
-      try { estimates = JSON.parse(wrapperMatch[1]); } catch {}
-    }
-
-    // Pattern 2: direct array [...]
-    if (!estimates) {
-      const arrayMatch = responseText.match(/\[[\s\S]*\]/);
-      if (arrayMatch) {
-        try { estimates = JSON.parse(arrayMatch[0]); } catch {}
-      }
-    }
-
-    // Pattern 3: full wrapper object
-    if (!estimates) {
-      const fullMatch = responseText.match(/\{[\s\S]*\}/);
-      if (fullMatch) {
-        try {
-          const obj = JSON.parse(fullMatch[0]);
-          if (Array.isArray(obj.estimates)) estimates = obj.estimates;
-          else if (typeof obj.calories === 'number') estimates = [obj]; // single item
-        } catch {}
-      }
-    }
-
-    if (!estimates || !Array.isArray(estimates)) {
-      console.warn('[food-parse] LLM macro estimation: no parseable JSON. Response:', responseText.slice(0, 300));
-      return items.map(() => null);
-    }
+    const estimates = generation.output.estimates;
 
     return items.map((_, i) => {
       const est = estimates![i];
@@ -437,6 +401,8 @@ export async function run(
         sugar_g:        Math.round((lookup.food.sugarPer100g ?? 0) * lookup.gramsTotal(candidate.quantity) / 100 * 10) / 10,
         confidence:     candidate.confidence,
         source:         'local_db',
+        food_state:     candidate.food_state as ParsedFoodItem['food_state'],
+        portion_explicit: candidate.portion_explicit,
       });
     } else {
       // DB miss — try enrichWithLocalDB first, then LLM macro estimation
@@ -453,6 +419,8 @@ export async function run(
         fiber_g: 0, sugar_g: 0,
         confidence: candidate.confidence * 0.7, // lower confidence for fallback
         source: 'ai_estimate' as const,
+        food_state: candidate.food_state as ParsedFoodItem['food_state'],
+        portion_explicit: candidate.portion_explicit,
       };
 
       const [enriched] = enrichWithLocalDB([legacyItem]);
@@ -515,6 +483,8 @@ export async function run(
           sugar_g:        est.sugar_g,
           confidence:     candidate.confidence * 0.7,
           source:         'ai_estimate',
+          food_state:     candidate.food_state as ParsedFoodItem['food_state'],
+          portion_explicit: candidate.portion_explicit,
         };
       }
     }
@@ -543,12 +513,20 @@ export async function run(
     };
   }
 
+  const deterministicClarification = requiresPortionClarification(v4Parsed.items);
+  if (deterministicClarification) {
+    for (const item of finalItems) {
+      if (item.portion_explicit === false) item.confidence = Math.min(item.confidence, 0.65);
+    }
+  }
+
   return {
     ok: true,
     output: {
       items: finalItems,
-      needs_clarification: llmResult.output.needs_clarification,
-      clarification_question: llmResult.output.clarification_question,
+      needs_clarification: llmResult.output.needs_clarification || deterministicClarification,
+      clarification_question: llmResult.output.clarification_question ??
+        (deterministicClarification ? clarificationQuestion(language) : null),
     },
     telemetry: { ...telemetry, dbHits: telemetry.dbHits, dbMisses: telemetry.dbMisses },
   };
