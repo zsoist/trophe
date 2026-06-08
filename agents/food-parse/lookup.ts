@@ -676,7 +676,7 @@ export async function lookupFood(input: LookupInput): Promise<LookupResult | nul
     food.id,
     correctedUnit,
     input.qualifier,
-    food.canonicalFoodKey ?? food.nameEn,
+    food.canonicalFoodKey || food.nameEn,
   );
   const gramsPerUnit = conversion?.gramsPerUnit ?? food.defaultServingGrams ?? 100;
 
