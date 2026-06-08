@@ -9,9 +9,7 @@
  * exist (CREATE INDEX CONCURRENTLY is deferred here post-ingest as specified
  * in the migration comment).
  *
- * Model: voyage-3-large (1024-dim, MTEB 68.1) — same model as OpenBrain
- *        for consistency across the Mac Mini control plane.
- *        Fallback: voyage-large-2-instruct (1024-dim) if voyage-3-large unavailable.
+ * Model: voyage-4 (1024-dim), matching the governed production embedding policy.
  *
  * Usage:
  *   source ~/.local/secrets/voyage.env
@@ -23,7 +21,7 @@
  *   # Custom batch size (default 96 — Voyage v4 limit is 128):
  *   BATCH_SIZE=64 npx tsx scripts/ingest/embed-foods.ts
  *
- * Cost estimate: ~$0.12 per 10k foods at voyage-3-large pricing ($0.12/1M tokens,
+ * Cost estimate: ~$0.06 per 10k foods at voyage-4 pricing ($0.06/1M tokens,
  * ~100 tokens avg per food text).
  */
 
@@ -34,7 +32,7 @@ import { sql } from 'drizzle-orm';
 
 // ── Config ──────────────────────────────────────────────────────────────────
 const VOYAGE_API_KEY = process.env.VOYAGE_API_KEY;
-const VOYAGE_MODEL   = 'voyage-3-large';   // 1024-dim, MTEB 68.1
+const VOYAGE_MODEL   = 'voyage-4';
 const VOYAGE_BASE    = 'https://api.voyageai.com/v1';
 const BATCH_SIZE     = parseInt(process.env.BATCH_SIZE || '96');
 const DRY_RUN        = process.env.DRY_RUN === '1';
