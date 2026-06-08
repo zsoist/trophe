@@ -240,6 +240,12 @@ describe('enterprise hardening invariants', () => {
   });
 
   it('keeps OpenBrain database references out of runtime code and active scripts', () => {
+    const forbiddenDbReferences = new RegExp([
+      'open' + '_brain',
+      'brain' + '_user',
+      'localhost:' + '5433',
+      '127\\.0\\.0\\.1:' + '5433',
+    ].join('|'), 'i');
     const offenders = [
       ...sourceFiles('app'),
       ...sourceFiles('components'),
@@ -248,7 +254,7 @@ describe('enterprise hardening invariants', () => {
       ...sourceFiles('db'),
       ...sourceFiles('scripts'),
     ]
-      .filter((file) => /open_brain|brain_user|localhost:5433|127\.0\.0\.1:5433/i.test(readFileSync(file, 'utf8')))
+      .filter((file) => forbiddenDbReferences.test(readFileSync(file, 'utf8')))
       .map((file) => relative(root, file));
 
     expect(offenders).toEqual([]);
