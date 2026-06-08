@@ -388,7 +388,7 @@ function isBeverageByKey(canonicalFoodKey: string | null | undefined): boolean {
   return BEVERAGE_KEY_TOKENS.some(token => key.includes(token));
 }
 
-function conservativeDenseFoodServing(
+export function conservativeDenseFoodServing(
   unit: string,
   foodIdentity: string | null | undefined,
 ): number | null {

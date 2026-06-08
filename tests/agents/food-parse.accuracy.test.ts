@@ -23,7 +23,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { lookupFood } from '../../agents/food-parse/lookup';
+import { conservativeDenseFoodServing, lookupFood } from '../../agents/food-parse/lookup';
 import { Pool } from 'pg';
 
 // ── DB setup ──────────────────────────────────────────────────────────────────
@@ -710,11 +710,10 @@ describe('unit conversion math', () => {
     expect(result.macros(1).kcal).toBeLessThan(150);
   });
 
-  it('uses a conservative tablespoon for an ambiguous olive-oil serving', async () => {
-    const result = await lookupFood({ foodName: 'olive oil', unit: 'serving', region: 'GR' });
-    if (!result) return;
-    expect(result.gramsTotal(1)).toBeLessThanOrEqual(15);
-    expect(result.macros(1).kcal).toBeLessThan(150);
+  it('uses a conservative tablespoon for an ambiguous olive-oil serving', () => {
+    expect(conservativeDenseFoodServing('serving', 'olive_oil_extra_virgin')).toBe(14);
+    expect(conservativeDenseFoodServing('portion', 'Oil, olive, salad or cooking')).toBe(14);
+    expect(conservativeDenseFoodServing('g', 'olive_oil_extra_virgin')).toBeNull();
   });
 
   it('1 φέτα = 20g → 264 kcal/100g → 52.8 kcal', () => {
