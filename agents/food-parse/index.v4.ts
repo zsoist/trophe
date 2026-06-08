@@ -354,6 +354,12 @@ export async function run(
   // This is a single DB query per item — no LLM cost.
   const recipeResults: Array<ParsedFoodItem | null> = [];
   for (const item of v4Parsed.items) {
+    const explicitMassUnit = ['g', 'gram', 'grams', 'gr', 'γρ', 'kg', 'kilogram', 'kilograms']
+      .includes(item.unit.toLowerCase().trim());
+    if (explicitMassUnit) {
+      recipeResults.push(null);
+      continue;
+    }
     const cached = await lookupCachedRecipeAsItem({
       foodName: item.food_name,
       nameLocalized: item.name_localized,
