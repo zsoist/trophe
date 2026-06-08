@@ -16,6 +16,7 @@
     "evals": "tsx agents/evals/run-all.ts",
     "evals:colombian-search": "tsx scripts/eval/run-colombian-search-cases.ts",
     "evals:nutrition": "tsx scripts/eval/run-greek-colombian-prod.ts",
+    "evals:rag": "tsx agents/evals/run-rag-eval.ts",
     "readiness": "tsx scripts/check-enterprise-readiness.ts",
     "readiness:integrations": "tsx scripts/check-integration-readiness.ts",
     "ai:budget-check": "tsx scripts/ops/check-ai-budgets.ts",

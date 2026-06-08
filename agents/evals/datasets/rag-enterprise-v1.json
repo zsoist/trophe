@@ -1,0 +1,10 @@
+{
+  "version": "1.0",
+  "cases": [
+    {"id":"iso-1","category":"permission_isolation","expected":true},{"id":"iso-2","category":"permission_isolation","expected":true},{"id":"iso-3","category":"permission_isolation","expected":true},{"id":"iso-4","category":"permission_isolation","expected":true},{"id":"iso-5","category":"permission_isolation","expected":true},
+    {"id":"rel-1","category":"retrieval_relevance","expected":true},{"id":"rel-2","category":"retrieval_relevance","expected":true},{"id":"rel-3","category":"retrieval_relevance","expected":true},{"id":"rel-4","category":"retrieval_relevance","expected":true},{"id":"rel-5","category":"retrieval_relevance","expected":true},
+    {"id":"cite-1","category":"citation_accuracy","expected":true},{"id":"cite-2","category":"citation_accuracy","expected":true},{"id":"cite-3","category":"citation_accuracy","expected":true},{"id":"cite-4","category":"citation_accuracy","expected":true},{"id":"cite-5","category":"citation_accuracy","expected":true},
+    {"id":"ground-1","category":"groundedness","expected":true},{"id":"ground-2","category":"groundedness","expected":true},{"id":"ground-3","category":"groundedness","expected":true},{"id":"ground-4","category":"groundedness","expected":true},{"id":"ground-5","category":"groundedness","expected":true},
+    {"id":"none-1","category":"no_answer","expected":true},{"id":"none-2","category":"no_answer","expected":true},{"id":"none-3","category":"no_answer","expected":true},{"id":"none-4","category":"no_answer","expected":true},{"id":"none-5","category":"no_answer","expected":true}
+  ]
+}
