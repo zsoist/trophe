@@ -1,5 +1,13 @@
-CREATE EXTENSION IF NOT EXISTS pg_cron WITH SCHEMA pg_catalog;
-CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions;
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_available_extensions WHERE name = 'pg_cron') THEN
+    EXECUTE 'CREATE EXTENSION IF NOT EXISTS pg_cron WITH SCHEMA pg_catalog';
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_available_extensions WHERE name = 'pg_net') THEN
+    EXECUTE 'CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions';
+  END IF;
+END;
+$$;
 
 CREATE TABLE IF NOT EXISTS app_scheduler_secrets (
   name text PRIMARY KEY,
@@ -40,10 +48,13 @@ REVOKE ALL ON FUNCTION run_memory_queue_worker() FROM PUBLIC, anon, authenticate
 
 DO $$
 BEGIN
-  PERFORM cron.unschedule(jobid)
-  FROM cron.job
-  WHERE jobname = 'trophe-memory-worker';
+  IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron')
+    AND EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_net') THEN
+    PERFORM cron.unschedule(jobid)
+    FROM cron.job
+    WHERE jobname = 'trophe-memory-worker';
 
-  PERFORM cron.schedule('trophe-memory-worker', '*/5 * * * *', 'SELECT run_memory_queue_worker()');
+    PERFORM cron.schedule('trophe-memory-worker', '*/5 * * * *', 'SELECT run_memory_queue_worker()');
+  END IF;
 END;
 $$;
