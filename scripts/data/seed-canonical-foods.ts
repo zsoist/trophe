@@ -146,9 +146,13 @@ async function processFood(
     fat: macros.fat_g,
   };
   const detail = await getFoodByFdcId(match.fdcId);
+  const supportedMeasuredUnits = new Set([
+    'tbsp', 'tsp', 'slice', 'cup', 'piece', 'serving', 'can', 'bottle',
+    'bar', 'scoop', 'strip', 'large', 'medium', 'small',
+  ]);
   const measuredUnits = Object.fromEntries(
     (detail ? getServingsFromFood(detail) : [])
-      .filter((portion) => /^[a-z]+$/.test(portion.unit))
+      .filter((portion) => supportedMeasuredUnits.has(portion.unit))
       .map((portion) => [portion.unit, portion.grams]),
   );
   // Curated regional units remain authoritative when explicitly supplied;
