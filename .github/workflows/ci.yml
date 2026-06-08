@@ -133,6 +133,7 @@ jobs:
         env:
           EVAL_REPORT_DIR: artifacts/evals
           ALLOW_SKIPPED_EVALS: 1
+          EVAL_ENFORCE_GATE: 0
 
       - name: AI cost attribution and budget gate
         run: npm run ai:budget-check

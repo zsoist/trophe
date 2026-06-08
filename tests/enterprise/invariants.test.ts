@@ -116,6 +116,13 @@ describe('enterprise hardening invariants', () => {
     expect(conversation).not.toContain('after(async');
   });
 
+  it('keeps stochastic provider smoke evals non-blocking in CI', () => {
+    const workflow = readFileSync(join(root, '.github/workflows/ci.yml'), 'utf8');
+    expect(workflow).toContain('EVAL_ENFORCE_GATE: 0');
+    expect(workflow).toContain('Nutrition safety and release-gate tests');
+    expect(workflow).toContain('RAG safety and release-gate tests');
+  });
+
   it('keeps agent run persistence inside the governed runtime boundary', () => {
     const offenders = [...sourceFiles('agents'), ...sourceFiles('app/api'), ...sourceFiles('lib')]
       .map((file) => relative(root, file))

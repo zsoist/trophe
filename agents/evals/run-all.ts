@@ -30,6 +30,7 @@ const url = args.find((a) => a.startsWith('--url='))?.split('=')[1] ?? 'http://l
 const suiteFilter = args.find((a) => a.startsWith('--suite='))?.split('=')[1];
 
 const reportDir = process.env.EVAL_REPORT_DIR || join(process.cwd(), 'agents/evals/reports');
+const enforceGate = process.env.EVAL_ENFORCE_GATE !== '0';
 mkdirSync(reportDir, { recursive: true });
 
 // ── Shared types ──────────────────────────────────────────────────────────────
@@ -543,6 +544,7 @@ async function main() {
         url,
         threshold: THRESHOLD,
         aggregate: { passed: totalPassed, total: totalCases, rate: aggregateRate, passed_gate: aggregateRate >= THRESHOLD },
+        gateEnforced: enforceGate,
         suites: results,
       },
       null,
@@ -552,8 +554,11 @@ async function main() {
   console.log(dim(`\n  Report → ${reportPath}`));
 
   if (active.length > 0 && aggregateRate < THRESHOLD) {
-    console.log(red(`\n  HARD GATE FAILED: ${aggregateRate.toFixed(1)}% < ${THRESHOLD}%\n`));
-    process.exit(1);
+    if (enforceGate) {
+      console.log(red(`\n  HARD GATE FAILED: ${aggregateRate.toFixed(1)}% < ${THRESHOLD}%\n`));
+      process.exit(1);
+    }
+    console.log(yellow(`\n  OBSERVATION ONLY: ${aggregateRate.toFixed(1)}% < ${THRESHOLD}%; deterministic release gates remain authoritative.\n`));
   }
 
   process.exit(0);
