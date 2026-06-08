@@ -11,6 +11,7 @@ export async function createGeneration(input: {
   policy: RoutingPolicy;
   promptHash: string;
   context?: AiTaskContext;
+  fallbackFrom?: string;
 }): Promise<void> {
   const organizationId = await resolveOrganizationId(input.context);
 
@@ -26,6 +27,7 @@ export async function createGeneration(input: {
     promptHash: input.promptHash,
     status: 'pending',
     metadata: input.context?.metadata,
+    fallbackFrom: input.fallbackFrom,
   });
 }
 

@@ -124,7 +124,7 @@ jobs:
         run: npm test
 
       - name: Nutrition safety and release-gate tests
-        run: npm test -- --run tests/agents/nutrition-release-gate.test.ts tests/agents/food-parse.accuracy.test.ts tests/agents/food-parse-structured-output.test.ts
+        run: npm test -- --run tests/agents/nutrition-release-gate.test.ts tests/agents/nutrition-enterprise-dataset.test.ts tests/agents/food-parse.accuracy.test.ts tests/agents/food-parse-structured-output.test.ts
 
       - name: Food database readiness
         run: npm run food:readiness

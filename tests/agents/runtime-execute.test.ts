@@ -151,6 +151,9 @@ describe('executeAiTask integration contract', () => {
     // Both primary failure and fallback success should be persisted
     expect(persistence.failGeneration).toHaveBeenCalledOnce();
     expect(persistence.completeGeneration).toHaveBeenCalledOnce();
+    expect(persistence.createGeneration).toHaveBeenLastCalledWith(
+      expect.objectContaining({ fallbackFrom: 'deepseek-v4-flash' }),
+    );
   });
 
   it('aborts provider work when the task timeout expires', async () => {

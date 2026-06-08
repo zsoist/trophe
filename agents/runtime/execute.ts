@@ -20,6 +20,7 @@ async function attemptInvoke<T>(
   policy: RoutingPolicy,
   context: ExecuteAiTaskInput<T>['context'],
   isFallback: boolean,
+  fallbackFrom?: string,
 ): Promise<ExecuteAiTaskResult<T>> {
   assertWithinRequestBudget(policy, input.prompt);
 
@@ -28,7 +29,7 @@ async function attemptInvoke<T>(
     .update(`${policy.promptVersion}\0${input.systemPrompt ?? ''}\0${input.prompt}`)
     .digest('hex');
 
-  await createGeneration({ generationId, task: input.task, policy, promptHash, context });
+  await createGeneration({ generationId, task: input.task, policy, promptHash, context, fallbackFrom });
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), policy.timeoutMs);
@@ -104,6 +105,6 @@ export async function executeAiTask<T>(input: ExecuteAiTaskInput<T>): Promise<Ex
 
     // Re-check org budget (the failed attempt may have consumed budget)
     await assertWithinOrganizationBudget(organizationId);
-    return await attemptInvoke(input, fallback, context, true);
+    return await attemptInvoke(input, fallback, context, true, policy.model);
   }
 }

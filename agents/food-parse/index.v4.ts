@@ -31,7 +31,7 @@ import { decomposeAndLookup, lookupCachedRecipeAsItem } from './decompose';
 import { pick } from '../router';
 import { emitGenAISpan, estimateCostUsd } from '../observability/otel';
 import { executeAiTask } from '../runtime';
-import { invokeGeminiStructured } from '../runtime/providers/structured';
+import { invokeStructuredProvider } from '../runtime/providers/structured';
 import { foodParseGeminiResponseSchema, foodParseStructuredSchema } from '../schemas/food-parse-structured';
 import { macroEstimateGeminiResponseSchema, macroEstimateStructuredSchema } from '../schemas/macro-estimate-structured';
 
@@ -149,13 +149,16 @@ async function estimateMacrosViaLLM(
       prompt: userMessage,
       systemPrompt: MACRO_ESTIMATE_PROMPT,
       context: { metadata: { operation: 'macro-estimate' } },
-      invoke: ({ policy: selected, signal }) => invokeGeminiStructured({
+      invoke: ({ policy: selected, signal }) => invokeStructuredProvider({
         policy: selected,
         signal,
         system: MACRO_ESTIMATE_PROMPT,
         prompt: userMessage,
-        responseSchema: macroEstimateGeminiResponseSchema,
+        schema: macroEstimateGeminiResponseSchema,
         validator: macroEstimateStructuredSchema,
+        toolName: 'submit_macro_estimates',
+        toolDescription: 'Submit conservative macro estimates for food items',
+        strict: false,
       }),
     });
     const estimates = generation.output.estimates;
@@ -227,13 +230,16 @@ export async function run(
       prompt: userMessage,
       systemPrompt: PROMPT_TEMPLATE,
       context: { userId: opts?.userId, metadata: { version: 'v4', ...opts?.metadata } },
-      invoke: ({ policy: selected, signal }) => invokeGeminiStructured({
+      invoke: ({ policy: selected, signal }) => invokeStructuredProvider({
         policy: selected,
         signal,
         system: PROMPT_TEMPLATE,
         prompt: userMessage,
-        responseSchema: foodParseGeminiResponseSchema,
+        schema: foodParseGeminiResponseSchema,
         validator: foodParseStructuredSchema,
+        toolName: 'submit_food_parse',
+        toolDescription: 'Submit parsed food items and clarification state',
+        strict: false,
       }),
     });
     traceId = generation.generationId;
@@ -303,13 +309,16 @@ export async function run(
         prompt: `${userMessage}\n\nYour previous response was invalid. Return only valid JSON matching the required schema.`,
         systemPrompt: PROMPT_TEMPLATE,
         context: { userId: opts?.userId, metadata: { version: 'v4', operation: 'schema-repair', ...opts?.metadata } },
-        invoke: ({ policy: selected, signal }) => invokeGeminiStructured({
+        invoke: ({ policy: selected, signal }) => invokeStructuredProvider({
           policy: selected,
           signal,
           system: PROMPT_TEMPLATE,
           prompt: `${userMessage}\n\nReturn only valid JSON matching the required schema.`,
-          responseSchema: foodParseGeminiResponseSchema,
+          schema: foodParseGeminiResponseSchema,
           validator: foodParseStructuredSchema,
+          toolName: 'submit_food_parse',
+          toolDescription: 'Submit parsed food items and clarification state',
+          strict: false,
         }),
       });
       v4Parsed = repair.output;
