@@ -25,6 +25,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, onSea
   const [text, setText] = useState('');
   const [mode, setMode] = useState<InputMode>('idle');
   const [parsedItems, setParsedItems] = useState<ParsedFoodItem[]>([]);
+  const [clarificationQuestion, setClarificationQuestion] = useState<string | null>(null);
   const [inputSource, setInputSource] = useState<InputSource>('text');
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
@@ -80,6 +81,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, onSea
 
       setRetryCount(0);
       setParsedItems(data.items);
+      setClarificationQuestion(data.needs_clarification ? data.clarification_question : null);
       setInputSource('text');
       setMode('confirming');
     } catch (err) {
@@ -166,10 +168,13 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, onSea
         fiber_g: 0,
         confidence: f.confidence,
         source: 'ai_estimate' as const,
+        food_state: 'prepared' as const,
+        portion_explicit: false,
       }));
 
       setRetryCount(0);
       setParsedItems(items);
+      setClarificationQuestion('Photo portions are estimates. Review each amount before logging.');
       setInputSource('photo');
       setMode('confirming');
     } catch (err) {
@@ -378,6 +383,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, onSea
       setLogging(false);
       setText('');
       setParsedItems([]);
+      setClarificationQuestion(null);
       setPhotoPreview(null);
 
       setTimeout(() => {
@@ -393,6 +399,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, onSea
 
   const handleCancel = () => {
     setParsedItems([]);
+    setClarificationQuestion(null);
     setPhotoPreview(null);
     setMode('idle');
     setError(null);
@@ -444,6 +451,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, onSea
         )}
         <ParsedFoodList
           items={parsedItems}
+          clarificationQuestion={clarificationQuestion}
           onConfirm={handleConfirm}
           onCancel={handleCancel}
           logging={logging}

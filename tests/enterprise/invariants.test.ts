@@ -99,6 +99,14 @@ describe('enterprise hardening invariants', () => {
     expect(foodParse).not.toContain('responseText.match');
   });
 
+  it('requires users to resolve inferred portions before logging nutrition', () => {
+    const quickInput = readFileSync(join(root, 'components/QuickFoodInput.tsx'), 'utf8');
+    const parsedList = readFileSync(join(root, 'components/ParsedFoodList.tsx'), 'utf8');
+    expect(quickInput).toContain('data.needs_clarification');
+    expect(parsedList).toContain('unresolvedPortions > 0');
+    expect(parsedList).toContain('Review portions to save');
+  });
+
   it('keeps agent run persistence inside the governed runtime boundary', () => {
     const offenders = [...sourceFiles('agents'), ...sourceFiles('app/api'), ...sourceFiles('lib')]
       .map((file) => relative(root, file))

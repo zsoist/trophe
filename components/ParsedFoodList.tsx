@@ -8,6 +8,7 @@ import type { ParsedFoodItem } from '@/app/api/food/parse/route';
 
 interface ParsedFoodListProps {
   items: ParsedFoodItem[];
+  clarificationQuestion?: string | null;
   onConfirm: (items: ParsedFoodItem[]) => void;
   onCancel: () => void;
   logging: boolean;
@@ -44,6 +45,8 @@ function recalcMacros(item: ParsedFoodItem, newGrams: number): ParsedFoodItem {
     fat_g: Math.round(item.fat_g * ratio * 10) / 10,
     fiber_g: Math.round(item.fiber_g * ratio * 10) / 10,
     sugar_g: Math.round((item.sugar_g ?? 0) * ratio * 10) / 10,
+    portion_explicit: true,
+    confidence: Math.max(item.confidence, 0.8),
   };
 }
 
@@ -72,7 +75,7 @@ function getMacroWarning(items: ParsedFoodItem[]): string | null {
   return null;
 }
 
-export default function ParsedFoodList({ items: initialItems, onConfirm, onCancel, logging }: ParsedFoodListProps) {
+export default function ParsedFoodList({ items: initialItems, clarificationQuestion, onConfirm, onCancel, logging }: ParsedFoodListProps) {
   const { t } = useI18n();
   const [items, setItems] = useState<ParsedFoodItem[]>(initialItems);
 
@@ -101,6 +104,7 @@ export default function ParsedFoodList({ items: initialItems, onConfirm, onCance
   const totalFat = items.reduce((s, i) => s + i.fat_g, 0);
   const totalFiber = items.reduce((s, i) => s + i.fiber_g, 0);
   const warning = getMacroWarning(items);
+  const unresolvedPortions = items.filter((item) => item.portion_explicit === false).length;
 
   if (items.length === 0) {
     return (
@@ -227,6 +231,23 @@ export default function ParsedFoodList({ items: initialItems, onConfirm, onCance
           ))}
         </AnimatePresence>
 
+        {clarificationQuestion && unresolvedPortions > 0 && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            role="alert"
+            className="flex items-start gap-2 px-3 py-3 rounded-lg bg-amber-500/10 border border-amber-500/30"
+          >
+            <AlertTriangle size={15} className="text-amber-400 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-amber-300 text-xs font-medium">{clarificationQuestion}</p>
+              <p className="text-stone-400 text-[11px] mt-1">
+                Adjust the grams for {unresolvedPortions === 1 ? 'the estimated item' : `${unresolvedPortions} estimated items`} before saving.
+              </p>
+            </div>
+          </motion.div>
+        )}
+
         {/* Nutritional warning */}
         {warning && (
           <motion.div
@@ -282,12 +303,12 @@ export default function ParsedFoodList({ items: initialItems, onConfirm, onCance
             </button>
             <motion.button
               onClick={() => onConfirm(items)}
-              disabled={logging || items.length === 0}
+              disabled={logging || items.length === 0 || unresolvedPortions > 0}
               whileTap={{ scale: 0.97 }}
               className="btn-gold flex-1 py-3 text-sm font-semibold flex items-center justify-center gap-2 shadow-[0_4px_16px_rgba(212,168,83,0.3)]"
             >
               <Check size={16} />
-              {logging ? '...' : `${t('food.confirm_all')} (${items.length})`}
+              {logging ? '...' : unresolvedPortions > 0 ? 'Review portions to save' : `${t('food.confirm_all')} (${items.length})`}
             </motion.button>
           </div>
         </div>
