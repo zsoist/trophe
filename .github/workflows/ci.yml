@@ -125,6 +125,9 @@ jobs:
       - name: RAG safety and release-gate tests
         run: npm test -- --run tests/agents/rag.test.ts tests/agents/rag-release-gate.test.ts tests/agents/rag-eval-dataset.test.ts tests/agents/rag-observed-retrieval.test.ts tests/db/rag-rls.test.ts
 
+      - name: RAG ingestion readiness
+        run: npm run rag:readiness
+
       - name: Enterprise readiness checks
         run: npm run readiness
 

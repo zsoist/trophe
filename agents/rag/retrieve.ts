@@ -28,11 +28,15 @@ export interface RetrieveKnowledgeResult {
   systemPromptBlock: string;
 }
 
-async function embedQuery(text: string): Promise<number[] | null> {
+async function embedQuery(
+  text: string,
+  context: { userId: string; organizationId?: string },
+): Promise<number[] | null> {
   try {
     const result = await executeAiTask({
       task: 'embed',
       prompt: text,
+      context,
       invoke: ({ policy, signal }) => invokeVoyageEmbedding({
         model: policy.model, text, inputType: 'query', signal,
       }),
@@ -45,7 +49,10 @@ async function embedQuery(text: string): Promise<number[] | null> {
 
 export async function retrieveKnowledge(input: RetrieveKnowledgeInput): Promise<RetrieveKnowledgeResult> {
   const topK = Math.min(Math.max(input.topK ?? 8, 1), 20);
-  const embedding = await embedQuery(input.queryText);
+  const embedding = await embedQuery(input.queryText, {
+    userId: input.requesterId,
+    organizationId: input.organizationId,
+  });
   const vector = embedding ? `[${embedding.join(',')}]` : null;
   const result = await db.execute(sql`
     SELECT * FROM hybrid_search_knowledge(
