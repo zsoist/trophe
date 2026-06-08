@@ -149,6 +149,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, onSea
 
       const items: ParsedFoodItem[] = data.foods.map((f: {
         name: string;
+        estimated_grams: number;
         estimated_calories: number;
         estimated_protein_g: number;
         estimated_carbs_g: number;
@@ -160,7 +161,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, onSea
         name_localized: f.name,
         quantity: 1,
         unit: 'serving',
-        grams: Math.round((f.estimated_calories / 1.5) || 100),
+        grams: Math.round(f.estimated_grams),
         calories: Math.round(f.estimated_calories),
         protein_g: Math.round(f.estimated_protein_g * 10) / 10,
         carbs_g: Math.round(f.estimated_carbs_g * 10) / 10,

@@ -10,6 +10,7 @@ interface PhotoAnalyzeRequest {
 
 interface FoodAnalysis {
   name: string;
+  estimated_grams: number;
   estimated_calories: number;
   estimated_protein_g: number;
   estimated_carbs_g: number;
@@ -31,6 +32,7 @@ const PHOTO_ANALYZE_TOOL = {
           type: 'object' as const,
           properties: {
             name: { type: 'string' as const },
+            estimated_grams: { type: 'number' as const },
             estimated_calories: { type: 'number' as const },
             estimated_protein_g: { type: 'number' as const },
             estimated_carbs_g: { type: 'number' as const },
@@ -41,6 +43,7 @@ const PHOTO_ANALYZE_TOOL = {
           },
           required: [
             'name',
+            'estimated_grams',
             'estimated_calories',
             'estimated_protein_g',
             'estimated_carbs_g',
@@ -127,7 +130,7 @@ export async function POST(request: NextRequest) {
               },
               {
                 type: 'text',
-                text: 'Analyze this food photo. Identify visible food items and make a conservative rough macro estimate only. Photo-only portion estimation is uncertain unless a scale, label, or known container is visible. Do not imply precision. source must be "ai_estimate". confidence is 0 to 1 and should be below 0.75 unless portion size is visually anchored. accuracy_note should briefly say what makes the estimate uncertain.',
+                text: 'Analyze this food photo. Identify visible food items and make a conservative rough portion and macro estimate only. estimated_grams must be your estimated edible portion weight, not derived from calories. Photo-only portion estimation is uncertain unless a scale, label, or known container is visible. Do not imply precision. source must be "ai_estimate". confidence is 0 to 1 and should be below 0.75 unless portion size is visually anchored. accuracy_note should briefly say what makes the estimate uncertain.',
               },
             ],
           },
@@ -152,8 +155,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const validFoods = foods.filter((food) =>
+      Number.isFinite(food.estimated_grams) &&
+      food.estimated_grams > 0 &&
+      food.estimated_grams <= 10_000 &&
+      Number.isFinite(food.estimated_calories) &&
+      food.estimated_calories >= 0 &&
+      food.estimated_calories <= 10_000 &&
+      [food.estimated_protein_g, food.estimated_carbs_g, food.estimated_fat_g].every((value) => Number.isFinite(value) && value >= 0) &&
+      food.estimated_protein_g + food.estimated_carbs_g + food.estimated_fat_g <= food.estimated_grams * 1.15
+    );
+    if (validFoods.length !== foods.length) {
+      return NextResponse.json({ error: 'Photo nutrition estimate failed plausibility validation' }, { status: 502 });
+    }
+
     return NextResponse.json({
-      foods: foods.map((food) => ({
+      foods: validFoods.map((food) => ({
         ...food,
         source: 'ai_estimate' as const,
         confidence: Math.min(food.confidence, 0.75),
