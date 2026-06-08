@@ -89,7 +89,10 @@ function getDecomposePrompt(): string {
 // ── Cache lookup ─────────────────────────────────────────────────────────────
 
 /**
- * Search dish_recipes by tsvector for a cached decomposition.
+ * Search dish_recipes by exact normalized identity.
+ *
+ * A recipe cache is not a general food search index. Partial token matches
+ * caused base foods such as rice and tuna to resolve to unrelated composites.
  * Returns null if no match found.
  */
 export async function lookupCachedRecipe(dishName: string): Promise<CachedRecipe | null> {
@@ -100,10 +103,9 @@ export async function lookupCachedRecipe(dishName: string): Promise<CachedRecipe
            total_protein, total_carbs, total_fat, total_fiber,
            ingredients, source, confidence
     FROM dish_recipes
-    WHERE to_tsvector('simple', dish_name) @@ plainto_tsquery('simple', ${normalized})
-    ORDER BY
-      CASE WHEN lower(dish_name) = ${normalized} THEN 0 ELSE 1 END,
-      use_count DESC
+    WHERE lower(dish_name) = ${normalized}
+       OR lower(coalesce(dish_name_localized, '')) = ${normalized}
+    ORDER BY use_count DESC
     LIMIT 1
   `) as unknown as { rows: CachedRecipe[] };
 
@@ -125,8 +127,10 @@ export async function lookupCachedRecipe(dishName: string): Promise<CachedRecipe
 /**
  * Call LLM to decompose a composite dish into base ingredients.
  */
-async function llmDecompose(dishName: string, quantity: number, unit: string): Promise<DecompositionResult | null> {
-  const prompt = `Decompose this dish into base ingredients:\n\nInput: "${dishName}" (${quantity} ${unit})\n\nReturn ONLY valid JSON.`;
+async function llmDecompose(dishName: string, unit: string): Promise<DecompositionResult | null> {
+  // Cache decompositions per unit. The caller applies quantity after
+  // aggregation; including it here would scale the result twice.
+  const prompt = `Decompose one unit of this dish into base ingredients:\n\nInput: "${dishName}" (1 ${unit})\n\nReturn ONLY valid JSON.`;
 
   let responseText = '';
   try {
@@ -270,7 +274,7 @@ export async function decomposeAndLookup(input: DecomposeInput): Promise<ParsedF
   }
 
   // ── Step 2: LLM decomposition ────────────────────────────────────────────
-  const decomposition = await llmDecompose(input.foodName, input.quantity, input.unit);
+  const decomposition = await llmDecompose(input.foodName, input.unit);
   if (!decomposition) return null;
 
   // ── Step 3: Lookup each ingredient in foods table ────────────────────────
