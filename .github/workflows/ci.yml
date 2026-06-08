@@ -119,6 +119,9 @@ jobs:
       - name: Unit and integration tests
         run: npm test
 
+      - name: Nutrition safety and release-gate tests
+        run: npm test -- --run tests/agents/nutrition-release-gate.test.ts tests/agents/food-parse.accuracy.test.ts tests/agents/food-parse-structured-output.test.ts
+
       - name: Enterprise readiness checks
         run: npm run readiness
 

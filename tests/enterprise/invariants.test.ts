@@ -86,6 +86,13 @@ describe('enterprise hardening invariants', () => {
     expect(foodParse).toContain('Your previous response was invalid');
   });
 
+  it('runs non-skippable nutrition safety and release-gate tests in CI', () => {
+    const workflow = readFileSync(join(root, '.github/workflows/ci.yml'), 'utf8');
+    expect(workflow).toContain('Nutrition safety and release-gate tests');
+    expect(workflow).toContain('tests/agents/nutrition-release-gate.test.ts');
+    expect(workflow).toContain('tests/agents/food-parse-structured-output.test.ts');
+  });
+
   it('keeps agent run persistence inside the governed runtime boundary', () => {
     const offenders = [...sourceFiles('agents'), ...sourceFiles('app/api'), ...sourceFiles('lib')]
       .map((file) => relative(root, file))

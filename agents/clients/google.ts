@@ -24,6 +24,7 @@ export interface GeminiMessagesInput {
    * into the maxOutputTokens budget and truncate the response.
    */
   disableThinking?: boolean;
+  responseSchema?: Record<string, unknown>;
 }
 
 export interface GeminiMessagesResult {
@@ -66,6 +67,7 @@ export async function callGeminiMessages(
         // Extraction tasks expect machine-readable JSON; callers still validate
         // the final shape before trusting any model output.
         responseMimeType: 'application/json',
+        ...(input.responseSchema && { responseSchema: input.responseSchema }),
         // Gemini 2.5 Flash "thinking" can consume maxOutputTokens budget,
         // truncating the actual response. Disable for simple structured tasks.
         ...(input.disableThinking && { thinkingConfig: { thinkingBudget: 0 } }),

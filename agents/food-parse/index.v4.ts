@@ -32,6 +32,8 @@ import { pick } from '../router';
 import { emitGenAISpan, estimateCostUsd } from '../observability/otel';
 import { executeAiTask } from '../runtime';
 import { invokeTextProvider } from '../runtime/providers/text';
+import { invokeGeminiStructured } from '../runtime/providers/structured';
+import { foodParseGeminiResponseSchema, foodParseStructuredSchema } from '../schemas/food-parse-structured';
 
 export const FOOD_PARSE_VERSION = 'v4';
 
@@ -280,13 +282,18 @@ export async function run(
       prompt: userMessage,
       systemPrompt: PROMPT_TEMPLATE,
       context: { userId: opts?.userId, metadata: { version: 'v4', ...opts?.metadata } },
-      invoke: ({ policy: selected, signal }) => invokeTextProvider({
-        policy: selected, signal, system: PROMPT_TEMPLATE, prompt: userMessage,
+      invoke: ({ policy: selected, signal }) => invokeGeminiStructured({
+        policy: selected,
+        signal,
+        system: PROMPT_TEMPLATE,
+        prompt: userMessage,
+        responseSchema: foodParseGeminiResponseSchema,
+        validator: foodParseStructuredSchema,
       }),
     });
     traceId = generation.generationId;
     llmResult = {
-      text: generation.output,
+      text: JSON.stringify(generation.output),
       usage: {
         input_tokens: generation.usage.inputTokens,
         output_tokens: generation.usage.outputTokens,
