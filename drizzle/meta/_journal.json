@@ -123,6 +123,9 @@
     },
     {
       "idx": 25, "version": "7", "when": 1780852599968, "tag": "0014_durable_memory_queue", "breakpoints": true
+    },
+    {
+      "idx": 26, "version": "7", "when": 1780852599969, "tag": "0015_memory_queue_scheduler", "breakpoints": true
     }
   ]
 }
