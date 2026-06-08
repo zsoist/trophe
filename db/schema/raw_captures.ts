@@ -35,6 +35,7 @@ import {
   uuid,
   text,
   boolean,
+  integer,
   jsonb,
   timestamp,
   index,
@@ -80,6 +81,15 @@ export const rawCaptures = pgTable(
 
     /** Error message if processing failed (for retry logic). */
     processingError: text('processing_error'),
+
+    /** Worker lease timestamp. Stale leases can be reclaimed after timeout. */
+    processingStartedAt: timestamp('processing_started_at', { withTimezone: true }),
+
+    /** Number of processing attempts, used for bounded retries/dead-lettering. */
+    processingAttempts: integer('processing_attempts').notNull().default(0),
+
+    /** Earliest time a failed capture may be retried. */
+    nextAttemptAt: timestamp('next_attempt_at', { withTimezone: true }),
 
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },

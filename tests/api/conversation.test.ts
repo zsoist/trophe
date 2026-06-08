@@ -6,7 +6,7 @@ const mocks = vi.hoisted(() => ({
   insert: vi.fn(),
   values: vi.fn(),
   readMemory: vi.fn(),
-  writeMemory: vi.fn(),
+  enqueueConversationMemory: vi.fn(),
   executeAiTask: vi.fn(),
   invokeTextProvider: vi.fn(),
   markRetrieved: vi.fn(),
@@ -17,7 +17,7 @@ vi.mock('@/lib/api-guard', () => ({ guardAiRoute: mocks.guardAiRoute }));
 vi.mock('@/db/client', () => ({ db: { insert: mocks.insert } }));
 vi.mock('@/db/schema/agent_conversation', () => ({ agentConversation: {} }));
 vi.mock('@/agents/memory/read', () => ({ readMemory: mocks.readMemory }));
-vi.mock('@/agents/memory/write', () => ({ writeMemory: mocks.writeMemory }));
+vi.mock('@/agents/memory/queue', () => ({ enqueueConversationMemory: mocks.enqueueConversationMemory }));
 vi.mock('@/agents/runtime', () => ({ executeAiTask: mocks.executeAiTask }));
 vi.mock('@/agents/runtime/providers/text', () => ({ invokeTextProvider: mocks.invokeTextProvider }));
 vi.mock('@/agents/rag/retrieve', () => ({ retrieveKnowledge: mocks.retrieveKnowledge }));
@@ -59,7 +59,7 @@ describe('POST /api/ai/conversation', () => {
       estimatedCostUsd: 0.001,
       usage: { inputTokens: 100, outputTokens: 20 },
     });
-    mocks.writeMemory.mockResolvedValue(undefined);
+    mocks.enqueueConversationMemory.mockResolvedValue(undefined);
   });
 
   it('returns the guard response when authentication fails', async () => {
@@ -87,7 +87,7 @@ describe('POST /api/ai/conversation', () => {
     expect(await result.json()).toEqual({
       message: 'Eat a balanced meal.',
       generationId: 'generation-1',
-      memoryWriteStatus: 'completed',
+      memoryWriteStatus: 'queued',
       groundingStatus: 'uncited',
       citations: [
         { chunkId: 'chunk-1', source: 'memory', createdAt: '2026-06-07T00:00:00.000Z' },
@@ -110,6 +110,23 @@ describe('POST /api/ai/conversation', () => {
     }));
     expect(mocks.values).toHaveBeenCalledTimes(2);
     expect(mocks.markRetrieved).toHaveBeenCalledOnce();
-    expect(mocks.writeMemory).toHaveBeenCalledTimes(2);
+    expect(mocks.enqueueConversationMemory).toHaveBeenCalledWith({
+      userId: 'user-1',
+      sessionId: 'session-1',
+      userMessage: 'What should I eat?',
+      assistantMessage: 'Eat a balanced meal.',
+    });
+  });
+
+  it('returns the answer with degraded memory status when queueing fails', async () => {
+    mocks.enqueueConversationMemory.mockRejectedValueOnce(new Error('queue unavailable'));
+
+    const result = await POST(request({ sessionId: 'session-1', message: 'What should I eat?' }));
+
+    expect(result.status).toBe(200);
+    expect(await result.json()).toMatchObject({
+      message: 'Eat a balanced meal.',
+      memoryWriteStatus: 'degraded',
+    });
   });
 });

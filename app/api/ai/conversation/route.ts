@@ -4,12 +4,11 @@ import { guardAiRoute } from '@/lib/api-guard';
 import { db } from '@/db/client';
 import { agentConversation } from '@/db/schema/agent_conversation';
 import { readMemory } from '@/agents/memory/read';
-import { writeMemory } from '@/agents/memory/write';
+import { enqueueConversationMemory } from '@/agents/memory/queue';
 import { executeAiTask } from '@/agents/runtime';
 import { invokeTextProvider } from '@/agents/runtime/providers/text';
 import { retrieveKnowledge } from '@/agents/rag/retrieve';
 import { groundingStatus } from '@/agents/rag/grounding';
-import { settleMemoryWrites } from '@/agents/memory/bounded-write';
 
 const requestSchema = z.object({
   sessionId: z.string().min(1).max(200),
@@ -78,10 +77,12 @@ export async function POST(request: NextRequest) {
   });
   await memory.markRetrieved();
 
-  const memoryWriteStatus = await settleMemoryWrites([
-    writeMemory({ userId: guard.userId, sessionId, agentName: 'conversation', role: 'user', content: message }),
-    writeMemory({ userId: guard.userId, sessionId, agentName: 'conversation', role: 'assistant', content: generation.output }),
-  ]);
+  let memoryWriteStatus: 'queued' | 'degraded' = 'queued';
+  try {
+    await enqueueConversationMemory({ userId: guard.userId, sessionId, userMessage: message, assistantMessage: generation.output });
+  } catch {
+    memoryWriteStatus = 'degraded';
+  }
 
   return NextResponse.json({
     message: generation.output,
