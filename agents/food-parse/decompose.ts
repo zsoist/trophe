@@ -64,6 +64,16 @@ interface DecomposeInput {
   region?: string;
 }
 
+const COUNT_UNITS = new Set([
+  'piece', 'pieces', 'unit', 'units', 'item', 'items', 'each', 'count',
+  'τεμάχιο', 'τεμάχια', 'κομμάτι', 'κομμάτια',
+  'unidad', 'unidades',
+]);
+
+function isCountUnit(unit: string): boolean {
+  return COUNT_UNITS.has(unit.toLowerCase().trim());
+}
+
 // ── Prompt ───────────────────────────────────────────────────────────────────
 
 const DECOMPOSE_PROMPT_PATH = join(process.cwd(), 'agents/prompts/food-decompose.md');
@@ -201,6 +211,10 @@ export async function lookupCachedRecipeAsItem(input: DecomposeInput): Promise<P
   const cached = await lookupCachedRecipe(input.foodName);
   if (!cached) return null;
 
+  // Cached recipes are normalized to one serving, not one countable item.
+  // Scaling them by "6 pieces" would turn six dolmades into six full servings.
+  if (isCountUnit(input.unit)) return null;
+
   const scale = input.quantity;
   return {
     raw_text: input.rawText,
@@ -234,7 +248,7 @@ export async function decomposeAndLookup(input: DecomposeInput): Promise<ParsedF
   // ── Step 1: Check cache ──────────────────────────────────────────────────
   const cached = await lookupCachedRecipe(input.foodName);
 
-  if (cached) {
+  if (cached && !isCountUnit(input.unit)) {
     // Scale macros by quantity (cached is for 1 serving)
     const scale = input.quantity;
     return {
