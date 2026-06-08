@@ -70,9 +70,11 @@ function validateInput(body: unknown): { valid: true; data: PhotoAnalyzeRequest 
     return { valid: false, error: 'imageBase64 is required and must be a non-empty string' };
   }
 
-  // Cap at ~7MB image (base64 is ~33% larger than binary)
-  if (b.imageBase64.length > 10_000_000) {
-    return { valid: false, error: 'Image too large — maximum 7MB' };
+  // Base64 uses four characters per three binary bytes. Keep decoded uploads
+  // at or below 5MB after client-side resizing/transcoding.
+  const maxBase64Length = Math.ceil((5 * 1024 * 1024) / 3) * 4;
+  if (b.imageBase64.length > maxBase64Length) {
+    return { valid: false, error: 'Image too large after compression — maximum 5MB' };
   }
 
   const validMediaTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];

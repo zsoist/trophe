@@ -106,11 +106,9 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, onSea
     }
   };
 
-  const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
-
   const processImageFile = async (file: File) => {
-    if (file.size > MAX_IMAGE_SIZE) {
-      setError('Image too large (max 5MB). Try a smaller photo or take one with lower resolution.');
+    if (!file.type.startsWith('image/')) {
+      setError('Please choose an image file.');
       return;
     }
     setError(null);
@@ -123,8 +121,10 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, onSea
     reader.readAsDataURL(file);
 
     try {
-      const base64 = await resizeAndEncode(file, 1024);
-      const mediaType = file.type || 'image/jpeg';
+      // Modern iPhone photos commonly exceed 5MB. Resize and transcode before
+      // upload so the API receives a bounded JPEG regardless of source format.
+      const base64 = await resizeAndEncode(file, 1600);
+      const mediaType = 'image/jpeg';
 
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 20000); // 20s for photo
