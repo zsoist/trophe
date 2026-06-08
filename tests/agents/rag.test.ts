@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { chunkKnowledge } from '@/agents/rag/ingest';
 import { formatRagContext } from '@/agents/rag/context';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 describe('RAG ingestion and context contracts', () => {
   it('chunks deterministically while preserving all content', () => {
@@ -32,5 +34,14 @@ describe('RAG ingestion and context contracts', () => {
 
   it('returns no context when retrieval has no approved chunks', () => {
     expect(formatRagContext([])).toBe('');
+  });
+
+  it('requires explicit provenance and scope-safe operator ingestion', () => {
+    const cli = readFileSync(join(process.cwd(), 'scripts/rag/ingest-document.ts'), 'utf8');
+    expect(cli).toContain("'created-by'");
+    expect(cli).toContain('Specify only one private scope');
+    expect(cli).toContain('Document already exists in this scope');
+    expect(cli).toContain('Only reviewed .md and .txt documents may be ingested');
+    expect(cli).toContain("args['dry-run']");
   });
 });

@@ -22,6 +22,7 @@
     "ai:budget-check": "tsx scripts/ops/check-ai-budgets.ts",
     "ai:cost-reconcile": "tsx scripts/ops/reconcile-ai-costs.ts",
     "rag:readiness": "tsx scripts/ops/check-rag-readiness.ts",
+    "rag:ingest": "tsx scripts/rag/ingest-document.ts",
     "canary:prod": "bash scripts/ops/canary-readonly.sh",
     "verify": "npm run typecheck && npm run lint && npm test && npm run build",
     "db:bootstrap": "bash scripts/db/bootstrap-local.sh",
