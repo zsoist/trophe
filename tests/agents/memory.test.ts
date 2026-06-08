@@ -11,7 +11,7 @@
  *   7. Unit: readMemory() formatMemoryBlock output structure
  *   8. Unit: scoreChunk() allergies ranked higher than observations
  *   9. Unit: loadCoachBlocks() returns empty string when no blocks
- *  10. Router: memory_extract → anthropic/sonnet, memory_embed → openai/voyage
+ *  10. Router: memory_extract → Gemini structured output, memory_embed → Voyage
  *
  * Integration tests (4–6) are skipped if DB is unreachable (no PGPASSWORD in env).
  */
@@ -173,12 +173,11 @@ describe('loadCoachBlocks() unit', () => {
 // ── 10. Router: memory task policies ──────────────────────────────────────
 
 describe('router: memory task policies', () => {
-  it('memory_extract maps to anthropic/sonnet with cacheSystem=true', () => {
+  it('memory_extract maps to cost-efficient Gemini structured output', () => {
     const policy = pick('memory_extract');
-    expect(policy.provider).toBe('anthropic');
-    expect(policy.model).toContain('sonnet');
-    expect(policy.cacheSystem).toBe(true);
-    expect(policy.costClass).toBe('mid');
+    expect(policy.provider).toBe('google');
+    expect(policy.model).toBe('gemini-2.5-flash');
+    expect(policy.costClass).toBe('cheap');
   });
 
   it('memory_embed maps to voyage/voyage-4', () => {

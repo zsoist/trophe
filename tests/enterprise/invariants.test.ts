@@ -107,6 +107,15 @@ describe('enterprise hardening invariants', () => {
     expect(parsedList).toContain('Review portions to save');
   });
 
+  it('uses constrained decoding and awaited writes for conversation memory', () => {
+    const memoryWrite = readFileSync(join(root, 'agents/memory/write.ts'), 'utf8');
+    const conversation = readFileSync(join(root, 'app/api/ai/conversation/route.ts'), 'utf8');
+    expect(memoryWrite).toContain('invokeGeminiStructured');
+    expect(memoryWrite).not.toContain('llmText.match');
+    expect(conversation).toContain('Promise.allSettled');
+    expect(conversation).not.toContain('after(async');
+  });
+
   it('keeps agent run persistence inside the governed runtime boundary', () => {
     const offenders = [...sourceFiles('agents'), ...sourceFiles('app/api'), ...sourceFiles('lib')]
       .map((file) => relative(root, file))

@@ -109,15 +109,14 @@ export const taskPolicies: Record<TaskName, RoutingPolicy> = {
     timeoutMs: 15_000, maxInputChars: 100_000, maxCostUsd: 0.02, promptVersion: 'embed-v1',
   },
   memory_extract: {
-    // Sonnet 4.6 for nuanced fact extraction — runs async after each conversation turn.
-    // Strict zod schema output: fact_text, fact_type, confidence, scope, expires_at.
-    provider: 'anthropic',
-    model: 'claude-sonnet-4-6',
-    costClass: 'mid',
-    latencyClass: 'medium',
+    // Constrained Gemini decoding makes fact extraction structurally reliable
+    // while keeping this per-turn background task inexpensive and fast.
+    provider: 'google',
+    model: 'gemini-2.5-flash',
+    costClass: 'cheap',
+    latencyClass: 'fast',
     maxTokens: 1024,
-    cacheSystem: true,
-    timeoutMs: 30_000, maxInputChars: 30_000, maxCostUsd: 0.15, promptVersion: 'memory-extract-v1',
+    timeoutMs: 20_000, maxInputChars: 30_000, maxCostUsd: 0.03, promptVersion: 'memory-extract-v2',
   },
   memory_embed: {
     // Voyage v4 — same embedding model as food/general embeddings for consistency.

@@ -25,9 +25,9 @@ import { db } from '@/db/client';
 import { memoryChunks } from '@/db/schema/memory_chunks';
 import { eq, and, isNull, sql } from 'drizzle-orm';
 import { executeAiTask } from '@/agents/runtime';
-import { invokeTextProvider } from '@/agents/runtime/providers/text';
+import { invokeGeminiStructured } from '@/agents/runtime/providers/structured';
 import { invokeVoyageEmbedding } from '@/agents/runtime/providers/voyage';
-import { z } from 'zod';
+import { memoryExtractionGeminiResponseSchema, memoryExtractionStructuredSchema } from '@/agents/schemas/memory-extraction-structured';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -52,21 +52,8 @@ export interface WriteMemoryResult {
 
 // ── Zod-style validated shape (manual, no zod dep needed) ──────────────────
 
-const extractedFactSchema = z.object({
-  fact_text: z.string().min(1).max(1_000),
-  fact_type: z.enum(['preference', 'allergy', 'goal', 'event', 'observation']),
-  scope: z.enum(['user', 'session', 'agent']),
-  confidence: z.number().min(0).max(1),
-  expires_at: z.string().datetime().nullable(),
-  semantic_tags: z.array(z.string().min(1).max(100)).max(10),
-});
-const extractionOutputSchema = z.object({
-  facts: z.array(extractedFactSchema).max(20),
-  skip: z.boolean(),
-  skip_reason: z.string().max(500).optional(),
-});
-type ExtractedFact = z.infer<typeof extractedFactSchema>;
-type ExtractionOutput = z.infer<typeof extractionOutputSchema>;
+type ExtractionOutput = ReturnType<typeof memoryExtractionStructuredSchema.parse>;
+type ExtractedFact = ExtractionOutput['facts'][number];
 
 // ── System prompt ──────────────────────────────────────────────────────────
 
@@ -208,34 +195,16 @@ export async function writeMemory(input: WriteMemoryInput): Promise<WriteMemoryR
     prompt: extractionPrompt,
     systemPrompt: EXTRACTION_SYSTEM,
     context: { userId: input.userId, metadata: { sessionId: input.sessionId, agentName: input.agentName } },
-    invoke: ({ policy: selected, signal }) => invokeTextProvider({
-      policy: selected, signal, system: EXTRACTION_SYSTEM, prompt: extractionPrompt,
+    invoke: ({ policy: selected, signal }) => invokeGeminiStructured({
+      policy: selected,
+      signal,
+      system: EXTRACTION_SYSTEM,
+      prompt: extractionPrompt,
+      responseSchema: memoryExtractionGeminiResponseSchema,
+      validator: memoryExtractionStructuredSchema,
     }),
   });
-  const llmText = generation.output;
-
-  if (!llmText) {
-    return {
-      factsExtracted: 0,
-      factsSuperseded: 0,
-      skipped: true,
-      reason: 'LLM error: empty response',
-    };
-  }
-
-  // ── Step 2: Parse LLM JSON output ───────────────────────────────────────
-  let parsed: ExtractionOutput;
-  try {
-    const jsonMatch = llmText.match(/\{[\s\S]*\}/);
-    parsed = extractionOutputSchema.parse(JSON.parse(jsonMatch?.[0] ?? llmText));
-  } catch {
-    return {
-      factsExtracted: 0,
-      factsSuperseded: 0,
-      skipped: true,
-      reason: 'JSON parse error',
-    };
-  }
+  const parsed: ExtractionOutput = generation.output;
 
   if (parsed.skip || !parsed.facts || parsed.facts.length === 0) {
     return {

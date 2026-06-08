@@ -1,4 +1,4 @@
-import { after, NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { guardAiRoute } from '@/lib/api-guard';
 import { db } from '@/db/client';
@@ -76,16 +76,16 @@ export async function POST(request: NextRequest) {
   });
   await memory.markRetrieved();
 
-  after(async () => {
-    await Promise.all([
-      writeMemory({ userId: guard.userId, sessionId, agentName: 'conversation', role: 'user', content: message }),
-      writeMemory({ userId: guard.userId, sessionId, agentName: 'conversation', role: 'assistant', content: generation.output }),
-    ]);
-  });
+  const memoryWrites = await Promise.allSettled([
+    writeMemory({ userId: guard.userId, sessionId, agentName: 'conversation', role: 'user', content: message }),
+    writeMemory({ userId: guard.userId, sessionId, agentName: 'conversation', role: 'assistant', content: generation.output }),
+  ]);
+  const memoryWriteFailed = memoryWrites.some((result) => result.status === 'rejected');
 
   return NextResponse.json({
     message: generation.output,
     generationId: generation.generationId,
+    memoryWriteStatus: memoryWriteFailed ? 'degraded' : 'completed',
     citations: [
       ...memory.chunks.map((chunk) => ({
         chunkId: chunk.id, source: 'memory', createdAt: chunk.createdAt,
