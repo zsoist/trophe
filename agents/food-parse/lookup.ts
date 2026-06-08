@@ -359,7 +359,7 @@ function metadataBoost(candidates: SelectFood[], region: string, query: string):
 // Normalize to 'piece' which matches food_unit_conversions rows.
 const UNIT_SYNONYMS: Record<string, string> = {
   unit: 'piece', units: 'piece', each: 'piece', item: 'piece', items: 'piece',
-  count: 'piece', whole: 'piece', pieces: 'piece', pcs: 'piece',
+  count: 'piece', whole: 'piece', pieces: 'piece', pcs: 'piece', strip: 'piece', strips: 'piece',
   // Spanish
   unidad: 'piece', unidades: 'piece',
   // Greek
@@ -369,7 +369,7 @@ const UNIT_SYNONYMS: Record<string, string> = {
   tablespoon: 'tbsp', tablespoons: 'tbsp', spoon: 'tbsp', 'κουταλιά': 'tbsp', 'κουταλιές': 'tbsp', 'κ.σ.': 'tbsp',
   teaspoon: 'tsp', teaspoons: 'tsp', 'κουταλάκι': 'tsp', 'κουταλάκια': 'tsp', 'κ.γ.': 'tsp',
   'φλιτζάνι': 'cup', 'φλιτζάνια': 'cup', 'φλ': 'cup', taza: 'cup', tazas: 'cup',
-  'ποτήρι': 'glass', 'ποτήρια': 'glass', vaso: 'glass', vasos: 'glass',
+  'ποτήρι': 'glass', 'ποτήρια': 'glass', vaso: 'glass', vasos: 'glass', glass: 'cup', glasses: 'cup',
   'χούφτα': 'handful', 'χούφτες': 'handful', 'puñado': 'handful', 'puñados': 'handful',
   'παλάμη': 'palm', 'παλάμες': 'palm',
 };
@@ -568,6 +568,9 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
   'scrambled egg': 'egg whole cooked scrambled',
   'scrambled eggs': 'egg whole cooked scrambled',
   'protein shake': 'protein powder whey',
+  'whole milk': 'Milk, whole, 3.25% milkfat, with added vitamin D',
+  'milk whole': 'Milk, whole, 3.25% milkfat, with added vitamin D',
+  'bacon': 'Pork, cured, bacon, pre-sliced, cooked, pan-fried',
   // Oats: "oatmeal" should match cooked oats cereal, not oatmeal bread
   'oatmeal': 'cereals oats regular cooked',
   'oats': 'cereals oats regular',

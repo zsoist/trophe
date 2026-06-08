@@ -101,6 +101,8 @@ describe.skipIf(!HAS_SEEDED_DB)('food-parse ranking (Wave 2 regression)', () => 
       { query: 'apple', unit: 'piece', mustContain: 'apple' },
       { query: 'rice', unit: 'cup', mustContain: 'rice' },
       { query: 'scrambled eggs', unit: 'piece', mustContain: 'egg' },
+      { query: 'whole milk', unit: 'glass', mustContain: 'milk, whole' },
+      { query: 'bacon', unit: 'strip', mustContain: 'pork, cured, bacon' },
     ];
 
     for (const { query, unit, mustContain } of cases) {
