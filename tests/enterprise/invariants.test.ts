@@ -123,6 +123,13 @@ describe('enterprise hardening invariants', () => {
     expect(workflow).toContain('RAG safety and release-gate tests');
   });
 
+  it('uses constrained provider output for recipe analysis', () => {
+    const recipe = readFileSync(join(root, 'agents/recipe-analyze/index.ts'), 'utf8');
+    expect(recipe).toContain("tool_choice: { type: 'tool', name: 'submit_recipe_analysis' }");
+    expect(recipe).not.toContain('extractJSON');
+    expect(recipe).not.toContain('text.match');
+  });
+
   it('keeps agent run persistence inside the governed runtime boundary', () => {
     const offenders = [...sourceFiles('agents'), ...sourceFiles('app/api'), ...sourceFiles('lib')]
       .map((file) => relative(root, file))

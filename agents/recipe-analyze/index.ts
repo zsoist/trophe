@@ -12,9 +12,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { buildFoodReferencePrompt } from '@/lib/food-units';
 import { executeAiTask } from '../runtime';
-import { invokeTextProvider } from '../runtime/providers/text';
+import { invokeAnthropicJson } from '../runtime/providers/anthropic';
 import type { RecipeAnalyzeInput, RecipeAnalyzeOutput } from '../schemas/recipe-analyze';
-import { isRecipeAnalyzeOutput } from '../schemas/recipe-analyze';
 import { pick } from '../router';
 import { emitGenAISpan, estimateCostUsd } from '../observability/otel';
 import { normalizeRecipeWithLookup } from './normalize';
@@ -28,17 +27,41 @@ function buildSystemPrompt(): string {
   return PROMPT_TEMPLATE.replace('{{FOOD_REFERENCE}}', buildFoodReferencePrompt());
 }
 
-function extractJSON(text: string): RecipeAnalyzeOutput | null {
-  const match = text.match(/\{[\s\S]*\}/);
-  if (!match) return null;
-  try {
-    const parsed = JSON.parse(match[0]);
-    if (isRecipeAnalyzeOutput(parsed)) return parsed;
-  } catch {
-    // fall through
-  }
-  return null;
-}
+const macroProperties = {
+  calories: { type: 'number' as const },
+  protein_g: { type: 'number' as const },
+  carbs_g: { type: 'number' as const },
+  fat_g: { type: 'number' as const },
+  fiber_g: { type: 'number' as const },
+  sugar_g: { type: 'number' as const },
+};
+
+const RECIPE_ANALYZE_TOOL = {
+  name: 'submit_recipe_analysis',
+  description: 'Submit a structured recipe nutrition analysis.',
+  input_schema: {
+    type: 'object' as const,
+    required: ['recipe_name', 'servings', 'ingredients', 'total', 'per_serving'],
+    properties: {
+      recipe_name: { type: 'string' as const },
+      servings: { type: 'number' as const },
+      ingredients: {
+        type: 'array' as const,
+        items: {
+          type: 'object' as const,
+          required: ['raw_text', 'food_name', 'name_localized', 'grams', 'calories', 'protein_g', 'carbs_g', 'fat_g', 'fiber_g', 'sugar_g', 'confidence', 'source'],
+          properties: {
+            raw_text: { type: 'string' as const }, food_name: { type: 'string' as const }, name_localized: { type: 'string' as const },
+            grams: { type: 'number' as const }, ...macroProperties, confidence: { type: 'number' as const },
+            source: { type: 'string' as const, enum: ['local_db', 'ai_estimate'] },
+          },
+        },
+      },
+      total: { type: 'object' as const, required: Object.keys(macroProperties), properties: macroProperties },
+      per_serving: { type: 'object' as const, required: Object.keys(macroProperties), properties: macroProperties },
+    },
+  },
+};
 
 export interface RecipeAnalyzeRunResult {
   ok: boolean;
@@ -102,12 +125,26 @@ export async function run(
     prompt: userMessage,
     systemPrompt,
     context: { userId: opts?.userId, metadata: { servings, ...opts?.metadata } },
-    invoke: ({ policy: selected, signal }) => invokeTextProvider({
-      policy: selected, signal, system: systemPrompt, prompt: userMessage,
+    invoke: ({ policy: selected, signal }) => invokeAnthropicJson({
+      signal,
+      body: {
+        model: selected.model,
+        max_tokens: selected.maxTokens,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userMessage }],
+        tools: [RECIPE_ANALYZE_TOOL],
+        tool_choice: { type: 'tool', name: 'submit_recipe_analysis' },
+      },
     }),
   });
+  const response = generation.output as {
+    content?: Array<{ type?: string; name?: string; input?: RecipeAnalyzeOutput }>;
+  };
+  const parsed = response.content?.find((item) =>
+    item.type === 'tool_use' && item.name === 'submit_recipe_analysis',
+  )?.input;
   const result = {
-    text: generation.output,
+    parsed,
     usage: {
       input_tokens: generation.usage.inputTokens,
       output_tokens: generation.usage.outputTokens,
@@ -153,16 +190,11 @@ export async function run(
     costUsd,
   };
 
-  if (result.rawStatus === 0 || !result.text) {
+  if (result.rawStatus === 0 || !result.parsed) {
     return { ok: false, error: result.rawError || 'Empty response from AI', telemetry };
   }
 
-  const parsed = extractJSON(result.text);
-  if (!parsed) {
-    return { ok: false, error: 'Could not parse recipe from response', telemetry };
-  }
-
-  const normalized = await normalizeRecipeWithLookup(parsed, servings);
+  const normalized = await normalizeRecipeWithLookup(result.parsed, servings);
 
   return { ok: true, output: normalized, telemetry };
 }
