@@ -5,8 +5,13 @@ const persistence = vi.hoisted(() => ({
   completeGeneration: vi.fn(),
   failGeneration: vi.fn(),
 }));
+const orgBudget = vi.hoisted(() => ({
+  resolveOrganizationId: vi.fn(),
+  assertWithinOrganizationBudget: vi.fn(),
+}));
 
 vi.mock('@/agents/runtime/persistence', () => persistence);
+vi.mock('@/agents/runtime/org-budget', () => orgBudget);
 vi.mock('@/agents/observability/langfuse', () => ({
   traced: vi.fn(async (_input, fn: () => Promise<unknown>) => fn()),
 }));
@@ -19,6 +24,8 @@ describe('executeAiTask integration contract', () => {
     persistence.createGeneration.mockResolvedValue(undefined);
     persistence.completeGeneration.mockResolvedValue(undefined);
     persistence.failGeneration.mockResolvedValue(undefined);
+    orgBudget.resolveOrganizationId.mockResolvedValue(undefined);
+    orgBudget.assertWithinOrganizationBudget.mockResolvedValue(undefined);
   });
 
   it('persists pending and completed generation state', async () => {
@@ -53,6 +60,42 @@ describe('executeAiTask integration contract', () => {
 
     expect(invoke).not.toHaveBeenCalled();
     expect(persistence.createGeneration).not.toHaveBeenCalled();
+  });
+
+  it('rejects organization budget violations before persistence or provider invocation', async () => {
+    const invoke = vi.fn();
+    orgBudget.resolveOrganizationId.mockResolvedValueOnce('00000000-0000-0000-0000-000000000001');
+    orgBudget.assertWithinOrganizationBudget.mockRejectedValueOnce(new Error('Organization daily AI budget exceeded'));
+
+    await expect(executeAiTask({
+      task: 'meal_suggest',
+      prompt: 'suggest a meal',
+      context: { userId: '00000000-0000-0000-0000-000000000002' },
+      invoke,
+    })).rejects.toThrow('Organization daily AI budget exceeded');
+
+    expect(invoke).not.toHaveBeenCalled();
+    expect(persistence.createGeneration).not.toHaveBeenCalled();
+  });
+
+  it('persists the resolved organization for attributed costs', async () => {
+    orgBudget.resolveOrganizationId.mockResolvedValueOnce('00000000-0000-0000-0000-000000000001');
+
+    await executeAiTask({
+      task: 'meal_suggest',
+      prompt: 'suggest a meal',
+      context: { userId: '00000000-0000-0000-0000-000000000002' },
+      invoke: vi.fn(async () => ({
+        output: { suggestions: ['meal'] },
+        usage: { inputTokens: 100, outputTokens: 20 },
+        latencyMs: 50,
+        rawStatus: 200,
+      })),
+    });
+
+    expect(persistence.createGeneration).toHaveBeenCalledWith(expect.objectContaining({
+      context: expect.objectContaining({ organizationId: '00000000-0000-0000-0000-000000000001' }),
+    }));
   });
 
   it('marks provider failures failed and propagates the original error', async () => {

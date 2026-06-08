@@ -54,8 +54,8 @@ agents/
 | `recipe-analyze` | Haiku 4.5 | ephemeral (system) | ✅ live |
 | `photo-analyze` (inline route) | Haiku 4.5 | — | ✅ live |
 | `meal-suggest` (inline route) | Haiku 4.5 | — | ✅ live |
-| `coach-insight` / `wearable-summary` | Sonnet 4.5 | — | ✅ live |
-| `memory-write` | Sonnet 4.5 | — | ✅ live |
+| `coach-insight` / `wearable-summary` | Sonnet 4.6 | — | ✅ live |
+| `memory-write` | Sonnet 4.6 | — | ✅ live |
 
 ---
 
@@ -66,8 +66,8 @@ agents/
 const taskPolicies = {
   food_parse:    { provider: 'google',    model: 'gemini-2.5-flash' },
   recipe_analyze:{ provider: 'anthropic', model: 'claude-haiku-4-5-20251001', cacheSystem: true },
-  coach_insight: { provider: 'anthropic', model: 'claude-sonnet-4-5-20251022' },
-  embed:         { provider: 'voyage',    model: 'voyage-large-2' },
+  coach_insight: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
+  embed:         { provider: 'voyage',    model: 'voyage-4' },
 };
 ```
 

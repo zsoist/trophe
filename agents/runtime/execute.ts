@@ -3,19 +3,23 @@ import { pick } from '@/agents/router';
 import { traced } from '@/agents/observability/langfuse';
 import { assertWithinRequestBudget } from './budget';
 import { estimateUsageCost } from './cost';
+import { assertWithinOrganizationBudget, resolveOrganizationId } from './org-budget';
 import { completeGeneration, createGeneration, failGeneration } from './persistence';
 import type { ExecuteAiTaskInput, ExecuteAiTaskResult } from './types';
 
 export async function executeAiTask<T>(input: ExecuteAiTaskInput<T>): Promise<ExecuteAiTaskResult<T>> {
   const policy = pick(input.task);
   assertWithinRequestBudget(policy, input.prompt);
+  const organizationId = await resolveOrganizationId(input.context);
+  await assertWithinOrganizationBudget(organizationId);
+  const context = organizationId ? { ...input.context, organizationId } : input.context;
 
   const generationId = randomUUID();
   const promptHash = createHash('sha256')
     .update(`${policy.promptVersion}\0${input.systemPrompt ?? ''}\0${input.prompt}`)
     .digest('hex');
 
-  await createGeneration({ generationId, task: input.task, policy, promptHash, context: input.context });
+  await createGeneration({ generationId, task: input.task, policy, promptHash, context });
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), policy.timeoutMs);

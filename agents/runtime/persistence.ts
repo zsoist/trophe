@@ -1,7 +1,7 @@
 import { db } from '@/db/client';
 import { agentRuns } from '@/db/schema/agent_runs';
-import { organizationMembers } from '@/db/schema/organizations';
 import { eq } from 'drizzle-orm';
+import { resolveOrganizationId } from './org-budget';
 import type { AiTaskContext, AiUsage } from './types';
 import type { RoutingPolicy, TaskName } from '@/agents/router/policies';
 
@@ -12,15 +12,7 @@ export async function createGeneration(input: {
   promptHash: string;
   context?: AiTaskContext;
 }): Promise<void> {
-  let organizationId = input.context?.organizationId;
-  if (!organizationId && input.context?.userId) {
-    const [membership] = await db
-      .select({ organizationId: organizationMembers.orgId })
-      .from(organizationMembers)
-      .where(eq(organizationMembers.userId, input.context.userId))
-      .limit(1);
-    organizationId = membership?.organizationId;
-  }
+  const organizationId = await resolveOrganizationId(input.context);
 
   await db.insert(agentRuns).values({
     generationId: input.generationId,

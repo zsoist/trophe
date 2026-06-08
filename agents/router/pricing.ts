@@ -9,8 +9,8 @@ export interface ModelPricing {
 
 export const modelPricing: Record<string, ModelPricing> = {
   [taskPolicies.food_parse.model]: {
-    inputPerMillion: 0.075,
-    outputPerMillion: 0.30,
+    inputPerMillion: 0.30,
+    outputPerMillion: 2.50,
   },
   [taskPolicies.recipe_analyze.model]: {
     // claude-haiku-4-5: $1.00/M in, $5.00/M out, cache read $0.10/M
@@ -30,7 +30,7 @@ export const modelPricing: Record<string, ModelPricing> = {
   // Pricing entry shared — keyed by model string, not task name.
   // Old gemini-2.0-flash entry removed (model deprecated June 1, 2026).
   [taskPolicies.memory_embed.model]: {
-    inputPerMillion: 0.12,
+    inputPerMillion: 0.06,
     outputPerMillion: 0,
   },
 };

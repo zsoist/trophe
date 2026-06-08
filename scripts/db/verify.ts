@@ -29,7 +29,8 @@ const expectations: Expectation[] = [
           'profiles', 'client_profiles', 'food_log', 'organizations',
           'organization_members', 'audit_log', 'foods', 'food_unit_conversions',
           'dish_recipes', 'memory_chunks', 'wearable_data', 'agent_runs',
-          'knowledge_documents', 'knowledge_chunks', 'consents', 'data_requests'
+          'knowledge_documents', 'knowledge_chunks', 'consents', 'data_requests',
+          'organization_ai_budgets'
         )
       ORDER BY table_name;
     `,
@@ -47,6 +48,7 @@ const expectations: Expectation[] = [
       'knowledge_chunks',
       'knowledge_documents',
       'organization_members',
+      'organization_ai_budgets',
       'organizations',
       'profiles',
       'wearable_data',

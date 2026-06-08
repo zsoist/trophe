@@ -5,19 +5,19 @@
  * operator decisions in the plan:
  *   - food_parse   → Gemini 2.5 Flash  (cost-optimised, fast, good at extraction)
  *   - recipe       → Haiku 4.5         (well-calibrated for recipe JSON)
- *   - coach_insight→ Sonnet 4.5        (nuanced coaching language)
+ *   - coach_insight→ Sonnet 4.6        (nuanced coaching language)
  *   - embed        → Voyage voyage-4   (1024-dim, MTEB 67, matches OpenBrain)
  *
  * Costs ($/M tokens, approximate 2026-05):
- *   gemini-2.5-flash  ~$0.075 in / $0.30 out
- *   claude-haiku-4-5  ~$0.25  in / $1.25  out
- *   claude-sonnet-4-5 ~$3.00  in / $15.00 out
+ *   gemini-2.5-flash  ~$0.30 in / $2.50 out
+ *   claude-haiku-4-5  ~$1.00 in / $5.00 out
+ *   claude-sonnet-4-6 ~$3.00 in / $15.00 out
  *
  * Expected monthly cost at 50 active users (50 meals/day, 1 coach call/day):
- *   food_parse:    50*50*200 tokens * $0.075/M = ~$0.019/day
+ *   food_parse:    50*50*200 tokens * $0.30/M  = ~$0.075/day
  *   recipe:        50*5*500 tokens  * $0.25/M  = ~$0.031/day
  *   coach_insight: 50*1*800 tokens  * $3.00/M  = ~$0.12/day
- *   Total: ~$0.17/day (~$5/month) vs current all-Haiku ~$0.40/day
+ *   Total: ~$0.23/day (~$7/month) before output tokens and cache discounts
  *
  * To override a task globally: change its policy entry here.
  * To disable a task (force Anthropic): set provider to 'anthropic'.
@@ -71,7 +71,7 @@ export const taskPolicies: Record<TaskName, RoutingPolicy> = {
   },
   coach_insight: {
     provider: 'anthropic',
-    model: 'claude-sonnet-4-5-20251022',
+    model: 'claude-sonnet-4-6',
     costClass: 'mid',
     latencyClass: 'medium',
     maxTokens: 2048,
@@ -109,10 +109,10 @@ export const taskPolicies: Record<TaskName, RoutingPolicy> = {
     timeoutMs: 15_000, maxInputChars: 100_000, maxCostUsd: 0.02, promptVersion: 'embed-v1',
   },
   memory_extract: {
-    // Sonnet 4.5 for nuanced fact extraction — runs async after each conversation turn.
+    // Sonnet 4.6 for nuanced fact extraction — runs async after each conversation turn.
     // Strict zod schema output: fact_text, fact_type, confidence, scope, expires_at.
     provider: 'anthropic',
-    model: 'claude-sonnet-4-5-20251022',
+    model: 'claude-sonnet-4-6',
     costClass: 'mid',
     latencyClass: 'medium',
     maxTokens: 1024,

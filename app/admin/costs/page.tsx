@@ -10,9 +10,11 @@ interface CostSummary {
   totalCost: number;
   totalCalls: number;
   byEndpoint: Record<string, { calls: number; cost: number }>;
+  byModel: Record<string, { calls: number; cost: number }>;
   byDay: { date: string; cost: number; calls: number }[];
   avgCostPerCall: number;
   avgLatency: number;
+  latency: { p50: number; p95: number; p99: number };
   budget?: {
     monthlyBudgetUsd: number;
     projectedMonthlyCost: number;
@@ -182,6 +184,15 @@ export default function CostDashboard() {
               </div>
             )}
 
+            <div className="glass p-4 mb-4">
+              <h2 className="text-stone-300 text-sm font-medium mb-3">Latency Percentiles</h2>
+              <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                <p className="text-stone-500">p50 <span className="block text-stone-300">{summary.latency.p50}ms</span></p>
+                <p className="text-stone-500">p95 <span className="block text-stone-300">{summary.latency.p95}ms</span></p>
+                <p className="text-stone-500">p99 <span className="block text-stone-300">{summary.latency.p99}ms</span></p>
+              </div>
+            </div>
+
             {/* Daily Cost Chart */}
             <div className="glass p-4 mb-4">
               <h2 className="text-stone-300 text-sm font-medium mb-3">Daily Cost</h2>
@@ -235,6 +246,20 @@ export default function CostDashboard() {
                       </div>
                     );
                   })}
+              </div>
+            </div>
+
+            <div className="glass p-4 mb-4">
+              <h2 className="text-stone-300 text-sm font-medium mb-3">Cost by Model</h2>
+              <div className="space-y-2">
+                {Object.entries(summary.byModel)
+                  .sort(([, a], [, b]) => b.cost - a.cost)
+                  .map(([model, data]) => (
+                    <div key={model} className="flex justify-between text-xs">
+                      <span className="text-stone-400 truncate pr-2">{model}</span>
+                      <span className="text-stone-500">${data.cost.toFixed(4)} ({data.calls})</span>
+                    </div>
+                  ))}
               </div>
             </div>
 

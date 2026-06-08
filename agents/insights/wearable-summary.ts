@@ -1,7 +1,7 @@
 /**
  * Trophē v0.3 — Wearable summary agent (Phase 6).
  *
- * Uses Sonnet 4.5 (per memory_extract policy — mid cost, medium latency)
+ * Uses Sonnet 4.6 (per memory_extract policy — mid cost, medium latency)
  * to synthesize the last 7 days of HRV, sleep, and training load data
  * into a concise coaching insight block for the coach dashboard.
  *

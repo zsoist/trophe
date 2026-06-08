@@ -32,7 +32,7 @@ describe('router.pick()', () => {
   it('returns the correct policy for coach_insight → anthropic/sonnet', () => {
     const policy = pick('coach_insight');
     expect(policy.provider).toBe('anthropic');
-    expect(policy.model).toBe('claude-sonnet-4-5-20251022');
+    expect(policy.model).toBe('claude-sonnet-4-6');
     expect(policy.costClass).toBe('mid');
   });
 
@@ -51,10 +51,10 @@ describe('router.pick()', () => {
     }
   });
 
-  it('all routed generation models have pricing entries', () => {
+  it('all routed models have non-zero input pricing entries', () => {
     for (const [task, policy] of Object.entries(taskPolicies)) {
-      if (policy.maxTokens === 0) continue;
       expect(modelPricing[policy.model], `${task}.model pricing`).toBeTruthy();
+      expect(modelPricing[policy.model]?.inputPerMillion, `${task}.input pricing`).toBeGreaterThan(0);
     }
   });
 });
@@ -65,7 +65,7 @@ describe('router.modelFor()', () => {
   });
 
   it('returns model string for coach_insight', () => {
-    expect(modelFor('coach_insight')).toBe('claude-sonnet-4-5-20251022');
+    expect(modelFor('coach_insight')).toBe('claude-sonnet-4-6');
   });
 });
 
@@ -81,7 +81,7 @@ describe('estimateCostUsd()', () => {
 
   it('calculates Sonnet cost correctly', () => {
     // 2000 input @ $3/M + 300 output @ $15/M
-    const cost = estimateCostUsd('claude-sonnet-4-5-20251022', 2000, 300);
+    const cost = estimateCostUsd('claude-sonnet-4-6', 2000, 300);
     expect(cost).toBeCloseTo(2000 * 3 / 1_000_000 + 300 * 15 / 1_000_000, 8);
   });
 
@@ -103,7 +103,7 @@ describe('estimateCostUsd()', () => {
 
   it('Gemini Flash is cheaper than Sonnet for equivalent tokens', () => {
     const geminiCost = estimateCostUsd('gemini-2.5-flash', 1000, 500);
-    const sonnetCost = estimateCostUsd('claude-sonnet-4-5-20251022', 1000, 500);
+    const sonnetCost = estimateCostUsd('claude-sonnet-4-6', 1000, 500);
     expect(geminiCost).toBeLessThan(sonnetCost);
   });
 });
