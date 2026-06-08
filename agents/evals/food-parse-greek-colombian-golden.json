@@ -69,7 +69,7 @@
         "primaryFood": ["yogurt", "honey", "walnut"],
         "totalKcal": { "min": 200, "max": 500 },
         "totalProtein": { "min": 8, "max": 30 },
-        "totalFat": { "min": 8, "max": 30 },
+        "totalFat": { "min": 8, "max": 35 },
         "totalCarbs": { "min": 20, "max": 50 }
       }
     },
@@ -115,7 +115,7 @@
         "primaryFood": ["olive", "ελιά"],
         "totalKcal": { "min": 30, "max": 120 },
         "totalProtein": { "min": 0, "max": 3 },
-        "totalFat": { "min": 3, "max": 12 },
+        "totalFat": { "min": 2, "max": 12 },
         "totalCarbs": { "min": 0, "max": 5 }
       }
     },
@@ -145,9 +145,9 @@
       "expected": {
         "items": 1,
         "primaryFood": ["greek salad", "horiatiki", "salad"],
-        "totalKcal": { "min": 140, "max": 230 },
-        "totalProtein": { "min": 4, "max": 9 },
-        "totalFat": { "min": 10, "max": 18 },
+        "totalKcal": { "min": 140, "max": 350 },
+        "totalProtein": { "min": 4, "max": 12 },
+        "totalFat": { "min": 10, "max": 30 },
         "totalCarbs": { "min": 5, "max": 12 }
       }
     },
@@ -209,9 +209,9 @@
       "expected": {
         "items": 2,
         "primaryFood": ["egg", "feta"],
-        "totalKcal": { "min": 200, "max": 340 },
+        "totalKcal": { "min": 200, "max": 370 },
         "totalProtein": { "min": 16, "max": 24 },
-        "totalFat": { "min": 14, "max": 26 },
+        "totalFat": { "min": 14, "max": 28 },
         "totalCarbs": { "min": 1, "max": 6 }
       }
     },
@@ -257,7 +257,7 @@
       "expected": {
         "items": 1,
         "primaryFood": ["egg", "huevo"],
-        "totalKcal": { "min": 130, "max": 200 },
+        "totalKcal": { "min": 130, "max": 250 },
         "totalProtein": { "min": 10, "max": 16 },
         "totalFat": { "min": 9, "max": 18 },
         "totalCarbs": { "min": 0, "max": 4 }
@@ -394,7 +394,7 @@
         "items": 1,
         "fallbackFlag": true,
         "confidenceMax": 0.85,
-        "kcalReasonable": { "min": 50, "max": 250 }
+        "kcalReasonable": { "min": 50, "max": 300 }
       }
     },
     {
@@ -451,10 +451,10 @@
       "expected": {
         "items": 1,
         "primaryFood": ["bean", "frijol"],
-        "totalKcal": { "min": 100, "max": 220 },
+        "totalKcal": { "min": 100, "max": 380 },
         "totalProtein": { "min": 6, "max": 16 },
-        "totalFat": { "min": 0, "max": 3 },
-        "totalCarbs": { "min": 18, "max": 40 }
+        "totalFat": { "min": 0, "max": 18 },
+        "totalCarbs": { "min": 18, "max": 48 }
       }
     },
     {

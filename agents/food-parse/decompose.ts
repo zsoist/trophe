@@ -90,7 +90,9 @@ export async function lookupCachedRecipe(dishName: string): Promise<CachedRecipe
            ingredients, source, confidence
     FROM dish_recipes
     WHERE to_tsvector('simple', dish_name) @@ plainto_tsquery('simple', ${normalized})
-    ORDER BY use_count DESC
+    ORDER BY
+      CASE WHEN lower(dish_name) = ${normalized} THEN 0 ELSE 1 END,
+      use_count DESC
     LIMIT 1
   `) as unknown as { rows: CachedRecipe[] };
 

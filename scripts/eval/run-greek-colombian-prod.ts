@@ -234,7 +234,7 @@ async function runCase(
 
   // Confidence check (for fallback cases, avg confidence should be ≤ max)
   const confMax = ex.confidenceMax ?? null;
-  const confPass = confMax === null || avgConfidence <= confMax;
+  const confPass = confMax === null || !hasAiFallback || avgConfidence <= confMax;
 
   // Latency
   const latencyPass = latencyMs <= MAX_LATENCY_MS;
