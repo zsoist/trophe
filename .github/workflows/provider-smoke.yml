@@ -1,0 +1,86 @@
+name: Production Provider Smoke
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: production
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+      GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Verify production provider credentials
+        shell: bash
+        run: |
+          node <<'NODE'
+          const checks = [
+            {
+              name: 'Google Gemini',
+              url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GOOGLE_API_KEY}`,
+              init: {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({
+                  contents: [{ parts: [{ text: 'Reply OK' }] }],
+                  generationConfig: { maxOutputTokens: 10 },
+                }),
+              },
+            },
+            {
+              name: 'Anthropic',
+              url: 'https://api.anthropic.com/v1/messages',
+              init: {
+                method: 'POST',
+                headers: {
+                  'content-type': 'application/json',
+                  'x-api-key': process.env.ANTHROPIC_API_KEY,
+                  'anthropic-version': '2023-06-01',
+                },
+                body: JSON.stringify({
+                  model: 'claude-haiku-4-5-20251001',
+                  max_tokens: 10,
+                  messages: [{ role: 'user', content: 'Reply OK' }],
+                }),
+              },
+            },
+            {
+              name: 'DeepSeek',
+              url: 'https://api.deepseek.com/chat/completions',
+              init: {
+                method: 'POST',
+                headers: {
+                  authorization: `Bearer ${process.env.DEEPSEEK_API_KEY}`,
+                  'content-type': 'application/json',
+                },
+                body: JSON.stringify({
+                  model: 'deepseek-v4-flash',
+                  max_tokens: 10,
+                  thinking: { type: 'disabled' },
+                  messages: [{ role: 'user', content: 'Reply OK' }],
+                }),
+              },
+            },
+          ];
+
+          let failed = false;
+          for (const check of checks) {
+            const startedAt = Date.now();
+            const response = await fetch(check.url, check.init);
+            const duration = Date.now() - startedAt;
+            console.log(`${check.name}: HTTP ${response.status} (${duration}ms)`);
+            if (!response.ok) failed = true;
+          }
+          if (failed) process.exit(1);
+          NODE
