@@ -299,27 +299,21 @@ export async function decomposeAndLookup(input: DecomposeInput): Promise<ParsedF
         matched_confidence: 0.9,
       });
     } else {
-      // Ingredient not in DB — use rough estimate (200 kcal/100g average)
-      const factor = ing.grams / 100;
-      totalKcal += 200 * factor;
-      totalProtein += 8 * factor;
-      totalCarbs += 25 * factor;
-      totalFat += 8 * factor;
-      totalFiber += 2 * factor;
-
       ingredientDetails.push({
         food_id: null,
         food_name: ing.name,
         grams: ing.grams,
-        matched_confidence: 0.3,
+        matched_confidence: 0,
       });
     }
   }
 
-  // Require at least 50% of ingredients matched for confidence
+  // Partial totals would silently undercount the dish while claiming local_db
+  // provenance. Use the governed, explicitly labeled fallback unless every
+  // decomposed ingredient has authoritative nutrition data.
   const matchRatio = matchedCount / decomposition.ingredients.length;
-  if (matchRatio < 0.5) {
-    console.warn(`[decompose] Low match ratio (${matchedCount}/${decomposition.ingredients.length}) for "${input.foodName}" — skipping cache`);
+  if (matchRatio < 1) {
+    console.warn(`[decompose] Incomplete match (${matchedCount}/${decomposition.ingredients.length}) for "${input.foodName}" — using governed fallback`);
     return null;
   }
 
