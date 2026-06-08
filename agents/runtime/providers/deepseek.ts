@@ -21,8 +21,16 @@ async function requestDeepSeek(body: Record<string, unknown>, signal: AbortSigna
     });
     const data = await response.json() as {
       id?: string;
-      choices?: Array<{ message?: { content?: string; tool_calls?: Array<{ function?: { arguments?: string } }> } }>;
-      usage?: { prompt_tokens?: number; completion_tokens?: number; prompt_cache_hit_tokens?: number };
+      choices?: Array<{
+        finish_reason?: string;
+        message?: { content?: string; tool_calls?: Array<{ function?: { arguments?: string } }> };
+      }>;
+      usage?: {
+        prompt_tokens?: number;
+        completion_tokens?: number;
+        prompt_cache_hit_tokens?: number;
+        prompt_cache_miss_tokens?: number;
+      };
       error?: { message?: string };
     };
     if (response.ok) return { response, data };
@@ -55,6 +63,10 @@ export async function invokeDeepSeekText(input: {
   }, input.signal);
   const output = data.choices?.[0]?.message?.content;
   if (!output) throw new Error(`DeepSeek request failed with ${response.status}`);
+  const finishReason = data.choices?.[0]?.finish_reason;
+  if (finishReason && !['stop', 'tool_calls'].includes(finishReason)) {
+    throw new Error(`DeepSeek incomplete response (${finishReason})`);
+  }
   return {
     output,
     providerGenerationId: data.id,
@@ -79,6 +91,7 @@ export async function invokeDeepSeekStructured<T>(input: {
   description: string;
   schema: Record<string, unknown>;
   validator: z.ZodType<T>;
+  strict?: boolean;
 }): Promise<ProviderResult<T>> {
   const startedAt = Date.now();
   const { response, data } = await requestDeepSeek({
@@ -92,12 +105,20 @@ export async function invokeDeepSeekStructured<T>(input: {
     user_id: deepSeekUserId(input.userId),
     tools: [{
       type: 'function',
-      function: { name: input.toolName, description: input.description, parameters: input.schema },
+      function: {
+        name: input.toolName,
+        description: input.description,
+        parameters: input.schema,
+        ...(input.strict ? { strict: true } : {}),
+      },
     }],
     tool_choice: { type: 'function', function: { name: input.toolName } },
-  }, input.signal);
+  }, input.signal, input.strict);
   const rawArguments = data.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
   if (!rawArguments) throw new Error('DeepSeek structured response missing tool call');
+  if (data.choices?.[0]?.finish_reason !== 'tool_calls') {
+    throw new Error(`DeepSeek structured response ended with ${data.choices?.[0]?.finish_reason ?? 'unknown reason'}`);
+  }
   return {
     output: input.validator.parse(JSON.parse(rawArguments)),
     providerGenerationId: data.id,

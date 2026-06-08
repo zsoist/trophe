@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { deepSeekUserId, invokeDeepSeekText } from '@/agents/runtime/providers/deepseek';
+import { deepSeekUserId, invokeDeepSeekStructured, invokeDeepSeekText } from '@/agents/runtime/providers/deepseek';
 import { estimateModelCostUsd } from '@/agents/router/pricing';
 import { invokeTextProvider } from '@/agents/runtime/providers/text';
+import { z } from 'zod';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -45,6 +46,53 @@ describe('DeepSeek governed provider candidate', () => {
       model: 'deepseek-v4-flash', system: 'system', prompt: 'prompt', maxTokens: 100,
       signal: new AbortController().signal,
     })).rejects.toThrow('DeepSeek request failed');
+  });
+
+  it('rejects incomplete text responses', async () => {
+    process.env.DEEPSEEK_API_KEY = 'test-only';
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
+      choices: [{ finish_reason: 'length', message: { content: 'partial answer' } }],
+    }), { status: 200 })));
+    await expect(invokeDeepSeekText({
+      model: 'deepseek-v4-flash', system: 'system', prompt: 'prompt', maxTokens: 100,
+      signal: new AbortController().signal,
+    })).rejects.toThrow('DeepSeek incomplete response (length)');
+  });
+
+  it('uses beta strict tool mode for governed structured output', async () => {
+    process.env.DEEPSEEK_API_KEY = 'test-only';
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+      choices: [{
+        finish_reason: 'tool_calls',
+        message: { tool_calls: [{ function: { arguments: '{"value":"ok"}' } }] },
+      }],
+      usage: { prompt_tokens: 5, completion_tokens: 2 },
+    }), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(invokeDeepSeekStructured({
+      model: 'deepseek-v4-flash',
+      system: 'system',
+      prompt: 'prompt',
+      maxTokens: 100,
+      signal: new AbortController().signal,
+      toolName: 'submit_result',
+      description: 'Submit result',
+      schema: {
+        type: 'object',
+        properties: { value: { type: 'string' } },
+        required: ['value'],
+        additionalProperties: false,
+      },
+      validator: z.object({ value: z.string() }),
+      strict: true,
+    })).resolves.toMatchObject({ output: { value: 'ok' } });
+
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe('https://api.deepseek.com/beta/chat/completions');
+    expect(JSON.parse(String(init?.body))).toMatchObject({
+      tools: [{ function: { strict: true } }],
+    });
   });
 
   it('is reachable through the governed text provider boundary', async () => {

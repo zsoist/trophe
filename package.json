@@ -17,6 +17,7 @@
     "evals:colombian-search": "tsx scripts/eval/run-colombian-search-cases.ts",
     "evals:nutrition": "tsx scripts/eval/run-greek-colombian-prod.ts",
     "evals:deepseek": "tsx scripts/eval/run-deepseek-candidate.ts",
+    "evals:deepseek:stress": "tsx scripts/eval/run-deepseek-stress.ts",
     "evals:rag": "tsx agents/evals/run-rag-eval.ts",
     "readiness": "tsx scripts/check-enterprise-readiness.ts",
     "readiness:integrations": "tsx scripts/check-integration-readiness.ts",
