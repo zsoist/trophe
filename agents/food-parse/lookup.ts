@@ -570,6 +570,7 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
   'protein shake': 'protein powder whey',
   'whole milk': 'milk whole',
   'bacon': 'pork cured bacon',
+  'salad': 'side salad',
   // Oats: "oatmeal" should match cooked oats cereal, not oatmeal bread
   'oatmeal': 'cereals oats regular cooked',
   'oats': 'cereals oats regular',
