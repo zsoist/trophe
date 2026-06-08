@@ -30,6 +30,7 @@ const WINDOW_MS = 15 * 60 * 1_000; // 15 minutes
  */
 const RATE_LIMIT_BYPASS_USER_IDS = new Set([
   '7dbb5644-6a38-4f48-a512-d8be68e97ab7', // eval-tester-2026@trophe.app
+  'f7f6350f-b210-46ea-88ce-409d03e9eaa7', // eval-tester-2026@trophe.app (current)
 ]);
 
 export type AiRouteGuardResult =

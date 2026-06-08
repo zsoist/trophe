@@ -159,7 +159,8 @@ async function runCase(
       body: JSON.stringify({ text: c.input, language: c.language }),
     });
     httpStatus = res.status;
-    const body = await res.json();
+    const rawBody = await res.text();
+    const body = rawBody ? JSON.parse(rawBody) : {};
 
     if (res.ok && body.items) {
       response = { items: body.items };
