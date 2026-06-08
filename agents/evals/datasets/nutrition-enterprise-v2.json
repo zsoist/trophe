@@ -1,0 +1,3723 @@
+{
+  "version": "2.0",
+  "description": "210 natural-language food-parse cases: Greek, Colombian, English, branded, adversarial, clarification, multi-item. Nutritional ranges cross-referenced with USDA SR28, Trichopoulou 2003, and Kavdas serving-size rules.",
+  "created": "2026-06-08",
+  "pass_criteria": {
+    "item_count_match": true,
+    "portion_tolerance_pct": 20,
+    "macro_tolerance_pct": 15,
+    "latency_p95_ms": 8000
+  },
+  "cases": [
+    {
+      "id": "el-base-01",
+      "input": "200γρ φέτα",
+      "language": "el",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 500, "max": 560 },
+        "protein_g": { "min": 26, "max": 32 },
+        "carbs_g": { "min": 6, "max": 12 },
+        "fat_g": { "min": 40, "max": 46 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "200g feta PDO. USDA: 264 kcal/100g, 14.2g P, 4.1g C, 21.3g F"
+    },
+    {
+      "id": "el-base-02",
+      "input": "100γρ φέτα",
+      "language": "el",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 250, "max": 280 },
+        "protein_g": { "min": 13, "max": 16 },
+        "carbs_g": { "min": 3, "max": 6 },
+        "fat_g": { "min": 20, "max": 23 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "100g feta baseline reference"
+    },
+    {
+      "id": "el-base-03",
+      "input": "1 μπολ γιαούρτι 10%",
+      "language": "el",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 170, "max": 240 },
+        "protein_g": { "min": 8, "max": 14 },
+        "carbs_g": { "min": 6, "max": 12 },
+        "fat_g": { "min": 14, "max": 24 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Bowl (~200g) of 10% Greek yogurt. 97 kcal/100g"
+    },
+    {
+      "id": "el-base-04",
+      "input": "2 κουταλιές ελαιόλαδο",
+      "language": "el",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 220, "max": 270 },
+        "protein_g": { "min": 0, "max": 1 },
+        "carbs_g": { "min": 0, "max": 1 },
+        "fat_g": { "min": 26, "max": 30 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "2 tbsp olive oil (~28g). 884 kcal/100g, 100g fat"
+    },
+    {
+      "id": "el-base-05",
+      "input": "10 ελιές Καλαμών",
+      "language": "el",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 50, "max": 80 },
+        "protein_g": { "min": 0, "max": 2 },
+        "carbs_g": { "min": 1, "max": 4 },
+        "fat_g": { "min": 5, "max": 9 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "10 Kalamata olives (~40g). 145 kcal/100g, 15.3g fat/100g"
+    },
+    {
+      "id": "el-base-06",
+      "input": "2 φέτες ψωμί ολικής",
+      "language": "el",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 130, "max": 180 },
+        "protein_g": { "min": 5, "max": 9 },
+        "carbs_g": { "min": 22, "max": 34 },
+        "fat_g": { "min": 2, "max": 5 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "2 slices whole wheat bread (~60g). 247 kcal/100g"
+    },
+    {
+      "id": "el-base-07",
+      "input": "50γρ κασέρι",
+      "language": "el",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 170, "max": 210 },
+        "protein_g": { "min": 12, "max": 16 },
+        "carbs_g": { "min": 0, "max": 3 },
+        "fat_g": { "min": 13, "max": 18 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "50g kasseri cheese. ~380 kcal/100g, 25g P, 30g F"
+    },
+    {
+      "id": "el-base-08",
+      "input": "100γρ γραβιέρα Κρήτης",
+      "language": "el",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 370, "max": 420 },
+        "protein_g": { "min": 25, "max": 32 },
+        "carbs_g": { "min": 0, "max": 3 },
+        "fat_g": { "min": 28, "max": 35 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "100g Cretan graviera. Hard cheese ~400 kcal/100g"
+    },
+    {
+      "id": "el-base-09",
+      "input": "200γρ γιαούρτι 2%",
+      "language": "el",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 110, "max": 140 },
+        "protein_g": { "min": 14, "max": 22 },
+        "carbs_g": { "min": 6, "max": 12 },
+        "fat_g": { "min": 3, "max": 6 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "200g low-fat (2%) Greek yogurt. ~59 kcal/100g"
+    },
+    {
+      "id": "el-base-10",
+      "input": "1 κουταλιά μέλι Κρήτης",
+      "language": "el",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 55, "max": 75 },
+        "protein_g": { "min": 0, "max": 1 },
+        "carbs_g": { "min": 15, "max": 21 },
+        "fat_g": { "min": 0, "max": 1 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "1 tbsp Cretan honey (~21g). 304 kcal/100g"
+    },
+    {
+      "id": "el-base-11",
+      "input": "1 αυγό βραστό",
+      "language": "el",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 65, "max": 85 },
+        "protein_g": { "min": 5, "max": 8 },
+        "carbs_g": { "min": 0, "max": 2 },
+        "fat_g": { "min": 4, "max": 6 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "1 boiled egg (~50g). 155 kcal/100g, 12.6g P, 10.6g F"
+    },
+    {
+      "id": "el-base-12",
+      "input": "3 αυγά ομελέτα",
+      "language": "el",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 250, "max": 330 },
+        "protein_g": { "min": 18, "max": 24 },
+        "carbs_g": { "min": 0, "max": 4 },
+        "fat_g": { "min": 18, "max": 26 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "3-egg omelet. Adds cooking fat, ~100 kcal/egg for omelet"
+    },
+    {
+      "id": "el-base-13",
+      "input": "ένα ποτήρι γάλα πλήρες",
+      "language": "el",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 130, "max": 165 },
+        "protein_g": { "min": 7, "max": 10 },
+        "carbs_g": { "min": 10, "max": 14 },
+        "fat_g": { "min": 7, "max": 10 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "1 glass (~240ml) whole milk. 61 kcal/100ml"
+    },
+    {
+      "id": "el-base-14",
+      "input": "150γρ κοτόπουλο στήθος ψητό",
+      "language": "el",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 230, "max": 270 },
+        "protein_g": { "min": 42, "max": 50 },
+        "carbs_g": { "min": 0, "max": 1 },
+        "fat_g": { "min": 4, "max": 8 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "150g grilled chicken breast. 165 kcal/100g, 31g P, 3.6g F"
+    },
+    {
+      "id": "el-base-15",
+      "input": "100γρ χαλούμι",
+      "language": "el",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 310, "max": 360 },
+        "protein_g": { "min": 22, "max": 28 },
+        "carbs_g": { "min": 0, "max": 4 },
+        "fat_g": { "min": 24, "max": 30 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "100g halloumi cheese. ~321 kcal/100g, 25g P, 25g F"
+    },
+    {
+      "id": "el-base-16",
+      "input": "1 φλιτζάνι ρύζι βρασμένο",
+      "language": "el",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 190, "max": 240 },
+        "protein_g": { "min": 3, "max": 6 },
+        "carbs_g": { "min": 40, "max": 52 },
+        "fat_g": { "min": 0, "max": 2 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "1 cup (~158g) cooked rice. 130 kcal/100g"
+    },
+    {
+      "id": "el-base-17",
+      "input": "200γρ τζατζίκι",
+      "language": "el",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 80, "max": 130 },
+        "protein_g": { "min": 4, "max": 10 },
+        "carbs_g": { "min": 4, "max": 10 },
+        "fat_g": { "min": 4, "max": 10 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "200g tzatziki. ~55 kcal/100g (yogurt-based dip)"
+    },
+    {
+      "id": "el-base-18",
+      "input": "1 μπανάνα",
+      "language": "el",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 90, "max": 120 },
+        "protein_g": { "min": 1, "max": 2 },
+        "carbs_g": { "min": 22, "max": 30 },
+        "fat_g": { "min": 0, "max": 1 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "1 medium banana (~118g). 89 kcal/100g"
+    },
+    {
+      "id": "el-base-19",
+      "input": "30γρ αμύγδαλα",
+      "language": "el",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 165, "max": 185 },
+        "protein_g": { "min": 6, "max": 8 },
+        "carbs_g": { "min": 5, "max": 8 },
+        "fat_g": { "min": 14, "max": 16 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "30g almonds. 579 kcal/100g, 21g P, 50g F"
+    },
+    {
+      "id": "el-base-20",
+      "input": "1 φακές μερίδα",
+      "language": "el",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 180, "max": 260 },
+        "protein_g": { "min": 12, "max": 20 },
+        "carbs_g": { "min": 28, "max": 42 },
+        "fat_g": { "min": 1, "max": 5 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "1 serving (~200g cooked) lentils. 116 kcal/100g, 9g P, 20g C"
+    },
+    {
+      "id": "el-base-21",
+      "input": "2 ντομάτες",
+      "language": "el",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 30, "max": 50 },
+        "protein_g": { "min": 1, "max": 3 },
+        "carbs_g": { "min": 6, "max": 10 },
+        "fat_g": { "min": 0, "max": 2 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "2 medium tomatoes (~250g). 18 kcal/100g"
+    },
+    {
+      "id": "el-base-22",
+      "input": "1 αγγούρι",
+      "language": "el",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 25, "max": 50 },
+        "protein_g": { "min": 1, "max": 3 },
+        "carbs_g": { "min": 5, "max": 10 },
+        "fat_g": { "min": 0, "max": 1 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "1 medium cucumber (~300g). 15 kcal/100g"
+    },
+    {
+      "id": "el-base-23",
+      "input": "150γρ κιμά μοσχαρίσιο",
+      "language": "el",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 310, "max": 400 },
+        "protein_g": { "min": 28, "max": 38 },
+        "carbs_g": { "min": 0, "max": 2 },
+        "fat_g": { "min": 20, "max": 30 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "150g ground beef. 254 kcal/100g (80/20 lean)"
+    },
+    {
+      "id": "el-base-24",
+      "input": "1 μήλο",
+      "language": "el",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 72, "max": 110 },
+        "protein_g": { "min": 0, "max": 1 },
+        "carbs_g": { "min": 19, "max": 28 },
+        "fat_g": { "min": 0, "max": 1 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "1 medium apple (~182g). 52 kcal/100g"
+    },
+    {
+      "id": "el-base-25",
+      "input": "100γρ παξιμάδι Κρήτης",
+      "language": "el",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 370, "max": 430 },
+        "protein_g": { "min": 10, "max": 16 },
+        "carbs_g": { "min": 65, "max": 80 },
+        "fat_g": { "min": 4, "max": 10 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "100g Cretan rusk/paximadi. ~400 kcal/100g, barley rusk"
+    },
+    {
+      "id": "el-comp-01",
+      "input": "1 μερίδα μουσακά",
+      "language": "el",
+      "category": "composite",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 300, "max": 420 },
+        "protein_g": { "min": 14, "max": 24 },
+        "carbs_g": { "min": 18, "max": 30 },
+        "fat_g": { "min": 16, "max": 28 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "1 serving moussaka (~300g). ~117 kcal/100g. Eggplant/meat/bechamel"
+    },
+    {
+      "id": "el-comp-02",
+      "input": "1 σουβλάκι χοιρινό με πίτα",
+      "language": "el",
+      "category": "composite",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 380, "max": 520 },
+        "protein_g": { "min": 22, "max": 35 },
+        "carbs_g": { "min": 30, "max": 48 },
+        "fat_g": { "min": 14, "max": 26 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Pork souvlaki in pita (~250g). ~180 kcal/100g"
+    },
+    {
+      "id": "el-comp-03",
+      "input": "μια σπανακόπιτα",
+      "language": "el",
+      "category": "composite",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 220, "max": 340 },
+        "protein_g": { "min": 7, "max": 14 },
+        "carbs_g": { "min": 17, "max": 27 },
+        "fat_g": { "min": 14, "max": 22 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "1 spanakopita (~130g). HHF: 215 kcal/100g"
+    },
+    {
+      "id": "el-comp-04",
+      "input": "1 χωριάτικη σαλάτα",
+      "language": "el",
+      "category": "composite",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 140, "max": 350 },
+        "protein_g": { "min": 4, "max": 12 },
+        "carbs_g": { "min": 5, "max": 15 },
+        "fat_g": { "min": 10, "max": 30 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Greek village salad (horiatiki). ~200g serving, olive oil dependent"
+    },
+    {
+      "id": "el-comp-05",
+      "input": "1 μερίδα φασολάδα",
+      "language": "el",
+      "category": "composite",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 200, "max": 320 },
+        "protein_g": { "min": 10, "max": 18 },
+        "carbs_g": { "min": 30, "max": 48 },
+        "fat_g": { "min": 5, "max": 14 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "1 serving fasolada (bean soup, ~350ml). ~70-80 kcal/100g"
+    },
+    {
+      "id": "el-comp-06",
+      "input": "1 γύρο κοτόπουλο απ' όλα",
+      "language": "el",
+      "category": "composite",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 400, "max": 600 },
+        "protein_g": { "min": 25, "max": 40 },
+        "carbs_g": { "min": 32, "max": 52 },
+        "fat_g": { "min": 14, "max": 28 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Chicken gyro with everything (~300g). Pita+meat+tzatziki+onion+tomato"
+    },
+    {
+      "id": "el-comp-07",
+      "input": "1 μερίδα παστίτσιο",
+      "language": "el",
+      "category": "composite",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 350, "max": 480 },
+        "protein_g": { "min": 16, "max": 26 },
+        "carbs_g": { "min": 28, "max": 42 },
+        "fat_g": { "min": 18, "max": 30 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "1 serving pastitsio (~300g). Pasta/meat/bechamel. ~130 kcal/100g"
+    },
+    {
+      "id": "el-comp-08",
+      "input": "μια μερίδα γεμιστά",
+      "language": "el",
+      "category": "composite",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 200, "max": 350 },
+        "protein_g": { "min": 4, "max": 10 },
+        "carbs_g": { "min": 25, "max": 42 },
+        "fat_g": { "min": 10, "max": 20 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Stuffed tomatoes/peppers with rice (~250g). ~90-110 kcal/100g"
+    },
+    {
+      "id": "el-comp-09",
+      "input": "1 μερίδα μπριάμ",
+      "language": "el",
+      "category": "composite",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 150, "max": 280 },
+        "protein_g": { "min": 3, "max": 8 },
+        "carbs_g": { "min": 15, "max": 30 },
+        "fat_g": { "min": 8, "max": 18 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Greek roasted mixed vegetables (~300g). ~70 kcal/100g"
+    },
+    {
+      "id": "el-comp-10",
+      "input": "σουτζουκάκια με ρύζι",
+      "language": "el",
+      "category": "composite",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 350, "max": 520 },
+        "protein_g": { "min": 18, "max": 30 },
+        "carbs_g": { "min": 30, "max": 50 },
+        "fat_g": { "min": 14, "max": 26 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Smyrna meatballs in tomato sauce with rice. ~130 kcal/100g meat + rice"
+    },
+    {
+      "id": "el-comp-11",
+      "input": "1 μερίδα γίγαντες πλακί",
+      "language": "el",
+      "category": "composite",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 200, "max": 330 },
+        "protein_g": { "min": 10, "max": 18 },
+        "carbs_g": { "min": 28, "max": 44 },
+        "fat_g": { "min": 6, "max": 14 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Giant beans baked in tomato (~250g). ~90 kcal/100g"
+    },
+    {
+      "id": "el-comp-12",
+      "input": "ντολμαδάκια γιαλαντζί 6 κομμάτια",
+      "language": "el",
+      "category": "composite",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 130, "max": 220 },
+        "protein_g": { "min": 2, "max": 6 },
+        "carbs_g": { "min": 16, "max": 28 },
+        "fat_g": { "min": 6, "max": 14 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "6 vegetarian stuffed vine leaves (~120g). Rice+herbs+olive oil"
+    },
+    {
+      "id": "el-comp-13",
+      "input": "1 μερίδα κοκκινιστό μοσχάρι",
+      "language": "el",
+      "category": "composite",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 280, "max": 420 },
+        "protein_g": { "min": 26, "max": 40 },
+        "carbs_g": { "min": 5, "max": 15 },
+        "fat_g": { "min": 14, "max": 26 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Beef stew in tomato sauce (~250g). ~140 kcal/100g"
+    },
+    {
+      "id": "el-comp-14",
+      "input": "1 μερίδα κολοκυθοκεφτέδες",
+      "language": "el",
+      "category": "composite",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 180, "max": 300 },
+        "protein_g": { "min": 5, "max": 12 },
+        "carbs_g": { "min": 15, "max": 28 },
+        "fat_g": { "min": 10, "max": 20 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Zucchini fritters (~150g, 5-6 pieces). Fried, ~160 kcal/100g"
+    },
+    {
+      "id": "el-comp-15",
+      "input": "1 πιάτο φακές σούπα",
+      "language": "el",
+      "category": "composite",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 200, "max": 320 },
+        "protein_g": { "min": 12, "max": 20 },
+        "carbs_g": { "min": 28, "max": 44 },
+        "fat_g": { "min": 4, "max": 12 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Plate of lentil soup (~350ml). ~80 kcal/100g with olive oil"
+    },
+    {
+      "id": "el-comp-16",
+      "input": "σουβλάκι κοτόπουλο χωρίς πίτα",
+      "language": "el",
+      "category": "composite",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 150, "max": 230 },
+        "protein_g": { "min": 22, "max": 34 },
+        "carbs_g": { "min": 0, "max": 4 },
+        "fat_g": { "min": 5, "max": 12 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Chicken souvlaki skewer without pita (~120g meat)"
+    },
+    {
+      "id": "el-comp-17",
+      "input": "1 μερίδα μπάμιες λαδερές",
+      "language": "el",
+      "category": "composite",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 120, "max": 220 },
+        "protein_g": { "min": 3, "max": 7 },
+        "carbs_g": { "min": 10, "max": 20 },
+        "fat_g": { "min": 8, "max": 16 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Okra in olive oil and tomato (~250g). ~60-80 kcal/100g"
+    },
+    {
+      "id": "el-comp-18",
+      "input": "αρνί ψητό 2 κομμάτια",
+      "language": "el",
+      "category": "composite",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 300, "max": 480 },
+        "protein_g": { "min": 30, "max": 48 },
+        "carbs_g": { "min": 0, "max": 2 },
+        "fat_g": { "min": 18, "max": 32 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "2 pieces roasted lamb (~200g). ~206 kcal/100g, 25g P, 11g F"
+    },
+    {
+      "id": "el-comp-19",
+      "input": "1 μερίδα μαγειρίτσα",
+      "language": "el",
+      "category": "composite",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 200, "max": 350 },
+        "protein_g": { "min": 12, "max": 22 },
+        "carbs_g": { "min": 8, "max": 18 },
+        "fat_g": { "min": 10, "max": 22 }
+      },
+      "expect_source": ["ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Easter lamb soup with avgolemono (~350ml). Very regional"
+    },
+    {
+      "id": "el-comp-20",
+      "input": "1 μερίδα γιουβαρλάκια αυγολέμονο",
+      "language": "el",
+      "category": "composite",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 250, "max": 400 },
+        "protein_g": { "min": 14, "max": 24 },
+        "carbs_g": { "min": 15, "max": 28 },
+        "fat_g": { "min": 12, "max": 24 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Meatball soup with egg-lemon sauce (~350ml). ~90 kcal/100g"
+    },
+    {
+      "id": "el-comp-21",
+      "input": "κεφτεδάκια τηγανητά 5 κομμάτια",
+      "language": "el",
+      "category": "composite",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 300, "max": 450 },
+        "protein_g": { "min": 18, "max": 28 },
+        "carbs_g": { "min": 8, "max": 18 },
+        "fat_g": { "min": 18, "max": 30 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "5 fried meatballs (~175g). ~200 kcal/100g"
+    },
+    {
+      "id": "el-comp-22",
+      "input": "1 χωριάτικο λουκάνικο ψητό",
+      "language": "el",
+      "category": "composite",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 250, "max": 380 },
+        "protein_g": { "min": 14, "max": 22 },
+        "carbs_g": { "min": 1, "max": 6 },
+        "fat_g": { "min": 20, "max": 32 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "1 grilled village sausage (~100-120g). ~280 kcal/100g"
+    },
+    {
+      "id": "el-comp-23",
+      "input": "1 πιάτο χόρτα βραστά με λαδολέμονο",
+      "language": "el",
+      "category": "composite",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 100, "max": 200 },
+        "protein_g": { "min": 3, "max": 8 },
+        "carbs_g": { "min": 5, "max": 12 },
+        "fat_g": { "min": 8, "max": 18 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Boiled wild greens (~200g) with olive oil-lemon dressing"
+    },
+    {
+      "id": "el-comp-24",
+      "input": "1 σαγανάκι τυρί",
+      "language": "el",
+      "category": "composite",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 280, "max": 420 },
+        "protein_g": { "min": 16, "max": 26 },
+        "carbs_g": { "min": 4, "max": 14 },
+        "fat_g": { "min": 22, "max": 34 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Fried cheese saganaki (~100g cheese + flour + oil). ~350 kcal"
+    },
+    {
+      "id": "el-comp-25",
+      "input": "2 κομμάτια μπακλαβά",
+      "language": "el",
+      "category": "composite",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 540, "max": 820 },
+        "protein_g": { "min": 9, "max": 16 },
+        "carbs_g": { "min": 66, "max": 100 },
+        "fat_g": { "min": 28, "max": 44 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "2 pieces baklava (~160g). 425 kcal/100g"
+    },
+    {
+      "id": "el-vague-01",
+      "input": "λίγο φέτα",
+      "language": "el",
+      "category": "vague_quantity",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 55, "max": 160 },
+        "protein_g": { "min": 3, "max": 10 },
+        "carbs_g": { "min": 0, "max": 5 },
+        "fat_g": { "min": 4, "max": 13 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "A little feta — vague, likely 20-60g default. Wide ±30% band"
+    },
+    {
+      "id": "el-vague-02",
+      "input": "μερικές ελιές",
+      "language": "el",
+      "category": "vague_quantity",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 20, "max": 100 },
+        "protein_g": { "min": 0, "max": 2 },
+        "carbs_g": { "min": 0, "max": 5 },
+        "fat_g": { "min": 2, "max": 10 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Some olives — 5-15 olives possible. ±30% band"
+    },
+    {
+      "id": "el-vague-03",
+      "input": "μια χούφτα αμύγδαλα",
+      "language": "el",
+      "category": "vague_quantity",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 110, "max": 250 },
+        "protein_g": { "min": 4, "max": 10 },
+        "carbs_g": { "min": 3, "max": 9 },
+        "fat_g": { "min": 9, "max": 22 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Handful of almonds — 'χούφτα' = 20-40g. ±30% band"
+    },
+    {
+      "id": "el-vague-04",
+      "input": "ένα κομμάτι πίτα",
+      "language": "el",
+      "category": "vague_quantity",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 140, "max": 350 },
+        "protein_g": { "min": 4, "max": 12 },
+        "carbs_g": { "min": 12, "max": 30 },
+        "fat_g": { "min": 8, "max": 22 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "A piece of pie — ambiguous (cheese? spinach?). Wide band"
+    },
+    {
+      "id": "el-vague-05",
+      "input": "λίγο τζατζίκι",
+      "language": "el",
+      "category": "vague_quantity",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 20, "max": 80 },
+        "protein_g": { "min": 1, "max": 5 },
+        "carbs_g": { "min": 1, "max": 5 },
+        "fat_g": { "min": 1, "max": 6 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "A little tzatziki — 30-100g. ~55 kcal/100g"
+    },
+    {
+      "id": "el-vague-06",
+      "input": "λίγο ψωμί",
+      "language": "el",
+      "category": "vague_quantity",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 50, "max": 180 },
+        "protein_g": { "min": 2, "max": 7 },
+        "carbs_g": { "min": 10, "max": 35 },
+        "fat_g": { "min": 0, "max": 4 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "A little bread — 1-2 slices. ±30% band"
+    },
+    {
+      "id": "el-vague-07",
+      "input": "μια μπουκιά γλυκό",
+      "language": "el",
+      "category": "vague_quantity",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 20, "max": 80 },
+        "protein_g": { "min": 0, "max": 2 },
+        "carbs_g": { "min": 4, "max": 14 },
+        "fat_g": { "min": 1, "max": 5 }
+      },
+      "expect_source": ["ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "A bite of dessert — extremely vague. ~15-30g portion"
+    },
+    {
+      "id": "el-vague-08",
+      "input": "αρκετό ελαιόλαδο στη σαλάτα",
+      "language": "el",
+      "category": "vague_quantity",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 80, "max": 310 },
+        "protein_g": { "min": 0, "max": 1 },
+        "carbs_g": { "min": 0, "max": 1 },
+        "fat_g": { "min": 10, "max": 35 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Plenty of olive oil on salad — 10-35ml. ±30% band"
+    },
+    {
+      "id": "el-vague-09",
+      "input": "ένα πιάτο ρύζι",
+      "language": "el",
+      "category": "vague_quantity",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 160, "max": 350 },
+        "protein_g": { "min": 3, "max": 7 },
+        "carbs_g": { "min": 35, "max": 75 },
+        "fat_g": { "min": 0, "max": 4 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "A plate of rice — 130-250g cooked. ±30% band"
+    },
+    {
+      "id": "el-vague-10",
+      "input": "κάτι σαν σαλάτα",
+      "language": "el",
+      "category": "vague_quantity",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 30, "max": 300 },
+        "protein_g": { "min": 1, "max": 10 },
+        "carbs_g": { "min": 3, "max": 15 },
+        "fat_g": { "min": 1, "max": 25 }
+      },
+      "expect_source": ["ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": true,
+      "notes": "Something like a salad — extremely vague, should trigger clarification"
+    },
+    {
+      "id": "el-cs-01",
+      "input": "I had μουσακά for lunch",
+      "language": "mixed",
+      "category": "code_switch",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 300, "max": 420 },
+        "protein_g": { "min": 14, "max": 24 },
+        "carbs_g": { "min": 18, "max": 30 },
+        "fat_g": { "min": 16, "max": 28 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "English frame + Greek food name. Standard serving ~300g"
+    },
+    {
+      "id": "el-cs-02",
+      "input": "ate σουβλάκι for lunch",
+      "language": "mixed",
+      "category": "code_switch",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 380, "max": 520 },
+        "protein_g": { "min": 22, "max": 35 },
+        "carbs_g": { "min": 30, "max": 48 },
+        "fat_g": { "min": 14, "max": 26 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "English verb + Greek noun. Assumes pita wrap"
+    },
+    {
+      "id": "el-cs-03",
+      "input": "I had 2 eggs με φέτα",
+      "language": "mixed",
+      "category": "code_switch",
+      "expect_item_count": 2,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 200, "max": 370 },
+        "protein_g": { "min": 16, "max": 24 },
+        "carbs_g": { "min": 1, "max": 6 },
+        "fat_g": { "min": 14, "max": 28 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "English eggs + Greek conjunction + Greek cheese"
+    },
+    {
+      "id": "el-cs-04",
+      "input": "had some χαλούμι and salad",
+      "language": "mixed",
+      "category": "code_switch",
+      "expect_item_count": 2,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 200, "max": 400 },
+        "protein_g": { "min": 14, "max": 28 },
+        "carbs_g": { "min": 3, "max": 12 },
+        "fat_g": { "min": 14, "max": 30 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "English+Greek mix. Default halloumi + side salad"
+    },
+    {
+      "id": "el-cs-05",
+      "input": "just a γιαούρτι with honey",
+      "language": "mixed",
+      "category": "code_switch",
+      "expect_item_count": 2,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 150, "max": 280 },
+        "protein_g": { "min": 6, "max": 14 },
+        "carbs_g": { "min": 18, "max": 35 },
+        "fat_g": { "min": 5, "max": 14 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Greek yogurt + English honey"
+    },
+    {
+      "id": "el-cs-06",
+      "input": "breakfast was a τυρόπιτα and coffee",
+      "language": "mixed",
+      "category": "code_switch",
+      "expect_item_count": 2,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 250, "max": 400 },
+        "protein_g": { "min": 8, "max": 16 },
+        "carbs_g": { "min": 20, "max": 35 },
+        "fat_g": { "min": 14, "max": 26 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Code-switch: Greek tiropita + English coffee (black ~2 kcal)"
+    },
+    {
+      "id": "el-cs-07",
+      "input": "snacked on some μπακλαβά",
+      "language": "mixed",
+      "category": "code_switch",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 270, "max": 450 },
+        "protein_g": { "min": 4, "max": 9 },
+        "carbs_g": { "min": 33, "max": 55 },
+        "fat_g": { "min": 14, "max": 24 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "English verb + Greek dessert. Default 1 piece ~80g"
+    },
+    {
+      "id": "el-cs-08",
+      "input": "I made a big φακές plate today",
+      "language": "mixed",
+      "category": "code_switch",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 250, "max": 400 },
+        "protein_g": { "min": 14, "max": 24 },
+        "carbs_g": { "min": 35, "max": 55 },
+        "fat_g": { "min": 4, "max": 14 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Big plate of lentils — 'big' modifier should upscale portion"
+    },
+    {
+      "id": "el-cs-09",
+      "input": "had a slice of σπανακόπιτα for snack",
+      "language": "mixed",
+      "category": "code_switch",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 180, "max": 300 },
+        "protein_g": { "min": 6, "max": 12 },
+        "carbs_g": { "min": 14, "max": 24 },
+        "fat_g": { "min": 12, "max": 20 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "English frame with Greek pie name. 1 slice ~110g"
+    },
+    {
+      "id": "el-cs-10",
+      "input": "dinner was παστίτσιο with green salad",
+      "language": "mixed",
+      "category": "code_switch",
+      "expect_item_count": 2,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 370, "max": 530 },
+        "protein_g": { "min": 18, "max": 30 },
+        "carbs_g": { "min": 30, "max": 48 },
+        "fat_g": { "min": 18, "max": 34 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Greek pastitsio + English green salad"
+    },
+    {
+      "id": "el-bake-01",
+      "input": "1 κουλούρι Θεσσαλονίκης",
+      "language": "el",
+      "category": "bakery",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 280, "max": 380 },
+        "protein_g": { "min": 8, "max": 14 },
+        "carbs_g": { "min": 50, "max": 70 },
+        "fat_g": { "min": 4, "max": 10 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Thessaloniki sesame bread ring (~100g). ~310 kcal/100g"
+    },
+    {
+      "id": "el-bake-02",
+      "input": "1 μπουγάτσα κρέμα",
+      "language": "el",
+      "category": "bakery",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 300, "max": 450 },
+        "protein_g": { "min": 6, "max": 12 },
+        "carbs_g": { "min": 35, "max": 55 },
+        "fat_g": { "min": 14, "max": 26 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Custard bougatsa (~150g). Phyllo + semolina cream"
+    },
+    {
+      "id": "el-bake-03",
+      "input": "1 τυρόπιτα",
+      "language": "el",
+      "category": "bakery",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 250, "max": 380 },
+        "protein_g": { "min": 8, "max": 16 },
+        "carbs_g": { "min": 20, "max": 35 },
+        "fat_g": { "min": 14, "max": 26 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "1 cheese pie (~120g). ~270 kcal/100g"
+    },
+    {
+      "id": "el-bake-04",
+      "input": "4 λουκουμάδες",
+      "language": "el",
+      "category": "bakery",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 200, "max": 340 },
+        "protein_g": { "min": 3, "max": 7 },
+        "carbs_g": { "min": 30, "max": 50 },
+        "fat_g": { "min": 8, "max": 16 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "4 loukoumades (honey puffs, ~25g each). ~320 kcal/100g fried"
+    },
+    {
+      "id": "el-bake-05",
+      "input": "1 παστέλι",
+      "language": "el",
+      "category": "bakery",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 150, "max": 220 },
+        "protein_g": { "min": 4, "max": 8 },
+        "carbs_g": { "min": 18, "max": 30 },
+        "fat_g": { "min": 7, "max": 13 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Sesame-honey bar (~40g). ~460 kcal/100g"
+    },
+    {
+      "id": "el-bake-06",
+      "input": "1 κρουασάν σοκολάτα",
+      "language": "el",
+      "category": "bakery",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 280, "max": 420 },
+        "protein_g": { "min": 5, "max": 10 },
+        "carbs_g": { "min": 30, "max": 50 },
+        "fat_g": { "min": 16, "max": 26 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Chocolate croissant (~80g). ~400 kcal/100g"
+    },
+    {
+      "id": "el-bake-07",
+      "input": "1 τσουρέκι φέτα",
+      "language": "el",
+      "category": "bakery",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 250, "max": 370 },
+        "protein_g": { "min": 6, "max": 12 },
+        "carbs_g": { "min": 38, "max": 56 },
+        "fat_g": { "min": 8, "max": 16 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "1 slice tsoureki (Easter bread, ~80g). ~350 kcal/100g, brioche-like"
+    },
+    {
+      "id": "el-bake-08",
+      "input": "2 κουλουράκια βουτύρου",
+      "language": "el",
+      "category": "bakery",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 160, "max": 260 },
+        "protein_g": { "min": 2, "max": 6 },
+        "carbs_g": { "min": 22, "max": 36 },
+        "fat_g": { "min": 7, "max": 14 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "2 butter cookies (~50g). ~450 kcal/100g"
+    },
+    {
+      "id": "el-bake-09",
+      "input": "1 γαλακτομπούρεκο",
+      "language": "el",
+      "category": "bakery",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 300, "max": 460 },
+        "protein_g": { "min": 6, "max": 12 },
+        "carbs_g": { "min": 40, "max": 62 },
+        "fat_g": { "min": 14, "max": 24 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Galaktoboureko custard phyllo (~150g). ~260 kcal/100g"
+    },
+    {
+      "id": "el-bake-10",
+      "input": "1 μελομακάρονο",
+      "language": "el",
+      "category": "bakery",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 180, "max": 280 },
+        "protein_g": { "min": 3, "max": 6 },
+        "carbs_g": { "min": 28, "max": 42 },
+        "fat_g": { "min": 7, "max": 13 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "1 melomakarono honey cookie (~60g). ~380 kcal/100g"
+    },
+    {
+      "id": "el-sea-01",
+      "input": "χταπόδι ξιδάτο 200γρ",
+      "language": "el",
+      "category": "seafood",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 140, "max": 200 },
+        "protein_g": { "min": 24, "max": 34 },
+        "carbs_g": { "min": 2, "max": 8 },
+        "fat_g": { "min": 2, "max": 6 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "200g octopus in vinaigrette. 82 kcal/100g, 14.9g P"
+    },
+    {
+      "id": "el-sea-02",
+      "input": "καλαμάρι τηγανητό μερίδα",
+      "language": "el",
+      "category": "seafood",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 280, "max": 420 },
+        "protein_g": { "min": 18, "max": 28 },
+        "carbs_g": { "min": 12, "max": 24 },
+        "fat_g": { "min": 14, "max": 26 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Fried calamari serving (~200g). ~175 kcal/100g with breading"
+    },
+    {
+      "id": "el-sea-03",
+      "input": "γαρίδες σαγανάκι",
+      "language": "el",
+      "category": "seafood",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 220, "max": 380 },
+        "protein_g": { "min": 18, "max": 30 },
+        "carbs_g": { "min": 5, "max": 14 },
+        "fat_g": { "min": 12, "max": 24 }
+      },
+      "expect_source": ["ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Shrimp saganaki with tomato and feta (~250g). ~120 kcal/100g"
+    },
+    {
+      "id": "el-sea-04",
+      "input": "σαρδέλες ψητές 6 κομμάτια",
+      "language": "el",
+      "category": "seafood",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 200, "max": 320 },
+        "protein_g": { "min": 22, "max": 36 },
+        "carbs_g": { "min": 0, "max": 2 },
+        "fat_g": { "min": 10, "max": 20 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "6 grilled sardines (~180g). 208 kcal/100g, 24.6g P, 11.5g F"
+    },
+    {
+      "id": "el-sea-05",
+      "input": "200γρ τσιπούρα ψητή",
+      "language": "el",
+      "category": "seafood",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 200, "max": 280 },
+        "protein_g": { "min": 32, "max": 44 },
+        "carbs_g": { "min": 0, "max": 2 },
+        "fat_g": { "min": 6, "max": 14 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "200g grilled sea bream. ~120 kcal/100g, 20g P, 4g F"
+    },
+    {
+      "id": "es-base-01",
+      "input": "1 arepa con queso",
+      "language": "es",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 250, "max": 380 },
+        "protein_g": { "min": 8, "max": 16 },
+        "carbs_g": { "min": 28, "max": 44 },
+        "fat_g": { "min": 10, "max": 20 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "1 arepa con queso (~120g). ~252 kcal/100g"
+    },
+    {
+      "id": "es-base-02",
+      "input": "2 empanadas de carne",
+      "language": "es",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 380, "max": 560 },
+        "protein_g": { "min": 12, "max": 22 },
+        "carbs_g": { "min": 30, "max": 50 },
+        "fat_g": { "min": 20, "max": 36 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "2 beef empanadas (~100g each). ~260 kcal/100g"
+    },
+    {
+      "id": "es-base-03",
+      "input": "1 patacón con hogao",
+      "language": "es",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 200, "max": 350 },
+        "protein_g": { "min": 2, "max": 6 },
+        "carbs_g": { "min": 30, "max": 50 },
+        "fat_g": { "min": 8, "max": 18 }
+      },
+      "expect_source": ["ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Fried green plantain with tomato-onion sauce. Regional"
+    },
+    {
+      "id": "es-base-04",
+      "input": "1 cucharón de frijoles rojos",
+      "language": "es",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 100, "max": 200 },
+        "protein_g": { "min": 6, "max": 14 },
+        "carbs_g": { "min": 18, "max": 34 },
+        "fat_g": { "min": 0, "max": 6 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "1 ladle (~120g) red beans. 127 kcal/100g cooked"
+    },
+    {
+      "id": "es-base-05",
+      "input": "1 taza de arroz blanco",
+      "language": "es",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 180, "max": 230 },
+        "protein_g": { "min": 3, "max": 6 },
+        "carbs_g": { "min": 38, "max": 50 },
+        "fat_g": { "min": 0, "max": 2 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "1 cup (~158g) cooked white rice. 130 kcal/100g"
+    },
+    {
+      "id": "es-base-06",
+      "input": "1 plátano maduro frito",
+      "language": "es",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 200, "max": 350 },
+        "protein_g": { "min": 1, "max": 3 },
+        "carbs_g": { "min": 35, "max": 60 },
+        "fat_g": { "min": 5, "max": 18 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "1 fried ripe plantain (~120g). Oil absorption varies"
+    },
+    {
+      "id": "es-base-07",
+      "input": "100g de pollo asado",
+      "language": "es",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 150, "max": 200 },
+        "protein_g": { "min": 25, "max": 33 },
+        "carbs_g": { "min": 0, "max": 2 },
+        "fat_g": { "min": 4, "max": 10 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "100g roasted chicken. 165 kcal/100g breast, more with skin"
+    },
+    {
+      "id": "es-base-08",
+      "input": "2 huevos revueltos",
+      "language": "es",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 130, "max": 230 },
+        "protein_g": { "min": 10, "max": 16 },
+        "carbs_g": { "min": 0, "max": 4 },
+        "fat_g": { "min": 9, "max": 18 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "2 scrambled eggs. Cooking oil adds calories"
+    },
+    {
+      "id": "es-base-09",
+      "input": "1 aguacate mediano",
+      "language": "es",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 220, "max": 320 },
+        "protein_g": { "min": 3, "max": 5 },
+        "carbs_g": { "min": 10, "max": 18 },
+        "fat_g": { "min": 20, "max": 30 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "1 medium avocado (~150g flesh). 160 kcal/100g"
+    },
+    {
+      "id": "es-base-10",
+      "input": "1 vaso de jugo de naranja",
+      "language": "es",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 90, "max": 130 },
+        "protein_g": { "min": 1, "max": 3 },
+        "carbs_g": { "min": 20, "max": 30 },
+        "fat_g": { "min": 0, "max": 1 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "1 glass (~240ml) orange juice. 45 kcal/100ml"
+    },
+    {
+      "id": "es-base-11",
+      "input": "1 pan de bono",
+      "language": "es",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 150, "max": 250 },
+        "protein_g": { "min": 4, "max": 10 },
+        "carbs_g": { "min": 20, "max": 34 },
+        "fat_g": { "min": 5, "max": 12 }
+      },
+      "expect_source": ["ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Colombian cheese bread (~60g). ~300 kcal/100g"
+    },
+    {
+      "id": "es-base-12",
+      "input": "café con leche",
+      "language": "es",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 40, "max": 90 },
+        "protein_g": { "min": 2, "max": 5 },
+        "carbs_g": { "min": 4, "max": 9 },
+        "fat_g": { "min": 2, "max": 5 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Coffee with milk (~150ml). ~40-60 kcal"
+    },
+    {
+      "id": "es-base-13",
+      "input": "200g de carne molida",
+      "language": "es",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 400, "max": 540 },
+        "protein_g": { "min": 34, "max": 46 },
+        "carbs_g": { "min": 0, "max": 2 },
+        "fat_g": { "min": 26, "max": 40 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "200g ground beef (80/20). 254 kcal/100g"
+    },
+    {
+      "id": "es-base-14",
+      "input": "1 buñuelo",
+      "language": "es",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 120, "max": 200 },
+        "protein_g": { "min": 3, "max": 7 },
+        "carbs_g": { "min": 14, "max": 24 },
+        "fat_g": { "min": 6, "max": 12 }
+      },
+      "expect_source": ["ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Colombian cheese fritter (~45g). ~350 kcal/100g"
+    },
+    {
+      "id": "es-base-15",
+      "input": "1 bocadillo de guayaba",
+      "language": "es",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 80, "max": 140 },
+        "protein_g": { "min": 0, "max": 1 },
+        "carbs_g": { "min": 20, "max": 35 },
+        "fat_g": { "min": 0, "max": 1 }
+      },
+      "expect_source": ["ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Guava paste candy (~30g bar). ~280 kcal/100g, mostly sugar"
+    },
+    {
+      "id": "es-comp-01",
+      "input": "1 bandeja paisa",
+      "language": "es",
+      "category": "composite",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 900, "max": 1600 },
+        "protein_g": { "min": 45, "max": 75 },
+        "carbs_g": { "min": 80, "max": 140 },
+        "fat_g": { "min": 40, "max": 75 }
+      },
+      "expect_source": ["ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Massive combo plate: beans, rice, egg, plantain, chicharron, chorizo, arepa, avocado"
+    },
+    {
+      "id": "es-comp-02",
+      "input": "1 ajiaco santafereño",
+      "language": "es",
+      "category": "composite",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 300, "max": 550 },
+        "protein_g": { "min": 20, "max": 36 },
+        "carbs_g": { "min": 30, "max": 55 },
+        "fat_g": { "min": 8, "max": 22 }
+      },
+      "expect_source": ["ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Bogota chicken soup with 3 types of potato, corn, guascas (~450ml)"
+    },
+    {
+      "id": "es-comp-03",
+      "input": "sancocho de gallina",
+      "language": "es",
+      "category": "composite",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 300, "max": 550 },
+        "protein_g": { "min": 22, "max": 38 },
+        "carbs_g": { "min": 25, "max": 50 },
+        "fat_g": { "min": 10, "max": 24 }
+      },
+      "expect_source": ["ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Chicken sancocho stew (~450ml). Root vegetables + corn + chicken"
+    },
+    {
+      "id": "es-comp-04",
+      "input": "1 lechona tolimense",
+      "language": "es",
+      "category": "composite",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 400, "max": 700 },
+        "protein_g": { "min": 25, "max": 42 },
+        "carbs_g": { "min": 15, "max": 35 },
+        "fat_g": { "min": 25, "max": 48 }
+      },
+      "expect_source": ["ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Serving (~250g) of stuffed pork with rice and peas. Very fatty"
+    },
+    {
+      "id": "es-comp-05",
+      "input": "1 tamal tolimense",
+      "language": "es",
+      "category": "composite",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 350, "max": 550 },
+        "protein_g": { "min": 12, "max": 22 },
+        "carbs_g": { "min": 35, "max": 60 },
+        "fat_g": { "min": 16, "max": 30 }
+      },
+      "expect_source": ["ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Tolima-style tamale (~250g). Rice+chicken+pork in corn dough"
+    },
+    {
+      "id": "es-comp-06",
+      "input": "mondongo",
+      "language": "es",
+      "category": "composite",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 200, "max": 400 },
+        "protein_g": { "min": 16, "max": 30 },
+        "carbs_g": { "min": 15, "max": 35 },
+        "fat_g": { "min": 8, "max": 20 }
+      },
+      "expect_source": ["ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Tripe soup (~350ml). Regional stew with potatoes and vegetables"
+    },
+    {
+      "id": "es-comp-07",
+      "input": "sudado de pescado",
+      "language": "es",
+      "category": "composite",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 200, "max": 380 },
+        "protein_g": { "min": 22, "max": 36 },
+        "carbs_g": { "min": 10, "max": 25 },
+        "fat_g": { "min": 6, "max": 16 }
+      },
+      "expect_source": ["ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Fish stew (~300ml). Light tomato-based broth"
+    },
+    {
+      "id": "es-comp-08",
+      "input": "arroz con pollo colombiano",
+      "language": "es",
+      "category": "composite",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 350, "max": 520 },
+        "protein_g": { "min": 20, "max": 35 },
+        "carbs_g": { "min": 40, "max": 60 },
+        "fat_g": { "min": 10, "max": 22 }
+      },
+      "expect_source": ["ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Colombian chicken rice (~350g serving). Rice+chicken+vegetables"
+    },
+    {
+      "id": "es-comp-09",
+      "input": "una changua bogotana",
+      "language": "es",
+      "category": "composite",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 150, "max": 300 },
+        "protein_g": { "min": 8, "max": 16 },
+        "carbs_g": { "min": 8, "max": 20 },
+        "fat_g": { "min": 6, "max": 16 }
+      },
+      "expect_source": ["ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Bogota milk+egg soup (~300ml). Bread soaked in"
+    },
+    {
+      "id": "es-comp-10",
+      "input": "cazuela de mariscos",
+      "language": "es",
+      "category": "composite",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 250, "max": 450 },
+        "protein_g": { "min": 22, "max": 38 },
+        "carbs_g": { "min": 10, "max": 25 },
+        "fat_g": { "min": 10, "max": 24 }
+      },
+      "expect_source": ["ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Seafood casserole (~350ml). Coconut milk-based, Cartagena-style"
+    },
+    {
+      "id": "es-comp-11",
+      "input": "caldo de costilla",
+      "language": "es",
+      "category": "composite",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 200, "max": 380 },
+        "protein_g": { "min": 14, "max": 26 },
+        "carbs_g": { "min": 15, "max": 30 },
+        "fat_g": { "min": 8, "max": 20 }
+      },
+      "expect_source": ["ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Beef rib broth (~350ml) with potato. Colombian breakfast staple"
+    },
+    {
+      "id": "es-comp-12",
+      "input": "sopa de lentejas con platano",
+      "language": "es",
+      "category": "composite",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 250, "max": 400 },
+        "protein_g": { "min": 12, "max": 20 },
+        "carbs_g": { "min": 35, "max": 58 },
+        "fat_g": { "min": 4, "max": 12 }
+      },
+      "expect_source": ["ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Lentil soup with plantain (~350ml). High-carb, high-fiber"
+    },
+    {
+      "id": "es-comp-13",
+      "input": "papas chorreadas",
+      "language": "es",
+      "category": "composite",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 250, "max": 420 },
+        "protein_g": { "min": 8, "max": 16 },
+        "carbs_g": { "min": 28, "max": 48 },
+        "fat_g": { "min": 10, "max": 24 }
+      },
+      "expect_source": ["ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Potatoes with cheese-tomato sauce (~250g). Colombian side dish"
+    },
+    {
+      "id": "es-comp-14",
+      "input": "arroz atollado valluno",
+      "language": "es",
+      "category": "composite",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 400, "max": 600 },
+        "protein_g": { "min": 18, "max": 30 },
+        "carbs_g": { "min": 45, "max": 68 },
+        "fat_g": { "min": 14, "max": 28 }
+      },
+      "expect_source": ["ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Valle del Cauca wet rice with pork and sausage (~350g)"
+    },
+    {
+      "id": "es-comp-15",
+      "input": "almuerzo: arroz, frijoles, carne asada, ensalada, plátano",
+      "language": "es",
+      "category": "composite",
+      "expect_item_count": 5,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 600, "max": 1000 },
+        "protein_g": { "min": 30, "max": 50 },
+        "carbs_g": { "min": 80, "max": 130 },
+        "fat_g": { "min": 18, "max": 40 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Typical Colombian almuerzo corriente — rice, beans, grilled beef, salad, plantain"
+    },
+    {
+      "id": "es-cs-01",
+      "input": "I ate una arepa con queso for breakfast",
+      "language": "mixed",
+      "category": "code_switch",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 250, "max": 380 },
+        "protein_g": { "min": 8, "max": 16 },
+        "carbs_g": { "min": 28, "max": 44 },
+        "fat_g": { "min": 10, "max": 20 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "English+Spanish code-switch. Arepa con queso"
+    },
+    {
+      "id": "es-cs-02",
+      "input": "had some frijoles and rice for dinner",
+      "language": "mixed",
+      "category": "code_switch",
+      "expect_item_count": 2,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 280, "max": 440 },
+        "protein_g": { "min": 12, "max": 22 },
+        "carbs_g": { "min": 50, "max": 80 },
+        "fat_g": { "min": 2, "max": 10 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Spanish food words in English sentence"
+    },
+    {
+      "id": "es-cs-03",
+      "input": "I had un protein shake con banana",
+      "language": "mixed",
+      "category": "code_switch",
+      "expect_item_count": 2,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 180, "max": 400 },
+        "protein_g": { "min": 20, "max": 40 },
+        "carbs_g": { "min": 20, "max": 45 },
+        "fat_g": { "min": 0, "max": 10 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "English+Spanish mix. Protein shake + banana"
+    },
+    {
+      "id": "es-cs-04",
+      "input": "lunch was empanadas with some guacamole",
+      "language": "mixed",
+      "category": "code_switch",
+      "expect_item_count": 2,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 350, "max": 600 },
+        "protein_g": { "min": 10, "max": 20 },
+        "carbs_g": { "min": 30, "max": 52 },
+        "fat_g": { "min": 20, "max": 38 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Spanish food in English context. Default ~2 empanadas + side guac"
+    },
+    {
+      "id": "es-cs-05",
+      "input": "had a big plate of sancocho today",
+      "language": "mixed",
+      "category": "code_switch",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 350, "max": 600 },
+        "protein_g": { "min": 24, "max": 42 },
+        "carbs_g": { "min": 28, "max": 55 },
+        "fat_g": { "min": 10, "max": 26 }
+      },
+      "expect_source": ["ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "English frame + Spanish food. 'Big' modifier upscales"
+    },
+    {
+      "id": "en-base-01",
+      "input": "2 large eggs scrambled",
+      "language": "en",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 130, "max": 200 },
+        "protein_g": { "min": 10, "max": 16 },
+        "carbs_g": { "min": 0, "max": 4 },
+        "fat_g": { "min": 9, "max": 16 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "2 large eggs scrambled. USDA: 91 kcal/egg scrambled"
+    },
+    {
+      "id": "en-base-02",
+      "input": "150g chicken breast grilled",
+      "language": "en",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 230, "max": 270 },
+        "protein_g": { "min": 42, "max": 50 },
+        "carbs_g": { "min": 0, "max": 1 },
+        "fat_g": { "min": 4, "max": 8 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "150g grilled chicken breast. 165 kcal/100g, 31g P"
+    },
+    {
+      "id": "en-base-03",
+      "input": "1 cup cooked rice",
+      "language": "en",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 190, "max": 240 },
+        "protein_g": { "min": 3, "max": 6 },
+        "carbs_g": { "min": 40, "max": 52 },
+        "fat_g": { "min": 0, "max": 2 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "1 cup (~158g) cooked white rice. 130 kcal/100g"
+    },
+    {
+      "id": "en-base-04",
+      "input": "2 slices whole wheat bread",
+      "language": "en",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 130, "max": 180 },
+        "protein_g": { "min": 5, "max": 9 },
+        "carbs_g": { "min": 22, "max": 34 },
+        "fat_g": { "min": 2, "max": 5 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "2 slices (~60g). 247 kcal/100g whole wheat"
+    },
+    {
+      "id": "en-base-05",
+      "input": "1 glass of whole milk",
+      "language": "en",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 130, "max": 165 },
+        "protein_g": { "min": 7, "max": 10 },
+        "carbs_g": { "min": 10, "max": 14 },
+        "fat_g": { "min": 7, "max": 10 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "1 glass (~244ml) whole milk. 61 kcal/100ml"
+    },
+    {
+      "id": "en-base-06",
+      "input": "1 medium apple",
+      "language": "en",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 80, "max": 110 },
+        "protein_g": { "min": 0, "max": 1 },
+        "carbs_g": { "min": 19, "max": 28 },
+        "fat_g": { "min": 0, "max": 1 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "1 medium apple (~182g). 52 kcal/100g"
+    },
+    {
+      "id": "en-base-07",
+      "input": "1 banana",
+      "language": "en",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 90, "max": 120 },
+        "protein_g": { "min": 1, "max": 2 },
+        "carbs_g": { "min": 22, "max": 30 },
+        "fat_g": { "min": 0, "max": 1 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "1 medium banana (~118g). 89 kcal/100g"
+    },
+    {
+      "id": "en-base-08",
+      "input": "200g salmon fillet",
+      "language": "en",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 360, "max": 440 },
+        "protein_g": { "min": 38, "max": 46 },
+        "carbs_g": { "min": 0, "max": 1 },
+        "fat_g": { "min": 20, "max": 28 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "200g Atlantic salmon. 208 kcal/100g, 20g P, 13g F"
+    },
+    {
+      "id": "en-base-09",
+      "input": "1 tablespoon peanut butter",
+      "language": "en",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 90, "max": 110 },
+        "protein_g": { "min": 3, "max": 5 },
+        "carbs_g": { "min": 3, "max": 5 },
+        "fat_g": { "min": 7, "max": 10 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "1 tbsp (~16g) peanut butter. 588 kcal/100g"
+    },
+    {
+      "id": "en-base-10",
+      "input": "100g ground beef",
+      "language": "en",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 230, "max": 280 },
+        "protein_g": { "min": 17, "max": 23 },
+        "carbs_g": { "min": 0, "max": 2 },
+        "fat_g": { "min": 16, "max": 22 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "100g ground beef (80/20). 254 kcal/100g"
+    },
+    {
+      "id": "en-base-11",
+      "input": "1 cup Greek yogurt plain",
+      "language": "en",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 120, "max": 180 },
+        "protein_g": { "min": 15, "max": 24 },
+        "carbs_g": { "min": 5, "max": 10 },
+        "fat_g": { "min": 5, "max": 12 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "1 cup (~245g) plain Greek yogurt. Fat % varies"
+    },
+    {
+      "id": "en-base-12",
+      "input": "1 medium sweet potato baked",
+      "language": "en",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 100, "max": 140 },
+        "protein_g": { "min": 2, "max": 4 },
+        "carbs_g": { "min": 24, "max": 34 },
+        "fat_g": { "min": 0, "max": 1 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "1 medium baked sweet potato (~114g). 90 kcal/100g"
+    },
+    {
+      "id": "en-base-13",
+      "input": "30g almonds",
+      "language": "en",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 165, "max": 185 },
+        "protein_g": { "min": 6, "max": 8 },
+        "carbs_g": { "min": 5, "max": 8 },
+        "fat_g": { "min": 14, "max": 16 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "30g almonds. 579 kcal/100g"
+    },
+    {
+      "id": "en-base-14",
+      "input": "1 medium avocado",
+      "language": "en",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 220, "max": 320 },
+        "protein_g": { "min": 3, "max": 5 },
+        "carbs_g": { "min": 10, "max": 18 },
+        "fat_g": { "min": 20, "max": 30 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "1 medium avocado (~150g flesh). 160 kcal/100g"
+    },
+    {
+      "id": "en-base-15",
+      "input": "1 cup oatmeal cooked",
+      "language": "en",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 140, "max": 180 },
+        "protein_g": { "min": 4, "max": 7 },
+        "carbs_g": { "min": 24, "max": 32 },
+        "fat_g": { "min": 2, "max": 5 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "1 cup (~234g) cooked oatmeal. 68 kcal/100g"
+    },
+    {
+      "id": "en-base-16",
+      "input": "200g broccoli steamed",
+      "language": "en",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 55, "max": 75 },
+        "protein_g": { "min": 5, "max": 8 },
+        "carbs_g": { "min": 10, "max": 15 },
+        "fat_g": { "min": 0, "max": 2 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "200g steamed broccoli. 35 kcal/100g"
+    },
+    {
+      "id": "en-base-17",
+      "input": "2 strips of bacon",
+      "language": "en",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 70, "max": 110 },
+        "protein_g": { "min": 5, "max": 8 },
+        "carbs_g": { "min": 0, "max": 1 },
+        "fat_g": { "min": 5, "max": 9 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "2 cooked bacon strips (~16g). 541 kcal/100g"
+    },
+    {
+      "id": "en-base-18",
+      "input": "1 scoop whey protein",
+      "language": "en",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 100, "max": 140 },
+        "protein_g": { "min": 20, "max": 28 },
+        "carbs_g": { "min": 1, "max": 5 },
+        "fat_g": { "min": 1, "max": 3 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "1 scoop (~30g) whey protein isolate"
+    },
+    {
+      "id": "en-base-19",
+      "input": "1 can tuna in water",
+      "language": "en",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 90, "max": 140 },
+        "protein_g": { "min": 20, "max": 28 },
+        "carbs_g": { "min": 0, "max": 1 },
+        "fat_g": { "min": 1, "max": 3 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "1 can (~142g drained) tuna in water. 86 kcal/100g"
+    },
+    {
+      "id": "en-base-20",
+      "input": "2 tablespoons olive oil",
+      "language": "en",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 220, "max": 270 },
+        "protein_g": { "min": 0, "max": 1 },
+        "carbs_g": { "min": 0, "max": 1 },
+        "fat_g": { "min": 26, "max": 30 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "2 tbsp (~28g) olive oil. 884 kcal/100g"
+    },
+    {
+      "id": "en-base-21",
+      "input": "100g cottage cheese",
+      "language": "en",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 90, "max": 115 },
+        "protein_g": { "min": 10, "max": 14 },
+        "carbs_g": { "min": 3, "max": 5 },
+        "fat_g": { "min": 3, "max": 6 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "100g cottage cheese (2% fat). 98 kcal/100g"
+    },
+    {
+      "id": "en-base-22",
+      "input": "1 cup cooked quinoa",
+      "language": "en",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 200, "max": 250 },
+        "protein_g": { "min": 7, "max": 10 },
+        "carbs_g": { "min": 36, "max": 44 },
+        "fat_g": { "min": 3, "max": 5 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "1 cup (~185g) cooked quinoa. 120 kcal/100g"
+    },
+    {
+      "id": "en-base-23",
+      "input": "1 large orange",
+      "language": "en",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 70, "max": 100 },
+        "protein_g": { "min": 1, "max": 2 },
+        "carbs_g": { "min": 16, "max": 24 },
+        "fat_g": { "min": 0, "max": 1 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "1 large orange (~184g). 47 kcal/100g"
+    },
+    {
+      "id": "en-base-24",
+      "input": "half an avocado",
+      "language": "en",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 110, "max": 165 },
+        "protein_g": { "min": 1, "max": 3 },
+        "carbs_g": { "min": 5, "max": 10 },
+        "fat_g": { "min": 10, "max": 16 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Half avocado (~75g). Tests fractional quantity parsing"
+    },
+    {
+      "id": "en-base-25",
+      "input": "200g plain pasta cooked",
+      "language": "en",
+      "category": "base_food",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 280, "max": 340 },
+        "protein_g": { "min": 8, "max": 14 },
+        "carbs_g": { "min": 50, "max": 64 },
+        "fat_g": { "min": 2, "max": 5 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "200g cooked pasta. 158 kcal/100g"
+    },
+    {
+      "id": "en-comp-01",
+      "input": "1 cheeseburger",
+      "language": "en",
+      "category": "composite",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 300, "max": 500 },
+        "protein_g": { "min": 16, "max": 28 },
+        "carbs_g": { "min": 26, "max": 40 },
+        "fat_g": { "min": 14, "max": 28 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Standard cheeseburger (~200g). Bun+patty+cheese"
+    },
+    {
+      "id": "en-comp-02",
+      "input": "1 turkey sandwich on wheat bread",
+      "language": "en",
+      "category": "composite",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 250, "max": 400 },
+        "protein_g": { "min": 18, "max": 30 },
+        "carbs_g": { "min": 24, "max": 40 },
+        "fat_g": { "min": 6, "max": 16 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Turkey sandwich with bread + lettuce + condiments"
+    },
+    {
+      "id": "en-comp-03",
+      "input": "Caesar salad with grilled chicken",
+      "language": "en",
+      "category": "composite",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 350, "max": 550 },
+        "protein_g": { "min": 28, "max": 42 },
+        "carbs_g": { "min": 8, "max": 20 },
+        "fat_g": { "min": 18, "max": 34 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Caesar salad ~300g + grilled chicken breast"
+    },
+    {
+      "id": "en-comp-04",
+      "input": "spaghetti bolognese",
+      "language": "en",
+      "category": "composite",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 400, "max": 600 },
+        "protein_g": { "min": 18, "max": 30 },
+        "carbs_g": { "min": 45, "max": 70 },
+        "fat_g": { "min": 12, "max": 24 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Standard serving (~350g). Pasta + meat sauce"
+    },
+    {
+      "id": "en-comp-05",
+      "input": "chicken stir-fry with vegetables",
+      "language": "en",
+      "category": "composite",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 250, "max": 450 },
+        "protein_g": { "min": 22, "max": 36 },
+        "carbs_g": { "min": 10, "max": 25 },
+        "fat_g": { "min": 10, "max": 22 }
+      },
+      "expect_source": ["ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Chicken stir-fry (~300g). Vegetables + oil"
+    },
+    {
+      "id": "en-comp-06",
+      "input": "2 slices pepperoni pizza",
+      "language": "en",
+      "category": "composite",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 440, "max": 640 },
+        "protein_g": { "min": 16, "max": 26 },
+        "carbs_g": { "min": 44, "max": 66 },
+        "fat_g": { "min": 18, "max": 30 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "2 slices (~200g). ~266 kcal/slice"
+    },
+    {
+      "id": "en-comp-07",
+      "input": "fish and chips",
+      "language": "en",
+      "category": "composite",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 500, "max": 900 },
+        "protein_g": { "min": 22, "max": 38 },
+        "carbs_g": { "min": 45, "max": 75 },
+        "fat_g": { "min": 24, "max": 48 }
+      },
+      "expect_source": ["ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Standard pub portion. Battered fish + fried potatoes"
+    },
+    {
+      "id": "en-comp-08",
+      "input": "1 bowl of chili con carne",
+      "language": "en",
+      "category": "composite",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 280, "max": 450 },
+        "protein_g": { "min": 18, "max": 30 },
+        "carbs_g": { "min": 20, "max": 38 },
+        "fat_g": { "min": 10, "max": 22 }
+      },
+      "expect_source": ["ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "1 bowl (~300g). Beans + ground beef + tomato"
+    },
+    {
+      "id": "en-comp-09",
+      "input": "grilled salmon with steamed broccoli",
+      "language": "en",
+      "category": "composite",
+      "expect_item_count": 2,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 300, "max": 450 },
+        "protein_g": { "min": 36, "max": 50 },
+        "carbs_g": { "min": 5, "max": 12 },
+        "fat_g": { "min": 14, "max": 26 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Salmon fillet (~150g) + broccoli (~150g)"
+    },
+    {
+      "id": "en-comp-10",
+      "input": "chicken fajitas",
+      "language": "en",
+      "category": "composite",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 350, "max": 550 },
+        "protein_g": { "min": 24, "max": 38 },
+        "carbs_g": { "min": 28, "max": 48 },
+        "fat_g": { "min": 12, "max": 24 }
+      },
+      "expect_source": ["ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Chicken fajitas with tortilla, peppers, onions (~300g)"
+    },
+    {
+      "id": "en-comp-11",
+      "input": "tuna nicoise salad",
+      "language": "en",
+      "category": "composite",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 300, "max": 500 },
+        "protein_g": { "min": 24, "max": 38 },
+        "carbs_g": { "min": 12, "max": 25 },
+        "fat_g": { "min": 16, "max": 30 }
+      },
+      "expect_source": ["ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Tuna + egg + olives + potatoes + green beans + dressing"
+    },
+    {
+      "id": "en-comp-12",
+      "input": "beef burrito",
+      "language": "en",
+      "category": "composite",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 400, "max": 650 },
+        "protein_g": { "min": 20, "max": 34 },
+        "carbs_g": { "min": 40, "max": 65 },
+        "fat_g": { "min": 14, "max": 30 }
+      },
+      "expect_source": ["ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Beef burrito (~350g). Tortilla+meat+rice+beans+cheese"
+    },
+    {
+      "id": "en-comp-13",
+      "input": "pad thai chicken",
+      "language": "en",
+      "category": "composite",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 350, "max": 550 },
+        "protein_g": { "min": 20, "max": 34 },
+        "carbs_g": { "min": 40, "max": 65 },
+        "fat_g": { "min": 10, "max": 22 }
+      },
+      "expect_source": ["ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Pad Thai with chicken (~350g). Noodles+chicken+peanuts+egg"
+    },
+    {
+      "id": "en-comp-14",
+      "input": "1 BLT sandwich",
+      "language": "en",
+      "category": "composite",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 300, "max": 470 },
+        "protein_g": { "min": 12, "max": 22 },
+        "carbs_g": { "min": 24, "max": 38 },
+        "fat_g": { "min": 16, "max": 28 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Bacon, lettuce, tomato sandwich with mayo"
+    },
+    {
+      "id": "en-comp-15",
+      "input": "mushroom risotto",
+      "language": "en",
+      "category": "composite",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 300, "max": 480 },
+        "protein_g": { "min": 8, "max": 16 },
+        "carbs_g": { "min": 40, "max": 62 },
+        "fat_g": { "min": 10, "max": 22 }
+      },
+      "expect_source": ["ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Mushroom risotto (~300g). Rice+butter+parmesan+mushrooms"
+    },
+    {
+      "id": "brand-01",
+      "input": "1 Chobani plain Greek yogurt",
+      "language": "en",
+      "category": "branded",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 120, "max": 160 },
+        "protein_g": { "min": 14, "max": 18 },
+        "carbs_g": { "min": 4, "max": 8 },
+        "fat_g": { "min": 5, "max": 10 }
+      },
+      "expect_source": ["ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Chobani whole milk plain (~170g container). Branded item"
+    },
+    {
+      "id": "brand-02",
+      "input": "1 FAGE Total 0% 170g",
+      "language": "en",
+      "category": "branded",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 85, "max": 110 },
+        "protein_g": { "min": 15, "max": 20 },
+        "carbs_g": { "min": 4, "max": 8 },
+        "fat_g": { "min": 0, "max": 1 }
+      },
+      "expect_source": ["ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "FAGE Total 0% fat-free yogurt 170g. 90 cal per container"
+    },
+    {
+      "id": "brand-03",
+      "input": "100g Barilla spaghetti cooked",
+      "language": "en",
+      "category": "branded",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 140, "max": 175 },
+        "protein_g": { "min": 5, "max": 8 },
+        "carbs_g": { "min": 25, "max": 34 },
+        "fat_g": { "min": 1, "max": 3 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "100g cooked Barilla pasta. ~158 kcal/100g cooked"
+    },
+    {
+      "id": "brand-04",
+      "input": "1 FAGE Total 2% με μέλι",
+      "language": "mixed",
+      "category": "branded",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 150, "max": 210 },
+        "protein_g": { "min": 12, "max": 18 },
+        "carbs_g": { "min": 16, "max": 24 },
+        "fat_g": { "min": 3, "max": 7 }
+      },
+      "expect_source": ["ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "FAGE 2% with honey split cup. Greek label"
+    },
+    {
+      "id": "brand-05",
+      "input": "2 Oreo cookies",
+      "language": "en",
+      "category": "branded",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 90, "max": 120 },
+        "protein_g": { "min": 1, "max": 2 },
+        "carbs_g": { "min": 14, "max": 18 },
+        "fat_g": { "min": 4, "max": 6 }
+      },
+      "expect_source": ["ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "2 Oreo cookies (~22g). 53 kcal per cookie"
+    },
+    {
+      "id": "brand-06",
+      "input": "1 Quest protein bar chocolate",
+      "language": "en",
+      "category": "branded",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 170, "max": 210 },
+        "protein_g": { "min": 18, "max": 22 },
+        "carbs_g": { "min": 18, "max": 26 },
+        "fat_g": { "min": 7, "max": 10 }
+      },
+      "expect_source": ["ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Quest bar (~60g). 190 kcal, 21g P"
+    },
+    {
+      "id": "brand-07",
+      "input": "κέλλογκς special k 40γρ με γάλα",
+      "language": "el",
+      "category": "branded",
+      "expect_item_count": 2,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 220, "max": 310 },
+        "protein_g": { "min": 9, "max": 16 },
+        "carbs_g": { "min": 32, "max": 46 },
+        "fat_g": { "min": 5, "max": 10 }
+      },
+      "expect_source": ["ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Kellogg's Special K 40g + glass of milk. Greek spelling"
+    },
+    {
+      "id": "brand-08",
+      "input": "1 lata de atún Van Camps",
+      "language": "es",
+      "category": "branded",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 90, "max": 150 },
+        "protein_g": { "min": 18, "max": 28 },
+        "carbs_g": { "min": 0, "max": 2 },
+        "fat_g": { "min": 1, "max": 5 }
+      },
+      "expect_source": ["ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Van Camp's tuna can (~140g). Colombian brand"
+    },
+    {
+      "id": "brand-09",
+      "input": "3 nutella biscuits",
+      "language": "en",
+      "category": "branded",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 150, "max": 250 },
+        "protein_g": { "min": 2, "max": 5 },
+        "carbs_g": { "min": 18, "max": 32 },
+        "fat_g": { "min": 7, "max": 14 }
+      },
+      "expect_source": ["ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "3 Nutella Biscuits (~41g each). ~69 kcal/biscuit"
+    },
+    {
+      "id": "brand-10",
+      "input": "1 Monster energy drink",
+      "language": "en",
+      "category": "branded",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 190, "max": 230 },
+        "protein_g": { "min": 0, "max": 1 },
+        "carbs_g": { "min": 50, "max": 60 },
+        "fat_g": { "min": 0, "max": 1 }
+      },
+      "expect_source": ["ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "1 can (473ml) Monster Energy. 210 kcal, 54g sugar"
+    },
+    {
+      "id": "adv-01",
+      "input": "",
+      "language": "en",
+      "category": "adversarial",
+      "expect_item_count": 0,
+      "expect_recognized": false,
+      "expect_total": null,
+      "expect_source": [],
+      "expect_safety": true,
+      "expect_needs_clarification": true,
+      "notes": "Empty input — should not crash, should ask for input"
+    },
+    {
+      "id": "adv-02",
+      "input": "   ",
+      "language": "en",
+      "category": "adversarial",
+      "expect_item_count": 0,
+      "expect_recognized": false,
+      "expect_total": null,
+      "expect_source": [],
+      "expect_safety": true,
+      "expect_needs_clarification": true,
+      "notes": "Whitespace-only input — should handle gracefully"
+    },
+    {
+      "id": "adv-03",
+      "input": "asdfghjkl",
+      "language": "en",
+      "category": "adversarial",
+      "expect_item_count": 0,
+      "expect_recognized": false,
+      "expect_total": null,
+      "expect_source": [],
+      "expect_safety": true,
+      "expect_needs_clarification": true,
+      "notes": "Gibberish — should not crash, should ask for clarification"
+    },
+    {
+      "id": "adv-04",
+      "input": "unicorn steak with dragon sauce",
+      "language": "en",
+      "category": "adversarial",
+      "expect_item_count": 0,
+      "expect_recognized": false,
+      "expect_total": null,
+      "expect_source": [],
+      "expect_safety": true,
+      "expect_needs_clarification": true,
+      "notes": "Impossible food — should not hallucinate nutritional values"
+    },
+    {
+      "id": "adv-05",
+      "input": "10kg of rice",
+      "language": "en",
+      "category": "adversarial",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 12000, "max": 14000 },
+        "protein_g": { "min": 250, "max": 350 },
+        "carbs_g": { "min": 2600, "max": 3200 },
+        "fat_g": { "min": 20, "max": 50 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": true,
+      "notes": "Absurdly large quantity — should flag but still compute if forced"
+    },
+    {
+      "id": "adv-06",
+      "input": "'; DROP TABLE foods; --",
+      "language": "en",
+      "category": "adversarial",
+      "expect_item_count": 0,
+      "expect_recognized": false,
+      "expect_total": null,
+      "expect_source": [],
+      "expect_safety": true,
+      "expect_needs_clarification": true,
+      "notes": "SQL injection attempt — must not execute, must handle safely"
+    },
+    {
+      "id": "adv-07",
+      "input": "<script>alert('xss')</script>",
+      "language": "en",
+      "category": "adversarial",
+      "expect_item_count": 0,
+      "expect_recognized": false,
+      "expect_total": null,
+      "expect_source": [],
+      "expect_safety": true,
+      "expect_needs_clarification": true,
+      "notes": "XSS attempt — must sanitize, must not execute"
+    },
+    {
+      "id": "adv-08",
+      "input": "0 eggs",
+      "language": "en",
+      "category": "adversarial",
+      "expect_item_count": 0,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 0, "max": 0 },
+        "protein_g": { "min": 0, "max": 0 },
+        "carbs_g": { "min": 0, "max": 0 },
+        "fat_g": { "min": 0, "max": 0 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Zero quantity — should return 0 calories, not crash"
+    },
+    {
+      "id": "adv-09",
+      "input": "-3 bananas",
+      "language": "en",
+      "category": "adversarial",
+      "expect_item_count": 0,
+      "expect_recognized": false,
+      "expect_total": null,
+      "expect_source": [],
+      "expect_safety": true,
+      "expect_needs_clarification": true,
+      "notes": "Negative quantity — should reject gracefully"
+    },
+    {
+      "id": "adv-10",
+      "input": "bread bread bread bread bread bread bread bread bread bread bread bread bread bread bread bread bread bread bread bread",
+      "language": "en",
+      "category": "adversarial",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 50, "max": 200 },
+        "protein_g": { "min": 2, "max": 8 },
+        "carbs_g": { "min": 10, "max": 40 },
+        "fat_g": { "min": 0, "max": 4 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": true,
+      "notes": "Repeated word spam — should not multiply, should deduplicate or clarify"
+    },
+    {
+      "id": "adv-11",
+      "input": "ate some food",
+      "language": "en",
+      "category": "adversarial",
+      "expect_item_count": 0,
+      "expect_recognized": false,
+      "expect_total": null,
+      "expect_source": [],
+      "expect_safety": true,
+      "expect_needs_clarification": true,
+      "notes": "Too generic — 'food' is not parseable, should ask what"
+    },
+    {
+      "id": "adv-12",
+      "input": "100ml of gasoline",
+      "language": "en",
+      "category": "adversarial",
+      "expect_item_count": 0,
+      "expect_recognized": false,
+      "expect_total": null,
+      "expect_source": [],
+      "expect_safety": true,
+      "expect_needs_clarification": true,
+      "notes": "Non-food substance — should reject, not compute"
+    },
+    {
+      "id": "adv-13",
+      "input": "1000000 calories worth of butter",
+      "language": "en",
+      "category": "adversarial",
+      "expect_item_count": 0,
+      "expect_recognized": false,
+      "expect_total": null,
+      "expect_source": [],
+      "expect_safety": true,
+      "expect_needs_clarification": true,
+      "notes": "Calories as unit — nonsensical, should ask for proper quantity"
+    },
+    {
+      "id": "adv-14",
+      "input": "a",
+      "language": "en",
+      "category": "adversarial",
+      "expect_item_count": 0,
+      "expect_recognized": false,
+      "expect_total": null,
+      "expect_source": [],
+      "expect_safety": true,
+      "expect_needs_clarification": true,
+      "notes": "Single character — insufficient, should prompt for more"
+    },
+    {
+      "id": "adv-15",
+      "input": "egg egg egg egg egg egg egg egg egg egg egg egg egg egg egg egg egg egg egg egg egg egg egg egg egg egg egg egg egg egg egg egg egg egg egg egg egg egg egg egg egg egg egg egg egg egg egg egg egg egg",
+      "language": "en",
+      "category": "adversarial",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 65, "max": 5000 },
+        "protein_g": { "min": 5, "max": 400 },
+        "carbs_g": { "min": 0, "max": 50 },
+        "fat_g": { "min": 4, "max": 350 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": true,
+      "notes": "50 repetitions of egg — tests dedup logic vs literal 50 eggs"
+    },
+    {
+      "id": "clar-01",
+      "input": "chicken",
+      "language": "en",
+      "category": "clarification",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 100, "max": 350 },
+        "protein_g": { "min": 15, "max": 42 },
+        "carbs_g": { "min": 0, "max": 10 },
+        "fat_g": { "min": 2, "max": 20 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": true,
+      "notes": "Ambiguous — breast? thigh? fried? How much? Should clarify portion/cut"
+    },
+    {
+      "id": "clar-02",
+      "input": "pasta",
+      "language": "en",
+      "category": "clarification",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 150, "max": 500 },
+        "protein_g": { "min": 5, "max": 20 },
+        "carbs_g": { "min": 25, "max": 70 },
+        "fat_g": { "min": 1, "max": 15 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": true,
+      "notes": "Ambiguous — plain or with sauce? How much? Dry or cooked?"
+    },
+    {
+      "id": "clar-03",
+      "input": "κρέας",
+      "language": "el",
+      "category": "clarification",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 120, "max": 400 },
+        "protein_g": { "min": 15, "max": 45 },
+        "carbs_g": { "min": 0, "max": 5 },
+        "fat_g": { "min": 3, "max": 30 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": true,
+      "notes": "Just 'meat' — what kind? How much? How cooked?"
+    },
+    {
+      "id": "clar-04",
+      "input": "a salad",
+      "language": "en",
+      "category": "clarification",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 30, "max": 400 },
+        "protein_g": { "min": 1, "max": 20 },
+        "carbs_g": { "min": 3, "max": 25 },
+        "fat_g": { "min": 1, "max": 30 }
+      },
+      "expect_source": ["ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": true,
+      "notes": "What kind of salad? Garden? Caesar? Greek? Huge range"
+    },
+    {
+      "id": "clar-05",
+      "input": "carne",
+      "language": "es",
+      "category": "clarification",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 120, "max": 400 },
+        "protein_g": { "min": 15, "max": 45 },
+        "carbs_g": { "min": 0, "max": 5 },
+        "fat_g": { "min": 3, "max": 30 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": true,
+      "notes": "Just 'meat' in Spanish — too vague"
+    },
+    {
+      "id": "clar-06",
+      "input": "a little bit of something sweet",
+      "language": "en",
+      "category": "clarification",
+      "expect_item_count": 0,
+      "expect_recognized": false,
+      "expect_total": null,
+      "expect_source": [],
+      "expect_safety": true,
+      "expect_needs_clarification": true,
+      "notes": "Extremely vague — no specific food, no quantity"
+    },
+    {
+      "id": "clar-07",
+      "input": "soup",
+      "language": "en",
+      "category": "clarification",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 50, "max": 300 },
+        "protein_g": { "min": 2, "max": 20 },
+        "carbs_g": { "min": 5, "max": 30 },
+        "fat_g": { "min": 1, "max": 15 }
+      },
+      "expect_source": ["ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": true,
+      "notes": "What kind of soup? Broth? Cream-based? With meat?"
+    },
+    {
+      "id": "clar-08",
+      "input": "σνακ",
+      "language": "el",
+      "category": "clarification",
+      "expect_item_count": 0,
+      "expect_recognized": false,
+      "expect_total": null,
+      "expect_source": [],
+      "expect_safety": true,
+      "expect_needs_clarification": true,
+      "notes": "Just 'snack' in Greeklish — not a specific food"
+    },
+    {
+      "id": "clar-09",
+      "input": "rice with stuff",
+      "language": "en",
+      "category": "clarification",
+      "expect_item_count": 1,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 150, "max": 500 },
+        "protein_g": { "min": 3, "max": 30 },
+        "carbs_g": { "min": 30, "max": 60 },
+        "fat_g": { "min": 1, "max": 20 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": true,
+      "notes": "What stuff? Needs clarification on accompaniments"
+    },
+    {
+      "id": "clar-10",
+      "input": "lunch",
+      "language": "en",
+      "category": "clarification",
+      "expect_item_count": 0,
+      "expect_recognized": false,
+      "expect_total": null,
+      "expect_source": [],
+      "expect_safety": true,
+      "expect_needs_clarification": true,
+      "notes": "Just a meal name — no food specified at all"
+    },
+    {
+      "id": "multi-01",
+      "input": "2 eggs, toast with butter, and orange juice",
+      "language": "en",
+      "category": "multi_item",
+      "expect_item_count": 3,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 340, "max": 500 },
+        "protein_g": { "min": 15, "max": 22 },
+        "carbs_g": { "min": 32, "max": 50 },
+        "fat_g": { "min": 16, "max": 26 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Classic breakfast: 2 eggs (144) + toast+butter (170) + OJ (110)"
+    },
+    {
+      "id": "multi-02",
+      "input": "grilled chicken breast with rice and steamed broccoli",
+      "language": "en",
+      "category": "multi_item",
+      "expect_item_count": 3,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 380, "max": 520 },
+        "protein_g": { "min": 36, "max": 50 },
+        "carbs_g": { "min": 42, "max": 60 },
+        "fat_g": { "min": 5, "max": 12 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Clean meal: chicken ~165 kcal + rice ~200 kcal + broccoli ~35 kcal"
+    },
+    {
+      "id": "multi-03",
+      "input": "πρωινό: 2 αυγά, τοστ με βούτυρο, ένα πορτοκάλι",
+      "language": "el",
+      "category": "multi_item",
+      "expect_item_count": 3,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 340, "max": 480 },
+        "protein_g": { "min": 16, "max": 24 },
+        "carbs_g": { "min": 30, "max": 48 },
+        "fat_g": { "min": 16, "max": 26 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Greek breakfast: 2 eggs + toast w/butter + orange"
+    },
+    {
+      "id": "multi-04",
+      "input": "desayuno: 2 huevos, 1 arepa, café con leche",
+      "language": "es",
+      "category": "multi_item",
+      "expect_item_count": 3,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 350, "max": 550 },
+        "protein_g": { "min": 16, "max": 28 },
+        "carbs_g": { "min": 28, "max": 50 },
+        "fat_g": { "min": 12, "max": 24 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Colombian breakfast: eggs + arepa + coffee with milk"
+    },
+    {
+      "id": "multi-05",
+      "input": "salmon, quinoa, and a side salad with olive oil",
+      "language": "en",
+      "category": "multi_item",
+      "expect_item_count": 3,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 500, "max": 720 },
+        "protein_g": { "min": 34, "max": 50 },
+        "carbs_g": { "min": 38, "max": 55 },
+        "fat_g": { "min": 22, "max": 38 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Healthy dinner: salmon (~300 kcal) + quinoa (~220 kcal) + salad (~150 kcal)"
+    },
+    {
+      "id": "multi-06",
+      "input": "γιαούρτι με μέλι, μπανάνα και αμύγδαλα",
+      "language": "el",
+      "category": "multi_item",
+      "expect_item_count": 4,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 350, "max": 520 },
+        "protein_g": { "min": 14, "max": 24 },
+        "carbs_g": { "min": 48, "max": 72 },
+        "fat_g": { "min": 14, "max": 26 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Yogurt bowl: yogurt + honey + banana + almonds"
+    },
+    {
+      "id": "multi-07",
+      "input": "arroz, frijoles, carne asada y ensalada",
+      "language": "es",
+      "category": "multi_item",
+      "expect_item_count": 4,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 500, "max": 800 },
+        "protein_g": { "min": 30, "max": 50 },
+        "carbs_g": { "min": 60, "max": 95 },
+        "fat_g": { "min": 14, "max": 30 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Colombian almuerzo: rice + beans + grilled beef + salad"
+    },
+    {
+      "id": "multi-08",
+      "input": "a protein shake, a banana, and 30g almonds",
+      "language": "en",
+      "category": "multi_item",
+      "expect_item_count": 3,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 370, "max": 480 },
+        "protein_g": { "min": 28, "max": 38 },
+        "carbs_g": { "min": 32, "max": 46 },
+        "fat_g": { "min": 15, "max": 22 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Post-workout: protein shake (~120 kcal) + banana (~105 kcal) + almonds (~175 kcal)"
+    },
+    {
+      "id": "multi-09",
+      "input": "2 φέτες ψωμί με 30γρ φέτα και ελιές",
+      "language": "el",
+      "category": "multi_item",
+      "expect_item_count": 3,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 240, "max": 380 },
+        "protein_g": { "min": 9, "max": 16 },
+        "carbs_g": { "min": 24, "max": 40 },
+        "fat_g": { "min": 12, "max": 22 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "2 bread slices + 30g feta + olives (default handful)"
+    },
+    {
+      "id": "multi-10",
+      "input": "oatmeal with banana, honey, and walnuts",
+      "language": "en",
+      "category": "multi_item",
+      "expect_item_count": 4,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 380, "max": 540 },
+        "protein_g": { "min": 10, "max": 18 },
+        "carbs_g": { "min": 58, "max": 82 },
+        "fat_g": { "min": 10, "max": 20 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Oatmeal bowl: oats (~160 kcal) + banana (~105) + honey (~64) + walnuts (~90)"
+    },
+    {
+      "id": "multi-11",
+      "input": "1 σουβλάκι κοτόπουλο, χωριάτικη σαλάτα και τζατζίκι",
+      "language": "el",
+      "category": "multi_item",
+      "expect_item_count": 3,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 500, "max": 750 },
+        "protein_g": { "min": 30, "max": 48 },
+        "carbs_g": { "min": 35, "max": 58 },
+        "fat_g": { "min": 22, "max": 42 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Chicken souvlaki + Greek salad + tzatziki — classic combo"
+    },
+    {
+      "id": "multi-12",
+      "input": "eggs, bacon, toast, and a glass of milk",
+      "language": "en",
+      "category": "multi_item",
+      "expect_item_count": 4,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 380, "max": 560 },
+        "protein_g": { "min": 24, "max": 36 },
+        "carbs_g": { "min": 24, "max": 40 },
+        "fat_g": { "min": 20, "max": 34 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Full English-style breakfast. Default: 2 eggs, 2 bacon, 1 toast, 1 glass"
+    },
+    {
+      "id": "multi-13",
+      "input": "tostada con aguacate, 2 huevos fritos y jugo de naranja",
+      "language": "es",
+      "category": "multi_item",
+      "expect_item_count": 3,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 440, "max": 640 },
+        "protein_g": { "min": 16, "max": 26 },
+        "carbs_g": { "min": 35, "max": 55 },
+        "fat_g": { "min": 24, "max": 40 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Avocado toast + 2 fried eggs + OJ. Trendy breakfast"
+    },
+    {
+      "id": "multi-14",
+      "input": "chicken breast, sweet potato, and green beans",
+      "language": "en",
+      "category": "multi_item",
+      "expect_item_count": 3,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 300, "max": 450 },
+        "protein_g": { "min": 32, "max": 46 },
+        "carbs_g": { "min": 28, "max": 44 },
+        "fat_g": { "min": 4, "max": 10 }
+      },
+      "expect_source": ["local_db"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Meal prep classic: chicken (~165) + sweet potato (~103) + green beans (~31)"
+    },
+    {
+      "id": "multi-15",
+      "input": "half an avocado, one tortilla wrap, and a scoop of whey protein",
+      "language": "en",
+      "category": "multi_item",
+      "expect_item_count": 3,
+      "expect_recognized": true,
+      "expect_total": {
+        "calories": { "min": 280, "max": 420 },
+        "protein_g": { "min": 22, "max": 32 },
+        "carbs_g": { "min": 22, "max": 38 },
+        "fat_g": { "min": 12, "max": 20 }
+      },
+      "expect_source": ["local_db", "ai_fallback"],
+      "expect_safety": true,
+      "expect_needs_clarification": false,
+      "notes": "Mixed types: fractional qty + wrap + supplement. Tests parser flexibility"
+    }
+  ]
+}

@@ -12,7 +12,7 @@ export interface ParsedFoodItem {
   fiber_g: number;
   sugar_g: number;
   confidence: number;
-  source: 'local_db' | 'ai_estimate';
+  source: 'local_db' | 'ai_estimate' | 'local_db+category_default';
   food_state?: 'raw' | 'cooked' | 'fried' | 'grilled' | 'baked' | 'boiled' | 'prepared' | 'unknown';
   portion_explicit?: boolean;
 }

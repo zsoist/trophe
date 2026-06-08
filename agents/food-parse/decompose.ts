@@ -25,6 +25,7 @@ import { invokeTextProvider } from '../runtime/providers/text';
 import { lookupFood } from './lookup';
 import type { LookupInput, LookupResult } from './lookup';
 import type { ParsedFoodItem } from '../schemas/food-parse';
+import { classifyIngredient, getCategoryMacros } from './food-category-defaults';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -299,22 +300,41 @@ export async function decomposeAndLookup(input: DecomposeInput): Promise<ParsedF
         matched_confidence: 0.9,
       });
     } else {
+      // No DB match — use category-aware defaults instead of discarding
+      const category = classifyIngredient(ing.name);
+      const defaults = getCategoryMacros(ing.name);
+      const factor = ing.grams / 100;
+      totalKcal += defaults.kcal * factor;
+      totalProtein += defaults.protein * factor;
+      totalCarbs += defaults.carbs * factor;
+      totalFat += defaults.fat * factor;
+      totalFiber += defaults.fiber * factor;
+
       ingredientDetails.push({
         food_id: null,
         food_name: ing.name,
         grams: ing.grams,
-        matched_confidence: 0,
-      });
+        matched_confidence: 0.3,
+        estimation_source: 'category_default',
+        category,
+      } as typeof ingredientDetails[number]);
     }
   }
 
-  // Partial totals would silently undercount the dish while claiming local_db
-  // provenance. Use the governed, explicitly labeled fallback unless every
-  // decomposed ingredient has authoritative nutrition data.
   const matchRatio = matchedCount / decomposition.ingredients.length;
-  if (matchRatio < 1) {
-    console.warn(`[decompose] Incomplete match (${matchedCount}/${decomposition.ingredients.length}) for "${input.foodName}" — using governed fallback`);
+
+  // If less than half matched, the decomposition is too unreliable
+  if (matchRatio < 0.5) {
+    console.warn(`[decompose] Low match ratio (${matchedCount}/${decomposition.ingredients.length}) for "${input.foodName}" — using governed fallback`);
     return null;
+  }
+
+  // Log which ingredients used category defaults
+  if (matchRatio < 1) {
+    const fallbackNames = ingredientDetails
+      .filter(d => d.food_id === null)
+      .map(d => d.food_name);
+    console.warn(`[decompose] Partial match (${matchedCount}/${decomposition.ingredients.length}) for "${input.foodName}" — category defaults used for: ${fallbackNames.join(', ')}`);
   }
 
   // Round totals
@@ -338,7 +358,10 @@ export async function decomposeAndLookup(input: DecomposeInput): Promise<ParsedF
 
   // ── Step 6: Return aggregated item ───────────────────────────────────────
   const scale = input.quantity;
-  const confidence = Math.min(0.85, matchRatio * 0.9);
+  // Full match: 0.85, partial match (≥0.5): 0.65 base scaled by ratio
+  const confidence = matchRatio === 1
+    ? Math.min(0.85, matchRatio * 0.9)
+    : Math.min(0.65, matchRatio * 0.75);
 
   return {
     raw_text: input.rawText,
@@ -354,6 +377,6 @@ export async function decomposeAndLookup(input: DecomposeInput): Promise<ParsedF
     fiber_g: Math.round(totals.fiber * scale * 10) / 10,
     sugar_g: 0,
     confidence,
-    source: 'local_db', // Deterministic from DB ingredients
+    source: matchRatio === 1 ? 'local_db' : 'local_db+category_default',
   };
 }

@@ -507,8 +507,8 @@ export default function TemplatesPage() {
                   name: t.name,
                   exerciseCount: (t.exercises || []).length,
                 }))}
-                onAssign={(day, templateId) => {
-                  console.log(`Assigned template ${templateId} to ${day}`);
+                onAssign={(_day, _templateId) => {
+                  // TODO: wire up template assignment to API
                 }}
               />
             </div>
