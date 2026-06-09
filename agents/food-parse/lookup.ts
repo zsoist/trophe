@@ -742,9 +742,10 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
   'peanut butter': 'peanut butter',
   'peanut': 'peanuts',
   'mani': 'peanuts',
-  'almonds': 'almonds',
-  'almendras': 'almonds',
-  'nueces': 'walnuts',
+  'almonds': 'almonds raw',
+  'almendras': 'almonds raw',
+  'walnuts': 'walnuts raw',
+  'nueces': 'walnuts raw',
 
   // ── Eggs ──
   'fried egg': 'egg fried',
@@ -767,10 +768,12 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
   'yogur': 'greek yogurt',
 
   // ── Grains & cereals ──
-  'oatmeal': 'cereals oats regular cooked',
+  'oatmeal': 'oats cooked',
   'oats': 'cereals oats regular',
-  'oatmeal cooked': 'cereals oats regular cooked',
-  'avena': 'cereals oats regular',
+  'oatmeal cooked': 'oats cooked',
+  'porridge': 'oats cooked',
+  'avena': 'oats cooked',
+  'avena cocida': 'oats cooked',
   'rice': 'rice white cooked',
   'arroz': 'rice white cooked',
   'arroz blanco': 'rice white cooked',
@@ -799,17 +802,8 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
   'steak': 'beef steak grilled',
   'carne': 'beef steak grilled',
 
-  // ── Grains — COOKED variants (critical: "oatmeal" = cooked, not dry) ──
-  'oatmeal': 'oats cooked',
-  'oatmeal cooked': 'oats cooked',
-  'porridge': 'oats cooked',
-  'avena': 'oats cooked',
-  'avena cocida': 'oats cooked',
+  // ── Dairy extras ──
   'cottage cheese': 'cottage cheese',
-  'almonds': 'almonds raw',
-  'almendras': 'almonds raw',
-  'walnuts': 'walnuts raw',
-  'nueces': 'walnuts raw',
 
   // ── Fish & seafood ──
   'salmon fillet': 'fish salmon atlantic',
