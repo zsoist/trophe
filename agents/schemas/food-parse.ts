@@ -1,3 +1,9 @@
+export interface MacroRange {
+  min: number;
+  center: number;
+  max: number;
+}
+
 export interface ParsedFoodItem {
   raw_text: string;
   food_name: string;
@@ -12,9 +18,11 @@ export interface ParsedFoodItem {
   fiber_g: number;
   sugar_g: number;
   confidence: number;
-  source: 'local_db' | 'ai_estimate' | 'local_db+category_default';
+  source: 'local_db' | 'ai_estimate' | 'local_db+category_default' | 'llm_cot' | 'hybrid';
   food_state?: 'raw' | 'cooked' | 'fried' | 'grilled' | 'baked' | 'boiled' | 'prepared' | 'unknown';
   portion_explicit?: boolean;
+  /** Range-based calorie estimate when portion is implicit */
+  calories_range?: MacroRange;
 }
 
 export interface FoodParseInput {
@@ -26,6 +34,7 @@ export interface FoodParseOutput {
   items: ParsedFoodItem[];
   needs_clarification?: boolean;
   clarification_question?: string | null;
+  warnings?: string[];
 }
 
 export function isParsedFoodItem(x: unknown): x is ParsedFoodItem {

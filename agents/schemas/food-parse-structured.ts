@@ -14,6 +14,14 @@ export const foodParseStructuredSchema = z.object({
     portion_explicit: z.boolean(),
     confidence: z.number().min(0).max(1),
     recognized: z.boolean(),
+    // v5 CoT macro estimation fields (optional for backward compat with v4 prompt)
+    estimated_grams: z.number().positive().optional(),
+    estimated_calories: z.number().nonnegative().optional(),
+    estimated_protein_g: z.number().nonnegative().optional(),
+    estimated_carbs_g: z.number().nonnegative().optional(),
+    estimated_fat_g: z.number().nonnegative().optional(),
+    nutrition_reasoning: z.string().optional(),
+    estimation_confidence: z.number().min(0).max(1).optional(),
   })),
 });
 
@@ -41,6 +49,14 @@ export const foodParseGeminiResponseSchema = {
           portion_explicit: { type: 'boolean' },
           confidence: { type: 'number' },
           recognized: { type: 'boolean' },
+          // v5 CoT macro estimation fields
+          estimated_grams: { type: 'number' },
+          estimated_calories: { type: 'number' },
+          estimated_protein_g: { type: 'number' },
+          estimated_carbs_g: { type: 'number' },
+          estimated_fat_g: { type: 'number' },
+          nutrition_reasoning: { type: 'string' },
+          estimation_confidence: { type: 'number' },
         },
       },
     },

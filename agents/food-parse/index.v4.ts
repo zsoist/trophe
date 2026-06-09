@@ -38,10 +38,14 @@ import { macroEstimateGeminiResponseSchema, macroEstimateStructuredSchema } from
 export const FOOD_PARSE_VERSION = 'v4';
 
 // ── Prompt ───────────────────────────────────────────────────────────────────
-const PROMPT_PATH = join(process.cwd(), 'agents/prompts/food-parse.v4.md');
+// v5 prompt adds CoT macro estimation alongside food identification.
+// Set FOOD_PARSE_PROMPT_VERSION=v4 to revert to identification-only mode.
+const promptVersion = process.env.FOOD_PARSE_PROMPT_VERSION ?? 'v5';
+const PROMPT_PATH = join(process.cwd(), `agents/prompts/food-parse.${promptVersion}.md`);
 const PROMPT_TEMPLATE = readFileSync(PROMPT_PATH, 'utf-8');
+const COT_ENABLED = promptVersion === 'v5';
 
-// ── V4 LLM output schema ──────────────────────────────────────────────────────
+// ── V4/V5 LLM output schema ──────────────────────────────────────────────────
 interface V4Candidate {
   raw_text:      string;
   food_name:     string;
@@ -53,6 +57,14 @@ interface V4Candidate {
   portion_explicit?: boolean;
   confidence:    number;
   recognized:    boolean;
+  // v5 CoT macro estimation fields (present when using v5 prompt)
+  estimated_grams?:       number;
+  estimated_calories?:    number;
+  estimated_protein_g?:   number;
+  estimated_carbs_g?:     number;
+  estimated_fat_g?:       number;
+  nutrition_reasoning?:   string;
+  estimation_confidence?: number;
 }
 
 interface V4LLMOutput {
@@ -97,6 +109,175 @@ interface MacroEstimate {
 
 const AMBIGUOUS_PORTION_UNITS = new Set(['serving', 'portion', 'bowl', 'plate', 'dish', 'some']);
 
+// ── v5 CoT arbitration ─────────────────────────────────────────────────────
+// When the LLM provides CoT macro estimates (v5 prompt), decide whether to
+// trust the DB or the LLM. Research (NutriBench ICLR 2025) shows CoT
+// estimation beats human dietitians for implicit portions. The DB is still
+// authoritative for explicit/measured portions with food-specific conversions.
+
+function hasValidCoTEstimate(c: V4Candidate): boolean {
+  return COT_ENABLED &&
+    typeof c.estimated_calories === 'number' && c.estimated_calories > 0 &&
+    typeof c.estimated_grams === 'number' && c.estimated_grams > 0;
+}
+
+interface ArbitrationResult {
+  source: 'local_db' | 'llm_cot' | 'hybrid';
+  grams: number;
+  calories: number;
+  protein_g: number;
+  carbs_g: number;
+  fat_g: number;
+  fiber_g: number;
+  sugar_g: number;
+  confidence: number;
+}
+
+/**
+ * Arbitrates between DB-computed macros and LLM CoT estimates.
+ *
+ * Priority:
+ *   1. Explicit portion + food-specific conversion → DB wins (deterministic ≥95% accurate)
+ *   2. Both estimates agree within 30%             → DB wins (precise per-100g values)
+ *   3. Estimates diverge > 30%                     → LLM grams + DB per-100g ratios (best of both)
+ *   4. Only one source available                    → use whatever we have
+ *
+ * Key insight (NutriBench + DietAI24): LLMs are good at portion estimation (grams)
+ * but mediocre at macro breakdown. DBs have precise per-100g values but wrong
+ * serving sizes. Combining LLM grams with DB per-100g gives the best accuracy.
+ */
+function arbitrateDbVsCoT(
+  candidate: V4Candidate,
+  dbMacros: { kcal: number; protein: number; carb: number; fat: number; fiber?: number },
+  dbGrams: number,
+  dbSugarPer100g: number,
+  dbConfidence: number,
+  isExplicitPortion: boolean,
+  hasFoodSpecificConversion: boolean,
+  /** Per-100g values from the DB food entry, for hybrid macro computation */
+  dbPer100g?: { kcal: number; protein: number; carb: number; fat: number; fiber?: number },
+): ArbitrationResult {
+  const cotAvailable = hasValidCoTEstimate(candidate);
+
+  // No CoT → DB is our only source (v4 behavior)
+  if (!cotAvailable) {
+    return {
+      source: 'local_db',
+      grams: dbGrams,
+      calories: dbMacros.kcal,
+      protein_g: dbMacros.protein,
+      carbs_g: dbMacros.carb,
+      fat_g: dbMacros.fat,
+      fiber_g: dbMacros.fiber ?? 0,
+      sugar_g: Math.round(dbSugarPer100g * dbGrams / 100 * 10) / 10,
+      confidence: dbConfidence,
+    };
+  }
+
+  const llmKcal = candidate.estimated_calories!;
+  const llmGrams = candidate.estimated_grams!;
+
+  // Rule 1: Explicit portion + food-specific conversion → always trust DB
+  // When the user says "200g chicken breast" and we have a conversion, the DB math is exact.
+  if (isExplicitPortion && hasFoodSpecificConversion) {
+    return {
+      source: 'local_db',
+      grams: dbGrams,
+      calories: dbMacros.kcal,
+      protein_g: dbMacros.protein,
+      carbs_g: dbMacros.carb,
+      fat_g: dbMacros.fat,
+      fiber_g: dbMacros.fiber ?? 0,
+      sugar_g: Math.round(dbSugarPer100g * dbGrams / 100 * 10) / 10,
+      confidence: 0.95,
+    };
+  }
+
+  // Compute divergence between DB and LLM calorie estimates
+  const center = Math.max((dbMacros.kcal + llmKcal) / 2, 1);
+  const divergence = Math.abs(dbMacros.kcal - llmKcal) / center;
+
+  // Rule 2: Estimates agree within 30% → trust DB (more precise per-100g data)
+  if (divergence < 0.30) {
+    return {
+      source: 'local_db',
+      grams: dbGrams,
+      calories: dbMacros.kcal,
+      protein_g: dbMacros.protein,
+      carbs_g: dbMacros.carb,
+      fat_g: dbMacros.fat,
+      fiber_g: dbMacros.fiber ?? 0,
+      sugar_g: Math.round(dbSugarPer100g * dbGrams / 100 * 10) / 10,
+      confidence: Math.min(dbConfidence + 0.1, 0.95), // agreement boost
+    };
+  }
+
+  // Rule 3: Major divergence (>30%) — DB portion is likely wrong.
+  // Use LLM's grams estimate + DB's per-100g values = best of both worlds.
+  // LLM knows "1 souvlaki pita = 300g", DB knows "chicken per 100g = 31g protein".
+  const llmConfidence = candidate.estimation_confidence ?? 0.6;
+  const g = Math.round(llmGrams);
+
+  if (llmConfidence >= 0.5) {
+    // Hybrid: LLM grams + DB per-100g ratios (when available)
+    if (dbPer100g && dbPer100g.kcal > 0) {
+      return {
+        source: 'llm_cot',
+        grams: g,
+        calories: Math.round(dbPer100g.kcal * g / 100),
+        protein_g: Math.round(dbPer100g.protein * g / 100 * 10) / 10,
+        carbs_g: Math.round(dbPer100g.carb * g / 100 * 10) / 10,
+        fat_g: Math.round(dbPer100g.fat * g / 100 * 10) / 10,
+        fiber_g: Math.round((dbPer100g.fiber ?? 0) * g / 100 * 10) / 10,
+        sugar_g: Math.round(dbSugarPer100g * g / 100 * 10) / 10,
+        confidence: Math.min(llmConfidence, 0.80),
+      };
+    }
+
+    // No DB per-100g available — fall back to LLM's raw macro estimates
+    return {
+      source: 'llm_cot',
+      grams: g,
+      calories: Math.round(llmKcal),
+      protein_g: Math.round((candidate.estimated_protein_g ?? 0) * 10) / 10,
+      carbs_g: Math.round((candidate.estimated_carbs_g ?? 0) * 10) / 10,
+      fat_g: Math.round((candidate.estimated_fat_g ?? 0) * 10) / 10,
+      fiber_g: 0,
+      sugar_g: 0,
+      confidence: Math.min(llmConfidence, 0.75),
+    };
+  }
+
+  // Both uncertain — weighted blend using DB per-100g at LLM-blended grams
+  const w = 0.6;
+  const blendedGrams = Math.round(dbGrams * (1 - w) + llmGrams * w);
+  if (dbPer100g && dbPer100g.kcal > 0) {
+    return {
+      source: 'hybrid',
+      grams: blendedGrams,
+      calories: Math.round(dbPer100g.kcal * blendedGrams / 100),
+      protein_g: Math.round(dbPer100g.protein * blendedGrams / 100 * 10) / 10,
+      carbs_g: Math.round(dbPer100g.carb * blendedGrams / 100 * 10) / 10,
+      fat_g: Math.round(dbPer100g.fat * blendedGrams / 100 * 10) / 10,
+      fiber_g: Math.round((dbPer100g.fiber ?? 0) * blendedGrams / 100 * 10) / 10,
+      sugar_g: Math.round(dbSugarPer100g * blendedGrams / 100 * 10) / 10,
+      confidence: 0.60,
+    };
+  }
+
+  return {
+    source: 'hybrid',
+    grams: blendedGrams,
+    calories: Math.round(dbMacros.kcal * (1 - w) + llmKcal * w),
+    protein_g: Math.round((dbMacros.protein * (1 - w) + (candidate.estimated_protein_g ?? dbMacros.protein) * w) * 10) / 10,
+    carbs_g: Math.round((dbMacros.carb * (1 - w) + (candidate.estimated_carbs_g ?? dbMacros.carb) * w) * 10) / 10,
+    fat_g: Math.round((dbMacros.fat * (1 - w) + (candidate.estimated_fat_g ?? dbMacros.fat) * w) * 10) / 10,
+    fiber_g: dbMacros.fiber ?? 0,
+    sugar_g: Math.round(dbSugarPer100g * dbGrams / 100 * 10) / 10,
+    confidence: 0.60,
+  };
+}
+
 export function requiresPortionClarification(items: V4Candidate[]): boolean {
   return items.some((item) =>
     item.portion_explicit === false &&
@@ -108,6 +289,49 @@ function clarificationQuestion(language: string): string {
   if (language === 'el') return 'Πόση ποσότητα έφαγες; Μπορείς να δώσεις γραμμάρια ή ένα μετρήσιμο μέγεθος μερίδας;';
   if (language === 'es') return '¿Qué cantidad comiste? Indica gramos o un tamaño de porción medible.';
   return 'How much did you eat? Please provide grams or a measurable portion size.';
+}
+
+// ── Food type classification ─────────────────────────────────────────────────
+export type FoodType = 'base' | 'composite' | 'branded' | 'beverage';
+
+const COMPOSITE_CONNECTORS = /\b(with|and|con|y|e|más|med|met|με|και|served\s+with|topped\s+with|stuffed\s+with)\b/i;
+const COMPOSITE_INDICATORS = /\b(sandwich|wrap|bowl|plate|platter|combo|burrito|taco|pizza|quesadilla|salad|stew|soup|curry|risotto|pasta\s+\w+|rice\s+\w+|bandeja|arepa\s+con|empanada\s+de|souvlaki\s+pita|gyros\s+pita)\b/i;
+const BRANDED_TOKENS = /\b(mcdonald|starbucks|subway|burger\s*king|wendy|chipotle|taco\s*bell|kfc|dunkin|pizza\s*hut|domino|panda\s*express|chick[\s-]*fil|big\s*mac|whopper|mcnugget|frappuccino|mcflurry)\b/i;
+const BEVERAGE_TOKENS = /\b(juice|smoothie|coffee|espresso|latte|cappuccino|americano|tea|milk|chocolate\s*milk|water|soda|beer|wine|cocktail|shake|frappé|frappe|milkshake|χυμός|καφέ|τσάι|γάλα|jugo|café|cerveza|vino|refresco)\b/i;
+
+/**
+ * Heuristic food type classifier.
+ * - 'composite': Multi-ingredient dishes that should be decomposed, not looked up as a single food
+ * - 'branded': Fast-food / branded items (may need special handling)
+ * - 'beverage': Drinks (usually base items but benefit from liquid-serving defaults)
+ * - 'base': Everything else — single ingredients or simple foods
+ *
+ * The key insight: "yogurt with honey and walnuts" is composite (3 ingredients),
+ * while "Greek yogurt" is base (adjective + food). We distinguish by checking for
+ * CONNECTORS between food-like words, not just multi-word names.
+ */
+export function classifyFoodType(foodName: string): FoodType {
+  const name = foodName.toLowerCase().trim();
+
+  // Branded check first — overrides everything
+  if (BRANDED_TOKENS.test(name)) return 'branded';
+
+  // Beverage check
+  if (BEVERAGE_TOKENS.test(name)) return 'beverage';
+
+  // Composite indicators — known multi-ingredient dish patterns
+  if (COMPOSITE_INDICATORS.test(name)) return 'composite';
+
+  // Connector-based composite detection:
+  // "chicken with rice" → composite, "chicken breast" → base
+  if (COMPOSITE_CONNECTORS.test(name)) {
+    // But "chicken and rice" is composite while "salt and pepper" is arguably base.
+    // Split on connector, check if both sides have 1+ meaningful food word.
+    const parts = name.split(COMPOSITE_CONNECTORS).filter(p => p.trim().length >= 3);
+    if (parts.length >= 2) return 'composite';
+  }
+
+  return 'base';
 }
 
 const CLEARLY_NON_FOOD_PATTERNS = [
@@ -382,11 +606,35 @@ export async function run(
     recipeResults.push(cached);
   }
 
-  // Only look up items that didn't hit the recipe cache (saves DB queries)
+  // ── Step 2b: Classify food types and route composites to decompose ────────
+  // Composites that miss recipe cache should skip single-food DB lookup and go
+  // directly to decomposeAndLookup — prevents "chicken souvlaki pita" matching "chicken".
+  const foodTypes = v4Parsed.items.map(item => classifyFoodType(item.food_name));
+  const compositeDecompResults: Array<ParsedFoodItem | null> = v4Parsed.items.map(() => null);
+  const regionCode = language === 'el' ? 'GR' : language === 'es' ? 'CO' : 'US';
+
+  for (let i = 0; i < v4Parsed.items.length; i++) {
+    if (recipeResults[i] !== null) continue; // already resolved via recipe cache
+    if (foodTypes[i] !== 'composite') continue; // only route composites
+
+    const item = v4Parsed.items[i];
+    const decomposed = await decomposeAndLookup({
+      foodName: item.food_name,
+      nameLocalized: item.name_localized,
+      quantity: item.quantity,
+      unit: item.unit,
+      rawText: item.raw_text,
+      region: regionCode,
+    });
+    compositeDecompResults[i] = decomposed; // null means decompose failed → fall through to lookup
+  }
+
+  // Only look up items that didn't hit the recipe cache AND aren't resolved composites
   const nonCachedIndices: number[] = [];
   const lookupInputs: LookupInput[] = [];
   for (let i = 0; i < v4Parsed.items.length; i++) {
     if (recipeResults[i] !== null) continue; // recipe cache hit, skip
+    if (compositeDecompResults[i] !== null) continue; // composite resolved, skip
     nonCachedIndices.push(i);
     lookupInputs.push({
       foodName:  v4Parsed.items[i].food_name,
@@ -411,41 +659,147 @@ export async function run(
   for (let i = 0; i < v4Parsed.items.length; i++) {
     const candidate = v4Parsed.items[i];
     const recipeHit = recipeResults[i];
+    const compositeHit = compositeDecompResults[i];
     const lookup = expandedLookupResults[i];
 
     // Priority 1: dish_recipes cache hit (composite dish with pre-computed macros)
+    // v5: Check CoT estimate before blindly trusting cached portion data.
+    // For recipes (multi-ingredient), use raw LLM CoT macros when divergent —
+    // scaling recipe macros proportionally breaks because the per-100g profile
+    // changes with ingredient composition (60g bread ≠ 300g full wrap).
     if (recipeHit) {
       telemetry.dbHits++;
+      if (hasValidCoTEstimate(candidate)) {
+        const dbKcal = recipeHit.calories;
+        const llmKcal = candidate.estimated_calories!;
+        const center = Math.max((dbKcal + llmKcal) / 2, 1);
+        const divergence = Math.abs(dbKcal - llmKcal) / center;
+
+        if (divergence > 0.30 && (candidate.estimation_confidence ?? 0.5) >= 0.5) {
+          finalItems.push({
+            ...recipeHit,
+            grams:      Math.round(candidate.estimated_grams!),
+            calories:   Math.round(candidate.estimated_calories!),
+            protein_g:  Math.round((candidate.estimated_protein_g ?? recipeHit.protein_g) * 10) / 10,
+            carbs_g:    Math.round((candidate.estimated_carbs_g ?? recipeHit.carbs_g) * 10) / 10,
+            fat_g:      Math.round((candidate.estimated_fat_g ?? recipeHit.fat_g) * 10) / 10,
+            confidence: Math.min(candidate.estimation_confidence ?? 0.6, 0.75),
+            source:     'llm_cot',
+          });
+          continue;
+        }
+      }
       finalItems.push(recipeHit);
       continue;
     }
 
+    // Priority 1b: composite decomposition hit (classified as composite, decomposed successfully)
+    // v5: Same CoT arbitration — raw LLM macros for composites
+    if (compositeHit) {
+      telemetry.dbHits++;
+      if (hasValidCoTEstimate(candidate)) {
+        const dbKcal = compositeHit.calories;
+        const llmKcal = candidate.estimated_calories!;
+        const center = Math.max((dbKcal + llmKcal) / 2, 1);
+        const divergence = Math.abs(dbKcal - llmKcal) / center;
+
+        if (divergence > 0.30 && (candidate.estimation_confidence ?? 0.5) >= 0.5) {
+          finalItems.push({
+            ...compositeHit,
+            grams:      Math.round(candidate.estimated_grams!),
+            calories:   Math.round(candidate.estimated_calories!),
+            protein_g:  Math.round((candidate.estimated_protein_g ?? compositeHit.protein_g) * 10) / 10,
+            carbs_g:    Math.round((candidate.estimated_carbs_g ?? compositeHit.carbs_g) * 10) / 10,
+            fat_g:      Math.round((candidate.estimated_fat_g ?? compositeHit.fat_g) * 10) / 10,
+            confidence: Math.min(candidate.estimation_confidence ?? 0.6, 0.75),
+            source:     'llm_cot',
+          });
+          continue;
+        }
+      }
+      finalItems.push(compositeHit);
+      continue;
+    }
+
     if (lookup) {
-      // DB hit — deterministic macros
+      // DB hit — arbitrate between DB macros and LLM CoT estimate (v5)
       telemetry.dbHits++;
       const macros = lookup.macros(candidate.quantity);
+      const isExplicitPortion = candidate.portion_explicit === true;
+      const hasFoodSpecificConversion = lookup.conversionId !== null;
+
+      // Calibrated confidence by source chain (baseline for arbitration):
+      let calibratedConfidence: number;
+      if (isExplicitPortion && hasFoodSpecificConversion) calibratedConfidence = 0.95;
+      else if (isExplicitPortion) calibratedConfidence = 0.85;
+      else if (hasFoodSpecificConversion) calibratedConfidence = 0.75;
+      else calibratedConfidence = 0.55;
+
+      // v5: Arbitrate between DB and LLM CoT estimates
+      const arb = arbitrateDbVsCoT(
+        candidate,
+        { ...macros, fiber: macros.fiber ?? 0 },
+        lookup.gramsTotal(candidate.quantity),
+        lookup.food.sugarPer100g ?? 0,
+        calibratedConfidence,
+        isExplicitPortion,
+        hasFoodSpecificConversion,
+        // Pass DB per-100g values so Rule 3 can use LLM grams + DB ratios
+        {
+          kcal: lookup.food.kcalPer100g,
+          protein: lookup.food.proteinPer100g,
+          carb: lookup.food.carbPer100g,
+          fat: lookup.food.fatPer100g,
+          fiber: lookup.food.fiberPer100g ?? undefined,
+        },
+      );
+
       finalItems.push({
         raw_text:       candidate.raw_text,
         food_name:      lookup.food.nameEn,
         name_localized: candidate.name_localized,
         quantity:       candidate.quantity,
         unit:           candidate.unit,
-        grams:          lookup.gramsTotal(candidate.quantity),
-        calories:       macros.kcal,
-        protein_g:      macros.protein,
-        carbs_g:        macros.carb,
-        fat_g:          macros.fat,
-        fiber_g:        macros.fiber ?? 0,
-        sugar_g:        Math.round((lookup.food.sugarPer100g ?? 0) * lookup.gramsTotal(candidate.quantity) / 100 * 10) / 10,
-        confidence:     candidate.confidence,
-        source:         'local_db',
+        grams:          arb.grams,
+        calories:       arb.calories,
+        protein_g:      arb.protein_g,
+        carbs_g:        arb.carbs_g,
+        fat_g:          arb.fat_g,
+        fiber_g:        arb.fiber_g,
+        sugar_g:        arb.sugar_g,
+        confidence:     arb.confidence,
+        source:         arb.source,
         food_state:     candidate.food_state as ParsedFoodItem['food_state'],
         portion_explicit: candidate.portion_explicit,
       });
     } else {
-      // DB miss — try enrichWithLocalDB first, then LLM macro estimation
+      // DB miss — v5 CoT estimate takes priority, then legacy fallback chain
       telemetry.dbMisses++;
 
+      // v5: If CoT estimate is available, use it directly (no need for legacy chain)
+      if (hasValidCoTEstimate(candidate)) {
+        finalItems.push({
+          raw_text:       candidate.raw_text,
+          food_name:      candidate.food_name,
+          name_localized: candidate.name_localized,
+          quantity:       candidate.quantity,
+          unit:           candidate.unit,
+          grams:          Math.round(candidate.estimated_grams!),
+          calories:       Math.round(candidate.estimated_calories!),
+          protein_g:      Math.round((candidate.estimated_protein_g ?? 0) * 10) / 10,
+          carbs_g:        Math.round((candidate.estimated_carbs_g ?? 0) * 10) / 10,
+          fat_g:          Math.round((candidate.estimated_fat_g ?? 0) * 10) / 10,
+          fiber_g:        0,
+          sugar_g:        0,
+          confidence:     Math.min(candidate.estimation_confidence ?? 0.6, 0.70),
+          source:         'llm_cot',
+          food_state:     candidate.food_state as ParsedFoodItem['food_state'],
+          portion_explicit: candidate.portion_explicit,
+        });
+        continue;
+      }
+
+      // Legacy fallback chain (v4 behavior when no CoT available)
       const legacyItem: ParsedFoodItem = {
         food_name: candidate.food_name,
         name_localized: candidate.name_localized,
@@ -551,11 +905,73 @@ export async function run(
     };
   }
 
-  const deterministicClarification = requiresPortionClarification(v4Parsed.items);
+  // ── Step 4: Meal-level plausibility pass ──────────────────────────────────
+  // If total meal kcal is implausibly high AND most items have implicit portions,
+  // it's likely over-portioned (e.g. "yogurt honey walnuts" → 3 full servings
+  // instead of 1 bowl). Scale down proportionally.
+  const totalMealKcal = finalItems.reduce((sum, item) => sum + item.calories, 0);
+  const implicitItems = finalItems.filter(item => item.portion_explicit === false);
+  const MEAL_KCAL_CAP = 1500;
+  const SINGLE_ITEM_KCAL_CAP = 1200;
+
+  let plausibilityFlag = false;
+
+  if (totalMealKcal > MEAL_KCAL_CAP && implicitItems.length >= 3) {
+    // 3+ implicit-portion items totaling > 1500 kcal — scale down
+    const scaleFactor = MEAL_KCAL_CAP / totalMealKcal;
+    for (const item of finalItems) {
+      if (item.portion_explicit === false) {
+        item.grams = Math.round(item.grams * scaleFactor);
+        item.calories = Math.round(item.calories * scaleFactor * 10) / 10;
+        item.protein_g = Math.round(item.protein_g * scaleFactor * 10) / 10;
+        item.carbs_g = Math.round(item.carbs_g * scaleFactor * 10) / 10;
+        item.fat_g = Math.round(item.fat_g * scaleFactor * 10) / 10;
+        item.fiber_g = Math.round(item.fiber_g * scaleFactor * 10) / 10;
+        item.sugar_g = Math.round(item.sugar_g * scaleFactor * 10) / 10;
+        item.confidence = Math.min(item.confidence, 0.55);
+      }
+    }
+    plausibilityFlag = true;
+  } else {
+    // Check individual items: single item > 1200 kcal with implicit portion
+    for (const item of finalItems) {
+      if (item.portion_explicit === false && item.calories > SINGLE_ITEM_KCAL_CAP) {
+        plausibilityFlag = true;
+        item.confidence = Math.min(item.confidence, 0.45);
+      }
+    }
+  }
+
+  const deterministicClarification = requiresPortionClarification(v4Parsed.items) || plausibilityFlag;
   if (deterministicClarification) {
     for (const item of finalItems) {
       if (item.portion_explicit === false) item.confidence = Math.min(item.confidence, 0.65);
     }
+  }
+
+  // ── Step 5: Range-based portions for implicit items ─────────────────────
+  // When portion_explicit=false, add a {min, center, max} calorie range
+  // to give the UI a spread for the user to refine.
+  for (const item of finalItems) {
+    if (item.portion_explicit === false) {
+      item.calories_range = {
+        min: Math.round(item.calories * 0.7 * 10) / 10,
+        center: item.calories,
+        max: Math.round(item.calories * 1.4 * 10) / 10,
+      };
+    }
+  }
+
+  // ── Step 6: Build warnings ──────────────────────────────────────────────
+  const warnings: string[] = [];
+  const anyImplicit = finalItems.some(item => item.portion_explicit === false);
+  const recalcTotalKcal = finalItems.reduce((sum, item) => sum + item.calories, 0);
+
+  if (anyImplicit) {
+    warnings.push('Portions estimated — confirm before saving');
+  }
+  if (recalcTotalKcal > 1500 && anyImplicit) {
+    warnings.push(`High-calorie meal detected (${Math.round(recalcTotalKcal)} kcal) — portions may be overestimated`);
   }
 
   return {
@@ -565,6 +981,7 @@ export async function run(
       needs_clarification: llmResult.output.needs_clarification || deterministicClarification,
       clarification_question: llmResult.output.clarification_question ??
         (deterministicClarification ? clarificationQuestion(language) : null),
+      warnings: warnings.length > 0 ? warnings : undefined,
     },
     telemetry: { ...telemetry, dbHits: telemetry.dbHits, dbMisses: telemetry.dbMisses },
   };
