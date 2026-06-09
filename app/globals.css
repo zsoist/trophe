@@ -740,6 +740,12 @@ body {
 }
 .float-y { animation: floatY 4s ease-in-out infinite; }
 
+/* ─── Landing page entrance animations (SSR-safe, no JS dependency) ─── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 /* ─── Tag: update to flex + mono (backward compatible) ─── */
 .tag {
   display: inline-flex;
