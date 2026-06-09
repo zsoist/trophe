@@ -117,7 +117,7 @@ function LoginForm() {
             </span>
           </Link>
           <p className="text-stone-600 text-[10px] font-mono tracking-widest uppercase mt-2">
-            by DailyNutraFit
+            Precision Nutrition
           </p>
         </div>
 

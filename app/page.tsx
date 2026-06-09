@@ -10,8 +10,8 @@ import {
 } from 'lucide-react';
 
 /* ═══════════════════════════════════════════════════════
-   τροφή Landing Page — by DailyNutraFit / AthletiKapp
-   Premium dark + gold · mobile-first · fast auth
+   τροφή Landing Page
+   Dark + gold · mobile-first · fast auth · light-mode ready
    ═══════════════════════════════════════════════════════ */
 
 type Lang = 'en' | 'es' | 'el';
@@ -36,10 +36,10 @@ const copy: Record<Lang, {
   bottom_cta: string;
 }> = {
   en: {
-    hero_tag: 'The Nutrition Arm of DailyNutraFit',
+    hero_tag: 'Precision Nutrition for Athletes',
     hero_h1: 'Track smarter.',
     hero_h1_accent: 'Eat better.',
-    hero_sub: 'AI-powered food logging, personalized macro targets, and habit coaching — all in one premium app. Powered by science, built for athletes.',
+    hero_sub: 'AI-powered food logging, personalized macro targets, and habit coaching — all in one app. Powered by science, built for athletes.',
     cta: 'Get Started Free',
     cta2: 'I\'m a Coach',
     features_tag: 'What you get today',
@@ -47,18 +47,18 @@ const copy: Record<Lang, {
     how_tag: 'How it works',
     how_title: 'Three steps. That\'s it.',
     coming_tag: 'Coming soon',
-    coming_title: 'The full AthletiKapp experience',
+    coming_title: 'The complete athlete experience',
     coming_sub: 'Training, workouts, and community — all integrated with your nutrition data.',
     numbers_tag: 'Built on evidence',
     bottom_h2: 'Your nutrition, finally solved.',
-    bottom_sub: 'Join DailyNutraFit athletes who track smarter, not harder.',
+    bottom_sub: 'Join athletes who track smarter, not harder.',
     bottom_cta: 'Start Free',
   },
   es: {
-    hero_tag: 'El brazo de nutrición de DailyNutraFit',
+    hero_tag: 'Nutrición de Precisión para Atletas',
     hero_h1: 'Rastrea inteligente.',
     hero_h1_accent: 'Come mejor.',
-    hero_sub: 'Registro de comidas con IA, macros personalizados y coaching de hábitos — todo en una app premium. Basado en ciencia, hecho para atletas.',
+    hero_sub: 'Registro de comidas con IA, macros personalizados y coaching de hábitos — todo en una app. Basado en ciencia, hecho para atletas.',
     cta: 'Comenzar Gratis',
     cta2: 'Soy Coach',
     features_tag: 'Lo que obtienes hoy',
@@ -66,18 +66,18 @@ const copy: Record<Lang, {
     how_tag: 'Cómo funciona',
     how_title: 'Tres pasos. Eso es todo.',
     coming_tag: 'Próximamente',
-    coming_title: 'La experiencia completa de AthletiKapp',
+    coming_title: 'La experiencia completa del atleta',
     coming_sub: 'Entrenamiento, rutinas y comunidad — todo integrado con tus datos de nutrición.',
     numbers_tag: 'Basado en evidencia',
     bottom_h2: 'Tu nutrición, por fin resuelta.',
-    bottom_sub: 'Únete a los atletas de DailyNutraFit que rastrean de forma inteligente.',
+    bottom_sub: 'Únete a los atletas que rastrean de forma inteligente.',
     bottom_cta: 'Comenzar Gratis',
   },
   el: {
-    hero_tag: 'Ο βραχίονας διατροφής του DailyNutraFit',
+    hero_tag: 'Διατροφή Ακριβείας για Αθλητές',
     hero_h1: 'Παρακολούθηση έξυπνα.',
     hero_h1_accent: 'Τρώτε καλύτερα.',
-    hero_sub: 'Καταγραφή τροφίμων με AI, εξατομικευμένοι στόχοι μακροθρεπτικών και coaching συνηθειών — όλα σε μία premium εφαρμογή.',
+    hero_sub: 'Καταγραφή τροφίμων με AI, εξατομικευμένοι στόχοι μακροθρεπτικών και coaching συνηθειών — όλα σε μία εφαρμογή.',
     cta: 'Ξεκινήστε Δωρεάν',
     cta2: 'Είμαι Coach',
     features_tag: 'Τι αποκτάτε σήμερα',
@@ -85,11 +85,11 @@ const copy: Record<Lang, {
     how_tag: 'Πώς λειτουργεί',
     how_title: 'Τρία βήματα. Αυτό είναι.',
     coming_tag: 'Σύντομα',
-    coming_title: 'Η πλήρης εμπειρία AthletiKapp',
+    coming_title: 'Η πλήρης αθλητική εμπειρία',
     coming_sub: 'Προπόνηση, ασκήσεις και κοινότητα — ενσωματωμένα με τα δεδομένα διατροφής σας.',
     numbers_tag: 'Βασισμένο σε επιστήμη',
     bottom_h2: 'Η διατροφή σας, επιτέλους λυμένη.',
-    bottom_sub: 'Γίνετε μέλος των αθλητών DailyNutraFit.',
+    bottom_sub: 'Γίνετε μέλος αθλητών που παρακολουθούν έξυπνα.',
     bottom_cta: 'Ξεκινήστε Δωρεάν',
   },
 };
@@ -104,7 +104,7 @@ const features = [
 ];
 
 const comingSoon = [
-  { icon: Dumbbell,    title: { en: 'Training Programs', es: 'Programas de Entrenamiento', el: 'Προγράμματα Προπόνησης' }, desc: { en: 'Monitored & direct programs from DailyNutraFit coaches', es: 'Programas monitoreados y directos de coaches DailyNutraFit', el: 'Παρακολουθούμενα προγράμματα από coaches DailyNutraFit' } },
+  { icon: Dumbbell,    title: { en: 'Training Programs', es: 'Programas de Entrenamiento', el: 'Προγράμματα Προπόνησης' }, desc: { en: 'Monitored & direct programs from certified coaches', es: 'Programas monitoreados y directos de coaches certificados', el: 'Παρακολουθούμενα προγράμματα από πιστοποιημένους coaches' } },
   { icon: Users,       title: { en: 'Community & Results', es: 'Comunidad y Resultados', el: 'Κοινότητα & Αποτελέσματα' }, desc: { en: 'Results database, athlete rankings, and community features', es: 'Base de resultados, ranking de atletas y comunidad', el: 'Βάση αποτελεσμάτων, κατάταξη αθλητών, κοινότητα' } },
   { icon: FlaskConical, title: { en: 'Ergometric Testing', es: 'Pruebas Ergométricas', el: 'Εργομετρικές Δοκιμές' }, desc: { en: 'Sport-specific performance assessment and tracking', es: 'Evaluación y seguimiento de rendimiento deportivo', el: 'Αξιολόγηση αθλητικής απόδοσης' } },
   { icon: BarChart3,   title: { en: 'Advanced Analytics', es: 'Analítica Avanzada', el: 'Προηγμένα Analytics' }, desc: { en: 'Deep macro trends, body composition, and performance correlation', es: 'Tendencias de macros, composición corporal y correlación de rendimiento', el: 'Τάσεις μάκρο, σύνθεση σώματος, συσχέτιση απόδοσης' } },
@@ -114,13 +114,6 @@ const steps = [
   { n: '01', title: { en: 'Sign up in seconds', es: 'Regístrate en segundos', el: 'Εγγραφή σε δευτερόλεπτα' }, desc: { en: 'Enter your stats. Get personalized macro targets instantly based on your body and goals.', es: 'Ingresa tus datos. Obtén macros personalizados al instante basados en tu cuerpo y metas.', el: 'Εισάγετε τα στατιστικά σας. Λάβετε εξατομικευμένους στόχους μάκρο αμέσως.' } },
   { n: '02', title: { en: 'Log meals your way', es: 'Registra comidas a tu manera', el: 'Καταγράψτε γεύματα' }, desc: { en: 'Text, photo, or voice — AI handles the rest. 350,000+ foods from USDA FoodData Central.', es: 'Texto, foto o voz — la IA hace el resto. 350,000+ alimentos de USDA FoodData Central.', el: 'Κείμενο, φωτογραφία ή φωνή — η AI κάνει τα υπόλοιπα. 350,000+ τρόφιμα.' } },
   { n: '03', title: { en: 'Build habits that stick', es: 'Construye hábitos que perduran', el: 'Χτίστε συνήθειες που μένουν' }, desc: { en: 'Your coach assigns one habit every 14 days. Small wins compound into lasting transformation.', es: 'Tu coach asigna un hábito cada 14 días. Pequeñas victorias se acumulan en transformación duradera.', el: 'Ο coach σας αναθέτει μία συνήθεια κάθε 14 μέρες.' } },
-];
-
-const stats = [
-  { value: '350K+', label: { en: 'Foods in database', es: 'Alimentos en base de datos', el: 'Τρόφιμα στη βάση' } },
-  { value: 'AI', label: { en: 'Powered parsing', es: 'Análisis inteligente', el: 'Ανάλυση με AI' } },
-  { value: '3', label: { en: 'Languages', es: 'Idiomas', el: 'Γλώσσες' } },
-  { value: '14d', label: { en: 'Habit cycles', es: 'Ciclos de hábitos', el: 'Κύκλοι συνηθειών' } },
 ];
 
 const evidenceSources = ['ISSN', 'ACSM', 'Mifflin-St Jeor', 'IOC', 'Precision Nutrition', 'USDA FDC'];
@@ -133,6 +126,144 @@ const fadeUp = {
   }),
 };
 
+/* ─── App Preview Mockup ─── */
+function AppPreview() {
+  return (
+    <div className="relative mx-auto w-[280px] sm:w-[320px]">
+      {/* Phone frame */}
+      <div className="rounded-[2rem] border-2 border-stone-700/40 bg-stone-950 p-2 shadow-2xl shadow-black/40">
+        {/* Screen */}
+        <div className="rounded-[1.5rem] overflow-hidden bg-stone-950">
+          {/* Status bar */}
+          <div className="flex justify-between items-center px-5 pt-3 pb-1 text-[9px] text-stone-500">
+            <span>9:41</span>
+            <div className="flex gap-1 items-center">
+              <div className="w-3 h-2 border border-stone-600 rounded-sm relative">
+                <div className="absolute inset-0.5 bg-green-500 rounded-xs" />
+              </div>
+            </div>
+          </div>
+
+          {/* App header */}
+          <div className="px-4 pt-2 pb-3">
+            <p className="text-[10px] text-stone-500 font-mono tracking-wider uppercase">Today</p>
+            <div className="flex items-baseline justify-between mt-1">
+              <p className="text-stone-200 text-sm font-semibold">Monday, Jun 9</p>
+            </div>
+          </div>
+
+          {/* Macro bar */}
+          <div className="mx-3 rounded-xl bg-stone-900/80 border border-stone-800/40 p-3 mb-3">
+            <div className="grid grid-cols-5 gap-1 text-center">
+              {[
+                { v: '1,847', l: 'kcal', c: 'text-[#D4A853]' },
+                { v: '142', l: 'Protein', c: 'text-red-400' },
+                { v: '198', l: 'Carbs', c: 'text-blue-400' },
+                { v: '67', l: 'Fat', c: 'text-purple-400' },
+                { v: '24', l: 'Fiber', c: 'text-green-400' },
+              ].map((m) => (
+                <div key={m.l}>
+                  <p className={`text-xs font-bold ${m.c}`}>{m.v}</p>
+                  <p className="text-[7px] text-stone-600 mt-0.5">{m.l}</p>
+                </div>
+              ))}
+            </div>
+            {/* Progress bar */}
+            <div className="mt-2 h-1 bg-stone-800 rounded-full overflow-hidden">
+              <div className="h-full bg-gradient-to-r from-[#D4A853] to-[#E8C078] rounded-full" style={{ width: '72%' }} />
+            </div>
+            <p className="text-[8px] text-stone-600 mt-1 text-right">72% of daily target</p>
+          </div>
+
+          {/* Meal cards */}
+          <div className="px-3 space-y-2 pb-3">
+            {/* Logged meal */}
+            <div className="rounded-xl bg-stone-900/60 border border-stone-800/30 p-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px]">&#9728;&#65039;</span>
+                  <span className="text-stone-200 text-xs font-medium">Breakfast</span>
+                </div>
+                <span className="text-[#D4A853] text-[10px] font-semibold">487 kcal</span>
+              </div>
+              <div className="mt-1.5 space-y-1">
+                <div className="flex justify-between text-[10px]">
+                  <span className="text-stone-400">Greek yogurt with honey</span>
+                  <span className="text-stone-500">220 kcal</span>
+                </div>
+                <div className="flex justify-between text-[10px]">
+                  <span className="text-stone-400">Granola mix (45g)</span>
+                  <span className="text-stone-500">185 kcal</span>
+                </div>
+                <div className="flex justify-between text-[10px]">
+                  <span className="text-stone-400">Banana</span>
+                  <span className="text-stone-500">82 kcal</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Logged meal 2 */}
+            <div className="rounded-xl bg-stone-900/60 border border-stone-800/30 p-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px]">&#127860;</span>
+                  <span className="text-stone-200 text-xs font-medium">Lunch</span>
+                </div>
+                <span className="text-[#D4A853] text-[10px] font-semibold">724 kcal</span>
+              </div>
+              <div className="mt-1.5 space-y-1">
+                <div className="flex justify-between text-[10px]">
+                  <span className="text-stone-400">Grilled chicken breast</span>
+                  <span className="text-stone-500">312 kcal</span>
+                </div>
+                <div className="flex justify-between text-[10px]">
+                  <span className="text-stone-400">Brown rice (180g)</span>
+                  <span className="text-stone-500">234 kcal</span>
+                </div>
+                <div className="flex justify-between text-[10px]">
+                  <span className="text-stone-400">Mixed salad + olive oil</span>
+                  <span className="text-stone-500">178 kcal</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Upcoming meal */}
+            <div className="rounded-xl bg-stone-900/30 border border-dashed border-stone-800/30 p-3 opacity-50">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px]">&#127769;</span>
+                <span className="text-stone-400 text-xs">Dinner — Tap to log</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom nav hint */}
+          <div className="flex justify-around py-2 border-t border-stone-800/30 text-stone-600">
+            <div className="text-center">
+              <div className="w-4 h-4 mx-auto mb-0.5 rounded bg-stone-800/40" />
+              <span className="text-[7px]">Home</span>
+            </div>
+            <div className="text-center">
+              <div className="w-4 h-4 mx-auto mb-0.5 rounded bg-[#D4A853]/20 border border-[#D4A853]/30" />
+              <span className="text-[7px] text-[#D4A853]">Log</span>
+            </div>
+            <div className="text-center">
+              <div className="w-4 h-4 mx-auto mb-0.5 rounded bg-stone-800/40" />
+              <span className="text-[7px]">Progress</span>
+            </div>
+            <div className="text-center">
+              <div className="w-4 h-4 mx-auto mb-0.5 rounded bg-stone-800/40" />
+              <span className="text-[7px]">Me</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Floating glow behind phone */}
+      <div className="absolute -inset-8 -z-10 bg-[#D4A853]/[0.06] rounded-full blur-3xl" />
+    </div>
+  );
+}
+
 export default function LandingPage() {
   const [lang, setLang] = useState<Lang>('en');
   const t = copy[lang];
@@ -142,15 +273,10 @@ export default function LandingPage() {
       {/* ─── Navbar ─── */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-stone-950/80 backdrop-blur-xl border-b border-white/[0.04]">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
-          {/* Logo + Brand */}
-          <div className="flex items-center gap-3">
-            <span className="font-serif italic text-[#D4A853] text-xl tracking-tight select-none" aria-label="trophē">
-              trophē
-            </span>
-            <span className="hidden sm:inline text-stone-600 text-[10px] font-mono tracking-widest uppercase">
-              by DailyNutraFit
-            </span>
-          </div>
+          {/* Logo */}
+          <span className="font-serif italic text-[#D4A853] text-xl tracking-tight select-none" aria-label="trophē">
+            trophē
+          </span>
 
           {/* Right side */}
           <div className="flex items-center gap-2 sm:gap-3">
@@ -187,66 +313,56 @@ export default function LandingPage() {
       </nav>
 
       {/* ─── Hero ─── */}
-      <section className="relative pt-28 sm:pt-36 pb-20 sm:pb-28 px-6">
+      <section className="relative pt-24 sm:pt-32 pb-8 sm:pb-12 px-6">
         {/* Ambient glow */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-[#D4A853] rounded-full opacity-[0.03] blur-[150px]" />
           <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-blue-500 rounded-full opacity-[0.02] blur-[120px]" />
         </div>
 
-        <div className="relative max-w-3xl mx-auto text-center">
-          {/* Eyebrow — CSS animation, no hydration risk */}
-          <p
-            className="font-mono text-[10px] sm:text-xs tracking-[0.2em] uppercase text-[#D4A853]/70 mb-6 animate-[fadeUp_0.5s_ease-out_both]"
-          >
-            {t.hero_tag}
-          </p>
+        <div className="relative max-w-5xl mx-auto">
+          <div className="flex flex-col lg:flex-row items-center gap-10 lg:gap-16">
+            {/* Left — Copy */}
+            <div className="flex-1 text-center lg:text-left">
+              {/* Eyebrow */}
+              <p className="font-mono text-[10px] sm:text-xs tracking-[0.2em] uppercase text-[#D4A853]/70 mb-6 animate-[fadeUp_0.5s_ease-out_both]">
+                {t.hero_tag}
+              </p>
 
-          {/* Headline */}
-          <h1
-            className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.1] mb-6 animate-[fadeUp_0.6s_0.1s_ease-out_both]"
-          >
-            <span className="text-stone-100">{t.hero_h1}</span>
-            <br />
-            <span className="text-[#D4A853]">{t.hero_h1_accent}</span>
-          </h1>
+              {/* Headline */}
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.1] mb-6 animate-[fadeUp_0.6s_0.1s_ease-out_both]">
+                <span className="text-stone-100">{t.hero_h1}</span>
+                <br />
+                <span className="text-[#D4A853]">{t.hero_h1_accent}</span>
+              </h1>
 
-          {/* Subline */}
-          <p
-            className="text-stone-400 text-base sm:text-lg max-w-xl mx-auto leading-relaxed mb-10 animate-[fadeUp_0.5s_0.25s_ease-out_both]"
-          >
-            {t.hero_sub}
-          </p>
+              {/* Subline */}
+              <p className="text-stone-400 text-base sm:text-lg max-w-xl mx-auto lg:mx-0 leading-relaxed mb-10 animate-[fadeUp_0.5s_0.25s_ease-out_both]">
+                {t.hero_sub}
+              </p>
 
-          {/* CTAs */}
-          <div
-            className="flex flex-col sm:flex-row gap-3 justify-center animate-[fadeUp_0.4s_0.4s_ease-out_both]"
-          >
-            <Link
-              href="/login?mode=signup"
-              className="btn-gold text-center text-base sm:text-lg px-8 py-3.5 no-underline flex items-center justify-center gap-2 group"
-            >
-              {t.cta}
-              <ArrowRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
-            </Link>
-            <Link
-              href="/login"
-              className="btn-ghost text-center text-base sm:text-lg px-8 py-3.5 no-underline"
-            >
-              {t.cta2}
-            </Link>
-          </div>
-
-          {/* Stats ribbon */}
-          <div
-            className="flex flex-wrap justify-center gap-6 sm:gap-10 mt-14 pt-8 border-t border-white/[0.04] animate-[fadeUp_0.5s_0.6s_ease-out_both]"
-          >
-            {stats.map((s, i) => (
-              <div key={i} className="text-center">
-                <p className="text-xl sm:text-2xl font-bold text-[#D4A853]">{s.value}</p>
-                <p className="text-[10px] sm:text-xs text-stone-500 mt-0.5">{s.label[lang]}</p>
+              {/* CTAs */}
+              <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start animate-[fadeUp_0.4s_0.4s_ease-out_both]">
+                <Link
+                  href="/login?mode=signup"
+                  className="btn-gold text-center text-base sm:text-lg px-8 py-3.5 no-underline flex items-center justify-center gap-2 group"
+                >
+                  {t.cta}
+                  <ArrowRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
+                </Link>
+                <Link
+                  href="/login"
+                  className="btn-ghost text-center text-base sm:text-lg px-8 py-3.5 no-underline"
+                >
+                  {t.cta2}
+                </Link>
               </div>
-            ))}
+            </div>
+
+            {/* Right — App Preview */}
+            <div className="animate-[fadeUp_0.7s_0.3s_ease-out_both]">
+              <AppPreview />
+            </div>
           </div>
         </div>
       </section>
@@ -429,26 +545,9 @@ export default function LandingPage() {
       {/* ─── Footer ─── */}
       <footer className="border-t border-white/[0.04] py-8 px-6">
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <span className="font-serif italic text-[#D4A853] text-base select-none">trophē</span>
-            <span className="text-stone-700 text-[9px] font-mono tracking-wider uppercase">
-              by DailyNutraFit
-            </span>
-          </div>
-          <div className="flex items-center gap-4 text-stone-600 text-xs">
-            <a
-              href="https://www.dailynutrafit.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-stone-400 transition-colors"
-            >
-              DailyNutraFit.com
-            </a>
-            <span className="text-stone-800">·</span>
-            <span>info@dailynutrafit.com</span>
-          </div>
+          <span className="font-serif italic text-[#D4A853] text-base select-none">trophē</span>
           <p className="text-stone-700 text-[10px]">
-            2026 Trophē · Powered by AthletiKapp
+            &copy; 2026 Trophē
           </p>
         </div>
       </footer>
