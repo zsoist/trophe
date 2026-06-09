@@ -799,6 +799,18 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
   'steak': 'beef steak grilled',
   'carne': 'beef steak grilled',
 
+  // ── Grains — COOKED variants (critical: "oatmeal" = cooked, not dry) ──
+  'oatmeal': 'oats cooked',
+  'oatmeal cooked': 'oats cooked',
+  'porridge': 'oats cooked',
+  'avena': 'oats cooked',
+  'avena cocida': 'oats cooked',
+  'cottage cheese': 'cottage cheese',
+  'almonds': 'almonds raw',
+  'almendras': 'almonds raw',
+  'walnuts': 'walnuts raw',
+  'nueces': 'walnuts raw',
+
   // ── Fish & seafood ──
   'salmon fillet': 'fish salmon atlantic',
   'salmon': 'fish salmon atlantic farmed',
@@ -838,8 +850,8 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
   'γαλακτομπούρεκο': 'galaktoboureko',
   'μπακλαβάς': 'baklava',
   'μπακλαβας': 'baklava',
-  'σουβλάκι': 'souvlaki chicken',
-  'σουβλακι': 'souvlaki chicken',
+  'σουβλάκι': 'souvlaki chicken pita',
+  'σουβλακι': 'souvlaki chicken pita',
   'γύρος': 'gyros pork',
   'γυρος': 'gyros pork',
   'μουσακάς': 'moussaka',
