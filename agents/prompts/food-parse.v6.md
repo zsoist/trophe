@@ -161,13 +161,25 @@ USDA REFERENCE VALUES (per 100g — use for calibration):
 | Food | kcal | protein | carbs | fat |
 |------|------|---------|-------|-----|
 | Moussaka | 148 | 7.5 | 9.0 | 10.0 |
-| Pastitsio | 165 | 8.5 | 15.0 | 8.0 |
-| Spanakopita | 270 | 7.0 | 25.0 | 16.0 |
+| Pastitsio | 155 | 8.0 | 14.0 | 7.5 |
+| Spanakopita (1 piece ~150g) | 270 | 7.0 | 25.0 | 16.0 |
 | Tiropita | 310 | 11.0 | 24.0 | 19.0 |
 | Greek salad (horiatiki) | 100 | 3.5 | 4.0 | 8.0 |
 | Fasolada | 85 | 4.5 | 13.0 | 2.0 |
 | Gemista (stuffed veg) | 95 | 2.5 | 12.0 | 4.5 |
 | Stifado | 120 | 10.0 | 7.0 | 5.5 |
+| Soutzoukakia with rice | 135 | 8.0 | 12.0 | 6.0 |
+| Gigantes plaki | 115 | 6.0 | 15.0 | 4.0 |
+| Dolmadakia (vine leaf rolls) | 130 | 3.0 | 15.0 | 6.5 |
+| Kokkinisto beef (red stew) | 135 | 12.0 | 6.0 | 7.0 |
+| Yiouvarlakia avgolemono | 105 | 6.5 | 9.0 | 5.0 |
+| Bamies laderes (okra) | 60 | 2.0 | 6.0 | 3.5 |
+| Horta (boiled greens w/ oil) | 80 | 2.5 | 5.0 | 6.0 |
+| Magiritsa (Easter soup) | 70 | 5.0 | 4.0 | 4.0 |
+| Greek sausage (loukaniko) | 285 | 16.0 | 2.0 | 24.0 |
+| Lamb roasted | 250 | 25.0 | 0 | 16.0 |
+| Chicken gyros pita | 195 | 11.0 | 16.0 | 9.0 |
+| Pork souvlaki pita | 210 | 12.0 | 15.0 | 11.0 |
 | Bougatsa cream | 295 | 5.5 | 35.0 | 15.0 |
 | Galaktoboureko | 270 | 5.0 | 32.0 | 14.0 |
 | Loukoumades (4 pcs = 80g) | 345 | 5.5 | 42.0 | 17.0 |
@@ -177,11 +189,20 @@ USDA REFERENCE VALUES (per 100g — use for calibration):
 | Saganaki cheese | 320 | 20.0 | 5.0 | 25.0 |
 | Souvlaki chicken (no pita) | 165 | 31.0 | 0 | 3.6 |
 | Souvlaki pork (no pita) | 225 | 27.0 | 0 | 12.0 |
-| Lentil soup (fakes) | 90 | 6.5 | 13.5 | 1.0 |
+| Lentil soup (fakes) | 80 | 5.5 | 12.0 | 1.5 |
 | Fried calamari | 175 | 15.0 | 8.0 | 9.5 |
 | Shrimp saganaki | 120 | 12.0 | 5.0 | 6.0 |
 | Sardines, grilled | 208 | 25.0 | 0 | 11.0 |
 | Sea bream (tsipura), grilled | 121 | 20.0 | 0 | 4.5 |
+| Spaghetti bolognese | 140 | 8.0 | 14.0 | 6.0 |
+| Chicken stir-fry with veg | 110 | 12.0 | 6.0 | 4.5 |
+| Cheeseburger (typical) | 255 | 13.5 | 24.0 | 12.0 |
+| Pepperoni pizza (1 slice) | 270 | 11.0 | 28.0 | 12.5 |
+| Caesar salad w/ chicken | 135 | 10.0 | 5.0 | 8.5 |
+| Fish and chips | 200 | 12.0 | 16.0 | 10.0 |
+| Chili con carne | 95 | 7.0 | 8.0 | 4.0 |
+| Tuna nicoise salad | 100 | 8.0 | 5.0 | 5.5 |
+| Chicken fajitas | 130 | 10.0 | 8.0 | 7.0 |
 
 ### Colombian dishes (per 100g)
 | Food | kcal | protein | carbs | fat |
@@ -190,21 +211,35 @@ USDA REFERENCE VALUES (per 100g — use for calibration):
 | Patacon con hogao | 240 | 2.0 | 34.0 | 11.0 |
 | Frijoles rojos (cooked) | 132 | 8.9 | 24.0 | 0.5 |
 | Empanada (fried) | 260 | 8.0 | 28.0 | 13.0 |
-| Tamale colombiano | 195 | 7.0 | 18.0 | 11.0 |
-| Ajiaco | 65 | 4.0 | 8.0 | 2.0 |
-| Sancocho | 75 | 5.0 | 8.0 | 2.5 |
+| Tamale colombiano | 170 | 6.0 | 16.0 | 9.0 |
+| Ajiaco santafereño | 55 | 3.5 | 7.0 | 1.5 |
+| Sancocho de gallina | 60 | 4.0 | 6.0 | 2.0 |
 | Changua | 80 | 5.5 | 4.0 | 4.5 |
 | Chicharron | 540 | 20.0 | 0 | 50.0 |
+| Lechona tolimense | 210 | 14.0 | 12.0 | 12.0 |
+| Sudado de pescado | 70 | 8.0 | 3.0 | 3.0 |
+| Sopa de lentejas | 70 | 4.0 | 10.0 | 1.5 |
+| Papas chorreadas | 130 | 4.0 | 14.0 | 6.5 |
+| Arroz atollado | 130 | 6.0 | 16.0 | 4.5 |
+| Calentado | 150 | 7.0 | 20.0 | 5.0 |
 
 ### Branded/common products (per 100g)
 | Food | kcal | protein | carbs | fat |
 |------|------|---------|-------|-----|
 | Whey protein powder | 400 | 80.0 | 7.0 | 5.0 |
+| FAGE Total 0% yogurt | 57 | 10.0 | 4.0 | 0 |
+| FAGE Total 2% yogurt | 85 | 9.0 | 4.5 | 3.0 |
+| FAGE Total 2% with honey | 108 | 7.5 | 13.0 | 3.0 |
+| Chobani plain Greek yogurt | 59 | 10.0 | 3.6 | 0.7 |
 | Oreo cookies | 440 | 4.0 | 68.0 | 18.0 |
+| Quest protein bar | 355 | 33.0 | 40.0 | 8.0 |
+| Monster energy drink | 47 | 0 | 11.3 | 0 |
+| Red Bull | 45 | 0 | 11.0 | 0 |
+| Special K cereal | 380 | 8.0 | 82.0 | 1.5 |
+| Barilla pasta (cooked) | 157 | 5.8 | 30.6 | 0.9 |
 | Sweet potato, baked | 90 | 2.0 | 21.0 | 0.1 |
 | Quinoa, cooked | 120 | 4.4 | 21.3 | 1.9 |
 | Broccoli, steamed | 35 | 2.4 | 7.2 | 0.4 |
-| Cheeseburger (typical) | 255 | 13.5 | 24.0 | 12.0 |
 
 STANDARD PORTION SIZES (use when unit is not grams):
 - 1 souvlaki/gyros pita wrap = 280-350g (pita 60g + meat 120g + sauce 30g + veg 40g + extras 50g)
@@ -235,7 +270,25 @@ STANDARD PORTION SIZES (use when unit is not grams):
 - 1 plate shrimp saganaki = 300g
 - 6 sardines grilled = 150g
 - 1 sea bream (tsipura) = 200-250g whole, ~150g flesh
+- 1 serving gigantes plaki = 250g, 1 serving soutzoukakia = 250g
+- 1 serving kokkinisto = 250g, 1 serving yiouvarlakia = 300g
+- 6 dolmadakia = 150g (6 × 25g each)
+- 1 serving bamies = 300g, 1 plate horta = 200g
+- 1 serving magiritsa = 350g, 1 loukaniko = 100g
+- 2 pieces lamb roasted = 200g (100g each)
+- 1 chicken gyros pita = 300-350g, 1 pork souvlaki pita = 280-320g
+- 1 souvlaki chicken without pita = 120-150g (just the meat skewer)
 - 1 bandeja paisa = 600-700g (large composite plate)
+- 1 ajiaco bowl = 400g, 1 sancocho bowl = 400g
+- 1 lechona serving = 200g, 1 sudado plate = 300g
+- 1 sopa de lentejas bowl = 350g, 1 papas chorreadas = 200g
+- 1 arroz atollado plate = 350g, 1 calentado plate = 350g
+- 1 slice pepperoni pizza = 120g, 2 slices = 240g
+- 1 serving Caesar salad = 300-350g
+- 1 serving chicken stir-fry = 300g, 1 serving fajitas = 250g
+- 1 bowl chili con carne = 350g, 1 tuna nicoise = 300g
+- 1 serving fish and chips = 350g
+- 1 spaghetti bolognese plate = 350g
 
 For COMPOSITES: decompose mentally into ingredients, estimate each, then sum the per-100g profile.
 Example: "1 souvlaki chicken pita" → pita 60g(160kcal) + chicken 120g(198kcal) + tzatziki 30g(54kcal) + veg 40g(10kcal) + fries 50g(150kcal) = ~300g total, weighted avg ~190kcal/100g, ~11.5g prot/100g, ~16g carb/100g, ~7.5g fat/100g
