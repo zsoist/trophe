@@ -1106,3 +1106,46 @@ export async function lookupFoodBatch(
   }
   return results;
 }
+
+// ── RAG pre-search: lightweight DB context for LLM prompt ──────────────────
+//
+// Before the LLM call, do a quick BM25 search and return top-3 matches
+// with per-100g macros. Injected into the user message so the LLM has
+// reference anchors instead of guessing blind.
+// DietAI24 showed 63% MAE reduction with this pattern.
+
+export interface RagMatch {
+  name: string;
+  kcal: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+}
+
+export async function ragPreSearch(foodText: string, limit = 3): Promise<RagMatch[]> {
+  if (!foodText || foodText.length < 2) return [];
+
+  try {
+    const corrected = correctFoodName(foodText);
+    const candidates = await keywordCandidates(corrected);
+    if (candidates.length === 0) return [];
+
+    return candidates.slice(0, limit).map(f => ({
+      name: f.nameEn ?? 'unknown',
+      kcal: f.kcalPer100g ?? 0,
+      protein: f.proteinPer100g ?? 0,
+      carbs: f.carbPer100g ?? 0,
+      fat: f.fatPer100g ?? 0,
+    }));
+  } catch {
+    return []; // non-critical — LLM works without it
+  }
+}
+
+export function formatRagContext(matches: RagMatch[]): string {
+  if (matches.length === 0) return '';
+  const lines = matches.map(m =>
+    `  - ${m.name}: ${m.kcal} kcal, ${m.protein}g protein, ${m.carbs}g carbs, ${m.fat}g fat (per 100g)`
+  );
+  return `\n\nREFERENCE DATA from our nutrition database (per 100g):\n${lines.join('\n')}\nUse these as anchors when estimating. If a reference closely matches the food, prefer its values.`;
+}

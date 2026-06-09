@@ -25,7 +25,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { FoodParseInput, FoodParseOutput, ParsedFoodItem } from '../schemas/food-parse';
 import { enrichWithLocalDB } from './enrich';
-import { lookupFoodBatch } from './lookup';
+import { lookupFoodBatch, ragPreSearch, formatRagContext } from './lookup';
 import type { LookupInput } from './lookup';
 import { decomposeAndLookup, lookupCachedRecipeAsItem } from './decompose';
 import { pick } from '../router';
@@ -149,11 +149,13 @@ function computeFromPer100g(c: V4Candidate): {
   grams: number; calories: number; protein_g: number;
   carbs_g: number; fat_g: number;
 } {
-  const g = Math.round(c.estimated_grams!);
-  const kcal100 = c.per_100g_kcal!;
-  const p100 = c.per_100g_protein ?? 0;
-  const c100 = c.per_100g_carbs ?? 0;
-  const f100 = c.per_100g_fat ?? 0;
+  // Clamp portion grams to sane range (10g–2000g)
+  const g = Math.max(10, Math.min(2000, Math.round(c.estimated_grams!)));
+  // Clamp per-100g values to physically possible ranges
+  const kcal100 = Math.max(0, Math.min(900, c.per_100g_kcal!));      // pure fat = ~900
+  const p100 = Math.max(0, Math.min(85, c.per_100g_protein ?? 0));    // whey isolate ~80-85
+  const c100 = Math.max(0, Math.min(100, c.per_100g_carbs ?? 0));     // pure sugar = 100
+  const f100 = Math.max(0, Math.min(100, c.per_100g_fat ?? 0));       // pure oil = 100
   return {
     grams: g,
     calories: Math.round(kcal100 * g / 100),
@@ -619,7 +621,14 @@ export async function run(
     };
   }
 
-  const userMessage = `Parse this food input (language: ${language}):\n\n"${sanitizedText}"`;
+  // ── Step 0: RAG pre-search — give the LLM DB reference data ───────────────
+  // Only inject RAG for simple (non-composite) inputs.
+  // Composite/multi-item inputs get confused when RAG returns a single-ingredient match.
+  const looksComposite = /[,;+]|( and | with | con | και | y | met )/.test(sanitizedText.toLowerCase());
+  const ragMatches = looksComposite ? [] : await ragPreSearch(sanitizedText);
+  const ragContext = formatRagContext(ragMatches);
+
+  const userMessage = `Parse this food input (language: ${language}):\n\n"${sanitizedText}"${ragContext}`;
 
   // ── Step 1: LLM identifies foods (no macro numbers) ──────────────────────
   let llmResult: {

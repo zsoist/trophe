@@ -107,13 +107,27 @@ export async function traced(
   try {
     result = await fn(generation);
 
+    const cacheReadTokens = result.usage.cache_read_input_tokens ?? 0;
+    const cacheCreationTokens = result.usage.cache_creation_input_tokens ?? 0;
+    const totalInputTokens = result.usage.input_tokens;
+    const cacheHitRate = totalInputTokens > 0
+      ? Math.round((cacheReadTokens / totalInputTokens) * 100) / 100
+      : 0;
+
     generation.end({
       output: result.text.slice(0, 2000),
       usage: {
-        input: result.usage.input_tokens,
+        input: totalInputTokens,
         output: result.usage.output_tokens,
-        total: result.usage.input_tokens + result.usage.output_tokens,
+        total: totalInputTokens + result.usage.output_tokens,
         unit: 'TOKENS',
+      },
+      metadata: {
+        cacheReadTokens,
+        cacheCreationTokens,
+        cacheHitRate,
+        cacheMissTokens: totalInputTokens - cacheReadTokens,
+        latencyMs: result.latencyMs,
       },
       level: result.rawStatus === 0 ? 'ERROR' : 'DEFAULT',
       statusMessage: result.rawError,

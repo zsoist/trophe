@@ -1,23 +1,27 @@
 /**
  * Trophē v0.3 — LLM routing policies.
  *
- * Maps agent tasks to (provider, model) pairs. Chosen from the Phase 3
- * operator decisions in the plan:
- *   - food_parse   → Gemini 2.5 Flash  (cost-optimised, fast, good at extraction)
- *   - recipe       → Haiku 4.5         (well-calibrated for recipe JSON)
- *   - coach_insight→ Sonnet 4.6        (nuanced coaching language)
- *   - embed        → Voyage voyage-4   (1024-dim, MTEB 67, matches OpenBrain)
+ * Maps agent tasks to (provider, model) pairs.
+ * Cost strategy (2026-06): DeepSeek-first for ALL text tasks.
+ * Gemini/Anthropic reserved ONLY for vision (photo_analyze).
  *
- * Costs ($/M tokens, approximate 2026-05):
+ *   - food_parse   → DeepSeek V4 Flash  (cheapest structured output)
+ *   - recipe       → DeepSeek V4 Flash
+ *   - coach_insight→ DeepSeek V4 Flash
+ *   - meal_suggest → DeepSeek V4 Flash
+ *   - photo_analyze→ Anthropic Haiku 4.5 (needs vision/multimodal)
+ *   - embed        → Voyage voyage-4
+ *
+ * Costs ($/M tokens, approximate 2026-06):
+ *   deepseek-v4-flash ~$0.14 in / $0.28 out (+ prompt cache discounts)
  *   gemini-2.5-flash  ~$0.30 in / $2.50 out
  *   claude-haiku-4-5  ~$1.00 in / $5.00 out
- *   claude-sonnet-4-6 ~$3.00 in / $15.00 out
  *
- * Expected monthly cost at 50 active users (50 meals/day, 1 coach call/day):
- *   food_parse:    50*50*200 tokens * $0.30/M  = ~$0.075/day
- *   recipe:        50*5*500 tokens  * $0.25/M  = ~$0.031/day
- *   coach_insight: 50*1*800 tokens  * $3.00/M  = ~$0.12/day
- *   Total: ~$0.23/day (~$7/month) before output tokens and cache discounts
+ * Expected monthly cost at 50 active users (50 meals/day):
+ *   food_parse:    50*50*200 tokens * $0.14/M  = ~$0.035/day
+ *   recipe:        50*5*500 tokens  * $0.14/M  = ~$0.018/day
+ *   coach_insight: 50*1*800 tokens  * $0.14/M  = ~$0.006/day
+ *   Total: ~$0.06/day (~$1.8/month) — 75% cheaper than before
  *
  * To override a task globally: change its policy entry here.
  * To disable a task (force Anthropic): set provider to 'anthropic'.
@@ -53,30 +57,35 @@ export interface RoutingPolicy {
 
 export const taskPolicies: Record<TaskName, RoutingPolicy> = {
   food_parse: {
-    provider: 'google',
-    model: 'gemini-2.5-flash',
+    // Migrated to DeepSeek V4 Flash (2026-06-08): $0.14/$0.28 vs Gemini $0.30/$2.50.
+    // ~90% cost reduction on output tokens. Structured via tool calling (/beta strict).
+    // Fallback: Gemini Flash (constrained decoding) — see taskFallbacks.
+    provider: 'deepseek',
+    model: 'deepseek-v4-flash',
     costClass: 'cheap',
     latencyClass: 'fast',
     maxTokens: 2048,
     timeoutMs: 20_000, maxInputChars: 12_000, maxCostUsd: 0.02, promptVersion: 'food-parse-v4',
   },
   recipe_analyze: {
-    provider: 'anthropic',
-    model: 'claude-haiku-4-5-20251001',
+    // Migrated to DeepSeek V4 Flash (2026-06-08): $0.14/$0.28 vs Haiku $1/$5.
+    // Fallback: Anthropic Haiku 4.5 — see taskFallbacks.
+    provider: 'deepseek',
+    model: 'deepseek-v4-flash',
     costClass: 'cheap',
     latencyClass: 'fast',
     maxTokens: 4096,
-    cacheSystem: true,
-    timeoutMs: 25_000, maxInputChars: 30_000, maxCostUsd: 0.05, promptVersion: 'recipe-analyze-v1',
+    timeoutMs: 25_000, maxInputChars: 30_000, maxCostUsd: 0.02, promptVersion: 'recipe-analyze-v1',
   },
   coach_insight: {
-    provider: 'anthropic',
-    model: 'claude-sonnet-4-6',
-    costClass: 'mid',
-    latencyClass: 'medium',
+    // Migrated to DeepSeek V4 Flash (2026-06-08): $0.14/$0.28 vs Sonnet $3/$15.
+    // ~98% cost reduction. Fallback: Anthropic Haiku 4.5 — see taskFallbacks.
+    provider: 'deepseek',
+    model: 'deepseek-v4-flash',
+    costClass: 'cheap',
+    latencyClass: 'fast',
     maxTokens: 2048,
-    cacheSystem: true,
-    timeoutMs: 30_000, maxInputChars: 40_000, maxCostUsd: 0.25, promptVersion: 'coach-insight-v1',
+    timeoutMs: 30_000, maxInputChars: 40_000, maxCostUsd: 0.05, promptVersion: 'coach-insight-v1',
   },
   meal_suggest: {
     // Migrated to DeepSeek V4 Flash (2026-06-08): $0.14/$0.28 per M tokens
@@ -136,18 +145,36 @@ export const taskPolicies: Record<TaskName, RoutingPolicy> = {
 // When a primary provider fails (network, rate-limit, outage), executeAiTask
 // retries once with the fallback policy before surfacing the error.
 //
-// Design: only tasks routed to a non-Anthropic primary get a fallback,
-// since Anthropic is the most battle-tested provider in production.
-// food_parse keeps Gemini primary but falls back to DeepSeek for resilience.
+// Design: all text tasks primary on DeepSeek, fallback to Gemini or Anthropic.
+// Photo stays on Anthropic (vision), no fallback needed (Gemini vision is the backup).
 
 export const taskFallbacks: Partial<Record<TaskName, RoutingPolicy>> = {
-  memory_extract: {
+  food_parse: {
+    // Fallback: Gemini Flash constrained decoding (proven reliable)
     provider: 'google',
     model: 'gemini-2.5-flash',
     costClass: 'cheap',
     latencyClass: 'fast',
-    maxTokens: 1024,
-    timeoutMs: 20_000, maxInputChars: 30_000, maxCostUsd: 0.03, promptVersion: 'memory-extract-v2-fallback',
+    maxTokens: 2048,
+    timeoutMs: 20_000, maxInputChars: 12_000, maxCostUsd: 0.02, promptVersion: 'food-parse-v4-fallback',
+  },
+  recipe_analyze: {
+    provider: 'anthropic',
+    model: 'claude-haiku-4-5-20251001',
+    costClass: 'cheap',
+    latencyClass: 'fast',
+    maxTokens: 4096,
+    cacheSystem: true,
+    timeoutMs: 25_000, maxInputChars: 30_000, maxCostUsd: 0.05, promptVersion: 'recipe-analyze-v1-fallback',
+  },
+  coach_insight: {
+    provider: 'anthropic',
+    model: 'claude-haiku-4-5-20251001',
+    costClass: 'cheap',
+    latencyClass: 'fast',
+    maxTokens: 2048,
+    cacheSystem: true,
+    timeoutMs: 30_000, maxInputChars: 40_000, maxCostUsd: 0.10, promptVersion: 'coach-insight-v1-fallback',
   },
   meal_suggest: {
     provider: 'anthropic',
@@ -158,12 +185,12 @@ export const taskFallbacks: Partial<Record<TaskName, RoutingPolicy>> = {
     cacheSystem: true,
     timeoutMs: 25_000, maxInputChars: 8_000, maxCostUsd: 0.05, promptVersion: 'meal-suggest-v1-fallback',
   },
-  food_parse: {
-    provider: 'deepseek',
-    model: 'deepseek-v4-flash',
+  memory_extract: {
+    provider: 'google',
+    model: 'gemini-2.5-flash',
     costClass: 'cheap',
     latencyClass: 'fast',
-    maxTokens: 2048,
-    timeoutMs: 20_000, maxInputChars: 12_000, maxCostUsd: 0.02, promptVersion: 'food-parse-v4-fallback',
+    maxTokens: 1024,
+    timeoutMs: 20_000, maxInputChars: 30_000, maxCostUsd: 0.03, promptVersion: 'memory-extract-v2-fallback',
   },
 };

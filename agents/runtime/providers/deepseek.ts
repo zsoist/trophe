@@ -67,13 +67,19 @@ export async function invokeDeepSeekText(input: {
   if (finishReason && !['stop', 'tool_calls'].includes(finishReason)) {
     throw new Error(`DeepSeek incomplete response (${finishReason})`);
   }
+  const cacheHitTokens = data.usage?.prompt_cache_hit_tokens ?? 0;
+  const totalPromptTokens = data.usage?.prompt_tokens ?? 0;
+  if (cacheHitTokens > 0) {
+    const hitRate = totalPromptTokens > 0 ? Math.round((cacheHitTokens / totalPromptTokens) * 100) : 0;
+    console.info(`[deepseek] Cache hit: ${cacheHitTokens}/${totalPromptTokens} tokens (${hitRate}%) — text call`);
+  }
   return {
     output,
     providerGenerationId: data.id,
     usage: {
-      inputTokens: data.usage?.prompt_tokens ?? 0,
+      inputTokens: totalPromptTokens,
       outputTokens: data.usage?.completion_tokens ?? 0,
-      cacheReadTokens: data.usage?.prompt_cache_hit_tokens ?? 0,
+      cacheReadTokens: cacheHitTokens,
     },
     latencyMs: Date.now() - startedAt,
     rawStatus: response.status,
@@ -101,6 +107,7 @@ export async function invokeDeepSeekStructured<T>(input: {
       { role: 'user', content: input.prompt },
     ],
     max_tokens: input.maxTokens,
+    temperature: 0,          // deterministic for factual extraction
     thinking: { type: 'disabled' },
     user_id: deepSeekUserId(input.userId),
     tools: [{
@@ -119,13 +126,19 @@ export async function invokeDeepSeekStructured<T>(input: {
   if (data.choices?.[0]?.finish_reason !== 'tool_calls') {
     throw new Error(`DeepSeek structured response ended with ${data.choices?.[0]?.finish_reason ?? 'unknown reason'}`);
   }
+  const structCacheHitTokens = data.usage?.prompt_cache_hit_tokens ?? 0;
+  const structTotalPromptTokens = data.usage?.prompt_tokens ?? 0;
+  if (structCacheHitTokens > 0) {
+    const hitRate = structTotalPromptTokens > 0 ? Math.round((structCacheHitTokens / structTotalPromptTokens) * 100) : 0;
+    console.info(`[deepseek] Cache hit: ${structCacheHitTokens}/${structTotalPromptTokens} tokens (${hitRate}%) — structured call (${input.toolName})`);
+  }
   return {
     output: input.validator.parse(JSON.parse(rawArguments)),
     providerGenerationId: data.id,
     usage: {
-      inputTokens: data.usage?.prompt_tokens ?? 0,
+      inputTokens: structTotalPromptTokens,
       outputTokens: data.usage?.completion_tokens ?? 0,
-      cacheReadTokens: data.usage?.prompt_cache_hit_tokens ?? 0,
+      cacheReadTokens: structCacheHitTokens,
     },
     latencyMs: Date.now() - startedAt,
     rawStatus: response.status,
