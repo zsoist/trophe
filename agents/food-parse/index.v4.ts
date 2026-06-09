@@ -191,8 +191,9 @@ function applyMetabolicConsistency(item: ParsedFoodItem): ParsedFoodItem {
 
   const divergence = Math.abs(computedCal - item.calories) / item.calories;
 
-  // If macros and calories diverge by >20%, redistribute macros to match stated calories
-  if (divergence > 0.20) {
+  // If macros and calories diverge by >30%, redistribute macros to match stated calories
+  // (Conservative: only correct extreme inconsistencies to avoid overcorrection)
+  if (divergence > 0.30) {
     // Keep the ratio between macros the same, scale to match stated calories
     const scaleFactor = item.calories / computedCal;
     item.protein_g = Math.round(item.protein_g * scaleFactor * 10) / 10;
@@ -263,9 +264,34 @@ function arbitrateDbVsCoT(
   const llmKcal = per100gComputed?.calories ?? candidate.estimated_calories!;
   const llmGrams = candidate.estimated_grams!;
 
-  // Rule 1: Explicit portion + food-specific conversion → always trust DB
-  // When the user says "200g chicken breast" and we have a conversion, the DB math is exact.
+  // Rule 1: Explicit portion + food-specific conversion → trust DB for grams+calories.
+  // But v6: if LLM per-100g macro ratios significantly diverge from DB, use LLM's
+  // macro distribution (the DB might have imported wrong macro ratios).
   if (isExplicitPortion && hasFoodSpecificConversion) {
+    // v6 macro ratio correction for Rule 1
+    if (per100gAvailable && dbPer100g && dbPer100g.kcal > 0) {
+      const llmP100 = candidate.per_100g_protein ?? 0;
+      const llmC100 = candidate.per_100g_carbs ?? 0;
+      const llmF100 = candidate.per_100g_fat ?? 0;
+      const macroDiv = (a: number, b: number) => Math.abs(a - b) / Math.max(a, b, 0.1);
+      if (macroDiv(llmP100, dbPer100g.protein) > 0.30 ||
+          macroDiv(llmC100, dbPer100g.carb) > 0.30 ||
+          macroDiv(llmF100, dbPer100g.fat) > 0.30) {
+        const rawLlmCal = candidate.per_100g_kcal! * dbGrams / 100;
+        const calScale = rawLlmCal > 0 ? dbMacros.kcal / rawLlmCal : 1;
+        return {
+          source: 'hybrid' as const,
+          grams: dbGrams,
+          calories: dbMacros.kcal,
+          protein_g: Math.round(llmP100 * dbGrams / 100 * calScale * 10) / 10,
+          carbs_g: Math.round(llmC100 * dbGrams / 100 * calScale * 10) / 10,
+          fat_g: Math.round(llmF100 * dbGrams / 100 * calScale * 10) / 10,
+          fiber_g: dbMacros.fiber ?? 0,
+          sugar_g: Math.round(dbSugarPer100g * dbGrams / 100 * 10) / 10,
+          confidence: 0.90,
+        };
+      }
+    }
     return {
       source: 'local_db',
       grams: dbGrams,
@@ -283,8 +309,49 @@ function arbitrateDbVsCoT(
   const center = Math.max((dbMacros.kcal + llmKcal) / 2, 1);
   const divergence = Math.abs(dbMacros.kcal - llmKcal) / center;
 
-  // Rule 2: Estimates agree within 30% → trust DB (more precise per-100g data)
+  // Rule 2: Estimates agree within 30% → trust DB for calories, but check macro ratios
   if (divergence < 0.30) {
+    // Rule 2b (v6): When LLM has per-100g values, compare macro distributions.
+    // DB can have correct calories but wrong macro ratios (e.g., halloumi:
+    // DB says 21g prot/100g but USDA/actual is 25g). If LLM's per-100g macro
+    // ratios diverge >25% from DB's per-100g on ANY individual macro, use
+    // the LLM's macro distribution scaled to the DB's calorie total.
+    // This gives us: DB's accurate calories + LLM's accurate macro ratios.
+    if (per100gAvailable && dbPer100g && dbPer100g.kcal > 0) {
+      const llmP100 = candidate.per_100g_protein ?? 0;
+      const llmC100 = candidate.per_100g_carbs ?? 0;
+      const llmF100 = candidate.per_100g_fat ?? 0;
+      const dbP100 = dbPer100g.protein;
+      const dbC100 = dbPer100g.carb;
+      const dbF100 = dbPer100g.fat;
+
+      // Check if any individual macro diverges >25% between LLM and DB per-100g
+      const macroDiv = (a: number, b: number) => {
+        const mx = Math.max(a, b, 0.1);
+        return Math.abs(a - b) / mx;
+      };
+      const pDiv = macroDiv(llmP100, dbP100);
+      const cDiv = macroDiv(llmC100, dbC100);
+      const fDiv = macroDiv(llmF100, dbF100);
+
+      if (pDiv > 0.25 || cDiv > 0.25 || fDiv > 0.25) {
+        // Use LLM's per-100g macro ratios × DB grams, then scale to match DB calories
+        const rawLlmCal = candidate.per_100g_kcal! * dbGrams / 100;
+        const calScale = rawLlmCal > 0 ? dbMacros.kcal / rawLlmCal : 1;
+        return {
+          source: 'hybrid' as const,
+          grams: dbGrams,
+          calories: dbMacros.kcal, // keep DB calories (they agree with LLM)
+          protein_g: Math.round(llmP100 * dbGrams / 100 * calScale * 10) / 10,
+          carbs_g: Math.round(llmC100 * dbGrams / 100 * calScale * 10) / 10,
+          fat_g: Math.round(llmF100 * dbGrams / 100 * calScale * 10) / 10,
+          fiber_g: dbMacros.fiber ?? 0,
+          sugar_g: Math.round(dbSugarPer100g * dbGrams / 100 * 10) / 10,
+          confidence: Math.min(dbConfidence + 0.05, 0.90), // slightly lower than pure DB agreement
+        };
+      }
+    }
+
     return {
       source: 'local_db',
       grams: dbGrams,
