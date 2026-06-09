@@ -25,7 +25,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { FoodParseInput, FoodParseOutput, ParsedFoodItem } from '../schemas/food-parse';
 import { enrichWithLocalDB } from './enrich';
-import { lookupFoodBatch, ragPreSearch, formatRagContext } from './lookup';
+import { lookupFoodBatch, ragPreSearch, formatRagContext, correctFoodName } from './lookup';
 import type { LookupInput } from './lookup';
 import { decomposeAndLookup, lookupCachedRecipeAsItem } from './decompose';
 import { pick } from '../router';
@@ -149,8 +149,9 @@ function computeFromPer100g(c: V4Candidate): {
   grams: number; calories: number; protein_g: number;
   carbs_g: number; fat_g: number;
 } {
-  // Clamp portion grams to sane range (10g–2000g)
-  const g = Math.max(10, Math.min(2000, Math.round(c.estimated_grams!)));
+  // Clamp portion grams to sane range (10g–15000g).
+  // Upper bound supports bulk quantities like "10kg rice" (10000g).
+  const g = Math.max(10, Math.min(15000, Math.round(c.estimated_grams!)));
   // Clamp per-100g values to physically possible ranges
   const kcal100 = Math.max(0, Math.min(900, c.per_100g_kcal!));      // pure fat = ~900
   const p100 = Math.max(0, Math.min(85, c.per_100g_protein ?? 0));    // whey isolate ~80-85
@@ -188,7 +189,12 @@ function applyMetabolicConsistency(item: ParsedFoodItem): ParsedFoodItem {
   }
 
   // Metabolic consistency check
-  const computedCal = item.protein_g * 4 + item.carbs_g * 4 + item.fat_g * 9;
+  // Use fiber-adjusted Atwater factors: protein 4, available carbs 4, fiber 2, fat 9.
+  // Without this adjustment, high-fiber foods (Quest bars with 25g fiber/100g,
+  // spinach, lemons) get their macros corrupted because the naive P×4+C×4+F×9
+  // overestimates energy from fiber (4 kcal/g assumed vs ~2 kcal/g actual).
+  const fiberG = item.fiber_g ?? 0;
+  const computedCal = item.protein_g * 4 + (item.carbs_g - fiberG) * 4 + fiberG * 2 + item.fat_g * 9;
   if (computedCal <= 0 || item.calories <= 0) return item;
 
   const divergence = Math.abs(computedCal - item.calories) / item.calories;
@@ -241,6 +247,9 @@ function arbitrateDbVsCoT(
   hasFoodSpecificConversion: boolean,
   /** Per-100g values from the DB food entry, for hybrid macro computation */
   dbPer100g?: { kcal: number; protein: number; carb: number; fat: number; fiber?: number },
+  /** The food entry's own macro_confidence (0-1). When ≥0.85, treat DB macros as authoritative
+   *  (label data / verified). This protects branded foods even when the portion confidence is low. */
+  dbMacroConfidence?: number,
 ): ArbitrationResult {
   const cotAvailable = hasValidCoTEstimate(candidate);
 
@@ -266,12 +275,16 @@ function arbitrateDbVsCoT(
   const llmKcal = per100gComputed?.calories ?? candidate.estimated_calories!;
   const llmGrams = candidate.estimated_grams!;
 
+  // Effective trust level: use the HIGHER of retrieval confidence and food's own macro trust.
+  // This protects branded foods (macro_confidence=0.95) even when portion isn't perfectly explicit.
+  const effectiveDbTrust = Math.max(dbConfidence, dbMacroConfidence ?? 0.7);
+
   // Rule 1: Explicit portion + food-specific conversion → trust DB for grams+calories.
   // But v6: if LLM per-100g macro ratios significantly diverge from DB, use LLM's
   // macro distribution (the DB might have imported wrong macro ratios).
   if (isExplicitPortion && hasFoodSpecificConversion) {
-    // v6 macro ratio correction for Rule 1
-    if (per100gAvailable && dbPer100g && dbPer100g.kcal > 0) {
+    // v6 macro ratio correction for Rule 1 (skip for high-confidence branded DB matches)
+    if (per100gAvailable && dbPer100g && dbPer100g.kcal > 0 && effectiveDbTrust < 0.85) {
       const llmP100 = candidate.per_100g_protein ?? 0;
       const llmC100 = candidate.per_100g_carbs ?? 0;
       const llmF100 = candidate.per_100g_fat ?? 0;
@@ -319,7 +332,12 @@ function arbitrateDbVsCoT(
     // ratios diverge >25% from DB's per-100g on ANY individual macro, use
     // the LLM's macro distribution scaled to the DB's calorie total.
     // This gives us: DB's accurate calories + LLM's accurate macro ratios.
-    if (per100gAvailable && dbPer100g && dbPer100g.kcal > 0) {
+    //
+    // v7 EXCEPTION: When DB confidence is high (≥0.85), the DB match is strong
+    // (branded foods, exact USDA matches). In those cases the DB per-100g values
+    // are authoritative (label data) and the LLM's divergence is noise from
+    // generic training data. Skip the hybrid override — trust DB macros entirely.
+    if (per100gAvailable && dbPer100g && dbPer100g.kcal > 0 && effectiveDbTrust < 0.85) {
       const llmP100 = candidate.per_100g_protein ?? 0;
       const llmC100 = candidate.per_100g_carbs ?? 0;
       const llmF100 = candidate.per_100g_fat ?? 0;
@@ -512,6 +530,80 @@ export function shouldRejectAsNonFood(text: string): boolean {
   return normalized.length === 1;
 }
 
+/**
+ * Detect vague / underspecified inputs that need clarification.
+ * These are inputs that name a meal occasion or category rather than a specific food:
+ * "lunch", "σνακ" (snack), "dinner", "ate some food", "something sweet".
+ * They are NOT non-food (user is talking about food), but we can't parse macros.
+ */
+const VAGUE_MEAL_WORDS = new Set([
+  // English
+  'breakfast', 'lunch', 'dinner', 'supper', 'snack', 'meal', 'food',
+  'brunch', 'dessert', 'appetizer', 'starter', 'entree', 'side',
+  // Greek
+  'σνακ', 'γεύμα', 'μεσημεριανό', 'βραδινό', 'πρωινό', 'δείπνο',
+  'πρόγευμα', 'κολατσιό', 'επιδόρπιο',
+  // Spanish
+  'almuerzo', 'cena', 'desayuno', 'merienda', 'comida', 'postre',
+  'aperitivo', 'tentempié',
+]);
+
+const VAGUE_PHRASES = [
+  /^(ate|had|eaten?|comí|me\s+comí|έφαγα)\s+(something|a\s+little|a\s+bit|some)/i,
+  /^(a\s+little\s+bit\s+of|some)\s+(something|food)/i,
+  /^something\s+(sweet|salty|savory|light|heavy|small|quick)/i,
+  /^(κάτι|algo)\s+/i,
+];
+
+const VAGUE_MODIFIERS = new Set([
+  'a', 'an', 'my', 'the', 'some', 'un', 'una', 'el', 'la', 'mi', 'tu',
+  'ένα', 'μία', 'το', 'η', 'ο', 'μου', 'light', 'quick', 'small', 'big',
+  'heavy', 'late', 'early',
+]);
+
+/** Stop-words and vague adjectives that don't indicate specific food */
+const VAGUE_FILLER = new Set([
+  'and', 'with', 'for', 'of', 'or', 'at', 'bit',
+  'y', 'con', 'para', 'de', 'o', 'en',
+  'και', 'με', 'για', 'ή',
+  'something', 'food', 'stuff', 'things',
+  'sweet', 'salty', 'savory', 'light', 'heavy', 'small', 'quick', 'nice', 'good',
+  'dulce', 'salado', 'rico', 'ligero', 'pesado', 'rápido', 'bueno',
+  'γλυκό', 'αλμυρό', 'ελαφρύ', 'βαρύ', 'νόστιμο',
+]);
+
+export function shouldRequestClarification(text: string): boolean {
+  const normalized = text.trim().toLowerCase();
+  const words = normalized.split(/\s+/);
+
+  // Single vague word: "lunch", "σνακ", "dinner"
+  if (words.length === 1 && VAGUE_MEAL_WORDS.has(normalized)) return true;
+
+  // Two-word vague: "my lunch", "a snack", "el almuerzo"
+  // Only if the non-vague word is a modifier (not a food word like "meat", "salad")
+  if (words.length === 2 && words.some(w => VAGUE_MEAL_WORDS.has(w)) &&
+      words.some(w => VAGUE_MODIFIERS.has(w))) return true;
+
+  // Vague phrase patterns — only vague if no specific food words follow the prefix
+  for (const pattern of VAGUE_PHRASES) {
+    const match = normalized.match(pattern);
+    if (match) {
+      const remainder = normalized.slice(match[0].length).trim();
+      if (!remainder) return true;
+      // Filter out modifiers, meal words, and vague fillers
+      const substantive = remainder.split(/\s+/).filter(w =>
+        !VAGUE_MODIFIERS.has(w) && !VAGUE_MEAL_WORDS.has(w) && !VAGUE_FILLER.has(w)
+      );
+      // No substantive words after vague prefix → truly vague
+      if (substantive.length === 0) return true;
+      // Specific food words follow → not vague (e.g. "had some frijoles and rice")
+      return false;
+    }
+  }
+
+  return false;
+}
+
 const MACRO_ESTIMATE_PROMPT = `You are a nutrition database. Given food items with quantities, estimate their macronutrient values.
 Return ONLY valid JSON in this exact format:
 {
@@ -610,6 +702,36 @@ export async function run(
   }
 
   if (shouldRejectAsNonFood(sanitizedText)) {
+    return {
+      ok: true,
+      output: {
+        items: [],
+        needs_clarification: true,
+        clarification_question: clarificationQuestion(language),
+      },
+      telemetry: emptyTelemetry,
+    };
+  }
+
+  // ── Zero-quantity detection ─────────────────────────────────────────────────
+  // "0 eggs", "0 cups of rice" → return ok with 0 macros instead of failing
+  const zeroQuantityMatch = sanitizedText.match(/^0+(?:\s+|\s*x\s*)/i);
+  if (zeroQuantityMatch && sanitizedText.length < 60) {
+    return {
+      ok: true,
+      output: {
+        items: [],
+        needs_clarification: false,
+        clarification_question: null,
+      },
+      telemetry: emptyTelemetry,
+    };
+  }
+
+  // ── Vague / underspecified input detection ──────────────────────────────────
+  // Single-word meal names ("lunch", "σνακ", "dinner") or short vague phrases
+  // ("ate some food", "something sweet") → ask for clarification
+  if (shouldRequestClarification(sanitizedText)) {
     return {
       ok: true,
       output: {
@@ -751,6 +873,59 @@ export async function run(
     return { ok: false, error: 'Could not parse food items from LLM response', telemetry };
   }
 
+  // ── Step 1a2: Single-word input override ──────────────────────────────────
+  // When the user types a single word like "chicken", the LLM sometimes
+  // over-interprets it as a composite dish (e.g. "gyros chicken").
+  // If a FOOD_NAME_CORRECTIONS entry exists for the raw input word,
+  // override the LLM's food_name to use the corrected form. This ensures
+  // "chicken" → "chicken breast grilled" rather than "gyros chicken".
+  const rawTokens = sanitizedText.trim().split(/\s+/).filter(Boolean);
+  if (rawTokens.length === 1 && v4Parsed.items.length === 1) {
+    const singleWord = rawTokens[0].toLowerCase();
+    const corrected = correctFoodName(singleWord);
+    if (corrected !== singleWord) {
+      v4Parsed.items[0].food_name = corrected;
+    }
+  }
+
+  // ── Step 1b: Adversarial repetition detection ─────────────────────────────
+  // "bread bread bread bread..." is a single food repeated, NOT n servings.
+  // Detect dominant-word repetition in the raw USER input (NOT userMessage which
+  // includes prompt prefix + RAG context that dilute the word frequency).
+  const inputWords = sanitizedText.toLowerCase().replace(/[^a-zα-ωά-ώ\s]/g, '').trim().split(/\s+/).filter(Boolean);
+  if (inputWords.length >= 5) {
+    const wordFreq = new Map<string, number>();
+    for (const w of inputWords) wordFreq.set(w, (wordFreq.get(w) || 0) + 1);
+    const dominant = [...wordFreq.entries()].sort((a, b) => b[1] - a[1])[0];
+    // If one word makes up ≥70% of the input and appears ≥5 times → repetition spam
+    if (dominant && dominant[1] >= 5 && dominant[1] / inputWords.length >= 0.7) {
+      // Override to single item with quantity=1 and flag clarification.
+      // Use 'piece' (not 'serving') so COMMON_PIECE_WEIGHTS resolves to a
+      // sensible single-unit weight (bread=30g, egg=50g) instead of the
+      // universal 100g fallback that 'serving' triggers.
+      // Clear LLM gram/calorie estimates so Rule 3 doesn't use the inflated values.
+      v4Parsed.items = [{
+        ...v4Parsed.items[0],
+        food_name: dominant[0],
+        quantity: 1,
+        unit: 'piece',
+        portion_explicit: false,
+        estimated_grams: undefined,
+        estimated_calories: undefined,
+        estimated_protein_g: undefined,
+        estimated_carbs_g: undefined,
+        estimated_fat_g: undefined,
+        per_100g_kcal: undefined,
+        per_100g_protein: undefined,
+        per_100g_carbs: undefined,
+        per_100g_fat: undefined,
+        estimation_confidence: undefined,
+      }];
+      v4Parsed.needs_clarification = true;
+      v4Parsed.clarification_question = `Did you mean 1 ${dominant[0]} or ${dominant[1]}?`;
+    }
+  }
+
   // ── Step 2: Check dish_recipes cache (cheap, no LLM) ──────────────────────
   // Composite dishes (souvlaki with pita, arepa con queso) should match
   // dish_recipes BEFORE the foods table to avoid partial matches.
@@ -797,12 +972,14 @@ export async function run(
     compositeDecompResults[i] = decomposed; // null means decompose failed → fall through to lookup
   }
 
-  // Only look up items that didn't hit the recipe cache AND aren't resolved composites
+  // Look up all items that didn't hit the recipe cache.
+  // We ALSO look up composites because a direct DB match (e.g. branded "FAGE Total 2%
+  // Greek Yogurt with Honey") should override decomposition into generic components.
+  // The priority logic in Step 3 prefers direct DB matches over decomposition results.
   const nonCachedIndices: number[] = [];
   const lookupInputs: LookupInput[] = [];
   for (let i = 0; i < v4Parsed.items.length; i++) {
     if (recipeResults[i] !== null) continue; // recipe cache hit, skip
-    if (compositeDecompResults[i] !== null) continue; // composite resolved, skip
     nonCachedIndices.push(i);
     lookupInputs.push({
       foodName:  v4Parsed.items[i].food_name,
@@ -873,7 +1050,10 @@ export async function run(
 
     // Priority 1b: composite decomposition hit (classified as composite, decomposed successfully)
     // v5/v6: Same CoT arbitration — prefer per-100g computed values for composites
-    if (compositeHit) {
+    // v7 EXCEPTION: When a direct DB lookup also exists (branded foods like "FAGE Total 2%
+    // with honey"), prefer the direct match — decomposition splits branded items into
+    // generic components and loses the accurate label data.
+    if (compositeHit && !lookup) {
       telemetry.dbHits++;
       if (hasValidCoTEstimate(candidate)) {
         const dbKcal = compositeHit.calories;
@@ -938,6 +1118,8 @@ export async function run(
           fat: lookup.food.fatPer100g,
           fiber: lookup.food.fiberPer100g ?? undefined,
         },
+        // Pass the food's own macro_confidence so branded foods (0.95) skip hybrid override
+        lookup.food.macroConfidence,
       );
 
       finalItems.push({
@@ -1077,9 +1259,9 @@ export async function run(
     !Number.isFinite(item.grams) ||
     !Number.isFinite(item.calories) ||
     item.grams <= 0 ||
-    item.grams > 10_000 ||
+    item.grams > 15_000 ||
     item.calories < 0 ||
-    item.calories > 10_000 ||
+    item.calories > 15_000 ||
     item.protein_g < 0 ||
     item.carbs_g < 0 ||
     item.fat_g < 0 ||
@@ -1165,6 +1347,16 @@ export async function run(
   const warnings: string[] = [];
   const anyImplicit = finalItems.some(item => item.portion_explicit === false);
   const recalcTotalKcal = finalItems.reduce((sum, item) => sum + item.calories, 0);
+  const totalGrams = finalItems.reduce((sum, item) => sum + (item.grams ?? 0), 0);
+
+  // Flag absurd quantities — likely a joke, typo, or bulk entry
+  // Two tiers: >5kg always absurd, >2kg with implicit portions is suspicious
+  const absurdQuantity = totalGrams > 5000 ||
+    (totalGrams > 2000 && anyImplicit) ||
+    (recalcTotalKcal > 2500 && anyImplicit);
+  if (absurdQuantity) {
+    warnings.push(`Unusually large quantity (${Math.round(totalGrams)}g / ${Math.round(recalcTotalKcal)} kcal) — please confirm`);
+  }
 
   if (anyImplicit) {
     warnings.push('Portions estimated — confirm before saving');
@@ -1177,7 +1369,7 @@ export async function run(
     ok: true,
     output: {
       items: finalItems,
-      needs_clarification: llmResult.output.needs_clarification || deterministicClarification,
+      needs_clarification: llmResult.output.needs_clarification || deterministicClarification || absurdQuantity,
       clarification_question: llmResult.output.clarification_question ??
         (deterministicClarification ? clarificationQuestion(language) : null),
       warnings: warnings.length > 0 ? warnings : undefined,

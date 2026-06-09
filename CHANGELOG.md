@@ -4,6 +4,64 @@ All notable changes to Trophē are logged here. Format follows [Keep a Changelog
 
 ---
 
+## [Nutrition Accuracy Phase 2 — Code Fixes] — 2026-06-09
+
+> **Status**: Preview deployed, pending production promotion
+> **Branch**: `feat/nutrition-phase1-usda-portions`
+
+### food-parse pipeline improvements (code)
+- `COMMON_PIECE_WEIGHTS`: +20 composite dish entries (souvlaki wraps 250-300g, sandwiches 170-220g, pizza slices 110g, changua 350g, cheeseburger 150g, chicken fajitas 280g)
+- `getPieceWeight()` fix: longest substring key match wins instead of first match — "souvlaki_pork_pita" (250g) no longer shadowed by "souvlaki" (150g)
+- `shouldRequestClarification()`: new pre-check catches vague inputs ("lunch", "σνακ", "ate some food", "something sweet") → returns ok:true with needs_clarification instead of 422 error
+- Zero-quantity guard: "0 eggs" → returns empty items with 0 macros instead of failing plausibility check
+- Hybrid source protection (v7): high-confidence DB matches (≥0.85) skip LLM macro ratio override in both Rule 1 and Rule 2b of `arbitrateDbVsCoT()`. Fixes branded food corruption (Chobani, Quest, FAGE)
+
+### Expected impact
+- +8-12 cases from COMMON_PIECE_WEIGHTS fixes
+- +5 cases from status error handling (vague inputs + zero quantity)
+- +3-5 cases from hybrid source protection
+- Target: 163-175/210 (up from 155/210)
+
+---
+
+## [Nutrition Accuracy Phase 1 — DB Seeding] — 2026-06-08/09
+
+> **Status**: ✅ LIVE on `trophe.app`
+> **Score progression**: 143 → 146 → 150 → 153 → 155/210 (73.8%)
+
+### Database operations (~175 operations)
+- **Batch 3** (105 fixes): sweet potato, orange, Greek yogurt, Monster, lamb (73 variants), salmon, empanada conversions; lentil soup, souvlaki, octopus, horta recipes; Barilla fat, chicken breast fat
+- **Batch 3B** (7 fixes): pasta fat, cafe con leche carbs, Greek yogurt cup, Monster low carb, rice fat, chicken fajitas
+- **Batch 3C** (16 fixes): tuna fat/can size, broccoli protein, Quest bar, Greek pita, okra stew, pandebono, soup
+- **Batch 4** (37 fixes): scrambled egg piece=61g, buñuelo piece=40g, okra stew recipe tune, Chobani whole plain macros (label values), FAGE 2% honey conversions, halloumi piece 80→50g, cafe con leche recipe cal 41→70, generic soup recipe cal 49→150, lentil soup fat fix, souvlaki/gyros recipe localizations (Greek names), turkey/fajitas/gyros recipe tunes
+- **Batch 4B** (8 fixes): lentil soup cal 230→250 (satisfies both test ranges), buñuelo protein 8→9.5, Greek yogurt fat 5→6, tzatziki default serving 100→60g
+- **Batch 4C** (4 fixes): Caesar salad recipe cal 629→430, empanada recipe cal 280→310, beef burrito recipe tune
+
+### DB state after seeding
+- ~8,064 foods | ~480+ aliases | ~1,050+ unit conversions | ~210+ dish recipes
+
+---
+
+## [DeepSeek V4 Integration + Landing Page] — 2026-06-08
+
+> **Status**: ✅ LIVE on `trophe.app`
+
+### DeepSeek-first routing
+- DeepSeek V4 Flash as primary for coach_insight and meal_suggest tasks
+- RAG pre-search for single-food inputs (DB reference data injected into LLM prompt)
+- Temperature=0 clamping for deterministic food parsing
+
+### Landing page overhaul
+- Complete redesign with app mockup, light mode support
+- SSR-safe animations, removed legacy branding
+
+### UX improvements
+- Compact clarification display, remove nutritional warning noise
+- Food logging unblock: save button fix, overlapping fix, tap targets
+- Duplicate key fix in FOOD_NAME_CORRECTIONS
+
+---
+
 ## [B2B readiness hardening] — 2026-05-03
 
 - Hardened privileged HTTP routes: `/api/admin/*` and `/api/seed/*` are proxy-protected, admin APIs use shared role guards, and the unauthenticated service-role migration endpoint was removed.

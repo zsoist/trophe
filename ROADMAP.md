@@ -446,6 +446,34 @@ _Top priorities from Michael's feedback_
 - [ ] Client profile portability
 - [ ] Educational content delivery for nutritionists
 
+## PHASE 3.5: Nutrition Accuracy Sprint (June 2026) — IN PROGRESS
+_Enterprise benchmark: 210 test cases (EN/ES/EL) across 10 categories_
+
+### DB Seeding (Phase 1) — ✅ Complete (143→155/210)
+- [x] ✅ 2026-06-08 USDA portions ingestion + batch 3 fixes (78→143/210)
+- [x] ✅ 2026-06-08 Batch 3B/3C follow-up fixes (143→150/210)
+- [x] ✅ 2026-06-09 Batch 4/4B/4C DB fixes — recipes, conversions, food macros (150→155/210)
+- [x] ✅ 210+ dish recipes cached, 1,050+ unit conversions, 480+ food aliases seeded
+- [x] ✅ DB-only ceiling reached at ~155±3/210 (73.8%)
+
+### Code Fixes (Phase 2) — Preview deployed, pending production promotion
+- [x] ✅ COMMON_PIECE_WEIGHTS: +20 composite entries (souvlaki wraps, sandwiches, pizza, changua)
+- [x] ✅ getPieceWeight() longest-key-match fix in decompose.ts
+- [x] ✅ shouldRequestClarification() for vague inputs ("lunch", "σνακ")
+- [x] ✅ Zero-quantity guard ("0 eggs" → items=[] instead of 422)
+- [x] ✅ Hybrid source protection (dbConfidence ≥ 0.85 → skip LLM macro override)
+- [ ] Wire food_aliases into BM25 search (+3-5 cases expected)
+- [ ] Multi-item parsing improvements (+3-5 cases expected)
+
+### Score Targets
+| Phase | Score | Status |
+|-------|-------|--------|
+| Baseline (pre-work) | 78/210 (37%) | ✅ |
+| After USDA portions | 143/210 (68%) | ✅ |
+| After DB seeding | 155/210 (73.8%) | ✅ |
+| After code fixes | 163-175/210 (78-83%) | ⏳ pending deploy |
+| After aliases + further | 175-185/210 (83-88%) | 🔮 |
+
 ## PHASE 4: Launch Prep (June-July 2026)
 - [ ] Legal entity established
 - [ ] Pricing model finalized

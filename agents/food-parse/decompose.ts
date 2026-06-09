@@ -22,7 +22,7 @@ import { db } from '../../db/client';
 import { sql } from 'drizzle-orm';
 import { executeAiTask } from '../runtime';
 import { invokeTextProvider } from '../runtime/providers/text';
-import { lookupFood } from './lookup';
+import { lookupFood, COMMON_PIECE_WEIGHTS, correctFoodName } from './lookup';
 import type { LookupInput, LookupResult } from './lookup';
 import type { ParsedFoodItem } from '../schemas/food-parse';
 import { classifyIngredient, getCategoryMacros } from './food-category-defaults';
@@ -74,6 +74,31 @@ function isCountUnit(unit: string): boolean {
   return COUNT_UNITS.has(unit.toLowerCase().trim());
 }
 
+/**
+ * Look up per-piece grams for a food name using the shared COMMON_PIECE_WEIGHTS map.
+ * Tries exact key match first, then substring fuzzy match.
+ * Returns null if no known piece weight exists.
+ */
+function getPieceWeight(foodName: string): number | null {
+  const key = foodName.toLowerCase().replace(/[^a-z]+/g, '_').replace(/^_|_$/g, '');
+
+  // Exact match
+  if (COMMON_PIECE_WEIGHTS[key]) return COMMON_PIECE_WEIGHTS[key];
+
+  // Fuzzy: find the LONGEST matching key (most specific wins)
+  let bestMatch: string | null = null;
+  let bestWeight: number | null = null;
+  for (const [pattern, weight] of Object.entries(COMMON_PIECE_WEIGHTS)) {
+    if (key.includes(pattern) || pattern.includes(key)) {
+      if (!bestMatch || pattern.length > bestMatch.length) {
+        bestMatch = pattern;
+        bestWeight = weight;
+      }
+    }
+  }
+  return bestWeight;
+}
+
 // ── Prompt ───────────────────────────────────────────────────────────────────
 
 const DECOMPOSE_PROMPT_PATH = join(process.cwd(), 'agents/prompts/food-decompose.md');
@@ -98,6 +123,8 @@ function getDecomposePrompt(): string {
 export async function lookupCachedRecipe(dishName: string): Promise<CachedRecipe | null> {
   const normalized = dishName.toLowerCase().trim();
 
+  // First: exact match (cheap). Then: trigram similarity > 0.55 (fuzzy).
+  // pg_trgm catches "chicken souvlaki pita" matching cached "souvlaki chicken pita".
   const results = await db.execute(sql`
     SELECT id, dish_name, dish_name_localized, total_grams, total_kcal,
            total_protein, total_carbs, total_fat, total_fiber,
@@ -105,7 +132,13 @@ export async function lookupCachedRecipe(dishName: string): Promise<CachedRecipe
     FROM dish_recipes
     WHERE lower(dish_name) = ${normalized}
        OR lower(coalesce(dish_name_localized, '')) = ${normalized}
-    ORDER BY use_count DESC
+       OR similarity(lower(dish_name), ${normalized}) > 0.55
+    ORDER BY
+      CASE WHEN lower(dish_name) = ${normalized}
+                OR lower(coalesce(dish_name_localized, '')) = ${normalized}
+           THEN 0 ELSE 1 END,
+      similarity(lower(dish_name), ${normalized}) DESC,
+      use_count DESC
     LIMIT 1
   `) as unknown as { rows: CachedRecipe[] };
 
@@ -212,28 +245,58 @@ async function cacheRecipe(
  * Does NOT trigger LLM decomposition — use decomposeAndLookup for that.
  */
 export async function lookupCachedRecipeAsItem(input: DecomposeInput): Promise<ParsedFoodItem | null> {
-  const cached = await lookupCachedRecipe(input.foodName);
-  if (!cached) return null;
+  // Apply FOOD_NAME_CORRECTIONS to catch Greek/Spanish → English dish names
+  // before trigram matching. e.g. "σουβλάκι χοιρινό πίτα" → "souvlaki pork pita"
+  const correctedName = correctFoodName(input.foodName);
+  const cached = await lookupCachedRecipe(correctedName);
+  // If correction didn't help, also try the original + localized name
+  const finalCached = cached
+    ?? (correctedName !== input.foodName ? await lookupCachedRecipe(input.foodName) : null)
+    ?? (input.nameLocalized ? await lookupCachedRecipe(input.nameLocalized) : null);
+  if (!finalCached) return null;
 
-  // Cached recipes are normalized to one serving, not one countable item.
-  // Scaling them by "6 pieces" would turn six dolmades into six full servings.
-  if (isCountUnit(input.unit)) return null;
+  // Count-unit scaling: "6 empanadas" should be 6 × per-piece weight, not 6 × full serving.
+  // If we know the piece weight, scale by (pieceWeight / cachedTotalGrams) per unit.
+  // If we don't know the piece weight, fall through to null (decompose will handle it).
+  if (isCountUnit(input.unit)) {
+    const pieceWeight = getPieceWeight(input.foodName);
+    if (!pieceWeight) return null; // Unknown piece weight — can't safely scale
+
+    const perPieceScale = pieceWeight / (finalCached.total_grams || 1);
+    const totalScale = perPieceScale * input.quantity;
+    return {
+      raw_text: input.rawText,
+      food_name: finalCached.dish_name,
+      name_localized: finalCached.dish_name_localized ?? input.nameLocalized ?? input.foodName,
+      quantity: input.quantity,
+      unit: input.unit,
+      grams: Math.round(pieceWeight * input.quantity),
+      calories: Math.round(finalCached.total_kcal * totalScale * 10) / 10,
+      protein_g: Math.round(finalCached.total_protein * totalScale * 10) / 10,
+      carbs_g: Math.round(finalCached.total_carbs * totalScale * 10) / 10,
+      fat_g: Math.round(finalCached.total_fat * totalScale * 10) / 10,
+      fiber_g: Math.round((finalCached.total_fiber ?? 0) * totalScale * 10) / 10,
+      sugar_g: 0,
+      confidence: finalCached.confidence * 0.85, // slightly lower confidence for piece-weight scaling
+      source: 'local_db',
+    };
+  }
 
   const scale = input.quantity;
   return {
     raw_text: input.rawText,
-    food_name: cached.dish_name,
-    name_localized: cached.dish_name_localized ?? input.nameLocalized ?? input.foodName,
+    food_name: finalCached.dish_name,
+    name_localized: finalCached.dish_name_localized ?? input.nameLocalized ?? input.foodName,
     quantity: input.quantity,
     unit: input.unit,
-    grams: Math.round(cached.total_grams * scale),
-    calories: Math.round(cached.total_kcal * scale * 10) / 10,
-    protein_g: Math.round(cached.total_protein * scale * 10) / 10,
-    carbs_g: Math.round(cached.total_carbs * scale * 10) / 10,
-    fat_g: Math.round(cached.total_fat * scale * 10) / 10,
-    fiber_g: Math.round((cached.total_fiber ?? 0) * scale * 10) / 10,
+    grams: Math.round(finalCached.total_grams * scale),
+    calories: Math.round(finalCached.total_kcal * scale * 10) / 10,
+    protein_g: Math.round(finalCached.total_protein * scale * 10) / 10,
+    carbs_g: Math.round(finalCached.total_carbs * scale * 10) / 10,
+    fat_g: Math.round(finalCached.total_fat * scale * 10) / 10,
+    fiber_g: Math.round((finalCached.total_fiber ?? 0) * scale * 10) / 10,
     sugar_g: 0,
-    confidence: cached.confidence,
+    confidence: finalCached.confidence,
     source: 'local_db',
   };
 }
@@ -250,27 +313,57 @@ export async function decomposeAndLookup(input: DecomposeInput): Promise<ParsedF
   const region = input.region ?? 'US';
 
   // ── Step 1: Check cache ──────────────────────────────────────────────────
-  const cached = await lookupCachedRecipe(input.foodName);
+  // Apply name corrections for cross-language recipe matching
+  const correctedName = correctFoodName(input.foodName);
+  const cached = await lookupCachedRecipe(correctedName)
+    ?? (correctedName !== input.foodName ? await lookupCachedRecipe(input.foodName) : null)
+    ?? (input.nameLocalized ? await lookupCachedRecipe(input.nameLocalized) : null);
 
-  if (cached && !isCountUnit(input.unit)) {
-    // Scale macros by quantity (cached is for 1 serving)
-    const scale = input.quantity;
-    return {
-      raw_text: input.rawText,
-      food_name: cached.dish_name,
-      name_localized: cached.dish_name_localized ?? input.nameLocalized ?? input.foodName,
-      quantity: input.quantity,
-      unit: input.unit,
-      grams: Math.round(cached.total_grams * scale),
-      calories: Math.round(cached.total_kcal * scale * 10) / 10,
-      protein_g: Math.round(cached.total_protein * scale * 10) / 10,
-      carbs_g: Math.round(cached.total_carbs * scale * 10) / 10,
-      fat_g: Math.round(cached.total_fat * scale * 10) / 10,
-      fiber_g: Math.round((cached.total_fiber ?? 0) * scale * 10) / 10,
-      sugar_g: 0, // Not stored in recipe cache
-      confidence: cached.confidence,
-      source: 'local_db',
-    };
+  if (cached) {
+    // Count-unit: scale by known piece weight if available
+    if (isCountUnit(input.unit)) {
+      const pieceWeight = getPieceWeight(input.foodName);
+      if (pieceWeight) {
+        const perPieceScale = pieceWeight / (cached.total_grams || 1);
+        const totalScale = perPieceScale * input.quantity;
+        return {
+          raw_text: input.rawText,
+          food_name: cached.dish_name,
+          name_localized: cached.dish_name_localized ?? input.nameLocalized ?? input.foodName,
+          quantity: input.quantity,
+          unit: input.unit,
+          grams: Math.round(pieceWeight * input.quantity),
+          calories: Math.round(cached.total_kcal * totalScale * 10) / 10,
+          protein_g: Math.round(cached.total_protein * totalScale * 10) / 10,
+          carbs_g: Math.round(cached.total_carbs * totalScale * 10) / 10,
+          fat_g: Math.round(cached.total_fat * totalScale * 10) / 10,
+          fiber_g: Math.round((cached.total_fiber ?? 0) * totalScale * 10) / 10,
+          sugar_g: 0,
+          confidence: cached.confidence * 0.85,
+          source: 'local_db',
+        };
+      }
+      // Unknown piece weight — fall through to LLM decomposition
+    } else {
+      // Normal serving-based scaling
+      const scale = input.quantity;
+      return {
+        raw_text: input.rawText,
+        food_name: cached.dish_name,
+        name_localized: cached.dish_name_localized ?? input.nameLocalized ?? input.foodName,
+        quantity: input.quantity,
+        unit: input.unit,
+        grams: Math.round(cached.total_grams * scale),
+        calories: Math.round(cached.total_kcal * scale * 10) / 10,
+        protein_g: Math.round(cached.total_protein * scale * 10) / 10,
+        carbs_g: Math.round(cached.total_carbs * scale * 10) / 10,
+        fat_g: Math.round(cached.total_fat * scale * 10) / 10,
+        fiber_g: Math.round((cached.total_fiber ?? 0) * scale * 10) / 10,
+        sugar_g: 0,
+        confidence: cached.confidence,
+        source: 'local_db',
+      };
+    }
   }
 
   // ── Step 2: LLM decomposition ────────────────────────────────────────────
@@ -341,8 +434,10 @@ export async function decomposeAndLookup(input: DecomposeInput): Promise<ParsedF
 
   const matchRatio = matchedCount / decomposition.ingredients.length;
 
-  // If less than half matched, the decomposition is too unreliable
-  if (matchRatio < 0.5) {
+  // If too few matched, the decomposition is unreliable.
+  // 0.35 threshold: allows 2/5 or 3/7 ingredients matched (partial but usable).
+  // Between 0.35-0.5: accept but with reduced confidence (set below).
+  if (matchRatio < 0.35) {
     console.warn(`[decompose] Low match ratio (${matchedCount}/${decomposition.ingredients.length}) for "${input.foodName}" — using governed fallback`);
     return null;
   }
@@ -376,10 +471,12 @@ export async function decomposeAndLookup(input: DecomposeInput): Promise<ParsedF
 
   // ── Step 6: Return aggregated item ───────────────────────────────────────
   const scale = input.quantity;
-  // Full match: 0.85, partial match (≥0.5): 0.65 base scaled by ratio
+  // Full match: 0.85, partial match (≥0.5): 0.65, low-partial (0.35-0.5): 0.45
   const confidence = matchRatio === 1
-    ? Math.min(0.85, matchRatio * 0.9)
-    : Math.min(0.65, matchRatio * 0.75);
+    ? 0.85
+    : matchRatio >= 0.5
+      ? Math.min(0.65, matchRatio * 0.75)
+      : 0.45; // 0.35-0.5 range: accept with low confidence
 
   return {
     raw_text: input.rawText,

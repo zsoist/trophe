@@ -1,6 +1,6 @@
 # τροφή (Trophē) — Product Specification
 
-_Last updated: 2026-05-03_
+_Last updated: 2026-06-09_
 
 ---
 
@@ -76,13 +76,14 @@ agents/
   schemas/          # input/output types per agent
 ```
 
-**v0.3 food-parse fix**: LLM identifies `{food_name, qty, unit}` only. `lookup.ts` does pgvector + pg_trgm hybrid retrieval → `foods` table supplies all macros. Macros computed as `grams × kcal_per_100g / 100`. **LLM never emits a number.** Target accuracy: ≥95% (was ~81% with LLM-guessed values).
+**v6 food-parse pipeline (June 2026)**: LLM extracts `{food_name, qty, unit}` AND per-100g CoT estimates. `lookup.ts` does pgvector + pg_trgm hybrid retrieval → `foods` table supplies DB macros. `arbitrateDbVsCoT()` picks the best source: explicit portions → DB wins; <30% divergence → DB wins; >30% divergence → LLM grams + DB per-100g ratios; high-confidence DB (≥0.85) → always DB. `decompose.ts` handles composite dishes via `dish_recipes` cache + `COMMON_PIECE_WEIGHTS` map (80+ entries). Enterprise benchmark: 210 cases, scoring 155/210 (73.8%) with code fixes pending for ~170/210.
 
-**LLM routing** (cost-optimized):
-- `food_parse` → Gemini 2.5 Flash (~$0.05/active-day vs Haiku $0.40)
+**LLM routing** (cost-optimized, DeepSeek-first for applicable tasks):
+- `food_parse` → Gemini 2.5 Flash (~$0.05/active-day)
 - `recipe` → Haiku 4.5 + ephemeral cache (~70% spend reduction)
-- `coach_insight` → Sonnet 4.5 (reasoning over week of data)
-- `embed` → Voyage v4 `voyage-large-2` 1024-dim
+- `coach_insight` → DeepSeek V4 Flash (primary), Sonnet 4.5 (fallback)
+- `meal_suggest` → DeepSeek V4 Flash (primary), Gemini (fallback)
+- `embed` → Voyage v4 `voyage-3-large` 1024-dim
 
 ---
 
@@ -148,10 +149,17 @@ Payment standard: **Stripe Connect** (marketplace model for multi-tenant billing
 - April 20 partnership meeting held (Michael + George Tsatsaronis)
 - v0.3 overhaul: Phases 0–8 complete and locally green
 - Food accuracy fix: deterministic pipeline (lookup.ts), ≥95% CI gate
+- v0.3 production cutover (2026-05-03)
+- B2B readiness hardening (roles, organizations, admin routes)
+- DeepSeek V4 Flash integration (2026-06-08)
+- Enterprise benchmark created (210 cases, 10 categories)
+- Nutrition accuracy DB seeding: 78→155/210 (2026-06-08/09)
+- v6 CoT dual-path arbitration pipeline
+- Landing page overhaul
 
 ### Pending
-- [ ] Phase 9 production cutover (operator-gated)
-- [ ] USDA registered API key (replace DEMO_KEY)
+- [ ] Promote code fixes to production (preview deployed 2026-06-09)
+- [ ] Wire food_aliases into BM25 search
 - [ ] Supabase Pro (PITR backups)
 - [ ] Spike sandbox + wearable testing
 - [ ] Apple/Google OAuth provisioning

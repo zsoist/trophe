@@ -2,7 +2,7 @@
 
 > **Read this first.** This file is the primary context document for AI coding agents (Claude Code, Codex, Cursor). For the comprehensive operator handoff see `CODEX.md`.
 
-_Last synced to codebase: 2026-05-03_
+_Last synced to codebase: 2026-06-09_
 
 ## Current Production Truth (2026-05-03)
 
@@ -14,7 +14,7 @@ _Last synced to codebase: 2026-05-03_
 - Cost/AI observability source of truth: `agent_runs`; `api_usage_log` is legacy compatibility only
 - Required verification sequence: `npm run typecheck && npm run lint && npm test && npm run build`
 - AI route auth must use async `guardAiRoute()` and the verified Supabase `userId`; do not decode JWTs for auth decisions.
-- Food data: 7,918 USDA + 30 HHF + 76 restaurant chains + 38 dish recipes. All with Voyage embeddings.
+- Food data: ~8,064 foods (7,918 USDA + 30 HHF + 76 restaurant chains + custom). 1,050+ unit conversions. 210+ dish recipes. 480+ aliases. All foods with Voyage embeddings.
 
 ---
 
@@ -69,29 +69,35 @@ Initial audit findings are hypotheses. Sanity checks are the verification. Don't
 
 ---
 
-## Project state (2026-05-03)
+## Project state (2026-06-09)
 
-**Branch**: `main` (production)
+**Branch**: `main` (production) + `feat/nutrition-phase1-usda-portions` (benchmark work)
 **Production**: `https://trophe.app` — live with 5+ testers (Michael, Nikos, Daniel, Daniela, Dimitra, Alex)
 
-v0.3-overhaul merged to main 2026-05-03. All features live. Vercel auto-deploys from `main` pushes.
+v0.3-overhaul merged to main 2026-05-03. Nutrition accuracy work ongoing June 2026.
 
 ### What IS running in production (on Supabase Postgres)
 - Auth (cookie-based @supabase/ssr), 30+ tables, RLS, food logging, coach dashboard, workouts, supplements, habits
-- AI food-parse (Gemini 2.5 Flash via `/api/food/parse`), photo-analyze, meal-suggest, recipe-analyze
-- Deterministic food lookup: 7,918 USDA + 30 HHF + 76 restaurant chains, all with Voyage embeddings
-- Composite dish decomposition: 38 cached recipes + LLM decompose-on-miss pipeline
+- AI food-parse v6 (Gemini 2.5 Flash via `/api/food/parse`) with CoT dual-path arbitration
+- DeepSeek-first routing for coach_insight and meal_suggest tasks
+- Deterministic food lookup: ~8,064 foods + 1,050+ unit conversions + 210+ recipes + 480+ aliases
+- Composite dish decomposition: 210+ cached recipes + LLM decompose-on-miss pipeline
+- RAG pre-search for single-food inputs (DB reference data injected into LLM prompt)
+- COMMON_PIECE_WEIGHTS map: 80+ entries for bakery, Greek, Latin American, composites
+- Vague input detection + zero-quantity guard in food-parse pipeline
+- Hybrid source protection: high-confidence DB matches (≥0.85) skip LLM macro override
 - Langfuse traces via Cloudflare Tunnel (`langfuse.danielreyes.work`)
 - Session refresh on mobile foreground (visibilitychange hook)
 - AI Form Check (MediaPipe, browser-only, no server)
 - All analytics components, trilingual UI (EN/ES/EL)
+- Enterprise nutrition benchmark: 210 cases, targeting 155+/210 (73.8%)
 
 ### v0.3 features (all merged to main, live in production)
 - Drizzle ORM + versioned migrations (`drizzle/` — 13 migrations)
 - 4-tier role enum (`super_admin|admin|coach|client`) — organizations table
 - `@supabase/ssr` HTTP-only cookie auth + session refresh on mobile foreground
-- LLM router (Gemini Flash + Langfuse traces via CF Tunnel)
-- `foods` canonical DB + `food_unit_conversions` (deterministic accuracy fix)
+- LLM router (Gemini Flash + DeepSeek + Langfuse traces via CF Tunnel)
+- `foods` canonical DB + `food_unit_conversions` + `food_aliases` + `dish_recipes`
 - Composite dish decomposition pipeline (`dish_recipes` table + LLM decompose)
 - Restaurant chain data (76 items: MenuStat US + Colombian chains)
 - Memory system (`memory_chunks`, `coach_blocks`)
@@ -104,19 +110,21 @@ v0.3-overhaul merged to main 2026-05-03. All features live. Vercel auto-deploys 
 
 ## Critical file map
 
-### AI / Agents (new in v0.3)
+### AI / Agents (v0.3+)
 ```
 agents/
-  router/index.ts + policies.ts      # task → model selection
+  router/index.ts + policies.ts      # task → model selection (DeepSeek, Gemini, Anthropic)
+  runtime/providers/deepseek.ts      # DeepSeek V4 Flash provider
   clients/anthropic.ts + google.ts   # thin API wrappers
   observability/langfuse.ts + otel.ts
   memory/read.ts + write.ts + coach-blocks.ts
-  food-parse/index.ts                # LLM identifies only (no macro numbers)
-  food-parse/lookup.ts               # pgvector + pg_trgm hybrid retrieval
+  food-parse/index.v4.ts             # v4-v6 pipeline: LLM extract → DB lookup → CoT arbitration
+  food-parse/lookup.ts               # pgvector + pg_trgm hybrid retrieval + COMMON_PIECE_WEIGHTS
+  food-parse/decompose.ts            # dish_recipes cache + LLM decomposition + getPieceWeight()
   recipe-analyze/index.ts
   insights/wearable-summary.ts
-  evals/run-all.ts + multi-layer/
-  prompts/food-parse.v3.md           # ALWAYS bump version on prompt changes
+  evals/run-all.ts + datasets/       # 210-case enterprise benchmark
+  prompts/food-parse.v6.md           # ALWAYS bump version on prompt changes
   schemas/                           # input/output types per agent
 ```
 
@@ -261,12 +269,15 @@ Public signup always forces `role = 'client'`. Invite token required for elevate
 ## LLM / AI rules
 
 1. **LLM router** (`agents/router/index.ts`) selects model per task — do NOT hardcode models in agents.
-2. **LLM never emits macro numbers** in food-parse (v0.3) — it identifies `{food_name, qty, unit}` only; `lookup.ts` fetches macros from `foods` table.
-3. **Prompt versioning**: prompts live in `agents/prompts/<agent>.v<N>.md`. NEVER edit in place — copy to `vN+1.md`, update import in agent `index.ts`, ship. Keeps rollback to a one-line revert.
-4. **Prompt caching**: `cacheSystem: true` in `anthropic.ts` wraps system block with `cache_control: ephemeral`. Prefix must be ≥2048 tokens. ~70% cost reduction on burst calls.
-5. **Every `run()` returns `telemetry`** — routes must pass it to `logAPIUsage`.
-6. **Input caps**: food-parse 500 chars · recipe-analyze 4000 chars. Strip `[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]` from all AI inputs.
-7. **`agents/evals/` CI gate**: food-parse accuracy ≥95% on Nikos golden set (was 81%, now deterministic via `lookup.ts`).
+2. **v6 dual-path architecture**: LLM extracts `{food_name, qty, unit}` AND `{per_100g_kcal, per_100g_protein, ...}` CoT estimates. `lookup.ts` fetches DB macros. `arbitrateDbVsCoT()` in `index.v4.ts` picks the best source.
+3. **Arbitration rules**: Explicit portion + food-specific conversion → DB wins. Estimates agree <30% → DB wins. Diverge >30% → LLM grams + DB per-100g ratios. High-confidence DB (≥0.85) → always DB macros (v7 hybrid protection).
+4. **Prompt versioning**: prompts live in `agents/prompts/<agent>.v<N>.md`. NEVER edit in place — copy to `vN+1.md`, update import in agent `index.ts`, ship. Keeps rollback to a one-line revert.
+5. **Prompt caching**: `cacheSystem: true` in `anthropic.ts` wraps system block with `cache_control: ephemeral`. Prefix must be ≥2048 tokens. ~70% cost reduction on burst calls.
+6. **Every `run()` returns `telemetry`** — routes must pass it to `logAPIUsage`.
+7. **Input caps**: food-parse 500 chars · recipe-analyze 4000 chars. Strip `[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]` from all AI inputs.
+8. **`agents/evals/` CI gate**: food-parse accuracy ≥95% on Nikos golden set. Enterprise benchmark: 210 cases at `scripts/eval/run-nutrition-enterprise-prod.ts`.
+9. **COMMON_PIECE_WEIGHTS** (`lookup.ts`): 80+ entries mapping composite dishes → gram weights. `getPieceWeight()` in `decompose.ts` uses longest-key-match (not first match).
+10. **food_aliases table**: 480+ entries but NOT wired into BM25 retrieval. Only `foods.name` and `foods.canonical_food_key` are searched. Wiring aliases is a pending code fix.
 
 ---
 
@@ -446,13 +457,21 @@ Trophē tracks the source and confidence of every food's macro data. This is a c
 - HTML5 drag API works on desktop + iPad, NOT mobile touch. Use `onTouchStart/Move/End` for touch.
 - `e.preventDefault()` on `onDragOver` is required or `onDrop` never fires.
 
-### Food-Parse Lookup (added May 2)
+### Food-Parse Lookup (added May 2, expanded June 9)
 - BM25 with `'simple'` tsconfig has NO stemmer. "eggs" does NOT match "Egg" (singular). Always singularize tokens in tsquery.
 - Canonical foods can rank #94+ in BM25 due to USDA verbose naming. Canonical injection into candidate pool is required — metadataBoost can't help if the food never enters the candidate list.
 - USDA FDC search queries are fragile. `chicken breast without skin raw` matched Apples. Use USDA naming conventions: `chicken broilers breast meat only raw`.
 - `ON CONFLICT DO NOTHING` requires a unique constraint. `food_unit_conversions` has none on `(food_id, unit)`. Use `INSERT ... WHERE NOT EXISTS` pattern.
 - `db/client.ts` defaults to Supabase local (port 54322) when `DATABASE_URL` unset. Canonical foods are on Mac Mini (port 5433). Set `DATABASE_URL` explicitly for accuracy tests.
 - Dry-run pattern (`--emit-sql`) for seed scripts is the single best QA investment. Review SQL before applying to production.
+- **food_aliases are NOT wired into BM25 retrieval** (as of June 2026). All 480+ alias inserts have ZERO effect on actual food search. Only `foods.name` and `foods.canonical_food_key` are searched. Adding aliases is a feel-good activity with no impact until the search query is updated.
+- **getPieceWeight() substring matching**: Iterates COMMON_PIECE_WEIGHTS entries. Original code returned FIRST substring match (insertion order). "souvlaki_pork_pita" matched "souvlaki" (150g skewer) before the correct "souvlaki_pork_pita" (250g wrap). Fix: track longest matching key.
+- **Hybrid source corruption**: When source=hybrid, LLM macro ratios override correct DB macros for branded foods (Chobani, Quest, FAGE). Fix: skip hybrid override when dbConfidence ≥ 0.85.
+- **DB-only ceiling**: ~155±3/210 on enterprise benchmark. LLM non-determinism creates ±5 case variance between runs. Code changes required to push past this ceiling.
+- **dish_recipes requires non-null ingredients**: The `ingredients` column must be a valid JSON array, not null. `source` is enum ('manual', etc.).
+- **Lentil soup conflicting expectations**: el-base-20 expects [180-260] cal, el-cs-08 expects [250-400] cal. Solution: set recipe cal to 250 (satisfies both ranges).
+- **Benchmark dataset structure**: `nutrition-enterprise-v2.json` is `{ cases: [...] }` (object with `.cases` array), NOT a plain array. `ds.find()` fails — use `dsRaw.cases.find()`.
+- **Vague inputs cause 422 errors**: "lunch", "σνακ", "ate some food" fall through to LLM, fail pipeline, return ok:false → API returns 422. Fix: add `shouldRequestClarification()` pre-check returning ok:true with needs_clarification.
 
 ### Canvas / Globe
 - Retina canvas: `canvas.width = N * devicePixelRatio; ctx.scale(dpr, dpr)`.

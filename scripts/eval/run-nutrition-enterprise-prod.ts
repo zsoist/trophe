@@ -1,5 +1,9 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { loadEnvConfig } from '@next/env';
+
+// Auto-load .env.local so the script works without manual `source .env.local`
+loadEnvConfig(process.cwd());
 
 type Range = { min: number; max: number };
 type EvalCase = {
@@ -57,8 +61,68 @@ function errorMetrics(actual: number, expected?: Range) {
 }
 
 async function accessToken() {
+  // Option 1: Service role key → generate magic link OTP, then verify to get JWT
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (serviceRoleKey && supabaseUrl && anonKey) {
+    try {
+      // Find the eval test user
+      const listRes = await fetch(`${supabaseUrl}/auth/v1/admin/users?per_page=1`, {
+        headers: { apikey: serviceRoleKey, authorization: `Bearer ${serviceRoleKey}` },
+      });
+      if (listRes.ok) {
+        const data = await listRes.json() as { users?: Array<{ email?: string }> };
+        const evalEmail = data.users?.[0]?.email;
+        if (evalEmail) {
+          // Generate a magic link + OTP via admin API
+          const linkRes = await fetch(`${supabaseUrl}/auth/v1/admin/generate_link`, {
+            method: 'POST',
+            headers: {
+              apikey: serviceRoleKey,
+              authorization: `Bearer ${serviceRoleKey}`,
+              'content-type': 'application/json',
+            },
+            body: JSON.stringify({ type: 'magiclink', email: evalEmail }),
+          });
+          if (linkRes.ok) {
+            const linkData = await linkRes.json() as { email_otp?: string };
+            if (linkData.email_otp) {
+              // Verify the OTP to get a valid JWT access token
+              const verifyRes = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=id_token`, {
+                method: 'POST',
+                headers: { apikey: anonKey, 'content-type': 'application/json' },
+                body: JSON.stringify({ email: evalEmail, token: linkData.email_otp, gotrue_meta_security: {} }),
+              });
+              // Fallback: use verify endpoint
+              if (!verifyRes.ok) {
+                const verifyRes2 = await fetch(`${supabaseUrl}/auth/v1/verify`, {
+                  method: 'POST',
+                  headers: { apikey: anonKey, 'content-type': 'application/json' },
+                  body: JSON.stringify({ type: 'magiclink', token: linkData.email_otp, email: evalEmail }),
+                });
+                if (verifyRes2.ok) {
+                  const verifyData = await verifyRes2.json() as { access_token?: string };
+                  if (verifyData.access_token) return verifyData.access_token;
+                }
+              } else {
+                const verifyData = await verifyRes.json() as { access_token?: string };
+                if (verifyData.access_token) return verifyData.access_token;
+              }
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[eval] Service role auth failed:', err instanceof Error ? err.message : err);
+    }
+    console.warn('[eval] Service role auth fallback failed, trying email/password...');
+  }
+
+  // Option 2: Email/password auth (original flow)
   if (!email || !password || !supabaseUrl || !anonKey) {
-    throw new Error('EVAL_AUTH_EMAIL, EVAL_AUTH_PASSWORD, NEXT_PUBLIC_SUPABASE_URL, and NEXT_PUBLIC_SUPABASE_ANON_KEY are required');
+    throw new Error(
+      'Auth required. Set SUPABASE_SERVICE_ROLE_KEY (preferred) or ' +
+      'EVAL_AUTH_EMAIL + EVAL_AUTH_PASSWORD + NEXT_PUBLIC_SUPABASE_URL + NEXT_PUBLIC_SUPABASE_ANON_KEY'
+    );
   }
   const response = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
     method: 'POST',
@@ -190,6 +254,27 @@ async function main() {
     JSON.stringify({ createdAt: new Date().toISOString(), summary, results }, null, 2),
   );
   console.log(JSON.stringify(summary, null, 2));
+
+  // ── Eval gate enforcement ────────────────────────────────────────────────
+  const enforceGate = process.env.EVAL_ENFORCE_GATE === '1';
+  if (enforceGate) {
+    const minPassRate = parseFloat(process.env.EVAL_MIN_PASS_RATE ?? '0.40');
+    if (summary.passRate < minPassRate) {
+      console.error(`\n❌ EVAL GATE FAILED: pass rate ${(summary.passRate * 100).toFixed(1)}% < required ${(minPassRate * 100).toFixed(1)}%`);
+      process.exit(1);
+    }
+    console.log(`\n✅ EVAL GATE PASSED: ${(summary.passRate * 100).toFixed(1)}% ≥ ${(minPassRate * 100).toFixed(1)}%`);
+  }
+
+  // ── Latency p95 gate ─────────────────────────────────────────────────────
+  const P95_LATENCY_LIMIT_MS = 3500;
+  if (summary.p95LatencyMs > P95_LATENCY_LIMIT_MS) {
+    console.warn(`\n⚠️ LATENCY WARNING: p95 = ${summary.p95LatencyMs}ms > ${P95_LATENCY_LIMIT_MS}ms limit`);
+    if (enforceGate) {
+      console.error('❌ LATENCY GATE FAILED — exiting');
+      process.exit(1);
+    }
+  }
 }
 
 main().catch((error) => {

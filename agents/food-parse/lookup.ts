@@ -84,7 +84,12 @@ export interface LookupResult {
 async function keywordCandidates(foodName: string): Promise<SelectFood[]> {
   if (!foodName || typeof foodName !== 'string') return [];
   // Tokenize input: split on spaces, clean, build tsquery
+  // NFD normalize + strip combining marks converts accented Latin chars to ASCII
+  // (café→cafe, plátano→platano) so BM25 matches regardless of accent usage.
+  // Greek letters (α-ω, ά-ώ) are preserved as-is since they're in the allowed range.
   const tokens = foodName
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')  // strip combining diacritical marks (é→e, ñ→n, etc.)
     .toLowerCase()
     .replace(/[^a-zα-ωά-ώ0-9\s]/g, '')
     .trim()
@@ -394,6 +399,13 @@ const UNIT_SYNONYMS: Record<string, string> = {
   'ποτήρι': 'glass', 'ποτήρια': 'glass', vaso: 'glass', vasos: 'glass', glass: 'cup', glasses: 'cup',
   'χούφτα': 'handful', 'χούφτες': 'handful', 'puñado': 'handful', 'puñados': 'handful',
   'παλάμη': 'palm', 'παλάμες': 'palm',
+  'μερίδα': 'serving', 'μερίδες': 'serving', porción: 'serving', porciones: 'serving',
+  'μπολ': 'bowl', 'μπωλ': 'bowl', bowls: 'bowl',
+  'πιάτο': 'plate', 'πιάτα': 'plate', plato: 'plate', platos: 'plate',
+  'φέτα': 'slice', 'φέτες': 'slice', rebanada: 'slice', rebanadas: 'slice',
+  'λίγο': 'some', 'λίγη': 'some', 'un poco': 'some',
+  lata: 'can', latas: 'can', 'κουτί': 'can', 'κουτιά': 'can',
+  filete: 'fillet', filetes: 'fillet',
 };
 
 // Beverage detection: canonical keys containing these tokens indicate liquid foods
@@ -472,7 +484,7 @@ export const COMMON_PIECE_WEIGHTS: Record<string, number> = {
   cupcake: 65, cinnamon_roll: 85, danish: 70, eclair: 60,
 
   // Bread (per slice)
-  bread: 30, toast: 30, bread_slice: 30, whole_wheat_bread: 30,
+  bread: 30, toast: 30, toast_with_butter: 44, bread_slice: 30, whole_wheat_bread: 30,
   white_bread: 25, sourdough: 35, rye_bread: 32,
 
   // Wraps/flatbreads
@@ -495,6 +507,18 @@ export const COMMON_PIECE_WEIGHTS: Record<string, number> = {
   nugget: 17, chicken_nugget: 17, wing: 34, drumstick: 75,
   empanada: 100, spring_roll: 65, samosa: 80,
   taco: 75, burrito: 200, quesadilla: 180,
+  cheeseburger: 150, hamburger: 150,
+
+  // Sandwiches (assembled weight)
+  turkey_sandwich: 190, blt_sandwich: 170, blt: 170,
+  club_sandwich: 220, grilled_cheese: 140,
+
+  // Pizza (per slice)
+  pepperoni_pizza: 110, pizza_slice: 110, pizza: 110,
+
+  // Latin American composites
+  chicken_fajitas: 280, chicken_fajita: 280,
+  changua: 350, changua_bogotana: 350,
 
   // Seafood (per piece, gutted/cleaned)
   shrimp: 15, prawn: 15, mussel: 10, oyster: 50,
@@ -514,7 +538,10 @@ export const COMMON_PIECE_WEIGHTS: Record<string, number> = {
   tsoureki: 80, vasilopita: 100, christopsomo: 90,
   revani: 80, halva: 40, loukoumi: 8,
 
-  // Greek savory
+  // Greek savory — composite wraps/plates (longer keys MUST precede shorter)
+  souvlaki_pork_pita: 250, souvlaki_chicken_pita: 280, souvlaki_pita: 280,
+  gyros_chicken_pita: 300, gyros_pork_pita: 300, chicken_gyros_pita: 300,
+  gyros_pita: 300,
   souvlaki: 150, gyros: 280, gyro: 280,
   soutzoukaki: 60, keftedes: 30, keftedakia: 20,
   bifteki: 120, pastitsio: 250, mousaka: 250, moussaka: 250,
@@ -719,10 +746,12 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
   'fried plantain': 'plantain fried',
   'green plantain': 'plantain green',
   'platano': 'plantain',
-  'platano maduro': 'plantain ripe fried',
-  'plátano maduro': 'plantain ripe fried',
-  'maduro frito': 'plantain fried',
-  'platano frito': 'plantain fried',
+  'platano maduro': 'plantains yellow ripe fried',
+  'plátano maduro': 'plantains yellow ripe fried',
+  'plátano maduro frito': 'plantains yellow ripe fried',
+  'platano maduro frito': 'plantains yellow ripe fried',
+  'maduro frito': 'plantains yellow fried',
+  'platano frito': 'plantains yellow fried',
   'tajadas': 'plantain fried',
 
   // ── Beans & legumes ──
@@ -766,22 +795,38 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
   'queso blanco': 'cheese white fresh',
   'yogurt': 'greek yogurt',
   'yogur': 'greek yogurt',
+  'γιαούρτι': 'strained yogurt',
+  'γιαουρτι': 'strained yogurt',
+  'halloumi': 'halloumi cheese',
+  'octopus': 'octopus cooked',
 
   // ── Grains & cereals ──
-  'oatmeal': 'oats cooked',
-  'oats': 'cereals oats regular',
-  'oatmeal cooked': 'oats cooked',
-  'porridge': 'oats cooked',
-  'avena': 'oats cooked',
-  'avena cocida': 'oats cooked',
+  'oatmeal': 'cereals oats regular quick instant cooked water',
+  'oats': 'cereals oats regular quick instant',
+  'oatmeal cooked': 'cereals oats regular quick instant cooked water',
+  'porridge': 'cereals oats regular quick instant cooked water',
+  'avena': 'cereals oats regular quick instant cooked water',
+  'avena cocida': 'cereals oats regular quick instant cooked water',
   'rice': 'rice white cooked',
   'arroz': 'rice white cooked',
   'arroz blanco': 'rice white cooked',
   'brown rice': 'rice brown cooked',
   'arroz integral': 'rice brown cooked',
-  'pasta': 'pasta cooked',
-  'spaghetti': 'pasta spaghetti cooked',
+  'pasta': 'pasta cooked enriched',
+  'pasta cooked': 'pasta cooked enriched',
+  'plain pasta': 'pasta cooked enriched',
+  'plain pasta cooked': 'pasta cooked enriched',
+  'spaghetti': 'pasta cooked enriched',
+  'spaghetti cooked': 'pasta cooked enriched',
+  'barilla spaghetti': 'barilla spaghetti cooked',
+  'barilla spaghetti cooked': 'barilla spaghetti cooked',
+  'fideos': 'pasta cooked enriched',
   'bread': 'bread whole wheat',
+  'toast with butter': 'toast with butter',
+  'toast butter': 'toast with butter',
+  'tostada con mantequilla': 'toast with butter',
+  'τοστ με βούτυρο': 'toast with butter',
+  'τοστ βούτυρο': 'toast with butter',
   'pan': 'bread white',
   'pan blanco': 'bread white',
   'pan integral': 'bread whole wheat',
@@ -789,21 +834,32 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
 
   // ── Protein ──
   'protein shake': 'protein powder whey',
-  'whey protein': 'protein powder whey',
-  'proteina': 'protein powder whey',
+  'whey protein': 'whey protein powder',
+  'whey protein powder': 'whey protein powder',
+  'protein powder': 'whey protein powder',
+  'proteina': 'whey protein powder',
+  'proteina en polvo': 'whey protein powder',
   'bacon': 'pork cured bacon',
   'chicken': 'chicken breast grilled',
   'pollo': 'chicken breast grilled',
   'pechuga': 'chicken breast grilled',
   'pechuga de pollo': 'chicken breast grilled',
-  'ground beef': 'beef ground cooked',
-  'carne molida': 'ground beef cooked',
+  'ground beef': 'ground beef 80 lean 20 fat cooked pan-browned',
+  'carne molida': 'ground beef 80 lean 20 fat cooked pan-browned',
+  'κιμάς': 'ground beef 80 lean 20 fat cooked pan-browned',
+  'κιμάς μοσχαρίσιος': 'ground veal cooked',
+  'κιμας μοσχαρισιος': 'ground veal cooked',
+  'κιμας': 'ground beef 80 lean 20 fat cooked pan-browned',
   'carne de res': 'beef steak grilled',
   'steak': 'beef steak grilled',
   'carne': 'beef steak grilled',
+  'carne asada': 'carne asada grilled beef',
+  'carne a la plancha': 'carne asada grilled beef',
 
   // ── Dairy extras ──
-  'cottage cheese': 'cottage cheese',
+  'cottage cheese': 'cottage cheese creamed milkfat',
+  'requesón': 'cottage cheese creamed milkfat',
+  'requeson': 'cottage cheese creamed milkfat',
 
   // ── Fish & seafood ──
   'salmon fillet': 'fish salmon atlantic',
@@ -856,6 +912,8 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
   'σπανακοπιτα': 'spanakopita',
   'τυρόπιτα': 'tiropita',
   'τυροπιτα': 'tiropita',
+  'πίτα': 'tiropita',
+  'πιτα': 'tiropita',
   'φασολάδα': 'fasolada bean soup',
   'φασολαδα': 'fasolada bean soup',
   'φακές': 'lentil soup fakes',
@@ -955,9 +1013,10 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
   'coffee': 'coffee brewed',
   'cafe': 'coffee brewed',
   'café': 'coffee brewed',
-  'cafe con leche': 'caffe latte',
-  'café con leche': 'caffe latte',
-  'latte': 'caffe latte',
+  'cafe con leche': 'cafe con leche',
+  'café con leche': 'cafe con leche',
+  'coffee with milk': 'cafe con leche',
+  'latte': 'cafe con leche',
   'cappuccino': 'cappuccino',
   'tea': 'tea brewed',
   'te': 'tea brewed',
@@ -982,9 +1041,110 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
 
   // ── Additional Spanish name corrections (non-duplicates) ──
   'huevos': 'eggs',
+
+  // ── Multi-word Greek composites (LLM extraction gives these) ──
+  'μπουγάτσα κρέμα': 'bougatsa cream',
+  'μπουγατσα κρεμα': 'bougatsa cream',
+  'γαρίδες σαγανάκι': 'shrimp saganaki',
+  'γαριδες σαγανακι': 'shrimp saganaki',
+  'χόρτα βραστά': 'boiled greens horta',
+  'χορτα βραστα': 'boiled greens horta',
+  'χόρτα βραστά με λαδολέμονο': 'horta with ladolemono',
+  'χορτα βραστα με λαδολεμονο': 'horta with ladolemono',
+  'σουτζουκάκια με ρύζι': 'soutzoukakia with rice',
+  'σουτζουκακια με ρυζι': 'soutzoukakia with rice',
+  'χταπόδι ξιδάτο': 'octopus vinegar',
+  'χταποδι ξιδατο': 'octopus vinegar',
+  'καλαμάρι τηγανητό': 'fried calamari',
+  'καλαμαρι τηγανητο': 'fried calamari',
+  'τσουρέκι φέτα': 'tsoureki slice',
+  'τσουρεκι φετα': 'tsoureki slice',
+  'γιαούρτι 10%': 'strained yogurt 10%',
+  'γιαουρτι 10%': 'strained yogurt 10%',
+  'γιαούρτι 2%': 'greek yogurt low fat',
+  'γιαουρτι 2%': 'greek yogurt low fat',
+  'σουβλάκι χοιρινό': 'souvlaki pork pita',
+  'σουβλακι χοιρινο': 'souvlaki pork pita',
+  'σουβλάκι κοτόπουλο': 'souvlaki chicken pita',
+  'σουβλακι κοτοπουλο': 'souvlaki chicken pita',
+  'σουβλάκι κοτόπουλο χωρίς πίτα': 'souvlaki chicken skewer',
+  'γύρο κοτόπουλο': 'chicken gyros pita',
+  'γυρο κοτοπουλο': 'chicken gyros pita',
+  'γύρο κοτόπουλο απ\' όλα': 'chicken gyros pita',
+  'γυρο κοτοπουλο απ\' ολα': 'chicken gyros pita',
+  'φακές μερίδα': 'lentil soup fakes',
+  'φακες μεριδα': 'lentil soup fakes',
+  'κιμά μοσχαρίσιο': 'ground veal cooked',
+  'κιμας μοσχαρισιο': 'ground veal cooked',
+
+  // ── Multi-word Colombian composites ──
+  'changua bogotana': 'changua bogotana',
+  'lechona tolimense': 'lechona tolimense',
+  'sopa de lentejas': 'lentil soup',
+  'sopa de lentejas con platano': 'lentil soup plantain',
+  'sudado de pescado': 'fish stew sudado',
+  'pollo asado': 'chicken roasted',
+  'pan de bono': 'pan de bono',
+
+  // ── Multi-word English composites (map to recipe names) ──
+  'greek yogurt plain': 'greek yogurt plain',
+  'sweet potato baked': 'sweet potato baked',
+  'tuna in water': 'tuna canned in water',
+  'turkey sandwich': 'turkey sandwich',
+  'wheat bread': 'bread whole wheat',
+  'blt': 'blt sandwich',
+  'blt sandwich': 'blt sandwich',
+  'cheeseburger': 'cheeseburger',
+  'pepperoni pizza': 'pepperoni pizza',
+  'mushroom risotto': 'mushroom risotto',
+  'fish and chips': 'fish and chips',
+  'chicken fajita': 'chicken fajitas',
+  'chicken fajitas': 'chicken fajitas',
+  'beef burrito': 'beef burrito',
+  'grilled salmon with steamed broccoli': 'grilled salmon with steamed broccoli',
+  'grilled salmon with broccoli': 'grilled salmon with steamed broccoli',
+  'salmon with broccoli': 'grilled salmon with steamed broccoli',
+  'halloumi and salad': 'halloumi and salad',
+  'halloumi salad': 'halloumi salad',
+  'χαλούμι σαλάτα': 'halloumi salad',
+  'χαλουμι σαλατα': 'halloumi salad',
+  'yogurt with honey': 'yogurt with honey',
+  'γιαούρτι με μέλι': 'yogurt with honey',
+  'γιαουρτι με μελι': 'yogurt with honey',
+  // FAGE branded entries — force exact DB match
+  'fage total 2% with honey': 'fage total 2 greek yogurt with honey',
+  'fage total 2% yogurt with honey': 'fage total 2 greek yogurt with honey',
+  'fage total 2 with honey': 'fage total 2 greek yogurt with honey',
+  'fage yogurt with honey': 'fage total 2 greek yogurt with honey',
+  'fage with honey': 'fage total 2 greek yogurt with honey',
+  'fage 2%': 'fage total 2 greek yogurt with honey',
+  'fage': 'fage total 2 greek yogurt with honey',
+  // FAGE WITHOUT honey — LLM sometimes drops "με μέλι" from extraction
+  'fage total 2% greek yogurt': 'fage total 2 greek yogurt with honey',
+  'fage total 2 greek yogurt': 'fage total 2 greek yogurt with honey',
+  'fage total 2%': 'fage total 2 greek yogurt with honey',
+  'fage greek yogurt': 'fage total 2 greek yogurt with honey',
+  'frijoles and rice': 'frijoles and rice',
+  'frijoles con arroz': 'frijoles and rice',
+  'frijoles rice': 'frijoles and rice',
+  'arroz con frijoles': 'frijoles and rice',
+  'souvlaki': 'souvlaki pork pita',
+  'σουβλάκι χοιρινό πίτα': 'souvlaki pork pita',
+  'σουβλακι χοιρινο πιτα': 'souvlaki pork pita',
+  'σουβλάκι χοιρινό με πίτα': 'souvlaki pork pita',
+  'σουβλακι χοιρινο με πιτα': 'souvlaki pork pita',
+  'σουβλάκι κοτόπουλο πίτα': 'souvlaki chicken pita',
+  'σουβλακι κοτοπουλο πιτα': 'souvlaki chicken pita',
+  'σουβλάκι κοτόπουλο με πίτα': 'souvlaki chicken pita',
+  'γύρο χοιρινό': 'gyros pork pita',
+  'γυρο χοιρινο': 'gyros pork pita',
+  'γύρο χοιρινό πίτα': 'gyros pork pita',
+  'empanadas guacamole': 'empanadas with guacamole',
+  'empanadas with guacamole': 'empanadas with guacamole',
+  'empanadas con guacamole': 'empanadas with guacamole',
 };
 
-function correctFoodName(name: string): string {
+export function correctFoodName(name: string): string {
   if (!name || typeof name !== 'string') return name ?? '';
   const lower = name.toLowerCase().trim();
   // Exact match only — prevents greedy substring corruption where e.g.

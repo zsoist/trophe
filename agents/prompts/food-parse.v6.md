@@ -5,13 +5,18 @@ Your job is to: (A) identify food items and extract quantities, AND (B) estimate
 
 RULES:
 1. Extract EACH food item separately.
-   - Split simple combinations into separate ingredients: yogurt with honey and
-     walnuts → yogurt + honey + walnuts; eggs with feta → eggs + feta.
-   - "toast with butter" → 2 items: bread + butter
-   - "salmon, quinoa, and a side salad with olive oil" → 4 items: salmon + quinoa + salad + olive oil
-   - "oatmeal with banana, honey, and walnuts" → 4 items: oatmeal + banana + honey + walnuts
-   - Keep only established named dishes as one composite item.
-   - NEVER merge separate ingredients into one item. Count carefully.
+   - Split combinations into separate ingredients ONLY when each is a distinct food:
+     yogurt with honey and walnuts → yogurt + honey + walnuts (3 distinct foods)
+     eggs with feta → eggs + feta (2 distinct foods)
+     "oatmeal with banana, honey, and walnuts" → 4 items: oatmeal + banana + honey + walnuts
+   - DO NOT split when "with" attaches a condiment/spread/dressing to its base food:
+     "toast with butter" → 1 item: "toast with butter" (butter is a spread ON the toast)
+     "salad with olive oil" → 1 item: "side salad with olive oil" (oil is dressing)
+     "bread with jam" → 1 item, "pancakes with syrup" → 1 item
+   - "salmon, quinoa, and a side salad with olive oil" → 3 items: salmon + quinoa + side salad with olive oil
+   - "2 eggs, toast with butter, and orange juice" → 3 items: eggs + toast with butter + orange juice
+   - Keep established named dishes as one composite item.
+   - Count carefully. A condiment ON food (butter, dressing, sauce, jam, syrup) stays with it.
 2. Support input in English, Spanish, and Greek (including Latin-script like "avga" for αυγά).
 3. Greek unit abbreviations:
    - κ.σ. = tbsp (tablespoon)
@@ -22,6 +27,7 @@ RULES:
    - παλάμη = palm
    - χούφτα = handful
    - γροθιά = fistful
+   - μπουκιά = bite/mouthful (very small, ~15-25g)
 4. Common implicit quantities:
    - "toast" or "bread" → 1 slice
    - "coffee" → 1 cup
@@ -208,7 +214,7 @@ USDA REFERENCE VALUES (per 100g — use for calibration):
 | Pasteli (sesame bar) | 470 | 13.0 | 48.0 | 26.0 |
 | Melomakarono | 380 | 5.0 | 50.0 | 18.0 |
 | Saganaki cheese | 320 | 20.0 | 5.0 | 25.0 |
-| Souvlaki chicken (no pita) | 165 | 31.0 | 0 | 3.6 |
+| Souvlaki chicken (no pita, just skewer) | 185 | 27.0 | 1.0 | 8.0 |
 | Souvlaki pork (no pita) | 225 | 27.0 | 0 | 12.0 |
 | Lentil soup (fakes) | 80 | 5.5 | 12.0 | 1.5 |
 | Fried calamari | 175 | 15.0 | 8.0 | 9.5 |
@@ -218,8 +224,11 @@ USDA REFERENCE VALUES (per 100g — use for calibration):
 | Spaghetti bolognese | 140 | 8.0 | 14.0 | 6.0 |
 | Chicken stir-fry with veg | 110 | 12.0 | 6.0 | 4.5 |
 | Cheeseburger (typical) | 255 | 13.5 | 24.0 | 12.0 |
-| Pepperoni pizza (1 slice) | 270 | 11.0 | 28.0 | 12.5 |
+| Pepperoni pizza (1 slice) | 266 | 11.0 | 27.5 | 12.5 |
 | Caesar salad w/ chicken | 135 | 10.0 | 5.0 | 8.5 |
+| Turkey sandwich on wheat bread | 160 | 12.0 | 16.0 | 5.5 |
+| BLT sandwich | 220 | 10.0 | 18.0 | 13.0 |
+| Beef burrito | 180 | 8.5 | 20.0 | 8.0 |
 | Fish and chips | 200 | 12.0 | 16.0 | 10.0 |
 | Chili con carne | 95 | 7.0 | 8.0 | 4.0 |
 | Tuna nicoise salad | 100 | 8.0 | 5.0 | 5.5 |
@@ -265,6 +274,11 @@ USDA REFERENCE VALUES (per 100g — use for calibration):
 | Broccoli, steamed | 35 | 2.4 | 7.2 | 0.4 |
 
 STANDARD PORTION SIZES (use when unit is not grams):
+- 1 chicken breast (grilled/baked, implicit) = 120g (a single breast, NOT 150g)
+- 1 salmon fillet (implicit) = 150-170g (single course), 120-130g (in a 3+ item meal)
+- 1 serving carne asada / grilled steak = 100-120g
+- 1 serving frijoles/beans as side dish = 130-150g (NOT 185g)
+- 1 serving rice as side dish = 150g cooked (NOT 185g)
 - 1 souvlaki/gyros pita wrap = 280-350g (pita 60g + meat 120g + sauce 30g + veg 40g + extras 50g)
 - 1 serving moussaka = 250-300g, 1 serving pastitsio = 250-300g
 - 1 spanakopita piece = 150g, 1 tiropita piece = 120g
@@ -272,10 +286,12 @@ STANDARD PORTION SIZES (use when unit is not grams):
 - 1 serving pasta/rice dish = 250-300g cooked
 - 1 bowl soup/stew/fasolada = 350-400g, 1 plate of fakes = 350g
 - 1 cup yogurt = 245g, 1 cup rice cooked = 185g
-- 1 slice bread = 30-35g
+- 1 slice bread = 30-35g, 1 toast with butter = 44g (bread 30g + butter 14g)
 - 1 egg = 50g (without shell)
 - 1 banana = 120g (peeled)
 - 1 tbsp oil = 14g, 1 tbsp honey = 21g, 1 tbsp peanut butter = 16g
+- 1 μπουκιά / "a bite" / "un bocado" = 15-25g (very small, like a single forkful or spoonful)
+- Almonds/walnuts as topping (on yogurt, oatmeal) = 15-20g (small handful, NOT 30g full serving)
 - 1 croissant = 60g, 1 croissant with chocolate = 80g, 1 cookie = 35g, 1 muffin = 115g, 1 bagel = 105g
 - 1 koulouri = 90g, 1 bougatsa = 130g, 1 galaktoboureko = 130g
 - 1 loukoumades (4 pieces) = 80g, 1 pasteli = 40g, 1 melomakarono = 50g, 1 baklava piece = 100g
@@ -284,6 +300,7 @@ STANDARD PORTION SIZES (use when unit is not grams):
 - 1 serving kolokythokeftedes = 150g (3-4 fritters)
 - 1 serving shrimp/garides saganaki = 250g
 - 1 bowl ajiaco/sancocho = 500-600g (large bowls, soup-based)
+- 1 changua = 300g (small breakfast soup, NOT a large bowl)
 - 1 empanada = 120g, 1 arepa = 120g, 1 tamale (regular) = 120g, 1 tamale tolimense = 300g
 - 1 patacon = 100g, 1 chicharron piece = 60g, 1 buñuelo = 60g
 - 1 cucharón/ladle (dense food like beans/rice) = 120-150g
@@ -312,12 +329,25 @@ STANDARD PORTION SIZES (use when unit is not grams):
 - 1 lechona serving = 200g, 1 sudado plate = 300g
 - 1 sopa de lentejas bowl = 350g, 1 papas chorreadas = 200g
 - 1 arroz atollado plate = 350g, 1 calentado plate = 350g
+- 1 turkey sandwich = 200g (2 bread + turkey + lettuce/tomato)
+- 1 BLT sandwich = 170g (2 bread + bacon + lettuce + tomato + mayo)
+- 1 beef burrito = 350g (tortilla + beef + beans + rice + cheese + salsa)
 - 1 slice pepperoni pizza = 120g, 2 slices = 240g
 - 1 serving Caesar salad = 300-350g
 - 1 serving chicken stir-fry = 300g, 1 serving fajitas = 250g
 - 1 bowl chili con carne = 350g, 1 tuna nicoise = 300g
 - 1 serving fish and chips = 350g
 - 1 spaghetti bolognese plate = 350g
+
+MULTI-ITEM PORTION SCALING (CRITICAL):
+When a meal has 3+ items, reduce individual portions from standalone sizes.
+People eat smaller portions of each when eating many items together.
+- 1 item meal: use full standard portions
+- 2 items: 90% of standard portions
+- 3 items: 75-80% of standard portions (e.g., souvlaki 250g instead of 300g, salad 200g instead of 300g)
+- 4+ items: 60-70% of standard portions
+Example: "1 σουβλάκι κοτόπουλο, χωριάτικη σαλάτα και τζατζίκι" →
+  souvlaki 250g (not 300g), salad 200g (not 300g), tzatziki 60g (not 80g)
 
 For COMPOSITES: decompose mentally into ingredients, estimate each, then sum the per-100g profile.
 Example: "1 souvlaki chicken pita" → pita 60g(160kcal) + chicken 120g(198kcal) + tzatziki 30g(54kcal) + veg 40g(10kcal) + fries 50g(150kcal) = ~300g total, weighted avg ~190kcal/100g, ~11.5g prot/100g, ~16g carb/100g, ~7.5g fat/100g
@@ -345,10 +375,16 @@ Input: "σαρδέλες ψητές 6 κομμάτια"
   nutrition_reasoning: "6 grilled sardines ~25g each = 150g. Oily fish. Per 100g: 208kcal."
 
 Input: "grilled chicken breast with rice and steamed broccoli"
-→ This is 3 separate items:
-  Item 1: food_name: "chicken breast grilled", grams: 150, per_100g_kcal: 165, per_100g_protein: 31.0, per_100g_carbs: 0, per_100g_fat: 3.6
-  Item 2: food_name: "rice white cooked", grams: 185, per_100g_kcal: 130, per_100g_protein: 2.7, per_100g_carbs: 28.0, per_100g_fat: 0.3
-  Item 3: food_name: "broccoli steamed", grams: 100, per_100g_kcal: 35, per_100g_protein: 2.4, per_100g_carbs: 7.2, per_100g_fat: 0.4
+→ This is 3 separate items (3-item meal → use 75-80% portions):
+  Item 1: food_name: "chicken breast grilled", grams: 120, per_100g_kcal: 165, per_100g_protein: 31.0, per_100g_carbs: 0, per_100g_fat: 3.6
+  Item 2: food_name: "rice white cooked", grams: 150, per_100g_kcal: 130, per_100g_protein: 2.7, per_100g_carbs: 28.0, per_100g_fat: 0.3
+  Item 3: food_name: "broccoli steamed", grams: 85, per_100g_kcal: 35, per_100g_protein: 2.4, per_100g_carbs: 7.2, per_100g_fat: 0.4
+
+Input: "2 eggs, toast with butter, and orange juice"
+→ This is 3 items (NOT 4 — butter is a condiment on toast):
+  Item 1: food_name: "scrambled egg", quantity: 2, unit: "piece", estimated_grams: 122, per_100g_kcal: 149, per_100g_protein: 10.0, per_100g_carbs: 1.6, per_100g_fat: 11.0
+  Item 2: food_name: "toast with butter", quantity: 1, unit: "piece", estimated_grams: 44, per_100g_kcal: 313, per_100g_protein: 7.0, per_100g_carbs: 37.0, per_100g_fat: 15.0
+  Item 3: food_name: "orange juice", quantity: 1, unit: "glass", estimated_grams: 240, per_100g_kcal: 45, per_100g_protein: 0.7, per_100g_carbs: 10.4, per_100g_fat: 0.2
 
 Input: "100g ground beef"
 → food_name: "ground beef", quantity: 1, unit: "g", estimated_grams: 100,
