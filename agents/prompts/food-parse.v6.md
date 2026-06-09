@@ -7,7 +7,11 @@ RULES:
 1. Extract EACH food item separately.
    - Split simple combinations into separate ingredients: yogurt with honey and
      walnuts → yogurt + honey + walnuts; eggs with feta → eggs + feta.
+   - "toast with butter" → 2 items: bread + butter
+   - "salmon, quinoa, and a side salad with olive oil" → 4 items: salmon + quinoa + salad + olive oil
+   - "oatmeal with banana, honey, and walnuts" → 4 items: oatmeal + banana + honey + walnuts
    - Keep only established named dishes as one composite item.
+   - NEVER merge separate ingredients into one item. Count carefully.
 2. Support input in English, Spanish, and Greek (including Latin-script like "avga" for αυγά).
 3. Greek unit abbreviations:
    - κ.σ. = tbsp (tablespoon)
@@ -116,6 +120,14 @@ After identifying each food, THINK STEP BY STEP to estimate its per-100g nutriti
 CRITICAL: Report per_100g values SEPARATELY from estimated_grams. Do NOT multiply yourself.
 The app performs the multiplication to avoid arithmetic errors.
 
+CRITICAL COOKED VS DRY: When reporting per-100g values for foods that can be cooked or dry:
+- "oatmeal" / "1 cup oatmeal" → use COOKED values (71 kcal/100g), NOT dry (389 kcal/100g)
+- "rice" / "1 cup rice" → use COOKED values (130 kcal/100g), NOT dry (360 kcal/100g)
+- "pasta" / "1 cup pasta" → use COOKED values (157 kcal/100g), NOT dry (371 kcal/100g)
+- "lentils" / "fakes" → use COOKED values (116 kcal/100g), NOT dry (352 kcal/100g)
+- Only use dry values if user explicitly says "dry" or "uncooked".
+Most people report what they EAT (cooked). Default to cooked per-100g values.
+
 USDA REFERENCE VALUES (per 100g — use for calibration):
 
 ### Base foods
@@ -132,6 +144,12 @@ USDA REFERENCE VALUES (per 100g — use for calibration):
 | Bread, white | 265 | 9.0 | 49.0 | 3.2 |
 | Salmon, Atlantic, cooked | 208 | 20.0 | 0 | 13.0 |
 | Oats, rolled, dry | 389 | 17.0 | 66.0 | 7.0 |
+| Oatmeal, cooked (porridge) | 71 | 2.5 | 12.0 | 1.5 |
+| Cottage cheese | 98 | 11.0 | 3.4 | 4.3 |
+| Almonds, raw | 579 | 21.0 | 22.0 | 50.0 |
+| Walnuts, raw | 654 | 15.0 | 14.0 | 65.0 |
+| Lentils, cooked | 116 | 9.0 | 20.0 | 0.4 |
+| Tortilla, flour | 310 | 8.0 | 52.0 | 8.0 |
 | Peanut butter | 588 | 25.0 | 20.0 | 50.0 |
 | Honey | 304 | 0.3 | 82.0 | 0 |
 | Avocado | 160 | 2.0 | 9.0 | 15.0 |
@@ -162,7 +180,7 @@ USDA REFERENCE VALUES (per 100g — use for calibration):
 |------|------|---------|-------|-----|
 | Moussaka | 148 | 7.5 | 9.0 | 10.0 |
 | Pastitsio | 155 | 8.0 | 14.0 | 7.5 |
-| Spanakopita (1 piece ~150g) | 270 | 7.0 | 25.0 | 16.0 |
+| Spanakopita (1 piece ~150g) | 220 | 7.0 | 20.0 | 13.0 |
 | Tiropita | 310 | 11.0 | 24.0 | 19.0 |
 | Greek salad (horiatiki) | 100 | 3.5 | 4.0 | 8.0 |
 | Fasolada | 85 | 4.5 | 13.0 | 2.0 |
@@ -177,7 +195,10 @@ USDA REFERENCE VALUES (per 100g — use for calibration):
 | Horta (boiled greens w/ oil) | 80 | 2.5 | 5.0 | 6.0 |
 | Magiritsa (Easter soup) | 70 | 5.0 | 4.0 | 4.0 |
 | Greek sausage (loukaniko) | 285 | 16.0 | 2.0 | 24.0 |
-| Lamb roasted | 250 | 25.0 | 0 | 16.0 |
+| Lamb roasted (1 piece ~80g) | 250 | 25.0 | 0 | 16.0 |
+| Baklava | 415 | 6.0 | 48.0 | 23.0 |
+| Tsoureki (Greek brioche) | 350 | 8.5 | 52.0 | 12.0 |
+| Kolokythokeftedes (zucchini fritters) | 180 | 5.0 | 15.0 | 11.0 |
 | Chicken gyros pita | 195 | 11.0 | 16.0 | 9.0 |
 | Pork souvlaki pita | 210 | 12.0 | 15.0 | 11.0 |
 | Bougatsa cream | 295 | 5.5 | 35.0 | 15.0 |
@@ -211,8 +232,10 @@ USDA REFERENCE VALUES (per 100g — use for calibration):
 | Patacon con hogao | 240 | 2.0 | 34.0 | 11.0 |
 | Frijoles rojos (cooked) | 132 | 8.9 | 24.0 | 0.5 |
 | Empanada (fried) | 260 | 8.0 | 28.0 | 13.0 |
-| Tamale colombiano | 170 | 6.0 | 16.0 | 9.0 |
-| Ajiaco santafereño | 55 | 3.5 | 7.0 | 1.5 |
+| Tamale colombiano (small ~120g) | 170 | 6.0 | 16.0 | 9.0 |
+| Tamale tolimense (large ~300g) | 180 | 7.0 | 17.0 | 9.5 |
+| Buñuelo colombiano (1 piece ~60g) | 320 | 5.0 | 35.0 | 18.0 |
+| Ajiaco santafereño | 65 | 4.5 | 7.5 | 2.0 |
 | Sancocho de gallina | 60 | 4.0 | 6.0 | 2.0 |
 | Changua | 80 | 5.5 | 4.0 | 4.5 |
 | Chicharron | 540 | 20.0 | 0 | 50.0 |
@@ -255,10 +278,16 @@ STANDARD PORTION SIZES (use when unit is not grams):
 - 1 tbsp oil = 14g, 1 tbsp honey = 21g, 1 tbsp peanut butter = 16g
 - 1 croissant = 60g, 1 croissant with chocolate = 80g, 1 cookie = 35g, 1 muffin = 115g, 1 bagel = 105g
 - 1 koulouri = 90g, 1 bougatsa = 130g, 1 galaktoboureko = 130g
-- 1 loukoumades (4 pieces) = 80g, 1 pasteli = 40g, 1 melomakarono = 50g
-- 1 empanada = 120g, 1 arepa = 120g, 1 tamale = 120g
-- 1 patacon = 100g, 1 chicharron piece = 60g
-- 1 can soda = 355ml, 1 can tuna = 170g drained
+- 1 loukoumades (4 pieces) = 80g, 1 pasteli = 40g, 1 melomakarono = 50g, 1 baklava piece = 100g
+- 1 tsoureki slice = 70g
+- 1 piece roast lamb = 80g (2 pieces = 160g, NOT 200g)
+- 1 serving kolokythokeftedes = 150g (3-4 fritters)
+- 1 serving shrimp/garides saganaki = 250g
+- 1 bowl ajiaco/sancocho = 500-600g (large bowls, soup-based)
+- 1 empanada = 120g, 1 arepa = 120g, 1 tamale (regular) = 120g, 1 tamale tolimense = 300g
+- 1 patacon = 100g, 1 chicharron piece = 60g, 1 buñuelo = 60g
+- 1 cucharón/ladle (dense food like beans/rice) = 120-150g
+- 1 can soda = 355ml, 1 can tuna = 112g drained (NOT 170g; that's pre-drain weight)
 - 1 bottle water = 500ml, 1 glass juice = 240ml
 - Monster/Red Bull can = 473ml/250ml
 - 1 scoop whey protein = 30g
@@ -275,11 +304,11 @@ STANDARD PORTION SIZES (use when unit is not grams):
 - 6 dolmadakia = 150g (6 × 25g each)
 - 1 serving bamies = 300g, 1 plate horta = 200g
 - 1 serving magiritsa = 350g, 1 loukaniko = 100g
-- 2 pieces lamb roasted = 200g (100g each)
+- 2 pieces lamb roasted = 160g (80g each, bone-in pieces yield ~80g meat)
 - 1 chicken gyros pita = 300-350g, 1 pork souvlaki pita = 280-320g
 - 1 souvlaki chicken without pita = 120-150g (just the meat skewer)
 - 1 bandeja paisa = 600-700g (large composite plate)
-- 1 ajiaco bowl = 400g, 1 sancocho bowl = 400g
+- 1 ajiaco bowl = 550g (large soup bowl), 1 sancocho bowl = 550g
 - 1 lechona serving = 200g, 1 sudado plate = 300g
 - 1 sopa de lentejas bowl = 350g, 1 papas chorreadas = 200g
 - 1 arroz atollado plate = 350g, 1 calentado plate = 350g
