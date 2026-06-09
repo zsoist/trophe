@@ -22,6 +22,11 @@ export const foodParseStructuredSchema = z.object({
     estimated_fat_g: z.number().nonnegative().optional(),
     nutrition_reasoning: z.string().optional(),
     estimation_confidence: z.number().min(0).max(1).optional(),
+    // v6 per-100g fields (LLM reports per-100g, code multiplies by grams)
+    per_100g_kcal: z.number().nonnegative().optional(),
+    per_100g_protein: z.number().nonnegative().optional(),
+    per_100g_carbs: z.number().nonnegative().optional(),
+    per_100g_fat: z.number().nonnegative().optional(),
   })),
 });
 
@@ -57,6 +62,11 @@ export const foodParseGeminiResponseSchema = {
           estimated_fat_g: { type: 'number' },
           nutrition_reasoning: { type: 'string' },
           estimation_confidence: { type: 'number' },
+          // v6 per-100g fields
+          per_100g_kcal: { type: 'number' },
+          per_100g_protein: { type: 'number' },
+          per_100g_carbs: { type: 'number' },
+          per_100g_fat: { type: 'number' },
         },
       },
     },
