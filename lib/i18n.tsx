@@ -116,7 +116,7 @@ const translations: Record<string, Record<Language, string>> = {
   'food.confirm_all': { en: 'Log All', es: 'Registrar todo', el: 'Καταγραφή όλων' },
   'food.photo_take': { en: 'Take photo', es: 'Tomar foto', el: 'Βγάλε φωτογραφία' },
   'food.photo_analyzing': { en: 'Analyzing photo...', es: 'Analizando foto...', el: 'Ανάλυση φωτογραφίας...' },
-  'food.items_found': { en: '{n} items found', es: '{n} alimentos encontrados', el: '{n} τρόφιμα βρέθηκαν' },
+  'food.items_found': { en: '{n} item(s) found', es: '{n} alimento(s)', el: '{n} τρόφιμα' },
   'food.search_db': { en: 'Search database', es: 'Buscar en base de datos', el: 'Αναζήτηση βάσης' },
   'food.remove_item': { en: 'Remove', es: 'Eliminar', el: 'Αφαίρεση' },
   'food.no_items': { en: 'No food items detected', es: 'No se detectaron alimentos', el: 'Δεν εντοπίστηκαν τρόφιμα' },

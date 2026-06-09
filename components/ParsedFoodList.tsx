@@ -228,32 +228,18 @@ export default function ParsedFoodList({ items: initialItems, clarificationQuest
           ))}
         </AnimatePresence>
 
+        {/* Compact clarification — truncate long AI explanations */}
         {clarificationQuestion && unresolvedPortions > 0 && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             role="alert"
-            className="flex items-start gap-2 px-3 py-3 rounded-lg bg-amber-500/10 border border-amber-500/30"
+            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30"
           >
-            <AlertTriangle size={15} className="text-amber-400 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-amber-300 text-xs font-medium">{clarificationQuestion}</p>
-              <p className="text-stone-400 text-[11px] mt-1">
-                {unresolvedPortions === 1 ? 'One item has' : `${unresolvedPortions} items have`} estimated portions — adjust if needed, or save as-is.
-              </p>
-            </div>
-          </motion.div>
-        )}
-
-        {/* Nutritional warning */}
-        {warning && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="flex items-start gap-2 px-3 py-2 rounded-lg bg-yellow-500/10 border border-yellow-500/20"
-          >
-            <AlertTriangle size={14} className="text-yellow-500 flex-shrink-0 mt-0.5" />
-            <p className="text-yellow-400/80 text-xs">{warning}</p>
+            <AlertTriangle size={14} className="text-amber-400 flex-shrink-0" />
+            <p className="text-amber-300/80 text-[11px] line-clamp-2">
+              {unresolvedPortions === 1 ? 'Estimated portion' : `${unresolvedPortions} estimated portions`} — adjust if needed, or save as-is.
+            </p>
           </motion.div>
         )}
       </motion.div>
