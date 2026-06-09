@@ -60,7 +60,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, onSea
 
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 15000); // 15s timeout
+      const timeout = setTimeout(() => controller.abort(), 25000); // 25s — composites need more time
 
       const res = await fetch('/api/food/parse', {
         method: 'POST',
@@ -438,6 +438,16 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, onSea
   if (mode === 'confirming' && parsedItems.length > 0) {
     return (
       <div>
+        {/* Save error — visible in confirm mode so users aren't stuck */}
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            className="mb-2 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20"
+          >
+            <p className="text-red-400 text-xs text-center">{error}</p>
+          </motion.div>
+        )}
         {/* F14: Photo preview */}
         {photoPreview && (
           <div className="mb-2 flex justify-center">

@@ -123,19 +123,13 @@ export default function ParsedFoodList({ items: initialItems, clarificationQuest
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="space-y-2 pb-44"
+        className="space-y-2 pb-64"
       >
-        {/* Item count header */}
-        <div className="flex items-center justify-between px-1">
+        {/* Item count header — Cancel moved to save bar only */}
+        <div className="px-1">
           <span className="text-stone-400 text-xs">
             {t('food.items_found', { n: String(items.length) })}
           </span>
-          <button
-            onClick={onCancel}
-            className="text-stone-600 hover:text-stone-300 text-xs transition-colors"
-          >
-            {t('general.cancel')}
-          </button>
         </div>
 
         <AnimatePresence>
@@ -146,7 +140,7 @@ export default function ParsedFoodList({ items: initialItems, clarificationQuest
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 10, height: 0 }}
-              className="glass p-3"
+              className={`glass p-3${!item.portion_explicit ? ' border-l-2 border-amber-500/40' : ''}`}
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
@@ -183,29 +177,32 @@ export default function ParsedFoodList({ items: initialItems, clarificationQuest
                     <>
                       <button
                         onClick={() => updateGrams(index, -gramStep)}
-                        className="p-1 glass text-stone-400 hover:text-stone-200 transition-colors"
+                        className="w-11 h-11 flex items-center justify-center glass rounded-lg text-stone-400 hover:text-stone-200 active:scale-95 transition-all"
                       >
-                        <Minus size={12} />
+                        <Minus size={16} />
                       </button>
-                      <input
-                        type="number"
-                        value={displayVal}
-                        onChange={(e) => {
-                          const newDisplay = parseInt(e.target.value) || 1;
-                          const newGrams = vol
-                            ? Math.round(newDisplay * gramsPerDisplayUnit)
-                            : newDisplay;
-                          setGrams(index, newGrams);
-                        }}
-                        className="input-dark text-center text-xs w-16 py-1"
-                        min={1}
-                      />
-                      <span className="text-stone-500 text-xs">{displayUnit}</span>
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          value={displayVal}
+                          onChange={(e) => {
+                            const newDisplay = parseInt(e.target.value) || 1;
+                            const newGrams = vol
+                              ? Math.round(newDisplay * gramsPerDisplayUnit)
+                              : newDisplay;
+                            setGrams(index, newGrams);
+                          }}
+                          className="input-dark text-center text-sm w-20 py-2"
+                          min={1}
+                        />
+                        <span className="text-stone-500 text-xs">{displayUnit}</span>
+                      </div>
                       <button
                         onClick={() => updateGrams(index, gramStep)}
-                        className="p-1 glass text-stone-400 hover:text-stone-200 transition-colors"
+                        className="w-11 h-11 flex items-center justify-center glass rounded-lg text-stone-400 hover:text-stone-200 active:scale-95 transition-all"
                       >
-                        <Plus size={12} />
+                        <Plus size={16} />
                       </button>
                       {/* Show original input as hint (for non-volume, show quantity+unit) */}
                       {!vol && (
@@ -242,7 +239,7 @@ export default function ParsedFoodList({ items: initialItems, clarificationQuest
             <div>
               <p className="text-amber-300 text-xs font-medium">{clarificationQuestion}</p>
               <p className="text-stone-400 text-[11px] mt-1">
-                Adjust the grams for {unresolvedPortions === 1 ? 'the estimated item' : `${unresolvedPortions} estimated items`} before saving.
+                {unresolvedPortions === 1 ? 'One item has' : `${unresolvedPortions} items have`} estimated portions — adjust if needed, or save as-is.
               </p>
             </div>
           </motion.div>
@@ -266,7 +263,7 @@ export default function ParsedFoodList({ items: initialItems, clarificationQuest
         initial={{ y: 100, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-        className="fixed bottom-16 left-0 right-0 z-50 px-4"
+        className="fixed bottom-24 left-0 right-0 z-50 px-4"
       >
         <div className="max-w-md mx-auto glass-elevated p-4 rounded-2xl border border-[#D4A853]/20 shadow-[0_-4px_24px_rgba(212,168,83,0.15)]">
           {/* Macro summary row */}
@@ -293,6 +290,13 @@ export default function ParsedFoodList({ items: initialItems, clarificationQuest
             </div>
           </div>
 
+          {/* Soft warning for estimated portions — non-blocking */}
+          {unresolvedPortions > 0 && (
+            <p className="text-amber-400/70 text-[10px] text-center mb-2">
+              {unresolvedPortions} estimated portion{unresolvedPortions > 1 ? 's' : ''} — tap items to adjust
+            </p>
+          )}
+
           {/* Action buttons */}
           <div className="flex gap-2">
             <button
@@ -303,12 +307,12 @@ export default function ParsedFoodList({ items: initialItems, clarificationQuest
             </button>
             <motion.button
               onClick={() => onConfirm(items)}
-              disabled={logging || items.length === 0 || unresolvedPortions > 0}
+              disabled={logging || items.length === 0}
               whileTap={{ scale: 0.97 }}
               className="btn-gold flex-1 py-3 text-sm font-semibold flex items-center justify-center gap-2 shadow-[0_4px_16px_rgba(212,168,83,0.3)]"
             >
               <Check size={16} />
-              {logging ? '...' : unresolvedPortions > 0 ? 'Review portions to save' : `${t('food.confirm_all')} (${items.length})`}
+              {logging ? '...' : `${t('food.confirm_all')} (${items.length})`}
             </motion.button>
           </div>
         </div>
