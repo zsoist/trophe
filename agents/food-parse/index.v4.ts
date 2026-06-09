@@ -799,7 +799,7 @@ export async function run(
       foodName:  v4Parsed.items[i].food_name,
       unit:      v4Parsed.items[i].unit,
       qualifier: v4Parsed.items[i].qualifier ?? undefined,
-      region:    language === 'el' ? 'GR' : 'US',
+      region:    regionCode,
     });
   }
 
@@ -1084,6 +1084,15 @@ export async function run(
     };
   }
 
+  // ── Step 3c: Metabolic consistency (BEFORE plausibility cap) ──────────────
+  // Enforce: calories ≈ protein×4 + carbs×4 + fat×9
+  // Runs BEFORE the meal-level plausibility cap to avoid double-correction:
+  // if we cap first (scaling macros proportionally with rounding), then
+  // metabolic consistency sees rounding-induced divergence and re-scales.
+  for (let i = 0; i < finalItems.length; i++) {
+    finalItems[i] = applyMetabolicConsistency(finalItems[i]);
+  }
+
   // ── Step 4: Meal-level plausibility pass ──────────────────────────────────
   // If total meal kcal is implausibly high AND most items have implicit portions,
   // it's likely over-portioned (e.g. "yogurt honey walnuts" → 3 full servings
@@ -1141,15 +1150,7 @@ export async function run(
     }
   }
 
-  // ── Step 5b: Metabolic consistency post-correction ──────────────────────
-  // Enforce: calories ≈ protein×4 + carbs×4 + fat×9
-  // When the macro-derived energy diverges >20% from stated calories,
-  // redistribute macros proportionally to match. This catches cases where
-  // the LLM's calorie estimate is correct but macro breakdown is wrong
-  // (37 cases in the benchmark fall into this category).
-  for (let i = 0; i < finalItems.length; i++) {
-    finalItems[i] = applyMetabolicConsistency(finalItems[i]);
-  }
+  // (Metabolic consistency already applied in Step 3c — before plausibility cap)
 
   // ── Step 6: Build warnings ──────────────────────────────────────────────
   const warnings: string[] = [];

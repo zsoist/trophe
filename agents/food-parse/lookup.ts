@@ -32,7 +32,8 @@
 import { db } from '../../db/client';
 import { foods, type SelectFood } from '../../db/schema/foods';
 import { foodUnitConversions } from '../../db/schema/food_unit_conversions';
-import { sql, and, eq, isNull } from 'drizzle-orm';
+import { foodAliases } from '../../db/schema/food_aliases';
+import { sql, and, eq, isNull, inArray } from 'drizzle-orm';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function escapeRegex(s: string): string {
@@ -153,6 +154,27 @@ async function keywordCandidates(foodName: string): Promise<SelectFood[]> {
     )
     .limit(10);
 
+  // ── Alias injection: 114 cross-language aliases (Greek, Spanish, English) ──
+  // The food_aliases table has a GIN index on to_tsvector('simple', alias),
+  // so this uses the same tsquery we already built. "γιαούρτι" matches the
+  // alias → joins to food_id → injects Greek Yogurt Full Fat into candidates.
+  const aliasHits = await db.execute<{ food_id: string }>(
+    sql`
+      SELECT DISTINCT fa.food_id
+      FROM food_aliases fa
+      WHERE to_tsvector('simple', fa.alias) @@ to_tsquery('simple', ${tsQuery})
+      LIMIT 10
+    `
+  );
+  let aliasMatches: SelectFood[] = [];
+  if (aliasHits.rows.length > 0) {
+    const aliasIds = aliasHits.rows.map(r => r.food_id);
+    aliasMatches = await db
+      .select()
+      .from(foods)
+      .where(inArray(foods.id, aliasIds));
+  }
+
   // If tsvector returned nothing, fall back to fuzzy ILIKE on name_en + name_el
   if (rows.length === 0) {
     const pattern = `%${tokens.join('%')}%`;
@@ -176,10 +198,10 @@ async function keywordCandidates(foodName: string): Promise<SelectFood[]> {
       });
     });
 
-    return mergeUnique(exactishRows, mergeUnique(fuzzyRows, canonicalMatches));
+    return mergeUnique(aliasMatches, mergeUnique(exactishRows, mergeUnique(fuzzyRows, canonicalMatches)));
   }
 
-  return mergeUnique(exactishRows, mergeUnique(rows, canonicalMatches));
+  return mergeUnique(aliasMatches, mergeUnique(exactishRows, mergeUnique(rows, canonicalMatches)));
 }
 
 // ── Stage 1B: direct vector arm (HNSW cosine kNN, no pre-filter) ─────────────
@@ -388,17 +410,132 @@ function isBeverageByKey(canonicalFoodKey: string | null | undefined): boolean {
   return BEVERAGE_KEY_TOKENS.some(token => key.includes(token));
 }
 
+/**
+ * Conservative portion defaults for calorie-dense foods when the user provides
+ * a vague unit ("serving", "portion", "some", "a little", "handful").
+ *
+ * Fat MAPE was 81% because "1 serving tahini" fell through to the universal
+ * 100g default. A tablespoon of tahini (≈595 kcal/100g) is 83 kcal; 100g is
+ * 595 kcal — a 7× overestimate. These conservative defaults set sensible
+ * priors pending clarification.
+ *
+ * Evidence:
+ *   - USDA Household Portion Sizes (FNDDS 2019-2020)
+ *   - WHO portion guidance: oils ≤2 tbsp/day, nuts ~30g/day
+ */
+const VAGUE_PORTION_UNITS = new Set(['serving', 'portion', 'some', 'a little', 'a bit']);
+
 export function conservativeDenseFoodServing(
   unit: string,
   foodIdentity: string | null | undefined,
 ): number | null {
   const key = foodIdentity?.toLowerCase().replace(/[^a-z]+/g, '_') ?? '';
-  if (!['serving', 'portion', 'some'].includes(unit)) return null;
-  // A vague amount of pure fat must never inherit the generic 100 g serving.
-  // One tablespoon is a conservative provisional amount pending clarification.
-  if (/(^|_)(oil|butter|ghee)(_|$)/.test(key)) return 14;
+  if (!VAGUE_PORTION_UNITS.has(unit)) return null;
+
+  // Tier 1: Spreads/nut butters → 32g (2 tablespoons)
+  // MUST come before pure-fat check because "peanut_butter" contains "butter"
+  if (/(^|_)(peanut_butter|almond_butter|nutella|cream_cheese|mayonnaise|mayo|hummus|guacamole|jam|jelly|tahini|sour_cream|aioli)(_|$)/.test(key)) return 32;
+
+  // Tier 2: Pure fats/oils → 14g (1 tablespoon)
+  if (/(^|_)(oil|olive_oil|coconut_oil|butter|ghee|lard|shortening|margarine)(_|$)/.test(key)) return 14;
+
+  // Tier 2b: Syrups/honey → 32g (2 tablespoons) — dense but sweeter, higher typical portion
+  if (/(^|_)(honey|maple_syrup|syrup|agave|molasses)(_|$)/.test(key)) return 32;
+
+  // Tier 3: Nuts/seeds → 30g (small handful, WHO daily guidance)
+  if (/(^|_)(nut|seed|almond|walnut|cashew|pistachio|macadamia|pecan|hazelnut|peanut|sunflower|pumpkin_seed|chia|flax)(_|$)/.test(key)) return 30;
+
+  // Tier 4: Cheese → 30g (1 oz, standard serving)
+  if (/(^|_)(cheese|feta|cheddar|gouda|parmesan|mozzarella|brie|camembert|graviera|halloumi|manchego)(_|$)/.test(key)) return 30;
+
+  // Tier 5: Cream/heavy liquids → 30ml (~30g)
+  if (/(^|_)(cream|heavy_cream|whipping_cream|half_and_half|coconut_cream)(_|$)/.test(key)) return 30;
+
   return null;
 }
+
+/**
+ * Evidence-based piece weights for common items where "1 piece" has a well-known
+ * physical mass. These catch cases where the food exists in the DB but has no
+ * food-specific `food_unit_conversions` row for "piece".
+ *
+ * Without this, "1 croissant" → piece → universal default → 100g.
+ * Actual croissant: 60g (USDA FNDDS). Error: +67%.
+ *
+ * Sources: USDA FNDDS 2019-2020, BEDCA (Spain), British Nutrition Foundation.
+ */
+export const COMMON_PIECE_WEIGHTS: Record<string, number> = {
+  // Bakery
+  croissant: 60, muffin: 115, bagel: 105, cookie: 35, donut: 65,
+  scone: 75, breadstick: 25, dinner_roll: 35, biscuit: 60,
+  waffle: 75, pancake: 40, crepe: 60, brownie: 55,
+  cupcake: 65, cinnamon_roll: 85, danish: 70, eclair: 60,
+
+  // Bread (per slice)
+  bread: 30, toast: 30, bread_slice: 30, whole_wheat_bread: 30,
+  white_bread: 25, sourdough: 35, rye_bread: 32,
+
+  // Wraps/flatbreads
+  pita: 60, tortilla: 45, naan: 90, lavash: 55, wrap: 65,
+  arepa: 120, pupusa: 130,
+
+  // Pastry (Greek/Mediterranean)
+  spanakopita: 130, tiropita: 100, baklava: 80, galaktoboureko: 120,
+  loukoumades: 20, bougatsa: 120,
+
+  // Eggs
+  egg: 50, egg_fried: 46, egg_boiled: 50, egg_scrambled: 61,
+
+  // Fruits (medium)
+  apple: 180, banana: 120, orange: 130, pear: 180,
+  peach: 150, plum: 66, kiwi: 75, mandarin: 80,
+  fig: 50, date: 8, prune: 10,
+
+  // Fast food items (standard piece)
+  nugget: 17, chicken_nugget: 17, wing: 34, drumstick: 75,
+  empanada: 100, spring_roll: 65, samosa: 80,
+  taco: 75, burrito: 200, quesadilla: 180,
+
+  // Seafood (per piece, gutted/cleaned)
+  shrimp: 15, prawn: 15, mussel: 10, oyster: 50,
+  sardine: 25, sardines: 25, anchovy: 8, anchovy_fillet: 4,
+  calamari_ring: 12, squid_ring: 12,
+  crab_cake: 60, fish_stick: 28, fish_finger: 28,
+
+  // Dolmades / stuffed items
+  dolmades: 35, dolma: 35, stuffed_grape_leaf: 35,
+  dolmadakia: 35, ntolmadakia: 35,
+
+  // Greek bakery & sweets
+  koulouri: 70, koulouri_thessalonikis: 70,
+  koulouria: 25, koulourakio: 25, koulouraki: 25, koulouria_voutyrou: 25,
+  pasteli: 30, paximadi: 40, rusks: 40,
+  melomakarono: 50, kourabiedes: 35, diples: 40,
+  tsoureki: 80, vasilopita: 100, christopsomo: 90,
+  revani: 80, halva: 40, loukoumi: 8,
+
+  // Greek savory
+  souvlaki: 150, gyros: 280, gyro: 280,
+  soutzoukaki: 60, keftedes: 30, keftedakia: 20,
+  bifteki: 120, pastitsio: 250, mousaka: 250, moussaka: 250,
+
+  // Meat pieces
+  lamb_chop: 80, pork_chop: 150, chicken_thigh: 110,
+  chicken_breast: 170, steak: 200, meatball: 30,
+  souvlaki_stick: 100, kebab: 100,
+
+  // Latin American
+  bocadillo_guayaba: 40, bocadillo: 40,
+  buñuelo: 35, churro: 40, alfajor: 55,
+  tamal: 120, tamale: 120,
+
+  // Sushi
+  sushi: 30, nigiri: 30, maki: 25, sashimi: 25,
+
+  // Miscellaneous
+  rice_cake: 9, protein_bar: 60, granola_bar: 35,
+  falafel: 25, croquette: 30, arancini: 80,
+};
 
 async function resolveUnit(
   foodId: string,
@@ -500,6 +637,23 @@ async function resolveUnit(
     return { id: null, gramsPerUnit: defaultServing[0].defaultServingGrams };
   }
 
+  // 3b. Bakery/common piece weights — when user says "1 croissant" (unit=piece)
+  // and no food-specific conversion row exists, use evidence-based piece weights
+  // instead of falling through to the 100g universal default.
+  // Sources: USDA FNDDS 2019-2020, British Nutrition Foundation portion guide.
+  if (normalizedUnit === 'piece') {
+    const bakeryWeight = COMMON_PIECE_WEIGHTS[canonicalFoodKey?.toLowerCase().replace(/[^a-z]+/g, '_') ?? ''];
+    if (bakeryWeight) return { id: null, gramsPerUnit: bakeryWeight };
+
+    // Fuzzy match: check if any key token appears in the canonical food key
+    const ck = canonicalFoodKey?.toLowerCase() ?? '';
+    for (const [pattern, weight] of Object.entries(COMMON_PIECE_WEIGHTS)) {
+      if (ck.includes(pattern) || pattern.includes(ck.replace(/[^a-z]/g, ''))) {
+        return { id: null, gramsPerUnit: weight };
+      }
+    }
+  }
+
   // 4. Universal fallback (food_id IS NULL)
   const universal = await db
     .select()
@@ -559,43 +713,213 @@ async function resolveUnit(
  * These overrides fix the search query before BM25/vector lookup.
  */
 const FOOD_NAME_CORRECTIONS: Record<string, string> = {
-  // LLM confuses plantain ↔ banana for Spanish inputs
+  // ── Plantain ↔ banana disambiguation ──
   'fried ripe plantain': 'plantain fried',
   'ripe plantain': 'plantain yellow',
   'fried plantain': 'plantain fried',
   'green plantain': 'plantain green',
-  // Spanish → English disambiguation
   'platano': 'plantain',
-  'platano maduro': 'plantain yellow',
+  'platano maduro': 'plantain ripe fried',
+  'plátano maduro': 'plantain ripe fried',
   'maduro frito': 'plantain fried',
-  // Beans: "frijoles" should match kidney/black beans, not snap beans
+  'platano frito': 'plantain fried',
+  'tajadas': 'plantain fried',
+
+  // ── Beans & legumes ──
   'green bean': 'beans snap green',
   'beans': 'beans kidney',
-  'frijoles': 'beans kidney',
+  'frijoles': 'black beans cooked',
+  'fríjoles': 'black beans cooked',
   'frijol': 'beans kidney',
-  // Peanuts: "maní" should match raw peanuts, not peanut butter
-  'peanut butter': 'peanut butter',  // keep as-is
+  'frijoles negros': 'beans black',
+  'black beans': 'beans black',
+  'lentils': 'lentils cooked',
+  'lentejas': 'lentils cooked',
+  'chickpeas': 'chickpeas cooked',
+  'garbanzos': 'chickpeas cooked',
+
+  // ── Nuts & seeds ──
+  'peanut butter': 'peanut butter',
   'peanut': 'peanuts',
   'mani': 'peanuts',
-  // Eggs: "fried egg" should match cooked-fried entry, not raw
+  'almonds': 'almonds',
+  'almendras': 'almonds',
+  'nueces': 'walnuts',
+
+  // ── Eggs ──
   'fried egg': 'egg fried',
   'fried eggs': 'egg fried',
   'scrambled egg': 'egg whole cooked scrambled',
   'scrambled eggs': 'egg whole cooked scrambled',
-  'protein shake': 'protein powder whey',
+  'boiled egg': 'egg whole cooked hard-boiled',
+  'hard boiled egg': 'egg whole cooked hard-boiled',
+  'huevo frito': 'egg fried',
+  'huevo revuelto': 'egg whole cooked scrambled',
+  'huevo': 'egg whole raw',
+
+  // ── Dairy ──
   'whole milk': 'milk whole',
-  'bacon': 'pork cured bacon',
-  'salad': 'side salad',
-  // Oats: "oatmeal" should match cooked oats cereal, not oatmeal bread
+  'leche': 'milk whole',
+  'leche entera': 'milk whole',
+  'queso': 'cheese white fresh',
+  'queso blanco': 'cheese white fresh',
+  'yogurt': 'greek yogurt',
+  'yogur': 'greek yogurt',
+
+  // ── Grains & cereals ──
   'oatmeal': 'cereals oats regular cooked',
   'oats': 'cereals oats regular',
   'oatmeal cooked': 'cereals oats regular cooked',
-  // Fish: LLM emits "salmon fillet" but DB has USDA "Fish, salmon, Atlantic"
+  'avena': 'cereals oats regular',
+  'rice': 'rice white cooked',
+  'arroz': 'rice white cooked',
+  'arroz blanco': 'rice white cooked',
+  'brown rice': 'rice brown cooked',
+  'arroz integral': 'rice brown cooked',
+  'pasta': 'pasta cooked',
+  'spaghetti': 'pasta spaghetti cooked',
+  'bread': 'bread whole wheat',
+  'pan': 'bread white',
+  'pan blanco': 'bread white',
+  'pan integral': 'bread whole wheat',
+  'tortilla': 'tortilla corn',
+
+  // ── Protein ──
+  'protein shake': 'protein powder whey',
+  'whey protein': 'protein powder whey',
+  'proteina': 'protein powder whey',
+  'bacon': 'pork cured bacon',
+  'chicken': 'chicken breast grilled',
+  'pollo': 'chicken breast grilled',
+  'pechuga': 'chicken breast grilled',
+  'pechuga de pollo': 'chicken breast grilled',
+  'ground beef': 'beef ground cooked',
+  'carne molida': 'ground beef cooked',
+  'carne de res': 'beef steak grilled',
+  'steak': 'beef steak grilled',
+  'carne': 'beef steak grilled',
+
+  // ── Fish & seafood ──
   'salmon fillet': 'fish salmon atlantic',
   'salmon': 'fish salmon atlantic farmed',
   'tuna': 'fish tuna light canned',
   'tuna canned': 'fish tuna light canned',
-  // Restaurant shorthand — users rarely say the full menu name
+  'tuna steak': 'fish tuna yellowfin',
+  'atun': 'fish tuna light canned',
+  'shrimp': 'shrimp cooked',
+  'camarones': 'shrimp cooked',
+  'sardines': 'sardines in oil',
+  'sardinas': 'sardines in oil',
+
+  // ── Vegetables ──
+  'salad': 'side salad',
+  'ensalada': 'side salad',
+  'broccoli': 'broccoli raw',
+  'brocoli': 'broccoli raw',
+  'spinach': 'spinach raw',
+  'espinaca': 'spinach raw',
+  'tomato': 'tomatoes raw',
+  'tomate': 'tomatoes raw',
+  'potato': 'potato boiled',
+  'papa': 'potato boiled',
+  'sweet potato': 'sweet potato baked',
+
+  // ── Fruits ──
+  'apple': 'apple raw',
+  'manzana': 'apple raw',
+  'banana': 'banana raw',
+  'orange': 'orange raw',
+  'naranja': 'orange raw',
+  'avocado': 'avocado raw',
+  'aguacate': 'avocado raw',
+  'mango': 'mango raw',
+
+  // ── Greek food (code-switch) ──
+  'γαλακτομπούρεκο': 'galaktoboureko',
+  'μπακλαβάς': 'baklava',
+  'μπακλαβας': 'baklava',
+  'σουβλάκι': 'souvlaki chicken',
+  'σουβλακι': 'souvlaki chicken',
+  'γύρος': 'gyros pork',
+  'γυρος': 'gyros pork',
+  'μουσακάς': 'moussaka',
+  'μουσακας': 'moussaka',
+  'παστίτσιο': 'pastitsio',
+  'παστιτσιο': 'pastitsio',
+  'σπανακόπιτα': 'spanakopita',
+  'σπανακοπιτα': 'spanakopita',
+  'τυρόπιτα': 'tiropita',
+  'τυροπιτα': 'tiropita',
+  'φασολάδα': 'fasolada bean soup',
+  'φασολαδα': 'fasolada bean soup',
+  'φακές': 'lentil soup fakes',
+  'φακες': 'lentil soup fakes',
+  'ρεβιθόσουπα': 'chickpea revithosoupa',
+  'ρεβιθοσουπα': 'chickpea revithosoupa',
+  'χωριάτικη': 'horiatiki village salad',
+  'χωριατικη': 'horiatiki village salad',
+  'ντολμαδάκια': 'dolmades stuffed grape leaves',
+  'ντολμαδακια': 'dolmades stuffed grape leaves',
+  'λουκουμάδες': 'loukoumades',
+  'λουκουμαδες': 'loukoumades',
+  'κουλούρι': 'koulouri thessalonikis',
+  'κουλουρι': 'koulouri thessalonikis',
+  'κουλούρι θεσσαλονίκης': 'koulouri thessalonikis',
+  'κουλουρι θεσσαλονικης': 'koulouri thessalonikis',
+  'κουλουράκια': 'koulouria butter cookies',
+  'κουλουρακια': 'koulouria butter cookies',
+  'κουλουράκια βουτύρου': 'koulouria butter cookies',
+  'κουλουρακια βουτυρου': 'koulouria butter cookies',
+  'μπουγάτσα': 'bougatsa cream',
+  'μπουγατσα': 'bougatsa cream',
+  'παστέλι': 'pasteli sesame honey bar',
+  'παστελι': 'pasteli sesame honey bar',
+  'κρουασάν': 'croissant butter',
+  'κρουασαν': 'croissant butter',
+  'κρουασάν σοκολάτα': 'croissant chocolate',
+  'κρουασαν σοκολατα': 'croissant chocolate',
+  'σαρδέλες': 'sardines',
+  'σαρδελες': 'sardines',
+  'σαρδέλες ψητές': 'sardines grilled',
+  'σαρδελες ψητες': 'sardines grilled',
+  'αρνί': 'lamb',
+  'αρνι': 'lamb',
+  'αρνί ψητό': 'lamb roasted',
+  'αρνι ψητο': 'lamb roasted',
+  'σουτζουκάκια': 'soutzoukakia smyrna meatballs',
+  'σουτζουκακια': 'soutzoukakia smyrna meatballs',
+  'κεφτέδες': 'keftedes greek meatballs',
+  'κεφτεδες': 'keftedes greek meatballs',
+  'γίγαντες πλακί': 'gigantes plaki baked beans',
+  'γιγαντες πλακι': 'gigantes plaki baked beans',
+  'μπιφτέκι': 'bifteki greek burger',
+  'μπιφτεκι': 'bifteki greek burger',
+  'ρεβίθια': 'chickpeas cooked',
+  'ρεβιθια': 'chickpeas cooked',
+
+  // ── Bakery (common names → DB entries) ──
+  'croissant': 'croissant butter',
+  'pan dulce': 'sweet bread',
+  'bagel': 'bagel plain',
+  'muffin': 'muffin blueberry',
+  'donut': 'doughnut cake type',
+  'doughnut': 'doughnut cake type',
+
+  // ── Colombian / Latin food ──
+  'arepa': 'arepa corn',
+  'empanada': 'empanada',
+  'bandeja paisa': 'bandeja paisa',
+  'sancocho': 'sancocho',
+  'ajiaco': 'ajiaco',
+  'tamal': 'tamale',
+  'tamales': 'tamale',
+  'pupusa': 'pupusa',
+  'burrito': 'burrito bean and cheese',
+  'taco': 'taco ground beef',
+  'quesadilla': 'quesadilla cheese',
+  'nachos': 'nachos with cheese',
+
+  // ── Restaurant shorthand ──
   'big mac': 'Big Mac',
   'mcchicken': 'McChicken',
   'egg mcmuffin': 'Egg McMuffin',
@@ -604,23 +928,64 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
   'baconator': 'Baconator',
   'chicken sandwich chick-fil-a': 'Chick-fil-A Chicken Sandwich',
   'orange chicken': 'Orange Chicken',
-  // Colombian chains
   'hamburguesa corral': 'Corral Burger',
   'todoterreno': 'Todoterreno Burger',
   'pollo frisby': 'Frisby Fried Chicken Breast',
+  'mcnuggets': 'Chicken McNuggets',
+  'nuggets': 'Chicken McNuggets',
+  'french fries': 'french fries',
+  'papas fritas': 'french fries',
+
+  // ── Branded corrections ──
+  'nutella biscuit': 'nutella biscuit cookie',
+  'nutella biscuits': 'nutella biscuit cookie',
+  'oreo': 'oreo cookie',
+  'oreos': 'oreo cookie',
+  'atun van camps': 'tuna canned in water',
+  'lata de atun': 'tuna canned in water',
+  'bocadillo de guayaba': 'guava paste bocadillo',
+
+  // ── Beverages ──
+  'coffee': 'coffee brewed',
+  'cafe': 'coffee brewed',
+  'café': 'coffee brewed',
+  'cafe con leche': 'caffe latte',
+  'café con leche': 'caffe latte',
+  'latte': 'caffe latte',
+  'cappuccino': 'cappuccino',
+  'tea': 'tea brewed',
+  'te': 'tea brewed',
+  'té': 'tea brewed',
+  'juice': 'orange juice',
+  'jugo': 'orange juice',
+  'jugo de naranja': 'orange juice',
+  'water': 'water',
+  'agua': 'water',
+  'agua de panela': 'agua de panela',
+
+  // ── Colombian composite exact matches ──
+  'arepa con queso': 'arepa with cheese',
+  'arepa de huevo': 'arepa de huevo',
+  'arepa de choclo': 'arepa de choclo',
+  'huevos pericos': 'scrambled eggs with tomato and onion',
+  'huevos revueltos': 'scrambled eggs',
+  'huevos fritos': 'fried eggs',
+  'caldo de costilla': 'caldo de costilla',
+  'calentado': 'calentado',
+  'changua': 'changua',
+
+  // ── Additional Spanish name corrections (non-duplicates) ──
+  'huevos': 'eggs',
 };
 
 function correctFoodName(name: string): string {
   if (!name || typeof name !== 'string') return name ?? '';
   const lower = name.toLowerCase().trim();
-  // Check exact match first
+  // Exact match only — prevents greedy substring corruption where e.g.
+  // "banana" inside "banana bread" → "banana raw bread", or
+  // "cafe" inside "cafe con leche" → "coffee brewed con leche".
+  // Composite names should have their own explicit entries in the map.
   if (FOOD_NAME_CORRECTIONS[lower]) return FOOD_NAME_CORRECTIONS[lower];
-  // Check if any key is contained in the name
-  for (const [key, replacement] of Object.entries(FOOD_NAME_CORRECTIONS)) {
-    if (lower.includes(key) && key.length >= 4) {
-      return lower.replace(key, replacement);
-    }
-  }
   return name;
 }
 
@@ -663,6 +1028,27 @@ export async function lookupFood(input: LookupInput): Promise<LookupResult | nul
   const food = ranked[0];
   const normalizedQuery = normalizeLexicalName(correctedFoodName);
   const normalizedTopName = normalizeLexicalName(food.nameEn);
+
+  // ── Weak-match rejection gate ──────────────────────────────────────────────
+  // If the top result shares zero meaningful tokens with the query, it's likely
+  // a false match from semantic similarity (e.g. "tahini" matching "sesame seeds").
+  // Reject and let the pipeline fall through to decompose/LLM fallback.
+  const queryTokens = normalizedQuery.split(' ').filter(t => t.length >= 3);
+  const topNameTokens = normalizedTopName.split(' ').filter(t => t.length >= 3);
+  const sharedTokens = queryTokens.filter(qt =>
+    topNameTokens.some(nt => nt === qt || nt.startsWith(qt) || qt.startsWith(nt))
+  );
+  // Reject when: multi-token query has zero overlap with top name, AND
+  // no exact/prefix match, AND no canonical key match
+  if (
+    queryTokens.length >= 2 &&
+    sharedTokens.length === 0 &&
+    !food.canonicalFoodKey?.toLowerCase().split(/[_-]+/).some(t => queryTokens.includes(t))
+  ) {
+    return null;
+  }
+
+  // Existing fast-food single-token rejection
   if (
     normalizedQuery.split(' ').length === 1 &&
     /mcmuffin|sandwich|burger|burrito|pizza|breakfast/.test(normalizedTopName) &&
