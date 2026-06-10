@@ -480,8 +480,22 @@ _Enterprise benchmark: 210 test cases (EN/ES/EL) across 10 categories_
 - [x] ✅ 2026-06-10 Yogurt 10% → strained yogurt 10% correction (HHF DB entry)
 - [x] ✅ 2026-06-10 Green plantain corrections (patacón, tostón, plátano verde frito)
 - [x] ✅ 2026-06-10 Portion tuning: walnuts 15-20g, yogurt default 200g, quinoa 150g
-- [ ] Wire food_aliases into BM25 search (+2-3 cases expected)
-- [ ] Fix custom DB entry visibility (12 entries invisible to Vercel API)
+- [x] ✅ 2026-06-10 Wire food_aliases ILIKE into fuzzy search fallback
+- [x] ✅ 2026-06-10 Fix custom DB entry visibility (0 null search_text after migration)
+
+### French Language & CIQUAL Expansion (2026-06-10)
+- [x] ✅ Schema migration: name_fr column, ciqual source enum, search_text rebuild
+- [x] ✅ Prompt v7: 4-language support (EN/ES/EL/FR), French units/quantities
+- [x] ✅ CIQUAL 2025 ingested: 3,323 lab-verified French foods + 3,323 aliases
+- [x] ✅ DB total: 11,396 foods (USDA 7,899 + CIQUAL 3,323 + HHF 86 + MenuStat 48 + Chain 28 + Custom 12)
+- [x] ✅ 120+ French FOOD_NAME_CORRECTIONS, 16 French unit synonyms
+- [x] ✅ Alias ILIKE fallback in fuzzy search (bypasses word-boundary filter)
+- [x] ✅ MAPE history tracking (JSONL append after each benchmark run)
+- [x] ✅ Benchmark generation script for v3 dataset (520+ target cases)
+- [ ] Generate v3 benchmark dataset (500+ cases, 4 languages, 13 categories)
+- [ ] Scale to 1000+ cases
+- [ ] NutriBench compatibility layer (Acc@7.5 metric)
+- [ ] Methodology documentation (publishable)
 
 ### Score Targets
 | Phase | Score | Status |
@@ -492,8 +506,11 @@ _Enterprise benchmark: 210 test cases (EN/ES/EL) across 10 categories_
 | After code fixes (Phase 2) | 179/210 (85.2%) | ✅ |
 | After prompt tuning (Phase 3) | 190/210 (90.5%) peak | ✅ |
 | After recipe/correction fixes (Phase 3b) | **194/210 (92.4%) peak** | ✅ |
+| After French + CIQUAL + alias ILIKE (Phase 3c) | **193/210 (91.9%)** | ✅ |
 | Stable average | ~191 ± 3 (91%) | ✅ |
-| Nondeterminism floor | ~16 failures (3 JSON truncation, 5 marginal, 8 LLM estimation) | 📊 |
+| Carbs MAPE | 30.4% → **22.3%** (-27% relative) | ✅ |
+| Cal MAPE | 11.7% → **11.7%** (stable) | ✅ |
+| Nondeterminism floor | ~17 failures (3 JSON truncation, 5 marginal, 9 LLM estimation) | 📊 |
 
 ## PHASE 4: Launch Prep (June-July 2026)
 - [ ] Legal entity established

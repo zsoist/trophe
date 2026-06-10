@@ -14,7 +14,7 @@ _Last synced to codebase: 2026-06-09_
 - Cost/AI observability source of truth: `agent_runs`; `api_usage_log` is legacy compatibility only
 - Required verification sequence: `npm run typecheck && npm run lint && npm test && npm run build`
 - AI route auth must use async `guardAiRoute()` and the verified Supabase `userId`; do not decode JWTs for auth decisions.
-- Food data: ~8,064 foods (7,918 USDA + 30 HHF + 76 restaurant chains + custom). 1,050+ unit conversions. 210+ dish recipes. 480+ aliases. All foods with Voyage embeddings.
+- Food data: 11,396 foods (USDA 7,899 + CIQUAL 3,323 + HHF 86 + MenuStat 48 + Chain 28 + Custom 12). 1,050+ unit conversions. 210+ dish recipes. 3,837 aliases. USDA foods have Voyage embeddings.
 
 ---
 
@@ -78,9 +78,9 @@ v0.3-overhaul merged to main 2026-05-03. Nutrition accuracy work ongoing June 20
 
 ### What IS running in production (on Supabase Postgres)
 - Auth (cookie-based @supabase/ssr), 30+ tables, RLS, food logging, coach dashboard, workouts, supplements, habits
-- AI food-parse v6 (Gemini 2.5 Flash via `/api/food/parse`) with CoT dual-path arbitration
-- DeepSeek-first routing for coach_insight and meal_suggest tasks
-- Deterministic food lookup: ~8,064 foods + 1,050+ unit conversions + 210+ recipes + 480+ aliases
+- AI food-parse v7 (DeepSeek V4 Flash primary via `/api/food/parse`) with CoT dual-path arbitration
+- 4-language support: EN/ES/EL/FR (French added June 2026 with CIQUAL 2025)
+- Deterministic food lookup: 11,396 foods + 1,050+ unit conversions + 210+ recipes + 3,837 aliases
 - Composite dish decomposition: 210+ cached recipes + LLM decompose-on-miss pipeline
 - RAG pre-search for single-food inputs (DB reference data injected into LLM prompt)
 - COMMON_PIECE_WEIGHTS map: 80+ entries for bakery, Greek, Latin American, composites
@@ -89,8 +89,8 @@ v0.3-overhaul merged to main 2026-05-03. Nutrition accuracy work ongoing June 20
 - Langfuse traces via Cloudflare Tunnel (`langfuse.danielreyes.work`)
 - Session refresh on mobile foreground (visibilitychange hook)
 - AI Form Check (MediaPipe, browser-only, no server)
-- All analytics components, trilingual UI (EN/ES/EL)
-- Enterprise nutrition benchmark: 210 cases, targeting 155+/210 (73.8%)
+- All analytics components, quadrilingual UI (EN/ES/EL/FR)
+- Enterprise nutrition benchmark: 210 cases, scoring 193/210 (91.9%), carbs MAPE 22.3%
 
 ### v0.3 features (all merged to main, live in production)
 - Drizzle ORM + versioned migrations (`drizzle/` — 13 migrations)
@@ -277,7 +277,7 @@ Public signup always forces `role = 'client'`. Invite token required for elevate
 7. **Input caps**: food-parse 500 chars · recipe-analyze 4000 chars. Strip `[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]` from all AI inputs.
 8. **`agents/evals/` CI gate**: food-parse accuracy ≥95% on Nikos golden set. Enterprise benchmark: 210 cases at `scripts/eval/run-nutrition-enterprise-prod.ts`.
 9. **COMMON_PIECE_WEIGHTS** (`lookup.ts`): 80+ entries mapping composite dishes → gram weights. `getPieceWeight()` in `decompose.ts` uses longest-key-match (not first match).
-10. **food_aliases table**: 480+ entries but NOT wired into BM25 retrieval. Only `foods.name` and `foods.canonical_food_key` are searched. Wiring aliases is a pending code fix.
+10. **food_aliases table**: 3,837 entries across 4 languages. Wired into tsvector search AND ILIKE fuzzy fallback (June 2026). Alias-matched foods bypass word-boundary post-filter.
 
 ---
 
@@ -464,7 +464,7 @@ Trophē tracks the source and confidence of every food's macro data. This is a c
 - `ON CONFLICT DO NOTHING` requires a unique constraint. `food_unit_conversions` has none on `(food_id, unit)`. Use `INSERT ... WHERE NOT EXISTS` pattern.
 - `db/client.ts` defaults to Supabase local (port 54322) when `DATABASE_URL` unset. Canonical foods are on Mac Mini (port 5433). Set `DATABASE_URL` explicitly for accuracy tests.
 - Dry-run pattern (`--emit-sql`) for seed scripts is the single best QA investment. Review SQL before applying to production.
-- **food_aliases are NOT wired into BM25 retrieval** (as of June 2026). All 480+ alias inserts have ZERO effect on actual food search. Only `foods.name` and `foods.canonical_food_key` are searched. Adding aliases is a feel-good activity with no impact until the search query is updated.
+- **food_aliases are wired into tsvector + ILIKE search** (fixed June 10 2026). 3,837 aliases across 4 languages. Alias-matched foods bypass word-boundary post-filter since the alias text already validated the match.
 - **getPieceWeight() substring matching**: Iterates COMMON_PIECE_WEIGHTS entries. Original code returned FIRST substring match (insertion order). "souvlaki_pork_pita" matched "souvlaki" (150g skewer) before the correct "souvlaki_pork_pita" (250g wrap). Fix: track longest matching key.
 - **Hybrid source corruption**: When source=hybrid, LLM macro ratios override correct DB macros for branded foods (Chobani, Quest, FAGE). Fix: skip hybrid override when dbConfidence ≥ 0.85.
 - **DB-only ceiling**: ~155±3/210 on enterprise benchmark. LLM non-determinism creates ±5 case variance between runs. Code changes required to push past this ceiling.
@@ -472,7 +472,7 @@ Trophē tracks the source and confidence of every food's macro data. This is a c
 - **Recipe cache trigram false positives on short inputs**: `lookupCachedRecipe()` uses `similarity() > 0.55`. Single words like "chicken" (7ch) match "gyros chicken" (13ch) at sim=0.571. Fix: length-ratio guard `length(input) >= length(dish_name) * 0.6` on the trigram branch. Exact matches unaffected.
 - **lookupCachedRecipeAsItem 3-fallback chain**: Tries correctedName → original foodName → nameLocalized. The nameLocalized path is a vulnerability for short inputs — if single-word override changes food_name but NOT name_localized, the recipe cache fuzzy-matches via the stale localized name. Always override both.
 - **Plantain ripe/green default**: In Latin American context, "fried plantain" = tajadas/maduros (RIPE). Green fried = "patacón"/"tostón". Map 'fried plantain' → 'plantains yellow ripe fried' (236kcal/100g), NOT 'plantain fried' which hits the green entry (309kcal/100g).
-- **Enterprise benchmark score: 194/210 (92.4%) peak** as of June 10. Remaining 16 failures: 3 JSON truncation (LLM nondeterminism), 5 marginal (<10% off range boundary), 8 LLM estimation overshoots. Stable average ~191±3.
+- **Enterprise benchmark score: 193/210 (91.9%)** as of June 10 with v7 prompt + CIQUAL. Peak was 194/210 (92.4%). Carbs MAPE improved 30.4% → 22.3%. Remaining ~17 failures: 3 JSON truncation (LLM nondeterminism), 5 marginal, 9 LLM estimation overshoots. Stable average ~191±3.
 - **Lentil soup conflicting expectations**: el-base-20 expects [180-260] cal, el-cs-08 expects [250-400] cal. Solution: set recipe cal to 250 (satisfies both ranges).
 - **Benchmark dataset structure**: `nutrition-enterprise-v2.json` is `{ cases: [...] }` (object with `.cases` array), NOT a plain array. `ds.find()` fails — use `dsRaw.cases.find()`.
 - **Vague inputs cause 422 errors**: "lunch", "σνακ", "ate some food" fall through to LLM, fail pipeline, return ok:false → API returns 422. Fix: add `shouldRequestClarification()` pre-check returning ok:true with needs_clarification.
