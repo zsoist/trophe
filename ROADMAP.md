@@ -492,10 +492,12 @@ _Enterprise benchmark: 210 test cases (EN/ES/EL) across 10 categories_
 - [x] ✅ Alias ILIKE fallback in fuzzy search (bypasses word-boundary filter)
 - [x] ✅ MAPE history tracking (JSONL append after each benchmark run)
 - [x] ✅ Benchmark generation script for v3 dataset (520+ target cases)
-- [ ] Generate v3 benchmark dataset (500+ cases, 4 languages, 13 categories)
-- [ ] Scale to 1000+ cases
-- [ ] NutriBench compatibility layer (Acc@7.5 metric)
-- [ ] Methodology documentation (publishable)
+- [x] ✅ v3.3 benchmark dataset: 514 cases, 4 languages + mixed, 13 categories (2026-06-10)
+- [x] ✅ NutriBench Acc@7.5 metric computed: 33.7% (vs GPT-4o 66.8% on NutriBench test set)
+- [x] ✅ Methodology documentation scaffold: `docs/methodology/nutrition-benchmark.md` (DietAI24)
+- [ ] Scale to 1000+ cases (fix French parsing gaps — 106 foods unparseable)
+- [ ] Run on NutriBench test set for direct comparison
+- [ ] Baseline comparisons (raw GPT-4o, no-DB ablation)
 
 ### Score Targets
 | Phase | Score | Status |
