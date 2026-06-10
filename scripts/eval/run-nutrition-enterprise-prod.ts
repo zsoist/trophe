@@ -33,10 +33,10 @@ type ParsedItem = {
   source: string;
 };
 
-const dataset = JSON.parse(readFileSync(
-  join(process.cwd(), 'agents/evals/datasets/nutrition-enterprise-v2.json'),
-  'utf8',
-)) as { version: string; cases: EvalCase[] };
+const datasetVersion = process.env.EVAL_DATASET ?? 'v2';
+const datasetPath = join(process.cwd(), `agents/evals/datasets/nutrition-enterprise-${datasetVersion}.json`);
+const dataset = JSON.parse(readFileSync(datasetPath, 'utf8')) as { version: string; cases: EvalCase[] };
+console.log(`[eval] dataset: ${datasetVersion} (${dataset.cases.length} cases)`);
 const baseUrl = process.env.TROPHE_API ?? 'https://trophe.app';
 const concurrency = Math.min(Math.max(Number(process.env.EVAL_CONCURRENCY ?? 5), 1), 10);
 const email = process.env.EVAL_AUTH_EMAIL;
@@ -248,6 +248,22 @@ async function main() {
     },
     sourceCounts,
     groups,
+    accAt7_5: (() => {
+      const threshold = 0.075;
+      const eligible = results.filter(r =>
+        r.errors.calories.absolutePercentageError !== null &&
+        r.errors.protein.absolutePercentageError !== null &&
+        r.errors.carbs.absolutePercentageError !== null &&
+        r.errors.fat.absolutePercentageError !== null
+      );
+      const passing = eligible.filter(r =>
+        r.errors.calories.absolutePercentageError! <= threshold &&
+        r.errors.protein.absolutePercentageError! <= threshold &&
+        r.errors.carbs.absolutePercentageError! <= threshold &&
+        r.errors.fat.absolutePercentageError! <= threshold
+      );
+      return { passed: passing.length, eligible: eligible.length, rate: eligible.length > 0 ? passing.length / eligible.length : 0 };
+    })(),
   };
   mkdirSync(join(process.cwd(), 'artifacts', 'evals'), { recursive: true });
   writeFileSync(
@@ -274,6 +290,7 @@ async function main() {
       fat: summary.metrics.fat.mape,
     },
     dbResolvedRate: summary.dbResolvedRate,
+    accAt7_5: summary.accAt7_5.rate,
     commitSha,
   });
   appendFileSync(join(historyDir, 'nutrition-enterprise-history.jsonl'), historyEntry + '\n');
