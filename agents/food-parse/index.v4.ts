@@ -40,11 +40,11 @@ export const FOOD_PARSE_VERSION = 'v4';
 // ── Prompt ───────────────────────────────────────────────────────────────────
 // v5 prompt adds CoT macro estimation alongside food identification.
 // Set FOOD_PARSE_PROMPT_VERSION=v4 to revert to identification-only mode.
-const promptVersion = process.env.FOOD_PARSE_PROMPT_VERSION ?? 'v6';
+const promptVersion = process.env.FOOD_PARSE_PROMPT_VERSION ?? 'v7';
 const PROMPT_PATH = join(process.cwd(), `agents/prompts/food-parse.${promptVersion}.md`);
 const PROMPT_TEMPLATE = readFileSync(PROMPT_PATH, 'utf-8');
-const COT_ENABLED = promptVersion === 'v5' || promptVersion === 'v6';
-const PER_100G_ENABLED = promptVersion === 'v6';
+const COT_ENABLED = promptVersion === 'v5' || promptVersion === 'v6' || promptVersion === 'v7';
+const PER_100G_ENABLED = promptVersion === 'v6' || promptVersion === 'v7';
 
 // ── V4/V5 LLM output schema ──────────────────────────────────────────────────
 interface V4Candidate {
@@ -467,6 +467,7 @@ export function requiresPortionClarification(items: V4Candidate[]): boolean {
 function clarificationQuestion(language: string): string {
   if (language === 'el') return 'Πόση ποσότητα έφαγες; Μπορείς να δώσεις γραμμάρια ή ένα μετρήσιμο μέγεθος μερίδας;';
   if (language === 'es') return '¿Qué cantidad comiste? Indica gramos o un tamaño de porción medible.';
+  if (language === 'fr') return 'Quelle quantité avez-vous mangé ? Indiquez les grammes ou une taille de portion mesurable.';
   return 'How much did you eat? Please provide grams or a measurable portion size.';
 }
 
@@ -559,6 +560,7 @@ const VAGUE_MODIFIERS = new Set([
   'a', 'an', 'my', 'the', 'some', 'un', 'una', 'el', 'la', 'mi', 'tu',
   'ένα', 'μία', 'το', 'η', 'ο', 'μου', 'light', 'quick', 'small', 'big',
   'heavy', 'late', 'early',
+  'le', 'les', 'du', 'des', 'mon', 'ma', 'mes',
 ]);
 
 /** Stop-words and vague adjectives that don't indicate specific food */
@@ -566,10 +568,12 @@ const VAGUE_FILLER = new Set([
   'and', 'with', 'for', 'of', 'or', 'at', 'bit',
   'y', 'con', 'para', 'de', 'o', 'en',
   'και', 'με', 'για', 'ή',
+  'et', 'avec', 'pour', 'ou', 'dans', 'sur',
   'something', 'food', 'stuff', 'things',
   'sweet', 'salty', 'savory', 'light', 'heavy', 'small', 'quick', 'nice', 'good',
   'dulce', 'salado', 'rico', 'ligero', 'pesado', 'rápido', 'bueno',
   'γλυκό', 'αλμυρό', 'ελαφρύ', 'βαρύ', 'νόστιμο',
+  'sucré', 'salé', 'léger', 'lourd', 'bon', 'petit', 'rapide',
 ]);
 
 export function shouldRequestClarification(text: string): boolean {
@@ -963,7 +967,7 @@ export async function run(
       quantity: item.quantity,
       unit: item.unit,
       rawText: item.raw_text,
-      region: language === 'el' ? 'GR' : language === 'es' ? 'CO' : 'US',
+      region: language === 'el' ? 'GR' : language === 'es' ? 'CO' : language === 'fr' ? 'FR' : 'US',
     });
     recipeResults.push(cached);
   }
@@ -973,7 +977,7 @@ export async function run(
   // directly to decomposeAndLookup — prevents "chicken souvlaki pita" matching "chicken".
   const foodTypes = v4Parsed.items.map(item => classifyFoodType(item.food_name));
   const compositeDecompResults: Array<ParsedFoodItem | null> = v4Parsed.items.map(() => null);
-  const regionCode = language === 'el' ? 'GR' : language === 'es' ? 'CO' : 'US';
+  const regionCode = language === 'el' ? 'GR' : language === 'es' ? 'CO' : language === 'fr' ? 'FR' : 'US';
 
   for (let i = 0; i < v4Parsed.items.length; i++) {
     if (recipeResults[i] !== null) continue; // already resolved via recipe cache
@@ -1218,7 +1222,7 @@ export async function run(
           quantity: candidate.quantity,
           unit: candidate.unit,
           rawText: candidate.raw_text,
-          region: language === 'el' ? 'GR' : language === 'es' ? 'CO' : 'US',
+          region: language === 'el' ? 'GR' : language === 'es' ? 'CO' : language === 'fr' ? 'FR' : 'US',
         });
 
         if (decomposed) {

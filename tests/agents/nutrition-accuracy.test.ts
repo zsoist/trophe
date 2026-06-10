@@ -64,6 +64,7 @@ describe('nutrition accuracy guardrails', () => {
         nameEn: 'Chicken Breast Grilled',
         nameEl: null,
         nameEs: null,
+        nameFr: null,
         brand: null,
         barcode: null,
         region: ['US'],

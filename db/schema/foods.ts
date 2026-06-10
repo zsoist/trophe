@@ -44,6 +44,7 @@ export const foodSourceEnum = pgEnum('food_source', [
   'custom',
   'menustat',
   'chain_co',
+  'ciqual',
 ]);
 
 export const dataQualityEnum = pgEnum('data_quality', [
@@ -68,6 +69,7 @@ export const foods = pgTable(
     nameEn: text('name_en').notNull(),
     nameEl: text('name_el'),             // Greek
     nameEs: text('name_es'),             // Spanish
+    nameFr: text('name_fr'),             // French
     brand: text('brand'),
     barcode: text('barcode'),            // UPC/EAN for packaged foods
     region: text('region').array(),      // e.g. ['GR','CY'] for Greek-specific
@@ -124,7 +126,7 @@ export const foods = pgTable(
     // Region-filtered queries (e.g. Greek-first)
     index('idx_foods_region').using('gin', t.region),
     // Full-text search index — created raw in migration for GENERATED column
-    // The GIN index on search_text (name_en || name_el || name_es) is in 0004 SQL.
+    // The GIN index on search_text (name_en || name_el || name_es || name_fr) is in 0004+0021 SQL.
     // HNSW index on embedding vector(1024) is also in 0004 SQL.
   ],
 );

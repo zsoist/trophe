@@ -130,7 +130,7 @@ async function keywordCandidates(foodName: string): Promise<SelectFood[]> {
     .select()
     .from(foods)
     .where(
-      sql`(name_en ILIKE ${exactishPattern} OR name_en ILIKE ${singularExactishPattern} OR name_en ILIKE ${pluralExactishPattern} OR name_el ILIKE ${exactishPattern})`
+      sql`(name_en ILIKE ${exactishPattern} OR name_en ILIKE ${singularExactishPattern} OR name_en ILIKE ${pluralExactishPattern} OR name_el ILIKE ${exactishPattern} OR name_es ILIKE ${exactishPattern} OR name_fr ILIKE ${exactishPattern})`
     )
     .limit(10);
 
@@ -155,7 +155,7 @@ async function keywordCandidates(foodName: string): Promise<SelectFood[]> {
     .select()
     .from(foods)
     .where(
-      sql`canonical_food_key IS NOT NULL AND (name_en ILIKE ${canonPattern} OR name_el ILIKE ${canonPattern})`
+      sql`canonical_food_key IS NOT NULL AND (name_en ILIKE ${canonPattern} OR name_el ILIKE ${canonPattern} OR name_es ILIKE ${canonPattern} OR name_fr ILIKE ${canonPattern})`
     )
     .limit(10);
 
@@ -180,22 +180,40 @@ async function keywordCandidates(foodName: string): Promise<SelectFood[]> {
       .where(inArray(foods.id, aliasIds));
   }
 
-  // If tsvector returned nothing, fall back to fuzzy ILIKE on name_en + name_el
+  // If tsvector returned nothing, fall back to fuzzy ILIKE on name columns + aliases
   if (rows.length === 0) {
     const pattern = `%${tokens.join('%')}%`;
     let fuzzyRows = await db
       .select()
       .from(foods)
       .where(
-        sql`(name_en ILIKE ${pattern} OR name_el ILIKE ${pattern})`
+        sql`(name_en ILIKE ${pattern} OR name_el ILIKE ${pattern} OR name_es ILIKE ${pattern} OR name_fr ILIKE ${pattern})`
       )
       .limit(KEYWORD_LIMIT);
+
+    // Also check aliases via ILIKE for multi-word terms that don't tokenize well
+    const aliasFuzzyHits = await db.execute<{ food_id: string }>(
+      sql`
+        SELECT DISTINCT fa.food_id
+        FROM food_aliases fa
+        WHERE fa.alias ILIKE ${pattern}
+        LIMIT 10
+      `
+    );
+    let aliasFuzzyFoods: SelectFood[] = [];
+    if (aliasFuzzyHits.rows.length > 0) {
+      const aliasIds = aliasFuzzyHits.rows.map(r => r.food_id);
+      aliasFuzzyFoods = await db
+        .select()
+        .from(foods)
+        .where(inArray(foods.id, aliasIds));
+    }
 
     // Word-boundary post-filter: reject matches where query tokens appear
     // only as substrings of longer words (e.g. "latte" inside "platter").
     // At least one query token (length ≥ 3) must appear as a whole word.
     fuzzyRows = fuzzyRows.filter(food => {
-      const name = (food.nameEn ?? '').toLowerCase() + ' ' + (food.nameEl ?? '').toLowerCase();
+      const name = (food.nameEn ?? '').toLowerCase() + ' ' + (food.nameEl ?? '').toLowerCase() + ' ' + (food.nameEs ?? '').toLowerCase() + ' ' + (food.nameFr ?? '').toLowerCase();
       return tokens.some(token => {
         if (token.length < 3) return false;
         const regex = new RegExp(`\\b${escapeRegex(token)}\\b`, 'i');
@@ -203,7 +221,8 @@ async function keywordCandidates(foodName: string): Promise<SelectFood[]> {
       });
     });
 
-    return mergeUnique(aliasMatches, mergeUnique(exactishRows, mergeUnique(fuzzyRows, canonicalMatches)));
+    // Alias-matched foods bypass word-boundary filter (alias text already matched)
+    return mergeUnique(aliasMatches, mergeUnique(aliasFuzzyFoods, mergeUnique(exactishRows, mergeUnique(fuzzyRows, canonicalMatches))));
   }
 
   return mergeUnique(aliasMatches, mergeUnique(exactishRows, mergeUnique(rows, canonicalMatches)));
@@ -406,6 +425,19 @@ const UNIT_SYNONYMS: Record<string, string> = {
   'λίγο': 'some', 'λίγη': 'some', 'un poco': 'some',
   lata: 'can', latas: 'can', 'κουτί': 'can', 'κουτιά': 'can',
   filete: 'fillet', filetes: 'fillet',
+  // French
+  'cuillère à soupe': 'tbsp', 'cuillères à soupe': 'tbsp', 'c.à.s.': 'tbsp', 'cas': 'tbsp',
+  'cuillère à café': 'tsp', 'cuillères à café': 'tsp', 'c.à.c.': 'tsp', 'cac': 'tsp',
+  'verre': 'glass', 'verres': 'glass',
+  'tasse': 'cup', 'tasses': 'cup',
+  'bol': 'bowl', 'bols': 'bowl',
+  'tranche': 'slice', 'tranches': 'slice',
+  'poignée': 'handful', 'poignées': 'handful',
+  'morceau': 'piece', 'morceaux': 'piece',
+  'portion': 'serving', 'portions': 'serving',
+  'assiette': 'plate', 'assiettes': 'plate',
+  'boîte': 'can', 'boîtes': 'can',
+  'filet': 'fillet', 'filets': 'fillet',
 };
 
 // Beverage detection: canonical keys containing these tokens indicate liquid foods
@@ -1165,6 +1197,127 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
   'empanadas guacamole': 'empanadas with guacamole',
   'empanadas with guacamole': 'empanadas with guacamole',
   'empanadas con guacamole': 'empanadas with guacamole',
+
+  // ── French ──
+  'poulet': 'chicken breast',
+  'poulet grillé': 'chicken breast grilled',
+  'poulet rôti': 'chicken roasted',
+  'blanc de poulet': 'chicken breast',
+  'cuisse de poulet': 'chicken thigh',
+  'riz': 'rice white',
+  'riz blanc': 'rice white',
+  'riz complet': 'rice brown',
+  'riz basmati': 'rice basmati',
+  'pain': 'bread white',
+  'pain blanc': 'bread white',
+  'pain complet': 'bread whole wheat',
+  'pain de mie': 'bread white sandwich',
+  'baguette': 'bread french baguette',
+  'pain au chocolat': 'chocolate croissant',
+  'brioche': 'brioche bread',
+  'fromage': 'cheese',
+  'fromage blanc': 'fromage blanc',
+  'fromage de chèvre': 'goat cheese',
+  'camembert': 'camembert cheese',
+  'brie': 'brie cheese',
+  'comté': 'comte cheese',
+  'emmental': 'emmental cheese',
+  'gruyère': 'gruyere cheese',
+  'oeuf': 'egg whole raw',
+  'oeuf dur': 'egg hard boiled',
+  'oeuf au plat': 'egg fried',
+  'oeufs brouillés': 'eggs scrambled',
+  'lait': 'milk whole',
+  'lait entier': 'milk whole',
+  'lait demi-écrémé': 'milk 2%',
+  'lait écrémé': 'milk skim',
+  'beurre': 'butter unsalted',
+  'beurre doux': 'butter unsalted',
+  'crème fraîche': 'sour cream',
+  'yaourt': 'yogurt plain',
+  'yaourt nature': 'yogurt plain',
+  'yaourt grec': 'strained yogurt 10%',
+  'boeuf': 'beef',
+  'steak haché': 'ground beef',
+  'entrecôte': 'beef ribeye steak',
+  'filet de boeuf': 'beef tenderloin',
+  'porc': 'pork',
+  'côte de porc': 'pork chop',
+  'jambon': 'ham',
+  'jambon blanc': 'ham deli',
+  'jambon cru': 'prosciutto',
+  'saucisson': 'salami',
+  'saumon': 'salmon atlantic',
+  'saumon fumé': 'salmon smoked',
+  'thon': 'tuna',
+  'cabillaud': 'cod atlantic',
+  'crevettes': 'shrimp',
+  'moules': 'mussels',
+  'pomme de terre': 'potato',
+  'pommes de terre': 'potato',
+  'frites': 'french fries',
+  'purée': 'mashed potato',
+  'haricots verts': 'green beans',
+  'petits pois': 'peas green',
+  'courgette': 'zucchini',
+  'aubergine': 'eggplant',
+  'poivron': 'bell pepper',
+  'carotte': 'carrot',
+  'carottes': 'carrot',
+  'tomates': 'tomato',
+  'oignon': 'onion',
+  'ail': 'garlic',
+  'pomme': 'apple',
+  'poire': 'pear',
+  'banane': 'banana',
+  'fraise': 'strawberry',
+  'fraises': 'strawberry',
+  'raisin': 'grape',
+  'raisins': 'grape',
+  'huile d\'olive': 'olive oil',
+  'huile de tournesol': 'sunflower oil',
+  'pâtes': 'pasta',
+  'nouilles': 'noodles',
+  'lentilles': 'lentils',
+  'pois chiches': 'chickpeas',
+  'amandes': 'almonds',
+  'noix': 'walnuts',
+  'noisettes': 'hazelnuts',
+  'café au lait': 'coffee with milk',
+  'thé': 'tea brewed',
+  'jus d\'orange': 'orange juice',
+  'vin rouge': 'red wine',
+  'vin blanc': 'white wine',
+  'bière': 'beer',
+  'eau': 'water',
+  // French composite dishes
+  'croque-monsieur': 'croque monsieur',
+  'croque monsieur': 'croque monsieur',
+  'quiche lorraine': 'quiche lorraine',
+  'quiche': 'quiche lorraine',
+  'ratatouille': 'ratatouille',
+  'gratin dauphinois': 'potato gratin',
+  'soupe à l\'oignon': 'french onion soup',
+  'salade niçoise': 'salad nicoise',
+  'salade nicoise': 'salad nicoise',
+  'crêpe': 'crepe',
+  'crêpe complète': 'crepe ham cheese egg',
+  'galette': 'buckwheat crepe',
+  'galette complète': 'buckwheat crepe ham cheese egg',
+  'cassoulet': 'cassoulet',
+  'pot-au-feu': 'pot au feu',
+  'blanquette de veau': 'veal blanquette',
+  'boeuf bourguignon': 'beef bourguignon',
+  'coq au vin': 'coq au vin',
+  'tartiflette': 'tartiflette',
+  'bouillabaisse': 'bouillabaisse',
+  'steak-frites': 'steak with french fries',
+  'steak frites': 'steak with french fries',
+  'crème brûlée': 'creme brulee',
+  'mousse au chocolat': 'chocolate mousse',
+  'tarte aux pommes': 'apple tart',
+  'éclair au chocolat': 'chocolate eclair',
+  'mille-feuille': 'mille feuille',
 };
 
 export function correctFoodName(name: string): string {

@@ -1,4 +1,5 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync, appendFileSync } from 'node:fs';
+import { execSync } from 'node:child_process';
 import { join } from 'node:path';
 import { loadEnvConfig } from '@next/env';
 
@@ -9,7 +10,7 @@ type Range = { min: number; max: number };
 type EvalCase = {
   id: string;
   input: string;
-  language: 'en' | 'es' | 'el' | 'mixed';
+  language: 'en' | 'es' | 'el' | 'fr' | 'mixed';
   category: string;
   expect_item_count: number;
   expect_total: {
@@ -254,6 +255,28 @@ async function main() {
     JSON.stringify({ createdAt: new Date().toISOString(), summary, results }, null, 2),
   );
   console.log(JSON.stringify(summary, null, 2));
+
+  // ── MAPE history tracking ──────────────────────────────────────────────────
+  const historyDir = join(process.cwd(), 'agents', 'evals', 'results');
+  mkdirSync(historyDir, { recursive: true });
+  let commitSha = 'unknown';
+  try { commitSha = execSync('git rev-parse --short HEAD', { encoding: 'utf-8' }).trim(); } catch {}
+  const historyEntry = JSON.stringify({
+    timestamp: new Date().toISOString(),
+    version: summary.version,
+    total: summary.total,
+    passed: summary.passed,
+    passRate: summary.passRate,
+    mape: {
+      calories: summary.metrics.calories.mape,
+      protein: summary.metrics.protein.mape,
+      carbs: summary.metrics.carbs.mape,
+      fat: summary.metrics.fat.mape,
+    },
+    dbResolvedRate: summary.dbResolvedRate,
+    commitSha,
+  });
+  appendFileSync(join(historyDir, 'nutrition-enterprise-history.jsonl'), historyEntry + '\n');
 
   // ── Eval gate enforcement ────────────────────────────────────────────────
   const enforceGate = process.env.EVAL_ENFORCE_GATE === '1';
