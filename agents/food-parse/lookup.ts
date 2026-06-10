@@ -741,18 +741,30 @@ async function resolveUnit(
  */
 const FOOD_NAME_CORRECTIONS: Record<string, string> = {
   // ── Plantain ↔ banana disambiguation ──
-  'fried ripe plantain': 'plantain fried',
+  'fried ripe plantain': 'plantains yellow ripe fried',
+  'ripe fried plantain': 'plantains yellow ripe fried',
   'ripe plantain': 'plantain yellow',
-  'fried plantain': 'plantain fried',
+  'fried plantain': 'plantains yellow ripe fried',
   'green plantain': 'plantain green',
+  'green fried plantain': 'plantains green fried',
+  'fried green plantain': 'plantains green fried',
+  'patacon': 'plantains green fried',
+  'patacón': 'plantains green fried',
+  'tostón': 'plantains green fried',
+  'toston': 'plantains green fried',
+  'plátano verde frito': 'plantains green fried',
+  'platano verde frito': 'plantains green fried',
   'platano': 'plantain',
   'platano maduro': 'plantains yellow ripe fried',
   'plátano maduro': 'plantains yellow ripe fried',
   'plátano maduro frito': 'plantains yellow ripe fried',
   'platano maduro frito': 'plantains yellow ripe fried',
-  'maduro frito': 'plantains yellow fried',
+  'maduro frito': 'plantains yellow ripe fried',
+  'maduros fritos': 'plantains yellow ripe fried',
+  'maduros': 'plantains yellow ripe fried',
   'platano frito': 'plantains yellow fried',
-  'tajadas': 'plantain fried',
+  'tajadas': 'plantains yellow ripe fried',
+  'tajadas de maduro': 'plantains yellow ripe fried',
 
   // ── Beans & legumes ──
   'green bean': 'beans snap green',
@@ -798,7 +810,6 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
   'γιαούρτι': 'strained yogurt',
   'γιαουρτι': 'strained yogurt',
   'halloumi': 'halloumi cheese',
-  'octopus': 'octopus cooked',
 
   // ── Grains & cereals ──
   'oatmeal': 'cereals oats regular quick instant cooked water',
@@ -872,6 +883,14 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
   'camarones': 'shrimp cooked',
   'sardines': 'sardines in oil',
   'sardinas': 'sardines in oil',
+  'octopus': 'octopus',
+  'pulpo': 'octopus',
+  'χταπόδι': 'octopus',
+  'χταποδι': 'octopus',
+  'χταπόδι ξιδάτο': 'octopus',
+  'χταποδι ξιδατο': 'octopus',
+  'octopus vinegar': 'octopus',
+  'marinated octopus': 'octopus',
 
   // ── Vegetables ──
   'salad': 'side salad',
@@ -1053,8 +1072,6 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
   'χορτα βραστα με λαδολεμονο': 'horta with ladolemono',
   'σουτζουκάκια με ρύζι': 'soutzoukakia with rice',
   'σουτζουκακια με ρυζι': 'soutzoukakia with rice',
-  'χταπόδι ξιδάτο': 'octopus vinegar',
-  'χταποδι ξιδατο': 'octopus vinegar',
   'καλαμάρι τηγανητό': 'fried calamari',
   'καλαμαρι τηγανητο': 'fried calamari',
   'τσουρέκι φέτα': 'tsoureki slice',
@@ -1088,6 +1105,10 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
 
   // ── Multi-word English composites (map to recipe names) ──
   'greek yogurt plain': 'greek yogurt plain',
+  'greek yogurt 10% fat': 'strained yogurt 10%',
+  'greek yogurt 10%': 'strained yogurt 10%',
+  'yogurt 10%': 'strained yogurt 10%',
+  'full fat greek yogurt': 'strained yogurt 10%',
   'sweet potato baked': 'sweet potato baked',
   'tuna in water': 'tuna canned in water',
   'turkey sandwich': 'turkey sandwich',
@@ -1112,6 +1133,8 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
   'γιαούρτι με μέλι': 'yogurt with honey',
   'γιαουρτι με μελι': 'yogurt with honey',
   // FAGE branded entries — force exact DB match
+  'fage total 2% με μέλι': 'fage total 2 greek yogurt with honey',
+  'fage total 2% me meli': 'fage total 2 greek yogurt with honey',
   'fage total 2% with honey': 'fage total 2 greek yogurt with honey',
   'fage total 2% yogurt with honey': 'fage total 2 greek yogurt with honey',
   'fage total 2 with honey': 'fage total 2 greek yogurt with honey',

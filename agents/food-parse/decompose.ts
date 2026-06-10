@@ -125,6 +125,8 @@ export async function lookupCachedRecipe(dishName: string): Promise<CachedRecipe
 
   // First: exact match (cheap). Then: trigram similarity > 0.55 (fuzzy).
   // pg_trgm catches "chicken souvlaki pita" matching cached "souvlaki chicken pita".
+  // Length-ratio guard: short inputs must be at least 60% of the dish_name length
+  // to prevent "chicken" (7ch) fuzzy-matching "gyros chicken" (13ch) at sim=0.57.
   const results = await db.execute(sql`
     SELECT id, dish_name, dish_name_localized, total_grams, total_kcal,
            total_protein, total_carbs, total_fat, total_fiber,
@@ -132,7 +134,8 @@ export async function lookupCachedRecipe(dishName: string): Promise<CachedRecipe
     FROM dish_recipes
     WHERE lower(dish_name) = ${normalized}
        OR lower(coalesce(dish_name_localized, '')) = ${normalized}
-       OR similarity(lower(dish_name), ${normalized}) > 0.55
+       OR (similarity(lower(dish_name), ${normalized}) > 0.55
+           AND length(${normalized}) >= length(dish_name) * 0.6)
     ORDER BY
       CASE WHEN lower(dish_name) = ${normalized}
                 OR lower(coalesce(dish_name_localized, '')) = ${normalized}

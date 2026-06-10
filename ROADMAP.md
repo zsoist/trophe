@@ -456,14 +456,24 @@ _Enterprise benchmark: 210 test cases (EN/ES/EL) across 10 categories_
 - [x] ✅ 210+ dish recipes cached, 1,050+ unit conversions, 480+ food aliases seeded
 - [x] ✅ DB-only ceiling reached at ~155±3/210 (73.8%)
 
-### Code Fixes (Phase 2) — Preview deployed, pending production promotion
+### Code Fixes (Phase 2) — ✅ Deployed to production
 - [x] ✅ COMMON_PIECE_WEIGHTS: +20 composite entries (souvlaki wraps, sandwiches, pizza, changua)
 - [x] ✅ getPieceWeight() longest-key-match fix in decompose.ts
 - [x] ✅ shouldRequestClarification() for vague inputs ("lunch", "σνακ")
 - [x] ✅ Zero-quantity guard ("0 eggs" → items=[] instead of 422)
 - [x] ✅ Hybrid source protection (dbConfidence ≥ 0.85 → skip LLM macro override)
-- [ ] Wire food_aliases into BM25 search (+3-5 cases expected)
-- [ ] Multi-item parsing improvements (+3-5 cases expected)
+- [x] ✅ Fiber-adjusted Atwater factors in metabolic consistency check
+- [x] ✅ effectiveDbTrust protects branded foods from LLM macro override
+
+### Prompt & Pipeline Tuning (Phase 3) — ✅ Deployed 2026-06-09
+- [x] ✅ 2026-06-09 Protein source default portions (chicken=120g, salmon=150g, carne=100-120g)
+- [x] ✅ 2026-06-09 Multi-item few-shot example adjusted (chicken 150→120g, rice 185→150g)
+- [x] ✅ 2026-06-09 Adversarial repetition detection: use sanitizedText + unit='piece'
+- [x] ✅ 2026-06-09 Single-word input override via FOOD_NAME_CORRECTIONS
+- [x] ✅ 2026-06-09 μπουκιά (bite) = 15-25g, πίτα→tiropita, toast_with_butter=44g
+- [x] ✅ 2026-06-09 Adversarial category: 15/15 perfect score
+- [ ] Wire food_aliases into BM25 search (+2-3 cases expected)
+- [ ] Fix custom DB entry visibility (12 entries invisible to Vercel API)
 
 ### Score Targets
 | Phase | Score | Status |
@@ -471,8 +481,10 @@ _Enterprise benchmark: 210 test cases (EN/ES/EL) across 10 categories_
 | Baseline (pre-work) | 78/210 (37%) | ✅ |
 | After USDA portions | 143/210 (68%) | ✅ |
 | After DB seeding | 155/210 (73.8%) | ✅ |
-| After code fixes | 163-175/210 (78-83%) | ⏳ pending deploy |
-| After aliases + further | 175-185/210 (83-88%) | 🔮 |
+| After code fixes (Phase 2) | 179/210 (85.2%) | ✅ |
+| After prompt tuning (Phase 3) | 190/210 (90.5%) peak | ✅ |
+| Stable average | ~189 ± 2 (90%) | ✅ |
+| Theoretical ceiling | ~192/210 (91.4%) | 🔮 nondeterminism floor |
 
 ## PHASE 4: Launch Prep (June-July 2026)
 - [ ] Legal entity established

@@ -65,6 +65,20 @@ RULES:
 8. Set portion_explicit=true only when the user states a quantity or measurable portion.
 9. Set needs_clarification=true when an unstated or ambiguous portion could materially
    change calories (for example, an unspecified bowl, plate, or mixed snack).
+10. NEGATION modifiers — ALWAYS respect:
+    - "χωρίς" / "without" / "sin" = EXCLUDE that component entirely.
+    - "σουβλάκι κοτόπουλο χωρίς πίτα" → chicken skewer meat ONLY (120-150g), NO pita, NO wrap carbs.
+    - "burger sin queso" → burger without cheese — do NOT add cheese macros.
+    - "salad without dressing" → no oil/dressing macros.
+    - When the user says "without X", the item MUST NOT contain X's macros.
+11. PLURAL nouns imply quantity ≥ 2 (unless "1" / "un/una/ένα" explicitly overrides):
+    - "empanadas" → quantity: 2 (minimum for unspecified plural)
+    - "tacos" → quantity: 2, "huevos fritos" → quantity: 2, "cookies" → quantity: 2
+    - Singular overrides plural ONLY when explicitly stated: "1 empanada", "una empanada"
+12. SINGLE-WORD inputs — interpret as PLAIN base food:
+    - "chicken" → plain chicken breast grilled ~120-170g (NOT a gyro/wrap with pita/sauce)
+    - "pasta" → plain cooked pasta ~200g (NOT pasta with sauce)
+    - "rice" → plain rice white cooked ~150g
 
 CRITICAL IDENTIFICATION RULES:
 - Use canonical English food names (e.g. "feta cheese" not "φέτα").
@@ -86,6 +100,7 @@ CRITICAL IDENTIFICATION RULES:
   - "sancocho de gallina" → food_name: "sancocho"
   - "bandeja paisa" → food_name: "bandeja paisa"
   - "arroz con pollo" → food_name: "arroz con pollo"
+  - "sopa de lentejas con plátano" → food_name: "sopa de lentejas con platano" (ONE dish — plantain is IN the soup, NOT separate)
   - "caldo de costilla" → food_name: "caldo de costilla"
   - "cazuela de mariscos" → food_name: "cazuela de mariscos"
   - "μουσακάς" / "moussaka" → food_name: "moussaka"
@@ -220,6 +235,7 @@ USDA REFERENCE VALUES (per 100g — use for calibration):
 | Fried calamari | 175 | 15.0 | 8.0 | 9.5 |
 | Shrimp saganaki | 120 | 12.0 | 5.0 | 6.0 |
 | Sardines, grilled | 208 | 25.0 | 0 | 11.0 |
+| Octopus, cooked/marinated (ξιδάτο) | 82 | 14.9 | 2.2 | 1.0 |
 | Sea bream (tsipura), grilled | 121 | 20.0 | 0 | 4.5 |
 | Spaghetti bolognese | 140 | 8.0 | 14.0 | 6.0 |
 | Chicken stir-fry with veg | 110 | 12.0 | 6.0 | 4.5 |
@@ -285,13 +301,20 @@ STANDARD PORTION SIZES (use when unit is not grams):
 - 1 serving Greek salad = 300g
 - 1 serving pasta/rice dish = 250-300g cooked
 - 1 bowl soup/stew/fasolada = 350-400g, 1 plate of fakes = 350g
-- 1 cup yogurt = 245g, 1 cup rice cooked = 185g
+- 1 bowl yogurt (μπολ γιαούρτι) = 200g, 1 cup yogurt (measuring cup) = 245g, yogurt (no container stated) = 200g, 1 cup rice cooked = 185g
+- 1 serving quinoa as side dish = 150g cooked (same as rice)
 - 1 slice bread = 30-35g, 1 toast with butter = 44g (bread 30g + butter 14g)
 - 1 egg = 50g (without shell)
 - 1 banana = 120g (peeled)
 - 1 tbsp oil = 14g, 1 tbsp honey = 21g, 1 tbsp peanut butter = 16g
 - 1 μπουκιά / "a bite" / "un bocado" = 15-25g (very small, like a single forkful or spoonful)
-- Almonds/walnuts as topping (on yogurt, oatmeal) = 15-20g (small handful, NOT 30g full serving)
+- Almonds/walnuts as topping (on yogurt, oatmeal) = 15-20g (a small handful/sprinkle, ~90-130 kcal)
+- café con leche (no size stated) = 150-180ml (small cup, NOT 240ml american mug)
+- 1 FAGE split cup (with honey or fruit topping) = 170g total container (NOT 245g)
+- 1 serving plain pasta (no sauce, single-word "pasta") = 200g cooked
+- 1 κομμάτι πίτα (piece of Greek savory pie like spanakopita/tiropita) = 120-150g (NOT a pita flatbread at 60g)
+- "μπουκιά γλυκό" / "a bite of dessert" = 20-25g of pastry/cake (NOT dessert wine)
+- tostada con aguacate = toast ~35g + half avocado ~60-70g (avocado provides ~10-12g fat)
 - 1 croissant = 60g, 1 croissant with chocolate = 80g, 1 cookie = 35g, 1 muffin = 115g, 1 bagel = 105g
 - 1 koulouri = 90g, 1 bougatsa = 130g, 1 galaktoboureko = 130g
 - 1 loukoumades (4 pieces) = 80g, 1 pasteli = 40g, 1 melomakarono = 50g, 1 baklava piece = 100g
@@ -301,6 +324,7 @@ STANDARD PORTION SIZES (use when unit is not grams):
 - 1 serving shrimp/garides saganaki = 250g
 - 1 bowl ajiaco/sancocho = 500-600g (large bowls, soup-based)
 - 1 changua = 300g (small breakfast soup, NOT a large bowl)
+- Colombian almuerzo plate (arroz + frijoles + carne + ensalada + plátano): plátano is fried (maduro frito), ensalada has oil dressing, carne asada has visible fat — do NOT undercount fat
 - 1 empanada = 120g, 1 arepa = 120g, 1 tamale (regular) = 120g, 1 tamale tolimense = 300g
 - 1 patacon = 100g, 1 chicharron piece = 60g, 1 buñuelo = 60g
 - 1 cucharón/ladle (dense food like beans/rice) = 120-150g

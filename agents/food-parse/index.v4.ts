@@ -875,16 +875,35 @@ export async function run(
 
   // ── Step 1a2: Single-word input override ──────────────────────────────────
   // When the user types a single word like "chicken", the LLM sometimes
-  // over-interprets it as a composite dish (e.g. "gyros chicken").
-  // If a FOOD_NAME_CORRECTIONS entry exists for the raw input word,
-  // override the LLM's food_name to use the corrected form. This ensures
-  // "chicken" → "chicken breast grilled" rather than "gyros chicken".
+  // over-interprets it as a composite dish (e.g. "gyros chicken" with pita).
+  // If a FOOD_NAME_CORRECTIONS entry exists for the raw input word:
+  //   1. Force exactly 1 item (LLM may have hallucinated pita/wrap as item 2)
+  //   2. Override food_name to the corrected form
+  //   3. Clear ALL LLM macro estimates so DB lookup drives everything
+  //   4. Use unit='serving' so DB's defaultServingGrams provides the portion
   const rawTokens = sanitizedText.trim().split(/\s+/).filter(Boolean);
-  if (rawTokens.length === 1 && v4Parsed.items.length === 1) {
+  if (rawTokens.length === 1) {
     const singleWord = rawTokens[0].toLowerCase();
     const corrected = correctFoodName(singleWord);
     if (corrected !== singleWord) {
-      v4Parsed.items[0].food_name = corrected;
+      v4Parsed.items = [{
+        ...v4Parsed.items[0],
+        food_name: corrected,
+        name_localized: corrected, // Override localized too — prevents recipe cache fuzzy-matching the short raw word
+        quantity: 1,
+        unit: 'serving',
+        portion_explicit: false,
+        estimated_grams: undefined,
+        estimated_calories: undefined,
+        estimated_protein_g: undefined,
+        estimated_carbs_g: undefined,
+        estimated_fat_g: undefined,
+        per_100g_kcal: undefined,
+        per_100g_protein: undefined,
+        per_100g_carbs: undefined,
+        per_100g_fat: undefined,
+        estimation_confidence: undefined,
+      }];
     }
   }
 
