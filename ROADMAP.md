@@ -472,6 +472,14 @@ _Enterprise benchmark: 210 test cases (EN/ES/EL) across 10 categories_
 - [x] ✅ 2026-06-09 Single-word input override via FOOD_NAME_CORRECTIONS
 - [x] ✅ 2026-06-09 μπουκιά (bite) = 15-25g, πίτα→tiropita, toast_with_butter=44g
 - [x] ✅ 2026-06-09 Adversarial category: 15/15 perfect score
+
+### Recipe Cache & Correction Fixes (Phase 3b) — ✅ Deployed 2026-06-10
+- [x] ✅ 2026-06-10 Fix clar-01: override name_localized in single-word path (pg_trgm false positive)
+- [x] ✅ 2026-06-10 Recipe cache trigram length-ratio guard (input ≥ 60% of dish_name length)
+- [x] ✅ 2026-06-10 Plantain ripe/green disambiguation (maduros/tajadas → yellow ripe fried)
+- [x] ✅ 2026-06-10 Yogurt 10% → strained yogurt 10% correction (HHF DB entry)
+- [x] ✅ 2026-06-10 Green plantain corrections (patacón, tostón, plátano verde frito)
+- [x] ✅ 2026-06-10 Portion tuning: walnuts 15-20g, yogurt default 200g, quinoa 150g
 - [ ] Wire food_aliases into BM25 search (+2-3 cases expected)
 - [ ] Fix custom DB entry visibility (12 entries invisible to Vercel API)
 
@@ -483,8 +491,9 @@ _Enterprise benchmark: 210 test cases (EN/ES/EL) across 10 categories_
 | After DB seeding | 155/210 (73.8%) | ✅ |
 | After code fixes (Phase 2) | 179/210 (85.2%) | ✅ |
 | After prompt tuning (Phase 3) | 190/210 (90.5%) peak | ✅ |
-| Stable average | ~189 ± 2 (90%) | ✅ |
-| Theoretical ceiling | ~192/210 (91.4%) | 🔮 nondeterminism floor |
+| After recipe/correction fixes (Phase 3b) | **194/210 (92.4%) peak** | ✅ |
+| Stable average | ~191 ± 3 (91%) | ✅ |
+| Nondeterminism floor | ~16 failures (3 JSON truncation, 5 marginal, 8 LLM estimation) | 📊 |
 
 ## PHASE 4: Launch Prep (June-July 2026)
 - [ ] Legal entity established
