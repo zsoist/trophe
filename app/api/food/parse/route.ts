@@ -8,7 +8,7 @@ export type { ParsedFoodItem } from '@/agents/schemas/food-parse';
 
 const requestSchema = z.object({
   text: z.string().trim().min(1).max(12_000),
-  language: z.enum(['en', 'es', 'el']).default('en'),
+  language: z.enum(['en', 'es', 'el', 'fr']).default('en'),
 }).strict();
 
 export async function POST(request: NextRequest) {
