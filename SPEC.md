@@ -76,7 +76,7 @@ agents/
   schemas/          # input/output types per agent
 ```
 
-**v7 food-parse pipeline (June 2026)**: LLM extracts `{food_name, qty, unit}` AND per-100g CoT estimates. `lookup.ts` does pgvector + pg_trgm hybrid retrieval → `foods` table supplies DB macros. `arbitrateDbVsCoT()` picks the best source: explicit portions → DB wins; <30% divergence → DB wins; >30% divergence → LLM grams + DB per-100g ratios; high-confidence DB (≥0.85) → always DB. `decompose.ts` handles composite dishes via `dish_recipes` cache + `COMMON_PIECE_WEIGHTS` map (80+ entries). 4-language support (EN/ES/EL/FR). 11,396 foods (USDA + CIQUAL 2025). Enterprise benchmark: 210 cases, scoring 193/210 (91.9%), carbs MAPE 22.3%.
+**v7 food-parse pipeline (June 2026)**: LLM extracts `{food_name, qty, unit}` AND per-100g CoT estimates. `lookup.ts` does pgvector + pg_trgm hybrid retrieval → `foods` table supplies DB macros. `arbitrateDbVsCoT()` picks the best source: explicit portions → DB wins; <30% divergence → DB wins; >30% divergence → LLM grams + DB per-100g ratios; high-confidence DB (≥0.85) → always DB. `decompose.ts` handles composite dishes via `dish_recipes` cache + `COMMON_PIECE_WEIGHTS` map (80+ entries). 4-language support (EN/ES/EL/FR). 11,396 foods (USDA + CIQUAL 2025). Enterprise benchmark v3.6: 549 cases (4 languages, 13 categories), 79.2% pass rate, 8.4% calorie MAPE, 43.8% Acc@7.5.
 
 **LLM routing** (cost-optimized, DeepSeek-first for applicable tasks):
 - `food_parse` → Gemini 2.5 Flash (~$0.05/active-day)

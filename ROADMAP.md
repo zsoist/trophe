@@ -513,6 +513,8 @@ _Enterprise benchmark: 210 test cases (EN/ES/EL) across 10 categories_
 | Carbs MAPE | 30.4% → **22.3%** (-27% relative) | ✅ |
 | Cal MAPE | 11.7% → **11.7%** (stable) | ✅ |
 | Nondeterminism floor | ~17 failures (3 JSON truncation, 5 marginal, 9 LLM estimation) | 📊 |
+| **v3.6 benchmark (549 cases)** | **79.2% pass, 8.4% cal MAPE, 43.8% Acc@7.5** | ✅ |
+| v3.6 per-macro MAPE | Cal 8.4%, Pro 11.0%, Carb 13.3%, Fat 14.4% | ✅ |
 
 ## PHASE 4: Launch Prep (June-July 2026)
 - [ ] Legal entity established

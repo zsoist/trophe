@@ -8,7 +8,7 @@
 
 ## Abstract
 
-We present DietAI24, a multilingual benchmark for evaluating LLM-based nutrition estimation from free-text food descriptions. The benchmark comprises 414 cases across 13 categories in 4 languages (English, Spanish, Greek, French), with macro ranges calibrated against USDA FoodData Central and CIQUAL 2025. We evaluate a deterministic hybrid pipeline (LLM extraction + database lookup + CoT arbitration) achieving 78.7% pass rate and 12.5% calorie MAPE, with 33.7% Acc@7.5 on our multilingual dataset. Our approach demonstrates that coupling LLM parsing with curated food databases produces consistent, reproducible nutrition estimates across languages.
+We present DietAI24, a multilingual benchmark for evaluating LLM-based nutrition estimation from free-text food descriptions. The benchmark comprises 549 cases across 13 categories in 4 languages (English, Spanish, Greek, French) plus mixed/code-switched inputs. Macro ranges are calibrated against USDA FoodData Central and CIQUAL 2025. We evaluate a deterministic hybrid pipeline (LLM extraction + database lookup + CoT arbitration) achieving 79.2% pass rate, 8.4% calorie MAPE, and 43.8% Acc@7.5 on our multilingual dataset. Our approach demonstrates that coupling LLM parsing with curated food databases produces consistent, reproducible nutrition estimates across languages.
 
 ---
 
@@ -103,7 +103,7 @@ Cases are generated via a structured LLM-assisted workflow:
 | supplements | 20 | Whey, creatine, BCAA |
 | bakery | 25 | Bread, pastries, baked goods |
 | seafood | 20 | Fish, shellfish, prepared seafood dishes |
-| **Total** | **520** | |
+| **Total** | **549** | |
 
 ### 4.3 Language Distribution
 
@@ -150,12 +150,12 @@ LLM outputs are nondeterministic. We observe ±3 case variance across runs (±1.
 
 | Metric | DietAI24 (v7 pipeline) | GPT-4o (NutriBench) |
 |---|---|---|
-| Pass Rate (own benchmark) | 78.7% (414 cases) | — |
-| Calorie MAPE | 12.5% | — |
-| Protein MAPE | 15.4% | — |
-| Carbs MAPE | 18.5% | — |
-| Fat MAPE | 18.7% | — |
-| Acc@7.5 | 33.7% | 66.8% |
+| Pass Rate (own benchmark) | 79.2% (549 cases) | — |
+| Calorie MAPE | 8.4% | — |
+| Protein MAPE | 11.0% | — |
+| Carbs MAPE | 13.3% | — |
+| Fat MAPE | 14.4% | — |
+| Acc@7.5 | 43.8% | 66.8% |
 
 ### 6.2 Per-Category Breakdown
 
