@@ -1558,6 +1558,16 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
   'side salad with olive oil': 'salad with olive oil dressing',
   'salad green with dressing': 'salad with olive oil dressing',
   'dressed salad': 'salad with olive oil dressing',
+  // ── Phase 1 fix: brand/product corrections ──────────────────────────────
+  'danone nature': 'Yogurt, plain, whole milk',
+  'danone plain': 'Yogurt, plain, whole milk',
+  'yogur danone natural': 'Yogurt, plain, whole milk',
+  'chobani plain greek yogurt': 'Yogurt, Greek, whole, plain, CHOBANI',
+  'chobani greek yogurt': 'Yogurt, Greek, whole, plain, CHOBANI',
+  'petit lu': 'biscuit petit beurre',
+  'galletas lu': 'biscuit petit beurre',
+  'galletas petit beurre': 'biscuit petit beurre',
+  'lu petit beurre': 'biscuit petit beurre',
 };
 
 export function correctFoodName(name: string): string {

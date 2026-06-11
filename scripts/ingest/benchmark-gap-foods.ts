@@ -71,7 +71,7 @@ const STAPLES: GapFood[] = [
     ],
   },
   {
-    nameEn: 'Baguette, French bread', kcal: 274, protein: 10.8, carb: 51.9, fat: 2.4, fiber: 2.4,
+    nameEn: 'Baguette, French bread', kcal: 274, protein: 10.8, carb: 51.9, fat: 1.0, fiber: 2.4,
     defaultServingGrams: 65, defaultServingUnit: 'piece',
     provenance: 'USDA FDC #167936',
     aliases: [
@@ -88,7 +88,7 @@ const STAPLES: GapFood[] = [
     ],
   },
   {
-    nameEn: 'Chicken breast, grilled', kcal: 165, protein: 31.0, carb: 0, fat: 3.6, fiber: 0,
+    nameEn: 'Chicken breast, grilled', kcal: 165, protein: 31.0, carb: 0, fat: 4.2, fiber: 0,
     defaultServingGrams: 120, defaultServingUnit: 'piece',
     provenance: 'USDA FDC #171077',
     aliases: [
@@ -159,7 +159,7 @@ const STAPLES: GapFood[] = [
     ],
   },
   {
-    nameEn: 'Pasta, cooked, enriched', kcal: 158, protein: 5.8, carb: 30.6, fat: 0.9, fiber: 1.8,
+    nameEn: 'Pasta, cooked, enriched', kcal: 158, protein: 5.8, carb: 30.6, fat: 1.3, fiber: 1.8,
     defaultServingGrams: 140, defaultServingUnit: 'cup',
     provenance: 'USDA FDC #168925',
     aliases: [
@@ -426,7 +426,7 @@ const COMPOSITES: GapFood[] = [
     },
   },
   {
-    nameEn: 'Blanquette de veau', kcal: 95, protein: 8.5, carb: 4.0, fat: 5.0, fiber: 0.5,
+    nameEn: 'Blanquette de veau', kcal: 140, protein: 12.0, carb: 5.0, fat: 7.0, fiber: 0.5,
     defaultServingGrams: 350, defaultServingUnit: 'serving',
     nameFr: 'Blanquette de veau', region: ['FR'],
     provenance: 'CIQUAL #25530',
@@ -448,7 +448,7 @@ const COMPOSITES: GapFood[] = [
     },
   },
   {
-    nameEn: 'Tuna niçoise salad', kcal: 105, protein: 8.0, carb: 6.0, fat: 6.0, fiber: 1.5,
+    nameEn: 'Tuna niçoise salad', kcal: 95, protein: 8.0, carb: 6.0, fat: 5.0, fiber: 1.5,
     defaultServingGrams: 350, defaultServingUnit: 'plate',
     nameFr: 'Salade niçoise au thon', region: ['FR'],
     provenance: 'CIQUAL composite estimate',
@@ -546,7 +546,7 @@ const COMPOSITES: GapFood[] = [
     },
   },
   {
-    nameEn: 'French onion soup', kcal: 45, protein: 2.5, carb: 4.5, fat: 2.0, fiber: 0.5,
+    nameEn: 'French onion soup', kcal: 80, protein: 3.5, carb: 7.0, fat: 4.0, fiber: 0.5,
     defaultServingGrams: 350, defaultServingUnit: 'bowl',
     nameFr: 'Soupe à l\'oignon', region: ['FR'],
     provenance: 'CIQUAL #25901',
@@ -609,8 +609,8 @@ const COMPOSITES: GapFood[] = [
     units: [{ unit: 'bowl', grams: 250 }, { unit: 'cup', grams: 253 }, { unit: 'serving', grams: 250 }],
   },
   {
-    nameEn: 'Cassoulet', kcal: 130, protein: 9.5, carb: 9.0, fat: 6.5, fiber: 3.0,
-    defaultServingGrams: 350, defaultServingUnit: 'serving',
+    nameEn: 'Cassoulet', kcal: 120, protein: 8.0, carb: 8.0, fat: 5.0, fiber: 3.0,
+    defaultServingGrams: 300, defaultServingUnit: 'serving',
     nameFr: 'Cassoulet', region: ['FR'],
     provenance: 'CIQUAL #25001',
     aliases: [
@@ -620,7 +620,7 @@ const COMPOSITES: GapFood[] = [
     units: [{ unit: 'serving', grams: 350 }, { unit: 'can', grams: 420 }],
   },
   {
-    nameEn: 'Croque-monsieur', kcal: 260, protein: 13.5, carb: 20.0, fat: 14.5, fiber: 1.0,
+    nameEn: 'Croque-monsieur', kcal: 215, protein: 12.0, carb: 18.0, fat: 11.0, fiber: 1.0,
     defaultServingGrams: 150, defaultServingUnit: 'piece',
     nameFr: 'Croque-monsieur', region: ['FR'],
     provenance: 'CIQUAL #25040',
@@ -772,7 +772,7 @@ const COMPOSITES: GapFood[] = [
 
 const BRANDED: GapFood[] = [
   {
-    nameEn: 'KIND nut bar', kcal: 420, protein: 10.0, carb: 43.0, fat: 25.0, fiber: 6.0,
+    nameEn: 'KIND nut bar', kcal: 500, protein: 15.0, carb: 20.0, fat: 37.5, fiber: 6.0,
     defaultServingGrams: 40, defaultServingUnit: 'piece',
     brand: 'KIND', dataQuality: 'label',
     provenance: 'KIND Nuts & Spices nutrition label',
@@ -896,7 +896,7 @@ const SUPPLEMENTS: GapFood[] = [
     units: [{ unit: 'scoop', grams: 15 }, { unit: 'serving', grams: 15 }],
   },
   {
-    nameEn: 'Whey protein isolate', kcal: 375, protein: 90.0, carb: 2.0, fat: 1.0,
+    nameEn: 'Whey protein isolate', kcal: 400, protein: 82.0, carb: 8.0, fat: 5.0,
     defaultServingGrams: 30, defaultServingUnit: 'scoop',
     dataQuality: 'label', provenance: 'Average whey protein isolate (Optimum Nutrition, etc.)',
     aliases: [
