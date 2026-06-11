@@ -373,6 +373,9 @@ STANDARD PORTION SIZES (use when unit is not grams):
 - 1 bottle water = 500ml, 1 glass juice = 240ml
 - Monster energy can = 473ml (16oz), Red Bull can = 250ml
 - 1 verre (glass) wine = 150ml, 1 pint beer = 473ml, 1 bière 33cl = 330ml
+- EXPLICIT VOLUME WINS: when the user states a volume ("150ml", "33cl", "(250 ml)"),
+  ALWAYS emit unit="ml" with the stated quantity (33cl → quantity=330, unit="ml"),
+  even if a container word (verre, glass, vaso, ποτήρι, bottle) is also present.
 - 1 café crème = 200ml, 1 smoothie = 300ml (unless size stated)
 - 1 jus d'orange / orange juice = 250ml (1 glass)
 - 1 scoop whey protein = 30g, 1 scoop casein = 33g

@@ -279,12 +279,24 @@ function arbitrateDbVsCoT(
   // This protects branded foods (macro_confidence=0.95) even when portion isn't perfectly explicit.
   const effectiveDbTrust = Math.max(dbConfidence, dbMacroConfidence ?? 0.7);
 
+  // Alcohol guard: alcohol carries 7 kcal/g that appears in NO macro, so a
+  // correct DB entry (wine: 85 kcal, 2.6g carbs) looks "inconsistent" to an
+  // Atwater check. The LLM reconciles calories by inventing carbs (~20g/100ml),
+  // diverges >30% from the DB, and the hybrid override replaces correct DB
+  // macros with hallucinated ones. When the DB's calories exceed what its own
+  // macros explain by >25%, the gap is alcohol — DB macros are authoritative.
+  const dbAtwaterKcal = dbPer100g
+    ? dbPer100g.protein * 4 + dbPer100g.carb * 4 + dbPer100g.fat * 9
+    : 0;
+  const dbHasAlcoholCalories = !!dbPer100g && dbPer100g.kcal > 20 &&
+    (dbPer100g.kcal - dbAtwaterKcal) / dbPer100g.kcal > 0.25;
+
   // Rule 1: Explicit portion + food-specific conversion → trust DB for grams+calories.
   // But v6: if LLM per-100g macro ratios significantly diverge from DB, use LLM's
   // macro distribution (the DB might have imported wrong macro ratios).
   if (isExplicitPortion && hasFoodSpecificConversion) {
     // v6 macro ratio correction for Rule 1 (skip for high-confidence branded DB matches)
-    if (per100gAvailable && dbPer100g && dbPer100g.kcal > 0 && effectiveDbTrust < 0.85) {
+    if (per100gAvailable && dbPer100g && dbPer100g.kcal > 0 && effectiveDbTrust < 0.85 && !dbHasAlcoholCalories) {
       const llmP100 = candidate.per_100g_protein ?? 0;
       const llmC100 = candidate.per_100g_carbs ?? 0;
       const llmF100 = candidate.per_100g_fat ?? 0;
@@ -337,7 +349,7 @@ function arbitrateDbVsCoT(
     // (branded foods, exact USDA matches). In those cases the DB per-100g values
     // are authoritative (label data) and the LLM's divergence is noise from
     // generic training data. Skip the hybrid override — trust DB macros entirely.
-    if (per100gAvailable && dbPer100g && dbPer100g.kcal > 0 && effectiveDbTrust < 0.85) {
+    if (per100gAvailable && dbPer100g && dbPer100g.kcal > 0 && effectiveDbTrust < 0.85 && !dbHasAlcoholCalories) {
       const llmP100 = candidate.per_100g_protein ?? 0;
       const llmC100 = candidate.per_100g_carbs ?? 0;
       const llmF100 = candidate.per_100g_fat ?? 0;

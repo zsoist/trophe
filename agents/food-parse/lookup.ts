@@ -628,6 +628,22 @@ async function resolveUnit(
   if (normalizedUnit === 'l') return { id: null, gramsPerUnit: 1_000 };
   if (normalizedUnit === 'fl oz' || normalizedUnit === 'floz') return { id: null, gramsPerUnit: 30 };
 
+  // Standard pours for alcohol: a "glass" of wine is 150ml (not the 240ml water
+  // cup that the generic glass→cup synonym implies); champagne flute 125ml;
+  // spirits shot 45ml. Checked before DB conversions because USDA wine rows
+  // carry no glass-unit conversion and would fall through to 100g default.
+  const keyOrName = (canonicalFoodKey ?? '').toLowerCase();
+  if (normalizedUnit === 'glass' || normalizedUnit === 'cup') {
+    if (/\bwine\b|vino|κρασί/.test(keyOrName) && !/vinegar/.test(keyOrName)) {
+      return { id: null, gramsPerUnit: 150 };
+    }
+    if (/champagne|prosecco|cava\b/.test(keyOrName)) return { id: null, gramsPerUnit: 125 };
+  }
+  if ((normalizedUnit === 'shot' || normalizedUnit === 'piece') &&
+      /whisky|whiskey|vodka|tequila|rum\b|gin\b|brandy|cognac|liqueur/.test(keyOrName)) {
+    return { id: null, gramsPerUnit: 45 };
+  }
+
   const denseFoodServing = conservativeDenseFoodServing(normalizedUnit, canonicalFoodKey);
   if (denseFoodServing !== null) return { id: null, gramsPerUnit: denseFoodServing };
 

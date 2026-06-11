@@ -1,0 +1,322 @@
+{
+  "when": "2026-06-08T03:02:51.846Z",
+  "url": "http://localhost:3333",
+  "threshold": 95,
+  "aggregate": {
+    "passed": 6,
+    "total": 6,
+    "rate": 100,
+    "passed_gate": true
+  },
+  "suites": [
+    {
+      "name": "food_parse",
+      "passed": 0,
+      "total": 10,
+      "rate": 0,
+      "skipped": true,
+      "skipReason": "EVAL_AUTH_TOKEN or EVAL_AUTH_EMAIL/EVAL_AUTH_PASSWORD required for protected food-parse API eval",
+      "avgLatencyMs": 0,
+      "cases": []
+    },
+    {
+      "name": "recipe_analyze",
+      "passed": 3,
+      "total": 3,
+      "rate": 100,
+      "skipped": false,
+      "avgLatencyMs": 8142,
+      "cases": [
+        {
+          "id": "recipe_greek_salad",
+          "input": "Greek salad: 200g tomatoes, 100g cucumber, 80g feta cheese, 20ml olive oil, 30g kalamata olives",
+          "passed": true,
+          "failures": [],
+          "latencyMs": 10906,
+          "detail": {
+            "recipe_name": "Greek Salad",
+            "servings": 2,
+            "ingredients": [
+              {
+                "raw_text": "200g tomatoes",
+                "food_name": "Tomatoes, red, ripe, raw, year round average",
+                "name_localized": "Tomato",
+                "grams": 200,
+                "calories": 36,
+                "protein_g": 1.8,
+                "carbs_g": 7.8,
+                "fat_g": 0.4,
+                "fiber_g": 2.4,
+                "sugar_g": 5.3,
+                "confidence": 0.98,
+                "source": "local_db"
+              },
+              {
+                "raw_text": "100g cucumber",
+                "food_name": "Cucumber, peeled, raw",
+                "name_localized": "Cucumber",
+                "grams": 100,
+                "calories": 10,
+                "protein_g": 0.6,
+                "carbs_g": 2.2,
+                "fat_g": 0.2,
+                "fiber_g": 0.7,
+                "sugar_g": 1.4,
+                "confidence": 0.98,
+                "source": "local_db"
+              },
+              {
+                "raw_text": "80g feta cheese",
+                "food_name": "Feta Cheese",
+                "name_localized": "Feta cheese",
+                "grams": 80,
+                "calories": 211,
+                "protein_g": 11.4,
+                "carbs_g": 3.3,
+                "fat_g": 17,
+                "fiber_g": 0,
+                "sugar_g": 0,
+                "confidence": 0.98,
+                "source": "local_db"
+              },
+              {
+                "raw_text": "20ml olive oil",
+                "food_name": "Oil, olive, salad or cooking",
+                "name_localized": "Olive oil",
+                "grams": 20,
+                "calories": 177,
+                "protein_g": 0,
+                "carbs_g": 0,
+                "fat_g": 20,
+                "fiber_g": 0,
+                "sugar_g": 0,
+                "confidence": 0.98,
+                "source": "local_db"
+              },
+              {
+                "raw_text": "30g kalamata olives",
+                "food_name": "Kalamata olives",
+                "name_localized": "Kalamata olives",
+                "grams": 30,
+                "calories": 88.5,
+                "protein_g": 0.9,
+                "carbs_g": 4.8,
+                "fat_g": 8.1,
+                "fiber_g": 1.2,
+                "sugar_g": 0.3,
+                "confidence": 0.65,
+                "source": "ai_estimate"
+              }
+            ],
+            "total": {
+              "calories": 523,
+              "protein_g": 14.7,
+              "carbs_g": 18.1,
+              "fat_g": 45.7,
+              "fiber_g": 4.3,
+              "sugar_g": 7
+            },
+            "per_serving": {
+              "calories": 262,
+              "protein_g": 7.4,
+              "carbs_g": 9.1,
+              "fat_g": 22.9,
+              "fiber_g": 2.2,
+              "sugar_g": 3.5
+            }
+          }
+        },
+        {
+          "id": "recipe_chicken_rice",
+          "input": "Grilled chicken breast 200g with 150g cooked white rice and steamed broccoli 100g",
+          "passed": true,
+          "failures": [],
+          "latencyMs": 6494,
+          "detail": {
+            "recipe_name": "Grilled Chicken with Rice and Broccoli",
+            "servings": 1,
+            "ingredients": [
+              {
+                "raw_text": "Grilled chicken breast 200g",
+                "food_name": "Chicken Breast Grilled",
+                "name_localized": "Grilled chicken breast",
+                "grams": 200,
+                "calories": 330,
+                "protein_g": 62,
+                "carbs_g": 0,
+                "fat_g": 7.2,
+                "fiber_g": 0,
+                "sugar_g": 0,
+                "confidence": 0.98,
+                "source": "local_db"
+              },
+              {
+                "raw_text": "150g cooked white rice",
+                "food_name": "Rice, white, long-grain, regular, enriched, cooked",
+                "name_localized": "Cooked white rice",
+                "grams": 150,
+                "calories": 195,
+                "protein_g": 4,
+                "carbs_g": 42.3,
+                "fat_g": 0.4,
+                "fiber_g": 0.6,
+                "sugar_g": 0.1,
+                "confidence": 0.98,
+                "source": "local_db"
+              },
+              {
+                "raw_text": "steamed broccoli 100g",
+                "food_name": "Broccoli, raw",
+                "name_localized": "Steamed broccoli",
+                "grams": 100,
+                "calories": 34,
+                "protein_g": 2.8,
+                "carbs_g": 6.6,
+                "fat_g": 0.4,
+                "fiber_g": 2.6,
+                "sugar_g": 1.7,
+                "confidence": 0.98,
+                "source": "local_db"
+              }
+            ],
+            "total": {
+              "calories": 559,
+              "protein_g": 68.8,
+              "carbs_g": 48.9,
+              "fat_g": 8,
+              "fiber_g": 3.2,
+              "sugar_g": 1.8
+            },
+            "per_serving": {
+              "calories": 559,
+              "protein_g": 68.8,
+              "carbs_g": 48.9,
+              "fat_g": 8,
+              "fiber_g": 3.2,
+              "sugar_g": 1.8
+            }
+          }
+        },
+        {
+          "id": "recipe_oatmeal",
+          "input": "50g rolled oats cooked with 200ml milk, 1 banana, 1 tablespoon honey",
+          "passed": true,
+          "failures": [],
+          "latencyMs": 7026,
+          "detail": {
+            "recipe_name": "Oatmeal with Banana and Honey",
+            "servings": 1,
+            "ingredients": [
+              {
+                "raw_text": "50g rolled oats",
+                "food_name": "Cereals, oats, regular and quick, not fortified, dry",
+                "name_localized": "Oats",
+                "grams": 50,
+                "calories": 190,
+                "protein_g": 6.6,
+                "carbs_g": 33.9,
+                "fat_g": 3.3,
+                "fiber_g": 5.1,
+                "sugar_g": 0.5,
+                "confidence": 0.98,
+                "source": "local_db"
+              },
+              {
+                "raw_text": "200ml milk",
+                "food_name": "Milk, whole, 3.25% milkfat, with added vitamin D",
+                "name_localized": "Milk",
+                "grams": 200,
+                "calories": 122,
+                "protein_g": 6.3,
+                "carbs_g": 9.6,
+                "fat_g": 6.5,
+                "fiber_g": 0,
+                "sugar_g": 10.1,
+                "confidence": 0.98,
+                "source": "local_db"
+              },
+              {
+                "raw_text": "1 banana",
+                "food_name": "Bananas, raw",
+                "name_localized": "Banana",
+                "grams": 120,
+                "calories": 107,
+                "protein_g": 1.3,
+                "carbs_g": 27.4,
+                "fat_g": 0.4,
+                "fiber_g": 3.1,
+                "sugar_g": 14.6,
+                "confidence": 0.98,
+                "source": "local_db"
+              },
+              {
+                "raw_text": "1 tablespoon honey",
+                "food_name": "Honey",
+                "name_localized": "Honey",
+                "grams": 14,
+                "calories": 43,
+                "protein_g": 0,
+                "carbs_g": 11.5,
+                "fat_g": 0,
+                "fiber_g": 0,
+                "sugar_g": 11.5,
+                "confidence": 0.98,
+                "source": "local_db"
+              }
+            ],
+            "total": {
+              "calories": 462,
+              "protein_g": 14.2,
+              "carbs_g": 82.4,
+              "fat_g": 10.2,
+              "fiber_g": 8.2,
+              "sugar_g": 36.7
+            },
+            "per_serving": {
+              "calories": 462,
+              "protein_g": 14.2,
+              "carbs_g": 82.4,
+              "fat_g": 10.2,
+              "fiber_g": 8.2,
+              "sugar_g": 36.7
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "coach_insight",
+      "passed": 3,
+      "total": 3,
+      "rate": 100,
+      "skipped": false,
+      "avgLatencyMs": 3884,
+      "cases": [
+        {
+          "id": "insight_low_protein",
+          "input": "Client logged 85g protein today. Goal is 150g/day. Had oatme…",
+          "passed": true,
+          "failures": [],
+          "latencyMs": 3651,
+          "detail": "**Your Win & Opportunity**\n\nYou're at 57% of your protein goal, which tells me you have a clear opportunity to add protein without overhauling your meals. Your chicken salad was a smart choice—keep bu"
+        },
+        {
+          "id": "insight_great_macros",
+          "input": "Client hit all macro targets today: 2100 kcal, 155g protein,…",
+          "passed": true,
+          "failures": [],
+          "latencyMs": 4846,
+          "detail": "# Great Work Today!\n\nYou nailed your macros across the board—hitting all three targets is exactly what consistent progress looks like. Your protein intake of 155g is solid for your training, and your "
+        },
+        {
+          "id": "insight_allergy_flag",
+          "input": "Client has a peanut allergy (confirmed in memory). Today's l…",
+          "passed": true,
+          "failures": [],
+          "latencyMs": 3156,
+          "detail": "# Nutrition Coaching Insight\n\n**⚠️ Safety First:** I noticed you logged a snack bar today, but we don't have the ingredient list confirmed. Given your peanut allergy, this is your top priority to veri"
+        }
+      ]
+    }
+  ]
+}
