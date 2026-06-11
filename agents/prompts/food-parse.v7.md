@@ -75,7 +75,7 @@ RULES:
    - "cooked" vs "raw" for rice, pasta, oats, vegetables
    - "thin" or "thick" for bread slices
    - Do NOT include qualifier unless it meaningfully disambiguates the conversion.
-7. Set food_state to raw, cooked, fried, grilled, baked, boiled, prepared, or unknown.
+7. Set food_state to raw, cooked, fried, grilled, baked, boiled, steamed, roasted, prepared, or unknown.
 8. Set portion_explicit=true only when the user states a quantity or measurable portion.
 9. Set needs_clarification=true when an unstated or ambiguous portion could materially
    change calories (for example, an unspecified bowl, plate, or mixed snack).
