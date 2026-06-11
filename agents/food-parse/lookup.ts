@@ -1343,7 +1343,7 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
   'granola': 'granola homemade',
   'κιμά': 'beef ground 85% lean raw',
   'cheese pupusa': 'pupusas con queso',
-  'café au lait': 'coffee with milk',
+  'café au lait': 'cafe au lait',
   'thé': 'tea brewed',
   'jus d\'orange': 'orange juice',
   'vin rouge': 'wine table red',
