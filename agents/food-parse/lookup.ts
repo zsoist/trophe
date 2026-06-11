@@ -130,7 +130,7 @@ async function keywordCandidates(foodName: string): Promise<SelectFood[]> {
     .select()
     .from(foods)
     .where(
-      sql`(name_en ILIKE ${exactishPattern} OR name_en ILIKE ${singularExactishPattern} OR name_en ILIKE ${pluralExactishPattern} OR name_el ILIKE ${exactishPattern} OR name_es ILIKE ${exactishPattern} OR name_fr ILIKE ${exactishPattern})`
+      sql`(name_en ILIKE ${exactishPattern} OR name_en ILIKE ${singularExactishPattern} OR name_en ILIKE ${pluralExactishPattern} OR name_el ILIKE ${exactishPattern} OR name_es ILIKE ${exactishPattern} OR name_fr ILIKE ${exactishPattern} OR name_it ILIKE ${exactishPattern})`
     )
     .limit(10);
 
@@ -155,7 +155,7 @@ async function keywordCandidates(foodName: string): Promise<SelectFood[]> {
     .select()
     .from(foods)
     .where(
-      sql`canonical_food_key IS NOT NULL AND (name_en ILIKE ${canonPattern} OR name_el ILIKE ${canonPattern} OR name_es ILIKE ${canonPattern} OR name_fr ILIKE ${canonPattern})`
+      sql`canonical_food_key IS NOT NULL AND (name_en ILIKE ${canonPattern} OR name_el ILIKE ${canonPattern} OR name_es ILIKE ${canonPattern} OR name_fr ILIKE ${canonPattern} OR name_it ILIKE ${canonPattern})`
     )
     .limit(10);
 
@@ -187,7 +187,7 @@ async function keywordCandidates(foodName: string): Promise<SelectFood[]> {
       .select()
       .from(foods)
       .where(
-        sql`(name_en ILIKE ${pattern} OR name_el ILIKE ${pattern} OR name_es ILIKE ${pattern} OR name_fr ILIKE ${pattern})`
+        sql`(name_en ILIKE ${pattern} OR name_el ILIKE ${pattern} OR name_es ILIKE ${pattern} OR name_fr ILIKE ${pattern} OR name_it ILIKE ${pattern})`
       )
       .limit(KEYWORD_LIMIT);
 
@@ -591,6 +591,11 @@ export const COMMON_PIECE_WEIGHTS: Record<string, number> = {
   // Sushi
   sushi: 30, nigiri: 30, maki: 25, sashimi: 25,
 
+  // Supplements (per scoop/serving)
+  whey_protein: 30, whey_protein_powder: 30, protein_powder: 30,
+  casein_protein_powder: 33, mass_gainer: 150, mass_gainer_powder: 150,
+  pre_workout_powder: 15, pre_workout: 15,
+
   // Miscellaneous
   rice_cake: 9, protein_bar: 60, granola_bar: 35,
   falafel: 25, croquette: 30, arancini: 80,
@@ -882,6 +887,21 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
   'protein powder': 'whey protein powder',
   'proteina': 'whey protein powder',
   'proteina en polvo': 'whey protein powder',
+  'casein': 'casein protein powder',
+  'casein protein': 'casein protein powder',
+  'caseina': 'casein protein powder',
+  'creatine': 'creatine monohydrate',
+  'creatina': 'creatine monohydrate',
+  'creatine monohydrate': 'creatine monohydrate',
+  'bcaa': 'bcaa powder',
+  'bcaas': 'bcaa powder',
+  'collagen': 'collagen peptides',
+  'collagen peptides': 'collagen peptides',
+  'colageno': 'collagen peptides',
+  'colágeno': 'collagen peptides',
+  'mass gainer': 'mass gainer powder',
+  'pre workout': 'pre workout powder',
+  'pre-workout': 'pre workout powder',
   'bacon': 'pork cured bacon',
   'chicken': 'chicken breast grilled',
   'pollo': 'chicken breast grilled',
@@ -1289,6 +1309,14 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
   'vin rouge': 'red wine',
   'vin blanc': 'white wine',
   'bière': 'beer',
+  'biere': 'beer',
+  'café crème': 'cafe creme',
+  'cafe creme': 'cafe creme',
+  'jus d\'orange pressé': 'orange juice fresh squeezed',
+  'jus de pomme': 'apple juice',
+  'jus de fruits': 'fruit juice',
+  'smoothie banane-fraise': 'banana strawberry smoothie',
+  'smoothie banane fraise': 'banana strawberry smoothie',
   'eau': 'water',
   // French composite dishes
   'croque-monsieur': 'croque monsieur',
@@ -1318,16 +1346,92 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
   'tarte aux pommes': 'apple tart',
   'éclair au chocolat': 'chocolate eclair',
   'mille-feuille': 'mille feuille',
+
+  // ── Italian food (CREA DB) ──
+  'prosciutto': 'prosciutto crudo',
+  'prosciutto crudo': 'prosciutto crudo DOP di Parma',
+  'prosciutto cotto': 'prosciutto cotto',
+  'mortadella': 'mortadella Bologna',
+  'parmigiano': 'Parmigiano Reggiano DOP',
+  'parmigiano reggiano': 'Parmigiano Reggiano DOP',
+  'grana padano': 'Grana Padano DOP',
+  'mozzarella': 'mozzarella di vacca',
+  'mozzarella di bufala': 'mozzarella di bufala',
+  'burrata': 'mozzarella di bufala',
+  'ricotta': 'ricotta di vacca',
+  'mascarpone': 'mascarpone',
+  'gorgonzola': 'gorgonzola',
+  'pecorino': 'pecorino',
+  'fontina': 'fontina',
+  'taleggio': 'taleggio',
+  'risotto': 'riso brillato cotto',
+  'gnocchi': 'gnocchi di patate cotti',
+  'tortellini': 'tortellini freschi cotti',
+  'ravioli': 'ravioli cotti',
+  'polenta': 'polenta cotta',
+  'focaccia': 'pizza bianca',
+  'grissini': 'grissini',
+  'panettone': 'panettone',
+  'tiramisu': 'mascarpone',
+  'tiramisù': 'mascarpone',
+  'bresaola': 'bresaola della Valtellina',
+  'speck': 'speck Alto Adige',
+  'salame': 'salame Milano',
+  'pancetta': 'pancetta tesa',
+  'coppa': 'coppa',
+  'salsiccia': 'salsiccia di suino fresca',
+  'cotechino': 'cotechino Modena cotto',
+  'pesto': 'pesto alla genovese',
+  'ragù': 'ragù alla bolognese',
+  'ragu': 'ragù alla bolognese',
+  'carbonara': 'pasta alla carbonara',
+  'amatriciana': 'pasta alla amatriciana',
+  'cacio e pepe': 'pasta cacio e pepe',
+  'arancini': 'riso brillato cotto',
+  'bruschetta': 'pane bianco',
+  'minestrone': 'minestrone cotto',
+  'ribollita': 'minestrone cotto',
+  'ossobuco': 'vitello filetto crudo',
+  'saltimbocca': 'vitello filetto crudo',
+  'carpaccio': 'bovino adulto filetto crudo',
+  'vitello tonnato': 'vitello filetto crudo',
+  'panna cotta': 'panna da cucina',
+  'cannoli': 'cannoli alla crema',
+  'gelato': 'gelato confezionato vaniglia',
+  'espresso': 'caffè tostato',
+  'cappuccino italiano': 'caffè tostato',
+  'prosecco': 'spumante',
+  'limoncello': 'liquori da dessert',
+  'grappa': 'grappa',
+  'acciuga': 'acciuga o alice',
+  'sardina': 'sardine',
+  'tonno': 'tonno',
+  'orata': 'orata filetti',
+  'branzino': 'spigola',
+  'spigola': 'spigola',
+  'calamari': 'calamaro',
+  'polpo': 'polpo',
+  'vongole': 'vongola',
+  'cozze': 'cozza o mitilo',
 };
 
 export function correctFoodName(name: string): string {
   if (!name || typeof name !== 'string') return name ?? '';
   const lower = name.toLowerCase().trim();
-  // Exact match only — prevents greedy substring corruption where e.g.
-  // "banana" inside "banana bread" → "banana raw bread", or
-  // "cafe" inside "cafe con leche" → "coffee brewed con leche".
-  // Composite names should have their own explicit entries in the map.
+  // Exact match first — safest path
   if (FOOD_NAME_CORRECTIONS[lower]) return FOOD_NAME_CORRECTIONS[lower];
+
+  // For multi-word inputs (2-4 words), try progressively shorter prefixes.
+  // Handles code-switch like "σουβλάκι χοιρινό" where "σουβλάκι" is in the map.
+  // Only activates for non-ASCII first tokens to avoid corrupting English phrases.
+  const tokens = lower.split(/\s+/);
+  if (tokens.length >= 2 && tokens.length <= 4 && /[\u0370-\u03ff\u0400-\u04ff\u00c0-\u024f\u1e00-\u1eff]/.test(tokens[0])) {
+    for (let len = tokens.length - 1; len >= 1; len--) {
+      const prefix = tokens.slice(0, len).join(' ');
+      if (FOOD_NAME_CORRECTIONS[prefix]) return FOOD_NAME_CORRECTIONS[prefix];
+    }
+  }
+
   return name;
 }
 

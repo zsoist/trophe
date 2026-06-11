@@ -303,6 +303,33 @@ USDA REFERENCE VALUES (per 100g — use for calibration):
 | Quinoa, cooked | 120 | 4.4 | 21.3 | 1.9 |
 | Broccoli, steamed | 35 | 2.4 | 7.2 | 0.4 |
 
+### Beverages (per 100ml)
+| Beverage | kcal | protein | carbs | fat |
+|----------|------|---------|-------|-----|
+| Orange juice, fresh | 45 | 0.7 | 10.4 | 0.2 |
+| Coffee, black | 2 | 0.3 | 0 | 0 |
+| Café crème / café au lait | 30 | 1.5 | 2.5 | 1.5 |
+| Latte (milk coffee) | 42 | 3.4 | 5.0 | 1.5 |
+| Cappuccino | 38 | 3.0 | 4.5 | 1.3 |
+| Beer, regular | 43 | 0.5 | 3.6 | 0 |
+| Red wine | 85 | 0.1 | 2.6 | 0 |
+| White wine | 82 | 0.1 | 2.6 | 0 |
+| Coca-Cola / Pepsi | 42 | 0 | 10.6 | 0 |
+| Smoothie (banana-strawberry) | 50 | 0.8 | 11.0 | 0.3 |
+| Milk, whole | 61 | 3.2 | 4.8 | 3.3 |
+| Milk, semi-skimmed | 46 | 3.4 | 4.8 | 1.5 |
+
+### Supplements (per 100g)
+| Supplement | kcal | protein | carbs | fat |
+|-----------|------|---------|-------|-----|
+| Whey protein powder | 400 | 80.0 | 7.0 | 5.0 |
+| Casein protein powder | 370 | 75.0 | 8.0 | 4.0 |
+| Creatine monohydrate | 0 | 0 | 0 | 0 |
+| BCAA powder | 400 | 95.0 | 0 | 0 |
+| Collagen peptides | 360 | 90.0 | 0 | 0 |
+| Mass gainer powder | 380 | 15.0 | 70.0 | 5.0 |
+| Pre-workout powder | 200 | 0 | 50.0 | 0 |
+
 STANDARD PORTION SIZES (use when unit is not grams):
 - 1 chicken breast (grilled/baked, implicit) = 120g (a single breast, NOT 150g)
 - 1 salmon fillet (implicit) = 150-170g (single course), 120-130g (in a 3+ item meal)
@@ -344,8 +371,13 @@ STANDARD PORTION SIZES (use when unit is not grams):
 - 1 cucharón/ladle (dense food like beans/rice) = 120-150g
 - 1 can soda = 355ml, 1 can tuna = 112g drained (NOT 170g; that's pre-drain weight)
 - 1 bottle water = 500ml, 1 glass juice = 240ml
-- Monster/Red Bull can = 473ml/250ml
-- 1 scoop whey protein = 30g
+- Monster energy can = 473ml (16oz), Red Bull can = 250ml
+- 1 verre (glass) wine = 150ml, 1 pint beer = 473ml, 1 bière 33cl = 330ml
+- 1 café crème = 200ml, 1 smoothie = 300ml (unless size stated)
+- 1 jus d'orange / orange juice = 250ml (1 glass)
+- 1 scoop whey protein = 30g, 1 scoop casein = 33g
+- 1 serving creatine = 5g (1 tsp), 1 serving BCAA = 10g, 1 serving collagen = 10g
+- 1 serving mass gainer = 150g (2 scoops), 1 serving pre-workout = 15g
 - 1 Oreo cookie = 11g (2 cookies = 22g)
 - 1 cheeseburger = 120-150g
 - 1 medium sweet potato = 114g

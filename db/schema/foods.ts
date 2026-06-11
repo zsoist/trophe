@@ -45,6 +45,7 @@ export const foodSourceEnum = pgEnum('food_source', [
   'menustat',
   'chain_co',
   'ciqual',
+  'crea',
 ]);
 
 export const dataQualityEnum = pgEnum('data_quality', [
@@ -70,6 +71,7 @@ export const foods = pgTable(
     nameEl: text('name_el'),             // Greek
     nameEs: text('name_es'),             // Spanish
     nameFr: text('name_fr'),             // French
+    nameIt: text('name_it'),             // Italian
     brand: text('brand'),
     barcode: text('barcode'),            // UPC/EAN for packaged foods
     region: text('region').array(),      // e.g. ['GR','CY'] for Greek-specific

@@ -748,10 +748,23 @@ export async function run(
   }
 
   // ── Step 0: RAG pre-search — give the LLM DB reference data ───────────────
-  // Only inject RAG for simple (non-composite) inputs.
-  // Composite/multi-item inputs get confused when RAG returns a single-ingredient match.
-  const looksComposite = /[,;+]|( and | with | con | και | y | met )/.test(sanitizedText.toLowerCase());
-  const ragMatches = looksComposite ? [] : await ragPreSearch(sanitizedText);
+  // For multi-item inputs (commas, semicolons), split into fragments and RAG each
+  // separately so every item gets its own DB anchor. Single items search as-is.
+  const multiItemSeparator = /[,;]\s*|\s+(?:and|y|και|et)\s+/i;
+  const hasMultipleItems = multiItemSeparator.test(sanitizedText);
+  let ragMatches: Awaited<ReturnType<typeof ragPreSearch>>;
+  if (hasMultipleItems) {
+    const fragments = sanitizedText.split(multiItemSeparator).map(f => f.trim()).filter(f => f.length >= 2);
+    const perFragment = await Promise.all(fragments.map(f => ragPreSearch(f, 2)));
+    const seen = new Set<string>();
+    ragMatches = perFragment.flat().filter(m => {
+      if (seen.has(m.name)) return false;
+      seen.add(m.name);
+      return true;
+    }).slice(0, 8);
+  } else {
+    ragMatches = await ragPreSearch(sanitizedText);
+  }
   const ragContext = formatRagContext(ragMatches);
 
   const userMessage = `Parse this food input (language: ${language}):\n\n"${sanitizedText}"${ragContext}`;
@@ -946,6 +959,27 @@ export async function run(
       }];
       v4Parsed.needs_clarification = true;
       v4Parsed.clarification_question = `Did you mean 1 ${dominant[0]} or ${dominant[1]}?`;
+    }
+  }
+
+  // ── Step 1c: Beverage unit enforcement ─────────────────────────────────────
+  // When LLM returns a beverage with unit "piece" or "serving", override to a
+  // sensible container default so DB unit conversions resolve correctly.
+  for (const item of v4Parsed.items) {
+    const ft = classifyFoodType(item.food_name);
+    if (ft !== 'beverage') continue;
+    const u = item.unit.toLowerCase().trim();
+    if (u === 'piece' || u === 'unit' || u === 'each' || u === 'serving') {
+      const name = item.food_name.toLowerCase();
+      if (/\b(beer|cerveza|bière|μπύρα|soda|cola|coke|pepsi|sprite|fanta|energy|red\s*bull|monster|gatorade)\b/.test(name)) {
+        item.unit = 'can';
+      } else if (/\b(water|agua|νερό|eau)\b/.test(name)) {
+        item.unit = 'bottle';
+      } else if (/\b(wine|vino|vin|κρασί)\b/.test(name)) {
+        item.unit = 'glass';
+      } else {
+        item.unit = 'cup';
+      }
     }
   }
 

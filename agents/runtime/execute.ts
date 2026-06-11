@@ -98,10 +98,14 @@ export async function executeAiTask<T>(input: ExecuteAiTaskInput<T>): Promise<Ex
     if (!fallback || isTimeout) throw primaryError;
 
     const reason = primaryError instanceof Error ? primaryError.message : String(primaryError);
+    const is429 = reason.includes('429') || reason.toLowerCase().includes('rate limit');
     console.warn(
       `[ai-runtime] ${input.task}: ${policy.provider}/${policy.model} failed → ` +
       `fallback ${fallback.provider}/${fallback.model} | ${reason}`,
     );
+
+    // Back off before retry on rate-limit errors (same provider needs cooldown)
+    if (is429) await new Promise(r => setTimeout(r, 2_000));
 
     // Re-check org budget (the failed attempt may have consumed budget)
     await assertWithinOrganizationBudget(organizationId);
