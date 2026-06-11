@@ -86,6 +86,37 @@ export async function invokeDeepSeekText(input: {
   };
 }
 
+/**
+ * Parse tool-call arguments defensively. DeepSeek occasionally emits a valid
+ * JSON object followed by trailing garbage (duplicated fragment, stray text),
+ * which makes JSON.parse throw "Unexpected non-whitespace character after JSON".
+ * Recover by extracting the first balanced top-level object.
+ */
+function parseToolArguments(raw: string): unknown {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    const start = raw.indexOf('{');
+    if (start === -1) throw new Error('DeepSeek tool arguments contain no JSON object');
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    for (let i = start; i < raw.length; i++) {
+      const ch = raw[i];
+      if (escaped) { escaped = false; continue; }
+      if (ch === '\\') { if (inString) escaped = true; continue; }
+      if (ch === '"') { inString = !inString; continue; }
+      if (inString) continue;
+      if (ch === '{') depth++;
+      else if (ch === '}') {
+        depth--;
+        if (depth === 0) return JSON.parse(raw.slice(start, i + 1));
+      }
+    }
+    throw new Error('DeepSeek tool arguments JSON never balances');
+  }
+}
+
 export async function invokeDeepSeekStructured<T>(input: {
   model: 'deepseek-v4-flash' | 'deepseek-v4-pro';
   system: string;
@@ -133,7 +164,7 @@ export async function invokeDeepSeekStructured<T>(input: {
     console.info(`[deepseek] Cache hit: ${structCacheHitTokens}/${structTotalPromptTokens} tokens (${hitRate}%) — structured call (${input.toolName})`);
   }
   return {
-    output: input.validator.parse(JSON.parse(rawArguments)),
+    output: input.validator.parse(parseToolArguments(rawArguments)),
     providerGenerationId: data.id,
     usage: {
       inputTokens: structTotalPromptTokens,

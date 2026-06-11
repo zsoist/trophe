@@ -52,9 +52,15 @@ function rangeCenter(expected?: Range) {
   return expected ? (expected.min + expected.max) / 2 : null;
 }
 
-function errorMetrics(actual: number, expected?: Range) {
+// MAPE is undefined near zero: a 0-cal supplement with range center 2.5 scores
+// 100% APE for being exactly right. Exclude tiny denominators (NutriBench does
+// the same) — calories < 10 kcal, macros < 2 g.
+const MIN_APE_CENTER_CALORIES = 10;
+const MIN_APE_CENTER_MACRO = 2;
+
+function errorMetrics(actual: number, expected: Range | undefined, minCenter: number) {
   const center = rangeCenter(expected);
-  if (center === null || center === 0) return { signedError: null, absolutePercentageError: null };
+  if (center === null || center < minCenter) return { signedError: null, absolutePercentageError: null };
   return {
     signedError: actual - center,
     absolutePercentageError: Math.abs(actual - center) / center,
@@ -166,10 +172,10 @@ async function runCase(test: EvalCase, token: string) {
     clarification: !test.expect_needs_clarification || data.needs_clarification === true || items.length === 0,
   };
   const errors = {
-    calories: errorMetrics(totals.calories, test.expect_total?.calories),
-    protein: errorMetrics(totals.protein_g, test.expect_total?.protein_g),
-    carbs: errorMetrics(totals.carbs_g, test.expect_total?.carbs_g),
-    fat: errorMetrics(totals.fat_g, test.expect_total?.fat_g),
+    calories: errorMetrics(totals.calories, test.expect_total?.calories, MIN_APE_CENTER_CALORIES),
+    protein: errorMetrics(totals.protein_g, test.expect_total?.protein_g, MIN_APE_CENTER_MACRO),
+    carbs: errorMetrics(totals.carbs_g, test.expect_total?.carbs_g, MIN_APE_CENTER_MACRO),
+    fat: errorMetrics(totals.fat_g, test.expect_total?.fat_g, MIN_APE_CENTER_MACRO),
   };
   return {
     id: test.id,
@@ -250,17 +256,18 @@ async function main() {
     groups,
     accAt7_5: (() => {
       const threshold = 0.075;
-      const eligible = results.filter(r =>
-        r.errors.calories.absolutePercentageError !== null &&
-        r.errors.protein.absolutePercentageError !== null &&
-        r.errors.carbs.absolutePercentageError !== null &&
-        r.errors.fat.absolutePercentageError !== null
-      );
+      // Eligible: calories APE computable. Macros with near-zero expected
+      // centers (APE excluded) count as passing when the value is in range.
+      const macroOk = (r: typeof results[number], metric: 'protein' | 'carbs' | 'fat') => {
+        const ape = r.errors[metric].absolutePercentageError;
+        if (ape !== null) return ape <= threshold;
+        const check = r.checks[metric];
+        return check === true;
+      };
+      const eligible = results.filter(r => r.errors.calories.absolutePercentageError !== null);
       const passing = eligible.filter(r =>
         r.errors.calories.absolutePercentageError! <= threshold &&
-        r.errors.protein.absolutePercentageError! <= threshold &&
-        r.errors.carbs.absolutePercentageError! <= threshold &&
-        r.errors.fat.absolutePercentageError! <= threshold
+        macroOk(r, 'protein') && macroOk(r, 'carbs') && macroOk(r, 'fat')
       );
       return { passed: passing.length, eligible: eligible.length, rate: eligible.length > 0 ? passing.length / eligible.length : 0 };
     })(),
