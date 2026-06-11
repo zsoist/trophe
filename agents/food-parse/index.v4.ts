@@ -201,16 +201,25 @@ function applyMetabolicConsistency(item: ParsedFoodItem): ParsedFoodItem {
 
   // If macros and calories diverge by >30%, redistribute macros to match stated calories
   // (Conservative: only correct extreme inconsistencies to avoid overcorrection)
+  //
+  // EXCEPTION — alcohol: ethanol carries 7 kcal/g that belongs to NO macro, so
+  // wine at 128 kcal with 3.9g carbs is CORRECT, not inconsistent. Scaling up
+  // would invent carbs (the 8×-carbs wine bug). Never scale UP for alcoholic
+  // drinks; scaling down (macros overstate energy) is always safe.
   if (divergence > 0.30) {
-    // Keep the ratio between macros the same, scale to match stated calories
     const scaleFactor = item.calories / computedCal;
-    item.protein_g = Math.round(item.protein_g * scaleFactor * 10) / 10;
-    item.carbs_g = Math.round(item.carbs_g * scaleFactor * 10) / 10;
-    item.fat_g = Math.round(item.fat_g * scaleFactor * 10) / 10;
+    const isAlcoholic = ALCOHOL_NAME_PATTERN.test(`${item.food_name} ${item.name_localized ?? ''}`);
+    if (scaleFactor < 1 || !isAlcoholic) {
+      item.protein_g = Math.round(item.protein_g * scaleFactor * 10) / 10;
+      item.carbs_g = Math.round(item.carbs_g * scaleFactor * 10) / 10;
+      item.fat_g = Math.round(item.fat_g * scaleFactor * 10) / 10;
+    }
   }
 
   return item;
 }
+
+const ALCOHOL_NAME_PATTERN = /wine|beer|ale\b|lager|stout|cocktail|mojito|margarita|martini|sangria|champagne|prosecco|cava\b|cider|rum\b|vodka|whisk|tequila|gin\b|brandy|cognac|liqueur|aperol|spritz|negroni|alcohol|vino|cerveza|bière|biere|κρασί|μπίρα|μπύρα|ούζο|τσίπουρο|ouzo|raki|soju|sake/i;
 
 interface ArbitrationResult {
   source: 'local_db' | 'llm_cot' | 'hybrid';
