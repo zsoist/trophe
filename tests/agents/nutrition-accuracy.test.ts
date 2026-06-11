@@ -65,6 +65,7 @@ describe('nutrition accuracy guardrails', () => {
         nameEl: null,
         nameEs: null,
         nameFr: null,
+        nameIt: null,
         brand: null,
         barcode: null,
         region: ['US'],

@@ -78,12 +78,14 @@ agents/
 
 **v7 food-parse pipeline (June 2026)**: LLM extracts `{food_name, qty, unit}` AND per-100g CoT estimates. `lookup.ts` does pgvector + pg_trgm hybrid retrieval → `foods` table supplies DB macros. `arbitrateDbVsCoT()` picks the best source: explicit portions → DB wins; <30% divergence → DB wins; >30% divergence → LLM grams + DB per-100g ratios; high-confidence DB (≥0.85) → always DB. `decompose.ts` handles composite dishes via `dish_recipes` cache + `COMMON_PIECE_WEIGHTS` map (80+ entries). 4-language support (EN/ES/EL/FR). 11,396 foods (USDA + CIQUAL 2025). Enterprise benchmark v3.6: 549 cases (4 languages, 13 categories), 79.2% pass rate, 8.4% calorie MAPE, 43.8% Acc@7.5.
 
-**LLM routing** (cost-optimized, DeepSeek-first for applicable tasks):
-- `food_parse` → Gemini 2.5 Flash (~$0.05/active-day)
-- `recipe` → Haiku 4.5 + ephemeral cache (~70% spend reduction)
-- `coach_insight` → DeepSeek V4 Flash (primary), Sonnet 4.5 (fallback)
-- `meal_suggest` → DeepSeek V4 Flash (primary), Gemini (fallback)
-- `embed` → Voyage v4 `voyage-3-large` 1024-dim
+**LLM routing** (cost-optimized, 100% DeepSeek for text, June 2026):
+- `food_parse` → DeepSeek V4 Flash (primary + fallback)
+- `recipe` → DeepSeek V4 Flash (primary + fallback)
+- `coach_insight` → DeepSeek V4 Flash (primary + fallback)
+- `meal_suggest` → DeepSeek V4 Flash (primary + fallback)
+- `memory_extract` → DeepSeek V4 Flash (primary + fallback)
+- `photo_analyze` → Anthropic Haiku 4.5 (vision, no fallback)
+- `embed` → Voyage v4 1024-dim
 
 ---
 
