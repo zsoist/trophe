@@ -6038,20 +6038,20 @@
       "expect_recognized": true,
       "expect_total": {
         "calories": {
-          "min": 340,
-          "max": 500
+          "min": 324.0,
+          "max": 516.0
         },
         "protein_g": {
-          "min": 15,
-          "max": 22
+          "min": 14.3,
+          "max": 22.7
         },
         "carbs_g": {
-          "min": 32,
-          "max": 50
+          "min": 30.2,
+          "max": 51.8
         },
         "fat_g": {
-          "min": 16,
-          "max": 26
+          "min": 15.0,
+          "max": 27.0
         }
       },
       "expect_source": [
@@ -6070,20 +6070,20 @@
       "expect_recognized": true,
       "expect_total": {
         "calories": {
-          "min": 380,
-          "max": 520
+          "min": 366.0,
+          "max": 534.0
         },
         "protein_g": {
-          "min": 36,
-          "max": 50
+          "min": 34.6,
+          "max": 51.4
         },
         "carbs_g": {
-          "min": 42,
-          "max": 60
+          "min": 40.2,
+          "max": 61.8
         },
         "fat_g": {
-          "min": 5,
-          "max": 12
+          "min": 4.3,
+          "max": 12.7
         }
       },
       "expect_source": [
@@ -6102,20 +6102,20 @@
       "expect_recognized": true,
       "expect_total": {
         "calories": {
-          "min": 340,
-          "max": 480
+          "min": 326.0,
+          "max": 494.0
         },
         "protein_g": {
-          "min": 16,
-          "max": 24
+          "min": 15.2,
+          "max": 24.8
         },
         "carbs_g": {
-          "min": 30,
-          "max": 48
+          "min": 28.2,
+          "max": 49.8
         },
         "fat_g": {
-          "min": 16,
-          "max": 26
+          "min": 15.0,
+          "max": 27.0
         }
       },
       "expect_source": [
@@ -6134,20 +6134,20 @@
       "expect_recognized": true,
       "expect_total": {
         "calories": {
-          "min": 350,
-          "max": 550
+          "min": 330.0,
+          "max": 570.0
         },
         "protein_g": {
-          "min": 16,
-          "max": 28
+          "min": 14.8,
+          "max": 29.2
         },
         "carbs_g": {
-          "min": 28,
-          "max": 50
+          "min": 25.8,
+          "max": 52.2
         },
         "fat_g": {
-          "min": 12,
-          "max": 24
+          "min": 10.8,
+          "max": 25.2
         }
       },
       "expect_source": [
@@ -6167,20 +6167,20 @@
       "expect_recognized": true,
       "expect_total": {
         "calories": {
-          "min": 500,
-          "max": 720
+          "min": 478.0,
+          "max": 742.0
         },
         "protein_g": {
-          "min": 34,
-          "max": 50
+          "min": 32.4,
+          "max": 51.6
         },
         "carbs_g": {
-          "min": 38,
-          "max": 55
+          "min": 36.3,
+          "max": 56.7
         },
         "fat_g": {
-          "min": 22,
-          "max": 38
+          "min": 20.4,
+          "max": 39.6
         }
       },
       "expect_source": [
@@ -6199,20 +6199,20 @@
       "expect_recognized": true,
       "expect_total": {
         "calories": {
-          "min": 350,
-          "max": 520
+          "min": 333.0,
+          "max": 537.0
         },
         "protein_g": {
-          "min": 14,
-          "max": 24
+          "min": 13.0,
+          "max": 25.0
         },
         "carbs_g": {
-          "min": 48,
-          "max": 72
+          "min": 45.6,
+          "max": 74.4
         },
         "fat_g": {
-          "min": 14,
-          "max": 26
+          "min": 12.8,
+          "max": 27.2
         }
       },
       "expect_source": [
@@ -6231,20 +6231,20 @@
       "expect_recognized": true,
       "expect_total": {
         "calories": {
-          "min": 500,
-          "max": 800
+          "min": 470.0,
+          "max": 830.0
         },
         "protein_g": {
-          "min": 30,
-          "max": 50
+          "min": 28.0,
+          "max": 52.0
         },
         "carbs_g": {
-          "min": 60,
-          "max": 95
+          "min": 56.5,
+          "max": 98.5
         },
         "fat_g": {
-          "min": 14,
-          "max": 30
+          "min": 12.4,
+          "max": 31.6
         }
       },
       "expect_source": [
@@ -6264,20 +6264,20 @@
       "expect_recognized": true,
       "expect_total": {
         "calories": {
-          "min": 370,
-          "max": 480
+          "min": 359.0,
+          "max": 491.0
         },
         "protein_g": {
-          "min": 28,
-          "max": 38
+          "min": 27.0,
+          "max": 39.0
         },
         "carbs_g": {
-          "min": 32,
-          "max": 46
+          "min": 30.6,
+          "max": 47.4
         },
         "fat_g": {
-          "min": 15,
-          "max": 22
+          "min": 14.3,
+          "max": 22.7
         }
       },
       "expect_source": [
@@ -6293,24 +6293,24 @@
       "input": "2 φέτες ψωμί με 30γρ φέτα και ελιές",
       "language": "el",
       "category": "multi_item",
-      "expect_item_count": 3,
+      "expect_item_count": 1,
       "expect_recognized": true,
       "expect_total": {
         "calories": {
-          "min": 240,
-          "max": 380
+          "min": 226.0,
+          "max": 394.0
         },
         "protein_g": {
-          "min": 9,
-          "max": 16
+          "min": 8.3,
+          "max": 16.7
         },
         "carbs_g": {
-          "min": 24,
-          "max": 40
+          "min": 22.4,
+          "max": 41.6
         },
         "fat_g": {
-          "min": 12,
-          "max": 22
+          "min": 11.0,
+          "max": 23.0
         }
       },
       "expect_source": [
@@ -6329,20 +6329,20 @@
       "expect_recognized": true,
       "expect_total": {
         "calories": {
-          "min": 380,
-          "max": 540
+          "min": 364.0,
+          "max": 556.0
         },
         "protein_g": {
-          "min": 10,
-          "max": 18
+          "min": 9.2,
+          "max": 18.8
         },
         "carbs_g": {
-          "min": 58,
-          "max": 82
+          "min": 55.6,
+          "max": 84.4
         },
         "fat_g": {
-          "min": 10,
-          "max": 20
+          "min": 9.0,
+          "max": 21.0
         }
       },
       "expect_source": [
@@ -6361,20 +6361,20 @@
       "expect_recognized": true,
       "expect_total": {
         "calories": {
-          "min": 500,
-          "max": 750
+          "min": 475.0,
+          "max": 775.0
         },
         "protein_g": {
-          "min": 30,
-          "max": 48
+          "min": 28.2,
+          "max": 49.8
         },
         "carbs_g": {
-          "min": 35,
-          "max": 58
+          "min": 32.7,
+          "max": 60.3
         },
         "fat_g": {
-          "min": 22,
-          "max": 42
+          "min": 20.0,
+          "max": 44.0
         }
       },
       "expect_source": [
@@ -6394,20 +6394,20 @@
       "expect_recognized": true,
       "expect_total": {
         "calories": {
-          "min": 380,
-          "max": 560
+          "min": 362.0,
+          "max": 578.0
         },
         "protein_g": {
-          "min": 24,
-          "max": 36
+          "min": 22.8,
+          "max": 37.2
         },
         "carbs_g": {
-          "min": 24,
-          "max": 40
+          "min": 22.4,
+          "max": 41.6
         },
         "fat_g": {
-          "min": 20,
-          "max": 34
+          "min": 18.6,
+          "max": 35.4
         }
       },
       "expect_source": [
@@ -6426,20 +6426,20 @@
       "expect_recognized": true,
       "expect_total": {
         "calories": {
-          "min": 440,
-          "max": 640
+          "min": 420.0,
+          "max": 660.0
         },
         "protein_g": {
-          "min": 16,
-          "max": 26
+          "min": 15.0,
+          "max": 27.0
         },
         "carbs_g": {
-          "min": 35,
-          "max": 55
+          "min": 33.0,
+          "max": 57.0
         },
         "fat_g": {
-          "min": 24,
-          "max": 40
+          "min": 22.4,
+          "max": 41.6
         }
       },
       "expect_source": [
@@ -6458,20 +6458,20 @@
       "expect_recognized": true,
       "expect_total": {
         "calories": {
-          "min": 300,
-          "max": 450
+          "min": 285.0,
+          "max": 465.0
         },
         "protein_g": {
-          "min": 32,
-          "max": 46
+          "min": 30.6,
+          "max": 47.4
         },
         "carbs_g": {
-          "min": 28,
-          "max": 44
+          "min": 26.4,
+          "max": 45.6
         },
         "fat_g": {
-          "min": 4,
-          "max": 10
+          "min": 3.4,
+          "max": 10.6
         }
       },
       "expect_source": [
@@ -6490,20 +6490,20 @@
       "expect_recognized": true,
       "expect_total": {
         "calories": {
-          "min": 280,
-          "max": 420
+          "min": 266.0,
+          "max": 434.0
         },
         "protein_g": {
-          "min": 22,
-          "max": 32
+          "min": 21.0,
+          "max": 33.0
         },
         "carbs_g": {
-          "min": 22,
-          "max": 38
+          "min": 20.4,
+          "max": 39.6
         },
         "fat_g": {
-          "min": 12,
-          "max": 20
+          "min": 11.2,
+          "max": 20.8
         }
       },
       "expect_source": [
@@ -8146,20 +8146,20 @@
       "expect_item_count": 3,
       "expect_total": {
         "calories": {
-          "min": 345,
-          "max": 576
+          "min": 321.9,
+          "max": 599.1
         },
         "protein_g": {
-          "min": 13.3,
-          "max": 22.1
+          "min": 12.4,
+          "max": 23.0
         },
         "carbs_g": {
-          "min": 60.7,
-          "max": 101.1
+          "min": 56.7,
+          "max": 105.1
         },
         "fat_g": {
-          "min": 7.7,
-          "max": 12.8
+          "min": 7.2,
+          "max": 13.3
         }
       },
       "expect_safety": true,
@@ -8174,20 +8174,20 @@
       "expect_item_count": 1,
       "expect_total": {
         "calories": {
-          "min": 322,
-          "max": 538
+          "min": 300.4,
+          "max": 559.6
         },
         "protein_g": {
-          "min": 26.2,
-          "max": 43.8
+          "min": 24.4,
+          "max": 45.6
         },
         "carbs_g": {
-          "min": 11.2,
-          "max": 18.8
+          "min": 10.4,
+          "max": 19.6
         },
         "fat_g": {
-          "min": 18.8,
-          "max": 31.2
+          "min": 17.6,
+          "max": 32.4
         }
       },
       "expect_safety": true,
@@ -8199,23 +8199,23 @@
       "input": "dinner: spaghetti bolognese with parmesan cheese and a side of garlic bread",
       "language": "en",
       "category": "multi_item",
-      "expect_item_count": 3,
+      "expect_item_count": 2,
       "expect_total": {
         "calories": {
-          "min": 592,
-          "max": 988
+          "min": 552.4,
+          "max": 1027.6
         },
         "protein_g": {
-          "min": 22.8,
-          "max": 38
+          "min": 21.3,
+          "max": 39.5
         },
         "carbs_g": {
-          "min": 67.3,
-          "max": 112.1
+          "min": 62.8,
+          "max": 116.6
         },
         "fat_g": {
-          "min": 24.5,
-          "max": 40.8
+          "min": 22.9,
+          "max": 42.4
         }
       },
       "expect_safety": true,
@@ -8230,20 +8230,20 @@
       "expect_item_count": 3,
       "expect_total": {
         "calories": {
-          "min": 340,
-          "max": 566
+          "min": 317.4,
+          "max": 588.6
         },
         "protein_g": {
-          "min": 12.5,
-          "max": 20.9
+          "min": 11.7,
+          "max": 21.7
         },
         "carbs_g": {
-          "min": 33.5,
-          "max": 55.9
+          "min": 31.3,
+          "max": 58.1
         },
         "fat_g": {
-          "min": 17.2,
-          "max": 28.8
+          "min": 16.0,
+          "max": 30.0
         }
       },
       "expect_safety": true,
@@ -8258,20 +8258,20 @@
       "expect_item_count": 1,
       "expect_total": {
         "calories": {
-          "min": 289,
-          "max": 481
+          "min": 269.8,
+          "max": 500.2
         },
         "protein_g": {
-          "min": 19.8,
-          "max": 33
+          "min": 18.5,
+          "max": 34.3
         },
         "carbs_g": {
-          "min": 29.7,
-          "max": 49.5
+          "min": 27.7,
+          "max": 51.5
         },
         "fat_g": {
-          "min": 10.7,
-          "max": 17.9
+          "min": 10.0,
+          "max": 18.6
         }
       },
       "expect_safety": true,
@@ -8286,20 +8286,20 @@
       "expect_item_count": 3,
       "expect_total": {
         "calories": {
-          "min": 317,
-          "max": 529
+          "min": 295.8,
+          "max": 550.2
         },
         "protein_g": {
-          "min": 34.5,
-          "max": 57.5
+          "min": 32.2,
+          "max": 59.8
         },
         "carbs_g": {
-          "min": 19,
-          "max": 31.8
+          "min": 17.7,
+          "max": 33.1
         },
         "fat_g": {
-          "min": 11,
-          "max": 18.4
+          "min": 10.3,
+          "max": 19.1
         }
       },
       "expect_safety": true,
@@ -8311,23 +8311,23 @@
       "input": "breakfast: a bowl of cereal with milk and a side of bacon",
       "language": "en",
       "category": "multi_item",
-      "expect_item_count": 3,
+      "expect_item_count": 2,
       "expect_total": {
         "calories": {
-          "min": 298,
-          "max": 498
+          "min": 278.0,
+          "max": 518.0
         },
         "protein_g": {
-          "min": 16.3,
-          "max": 27.1
+          "min": 15.2,
+          "max": 28.2
         },
         "carbs_g": {
-          "min": 22.9,
-          "max": 38.1
+          "min": 21.4,
+          "max": 39.6
         },
         "fat_g": {
-          "min": 15.7,
-          "max": 26.1
+          "min": 14.7,
+          "max": 27.1
         }
       },
       "expect_safety": true,
@@ -8342,20 +8342,20 @@
       "expect_item_count": 4,
       "expect_total": {
         "calories": {
-          "min": 286,
-          "max": 477
+          "min": 266.9,
+          "max": 496.1
         },
         "protein_g": {
-          "min": 26.6,
-          "max": 44.4
+          "min": 24.8,
+          "max": 46.2
         },
         "carbs_g": {
-          "min": 16.4,
-          "max": 27.4
+          "min": 15.3,
+          "max": 28.5
         },
         "fat_g": {
-          "min": 13,
-          "max": 21.6
+          "min": 12.1,
+          "max": 22.5
         }
       },
       "expect_safety": true,
@@ -8370,20 +8370,20 @@
       "expect_item_count": 3,
       "expect_total": {
         "calories": {
-          "min": 600,
-          "max": 1000
+          "min": 560.0,
+          "max": 1040.0
         },
         "protein_g": {
-          "min": 17.7,
-          "max": 29.5
+          "min": 16.5,
+          "max": 30.7
         },
         "carbs_g": {
-          "min": 94.9,
-          "max": 158.2
+          "min": 88.6,
+          "max": 164.5
         },
         "fat_g": {
-          "min": 18.6,
-          "max": 31
+          "min": 17.4,
+          "max": 32.2
         }
       },
       "expect_safety": true,
@@ -8398,20 +8398,20 @@
       "expect_item_count": 3,
       "expect_total": {
         "calories": {
-          "min": 252,
-          "max": 420
+          "min": 235.2,
+          "max": 436.8
         },
         "protein_g": {
-          "min": 6.3,
-          "max": 10.5
+          "min": 5.9,
+          "max": 10.9
         },
         "carbs_g": {
-          "min": 37.3,
-          "max": 62.1
+          "min": 34.8,
+          "max": 64.6
         },
         "fat_g": {
-          "min": 9.8,
-          "max": 16.2
+          "min": 9.2,
+          "max": 16.8
         }
       },
       "expect_safety": true,
@@ -8426,20 +8426,20 @@
       "expect_item_count": 3,
       "expect_total": {
         "calories": {
-          "min": 390,
-          "max": 650
+          "min": 364.0,
+          "max": 676.0
         },
         "protein_g": {
-          "min": 24,
-          "max": 40
+          "min": 22.4,
+          "max": 41.6
         },
         "carbs_g": {
-          "min": 43.5,
-          "max": 72.5
+          "min": 40.6,
+          "max": 75.4
         },
         "fat_g": {
-          "min": 12,
-          "max": 20
+          "min": 11.2,
+          "max": 20.8
         }
       },
       "expect_safety": true,
@@ -8454,20 +8454,20 @@
       "expect_item_count": 3,
       "expect_total": {
         "calories": {
-          "min": 658,
-          "max": 1098
+          "min": 614.0,
+          "max": 1142.0
         },
         "protein_g": {
-          "min": 38.8,
-          "max": 64.6
+          "min": 36.2,
+          "max": 67.2
         },
         "carbs_g": {
-          "min": 108.1,
-          "max": 180.1
+          "min": 100.9,
+          "max": 187.3
         },
         "fat_g": {
-          "min": 8.8,
-          "max": 14.6
+          "min": 8.2,
+          "max": 15.2
         }
       },
       "expect_safety": true,
@@ -8482,20 +8482,20 @@
       "expect_item_count": 2,
       "expect_total": {
         "calories": {
-          "min": 244,
-          "max": 407
+          "min": 227.7,
+          "max": 423.3
         },
         "protein_g": {
-          "min": 8.2,
-          "max": 13.8
+          "min": 7.6,
+          "max": 14.4
         },
         "carbs_g": {
-          "min": 38.2,
-          "max": 63.6
+          "min": 35.7,
+          "max": 66.1
         },
         "fat_g": {
-          "min": 6.9,
-          "max": 11.5
+          "min": 6.4,
+          "max": 12.0
         }
       },
       "expect_safety": true,
@@ -8510,20 +8510,20 @@
       "expect_item_count": 3,
       "expect_total": {
         "calories": {
-          "min": 514,
-          "max": 857
+          "min": 479.7,
+          "max": 891.3
         },
         "protein_g": {
-          "min": 23.8,
-          "max": 39.8
+          "min": 22.2,
+          "max": 41.4
         },
         "carbs_g": {
-          "min": 73.1,
-          "max": 121.9
+          "min": 68.2,
+          "max": 126.8
         },
         "fat_g": {
-          "min": 15.8,
-          "max": 26.2
+          "min": 14.8,
+          "max": 27.2
         }
       },
       "expect_safety": true,
@@ -8538,20 +8538,20 @@
       "expect_item_count": 3,
       "expect_total": {
         "calories": {
-          "min": 339,
-          "max": 566
+          "min": 316.3,
+          "max": 588.7
         },
         "protein_g": {
-          "min": 8.2,
-          "max": 13.6
+          "min": 7.7,
+          "max": 14.1
         },
         "carbs_g": {
-          "min": 47,
-          "max": 78.2
+          "min": 43.9,
+          "max": 81.3
         },
         "fat_g": {
-          "min": 13.6,
-          "max": 22.6
+          "min": 12.7,
+          "max": 23.5
         }
       },
       "expect_safety": true,
@@ -8566,20 +8566,20 @@
       "expect_item_count": 4,
       "expect_total": {
         "calories": {
-          "min": 632,
-          "max": 1054
+          "min": 589.8,
+          "max": 1096.2
         },
         "protein_g": {
-          "min": 34.7,
-          "max": 57.9
+          "min": 32.4,
+          "max": 60.2
         },
         "carbs_g": {
-          "min": 56.3,
-          "max": 93.9
+          "min": 52.5,
+          "max": 97.7
         },
         "fat_g": {
-          "min": 28.4,
-          "max": 47.4
+          "min": 26.5,
+          "max": 49.3
         }
       },
       "expect_safety": true,
@@ -8594,20 +8594,20 @@
       "expect_item_count": 3,
       "expect_total": {
         "calories": {
-          "min": 435,
-          "max": 725
+          "min": 406.0,
+          "max": 754.0
         },
         "protein_g": {
-          "min": 33.2,
-          "max": 55.2
+          "min": 31.0,
+          "max": 57.4
         },
         "carbs_g": {
-          "min": 37.1,
-          "max": 61.9
+          "min": 34.6,
+          "max": 64.4
         },
         "fat_g": {
-          "min": 17.2,
-          "max": 28.8
+          "min": 16.0,
+          "max": 30.0
         }
       },
       "expect_safety": true,
@@ -8622,20 +8622,20 @@
       "expect_item_count": 3,
       "expect_total": {
         "calories": {
-          "min": 256,
-          "max": 427
+          "min": 238.9,
+          "max": 444.1
         },
         "protein_g": {
-          "min": 14.2,
-          "max": 23.6
+          "min": 13.3,
+          "max": 24.5
         },
         "carbs_g": {
-          "min": 40,
-          "max": 66.8
+          "min": 37.3,
+          "max": 69.5
         },
         "fat_g": {
-          "min": 6.9,
-          "max": 11.5
+          "min": 6.4,
+          "max": 12.0
         }
       },
       "expect_safety": true,
@@ -8650,20 +8650,20 @@
       "expect_item_count": 3,
       "expect_total": {
         "calories": {
-          "min": 394,
-          "max": 656
+          "min": 367.8,
+          "max": 682.2
         },
         "protein_g": {
-          "min": 21.1,
-          "max": 35.1
+          "min": 19.7,
+          "max": 36.5
         },
         "carbs_g": {
-          "min": 39.7,
-          "max": 66.1
+          "min": 37.1,
+          "max": 68.7
         },
         "fat_g": {
-          "min": 15.8,
-          "max": 26.2
+          "min": 14.8,
+          "max": 27.2
         }
       },
       "expect_safety": true,
@@ -8678,20 +8678,20 @@
       "expect_item_count": 3,
       "expect_total": {
         "calories": {
-          "min": 344,
-          "max": 573
+          "min": 321.1,
+          "max": 595.9
         },
         "protein_g": {
-          "min": 8.6,
-          "max": 14.2
+          "min": 8.0,
+          "max": 14.8
         },
         "carbs_g": {
-          "min": 46.5,
-          "max": 77.5
+          "min": 43.4,
+          "max": 80.6
         },
         "fat_g": {
-          "min": 13.6,
-          "max": 22.8
+          "min": 12.7,
+          "max": 23.7
         }
       },
       "expect_safety": true,
@@ -8706,20 +8706,20 @@
       "expect_item_count": 3,
       "expect_total": {
         "calories": {
-          "min": 576,
-          "max": 961
+          "min": 537.5,
+          "max": 999.5
         },
         "protein_g": {
-          "min": 25.7,
-          "max": 42.9
+          "min": 24.0,
+          "max": 44.6
         },
         "carbs_g": {
-          "min": 62.6,
-          "max": 104.4
+          "min": 58.4,
+          "max": 108.6
         },
         "fat_g": {
-          "min": 23.8,
-          "max": 39.6
+          "min": 22.2,
+          "max": 41.2
         }
       },
       "expect_safety": true,
@@ -8734,20 +8734,20 @@
       "expect_item_count": 3,
       "expect_total": {
         "calories": {
-          "min": 615,
-          "max": 1025
+          "min": 574.0,
+          "max": 1066.0
         },
         "protein_g": {
-          "min": 23.9,
-          "max": 39.9
+          "min": 22.3,
+          "max": 41.5
         },
         "carbs_g": {
-          "min": 70.7,
-          "max": 117.8
+          "min": 66.0,
+          "max": 122.5
         },
         "fat_g": {
-          "min": 24.8,
-          "max": 41.4
+          "min": 23.1,
+          "max": 43.1
         }
       },
       "expect_safety": true,
@@ -8762,20 +8762,20 @@
       "expect_item_count": 4,
       "expect_total": {
         "calories": {
-          "min": 424,
-          "max": 706
+          "min": 395.8,
+          "max": 734.2
         },
         "protein_g": {
-          "min": 12.6,
-          "max": 21
+          "min": 11.8,
+          "max": 21.8
         },
         "carbs_g": {
-          "min": 53.1,
-          "max": 88.5
+          "min": 49.6,
+          "max": 92.0
         },
         "fat_g": {
-          "min": 17.6,
-          "max": 29.4
+          "min": 16.4,
+          "max": 30.6
         }
       },
       "expect_safety": true,
@@ -8790,20 +8790,20 @@
       "expect_item_count": 3,
       "expect_total": {
         "calories": {
-          "min": 399,
-          "max": 664
+          "min": 372.5,
+          "max": 690.5
         },
         "protein_g": {
-          "min": 28.5,
-          "max": 47.5
+          "min": 26.6,
+          "max": 49.4
         },
         "carbs_g": {
-          "min": 32.1,
-          "max": 53.5
+          "min": 30.0,
+          "max": 55.6
         },
         "fat_g": {
-          "min": 17.7,
-          "max": 29.5
+          "min": 16.5,
+          "max": 30.7
         }
       },
       "expect_safety": true,
@@ -10263,7 +10263,7 @@
         }
       },
       "expect_safety": true,
-      "expect_needs_clarification": true,
+      "expect_needs_clarification": false,
       "notes": "Based on KIND Dark Chocolate Nuts & Sea Salt bar (USDA, ~200 kcal, 5g protein, 21g carbs, 12g fat); flavor not specified."
     },
     {
@@ -10375,7 +10375,7 @@
         }
       },
       "expect_safety": true,
-      "expect_needs_clarification": true,
+      "expect_needs_clarification": false,
       "notes": "Macros basados en CIQUAL para Kiri porción (20g)"
     },
     {
@@ -10403,7 +10403,7 @@
         }
       },
       "expect_safety": true,
-      "expect_needs_clarification": true,
+      "expect_needs_clarification": false,
       "notes": "Macros basados en USDA para KIND bar (40g) - sabor genérico, necesita aclarar sabor exacto"
     },
     {
@@ -12234,20 +12234,20 @@
       "expect_item_count": 3,
       "expect_total": {
         "calories": {
-          "min": 427,
-          "max": 712
+          "min": 398.5,
+          "max": 740.5
         },
         "protein_g": {
-          "min": 51.5,
-          "max": 85.9
+          "min": 48.1,
+          "max": 89.3
         },
         "carbs_g": {
-          "min": 34.2,
-          "max": 57
+          "min": 31.9,
+          "max": 59.3
         },
         "fat_g": {
-          "min": 8.9,
-          "max": 14.9
+          "min": 8.3,
+          "max": 15.5
         }
       },
       "expect_safety": true,
@@ -12262,20 +12262,20 @@
       "expect_item_count": 3,
       "expect_total": {
         "calories": {
-          "min": 416,
-          "max": 694
+          "min": 388.2,
+          "max": 721.8
         },
         "protein_g": {
-          "min": 35.6,
-          "max": 59.4
+          "min": 33.2,
+          "max": 61.8
         },
         "carbs_g": {
-          "min": 21.6,
-          "max": 36
+          "min": 20.2,
+          "max": 37.4
         },
         "fat_g": {
-          "min": 20,
-          "max": 33.2
+          "min": 18.7,
+          "max": 34.5
         }
       },
       "expect_safety": true,
@@ -12290,20 +12290,20 @@
       "expect_item_count": 3,
       "expect_total": {
         "calories": {
-          "min": 151,
-          "max": 252
+          "min": 140.9,
+          "max": 262.1
         },
         "protein_g": {
-          "min": 4.9,
-          "max": 8.2
+          "min": 4.6,
+          "max": 8.5
         },
         "carbs_g": {
-          "min": 16,
-          "max": 26.6
+          "min": 14.9,
+          "max": 27.7
         },
         "fat_g": {
-          "min": 8.6,
-          "max": 14.2
+          "min": 8.0,
+          "max": 14.8
         }
       },
       "expect_safety": true,
@@ -12318,20 +12318,20 @@
       "expect_item_count": 4,
       "expect_total": {
         "calories": {
-          "min": 318,
-          "max": 530
+          "min": 296.8,
+          "max": 551.2
         },
         "protein_g": {
-          "min": 15.5,
-          "max": 25.8
+          "min": 14.5,
+          "max": 26.8
         },
         "carbs_g": {
-          "min": 45.7,
-          "max": 76.1
+          "min": 42.7,
+          "max": 79.1
         },
         "fat_g": {
-          "min": 10,
-          "max": 16.6
+          "min": 9.3,
+          "max": 17.3
         }
       },
       "expect_safety": true,
@@ -12346,20 +12346,20 @@
       "expect_item_count": 3,
       "expect_total": {
         "calories": {
-          "min": 266,
-          "max": 443
+          "min": 248.3,
+          "max": 460.7
         },
         "protein_g": {
-          "min": 17.8,
-          "max": 29.6
+          "min": 16.6,
+          "max": 30.8
         },
         "carbs_g": {
-          "min": 29.5,
-          "max": 49.2
+          "min": 27.5,
+          "max": 51.2
         },
         "fat_g": {
-          "min": 11,
-          "max": 18.4
+          "min": 10.3,
+          "max": 19.1
         }
       },
       "expect_safety": true,
@@ -12374,20 +12374,20 @@
       "expect_item_count": 3,
       "expect_total": {
         "calories": {
-          "min": 449,
-          "max": 749
+          "min": 419.0,
+          "max": 779.0
         },
         "protein_g": {
-          "min": 46.9,
-          "max": 78.2
+          "min": 43.8,
+          "max": 81.3
         },
         "carbs_g": {
-          "min": 36.3,
-          "max": 60.5
+          "min": 33.9,
+          "max": 62.9
         },
         "fat_g": {
-          "min": 12.7,
-          "max": 21.1
+          "min": 11.9,
+          "max": 21.9
         }
       },
       "expect_safety": true,
@@ -12402,20 +12402,20 @@
       "expect_item_count": 4,
       "expect_total": {
         "calories": {
-          "min": 398,
-          "max": 664
+          "min": 371.4,
+          "max": 690.6
         },
         "protein_g": {
-          "min": 23.9,
-          "max": 39.9
+          "min": 22.3,
+          "max": 41.5
         },
         "carbs_g": {
-          "min": 31.6,
-          "max": 52.6
+          "min": 29.5,
+          "max": 54.7
         },
         "fat_g": {
-          "min": 22.3,
-          "max": 37.1
+          "min": 20.8,
+          "max": 38.6
         }
       },
       "expect_safety": true,
@@ -12430,20 +12430,20 @@
       "expect_item_count": 3,
       "expect_total": {
         "calories": {
-          "min": 285,
-          "max": 474
+          "min": 266.1,
+          "max": 492.9
         },
         "protein_g": {
-          "min": 16.9,
-          "max": 28.1
+          "min": 15.8,
+          "max": 29.2
         },
         "carbs_g": {
-          "min": 25.4,
-          "max": 42.4
+          "min": 23.7,
+          "max": 44.1
         },
         "fat_g": {
-          "min": 14.4,
-          "max": 24
+          "min": 13.4,
+          "max": 25.0
         }
       },
       "expect_safety": true,
@@ -12458,20 +12458,20 @@
       "expect_item_count": 3,
       "expect_total": {
         "calories": {
-          "min": 282,
-          "max": 470
+          "min": 263.2,
+          "max": 488.8
         },
         "protein_g": {
-          "min": 35.5,
-          "max": 59.1
+          "min": 33.1,
+          "max": 61.5
         },
         "carbs_g": {
-          "min": 14.6,
-          "max": 24.4
+          "min": 13.6,
+          "max": 25.4
         },
         "fat_g": {
-          "min": 8.9,
-          "max": 14.8
+          "min": 8.3,
+          "max": 15.4
         }
       },
       "expect_safety": true,
@@ -12486,20 +12486,20 @@
       "expect_item_count": 3,
       "expect_total": {
         "calories": {
-          "min": 239,
-          "max": 398
+          "min": 223.1,
+          "max": 413.9
         },
         "protein_g": {
-          "min": 32.5,
-          "max": 54.2
+          "min": 30.3,
+          "max": 56.4
         },
         "carbs_g": {
-          "min": 20,
-          "max": 33.2
+          "min": 18.7,
+          "max": 34.5
         },
         "fat_g": {
-          "min": 4,
-          "max": 6.6
+          "min": 3.7,
+          "max": 6.9
         }
       },
       "expect_safety": true,
@@ -14754,20 +14754,20 @@
       "expect_item_count": 3,
       "expect_total": {
         "calories": {
-          "min": 336,
-          "max": 559
+          "min": 313.7,
+          "max": 581.3
         },
         "protein_g": {
-          "min": 39.5,
-          "max": 65.9
+          "min": 36.9,
+          "max": 68.5
         },
         "carbs_g": {
-          "min": 33.3,
-          "max": 55.5
+          "min": 31.1,
+          "max": 57.7
         },
         "fat_g": {
-          "min": 4.7,
-          "max": 7.8
+          "min": 4.4,
+          "max": 8.1
         }
       },
       "expect_safety": true,
@@ -14782,20 +14782,20 @@
       "expect_item_count": 3,
       "expect_total": {
         "calories": {
-          "min": 220,
-          "max": 367
+          "min": 205.3,
+          "max": 381.7
         },
         "protein_g": {
-          "min": 8.6,
-          "max": 14.4
+          "min": 8.0,
+          "max": 15.0
         },
         "carbs_g": {
-          "min": 22.6,
-          "max": 37.8
+          "min": 21.1,
+          "max": 39.3
         },
         "fat_g": {
-          "min": 10.3,
-          "max": 17.1
+          "min": 9.6,
+          "max": 17.8
         }
       },
       "expect_safety": true,
@@ -14810,20 +14810,20 @@
       "expect_item_count": 3,
       "expect_total": {
         "calories": {
-          "min": 259,
-          "max": 431
+          "min": 241.8,
+          "max": 448.2
         },
         "protein_g": {
-          "min": 4.8,
-          "max": 8.0
+          "min": 4.5,
+          "max": 8.3
         },
         "carbs_g": {
-          "min": 31.0,
-          "max": 51.6
+          "min": 28.9,
+          "max": 53.7
         },
         "fat_g": {
-          "min": 13.9,
-          "max": 23.1
+          "min": 13.0,
+          "max": 24.0
         }
       },
       "expect_safety": true,
@@ -14838,20 +14838,20 @@
       "expect_item_count": 3,
       "expect_total": {
         "calories": {
-          "min": 470,
-          "max": 784
+          "min": 438.6,
+          "max": 815.4
         },
         "protein_g": {
-          "min": 40.1,
-          "max": 66.8
+          "min": 37.4,
+          "max": 69.5
         },
         "carbs_g": {
-          "min": 29.4,
-          "max": 49.0
+          "min": 27.4,
+          "max": 51.0
         },
         "fat_g": {
-          "min": 21.1,
-          "max": 35.1
+          "min": 19.7,
+          "max": 36.5
         }
       },
       "expect_safety": true,
@@ -14866,20 +14866,20 @@
       "expect_item_count": 3,
       "expect_total": {
         "calories": {
-          "min": 363,
-          "max": 605
+          "min": 338.8,
+          "max": 629.2
         },
         "protein_g": {
-          "min": 15.3,
-          "max": 25.5
+          "min": 14.3,
+          "max": 26.5
         },
         "carbs_g": {
-          "min": 41.5,
-          "max": 69.1
+          "min": 38.7,
+          "max": 71.9
         },
         "fat_g": {
-          "min": 17.3,
-          "max": 28.9
+          "min": 16.1,
+          "max": 30.1
         }
       },
       "expect_safety": true,
@@ -14894,20 +14894,20 @@
       "expect_item_count": 3,
       "expect_total": {
         "calories": {
-          "min": 322,
-          "max": 537
+          "min": 300.5,
+          "max": 558.5
         },
         "protein_g": {
-          "min": 11.0,
-          "max": 18.4
+          "min": 10.3,
+          "max": 19.1
         },
         "carbs_g": {
-          "min": 4.8,
-          "max": 8.0
+          "min": 4.5,
+          "max": 8.3
         },
         "fat_g": {
-          "min": 29.2,
-          "max": 48.6
+          "min": 27.3,
+          "max": 50.5
         }
       },
       "expect_safety": true,
@@ -14922,20 +14922,20 @@
       "expect_item_count": 3,
       "expect_total": {
         "calories": {
-          "min": 473,
-          "max": 788
+          "min": 441.5,
+          "max": 819.5
         },
         "protein_g": {
-          "min": 33.6,
-          "max": 56.0
+          "min": 31.4,
+          "max": 58.2
         },
         "carbs_g": {
-          "min": 45.2,
-          "max": 75.2
+          "min": 42.2,
+          "max": 78.2
         },
         "fat_g": {
-          "min": 18.8,
-          "max": 31.2
+          "min": 17.6,
+          "max": 32.4
         }
       },
       "expect_safety": true,
@@ -14950,20 +14950,20 @@
       "expect_item_count": 3,
       "expect_total": {
         "calories": {
-          "min": 243,
-          "max": 404
+          "min": 226.9,
+          "max": 420.1
         },
         "protein_g": {
-          "min": 4.7,
-          "max": 7.8
+          "min": 4.4,
+          "max": 8.1
         },
         "carbs_g": {
-          "min": 37.7,
-          "max": 62.8
+          "min": 35.2,
+          "max": 65.3
         },
         "fat_g": {
-          "min": 9.9,
-          "max": 16.5
+          "min": 9.2,
+          "max": 17.2
         }
       },
       "expect_safety": true,
@@ -14978,20 +14978,20 @@
       "expect_item_count": 3,
       "expect_total": {
         "calories": {
-          "min": 1007,
-          "max": 1679
+          "min": 939.8,
+          "max": 1746.2
         },
         "protein_g": {
-          "min": 51.3,
-          "max": 85.5
+          "min": 47.9,
+          "max": 88.9
         },
         "carbs_g": {
-          "min": 174.8,
-          "max": 291.4
+          "min": 163.1,
+          "max": 303.1
         },
         "fat_g": {
-          "min": 12.7,
-          "max": 21.1
+          "min": 11.9,
+          "max": 21.9
         }
       },
       "expect_safety": true,
@@ -15006,20 +15006,20 @@
       "expect_item_count": 3,
       "expect_total": {
         "calories": {
-          "min": 539,
-          "max": 898
+          "min": 503.1,
+          "max": 933.9
         },
         "protein_g": {
-          "min": 23.2,
-          "max": 38.6
+          "min": 21.7,
+          "max": 40.1
         },
         "carbs_g": {
-          "min": 49.3,
-          "max": 82.1
+          "min": 46.0,
+          "max": 85.4
         },
         "fat_g": {
-          "min": 30.4,
-          "max": 50.6
+          "min": 28.4,
+          "max": 52.6
         }
       },
       "expect_safety": true,
