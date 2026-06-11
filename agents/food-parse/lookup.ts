@@ -1171,7 +1171,7 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
   'γυρο κοτοπουλο απ\' ολα': 'chicken gyros pita',
   'φακές μερίδα': 'lentil soup fakes',
   'φακες μεριδα': 'lentil soup fakes',
-  'κιμά μοσχαρίσιο': 'ground veal cooked',
+  'κιμά μοσχαρίσιο': 'beef ground 85% lean raw',
   'κιμας μοσχαρισιο': 'ground veal cooked',
 
   // ── Multi-word Colombian composites ──
@@ -1341,11 +1341,8 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
   'pierogi': 'dumpling potato cheese filled',
   'pierogi ruskie': 'dumpling potato cheese filled',
   'granola': 'granola homemade',
-  'κιμά μοσχαρίσιο': 'beef ground 85% lean raw',
   'κιμά': 'beef ground 85% lean raw',
   'cheese pupusa': 'pupusas con queso',
-  'yogurt 10%': 'strained yogurt 10%',
-  'greek yogurt 10%': 'strained yogurt 10%',
   'café au lait': 'coffee with milk',
   'thé': 'tea brewed',
   'jus d\'orange': 'orange juice',
