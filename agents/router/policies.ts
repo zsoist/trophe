@@ -57,19 +57,19 @@ export interface RoutingPolicy {
 
 export const taskPolicies: Record<TaskName, RoutingPolicy> = {
   food_parse: {
-    // Reverted to Gemini 2.5 Flash (2026-06-10): DeepSeek V4 Flash caused -14 base_food
-    // regression in benchmark (79.2% → 76.1%). Gemini's structured output is more reliable
-    // for nutrition estimation. Cost: $0.30/$2.50 vs $0.14/$0.28 — accuracy > cost.
-    provider: 'google',
-    model: 'gemini-2.5-flash',
+    // Migrated to DeepSeek V4 Flash (2026-06-08): $0.14/$0.28 vs Gemini $0.30/$2.50.
+    // ~90% cost reduction on output tokens. Structured via tool calling (/beta strict).
+    // Fallback: Gemini Flash (constrained decoding) — see taskFallbacks.
+    provider: 'deepseek',
+    model: 'deepseek-v4-flash',
     costClass: 'cheap',
     latencyClass: 'fast',
     maxTokens: 2048,
-    timeoutMs: 20_000, maxInputChars: 12_000, maxCostUsd: 0.05, promptVersion: 'food-parse-v4',
+    timeoutMs: 20_000, maxInputChars: 12_000, maxCostUsd: 0.02, promptVersion: 'food-parse-v4',
   },
   recipe_analyze: {
     // Migrated to DeepSeek V4 Flash (2026-06-08): $0.14/$0.28 vs Haiku $1/$5.
-    // Fallback: DeepSeek with longer timeout — see taskFallbacks.
+    // Fallback: Anthropic Haiku 4.5 — see taskFallbacks.
     provider: 'deepseek',
     model: 'deepseek-v4-flash',
     costClass: 'cheap',
@@ -91,7 +91,7 @@ export const taskPolicies: Record<TaskName, RoutingPolicy> = {
     // Migrated to DeepSeek V4 Flash (2026-06-08): $0.14/$0.28 per M tokens
     // vs Haiku 4.5 at $1.00/$5.00. ~85% cost reduction.
     // Uses strict tool calling (/beta) for structural guarantee.
-    // Fallback: DeepSeek with longer timeout (see taskFallbacks below).
+    // Fallback: Anthropic Haiku 4.5 (see taskFallbacks below).
     provider: 'deepseek',
     model: 'deepseek-v4-flash',
     costClass: 'cheap',
@@ -120,7 +120,7 @@ export const taskPolicies: Record<TaskName, RoutingPolicy> = {
     // Migrated to DeepSeek V4 Flash (2026-06-08): strict tool calling for
     // structurally reliable fact extraction at $0.14/$0.28 per M tokens.
     // Eval: 100% structured accuracy across 100 concurrent requests.
-    // Fallback: DeepSeek with longer timeout + rate-limit backoff — see taskFallbacks.
+    // Fallback: Gemini 2.5 Flash (constrained decoding) — see taskFallbacks.
     provider: 'deepseek',
     model: 'deepseek-v4-flash',
     costClass: 'cheap',
@@ -145,49 +145,52 @@ export const taskPolicies: Record<TaskName, RoutingPolicy> = {
 // When a primary provider fails (network, rate-limit, outage), executeAiTask
 // retries once with the fallback policy before surfacing the error.
 //
-// Design: all text tasks primary AND fallback on DeepSeek (cost control).
-// Fallback uses longer timeout + retry delay to handle rate limits.
-// Photo stays on Anthropic (vision), no fallback needed.
+// Design: all text tasks primary on DeepSeek, fallback to Gemini or Anthropic.
+// Photo stays on Anthropic (vision), no fallback needed (Gemini vision is the backup).
 
 export const taskFallbacks: Partial<Record<TaskName, RoutingPolicy>> = {
   food_parse: {
-    provider: 'deepseek',
-    model: 'deepseek-v4-flash',
+    // Fallback: Gemini Flash constrained decoding (proven reliable)
+    provider: 'google',
+    model: 'gemini-2.5-flash',
     costClass: 'cheap',
     latencyClass: 'fast',
     maxTokens: 2048,
-    timeoutMs: 30_000, maxInputChars: 12_000, maxCostUsd: 0.02, promptVersion: 'food-parse-v4-fallback',
+    timeoutMs: 20_000, maxInputChars: 12_000, maxCostUsd: 0.02, promptVersion: 'food-parse-v4-fallback',
   },
   recipe_analyze: {
-    provider: 'deepseek',
-    model: 'deepseek-v4-flash',
+    provider: 'anthropic',
+    model: 'claude-haiku-4-5-20251001',
     costClass: 'cheap',
     latencyClass: 'fast',
     maxTokens: 4096,
-    timeoutMs: 30_000, maxInputChars: 30_000, maxCostUsd: 0.05, promptVersion: 'recipe-analyze-v1-fallback',
+    cacheSystem: true,
+    timeoutMs: 25_000, maxInputChars: 30_000, maxCostUsd: 0.05, promptVersion: 'recipe-analyze-v1-fallback',
   },
   coach_insight: {
-    provider: 'deepseek',
-    model: 'deepseek-v4-flash',
+    provider: 'anthropic',
+    model: 'claude-haiku-4-5-20251001',
     costClass: 'cheap',
     latencyClass: 'fast',
     maxTokens: 2048,
-    timeoutMs: 35_000, maxInputChars: 40_000, maxCostUsd: 0.10, promptVersion: 'coach-insight-v1-fallback',
+    cacheSystem: true,
+    timeoutMs: 30_000, maxInputChars: 40_000, maxCostUsd: 0.10, promptVersion: 'coach-insight-v1-fallback',
   },
   meal_suggest: {
-    provider: 'deepseek',
-    model: 'deepseek-v4-flash',
+    provider: 'anthropic',
+    model: 'claude-haiku-4-5-20251001',
     costClass: 'cheap',
     latencyClass: 'fast',
     maxTokens: 2048,
-    timeoutMs: 30_000, maxInputChars: 8_000, maxCostUsd: 0.05, promptVersion: 'meal-suggest-v1-fallback',
+    cacheSystem: true,
+    timeoutMs: 25_000, maxInputChars: 8_000, maxCostUsd: 0.05, promptVersion: 'meal-suggest-v1-fallback',
   },
   memory_extract: {
-    provider: 'deepseek',
-    model: 'deepseek-v4-flash',
+    provider: 'google',
+    model: 'gemini-2.5-flash',
     costClass: 'cheap',
     latencyClass: 'fast',
     maxTokens: 1024,
-    timeoutMs: 30_000, maxInputChars: 30_000, maxCostUsd: 0.03, promptVersion: 'memory-extract-v2-fallback',
+    timeoutMs: 20_000, maxInputChars: 30_000, maxCostUsd: 0.03, promptVersion: 'memory-extract-v2-fallback',
   },
 };

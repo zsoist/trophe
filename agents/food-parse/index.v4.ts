@@ -748,23 +748,10 @@ export async function run(
   }
 
   // ── Step 0: RAG pre-search — give the LLM DB reference data ───────────────
-  // For multi-item inputs (commas, semicolons), split into fragments and RAG each
-  // separately so every item gets its own DB anchor. Single items search as-is.
-  const multiItemSeparator = /[,;]\s*|\s+(?:and|y|και|et)\s+/i;
-  const hasMultipleItems = multiItemSeparator.test(sanitizedText);
-  let ragMatches: Awaited<ReturnType<typeof ragPreSearch>>;
-  if (hasMultipleItems) {
-    const fragments = sanitizedText.split(multiItemSeparator).map(f => f.trim()).filter(f => f.length >= 2);
-    const perFragment = await Promise.all(fragments.map(f => ragPreSearch(f, 2)));
-    const seen = new Set<string>();
-    ragMatches = perFragment.flat().filter(m => {
-      if (seen.has(m.name)) return false;
-      seen.add(m.name);
-      return true;
-    }).slice(0, 8);
-  } else {
-    ragMatches = await ragPreSearch(sanitizedText);
-  }
+  // Only inject RAG for simple (non-composite) inputs.
+  // Composite/multi-item inputs get confused when RAG returns a single-ingredient match.
+  const looksComposite = /[,;+]|( and | with | con | και | y | met )/.test(sanitizedText.toLowerCase());
+  const ragMatches = looksComposite ? [] : await ragPreSearch(sanitizedText);
   const ragContext = formatRagContext(ragMatches);
 
   const userMessage = `Parse this food input (language: ${language}):\n\n"${sanitizedText}"${ragContext}`;
