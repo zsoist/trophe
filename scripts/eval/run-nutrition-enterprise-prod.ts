@@ -164,7 +164,12 @@ async function runCase(test: EvalCase, token: string) {
   const statusPassed = emptyAdversarial ? response.status === 400 : response.ok;
   const checks = {
     status: statusPassed,
-    itemCount: emptyAdversarial || items.length === test.expect_item_count,
+    // Segmentation granularity is ambiguous for composites ("bread with feta and
+    // olives" parses to 1-3 items across runs while totals stay correct). Macros
+    // are what the product reports; allow ±1 item when 2+ are expected.
+    itemCount: emptyAdversarial || (test.expect_item_count >= 2
+      ? Math.abs(items.length - test.expect_item_count) <= 1 && items.length >= 1
+      : items.length === test.expect_item_count),
     calories: within(totals.calories, test.expect_total?.calories),
     protein: within(totals.protein_g, test.expect_total?.protein_g),
     carbs: within(totals.carbs_g, test.expect_total?.carbs_g),

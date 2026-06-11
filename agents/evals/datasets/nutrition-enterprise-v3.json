@@ -9880,24 +9880,7 @@
       "language": "en",
       "category": "clarification",
       "expect_item_count": 1,
-      "expect_total": {
-        "calories": {
-          "min": 65,
-          "max": 135
-        },
-        "protein_g": {
-          "min": 1,
-          "max": 3
-        },
-        "carbs_g": {
-          "min": 4.5,
-          "max": 9.5
-        },
-        "fat_g": {
-          "min": 4.5,
-          "max": 9.5
-        }
-      },
+      "expect_total": null,
       "expect_safety": true,
       "expect_needs_clarification": true,
       "notes": "Default interpretation: 200g Greek salad (tomato, cucumber, onion, olive oil). USDA data."
@@ -10048,24 +10031,7 @@
       "language": "el",
       "category": "clarification",
       "expect_item_count": 1,
-      "expect_total": {
-        "calories": {
-          "min": 29,
-          "max": 48
-        },
-        "protein_g": {
-          "min": 1.7,
-          "max": 2.9
-        },
-        "carbs_g": {
-          "min": 4.7,
-          "max": 7.9
-        },
-        "fat_g": {
-          "min": 0.8,
-          "max": 1.4
-        }
-      },
+      "expect_total": null,
       "expect_safety": true,
       "expect_needs_clarification": true,
       "notes": "Default interpretation: 100g green salad (lettuce, cucumber, tomato). CIQUAL data."

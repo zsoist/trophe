@@ -38,6 +38,11 @@ RULES:
    - poignée = handful
    - morceau = piece
    - assiette = plate/serving
+3c. food_name must be a SHORT COMMON English name (2-4 words): "smoked salmon",
+   "red wine", "cheese pupusa". NEVER output verbose database-style names with
+   commas or parentheses like "Salmon, red (sockeye), filets with skin, smoked
+   (Alaska Native)" — these select wrong specialty foods (dried, canned, regional
+   variants) the user did not mention.
 4. Common implicit quantities:
    - "toast" or "bread" → 1 slice
    - "coffee" → 1 cup
