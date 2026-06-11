@@ -10,7 +10,16 @@ export const foodParseStructuredSchema = z.object({
     quantity: z.number().positive(),
     unit: z.string().min(1),
     qualifier: z.string().nullable().optional(),
-    food_state: z.enum(['raw', 'cooked', 'fried', 'grilled', 'baked', 'boiled', 'steamed', 'roasted', 'prepared', 'unknown']),
+    food_state: z.string().transform(s => {
+      const valid = ['raw','cooked','fried','grilled','baked','boiled','steamed','roasted','prepared','unknown'] as const;
+      const lower = s.toLowerCase().trim();
+      if ((valid as readonly string[]).includes(lower)) return lower;
+      if (['scrambled','sauteed','sautéed','poached','braised','stewed','blanched','simmered'].includes(lower)) return 'cooked';
+      if (['deep-fried','deep fried','pan-fried','pan fried'].includes(lower)) return 'fried';
+      if (['toasted','charred','broiled'].includes(lower)) return 'grilled';
+      if (['microwaved','reheated','warmed'].includes(lower)) return 'prepared';
+      return 'cooked';
+    }),
     portion_explicit: z.boolean(),
     confidence: z.number().min(0).max(1),
     recognized: z.boolean(),
@@ -50,7 +59,7 @@ export const foodParseGeminiResponseSchema = {
           quantity: { type: 'number' },
           unit: { type: 'string' },
           qualifier: { type: 'string', nullable: true },
-          food_state: { type: 'string', enum: ['raw', 'cooked', 'fried', 'grilled', 'baked', 'boiled', 'steamed', 'roasted', 'prepared', 'unknown'] },
+          food_state: { type: 'string' },
           portion_explicit: { type: 'boolean' },
           confidence: { type: 'number' },
           recognized: { type: 'boolean' },
