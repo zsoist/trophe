@@ -411,6 +411,11 @@ const UNIT_SYNONYMS: Record<string, string> = {
   // Greek
   'τεμάχιο': 'piece', 'τεμάχια': 'piece', 'κομμάτι': 'piece', 'κομμάτια': 'piece',
   gram: 'g', grams: 'g', gr: 'g', 'γρ': 'g',
+  milliliter: 'ml', milliliters: 'ml', millilitre: 'ml', millilitres: 'ml',
+  centiliter: 'cl', centiliters: 'cl', centilitre: 'cl', centilitres: 'cl',
+  deciliter: 'dl', deciliters: 'dl', decilitre: 'dl', decilitres: 'dl',
+  liter: 'l', liters: 'l', litre: 'l', litres: 'l',
+  'fluid ounce': 'fl oz', 'fluid ounces': 'fl oz', 'fl. oz.': 'fl oz', 'fl oz': 'fl oz',
   kilogram: 'kg', kilograms: 'kg', kilo: 'kg', kilos: 'kg', 'κιλό': 'kg', 'κιλά': 'kg',
   tablespoon: 'tbsp', tablespoons: 'tbsp', spoon: 'tbsp', 'κουταλιά': 'tbsp', 'κουταλιές': 'tbsp', 'κ.σ.': 'tbsp',
   teaspoon: 'tsp', teaspoons: 'tsp', 'κουταλάκι': 'tsp', 'κουταλάκια': 'tsp', 'κ.γ.': 'tsp',
@@ -615,6 +620,13 @@ async function resolveUnit(
   if (normalizedUnit === 'g') return { id: null, gramsPerUnit: 1 };
   if (normalizedUnit === 'kg') return { id: null, gramsPerUnit: 1_000 };
   if (normalizedUnit === '100g') return { id: null, gramsPerUnit: 100 };
+
+  // Metric volume → grams (density ≈1 for water-based beverages/liquids)
+  if (normalizedUnit === 'ml') return { id: null, gramsPerUnit: 1 };
+  if (normalizedUnit === 'cl') return { id: null, gramsPerUnit: 10 };
+  if (normalizedUnit === 'dl') return { id: null, gramsPerUnit: 100 };
+  if (normalizedUnit === 'l') return { id: null, gramsPerUnit: 1_000 };
+  if (normalizedUnit === 'fl oz' || normalizedUnit === 'floz') return { id: null, gramsPerUnit: 30 };
 
   const denseFoodServing = conservativeDenseFoodServing(normalizedUnit, canonicalFoodKey);
   if (denseFoodServing !== null) return { id: null, gramsPerUnit: denseFoodServing };

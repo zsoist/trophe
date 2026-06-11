@@ -150,17 +150,17 @@ export const taskPolicies: Record<TaskName, RoutingPolicy> = {
 
 export const taskFallbacks: Partial<Record<TaskName, RoutingPolicy>> = {
   food_parse: {
-    // Fallback: Gemini Flash constrained decoding (proven reliable)
-    provider: 'google',
-    model: 'gemini-2.5-flash',
+    // Fallback: DeepSeek V4 Flash with longer timeout (same model, retry on transient errors)
+    provider: 'deepseek',
+    model: 'deepseek-v4-flash',
     costClass: 'cheap',
     latencyClass: 'fast',
     maxTokens: 2048,
-    timeoutMs: 20_000, maxInputChars: 12_000, maxCostUsd: 0.02, promptVersion: 'food-parse-v4-fallback',
+    timeoutMs: 30_000, maxInputChars: 12_000, maxCostUsd: 0.02, promptVersion: 'food-parse-v4-fallback',
   },
   recipe_analyze: {
-    provider: 'anthropic',
-    model: 'claude-haiku-4-5-20251001',
+    provider: 'deepseek',
+    model: 'deepseek-v4-flash',
     costClass: 'cheap',
     latencyClass: 'fast',
     maxTokens: 4096,
@@ -168,26 +168,24 @@ export const taskFallbacks: Partial<Record<TaskName, RoutingPolicy>> = {
     timeoutMs: 25_000, maxInputChars: 30_000, maxCostUsd: 0.05, promptVersion: 'recipe-analyze-v1-fallback',
   },
   coach_insight: {
-    provider: 'anthropic',
-    model: 'claude-haiku-4-5-20251001',
+    provider: 'deepseek',
+    model: 'deepseek-v4-flash',
     costClass: 'cheap',
     latencyClass: 'fast',
     maxTokens: 2048,
-    cacheSystem: true,
     timeoutMs: 30_000, maxInputChars: 40_000, maxCostUsd: 0.10, promptVersion: 'coach-insight-v1-fallback',
   },
   meal_suggest: {
-    provider: 'anthropic',
-    model: 'claude-haiku-4-5-20251001',
+    provider: 'deepseek',
+    model: 'deepseek-v4-flash',
     costClass: 'cheap',
     latencyClass: 'fast',
     maxTokens: 2048,
-    cacheSystem: true,
     timeoutMs: 25_000, maxInputChars: 8_000, maxCostUsd: 0.05, promptVersion: 'meal-suggest-v1-fallback',
   },
   memory_extract: {
-    provider: 'google',
-    model: 'gemini-2.5-flash',
+    provider: 'deepseek',
+    model: 'deepseek-v4-flash',
     costClass: 'cheap',
     latencyClass: 'fast',
     maxTokens: 1024,
