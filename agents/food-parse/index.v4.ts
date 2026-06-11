@@ -962,27 +962,6 @@ export async function run(
     }
   }
 
-  // ── Step 1c: Beverage unit enforcement ─────────────────────────────────────
-  // When LLM returns a beverage with unit "piece" or "serving", override to a
-  // sensible container default so DB unit conversions resolve correctly.
-  for (const item of v4Parsed.items) {
-    const ft = classifyFoodType(item.food_name);
-    if (ft !== 'beverage') continue;
-    const u = item.unit.toLowerCase().trim();
-    if (u === 'piece' || u === 'unit' || u === 'each' || u === 'serving') {
-      const name = item.food_name.toLowerCase();
-      if (/\b(beer|cerveza|bière|μπύρα|soda|cola|coke|pepsi|sprite|fanta|energy|red\s*bull|monster|gatorade)\b/.test(name)) {
-        item.unit = 'can';
-      } else if (/\b(water|agua|νερό|eau)\b/.test(name)) {
-        item.unit = 'bottle';
-      } else if (/\b(wine|vino|vin|κρασί)\b/.test(name)) {
-        item.unit = 'glass';
-      } else {
-        item.unit = 'cup';
-      }
-    }
-  }
-
   // ── Step 2: Check dish_recipes cache (cheap, no LLM) ──────────────────────
   // Composite dishes (souvlaki with pita, arepa con queso) should match
   // dish_recipes BEFORE the foods table to avoid partial matches.

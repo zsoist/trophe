@@ -57,15 +57,15 @@ export interface RoutingPolicy {
 
 export const taskPolicies: Record<TaskName, RoutingPolicy> = {
   food_parse: {
-    // Migrated to DeepSeek V4 Flash (2026-06-08): $0.14/$0.28 vs Gemini $0.30/$2.50.
-    // ~90% cost reduction on output tokens. Structured via tool calling (/beta strict).
-    // Fallback: DeepSeek with longer timeout + rate-limit backoff — see taskFallbacks.
-    provider: 'deepseek',
-    model: 'deepseek-v4-flash',
+    // Reverted to Gemini 2.5 Flash (2026-06-10): DeepSeek V4 Flash caused -14 base_food
+    // regression in benchmark (79.2% → 76.1%). Gemini's structured output is more reliable
+    // for nutrition estimation. Cost: $0.30/$2.50 vs $0.14/$0.28 — accuracy > cost.
+    provider: 'google',
+    model: 'gemini-2.5-flash',
     costClass: 'cheap',
     latencyClass: 'fast',
     maxTokens: 2048,
-    timeoutMs: 20_000, maxInputChars: 12_000, maxCostUsd: 0.02, promptVersion: 'food-parse-v4',
+    timeoutMs: 20_000, maxInputChars: 12_000, maxCostUsd: 0.05, promptVersion: 'food-parse-v4',
   },
   recipe_analyze: {
     // Migrated to DeepSeek V4 Flash (2026-06-08): $0.14/$0.28 vs Haiku $1/$5.
