@@ -1317,6 +1317,8 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
   'amandes': 'almonds',
   'noix': 'walnuts',
   'noisettes': 'hazelnuts',
+  'tartine': 'baguette',
+  'tartine beurrée': 'bread with butter',
   'café au lait': 'coffee with milk',
   'thé': 'tea brewed',
   'jus d\'orange': 'orange juice',
