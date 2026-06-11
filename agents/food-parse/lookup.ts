@@ -1335,6 +1335,17 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
   'noisettes': 'hazelnuts',
   'tartine': 'baguette',
   'tartine beurrée': 'bread with butter',
+  // Triage 2026-06-11: failing-case corrections (workflow-verified)
+  'κιμάς μοσχαρίσιος': 'beef ground 85% lean raw',
+  'κιμάς': 'beef ground 85% lean raw',
+  'plátano maduro frito': 'plantains yellow fried',
+  'platano maduro frito': 'plantains yellow fried',
+  'pupusa de queso': 'pupusas con queso',
+  'pupusa with cheese': 'pupusas con queso',
+  'pierogi': 'dumpling potato cheese filled',
+  'pierogi ruskie': 'dumpling potato cheese filled',
+  'granola': 'granola homemade',
+  'γιαούρτι 10%': 'strained yogurt 10%',
   'café au lait': 'coffee with milk',
   'thé': 'tea brewed',
   'jus d\'orange': 'orange juice',
@@ -1603,8 +1614,19 @@ export async function ragPreSearch(foodText: string, limit = 3): Promise<RagMatc
 
   try {
     const corrected = correctFoodName(foodText);
-    const candidates = await keywordCandidates(corrected);
+    let candidates = await keywordCandidates(corrected);
     if (candidates.length === 0) return [];
+
+    // Exclude specialty preparations the user didn't ask for — a RAG line like
+    // "Salmon, sockeye, smoked (Alaska Native), 345 kcal" (dried fish) steers
+    // the LLM to adopt it verbatim for ordinary "smoked salmon".
+    const specialty = /(alaska native|dried|dehydrated|powder|concentrate|freeze.?dried|canned)/i;
+    const queryMentions = (w: string) => corrected.toLowerCase().includes(w);
+    const filtered = candidates.filter(f => {
+      const m = (f.nameEn ?? '').match(specialty);
+      return !m || queryMentions(m[0].toLowerCase().split(' ')[0]);
+    });
+    if (filtered.length > 0) candidates = filtered;
 
     return candidates.slice(0, limit).map(f => ({
       name: f.nameEn ?? 'unknown',

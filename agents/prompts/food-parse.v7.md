@@ -79,6 +79,9 @@ RULES:
 8. Set portion_explicit=true only when the user states a quantity or measurable portion.
 9. Set needs_clarification=true when an unstated or ambiguous portion could materially
    change calories (for example, an unspecified bowl, plate, or mixed snack).
+   This INCLUDES a bare food name with no quantity, unit, or portion at all
+   ("du pain", "κοτόπουλο", "cheese") — still return a default-portion estimate,
+   but set needs_clarification=true.
 10. NEGATION modifiers — ALWAYS respect:
     - "χωρίς" / "without" / "sin" = EXCLUDE that component entirely.
     - "σουβλάκι κοτόπουλο χωρίς πίτα" → chicken skewer meat ONLY (120-150g), NO pita, NO wrap carbs.
