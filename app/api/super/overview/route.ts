@@ -21,6 +21,7 @@ export async function GET() {
       db.execute<{
         logs_today: number; logs_7d: number; active_clients_7d: number;
         messages_7d: number; checkins_7d: number; appts_upcoming: number;
+        workouts_7d: number; prs_7d: number;
       }>(sql`
         SELECT
           (SELECT count(*)::int FROM food_log WHERE logged_date = CURRENT_DATE) AS logs_today,
@@ -28,18 +29,21 @@ export async function GET() {
           (SELECT count(DISTINCT user_id)::int FROM food_log WHERE logged_date >= CURRENT_DATE - 7) AS active_clients_7d,
           (SELECT count(*)::int FROM messages WHERE created_at >= now() - interval '7 days') AS messages_7d,
           (SELECT count(*)::int FROM habit_checkins WHERE checked_date >= CURRENT_DATE - 7) AS checkins_7d,
-          (SELECT count(*)::int FROM appointments WHERE status = 'booked' AND starts_at >= now()) AS appts_upcoming`),
+          (SELECT count(*)::int FROM appointments WHERE status = 'booked' AND starts_at >= now()) AS appts_upcoming,
+          (SELECT count(*)::int FROM workout_sessions WHERE session_date >= CURRENT_DATE - 7) AS workouts_7d,
+          (SELECT count(*)::int FROM workout_sets ws JOIN workout_sessions s ON s.id = ws.session_id
+           WHERE ws.is_pr = true AND s.session_date >= CURRENT_DATE - 7) AS prs_7d`),
       db.execute<{ window: string; cost: number; tokens_in: number; tokens_out: number; runs: number }>(sql`
-        SELECT w.window,
+        SELECT w.win AS window,
                coalesce(sum(r.cost_usd), 0)::float AS cost,
                coalesce(sum(r.tokens_in), 0)::bigint::int AS tokens_in,
                coalesce(sum(r.tokens_out), 0)::bigint::int AS tokens_out,
                count(r.id)::int AS runs
         FROM (VALUES ('today', CURRENT_DATE::timestamptz),
                      ('7d', now() - interval '7 days'),
-                     ('30d', now() - interval '30 days')) AS w(window, since)
+                     ('30d', now() - interval '30 days')) AS w(win, since)
         LEFT JOIN agent_runs r ON r.created_at >= w.since
-        GROUP BY w.window`),
+        GROUP BY w.win`),
       db.execute<{ task: string; cost: number; runs: number }>(sql`
         SELECT task_name AS task, coalesce(sum(cost_usd), 0)::float AS cost, count(*)::int AS runs
         FROM agent_runs

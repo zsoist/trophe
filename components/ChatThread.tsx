@@ -29,6 +29,16 @@ interface ChatThreadProps {
   counterpartName?: string | null;
 }
 
+function dayLabel(iso: string): string {
+  const d = new Date(iso);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const that = new Date(d); that.setHours(0, 0, 0, 0);
+  const diff = Math.round((today.getTime() - that.getTime()) / 86400000);
+  if (diff === 0) return 'Today';
+  if (diff === 1) return 'Yesterday';
+  return d.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' });
+}
+
 function timeLabel(iso: string): string {
   const d = new Date(iso);
   const now = new Date();
@@ -95,12 +105,33 @@ export default function ChatThread({ coachId, clientId, viewerRole, counterpartN
     if (!body || sending) return;
     setSending(true);
     setDraft('');
-    const { data } = await supabase
+
+    // Optimistic: the message appears the instant you hit send
+    const tempId = `temp-${Math.random().toString(36).slice(2)}`;
+    const optimistic: ChatMessage = {
+      id: tempId, sender_role: viewerRole, body,
+      read_at: null, created_at: new Date().toISOString(),
+    };
+    setMsgs((prev) => [...prev, optimistic]);
+
+    const { data, error } = await supabase
       .from('messages')
       .insert({ coach_id: coachId, client_id: clientId, sender_role: viewerRole, body })
       .select('id, sender_role, body, read_at, created_at')
       .maybeSingle();
-    if (data) setMsgs((prev) => (prev.some((x) => x.id === data.id) ? prev : [...prev, data as ChatMessage]));
+
+    if (error || !data) {
+      // Send failed — remove the ghost and restore the draft
+      setMsgs((prev) => prev.filter((m) => m.id !== tempId));
+      setDraft(body);
+    } else {
+      const real = data as ChatMessage;
+      // Replace temp; realtime may have raced the real row in already
+      setMsgs((prev) => {
+        const withoutTemp = prev.filter((m) => m.id !== tempId);
+        return withoutTemp.some((m) => m.id === real.id) ? withoutTemp : [...withoutTemp, real];
+      });
+    }
     setSending(false);
   };
 
@@ -123,11 +154,25 @@ export default function ChatThread({ coachId, clientId, viewerRole, counterpartN
           const prev = msgs[i - 1];
           const grouped = prev && prev.sender_role === m.sender_role &&
             new Date(m.created_at).getTime() - new Date(prev.created_at).getTime() < 5 * 60_000;
+          const newDay = !prev || dayLabel(prev.created_at) !== dayLabel(m.created_at);
           return (
-            <div key={m.id} style={{
+            <div key={m.id}>
+              {newDay && (
+                <div style={{ textAlign: 'center', margin: '12px 0 6px' }}>
+                  <span style={{
+                    fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--t4)',
+                    background: 'rgba(255,255,255,.04)', border: '1px solid var(--line)',
+                    borderRadius: 10, padding: '3px 10px', letterSpacing: '.06em', textTransform: 'uppercase',
+                  }}>
+                    {dayLabel(m.created_at)}
+                  </span>
+                </div>
+              )}
+              {(
+            <div style={{
               display: 'flex',
               justifyContent: mine ? 'flex-end' : 'flex-start',
-              marginTop: grouped ? 0 : 10,
+              marginTop: grouped && !newDay ? 0 : 10,
             }}>
               <div style={{
                 maxWidth: '78%',
@@ -148,6 +193,8 @@ export default function ChatThread({ coachId, clientId, viewerRole, counterpartN
                 )}
               </div>
             </div>
+              )}
+            </div>
           );
         })}
         <div ref={bottomRef} />
@@ -157,7 +204,12 @@ export default function ChatThread({ coachId, clientId, viewerRole, counterpartN
       <div style={{ display: 'flex', gap: 6, paddingTop: 8, borderTop: '1px solid var(--line)' }}>
         <textarea
           value={draft}
-          onChange={(e) => setDraft(e.target.value)}
+          onChange={(e) => {
+            setDraft(e.target.value);
+            e.currentTarget.style.height = 'auto';
+            e.currentTarget.style.height = `${Math.min(e.currentTarget.scrollHeight, 96)}px`;
+          }}
+          onFocus={() => setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 250)}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
           }}
