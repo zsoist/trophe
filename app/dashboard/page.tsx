@@ -904,6 +904,10 @@ export default function DashboardPage() {
                 <a href="/dashboard/messages" style={{ color: 'var(--gold-300,#D4A853)', fontSize: 9, fontFamily: 'var(--font-mono)', textDecoration: 'none' }}>
                   · open chat →
                 </a>
+                {' '}
+                <a href="/dashboard/book" style={{ color: 'var(--gold-300,#D4A853)', fontSize: 9, fontFamily: 'var(--font-mono)', textDecoration: 'none' }}>
+                  · book session →
+                </a>
               </div>
               {latestCoachNote && (
                 <div style={{ fontSize: 9, color: 'var(--t4)', marginTop: 1, lineHeight: 1.4, maxWidth: 220 }} className="truncate">

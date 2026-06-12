@@ -153,6 +153,9 @@
     },
     {
       "idx": 35, "version": "7", "when": 1780852599978, "tag": "0027_intake_daily_checkins", "breakpoints": true
+    },
+    {
+      "idx": 36, "version": "7", "when": 1780852599979, "tag": "0028_booking", "breakpoints": true
     }
   ]
 }

@@ -23,6 +23,7 @@ import {
   Clock,
   ArrowUpDown,
   LogOut,
+  MessageSquare,
 } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
@@ -59,6 +60,8 @@ import type {
 
 const coachNav = [
   { label: 'Clients', href: '/coach', icon: Users },
+  { label: 'Calendar', href: '/coach/calendar', icon: Calendar },
+  { label: 'Inbox', href: '/coach/inbox', icon: MessageSquare },
   { label: 'Habits', href: '/coach/habits', icon: Dumbbell },
   { label: 'Protocols', href: '/coach/protocols', icon: Pill },
   { label: 'Foods', href: '/coach/foods', icon: UtensilsCrossed },
