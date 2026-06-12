@@ -71,7 +71,7 @@ const STAPLES: GapFood[] = [
     ],
   },
   {
-    nameEn: 'Baguette, French bread', kcal: 274, protein: 10.8, carb: 51.9, fat: 1.0, fiber: 2.4,
+    nameEn: 'Baguette, French bread', kcal: 274, protein: 10.8, carb: 51.9, fat: 1.6, fiber: 2.4,
     defaultServingGrams: 65, defaultServingUnit: 'piece',
     provenance: 'USDA FDC #167936',
     aliases: [
@@ -610,14 +610,14 @@ const COMPOSITES: GapFood[] = [
   },
   {
     nameEn: 'Cassoulet', kcal: 120, protein: 8.0, carb: 8.0, fat: 5.0, fiber: 3.0,
-    defaultServingGrams: 300, defaultServingUnit: 'serving',
+    defaultServingGrams: 125, defaultServingUnit: 'serving',
     nameFr: 'Cassoulet', region: ['FR'],
     provenance: 'CIQUAL #25001',
     aliases: [
       { lang: 'en', alias: 'cassoulet', preferred: true },
       { lang: 'fr', alias: 'cassoulet', preferred: true },
     ],
-    units: [{ unit: 'serving', grams: 350 }, { unit: 'can', grams: 420 }],
+    units: [{ unit: 'serving', grams: 125 }, { unit: 'can', grams: 420 }],
   },
   {
     nameEn: 'Croque-monsieur', kcal: 215, protein: 12.0, carb: 18.0, fat: 11.0, fiber: 1.0,
@@ -772,7 +772,7 @@ const COMPOSITES: GapFood[] = [
 
 const BRANDED: GapFood[] = [
   {
-    nameEn: 'KIND nut bar', kcal: 500, protein: 15.0, carb: 20.0, fat: 37.5, fiber: 6.0,
+    nameEn: 'KIND nut bar', kcal: 500, protein: 15.0, carb: 40.0, fat: 37.5, fiber: 6.0,
     defaultServingGrams: 40, defaultServingUnit: 'piece',
     brand: 'KIND', dataQuality: 'label',
     provenance: 'KIND Nuts & Spices nutrition label',
@@ -808,7 +808,7 @@ const BRANDED: GapFood[] = [
     units: [{ unit: 'piece', grams: 18 }, { unit: 'portion', grams: 18 }],
   },
   {
-    nameEn: 'Biscuit petit beurre', kcal: 435, protein: 7.5, carb: 72.0, fat: 13.0, fiber: 2.5,
+    nameEn: 'Biscuit petit beurre', kcal: 440, protein: 7.5, carb: 72.0, fat: 14.0, fiber: 2.5,
     defaultServingGrams: 8, defaultServingUnit: 'piece',
     brand: 'LU', nameFr: 'Petit beurre LU', dataQuality: 'label',
     provenance: 'CIQUAL #31032',
