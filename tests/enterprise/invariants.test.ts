@@ -99,6 +99,39 @@ describe('enterprise hardening invariants', () => {
     expect(foodParse).not.toContain('responseText.match');
   });
 
+  it('keeps coach-module RLS fail-closed (messages, meal plans, intake)', () => {
+    const messages = readFileSync(join(root, 'drizzle/0026_messages.sql'), 'utf8');
+    // Clients may only insert as themselves, with the client role baked into policy
+    expect(messages).toContain("WITH CHECK (client_id = (SELECT auth.uid()) AND sender_role = 'client')");
+    // Coach access always scoped through assignment, never blanket role checks
+    expect(messages).toContain('private.is_coach_of(client_id)');
+
+    const mealPlans = readFileSync(join(root, 'drizzle/0025_coach_phase0_michael.sql'), 'utf8');
+    expect(mealPlans).toContain('private.is_coach_of(client_id)');
+    expect(mealPlans).toContain('meal_plan_client_select');
+
+    const intake = readFileSync(join(root, 'drizzle/0027_intake_daily_checkins.sql'), 'utf8');
+    expect(intake).toContain('qr_coach_select');
+    expect(intake).toContain('private.is_coach_of(client_id)');
+    // GDPR gate: lifestyle answers only, no document upload in Phase 2
+    expect(intake.toLowerCase()).not.toContain('storage');
+  });
+
+  it('derives meal-plan calories from macros instead of free-typing them', () => {
+    const plan = readFileSync(join(root, 'app/coach/client/[id]/plan/page.tsx'), 'utf8');
+    expect(plan).toContain('kcalFromMacros');
+    expect(plan).toContain('t.protein * 4 + t.carbs * 4 + t.fat * 9');
+    // The calories stepper must not come back
+    expect(plan).not.toContain("{ key: 'calories', label: 'Calories'");
+  });
+
+  it('hardens the client quick-message endpoint (zod + durable rate limit)', () => {
+    const route = readFileSync(join(root, 'app/api/client/message/route.ts'), 'utf8');
+    expect(route).toContain('consumeRateLimit');
+    expect(route).toContain('max(2000)');
+    expect(route).not.toContain('coach_notes');
+  });
+
   it('requires users to resolve inferred portions before logging nutrition', () => {
     const quickInput = readFileSync(join(root, 'components/QuickFoodInput.tsx'), 'utf8');
     const parsedList = readFileSync(join(root, 'components/ParsedFoodList.tsx'), 'utf8');
