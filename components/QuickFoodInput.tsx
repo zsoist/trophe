@@ -658,10 +658,42 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, onSea
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="glass p-4 flex items-center justify-center gap-3"
+            transition={{ duration: 0.25, ease: [0.32, 0.72, 0, 1] }}
+            className="space-y-2"
           >
-            <Loader2 size={16} className="animate-spin gold-text" />
-            <span className="text-stone-400 text-sm">{t('food.parsing')}</span>
+            <div className="flex items-center gap-2 px-1">
+              <Loader2 size={13} className="animate-spin gold-text" />
+              <span className="text-stone-400 text-xs">{t('food.parsing')}</span>
+            </div>
+            {/* Skeleton preview: items taking shape */}
+            {[0, 1, 2].map((i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.08 + i * 0.09, type: 'spring', stiffness: 380, damping: 30 }}
+                className="glass p-3 flex items-center justify-between"
+              >
+                <div className="space-y-1.5 flex-1">
+                  <motion.div
+                    className="h-3 rounded bg-stone-700/50"
+                    style={{ width: `${62 - i * 12}%` }}
+                    animate={{ opacity: [0.4, 0.9, 0.4] }}
+                    transition={{ repeat: Infinity, duration: 1.4, delay: i * 0.18 }}
+                  />
+                  <motion.div
+                    className="h-2 w-24 rounded bg-stone-800/60"
+                    animate={{ opacity: [0.3, 0.7, 0.3] }}
+                    transition={{ repeat: Infinity, duration: 1.4, delay: 0.1 + i * 0.18 }}
+                  />
+                </div>
+                <motion.div
+                  className="h-5 w-12 rounded bg-[#D4A853]/15"
+                  animate={{ opacity: [0.35, 0.8, 0.35] }}
+                  transition={{ repeat: Infinity, duration: 1.4, delay: 0.2 + i * 0.18 }}
+                />
+              </motion.div>
+            ))}
           </motion.div>
         )}
       </AnimatePresence>

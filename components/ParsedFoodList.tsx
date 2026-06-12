@@ -137,9 +137,13 @@ export default function ParsedFoodList({ items: initialItems, clarificationQuest
             <motion.div
               key={`${item.food_name}-${index}`}
               layout
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 10, height: 0 }}
+              initial={{ opacity: 0, y: 14, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, x: 24, height: 0, marginBottom: 0 }}
+              transition={{
+                type: 'spring', stiffness: 420, damping: 32,
+                delay: Math.min(index * 0.045, 0.35),
+              }}
               className={`glass p-3${!item.portion_explicit ? ' border-l-2 border-amber-500/40' : ''}`}
             >
               <div className="flex items-start justify-between gap-2">

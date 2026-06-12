@@ -251,15 +251,24 @@ export default function MealSlotCard({
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
             className="mt-2 space-y-1 overflow-hidden"
           >
-            {entries.map((entry) => {
+            {entries.map((entry, entryIndex) => {
               const isEditing = editingId === entry.id;
               const origQty = entry.quantity || 1;
 
               return (
-                <div
+                <motion.div
                   key={entry.id}
+                  layout
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, x: 16 }}
+                  transition={{
+                    type: 'spring', stiffness: 420, damping: 32,
+                    delay: Math.min(entryIndex * 0.04, 0.25),
+                  }}
                   className="flex items-center justify-between py-1.5 px-2 rounded bg-white/[0.03]"
                 >
                   <div className="flex-1 min-w-0">
@@ -338,7 +347,7 @@ export default function MealSlotCard({
                       </button>
                     </div>
                   )}
-                </div>
+                </motion.div>
               );
             })}
 
