@@ -342,6 +342,7 @@ export default function CoachDashboard() {
   const [weeklyActivity, setWeeklyActivity] = useState<number[]>([0, 0, 0, 0, 0, 0, 0]);
   // Larger-text mode (persisted; Michael: "letters are too small")
   const [largeText, setLargeText] = useState(false);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   useEffect(() => {
     const saved = localStorage.getItem('coach-font-scale') === 'large';
     setLargeText(saved);
@@ -411,6 +412,7 @@ export default function CoachDashboard() {
       // Role gate — only coaches can access this page
       const { data: profile } = await supabase.from('profiles').select('role, full_name').eq('id', user.id).maybeSingle();
       if (profile?.role === 'client') { router.replace('/dashboard'); return; }
+      setIsSuperAdmin(profile?.role === 'super_admin');
       if (profile?.full_name) setCoachName(profile.full_name.split(' ')[0]);
 
       // Fetch all client_profiles assigned to this coach
@@ -789,6 +791,13 @@ export default function CoachDashboard() {
               <LogOut size={14} />
               Log out
             </button>
+            {isSuperAdmin && (
+              <Link href="/super" title="Super Command Center"
+                className="text-xs flex items-center gap-1 font-mono font-bold"
+                style={{ color: 'var(--gold-300,#D4A853)' }}>
+                ⌘ SUPER
+              </Link>
+            )}
             <button
               onClick={toggleLargeText}
               title="Toggle larger text"

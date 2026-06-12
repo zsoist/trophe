@@ -459,6 +459,17 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="row-i" style={{ gap: 8 }}>
+            {userProfile?.role === 'super_admin' && (
+              <a href="/super" title="Super Command Center" style={{
+                display: 'flex', alignItems: 'center', gap: 4,
+                padding: '5px 10px', borderRadius: 17, textDecoration: 'none',
+                background: 'rgba(212,168,83,.12)', border: '1px solid rgba(212,168,83,.35)',
+                color: 'var(--gold-300,#D4A853)', fontSize: 10,
+                fontFamily: 'var(--font-mono)', fontWeight: 700, letterSpacing: '.05em',
+              }}>
+                ⌘ SUPER
+              </a>
+            )}
             {streakDays > 0 && (
               <span className="tag tag-g">
                 <Icon name="i-flame" size={9} />

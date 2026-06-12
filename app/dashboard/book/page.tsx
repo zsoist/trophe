@@ -19,6 +19,11 @@ interface Window_ { day_of_week: number; start_minute: number; end_minute: numbe
 interface TimeOff { starts_on: string; ends_on: string }
 interface Appt { id: string; starts_at: string; duration_min: number; status: string }
 
+/** True when fewer than 24h remain before the appointment. */
+function isLateCancellation(startsAt: string): boolean {
+  return new Date(startsAt).getTime() - Date.now() < 24 * 60 * 60_000;
+}
+
 export default function BookPage() {
   const router = useRouter();
   const [clientId, setClientId] = useState<string | null>(null);
@@ -112,7 +117,7 @@ export default function BookPage() {
   };
 
   const cancel = async (appt: Appt) => {
-    const late = new Date(appt.starts_at).getTime() - Date.now() < 24 * 60 * 60_000;
+    const late = isLateCancellation(appt.starts_at);
     if (late && !window.confirm('Less than 24h notice — your coach may apply a late-cancellation charge. Cancel anyway?')) return;
     setMine((m) => m.filter((x) => x.id !== appt.id));
     await supabase.from('appointments').update({
