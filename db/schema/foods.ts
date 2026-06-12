@@ -47,6 +47,7 @@ export const foodSourceEnum = pgEnum('food_source', [
   'ciqual',
   'crea',
   'bedca',
+  'cofid',
 ]);
 
 export const dataQualityEnum = pgEnum('data_quality', [
