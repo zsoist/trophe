@@ -168,6 +168,7 @@ export default function DashboardPage() {
   const [latestCoachNote, setLatestCoachNote] = useState<string | null>(null);
   const [pinnedNotes, setPinnedNotes] = useState<Array<{ note: string; session_type: string | null; created_at: string }>>([]);
   const [todayPlan, setTodayPlan] = useState<Array<{ meal_slot: string; description: string }>>([]);
+  const [intakePending, setIntakePending] = useState(false);
   const [coachName, setCoachName]           = useState<string | null>(null);
 
   const today = localToday();
@@ -262,6 +263,15 @@ export default function DashboardPage() {
           .select('meal_slot, description')
           .eq('client_id', user.id)
           .eq('day_of_week', dayOfWeek);
+        // Intake CTA: has a coach but never submitted the interview
+        const { data: intakeResp } = await supabase
+          .from('questionnaire_responses')
+          .select('submitted_at')
+          .eq('client_id', user.id)
+          .not('submitted_at', 'is', null)
+          .limit(1);
+        setIntakePending((intakeResp ?? []).length === 0);
+
         const slotOrder = ['breakfast', 'snack1', 'lunch', 'snack2', 'dinner'];
         setTodayPlan(
           ((planRows ?? []) as Array<{ meal_slot: string; description: string }>)
@@ -510,6 +520,23 @@ export default function DashboardPage() {
               );
             })}
           </div>
+        )}
+
+        {/* ══ 1b2 · Intake interview CTA ══ */}
+        {intakePending && (
+          <a href="/dashboard/intake" style={{ textDecoration: 'none' }}>
+            <div className="card" style={{
+              padding: '11px 14px', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 10,
+              border: '1px solid rgba(212,168,83,.3)', background: 'rgba(212,168,83,.06)',
+            }}>
+              <Icon name="i-edit" size={16} style={{ color: 'var(--gold-300,#D4A853)', flexShrink: 0 }} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--t1)' }}>Complete your intake interview</div>
+                <div className="ds-sub" style={{ fontSize: 10 }}>15 questions — helps your coach build your plan</div>
+              </div>
+              <Icon name="i-chev-r" size={14} style={{ color: 'var(--t4)' }} />
+            </div>
+          </a>
         )}
 
         {/* ══ 1c · Today's plan from the coach (meal_plan_entries) ══ */}

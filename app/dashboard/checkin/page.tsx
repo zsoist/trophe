@@ -122,6 +122,12 @@ export default function CheckinPage() {
   const [completed, setCompleted]   = useState<boolean | null>(null);
   const [mood, setMood]             = useState<Mood | null>(null);
   const [note, setNote]             = useState('');
+  // Daily lifestyle signals (Michael 2026-06-12): digestion, sleep, energy,
+  // water — context for the coach AND self-awareness for the client.
+  const [bowel, setBowel]           = useState<boolean | null>(null);
+  const [slept8h, setSlept8h]       = useState<boolean | null>(null);
+  const [energy, setEnergy]         = useState<number | null>(null);
+  const [waterOk, setWaterOk]       = useState<boolean | null>(null);
   const [saving, setSaving]         = useState(false);
   const [saved, setSaved]           = useState(false);
 
@@ -160,6 +166,19 @@ export default function CheckinPage() {
       if (checkins && checkins.length > 0) {
         setTodayCheckin(checkins[0] as HabitCheckin);
       }
+
+      const { data: dc } = await supabase
+        .from('daily_checkins')
+        .select('bowel_movement, slept_8h, energy, water_ok')
+        .eq('user_id', user.id)
+        .eq('checked_date', today)
+        .maybeSingle();
+      if (dc) {
+        setBowel(dc.bowel_movement);
+        setSlept8h(dc.slept_8h);
+        setEnergy(dc.energy);
+        setWaterOk(dc.water_ok);
+      }
     } catch (err) {
       console.error('Check-in load error:', err);
     } finally {
@@ -182,6 +201,18 @@ export default function CheckinPage() {
         mood: mood ?? undefined,
         note: note.trim() || undefined,
       }, { onConflict: 'client_habit_id,checked_date' });
+
+      // Lifestyle signals — saved independently of the habit result
+      if (bowel !== null || slept8h !== null || energy !== null || waterOk !== null) {
+        await supabase.from('daily_checkins').upsert({
+          user_id: userId,
+          checked_date: today,
+          bowel_movement: bowel,
+          slept_8h: slept8h,
+          energy,
+          water_ok: waterOk,
+        }, { onConflict: 'user_id,checked_date' });
+      }
 
       // Update streak only on completion
       if (completed) {
@@ -467,6 +498,59 @@ export default function CheckinPage() {
               <Icon name="i-x" size={14} />
               <span style={{ fontSize: 12, fontFamily: 'var(--font-mono)', fontWeight: 700 }}>SKIP</span>
             </button>
+          </div>
+        </motion.div>
+
+        {/* ══ Daily signals (optional, Phase 2) ═══════════ */}
+        <motion.div
+          initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.17 }}
+          className="card p-4 mb-4"
+        >
+          <div className="eye" style={{ marginBottom: 10 }}>
+            DAILY SIGNALS <span style={{ color: 'var(--t4)', fontSize: 9, fontWeight: 400 }}>(OPTIONAL)</span>
+          </div>
+          {([
+            ['Went to the toilet today (№2)', bowel, setBowel],
+            ['Slept 8h or more', slept8h, setSlept8h],
+            ['Drank enough water (~1.5 L+)', waterOk, setWaterOk],
+          ] as Array<[string, boolean | null, (v: boolean | null) => void]>).map(([label, value, setter]) => (
+            <div key={label} className="row-b" style={{ marginBottom: 8 }}>
+              <span style={{ fontSize: 11, color: 'var(--t2)' }}>{label}</span>
+              <div style={{ display: 'flex', gap: 4 }}>
+                {[true, false].map((opt) => (
+                  <button key={String(opt)}
+                    onClick={() => setter(value === opt ? null : opt)}
+                    style={{
+                      width: 40, padding: '4px 0', borderRadius: 8, cursor: 'pointer', fontSize: 10,
+                      fontFamily: 'var(--font-mono)', fontWeight: 700,
+                      border: `1px solid ${value === opt ? (opt ? 'rgba(101,211,135,.5)' : 'rgba(239,68,68,.4)') : 'var(--line)'}`,
+                      background: value === opt ? (opt ? 'rgba(101,211,135,.1)' : 'rgba(239,68,68,.07)') : 'transparent',
+                      color: value === opt ? (opt ? 'var(--ok,#65D387)' : 'rgb(239,68,68)') : 'var(--t4)',
+                    }}>
+                    {opt ? 'YES' : 'NO'}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+          <div className="row-b">
+            <span style={{ fontSize: 11, color: 'var(--t2)' }}>Energy today</span>
+            <div style={{ display: 'flex', gap: 4 }}>
+              {[1, 2, 3, 4, 5].map((n) => (
+                <button key={n}
+                  onClick={() => setEnergy(energy === n ? null : n)}
+                  style={{
+                    width: 26, padding: '4px 0', borderRadius: 8, cursor: 'pointer', fontSize: 11,
+                    fontFamily: 'var(--font-mono)',
+                    border: `1px solid ${energy === n ? 'var(--gold-300,#D4A853)' : 'var(--line)'}`,
+                    background: energy === n ? 'rgba(212,168,83,.12)' : 'transparent',
+                    color: energy === n ? 'var(--gold-300,#D4A853)' : 'var(--t4)',
+                  }}>
+                  {n}
+                </button>
+              ))}
+            </div>
           </div>
         </motion.div>
 

@@ -182,6 +182,8 @@ export default function ClientDetailPage() {
   const [goalForm, setGoalForm] = useState({ title: '', metric: '', window: '' });
   const [goalSaved, setGoalSaved] = useState(false);
   const [stabilization, setStabilization] = useState(false);
+  const [intake, setIntake] = useState<Array<{ prompt: string; answer: string }> | null>(null);
+  const [intakeOpen, setIntakeOpen] = useState(false);
 
   const saveAssessment = async () => {
     await supabase
@@ -274,6 +276,29 @@ export default function ClientDetailPage() {
         setAssessment(cp.assessment ?? '');
         setGoalForm({ title: cp.goal_title ?? '', metric: cp.goal_metric ?? '', window: cp.goal_window ?? '' });
         setStabilization(cp.stabilization ?? false);
+      }
+
+      // Intake answers (Phase 2): submitted questionnaire, joined to prompts
+      const { data: resp } = await supabase
+        .from('questionnaire_responses')
+        .select('answers, submitted_at, questionnaire_id')
+        .eq('client_id', clientId)
+        .not('submitted_at', 'is', null)
+        .order('submitted_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (resp) {
+        const { data: qs } = await supabase
+          .from('questionnaire_questions')
+          .select('id, position, prompt')
+          .eq('questionnaire_id', resp.questionnaire_id)
+          .order('position');
+        const answerMap = (resp.answers ?? {}) as Record<string, string>;
+        setIntake(
+          ((qs ?? []) as Array<{ id: string; prompt: string }>)
+            .map((q) => ({ prompt: q.prompt, answer: answerMap[q.id] ?? '' }))
+            .filter((row) => row.answer.trim())
+        );
       }
 
       const allHabits = habitsRes.data || [];
@@ -962,6 +987,32 @@ export default function ClientDetailPage() {
               style={{ resize: 'vertical' }}
             />
           </div>
+
+          {/* ─── Intake answers (Phase 2) ─── */}
+          {intake && intake.length > 0 && (
+            <div className="glass p-4 mb-4">
+              <button
+                onClick={() => setIntakeOpen((v) => !v)}
+                className="w-full flex items-center justify-between"
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+              >
+                <h2 className="font-semibold text-stone-200 text-sm">
+                  Intake interview <span className="text-stone-500 font-normal">({intake.length} answers)</span>
+                </h2>
+                <span className="text-stone-500 text-xs font-mono">{intakeOpen ? '−' : '+'}</span>
+              </button>
+              {intakeOpen && (
+                <div className="mt-3 space-y-3">
+                  {intake.map((row, i) => (
+                    <div key={i}>
+                      <div className="text-[10px] text-stone-500 mb-0.5 leading-snug">{row.prompt}</div>
+                      <div className="text-xs text-stone-200 leading-relaxed">{row.answer}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* ─── Macro Targets (editable by coach) ─── */}
           <div className="card-g p-4 mb-4">
