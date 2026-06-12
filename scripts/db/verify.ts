@@ -117,7 +117,7 @@ const expectations: Expectation[] = [
           'idx_food_log_user_date',
           'idx_org_members_org',
           'idx_org_members_user',
-          'idx_foods_search',
+          'idx_foods_search_text',
           'idx_foods_embedding',
           'idx_mc_user_scope_active',
           'idx_mc_user_scope_active_embed',
@@ -131,7 +131,7 @@ const expectations: Expectation[] = [
     expected: [
       'idx_food_log_user_date',
       'idx_foods_embedding',
-      'idx_foods_search',
+      'idx_foods_search_text',
       'idx_mc_embedding',
       'idx_mc_user_scope_active',
       'idx_mc_user_scope_active_embed',
