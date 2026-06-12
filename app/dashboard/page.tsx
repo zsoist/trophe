@@ -168,7 +168,7 @@ export default function DashboardPage() {
   const [latestCoachNote, setLatestCoachNote] = useState<string | null>(null);
   const [pinnedNotes, setPinnedNotes] = useState<Array<{ note: string; session_type: string | null; created_at: string }>>([]);
   const [todayPlan, setTodayPlan] = useState<Array<{ meal_slot: string; description: string }>>([]);
-  const [intakePending, setIntakePending] = useState(false);
+  const [intakePending, setIntakePending] = useState<false | 'first' | 'quarterly'>(false);
   const [coachName, setCoachName]           = useState<string | null>(null);
 
   const today = localToday();
@@ -263,14 +263,18 @@ export default function DashboardPage() {
           .select('meal_slot, description')
           .eq('client_id', user.id)
           .eq('day_of_week', dayOfWeek);
-        // Intake CTA: has a coach but never submitted the interview
+        // Intake CTA: never submitted → first run; older than 90 days → quarterly refresh
         const { data: intakeResp } = await supabase
           .from('questionnaire_responses')
           .select('submitted_at')
           .eq('client_id', user.id)
           .not('submitted_at', 'is', null)
+          .order('submitted_at', { ascending: false })
           .limit(1);
-        setIntakePending((intakeResp ?? []).length === 0);
+        const last = intakeResp?.[0]?.submitted_at;
+        if (!last) setIntakePending('first');
+        else if (Date.now() - new Date(last).getTime() > 90 * 86400_000) setIntakePending('quarterly');
+        else setIntakePending(false);
 
         const slotOrder = ['breakfast', 'snack1', 'lunch', 'snack2', 'dinner'];
         setTodayPlan(
@@ -440,7 +444,7 @@ export default function DashboardPage() {
       <motion.div
         initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35 }}
-        className="max-w-md mx-auto px-4 pt-3"
+        className="max-w-md lg:max-w-4xl mx-auto px-4 pt-3"
       >
         {/* ── Weekly check-in (Sunday, unobtrusive) ── */}
         {userId && clientProfile && (
@@ -542,8 +546,12 @@ export default function DashboardPage() {
             }}>
               <Icon name="i-edit" size={16} style={{ color: 'var(--gold-300,#D4A853)', flexShrink: 0 }} />
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--t1)' }}>Complete your intake interview</div>
-                <div className="ds-sub" style={{ fontSize: 10 }}>15 questions — helps your coach build your plan</div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--t1)' }}>
+                  {intakePending === 'quarterly' ? 'Seasonal check-in with your coach' : 'Twelve questions before we start'}
+                </div>
+                <div className="ds-sub" style={{ fontSize: 10 }}>
+                  {intakePending === 'quarterly' ? 'Things change — tell your coach what moved' : '~5 minutes · shapes your whole plan'}
+                </div>
               </div>
               <Icon name="i-chev-r" size={14} style={{ color: 'var(--t4)' }} />
             </div>
@@ -630,6 +638,9 @@ export default function DashboardPage() {
             </div>
           </div>
         </motion.div>
+
+        {/* Desktop: sections below the hero flow into two columns */}
+        <div className="dash-cols lg:columns-2 lg:gap-5">
 
         {/* ══ 3 · Active habit card ════════════════════════════ */}
         {activeHabit?.habit ? (
@@ -961,6 +972,7 @@ export default function DashboardPage() {
             </div>
           )}
         </motion.div>
+        </div>{/* /dash-cols */}
       </motion.div>
 
       {/* ── Habit detail modal ── */}

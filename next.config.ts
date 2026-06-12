@@ -32,7 +32,7 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
               "img-src 'self' data: blob: https:",
-              `connect-src 'self' ${supabaseOrigin} https://api.nal.usda.gov https://generativelanguage.googleapis.com https://api.anthropic.com`,
+              `connect-src 'self' ${supabaseOrigin} ${supabaseOrigin.replace('https://', 'wss://')} https://api.nal.usda.gov https://generativelanguage.googleapis.com https://api.anthropic.com`,
               "media-src 'self' blob:",
               "worker-src 'self' blob:",
             ].join('; '),
