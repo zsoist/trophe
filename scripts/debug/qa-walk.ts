@@ -40,6 +40,7 @@ async function main() {
     ['/dashboard', 'dashboard'], ['/super', 'super'], ['/coach', 'coach'],
     ['/dashboard/intake', 'intake'], ['/dashboard/messages', 'messages'],
     ['/dashboard/book', 'book'], ['/dashboard/log', 'log'],
+    ['/dashboard/workout', 'workout'],
   ];
   for (const [path, name] of stops) {
     await page.goto('https://trophe.app' + path, { waitUntil: 'networkidle', timeout: 45000 }).catch(() => {});
@@ -50,7 +51,7 @@ async function main() {
   const mob = await browser.newContext({ viewport: { width: 390, height: 844 } });
   await mob.addCookies(chunks.map((c) => ({ ...c, domain: 'trophe.app', path: '/', secure: true, sameSite: 'Lax' as const })));
   const mp = await mob.newPage();
-  for (const [path, name] of [['/dashboard', 'dashboard'], ['/dashboard/intake', 'intake']] as Array<[string, string]>) {
+  for (const [path, name] of [['/dashboard', 'dashboard'], ['/dashboard/intake', 'intake'], ['/dashboard/workout', 'workout']] as Array<[string, string]>) {
     await mp.goto('https://trophe.app' + path, { waitUntil: 'networkidle', timeout: 45000 }).catch(() => {});
     await mp.waitForTimeout(2500);
     await mp.screenshot({ path: `${OUT}/${name}-mobile.png` });

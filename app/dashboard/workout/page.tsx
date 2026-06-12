@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Dumbbell, Plus, Minus, Clock, Trophy, Search, X, AlertTriangle,
-  ChevronDown, ChevronUp, History, Play, Square, Camera
+  ChevronDown, ChevronUp, History, Play, Square, Camera, Timer
 } from 'lucide-react';
 import { BotNav } from '@/components/ui/BotNav';
 import { supabase } from '@/lib/supabase';
@@ -47,6 +47,8 @@ interface ActiveExercise {
   exercise: Exercise;
   sets: LocalSet[];
   collapsed: boolean;
+  /** Sets from the most recent past session of this exercise — shown as ghost placeholders. */
+  lastSets?: { weight_kg: number | null; reps: number | null }[];
 }
 
 // ─── Pain Flag Modal ───
@@ -452,6 +454,44 @@ function ElapsedTimer({ startTime }: { startTime: number }) {
   );
 }
 
+// ─── Rest timer chip — starts when a set is logged, gold pulse at 90s ───
+const REST_TARGET_S = 90;
+
+function RestChip({ startedAt, onDismiss }: { startedAt: number; onDismiss: () => void }) {
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - startedAt) / 1000));
+    }, 500);
+    return () => clearInterval(interval);
+  }, [startedAt]);
+
+  const ready = elapsed >= REST_TARGET_S;
+  const mins = Math.floor(elapsed / 60);
+
+  return (
+    <motion.button
+      initial={{ opacity: 0, y: -8, scale: 0.9 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.9 }}
+      onClick={onDismiss}
+      className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium"
+      style={{
+        background: ready ? 'rgba(212,168,83,0.18)' : 'rgba(255,255,255,0.06)',
+        color: ready ? '#D4A853' : '#a8a29e',
+        border: ready ? '1px solid rgba(212,168,83,0.35)' : '1px solid rgba(255,255,255,0.08)',
+        animation: ready ? 'pulse 1.6s ease-in-out infinite' : undefined,
+      }}
+      title="Rest since last set — tap to dismiss"
+    >
+      <Timer size={12} />
+      <span style={{ fontFamily: 'var(--font-mono)' }}>{mins}:{String(elapsed % 60).padStart(2, '0')}</span>
+      {ready && <span style={{ fontWeight: 700 }}>go</span>}
+    </motion.button>
+  );
+}
+
 // ═══════════════════════════════════════════════
 // Main Workout Page
 // ═══════════════════════════════════════════════
@@ -485,6 +525,7 @@ export default function WorkoutPage() {
   // UI state
   const [saving, setSaving] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [restStartedAt, setRestStartedAt] = useState<number | null>(null);
 
   // Load exercises & user
   useEffect(() => {
@@ -555,6 +596,32 @@ export default function WorkoutPage() {
     }
   };
 
+  // Ghost values: pull the most recent past session's sets for this exercise
+  // so today's inputs show "what you did last time" as placeholders.
+  const loadLastSets = useCallback(async (exerciseId: string) => {
+    if (!userId) return;
+    const { data } = await supabase
+      .from('workout_sets')
+      .select('weight_kg, reps, set_number, session_id, workout_sessions!inner(user_id, session_date)')
+      .eq('exercise_id', exerciseId)
+      .eq('workout_sessions.user_id', userId)
+      .eq('is_warmup', false)
+      .limit(60);
+    if (!data || data.length === 0) return;
+
+    type Row = { weight_kg: number | null; reps: number | null; set_number: number; session_id: string; workout_sessions: { session_date: string } };
+    const rows = data as unknown as Row[];
+    const latestDate = rows.reduce((max, r) => r.workout_sessions.session_date > max ? r.workout_sessions.session_date : max, '');
+    const latestSession = rows.filter(r => r.workout_sessions.session_date === latestDate);
+    const lastSets = latestSession
+      .sort((a, b) => a.set_number - b.set_number)
+      .map(r => ({ weight_kg: r.weight_kg, reps: r.reps }));
+
+    setActiveExercises(prev => prev.map(ae =>
+      ae.exercise.id === exerciseId ? { ...ae, lastSets } : ae
+    ));
+  }, [userId]);
+
   // ─── Add exercise to session ───
   const addExercise = (ex: Exercise) => {
     const alreadyAdded = activeExercises.some((ae) => ae.exercise.id === ex.id);
@@ -569,6 +636,7 @@ export default function WorkoutPage() {
       },
     ]);
     loadPRs([ex.id]);
+    loadLastSets(ex.id);
   };
 
   // ─── Set management ───
@@ -587,6 +655,8 @@ export default function WorkoutPage() {
       });
       return updated;
     });
+    // Adding the next set marks the end of the previous one — start the rest clock.
+    setRestStartedAt(Date.now());
   };
 
   const removeSet = (exIndex: number, setIndex: number) => {
@@ -671,6 +741,7 @@ export default function WorkoutPage() {
       setSessionId(null);
       setActiveExercises([]);
       setPainFlags([]);
+      setRestStartedAt(null);
     } catch (err) {
       console.error('Error finishing workout:', err);
     } finally {
@@ -717,12 +788,17 @@ export default function WorkoutPage() {
     <div className="min-h-screen pb-28" style={{ background: 'var(--bg,#0a0a0a)' }}>
       {/* Header */}
       <div className="sticky top-0 z-40 glass-elevated px-4 py-3">
-        <div className="max-w-md mx-auto flex items-center justify-between">
+        <div className="max-w-md lg:max-w-2xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Dumbbell size={22} className="gold-text" />
             <h1 className="text-lg font-bold">{t('workout.title')}</h1>
           </div>
           <div className="flex items-center gap-2">
+            <AnimatePresence>
+              {sessionActive && restStartedAt !== null && (
+                <RestChip key={restStartedAt} startedAt={restStartedAt} onDismiss={() => setRestStartedAt(null)} />
+              )}
+            </AnimatePresence>
             {sessionActive && (
               <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium"
                 style={{ background: 'rgba(34,197,94,0.15)', color: '#4ade80', border: '1px solid rgba(34,197,94,0.2)' }}>
@@ -739,7 +815,7 @@ export default function WorkoutPage() {
         </div>
       </div>
 
-      <div className="max-w-md mx-auto px-4 pt-4">
+      <div className="max-w-md lg:max-w-2xl mx-auto px-4 pt-4">
         {/* Not in session — Rich landing state */}
         {!sessionActive && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
@@ -905,7 +981,7 @@ export default function WorkoutPage() {
                     <span style={{ fontSize: 10, color: 'var(--gold-300,#D4A853)', cursor: 'pointer' }}>See all</span>
                   </Link>
                 </div>
-                <div className="space-y-2">
+                <div className="grid gap-2 lg:grid-cols-2">
                   {recentSessions.slice(0, 4).map(session => {
                     const d = new Date(session.session_date + 'T00:00:00');
                     const label = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
@@ -989,10 +1065,20 @@ export default function WorkoutPage() {
                         </p>
                         <p className="text-xs text-stone-500">
                           {ae.sets.length} {ae.sets.length === 1 ? 'set' : 'sets'}
-                          {ae.sets.some((s) => s.is_pr) && (
-                            <span className="ml-1 text-yellow-400">
-                              <Trophy size={10} className="inline" /> PR!
+                          {ae.lastSets && ae.lastSets.length > 0 && (
+                            <span className="ml-1.5 text-stone-600">
+                              · last {ae.lastSets.slice(0, 3).map(ls => `${ls.weight_kg ?? '–'}×${ls.reps ?? '–'}`).join(' ')}
                             </span>
+                          )}
+                          {ae.sets.some((s) => s.is_pr) && (
+                            <motion.span
+                              initial={{ scale: 0, rotate: -20 }}
+                              animate={{ scale: 1, rotate: 0 }}
+                              transition={{ type: 'spring', stiffness: 500, damping: 12 }}
+                              className="ml-1.5 inline-block text-yellow-400 font-semibold"
+                            >
+                              <Trophy size={10} className="inline" /> PR!
+                            </motion.span>
                           )}
                         </p>
                       </div>
@@ -1046,7 +1132,7 @@ export default function WorkoutPage() {
                                 inputMode="decimal"
                                 value={set.weight_kg}
                                 onChange={(e) => updateSet(exIndex, setIndex, 'weight_kg', e.target.value)}
-                                placeholder="0"
+                                placeholder={ae.lastSets?.[setIndex]?.weight_kg?.toString() ?? '0'}
                                 className="flex-1 text-center text-sm py-1.5 rounded-lg outline-none transition-colors"
                                 style={{
                                   background: set.is_pr ? 'rgba(212,168,83,0.15)' : 'rgba(255,255,255,0.04)',
@@ -1060,7 +1146,7 @@ export default function WorkoutPage() {
                                 inputMode="numeric"
                                 value={set.reps}
                                 onChange={(e) => updateSet(exIndex, setIndex, 'reps', e.target.value)}
-                                placeholder="0"
+                                placeholder={ae.lastSets?.[setIndex]?.reps?.toString() ?? '0'}
                                 className="flex-1 text-center text-sm py-1.5 rounded-lg outline-none"
                                 style={{ background: 'rgba(255,255,255,0.04)', color: '#f5f5f4' }}
                               />
