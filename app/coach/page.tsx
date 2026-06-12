@@ -337,6 +337,19 @@ export default function CoachDashboard() {
   const [inlineNoteText, setInlineNoteText] = useState('');
   const [savingNote, setSavingNote] = useState(false);
   const [weeklyActivity, setWeeklyActivity] = useState<number[]>([0, 0, 0, 0, 0, 0, 0]);
+  // Larger-text mode (persisted; Michael: "letters are too small")
+  const [largeText, setLargeText] = useState(false);
+  useEffect(() => {
+    const saved = localStorage.getItem('coach-font-scale') === 'large';
+    setLargeText(saved);
+    document.documentElement.dataset.fontScale = saved ? 'large' : '';
+  }, []);
+  const toggleLargeText = () => {
+    const next = !largeText;
+    setLargeText(next);
+    localStorage.setItem('coach-font-scale', next ? 'large' : 'normal');
+    document.documentElement.dataset.fontScale = next ? 'large' : '';
+  };
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [coachName, setCoachName] = useState('Coach');
   const [showBatchAssign, setShowBatchAssign] = useState(false);
@@ -651,6 +664,21 @@ export default function CoachDashboard() {
   // Clients needing attention
   const needsAttention = clients.filter((c) => c.status === 'red' || c.daysSinceCheckin >= 3);
 
+  // Real coaching streak: consecutive days (ending today or yesterday) where
+  // at least one client checked in, derived from daysSinceCheckin minima.
+  const coachingStreakDays = (() => {
+    const days = clients
+      .map((c) => c.daysSinceCheckin)
+      .filter((d) => Number.isFinite(d) && d >= 0)
+      .sort((a, b) => a - b);
+    if (days.length === 0 || days[0] > 1) return 0;
+    // Count distinct consecutive day-offsets covered by client check-ins
+    let streak = 0;
+    const covered = new Set(days);
+    for (let d = days[0]; covered.has(d); d++) streak++;
+    return streak;
+  })();
+
   // ═══ Computed data for new components ═══
 
   // Pulse stats
@@ -758,6 +786,13 @@ export default function CoachDashboard() {
               <LogOut size={14} />
               Log out
             </button>
+            <button
+              onClick={toggleLargeText}
+              title="Toggle larger text"
+              className={`text-xs flex items-center gap-1 transition-colors ${largeText ? 'text-[#D4A853]' : 'text-stone-500 hover:text-stone-300'}`}
+            >
+              Aa
+            </button>
           </div>
         </div>
         <CoachNav active="/coach" />
@@ -780,10 +815,11 @@ export default function CoachDashboard() {
             </div>
           )}
 
-          {/* Coaching Streak */}
+          {/* Coaching Streak — consecutive days (ending today/yesterday) with at
+              least one client check-in. Was hardcoded to 7; Michael flagged it. */}
           {!loading && (
-            <div className="mb-6">
-              <CoachingStreak streakDays={7} />
+            <div className="mb-6" title="Consecutive days where at least one of your clients checked in.">
+              <CoachingStreak streakDays={coachingStreakDays} />
             </div>
           )}
 

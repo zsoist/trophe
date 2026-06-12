@@ -816,3 +816,9 @@ body {
 .bnav-active { color: #D4A853 !important; }
 .bnav-dim    { color: var(--t5, #57534E); transition: color 0.15s; }
 .bnav-dim:hover { color: var(--t3, #A8A29E); }
+
+/* Coach accessibility: larger text mode (Michael: "letters are too small").
+   Scales all rem-based (Tailwind text-*) sizes by ~12.5%. */
+html[data-font-scale='large'] {
+  font-size: 112.5%;
+}

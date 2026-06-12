@@ -65,6 +65,7 @@ const CARDS = [
     icon: Users,
     color: '#D4A853',
     suffix: '',
+    explain: 'All clients currently assigned to you.',
   },
   {
     key: 'avgCompliance' as const,
@@ -72,6 +73,7 @@ const CARDS = [
     icon: TrendingUp,
     color: '#4ade80',
     suffix: '%',
+    explain: 'Average habit-cycle completion across clients with an active habit (current streak ÷ cycle length).',
   },
   {
     key: 'mealsThisWeek' as const,
@@ -79,6 +81,7 @@ const CARDS = [
     icon: UtensilsCrossed,
     color: '#60a5fa',
     suffix: '',
+    explain: 'Total food-log entries from all your clients in the last 7 days.',
   },
   {
     key: 'needsAttention' as const,
@@ -86,6 +89,7 @@ const CARDS = [
     icon: AlertTriangle,
     color: '#f87171',
     suffix: '',
+    explain: 'Clients flagged red or with no check-in for 3+ days.',
   },
 ];
 
@@ -101,6 +105,7 @@ export default memo(function WeeklyPulseCards({ stats }: WeeklyPulseCardsProps) 
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.08, duration: 0.4 }}
             className="bg-white/[0.04] border border-white/[0.06] rounded-xl p-4 flex flex-col items-center gap-2"
+            title={card.explain}
           >
             <div
               className="w-9 h-9 rounded-lg flex items-center justify-center"

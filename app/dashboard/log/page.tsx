@@ -21,12 +21,10 @@ import MacroTrendChart from '@/components/MacroTrendChart';
 import CalorieHeatmap from '@/components/CalorieHeatmap';
 import FoodFrequency from '@/components/FoodFrequency';
 import FastingTimer from '@/components/FastingTimer';
-import MacroAdherence from '@/components/MacroAdherence';
 import DayPatterns from '@/components/DayPatterns';
 import MonthlyReport from '@/components/MonthlyReport';
 import MealPhotoGallery from '@/components/MealPhotoGallery';
 import DayComparison from '@/components/DayComparison';
-import MacroFoodIdeas from '@/components/MacroFoodIdeas';
 import CoachFoodRecs from '@/components/CoachFoodRecs';
 import RecipeAnalyzerModal from '@/components/RecipeAnalyzerModal';
 import { useTheme } from '@/components/ThemePicker';
@@ -740,28 +738,7 @@ export default function FoodLogPage() {
           </motion.div>
         )}
 
-        {/* Macro Food Ideas */}
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.12, duration: 0.28 }}
-          className="mb-3"
-        >
-          <MacroFoodIdeas
-            consumed={{
-              protein: todayLog.reduce((s, e) => s + (e.protein_g || 0), 0),
-              carbs:   todayLog.reduce((s, e) => s + (e.carbs_g   || 0), 0),
-              fat:     todayLog.reduce((s, e) => s + (e.fat_g     || 0), 0),
-              fiber:   todayLog.reduce((s, e) => s + (e.fiber_g   || 0), 0),
-            }}
-            targets={{
-              protein: targets.protein_g,
-              carbs: targets.carbs_g,
-              fat: targets.fat_g,
-              fiber: 30,
-            }}
-          />
-        </motion.div>
+        {/* Macro Food Ideas removed — coach plan is the source of truth (Michael 2026-06-12) */}
 
         {/* Daily Insights */}
         {todayLog.length >= 3 && (
@@ -856,12 +833,7 @@ export default function FoodLogPage() {
                 <DayPatterns userId={userId} />
               </motion.div>
 
-              {/* Macro Adherence */}
-              {targets.calories > 0 && (
-                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.20, duration: 0.28 }}>
-                  <MacroAdherence userId={userId} targets={targets} />
-                </motion.div>
-              )}
+              {/* Macro Adherence hidden from clients — coach-only metric (Michael 2026-06-12) */}
 
               {/* Monthly Report */}
               {targets.calories > 0 && (

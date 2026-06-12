@@ -166,6 +166,8 @@ export default function DashboardPage() {
   const [sendingMsg, setSendingMsg]         = useState(false);
   const [msgSent, setMsgSent]              = useState(false);
   const [latestCoachNote, setLatestCoachNote] = useState<string | null>(null);
+  const [pinnedNotes, setPinnedNotes] = useState<Array<{ note: string; session_type: string | null; created_at: string }>>([]);
+  const [todayPlan, setTodayPlan] = useState<Array<{ meal_slot: string; description: string }>>([]);
   const [coachName, setCoachName]           = useState<string | null>(null);
 
   const today = localToday();
@@ -238,18 +240,34 @@ export default function DashboardPage() {
       if (cpRes.data?.coach_id) {
         const [noteRes, coachProfileRes] = await Promise.all([
           supabase.from('coach_notes')
-            .select('note, created_at')
+            .select('note, session_type, created_at')
             .eq('client_id', user.id)
             .not('note', 'like', '[Client message]:%')
             .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle(),
+            .limit(3),
           supabase.from('profiles')
             .select('full_name')
             .eq('id', cpRes.data.coach_id)
             .maybeSingle(),
         ]);
-        if (noteRes.data?.note) setLatestCoachNote(noteRes.data.note);
+        const noteRows = (noteRes.data ?? []) as Array<{ note: string; session_type: string | null; created_at: string }>;
+        if (noteRows[0]?.note) setLatestCoachNote(noteRows[0].note);
+        setPinnedNotes(noteRows);
+
+        // Today's meal plan (weekly grid: Monday=0 … Sunday=6)
+        const jsDay = new Date().getDay(); // Sun=0
+        const dayOfWeek = jsDay === 0 ? 6 : jsDay - 1;
+        const { data: planRows } = await supabase
+          .from('meal_plan_entries')
+          .select('meal_slot, description')
+          .eq('client_id', user.id)
+          .eq('day_of_week', dayOfWeek);
+        const slotOrder = ['breakfast', 'snack1', 'lunch', 'snack2', 'dinner'];
+        setTodayPlan(
+          ((planRows ?? []) as Array<{ meal_slot: string; description: string }>)
+            .filter((r) => r.description.trim())
+            .sort((a, b) => slotOrder.indexOf(a.meal_slot) - slotOrder.indexOf(b.meal_slot))
+        );
         if (coachProfileRes.data?.full_name) setCoachName(coachProfileRes.data.full_name.split(' ')[0]);
       }
 
@@ -465,6 +483,56 @@ export default function DashboardPage() {
             </motion.button>
           </div>
         </div>
+
+        {/* ══ 1b · Coach messages — pinned first (Michael 2026-06-12).
+               Colors by note type: check-in blue · progression green ·
+               concern red · general neutral. ══ */}
+        {pinnedNotes.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
+            {pinnedNotes.map((n, i) => {
+              const palette: Record<string, { bg: string; border: string; fg: string }> = {
+                check_in:    { bg: 'rgba(96,165,250,.08)',  border: 'rgba(96,165,250,.3)',  fg: '#93c5fd' },
+                progression: { bg: 'rgba(74,222,128,.08)',  border: 'rgba(74,222,128,.3)',  fg: '#86efac' },
+                concern:     { bg: 'rgba(248,113,113,.10)', border: 'rgba(248,113,113,.35)', fg: '#fca5a5' },
+                general:     { bg: 'rgba(255,255,255,.04)', border: 'var(--line)',          fg: 'var(--t2)' },
+              };
+              const c = palette[n.session_type ?? 'general'] ?? palette.general;
+              return (
+                <div key={i} style={{
+                  padding: '10px 12px', borderRadius: 12,
+                  background: c.bg, border: `1px solid ${c.border}`,
+                }}>
+                  <div style={{ fontSize: 9, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '.08em', color: c.fg, marginBottom: 3 }}>
+                    {coachName ? `Coach ${coachName}` : 'Your coach'}{n.session_type && n.session_type !== 'general' ? ` · ${n.session_type.replace('_', '-')}` : ''}
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--t1)', lineHeight: 1.5 }}>{n.note}</div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* ══ 1c · Today's plan from the coach (meal_plan_entries) ══ */}
+        {todayPlan.length > 0 && (
+          <div className="card" style={{ padding: '12px 14px', marginBottom: 14 }}>
+            <div style={{ fontSize: 9, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '.08em', color: 'var(--gold-300,#D4A853)', marginBottom: 8 }}>
+              Today&apos;s plan
+            </div>
+            {todayPlan.map((row) => {
+              const slotLabels: Record<string, string> = {
+                breakfast: 'Breakfast', snack1: 'Snack', lunch: 'Lunch', snack2: 'Snack', dinner: 'Dinner',
+              };
+              return (
+                <div key={row.meal_slot} style={{ display: 'flex', gap: 8, marginBottom: 6 }}>
+                  <span style={{ fontSize: 10, color: 'var(--t3)', width: 64, flexShrink: 0, paddingTop: 1 }}>
+                    {slotLabels[row.meal_slot] ?? row.meal_slot}
+                  </span>
+                  <span style={{ fontSize: 12, color: 'var(--t1)', lineHeight: 1.45 }}>{row.description}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* ══ 2 · Today macro hero card ════════════════════════ */}
         <motion.div

@@ -2,6 +2,7 @@ import {
   pgTable,
   uuid,
   text,
+  boolean,
   timestamp,
   integer,
   real,
@@ -75,6 +76,12 @@ export const clientProfiles = pgTable('client_profiles', {
   currentHabitId: uuid('current_habit_id'),
   coachingPhase: text('coaching_phase').default('onboarding'),
   notes: text(),
+  // Phase 0 coach module (Michael call 2026-06-12)
+  assessment: text(),
+  goalTitle: text('goal_title'),
+  goalMetric: text('goal_metric'),
+  goalWindow: text('goal_window'),
+  stabilization: boolean().default(false).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).defaultNow(),
 }, (table) => [

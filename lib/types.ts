@@ -54,6 +54,12 @@ export interface ClientProfile {
   carb_cycling_enabled: boolean;
   coaching_phase: CoachingPhase;
   notes: string | null;
+  // Phase 0 coach module (Michael call 2026-06-12)
+  assessment: string | null;
+  goal_title: string | null;
+  goal_metric: string | null;
+  goal_window: string | null;
+  stabilization: boolean;
   created_at: string;
   updated_at: string;
 }

@@ -51,6 +51,23 @@ interface MacroTargets {
   water: number;
 }
 
+// Calories are derived, never typed: protein 4 kcal/g, carbs 4, fat 9.
+const kcalFromMacros = (t: Pick<MacroTargets, 'protein' | 'carbs' | 'fat'>): number =>
+  Math.round(t.protein * 4 + t.carbs * 4 + t.fat * 9);
+
+const MEAL_SLOTS = ['breakfast', 'snack1', 'lunch', 'snack2', 'dinner'] as const;
+type MealSlot = (typeof MEAL_SLOTS)[number];
+const SLOT_LABELS: Record<MealSlot, string> = {
+  breakfast: 'Breakfast',
+  snack1: 'Snack (am)',
+  lunch: 'Lunch',
+  snack2: 'Snack (pm)',
+  dinner: 'Dinner',
+};
+const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+/** key = `${day}-${slot}` */
+type MealGrid = Record<string, string>;
+
 // ═══════════════════════════════════════════════
 // Helpers
 // ═══════════════════════════════════════════════
@@ -109,6 +126,11 @@ export default function PlanEditorPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
+  // Weekly meal plan (free-text per day x slot)
+  const [mealGrid, setMealGrid] = useState<MealGrid>({});
+  const [activeDay, setActiveDay] = useState(0);
+  const [mealSaving, setMealSaving] = useState(false);
+
   // UI state
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState(false);
@@ -142,7 +164,7 @@ export default function PlanEditorPage() {
 
       setCoachId(user.id);
 
-      const [profileRes, clientProfileRes, activeHabitsRes, templateHabitsRes] =
+      const [profileRes, clientProfileRes, activeHabitsRes, templateHabitsRes, mealPlanRes] =
         await Promise.all([
           supabase
             .from('profiles')
@@ -167,6 +189,10 @@ export default function PlanEditorPage() {
             .select('id, name_en, emoji, category, difficulty')
             .eq('is_template', true)
             .order('suggested_order'),
+          supabase
+            .from('meal_plan_entries')
+            .select('day_of_week, meal_slot, description')
+            .eq('client_id', clientId),
         ]);
 
       setProfileName(profileRes.data?.full_name ?? null);
@@ -194,6 +220,12 @@ export default function PlanEditorPage() {
       }>;
       setActiveHabits(rawHabits);
       setTemplateHabits((templateHabitsRes.data ?? []) as TemplateHabit[]);
+
+      const grid: MealGrid = {};
+      for (const row of (mealPlanRes.data ?? []) as Array<{ day_of_week: number; meal_slot: string; description: string }>) {
+        grid[`${row.day_of_week}-${row.meal_slot}`] = row.description;
+      }
+      setMealGrid(grid);
     } catch (err) {
       console.error('PlanEditor: load error', err);
     } finally {
@@ -212,7 +244,7 @@ export default function PlanEditorPage() {
     await supabase
       .from('client_profiles')
       .update({
-        target_calories: targets.calories,
+        target_calories: kcalFromMacros(targets),
         target_protein_g: targets.protein,
         target_carbs_g: targets.carbs,
         target_fat_g: targets.fat,
@@ -259,6 +291,55 @@ export default function PlanEditorPage() {
 
   const step = (key: keyof MacroTargets, delta: number) =>
     setTargets((t) => ({ ...t, [key]: Math.max(0, t[key] + delta) }));
+
+  // ── Meal plan helpers ─────────────────────────────
+
+  const saveMealCell = async (day: number, slot: MealSlot, description: string) => {
+    if (!coachId) return;
+    setMealSaving(true);
+    await supabase
+      .from('meal_plan_entries')
+      .upsert(
+        {
+          client_id: clientId,
+          coach_id: coachId,
+          day_of_week: day,
+          meal_slot: slot,
+          description,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'client_id,day_of_week,meal_slot' }
+      );
+    setMealSaving(false);
+  };
+
+  const setMealCell = (day: number, slot: MealSlot, value: string) =>
+    setMealGrid((g) => ({ ...g, [`${day}-${slot}`]: value }));
+
+  // Michael: "breakfast should maybe be the same for all week"
+  const copySlotToWeek = async (slot: MealSlot) => {
+    if (!coachId) return;
+    const source = mealGrid[`${activeDay}-${slot}`] ?? '';
+    if (!source.trim()) return;
+    setMealSaving(true);
+    const rows = Array.from({ length: 7 }, (_, day) => ({
+      client_id: clientId,
+      coach_id: coachId,
+      day_of_week: day,
+      meal_slot: slot,
+      description: source,
+      updated_at: new Date().toISOString(),
+    }));
+    await supabase
+      .from('meal_plan_entries')
+      .upsert(rows, { onConflict: 'client_id,day_of_week,meal_slot' });
+    setMealGrid((g) => {
+      const next = { ...g };
+      for (let day = 0; day < 7; day++) next[`${day}-${slot}`] = source;
+      return next;
+    });
+    setMealSaving(false);
+  };
 
   // ── Render guards ────────────────────────────────
 
@@ -325,12 +406,13 @@ export default function PlanEditorPage() {
     unit: string;
     stepSize: number;
   }> = [
-    { key: 'calories', label: 'Calories', unit: 'kcal', stepSize: 50 },
     { key: 'protein', label: 'Protein', unit: 'g', stepSize: 5 },
     { key: 'carbs', label: 'Carbs', unit: 'g', stepSize: 5 },
     { key: 'fat', label: 'Fat', unit: 'g', stepSize: 5 },
     { key: 'water', label: 'Water', unit: 'ml', stepSize: 250 },
   ];
+
+  const derivedKcal = kcalFromMacros(targets);
 
   const availableToAdd = templateHabits.filter(
     (h) => !activeHabits.some((ah) => ah.habit.id === h.id)
@@ -402,6 +484,16 @@ export default function PlanEditorPage() {
             </select>
           </div>
 
+          {/* Calories — derived from macros (P/C 4 kcal/g, fat 9), never typed */}
+          <div className="row-b" style={{ marginBottom: 12, paddingBottom: 10, borderBottom: '1px solid var(--line)' }}>
+            <span style={{ fontSize: 11, color: 'var(--t2)' }} title="Auto-computed: protein ×4 + carbs ×4 + fat ×9">
+              Calories (auto)
+            </span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 16, fontWeight: 700, color: 'var(--gold-300,#D4A853)' }}>
+              {derivedKcal} kcal
+            </span>
+          </div>
+
           {/* Macro stepper rows */}
           {macroFields.map((f) => (
             <div key={f.key} className="row-b" style={{ marginBottom: 10 }}>
@@ -426,6 +518,87 @@ export default function PlanEditorPage() {
                   +
                 </button>
               </div>
+            </div>
+          ))}
+        </div>
+
+        {/* ══ Weekly Meal Plan ══ */}
+        <div className="row-b" style={{ marginBottom: 8 }}>
+          <span className="eye">WEEKLY MEAL PLAN</span>
+          {mealSaving && (
+            <span style={{ fontSize: 10, color: 'var(--t3)', fontFamily: 'var(--font-mono)' }}>saving…</span>
+          )}
+        </div>
+        <div className="card" style={{ padding: 12, marginBottom: 16 }}>
+          {/* Day selector */}
+          <div style={{ display: 'flex', gap: 4, marginBottom: 12 }}>
+            {DAY_LABELS.map((d, i) => {
+              const dayHasContent = MEAL_SLOTS.some((s) => (mealGrid[`${i}-${s}`] ?? '').trim());
+              return (
+                <button
+                  key={d}
+                  onClick={() => setActiveDay(i)}
+                  style={{
+                    flex: 1,
+                    padding: '6px 0',
+                    borderRadius: 8,
+                    border: '1px solid',
+                    borderColor: activeDay === i ? 'var(--gold-300,#D4A853)' : 'var(--line)',
+                    background: activeDay === i ? 'rgba(212,168,83,.12)' : 'transparent',
+                    color: activeDay === i ? 'var(--gold-300,#D4A853)' : dayHasContent ? 'var(--t1)' : 'var(--t4)',
+                    fontSize: 10,
+                    fontFamily: 'var(--font-mono)',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {d}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Slot editors for the active day */}
+          {MEAL_SLOTS.map((slot) => (
+            <div key={slot} style={{ marginBottom: 10 }}>
+              <div className="row-b" style={{ marginBottom: 4 }}>
+                <span style={{ fontSize: 10, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '.06em' }}>
+                  {SLOT_LABELS[slot]}
+                </span>
+                <button
+                  onClick={() => copySlotToWeek(slot)}
+                  disabled={!(mealGrid[`${activeDay}-${slot}`] ?? '').trim()}
+                  title="Copy this meal to every day of the week"
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: 'var(--t4)',
+                    fontSize: 10,
+                    fontFamily: 'var(--font-mono)',
+                  }}
+                >
+                  → all week
+                </button>
+              </div>
+              <textarea
+                value={mealGrid[`${activeDay}-${slot}`] ?? ''}
+                onChange={(e) => setMealCell(activeDay, slot, e.target.value)}
+                onBlur={(e) => saveMealCell(activeDay, slot, e.target.value)}
+                placeholder={slot === 'breakfast' ? 'e.g. 1 cup oatmeal with berries' : '—'}
+                rows={2}
+                style={{
+                  width: '100%',
+                  background: 'var(--surface,#141414)',
+                  border: '1px solid var(--line)',
+                  borderRadius: 8,
+                  padding: '8px 10px',
+                  color: 'var(--t1)',
+                  fontSize: 12,
+                  resize: 'vertical',
+                  fontFamily: 'inherit',
+                }}
+              />
             </div>
           ))}
         </div>

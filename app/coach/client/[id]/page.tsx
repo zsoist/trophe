@@ -42,7 +42,6 @@ import WeekendAnalysis from '@/components/coach/WeekendAnalysis';
 import ProgressComparison from '@/components/coach/ProgressComparison';
 import MeasurementChart from '@/components/coach/MeasurementChart';
 import GoalProgressTracker from '@/components/coach/GoalProgressTracker';
-import PlateauDetector from '@/components/coach/PlateauDetector';
 import WorkoutVolumeChart from '@/components/coach/WorkoutVolumeChart';
 import SmartNoteSuggestions from '@/components/coach/SmartNoteSuggestions';
 import QuickActionsBar from '@/components/coach/QuickActionsBar';
@@ -177,6 +176,45 @@ export default function ClientDetailPage() {
   const [notes, setNotes] = useState<CoachNote[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Phase 0 (Michael): assessment notes, custom goal, stabilization status
+  const [assessment, setAssessment] = useState('');
+  const [assessmentSaved, setAssessmentSaved] = useState(false);
+  const [goalForm, setGoalForm] = useState({ title: '', metric: '', window: '' });
+  const [goalSaved, setGoalSaved] = useState(false);
+  const [stabilization, setStabilization] = useState(false);
+
+  const saveAssessment = async () => {
+    await supabase
+      .from('client_profiles')
+      .update({ assessment: assessment || null, updated_at: new Date().toISOString() })
+      .eq('user_id', clientId);
+    setAssessmentSaved(true);
+    setTimeout(() => setAssessmentSaved(false), 2000);
+  };
+
+  const saveCustomGoal = async () => {
+    await supabase
+      .from('client_profiles')
+      .update({
+        goal_title: goalForm.title || null,
+        goal_metric: goalForm.metric || null,
+        goal_window: goalForm.window || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('user_id', clientId);
+    setGoalSaved(true);
+    setTimeout(() => setGoalSaved(false), 2000);
+  };
+
+  const toggleStabilization = async () => {
+    const next = !stabilization;
+    setStabilization(next);
+    await supabase
+      .from('client_profiles')
+      .update({ stabilization: next, updated_at: new Date().toISOString() })
+      .eq('user_id', clientId);
+  };
+
   // Note form
   const [newNote, setNewNote] = useState('');
   const [noteType, setNoteType] = useState<SessionType>('check_in');
@@ -231,6 +269,12 @@ export default function ClientDetailPage() {
 
       setProfile(profileRes.data);
       setClientProfile(clientProfileRes.data);
+      const cp = clientProfileRes.data as ClientProfile | null;
+      if (cp) {
+        setAssessment(cp.assessment ?? '');
+        setGoalForm({ title: cp.goal_title ?? '', metric: cp.goal_metric ?? '', window: cp.goal_window ?? '' });
+        setStabilization(cp.stabilization ?? false);
+      }
 
       const allHabits = habitsRes.data || [];
       setActiveHabit(allHabits.find((h: ClientHabit) => h.status === 'active') || null);
@@ -685,18 +729,20 @@ export default function ClientDetailPage() {
     };
   })();
 
-  // ProgressComparison: this week vs last week
+  // ProgressComparison: last 14 days vs the 14 days before.
+  // Michael: week-vs-week is too narrow — the body reacts ~2 weeks delayed,
+  // so compare rolling 2-week windows instead of calendar weeks.
   const progressComparisonData = (() => {
     const now = new Date();
-    const startOfWeek = new Date(now); startOfWeek.setDate(now.getDate() - now.getDay());
-    const startOfLastWeek = new Date(startOfWeek); startOfLastWeek.setDate(startOfLastWeek.getDate() - 7);
-    const thisWeekStr = localDateStr(startOfWeek);
-    const lastWeekStr = localDateStr(startOfLastWeek);
+    const start14 = new Date(now); start14.setDate(now.getDate() - 14);
+    const start28 = new Date(now); start28.setDate(now.getDate() - 28);
+    const currentStr = localDateStr(start14);
+    const priorStr = localDateStr(start28);
 
-    const thisWeekEntries = foodLog.filter((e) => e.logged_date >= thisWeekStr);
-    const lastWeekEntries = foodLog.filter((e) => e.logged_date >= lastWeekStr && e.logged_date < thisWeekStr);
+    const currentEntries = foodLog.filter((e) => e.logged_date >= currentStr);
+    const priorEntries = foodLog.filter((e) => e.logged_date >= priorStr && e.logged_date < currentStr);
 
-    const calcWeek = (entries: FoodLogEntry[]) => {
+    const calcWindow = (entries: FoodLogEntry[]) => {
       if (entries.length === 0) return { avgCalories: 0, avgProtein: 0, adherence: 0, weight: 0 };
       const dates = new Set(entries.map((e) => e.logged_date));
       const totalCal = entries.reduce((s, e) => s + (e.calories || 0), 0);
@@ -706,11 +752,11 @@ export default function ClientDetailPage() {
       return {
         avgCalories: Math.round(totalCal / daysCount),
         avgProtein: Math.round(totalP / daysCount),
-        adherence: Math.min(100, Math.round((daysCount / 7) * 100)),
+        adherence: Math.min(100, Math.round((daysCount / 14) * 100)),
         weight: latestMeasurement,
       };
     };
-    return { thisWeek: calcWeek(thisWeekEntries), lastWeek: calcWeek(lastWeekEntries) };
+    return { thisWeek: calcWindow(currentEntries), lastWeek: calcWindow(priorEntries) };
   })();
 
   // GoalProgressTracker
@@ -749,8 +795,8 @@ export default function ClientDetailPage() {
     if (behavioralSignals.some((s) => s.severity === 'warning')) {
       suggestions.push({ emoji: '⚠️', text: 'Behavioral flags detected — consider addressing in next check-in', type: 'concern' });
     }
-    if (plateauData.detected) {
-      suggestions.push({ emoji: '📊', text: `Weight plateau detected (${plateauData.daysSinceChange}d) — review nutrition plan`, type: 'concern' });
+    if (plateauData.detected && !stabilization) {
+      suggestions.push({ emoji: '📊', text: `Weight stable for ${plateauData.daysSinceChange}d — review plan or mark stabilization phase`, type: 'concern' });
     }
     if (suggestions.length === 0) {
       suggestions.push({ emoji: '📝', text: 'Schedule a routine weekly check-in', type: 'check_in' });
@@ -896,6 +942,25 @@ export default function ClientDetailPage() {
               </Link>
               <span className="tag tag-g" style={{ fontSize: 8 }}>{clientProfile.coaching_phase}</span>
             </div>
+          </div>
+
+          {/* ─── Assessment (interview notes — "before everything, before the goal") ─── */}
+          <div className="glass p-4 mb-4">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="font-semibold text-stone-200 text-sm">Assessment</h2>
+              <span className="text-[10px] text-stone-500 font-mono">
+                {assessmentSaved ? '✓ saved' : 'interview notes — visible only to you'}
+              </span>
+            </div>
+            <textarea
+              value={assessment}
+              onChange={(e) => setAssessment(e.target.value)}
+              onBlur={saveAssessment}
+              placeholder="Who is this client? Interview summary, context, what you agreed…"
+              rows={3}
+              className="input-dark w-full text-sm"
+              style={{ resize: 'vertical' }}
+            />
           </div>
 
           {/* ─── Macro Targets (editable by coach) ─── */}
@@ -1246,7 +1311,9 @@ export default function ClientDetailPage() {
               <WeekendAnalysis weekday={weekendAnalysisData.weekday} weekend={weekendAnalysisData.weekend} />
             </div>
             <div className="glass p-5">
-              <h2 className="font-semibold text-stone-200 mb-3 text-sm">This Week vs Last</h2>
+              <h2 className="font-semibold text-stone-200 mb-3 text-sm" title="Body responds ~2 weeks delayed — rolling 14-day windows show real change">
+                Last 2 Weeks vs Prior 2
+              </h2>
               <ProgressComparison thisWeek={progressComparisonData.thisWeek} lastWeek={progressComparisonData.lastWeek} />
             </div>
           </div>
@@ -1272,13 +1339,49 @@ export default function ClientDetailPage() {
               />
             </div>
             <div className="glass p-5">
-              <h2 className="font-semibold text-stone-200 mb-3 text-sm">Plateau Detection</h2>
-              <PlateauDetector
-                detected={plateauData.detected}
-                daysSinceChange={plateauData.daysSinceChange}
-                currentWeight={plateauData.currentWeight}
-                targetWeight={plateauData.targetWeight}
-              />
+              {/* Michael: drop auto "plateau" labels — goals change in nature
+                  (weight → blood markers → habits). Coach sets a custom goal
+                  and can mark a deliberate stabilization phase instead. */}
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="font-semibold text-stone-200 text-sm">Custom Goal</h2>
+                <span className="text-[10px] text-stone-500 font-mono">{goalSaved ? '✓ saved' : ''}</span>
+              </div>
+              <div className="space-y-2">
+                <input
+                  value={goalForm.title}
+                  onChange={(e) => setGoalForm((g) => ({ ...g, title: e.target.value }))}
+                  onBlur={saveCustomGoal}
+                  placeholder="Goal title (e.g. Lower LDL, −4 kg, daily fruit)"
+                  className="input-dark w-full text-sm py-2"
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    value={goalForm.metric}
+                    onChange={(e) => setGoalForm((g) => ({ ...g, metric: e.target.value }))}
+                    onBlur={saveCustomGoal}
+                    placeholder="Metric (kg, mg/dL…)"
+                    className="input-dark w-full text-sm py-2"
+                  />
+                  <input
+                    value={goalForm.window}
+                    onChange={(e) => setGoalForm((g) => ({ ...g, window: e.target.value }))}
+                    onBlur={saveCustomGoal}
+                    placeholder="Window (8 weeks…)"
+                    className="input-dark w-full text-sm py-2"
+                  />
+                </div>
+                <button
+                  onClick={toggleStabilization}
+                  className={`w-full text-xs py-2 rounded-lg border transition-all ${
+                    stabilization
+                      ? 'border-sky-400/40 bg-sky-400/10 text-sky-300'
+                      : 'border-white/10 text-stone-500 hover:text-stone-300'
+                  }`}
+                  title="Mark a deliberate stabilization phase (replaces automatic plateau detection)"
+                >
+                  {stabilization ? '◉ Stabilization phase active' : '○ Mark stabilization phase'}
+                </button>
+              </div>
             </div>
           </div>
 
