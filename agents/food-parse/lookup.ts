@@ -340,6 +340,12 @@ function lexicalIntentScore(candidate: SelectFood, query: string): number {
   if (queryTokens.length === 1 && /mcmuffin|sandwich|burger|burrito|pizza|breakfast/.test(singularName)) {
     score -= 12;
   }
+  // TODO(human): Multi-token dish-type mismatch penalty.
+  // The single-token guard above misses queries like "white ham", which lets
+  // "Ham sandwich on white, with cheese" (lab_verified, +3 quality) outrank the
+  // correct "Ham, sliced, restaurant" row. Penalize candidates whose name
+  // contains a dish-type token (sandwich/burger/pizza/etc.) that the QUERY
+  // does not contain, for multi-token queries as well.
   if (queryTokens.length === 1 && /dehydrated|powder|dried/.test(singularName) && !/dehydrated|powder|dried/.test(singularQuery)) {
     score -= 5;
   }
@@ -1283,7 +1289,7 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
   'beurre doux': 'Butter, without salt',
   'crème fraîche': 'sour cream',
   'yaourt': 'yogurt plain',
-  'yaourt nature': 'yogurt plain',
+  'yaourt nature': 'Yogurt, plain, whole milk',
   'yaourt grec': 'strained yogurt 10%',
   'boeuf': 'beef',
   'steak haché': 'ground beef',
@@ -1292,7 +1298,8 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
   'porc': 'pork',
   'côte de porc': 'pork chop',
   'jambon': 'ham',
-  'jambon blanc': 'Ham, sliced, pre-packaged, deli meat',
+  'jambon blanc': 'Ham, sliced, restaurant',
+  'white ham': 'Ham, sliced, restaurant',
   'jambon cru': 'prosciutto',
   'saucisson': 'salami',
   'saumon': 'salmon atlantic',
@@ -1586,7 +1593,12 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
   'chocolat chaud': 'Hot chocolate / cocoa, made with whole or reduced fat (2%) milk',
   'chocolat chaud au lait': 'Hot chocolate / cocoa, made with whole or reduced fat (2%) milk',
   'hot chocolate': 'Hot chocolate / cocoa, made with whole or reduced fat (2%) milk',
-  'coquilles saint-jacques': 'Coquilles Saint-Jacques',
+  'coquilles saint-jacques': 'Mollusks, scallop, (bay and sea), cooked, steamed',
+  'coquille saint-jacques': 'Mollusks, scallop, (bay and sea), cooked, steamed',
+  'scallops': 'Mollusks, scallop, (bay and sea), cooked, steamed',
+  'scallop': 'Mollusks, scallop, (bay and sea), cooked, steamed',
+  'plain yogurt': 'Yogurt, plain, whole milk',
+  'natural yogurt': 'Yogurt, plain, whole milk',
   'assiette de fruits de mer': 'Seafood platter',
   'fruits de mer': 'Seafood platter',
   'seafood plate': 'Seafood platter',

@@ -1,0 +1,45 @@
+name: Nightly nutrition benchmark
+
+on:
+  schedule:
+    # 08:00 UTC = 03:00 Bogota (GMT-5)
+    - cron: '0 8 * * *'
+  workflow_dispatch: {}
+
+concurrency:
+  group: nightly-eval
+  cancel-in-progress: true
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+      GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      EVAL_ENFORCE_GATE: 1
+      EVAL_MIN_PASS_RATE: 0.40
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run enterprise nutrition benchmark
+        run: npm run evals:nutrition:enterprise
+
+      - name: Upload benchmark artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nutrition-benchmark-${{ github.run_number }}
+          path: artifacts/evals/
+          retention-days: 90
