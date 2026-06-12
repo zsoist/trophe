@@ -59,7 +59,7 @@ export default function CoachThreadPage() {
 
   return (
     <div style={{ background: 'var(--bg,#0a0a0a)', height: '100dvh', display: 'flex', flexDirection: 'column' }}>
-      <div className="max-w-md mx-auto px-4 pt-3 w-full" style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, paddingBottom: 12 }}>
+      <div className="max-w-md lg:max-w-2xl mx-auto px-4 pt-3 w-full" style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, paddingBottom: 12 }}>
         {/* Header with client context */}
         <div className="row-b" style={{ marginBottom: 8 }}>
           <button onClick={() => router.back()} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--t3)' }}>

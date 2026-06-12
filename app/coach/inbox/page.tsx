@@ -131,7 +131,7 @@ export default function CoachInboxPage() {
       <motion.div
         initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
-        className="max-w-md mx-auto px-4 pt-3"
+        className="max-w-md lg:max-w-2xl mx-auto px-4 pt-3"
       >
         {/* ── Header ── */}
         <div className="row-b mb-3">

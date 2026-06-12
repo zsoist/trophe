@@ -427,7 +427,7 @@ export default function PlanEditorPage() {
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
 
       <motion.div
-        className="max-w-md mx-auto px-4 pt-3"
+        className="max-w-md lg:max-w-5xl mx-auto px-4 pt-3"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
@@ -529,7 +529,53 @@ export default function PlanEditorPage() {
             <span style={{ fontSize: 10, color: 'var(--t3)', fontFamily: 'var(--font-mono)' }}>saving…</span>
           )}
         </div>
-        <div className="card" style={{ padding: 12, marginBottom: 16 }}>
+        {/* Desktop: full 7-day week grid (Michael demos on PC) */}
+        <div className="hidden lg:block card" style={{ padding: 14, marginBottom: 16, overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 6 }}>
+            <thead>
+              <tr>
+                <th style={{ width: 90 }} />
+                {DAY_LABELS.map((d) => (
+                  <th key={d} style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--t3)', fontWeight: 700, paddingBottom: 2 }}>
+                    {d}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {MEAL_SLOTS.map((slot) => (
+                <tr key={slot}>
+                  <td style={{ fontSize: 10, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '.05em', verticalAlign: 'top', paddingTop: 8 }}>
+                    {SLOT_LABELS[slot]}
+                  </td>
+                  {DAY_LABELS.map((_, day) => (
+                    <td key={day} style={{ verticalAlign: 'top' }}>
+                      <textarea
+                        value={mealGrid[`${day}-${slot}`] ?? ''}
+                        onChange={(e) => setMealCell(day, slot, e.target.value)}
+                        onBlur={(e) => saveMealCell(day, slot, e.target.value)}
+                        rows={2}
+                        style={{
+                          width: '100%', minWidth: 96,
+                          background: 'var(--surface,#141414)',
+                          border: '1px solid var(--line)', borderRadius: 8,
+                          padding: '6px 8px', color: 'var(--t1)', fontSize: 11,
+                          resize: 'vertical', fontFamily: 'inherit',
+                        }}
+                      />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="ds-sub" style={{ fontSize: 9, marginTop: 4 }}>
+            Cells save on blur · use the mobile view&apos;s &quot;→ all week&quot; to repeat a meal
+          </div>
+        </div>
+
+        {/* Mobile: per-day editor with slot copy */}
+        <div className="lg:hidden card" style={{ padding: 12, marginBottom: 16 }}>
           {/* Day selector */}
           <div style={{ display: 'flex', gap: 4, marginBottom: 12 }}>
             {DAY_LABELS.map((d, i) => {
