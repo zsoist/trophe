@@ -8,6 +8,7 @@ import { eq } from 'drizzle-orm';
 import { readMemory } from '@/agents/memory/read';
 import { loadCoachBlocks } from '@/agents/memory/coach-blocks';
 import { retrieveKnowledge } from '@/agents/rag/retrieve';
+import { buildClientSnapshot } from '@/agents/context/client-snapshot';
 import { executeAiTask } from '@/agents/runtime';
 import { invokeTextProvider } from '@/agents/runtime/providers/text';
 import { groundingStatus } from '@/agents/rag/grounding';
@@ -32,12 +33,15 @@ export async function POST(request: NextRequest) {
   if (!actor || actor.role === 'client') return NextResponse.json({ error: 'Coach access required' }, { status: 403 });
   await assertCanAccessClient(db, guard.userId, actor.role, clientId);
 
-  const [memory, coachBlocks, knowledge] = await Promise.all([
+  const [memory, coachBlocks, knowledge, snapshot] = await Promise.all([
     readMemory({ userId: clientId, queryText: question, agentName: 'coach_insight', scopes: ['user', 'agent'] }),
     loadCoachBlocks({ clientId }),
     retrieveKnowledge({ requesterId: guard.userId, subjectUserId: clientId, organizationId, queryText: question }),
+    // Live structured state: assessment, intake answers, 14d logs vs targets,
+    // daily signals, weight trend, habit streak — assembled fresh per request.
+    buildClientSnapshot(clientId),
   ]);
-  const systemPrompt = [SYSTEM_PROMPT, coachBlocks.systemPromptBlock, memory.systemPromptBlock, knowledge.systemPromptBlock]
+  const systemPrompt = [SYSTEM_PROMPT, snapshot.systemPromptBlock, coachBlocks.systemPromptBlock, memory.systemPromptBlock, knowledge.systemPromptBlock]
     .filter(Boolean)
     .join('\n\n');
   const generation = await executeAiTask({

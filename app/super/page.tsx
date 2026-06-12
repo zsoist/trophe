@@ -17,6 +17,7 @@ interface Overview {
   activity: {
     logs_today?: number; logs_7d?: number; active_clients_7d?: number;
     messages_7d?: number; checkins_7d?: number; appts_upcoming?: number;
+    workouts_7d?: number; prs_7d?: number;
   };
   aiCosts: Array<{ window: string; cost: number; tokens_in: number; tokens_out: number; runs: number }>;
   aiByTask: Array<{ task: string; cost: number; runs: number }>;
@@ -131,6 +132,8 @@ export default function SuperCommandCenter() {
                   ['Messages · 7d', data?.activity.messages_7d],
                   ['Check-ins · 7d', data?.activity.checkins_7d],
                   ['Appts upcoming', data?.activity.appts_upcoming],
+                  ['Workouts · 7d', data?.activity.workouts_7d],
+                  ['PRs hit · 7d', data?.activity.prs_7d],
                 ].map(([label, v]) => (
                   <div key={label as string} style={{ padding: '10px 8px', borderRadius: 10, background: 'rgba(255,255,255,.03)', border: '1px solid var(--line)' }}>
                     <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--t1)', fontFamily: 'var(--font-mono)' }}>{v ?? '—'}</div>

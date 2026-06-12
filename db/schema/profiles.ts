@@ -82,6 +82,7 @@ export const clientProfiles = pgTable('client_profiles', {
   goalMetric: text('goal_metric'),
   goalWindow: text('goal_window'),
   stabilization: boolean().default(false).notNull(),
+  contactCadenceDays: integer('contact_cadence_days').default(14).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).defaultNow(),
 }, (table) => [

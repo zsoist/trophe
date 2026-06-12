@@ -343,6 +343,7 @@ export default function CoachDashboard() {
   // Larger-text mode (persisted; Michael: "letters are too small")
   const [largeText, setLargeText] = useState(false);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [biz, setBiz] = useState({ bookedThisMonth: 0, bookedLastMonth: 0, completedThisMonth: 0 });
   useEffect(() => {
     const saved = localStorage.getItem('coach-font-scale') === 'large';
     setLargeText(saved);
@@ -413,6 +414,21 @@ export default function CoachDashboard() {
       const { data: profile } = await supabase.from('profiles').select('role, full_name').eq('id', user.id).maybeSingle();
       if (profile?.role === 'client') { router.replace('/dashboard'); return; }
       setIsSuperAdmin(profile?.role === 'super_admin');
+
+      // P4 business numbers: bookings this month vs last, completed this month
+      const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
+      const lastMonthStart = new Date(monthStart); lastMonthStart.setMonth(lastMonthStart.getMonth() - 1);
+      const { data: appts } = await supabase
+        .from('appointments')
+        .select('starts_at, status, created_at')
+        .eq('coach_id', user.id)
+        .gte('created_at', lastMonthStart.toISOString());
+      const rows = (appts ?? []) as Array<{ starts_at: string; status: string; created_at: string }>;
+      setBiz({
+        bookedThisMonth: rows.filter((a) => a.created_at >= monthStart.toISOString()).length,
+        bookedLastMonth: rows.filter((a) => a.created_at < monthStart.toISOString()).length,
+        completedThisMonth: rows.filter((a) => a.status === 'completed' && a.starts_at >= monthStart.toISOString()).length,
+      });
       if (profile?.full_name) setCoachName(profile.full_name.split(' ')[0]);
 
       // Fetch all client_profiles assigned to this coach
@@ -669,6 +685,18 @@ export default function CoachDashboard() {
   // Clients needing attention
   const needsAttention = clients.filter((c) => c.status === 'red' || c.daysSinceCheckin >= 3);
 
+  // P4 contact-due: clients past their personal cadence since last check-in.
+  // Michael: "the app could notify me that the client should contact me" —
+  // weekly clients surface after 7 quiet days, quarterly ones after 90.
+  const contactDue = clients
+    .map((c) => ({
+      c,
+      cadence: c.clientProfile.contact_cadence_days ?? 14,
+      overdueDays: c.daysSinceCheckin - (c.clientProfile.contact_cadence_days ?? 14),
+    }))
+    .filter((x) => x.overdueDays > 0 && x.c.daysSinceCheckin < 999)
+    .sort((a, b) => b.overdueDays - a.overdueDays);
+
   // Real coaching streak: consecutive days (ending today or yesterday) where
   // at least one client checked in, derived from daysSinceCheckin minima.
   const coachingStreakDays = (() => {
@@ -832,6 +860,52 @@ export default function CoachDashboard() {
           {!loading && (
             <div className="mb-6" title="Consecutive days where at least one of your clients checked in.">
               <CoachingStreak streakDays={coachingStreakDays} />
+            </div>
+          )}
+
+          {/* ═══ P4 · Business numbers ═══ */}
+          {!loading && (
+            <div className="glass p-5 mb-6">
+              <h2 className="font-semibold text-stone-200 mb-3 text-sm" title="Bookings counted by when they were made; completed by session date.">
+                Business · {new Date().toLocaleDateString([], { month: 'long' })}
+              </h2>
+              <div className="grid grid-cols-3 gap-3 mb-1">
+                <div className="text-center p-3 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+                  <div className="text-xl font-bold text-stone-100 font-mono">{biz.bookedThisMonth}</div>
+                  <div className="text-[10px] text-stone-500 uppercase tracking-wider">Booked</div>
+                  <div className={`text-[10px] font-mono mt-0.5 ${biz.bookedThisMonth >= biz.bookedLastMonth ? 'text-green-400' : 'text-red-400'}`}>
+                    {biz.bookedLastMonth === 0 ? '—' : `${biz.bookedThisMonth >= biz.bookedLastMonth ? '+' : ''}${biz.bookedThisMonth - biz.bookedLastMonth} vs last`}
+                  </div>
+                </div>
+                <div className="text-center p-3 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+                  <div className="text-xl font-bold text-stone-100 font-mono">{biz.completedThisMonth}</div>
+                  <div className="text-[10px] text-stone-500 uppercase tracking-wider">Sessions done</div>
+                </div>
+                <div className="text-center p-3 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+                  <div className="text-xl font-bold text-stone-100 font-mono">{clients.length}</div>
+                  <div className="text-[10px] text-stone-500 uppercase tracking-wider">Active clients</div>
+                  <div className="text-[10px] font-mono mt-0.5 text-stone-500">
+                    {clients.length >= 100 ? 'at capacity' : clients.length >= 70 ? 'nearly full' : 'room to grow'}
+                  </div>
+                </div>
+              </div>
+
+              {contactDue.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-white/[0.06]">
+                  <div className="text-[10px] text-stone-500 uppercase tracking-wider mb-2">
+                    Reach out — past their cadence
+                  </div>
+                  {contactDue.slice(0, 5).map(({ c, cadence, overdueDays }) => (
+                    <Link key={c.profile.id} href={`/coach/inbox/${c.profile.id}`}
+                      className="flex items-center justify-between py-1.5 hover:bg-white/[0.03] rounded-lg px-2 -mx-2 transition-colors">
+                      <span className="text-xs text-stone-300">{c.profile.full_name}</span>
+                      <span className="text-[10px] font-mono text-amber-400/90">
+                        {overdueDays}d past {cadence}d rhythm
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

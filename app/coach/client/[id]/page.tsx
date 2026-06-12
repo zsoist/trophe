@@ -182,7 +182,17 @@ export default function ClientDetailPage() {
   const [goalForm, setGoalForm] = useState({ title: '', metric: '', window: '' });
   const [goalSaved, setGoalSaved] = useState(false);
   const [stabilization, setStabilization] = useState(false);
+  const [cadence, setCadence] = useState(14);
+
+  const saveCadence = async (days: number) => {
+    setCadence(days);
+    await supabase
+      .from('client_profiles')
+      .update({ contact_cadence_days: days, updated_at: new Date().toISOString() })
+      .eq('user_id', clientId);
+  };
   const [intake, setIntake] = useState<Array<{ prompt: string; answer: string }> | null>(null);
+  const [workoutWeeks, setWorkoutWeeks] = useState<Array<{ weekLabel: string; totalSets: number; totalReps: number }>>([]);
   const [intakeOpen, setIntakeOpen] = useState(false);
 
   const saveAssessment = async () => {
@@ -276,6 +286,7 @@ export default function ClientDetailPage() {
         setAssessment(cp.assessment ?? '');
         setGoalForm({ title: cp.goal_title ?? '', metric: cp.goal_metric ?? '', window: cp.goal_window ?? '' });
         setStabilization(cp.stabilization ?? false);
+        setCadence(cp.contact_cadence_days ?? 14);
       }
 
       // Intake answers (Phase 2): submitted questionnaire, joined to prompts
@@ -300,6 +311,37 @@ export default function ClientDetailPage() {
             .filter((row) => row.answer.trim())
         );
       }
+
+      // Real workout volume: last 4 weeks of sessions + sets (was hardcoded zeros)
+      const fourWeeksAgo = new Date(); fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
+      const { data: sessions } = await supabase
+        .from('workout_sessions')
+        .select('id, session_date')
+        .eq('user_id', clientId)
+        .gte('session_date', fourWeeksAgo.toISOString().split('T')[0]);
+      const sessionRows = (sessions ?? []) as Array<{ id: string; session_date: string }>;
+      let setRows: Array<{ session_id: string; reps: number | null }> = [];
+      if (sessionRows.length > 0) {
+        const { data: sets } = await supabase
+          .from('workout_sets')
+          .select('session_id, reps')
+          .in('session_id', sessionRows.map((x) => x.id));
+        setRows = (sets ?? []) as typeof setRows;
+      }
+      const weekOf = (dateStr: string) => {
+        const days = Math.floor((Date.now() - new Date(dateStr + 'T12:00:00').getTime()) / 86400_000);
+        return Math.min(3, Math.floor(days / 7)); // 0 = this week … 3 = 3 weeks ago
+      };
+      const agg = [0, 1, 2, 3].map(() => ({ totalSets: 0, totalReps: 0 }));
+      const sessionWeek = new Map(sessionRows.map((x) => [x.id, weekOf(x.session_date)]));
+      for (const set of setRows) {
+        const w = sessionWeek.get(set.session_id);
+        if (w == null) continue;
+        agg[w].totalSets += 1;
+        agg[w].totalReps += set.reps ?? 0;
+      }
+      const labels = ['This week', 'Last week', '2 weeks ago', '3 weeks ago'];
+      setWorkoutWeeks([3, 2, 1, 0].map((w) => ({ weekLabel: labels[w], ...agg[w] })));
 
       const allHabits = habitsRes.data || [];
       setActiveHabit(allHabits.find((h: ClientHabit) => h.status === 'active') || null);
@@ -1432,17 +1474,34 @@ export default function ClientDetailPage() {
                 >
                   {stabilization ? '◉ Stabilization phase active' : '○ Mark stabilization phase'}
                 </button>
+                {/* P4: contact rhythm — drives the "reach out" list on the dashboard */}
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-[10px] text-stone-500 uppercase tracking-wider">Contact rhythm</span>
+                  <div className="flex gap-1">
+                    {[7, 14, 30, 90].map((d) => (
+                      <button key={d}
+                        onClick={() => saveCadence(d)}
+                        className={`text-[10px] font-mono px-2 py-1 rounded-lg border transition-all ${
+                          cadence === d
+                            ? 'border-[#D4A853]/50 bg-[#D4A853]/10 text-[#D4A853]'
+                            : 'border-white/10 text-stone-500 hover:text-stone-300'
+                        }`}>
+                        {d === 7 ? 'weekly' : d === 14 ? '2 weeks' : d === 30 ? 'monthly' : 'quarterly'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
           <div className="glass p-5 mb-4">
             <h2 className="font-semibold text-stone-200 mb-3 text-sm">Workout Volume</h2>
-            <WorkoutVolumeChart weeks={[
-              { weekLabel: '4 weeks ago', totalSets: 0, totalReps: 0 },
+            <WorkoutVolumeChart weeks={workoutWeeks.length > 0 ? workoutWeeks : [
               { weekLabel: '3 weeks ago', totalSets: 0, totalReps: 0 },
               { weekLabel: '2 weeks ago', totalSets: 0, totalReps: 0 },
               { weekLabel: 'Last week', totalSets: 0, totalReps: 0 },
+              { weekLabel: 'This week', totalSets: 0, totalReps: 0 },
             ]} />
           </div>
 

@@ -60,6 +60,7 @@ export interface ClientProfile {
   goal_metric: string | null;
   goal_window: string | null;
   stabilization: boolean;
+  contact_cadence_days: number;
   created_at: string;
   updated_at: string;
 }
