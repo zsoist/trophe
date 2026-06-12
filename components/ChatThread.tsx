@@ -79,21 +79,63 @@ export default function ChatThread({ coachId, clientId, viewerRole, counterpartN
 
   useEffect(() => { load(); }, [load]);
 
-  // Realtime: append new messages in this thread live
+  // Live updates with graceful degradation.
+  //
+  // Realtime websockets can fail for reasons outside our control: Safari
+  // throws a synchronous SecurityError when construction is blocked (CSP,
+  // proxies, extensions), corporate networks kill wss entirely. None of
+  // that may ever crash the page — if realtime is unavailable we silently
+  // fall back to polling every 8s, which still feels live in a 1:1 chat.
   useEffect(() => {
-    const channel = supabase
-      .channel(`thread-${coachId}-${clientId}`)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages', filter: `client_id=eq.${clientId}` },
-        (payload) => {
-          const m = payload.new as ChatMessage & { coach_id: string };
-          if (m.coach_id !== coachId) return;
-          setMsgs((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, m]));
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let pollTimer: ReturnType<typeof setInterval> | null = null;
+
+    const startPolling = () => {
+      if (pollTimer) return;
+      pollTimer = setInterval(async () => {
+        const { data } = await supabase
+          .from('messages')
+          .select('id, sender_role, body, read_at, created_at')
+          .eq('coach_id', coachId)
+          .eq('client_id', clientId)
+          .order('created_at', { ascending: true })
+          .limit(200);
+        if (data) {
+          setMsgs((prev) => {
+            const fresh = data as ChatMessage[];
+            // Keep optimistic temps that haven't been confirmed yet
+            const temps = prev.filter((m) => m.id.startsWith('temp-'));
+            return [...fresh, ...temps.filter((t) => !fresh.some((f) => f.body === t.body))];
+          });
         }
-      )
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
+      }, 8000);
+    };
+
+    try {
+      channel = supabase
+        .channel(`thread-${coachId}-${clientId}`)
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'messages', filter: `client_id=eq.${clientId}` },
+          (payload) => {
+            const m = payload.new as ChatMessage & { coach_id: string };
+            if (m.coach_id !== coachId) return;
+            setMsgs((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, m]));
+          }
+        )
+        .subscribe((status) => {
+          // CHANNEL_ERROR / TIMED_OUT → realtime unusable here, poll instead
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') startPolling();
+        });
+    } catch {
+      // WebSocket constructor threw (Safari SecurityError etc.) — poll.
+      startPolling();
+    }
+
+    return () => {
+      if (channel) { try { supabase.removeChannel(channel); } catch { /* already dead */ } }
+      if (pollTimer) clearInterval(pollTimer);
+    };
   }, [coachId, clientId]);
 
   useEffect(() => {
