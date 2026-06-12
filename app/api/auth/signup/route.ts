@@ -1,31 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { consumeRateLimit } from '@/lib/durable-rate-limit';
 
-// ─── Rate limiting for signup ───────────────────────────────────
-const SIGNUP_LIMIT = 5; // max per window
-const SIGNUP_WINDOW_MS = 60 * 60 * 1_000; // 1 hour
-const signupMap = new Map<string, { n: number; resetAt: number }>();
-
-function checkSignupRate(ip: string): NextResponse | null {
-  const now = Date.now();
-  const slot = signupMap.get(ip);
-  if (slot && now < slot.resetAt) {
-    if (slot.n >= SIGNUP_LIMIT) {
-      return NextResponse.json(
-        { error: 'Too many signups — please try again later' },
-        { status: 429, headers: { 'Retry-After': String(Math.ceil((slot.resetAt - now) / 1000)) } },
-      );
-    }
-    slot.n++;
-  } else {
-    signupMap.set(ip, { n: 1, resetAt: now + SIGNUP_WINDOW_MS });
-  }
-  // Periodic cleanup
-  if (Math.random() < 0.05) {
-    for (const [k, v] of signupMap) { if (now > v.resetAt) signupMap.delete(k); }
-  }
-  return null;
-}
+const signupSchema = z.object({
+  email: z.string().trim().email().max(254),
+  password: z.string().min(8).max(128),
+  full_name: z.string().trim().min(1).max(120),
+}).strict();
 
 /**
  * Server-side signup using Supabase Admin API.
@@ -33,19 +15,28 @@ function checkSignupRate(ip: string): NextResponse | null {
  * the service role key with email_confirm: true.
  */
 export async function POST(req: NextRequest) {
-  // Rate limit by IP
+  // Durable rate limit by IP: 5 signups / hour (in-memory Map was per-instance
+  // on serverless and trivially bypassed — audit 2026-06-12)
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? req.headers.get('x-real-ip') ?? 'unknown';
-  const rateBlock = checkSignupRate(ip);
-  if (rateBlock) return rateBlock;
+  const rate = await consumeRateLimit(`signup:${ip}`, 5, 3600);
+  if (!rate.allowed) {
+    return NextResponse.json(
+      { error: 'Too many signups — please try again later' },
+      { status: 429, headers: { 'Retry-After': String(rate.retryAfter) } },
+    );
+  }
 
   try {
-    const { email, password, full_name } = await req.json();
+    const parsed = signupSchema.safeParse(await req.json());
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Valid email, a password of at least 8 characters, and a name are required' },
+        { status: 400 },
+      );
+    }
+    const { email, password, full_name } = parsed.data;
     // Public signup always creates a 'client' — elevated roles require the invite path
     const FORCED_ROLE = 'client' as const;
-
-    if (!email || !password || !full_name) {
-      return NextResponse.json({ error: 'Email, password, and name are required' }, { status: 400 });
-    }
 
     const service = createSupabaseServiceClient();
 
