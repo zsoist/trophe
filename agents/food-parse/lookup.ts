@@ -340,12 +340,16 @@ function lexicalIntentScore(candidate: SelectFood, query: string): number {
   if (queryTokens.length === 1 && /mcmuffin|sandwich|burger|burrito|pizza|breakfast/.test(singularName)) {
     score -= 12;
   }
-  // TODO(human): Multi-token dish-type mismatch penalty.
-  // The single-token guard above misses queries like "white ham", which lets
-  // "Ham sandwich on white, with cheese" (lab_verified, +3 quality) outrank the
-  // correct "Ham, sliced, restaurant" row. Penalize candidates whose name
-  // contains a dish-type token (sandwich/burger/pizza/etc.) that the QUERY
-  // does not contain, for multi-token queries as well.
+  // Multi-token dish-type mismatch penalty (generalizes the single-token guard).
+  // "white ham" must not resolve to "Ham sandwich on white, with cheese": when the
+  // CANDIDATE name contains a dish-type token that the QUERY never mentions, the
+  // candidate is a composite dish the user didn't ask for. -8 (vs -12 single-token)
+  // because multi-token queries carry more signal; still enough to overcome the
+  // +3 lab_verified quality boost and prefix bonuses.
+  const DISH_TOKENS = /\b(sandwich|burger|burrito|pizza|wrap|mcmuffin|taco|quesadilla|casserole|pie)\b/;
+  if (queryTokens.length >= 2 && DISH_TOKENS.test(singularName) && !DISH_TOKENS.test(singularQuery)) {
+    score -= 8;
+  }
   if (queryTokens.length === 1 && /dehydrated|powder|dried/.test(singularName) && !/dehydrated|powder|dried/.test(singularQuery)) {
     score -= 5;
   }

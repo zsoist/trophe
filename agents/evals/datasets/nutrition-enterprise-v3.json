@@ -10044,20 +10044,20 @@
    "expect_item_count": 1,
    "expect_total": {
     "calories": {
-     "min": 91,
-     "max": 151
+     "min": 65,
+     "max": 99
     },
     "protein_g": {
-     "min": 8.5,
-     "max": 14.1
-    },
-    "carbs_g": {
-     "min": 3.8,
+     "min": 3.6,
      "max": 6.2
     },
+    "carbs_g": {
+     "min": 4.7,
+     "max": 7.9
+    },
     "fat_g": {
-     "min": 5.6,
-     "max": 9.4
+     "min": 2.8,
+     "max": 4.9
     }
    },
    "expect_safety": true,
