@@ -128,7 +128,10 @@ describe('enterprise hardening invariants', () => {
 
   it('uses constrained provider output for recipe analysis', () => {
     const recipe = readFileSync(join(root, 'agents/recipe-analyze/index.ts'), 'utf8');
-    expect(recipe).toContain("tool_choice: { type: 'tool', name: 'submit_recipe_analysis' }");
+    // Structured output goes through the provider-dispatched tool-calling
+    // path (DeepSeek strict tools / Anthropic tool_use / Gemini constrained).
+    expect(recipe).toContain('invokeStructuredProvider');
+    expect(recipe).toContain("toolName: RECIPE_ANALYZE_TOOL.name");
     expect(recipe).not.toContain('extractJSON');
     expect(recipe).not.toContain('text.match');
   });
