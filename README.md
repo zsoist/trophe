@@ -6,9 +6,9 @@ Production: [trophe.app](https://trophe.app)
 
 Canonical repo path: `/Volumes/SSD/work/forge-projects/trophe`
 
-Production readiness as of 2026-05-03:
+Production readiness as of 2026-06-12:
 - Supabase project/ref: `iwbpzwmidzvpiofnqexd`
-- Branch policy: `main` is the production branch. CI runs on `main`, and Vercel auto-deploys production from `main`.
+- Branch policy: `main` is the production branch. CI runs on `main`. Vercel git auto-deploy is currently unreliable (stalled 2026-06-12) — verify with `vercel ls` after pushing; manual `vercel --yes` for preview, production promotion only with explicit approval.
 - AI auth: async `guardAiRoute()` verifies bearer tokens with Supabase and returns the verified `userId`.
 - Cost/observability: `agent_runs` is canonical; `api_usage_log` is legacy compatibility only.
 - Verification sequence: `npm run typecheck && npm run lint && npm test && npm run readiness && npm run evals && npm run build && npm run test:e2e && npm run canary:prod`.
@@ -25,18 +25,26 @@ Partnership with Michael Kavdas (Greek nutritionist, PN L1 certified, COO Athlet
 ## Stack
 
 - Next.js 16 App Router · React 19 · TypeScript strict · Tailwind CSS 4 · Framer Motion
-- Supabase (Postgres + Auth + RLS + Storage)
-- Anthropic Claude Haiku 4.5 (food-parse, recipe-analyze, photo)
-- Anthropic Claude Haiku 4.5 (meal suggestions), Sonnet 4.5 (coach insights/memory), Gemini 2.5 Flash (food parse)
+- Supabase (Postgres + Auth + RLS + Realtime + Storage)
+- **DeepSeek V4 Flash for ALL text AI** (food-parse v7, recipe-analyze, coach insight,
+  meal suggest, memory extract) — cost mandate 2026-06-08. Anthropic Haiku 4.5 for
+  photo/vision only. Voyage-4 embeddings (1024-dim).
+- Food DB: 21,000+ foods across USDA/FNDDS (US), CIQUAL (FR), CoFID (UK/EU),
+  BEDCA (ES), CREA (IT) + curated Greek/Colombian dishes. Enterprise benchmark:
+  549 cases / 5 languages, 92.7% pass, Cal MAPE 9.0%.
 - MediaPipe Pose (browser AI Form Check)
-- Vitest + GitHub Actions CI
-- Trilingual UI: EN / ES / EL
+- Vitest + Playwright + GitHub Actions CI (eval gates ≥95%)
+- UI languages: EN / ES / EL (DE/IT/PT/NL/FR planned — see docs/plans/nutrafit-master-plan.md)
 
 ## Key features (current)
 
 - **Food logging**: text, photo, voice, paste, manual — AI parses into structured entries with macros
 - **Recipe analyzer** (new): paste a recipe → AI extracts ingredients + totals + per-serving → log N servings
 - **Habit engine**: 14-day cycles, one habit at a time, coach-assigned + auto-progression
+- **Coach module (June 2026)**: weekly meal-plan grid (desktop week view + mobile day tabs),
+  realtime coach↔client messaging with unread inbox, intake questionnaire (15-question
+  interview set), daily lifestyle check-ins, assessment + custom goals, derived calorie
+  targets, color-coded coach notes pinned on the client dashboard
 - **Workout module**: 113 exercises, custom exercise modal, PR detection, AI Form Check
 - **Coach dashboard**: 52 components across 5 waves (pulse cards, risk heatmap, client detail, smart coaching, workflow)
 - **Nutrition engine**: evidence-based (Mifflin-St Jeor BMR, ISSN macros, 35ml/kg water)
