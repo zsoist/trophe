@@ -7,9 +7,9 @@
  *   1. food_parse      — HTTP golden cases against Nikos golden set
  *                        (requires dev server; skips gracefully if unavailable)
  *   2. recipe_analyze  — Direct agent call + schema-validation layer
- *                        (requires ANTHROPIC_API_KEY; skips if absent)
+ *                        (requires DEEPSEEK_API_KEY; skips if absent)
  *   3. coach_insight   — Synthetic coaching output structural + content checks
- *                        (requires ANTHROPIC_API_KEY; skips if absent)
+ *                        (requires DEEPSEEK_API_KEY; skips if absent)
  *
  * Usage:
  *   npx tsx agents/evals/run-all.ts [--url=http://localhost:3333] [--suite=food_parse]
@@ -305,12 +305,13 @@ function validateRecipeSchema(output: unknown, caseSpec: typeof RECIPE_SYNTHETIC
 }
 
 async function runRecipeAnalyzeSuite(): Promise<SuiteResult> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  // recipe_analyze routes through DeepSeek (cost mandate 2026-06-08)
+  const apiKey = process.env.DEEPSEEK_API_KEY;
   if (!apiKey) {
     return {
       name: 'recipe_analyze',
       passed: 0, total: RECIPE_SYNTHETIC_CASES.length, rate: 0,
-      skipped: true, skipReason: 'ANTHROPIC_API_KEY not set',
+      skipped: true, skipReason: 'DEEPSEEK_API_KEY not set',
       avgLatencyMs: 0, cases: [],
     };
   }
@@ -390,31 +391,23 @@ const COACH_INSIGHT_CASES = [
 const COACH_INSIGHT_SYSTEM = `You are a professional nutrition coach. Given a client's daily nutrition summary, provide a brief, actionable coaching insight.
 Format: 2-3 short paragraphs. Be specific, positive, and practical. Always mention the client's primary opportunity or win.`;
 
-async function callAnthropicDirect(systemPrompt: string, userMessage: string): Promise<{ text: string; tokensIn: number; tokensOut: number }> {
-  const apiKey = process.env.ANTHROPIC_API_KEY!;
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 512,
+async function callDeepSeekDirect(systemPrompt: string, userMessage: string): Promise<{ text: string; tokensIn: number; tokensOut: number }> {
+  // coach_insight routes through DeepSeek (cost mandate 2026-06-08)
+  const { invokeDeepSeekText } = await import('../runtime/providers/deepseek.js');
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 30_000);
+  try {
+    const result = await invokeDeepSeekText({
+      model: 'deepseek-v4-flash',
       system: systemPrompt,
-      messages: [{ role: 'user', content: userMessage }],
-    }),
-  });
-
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Anthropic API error ${res.status}: ${err}`);
+      prompt: userMessage,
+      maxTokens: 512,
+      signal: controller.signal,
+    });
+    return { text: result.output, tokensIn: result.usage.inputTokens, tokensOut: result.usage.outputTokens };
+  } finally {
+    clearTimeout(timer);
   }
-
-  const body = await res.json() as { content: Array<{type: string; text: string}>; usage: { input_tokens: number; output_tokens: number } };
-  const text = body.content.find((c) => c.type === 'text')?.text ?? '';
-  return { text, tokensIn: body.usage.input_tokens, tokensOut: body.usage.output_tokens };
 }
 
 function validateCoachInsight(text: string, spec: typeof COACH_INSIGHT_CASES[0]): string[] {
@@ -449,12 +442,12 @@ function validateCoachInsight(text: string, spec: typeof COACH_INSIGHT_CASES[0])
 }
 
 async function runCoachInsightSuite(): Promise<SuiteResult> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = process.env.DEEPSEEK_API_KEY;
   if (!apiKey) {
     return {
       name: 'coach_insight',
       passed: 0, total: COACH_INSIGHT_CASES.length, rate: 0,
-      skipped: true, skipReason: 'ANTHROPIC_API_KEY not set',
+      skipped: true, skipReason: 'DEEPSEEK_API_KEY not set',
       avgLatencyMs: 0, cases: [],
     };
   }
@@ -463,7 +456,7 @@ async function runCoachInsightSuite(): Promise<SuiteResult> {
   for (const spec of COACH_INSIGHT_CASES) {
     const start = Date.now();
     try {
-      const { text } = await callAnthropicDirect(COACH_INSIGHT_SYSTEM, spec.clientContext);
+      const { text } = await callDeepSeekDirect(COACH_INSIGHT_SYSTEM, spec.clientContext);
       const latencyMs = Date.now() - start;
       const failures = validateCoachInsight(text, spec);
       cases.push({ id: spec.id, input: spec.clientContext.slice(0, 60) + '…', passed: failures.length === 0, failures, latencyMs, detail: text.slice(0, 200) });
@@ -523,7 +516,7 @@ async function main() {
   console.log();
 
   if (active.length === 0) {
-    console.log(yellow('  All suites skipped. Set ANTHROPIC_API_KEY and start the dev server to run full eval.'));
+    console.log(yellow('  All suites skipped. Set DEEPSEEK_API_KEY and start the dev server to run full eval.'));
     console.log(yellow(`  GATE: inconclusive — no active suites`));
     process.exit(process.env.ALLOW_SKIPPED_EVALS === '1' ? 0 : 1);
   }

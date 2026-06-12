@@ -11,9 +11,11 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { buildFoodReferencePrompt } from '@/lib/food-units';
+import { z } from 'zod';
 import { executeAiTask } from '../runtime';
-import { invokeAnthropicJson } from '../runtime/providers/anthropic';
+import { invokeStructuredProvider } from '../runtime/providers/structured';
 import type { RecipeAnalyzeInput, RecipeAnalyzeOutput } from '../schemas/recipe-analyze';
+import { isRecipeAnalyzeOutput } from '../schemas/recipe-analyze';
 import { pick } from '../router';
 import { emitGenAISpan, estimateCostUsd } from '../observability/otel';
 import { normalizeRecipeWithLookup } from './normalize';
@@ -125,24 +127,21 @@ export async function run(
     prompt: userMessage,
     systemPrompt,
     context: { userId: opts?.userId, metadata: { servings, ...opts?.metadata } },
-    invoke: ({ policy: selected, signal }) => invokeAnthropicJson({
+    invoke: ({ policy: selected, signal }) => invokeStructuredProvider<RecipeAnalyzeOutput>({
+      policy: selected,
+      system: systemPrompt,
+      prompt: userMessage,
       signal,
-      body: {
-        model: selected.model,
-        max_tokens: selected.maxTokens,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: userMessage }],
-        tools: [RECIPE_ANALYZE_TOOL],
-        tool_choice: { type: 'tool', name: 'submit_recipe_analysis' },
-      },
+      schema: RECIPE_ANALYZE_TOOL.input_schema as unknown as Record<string, unknown>,
+      validator: z.custom<RecipeAnalyzeOutput>((v) => isRecipeAnalyzeOutput(v)),
+      toolName: RECIPE_ANALYZE_TOOL.name,
+      toolDescription: RECIPE_ANALYZE_TOOL.description,
+      // Schema does not declare additionalProperties:false, so DeepSeek /beta
+      // strict mode would reject it — use standard tool calling.
+      strict: false,
     }),
   });
-  const response = generation.output as {
-    content?: Array<{ type?: string; name?: string; input?: RecipeAnalyzeOutput }>;
-  };
-  const parsed = response.content?.find((item) =>
-    item.type === 'tool_use' && item.name === 'submit_recipe_analysis',
-  )?.input;
+  const parsed = generation.output as RecipeAnalyzeOutput | undefined;
   const result = {
     parsed,
     usage: {
@@ -166,7 +165,7 @@ export async function run(
 
   emitGenAISpan({
     task: 'recipe_analyze',
-    system: 'anthropic',
+    system: policy.provider,
     model: policy.model,
     inputTokens: result.usage.input_tokens,
     outputTokens: result.usage.output_tokens,
