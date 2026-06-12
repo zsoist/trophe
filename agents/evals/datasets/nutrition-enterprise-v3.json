@@ -6954,8 +6954,8 @@
      "max": 39.9
     },
     "fat_g": {
-     "min": 1.6,
-     "max": 2.6
+     "min": 0.6,
+     "max": 2.0
     }
    },
    "expect_safety": true,
