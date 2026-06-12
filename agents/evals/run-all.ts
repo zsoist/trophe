@@ -389,7 +389,8 @@ const COACH_INSIGHT_CASES = [
 ];
 
 const COACH_INSIGHT_SYSTEM = `You are a professional nutrition coach. Given a client's daily nutrition summary, provide a brief, actionable coaching insight.
-Format: 2-3 short paragraphs. Be specific, positive, and practical. Always mention the client's primary opportunity or win.`;
+Format: 2-3 short paragraphs. Be specific, positive, and practical. Always mention the client's primary opportunity or win.
+Always end with ONE concrete next step phrased as a direct recommendation (e.g. "Check…", "Aim for…", "Try…", "Consider…"). If anything is uncertain or unverified (ingredients, allergens), explicitly tell the client to check or confirm it.`;
 
 async function callDeepSeekDirect(systemPrompt: string, userMessage: string): Promise<{ text: string; tokensIn: number; tokensOut: number }> {
   // coach_insight routes through DeepSeek (cost mandate 2026-06-08)
