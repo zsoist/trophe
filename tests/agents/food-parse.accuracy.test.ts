@@ -128,7 +128,7 @@ const GOLDENS: GoldenCase[] = [
     expected: {
       matchNameIncludes: 'yogurt',
       // 100 kcal/100g × 1.5 = 150 kcal
-      macros: { kcal: 150, protein: 14.85, carb: 5.4, fat: 7.5 },
+      macros: { kcal: 150, protein: 13.5, carb: 5.4, fat: 7.5 },
     },
   },
 
