@@ -15,6 +15,9 @@ interface ClientActivity {
   last_checkin_date: string | null;
   days_since_log: number;
   initials: string;
+  unreadCount: number;
+  lastMessage: string | null;
+  lastMessageAt: string | null;
 }
 
 function initials(name: string | null): string {
@@ -64,7 +67,7 @@ export default function CoachInboxPage() {
 
     const clientIds = assigned.map(r => r.user_id);
 
-    const [profilesRes, logsRes, checkinsRes] = await Promise.all([
+    const [profilesRes, logsRes, checkinsRes, messagesRes] = await Promise.all([
       supabase.from('profiles').select('id, full_name').in('id', clientIds),
       supabase.from('food_log')
         .select('user_id, logged_date')
@@ -74,12 +77,24 @@ export default function CoachInboxPage() {
         .select('user_id, checked_date')
         .in('user_id', clientIds)
         .order('checked_date', { ascending: false }),
+      supabase.from('messages')
+        .select('client_id, sender_role, body, read_at, created_at')
+        .eq('coach_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(500),
     ]);
 
     const latestLog    = new Map<string, string>();
     const latestCheckin = new Map<string, string>();
     for (const l of (logsRes.data ?? []))    if (!latestLog.has(l.user_id))    latestLog.set(l.user_id, l.logged_date);
     for (const c of (checkinsRes.data ?? [])) if (!latestCheckin.has(c.user_id)) latestCheckin.set(c.user_id, c.checked_date);
+
+    const lastMsg = new Map<string, { body: string; at: string }>();
+    const unread = new Map<string, number>();
+    for (const m of (messagesRes.data ?? []) as Array<{ client_id: string; sender_role: string; body: string; read_at: string | null; created_at: string }>) {
+      if (!lastMsg.has(m.client_id)) lastMsg.set(m.client_id, { body: m.body, at: m.created_at });
+      if (m.sender_role === 'client' && !m.read_at) unread.set(m.client_id, (unread.get(m.client_id) ?? 0) + 1);
+    }
 
     const today = new Date().toISOString().split('T')[0];
     const result: ClientActivity[] = (profilesRes.data ?? []).map(p => {
@@ -94,11 +109,14 @@ export default function CoachInboxPage() {
         last_log_date: lastLog,
         last_checkin_date: latestCheckin.get(p.id) ?? null,
         days_since_log: daysOff,
+        unreadCount: unread.get(p.id) ?? 0,
+        lastMessage: lastMsg.get(p.id)?.body ?? null,
+        lastMessageAt: lastMsg.get(p.id)?.at ?? null,
       };
     });
 
-    // Sort: most urgent (longest gap) first
-    result.sort((a, b) => b.days_since_log - a.days_since_log);
+    // Sort: unread messages first, then most-days-off-plan
+    result.sort((a, b) => (b.unreadCount - a.unreadCount) || (b.days_since_log - a.days_since_log));
     setClients(result);
     setLoading(false);
   }, [router]);
@@ -149,7 +167,7 @@ export default function CoachInboxPage() {
                   initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.04 }}
                 >
-                  <Link href={`/coach/client/${c.id}`} style={{ textDecoration: 'none' }}>
+                  <Link href={`/coach/inbox/${c.id}`} style={{ textDecoration: 'none' }}>
                     <div className={urgent ? 'card' : 'card'}
                       style={{
                         padding: '10px 12px',
@@ -182,26 +200,35 @@ export default function CoachInboxPage() {
                             {relativeTime(c.last_log_date)}
                           </span>
                         </div>
-                        <div style={{ fontSize: 11, color: urgent ? 'var(--t2)' : 'var(--t4)', lineHeight: 1.4 }}>
-                          {c.days_since_log === 0 && 'Logged today'}
-                          {c.days_since_log === 1 && 'Last log yesterday'}
-                          {c.days_since_log === 2 && '2 days since last log'}
-                          {c.days_since_log >= 3 && c.days_since_log < 999 && `${c.days_since_log} days off plan — check in`}
-                          {c.days_since_log >= 999 && 'No logs yet'}
+                        <div style={{ fontSize: 11, color: urgent ? 'var(--t2)' : 'var(--t4)', lineHeight: 1.4 }} className="truncate">
+                          {c.lastMessage
+                            ? `${c.lastMessage.slice(0, 64)}${c.lastMessage.length > 64 ? '…' : ''}`
+                            : c.days_since_log === 0 ? 'Logged today'
+                            : c.days_since_log === 1 ? 'Last log yesterday'
+                            : c.days_since_log === 2 ? '2 days since last log'
+                            : c.days_since_log < 999 ? `${c.days_since_log} days off plan — check in`
+                            : 'No logs yet'}
                         </div>
                       </div>
+                      {c.unreadCount > 0 && (
+                        <div style={{
+                          minWidth: 18, height: 18, borderRadius: 9, padding: '0 5px',
+                          background: 'var(--gold-300,#D4A853)', color: '#0a0a0a',
+                          fontSize: 10, fontWeight: 700, fontFamily: 'var(--font-mono)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          flexShrink: 0, alignSelf: 'center',
+                        }}>
+                          {c.unreadCount}
+                        </div>
+                      )}
+
                     </div>
                   </Link>
                 </motion.div>
               );
             })}
 
-            {/* Messaging coming soon notice */}
-            <div className="card-g p-4 text-center mt-4">
-              <Icon name="i-message" size={18} style={{ color: 'var(--gold-300)', margin: '0 auto 8px' }} />
-              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--t2)', marginBottom: 4 }}>1:1 Messaging</div>
-              <div className="ds-sub">Direct client messaging launches in the next update.</div>
-            </div>
+            {/* 1:1 messaging is live — tap a client to open the thread */}
           </div>
         )}
       </motion.div>

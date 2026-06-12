@@ -30,11 +30,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No coach assigned' }, { status: 400 });
   }
 
-  const { error } = await admin.from('coach_notes').insert({
-    coach_id:     cp.coach_id,
-    client_id:    user.id,
-    note:         `[Client message]: ${message.trim()}`,
-    session_type: 'general',
+  // Phase 1 messaging: quick messages land in the unified messages thread.
+  const { error } = await admin.from('messages').insert({
+    coach_id:    cp.coach_id,
+    client_id:   user.id,
+    sender_role: 'client',
+    body:        message.trim(),
   });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
