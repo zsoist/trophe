@@ -1568,6 +1568,17 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
   'galletas lu': 'biscuit petit beurre',
   'galletas petit beurre': 'biscuit petit beurre',
   'lu petit beurre': 'biscuit petit beurre',
+
+  // ── Phase 3: Spanish (BEDCA) corrections — only keys not already mapped ──
+  'tortilla de maíz': 'corn tortilla',
+  'tortilla de trigo': 'flour tortilla',
+  'queso manchego': 'Queso Manchego',
+  'jamón serrano': 'Jamón serrano',
+  'jamón ibérico': 'Jamón ibérico',
+  'aceite de oliva': 'olive oil',
+  'leche desnatada': 'milk skim',
+  'patata': 'potato boiled',
+  'patatas fritas': 'french fries',
 };
 
 export function correctFoodName(name: string): string {
