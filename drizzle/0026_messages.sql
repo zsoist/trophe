@@ -31,5 +31,12 @@ WITH CHECK (client_id = (SELECT auth.uid()));
 CREATE INDEX IF NOT EXISTS idx_messages_thread ON messages(coach_id, client_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_messages_client ON messages(client_id, created_at DESC);
 
--- Realtime for live chat
-ALTER PUBLICATION supabase_realtime ADD TABLE messages;
+-- Realtime for live chat (publication only exists on Supabase, not plain Postgres/CI)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE messages;
+  END IF;
+EXCEPTION WHEN duplicate_object THEN
+  NULL;
+END $$;
