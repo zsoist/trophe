@@ -76,8 +76,8 @@ describe('enterprise hardening invariants', () => {
   it('rejects implausible nutrition values before returning food parse results', () => {
     const foodParse = readFileSync(join(root, 'agents/food-parse/index.v4.ts'), 'utf8');
     expect(foodParse).toContain('Nutrition result failed plausibility validation');
-    expect(foodParse).toContain('item.grams > 10_000');
-    expect(foodParse).toContain('item.calories > 10_000');
+    expect(foodParse).toContain('item.grams > 15_000');
+    expect(foodParse).toContain('item.calories > 15_000');
   });
 
   it('repairs one invalid food parse schema response before failing safely', () => {
@@ -104,7 +104,7 @@ describe('enterprise hardening invariants', () => {
     const parsedList = readFileSync(join(root, 'components/ParsedFoodList.tsx'), 'utf8');
     expect(quickInput).toContain('data.needs_clarification');
     expect(parsedList).toContain('unresolvedPortions > 0');
-    expect(parsedList).toContain('Review portions to save');
+    expect(parsedList).toContain('estimated portion');
   });
 
   it('uses constrained decoding and a durable queue for conversation memory', () => {

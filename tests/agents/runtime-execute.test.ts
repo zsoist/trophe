@@ -121,7 +121,7 @@ describe('executeAiTask integration contract', () => {
   });
 
   it('falls back to secondary provider when primary fails', async () => {
-    // meal_suggest has a fallback (Anthropic). The invoke callback is policy-aware.
+    // meal_suggest has a fallback (DeepSeek retry with longer timeout).
     let callCount = 0;
     const invoke = vi.fn(async ({ policy }: { policy: { provider: string } }) => {
       callCount++;
@@ -130,8 +130,8 @@ describe('executeAiTask integration contract', () => {
         expect(policy.provider).toBe('deepseek');
         throw new Error('DeepSeek rate limited');
       }
-      // Fallback (anthropic) succeeds
-      expect(policy.provider).toBe('anthropic');
+      // Fallback (deepseek retry) succeeds
+      expect(policy.provider).toBe('deepseek');
       return {
         output: { suggestions: ['fallback meal'] },
         usage: { inputTokens: 50, outputTokens: 10 },

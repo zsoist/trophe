@@ -18,32 +18,31 @@ afterEach(() => {
 // ─── Router: policy dispatch ──────────────────────────────────────────────
 
 describe('router.pick()', () => {
-  it('returns the correct policy for food_parse → google/gemini-2.5-flash', () => {
+  it('returns the correct policy for food_parse → deepseek/deepseek-v4-flash', () => {
     const policy = pick('food_parse');
-    expect(policy.provider).toBe('google');
-    expect(policy.model).toBe('gemini-2.5-flash');
+    expect(policy.provider).toBe('deepseek');
+    expect(policy.model).toBe('deepseek-v4-flash');
     expect(policy.costClass).toBe('cheap');
     expect(policy.latencyClass).toBe('fast');
   });
 
-  it('returns the correct policy for recipe_analyze → anthropic/haiku', () => {
+  it('returns the correct policy for recipe_analyze → deepseek/deepseek-v4-flash', () => {
     const policy = pick('recipe_analyze');
-    expect(policy.provider).toBe('anthropic');
-    expect(policy.model).toBe('claude-haiku-4-5-20251001');
-    expect(policy.cacheSystem).toBe(true);
+    expect(policy.provider).toBe('deepseek');
+    expect(policy.model).toBe('deepseek-v4-flash');
   });
 
-  it('returns the correct policy for coach_insight → anthropic/sonnet', () => {
+  it('returns the correct policy for coach_insight → deepseek/deepseek-v4-flash', () => {
     const policy = pick('coach_insight');
-    expect(policy.provider).toBe('anthropic');
-    expect(policy.model).toBe('claude-sonnet-4-6');
-    expect(policy.costClass).toBe('mid');
+    expect(policy.provider).toBe('deepseek');
+    expect(policy.model).toBe('deepseek-v4-flash');
+    expect(policy.costClass).toBe('cheap');
   });
 
   it('allows an explicit DeepSeek coach canary without changing other routes', () => {
     process.env.DEEPSEEK_COACH_MODEL = 'deepseek-v4-pro';
     expect(pick('coach_insight')).toMatchObject({ provider: 'deepseek', model: 'deepseek-v4-pro' });
-    expect(pick('food_parse')).toMatchObject({ provider: 'google', model: 'gemini-2.5-flash' });
+    expect(pick('food_parse')).toMatchObject({ provider: 'deepseek', model: 'deepseek-v4-flash' });
   });
 
   it('throws for unknown task names', () => {
@@ -71,11 +70,11 @@ describe('router.pick()', () => {
 
 describe('router.modelFor()', () => {
   it('returns model string for food_parse', () => {
-    expect(modelFor('food_parse')).toBe('gemini-2.5-flash');
+    expect(modelFor('food_parse')).toBe('deepseek-v4-flash');
   });
 
   it('returns model string for coach_insight', () => {
-    expect(modelFor('coach_insight')).toBe('claude-sonnet-4-6');
+    expect(modelFor('coach_insight')).toBe('deepseek-v4-flash');
   });
 });
 

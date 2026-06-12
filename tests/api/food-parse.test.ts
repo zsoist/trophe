@@ -26,7 +26,7 @@ describe('POST /api/food/parse', () => {
   });
 
   it('rejects unsupported languages before invoking the model', async () => {
-    const response = await POST(request({ text: 'one egg', language: 'fr' }));
+    const response = await POST(request({ text: 'one egg', language: 'zh' }));
     expect(response.status).toBe(400);
     expect(mocks.run).not.toHaveBeenCalled();
   });

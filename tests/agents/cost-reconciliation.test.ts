@@ -10,7 +10,7 @@ const run = {
   tokensOut: 1_000_000,
   cacheReadTokens: 0,
   cacheWriteTokens: 0,
-  recordedCostUsd: 2.8,
+  recordedCostUsd: 0.42,
 };
 
 describe('AI cost reconciliation', () => {

@@ -132,6 +132,12 @@
     },
     {
       "idx": 28, "version": "7", "when": 1780852599971, "tag": "0020_food_seed_fixups", "breakpoints": true
+    },
+    {
+      "idx": 29, "version": "7", "when": 1780852599972, "tag": "0021_french_language_support", "breakpoints": true
+    },
+    {
+      "idx": 30, "version": "7", "when": 1780852599973, "tag": "0022_crea_italian_food_source", "breakpoints": true
     }
   ]
 }
