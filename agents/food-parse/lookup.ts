@@ -822,8 +822,8 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
   'platano': 'plantain',
   'platano maduro': 'plantains yellow ripe fried',
   'plátano maduro': 'plantains yellow ripe fried',
-  'plátano maduro frito': 'plantains yellow fried latino',
-  'platano maduro frito': 'plantains yellow fried latino',
+  'plátano maduro frito': 'Plantains, yellow, ripe, fried',
+  'platano maduro frito': 'Plantains, yellow, ripe, fried',
   'maduro frito': 'plantains yellow ripe fried',
   'maduros fritos': 'plantains yellow ripe fried',
   'maduros': 'plantains yellow ripe fried',
@@ -938,7 +938,7 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
   'ground beef': 'ground beef 80 lean 20 fat cooked pan-browned',
   'carne molida': 'ground beef 80 lean 20 fat cooked pan-browned',
   'κιμάς': 'beef ground 85% lean raw',
-  'κιμάς μοσχαρίσιος': 'beef ground 85% lean raw',
+  'κιμάς μοσχαρίσιος': 'ground beef 80 lean 20 fat cooked pan-browned',
   'κιμας μοσχαρισιος': 'ground veal cooked',
   'κιμας': 'ground beef 80 lean 20 fat cooked pan-browned',
   'carne de res': 'beef steak grilled',
@@ -953,7 +953,7 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
   'requeson': 'cottage cheese creamed milkfat',
 
   // ── Fish & seafood ──
-  'salmon fillet': 'fish salmon atlantic',
+  'salmon fillet': 'Fish, salmon, Atlantic, farmed, raw',
   'salmon': 'fish salmon atlantic farmed',
   'tuna': 'fish tuna light canned',
   'tuna canned': 'fish tuna light canned',
@@ -1171,7 +1171,7 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
   'γυρο κοτοπουλο απ\' ολα': 'chicken gyros pita',
   'φακές μερίδα': 'lentil soup fakes',
   'φακες μεριδα': 'lentil soup fakes',
-  'κιμά μοσχαρίσιο': 'beef ground 85% lean raw',
+  'κιμά μοσχαρίσιο': 'ground beef 80 lean 20 fat cooked pan-browned',
   'κιμας μοσχαρισιο': 'ground veal cooked',
 
   // ── Multi-word Colombian composites ──
@@ -1180,7 +1180,7 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
   'sopa de lentejas': 'lentil soup',
   'sopa de lentejas con platano': 'lentil soup plantain',
   'sudado de pescado': 'fish stew sudado',
-  'pollo asado': 'chicken roasted',
+  'pollo asado': 'Chicken, broilers or fryers, breast, meat and skin, cooked, roasted',
   'pan de bono': 'pan de bono',
 
   // ── Multi-word English composites (map to recipe names) ──
@@ -1279,8 +1279,8 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
   'lait entier': 'milk whole',
   'lait demi-écrémé': 'milk 2%',
   'lait écrémé': 'milk skim',
-  'beurre': 'butter unsalted',
-  'beurre doux': 'butter unsalted',
+  'beurre': 'Butter, without salt',
+  'beurre doux': 'Butter, without salt',
   'crème fraîche': 'sour cream',
   'yaourt': 'yogurt plain',
   'yaourt nature': 'yogurt plain',
@@ -1292,7 +1292,7 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
   'porc': 'pork',
   'côte de porc': 'pork chop',
   'jambon': 'ham',
-  'jambon blanc': 'ham deli',
+  'jambon blanc': 'Ham, sliced, pre-packaged, deli meat',
   'jambon cru': 'prosciutto',
   'saucisson': 'salami',
   'saumon': 'salmon atlantic',
@@ -1579,6 +1579,18 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
   'leche desnatada': 'milk skim',
   'patata': 'potato boiled',
   'patatas fritas': 'french fries',
+  'πουπούσα': 'pupusa with cheese',
+  'πουπουσα': 'pupusa with cheese',
+  'τυρί': 'feta cheese',
+  'τυρι': 'feta cheese',
+  'chocolat chaud': 'Hot chocolate / cocoa, made with whole or reduced fat (2%) milk',
+  'chocolat chaud au lait': 'Hot chocolate / cocoa, made with whole or reduced fat (2%) milk',
+  'hot chocolate': 'Hot chocolate / cocoa, made with whole or reduced fat (2%) milk',
+  'coquilles saint-jacques': 'Coquilles Saint-Jacques',
+  'assiette de fruits de mer': 'Seafood platter',
+  'fruits de mer': 'Seafood platter',
+  'seafood plate': 'Seafood platter',
+  'cocktail mojito': 'Mojito',
 };
 
 export function correctFoodName(name: string): string {
