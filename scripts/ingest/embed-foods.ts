@@ -25,6 +25,9 @@
  * ~100 tokens avg per food text).
  */
 
+import { loadEnvConfig } from '@next/env';
+loadEnvConfig(process.cwd());
+
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import { foods } from '../../db/schema/foods';
