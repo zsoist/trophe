@@ -516,9 +516,42 @@ _Enterprise benchmark: 210 test cases (EN/ES/EL) across 10 categories_
 | **v3.6 benchmark (549 cases)** | **79.2% pass, 8.4% cal MAPE, 43.8% Acc@7.5** | ✅ |
 | v3.6 per-macro MAPE | Cal 8.4%, Pro 11.0%, Carb 13.3%, Fat 14.4% | ✅ |
 
+### Coach Module B2B + Enterprise + Multi-Market (2026-06-12 → 06-13)
+Full Michael Kavdas call + Daily Nutrafit vision implemented. See
+`docs/plans/nutrafit-master-plan.md` + `docs/plans/coach-module-b2b-plan.md`.
+- [x] ✅ P0-P3: weekly meal-plan editor, unified messaging (realtime + polling fallback),
+      intake questionnaires + daily check-ins, booking (availability/appointments)
+- [x] ✅ P4: coach business KPIs (booked vs last month, capacity hints) + per-client
+      contact-cadence engine + "Reach out" overdue list (migration 0029)
+- [x] ✅ P5: live client snapshot injected into coach AI insight; voice intake (browser STT)
+- [x] ✅ P6 enterprise: public `/trust` page, signable DPA template, breach runbook,
+      pricing tiers (Free / Pro €29 + 8% booking commission / Clinic €99) — docs/legal + docs/business
+- [x] ✅ Super Command Center (`/super`) — view-as, AI spend, ops, foods, KPIs
+- [x] ✅ 12-step premium intake wizard (periodic re-intake) + workout premium pass
+      (last-session ghost values, rest timer, PR pop)
+- [x] ✅ i18n expansion to 8 languages: EN/ES/EL + overlay locales FR/DE/IT/PT/NL
+      (454 keys each, migration 0030)
+- [x] ✅ Multi-market food DBs: NEVO Dutch ingest (0032), parametrized OFF harvester
+      (de/nl/it/pt/fr), German + Dutch OFF harvested (9,059 DE + 9,186 NL with barcodes)
+- [x] ✅ DB total: **~41,000 foods** (OFF 19,961 incl. DE/NL/GR barcodes, USDA 13,259,
+      CIQUAL 3,323, CoFID 2,744, BEDCA 751, CREA 714, custom 172, HHF 86, …)
+
+### Benchmark — accuracy track (2026-06-13)
+- [x] ✅ Median-of-3 harness (`EVAL_RUNS_PER_CASE`) — see `docs/benchmark/methodology.md`
+- [x] ✅ Real bug fixes (drift-immune): 422 clarification schema coercion,
+      wrong-form lookup penalties (apple pie→filling), hyphen tokenizer
+      (croque-monsieur never matched — mashed to one token)
+- [x] ✅ dbResolved 63.9% → **66.1%**; pass rate stable **90-92% band** (DeepSeek hour drift)
+- [ ] Path to stable 95: raise dbResolved → ~80% (embed DE/NL foods, Michael's Greek list)
+- [ ] Embed new DE/NL foods (`scripts/ingest/embed-foods.ts`) for semantic match
+- [ ] Scale dataset to 1000-1500 cases; NutriBench direct comparison
+
 ## PHASE 4: Launch Prep (June-July 2026)
 - [ ] Legal entity established
-- [ ] Pricing model finalized
+- [ ] Pricing model finalized (draft in docs/business/pricing.md — validate with beta cohort)
+- [ ] DPA past Greek/EU counsel (template in docs/legal/dpa-template.md)
+- [ ] Supabase Pro upgrade for PITR backups (USER action)
+- [ ] Supabase Site URL → trophe.app; reconnect Vercel git auto-deploy (USER actions)
 - [ ] Onboard 2-3 more beta nutritionists
 - [ ] Marketing via Michael's network
 - [ ] Eastern medicine research phase begins

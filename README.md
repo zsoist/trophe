@@ -29,12 +29,15 @@ Partnership with Michael Kavdas (Greek nutritionist, PN L1 certified, COO Athlet
 - **DeepSeek V4 Flash for ALL text AI** (food-parse v7, recipe-analyze, coach insight,
   meal suggest, memory extract) — cost mandate 2026-06-08. Anthropic Haiku 4.5 for
   photo/vision only. Voyage-4 embeddings (1024-dim).
-- Food DB: 21,000+ foods across USDA/FNDDS (US), CIQUAL (FR), CoFID (UK/EU),
-  BEDCA (ES), CREA (IT) + curated Greek/Colombian dishes. Enterprise benchmark:
-  549 cases / 5 languages, 92.7% pass, Cal MAPE 9.0%.
+- Food DB: **~41,000 foods** across USDA/FNDDS (US), CIQUAL (FR), CoFID (UK/EU),
+  BEDCA (ES), CREA (IT), OpenFoodFacts (GR/DE/NL barcoded products) + curated
+  Greek/Colombian dishes. Enterprise benchmark: 549 cases / 5 languages, **90-92%
+  pass band** (median-of-3; DeepSeek hour drift), Cal MAPE ~9-11%. See
+  `docs/benchmark/methodology.md`.
 - MediaPipe Pose (browser AI Form Check)
 - Vitest + Playwright + GitHub Actions CI (eval gates ≥95%)
-- UI languages: EN / ES / EL (DE/IT/PT/NL/FR planned — see docs/plans/nutrafit-master-plan.md)
+- UI languages: **EN / ES / EL / FR / DE / IT / PT / NL** (8 languages — EN/ES/EL
+  inline dictionaries, rest overlay locales in `lib/locales/` with EN fallback)
 
 ## Key features (current)
 

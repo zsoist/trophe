@@ -42,44 +42,51 @@ makes "operating system of the fitness and nutrition industry" credible.
 
 ## 2 · Phase plan (supersedes nothing — extends coach-module plan)
 
-### P3 — Booking system (Nutrafit core MVP item) — NEXT
+> **STATUS 2026-06-13:** P0-P6 SHIPPED to production (CI green). P7 in progress
+> (8-language i18n done; German+Dutch food DBs harvested — ~41k foods total).
+> Remaining: P7 benchmark scale-up, P8 beta ops, P9 scale. Business/legal track
+> (§3) is the gate before Michael's beta cohort.
+
+### P3 — Booking system (Nutrafit core MVP item) — ✅ SHIPPED
 Calendar, availability + vacation blocks, 24h-cancel policy, pre-appointment
 instructions auto-message; paid bookings premium via Stripe Connect (5-10% fee),
 payment-link fallback. (Spec already in coach-module plan.)
 
-### P4 — Coach business KPIs + retention notifications
+### P4 — Coach business KPIs + retention notifications — ✅ SHIPPED
 Clients/month, bookings vs last month, capacity indicator, contact-due engine,
-churn list, seasonality. (Spec ready.)
+churn list, seasonality. (Migration 0029, coach dashboard Business section.)
 
-### P5 — AI everywhere (DeepSeek-only mandate)
+### P5 — AI everywhere (DeepSeek-only mandate) — ✅ CORE SHIPPED
 - One-button client insight (free, rate-limited) + premium context chat (org token budgets)
 - **Recipe generator UI** for coaches (agent exists) + AI shopping list from week plan
 - Meal-plan draft generator: targets + intake answers → 7-day draft the coach edits
 - All text inference DeepSeek; vision stays Haiku until DeepSeek vision is viable
 
-### P6 — B2B/enterprise hardening
-Billing tiers (Free/Pro/Clinic) on Stripe; multi-coach orgs + client transfer;
-coach onboarding <15min; GDPR pass (DPA, export, delete, retention, EU residency
-statement); p95 parse <3.5s; status page; audit-log coverage; white-label.
+### P6 — B2B/enterprise hardening — ✅ CORE SHIPPED (billing enforcement pending beta)
+Billing tiers (Free/Pro/Clinic) DRAFTED in docs/business/pricing.md (enforcement
+deferred to post-beta pricing validation); GDPR pass DONE — public /trust page,
+signable DPA template, breach runbook, retention/EU-residency statements (docs/legal).
+Remaining: Stripe Connect commission wiring, multi-coach org UI, status page, white-label.
 
-### P7 — Accuracy & language/market expansion (parallel, rolling)
+### P7 — Accuracy & language/market expansion (parallel, rolling) — 🔄 IN PROGRESS
 **DB by Nutrafit market list:**
-| Market | Source | Size | Access |
+| Market | Source | Size | Status |
 |---|---|---|---|
-| Greece/Cyprus | Michael's barcode DB + curated | ~? + 86 | INCOMING — ingest first |
-| Germany | OpenFoodFacts DE filtered (BLS is licensed) | ~5-10k curated | OFF API (retry) |
-| Netherlands | **NEVO** (RIVM, open) | ~2,150 | direct download |
-| LATAM/ES | BEDCA ✓ + curated CO ✓ + Mexican SMAE? | — | research SMAE access |
-| Portugal/Brazil | **INSA PortFIR** (PT) + **TBCA** (BR, open) | ~1,300 + ~5,700 | direct download |
-| Middle East | curated staples + OFF AR | ~200 curated | research |
-| Italy/UK/US/FR | ✓ done | — | — |
+| Greece/Cyprus | OFF-GR barcodes ✓ + Michael's barcode DB | 3,578 + INCOMING | ✅ OFF-GR done; awaiting Michael's list |
+| Germany | OpenFoodFacts DE harvested | **9,059** | ✅ DONE (off-market.ts de) |
+| Netherlands | **NEVO** (RIVM) + OFF-NL harvested | 2,150 + **9,186** | ✅ OFF-NL done; NEVO script ready (manual CSV) |
+| LATAM/ES | BEDCA ✓ + curated CO ✓ | 751 + curated | ✅ done; SMAE research deferred |
+| Portugal/Brazil | OFF-PT ready + INSA PortFIR + TBCA | — | OFF harvester ready; download pending |
+| Middle East | curated staples + OFF AR | ~200 curated | research deferred |
+| Italy/UK/US/FR | CREA ✓ CoFID ✓ USDA ✓ CIQUAL ✓ | — | ✅ done |
 
-**App i18n:** add **DE, IT, PT, NL** to the dictionary (FR already half-wired:
-parse supports it; UI dictionary missing → add FR too = 8 languages). Generate
-first-pass translations with DeepSeek, native review before market launch.
-DB columns: name_de, name_nl, name_pt + search_text rebuild (one migration, follow
-0021/0022 pattern). Parse API language enum extension + prompt v8 with new unit
-synonyms per language.
+**DB total: ~41,000 foods** (was 24,698). OFF harvester `scripts/ingest/off-market.ts`
+generalizes to any market: `npx tsx off-market.ts de nl it pt fr`.
+
+**App i18n:** ✅ DONE — 8 languages live (EN/ES/EL inline + FR/DE/IT/PT/NL overlay
+locales, 454 keys each, migration 0030, language picker with flags). Native review
+still recommended before each market's public launch. `name_nl` column added (0032);
+name_de/name_pt deferred (those markets' OFF names land in name_en + region tag).
 
 **Benchmark:** grow 549 → 1,000-1,500 incl. DE/PT/NL cases; 3-run median; NutriBench
 head-to-head; publish methodology (Step-8 "scientific publication" asset).
