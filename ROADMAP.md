@@ -1,3 +1,5 @@
+> ⚠️ **SUPERSEDED / HISTORICAL** (last active ~April 2026). Current roadmap & state: [`docs/STATUS-2026-06-13.md`](docs/STATUS-2026-06-13.md) + [`docs/plans/nutrafit-master-plan.md`](docs/plans/nutrafit-master-plan.md). Kept for history.
+
 # τροφή (Trophē) — Roadmap
 
 ## Day 1: Foundation ✅

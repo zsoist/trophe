@@ -4,6 +4,17 @@ All notable changes to Trophē are logged here. Format follows [Keep a Changelog
 
 ---
 
+## [Coach call build + cleanup] — 2026-06-13
+- **Shipped (Michael Jun-12 call):** meal-plan macro rollup, clickable meal→recipe, client calorie-hide, custom questionnaire builder, stabilization reframe, calorie-from-body-comp, graduated/churn, pre-appointment instructions, streak tooltip, comparison-window relabel.
+- **Open Food Facts:** barcode scan (OFF v2 + ZXing camera, iOS-safe), manual-add fallback for OFF-missing products, ODbL attribution on /trust.
+- **Beta:** in-app feedback widget; shopping-list generator. **PWA** shipped.
+- **Migrations:** 0039 feedback, 0040 graduation, 0041 appointment_instructions (applied prod).
+- **CI:** fixed migration-journal drift + added fast journal-sync guard; nightly-eval auth env.
+- **Cleanup:** removed 22 orphan components (~3k LOC dead code); docs accuracy pass (DeepSeek-only routing, ~42,951 foods, 8 langs); added docs/README index, dependabot, CODEOWNERS, PR template; superseded banners on ROADMAP/TODO-NEXT/MEETING-NOTES/CODEX.
+- **Decision:** 100% DeepSeek text (Fable was offline-assessment only, ToS-disabled). Benchmark official = v2 210-case (94.8%) / backup v3 700-case (75.6%).
+
+---
+
 ## [Nutrition Accuracy Phase 2 — Code Fixes] — 2026-06-09
 
 > **Status**: Preview deployed, pending production promotion

@@ -15,7 +15,7 @@ _Last updated: 2026-05-03_
 | **Database** | Supabase Postgres (cloud, production) + Supabase CLI local stack on OrbStack @ `127.0.0.1:54322` (dev) |
 | **ORM** | Drizzle ORM + Drizzle Kit — versioned migrations in `drizzle/`, schema in `db/schema/` |
 | **API layer** | tRPC v11 (internal coach UI) + REST `/api/v1/*` (external / webhooks) |
-| **LLM router** | `agents/router/` — task-based model selection: parse→Gemini Flash, recipe/meal→Haiku 4.5, coach/memory→Sonnet 4.5 |
+| **LLM router** | `agents/router/` — **DeepSeek V4 Flash for ALL text** (parse, recipe, coach-insight, meal-suggest, memory); Anthropic Haiku 4.5 **vision/photo only**; Voyage-4 embeddings. Cost mandate (2026-06) — no Gemini/Anthropic text. |
 | **Embeddings** | Voyage v4 (`voyage-3-large`, 1024-dim) via `scripts/ingest/embed-foods.ts` |
 | **Observability** | Langfuse via `LANGFUSE_HOST` — OTel GenAI semconv per span |
 | **Computer Vision** | MediaPipe Pose (browser WASM, 33 landmarks, 30+ FPS) for AI Form Check |
@@ -103,7 +103,7 @@ AI cost governance: `agent_runs` is the trusted table for cost and LLM observabi
 | `profiles` | Identity + role + locale (1:1 with `auth.users`) |
 | `client_profiles` | Body stats, goals, macro targets, coaching phase |
 | `food_log` | Every logged food — includes `food_id FK → foods`, `qty_g`, `parse_confidence` |
-| `foods` | Canonical food database (7,918 USDA + 30 HHF + 76 restaurant chains). `kcal_per_100g`, `protein_g`, `carb_g`, `fat_g`, `embedding vector(1024)`, `search_text tsvector` |
+| `foods` | Canonical food database (~42,951: OFF 21.8k, USDA 13.3k, CIQUAL, CoFID, BEDCA, CREA, Greek, chains). `kcal_per_100g`, `protein_g`, `carb_g`, `fat_g`, `barcode`, `embedding vector(1024)`, `search_text tsvector` |
 | `dish_recipes` | Cached composite dish decompositions (38 recipes). LLM decomposes on miss, caches for next lookup |
 | `food_unit_conversions` | Deterministic gram anchors per food+unit. **This is the bug-fix table.** |
 | `food_aliases` | Multilingual aliases for hybrid retrieval |
@@ -162,10 +162,12 @@ Declarative `taskPolicies` map selects provider+model per task:
 
 | Task | Provider | Model | Rationale |
 |------|----------|-------|-----------|
-| `food_parse` | Google | Gemini 2.5 Flash | Cheapest structured output; ~$0.05/active-day vs $0.40 |
-| `recipe_analyze` | Anthropic | Haiku 4.5 | Prompt-cached system prompt; fast |
-| `coach_insight` | Anthropic | Sonnet 4.5 | Needs reasoning over week of data |
-| `embed` | Voyage | voyage-large-2 | 1024-dim, MTEB 67, consistent with OpenBrain |
+| `food_parse` | DeepSeek | deepseek-v4-flash | Cheapest structured output (~$0.14/$0.28 per M tok) |
+| `recipe_analyze` | DeepSeek | deepseek-v4-flash | Structured tool-calling; DeepSeek-only mandate |
+| `coach_insight` | DeepSeek | deepseek-v4-flash | DB-grounded snapshot; ~98% cheaper than Sonnet |
+| `meal_suggest` / `memory_extract` / `shopping_extract` | DeepSeek | deepseek-v4-flash | All text tasks route to DeepSeek (2026-06) |
+| `photo_analyze` | Anthropic | Haiku 4.5 | Vision only — DeepSeek has no vision API |
+| `embed` | Voyage | voyage-4 | 1024-dim, MTEB 67 |
 
 ### Food parse pipeline (v0.3 deterministic)
 **Old (v0.2)**: LLM emitted invented macro numbers → ~81% accuracy.

@@ -1,3 +1,5 @@
+> ⚠️ **HISTORICAL** (April 9 2026 call). The current partnership/product direction is the June 12 call: [`docs/coach/michael-call-2026-06-12-requirements.md`](docs/coach/michael-call-2026-06-12-requirements.md). Kept for history.
+
 # Meeting Notes — Michael Kavdas × Daniel Reyes
 
 ## Date: April 9, 2026

@@ -1,3 +1,5 @@
+> ⚠️ **SUPERSEDED** (snapshot 2026-06-09). Live priorities & gaps: [`docs/STATUS-2026-06-13.md`](docs/STATUS-2026-06-13.md) ("Known gaps / pending"). Kept for history.
+
 # TODO-NEXT — Current priorities as of 2026-06-09
 
 Read this at the start of the next session before touching branch, deploy, or production data.

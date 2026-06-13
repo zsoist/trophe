@@ -1,0 +1,9 @@
+# Default owner for everything in the repo.
+* @zsoist
+
+# Domain hotspots (kept explicit so reviews route correctly as the team grows)
+/agents/        @zsoist
+/db/            @zsoist
+/drizzle/       @zsoist
+/app/api/       @zsoist
+/.github/       @zsoist

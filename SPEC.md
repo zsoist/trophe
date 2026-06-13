@@ -76,7 +76,7 @@ agents/
   schemas/          # input/output types per agent
 ```
 
-**v7 food-parse pipeline (June 2026)**: LLM extracts `{food_name, qty, unit}` AND per-100g CoT estimates. `lookup.ts` does pgvector + pg_trgm hybrid retrieval → `foods` table supplies DB macros. `arbitrateDbVsCoT()` picks the best source: explicit portions → DB wins; <30% divergence → DB wins; >30% divergence → LLM grams + DB per-100g ratios; high-confidence DB (≥0.85) → always DB. `decompose.ts` handles composite dishes via `dish_recipes` cache + `COMMON_PIECE_WEIGHTS` map (80+ entries). 4-language support (EN/ES/EL/FR). 11,396 foods (USDA + CIQUAL 2025). Enterprise benchmark v3.6: 549 cases (4 languages, 13 categories), 79.2% pass rate, 8.4% calorie MAPE, 43.8% Acc@7.5.
+**v7 food-parse pipeline (June 2026)**: LLM extracts `{food_name, qty, unit}` AND per-100g CoT estimates. `lookup.ts` does pgvector + pg_trgm hybrid retrieval → `foods` table supplies DB macros. `arbitrateDbVsCoT()` picks the best source: explicit portions → DB wins; <30% divergence → DB wins; >30% divergence → LLM grams + DB per-100g ratios; high-confidence DB (≥0.85) → always DB. `decompose.ts` handles composite dishes via `dish_recipes` cache + `COMMON_PIECE_WEIGHTS` map. **100% DeepSeek V4 Flash** for all text (cost mandate; Haiku vision-only). 8-language support (EN/ES/EL inline + FR/DE/IT/PT/NL overlay). **~42,951 foods** (OFF/USDA/CIQUAL/CoFID/BEDCA/CREA/Greek + barcodes). Benchmark (2026-06-13): **official v2 210-case = 94.8% pass / 13.2% cal-MAPE**; backup v3 700-case (Greek-weighted) = 75.6%; fat is the hardest macro (~25% MAPE). Barcode lookup via OFF (ODbL) + ZXing camera scan.
 
 **LLM routing** (cost-optimized, 100% DeepSeek for text, June 2026):
 - `food_parse` → DeepSeek V4 Flash (primary + fallback)
@@ -108,7 +108,7 @@ agents/
 | Never `.single()` — always `.maybeSingle()` | ✅ |
 | TypeScript strict mode, 0 errors | ✅ |
 | Mobile-first (390×844) | ✅ |
-| AI cost < $2/month/coach | ✅ (target; Gemini Flash routing helps) |
+| AI cost < $2/month/coach | ✅ (~€2/mo per 50 users; 100% DeepSeek V4 Flash) |
 | Security headers (CSP, X-Frame-Options, X-XSS-Protection, Referrer-Policy) | ✅ |
 | Server-side auth middleware with JWT verification + role routing | ✅ (Phase 2) |
 | Input sanitization on all AI routes (length cap + control char strip) | ✅ |

@@ -1,3 +1,5 @@
+> ⚠️ **SUPERSEDED** (2026-05-03 handoff). For agent context use [`CLAUDE.md`](CLAUDE.md) + [`AGENTS.md`](AGENTS.md); for current state see [`docs/STATUS-2026-06-13.md`](docs/STATUS-2026-06-13.md). Kept for history.
+
 # τροφή (Trophē) — Comprehensive Codex Handoff
 
 > **This is the single-source-of-truth document for AI agents, operators, and new contributors.**

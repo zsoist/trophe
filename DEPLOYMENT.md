@@ -17,9 +17,10 @@ Set in **Vercel → Project Settings → Environment Variables** (Production sco
 | `SUPABASE_SERVICE_ROLE_KEY` | Prod only | Server-only full-DB access. **NEVER `NEXT_PUBLIC_`** |
 | `DATABASE_URL` | Prod + local | Runtime connection. Vercel uses Supavisor transaction mode (`:6543`); local uses `127.0.0.1:54322`. |
 | `DIRECT_URL` | Prod only | Migration/backup connection. Use direct connection or Supavisor session mode (`:5432`), never transaction mode. |
-| `ANTHROPIC_API_KEY` | Prod + local | Haiku 4.5 + Sonnet 4.5 |
-| `GEMINI_API_KEY` | Prod + local | Gemini 2.5 Flash |
-| `VOYAGE_API_KEY` | Prod + local | Voyage v4 embeddings |
+| `DEEPSEEK_API_KEY` | Prod + local | **DeepSeek V4 Flash — all text tasks** (primary; cost mandate 2026-06) |
+| `ANTHROPIC_API_KEY` | Prod + local | Haiku 4.5 — **vision/photo only** |
+| `GEMINI_API_KEY` | Optional | Legacy — not used in prod (text is 100% DeepSeek) |
+| `VOYAGE_API_KEY` | Prod + local | Voyage-4 embeddings |
 | `LANGFUSE_PUBLIC_KEY` | Prod + local | Langfuse tracing |
 | `LANGFUSE_SECRET_KEY` | Prod + local | Langfuse tracing |
 | `LANGFUSE_HOST` | Prod + local | Prod: `https://langfuse.danielreyes.work` (CF Tunnel); Local: `http://127.0.0.1:3002` |
