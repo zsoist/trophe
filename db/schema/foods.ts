@@ -48,6 +48,7 @@ export const foodSourceEnum = pgEnum('food_source', [
   'crea',
   'bedca',
   'cofid',
+  'nevo',
 ]);
 
 export const dataQualityEnum = pgEnum('data_quality', [
@@ -74,6 +75,7 @@ export const foods = pgTable(
     nameEs: text('name_es'),             // Spanish
     nameFr: text('name_fr'),             // French
     nameIt: text('name_it'),             // Italian
+    nameNl: text('name_nl'),             // Dutch (NEVO)
     brand: text('brand'),
     barcode: text('barcode'),            // UPC/EAN for packaged foods
     region: text('region').array(),      // e.g. ['GR','CY'] for Greek-specific
