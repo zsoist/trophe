@@ -827,3 +827,44 @@ html[data-font-scale='large'] {
 .dash-cols > * {
   break-inside: avoid;
 }
+
+/* ═══════════════════════════════════════════════════════════
+   PWA / Mobile-native polish
+   ═══════════════════════════════════════════════════════════ */
+
+/* No pull-to-refresh bounce on mobile (conflicts with app nav gestures) */
+html, body {
+  overscroll-behavior-y: contain;
+}
+
+/* Respect iOS notch and home-indicator safe areas */
+body {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+/* Prevent iOS auto-zoom on form focus (font-size < 16px triggers zoom) */
+input, textarea, select {
+  font-size: max(16px, 1rem);
+}
+
+/* Remove iOS tap highlight flash on interactive elements */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Hide browser-only chrome elements when running as installed PWA */
+@media (display-mode: standalone) {
+  .browser-only {
+    display: none !important;
+  }
+}
+
+/* Window Controls Overlay: content bleeds into title bar area on desktop */
+@media (display-mode: window-controls-overlay) {
+  .browser-only {
+    display: none !important;
+  }
+}

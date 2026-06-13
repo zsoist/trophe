@@ -44,5 +44,3 @@ export async function POST(request: NextRequest) {
 }
 
 // Phase 3: model is now resolved dynamically via the router.
-// Re-export for any consumers that still reference this symbol.
-export const FOOD_PARSE_MODEL = modelFor('food_parse');

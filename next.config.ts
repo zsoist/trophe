@@ -1,15 +1,35 @@
 import type { NextConfig } from "next";
+import withSerwistInit from "@serwist/next";
 
 const isDev = process.env.NODE_ENV !== 'production';
 const supabaseOrigin = process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'http://127.0.0.1:54321';
 
+const withSerwist = withSerwistInit({
+  swSrc: "app/sw.ts",
+  swDest: "public/sw.js",
+  disable: isDev,
+  additionalPrecacheEntries: [{ url: "/offline", revision: null }],
+});
+
 const nextConfig: NextConfig = {
+  // Serwist injects a webpack config; Next 16 (Turbopack default) errors on a
+  // webpack config with no turbopack config. An empty turbopack config lets
+  // `next dev` (Turbopack) run while production builds use `--webpack`.
+  turbopack: {},
   /* TypeScript and ESLint errors are now caught at build time.
      ignoreBuildErrors was removed 2026-04-07 — build passes clean.
      Next 16 removed eslint config from NextConfig — lint parity is enforced
      via vercel.json buildCommand and CI --no-cache flag instead. */
   async headers() {
     return [
+      {
+        // SW cache-control: must not be cached by browser/CDN
+        source: "/sw.js",
+        headers: [
+          { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+          { key: "Service-Worker-Allowed", value: "/" },
+        ],
+      },
       {
         source: '/(.*)',
         headers: [
@@ -46,4 +66,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withSerwist(nextConfig);

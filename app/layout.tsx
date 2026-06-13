@@ -35,7 +35,8 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "τροφή — Precision Nutrition Coaching",
   description: "One habit. Two weeks. Transform. Evidence-based nutrition coaching platform.",
-  manifest: "/manifest.json",
+  // Next.js serves app/manifest.ts at /manifest.webmanifest automatically
+  manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
@@ -43,13 +44,16 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [{ url: "/favicon.svg", type: "image/svg+xml" }],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }],
   },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#0a0a0a",
+  // viewport-fit=cover ensures content reaches the notch/home-indicator areas
+  viewportFit: "cover",
+  themeColor: "#D4A853",
 };
 
 export default function RootLayout({

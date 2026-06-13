@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { Habit, HabitCategory, HabitDifficulty } from '@/lib/types';
-import { CoachNav } from '../page';
+import { CoachNav } from '@/components/coach/CoachNav';
 import CoachLoadingSkeletons from '@/components/coach/CoachLoadingSkeletons';
 import { BotNav } from '@/components/ui/BotNav';
 import { Icon } from '@/components/ui';

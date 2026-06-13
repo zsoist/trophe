@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { SupplementProtocol, SupplementItem, Profile, ClientProfile } from '@/lib/types';
-import { CoachNav } from '../page';
+import { CoachNav } from '@/components/coach/CoachNav';
 import CoachLoadingSkeletons from '@/components/coach/CoachLoadingSkeletons';
 import ProtocolTemplateLibrary from '@/components/coach/ProtocolTemplateLibrary';
 import { BotNav } from '@/components/ui/BotNav';

@@ -28,7 +28,7 @@ import type {
   ClientProfile,
   MuscleGroup,
 } from '@/lib/types';
-import { CoachNav } from '../page';
+import { CoachNav } from '@/components/coach/CoachNav';
 import CoachLoadingSkeletons from '@/components/coach/CoachLoadingSkeletons';
 import WorkoutWeekPlanner from '@/components/coach/WorkoutWeekPlanner';
 import { BotNav } from '@/components/ui/BotNav';

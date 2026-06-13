@@ -40,4 +40,3 @@ export async function POST(request: NextRequest) {
 }
 
 // Phase 3: model is now resolved dynamically via the router.
-export const RECIPE_ANALYZE_MODEL = modelFor('recipe_analyze');

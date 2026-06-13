@@ -5,6 +5,7 @@ import { I18nProvider } from '@/lib/i18n';
 import { ToastProvider } from '@/components/Toast';
 import { ThemeModeProvider } from '@/components/ThemeMode';
 import ErrorBoundary from '@/components/ErrorBoundary';
+import { SWRegistration } from '@/components/SWRegistration';
 import { supabase } from '@/lib/supabase';
 import type { ReactNode } from 'react';
 
@@ -43,6 +44,7 @@ export default function Providers({ children }: { children: ReactNode }) {
         <ErrorBoundary>
           <ToastProvider>
             {children}
+            <SWRegistration />
           </ToastProvider>
         </ErrorBoundary>
       </I18nProvider>
