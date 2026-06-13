@@ -56,6 +56,28 @@ export const profiles = pgTable('profiles', {
   check('profiles_language_check', sql`language = ANY (ARRAY['en'::text, 'es'::text, 'el'::text, 'fr'::text, 'de'::text, 'it'::text, 'pt'::text, 'nl'::text])`),
 ]);
 
+/**
+ * Coach→client invitation (migration 0038). Coach generates a shareable token;
+ * the client activates via /activate?token=, is linked to the coach, and gives
+ * Art.9 consent. Status: pending → accepted (or revoked).
+ */
+export const clientInvites = pgTable('client_invites', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  token: uuid('token').notNull().defaultRandom(),
+  coachId: uuid('coach_id').notNull(),
+  clientEmail: text('client_email'),
+  clientName: text('client_name'),
+  status: text('status').default('pending').notNull(),
+  acceptedUserId: uuid('accepted_user_id'),
+  expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'string' }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
+}, (table) => [
+  index('idx_client_invites_coach').on(table.coachId),
+  index('idx_client_invites_token').on(table.token),
+  foreignKey({ columns: [table.coachId], foreignColumns: [profiles.id], name: 'client_invites_coach_id_fkey' }).onDelete('cascade'),
+  pgPolicy('coach manages own invites', { as: 'permissive', for: 'all', to: ['authenticated'], using: sql`coach_id = (SELECT auth.uid())`, withCheck: sql`coach_id = (SELECT auth.uid())` }),
+]);
+
 export const clientProfiles = pgTable('client_profiles', {
   id: uuid().defaultRandom().primaryKey().notNull(),
   userId: uuid('user_id'),
