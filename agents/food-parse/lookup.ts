@@ -835,6 +835,20 @@ async function resolveUnit(
  * These overrides fix the search query before BM25/vector lookup.
  */
 const FOOD_NAME_CORRECTIONS: Record<string, string> = {
+  // ── Greek cooked-dish vs raw-ingredient disambiguation (probe-verified 2026-06-13) ──
+  // In Greek context these names mean the COOKED dish, not the raw legume. Lookup
+  // was resolving them to raw split peas / giant beans (2-3× the calories).
+  'fava': 'greek fava puree',
+  'greek fava': 'greek fava puree',
+  'fava santorini': 'greek fava puree',
+  'gigantes': 'gigantes plaki',
+  'gigantes beans': 'gigantes plaki',
+  'giant beans': 'gigantes plaki',
+  'kolokithokeftedes': 'kolokithokeftedes',
+  'zucchini fritters': 'kolokithokeftedes',
+  'revithosoupa': 'revithosoupa',
+  'revithia soup': 'revithosoupa',
+  'chickpea soup': 'revithosoupa',
   // ── Plantain ↔ banana disambiguation ──
   'fried ripe plantain': 'plantains yellow ripe fried',
   'ripe fried plantain': 'plantains yellow ripe fried',
