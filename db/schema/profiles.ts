@@ -107,6 +107,9 @@ export const clientProfiles = pgTable('client_profiles', {
   goalWindow: text('goal_window'),
   stabilization: boolean().default(false).notNull(),
   contactCadenceDays: integer('contact_cadence_days').default(14).notNull(),
+  // Graduation / expected return (Michael call 2026-06-12, migration 0040)
+  graduatedAt: timestamp('graduated_at', { withTimezone: true, mode: 'string' }),
+  expectedReturnMonth: integer('expected_return_month'),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).defaultNow(),
 }, (table) => [
