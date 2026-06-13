@@ -1,6 +1,5 @@
 {
- "version": "v3.8",
- "generated_at": "2026-06-10T12:26:20.014Z",
+ "version": "v3.9",
  "cases": [
   {
    "id": "el-base-01",
@@ -15971,8 +15970,4324 @@
    "expect_safety": true,
    "expect_needs_clarification": true,
    "notes": "Mixed salad greens (100g) + avocado (100g) + tomato (100g) – CIQUAL"
+  },
+  {
+   "id": "gex1-001",
+   "input": "μία μερίδα μουσακάς",
+   "language": "el",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 425,
+     "max": 543
+    },
+    "protein_g": {
+     "min": 19,
+     "max": 25
+    },
+    "carbs_g": {
+     "min": 22,
+     "max": 28
+    },
+    "fat_g": {
+     "min": 30,
+     "max": 39
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex1-002",
+   "input": "μία μερίδα παστίτσιο",
+   "language": "el",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 586,
+     "max": 749
+    },
+    "protein_g": {
+     "min": 29,
+     "max": 37
+    },
+    "carbs_g": {
+     "min": 43,
+     "max": 55
+    },
+    "fat_g": {
+     "min": 31,
+     "max": 40
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex1-003",
+   "input": "ένα κομμάτι σπανακόπιτα",
+   "language": "el",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 187,
+     "max": 243
+    },
+    "protein_g": {
+     "min": 7,
+     "max": 9
+    },
+    "carbs_g": {
+     "min": 14,
+     "max": 18
+    },
+    "fat_g": {
+     "min": 12,
+     "max": 16
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex1-004",
+   "input": "60γρ τζατζίκι",
+   "language": "el",
+   "category": "base_food",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 47,
+     "max": 61
+    },
+    "protein_g": {
+     "min": 2,
+     "max": 3
+    },
+    "carbs_g": {
+     "min": 2,
+     "max": 3
+    },
+    "fat_g": {
+     "min": 4,
+     "max": 5
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex1-005",
+   "input": "μία χωριάτικη σαλάτα",
+   "language": "el",
+   "category": "composite",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 251,
+     "max": 325
+    },
+    "protein_g": {
+     "min": 9,
+     "max": 12
+    },
+    "carbs_g": {
+     "min": 16,
+     "max": 21
+    },
+    "fat_g": {
+     "min": 20,
+     "max": 26
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex1-006",
+   "input": "μερίδα γύρος χοιρινός",
+   "language": "el",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 282,
+     "max": 366
+    },
+    "protein_g": {
+     "min": 19,
+     "max": 24
+    },
+    "carbs_g": {
+     "min": 3,
+     "max": 4
+    },
+    "fat_g": {
+     "min": 22,
+     "max": 28
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex1-007",
+   "input": "ένα καλαμάκι σουβλάκι κοτόπουλο",
+   "language": "el",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 226,
+     "max": 292
+    },
+    "protein_g": {
+     "min": 33,
+     "max": 43
+    },
+    "carbs_g": {
+     "min": 4,
+     "max": 5
+    },
+    "fat_g": {
+     "min": 7,
+     "max": 9
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex1-008",
+   "input": "200γρ χόρτα βραστά",
+   "language": "el",
+   "category": "base_food",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 96,
+     "max": 124
+    },
+    "protein_g": {
+     "min": 4,
+     "max": 6
+    },
+    "carbs_g": {
+     "min": 10,
+     "max": 14
+    },
+    "fat_g": {
+     "min": 7,
+     "max": 9
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex1-009",
+   "input": "μερίδα γίγαντες πλακί",
+   "language": "el",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 337,
+     "max": 436
+    },
+    "protein_g": {
+     "min": 12,
+     "max": 16
+    },
+    "carbs_g": {
+     "min": 35,
+     "max": 45
+    },
+    "fat_g": {
+     "min": 16,
+     "max": 21
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex1-010",
+   "input": "150γρ ντολμάδες",
+   "language": "el",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 183,
+     "max": 237
+    },
+    "protein_g": {
+     "min": 3,
+     "max": 4
+    },
+    "carbs_g": {
+     "min": 22,
+     "max": 29
+    },
+    "fat_g": {
+     "min": 8,
+     "max": 11
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex1-011",
+   "input": "100γρ λουκουμάδες",
+   "language": "el",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 294,
+     "max": 382
+    },
+    "protein_g": {
+     "min": 5,
+     "max": 7
+    },
+    "carbs_g": {
+     "min": 38,
+     "max": 50
+    },
+    "fat_g": {
+     "min": 13,
+     "max": 18
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex1-012",
+   "input": "ένα κομμάτι μπουγάτσα κρέμα",
+   "language": "el",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 243,
+     "max": 315
+    },
+    "protein_g": {
+     "min": 4,
+     "max": 5
+    },
+    "carbs_g": {
+     "min": 28,
+     "max": 37
+    },
+    "fat_g": {
+     "min": 13,
+     "max": 18
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex1-013",
+   "input": "120γρ γαλακτομπούρεκο",
+   "language": "el",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 303,
+     "max": 393
+    },
+    "protein_g": {
+     "min": 5,
+     "max": 6
+    },
+    "carbs_g": {
+     "min": 36,
+     "max": 47
+    },
+    "fat_g": {
+     "min": 12,
+     "max": 16
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex1-014",
+   "input": "ένα κομμάτι μπακλαβάς 60γρ",
+   "language": "el",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 223,
+     "max": 289
+    },
+    "protein_g": {
+     "min": 3,
+     "max": 5
+    },
+    "carbs_g": {
+     "min": 20,
+     "max": 26
+    },
+    "fat_g": {
+     "min": 15,
+     "max": 20
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex1-015",
+   "input": "μερίδα φάβα",
+   "language": "el",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 196,
+     "max": 254
+    },
+    "protein_g": {
+     "min": 12,
+     "max": 15
+    },
+    "carbs_g": {
+     "min": 26,
+     "max": 34
+    },
+    "fat_g": {
+     "min": 8,
+     "max": 11
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex1-016",
+   "input": "120γρ κεφτέδες",
+   "language": "el",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 235,
+     "max": 305
+    },
+    "protein_g": {
+     "min": 16,
+     "max": 20
+    },
+    "carbs_g": {
+     "min": 8,
+     "max": 11
+    },
+    "fat_g": {
+     "min": 16,
+     "max": 21
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex1-017",
+   "input": "μερίδα γεμιστά",
+   "language": "el",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 313,
+     "max": 407
+    },
+    "protein_g": {
+     "min": 7,
+     "max": 8
+    },
+    "carbs_g": {
+     "min": 42,
+     "max": 54
+    },
+    "fat_g": {
+     "min": 14,
+     "max": 19
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex1-018",
+   "input": "300γρ μπριάμ",
+   "language": "el",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 209,
+     "max": 271
+    },
+    "protein_g": {
+     "min": 5,
+     "max": 7
+    },
+    "carbs_g": {
+     "min": 23,
+     "max": 30
+    },
+    "fat_g": {
+     "min": 12,
+     "max": 15
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex1-019",
+   "input": "μερίδα στιφάδο",
+   "language": "el",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 339,
+     "max": 440
+    },
+    "protein_g": {
+     "min": 31,
+     "max": 40
+    },
+    "carbs_g": {
+     "min": 13,
+     "max": 17
+    },
+    "fat_g": {
+     "min": 17,
+     "max": 22
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex1-020",
+   "input": "μία μερίδα φασολάδα",
+   "language": "el",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 274,
+     "max": 356
+    },
+    "protein_g": {
+     "min": 15,
+     "max": 20
+    },
+    "carbs_g": {
+     "min": 37,
+     "max": 48
+    },
+    "fat_g": {
+     "min": 8,
+     "max": 11
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex1-021",
+   "input": "200γρ φέτα",
+   "language": "el",
+   "category": "base_food",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 459,
+     "max": 595
+    },
+    "protein_g": {
+     "min": 24,
+     "max": 32
+    },
+    "carbs_g": {
+     "min": 7,
+     "max": 9
+    },
+    "fat_g": {
+     "min": 37,
+     "max": 48
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex1-022",
+   "input": "90γρ σαγανάκι",
+   "language": "el",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 227,
+     "max": 295
+    },
+    "protein_g": {
+     "min": 14,
+     "max": 18
+    },
+    "carbs_g": {
+     "min": 3,
+     "max": 4
+    },
+    "fat_g": {
+     "min": 17,
+     "max": 22
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex1-023",
+   "input": "μερίδα μπάμιες λαδερές",
+   "language": "el",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 235,
+     "max": 305
+    },
+    "protein_g": {
+     "min": 7,
+     "max": 8
+    },
+    "carbs_g": {
+     "min": 23,
+     "max": 30
+    },
+    "fat_g": {
+     "min": 13,
+     "max": 17
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex1-024",
+   "input": "300γρ φασολάκια λαδερά",
+   "language": "el",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 235,
+     "max": 305
+    },
+    "protein_g": {
+     "min": 7,
+     "max": 8
+    },
+    "carbs_g": {
+     "min": 23,
+     "max": 30
+    },
+    "fat_g": {
+     "min": 13,
+     "max": 18
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex1-025",
+   "input": "μερίδα παπουτσάκια",
+   "language": "el",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 327,
+     "max": 423
+    },
+    "protein_g": {
+     "min": 13,
+     "max": 17
+    },
+    "carbs_g": {
+     "min": 22,
+     "max": 28
+    },
+    "fat_g": {
+     "min": 20,
+     "max": 25
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex1-026",
+   "input": "μερίδα σουτζουκάκια",
+   "language": "el",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 479,
+     "max": 621
+    },
+    "protein_g": {
+     "min": 28,
+     "max": 37
+    },
+    "carbs_g": {
+     "min": 17,
+     "max": 23
+    },
+    "fat_g": {
+     "min": 33,
+     "max": 42
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex1-027",
+   "input": "250γρ κοκκινιστό μοσχάρι",
+   "language": "el",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 348,
+     "max": 452
+    },
+    "protein_g": {
+     "min": 30,
+     "max": 39
+    },
+    "carbs_g": {
+     "min": 9,
+     "max": 11
+    },
+    "fat_g": {
+     "min": 20,
+     "max": 25
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex1-028",
+   "input": "μερίδα γιουβαρλάκια",
+   "language": "el",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 288,
+     "max": 372
+    },
+    "protein_g": {
+     "min": 18,
+     "max": 24
+    },
+    "carbs_g": {
+     "min": 21,
+     "max": 27
+    },
+    "fat_g": {
+     "min": 13,
+     "max": 17
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex1-029",
+   "input": "μία μερίδα μαγειρίτσα",
+   "language": "el",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 243,
+     "max": 315
+    },
+    "protein_g": {
+     "min": 15,
+     "max": 20
+    },
+    "carbs_g": {
+     "min": 12,
+     "max": 16
+    },
+    "fat_g": {
+     "min": 15,
+     "max": 20
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex1-030",
+   "input": "120γρ κολοκυθοκεφτέδες",
+   "language": "el",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 188,
+     "max": 244
+    },
+    "protein_g": {
+     "min": 5,
+     "max": 7
+    },
+    "carbs_g": {
+     "min": 19,
+     "max": 24
+    },
+    "fat_g": {
+     "min": 10,
+     "max": 14
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex1-031",
+   "input": "ένα κομμάτι τυρόπιτα",
+   "language": "el",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 244,
+     "max": 316
+    },
+    "protein_g": {
+     "min": 7,
+     "max": 11
+    },
+    "carbs_g": {
+     "min": 24,
+     "max": 30
+    },
+    "fat_g": {
+     "min": 14,
+     "max": 18
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex2-001",
+   "input": "I had moussaka with a Greek salad",
+   "language": "en",
+   "category": "code_switch",
+   "expect_item_count": 2,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 590,
+     "max": 780
+    },
+    "protein_g": {
+     "min": 13,
+     "max": 18
+    },
+    "carbs_g": {
+     "min": 29,
+     "max": 39
+    },
+    "fat_g": {
+     "min": 42,
+     "max": 57
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "moussaka 280g=490kcal + greek salad 300g=288kcal. Total~778. mid=690 ±15%"
+  },
+  {
+   "id": "gex2-002",
+   "input": "2 chicken souvlaki skewers and tzatziki",
+   "language": "en",
+   "category": "code_switch",
+   "expect_item_count": 2,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 490,
+     "max": 660
+    },
+    "protein_g": {
+     "min": 52,
+     "max": 70
+    },
+    "carbs_g": {
+     "min": 11,
+     "max": 16
+    },
+    "fat_g": {
+     "min": 21,
+     "max": 29
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "2x souvlaki 150g=519kcal 75P + tzatziki 60g=54kcal 2.4P. Total~573 mid ±15%"
+  },
+  {
+   "id": "gex2-003",
+   "input": "a portion of gigantes with feta",
+   "language": "en",
+   "category": "code_switch",
+   "expect_item_count": 2,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 400,
+     "max": 540
+    },
+    "protein_g": {
+     "min": 17,
+     "max": 23
+    },
+    "carbs_g": {
+     "min": 41,
+     "max": 55
+    },
+    "fat_g": {
+     "min": 24,
+     "max": 32
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "gigantes 250g=388kcal + feta 30g=79kcal. Total~467 mid ±15%"
+  },
+  {
+   "id": "gex2-004",
+   "input": "spanakopita and a Greek salad for lunch",
+   "language": "en",
+   "category": "code_switch",
+   "expect_item_count": 2,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 400,
+     "max": 545
+    },
+    "protein_g": {
+     "min": 12,
+     "max": 17
+    },
+    "carbs_g": {
+     "min": 38,
+     "max": 51
+    },
+    "fat_g": {
+     "min": 34,
+     "max": 46
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "spanakopita 100g=215 + greek salad 300g=288. Total~503 mid ±15%"
+  },
+  {
+   "id": "gex2-005",
+   "input": "gyros pork with pita bread",
+   "language": "en",
+   "category": "code_switch",
+   "expect_item_count": 2,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 430,
+     "max": 580
+    },
+    "protein_g": {
+     "min": 23,
+     "max": 31
+    },
+    "carbs_g": {
+     "min": 40,
+     "max": 55
+    },
+    "fat_g": {
+     "min": 27,
+     "max": 36
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "gyros 120g=324kcal + pita 70g=189kcal. Total~513 mid ±15%"
+  },
+  {
+   "id": "gex2-006",
+   "input": "I ate pastitsio for dinner",
+   "language": "en",
+   "category": "code_switch",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 570,
+     "max": 775
+    },
+    "protein_g": {
+     "min": 27,
+     "max": 37
+    },
+    "carbs_g": {
+     "min": 41,
+     "max": 56
+    },
+    "fat_g": {
+     "min": 30,
+     "max": 40
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "pastitsio 330g=673kcal 33P 49.5C 36.3F mid ±15%"
+  },
+  {
+   "id": "gex2-007",
+   "input": "loukoumades for dessert, about 100g",
+   "language": "en",
+   "category": "code_switch",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 288,
+     "max": 389
+    },
+    "protein_g": {
+     "min": 4,
+     "max": 7
+    },
+    "carbs_g": {
+     "min": 37,
+     "max": 51
+    },
+    "fat_g": {
+     "min": 13,
+     "max": 18
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "loukoumades 100g=338kcal 5.5P 44C 15.5F mid ±15%"
+  },
+  {
+   "id": "gex2-008",
+   "input": "baklava slice with Greek coffee",
+   "language": "en",
+   "category": "code_switch",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 218,
+     "max": 295
+    },
+    "protein_g": {
+     "min": 4,
+     "max": 6
+    },
+    "carbs_g": {
+     "min": 19,
+     "max": 26
+    },
+    "fat_g": {
+     "min": 15,
+     "max": 20
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": true,
+   "notes": "baklava 60g=257kcal. Greek coffee negligible. Clarification on coffee sugar needed"
+  },
+  {
+   "id": "gex2-009",
+   "input": "horta with feta and olive oil drizzle",
+   "language": "en",
+   "category": "code_switch",
+   "expect_item_count": 2,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 150,
+     "max": 200
+    },
+    "protein_g": {
+     "min": 7,
+     "max": 10
+    },
+    "carbs_g": {
+     "min": 15,
+     "max": 20
+    },
+    "fat_g": {
+     "min": 26,
+     "max": 35
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": true,
+   "notes": "horta 200g=110 + feta 30g=79. Olive oil amount vague — needs clarification"
+  },
+  {
+   "id": "gex2-010",
+   "input": "moussaka portion at a Greek restaurant",
+   "language": "en",
+   "category": "code_switch",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 417,
+     "max": 564
+    },
+    "protein_g": {
+     "min": 19,
+     "max": 26
+    },
+    "carbs_g": {
+     "min": 21,
+     "max": 29
+    },
+    "fat_g": {
+     "min": 30,
+     "max": 40
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "moussaka 280g=490kcal 22.4P 25.2C 35F mid ±15%"
+  },
+  {
+   "id": "gex2-011",
+   "input": "gyros pita wrap full wrap",
+   "language": "en",
+   "category": "code_switch",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 502,
+     "max": 679
+    },
+    "protein_g": {
+     "min": 26,
+     "max": 36
+    },
+    "carbs_g": {
+     "min": 41,
+     "max": 55
+    },
+    "fat_g": {
+     "min": 22,
+     "max": 30
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "gyros pita full 350g=592kcal 31P 49C 27F mid ±15%"
+  },
+  {
+   "id": "gex2-012",
+   "input": "I had spanakopita and tzatziki as a starter",
+   "language": "en",
+   "category": "code_switch",
+   "expect_item_count": 2,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 234,
+     "max": 316
+    },
+    "protein_g": {
+     "min": 10,
+     "max": 14
+    },
+    "carbs_g": {
+     "min": 20,
+     "max": 27
+    },
+    "fat_g": {
+     "min": 17,
+     "max": 23
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "spanakopita 100g=215 + tzatziki 60g=54. Total~269 mid ±15%"
+  },
+  {
+   "id": "gex2-013",
+   "input": "chicken souvlaki skewer with Greek salad and pita",
+   "language": "en",
+   "category": "code_switch",
+   "expect_item_count": 3,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 550,
+     "max": 750
+    },
+    "protein_g": {
+     "min": 34,
+     "max": 46
+    },
+    "carbs_g": {
+     "min": 58,
+     "max": 78
+    },
+    "fat_g": {
+     "min": 25,
+     "max": 33
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "souvlaki 260 + salad 288 + pita 189 = 737. 3-item 0.8x scale ~590 mid ±15%"
+  },
+  {
+   "id": "gex2-014",
+   "input": "gigantes plaki as a side dish",
+   "language": "en",
+   "category": "code_switch",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 330,
+     "max": 447
+    },
+    "protein_g": {
+     "min": 12,
+     "max": 16
+    },
+    "carbs_g": {
+     "min": 34,
+     "max": 46
+    },
+    "fat_g": {
+     "min": 16,
+     "max": 21
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "gigantes 250g=388kcal 13.75P 40C 18.25F mid ±15%"
+  },
+  {
+   "id": "gex2-015",
+   "input": "pastitsio with a side of horta",
+   "language": "en",
+   "category": "code_switch",
+   "expect_item_count": 2,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 660,
+     "max": 893
+    },
+    "protein_g": {
+     "min": 36,
+     "max": 48
+    },
+    "carbs_g": {
+     "min": 55,
+     "max": 74
+    },
+    "fat_g": {
+     "min": 36,
+     "max": 49
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "pastitsio 673 + horta 110 = 783 mid ±15%"
+  },
+  {
+   "id": "gex2-016",
+   "input": "gyros pita, fries and a Greek salad",
+   "language": "en",
+   "category": "multi_item",
+   "expect_item_count": 3,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 846,
+     "max": 1145
+    },
+    "protein_g": {
+     "min": 30,
+     "max": 41
+    },
+    "carbs_g": {
+     "min": 78,
+     "max": 105
+    },
+    "fat_g": {
+     "min": 39,
+     "max": 53
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "gyros pita 592 + fries 468 + salad 288 = 1348. 0.8x=1078 mid ±15%"
+  },
+  {
+   "id": "gex2-017",
+   "input": "souvlaki, tzatziki, pita and horta",
+   "language": "en",
+   "category": "multi_item",
+   "expect_item_count": 4,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 500,
+     "max": 680
+    },
+    "protein_g": {
+     "min": 31,
+     "max": 42
+    },
+    "carbs_g": {
+     "min": 50,
+     "max": 67
+    },
+    "fat_g": {
+     "min": 18,
+     "max": 25
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "souvlaki 260+tzatziki 54+pita 189+horta 110=613. 0.8x=490 mid ±15%"
+  },
+  {
+   "id": "gex2-018",
+   "input": "moussaka, Greek salad, and a pita bread",
+   "language": "en",
+   "category": "multi_item",
+   "expect_item_count": 3,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 750,
+     "max": 1015
+    },
+    "protein_g": {
+     "min": 27,
+     "max": 36
+    },
+    "carbs_g": {
+     "min": 57,
+     "max": 77
+    },
+    "fat_g": {
+     "min": 49,
+     "max": 66
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "moussaka 490+salad 288+pita 189=967. 0.8x=774 mid ±15%"
+  },
+  {
+   "id": "gex2-019",
+   "input": "spanakopita, gigantes, and Greek salad",
+   "language": "en",
+   "category": "multi_item",
+   "expect_item_count": 3,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 701,
+     "max": 950
+    },
+    "protein_g": {
+     "min": 21,
+     "max": 29
+    },
+    "carbs_g": {
+     "min": 79,
+     "max": 107
+    },
+    "fat_g": {
+     "min": 47,
+     "max": 64
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "spanakopita 215+gigantes 388+salad 288=891. 0.8x=713 mid ±15%"
+  },
+  {
+   "id": "gex2-020",
+   "input": "2 gyros pita wraps and fries",
+   "language": "en",
+   "category": "multi_item",
+   "expect_item_count": 2,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 1270,
+     "max": 1718
+    },
+    "protein_g": {
+     "min": 65,
+     "max": 88
+    },
+    "carbs_g": {
+     "min": 99,
+     "max": 134
+    },
+    "fat_g": {
+     "min": 58,
+     "max": 78
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "2x gyros pita 1184+fries 468=1652. 2 items no 0.8x scaling. mid ±15%"
+  },
+  {
+   "id": "gex2-021",
+   "input": "taverna plate: moussaka, pastitsio and Greek salad",
+   "language": "en",
+   "category": "multi_item",
+   "expect_item_count": 3,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 1100,
+     "max": 1490
+    },
+    "protein_g": {
+     "min": 49,
+     "max": 67
+    },
+    "carbs_g": {
+     "min": 82,
+     "max": 111
+    },
+    "fat_g": {
+     "min": 72,
+     "max": 97
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "moussaka 490+pastitsio 673+salad 288=1451. 0.8x=1161 mid ±15%"
+  },
+  {
+   "id": "gex2-022",
+   "input": "chicken souvlaki, tzatziki and fries",
+   "language": "en",
+   "category": "multi_item",
+   "expect_item_count": 3,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 607,
+     "max": 821
+    },
+    "protein_g": {
+     "min": 29,
+     "max": 39
+    },
+    "carbs_g": {
+     "min": 37,
+     "max": 50
+    },
+    "fat_g": {
+     "min": 26,
+     "max": 35
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "souvlaki 260+tzatziki 54+fries 468=782. 0.8x=626 mid ±15%"
+  },
+  {
+   "id": "gex2-023",
+   "input": "gyros pork meat, Greek salad, tzatziki and pita",
+   "language": "en",
+   "category": "multi_item",
+   "expect_item_count": 4,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 660,
+     "max": 893
+    },
+    "protein_g": {
+     "min": 33,
+     "max": 45
+    },
+    "carbs_g": {
+     "min": 58,
+     "max": 79
+    },
+    "fat_g": {
+     "min": 38,
+     "max": 52
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "gyros 324+salad 288+tzatziki 54+pita 189=855. 0.8x=684 mid ±15%"
+  },
+  {
+   "id": "gex2-024",
+   "input": "loukoumades and baklava for dessert",
+   "language": "en",
+   "category": "multi_item",
+   "expect_item_count": 2,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 508,
+     "max": 687
+    },
+    "protein_g": {
+     "min": 10,
+     "max": 14
+    },
+    "carbs_g": {
+     "min": 69,
+     "max": 93
+    },
+    "fat_g": {
+     "min": 38,
+     "max": 51
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "loukoumades 338+baklava 257=595. 2 items mid ±15%"
+  },
+  {
+   "id": "gex2-025",
+   "input": "horta, gigantes and feta as a light meal",
+   "language": "en",
+   "category": "multi_item",
+   "expect_item_count": 3,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 459,
+     "max": 622
+    },
+    "protein_g": {
+     "min": 21,
+     "max": 29
+    },
+    "carbs_g": {
+     "min": 54,
+     "max": 73
+    },
+    "fat_g": {
+     "min": 34,
+     "max": 46
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "horta 110+gigantes 388+feta 79=577. 0.8x=462 mid ±15%"
+  },
+  {
+   "id": "gex2-026",
+   "input": "full Greek taverna meal: moussaka, spanakopita, Greek salad and tzatziki",
+   "language": "en",
+   "category": "multi_item",
+   "expect_item_count": 4,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 858,
+     "max": 1161
+    },
+    "protein_g": {
+     "min": 33,
+     "max": 45
+    },
+    "carbs_g": {
+     "min": 62,
+     "max": 84
+    },
+    "fat_g": {
+     "min": 65,
+     "max": 88
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "moussaka 490+spanakopita 215+salad 288+tzatziki 54=1047. 0.8x=838 mid ±15%"
+  },
+  {
+   "id": "gex2-027",
+   "input": "2 chicken souvlaki, pita bread, Greek salad and fries",
+   "language": "en",
+   "category": "multi_item",
+   "expect_item_count": 4,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 1036,
+     "max": 1401
+    },
+    "protein_g": {
+     "min": 64,
+     "max": 87
+    },
+    "carbs_g": {
+     "min": 92,
+     "max": 124
+    },
+    "fat_g": {
+     "min": 44,
+     "max": 59
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "2xsouvlaki 520+pita 189+salad 288+fries 468=1465. 0.8x=1172 mid ±15%"
+  },
+  {
+   "id": "gex2-028",
+   "input": "pastitsio, horta and Greek salad dinner",
+   "language": "en",
+   "category": "multi_item",
+   "expect_item_count": 3,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 697,
+     "max": 944
+    },
+    "protein_g": {
+     "min": 37,
+     "max": 50
+    },
+    "carbs_g": {
+     "min": 60,
+     "max": 81
+    },
+    "fat_g": {
+     "min": 40,
+     "max": 54
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "pastitsio 673+horta 110+salad 288=1071. 0.8x=857 mid ±15%"
+  },
+  {
+   "id": "gex2-029",
+   "input": "taverna meze: spanakopita, tzatziki, gigantes and horta",
+   "language": "en",
+   "category": "multi_item",
+   "expect_item_count": 4,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 607,
+     "max": 821
+    },
+    "protein_g": {
+     "min": 24,
+     "max": 33
+    },
+    "carbs_g": {
+     "min": 73,
+     "max": 99
+    },
+    "fat_g": {
+     "min": 42,
+     "max": 57
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "spanakopita 215+tzatziki 54+gigantes 388+horta 110=767. 0.8x=614 mid ±15%"
+  },
+  {
+   "id": "gex2-030",
+   "input": "gyros pita, spanakopita and loukoumades",
+   "language": "en",
+   "category": "multi_item",
+   "expect_item_count": 3,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 909,
+     "max": 1230
+    },
+    "protein_g": {
+     "min": 36,
+     "max": 49
+    },
+    "carbs_g": {
+     "min": 85,
+     "max": 116
+    },
+    "fat_g": {
+     "min": 49,
+     "max": 67
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "gyros pita 592+spanakopita 215+loukoumades 338=1145. 0.8x=916 mid ±15%"
+  },
+  {
+   "id": "gex3-001",
+   "input": "μελιτζάνες τηγανητές 150γρ",
+   "language": "el",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 299,
+     "max": 381
+    },
+    "protein_g": {
+     "min": 2.2,
+     "max": 3.8
+    },
+    "carbs_g": {
+     "min": 15.7,
+     "max": 20.3
+    },
+    "fat_g": {
+     "min": 26.1,
+     "max": 33.9
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "150g fried eggplant in olive oil — 345kcal midpoint, fat midpoint 30g. 100g: 230kcal/2P/12C/20F"
+  },
+  {
+   "id": "gex3-002",
+   "input": "briam 300g",
+   "language": "en",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 209,
+     "max": 271
+    },
+    "protein_g": {
+     "min": 4.4,
+     "max": 7.6
+    },
+    "carbs_g": {
+     "min": 23.6,
+     "max": 30.4
+    },
+    "fat_g": {
+     "min": 10.5,
+     "max": 15.5
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "300g briam (roasted in oil) — 240kcal midpoint, fat midpoint 13.5g. 100g: 80kcal/2P/9C/4.5F"
+  },
+  {
+   "id": "gex3-003",
+   "input": "φασολάκια λαδερά 300γρ",
+   "language": "el",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 235,
+     "max": 305
+    },
+    "protein_g": {
+     "min": 5.4,
+     "max": 9.6
+    },
+    "carbs_g": {
+     "min": 23.6,
+     "max": 30.4
+    },
+    "fat_g": {
+     "min": 13.5,
+     "max": 18.5
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "300g ladera fasolakia — 270kcal midpoint, fat midpoint 16.5g. 100g: 90kcal/2.5P/9C/5.5F"
+  },
+  {
+   "id": "gex3-004",
+   "input": "γεμιστά λαδερά 300γρ",
+   "language": "el",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 313,
+     "max": 407
+    },
+    "protein_g": {
+     "min": 5.4,
+     "max": 9.6
+    },
+    "carbs_g": {
+     "min": 41.7,
+     "max": 54.3
+    },
+    "fat_g": {
+     "min": 13.5,
+     "max": 18.5
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "300g gemista ladera — 360kcal midpoint, fat midpoint 16.5g. 100g: 120kcal/2.5P/16C/5.5F"
+  },
+  {
+   "id": "gex3-005",
+   "input": "gigantes plaki 250g",
+   "language": "en",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 338,
+     "max": 439
+    },
+    "protein_g": {
+     "min": 12.0,
+     "max": 15.5
+    },
+    "carbs_g": {
+     "min": 34.8,
+     "max": 45.2
+    },
+    "fat_g": {
+     "min": 15.9,
+     "max": 20.7
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "250g gigantes plaki — 387.5kcal midpoint, fat midpoint 18.25g. 100g: 155kcal/5.5P/16C/7.3F"
+  },
+  {
+   "id": "gex3-006",
+   "input": "χωριάτικη σαλάτα με λάδι 300γρ",
+   "language": "el",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 250,
+     "max": 324
+    },
+    "protein_g": {
+     "min": 8.1,
+     "max": 12.9
+    },
+    "carbs_g": {
+     "min": 15.7,
+     "max": 20.3
+    },
+    "fat_g": {
+     "min": 19.6,
+     "max": 25.4
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "300g horiatiki with olive oil — 288kcal midpoint, fat midpoint 22.5g. 100g: 96kcal/3.5P/6C/7.5F"
+  },
+  {
+   "id": "gex3-007",
+   "input": "horta with olive oil and lemon 200g",
+   "language": "en",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 96,
+     "max": 124
+    },
+    "protein_g": {
+     "min": 4.4,
+     "max": 6.6
+    },
+    "carbs_g": {
+     "min": 10.4,
+     "max": 13.6
+    },
+    "fat_g": {
+     "min": 6.9,
+     "max": 9.1
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "200g horta with oil+lemon — 110kcal midpoint, fat midpoint 8g. 100g: 55kcal/2.5P/6C/4F"
+  },
+  {
+   "id": "gex3-008",
+   "input": "φάβα με λαδάκι 150γρ",
+   "language": "el",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 215,
+     "max": 279
+    },
+    "protein_g": {
+     "min": 11.8,
+     "max": 15.2
+    },
+    "carbs_g": {
+     "min": 26.1,
+     "max": 33.9
+    },
+    "fat_g": {
+     "min": 10.4,
+     "max": 13.6
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "150g fava with olive oil drizzle — 247.5kcal midpoint, fat midpoint 12g. 100g: 165kcal/9P/20C/8F"
+  },
+  {
+   "id": "gex3-009",
+   "input": "κολοκυθοκεφτέδες τηγανητοί 120γρ",
+   "language": "el",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 188,
+     "max": 244
+    },
+    "protein_g": {
+     "min": 4.4,
+     "max": 6.6
+    },
+    "carbs_g": {
+     "min": 18.8,
+     "max": 24.2
+    },
+    "fat_g": {
+     "min": 10.4,
+     "max": 13.6
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "120g fried zucchini balls — 216kcal midpoint, fat midpoint 12g. 100g: 180kcal/5P/18C/10F"
+  },
+  {
+   "id": "gex3-010",
+   "input": "keftedes pan-fried 120g",
+   "language": "en",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 235,
+     "max": 305
+    },
+    "protein_g": {
+     "min": 15.7,
+     "max": 20.3
+    },
+    "carbs_g": {
+     "min": 8.4,
+     "max": 11.6
+    },
+    "fat_g": {
+     "min": 16.2,
+     "max": 21.0
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "120g keftedes pan-fried — 270kcal midpoint, fat midpoint 18.6g. 100g: 225kcal/15P/8C/15.5F"
+  },
+  {
+   "id": "gex3-011",
+   "input": "λουκουμάδες 100γρ",
+   "language": "el",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 294,
+     "max": 382
+    },
+    "protein_g": {
+     "min": 4.8,
+     "max": 6.2
+    },
+    "carbs_g": {
+     "min": 38.3,
+     "max": 49.7
+    },
+    "fat_g": {
+     "min": 13.5,
+     "max": 17.5
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "100g loukoumades deep-fried — 338kcal midpoint, fat midpoint 15.5g. 100g: 338kcal/5.5P/44C/15.5F"
+  },
+  {
+   "id": "gex3-012",
+   "input": "saganaki fried cheese 90g",
+   "language": "en",
+   "category": "base_food",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 233,
+     "max": 303
+    },
+    "protein_g": {
+     "min": 14.5,
+     "max": 18.5
+    },
+    "carbs_g": {
+     "min": 3.2,
+     "max": 4.8
+    },
+    "fat_g": {
+     "min": 17.8,
+     "max": 23.2
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "90g saganaki fried — 261kcal midpoint, fat midpoint 19.8g. 100g: 290kcal/18P/4C/22F"
+  },
+  {
+   "id": "gex3-013",
+   "input": "καλαμαράκια τηγανητά 200γρ",
+   "language": "el",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 348,
+     "max": 452
+    },
+    "protein_g": {
+     "min": 26.1,
+     "max": 33.9
+    },
+    "carbs_g": {
+     "min": 15.7,
+     "max": 20.3
+    },
+    "fat_g": {
+     "min": 19.2,
+     "max": 24.8
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "200g fried calamari — 400kcal midpoint, fat midpoint 22g. 100g: 200kcal/15P/9C/11F"
+  },
+  {
+   "id": "gex3-014",
+   "input": "patates tiganites olive oil 150g",
+   "language": "en",
+   "category": "base_food",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 407,
+     "max": 529
+    },
+    "protein_g": {
+     "min": 4.5,
+     "max": 6.3
+    },
+    "carbs_g": {
+     "min": 53.5,
+     "max": 69.5
+    },
+    "fat_g": {
+     "min": 19.6,
+     "max": 25.4
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "150g patates tiganites in olive oil — 468kcal midpoint, fat midpoint 22.5g. 100g: 312kcal/3.4P/41C/15F"
+  },
+  {
+   "id": "gex3-015",
+   "input": "σαλάτα με 1 κουταλιά ελαιόλαδο 250γρ",
+   "language": "el",
+   "category": "composite",
+   "expect_item_count": 2,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 261,
+     "max": 339
+    },
+    "protein_g": {
+     "min": 3.9,
+     "max": 6.1
+    },
+    "carbs_g": {
+     "min": 13.1,
+     "max": 17.0
+    },
+    "fat_g": {
+     "min": 22.6,
+     "max": 29.4
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "250g salad + 14g olive oil (1 tbsp) — 300kcal midpoint, fat midpoint 26g. Olive oil: 124kcal/14g fat per tbsp"
+  },
+  {
+   "id": "gex3-016",
+   "input": "salad with 1 tbsp olive oil dressing 250g",
+   "language": "en",
+   "category": "composite",
+   "expect_item_count": 2,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 261,
+     "max": 339
+    },
+    "protein_g": {
+     "min": 3.9,
+     "max": 6.1
+    },
+    "carbs_g": {
+     "min": 13.1,
+     "max": 17.0
+    },
+    "fat_g": {
+     "min": 22.6,
+     "max": 29.4
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "250g salad + 14g olive oil — 300kcal midpoint, fat midpoint 26g. Explicit oil test in English"
+  },
+  {
+   "id": "gex3-017",
+   "input": "μουσακάς με τηγανητή μελιτζάνα 280γρ",
+   "language": "el",
+   "category": "composite",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 427,
+     "max": 553
+    },
+    "protein_g": {
+     "min": 19.4,
+     "max": 25.6
+    },
+    "carbs_g": {
+     "min": 22.0,
+     "max": 28.5
+    },
+    "fat_g": {
+     "min": 30.4,
+     "max": 39.6
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "280g moussaka with fried eggplant — 490kcal midpoint, fat midpoint 35g. 100g: 175kcal/8P/9C/12.5F"
+  },
+  {
+   "id": "gex3-018",
+   "input": "imam bayildi 250g",
+   "language": "en",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 327,
+     "max": 423
+    },
+    "protein_g": {
+     "min": 4.4,
+     "max": 5.6
+    },
+    "carbs_g": {
+     "min": 24.0,
+     "max": 31.0
+    },
+    "fat_g": {
+     "min": 24.0,
+     "max": 31.0
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "250g imam bayildi — 375kcal midpoint, fat midpoint 27.5g. 100g: 150kcal/2P/11C/11F"
+  },
+  {
+   "id": "gex3-019",
+   "input": "σπανακόπιτα με βουτυράτο φύλλο 100γρ",
+   "language": "el",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 187,
+     "max": 243
+    },
+    "protein_g": {
+     "min": 6.5,
+     "max": 8.5
+    },
+    "carbs_g": {
+     "min": 13.9,
+     "max": 18.1
+    },
+    "fat_g": {
+     "min": 12.2,
+     "max": 15.8
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "100g spanakopita — 215kcal midpoint, fat midpoint 14g. 100g: 215kcal/7.5P/16C/14F"
+  },
+  {
+   "id": "gex3-020",
+   "input": "grilled sardines with olive oil drizzle 150g",
+   "language": "en",
+   "category": "base_food",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 181,
+     "max": 235
+    },
+    "protein_g": {
+     "min": 32.6,
+     "max": 42.4
+    },
+    "carbs_g": {
+     "min": 0.0,
+     "max": 1.0
+    },
+    "fat_g": {
+     "min": 14.3,
+     "max": 18.7
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "150g grilled sardines with oil — 208kcal midpoint per 100g so 312kcal@150g midpoint... using 208kcal/100g ref: 312kcal/37.5P/0C/16.5g fat midpoint. Adjusted midpoint 208kcal midpoint, fat midpoint 16.5g"
+  },
+  {
+   "id": "gex3-021",
+   "input": "χταπόδι με λάδι και ξύδι 150γρ",
+   "language": "el",
+   "category": "base_food",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 215,
+     "max": 279
+    },
+    "protein_g": {
+     "min": 32.6,
+     "max": 42.4
+    },
+    "carbs_g": {
+     "min": 3.5,
+     "max": 6.5
+    },
+    "fat_g": {
+     "min": 7.8,
+     "max": 10.2
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "150g octopus in oil/vinegar — 247.5kcal midpoint, fat midpoint 9g. 100g: 165kcal/25P/4C/6F"
+  },
+  {
+   "id": "gex3-022",
+   "input": "dolmades with olive oil 150g",
+   "language": "en",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 183,
+     "max": 237
+    },
+    "protein_g": {
+     "min": 3.3,
+     "max": 4.2
+    },
+    "carbs_g": {
+     "min": 22.1,
+     "max": 28.7
+    },
+    "fat_g": {
+     "min": 8.5,
+     "max": 11.0
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "150g dolmades with oil — 210kcal midpoint, fat midpoint 9.75g. 100g: 140kcal/2.5P/17C/6.5F"
+  },
+  {
+   "id": "gex3-023",
+   "input": "ντολμαδάκια με λάδι 150γρ",
+   "language": "el",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 183,
+     "max": 237
+    },
+    "protein_g": {
+     "min": 3.3,
+     "max": 4.2
+    },
+    "carbs_g": {
+     "min": 22.1,
+     "max": 28.7
+    },
+    "fat_g": {
+     "min": 8.5,
+     "max": 11.0
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "150g dolmades in Greek — 210kcal midpoint, fat midpoint 9.75g. Duplicate Greek explicit-oil test"
+  },
+  {
+   "id": "gex3-024",
+   "input": "1 κουταλιά ελαιόλαδο",
+   "language": "el",
+   "category": "base_food",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 108,
+     "max": 140
+    },
+    "protein_g": {
+     "min": 0.0,
+     "max": 0.5
+    },
+    "carbs_g": {
+     "min": 0.0,
+     "max": 0.5
+    },
+    "fat_g": {
+     "min": 12.2,
+     "max": 15.8
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "1 tbsp olive oil = 14g — 124kcal midpoint, fat midpoint 14g. Explicit pure oil test"
+  },
+  {
+   "id": "gex3-025",
+   "input": "1 tablespoon olive oil",
+   "language": "en",
+   "category": "base_food",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 108,
+     "max": 140
+    },
+    "protein_g": {
+     "min": 0.0,
+     "max": 0.5
+    },
+    "carbs_g": {
+     "min": 0.0,
+     "max": 0.5
+    },
+    "fat_g": {
+     "min": 12.2,
+     "max": 15.8
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "1 tbsp olive oil = 14g — 124kcal midpoint, fat midpoint 14g. English explicit pure oil test"
+  },
+  {
+   "id": "gex3-026",
+   "input": "μελιτζάνες τηγανητές με σκορδαλιά 200γρ",
+   "language": "el",
+   "category": "composite",
+   "expect_item_count": 2,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 365,
+     "max": 475
+    },
+    "protein_g": {
+     "min": 4.0,
+     "max": 7.5
+    },
+    "carbs_g": {
+     "min": 24.0,
+     "max": 32.0
+    },
+    "fat_g": {
+     "min": 30.0,
+     "max": 39.0
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "200g fried eggplant + skordalia — compound hidden-fat test, fat midpoint ~34.5g"
+  },
+  {
+   "id": "gex3-027",
+   "input": "kolokithokeftedes fried with tzatziki 200g total",
+   "language": "en",
+   "category": "composite",
+   "expect_item_count": 2,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 295,
+     "max": 383
+    },
+    "protein_g": {
+     "min": 9.0,
+     "max": 13.0
+    },
+    "carbs_g": {
+     "min": 24.0,
+     "max": 32.0
+    },
+    "fat_g": {
+     "min": 14.0,
+     "max": 20.0
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "~150g fried zucchini balls + ~50g tzatziki — fat midpoint ~17g, composite hidden-fat test"
+  },
+  {
+   "id": "gex3-028",
+   "input": "χωριάτικη σαλάτα χωρίς λάδι 300γρ",
+   "language": "el",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 130,
+     "max": 168
+    },
+    "protein_g": {
+     "min": 7.0,
+     "max": 11.0
+    },
+    "carbs_g": {
+     "min": 12.0,
+     "max": 18.0
+    },
+    "fat_g": {
+     "min": 9.0,
+     "max": 13.0
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "300g horiatiki WITHOUT extra oil (feta still contributes fat) — contrast case to gex3-006"
+  },
+  {
+   "id": "gex3-029",
+   "input": "fried calamari and Greek salad with olive oil",
+   "language": "en",
+   "category": "composite",
+   "expect_item_count": 2,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 530,
+     "max": 688
+    },
+    "protein_g": {
+     "min": 37.0,
+     "max": 53.0
+    },
+    "carbs_g": {
+     "min": 24.0,
+     "max": 38.0
+    },
+    "fat_g": {
+     "min": 36.0,
+     "max": 52.0
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "~200g fried calamari + ~300g horiatiki with oil — combined fat midpoint ~44g, multi-item hidden-fat test"
+  },
+  {
+   "id": "gex3-030",
+   "input": "σπανακόπιτα και φάβα με λάδι",
+   "language": "el",
+   "category": "composite",
+   "expect_item_count": 2,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 365,
+     "max": 473
+    },
+    "protein_g": {
+     "min": 14.0,
+     "max": 20.0
+    },
+    "carbs_g": {
+     "min": 30.0,
+     "max": 42.0
+    },
+    "fat_g": {
+     "min": 22.0,
+     "max": 32.0
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "~100g spanakopita + ~150g fava with oil — fat midpoint ~27g, combo phyllo+legume oil test"
+  },
+  {
+   "id": "gex4-001",
+   "input": "300g pasta carbonara",
+   "language": "it",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 914,
+     "max": 1166
+    },
+    "protein_g": {
+     "min": 34,
+     "max": 44
+    },
+    "carbs_g": {
+     "min": 91,
+     "max": 116
+    },
+    "fat_g": {
+     "min": 47,
+     "max": 60
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "300g @ 350kcal/100g=1050 mid. P=39g mid, C=105g mid, F=54g mid. ±13%"
+  },
+  {
+   "id": "gex4-002",
+   "input": "300g pizza margherita",
+   "language": "it",
+   "category": "composite",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 703,
+     "max": 897
+    },
+    "protein_g": {
+     "min": 29,
+     "max": 37
+    },
+    "carbs_g": {
+     "min": 86,
+     "max": 110
+    },
+    "fat_g": {
+     "min": 26,
+     "max": 33
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "300g @ 270kcal/100g=810 mid. P=33g mid, C=99g mid, F=30g mid. ±13%"
+  },
+  {
+   "id": "gex4-003",
+   "input": "250g risotto",
+   "language": "it",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 348,
+     "max": 452
+    },
+    "protein_g": {
+     "min": 9,
+     "max": 11
+    },
+    "carbs_g": {
+     "min": 43,
+     "max": 57
+    },
+    "fat_g": {
+     "min": 13,
+     "max": 17
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "250g @ 160kcal/100g=400 mid. P=10g mid, C=50g mid, F=15g mid. ±13%"
+  },
+  {
+   "id": "gex4-004",
+   "input": "300g lasagne",
+   "language": "it",
+   "category": "composite",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 431,
+     "max": 549
+    },
+    "protein_g": {
+     "min": 23,
+     "max": 30
+    },
+    "carbs_g": {
+     "min": 34,
+     "max": 44
+    },
+    "fat_g": {
+     "min": 21,
+     "max": 27
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "300g @ 165kcal/100g=495 mid. P=27g mid, C=39g mid, F=24g mid. ±13%"
+  },
+  {
+   "id": "gex4-005",
+   "input": "120g tiramisù",
+   "language": "it",
+   "category": "composite",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 292,
+     "max": 372
+    },
+    "protein_g": {
+     "min": 4,
+     "max": 6
+    },
+    "carbs_g": {
+     "min": 31,
+     "max": 41
+    },
+    "fat_g": {
+     "min": 17,
+     "max": 22
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "120g @ 280kcal/100g=336 mid. P=4.8g mid, C=36g mid, F=19.2g mid. ±13%"
+  },
+  {
+   "id": "gex4-006",
+   "input": "50g prosciutto crudo",
+   "language": "it",
+   "category": "base_food",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 109,
+     "max": 139
+    },
+    "protein_g": {
+     "min": 11,
+     "max": 15
+    },
+    "carbs_g": {
+     "min": 0,
+     "max": 1
+    },
+    "fat_g": {
+     "min": 7,
+     "max": 9
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "50g @ 250kcal/100g=125 mid. P=13g mid, C=0g mid, F=8g mid. ±13%"
+  },
+  {
+   "id": "gex4-007",
+   "input": "200g insalata caprese",
+   "language": "it",
+   "category": "composite",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 348,
+     "max": 452
+    },
+    "protein_g": {
+     "min": 16,
+     "max": 20
+    },
+    "carbs_g": {
+     "min": 7,
+     "max": 9
+    },
+    "fat_g": {
+     "min": 28,
+     "max": 36
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "200g @ 200kcal/100g=400 mid. P=18g mid, C=8g mid, F=32g mid. ±13%"
+  },
+  {
+   "id": "gex4-008",
+   "input": "un croissant de 60g",
+   "language": "fr",
+   "category": "bakery",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 212,
+     "max": 276
+    },
+    "protein_g": {
+     "min": 4,
+     "max": 6
+    },
+    "carbs_g": {
+     "min": 23,
+     "max": 31
+    },
+    "fat_g": {
+     "min": 11,
+     "max": 14
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "60g @ 406kcal/100g=244 mid. P=4.8g mid, C=27g mid, F=12.6g mid. ±13%"
+  },
+  {
+   "id": "gex4-009",
+   "input": "150g quiche lorraine",
+   "language": "fr",
+   "category": "composite",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 366,
+     "max": 464
+    },
+    "protein_g": {
+     "min": 14,
+     "max": 18
+    },
+    "carbs_g": {
+     "min": 24,
+     "max": 30
+    },
+    "fat_g": {
+     "min": 24,
+     "max": 30
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "150g @ 280kcal/100g=420 mid. P=16.5g mid, C=27g mid, F=27g mid. ±13%"
+  },
+  {
+   "id": "gex4-010",
+   "input": "250g ratatouille",
+   "language": "fr",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 163,
+     "max": 213
+    },
+    "protein_g": {
+     "min": 4,
+     "max": 6
+    },
+    "carbs_g": {
+     "min": 17,
+     "max": 23
+    },
+    "fat_g": {
+     "min": 10,
+     "max": 13
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "250g @ 75kcal/100g=187.5 mid. P=5g mid, C=20g mid, F=11.25g mid. ±13%"
+  },
+  {
+   "id": "gex4-011",
+   "input": "70g baguette",
+   "language": "fr",
+   "category": "bakery",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 164,
+     "max": 213
+    },
+    "protein_g": {
+     "min": 5,
+     "max": 8
+    },
+    "carbs_g": {
+     "min": 33,
+     "max": 43
+    },
+    "fat_g": {
+     "min": 1,
+     "max": 2
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "70g @ 270kcal/100g=189 mid. P=6.3g mid, C=38.5g mid, F=1.4g mid. ±13%"
+  },
+  {
+   "id": "gex4-012",
+   "input": "120g crème brûlée",
+   "language": "fr",
+   "category": "composite",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 334,
+     "max": 433
+    },
+    "protein_g": {
+     "min": 4,
+     "max": 5
+    },
+    "carbs_g": {
+     "min": 29,
+     "max": 38
+    },
+    "fat_g": {
+     "min": 22,
+     "max": 28
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "120g @ 320kcal/100g=384 mid. P=4.8g mid, C=33.6g mid, F=25.2g mid. ±13%"
+  },
+  {
+   "id": "gex4-013",
+   "input": "350g steak frites",
+   "language": "fr",
+   "category": "composite",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 762,
+     "max": 981
+    },
+    "protein_g": {
+     "min": 55,
+     "max": 70
+    },
+    "carbs_g": {
+     "min": 55,
+     "max": 70
+    },
+    "fat_g": {
+     "min": 37,
+     "max": 47
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "350g @ 250kcal/100g=875 mid. P=63g mid, C=63g mid, F=42g mid. ±13%"
+  },
+  {
+   "id": "gex4-014",
+   "input": "70g pain au chocolat",
+   "language": "fr",
+   "category": "bakery",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 252,
+     "max": 326
+    },
+    "protein_g": {
+     "min": 4,
+     "max": 6
+    },
+    "carbs_g": {
+     "min": 28,
+     "max": 36
+    },
+    "fat_g": {
+     "min": 13,
+     "max": 17
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "70g @ 414kcal/100g=289.8 mid. P=4.9g mid, C=32.2g mid, F=15.4g mid. ±13%"
+  },
+  {
+   "id": "gex4-015",
+   "input": "350g paella",
+   "language": "es",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 487,
+     "max": 627
+    },
+    "protein_g": {
+     "min": 27,
+     "max": 35
+    },
+    "carbs_g": {
+     "min": 54,
+     "max": 70
+    },
+    "fat_g": {
+     "min": 15,
+     "max": 20
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "350g @ 160kcal/100g=560 mid. P=31.5g mid, C=63g mid, F=17.5g mid. ±13%"
+  },
+  {
+   "id": "gex4-016",
+   "input": "150g tortilla española",
+   "language": "es",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 222,
+     "max": 288
+    },
+    "protein_g": {
+     "min": 8,
+     "max": 10
+    },
+    "carbs_g": {
+     "min": 18,
+     "max": 24
+    },
+    "fat_g": {
+     "min": 13,
+     "max": 17
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "150g @ 170kcal/100g=255 mid. P=9g mid, C=21g mid, F=15g mid. ±13%"
+  },
+  {
+   "id": "gex4-017",
+   "input": "250ml gazpacho",
+   "language": "es",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 87,
+     "max": 113
+    },
+    "protein_g": {
+     "min": 2,
+     "max": 3
+    },
+    "carbs_g": {
+     "min": 11,
+     "max": 14
+    },
+    "fat_g": {
+     "min": 4,
+     "max": 6
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "250g @ 40kcal/100g=100 mid. P=2.5g mid, C=12.5g mid, F=5g mid. ±13%"
+  },
+  {
+   "id": "gex4-018",
+   "input": "50g jamón serrano",
+   "language": "es",
+   "category": "base_food",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 104,
+     "max": 136
+    },
+    "protein_g": {
+     "min": 13,
+     "max": 17
+    },
+    "carbs_g": {
+     "min": 0,
+     "max": 1
+    },
+    "fat_g": {
+     "min": 6,
+     "max": 8
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "50g @ 240kcal/100g=120 mid. P=15.5g mid, C=0g mid, F=6.5g mid. ±13%"
+  },
+  {
+   "id": "gex4-019",
+   "input": "100g churros",
+   "language": "es",
+   "category": "bakery",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 313,
+     "max": 407
+    },
+    "protein_g": {
+     "min": 4,
+     "max": 6
+    },
+    "carbs_g": {
+     "min": 35,
+     "max": 45
+    },
+    "fat_g": {
+     "min": 17,
+     "max": 23
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "100g @ 360kcal/100g=360 mid. P=5g mid, C=40g mid, F=20g mid. ±13%"
+  },
+  {
+   "id": "gex4-020",
+   "input": "100g Bratwurst",
+   "language": "de",
+   "category": "base_food",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 252,
+     "max": 328
+    },
+    "protein_g": {
+     "min": 10,
+     "max": 14
+    },
+    "carbs_g": {
+     "min": 2,
+     "max": 4
+    },
+    "fat_g": {
+     "min": 22,
+     "max": 28
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "100g @ 290kcal/100g=290 mid. P=12g mid, C=3g mid, F=25g mid. ±13%"
+  },
+  {
+   "id": "gex4-021",
+   "input": "150g Sauerkraut",
+   "language": "de",
+   "category": "base_food",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 26,
+     "max": 34
+    },
+    "protein_g": {
+     "min": 1,
+     "max": 2
+    },
+    "carbs_g": {
+     "min": 5,
+     "max": 7
+    },
+    "fat_g": {
+     "min": 0,
+     "max": 1
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "150g @ 20kcal/100g=30 mid. P=1.5g mid, C=6g mid, F=0.3g mid. ±13%"
+  },
+  {
+   "id": "gex4-022",
+   "input": "180g Wiener Schnitzel",
+   "language": "de",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 438,
+     "max": 566
+    },
+    "protein_g": {
+     "min": 31,
+     "max": 40
+    },
+    "carbs_g": {
+     "min": 23,
+     "max": 30
+    },
+    "fat_g": {
+     "min": 23,
+     "max": 30
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "180g @ 280kcal/100g=504 mid. P=36g mid, C=27g mid, F=27g mid. ±13%"
+  },
+  {
+   "id": "gex4-023",
+   "input": "80g Brezel",
+   "language": "de",
+   "category": "bakery",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 237,
+     "max": 307
+    },
+    "protein_g": {
+     "min": 7,
+     "max": 9
+    },
+    "carbs_g": {
+     "min": 47,
+     "max": 61
+    },
+    "fat_g": {
+     "min": 2,
+     "max": 3
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "80g @ 340kcal/100g=272 mid. P=8g mid, C=54.4g mid, F=2.4g mid. ±13%"
+  },
+  {
+   "id": "gex4-024",
+   "input": "200g Currywurst",
+   "language": "de",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 488,
+     "max": 632
+    },
+    "protein_g": {
+     "min": 19,
+     "max": 25
+    },
+    "carbs_g": {
+     "min": 16,
+     "max": 20
+    },
+    "fat_g": {
+     "min": 38,
+     "max": 50
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "200g @ 280kcal/100g=560 mid. P=22g mid, C=18g mid, F=44g mid. ±13%"
+  },
+  {
+   "id": "gex4-025",
+   "input": "300g stamppot",
+   "language": "nl",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 313,
+     "max": 407
+    },
+    "protein_g": {
+     "min": 13,
+     "max": 17
+    },
+    "carbs_g": {
+     "min": 37,
+     "max": 47
+    },
+    "fat_g": {
+     "min": 13,
+     "max": 17
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "300g @ 120kcal/100g=360 mid. P=15g mid, C=42g mid, F=15g mid. ±13%"
+  },
+  {
+   "id": "gex4-026",
+   "input": "100g bitterballen",
+   "language": "nl",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 244,
+     "max": 316
+    },
+    "protein_g": {
+     "min": 8,
+     "max": 10
+    },
+    "carbs_g": {
+     "min": 19,
+     "max": 25
+    },
+    "fat_g": {
+     "min": 15,
+     "max": 19
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "100g @ 280kcal/100g=280 mid. P=9g mid, C=22g mid, F=17g mid. ±13%"
+  },
+  {
+   "id": "gex4-027",
+   "input": "100g poffertjes",
+   "language": "nl",
+   "category": "bakery",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 191,
+     "max": 249
+    },
+    "protein_g": {
+     "min": 4,
+     "max": 6
+    },
+    "carbs_g": {
+     "min": 30,
+     "max": 40
+    },
+    "fat_g": {
+     "min": 6,
+     "max": 8
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "100g @ 220kcal/100g=220 mid. P=5g mid, C=35g mid, F=7g mid. ±13%"
+  },
+  {
+   "id": "gex4-028",
+   "input": "300g bacalhau à Brás",
+   "language": "pt",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 470,
+     "max": 610
+    },
+    "protein_g": {
+     "min": 34,
+     "max": 44
+    },
+    "carbs_g": {
+     "min": 31,
+     "max": 41
+    },
+    "fat_g": {
+     "min": 23,
+     "max": 30
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "300g @ 180kcal/100g=540 mid. P=39g mid, C=36g mid, F=27g mid. ±13%"
+  },
+  {
+   "id": "gex4-029",
+   "input": "60g pastel de nata",
+   "language": "pt",
+   "category": "bakery",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 157,
+     "max": 203
+    },
+    "protein_g": {
+     "min": 3,
+     "max": 4
+    },
+    "carbs_g": {
+     "min": 18,
+     "max": 24
+    },
+    "fat_g": {
+     "min": 8,
+     "max": 10
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "60g @ 300kcal/100g=180 mid. P=3.6g mid, C=21g mid, F=9g mid. ±13%"
+  },
+  {
+   "id": "gex4-030",
+   "input": "300ml caldo verde",
+   "language": "pt",
+   "category": "regional_cuisine",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 157,
+     "max": 203
+    },
+    "protein_g": {
+     "min": 8,
+     "max": 10
+    },
+    "carbs_g": {
+     "min": 18,
+     "max": 24
+    },
+    "fat_g": {
+     "min": 6,
+     "max": 9
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false,
+   "notes": "300g @ 60kcal/100g=180 mid. P=9g mid, C=21g mid, F=7.5g mid. ±13%"
+  },
+  {
+   "id": "gex5-001",
+   "input": "FAGE Total 0% Greek yogurt 170g pot",
+   "language": "en",
+   "category": "branded",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 85,
+     "max": 108
+    },
+    "protein_g": {
+     "min": 15,
+     "max": 19
+    },
+    "carbs_g": {
+     "min": 5,
+     "max": 8
+    },
+    "fat_g": {
+     "min": 0,
+     "max": 1
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex5-002",
+   "input": "FAGE Total 5% γιαούρτι 170g",
+   "language": "el",
+   "category": "branded",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 145,
+     "max": 186
+    },
+    "protein_g": {
+     "min": 13,
+     "max": 17
+    },
+    "carbs_g": {
+     "min": 6,
+     "max": 8
+    },
+    "fat_g": {
+     "min": 7,
+     "max": 10
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex5-003",
+   "input": "Chobani Greek yogurt 2% 150g",
+   "language": "en",
+   "category": "branded",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 96,
+     "max": 123
+    },
+    "protein_g": {
+     "min": 13,
+     "max": 17
+    },
+    "carbs_g": {
+     "min": 6,
+     "max": 9
+    },
+    "fat_g": {
+     "min": 2,
+     "max": 4
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex5-004",
+   "input": "σπανακόπιτα Barba Stathis 120g",
+   "language": "el",
+   "category": "branded",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 227,
+     "max": 290
+    },
+    "protein_g": {
+     "min": 7,
+     "max": 9
+    },
+    "carbs_g": {
+     "min": 23,
+     "max": 30
+    },
+    "fat_g": {
+     "min": 13,
+     "max": 16
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex5-005",
+   "input": "Misko pasta βρασμένα 200g",
+   "language": "el",
+   "category": "branded",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 276,
+     "max": 352
+    },
+    "protein_g": {
+     "min": 8,
+     "max": 11
+    },
+    "carbs_g": {
+     "min": 53,
+     "max": 67
+    },
+    "fat_g": {
+     "min": 1,
+     "max": 3
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex5-006",
+   "input": "ION chocolate bar 38g",
+   "language": "en",
+   "category": "branded",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 182,
+     "max": 233
+    },
+    "protein_g": {
+     "min": 2,
+     "max": 3
+    },
+    "carbs_g": {
+     "min": 19,
+     "max": 25
+    },
+    "fat_g": {
+     "min": 10,
+     "max": 13
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex5-007",
+   "input": "σοκολάτα ION 38g",
+   "language": "el",
+   "category": "branded",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 182,
+     "max": 233
+    },
+    "protein_g": {
+     "min": 2,
+     "max": 3
+    },
+    "carbs_g": {
+     "min": 19,
+     "max": 25
+    },
+    "fat_g": {
+     "min": 10,
+     "max": 13
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex5-008",
+   "input": "Lacta chocolate 40g",
+   "language": "en",
+   "category": "branded",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 191,
+     "max": 245
+    },
+    "protein_g": {
+     "min": 2,
+     "max": 4
+    },
+    "carbs_g": {
+     "min": 20,
+     "max": 26
+    },
+    "fat_g": {
+     "min": 11,
+     "max": 14
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex5-009",
+   "input": "Papadopoulou Petit Beurre 4 μπισκότα 25g",
+   "language": "el",
+   "category": "branded",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 99,
+     "max": 126
+    },
+    "protein_g": {
+     "min": 1,
+     "max": 2
+    },
+    "carbs_g": {
+     "min": 16,
+     "max": 20
+    },
+    "fat_g": {
+     "min": 3,
+     "max": 4
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex5-010",
+   "input": "Nounou evaporated milk 50ml",
+   "language": "en",
+   "category": "branded",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 60,
+     "max": 76
+    },
+    "protein_g": {
+     "min": 3,
+     "max": 4
+    },
+    "carbs_g": {
+     "min": 4,
+     "max": 6
+    },
+    "fat_g": {
+     "min": 3,
+     "max": 5
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex5-011",
+   "input": "Creta Farms turkey breast 60g",
+   "language": "en",
+   "category": "branded",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 58,
+     "max": 74
+    },
+    "protein_g": {
+     "min": 10,
+     "max": 13
+    },
+    "carbs_g": {
+     "min": 0,
+     "max": 2
+    },
+    "fat_g": {
+     "min": 2,
+     "max": 3
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex5-012",
+   "input": "χούμους ελληνικής μάρκας 60g",
+   "language": "el",
+   "category": "branded",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 122,
+     "max": 156
+    },
+    "protein_g": {
+     "min": 4,
+     "max": 5
+    },
+    "carbs_g": {
+     "min": 7,
+     "max": 10
+    },
+    "fat_g": {
+     "min": 8,
+     "max": 11
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex5-013",
+   "input": "Barba Stathis spanakopita 240g (2 servings)",
+   "language": "en",
+   "category": "branded",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 453,
+     "max": 580
+    },
+    "protein_g": {
+     "min": 13,
+     "max": 18
+    },
+    "carbs_g": {
+     "min": 46,
+     "max": 59
+    },
+    "fat_g": {
+     "min": 23,
+     "max": 30
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex5-014",
+   "input": "FAGE Total 0% 85g μισό ποτηράκι",
+   "language": "el",
+   "category": "branded",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 42,
+     "max": 54
+    },
+    "protein_g": {
+     "min": 7,
+     "max": 10
+    },
+    "carbs_g": {
+     "min": 2,
+     "max": 4
+    },
+    "fat_g": {
+     "min": 0,
+     "max": 1
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex5-015",
+   "input": "Misko pasta uncooked 80g portion",
+   "language": "en",
+   "category": "branded",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 220,
+     "max": 281
+    },
+    "protein_g": {
+     "min": 7,
+     "max": 9
+    },
+    "carbs_g": {
+     "min": 43,
+     "max": 55
+    },
+    "fat_g": {
+     "min": 1,
+     "max": 2
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex5-016",
+   "input": "ION dark chocolate 76g (2 bars)",
+   "language": "en",
+   "category": "branded",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 364,
+     "max": 465
+    },
+    "protein_g": {
+     "min": 4,
+     "max": 6
+    },
+    "carbs_g": {
+     "min": 39,
+     "max": 49
+    },
+    "fat_g": {
+     "min": 21,
+     "max": 27
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex5-017",
+   "input": "φραπέ χωρίς ζάχαρη 300ml",
+   "language": "el",
+   "category": "beverages",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 4,
+     "max": 6
+    },
+    "protein_g": {
+     "min": 0,
+     "max": 1
+    },
+    "carbs_g": {
+     "min": 0,
+     "max": 2
+    },
+    "fat_g": {
+     "min": 0,
+     "max": 1
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex5-018",
+   "input": "φραπέ με γάλα και ζάχαρη 300ml",
+   "language": "el",
+   "category": "beverages",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 79,
+     "max": 101
+    },
+    "protein_g": {
+     "min": 2,
+     "max": 4
+    },
+    "carbs_g": {
+     "min": 12,
+     "max": 16
+    },
+    "fat_g": {
+     "min": 1,
+     "max": 3
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex5-019",
+   "input": "freddo espresso 240ml",
+   "language": "en",
+   "category": "beverages",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 8,
+     "max": 12
+    },
+    "protein_g": {
+     "min": 0,
+     "max": 1
+    },
+    "carbs_g": {
+     "min": 0,
+     "max": 2
+    },
+    "fat_g": {
+     "min": 0,
+     "max": 1
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex5-020",
+   "input": "freddo cappuccino 300ml",
+   "language": "en",
+   "category": "beverages",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 62,
+     "max": 79
+    },
+    "protein_g": {
+     "min": 2,
+     "max": 4
+    },
+    "carbs_g": {
+     "min": 5,
+     "max": 7
+    },
+    "fat_g": {
+     "min": 2,
+     "max": 4
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex5-021",
+   "input": "τσάι βουνού 250ml",
+   "language": "el",
+   "category": "beverages",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 1,
+     "max": 3
+    },
+    "protein_g": {
+     "min": 0,
+     "max": 1
+    },
+    "carbs_g": {
+     "min": 0,
+     "max": 1
+    },
+    "fat_g": {
+     "min": 0,
+     "max": 1
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex5-022",
+   "input": "ούζο 50ml shot",
+   "language": "el",
+   "category": "beverages",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 203,
+     "max": 259
+    },
+    "protein_g": {
+     "min": 0,
+     "max": 1
+    },
+    "carbs_g": {
+     "min": 0,
+     "max": 1
+    },
+    "fat_g": {
+     "min": 0,
+     "max": 1
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex5-023",
+   "input": "retsina wine 150ml glass",
+   "language": "en",
+   "category": "beverages",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 73,
+     "max": 93
+    },
+    "protein_g": {
+     "min": 0,
+     "max": 1
+    },
+    "carbs_g": {
+     "min": 2,
+     "max": 4
+    },
+    "fat_g": {
+     "min": 0,
+     "max": 1
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex5-024",
+   "input": "Mythos beer 330ml can",
+   "language": "en",
+   "category": "beverages",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 124,
+     "max": 158
+    },
+    "protein_g": {
+     "min": 0,
+     "max": 1
+    },
+    "carbs_g": {
+     "min": 10,
+     "max": 13
+    },
+    "fat_g": {
+     "min": 0,
+     "max": 1
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex5-025",
+   "input": "Coca-Cola 330ml κουτί",
+   "language": "el",
+   "category": "beverages",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 124,
+     "max": 158
+    },
+    "protein_g": {
+     "min": 0,
+     "max": 1
+    },
+    "carbs_g": {
+     "min": 33,
+     "max": 42
+    },
+    "fat_g": {
+     "min": 0,
+     "max": 1
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex5-026",
+   "input": "orange juice 250ml",
+   "language": "en",
+   "category": "beverages",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 99,
+     "max": 127
+    },
+    "protein_g": {
+     "min": 0,
+     "max": 2
+    },
+    "carbs_g": {
+     "min": 23,
+     "max": 29
+    },
+    "fat_g": {
+     "min": 0,
+     "max": 1
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex5-027",
+   "input": "espresso 30ml",
+   "language": "en",
+   "category": "beverages",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 1,
+     "max": 3
+    },
+    "protein_g": {
+     "min": 0,
+     "max": 1
+    },
+    "carbs_g": {
+     "min": 0,
+     "max": 1
+    },
+    "fat_g": {
+     "min": 0,
+     "max": 1
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex5-028",
+   "input": "Mythos μπύρα 660ml (2 κουτιά)",
+   "language": "el",
+   "category": "beverages",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 248,
+     "max": 317
+    },
+    "protein_g": {
+     "min": 0,
+     "max": 2
+    },
+    "carbs_g": {
+     "min": 19,
+     "max": 25
+    },
+    "fat_g": {
+     "min": 0,
+     "max": 1
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex5-029",
+   "input": "freddo cappuccino διπλό 600ml",
+   "language": "el",
+   "category": "beverages",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 123,
+     "max": 157
+    },
+    "protein_g": {
+     "min": 4,
+     "max": 8
+    },
+    "carbs_g": {
+     "min": 10,
+     "max": 14
+    },
+    "fat_g": {
+     "min": 5,
+     "max": 7
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
+  },
+  {
+   "id": "gex5-030",
+   "input": "ρετσίνα 300ml (2 ποτήρια)",
+   "language": "el",
+   "category": "beverages",
+   "expect_item_count": 1,
+   "expect_recognized": true,
+   "expect_total": {
+    "calories": {
+     "min": 146,
+     "max": 187
+    },
+    "protein_g": {
+     "min": 0,
+     "max": 1
+    },
+    "carbs_g": {
+     "min": 4,
+     "max": 7
+    },
+    "fat_g": {
+     "min": 0,
+     "max": 1
+    }
+   },
+   "expect_safety": true,
+   "expect_needs_clarification": false
   }
- ],
- "calibrated": true,
- "generatedAt": "2026-06-10T12:51:36.827Z"
+ ]
 }
