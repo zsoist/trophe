@@ -353,6 +353,23 @@ function lexicalIntentScore(candidate: SelectFood, query: string): number {
   if (queryTokens.length === 1 && /dehydrated|powder|dried/.test(singularName) && !/dehydrated|powder|dried/.test(singularQuery)) {
     score -= 5;
   }
+  // Processed-form mismatch, any query length: "apple pie" must not resolve to
+  // "Apple pie FILLING" (0.1g fat vs ~11g) nor "mashed potatoes" to
+  // "...FLAKES, dry mix" (dehydrated). These wrong-form matches carry the right
+  // tokens but a completely different macro profile — fat especially.
+  // Singular forms: the comparison strings are singularized ("flakes" → "flake").
+  const FORM_TOKENS = /\b(fillings?|flakes?|dry mix|dehydrated|powdered|concentrates?|babyfood|unprepared)\b/;
+  if (FORM_TOKENS.test(singularName) && !FORM_TOKENS.test(singularQuery)) {
+    score -= 6;
+  }
+  // Extraneous-protein penalty: "mashed potatoes" must not resolve to
+  // "Meatballs with mashed potatoes". Only fires when the QUERY mentions no
+  // protein in any supported language (carne asada, pollo, κοτόπουλο stay safe).
+  const PROTEIN_EN = /\b(meatballs?|chickens?|beef|pork|sausages?|bacon|ham|turkey|lamb|fish|salmon|tuna|shrimps?)\b/;
+  const PROTEIN_ANY = /\b(meat|meatballs?|chickens?|beef|pork|sausages?|bacon|ham|turkey|lamb|fish|salmon|tuna|shrimps?|carne|pollo|cerdo|res|pescado|jamon|κρεας|κοτοπουλο|μοσχαρι|χοιρινο|ψαρι)\b/;
+  if (PROTEIN_EN.test(singularName) && !PROTEIN_ANY.test(singularQuery)) {
+    score -= 6;
+  }
   // "egg" → "egg whole" not "egg white"; "milk" → whole milk not "milk fat"
   // Penalize sub-component / processed variants when query is a plain food noun.
   if (queryTokens.length <= 2 && /\bwhite\b|\byolk\b|\bsubstitute\b|\bshell\b|\bsolid\b/.test(singularName) && !/\bwhite\b|\byolk\b|\bsubstitute\b|\bshell\b|\bsolid\b/.test(singularQuery)) {
