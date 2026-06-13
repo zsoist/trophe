@@ -133,8 +133,8 @@ describe('enterprise hardening invariants', () => {
   });
 
   it('requires users to resolve inferred portions before logging nutrition', () => {
-    const quickInput = readFileSync(join(root, 'components/QuickFoodInput.tsx'), 'utf8');
-    const parsedList = readFileSync(join(root, 'components/ParsedFoodList.tsx'), 'utf8');
+    const quickInput = readFileSync(join(root, 'components/food/QuickFoodInput.tsx'), 'utf8');
+    const parsedList = readFileSync(join(root, 'components/food/ParsedFoodList.tsx'), 'utf8');
     expect(quickInput).toContain('data.needs_clarification');
     expect(parsedList).toContain('unresolvedPortions > 0');
     expect(parsedList).toContain('estimated portion');
