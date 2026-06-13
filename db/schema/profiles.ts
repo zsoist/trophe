@@ -37,6 +37,8 @@ export const profiles = pgTable('profiles', {
   avatarUrl: text('avatar_url'),
   language: text().default('en'),
   timezone: text().default('UTC'),
+  /** Coach's default pre-appointment instructions, shown to clients on booking (migration 0041). */
+  appointmentInstructions: text('appointment_instructions'),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
 }, (table) => [
   foreignKey({

@@ -63,6 +63,8 @@ export interface ClientProfile {
   goal_window: string | null;
   stabilization: boolean;
   contact_cadence_days: number;
+  graduated_at: string | null;
+  expected_return_month: number | null;
   created_at: string;
   updated_at: string;
 }

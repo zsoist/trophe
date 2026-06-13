@@ -29,6 +29,7 @@ export default function BookPage() {
   const [clientId, setClientId] = useState<string | null>(null);
   const [coachId, setCoachId] = useState<string | null>(null);
   const [coachName, setCoachName] = useState<string | null>(null);
+  const [coachInstructions, setCoachInstructions] = useState<string | null>(null);
   const [windows, setWindows] = useState<Window_[]>([]);
   const [timeOff, setTimeOff] = useState<TimeOff[]>([]);
   const [booked, setBooked] = useState<Set<string>>(new Set());
@@ -48,7 +49,7 @@ export default function BookPage() {
 
     const horizon = new Date(); horizon.setDate(horizon.getDate() + 14);
     const [coachRes, availRes, offRes, coachApptsRes, mineRes] = await Promise.all([
-      supabase.from('profiles').select('full_name').eq('id', cp.coach_id).maybeSingle(),
+      supabase.from('profiles').select('full_name, appointment_instructions').eq('id', cp.coach_id).maybeSingle(),
       supabase.from('coach_availability').select('day_of_week, start_minute, end_minute, active').eq('coach_id', cp.coach_id),
       supabase.from('coach_time_off').select('starts_on, ends_on').eq('coach_id', cp.coach_id),
       supabase.from('appointments').select('starts_at').eq('coach_id', cp.coach_id)
@@ -58,6 +59,7 @@ export default function BookPage() {
     ]);
 
     setCoachName(coachRes.data?.full_name ?? null);
+    setCoachInstructions(coachRes.data?.appointment_instructions ?? null);
     setWindows(((availRes.data ?? []) as Window_[]).filter((w) => w.active));
     setTimeOff((offRes.data ?? []) as TimeOff[]);
     setBooked(new Set(((coachApptsRes.data ?? []) as Array<{ starts_at: string }>).map((a) => new Date(a.starts_at).toISOString())));
@@ -166,6 +168,14 @@ export default function BookPage() {
                   ))}
                 </div>
               </>
+            )}
+
+            {/* Coach's pre-appointment instructions (Michael) */}
+            {coachInstructions && (
+              <div className="card" style={{ padding: 14, marginBottom: 18, borderColor: 'rgba(212,168,83,.3)', background: 'rgba(212,168,83,.06)' }}>
+                <div className="eye" style={{ marginBottom: 6 }}>BEFORE YOUR APPOINTMENT</div>
+                <p style={{ fontSize: 13, lineHeight: 1.55, color: 'var(--t2)', whiteSpace: 'pre-wrap' }}>{coachInstructions}</p>
+              </div>
             )}
 
             {/* Open slots */}

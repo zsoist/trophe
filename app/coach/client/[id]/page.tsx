@@ -183,12 +183,32 @@ export default function ClientDetailPage() {
   const [goalSaved, setGoalSaved] = useState(false);
   const [stabilization, setStabilization] = useState(false);
   const [cadence, setCadence] = useState(14);
+  const [graduated, setGraduated] = useState(false);
+  const [returnMonth, setReturnMonth] = useState<number | null>(null);
 
   const saveCadence = async (days: number) => {
     setCadence(days);
     await supabase
       .from('client_profiles')
       .update({ contact_cadence_days: days, updated_at: new Date().toISOString() })
+      .eq('user_id', clientId);
+  };
+
+  // Graduation (Michael): "you're free to go; book when ready". Graduated clients
+  // drop off the dashboard's needs-attention lists; expected_return_month flags churn.
+  const toggleGraduated = async () => {
+    const next = !graduated;
+    setGraduated(next);
+    await supabase
+      .from('client_profiles')
+      .update({ graduated_at: next ? new Date().toISOString() : null, updated_at: new Date().toISOString() })
+      .eq('user_id', clientId);
+  };
+  const saveReturnMonth = async (m: number | null) => {
+    setReturnMonth(m);
+    await supabase
+      .from('client_profiles')
+      .update({ expected_return_month: m, updated_at: new Date().toISOString() })
       .eq('user_id', clientId);
   };
   const [intake, setIntake] = useState<Array<{ prompt: string; answer: string }> | null>(null);
@@ -287,6 +307,8 @@ export default function ClientDetailPage() {
         setGoalForm({ title: cp.goal_title ?? '', metric: cp.goal_metric ?? '', window: cp.goal_window ?? '' });
         setStabilization(cp.stabilization ?? false);
         setCadence(cp.contact_cadence_days ?? 14);
+        setGraduated(!!cp.graduated_at);
+        setReturnMonth(cp.expected_return_month ?? null);
       }
 
       // Intake answers (Phase 2): submitted questionnaire, joined to prompts
@@ -1474,6 +1496,33 @@ export default function ClientDetailPage() {
                 >
                   {stabilization ? '◉ Stabilization phase active' : '○ Mark stabilization phase'}
                 </button>
+                {/* Graduation — Michael: clients are "free to go, book when ready" */}
+                <button
+                  onClick={toggleGraduated}
+                  className={`w-full text-xs py-2 rounded-lg border transition-all ${
+                    graduated
+                      ? 'border-emerald-400/40 bg-emerald-400/10 text-emerald-300'
+                      : 'border-white/10 text-stone-500 hover:text-stone-300'
+                  }`}
+                  title="Client graduated — drops off the needs-attention lists; set an expected return month to track churn"
+                >
+                  {graduated ? '◉ Graduated' : '○ Mark graduated'}
+                </button>
+                {graduated && (
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="text-[10px] text-stone-500 uppercase tracking-wider">Expected back</span>
+                    <select
+                      value={returnMonth ?? ''}
+                      onChange={(e) => saveReturnMonth(e.target.value ? Number(e.target.value) : null)}
+                      className="input-dark text-[11px] py-1 px-2"
+                    >
+                      <option value="">—</option>
+                      {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map((m, i) => (
+                        <option key={m} value={i + 1}>{m}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 {/* P4: contact rhythm — drives the "reach out" list on the dashboard */}
                 <div className="flex items-center justify-between pt-1">
                   <span className="text-[10px] text-stone-500 uppercase tracking-wider">Contact rhythm</span>

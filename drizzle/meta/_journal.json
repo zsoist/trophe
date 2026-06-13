@@ -344,6 +344,13 @@
    "when": 1780852599991,
    "tag": "0040_client_graduation",
    "breakpoints": true
+  },
+  {
+   "idx": 49,
+   "version": "7",
+   "when": 1780852599992,
+   "tag": "0041_appointment_instructions",
+   "breakpoints": true
   }
  ]
 }

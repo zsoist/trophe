@@ -32,13 +32,16 @@ export default function CoachCalendarPage() {
   const [appts, setAppts] = useState<Appt[]>([]);
   const [loading, setLoading] = useState(true);
   const [newOff, setNewOff] = useState({ from: '', to: '', reason: '' });
+  const [instructions, setInstructions] = useState('');
+  const [instrSaved, setInstrSaved] = useState(false);
 
   const load = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { router.push('/login'); return; }
-    const { data: me } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
+    const { data: me } = await supabase.from('profiles').select('role, appointment_instructions').eq('id', user.id).maybeSingle();
     if (!me || !['coach', 'admin', 'super_admin'].includes(me.role)) { router.push('/dashboard'); return; }
     setCoachId(user.id);
+    setInstructions(me.appointment_instructions ?? '');
 
     const [availRes, offRes, apptRes] = await Promise.all([
       supabase.from('coach_availability').select('*').eq('coach_id', user.id).order('day_of_week'),
@@ -62,6 +65,15 @@ export default function CoachCalendarPage() {
   }, [router]);
 
   useEffect(() => { load(); }, [load]);
+
+  const saveInstructions = async () => {
+    if (!coachId) return;
+    await supabase.from('profiles')
+      .update({ appointment_instructions: instructions.trim() || null })
+      .eq('id', coachId);
+    setInstrSaved(true);
+    setTimeout(() => setInstrSaved(false), 2000);
+  };
 
   const addWindow = async (day: number) => {
     if (!coachId) return;
@@ -216,6 +228,26 @@ export default function CoachCalendarPage() {
                     fontFamily: 'var(--font-mono)', fontWeight: 700, cursor: 'pointer',
                   }}>
                   ADD
+                </button>
+              </div>
+            </div>
+
+            {/* ── Pre-appointment instructions (Michael) — shown to clients on booking ── */}
+            <div className="eye" style={{ marginBottom: 8 }}>PRE-APPOINTMENT INSTRUCTIONS</div>
+            <div className="card" style={{ padding: 12, marginBottom: 18 }}>
+              <textarea
+                value={instructions}
+                onChange={(e) => setInstructions(e.target.value)}
+                placeholder="e.g. Bring recent blood work. No food or drink (water is fine) for 3h before. Please cancel at least 24h ahead or a fee applies."
+                rows={4}
+                className="input-dark w-full text-sm"
+                style={{ resize: 'vertical', marginBottom: 8 }}
+              />
+              <div className="row-b">
+                <span className="ds-sub" style={{ fontSize: 10 }}>Clients see this on the booking page.</span>
+                <button onClick={saveInstructions}
+                  style={{ background: instrSaved ? 'rgba(34,197,94,.15)' : 'var(--gold-300,#D4A853)', color: instrSaved ? 'rgb(34,197,94)' : '#0a0a0a', border: 'none', borderRadius: 8, padding: '5px 14px', fontSize: 10, fontFamily: 'var(--font-mono)', fontWeight: 700, cursor: 'pointer', textTransform: 'uppercase' }}>
+                  {instrSaved ? '✓ Saved' : 'Save'}
                 </button>
               </div>
             </div>

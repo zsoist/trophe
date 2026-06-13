@@ -455,7 +455,9 @@ export default function CoachDashboard() {
           activeHabit,
           lastCheckin,
           daysSinceCheckin: daysSince,
-          status: getStatus(daysSince),
+          // Graduated clients are intentionally "done" — keep them off the
+          // at-risk/reach-out lists (Michael: "free to go, book when ready").
+          status: cp.graduated_at ? ('green' as const) : getStatus(daysSince),
           moodAvg,
           readyForProgression,
         };

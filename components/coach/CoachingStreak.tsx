@@ -38,6 +38,7 @@ export default memo(function CoachingStreak({ streakDays }: CoachingStreakProps)
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.4, type: 'spring', stiffness: 200 }}
       className="bg-white/[0.04] border border-white/[0.06] rounded-xl p-4 flex items-center gap-4 relative overflow-hidden"
+      title="Consecutive days at least one of your clients logged a check-in — your coaching consistency. Resets when a day passes with no client activity."
     >
       {/* Background glow for high streaks */}
       {tier === 'solid' && (
