@@ -91,6 +91,10 @@ async function keywordCandidates(foodName: string): Promise<SelectFood[]> {
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')  // strip combining diacritical marks (é→e, ñ→n, etc.)
     .toLowerCase()
+    // Hyphens/dashes/slashes are WORD SEPARATORS, not noise: "croque-monsieur"
+    // must tokenize to ["croque","monsieur"] to match the simple-tsconfig
+    // tsvector, otherwise it mashes to "croquemonsieur" and never matches.
+    .replace(/[-–—/]/g, ' ')
     .replace(/[^a-zα-ωά-ώ0-9\s]/g, '')
     .trim()
     .split(/\s+/)
