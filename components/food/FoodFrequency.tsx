@@ -6,7 +6,7 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Icon } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
-import { localDateStr } from '@/lib/dates';
+import { localDateStr } from '@/lib/utils/dates';
 
 interface FoodStat {
   food_name:     string;

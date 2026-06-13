@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { guardAiRoute } from '@/lib/api-guard';
+import { guardAiRoute } from '@/lib/security/api-guard';
 import { run } from '@/agents/recipe-analyze';
 import { modelFor } from '@/agents/router';
 

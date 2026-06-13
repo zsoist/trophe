@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, ChevronUp, Target, TrendingUp } from 'lucide-react';
-import type { FormAnalysisResult, RepScore } from '@/lib/form-analysis';
+import type { FormAnalysisResult, RepScore } from '@/lib/fitness/form-analysis';
 
 interface FormScoreProps {
   result: FormAnalysisResult;

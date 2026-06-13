@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { aggregateIngredients, groupByCategory } from '@/lib/shopping-list';
+import { aggregateIngredients, groupByCategory } from '@/lib/food/shopping-list';
 import type { ShoppingItem } from '@/agents/schemas/shopping-extract';
 
 const it_ = (name: string, quantity: number, unit: string, category: ShoppingItem['category'] = 'other'): ShoppingItem =>

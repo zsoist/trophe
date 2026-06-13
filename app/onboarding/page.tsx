@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
-import { calculateFullProfile, calculateBMR, calculateTDEE, calculateTargetCalories, GOAL_DESCRIPTIONS, ACTIVITY_DESCRIPTIONS } from '@/lib/nutrition-engine';
+import { calculateFullProfile, calculateBMR, calculateTDEE, calculateTargetCalories, GOAL_DESCRIPTIONS, ACTIVITY_DESCRIPTIONS } from '@/lib/food/nutrition-engine';
 import type { Sex, ActivityLevel, Goal } from '@/lib/types';
 
 const GOAL_ADJUSTMENT_LABELS: Record<Goal, string> = {

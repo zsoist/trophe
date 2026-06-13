@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { FOOD_SEED } from '@/lib/food-database-seed';
+import { FOOD_SEED } from '@/lib/food/food-database-seed';
 import { requireSuperAdmin } from '@/lib/server-admin';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 

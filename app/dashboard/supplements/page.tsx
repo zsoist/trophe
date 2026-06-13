@@ -8,7 +8,7 @@ import { Icon } from '@/components/ui';
 import { BotNav } from '@/components/ui/BotNav';
 import { supabase } from '@/lib/supabase';
 import type { ClientSupplement, SupplementItem, SupplementLogEntry } from '@/lib/types';
-import { localToday, localDateStr } from '../../../lib/dates';
+import { localToday, localDateStr } from '../../../lib/utils/dates';
 import { useClientNav } from '@/lib/useClientNav';
 
 const EVIDENCE_COLORS: Record<string, string> = {

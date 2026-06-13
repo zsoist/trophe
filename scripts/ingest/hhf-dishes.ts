@@ -22,7 +22,7 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import { foods } from '../../db/schema/foods';
 import { foodAliases } from '../../db/schema/food_aliases';
-import { GREEK_FOODS } from '../../lib/greek-foods-seed';
+import { GREEK_FOODS } from '../../lib/food/greek-foods-seed';
 
 // ── HHF + published Greek dish data (per 100g unless noted) ─────────────────
 // Sources: HHF tables, USDA SR Legacy cross-reference, Kavdas plan annotations

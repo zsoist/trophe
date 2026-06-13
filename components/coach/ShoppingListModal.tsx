@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ShoppingCart, Loader2, Copy, Check } from 'lucide-react';
-import type { AggregatedItem } from '@/lib/shopping-list';
+import type { AggregatedItem } from '@/lib/food/shopping-list';
 
 /**
  * Coach shopping-list modal (Daily Nutrafit "Shopping Lists"). Calls

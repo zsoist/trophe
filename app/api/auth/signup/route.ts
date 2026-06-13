@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
-import { consumeRateLimit } from '@/lib/durable-rate-limit';
+import { consumeRateLimit } from '@/lib/security/durable-rate-limit';
 
 const signupSchema = z.object({
   email: z.string().trim().email().max(254),

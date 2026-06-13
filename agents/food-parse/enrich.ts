@@ -1,4 +1,4 @@
-import { FOOD_DATABASE } from '@/lib/food-units';
+import { FOOD_DATABASE } from '@/lib/food/food-units';
 import type { ParsedFoodItem } from '../schemas/food-parse';
 
 export function enrichWithLocalDB(items: ParsedFoodItem[]): ParsedFoodItem[] {

@@ -8,8 +8,8 @@ import { BotNav } from '@/components/ui/BotNav';
 import { Icon } from '@/components/ui';
 import FormCheck from '@/components/workout/FormCheck';
 import FormScore from '@/components/workout/FormScore';
-import { EXERCISE_REFERENCES } from '@/lib/exercise-references';
-import type { FormAnalysisResult } from '@/lib/form-analysis';
+import { EXERCISE_REFERENCES } from '@/lib/fitness/exercise-references';
+import type { FormAnalysisResult } from '@/lib/fitness/form-analysis';
 import { supabase } from '@/lib/supabase';
 
 type Phase = 'setup' | 'recording' | 'results';

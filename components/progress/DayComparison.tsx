@@ -5,8 +5,8 @@ import { motion } from 'framer-motion';
 import { X, ArrowRight } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { FoodLogEntry } from '@/lib/types';
-import { calculateMealScore } from '@/lib/meal-score';
-import { localToday } from '@/lib/dates';
+import { calculateMealScore } from '@/lib/food/meal-score';
+import { localToday } from '@/lib/utils/dates';
 
 interface DayComparisonProps {
   userId: string;

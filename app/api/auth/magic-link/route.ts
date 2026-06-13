@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { z } from 'zod';
 import { safeRedirectPath } from '@/lib/auth/safe-redirect';
-import { consumeRateLimit } from '@/lib/durable-rate-limit';
+import { consumeRateLimit } from '@/lib/security/durable-rate-limit';
 
 const MagicLinkBody = z.object({
   email: z.string().email('Invalid email address'),

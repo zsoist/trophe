@@ -12,7 +12,7 @@ import { supabase } from '@/lib/supabase';
 import { Icon } from '@/components/ui';
 import { BotNav } from '@/components/ui/BotNav';
 import type { ClientHabit, HabitCheckin, Mood } from '@/lib/types';
-import { localToday } from '@/lib/dates';
+import { localToday } from '@/lib/utils/dates';
 import { useClientNav } from '@/lib/useClientNav';
 
 // ─── Shimmer skeleton atoms ───────────────────────────────────

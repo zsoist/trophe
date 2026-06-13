@@ -5,7 +5,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { User, LogOut, Save, Globe, Sun, Moon } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { calculateFullProfile, ACTIVITY_DESCRIPTIONS } from '@/lib/nutrition-engine';
+import { calculateFullProfile, ACTIVITY_DESCRIPTIONS } from '@/lib/food/nutrition-engine';
 import type { ClientProfile, Profile, Sex, ActivityLevel, Goal, Language } from '@/lib/types';
 import { BotNav } from '@/components/ui/BotNav';
 import { Icon } from '@/components/ui';

@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { guardAiRoute } from '@/lib/api-guard';
+import { guardAiRoute } from '@/lib/security/api-guard';
 import { executeAiTask } from '@/agents/runtime';
 import { invokeStructuredProvider } from '@/agents/runtime/providers/structured';
 import { mealSuggestionValidator, mealSuggestJsonSchema } from '@/agents/schemas/meal-suggest';

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { requireRole } from '@/lib/auth/require-role';
-import { recordAuditEvent } from '@/lib/audit';
+import { recordAuditEvent } from '@/lib/utils/audit';
 
 /**
  * GDPR Art. 7(3) — consent withdrawal (and status read). The Trust page promises

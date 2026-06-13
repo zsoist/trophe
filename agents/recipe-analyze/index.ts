@@ -10,7 +10,7 @@
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { buildFoodReferencePrompt } from '@/lib/food-units';
+import { buildFoodReferencePrompt } from '@/lib/food/food-units';
 import { z } from 'zod';
 import { executeAiTask } from '../runtime';
 import { invokeStructuredProvider } from '../runtime/providers/structured';

@@ -31,7 +31,7 @@ vi.mock('@/lib/supabase/server', () => ({
     from: mocks.from,
   }),
 }));
-vi.mock('@/lib/durable-rate-limit', () => ({
+vi.mock('@/lib/security/durable-rate-limit', () => ({
   consumeRateLimit: mocks.consumeRateLimit,
 }));
 

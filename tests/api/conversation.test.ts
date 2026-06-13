@@ -13,7 +13,7 @@ const mocks = vi.hoisted(() => ({
   retrieveKnowledge: vi.fn(),
 }));
 
-vi.mock('@/lib/api-guard', () => ({ guardAiRoute: mocks.guardAiRoute }));
+vi.mock('@/lib/security/api-guard', () => ({ guardAiRoute: mocks.guardAiRoute }));
 vi.mock('@/db/client', () => ({ db: { insert: mocks.insert } }));
 vi.mock('@/db/schema/agent_conversation', () => ({ agentConversation: {} }));
 vi.mock('@/agents/memory/read', () => ({ readMemory: mocks.readMemory }));

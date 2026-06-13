@@ -3,7 +3,7 @@
 // All formulas sourced from ISSN, ACSM, IOC position stands
 // ═══════════════════════════════════════════════
 
-import type { Sex, ActivityLevel, Goal, MacroTargets } from './types';
+import type { Sex, ActivityLevel, Goal, MacroTargets } from '@/lib/types';
 
 // ─── Activity Multipliers (Harris-Benedict / Mifflin-St Jeor) ───
 const ACTIVITY_MULTIPLIERS: Record<ActivityLevel, number> = {

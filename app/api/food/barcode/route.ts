@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { guardAiRoute } from '@/lib/api-guard';
+import { guardAiRoute } from '@/lib/security/api-guard';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 
 /**

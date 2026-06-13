@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Pill, CheckCircle2, XCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { localDateStr } from '@/lib/dates';
+import { localDateStr } from '@/lib/utils/dates';
 
 // ═══════════════════════════════════════════════
 // Types

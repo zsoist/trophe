@@ -2,7 +2,7 @@
 
 import { memo, useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { localDateStr } from '../../lib/dates';
+import { localDateStr } from '../../lib/utils/dates';
 
 interface HeatmapEntry {
   date: string;

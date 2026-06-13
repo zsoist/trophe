@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { consumeRateLimit } from '@/lib/durable-rate-limit';
+import { consumeRateLimit } from '@/lib/security/durable-rate-limit';
 
 export async function GET(request: NextRequest) {
   // PUBLIC ENDPOINT — intentional. Uses anon key; Supabase RLS on food_database

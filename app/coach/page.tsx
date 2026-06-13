@@ -43,7 +43,7 @@ import CoachLoadingSkeletons from '@/components/coach/CoachLoadingSkeletons';
 import BatchHabitAssign from '@/components/coach/BatchHabitAssign';
 import { CoachNav } from '@/components/coach/CoachNav';
 import ClientComparison from '@/components/coach/ClientComparison';
-import { localDateStr } from '../../lib/dates';
+import { localDateStr } from '../../lib/utils/dates';
 import { BotNav } from '@/components/ui/BotNav';
 import { Icon } from '@/components/ui';
 import type {

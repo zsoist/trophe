@@ -17,7 +17,7 @@ import { coachNotes } from '@/db/schema/coach';
 import { coachBlocks } from '@/db/schema/coach_blocks';
 import { eq, and, desc } from 'drizzle-orm';
 import { assertCanAccessClient } from '@/lib/auth/tenant-access';
-import { recordAuditEvent } from '@/lib/audit';
+import { recordAuditEvent } from '@/lib/utils/audit';
 
 // ── Router ────────────────────────────────────────────────────────────────
 

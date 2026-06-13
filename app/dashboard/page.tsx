@@ -12,7 +12,7 @@ import type { ClientProfile, ClientHabit, HabitCheckin, FoodLogEntry, WaterLogEn
 import WeeklyCheckin from '@/components/summary/WeeklyCheckin';
 import { DashboardSkeleton } from '@/components/shared/Skeleton';
 import HabitDetailModal from '@/components/habits/HabitDetailModal';
-import { localToday } from '../../lib/dates';
+import { localToday } from '../../lib/utils/dates';
 
 // ─── Greeting (no emojis — handoff spec) ───────────────────────
 function getTimeGreeting(): string {

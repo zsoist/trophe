@@ -7,7 +7,7 @@ import { Icon, type IconName } from '@/components/ui';
 import { useI18n } from '@/lib/i18n';
 import { supabase } from '@/lib/supabase';
 import type { FoodLogEntry, MealType } from '@/lib/types';
-import { calculateMealScore, getScoreBgColor } from '@/lib/meal-score';
+import { calculateMealScore, getScoreBgColor } from '@/lib/food/meal-score';
 import QuickFoodInput from '@/components/food/QuickFoodInput';
 
 export interface MealSlot {

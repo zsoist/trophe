@@ -7,7 +7,7 @@
 //   - Progressive difficulty
 // ═══════════════════════════════════════════════
 
-import type { HabitCategory, HabitDifficulty } from './types';
+import type { HabitCategory, HabitDifficulty } from '@/lib/types';
 
 export interface HabitTemplate {
   name_en: string;

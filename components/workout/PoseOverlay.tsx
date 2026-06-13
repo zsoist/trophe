@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect } from 'react';
-import type { PosePoints } from '@/lib/form-analysis';
-import { POSE_CONNECTIONS } from '@/lib/form-analysis';
+import type { PosePoints } from '@/lib/fitness/form-analysis';
+import { POSE_CONNECTIONS } from '@/lib/fitness/form-analysis';
 
 interface PoseOverlayProps {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;

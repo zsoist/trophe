@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
-import { consumeRateLimit } from '@/lib/durable-rate-limit';
+import { consumeRateLimit } from '@/lib/security/durable-rate-limit';
 
 const bodySchema = z.object({
   message: z.string().trim().min(1).max(2000),

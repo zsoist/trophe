@@ -28,7 +28,7 @@ import DayComparison from '@/components/progress/DayComparison';
 import CoachFoodRecs from '@/components/food/CoachFoodRecs';
 import RecipeAnalyzerModal from '@/components/food/RecipeAnalyzerModal';
 import { useTheme } from '@/components/shared/ThemePicker';
-import { localToday, localDateStr } from '../../../lib/dates';
+import { localToday, localDateStr } from '../../../lib/utils/dates';
 
 const DEFAULT_MEAL_SLOTS: MealSlot[] = [
   { id: 'breakfast', mealType: 'breakfast', label: 'Breakfast', icon: 'i-sun', order: 0 },

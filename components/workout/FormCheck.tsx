@@ -22,8 +22,8 @@ import {
   type DirectionChange,
   type RepScore,
   type FormAnalysisResult,
-} from '@/lib/form-analysis';
-import { EXERCISE_REFERENCES } from '@/lib/exercise-references';
+} from '@/lib/fitness/form-analysis';
+import { EXERCISE_REFERENCES } from '@/lib/fitness/exercise-references';
 
 interface FormCheckProps {
   exercise: string;

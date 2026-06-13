@@ -1,7 +1,7 @@
 // F10: Meal Quality Score — rates each meal 0-100
 // Algorithm: 40% macro balance + 30% protein adequacy + 30% variety
 
-import type { FoodLogEntry } from './types';
+import type { FoodLogEntry } from '@/lib/types';
 
 export interface MealScore {
   score: number;

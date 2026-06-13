@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { guardAiRoute } from '@/lib/api-guard';
+import { guardAiRoute } from '@/lib/security/api-guard';
 import { db } from '@/db/client';
 import { agentConversation } from '@/db/schema/agent_conversation';
 import { readMemory } from '@/agents/memory/read';

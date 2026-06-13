@@ -12,7 +12,7 @@ import ProgressPhotos from '@/components/progress/ProgressPhotos';
 import WeeklyMacroChart from '@/components/charts/WeeklyMacroChart';
 import HabitRadar from '@/components/charts/HabitRadar';
 import { CLIENT_SHOWS_CALORIES } from '@/lib/client-view';
-import { localToday } from '../../../lib/dates';
+import { localToday } from '../../../lib/utils/dates';
 
 // ─── Glass accordion card ─────────────────────────────────────────
 function Section({

@@ -6,7 +6,7 @@ const mocks = vi.hoisted(() => ({
   run: vi.fn(),
 }));
 
-vi.mock('@/lib/api-guard', () => ({ guardAiRoute: mocks.guardAiRoute }));
+vi.mock('@/lib/security/api-guard', () => ({ guardAiRoute: mocks.guardAiRoute }));
 vi.mock('@/agents/food-parse', () => ({ run: mocks.run }));
 
 import { POST } from '@/app/api/food/parse/route';

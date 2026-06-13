@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { guardAiRoute } from '@/lib/api-guard';
+import { guardAiRoute } from '@/lib/security/api-guard';
 import { executeAiTask } from '@/agents/runtime';
 import { invokeAnthropicJson } from '@/agents/runtime/providers/anthropic';
 

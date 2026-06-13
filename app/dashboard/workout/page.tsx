@@ -13,7 +13,7 @@ import { useI18n } from '@/lib/i18n';
 import { useClientNav } from '@/lib/useClientNav';
 import type { Exercise, PainFlag, MuscleGroup, WorkoutSession } from '@/lib/types';
 import Link from 'next/link';
-import { localToday } from '../../../lib/dates';
+import { localToday } from '../../../lib/utils/dates';
 
 // ─── Muscle group labels & colors ───
 const MUSCLE_GROUPS: { key: MuscleGroup; label: string; color: string }[] = [

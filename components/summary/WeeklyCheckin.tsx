@@ -4,7 +4,7 @@ import { useCallback, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Send, ClipboardCheck } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { localToday, localDateStr } from '@/lib/dates';
+import { localToday, localDateStr } from '@/lib/utils/dates';
 
 interface WeeklyCheckinProps {
   userId: string;

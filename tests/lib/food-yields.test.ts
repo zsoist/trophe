@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { rawToCooked, cookedToRaw, resolveHouseholdPortion } from '@/lib/food-yields';
+import { rawToCooked, cookedToRaw, resolveHouseholdPortion } from '@/lib/food/food-yields';
 
 describe('food-yields', () => {
   it('raw→cooked applies method yield', () => {

@@ -9,7 +9,7 @@ import {
   macroPercentage,
   caloriesFromSteps,
   remainingMacros,
-} from '@/lib/nutrition-engine';
+} from '@/lib/food/nutrition-engine';
 
 // Reference case — Daniela-like profile (drove the ChatGPT comparison incident).
 // 35-year-old female, 65 kg, 165 cm, moderate activity, fat_loss.

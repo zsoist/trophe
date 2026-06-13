@@ -50,7 +50,7 @@ import CalorieCyclingPlanner from '@/components/coach/CalorieCyclingPlanner';
 import RecoveryScore from '@/components/coach/RecoveryScore';
 import MealPatternView from '@/components/coach/MealPatternView';
 import CoachInsightPanel from '@/components/coach/CoachInsightPanel';
-import { localToday, localDateStr } from '../../../../lib/dates';
+import { localToday, localDateStr } from '../../../../lib/utils/dates';
 import { Icon } from '@/components/ui';
 import type {
   Profile,

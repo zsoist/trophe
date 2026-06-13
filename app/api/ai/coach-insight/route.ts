@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { guardAiRoute } from '@/lib/api-guard';
+import { guardAiRoute } from '@/lib/security/api-guard';
 import { assertCanAccessClient } from '@/lib/auth/tenant-access';
 import { db } from '@/db/client';
 import { profiles } from '@/db/schema/profiles';

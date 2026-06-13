@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireRole } from '@/lib/auth/require-role';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
-import { computeBaseline, type ActivityLevel, type Goal, type Sex } from '@/lib/calorie-equations';
+import { computeBaseline, type ActivityLevel, type Goal, type Sex } from '@/lib/food/calorie-equations';
 
 /**
  * Deterministic calorie/macro baseline for a client (Daily Nutrafit — Michael).

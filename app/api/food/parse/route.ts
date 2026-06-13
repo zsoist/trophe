@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { guardAiRoute } from '@/lib/api-guard';
+import { guardAiRoute } from '@/lib/security/api-guard';
 import { run } from '@/agents/food-parse';
 import { modelFor } from '@/agents/router';
 import { z } from 'zod';

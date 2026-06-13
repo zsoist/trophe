@@ -11,7 +11,7 @@ import {
   shoppingExtractJsonSchema,
   type ShoppingExtractOutput,
 } from '@/agents/schemas/shopping-extract';
-import { aggregateIngredients, groupByCategory } from '@/lib/shopping-list';
+import { aggregateIngredients, groupByCategory } from '@/lib/food/shopping-list';
 
 /**
  * Generate a shopping list from a client's weekly meal plan (Daily Nutrafit

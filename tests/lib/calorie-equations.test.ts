@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { mifflinStJeor, katchMcArdle, tdeeFromBmr, targetCalories, macroSplit, computeBaseline } from '@/lib/calorie-equations';
+import { mifflinStJeor, katchMcArdle, tdeeFromBmr, targetCalories, macroSplit, computeBaseline } from '@/lib/food/calorie-equations';
 
 describe('calorie-equations', () => {
   it('Mifflin-St Jeor — male & female', () => {

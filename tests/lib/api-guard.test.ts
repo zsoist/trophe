@@ -9,11 +9,11 @@ vi.mock('@supabase/supabase-js', () => ({
     auth: { getUser },
   })),
 }));
-vi.mock('@/lib/durable-rate-limit', () => ({ consumeRateLimit }));
+vi.mock('@/lib/security/durable-rate-limit', () => ({ consumeRateLimit }));
 
 async function loadGuard() {
   vi.resetModules();
-  return import('../../lib/api-guard');
+  return import('../../lib/security/api-guard');
 }
 
 function request(auth?: string) {

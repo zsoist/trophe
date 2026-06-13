@@ -17,7 +17,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { consumeRateLimit } from '@/lib/durable-rate-limit';
+import { consumeRateLimit } from '@/lib/security/durable-rate-limit';
 
 // --- Config ---
 const AUTH_LIMIT = 60;     // requests per window for authenticated users

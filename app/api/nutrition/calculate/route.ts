@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { calculateFullProfile } from '@/lib/nutrition-engine';
-import { consumeRateLimit } from '@/lib/durable-rate-limit';
+import { calculateFullProfile } from '@/lib/food/nutrition-engine';
+import { consumeRateLimit } from '@/lib/security/durable-rate-limit';
 import type { Sex, ActivityLevel, Goal } from '@/lib/types';
 
 const VALID_SEX: Sex[] = ['male', 'female'];

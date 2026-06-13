@@ -16,7 +16,7 @@ describe('consumeRateLimit', () => {
       rows: [{ request_count: 1, retry_after: 900 }],
     });
 
-    const { consumeRateLimit } = await import('@/lib/durable-rate-limit');
+    const { consumeRateLimit } = await import('@/lib/security/durable-rate-limit');
     await expect(consumeRateLimit('ai:user', 60, 900)).resolves.toEqual({
       allowed: true,
       retryAfter: 900,
