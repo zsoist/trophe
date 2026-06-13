@@ -31,8 +31,8 @@ export default memo(function PlateauDetector({
             </svg>
           </div>
           <div>
-            <p className="text-stone-300 text-xs font-medium">No plateau detected</p>
-            <p className="text-stone-500 text-[10px]">Weight is trending as expected</p>
+            <p className="text-stone-300 text-xs font-medium">Metrics are moving</p>
+            <p className="text-stone-500 text-[10px]">No stabilization phase right now</p>
           </div>
         </div>
       </motion.div>
@@ -41,50 +41,47 @@ export default memo(function PlateauDetector({
 
   const diff = Math.round((currentWeight - targetWeight) * 10) / 10;
 
+  // Stabilization, not "plateau" — per coach guidance (Michael): nutrition goals
+  // aren't fixed (weight / blood markers / habits all shift), and a flat stretch
+  // is often intentional. Neutral framing, not an alarm.
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="bg-white/[0.04] border border-amber-500/20 rounded-xl p-4"
+      className="bg-white/[0.04] border border-[rgba(212,168,83,0.25)] rounded-xl p-4"
     >
       <div className="flex items-start gap-3">
-        {/* Flat line icon */}
-        <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center flex-shrink-0">
+        {/* Equilibrium / flat-line icon */}
+        <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(212,168,83,0.12)' }}>
           <svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-            <path
-              d="M3 16l4-2 4 0 4 0 4-1 2 0"
-              stroke="#f59e0b"
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <circle cx={7} cy={14} r={1.5} fill="#f59e0b" />
-            <circle cx={11} cy={14} r={1.5} fill="#f59e0b" />
-            <circle cx={15} cy={14} r={1.5} fill="#f59e0b" />
+            <path d="M3 12h18" stroke="#D4A853" strokeWidth={2} strokeLinecap="round" />
+            <circle cx={7} cy={12} r={1.5} fill="#D4A853" />
+            <circle cx={12} cy={12} r={1.5} fill="#D4A853" />
+            <circle cx={17} cy={12} r={1.5} fill="#D4A853" />
           </svg>
         </div>
 
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
-            <h3 className="text-amber-400 text-xs font-semibold uppercase tracking-wider">
-              Plateau Detected
+            <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: '#D4A853' }}>
+              Stabilization phase
             </h3>
-            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400">
+            <span className="text-[9px] px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(212,168,83,0.15)', color: '#D4A853' }}>
               {daysSinceChange}d
             </span>
           </div>
 
           <p className="text-stone-400 text-xs leading-relaxed mb-2">
-            Weight has been stable at {currentWeight}kg for {daysSinceChange} days.
+            Weight has held at {currentWeight}kg for {daysSinceChange} days.
             {diff > 0
-              ? ` Still ${diff}kg above target of ${targetWeight}kg.`
-              : ` ${Math.abs(diff)}kg below target of ${targetWeight}kg.`}
+              ? ` ${diff}kg from the ${targetWeight}kg reference.`
+              : ` ${Math.abs(diff)}kg past the ${targetWeight}kg reference.`}
           </p>
 
           <div className="text-stone-500 text-[10px] leading-relaxed">
-            Consider: calorie cycling, increasing NEAT, adjusting training stimulus,
-            or scheduling a refeed.
+            A flat stretch can be intentional (maintenance / recovery) or a cue to adjust —
+            read it against this client&apos;s current goal, which may not be weight at all.
           </div>
         </div>
       </div>

@@ -9,6 +9,7 @@ import {
   Pill,
   UtensilsCrossed,
   LayoutGrid,
+  ClipboardList,
 } from 'lucide-react';
 
 export const coachNav = [
@@ -19,6 +20,7 @@ export const coachNav = [
   { label: 'Protocols', href: '/coach/protocols', icon: Pill },
   { label: 'Foods', href: '/coach/foods', icon: UtensilsCrossed },
   { label: 'Templates', href: '/coach/templates', icon: LayoutGrid },
+  { label: 'Intake', href: '/coach/questionnaires', icon: ClipboardList },
 ];
 
 export function CoachNav({ active }: { active: string }) {

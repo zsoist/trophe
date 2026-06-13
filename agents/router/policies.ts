@@ -39,7 +39,8 @@ export type TaskName =
   | 'photo_analyze'
   | 'embed'
   | 'memory_extract'  // Phase 5: extract structured facts from conversation turns
-  | 'memory_embed';   // Phase 5: embed memory fact text for kNN retrieval
+  | 'memory_embed'    // Phase 5: embed memory fact text for kNN retrieval
+  | 'shopping_extract'; // Extract grocery line-items from a week's meal-plan text
 
 export interface RoutingPolicy {
   provider: Provider;
@@ -141,6 +142,16 @@ export const taskPolicies: Record<TaskName, RoutingPolicy> = {
     maxTokens: 0,
     timeoutMs: 15_000, maxInputChars: 30_000, maxCostUsd: 0.01, promptVersion: 'memory-embed-v1',
   },
+  shopping_extract: {
+    // DeepSeek V4 Flash (cost mandate) — structured extraction of grocery items
+    // from a week's worth of free-text meal-plan cells. Strict tool calling.
+    provider: 'deepseek',
+    model: 'deepseek-v4-flash',
+    costClass: 'cheap',
+    latencyClass: 'fast',
+    maxTokens: 2048,
+    timeoutMs: 25_000, maxInputChars: 12_000, maxCostUsd: 0.02, promptVersion: 'shopping-extract-v1',
+  },
 };
 
 // ── Provider fallback chains ─────────────────────────────────────────────
@@ -193,5 +204,13 @@ export const taskFallbacks: Partial<Record<TaskName, RoutingPolicy>> = {
     latencyClass: 'fast',
     maxTokens: 1024,
     timeoutMs: 20_000, maxInputChars: 30_000, maxCostUsd: 0.03, promptVersion: 'memory-extract-v2-fallback',
+  },
+  shopping_extract: {
+    provider: 'deepseek',
+    model: 'deepseek-v4-flash',
+    costClass: 'cheap',
+    latencyClass: 'fast',
+    maxTokens: 2048,
+    timeoutMs: 30_000, maxInputChars: 12_000, maxCostUsd: 0.05, promptVersion: 'shopping-extract-v1-fallback',
   },
 };

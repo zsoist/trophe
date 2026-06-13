@@ -5,6 +5,9 @@ import { useRouter, useParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 import { Icon } from '@/components/ui';
+import MealSuggestPicker from '@/components/coach/MealSuggestPicker';
+import ShoppingListModal from '@/components/coach/ShoppingListModal';
+import MacroRollupModal from '@/components/coach/MacroRollupModal';
 
 // ═══════════════════════════════════════════════
 // Interfaces
@@ -65,6 +68,15 @@ const SLOT_LABELS: Record<MealSlot, string> = {
   dinner: 'Dinner',
 };
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+// Share of the daily macro budget each slot should cover — used to scope the
+// AI meal-suggest call to a sensible per-slot target. Sums to 1.0.
+const SLOT_FRACTION: Record<MealSlot, number> = {
+  breakfast: 0.25,
+  snack1: 0.1,
+  lunch: 0.3,
+  snack2: 0.1,
+  dinner: 0.25,
+};
 /** key = `${day}-${slot}` */
 type MealGrid = Record<string, string>;
 
@@ -125,11 +137,19 @@ export default function PlanEditorPage() {
   const [phase, setPhase] = useState<string>('active');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [suggesting, setSuggesting] = useState(false);
+  const [suggestMsg, setSuggestMsg] = useState<string | null>(null);
 
   // Weekly meal plan (free-text per day x slot)
   const [mealGrid, setMealGrid] = useState<MealGrid>({});
   const [activeDay, setActiveDay] = useState(0);
   const [mealSaving, setMealSaving] = useState(false);
+  // AI meal-suggest picker — scoped to a specific (day, slot) cell.
+  const [picker, setPicker] = useState<{ day: number; slot: MealSlot } | null>(null);
+  // Shopping-list generator modal.
+  const [showShopping, setShowShopping] = useState(false);
+  // Per-day macro rollup modal.
+  const [showMacros, setShowMacros] = useState(false);
 
   // UI state
   const [loading, setLoading] = useState(true);
@@ -258,6 +278,32 @@ export default function PlanEditorPage() {
     setSaving(false);
   };
 
+  // Deterministic calorie/macro baseline from the client's body composition.
+  const suggestFromBodyComp = async () => {
+    setSuggesting(true);
+    setSuggestMsg(null);
+    try {
+      const res = await fetch('/api/coach/client-tdee', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        target?: { protein_g: number; carbs_g: number; fat_g: number }; tdee?: number; error?: string;
+      };
+      if (res.ok && data.target) {
+        setTargets((t) => ({ ...t, protein: data.target!.protein_g, carbs: data.target!.carbs_g, fat: data.target!.fat_g }));
+        setSuggestMsg(`Suggested from TDEE ≈ ${data.tdee} kcal — review and Save`);
+      } else {
+        setSuggestMsg(data.error || 'Need sex, age, height & weight on the client first');
+      }
+    } catch {
+      setSuggestMsg('Could not compute — try again');
+    } finally {
+      setSuggesting(false);
+    }
+  };
+
   const addHabit = async (habitId: string) => {
     if (!coachId) return;
     const { data } = await supabase
@@ -315,6 +361,15 @@ export default function PlanEditorPage() {
 
   const setMealCell = (day: number, slot: MealSlot, value: string) =>
     setMealGrid((g) => ({ ...g, [`${day}-${slot}`]: value }));
+
+  // AI picker chose a meal → write it into the scoped cell and persist.
+  const handlePickMeal = async (text: string) => {
+    if (!picker) return;
+    const { day, slot } = picker;
+    setMealCell(day, slot, text);
+    await saveMealCell(day, slot, text);
+    setPicker(null);
+  };
 
   // Michael: "breakfast should maybe be the same for all week"
   const copySlotToWeek = async (slot: MealSlot) => {
@@ -494,6 +549,26 @@ export default function PlanEditorPage() {
             </span>
           </div>
 
+          {/* Suggest macros from the client's body composition (Mifflin/Katch → TDEE → split) */}
+          <button
+            onClick={suggestFromBodyComp}
+            disabled={suggesting}
+            className="row-i"
+            style={{
+              gap: 6, marginBottom: 10, padding: '7px 10px', borderRadius: 8, width: '100%',
+              justifyContent: 'center', cursor: suggesting ? 'not-allowed' : 'pointer',
+              background: 'rgba(212,168,83,.1)', border: '1px solid rgba(212,168,83,.25)',
+              color: 'var(--gold-300,#D4A853)', fontSize: 10, fontFamily: 'var(--font-mono)',
+              fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase',
+            }}
+          >
+            <Icon name="i-sparkle" size={12} style={{ color: 'var(--gold-300,#D4A853)' }} />
+            {suggesting ? 'Computing…' : 'Suggest from body comp'}
+          </button>
+          {suggestMsg && (
+            <div style={{ fontSize: 10, color: 'var(--t3)', marginBottom: 10, textAlign: 'center' }}>{suggestMsg}</div>
+          )}
+
           {/* Macro stepper rows */}
           {macroFields.map((f) => (
             <div key={f.key} className="row-b" style={{ marginBottom: 10 }}>
@@ -525,9 +600,39 @@ export default function PlanEditorPage() {
         {/* ══ Weekly Meal Plan ══ */}
         <div className="row-b" style={{ marginBottom: 8 }}>
           <span className="eye">WEEKLY MEAL PLAN</span>
-          {mealSaving && (
-            <span style={{ fontSize: 10, color: 'var(--t3)', fontFamily: 'var(--font-mono)' }}>saving…</span>
-          )}
+          <div className="row-i" style={{ gap: 12 }}>
+            {mealSaving && (
+              <span style={{ fontSize: 10, color: 'var(--t3)', fontFamily: 'var(--font-mono)' }}>saving…</span>
+            )}
+            <button
+              onClick={() => setShowMacros(true)}
+              title="Count this week's plan into macros per day vs target"
+              className="row-i"
+              style={{
+                gap: 5, padding: '5px 10px', borderRadius: 8, cursor: 'pointer',
+                background: 'rgba(212,168,83,.12)', border: '1px solid rgba(212,168,83,.3)',
+                color: 'var(--gold-300,#D4A853)', fontSize: 10, fontFamily: 'var(--font-mono)',
+                fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase',
+              }}
+            >
+              <Icon name="i-chart" size={12} style={{ color: 'var(--gold-300,#D4A853)' }} />
+              Macros
+            </button>
+            <button
+              onClick={() => setShowShopping(true)}
+              title="Generate a shopping list from this week's plan"
+              className="row-i"
+              style={{
+                gap: 5, padding: '5px 10px', borderRadius: 8, cursor: 'pointer',
+                background: 'rgba(212,168,83,.12)', border: '1px solid rgba(212,168,83,.3)',
+                color: 'var(--gold-300,#D4A853)', fontSize: 10, fontFamily: 'var(--font-mono)',
+                fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase',
+              }}
+            >
+              <Icon name="i-list" size={12} style={{ color: 'var(--gold-300,#D4A853)' }} />
+              Shopping list
+            </button>
+          </div>
         </div>
         {/* Desktop: full 7-day week grid (Michael demos on PC) */}
         <div className="hidden lg:block card" style={{ padding: 14, marginBottom: 16, overflowX: 'auto' }}>
@@ -550,19 +655,31 @@ export default function PlanEditorPage() {
                   </td>
                   {DAY_LABELS.map((_, day) => (
                     <td key={day} style={{ verticalAlign: 'top' }}>
-                      <textarea
-                        value={mealGrid[`${day}-${slot}`] ?? ''}
-                        onChange={(e) => setMealCell(day, slot, e.target.value)}
-                        onBlur={(e) => saveMealCell(day, slot, e.target.value)}
-                        rows={2}
-                        style={{
-                          width: '100%', minWidth: 96,
-                          background: 'var(--surface,#141414)',
-                          border: '1px solid var(--line)', borderRadius: 8,
-                          padding: '6px 8px', color: 'var(--t1)', fontSize: 11,
-                          resize: 'vertical', fontFamily: 'inherit',
-                        }}
-                      />
+                      <div style={{ position: 'relative' }}>
+                        <textarea
+                          value={mealGrid[`${day}-${slot}`] ?? ''}
+                          onChange={(e) => setMealCell(day, slot, e.target.value)}
+                          onBlur={(e) => saveMealCell(day, slot, e.target.value)}
+                          rows={2}
+                          style={{
+                            width: '100%', minWidth: 96,
+                            background: 'var(--surface,#141414)',
+                            border: '1px solid var(--line)', borderRadius: 8,
+                            padding: '6px 20px 6px 8px', color: 'var(--t1)', fontSize: 11,
+                            resize: 'vertical', fontFamily: 'inherit',
+                          }}
+                        />
+                        <button
+                          onClick={() => setPicker({ day, slot })}
+                          title="AI: suggest a meal for this slot"
+                          style={{
+                            position: 'absolute', top: 4, right: 4, padding: 2,
+                            background: 'none', border: 'none', cursor: 'pointer', lineHeight: 0,
+                          }}
+                        >
+                          <Icon name="i-sparkle" size={12} style={{ color: 'var(--gold-300,#D4A853)' }} />
+                        </button>
+                      </div>
                     </td>
                   ))}
                 </tr>
@@ -611,21 +728,35 @@ export default function PlanEditorPage() {
                 <span style={{ fontSize: 10, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '.06em' }}>
                   {SLOT_LABELS[slot]}
                 </span>
-                <button
-                  onClick={() => copySlotToWeek(slot)}
-                  disabled={!(mealGrid[`${activeDay}-${slot}`] ?? '').trim()}
-                  title="Copy this meal to every day of the week"
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    color: 'var(--t4)',
-                    fontSize: 10,
-                    fontFamily: 'var(--font-mono)',
-                  }}
-                >
-                  → all week
-                </button>
+                <div className="row-i" style={{ gap: 10 }}>
+                  <button
+                    onClick={() => setPicker({ day: activeDay, slot })}
+                    title="AI: suggest a meal for this slot"
+                    className="row-i"
+                    style={{
+                      background: 'none', border: 'none', cursor: 'pointer', gap: 3,
+                      color: 'var(--gold-300,#D4A853)', fontSize: 10, fontFamily: 'var(--font-mono)',
+                    }}
+                  >
+                    <Icon name="i-sparkle" size={11} style={{ color: 'var(--gold-300,#D4A853)' }} />
+                    AI
+                  </button>
+                  <button
+                    onClick={() => copySlotToWeek(slot)}
+                    disabled={!(mealGrid[`${activeDay}-${slot}`] ?? '').trim()}
+                    title="Copy this meal to every day of the week"
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: 'var(--t4)',
+                      fontSize: 10,
+                      fontFamily: 'var(--font-mono)',
+                    }}
+                  >
+                    → all week
+                  </button>
+                </div>
               </div>
               <textarea
                 value={mealGrid[`${activeDay}-${slot}`] ?? ''}
@@ -764,6 +895,35 @@ export default function PlanEditorPage() {
           {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save Plan'}
         </button>
       </motion.div>
+
+      {/* AI meal-suggest / recipe-analyze picker, scoped to the chosen cell */}
+      {picker && (
+        <MealSuggestPicker
+          isOpen={true}
+          slotLabel={SLOT_LABELS[picker.slot]}
+          slotFraction={SLOT_FRACTION[picker.slot]}
+          targets={{ calories: derivedKcal, protein: targets.protein, carbs: targets.carbs, fat: targets.fat }}
+          initialText={mealGrid[`${picker.day}-${picker.slot}`] ?? ''}
+          onPick={handlePickMeal}
+          onClose={() => setPicker(null)}
+        />
+      )}
+
+      {/* Shopping list generated from the week's meal plan */}
+      <ShoppingListModal
+        isOpen={showShopping}
+        clientId={clientId}
+        clientName={profileName}
+        onClose={() => setShowShopping(false)}
+      />
+
+      {/* Per-day macro rollup vs targets */}
+      <MacroRollupModal
+        isOpen={showMacros}
+        clientId={clientId}
+        clientName={profileName}
+        onClose={() => setShowMacros(false)}
+      />
     </div>
   );
 }

@@ -61,3 +61,4 @@ export * from './consents';
 export * from './data_requests';
 export * from './meal_plan_entries';
 export * from './messages';
+export * from './feedback';

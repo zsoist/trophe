@@ -7,6 +7,7 @@ import { BotNav } from '@/components/ui/BotNav';
 import { supabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
 import { useClientNav } from '@/lib/useClientNav';
+import { CLIENT_SHOWS_CALORIES } from '@/lib/client-view';
 import type { ClientProfile, ClientHabit, HabitCheckin, FoodLogEntry, WaterLogEntry, Mood, Profile } from '@/lib/types';
 import WeeklyCheckin from '@/components/WeeklyCheckin';
 import { DashboardSkeleton } from '@/components/Skeleton';
@@ -600,7 +601,8 @@ export default function DashboardPage() {
           }} />
 
           <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-            {/* 88px ring — bigger, more impactful */}
+            {/* 88px ring — calories hidden from clients per coach guidance (Michael) */}
+            {CLIENT_SHOWS_CALORIES && (
             <div style={{ position: 'relative', flexShrink: 0 }}>
               <CompactRing value={totalCalories} target={targetCalories} overGoal={totalCalories > targetCalories} />
               {/* center percentage */}
@@ -614,21 +616,28 @@ export default function DashboardPage() {
                 <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--t4)', marginTop: 1 }}>%</span>
               </div>
             </div>
+            )}
 
             {/* Right: hero number + macro bars */}
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 2 }}>
-                <span style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--t1,#FAFAF9)', lineHeight: 1 }}>
-                  {Math.round(totalCalories).toLocaleString()}
-                </span>
-                <span style={{ fontSize: 11, color: 'var(--t4)', fontFamily: 'var(--font-mono)' }}>kcal</span>
-              </div>
-              <div style={{ fontSize: 10, color: 'var(--t4)', marginBottom: 10 }}>
-                {remaining > 0
-                  ? <><span style={{ color: 'var(--gold-300,#D4A853)', fontWeight: 600 }}>{remaining.toLocaleString()}</span> remaining of {targetCalories.toLocaleString()}</>
-                  : <span style={{ color: 'var(--err,#E87A6E)', fontWeight: 600 }}>Goal reached</span>
-                }
-              </div>
+              {CLIENT_SHOWS_CALORIES ? (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 2 }}>
+                    <span style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--t1,#FAFAF9)', lineHeight: 1 }}>
+                      {Math.round(totalCalories).toLocaleString()}
+                    </span>
+                    <span style={{ fontSize: 11, color: 'var(--t4)', fontFamily: 'var(--font-mono)' }}>kcal</span>
+                  </div>
+                  <div style={{ fontSize: 10, color: 'var(--t4)', marginBottom: 10 }}>
+                    {remaining > 0
+                      ? <><span style={{ color: 'var(--gold-300,#D4A853)', fontWeight: 600 }}>{remaining.toLocaleString()}</span> remaining of {targetCalories.toLocaleString()}</>
+                      : <span style={{ color: 'var(--err,#E87A6E)', fontWeight: 600 }}>Goal reached</span>
+                    }
+                  </div>
+                </>
+              ) : (
+                <div className="eye" style={{ marginBottom: 10 }}>Today</div>
+              )}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <MacroLine label="P" value={totalProtein} target={targetProtein} color="var(--err,#E87A6E)" />
                 <MacroLine label="C" value={totalCarbs}   target={targetCarbs}   color="var(--info,#7DA3D9)" />

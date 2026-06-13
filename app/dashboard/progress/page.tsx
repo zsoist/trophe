@@ -11,6 +11,7 @@ import { useClientNav } from '@/lib/useClientNav';
 import ProgressPhotos from '@/components/ProgressPhotos';
 import WeeklyMacroChart from '@/components/WeeklyMacroChart';
 import HabitRadar from '@/components/HabitRadar';
+import { CLIENT_SHOWS_CALORIES } from '@/lib/client-view';
 import { localToday } from '../../../lib/dates';
 
 // ─── Glass accordion card ─────────────────────────────────────────
@@ -390,7 +391,8 @@ export default function ProgressPage() {
           )}
         </Section>
 
-        {/* ── Weekly Macros ── */}
+        {/* ── Weekly Macros ── (calorie-adherence view hidden from clients per coach guidance) */}
+        {CLIENT_SHOWS_CALORIES && (
         <Section title="Weekly Macros" icon="i-bars">
           <WeeklyMacroChart
             userId={userId}
@@ -400,6 +402,7 @@ export default function ProgressPage() {
             targetFat={clientProfile?.target_fat_g ?? 65}
           />
         </Section>
+        )}
 
         {/* ── Current Stats ── */}
         {clientProfile && (
@@ -410,7 +413,7 @@ export default function ProgressPage() {
                 { label: 'BMR',    val: clientProfile.bmr,        unit: 'kcal' },
                 { label: 'TDEE',   val: clientProfile.tdee,       unit: 'kcal' },
                 { label: 'Target', val: clientProfile.target_calories, unit: 'kcal', gold: true },
-              ].map(s => (
+              ].filter(s => CLIENT_SHOWS_CALORIES || s.unit !== 'kcal').map(s => (
                 <div key={s.label}>
                   <div className="eye-d">{s.label}</div>
                   <div style={{ fontSize: 18, fontWeight: 700, color: s.gold ? 'var(--gold-300,#D4A853)' : 'var(--t1,#FAFAF9)', marginTop: 2 }}>
