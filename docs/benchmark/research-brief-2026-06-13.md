@@ -59,7 +59,17 @@ Per-100g | typical portion (g) — from Trichopoulou 2004 / HelTH / Greek EPIC /
 - **NHANES WWEIA** (50k text→macro recalls) + **Nutrition5k** (5k dish ingredient labels) — fine-tune corpus.
 - OSS: strangetom/ingredient-parser (97% F1), FoodOn/LanguaL/FoodEx2 ontologies, OFF Robotoff.
 
+## ⚠️ Vector-arm experiment FAILED (2026-06-13) — reverted
+Wiring queryEmbedding to activate the HNSW vector arm (RRF 70% vector / 30% BM25)
+**regressed** the 549 benchmark hard: pass 90.7→63.4%, dbResolved 66.7→42.3%, all
+MAPEs ~doubled. Cause: food names are short + lexically precise ("feta"→"feta cheese");
+BM25 nails them, while semantic kNN over 43k foods returns near-but-wrong neighbors
+("feta"→"halloumi") and the 70% vector RRF weight demoted exact matches → items fell to
+the LLM path. **Lesson: the "silently dead" vector arm was inert BY WISDOM, not bug.**
+If revisited: use vector ONLY as a fallback when BM25 returns nothing, or weight it <15%.
+Reverted in commit e28ecf1. The A/B gate (not blind ship) caught a 27pt prod regression.
+
 ## Execution order (this push)
-1. ✅ Vector arm wired+deployed (semantic+BM25 RRF). 2. Hidden-fat + olive-oil prompt upgrade.
+1. ❌ Vector arm — tried, regressed, reverted (see above). 2. Hidden-fat + olive-oil prompt upgrade.
 3. Seed ~19 Greek dishes (authoritative) + cooking-yield. 4. Plausibility validator.
 5. Expand dataset 549→700 (Greek/EU). 6. Median-of-3 re-benchmark → iterate to targets. 7. Update all docs.
