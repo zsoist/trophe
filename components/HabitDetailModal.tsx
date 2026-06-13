@@ -2,7 +2,7 @@
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
-import type { Habit, ClientHabit, HabitCheckin, Language } from '@/lib/types';
+import type { Habit, ClientHabit, HabitCheckin, Language, CoreLanguage } from '@/lib/types';
 import { localDateStr } from '../lib/dates';
 
 interface HabitDetailModalProps {
@@ -14,7 +14,7 @@ interface HabitDetailModalProps {
   language: Language;
 }
 
-const CATEGORY_EDUCATION: Record<string, Record<Language, string>> = {
+const CATEGORY_EDUCATION: Record<string, Record<CoreLanguage, string>> = {
   nutrition: {
     en: 'Nutrition habits build the foundation for energy, recovery, and body composition. Consistent eating patterns regulate hunger hormones and stabilize blood sugar.',
     es: 'Los habitos nutricionales construyen la base para la energia, recuperacion y composicion corporal. Patrones alimenticios consistentes regulan hormonas del hambre.',
@@ -73,7 +73,7 @@ export default function HabitDetailModal({
   const bestStreak = clientHabit.best_streak ?? 0;
   const cycleDays = habit.cycle_days ?? 14;
   const category = habit.category ?? 'nutrition';
-  const educationText = CATEGORY_EDUCATION[category]?.[language] ?? CATEGORY_EDUCATION[category]?.en ?? '';
+  const educationText = CATEGORY_EDUCATION[category]?.[language as CoreLanguage] ?? CATEGORY_EDUCATION[category]?.en ?? '';
 
   // Build 14-day calendar grid
   const today = new Date();

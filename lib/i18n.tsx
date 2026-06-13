@@ -5,10 +5,19 @@
 'use client';
 
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
-import type { Language } from './types';
+import type { Language, CoreLanguage } from './types';
+import { fr } from './locales/fr';
+import { de } from './locales/de';
+import { it } from './locales/it';
+import { pt } from './locales/pt';
+import { nl } from './locales/nl';
+
+// Overlay locales: flat key→string maps with EN fallback for missing keys.
+// Core languages (EN/ES/EL) stay inline below so the compiler enforces full coverage.
+const OVERLAYS: Partial<Record<Language, Record<string, string>>> = { fr, de, it, pt, nl };
 
 // ─── Translation Dictionary ───
-const translations: Record<string, Record<Language, string>> = {
+const translations: Record<string, Record<CoreLanguage, string>> = {
   // ── App ──
   'app.name': { en: 'Trophē', es: 'Trophē', el: 'τροφή' },
   'app.tagline': { en: 'One habit. Two weeks. Transform.', es: 'Un hábito. Dos semanas. Transforma.', el: 'Μία συνήθεια. Δύο εβδομάδες. Μεταμόρφωση.' },
@@ -583,7 +592,8 @@ export function I18nProvider({ children, defaultLang = 'en' }: { children: React
   }, []);
 
   const t = useCallback((key: string, params?: Record<string, string | number>): string => {
-    let text = translations[key]?.[lang] || translations[key]?.['en'] || key;
+    const inline = translations[key]?.[lang as CoreLanguage];
+    let text = inline || OVERLAYS[lang]?.[key] || translations[key]?.['en'] || key;
     if (params) {
       Object.entries(params).forEach(([k, v]) => {
         text = text.replace(`{${k}}`, String(v));
@@ -607,4 +617,9 @@ export const LANGUAGE_OPTIONS: { code: Language; label: string; flag: string }[]
   { code: 'en', label: 'English', flag: '🇬🇧' },
   { code: 'es', label: 'Español', flag: '🇪🇸' },
   { code: 'el', label: 'Ελληνικά', flag: '🇬🇷' },
+  { code: 'fr', label: 'Français', flag: '🇫🇷' },
+  { code: 'de', label: 'Deutsch', flag: '🇩🇪' },
+  { code: 'it', label: 'Italiano', flag: '🇮🇹' },
+  { code: 'pt', label: 'Português', flag: '🇵🇹' },
+  { code: 'nl', label: 'Nederlands', flag: '🇳🇱' },
 ];

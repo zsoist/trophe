@@ -3,7 +3,9 @@
 // ═══════════════════════════════════════════════
 
 export type Role = 'super_admin' | 'admin' | 'coach' | 'client';
-export type Language = 'en' | 'es' | 'el';
+/** Core languages have full inline dictionaries; the rest are overlay locales with EN fallback. */
+export type CoreLanguage = 'en' | 'es' | 'el';
+export type Language = CoreLanguage | 'fr' | 'de' | 'it' | 'pt' | 'nl';
 export type Sex = 'male' | 'female';
 export type ActivityLevel = 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';
 export type Goal = 'fat_loss' | 'muscle_gain' | 'maintenance' | 'recomp' | 'endurance' | 'health';

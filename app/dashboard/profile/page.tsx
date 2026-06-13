@@ -274,7 +274,7 @@ export default function ProfilePage() {
                 >
                   <span className="font-medium">{t(`activity.${a}`)}</span>
                   <span className="text-stone-600 text-xs ml-2">
-                    {ACTIVITY_DESCRIPTIONS[a][lang] ?? ACTIVITY_DESCRIPTIONS[a].en}
+                    {ACTIVITY_DESCRIPTIONS[a][lang as keyof typeof ACTIVITY_DESCRIPTIONS[typeof a]] ?? ACTIVITY_DESCRIPTIONS[a].en}
                   </span>
                 </button>
               ))}

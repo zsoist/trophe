@@ -51,7 +51,7 @@ export const profiles = pgTable('profiles', {
   /** Phase 1: super_admin and admin can see all profiles. */
   pgPolicy('Super admin full profile access', { as: 'permissive', for: 'all', to: ['public'],
     using: sql`(SELECT is_super_admin())` }),
-  check('profiles_language_check', sql`language = ANY (ARRAY['en'::text, 'es'::text, 'el'::text])`),
+  check('profiles_language_check', sql`language = ANY (ARRAY['en'::text, 'es'::text, 'el'::text, 'fr'::text, 'de'::text, 'it'::text, 'pt'::text, 'nl'::text])`),
 ]);
 
 export const clientProfiles = pgTable('client_profiles', {

@@ -140,7 +140,13 @@ async function accessToken() {
   return (await response.json() as { access_token: string }).access_token;
 }
 
-async function runCase(test: EvalCase, token: string) {
+// Multi-run median mode: EVAL_RUNS_PER_CASE > 1 calls the API N times per case
+// and scores the run with the median calorie total. LLM sampling noise produces
+// ±2-4% run-to-run swing on single runs; the median run is what a "typical" user
+// sees and makes scores comparable across benchmark runs.
+const runsPerCase = Math.min(Math.max(Number(process.env.EVAL_RUNS_PER_CASE ?? 1), 1), 5);
+
+async function callOnce(test: EvalCase, token: string) {
   const startedAt = Date.now();
   const language = test.language === 'mixed' ? 'en' : test.language;
   const response = await fetch(`${baseUrl}/api/food/parse`, {
@@ -160,6 +166,21 @@ async function runCase(test: EvalCase, token: string) {
     carbs_g: sum.carbs_g + (item.carbs_g ?? 0),
     fat_g: sum.fat_g + (item.fat_g ?? 0),
   }), { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 });
+  return { response, data, items, totals, latencyMs: Date.now() - startedAt };
+}
+
+async function runCase(test: EvalCase, token: string) {
+  const attempts = [await callOnce(test, token)];
+  // Extra runs only matter when the LLM is in the loop — a DB-resolved parse is
+  // deterministic, so skip duplicates when every item already came from local_db.
+  const fullyDeterministic = attempts[0].items.length > 0
+    && attempts[0].items.every((item) => item.source?.startsWith('local_db'));
+  if (runsPerCase > 1 && !fullyDeterministic && attempts[0].response.ok) {
+    for (let i = 1; i < runsPerCase; i++) attempts.push(await callOnce(test, token));
+  }
+  const byCalories = [...attempts].sort((a, b) => a.totals.calories - b.totals.calories);
+  const { response, data, items, totals } = byCalories[Math.floor((byCalories.length - 1) / 2)];
+  const latencyMs = [...attempts.map(a => a.latencyMs)].sort((a, b) => a - b)[Math.floor((attempts.length - 1) / 2)];
   const emptyAdversarial = test.category === 'adversarial' && test.input.trim() === '';
   const statusPassed = emptyAdversarial ? response.status === 400 : response.ok;
   const checks = {
@@ -188,7 +209,7 @@ async function runCase(test: EvalCase, token: string) {
     category: test.category,
     input: test.input,
     passed: Object.values(checks).every(Boolean),
-    latencyMs: Date.now() - startedAt,
+    latencyMs,
     status: response.status,
     checks,
     totals,
