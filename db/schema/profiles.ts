@@ -44,13 +44,15 @@ export const profiles = pgTable('profiles', {
     foreignColumns: [usersInAuth.id],
     name: 'profiles_id_fkey',
   }).onDelete('cascade'),
-  pgPolicy('Users can view own profile', { as: 'permissive', for: 'select', to: ['public'], using: sql`(auth.uid() = id)` }),
-  pgPolicy('Users can update own profile', { as: 'permissive', for: 'update', to: ['public'] }),
-  pgPolicy('Users can insert own profile', { as: 'permissive', for: 'insert', to: ['public'] }),
-  pgPolicy('Coaches can view client profiles', { as: 'permissive', for: 'select', to: ['public'] }),
+  // TO authenticated (not public/anon) + private.is_super_admin — matches the
+  // hardened SQL migration 0008. The TS source previously drifted to TO public.
+  pgPolicy('Users can view own profile', { as: 'permissive', for: 'select', to: ['authenticated'], using: sql`(auth.uid() = id)` }),
+  pgPolicy('Users can update own profile', { as: 'permissive', for: 'update', to: ['authenticated'] }),
+  pgPolicy('Users can insert own profile', { as: 'permissive', for: 'insert', to: ['authenticated'] }),
+  pgPolicy('Coaches can view client profiles', { as: 'permissive', for: 'select', to: ['authenticated'] }),
   /** Phase 1: super_admin and admin can see all profiles. */
-  pgPolicy('Super admin full profile access', { as: 'permissive', for: 'all', to: ['public'],
-    using: sql`(SELECT is_super_admin())` }),
+  pgPolicy('Super admin full profile access', { as: 'permissive', for: 'all', to: ['authenticated'],
+    using: sql`(SELECT private.is_super_admin())` }),
   check('profiles_language_check', sql`language = ANY (ARRAY['en'::text, 'es'::text, 'el'::text, 'fr'::text, 'de'::text, 'it'::text, 'pt'::text, 'nl'::text])`),
 ]);
 

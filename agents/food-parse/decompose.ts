@@ -7,7 +7,7 @@
  *
  * Flow:
  *   1. Check dish_recipes cache (tsvector match on dish_name)
- *   2. Cache miss → LLM decomposition (Gemini Flash, ~$0.003/call)
+ *   2. Cache miss → LLM decomposition (DeepSeek, structured output via tool calling)
  *   3. lookupFoodBatch for each ingredient
  *   4. Aggregate macros deterministically
  *   5. Cache result in dish_recipes
@@ -18,14 +18,52 @@
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { z } from 'zod';
 import { db } from '../../db/client';
 import { sql } from 'drizzle-orm';
 import { executeAiTask } from '../runtime';
-import { invokeTextProvider } from '../runtime/providers/text';
+import { invokeStructuredProvider } from '../runtime/providers/structured';
+// Note: invokeTextProvider removed — decompose uses invokeStructuredProvider (DeepSeek) only.
 import { lookupFood, COMMON_PIECE_WEIGHTS, correctFoodName } from './lookup';
 import type { LookupInput, LookupResult } from './lookup';
 import type { ParsedFoodItem } from '../schemas/food-parse';
 import { classifyIngredient, getCategoryMacros } from './food-category-defaults';
+
+// ── Zod schema for LLM decomposition output ──────────────────────────────────
+
+const decomposedIngredientSchema = z.object({
+  name: z.string().min(1),
+  grams: z.number().positive(),
+});
+
+const decompositionResultSchema = z.object({
+  dish_name: z.string(),
+  total_grams: z.number().nonnegative(),
+  ingredients: z.array(decomposedIngredientSchema).min(1),
+});
+
+/** JSON Schema counterpart for invokeStructuredProvider. */
+const DECOMPOSITION_JSON_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  required: ['dish_name', 'total_grams', 'ingredients'],
+  additionalProperties: false,
+  properties: {
+    dish_name: { type: 'string' },
+    total_grams: { type: 'number' },
+    ingredients: {
+      type: 'array',
+      items: {
+        type: 'object',
+        required: ['name', 'grams'],
+        additionalProperties: false,
+        properties: {
+          name: { type: 'string' },
+          grams: { type: 'number' },
+        },
+      },
+    },
+  },
+};
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -162,41 +200,37 @@ export async function lookupCachedRecipe(dishName: string): Promise<CachedRecipe
 
 /**
  * Call LLM to decompose a composite dish into base ingredients.
+ * Uses invokeStructuredProvider (DeepSeek tool calling) + Zod validation
+ * to eliminate silent-corruption risk from raw JSON.parse.
  */
 async function llmDecompose(dishName: string, unit: string): Promise<DecompositionResult | null> {
   // Cache decompositions per unit. The caller applies quantity after
   // aggregation; including it here would scale the result twice.
-  const prompt = `Decompose one unit of this dish into base ingredients:\n\nInput: "${dishName}" (1 ${unit})\n\nReturn ONLY valid JSON.`;
+  const prompt = `Decompose one unit of this dish into base ingredients:\n\nInput: "${dishName}" (1 ${unit})`;
 
-  let responseText = '';
   try {
     const generation = await executeAiTask({
       task: 'food_parse',
       prompt,
       systemPrompt: getDecomposePrompt(),
       context: { metadata: { operation: 'dish-decompose' } },
-      invoke: ({ policy: selected, signal }) => invokeTextProvider({
-        policy: selected, signal, system: getDecomposePrompt(), prompt,
-        maxTokens: 1024, disableThinking: true,
+      invoke: ({ policy: selected, signal }) => invokeStructuredProvider({
+        policy: selected,
+        signal,
+        system: getDecomposePrompt(),
+        prompt,
+        schema: DECOMPOSITION_JSON_SCHEMA,
+        validator: decompositionResultSchema,
+        toolName: 'submit_decomposition',
+        toolDescription: 'Submit dish decomposition into base ingredients with gram weights',
+        strict: true,
+        maxTokens: 1024,
       }),
     });
-    responseText = generation.output;
+    return generation.output;
   } catch (err) {
-    console.warn('[decompose] LLM call failed:', err instanceof Error ? err.message : err);
-    return null;
-  }
-
-  // Strip markdown fences
-  responseText = responseText.replace(/```(?:json)?\s*/g, '').trim();
-
-  try {
-    const parsed = JSON.parse(responseText) as DecompositionResult;
-    if (!parsed.ingredients || !Array.isArray(parsed.ingredients) || parsed.ingredients.length === 0) {
-      return null;
-    }
-    return parsed;
-  } catch {
-    console.warn('[decompose] Failed to parse LLM response:', responseText.slice(0, 200));
+    // Zod validation error or provider failure — treat as decomposition miss
+    console.warn('[decompose] LLM structured call failed:', err instanceof Error ? err.message : err);
     return null;
   }
 }

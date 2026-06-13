@@ -51,7 +51,9 @@ export const auditLog = pgTable('audit_log', {
     name: 'audit_log_actor_id_fkey',
   }).onDelete('set null'),
   // Super-admin only SELECT; no UPDATE/DELETE (append-only).
-  pgPolicy('Super admins read audit log', { as: 'permissive', for: 'select', to: ['public'],
-    using: sql`(SELECT is_super_admin())` }),
-  pgPolicy('Service role insert audit log', { as: 'permissive', for: 'insert', to: ['public'] }),
+  // Matches hardened SQL migration 0008: TO authenticated + private. prefix
+  // (migration 0008 drops public.is_super_admin; unprefixed call would error).
+  pgPolicy('Super admins read audit log', { as: 'permissive', for: 'select', to: ['authenticated'],
+    using: sql`(SELECT private.is_super_admin())` }),
+  pgPolicy('Service role insert audit log', { as: 'permissive', for: 'insert', to: ['authenticated'] }),
 ]);

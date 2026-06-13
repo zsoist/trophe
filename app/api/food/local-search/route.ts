@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { consumeRateLimit } from '@/lib/durable-rate-limit';
 
 export async function GET(request: NextRequest) {
+  // PUBLIC ENDPOINT — intentional. Uses anon key; Supabase RLS on food_database
+  // restricts to publicly visible rows only. No auth required for food browsing.
+  // Rate-limited below to prevent bulk scraping.
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? request.headers.get('x-real-ip') ?? 'unknown';
+  const rate = await consumeRateLimit(`local-search:${ip}`, 120, 3600);
+  if (!rate.allowed) return NextResponse.json({ error: 'Too many requests' }, { status: 429, headers: { 'Retry-After': String(rate.retryAfter) } });
   const q = request.nextUrl.searchParams.get('q');
   const limit = parseInt(request.nextUrl.searchParams.get('limit') || '15');
 
@@ -26,7 +33,7 @@ export async function GET(request: NextRequest) {
   // Search across name, name_el, name_es
   const { data, error } = await supabase
     .from('food_database')
-    .select('*')
+    .select('id,name,name_el,name_es,calories_per_100g,protein_per_100g,carbs_per_100g,fat_per_100g,fiber_per_100g,default_serving_grams,default_serving_unit,common_units,popularity')
     .or(`name.ilike.%${query}%,name_el.ilike.%${query}%,name_es.ilike.%${query}%`)
     .order('popularity', { ascending: false })
     .limit(safeLim);

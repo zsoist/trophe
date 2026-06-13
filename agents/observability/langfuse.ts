@@ -85,8 +85,12 @@ export async function traced(
   const lf = new Langfuse({ secretKey, publicKey, baseUrl: host, additionalHeaders });
 
   // Trace groups multiple generations from the same request together.
+  // Pass userId at the top level so Langfuse's native user dashboards populate.
+  const userId =
+    typeof input.metadata?.userId === 'string' ? input.metadata.userId : undefined;
   const trace = lf.trace({
     name: `trophe.${input.task}`,
+    ...(userId ? { userId } : {}),
     metadata: input.metadata,
   });
 

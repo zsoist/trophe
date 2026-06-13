@@ -17,6 +17,7 @@ import { coachNotes } from '@/db/schema/coach';
 import { coachBlocks } from '@/db/schema/coach_blocks';
 import { eq, and, desc } from 'drizzle-orm';
 import { assertCanAccessClient } from '@/lib/auth/tenant-access';
+import { recordAuditEvent } from '@/lib/audit';
 
 // ── Router ────────────────────────────────────────────────────────────────
 
@@ -62,6 +63,16 @@ export const coachRouter = router({
             note: input.content,
           })
           .returning();
+
+        // Audit coverage (DPA Annex II): who created a note on which client.
+        await recordAuditEvent({
+          actorId: ctx.user!.id,
+          actorRole: ctx.profile!.role,
+          action: 'coach_note_created',
+          tableName: 'coach_notes',
+          recordId: note?.id ?? null,
+          newValue: { clientId: input.clientId },
+        });
 
         return note;
       }),

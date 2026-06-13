@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { calculateFullProfile } from '@/lib/nutrition-engine';
+import { consumeRateLimit } from '@/lib/durable-rate-limit';
 import type { Sex, ActivityLevel, Goal } from '@/lib/types';
 
 const VALID_SEX: Sex[] = ['male', 'female'];
@@ -45,6 +46,10 @@ function validateInput(body: unknown): { valid: true; data: CalculateRequest } |
 }
 
 export async function POST(request: NextRequest) {
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? request.headers.get('x-real-ip') ?? 'unknown';
+  const rate = await consumeRateLimit(`nutrition-calc:${ip}`, 60, 3600);
+  if (!rate.allowed) return NextResponse.json({ error: 'Too many requests' }, { status: 429, headers: { 'Retry-After': String(rate.retryAfter) } });
+
   try {
     const body = await request.json();
     const validation = validateInput(body);

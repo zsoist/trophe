@@ -78,6 +78,20 @@ export async function POST(req: NextRequest) {
       throw new Error(`Client profile creation failed: ${clientProfileError.message}`);
     }
 
+    // 4. Record consent for nutrition (Art. 9 special-category) processing.
+    // STRICTLY ADDITIVE + non-blocking: a consent-write failure is logged but
+    // never fails signup or rolls back the user (auth path is unchanged).
+    // Gives a verifiable Art. 7(1) consent record at account creation.
+    await service.from('consents').insert({
+      user_id: userId,
+      purpose: 'nutrition_processing',
+      version: '1.0',
+      status: 'granted',
+      evidence: { source: 'signup', ip, capturedAt: new Date().toISOString() },
+    }).then(({ error }) => {
+      if (error) console.error('[signup] consent record failed (non-blocking):', error.message);
+    }, (e) => console.error('[signup] consent record threw (non-blocking):', e));
+
     return NextResponse.json({ success: true, user_id: userId });
   } catch (err) {
     console.error('Signup error:', err);

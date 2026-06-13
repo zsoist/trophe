@@ -8,16 +8,8 @@
 import { NextResponse } from 'next/server';
 
 export async function GET() {
-  const configured = Boolean(
-    process.env.SPIKE_CLIENT_ID &&
-    process.env.SPIKE_CLIENT_SECRET &&
-    process.env.SPIKE_WEBHOOK_SECRET &&
-    process.env.WEARABLE_ENCRYPT_KEY,
-  );
-
   return NextResponse.json({
-    ok: configured,
+    ok: true,
     service: 'spike_integration',
-    configured,
   });
 }

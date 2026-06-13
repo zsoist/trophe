@@ -19,7 +19,7 @@ const fmt = (n: number | null | undefined, digits = 0): string =>
   n == null ? '—' : n.toFixed(digits);
 
 export async function buildClientSnapshot(clientId: string): Promise<ClientSnapshot> {
-  const [profileRes, intakeRes, foodRes, signalsRes, weightRes, habitRes] = await Promise.all([
+  const [profileRes, intakeRes, foodRes, dailyKcalRes, signalsRes, weightRes, habitRes] = await Promise.all([
     db.execute<{
       full_name: string; age: number | null; sex: string | null; goal: string | null;
       goal_title: string | null; goal_metric: string | null; goal_window: string | null;
@@ -46,6 +46,13 @@ export async function buildClientSnapshot(clientId: string): Promise<ClientSnaps
              sum(carbs_g)::float / nullif(count(DISTINCT logged_date), 0) AS avg_c,
              sum(fat_g)::float / nullif(count(DISTINCT logged_date), 0) AS avg_f
       FROM food_log WHERE user_id = ${clientId} AND logged_date >= CURRENT_DATE - 14`),
+    // Per-day kcal for last 7 days — exposes day-to-day variance hidden by 14-day average.
+    db.execute<{ logged_date: string; day_kcal: number }>(sql`
+      SELECT logged_date::text, sum(calories)::int AS day_kcal
+      FROM food_log
+      WHERE user_id = ${clientId} AND logged_date >= CURRENT_DATE - 6
+      GROUP BY logged_date
+      ORDER BY logged_date ASC`),
     db.execute<{ days: number; bowel_ok: number; sleep_ok: number; water_ok: number; avg_energy: number | null }>(sql`
       SELECT count(*)::int AS days,
              count(*) FILTER (WHERE bowel_movement)::int AS bowel_ok,
@@ -69,6 +76,20 @@ export async function buildClientSnapshot(clientId: string): Promise<ClientSnaps
   const p = profileRes.rows[0];
   if (!p) return { systemPromptBlock: '' };
 
+  // Build compact per-day kcal trend string: "D-6:2100 D-5:1800 …"
+  // Days with no log are omitted (client may not log every day).
+  const today = new Date();
+  const dailyKcalTrend: string = dailyKcalRes.rows.length > 0
+    ? dailyKcalRes.rows
+        .map((row) => {
+          const daysAgo = Math.round(
+            (today.getTime() - new Date(row.logged_date).getTime()) / 86_400_000
+          );
+          return `D-${daysAgo}:${row.day_kcal}`;
+        })
+        .join(' ')
+    : '';
+
   const lines: string[] = ['CLIENT SNAPSHOT (live data, assembled now):'];
   lines.push(
     `- ${p.full_name}${p.age ? `, ${p.age}` : ''}${p.sex ? `, ${p.sex}` : ''} · phase: ${p.coaching_phase ?? '—'}${p.stabilization ? ' · deliberate stabilization phase' : ''}`
@@ -86,6 +107,10 @@ export async function buildClientSnapshot(clientId: string): Promise<ClientSnaps
     lines.push(
       `- Last 14 days: logged ${f.days_logged}/14 days · avg ${fmt(f.avg_kcal)} kcal (P${fmt(f.avg_p)} C${fmt(f.avg_c)} F${fmt(f.avg_f)})${p.target_calories && f.avg_kcal ? ` · ${f.avg_kcal > p.target_calories ? '+' : ''}${fmt(f.avg_kcal - p.target_calories)} vs target` : ''}`
     );
+    // Per-day kcal trend — lets the coach see variance, not just the 14-day average.
+    if (dailyKcalTrend) {
+      lines.push(`- Daily kcal (last 7d, oldest→newest): ${dailyKcalTrend}`);
+    }
   } else {
     lines.push('- Last 14 days: no food logs');
   }
@@ -109,8 +134,8 @@ export async function buildClientSnapshot(clientId: string): Promise<ClientSnaps
   const intakeAnswers = intakeRes.rows;
   if (intakeAnswers.length > 0) {
     lines.push('- Intake interview (client\'s own words):');
-    for (const row of intakeAnswers.slice(0, 12)) {
-      lines.push(`    Q: ${row.prompt}\n    A: ${row.answer.slice(0, 300)}`);
+    for (const row of intakeAnswers.slice(0, 20)) {
+      lines.push(`    Q: ${row.prompt}\n    A: ${row.answer.slice(0, 500)}`);
     }
   }
 

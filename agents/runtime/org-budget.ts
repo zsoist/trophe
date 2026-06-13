@@ -1,9 +1,12 @@
-import { and, eq, gte, sql } from 'drizzle-orm';
+import { and, eq, gte, isNull, sql } from 'drizzle-orm';
 import { db } from '@/db/client';
 import { agentRuns } from '@/db/schema/agent_runs';
 import { organizationAiBudgets } from '@/db/schema/organization_ai_budgets';
 import { organizationMembers } from '@/db/schema/organizations';
 import type { AiTaskContext } from './types';
+
+/** Daily soft cap for users not affiliated with any organization. */
+const SOLO_USER_DAILY_USD = 1.00;
 
 export class OrganizationAiBudgetExceededError extends Error {
   constructor(message: string) {
@@ -24,8 +27,28 @@ export async function resolveOrganizationId(context?: AiTaskContext): Promise<st
   return membership?.organizationId;
 }
 
-export async function assertWithinOrganizationBudget(organizationId?: string): Promise<void> {
-  if (!organizationId) return;
+export async function assertWithinOrganizationBudget(
+  organizationId?: string,
+  userId?: string,
+): Promise<void> {
+  if (!organizationId) {
+    // Solo user: apply a per-user daily soft cap when there is no org budget.
+    if (!userId) return;
+    const [soloSpend] = await db
+      .select({
+        daily: sql<number>`coalesce(sum(coalesce(${agentRuns.actualCostUsd}, ${agentRuns.estimatedCostUsd}, ${agentRuns.costUsd}, 0)), 0)`,
+      })
+      .from(agentRuns)
+      .where(and(
+        eq(agentRuns.userId, userId),
+        isNull(agentRuns.organizationId),
+        gte(agentRuns.createdAt, sql`date_trunc('day', now())`),
+      ));
+    if (Number(soloSpend?.daily ?? 0) >= SOLO_USER_DAILY_USD) {
+      throw new OrganizationAiBudgetExceededError('Daily AI spend limit reached');
+    }
+    return;
+  }
 
   const [budget] = await db
     .select()
