@@ -28,8 +28,6 @@ interface Per100g { kcal: number; protein: number; carbs: number; fat: number; f
 interface Product { name: string; brand: string | null; barcode: string; per100g: Per100g; source: string; }
 type Step = 'choose' | 'scan' | 'input';
 
-type BarcodeDetectorLike = { detect: (src: CanvasImageSource) => Promise<Array<{ rawValue: string }>> };
-const hasDetector = (): boolean => typeof window !== 'undefined' && 'BarcodeDetector' in window;
 const MEAL_OPTIONS: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack'];
 
 export default function BarcodeLookupModal({ userId, selectedDate, defaultMealType = 'snack', isOpen, onClose, onLogged }: Props) {
@@ -42,13 +40,11 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
   const [logging, setLogging] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const rafRef = useRef<number>(0);
+  const controlsRef = useRef<{ stop: () => void } | null>(null);
 
   const stopScan = () => {
-    cancelAnimationFrame(rafRef.current);
-    streamRef.current?.getTracks().forEach((t) => t.stop());
-    streamRef.current = null;
+    try { controlsRef.current?.stop(); } catch { /* already stopped */ }
+    controlsRef.current = null;
   };
 
   // Reset on open; always stop the camera on close/unmount.
@@ -79,31 +75,34 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
     } finally { setLoading(false); }
   }
 
-  // Start the camera when entering the scan step (auto-detect if supported).
+  // Live camera scan via ZXing (works on iOS Safari + Android — no native
+  // BarcodeDetector needed). Lazy-loaded so the decoder only ships when scanning.
   useEffect(() => {
     if (!isOpen || step !== 'scan') { stopScan(); return; }
     let cancelled = false;
     (async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-        if (cancelled) { stream.getTracks().forEach((t) => t.stop()); return; }
-        streamRef.current = stream;
-        const video = videoRef.current;
-        if (!video) return;
-        video.srcObject = stream;
-        await video.play();
-        if (!hasDetector()) return; // camera shows; manual fallback link offered
-        // @ts-expect-error BarcodeDetector not in lib.dom yet
-        const detector: BarcodeDetectorLike = new window.BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e'] });
-        const tick = async () => {
-          if (cancelled || !streamRef.current || !videoRef.current) return;
-          try {
-            const found = await detector.detect(videoRef.current);
-            if (found[0]?.rawValue) { const v = found[0].rawValue; setCode(v); lookup(v); return; }
-          } catch { /* keep scanning */ }
-          rafRef.current = requestAnimationFrame(tick);
-        };
-        rafRef.current = requestAnimationFrame(tick);
+        const [{ BrowserMultiFormatReader }, zxing] = await Promise.all([
+          import('@zxing/browser'),
+          import('@zxing/library'),
+        ]);
+        if (cancelled || !videoRef.current) return;
+        const hints = new Map();
+        hints.set(zxing.DecodeHintType.POSSIBLE_FORMATS, [
+          zxing.BarcodeFormat.EAN_13, zxing.BarcodeFormat.EAN_8,
+          zxing.BarcodeFormat.UPC_A, zxing.BarcodeFormat.UPC_E,
+        ]);
+        const reader = new BrowserMultiFormatReader(hints);
+        const controls = await reader.decodeFromConstraints(
+          { video: { facingMode: 'environment' } },
+          videoRef.current,
+          (result) => {
+            if (!result || cancelled) return;
+            const v = result.getText().replace(/\D/g, '');
+            if (/^\d{8,14}$/.test(v)) { stopScan(); setCode(v); lookup(v); }
+          },
+        );
+        if (cancelled) controls.stop(); else controlsRef.current = controls;
       } catch {
         if (!cancelled) { setError('Camera unavailable — enter the barcode manually'); setStep('input'); }
       }
@@ -207,7 +206,7 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
             ) : step === 'choose' ? (
               /* ── Choose: Photo or Input ── */
               <div className="flex gap-3 pt-1">
-                {choiceCard(<Camera size={22} />, 'Photo', hasDetector() ? 'Point at the barcode' : 'Best on Android/Chrome', () => { setError(null); setStep('scan'); })}
+                {choiceCard(<Camera size={22} />, 'Photo', 'Point at the barcode', () => { setError(null); setStep('scan'); })}
                 {choiceCard(<Keyboard size={22} />, 'Input', 'Type the number', () => { setError(null); setStep('input'); })}
               </div>
             ) : step === 'scan' ? (
@@ -228,7 +227,7 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
                   </div>
                 </div>
                 <p className="text-[11px] text-center mt-3" style={{ color: 'var(--t3,#a8a29e)' }}>
-                  {loading ? 'Looking up…' : hasDetector() ? 'Hold the barcode inside the frame' : 'Live auto-scan needs Chrome/Android'}
+                  {loading ? 'Looking up…' : 'Hold the barcode inside the frame'}
                 </p>
                 <button onClick={() => setStep('input')} className="w-full text-[11px] mt-2" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--gold-300,#D4A853)', fontFamily: 'var(--font-mono)' }}>
                   Enter the number manually instead
