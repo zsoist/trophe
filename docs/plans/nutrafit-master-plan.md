@@ -65,7 +65,7 @@ churn list, seasonality. (Migration 0029, coach dashboard Business section.)
 ### P6 — B2B/enterprise hardening — ✅ CORE SHIPPED (billing enforcement pending beta)
 Billing tiers (Free/Pro/Clinic) DRAFTED in docs/business/pricing.md (enforcement
 deferred to post-beta pricing validation); GDPR pass DONE — public /trust page,
-signable DPA template, breach runbook, retention/EU-residency statements (docs/legal).
+signable DPA template, breach runbook, retention + data-location/SCCs transfer statements (docs/legal; hosting is US us-east-2, EU migration planned).
 Remaining: Stripe Connect commission wiring, multi-coach org UI, status page, white-label.
 
 ### P7 — Accuracy & language/market expansion (parallel, rolling) — 🔄 IN PROGRESS

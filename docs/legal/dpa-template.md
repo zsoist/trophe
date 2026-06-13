@@ -53,8 +53,14 @@ h) make available all information necessary to demonstrate compliance and allow 
 6.2 The Processor shall notify the Controller at least **30 days** before adding or replacing a sub-processor; the Controller may object on reasonable data-protection grounds.
 6.3 The Processor imposes equivalent data-protection obligations on each sub-processor by contract.
 
-## 7. International transfers
-Where a sub-processor processes data outside the EEA, transfers are governed by the European Commission's Standard Contractual Clauses (2021/914) or an adequacy decision. AI inference requests contain only the minimal task context (food text or coach-visible snapshot), never full account records.
+## 7. International transfers & data location
+**Current hosting:** primary data is stored in Supabase (PostgreSQL) on AWS in the
+**United States (us-east-2)**. Migration to an EU region is planned. Because this is a
+transfer outside the EEA, transfers are governed by the European Commission's Standard
+Contractual Clauses (2021/914) incorporated in the Processor's agreements with Supabase
+and AWS (and, where applicable, an adequacy decision such as the EU-US Data Privacy
+Framework). AI inference requests contain only the minimal task context (food text or
+coach-visible snapshot), never full account records.
 
 ## 8. Audits
 The Processor will make available, on request and under NDA: this Agreement, the technical-measures annex, sub-processor agreements summaries, and penetration/security review summaries. On-site audits maximum once per 12 months with 30 days notice, at Controller's cost.
@@ -87,8 +93,8 @@ As described in §§2–4.
 ## Annex III — Authorised sub-processors
 | Sub-processor | Purpose | Location |
 |---|---|---|
-| Supabase | Database, auth, storage | EU (AWS) |
-| Vercel | Hosting & delivery | Global edge / EU functions |
+| Supabase | Database, auth, storage | United States (AWS us-east-2) — EU migration planned |
+| Vercel | Hosting & delivery | United States (us-east-2 / cle1) |
 | DeepSeek | AI text inference (minimal task context) | per platform terms |
 | Anthropic | AI vision inference (meal photos, zero-retention tier) | US |
 | Voyage AI | Embeddings (food names only) | US |

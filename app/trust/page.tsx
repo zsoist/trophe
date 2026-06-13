@@ -8,14 +8,14 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'Trust & Data Protection — trophē',
-  description: 'How trophē handles nutrition data under GDPR: EU residency, encryption, sub-processors, retention, and your rights.',
+  description: 'How trophē handles nutrition data under GDPR: hosting location, transfer safeguards, encryption, sub-processors, retention, and your rights.',
 };
 
 const GOLD = '#D4A853';
 
 const SUB_PROCESSORS = [
-  ['Supabase', 'Database, authentication, file storage', 'EU (AWS eu-central / project region)', 'supabase.com/privacy'],
-  ['Vercel', 'Application hosting & delivery', 'Global edge, EU functions', 'vercel.com/legal/privacy-policy'],
+  ['Supabase', 'Database, authentication, file storage', 'United States (AWS us-east-2) — EU migration planned; under SCCs', 'supabase.com/privacy'],
+  ['Vercel', 'Application hosting & delivery', 'United States (us-east-2) — under SCCs', 'vercel.com/legal/privacy-policy'],
   ['DeepSeek', 'AI text inference (food parsing, coaching insights)', 'Per DeepSeek platform terms — only minimal task context is sent, never full health records', 'platform.deepseek.com'],
   ['Anthropic', 'AI vision inference (meal photos only)', 'US, zero-retention API tier', 'anthropic.com/privacy'],
   ['Voyage AI', 'Text embeddings (food names only — no personal data)', 'US', 'voyageai.com'],
@@ -48,7 +48,7 @@ export default function TrustPage() {
 
         {[
           ['Roles, plainly', `Your nutrition practice (or clinic) is the data controller for client data; trophē is the processor acting on your documented instructions. A signable Article 28 Data Processing Agreement is available for every paid plan — email dpo@trophe.app.`],
-          ['Where data lives', `Primary data is stored in Supabase (PostgreSQL) with row-level security enforced on every table — coaches can only ever read clients explicitly assigned to them, verified by database policy, not application code. Backups are automated with point-in-time recovery.`],
+          ['Where data lives', `Primary data is stored in Supabase (PostgreSQL), currently hosted on AWS in the United States (us-east-2). Migration to an EU region is planned. Because this is a transfer outside the EEA, it is governed by the European Commission's Standard Contractual Clauses incorporated in our processors' data processing agreements (Supabase, AWS). Row-level security is enforced on every table — coaches can only ever read clients explicitly assigned to them, verified by database policy, not application code. Backups are automated with point-in-time recovery.`],
           ['Encryption', `TLS 1.2+ in transit everywhere; AES-256 encryption at rest. Authentication uses short-lived tokens in HTTP-only cookies; service credentials are never present in client code.`],
           ['What our AI sees', `Food parsing sends the food text being logged — not your identity. Coaching insights send a structured snapshot the coach already has access to. Meal photos go exclusively to a zero-retention vision API. No client data is ever used to train models.`],
           ['Medical documents', `We deliberately do NOT accept uploads of blood panels or medical documents yet. Until our counsel finalises retention obligations for health records, the intake collects lifestyle answers only — the most privacy-preserving default.`],
