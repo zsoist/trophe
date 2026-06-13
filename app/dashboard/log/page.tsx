@@ -27,7 +27,6 @@ import MealPhotoGallery from '@/components/MealPhotoGallery';
 import DayComparison from '@/components/DayComparison';
 import CoachFoodRecs from '@/components/CoachFoodRecs';
 import RecipeAnalyzerModal from '@/components/RecipeAnalyzerModal';
-import BarcodeLookupModal from '@/components/BarcodeLookupModal';
 import { useTheme } from '@/components/ThemePicker';
 import { localToday, localDateStr } from '../../../lib/dates';
 
@@ -364,7 +363,6 @@ export default function FoodLogPage() {
 
   const [copying, setCopying] = useState(false);
   const [showRecipeModal, setShowRecipeModal] = useState(false);
-  const [showBarcodeModal, setShowBarcodeModal] = useState(false);
 
   // F3: Undo delete — soft delete with 5s timeout
   const deleteEntry = (id: string) => {
@@ -683,19 +681,6 @@ export default function FoodLogPage() {
         )}
 
         {/* ── Meal Slot Cards ── */}
-        <button
-          onClick={() => setShowBarcodeModal(true)}
-          className="w-full flex items-center justify-center gap-2 mb-2 rounded-xl"
-          style={{
-            padding: '9px 0', background: 'rgba(212,168,83,.08)', border: '1px solid rgba(212,168,83,.22)',
-            color: 'var(--gold-300,#D4A853)', fontSize: 11, fontFamily: 'var(--font-mono)', fontWeight: 700,
-            letterSpacing: '.05em', textTransform: 'uppercase', cursor: 'pointer',
-          }}
-        >
-          <Icon name="i-search" size={13} style={{ color: 'var(--gold-300,#D4A853)' }} />
-          Scan a barcode
-        </button>
-
         <div className="space-y-2 mb-2">
           {userId && slots.map(slot => (
             <MealSlotCard
@@ -953,17 +938,6 @@ export default function FoodLogPage() {
           selectedDate={selectedDate}
           isOpen={showRecipeModal}
           onClose={() => setShowRecipeModal(false)}
-          onLogged={() => { void loadTodayLog(); }}
-        />
-      )}
-
-      {/* Barcode → Open Food Facts lookup (leverages the 21k OFF rows + live API) */}
-      {userId && showBarcodeModal && (
-        <BarcodeLookupModal
-          userId={userId}
-          selectedDate={selectedDate}
-          isOpen={showBarcodeModal}
-          onClose={() => setShowBarcodeModal(false)}
           onLogged={() => { void loadTodayLog(); }}
         />
       )}

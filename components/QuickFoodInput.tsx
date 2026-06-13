@@ -2,12 +2,13 @@
 
 import { useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Camera, Search, Loader2, Mic, MicOff, Plus, CheckCircle2, RotateCcw, X } from 'lucide-react';
+import { Send, Camera, Barcode, Loader2, Mic, MicOff, Plus, CheckCircle2, RotateCcw, X } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { supabase } from '@/lib/supabase';
 import type { MealType } from '@/lib/types';
 import type { ParsedFoodItem } from '@/app/api/food/parse/route';
 import ParsedFoodList from './ParsedFoodList';
+import BarcodeLookupModal from './BarcodeLookupModal';
 
 interface QuickFoodInputProps {
   userId: string;
@@ -20,9 +21,10 @@ interface QuickFoodInputProps {
 type InputMode = 'idle' | 'parsing' | 'confirming' | 'photo_analyzing' | 'success' | 'manual_entry' | 'listening';
 type InputSource = 'text' | 'photo';
 
-export default function QuickFoodInput({ userId, mealType, date, onLogged, onSearchMode }: QuickFoodInputProps) {
+export default function QuickFoodInput({ userId, mealType, date, onLogged }: QuickFoodInputProps) {
   const { t, lang } = useI18n();
   const [text, setText] = useState('');
+  const [showBarcode, setShowBarcode] = useState(false);
   const [mode, setMode] = useState<InputMode>('idle');
   const [parsedItems, setParsedItems] = useState<ParsedFoodItem[]>([]);
   const [clarificationQuestion, setClarificationQuestion] = useState<string | null>(null);
@@ -619,16 +621,28 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, onSea
           className="flex items-center gap-1.5 text-stone-500 hover:gold-text text-xs transition-colors py-1"
         >
           <Plus size={14} />
-          {t('food.quick_add')}
+          Custom
         </button>
         <button
-          onClick={onSearchMode}
-          className="flex items-center gap-1.5 text-stone-500 hover:text-stone-300 text-xs transition-colors py-1 ml-auto"
+          onClick={() => setShowBarcode(true)}
+          className="flex items-center gap-1.5 text-stone-500 hover:gold-text text-xs transition-colors py-1 ml-auto"
+          aria-label="Scan a barcode"
         >
-          <Search size={12} />
-          {t('food.search_db')}
+          <Barcode size={14} />
+          Barcode
         </button>
       </div>
+
+      {showBarcode && (
+        <BarcodeLookupModal
+          userId={userId}
+          selectedDate={date}
+          defaultMealType={mealType}
+          isOpen={showBarcode}
+          onClose={() => setShowBarcode(false)}
+          onLogged={onLogged}
+        />
+      )}
 
       {/* F14: Photo preview while analyzing */}
       <AnimatePresence>
