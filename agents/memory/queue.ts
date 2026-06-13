@@ -6,16 +6,31 @@ import { writeMemory } from './write';
 const MAX_ATTEMPTS = 5;
 const LEASE_MINUTES = 10;
 
+// Assistant turns rarely carry durable user-specific facts ("Here are 3 recipe
+// ideas…"), yet each enqueued row costs a full memory_extract LLM call + embed
+// just to decide "skip". Only enqueue an assistant turn when it plausibly states
+// something worth remembering (a commitment, number, or dietary signal). The
+// user turn is always enqueued. Audit 2026-06-13: ~halves memory-extract calls.
+const ASSISTANT_FACT_SIGNAL =
+  /\b(you (should|will|need|can|might)|let'?s|i'?ll set|target|recommend|plan|goal|allerg|avoid|increase|reduce|\d+\s*(g|kcal|cal|ml|kg|reps?|sets?))/i;
+
+function assistantTurnWorthRemembering(text: string): boolean {
+  return text.length >= 40 && ASSISTANT_FACT_SIGNAL.test(text);
+}
+
 export async function enqueueConversationMemory(input: {
   userId: string;
   sessionId: string;
   userMessage: string;
   assistantMessage: string;
 }) {
-  await db.insert(rawCaptures).values([
-    { userId: input.userId, source: 'chat', content: input.userMessage, metadata: { sessionId: input.sessionId, role: 'user' } },
-    { userId: input.userId, source: 'chat', content: input.assistantMessage, metadata: { sessionId: input.sessionId, role: 'assistant' } },
-  ]);
+  const rows = [
+    { userId: input.userId, source: 'chat' as const, content: input.userMessage, metadata: { sessionId: input.sessionId, role: 'user' } },
+  ];
+  if (assistantTurnWorthRemembering(input.assistantMessage)) {
+    rows.push({ userId: input.userId, source: 'chat' as const, content: input.assistantMessage, metadata: { sessionId: input.sessionId, role: 'assistant' } });
+  }
+  await db.insert(rawCaptures).values(rows);
 }
 
 async function claimMemoryCaptures(limit: number): Promise<SelectRawCapture[]> {

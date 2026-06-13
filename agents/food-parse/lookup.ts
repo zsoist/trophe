@@ -32,7 +32,6 @@
 import { db } from '../../db/client';
 import { foods, type SelectFood } from '../../db/schema/foods';
 import { foodUnitConversions } from '../../db/schema/food_unit_conversions';
-import { foodAliases } from '../../db/schema/food_aliases';
 import { sql, and, eq, isNull, inArray } from 'drizzle-orm';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -1750,16 +1749,15 @@ export async function lookupFood(input: LookupInput): Promise<LookupResult | nul
 
 /**
  * Batch lookup — resolve multiple items from a parsed meal.
- * Runs sequentially to avoid hammering the DB (kNN per item).
+ * Parallel: a meal is 1-5 items and pgvector/Postgres handles concurrent kNN
+ * fine; the old serial loop added one full round-trip per item to the hot
+ * parse path (~300-600ms on a 3-item meal). Promise.all preserves index order.
+ * Audit 2026-06-13.
  */
 export async function lookupFoodBatch(
   items: LookupInput[],
 ): Promise<Array<LookupResult | null>> {
-  const results: Array<LookupResult | null> = [];
-  for (const item of items) {
-    results.push(await lookupFood(item));
-  }
-  return results;
+  return Promise.all(items.map((item) => lookupFood(item)));
 }
 
 // ── RAG pre-search: lightweight DB context for LLM prompt ──────────────────
