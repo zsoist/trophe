@@ -4,10 +4,16 @@
 > Honesty about variance is what makes the claim defensible to a clinic buyer.
 
 ## Dataset
-- `agents/evals/datasets/nutrition-enterprise-v3.json` (v3.8) — 549 cases across
+- `agents/evals/datasets/nutrition-enterprise-v3.json` (**v3.9 — 700 cases**) across
   base foods, composites, regional cuisines (GR/FR/ES/CO/IT), multi-item meals,
   code-switching, vague quantities, branded products, supplements, beverages,
-  seafood, bakery, and adversarial inputs.
+  seafood, bakery, and adversarial inputs. Greek-weighted (el 195/700) for the
+  Greek-first launch. Expanded 549→700 on 2026-06-13 (+151 Greek/EU cases).
+- **Caveat on the +151 new cases:** their expected ranges are research-derived
+  (Trichopoulou/HelTH/Greek-EPIC midpoints), NOT yet nutritionist-validated. Greek
+  composite/taverna dishes have genuine 1.5-2× portion variance, so those cases use
+  ±25% ranges; base foods stay tight. **Michael Kavdas validation is the next step
+  to make the Greek cases an authoritative gate** (his stated role as domain "testing bot").
 - Each case carries `expect_total` macro **ranges** (min/max), not point values —
   validated against domain expertise (Michael Kavdas ranges for Greek/portion cases).
 - Roadmap: grow to 1,000–1,500 cases for the paper; score against NutriBench/ACC.
