@@ -105,6 +105,21 @@ export default function TrustPage() {
           <a href="mailto:dpo@trophe.app" style={{ color: GOLD }}>dpo@trophe.app</a>.
         </div>
 
+        <section style={{ marginTop: 32 }}>
+          <p style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '.1em', color: GOLD, marginBottom: 8, fontFamily: 'monospace' }}>
+            Data sources &amp; licensing
+          </p>
+          <p style={{ fontSize: 13, lineHeight: 1.65, color: '#a8a29e' }}>
+            Nutrition values are compiled from public food-composition databases:{' '}
+            <a href="https://world.openfoodfacts.org" style={{ color: GOLD }}>Open Food Facts</a>{' '}
+            (© its contributors, used under the{' '}
+            <a href="https://opendatacommons.org/licenses/odbl/1-0/" style={{ color: GOLD }}>Open Database License (ODbL)</a>),
+            USDA FoodData Central, CIQUAL (France), CoFID (UK), BEDCA (Spain) and CREA (Italy).
+            Open Food Facts product data remains © its contributors; crowdsourced entries are treated as estimates,
+            not lab-verified values.
+          </p>
+        </section>
+
         <p style={{ color: '#57534e', fontSize: 11, marginTop: 40, fontFamily: 'monospace' }}>
           Last updated June 2026 · trophē — Precision Nutrition Coaching
         </p>
