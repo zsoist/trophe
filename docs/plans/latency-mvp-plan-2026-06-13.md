@@ -3,6 +3,19 @@
 Research-grounded (3 web sweeps + code profiling). Each item tagged **[impact · effort]**.
 Sources: docs research briefs; code reality from this repo (2026-06-13).
 
+## PROGRESS (2026-06-13)
+- ✅ **A1/A2 (partial)**: Vercel functions pinned to `cle1` (colocated w/ Supabase us-east-2 — cuts DB-hop RTT); food_parse `max_tokens` 2048→1024 (bounds p99 decode). `thinking:disabled` already in place.
+- ✅ **B1 (foundational)**: invite-code coach onboarding shipped — `/login?code=` → signup mode → role from validated DB code (never client input), atomic use-increment, coaches skip client_profile + route to `/coach`. Migrations 0036/0037. Michael's code `TROPHE-COACH-MK` live. **Fixes the forced-client beta blocker** — nutritionists can now self-onboard. Verified: preview (signup mode renders) + prod smoke (invalid code → 400, 0 orphan users).
+- ⏳ Remaining A: streaming responses, prompt-cache front-load (A/B), fast DB-bypass, semantic cache, Supavisor confirm.
+- ⏳ Remaining B1: coach→client invite + magic-link activation + Art.9 client consent, onboarding checklist, claim-existing-client.
+
+## ⚠️ CRITICAL FINDING — EU data-residency discrepancy
+The Supabase project is in **`us-east-2` (US)**, but the Trust page / DPA claim **EU data residency**
+for Art.9 health data. For a Greek-first GDPR product this is both a **compliance gap** and the real
+**EU-user latency** fix. Recommend migrating the DB + functions to an EU region (eu-central-1) — a
+real project (Supabase region migration), needs a decision (downtime/effort). Until then, either
+migrate or correct the Trust/DPA wording to state the actual region.
+
 ---
 
 ## TRACK A — LATENCY (6.5 → 9+). Target: p95 7s→<2.5s, perceived <1.5s
