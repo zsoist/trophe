@@ -77,8 +77,8 @@ export const foodLog = pgTable('food_log', {
 }, (table) => [
   index('idx_food_log_user_date').using('btree', table.userId.asc().nullsLast().op('uuid_ops'), table.loggedDate.asc().nullsLast().op('date_ops')),
   foreignKey({ columns: [table.userId], foreignColumns: [profiles.id], name: 'food_log_user_id_fkey' }).onDelete('cascade'),
-  pgPolicy('Clients manage own food log', { as: 'permissive', for: 'all', to: ['public'], using: sql`(user_id = auth.uid())` }),
-  pgPolicy('Coaches view client food log', { as: 'permissive', for: 'select', to: ['public'] }),
+  pgPolicy('Clients manage own food log', { as: 'permissive', for: 'all', to: ['authenticated'], using: sql`(user_id = auth.uid())` }),
+  pgPolicy('Coaches view client food log', { as: 'permissive', for: 'select', to: ['authenticated'] }),
   check('food_log_meal_type_check', sql`meal_type = ANY (ARRAY['breakfast'::text, 'lunch'::text, 'dinner'::text, 'snack'::text, 'pre_workout'::text, 'post_workout'::text])`),
   check('food_log_source_check', sql`source = ANY (ARRAY['usda'::text, 'openfoodfacts'::text, 'custom'::text, 'photo_ai'::text, 'natural_language'::text, 'ai_estimate'::text])`),
 ]);
@@ -137,8 +137,8 @@ export const foodDatabase = pgTable('food_database', {
   index('idx_food_db_popularity').using('btree', table.popularity.desc().nullsFirst().op('int4_ops')),
   index('idx_food_db_search').using('gin', sql`to_tsvector('simple'::regconfig, (((COALESCE(name, ''::text) || ' '::text) || COALESCE(name_el, ''::text)) || ' '::text) || COALESCE(name_es, ''::text))`),
   unique('food_database_name_source_key').on(table.name, table.source),
-  pgPolicy('All authenticated read food_database', { as: 'permissive', for: 'select', to: ['public'], using: sql`(auth.uid() IS NOT NULL)` }),
-  pgPolicy('Coaches insert food_database', { as: 'permissive', for: 'insert', to: ['public'] }),
+  pgPolicy('All authenticated read food_database', { as: 'permissive', for: 'select', to: ['authenticated'], using: sql`(auth.uid() IS NOT NULL)` }),
+  pgPolicy('Coaches insert food_database', { as: 'permissive', for: 'insert', to: ['authenticated'] }),
   check('food_database_source_check', sql`source = ANY (ARRAY['seed'::text, 'usda'::text, 'openfoodfacts'::text, 'coach'::text])`),
 ]);
 
@@ -157,6 +157,6 @@ export const customFoods = pgTable('custom_foods', {
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
 }, (table) => [
   foreignKey({ columns: [table.createdBy], foreignColumns: [profiles.id], name: 'custom_foods_created_by_fkey' }),
-  pgPolicy('Users manage own custom foods', { as: 'permissive', for: 'all', to: ['public'], using: sql`(created_by = auth.uid())` }),
-  pgPolicy('Clients see coach shared foods', { as: 'permissive', for: 'select', to: ['public'] }),
+  pgPolicy('Users manage own custom foods', { as: 'permissive', for: 'all', to: ['authenticated'], using: sql`(created_by = auth.uid())` }),
+  pgPolicy('Clients see coach shared foods', { as: 'permissive', for: 'select', to: ['authenticated'] }),
 ]);

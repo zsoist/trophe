@@ -48,10 +48,10 @@ export const organizations = pgTable('organizations', {
     foreignColumns: [profiles.id],
     name: 'organizations_owner_id_fkey',
   }).onDelete('set null'),
-  pgPolicy('Org members can view own org', { as: 'permissive', for: 'select', to: ['public'],
+  pgPolicy('Org members can view own org', { as: 'permissive', for: 'select', to: ['authenticated'],
     using: sql`(id IN (SELECT org_id FROM organization_members WHERE user_id = auth.uid()))` }),
-  pgPolicy('Org admins can update org', { as: 'permissive', for: 'update', to: ['public'] }),
-  pgPolicy('Super admins full org access', { as: 'permissive', for: 'all', to: ['public'] }),
+  pgPolicy('Org admins can update org', { as: 'permissive', for: 'update', to: ['authenticated'] }),
+  pgPolicy('Super admins full org access', { as: 'permissive', for: 'all', to: ['authenticated'] }),
   check('organizations_plan_check', sql`plan = ANY (ARRAY['free'::text, 'pro'::text, 'enterprise'::text])`),
   check('organizations_subscription_status_check', sql`subscription_status = ANY (ARRAY['not_configured'::text, 'trialing'::text, 'active'::text, 'past_due'::text, 'canceled'::text])`),
 ]);
@@ -82,7 +82,7 @@ export const organizationMembers = pgTable('organization_members', {
     name: 'organization_members_invited_by_fkey',
   }).onDelete('set null'),
   unique('organization_members_org_user_key').on(table.orgId, table.userId),
-  pgPolicy('Members view own membership', { as: 'permissive', for: 'select', to: ['public'],
+  pgPolicy('Members view own membership', { as: 'permissive', for: 'select', to: ['authenticated'],
     using: sql`(user_id = auth.uid())` }),
-  pgPolicy('Org admins manage members', { as: 'permissive', for: 'all', to: ['public'] }),
+  pgPolicy('Org admins manage members', { as: 'permissive', for: 'all', to: ['authenticated'] }),
 ]);

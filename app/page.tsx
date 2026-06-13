@@ -546,9 +546,14 @@ export default function LandingPage() {
       <footer className="border-t border-white/[0.04] py-8 px-6">
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <span className="font-serif italic text-[#D4A853] text-base select-none">trophē</span>
-          <a href="/trust" className="text-stone-500 hover:text-stone-300 text-[11px] transition-colors">
-            Trust &amp; Data Protection
-          </a>
+          <div className="flex items-center gap-5">
+            <Link href="/pricing" className="text-stone-500 hover:text-stone-300 text-[11px] transition-colors no-underline">
+              Pricing
+            </Link>
+            <a href="/trust" className="text-stone-500 hover:text-stone-300 text-[11px] transition-colors">
+              Trust &amp; Data Protection
+            </a>
+          </div>
           <p className="text-stone-700 text-[10px]">
             &copy; 2026 Trophē
           </p>

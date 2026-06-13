@@ -26,7 +26,7 @@ export const coachNotes = pgTable('coach_notes', {
   index('idx_coach_notes_client').using('btree', table.clientId.asc().nullsLast().op('uuid_ops')),
   foreignKey({ columns: [table.clientId], foreignColumns: [profiles.id], name: 'coach_notes_client_id_fkey' }),
   foreignKey({ columns: [table.coachId], foreignColumns: [profiles.id], name: 'coach_notes_coach_id_fkey' }),
-  pgPolicy('Coaches manage own notes', { as: 'permissive', for: 'all', to: ['public'], using: sql`(coach_id = auth.uid())` }),
-  pgPolicy('Clients view notes about them', { as: 'permissive', for: 'select', to: ['public'] }),
+  pgPolicy('Coaches manage own notes', { as: 'permissive', for: 'all', to: ['authenticated'], using: sql`(coach_id = auth.uid())` }),
+  pgPolicy('Clients view notes about them', { as: 'permissive', for: 'select', to: ['authenticated'] }),
   check('coach_notes_session_type_check', sql`session_type = ANY (ARRAY['check_in'::text, 'progression'::text, 'concern'::text, 'general'::text])`),
 ]);

@@ -359,6 +359,7 @@ export default function CoachDashboard() {
   const [coachName, setCoachName] = useState('Coach');
   const [showBatchAssign, setShowBatchAssign] = useState(false);
   const [showComparison, setShowComparison] = useState(false);
+  const [notesWrittenCount, setNotesWrittenCount] = useState(0);
   const [availableHabits, setAvailableHabits] = useState<{ id: string; name: string; emoji: string }[]>([]);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -540,6 +541,14 @@ export default function CoachDashboard() {
           emoji: h.emoji,
         })));
       }
+
+      // Count notes written this month by this coach
+      const { count: notesCount } = await supabase
+        .from('coach_notes')
+        .select('id', { count: 'exact', head: true })
+        .eq('coach_id', user.id)
+        .gte('created_at', monthStart.toISOString());
+      setNotesWrittenCount(notesCount ?? 0);
     } catch (err) {
       console.error('Error loading clients:', err);
     } finally {
@@ -771,7 +780,7 @@ export default function CoachDashboard() {
     clientsManaged: clients.length,
     avgAdherence: avgStreakPct,
     habitsProgressed: clients.filter((c) => c.readyForProgression).length,
-    notesWritten: 0, // placeholder — would need coach_notes query
+    notesWritten: notesWrittenCount,
     mealsTracked: pulseStats.mealsThisWeek,
     topImprover,
   };
@@ -1419,18 +1428,38 @@ export default function CoachDashboard() {
               className="w-full max-w-md"
               onClick={(e) => e.stopPropagation()}
             >
-              <ClientComparison
-                clientA={{
-                  name: clients[0].profile.full_name,
-                  macros: { protein: 120, carbs: 200, fat: 60, fiber: 25, water: 2000 },
-                  targets: { protein: 150, carbs: 250, fat: 70, fiber: 30, water: 2500 },
-                }}
-                clientB={{
-                  name: clients[1].profile.full_name,
-                  macros: { protein: 100, carbs: 180, fat: 55, fiber: 20, water: 1800 },
-                  targets: { protein: 150, carbs: 250, fat: 70, fiber: 30, water: 2500 },
-                }}
-              />
+              {(() => {
+                const toMacros = (cp: ClientCard['clientProfile']) => ({
+                  protein: cp.target_protein_g ?? 0,
+                  carbs: cp.target_carbs_g ?? 0,
+                  fat: cp.target_fat_g ?? 0,
+                  fiber: cp.target_fiber_g ?? 0,
+                  water: cp.target_water_ml ?? 0,
+                });
+                const macrosA = toMacros(clients[0].clientProfile);
+                const macrosB = toMacros(clients[1].clientProfile);
+                const hasDataA = Object.values(macrosA).some((v) => v > 0);
+                const hasDataB = Object.values(macrosB).some((v) => v > 0);
+                if (!hasDataA && !hasDataB) return (
+                  <div className="bg-white/[0.04] border border-white/[0.06] rounded-xl p-4 text-center text-stone-500 text-xs">
+                    No macro targets set for these clients yet.
+                  </div>
+                );
+                return (
+                  <ClientComparison
+                    clientA={{
+                      name: clients[0].profile.full_name,
+                      macros: macrosA,
+                      targets: macrosA,
+                    }}
+                    clientB={{
+                      name: clients[1].profile.full_name,
+                      macros: macrosB,
+                      targets: macrosB,
+                    }}
+                  />
+                );
+              })()}
               <button
                 onClick={() => setShowComparison(false)}
                 className="mt-3 w-full text-center text-xs text-stone-500 hover:text-stone-300 transition-colors py-2"

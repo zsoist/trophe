@@ -350,6 +350,8 @@ before merging. During that time:
 **Rule**: feature branches should merge to main within ~1 week.
 Long-lived branches diverge and create operational risk.
 
+**2026-06-12 pitfall**: `vercel --prod` (manual CLI) uploads the LOCAL working tree, while CI builds from git. An untracked file made prod work for days while CI failed with TS2307. Guard: run `git status --short` before any manual deploy — untracked source files = dangerous divergence.
+
 **Rollback**:
 - Recent v0.3-overhaul state preserved at tag `archive/v0.3-overhaul-2026-05-03`
 - Vercel dashboard → Deployments → "Promote to Production" on any past deployment
@@ -484,6 +486,8 @@ Trophē tracks the source and confidence of every food's macro data. This is a c
 - **Benchmark nondeterminism**: ±3-5 cases flip between runs. multi_item and code_switch are most affected. Stable floor ~186, ceiling ~192. Average ~189. Multiple runs needed to assess true impact of changes.
 - **pricing.ts CRITICAL dup computed key** (2026-06-11): Using computed keys `[model_name]` in object literal means all 3 model costs (food_parse, recipe_analyze, coach_insight) resolve to the same deepseek-v4-flash key (last entry wins). Cost tracking shows wrong prices for all LLM calls. Fix: use explicit string keys or unique suffixes per agent type.
 - **Autoresearch nightly regression** (2026-06-11): 13 consecutive nights above nightly_best=1.192285 (set 2026-05-20). Pattern: low-step nights (~670 vs typical ~4800) correlate with high val_bpb. Likely cause: memory/scheduling pressure causing early termination. val_bpb trend worsening — investigate scheduler pressure.
+- **Wrong PRODUCT FORM match** (2026-06-12): BM25 can match correct tokens but wrong product form — "apple pie" → "apple pie FILLING" (0.1g fat vs 12.7g), "mashed potatoes" → "FLAKES dry mix". Fix: add form-token penalties (FILLING, FLAKES, dry mix, powder) and extraneous-protein penalties in scoring. Singularizer regexes must handle irregular plurals (flakes → flake?s).
+- **Vector arm regresses food lookup** (2026-06-13): Enabling HNSW vector arm with RRF 70/30 (vector/BM25) crashed benchmark from 90.7% → 63.4%. Food names are short+lexically precise — BM25 nails them; semantic kNN over 43k foods returns near-but-wrong results (feta→halloumi) and demotes exact matches. Keep vector arm DISABLED. If revisited: vector as fallback only when BM25 empty, or weight <15%, with A/B gate before ship.
 
 ### Canvas / Globe
 - Retina canvas: `canvas.width = N * devicePixelRatio; ctx.scale(dpr, dpr)`.

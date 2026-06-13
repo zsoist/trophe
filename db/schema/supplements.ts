@@ -24,8 +24,8 @@ export const supplementProtocols = pgTable('supplement_protocols', {
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
 }, (table) => [
   foreignKey({ columns: [table.coachId], foreignColumns: [profiles.id], name: 'supplement_protocols_coach_id_fkey' }),
-  pgPolicy('Coaches manage own protocols', { as: 'permissive', for: 'all', to: ['public'], using: sql`(coach_id = auth.uid())` }),
-  pgPolicy('Clients view assigned protocols', { as: 'permissive', for: 'select', to: ['public'] }),
+  pgPolicy('Coaches manage own protocols', { as: 'permissive', for: 'all', to: ['authenticated'], using: sql`(coach_id = auth.uid())` }),
+  pgPolicy('Clients view assigned protocols', { as: 'permissive', for: 'select', to: ['authenticated'] }),
 ]);
 
 /** Daily supplement tracking log (client-owned). */
@@ -39,8 +39,8 @@ export const supplementLog = pgTable('supplement_log', {
 }, (table) => [
   index('idx_supplement_log_user_date').using('btree', table.userId.asc().nullsLast().op('uuid_ops'), table.loggedDate.asc().nullsLast().op('date_ops')),
   foreignKey({ columns: [table.userId], foreignColumns: [profiles.id], name: 'supplement_log_user_id_fkey' }).onDelete('cascade'),
-  pgPolicy('Clients manage own supplement log2', { as: 'permissive', for: 'all', to: ['public'], using: sql`(user_id = auth.uid())` }),
-  pgPolicy('Coaches view supplement log', { as: 'permissive', for: 'select', to: ['public'] }),
+  pgPolicy('Clients manage own supplement log2', { as: 'permissive', for: 'all', to: ['authenticated'], using: sql`(user_id = auth.uid())` }),
+  pgPolicy('Coaches view supplement log', { as: 'permissive', for: 'select', to: ['authenticated'] }),
 ]);
 
 /** Assignment of a protocol to a client. */
@@ -55,7 +55,7 @@ export const clientSupplements = pgTable('client_supplements', {
   foreignKey({ columns: [table.assignedBy], foreignColumns: [profiles.id], name: 'client_supplements_assigned_by_fkey' }),
   foreignKey({ columns: [table.protocolId], foreignColumns: [supplementProtocols.id], name: 'client_supplements_protocol_id_fkey' }),
   foreignKey({ columns: [table.userId], foreignColumns: [profiles.id], name: 'client_supplements_user_id_fkey' }).onDelete('cascade'),
-  pgPolicy('Clients view own supplements', { as: 'permissive', for: 'select', to: ['public'], using: sql`(user_id = auth.uid())` }),
-  pgPolicy('Clients manage own supplement log', { as: 'permissive', for: 'all', to: ['public'] }),
-  pgPolicy('Coaches manage client supplements', { as: 'permissive', for: 'all', to: ['public'] }),
+  pgPolicy('Clients view own supplements', { as: 'permissive', for: 'select', to: ['authenticated'], using: sql`(user_id = auth.uid())` }),
+  pgPolicy('Clients manage own supplement log', { as: 'permissive', for: 'all', to: ['authenticated'] }),
+  pgPolicy('Coaches manage client supplements', { as: 'permissive', for: 'all', to: ['authenticated'] }),
 ]);
