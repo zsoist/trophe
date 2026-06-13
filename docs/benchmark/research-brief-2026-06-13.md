@@ -69,7 +69,16 @@ the LLM path. **Lesson: the "silently dead" vector arm was inert BY WISDOM, not 
 If revisited: use vector ONLY as a fallback when BM25 returns nothing, or weight it <15%.
 Reverted in commit e28ecf1. The A/B gate (not blind ship) caught a 27pt prod regression.
 
-## Execution order (this push)
+## Outcomes (this push)
+- ✅ Benchmark 549→700 (v3.9, Greek el 195). CI green (gitleaks full-history + food_parse sparse-DB skip).
+- ✅ Greek cooked-vs-raw variant fix (migration 0034 + corrections): fava no longer → raw split peas
+  (682→218 kcal), gigantes → cooked plaki, +3 gap dishes (kolokithokeftedes, revithosoupa, fava puree). Probe-verified.
+- ❌ Vector arm (−27pt) and aggressive hidden-fat prompt (fat MAPE↑) — both reverted (see below).
+- **Honest target status:** ≥90% holds on validated 549; the Greek-weighted 700 reads ~76% (real Greek
+  difficulty + new cases need Michael validation). <10% all-macro MAPE NOT reachable by tweaks — needs
+  fine-tuning (FoodyLLM fat 43→92%) + correction flywheel + Michael-validated Greek ranges.
+
+## Reverted experiments
 1. ❌ Vector arm — tried, regressed, reverted (see above). 2. Hidden-fat + olive-oil prompt upgrade.
 3. Seed ~19 Greek dishes (authoritative) + cooking-yield. 4. Plausibility validator.
 5. Expand dataset 549→700 (Greek/EU). 6. Median-of-3 re-benchmark → iterate to targets. 7. Update all docs.
