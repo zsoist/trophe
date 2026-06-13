@@ -26,7 +26,7 @@ interface Props {
 
 interface Per100g { kcal: number; protein: number; carbs: number; fat: number; fiber: number | null; sugar: number | null; }
 interface Product { name: string; brand: string | null; barcode: string; per100g: Per100g; source: string; }
-type Step = 'choose' | 'scan' | 'input';
+type Step = 'choose' | 'scan' | 'input' | 'manual';
 
 const MEAL_OPTIONS: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack'];
 
@@ -36,6 +36,8 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
   const [product, setProduct] = useState<Product | null>(null);
   const [grams, setGrams] = useState(100);
   const [mealType, setMealType] = useState<MealType>(defaultMealType);
+  // Manual add (per-100g) for barcodes Open Food Facts doesn't have (common for LatAm/Greek products).
+  const [manual, setManual] = useState({ name: '', kcal: '', protein: '', carbs: '', fat: '' });
   const [loading, setLoading] = useState(false);
   const [logging, setLogging] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -68,11 +70,39 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
         setProduct({ name: data.name!, brand: data.brand ?? null, barcode, per100g: data.per100g, source: data.source ?? 'off' });
         setGrams(100);
       } else {
-        setError(data.error || 'Product not found');
+        // Not in Open Food Facts (common for LatAm/Greek products) → let the
+        // coach/client add it from the label rather than dead-ending.
+        stopScan();
+        setError(null);
+        setStep('manual');
       }
     } catch {
       setError('Lookup failed — try again');
     } finally { setLoading(false); }
+  }
+
+  async function logManual() {
+    if (logging) return;
+    if (!manual.name.trim()) { setError('Add a product name'); return; }
+    setError(null);
+    setLogging(true);
+    const f = grams / 100;
+    const num = (s: string) => Math.max(0, Number(s) || 0);
+    const { error: insErr } = await supabase.from('food_log').insert({
+      user_id: userId, logged_date: selectedDate, meal_type: mealType,
+      food_name: manual.name.trim(),
+      quantity: grams, unit: 'g',
+      calories: Math.round(num(manual.kcal) * f),
+      protein_g: Math.round(num(manual.protein) * f * 10) / 10,
+      carbs_g: Math.round(num(manual.carbs) * f * 10) / 10,
+      fat_g: Math.round(num(manual.fat) * f * 10) / 10,
+      fiber_g: 0,
+      source: 'custom' as const,
+    });
+    setLogging(false);
+    if (insErr) { setError(insErr.message); return; }
+    onLogged();
+    onClose();
   }
 
   // Live camera scan via ZXing (works on iOS Safari + Android — no native
@@ -233,7 +263,7 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
                   Enter the number manually instead
                 </button>
               </div>
-            ) : (
+            ) : step === 'input' ? (
               /* ── Manual input ── */
               <div>
                 <input
@@ -247,6 +277,42 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
                 <button onClick={() => lookup(code)} disabled={loading || !code}
                   style={{ width: '100%', padding: 12, borderRadius: 12, border: 'none', background: 'var(--gold-300,#D4A853)', color: '#0a0a0a', fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', cursor: loading || !code ? 'not-allowed' : 'pointer', opacity: code ? 1 : 0.5, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
                   {loading ? <><Loader2 size={14} className="animate-spin" /> Looking up…</> : 'Look up'}
+                </button>
+              </div>
+            ) : (
+              /* ── Manual add (barcode not in Open Food Facts) ── */
+              <div>
+                <p className="text-[11px] mb-3" style={{ color: 'var(--t3,#a8a29e)' }}>
+                  Not in the database{code ? ` (#${code})` : ''} — add it from the label (values per 100 g/ml).
+                </p>
+                <input
+                  value={manual.name}
+                  onChange={(e) => setManual((m) => ({ ...m, name: e.target.value }))}
+                  placeholder="Product name"
+                  style={{ width: '100%', background: 'var(--surface,#141414)', border: '1px solid var(--line,rgba(255,255,255,.08))', borderRadius: 10, padding: '10px 12px', color: 'var(--t1,#f5f5f4)', fontSize: 14, marginBottom: 8 }}
+                />
+                <div className="grid grid-cols-2 gap-2" style={{ marginBottom: 10 }}>
+                  {([['kcal', 'kcal /100'], ['protein', 'Protein g'], ['carbs', 'Carbs g'], ['fat', 'Fat g']] as const).map(([k, ph]) => (
+                    <input key={k} value={manual[k]} inputMode="decimal"
+                      onChange={(e) => setManual((m) => ({ ...m, [k]: e.target.value.replace(/[^\d.]/g, '') }))}
+                      placeholder={ph}
+                      style={{ background: 'var(--surface,#141414)', border: '1px solid var(--line,rgba(255,255,255,.08))', borderRadius: 10, padding: '9px 11px', color: 'var(--t1,#f5f5f4)', fontSize: 13, fontFamily: 'var(--font-mono)' }} />
+                  ))}
+                </div>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-[11px]" style={{ color: 'var(--t3,#a8a29e)' }}>Amount</span>
+                  <input type="number" min={1} value={grams} onChange={(e) => setGrams(Math.max(1, Number(e.target.value) || 0))}
+                    style={{ width: 80, background: 'var(--bg-1,#1c1917)', border: '1px solid var(--line,rgba(255,255,255,.1))', borderRadius: 8, padding: '5px 8px', color: 'var(--t1,#f5f5f4)', fontSize: 13, fontFamily: 'var(--font-mono)' }} />
+                  <span className="text-[11px]" style={{ color: 'var(--t4,#78716c)' }}>g/ml</span>
+                </div>
+                <div className="flex gap-1 mb-3">
+                  {MEAL_OPTIONS.map((m) => (
+                    <button key={m} onClick={() => setMealType(m)} className="flex-1 text-[10px]" style={{ padding: '6px 0', borderRadius: 8, textTransform: 'capitalize', cursor: 'pointer', border: '1px solid', borderColor: mealType === m ? 'var(--gold-300,#D4A853)' : 'var(--line,rgba(255,255,255,.1))', background: mealType === m ? 'rgba(212,168,83,.12)' : 'transparent', color: mealType === m ? 'var(--gold-300,#D4A853)' : 'var(--t3,#a8a29e)', fontFamily: 'var(--font-mono)' }}>{m}</button>
+                  ))}
+                </div>
+                <button onClick={logManual} disabled={logging || !manual.name.trim()}
+                  style={{ width: '100%', padding: 12, borderRadius: 12, border: 'none', background: 'var(--gold-300,#D4A853)', color: '#0a0a0a', fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', cursor: logging || !manual.name.trim() ? 'not-allowed' : 'pointer', opacity: manual.name.trim() ? 1 : 0.5 }}>
+                  {logging ? 'Logging…' : 'Add to log'}
                 </button>
               </div>
             )}

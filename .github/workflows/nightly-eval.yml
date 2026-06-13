@@ -21,6 +21,17 @@ jobs:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       EVAL_ENFORCE_GATE: 1
       EVAL_MIN_PASS_RATE: 0.40
+      # The enterprise benchmark calls the live prod API, which is auth-gated.
+      # Without these it 401s on every food-parse call → the run has always failed.
+      # Set these repo secrets (Settings → Secrets → Actions) to green it:
+      #   EVAL_AUTH_EMAIL, EVAL_AUTH_PASSWORD (a seeded eval user),
+      #   NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY
+      TROPHE_API: https://trophe.app
+      EVAL_DATASET: v2
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      EVAL_AUTH_EMAIL: ${{ secrets.EVAL_AUTH_EMAIL }}
+      EVAL_AUTH_PASSWORD: ${{ secrets.EVAL_AUTH_PASSWORD }}
 
     steps:
       - uses: actions/checkout@v4

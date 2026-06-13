@@ -91,6 +91,23 @@ jobs:
           done
           echo "✅ No uncommitted drizzle-kit introspect wrappers found"
 
+      - name: Guard — migration journal in sync with SQL files
+        # Fast fail (seconds, not 5 min into the test suite) for the common drift:
+        # a hand-written drizzle/NNNN_*.sql applied out-of-band (e.g. Supabase MCP)
+        # without a matching drizzle/meta/_journal.json entry. Mirrors
+        # tests/db/migration-journal.test.ts but runs early with a clear message.
+        run: |
+          set -euo pipefail
+          files=$(ls drizzle/0*.sql 2>/dev/null | xargs -n1 basename | sed 's/\.sql$//' | sort)
+          tags=$(node -e "const j=require('./drizzle/meta/_journal.json'); console.log(j.entries.map(e=>e.tag).sort().join('\n'))")
+          if [ "$files" != "$tags" ]; then
+            echo "::error::drizzle/meta/_journal.json is out of sync with drizzle/*.sql."
+            echo "::error::Add each new migration to the journal (unique idx + unique 'when'), or run drizzle-kit generate."
+            diff <(echo "$files") <(echo "$tags") || true
+            exit 1
+          fi
+          echo "✅ Migration journal matches SQL files"
+
       - name: Verify hardcode guard catches known-bad fixture
         # Self-test: confirms grep works in this CI environment.
         # If this step fails to FIND the fixture, the real guard is broken.

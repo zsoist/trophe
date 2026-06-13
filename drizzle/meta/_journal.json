@@ -330,6 +330,20 @@
    "when": 1780852599989,
    "tag": "0038_client_invites",
    "breakpoints": true
+  },
+  {
+   "idx": 47,
+   "version": "7",
+   "when": 1780852599990,
+   "tag": "0039_feedback",
+   "breakpoints": true
+  },
+  {
+   "idx": 48,
+   "version": "7",
+   "when": 1780852599991,
+   "tag": "0040_client_graduation",
+   "breakpoints": true
   }
  ]
 }
