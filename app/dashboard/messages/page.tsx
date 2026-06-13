@@ -8,7 +8,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { Icon } from '@/components/ui';
-import ChatThread from '@/components/ChatThread';
+import ChatThread from '@/components/shared/ChatThread';
 
 export default function ClientMessagesPage() {
   const router = useRouter();

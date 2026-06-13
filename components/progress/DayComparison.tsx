@@ -6,7 +6,7 @@ import { X, ArrowRight } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { FoodLogEntry } from '@/lib/types';
 import { calculateMealScore } from '@/lib/meal-score';
-import { localToday } from '../lib/dates';
+import { localToday } from '@/lib/dates';
 
 interface DayComparisonProps {
   userId: string;

@@ -22,10 +22,10 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
-import ActivityTimeline from '@/components/ActivityTimeline';
-import ComplianceTrend from '@/components/ComplianceTrend';
-import CoachingSummary from '@/components/CoachingSummary';
-import SupplementCompliance from '@/components/SupplementCompliance';
+import ActivityTimeline from '@/components/progress/ActivityTimeline';
+import ComplianceTrend from '@/components/charts/ComplianceTrend';
+import CoachingSummary from '@/components/summary/CoachingSummary';
+import SupplementCompliance from '@/components/health/SupplementCompliance';
 // Wave 2 + Wave 3 coach components
 import MacroAdherenceGauge from '@/components/coach/MacroAdherenceGauge';
 import MacroSparklines from '@/components/coach/MacroSparklines';

@@ -9,11 +9,11 @@ import { calculateFullProfile, ACTIVITY_DESCRIPTIONS } from '@/lib/nutrition-eng
 import type { ClientProfile, Profile, Sex, ActivityLevel, Goal, Language } from '@/lib/types';
 import { BotNav } from '@/components/ui/BotNav';
 import { Icon } from '@/components/ui';
-import BodyCompCalculator from '@/components/BodyCompCalculator';
-import { useThemeMode } from '@/components/ThemeMode';
+import BodyCompCalculator from '@/components/health/BodyCompCalculator';
+import { useThemeMode } from '@/components/shared/ThemeMode';
 import { useI18n } from '@/lib/i18n';
 import { useClientNav } from '@/lib/useClientNav';
-import PrivacyRequests from '@/components/PrivacyRequests';
+import PrivacyRequests from '@/components/admin/PrivacyRequests';
 
 // Labels are rendered inline with t() in the component
 

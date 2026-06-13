@@ -27,9 +27,9 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
-import Avatar from '@/components/Avatar';
-import { ThemeModeToggle } from '@/components/ThemeMode';
-import ShortcutsModal from '@/components/ShortcutsModal';
+import Avatar from '@/components/shared/Avatar';
+import { ThemeModeToggle } from '@/components/shared/ThemeMode';
+import ShortcutsModal from '@/components/shared/ShortcutsModal';
 import DashboardGreeting from '@/components/coach/DashboardGreeting';
 import WeeklyPulseCards from '@/components/coach/WeeklyPulseCards';
 import CoachingStreak from '@/components/coach/CoachingStreak';

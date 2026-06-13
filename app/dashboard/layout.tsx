@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { InstallCard } from "@/components/InstallCard";
+import { InstallCard } from "@/components/shared/InstallCard";
 
 /**
  * Dashboard layout — wraps all /dashboard/* routes.

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useToast } from '@/components/Toast';
+import { useToast } from '@/components/shared/Toast';
 import { motion } from 'framer-motion';
 import {
   Plus,

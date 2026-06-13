@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { BarChart3 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { localDateStr } from '../lib/dates';
+import { localDateStr } from '@/lib/dates';
 
 interface DayData {
   date: string;

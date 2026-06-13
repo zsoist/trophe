@@ -15,7 +15,7 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { BotNav } from '@/components/ui/BotNav';
 import { Icon } from '@/components/ui';
-import ExerciseComparison from '@/components/ExerciseComparison';
+import ExerciseComparison from '@/components/progress/ExerciseComparison';
 import type { WorkoutSet, WorkoutSession, Exercise, MuscleGroup } from '@/lib/types';
 
 // ═══════════════════════════════════════════════

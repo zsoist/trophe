@@ -7,8 +7,8 @@ import { useI18n } from '@/lib/i18n';
 import { supabase } from '@/lib/supabase';
 import type { MealType } from '@/lib/types';
 import type { ParsedFoodItem } from '@/app/api/food/parse/route';
-import ParsedFoodList from './ParsedFoodList';
-import BarcodeLookupModal from './BarcodeLookupModal';
+import ParsedFoodList from '@/components/food/ParsedFoodList';
+import BarcodeLookupModal from '@/components/food/BarcodeLookupModal';
 
 interface QuickFoodInputProps {
   userId: string;

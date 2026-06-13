@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
-import { localDateStr } from '../lib/dates';
+import { localDateStr } from '@/lib/dates';
 
 interface DayCell {
   date: string;

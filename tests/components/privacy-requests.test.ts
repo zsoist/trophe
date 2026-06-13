@@ -18,7 +18,7 @@ describe('privacy requests UI contract', () => {
   });
 
   it('is integrated into the user profile', () => {
-    expect(profile).toContain("import PrivacyRequests from '@/components/PrivacyRequests'");
+    expect(profile).toContain("import PrivacyRequests from '@/components/admin/PrivacyRequests'");
     expect(profile).toContain('<PrivacyRequests />');
   });
 });

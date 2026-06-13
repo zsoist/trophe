@@ -19,7 +19,7 @@ import {
   GripVertical,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { useToast } from '@/components/Toast';
+import { useToast } from '@/components/shared/Toast';
 import type {
   WorkoutTemplate,
   TemplateExercise,

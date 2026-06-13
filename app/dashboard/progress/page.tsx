@@ -8,9 +8,9 @@ import type { Measurement, ClientProfile, ClientHabit } from '@/lib/types';
 import { BotNav } from '@/components/ui/BotNav';
 import { Icon } from '@/components/ui';
 import { useClientNav } from '@/lib/useClientNav';
-import ProgressPhotos from '@/components/ProgressPhotos';
-import WeeklyMacroChart from '@/components/WeeklyMacroChart';
-import HabitRadar from '@/components/HabitRadar';
+import ProgressPhotos from '@/components/progress/ProgressPhotos';
+import WeeklyMacroChart from '@/components/charts/WeeklyMacroChart';
+import HabitRadar from '@/components/charts/HabitRadar';
 import { CLIENT_SHOWS_CALORIES } from '@/lib/client-view';
 import { localToday } from '../../../lib/dates';
 

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 import type { HabitCheckin } from '@/lib/types';
-import { localDateStr } from '../lib/dates';
+import { localDateStr } from '@/lib/dates';
 
 interface ComplianceTrendProps {
   clientHabitId: string | null;

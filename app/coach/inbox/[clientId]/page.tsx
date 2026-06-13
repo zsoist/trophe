@@ -11,7 +11,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { Icon } from '@/components/ui';
-import ChatThread from '@/components/ChatThread';
+import ChatThread from '@/components/shared/ChatThread';
 
 export default function CoachThreadPage() {
   const router = useRouter();

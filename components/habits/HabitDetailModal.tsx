@@ -3,7 +3,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import type { Habit, ClientHabit, HabitCheckin, Language, CoreLanguage } from '@/lib/types';
-import { localDateStr } from '../lib/dates';
+import { localDateStr } from '@/lib/dates';
 
 interface HabitDetailModalProps {
   open: boolean;

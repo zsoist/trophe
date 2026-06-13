@@ -2,10 +2,10 @@
 
 import { useEffect } from 'react';
 import { I18nProvider } from '@/lib/i18n';
-import { ToastProvider } from '@/components/Toast';
-import { ThemeModeProvider } from '@/components/ThemeMode';
-import ErrorBoundary from '@/components/ErrorBoundary';
-import { SWRegistration } from '@/components/SWRegistration';
+import { ToastProvider } from '@/components/shared/Toast';
+import { ThemeModeProvider } from '@/components/shared/ThemeMode';
+import ErrorBoundary from '@/components/shared/ErrorBoundary';
+import { SWRegistration } from '@/components/shared/SWRegistration';
 import { supabase } from '@/lib/supabase';
 import type { ReactNode } from 'react';
 

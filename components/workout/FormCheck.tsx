@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Loader2, AlertCircle, CircleDot } from 'lucide-react';
 import type { PoseLandmarker } from '@mediapipe/tasks-vision';
-import PoseOverlay from './PoseOverlay';
+import PoseOverlay from '@/components/workout/PoseOverlay';
 import {
   extractPosePoints,
   computeAngles,

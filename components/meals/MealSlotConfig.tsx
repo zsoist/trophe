@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Trash2, GripVertical, Copy } from 'lucide-react';
-import type { MealSlot } from './MealSlotCard';
+import type { MealSlot } from '@/components/meals/MealSlotCard';
 import type { MealType } from '@/lib/types';
 
 interface MealSlotConfigProps {

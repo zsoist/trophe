@@ -9,9 +9,9 @@ import { useI18n } from '@/lib/i18n';
 import { useClientNav } from '@/lib/useClientNav';
 import { CLIENT_SHOWS_CALORIES } from '@/lib/client-view';
 import type { ClientProfile, ClientHabit, HabitCheckin, FoodLogEntry, WaterLogEntry, Mood, Profile } from '@/lib/types';
-import WeeklyCheckin from '@/components/WeeklyCheckin';
-import { DashboardSkeleton } from '@/components/Skeleton';
-import HabitDetailModal from '@/components/HabitDetailModal';
+import WeeklyCheckin from '@/components/summary/WeeklyCheckin';
+import { DashboardSkeleton } from '@/components/shared/Skeleton';
+import HabitDetailModal from '@/components/habits/HabitDetailModal';
 import { localToday } from '../../lib/dates';
 
 // ─── Greeting (no emojis — handoff spec) ───────────────────────

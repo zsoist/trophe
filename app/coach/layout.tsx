@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import FeedbackWidget from '@/components/FeedbackWidget';
+import FeedbackWidget from '@/components/shared/FeedbackWidget';
 
 /**
  * Coach-area layout. Passes children through untouched and mounts the beta

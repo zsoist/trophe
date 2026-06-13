@@ -6,7 +6,7 @@ import { TrendingUp, ChevronDown, ChevronUp, Calendar } from 'lucide-react';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { supabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
-import { localToday, localDateStr } from '../lib/dates';
+import { localToday, localDateStr } from '@/lib/dates';
 
 interface DayPatternsProps {
   userId: string;
