@@ -1,8 +1,21 @@
 import { z } from 'zod';
 
+// DeepSeek occasionally emits clarification_question as an array of objects
+// ({question: "..."} or {text: "..."}) instead of a string, and omits items
+// entirely when asking for clarification. Coerce both instead of 422-ing the
+// whole parse (3 benchmark cases failed on this).
+const clarificationEntry = z.union([
+  z.string(),
+  z.object({ question: z.string() }).transform(o => o.question),
+  z.object({ text: z.string() }).transform(o => o.text),
+]);
+
 export const foodParseStructuredSchema = z.object({
   needs_clarification: z.boolean(),
-  clarification_question: z.union([z.string(), z.array(z.string()).transform(a => a.join(' '))]).nullable(),
+  clarification_question: z.union([
+    z.string(),
+    z.array(clarificationEntry).transform(a => a.join(' ')),
+  ]).nullable(),
   items: z.array(z.object({
     raw_text: z.string(),
     food_name: z.string().min(1),
@@ -36,7 +49,7 @@ export const foodParseStructuredSchema = z.object({
     per_100g_protein: z.number().nonnegative().optional(),
     per_100g_carbs: z.number().nonnegative().optional(),
     per_100g_fat: z.number().nonnegative().optional(),
-  })),
+  })).default([]),
 });
 
 export type FoodParseStructuredOutput = z.infer<typeof foodParseStructuredSchema>;

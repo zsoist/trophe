@@ -88,7 +88,7 @@ describe('Fallback schema compatibility', () => {
   it('food_parse schema requires all pipeline-critical fields', () => {
     // These fields are accessed by index.v4.ts during pipeline processing.
     // If the schema doesn't require them, a fallback provider might omit them.
-    const requiredPaths = ['items', 'needs_clarification'];
+    const requiredPaths = ['needs_clarification'];
     const itemPaths = ['food_name', 'quantity', 'unit', 'raw_text', 'confidence', 'recognized'];
 
     for (const path of requiredPaths) {
@@ -96,6 +96,13 @@ describe('Fallback schema compatibility', () => {
       const result = foodParseStructuredSchema.safeParse(missing);
       expect(result.success, `Schema should reject missing '${path}'`).toBe(false);
     }
+
+    // 'items' deliberately defaults to [] — DeepSeek omits it when asking for
+    // clarification, and rejecting the parse 422'd valid clarification turns.
+    const noItems = { ...FOOD_PARSE_FIXTURE, items: undefined };
+    const parsed = foodParseStructuredSchema.safeParse(noItems);
+    expect(parsed.success, 'Missing items should coerce to []').toBe(true);
+    if (parsed.success) expect(parsed.data.items).toEqual([]);
 
     for (const path of itemPaths) {
       const badItem = { ...FOOD_PARSE_FIXTURE.items[0], [path]: undefined };
