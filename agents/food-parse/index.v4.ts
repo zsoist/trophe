@@ -32,7 +32,6 @@ import { pick } from '../router';
 import { emitGenAISpan, estimateCostUsd } from '../observability/otel';
 import { executeAiTask } from '../runtime';
 import { invokeStructuredProvider } from '../runtime/providers/structured';
-import { invokeVoyageEmbedding } from '../runtime/providers/voyage';
 import { foodParseGeminiResponseSchema, foodParseStructuredSchema } from '../schemas/food-parse-structured';
 import { macroEstimateGeminiResponseSchema, macroEstimateStructuredSchema } from '../schemas/macro-estimate-structured';
 
@@ -1033,25 +1032,6 @@ export async function run(
       region:    regionCode,
     });
   }
-
-  // Activate the HNSW vector arm: embed each query name (Voyage) and attach it
-  // so lookup does semantic kNN + BM25 (RRF-merged), not BM25-only. All foods
-  // are embedded, so this catches fuzzy/cross-lingual/colloquial names BM25
-  // misses. Best-effort: an embed failure leaves queryEmbedding undefined and
-  // the item silently falls back to BM25-only (no regression).
-  await Promise.all(lookupInputs.map(async (li) => {
-    try {
-      const r = await executeAiTask({
-        task: 'embed',
-        prompt: li.foodName,
-        context: { userId: opts?.userId, metadata: { operation: 'lookup-query-embed' } },
-        invoke: ({ policy, signal }) => invokeVoyageEmbedding({
-          model: policy.model, text: li.foodName, inputType: 'query', signal,
-        }),
-      });
-      if (Array.isArray(r.output) && r.output.length === 1024) li.queryEmbedding = r.output;
-    } catch { /* BM25-only fallback */ }
-  }));
 
   const lookupResults = await lookupFoodBatch(lookupInputs);
 
