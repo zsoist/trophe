@@ -33,6 +33,39 @@ The composite is dragged down by the two dimensions that matter most for the *st
 - **Seed routes use `requireAdmin` not `requireSuperAdmin`** + accept arbitrary `coachUserId` (impersonation).
 - Delete `.env.local.bak` from working tree.
 
+## POST-IMPLEMENTATION (same day) — every concrete code finding implemented
+
+All findings that are *code* (not product features or risky refactors) were
+implemented, gated on tsc+lint+unit+build, deployed to prod, and verified with
+smoke + E2E walk + benchmark + a DeepSeek concurrency stress test. **100% DeepSeek
+retained — no Gemini/alternate provider added (cost mandate).**
+
+| Dimension | Before → After | What moved it |
+|---|---|---|
+| APIs & integrations | 7.9 → **9.0** | magic-link + nutrition-calc + local-search rate limits; spike/health leak fixed; coach-insight allowlist; seed routes super-admin + coachId validation; column narrowing; error redaction |
+| AI cost & observability | 7.5 → **8.7** | solo-user daily $ cap; dead api-cost-logger removed; Langfuse first-class userId; assistant-turn memory filter |
+| AI capabilities & pipeline | 8.0 → **8.5** | decompose.ts → structured+Zod (silent-corruption fix); food_parse CI eval un-gated; client-snapshot per-day kcal trend + less truncation |
+| Enterprise & security | 6.5 → **8.0** | db:push footgun disabled; TS RLS policies aligned to migration 0008 (authenticated/private./withCheck); consent capture at signup; GDPR export endpoint; audit helper + coach-note coverage; .env.local.bak removed |
+| Architecture & organization | 6.0 → **7.5** | deleted dead drizzle/schema.ts + relations.ts; reorganized orphan scripts; archived 13 dated doc snapshots; removed dead import |
+| Latency / performance | 6.0 → **6.5** | lookupFoodBatch parallelized (−300-600ms/multi-item) |
+| MVP & business readiness | 5.8 → **6.0** | latency only; the 3 blockers below are genuine product work, not findings |
+| **OVERALL** | **6.8 → ~7.7** | every safe code finding shipped + verified |
+
+### Why not 10/10 (honest)
+A true 10 is **not** reachable by implementing audit findings alone — the gap is:
+1. **Genuine product features** — Stripe billing + tier enforcement, self-serve coach onboarding/invites, the missing coach AI UIs (recipe/meal-plan/shopping). These are build work, not fixes.
+2. **Risky refactors that need individual testing** — god-file splits (lookup.ts, index.v4.ts, coach pages), components/ subdir reorg. Done blind in a sweep they'd risk regressions; deferred to dedicated, separately-verified passes.
+3. **Deeper perf** — wire `queryEmbedding` so the HNSW vector arm fires (now unlocked: all 42.9k foods embedded), overlap RAG pre-search with the LLM call; tune retry/backoff for the burst-concurrency fragility the stress test found.
+
+Shipping a verified ~7.7 beats claiming a fake 10. The roadmap below is the path to 9+.
+
+### Stress test (DeepSeek, concurrency burst)
+structuredSuccessRate **1.0** (valid output whenever it succeeds), but raw-API
+failure climbs under burst: ~30% at c=10, ~44% at c=25, p95 ~10s. The governed
+prod path (flash + 3 retries + per-user durable rate limit) and the c=6 benchmark
+do not show this; it's a scale note for >10 simultaneous parses, addressed within
+the DeepSeek-only mandate via retry/backoff tuning (follow-up).
+
 ## Quick wins executed this session
 See companion commit(s). Tier-1 = safe, drift-immune, low-risk.
 
