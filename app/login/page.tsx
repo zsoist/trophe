@@ -18,7 +18,10 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = safeRedirectTo(searchParams.get('redirectTo'));
-  const initialMode = searchParams.get('mode') === 'signup' ? 'signup' : 'login';
+  // Coach beta invite code (?code=…) — elevates signup to a coach account (B1).
+  const inviteCode = searchParams.get('code')?.trim() || undefined;
+  // A code link implies signup intent.
+  const initialMode = (searchParams.get('mode') === 'signup' || inviteCode) ? 'signup' : 'login';
 
   const [mode, setMode] = useState<'login' | 'signup'>(initialMode);
   const [email, setEmail] = useState('');
@@ -64,7 +67,7 @@ function LoginForm() {
         const res = await fetch('/api/auth/signup', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password, full_name: fullName }),
+          body: JSON.stringify({ email, password, full_name: fullName, inviteCode }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Signup failed');
@@ -73,8 +76,10 @@ function LoginForm() {
         const { error: loginError } = await supabase.auth.signInWithPassword({ email, password });
         if (loginError) throw loginError;
 
-        setSuccess('Account created! Setting up your profile...');
-        setTimeout(() => router.replace('/onboarding'), 800);
+        // Coaches (invite-code signups) land on the coach workspace; clients onboard.
+        const dest = inviteCode ? '/coach' : '/onboarding';
+        setSuccess('Account created! Setting up your workspace...');
+        setTimeout(() => router.replace(dest), 800);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');

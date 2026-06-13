@@ -7,6 +7,7 @@ const signupSchema = z.object({
   email: z.string().trim().email().max(254),
   password: z.string().min(8).max(128),
   full_name: z.string().trim().min(1).max(120),
+  inviteCode: z.string().trim().min(1).max(64).optional(),
 }).strict();
 
 /**
@@ -34,18 +35,36 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     }
-    const { email, password, full_name } = parsed.data;
-    // Public signup always creates a 'client' — elevated roles require the invite path
-    const FORCED_ROLE = 'client' as const;
-
+    const { email, password, full_name, inviteCode } = parsed.data;
     const service = createSupabaseServiceClient();
+
+    // Resolve role: default 'client'. A VALID invite code elevates to its role
+    // (coach/admin). The role is taken from the DB code record, NEVER from client
+    // input — so the request body cannot self-assign an elevated role. (plan B1)
+    let role: 'client' | 'coach' | 'admin' = 'client';
+    let usedCodeId: string | null = null;
+    if (inviteCode) {
+      const { data: code } = await service
+        .from('beta_invite_codes')
+        .select('id, role, max_uses, used_count, expires_at')
+        .eq('code', inviteCode.trim())
+        .maybeSingle();
+      const valid = code
+        && code.used_count < code.max_uses
+        && (!code.expires_at || new Date(code.expires_at) > new Date());
+      if (!valid) {
+        return NextResponse.json({ error: 'Invalid or expired invite code' }, { status: 400 });
+      }
+      role = code.role as 'coach' | 'admin';
+      usedCodeId = code.id;
+    }
 
     // 1. Create auth user with auto-confirm via Admin SDK
     const { data: authData, error: authError } = await service.auth.admin.createUser({
       email,
       password,
       email_confirm: true,
-      user_metadata: { full_name, role: FORCED_ROLE },
+      user_metadata: { full_name, role },
     });
 
     if (authError || !authData.user) {
@@ -58,24 +77,33 @@ export async function POST(req: NextRequest) {
 
     const userId = authData.user.id;
 
-    // 2. Create profile record — role is always FORCED_ROLE, never client-supplied
+    // 2. Create profile record — role resolved above (client unless a valid code)
     const { error: profileError } = await service
       .from('profiles')
-      .insert({ id: userId, full_name, email, role: FORCED_ROLE });
+      .insert({ id: userId, full_name, email, role });
     if (profileError) {
       await service.auth.admin.deleteUser(userId);
       throw new Error(`Profile creation failed: ${profileError.message}`);
     }
 
-    // 3. Create client_profile — all public signups are clients
-    const { error: clientProfileError } = await service.from('client_profiles').insert({
-      user_id: userId,
-      coaching_phase: 'onboarding',
-    });
-    if (clientProfileError) {
-      await service.from('profiles').delete().eq('id', userId);
-      await service.auth.admin.deleteUser(userId);
-      throw new Error(`Client profile creation failed: ${clientProfileError.message}`);
+    // 3. Client-role signups get a client_profile; coaches/admins do not.
+    if (role === 'client') {
+      const { error: clientProfileError } = await service.from('client_profiles').insert({
+        user_id: userId,
+        coaching_phase: 'onboarding',
+      });
+      if (clientProfileError) {
+        await service.from('profiles').delete().eq('id', userId);
+        await service.auth.admin.deleteUser(userId);
+        throw new Error(`Client profile creation failed: ${clientProfileError.message}`);
+      }
+    }
+
+    // 3b. Consume one use of the invite code — atomic guarded increment (the
+    // SQL fn only increments when used_count < max_uses). Non-blocking.
+    if (usedCodeId) {
+      await service.rpc('increment_invite_use', { p_code_id: usedCodeId })
+        .then(() => {}, (e) => console.error('[signup] invite-code increment failed (non-blocking):', e));
     }
 
     // 4. Record consent for nutrition (Art. 9 special-category) processing.
