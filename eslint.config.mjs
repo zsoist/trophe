@@ -56,6 +56,9 @@ const eslintConfig = defineConfig([
     "docs/v0.3/design-handoff/**",
     // Drizzle Kit auto-generated artifacts (introspect output and migrations).
     "drizzle/**",
+    // Generated PWA service worker (Serwist build output — minified, not source).
+    "public/sw.js",
+    "public/**",
   ]),
 ]);
 
