@@ -83,6 +83,35 @@ export const foodLog = pgTable('food_log', {
   check('food_log_source_check', sql`source = ANY (ARRAY['usda'::text, 'openfoodfacts'::text, 'custom'::text, 'photo_ai'::text, 'natural_language'::text, 'ai_estimate'::text])`),
 ]);
 
+/**
+ * Correction-capture flywheel (migration 0035). Gold labels for fine-tuning:
+ * every human correction of an AI-parsed entry = (input → AI estimate → truth),
+ * on OUR Greek/EU cuisine distribution. The labeled-data engine for <10% MAPE.
+ */
+export const foodParseCorrections = pgTable('food_parse_corrections', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull(),
+  correctedBy: uuid('corrected_by').notNull(),
+  foodLogId: uuid('food_log_id'),
+  inputText: text('input_text').notNull(),
+  qtyInput: numeric('qty_input', { precision: 8, scale: 2 }),
+  qtyInputUnit: text('qty_input_unit'),
+  aiSource: text('ai_source'),
+  aiConfidence: real('ai_confidence'),
+  aiCalories: real('ai_calories'),
+  aiProteinG: real('ai_protein_g'),
+  aiCarbsG: real('ai_carbs_g'),
+  aiFatG: real('ai_fat_g'),
+  correctedCalories: real('corrected_calories'),
+  correctedProteinG: real('corrected_protein_g'),
+  correctedCarbsG: real('corrected_carbs_g'),
+  correctedFatG: real('corrected_fat_g'),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
+}, (table) => [
+  index('idx_fpc_created').using('btree', table.createdAt.desc()),
+  pgPolicy('fpc super admin read', { as: 'permissive', for: 'select', to: ['authenticated'], using: sql`(SELECT private.is_super_admin())` }),
+]);
+
 export const foodDatabase = pgTable('food_database', {
   id: uuid().defaultRandom().primaryKey().notNull(),
   name: text().notNull(),

@@ -132,6 +132,73 @@ export const foodRouter = router({
         return { ok: true };
       }),
 
+    // ── Edit a food log entry (+ correction-capture flywheel) ────────────
+    // When a human corrects an AI-parsed entry, we record (input → AI estimate
+    // → human truth) as a gold label for fine-tuning (migration 0035).
+    edit: protectedProcedure
+      .input(
+        z.object({
+          entryId: z.string().uuid(),
+          foodName: z.string().min(1).max(200).optional(),
+          calories: z.number().min(0).max(10000).optional(),
+          proteinG: z.number().min(0).max(1000).optional(),
+          carbsG: z.number().min(0).max(1000).optional(),
+          fatG: z.number().min(0).max(1000).optional(),
+          fiberG: z.number().min(0).max(1000).optional(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        // Load the existing entry — own log only (clients edit their own;
+        // coach-side correction goes through a coach procedure later).
+        const [existing] = await ctx.db
+          .select()
+          .from(foodLog)
+          .where(and(eq(foodLog.id, input.entryId), eq(foodLog.userId, ctx.user!.id)))
+          .limit(1);
+        if (!existing) throw new TRPCError({ code: 'NOT_FOUND', message: 'Entry not found' });
+
+        const next = {
+          foodName: input.foodName ?? existing.foodName,
+          calories: input.calories ?? existing.calories,
+          proteinG: input.proteinG ?? existing.proteinG,
+          carbsG: input.carbsG ?? existing.carbsG,
+          fatG: input.fatG ?? existing.fatG,
+          fiberG: input.fiberG ?? existing.fiberG,
+        };
+
+        const [updated] = await ctx.db
+          .update(foodLog)
+          .set(next)
+          .where(and(eq(foodLog.id, input.entryId), eq(foodLog.userId, ctx.user!.id)))
+          .returning();
+
+        // Flywheel: capture only AI-parsed entries (parseConfidence set) whose
+        // macros materially changed (>5% on any macro) — these are real labels.
+        const wasAi = existing.parseConfidence != null;
+        const num = (v: number | string | null) => (v == null ? 0 : Number(v));
+        const changed = (a: number | string | null, b: number | string | null) => {
+          const x = num(a), y = num(b);
+          return Math.abs(x - y) > Math.max(1, 0.05 * Math.max(Math.abs(x), Math.abs(y)));
+        };
+        const macrosChanged =
+          changed(existing.calories, next.calories) || changed(existing.proteinG, next.proteinG) ||
+          changed(existing.carbsG, next.carbsG) || changed(existing.fatG, next.fatG);
+        if (wasAi && macrosChanged) {
+          await ctx.db.execute(sql`
+            INSERT INTO food_parse_corrections
+              (user_id, corrected_by, food_log_id, input_text, qty_input, qty_input_unit,
+               ai_source, ai_confidence, ai_calories, ai_protein_g, ai_carbs_g, ai_fat_g,
+               corrected_calories, corrected_protein_g, corrected_carbs_g, corrected_fat_g)
+            VALUES (${existing.userId}, ${ctx.user!.id}, ${existing.id}, ${existing.foodName},
+               ${existing.qtyInput}, ${existing.qtyInputUnit}, ${existing.source}, ${existing.parseConfidence},
+               ${num(existing.calories)}, ${num(existing.proteinG)}, ${num(existing.carbsG)}, ${num(existing.fatG)},
+               ${num(next.calories)}, ${num(next.proteinG)}, ${num(next.carbsG)}, ${num(next.fatG)})
+          `).catch((e) => console.error('[flywheel] correction capture failed (non-blocking):', e));
+        }
+
+        return updated;
+      }),
+
     // ── Daily macro summary ──────────────────────────────────────────
     summary: protectedProcedure
       .input(
