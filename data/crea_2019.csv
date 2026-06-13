@@ -1,0 +1,715 @@
+code,name_it,kcal_100g,protein_100g,carbs_100g,fat_100g,fiber_100g,sugar_100g,sodium_mg_100g
+120010,Acciuga o alice,96.0,16.8,1.5,2.6,0.0,1.5,110.0
+120020,"Acciuga o alice, sott'olio",206.0,25.9,0.2,11.3,0.0,0.2,480.0
+120030,"Acciuga o alice, sotto sale",137.0,25.0,2.3,3.1,0.0,2.3,
+005000,Aglio,53.0,8.4,1.0,0.8,4.3,1.0,4.0
+005004,Aglio Bianco Piacentino,47.0,7.2,0.9,0.6,4.7,0.94,3.0
+005001,Aglio Rosso di Castelliri,52.0,8.9,1.02,0.5,3.8,1.02,4.0
+005002,Aglio Rosso di Procerno,57.0,8.9,1.0,0.9,4.6,1.02,5.0
+005003,Aglio Rosso di Sulmona,58.0,8.7,1.0,1.3,4.0,0.97,5.0
+104033,"Agnello, coscio, cotto, al forno",118.0,23.0,0.0,2.9,0.0,0.0,65.0
+104030,"Agnello, coscio, crudo",102.0,20.0,0.0,2.5,0.0,0.0,68.0
+104043,"Agnello, costoletta, cotto, al forno",118.0,22.7,0.0,3.0,0.0,0.0,71.0
+104040,"Agnello, costoletta, crudo",106.0,20.4,0.0,2.7,0.0,0.0,70.0
+104029,"Agnello, cotto, al forno",199.0,25.0,0.0,11.0,0.0,0.0,106.0
+104020,"Agnello, crudo",159.0,20.0,0.0,8.8,0.0,0.0,88.0
+005025,"Agretti, cotti, bolliti",25.0,2.1,2.6,0.2,2.7,2.6,
+005010,"Agretti, crudi",22.0,1.8,2.2,0.2,2.3,2.2,
+007010,"Albicocche, disidratate",356.0,5.6,80.6,1.0,11.0,80.6,33.0
+007000,"Albicocche, fresche",42.0,0.4,9.8,0.1,1.5,9.8,1.0
+007020,"Albicocche, sciroppate",65.0,0.4,16.1,0.1,0.9,16.1,10.0
+007030,"Albicocche, secche",286.0,5.0,66.5,0.5,6.0,66.5,26.0
+007700,"Amarene, fresche",44.0,0.8,10.2,0.0,1.1,10.2,2.0
+008610,Anacardi,604.0,15.0,33.0,46.0,3.0,5.6,16.0
+007460,"Ananas, fresco",42.0,0.5,10.0,0.0,1.0,10.0,2.0
+007470,"Ananas, sciroppato",66.0,0.5,16.6,0.0,0.7,16.6,2.0
+106010,"Anatra domestica, crudo",159.0,21.4,0.0,8.2,0.0,0.0,110.0
+120250,"Anguilla d'allevamento, filetti",237.0,16.2,0.5,18.9,0.0,0.5,
+120230,Anguilla di fiume,261.0,11.8,0.1,23.7,0.0,0.1,65.0
+120240,Anguilla di mare,237.0,14.6,0.7,19.6,0.0,0.7,87.0
+120210,"Anguilla, affumicata",231.0,17.5,0.2,17.8,0.0,0.2,
+120220,"Anguilla, marinata",259.0,14.8,0.6,21.9,0.0,0.6,
+115010,Animelle di bovini,304.0,11.5,0.1,28.6,0.0,0.1,
+115019,"Animelle di bovini, cotte",434.0,16.4,0.2,40.9,0.0,0.2,
+007480,"Anona, fresca",73.0,1.8,15.8,0.2,2.2,,4.0
+008500,"Arachidi, tostate",620.0,29.0,8.5,50.0,10.9,3.1,6.0
+128050,Aragosta,85.0,16.0,1.0,1.9,0.0,1.0,177.0
+128055,"Aragosta, bollita",86.0,16.2,1.0,1.9,0.0,1.0,179.0
+008011,"Arance bionde succo, fresco",38.0,0.5,9.6,0.0,0.0,9.6,
+008001,"Arance bionde, fresche",45.0,0.7,9.9,0.2,1.6,9.9,
+008005,"Arance Moro, fresche",42.0,0.7,9.0,0.2,1.6,9.0,
+008012,"Arance rosse succo, fresco",39.0,0.5,9.8,0.0,0.0,9.8,
+008004,"Arance rosse, fresche",45.0,0.7,9.9,0.2,1.6,9.9,
+008006,"Arance Sanguinello, fresche",47.0,0.7,10.6,0.1,1.6,10.6,
+008010,"Arance succo, fresco",33.0,0.5,8.2,0.0,0.0,8.2,2.0
+008007,"Arance Tarocco, fresche",45.0,0.7,10.0,0.2,1.6,10.0,
+008002,"Arance Valencia, fresche",39.0,0.7,8.0,0.3,1.6,8.0,
+008003,"Arance Washington Navel, fresche",44.0,1.0,9.4,0.2,1.6,9.4,
+008000,"Arance, fresche",37.0,0.7,7.8,0.2,1.6,7.8,3.0
+401010,Aranciata,38.0,0.1,10.0,0.0,0.0,10.0,0.0
+120300,Aringa,216.0,16.5,0.0,16.7,0.0,0.0,95.0
+120310,"Aringa, affumicata",194.0,19.9,0.0,12.7,0.0,0.0,1237.0
+120320,"Aringa, marinata",199.0,18.3,0.0,14.0,0.0,0.0,1030.0
+120330,"Aringa, sotto sale",218.0,19.8,0.0,15.4,0.0,0.0,5060.0
+005030,"Asparagi di bosco, crudi",40.0,4.6,4.0,0.2,2.2,4.0,5.0
+005045,"Asparagi di campo, cotti, bolliti",34.0,3.8,3.4,0.2,2.1,3.4,1.0
+005040,"Asparagi di campo, crudi",33.0,3.6,3.3,0.2,2.0,3.3,1.0
+005050,"Asparagi di serra, crudi",28.0,3.0,3.0,0.1,2.1,3.0,1.0
+007490,"Avocado, fresco",238.0,4.4,1.8,23.0,3.3,1.8,2.0
+207010,Baba' al rhum,288.0,5.9,41.2,5.7,1.1,18.5,
+007500,"Babaco, fresca",24.0,0.7,4.5,0.2,1.1,4.5,1.0
+120510,Cefalo muggine,127.0,15.8,0.7,6.8,0.0,0.7,67.0
+120610,Cernia surgelata,88.0,17.0,0.5,2.0,0.0,0.5,120.0
+115110,Cervello di bovini,157.0,10.0,0.8,12.7,0.0,0.8,140.0
+108010,"Cervo, solo tessuto muscolare, crudo",91.0,21.0,0.0,0.8,0.0,0.0,
+005220,"Cetrioli, freschi",16.0,0.7,1.8,0.5,0.8,1.8,13.0
+160880,Cheddar,388.0,26.7,0.5,31.0,0.0,0.5,610.0
+119020,"Cheese burger, fast food",300.0,16.3,30.2,13.1,2.0,,
+119040,"Chicken Nuggets, fast food",242.0,17.7,15.4,12.4,0.9,1.5,
+110130,Ciccioli,636.0,45.2,0.0,50.6,0.0,,640.0
+005230,"Cicoria, da taglio, coltivata, cruda",14.0,1.2,1.7,0.1,1.2,1.7,7.0
+005245,"Cicoria, di campo, cotta, bollita",17.0,1.4,0.7,0.2,3.6,0.7,1.0
+005240,"Cicoria, di campo, cruda",17.0,1.4,0.7,0.2,3.6,0.7,1.0
+005250,"Cicoria, witloof o indivia belga, cruda",20.0,0.7,3.2,0.3,1.1,3.2,
+007720,"Ciliege, candite",252.0,0.4,66.4,0.0,0.9,66.4,27.0
+007710,"Ciliege, fresche",48.0,0.8,11.0,0.1,1.3,11.0,3.0
+203010,"Cioccolato, al latte",552.0,7.3,50.5,36.3,3.2,50.5,120.0
+203030,"Cioccolato, al latte con nocciole",553.0,7.2,48.6,36.9,4.8,48.6,
+203020,"Cioccolato, fondente",531.0,6.6,49.7,33.6,8.0,49.7,11.0
+005305,"Cipolle, cotte, bollite",39.0,1.4,7.8,0.1,1.4,7.8,8.0
+005300,"Cipolle, crude",28.0,1.0,5.7,0.1,1.0,5.7,10.0
+005315,"Cipolline, cotte, bollite",53.0,1.7,10.9,0.1,2.4,10.9,
+005310,"Cipolline, crude",42.0,1.3,8.5,0.1,1.9,8.5,
+008020,"Clementine, fresche",40.0,0.9,8.7,0.1,1.2,8.7,4.0
+007530,"Cocco, essiccato",669.0,5.6,16.4,62.0,13.7,16.4,28.0
+007520,"Cocco, fresco",358.0,3.5,4.4,35.0,6.1,4.4,23.0
+008940,Cocktail di frutta sciroppata,59.0,0.4,14.8,0.0,1.0,14.8,3.0
+007040,"Cocomero, fresco",16.0,0.4,3.7,0.0,0.2,3.7,3.0
+107010,"Coniglio intero, crudo",118.0,19.9,0.0,4.3,0.0,0.0,67.0
+107030,"Coniglio, coscio, crudo",137.0,21.0,0.0,5.9,0.0,0.0,
+107020,"Coniglio, intero surgelato, crudo",116.0,20.3,0.0,3.9,0.0,0.0,67.0
+107019,"Coniglio, intero, cotto",166.0,27.9,0.0,6.0,0.0,0.0,
+110150,Coppa,400.0,28.9,0.0,31.6,0.0,,1960.0
+115120,Coratella di agnello,109.0,15.7,1.0,4.7,0.0,1.0,
+115130,Coratella di vitello,100.0,17.1,0.8,3.2,0.0,0.8,
+120710,Coregone,135.0,19.0,0.1,6.5,0.0,0.1,
+003020,Corn flakes,367.0,6.6,87.4,0.8,2.8,10.4,500.0
+002500,Cornetti,403.0,7.2,54.7,18.3,2.1,10.6,350.0
+120810,Corvina,88.0,20.0,0.2,0.8,0.0,0.2,128.0
+110195,"Cotechino Modena IGP, cotto",253.0,23.6,3.2,16.3,0.0,,880.0
+110190,"Cotechino, confezionato precotto",449.0,17.2,0.0,42.3,0.0,0.0,1138.0
+000046,"Couscous, cotto",179.0,3.6,39.7,1.1,2.7,1.3,96.0
+000045,"Couscous, crudo",361.0,13.7,76.5,1.1,4.5,2.7,10.0
+127120,Cozza o mitilo,84.0,11.7,3.4,2.7,0.0,0.3,290.0
+001000,"Crackers, al formaggio",498.0,10.1,59.2,25.5,2.8,5.5,688.0
+001010,"Crackers, alla soia",421.0,13.1,67.7,11.7,4.9,6.3,
+001030,"Crackers, integrali",402.0,12.0,61.7,11.4,10.0,2.1,703.0
+001020,"Crackers, salati",386.0,9.4,67.5,10.0,2.8,0.0,
+140100,"Crema di latte, 12% di lipidi",140.0,2.8,4.4,12.5,0.0,4.4,
+203500,Crema di nocciole e cacao,537.0,6.9,58.1,32.4,,58.1,50.0
+160890,Crescenza,281.0,16.1,1.9,23.3,0.0,1.9,350.0
+002510,Croissants,362.0,8.3,38.0,20.3,1.6,1.1,390.0
+208500,"Crostata, con crema al cacao, industriale",492.0,4.6,67.0,24.7,,36.1,208.0
+208520,"Crostata, con marmellata di albicocche, industriale",421.0,0.9,71.7,16.5,,28.4,235.0
+208510,"Crostata, con marmellata, industriale",339.0,4.9,65.5,8.2,,,
+000150,Crusca di frumento,290.0,14.1,26.6,5.5,42.4,3.8,28.0
+115210,Cuore di bovini,123.0,16.8,0.5,6.0,0.0,0.5,95.0
+115219,"Cuore di bovini, cotto",189.0,25.8,0.8,9.2,0.0,0.8,
+115220,Cuore di equini,146.0,18.7,0.6,7.7,0.0,0.6,
+115230,Cuore di ovini,134.0,16.9,0.4,7.2,0.0,0.4,
+115240,Cuore di pollo,103.0,14.1,0.2,5.1,0.0,0.2,
+115249,"Cuore di pollo, cotto",147.0,20.1,0.3,7.3,0.0,0.3,
+115250,Cuore di suino,159.0,18.3,0.4,9.4,0.0,0.4,80.0
+115260,Cuore di tacchino,103.0,14.1,0.2,5.1,0.0,0.2,
+115269,"Cuore di tacchino, cotto",147.0,20.1,0.3,7.3,0.0,0.3,
+503010,Dadi da brodo,250.0,15.7,5.0,18.7,,,
+108100,"Daino, solo tessuto muscolare, crudo",95.0,21.0,0.0,1.2,0.0,0.0,81.0
+007630,"Datteri, secchi",270.0,2.7,63.1,0.6,8.7,63.1,5.0
+120910,Dentice,101.0,16.7,0.7,3.5,0.0,0.7,128.0
+120920,"Dentice, surgelato",103.0,17.2,0.7,3.5,0.0,0.7,
+161200,Dolce verde,276.0,19.1,2.5,21.1,0.0,2.5,
+161600,Edam,326.0,25.5,1.4,24.3,0.0,1.4,
+161610,Emmenthal,403.0,28.5,3.6,30.6,0.0,3.6,450.0
+108510,"Fagiano, crudo",144.0,24.3,0.0,5.2,0.0,0.0,70.0
+004100,Fagioli,326.0,23.6,47.5,2.0,17.5,3.5,4.0
+004220,"Fagioli dall'occhio, secchi",318.0,22.4,50.9,1.4,12.7,4.0,14.0
+004110,"Fagioli, Borlotti, freschi",143.0,10.2,22.7,0.8,4.8,1.2,2.0
+004115,"Fagioli, Borlotti, freschi, cotti, bolliti",78.0,5.7,11.2,0.5,4.2,0.5,
+004130,"Fagioli, Borlotti, in scatola, scolati",102.0,6.7,15.9,0.5,5.5,1.0,294.0
+004120,"Fagioli, Borlotti, secchi",312.0,20.2,47.7,2.0,17.3,3.5,3.0
+004125,"Fagioli, Borlotti, secchi, cotti, bolliti",106.0,6.9,16.4,0.4,6.9,1.0,2.0
+004210,"Fagioli, Cannellini in scatola, scolati",86.0,6.0,12.5,0.6,4.8,0.3,431.0
+004200,"Fagioli, Cannellini, secchi",314.0,23.4,45.5,1.6,17.6,2.9,5.0
+004205,"Fagioli, Cannellini, secchi, cotti, bolliti",107.0,8.0,14.9,0.4,7.8,0.6,2.0
+004105,"Fagioli, cotti, bolliti",117.0,7.9,17.0,0.7,7.8,1.2,
+004305,"Fagiolini a corallo, cotti, bolliti",31.0,1.7,4.6,0.1,2.9,2.1,
+004310,"Fagiolini, freschi",24.0,2.1,2.4,0.1,2.9,2.4,2.0
+004325,"Fagiolini, surgelati, cotti, bolliti",31.0,1.7,4.6,0.1,2.9,2.1,8.0
+106020,"Faraona, coscio, con pelle, crudo",133.0,24.3,0.3,3.8,0.0,0.0,97.0
+106032,"Faraona, coscio, senza pelle, cotto, allo spiedo",194.0,34.4,0.3,6.1,0.0,0.0,180.0
+106030,"Faraona, coscio, senza pelle, crudo",127.0,24.0,0.3,3.3,0.0,0.0,100.0
+106052,"Faraona, petto, senza pelle, cotto, allo spiedo",146.0,30.7,0.2,2.5,0.0,0.0,70.0
+106050,"Faraona, petto, senza pelle, crudo",121.0,25.8,0.2,1.9,0.0,0.0,50.0
+000200,Farina d'avena,378.0,12.6,66.3,7.1,7.6,1.2,33.0
+000210,Farina d'orzo,333.0,10.6,68.4,1.9,8.5,0.8,4.0
+504010,Farina di castagne,318.0,6.1,62.0,3.7,13.8,16.1,11.0
+000250,"Farina di frumento, duro",330.0,12.9,63.2,2.8,8.0,3.2,
+000240,"Farina di frumento, integrale",313.0,11.9,61.8,1.9,8.4,2.1,3.0
+000230,"Farina di frumento, tipo 0",321.0,11.5,69.5,1.0,2.9,1.8,2.0
+000220,"Farina di frumento, tipo 00",323.0,11.0,71.6,0.7,2.2,1.7,3.0
+000260,Farina di mais,341.0,8.7,73.5,2.7,3.1,1.5,1.0
+000320,Farina di manioca,332.0,0.6,87.2,0.2,0.4,0.0,4.0
+000270,Farina di riso,332.0,7.3,79.1,0.5,1.0,0.0,4.0
+000280,Farina di segale,342.0,11.7,67.8,2.0,11.3,0.1,
+000290,Farina di soia,469.0,36.8,23.4,23.5,11.2,11.2,9.0
+000025,"Farro perlato, cotto, bollito",178.0,6.2,37.3,1.0,2.1,0.9,1.0
+000020,"Farro perlato, crudo",353.0,14.6,69.3,2.4,6.5,2.4,10.0
+004400,"Fave, fresche",51.0,5.2,4.5,0.4,5.0,2.2,17.0
+004406,"Fave, fresche, cotte, in padella",61.0,6.1,5.3,0.5,5.9,2.6,20.0
+004410,"Fave, secche",331.0,21.3,52.8,2.1,14.7,4.5,
+004425,"Fave, secche, sgusciate, cotte, bollite",146.0,11.0,22.4,1.3,3.0,2.1,
+004420,"Fave, secche, sgusciate, crude",343.0,25.2,53.6,3.0,7.0,4.9,
+504100,Fecola di patate,346.0,1.4,90.7,0.0,,9.1,
+115320,Fegato di bovini,142.0,20.0,5.9,4.4,0.0,5.9,81.0
+115329,"Fegato di bovini, cotto",190.0,26.7,7.9,5.9,0.0,7.9,
+115340,Fegato di equini,145.0,22.4,5.3,4.0,0.0,5.3,
+115350,Fegato di ovini,135.0,19.5,2.0,5.5,0.0,2.0,67.0
+115360,Fegato di pollo,154.0,22.8,1.5,6.3,0.0,1.5,
+115369,"Fegato di pollo, cotto",192.0,29.4,2.0,7.4,0.0,2.0,
+115370,Fegato di suini,140.0,22.8,1.5,4.8,0.0,1.5,108.0
+115379,"Fegato di suini, cotto",183.0,29.4,2.0,6.4,0.0,2.0,
+115380,Fegato di tacchino,127.0,17.8,0.5,6.0,0.0,0.5,
+115389,"Fegato di tacchino, cotto",195.0,27.4,0.8,9.2,0.0,0.8,
+007550,"Feijoa, fresca",59.0,0.7,9.6,0.8,6.5,9.6,18.0
+162000,Feta,250.0,15.6,1.5,20.2,0.0,1.5,1440.0
+001500,Fette biscottate,387.0,11.3,75.0,6.0,3.5,2.2,
+001510,"Fette biscottate, integrali",394.0,14.2,63.0,10.0,5.4,1.1,
+007080,"Fichi d'india, freschi",63.0,0.8,13.0,0.1,5.0,13.0,1.0
+007060,"Fichi, canditi",294.0,3.5,73.7,0.2,1.1,73.7,
+007050,"Fichi, freschi",63.0,0.9,14.2,0.2,2.0,14.2,2.0
+007053,"Fichi, seccati al forno e mandorlati",305.0,5.2,58.2,4.2,14.0,58.2,
+007070,"Fichi, secchi",282.0,3.5,58.0,2.7,13.0,58.0,87.0
+005324,"Finocchi, cotti, al microonde",15.0,1.2,1.5,0.0,2.2,1.5,
+005325,"Finocchi, cotti, bolliti",17.0,1.4,1.7,0.0,2.6,1.7,3.0
+005320,"Finocchi, crudi",15.0,1.2,1.5,0.0,2.2,1.5,4.0
+003030,Fiocchi d'avena,367.0,8.0,66.8,7.5,8.3,0.6,
+170010,Fiocchi di formaggio magro,115.0,9.7,3.2,7.1,0.0,3.2,290.0
+162010,Fior di latte,268.0,20.6,0.7,20.3,0.0,0.7,200.0
+005330,"Fiori di zucca, freschi",18.0,1.7,0.5,0.4,2.8,0.5,
+005340,"Foglie di rapa, crude",27.0,2.6,2.8,0.1,2.5,2.8,
+162020,Fontina,361.0,24.5,0.8,28.9,0.0,0.8,686.0
+162030,Formaggino,309.0,11.2,6.0,26.9,0.0,6.0,1000.0
+162040,Formaggino con ridotto contenuto di grasso,239.0,14.7,6.5,17.3,0.0,6.5,1000.0
+162050,Formaggio cremoso spalmabile,313.0,8.6,0.0,31.0,0.0,0.0,330.0
+170510,"Formaggio cremoso spalmabile, light",179.0,9.2,3.1,14.5,0.0,3.1,
+160400,Formaggio molle da tavola,377.0,25.4,1.0,30.2,0.0,1.0,
+007730,"Fragole, fresche",30.0,0.9,5.3,0.4,1.6,5.3,2.0
+000030,Frumento duro,332.0,13.0,62.5,2.9,9.8,3.2,
+000040,Frumento tenero,336.0,12.3,65.2,2.6,9.7,3.3,
+006016,"Funghi coltivati, pleurotes, cotti, in padella",35.0,2.6,5.3,0.4,0.8,5.3,
+006010,"Funghi coltivati, pleurotes, crudi",37.0,2.2,5.6,0.3,2.4,5.6,7.0
+006006,"Funghi coltivati, prataioli, cotti, in padella",46.0,7.0,1.5,0.4,4.3,1.5,4.0
+006000,"Funghi coltivati, prataioli, crudi",24.0,3.7,0.8,0.2,2.3,0.8,5.0
+006020,"Funghi ovuli, crudi",23.0,2.0,1.6,0.3,3.0,1.6,
+006030,"Funghi porcini, crudi",31.0,3.9,1.0,0.7,2.5,1.0,52.0
+106100,"Gallina, crudo",194.0,20.9,0.0,12.3,0.0,0.0,
+128100,Gamberi,71.0,13.6,2.9,0.6,0.0,2.9,146.0
+128110,"Gamberi sgusciati, surgelati",85.0,16.5,2.9,0.9,0.0,2.9,375.0
+206260,"Gelato confezionato, biscotto con crema, zabaione e cioccolato",271.0,5.3,49.1,7.3,,,
+206010,"Gelato confezionato, cacao, in vaschetta",173.0,3.6,25.3,7.1,0.0,25.3,
+206020,"Gelato confezionato, caffè, in vaschetta",245.0,5.1,23.9,15.0,0.0,23.9,
+206270,"Gelato confezionato, cono con panna e cioccolato",291.0,5.1,34.9,15.5,,,
+206280,"Gelato confezionato, cono con panna, scaglie di cioccolato e noccioline",326.0,4.2,33.3,20.5,,,
+206040,"Gelato confezionato, fior di latte, in vaschetta",218.0,4.2,20.7,13.7,0.0,20.7,
+206050,"Gelato confezionato, fior di latte, ricoperto di sorbetto alla fragola",101.0,1.4,21.3,1.7,0.0,21.3,
+206710,"Gelato confezionato, ghiacciolo all'arancio",137.0,0.0,36.5,0.0,0.0,36.5,
+206060,"Gelato confezionato, nocciola, in vaschetta",183.0,3.3,25.2,8.4,0.0,25.2,
+206080,"Gelato confezionato, panna ricoperta di cioccolato fondente",316.0,4.5,28.2,21.4,0.0,28.2,
+206070,"Gelato confezionato, panna, in vaschetta",189.0,3.2,27.2,8.2,0.0,27.2,
+206800,"Gelato confezionato, sorbetto al limone, in vaschetta",132.0,0.9,34.2,0.0,0.0,34.2,18.0
+206090,"Gelato confezionato, stracciatella, in vaschetta",193.0,2.9,31.5,7.0,0.0,31.5,
+206100,"Gelato confezionato, vaniglia, in vaschetta",167.0,2.7,25.7,6.7,0.0,25.7,
+000330,Germe di frumento,378.0,26.0,43.5,10.0,10.5,,3.0
+005350,Germogli di soia,54.0,6.2,3.0,1.4,2.8,3.0,30.0
+006591,"Gnocchi di patate, cotti",147.0,3.5,34.0,0.2,1.8,1.0,180.0
+006590,"Gnocchi di patate, crudi",164.0,3.9,37.9,0.3,1.9,1.4,9.0
+202500,"Gomme da masticare, lastrine e confetti",262.0,0.0,70.0,0.0,0.0,70.0,
+162400,Gorgonzola,324.0,19.1,1.0,27.1,0.0,1.0,600.0
+162410,"Grana Padano, DOP",392.0,33.9,0.0,28.5,0.0,0.0,700.0
+128200,"Granchio, in scatola",81.0,18.1,0.0,0.9,0.0,0.0,550.0
+000050,Grano saraceno,329.0,12.4,61.2,3.3,10.0,,1.0
+002000,Grissini,421.0,11.3,65.1,13.9,3.5,2.2,
+162420,Groviera,417.0,30.6,1.5,32.1,0.0,1.5,332.0
+007560,"Guava, fresca",31.0,0.7,3.5,0.5,5.4,3.5,4.0
+121010,Halibut,114.0,20.6,0.0,3.5,0.0,0.0,
+119050,"Hamburger piccolo, solo carne, fast food",264.0,24.5,0.0,18.4,0.0,0.0,
+119030,"Hamburger, fast food",251.0,13.1,30.1,9.1,2.0,,
+005400,"Indivia, fresca",20.0,0.9,2.7,0.3,1.6,2.7,10.0
+163200,Italico,316.0,21.2,1.2,25.2,0.0,1.2,
+502260,"Ketchup, salsa",100.0,2.1,24.0,0.0,0.9,22.9,1120.0
+007570,"Kiwi, freschi",48.0,1.2,9.0,0.6,2.2,9.0,5.0
+007740,"Lamponi, freschi",49.0,1.0,6.5,0.6,7.4,6.5,3.0
+191010,Lardo,891.0,0.0,0.0,99.0,0.0,0.0,2.0
+132010,Latte di bufala,114.0,4.5,5.1,8.5,0.0,5.1,
+130010,Latte di capra,76.0,3.9,4.7,4.8,0.0,4.7,40.0
+131010,Latte di pecora,103.0,5.3,5.2,6.9,0.0,5.2,30.0
+135510,"Latte di vacca, condensato, zuccherato",328.0,8.7,56.5,9.0,0.0,56.5,130.0
+135520,"Latte di vacca, evaporato, non zuccherato",134.0,7.0,8.6,8.2,0.0,8.6,150.0
+135610,"Latte di vacca, in polvere, intero",484.0,25.7,42.0,24.9,0.0,42.0,440.0
+135620,"Latte di vacca, in polvere, parzialmente scremato",418.0,28.8,50.2,12.7,0.0,50.2,
+135630,"Latte di vacca, in polvere, scremato",351.0,33.1,56.2,0.9,0.0,56.2,550.0
+135010,"Latte di vacca, pastorizzato, intero",64.0,3.3,4.9,3.6,0.0,4.9,50.0
+135020,"Latte di vacca, pastorizzato, parzialmente scremato",46.0,3.5,5.0,1.5,0.0,5.0,
+135030,"Latte di vacca, pastorizzato, scremato",36.0,3.6,5.3,0.2,0.0,5.3,52.0
+135810,"Latte di vacca, UHT, intero",63.0,3.3,4.7,3.6,0.0,4.7,
+135820,"Latte di vacca, UHT, parzialmente scremato",46.0,3.2,5.1,1.6,0.0,5.1,
+164400,Latteria,456.0,30.7,1.4,36.4,0.0,1.4,
+005420,"Lattuga, a cappuccio, fresca",22.0,1.5,3.0,0.2,1.3,3.0,
+005430,"Lattuga, da taglio, fresca",17.0,1.1,2.2,0.1,1.5,2.2,
+005410,"Lattuga, fresca",22.0,1.8,2.2,0.4,1.5,2.2,9.0
+005436,"Lattughino IV gamma, fresco",16.0,1.4,1.4,0.2,1.6,1.4,18.0
+005435,"Lattughino, fresco",16.0,1.5,1.4,0.2,1.6,1.4,17.0
+202030,Lenti colorate ripiene di cioccolato,456.0,5.4,73.9,17.5,0.0,70.8,58.0
+004510,"Lenticchie, in scatola, scolate",91.0,5.0,15.4,0.5,4.2,0.7,357.0
+004500,"Lenticchie, secche",319.0,22.7,51.1,1.0,13.8,1.8,8.0
+004505,"Lenticchie, secche, cotte, bollite",109.0,6.9,16.3,0.4,8.3,0.7,2.0
+503100,"Lievito di birra, compresso",70.0,12.1,1.1,0.4,6.9,1.1,16.0
+008030,"Limoni, freschi",16.0,0.6,2.5,0.0,1.9,2.5,2.0
+008040,"Limoni, succo",10.0,0.2,2.5,0.0,0.0,2.5,2.0
+115400,Lingua di bovini,232.0,17.1,0.4,18.0,0.0,0.4,73.0
+115409,"Lingua di bovini, cotta, fritta",309.0,22.8,0.5,24.0,0.0,0.5,
+007580,"Litchi, freschi",72.0,1.1,17.2,0.1,1.3,17.2,1.0
+007090,"Loti o kaki, freschi",70.0,0.6,16.0,0.3,2.5,16.0,4.0
+121200,Luccio,81.0,18.7,0.1,0.6,0.0,0.1,63.0
+109010,"Lumaca, cruda",67.0,12.9,0.0,1.7,0.0,0.0,
+004600,"Lupini, ammollati",119.0,16.4,7.1,2.4,2.8,0.5,
+008620,Macadamia,751.0,8.0,5.1,76.0,8.0,4.0,5.0
+105236,"Maiale, bistecca, cotto, in padella",187.0,25.4,0.0,9.5,0.0,0.0,84.0
+105230,"Maiale, bistecca, crudo",157.0,21.3,0.0,8.0,0.0,0.0,56.0
+105200,"Maiale, coscio, crudo",110.0,20.2,0.0,3.2,0.0,0.0,76.0
+105210,"Maiale, lombo, crudo",146.0,20.7,0.0,7.0,0.0,0.0,73.0
+105600,"Maiale, pesante, coscio, crudo",127.0,20.4,0.0,5.1,0.0,0.0,76.0
+105700,"Maiale, pesante, lombo, crudo",172.0,20.8,0.0,9.9,0.0,0.0,59.0
+105800,"Maiale, pesante, spalla, crudo",156.0,19.0,0.0,8.9,0.0,0.0,73.0
+105220,"Maiale, spalla, crudo",133.0,19.0,0.0,6.3,0.0,0.0,73.0
+502760,"Maionese, industriale",655.0,4.3,2.1,70.0,0.0,2.1,
+000060,Mais,357.0,9.2,75.1,3.8,2.0,2.5,35.0
+000300,"Mais, amido",328.0,0.3,87.0,0.0,0.0,1.5,0.0
+000070,"Mais, dolce, in scatola, sgocciolato",105.0,3.4,20.5,1.3,1.4,5.3,270.0
+008050,"Mandaranci, freschi",57.0,0.8,12.8,0.2,2.2,12.8,2.0
+008060,"Mandarini, freschi",76.0,0.9,17.6,0.3,1.7,17.6,1.0
+008540,"Mandorle dolci, secche",628.0,22.0,4.6,55.3,12.7,3.7,14.0
+007590,"Mango, fresco",56.0,1.0,12.6,0.2,1.6,12.6,1.0
+009100,"Margarina, 100% vegetale",760.0,0.6,0.4,84.0,0.0,0.4,800.0
+009110,"Margarina, 2/3 di grassi animali, 1/3 di grassi vegetali",760.0,0.7,0.4,84.0,0.0,0.4,
+204500,Marmellata,227.0,0.5,58.7,0.0,2.2,58.7,12.0
+164800,Mascarpone,455.0,7.6,0.3,47.0,0.0,0.3,86.0
+007100,"Melagrane, fresche",68.0,0.5,15.9,0.2,2.2,15.9,7.0
+005507,"Melanzane, cotte, al microonde",23.0,0.8,3.0,0.4,2.4,3.0,3.0
+005506,"Melanzane, cotte, in padella",39.0,1.3,5.4,0.7,3.7,5.4,4.0
+005500,"Melanzane, crude",23.0,1.0,2.6,0.4,2.6,2.6,3.0
+007220,"Mele cotogne, fresche",38.0,0.3,6.3,0.1,5.9,6.3,3.0
+007190,"Mele, disidratate",356.0,1.3,82.2,2.0,12.5,82.2,7.0
+007130,"Mele, fresche, annurche",45.0,0.3,10.2,0.1,2.2,10.2,
+007120,"Mele, fresche, con buccia",44.0,0.2,10.0,0.0,2.6,10.0,2.0
+007140,"Mele, fresche, deliziose",46.0,0.2,11.1,0.1,1.5,11.1,
+007150,"Mele, fresche, golden",46.0,0.4,10.7,0.1,1.7,10.7,0.0
+007160,"Mele, fresche, granny smith",42.0,0.5,9.4,0.1,1.9,9.4,
+007170,"Mele, fresche, imperatore",48.0,0.2,11.3,0.1,1.9,11.3,
+007180,"Mele, fresche, renette",43.0,0.3,10.0,0.1,1.7,10.0,0.0
+007110,"Mele, fresche, senza buccia",57.0,0.3,13.7,0.1,2.0,13.7,2.0
+007230,"Melone, d'estate, fresco",34.0,0.8,7.4,0.2,0.7,7.4,8.0
+007240,"Melone, d'inverno, fresco",24.0,0.5,4.9,0.2,0.7,4.9,8.0
+121310,Melù o pesce molo,72.0,17.4,0.0,0.3,0.0,0.0,72.0
+121330,"Melù o pesce molo, stoccafisso, ammollato",92.0,20.7,0.3,0.9,0.0,0.3,51.0
+121320,"Melù o pesce molo, stoccafisso, secco",356.0,80.1,1.1,3.5,0.0,1.1,500.0
+006810,"Menta, fresca",49.0,3.8,5.3,0.7,3.8,5.3,15.0
+210030,"Merendine, con marmellata, industriale",364.0,5.5,67.9,9.5,1.1,44.8,
+210040,"Merendine, farcite con cacao, industriale",410.0,6.2,65.5,15.1,1.9,43.8,
+210060,"Merendine, tipo brioche, industriale",440.0,8.2,65.7,17.6,1.0,22.5,
+210050,"Merendine, tipo pan di Spagna, industriale",386.0,7.4,62.7,13.1,1.5,34.9,
+210070,"Merendine, tipo pasta frolla, industriale",447.0,5.3,71.7,17.1,1.7,35.2,
+121410,Merluzzo o nasello,71.0,17.0,0.0,0.3,0.0,0.0,77.0
+121450,"Merluzzo o nasello, baccalà, ammollato",95.0,21.6,0.0,1.0,0.0,0.0,
+121440,"Merluzzo o nasello, baccalà, secco",131.0,29.0,0.0,1.7,0.0,0.0,
+121490,"Merluzzo o nasello, bastoncini di pesce, surgelati",191.0,11.0,15.0,10.1,0.0,0.6,
+121420,"Merluzzo o nasello, surgelato",75.0,17.3,0.0,0.6,0.0,0.0,77.0
+121424,"Merluzzo o nasello, surgelato, cotto, al microonde",107.0,24.8,0.0,0.9,0.0,0.0,82.0
+121423,"Merluzzo o nasello, surgelato, cotto, in forno",78.0,17.5,0.0,0.9,0.0,0.0,78.0
+121430,"Merluzzo o nasello, surgelato, filetti",68.0,15.6,0.0,0.6,0.0,0.0,68.0
+210010,Miele,304.0,0.6,80.3,0.0,0.0,80.3,11.0
+000080,Miglio,343.0,11.8,64.9,3.9,8.5,,5.0
+000081,"Miglio, decorticato",342.0,11.0,67.8,4.2,3.1,4.9,1.0
+115500,Milza di bovini,107.0,18.5,0.0,3.7,0.0,0.0,85.0
+900010,"Minestre in scatola, crema di asparagi",26.0,1.0,4.2,0.7,,,410.0
+900110,"Minestre in scatola, crema di cipolle",26.0,2.2,2.2,1.0,,,438.0
+900210,"Minestre in scatola, crema di funghi",56.0,1.0,4.2,4.0,,,398.0
+900310,"Minestre in scatola, crema di pollo",58.0,1.7,4.5,3.8,,1.1,460.0
+900410,"Minestre in scatola, crema di pomodori",36.0,0.8,6.4,1.0,,,396.0
+905100,Minestrone liofilizzato,298.0,10.1,47.6,8.8,,15.0,5600.0
+905010,"Minestrone, cotto",45.0,2.0,7.8,0.4,2.1,,
+007760,"Mirtilli, freschi",49.0,0.9,10.1,0.2,3.1,10.1,2.0
+007750,Mora di rovo,42.0,1.3,8.1,0.0,3.2,8.1,2.0
+121500,Mormora,97.0,18.0,2.0,1.9,0.0,2.0,
+110200,Mortadella Bologna IGP,288.0,15.7,0.0,25.0,0.0,,960.0
+110210,Mortadella di bovini e suini,388.0,13.3,0.5,37.0,0.0,0.5,
+164810,Mozzarella di bufala,288.0,16.7,0.4,24.4,0.0,0.4,
+164811,Mozzarella di bufala campana DOP,257.0,14.1,1.4,21.7,0.0,,211.0
+164820,Mozzarella di vacca,253.0,18.7,0.7,19.5,0.0,0.7,200.0
+003040,Muesli,374.0,9.7,71.7,6.0,6.4,26.2,380.0
+007250,"Nespole, fresche",32.0,0.4,6.1,0.4,2.1,6.1,6.0
+008550,"Nocciole, secche",671.0,13.8,6.1,64.1,8.1,4.1,11.0
+008560,Noci,589.0,10.5,5.5,57.7,3.5,3.4,3.0
+008580,Noci pecan,723.0,7.2,7.9,71.8,9.4,4.3,0.0
+008570,"Noci, secche",702.0,14.3,5.1,68.1,6.2,3.1,2.0
+106150,"Oca, crudo",373.0,15.8,0.0,34.4,0.0,0.0,120.0
+121600,Occhiata,117.0,19.0,2.0,3.7,0.0,2.0,
+009799,Oli vegetali,899.0,0.0,0.0,99.9,0.0,0.0,0.0
+009610,Olio di arachide,899.0,0.0,0.0,99.9,0.0,0.0,0.0
+009620,Olio di cocco,899.0,0.0,0.0,99.9,0.0,0.0,0.0
+009630,Olio di colza,899.0,0.0,0.0,99.9,0.0,0.0,0.0
+194000,Olio di fegato di merluzzo,899.0,0.0,0.0,99.9,0.0,0.0,0.0
+009640,Olio di germe di grano,899.0,0.0,0.0,99.9,0.0,0.0,0.0
+009650,Olio di girasole,899.0,0.0,0.0,99.9,0.0,0.0,0.0
+009660,Olio di mais,899.0,0.0,0.0,99.9,0.0,0.0,0.0
+009670,Olio di mandorle dolci,899.0,0.0,0.0,99.9,0.0,0.0,0.0
+009200,Olio di oliva,899.0,0.0,0.0,99.9,0.0,0.0,0.0
+009210,Olio di oliva extra vergine,899.0,0.0,0.0,99.9,0.0,0.0,0.0
+009680,Olio di palma,899.0,0.0,0.0,99.9,0.0,0.0,0.0
+009690,Olio di sesamo,899.0,0.0,0.0,99.9,0.0,0.0,
+009700,Olio di soia,899.0,0.0,0.0,99.9,0.0,0.0,0.0
+009710,Olio di vinacciolo,899.0,0.0,0.0,99.9,0.0,0.0,0.0
+008850,Oliva Giarraffa,192.0,1.4,0.19,20.0,2.6,0.19,1576.0
+008840,Oliva Nocellara del Belice,211.0,1.4,0.06,22.1,3.3,0.06,1274.0
+008800,Olive da tavola conservate,277.0,1.5,5.0,27.0,4.4,5.0,
+008810,"Olive, nere",243.0,1.6,0.8,25.1,3.9,0.8,54.0
+008820,"Olive, verdi",148.0,0.8,1.0,15.0,3.0,1.0,
+008830,"Olive, verdi, in salamoia",113.0,1.2,1.0,11.0,2.8,1.0,
+121730,"Orata d'allevamento, filetti",159.0,19.7,1.2,8.4,0.0,1.2,
+121720,"Orata, filetti",121.0,20.7,1.0,3.8,0.0,1.0,
+121710,"Orata, surgelata",94.0,19.8,1.0,1.2,0.0,1.0,
+000090,Orzo perlato,346.0,9.4,73.7,1.5,9.2,1.5,3.0
+000095,"Orzo perlato, cotto, bollito",118.0,2.6,26.4,0.6,1.8,1.2,2.0
+127130,Ostrica,69.0,10.2,5.4,0.9,0.0,0.5,510.0
+121800,Pagello,101.0,21.0,0.0,1.9,0.0,0.0,120.0
+121900,Pagello bocca d'oro,118.0,20.0,3.0,3.0,0.0,3.0,120.0
+122000,Palombo,80.0,16.0,1.3,1.2,0.0,1.3,61.0
+110320,Pancetta arrotolata,530.0,15.1,0.0,52.2,0.0,,1200.0
+110300,Pancetta magretta,314.0,21.7,0.0,25.3,0.0,0.0,1686.0
+110310,Pancetta tesa,337.0,20.9,0.0,28.1,0.0,0.0,1016.0
+000500,Pane al malto,278.0,8.3,56.6,2.4,5.5,26.1,280.0
+000600,Pane azzimo,365.0,10.7,81.7,1.0,3.5,1.9,
+000530,Pane bianco,268.0,8.1,59.5,0.5,3.8,2.0,293.0
+000510,Pane di segale,228.0,8.3,45.4,1.7,4.6,1.8,580.0
+000550,Pane di tipo integrale,224.0,8.5,44.1,1.3,6.5,2.0,511.0
+000540,Pane di tipo semintegrale,239.0,8.3,52.0,0.3,4.2,2.2,
+000560,Pane formato rosetta,275.0,9.0,57.6,1.9,3.1,7.5,317.0
+216000,Panettone,337.0,6.4,56.2,10.7,2.1,22.9,
+000570,Pangrattato,357.0,10.1,77.8,2.1,3.2,5.0,400.0
+000580,Panini al latte,298.0,9.0,48.1,8.7,1.9,2.7,460.0
+000590,Panini all'olio,288.0,7.7,52.6,5.8,3.7,4.0,
+119070,"Panino con hamburger piccolo, fast food",254.0,15.6,29.0,8.9,1.2,4.7,
+119060,"Panino, fast food",248.0,10.1,47.0,3.0,2.0,7.5,
+140400,"Panna da cucina, sterilizzata, 23% di lipidi",233.0,2.7,4.0,23.0,0.0,4.0,
+140300,"Panna da montare, 35% di lipidi",337.0,2.3,3.4,35.0,0.0,3.4,34.0
+007600,"Papaia, fresca",33.0,0.4,6.9,0.1,2.3,6.9,7.0
+507100,Pappa reale,146.0,10.0,14.0,6.0,0.0,14.0,
+166000,Parmigiano Reggiano DOP,397.0,32.4,0.0,29.7,0.0,0.0,600.0
+007610,"Passiflora, fresca",64.0,3.0,5.7,0.3,13.9,5.7,19.0
+000870,"Pasta all'uovo, secca",346.0,13.0,71.0,2.4,3.2,2.0,17.0
+000871,"Pasta all'uovo, secca, cotta, bollita",123.0,4.6,25.5,0.8,1.1,0.17,18.0
+217000,Pasta di mandorle,455.0,9.9,54.6,23.4,,54.6,
+000800,Pasta di semola,341.0,13.5,72.7,1.2,1.7,2.2,4.0
+000805,"Pasta di semola, cotta, bollita",175.0,6.9,37.3,0.6,0.9,1.1,2.0
+000850,"Pasta di semola, integrale",330.0,13.3,64.8,2.2,7.1,3.0,11.0
+000855,"Pasta di semola, integrale, cotta, bollita",182.0,7.4,36.0,1.2,3.5,1.7,6.0
+006584,"Patate novelle, cotte, al microonde",72.0,2.0,15.7,0.3,1.4,0.2,10.0
+006585,"Patate novelle, cotte, bollite",68.0,1.9,14.9,0.2,1.4,0.2,
+006580,"Patate novelle, crude",72.0,2.0,15.7,0.3,1.4,0.2,10.0
+006505,"Patate, con buccia, cotte, bollite",88.0,2.1,17.9,1.0,1.6,0.4,7.0
+006514,"Patate, cotte, al microonde",88.0,2.1,17.9,1.0,1.6,0.4,7.0
+006511,"Patate, cotte, arrosto",152.0,2.9,25.7,4.5,1.8,0.6,9.0
+006500,"Patate, crude",72.0,2.0,16.0,0.1,1.8,1.0,7.0
+006517,"Patate, fritte",192.0,3.9,29.9,6.7,2.2,0.6,12.0
+006515,"Patate, senza buccia, cotte, bollite",74.0,1.8,16.9,0.1,1.3,0.4,7.0
+006570,"Patatine, fritte, confezionate in busta",512.0,5.4,58.0,29.6,3.2,1.0,1070.0
+119080,"Patatine, fritte, fast food",283.0,3.3,37.6,13.7,2.7,1.3,
+114010,Patè di coniglio,346.0,13.0,1.1,32.2,0.0,,
+114020,Patè di fegato,341.0,12.7,1.3,31.7,0.0,,790.0
+114030,Patè di pollo,289.0,11.1,2.3,26.2,0.0,,
+114040,Patè di prosciutto,358.0,11.3,1.1,34.3,0.0,,
+104610,"Pecora, solo tessuto muscolare, crudo",121.0,21.0,0.0,4.1,0.0,0.0,
+166050,Pecorino,404.0,28.8,0.2,32.0,0.0,0.2,1800.0
+166060,Pecorino romano,409.0,26.0,1.8,33.1,0.0,1.8,1800.0
+166070,Pecorino siciliano,427.0,28.9,2.4,33.6,0.0,2.4,450.0
+006820,Pepe nero,311.0,11.4,49.0,3.3,25.9,,44.0
+006830,"Peperoncini piccanti, freschi",30.0,1.8,3.8,0.5,2.0,1.5,7.0
+005606,"Peperoni, cotti, in padella",143.0,5.2,24.3,1.5,8.7,24.3,
+005600,"Peperoni, crudi",26.0,0.9,4.2,0.3,1.9,4.2,2.0
+005624,"Peperoni, gialli, cotti, al microonde",41.0,1.1,8.1,0.2,2.3,8.1,9.0
+005620,"Peperoni, gialli, crudi",35.0,0.9,6.8,0.2,1.9,6.8,17.0
+005610,"Peperoni, rossi e gialli, crudi",35.0,0.9,6.7,0.3,1.9,6.7,
+005634,"Peperoni, rossi, cotti, al microonde",42.0,1.1,7.9,0.4,2.3,7.9,24.0
+005630,"Peperoni, rossi, crudi",34.0,0.9,6.5,0.3,1.9,6.5,16.0
+005640,"Peperoni, verdi, crudi",31.0,0.7,6.0,0.2,1.9,6.0,
+007270,"Pere, candite",294.0,1.0,73.9,0.4,4.5,73.9,
+007261,"Pere, fresche, Abate Fetel",59.0,0.2,12.7,0.3,3.8,12.7,
+007262,"Pere, fresche, Coscia",42.0,0.3,8.6,0.1,3.8,8.6,
+007263,"Pere, fresche, Kaiser",48.0,0.3,9.2,0.5,3.8,9.2,
+007264,"Pere, fresche, Max-Red Barlett",50.0,0.3,10.0,0.4,3.8,10.0,
+007260,"Pere, fresche, senza buccia",43.0,0.3,8.8,0.1,3.8,8.8,2.0
+007265,"Pere, fresche, William",52.0,0.3,10.2,0.5,3.8,10.2,
+122100,Pesce gatto,92.0,15.5,0.2,3.3,0.0,0.2,63.0
+007300,"Pesche, disidratate",364.0,4.8,88.0,0.9,3.5,88.0,21.0
+007290,"Pesche, fresche, con buccia",28.0,0.7,5.8,0.0,1.9,5.8,
+007280,"Pesche, fresche, senza buccia",30.0,0.8,6.1,0.1,1.6,6.1,3.0
+007310,"Pesche, sciroppate",56.0,0.5,14.0,0.0,0.9,14.0,4.0
+007320,"Pesche, secche",280.0,3.1,68.3,0.7,2.8,68.3,16.0
+007330,"Peschenoci, fresche",36.0,1.4,7.0,0.1,1.5,7.0,
+108520,"Piccione giovane, crudo",138.0,22.1,0.0,5.5,0.0,0.0,
+008590,Pinoli,604.0,31.9,4.0,50.3,4.5,3.9,
+004700,"Piselli, freschi",64.0,5.5,6.5,0.6,6.3,4.0,1.0
+004706,"Piselli, freschi, cotti, in padella",104.0,9.7,11.5,1.0,6.4,7.0,
+004720,"Piselli, in scatola, scolati",78.0,5.3,11.1,0.6,5.1,3.9,242.0
+004710,"Piselli, secchi",317.0,21.7,48.2,2.0,15.7,2.9,38.0
+004730,"Piselli, surgelati",61.0,5.4,6.5,0.3,6.3,4.0,129.0
+008600,Pistacchi,629.0,18.1,8.1,56.1,10.6,4.5,1.0
+008605,Pistacchio di Bronte DOP,595.0,24.3,7.3,48.9,15.3,7.3,0.0
+000700,Pizza bianca,306.0,7.9,57.9,5.9,2.3,2.1,789.0
+000710,Pizza con pomodoro,248.0,7.6,40.7,6.6,2.7,2.9,280.0
+000720,Pizza con pomodoro e mozzarella,255.0,12.1,35.5,7.6,2.5,2.5,775.0
+000076,"Polenta, cotta",73.0,0.9,17.8,0.04,0.9,0.2,91.0
+000075,"Polenta, cruda",323.0,8.0,72.7,0.7,6.2,0.6,5.0
+106273,"Pollo, ala, con pelle, cotta, al forno",283.0,31.7,0.0,17.4,0.0,0.0,168.0
+106270,"Pollo, ala, con pelle, crudo",196.0,16.7,0.0,14.3,0.0,0.0,100.0
+106403,"Pollo, fuso, con pelle, cotto, al forno",201.0,31.2,0.0,8.5,0.0,0.0,136.0
+106400,"Pollo, fuso, con pelle, crudo",125.0,18.4,0.0,5.7,0.0,0.0,87.0
+106413,"Pollo, fuso, senza pelle, cotto, al forno",175.0,29.9,0.0,6.2,0.0,0.0,128.0
+106410,"Pollo, fuso, senza pelle, crudo",107.0,18.5,0.0,3.7,0.0,0.0,86.0
+106203,"Pollo, intero, con pelle, cotto, al forno",200.0,27.1,0.0,10.2,0.0,0.0,93.0
+106251,"Pollo, intero, con pelle, cotto, arrosto",245.0,28.3,0.0,14.7,0.0,0.0,75.0
+106200,"Pollo, intero, con pelle, crudo",171.0,19.0,0.0,10.6,0.0,0.0,62.0
+106213,"Pollo, intero, senza pelle, cotto, al forno",160.0,27.9,0.0,5.4,0.0,0.0,90.0
+106261,"Pollo, intero, senza pelle, cotto, arrosto",206.0,28.9,0.0,10.0,0.0,0.0,85.0
+106210,"Pollo, intero, senza pelle, crudo",110.0,19.4,0.0,3.6,0.0,0.0,70.0
+106506,"Pollo, petto, cotto, in padella",129.0,30.2,0.0,0.9,0.0,0.0,46.0
+106500,"Pollo, petto, crudo",100.0,23.3,0.0,0.8,0.0,0.0,33.0
+106603,"Pollo, sovracoscia, con pelle, cotto, al forno",219.0,26.7,0.0,12.5,0.0,0.0,100.0
+106600,"Pollo, sovracoscia, con pelle, crudo",196.0,17.4,0.0,14.0,0.0,0.0,71.0
+106613,"Pollo, sovracoscia, senza pelle, cotto, al forno",188.0,28.3,0.0,8.3,0.0,0.0,112.0
+106610,"Pollo, sovracoscia, senza pelle, crudo",132.0,18.7,0.0,6.3,0.0,0.0,67.0
+115600,Polmone di bovini,75.0,14.0,0.0,2.1,0.0,0.0,198.0
+127150,Polpo,57.0,10.6,1.4,1.0,0.0,1.4,
+006660,"Pomodori, conserva",100.0,3.9,20.4,0.4,2.0,20.4,760.0
+006600,"Pomodori, da insalata, freschi",19.0,1.2,2.8,0.2,1.0,2.8,3.0
+006610,"Pomodori, maturi, freschi",23.0,1.0,3.5,0.2,2.0,3.5,6.0
+006640,"Pomodori, Nerina, rossi, freschi",21.0,1.1,2.8,0.4,1.4,2.8,16.0
+006630,"Pomodori, Nerina, verdi, freschi",21.0,0.9,2.8,0.4,1.5,2.8,16.0
+006670,"Pomodori, passata",21.0,1.3,3.0,0.2,1.5,3.0,16.0
+006680,"Pomodori, pelati in scatola",22.0,1.2,3.0,0.5,0.9,3.0,9.0
+006620,"Pomodori, San Marzano, freschi",21.0,1.1,3.0,0.2,2.0,3.0,3.0
+006690,"Pomodori, succo",16.0,0.8,3.0,0.0,0.6,3.0,230.0
+006650,"Pomodorini ciliegino, freschi",37.0,1.1,7.2,0.4,1.0,9.0,5.0
+008070,"Pompelmo, fresco",29.0,0.6,6.2,0.0,1.6,6.2,1.0
+501200,Pop corn,408.0,12.0,77.9,4.2,15.1,,4.0
+005655,"Porri, cotti, bolliti",35.0,2.1,5.3,0.1,3.0,5.3,2.0
+005650,"Porri, crudi",35.0,2.1,5.2,0.1,2.9,5.2,2.0
+006840,"Prezzemolo, fresco",30.0,3.7,0.0,0.6,5.0,0.0,20.0
+110400,Prosciutto cotto,138.0,15.7,1.7,7.6,0.0,,840.0
+110410,"Prosciutto cotto, alta qualità",182.0,18.0,0.8,11.9,0.0,,760.0
+110411,"Prosciutto cotto, alta qualità, sgrassato",126.0,19.5,0.9,5.0,0.0,,800.0
+110420,"Prosciutto cotto, scelto",155.0,17.5,0.6,9.2,0.0,,760.0
+110421,"Prosciutto cotto, scelto, sgrassato",115.0,19.4,0.5,4.0,0.0,,800.0
+110401,"Prosciutto cotto, sgrassato",107.0,17.0,1.9,3.5,0.0,,840.0
+110500,Prosciutto crudo di Modena DOP,309.0,25.6,0.1,22.9,0.0,,2040.0
+110501,"Prosciutto crudo di Modena DOP, sgrassato",201.0,30.2,0.1,8.9,0.0,,2400.0
+110505,Prosciutto crudo di montagna,303.0,26.2,0.0,22.0,0.0,0.0,
+110511,"Prosciutto crudo di Parma DOP, sgrassato",176.0,29.1,0.4,6.4,0.0,,2040.0
+110515,Prosciutto crudo di Pietraroja,358.0,26.2,0.0,28.1,0.0,0.0,
+110520,Prosciutto crudo di San Daniele DOP,271.0,25.7,0.2,18.6,0.0,,1800.0
+110521,"Prosciutto crudo di San Daniele DOP, sgrassato",176.0,29.0,0.4,6.5,0.0,,2040.0
+110510,"Prosciutto crudo DOP, di Parma",269.0,25.9,0.3,18.3,0.0,,1760.0
+110525,"Prosciutto crudo, disossato",224.0,26.9,0.0,12.9,0.0,0.0,2238.0
+110526,"Prosciutto crudo, disossato, sgrassato",159.0,29.3,0.0,4.6,0.0,0.0,2440.0
+110530,"Prosciutto crudo, gambuccio",306.0,26.2,0.0,22.4,0.0,0.0,
+110535,"Prosciutto crudo, Nazionale",235.0,27.8,0.1,13.7,0.0,,2400.0
+110536,"Prosciutto crudo, Nazionale, sgrassato",169.0,30.5,0.3,5.1,0.0,,2760.0
+166100,Provolone,374.0,28.1,2.0,28.2,0.0,2.0,860.0
+007340,"Prugne, fresche",45.0,0.5,10.5,0.1,1.5,10.5,2.0
+007350,"Prugne, gialle",30.0,0.5,6.6,0.1,1.4,6.6,2.0
+007360,"Prugne, rosse",45.0,0.5,10.5,0.1,1.6,10.5,
+007370,"Prugne, secche",236.0,2.2,55.0,0.5,8.4,55.0,8.0
+108530,"Quaglia, crudo",161.0,25.0,0.0,6.8,0.0,0.0,40.0
+000097,"Quinoa, cotta, bollita",140.0,4.8,24.3,2.5,3.6,3.1,4.0
+000096,"Quinoa, cruda",376.0,15.4,57.8,8.1,12.2,5.3,0.0
+005441,"Radicchio rosso di Treviso IGP, precoce",16.0,1.6,1.0,0.1,2.5,1.0,13.0
+005442,"Radicchio rosso di Treviso IGP, tardivo",16.0,1.5,1.4,0.1,2.1,1.4,5.0
+005443,Radicchio variegato di Castelfranco IGP,16.0,1.3,1.4,0.1,2.1,1.4,14.0
+005440,"Radicchio, rosso, fresco",19.0,1.4,1.6,0.1,3.0,1.6,10.0
+005450,"Radicchio, verde, fresco",14.0,1.9,0.5,0.5,0.0,0.5,
+109510,"Rana, crudo",64.0,15.5,0.0,0.2,0.0,0.0,
+005665,"Rape, cotte, bollite",26.0,1.1,4.3,0.0,2.8,4.1,11.0
+005660,"Rape, crude",24.0,1.0,4.0,0.0,2.6,3.8,15.0
+005670,"Ravanelli, freschi",13.0,0.8,1.8,0.1,1.3,1.8,59.0
+000876,"Ravioli, cotti",177.0,7.2,27.5,4.6,1.6,1.4,
+000875,"Ravioli, crudi, freschi",265.0,10.6,40.7,7.3,2.2,1.8,
+122200,Razza,68.0,14.2,0.7,0.9,0.0,0.7,110.0
+115710,Rene di bovini,118.0,18.4,0.8,4.6,0.0,0.8,180.0
+007770,"Ribes, freschi",52.0,0.9,9.7,0.0,5.8,9.7,3.0
+166800,Ricotta di bufala,212.0,10.5,3.7,17.3,0.0,3.7,
+166810,Ricotta di pecora,157.0,9.5,4.2,11.5,0.0,4.2,85.0
+166820,Ricotta di vacca,146.0,8.8,3.5,10.9,0.0,3.5,78.0
+000135,"Riso Basmati, cotto, bollito",113.0,3.0,25.2,0.6,0.7,0.7,2.0
+000130,"Riso Basmati, crudo",367.0,9.0,82.9,1.9,1.3,1.1,0.0
+000145,"Riso Venere, cotto, bollito",160.0,3.5,36.9,0.3,2.4,1.6,2.0
+000140,"Riso Venere, crudo",355.0,7.8,80.4,1.3,5.1,2.2,0.0
+000100,"Riso, brillato",334.0,6.7,80.4,0.4,1.0,0.2,5.0
+000105,"Riso, brillato, cotto, bollito",100.0,2.0,24.2,0.1,0.2,0.1,1.0
+000110,"Riso, integrale",341.0,7.5,77.4,1.9,1.9,1.2,9.0
+000115,"Riso, integrale, cotto, bollito",113.0,2.5,25.5,0.6,0.8,0.4,3.0
+000120,"Riso, parboiled",338.0,7.4,81.3,0.3,0.5,0.3,9.0
+000125,"Riso, parboiled, cotto, bollito",97.0,2.1,23.3,0.1,0.3,0.2,4.0
+003050,"Riso, soffiato, da prima colazione",354.0,6.0,85.1,1.0,1.0,9.0,1.0
+166850,Robiola,338.0,20.0,2.3,27.7,0.0,2.3,
+122300,Rombo,81.0,16.3,1.2,1.3,0.0,1.2,127.0
+006850,"Rosmarino, fresco",110.0,1.4,13.5,4.4,7.0,13.5,15.0
+005460,"Rucola o Ruchetta, fresca",30.0,2.6,3.9,0.3,0.9,3.9,
+110600,Salame Brianza,384.0,26.5,1.0,30.5,0.0,1.0,1827.0
+110620,Salame Fabriano,420.0,26.5,1.5,34.3,0.0,1.5,1683.0
+110630,Salame Felino,375.0,30.5,0.5,27.9,0.0,0.5,1697.0
+110640,Salame Milano,385.0,25.4,1.1,31.0,0.0,,1560.0
+110650,Salame Napoli,378.0,27.4,0.2,29.7,0.0,,1640.0
+110660,Salame nostrano,370.0,27.3,1.1,28.5,0.0,1.1,1633.0
+110670,Salame ungherese,420.0,23.6,1.1,35.7,0.0,,1600.0
+110610,Salami italiani alla cacciatora DOP,411.0,28.4,0.7,32.7,0.0,,1680.0
+122400,Salmone,185.0,18.4,1.0,12.0,0.0,1.0,98.0
+122410,"Salmone, affumicato",147.0,25.4,1.2,4.5,0.0,1.2,1880.0
+122430,"Salmone, in salamoia",192.0,21.1,1.0,11.5,0.0,1.0,540.0
+122500,Salpa,104.0,18.0,2.0,2.7,0.0,2.0,
+110730,Salsiccia di Calabria,366.0,33.6,1.3,25.2,0.0,1.3,
+110700,Salsiccia di fegato,424.0,12.4,0.9,41.2,0.0,0.9,810.0
+110710,"Salsiccia di suino, fresca",304.0,15.4,0.6,26.7,0.0,0.6,1100.0
+110716,"Salsiccia di suino, fresca, cotta, in padella",324.0,22.2,0.0,26.1,0.0,0.0,1273.0
+110720,"Salsiccia di suino, secca",514.0,22.0,0.0,47.3,0.0,0.0,
+006860,"Salvia, fresco",132.0,3.9,15.6,4.6,8.2,15.6,4.0
+122600,Sarago,97.0,20.7,1.0,1.2,0.0,0.0,
+122700,Sarda,129.0,20.8,1.5,4.5,0.0,1.5,66.0
+122800,Sardine,225.0,20.3,1.5,15.4,0.0,1.5,115.0
+122806,"Sardine, fritte",324.0,32.3,1.0,21.2,0.0,1.0,
+215000,"Savoiardi, industriali",395.0,11.9,69.6,9.2,1.6,39.3,
+167200,Scamorza,334.0,25.0,1.0,25.6,0.0,1.0,
+005465,Scarola,19.0,1.1,2.3,0.3,1.8,2.3,42.0
+005466,"Scarola IV gamma, fresca",17.0,0.9,2.2,0.2,1.6,2.2,43.0
+122900,Scorfano,82.0,19.0,0.6,0.4,0.0,0.6,
+005690,"Sedano rapa, crudo",29.0,1.9,3.8,0.1,3.1,3.8,
+005684,"Sedano, cotto, al microonde",24.0,2.4,2.4,0.2,1.7,2.2,137.0
+005680,"Sedano, crudo",23.0,2.3,2.4,0.2,1.6,2.2,140.0
+192010,Sego di bue,872.0,0.8,0.0,96.5,0.0,0.0,
+000310,Semola,346.0,11.5,76.9,0.5,3.6,1.9,12.0
+127160,Seppia,72.0,14.0,0.7,1.5,0.0,0.7,355.0
+123000,Sgombro o maccarello,170.0,17.0,0.5,11.1,0.0,0.5,130.0
+123010,"Sgombro o maccarello, in salamoia",177.0,19.3,0.0,11.1,0.0,0.0,
+123100,Sogliola,83.0,16.9,0.8,1.4,0.0,0.8,120.0
+123110,"Sogliola, surgelata",81.0,17.3,0.1,1.3,0.0,0.1,120.0
+509010,"Soia, bevanda",32.0,2.9,0.8,1.9,0.0,0.8,32.0
+004910,"Soia, isolato proteico",369.0,86.5,4.5,0.7,0.0,,
+509020,"Soia, salsa",66.0,8.7,8.3,0.0,0.0,8.3,5720.0
+004900,"Soia, secca",430.0,36.9,23.2,19.1,11.9,11.0,4.0
+509030,"Soia, yogurt",72.0,5.0,3.9,4.2,,3.9,
+110740,Soppressata di Calabria,377.0,34.2,0.9,26.3,0.0,0.9,
+110800,Speck dell'Alto Adige IGP,299.0,30.7,1.2,19.1,0.0,,1640.0
+123200,Spigola,82.0,16.5,0.6,1.5,0.0,0.6,128.0
+123220,"Spigola d'allevamento, filetti",149.0,21.3,0.8,6.8,0.0,0.8,
+005704,"Spinaci, cotti, al microonde",35.0,3.4,3.0,0.7,1.9,0.4,
+005705,"Spinaci, cotti, bolliti",41.0,4.0,3.5,0.8,2.3,0.5,75.0
+005700,"Spinaci, crudi",35.0,3.4,2.9,0.7,1.9,0.4,100.0
+005710,"Spinaci, surgelati",15.0,2.8,0.0,0.0,1.8,,57.0
+123300,Storione,145.0,19.2,0.0,7.6,0.0,0.0,44.0
+167250,Stracchino,300.0,18.5,0.0,25.1,0.0,0.0,
+193010,Strutto o sugna,892.0,0.3,0.0,99.0,0.0,0.0,
+108901,"Struzzo, solo tessuto muscolare, cotto, al forno",101.0,22.2,0.0,1.4,0.0,0.0,
+108900,"Struzzo, solo tessuto muscolare, crudo",92.0,20.9,0.0,0.9,0.0,0.0,
+008930,Succo di frutta,56.0,0.3,14.5,0.1,0.0,14.5,
+124100,Suro o sugarello,104.0,18.3,1.0,3.0,0.0,1.0,111.0
+106700,"Tacchino intero, con pelle, crudo",135.0,18.2,0.0,6.9,0.0,0.0,
+106719,"Tacchino intero, senza pelle, cotto, al forno",117.0,23.3,0.0,2.6,0.0,0.0,
+106710,"Tacchino intero, senza pelle, crudo",109.0,21.9,0.0,2.4,0.0,0.0,
+106800,"Tacchino, coscio, con pelle, crudo",131.0,18.1,0.0,6.5,0.0,0.0,
+106856,"Tacchino, fesa, cotta, al forno",131.0,29.6,0.0,1.4,0.0,0.0,68.0
+106850,"Tacchino, fesa, crudo",107.0,24.0,0.0,1.2,0.0,0.0,52.0
+106903,"Tacchino, fuso, con pelle, cotto, al forno",191.0,26.7,0.0,9.3,0.0,0.0,117.0
+106900,"Tacchino, fuso, con pelle, crudo",126.0,17.9,0.0,6.0,0.0,0.0,88.0
+106913,"Tacchino, fuso, senza pelle, cotto, al forno",190.0,28.0,0.0,8.7,0.0,0.0,131.0
+106910,"Tacchino, fuso, senza pelle, crudo",113.0,18.0,0.0,4.6,0.0,0.0,94.0
+106963,"Tacchino, sovracoscia, senza pelle, cotto, al forno",182.0,30.2,0.0,6.8,0.0,0.0,114.0
+106960,"Tacchino, sovracoscia, senza pelle, crudo",120.0,18.5,0.0,5.1,0.0,0.0,75.0
+167600,Taleggio,315.0,19.0,0.9,26.2,0.0,0.9,873.0
+005470,"Tarassaco o dente di leone, fresco",37.0,3.1,3.7,1.1,0.4,3.7,76.0
+006200,"Tartufo, nero",48.0,6.0,0.7,0.5,8.4,0.7,
+508100,"Tè, foglie",108.0,19.6,3.0,2.0,,3.0,45.0
+123400,Tinca,79.0,17.9,0.9,0.5,0.0,0.9,80.0
+123500,Tonno,159.0,21.5,0.1,8.1,0.0,0.1,43.0
+123550,"Tonno in salamoia, sgocciolato",103.0,25.1,0.0,0.3,0.0,0.0,336.0
+123610,"Tonno sott'olio, sgocciolato",192.0,25.2,0.0,10.1,0.0,0.0,316.0
+006596,"Topinambur, cotto, bollito",52.0,1.6,10.6,0.1,2.7,,
+202800,Torrone alla mandorla,483.0,10.8,52.0,26.8,1.9,52.0,
+209010,Torta margherita,370.0,8.9,63.4,10.4,1.4,34.1,
+000880,"Tortellini, freschi",302.0,12.2,49.9,7.1,1.2,1.3,
+000885,"Tortellini, freschi, cotti",158.0,6.4,26.0,3.7,0.6,0.7,
+000890,"Tortellini, secchi",379.0,15.7,57.6,10.8,1.6,1.5,
+123900,Triglia,123.0,15.8,1.1,6.2,0.0,1.1,
+115800,Trippa di bovini,108.0,15.8,0.0,5.0,0.0,0.0,107.0
+124000,Trota,86.0,14.7,0.0,3.0,0.0,0.0,40.0
+124050,"Trota iridea d'allevamento, filetti",118.0,20.3,0.0,4.1,0.0,0.0,61.0
+124010,Trota surgelata,92.0,17.8,0.0,2.3,0.0,0.0,42.0
+124013,"Trota surgelata, cotta, al microonde",105.0,20.4,0.0,2.6,0.0,0.0,48.0
+124014,"Trota surgelata, cotta, in forno",136.0,26.7,0.0,3.2,0.0,0.0,
+180010,"Uova di anatra, intero",190.0,12.2,0.7,15.4,0.0,0.7,122.0
+182010,"Uova di gallina, albume",43.0,10.7,0.0,0.0,0.0,0.0,179.0
+181100,"Uova di gallina, intero",128.0,12.4,0.0,8.7,0.0,0.0,137.0
+181500,"Uova di gallina, intero, congelato",128.0,12.4,0.0,8.7,0.0,0.0,
+181117,"Uova di gallina, intero, cotto, a frittata o strapazzato",150.0,14.6,0.0,10.2,0.0,0.0,
+181105,"Uova di gallina, intero, cotto, alla coque o sodo",128.0,12.4,0.0,8.7,0.0,0.0,
+181600,"Uova di gallina, intero, in polvere",537.0,51.9,0.4,36.4,0.0,0.4,573.0
+183010,"Uova di gallina, tuorlo",325.0,15.8,0.0,29.1,0.0,0.0,43.0
+183800,"Uova di gallina, tuorlo, congelato",325.0,15.8,0.0,29.1,0.0,0.0,
+183015,"Uova di gallina, tuorlo, cotto, in camicia",325.0,15.8,0.0,29.1,0.0,0.0,
+183900,"Uova di gallina, tuorlo, in polvere",642.0,31.2,0.02,57.5,0.0,0.02,
+185010,"Uova di oca, intero",189.0,13.8,1.0,14.4,0.0,1.0,
+189010,"Uova di tacchina, intero",147.0,12.8,1.0,10.2,0.0,1.0,
+007390,"Uva, bianca, fresca",86.0,0.4,21.5,0.1,1.4,21.5,1.0
+007380,"Uva, fresca",64.0,0.5,15.6,0.1,1.5,15.6,1.0
+007400,"Uva, nera, fresca",53.0,0.5,12.6,0.1,1.6,12.6,1.0
+007410,"Uva, secca",293.0,1.9,72.0,0.6,5.2,72.0,52.0
+007420,"Uva, succo, in cartone",66.0,0.3,17.3,0.0,0.0,17.3,2.0
+006990,"Vegetali misti, surgelati",67.0,3.3,13.7,0.3,,,59.0
+101521,"Vitello, filetto, cotto in padella",126.0,24.4,0.0,3.2,0.0,0.0,
+101520,"Vitello, filetto, crudo",107.0,20.7,0.0,2.7,0.0,0.0,89.0
+127170,Vongola,65.0,9.8,3.9,1.2,0.0,0.0,591.0
+214500,Wafer ricoperto di cioccolato,498.0,8.2,60.3,26.6,,46.8,110.0
+110906,"Wurstel di puro suino, cotto",259.0,14.6,0.3,22.2,0.0,,920.0
+110900,"Wurstel di puro suino, crudo",250.0,13.2,1.9,21.1,0.0,,880.0
+158000,Yogurt caprino,60.0,3.6,5.1,2.9,0.0,5.1,60.0
+150500,"Yogurt da latte intero, alla frutta",80.0,3.4,10.5,2.8,1.0,10.5,
+151000,"Yogurt da latte, parzialmente scremato",43.0,3.4,3.8,1.7,0.0,3.8,45.0
+152000,"Yogurt da latte, scremato",36.0,3.3,4.0,0.9,0.0,4.0,58.0
+150030,"Yogurt greco, 0% lipidi",51.0,9.0,4.0,0.0,0.0,4.0,
+150035,"Yogurt greco, 0% lipidi, aromatizzato",86.0,7.5,15.0,0.0,0.0,14.0,
+150020,"Yogurt greco, da latte intero",115.0,6.4,2.0,9.1,0.0,2.0,71.0
+150025,"Yogurt greco, da latte magro, alla frutta",74.0,6.0,11.0,0.9,0.5,11.0,
+150015,"Yogurt, 0% lipidi",42.0,4.7,6.0,0.1,0.0,6.0,
+150010,"Yogurt, da latte intero",66.0,3.8,4.3,3.9,0.0,4.3,48.0
+110950,"Zampone confezionato, precotto",361.0,19.1,0.0,31.6,0.0,0.0,762.0
+110955,"Zampone Modena IGP, cotto",262.0,23.7,2.6,17.5,0.0,,680.0
+005720,"Zucca gialla, fresca",29.0,1.1,3.5,0.1,5.5,2.5,
+201500,"Zucchero, saccarosio",392.0,0.0,104.5,0.0,0.0,104.5,1.0
+005741,"Zucchine chiare, cotte, al vapore",20.0,2.0,2.5,0.0,1.3,2.5,1.0
+005742,"Zucchine chiare, cotte, in padella grigliate",29.0,0.0,5.7,0.2,2.8,5.7,2.0
+005740,"Zucchine, chiare",17.0,1.9,1.7,0.1,1.2,1.6,1.0
+005744,"Zucchine, chiare, cotte, al microonde",23.0,2.0,3.0,0.1,1.6,3.0,2.0
+005735,"Zucchine, cotte, bollite",30.0,3.2,3.4,0.2,1.3,3.2,
+005730,"Zucchine, crude",16.0,1.5,1.7,0.1,1.2,1.8,1.0
+005754,"Zucchine, scure, cotte, al microonde",23.0,1.8,3.5,0.0,1.5,3.5,1.0
+005751,"Zucchine, scure, cotte, al vapore",20.0,1.6,2.7,0.1,1.5,2.7,0.0
+005752,"Zucchine, scure, cotte, in padella grigliate",37.0,2.7,5.6,0.1,2.0,5.5,2.0
+005750,"Zucchine, scure, crude",17.0,1.4,2.1,0.1,1.2,2.0,1.0

@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server';
 import { FOOD_SEED } from '@/lib/food-database-seed';
-import { requireAdmin } from '@/lib/server-admin';
+import { requireSuperAdmin } from '@/lib/server-admin';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 
 export async function POST() {
   try {
-    const guard = await requireAdmin();
+    // Mutates the GLOBAL food_database via service role (bypasses RLS) — restrict
+    // to super_admin, not any org admin (audit 2026-06-13).
+    const guard = await requireSuperAdmin();
     if (guard instanceof NextResponse) return guard;
 
     const { session } = guard;
@@ -36,7 +38,7 @@ export async function POST() {
 
     if (error) {
       console.error('Seed error:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: 'Seed operation failed' }, { status: 500 });
     }
 
     return NextResponse.json({

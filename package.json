@@ -39,7 +39,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
-    "db:push": "drizzle-kit push"
+    "db:push": "echo 'db:push is DISABLED — it reverts RLS policies to TO public (see migration 0008_harden_rls). Use db:generate + db:migrate.' && exit 1"
   },
   "dependencies": {
     "@google/genai": "^1.51.0",

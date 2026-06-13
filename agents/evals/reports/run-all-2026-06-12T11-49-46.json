@@ -1,0 +1,97 @@
+{
+  "when": "2026-06-12T11:49:46.335Z",
+  "url": "http://localhost:3333",
+  "threshold": 95,
+  "aggregate": {
+    "passed": 2,
+    "total": 6,
+    "rate": 33.33333333333333,
+    "passed_gate": false
+  },
+  "gateEnforced": true,
+  "suites": [
+    {
+      "name": "food_parse",
+      "passed": 0,
+      "total": 10,
+      "rate": 0,
+      "skipped": true,
+      "skipReason": "EVAL_AUTH_TOKEN or EVAL_AUTH_EMAIL/EVAL_AUTH_PASSWORD required for protected food-parse API eval",
+      "avgLatencyMs": 0,
+      "cases": []
+    },
+    {
+      "name": "recipe_analyze",
+      "passed": 0,
+      "total": 3,
+      "rate": 0,
+      "skipped": false,
+      "avgLatencyMs": 16,
+      "cases": [
+        {
+          "id": "recipe_greek_salad",
+          "input": "Greek salad: 200g tomatoes, 100g cucumber, 80g feta cheese, 20ml olive oil, 30g kalamata olives",
+          "passed": false,
+          "failures": [
+            "exception: ANTHROPIC_API_KEY not configured"
+          ],
+          "latencyMs": 34
+        },
+        {
+          "id": "recipe_chicken_rice",
+          "input": "Grilled chicken breast 200g with 150g cooked white rice and steamed broccoli 100g",
+          "passed": false,
+          "failures": [
+            "exception: ANTHROPIC_API_KEY not configured"
+          ],
+          "latencyMs": 7
+        },
+        {
+          "id": "recipe_oatmeal",
+          "input": "50g rolled oats cooked with 200ml milk, 1 banana, 1 tablespoon honey",
+          "passed": false,
+          "failures": [
+            "exception: ANTHROPIC_API_KEY not configured"
+          ],
+          "latencyMs": 6
+        }
+      ]
+    },
+    {
+      "name": "coach_insight",
+      "passed": 2,
+      "total": 3,
+      "rate": 66.66666666666666,
+      "skipped": false,
+      "avgLatencyMs": 3948,
+      "cases": [
+        {
+          "id": "insight_low_protein",
+          "input": "Client logged 85g protein today. Goal is 150g/day. Had oatme…",
+          "passed": true,
+          "failures": [],
+          "latencyMs": 4473,
+          "detail": "Your protein intake today at 85g is about 57% of your 150g goal, which is a clear opportunity for improvement. The good news is your food choices—oatmeal, chicken salad, and pasta—provide a solid foun"
+        },
+        {
+          "id": "insight_great_macros",
+          "input": "Client hit all macro targets today: 2100 kcal, 155g protein,…",
+          "passed": true,
+          "failures": [],
+          "latencyMs": 3782,
+          "detail": "Great work hitting all your macro targets today. Nailing 155g of protein while staying within your calorie and carb/fat goals is a strong win that supports muscle recovery and satiety, especially afte"
+        },
+        {
+          "id": "insight_allergy_flag",
+          "input": "Client has a peanut allergy (confirmed in memory). Today's l…",
+          "passed": false,
+          "failures": [
+            "no actionable language detected (aim/try/consider/focus/check/verify etc.)"
+          ],
+          "latencyMs": 3590,
+          "detail": "It's great that you're staying on top of your daily nutrition logging! Your commitment to tracking is a powerful tool for making informed choices.\n\nHowever, I noticed today's snack bar entry doesn't h"
+        }
+      ]
+    }
+  ]
+}

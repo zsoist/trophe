@@ -30,7 +30,11 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: 'Invalid coach insight request' }, { status: 400 });
   const { clientId, question, organizationId } = parsed.data;
   const [actor] = await db.select({ role: profiles.role }).from(profiles).where(eq(profiles.id, guard.userId)).limit(1);
-  if (!actor || actor.role === 'client') return NextResponse.json({ error: 'Coach access required' }, { status: 403 });
+  // Positive allowlist, not a negative `!== 'client'` check — a future role
+  // (e.g. 'viewer') must not silently inherit coach AI access (audit 2026-06-13).
+  if (!actor || !['coach', 'admin', 'super_admin'].includes(actor.role)) {
+    return NextResponse.json({ error: 'Coach access required' }, { status: 403 });
+  }
   await assertCanAccessClient(db, guard.userId, actor.role, clientId);
 
   const [memory, coachBlocks, knowledge, snapshot] = await Promise.all([

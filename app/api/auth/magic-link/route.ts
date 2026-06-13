@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { z } from 'zod';
 import { safeRedirectPath } from '@/lib/auth/safe-redirect';
+import { consumeRateLimit } from '@/lib/durable-rate-limit';
 
 const MagicLinkBody = z.object({
   email: z.string().email('Invalid email address'),
@@ -21,6 +22,19 @@ const MagicLinkBody = z.object({
  * Body: { email: string, redirectTo?: string }
  */
 export async function POST(request: NextRequest) {
+  // Durable rate limit by IP: 10 magic-links / hour. Email is NOT in the key —
+  // a per-email key would leak existence via timing. Prevents inbox flooding
+  // and OTP-spam enumeration (audit 2026-06-13).
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    ?? request.headers.get('x-real-ip') ?? 'unknown';
+  const rate = await consumeRateLimit(`magic-link:${ip}`, 10, 3600);
+  if (!rate.allowed) {
+    return NextResponse.json(
+      { error: 'Too many requests — please try again later' },
+      { status: 429, headers: { 'Retry-After': String(rate.retryAfter) } },
+    );
+  }
+
   let body: unknown;
   try {
     body = await request.json();

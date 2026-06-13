@@ -1,0 +1,95 @@
+{
+  "when": "2026-06-12T18:03:10.823Z",
+  "url": "http://localhost:3333",
+  "threshold": 95,
+  "aggregate": {
+    "passed": 3,
+    "total": 6,
+    "rate": 50,
+    "passed_gate": false
+  },
+  "gateEnforced": true,
+  "suites": [
+    {
+      "name": "food_parse",
+      "passed": 0,
+      "total": 10,
+      "rate": 0,
+      "skipped": true,
+      "skipReason": "EVAL_AUTH_TOKEN or EVAL_AUTH_EMAIL/EVAL_AUTH_PASSWORD required for protected food-parse API eval",
+      "avgLatencyMs": 0,
+      "cases": []
+    },
+    {
+      "name": "recipe_analyze",
+      "passed": 0,
+      "total": 3,
+      "rate": 0,
+      "skipped": false,
+      "avgLatencyMs": 5131,
+      "cases": [
+        {
+          "id": "recipe_greek_salad",
+          "input": "Greek salad: 200g tomatoes, 100g cucumber, 80g feta cheese, 20ml olive oil, 30g kalamata olives",
+          "passed": false,
+          "failures": [
+            "exception: Failed query: select \"id\", \"source\", \"source_id\", \"source_url\", \"data_quality\", \"name_en\", \"name_el\", \"name_es\", \"name_fr\", \"name_it\", \"brand\", \"barcode\", \"region\", \"kcal_per_100g\", \"protein_per_100g\", \"carb_per_100g\", \"fat_per_100g\", \"fiber_per_100g\", \"sugar_per_100g\", \"sodium_mg\", \"micronutrients\", \"default_serving_grams\", \"default_serving_unit\", \"usda_fdc_id\", \"macro_confidence\", \"unit_conversion_verified\", \"canonical_food_key\", \"provenance_notes\", \"data_reviewed_at\", \"popularity\", \"verified\", \"created_at\", \"last_synced_at\" from \"foods\" where search_text @@ to_tsquery('simple', $1) order by ts_rank(search_text, to_tsquery('simple', $2)) DESC limit $3\nparams: (tomatoe:* | tomatoes:*) & raw:*,(tomatoe:* | tomatoes:*) & raw:*,40"
+          ],
+          "latencyMs": 6229
+        },
+        {
+          "id": "recipe_chicken_rice",
+          "input": "Grilled chicken breast 200g with 150g cooked white rice and steamed broccoli 100g",
+          "passed": false,
+          "failures": [
+            "exception: Failed query: select \"id\", \"source\", \"source_id\", \"source_url\", \"data_quality\", \"name_en\", \"name_el\", \"name_es\", \"name_fr\", \"name_it\", \"brand\", \"barcode\", \"region\", \"kcal_per_100g\", \"protein_per_100g\", \"carb_per_100g\", \"fat_per_100g\", \"fiber_per_100g\", \"sugar_per_100g\", \"sodium_mg\", \"micronutrients\", \"default_serving_grams\", \"default_serving_unit\", \"usda_fdc_id\", \"macro_confidence\", \"unit_conversion_verified\", \"canonical_food_key\", \"provenance_notes\", \"data_reviewed_at\", \"popularity\", \"verified\", \"created_at\", \"last_synced_at\" from \"foods\" where search_text @@ to_tsquery('simple', $1) order by ts_rank(search_text, to_tsquery('simple', $2)) DESC limit $3\nparams: chicken:* & breast:* & grilled:*,chicken:* & breast:* & grilled:*,40"
+          ],
+          "latencyMs": 4215
+        },
+        {
+          "id": "recipe_oatmeal",
+          "input": "50g rolled oats cooked with 200ml milk, 1 banana, 1 tablespoon honey",
+          "passed": false,
+          "failures": [
+            "exception: Failed query: select \"id\", \"source\", \"source_id\", \"source_url\", \"data_quality\", \"name_en\", \"name_el\", \"name_es\", \"name_fr\", \"name_it\", \"brand\", \"barcode\", \"region\", \"kcal_per_100g\", \"protein_per_100g\", \"carb_per_100g\", \"fat_per_100g\", \"fiber_per_100g\", \"sugar_per_100g\", \"sodium_mg\", \"micronutrients\", \"default_serving_grams\", \"default_serving_unit\", \"usda_fdc_id\", \"macro_confidence\", \"unit_conversion_verified\", \"canonical_food_key\", \"provenance_notes\", \"data_reviewed_at\", \"popularity\", \"verified\", \"created_at\", \"last_synced_at\" from \"foods\" where search_text @@ to_tsquery('simple', $1) order by ts_rank(search_text, to_tsquery('simple', $2)) DESC limit $3\nparams: (cereal:* | cereals:*) & (oat:* | oats:*) & regular:* & quick:* & instant:*,(cereal:* | cereals:*) & (oat:* | oats:*) & regular:* & quick:* & instant:*,40"
+          ],
+          "latencyMs": 4949
+        }
+      ]
+    },
+    {
+      "name": "coach_insight",
+      "passed": 3,
+      "total": 3,
+      "rate": 100,
+      "skipped": false,
+      "avgLatencyMs": 4659,
+      "cases": [
+        {
+          "id": "insight_low_protein",
+          "input": "Client logged 85g protein today. Goal is 150g/day. Had oatme…",
+          "passed": true,
+          "failures": [],
+          "latencyMs": 4420,
+          "detail": "You had a solid start today with Whole foods like oatmeal and chicken salad, but your protein intake is only at 57% of your goal. The biggest opportunity here is to significantly increase protein at e"
+        },
+        {
+          "id": "insight_great_macros",
+          "input": "Client hit all macro targets today: 2100 kcal, 155g protein,…",
+          "passed": true,
+          "failures": [],
+          "latencyMs": 5491,
+          "detail": "Great work today! Hitting all your macro targets precisely, especially with a solid 155g of protein, shows strong discipline and consistency. Pairing that with a full hour of training means you've set"
+        },
+        {
+          "id": "insight_allergy_flag",
+          "input": "Client has a peanut allergy (confirmed in memory). Today's l…",
+          "passed": true,
+          "failures": [],
+          "latencyMs": 4065,
+          "detail": "I see you logged a snack bar today, but we don't have its ingredient list confirmed. Since you have a confirmed peanut allergy, this is a safety priority. Please always check the label for \"contains p"
+        }
+      ]
+    }
+  ]
+}

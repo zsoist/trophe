@@ -32,7 +32,10 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
               "img-src 'self' data: blob: https:",
-              `connect-src 'self' ${supabaseOrigin} ${supabaseOrigin.replace('https://', 'wss://')} https://api.nal.usda.gov https://generativelanguage.googleapis.com https://api.anthropic.com`,
+              // AI provider endpoints (Anthropic/Gemini/DeepSeek) are called
+              // server-side only — they are NOT in connect-src so an XSS can't
+              // exfiltrate to them as a side channel (audit 2026-06-13).
+              `connect-src 'self' ${supabaseOrigin} ${supabaseOrigin.replace('https://', 'wss://')} https://api.nal.usda.gov`,
               "media-src 'self' blob:",
               "worker-src 'self' blob:",
             ].join('; '),
