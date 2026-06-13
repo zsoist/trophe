@@ -54,6 +54,11 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        # Full history: gitleaks-action does a "partial scan" on a shallow clone
+        # and writes a warning to stderr that the action treats as a hard error
+        # ("stderr is not empty"). A full scan avoids the partial-scan path.
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
