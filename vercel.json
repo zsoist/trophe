@@ -1,5 +1,6 @@
 {
   "buildCommand": "npx next build",
+  "regions": ["cle1"],
   "functions": {
     "app/api/**": {
       "memory": 1024,

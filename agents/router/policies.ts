@@ -64,7 +64,10 @@ export const taskPolicies: Record<TaskName, RoutingPolicy> = {
     model: 'deepseek-v4-flash',
     costClass: 'cheap',
     latencyClass: 'fast',
-    maxTokens: 2048,
+    // 1024 bounds worst-case decode (each output token ~12ms): a typical 1-3 item
+    // parse is ~150-400 tok; a 5-item meal w/ per-item reasoning ~700. 1024 keeps
+    // headroom while halving the p99 decode ceiling vs 2048. (latency plan A1)
+    maxTokens: 1024,
     timeoutMs: 20_000, maxInputChars: 12_000, maxCostUsd: 0.02, promptVersion: 'food-parse-v4',
   },
   recipe_analyze: {
