@@ -433,6 +433,31 @@ Example: "1 σουβλάκι κοτόπουλο, χωριάτικη σαλάτα
 For COMPOSITES: decompose mentally into ingredients, estimate each, then sum the per-100g profile.
 Example: "1 souvlaki chicken pita" → pita 60g(160kcal) + chicken 120g(198kcal) + tzatziki 30g(54kcal) + veg 40g(10kcal) + fries 50g(150kcal) = ~300g total, weighted avg ~190kcal/100g, ~11.5g prot/100g, ~16g carb/100g, ~7.5g fat/100g
 
+## HIDDEN FAT — THE #1 ERROR SOURCE (estimate fat LAST, deliberately)
+Fat is the macro most often UNDER-counted because oils, dressings, and cooking fat are
+invisible in text. Before finalizing fat, explicitly account for EVERY fat source:
+1. **Cooking oil that isn't stated.** Greek and Mediterranean cooking uses a LOT of olive oil.
+   When a dish is fried/sautéed/"ladera"/roasted-in-oil and no oil is stated, ADD it:
+   - Fried eggplant (moussaka, melitzanes): +20-25g oil per 100g eggplant (salted+blotted +10-15g)
+   - Sautéed/"tsigarista" base (onion/garlic in oil): +8-10g oil per 100g
+   - Deep-fried (loukoumades, calamari, fries): oil = 8-25% of food weight (fries ~10%)
+   - Ladera dishes (gigantes, fasolakia, briam, gemista, fava): 15-25g EVOO per portion
+   - Greek salad / horta / grilled fish: finishing olive oil 7-15g per portion
+   - Pan-fried meat (keftedes, biftekia): +5-8g oil per 100g
+2. **Dressings & sauces.** Salad "with olive oil" / vinaigrette = 10-15g fat; tahini, mayo,
+   béchamel, cream sauces, pesto all carry significant fat. Never log a dressed salad as ~0 fat.
+3. **Cheese, nuts, fatty cuts, skin-on poultry, marbled/ground meat** — high fat density.
+4. **Cooking method on the food_state** — "fried"/"roasted" implies absorbed fat vs "boiled"/"grilled".
+
+In nutrition_reasoning, briefly NAME the fat sources you included (e.g. "incl. ~18g olive oil
+for fried eggplant"). A dish that looks lean in text usually is not.
+
+## PLAUSIBILITY SELF-CHECK (before output)
+- Macro energy must roughly reconcile: protein×4 + carbs×4 + fat×9 ≈ per_100g_kcal (±15%).
+  If they don't reconcile, re-estimate the macro you're least sure of (usually fat).
+- Fat cannot exceed ~95% of kcal/9. Protein > 35g/100g only for very lean meat/isolate.
+- Raw→cooked: meat logged as cooked is denser — chicken ×0.75, pork/lamb ×0.70, ground ×0.70, fish ~0.77 yield.
+
 ## FEW-SHOT EXAMPLES
 
 Input: "200γρ γιαούρτι 2%"
@@ -442,8 +467,13 @@ Input: "200γρ γιαούρτι 2%"
 
 Input: "1 μερίδα μουσακά"
 → food_name: "moussaka", quantity: 1, unit: "serving", estimated_grams: 280,
-  per_100g_kcal: 148, per_100g_protein: 7.5, per_100g_carbs: 9.0, per_100g_fat: 10.0,
-  nutrition_reasoning: "1 serving moussaka ~280g. Layers of eggplant, meat sauce, bechamel. Per 100g: 148kcal."
+  per_100g_kcal: 175, per_100g_protein: 8.0, per_100g_carbs: 9.0, per_100g_fat: 12.5,
+  nutrition_reasoning: "1 serving moussaka ~280g. Fat sources: fried eggplant absorbs ~18-20g olive oil/100g eggplant, ground-beef fat, and béchamel (butter+milk). These push fat to ~12.5g/100g — undercounting the fried-eggplant oil is the classic moussaka error. Per 100g: 175kcal."
+
+Input: "γεμιστά λαδερά"
+→ food_name: "gemista", quantity: 1, unit: "serving", estimated_grams: 300,
+  per_100g_kcal: 120, per_100g_protein: 2.5, per_100g_carbs: 16.0, per_100g_fat: 5.5,
+  nutrition_reasoning: "Ladera stuffed vegetables (rice-filled tomatoes/peppers) ~300g. 'Ladera' = cooked in olive oil; ~15-20g EVOO per portion is the dominant fat/calorie source. Per 100g: ~120kcal, 5.5g fat (mostly olive oil)."
 
 Input: "1 κουλούρι Θεσσαλονίκης"
 → food_name: "koulouri", quantity: 1, unit: "piece", estimated_grams: 90,
