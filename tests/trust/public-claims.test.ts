@@ -3,79 +3,98 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 /**
- * WP0 evidence gate (Enterprise Remediation Report, BLOCKER-05; round 2 after
- * independent review).
+ * WP0 evidence gate (Enterprise Remediation Report, BLOCKER-05; round 3).
  *
- * Exit gate: "A claim with no verified evidence must not appear publicly." The
- * public /trust page may state ONLY controls that are verified-technical,
- * contractual, or framed as an explicit forward commitment. Anything the register
- * (docs/trust/claim-evidence-register.md) marks in-progress / planned /
- * pending-counsel must be ABSENT in affirmative form and present only as an honest
- * "in development / on request" disclosure.
+ * Exit gate: "A claim with no verified evidence must not appear publicly." Public
+ * surfaces (the /trust page AND the buyer-facing draft DPA) may state only controls
+ * that are verified-technical / contractual / an explicit forward-commitment; every
+ * in-progress / planned / pending-counsel item must appear only as an honest
+ * "in development / under review" disclosure (see docs/trust/claim-evidence-register.md).
  *
- * Two guards:
- *  1) FORBIDDEN — affirmative over-claims that must never appear (each maps to a
- *     non-verified register row). A negated/disclosed mention is allowed.
- *  2) REQUIRED — the honest qualifier that must accompany each in-progress control.
- * Plus a register-consistency check so a row can't be silently flipped to
- * "verified" without removing its FORBIDDEN guard in the same PR.
+ * Guards: (1) forbid affirmative over-claims on the page, (2) require the honest
+ * disclosure for each in-progress control, (3) forbid the hard-false claims in the
+ * DPA collateral, (4) every public sub-processor must appear in the register,
+ * (5) a non-verified register row can't be silently flipped to a verified status.
+ *
+ * NOTE (known limit): this gate matches the *known* claim phrasings, not arbitrary
+ * prose. A full per-claim tag → register-status check is tracked for WP3 doc-lint.
  */
 
-const PAGE = readFileSync(join(process.cwd(), 'app/trust/page.tsx'), 'utf-8');
-const REGISTER = readFileSync(join(process.cwd(), 'docs/trust/claim-evidence-register.md'), 'utf-8');
+const ROOT = process.cwd();
+const PAGE = readFileSync(join(ROOT, 'app/trust/page.tsx'), 'utf-8');
+const REGISTER = readFileSync(join(ROOT, 'docs/trust/claim-evidence-register.md'), 'utf-8');
+const DPA = readFileSync(join(ROOT, 'docs/legal/dpa-template.md'), 'utf-8');
 
-const FORBIDDEN: Array<[RegExp, string]> = [
-  // Backups / PITR — Supabase free tier: neither exists
-  [/automated\s+with\s+point-in-time recovery/i, 'claims PITR is active (BACKUPS: planned)'],
-  [/backups?\s+are\s+automated\b/i, 'claims automated backups exist (BACKUPS: planned)'],
-  // Erasure — intake-only; no tested workflow or SLA
-  [/cascade-erase/i, 'claims automated erasure (ERASURE: in-progress)'],
-  [/backups?\s+rotation/i, 'claims backup-rotation erasure (ERASURE: in-progress)'],
-  [/deletion cascades through all tables/i, 'claims verified cascade erasure (ERASURE: in-progress)'],
-  [/completed\s+(manually\s+)?within\s+30\s+days/i, 'erasure SLA not evidenced (ERASURE: in-progress)'],
-  // Rights fulfilment — no SLA monitoring
-  [/respond within 30 days/i, 'rights-fulfilment SLA not monitored (RIGHTS-30D: in-progress)'],
-  // Consent withdrawal — downstream enforcement unproven
-  [/we stop the affected processing/i, 'consent-withdrawal enforcement unproven (CONSENT-WD: in-progress)'],
-  // Transfers — our DPAs/TIA not executed
-  [/it is governed by[^.]*standard contractual clauses/i, 'asserts our transfers are SCC-governed (SCC: in-progress)'],
-  // RLS — rowsecurity=t ≠ proven per-policy isolation (needs WP2 matrix)
-  [/can only ever read clients explicitly assigned/i, 'absolute cross-tenant guarantee unproven (RLS: needs WP2)'],
-  // AI — no egress tests; avoid the absolute "ever"
-  [/no client data is ever used to train/i, 'absolute "ever" not verifiable (AI-EGRESS: in-progress)'],
-  [/zero-retention/i, 'no zero-retention agreement (AI-SUBPROC)'],
-  // DPA — counsel-pending draft
-  [/available for every paid plan/i, 'DPA not signable per-plan (DPA: pending-counsel)'],
-  [/\bsign the DPA\b/i, 'cannot promise to sign a counsel-pending draft (DPA: pending-counsel)'],
-  // Breach — we are the processor, not the controller
+// Affirmative over-claims that must never appear on /trust (a negated/disclosed
+// mention is allowed). Each maps to a non-verified register row.
+const FORBIDDEN_PAGE: Array<[RegExp, string]> = [
+  [/automated\s+with\s+point-in-time recovery/i, 'PITR not enabled (BACKUPS)'],
+  [/backups?\s+are\s+automated\b/i, 'no automated backups (BACKUPS)'],
+  [/cascade-erase/i, 'erasure not automated (ERASURE)'],
+  [/backups?\s+rotation/i, 'no backup-rotation erasure (ERASURE)'],
+  [/deletion cascades through all tables/i, 'erasure not a verified cascade (ERASURE)'],
+  [/completed\s+(manually\s+)?within\s+30\s+days/i, 'erasure SLA not evidenced (ERASURE)'],
+  [/respond within 30 days/i, 'rights SLA not monitored (RIGHTS-30D)'],
+  [/we stop the affected processing/i, 'consent enforcement unproven (CONSENT-WD)'],
+  [/it is governed by[^.]*standard contractual clauses/i, 'our transfers not SCC-executed (SCC)'],
+  [/can only ever read clients explicitly assigned/i, 'cross-tenant guarantee unproven (RLS)'],
+  [/zero-retention/i, 'no zero-retention agreement (AI-ANTHROPIC)'],
+  [/minimal task context/i, 'DeepSeek receives more than minimal context (AI-DEEPSEEK)'],
+  [/never full (health|account) record/i, 'we do send health-adjacent text (AI-DEEPSEEK)'],
+  [/no client data is (ever )?used to train/i, 'DeepSeek may train on inputs (AI-DEEPSEEK)'],
+  [/providers'? api terms[^.]*do not train/i, 'universal no-train claim false for DeepSeek (AI-DEEPSEEK)'],
+  [/http-?only cook/i, 'sessions are NOT httpOnly (ENCRYPT)'],
+  [/pruned at 90 days/i, 'no telemetry pruning job exists (TELEMETRY)'],
+  [/available for every paid plan/i, 'DPA not signable per-plan (DPA)'],
+  [/\bsign the DPA\b/i, 'cannot promise to sign a draft (DPA)'],
   [/within 72 hours,?\s+per Article 33/i, 'conflates processor/controller Art.33 duty (BREACH)'],
 ];
 
-const REQUIRED: Array<[RegExp, string]> = [
-  [/row-level security is enabled on every/i, 'RLS stated as "enabled" (verified), not an absolute guarantee'],
+const REQUIRED_PAGE: Array<[RegExp, string]> = [
+  [/row-level security is enabled on every/i, 'RLS stated as "enabled", not absolute'],
   [/point-in-time recovery[^.]*not yet enabled/i, 'PITR disclosed as not yet enabled'],
   [/erasure workflow[^.]*in active development/i, 'erasure disclosed as in development'],
-  [/transfer-impact assessment and executed DPAs are in progress/i, 'transfer basis disclosed as in progress'],
+  [/transfer-impact assessment and executed DPAs are in progress/i, 'transfer basis disclosed'],
   [/as processor[^.]*notifies affected controllers/i, 'breach worded for the processor role'],
-  [/egress tests[^.]*in development/i, 'AI-egress verification disclosed as in development'],
+  [/deepseek[^.]*(china|may use inputs)/i, 'DeepSeek China / training risk disclosed'],
+  [/cookies rather than browser localStorage/i, 'cookie storage stated honestly (not httpOnly)'],
+  [/retention\/pruning policy[^.]*in development/i, 'telemetry retention disclosed as in development'],
+  [/automated egress tests/i, 'AI egress verification disclosed as in development'],
 ];
 
-describe('public trust claims — WP0 evidence gate (round 2)', () => {
-  for (const [re, why] of FORBIDDEN) {
-    it(`/trust does not over-claim — ${why}`, () => {
-      expect(PAGE).not.toMatch(re);
-    });
+// Hard-false phrases that must not appear in the buyer-facing draft DPA either.
+const FORBIDDEN_DPA: Array<[RegExp, string]> = [
+  [/http-?only cookie/i, 'sessions are not httpOnly'],
+  [/no training on customer data/i, 'DeepSeek may train on inputs'],
+  [/pruned at 90 days/i, 'no telemetry pruning job'],
+  [/point-in-time recovery; restore runbook tested/i, 'no backups/PITR/restore drill'],
+  [/minimal task context/i, 'DeepSeek receives health-adjacent text'],
+  [/zero-retention tier/i, 'no Anthropic zero-retention tier contracted'],
+];
+
+const SUB_PROCESSORS = ['Supabase', 'Vercel', 'DeepSeek', 'Anthropic', 'Voyage AI', 'Langfuse'];
+const NOT_VERIFIED_ROWS = ['| BACKUPS', '| ERASURE', '| TELEMETRY', '| DPA', '| AI-EGRESS', '| AI-DEEPSEEK', '| CONSENT-WD', '| RIGHTS-30D', '| SCC'];
+
+describe('public trust claims — WP0 evidence gate (round 3)', () => {
+  for (const [re, why] of FORBIDDEN_PAGE) {
+    it(`/trust does not over-claim — ${why}`, () => expect(PAGE).not.toMatch(re));
   }
-  for (const [re, why] of REQUIRED) {
-    it(`/trust discloses honestly — ${why}`, () => {
-      expect(PAGE).toMatch(re);
-    });
+  for (const [re, why] of REQUIRED_PAGE) {
+    it(`/trust discloses honestly — ${why}`, () => expect(PAGE).toMatch(re));
+  }
+  for (const [re, why] of FORBIDDEN_DPA) {
+    it(`draft DPA does not over-claim — ${why}`, () => expect(DPA).not.toMatch(re));
   }
 
-  // Register consistency: these controls are not operationally proven, so their
-  // register rows must NOT claim "verified" without also dropping the guard above.
+  it('every public sub-processor is accounted for in the register', () => {
+    for (const name of SUB_PROCESSORS) {
+      expect(PAGE, `${name} should be listed on /trust`).toContain(name);
+      expect(REGISTER, `${name} missing from register`).toContain(name);
+    }
+  });
+
   it('register does not mark unproven controls as verified', () => {
-    for (const row of ['| BACKUPS', '| ERASURE', '| DPA', '| AI-EGRESS', '| CONSENT-WD', '| RIGHTS-30D', '| SCC']) {
+    for (const row of NOT_VERIFIED_ROWS) {
       const line = REGISTER.split('\n').find((l) => l.startsWith(row));
       expect(line, `register row missing: ${row}`).toBeTruthy();
       expect(line!.toLowerCase()).not.toContain('verified-technical');

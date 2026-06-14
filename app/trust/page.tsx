@@ -16,7 +16,7 @@ const GOLD = '#D4A853';
 const SUB_PROCESSORS = [
   ['Supabase', 'Database, authentication, file storage', 'United States (AWS us-east-2) — EU migration planned; under SCCs', 'supabase.com/privacy'],
   ['Vercel', 'Application hosting & delivery', 'United States (us-east-2) — under SCCs', 'vercel.com/legal/privacy-policy'],
-  ['DeepSeek', 'AI text inference (food parsing, coaching insights)', 'Per DeepSeek platform terms — only minimal task context is sent, never full health records', 'platform.deepseek.com'],
+  ['DeepSeek', 'AI text inference (food parsing, coaching insights)', 'China — DeepSeek may use inputs to improve its services; transfer/data-use basis unresolved', 'platform.deepseek.com'],
   ['Anthropic', 'AI vision inference (meal photos only)', 'US — no training on API inputs', 'anthropic.com/privacy'],
   ['Voyage AI', 'Text embeddings (food names only — no personal data)', 'US', 'voyageai.com'],
   ['Langfuse', 'AI observability (pseudonymous run telemetry)', 'EU', 'langfuse.com/privacy'],
@@ -49,10 +49,10 @@ export default function TrustPage() {
         {[
           ['Roles, plainly', `Your nutrition practice (or clinic) is the data controller for client data; trophē is the processor acting on your documented instructions. A draft Article 28 Data Processing Agreement is available on request and is being finalised with counsel — email dpo@trophe.app.`],
           ['Where data lives', `Primary data is stored in Supabase (PostgreSQL), currently hosted on AWS in the United States (us-east-2); migration to an EU region is planned. Because this is a transfer outside the EEA, we rely on the EU Standard Contractual Clauses offered in our processors' data-processing agreements (Supabase, AWS); our own transfer-impact assessment and executed DPAs are in progress. Row-level security is enabled on every database table, so tenant access is enforced at the database layer, not only in application code — comprehensive cross-tenant policy tests are on our hardening roadmap. Automated backups and point-in-time recovery are being provisioned as part of our in-progress move to Supabase Pro, and are not yet enabled.`],
-          ['Encryption', `TLS 1.2+ in transit everywhere; AES-256 encryption at rest. Authentication uses short-lived tokens in HTTP-only cookies; service credentials are never present in client code.`],
-          ['What our AI sees', `Food parsing sends the food text being logged — not your identity. Coaching insights send a structured snapshot the coach already has access to. Meal photos go exclusively to a vision API whose terms prohibit training on submitted inputs. Our AI providers' API terms state they do not train on data sent through their APIs; automated egress tests that verify no unnecessary personal data leaves the app are in development.`],
+          ['Encryption', `TLS 1.2+ in transit everywhere; AES-256 encryption at rest (provided by our hosting platforms). Sessions are kept in cookies rather than browser localStorage; service credentials are never present in client code.`],
+          ['What our AI sees', `Our text AI runs on DeepSeek, which processes inputs on infrastructure in China. For food logging we send the food text; for coaching features we send nutrition, lifestyle and coach-visible snapshot text (not your name or contact details). DeepSeek's terms permit it to use inputs to improve its services, so the transfer and data-use basis is unresolved — we are actively minimising what is sent and building automated egress tests. Meal-photo vision runs on Anthropic, whose API terms do not train on submitted inputs. We never send uploaded medical documents, because we don't accept them.`],
           ['Medical documents', `We deliberately do NOT accept uploads of blood panels or medical documents yet. Until our counsel finalises retention obligations for health records, the intake collects lifestyle answers only — the most privacy-preserving default.`],
-          ['Retention', `Active account data is retained while the account exists. You can request deletion of your account and data via dpo@trophe.app; a fully-automated, audited erasure workflow (including backup handling) is in active development, and until it ships we process deletion requests manually and confirm scope and timing with you. AI telemetry is pseudonymous and pruned at 90 days.`],
+          ['Retention', `Active account data is retained while the account exists. You can request deletion of your account and data via dpo@trophe.app; a fully-automated, audited erasure workflow (including backup handling) is in active development, and until it ships we process deletion requests manually and confirm scope and timing with you. AI run telemetry is pseudonymous; an automated retention/pruning policy for it is in development.`],
           ['Breach notification', `As processor, trophē notifies affected controllers of confirmed personal-data breaches without undue delay and provides the information they need to meet their own regulatory obligations (such as the 72-hour deadline a controller faces under GDPR Article 33). We maintain a documented incident runbook.`],
         ].map(([h, body]) => (
           <section key={h as string} style={{ marginBottom: 28 }}>
@@ -77,7 +77,7 @@ export default function TrustPage() {
             ))}
           </div>
           <p style={{ color: '#78716c', fontSize: 12, marginTop: 8 }}>
-            Our data-processing agreement commits us to notifying controllers of sub-processor changes in advance, with the right to object.
+            Our current draft DPA proposes notifying controllers of sub-processor changes in advance, with the right to object.
           </p>
         </section>
 
