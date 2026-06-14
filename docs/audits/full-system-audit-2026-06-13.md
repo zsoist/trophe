@@ -55,7 +55,7 @@ retained — no Gemini/alternate provider added (cost mandate).**
 A true 10 is **not** reachable by implementing audit findings alone — the gap is:
 1. **Genuine product features** — Stripe billing + tier enforcement, self-serve coach onboarding/invites, the missing coach AI UIs (recipe/meal-plan/shopping). These are build work, not fixes.
 2. **Risky refactors that need individual testing** — god-file splits (lookup.ts, index.v4.ts, coach pages), components/ subdir reorg. Done blind in a sweep they'd risk regressions; deferred to dedicated, separately-verified passes.
-3. **Deeper perf** — wire `queryEmbedding` so the HNSW vector arm fires (now unlocked: all 42.9k foods embedded), overlap RAG pre-search with the LLM call; tune retry/backoff for the burst-concurrency fragility the stress test found.
+3. **Deeper perf** — overlap RAG pre-search with the LLM call; tune retry/backoff for the burst-concurrency fragility the stress test found. (The HNSW vector arm is intentionally **not** a quick win: wiring `queryEmbedding` was tried and **reverted −27pt** — see research-brief. The 42.9k foods are embedded, but any retry must gate strictly — vector only as a **no-BM25-hit fallback**, or **RRF weight <15%** — or it again demotes exact matches.)
 
 Shipping a verified ~7.7 beats claiming a fake 10. The roadmap below is the path to 9+.
 
@@ -74,7 +74,7 @@ See companion commit(s). Tier-1 = safe, drift-immune, low-risk.
 
 ### Latency (drift-immune)
 - `lookupFoodBatch` serial loop → `Promise.all` (saves ~300-600ms on multi-item parses).
-- Pass `queryEmbedding` into batch lookup so the **HNSW vector arm actually fires** (it was silently dead in prod — BM25-only).
+- ⚠️ **Vector-arm wiring (`queryEmbedding` into batch lookup) was ATTEMPTED and REVERTED same-day** (commit `e28ecf1`): RRF 70%-vector/30%-BM25 regressed the 549 benchmark −27pt (pass 90.7→63.4%, dbResolved 66.7→42.3%) — short food names matched near-but-wrong neighbors (`feta`→`halloumi`) and demoted exact BM25 hits to the LLM path. The arm remains **dormant / BM25-only BY DESIGN** (`index.v4.ts` does not populate `queryEmbedding`). See `docs/benchmark/research-brief-2026-06-13.md`. *(Not a shipped win — listed here only to correct the earlier claim that it "fires".)*
 
 ### Cost
 - Memory queue: skip assistant-turn extraction when no first-person/diet signal (~50% memory-extract savings).
