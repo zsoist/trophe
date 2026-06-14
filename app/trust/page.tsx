@@ -17,7 +17,7 @@ const SUB_PROCESSORS = [
   ['Supabase', 'Database, authentication, file storage', 'United States (AWS us-east-2) — EU migration planned; under SCCs', 'supabase.com/privacy'],
   ['Vercel', 'Application hosting & delivery', 'United States (us-east-2) — under SCCs', 'vercel.com/legal/privacy-policy'],
   ['DeepSeek', 'AI text inference (food parsing, coaching insights)', 'Per DeepSeek platform terms — only minimal task context is sent, never full health records', 'platform.deepseek.com'],
-  ['Anthropic', 'AI vision inference (meal photos only)', 'US, zero-retention API tier', 'anthropic.com/privacy'],
+  ['Anthropic', 'AI vision inference (meal photos only)', 'US — no training on API inputs', 'anthropic.com/privacy'],
   ['Voyage AI', 'Text embeddings (food names only — no personal data)', 'US', 'voyageai.com'],
   ['Langfuse', 'AI observability (pseudonymous run telemetry)', 'EU', 'langfuse.com/privacy'],
 ];
@@ -25,9 +25,9 @@ const SUB_PROCESSORS = [
 const RIGHTS = [
   ['Access & portability', 'Request a full export of your data in machine-readable format (Art. 15, 20).'],
   ['Rectification', 'Correct any inaccurate personal data (Art. 16).'],
-  ['Erasure', 'Request complete deletion of your account and data (Art. 17). Deletion cascades through all tables.'],
+  ['Erasure', 'Request complete deletion of your account and data (Art. 17), completed within 30 days.'],
   ['Restriction & objection', 'Limit or object to specific processing (Art. 18, 21).'],
-  ['Consent withdrawal', 'Withdraw any consent at any time without affecting prior lawfulness (Art. 7).'],
+  ['Consent withdrawal', 'Withdraw any consent without affecting prior lawfulness (Art. 7); contact dpo@trophe.app and we stop the affected processing.'],
 ];
 
 export default function TrustPage() {
@@ -47,12 +47,12 @@ export default function TrustPage() {
         </p>
 
         {[
-          ['Roles, plainly', `Your nutrition practice (or clinic) is the data controller for client data; trophē is the processor acting on your documented instructions. A signable Article 28 Data Processing Agreement is available for every paid plan — email dpo@trophe.app.`],
-          ['Where data lives', `Primary data is stored in Supabase (PostgreSQL), currently hosted on AWS in the United States (us-east-2). Migration to an EU region is planned. Because this is a transfer outside the EEA, it is governed by the European Commission's Standard Contractual Clauses incorporated in our processors' data processing agreements (Supabase, AWS). Row-level security is enforced on every table — coaches can only ever read clients explicitly assigned to them, verified by database policy, not application code. Backups are automated with point-in-time recovery.`],
+          ['Roles, plainly', `Your nutrition practice (or clinic) is the data controller for client data; trophē is the processor acting on your documented instructions. A draft Article 28 Data Processing Agreement is available on request and is being finalised with counsel — email dpo@trophe.app.`],
+          ['Where data lives', `Primary data is stored in Supabase (PostgreSQL), currently hosted on AWS in the United States (us-east-2). Migration to an EU region is planned. Because this is a transfer outside the EEA, it is governed by the European Commission's Standard Contractual Clauses incorporated in our processors' data processing agreements (Supabase, AWS). Row-level security is enforced on every table — coaches can only ever read clients explicitly assigned to them, verified by database policy, not application code. Automated backups and point-in-time recovery are being provisioned as part of our in-progress move to Supabase Pro, and are not yet enabled.`],
           ['Encryption', `TLS 1.2+ in transit everywhere; AES-256 encryption at rest. Authentication uses short-lived tokens in HTTP-only cookies; service credentials are never present in client code.`],
-          ['What our AI sees', `Food parsing sends the food text being logged — not your identity. Coaching insights send a structured snapshot the coach already has access to. Meal photos go exclusively to a zero-retention vision API. No client data is ever used to train models.`],
+          ['What our AI sees', `Food parsing sends the food text being logged — not your identity. Coaching insights send a structured snapshot the coach already has access to. Meal photos go exclusively to a vision API under terms that prohibit training on submitted images. No client data is ever used to train models.`],
           ['Medical documents', `We deliberately do NOT accept uploads of blood panels or medical documents yet. Until our counsel finalises retention obligations for health records, the intake collects lifestyle answers only — the most privacy-preserving default.`],
-          ['Retention', `Active account data is retained while the account exists. Deleted accounts cascade-erase within 30 days, including backups rotation. AI telemetry is pseudonymous and pruned at 90 days.`],
+          ['Retention', `Active account data is retained while the account exists. On account deletion we remove your application data; a fully-automated, audited erasure workflow (including backup handling) is in active development — until it ships, erasure requests are completed manually within 30 days via dpo@trophe.app. AI telemetry is pseudonymous and pruned at 90 days.`],
           ['Breach notification', `Confirmed personal-data breaches are notified to affected controllers without undue delay and within 72 hours, per Article 33, with a documented incident runbook.`],
         ].map(([h, body]) => (
           <section key={h as string} style={{ marginBottom: 28 }}>
@@ -121,7 +121,7 @@ export default function TrustPage() {
         </section>
 
         <p style={{ color: '#57534e', fontSize: 11, marginTop: 40, fontFamily: 'monospace' }}>
-          Last updated June 2026 · trophē — Precision Nutrition Coaching
+          Last updated 2026-06-14 · trophē — Precision Nutrition Coaching
         </p>
       </div>
     </div>
