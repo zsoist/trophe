@@ -370,7 +370,7 @@ export function lexicalIntentScore(candidate: SelectFood, query: string): number
   // "...FLAKES, dry mix" (dehydrated). These wrong-form matches carry the right
   // tokens but a completely different macro profile — fat especially.
   // Singular forms: the comparison strings are singularized ("flakes" → "flake").
-  const FORM_TOKENS = /\b(fillings?|flakes?|dry mix|dehydrated|powdered|concentrates?|babyfood|unprepared)\b/;
+  const FORM_TOKENS = /\b(fillings?|flakes?|dry mix|dehydrated|powdered|dried|concentrates?|babyfood|unprepared)\b/;
   if (FORM_TOKENS.test(singularName) && !FORM_TOKENS.test(singularQuery)) {
     score -= 6;
   }
@@ -1162,9 +1162,12 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
   'bocadillo de guayaba': 'guava paste bocadillo',
 
   // ── Beverages ──
-  'coffee': 'coffee brewed',
-  'cafe': 'coffee brewed',
-  'café': 'coffee brewed',
+  // Map to the EXACT row name so lexicalIntentScore awards the +12 exact-match bonus,
+  // beating shorter branded products ("Black Edition Coffee") that otherwise win BM25.
+  'coffee': 'Beverages, coffee, brewed, prepared with tap water',
+  'black coffee': 'Beverages, coffee, brewed, prepared with tap water',
+  'cafe': 'Beverages, coffee, brewed, prepared with tap water',
+  'café': 'Beverages, coffee, brewed, prepared with tap water',
   'cafe con leche': 'cafe con leche',
   'café con leche': 'cafe con leche',
   'coffee with milk': 'cafe con leche',

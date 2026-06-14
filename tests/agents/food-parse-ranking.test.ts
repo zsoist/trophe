@@ -27,4 +27,10 @@ describe('lexicalIntentScore — wrong-variant disambiguation (Phase 1a)', () =>
     expect(lexicalIntentScore(food('Rice, white, cooked'), 'white rice'))
       .toBeGreaterThan(0);
   });
+
+  it('generic "milk" prefers liquid milk over DRIED/powdered milk (Phase 1b)', () => {
+    // Benchmark blunder: "milk"/"γάλα"/"lait" → "Milk, semi-skimmed, dried" (powder, ~35g protein).
+    expect(lexicalIntentScore(food('Milk, whole'), 'milk'))
+      .toBeGreaterThan(lexicalIntentScore(food('Milk, semi-skimmed, dried'), 'milk'));
+  });
 });
