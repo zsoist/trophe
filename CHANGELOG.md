@@ -4,6 +4,14 @@ All notable changes to Trophē are logged here. Format follows [Keep a Changelog
 
 ---
 
+## [Deterministic MAPE reduction (shipped to prod)] — 2026-06-14
+- **Result (median-of-3 vs prod):** backup v3 700-case pooled macro-MAPE **22.4% → 16.0%** (calories 12.6 / protein 16.0 / carbs 17.1 / fat 18.2), pass **75.6% → 76.6%**; official v2 210-case held at **94.3%** (no regression). Latency **p95 9.5s → 8.1s**.
+- **Levers (retrieval/data only — no auth/RLS/schema change):** dried-milk-powder retrieval penalty (biggest lever) + coffee exact-match corrections + confectionery penalty + dish re-routes (bouillabaisse / gazpacho) + Gratin dauphinois seed + saganaki carb fix.
+- **Floor:** ~16% pooled MAPE is the deterministic floor; sub-10% needs Michael-Kavdas-validated Greek ranges + fine-tuning (separate tracks), not prompt/retrieval tweaks.
+- **Shipped:** origin/main `6f50cfc` via `vercel --prod` (deployment `dpl_GuzScRgCUBsRWkVmdG3nqe2uMKtv`), live at trophe.app. Design: `docs/superpowers/specs/2026-06-14-mape-reduction-deterministic-design.md`.
+
+---
+
 ## [Coach call build + cleanup] — 2026-06-13
 - **Shipped (Michael Jun-12 call):** meal-plan macro rollup, clickable meal→recipe, client calorie-hide, custom questionnaire builder, stabilization reframe, calorie-from-body-comp, graduated/churn, pre-appointment instructions, streak tooltip, comparison-window relabel.
 - **Open Food Facts:** barcode scan (OFF v2 + ZXing camera, iOS-safe), manual-add fallback for OFF-missing products, ODbL attribution on /trust.
@@ -11,7 +19,7 @@ All notable changes to Trophē are logged here. Format follows [Keep a Changelog
 - **Migrations:** 0039 feedback, 0040 graduation, 0041 appointment_instructions (applied prod).
 - **CI:** fixed migration-journal drift + added fast journal-sync guard; nightly-eval auth env.
 - **Cleanup:** removed 22 orphan components (~3k LOC dead code); docs accuracy pass (DeepSeek-only routing, ~42,951 foods, 8 langs); added docs/README index, dependabot, CODEOWNERS, PR template; superseded banners on ROADMAP/TODO-NEXT/MEETING-NOTES/CODEX.
-- **Decision:** 100% DeepSeek text (Fable was offline-assessment only, ToS-disabled). Benchmark official = v2 210-case (94.8%) / backup v3 700-case (75.6%).
+- **Decision:** 100% DeepSeek text (Fable was offline-assessment only, ToS-disabled). Benchmark official = v2 210-case (94.8%) / backup v3 700-case (76.6%).
 
 ---
 

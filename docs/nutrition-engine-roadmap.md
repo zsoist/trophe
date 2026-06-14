@@ -1,3 +1,5 @@
+> ⚠️ SUPERSEDED (2026-06-14): early roadmap. Current state — ~42,950 foods, v3 700-set 76.6% pass / 16.0% pooled MAPE. See SPEC.md + docs/superpowers/specs/2026-06-14-mape-reduction-deterministic-design.md.
+
 # Nutrition Engine Roadmap
 
 _Created: 2026-05-02. Honest framing throughout — this is production-grade groundwork, not a finished B2B engine._

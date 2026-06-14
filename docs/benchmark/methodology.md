@@ -43,14 +43,24 @@ clarification expectations. `Acc@7.5` = stricter: calories AND every macro withi
 | Cal/macro MAPE | mean abs % error per macro | precision (fat is the hardest) |
 | p50 / p95 latency | response time | UX / enterprise SLA |
 
+## Current results (700-case v3, median-of-3 vs prod, verified 2026-06-14)
+After the 2026-06-14 deterministic MAPE reduction: **76.6% pass**, **16.0% pooled
+macro-MAPE** (calories 12.6% / protein 16.0% / carbs 17.1% / fat 18.2%),
+dbResolved 63%, Acc@7.5 26.6% — down from a pooled 22.4% Phase-0 baseline (a
+−6.4pt deterministic cut; biggest lever was a dried-milk-powder retrieval penalty).
+Official v2 210-case = **94.3% pass**. The validated 549-case subset still holds
+~90%. **Michael Kavdas validation of the +151 Greek cases is still the next step**
+to make those an authoritative gate. ~16% is the deterministic floor; sub-10% MAPE
+needs validated Greek ranges + fine-tuning, not prompt/retrieval tweaks.
+
 ## The variance finding (read this before quoting a number)
 With LLM `temperature: 0`, the benchmark **still moves ±1.5pt between hours** on
-identical code — DeepSeek server-side sampling/version drift. Observed
-2026-06-13: same commit scored 91.6% morning, 90.0–90.3% at night; runs within
-the same hour agree closely.
+identical code — DeepSeek server-side sampling/version drift. Runs within the same
+hour agree closely; across hours the same commit drifts a point or two.
 
-**Implication:** quote a **band (90–92%)**, never a single-run high-water mark.
-A point estimate is partly weather.
+**Implication:** quote a **band**, never a single-run high-water mark, and report
+the dataset version + metric definition alongside it. A point estimate is partly
+weather.
 
 **Corollary — the real lever is dbResolved %.** Every food converted from LLM
 estimation to a calibrated DB row is permanent and drift-immune; the LLM share is

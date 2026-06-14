@@ -29,11 +29,15 @@ Partnership with Michael Kavdas (Greek nutritionist, PN L1 certified, COO Athlet
 - **DeepSeek V4 Flash for ALL text AI** (food-parse v7, recipe-analyze, coach insight,
   meal suggest, memory extract) — cost mandate 2026-06-08. Anthropic Haiku 4.5 for
   photo/vision only. Voyage-4 embeddings (1024-dim).
-- Food DB: **~41,000 foods** across USDA/FNDDS (US), CIQUAL (FR), CoFID (UK/EU),
+- Food DB: **~42,950 foods** across USDA/FNDDS (US), CIQUAL (FR), CoFID (UK/EU),
   BEDCA (ES), CREA (IT), OpenFoodFacts (GR/DE/NL barcoded products) + curated
-  Greek/Colombian dishes. Enterprise benchmark: 549 cases / 5 languages, **90-92%
-  pass band** (median-of-3; DeepSeek hour drift), Cal MAPE ~9-11%. See
-  `docs/benchmark/methodology.md`.
+  Greek/Colombian dishes. Benchmark (verified 2026-06-14, median-of-3 vs prod):
+  official v2 (210 cases) **94.3% pass**; backup v3 (700 cases, Greek-weighted)
+  **76.6% pass / 16.0% pooled macro-MAPE** (fat is the hardest macro at 18.2%),
+  after the 2026-06-14 deterministic MAPE reduction. The validated 549-case subset
+  still holds ~90%. Note: ~16% is the **deterministic floor** — sub-10% MAPE is not
+  reachable by prompt/retrieval tweaks (needs Michael-Kavdas-validated Greek ranges +
+  fine-tuning). See `docs/benchmark/methodology.md`.
 - MediaPipe Pose (browser AI Form Check)
 - Vitest + Playwright + GitHub Actions CI (eval gates ≥95%)
 - UI languages: **EN / ES / EL / FR / DE / IT / PT / NL** (8 languages — EN/ES/EL

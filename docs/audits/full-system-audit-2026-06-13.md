@@ -13,7 +13,7 @@ Production: trophe.app · Supabase ref iwbpzwmidzvpiofnqexd · ~42,950 foods, 8 
 | Enterprise & security | **6.5** | Strong RLS migration; `db:push` policy-drift footgun + consent never captured |
 | Architecture & organization | **6.0** | Great AI-readability docs; 5 god files, dup schema, cluttered docs/ |
 | MVP & business readiness | **5.8** | Coach loop polished; **no billing, no self-serve onboarding, AI UIs missing** |
-| Latency / performance | **6.0** | Well-parallelized queries; serial food-lookup loop + dead vector arm |
+| Latency / performance | **6.0** | Well-parallelized queries; serial food-lookup loop + dormant-by-design vector arm (BM25-only) |
 | **OVERALL** | **~6.8** | **Strong engineering; beta-gated on business plumbing + a few security must-fixes** |
 
 The composite is dragged down by the two dimensions that matter most for the *stated goal* (a paid clinic beta): business readiness and the enterprise must-fixes. The pure-engineering core (AI, APIs, cost) averages ~7.8.

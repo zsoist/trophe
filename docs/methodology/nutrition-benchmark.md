@@ -8,7 +8,7 @@
 
 ## Abstract
 
-We present DietAI24, a multilingual benchmark for evaluating LLM-based nutrition estimation from free-text food descriptions. The benchmark comprises 549 cases across 13 categories in 4 languages (English, Spanish, Greek, French) plus mixed/code-switched inputs. Macro ranges are calibrated against USDA FoodData Central and CIQUAL 2025. We evaluate a deterministic hybrid pipeline (LLM extraction + database lookup + CoT arbitration) achieving 79.2% pass rate, 8.4% calorie MAPE, and 43.8% Acc@7.5 on our multilingual dataset. Our approach demonstrates that coupling LLM parsing with curated food databases produces consistent, reproducible nutrition estimates across languages.
+We present DietAI24, a multilingual benchmark for evaluating LLM-based nutrition estimation from free-text food descriptions. The benchmark comprises 549 cases across 13 categories in 4 languages (English, Spanish, Greek, French) plus mixed/code-switched inputs. Macro ranges are calibrated against USDA FoodData Central and CIQUAL 2025. We evaluate a deterministic hybrid pipeline (LLM extraction + database lookup + CoT arbitration) achieving 79.2% pass rate, 8.4% calorie MAPE, and 43.8% Acc@7.5 on our multilingual dataset. Our approach demonstrates that coupling LLM parsing with curated food databases produces consistent, reproducible nutrition estimates across languages. (The production benchmark has since expanded to a 700-case Greek-weighted set scoring 76.6% pass / 16.0% pooled macro-MAPE, median-of-3, as of 2026-06-14.)
 
 ---
 

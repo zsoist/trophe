@@ -15,8 +15,8 @@ makes "operating system of the fitness and nutrition industry" credible.
 | Production app (trophe.app) | Next.js 16 + Supabase, 46 routes, CI green |
 | Coach module | Phases 0-2 SHIPPED: client mgmt, weekly meal plans, messaging (realtime), intake (15-q set), daily check-ins, assessment/goals, KPIs |
 | AI agents | 100% DeepSeek text (food parse v7, recipe analyze, coach insight, meal suggest, memory) + Voyage embeddings + Haiku photo |
-| Food DB | 21,120 foods: USDA+FNDDS 13,259 · CIQUAL(FR) 3,323 · CoFID(UK/EU) 2,744 · BEDCA(ES) 751 · CREA(IT) 714 · curated GR/CO 86+ |
-| Accuracy | Enterprise benchmark 549 cases / 5 langs: **92.7% ATH**, Cal MAPE 9.0% (competitors ≈60-70%) |
+| Food DB | **~42,950 foods**: OFF ~21.8k · USDA+FNDDS ~13.3k · CIQUAL(FR) · CoFID(UK/EU) · BEDCA(ES) · CREA(IT) · curated GR/CO + barcodes |
+| Accuracy | v3 700-set (Greek-weighted, median-of-3): **76.6% pass / 16.0% pooled MAPE** (post-2026-06-14 deterministic reduction); validated 549-subset ~90%; official v2 210 = 94.3% (competitors ≈60-70%) |
 | i18n | EN / ES / EL (+FR parse path); custom dictionary ~451 keys |
 | Payments scaffold | organizations.stripe_customer_id + stripe_connect_account_id (unused) |
 | Compliance scaffold | consents + data_requests + audit_log tables, RLS suite in CI |
