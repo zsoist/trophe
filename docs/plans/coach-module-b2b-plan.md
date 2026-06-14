@@ -11,7 +11,7 @@ GDPR-compliant, enterprise-accurate).
 - Stripe Connect fields already on `organizations` (customer + connect account + status) —
   payments groundwork exists, no checkout flow yet.
 - i18n: custom trilingual dictionary (EN/ES/EL), 451 keys.
-- Nutrition engine: 21,120 foods, benchmark 92.7%, CI green.
+- Nutrition engine: ~42,950 foods, benchmark v3 700-set 76.6% pass / 16.0% pooled MAPE (median-of-3, post-2026-06-14 deterministic reduction; v2 official 94.3%), CI green.
 
 ---
 

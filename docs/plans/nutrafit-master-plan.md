@@ -80,7 +80,7 @@ Remaining: Stripe Connect commission wiring, multi-coach org UI, status page, wh
 | Middle East | curated staples + OFF AR | ~200 curated | research deferred |
 | Italy/UK/US/FR | CREA ✓ CoFID ✓ USDA ✓ CIQUAL ✓ | — | ✅ done |
 
-**DB total: ~41,000 foods** (was 24,698). OFF harvester `scripts/ingest/off-market.ts`
+**DB total: ~42,950 foods** (was 24,698). OFF harvester `scripts/ingest/off-market.ts`
 generalizes to any market: `npx tsx off-market.ts de nl it pt fr`.
 
 **App i18n:** ✅ DONE — 8 languages live (EN/ES/EL inline + FR/DE/IT/PT/NL overlay
