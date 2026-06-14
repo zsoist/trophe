@@ -43,7 +43,7 @@ a) process personal data only on documented instructions from the Controller, in
 b) ensure persons authorised to process the data are bound by confidentiality;
 c) implement the technical and organisational measures in **Annex II**;
 d) respect the sub-processor conditions in §6;
-e) assist the Controller in responding to data-subject rights requests (Arts. 12–23) via in-product export and deletion tooling;
+e) assist the Controller in responding to data-subject rights requests (Arts. 12–23) via available export tooling and the documented manual rights-request process, while automated deletion tooling is in development;
 f) assist the Controller with Arts. 32–36 obligations (security, breach notification, DPIA);
 g) at the Controller's choice, delete or return all personal data at end of services (§9);
 h) make available all information necessary to demonstrate compliance and allow for audits (§8).
@@ -59,8 +59,9 @@ h) make available all information necessary to demonstrate compliance and allow 
 transfer outside the EEA, the Processor relies on the EU Standard Contractual Clauses
 (2021/914) offered in its agreements with Supabase and AWS; the Processor's own
 transfer-impact assessment and executed processor DPAs are in progress. Text AI
-inference for coaching features sends nutrition, lifestyle and coach-visible snapshot
-text to DeepSeek, which processes inputs in China and whose terms permit it to use
+inference for coaching features sends client-provided and coach-visible text — which can
+include names, contact details and health-adjacent information — to DeepSeek, which
+processes inputs in China and whose terms permit it to use
 inputs to improve its services — the data-use basis is under review and the Processor
 is minimising what is sent.
 
@@ -71,7 +72,7 @@ The Processor will make available, on request and under NDA: this Agreement, the
 On termination, the Controller may export all client data in machine-readable format for 30 days. Thereafter the Processor deletes all personal data within 30 days where technically feasible; an automated erasure workflow including backup handling is in development, and backup-rotation handling will follow the Supabase Pro migration. EU or Member-State law may require retention.
 
 ## 10. Personal data breach
-The Processor notifies the Controller **without undue delay and within 72 hours** of becoming aware of a personal data breach affecting the Controller's data, providing the information required by Art. 33(3).
+The Processor notifies the Controller **without undue delay** on becoming aware of a personal data breach affecting the Controller's data, and provides the information required by Art. 33(3) to support the Controller's own notification obligations.
 
 ## 11. Liability and governing law
 Liability follows the main Terms of Service. This Agreement is governed by the law of [Greece / Member State], with disputes before the courts of [VENUE].
@@ -86,21 +87,21 @@ As described in §§2–4.
 - TLS 1.2+ in transit; AES-256 at rest; cookie-based sessions (not browser localStorage)
 - Role-based access (super_admin / admin / coach / client) with database-enforced policies
 - Automated backups and point-in-time recovery planned with the Supabase Pro migration; not yet enabled (no restore drill yet)
-- Rate limiting and input validation (zod) on all mutation endpoints
+- Input validation (zod) and durable rate limiting on key mutation endpoints (e.g. signup, activation, messaging); coverage across all endpoints is being completed
 - AI calls governed: per-org budgets, run recording (`agent_runs`). Note: the text provider (DeepSeek, China) may use inputs to improve its services — data-use/transfer basis under review; the vision provider (Anthropic) does not train on API inputs
 - Secrets in environment configuration only, never in source; CI gate on type-checks and tests before deploy
 - Pseudonymous AI run telemetry; automated retention/pruning policy in development
-- Incident response runbook with 72h notification commitment
+- Incident response runbook; as processor we notify controllers without undue delay
 
 ## Annex III — Authorised sub-processors
 | Sub-processor | Purpose | Location |
 |---|---|---|
 | Supabase | Database, auth, storage | United States (AWS us-east-2) — EU migration planned |
-| Vercel | Hosting & delivery | United States (us-east-2 / cle1) |
+| Vercel | Hosting & delivery | United States (functions cle1) + global edge |
 | DeepSeek | AI text inference (food + coaching) | China — may use inputs to improve services; basis under review |
 | Anthropic | AI vision inference (meal photos) | US — no training on API inputs |
-| Voyage AI | Embeddings (food names only) | US |
-| Langfuse | AI observability (pseudonymous) | EU |
+| Voyage AI | Embeddings over food + memory/conversation/knowledge text (may include personal data) | US — basis under review |
+| Langfuse | Self-hosted AI observability (pseudonymous) | Self-hosted via Cloudflare Tunnel — region not independently verified |
 
 ---
 
