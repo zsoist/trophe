@@ -25,9 +25,9 @@ const SUB_PROCESSORS = [
 const RIGHTS = [
   ['Access & portability', 'Request a full export of your data in machine-readable format (Art. 15, 20).'],
   ['Rectification', 'Correct any inaccurate personal data (Art. 16).'],
-  ['Erasure', 'Request complete deletion of your account and data (Art. 17), completed within 30 days.'],
+  ['Erasure', 'Request deletion of your account and data (Art. 17) via dpo@trophe.app; automated erasure is in development, so requests are handled manually for now.'],
   ['Restriction & objection', 'Limit or object to specific processing (Art. 18, 21).'],
-  ['Consent withdrawal', 'Withdraw any consent without affecting prior lawfulness (Art. 7); contact dpo@trophe.app and we stop the affected processing.'],
+  ['Consent withdrawal', 'Withdraw any consent without affecting the lawfulness of prior processing (Art. 7) — contact dpo@trophe.app.'],
 ];
 
 export default function TrustPage() {
@@ -48,12 +48,12 @@ export default function TrustPage() {
 
         {[
           ['Roles, plainly', `Your nutrition practice (or clinic) is the data controller for client data; trophē is the processor acting on your documented instructions. A draft Article 28 Data Processing Agreement is available on request and is being finalised with counsel — email dpo@trophe.app.`],
-          ['Where data lives', `Primary data is stored in Supabase (PostgreSQL), currently hosted on AWS in the United States (us-east-2). Migration to an EU region is planned. Because this is a transfer outside the EEA, it is governed by the European Commission's Standard Contractual Clauses incorporated in our processors' data processing agreements (Supabase, AWS). Row-level security is enforced on every table — coaches can only ever read clients explicitly assigned to them, verified by database policy, not application code. Automated backups and point-in-time recovery are being provisioned as part of our in-progress move to Supabase Pro, and are not yet enabled.`],
+          ['Where data lives', `Primary data is stored in Supabase (PostgreSQL), currently hosted on AWS in the United States (us-east-2); migration to an EU region is planned. Because this is a transfer outside the EEA, we rely on the EU Standard Contractual Clauses offered in our processors' data-processing agreements (Supabase, AWS); our own transfer-impact assessment and executed DPAs are in progress. Row-level security is enabled on every database table, so tenant access is enforced at the database layer, not only in application code — comprehensive cross-tenant policy tests are on our hardening roadmap. Automated backups and point-in-time recovery are being provisioned as part of our in-progress move to Supabase Pro, and are not yet enabled.`],
           ['Encryption', `TLS 1.2+ in transit everywhere; AES-256 encryption at rest. Authentication uses short-lived tokens in HTTP-only cookies; service credentials are never present in client code.`],
-          ['What our AI sees', `Food parsing sends the food text being logged — not your identity. Coaching insights send a structured snapshot the coach already has access to. Meal photos go exclusively to a vision API under terms that prohibit training on submitted images. No client data is ever used to train models.`],
+          ['What our AI sees', `Food parsing sends the food text being logged — not your identity. Coaching insights send a structured snapshot the coach already has access to. Meal photos go exclusively to a vision API whose terms prohibit training on submitted inputs. Our AI providers' API terms state they do not train on data sent through their APIs; automated egress tests that verify no unnecessary personal data leaves the app are in development.`],
           ['Medical documents', `We deliberately do NOT accept uploads of blood panels or medical documents yet. Until our counsel finalises retention obligations for health records, the intake collects lifestyle answers only — the most privacy-preserving default.`],
-          ['Retention', `Active account data is retained while the account exists. On account deletion we remove your application data; a fully-automated, audited erasure workflow (including backup handling) is in active development — until it ships, erasure requests are completed manually within 30 days via dpo@trophe.app. AI telemetry is pseudonymous and pruned at 90 days.`],
-          ['Breach notification', `Confirmed personal-data breaches are notified to affected controllers without undue delay and within 72 hours, per Article 33, with a documented incident runbook.`],
+          ['Retention', `Active account data is retained while the account exists. You can request deletion of your account and data via dpo@trophe.app; a fully-automated, audited erasure workflow (including backup handling) is in active development, and until it ships we process deletion requests manually and confirm scope and timing with you. AI telemetry is pseudonymous and pruned at 90 days.`],
+          ['Breach notification', `As processor, trophē notifies affected controllers of confirmed personal-data breaches without undue delay and provides the information they need to meet their own regulatory obligations (such as the 72-hour deadline a controller faces under GDPR Article 33). We maintain a documented incident runbook.`],
         ].map(([h, body]) => (
           <section key={h as string} style={{ marginBottom: 28 }}>
             <h2 style={{ fontSize: 17, fontWeight: 600, marginBottom: 8, color: '#f5f5f4' }}>{h}</h2>
@@ -77,7 +77,7 @@ export default function TrustPage() {
             ))}
           </div>
           <p style={{ color: '#78716c', fontSize: 12, marginTop: 8 }}>
-            Controllers are notified of sub-processor changes 30 days in advance with the right to object.
+            Our data-processing agreement commits us to notifying controllers of sub-processor changes in advance, with the right to object.
           </p>
         </section>
 
@@ -90,9 +90,9 @@ export default function TrustPage() {
             </div>
           ))}
           <p style={{ color: '#a8a29e', fontSize: 14, marginTop: 12 }}>
-            Exercise any right from your profile settings or by emailing{' '}
+            Exercise any right by emailing{' '}
             <a href="mailto:dpo@trophe.app" style={{ color: GOLD }}>dpo@trophe.app</a>.
-            We respond within 30 days, usually much faster.
+            Automated rights-fulfilment with SLA tracking is in development; for now requests are handled manually.
           </p>
         </section>
 
@@ -101,7 +101,7 @@ export default function TrustPage() {
           border: `1px solid ${GOLD}40`, background: `${GOLD}0d`, fontSize: 13.5, lineHeight: 1.65, color: '#d6d3d1',
         }}>
           Running a clinic or multi-coach practice? We&rsquo;ll walk your DPO through
-          this page, sign the DPA, and answer your security questionnaire —{' '}
+          this page, share our current draft DPA and discuss your requirements, and answer your security questionnaire —{' '}
           <a href="mailto:dpo@trophe.app" style={{ color: GOLD }}>dpo@trophe.app</a>.
         </div>
 
