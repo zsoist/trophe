@@ -79,7 +79,9 @@ deterministic floor; sub-10% needs the out-of-scope tracks.
 - **Deferred levers**: Phase 2 Rule-3 `effectiveDbTrust` guard (real but unexercised);
   Phase 4 fry-fat; gyros μερίδα→meat (overlapping existing keys, needs care).
 
-### Prod rollout (pending operator go — zero-risk gate)
-Two pieces, both applied to local only so far: (1) the code (merged to `main` local,
-`2aaf3d9`, not pushed); (2) the idempotent data seed `scripts/ingest/mape-tail-dishes.ts`
-(Gratin dauphinois row + Saganaki carb fix) — must run against the prod DB. Preview-first.
+### Prod rollout — SHIPPED 2026-06-14 ✅
+Live on trophe.app: origin/main `6f50cfc` + `vercel --prod` (dpl_GuzScRgCUBsRWkVmdG3nqe2uMKtv, READY).
+The data seed (`scripts/ingest/mape-tail-dishes.ts`, Gratin dauphinois + Saganaki carb fix) was already
+in prod — trophe `.env.local` DATABASE_URL points at the PROD Supabase, so it ran there when executed
+"locally". Post-deploy: homepage 200, prod parse end-to-end OK, no regression (spot-set fails are
+pre-existing wine/alcohol cases, untouched by this work).
