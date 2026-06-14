@@ -318,7 +318,7 @@ function singularize(value: string): string {
     .join(' ');
 }
 
-function lexicalIntentScore(candidate: SelectFood, query: string): number {
+export function lexicalIntentScore(candidate: SelectFood, query: string): number {
   const normalizedQuery = normalizeLexicalName(query);
   const normalizedName = normalizeLexicalName(candidate.nameEn);
   if (!normalizedQuery || !normalizedName) return 0;
@@ -342,6 +342,15 @@ function lexicalIntentScore(candidate: SelectFood, query: string): number {
   }
   if (queryTokens.length === 1 && /mcmuffin|sandwich|burger|burrito|pizza|breakfast/.test(singularName)) {
     score -= 12;
+  }
+  // Generic short query must not resolve to a branded/supplement PRODUCT that merely
+  // shares the food token: "coffee" → "Black Edition Coffee" (a protein shake, +104g
+  // protein) was the single worst wrong-variant cell in the 700-set benchmark. Fires
+  // only when the candidate carries a product/supplement marker the query never names,
+  // so legitimately querying "protein shake"/"whey protein" stays unpenalized.
+  const PRODUCT_TOKENS = /\b(editions?|blends?|shakes?|smoothies?|protein|isolates?|whey|casein|supplements?|gainer|formula)\b/;
+  if (queryTokens.length <= 2 && PRODUCT_TOKENS.test(singularName) && !PRODUCT_TOKENS.test(singularQuery)) {
+    score -= 10;
   }
   // Multi-token dish-type mismatch penalty (generalizes the single-token guard).
   // "white ham" must not resolve to "Ham sandwich on white, with cheese": when the
