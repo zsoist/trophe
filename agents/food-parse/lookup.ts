@@ -9,9 +9,13 @@
  *   Stage 1 — Parallel dual retrieval
  *     A. BM25/tsvector arm: keyword search on search_text (top KEYWORD_LIMIT)
  *     B. Vector arm: HNSW cosine kNN on embedding (top VECTOR_LIMIT)
- *     Both run simultaneously. Falls back to ILIKE if BM25 returns nothing.
+ *     ⚠️ DORMANT IN PROD: index.v4.ts does NOT populate queryEmbedding, so the
+ *        vector arm returns [] and retrieval is effectively 100% BM25. Re-wiring
+ *        it regressed the benchmark −27pt (short names → near-but-wrong neighbours,
+ *        e.g. feta→halloumi); see docs/audits. The dual-arm/RRF design below only
+ *        takes effect WHEN an embedding is supplied — which, by design, it is not.
  *
- *   Stage 2 — RRF merge (Reciprocal Rank Fusion, research-optimal 70/30)
+ *   Stage 2 — RRF merge (Reciprocal Rank Fusion, research-optimal 70/30) [only when embedding present]
  *     score = 0.7 × (1 / (k + vector_rank)) + 0.3 × (1 / (k + bm25_rank))
  *     where k = 60 (standard RRF constant).
  *     This outperforms sequential filtering (old Stage 1→2) for cross-lingual
@@ -348,7 +352,7 @@ export function lexicalIntentScore(candidate: SelectFood, query: string): number
   // protein) was the single worst wrong-variant cell in the 700-set benchmark. Fires
   // only when the candidate carries a product/supplement marker the query never names,
   // so legitimately querying "protein shake"/"whey protein" stays unpenalized.
-  const PRODUCT_TOKENS = /\b(editions?|blends?|shakes?|smoothies?|protein|isolates?|whey|casein|supplements?|gainer|formula)\b/;
+  const PRODUCT_TOKENS = /\b(editions?|blends?|shakes?|smoothies?|protein|isolates?|whey|casein|supplements?|gainer|formula|candies?|confectionery)\b/;
   if (queryTokens.length <= 2 && PRODUCT_TOKENS.test(singularName) && !PRODUCT_TOKENS.test(singularQuery)) {
     score -= 10;
   }
@@ -1168,6 +1172,18 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
   'black coffee': 'Beverages, coffee, brewed, prepared with tap water',
   'cafe': 'Beverages, coffee, brewed, prepared with tap water',
   'café': 'Beverages, coffee, brewed, prepared with tap water',
+
+  // ── Phase 3: route regional/composite dishes to the correct existing row ──
+  // Each target is a verified exact nameEn (checked against the live DB). The
+  // +12 exact-match bonus in lexicalIntentScore lifts these over near-miss BM25
+  // hits (generic "cereal" → a chocolate *candy* row; branded gazpacho variant).
+  // croque-monsieur / bouillabaisse / gratin dauphinois already had keys later
+  // in this map — those were re-pointed in place, not duplicated here.
+  'gazpacho': 'Soup, gazpacho, homemade',
+  'gaspacho': 'Soup, gazpacho, homemade',
+  'γρατέν ντοφινουά': 'Gratin dauphinois',
+  'cereal': 'Breakfast cereal, cornflakes, fortified',
+  'bowl of cereal': 'Breakfast cereal, cornflakes, fortified',
   'cafe con leche': 'cafe con leche',
   'café con leche': 'cafe con leche',
   'coffee with milk': 'cafe con leche',
@@ -1425,7 +1441,7 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
   'quiche lorraine': 'quiche lorraine',
   'quiche': 'quiche lorraine',
   'ratatouille': 'ratatouille',
-  'gratin dauphinois': 'potato gratin',
+  'gratin dauphinois': 'Gratin dauphinois',
   'soupe à l\'oignon': 'french onion soup',
   'salade niçoise': 'salad nicoise',
   'salade nicoise': 'salad nicoise',
@@ -1439,7 +1455,7 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
   'boeuf bourguignon': 'beef bourguignon',
   'coq au vin': 'coq au vin',
   'tartiflette': 'tartiflette',
-  'bouillabaisse': 'bouillabaisse',
+  'bouillabaisse': 'Soup, bouillabaisse',
   'steak-frites': 'steak with french fries',
   'steak frites': 'steak with french fries',
   'crème brûlée': 'creme brulee',
