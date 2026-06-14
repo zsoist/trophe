@@ -197,7 +197,14 @@ async function runCase(test: EvalCase, token: string) {
     fat: within(totals.fat_g, test.expect_total?.fat_g),
     clarification: !test.expect_needs_clarification || data.needs_clarification === true || items.length === 0,
   };
-  const errors = {
+  // A 0-item meal (clarification / refusal) has no macro PREDICTION — scoring 0 vs a
+  // non-zero range as 100% APE pollutes MAPE and invents a phantom under-estimate bias.
+  // Exclude empty meals from MAPE/signed-error; they're still judged by checks.clarification
+  // + pass-rate, and surfaced separately as emptyRate.
+  const empty = items.length === 0;
+  const NULL_ERR: { signedError: number | null; absolutePercentageError: number | null } =
+    { signedError: null, absolutePercentageError: null };
+  const errors = empty ? { calories: NULL_ERR, protein: NULL_ERR, carbs: NULL_ERR, fat: NULL_ERR } : {
     calories: errorMetrics(totals.calories, test.expect_total?.calories, MIN_APE_CENTER_CALORIES),
     protein: errorMetrics(totals.protein_g, test.expect_total?.protein_g, MIN_APE_CENTER_MACRO),
     carbs: errorMetrics(totals.carbs_g, test.expect_total?.carbs_g, MIN_APE_CENTER_MACRO),
@@ -214,9 +221,14 @@ async function runCase(test: EvalCase, token: string) {
     checks,
     totals,
     items: items.length,
+    empty,
     parsedItems: items.map((item) => ({
       foodName: item.food_name,
       grams: item.grams,
+      calories: item.calories,
+      protein_g: item.protein_g,
+      carbs_g: item.carbs_g,
+      fat_g: item.fat_g,
       confidence: item.confidence,
       source: item.source,
     })),
@@ -272,6 +284,8 @@ async function main() {
     p95LatencyMs: latencies[Math.ceil(latencies.length * 0.95) - 1],
     dbResolvedRate: results.filter((item) => item.dbResolved).length / results.length,
     clarificationRate: results.filter((item) => item.needsClarification).length / results.length,
+    emptyRate: results.filter((item) => item.empty).length / results.length,
+    emptyMeals: results.filter((item) => item.empty).length,
     metrics: {
       calories: metricSummary('calories'),
       protein: metricSummary('protein'),
