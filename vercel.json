@@ -6,11 +6,5 @@
       "memory": 1024,
       "maxDuration": 60
     }
-  },
-  "crons": [
-    {
-      "path": "/api/cron/recover-reservations",
-      "schedule": "*/5 * * * *"
-    }
-  ]
+  }
 }

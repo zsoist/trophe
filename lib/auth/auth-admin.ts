@@ -25,50 +25,64 @@ export function buildRecoveryDb(service: SupabaseClient): RecoveryDb {
 const isMissingUser = (e: { status?: number; message?: string } | null) =>
   !!e && (e.status === 404 || /not\s*found/i.test(e.message ?? ''));
 
-const tagOf = (u: { user_metadata?: unknown } | null | undefined): string | undefined =>
-  (u?.user_metadata as { reservation_id?: string } | null | undefined)?.reservation_id;
+/**
+ * The TRUSTED reservation tag lives in app_metadata (raw_app_meta_data), which only the
+ * service role can write — an authenticated user's auth.updateUser() cannot touch it.
+ * The signup/activation routes (WP1 part 2) MUST create the Auth user with
+ * `app_metadata: { reservation_id }` for recovery to find and safely delete it.
+ */
+const tagOf = (u: { app_metadata?: unknown } | null | undefined): string | undefined =>
+  (u?.app_metadata as { reservation_id?: string } | null | undefined)?.reservation_id;
 
 /**
  * AuthReconciler backed by the Supabase Auth Admin API.
  *
- * The worker NEVER passes a bare user id to delete — it asks this adapter to reconcile
- * the orphan against its reservation tag first. Deletion happens only when the Auth
- * user's user_metadata.reservation_id matches the reservation being recovered. A
- * mismatch returns 'mismatch' (the worker leaves the reservation 'recovering', never
- * frees the slot, never deletes). Absence is only ever concluded server-side (the
- * find RPC), never from a bounded client scan.
+ * Safety model:
+ *  - Deletion authority is the TRUSTED app_metadata tag, never the DB's user pointer
+ *    and never user-editable user_metadata.
+ *  - EVERY Auth user carrying the tag is deleted (no LIMIT) so duplicate tags can't
+ *    strand an account.
+ *  - 'deleted'/'absent' (→ worker frees the slot) is returned ONLY after a final query
+ *    proves zero carriers remain. Any incomplete reconciliation throws → the worker
+ *    leaves the reservation 'recovering' for a later run.
+ *  - If the reservation names a user that exists but carries a DIFFERENT trusted tag,
+ *    return 'mismatch' and touch nothing (a governance inconsistency to investigate).
  */
 export function buildAuthReconciler(service: SupabaseClient): AuthReconciler {
   async function deleteIdempotent(userId: string): Promise<void> {
     const { error } = await service.auth.admin.deleteUser(userId);
     if (error && !isMissingUser(error)) throw new Error(`deleteUser: ${error.message}`); // idempotent on missing
   }
+  async function findIdsByTag(reservationId: string): Promise<string[]> {
+    const { data, error } = await service.rpc('find_auth_user_ids_by_reservation', { p_reservation_id: reservationId });
+    if (error) throw new Error(`find_auth_user_ids_by_reservation: ${error.message}`);
+    return (data ?? []) as string[];
+  }
 
   return {
     async reconcileAndDelete(reservationId, expectedUserId) {
-      if (!expectedUserId) {
-        // Pre-attach orphan (user_id NULL): resolve the tagged user SERVER-SIDE.
-        // find_auth_user_id_by_reservation (0043) matches on
-        // auth.users.raw_user_meta_data->>'reservation_id' — one query, no scan, so
-        // a NULL is a conclusive "no such user" (never a truncated-scan false negative).
-        const { data, error } = await service.rpc('find_auth_user_id_by_reservation', { p_reservation_id: reservationId });
-        if (error) throw new Error(`find_auth_user_id_by_reservation: ${error.message}`);
-        const id = (data as string | null) ?? null;
-        if (!id) return 'absent';
-        await deleteIdempotent(id); // RPC already proved the tag matches
-        return 'deleted';
+      // Guard: a named user that exists but carries a DIFFERENT trusted tag → refuse.
+      let verifiedExpected: string | null = null;
+      if (expectedUserId) {
+        const { data, error } = await service.auth.admin.getUserById(expectedUserId);
+        if (error && !isMissingUser(error)) throw new Error(`getUserById: ${error.message}`);
+        const user = error ? null : data?.user ?? null;
+        if (user) {
+          if (tagOf(user) !== reservationId) return 'mismatch';
+          verifiedExpected = expectedUserId; // exists AND carries our tag
+        }
+        // user missing (already deleted) → fall through to the tag sweep
       }
-      // Attached orphan: fetch and VERIFY the tag before deleting (the P0 guard —
-      // never delete an Auth user we cannot prove belongs to this reservation).
-      const { data, error } = await service.auth.admin.getUserById(expectedUserId);
-      if (error) {
-        if (isMissingUser(error)) return 'absent';
-        throw new Error(`getUserById: ${error.message}`);
-      }
-      const user = data?.user;
-      if (!user) return 'absent';
-      if (tagOf(user) !== reservationId) return 'mismatch';
-      await deleteIdempotent(expectedUserId);
+
+      // Authority = the trusted tag. Delete every carrier (∪ the verified named user).
+      const tagged = await findIdsByTag(reservationId);
+      const ids = Array.from(new Set([...(verifiedExpected ? [verifiedExpected] : []), ...tagged]));
+      if (ids.length === 0) return 'absent';
+      for (const id of ids) await deleteIdempotent(id);
+
+      // Free the slot ONLY after proving no carrier remains.
+      const remaining = await findIdsByTag(reservationId);
+      if (remaining.length > 0) throw new Error(`reconcile incomplete: ${remaining.length} tagged user(s) remain`);
       return 'deleted';
     },
   };

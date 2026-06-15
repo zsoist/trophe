@@ -15,6 +15,11 @@ import { recoverOrphanReservations } from '@/lib/recovery/reservation-recovery';
  * Runtime budget: the Vercel function caps at 60s (vercel.json). We lease a BOUNDED
  * batch with a lease (300s) comfortably longer than that ceiling, so a function that
  * is killed mid-run never causes a premature re-claim of a row it already deleted.
+ *
+ * Scheduling: NOT a Vercel cron — the project is on the Hobby plan, which permits cron
+ * only once/day (too slow for ~15-min reservations). Driven instead by Supabase
+ * pg_cron + pg_net POSTing here every few minutes. See
+ * docs/ops/recovery-worker-scheduling.md for the install SQL + alternatives.
  */
 const BATCH_LIMIT = 20;
 const LEASE_SECONDS = 300;

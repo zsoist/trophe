@@ -13,6 +13,8 @@ import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { recoverOrphanReservations, type RecoveryDb, type AuthReconciler } from '@/lib/recovery/reservation-recovery';
 import { reservationIdentity } from '@/lib/auth/reservation-identity';
+import { buildAuthReconciler } from '@/lib/auth/auth-admin';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 const url = process.env.TEST_DATABASE_URL;
 if (!url) { console.error('TEST_DATABASE_URL required'); process.exit(2); }
@@ -47,7 +49,7 @@ async function setup() {
   // Minimal auth.users shim so 0043's SECURITY DEFINER lookup compiles + runs here
   // (prod has the real Supabase auth.users). Only the columns the RPC reads.
   await pool.query(`CREATE SCHEMA IF NOT EXISTS auth;`);
-  await pool.query(`CREATE TABLE IF NOT EXISTS auth.users (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), raw_user_meta_data jsonb);`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS auth.users (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), raw_user_meta_data jsonb, raw_app_meta_data jsonb);`);
   await pool.query(`TRUNCATE auth.users;`);
   await pool.query(readFileSync(join(process.cwd(), 'drizzle/0042_invite_reservations.sql'), 'utf-8'));
   await pool.query(readFileSync(join(process.cwd(), 'drizzle/0043_find_auth_user_by_reservation.sql'), 'utf-8'));
@@ -290,7 +292,7 @@ async function main() {
     'finalize_client_activation(uuid,uuid,text,text,text,jsonb)', 'finalize_ordinary_signup(uuid,uuid,text,text,text,jsonb)',
     'release_invite_reservation(uuid)', 'cancel_attached_reservation(uuid,uuid)',
     'cancel_recovering_reservation(uuid,uuid)', 'claim_orphan_for_recovery(int,int)',
-    'find_auth_user_id_by_reservation(uuid)'];
+    'find_auth_user_ids_by_reservation(uuid)'];
   for (const fn of fns) {
     const a = (await one(`SELECT has_function_privilege('anon','public.${fn}','EXECUTE') p`)).p;
     const au = (await one(`SELECT has_function_privilege('authenticated','public.${fn}','EXECUTE') p`)).p;
@@ -298,19 +300,61 @@ async function main() {
     ok(a === false && au === false && s === true, `${fn.split('(')[0]}: anon/auth DENIED, service_role allowed`);
   }
 
-  console.log('T25: find_auth_user_id_by_reservation — server-side lookup (no scan, conclusive absence)');
-  const rid25 = randomUUID(); const uid25 = randomUUID();
-  await pool.query(`INSERT INTO auth.users (id, raw_user_meta_data) VALUES ($1, jsonb_build_object('reservation_id', $2::text))`, [uid25, rid25]);
-  ok(await one('SELECT find_auth_user_id_by_reservation($1) id', [rid25]).then(r => r.id) === uid25, '(a) tagged Auth user found by reservation_id');
-  ok(await one('SELECT find_auth_user_id_by_reservation($1) id', [randomUUID()]).then(r => r.id) === null, '(b) unknown reservation → NULL (conclusive absence, no false match)');
+  console.log('T25: find_auth_user_ids_by_reservation — TRUSTED app_metadata, ALL carriers (no LIMIT)');
+  const rid25 = randomUUID(); const a25 = randomUUID(); const b25 = randomUUID();
+  await pool.query(`INSERT INTO auth.users (id, raw_app_meta_data) VALUES ($1, jsonb_build_object('reservation_id',$3::text)), ($2, jsonb_build_object('reservation_id',$3::text))`, [a25, b25, rid25]);
+  // a user-editable user_metadata tag must NOT be honored (only app_metadata is authority)
+  await pool.query(`INSERT INTO auth.users (id, raw_user_meta_data) VALUES ($1, jsonb_build_object('reservation_id',$2::text))`, [randomUUID(), rid25]);
+  const ids25 = (await one('SELECT find_auth_user_ids_by_reservation($1) ids', [rid25])).ids as string[];
+  ok(Array.isArray(ids25) && ids25.length === 2 && ids25.includes(a25) && ids25.includes(b25), '(a) BOTH duplicate app_metadata carriers returned (no silent LIMIT 1)');
+  ok((await one('SELECT find_auth_user_ids_by_reservation($1) ids', [randomUUID()])).ids.length === 0, '(b) unknown reservation → empty (conclusive absence)');
+  ok(!ids25.includes((await one(`SELECT id FROM auth.users WHERE raw_app_meta_data IS NULL LIMIT 1`)).id), '(c) user_metadata-only tag IGNORED (user-editable field is not authority)');
 
-  console.log('T26: reservationIdentity — stable identity key + payload-bound fingerprint');
-  const p26 = { email: 'A@X.io', fullName: 'Ann', inviteCode: 'BETA1', role: 'coach', consentVersion: '1.0' };
+  console.log('T26: reservationIdentity — stable key + semantically-normalized payload fingerprint');
+  const p26 = { email: 'A@X.io', fullName: '  Ann  Lee ', inviteCode: 'BETA1', role: 'Coach', consentVersion: '1.0' };
   const i26 = reservationIdentity('beta:BETA1', 'A@X.io', p26);
-  ok(i26.idempotencyKey === reservationIdentity('beta:BETA1', '  a@x.io ', { ...p26, email: 'a@x.io' }).idempotencyKey, '(a) case/space-normalized identity → same idempotency key');
-  ok(i26.fingerprint === reservationIdentity('beta:BETA1', 'A@X.io', { ...p26 }).fingerprint, '(b) identical payload → identical fingerprint (retry converges)');
-  ok(i26.fingerprint !== reservationIdentity('beta:BETA1', 'A@X.io', { ...p26, consentVersion: '2.0' }).fingerprint, '(c) changed consent version → different fingerprint (payload bound)');
-  ok(i26.fingerprint !== reservationIdentity('beta:BETA1', 'A@X.io', { ...p26, fullName: 'Bob' }).fingerprint, '(d) changed name → different fingerprint (payload bound)');
+  const j26 = reservationIdentity('beta:BETA1', '  a@x.io ', { email: '  a@x.io ', fullName: 'Ann Lee', inviteCode: 'BETA1', role: 'coach', consentVersion: '1.0' });
+  ok(i26.idempotencyKey === j26.idempotencyKey, '(a) email case/whitespace normalized → same idempotency key');
+  ok(i26.fingerprint === j26.fingerprint, '(b) equivalent email-case/whitespace/role-case → SAME fingerprint (retry converges, no false conflict)');
+  ok(i26.fingerprint !== reservationIdentity('beta:BETA1', 'A@X.io', { ...p26, consentVersion: '2.0' }).fingerprint, '(c) changed consent version → different fingerprint');
+  ok(i26.fingerprint !== reservationIdentity('beta:BETA1', 'A@X.io', { ...p26, fullName: 'Bob' }).fingerprint, '(d) changed name → different fingerprint');
+
+  console.log('T27: buildAuthReconciler ADAPTER (fake Supabase Admin) — app_metadata authority + exhaustive dup reconcile + zero-remain proof');
+  type FakeOpts = { getUser?: (id: string) => { data: { user: unknown }; error: unknown }; ids?: (deleted: string[]) => string[]; rpcError?: string; deleteError?: (id: string) => unknown };
+  const fakeService = (o: FakeOpts) => {
+    const deleted: string[] = [];
+    const client = {
+      auth: { admin: {
+        getUserById: async (id: string) => o.getUser ? o.getUser(id) : { data: { user: null }, error: { status: 404, message: 'not found' } },
+        deleteUser: async (id: string) => { const e = o.deleteError?.(id) ?? null; if (!e) deleted.push(id); return { data: {}, error: e }; },
+      } },
+      rpc: async () => o.rpcError ? { data: null, error: { message: o.rpcError } } : { data: o.ids ? o.ids(deleted) : [], error: null },
+    };
+    return { rec: buildAuthReconciler(client as unknown as SupabaseClient), deleted };
+  };
+  const mkUser = (rid: string | null) => ({ data: { user: rid === null ? null : { id: 'x', app_metadata: { reservation_id: rid } } }, error: null });
+  const RID = randomUUID(), rA = randomUUID(), rB = randomUUID();
+  // (a) attached, trusted tag matches, single carrier → deleted
+  const fa = fakeService({ getUser: () => mkUser(RID), ids: (del) => del.includes(rA) ? [] : [rA] });
+  ok(await fa.rec.reconcileAndDelete(RID, rA) === 'deleted' && fa.deleted.includes(rA), '(a) attached app_metadata match → deleted');
+  // (b) attached, user carries a DIFFERENT trusted tag → mismatch, nothing deleted
+  const fb = fakeService({ getUser: () => mkUser(randomUUID()), ids: () => [] });
+  ok(await fb.rec.reconcileAndDelete(RID, rA) === 'mismatch' && fb.deleted.length === 0, '(b) different app_metadata tag → mismatch, no delete');
+  // (c) unattached duplicates → BOTH deleted, then zero-remain → deleted
+  const fc = fakeService({ ids: (del) => [rA, rB].filter((u) => !del.includes(u)) });
+  ok(await fc.rec.reconcileAndDelete(RID, null) === 'deleted' && fc.deleted.includes(rA) && fc.deleted.includes(rB), '(c) duplicate carriers → ALL deleted (no strand)');
+  // (d) attached but Auth user already gone, no carriers → absent, no delete
+  const fd = fakeService({ getUser: () => mkUser(null), ids: () => [] });
+  ok(await fd.rec.reconcileAndDelete(RID, rA) === 'absent' && fd.deleted.length === 0, '(d) missing user + no carriers → absent');
+  // (e) lookup RPC error → throws (worker leaves recovering)
+  const fe = fakeService({ getUser: () => mkUser(RID), rpcError: 'boom' });
+  ok(await fe.rec.reconcileAndDelete(RID, rA).then(() => false, () => true), '(e) RPC error → throws (not a false cancel)');
+  // (f) delete API failure → throws
+  const ff = fakeService({ getUser: () => mkUser(RID), ids: () => [rA], deleteError: () => ({ status: 500, message: 'transient' }) });
+  ok(await ff.rec.reconcileAndDelete(RID, rA).then(() => false, () => true), '(f) deleteUser failure → throws');
+  // (g) carrier persists after delete (proof fails) → throws, never frees the slot
+  const fg = fakeService({ getUser: () => mkUser(RID), ids: () => [rA] }); // RPC always reports rA → zero-remain proof fails
+  ok(await fg.rec.reconcileAndDelete(RID, rA).then(() => false, () => true) && fg.deleted.includes(rA), '(g) carrier remains after delete → reconcile-incomplete throw (no cancel)');
 
   await pool.end();
   console.log(fail === 0 ? '\n✅ ALL WP1 tests passed' : `\n❌ ${fail} assertion(s) failed`);
