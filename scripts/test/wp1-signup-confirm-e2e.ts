@@ -111,8 +111,13 @@ async function confirmationLinkFromMessage(id: string): Promise<string | null> {
   const res = await fetch(`${MAILPIT}/api/v1/message/${id}`);
   if (!res.ok) throw new Error(`Mailpit message HTTP ${res.status}`);
   const full = (await res.json()) as { HTML?: string; Text?: string };
-  const m = `${full.HTML ?? ''}\n${full.Text ?? ''}`.match(/https?:\/\/[^\s"'<>]+\/auth\/v1\/verify[^\s"'<>]+/);
-  return m ? m[0].replace(/&amp;/g, '&') : null;
+  const body = `${full.HTML ?? ''}\n${full.Text ?? ''}`.replace(/&amp;/g, '&'); // de-encode before matching
+  // Primary: the GoTrue API verify link. Fallbacks: any verify/confirm or token-bearing confirmation URL.
+  const m = body.match(/https?:\/\/[^\s"'<>]+\/auth\/v1\/verify[^\s"'<>]+/)
+    ?? body.match(/https?:\/\/[^\s"'<>]*(?:verify|confirm)[^\s"'<>]*token[^\s"'<>]*/i)
+    ?? body.match(/https?:\/\/[^\s"'<>]*token(?:_hash)?=[^\s"'<>]+/i);
+  if (!m) console.error(`  ↳ no confirmation link in message ${id}. Body (first 800 chars):\n${body.slice(0, 800)}`);
+  return m ? m[0] : null;
 }
 async function findUserIdsByEmail(admin: SupabaseClient, email: string): Promise<string[]> {
   const ids: string[] = [];

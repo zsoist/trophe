@@ -23,6 +23,7 @@ on:
       - remediation/wp1-invite-consent
     paths:
       - .github/workflows/wp1-e2e-gate.yml
+      - scripts/test/wp1-signup-confirm-e2e.ts
 
 permissions:
   contents: read
