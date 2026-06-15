@@ -1,7 +1,8 @@
 <!-- Trophē "Confirm signup" email — paste into Supabase Dashboard → Authentication → Emails →
      Templates → "Confirm signup". Subject: "Confirm your Trophē account".
      {{ .ConfirmationURL }} MUST be preserved. Source of truth for review; the live copy is
-     dashboard-managed. Email-client-safe: tables + inline styles, bulletproof button. -->
+     dashboard-managed. Built with tables + inline styles for broad client support; rendering +
+     deliverability across clients are PENDING the email-client test matrix (not yet verified). -->
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#0c0a08;margin:0;padding:0;">
   <tr><td align="center" style="padding:24px 12px;">
     <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background-color:#14110e;border:1px solid #2a241c;border-radius:14px;">
@@ -23,8 +24,8 @@
         <p style="font-size:12px;line-height:1.6;color:#8a8070;margin:0 0 20px;">For your security this link is time-limited — if it no longer works, just sign up again to get a new one.</p>
       </td></tr>
       <tr><td style="padding:18px 32px 28px;border-top:1px solid #241e16;font-family:Arial,Helvetica,sans-serif;">
-        <p style="font-size:12px;line-height:1.6;color:#7d756a;margin:0 0 10px;">If you didn't create a Trophē account, you can safely ignore this email — no account is created until it's confirmed.</p>
-        <p style="font-size:12px;line-height:1.6;color:#7d756a;margin:0;">Questions? Just reply to this email.<br><span style="color:#5f594f;">Trophē · Precision nutrition coaching</span></p>
+        <p style="font-size:12px;line-height:1.6;color:#7d756a;margin:0 0 10px;">If you didn't request this, ignore this email. Your account cannot be accessed until the email address is confirmed.</p>
+        <p style="font-size:12px;line-height:1.6;color:#7d756a;margin:0;"><span style="color:#5f594f;">Trophē · Precision nutrition coaching</span></p>
       </td></tr>
     </table>
   </td></tr>

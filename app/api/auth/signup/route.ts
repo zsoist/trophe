@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
 
     const result = await runReservedSignup(auth, db, { claim, finalize, email, password, userMetadata: { full_name, role }, log: (m) => console.error('[signup]', m) });
     if (result.ok) return NextResponse.json({ verification_required: true, user_id: result.userId, message: 'Account created — check your email to confirm it, then sign in.' }, { status: result.status });
-    return NextResponse.json({ error: signupErrorMessage(result.reason, !code) }, { status: result.status });
+    return NextResponse.json({ error: signupErrorMessage(result.reason) }, { status: result.status });
   } catch (err) {
     console.error('Signup error:', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

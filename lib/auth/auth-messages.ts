@@ -18,14 +18,14 @@ const SIGNUP_MESSAGES: Record<string, string> = {
 /**
  * User-facing error copy for a failed signup.
  *
- * For an ORDINARY signup (no invite code) a `conflict` means the email's one-live-claim is
- * already taken — overwhelmingly because that email is already registered (a completed
- * reservation blocks a fresh claim) — so we tell the user to log in. Invite-path (beta/client)
- * conflicts KEEP the generic "in progress" copy: there a conflict is a transient
- * concurrent-request race, not an existing account, so "already registered" would mislead.
+ * `conflict` is intentionally kept GENERIC. `claim_ordinary_signup` returns it not only when the
+ * email is already registered, but also for a concurrent/different-key in-progress request or a
+ * recovering reservation — so "already registered" would be false in those cases. (The genuine
+ * already-confirmed replay follows `replayed_completed` → 202, never `conflict`.) A truthful
+ * "already registered" message would require the DB/route to return a distinct, proven
+ * `already_registered` outcome; until then, do not assert it.
  */
-export function signupErrorMessage(reason: string, isOrdinary: boolean): string {
-  if (reason === 'conflict' && isOrdinary) return 'This email is already registered — please log in.';
+export function signupErrorMessage(reason: string): string {
   return SIGNUP_MESSAGES[reason] ?? 'Signup failed';
 }
 
