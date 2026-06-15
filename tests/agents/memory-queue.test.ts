@@ -10,6 +10,7 @@ describe('durable memory queue', () => {
   beforeEach(() => {
     processMemoryQueue.mockReset();
     delete process.env.CRON_SECRET;
+    delete process.env.MEMORY_CRON_SECRET;
   });
 
   it('claims work atomically with leases, SKIP LOCKED, and bounded attempts', () => {
@@ -21,7 +22,7 @@ describe('durable memory queue', () => {
   });
 
   it('rejects cron requests without the configured bearer secret', async () => {
-    process.env.CRON_SECRET = 'cron-secret';
+    process.env.MEMORY_CRON_SECRET = 'cron-secret';
     const { GET } = await import('@/app/api/internal/memory-worker/route');
     const response = await GET(new NextRequest('https://trophe.app/api/internal/memory-worker'));
     expect(response.status).toBe(401);
@@ -29,7 +30,7 @@ describe('durable memory queue', () => {
   });
 
   it('processes the queue for an authorized cron request', async () => {
-    process.env.CRON_SECRET = 'cron-secret';
+    process.env.MEMORY_CRON_SECRET = 'cron-secret';
     processMemoryQueue.mockResolvedValue({ claimed: 2, completed: 2, failed: 0, deadLettered: 0 });
     const { GET } = await import('@/app/api/internal/memory-worker/route');
     const response = await GET(new NextRequest('https://trophe.app/api/internal/memory-worker', {

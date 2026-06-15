@@ -87,12 +87,13 @@ Originally the receivers checked one shared `CRON_SECRET`, so rotating it could 
 pg_cron workers at once (observed: a 401 on the memory worker during the WP1 rollout). After this work
 each worker has its **own** secret, end to end — sender **and** receiver — so either can be rotated with
 no effect on the other. The receivers accept the per-worker secret (`RECOVERY_CRON_SECRET` for
-`/api/cron/recover-reservations`, `MEMORY_CRON_SECRET` for `/api/internal/memory-worker`) with a
-**backward-compat window** on the legacy shared `CRON_SECRET` (`lib/auth/cron-auth.ts` accepts either).
+`/api/cron/recover-reservations`, `MEMORY_CRON_SECRET` for `/api/internal/memory-worker`). The legacy shared `CRON_SECRET` fallback has
+been **removed** (Phase 2, this change) — each route accepts **only** its per-worker secret.
 
-> Note: this gives **rotation independence** immediately, but the shared `CRON_SECRET` is still
-> *accepted* (as a fallback) by both routes until the **Phase 2** cleanup below removes that code — so
-> removing the env var only **disables** the shared-secret blast radius, it does not yet **eliminate** it.
+> Note: the shared-secret blast radius is now **eliminated**, not merely disabled — Phase 2 (this change)
+> dropped the `CRON_SECRET` fallback from both routes, so re-adding the env var has **no effect**; each
+> route authenticates **only** with its own per-worker secret. (`tests/api/cron-secret-isolation.test.ts`
+> proves a `Bearer <old shared>` can never authorize either endpoint, set or unset.)
 
 Both senders read their bearer from **Supabase Vault** — symmetric, no plaintext at rest:
 - **`recover-reservations`** — the cron command is an inline `net.http_post` that reads
@@ -202,37 +203,41 @@ Cutover, zero-downtime (apply in order):
    Proceed to step 6 only when **Gate A shows 200 for both senders AND Gate B shows both jobs fired
    post-cutover with zero non-200 in `net._http_response`.**
 
-6. **Remove the shared secret — point of no return.** Delete `CRON_SECRET` from Vercel Production (then
-   redeploy). `cronBearerValid` then ignores it (the env var becomes `undefined`). There is no shared
-   `CRON_SECRET` Vault object to remove — each sender now reads its own Vault secret.
+6. **Retire the shared secret (Phase 2 — this change).** Deploy the build that drops the `CRON_SECRET`
+   fallback from both routes (Phase 2 below), then delete the now-dead `CRON_SECRET` from Vercel
+   Production. After this deploy the routes accept **only** their per-worker secret — re-adding
+   `CRON_SECRET` does nothing. There is no shared `CRON_SECRET` Vault object to remove; each sender reads
+   its own Vault secret.
 
 **Rollback.**
-- **Before step 6** rollback is trivial: the receivers still accept the shared `CRON_SECRET`, so reverting
-  a worker's Vault value (`vault.update_secret`) and/or its Vercel per-worker var restores it with no gap.
+- **Before Phase 2 is deployed**, rollback is trivial: the receivers still accept the shared `CRON_SECRET`,
+  so reverting a worker's Vault value (`vault.update_secret`) and/or its Vercel per-worker var restores it
+  with no gap.
 - **If migration 0048 misbehaves:** revert at the function level by shipping a *new* forward-only migration
   that restores `run_memory_queue_worker()` to the `app_scheduler_secrets` reader from
   `drizzle/0015_memory_queue_scheduler.sql` (do **not** edit 0015). Because step 2 seeded
   `memory_cron_secret` with the still-valid value, the migrated function is green the moment it lands, so
   this revert is rarely needed.
-- **After step 6**, if a worker 401s: re-add `CRON_SECRET` to Vercel (redeploy) to reopen the compat
-  window immediately, then fix that worker's Vault value and retry.
+- **After Phase 2 is deployed**, the shared secret is dead — do **not** restore `CRON_SECRET` (the routes
+  ignore it). If a worker 401s, recover per-worker: restore that worker's **Vault** secret to the value
+  matching its Vercel per-worker env (`vault.update_secret`), or roll the app back to the
+  immediately-prior deployment (which still honored the shared fallback) while you fix the per-worker
+  secret, then redeploy Phase 2.
 
-## Phase 2 — permanently retire the shared secret (separate PR, AFTER cutover)
+## Phase 2 — shared secret permanently retired (this change; deploy AFTER cutover step 5)
 
-Steps 1–6 make each worker independent and let you delete `CRON_SECRET` from Vercel, but the **fallback
-code path remains** in both routes (`cronBearerValid(..., process.env.CRON_SECRET)`). Re-adding the env
-var would re-authorize *both* workers and recreate the original blast radius. To eliminate the
-shared-secret design **permanently**, a follow-up PR (reviewed separately) must:
+Steps 1–5 make each worker independent, but on their own only **disable** the shared-secret blast radius:
+the fallback code path would otherwise let a re-added `CRON_SECRET` reauthorize both workers. **This change
+eliminates it for good:**
 
-1. Drop the `CRON_SECRET` argument from both call sites so `cronBearerValid` accepts only the per-worker
-   secret — `app/api/cron/recover-reservations/route.ts`, `app/api/internal/memory-worker/route.ts`.
-2. Remove `CRON_SECRET` from `.env.local.example`.
-3. Update `tests/api/cron-secret-isolation.test.ts` to assert a `Bearer <old shared>` can **never**
-   authorize either endpoint — even if `CRON_SECRET` is somehow set in the environment.
-4. Ship a second deploy and re-verify both workers green on their per-worker secret (step 5 gates).
+1. Dropped the `CRON_SECRET` argument from both call sites — `cronBearerValid` now accepts **only** the
+   per-worker secret (`app/api/cron/recover-reservations/route.ts`, `app/api/internal/memory-worker/route.ts`).
+2. Removed `CRON_SECRET` from `.env.local.example`.
+3. `tests/api/cron-secret-isolation.test.ts` asserts a `Bearer <old shared>` can **never** authorize
+   either endpoint — even if `CRON_SECRET` is set in the environment.
 
-Do this **only after** step 5 passes; removing the fallback earlier would 401 any worker still sending
-the shared secret.
+**Deploy ordering (critical):** ship this change **only after** cutover step 5 passes (both workers proven
+200 on their per-worker secret). Deploying it earlier would 401 any worker still sending the shared secret.
 
 **Residual risk.** With 0048 applied, **both** secrets are encrypted in Vault — the earlier plaintext-at-
 rest exposure of the memory secret (`app_scheduler_secrets.value`) is removed, and that row becomes
