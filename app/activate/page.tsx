@@ -3,11 +3,13 @@
 import { Suspense, useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
+import { submitActivation, resendConfirmation, fetchDeps } from '@/lib/auth/signup-client';
 
 /**
  * Client activation via a coach invite link (/activate?token=…). Plan B1.
- * Shows the inviting coach, collects name/email/password + mandatory Art.9
- * consent, creates the client account linked to the coach, then signs in.
+ * Shows the inviting coach, collects name/email/password + mandatory Art.9 consent,
+ * creates the client account linked to the coach (EMAIL-UNCONFIRMED), then shows a
+ * "check your email" screen — the user confirms via email, it does NOT auto-sign-in.
  */
 function ActivateForm() {
   const token = useSearchParams().get('token') ?? '';
@@ -36,41 +38,21 @@ function ActivateForm() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
-    if (!consent) { setError('Please consent to data processing to continue.'); return; }
     setSubmitting(true);
-    try {
-      const res = await fetch('/api/auth/activate-client', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, email, password, full_name: fullName, consent: true }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Activation failed');
-      // 202 verification_required — DO NOT auto-login; the account is unconfirmed until the
-      // user clicks the email link. Show the check-email screen.
-      setPendingEmail(email);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong');
-    } finally {
-      setSubmitting(false);
-    }
+    // submitActivation has NO sign-in dependency → a 202 can only become "check your email",
+    // never an auto-login over the deliberately-unconfirmed account.
+    const result = await submitActivation(fetchDeps(), { token, email, password, fullName, consent });
+    setSubmitting(false);
+    if (result.kind === 'pending') setPendingEmail(result.email);
+    else setError(result.message);
   }
 
   async function handleResend() {
     if (!pendingEmail) return;
     setSubmitting(true); setError('');
-    try {
-      const res = await fetch('/api/auth/activate-client', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, email: pendingEmail, password, full_name: fullName, consent: true }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Could not resend');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not resend');
-    } finally {
-      setSubmitting(false);
-    }
+    const result = await resendConfirmation(fetchDeps(), '/api/auth/activate-client', { token, email: pendingEmail, password, full_name: fullName, consent: true });
+    setSubmitting(false);
+    if (result.kind === 'error') setError(result.message);
   }
 
   if (pendingEmail) {

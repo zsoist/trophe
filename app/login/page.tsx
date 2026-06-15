@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { Mail, ArrowRight, Loader2, Eye, EyeOff } from 'lucide-react';
+import { submitSignup, resendConfirmation, fetchDeps } from '@/lib/auth/signup-client';
 
 function safeRedirectTo(value: string | null): string | null {
   if (!value || !value.startsWith('/') || value.startsWith('//') || value.startsWith('/login')) {
@@ -65,19 +66,12 @@ function LoginForm() {
         }
         router.replace('/dashboard');
       } else {
-        if (!consent) { setError('Please consent to data processing to continue.'); setLoading(false); return; }
-        // Sign up via the server-side reservation flow (WP1). It creates an UNCONFIRMED
-        // account and emails a confirmation link — it does NOT return a session.
-        const res = await fetch('/api/auth/signup', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password, full_name: fullName, inviteCode, consent: true }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Signup failed');
-        // 202 verification_required — show the check-email screen; DO NOT auto-login (the
-        // account is deliberately unconfirmed until the user clicks the email link).
-        setPendingEmail(email);
+        // Server-side reservation flow (WP1): creates an UNCONFIRMED account + emails a
+        // confirmation link. submitSignup has NO sign-in dependency, so a 202 can only ever
+        // become a "check your email" state — never an auto-login over an unconfirmed account.
+        const result = await submitSignup(fetchDeps(), { email, password, fullName, inviteCode, consent });
+        if (result.kind === 'pending') setPendingEmail(result.email);
+        else setError(result.message);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
@@ -89,19 +83,10 @@ function LoginForm() {
   async function handleResend() {
     if (!pendingEmail) return;
     setLoading(true); setError(''); setSuccess('');
-    try {
-      const res = await fetch('/api/auth/signup', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: pendingEmail, password, full_name: fullName, inviteCode, consent: true }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Could not resend');
-      setSuccess('Confirmation email re-sent.');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not resend');
-    } finally {
-      setLoading(false);
-    }
+    const result = await resendConfirmation(fetchDeps(), '/api/auth/signup', { email: pendingEmail, password, full_name: fullName, inviteCode, consent: true });
+    setLoading(false);
+    if (result.kind === 'pending') setSuccess('Confirmation email re-sent.');
+    else setError(result.message);
   }
 
   async function handleMagicLink() {

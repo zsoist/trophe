@@ -9,9 +9,10 @@ import { runReservedSignup, type ClaimResult } from '@/lib/auth/signup-flow';
 /**
  * Server-side signup (WP1) — reservation state machine + recovery-safe.
  *
- *   claim_{beta|ordinary} → createUser (app_metadata reservation tag, BANNED) → attach
- *   → finalize_{beta|ordinary} (atomic profile + Art.9 consent, reserved→completed)
- *   → enable (unban + confirm).  Compensation on any failure via cancel_reservation_for_route.
+ *   claim_{beta|ordinary} → createUser (app_metadata reservation tag, EMAIL-UNCONFIRMED) →
+ *   attach → finalize_{beta|ordinary} (atomic profile + Art.9 consent, reserved→completed)
+ *   → sendConfirmation → 202 verification_required (or 503 if the email can't be sent).
+ *   Compensation on any failure via cancel_reservation_for_route. No ban (admin-only).
  *
  * Role is DERIVED from the locked invite (never client input). Explicit consent is
  * REQUIRED. Concurrent/retried requests converge on one reservation + one Auth user.

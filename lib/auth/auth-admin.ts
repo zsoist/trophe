@@ -159,13 +159,16 @@ export function buildSignupAuth(service: SupabaseClient): SignupAuth {
     },
     async sendConfirmation(email) {
       // Send/resend the signup confirmation email (email-ownership proof). emailRedirectTo
-      // lands the user back in the app after confirming (must be in Supabase's redirect
-      // allowlist). NOTE: the exact mechanism for an Admin-created unconfirmed user must be
+      // is REQUIRED and explicit — a missing NEXT_PUBLIC_SITE_URL would let Supabase fall
+      // back to the project Site URL (wrong environment: e.g. a preview link → prod/local),
+      // so we FAIL CLOSED (→ 503 delivery_failed) rather than send an ambiguous-redirect
+      // email. NOTE: the exact mechanism for an Admin-created unconfirmed user must still be
       // validated on local/preview Supabase (resend vs admin.generateLink) — preview gate.
       const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+      if (!siteUrl) { console.error('[auth] NEXT_PUBLIC_SITE_URL unset — refusing to send a confirmation with an ambiguous redirect'); return false; }
       const { error } = await service.auth.resend({
         type: 'signup', email,
-        ...(siteUrl ? { options: { emailRedirectTo: `${siteUrl}/login?confirmed=1` } } : {}),
+        options: { emailRedirectTo: `${siteUrl}/login?confirmed=1` },
       });
       return !error;
     },

@@ -50,8 +50,9 @@ Two distinct controls, deliberately **not** sharing one mechanism:
 
 ```
 claim_* → createUser(tagged, unconfirmed) → attach_reservation_user
-        → finalize_*  ── true ──→ sendConfirmation(email) → 202 verification_required
-                      ── false ──→ resolveFailure: re-read state; completed-with-our-user ⇒
+        → finalize_*  ── true ──→ sendConfirmation(email) ── sent ──→ 202 verification_required
+                      │                                    └─ failed ─→ 503 delivery_failed (retryable; row stays completed)
+                      └─ false ──→ resolveFailure: re-read state; completed-with-our-user ⇒
                                    idempotent success; else cancel-FIRST, delete ONLY if proven orphaned
 ```
 

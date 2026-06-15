@@ -9,9 +9,10 @@ import { runReservedSignup, type ClaimResult } from '@/lib/auth/signup-flow';
 /**
  * Client activation via a coach invite token (WP1 plan B1, reservation state machine).
  *
- *   claim_client_invite → createUser (tagged, BANNED) → attach → finalize_client_activation
- *   (atomic profile + client_profile linked to the inviting coach + Art.9 consent,
- *   reserved→completed) → enable.  Compensation via cancel_reservation_for_route.
+ *   claim_client_invite → createUser (tagged, EMAIL-UNCONFIRMED) → attach →
+ *   finalize_client_activation (atomic profile + client_profile linked to the inviting
+ *   coach + Art.9 consent, reserved→completed) → sendConfirmation → 202 (or 503).
+ *   Compensation via cancel_reservation_for_route. No ban (admin-only).
  *
  * Role is forced to 'client' and the coach link is DERIVED from the locked invite.
  */
