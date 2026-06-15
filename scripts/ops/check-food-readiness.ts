@@ -11,6 +11,7 @@ withPool(resolveDbConfig(), async (pool) => {
     authoritative: string;
     reviewed: string;
     canonical: string;
+    bootstrap_fixtures: string;
     missing_embeddings: string;
     invalid_macros: string;
     low_confidence: string;
@@ -20,7 +21,8 @@ withPool(resolveDbConfig(), async (pool) => {
       count(*) FILTER (WHERE data_quality IN ('lab_verified', 'label'))::text AS authoritative,
       count(*) FILTER (WHERE data_reviewed_at IS NOT NULL OR verified = 'manual')::text AS reviewed,
       count(*) FILTER (WHERE canonical_food_key IS NOT NULL)::text AS canonical,
-      count(*) FILTER (WHERE embedding IS NULL)::text AS missing_embeddings,
+      count(*) FILTER (WHERE source_id LIKE 'wp2-seed-%')::text AS bootstrap_fixtures,
+      count(*) FILTER (WHERE embedding IS NULL AND source_id NOT LIKE 'wp2-seed-%')::text AS missing_embeddings,
       count(*) FILTER (
         WHERE kcal_per_100g < 0 OR protein_per_100g < 0 OR carb_per_100g < 0 OR fat_per_100g < 0
           OR protein_per_100g + carb_per_100g + fat_per_100g > 115
@@ -38,6 +40,7 @@ withPool(resolveDbConfig(), async (pool) => {
     authoritativeRate: Number(row.total) ? Number(row.authoritative) / Number(row.total) : 0,
     reviewed: Number(row.reviewed),
     canonical: Number(row.canonical),
+    bootstrapFixtures: Number(row.bootstrap_fixtures),
     missingEmbeddings: Number(row.missing_embeddings),
     invalidMacros: Number(row.invalid_macros),
     lowConfidence: Number(row.low_confidence),
