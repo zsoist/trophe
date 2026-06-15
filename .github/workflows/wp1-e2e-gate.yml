@@ -32,6 +32,13 @@ jobs:
   wp1-gate:
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    env:
+      # Pin the Supabase CLI: 2.98.x drops /auth/v1 from the mailer confirmation link
+      # (…:54321/verify instead of …:54321/auth/v1/verify → Kong 404 on confirm; upstream
+      # supabase/auth#2518, supabase/cli#5163). 2.95.4 is known-good. This is an ISOLATED-GATE
+      # workaround for a LOCAL-CLI mailer defect — the app is correct and prod auth is unaffected;
+      # do NOT change production auth config over this. Hosted email stays a separate manual canary.
+      SUPABASE_CLI: supabase@2.95.4
     steps:
       - uses: actions/checkout@v4   # default: the pushed commit — tests exactly what was pushed
 
@@ -44,12 +51,12 @@ jobs:
         run: npm ci
 
       - name: Start local Supabase (real Auth + Mailpit)
-        run: npx supabase start
+        run: npx -y "$SUPABASE_CLI" start
 
       - name: Export local Supabase credentials + harness env
         run: |
           # Local stack keys are well-known demo values (not secrets) — safe to put in $GITHUB_ENV.
-          eval "$(npx supabase status -o env)"
+          eval "$(npx -y "$SUPABASE_CLI" status -o env)"
           test -n "$ANON_KEY" && test -n "$SERVICE_ROLE_KEY" || { echo "supabase status did not yield keys"; exit 1; }
           {
             echo "NEXT_PUBLIC_SUPABASE_URL=${API_URL}"
@@ -115,4 +122,4 @@ jobs:
 
       - name: Stop local Supabase (always)
         if: always()
-        run: npx supabase stop || true
+        run: npx -y "$SUPABASE_CLI" stop || true

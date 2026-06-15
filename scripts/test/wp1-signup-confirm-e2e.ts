@@ -116,7 +116,11 @@ async function confirmationLinkFromMessage(id: string): Promise<string | null> {
   const m = body.match(/https?:\/\/[^\s"'<>]+\/auth\/v1\/verify[^\s"'<>]+/)
     ?? body.match(/https?:\/\/[^\s"'<>]*(?:verify|confirm)[^\s"'<>]*token[^\s"'<>]*/i)
     ?? body.match(/https?:\/\/[^\s"'<>]*token(?:_hash)?=[^\s"'<>]+/i);
-  if (!m) console.error(`  ↳ no confirmation link in message ${id}. Body (first 800 chars):\n${body.slice(0, 800)}`);
+  if (!m) {
+    // Redact: never log raw email bodies or token values. Show only the distinct origin+path of any URLs.
+    const urls = [...new Set([...body.matchAll(/https?:\/\/[^\s"'<>]+/g)].map((x) => { try { const u = new URL(x[0]); return u.origin + u.pathname; } catch { return '(bad-url)'; } }))];
+    console.error(`  ↳ no confirmation link in message ${id} (${body.length} chars). URLs (origin+path only, tokens redacted): ${JSON.stringify(urls)}`);
+  }
   return m ? m[0] : null;
 }
 async function findUserIdsByEmail(admin: SupabaseClient, email: string): Promise<string[]> {
@@ -243,11 +247,13 @@ async function main() {
     const link = newId ? await confirmationLinkFromMessage(newId) : null;
     check(!!link, '(5) verify link extracted from the replay confirmation email');
     if (link) {
-      console.log(`  · following verify link: ${link}`);
+      // Redact: log only origin+path + query-param NAMES — never the token VALUES.
+      const linkShape = (() => { try { const u = new URL(link); return `${u.origin}${u.pathname}?${[...u.searchParams.keys()].join('&')}`; } catch { return '(unparseable)'; } })();
+      console.log(`  · following verify link: ${linkShape}`);
       const r = await fetch(link, { redirect: 'manual' });
       const loc = r.headers.get('location') ?? '';
       if (![302, 303, 307].includes(r.status)) {
-        console.error(`  ↳ verify link returned ${r.status} (no redirect). Body (first 300): ${(await r.clone().text().catch(() => '')).slice(0, 300)}`);
+        console.error(`  ↳ verify link returned ${r.status} (no redirect) for path ${linkShape}`);
       }
       let exact = false;
       try {
