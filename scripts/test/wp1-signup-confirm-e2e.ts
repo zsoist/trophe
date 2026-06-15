@@ -1,5 +1,8 @@
 /**
- * WP1 part 2 — PREVIEW-GATE validation harness (LOCAL-ONLY; the final gate as one command).
+ * WP1 part 2 — PREVIEW-GATE validation harness (LOCAL-ONLY; the LOCAL release-evidence gate, one command).
+ *
+ * This is the local-automation gate, NOT the whole release gate: hosted-SMTP delivery and the
+ * full browser-cookie session after the link click remain SEPARATE MANUAL operator gates (below).
  *
  * Proves the email-verification lifecycle against a LOCAL Supabase + Mailpit stack, as
  * repeatable evidence. A passing run requires ALL checks green and ZERO skips:
@@ -83,35 +86,65 @@ async function findUserIdsByEmail(admin: SupabaseClient, email: string): Promise
     if (error) throw new Error(`listUsers: ${error.message}`);
     const users = data?.users ?? [];
     for (const u of users) if (u.email === email) ids.push(u.id);
-    if (users.length < 1000) break;
+    if (users.length === 0) break; // GoTrue may clamp perPage below 1000 — page until a page comes back empty
   }
   return ids;
 }
-async function postSignup(email: string, password: string) {
+async function postSignup(email: string, password: string, runIp: string) {
   const res = await fetch(`${APP}/api/auth/signup`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'x-forwarded-for': runIp },
     body: JSON.stringify({ email, password, full_name: 'E2E Tester', consent: true }),
   });
   return { status: res.status, body: await res.json().catch(() => ({})) as { verification_required?: boolean; user_id?: string; error?: string } };
 }
 
-/** Discover EVERY Auth user for the test email (regardless of what the route returned) and
- *  delete its DB rows + the Auth user, then verify none remain. Returns true iff fully clean. */
-async function cleanupByEmail(admin: SupabaseClient, email: string): Promise<boolean> {
+/** Each test artifact table and the column that keys it to the user. invite_reservations.user_id
+ *  is a bare uuid (no FK) so it never cascades; profiles is the parent (PK = user id). */
+const ARTIFACT_TABLES: ReadonlyArray<readonly [table: string, col: string]> = [
+  ['invite_reservations', 'user_id'], ['client_profiles', 'user_id'], ['consents', 'user_id'], ['profiles', 'id'],
+];
+
+/** Delete every test artifact for the UNION of route-returned IDs (captured) and IDs discovered
+ *  by the test email (catches a 503 whose body omitted user_id), then PROVE they are gone —
+ *  a PostgREST delete returns no error even when it removes ZERO rows. Returns true iff fully
+ *  clean: all artifact rows verified absent AND no Auth user for the email remains. */
+async function cleanupByEmail(admin: SupabaseClient, email: string, captured: Set<string>, rateKey: string): Promise<boolean> {
   let ok = true;
-  let ids: string[] = [];
-  try { ids = await findUserIdsByEmail(admin, email); } catch (e) { console.error(`  ! cleanup discover: ${String(e)}`); return false; }
+  let discovered: string[] = [];
+  try { discovered = await findUserIdsByEmail(admin, email); } catch (e) { console.error(`  ! cleanup discover: ${String(e)}`); return false; }
+  const ids = Array.from(new Set<string>([...captured, ...discovered]));
+
+  // delete: children → parent → Auth user, for every captured/discovered id
   for (const id of ids) {
-    for (const t of ['client_profiles', 'consents', 'invite_reservations']) {
-      const { error } = await admin.from(t).delete().eq('user_id', id);
+    for (const [t, col] of ARTIFACT_TABLES) {
+      const { error } = await admin.from(t).delete().eq(col, id);
       if (error) { console.error(`  ! cleanup ${t} (${id}): ${error.message}`); ok = false; }
     }
-    const { error: pe } = await admin.from('profiles').delete().eq('id', id);
-    if (pe) { console.error(`  ! cleanup profiles (${id}): ${pe.message}`); ok = false; }
     const { error: de } = await admin.auth.admin.deleteUser(id);
     if (de) { console.error(`  ! cleanup deleteUser (${id}): ${de.message}`); ok = false; }
   }
-  try { const left = await findUserIdsByEmail(admin, email); if (left.length) { console.error(`  ! cleanup incomplete: ${left.length} user(s) remain`); ok = false; } } catch { ok = false; }
+
+  // VERIFY each artifact row is actually gone (delete-success ≠ rows-removed)
+  for (const id of ids) {
+    for (const [t, col] of ARTIFACT_TABLES) {
+      const { count, error } = await admin.from(t).select('*', { count: 'exact', head: true }).eq(col, id);
+      if (error) { console.error(`  ! verify ${t} (${id}): ${error.message}`); ok = false; }
+      else if ((count ?? 0) > 0) { console.error(`  ! verify ${t} (${id}): ${count} row(s) REMAIN`); ok = false; }
+    }
+  }
+
+  // VERIFY no Auth user remains for the email
+  try { const left = await findUserIdsByEmail(admin, email); if (left.length) { console.error(`  ! verify auth: ${left.length} user(s) REMAIN`); ok = false; } }
+  catch (e) { console.error(`  ! verify auth: ${String(e)}`); ok = false; }
+
+  // the route created a rate_limit_windows row under this run's key — remove + verify. The run uses a
+  // unique x-forwarded-for so it never blocks; this only keeps "all artifacts removed" honest.
+  { const { error } = await admin.from('rate_limit_windows').delete().eq('key', rateKey);
+    if (error) { console.error(`  ! cleanup rate_limit_windows (${rateKey}): ${error.message}`); ok = false; } }
+  { const { count, error } = await admin.from('rate_limit_windows').select('*', { count: 'exact', head: true }).eq('key', rateKey);
+    if (error) { console.error(`  ! verify rate_limit_windows: ${error.message}`); ok = false; }
+    else if ((count ?? 0) > 0) { console.error(`  ! verify rate_limit_windows: ${count} row(s) REMAIN`); ok = false; } }
+
   return ok;
 }
 
@@ -120,53 +153,68 @@ async function main() {
   assertLocalOnly();
   const anon = createClient(SB_URL, ANON, { auth: { persistSession: false } });
   const admin = createClient(SB_URL, SERVICE, { auth: { persistSession: false } });
-  const email = `wp1-e2e-${Date.now()}@example.com`;
+  const ts = Date.now();
+  const email = `wp1-e2e-${ts}@example.com`;
   const password = 'Pw-e2e-12345';
+  const runIp = `e2e-${ts}`;          // unique x-forwarded-for per run → fresh signup rate bucket (route caps 5/IP/hour; 2 signups/run never accumulate across runs)
+  const rateKey = `signup:${runIp}`;  // the route's consumeRateLimit key (lib/security/durable-rate-limit) — cleaned up at teardown
   const expectedRedirect = `${APP}/login?confirmed=1`;
   console.log(`WP1 PREVIEW-GATE (LOCAL) — app=${APP} supabase=${SB_URL} mailpit=${MAILPIT}\n  test email=${email}`);
 
+  const capturedIds = new Set<string>(); // 202 carries user_id; 503 omits it → union with email-discovery at cleanup
   let cleanupOk = false;
   try {
     if (!(await mailpitReachable())) check(false, `(0) Mailpit reachable at ${MAILPIT} (REQUIRED — start the local stack)`);
 
-    const su = await postSignup(email, password);
+    const su = await postSignup(email, password, runIp);
+    if (su.body.user_id) capturedIds.add(su.body.user_id);
     check(su.status === 202 && su.body.verification_required === true, `(1) signup → 202 verification_required (got ${su.status})`);
 
     const pre = await anon.auth.signInWithPassword({ email, password });
     check(!!pre.error && !pre.data.session, `(2) pre-confirmation login REJECTED (${pre.error?.message ?? 'NO ERROR — hold not enforced!'})`);
 
+    // (3) REPLAY while still UNCONFIRMED — and BEFORE confirming (below). resend(type:signup) only
+    // re-sends a NEW email for an UNCONFIRMED account; once confirmed, GoTrue returns 200 and sends
+    // nothing, so this idempotency proof is structurally unsatisfiable if it runs after confirmation.
+    const before = await countMessagesTo(email);
+    const replay = await postSignup(email, password, runIp);
+    if (replay.body.user_id) capturedIds.add(replay.body.user_id);
+    check(replay.status === 202, `(3) replay (pre-confirmation) → 202 resend (got ${replay.status})`);
+    let after = before;
+    for (let i = 0; i < 15 && after <= before; i++) { await new Promise((r) => setTimeout(r, 1000)); after = await countMessagesTo(email); }
+    check(after > before, `(3) replay delivered a NEW confirmation email (${before} → ${after})`);
+    check((await findUserIdsByEmail(admin, email)).length === 1, '(3) exactly ONE Auth user — no duplicate (paginated)');
+
+    // (4) confirm via the LATEST verify link (the replay rotates the token; Mailpit returns newest-first,
+    // and the no-error assertion below fails loud if a stale/invalid token is followed instead).
     const link = await fetchConfirmationLink(email);
-    check(!!link, '(3) confirmation email delivered + verify link found');
+    check(!!link, '(4) confirmation email delivered + verify link found');
     if (link) {
       const r = await fetch(link, { redirect: 'manual' });
       const loc = r.headers.get('location') ?? '';
       let exact = false;
       try {
         const u = new URL(loc, APP);                       // tolerate a relative Location
+        const hash = new URLSearchParams(u.hash.replace(/^#/, ''));
+        const hasError = u.searchParams.has('error') || u.searchParams.has('error_code') || hash.has('error') || hash.has('error_code');
         exact = [302, 303, 307].includes(r.status)
           && u.origin === new URL(APP).origin               // same APP origin (emailRedirectTo honored)
           && u.pathname === '/login'                        // EXACT destination path
-          && u.searchParams.get('confirmed') === '1';       // EXACT flag (Supabase may append ?code / #tokens — fine)
+          && u.searchParams.get('confirmed') === '1'        // EXACT flag (success may append ?code / #tokens — fine)
+          && !hasError;                                     // a GoTrue verify FAILURE also lands on /login?confirmed=1 + error — reject it
       } catch { exact = false; }
-      check(exact, `(3) verify link redirects EXACTLY to ${expectedRedirect} (status ${r.status}, location ${loc || 'none'})`);
+      check(exact, `(4) verify link redirects to ${expectedRedirect} with NO error (status ${r.status}, location ${loc || 'none'})`);
     } else {
-      skip('(3b) redirect assertion — no verify link to follow');
+      skip('(4b) redirect assertion — no verify link to follow');
     }
 
+    // (5) post-confirmation login now SUCCEEDS — proves the link actually confirmed the account.
     const post = await anon.auth.signInWithPassword({ email, password });
-    check(!post.error && !!post.data.session, `(4) post-confirmation login SUCCEEDS (${post.error?.message ?? 'session established'})`);
-
-    const before = await countMessagesTo(email);
-    const replay = await postSignup(email, password);
-    check(replay.status === 202, `(5) replay signup → 202 resend (got ${replay.status})`);
-    let after = before;
-    for (let i = 0; i < 15 && after <= before; i++) { await new Promise((r) => setTimeout(r, 1000)); after = await countMessagesTo(email); }
-    check(after > before, `(5) replay delivered a NEW confirmation email (${before} → ${after})`);
-    check((await findUserIdsByEmail(admin, email)).length === 1, '(5) exactly ONE Auth user (no duplicate, paginated)');
+    check(!post.error && !!post.data.session, `(5) post-confirmation login SUCCEEDS (${post.error?.message ?? 'session established'})`);
   } finally {
-    cleanupOk = await cleanupByEmail(admin, email);
+    cleanupOk = await cleanupByEmail(admin, email, capturedIds, rateKey);
   }
-  check(cleanupOk, '(cleanup) all test artifacts removed (DB rows + Auth users, verified gone)');
+  check(cleanupOk, '(cleanup) all test artifacts removed — DB rows + rate-limit rows + Auth users queried + verified gone');
 
   const passed = fails === 0 && skips === 0;
   console.log(passed ? '\n✅ PREVIEW-GATE PASSED (all checks green, zero skips)' : `\n❌ NOT a passing gate — ${fails} failure(s), ${skips} skip(s)`);
