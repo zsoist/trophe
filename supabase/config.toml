@@ -218,7 +218,10 @@ enable_signup = true
 # addresses. If disabled, only the new email is required to confirm.
 double_confirm_changes = true
 # If enabled, users need to confirm their email address before signing in.
-enable_confirmations = false
+# WP1 part 2: this is the pre-finalization-login hold — a created-but-unconfirmed user
+# (incl. a crashed/pre-finalize signup) CANNOT obtain a session until they confirm. Must
+# stay ON in every environment (local + preview + prod); the signup flow depends on it.
+enable_confirmations = true
 # If enabled, users will need to reauthenticate or have logged in recently to change their password.
 secure_password_change = false
 # Controls the minimum amount of time that must pass before sending another signup confirmation or password reset email.

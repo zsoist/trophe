@@ -32,6 +32,7 @@ const MESSAGES: Record<string, string> = {
   conflict: 'A signup with these details is already in progress',
   email_exists: 'Email already registered. Try logging in.',
   retry: 'Signup is briefly busy — please try again',
+  delivery_failed: 'We could not send your confirmation email — please try again in a moment.',
   error: 'Signup failed',
 };
 

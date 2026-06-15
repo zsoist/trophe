@@ -49,6 +49,7 @@ export interface SignupDb {
 
 export type SignupReason =
   | 'pending_confirmation'                       // success → 202, user must confirm their email
+  | 'delivery_failed'                            // account provisioned but confirmation email send FAILED → 503, retry
   | 'invalid' | 'exhausted' | 'conflict' | 'email_exists' | 'retry' | 'error';
 
 export interface SignupOutcome {
@@ -74,7 +75,12 @@ export async function runReservedSignup(
   const log = args.log ?? (() => {});
 
   const pending = (userId?: string): SignupOutcome => ({ ok: true, status: 202, reason: 'pending_confirmation', userId });
-  const resend = () => auth.sendConfirmation(email).catch((e) => { log(`sendConfirmation failed (non-fatal): ${e}`); return false; });
+  const resend = () => auth.sendConfirmation(email).catch((e) => { log(`sendConfirmation threw: ${e}`); return false; });
+  // The account is provisioned (reservation completed, idempotent on replay). If the
+  // confirmation email can't be SENT, tell the truth: 503 retryable — never a 202 over an
+  // email that was never delivered. A retry hits replayed_completed and re-sends.
+  const confirmOrFail = async (userId?: string): Promise<SignupOutcome> =>
+    (await resend()) ? pending(userId) : { ok: false, status: 503, reason: 'delivery_failed', userId };
 
   // ── Map the claim outcome ────────────────────────────────────────────────
   switch (claim.outcome) {
@@ -84,8 +90,7 @@ export async function runReservedSignup(
     case 'replayed_completed':
       // The account already exists for this exact signup — re-send confirmation (idempotent;
       // harmless if already confirmed) so a user who lost the first email can still verify.
-      await resend();
-      return pending(claim.resUserId ?? undefined);
+      return confirmOrFail(claim.resUserId ?? undefined);
     case 'replayed_reserved':
       // A concurrent/retried request reserved first. Resume its user if attached; otherwise
       // fail closed — never create a competing user (§3a).
@@ -121,8 +126,7 @@ export async function runReservedSignup(
   const resolveFailure = async (didAttach: boolean, reason: SignupReason): Promise<SignupOutcome> => {
     const state = await db.reservationState(reservationId);
     if (state.status === 'completed' && state.userId === userId) {
-      await resend(); // idempotent success — the account is good; never delete it
-      return pending(userId);
+      return confirmOrFail(userId); // idempotent success — the account is good; never delete it
     }
     if (createdHere) {
       // Delete ONLY a user we can PROVE is orphaned: cancel succeeds ⇒ the row was still
@@ -143,8 +147,7 @@ export async function runReservedSignup(
   // ── Finalize (atomic profile/consent + reserved→completed) ────────────────
   if (!(await finalize(reservationId, userId))) return resolveFailure(true, 'retry');
 
-  // ── Provision complete → send the confirmation email (ownership proof). Non-fatal if it
-  //    fails (a replay re-sends); the account is unconfirmed so it still cannot log in. ──
-  await resend();
-  return pending(userId);
+  // ── Provision complete → send the confirmation email (ownership proof). If the SEND
+  //    fails, return 503 (truthful + retryable) rather than a 202 over an unsent email. ──
+  return confirmOrFail(userId);
 }

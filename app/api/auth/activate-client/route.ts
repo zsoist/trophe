@@ -31,6 +31,7 @@ const MESSAGES: Record<string, string> = {
   conflict: 'An activation with these details is already in progress',
   email_exists: 'Email already registered. Log in, then ask your coach to link you.',
   retry: 'Activation is briefly busy — please try again',
+  delivery_failed: 'We could not send your confirmation email — please try again in a moment.',
   error: 'Activation failed',
 };
 

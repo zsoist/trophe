@@ -1,8 +1,7 @@
 'use client';
 
 import { Suspense, useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 
 /**
@@ -11,7 +10,6 @@ import { Loader2 } from 'lucide-react';
  * consent, creates the client account linked to the coach, then signs in.
  */
 function ActivateForm() {
-  const router = useRouter();
   const token = useSearchParams().get('token') ?? '';
 
   const [state, setState] = useState<'loading' | 'invalid' | 'ready'>('loading');
@@ -22,6 +20,7 @@ function ActivateForm() {
   const [consent, setConsent] = useState(false);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null); // 202 → check-email
 
   useEffect(() => {
     if (!token) { setState('invalid'); return; }
@@ -47,14 +46,43 @@ function ActivateForm() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Activation failed');
-      const { error: loginErr } = await supabase.auth.signInWithPassword({ email, password });
-      if (loginErr) throw loginErr;
-      router.replace('/onboarding');
+      // 202 verification_required — DO NOT auto-login; the account is unconfirmed until the
+      // user clicks the email link. Show the check-email screen.
+      setPendingEmail(email);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
       setSubmitting(false);
     }
+  }
+
+  async function handleResend() {
+    if (!pendingEmail) return;
+    setSubmitting(true); setError('');
+    try {
+      const res = await fetch('/api/auth/activate-client', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, email: pendingEmail, password, full_name: fullName, consent: true }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not resend');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not resend');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (pendingEmail) {
+    return (
+      <div style={{ maxWidth: 420, margin: '0 auto', padding: '64px 24px', textAlign: 'center' }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 12 }}>Check your email</h1>
+        <p style={{ color: '#a8a29e', fontSize: 14, marginBottom: 20 }}>We sent a confirmation link to <span style={{ color: '#e7e5e4' }}>{pendingEmail}</span>. Click it to activate your account, then log in.</p>
+        {error && <p style={{ color: '#fca5a5', fontSize: 13, marginBottom: 12 }}>{error}</p>}
+        <button type="button" onClick={handleResend} disabled={submitting} className="btn-ghost" style={{ marginBottom: 12 }}>{submitting ? 'Sending…' : 'Resend confirmation email'}</button>
+        <div><a href="/login" style={{ color: '#a8a29e', fontSize: 13 }}>← Go to log in</a></div>
+      </div>
+    );
   }
 
   if (state === 'loading') {

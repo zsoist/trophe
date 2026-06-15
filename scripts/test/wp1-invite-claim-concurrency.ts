@@ -629,13 +629,18 @@ async function main() {
   const consentField = z.object({ consent: z.literal(true) });
   ok(!consentField.safeParse({}).success && !consentField.safeParse({ consent: false }).success && consentField.safeParse({ consent: true }).success, '(a) missing/false consent rejected; true accepted');
 
-  console.log('T38: confirmation email — sent on success; a send failure is non-fatal (still 202, replay re-sends)');
+  console.log('T38: confirmation email — sent on success (202); a send FAILURE is truthful (503), retry recovers');
   await newBeta('T38'); const m38 = makeMockAuth(); const c38 = await claimBeta('T38', randomUUID());
   const r38 = await runReservedSignup(m38.auth, realSignupDb, { claim: toClaim(c38), finalize: finBetaF, email: 't38@x.io', password: 'pw12345678', userMetadata: { role: 'coach' } });
-  ok(r38.ok && r38.reason === 'pending_confirmation' && m38.sent.includes('t38@x.io'), '(a) success sends the confirmation email');
-  await newBeta('T38b'); const m38b = makeMockAuth({ sendFails: true }); const c38b = await claimBeta('T38b', randomUUID());
+  ok(r38.ok && r38.status === 202 && r38.reason === 'pending_confirmation' && m38.sent.includes('t38@x.io'), '(a) success → 202 + confirmation email sent');
+  // send failure: account is provisioned (completed) but report 503 — NEVER a 202 over an unsent email
+  await newBeta('T38b'); const m38b = makeMockAuth({ sendFails: true }); const idem38b = randomUUID(); const c38b = await claimBeta('T38b', idem38b);
   const r38b = await runReservedSignup(m38b.auth, realSignupDb, { claim: toClaim(c38b), finalize: finBetaF, email: 't38b@x.io', password: 'pw12345678', userMetadata: { role: 'coach' } });
-  ok(r38b.ok && r38b.reason === 'pending_confirmation' && await resStatus(c38b.reservation_id) === 'completed', '(b) confirmation-send failure is non-fatal — still 202, account completed (replay re-sends)');
+  ok(!r38b.ok && r38b.status === 503 && r38b.reason === 'delivery_failed' && await resStatus(c38b.reservation_id) === 'completed', '(b) send FAILURE → 503 (truthful), account completed (idempotent, not a false 202)');
+  // a retry once delivery works → replayed_completed re-sends, returns 202 (recovers)
+  const c38bR = await claimBeta('T38b', idem38b);
+  const r38bR = await runReservedSignup(makeMockAuth().auth, realSignupDb, { claim: toClaim(c38bR), finalize: finBetaF, email: 't38b@x.io', password: 'pw12345678', userMetadata: { role: 'coach' } });
+  ok(r38bR.ok && r38bR.status === 202 && r38bR.reason === 'pending_confirmation', '(c) retry after delivery recovers → 202 (idempotent resend)');
 
   console.log('T39: email already registered → reservation released, no user, code refunded');
   await newBeta('T39'); const m39 = makeMockAuth({ emailExists: new Set(['dupe@x.io']) }); const c39 = await claimBeta('T39', randomUUID());

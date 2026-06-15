@@ -158,10 +158,15 @@ export function buildSignupAuth(service: SupabaseClient): SignupAuth {
       if (error && !isMissingUser(error)) throw new Error(`deleteUser: ${error.message}`); // idempotent on missing
     },
     async sendConfirmation(email) {
-      // Send/resend the signup confirmation email (email-ownership proof). NOTE: the exact
-      // mechanism for an Admin-created unconfirmed user must be validated against
-      // local/preview Supabase (resend vs admin.generateLink) — flagged for the preview gate.
-      const { error } = await service.auth.resend({ type: 'signup', email });
+      // Send/resend the signup confirmation email (email-ownership proof). emailRedirectTo
+      // lands the user back in the app after confirming (must be in Supabase's redirect
+      // allowlist). NOTE: the exact mechanism for an Admin-created unconfirmed user must be
+      // validated on local/preview Supabase (resend vs admin.generateLink) — preview gate.
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+      const { error } = await service.auth.resend({
+        type: 'signup', email,
+        ...(siteUrl ? { options: { emailRedirectTo: `${siteUrl}/login?confirmed=1` } } : {}),
+      });
       return !error;
     },
   };
