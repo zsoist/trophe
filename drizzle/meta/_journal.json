@@ -386,6 +386,13 @@
    "when": 1780852599997,
    "tag": "0046_completed_stray_recheck",
    "breakpoints": true
+  },
+  {
+   "idx": 55,
+   "version": "7",
+   "when": 1780852599998,
+   "tag": "0047_client_activation_email_binding",
+   "breakpoints": true
   }
  ]
 }

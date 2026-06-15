@@ -31,7 +31,6 @@ const MESSAGES: Record<string, string> = {
   conflict: 'An activation with these details is already in progress',
   email_exists: 'Email already registered. Log in, then ask your coach to link you.',
   retry: 'Activation is briefly busy — please try again',
-  enable_failed: 'Account created but could not be enabled — please try logging in shortly',
   error: 'Activation failed',
 };
 
@@ -70,9 +69,11 @@ export async function POST(request: NextRequest) {
     const auth = buildSignupAuth(service);
     const db = buildSignupDb(service);
 
-    // Bind the activation to the invited email: if the coach issued the invite FOR a
-    // specific address, the activator must use it (no activating under a different email).
-    const { data: inviteRow } = await service.from('client_invites').select('client_email').eq('token', token).maybeSingle();
+    // Bind the activation to the invited email (defense-in-depth; the authoritative,
+    // transactional check is in finalize_client_activation, 0047). FAIL CLOSED on a lookup
+    // error — a transient DB failure must not let the binding be skipped.
+    const { data: inviteRow, error: inviteErr } = await service.from('client_invites').select('client_email').eq('token', token).maybeSingle();
+    if (inviteErr) return NextResponse.json({ error: 'Could not validate the invite — please try again' }, { status: 503 });
     if (inviteRow?.client_email && inviteRow.client_email.trim().toLowerCase() !== email.toLowerCase()) {
       return NextResponse.json({ error: 'This invite was issued for a different email address.' }, { status: 400 });
     }
@@ -93,7 +94,7 @@ export async function POST(request: NextRequest) {
     };
 
     const result = await runReservedSignup(auth, db, { claim, finalize, email, password, userMetadata: { full_name, role: 'client' }, log: (m) => console.error('[activate-client]', m) });
-    if (result.ok) return NextResponse.json({ success: true, user_id: result.userId });
+    if (result.ok) return NextResponse.json({ verification_required: true, user_id: result.userId, message: 'Account created — check your email to confirm it, then sign in.' }, { status: result.status });
     return NextResponse.json({ error: MESSAGES[result.reason] ?? 'Activation failed' }, { status: result.status });
   } catch (err) {
     console.error('Client activation error:', err);

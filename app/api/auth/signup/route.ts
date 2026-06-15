@@ -32,7 +32,6 @@ const MESSAGES: Record<string, string> = {
   conflict: 'A signup with these details is already in progress',
   email_exists: 'Email already registered. Try logging in.',
   retry: 'Signup is briefly busy — please try again',
-  enable_failed: 'Account created but could not be enabled — please try logging in shortly',
   error: 'Signup failed',
 };
 
@@ -88,7 +87,7 @@ export async function POST(req: NextRequest) {
     }
 
     const result = await runReservedSignup(auth, db, { claim, finalize, email, password, userMetadata: { full_name, role }, log: (m) => console.error('[signup]', m) });
-    if (result.ok) return NextResponse.json({ success: true, user_id: result.userId });
+    if (result.ok) return NextResponse.json({ verification_required: true, user_id: result.userId, message: 'Account created — check your email to confirm it, then sign in.' }, { status: result.status });
     return NextResponse.json({ error: MESSAGES[result.reason] ?? 'Signup failed' }, { status: result.status });
   } catch (err) {
     console.error('Signup error:', err);

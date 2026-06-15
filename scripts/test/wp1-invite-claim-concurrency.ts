@@ -26,9 +26,9 @@ import { Pool } from 'pg';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { recoverOrphanReservations, sweepTombstones, sweepCompletedStrays, runRecoveryPasses, type RecoveryDb, type TombstoneDb, type CompletedDb, type AuthReconciler, type CompletedReconciler } from '@/lib/recovery/reservation-recovery';
+import { recoverOrphanReservations, sweepTombstones, sweepCompletedStrays, runRecoveryPasses, type RecoveryDb, type TombstoneDb, type CompletedDb, type AuthReconciler, type StrayReconciler } from '@/lib/recovery/reservation-recovery';
 import { reservationIdentity } from '@/lib/auth/reservation-identity';
-import { buildAuthReconciler, buildSignupAuth } from '@/lib/auth/auth-admin';
+import { buildAuthReconciler } from '@/lib/auth/auth-admin';
 import { runReservedSignup, type SignupAuth, type SignupDb, type ClaimResult } from '@/lib/auth/signup-flow';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
@@ -73,6 +73,7 @@ async function setup() {
   await pool.query(readFileSync(join(process.cwd(), 'drizzle/0044_reservation_tombstones.sql'), 'utf-8'));
   await pool.query(readFileSync(join(process.cwd(), 'drizzle/0045_route_cancel_tombstoned.sql'), 'utf-8'));
   await pool.query(readFileSync(join(process.cwd(), 'drizzle/0046_completed_stray_recheck.sql'), 'utf-8'));
+  await pool.query(readFileSync(join(process.cwd(), 'drizzle/0047_client_activation_email_binding.sql'), 'utf-8'));
 }
 
 const claimBeta = (code: string, idem: string, fp = FP) => one('SELECT * FROM claim_beta_invite($1,$2,$3)', [code, idem, fp]);
@@ -434,10 +435,9 @@ async function main() {
     await pool.query(`INSERT INTO invite_reservations (invite_type, invite_id, idempotency_key, request_fingerprint, status, expires_at, completed_at, user_id)
                       VALUES ('beta', gen_random_uuid(), gen_random_uuid(), 'fp-budget', 'completed', now()-interval '2 min', now()-interval '30 sec', gen_random_uuid())`);
   }
-  const delayedAuth: AuthReconciler & CompletedReconciler = {
+  const delayedAuth: AuthReconciler & StrayReconciler = {
     reconcileAndDelete: async () => { await new Promise((r) => setTimeout(r, 10)); return 'absent'; },
     reconcileStrayCarriers: async () => { await new Promise((r) => setTimeout(r, 10)); return 'clean'; },
-    ensureEnabled: async () => true,
   };
   const budgetDb: RecoveryDb & TombstoneDb & CompletedDb = {
     claimOrphans: (l, s) => pool.query('SELECT * FROM claim_orphan_for_recovery($1,$2)', [l, s]).then(r => r.rows),
@@ -481,7 +481,7 @@ async function main() {
   // Counting double records which rows were reconciled + reaps strays from the stub. This
   // exercises the DB claim/settle/seal lifecycle; the PRODUCTION adapter trust check is T32.
   const seen31 = new Set<string>();
-  const countingStray: CompletedReconciler = {
+  const countingStray: StrayReconciler = {
     reconcileStrayCarriers: async (rid, keep) => {
       seen31.add(rid);
       const ids = (await one(`SELECT coalesce(array_agg(id),'{}') a FROM auth.users WHERE raw_app_meta_data->>'reservation_id'=$1`, [rid])).a as string[];
@@ -489,7 +489,6 @@ async function main() {
       await pool.query(`DELETE FROM auth.users WHERE raw_app_meta_data->>'reservation_id'=$1 AND id <> $2`, [rid, keep]);
       return 'reaped';
     },
-    ensureEnabled: async () => true,
   };
   const compDb: CompletedDb = {
     claimCompleted: (l, s, ret) => pool.query('SELECT * FROM claim_completed_for_recheck($1,$2,$3)', [l, s, ret]).then(r => r.rows),
@@ -559,27 +558,23 @@ async function main() {
     cancelForRoute: (res, uid) => pool.query('SELECT cancel_reservation_for_route($1,$2) ok', [res, uid]).then(r => r.rows[0].ok),
     reservationState: (res) => pool.query('SELECT status, user_id FROM invite_reservations WHERE id=$1', [res]).then(r => ({ status: r.rows[0]?.status ?? 'gone', userId: r.rows[0]?.user_id ?? null })),
   };
-  // Mock SignupAuth models the provisioning flag: created banned+provisioning; enableUser
-  // only lifts a PROVISIONING ban (an admin ban — provisioning false — is honored).
-  const makeMockAuth = (opts: { emailExists?: Set<string>; enableFails?: boolean } = {}) => {
-    const users = new Map<string, { email: string; banned: boolean; confirmed: boolean; provisioning: boolean }>();
+  // Mock SignupAuth for the new model: users created UNCONFIRMED + NO ban (ban_duration is
+  // admin-only; signup never sets it). sendConfirmation records the email-ownership send.
+  const makeMockAuth = (opts: { emailExists?: Set<string>; sendFails?: boolean } = {}) => {
+    const users = new Map<string, { email: string; confirmed: boolean; banned: boolean }>();
+    const sent: string[] = [];
     const auth: SignupAuth = {
       async createUser({ email, appMetadata }) {
         if (opts.emailExists?.has(email)) return { userId: null, emailExists: true };
         const id = randomUUID();
-        users.set(id, { email, banned: true, confirmed: false, provisioning: true });
-        await pool.query(`INSERT INTO auth.users (id, raw_app_meta_data) VALUES ($1, $2::jsonb)`, [id, JSON.stringify({ ...appMetadata, provisioning: true })]);
+        users.set(id, { email, confirmed: false, banned: false });
+        await pool.query(`INSERT INTO auth.users (id, raw_app_meta_data) VALUES ($1, $2::jsonb)`, [id, JSON.stringify(appMetadata)]);
         return { userId: id, emailExists: false };
       },
       async deleteUser(id) { users.delete(id); await pool.query(`DELETE FROM auth.users WHERE id=$1`, [id]); },
-      async enableUser(id) {
-        if (opts.enableFails) return false;
-        const u = users.get(id); if (!u) return true;
-        if (!u.provisioning) return true;            // not provisioning-pending → honor admin ban
-        u.banned = false; u.confirmed = true; u.provisioning = false; return true;
-      },
+      async sendConfirmation(email) { if (opts.sendFails) return false; sent.push(email); return true; },
     };
-    return { auth, users };
+    return { auth, users, sent };
   };
   const toClaim = (row: { reservation_id: string | null; outcome: string; res_user_id: string | null }): ClaimResult =>
     ({ reservationId: row.reservation_id, outcome: row.outcome as ClaimResult['outcome'], resUserId: row.res_user_id });
@@ -590,9 +585,9 @@ async function main() {
   console.log('T33: signup flow happy paths — beta / ordinary / client activation');
   await newBeta('T33a'); const m33 = makeMockAuth(); const cl33 = await claimBeta('T33a', randomUUID());
   const r33 = await runReservedSignup(m33.auth, realSignupDb, { claim: toClaim(cl33), finalize: finBetaF, email: 'b@x.io', password: 'pw12345678', userMetadata: { role: 'coach' } });
-  ok(r33.ok && r33.reason === 'created' && await resStatus(cl33.reservation_id) === 'completed', '(a) beta signup → completed');
-  ok(await profileCount(r33.userId!) === 1 && [...m33.users.values()][0]?.banned === false, '(a) profile written + user enabled (unbanned)');
-  ok((await one(`SELECT count(*)::int n FROM auth.users WHERE id=$1`, [r33.userId])).n === 1, '(a) user tagged in auth.users');
+  ok(r33.ok && r33.status === 202 && r33.reason === 'pending_confirmation' && await resStatus(cl33.reservation_id) === 'completed', '(a) beta signup → completed, 202 verification-required');
+  ok(await profileCount(r33.userId!) === 1 && m33.users.get(r33.userId!)?.confirmed === false && m33.users.get(r33.userId!)?.banned === false, '(a) profile written; user UNCONFIRMED (ownership hold), no ban');
+  ok(m33.sent.includes('b@x.io') && (await one(`SELECT count(*)::int n FROM auth.users WHERE id=$1`, [r33.userId])).n === 1, '(a) confirmation email sent; user tagged in auth.users');
   const m33b = makeMockAuth(); const clo = await claimOrd(randomUUID(), randomUUID());
   const r33b = await runReservedSignup(m33b.auth, realSignupDb, { claim: toClaim(clo), finalize: finOrdF, email: 'o@x.io', password: 'pw12345678', userMetadata: { role: 'client' } });
   ok(r33b.ok && await resStatus(clo.reservation_id) === 'completed', '(b) ordinary signup → completed');
@@ -612,7 +607,7 @@ async function main() {
   ok(c34b.outcome === 'replayed_reserved' && c34b.res_user_id === u34.userId, '(setup) second claim → replayed_reserved with the attached user');
   const before34 = m34.users.size;
   const r34 = await runReservedSignup(m34.auth, realSignupDb, { claim: toClaim(c34b), finalize: finBetaF, email: 't34@x.io', password: 'pw12345678', userMetadata: { role: 'coach' } });
-  ok(r34.ok && r34.reason === 'resumed' && m34.users.size === before34 && await resStatus(c34.reservation_id) === 'completed', '(a) resumed existing user, no 2nd user, finalized');
+  ok(r34.ok && r34.reason === 'pending_confirmation' && m34.users.size === before34 && await resStatus(c34.reservation_id) === 'completed', '(a) resumed existing user, no 2nd user, finalized (202)');
 
   console.log('T35: crash after createUser before attach → recovery worker reaps the tagged orphan');
   await newBeta('T35'); const m35 = makeMockAuth(); const c35 = await claimBeta('T35', randomUUID());
@@ -622,37 +617,25 @@ async function main() {
   ok((await one(`SELECT count(*)::int n FROM auth.users WHERE id=$1`, [u35.userId])).n === 0, '(a) orphan tagged user deleted by recovery');
   ok(await resStatus(c35.reservation_id) === 'cancelled', '(b) reservation cancelled (tombstoned) by recovery');
 
-  console.log('T36: duplicate request after completion → replayed_completed, no new user');
+  console.log('T36: duplicate request after completion → replayed_completed re-sends confirmation, no new user');
   await newBeta('T36'); const m36 = makeMockAuth(); const idem36 = randomUUID(); const c36 = await claimBeta('T36', idem36);
   const u36 = await m36.auth.createUser({ email: 't36@x.io', password: 'x', appMetadata: { reservation_id: c36.reservation_id }, userMetadata: {} });
   await pool.query('SELECT attach_reservation_user($1,$2)', [c36.reservation_id, u36.userId]); await finBetaF(c36.reservation_id, u36.userId!);
-  const c36b = await claimBeta('T36', idem36); const before36 = m36.users.size;
+  const c36b = await claimBeta('T36', idem36); const before36 = m36.users.size; const sent36 = m36.sent.length;
   const r36 = await runReservedSignup(m36.auth, realSignupDb, { claim: toClaim(c36b), finalize: finBetaF, email: 't36@x.io', password: 'pw12345678', userMetadata: { role: 'coach' } });
-  ok(r36.ok && r36.reason === 'already_exists' && m36.users.size === before36, '(a) replayed_completed → idempotent success, no new user');
+  ok(r36.ok && r36.reason === 'pending_confirmation' && m36.users.size === before36 && m36.sent.length === sent36 + 1, '(a) replayed_completed → 202, no new user, confirmation re-sent');
 
   console.log('T37: explicit consent fail-closed (route schema requires consent literally true)');
   const consentField = z.object({ consent: z.literal(true) });
   ok(!consentField.safeParse({}).success && !consentField.safeParse({ consent: false }).success && consentField.safeParse({ consent: true }).success, '(a) missing/false consent rejected; true accepted');
 
-  console.log('T38: enable-failure limbo is SELF-HEALED (in-request surfaced + worker re-enable + retry re-enable) §2');
-  await newBeta('T38'); const m38 = makeMockAuth({ enableFails: true }); const c38 = await claimBeta('T38', randomUUID());
+  console.log('T38: confirmation email — sent on success; a send failure is non-fatal (still 202, replay re-sends)');
+  await newBeta('T38'); const m38 = makeMockAuth(); const c38 = await claimBeta('T38', randomUUID());
   const r38 = await runReservedSignup(m38.auth, realSignupDb, { claim: toClaim(c38), finalize: finBetaF, email: 't38@x.io', password: 'pw12345678', userMetadata: { role: 'coach' } });
-  ok(!r38.ok && r38.reason === 'enable_failed' && r38.userId !== undefined, '(a) enable failure → not ok, reason enable_failed (no false success)');
-  ok(await resStatus(c38.reservation_id) === 'completed' && m38.users.get(r38.userId!)?.banned === true, '(b) finalize committed but user still BANNED (the limbo)');
-  // (c) the recovery completed-pass self-heals: re-enables the banned finalized user
-  const healAuth: CompletedReconciler = {
-    reconcileStrayCarriers: async () => 'clean',
-    ensureEnabled: async (uid) => { const u = m38.users.get(uid); if (u && u.provisioning) { u.banned = false; u.confirmed = true; u.provisioning = false; } return true; },
-  };
-  await sweepCompletedStrays(compDb, healAuth, { limit: 500, retentionSeconds: 600 });
-  ok(m38.users.get(r38.userId!)?.banned === false, '(c) recovery completed-pass re-enabled the limbo user (no permanent lockout)');
-  // (d) a user RETRY of a still-banned completed signup re-asserts enable (replayed_completed heals)
-  await newBeta('T38d'); const m38d = makeMockAuth(); const idem38 = randomUUID(); const c38d = await claimBeta('T38d', idem38);
-  const u38d = await m38d.auth.createUser({ email: 't38d@x.io', password: 'x', appMetadata: { reservation_id: c38d.reservation_id }, userMetadata: {} });
-  await pool.query('SELECT attach_reservation_user($1,$2)', [c38d.reservation_id, u38d.userId]); await finBetaF(c38d.reservation_id, u38d.userId!); // completed, user still banned
-  const c38dr = await claimBeta('T38d', idem38);
-  const r38d = await runReservedSignup(m38d.auth, realSignupDb, { claim: toClaim(c38dr), finalize: finBetaF, email: 't38d@x.io', password: 'pw12345678', userMetadata: { role: 'coach' } });
-  ok(r38d.ok && r38d.reason === 'already_exists' && m38d.users.get(u38d.userId!)?.banned === false, '(d) replayed_completed re-asserts enable (user retry heals the limbo)');
+  ok(r38.ok && r38.reason === 'pending_confirmation' && m38.sent.includes('t38@x.io'), '(a) success sends the confirmation email');
+  await newBeta('T38b'); const m38b = makeMockAuth({ sendFails: true }); const c38b = await claimBeta('T38b', randomUUID());
+  const r38b = await runReservedSignup(m38b.auth, realSignupDb, { claim: toClaim(c38b), finalize: finBetaF, email: 't38b@x.io', password: 'pw12345678', userMetadata: { role: 'coach' } });
+  ok(r38b.ok && r38b.reason === 'pending_confirmation' && await resStatus(c38b.reservation_id) === 'completed', '(b) confirmation-send failure is non-fatal — still 202, account completed (replay re-sends)');
 
   console.log('T39: email already registered → reservation released, no user, code refunded');
   await newBeta('T39'); const m39 = makeMockAuth({ emailExists: new Set(['dupe@x.io']) }); const c39 = await claimBeta('T39', randomUUID());
@@ -667,39 +650,25 @@ async function main() {
   // finalize returns false even though the reservation is now completed with our user.
   const raceFinalize = async (res: string, uid: string) => { await finBetaF(res, uid); return finBetaF(res, uid); };
   const r40 = await runReservedSignup(m40.auth, realSignupDb, { claim: toClaim(c40), finalize: raceFinalize, email: 't40@x.io', password: 'pw12345678', userMetadata: { role: 'coach' } });
-  ok(r40.ok && r40.userId !== undefined, '(a) losing finalizer → idempotent SUCCESS (not a failure)');
+  ok(r40.ok && r40.reason === 'pending_confirmation' && r40.userId !== undefined, '(a) losing finalizer → idempotent SUCCESS (not a failure)');
   ok((await one(`SELECT count(*)::int n FROM auth.users WHERE id=$1`, [r40.userId])).n === 1, '(b) the winning Auth user was NOT deleted');
-  ok(m40.users.get(r40.userId!)?.banned === false && await resStatus(c40.reservation_id) === 'completed', '(c) account enabled + reservation completed');
+  ok(await resStatus(c40.reservation_id) === 'completed', '(c) reservation completed (winning account intact)');
 
-  console.log('T41: enable/ensureEnabled gate on the provisioning flag — never lift an administrative ban (P0)');
-  const mkAuthClient = (appMeta: Record<string, unknown>) => {
-    const calls: Array<Record<string, unknown>> = [];
-    const client = {
-      auth: { admin: {
-        getUserById: async () => ({ data: { user: { id: 'x', app_metadata: appMeta } }, error: null }),
-        updateUserById: async (_id: string, attrs: Record<string, unknown>) => { calls.push(attrs); return { data: {}, error: null }; },
-        createUser: async () => ({ data: { user: null }, error: null }),
-        deleteUser: async () => ({ error: null }),
-      } },
-      rpc: async () => ({ data: [], error: null }),
-    };
-    return { client: client as unknown as SupabaseClient, calls };
-  };
-  const f41a = mkAuthClient({ reservation_id: 'R', provisioning: true });
-  ok(await buildAuthReconciler(f41a.client).ensureEnabled('x') === true && f41a.calls.length === 1 && f41a.calls[0].ban_duration === 'none' && (f41a.calls[0].app_metadata as { provisioning?: boolean }).provisioning === false, '(a) provisioning:true → unbanned + flag cleared');
-  const f41b = mkAuthClient({ reservation_id: 'R', provisioning: false });
-  ok(await buildAuthReconciler(f41b.client).ensureEnabled('x') === true && f41b.calls.length === 0, '(b) provisioning:false → NO unban (admin ban honored)');
-  const f41c = mkAuthClient({ reservation_id: 'R', provisioning: false });
-  ok(await buildSignupAuth(f41c.client).enableUser('x') === true && f41c.calls.length === 0, '(c) signup enableUser also honors an admin ban (no unban when not provisioning)');
+  console.log('T41: client activation bound to the invited email INSIDE finalize (transactional, fail-closed)');
+  const tok41 = randomUUID(); const coach41 = randomUUID(); const u41 = randomUUID();
+  await pool.query(`INSERT INTO client_invites (token, coach_id, client_email, status) VALUES ($1,$2,'bound@x.io','pending')`, [tok41, coach41]);
+  const cl41 = await claimClient(tok41, randomUUID()); await attach(cl41.reservation_id, u41);
+  ok(await one(`SELECT finalize_client_activation($1,$2,'N','WRONG@x.io','1.0','{}'::jsonb) ok`, [cl41.reservation_id, u41]).then(r => r.ok) === false && await resStatus(cl41.reservation_id) === 'reserved', '(a) finalize REJECTS an email != the invited client_email (row stays reserved)');
+  ok(await one(`SELECT finalize_client_activation($1,$2,'N','Bound@x.io','1.0','{}'::jsonb) ok`, [cl41.reservation_id, u41]).then(r => r.ok) === true, '(b) finalize ACCEPTS the invited email (case-insensitive)');
 
-  console.log('T42: replay of a completed signup does NOT lift a later administrative ban (P0)');
+  console.log('T42: admin suspension is independent — signup/replay never touch ban_duration');
   await newBeta('T42'); const m42 = makeMockAuth(); const idem42 = randomUUID(); const c42 = await claimBeta('T42', idem42);
   const r42 = await runReservedSignup(m42.auth, realSignupDb, { claim: toClaim(c42), finalize: finBetaF, email: 't42@x.io', password: 'pw12345678', userMetadata: { role: 'coach' } });
-  ok(r42.ok && m42.users.get(r42.userId!)?.banned === false && m42.users.get(r42.userId!)?.provisioning === false, '(setup) signed up + enabled, provisioning cleared');
-  m42.users.get(r42.userId!)!.banned = true; // an admin bans the user later (provisioning stays false)
+  ok(r42.ok && m42.users.get(r42.userId!)?.banned === false, '(setup) signup created the user with NO ban (ban is admin-only)');
+  m42.users.get(r42.userId!)!.banned = true; // an admin suspends the account later
   const c42r = await claimBeta('T42', idem42);
   const r42r = await runReservedSignup(m42.auth, realSignupDb, { claim: toClaim(c42r), finalize: finBetaF, email: 't42@x.io', password: 'pw12345678', userMetadata: { role: 'coach' } });
-  ok(r42r.ok && r42r.reason === 'already_exists' && m42.users.get(r42.userId!)?.banned === true, '(a) replay → success but the ADMIN BAN remains (not lifted)');
+  ok(r42r.ok && r42r.reason === 'pending_confirmation' && m42.users.get(r42.userId!)?.banned === true, '(a) replay re-sends confirmation but the ADMIN BAN is untouched (no enable path exists)');
 
   await pool.end();
   console.log(fail === 0 ? '\n✅ ALL WP1 tests passed' : `\n❌ ${fail} assertion(s) failed`);

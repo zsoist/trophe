@@ -1,10 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { RecoveryDb, TombstoneDb, CompletedDb, AuthReconciler, CompletedReconciler, OrphanRow } from '@/lib/recovery/reservation-recovery';
+import type { RecoveryDb, TombstoneDb, CompletedDb, AuthReconciler, StrayReconciler, OrphanRow } from '@/lib/recovery/reservation-recovery';
 import type { SignupAuth, SignupDb } from '@/lib/auth/signup-flow';
-
-/** A new Auth user is BANNED until finalize lifts it, so a half-created account can never
- *  log in before its reservation is finalized (deletion alone does not revoke a JWT). */
-const BAN_UNTIL_FINALIZED = '876000h';
 
 /**
  * Supabase-backed adapters for the WP1 reservation lifecycle. Kept thin so the
@@ -81,7 +77,7 @@ const tagOf = (u: { app_metadata?: unknown } | null | undefined): string | undef
  *  - If the reservation names a user that exists but carries a DIFFERENT trusted tag,
  *    return 'mismatch' and touch nothing (a governance inconsistency to investigate).
  */
-export function buildAuthReconciler(service: SupabaseClient): AuthReconciler & CompletedReconciler {
+export function buildAuthReconciler(service: SupabaseClient): AuthReconciler & StrayReconciler {
   async function deleteIdempotent(userId: string): Promise<void> {
     const { error } = await service.auth.admin.deleteUser(userId);
     if (error && !isMissingUser(error)) throw new Error(`deleteUser: ${error.message}`); // idempotent on missing
@@ -93,14 +89,6 @@ export function buildAuthReconciler(service: SupabaseClient): AuthReconciler & C
   }
 
   return {
-    // Idempotent unban + confirm. Heals a finalize-committed-but-still-banned user (the
-    // in-request post-finalize enable failed). Safe on an already-enabled user. This is
-    // the §2 reconciliation backstop, invoked by the completed sweep before it seals.
-    async ensureEnabled(userId) {
-      // Only re-enable a PROVISIONING-pending user (heals the finalize-committed-but-banned
-      // limbo). Never lifts an administrative ban on an already-provisioned account.
-      return (await enableIfProvisioning(service, userId)) !== 'error';
-    },
     // Delete every carrier of reservationId EXCEPT the legitimate finalized user, then
     // prove no stray remains. Used for the COMPLETED terminal (the kept user lives on).
     async reconcileStrayCarriers(reservationId, keepUserId) {
@@ -149,40 +137,17 @@ export function buildAuthReconciler(service: SupabaseClient): AuthReconciler & C
 const isEmailExists = (e: { code?: string; status?: number; message?: string } | null) =>
   !!e && (e.code === 'email_exists' || /already.*regist|already.*exist|email.*exist/i.test(e.message ?? ''));
 
-/**
- * Lift the PROVISIONING ban only. A user is created banned with app_metadata.provisioning
- * = true; finalize's enable flips it to false. So an account that is banned WITHOUT
- * provisioning:true is under an ADMINISTRATIVE/governance ban — a replay or the recovery
- * worker must NOT undo it. 'enabled' = was provisioning-pending, now unbanned+confirmed+
- * cleared; 'skip' = not provisioning-pending (admin ban left intact, or already enabled);
- * 'error' = transient failure (retry). reservation_id is preserved (recovery needs the tag).
- */
-async function enableIfProvisioning(service: SupabaseClient, userId: string): Promise<'enabled' | 'skip' | 'error'> {
-  const { data, error } = await service.auth.admin.getUserById(userId);
-  if (error) return isMissingUser(error) ? 'skip' : 'error';
-  const u = data?.user;
-  if (!u) return 'skip';
-  const am = (u.app_metadata ?? {}) as { reservation_id?: string; provisioning?: boolean };
-  if (am.provisioning !== true) return 'skip'; // NOT provisioning-pending → never lift an admin ban
-  const { error: upErr } = await service.auth.admin.updateUserById(userId, {
-    ban_duration: 'none', email_confirm: true,
-    app_metadata: { reservation_id: am.reservation_id, provisioning: false }, // clear flag, keep the tag
-  });
-  return upErr ? 'error' : 'enabled';
-}
-
 /** SignupAuth backed by the Supabase Auth Admin API (WP1 part 2). */
 export function buildSignupAuth(service: SupabaseClient): SignupAuth {
   return {
     async createUser({ email, password, appMetadata, userMetadata }) {
+      // EMAIL-UNCONFIRMED is the pre-finalization hold (Supabase blocks password login until
+      // confirmed). NO ban_duration — that is reserved exclusively for ADMINISTRATIVE
+      // suspension, which signup never touches (so an admin ban can't be raced/undone here).
       const { data, error } = await service.auth.admin.createUser({
         email, password,
-        email_confirm: false,            // unconfirmed until finalize (no pre-finalize login)
-        ban_duration: BAN_UNTIL_FINALIZED,
-        // TRUSTED, service-role-only metadata. provisioning:true marks this ban as the
-        // signup hold — only such bans may be auto-lifted (an admin ban set later has no
-        // provisioning flag and is never undone by enable/replay/worker).
-        app_metadata: { ...appMetadata, provisioning: true },
+        email_confirm: false,
+        app_metadata: appMetadata, // TRUSTED, service-role-only reservation tag
         user_metadata: userMetadata,
       });
       if (error || !data?.user) return { userId: null, emailExists: isEmailExists(error), error: error?.message };
@@ -192,16 +157,12 @@ export function buildSignupAuth(service: SupabaseClient): SignupAuth {
       const { error } = await service.auth.admin.deleteUser(userId);
       if (error && !isMissingUser(error)) throw new Error(`deleteUser: ${error.message}`); // idempotent on missing
     },
-    async enableUser(userId) {
-      // Bounded idempotent retry — lift only the PROVISIONING ban (enableIfProvisioning
-      // never touches an administrative ban). Safe to repeat, so a transient blip on this
-      // post-finalize hop doesn't strand a provisioned account; the recovery worker's
-      // completed pass is the durable backstop if all attempts fail.
-      for (let attempt = 0; attempt < 3; attempt++) {
-        if (attempt > 0) await new Promise((r) => setTimeout(r, attempt * 150));
-        if ((await enableIfProvisioning(service, userId)) !== 'error') return true; // 'enabled' or 'skip'
-      }
-      return false;
+    async sendConfirmation(email) {
+      // Send/resend the signup confirmation email (email-ownership proof). NOTE: the exact
+      // mechanism for an Admin-created unconfirmed user must be validated against
+      // local/preview Supabase (resend vs admin.generateLink) — flagged for the preview gate.
+      const { error } = await service.auth.resend({ type: 'signup', email });
+      return !error;
     },
   };
 }
