@@ -31,9 +31,10 @@ const LEASE_SECONDS = 300;
 const CONCURRENCY = 5;
 
 function authorized(req: NextRequest): boolean {
-  // Per-worker secret (RECOVERY_CRON_SECRET) with a backward-compat window on the legacy shared
-  // CRON_SECRET (P2: isolate rotation). Scheduler sends `Authorization: Bearer <secret>`.
-  return cronBearerValid(req.headers.get('authorization'), process.env.RECOVERY_CRON_SECRET, process.env.CRON_SECRET);
+  // Per-worker secret ONLY (P2 phase 2: the legacy shared CRON_SECRET fallback was removed, so a
+  // re-added CRON_SECRET can no longer reauthorize this worker). The Supabase pg_cron job sends
+  // `Authorization: Bearer <RECOVERY_CRON_SECRET>` (value read from Vault: recovery_cron_secret).
+  return cronBearerValid(req.headers.get('authorization'), process.env.RECOVERY_CRON_SECRET);
 }
 
 function run() {

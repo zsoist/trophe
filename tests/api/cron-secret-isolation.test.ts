@@ -5,8 +5,8 @@
  *  - RECOVERY_CRON_SECRET authorizes only the recovery endpoint, not memory.
  *  - MEMORY_CRON_SECRET authorizes only the memory endpoint, not recovery.
  *  - one worker's secret cannot authorize the other.
- *  - the legacy shared CRON_SECRET works for both ONLY while it is set (cutover window),
- *    and fails closed the instant it is unset.
+ *  - the retired shared CRON_SECRET can NEVER authorize either endpoint, set or unset
+ *    (P2 phase 2: the fallback was removed, so a re-added CRON_SECRET cannot reauthorize a worker).
  *  - all-unset env and wrong/missing bearers fail closed (401).
  *
  * Downstream work is stubbed so the AUTHORIZED path returns a clean 200 without a DB:
@@ -74,16 +74,16 @@ describe('P2 cron-secret isolation (route level)', () => {
     expect((await recoveryGET(req('mem'))).status).toBe(401);
   });
 
-  it('the legacy shared CRON_SECRET authorizes BOTH only while it is set (cutover window)', async () => {
-    process.env.CRON_SECRET = 'shared';
-    expect((await recoveryGET(req('shared'))).status).toBe(200);
-    expect((await memoryGET(req('shared'))).status).toBe(200);
-  });
-
-  it('once the shared CRON_SECRET is unset, the old shared bearer fails closed (post-cutover)', async () => {
+  it('the retired shared CRON_SECRET can NEVER authorize either endpoint — even if set in env', async () => {
+    // Phase 2: routes no longer pass process.env.CRON_SECRET to cronBearerValid, so an
+    // accidentally-restored shared secret cannot reauthorize a worker.
     process.env.RECOVERY_CRON_SECRET = 'recov';
     process.env.MEMORY_CRON_SECRET = 'mem';
-    // CRON_SECRET intentionally unset
+    process.env.CRON_SECRET = 'shared';
+    expect((await recoveryGET(req('shared'))).status).toBe(401);
+    expect((await memoryGET(req('shared'))).status).toBe(401);
+    // …and likewise when the shared var is absent
+    delete process.env.CRON_SECRET;
     expect((await recoveryGET(req('shared'))).status).toBe(401);
     expect((await memoryGET(req('shared'))).status).toBe(401);
   });
@@ -102,17 +102,17 @@ describe('P2 cron-secret isolation (route level)', () => {
     expect((await memoryGET(req())).status).toBe(401);
   });
 
-  it('cutover overlap (all three set): each endpoint takes its own + the shared, never the other worker secret', async () => {
+  it('with the shared secret still present in env, each endpoint takes ONLY its own secret', async () => {
     process.env.RECOVERY_CRON_SECRET = 'recov';
     process.env.MEMORY_CRON_SECRET = 'mem';
     process.env.CRON_SECRET = 'shared';
     // each accepts its OWN per-worker secret
     expect((await recoveryGET(req('recov'))).status).toBe(200);
     expect((await memoryGET(req('mem'))).status).toBe(200);
-    // each still accepts the shared secret during the window
-    expect((await recoveryGET(req('shared'))).status).toBe(200);
-    expect((await memoryGET(req('shared'))).status).toBe(200);
-    // but NEVER the other worker's per-worker secret
+    // the shared secret is ignored entirely
+    expect((await recoveryGET(req('shared'))).status).toBe(401);
+    expect((await memoryGET(req('shared'))).status).toBe(401);
+    // and the other worker's per-worker secret is still rejected
     expect((await recoveryGET(req('mem'))).status).toBe(401);
     expect((await memoryGET(req('recov'))).status).toBe(401);
   });
