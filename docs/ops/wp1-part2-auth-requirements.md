@@ -57,12 +57,21 @@ touch a `completed` row. Required handling:
 ```
 claim_* → createUser(tagged, banned) → attach_reservation_user
         → finalize_*  ── true ──→ updateUserById(unban, confirm) → done
-                      ── false/throw ──→ deleteUser(userId) → cancel_attached_reservation
+                      ── false/throw ──→ deleteUser(userId) → cancel_reservation_for_route(reservation_id, userId)
 ```
+
+ALL route cancellations MUST go through `cancel_reservation_for_route` (0045) — never the
+legacy `release_invite_reservation` / `cancel_attached_reservation` (revoked from
+service_role). It arms a tombstone so a *concurrent* request's in-flight `createUser`,
+tagged to the same reservation, is reaped even after this request cancels. Forms:
+
+- attached compensation (finalize failed): `cancel_reservation_for_route(reservation_id, userId)` (user must match)
+- abort after create, before attach: `deleteUser(userId)` then `cancel_reservation_for_route(reservation_id)` (unattached release)
+- abort before create (e.g., consent missing): `cancel_reservation_for_route(reservation_id)` (unattached release)
 
 On a route crash before compensation, the reservation stays `reserved`; recovery leases
 it, reconciles the (still-banned) Auth user, and frees the slot. The part-1 tombstone
-(0044) additionally reaps an Auth user whose `createUser` lands **after** a cancel.
+(0044/0045) additionally reaps an Auth user whose `createUser` lands **after** a cancel.
 
 ## 4. Explicit consent (BLOCKER-03)
 

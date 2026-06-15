@@ -4,6 +4,8 @@
  * server-side find RPC replaces the bounded listUsers scan, payload-bound fingerprint.
  * v7: trusted app_metadata authority + exhaustive dup reconcile (T25/T27); durable
  * tombstone sweep reaps Auth users that arrive AFTER cancellation (T28).
+ * v8: ALL cancellation paths arm tombstones — recovery (0044) AND route (0045,
+ * cancel_reservation_for_route); legacy non-tombstoning cancels revoked (T23/T30).
  * Production-shaped throwaway Postgres (TEST_DATABASE_URL). Proves claim race
  * correctness + idempotency, attach compare-and-set, finalizer ownership enforcement,
  * leased orphan recovery vs finalize mutual exclusion, lease re-claim, ordinary-signup
@@ -56,6 +58,7 @@ async function setup() {
   await pool.query(readFileSync(join(process.cwd(), 'drizzle/0042_invite_reservations.sql'), 'utf-8'));
   await pool.query(readFileSync(join(process.cwd(), 'drizzle/0043_find_auth_user_by_reservation.sql'), 'utf-8'));
   await pool.query(readFileSync(join(process.cwd(), 'drizzle/0044_reservation_tombstones.sql'), 'utf-8'));
+  await pool.query(readFileSync(join(process.cwd(), 'drizzle/0045_route_cancel_tombstoned.sql'), 'utf-8'));
 }
 
 const claimBeta = (code: string, idem: string, fp = FP) => one('SELECT * FROM claim_beta_invite($1,$2,$3)', [code, idem, fp]);
@@ -168,10 +171,10 @@ async function main() {
 
   console.log('T17: generic release REJECTS attached reservations');
   await newBeta('T17'); const c17 = await claimBeta('T17', randomUUID()); await attach(c17.reservation_id, randomUUID());
-  ok(await one('SELECT release_invite_reservation($1) ok', [c17.reservation_id]).then(r => r.ok) === false, 'release attached → false');
+  ok(await one('SELECT cancel_reservation_for_route($1) ok', [c17.reservation_id]).then(r => r.ok) === false, 'release attached → false');
   ok(await resStatus(c17.reservation_id) === 'reserved', 'attached reservation still reserved (not freed)');
   await newBeta('T17b'); const c17b = await claimBeta('T17b', randomUUID()); // unattached
-  ok(await one('SELECT release_invite_reservation($1) ok', [c17b.reservation_id]).then(r => r.ok) === true && await usedCount('T17b') === 0, 'unattached release → true, slot freed');
+  ok(await one('SELECT cancel_reservation_for_route($1) ok', [c17b.reservation_id]).then(r => r.ok) === true && await usedCount('T17b') === 0, 'unattached release → true, slot freed');
 
   console.log('T18: NO blind sweep — even unattached-expired is LEASED for reconciliation');
   await newBeta('T18'); const c18 = await claimBeta('T18', randomUUID()); // crashed before auth: user_id NULL
@@ -202,9 +205,9 @@ async function main() {
   ok(await one('SELECT cancel_recovering_reservation_tombstoned($1,$2,600) ok', [c19.reservation_id, l19.recovery_token]).then(r => r.ok) === true && await usedCount('T19') === 0, 'worker cancels (token) after deleting Auth user, slot freed');
   console.log('T19b: synchronous route compensation (cancel_attached_reservation, user match)');
   await newBeta('T19b'); const c19b = await claimBeta('T19b', randomUUID()); const u19b = randomUUID(); await attach(c19b.reservation_id, u19b);
-  ok(await one('SELECT cancel_attached_reservation($1,$2) ok', [c19b.reservation_id, u19b]).then(r => r.ok) === true && await usedCount('T19b') === 0, 'route deletes Auth user then cancel_attached frees the slot');
+  ok(await one('SELECT cancel_reservation_for_route($1,$2) ok', [c19b.reservation_id, u19b]).then(r => r.ok) === true && await usedCount('T19b') === 0, 'route deletes Auth user then cancel_attached frees the slot');
   await newBeta('T19c'); const c19c = await claimBeta('T19c', randomUUID()); await attach(c19c.reservation_id, randomUUID());
-  ok(await one('SELECT cancel_attached_reservation($1,$2) ok', [c19c.reservation_id, randomUUID()]).then(r => r.ok) === false, 'cancel_attached rejects a wrong user');
+  ok(await one('SELECT cancel_reservation_for_route($1,$2) ok', [c19c.reservation_id, randomUUID()]).then(r => r.ok) === false, 'cancel_attached rejects a wrong user');
 
   console.log('T20: recovery vs finalize mutual exclusion (not-expired → finalize wins)');
   await newBeta('T20'); const c20 = await claimBeta('T20', randomUUID()); const u20 = randomUUID(); await attach(c20.reservation_id, u20);
@@ -242,7 +245,7 @@ async function main() {
   await newBeta('T22c'); const c22c = await claimBeta('T22c', randomUUID()); const u22c = randomUUID(); await attach(c22c.reservation_id, u22c);
   await pool.query(`UPDATE invite_reservations SET expires_at=now()-interval '1 min' WHERE id=$1`, [c22c.reservation_id]);
   await pool.query('SELECT claim_orphan_for_recovery(50,120)'); // → recovering
-  ok(await one('SELECT cancel_attached_reservation($1,$2) ok', [c22c.reservation_id, u22c]).then(r => r.ok) === false, 'cancel_attached refuses a recovering row (recovery owns it)');
+  ok(await one('SELECT cancel_reservation_for_route($1,$2) ok', [c22c.reservation_id, u22c]).then(r => r.ok) === false, 'cancel_attached refuses a recovering row (recovery owns it)');
 
   console.log('T22d: cancel requires a current token AND a live lease (4 cases)');
   await newBeta('T22d'); const c22d = await claimBeta('T22d', randomUUID()); const u22d = randomUUID(); await attach(c22d.reservation_id, u22d);
@@ -289,26 +292,26 @@ async function main() {
   const r24e = await recoverOrphanReservations(recoveryDb, mockAuth(async () => 'mismatch'));
   ok(r24e.errors === 1 && r24e.cancelled === 0 && await resStatus(c24e.reservation_id) === 'recovering', '(e) Auth tag mismatch → NOT deleted/cancelled, left recovering (P0 guard)');
 
-  console.log('T23: PERMISSIONS — 14 safe RPCs service_role-allowed; legacy cancel REVOKED');
+  console.log('T23: PERMISSIONS — 13 safe RPCs service_role-allowed; 3 non-tombstoning cancels REVOKED');
   const fns = ['claim_beta_invite(text,uuid,text)', 'claim_client_invite(uuid,uuid,text)', 'claim_ordinary_signup(uuid,uuid,text)',
     'attach_reservation_user(uuid,uuid)', 'finalize_beta_signup(uuid,uuid,text,text,text,jsonb)',
     'finalize_client_activation(uuid,uuid,text,text,text,jsonb)', 'finalize_ordinary_signup(uuid,uuid,text,text,text,jsonb)',
-    'release_invite_reservation(uuid)', 'cancel_attached_reservation(uuid,uuid)',
     'claim_orphan_for_recovery(int,int)', 'find_auth_user_ids_by_reservation(uuid)',
-    'cancel_recovering_reservation_tombstoned(uuid,uuid,int)', 'claim_tombstones_for_recheck(int,int)', 'settle_tombstone(uuid,uuid,int)'];
+    'cancel_recovering_reservation_tombstoned(uuid,uuid,int)', 'claim_tombstones_for_recheck(int,int)', 'settle_tombstone(uuid,uuid,int)',
+    'cancel_reservation_for_route(uuid,uuid,int)'];
   for (const fn of fns) {
     const a = (await one(`SELECT has_function_privilege('anon','public.${fn}','EXECUTE') p`)).p;
     const au = (await one(`SELECT has_function_privilege('authenticated','public.${fn}','EXECUTE') p`)).p;
     const s = (await one(`SELECT has_function_privilege('service_role','public.${fn}','EXECUTE') p`)).p;
     ok(a === false && au === false && s === true, `${fn.split('(')[0]}: anon/auth DENIED, service_role allowed`);
   }
-  // Escape-hatch closed: the legacy non-tombstoning cancel is DENIED to service_role, so
-  // the DB enforces "every recovery cancel arms a tombstone" — not caller discipline.
-  {
-    const legacy = 'cancel_recovering_reservation(uuid,uuid)';
+  // Escape hatches closed: EVERY non-tombstoning cancellation path is DENIED to
+  // service_role, so the DB — not caller discipline — enforces "every cancel arms a
+  // tombstone". The only service_role cancels are the tombstoned recovery + route RPCs.
+  for (const legacy of ['cancel_recovering_reservation(uuid,uuid)', 'release_invite_reservation(uuid)', 'cancel_attached_reservation(uuid,uuid)']) {
     const s = (await one(`SELECT has_function_privilege('service_role','public.${legacy}','EXECUTE') p`)).p;
     const a = (await one(`SELECT has_function_privilege('anon','public.${legacy}','EXECUTE') p`)).p;
-    ok(s === false && a === false, 'legacy cancel_recovering_reservation: REVOKED from service_role/anon (tombstone-bypass closed)');
+    ok(s === false && a === false, `legacy ${legacy.split('(')[0]}: REVOKED from service_role/anon (tombstone-bypass closed)`);
   }
 
   console.log('T25: find_auth_user_ids_by_reservation — TRUSTED app_metadata, ALL carriers (no LIMIT)');
@@ -424,9 +427,30 @@ async function main() {
   const elapsedMs = Date.now() - startMs;
   ok(run29.orphans.claimed === 12 && run29.tombstones.claimed === 8, '(a) each pass capped at its share (12 + 8) — shared budget binds');
   ok(run29.orphans.claimed + run29.tombstones.claimed <= 20, '(b) total reservations/run ≤ 20 (cannot exceed combined budget)');
-  ok(elapsedMs < 20000, `(c) full-budget run finished in ${elapsedMs}ms — far below the 60s cap and 300s lease`);
+  ok(elapsedMs < 20000, `(c) full-budget run completes (fake 10ms adapter, ${elapsedMs}ms) — proves the bounded WORKLOAD cap, NOT production latency`);
   // P2: settle_tombstone rejects a non-positive backoff like the other bounded params
   ok(await one('SELECT settle_tombstone($1,$2,$3) s', [randomUUID(), randomUUID(), -1]).then(() => false, () => true), '(d) settle_tombstone rejects non-positive backoff');
+
+  console.log('T30: ROUTE cancellation arms tombstones (release + compensation) — late carriers reaped (P0)');
+  // reuse dbAuth + tomb (defined in T28); high limit so the just-armed row is swept now.
+  // (a) unattached release → cancelled+armed; a late carrier (concurrent createUser) is reaped
+  await newBeta('T30a'); const c30a = await claimBeta('T30a', randomUUID());
+  ok(await one('SELECT cancel_reservation_for_route($1) ok', [c30a.reservation_id]).then(r => r.ok) === true && await resStatus(c30a.reservation_id) === 'cancelled', '(a) unattached release → cancelled (tombstoned)');
+  const lateA = randomUUID();
+  await pool.query(`INSERT INTO auth.users (id, raw_app_meta_data) VALUES ($1, jsonb_build_object('reservation_id',$2::text))`, [lateA, c30a.reservation_id]);
+  await sweepTombstones(tomb, dbAuth, { limit: 500 });
+  ok((await one(`SELECT count(*)::int n FROM auth.users WHERE id=$1`, [lateA])).n === 0, '(a) late carrier after release reaped (no strand)');
+  // (b) attached compensation (user match) → cancelled+armed; a different late carrier is reaped
+  await newBeta('T30b'); const c30b = await claimBeta('T30b', randomUUID()); const u30b = randomUUID(); await attach(c30b.reservation_id, u30b);
+  ok(await one('SELECT cancel_reservation_for_route($1,$2) ok', [c30b.reservation_id, u30b]).then(r => r.ok) === true && await resStatus(c30b.reservation_id) === 'cancelled', '(b) attached compensation (user match) → cancelled (tombstoned)');
+  const lateB = randomUUID();
+  await pool.query(`INSERT INTO auth.users (id, raw_app_meta_data) VALUES ($1, jsonb_build_object('reservation_id',$2::text))`, [lateB, c30b.reservation_id]);
+  await sweepTombstones(tomb, dbAuth, { limit: 500 });
+  ok((await one(`SELECT count(*)::int n FROM auth.users WHERE id=$1`, [lateB])).n === 0, '(b) late carrier after compensation reaped (no strand)');
+  // (c) confused-deputy guards: wrong attached user cannot cancel; release refuses an attached row
+  await newBeta('T30c'); const c30c = await claimBeta('T30c', randomUUID()); const u30c = randomUUID(); await attach(c30c.reservation_id, u30c);
+  ok(await one('SELECT cancel_reservation_for_route($1,$2) ok', [c30c.reservation_id, randomUUID()]).then(r => r.ok) === false && await resStatus(c30c.reservation_id) === 'reserved', '(c) wrong attached user → rejected, row still reserved');
+  ok(await one('SELECT cancel_reservation_for_route($1) ok', [c30c.reservation_id]).then(r => r.ok) === false, '(c2) release (no user) refuses an attached row');
 
   await pool.end();
   console.log(fail === 0 ? '\n✅ ALL WP1 tests passed' : `\n❌ ${fail} assertion(s) failed`);

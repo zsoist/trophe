@@ -3,7 +3,7 @@
  *
  * Reconciles expired invite reservations against Supabase Auth:
  *   claim_orphan_for_recovery (lease + token)  →  reconcile+delete the orphan Auth
- *   user (ONLY if it is tagged with this reservation_id)  →  cancel_recovering_reservation
+ *   user (ONLY if it is tagged with this reservation_id)  →  cancel_recovering_reservation_tombstoned
  *   (token + live-lease gated, frees the slot).
  *
  * Pure by design — DB and Auth side-effects are injected, so it is fully unit-testable
