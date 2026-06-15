@@ -69,11 +69,13 @@ function resendGapMs(): number {
   } catch { /* fall through to the floor */ }
   return base + 1000; // buffer past the window
 }
-/** A 503 from the route on a LOCAL stack is almost always GoTrue throttling the confirmation email. */
+/** A 503 (delivery_failed) has several possible causes; surface the likely ones without overclaiming. */
 const explain503 = (label: string) => console.error(
-  `  ↳ ${label} returned 503 delivery_failed. On a LOCAL stack this is usually GoTrue throttling the email — ` +
-  `[auth.rate_limit].email_sent (default 2/hour) exhausted, or [auth.email].max_frequency. Restart the stack ` +
-  `(supabase stop && supabase start) and re-run. These are LOCAL limits only — production is unaffected.`);
+  `  ↳ ${label} returned 503 delivery_failed. ONE likely cause on a local stack is GoTrue throttling the ` +
+  `confirmation email — [auth.email].max_frequency (per-user resend gap), or [auth.rate_limit].email_sent ` +
+  `(which the config notes applies only when custom SMTP is enabled — the default local mailer may not enforce ` +
+  `it). Confirm the actual cause in the Auth logs (\`supabase logs\` / local Studio); if throttled, restart the ` +
+  `stack (supabase stop && supabase start) and re-run. Do NOT change auth limits without evidence from a real run.`);
 
 async function mailpitReachable(): Promise<boolean> {
   try { return (await fetch(`${MAILPIT}/api/v1/messages?limit=1`)).ok; } catch { return false; }

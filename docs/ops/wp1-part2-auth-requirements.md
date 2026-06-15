@@ -55,12 +55,14 @@ Two distinct controls, deliberately **not** sharing one mechanism:
 > # apply migrations 0042–0047 to the local DB; run the app with NEXT_PUBLIC_SITE_URL=http://127.0.0.1:3000
 > E2E_SUPABASE_ANON_KEY=… E2E_SUPABASE_SERVICE_KEY=… npx tsx scripts/test/wp1-signup-confirm-e2e.ts
 > ```
-> Run against a **FRESH** local stack. GoTrue throttles confirmation emails: `[auth.email].max_frequency`
-> ("1s") and the instance-global `[auth.rate_limit].email_sent` ("2"/hour). The harness sends 2 emails
-> per run and waits out `max_frequency` automatically, so a single run on a fresh stack passes — but
-> re-running within the hour can exhaust the 2/hour email budget (the route returns 503 and the harness
-> prints a diagnostic). To re-run, restart the stack: `supabase stop && supabase start`. **Do NOT lower
-> these limits in any shared/pushed config — they protect production.**
+> Run against a **FRESH** local stack. GoTrue may throttle confirmation emails: `[auth.email].max_frequency`
+> ("1s", a per-user resend gap — the harness waits this out automatically) and `[auth.rate_limit].email_sent`
+> ("2"/hour, instance-global — but the config comment says it applies only when custom SMTP is enabled, and
+> the default local mailer may not enforce it). A single run on a fresh stack passes; if a signup returns 503
+> the harness prints a diagnostic — confirm the cause in the Auth logs, then restart (`supabase stop &&
+> supabase start`) and re-run. **Do NOT lower these limits to make the gate pass: if `supabase/config.toml`
+> is applied to hosted environments (e.g. `supabase config push`), they are production anti-abuse controls —
+> verify before changing.**
 >
 > The harness is **LOCAL-ONLY BY DESIGN** — it refuses any non-loopback target (app, Supabase,
 > or Mailpit) outright; there is NO remote mode. It is destructive (creates, then cleans up, a
