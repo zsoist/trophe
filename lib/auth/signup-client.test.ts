@@ -9,6 +9,9 @@ function mockDeps(res: HttpResult) {
 const ok202: HttpResult = { status: 202, ok: true, body: { verification_required: true } };
 const err503: HttpResult = { status: 503, ok: false, body: { error: 'We could not send your confirmation email — please try again in a moment.' } };
 const err400: HttpResult = { status: 400, ok: false, body: { error: 'Invalid or expired invite code' } };
+const ok200success: HttpResult = { status: 200, ok: true, body: { success: true } };
+const ok202empty: HttpResult = { status: 202, ok: true, body: {} };
+const throwingDeps = (): SubmitDeps => ({ async postJson() { throw new Error('network down'); } });
 
 describe('WP1 part 2 — signup-client browser contract', () => {
   it('signup sends consent:true + full_name + inviteCode', async () => {
@@ -60,5 +63,18 @@ describe('WP1 part 2 — signup-client browser contract', () => {
   it('resend → pending on success, error on failure', async () => {
     expect((await resendConfirmation(mockDeps(ok202).deps, '/api/auth/signup', {})).kind).toBe('pending');
     expect((await resendConfirmation(mockDeps(err503).deps, '/api/auth/signup', {})).kind).toBe('error');
+  });
+
+  it('network REJECTION → error (no unhandled rejection / stuck UI) for signup, activation, resend', async () => {
+    expect((await submitSignup(throwingDeps(), { email: 'a@x.io', password: 'pw12345678', fullName: 'Ann', consent: true })).kind).toBe('error');
+    expect((await submitActivation(throwingDeps(), { token: 't', email: 'c@x.io', password: 'pw12345678', fullName: 'C', consent: true })).kind).toBe('error');
+    expect((await resendConfirmation(throwingDeps(), '/api/auth/signup', {})).kind).toBe('error');
+  });
+
+  it('strict success contract: 200{success} → error, 202{} → error, 202{verification_required} → pending', async () => {
+    const input = { email: 'a@x.io', password: 'pw12345678', fullName: 'Ann', consent: true };
+    expect((await submitSignup(mockDeps(ok200success).deps, input)).kind).toBe('error'); // a non-202 2xx is NOT success
+    expect((await submitSignup(mockDeps(ok202empty).deps, input)).kind).toBe('error');   // 202 without the flag is NOT success
+    expect((await submitSignup(mockDeps(ok202).deps, input)).kind).toBe('pending');       // only 202 + verification_required
   });
 });
