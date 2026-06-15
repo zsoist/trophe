@@ -351,6 +351,48 @@
    "when": 1780852599992,
    "tag": "0041_appointment_instructions",
    "breakpoints": true
+  },
+  {
+   "idx": 50,
+   "version": "7",
+   "when": 1780852599993,
+   "tag": "0042_invite_reservations",
+   "breakpoints": true
+  },
+  {
+   "idx": 51,
+   "version": "7",
+   "when": 1780852599994,
+   "tag": "0043_find_auth_user_by_reservation",
+   "breakpoints": true
+  },
+  {
+   "idx": 52,
+   "version": "7",
+   "when": 1780852599995,
+   "tag": "0044_reservation_tombstones",
+   "breakpoints": true
+  },
+  {
+   "idx": 53,
+   "version": "7",
+   "when": 1780852599996,
+   "tag": "0045_route_cancel_tombstoned",
+   "breakpoints": true
+  },
+  {
+   "idx": 54,
+   "version": "7",
+   "when": 1780852599997,
+   "tag": "0046_completed_stray_recheck",
+   "breakpoints": true
+  },
+  {
+   "idx": 55,
+   "version": "7",
+   "when": 1780852599998,
+   "tag": "0047_client_activation_email_binding",
+   "breakpoints": true
   }
  ]
 }

@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { Mail, ArrowRight, Loader2, Eye, EyeOff } from 'lucide-react';
+import { submitSignup, resendConfirmation, fetchDeps } from '@/lib/auth/signup-client';
 
 function safeRedirectTo(value: string | null): string | null {
   if (!value || !value.startsWith('/') || value.startsWith('//') || value.startsWith('/login')) {
@@ -28,9 +29,11 @@ function LoginForm() {
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [fullName, setFullName] = useState('');
+  const [consent, setConsent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null); // 202 → check-email screen
 
   // Sync mode with URL param changes
   useEffect(() => {
@@ -63,29 +66,27 @@ function LoginForm() {
         }
         router.replace('/dashboard');
       } else {
-        // Sign up via server-side API (bypasses email confirmation)
-        const res = await fetch('/api/auth/signup', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password, full_name: fullName, inviteCode }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Signup failed');
-
-        // Now sign in with the newly created credentials
-        const { error: loginError } = await supabase.auth.signInWithPassword({ email, password });
-        if (loginError) throw loginError;
-
-        // Coaches (invite-code signups) land on the coach workspace; clients onboard.
-        const dest = inviteCode ? '/coach' : '/onboarding';
-        setSuccess('Account created! Setting up your workspace...');
-        setTimeout(() => router.replace(dest), 800);
+        // Server-side reservation flow (WP1): creates an UNCONFIRMED account + emails a
+        // confirmation link. submitSignup has NO sign-in dependency, so a 202 can only ever
+        // become a "check your email" state — never an auto-login over an unconfirmed account.
+        const result = await submitSignup(fetchDeps(), { email, password, fullName, inviteCode, consent });
+        if (result.kind === 'pending') setPendingEmail(result.email);
+        else setError(result.message);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleResend() {
+    if (!pendingEmail) return;
+    setLoading(true); setError(''); setSuccess('');
+    const result = await resendConfirmation(fetchDeps(), '/api/auth/signup', { email: pendingEmail, password, full_name: fullName, inviteCode, consent: true });
+    setLoading(false);
+    if (result.kind === 'pending') setSuccess('Confirmation email re-sent.');
+    else setError(result.message);
   }
 
   async function handleMagicLink() {
@@ -128,6 +129,24 @@ function LoginForm() {
 
         {/* Card */}
         <div className="glass-elevated p-6 sm:p-7">
+          {pendingEmail ? (
+            <div className="text-center py-4">
+              <Mail size={28} className="mx-auto text-[#D4A853] mb-3" />
+              <h2 className="text-stone-200 text-base font-semibold mb-1">Check your email</h2>
+              <p className="text-stone-500 text-xs leading-relaxed mb-4">
+                We sent a confirmation link to <span className="text-stone-300">{pendingEmail}</span>. Click it to
+                activate your account, then come back and log in.
+              </p>
+              {error && <p className="text-red-400 text-xs mb-2">{error}</p>}
+              {success && <p className="text-green-400 text-xs mb-2">{success}</p>}
+              <button type="button" onClick={handleResend} disabled={loading} className="btn-ghost w-full !py-2.5 text-xs mb-2 disabled:opacity-40">
+                {loading ? 'Sending…' : 'Resend confirmation email'}
+              </button>
+              <button type="button" onClick={() => { setPendingEmail(null); setMode('login'); setError(''); setSuccess(''); }} className="text-stone-500 hover:text-stone-300 text-xs">
+                ← Back to log in
+              </button>
+            </div>
+          ) : (<>
           {/* Mode Toggle */}
           <div className="flex gap-0.5 bg-stone-900/60 rounded-xl p-1 mb-5">
             <button
@@ -182,9 +201,9 @@ function LoginForm() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="input-dark text-sm pr-10"
-                placeholder={mode === 'signup' ? 'Create password (6+ chars)' : 'Password'}
+                placeholder={mode === 'signup' ? 'Create password (8+ chars)' : 'Password'}
                 required
-                minLength={6}
+                minLength={mode === 'signup' ? 8 : 6}
                 autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
               />
               <button
@@ -196,6 +215,13 @@ function LoginForm() {
                 {showPw ? <EyeOff size={14} /> : <Eye size={14} />}
               </button>
             </div>
+
+            {mode === 'signup' && (
+              <label className="flex gap-2 items-start text-[11px] text-stone-500 leading-relaxed py-1">
+                <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} required className="mt-0.5" />
+                <span>I consent to trophē processing my nutrition &amp; body-composition data (special-category health data) for personalised coaching. I can withdraw anytime in Settings. See the <a href="/trust" target="_blank" className="text-[#D4A853]">Trust &amp; Data page</a>.</span>
+              </label>
+            )}
 
             {error && (
               <motion.div
@@ -257,6 +283,7 @@ function LoginForm() {
               Creates a client account. Coach seats by invite only.
             </p>
           )}
+          </>)}
         </div>
 
         {/* Back to home */}

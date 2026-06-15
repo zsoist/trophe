@@ -284,12 +284,16 @@ describe('enterprise hardening invariants', () => {
     expect(offenders).toEqual([]);
   });
 
-  it('cleans up auth users when public signup profile creation fails', () => {
-    const signupRoute = readFileSync(join(root, 'app/api/auth/signup/route.ts'), 'utf8');
+  it('signup compensates (deletes a proven-orphaned auth user) when finalization fails', () => {
+    // WP1 part 2: the route delegates to the recovery-safe reservation flow, which writes
+    // profile/consent atomically via finalize_* and, on failure, deletes a proven-orphaned
+    // Auth user + cancels via the tombstoned route RPC (replaces the old manual cleanup).
+    const route = readFileSync(join(root, 'app/api/auth/signup/route.ts'), 'utf8');
+    const flow = readFileSync(join(root, 'lib/auth/signup-flow.ts'), 'utf8');
 
-    expect(signupRoute).toContain('profileError');
-    expect(signupRoute).toContain('clientProfileError');
-    expect(signupRoute.match(/auth\.admin\.deleteUser/g)?.length).toBeGreaterThanOrEqual(2);
+    expect(route).toContain('runReservedSignup');
+    expect(flow).toContain('auth.deleteUser');
+    expect(flow).toContain('cancelForRoute');
   });
 
   it('keeps OpenBrain database references out of runtime code and active scripts', () => {

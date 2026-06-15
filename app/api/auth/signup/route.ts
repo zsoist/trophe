@@ -2,125 +2,95 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { consumeRateLimit } from '@/lib/security/durable-rate-limit';
+import { reservationIdentity, ordinaryPseudoInvite, type ReservationPayload } from '@/lib/auth/reservation-identity';
+import { buildSignupAuth, buildSignupDb } from '@/lib/auth/auth-admin';
+import { runReservedSignup, type ClaimResult } from '@/lib/auth/signup-flow';
+
+/**
+ * Server-side signup (WP1) — reservation state machine + recovery-safe.
+ *
+ *   claim_{beta|ordinary} → createUser (app_metadata reservation tag, EMAIL-UNCONFIRMED) →
+ *   attach → finalize_{beta|ordinary} (atomic profile + Art.9 consent, reserved→completed)
+ *   → sendConfirmation → 202 verification_required (or 503 if the email can't be sent).
+ *   Compensation on any failure via cancel_reservation_for_route. No ban (admin-only).
+ *
+ * Role is DERIVED from the locked invite (never client input). Explicit consent is
+ * REQUIRED. Concurrent/retried requests converge on one reservation + one Auth user.
+ */
+const CONSENT_VERSION = '1.0';
 
 const signupSchema = z.object({
   email: z.string().trim().email().max(254),
   password: z.string().min(8).max(128),
   full_name: z.string().trim().min(1).max(120),
   inviteCode: z.string().trim().min(1).max(64).optional(),
+  consent: z.literal(true), // Art.9 explicit consent — fail closed if absent (BLOCKER-03)
 }).strict();
 
-/**
- * Server-side signup using Supabase Admin API.
- * Bypasses email confirmation (mailer_autoconfirm=false) by using
- * the service role key with email_confirm: true.
- */
+const MESSAGES: Record<string, string> = {
+  invalid: 'Invalid or expired invite code',
+  exhausted: 'This invite code has no remaining uses',
+  conflict: 'A signup with these details is already in progress',
+  email_exists: 'Email already registered. Try logging in.',
+  retry: 'Signup is briefly busy — please try again',
+  delivery_failed: 'We could not send your confirmation email — please try again in a moment.',
+  error: 'Signup failed',
+};
+
 export async function POST(req: NextRequest) {
-  // Durable rate limit by IP: 5 signups / hour (in-memory Map was per-instance
-  // on serverless and trivially bypassed — audit 2026-06-12)
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? req.headers.get('x-real-ip') ?? 'unknown';
   const rate = await consumeRateLimit(`signup:${ip}`, 5, 3600);
   if (!rate.allowed) {
-    return NextResponse.json(
-      { error: 'Too many signups — please try again later' },
-      { status: 429, headers: { 'Retry-After': String(rate.retryAfter) } },
-    );
+    return NextResponse.json({ error: 'Too many signups — please try again later' }, { status: 429, headers: { 'Retry-After': String(rate.retryAfter) } });
   }
 
   try {
-    const parsed = signupSchema.safeParse(await req.json());
+    const parsed = signupSchema.safeParse(await req.json().catch(() => ({})));
     if (!parsed.success) {
-      return NextResponse.json(
-        { error: 'Valid email, a password of at least 8 characters, and a name are required' },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: 'Valid email, an 8+ character password, your name, and consent are required' }, { status: 400 });
     }
     const { email, password, full_name, inviteCode } = parsed.data;
+    const code = inviteCode?.trim();
+
     const service = createSupabaseServiceClient();
+    const auth = buildSignupAuth(service);
+    const db = buildSignupDb(service);
 
-    // Resolve role: default 'client'. A VALID invite code elevates to its role
-    // (coach/admin). The role is taken from the DB code record, NEVER from client
-    // input — so the request body cannot self-assign an elevated role. (plan B1)
+    const payload: ReservationPayload = { email, fullName: full_name, inviteCode: code ?? null, consentVersion: CONSENT_VERSION };
+    const consentEvidence = { source: code ? 'signup:beta' : 'signup:ordinary', ip, capturedAt: new Date().toISOString() };
+
+    let claim: ClaimResult;
     let role: 'client' | 'coach' | 'admin' = 'client';
-    let usedCodeId: string | null = null;
-    if (inviteCode) {
-      const { data: code } = await service
-        .from('beta_invite_codes')
-        .select('id, role, max_uses, used_count, expires_at')
-        .eq('code', inviteCode.trim())
-        .maybeSingle();
-      const valid = code
-        && code.used_count < code.max_uses
-        && (!code.expires_at || new Date(code.expires_at) > new Date());
-      if (!valid) {
-        return NextResponse.json({ error: 'Invalid or expired invite code' }, { status: 400 });
-      }
-      role = code.role as 'coach' | 'admin';
-      usedCodeId = code.id;
+    let finalize: (reservationId: string, userId: string) => Promise<boolean>;
+
+    if (code) {
+      const { idempotencyKey, fingerprint } = reservationIdentity(`beta:${code}`, email, payload);
+      const { data, error } = await service.rpc('claim_beta_invite', { p_code: code, p_idem: idempotencyKey, p_fingerprint: fingerprint });
+      if (error) throw new Error(`claim_beta_invite: ${error.message}`);
+      const row = (data ?? [])[0] ?? { reservation_id: null, outcome: 'invalid', res_user_id: null, invite_role: null };
+      claim = { reservationId: row.reservation_id, outcome: row.outcome, resUserId: row.res_user_id };
+      if (row.invite_role === 'coach' || row.invite_role === 'admin') role = row.invite_role;
+      finalize = async (res, uid) => {
+        const { data: ok, error: e } = await service.rpc('finalize_beta_signup', { p_reservation_id: res, p_user_id: uid, p_full_name: full_name, p_email: email, p_consent_version: CONSENT_VERSION, p_consent_evidence: consentEvidence });
+        if (e) throw new Error(`finalize_beta_signup: ${e.message}`);
+        return ok === true;
+      };
+    } else {
+      const { idempotencyKey, fingerprint } = reservationIdentity('ordinary', email, payload);
+      const { data, error } = await service.rpc('claim_ordinary_signup', { p_pseudo_invite: ordinaryPseudoInvite(email), p_idem: idempotencyKey, p_fingerprint: fingerprint });
+      if (error) throw new Error(`claim_ordinary_signup: ${error.message}`);
+      const row = (data ?? [])[0] ?? { reservation_id: null, outcome: 'error', res_user_id: null };
+      claim = { reservationId: row.reservation_id, outcome: row.outcome, resUserId: row.res_user_id };
+      finalize = async (res, uid) => {
+        const { data: ok, error: e } = await service.rpc('finalize_ordinary_signup', { p_reservation_id: res, p_user_id: uid, p_full_name: full_name, p_email: email, p_consent_version: CONSENT_VERSION, p_consent_evidence: consentEvidence });
+        if (e) throw new Error(`finalize_ordinary_signup: ${e.message}`);
+        return ok === true;
+      };
     }
 
-    // 1. Create auth user with auto-confirm via Admin SDK
-    const { data: authData, error: authError } = await service.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: { full_name, role },
-    });
-
-    if (authError || !authData.user) {
-      const msg = authError?.message ?? 'Signup failed';
-      if (msg.includes('already been registered') || msg.includes('already exists')) {
-        return NextResponse.json({ error: 'Email already registered. Try logging in.' }, { status: 409 });
-      }
-      return NextResponse.json({ error: msg }, { status: 400 });
-    }
-
-    const userId = authData.user.id;
-
-    // 2. Create profile record — role resolved above (client unless a valid code)
-    const { error: profileError } = await service
-      .from('profiles')
-      .insert({ id: userId, full_name, email, role });
-    if (profileError) {
-      await service.auth.admin.deleteUser(userId);
-      throw new Error(`Profile creation failed: ${profileError.message}`);
-    }
-
-    // 3. Client-role signups get a client_profile; coaches/admins do not.
-    if (role === 'client') {
-      const { error: clientProfileError } = await service.from('client_profiles').insert({
-        user_id: userId,
-        coaching_phase: 'onboarding',
-      });
-      if (clientProfileError) {
-        await service.from('profiles').delete().eq('id', userId);
-        await service.auth.admin.deleteUser(userId);
-        throw new Error(`Client profile creation failed: ${clientProfileError.message}`);
-      }
-    }
-
-    // 3b. Consume one use of the invite code — atomic guarded increment (the
-    // SQL fn only increments when used_count < max_uses). Non-blocking.
-    if (usedCodeId) {
-      await service.rpc('increment_invite_use', { p_code_id: usedCodeId })
-        .then(() => {}, (e) => console.error('[signup] invite-code increment failed (non-blocking):', e));
-    }
-
-    // 4. Record consent for nutrition (Art. 9 special-category) processing.
-    // STRICTLY ADDITIVE + non-blocking: a consent-write failure is logged but
-    // never fails signup or rolls back the user (auth path is unchanged).
-    // Gives a verifiable Art. 7(1) consent record at account creation.
-    await service.from('consents').insert({
-      user_id: userId,
-      purpose: 'nutrition_processing',
-      version: '1.0',
-      status: 'granted',
-      evidence: { source: 'signup', ip, capturedAt: new Date().toISOString() },
-    }).then(({ error }) => {
-      if (error) console.error('[signup] consent record failed (non-blocking):', error.message);
-    }, (e) => console.error('[signup] consent record threw (non-blocking):', e));
-
-    return NextResponse.json({ success: true, user_id: userId });
+    const result = await runReservedSignup(auth, db, { claim, finalize, email, password, userMetadata: { full_name, role }, log: (m) => console.error('[signup]', m) });
+    if (result.ok) return NextResponse.json({ verification_required: true, user_id: result.userId, message: 'Account created — check your email to confirm it, then sign in.' }, { status: result.status });
+    return NextResponse.json({ error: MESSAGES[result.reason] ?? 'Signup failed' }, { status: result.status });
   } catch (err) {
     console.error('Signup error:', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
