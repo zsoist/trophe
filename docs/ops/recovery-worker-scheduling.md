@@ -76,3 +76,25 @@ schedule.
 
 The endpoint itself is scheduler-agnostic: anything that can issue an authenticated
 `GET`/`POST` every few minutes will drive it.
+
+## Per-worker secrets (P2)
+
+Originally both pg_cron workers (`recover-reservations` and `trophe-memory-worker`) shared
+one `CRON_SECRET`, so rotating it invalidated **both** until each was re-synced (observed: a
+401 on the memory worker during the WP1 rollout). Each worker now accepts its **own** secret —
+`RECOVERY_CRON_SECRET` for `/api/cron/recover-reservations`, `MEMORY_CRON_SECRET` for
+`/api/internal/memory-worker` — with a **backward-compat window** on the legacy shared
+`CRON_SECRET` (`lib/auth/cron-auth.ts` accepts either). Cutover, zero-downtime:
+
+1. **Deploy this code first** (it still accepts the shared `CRON_SECRET`, so nothing breaks).
+2. Generate two fresh secrets. For each worker, write the value to **Vercel** (Production env:
+   `RECOVERY_CRON_SECRET` / `MEMORY_CRON_SECRET`) **and** Supabase Vault, in one operation
+   (Vercel "Sensitive" vars can't be pulled back). Operator-run — never print/commit the values.
+   ```sql
+   select vault.create_secret('<RECOVERY value>', 'recovery_cron_secret');
+   select vault.create_secret('<MEMORY value>',   'memory_cron_secret');
+   ```
+3. Point each cron job at its own Vault secret by name (re-`cron.schedule` with the same job name
+   to replace): the recovery job reads `recovery_cron_secret`, the memory job `memory_cron_secret`.
+4. Verify each returns **200** in `net._http_response`, then remove the shared `CRON_SECRET` from
+   Vercel + Vault. The code fallback then self-disables (the env var becomes `undefined`).

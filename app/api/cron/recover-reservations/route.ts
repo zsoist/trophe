@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { buildRecoveryDb, buildAuthReconciler } from '@/lib/auth/auth-admin';
 import { runRecoveryPasses } from '@/lib/recovery/reservation-recovery';
+import { cronBearerValid } from '@/lib/auth/cron-auth';
 
 /**
  * WP1 recovery worker — protected cron endpoint.
@@ -30,9 +31,9 @@ const LEASE_SECONDS = 300;
 const CONCURRENCY = 5;
 
 function authorized(req: NextRequest): boolean {
-  const expected = process.env.CRON_SECRET;
-  // Scheduler (Supabase pg_cron → pg_net) sends `Authorization: Bearer <CRON_SECRET>`.
-  return !!expected && req.headers.get('authorization') === `Bearer ${expected}`;
+  // Per-worker secret (RECOVERY_CRON_SECRET) with a backward-compat window on the legacy shared
+  // CRON_SECRET (P2: isolate rotation). Scheduler sends `Authorization: Bearer <secret>`.
+  return cronBearerValid(req.headers.get('authorization'), process.env.RECOVERY_CRON_SECRET, process.env.CRON_SECRET);
 }
 
 function run() {
