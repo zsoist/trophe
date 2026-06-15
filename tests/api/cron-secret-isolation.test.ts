@@ -101,4 +101,19 @@ describe('P2 cron-secret isolation (route level)', () => {
     expect((await recoveryGET(req())).status).toBe(401);
     expect((await memoryGET(req())).status).toBe(401);
   });
+
+  it('cutover overlap (all three set): each endpoint takes its own + the shared, never the other worker secret', async () => {
+    process.env.RECOVERY_CRON_SECRET = 'recov';
+    process.env.MEMORY_CRON_SECRET = 'mem';
+    process.env.CRON_SECRET = 'shared';
+    // each accepts its OWN per-worker secret
+    expect((await recoveryGET(req('recov'))).status).toBe(200);
+    expect((await memoryGET(req('mem'))).status).toBe(200);
+    // each still accepts the shared secret during the window
+    expect((await recoveryGET(req('shared'))).status).toBe(200);
+    expect((await memoryGET(req('shared'))).status).toBe(200);
+    // but NEVER the other worker's per-worker secret
+    expect((await recoveryGET(req('mem'))).status).toBe(401);
+    expect((await memoryGET(req('recov'))).status).toBe(401);
+  });
 });
