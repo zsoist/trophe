@@ -1,8 +1,8 @@
 -- 0042_invite_reservations.sql — WP1 (Enterprise Remediation, BLOCKER-01/02/03/04)
 -- Reservation ownership + recovery STATE MACHINE.
 --   reserved --attach(user, CAS)--> reserved(+user) --finalize(user match)--> completed
---   reserved(+user, expired) --claim_orphan(lease)--> recovering --cancel(user)--> cancelled
---   reserved(no user, expired) --sweep--> cancelled
+--   reserved(±user, expired) --claim_orphan(lease+token)--> recovering --cancel(token)--> cancelled
+--   (no blind sweep: EVERY expired reservation is leased + Auth-reconciled before cancel)
 -- SECURITY: finalizers DERIVE role/coach from the locked invite AND require the
 -- reservation's attached user_id == caller's user_id. attach is compare-and-set.
 -- Recovery leases expired+attached reservations so a worker can delete the orphan
@@ -222,9 +222,12 @@ CREATE OR REPLACE FUNCTION public.cancel_recovering_reservation(p_reservation_id
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public AS $$
 DECLARE v_res public.invite_reservations%ROWTYPE;
 BEGIN
-  -- Token-gated: a stale worker whose lease was reassigned holds an old token and is rejected.
+  -- Token-AND-lease gated: the worker must hold the current token AND its lease must
+  -- still be valid. An expired lease means the worker no longer owns the row (even
+  -- before another worker reclaims it), so it must not mutate it.
   SELECT * INTO v_res FROM public.invite_reservations
-   WHERE id = p_reservation_id AND status = 'recovering' AND recovery_token = p_recovery_token FOR UPDATE;
+   WHERE id = p_reservation_id AND status = 'recovering'
+     AND recovery_token = p_recovery_token AND recovering_lease_until > now() FOR UPDATE;
   IF NOT FOUND THEN RETURN false; END IF;
   UPDATE public.invite_reservations SET status = 'cancelled' WHERE id = p_reservation_id;
   IF v_res.invite_type = 'beta' THEN UPDATE public.beta_invite_codes SET used_count = GREATEST(used_count - 1, 0) WHERE id = v_res.invite_id; END IF;
@@ -233,7 +236,7 @@ END; $$;
 
 -- ── claim_orphan_for_recovery: atomically LEASE expired+attached (or lease-expired
 --    recovering) reservations → 'recovering'. Worker deletes the Auth user, then
---    cancel_attached_reservation. Finalizers reject 'recovering' (status<>'reserved'). ──
+--    cancel_recovering_reservation (token + live-lease gated). Finalizers reject 'recovering'. ──
 CREATE OR REPLACE FUNCTION public.claim_orphan_for_recovery(p_limit int DEFAULT 50, p_lease_seconds int DEFAULT 120)
 RETURNS TABLE (reservation_id uuid, invite_type text, user_id uuid, recovery_token uuid)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public AS $$

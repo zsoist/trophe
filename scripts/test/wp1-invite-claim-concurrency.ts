@@ -229,6 +229,16 @@ async function main() {
   await pool.query('SELECT claim_orphan_for_recovery(50,120)'); // → recovering
   ok(await one('SELECT cancel_attached_reservation($1,$2) ok', [c22c.reservation_id, u22c]).then(r => r.ok) === false, 'cancel_attached refuses a recovering row (recovery owns it)');
 
+  console.log('T22d: cancel requires a current token AND a live lease (4 cases)');
+  await newBeta('T22d'); const c22d = await claimBeta('T22d', randomUUID()); const u22d = randomUUID(); await attach(c22d.reservation_id, u22d);
+  await pool.query(`UPDATE invite_reservations SET expires_at=now()-interval '1 min' WHERE id=$1`, [c22d.reservation_id]);
+  const lzA = (await pool.query('SELECT * FROM claim_orphan_for_recovery(50,120)')).rows.find(o => o.reservation_id === c22d.reservation_id);
+  await pool.query(`UPDATE invite_reservations SET recovering_lease_until=now()-interval '1 sec' WHERE id=$1`, [c22d.reservation_id]); // lease expires, NOT reassigned
+  ok(await one('SELECT cancel_recovering_reservation($1,$2) ok', [c22d.reservation_id, lzA.recovery_token]).then(r => r.ok) === false, '(2) expired-lease token → cancel rejected (before reassignment)');
+  const lzB = (await pool.query('SELECT * FROM claim_orphan_for_recovery(50,120)')).rows.find(o => o.reservation_id === c22d.reservation_id);
+  ok(await one('SELECT cancel_recovering_reservation($1,$2) ok', [c22d.reservation_id, lzA.recovery_token]).then(r => r.ok) === false, '(3) old token after reassignment → rejected');
+  ok(await one('SELECT cancel_recovering_reservation($1,$2) ok', [c22d.reservation_id, lzB.recovery_token]).then(r => r.ok) === true, '(1+4) current unexpired token → succeeds');
+
   console.log('T23: PERMISSIONS — all 11 RPCs: anon/auth DENIED, service_role allowed');
   const fns = ['claim_beta_invite(text,uuid,text)', 'claim_client_invite(uuid,uuid,text)', 'claim_ordinary_signup(uuid,uuid,text)',
     'attach_reservation_user(uuid,uuid)', 'finalize_beta_signup(uuid,uuid,text,text,text,jsonb)',
@@ -243,7 +253,7 @@ async function main() {
   }
 
   await pool.end();
-  console.log(fail === 0 ? '\n✅ ALL WP1 v5 tests passed' : `\n❌ ${fail} assertion(s) failed`);
+  console.log(fail === 0 ? '\n✅ ALL WP1 tests passed' : `\n❌ ${fail} assertion(s) failed`);
   process.exit(fail === 0 ? 0 : 1);
 }
 main().catch(e => { console.error(e); process.exit(1); });
