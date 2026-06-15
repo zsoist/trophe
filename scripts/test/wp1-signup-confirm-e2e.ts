@@ -252,6 +252,9 @@ async function main() {
       console.log(`  · following verify link: ${linkShape}`);
       const r = await fetch(link, { redirect: 'manual' });
       const loc = r.headers.get('location') ?? '';
+      // Redact: a SUCCESS redirect can carry access/refresh tokens in query or hash — log only
+      // origin + pathname + param NAMES (query and hash), never values.
+      const locShape = loc ? (() => { try { const u = new URL(loc, APP); const h = [...new URLSearchParams(u.hash.replace(/^#/, '')).keys()]; return `${u.origin}${u.pathname}?${[...u.searchParams.keys()].join('&')}${h.length ? '#' + h.join('&') : ''}`; } catch { return '(unparseable)'; } })() : 'none';
       if (![302, 303, 307].includes(r.status)) {
         console.error(`  ↳ verify link returned ${r.status} (no redirect) for path ${linkShape}`);
       }
@@ -266,7 +269,7 @@ async function main() {
           && u.searchParams.get('confirmed') === '1'        // EXACT flag (success may append ?code / #tokens — fine)
           && !hasError;                                     // a GoTrue verify FAILURE also lands on /login?confirmed=1 + error — reject it
       } catch { exact = false; }
-      check(exact, `(5) verify link redirects to ${expectedRedirect} with NO error (status ${r.status}, location ${loc || 'none'})`);
+      check(exact, `(5) verify link redirects to ${expectedRedirect} with NO error (status ${r.status}, location ${locShape})`);
     } else {
       skip('(5b) redirect assertion — no verify link to follow');
     }
