@@ -161,21 +161,25 @@ export async function sweepTombstones(
  * otherwise invisible to both recovery passes — this closes that terminal.
  */
 export interface StrayReconciler {
-  /** Delete every Auth user tagged with reservationId EXCEPT keepUserId. Throws if it
-   *  cannot prove the strays are gone. 'reaped' = ≥1 stray deleted; 'clean' = none. */
-  reconcileStrayCarriers(reservationId: string, keepUserId: string): Promise<'reaped' | 'clean'>;
+  /** Delete every Auth user tagged with reservationId EXCEPT keepUserId — but ONLY after
+   *  verifying keepUserId itself carries the trusted reservation tag. 'mismatch' (keep
+   *  user missing or wrong tag) ⇒ delete NOTHING (fail closed: never nuke the real
+   *  account on a stale/corrupt pointer). 'reaped' = ≥1 stray deleted; 'clean' = none.
+   *  Throws if it cannot prove the strays are gone. */
+  reconcileStrayCarriers(reservationId: string, keepUserId: string): Promise<'reaped' | 'clean' | 'mismatch'>;
 }
 
 export interface CompletedDb {
   claimCompleted(limit: number, leaseSeconds: number, retentionSeconds: number): Promise<OrphanRow[]>;
-  /** Release the recheck lease (token + live-lease gated). Returns true if released. */
-  settleCompleted(reservationId: string, recoveryToken: string): Promise<boolean>;
+  /** Seal if the recheck window elapsed (terminal), else release the lease for re-check. */
+  settleCompleted(reservationId: string, recoveryToken: string): Promise<'sealed' | 'rechecked' | 'lost'>;
 }
 
 export interface CompletedSweepResult {
   claimed: number;
   strayReaped: number;
-  settled: number;
+  sealed: number;
+  rechecked: number;
   errors: number;
 }
 
@@ -191,7 +195,7 @@ export async function sweepCompletedStrays(
   const log = opts.log ?? (() => {});
 
   const rows = await db.claimCompleted(limit, leaseSeconds, retentionSeconds);
-  const result: CompletedSweepResult = { claimed: rows.length, strayReaped: 0, settled: 0, errors: 0 };
+  const result: CompletedSweepResult = { claimed: rows.length, strayReaped: 0, sealed: 0, rechecked: 0, errors: 0 };
 
   let cursor = 0;
   async function runOne(o: OrphanRow): Promise<void> {
@@ -199,8 +203,19 @@ export async function sweepCompletedStrays(
     // from legit, so we refuse to delete ANYTHING (never nuke the real account).
     if (!o.user_id) { result.errors++; log(`[completed] ${o.reservation_id}: no user_id — skipped (cannot distinguish stray)`); return; }
     try {
-      if (await auth.reconcileStrayCarriers(o.reservation_id, o.user_id) === 'reaped') result.strayReaped++;
-      if (await db.settleCompleted(o.reservation_id, o.recovery_token)) result.settled++;
+      const outcome = await auth.reconcileStrayCarriers(o.reservation_id, o.user_id);
+      if (outcome === 'mismatch') {
+        // keep-user missing or wrong tag — fail closed (NOT sealed, surfaces as an error)
+        result.errors++;
+        log(`[completed] ${o.reservation_id}: keep-user tag mismatch — deleted NOTHING, left for investigation`);
+        return;
+      }
+      if (outcome === 'reaped') result.strayReaped++;
+      // Strays gone this pass → seal if the window elapsed (final boundary check just ran),
+      // else back off so other completed rows are checked before this one again.
+      const settled = await db.settleCompleted(o.reservation_id, o.recovery_token);
+      if (settled === 'sealed') result.sealed++;
+      else if (settled === 'rechecked') result.rechecked++;
       else { result.errors++; log(`[completed] ${o.reservation_id}: settle lost lease — retry`); }
     } catch (err) {
       result.errors++;

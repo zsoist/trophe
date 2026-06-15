@@ -27,7 +27,7 @@ export function buildRecoveryDb(service: SupabaseClient): RecoveryDb & Tombstone
     async settleCompleted(reservationId, recoveryToken) {
       const { data, error } = await service.rpc('settle_completed_recheck', { p_reservation_id: reservationId, p_recovery_token: recoveryToken });
       if (error) throw new Error(`settle_completed_recheck: ${error.message}`);
-      return data === true;
+      return (data as 'sealed' | 'rechecked' | 'lost');
     },
     async cancelRecovering(reservationId, recoveryToken) {
       // Tombstoned cancel: atomically frees the slot AND arms the late-arrival window.
@@ -91,6 +91,13 @@ export function buildAuthReconciler(service: SupabaseClient): AuthReconciler & S
     // Delete every carrier of reservationId EXCEPT the legitimate finalized user, then
     // prove no stray remains. Used for the COMPLETED terminal (the kept user lives on).
     async reconcileStrayCarriers(reservationId, keepUserId) {
+      // Verify the KEEP user actually carries the trusted tag before deleting anything —
+      // a stale/corrupt invite_reservations.user_id must NOT cause us to delete the real
+      // tagged account. Missing or mismatched keep user → fail closed (delete nothing).
+      const { data, error } = await service.auth.admin.getUserById(keepUserId);
+      if (error && !isMissingUser(error)) throw new Error(`getUserById: ${error.message}`);
+      const keep = error ? null : data?.user ?? null;
+      if (!keep || tagOf(keep) !== reservationId) return 'mismatch';
       const stray = (await findIdsByTag(reservationId)).filter((id) => id !== keepUserId);
       if (stray.length === 0) return 'clean';
       for (const id of stray) await deleteIdempotent(id);

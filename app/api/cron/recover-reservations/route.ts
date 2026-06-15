@@ -12,10 +12,11 @@ import { runRecoveryPasses } from '@/lib/recovery/reservation-recovery';
  * it can't finish is left 'recovering' and re-leased on a later run. Auth-side effects
  * only; no customer-facing surface.
  *
- * Runtime budget: the Vercel function caps at 60s (vercel.json). Both passes SHARE one
- * bounded item budget — at most ORPHAN_LIMIT + TOMBSTONE_LIMIT reservations are touched
- * per invocation — and the lease (300s) stays comfortably above the worst-case run, so a
- * function killed mid-run never causes a premature re-claim of a row it already deleted.
+ * Runtime budget: the Vercel function caps at 60s (vercel.json). All THREE passes SHARE
+ * one bounded item budget — at most ORPHAN_LIMIT + TOMBSTONE_LIMIT + COMPLETED_LIMIT
+ * reservations are touched per invocation — and the lease (300s) stays comfortably above
+ * the worst-case run, so a function killed mid-run never causes a premature re-claim of a
+ * row it already deleted.
  *
  * Scheduling: NOT a Vercel cron — the project is on the Hobby plan, which permits cron
  * only once/day (too slow for ~15-min reservations). Driven instead by Supabase
