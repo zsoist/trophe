@@ -1,5 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { RecoveryDb, TombstoneDb, CompletedDb, AuthReconciler, StrayReconciler, OrphanRow } from '@/lib/recovery/reservation-recovery';
+import type { SignupAuth, SignupDb } from '@/lib/auth/signup-flow';
+
+/** A new Auth user is BANNED until finalize lifts it, so a half-created account can never
+ *  log in before its reservation is finalized (deletion alone does not revoke a JWT). */
+const BAN_UNTIL_FINALIZED = '876000h';
 
 /**
  * Supabase-backed adapters for the WP1 reservation lifecycle. Kept thin so the
@@ -129,6 +134,50 @@ export function buildAuthReconciler(service: SupabaseClient): AuthReconciler & S
       const remaining = await findIdsByTag(reservationId);
       if (remaining.length > 0) throw new Error(`reconcile incomplete: ${remaining.length} tagged user(s) remain`);
       return 'deleted';
+    },
+  };
+}
+
+const isEmailExists = (e: { code?: string; status?: number; message?: string } | null) =>
+  !!e && (e.code === 'email_exists' || /already.*regist|already.*exist|email.*exist/i.test(e.message ?? ''));
+
+/** SignupAuth backed by the Supabase Auth Admin API (WP1 part 2). */
+export function buildSignupAuth(service: SupabaseClient): SignupAuth {
+  return {
+    async createUser({ email, password, appMetadata, userMetadata }) {
+      const { data, error } = await service.auth.admin.createUser({
+        email, password,
+        email_confirm: false,            // unconfirmed until finalize (no pre-finalize login)
+        ban_duration: BAN_UNTIL_FINALIZED,
+        app_metadata: appMetadata,       // TRUSTED tag — only the service role can write this
+        user_metadata: userMetadata,
+      });
+      if (error || !data?.user) return { userId: null, emailExists: isEmailExists(error), error: error?.message };
+      return { userId: data.user.id, emailExists: false };
+    },
+    async deleteUser(userId) {
+      const { error } = await service.auth.admin.deleteUser(userId);
+      if (error && !isMissingUser(error)) throw new Error(`deleteUser: ${error.message}`); // idempotent on missing
+    },
+    async enableUser(userId) {
+      const { error } = await service.auth.admin.updateUserById(userId, { ban_duration: 'none', email_confirm: true });
+      return !error;
+    },
+  };
+}
+
+/** SignupDb backed by the service-role client (0042 attach + 0045 route cancel). */
+export function buildSignupDb(service: SupabaseClient): SignupDb {
+  return {
+    async attachUser(reservationId, userId) {
+      const { data, error } = await service.rpc('attach_reservation_user', { p_reservation_id: reservationId, p_user_id: userId });
+      if (error) throw new Error(`attach_reservation_user: ${error.message}`);
+      return data as 'attached' | 'conflict' | 'gone';
+    },
+    async cancelForRoute(reservationId, userId) {
+      const { data, error } = await service.rpc('cancel_reservation_for_route', { p_reservation_id: reservationId, p_user_id: userId });
+      if (error) throw new Error(`cancel_reservation_for_route: ${error.message}`);
+      return data === true;
     },
   };
 }

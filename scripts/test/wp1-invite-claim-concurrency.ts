@@ -26,7 +26,9 @@ import { randomUUID } from 'node:crypto';
 import { recoverOrphanReservations, sweepTombstones, sweepCompletedStrays, runRecoveryPasses, type RecoveryDb, type TombstoneDb, type CompletedDb, type AuthReconciler, type StrayReconciler } from '@/lib/recovery/reservation-recovery';
 import { reservationIdentity } from '@/lib/auth/reservation-identity';
 import { buildAuthReconciler } from '@/lib/auth/auth-admin';
+import { runReservedSignup, type SignupAuth, type SignupDb, type ClaimResult } from '@/lib/auth/signup-flow';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { z } from 'zod';
 
 const url = process.env.TEST_DATABASE_URL;
 if (!url) { console.error('TEST_DATABASE_URL required'); process.exit(2); }
@@ -543,6 +545,92 @@ async function main() {
   // (e) stray persists after delete (zero-stray proof fails) → throws
   { const f = fakeService({ getUser: () => mkUser(RID2), ids: () => [K, S] });
     ok(await f.rec.reconcileStrayCarriers(RID2, K).then(() => false, () => true) && f.deleted.includes(S), '(e) stray remains after delete → throws (no false clean)'); }
+
+  // ── WP1 part 2: integrated signup-flow (runReservedSignup) — mock Auth + REAL db ──
+  const realSignupDb: SignupDb = {
+    attachUser: (res, uid) => pool.query('SELECT attach_reservation_user($1,$2) o', [res, uid]).then(r => r.rows[0].o),
+    cancelForRoute: (res, uid) => pool.query('SELECT cancel_reservation_for_route($1,$2) ok', [res, uid]).then(r => r.rows[0].ok),
+  };
+  const makeMockAuth = (opts: { emailExists?: Set<string>; enableFails?: boolean } = {}) => {
+    const users = new Map<string, { email: string; banned: boolean; confirmed: boolean }>();
+    const auth: SignupAuth = {
+      async createUser({ email, appMetadata }) {
+        if (opts.emailExists?.has(email)) return { userId: null, emailExists: true };
+        const id = randomUUID();
+        users.set(id, { email, banned: true, confirmed: false });
+        await pool.query(`INSERT INTO auth.users (id, raw_app_meta_data) VALUES ($1, $2::jsonb)`, [id, JSON.stringify(appMetadata)]);
+        return { userId: id, emailExists: false };
+      },
+      async deleteUser(id) { users.delete(id); await pool.query(`DELETE FROM auth.users WHERE id=$1`, [id]); },
+      async enableUser(id) { if (opts.enableFails) return false; const u = users.get(id); if (u) { u.banned = false; u.confirmed = true; } return true; },
+    };
+    return { auth, users };
+  };
+  const toClaim = (row: { reservation_id: string | null; outcome: string; res_user_id: string | null }): ClaimResult =>
+    ({ reservationId: row.reservation_id, outcome: row.outcome as ClaimResult['outcome'], resUserId: row.res_user_id });
+  const finBetaF = (res: string, uid: string) => pool.query(`SELECT finalize_beta_signup($1,$2,'Bo','b@x.io','1.0','{}'::jsonb) ok`, [res, uid]).then(r => r.rows[0].ok);
+  const finOrdF = (res: string, uid: string) => pool.query(`SELECT finalize_ordinary_signup($1,$2,'Bo','o@x.io','1.0','{}'::jsonb) ok`, [res, uid]).then(r => r.rows[0].ok);
+  const finCliF = (res: string, uid: string) => pool.query(`SELECT finalize_client_activation($1,$2,'Bo','c@x.io','1.0','{}'::jsonb) ok`, [res, uid]).then(r => r.rows[0].ok);
+
+  console.log('T33: signup flow happy paths — beta / ordinary / client activation');
+  await newBeta('T33a'); const m33 = makeMockAuth(); const cl33 = await claimBeta('T33a', randomUUID());
+  const r33 = await runReservedSignup(m33.auth, realSignupDb, { claim: toClaim(cl33), finalize: finBetaF, email: 'b@x.io', password: 'pw12345678', userMetadata: { role: 'coach' } });
+  ok(r33.ok && r33.reason === 'created' && await resStatus(cl33.reservation_id) === 'completed', '(a) beta signup → completed');
+  ok(await profileCount(r33.userId!) === 1 && [...m33.users.values()][0]?.banned === false, '(a) profile written + user enabled (unbanned)');
+  ok((await one(`SELECT count(*)::int n FROM auth.users WHERE id=$1`, [r33.userId])).n === 1, '(a) user tagged in auth.users');
+  const m33b = makeMockAuth(); const clo = await claimOrd(randomUUID(), randomUUID());
+  const r33b = await runReservedSignup(m33b.auth, realSignupDb, { claim: toClaim(clo), finalize: finOrdF, email: 'o@x.io', password: 'pw12345678', userMetadata: { role: 'client' } });
+  ok(r33b.ok && await resStatus(clo.reservation_id) === 'completed', '(b) ordinary signup → completed');
+  const m33c = makeMockAuth(); const tok33 = randomUUID(); const coach33 = randomUUID();
+  await pool.query(`INSERT INTO client_invites (token, coach_id, client_email, status) VALUES ($1,$2,'c@x.io','pending')`, [tok33, coach33]);
+  const clc = await claimClient(tok33, randomUUID());
+  const r33c = await runReservedSignup(m33c.auth, realSignupDb, { claim: toClaim(clc), finalize: finCliF, email: 'c@x.io', password: 'pw12345678', userMetadata: { role: 'client' } });
+  ok(r33c.ok && await resStatus(clc.reservation_id) === 'completed', '(c) client activation → completed');
+  ok((await one(`SELECT count(*)::int n FROM client_profiles WHERE user_id=$1 AND coach_id=$2`, [r33c.userId, coach33])).n === 1, '(c) client_profile linked to inviting coach');
+  ok((await one(`SELECT status FROM client_invites WHERE token=$1`, [tok33])).status === 'accepted', '(c) invite marked accepted');
+
+  console.log('T34: resume — replayed_reserved with an attached user reuses it (no 2nd Auth user)');
+  await newBeta('T34'); const m34 = makeMockAuth(); const idem34 = randomUUID(); const c34 = await claimBeta('T34', idem34);
+  const u34 = await m34.auth.createUser({ email: 't34@x.io', password: 'x', appMetadata: { reservation_id: c34.reservation_id }, userMetadata: {} });
+  await pool.query('SELECT attach_reservation_user($1,$2)', [c34.reservation_id, u34.userId]); // first request crashed here
+  const c34b = await claimBeta('T34', idem34);
+  ok(c34b.outcome === 'replayed_reserved' && c34b.res_user_id === u34.userId, '(setup) second claim → replayed_reserved with the attached user');
+  const before34 = m34.users.size;
+  const r34 = await runReservedSignup(m34.auth, realSignupDb, { claim: toClaim(c34b), finalize: finBetaF, email: 't34@x.io', password: 'pw12345678', userMetadata: { role: 'coach' } });
+  ok(r34.ok && r34.reason === 'resumed' && m34.users.size === before34 && await resStatus(c34.reservation_id) === 'completed', '(a) resumed existing user, no 2nd user, finalized');
+
+  console.log('T35: crash after createUser before attach → recovery worker reaps the tagged orphan');
+  await newBeta('T35'); const m35 = makeMockAuth(); const c35 = await claimBeta('T35', randomUUID());
+  const u35 = await m35.auth.createUser({ email: 't35@x.io', password: 'x', appMetadata: { reservation_id: c35.reservation_id }, userMetadata: {} }); // CRASH (no attach/finalize)
+  await pool.query(`UPDATE invite_reservations SET expires_at=now()-interval '1 min' WHERE id=$1`, [c35.reservation_id]);
+  await recoverOrphanReservations(tdb, dbAuth, { limit: 500 });
+  ok((await one(`SELECT count(*)::int n FROM auth.users WHERE id=$1`, [u35.userId])).n === 0, '(a) orphan tagged user deleted by recovery');
+  ok(await resStatus(c35.reservation_id) === 'cancelled', '(b) reservation cancelled (tombstoned) by recovery');
+
+  console.log('T36: duplicate request after completion → replayed_completed, no new user');
+  await newBeta('T36'); const m36 = makeMockAuth(); const idem36 = randomUUID(); const c36 = await claimBeta('T36', idem36);
+  const u36 = await m36.auth.createUser({ email: 't36@x.io', password: 'x', appMetadata: { reservation_id: c36.reservation_id }, userMetadata: {} });
+  await pool.query('SELECT attach_reservation_user($1,$2)', [c36.reservation_id, u36.userId]); await finBetaF(c36.reservation_id, u36.userId!);
+  const c36b = await claimBeta('T36', idem36); const before36 = m36.users.size;
+  const r36 = await runReservedSignup(m36.auth, realSignupDb, { claim: toClaim(c36b), finalize: finBetaF, email: 't36@x.io', password: 'pw12345678', userMetadata: { role: 'coach' } });
+  ok(r36.ok && r36.reason === 'already_exists' && m36.users.size === before36, '(a) replayed_completed → idempotent success, no new user');
+
+  console.log('T37: explicit consent fail-closed (route schema requires consent literally true)');
+  const consentField = z.object({ consent: z.literal(true) });
+  ok(!consentField.safeParse({}).success && !consentField.safeParse({ consent: false }).success && consentField.safeParse({ consent: true }).success, '(a) missing/false consent rejected; true accepted');
+
+  console.log('T38: finalize OK but enable fails → surfaced, not a false success (limbo §2)');
+  await newBeta('T38'); const m38 = makeMockAuth({ enableFails: true }); const c38 = await claimBeta('T38', randomUUID());
+  const r38 = await runReservedSignup(m38.auth, realSignupDb, { claim: toClaim(c38), finalize: finBetaF, email: 't38@x.io', password: 'pw12345678', userMetadata: { role: 'coach' } });
+  ok(!r38.ok && r38.reason === 'enable_failed' && r38.userId !== undefined, '(a) enable failure → not ok, reason enable_failed');
+  ok(await resStatus(c38.reservation_id) === 'completed', '(b) finalize already committed (completed) — surfaced, not hidden');
+
+  console.log('T39: email already registered → reservation released, no user, code refunded');
+  await newBeta('T39'); const m39 = makeMockAuth({ emailExists: new Set(['dupe@x.io']) }); const c39 = await claimBeta('T39', randomUUID());
+  const before39 = m39.users.size;
+  const r39 = await runReservedSignup(m39.auth, realSignupDb, { claim: toClaim(c39), finalize: finBetaF, email: 'dupe@x.io', password: 'pw12345678', userMetadata: { role: 'coach' } });
+  ok(!r39.ok && r39.reason === 'email_exists' && m39.users.size === before39, '(a) email exists → 409, no user created');
+  ok(await resStatus(c39.reservation_id) === 'cancelled' && await usedCount('T39') === 0, '(b) unattached reservation released (tombstoned), beta code refunded');
 
   await pool.end();
   console.log(fail === 0 ? '\n✅ ALL WP1 tests passed' : `\n❌ ${fail} assertion(s) failed`);
