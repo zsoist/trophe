@@ -118,15 +118,20 @@ Cutover, zero-downtime (apply in order):
    while you migrate the senders one at a time. (Vercel env-var changes take effect only on a **new
    deployment** — redeploy after each `*_CRON_SECRET` change, before the step-5 checks.)
 
-2. **Seed the memory Vault secret BEFORE applying migration 0048.** Create `memory_cron_secret` with the
+2. **Seed the memory Vault secret BEFORE migration 0048 is applied.** Create `memory_cron_secret` with the
    value the memory receiver currently accepts (the present shared secret), so the function keeps working
    the instant it starts reading Vault:
    ```sql
    select vault.create_secret('<current shared secret value>', 'memory_cron_secret');
    ```
-   Then apply `drizzle/0048_memory_worker_vault_secret.sql` (operator-applied; **not** run by CI). After
-   it lands, `run_memory_queue_worker()` reads the bearer from Vault and the plaintext
-   `app_scheduler_secrets` row is no longer consulted (you may delete that row later — see Residual risk).
+   **Ordering is mandatory — and enforced.** `drizzle/0048` is **journaled**, so any migrate run
+   (`scripts/db/run-migrations.ts` in a CI/dev bootstrap, or a prod migrate) applies it automatically — it
+   is **not** operator-only. Its preflight **aborts** (raises, rolling back *before* the drop) if Vault is
+   present but `memory_cron_secret` is unseeded, leaving the existing `app_scheduler_secrets`-backed
+   function intact. So skipping this seed makes the migration fail **loudly** rather than silently
+   disabling the worker — seed first, then apply. After 0048 lands, `run_memory_queue_worker()` reads the
+   bearer from Vault and the plaintext `app_scheduler_secrets` row is no longer consulted (you may delete
+   that row later — see Residual risk).
 
 3. **Rotate the RECOVERY worker.** Generate `<RECOVERY value>`:
    - Receiver: Vercel Production `RECOVERY_CRON_SECRET = <RECOVERY value>` (then redeploy).
