@@ -60,7 +60,10 @@ BEGIN
      SELECT s.id FROM public.invite_reservations s
       WHERE s.status = 'cancelled' AND s.sealed_at IS NULL AND s.reconcile_until IS NOT NULL
         AND (s.recovering_lease_until IS NULL OR s.recovering_lease_until < now())
-      ORDER BY s.reconcile_until
+      -- Least-recently-serviced first (never-checked NULL lease jumps the queue, then by
+      -- last-service time) so an oldest batch can't monopolize when prod cadence (300s)
+      -- exceeds the recheck backoff. Same fairness as the completed sweep (0046).
+      ORDER BY s.recovering_lease_until ASC NULLS FIRST, s.reconcile_until ASC
       FOR UPDATE SKIP LOCKED
       LIMIT p_limit)
   RETURNING r.id, r.invite_type, r.user_id, r.recovery_token;

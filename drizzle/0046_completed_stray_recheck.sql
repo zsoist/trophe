@@ -40,7 +40,12 @@ BEGIN
         AND s.sealed_at IS NULL
         AND s.completed_at IS NOT NULL
         AND (s.recovering_lease_until IS NULL OR s.recovering_lease_until < now())
-      ORDER BY s.completed_at
+      -- Least-recently-serviced first: never-checked rows (NULL lease) jump the queue,
+      -- then checked rows by last-service time. A just-checked row's lease is set, so it
+      -- rotates to the back even after its backoff expires — fairness is from the ORDER,
+      -- not from backoff > cron-cadence (prod cadence 300s > backoff 120s would otherwise
+      -- let an oldest-completed_at batch monopolize every run).
+      ORDER BY s.recovering_lease_until ASC NULLS FIRST, s.completed_at ASC
       FOR UPDATE SKIP LOCKED
       LIMIT p_limit)
   RETURNING r.id, r.invite_type, r.user_id, r.recovery_token;

@@ -35,8 +35,9 @@ select cron.schedule('recover-reservations', '*/5 * * * *', $$
       'Content-Type', 'application/json'
     ),
     -- pg_net defaults to 2000ms; this endpoint shares one bounded budget of up to 20
-    -- reservations across both passes (12 orphan + 8 tombstone), each a few Auth/RPC
-    -- calls — comfortably under the 60s function cap. Allow longer than the cap anyway.
+    -- reservations across all THREE passes (8 orphan + 6 cancelled-tombstone + 6
+    -- completed-stray), each a few Auth/RPC calls — comfortably under the 60s function
+    -- cap. Allow longer than the cap anyway.
     timeout_milliseconds := 65000
   );
 $$);

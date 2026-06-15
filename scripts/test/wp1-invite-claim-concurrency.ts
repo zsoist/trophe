@@ -11,6 +11,9 @@
  * v10: completed sweep mirrors the tombstone lifecycle (fair backoff + seal-after-final-
  * boundary-reconcile, T31); adapter VERIFIES the keep-user's trusted tag before deleting,
  * fail-closed on mismatch/missing (T32).
+ * v11: fairness is from ORDER BY recovering_lease_until NULLS FIRST (least-recently-
+ * serviced first), not backoff — holds when prod cadence (300s) > backoff (120s); applied
+ * to BOTH completed (0046) and cancelled tombstones (0044); T31(a/c) model the cadence.
  * Production-shaped throwaway Postgres (TEST_DATABASE_URL). Proves claim race
  * correctness + idempotency, attach compare-and-set, finalizer ownership enforcement,
  * leased orphan recovery vs finalize mutual exclusion, lease re-claim, ordinary-signup
@@ -490,8 +493,14 @@ async function main() {
     ids31.push((await one(`INSERT INTO invite_reservations (invite_type,invite_id,idempotency_key,request_fingerprint,status,expires_at,completed_at,user_id)
       VALUES ('beta',gen_random_uuid(),gen_random_uuid(),'fp31','completed',now()-interval '2 min', now()-interval '20 sec', gen_random_uuid()) RETURNING id`)).id);
   }
-  for (let run = 0; run < 14 && !ids31.every((id) => seen31.has(id)); run++) await sweepCompletedStrays(compDb, countingStray, { limit: 6, retentionSeconds: 600 });
-  ok(ids31.every((id) => seen31.has(id)), '(a) every completed row eventually checked — backoff prevents oldest-N starvation');
+  for (let run = 0; run < 20 && !ids31.every((id) => seen31.has(id)); run++) {
+    await sweepCompletedStrays(compDb, countingStray, { limit: 6, retentionSeconds: 600 });
+    // Model production cadence (300s) EXCEEDING the recheck backoff (120s): every backed-off
+    // row is eligible again before the next run, so fairness must come from ORDER BY, not
+    // backoff. (With the old ORDER BY completed_at, the oldest batch would loop forever here.)
+    await pool.query(`UPDATE invite_reservations SET recovering_lease_until = now() - interval '1 second' WHERE status='completed' AND sealed_at IS NULL AND recovering_lease_until > now()`);
+  }
+  ok(ids31.every((id) => seen31.has(id)), '(a) every completed row checked under cadence>backoff (fair NULLS-FIRST ordering, not backoff-dependent)');
   // (b) BOUNDARY: a past-window row gets a FINAL reconcile (reaping a late carrier) and is
   // THEN sealed — a carrier arriving near window-end is not missed before the row ages out.
   const legitB = randomUUID();
@@ -503,6 +512,19 @@ async function main() {
   ok((await one(`SELECT count(*)::int n FROM auth.users WHERE id=$1`, [strayB])).n === 0, '(b) late carrier on a past-window row reaped by the final boundary reconcile');
   ok((await one(`SELECT count(*)::int n FROM auth.users WHERE id=$1`, [legitB])).n === 1, '(b) legit finalized user PRESERVED');
   ok((await one(`SELECT sealed_at IS NOT NULL s FROM invite_reservations WHERE id=$1`, [cB])).s === true, '(b) past-window row SEALED after the final reconcile (terminal)');
+  // (c) the SAME fairness applies to cancelled tombstones (identical NULLS-FIRST ordering).
+  const seenTomb = new Set<string>();
+  const countingTombAuth: AuthReconciler = { reconcileAndDelete: async (rid) => { seenTomb.add(rid); return 'absent'; } };
+  const tombIds: string[] = [];
+  for (let i = 0; i < 14; i++) {
+    tombIds.push((await one(`INSERT INTO invite_reservations (invite_type,invite_id,idempotency_key,request_fingerprint,status,expires_at,reconcile_until)
+      VALUES ('beta',gen_random_uuid(),gen_random_uuid(),'fp31t','cancelled',now()-interval '2 min', now()+interval '10 min') RETURNING id`)).id);
+  }
+  for (let run = 0; run < 30 && !tombIds.every((id) => seenTomb.has(id)); run++) {
+    await sweepTombstones(tomb, countingTombAuth, { limit: 6 });
+    await pool.query(`UPDATE invite_reservations SET recovering_lease_until = now() - interval '1 second' WHERE status='cancelled' AND sealed_at IS NULL AND recovering_lease_until > now()`);
+  }
+  ok(tombIds.every((id) => seenTomb.has(id)), '(c) cancelled tombstones ALSO fairly rotated under cadence>backoff');
 
   console.log('T32: buildAuthReconciler.reconcileStrayCarriers ADAPTER — keep-user tag VERIFIED before any delete (P1)');
   const K = randomUUID(), S = randomUUID(), RID2 = randomUUID();
