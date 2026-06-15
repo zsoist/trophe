@@ -2,17 +2,19 @@
  * WP1 recovery worker (pure / dependency-injected).
  *
  * Reconciles expired invite reservations against Supabase Auth:
- *   claim_orphan_for_recovery (lease + token)  →  delete the orphan Auth user  →
- *   cancel_recovering_reservation (token-gated, frees the slot).
+ *   claim_orphan_for_recovery (lease + token)  →  reconcile+delete the orphan Auth
+ *   user (ONLY if it is tagged with this reservation_id)  →  cancel_recovering_reservation
+ *   (token + live-lease gated, frees the slot).
  *
- * Pure by design — the DB and Auth side-effects are injected, so this is fully
- * unit-testable with a real throwaway Postgres + a mock Auth client (no Supabase
- * import here). The real adapters live in lib/auth/auth-admin.ts.
+ * Pure by design — DB and Auth side-effects are injected, so it is fully unit-testable
+ * with a real throwaway Postgres + a mock Auth client. Real adapters: lib/auth/auth-admin.ts.
  *
- * Failure handling: if Auth deletion or the cancel throws, the reservation is LEFT
- * in `recovering`; its lease expires and a later run re-claims it (with a fresh
- * token), so partial failures are retried safely and never strand a slot or an
- * Auth user.
+ * Safety invariants:
+ *  - The worker NEVER deletes an Auth user it cannot prove belongs to the reservation
+ *    (reconcileAndDelete returns 'mismatch' → left 'recovering', never cancelled).
+ *  - The slot is freed only AFTER the orphan is provably gone ('deleted' or 'absent').
+ *  - Any failure (mismatch / throw / cancel-returned-false) leaves the reservation
+ *    'recovering'; its lease expires and a later run re-claims it with a fresh token.
  */
 
 export interface OrphanRow {
@@ -23,17 +25,23 @@ export interface OrphanRow {
 }
 
 export interface RecoveryDb {
-  /** Atomically lease expired reservations → 'recovering', returning fresh tokens. */
   claimOrphans(limit: number, leaseSeconds: number): Promise<OrphanRow[]>;
   /** Cancel a leased reservation (token + live-lease gated). Returns true if cancelled. */
   cancelRecovering(reservationId: string, recoveryToken: string): Promise<boolean>;
 }
 
+/**
+ * Reconcile the orphan Auth user for a reservation and delete it iff it is tagged
+ * with this reservation_id.
+ *  - 'deleted'  — a matching Auth user existed and was deleted (idempotent if re-run)
+ *  - 'absent'   — conclusively no Auth user for this reservation (safe to free the slot)
+ *  - 'mismatch' — an Auth user was found whose tag does NOT match → do NOT delete, do
+ *                 NOT free the slot (a bug; needs investigation)
+ * Implementations MUST throw rather than return 'absent' if they cannot conclusively
+ * determine absence (e.g. an incomplete scan).
+ */
 export interface AuthReconciler {
-  /** Delete an Auth user. MUST resolve (not throw) if the user is already missing. */
-  deleteUser(userId: string): Promise<void>;
-  /** Find the Auth user tagged with this reservation_id (pre-attach orphans). */
-  findUserIdByReservation(reservationId: string): Promise<string | null>;
+  reconcileAndDelete(reservationId: string, expectedUserId: string | null): Promise<'deleted' | 'absent' | 'mismatch'>;
 }
 
 export interface RecoveryResult {
@@ -46,31 +54,38 @@ export interface RecoveryResult {
 export async function recoverOrphanReservations(
   db: RecoveryDb,
   auth: AuthReconciler,
-  opts: { limit?: number; leaseSeconds?: number; log?: (msg: string) => void } = {},
+  opts: { limit?: number; leaseSeconds?: number; concurrency?: number; log?: (msg: string) => void } = {},
 ): Promise<RecoveryResult> {
-  const limit = opts.limit ?? 50;
-  const leaseSeconds = opts.leaseSeconds ?? 120;
+  const limit = opts.limit ?? 20;
+  const leaseSeconds = opts.leaseSeconds ?? 300;
+  const concurrency = Math.max(1, opts.concurrency ?? 5);
   const log = opts.log ?? (() => {});
 
   const orphans = await db.claimOrphans(limit, leaseSeconds);
-  let authDeleted = 0, cancelled = 0, errors = 0;
+  const result: RecoveryResult = { claimed: orphans.length, authDeleted: 0, cancelled: 0, errors: 0 };
 
-  for (const o of orphans) {
+  // Bounded concurrency so a batch finishes well within the function's runtime budget.
+  let cursor = 0;
+  async function runOne(o: OrphanRow): Promise<void> {
     try {
-      // Resolve the orphan Auth user: attached → user_id; pre-attach crash → by tag.
-      const userId = o.user_id ?? (await auth.findUserIdByReservation(o.reservation_id));
-      if (userId) {
-        await auth.deleteUser(userId); // idempotent — safe if already gone
-        authDeleted++;
+      const outcome = await auth.reconcileAndDelete(o.reservation_id, o.user_id);
+      if (outcome === 'mismatch') {
+        result.errors++;
+        log(`[recovery] ${o.reservation_id}: Auth user tag mismatch — left recovering, NOT deleted`);
+        return;
       }
-      // Only after the external Auth user is gone do we free the slot.
-      if (await db.cancelRecovering(o.reservation_id, o.recovery_token)) cancelled++;
+      if (outcome === 'deleted') result.authDeleted++;
+      // Orphan provably gone — free the slot. cancel=false (lease lost) is a retryable error.
+      if (await db.cancelRecovering(o.reservation_id, o.recovery_token)) result.cancelled++;
+      else { result.errors++; log(`[recovery] ${o.reservation_id}: cancel returned false (lease lost) — retry`); }
     } catch (err) {
-      // Leave it 'recovering'; the lease will expire and a later run retries it.
-      errors++;
-      log(`[recovery] reservation ${o.reservation_id} left for retry: ${String(err)}`);
+      result.errors++;
+      log(`[recovery] ${o.reservation_id}: left for retry: ${String(err)}`);
     }
   }
-
-  return { claimed: orphans.length, authDeleted, cancelled, errors };
+  async function worker(): Promise<void> {
+    while (cursor < orphans.length) { const i = cursor++; await runOne(orphans[i]); }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, orphans.length) }, worker));
+  return result;
 }

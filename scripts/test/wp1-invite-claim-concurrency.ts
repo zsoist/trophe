@@ -1,5 +1,7 @@
 /**
- * WP1 adversarial test (v5) — reservation ownership + recovery state machine (0042).
+ * WP1 adversarial test (v6) — reservation ownership + recovery state machine (0042/0043).
+ * v6: worker reconciles Auth by verified reservation tag before deletion (P0 guard),
+ * server-side find RPC replaces the bounded listUsers scan, payload-bound fingerprint.
  * Production-shaped throwaway Postgres (TEST_DATABASE_URL). Proves claim race
  * correctness + idempotency, attach compare-and-set, finalizer ownership enforcement,
  * leased orphan recovery vs finalize mutual exclusion, lease re-claim, ordinary-signup
@@ -10,6 +12,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { recoverOrphanReservations, type RecoveryDb, type AuthReconciler } from '@/lib/recovery/reservation-recovery';
+import { reservationIdentity } from '@/lib/auth/reservation-identity';
 
 const url = process.env.TEST_DATABASE_URL;
 if (!url) { console.error('TEST_DATABASE_URL required'); process.exit(2); }
@@ -41,7 +44,13 @@ async function setup() {
     CREATE TABLE consents (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_id uuid NOT NULL, organization_id uuid,
       purpose text NOT NULL, version text NOT NULL, status text NOT NULL, evidence jsonb, granted_at timestamptz NOT NULL DEFAULT now(), withdrawn_at timestamptz);
   `);
+  // Minimal auth.users shim so 0043's SECURITY DEFINER lookup compiles + runs here
+  // (prod has the real Supabase auth.users). Only the columns the RPC reads.
+  await pool.query(`CREATE SCHEMA IF NOT EXISTS auth;`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS auth.users (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), raw_user_meta_data jsonb);`);
+  await pool.query(`TRUNCATE auth.users;`);
   await pool.query(readFileSync(join(process.cwd(), 'drizzle/0042_invite_reservations.sql'), 'utf-8'));
+  await pool.query(readFileSync(join(process.cwd(), 'drizzle/0043_find_auth_user_by_reservation.sql'), 'utf-8'));
 }
 
 const claimBeta = (code: string, idem: string, fp = FP) => one('SELECT * FROM claim_beta_invite($1,$2,$3)', [code, idem, fp]);
@@ -240,47 +249,68 @@ async function main() {
   ok(await one('SELECT cancel_recovering_reservation($1,$2) ok', [c22d.reservation_id, lzA.recovery_token]).then(r => r.ok) === false, '(3) old token after reassignment → rejected');
   ok(await one('SELECT cancel_recovering_reservation($1,$2) ok', [c22d.reservation_id, lzB.recovery_token]).then(r => r.ok) === true, '(1+4) current unexpired token → succeeds');
 
-  console.log('T24: recovery WORKER (mock Auth) — delete+cancel, missing-user, transient-retry, pre-attach tag');
+  console.log('T24: recovery WORKER (mock Auth) — reconcile+cancel, absent, transient-retry, pre-attach, tag-MISMATCH (P0)');
   const recoveryDb: RecoveryDb = {
     claimOrphans: (l, s) => pool.query('SELECT * FROM claim_orphan_for_recovery($1,$2)', [l, s]).then(r => r.rows),
     cancelRecovering: (id, tok) => pool.query('SELECT cancel_recovering_reservation($1,$2) ok', [id, tok]).then(r => r.rows[0].ok),
   };
-  const deleted: string[] = [];
-  // (a) attached orphan → delete by user_id + cancel
+  type Outcome = 'deleted' | 'absent' | 'mismatch';
+  const mockAuth = (fn: (rid: string, uid: string | null) => Promise<Outcome>): AuthReconciler => ({ reconcileAndDelete: fn });
+  const reconciled: string[] = [];
+  // (a) attached orphan → reconcile(deleted) + cancel + slot freed
   await newBeta('T24'); const c24 = await claimBeta('T24', randomUUID()); const u24 = randomUUID(); await attach(c24.reservation_id, u24);
   await pool.query(`UPDATE invite_reservations SET expires_at=now()-interval '1 min' WHERE id=$1`, [c24.reservation_id]);
-  const okAuth: AuthReconciler = { deleteUser: async (id) => { deleted.push(id); }, findUserIdByReservation: async () => null };
-  await recoverOrphanReservations(recoveryDb, okAuth);
-  ok(deleted.includes(u24) && await resStatus(c24.reservation_id) === 'cancelled' && await usedCount('T24') === 0, '(a) attached orphan: Auth deleted + reservation cancelled + slot freed');
-  // (b) missing Auth user (idempotent delete resolves) → still cancels
+  await recoverOrphanReservations(recoveryDb, mockAuth(async (_rid, uid) => { reconciled.push(uid!); return 'deleted'; }));
+  ok(reconciled.includes(u24) && await resStatus(c24.reservation_id) === 'cancelled' && await usedCount('T24') === 0, '(a) attached orphan: reconciled+deleted, cancelled, slot freed');
+  // (b) absent Auth user (conclusive) → still cancels
   await newBeta('T24b'); const c24b = await claimBeta('T24b', randomUUID()); const u24b = randomUUID(); await attach(c24b.reservation_id, u24b);
   await pool.query(`UPDATE invite_reservations SET expires_at=now()-interval '1 min' WHERE id=$1`, [c24b.reservation_id]);
-  await recoverOrphanReservations(recoveryDb, { deleteUser: async () => {}, findUserIdByReservation: async () => null });
-  ok(await resStatus(c24b.reservation_id) === 'cancelled', '(b) missing Auth user → still cancels');
+  await recoverOrphanReservations(recoveryDb, mockAuth(async () => 'absent'));
+  ok(await resStatus(c24b.reservation_id) === 'cancelled', '(b) absent Auth user → still cancels');
   // (c) transient Auth failure → left 'recovering' for retry (NOT cancelled)
   await newBeta('T24c'); const c24c = await claimBeta('T24c', randomUUID()); const u24c = randomUUID(); await attach(c24c.reservation_id, u24c);
   await pool.query(`UPDATE invite_reservations SET expires_at=now()-interval '1 min' WHERE id=$1`, [c24c.reservation_id]);
-  const r24c = await recoverOrphanReservations(recoveryDb, { deleteUser: async () => { throw new Error('429 transient'); }, findUserIdByReservation: async () => null });
+  const r24c = await recoverOrphanReservations(recoveryDb, mockAuth(async () => { throw new Error('429 transient'); }));
   ok(r24c.errors === 1 && await resStatus(c24c.reservation_id) === 'recovering', '(c) transient Auth failure → left recovering for retry');
-  // (d) pre-attach crash: user_id NULL → found by reservation tag, deleted + cancelled
+  // (d) pre-attach crash: user_id NULL → reconciler resolves tag server-side + deletes
   await newBeta('T24d'); const c24d = await claimBeta('T24d', randomUUID()); // never attached
   await pool.query(`UPDATE invite_reservations SET expires_at=now()-interval '1 min' WHERE id=$1`, [c24d.reservation_id]);
-  const tagged = randomUUID();
-  await recoverOrphanReservations(recoveryDb, { deleteUser: async (id) => { deleted.push(id); }, findUserIdByReservation: async (rid) => rid === c24d.reservation_id ? tagged : null });
-  ok(deleted.includes(tagged) && await resStatus(c24d.reservation_id) === 'cancelled', '(d) pre-attach orphan found by tag → deleted + cancelled');
+  let sawNullUid = false;
+  await recoverOrphanReservations(recoveryDb, mockAuth(async (_rid, uid) => { if (uid === null) sawNullUid = true; return 'deleted'; }));
+  ok(sawNullUid && await resStatus(c24d.reservation_id) === 'cancelled', '(d) pre-attach orphan (user_id NULL) → reconciled by tag + cancelled');
+  // (e) P0 GUARD: Auth tag MISMATCH → never deleted/cancelled, left recovering, slot NOT freed
+  await newBeta('T24e'); const c24e = await claimBeta('T24e', randomUUID()); const u24e = randomUUID(); await attach(c24e.reservation_id, u24e);
+  await pool.query(`UPDATE invite_reservations SET expires_at=now()-interval '1 min' WHERE id=$1`, [c24e.reservation_id]);
+  const r24e = await recoverOrphanReservations(recoveryDb, mockAuth(async () => 'mismatch'));
+  ok(r24e.errors === 1 && r24e.cancelled === 0 && await resStatus(c24e.reservation_id) === 'recovering', '(e) Auth tag mismatch → NOT deleted/cancelled, left recovering (P0 guard)');
 
-  console.log('T23: PERMISSIONS — all 11 RPCs: anon/auth DENIED, service_role allowed');
+  console.log('T23: PERMISSIONS — all 12 RPCs: anon/auth DENIED, service_role allowed');
   const fns = ['claim_beta_invite(text,uuid,text)', 'claim_client_invite(uuid,uuid,text)', 'claim_ordinary_signup(uuid,uuid,text)',
     'attach_reservation_user(uuid,uuid)', 'finalize_beta_signup(uuid,uuid,text,text,text,jsonb)',
     'finalize_client_activation(uuid,uuid,text,text,text,jsonb)', 'finalize_ordinary_signup(uuid,uuid,text,text,text,jsonb)',
     'release_invite_reservation(uuid)', 'cancel_attached_reservation(uuid,uuid)',
-    'cancel_recovering_reservation(uuid,uuid)', 'claim_orphan_for_recovery(int,int)'];
+    'cancel_recovering_reservation(uuid,uuid)', 'claim_orphan_for_recovery(int,int)',
+    'find_auth_user_id_by_reservation(uuid)'];
   for (const fn of fns) {
     const a = (await one(`SELECT has_function_privilege('anon','public.${fn}','EXECUTE') p`)).p;
     const au = (await one(`SELECT has_function_privilege('authenticated','public.${fn}','EXECUTE') p`)).p;
     const s = (await one(`SELECT has_function_privilege('service_role','public.${fn}','EXECUTE') p`)).p;
     ok(a === false && au === false && s === true, `${fn.split('(')[0]}: anon/auth DENIED, service_role allowed`);
   }
+
+  console.log('T25: find_auth_user_id_by_reservation — server-side lookup (no scan, conclusive absence)');
+  const rid25 = randomUUID(); const uid25 = randomUUID();
+  await pool.query(`INSERT INTO auth.users (id, raw_user_meta_data) VALUES ($1, jsonb_build_object('reservation_id', $2::text))`, [uid25, rid25]);
+  ok(await one('SELECT find_auth_user_id_by_reservation($1) id', [rid25]).then(r => r.id) === uid25, '(a) tagged Auth user found by reservation_id');
+  ok(await one('SELECT find_auth_user_id_by_reservation($1) id', [randomUUID()]).then(r => r.id) === null, '(b) unknown reservation → NULL (conclusive absence, no false match)');
+
+  console.log('T26: reservationIdentity — stable identity key + payload-bound fingerprint');
+  const p26 = { email: 'A@X.io', fullName: 'Ann', inviteCode: 'BETA1', role: 'coach', consentVersion: '1.0' };
+  const i26 = reservationIdentity('beta:BETA1', 'A@X.io', p26);
+  ok(i26.idempotencyKey === reservationIdentity('beta:BETA1', '  a@x.io ', { ...p26, email: 'a@x.io' }).idempotencyKey, '(a) case/space-normalized identity → same idempotency key');
+  ok(i26.fingerprint === reservationIdentity('beta:BETA1', 'A@X.io', { ...p26 }).fingerprint, '(b) identical payload → identical fingerprint (retry converges)');
+  ok(i26.fingerprint !== reservationIdentity('beta:BETA1', 'A@X.io', { ...p26, consentVersion: '2.0' }).fingerprint, '(c) changed consent version → different fingerprint (payload bound)');
+  ok(i26.fingerprint !== reservationIdentity('beta:BETA1', 'A@X.io', { ...p26, fullName: 'Bob' }).fingerprint, '(d) changed name → different fingerprint (payload bound)');
 
   await pool.end();
   console.log(fail === 0 ? '\n✅ ALL WP1 tests passed' : `\n❌ ${fail} assertion(s) failed`);
