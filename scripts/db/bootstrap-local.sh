@@ -164,6 +164,81 @@ GRANT SELECT ON TABLE public.food_database TO anon;
 SQL
 fi
 
+# Canonical lookup foods required by the local/CI food-lookup regression tests.
+# Seeded HERE (bootstrap path) and deliberately NOT as a journaled migration, so these
+# deterministic fixtures never enter production: prod already holds the real USDA/HHF rows
+# for these canonical_food_keys. Macros are standard USDA SR reference values.
+echo "==> Seeding canonical lookup foods (local/CI bootstrap fixture only — not production)"
+psql -v ON_ERROR_STOP=1 -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" <<'SQL'
+INSERT INTO foods (
+  source, source_id, data_quality, name_en, region,
+  kcal_per_100g, protein_per_100g, carb_per_100g, fat_per_100g, fiber_per_100g,
+  default_serving_grams, default_serving_unit, macro_confidence,
+  unit_conversion_verified, canonical_food_key, provenance_notes, data_reviewed_at,
+  popularity, verified
+) VALUES
+  ('usda', 'wp2-seed-plantain-raw', 'lab_verified', 'Plantain, raw', ARRAY['US','CO'],
+   122, 1.3, 31.9, 0.4, 2.3, 179, 'piece', 0.85, true, 'plantain_raw',
+   'USDA SR reference values; deterministic local/CI bootstrap fixture (not production data).', now(), 75, 'manual'),
+  ('usda', 'wp2-seed-plantain-fried', 'lab_verified', 'Plantains, yellow, ripe, fried', ARRAY['US','CO'],
+   309, 1.5, 49.2, 11.8, 2.3, 119, 'piece', 0.85, true, 'plantain_fried',
+   'USDA SR reference values; deterministic local/CI bootstrap fixture (not production data).', now(), 80, 'manual'),
+  ('usda', 'wp2-seed-banana-raw', 'lab_verified', 'Banana, raw', ARRAY['US','CO','GR'],
+   89, 1.1, 22.8, 0.3, 2.6, 118, 'medium', 0.9, true, 'banana_raw',
+   'USDA SR reference values; deterministic local/CI bootstrap fixture (not production data).', now(), 90, 'manual'),
+  ('usda', 'wp2-seed-chicken-breast-grilled', 'lab_verified', 'Chicken breast, grilled', ARRAY['US','GR','CO'],
+   165, 31.0, 0.0, 3.6, 0.0, 120, 'piece', 0.9, true, 'chicken_breast_grilled',
+   'USDA SR reference values; deterministic local/CI bootstrap fixture (not production data).', now(), 90, 'manual'),
+  ('usda', 'wp2-seed-white-rice-cooked', 'lab_verified', 'Rice, white, cooked', ARRAY['US','GR','CO'],
+   130, 2.7, 28.2, 0.3, 0.4, 158, 'cup', 0.9, true, 'rice_white_cooked',
+   'USDA SR reference values; deterministic local/CI bootstrap fixture (not production data).', now(), 88, 'manual'),
+  ('usda', 'wp2-seed-apple-raw', 'lab_verified', 'Apple, raw', ARRAY['US','CO','GR'],
+   52, 0.3, 13.8, 0.2, 2.4, 182, 'medium', 0.9, true, 'apple_raw',
+   'USDA SR reference values; deterministic local/CI bootstrap fixture (not production data).', now(), 85, 'manual'),
+  ('usda', 'wp2-seed-egg-raw', 'lab_verified', 'Egg, whole, raw', ARRAY['US','GR','CO'],
+   143, 12.6, 0.72, 9.51, 0.0, 50, 'piece', 0.9, true, 'egg_chicken_whole_raw',
+   'USDA SR reference values; deterministic local/CI bootstrap fixture (not production data).', now(), 90, 'manual'),
+  ('usda', 'wp2-seed-egg-scrambled', 'lab_verified', 'Egg, whole, cooked, scrambled', ARRAY['US','GR','CO'],
+   149, 10.0, 1.6, 10.9, 0.0, 50, 'piece', 0.88, true, 'egg_chicken_scrambled',
+   'USDA SR reference values; deterministic local/CI bootstrap fixture (not production data).', now(), 82, 'manual'),
+  ('usda', 'wp2-seed-whole-milk', 'lab_verified', 'Milk, whole', ARRAY['US','GR','CO'],
+   61, 3.2, 4.8, 3.3, 0.0, 244, 'cup', 0.9, true, 'milk_whole',
+   'USDA SR reference values; deterministic local/CI bootstrap fixture (not production data).', now(), 80, 'manual'),
+  ('usda', 'wp2-seed-bacon-cooked', 'lab_verified', 'Pork, cured, bacon, cooked', ARRAY['US'],
+   541, 37.0, 1.4, 42.0, 0.0, 8, 'strip', 0.85, true, 'bacon_pork_cooked',
+   'USDA SR reference values; deterministic local/CI bootstrap fixture (not production data).', now(), 75, 'manual'),
+  ('usda', 'wp2-seed-salad-garden', 'lab_verified', 'Side salad, mixed salad greens, raw', ARRAY['US','GR','CO'],
+   17, 1.0, 3.3, 0.2, 1.6, 100, 'serving', 0.75, true, 'salad_garden',
+   'USDA SR reference values; deterministic local/CI bootstrap fixture (not production data).', now(), 70, 'manual'),
+  ('usda', 'wp2-seed-honey', 'lab_verified', 'Honey', ARRAY['US','GR','CO'],
+   304, 0.3, 82.4, 0.0, 0.2, 21, 'tablespoon', 0.9, true, 'honey',
+   'USDA SR reference values; deterministic local/CI bootstrap fixture (not production data).', now(), 80, 'manual'),
+  ('usda', 'wp2-seed-whey-protein-powder', 'lab_verified', 'Protein powder, whey', ARRAY['US','GR','CO'],
+   400, 80.0, 8.0, 6.0, 0.0, 30, 'scoop', 0.75, true, 'protein_powder_whey',
+   'USDA SR reference values; deterministic local/CI bootstrap fixture (not production data).', now(), 72, 'manual'),
+  ('usda', 'wp2-seed-feta-cheese', 'lab_verified', 'Feta cheese', ARRAY['GR','US'],
+   264, 14.2, 4.1, 21.3, 0.0, 30, 'slice', 0.9, true, 'feta_cheese',
+   'USDA SR reference values; deterministic local/CI bootstrap fixture (not production data).', now(), 85, 'manual')
+ON CONFLICT (source, source_id) DO UPDATE SET
+  data_quality = EXCLUDED.data_quality,
+  name_en = EXCLUDED.name_en,
+  region = EXCLUDED.region,
+  kcal_per_100g = EXCLUDED.kcal_per_100g,
+  protein_per_100g = EXCLUDED.protein_per_100g,
+  carb_per_100g = EXCLUDED.carb_per_100g,
+  fat_per_100g = EXCLUDED.fat_per_100g,
+  fiber_per_100g = EXCLUDED.fiber_per_100g,
+  default_serving_grams = EXCLUDED.default_serving_grams,
+  default_serving_unit = EXCLUDED.default_serving_unit,
+  macro_confidence = EXCLUDED.macro_confidence,
+  unit_conversion_verified = EXCLUDED.unit_conversion_verified,
+  canonical_food_key = EXCLUDED.canonical_food_key,
+  provenance_notes = EXCLUDED.provenance_notes,
+  data_reviewed_at = EXCLUDED.data_reviewed_at,
+  popularity = EXCLUDED.popularity,
+  verified = EXCLUDED.verified;
+SQL
+
 echo "==> Verifying schema and capturing explain plans"
 npx tsx scripts/db/verify.ts
 npx tsx scripts/db/explain.ts

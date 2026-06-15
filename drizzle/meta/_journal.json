@@ -400,13 +400,6 @@
    "when": 1780852599999,
    "tag": "0048_memory_worker_vault_secret",
    "breakpoints": true
-  },
-  {
-   "idx": 57,
-   "version": "7",
-   "when": 1780852600000,
-   "tag": "0049_seed_lookup_regression_foods",
-   "breakpoints": true
   }
  ]
 }
