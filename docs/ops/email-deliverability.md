@@ -25,11 +25,23 @@ A brand-new sending domain has **no reputation**, so confirmation emails initial
   recovering reservation, and the genuine already-confirmed replay is `replayed_completed` → 202.
   A truthful "already registered" message needs a distinct, proven DB outcome (future).
 
-**Ready to install (operator — not yet installed or canary-tested):**
+**Installed + real-inbox canary PASSED (2026-06-15):**
 - Branded HTML confirmation template (subject **"Confirm your Trophē account"**, dark/gold brand,
   styled button + plaintext fallback URL, `{{ .ConfirmationURL }}` preserved) —
-  `docs/ops/email-templates/confirm-signup.html`. Paste into Supabase Dashboard → Authentication →
+  `docs/ops/email-templates/confirm-signup.html` — **installed** in Supabase Dashboard → Authentication →
   Emails → Templates → "Confirm signup". *(Dashboard-managed; not in the repo.)*
+- Real-inbox canary on the **installed branded template** — **PASSED**:
+  - branded template rendered correctly (dark/gold brand + styled button);
+  - email **delivered to the operator's main inbox**;
+  - confirmation link **activated the account**;
+  - landing on `/login?confirmed=1` rendered the **"Account confirmed — sign in to continue."** notice
+    (also live-verified on the deployed bundle);
+  - **authenticated session worked** after sign-in;
+  - **no duplicate account** was created.
+- **Receiver-side SPF/DKIM/DMARC pass: still PENDING.** The `Authentication-Results` headers of the
+  delivered message were **not inspected** during this canary, so receiver-side alignment remains
+  unverified. (DNS records resolve and are correctly formed — see Configuration — but a delivered-message
+  header showing `spf=pass; dkim=pass; dmarc=pass` has not yet been captured.)
 
 **Ongoing / operational:**
 - Domain warmup: reputation improves with steady, low-bounce real sends over days.
@@ -37,8 +49,12 @@ A brand-new sending domain has **no reputation**, so confirmation emails initial
 - Zero tolerance for bounces in testing.
 
 ## Email-client test matrix (fill after a real-inbox canary)
+The 2026-06-15 canary covered **one real inbox**. Cross-client rendering/placement and the
+receiver-side `Authentication-Results` header remain to be filled.
+
 | Client | Inbox vs spam | Renders (button, brand) | Link confirms | Notes |
 |---|---|---|---|---|
+| **Primary inbox (canary 2026-06-15)** | **Inbox** | **✓ button + brand** | **✓ activated** | Session OK after sign-in; no duplicate account. `Authentication-Results` header **not inspected** → SPF/DKIM/DMARC still pending. |
 | Gmail web | | | | |
 | Gmail mobile | | | | |
 | Outlook / O365 | | | | |
