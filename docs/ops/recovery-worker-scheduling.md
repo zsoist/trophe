@@ -79,22 +79,95 @@ The endpoint itself is scheduler-agnostic: anything that can issue an authentica
 
 ## Per-worker secrets (P2)
 
-Originally both pg_cron workers (`recover-reservations` and `trophe-memory-worker`) shared
-one `CRON_SECRET`, so rotating it invalidated **both** until each was re-synced (observed: a
-401 on the memory worker during the WP1 rollout). Each worker now accepts its **own** secret —
-`RECOVERY_CRON_SECRET` for `/api/cron/recover-reservations`, `MEMORY_CRON_SECRET` for
-`/api/internal/memory-worker` — with a **backward-compat window** on the legacy shared
-`CRON_SECRET` (`lib/auth/cron-auth.ts` accepts either). Cutover, zero-downtime:
+Originally the receivers checked one shared `CRON_SECRET`, so rotating it could invalidate **both**
+pg_cron workers at once (observed: a 401 on the memory worker during the WP1 rollout). Each receiver
+now accepts its **own** secret — `RECOVERY_CRON_SECRET` for `/api/cron/recover-reservations`,
+`MEMORY_CRON_SECRET` for `/api/internal/memory-worker` — with a **backward-compat window** on the
+legacy shared `CRON_SECRET` (`lib/auth/cron-auth.ts` accepts either).
 
-1. **Deploy this code first** (it still accepts the shared `CRON_SECRET`, so nothing breaks).
-2. Generate two fresh secrets. For each worker, write the value to **Vercel** (Production env:
-   `RECOVERY_CRON_SECRET` / `MEMORY_CRON_SECRET`) **and** Supabase Vault, in one operation
-   (Vercel "Sensitive" vars can't be pulled back). Operator-run — never print/commit the values.
-   ```sql
-   select vault.create_secret('<RECOVERY value>', 'recovery_cron_secret');
-   select vault.create_secret('<MEMORY value>',   'memory_cron_secret');
-   ```
-3. Point each cron job at its own Vault secret by name (re-`cron.schedule` with the same job name
-   to replace): the recovery job reads `recovery_cron_secret`, the memory job `memory_cron_secret`.
-4. Verify each returns **200** in `net._http_response`, then remove the shared `CRON_SECRET` from
-   Vercel + Vault. The code fallback then self-disables (the env var becomes `undefined`).
+> ⚠️ **The two senders use DIFFERENT secret stores — their cutovers are NOT symmetric.**
+> - **`recover-reservations`** reads its bearer from **Supabase Vault**
+>   (`vault.decrypted_secrets('recovery_cron_secret')`) inside its `net.http_post` cron command, at
+>   run time.
+> - **`trophe-memory-worker`** is just `SELECT run_memory_queue_worker()` — a SECURITY DEFINER
+>   function (`drizzle/0015_memory_queue_scheduler.sql`) that reads its bearer from the
+>   **`app_scheduler_secrets` config table** (`WHERE name = 'memory_worker'`) and `net.http_get`s the
+>   endpoint. It does **NOT** read Vault. A `memory_cron_secret` Vault object would be dead weight,
+>   and re-`cron.schedule`-ing the bare function call changes nothing.
+>
+> Following the recovery (Vault) recipe for the memory worker leaves the real memory secret
+> unrotated. Then step 5 (removing the shared `CRON_SECRET`) yields a silent **401**: `pg_net` is
+> fire-and-forget, so `cron.job_run_details` still shows `succeeded` and the failure only appears in
+> `net._http_response.status_code` — a silent memory-queue stall.
+
+**Secret hygiene (every step):** operator-run only — never print, echo, paste, log, or commit a
+secret value. `<RECOVERY value>` / `<MEMORY value>` are placeholders for freshly generated random
+secrets.
+
+Cutover, zero-downtime:
+
+1. **Deploy this code first.** The receivers still accept the shared `CRON_SECRET`, so nothing breaks
+   while you migrate the senders one at a time. (Vercel env-var changes only take effect on a **new
+   deployment** — trigger a redeploy after each `*_CRON_SECRET` change in steps 2–3, before the
+   step-4 checks.)
+
+2. **Rotate the RECOVERY worker — Vault-backed.** Generate `<RECOVERY value>`, set it in BOTH places
+   so sender and receiver agree:
+   - Receiver: Vercel Production env `RECOVERY_CRON_SECRET = <RECOVERY value>` (then redeploy).
+   - Sender: update the existing Vault secret **in place** — the cron command already reads it by
+     name, so there is **no need to re-`cron.schedule`**:
+     ```sql
+     select vault.update_secret(
+       (select id from vault.secrets where name = 'recovery_cron_secret'),
+       '<RECOVERY value>'
+     );
+     ```
+
+3. **Rotate the MEMORY worker — config-table-backed, NOT Vault.** Generate `<MEMORY value>`:
+   - Receiver: Vercel Production env `MEMORY_CRON_SECRET = <MEMORY value>` (then redeploy).
+   - Sender: update the one config row the function reads. The row already exists, so this is an
+     **`UPDATE`** (not an insert), and the bare `SELECT run_memory_queue_worker()` job needs no
+     change:
+     ```sql
+     update app_scheduler_secrets
+        set value = '<MEMORY value>', updated_at = now()
+      where name = 'memory_worker';
+     ```
+   Do **not** create a `memory_cron_secret` Vault object, and do **not** re-`cron.schedule` this job.
+
+4. **Verify 200 per worker BEFORE removing the shared secret.** `cron.job_run_details` is not a
+   truthful signal here (it shows the `pg_net` enqueue, not the HTTP status). For **each** worker:
+   - **Receiver check (unambiguous):** call each endpoint with its NEW secret → expect **200**, and
+     with a bogus secret → expect **401** (proves the receiver actually enforces it):
+     ```
+     curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer <RECOVERY value>" https://trophe.app/api/cron/recover-reservations   # expect 200
+     curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer <MEMORY value>"   https://trophe.app/api/internal/memory-worker      # expect 200
+     curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer nope"             https://trophe.app/api/internal/memory-worker      # expect 401
+     ```
+   - **Sender check (scheduled path):** wait at least one `*/5` tick after steps 2–3, then confirm
+     the scheduled calls are clean — no non-200 in the recent window:
+     ```sql
+     select status_code, error_msg, created
+     from net._http_response
+     where created > now() - interval '12 minutes'
+     order by created desc;   -- every row should be 200; investigate any null / 4xx / 5xx
+     ```
+   Only when **both** workers show 200 on their NEW secret from the scheduled path do you proceed.
+
+5. **Remove the shared secret — point of no return.** Delete `CRON_SECRET` from Vercel Production
+   (then redeploy). The code fallback self-disables (the env var becomes `undefined`, so
+   `cronBearerValid` ignores it). There is **no shared `CRON_SECRET` Vault object** to remove — the
+   recovery sender uses `recovery_cron_secret` in Vault, the memory sender uses `app_scheduler_secrets`.
+
+**Rollback.** Until step 5, rollback is trivial: the receivers still accept the shared `CRON_SECRET`,
+so reverting a sender (restore the prior Vault value via `vault.update_secret`, or the prior
+`app_scheduler_secrets` row value) — or a Vercel per-worker var — brings the worker back to green with
+no gap. After step 5, if a worker 401s, the fast recovery is to re-add `CRON_SECRET` to Vercel (and
+redeploy; receivers accept it again immediately) and set that worker's sender back to that value, then
+retry the rotation.
+
+**Residual risk.** The memory worker's secret lives **plaintext** in `app_scheduler_secrets.value`
+(RLS-enabled, `REVOKE`d from `anon`/`authenticated`, reachable only by the SECURITY DEFINER function
+and the DB owner / service role) — unlike the recovery secret, which is encrypted in Vault. A future
+hardening could move the memory secret into Vault and have `run_memory_queue_worker()` read
+`vault.decrypted_secrets('memory_worker')`, converging the two mechanisms.
