@@ -28,6 +28,7 @@
  * RUN:  E2E_SUPABASE_ANON_KEY=… E2E_SUPABASE_SERVICE_KEY=… npx tsx scripts/test/wp1-signup-confirm-e2e.ts
  */
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { readFileSync } from 'node:fs';
 
 const APP = process.env.APP_BASE_URL ?? 'http://127.0.0.1:3000';
 const SB_URL = process.env.E2E_SUPABASE_URL ?? 'http://127.0.0.1:54321';
@@ -51,33 +52,64 @@ function assertLocalOnly() {
   }
 }
 
+/** Parse a Go/GoTrue duration ("1s", "1m0s", "500ms", "0s") to milliseconds. */
+function parseGoDurationMs(s: string): number {
+  let ms = 0; const re = /(\d+(?:\.\d+)?)(ms|s|m|h)/g; let m: RegExpExecArray | null;
+  while ((m = re.exec(s))) { const n = parseFloat(m[1]); ms += m[2] === 'ms' ? n : m[2] === 's' ? n * 1000 : m[2] === 'm' ? n * 60000 : n * 3600000; }
+  return ms;
+}
+/** Wait needed to clear GoTrue's [auth.email].max_frequency same-user resend throttle before the replay.
+ *  Read from supabase/config.toml; a parse miss only ever RAISES the wait (never below a 2s floor). */
+function resendGapMs(): number {
+  let base = 1000;
+  try {
+    const sect = readFileSync('supabase/config.toml', 'utf8').split(/^\[/m).find((s) => s.startsWith('auth.email]'));
+    const m = sect?.match(/^\s*max_frequency\s*=\s*"([^"]+)"/m);
+    if (m) base = Math.max(base, parseGoDurationMs(m[1]));
+  } catch { /* fall through to the floor */ }
+  return base + 1000; // buffer past the window
+}
+/** A 503 from the route on a LOCAL stack is almost always GoTrue throttling the confirmation email. */
+const explain503 = (label: string) => console.error(
+  `  ↳ ${label} returned 503 delivery_failed. On a LOCAL stack this is usually GoTrue throttling the email — ` +
+  `[auth.rate_limit].email_sent (default 2/hour) exhausted, or [auth.email].max_frequency. Restart the stack ` +
+  `(supabase stop && supabase start) and re-run. These are LOCAL limits only — production is unaffected.`);
+
 async function mailpitReachable(): Promise<boolean> {
   try { return (await fetch(`${MAILPIT}/api/v1/messages?limit=1`)).ok; } catch { return false; }
 }
-async function countMessagesTo(email: string): Promise<number> {
-  try {
-    const res = await fetch(`${MAILPIT}/api/v1/search?query=${encodeURIComponent('to:' + email)}`);
-    if (!res.ok) return 0;
-    const j = (await res.json()) as { messages_count?: number; messages?: unknown[] };
-    return j.messages_count ?? j.messages?.length ?? 0;
-  } catch { return 0; }
+/** The Mailpit message IDs addressed to `email`. THROWS on any Mailpit API failure — a swallowed
+ *  error must never read as "no message" (that would false-pass/-fail the identity-based replay proof). */
+async function messageIdsTo(email: string): Promise<Set<string>> {
+  const res = await fetch(`${MAILPIT}/api/v1/search?query=${encodeURIComponent('to:' + email)}`);
+  if (!res.ok) throw new Error(`Mailpit search HTTP ${res.status}`);
+  const j = (await res.json()) as { messages?: Array<{ ID: string }> };
+  return new Set((j.messages ?? []).map((m) => m.ID));
 }
-async function fetchConfirmationLink(email: string): Promise<string | null> {
-  for (let attempt = 0; attempt < 15; attempt++) {
-    try {
-      const res = await fetch(`${MAILPIT}/api/v1/search?query=${encodeURIComponent('to:' + email)}`);
-      if (res.ok) {
-        const msg = ((await res.json()) as { messages?: Array<{ ID: string }> }).messages?.[0];
-        if (msg) {
-          const full = await (await fetch(`${MAILPIT}/api/v1/message/${msg.ID}`)).json() as { HTML?: string; Text?: string };
-          const m = `${full.HTML ?? ''}\n${full.Text ?? ''}`.match(/https?:\/\/[^\s"'<>]+\/auth\/v1\/verify[^\s"'<>]+/);
-          if (m) return m[0].replace(/&amp;/g, '&');
-        }
-      }
-    } catch { /* retry */ }
+/** Poll until ≥1 message is addressed to `email`; return that id set (empty set on timeout). Throws on Mailpit error. */
+async function waitForAnyMessage(email: string, tries = 15): Promise<Set<string>> {
+  for (let i = 0; i < tries; i++) {
+    const ids = await messageIdsTo(email);
+    if (ids.size > 0) return ids;
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+  return new Set();
+}
+/** Poll until a message id NOT in `seen` appears; return it (null on timeout). Throws on Mailpit error. */
+async function waitForNewMessageId(email: string, seen: Set<string>, tries = 15): Promise<string | null> {
+  for (let i = 0; i < tries; i++) {
+    for (const id of await messageIdsTo(email)) if (!seen.has(id)) return id;
     await new Promise((r) => setTimeout(r, 1000));
   }
   return null;
+}
+/** Extract the /auth/v1/verify confirmation link from a SPECIFIC Mailpit message. Throws on Mailpit error. */
+async function confirmationLinkFromMessage(id: string): Promise<string | null> {
+  const res = await fetch(`${MAILPIT}/api/v1/message/${id}`);
+  if (!res.ok) throw new Error(`Mailpit message HTTP ${res.status}`);
+  const full = (await res.json()) as { HTML?: string; Text?: string };
+  const m = `${full.HTML ?? ''}\n${full.Text ?? ''}`.match(/https?:\/\/[^\s"'<>]+\/auth\/v1\/verify[^\s"'<>]+/);
+  return m ? m[0].replace(/&amp;/g, '&') : null;
 }
 async function findUserIdsByEmail(admin: SupabaseClient, email: string): Promise<string[]> {
   const ids: string[] = [];
@@ -168,27 +200,40 @@ async function main() {
 
     const su = await postSignup(email, password, runIp);
     if (su.body.user_id) capturedIds.add(su.body.user_id);
+    if (su.status === 503) explain503('initial signup');
     check(su.status === 202 && su.body.verification_required === true, `(1) signup → 202 verification_required (got ${su.status})`);
 
     const pre = await anon.auth.signInWithPassword({ email, password });
     check(!!pre.error && !pre.data.session, `(2) pre-confirmation login REJECTED (${pre.error?.message ?? 'NO ERROR — hold not enforced!'})`);
 
-    // (3) REPLAY while still UNCONFIRMED — and BEFORE confirming (below). resend(type:signup) only
-    // re-sends a NEW email for an UNCONFIRMED account; once confirmed, GoTrue returns 200 and sends
-    // nothing, so this idempotency proof is structurally unsatisfiable if it runs after confirmation.
-    const before = await countMessagesTo(email);
+    // (3) the INITIAL confirmation email must actually arrive (delivery proof) — capture its id SET first,
+    // so the replay proof below keys on a DISTINCT new message id, not a count delta (a late original
+    // would inflate a count and false-pass). messageIdsTo throws on Mailpit errors → never silent-zero.
+    const initialIds = await waitForAnyMessage(email);
+    check(initialIds.size > 0, `(3) initial confirmation email delivered (${initialIds.size} message[s])`);
+
+    // (4) REPLAY while still UNCONFIRMED (resend(type:signup) re-sends only for an unconfirmed account;
+    // once confirmed at step 6 GoTrue returns 200 and sends nothing). Require the FULL route contract
+    // (202 + verification_required) AND a genuinely new Mailpit message id AND no duplicate Auth user.
+    // GoTrue throttles same-user signup-confirmation resends within [auth.email].max_frequency
+    // (supabase/config.toml; "1s"). Without this wait a fast stack fires the replay <1s after the
+    // initial send → 429 → route 503 → a machine-speed-dependent FALSE-FAIL. Gap is config-derived
+    // with a ≥2s safe floor (a parse miss only ever LENGTHENS the wait).
+    const gap = resendGapMs();
+    console.log(`  … waiting ${gap}ms to clear GoTrue max_frequency before the replay resend`);
+    await new Promise((r) => setTimeout(r, gap));
     const replay = await postSignup(email, password, runIp);
     if (replay.body.user_id) capturedIds.add(replay.body.user_id);
-    check(replay.status === 202, `(3) replay (pre-confirmation) → 202 resend (got ${replay.status})`);
-    let after = before;
-    for (let i = 0; i < 15 && after <= before; i++) { await new Promise((r) => setTimeout(r, 1000)); after = await countMessagesTo(email); }
-    check(after > before, `(3) replay delivered a NEW confirmation email (${before} → ${after})`);
-    check((await findUserIdsByEmail(admin, email)).length === 1, '(3) exactly ONE Auth user — no duplicate (paginated)');
+    if (replay.status === 503) explain503('replay signup');
+    check(replay.status === 202 && replay.body.verification_required === true, `(4) replay (pre-confirmation) → 202 verification_required (got ${replay.status})`);
+    const newId = await waitForNewMessageId(email, initialIds);
+    check(!!newId, '(4) replay delivered a NEW confirmation email (distinct Mailpit message id)');
+    check((await findUserIdsByEmail(admin, email)).length === 1, '(4) exactly ONE Auth user — no duplicate (paginated)');
 
-    // (4) confirm via the LATEST verify link (the replay rotates the token; Mailpit returns newest-first,
-    // and the no-error assertion below fails loud if a stale/invalid token is followed instead).
-    const link = await fetchConfirmationLink(email);
-    check(!!link, '(4) confirmation email delivered + verify link found');
+    // (5) confirm via the link from THAT new replay message (the replay rotates the token → the new
+    // message holds the valid one; the no-error assertion fails loud if a stale/invalid token is followed).
+    const link = newId ? await confirmationLinkFromMessage(newId) : null;
+    check(!!link, '(5) verify link extracted from the replay confirmation email');
     if (link) {
       const r = await fetch(link, { redirect: 'manual' });
       const loc = r.headers.get('location') ?? '';
@@ -203,14 +248,14 @@ async function main() {
           && u.searchParams.get('confirmed') === '1'        // EXACT flag (success may append ?code / #tokens — fine)
           && !hasError;                                     // a GoTrue verify FAILURE also lands on /login?confirmed=1 + error — reject it
       } catch { exact = false; }
-      check(exact, `(4) verify link redirects to ${expectedRedirect} with NO error (status ${r.status}, location ${loc || 'none'})`);
+      check(exact, `(5) verify link redirects to ${expectedRedirect} with NO error (status ${r.status}, location ${loc || 'none'})`);
     } else {
-      skip('(4b) redirect assertion — no verify link to follow');
+      skip('(5b) redirect assertion — no verify link to follow');
     }
 
-    // (5) post-confirmation login now SUCCEEDS — proves the link actually confirmed the account.
+    // (6) post-confirmation login now SUCCEEDS — proves the link actually confirmed the account.
     const post = await anon.auth.signInWithPassword({ email, password });
-    check(!post.error && !!post.data.session, `(5) post-confirmation login SUCCEEDS (${post.error?.message ?? 'session established'})`);
+    check(!post.error && !!post.data.session, `(6) post-confirmation login SUCCEEDS (${post.error?.message ?? 'session established'})`);
   } finally {
     cleanupOk = await cleanupByEmail(admin, email, capturedIds, rateKey);
   }
