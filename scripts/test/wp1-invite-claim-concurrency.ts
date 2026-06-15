@@ -9,6 +9,7 @@ import { Pool } from 'pg';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { recoverOrphanReservations, type RecoveryDb, type AuthReconciler } from '@/lib/recovery/reservation-recovery';
 
 const url = process.env.TEST_DATABASE_URL;
 if (!url) { console.error('TEST_DATABASE_URL required'); process.exit(2); }
@@ -238,6 +239,35 @@ async function main() {
   const lzB = (await pool.query('SELECT * FROM claim_orphan_for_recovery(50,120)')).rows.find(o => o.reservation_id === c22d.reservation_id);
   ok(await one('SELECT cancel_recovering_reservation($1,$2) ok', [c22d.reservation_id, lzA.recovery_token]).then(r => r.ok) === false, '(3) old token after reassignment → rejected');
   ok(await one('SELECT cancel_recovering_reservation($1,$2) ok', [c22d.reservation_id, lzB.recovery_token]).then(r => r.ok) === true, '(1+4) current unexpired token → succeeds');
+
+  console.log('T24: recovery WORKER (mock Auth) — delete+cancel, missing-user, transient-retry, pre-attach tag');
+  const recoveryDb: RecoveryDb = {
+    claimOrphans: (l, s) => pool.query('SELECT * FROM claim_orphan_for_recovery($1,$2)', [l, s]).then(r => r.rows),
+    cancelRecovering: (id, tok) => pool.query('SELECT cancel_recovering_reservation($1,$2) ok', [id, tok]).then(r => r.rows[0].ok),
+  };
+  const deleted: string[] = [];
+  // (a) attached orphan → delete by user_id + cancel
+  await newBeta('T24'); const c24 = await claimBeta('T24', randomUUID()); const u24 = randomUUID(); await attach(c24.reservation_id, u24);
+  await pool.query(`UPDATE invite_reservations SET expires_at=now()-interval '1 min' WHERE id=$1`, [c24.reservation_id]);
+  const okAuth: AuthReconciler = { deleteUser: async (id) => { deleted.push(id); }, findUserIdByReservation: async () => null };
+  await recoverOrphanReservations(recoveryDb, okAuth);
+  ok(deleted.includes(u24) && await resStatus(c24.reservation_id) === 'cancelled' && await usedCount('T24') === 0, '(a) attached orphan: Auth deleted + reservation cancelled + slot freed');
+  // (b) missing Auth user (idempotent delete resolves) → still cancels
+  await newBeta('T24b'); const c24b = await claimBeta('T24b', randomUUID()); const u24b = randomUUID(); await attach(c24b.reservation_id, u24b);
+  await pool.query(`UPDATE invite_reservations SET expires_at=now()-interval '1 min' WHERE id=$1`, [c24b.reservation_id]);
+  await recoverOrphanReservations(recoveryDb, { deleteUser: async () => {}, findUserIdByReservation: async () => null });
+  ok(await resStatus(c24b.reservation_id) === 'cancelled', '(b) missing Auth user → still cancels');
+  // (c) transient Auth failure → left 'recovering' for retry (NOT cancelled)
+  await newBeta('T24c'); const c24c = await claimBeta('T24c', randomUUID()); const u24c = randomUUID(); await attach(c24c.reservation_id, u24c);
+  await pool.query(`UPDATE invite_reservations SET expires_at=now()-interval '1 min' WHERE id=$1`, [c24c.reservation_id]);
+  const r24c = await recoverOrphanReservations(recoveryDb, { deleteUser: async () => { throw new Error('429 transient'); }, findUserIdByReservation: async () => null });
+  ok(r24c.errors === 1 && await resStatus(c24c.reservation_id) === 'recovering', '(c) transient Auth failure → left recovering for retry');
+  // (d) pre-attach crash: user_id NULL → found by reservation tag, deleted + cancelled
+  await newBeta('T24d'); const c24d = await claimBeta('T24d', randomUUID()); // never attached
+  await pool.query(`UPDATE invite_reservations SET expires_at=now()-interval '1 min' WHERE id=$1`, [c24d.reservation_id]);
+  const tagged = randomUUID();
+  await recoverOrphanReservations(recoveryDb, { deleteUser: async (id) => { deleted.push(id); }, findUserIdByReservation: async (rid) => rid === c24d.reservation_id ? tagged : null });
+  ok(deleted.includes(tagged) && await resStatus(c24d.reservation_id) === 'cancelled', '(d) pre-attach orphan found by tag → deleted + cancelled');
 
   console.log('T23: PERMISSIONS — all 11 RPCs: anon/auth DENIED, service_role allowed');
   const fns = ['claim_beta_invite(text,uuid,text)', 'claim_client_invite(uuid,uuid,text)', 'claim_ordinary_signup(uuid,uuid,text)',
