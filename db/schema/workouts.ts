@@ -33,8 +33,8 @@ export const exercises = pgTable('exercises', {
   index('idx_exercises_muscle').using('btree', table.muscleGroup.asc().nullsLast().op('text_ops')),
   foreignKey({ columns: [table.createdBy], foreignColumns: [profiles.id], name: 'exercises_created_by_fkey' }),
   pgPolicy('All see template exercises', { as: 'permissive', for: 'select', to: ['authenticated'], using: sql`(is_template = true)` }),
-  pgPolicy('Users see own exercises', { as: 'permissive', for: 'select', to: ['authenticated'] }),
-  pgPolicy('Users create exercises', { as: 'permissive', for: 'insert', to: ['authenticated'] }),
+  pgPolicy('Users see own exercises', { as: 'permissive', for: 'select', to: ['authenticated'], using: sql`(created_by = auth.uid())` }),
+  pgPolicy('Users create exercises', { as: 'permissive', for: 'insert', to: ['authenticated'], withCheck: sql`(created_by = auth.uid())` }),
   check('exercises_muscle_group_check', sql`muscle_group = ANY (ARRAY['chest'::text, 'back'::text, 'shoulders'::text, 'biceps'::text, 'triceps'::text, 'forearms'::text, 'quads'::text, 'hamstrings'::text, 'glutes'::text, 'calves'::text, 'core'::text, 'full_body'::text, 'cardio'::text])`),
 ]);
 
@@ -52,8 +52,9 @@ export const workoutTemplates = pgTable('workout_templates', {
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
 }, (table) => [
   foreignKey({ columns: [table.createdBy], foreignColumns: [profiles.id], name: 'workout_templates_created_by_fkey' }),
-  pgPolicy('Coaches manage own templates', { as: 'permissive', for: 'all', to: ['authenticated'], using: sql`(created_by = auth.uid())` }),
-  pgPolicy('Clients see shared templates', { as: 'permissive', for: 'select', to: ['authenticated'] }),
+  pgPolicy('Coaches manage own templates', { as: 'permissive', for: 'all', to: ['authenticated'],
+    using: sql`(created_by = auth.uid())`, withCheck: sql`(created_by = auth.uid())` }),
+  pgPolicy('Clients see shared templates', { as: 'permissive', for: 'select', to: ['authenticated'], using: sql`(shared = true)` }),
   check('workout_templates_difficulty_check', sql`difficulty = ANY (ARRAY['beginner'::text, 'intermediate'::text, 'advanced'::text])`),
 ]);
 
@@ -71,8 +72,9 @@ export const workoutSessions = pgTable('workout_sessions', {
 }, (table) => [
   index('idx_workout_sessions_user').using('btree', table.userId.asc().nullsLast().op('uuid_ops'), table.sessionDate.asc().nullsLast().op('date_ops')),
   foreignKey({ columns: [table.userId], foreignColumns: [profiles.id], name: 'workout_sessions_user_id_fkey' }).onDelete('cascade'),
-  pgPolicy('Users manage own sessions', { as: 'permissive', for: 'all', to: ['authenticated'], using: sql`(user_id = auth.uid())` }),
-  pgPolicy('Coaches view client sessions', { as: 'permissive', for: 'select', to: ['authenticated'] }),
+  pgPolicy('Users manage own sessions', { as: 'permissive', for: 'all', to: ['authenticated'],
+    using: sql`(user_id = auth.uid())`, withCheck: sql`(user_id = auth.uid())` }),
+  pgPolicy('Coaches view client sessions', { as: 'permissive', for: 'select', to: ['authenticated'], using: sql`private.is_coach_of(user_id)` }),
 ]);
 
 /** Individual sets within a workout session. */
@@ -96,8 +98,14 @@ export const workoutSets = pgTable('workout_sets', {
   pgPolicy('Users manage own sets', { as: 'permissive', for: 'all', to: ['authenticated'],
     using: sql`(session_id IN ( SELECT workout_sessions.id
    FROM workout_sessions
+  WHERE (workout_sessions.user_id = auth.uid())))`,
+    withCheck: sql`(session_id IN ( SELECT workout_sessions.id
+   FROM workout_sessions
   WHERE (workout_sessions.user_id = auth.uid())))` }),
-  pgPolicy('Coaches view client sets', { as: 'permissive', for: 'select', to: ['authenticated'] }),
+  pgPolicy('Coaches view client sets', { as: 'permissive', for: 'select', to: ['authenticated'], using: sql`(session_id IN (
+      SELECT workout_sessions.id FROM workout_sessions
+      WHERE private.is_coach_of(workout_sessions.user_id)
+    ))` }),
 ]);
 
 /** AI form-check analysis stored per rep set. */
@@ -118,6 +126,7 @@ export const formAnalyses = pgTable('form_analyses', {
   foreignKey({ columns: [table.exerciseId], foreignColumns: [exercises.id], name: 'form_analyses_exercise_id_fkey' }),
   foreignKey({ columns: [table.sessionId], foreignColumns: [workoutSessions.id], name: 'form_analyses_session_id_fkey' }),
   foreignKey({ columns: [table.userId], foreignColumns: [profiles.id], name: 'form_analyses_user_id_fkey' }).onDelete('cascade'),
-  pgPolicy('Users manage own form analyses', { as: 'permissive', for: 'all', to: ['authenticated'], using: sql`(user_id = auth.uid())` }),
-  pgPolicy('Coaches view client form analyses', { as: 'permissive', for: 'select', to: ['authenticated'] }),
+  pgPolicy('Users manage own form analyses', { as: 'permissive', for: 'all', to: ['authenticated'],
+    using: sql`(user_id = auth.uid())`, withCheck: sql`(user_id = auth.uid())` }),
+  pgPolicy('Coaches view client form analyses', { as: 'permissive', for: 'select', to: ['authenticated'], using: sql`private.is_coach_of(user_id)` }),
 ]);

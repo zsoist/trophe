@@ -41,7 +41,9 @@ export const mealPlanEntries = pgTable('meal_plan_entries', {
   unique('meal_plan_entries_client_id_day_of_week_meal_slot_key').on(table.clientId, table.dayOfWeek, table.mealSlot),
   check('meal_plan_entries_day_of_week_check', sql`day_of_week BETWEEN 0 AND 6`),
   check('meal_plan_entries_meal_slot_check', sql`meal_slot = ANY (ARRAY['breakfast'::text, 'snack1'::text, 'lunch'::text, 'snack2'::text, 'dinner'::text])`),
-  pgPolicy('meal_plan_coach_all', { as: 'permissive', for: 'all', to: ['authenticated'], using: sql`coach_id = (SELECT auth.uid()) AND private.is_coach_of(client_id)` }),
+  pgPolicy('meal_plan_coach_all', { as: 'permissive', for: 'all', to: ['authenticated'],
+    using: sql`coach_id = (SELECT auth.uid()) AND private.is_coach_of(client_id)`,
+    withCheck: sql`coach_id = (SELECT auth.uid()) AND private.is_coach_of(client_id)` }),
   pgPolicy('meal_plan_client_select', { as: 'permissive', for: 'select', to: ['authenticated'], using: sql`client_id = (SELECT auth.uid())` }),
 ]);
 

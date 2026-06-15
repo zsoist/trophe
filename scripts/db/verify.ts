@@ -229,6 +229,31 @@ withPool(config, async (pool) => {
   }
   report.rls_posture = ['all_public_tables_enabled', 'all_permissive_policies_predicated'];
 
+  const publicPolicies = await pool.query<{ policy: string }>(`
+    SELECT tablename || ':' || policyname AS policy
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND 'public' = ANY(roles)
+    ORDER BY 1;
+  `);
+  if (publicPolicies.rowCount !== 0) {
+    throw new Error(`policies still granted TO public: ${publicPolicies.rows.map((row) => row.policy).join(', ')}`);
+  }
+  report.no_public_policies = ['ok'];
+
+  const anonGrants = await pool.query<{ grant: string }>(`
+    SELECT table_name || ':' || privilege_type AS grant
+    FROM information_schema.role_table_grants
+    WHERE table_schema = 'public'
+      AND grantee = 'anon'
+      AND NOT (table_name = 'food_database' AND privilege_type = 'SELECT')
+    ORDER BY 1;
+  `);
+  if (anonGrants.rowCount !== 0) {
+    throw new Error(`unexpected anon table grants: ${anonGrants.rows.map((row) => row.grant).join(', ')}`);
+  }
+  report.anon_grant_allowlist = ['food_database:SELECT'];
+
   writeArtifact('verify.json', JSON.stringify(report, null, 2));
   console.log('Verified DB schema, policies, functions, and index inventory.');
 }).catch((error) => {

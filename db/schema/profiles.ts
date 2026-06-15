@@ -49,12 +49,14 @@ export const profiles = pgTable('profiles', {
   // TO authenticated (not public/anon) + private.is_super_admin — matches the
   // hardened SQL migration 0008. The TS source previously drifted to TO public.
   pgPolicy('Users can view own profile', { as: 'permissive', for: 'select', to: ['authenticated'], using: sql`(auth.uid() = id)` }),
-  pgPolicy('Users can update own profile', { as: 'permissive', for: 'update', to: ['authenticated'] }),
-  pgPolicy('Users can insert own profile', { as: 'permissive', for: 'insert', to: ['authenticated'] }),
-  pgPolicy('Coaches can view client profiles', { as: 'permissive', for: 'select', to: ['authenticated'] }),
+  pgPolicy('Users can update own profile', { as: 'permissive', for: 'update', to: ['authenticated'],
+    using: sql`(auth.uid() = id)`, withCheck: sql`(auth.uid() = id)` }),
+  pgPolicy('Users can insert own profile', { as: 'permissive', for: 'insert', to: ['authenticated'], withCheck: sql`(auth.uid() = id)` }),
+  pgPolicy('Coaches can view client profiles', { as: 'permissive', for: 'select', to: ['authenticated'], using: sql`private.is_coach_of(id)` }),
   /** Phase 1: super_admin and admin can see all profiles. */
   pgPolicy('Super admin full profile access', { as: 'permissive', for: 'all', to: ['authenticated'],
-    using: sql`(SELECT private.is_super_admin())` }),
+    using: sql`(SELECT private.is_super_admin())`,
+    withCheck: sql`(SELECT private.is_super_admin())` }),
   check('profiles_language_check', sql`language = ANY (ARRAY['en'::text, 'es'::text, 'el'::text, 'fr'::text, 'de'::text, 'it'::text, 'pt'::text, 'nl'::text])`),
 ]);
 
@@ -128,9 +130,12 @@ export const clientProfiles = pgTable('client_profiles', {
     name: 'client_profiles_user_id_fkey',
   }).onDelete('cascade'),
   unique('client_profiles_user_id_key').on(table.userId),
-  pgPolicy('Users can manage own client_profile', { as: 'permissive', for: 'all', to: ['authenticated'], using: sql`(user_id = auth.uid())` }),
-  pgPolicy('Coaches can view assigned clients', { as: 'permissive', for: 'select', to: ['authenticated'] }),
-  pgPolicy('Coaches can update assigned clients', { as: 'permissive', for: 'update', to: ['authenticated'] }),
+  pgPolicy('Users can manage own client_profile', { as: 'permissive', for: 'all', to: ['authenticated'],
+    using: sql`(user_id = auth.uid())`, withCheck: sql`(user_id = auth.uid())` }),
+  pgPolicy('Coaches can view assigned clients', { as: 'permissive', for: 'select', to: ['authenticated'], using: sql`private.is_coach_of(user_id)` }),
+  pgPolicy('Coaches can update assigned clients', { as: 'permissive', for: 'update', to: ['authenticated'],
+    using: sql`private.is_coach_of(user_id)`,
+    withCheck: sql`private.is_coach_of(user_id)` }),
   check('client_profiles_activity_level_check', sql`activity_level = ANY (ARRAY['sedentary'::text, 'light'::text, 'moderate'::text, 'active'::text, 'very_active'::text])`),
   check('client_profiles_coaching_phase_check', sql`coaching_phase = ANY (ARRAY['onboarding'::text, 'active'::text, 'maintenance'::text])`),
   check('client_profiles_goal_check', sql`goal = ANY (ARRAY['fat_loss'::text, 'muscle_gain'::text, 'maintenance'::text, 'recomp'::text, 'endurance'::text, 'health'::text])`),
