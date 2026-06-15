@@ -26,6 +26,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_reservation_idem_live
   ON public.invite_reservations (invite_id, idempotency_key) WHERE status IN ('reserved','completed','recovering');
 CREATE UNIQUE INDEX IF NOT EXISTS uq_client_invite_live_claim
   ON public.invite_reservations (invite_id) WHERE invite_type = 'client' AND status IN ('reserved','completed','recovering');
+-- ordinary signup: at most ONE live reservation per identity (invite_id = pseudo-id
+-- the route derives from the normalised email), so different retry keys converge.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_ordinary_live_claim
+  ON public.invite_reservations (invite_id) WHERE invite_type = 'ordinary' AND status IN ('reserved','completed','recovering');
 CREATE INDEX IF NOT EXISTS idx_invite_reservations_sweep
   ON public.invite_reservations (status, expires_at);
 
@@ -91,7 +95,7 @@ BEGIN
     SELECT * INTO v_live FROM public.invite_reservations
      WHERE invite_id = v_inv.id AND idempotency_key = p_idem AND status IN ('reserved','completed','recovering') FOR UPDATE;
     IF v_live.id IS NULL THEN RETURN QUERY SELECT NULL::uuid, NULL::uuid, NULL::uuid, 'exhausted', NULL::uuid; RETURN; END IF;
-    IF v_live.request_fingerprint <> p_fingerprint THEN RETURN QUERY SELECT NULL::uuid, NULL::uuid, NULL::uuid, 'conflict', NULL::uuid; RETURN; END IF;
+    IF v_live.request_fingerprint <> p_fingerprint OR v_live.status = 'recovering' THEN RETURN QUERY SELECT NULL::uuid, NULL::uuid, NULL::uuid, 'conflict', NULL::uuid; RETURN; END IF;
     IF v_live.status = 'completed' THEN RETURN QUERY SELECT v_live.id, v_inv.id, v_inv.coach_id, 'replayed_completed', v_live.user_id; RETURN; END IF;
     RETURN QUERY SELECT v_live.id, v_inv.id, v_inv.coach_id, 'replayed_reserved', v_live.user_id;
   END;
@@ -105,19 +109,19 @@ RETURNS TABLE (reservation_id uuid, outcome text, res_user_id uuid)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public AS $$
 DECLARE v_res public.invite_reservations%ROWTYPE; v_live public.invite_reservations%ROWTYPE;
 BEGIN
-  INSERT INTO public.invite_reservations (invite_type, invite_id, idempotency_key, request_fingerprint, status)
-  VALUES ('ordinary', p_pseudo_invite, p_idem, p_fingerprint, 'reserved')
-  ON CONFLICT (invite_id, idempotency_key) WHERE status IN ('reserved','completed','recovering') DO NOTHING
-  RETURNING * INTO v_res;
-  IF v_res.id IS NULL THEN
+  BEGIN
+    INSERT INTO public.invite_reservations (invite_type, invite_id, idempotency_key, request_fingerprint, status)
+    VALUES ('ordinary', p_pseudo_invite, p_idem, p_fingerprint, 'reserved') RETURNING * INTO v_res;
+    RETURN QUERY SELECT v_res.id, 'claimed', NULL::uuid; RETURN;
+  EXCEPTION WHEN unique_violation THEN
+    -- Either our key (idempotency) or another live signup for this identity (one-live).
     SELECT * INTO v_live FROM public.invite_reservations
      WHERE invite_id = p_pseudo_invite AND idempotency_key = p_idem AND status IN ('reserved','completed','recovering') FOR UPDATE;
-    IF v_live.request_fingerprint <> p_fingerprint THEN RETURN QUERY SELECT NULL::uuid, 'conflict', NULL::uuid; RETURN; END IF;
+    IF v_live.id IS NULL THEN RETURN QUERY SELECT NULL::uuid, 'conflict', NULL::uuid; RETURN; END IF; -- different key, same identity
+    IF v_live.request_fingerprint <> p_fingerprint OR v_live.status = 'recovering' THEN RETURN QUERY SELECT NULL::uuid, 'conflict', NULL::uuid; RETURN; END IF;
     IF v_live.status = 'completed' THEN RETURN QUERY SELECT v_live.id, 'replayed_completed', v_live.user_id; RETURN; END IF;
-    IF v_live.status = 'recovering' THEN RETURN QUERY SELECT NULL::uuid, 'conflict', NULL::uuid; RETURN; END IF;
-    RETURN QUERY SELECT v_live.id, 'replayed_reserved', v_live.user_id; RETURN;
-  END IF;
-  RETURN QUERY SELECT v_res.id, 'claimed', NULL::uuid;
+    RETURN QUERY SELECT v_live.id, 'replayed_reserved', v_live.user_id;
+  END;
 END; $$;
 
 -- ── attach_reservation_user: compare-and-set (cannot overwrite a different user) ──
@@ -206,15 +210,19 @@ BEGIN
   RETURN true;
 END; $$;
 
--- ── sweep: free expired UNATTACHED reservations (no orphan Auth user) ─────────
-CREATE OR REPLACE FUNCTION public.expire_stale_invite_reservations()
-RETURNS integer LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public AS $$
-DECLARE v_id uuid; v_count int := 0;
+-- ── cancel_recovering_reservation: the worker cancels a LEASED reservation after it
+--    has reconciled the external Auth user (deleted it if present). The recovery lease
+--    is the worker's ownership; this frees the slot. There is NO blind sweep — every
+--    expired reservation is leased via claim_orphan_for_recovery and reconciled first. ──
+CREATE OR REPLACE FUNCTION public.cancel_recovering_reservation(p_reservation_id uuid)
+RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public AS $$
+DECLARE v_res public.invite_reservations%ROWTYPE;
 BEGIN
-  FOR v_id IN SELECT id FROM public.invite_reservations
-     WHERE status = 'reserved' AND expires_at < now() AND user_id IS NULL FOR UPDATE SKIP LOCKED
-  LOOP PERFORM public.release_invite_reservation(v_id); v_count := v_count + 1; END LOOP;
-  RETURN v_count;
+  SELECT * INTO v_res FROM public.invite_reservations WHERE id = p_reservation_id AND status = 'recovering' FOR UPDATE;
+  IF NOT FOUND THEN RETURN false; END IF;
+  UPDATE public.invite_reservations SET status = 'cancelled' WHERE id = p_reservation_id;
+  IF v_res.invite_type = 'beta' THEN UPDATE public.beta_invite_codes SET used_count = GREATEST(used_count - 1, 0) WHERE id = v_res.invite_id; END IF;
+  RETURN true;
 END; $$;
 
 -- ── claim_orphan_for_recovery: atomically LEASE expired+attached (or lease-expired
@@ -224,14 +232,18 @@ CREATE OR REPLACE FUNCTION public.claim_orphan_for_recovery(p_limit int DEFAULT 
 RETURNS TABLE (reservation_id uuid, invite_type text, user_id uuid)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public AS $$
 BEGIN
+  IF p_lease_seconds <= 0 THEN RAISE EXCEPTION 'p_lease_seconds must be positive'; END IF;
+  p_limit := LEAST(GREATEST(p_limit, 1), 1000);
+  -- Leases ALL expired reservations (attached OR not): an unattached-expired row may
+  -- still hide a pre-attach orphan Auth user, so the worker must reconcile every one
+  -- against Auth before cancelling. No reservation is ever blind-released.
   RETURN QUERY
   UPDATE public.invite_reservations r
      SET status = 'recovering', recovering_lease_until = now() + make_interval(secs => p_lease_seconds)
    WHERE r.id IN (
      SELECT s.id FROM public.invite_reservations s
-      WHERE s.user_id IS NOT NULL AND (
-        (s.status = 'reserved' AND s.expires_at < now())
-        OR (s.status = 'recovering' AND s.recovering_lease_until < now()))
+      WHERE (s.status = 'reserved' AND s.expires_at < now())
+         OR (s.status = 'recovering' AND s.recovering_lease_until < now())
       ORDER BY s.expires_at
       FOR UPDATE SKIP LOCKED
       LIMIT p_limit)
@@ -252,7 +264,7 @@ BEGIN
     'public.finalize_ordinary_signup(uuid,uuid,text,text,text,jsonb)',
     'public.release_invite_reservation(uuid)',
     'public.cancel_attached_reservation(uuid,uuid)',
-    'public.expire_stale_invite_reservations()',
+    'public.cancel_recovering_reservation(uuid)',
     'public.claim_orphan_for_recovery(int,int)'
   ] LOOP
     EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC', fn);

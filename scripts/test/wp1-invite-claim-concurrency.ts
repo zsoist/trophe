@@ -158,20 +158,36 @@ async function main() {
   await newBeta('T17b'); const c17b = await claimBeta('T17b', randomUUID()); // unattached
   ok(await one('SELECT release_invite_reservation($1) ok', [c17b.reservation_id]).then(r => r.ok) === true && await usedCount('T17b') === 0, 'unattached release → true, slot freed');
 
-  console.log('T18: sweep frees orphan-free expired only');
-  await newBeta('T18'); const c18 = await claimBeta('T18', randomUUID()); // no attach
+  console.log('T18: NO blind sweep — even unattached-expired is LEASED for reconciliation');
+  await newBeta('T18'); const c18 = await claimBeta('T18', randomUUID()); // crashed before auth: user_id NULL
   await pool.query(`UPDATE invite_reservations SET expires_at=now()-interval '1 min' WHERE id=$1`, [c18.reservation_id]);
-  ok((await one('SELECT expire_stale_invite_reservations() n')).n >= 1 && await usedCount('T18') === 0, 'sweep freed orphan-free');
+  const leased18 = (await pool.query('SELECT * FROM claim_orphan_for_recovery(50,120)')).rows;
+  ok(leased18.some(o => o.reservation_id === c18.reservation_id), 'unattached-expired is leased (not blind-released)');
+  ok(await resStatus(c18.reservation_id) === 'recovering' && await one('SELECT cancel_recovering_reservation($1) ok', [c18.reservation_id]).then(r => r.ok) === true && await usedCount('T18') === 0, 'worker reconciles + cancels, slot freed');
+
+  console.log('T18b: ordinary signup converges across retry keys (one live per identity)');
+  const ident = randomUUID();
+  const oa = await claimOrd(ident, randomUUID()); const ob = await claimOrd(ident, randomUUID()); // SAME identity, DIFFERENT keys
+  ok(oa.outcome === 'claimed' && ob.outcome === 'conflict', `2nd key for same identity → conflict (got '${ob.outcome}')`);
+
+  console.log('T18c: recovery rejects non-positive lease');
+  let leaseRejected = false;
+  try { await pool.query('SELECT claim_orphan_for_recovery(50, 0)'); } catch { leaseRejected = true; }
+  ok(leaseRejected, 'claim_orphan_for_recovery(_, 0) raises');
 
   console.log('T19: crash-after-auth recovery — lease → worker cancels');
   await newBeta('T19'); const c19 = await claimBeta('T19', randomUUID()); const u19 = randomUUID(); await attach(c19.reservation_id, u19);
   await pool.query(`UPDATE invite_reservations SET expires_at=now()-interval '1 min' WHERE id=$1`, [c19.reservation_id]);
-  ok((await one('SELECT expire_stale_invite_reservations() n')).n === 0, 'sweep skips attached orphan');
   const leased = (await pool.query('SELECT * FROM claim_orphan_for_recovery(50,120)')).rows;
   ok(leased.some(o => o.reservation_id === c19.reservation_id && o.user_id === u19), 'orphan leased for recovery');
   ok(await resStatus(c19.reservation_id) === 'recovering', 'status → recovering');
   ok(await finBeta(c19.reservation_id, u19) === false, 'finalize on recovering → false (mutual exclusion)');
-  ok(await one('SELECT cancel_attached_reservation($1,$2) ok', [c19.reservation_id, u19]).then(r => r.ok) === true && await usedCount('T19') === 0, 'worker cancels after deleting Auth user, slot freed');
+  ok(await one('SELECT cancel_recovering_reservation($1) ok', [c19.reservation_id]).then(r => r.ok) === true && await usedCount('T19') === 0, 'worker cancels (lease ownership) after deleting Auth user, slot freed');
+  console.log('T19b: synchronous route compensation (cancel_attached_reservation, user match)');
+  await newBeta('T19b'); const c19b = await claimBeta('T19b', randomUUID()); const u19b = randomUUID(); await attach(c19b.reservation_id, u19b);
+  ok(await one('SELECT cancel_attached_reservation($1,$2) ok', [c19b.reservation_id, u19b]).then(r => r.ok) === true && await usedCount('T19b') === 0, 'route deletes Auth user then cancel_attached frees the slot');
+  await newBeta('T19c'); const c19c = await claimBeta('T19c', randomUUID()); await attach(c19c.reservation_id, randomUUID());
+  ok(await one('SELECT cancel_attached_reservation($1,$2) ok', [c19c.reservation_id, randomUUID()]).then(r => r.ok) === false, 'cancel_attached rejects a wrong user');
 
   console.log('T20: recovery vs finalize mutual exclusion (not-expired → finalize wins)');
   await newBeta('T20'); const c20 = await claimBeta('T20', randomUUID()); const u20 = randomUUID(); await attach(c20.reservation_id, u20);
@@ -192,14 +208,14 @@ async function main() {
   await pool.query(`UPDATE invite_reservations SET expires_at=now()-interval '1 min' WHERE id=$1`, [c22.reservation_id]);
   const leased22 = (await pool.query('SELECT * FROM claim_orphan_for_recovery(50,120)')).rows;
   ok(leased22.some(o => o.reservation_id === c22.reservation_id && o.invite_type === 'ordinary'), 'ordinary orphan leased');
-  ok(await one('SELECT cancel_attached_reservation($1,$2) ok', [c22.reservation_id, u22]).then(r => r.ok) === true, 'ordinary orphan cancelled');
+  ok(await one('SELECT cancel_recovering_reservation($1) ok', [c22.reservation_id]).then(r => r.ok) === true, 'ordinary orphan cancelled (worker)');
 
   console.log('T23: PERMISSIONS — all 11 RPCs: anon/auth DENIED, service_role allowed');
   const fns = ['claim_beta_invite(text,uuid,text)', 'claim_client_invite(uuid,uuid,text)', 'claim_ordinary_signup(uuid,uuid,text)',
     'attach_reservation_user(uuid,uuid)', 'finalize_beta_signup(uuid,uuid,text,text,text,jsonb)',
     'finalize_client_activation(uuid,uuid,text,text,text,jsonb)', 'finalize_ordinary_signup(uuid,uuid,text,text,text,jsonb)',
     'release_invite_reservation(uuid)', 'cancel_attached_reservation(uuid,uuid)',
-    'expire_stale_invite_reservations()', 'claim_orphan_for_recovery(int,int)'];
+    'cancel_recovering_reservation(uuid)', 'claim_orphan_for_recovery(int,int)'];
   for (const fn of fns) {
     const a = (await one(`SELECT has_function_privilege('anon','public.${fn}','EXECUTE') p`)).p;
     const au = (await one(`SELECT has_function_privilege('authenticated','public.${fn}','EXECUTE') p`)).p;
