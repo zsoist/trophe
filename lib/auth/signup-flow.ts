@@ -36,8 +36,12 @@ export interface SignupAuth {
 
 export interface SignupDb {
   attachUser(reservationId: string, userId: string): Promise<'attached' | 'conflict' | 'gone'>;
-  /** cancel_reservation_for_route: userId=null → unattached release; else user-matched. */
+  /** cancel_reservation_for_route: userId=null → unattached release; else user-matched.
+   *  Returns true ONLY if it actually cancelled (the row was still 'reserved' and ours). */
   cancelForRoute(reservationId: string, userId: string | null): Promise<boolean>;
+  /** Current reservation status + attached user — to disambiguate a finalize/attach
+   *  failure (genuine failure vs a concurrent sibling that already completed our user). */
+  reservationState(reservationId: string): Promise<{ status: string; userId: string | null }>;
 }
 
 export type SignupReason =
@@ -115,28 +119,37 @@ export async function runReservedSignup(
     userId = claim.resUserId!; // resume: reuse the prior attempt's attached user
   }
 
+  // Resolve an ambiguous post-create failure WITHOUT destroying a winning account. attach
+  // 'gone' / finalize false are BOTH ambiguous under concurrency: a sibling request that
+  // resumed THIS SAME user may have already completed the reservation. Re-check before any
+  // destructive compensation, and delete ONLY a user we can prove is orphaned.
+  const resolveFailure = async (didAttach: boolean, reason: SignupReason): Promise<SignupOutcome> => {
+    const state = await db.reservationState(reservationId);
+    if (state.status === 'completed' && state.userId === userId) {
+      // A concurrent finalizer already completed with OUR user — idempotent success, never
+      // delete it (the bug: the losing finalizer must not delete the winning account).
+      if (!(await auth.enableUser(userId))) return { ok: false, status: 500, reason: 'enable_failed', userId };
+      return { ok: true, status: 200, reason: createdHere ? 'created' : 'resumed', userId };
+    }
+    if (createdHere) {
+      // Delete ONLY a user we can PROVE is orphaned: cancel succeeds ⇒ the row was still
+      // ours ('reserved' + our user, or unattached) ⇒ genuine orphan. If the row completed
+      // under a DIFFERENT user, our user is a stray ⇒ also safe to delete. Otherwise
+      // (recovering / ambiguous) leave the tagged user to the recovery worker.
+      const cancelled = await db.cancelForRoute(reservationId, didAttach ? userId : null).catch(() => false);
+      if (cancelled || (state.status === 'completed' && state.userId !== userId)) {
+        await auth.deleteUser(userId).catch((e) => log(`compensating delete failed: ${e}`));
+      }
+    }
+    return { ok: false, status: 409, reason };
+  };
+
   // ── Attach (compare-and-set) ─────────────────────────────────────────────
   const attached = await db.attachUser(reservationId, userId);
-  if (attached !== 'attached') {
-    // 'conflict' = a different user already owns this reservation; 'gone' = expired/cancelled.
-    // Only clean up a user WE created here; a resumed user belongs to the reservation and is
-    // left to the recovery worker (which owns an expired/recovering row).
-    if (createdHere) {
-      await auth.deleteUser(userId).catch((e) => log(`delete after attach=${attached} failed: ${e}`));
-      await db.cancelForRoute(reservationId, null).catch(() => {}); // best-effort release; no-op if not 'reserved'
-    }
-    return { ok: false, status: 409, reason: attached === 'conflict' ? 'conflict' : 'retry' };
-  }
+  if (attached !== 'attached') return resolveFailure(false, attached === 'conflict' ? 'conflict' : 'retry');
 
   // ── Finalize (atomic profile/consent + reserved→completed) ────────────────
-  const finalized = await finalize(reservationId, userId);
-  if (!finalized) {
-    if (createdHere) {
-      await auth.deleteUser(userId).catch((e) => log(`delete after finalize=false failed: ${e}`));
-      await db.cancelForRoute(reservationId, userId).catch(() => {}); // attached compensation (tombstoned)
-    }
-    return { ok: false, status: 409, reason: 'retry' };
-  }
+  if (!(await finalize(reservationId, userId))) return resolveFailure(true, 'retry');
 
   // ── Enable: lift the ban + confirm. finalize already committed, so a failure here is
   //    NOT a success — surface it so the caller can retry/alert (the account is in limbo). ─

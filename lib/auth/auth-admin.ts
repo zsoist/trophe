@@ -97,8 +97,9 @@ export function buildAuthReconciler(service: SupabaseClient): AuthReconciler & C
     // in-request post-finalize enable failed). Safe on an already-enabled user. This is
     // the §2 reconciliation backstop, invoked by the completed sweep before it seals.
     async ensureEnabled(userId) {
-      const { error } = await service.auth.admin.updateUserById(userId, { ban_duration: 'none', email_confirm: true });
-      return !error;
+      // Only re-enable a PROVISIONING-pending user (heals the finalize-committed-but-banned
+      // limbo). Never lifts an administrative ban on an already-provisioned account.
+      return (await enableIfProvisioning(service, userId)) !== 'error';
     },
     // Delete every carrier of reservationId EXCEPT the legitimate finalized user, then
     // prove no stray remains. Used for the COMPLETED terminal (the kept user lives on).
@@ -148,6 +149,28 @@ export function buildAuthReconciler(service: SupabaseClient): AuthReconciler & C
 const isEmailExists = (e: { code?: string; status?: number; message?: string } | null) =>
   !!e && (e.code === 'email_exists' || /already.*regist|already.*exist|email.*exist/i.test(e.message ?? ''));
 
+/**
+ * Lift the PROVISIONING ban only. A user is created banned with app_metadata.provisioning
+ * = true; finalize's enable flips it to false. So an account that is banned WITHOUT
+ * provisioning:true is under an ADMINISTRATIVE/governance ban — a replay or the recovery
+ * worker must NOT undo it. 'enabled' = was provisioning-pending, now unbanned+confirmed+
+ * cleared; 'skip' = not provisioning-pending (admin ban left intact, or already enabled);
+ * 'error' = transient failure (retry). reservation_id is preserved (recovery needs the tag).
+ */
+async function enableIfProvisioning(service: SupabaseClient, userId: string): Promise<'enabled' | 'skip' | 'error'> {
+  const { data, error } = await service.auth.admin.getUserById(userId);
+  if (error) return isMissingUser(error) ? 'skip' : 'error';
+  const u = data?.user;
+  if (!u) return 'skip';
+  const am = (u.app_metadata ?? {}) as { reservation_id?: string; provisioning?: boolean };
+  if (am.provisioning !== true) return 'skip'; // NOT provisioning-pending → never lift an admin ban
+  const { error: upErr } = await service.auth.admin.updateUserById(userId, {
+    ban_duration: 'none', email_confirm: true,
+    app_metadata: { reservation_id: am.reservation_id, provisioning: false }, // clear flag, keep the tag
+  });
+  return upErr ? 'error' : 'enabled';
+}
+
 /** SignupAuth backed by the Supabase Auth Admin API (WP1 part 2). */
 export function buildSignupAuth(service: SupabaseClient): SignupAuth {
   return {
@@ -156,7 +179,10 @@ export function buildSignupAuth(service: SupabaseClient): SignupAuth {
         email, password,
         email_confirm: false,            // unconfirmed until finalize (no pre-finalize login)
         ban_duration: BAN_UNTIL_FINALIZED,
-        app_metadata: appMetadata,       // TRUSTED tag — only the service role can write this
+        // TRUSTED, service-role-only metadata. provisioning:true marks this ban as the
+        // signup hold — only such bans may be auto-lifted (an admin ban set later has no
+        // provisioning flag and is never undone by enable/replay/worker).
+        app_metadata: { ...appMetadata, provisioning: true },
         user_metadata: userMetadata,
       });
       if (error || !data?.user) return { userId: null, emailExists: isEmailExists(error), error: error?.message };
@@ -167,13 +193,13 @@ export function buildSignupAuth(service: SupabaseClient): SignupAuth {
       if (error && !isMissingUser(error)) throw new Error(`deleteUser: ${error.message}`); // idempotent on missing
     },
     async enableUser(userId) {
-      // Bounded idempotent retry — updateUserById(unban + confirm) is safe to repeat, so a
-      // transient blip on this post-finalize hop doesn't strand a provisioned account. The
-      // recovery worker's completed pass (ensureEnabled) is the durable backstop if all fail.
+      // Bounded idempotent retry — lift only the PROVISIONING ban (enableIfProvisioning
+      // never touches an administrative ban). Safe to repeat, so a transient blip on this
+      // post-finalize hop doesn't strand a provisioned account; the recovery worker's
+      // completed pass is the durable backstop if all attempts fail.
       for (let attempt = 0; attempt < 3; attempt++) {
         if (attempt > 0) await new Promise((r) => setTimeout(r, attempt * 150));
-        const { error } = await service.auth.admin.updateUserById(userId, { ban_duration: 'none', email_confirm: true });
-        if (!error) return true;
+        if ((await enableIfProvisioning(service, userId)) !== 'error') return true; // 'enabled' or 'skip'
       }
       return false;
     },
@@ -192,6 +218,12 @@ export function buildSignupDb(service: SupabaseClient): SignupDb {
       const { data, error } = await service.rpc('cancel_reservation_for_route', { p_reservation_id: reservationId, p_user_id: userId });
       if (error) throw new Error(`cancel_reservation_for_route: ${error.message}`);
       return data === true;
+    },
+    async reservationState(reservationId) {
+      // service_role read (RLS deny-all is bypassed) — used only to disambiguate a failure.
+      const { data, error } = await service.from('invite_reservations').select('status, user_id').eq('id', reservationId).maybeSingle();
+      if (error) throw new Error(`reservationState: ${error.message}`);
+      return { status: (data?.status as string) ?? 'gone', userId: (data?.user_id as string | null) ?? null };
     },
   };
 }

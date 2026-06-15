@@ -70,6 +70,13 @@ export async function POST(request: NextRequest) {
     const auth = buildSignupAuth(service);
     const db = buildSignupDb(service);
 
+    // Bind the activation to the invited email: if the coach issued the invite FOR a
+    // specific address, the activator must use it (no activating under a different email).
+    const { data: inviteRow } = await service.from('client_invites').select('client_email').eq('token', token).maybeSingle();
+    if (inviteRow?.client_email && inviteRow.client_email.trim().toLowerCase() !== email.toLowerCase()) {
+      return NextResponse.json({ error: 'This invite was issued for a different email address.' }, { status: 400 });
+    }
+
     const payload: ReservationPayload = { email, fullName: full_name, inviteCode: token, consentVersion: CONSENT_VERSION };
     const consentEvidence = { source: 'client-activation', ip, capturedAt: new Date().toISOString() };
 
