@@ -7,23 +7,22 @@
 #     which cannot exercise the email-confirmation lifecycle this harness validates.
 #
 # This is a RELEASE-EVIDENCE gate, not part of normal CI:
-#   - workflow_dispatch only (never auto-runs).
-#   - Review before running. Run ONCE. DELETE this file after a green result.
-#
-# To run (the file lives on a feature branch, so use the CLI, not the Actions UI dropdown):
-#   gh workflow run wp1-e2e-gate.yml --ref remediation/wp1-invite-consent
+#   - Triggers ONLY on a push that modifies THIS file on the remediation/wp1-invite-consent branch
+#     (path-filtered). workflow_dispatch can't be used: a manual dispatch requires the workflow to
+#     exist on the DEFAULT branch, and this temporary file must NOT be merged to main.
+#   - So pushing an edit to this file IS what runs the gate. Review before that push. Run ONCE.
+#     DELETE this file after a green result. Do NOT merge it to main.
 #
 # A green run satisfies the LOCAL harness gate only. Hosted-SMTP delivery and the browser-cookie
 # session remain SEPARATE MANUAL canaries and are NOT covered here.
 name: WP1 e2e gate (temporary)
 
 on:
-  workflow_dispatch:
-    inputs:
-      ref:
-        description: Branch/ref to test
-        default: remediation/wp1-invite-consent
-        required: true
+  push:
+    branches:
+      - remediation/wp1-invite-consent
+    paths:
+      - .github/workflows/wp1-e2e-gate.yml
 
 permissions:
   contents: read
@@ -33,9 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.ref }}
+      - uses: actions/checkout@v4   # default: the pushed commit — tests exactly what was pushed
 
       - uses: actions/setup-node@v4
         with:
