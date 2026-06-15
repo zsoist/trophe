@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { RecoveryDb, TombstoneDb, AuthReconciler, OrphanRow } from '@/lib/recovery/reservation-recovery';
+import type { RecoveryDb, TombstoneDb, CompletedDb, AuthReconciler, StrayReconciler, OrphanRow } from '@/lib/recovery/reservation-recovery';
 
 /**
  * Supabase-backed adapters for the WP1 reservation lifecycle. Kept thin so the
@@ -11,13 +11,23 @@ import type { RecoveryDb, TombstoneDb, AuthReconciler, OrphanRow } from '@/lib/r
  *  the 60s serverless function cap); 10m is a wide margin. */
 const TOMBSTONE_RETENTION_SECONDS = 600;
 
-/** RecoveryDb + TombstoneDb backed by the service-role client (0042/0044 RPCs). */
-export function buildRecoveryDb(service: SupabaseClient): RecoveryDb & TombstoneDb {
+/** RecoveryDb + TombstoneDb + CompletedDb backed by the service-role client (0042/0044/0046 RPCs). */
+export function buildRecoveryDb(service: SupabaseClient): RecoveryDb & TombstoneDb & CompletedDb {
   return {
     async claimOrphans(limit, leaseSeconds) {
       const { data, error } = await service.rpc('claim_orphan_for_recovery', { p_limit: limit, p_lease_seconds: leaseSeconds });
       if (error) throw new Error(`claim_orphan_for_recovery: ${error.message}`);
       return (data ?? []) as OrphanRow[];
+    },
+    async claimCompleted(limit, leaseSeconds, retentionSeconds) {
+      const { data, error } = await service.rpc('claim_completed_for_recheck', { p_limit: limit, p_lease_seconds: leaseSeconds, p_retention_seconds: retentionSeconds });
+      if (error) throw new Error(`claim_completed_for_recheck: ${error.message}`);
+      return (data ?? []) as OrphanRow[];
+    },
+    async settleCompleted(reservationId, recoveryToken) {
+      const { data, error } = await service.rpc('settle_completed_recheck', { p_reservation_id: reservationId, p_recovery_token: recoveryToken });
+      if (error) throw new Error(`settle_completed_recheck: ${error.message}`);
+      return data === true;
     },
     async cancelRecovering(reservationId, recoveryToken) {
       // Tombstoned cancel: atomically frees the slot AND arms the late-arrival window.
@@ -66,7 +76,7 @@ const tagOf = (u: { app_metadata?: unknown } | null | undefined): string | undef
  *  - If the reservation names a user that exists but carries a DIFFERENT trusted tag,
  *    return 'mismatch' and touch nothing (a governance inconsistency to investigate).
  */
-export function buildAuthReconciler(service: SupabaseClient): AuthReconciler {
+export function buildAuthReconciler(service: SupabaseClient): AuthReconciler & StrayReconciler {
   async function deleteIdempotent(userId: string): Promise<void> {
     const { error } = await service.auth.admin.deleteUser(userId);
     if (error && !isMissingUser(error)) throw new Error(`deleteUser: ${error.message}`); // idempotent on missing
@@ -78,6 +88,16 @@ export function buildAuthReconciler(service: SupabaseClient): AuthReconciler {
   }
 
   return {
+    // Delete every carrier of reservationId EXCEPT the legitimate finalized user, then
+    // prove no stray remains. Used for the COMPLETED terminal (the kept user lives on).
+    async reconcileStrayCarriers(reservationId, keepUserId) {
+      const stray = (await findIdsByTag(reservationId)).filter((id) => id !== keepUserId);
+      if (stray.length === 0) return 'clean';
+      for (const id of stray) await deleteIdempotent(id);
+      const remaining = (await findIdsByTag(reservationId)).filter((id) => id !== keepUserId);
+      if (remaining.length > 0) throw new Error(`stray reconcile incomplete: ${remaining.length} stray carrier(s) remain`);
+      return 'reaped';
+    },
     async reconcileAndDelete(reservationId, expectedUserId) {
       // Guard: a named user that exists but carries a DIFFERENT trusted tag → refuse.
       let verifiedExpected: string | null = null;

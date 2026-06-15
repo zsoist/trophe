@@ -32,4 +32,5 @@ export const inviteReservations = pgTable('invite_reservations', {
   uniqueIndex('uq_ordinary_live_claim').on(t.inviteId).where(sql`invite_type = 'ordinary' AND status IN ('reserved','completed','recovering')`),
   index('idx_invite_reservations_sweep').on(t.status, t.expiresAt),
   index('idx_invite_reservations_tombstone').on(t.reconcileUntil).where(sql`status = 'cancelled' AND sealed_at IS NULL AND reconcile_until IS NOT NULL`),
+  index('idx_invite_reservations_completed_recheck').on(t.completedAt).where(sql`status = 'completed'`), // 0046
 ]).enableRLS();

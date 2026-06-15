@@ -6,6 +6,8 @@
  * tombstone sweep reaps Auth users that arrive AFTER cancellation (T28).
  * v8: ALL cancellation paths arm tombstones — recovery (0044) AND route (0045,
  * cancel_reservation_for_route); legacy non-tombstoning cancels revoked (T23/T30).
+ * v9: COMPLETED is also covered — sweepCompletedStrays (0046) reaps a stray carrier on
+ * a completed row while preserving the legit finalized user (T31); 3-pass shared budget.
  * Production-shaped throwaway Postgres (TEST_DATABASE_URL). Proves claim race
  * correctness + idempotency, attach compare-and-set, finalizer ownership enforcement,
  * leased orphan recovery vs finalize mutual exclusion, lease re-claim, ordinary-signup
@@ -15,7 +17,7 @@ import { Pool } from 'pg';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { recoverOrphanReservations, sweepTombstones, runRecoveryPasses, type RecoveryDb, type TombstoneDb, type AuthReconciler } from '@/lib/recovery/reservation-recovery';
+import { recoverOrphanReservations, sweepTombstones, sweepCompletedStrays, runRecoveryPasses, type RecoveryDb, type TombstoneDb, type CompletedDb, type AuthReconciler, type StrayReconciler } from '@/lib/recovery/reservation-recovery';
 import { reservationIdentity } from '@/lib/auth/reservation-identity';
 import { buildAuthReconciler } from '@/lib/auth/auth-admin';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -59,6 +61,7 @@ async function setup() {
   await pool.query(readFileSync(join(process.cwd(), 'drizzle/0043_find_auth_user_by_reservation.sql'), 'utf-8'));
   await pool.query(readFileSync(join(process.cwd(), 'drizzle/0044_reservation_tombstones.sql'), 'utf-8'));
   await pool.query(readFileSync(join(process.cwd(), 'drizzle/0045_route_cancel_tombstoned.sql'), 'utf-8'));
+  await pool.query(readFileSync(join(process.cwd(), 'drizzle/0046_completed_stray_recheck.sql'), 'utf-8'));
 }
 
 const claimBeta = (code: string, idem: string, fp = FP) => one('SELECT * FROM claim_beta_invite($1,$2,$3)', [code, idem, fp]);
@@ -292,13 +295,14 @@ async function main() {
   const r24e = await recoverOrphanReservations(recoveryDb, mockAuth(async () => 'mismatch'));
   ok(r24e.errors === 1 && r24e.cancelled === 0 && await resStatus(c24e.reservation_id) === 'recovering', '(e) Auth tag mismatch → NOT deleted/cancelled, left recovering (P0 guard)');
 
-  console.log('T23: PERMISSIONS — 13 safe RPCs service_role-allowed; 3 non-tombstoning cancels REVOKED');
+  console.log('T23: PERMISSIONS — 15 safe RPCs service_role-allowed; 3 non-tombstoning cancels REVOKED');
   const fns = ['claim_beta_invite(text,uuid,text)', 'claim_client_invite(uuid,uuid,text)', 'claim_ordinary_signup(uuid,uuid,text)',
     'attach_reservation_user(uuid,uuid)', 'finalize_beta_signup(uuid,uuid,text,text,text,jsonb)',
     'finalize_client_activation(uuid,uuid,text,text,text,jsonb)', 'finalize_ordinary_signup(uuid,uuid,text,text,text,jsonb)',
     'claim_orphan_for_recovery(int,int)', 'find_auth_user_ids_by_reservation(uuid)',
     'cancel_recovering_reservation_tombstoned(uuid,uuid,int)', 'claim_tombstones_for_recheck(int,int)', 'settle_tombstone(uuid,uuid,int)',
-    'cancel_reservation_for_route(uuid,uuid,int)'];
+    'cancel_reservation_for_route(uuid,uuid,int)',
+    'claim_completed_for_recheck(int,int,int)', 'settle_completed_recheck(uuid,uuid)'];
   for (const fn of fns) {
     const a = (await one(`SELECT has_function_privilege('anon','public.${fn}','EXECUTE') p`)).p;
     const au = (await one(`SELECT has_function_privilege('authenticated','public.${fn}','EXECUTE') p`)).p;
@@ -405,9 +409,9 @@ async function main() {
   // sealed tombstone is excluded from future claims
   ok((await one(`SELECT count(*)::int n FROM invite_reservations WHERE id=$1 AND sealed_at IS NOT NULL`, [c28.reservation_id])).n === 1, '(d) sealed row stays terminal (excluded from claim_tombstones predicate)');
 
-  console.log('T29: two-pass SHARED runtime budget (delayed adapter) + backoff validation');
-  // Seed more than the budget so the cap is provably the binding limit.
-  for (let i = 0; i < 15; i++) {
+  console.log('T29: THREE-pass SHARED runtime budget (delayed adapter) + backoff validation');
+  // Seed more than each share so the cap is provably the binding limit (8 + 6 + 6 = 20).
+  for (let i = 0; i < 12; i++) {
     await pool.query(`INSERT INTO invite_reservations (invite_type, invite_id, idempotency_key, request_fingerprint, status, expires_at)
                       VALUES ('beta', gen_random_uuid(), gen_random_uuid(), 'fp-budget', 'reserved', now()-interval '2 min')`);
   }
@@ -415,18 +419,27 @@ async function main() {
     await pool.query(`INSERT INTO invite_reservations (invite_type, invite_id, idempotency_key, request_fingerprint, status, expires_at, reconcile_until)
                       VALUES ('beta', gen_random_uuid(), gen_random_uuid(), 'fp-budget', 'cancelled', now()-interval '2 min', now()+interval '10 min')`);
   }
-  const delayedAuth: AuthReconciler = { reconcileAndDelete: async () => { await new Promise((r) => setTimeout(r, 10)); return 'absent'; } };
-  const budgetDb: RecoveryDb & TombstoneDb = {
+  for (let i = 0; i < 10; i++) {
+    await pool.query(`INSERT INTO invite_reservations (invite_type, invite_id, idempotency_key, request_fingerprint, status, expires_at, completed_at, user_id)
+                      VALUES ('beta', gen_random_uuid(), gen_random_uuid(), 'fp-budget', 'completed', now()-interval '2 min', now()-interval '30 sec', gen_random_uuid())`);
+  }
+  const delayedAuth: AuthReconciler & StrayReconciler = {
+    reconcileAndDelete: async () => { await new Promise((r) => setTimeout(r, 10)); return 'absent'; },
+    reconcileStrayCarriers: async () => { await new Promise((r) => setTimeout(r, 10)); return 'clean'; },
+  };
+  const budgetDb: RecoveryDb & TombstoneDb & CompletedDb = {
     claimOrphans: (l, s) => pool.query('SELECT * FROM claim_orphan_for_recovery($1,$2)', [l, s]).then(r => r.rows),
     cancelRecovering: (id, tok) => pool.query('SELECT cancel_recovering_reservation_tombstoned($1,$2,$3) ok', [id, tok, 600]).then(r => r.rows[0].ok),
     claimTombstones: (l, s) => pool.query('SELECT * FROM claim_tombstones_for_recheck($1,$2)', [l, s]).then(r => r.rows),
     settleTombstone: (id, tok) => pool.query('SELECT settle_tombstone($1,$2) s', [id, tok]).then(r => r.rows[0].s),
+    claimCompleted: (l, s, ret) => pool.query('SELECT * FROM claim_completed_for_recheck($1,$2,$3)', [l, s, ret]).then(r => r.rows),
+    settleCompleted: (id, tok) => pool.query('SELECT settle_completed_recheck($1,$2) ok', [id, tok]).then(r => r.rows[0].ok),
   };
   const startMs = Date.now();
-  const run29 = await runRecoveryPasses(budgetDb, delayedAuth, { orphanLimit: 12, tombstoneLimit: 8, leaseSeconds: 300, concurrency: 5 });
+  const run29 = await runRecoveryPasses(budgetDb, delayedAuth, { orphanLimit: 8, tombstoneLimit: 6, completedLimit: 6, leaseSeconds: 300, concurrency: 5 });
   const elapsedMs = Date.now() - startMs;
-  ok(run29.orphans.claimed === 12 && run29.tombstones.claimed === 8, '(a) each pass capped at its share (12 + 8) — shared budget binds');
-  ok(run29.orphans.claimed + run29.tombstones.claimed <= 20, '(b) total reservations/run ≤ 20 (cannot exceed combined budget)');
+  ok(run29.orphans.claimed === 8 && run29.tombstones.claimed === 6 && run29.completed.claimed === 6, '(a) each pass capped at its share (8 + 6 + 6) — shared budget binds');
+  ok(run29.orphans.claimed + run29.tombstones.claimed + run29.completed.claimed <= 20, '(b) total reservations/run ≤ 20 (cannot exceed combined budget)');
   ok(elapsedMs < 20000, `(c) full-budget run completes (fake 10ms adapter, ${elapsedMs}ms) — proves the bounded WORKLOAD cap, NOT production latency`);
   // P2: settle_tombstone rejects a non-positive backoff like the other bounded params
   ok(await one('SELECT settle_tombstone($1,$2,$3) s', [randomUUID(), randomUUID(), -1]).then(() => false, () => true), '(d) settle_tombstone rejects non-positive backoff');
@@ -451,6 +464,30 @@ async function main() {
   await newBeta('T30c'); const c30c = await claimBeta('T30c', randomUUID()); const u30c = randomUUID(); await attach(c30c.reservation_id, u30c);
   ok(await one('SELECT cancel_reservation_for_route($1,$2) ok', [c30c.reservation_id, randomUUID()]).then(r => r.ok) === false && await resStatus(c30c.reservation_id) === 'reserved', '(c) wrong attached user → rejected, row still reserved');
   ok(await one('SELECT cancel_reservation_for_route($1) ok', [c30c.reservation_id]).then(r => r.ok) === false, '(c2) release (no user) refuses an attached row');
+
+  console.log('T31: COMPLETED stray-carrier sweep — a stray carrier on a completed row is reaped, legit user preserved (P1)');
+  // StrayReconciler backed by the stub auth.users: delete carriers EXCEPT keepUserId.
+  const strayAuth: StrayReconciler = { reconcileStrayCarriers: async (rid, keep) => {
+    const ids = (await one(`SELECT coalesce(array_agg(id),'{}') a FROM auth.users WHERE raw_app_meta_data->>'reservation_id'=$1`, [rid])).a as string[];
+    if (ids.filter((id) => id !== keep).length === 0) return 'clean';
+    await pool.query(`DELETE FROM auth.users WHERE raw_app_meta_data->>'reservation_id'=$1 AND id <> $2`, [rid, keep]);
+    return 'reaped';
+  } };
+  const compDb: CompletedDb = {
+    claimCompleted: (l, s, ret) => pool.query('SELECT * FROM claim_completed_for_recheck($1,$2,$3)', [l, s, ret]).then(r => r.rows),
+    settleCompleted: (id, tok) => pool.query('SELECT settle_completed_recheck($1,$2) ok', [id, tok]).then(r => r.rows[0].ok),
+  };
+  // A finalized (completed) reservation with its LEGIT user, plus a STRAY second carrier
+  // (a crashed concurrent same-key request that created a second Auth user tagged to R).
+  await newBeta('T31'); const c31 = await claimBeta('T31', randomUUID()); const legit31 = randomUUID();
+  await attach(c31.reservation_id, legit31);
+  ok(await finBeta(c31.reservation_id, legit31) === true && await resStatus(c31.reservation_id) === 'completed', '(setup) reservation finalized → completed');
+  const stray31 = randomUUID();
+  await pool.query(`INSERT INTO auth.users (id, raw_app_meta_data) VALUES ($1, jsonb_build_object('reservation_id',$3::text)), ($2, jsonb_build_object('reservation_id',$3::text))`, [legit31, stray31, c31.reservation_id]);
+  const r31 = await sweepCompletedStrays(compDb, strayAuth, { limit: 500 });
+  ok((await one(`SELECT count(*)::int n FROM auth.users WHERE id=$1`, [stray31])).n === 0, '(a) STRAY carrier on a completed row reaped (no permanent strand)');
+  ok((await one(`SELECT count(*)::int n FROM auth.users WHERE id=$1`, [legit31])).n === 1, '(b) LEGIT finalized user PRESERVED (never deleted)');
+  ok(r31.strayReaped >= 1, '(c) sweep reported ≥1 stray reaped');
 
   await pool.end();
   console.log(fail === 0 ? '\n✅ ALL WP1 tests passed' : `\n❌ ${fail} assertion(s) failed`);

@@ -153,27 +153,90 @@ export async function sweepTombstones(
   return result;
 }
 
+/**
+ * Stray-carrier reconciliation for COMPLETED reservations. A completed row has exactly
+ * one legitimate Auth user (the finalized user_id); ANY other user tagged with the
+ * reservation is a stray (a crashed concurrent same-key request that created a second
+ * Auth user) and must be deleted while the legitimate user is preserved. 'completed' is
+ * otherwise invisible to both recovery passes — this closes that terminal.
+ */
+export interface StrayReconciler {
+  /** Delete every Auth user tagged with reservationId EXCEPT keepUserId. Throws if it
+   *  cannot prove the strays are gone. 'reaped' = ≥1 stray deleted; 'clean' = none. */
+  reconcileStrayCarriers(reservationId: string, keepUserId: string): Promise<'reaped' | 'clean'>;
+}
+
+export interface CompletedDb {
+  claimCompleted(limit: number, leaseSeconds: number, retentionSeconds: number): Promise<OrphanRow[]>;
+  /** Release the recheck lease (token + live-lease gated). Returns true if released. */
+  settleCompleted(reservationId: string, recoveryToken: string): Promise<boolean>;
+}
+
+export interface CompletedSweepResult {
+  claimed: number;
+  strayReaped: number;
+  settled: number;
+  errors: number;
+}
+
+export async function sweepCompletedStrays(
+  db: CompletedDb,
+  auth: StrayReconciler,
+  opts: { limit?: number; leaseSeconds?: number; retentionSeconds?: number; concurrency?: number; log?: (msg: string) => void } = {},
+): Promise<CompletedSweepResult> {
+  const limit = opts.limit ?? 20;
+  const leaseSeconds = opts.leaseSeconds ?? 120;
+  const retentionSeconds = opts.retentionSeconds ?? 600;
+  const concurrency = Math.max(1, opts.concurrency ?? 5);
+  const log = opts.log ?? (() => {});
+
+  const rows = await db.claimCompleted(limit, leaseSeconds, retentionSeconds);
+  const result: CompletedSweepResult = { claimed: rows.length, strayReaped: 0, settled: 0, errors: 0 };
+
+  let cursor = 0;
+  async function runOne(o: OrphanRow): Promise<void> {
+    // A completed row must carry its legitimate user; without it we cannot tell stray
+    // from legit, so we refuse to delete ANYTHING (never nuke the real account).
+    if (!o.user_id) { result.errors++; log(`[completed] ${o.reservation_id}: no user_id — skipped (cannot distinguish stray)`); return; }
+    try {
+      if (await auth.reconcileStrayCarriers(o.reservation_id, o.user_id) === 'reaped') result.strayReaped++;
+      if (await db.settleCompleted(o.reservation_id, o.recovery_token)) result.settled++;
+      else { result.errors++; log(`[completed] ${o.reservation_id}: settle lost lease — retry`); }
+    } catch (err) {
+      result.errors++;
+      log(`[completed] ${o.reservation_id}: left for retry: ${String(err)}`);
+    }
+  }
+  async function worker(): Promise<void> {
+    while (cursor < rows.length) { const i = cursor++; await runOne(rows[i]); }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, rows.length) }, worker));
+  return result;
+}
+
 export interface RecoveryRunResult {
   orphans: RecoveryResult;
   tombstones: TombstoneResult;
-  /** Total logical failures across both passes. Non-zero ⇒ the run needs attention. */
+  completed: CompletedSweepResult;
+  /** Total logical failures across all passes. Non-zero ⇒ the run needs attention. */
   errors: number;
 }
 
 /**
- * One scheduled run = orphan pass then tombstone pass, sharing a single bounded item
- * budget (orphanLimit + tombstoneLimit) so the two passes together stay within the
- * serverless function's runtime ceiling — the total reservations touched per invocation
- * can never exceed orphanLimit + tombstoneLimit. Callers must treat `errors > 0` as a
- * failed run (surface it as non-2xx so monitoring sees it).
+ * One scheduled run = orphan pass + cancelled-tombstone pass + completed-stray pass,
+ * sharing a single bounded item budget (orphanLimit + tombstoneLimit + completedLimit)
+ * so all three together stay within the serverless function's runtime ceiling — the
+ * total reservations touched per invocation can never exceed their sum. Callers must
+ * treat `errors > 0` as a failed run (surface it as non-2xx so monitoring sees it).
  */
 export async function runRecoveryPasses(
-  db: RecoveryDb & TombstoneDb,
-  auth: AuthReconciler,
-  opts: { orphanLimit: number; tombstoneLimit: number; leaseSeconds: number; concurrency?: number; log?: (msg: string) => void },
+  db: RecoveryDb & TombstoneDb & CompletedDb,
+  auth: AuthReconciler & StrayReconciler,
+  opts: { orphanLimit: number; tombstoneLimit: number; completedLimit: number; leaseSeconds: number; concurrency?: number; log?: (msg: string) => void },
 ): Promise<RecoveryRunResult> {
   const base = { leaseSeconds: opts.leaseSeconds, concurrency: opts.concurrency, log: opts.log };
   const orphans = await recoverOrphanReservations(db, auth, { ...base, limit: opts.orphanLimit });
   const tombstones = await sweepTombstones(db, auth, { ...base, limit: opts.tombstoneLimit });
-  return { orphans, tombstones, errors: orphans.errors + tombstones.errors };
+  const completed = await sweepCompletedStrays(db, auth, { ...base, limit: opts.completedLimit });
+  return { orphans, tombstones, completed, errors: orphans.errors + tombstones.errors + completed.errors };
 }

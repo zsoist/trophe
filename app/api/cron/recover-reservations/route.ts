@@ -22,8 +22,9 @@ import { runRecoveryPasses } from '@/lib/recovery/reservation-recovery';
  * pg_cron + pg_net POSTing here every few minutes. See
  * docs/ops/recovery-worker-scheduling.md for the install SQL + alternatives.
  */
-const ORPHAN_LIMIT = 12;     // shared budget: ORPHAN_LIMIT + TOMBSTONE_LIMIT = 20 max/run
-const TOMBSTONE_LIMIT = 8;
+const ORPHAN_LIMIT = 8;      // shared budget: ORPHAN + TOMBSTONE + COMPLETED = 20 max/run
+const TOMBSTONE_LIMIT = 6;
+const COMPLETED_LIMIT = 6;
 const LEASE_SECONDS = 300;
 const CONCURRENCY = 5;
 
@@ -35,10 +36,10 @@ function authorized(req: NextRequest): boolean {
 
 function run() {
   const service = createSupabaseServiceClient();
-  // Pass 1 reconciles expired reservations; pass 2 re-reconciles cancelled tombstones so
-  // a late-arriving Auth user is reaped instead of stranded. One shared item budget.
+  // Pass 1 reconciles expired reservations; pass 2 re-reconciles cancelled tombstones;
+  // pass 3 reaps stray carriers on recently-completed rows. One shared item budget.
   return runRecoveryPasses(buildRecoveryDb(service), buildAuthReconciler(service), {
-    orphanLimit: ORPHAN_LIMIT, tombstoneLimit: TOMBSTONE_LIMIT,
+    orphanLimit: ORPHAN_LIMIT, tombstoneLimit: TOMBSTONE_LIMIT, completedLimit: COMPLETED_LIMIT,
     leaseSeconds: LEASE_SECONDS, concurrency: CONCURRENCY, log: (m: string) => console.error(m),
   });
 }

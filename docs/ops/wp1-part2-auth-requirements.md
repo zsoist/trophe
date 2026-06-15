@@ -71,7 +71,21 @@ tagged to the same reservation, is reaped even after this request cancels. Forms
 
 On a route crash before compensation, the reservation stays `reserved`; recovery leases
 it, reconciles the (still-banned) Auth user, and frees the slot. The part-1 tombstone
-(0044/0045) additionally reaps an Auth user whose `createUser` lands **after** a cancel.
+(0044/0045) additionally reaps an Auth user whose `createUser` lands **after** a cancel,
+and the completed-stray sweep (0046) reaps a stray carrier on a `completed` row.
+
+### 3a. Replay branch — do NOT create a second Auth user
+
+`claim_*` returns `replayed_reserved` / `replayed_completed` when a concurrent or retried
+request hit the same reservation. The route MUST handle these:
+
+- `replayed_completed` → the account already exists; return success using `res_user_id`. Do NOT `createUser`.
+- `replayed_reserved` with `res_user_id` set → resume: reuse that user (attach is idempotent on the same user), finalize. Do NOT `createUser` a second one.
+- `replayed_reserved` with `res_user_id` NULL → another request reserved first but hasn't attached. Safest: fail closed (ask the user to retry) rather than create a competing Auth user; if you do create one, its `attach` will lose the compare-and-set and you MUST delete it + `cancel_reservation_for_route(reservation_id)`.
+
+Creating a second `createUser` on a replay is what produces a stray carrier against a
+`completed` row. The DB now backstops this (0046 reaps it), but the route must still avoid
+it — a stray that exists for minutes is a banned, loginable-after-unban account in limbo.
 
 ## 4. Explicit consent (BLOCKER-03)
 
