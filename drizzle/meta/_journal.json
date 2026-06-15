@@ -393,6 +393,13 @@
    "when": 1780852599998,
    "tag": "0047_client_activation_email_binding",
    "breakpoints": true
+  },
+  {
+   "idx": 56,
+   "version": "7",
+   "when": 1780852599999,
+   "tag": "0048_memory_worker_vault_secret",
+   "breakpoints": true
   }
  ]
 }
