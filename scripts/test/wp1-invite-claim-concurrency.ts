@@ -14,6 +14,9 @@
  * v11: fairness is from ORDER BY recovering_lease_until NULLS FIRST (least-recently-
  * serviced first), not backoff — holds when prod cadence (300s) > backoff (120s); applied
  * to BOTH completed (0046) and cancelled tombstones (0044); T31(a/c) model the cadence.
+ * v12 (part 2): integrated signup-flow (T33-T39) — claim→create(banned,tagged)→attach→
+ * finalize→enable, replay/resume, compensation; enable-failure limbo SELF-HEALED by
+ * in-request retry + worker re-enable + replay re-assert (T38).
  * Production-shaped throwaway Postgres (TEST_DATABASE_URL). Proves claim race
  * correctness + idempotency, attach compare-and-set, finalizer ownership enforcement,
  * leased orphan recovery vs finalize mutual exclusion, lease re-claim, ordinary-signup
@@ -23,7 +26,7 @@ import { Pool } from 'pg';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { recoverOrphanReservations, sweepTombstones, sweepCompletedStrays, runRecoveryPasses, type RecoveryDb, type TombstoneDb, type CompletedDb, type AuthReconciler, type StrayReconciler } from '@/lib/recovery/reservation-recovery';
+import { recoverOrphanReservations, sweepTombstones, sweepCompletedStrays, runRecoveryPasses, type RecoveryDb, type TombstoneDb, type CompletedDb, type AuthReconciler, type CompletedReconciler } from '@/lib/recovery/reservation-recovery';
 import { reservationIdentity } from '@/lib/auth/reservation-identity';
 import { buildAuthReconciler } from '@/lib/auth/auth-admin';
 import { runReservedSignup, type SignupAuth, type SignupDb, type ClaimResult } from '@/lib/auth/signup-flow';
@@ -431,9 +434,10 @@ async function main() {
     await pool.query(`INSERT INTO invite_reservations (invite_type, invite_id, idempotency_key, request_fingerprint, status, expires_at, completed_at, user_id)
                       VALUES ('beta', gen_random_uuid(), gen_random_uuid(), 'fp-budget', 'completed', now()-interval '2 min', now()-interval '30 sec', gen_random_uuid())`);
   }
-  const delayedAuth: AuthReconciler & StrayReconciler = {
+  const delayedAuth: AuthReconciler & CompletedReconciler = {
     reconcileAndDelete: async () => { await new Promise((r) => setTimeout(r, 10)); return 'absent'; },
     reconcileStrayCarriers: async () => { await new Promise((r) => setTimeout(r, 10)); return 'clean'; },
+    ensureEnabled: async () => true,
   };
   const budgetDb: RecoveryDb & TombstoneDb & CompletedDb = {
     claimOrphans: (l, s) => pool.query('SELECT * FROM claim_orphan_for_recovery($1,$2)', [l, s]).then(r => r.rows),
@@ -477,13 +481,16 @@ async function main() {
   // Counting double records which rows were reconciled + reaps strays from the stub. This
   // exercises the DB claim/settle/seal lifecycle; the PRODUCTION adapter trust check is T32.
   const seen31 = new Set<string>();
-  const countingStray: StrayReconciler = { reconcileStrayCarriers: async (rid, keep) => {
-    seen31.add(rid);
-    const ids = (await one(`SELECT coalesce(array_agg(id),'{}') a FROM auth.users WHERE raw_app_meta_data->>'reservation_id'=$1`, [rid])).a as string[];
-    if (ids.filter((id) => id !== keep).length === 0) return 'clean';
-    await pool.query(`DELETE FROM auth.users WHERE raw_app_meta_data->>'reservation_id'=$1 AND id <> $2`, [rid, keep]);
-    return 'reaped';
-  } };
+  const countingStray: CompletedReconciler = {
+    reconcileStrayCarriers: async (rid, keep) => {
+      seen31.add(rid);
+      const ids = (await one(`SELECT coalesce(array_agg(id),'{}') a FROM auth.users WHERE raw_app_meta_data->>'reservation_id'=$1`, [rid])).a as string[];
+      if (ids.filter((id) => id !== keep).length === 0) return 'clean';
+      await pool.query(`DELETE FROM auth.users WHERE raw_app_meta_data->>'reservation_id'=$1 AND id <> $2`, [rid, keep]);
+      return 'reaped';
+    },
+    ensureEnabled: async () => true,
+  };
   const compDb: CompletedDb = {
     claimCompleted: (l, s, ret) => pool.query('SELECT * FROM claim_completed_for_recheck($1,$2,$3)', [l, s, ret]).then(r => r.rows),
     settleCompleted: (id, tok) => pool.query('SELECT settle_completed_recheck($1,$2) s', [id, tok]).then(r => r.rows[0].s),
@@ -619,11 +626,25 @@ async function main() {
   const consentField = z.object({ consent: z.literal(true) });
   ok(!consentField.safeParse({}).success && !consentField.safeParse({ consent: false }).success && consentField.safeParse({ consent: true }).success, '(a) missing/false consent rejected; true accepted');
 
-  console.log('T38: finalize OK but enable fails → surfaced, not a false success (limbo §2)');
+  console.log('T38: enable-failure limbo is SELF-HEALED (in-request surfaced + worker re-enable + retry re-enable) §2');
   await newBeta('T38'); const m38 = makeMockAuth({ enableFails: true }); const c38 = await claimBeta('T38', randomUUID());
   const r38 = await runReservedSignup(m38.auth, realSignupDb, { claim: toClaim(c38), finalize: finBetaF, email: 't38@x.io', password: 'pw12345678', userMetadata: { role: 'coach' } });
-  ok(!r38.ok && r38.reason === 'enable_failed' && r38.userId !== undefined, '(a) enable failure → not ok, reason enable_failed');
-  ok(await resStatus(c38.reservation_id) === 'completed', '(b) finalize already committed (completed) — surfaced, not hidden');
+  ok(!r38.ok && r38.reason === 'enable_failed' && r38.userId !== undefined, '(a) enable failure → not ok, reason enable_failed (no false success)');
+  ok(await resStatus(c38.reservation_id) === 'completed' && m38.users.get(r38.userId!)?.banned === true, '(b) finalize committed but user still BANNED (the limbo)');
+  // (c) the recovery completed-pass self-heals: re-enables the banned finalized user
+  const healAuth: CompletedReconciler = {
+    reconcileStrayCarriers: async () => 'clean',
+    ensureEnabled: async (uid) => { const u = m38.users.get(uid); if (u) { u.banned = false; u.confirmed = true; } return true; },
+  };
+  await sweepCompletedStrays(compDb, healAuth, { limit: 500, retentionSeconds: 600 });
+  ok(m38.users.get(r38.userId!)?.banned === false, '(c) recovery completed-pass re-enabled the limbo user (no permanent lockout)');
+  // (d) a user RETRY of a still-banned completed signup re-asserts enable (replayed_completed heals)
+  await newBeta('T38d'); const m38d = makeMockAuth(); const idem38 = randomUUID(); const c38d = await claimBeta('T38d', idem38);
+  const u38d = await m38d.auth.createUser({ email: 't38d@x.io', password: 'x', appMetadata: { reservation_id: c38d.reservation_id }, userMetadata: {} });
+  await pool.query('SELECT attach_reservation_user($1,$2)', [c38d.reservation_id, u38d.userId]); await finBetaF(c38d.reservation_id, u38d.userId!); // completed, user still banned
+  const c38dr = await claimBeta('T38d', idem38);
+  const r38d = await runReservedSignup(m38d.auth, realSignupDb, { claim: toClaim(c38dr), finalize: finBetaF, email: 't38d@x.io', password: 'pw12345678', userMetadata: { role: 'coach' } });
+  ok(r38d.ok && r38d.reason === 'already_exists' && m38d.users.get(u38d.userId!)?.banned === false, '(d) replayed_completed re-asserts enable (user retry heals the limbo)');
 
   console.log('T39: email already registered → reservation released, no user, code refunded');
   await newBeta('T39'); const m39 = makeMockAuth({ emailExists: new Set(['dupe@x.io']) }); const c39 = await claimBeta('T39', randomUUID());

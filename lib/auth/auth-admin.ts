@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { RecoveryDb, TombstoneDb, CompletedDb, AuthReconciler, StrayReconciler, OrphanRow } from '@/lib/recovery/reservation-recovery';
+import type { RecoveryDb, TombstoneDb, CompletedDb, AuthReconciler, CompletedReconciler, OrphanRow } from '@/lib/recovery/reservation-recovery';
 import type { SignupAuth, SignupDb } from '@/lib/auth/signup-flow';
 
 /** A new Auth user is BANNED until finalize lifts it, so a half-created account can never
@@ -81,7 +81,7 @@ const tagOf = (u: { app_metadata?: unknown } | null | undefined): string | undef
  *  - If the reservation names a user that exists but carries a DIFFERENT trusted tag,
  *    return 'mismatch' and touch nothing (a governance inconsistency to investigate).
  */
-export function buildAuthReconciler(service: SupabaseClient): AuthReconciler & StrayReconciler {
+export function buildAuthReconciler(service: SupabaseClient): AuthReconciler & CompletedReconciler {
   async function deleteIdempotent(userId: string): Promise<void> {
     const { error } = await service.auth.admin.deleteUser(userId);
     if (error && !isMissingUser(error)) throw new Error(`deleteUser: ${error.message}`); // idempotent on missing
@@ -93,6 +93,13 @@ export function buildAuthReconciler(service: SupabaseClient): AuthReconciler & S
   }
 
   return {
+    // Idempotent unban + confirm. Heals a finalize-committed-but-still-banned user (the
+    // in-request post-finalize enable failed). Safe on an already-enabled user. This is
+    // the §2 reconciliation backstop, invoked by the completed sweep before it seals.
+    async ensureEnabled(userId) {
+      const { error } = await service.auth.admin.updateUserById(userId, { ban_duration: 'none', email_confirm: true });
+      return !error;
+    },
     // Delete every carrier of reservationId EXCEPT the legitimate finalized user, then
     // prove no stray remains. Used for the COMPLETED terminal (the kept user lives on).
     async reconcileStrayCarriers(reservationId, keepUserId) {
@@ -160,8 +167,15 @@ export function buildSignupAuth(service: SupabaseClient): SignupAuth {
       if (error && !isMissingUser(error)) throw new Error(`deleteUser: ${error.message}`); // idempotent on missing
     },
     async enableUser(userId) {
-      const { error } = await service.auth.admin.updateUserById(userId, { ban_duration: 'none', email_confirm: true });
-      return !error;
+      // Bounded idempotent retry — updateUserById(unban + confirm) is safe to repeat, so a
+      // transient blip on this post-finalize hop doesn't strand a provisioned account. The
+      // recovery worker's completed pass (ensureEnabled) is the durable backstop if all fail.
+      for (let attempt = 0; attempt < 3; attempt++) {
+        if (attempt > 0) await new Promise((r) => setTimeout(r, attempt * 150));
+        const { error } = await service.auth.admin.updateUserById(userId, { ban_duration: 'none', email_confirm: true });
+        if (!error) return true;
+      }
+      return false;
     },
   };
 }

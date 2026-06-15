@@ -72,7 +72,14 @@ export async function runReservedSignup(
     case 'exhausted': return { ok: false, status: 409, reason: 'exhausted' };
     case 'conflict':  return { ok: false, status: 409, reason: 'conflict' };
     case 'replayed_completed':
-      // The account already exists for this exact signup — idempotent success.
+      // The account already exists for this exact signup — idempotent success. Re-assert
+      // enabled state (idempotent unban+confirm): if a prior attempt's post-finalize enable
+      // failed (limbo), the user's natural retry HEALS it here instead of returning a
+      // deceptive 200 over a still-banned account. Fail closed if it still can't be enabled.
+      if (claim.resUserId && !(await auth.enableUser(claim.resUserId))) {
+        log(`replayed_completed but enable failed for ${claim.resUserId} — surfacing instead of false success`);
+        return { ok: false, status: 500, reason: 'enable_failed', userId: claim.resUserId };
+      }
       return { ok: true, status: 200, reason: 'already_exists', userId: claim.resUserId ?? undefined };
     case 'replayed_reserved':
       // A concurrent/retried request reserved first. If it already attached a user, resume

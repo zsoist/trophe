@@ -40,17 +40,21 @@ success path, after `finalize_*` returns true:
 
 This closes the window where a half-created account is both loginable and recoverable.
 
-**Enable-after-finalize failure path.** `finalize_*` flips the reservation to `completed`
-*before* the route unbans the user. If `updateUserById(unban, confirm)` then fails, the
-reservation is `completed` but the customer is **permanently banned** — recovery will not
-touch a `completed` row. Required handling:
+**Enable-after-finalize failure path (IMPLEMENTED — three layers of self-heal).**
+`finalize_*` flips the reservation to `completed` *before* the route unbans the user, so a
+failed `updateUserById(unban, confirm)` would otherwise leave a `completed`-but-banned,
+permanently-locked-out account. All three mitigations are now in place:
 
-- Make the unban **idempotent and retried** in-request (it is safe to call repeatedly).
-- If it still fails, return an error to the caller (the signup is not "done") and log it
-  loudly — do **not** report success.
-- Add a reconciliation job that re-enables `completed` reservations whose Auth user is
-  still banned (query `auth.users.banned_until > now()` for ids tagged with a `completed`
-  reservation), so a missed unban self-heals rather than stranding a paying customer.
+1. **In-request bounded retry** — `buildSignupAuth.enableUser` retries the idempotent
+   `updateUserById(unban+confirm)` up to 3× with short backoff before giving up.
+2. **No false success** — on exhausted retries `runReservedSignup` returns
+   `{ ok:false, reason:'enable_failed' }` (HTTP 500), never a 200 over a banned account;
+   and the `replayed_completed` branch **re-asserts** enable, so the user's natural retry
+   heals the limbo.
+3. **Worker self-heal** — the recovery completed-stray pass (`sweepCompletedStrays`) calls
+   `ensureEnabled(keepUserId)` (idempotent unban+confirm) before sealing, and **refuses to
+   seal** a completed row whose user can't be enabled — so a missed unban is re-enabled on
+   a later run instead of stranding a paying customer (surfaced via the run's error count).
 
 ## 3. Compensation flow (route owns the synchronous path)
 

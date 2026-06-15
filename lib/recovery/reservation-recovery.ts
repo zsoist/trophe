@@ -169,6 +169,14 @@ export interface StrayReconciler {
   reconcileStrayCarriers(reservationId: string, keepUserId: string): Promise<'reaped' | 'clean' | 'mismatch'>;
 }
 
+export interface CompletedReconciler extends StrayReconciler {
+  /** Idempotently ensure the finalized user is enabled (unban + confirm). Heals a
+   *  finalize-committed-but-still-banned account (the in-request post-finalize enable
+   *  failed). Returns false on failure → the completed sweep does NOT seal, so it keeps
+   *  retrying instead of sealing a permanently-locked-out paying customer. */
+  ensureEnabled(userId: string): Promise<boolean>;
+}
+
 export interface CompletedDb {
   claimCompleted(limit: number, leaseSeconds: number, retentionSeconds: number): Promise<OrphanRow[]>;
   /** Seal if the recheck window elapsed (terminal), else release the lease for re-check. */
@@ -185,7 +193,7 @@ export interface CompletedSweepResult {
 
 export async function sweepCompletedStrays(
   db: CompletedDb,
-  auth: StrayReconciler,
+  auth: CompletedReconciler,
   opts: { limit?: number; leaseSeconds?: number; retentionSeconds?: number; concurrency?: number; log?: (msg: string) => void } = {},
 ): Promise<CompletedSweepResult> {
   const limit = opts.limit ?? 20;
@@ -211,8 +219,16 @@ export async function sweepCompletedStrays(
         return;
       }
       if (outcome === 'reaped') result.strayReaped++;
-      // Strays gone this pass → seal if the window elapsed (final boundary check just ran),
-      // else back off so other completed rows are checked before this one again.
+      // §2 self-heal: ensure the finalized user is enabled (unban+confirm) before sealing.
+      // If it can't be enabled, do NOT seal — keep retrying (surfaced via errors) rather
+      // than sealing a finalize-committed-but-permanently-banned paying customer.
+      if (!(await auth.ensureEnabled(o.user_id))) {
+        result.errors++;
+        log(`[completed] ${o.reservation_id}: re-enable failed — left for retry, NOT sealed`);
+        return;
+      }
+      // Strays gone + user enabled → seal if the window elapsed (final boundary check just
+      // ran), else back off so other completed rows are checked before this one again.
       const settled = await db.settleCompleted(o.reservation_id, o.recovery_token);
       if (settled === 'sealed') result.sealed++;
       else if (settled === 'rechecked') result.rechecked++;
@@ -246,7 +262,7 @@ export interface RecoveryRunResult {
  */
 export async function runRecoveryPasses(
   db: RecoveryDb & TombstoneDb & CompletedDb,
-  auth: AuthReconciler & StrayReconciler,
+  auth: AuthReconciler & CompletedReconciler,
   opts: { orphanLimit: number; tombstoneLimit: number; completedLimit: number; leaseSeconds: number; concurrency?: number; log?: (msg: string) => void },
 ): Promise<RecoveryRunResult> {
   const base = { leaseSeconds: opts.leaseSeconds, concurrency: opts.concurrency, log: opts.log };
