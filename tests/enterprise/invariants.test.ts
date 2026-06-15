@@ -121,7 +121,9 @@ describe('enterprise hardening invariants', () => {
 
   it('fails the aggregate eval release gate when every suite is skipped', () => {
     const evalRunner = readFileSync(join(root, 'agents/evals/run-all.ts'), 'utf8');
-    expect(evalRunner).toContain("process.exit(process.env.ALLOW_SKIPPED_EVALS === '1' ? 0 : 1)");
+    expect(evalRunner).not.toContain('ALLOW_SKIPPED_EVALS');
+    expect(evalRunner).toContain('process.exit(1)');
+    expect(evalRunner).toContain('Required eval suite skipped');
     expect(evalRunner).not.toContain('GATE: inconclusive — no active suites`));\n    process.exit(0)');
   });
 

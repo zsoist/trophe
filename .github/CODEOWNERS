@@ -2,8 +2,15 @@
 * @zsoist
 
 # Domain hotspots (kept explicit so reviews route correctly as the team grows)
-/agents/        @zsoist
-/db/            @zsoist
-/drizzle/       @zsoist
-/app/api/       @zsoist
-/.github/       @zsoist
+/agents/              @zsoist
+/db/                  @zsoist
+/drizzle/             @zsoist
+/app/api/             @zsoist
+/app/api/auth/        @zsoist
+/app/api/privacy/     @zsoist
+/app/api/cron/        @zsoist
+/app/api/internal/    @zsoist
+/scripts/ops/         @zsoist
+/docs/trust/          @zsoist
+/.github/             @zsoist
+/.github/workflows/   @zsoist

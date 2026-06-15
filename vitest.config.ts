@@ -15,6 +15,12 @@ export default defineConfig({
       reporter: ['text', 'html'],
       include: ['lib/**/*.ts', 'agents/**/*.ts'],
       exclude: ['**/*.test.ts', 'lib/types.ts', 'lib/**/*-seed.ts', 'lib/i18n.tsx'],
+      thresholds: {
+        lines: 20,
+        functions: 20,
+        branches: 15,
+        statements: 20,
+      },
     },
   },
 });
