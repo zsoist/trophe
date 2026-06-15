@@ -1,9 +1,9 @@
 /**
- * WP1 adversarial test (v3) for the atomic invite-claim/finalize RPCs (0042).
- * Production-shaped throwaway Postgres (TEST_DATABASE_URL). Proves: claim race
- * correctness + idempotency, AND that finalizers derive authority from the locked
- * invite (no role escalation / coach reassignment / revoked / expired / cross-type),
- * a concurrent finalize-vs-release race, and service_role-only execution for all fns.
+ * WP1 adversarial test (v5) — reservation ownership + recovery state machine (0042).
+ * Production-shaped throwaway Postgres (TEST_DATABASE_URL). Proves claim race
+ * correctness + idempotency, attach compare-and-set, finalizer ownership enforcement,
+ * leased orphan recovery vs finalize mutual exclusion, lease re-claim, ordinary-signup
+ * recovery, and service_role-only execution. Never touches prod.
  */
 import { Pool } from 'pg';
 import { readFileSync } from 'node:fs';
@@ -45,152 +45,161 @@ async function setup() {
 
 const claimBeta = (code: string, idem: string, fp = FP) => one('SELECT * FROM claim_beta_invite($1,$2,$3)', [code, idem, fp]);
 const claimClient = (token: string, idem: string, fp = FP) => one('SELECT * FROM claim_client_invite($1,$2,$3)', [token, idem, fp]);
+const claimOrd = (pseudo: string, idem: string, fp = FP) => one('SELECT * FROM claim_ordinary_signup($1,$2,$3)', [pseudo, idem, fp]);
+const attach = (res: string, uid: string) => one('SELECT attach_reservation_user($1,$2) o', [res, uid]).then(r => r.o);
+const finBeta = (res: string, uid: string) => one(`SELECT finalize_beta_signup($1,$2,'N','e@x.io','1.0','{}'::jsonb) ok`, [res, uid]).then(r => r.ok);
+const finClient = (res: string, uid: string) => one(`SELECT finalize_client_activation($1,$2,'N','e@x.io','1.0','{}'::jsonb) ok`, [res, uid]).then(r => r.ok);
+const finOrd = (res: string, uid: string) => one(`SELECT finalize_ordinary_signup($1,$2,'N','e@x.io','1.0','{}'::jsonb) ok`, [res, uid]).then(r => r.ok);
 const usedCount = async (code: string) => (await one(`SELECT used_count FROM beta_invite_codes WHERE code=$1`, [code])).used_count;
+const resStatus = async (id: string) => (await one(`SELECT status FROM invite_reservations WHERE id=$1`, [id])).status;
 const profileCount = async (id: string) => (await one(`SELECT count(*)::int n FROM profiles WHERE id=$1`, [id])).n;
+const newBeta = async (code: string, role = 'coach', max = 1) => { await pool.query(`INSERT INTO beta_invite_codes (code,role,max_uses) VALUES ($1,$2,$3)`, [code, role, max]); };
 
 async function main() {
   await setup();
   const N = 25;
 
   console.log('T1: beta 25 distinct keys / max_uses=1 → exactly 1 claimed');
-  await pool.query(`INSERT INTO beta_invite_codes (code,role,max_uses) VALUES ('T1','coach',1)`);
-  const r1 = await Promise.all(Array.from({ length: N }, () => claimBeta('T1', randomUUID())));
-  ok(r1.filter(x => x.outcome === 'claimed').length === 1, `exactly 1 claimed (got ${r1.filter(x => x.outcome === 'claimed').length})`);
-  ok(await usedCount('T1') === 1, `used_count=1`);
+  await newBeta('T1'); const r1 = await Promise.all(Array.from({ length: N }, () => claimBeta('T1', randomUUID())));
+  ok(r1.filter(x => x.outcome === 'claimed').length === 1 && await usedCount('T1') === 1, `exactly 1 claimed, used_count=1`);
 
-  console.log('T2: beta max_uses=3 → exactly 3 claimed');
-  await pool.query(`INSERT INTO beta_invite_codes (code,role,max_uses) VALUES ('T2','coach',3)`);
-  const r2 = await Promise.all(Array.from({ length: N }, () => claimBeta('T2', randomUUID())));
-  ok(r2.filter(x => x.outcome === 'claimed').length === 3, `exactly 3 claimed (got ${r2.filter(x => x.outcome === 'claimed').length})`);
+  console.log('T2: beta max_uses=3 → exactly 3');
+  await newBeta('T2', 'coach', 3); const r2 = await Promise.all(Array.from({ length: N }, () => claimBeta('T2', randomUUID())));
+  ok(r2.filter(x => x.outcome === 'claimed').length === 3, `exactly 3 claimed`);
 
-  console.log('T3: beta SAME key 25 → all resolve to ONE reservation');
-  await pool.query(`INSERT INTO beta_invite_codes (code,role,max_uses) VALUES ('T3','coach',1)`);
-  const k3 = randomUUID();
-  const r3 = await Promise.all(Array.from({ length: N }, () => claimBeta('T3', k3)));
+  console.log('T3: beta same-key 25 → 1 reservation');
+  await newBeta('T3'); const k3 = randomUUID(); const r3 = await Promise.all(Array.from({ length: N }, () => claimBeta('T3', k3)));
   const nn3 = r3.filter(x => x.reservation_id);
-  ok(nn3.length === N && new Set(nn3.map(x => x.reservation_id)).size === 1, `all ${N} → 1 reservation (got ${nn3.length}/${new Set(nn3.map(x => x.reservation_id)).size})`);
-  ok(await usedCount('T3') === 1, `used_count=1 after same-key storm`);
+  ok(nn3.length === N && new Set(nn3.map(x => x.reservation_id)).size === 1 && await usedCount('T3') === 1, `all 25 → 1 reservation, used_count=1`);
 
-  console.log('T4: client 25 distinct keys → exactly 1; status stays pending');
+  console.log('T4: client 25 distinct → 1 claimed, status pending');
   const tok = (await one(`INSERT INTO client_invites DEFAULT VALUES RETURNING token`)).token;
   const r4 = await Promise.all(Array.from({ length: N }, () => claimClient(tok, randomUUID())));
-  ok(r4.filter(x => x.outcome === 'claimed').length === 1, `exactly 1 client claim (got ${r4.filter(x => x.outcome === 'claimed').length})`);
-  ok((await one(`SELECT status FROM client_invites WHERE token=$1`, [tok])).status === 'pending', `status stays 'pending'`);
+  ok(r4.filter(x => x.outcome === 'claimed').length === 1 && (await one(`SELECT status FROM client_invites WHERE token=$1`, [tok])).status === 'pending', `1 claim, status pending`);
 
-  console.log('T5: client SAME key 25 → all resolve to ONE reservation');
+  console.log('T5: client same-key 25 → 1 reservation');
   const tok5 = (await one(`INSERT INTO client_invites DEFAULT VALUES RETURNING token`)).token;
-  const k5 = randomUUID();
-  const r5 = await Promise.all(Array.from({ length: N }, () => claimClient(tok5, k5)));
+  const k5 = randomUUID(); const r5 = await Promise.all(Array.from({ length: N }, () => claimClient(tok5, k5)));
   const nn5 = r5.filter(x => x.reservation_id);
-  ok(nn5.length === N && new Set(nn5.map(x => x.reservation_id)).size === 1, `all ${N} client same-key → 1 reservation`);
+  ok(nn5.length === N && new Set(nn5.map(x => x.reservation_id)).size === 1, `all 25 client same-key → 1 reservation`);
 
-  console.log('T6: beta finalize DERIVES role from invite (no escalation possible)');
-  await pool.query(`INSERT INTO beta_invite_codes (code,role,max_uses) VALUES ('T6','coach',1)`);
-  const c6 = await claimBeta('T6', randomUUID());
-  const uid6 = randomUUID();
-  const f6 = (await one(`SELECT finalize_beta_signup($1,$2,'N','e6@x.io','1.0','{}'::jsonb) ok`, [c6.reservation_id, uid6])).ok;
-  ok(f6 === true, 'finalize true');
-  ok((await one(`SELECT role::text r FROM profiles WHERE id=$1`, [uid6])).r === 'coach', `profile role='coach' DERIVED from invite (not caller)`);
-  ok(await profileCount(uid6) === 1 && (await one(`SELECT count(*)::int n FROM consents WHERE user_id=$1`, [uid6])).n === 1, 'profile + consent (fail-closed) created');
+  console.log('T6: beta happy path (claim→attach→finalize), role derived');
+  await newBeta('T6'); const c6 = await claimBeta('T6', randomUUID()); const u6 = randomUUID();
+  ok(await attach(c6.reservation_id, u6) === 'attached', 'attach ok');
+  ok(await finBeta(c6.reservation_id, u6) === true && (await one(`SELECT role::text r FROM profiles WHERE id=$1`, [u6])).r === 'coach', 'finalize true, role=coach derived');
 
-  console.log('T7: beta finalize loses to expiry → false, no account');
-  await pool.query(`INSERT INTO beta_invite_codes (code,role,max_uses) VALUES ('T7','coach',1)`);
-  const c7 = await claimBeta('T7', randomUUID());
-  await pool.query(`UPDATE invite_reservations SET expires_at=now()-interval '1 min' WHERE id=$1`, [c7.reservation_id]);
-  const uid7 = randomUUID();
-  ok((await one(`SELECT finalize_beta_signup($1,$2,'N','e7@x.io','1.0','{}'::jsonb) ok`, [c7.reservation_id, uid7])).ok === false, 'expired → false');
-  ok(await profileCount(uid7) === 0, 'no profile on lost finalize');
+  console.log('T7: finalize REQUIRES prior attach + matching user');
+  await newBeta('T7'); const c7 = await claimBeta('T7', randomUUID()); const u7 = randomUUID();
+  ok(await finBeta(c7.reservation_id, u7) === false, 'finalize without attach → false');
+  await attach(c7.reservation_id, u7);
+  ok(await finBeta(c7.reservation_id, randomUUID()) === false, 'finalize with WRONG user → false');
+  ok(await finBeta(c7.reservation_id, u7) === true, 'finalize with attached user → true');
 
-  console.log('T7b: beta finalize revalidates the CODE expiry (policy: code must still be valid)');
-  await pool.query(`INSERT INTO beta_invite_codes (code,role,max_uses,expires_at) VALUES ('T7b','coach',1, now()+interval '1 hour')`);
-  const c7b = await claimBeta('T7b', randomUUID());
-  await pool.query(`UPDATE beta_invite_codes SET expires_at=now()-interval '1 min' WHERE code='T7b'`); // code expires after claim
-  const uid7b = randomUUID();
-  ok((await one(`SELECT finalize_beta_signup($1,$2,'N','e7b@x.io','1.0','{}'::jsonb) ok`, [c7b.reservation_id, uid7b])).ok === false, 'expired CODE → finalize false (revalidated, like client)');
-  ok(await profileCount(uid7b) === 0, 'no profile when code expired between claim and finalize');
+  console.log('T8: attach is compare-and-set (no overwrite)');
+  await newBeta('T8'); const c8 = await claimBeta('T8', randomUUID()); const uA = randomUUID(), uB = randomUUID();
+  ok(await attach(c8.reservation_id, uA) === 'attached', 'first attach ok');
+  ok(await attach(c8.reservation_id, uB) === 'conflict', 'second different user → conflict');
+  ok(await finBeta(c8.reservation_id, uB) === false && await finBeta(c8.reservation_id, uA) === true, 'only the first-attached user can finalize');
 
-  console.log('T8: CLIENT finalize derives coach + accepts invite (was zero coverage)');
+  console.log('T9: attach after reservation expiry → gone');
+  await newBeta('T9'); const c9 = await claimBeta('T9', randomUUID());
+  await pool.query(`UPDATE invite_reservations SET expires_at=now()-interval '1 min' WHERE id=$1`, [c9.reservation_id]);
+  ok(await attach(c9.reservation_id, randomUUID()) === 'gone', 'attach on expired reservation → gone');
+
+  console.log('T10: beta finalize revalidates CODE expiry');
+  await pool.query(`INSERT INTO beta_invite_codes (code,role,max_uses,expires_at) VALUES ('T10','coach',1,now()+interval '1 h')`);
+  const c10 = await claimBeta('T10', randomUUID()); const u10 = randomUUID(); await attach(c10.reservation_id, u10);
+  await pool.query(`UPDATE beta_invite_codes SET expires_at=now()-interval '1 min' WHERE code='T10'`);
+  ok(await finBeta(c10.reservation_id, u10) === false && await profileCount(u10) === 0, 'expired code → finalize false, no account');
+
+  console.log('T11: client happy path — coach derived, invite accepted');
   const coachX = randomUUID();
-  const tok8 = (await one(`INSERT INTO client_invites (coach_id) VALUES ($1) RETURNING token`, [coachX])).token;
-  const c8 = await claimClient(tok8, randomUUID());
-  const uid8 = randomUUID();
-  ok((await one(`SELECT finalize_client_activation($1,$2,'N','e8@x.io','1.0','{}'::jsonb) ok`, [c8.reservation_id, uid8])).ok === true, 'client finalize true');
-  ok((await one(`SELECT coach_id FROM client_profiles WHERE user_id=$1`, [uid8])).coach_id === coachX, `coach_id DERIVED from invite (no reassignment)`);
-  ok((await one(`SELECT status FROM client_invites WHERE token=$1`, [tok8])).status === 'accepted', `invite → accepted`);
+  const tok11 = (await one(`INSERT INTO client_invites (coach_id) VALUES ($1) RETURNING token`, [coachX])).token;
+  const c11 = await claimClient(tok11, randomUUID()); const u11 = randomUUID(); await attach(c11.reservation_id, u11);
+  ok(await finClient(c11.reservation_id, u11) === true, 'client finalize true');
+  ok((await one(`SELECT coach_id FROM client_profiles WHERE user_id=$1`, [u11])).coach_id === coachX, 'coach derived from invite');
+  ok((await one(`SELECT status FROM client_invites WHERE token=$1`, [tok11])).status === 'accepted', 'invite accepted');
 
-  console.log('T9: CLIENT finalize REJECTS revoked invite (revalidation)');
-  const tok9 = (await one(`INSERT INTO client_invites DEFAULT VALUES RETURNING token`)).token;
-  const c9 = await claimClient(tok9, randomUUID());
-  await pool.query(`UPDATE client_invites SET status='revoked' WHERE token=$1`, [tok9]);
-  const uid9 = randomUUID();
-  ok((await one(`SELECT finalize_client_activation($1,$2,'N','e9@x.io','1.0','{}'::jsonb) ok`, [c9.reservation_id, uid9])).ok === false, 'revoked invite → false');
-  ok(await profileCount(uid9) === 0, 'no account from revoked invite');
+  console.log('T12: client finalize rejects revoked invite');
+  const tok12 = (await one(`INSERT INTO client_invites DEFAULT VALUES RETURNING token`)).token;
+  const c12 = await claimClient(tok12, randomUUID()); const u12 = randomUUID(); await attach(c12.reservation_id, u12);
+  await pool.query(`UPDATE client_invites SET status='revoked' WHERE token=$1`, [tok12]);
+  ok(await finClient(c12.reservation_id, u12) === false && await profileCount(u12) === 0, 'revoked → false, no account');
 
-  console.log('T10: cross-type finalize rejected');
-  await pool.query(`INSERT INTO beta_invite_codes (code,role,max_uses) VALUES ('T10','coach',1)`);
-  const betaRes = await claimBeta('T10', randomUUID());
-  ok((await one(`SELECT finalize_client_activation($1,$2,'N','x@x.io','1.0','{}'::jsonb) ok`, [betaRes.reservation_id, randomUUID()])).ok === false, 'beta reservation rejected by client finalizer');
-  const tok10 = (await one(`INSERT INTO client_invites DEFAULT VALUES RETURNING token`)).token;
-  const clientRes = await claimClient(tok10, randomUUID());
-  ok((await one(`SELECT finalize_beta_signup($1,$2,'N','x@x.io','1.0','{}'::jsonb) ok`, [clientRes.reservation_id, randomUUID()])).ok === false, 'client reservation rejected by beta finalizer');
+  console.log('T13: cross-type finalize rejected');
+  await newBeta('T13'); const cb = await claimBeta('T13', randomUUID()); const ub = randomUUID(); await attach(cb.reservation_id, ub);
+  ok(await finClient(cb.reservation_id, ub) === false, 'beta reservation rejected by client finalizer');
+  const tok13 = (await one(`INSERT INTO client_invites DEFAULT VALUES RETURNING token`)).token;
+  const cc = await claimClient(tok13, randomUUID()); const uc = randomUUID(); await attach(cc.reservation_id, uc);
+  ok(await finBeta(cc.reservation_id, uc) === false, 'client reservation rejected by beta finalizer');
 
-  console.log('T11: ordinary (no-invite) signup finalizer is atomic + fail-closed');
-  const uid11 = randomUUID();
-  ok((await one(`SELECT finalize_ordinary_signup($1,'N','e11@x.io','1.0','{}'::jsonb) ok`, [uid11])).ok === true, 'ordinary finalize true');
-  ok(await profileCount(uid11) === 1 && (await one(`SELECT count(*)::int n FROM client_profiles WHERE user_id=$1`, [uid11])).n === 1 && (await one(`SELECT count(*)::int n FROM consents WHERE user_id=$1`, [uid11])).n === 1, 'profile + client_profile + consent all created in one txn');
+  console.log('T14: ordinary signup happy path (claim→attach→finalize)');
+  const pseudo = randomUUID(); const co = await claimOrd(pseudo, randomUUID()); const uo = randomUUID();
+  await attach(co.reservation_id, uo);
+  ok(await finOrd(co.reservation_id, uo) === true, 'ordinary finalize true');
+  ok(await profileCount(uo) === 1 && (await one(`SELECT count(*)::int n FROM client_profiles WHERE user_id=$1`, [uo])).n === 1, 'profile+client_profile created');
 
-  console.log('T12: concurrent finalize vs release → exactly one wins, invariants intact');
-  let raceBad = 0;
-  for (let i = 0; i < 12; i++) {
-    await pool.query(`INSERT INTO beta_invite_codes (code,role,max_uses) VALUES ('R${i}','coach',1)`);
-    const c = await claimBeta(`R${i}`, randomUUID());
-    const uid = randomUUID();
-    await Promise.all([
-      pool.query(`SELECT finalize_beta_signup($1,$2,'N','r${i}@x.io','1.0','{}'::jsonb)`, [c.reservation_id, uid]).catch(() => {}),
-      pool.query('SELECT release_invite_reservation($1)', [c.reservation_id]).catch(() => {}),
-    ]);
-    const st = (await one(`SELECT status FROM invite_reservations WHERE id=$1`, [c.reservation_id])).status;
-    const hasAccount = await profileCount(uid) === 1;
-    // invariant: completed⇔account, cancelled⇔no-account; never both
-    if (!((st === 'completed' && hasAccount) || (st === 'cancelled' && !hasAccount))) raceBad++;
-  }
-  ok(raceBad === 0, `12 finalize/release races: every outcome consistent (bad=${raceBad})`);
+  console.log('T15: completed replay (beta + client) → replayed_completed + user');
+  await newBeta('T15'); const k15 = randomUUID(); const c15 = await claimBeta('T15', k15); const u15 = randomUUID();
+  await attach(c15.reservation_id, u15); await finBeta(c15.reservation_id, u15);
+  const rep15 = await claimBeta('T15', k15);
+  ok(rep15.outcome === 'replayed_completed' && rep15.res_user_id === u15, `beta post-finalize replay → replayed_completed + same user`);
 
-  console.log('T13: completed CLIENT replay (post-activation) → replayed_completed + user_id');
-  const tokR = (await one(`INSERT INTO client_invites DEFAULT VALUES RETURNING token`)).token;
-  const kR = randomUUID();
-  const cR = await claimClient(tokR, kR);
-  const uidR = randomUUID();
-  await one(`SELECT finalize_client_activation($1,$2,'N','er@x.io','1.0','{}'::jsonb)`, [cR.reservation_id, uidR]);
-  const replay = await claimClient(tokR, kR); // retry SAME key after the invite is 'accepted'
-  ok(replay.outcome === 'replayed_completed' && replay.res_user_id === uidR, `post-activation replay → replayed_completed + same user (got '${replay.outcome}')`);
+  console.log('T16: reserved replay returns the ATTACHED user (avoids 2nd Auth user)');
+  await newBeta('T16'); const k16 = randomUUID(); const c16 = await claimBeta('T16', k16); const u16 = randomUUID();
+  await attach(c16.reservation_id, u16);
+  const rep16 = await claimBeta('T16', k16);
+  ok(rep16.outcome === 'replayed_reserved' && rep16.res_user_id === u16, `reserved replay returns attached user`);
 
-  console.log('T14: crash-after-auth recovery — sweep skips orphans; orphan list surfaces them');
-  await pool.query(`INSERT INTO beta_invite_codes (code,role,max_uses) VALUES ('T14','coach',1)`);
-  const c14 = await claimBeta('T14', randomUUID());
-  const uid14 = randomUUID();
-  ok((await one(`SELECT attach_reservation_user($1,$2) ok`, [c14.reservation_id, uid14])).ok === true, 'attach_reservation_user records the Auth user');
-  await pool.query(`UPDATE invite_reservations SET expires_at=now()-interval '1 min' WHERE id=$1`, [c14.reservation_id]);
-  await pool.query('SELECT expire_stale_invite_reservations()');
-  ok((await one(`SELECT status FROM invite_reservations WHERE id=$1`, [c14.reservation_id])).status === 'reserved', `sweep does NOT auto-release an orphan (Auth user must be deleted first)`);
-  const orphans = (await pool.query(`SELECT * FROM list_expired_orphan_reservations()`)).rows;
-  ok(orphans.some(o => o.reservation_id === c14.reservation_id && o.user_id === uid14), 'orphan surfaced for server-side Auth deletion');
-  await one('SELECT release_invite_reservation($1)', [c14.reservation_id]); // server deletes Auth user, then releases
-  ok(await usedCount('T14') === 0, 'slot freed after orphan recovery');
+  console.log('T17: generic release REJECTS attached reservations');
+  await newBeta('T17'); const c17 = await claimBeta('T17', randomUUID()); await attach(c17.reservation_id, randomUUID());
+  ok(await one('SELECT release_invite_reservation($1) ok', [c17.reservation_id]).then(r => r.ok) === false, 'release attached → false');
+  ok(await resStatus(c17.reservation_id) === 'reserved', 'attached reservation still reserved (not freed)');
+  await newBeta('T17b'); const c17b = await claimBeta('T17b', randomUUID()); // unattached
+  ok(await one('SELECT release_invite_reservation($1) ok', [c17b.reservation_id]).then(r => r.ok) === true && await usedCount('T17b') === 0, 'unattached release → true, slot freed');
 
-  console.log('T15: genuine sweep frees an orphan-free expired reservation');
-  await pool.query(`INSERT INTO beta_invite_codes (code,role,max_uses) VALUES ('T15','coach',1)`);
-  const c15 = await claimBeta('T15', randomUUID()); // no attach → user_id NULL (crashed before auth create)
-  await pool.query(`UPDATE invite_reservations SET expires_at=now()-interval '1 min' WHERE id=$1`, [c15.reservation_id]);
-  const swept = (await one('SELECT expire_stale_invite_reservations() n')).n;
-  ok(swept >= 1 && await usedCount('T15') === 0, `sweep released the orphan-free reservation (swept=${swept})`);
+  console.log('T18: sweep frees orphan-free expired only');
+  await newBeta('T18'); const c18 = await claimBeta('T18', randomUUID()); // no attach
+  await pool.query(`UPDATE invite_reservations SET expires_at=now()-interval '1 min' WHERE id=$1`, [c18.reservation_id]);
+  ok((await one('SELECT expire_stale_invite_reservations() n')).n >= 1 && await usedCount('T18') === 0, 'sweep freed orphan-free');
 
-  console.log('T16: PERMISSIONS — all 9 RPCs: anon/auth DENIED, service_role allowed');
-  const fns = ['claim_beta_invite(text,uuid,text)', 'claim_client_invite(uuid,uuid,text)',
-    'attach_reservation_user(uuid,uuid)',
-    'finalize_beta_signup(uuid,uuid,text,text,text,jsonb)', 'finalize_client_activation(uuid,uuid,text,text,text,jsonb)',
-    'finalize_ordinary_signup(uuid,text,text,text,jsonb)', 'release_invite_reservation(uuid)',
-    'expire_stale_invite_reservations()', 'list_expired_orphan_reservations()'];
+  console.log('T19: crash-after-auth recovery — lease → worker cancels');
+  await newBeta('T19'); const c19 = await claimBeta('T19', randomUUID()); const u19 = randomUUID(); await attach(c19.reservation_id, u19);
+  await pool.query(`UPDATE invite_reservations SET expires_at=now()-interval '1 min' WHERE id=$1`, [c19.reservation_id]);
+  ok((await one('SELECT expire_stale_invite_reservations() n')).n === 0, 'sweep skips attached orphan');
+  const leased = (await pool.query('SELECT * FROM claim_orphan_for_recovery(50,120)')).rows;
+  ok(leased.some(o => o.reservation_id === c19.reservation_id && o.user_id === u19), 'orphan leased for recovery');
+  ok(await resStatus(c19.reservation_id) === 'recovering', 'status → recovering');
+  ok(await finBeta(c19.reservation_id, u19) === false, 'finalize on recovering → false (mutual exclusion)');
+  ok(await one('SELECT cancel_attached_reservation($1,$2) ok', [c19.reservation_id, u19]).then(r => r.ok) === true && await usedCount('T19') === 0, 'worker cancels after deleting Auth user, slot freed');
+
+  console.log('T20: recovery vs finalize mutual exclusion (not-expired → finalize wins)');
+  await newBeta('T20'); const c20 = await claimBeta('T20', randomUUID()); const u20 = randomUUID(); await attach(c20.reservation_id, u20);
+  const leased20 = (await pool.query('SELECT * FROM claim_orphan_for_recovery(50,120)')).rows; // not expired → not leased
+  ok(!leased20.some(o => o.reservation_id === c20.reservation_id), 'not-expired reservation is not leased');
+  ok(await finBeta(c20.reservation_id, u20) === true, 'finalize succeeds (recovery did not interfere)');
+
+  console.log('T21: recovery-worker crash → lease expiry → re-claimable');
+  await newBeta('T21'); const c21 = await claimBeta('T21', randomUUID()); const u21 = randomUUID(); await attach(c21.reservation_id, u21);
+  await pool.query(`UPDATE invite_reservations SET expires_at=now()-interval '1 min' WHERE id=$1`, [c21.reservation_id]);
+  await pool.query('SELECT claim_orphan_for_recovery(50,120)'); // leased by worker that then "crashes"
+  await pool.query(`UPDATE invite_reservations SET recovering_lease_until=now()-interval '1 min' WHERE id=$1`, [c21.reservation_id]); // lease expires
+  const reLease = (await pool.query('SELECT * FROM claim_orphan_for_recovery(50,120)')).rows;
+  ok(reLease.some(o => o.reservation_id === c21.reservation_id), 'expired-lease recovering reservation re-claimed');
+
+  console.log('T22: ordinary-signup crash recovery');
+  const pseudo22 = randomUUID(); const c22 = await claimOrd(pseudo22, randomUUID()); const u22 = randomUUID(); await attach(c22.reservation_id, u22);
+  await pool.query(`UPDATE invite_reservations SET expires_at=now()-interval '1 min' WHERE id=$1`, [c22.reservation_id]);
+  const leased22 = (await pool.query('SELECT * FROM claim_orphan_for_recovery(50,120)')).rows;
+  ok(leased22.some(o => o.reservation_id === c22.reservation_id && o.invite_type === 'ordinary'), 'ordinary orphan leased');
+  ok(await one('SELECT cancel_attached_reservation($1,$2) ok', [c22.reservation_id, u22]).then(r => r.ok) === true, 'ordinary orphan cancelled');
+
+  console.log('T23: PERMISSIONS — all 11 RPCs: anon/auth DENIED, service_role allowed');
+  const fns = ['claim_beta_invite(text,uuid,text)', 'claim_client_invite(uuid,uuid,text)', 'claim_ordinary_signup(uuid,uuid,text)',
+    'attach_reservation_user(uuid,uuid)', 'finalize_beta_signup(uuid,uuid,text,text,text,jsonb)',
+    'finalize_client_activation(uuid,uuid,text,text,text,jsonb)', 'finalize_ordinary_signup(uuid,uuid,text,text,text,jsonb)',
+    'release_invite_reservation(uuid)', 'cancel_attached_reservation(uuid,uuid)',
+    'expire_stale_invite_reservations()', 'claim_orphan_for_recovery(int,int)'];
   for (const fn of fns) {
     const a = (await one(`SELECT has_function_privilege('anon','public.${fn}','EXECUTE') p`)).p;
     const au = (await one(`SELECT has_function_privilege('authenticated','public.${fn}','EXECUTE') p`)).p;
@@ -199,7 +208,7 @@ async function main() {
   }
 
   await pool.end();
-  console.log(fail === 0 ? '\n✅ ALL WP1 tests passed' : `\n❌ ${fail} assertion(s) failed`);
+  console.log(fail === 0 ? '\n✅ ALL WP1 v5 tests passed' : `\n❌ ${fail} assertion(s) failed`);
   process.exit(fail === 0 ? 0 : 1);
 }
 main().catch(e => { console.error(e); process.exit(1); });
