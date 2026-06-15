@@ -33,12 +33,33 @@ select cron.schedule('recover-reservations', '*/5 * * * *', $$
     headers := jsonb_build_object(
       'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'recovery_cron_secret'),
       'Content-Type', 'application/json'
-    )
+    ),
+    -- pg_net defaults to 2000ms; this endpoint may run up to the 60s function cap doing
+    -- up to ~20 Auth reconciliations across two passes. Allow longer than the cap.
+    timeout_milliseconds := 65000
   );
 $$);
 ```
 
 To remove: `select cron.unschedule('recover-reservations');`
+
+### Monitoring
+
+`pg_net` is fire-and-forget; responses land in `net._http_response`. Alert on
+timeouts and non-2xx so a silently-failing worker is visible:
+
+```sql
+-- recent failures (timeout → status_code IS NULL / error_msg set; or status_code >= 300)
+select id, status_code, error_msg, created
+from net._http_response
+where created > now() - interval '1 hour'
+  and (status_code is null or status_code >= 300)
+order by created desc;
+```
+
+Wire that query into the existing Mission-Control / uptime alerting (non-empty result
+→ page). Also confirm `select * from cron.job_run_details` shows the job firing on
+schedule.
 
 ## Alternatives
 

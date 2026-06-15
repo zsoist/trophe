@@ -22,6 +22,8 @@ export const inviteReservations = pgTable('invite_reservations', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().default(sql`now()`),
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull().default(sql`now() + interval '15 minutes'`),
   completedAt: timestamp('completed_at', { withTimezone: true }),
+  reconcileUntil: timestamp('reconcile_until', { withTimezone: true }), // 0044 tombstone window
+  sealedAt: timestamp('sealed_at', { withTimezone: true }),             // 0044 tombstone terminal
 }, (t) => [
   check('invite_reservations_invite_type_check', sql`${t.inviteType} IN ('beta','client','ordinary')`),
   check('invite_reservations_status_check', sql`${t.status} IN ('reserved','completed','cancelled','recovering')`),
@@ -29,4 +31,5 @@ export const inviteReservations = pgTable('invite_reservations', {
   uniqueIndex('uq_client_invite_live_claim').on(t.inviteId).where(sql`invite_type = 'client' AND status IN ('reserved','completed','recovering')`),
   uniqueIndex('uq_ordinary_live_claim').on(t.inviteId).where(sql`invite_type = 'ordinary' AND status IN ('reserved','completed','recovering')`),
   index('idx_invite_reservations_sweep').on(t.status, t.expiresAt),
+  index('idx_invite_reservations_tombstone').on(t.reconcileUntil).where(sql`status = 'cancelled' AND sealed_at IS NULL AND reconcile_until IS NOT NULL`),
 ]).enableRLS();

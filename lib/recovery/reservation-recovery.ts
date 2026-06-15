@@ -89,3 +89,66 @@ export async function recoverOrphanReservations(
   await Promise.all(Array.from({ length: Math.min(concurrency, orphans.length) }, worker));
   return result;
 }
+
+/**
+ * Durable late-arrival reconciliation (tombstone sweep).
+ *
+ * Cancelling a reservation arms a retention window (reconcile_until). This sweep
+ * re-reconciles cancelled+unsealed rows so an Auth user that was created AFTER the
+ * cancel (an in-flight createUser that landed late) is still deleted instead of
+ * stranded — claim_orphan_for_recovery never revisits 'cancelled' rows. Each row is
+ * re-checked until its window elapses, then SEALED (terminal).
+ */
+export interface TombstoneDb {
+  claimTombstones(limit: number, leaseSeconds: number): Promise<OrphanRow[]>;
+  /** Seal if the retention window elapsed (terminal), else release the lease for re-check. */
+  settleTombstone(reservationId: string, recoveryToken: string): Promise<'sealed' | 'rechecked' | 'lost'>;
+}
+
+export interface TombstoneResult {
+  claimed: number;
+  authDeleted: number;
+  sealed: number;
+  rechecked: number;
+  errors: number;
+}
+
+export async function sweepTombstones(
+  db: TombstoneDb,
+  auth: AuthReconciler,
+  opts: { limit?: number; leaseSeconds?: number; concurrency?: number; log?: (msg: string) => void } = {},
+): Promise<TombstoneResult> {
+  const limit = opts.limit ?? 20;
+  const leaseSeconds = opts.leaseSeconds ?? 120;
+  const concurrency = Math.max(1, opts.concurrency ?? 5);
+  const log = opts.log ?? (() => {});
+
+  const rows = await db.claimTombstones(limit, leaseSeconds);
+  const result: TombstoneResult = { claimed: rows.length, authDeleted: 0, sealed: 0, rechecked: 0, errors: 0 };
+
+  let cursor = 0;
+  async function runOne(o: OrphanRow): Promise<void> {
+    try {
+      const outcome = await auth.reconcileAndDelete(o.reservation_id, o.user_id);
+      if (outcome === 'mismatch') {
+        result.errors++;
+        log(`[tombstone] ${o.reservation_id}: tag mismatch — left for re-check, NOT sealed`);
+        return; // lease expires → re-claimed; never sealed while a foreign carrier exists
+      }
+      if (outcome === 'deleted') result.authDeleted++;
+      // Carriers gone this pass → seal if the window elapsed, else release for re-check.
+      const settled = await db.settleTombstone(o.reservation_id, o.recovery_token);
+      if (settled === 'sealed') result.sealed++;
+      else if (settled === 'rechecked') result.rechecked++;
+      else { result.errors++; log(`[tombstone] ${o.reservation_id}: settle lost lease — retry`); }
+    } catch (err) {
+      result.errors++;
+      log(`[tombstone] ${o.reservation_id}: left for retry: ${String(err)}`);
+    }
+  }
+  async function worker(): Promise<void> {
+    while (cursor < rows.length) { const i = cursor++; await runOne(rows[i]); }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, rows.length) }, worker));
+  return result;
+}

@@ -1,13 +1,18 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { RecoveryDb, AuthReconciler, OrphanRow } from '@/lib/recovery/reservation-recovery';
+import type { RecoveryDb, TombstoneDb, AuthReconciler, OrphanRow } from '@/lib/recovery/reservation-recovery';
 
 /**
  * Supabase-backed adapters for the WP1 reservation lifecycle. Kept thin so the
  * recovery worker (lib/recovery/reservation-recovery.ts) stays pure + unit-tested.
  */
 
-/** RecoveryDb backed by the service-role client (calls the 0042 SECURITY DEFINER RPCs). */
-export function buildRecoveryDb(service: SupabaseClient): RecoveryDb {
+/** Tombstone retention: how long a recovery-cancelled reservation stays re-reconcilable
+ *  to catch a late createUser. Must exceed the worst-case create completion (bounded by
+ *  the 60s serverless function cap); 10m is a wide margin. */
+const TOMBSTONE_RETENTION_SECONDS = 600;
+
+/** RecoveryDb + TombstoneDb backed by the service-role client (0042/0044 RPCs). */
+export function buildRecoveryDb(service: SupabaseClient): RecoveryDb & TombstoneDb {
   return {
     async claimOrphans(limit, leaseSeconds) {
       const { data, error } = await service.rpc('claim_orphan_for_recovery', { p_limit: limit, p_lease_seconds: leaseSeconds });
@@ -15,9 +20,22 @@ export function buildRecoveryDb(service: SupabaseClient): RecoveryDb {
       return (data ?? []) as OrphanRow[];
     },
     async cancelRecovering(reservationId, recoveryToken) {
-      const { data, error } = await service.rpc('cancel_recovering_reservation', { p_reservation_id: reservationId, p_recovery_token: recoveryToken });
-      if (error) throw new Error(`cancel_recovering_reservation: ${error.message}`);
+      // Tombstoned cancel: atomically frees the slot AND arms the late-arrival window.
+      const { data, error } = await service.rpc('cancel_recovering_reservation_tombstoned', {
+        p_reservation_id: reservationId, p_recovery_token: recoveryToken, p_retention_seconds: TOMBSTONE_RETENTION_SECONDS,
+      });
+      if (error) throw new Error(`cancel_recovering_reservation_tombstoned: ${error.message}`);
       return data === true;
+    },
+    async claimTombstones(limit, leaseSeconds) {
+      const { data, error } = await service.rpc('claim_tombstones_for_recheck', { p_limit: limit, p_lease_seconds: leaseSeconds });
+      if (error) throw new Error(`claim_tombstones_for_recheck: ${error.message}`);
+      return (data ?? []) as OrphanRow[];
+    },
+    async settleTombstone(reservationId, recoveryToken) {
+      const { data, error } = await service.rpc('settle_tombstone', { p_reservation_id: reservationId, p_recovery_token: recoveryToken });
+      if (error) throw new Error(`settle_tombstone: ${error.message}`);
+      return (data as 'sealed' | 'rechecked' | 'lost');
     },
   };
 }

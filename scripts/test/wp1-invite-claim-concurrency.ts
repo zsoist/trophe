@@ -1,7 +1,9 @@
 /**
- * WP1 adversarial test (v6) — reservation ownership + recovery state machine (0042/0043).
+ * WP1 adversarial test (v7) — reservation ownership + recovery state machine (0042/0043/0044).
  * v6: worker reconciles Auth by verified reservation tag before deletion (P0 guard),
  * server-side find RPC replaces the bounded listUsers scan, payload-bound fingerprint.
+ * v7: trusted app_metadata authority + exhaustive dup reconcile (T25/T27); durable
+ * tombstone sweep reaps Auth users that arrive AFTER cancellation (T28).
  * Production-shaped throwaway Postgres (TEST_DATABASE_URL). Proves claim race
  * correctness + idempotency, attach compare-and-set, finalizer ownership enforcement,
  * leased orphan recovery vs finalize mutual exclusion, lease re-claim, ordinary-signup
@@ -11,7 +13,7 @@ import { Pool } from 'pg';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { recoverOrphanReservations, type RecoveryDb, type AuthReconciler } from '@/lib/recovery/reservation-recovery';
+import { recoverOrphanReservations, sweepTombstones, type RecoveryDb, type TombstoneDb, type AuthReconciler } from '@/lib/recovery/reservation-recovery';
 import { reservationIdentity } from '@/lib/auth/reservation-identity';
 import { buildAuthReconciler } from '@/lib/auth/auth-admin';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -53,6 +55,7 @@ async function setup() {
   await pool.query(`TRUNCATE auth.users;`);
   await pool.query(readFileSync(join(process.cwd(), 'drizzle/0042_invite_reservations.sql'), 'utf-8'));
   await pool.query(readFileSync(join(process.cwd(), 'drizzle/0043_find_auth_user_by_reservation.sql'), 'utf-8'));
+  await pool.query(readFileSync(join(process.cwd(), 'drizzle/0044_reservation_tombstones.sql'), 'utf-8'));
 }
 
 const claimBeta = (code: string, idem: string, fp = FP) => one('SELECT * FROM claim_beta_invite($1,$2,$3)', [code, idem, fp]);
@@ -254,7 +257,7 @@ async function main() {
   console.log('T24: recovery WORKER (mock Auth) — reconcile+cancel, absent, transient-retry, pre-attach, tag-MISMATCH (P0)');
   const recoveryDb: RecoveryDb = {
     claimOrphans: (l, s) => pool.query('SELECT * FROM claim_orphan_for_recovery($1,$2)', [l, s]).then(r => r.rows),
-    cancelRecovering: (id, tok) => pool.query('SELECT cancel_recovering_reservation($1,$2) ok', [id, tok]).then(r => r.rows[0].ok),
+    cancelRecovering: (id, tok) => pool.query('SELECT cancel_recovering_reservation_tombstoned($1,$2,$3) ok', [id, tok, 600]).then(r => r.rows[0].ok),
   };
   type Outcome = 'deleted' | 'absent' | 'mismatch';
   const mockAuth = (fn: (rid: string, uid: string | null) => Promise<Outcome>): AuthReconciler => ({ reconcileAndDelete: fn });
@@ -286,13 +289,14 @@ async function main() {
   const r24e = await recoverOrphanReservations(recoveryDb, mockAuth(async () => 'mismatch'));
   ok(r24e.errors === 1 && r24e.cancelled === 0 && await resStatus(c24e.reservation_id) === 'recovering', '(e) Auth tag mismatch → NOT deleted/cancelled, left recovering (P0 guard)');
 
-  console.log('T23: PERMISSIONS — all 12 RPCs: anon/auth DENIED, service_role allowed');
+  console.log('T23: PERMISSIONS — all 15 RPCs: anon/auth DENIED, service_role allowed');
   const fns = ['claim_beta_invite(text,uuid,text)', 'claim_client_invite(uuid,uuid,text)', 'claim_ordinary_signup(uuid,uuid,text)',
     'attach_reservation_user(uuid,uuid)', 'finalize_beta_signup(uuid,uuid,text,text,text,jsonb)',
     'finalize_client_activation(uuid,uuid,text,text,text,jsonb)', 'finalize_ordinary_signup(uuid,uuid,text,text,text,jsonb)',
     'release_invite_reservation(uuid)', 'cancel_attached_reservation(uuid,uuid)',
     'cancel_recovering_reservation(uuid,uuid)', 'claim_orphan_for_recovery(int,int)',
-    'find_auth_user_ids_by_reservation(uuid)'];
+    'find_auth_user_ids_by_reservation(uuid)',
+    'cancel_recovering_reservation_tombstoned(uuid,uuid,int)', 'claim_tombstones_for_recheck(int,int)', 'settle_tombstone(uuid,uuid,int)'];
   for (const fn of fns) {
     const a = (await one(`SELECT has_function_privilege('anon','public.${fn}','EXECUTE') p`)).p;
     const au = (await one(`SELECT has_function_privilege('authenticated','public.${fn}','EXECUTE') p`)).p;
@@ -355,6 +359,41 @@ async function main() {
   // (g) carrier persists after delete (proof fails) → throws, never frees the slot
   const fg = fakeService({ getUser: () => mkUser(RID), ids: () => [rA] }); // RPC always reports rA → zero-remain proof fails
   ok(await fg.rec.reconcileAndDelete(RID, rA).then(() => false, () => true) && fg.deleted.includes(rA), '(g) carrier remains after delete → reconcile-incomplete throw (no cancel)');
+
+  console.log('T28: DURABLE late-arrival (tombstone) — carrier created AFTER absent+cancel is still reaped (P0)');
+  // Auth mock backed by the stub auth.users table (mimics the real adapter end-to-end).
+  const dbAuth: AuthReconciler = { reconcileAndDelete: async (rid) => {
+    const carriers = (await one(`SELECT coalesce(array_agg(id),'{}') a FROM auth.users WHERE raw_app_meta_data->>'reservation_id'=$1`, [rid])).a as string[];
+    if (carriers.length === 0) return 'absent';
+    await pool.query(`DELETE FROM auth.users WHERE raw_app_meta_data->>'reservation_id'=$1`, [rid]);
+    return 'deleted';
+  } };
+  const tdb: RecoveryDb = {
+    claimOrphans: (l, s) => pool.query('SELECT * FROM claim_orphan_for_recovery($1,$2)', [l, s]).then(r => r.rows),
+    cancelRecovering: (id, tok) => pool.query('SELECT cancel_recovering_reservation_tombstoned($1,$2,$3) ok', [id, tok, 600]).then(r => r.rows[0].ok),
+  };
+  const tomb: TombstoneDb = {
+    claimTombstones: (l, s) => pool.query('SELECT * FROM claim_tombstones_for_recheck($1,$2)', [l, s]).then(r => r.rows),
+    settleTombstone: (id, tok) => pool.query('SELECT settle_tombstone($1,$2) s', [id, tok]).then(r => r.rows[0].s),
+  };
+  await newBeta('T28'); const c28 = await claimBeta('T28', randomUUID());
+  await pool.query(`UPDATE invite_reservations SET expires_at=now()-interval '1 min' WHERE id=$1`, [c28.reservation_id]);
+  // orphan pass: NO carrier yet → 'absent' → cancel WITH tombstone armed
+  await recoverOrphanReservations(tdb, dbAuth);
+  const t28a = await one(`SELECT status, reconcile_until IS NOT NULL armed, sealed_at FROM invite_reservations WHERE id=$1`, [c28.reservation_id]);
+  ok(t28a.status === 'cancelled' && t28a.armed === true && t28a.sealed_at === null, '(a) absent → cancelled WITH tombstone armed (not sealed)');
+  // LATE createUser lands: a carrier now exists, tagged to the now-cancelled reservation
+  const late28 = randomUUID();
+  await pool.query(`INSERT INTO auth.users (id, raw_app_meta_data) VALUES ($1, jsonb_build_object('reservation_id',$2::text))`, [late28, c28.reservation_id]);
+  // tombstone sweep MUST reap it (claim_orphan_for_recovery never revisits 'cancelled')
+  const t28b = await sweepTombstones(tomb, dbAuth);
+  ok((await one(`SELECT count(*)::int n FROM auth.users WHERE id=$1`, [late28])).n === 0 && t28b.authDeleted === 1, '(b) late carrier reaped by tombstone sweep (no permanent strand)');
+  // window elapses with zero carriers → SEAL (terminal)
+  await pool.query(`UPDATE invite_reservations SET reconcile_until=now()-interval '1 s', recovering_lease_until=NULL, recovery_token=NULL WHERE id=$1`, [c28.reservation_id]);
+  const t28c = await sweepTombstones(tomb, dbAuth);
+  ok(t28c.sealed >= 1 && (await one(`SELECT sealed_at IS NOT NULL s FROM invite_reservations WHERE id=$1`, [c28.reservation_id])).s === true, '(c) window elapsed + zero carriers → sealed (terminal)');
+  // sealed tombstone is excluded from future claims
+  ok((await one(`SELECT count(*)::int n FROM invite_reservations WHERE id=$1 AND sealed_at IS NOT NULL`, [c28.reservation_id])).n === 1, '(d) sealed row stays terminal (excluded from claim_tombstones predicate)');
 
   await pool.end();
   console.log(fail === 0 ? '\n✅ ALL WP1 tests passed' : `\n❌ ${fail} assertion(s) failed`);

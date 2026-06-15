@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { buildRecoveryDb, buildAuthReconciler } from '@/lib/auth/auth-admin';
-import { recoverOrphanReservations } from '@/lib/recovery/reservation-recovery';
+import { recoverOrphanReservations, sweepTombstones } from '@/lib/recovery/reservation-recovery';
 
 /**
  * WP1 recovery worker — protected cron endpoint.
@@ -27,20 +27,23 @@ const CONCURRENCY = 5;
 
 function authorized(req: NextRequest): boolean {
   const expected = process.env.CRON_SECRET;
-  // Vercel Cron sends `Authorization: Bearer <CRON_SECRET>` automatically.
+  // Scheduler (Supabase pg_cron → pg_net) sends `Authorization: Bearer <CRON_SECRET>`.
   return !!expected && req.headers.get('authorization') === `Bearer ${expected}`;
 }
 
 async function run() {
   const service = createSupabaseServiceClient();
-  return recoverOrphanReservations(
-    buildRecoveryDb(service),
-    buildAuthReconciler(service),
-    { limit: BATCH_LIMIT, leaseSeconds: LEASE_SECONDS, concurrency: CONCURRENCY, log: (m) => console.error(m) },
-  );
+  const db = buildRecoveryDb(service);
+  const auth = buildAuthReconciler(service);
+  const opts = { limit: BATCH_LIMIT, leaseSeconds: LEASE_SECONDS, concurrency: CONCURRENCY, log: (m: string) => console.error(m) };
+  // Pass 1: lease + reconcile expired reservations. Pass 2: re-reconcile cancelled
+  // tombstones so a late-arriving Auth user is reaped instead of stranded.
+  const orphans = await recoverOrphanReservations(db, auth, opts);
+  const tombstones = await sweepTombstones(db, auth, opts);
+  return { orphans, tombstones };
 }
 
-// Vercel Cron invokes the configured path with GET — this is the scheduled entry point.
+// Scheduled entry point (Supabase pg_cron via pg_net POST). GET also serves manual curl.
 export async function GET(req: NextRequest) {
   if (!authorized(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   try {
