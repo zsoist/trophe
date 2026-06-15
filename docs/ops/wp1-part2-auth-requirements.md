@@ -41,26 +41,33 @@ Two distinct controls, deliberately **not** sharing one mechanism:
   reads `ban_duration`. There is no `enable`/`unban` step anywhere in the flow, so a replay
   or the recovery worker can never undo an admin/fraud/security ban (no race, no bypass).
 
-> PREVIEW-GATE (must validate on local/preview Supabase before approval): (a) unconfirmed
-> users cannot password-login; (b) the confirmation link/OTP is actually delivered for an
-> Admin-created user (confirm `resend` vs `admin.generateLink`); (c) the callback enables
-> login; (d) replay re-sends without duplicating accounts.
+> PREVIEW-GATE (must validate on a LOCAL Supabase + Mailpit stack before approval): (a)
+> unconfirmed users cannot password-login; (b) the confirmation link/OTP is actually
+> delivered for an Admin-created user; (c) the verify link redirects EXACTLY to
+> `/login?confirmed=1` (the `emailRedirectTo` callback) and post-confirmation password login
+> then succeeds; (d) replay re-sends a NEW link without duplicating the account.
 >
 > RUN IT (one command — repeatable evidence): `scripts/test/wp1-signup-confirm-e2e.ts`
-> asserts all of (a)–(d). Local:
+> asserts ALL of (a)–(d). **A passing gate requires ZERO failures AND ZERO skips** — a
+> partial run is never accepted as gate evidence.
 > ```
 > supabase start                 # brings up Auth + Mailpit; note the keys/ports from `supabase status`
 > # apply migrations 0042–0047 to the local DB; run the app with NEXT_PUBLIC_SITE_URL=http://127.0.0.1:3000
 > E2E_SUPABASE_ANON_KEY=… E2E_SUPABASE_SERVICE_KEY=… npx tsx scripts/test/wp1-signup-confirm-e2e.ts
 > ```
-> The harness is LOOPBACK-ONLY by default (it is destructive and Trophē has no isolated
-> Supabase preview branch). The Mailpit-based delivery checks (3 + replay-email) are
-> therefore LOCAL-ONLY — a hosted SMTP inbox exposes no Mailpit API. To run the non-delivery
-> checks (1, 2, 5-dup) against a hosted preview, set `E2E_ALLOW_REMOTE=true` AND
-> `E2E_EXPECTED_PROJECT_REF=<ref>` (it aborts on a ref mismatch — never run it at prod);
-> delivery (3/4/replay-email) is then SKIPPED+flagged and must be verified MANUALLY (send a
-> real signup, confirm the email arrives via your SMTP, click the link). Also confirm
-> Confirm-Email is ON + reliable custom SMTP in preview AND production.
+> The harness is **LOCAL-ONLY BY DESIGN** — it refuses any non-loopback target (app, Supabase,
+> or Mailpit) outright; there is NO remote mode. It is destructive (creates, then cleans up, a
+> real Auth user + profile + consent + reservation) and Trophē has no isolated non-production
+> Supabase branch. Cleanup runs in a `finally`, discovers every Auth user for the test email
+> (not just the one the route returned), deletes its DB rows before the Auth user, and verifies
+> none remain — **a cleanup failure FAILS the run**.
+>
+> TWO things the local harness does NOT prove — verify these MANUALLY as separate operator
+> checks: (1) HOSTED SMTP delivery in the real preview/production project (hosted SMTP exposes
+> no Mailpit API) — send one real signup and confirm the email arrives and the link works; and
+> (2) the full browser-cookie SESSION after clicking the link (the harness proves confirmation
+> via post-confirm password login, not the cookie round-trip — a Playwright leg would close it).
+> Also confirm Confirm-Email is ON + reliable custom SMTP in BOTH preview and production.
 
 ## 3. Compensation flow (route owns the synchronous path)
 
