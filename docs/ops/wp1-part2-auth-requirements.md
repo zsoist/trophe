@@ -53,8 +53,14 @@ Two distinct controls, deliberately **not** sharing one mechanism:
 > # apply migrations 0042–0047 to the local DB; run the app with NEXT_PUBLIC_SITE_URL=http://127.0.0.1:3000
 > E2E_SUPABASE_ANON_KEY=… E2E_SUPABASE_SERVICE_KEY=… npx tsx scripts/test/wp1-signup-confirm-e2e.ts
 > ```
-> Against a hosted preview, set APP_BASE_URL + the preview Supabase URL/keys (Mailpit →
-> the preview's mailbox). Also confirm Confirm-Email is ON + custom SMTP in preview/prod.
+> The harness is LOOPBACK-ONLY by default (it is destructive and Trophē has no isolated
+> Supabase preview branch). The Mailpit-based delivery checks (3 + replay-email) are
+> therefore LOCAL-ONLY — a hosted SMTP inbox exposes no Mailpit API. To run the non-delivery
+> checks (1, 2, 5-dup) against a hosted preview, set `E2E_ALLOW_REMOTE=true` AND
+> `E2E_EXPECTED_PROJECT_REF=<ref>` (it aborts on a ref mismatch — never run it at prod);
+> delivery (3/4/replay-email) is then SKIPPED+flagged and must be verified MANUALLY (send a
+> real signup, confirm the email arrives via your SMTP, click the link). Also confirm
+> Confirm-Email is ON + reliable custom SMTP in preview AND production.
 
 ## 3. Compensation flow (route owns the synchronous path)
 
