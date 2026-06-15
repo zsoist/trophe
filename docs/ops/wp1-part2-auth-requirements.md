@@ -58,11 +58,11 @@ Two distinct controls, deliberately **not** sharing one mechanism:
 > Run against a **FRESH** local stack. GoTrue may throttle confirmation emails: `[auth.email].max_frequency`
 > ("1s", a per-user resend gap — the harness waits this out automatically) and `[auth.rate_limit].email_sent`
 > ("2"/hour, instance-global — but the config comment says it applies only when custom SMTP is enabled, and
-> the default local mailer may not enforce it). A single run on a fresh stack passes; if a signup returns 503
-> the harness prints a diagnostic — confirm the cause in the Auth logs, then restart (`supabase stop &&
+> the default local mailer may not enforce it). A single run is designed to fit the configured limits and
+> MUST pass before release authorization; if a signup returns 503 the harness prints a diagnostic — confirm
+> the cause in the local Studio or the Auth container logs (`docker logs`), then restart (`supabase stop &&
 > supabase start`) and re-run. **Do NOT lower these limits to make the gate pass: if `supabase/config.toml`
-> is applied to hosted environments (e.g. `supabase config push`), they are production anti-abuse controls —
-> verify before changing.**
+> is applied to hosted environments, they are production anti-abuse controls — verify before changing.**
 >
 > The harness is **LOCAL-ONLY BY DESIGN** — it refuses any non-loopback target (app, Supabase,
 > or Mailpit) outright; there is NO remote mode. It is destructive (creates, then cleans up, a

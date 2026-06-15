@@ -74,8 +74,9 @@ const explain503 = (label: string) => console.error(
   `  ↳ ${label} returned 503 delivery_failed. ONE likely cause on a local stack is GoTrue throttling the ` +
   `confirmation email — [auth.email].max_frequency (per-user resend gap), or [auth.rate_limit].email_sent ` +
   `(which the config notes applies only when custom SMTP is enabled — the default local mailer may not enforce ` +
-  `it). Confirm the actual cause in the Auth logs (\`supabase logs\` / local Studio); if throttled, restart the ` +
-  `stack (supabase stop && supabase start) and re-run. Do NOT change auth limits without evidence from a real run.`);
+  `it). Confirm the actual cause in the local Studio or the Auth container logs (\`docker logs\` on the supabase ` +
+  `auth container); if throttled, restart the stack (supabase stop && supabase start) and re-run. Do NOT change ` +
+  `auth limits without evidence from a real run.`);
 
 async function mailpitReachable(): Promise<boolean> {
   try { return (await fetch(`${MAILPIT}/api/v1/messages?limit=1`)).ok; } catch { return false; }
