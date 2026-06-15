@@ -45,6 +45,16 @@ Two distinct controls, deliberately **not** sharing one mechanism:
 > users cannot password-login; (b) the confirmation link/OTP is actually delivered for an
 > Admin-created user (confirm `resend` vs `admin.generateLink`); (c) the callback enables
 > login; (d) replay re-sends without duplicating accounts.
+>
+> RUN IT (one command — repeatable evidence): `scripts/test/wp1-signup-confirm-e2e.ts`
+> asserts all of (a)–(d). Local:
+> ```
+> supabase start                 # brings up Auth + Mailpit; note the keys/ports from `supabase status`
+> # apply migrations 0042–0047 to the local DB; run the app with NEXT_PUBLIC_SITE_URL=http://127.0.0.1:3000
+> E2E_SUPABASE_ANON_KEY=… E2E_SUPABASE_SERVICE_KEY=… npx tsx scripts/test/wp1-signup-confirm-e2e.ts
+> ```
+> Against a hosted preview, set APP_BASE_URL + the preview Supabase URL/keys (Mailpit →
+> the preview's mailbox). Also confirm Confirm-Email is ON + custom SMTP in preview/prod.
 
 ## 3. Compensation flow (route owns the synchronous path)
 
