@@ -101,6 +101,14 @@ async function main() {
   ok((await one(`SELECT finalize_beta_signup($1,$2,'N','e7@x.io','1.0','{}'::jsonb) ok`, [c7.reservation_id, uid7])).ok === false, 'expired → false');
   ok(await profileCount(uid7) === 0, 'no profile on lost finalize');
 
+  console.log('T7b: beta finalize revalidates the CODE expiry (policy: code must still be valid)');
+  await pool.query(`INSERT INTO beta_invite_codes (code,role,max_uses,expires_at) VALUES ('T7b','coach',1, now()+interval '1 hour')`);
+  const c7b = await claimBeta('T7b', randomUUID());
+  await pool.query(`UPDATE beta_invite_codes SET expires_at=now()-interval '1 min' WHERE code='T7b'`); // code expires after claim
+  const uid7b = randomUUID();
+  ok((await one(`SELECT finalize_beta_signup($1,$2,'N','e7b@x.io','1.0','{}'::jsonb) ok`, [c7b.reservation_id, uid7b])).ok === false, 'expired CODE → finalize false (revalidated, like client)');
+  ok(await profileCount(uid7b) === 0, 'no profile when code expired between claim and finalize');
+
   console.log('T8: CLIENT finalize derives coach + accepts invite (was zero coverage)');
   const coachX = randomUUID();
   const tok8 = (await one(`INSERT INTO client_invites (coach_id) VALUES ($1) RETURNING token`, [coachX])).token;
@@ -148,10 +156,41 @@ async function main() {
   }
   ok(raceBad === 0, `12 finalize/release races: every outcome consistent (bad=${raceBad})`);
 
-  console.log('T13: PERMISSIONS — all 7 RPCs: anon/auth DENIED, service_role allowed');
+  console.log('T13: completed CLIENT replay (post-activation) → replayed_completed + user_id');
+  const tokR = (await one(`INSERT INTO client_invites DEFAULT VALUES RETURNING token`)).token;
+  const kR = randomUUID();
+  const cR = await claimClient(tokR, kR);
+  const uidR = randomUUID();
+  await one(`SELECT finalize_client_activation($1,$2,'N','er@x.io','1.0','{}'::jsonb)`, [cR.reservation_id, uidR]);
+  const replay = await claimClient(tokR, kR); // retry SAME key after the invite is 'accepted'
+  ok(replay.outcome === 'replayed_completed' && replay.res_user_id === uidR, `post-activation replay → replayed_completed + same user (got '${replay.outcome}')`);
+
+  console.log('T14: crash-after-auth recovery — sweep skips orphans; orphan list surfaces them');
+  await pool.query(`INSERT INTO beta_invite_codes (code,role,max_uses) VALUES ('T14','coach',1)`);
+  const c14 = await claimBeta('T14', randomUUID());
+  const uid14 = randomUUID();
+  ok((await one(`SELECT attach_reservation_user($1,$2) ok`, [c14.reservation_id, uid14])).ok === true, 'attach_reservation_user records the Auth user');
+  await pool.query(`UPDATE invite_reservations SET expires_at=now()-interval '1 min' WHERE id=$1`, [c14.reservation_id]);
+  await pool.query('SELECT expire_stale_invite_reservations()');
+  ok((await one(`SELECT status FROM invite_reservations WHERE id=$1`, [c14.reservation_id])).status === 'reserved', `sweep does NOT auto-release an orphan (Auth user must be deleted first)`);
+  const orphans = (await pool.query(`SELECT * FROM list_expired_orphan_reservations()`)).rows;
+  ok(orphans.some(o => o.reservation_id === c14.reservation_id && o.user_id === uid14), 'orphan surfaced for server-side Auth deletion');
+  await one('SELECT release_invite_reservation($1)', [c14.reservation_id]); // server deletes Auth user, then releases
+  ok(await usedCount('T14') === 0, 'slot freed after orphan recovery');
+
+  console.log('T15: genuine sweep frees an orphan-free expired reservation');
+  await pool.query(`INSERT INTO beta_invite_codes (code,role,max_uses) VALUES ('T15','coach',1)`);
+  const c15 = await claimBeta('T15', randomUUID()); // no attach → user_id NULL (crashed before auth create)
+  await pool.query(`UPDATE invite_reservations SET expires_at=now()-interval '1 min' WHERE id=$1`, [c15.reservation_id]);
+  const swept = (await one('SELECT expire_stale_invite_reservations() n')).n;
+  ok(swept >= 1 && await usedCount('T15') === 0, `sweep released the orphan-free reservation (swept=${swept})`);
+
+  console.log('T16: PERMISSIONS — all 9 RPCs: anon/auth DENIED, service_role allowed');
   const fns = ['claim_beta_invite(text,uuid,text)', 'claim_client_invite(uuid,uuid,text)',
+    'attach_reservation_user(uuid,uuid)',
     'finalize_beta_signup(uuid,uuid,text,text,text,jsonb)', 'finalize_client_activation(uuid,uuid,text,text,text,jsonb)',
-    'finalize_ordinary_signup(uuid,text,text,text,jsonb)', 'release_invite_reservation(uuid)', 'expire_stale_invite_reservations()'];
+    'finalize_ordinary_signup(uuid,text,text,text,jsonb)', 'release_invite_reservation(uuid)',
+    'expire_stale_invite_reservations()', 'list_expired_orphan_reservations()'];
   for (const fn of fns) {
     const a = (await one(`SELECT has_function_privilege('anon','public.${fn}','EXECUTE') p`)).p;
     const au = (await one(`SELECT has_function_privilege('authenticated','public.${fn}','EXECUTE') p`)).p;

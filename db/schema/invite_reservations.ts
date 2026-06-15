@@ -23,7 +23,7 @@ export const inviteReservations = pgTable('invite_reservations', {
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull().default(sql`now() + interval '15 minutes'`),
   completedAt: timestamp('completed_at', { withTimezone: true }),
 }, (t) => [
-  check('invite_reservations_type_check', sql`${t.inviteType} IN ('beta','client')`),
+  check('invite_reservations_invite_type_check', sql`${t.inviteType} IN ('beta','client')`),
   check('invite_reservations_status_check', sql`${t.status} IN ('reserved','completed','cancelled')`),
   uniqueIndex('uq_reservation_idem_live').on(t.inviteId, t.idempotencyKey).where(sql`status IN ('reserved','completed')`),
   uniqueIndex('uq_client_invite_live_claim').on(t.inviteId).where(sql`invite_type = 'client' AND status IN ('reserved','completed')`),
