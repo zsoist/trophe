@@ -1,0 +1,110 @@
+# TEMPORARY — WP1 signup-confirmation e2e gate (manual only).
+#
+# Runs scripts/test/wp1-signup-confirm-e2e.ts on an ISOLATED GitHub-hosted runner against a
+# REAL local Supabase stack (GoTrue Auth + Mailpit). Rationale:
+#   - The control-plane Mac is memory-saturated; standing up the stack there risks the 24/7 services.
+#   - The existing CI (ci.yml) runs PLAIN-POSTGRES compat mode (SKIP_SUPABASE_START=1, fake auth.users),
+#     which cannot exercise the email-confirmation lifecycle this harness validates.
+#
+# This is a RELEASE-EVIDENCE gate, not part of normal CI:
+#   - workflow_dispatch only (never auto-runs).
+#   - Review before running. Run ONCE. DELETE this file after a green result.
+#
+# To run (the file lives on a feature branch, so use the CLI, not the Actions UI dropdown):
+#   gh workflow run wp1-e2e-gate.yml --ref remediation/wp1-invite-consent
+#
+# A green run satisfies the LOCAL harness gate only. Hosted-SMTP delivery and the browser-cookie
+# session remain SEPARATE MANUAL canaries and are NOT covered here.
+name: WP1 e2e gate (temporary)
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch/ref to test
+        default: remediation/wp1-invite-consent
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  wp1-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Start local Supabase (real Auth + Mailpit)
+        run: npx supabase start
+
+      - name: Export local Supabase credentials + harness env
+        run: |
+          # Local stack keys are well-known demo values (not secrets) — safe to put in $GITHUB_ENV.
+          eval "$(npx supabase status -o env)"
+          test -n "$ANON_KEY" && test -n "$SERVICE_ROLE_KEY" || { echo "supabase status did not yield keys"; exit 1; }
+          {
+            echo "NEXT_PUBLIC_SUPABASE_URL=${API_URL}"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=${ANON_KEY}"
+            echo "SUPABASE_SERVICE_ROLE_KEY=${SERVICE_ROLE_KEY}"
+            echo "DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres"
+            echo "NEXT_PUBLIC_SITE_URL=http://127.0.0.1:3000"
+            echo "E2E_SUPABASE_URL=${API_URL}"
+            echo "E2E_SUPABASE_ANON_KEY=${ANON_KEY}"
+            echo "E2E_SUPABASE_SERVICE_KEY=${SERVICE_ROLE_KEY}"
+            echo "APP_BASE_URL=http://127.0.0.1:3000"
+            echo "MAILPIT_URL=http://127.0.0.1:54324"
+          } >> "$GITHUB_ENV"
+
+      - name: Apply Drizzle migrations to the real stack
+        run: npx tsx scripts/db/run-migrations.ts   # DIRECT_URL/DATABASE_URL from $GITHUB_ENV
+
+      - name: Start Next.js + run the WP1 harness
+        run: |
+          # The signup route doesn't call any LLM; placeholders keep module init happy regardless.
+          export DEEPSEEK_API_KEY=ci-placeholder ANTHROPIC_API_KEY=ci-placeholder VOYAGE_API_KEY=ci-placeholder
+          npm run dev > /tmp/next-dev.log 2>&1 &
+          APP_PID=$!
+          ready=0
+          for i in $(seq 1 60); do
+            if curl -sf -o /dev/null http://127.0.0.1:3000/login; then ready=1; echo "app ready after ${i}x2s"; break; fi
+            sleep 2
+          done
+          if [ "$ready" != "1" ]; then echo "::error::app never became ready"; tail -120 /tmp/next-dev.log; kill "$APP_PID" 2>/dev/null || true; exit 1; fi
+          # warm the route so first-compile latency doesn't skew the harness
+          curl -s -o /dev/null -X POST http://127.0.0.1:3000/api/auth/signup -H 'content-type: application/json' -d '{}' || true
+          set +e
+          npx tsx scripts/test/wp1-signup-confirm-e2e.ts
+          RC=$?
+          set -e
+          kill "$APP_PID" 2>/dev/null || true
+          exit $RC
+
+      - name: Diagnostics on failure
+        if: failure()
+        run: |
+          echo "=== next-dev.log (tail) ==="; tail -200 /tmp/next-dev.log || true
+          echo "=== docker ps -a ==="; docker ps -a || true
+          echo "=== auth container logs (tail) ==="; docker logs "$(docker ps -aqf name=auth | head -1)" 2>&1 | tail -120 || true
+
+      - name: Upload dev-server log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wp1-gate-logs
+          path: /tmp/next-dev.log
+          if-no-files-found: ignore
+
+      - name: Stop local Supabase (always)
+        if: always()
+        run: npx supabase stop || true
