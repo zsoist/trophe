@@ -25,6 +25,58 @@ function sourceFiles(scope: string): string[] {
   return walk(join(root, scope)).filter((file) => /\.(ts|tsx)$/.test(file));
 }
 
+function extractPgPolicyCalls(source: string): string[] {
+  const calls: string[] = [];
+  let index = 0;
+
+  while ((index = source.indexOf('pgPolicy(', index)) !== -1) {
+    const start = index;
+    let depth = 0;
+    let quote: '"' | "'" | null = null;
+    let inTemplate = false;
+    let escaped = false;
+
+    for (; index < source.length; index += 1) {
+      const char = source[index];
+      const previous = source[index - 1];
+
+      if (quote) {
+        if (!escaped && char === quote) quote = null;
+        escaped = !escaped && char === '\\';
+        continue;
+      }
+
+      if (inTemplate) {
+        if (char === '`' && previous !== '\\') inTemplate = false;
+        continue;
+      }
+
+      if (char === '"' || char === "'") {
+        quote = char;
+        escaped = false;
+        continue;
+      }
+
+      if (char === '`') {
+        inTemplate = true;
+        continue;
+      }
+
+      if (char === '(') depth += 1;
+      if (char === ')') {
+        depth -= 1;
+        if (depth === 0) {
+          calls.push(source.slice(start, index + 1));
+          index += 1;
+          break;
+        }
+      }
+    }
+  }
+
+  return calls;
+}
+
 describe('enterprise hardening invariants', () => {
   it('does not use Supabase .single() in application source', () => {
     const offenders = [...sourceFiles('app'), ...sourceFiles('components'), ...sourceFiles('lib')]
@@ -272,6 +324,34 @@ describe('enterprise hardening invariants', () => {
       .filter((name) => !barrel.includes(`export * from './${name}'`));
 
     expect(missing).toEqual([]);
+  });
+
+  it('keeps Drizzle RLS policy mirrors fail-closed', () => {
+    const offenders = sourceFiles('db/schema')
+      .flatMap((file) => {
+        const rel = relative(root, file);
+        return extractPgPolicyCalls(readFileSync(file, 'utf8')).flatMap((policy) => {
+          const name = policy.match(/pgPolicy\(['"]([^'"]+)/)?.[1] ?? '<unknown>';
+          const operation = policy.match(/for:\s*['"](\w+)['"]/)?.[1] ?? 'all';
+          const policyOffenders: string[] = [];
+
+          if (/to:\s*\[\s*['"]public['"]\s*\]/.test(policy)) {
+            policyOffenders.push(`${rel}: ${name}: must not target TO public`);
+          }
+
+          if (operation !== 'insert' && !/\busing\s*:/.test(policy)) {
+            policyOffenders.push(`${rel}: ${name}: ${operation} policy missing USING`);
+          }
+
+          if (['insert', 'update', 'all'].includes(operation) && !/\bwithCheck\s*:/.test(policy)) {
+            policyOffenders.push(`${rel}: ${name}: ${operation} policy missing WITH CHECK`);
+          }
+
+          return policyOffenders;
+        });
+      });
+
+    expect(offenders).toEqual([]);
   });
 
   it('does not reveal server secret names from public health routes', () => {

@@ -55,5 +55,4 @@ export const auditLog = pgTable('audit_log', {
   // (migration 0008 drops public.is_super_admin; unprefixed call would error).
   pgPolicy('Super admins read audit log', { as: 'permissive', for: 'select', to: ['authenticated'],
     using: sql`(SELECT private.is_super_admin())` }),
-  pgPolicy('Service role insert audit log', { as: 'permissive', for: 'insert', to: ['authenticated'] }),
 ]);

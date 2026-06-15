@@ -42,9 +42,11 @@ export const habits = pgTable('habits', {
     name: 'habits_created_by_fkey',
   }),
   pgPolicy('All users see template habits', { as: 'permissive', for: 'select', to: ['authenticated'], using: sql`(is_template = true)` }),
-  pgPolicy('Coaches see own habits', { as: 'permissive', for: 'select', to: ['authenticated'] }),
-  pgPolicy('Coaches can create habits', { as: 'permissive', for: 'insert', to: ['authenticated'] }),
-  pgPolicy('Coaches can update own habits', { as: 'permissive', for: 'update', to: ['authenticated'] }),
+  pgPolicy('Coaches see own habits', { as: 'permissive', for: 'select', to: ['authenticated'], using: sql`(created_by = auth.uid() AND private.is_staff())` }),
+  pgPolicy('Coaches can create habits', { as: 'permissive', for: 'insert', to: ['authenticated'], withCheck: sql`(created_by = auth.uid() AND private.is_staff())` }),
+  pgPolicy('Coaches can update own habits', { as: 'permissive', for: 'update', to: ['authenticated'],
+    using: sql`(created_by = auth.uid() AND private.is_staff())`,
+    withCheck: sql`(created_by = auth.uid() AND private.is_staff())` }),
   check('habits_category_check', sql`category = ANY (ARRAY['nutrition'::text, 'hydration'::text, 'movement'::text, 'sleep'::text, 'mindset'::text, 'recovery'::text])`),
   check('habits_difficulty_check', sql`difficulty = ANY (ARRAY['beginner'::text, 'intermediate'::text, 'advanced'::text])`),
 ]);
@@ -71,7 +73,9 @@ export const clientHabits = pgTable('client_habits', {
   foreignKey({ columns: [table.clientId], foreignColumns: [profiles.id], name: 'client_habits_client_id_fkey' }).onDelete('cascade'),
   foreignKey({ columns: [table.habitId], foreignColumns: [habits.id], name: 'client_habits_habit_id_fkey' }),
   pgPolicy('Clients see own habits', { as: 'permissive', for: 'select', to: ['authenticated'], using: sql`(client_id = auth.uid())` }),
-  pgPolicy('Coaches manage assigned habits', { as: 'permissive', for: 'all', to: ['authenticated'] }),
+  pgPolicy('Coaches manage assigned habits', { as: 'permissive', for: 'all', to: ['authenticated'],
+    using: sql`private.is_coach_of(client_id)`,
+    withCheck: sql`private.is_coach_of(client_id)` }),
   check('client_habits_status_check', sql`status = ANY (ARRAY['active'::text, 'completed'::text, 'paused'::text, 'skipped'::text])`),
 ]);
 
@@ -92,7 +96,8 @@ export const habitCheckins = pgTable('habit_checkins', {
   foreignKey({ columns: [table.clientHabitId], foreignColumns: [clientHabits.id], name: 'habit_checkins_client_habit_id_fkey' }).onDelete('cascade'),
   foreignKey({ columns: [table.userId], foreignColumns: [profiles.id], name: 'habit_checkins_user_id_fkey' }),
   unique('habit_checkins_client_habit_id_checked_date_key').on(table.clientHabitId, table.checkedDate),
-  pgPolicy('Clients manage own checkins', { as: 'permissive', for: 'all', to: ['authenticated'], using: sql`(user_id = auth.uid())` }),
-  pgPolicy('Coaches view client checkins', { as: 'permissive', for: 'select', to: ['authenticated'] }),
+  pgPolicy('Clients manage own checkins', { as: 'permissive', for: 'all', to: ['authenticated'],
+    using: sql`(user_id = auth.uid())`, withCheck: sql`(user_id = auth.uid())` }),
+  pgPolicy('Coaches view client checkins', { as: 'permissive', for: 'select', to: ['authenticated'], using: sql`private.is_coach_of(user_id)` }),
   check('habit_checkins_mood_check', sql`mood = ANY (ARRAY['great'::text, 'good'::text, 'okay'::text, 'tough'::text, 'struggled'::text])`),
 ]);

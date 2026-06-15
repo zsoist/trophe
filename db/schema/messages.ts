@@ -29,13 +29,16 @@ export const messages = pgTable('messages', {
   foreignKey({ columns: [table.coachId], foreignColumns: [profiles.id], name: 'messages_coach_id_fkey' }).onDelete('cascade'),
   foreignKey({ columns: [table.clientId], foreignColumns: [profiles.id], name: 'messages_client_id_fkey' }).onDelete('cascade'),
   check('messages_sender_role_check', sql`sender_role = ANY (ARRAY['coach'::text, 'client'::text])`),
-  pgPolicy('messages_coach_all', { as: 'permissive', for: 'all', to: ['authenticated'], using: sql`coach_id = (SELECT auth.uid()) AND private.is_coach_of(client_id)` }),
+  pgPolicy('messages_coach_all', { as: 'permissive', for: 'all', to: ['authenticated'],
+    using: sql`coach_id = (SELECT auth.uid()) AND private.is_coach_of(client_id)`,
+    withCheck: sql`coach_id = (SELECT auth.uid()) AND private.is_coach_of(client_id) AND sender_role = 'coach'` }),
   pgPolicy('messages_client_select', { as: 'permissive', for: 'select', to: ['authenticated'], using: sql`client_id = (SELECT auth.uid())` }),
   // withCheck mirrors SQL migration 0026: a client may only insert its own
   // messages as sender_role 'client' — blocks coach-impersonation at the RLS layer.
   pgPolicy('messages_client_insert', { as: 'permissive', for: 'insert', to: ['authenticated'],
     withCheck: sql`client_id = (SELECT auth.uid()) AND sender_role = 'client'` }),
-  pgPolicy('messages_client_mark_read', { as: 'permissive', for: 'update', to: ['authenticated'], using: sql`client_id = (SELECT auth.uid())` }),
+  pgPolicy('messages_client_mark_read', { as: 'permissive', for: 'update', to: ['authenticated'],
+    using: sql`client_id = (SELECT auth.uid())`, withCheck: sql`client_id = (SELECT auth.uid())` }),
 ]);
 
 export type SelectMessage = typeof messages.$inferSelect;
