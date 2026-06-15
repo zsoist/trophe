@@ -99,6 +99,15 @@ async function asOwner(sql: string, params?: unknown[]) {
   }
 }
 
+async function expectRlsWithCheckRejection(action: () => Promise<unknown>) {
+  try {
+    await action();
+    throw new Error('Expected RLS WITH CHECK rejection');
+  } catch (error) {
+    expect((error as { code?: string }).code).toBe('42501');
+  }
+}
+
 // ─── test lifecycle ───────────────────────────────────────────────────────────
 
 beforeAll(async () => {
@@ -334,6 +343,100 @@ describe('coach/client resources — cross-tenant RLS matrix', () => {
       expect(rows.rows.map((row) => row.id)).toEqual([resource.assigned]);
     });
   }
+});
+
+describe('coach/client resources — write-side cross-tenant RLS matrix', () => {
+  it('coach can INSERT assigned coach-managed resources', async () => {
+    const results = await asUser(IDS.coach, async (c) => {
+      const coachNote = await c.query(`
+        INSERT INTO coach_notes (coach_id, client_id, note)
+        VALUES ($1, $2, 'assigned-note-write')
+      `, [IDS.coach, IDS.client]);
+      const message = await c.query(`
+        INSERT INTO messages (coach_id, client_id, sender_role, body)
+        VALUES ($1, $2, 'coach', 'assigned-message-write')
+      `, [IDS.coach, IDS.client]);
+      const mealPlan = await c.query(`
+        INSERT INTO meal_plan_entries (client_id, coach_id, day_of_week, meal_slot, description)
+        VALUES ($1, $2, 1, 'lunch', 'assigned-meal-write')
+      `, [IDS.client, IDS.coach]);
+
+      return [coachNote.rowCount, message.rowCount, mealPlan.rowCount];
+    });
+
+    expect(results).toEqual([1, 1, 1]);
+  });
+
+  it('coach CANNOT INSERT coach-managed resources for an unassigned client', async () => {
+    await expectRlsWithCheckRejection(() =>
+      asUser(IDS.coach, (c) =>
+        c.query(`
+          INSERT INTO coach_notes (coach_id, client_id, note)
+          VALUES ($1, $2, 'blocked-note-write')
+        `, [IDS.coach, IDS.otherClient]),
+      ),
+    );
+
+    await expectRlsWithCheckRejection(() =>
+      asUser(IDS.coach, (c) =>
+        c.query(`
+          INSERT INTO messages (coach_id, client_id, sender_role, body)
+          VALUES ($1, $2, 'coach', 'blocked-message-write')
+        `, [IDS.coach, IDS.otherClient]),
+      ),
+    );
+
+    await expectRlsWithCheckRejection(() =>
+      asUser(IDS.coach, (c) =>
+        c.query(`
+          INSERT INTO meal_plan_entries (client_id, coach_id, day_of_week, meal_slot, description)
+          VALUES ($1, $2, 1, 'lunch', 'blocked-meal-write')
+        `, [IDS.otherClient, IDS.coach]),
+      ),
+    );
+  });
+
+  it('coach can UPDATE assigned coach-managed resources', async () => {
+    const results = await asUser(IDS.coach, async (c) => {
+      const coachNote = await c.query(
+        `UPDATE coach_notes SET note = 'assigned-note-updated' WHERE id = $1`,
+        [IDS.assignedCoachNote],
+      );
+      const message = await c.query(
+        `UPDATE messages SET body = 'assigned-message-updated' WHERE id = $1`,
+        [IDS.assignedMessage],
+      );
+      const mealPlan = await c.query(
+        `UPDATE meal_plan_entries SET description = 'assigned-meal-updated' WHERE id = $1`,
+        [IDS.assignedMealPlan],
+      );
+
+      return [coachNote.rowCount, message.rowCount, mealPlan.rowCount];
+    });
+
+    expect(results).toEqual([1, 1, 1]);
+  });
+
+  it('coach CANNOT UPDATE coach-managed resources for an unassigned client', async () => {
+    const results = await asUser(IDS.coach, async (c) => {
+      const coachNote = await c.query(
+        `UPDATE coach_notes SET note = 'blocked-note-updated' WHERE id = $1`,
+        [IDS.unassignedCoachNote],
+      );
+      const message = await c.query(
+        `UPDATE messages SET body = 'blocked-message-updated' WHERE id = $1`,
+        [IDS.unassignedMessage],
+      );
+      const mealPlan = await c.query(
+        `UPDATE meal_plan_entries SET description = 'blocked-meal-updated' WHERE id = $1`,
+        [IDS.unassignedMealPlan],
+      );
+
+      return [coachNote.rowCount, message.rowCount, mealPlan.rowCount];
+    });
+
+    expect(results).toEqual([0, 0, 0]);
+  });
 });
 
 // ─── audit_log RLS ────────────────────────────────────────────────────────────
