@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS public.invite_reservations (
   status                text NOT NULL DEFAULT 'reserved' CHECK (status IN ('reserved','completed','cancelled','recovering')),
   user_id               uuid,
   recovering_lease_until timestamptz,
+  recovery_token        uuid,                -- minted per lease; required to cancel a recovering row
   created_at            timestamptz NOT NULL DEFAULT now(),
   expires_at            timestamptz NOT NULL DEFAULT now() + interval '15 minutes',
   completed_at          timestamptz
@@ -202,8 +203,11 @@ CREATE OR REPLACE FUNCTION public.cancel_attached_reservation(p_reservation_id u
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public AS $$
 DECLARE v_res public.invite_reservations%ROWTYPE;
 BEGIN
+  -- Synchronous route compensation only: a 'reserved' row the route still owns. A row
+  -- already leased to the recovery worker ('recovering') is off-limits — only the
+  -- token-holding cancel_recovering_reservation may cancel those.
   SELECT * INTO v_res FROM public.invite_reservations
-   WHERE id = p_reservation_id AND user_id = p_user_id AND status IN ('reserved','recovering') FOR UPDATE;
+   WHERE id = p_reservation_id AND user_id = p_user_id AND status = 'reserved' FOR UPDATE;
   IF NOT FOUND THEN RETURN false; END IF;
   UPDATE public.invite_reservations SET status = 'cancelled' WHERE id = p_reservation_id;
   IF v_res.invite_type = 'beta' THEN UPDATE public.beta_invite_codes SET used_count = GREATEST(used_count - 1, 0) WHERE id = v_res.invite_id; END IF;
@@ -214,11 +218,13 @@ END; $$;
 --    has reconciled the external Auth user (deleted it if present). The recovery lease
 --    is the worker's ownership; this frees the slot. There is NO blind sweep — every
 --    expired reservation is leased via claim_orphan_for_recovery and reconciled first. ──
-CREATE OR REPLACE FUNCTION public.cancel_recovering_reservation(p_reservation_id uuid)
+CREATE OR REPLACE FUNCTION public.cancel_recovering_reservation(p_reservation_id uuid, p_recovery_token uuid)
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public AS $$
 DECLARE v_res public.invite_reservations%ROWTYPE;
 BEGIN
-  SELECT * INTO v_res FROM public.invite_reservations WHERE id = p_reservation_id AND status = 'recovering' FOR UPDATE;
+  -- Token-gated: a stale worker whose lease was reassigned holds an old token and is rejected.
+  SELECT * INTO v_res FROM public.invite_reservations
+   WHERE id = p_reservation_id AND status = 'recovering' AND recovery_token = p_recovery_token FOR UPDATE;
   IF NOT FOUND THEN RETURN false; END IF;
   UPDATE public.invite_reservations SET status = 'cancelled' WHERE id = p_reservation_id;
   IF v_res.invite_type = 'beta' THEN UPDATE public.beta_invite_codes SET used_count = GREATEST(used_count - 1, 0) WHERE id = v_res.invite_id; END IF;
@@ -229,17 +235,20 @@ END; $$;
 --    recovering) reservations → 'recovering'. Worker deletes the Auth user, then
 --    cancel_attached_reservation. Finalizers reject 'recovering' (status<>'reserved'). ──
 CREATE OR REPLACE FUNCTION public.claim_orphan_for_recovery(p_limit int DEFAULT 50, p_lease_seconds int DEFAULT 120)
-RETURNS TABLE (reservation_id uuid, invite_type text, user_id uuid)
+RETURNS TABLE (reservation_id uuid, invite_type text, user_id uuid, recovery_token uuid)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public AS $$
 BEGIN
   IF p_lease_seconds <= 0 THEN RAISE EXCEPTION 'p_lease_seconds must be positive'; END IF;
   p_limit := LEAST(GREATEST(p_limit, 1), 1000);
   -- Leases ALL expired reservations (attached OR not): an unattached-expired row may
   -- still hide a pre-attach orphan Auth user, so the worker must reconcile every one
-  -- against Auth before cancelling. No reservation is ever blind-released.
+  -- against Auth before cancelling. No reservation is ever blind-released. Each lease
+  -- mints a fresh recovery_token; only the holder of the current token may cancel.
   RETURN QUERY
   UPDATE public.invite_reservations r
-     SET status = 'recovering', recovering_lease_until = now() + make_interval(secs => p_lease_seconds)
+     SET status = 'recovering',
+         recovering_lease_until = now() + make_interval(secs => p_lease_seconds),
+         recovery_token = gen_random_uuid()
    WHERE r.id IN (
      SELECT s.id FROM public.invite_reservations s
       WHERE (s.status = 'reserved' AND s.expires_at < now())
@@ -247,7 +256,7 @@ BEGIN
       ORDER BY s.expires_at
       FOR UPDATE SKIP LOCKED
       LIMIT p_limit)
-  RETURNING r.id, r.invite_type, r.user_id;
+  RETURNING r.id, r.invite_type, r.user_id, r.recovery_token;
 END; $$;
 
 -- ── Lock down execution: service_role only (all SECURITY DEFINER) ─────────────
@@ -264,7 +273,7 @@ BEGIN
     'public.finalize_ordinary_signup(uuid,uuid,text,text,text,jsonb)',
     'public.release_invite_reservation(uuid)',
     'public.cancel_attached_reservation(uuid,uuid)',
-    'public.cancel_recovering_reservation(uuid)',
+    'public.cancel_recovering_reservation(uuid,uuid)',
     'public.claim_orphan_for_recovery(int,int)'
   ] LOOP
     EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC', fn);

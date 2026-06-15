@@ -18,6 +18,7 @@ export const inviteReservations = pgTable('invite_reservations', {
   status: text().notNull().default('reserved'),
   userId: uuid('user_id'),
   recoveringLeaseUntil: timestamp('recovering_lease_until', { withTimezone: true }),
+  recoveryToken: uuid('recovery_token'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().default(sql`now()`),
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull().default(sql`now() + interval '15 minutes'`),
   completedAt: timestamp('completed_at', { withTimezone: true }),
