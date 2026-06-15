@@ -12,8 +12,8 @@ write-only; see `lib/auth/auth-admin.ts`). The route MUST create the Auth user w
 ```ts
 await service.auth.admin.createUser({
   email, password,
-  email_confirm: false,                 // see §2
-  ban_duration: 'none',                 // set a ban until finalized — see §2
+  email_confirm: false,                 // unconfirmed until finalize — see §2
+  ban_duration: '876000h',              // BANNED until finalize lifts it — see §2 (never 'none' here)
   app_metadata: { reservation_id },     // NOT user_metadata (user-editable)
   user_metadata: { full_name },
 });
@@ -39,6 +39,18 @@ success path, after `finalize_*` returns true:
 ```
 
 This closes the window where a half-created account is both loginable and recoverable.
+
+**Enable-after-finalize failure path.** `finalize_*` flips the reservation to `completed`
+*before* the route unbans the user. If `updateUserById(unban, confirm)` then fails, the
+reservation is `completed` but the customer is **permanently banned** — recovery will not
+touch a `completed` row. Required handling:
+
+- Make the unban **idempotent and retried** in-request (it is safe to call repeatedly).
+- If it still fails, return an error to the caller (the signup is not "done") and log it
+  loudly — do **not** report success.
+- Add a reconciliation job that re-enables `completed` reservations whose Auth user is
+  still banned (query `auth.users.banned_until > now()` for ids tagged with a `completed`
+  reservation), so a missed unban self-heals rather than stranding a paying customer.
 
 ## 3. Compensation flow (route owns the synchronous path)
 

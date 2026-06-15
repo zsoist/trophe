@@ -13,7 +13,7 @@ import { Pool } from 'pg';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { recoverOrphanReservations, sweepTombstones, type RecoveryDb, type TombstoneDb, type AuthReconciler } from '@/lib/recovery/reservation-recovery';
+import { recoverOrphanReservations, sweepTombstones, runRecoveryPasses, type RecoveryDb, type TombstoneDb, type AuthReconciler } from '@/lib/recovery/reservation-recovery';
 import { reservationIdentity } from '@/lib/auth/reservation-identity';
 import { buildAuthReconciler } from '@/lib/auth/auth-admin';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -179,7 +179,7 @@ async function main() {
   const leased18 = (await pool.query('SELECT * FROM claim_orphan_for_recovery(50,120)')).rows;
   const l18 = leased18.find(o => o.reservation_id === c18.reservation_id);
   ok(!!l18 && !!l18.recovery_token, 'unattached-expired leased with a recovery token');
-  ok(await resStatus(c18.reservation_id) === 'recovering' && await one('SELECT cancel_recovering_reservation($1,$2) ok', [c18.reservation_id, l18.recovery_token]).then(r => r.ok) === true && await usedCount('T18') === 0, 'worker reconciles + cancels (token), slot freed');
+  ok(await resStatus(c18.reservation_id) === 'recovering' && await one('SELECT cancel_recovering_reservation_tombstoned($1,$2,600) ok', [c18.reservation_id, l18.recovery_token]).then(r => r.ok) === true && await usedCount('T18') === 0, 'worker reconciles + cancels (token), slot freed');
 
   console.log('T18b: ordinary signup converges across retry keys (one live per identity)');
   const ident = randomUUID();
@@ -199,7 +199,7 @@ async function main() {
   ok(!!l19 && l19.user_id === u19 && !!l19.recovery_token, 'orphan leased for recovery (with token)');
   ok(await resStatus(c19.reservation_id) === 'recovering', 'status → recovering');
   ok(await finBeta(c19.reservation_id, u19) === false, 'finalize on recovering → false (mutual exclusion)');
-  ok(await one('SELECT cancel_recovering_reservation($1,$2) ok', [c19.reservation_id, l19.recovery_token]).then(r => r.ok) === true && await usedCount('T19') === 0, 'worker cancels (token) after deleting Auth user, slot freed');
+  ok(await one('SELECT cancel_recovering_reservation_tombstoned($1,$2,600) ok', [c19.reservation_id, l19.recovery_token]).then(r => r.ok) === true && await usedCount('T19') === 0, 'worker cancels (token) after deleting Auth user, slot freed');
   console.log('T19b: synchronous route compensation (cancel_attached_reservation, user match)');
   await newBeta('T19b'); const c19b = await claimBeta('T19b', randomUUID()); const u19b = randomUUID(); await attach(c19b.reservation_id, u19b);
   ok(await one('SELECT cancel_attached_reservation($1,$2) ok', [c19b.reservation_id, u19b]).then(r => r.ok) === true && await usedCount('T19b') === 0, 'route deletes Auth user then cancel_attached frees the slot');
@@ -226,7 +226,7 @@ async function main() {
   const leased22 = (await pool.query('SELECT * FROM claim_orphan_for_recovery(50,120)')).rows;
   const l22 = leased22.find(o => o.reservation_id === c22.reservation_id);
   ok(!!l22 && l22.invite_type === 'ordinary', 'ordinary orphan leased');
-  ok(await one('SELECT cancel_recovering_reservation($1,$2) ok', [c22.reservation_id, l22.recovery_token]).then(r => r.ok) === true, 'ordinary orphan cancelled (token)');
+  ok(await one('SELECT cancel_recovering_reservation_tombstoned($1,$2,600) ok', [c22.reservation_id, l22.recovery_token]).then(r => r.ok) === true, 'ordinary orphan cancelled (token)');
 
   console.log('T22b: stale recovery token rejected after lease reassignment');
   await newBeta('T22b'); const c22b = await claimBeta('T22b', randomUUID()); const u22b = randomUUID(); await attach(c22b.reservation_id, u22b);
@@ -235,8 +235,8 @@ async function main() {
   await pool.query(`UPDATE invite_reservations SET recovering_lease_until=now()-interval '1 min' WHERE id=$1`, [c22b.reservation_id]); // worker A lease expires
   const leaseB = (await pool.query('SELECT * FROM claim_orphan_for_recovery(50,120)')).rows.find(o => o.reservation_id === c22b.reservation_id);
   ok(!!leaseB && leaseB.recovery_token !== leaseA.recovery_token, 'worker B reclaims with a NEW token');
-  ok(await one('SELECT cancel_recovering_reservation($1,$2) ok', [c22b.reservation_id, leaseA.recovery_token]).then(r => r.ok) === false, 'stale worker-A token → cancel REJECTED');
-  ok(await one('SELECT cancel_recovering_reservation($1,$2) ok', [c22b.reservation_id, leaseB.recovery_token]).then(r => r.ok) === true, 'current worker-B token → cancel succeeds');
+  ok(await one('SELECT cancel_recovering_reservation_tombstoned($1,$2,600) ok', [c22b.reservation_id, leaseA.recovery_token]).then(r => r.ok) === false, 'stale worker-A token → cancel REJECTED');
+  ok(await one('SELECT cancel_recovering_reservation_tombstoned($1,$2,600) ok', [c22b.reservation_id, leaseB.recovery_token]).then(r => r.ok) === true, 'current worker-B token → cancel succeeds');
 
   console.log('T22c: route compensation cannot cancel a leased (recovering) row');
   await newBeta('T22c'); const c22c = await claimBeta('T22c', randomUUID()); const u22c = randomUUID(); await attach(c22c.reservation_id, u22c);
@@ -249,10 +249,10 @@ async function main() {
   await pool.query(`UPDATE invite_reservations SET expires_at=now()-interval '1 min' WHERE id=$1`, [c22d.reservation_id]);
   const lzA = (await pool.query('SELECT * FROM claim_orphan_for_recovery(50,120)')).rows.find(o => o.reservation_id === c22d.reservation_id);
   await pool.query(`UPDATE invite_reservations SET recovering_lease_until=now()-interval '1 sec' WHERE id=$1`, [c22d.reservation_id]); // lease expires, NOT reassigned
-  ok(await one('SELECT cancel_recovering_reservation($1,$2) ok', [c22d.reservation_id, lzA.recovery_token]).then(r => r.ok) === false, '(2) expired-lease token → cancel rejected (before reassignment)');
+  ok(await one('SELECT cancel_recovering_reservation_tombstoned($1,$2,600) ok', [c22d.reservation_id, lzA.recovery_token]).then(r => r.ok) === false, '(2) expired-lease token → cancel rejected (before reassignment)');
   const lzB = (await pool.query('SELECT * FROM claim_orphan_for_recovery(50,120)')).rows.find(o => o.reservation_id === c22d.reservation_id);
-  ok(await one('SELECT cancel_recovering_reservation($1,$2) ok', [c22d.reservation_id, lzA.recovery_token]).then(r => r.ok) === false, '(3) old token after reassignment → rejected');
-  ok(await one('SELECT cancel_recovering_reservation($1,$2) ok', [c22d.reservation_id, lzB.recovery_token]).then(r => r.ok) === true, '(1+4) current unexpired token → succeeds');
+  ok(await one('SELECT cancel_recovering_reservation_tombstoned($1,$2,600) ok', [c22d.reservation_id, lzA.recovery_token]).then(r => r.ok) === false, '(3) old token after reassignment → rejected');
+  ok(await one('SELECT cancel_recovering_reservation_tombstoned($1,$2,600) ok', [c22d.reservation_id, lzB.recovery_token]).then(r => r.ok) === true, '(1+4) current unexpired token → succeeds');
 
   console.log('T24: recovery WORKER (mock Auth) — reconcile+cancel, absent, transient-retry, pre-attach, tag-MISMATCH (P0)');
   const recoveryDb: RecoveryDb = {
@@ -289,19 +289,26 @@ async function main() {
   const r24e = await recoverOrphanReservations(recoveryDb, mockAuth(async () => 'mismatch'));
   ok(r24e.errors === 1 && r24e.cancelled === 0 && await resStatus(c24e.reservation_id) === 'recovering', '(e) Auth tag mismatch → NOT deleted/cancelled, left recovering (P0 guard)');
 
-  console.log('T23: PERMISSIONS — all 15 RPCs: anon/auth DENIED, service_role allowed');
+  console.log('T23: PERMISSIONS — 14 safe RPCs service_role-allowed; legacy cancel REVOKED');
   const fns = ['claim_beta_invite(text,uuid,text)', 'claim_client_invite(uuid,uuid,text)', 'claim_ordinary_signup(uuid,uuid,text)',
     'attach_reservation_user(uuid,uuid)', 'finalize_beta_signup(uuid,uuid,text,text,text,jsonb)',
     'finalize_client_activation(uuid,uuid,text,text,text,jsonb)', 'finalize_ordinary_signup(uuid,uuid,text,text,text,jsonb)',
     'release_invite_reservation(uuid)', 'cancel_attached_reservation(uuid,uuid)',
-    'cancel_recovering_reservation(uuid,uuid)', 'claim_orphan_for_recovery(int,int)',
-    'find_auth_user_ids_by_reservation(uuid)',
+    'claim_orphan_for_recovery(int,int)', 'find_auth_user_ids_by_reservation(uuid)',
     'cancel_recovering_reservation_tombstoned(uuid,uuid,int)', 'claim_tombstones_for_recheck(int,int)', 'settle_tombstone(uuid,uuid,int)'];
   for (const fn of fns) {
     const a = (await one(`SELECT has_function_privilege('anon','public.${fn}','EXECUTE') p`)).p;
     const au = (await one(`SELECT has_function_privilege('authenticated','public.${fn}','EXECUTE') p`)).p;
     const s = (await one(`SELECT has_function_privilege('service_role','public.${fn}','EXECUTE') p`)).p;
     ok(a === false && au === false && s === true, `${fn.split('(')[0]}: anon/auth DENIED, service_role allowed`);
+  }
+  // Escape-hatch closed: the legacy non-tombstoning cancel is DENIED to service_role, so
+  // the DB enforces "every recovery cancel arms a tombstone" — not caller discipline.
+  {
+    const legacy = 'cancel_recovering_reservation(uuid,uuid)';
+    const s = (await one(`SELECT has_function_privilege('service_role','public.${legacy}','EXECUTE') p`)).p;
+    const a = (await one(`SELECT has_function_privilege('anon','public.${legacy}','EXECUTE') p`)).p;
+    ok(s === false && a === false, 'legacy cancel_recovering_reservation: REVOKED from service_role/anon (tombstone-bypass closed)');
   }
 
   console.log('T25: find_auth_user_ids_by_reservation — TRUSTED app_metadata, ALL carriers (no LIMIT)');
@@ -394,6 +401,32 @@ async function main() {
   ok(t28c.sealed >= 1 && (await one(`SELECT sealed_at IS NOT NULL s FROM invite_reservations WHERE id=$1`, [c28.reservation_id])).s === true, '(c) window elapsed + zero carriers → sealed (terminal)');
   // sealed tombstone is excluded from future claims
   ok((await one(`SELECT count(*)::int n FROM invite_reservations WHERE id=$1 AND sealed_at IS NOT NULL`, [c28.reservation_id])).n === 1, '(d) sealed row stays terminal (excluded from claim_tombstones predicate)');
+
+  console.log('T29: two-pass SHARED runtime budget (delayed adapter) + backoff validation');
+  // Seed more than the budget so the cap is provably the binding limit.
+  for (let i = 0; i < 15; i++) {
+    await pool.query(`INSERT INTO invite_reservations (invite_type, invite_id, idempotency_key, request_fingerprint, status, expires_at)
+                      VALUES ('beta', gen_random_uuid(), gen_random_uuid(), 'fp-budget', 'reserved', now()-interval '2 min')`);
+  }
+  for (let i = 0; i < 10; i++) {
+    await pool.query(`INSERT INTO invite_reservations (invite_type, invite_id, idempotency_key, request_fingerprint, status, expires_at, reconcile_until)
+                      VALUES ('beta', gen_random_uuid(), gen_random_uuid(), 'fp-budget', 'cancelled', now()-interval '2 min', now()+interval '10 min')`);
+  }
+  const delayedAuth: AuthReconciler = { reconcileAndDelete: async () => { await new Promise((r) => setTimeout(r, 10)); return 'absent'; } };
+  const budgetDb: RecoveryDb & TombstoneDb = {
+    claimOrphans: (l, s) => pool.query('SELECT * FROM claim_orphan_for_recovery($1,$2)', [l, s]).then(r => r.rows),
+    cancelRecovering: (id, tok) => pool.query('SELECT cancel_recovering_reservation_tombstoned($1,$2,$3) ok', [id, tok, 600]).then(r => r.rows[0].ok),
+    claimTombstones: (l, s) => pool.query('SELECT * FROM claim_tombstones_for_recheck($1,$2)', [l, s]).then(r => r.rows),
+    settleTombstone: (id, tok) => pool.query('SELECT settle_tombstone($1,$2) s', [id, tok]).then(r => r.rows[0].s),
+  };
+  const startMs = Date.now();
+  const run29 = await runRecoveryPasses(budgetDb, delayedAuth, { orphanLimit: 12, tombstoneLimit: 8, leaseSeconds: 300, concurrency: 5 });
+  const elapsedMs = Date.now() - startMs;
+  ok(run29.orphans.claimed === 12 && run29.tombstones.claimed === 8, '(a) each pass capped at its share (12 + 8) — shared budget binds');
+  ok(run29.orphans.claimed + run29.tombstones.claimed <= 20, '(b) total reservations/run ≤ 20 (cannot exceed combined budget)');
+  ok(elapsedMs < 20000, `(c) full-budget run finished in ${elapsedMs}ms — far below the 60s cap and 300s lease`);
+  // P2: settle_tombstone rejects a non-positive backoff like the other bounded params
+  ok(await one('SELECT settle_tombstone($1,$2,$3) s', [randomUUID(), randomUUID(), -1]).then(() => false, () => true), '(d) settle_tombstone rejects non-positive backoff');
 
   await pool.end();
   console.log(fail === 0 ? '\n✅ ALL WP1 tests passed' : `\n❌ ${fail} assertion(s) failed`);

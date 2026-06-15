@@ -152,3 +152,28 @@ export async function sweepTombstones(
   await Promise.all(Array.from({ length: Math.min(concurrency, rows.length) }, worker));
   return result;
 }
+
+export interface RecoveryRunResult {
+  orphans: RecoveryResult;
+  tombstones: TombstoneResult;
+  /** Total logical failures across both passes. Non-zero ⇒ the run needs attention. */
+  errors: number;
+}
+
+/**
+ * One scheduled run = orphan pass then tombstone pass, sharing a single bounded item
+ * budget (orphanLimit + tombstoneLimit) so the two passes together stay within the
+ * serverless function's runtime ceiling — the total reservations touched per invocation
+ * can never exceed orphanLimit + tombstoneLimit. Callers must treat `errors > 0` as a
+ * failed run (surface it as non-2xx so monitoring sees it).
+ */
+export async function runRecoveryPasses(
+  db: RecoveryDb & TombstoneDb,
+  auth: AuthReconciler,
+  opts: { orphanLimit: number; tombstoneLimit: number; leaseSeconds: number; concurrency?: number; log?: (msg: string) => void },
+): Promise<RecoveryRunResult> {
+  const base = { leaseSeconds: opts.leaseSeconds, concurrency: opts.concurrency, log: opts.log };
+  const orphans = await recoverOrphanReservations(db, auth, { ...base, limit: opts.orphanLimit });
+  const tombstones = await sweepTombstones(db, auth, { ...base, limit: opts.tombstoneLimit });
+  return { orphans, tombstones, errors: orphans.errors + tombstones.errors };
+}

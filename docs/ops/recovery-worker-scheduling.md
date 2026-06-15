@@ -34,8 +34,9 @@ select cron.schedule('recover-reservations', '*/5 * * * *', $$
       'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'recovery_cron_secret'),
       'Content-Type', 'application/json'
     ),
-    -- pg_net defaults to 2000ms; this endpoint may run up to the 60s function cap doing
-    -- up to ~20 Auth reconciliations across two passes. Allow longer than the cap.
+    -- pg_net defaults to 2000ms; this endpoint shares one bounded budget of up to 20
+    -- reservations across both passes (12 orphan + 8 tombstone), each a few Auth/RPC
+    -- calls — comfortably under the 60s function cap. Allow longer than the cap anyway.
     timeout_milliseconds := 65000
   );
 $$);
@@ -44,6 +45,10 @@ $$);
 To remove: `select cron.unschedule('recover-reservations');`
 
 ### Monitoring
+
+The endpoint returns **HTTP 500** whenever either pass reports logical errors (Auth
+failures, tag mismatches, lost leases) — not just on crashes — so degraded runs are
+visible to the non-2xx alert below rather than hiding behind a 200 with error counters.
 
 `pg_net` is fire-and-forget; responses land in `net._http_response`. Alert on
 timeouts and non-2xx so a silently-failing worker is visible:

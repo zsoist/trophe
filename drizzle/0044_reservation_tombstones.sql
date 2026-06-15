@@ -74,6 +74,7 @@ CREATE OR REPLACE FUNCTION public.settle_tombstone(
 RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public AS $$
 DECLARE v_res public.invite_reservations%ROWTYPE;
 BEGIN
+  IF p_recheck_backoff_seconds <= 0 THEN RAISE EXCEPTION 'p_recheck_backoff_seconds must be positive'; END IF;
   SELECT * INTO v_res FROM public.invite_reservations
    WHERE id = p_reservation_id AND status = 'cancelled' AND sealed_at IS NULL
      AND recovery_token = p_recovery_token AND recovering_lease_until > now() FOR UPDATE;
@@ -106,3 +107,9 @@ BEGIN
     EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO service_role', fn);
   END LOOP;
 END $$;
+
+-- Close the escape hatch: the legacy non-tombstoning cancel must NOT be reachable by the
+-- app's service_role, so the DB enforces "every recovery cancellation arms a tombstone"
+-- rather than relying on every caller picking the tombstoned RPC. (The function remains
+-- defined for superuser/migration use; only the service_role grant is withdrawn.)
+REVOKE EXECUTE ON FUNCTION public.cancel_recovering_reservation(uuid, uuid) FROM service_role;
