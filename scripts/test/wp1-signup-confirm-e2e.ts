@@ -243,8 +243,12 @@ async function main() {
     const link = newId ? await confirmationLinkFromMessage(newId) : null;
     check(!!link, '(5) verify link extracted from the replay confirmation email');
     if (link) {
+      console.log(`  · following verify link: ${link}`);
       const r = await fetch(link, { redirect: 'manual' });
       const loc = r.headers.get('location') ?? '';
+      if (![302, 303, 307].includes(r.status)) {
+        console.error(`  ↳ verify link returned ${r.status} (no redirect). Body (first 300): ${(await r.clone().text().catch(() => '')).slice(0, 300)}`);
+      }
       let exact = false;
       try {
         const u = new URL(loc, APP);                       // tolerate a relative Location
