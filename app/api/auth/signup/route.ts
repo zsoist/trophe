@@ -5,6 +5,7 @@ import { consumeRateLimit } from '@/lib/security/durable-rate-limit';
 import { reservationIdentity, ordinaryPseudoInvite, type ReservationPayload } from '@/lib/auth/reservation-identity';
 import { buildSignupAuth, buildSignupDb } from '@/lib/auth/auth-admin';
 import { runReservedSignup, type ClaimResult } from '@/lib/auth/signup-flow';
+import { signupErrorMessage } from '@/lib/auth/auth-messages';
 
 /**
  * Server-side signup (WP1) — reservation state machine + recovery-safe.
@@ -26,16 +27,6 @@ const signupSchema = z.object({
   inviteCode: z.string().trim().min(1).max(64).optional(),
   consent: z.literal(true), // Art.9 explicit consent — fail closed if absent (BLOCKER-03)
 }).strict();
-
-const MESSAGES: Record<string, string> = {
-  invalid: 'Invalid or expired invite code',
-  exhausted: 'This invite code has no remaining uses',
-  conflict: 'A signup with these details is already in progress',
-  email_exists: 'Email already registered. Try logging in.',
-  retry: 'Signup is briefly busy — please try again',
-  delivery_failed: 'We could not send your confirmation email — please try again in a moment.',
-  error: 'Signup failed',
-};
 
 export async function POST(req: NextRequest) {
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? req.headers.get('x-real-ip') ?? 'unknown';
@@ -90,7 +81,7 @@ export async function POST(req: NextRequest) {
 
     const result = await runReservedSignup(auth, db, { claim, finalize, email, password, userMetadata: { full_name, role }, log: (m) => console.error('[signup]', m) });
     if (result.ok) return NextResponse.json({ verification_required: true, user_id: result.userId, message: 'Account created — check your email to confirm it, then sign in.' }, { status: result.status });
-    return NextResponse.json({ error: MESSAGES[result.reason] ?? 'Signup failed' }, { status: result.status });
+    return NextResponse.json({ error: signupErrorMessage(result.reason) }, { status: result.status });
   } catch (err) {
     console.error('Signup error:', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

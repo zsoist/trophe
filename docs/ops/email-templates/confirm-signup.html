@@ -1,0 +1,32 @@
+<!-- Trophē "Confirm signup" email — paste into Supabase Dashboard → Authentication → Emails →
+     Templates → "Confirm signup". Subject: "Confirm your Trophē account".
+     {{ .ConfirmationURL }} MUST be preserved. Source of truth for review; the live copy is
+     dashboard-managed. Built with tables + inline styles for broad client support; rendering +
+     deliverability across clients are PENDING the email-client test matrix (not yet verified). -->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#0c0a08;margin:0;padding:0;">
+  <tr><td align="center" style="padding:24px 12px;">
+    <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background-color:#14110e;border:1px solid #2a241c;border-radius:14px;">
+      <tr><td align="center" style="padding:34px 32px 22px;border-bottom:1px solid #241e16;">
+        <div style="font-family:Georgia,'Times New Roman',serif;font-size:28px;color:#D4A853;letter-spacing:0.02em;">trophē</div>
+        <div style="font-family:Arial,Helvetica,sans-serif;font-size:10px;letter-spacing:0.3em;color:#8a8070;margin-top:6px;">PRECISION NUTRITION</div>
+      </td></tr>
+      <tr><td style="padding:30px 32px 6px;font-family:Arial,Helvetica,sans-serif;">
+        <h1 style="font-size:20px;font-weight:bold;color:#f3ede2;margin:0 0 16px;">Confirm your email</h1>
+        <p style="font-size:15px;line-height:1.65;color:#b8b0a3;margin:0 0 14px;">Welcome to Trophē. Confirm this address to activate your account and help protect access to it.</p>
+        <p style="font-size:15px;line-height:1.65;color:#b8b0a3;margin:0 0 26px;">Your account stays inactive until you confirm.</p>
+        <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto 22px;"><tr>
+          <td align="center" bgcolor="#D4A853" style="border-radius:8px;">
+            <a href="{{ .ConfirmationURL }}" target="_blank" style="display:inline-block;padding:14px 32px;font-family:Arial,Helvetica,sans-serif;font-size:15px;font-weight:bold;color:#1a1206;text-decoration:none;border-radius:8px;">Confirm my email</a>
+          </td>
+        </tr></table>
+        <p style="font-size:12px;line-height:1.6;color:#8a8070;margin:0 0 6px;">Button not working? Paste this link into your browser:</p>
+        <p style="font-size:12px;line-height:1.6;margin:0 0 14px;"><a href="{{ .ConfirmationURL }}" target="_blank" style="color:#6f8fb0;text-decoration:underline;word-break:break-all;">{{ .ConfirmationURL }}</a></p>
+        <p style="font-size:12px;line-height:1.6;color:#8a8070;margin:0 0 20px;">For your security this link is time-limited — if it no longer works, just sign up again to get a new one.</p>
+      </td></tr>
+      <tr><td style="padding:18px 32px 28px;border-top:1px solid #241e16;font-family:Arial,Helvetica,sans-serif;">
+        <p style="font-size:12px;line-height:1.6;color:#7d756a;margin:0 0 10px;">If you didn't request this, ignore this email. Your account cannot be accessed until the email address is confirmed.</p>
+        <p style="font-size:12px;line-height:1.6;color:#7d756a;margin:0;"><span style="color:#5f594f;">Trophē · Precision nutrition coaching</span></p>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>

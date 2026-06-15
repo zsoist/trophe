@@ -7,6 +7,7 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { Mail, ArrowRight, Loader2, Eye, EyeOff } from 'lucide-react';
 import { submitSignup, resendConfirmation, fetchDeps } from '@/lib/auth/signup-client';
+import { confirmedLoginNotice } from '@/lib/auth/auth-messages';
 
 function safeRedirectTo(value: string | null): string | null {
   if (!value || !value.startsWith('/') || value.startsWith('//') || value.startsWith('/login')) {
@@ -35,10 +36,12 @@ function LoginForm() {
   const [success, setSuccess] = useState('');
   const [pendingEmail, setPendingEmail] = useState<string | null>(null); // 202 → check-email screen
 
-  // Sync mode with URL param changes
+  // Sync mode with URL param changes; surface the post-confirmation success notice (P1).
   useEffect(() => {
     const urlMode = searchParams.get('mode');
     if (urlMode === 'signup') setMode('signup');
+    const notice = confirmedLoginNotice(searchParams.get('confirmed'));
+    if (notice) { setMode('login'); setSuccess(notice); }
   }, [searchParams]);
 
   async function handleSubmit(e: React.FormEvent) {
