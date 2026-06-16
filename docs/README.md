@@ -1,6 +1,6 @@
 # Trophē — documentation index
 
-Start here. **Canonical source of truth = [`STATUS-2026-06-13.md`](STATUS-2026-06-13.md)** (latest shipped state, benchmark, gaps).
+Start here. **Latest shipped state / benchmark / gaps = newest `STATUS-YYYY-MM-DD.md`** (currently [`STATUS-2026-06-13.md`](STATUS-2026-06-13.md)). For enterprise WP remediation progress, the single source of truth is [`audits/remediation-status-2026-06-15.md`](audits/remediation-status-2026-06-15.md).
 At the end of each phase, create a new `STATUS-YYYY-MM-DD.md`; everything else is reference, not authority.
 
 ## Read first
@@ -18,6 +18,7 @@ At the end of each phase, create a new `STATUS-YYYY-MM-DD.md`; everything else i
 - [`coach/michael-call-2026-06-12-requirements.md`](coach/michael-call-2026-06-12-requirements.md) — full requirements ledger
 
 ## Audits (current)
+- [`audits/remediation-status-2026-06-15.md`](audits/remediation-status-2026-06-15.md) — **WP0–WP7 remediation status + scorecard (single source of truth for WP progress)**
 - [`audits/full-system-audit-2026-06-13.md`](audits/full-system-audit-2026-06-13.md) — engineering audit
 - [`audits/enterprise-readiness-2026-06-13.md`](audits/enterprise-readiness-2026-06-13.md) — B2B procurement scorecard + path to 100
 

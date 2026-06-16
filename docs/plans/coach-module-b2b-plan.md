@@ -1,5 +1,7 @@
 # Trophē Coach Module & B2B Production Plan
 
+> **HISTORICAL PLAN (snapshot June 12 2026; superseded).** Point-in-time planning doc. Phases 0–6 largely SHIPPED Jun 12–13. For current state see `docs/audits/remediation-status-2026-06-15.md`. Grounding facts below are as-of June 12 and partly stale: i18n is now 8 languages (EN/ES/EL/FR + DE/IT/PT/NL), not trilingual; benchmark 700-set pass is 76.7%; the "16.1% fat-MAPE" is actually the pooled macro-MAPE (~16.0%) — true fat MAPE is ~25%.
+
 **Source:** Michael Kavdas product call, June 12 2026 + B2B readiness audit
 **Goal:** Implement all of Michael's requested changes, elevate the coach experience to
 premium quality, and make Trophē genuinely B2B production-ready (multi-coach, billable,

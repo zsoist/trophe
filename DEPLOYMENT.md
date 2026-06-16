@@ -2,7 +2,7 @@
 
 Production on **Vercel** + **Supabase** (project `iwbpzwmidzvpiofnqexd`). Production URL is `https://trophe.app`. Local dev is standardized on the Supabase CLI stack running on OrbStack. `main` is the production branch; Vercel auto-deploys on push.
 
-_Last updated: 2026-05-03_
+_Last updated: 2026-06-15_
 
 ---
 
@@ -110,11 +110,11 @@ npm run db:migrate      # applies pending migrations to local DB
 DIRECT_URL=... npm run db:migrate  # direct/session connection, never transaction pooler
 ```
 
-Migration files live in `drizzle/`. Current migrations:
+Migration files live in `drizzle/`. The repo currently has **57 migrations** (filenames `0000`…`0048`, with 8 duplicate-prefix files for `0008`–`0015` from a branch merge — `drizzle/meta/_journal.json`'s max idx is 56); `_journal.json` is the authoritative index. Notable early ones:
 - `0000_complex_johnny_blaze.sql` — initial schema
 - `0001_tearful_machine_man.sql` — organizations + roles
 - `0002_role_backfill.sql` — seeds Daniel as super_admin
-- `0003…0006` — subsequent schema additions
+- `0003`+ — subsequent schema additions through `0048` (run `ls drizzle/*.sql | wc -l` to confirm the count: 57)
 
 **Note**: `supabase-schema.sql` and `supabase-workout-schema.sql` in the repo root are **DEPRECATED** — kept as reference only. Drizzle migrations are the source of truth for v0.3+.
 

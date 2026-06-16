@@ -1,5 +1,7 @@
 # Daily Nutrafit × Trophē — Master Plan
 
+> **HISTORICAL PLAN (snapshot ~2026-06-13).** Point-in-time master plan; phase numbering (P0-P9) predates the current WP0-WP7 Enterprise Remediation framework. For current state see docs/audits/remediation-status-2026-06-15.md (WP status + scorecard) and docs/audits/enterprise-readiness-2026-06-13.md. Note since this snapshot: 8 languages are live (EN/ES/EL/FR + DE/IT/PT/NL) — the §0 "EN / ES / EL" row is superseded by §2/P7; hosting is AWS us-east-2 (US); benchmark 700-set is 76.7% pass / 16.0% pooled MAPE; enterprise readiness ~5.2/10.
+
 **Sources:** Daily Nutrafit vision PDF (June 12 2026) + Michael product call +
 coach-module plan (docs/plans/coach-module-b2b-plan.md) + current codebase state.
 **Thesis:** Trophē already implements ~70% of the Nutrafit Step-3 MVP. This plan maps
@@ -16,7 +18,7 @@ makes "operating system of the fitness and nutrition industry" credible.
 | Coach module | Phases 0-2 SHIPPED: client mgmt, weekly meal plans, messaging (realtime), intake (15-q set), daily check-ins, assessment/goals, KPIs |
 | AI agents | 100% DeepSeek text (food parse v7, recipe analyze, coach insight, meal suggest, memory) + Voyage embeddings + Haiku photo |
 | Food DB | **~42,950 foods**: OFF ~21.8k · USDA+FNDDS ~13.3k · CIQUAL(FR) · CoFID(UK/EU) · BEDCA(ES) · CREA(IT) · curated GR/CO + barcodes |
-| Accuracy | v3 700-set (Greek-weighted, median-of-3): **76.6% pass / 16.0% pooled MAPE** (post-2026-06-14 deterministic reduction); validated 549-subset ~90%; official v2 210 = 94.3% (competitors ≈60-70%) |
+| Accuracy | v3 700-set (Greek-weighted, median-of-3): **76.7% pass / 16.0% pooled MAPE** (post-2026-06-14 deterministic reduction); validated 549-subset ~90%; official v2 210 = 94.3% (competitors ≈60-70%) |
 | i18n | EN / ES / EL (+FR parse path); custom dictionary ~451 keys |
 | Payments scaffold | organizations.stripe_customer_id + stripe_connect_account_id (unused) |
 | Compliance scaffold | consents + data_requests + audit_log tables, RLS suite in CI |

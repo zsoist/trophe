@@ -2,9 +2,9 @@
 
 > **Read this first.** This file is the primary context document for AI coding agents (Claude Code, Codex, Cursor). For the comprehensive operator handoff see `CODEX.md`.
 
-_Last synced to codebase: 2026-06-09_
+_Last synced to codebase: 2026-06-15_
 
-## Current Production Truth (2026-05-03)
+## Current Production Truth (2026-06-15)
 
 - Canonical repo path: `/Volumes/SSD/work/forge-projects/trophe`
 - Production URL: `https://trophe.app`
@@ -14,7 +14,7 @@ _Last synced to codebase: 2026-06-09_
 - Cost/AI observability source of truth: `agent_runs`; `api_usage_log` is legacy compatibility only
 - Required verification sequence: `npm run typecheck && npm run lint && npm test && npm run build`
 - AI route auth must use async `guardAiRoute()` and the verified Supabase `userId`; do not decode JWTs for auth decisions.
-- Food data: 11,396 foods (USDA 7,899 + CIQUAL 3,323 + HHF 86 + MenuStat 48 + Chain 28 + Custom 12). 1,050+ unit conversions. 210+ dish recipes. 3,837 aliases. USDA foods have Voyage embeddings.
+- Food data: 42,952 foods (OFF 21,823 + USDA 13,259 + CIQUAL 3,323 + CoFID 2,744 + BEDCA 751 + CREA 714 + custom 176 + HHF 86 + MenuStat 48 + chain_co 28). 8,608 unit conversions. 293 dish recipes. 6,580 aliases. Foods have Voyage voyage-4 embeddings.
 
 ---
 
@@ -52,14 +52,14 @@ Initial audit findings are hypotheses. Sanity checks are the verification. Don't
 
 | Layer | Technology |
 |-------|-----------|
-| **Web** | Next.js 16.2.2 App Router · React 19.2.4 · TypeScript strict |
+| **Web** | Next.js 16.2.7 App Router · React 19 · TypeScript strict |
 | **Styling** | Tailwind CSS 4 · Framer Motion 12 · Lucide icons |
 | **Auth** | `@supabase/ssr` 0.10 — HTTP-only cookie sessions (NOT localStorage) |
 | **Database** | Supabase Postgres (production) + Supabase CLI local stack @ `127.0.0.1:54322` (dev) |
 | **ORM** | Drizzle ORM + Drizzle Kit — schema in `db/schema/`, migrations in `drizzle/` |
 | **API** | tRPC v11 (coach UI) + REST `/api/*` (public / webhooks) |
-| **AI** | LLM router (`agents/router/`) — Gemini 2.5 Flash (food-parse) · Haiku 4.5 (recipe) · Sonnet 4.5 (coach insights) |
-| **Embeddings** | Voyage v4 `voyage-3-large` 1024-dim via `scripts/ingest/embed-foods.ts` |
+| **AI** | LLM router (`agents/router/`) — 100% DeepSeek V4 Flash for ALL text (food-parse, recipe, coach insights, meal-suggest). Only non-DeepSeek: photo_analyze → Anthropic Haiku 4.5 (vision) |
+| **Embeddings** | Voyage `voyage-4` 1024-dim via `scripts/ingest/embed-foods.ts` |
 | **Observability** | Langfuse via `LANGFUSE_HOST` — OTel GenAI semconv per span |
 | **Computer Vision** | MediaPipe Pose (browser WASM, 33 landmarks, 30+ FPS) for AI Form Check |
 | **Wearables** | Spike API — Apple Health, Whoop, Oura, Strava, Garmin, Fitbit |
@@ -79,8 +79,8 @@ v0.3-overhaul merged to main 2026-05-03. Nutrition accuracy work ongoing June 20
 ### What IS running in production (on Supabase Postgres)
 - Auth (cookie-based @supabase/ssr), 30+ tables, RLS, food logging, coach dashboard, workouts, supplements, habits
 - AI food-parse v7 (DeepSeek V4 Flash primary via `/api/food/parse`) with CoT dual-path arbitration
-- 4-language support: EN/ES/EL/FR (French added June 2026 with CIQUAL 2025)
-- Deterministic food lookup: 11,396 foods + 1,050+ unit conversions + 210+ recipes + 3,837 aliases
+- 8-language support: EN/ES/EL/FR core + overlay DE/IT/PT/NL
+- Deterministic food lookup: 42,952 foods + 8,608 unit conversions + 293 recipes + 6,580 aliases
 - Composite dish decomposition: 210+ cached recipes + LLM decompose-on-miss pipeline
 - RAG pre-search for single-food inputs (DB reference data injected into LLM prompt)
 - COMMON_PIECE_WEIGHTS map: 80+ entries for bakery, Greek, Latin American, composites
@@ -90,10 +90,10 @@ v0.3-overhaul merged to main 2026-05-03. Nutrition accuracy work ongoing June 20
 - Session refresh on mobile foreground (visibilitychange hook)
 - AI Form Check (MediaPipe, browser-only, no server)
 - All analytics components, quadrilingual UI (EN/ES/EL/FR)
-- Enterprise nutrition benchmark: 210 cases, scoring 193/210 (91.9%), carbs MAPE 22.3%
+- Nutrition benchmark: validated 549-set ~90% pass; Greek-weighted 700-set 76.7% pass (on-demand only); pooled macro-MAPE 16.0%; v2 210-set ~94-95%. Cal MAPE ~17%, Fat MAPE ~25%. Latency p50 ~4.4s / p95 ~7-8s
 
 ### v0.3 features (all merged to main, live in production)
-- Drizzle ORM + versioned migrations (`drizzle/` — 13 migrations)
+- Drizzle ORM + versioned migrations (`drizzle/` — 57 migrations)
 - 4-tier role enum (`super_admin|admin|coach|client`) — organizations table
 - `@supabase/ssr` HTTP-only cookie auth + session refresh on mobile foreground
 - LLM router (Gemini Flash + DeepSeek + Langfuse traces via CF Tunnel)
@@ -104,7 +104,7 @@ v0.3-overhaul merged to main 2026-05-03. Nutrition accuracy work ongoing June 20
 - Spike wearable layer
 - tRPC v11
 - Handoff v2 UI (new `components/ui/`, `app/globals.css` primitives)
-- `proxy.ts` (Next.js 16 middleware convention)
+- `middleware.ts` (Next.js middleware at repo root)
 
 ---
 
@@ -113,7 +113,7 @@ v0.3-overhaul merged to main 2026-05-03. Nutrition accuracy work ongoing June 20
 ### AI / Agents (v0.3+)
 ```
 agents/
-  router/index.ts + policies.ts      # task → model selection (DeepSeek, Gemini, Anthropic)
+  router/index.ts + policies.ts      # task → model selection (DeepSeek for all text; Anthropic for photo vision)
   runtime/providers/deepseek.ts      # DeepSeek V4 Flash provider
   clients/anthropic.ts + google.ts   # thin API wrappers
   observability/langfuse.ts + otel.ts
@@ -131,10 +131,10 @@ agents/
 ### Database (v0.3 Drizzle)
 ```
 db/
-  schema/                            # one .ts file per domain (30+ tables)
+  schema/                            # one .ts file per domain (55 public tables, 10 enums, 103 RLS policies)
   client.ts                          # pg.Pool + drizzle() wrapper
   queries/                           # typed query helpers
-drizzle/                             # versioned migration SQL (0000…0006)
+drizzle/                             # versioned migration SQL (57 migrations, 0000…0048)
 supabase-schema.sql                  # DEPRECATED — reference only
 supabase-workout-schema.sql          # DEPRECATED — reference only
 ```
@@ -146,7 +146,7 @@ lib/supabase/server.ts              # createSupabaseServerClient() — reads coo
 lib/supabase/middleware.ts          # edge middleware client
 lib/auth/get-session.ts             # { user, profile, role, orgId }
 lib/auth/require-role.ts            # server-side role guard
-proxy.ts                            # Next.js middleware (renamed from middleware.ts)
+middleware.ts                       # Next.js middleware (repo root; Supabase session + auth gate)
 ```
 
 ### tRPC
@@ -159,13 +159,13 @@ app/api/trpc/[trpc]/route.ts
 ### Core library
 ```
 lib/nutrition-engine.ts             # BMR/TDEE/macros (Mifflin-St Jeor + ISSN)
-lib/i18n.tsx                        # Trilingual dictionary + useI18n() hook (600+ lines)
+lib/i18n.tsx                        # 8-language dictionary + useI18n() hook
 lib/types.ts                        # TypeScript interfaces (Supabase schema)
 lib/dates.ts                        # localToday(), localDateStr() — always local timezone
 lib/meal-score.ts                   # Meal quality 0–100 (A/B/C/D)
-lib/api-guard.ts                    # Per-user + per-IP rate limiting
-lib/api-cost-logger.ts              # Anthropic + Gemini cost tracking
-lib/food-units.ts                   # Legacy unit conversions (v0.3: thin wrapper)
+lib/security/api-guard.ts           # Per-user + per-IP rate limiting
+lib/api-cost-logger.ts              # DeepSeek cost tracking (text); Anthropic for photo vision only
+lib/food/food-units.ts              # Legacy unit conversions (v0.3: thin wrapper)
 lib/spike/client.ts                 # Spike REST client
 lib/form-analysis.ts                # MediaPipe biomechanics math (ported from Python)
 ```
@@ -185,12 +185,12 @@ public/sprite.svg                   # 56-icon SVG sprite
 
 | Route | Method | AI | Auth guard | Purpose |
 |-------|--------|----|------------|---------|
-| `/api/food/parse` | POST | Gemini Flash | `guardAiRoute` | NLP text → `{food_name, qty, unit}[]` |
-| `/api/food/recipe-analyze` | POST | Haiku 4.5 | `guardAiRoute` | Recipe text → per-ingredient + totals |
+| `/api/food/parse` | POST | DeepSeek V4 Flash | `guardAiRoute` | NLP text → `{food_name, qty, unit}[]` |
+| `/api/food/recipe-analyze` | POST | DeepSeek V4 Flash | `guardAiRoute` | Recipe text → per-ingredient + totals |
 | `/api/food/search` | GET `?q=` | — | sanitized | USDA FoodData Central (350K+ foods) |
 | `/api/food/local-search` | GET `?q=` | — | anon key | Local Supabase food DB |
 | `/api/ai/photo-analyze` | POST | Haiku 4.5 | `guardAiRoute` | Photo → food identification |
-| `/api/ai/meal-suggest` | POST | Gemini | `guardAiRoute` | 12 meal suggestions within macros |
+| `/api/ai/meal-suggest` | POST | DeepSeek V4 Flash | `guardAiRoute` | 12 meal suggestions within macros |
 | `/api/nutrition/calculate` | POST | — | — | BMR/TDEE/macros server-side |
 | `/api/auth/signup` | POST | — | rate limited 5/hr/IP | Server-side signup |
 | `/api/auth/callback` | GET | — | — | OAuth code exchange |
@@ -218,9 +218,9 @@ Public signup always forces `role = 'client'`. Invite token required for elevate
 
 ---
 
-## Middleware routing (proxy.ts)
+## Middleware routing (middleware.ts)
 
-`proxy.ts` (Next.js middleware, runs before every request):
+`middleware.ts` (Next.js middleware at repo root, runs before every request):
 - Creates server Supabase client from `request.cookies` via `lib/supabase/middleware.ts`
 - Calls `getUser()` (not `getSession()` — re-validates JWT against auth server)
 - Enforces role routing:
@@ -246,7 +246,7 @@ Public signup always forces `role = 'client'`. Invite token required for elevate
 
 ## i18n (lib/i18n.tsx)
 
-- Languages: `en | es | el` (English · Spanish · Greek)
+- Languages: `en | es | el | fr` core + overlay `de | it | pt | nl` (8 total)
 - 600+ keys organized by domain prefix: `app.*`, `auth.*`, `nav.*`, `general.*`, `log.*`, `heatmap.*`, `adherence.*`, `patterns.*`, `insights.*`, `report.*`, `recs.*`, `day.*`, `analytics.*`
 - Provider: `I18nProvider` in `app/layout.tsx`. Uses `useState(defaultLang)` + `useEffect` to read `localStorage` after mount — **never in lazy initializer** (hydration mismatch risk).
 - Hook: `const { t, lang, setLang } = useI18n()` → `t('key', { n: 42 })` interpolates `{n}`.
@@ -416,8 +416,8 @@ Trophē tracks the source and confidence of every food's macro data. This is a c
 ### Auth
 - `@supabase/ssr` IS installed and in use. Sessions in HTTP-only cookies, NOT localStorage. Don't revert to localStorage pattern.
 - Always call `getUser()` not `getSession()` — `getSession()` doesn't re-validate against auth server.
-- middleware lives in `proxy.ts` (not `middleware.ts`) — Next.js 16 convention.
-- 2026-05-03: Renaming `proxy.ts` → `middleware.ts` silently breaks auth gating in Next.js 16. The file compiles fine but Next.js 16 ignores the legacy name; routes appear public. Always validate auth gating after file moves.
+- middleware lives in `middleware.ts` at repo root (standard Next.js convention). Verified 2026-06-15: `proxy.ts` does not exist (a brief 2026-05 rename experiment was reverted).
+- Always validate auth gating after any middleware file move — a wrong filename makes Next.js skip the middleware entirely and protected routes silently appear public.
 - Hydration mismatch: never read `localStorage` inside `useState` lazy initializer — use `useEffect` after mount.
 
 ### Supabase / DB

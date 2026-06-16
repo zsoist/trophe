@@ -7,7 +7,7 @@ Trophē is **production-critical** (live coaches + clients on trophe.app). Bias 
 2. Make the change; keep it focused. Match the surrounding code's style.
 3. Run the gate locally before pushing: `npm run verify` (= `typecheck` + `lint` + `test` + `build`).
 4. Open a PR — the template prompts for what/why, how-verified, risk. CI (`verify` job) is the hard gate.
-5. Deploy is manual (`vercel --prod`) after merge — Vercel git auto-deploy is intentionally disconnected.
+5. Deploy is automatic: Vercel git-integration auto-deploys `main` → production (https://trophe.app) once the PR merges and CI is green.
 
 ## Non-negotiables
 - **`tsc` must pass before push.** Duplicate keys / type drift have hit prod before.

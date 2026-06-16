@@ -1,5 +1,7 @@
 # Trophē PWA — Implementation Plan (frontier 2026, researched)
 
+> **HISTORICAL / point-in-time planning record (pre-build).** The PWA is now SHIPPED & LIVE — installable on iOS + Android as of 2026-06-15. Read this as the planned approach, not current state. Current state: docs/audits/remediation-status-2026-06-15.md + README.md.
+
 Goal: premium, installable PWA from the existing Next.js 16 app. Clients install to
 home screen + offline + push-ready; coaches use desktop. Cheapest path to "a real app".
 

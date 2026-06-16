@@ -1,5 +1,7 @@
 # Trophe 100/100 Production and B2B Implementation Plan
 
+> **HISTORICAL (2026-06-07 snapshot, superseded).** This is the original 80->100 "Program 0-6" plan. It has been superseded by the WP0-WP7 Enterprise Remediation framework (WP0-WP3 DONE+LIVE; WP4-WP7 pending). For current status see `docs/audits/remediation-status-2026-06-15.md` and the path-to-100 in `docs/audits/enterprise-readiness-2026-06-13.md`. As of 2026-06-15 scores are split: engineering-quality ~8.1/10 and real-B2B enterprise readiness ~5.2/10 (NOT a single 80/100 baseline). NOTE: the AI/model references below (Anthropic + Gemini for text, a `google` provider) are STALE — Trophe now routes 100% of TEXT through DeepSeek V4 Flash (no Gemini, no Anthropic for text); Anthropic is photo-vision only (Haiku) and Voyage voyage-4 is embeddings only.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Bring Trophe from the verified 80/100 baseline to a measurable 100/100 production and B2B launch gate, with live permission-aware RAG, unified AI execution, exact cost governance, reliable operations, and current documentation.

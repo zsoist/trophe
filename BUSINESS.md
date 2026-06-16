@@ -66,7 +66,7 @@ A platform that makes every nutritionist 10x more effective by handling the work
 ### Key Differentiators
 **Trophe is the only platform combining all five**:
 1. Precision Nutrition habit methodology (14-day cycles, one at a time)
-2. Trilingual AI food tracking (text NLP + photo analysis + voice)
+2. Multilingual AI food tracking across 8 languages (EN/ES/EL/FR core + DE/IT/PT/NL overlay) — text NLP + photo analysis + voice
 3. Browser-based AI Form Check (zero server cost, privacy-first)
 4. Coach dashboard with behavioral intelligence signals
 5. East-meets-West philosophy (Greek ancient + Chinese + Western research)
@@ -78,7 +78,7 @@ A platform that makes every nutritionist 10x more effective by handling the work
 
 ## Differentiation
 1. **Precision Nutrition methodology built in** — not generic tracking
-2. **Trilingual AI** — understands Greek, Spanish, English food descriptions
+2. **Multilingual AI** — understands food descriptions in 8 languages (EN/ES/EL/FR core + DE/IT/PT/NL overlay)
 3. **Browser-based form analysis** — zero cost, zero server, privacy-first
 4. **East meets West** — potential to integrate traditional medicine knowledge
 5. **Coach-first design** — behavioral signals, not just data dumps
@@ -92,7 +92,7 @@ A platform that makes every nutritionist 10x more effective by handling the work
 - **Daniel Reyes** — full-stack + AI engineering, infrastructure, rapid iteration. Position: **technical co-founder / CTO**, 4–8 hrs/week steady-state, NOT seeking CEO or commercial ownership. Open on equity (20–40%, comfortable with three-way equal). Dialectica (Bogotá) + AI master's remain primary.
 - **Daniela Gutiérrez** — technical / AI. Biomechanics/engineer perspective. Contributing on testing + product side.
 
-**Structure**: TBD. Three live options (see `docs/monday-prep/03-partnership-options.md`): (i) Daniel-majority + Michael-advisor standalone entity; (ii) three-way JV with Athletikapp as shareholder/partner; (iii) Trophē built into Athletikapp. Daniel's stance: genuinely open, not defending majority. IP must live in the operating entity — not Michael personally, not Athletikapp.
+**Structure**: TBD. Three live options (see `docs/archive/monday-prep/03-partnership-options.md`): (i) Daniel-majority + Michael-advisor standalone entity; (ii) three-way JV with Athletikapp as shareholder/partner; (iii) Trophē built into Athletikapp. Daniel's stance: genuinely open, not defending majority. IP must live in the operating entity — not Michael personally, not Athletikapp.
 
 **Decision timeline target** (proposed April 20): agree a *date*, not the decision itself. Realistic deadline: mid-to-late May 2026 (before first paying coach).
 

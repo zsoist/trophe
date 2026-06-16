@@ -1,5 +1,7 @@
 # AI Food→Macro Accuracy — Research Brief (2026-06-13)
 
+> **Historical snapshot (2026-06-13 research push).** Point-in-time record of one research/benchmark sweep — not a living spec. Findings and "Outcomes (this push)" reflect state as of that date. For current benchmark/WP status see `docs/audits/remediation-status-2026-06-15.md` and `docs/audits/enterprise-readiness-2026-06-13.md`. Current benchmark: 549-set ~90% pass, Greek-weighted 700-set 76.7% pass, pooled macro-MAPE 16.0% (post 2026-06-14 deterministic reduction).
+
 Synthesis of 4 parallel research sweeps (academic, competitors, community/OSS, Greek/EU)
 that informs the path to ≥90% pass / <10% MAPE / higher Acc@7.5, Greek-first.
 

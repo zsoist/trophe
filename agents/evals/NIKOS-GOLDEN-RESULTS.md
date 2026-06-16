@@ -1,5 +1,7 @@
 # Nikos Golden Eval — Baseline Results
 
+> **HISTORICAL SNAPSHOT (run 2026-04-18).** Point-in-time baseline; not current state. This run used Anthropic Haiku for food parsing. As of 2026-06-15 all TEXT tasks (including food parsing) route 100% to DeepSeek V4 Flash per the cost mandate — Anthropic is used only for photo vision, embeddings use Voyage voyage-4. Treat the model id, pass rate, and latency below as scoped to the 2026-04-18 run. Current state: `docs/audits/remediation-status-2026-06-15.md`.
+
 **Agent**: `food-parse.v3.md` · **Model**: `claude-haiku-4-5-20251001` · **Run**: 2026-04-18 local (cache warm)
 **Source**: Nikos (nikos@biorita.com) food_log Apr 16-17, 19 real entries → 10 representative test cases.
 

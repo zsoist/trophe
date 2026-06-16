@@ -1,5 +1,7 @@
 # Trophē Enterprise Audit — June 12, 2026
 
+> **HISTORICAL SNAPSHOT (2026-06-12) — SUPERSEDED.** Point-in-time audit; counts and scores are stale. Current state (2026-06-15): 55 public tables / 57 Drizzle migrations / 42,952 foods; engineering ~8.1/10, enterprise readiness ~5.2/10. See canonical trackers `docs/audits/remediation-status-2026-06-15.md` (WP status + scorecard) and `docs/audits/enterprise-readiness-2026-06-13.md` (path-to-100).
+
 Four parallel audits (architecture/organization, security/RLS, quality/testing,
 enterprise-readiness research vs market bar). Scores 0-10.
 
@@ -11,7 +13,7 @@ enterprise-readiness research vs market bar). Scores 0-10.
 | — Directory coherence | 8 | app/agents/lib/db clean; seeds scattered |
 | — Module boundaries | 7 | 78 direct supabase calls in pages vs tRPC; agents governed ✓ |
 | — Dead code | 7 | food_database table unused, prompt v3-v6 relics, mediapipe dep likely dead |
-| — Schema organization | 8 | 33 schema files 1:1 with DB, phase-annotated |
+| — Schema organization | 8 | 33 schema files 1:1 with DB, phase-annotated *(June 12 snapshot; STALE — DB now has 55 public tables / 57 Drizzle migrations as of 2026-06-15)* |
 | — Dependency hygiene | 8 | pinned, no unused except @mediapipe/tasks-vision |
 | **Security** | **8.0** | Access control strong; gaps were validation consistency + 2 rate limits (FIXED same day) |
 | — RLS coverage | 9 | force-enabled everywhere; new tables (messages/meal plans/intake) properly scoped |
@@ -27,9 +29,11 @@ enterprise-readiness research vs market bar). Scores 0-10.
 | — TS strictness | 8 | strict, zero `as any`; 12 `as unknown as` |
 | — Observability | 6 | Langfuse on core agents; RAG/memory unspanned; no push alerting |
 | — Lint | 9 | 0 errors, 6 warnings |
-| **Enterprise readiness (market bar)** | **5.5** | Product ahead, paperwork behind — typical pre-beta gap |
+| **Enterprise readiness (market bar)** | **5.5** | Product ahead, paperwork behind — typical pre-beta gap *(June 12 market-bar sub-score; SUPERSEDED — real-B2B enterprise readiness was ~4.8/10 on 2026-06-13 and ~5.2/10 on 2026-06-15 after WP0-WP3 re-scoring)* |
 
 **Overall: 7.2 / 10** — production-grade core, enterprise-paperwork gap.
+
+> **Scores superseded.** The composite 7.2 above is a June 12 snapshot. As of 2026-06-15: engineering-quality ~8.1/10; real-B2B enterprise readiness ~5.2/10 (WP0-WP3 cleared zero Tier-0 binary blocker, so not yet clinic-signable). See `docs/audits/remediation-status-2026-06-15.md`.
 
 ## Market-bar findings (EU health SaaS, Greek launch)
 Nutrition logs = **GDPR Art. 9 special-category data**; clinics are controllers, Trophē
