@@ -52,7 +52,7 @@ describe('WP3 delivery truth governance', () => {
     expect(workflowValue(ci, 'FOOD_MAX_MISSING_EMBEDDINGS')).toBe('87');
   });
 
-  it('coverage thresholds are enforced when coverage is run', () => {
+  it('coverage thresholds are configured AND actually run in required CI', () => {
     const vitestConfig = read('vitest.config.ts');
 
     expect(vitestConfig).toContain('thresholds');
@@ -60,6 +60,17 @@ describe('WP3 delivery truth governance', () => {
     expect(vitestConfig).toContain('functions: 20');
     expect(vitestConfig).toContain('branches: 15');
     expect(vitestConfig).toContain('statements: 20');
+
+    // A configured-but-unrun threshold is itself a false-green. Required CI must execute it.
+    expect(read('.github/workflows/ci.yml')).toContain('npm run test:coverage');
+  });
+
+  it('the production nutrition benchmark is on-demand only (no schedule — avoids nightly token burn)', () => {
+    const nightly = read('.github/workflows/nightly-eval.yml');
+
+    expect(nightly).toContain('workflow_dispatch');
+    expect(nightly).not.toMatch(/^\s*schedule:/m);
+    expect(nightly).not.toContain('cron:');
   });
 
   it('CODEOWNERS covers material production-change surfaces', () => {

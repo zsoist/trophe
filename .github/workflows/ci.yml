@@ -152,8 +152,10 @@ jobs:
       - name: Lint
         run: npm run lint -- --no-cache
 
-      - name: Unit and integration tests
-        run: npm test
+      - name: Unit and integration tests (coverage-enforced)
+        # test:coverage = vitest run --coverage; enforces the vitest.config.ts thresholds
+        # so the coverage gate actually runs in required CI (not merely configured).
+        run: npm run test:coverage
 
       - name: Nutrition safety and release-gate tests
         run: npm test -- --run tests/agents/nutrition-release-gate.test.ts tests/agents/nutrition-enterprise-dataset.test.ts tests/agents/food-parse.accuracy.test.ts tests/agents/food-parse-structured-output.test.ts
@@ -185,7 +187,6 @@ jobs:
           EVAL_REPORT_DIR: artifacts/evals
           EVAL_REQUIRED_SUITES: recipe_analyze,coach_insight
           EVAL_ENFORCE_GATE: 1
-          EVAL_MIN_PASS_RATE: 0.40
 
       - name: AI cost attribution and budget gate
         run: npm run ai:budget-check

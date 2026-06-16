@@ -10,15 +10,19 @@ that must be set in GitHub/Vercel by the operator.
 - Required CI cannot use `ALLOW_SKIPPED_EVALS`.
 - Required CI sets `EVAL_REQUIRED_SUITES=recipe_analyze,coach_insight`; those
   branch-runnable AI suites fail loud if skipped.
-- The production nutrition benchmark remains in `nightly-eval.yml` because it
-  calls the live authenticated production API and the full production food
-  corpus. Its secrets must be present before it is treated as green evidence.
-- Food readiness in CI checks the deterministic local bootstrap fixture
-  explicitly: 14 rows, 100% authoritative metadata, and zero missing embeddings
-  outside bootstrap fixtures.
-- Coverage thresholds are configured in `vitest.config.ts`; the threshold is low
-  initially to prevent fake confidence while still making coverage regression a
-  visible gate when `npm run test:coverage` is executed.
+- The production nutrition benchmark in `nightly-eval.yml` is **on-demand only**
+  (`workflow_dispatch`, no schedule): it calls the live authenticated production API
+  over the full ~700-case food corpus (one DeepSeek call per food-parse), so it is NOT
+  run nightly — that would burn ~700 LLM calls/day for no per-release signal. Trigger it
+  manually before a release that touches nutrition accuracy; its secrets (`EVAL_AUTH_*`,
+  Supabase) must be present for it to count as green evidence.
+- Food readiness in CI checks the deterministic local bootstrap fixture against its
+  measured floor: at least 14 rows, ≥95% authoritative metadata, and at most 87 non-fixture
+  rows missing embeddings. Production embedding coverage remains a separate prod-data gate
+  (the on-demand benchmark above).
+- Coverage thresholds are configured in `vitest.config.ts` and **enforced in required CI**:
+  the unit/integration step runs `npm run test:coverage`. The thresholds are low initially
+  to prevent fake confidence while making coverage regression a hard, executed gate.
 - CODEOWNERS names high-risk production-change surfaces: workflows, migrations,
   schema, auth, privacy, cron/internal endpoints, AI agents, ops scripts, and
   trust documentation.
