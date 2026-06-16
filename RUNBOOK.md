@@ -87,15 +87,15 @@ LIMIT 50;
 ```
 
 Common causes:
-- **Anthropic rate limit (429)**: surge of requests exceeded 50 RPM for Haiku 4.5 (default)
-- **Anthropic API key expired/rotated (401)**: check `error_message`
+- **DeepSeek rate limit (429)**: surge of requests against DeepSeek V4 Flash (all text tasks route here). NOTE: only `photo_analyze` uses Anthropic Haiku vision — a 429 on photo analysis is an Anthropic limit.
+- **DeepSeek API key expired/rotated (401)**: check `error_message` (Anthropic key only matters for the photo-analyze route)
 - **Prompt cache miss causing latency spike**: expected behavior after 5-min idle; not an error
-- **Timeout from Next.js function**: Vercel free-tier hobby = 10s; Pro = 60s
+- **Timeout from Next.js function**: Vercel function maxDuration = 60s (Pro, set in `vercel.json`)
 
 **Fix**:
-- 429: rate-limit clients more aggressively via `lib/api-guard.ts` (drop from 20 to 10 req/min); contact Anthropic if persistent
-- 401: rotate key in Anthropic console → update Vercel env → redeploy
-- Timeout: inspect the specific call's token count; if prompt grew too large, trim the food reference in `lib/food-units.ts`
+- 429: rate-limit clients more aggressively via `lib/security/api-guard.ts` (current limit: 60 req / 15 min per user); contact the provider (DeepSeek for text, Anthropic for photo) if persistent
+- 401: rotate the affected key (DeepSeek for text, Anthropic for photo vision) → update Vercel env → redeploy
+- Timeout: inspect the specific call's token count; if prompt grew too large, trim the food reference in `lib/food/food-units.ts`
 
 **Verify**: manual curl against `/api/food/parse` with a trivial input; confirm 200 + parsed items.
 
@@ -103,7 +103,9 @@ Common causes:
 
 **Detect**: user reports missing food log entries; `coach_notes` disappeared; `client_profiles` reset.
 
-**With Supabase Pro + PITR** (scheduled Sunday):
+> NOTE (2026-06-15): Supabase Pro backups/PITR is WP6 Tier-0 work that is still PENDING — PITR is NOT yet enabled in prod. Until WP6 ships, use the "Without Pro" branch below. See `docs/audits/remediation-status-2026-06-15.md`.
+
+**With Supabase Pro + PITR** (once WP6 ships):
 ```bash
 # Via Supabase dashboard → Settings → Database → Point-in-time Recovery
 # 1. Select timestamp just before the incident (granularity: 1 second)
@@ -166,15 +168,15 @@ Common causes:
 
 **Diagnose**:
 ```bash
-# Diff the prompt against last known-good version
-git log --oneline agents/prompts/food-parse.v3.md
-git diff <last-good-commit> agents/prompts/food-parse.v3.md
+# Diff the prompt against last known-good version (current canonical: v7)
+git log --oneline agents/prompts/food-parse.v7.md
+git diff <last-good-commit> agents/prompts/food-parse.v7.md
 ```
 
 **Fix**:
-- Bump version: copy `food-parse.v3.md` → `food-parse.v4.md`, revert the regression
-- Update the import in `agents/food-parse/index.ts`
-- Ship the fix; keep v3 file for audit trail
+- Bump version: copy `food-parse.v7.md` → `food-parse.v8.md`, revert the regression
+- Update the version in `agents/food-parse/index.v4.ts` (defaults to `FOOD_PARSE_PROMPT_VERSION ?? 'v7'`)
+- Ship the fix; keep the previous version file for audit trail
 
 **Verify**: run Promptfoo locally against the golden set; scores recovered.
 

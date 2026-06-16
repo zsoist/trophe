@@ -44,7 +44,7 @@ clarification expectations. `Acc@7.5` = stricter: calories AND every macro withi
 | p50 / p95 latency | response time | UX / enterprise SLA |
 
 ## Current results (700-case v3, median-of-3 vs prod, verified 2026-06-14)
-After the 2026-06-14 deterministic MAPE reduction: **76.6% pass**, **16.0% pooled
+After the 2026-06-14 deterministic MAPE reduction: **76.7% pass**, **16.0% pooled
 macro-MAPE** (calories 12.6% / protein 16.0% / carbs 17.1% / fat 18.2%),
 dbResolved 63%, Acc@7.5 26.6% — down from a pooled 22.4% Phase-0 baseline (a
 −6.4pt deterministic cut; biggest lever was a dried-milk-powder retrieval penalty).

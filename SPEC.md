@@ -1,6 +1,6 @@
 # τροφή (Trophē) — Product Specification
 
-_Last updated: 2026-06-09_
+_Last updated: 2026-06-15_
 
 ---
 
@@ -44,7 +44,7 @@ Professional nutritionists manage clients using spreadsheets, MyFitnessPal, and 
 ### Recipe Analyzer Flow
 1. Click "🍲 Recipe" on food log page
 2. Paste recipe text (EN/ES/EL) + specify yield
-3. AI (Haiku 4.5) extracts ingredients → canonical grams → totals + per-serving macros
+3. AI (DeepSeek V4 Flash) extracts ingredients → canonical grams → totals + per-serving macros
 4. Preview: per-serving hero card (kcal + P/C/F/Fiber) + collapsible ingredient list
 5. Slider: choose servings eaten (0.25× to full)
 6. Select meal slot → log as single `food_log` entry
@@ -65,18 +65,18 @@ Every LLM-backed feature has a consistent `run(input) → { ok, output, telemetr
 ```
 agents/
   router/           # task → model selection (never hardcode models in agents)
-  clients/          # anthropic.ts, google.ts (thin API wrappers)
+  clients/          # anthropic.ts (Haiku vision), google.ts (legacy) — thin API wrappers; DeepSeek text client at runtime/providers/deepseek.ts
   observability/    # langfuse.ts (OTel traces), otel.ts (semconv)
   memory/           # read.ts, write.ts, coach-blocks.ts (Mem0/Letta hybrid)
   food-parse/       # index.ts (LLM identifies only), lookup.ts (deterministic macros)
   recipe-analyze/   # index.ts
-  insights/         # wearable-summary.ts (Spike → Sonnet 4.5 → coach text)
+  insights/         # wearable-summary.ts (Spike → DeepSeek V4 Flash → coach text)
   evals/            # run-all.ts + multi-layer/ (schema, LLM judge, regression)
   prompts/          # versioned .md prompt files
   schemas/          # input/output types per agent
 ```
 
-**v7 food-parse pipeline (June 2026)**: LLM extracts `{food_name, qty, unit}` AND per-100g CoT estimates. `lookup.ts` does pgvector + pg_trgm hybrid retrieval → `foods` table supplies DB macros. `arbitrateDbVsCoT()` picks the best source: explicit portions → DB wins; <30% divergence → DB wins; >30% divergence → LLM grams + DB per-100g ratios; high-confidence DB (≥0.85) → always DB. `decompose.ts` handles composite dishes via `dish_recipes` cache + `COMMON_PIECE_WEIGHTS` map. **100% DeepSeek V4 Flash** for all text (cost mandate; Haiku vision-only). 8-language support (EN/ES/EL inline + FR/DE/IT/PT/NL overlay). **~42,951 foods** (OFF/USDA/CIQUAL/CoFID/BEDCA/CREA/Greek + barcodes). Benchmark (verified 2026-06-14, median-of-3 vs prod, after the deterministic MAPE reduction): **official v2 210-case = 94.3% pass**; backup v3 700-case (Greek-weighted) = **76.6% pass / 16.0% pooled macro-MAPE** (calories 12.6 / protein 16.0 / carbs 17.1 / fat 18.2), down from a pooled 22.4% Phase-0 baseline. Barcode lookup via OFF (ODbL) + ZXing camera scan.
+**v7 food-parse pipeline (June 2026)**: LLM extracts `{food_name, qty, unit}` AND per-100g CoT estimates. `lookup.ts` does pgvector + pg_trgm hybrid retrieval → `foods` table supplies DB macros. `arbitrateDbVsCoT()` picks the best source: explicit portions → DB wins; <30% divergence → DB wins; >30% divergence → LLM grams + DB per-100g ratios; high-confidence DB (≥0.85) → always DB. `decompose.ts` handles composite dishes via `dish_recipes` cache + `COMMON_PIECE_WEIGHTS` map. **100% DeepSeek V4 Flash** for all text (cost mandate; Haiku vision-only). 8-language support (EN/ES/EL inline + FR/DE/IT/PT/NL overlay). **42,952 foods** (OFF/USDA/CIQUAL/CoFID/BEDCA/CREA/Greek + barcodes). Benchmark (verified 2026-06-15, median-of-3 vs prod, after the deterministic MAPE reduction): **official v2 210-case = ~94-95% pass**; backup v3 700-case (Greek-weighted) = **76.7% pass / 16.0% pooled macro-MAPE** (calories MAPE ~17%; fat is the hardest macro at ~25% MAPE), down from a pooled 22.4% Phase-0 baseline. The 700-case benchmark is on-demand only (no nightly cron). Barcode lookup via OFF (ODbL) + ZXing camera scan.
 
 **LLM routing** (cost-optimized, 100% DeepSeek for text, June 2026):
 - `food_parse` → DeepSeek V4 Flash (primary + fallback)
@@ -103,7 +103,7 @@ agents/
 
 | Requirement | Status |
 |-------------|--------|
-| Quadrilingual UI (EN/ES/EL/FR) — 600+ translated strings | ✅ |
+| 8-language UI (EN/ES/EL/FR core + DE/IT/PT/NL overlay) — 600+ translated strings | ✅ |
 | Evidence-based calculations (Mifflin-St Jeor BMR, ISSN protein targets) | ✅ |
 | Never `.single()` — always `.maybeSingle()` | ✅ |
 | TypeScript strict mode, 0 errors | ✅ |

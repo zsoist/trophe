@@ -29,7 +29,7 @@ sub-processor is registered, and blocks flipping a non-verified row to a verifie
 ## Register
 | # | Public claim (as worded on /trust) | Status | Evidence / artifact | Re-verify by |
 |---|---|---|---|---|
-| RLS-ENABLED | "Row-level security is enabled on every database table; access enforced at the DB layer" | `verified-technical` | 41/41 public tables `rowsecurity=t` (SQL preflight 2026-06-14); migration `0008` | 2026-09-14 |
+| RLS-ENABLED | "Row-level security is enabled on every database table; access enforced at the DB layer" | `verified-technical` | 55/55 public tables `rowsecurity=t`; 103 RLS policies (SQL preflight 2026-06-15); migration `0008` | 2026-09-14 |
 | RLS-ISOLATION | *(not claimed absolutely)* coach/client SELECT isolation and key coach write-side denials are technically verified | `verified-technical` | WP2: `tests/db/rls.test.ts` assigned-vs-unassigned SELECT matrix for profiles, orgs, food/water/measurements, coach notes, messages, meal plans, supplements, workouts, form analyses, plus INSERT/UPDATE denial tests for `coach_notes`, `messages`, and `meal_plan_entries`; `tests/enterprise/invariants.test.ts` Drizzle RLS mirror fail-closed guard; `scripts/db/verify.ts` no `TO public` policies + anon grant allowlist | 2026-09-15 |
 | REGION | "Hosted on AWS US (us-east-2); Vercel functions in cle1 + global edge" | `verified-technical` | `get_project` → us-east-2; `vercel.json` `regions:["cle1"]` | 2026-09-14 |
 | SCC | "We rely on processors' SCCs; our TIA + executed DPAs **in progress**" | `in-progress` | processor DPAs incorporate SCCs (public); our TIA + executed DPAs not on file (WP5) | 2026-07-31 |

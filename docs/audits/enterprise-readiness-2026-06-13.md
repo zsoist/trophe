@@ -1,3 +1,5 @@
+> **HISTORICAL SNAPSHOT (2026-06-13).** Point-in-time scorecard. Superseded by docs/audits/remediation-status-2026-06-15.md (current WP0-7 status + scorecard). As of 2026-06-15: enterprise readiness ~5.2/10 (was 4.8), engineering-quality ~8.1/10 (was ~7.7); WP0-3 DONE+LIVE (incl. Vercel auto-deploy reconnected, benchmark now on-demand by design); the Tier-0 blockers below remain open under WP5/WP6. Read for the path-to-100 framing, not for current numbers.
+
 # Trophē — Real B2B Enterprise Readiness Scorecard + Path to 100 (2026-06-13)
 
 Scored against what a **real Greek/EU clinic's procurement actually demands** — security

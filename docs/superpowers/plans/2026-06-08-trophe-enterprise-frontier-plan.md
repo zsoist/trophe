@@ -1,5 +1,7 @@
 # Trophē Enterprise Frontier Implementation Plan
 
+> **HISTORICAL (planned 2026-06-08) — SUPERSEDED.** This is a point-in-time plan. The "Current Verified Baseline" and benchmark numbers below reflect 2026-06-08 state and are stale. Notes: AI text = 100% DeepSeek V4 Flash (NO Gemini; Anthropic is vision-only) — ignore the "Anthropic, Gemini" tech-stack and "Use Gemini…/Anthropic tool use" task lines. The ~43% multilingual eval is obsolete (now 549-set ~90% / 700-set 76.7% / macro-MAPE 16.0%). WP0–WP3 are DONE + LIVE; WP4–WP7 pending. For current state see docs/audits/remediation-status-2026-06-15.md and docs/audits/enterprise-readiness-2026-06-13.md.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Bring Trophē from a deployed, hardened product to an evidence-backed enterprise B2B nutrition platform with frontier-grade nutrition accuracy, tenant isolation, AI quality, compliance execution, and production operations.

@@ -3,7 +3,7 @@
 Single source of truth for all LLM-backed features in Trophē v0.3.
 Routes are thin adapters. Prompts are versioned files. Every call is traced.
 
-_Last updated: 2026-05-03 (B2B readiness hardening)_
+_Last updated: 2026-06-15 (DeepSeek-first migration — all text tasks now on DeepSeek V4 Flash; Anthropic retained only for photo vision)_
 
 ---
 
@@ -14,9 +14,14 @@ agents/
   router/           # task → model policy selection
     index.ts        # pick(task) → { provider, model, options }
     policies.ts     # declarative taskPolicies map
+  runtime/
+    providers/
+      deepseek.ts   # DeepSeek V4 Flash — PRIMARY for all text tasks (strict tool calling)
+      text.ts       # text-task dispatch
+      structured.ts # structured/tool-call output dispatch
   clients/          # thin API wrappers
-    anthropic.ts    # Messages API + cache_control support
-    google.ts       # Gemini via @google/genai
+    anthropic.ts    # Messages API — used ONLY for photo_analyze (vision)
+    google.ts       # Gemini via @google/genai — legacy/fallback only (not on the text path)
   observability/
     langfuse.ts     # wraps every run() in a Langfuse generation span
     otel.ts         # gen_ai.* semconv attributes
@@ -35,8 +40,8 @@ agents/
     run-all.ts      # aggregate eval runner (CI: npm run evals)
     multi-layer/
       schema-validation.ts   # layer 1: zod output schema check
-      llm-judge.ts           # layer 2: Sonnet judges output quality
-      regression.ts          # layer 3: Nikos golden set comparison
+      llm-judge.ts           # layer 2: LLM judges output quality (text tasks are DeepSeek-only per cost mandate — confirm judge model in code, do NOT assume Sonnet)
+      regression.ts          # layer 3: golden-set comparison (549-set ~90% / 700-set 76.7% median-of-3)
   prompts/          # versioned prompt templates (git-diffable)
     food-parse.v3.md
     food-parse.v4.md
@@ -50,12 +55,15 @@ agents/
 
 | Agent | Model (via router) | Cache | Status |
 |-------|-------------------|-------|--------|
-| `food-parse` | Gemini 2.5 Flash | — | ✅ v0.3 deterministic pipeline |
-| `recipe-analyze` | Haiku 4.5 | ephemeral (system) | ✅ live |
-| `photo-analyze` (inline route) | Haiku 4.5 | — | ✅ live |
-| `meal-suggest` (inline route) | Haiku 4.5 | — | ✅ live |
-| `coach-insight` / `wearable-summary` | Sonnet 4.6 | — | ✅ live |
-| `memory-write` | Sonnet 4.6 | — | ✅ live |
+| `food-parse` | DeepSeek V4 Flash | — | ✅ v0.3 deterministic pipeline |
+| `recipe-analyze` | DeepSeek V4 Flash | — | ✅ live |
+| `photo-analyze` (inline route) | Anthropic Haiku 4.5 (vision) | — | ✅ live |
+| `meal-suggest` (inline route) | DeepSeek V4 Flash | — | ✅ live |
+| `coach-insight` / `wearable-summary` | DeepSeek V4 Flash | — | ✅ live |
+| `memory-write` / `memory-extract` | DeepSeek V4 Flash | — | ✅ live |
+| `shopping-extract` (inline route) | DeepSeek V4 Flash | — | ✅ live |
+
+> Cost mandate (2026-06): 100% DeepSeek V4 Flash for ALL text tasks (migrated 2026-06-08). The ONLY non-DeepSeek calls are `photo_analyze` (Anthropic Haiku 4.5 vision) and embeddings (`embed`/`memory_embed` → Voyage voyage-4, 1024-dim).
 
 ---
 
@@ -64,11 +72,17 @@ agents/
 ```ts
 // agents/router/policies.ts
 const taskPolicies = {
-  food_parse:    { provider: 'google',    model: 'gemini-2.5-flash' },
-  recipe_analyze:{ provider: 'anthropic', model: 'claude-haiku-4-5-20251001', cacheSystem: true },
-  coach_insight: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
-  embed:         { provider: 'voyage',    model: 'voyage-4' },
+  food_parse:      { provider: 'deepseek',  model: 'deepseek-v4-flash' },
+  recipe_analyze:  { provider: 'deepseek',  model: 'deepseek-v4-flash' },
+  coach_insight:   { provider: 'deepseek',  model: 'deepseek-v4-flash' },
+  meal_suggest:    { provider: 'deepseek',  model: 'deepseek-v4-flash' },
+  memory_extract:  { provider: 'deepseek',  model: 'deepseek-v4-flash' },
+  shopping_extract:{ provider: 'deepseek',  model: 'deepseek-v4-flash' },
+  photo_analyze:   { provider: 'anthropic', model: 'claude-haiku-4-5-20251001' }, // vision only
+  embed:           { provider: 'voyage',    model: 'voyage-4' },
+  memory_embed:    { provider: 'voyage',    model: 'voyage-4' },
 };
+// taskFallbacks: every text task falls back to deepseek-v4-flash (retry, longer timeout) — NOT Gemini/Anthropic.
 ```
 
 **Never hardcode models in agent files.** Always call `router.pick(task)`.
@@ -101,12 +115,12 @@ Every route MUST pass `telemetry` to `logAPIUsage()` so cost and cache-hit rates
 
 ## Food-parse pipeline (v0.3 — deterministic accuracy)
 
-**v0.2 (broken)**: LLM emitted invented macro numbers → ~81% accuracy on Nikos golden set.
+**v0.2 (broken)**: LLM emitted invented macro numbers → ~81% accuracy (historical v0.2 figure; not current — see benchmark below).
 
 **v0.3 (fixed)**:
 ```
 User input: "200g feta, 1 banana"
-  → LLM (Gemini Flash): identifies {food_name:"feta cheese", qty:200, unit:"g"}
+  → LLM (DeepSeek V4 Flash): identifies {food_name:"feta cheese", qty:200, unit:"g"}
      LLM NEVER sees or emits macro numbers
   → lookup.ts:
       1. tsvector keyword filter (GIN index on search_text)
@@ -117,7 +131,7 @@ User input: "200g feta, 1 banana"
   → food_log.food_id FK set, food_log.qty_g set, food_log.parse_confidence set
 ```
 
-**CI hard gate**: ≥95% on Nikos golden set (`tests/agents/food-parse.accuracy.test.ts`).
+**Benchmark (2026-06-15)**: validated 549-set ~90% pass; harder Greek-weighted 700-set 76.7% pass (median-of-3 vs prod); pooled macro-MAPE 16.0% (after the 2026-06-14 deterministic reduction, was 22.4%); v2 210-set ~94-95%. Cal MAPE ~17%, Fat MAPE ~25% (hardest macro). The 700-case benchmark is ON-DEMAND only (no nightly cron, as of WP3). Sub-10% MAPE requires fine-tuning + Michael-validated Greek ranges, not prompt/retrieval tweaks. Confirm the actual CI threshold in `tests/agents/food-parse.accuracy.test.ts` before quoting a hard gate.
 
 ---
 

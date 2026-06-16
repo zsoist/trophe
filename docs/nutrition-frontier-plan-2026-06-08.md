@@ -1,3 +1,5 @@
+> ⚠️ SUPERSEDED (2026-06-15): point-in-time plan from 2026-06-08. The 76/210 (36.2%) baseline and Phase 0-6 plan are obsolete. Current state — validated 549-set ~90% pass / 700-set 76.7% / v2 210-set ~94-95% / pooled MAPE 16.0%; work now tracked as Enterprise Remediation WP0-WP7 (WP0-WP3 LIVE). See docs/nutrition-engine-roadmap.md, SPEC.md, docs/superpowers/specs/2026-06-14-mape-reduction-deterministic-design.md, and docs/audits/remediation-status-2026-06-15.md.
+
 # Trophē Nutrition Frontier Plan
 
 Date: 2026-06-08

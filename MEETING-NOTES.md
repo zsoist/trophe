@@ -160,7 +160,7 @@ This is a strong signal — Michael sees the vision clearly and is emotionally i
 5. Next 30 days — 5 min
 
 ### Pre-reads
-- Sunday ~noon Colombia (≈ 8pm Athens): retro (`docs/monday-prep/01-retro-apr16-18.md`) only.
+- Sunday ~noon Colombia (≈ 8pm Athens): retro (`docs/archive/monday-prep/01-retro-apr16-18.md`) only.
 - NOT sent: partnership options, positioning doc, cut-decision doc (all internal).
 - Deck is meeting artifact, NOT pre-read.
 
@@ -186,8 +186,8 @@ Full slide-by-slide review drove deck v7. Highlights:
 
 ## Apr 20 Meeting — POST-MEETING DEBRIEF
 
-Full transcript: `docs/monday-prep/06-meeting-apr20-transcript.md`
-Decisions summary: `docs/monday-prep/07-meeting-apr20-decisions.md`
+Full transcript: `docs/archive/monday-prep/06-meeting-apr20-transcript.md`
+Decisions summary: `docs/archive/monday-prep/07-meeting-apr20-decisions.md`
 
 ### Headline
 
@@ -236,7 +236,7 @@ Meeting landed for rapport and strategic clarity. Weaker on defending Daniel's s
 
 ## Apr 20 — POST-MEETING · DANIELA CONSULTATION
 
-Full Daniela input: `docs/monday-prep/08-daniela-consultation.md`
+Full Daniela input: `docs/archive/monday-prep/08-daniela-consultation.md`
 
 ### Headline shift
 

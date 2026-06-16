@@ -8,7 +8,7 @@
 
 ## Start here — reading order
 
-1. **`CODEX.md`** — Complete handoff: production state, all 30+ tables, LLM capabilities, UX system, deploy, what's missing. Read this first for full context.
+1. **`CODEX.md`** — Complete handoff: production state, all 55 public tables, LLM capabilities, UX system, deploy, what's missing. Read this first for full context.
 2. **`CLAUDE.md`** — Coding rules: pitfalls, invariants, design rules, deploy commands. Read before writing any code.
 3. **`ARCHITECTURE.md`** — System diagram, request lifecycle, data model overview.
 4. **`agents/README.md`** — LLM runtime: agent inventory, router, prompts, observability, how to add an agent.
@@ -17,14 +17,14 @@
 
 ## This is NOT the Next.js you know
 
-This is **Next.js 16.2.2** with React 19. APIs, conventions, and file structure may differ from training data. Read relevant sections in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
+This is **Next.js 16.2.7** with React 19. APIs, conventions, and file structure may differ from training data. Read relevant sections in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 
 ---
 
 ## Non-negotiable coding conventions
 
 ### Files and architecture
-- **`proxy.ts`** is the Next.js middleware (renamed from `middleware.ts` in v0.3). Do not create a new `middleware.ts`.
+- **`middleware.ts`** (repo root) is the Next.js middleware — Supabase session refresh + coarse auth gate via `@/lib/supabase/middleware`. Edit it in place; there is no `proxy.ts` (an earlier rename was reverted). Verified 2026-06-15.
 - **Auth**: `@supabase/ssr` is installed and active. Sessions are in HTTP-only cookies. Do NOT use `localStorage` for auth tokens. Do NOT revert to the old `lib/supabase.ts` singleton for server-side auth.
 - **Any new LLM feature** → `agents/<name>/` with versioned prompt, typed schema, and `run() → { ok, output, telemetry }` contract. Route is a thin adapter (<60 LOC).
 - **Any new `lib/*.ts` business logic** → matching `tests/*.test.ts` (golden cases, like `nutrition-engine.test.ts`).
@@ -40,7 +40,7 @@ This is **Next.js 16.2.2** with React 19. APIs, conventions, and file structure 
 
 ### Safety checks
 - **Never `.single()`** on any Supabase query — always `.maybeSingle()`.
-- **All dates via `lib/dates.ts`** — `localToday()`, `localDateStr()`. UTC causes day-boundary bugs.
+- **All dates via `lib/utils/dates.ts`** — `localToday()`, `localDateStr()`. UTC causes day-boundary bugs.
 - **Input caps on AI routes**: food-parse 500 chars, recipe-analyze 4000 chars. Strip control chars.
 - **Service role key server-only** — never `NEXT_PUBLIC_`.
 - **Framer Motion spring with 3+ keyframes will crash**. Use `type: 'tween', ease: 'easeOut'` instead.
@@ -60,4 +60,4 @@ npm run build        # must be clean
 
 ## Branch strategy
 
-All v0.3 development on `v0.3-overhaul`. **Never commit directly to `main`**. Production cutover (Phase 9) is operator-gated.
+`main` is the live production branch (v0.3-overhaul merged 2026-05-03; auto-deploys to https://trophe.app). Work on short-lived feature branches off `main` and open a PR; **never commit directly to `main`**. Production-affecting merges are operator-gated.

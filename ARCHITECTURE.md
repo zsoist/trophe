@@ -2,7 +2,7 @@
 
 High-level map of how Trophē v0.3 fits together. For per-agent LLM details see `agents/README.md`. For deploy+env setup see `DEPLOYMENT.md`. For threat model see `SECURITY.md`.
 
-_Last updated: 2026-05-03_
+_Last updated: 2026-06-15_
 
 ---
 
@@ -16,7 +16,7 @@ _Last updated: 2026-05-03_
 | **ORM** | Drizzle ORM + Drizzle Kit — versioned migrations in `drizzle/`, schema in `db/schema/` |
 | **API layer** | tRPC v11 (internal coach UI) + REST `/api/v1/*` (external / webhooks) |
 | **LLM router** | `agents/router/` — **DeepSeek V4 Flash for ALL text** (parse, recipe, coach-insight, meal-suggest, memory); Anthropic Haiku 4.5 **vision/photo only**; Voyage-4 embeddings. Cost mandate (2026-06) — no Gemini/Anthropic text. |
-| **Embeddings** | Voyage v4 (`voyage-3-large`, 1024-dim) via `scripts/ingest/embed-foods.ts` |
+| **Embeddings** | Voyage v4 (`voyage-4`, 1024-dim) via `scripts/ingest/embed-foods.ts` |
 | **Observability** | Langfuse via `LANGFUSE_HOST` — OTel GenAI semconv per span |
 | **Computer Vision** | MediaPipe Pose (browser WASM, 33 landmarks, 30+ FPS) for AI Form Check |
 | **Wearables** | Spike API — Apple Health, Whoop, Oura, Strava, Garmin, Fitbit via single integration |
@@ -43,10 +43,10 @@ AI cost governance: `agent_runs` is the trusted table for cost and LLM observabi
                     │              │                              │
                     ▼              ▼                              ▼
              ┌───────────┐  ┌───────────┐                ┌──────────────┐
-             │ Anthropic │  │  Gemini   │                │  Spike API   │
-             │ (Sonnet/  │  │  2.5 Flash│                │  (wearables) │
-             │  Haiku)   │  └───────────┘                └──────────────┘
-             └───────────┘
+             │ DeepSeek  │  │ Anthropic │                │  Spike API   │
+             │ V4 Flash  │  │ Haiku 4.5 │                │  (wearables) │
+             │ (all text)│  │ (vision)  │                └──────────────┘
+             └───────────┘  └───────────┘
                     │
                     ▼
              ┌───────────┐
@@ -95,7 +95,7 @@ AI cost governance: `agent_runs` is the trusted table for cost and LLM observabi
 
 ---
 
-## Data model (v0.3 — 30+ tables)
+## Data model (v0.3 — 55 public tables as of 2026-06-15)
 
 ### Core
 | Table | Purpose |
@@ -103,8 +103,8 @@ AI cost governance: `agent_runs` is the trusted table for cost and LLM observabi
 | `profiles` | Identity + role + locale (1:1 with `auth.users`) |
 | `client_profiles` | Body stats, goals, macro targets, coaching phase |
 | `food_log` | Every logged food — includes `food_id FK → foods`, `qty_g`, `parse_confidence` |
-| `foods` | Canonical food database (~42,951: OFF 21.8k, USDA 13.3k, CIQUAL, CoFID, BEDCA, CREA, Greek, chains). `kcal_per_100g`, `protein_g`, `carb_g`, `fat_g`, `barcode`, `embedding vector(1024)`, `search_text tsvector` |
-| `dish_recipes` | Cached composite dish decompositions (38 recipes). LLM decomposes on miss, caches for next lookup |
+| `foods` | Canonical food database (~42,952: OFF 21.8k, USDA 13.3k, CIQUAL 3.3k, CoFID 2.7k, BEDCA 751, CREA 714, custom 176, HHF 86, MenuStat 48, chain_co 28). `kcal_per_100g`, `protein_g`, `carb_g`, `fat_g`, `barcode`, `embedding vector(1024)`, `search_text tsvector` |
+| `dish_recipes` | Cached composite dish decompositions (293 recipes). LLM decomposes on miss, caches for next lookup |
 | `food_unit_conversions` | Deterministic gram anchors per food+unit. **This is the bug-fix table.** |
 | `food_aliases` | Multilingual aliases for hybrid retrieval |
 | `habit_checkins` | Daily habit completion (completed bool + mood + note) |
@@ -171,7 +171,7 @@ Declarative `taskPolicies` map selects provider+model per task:
 
 ### Food parse pipeline (v0.3 deterministic)
 **Old (v0.2)**: LLM emitted invented macro numbers → ~81% accuracy.
-**New (v0.3)**: LLM identifies `{food_name, qty, unit}` only. `agents/food-parse/lookup.ts` does pgvector + pg_trgm hybrid retrieval → `foods` table supplies macros. Macros computed as `grams * food.kcal_per_100g / 100`. **LLM never sees a number.** Target: ≥95% accuracy on Nikos golden set.
+**New (v0.3)**: LLM identifies `{food_name, qty, unit}` only. `agents/food-parse/lookup.ts` does pgvector + pg_trgm hybrid retrieval → `foods` table supplies macros. Macros computed as `grams * food.kcal_per_100g / 100`. **LLM never sees a number.** Current validated benchmark (2026-06-15): 549-set ~90% pass; harder Greek-weighted 700-set 76.7% pass; pooled macro-MAPE 16.0% (post 2026-06-14 deterministic reduction, was 22.4%); v2 210-set ~94-95%. Cal MAPE ~17%, Fat MAPE ~25% (hardest macro). The ≥95% Nikos-golden-set target remains aspirational — not met on the harder sets; sub-10% MAPE requires fine-tuning + Michael-validated Greek ranges, not prompt/retrieval tweaks. The 700-case benchmark is on-demand only (no nightly cron, as of WP3).
 
 ### Observability
 Every `agent.run()` is wrapped in a Langfuse generation span (via `agents/observability/langfuse.ts`) and emits OTel GenAI semconv attributes: `gen_ai.system`, `gen_ai.request.model`, `gen_ai.usage.input_tokens`, `gen_ai.response.finish_reasons`.

@@ -6,9 +6,9 @@ Production: [trophe.app](https://trophe.app)
 
 Canonical repo path: `/Volumes/SSD/work/forge-projects/trophe`
 
-Production readiness as of 2026-06-12:
+Production readiness as of 2026-06-15:
 - Supabase project/ref: `iwbpzwmidzvpiofnqexd`
-- Branch policy: `main` is the production branch. CI runs on `main`. Vercel git auto-deploy is currently unreliable (stalled 2026-06-12) — verify with `vercel ls` after pushing; manual `vercel --yes` for preview, production promotion only with explicit approval.
+- Branch policy: `main` is the production branch. CI runs on `main`. Vercel git-integration auto-deploys `main` to production (https://trophe.app).
 - AI auth: async `guardAiRoute()` verifies bearer tokens with Supabase and returns the verified `userId`.
 - Cost/observability: `agent_runs` is canonical; `api_usage_log` is legacy compatibility only.
 - Verification sequence: `npm run typecheck && npm run lint && npm test && npm run readiness && npm run evals && npm run build && npm run test:e2e && npm run canary:prod`.
@@ -33,7 +33,7 @@ Partnership with Michael Kavdas (Greek nutritionist, PN L1 certified, COO Athlet
   BEDCA (ES), CREA (IT), OpenFoodFacts (GR/DE/NL barcoded products) + curated
   Greek/Colombian dishes. Benchmark (verified 2026-06-14, median-of-3 vs prod):
   official v2 (210 cases) **94.3% pass**; backup v3 (700 cases, Greek-weighted)
-  **76.6% pass / 16.0% pooled macro-MAPE** (fat is the hardest macro at 18.2%),
+  **76.7% pass / 16.0% pooled macro-MAPE** (fat is the hardest macro at ~25%),
   after the 2026-06-14 deterministic MAPE reduction. The validated 549-case subset
   still holds ~90%. Note: ~16% is the **deterministic floor** — sub-10% MAPE is not
   reachable by prompt/retrieval tweaks (needs Michael-Kavdas-validated Greek ranges +
@@ -113,7 +113,7 @@ npm run canary:prod   # read-only production canary for trophe.app
 - [`RUNBOOK.md`](./RUNBOOK.md) — on-call playbooks (auth broken, LLM 429, data loss, etc.)
 - [`CLAUDE.md`](./CLAUDE.md) — project rules + pitfalls (for humans and AI agents)
 - [`agents/README.md`](./agents/README.md) — `/agents/` folder pattern and conventions
-- [`docs/monday-prep/`](./docs/monday-prep/) — April 20, 2026 partnership meeting prep (retro, agenda, positioning, partnership options, cut decision)
+- [`docs/archive/monday-prep/`](./docs/archive/monday-prep/) — April 20, 2026 partnership meeting prep (retro, agenda, positioning, partnership options, cut decision)
 
 ## Contributing
 

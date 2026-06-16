@@ -4,11 +4,13 @@
 **Authors**: Daniel Reyes
 **System**: Trophē (trophe.app)
 
+> **Historical / versioned artifact (banner added 2026-06-15).** This is the *v1.0* spec for the 549-case DietAI24 benchmark. Its dataset-specific results (79.2% pass, MAPE table, 549-case taxonomy) are a frozen point-in-time record and are intentionally preserved. However, the live-system figures cited below are SUPERSEDED: the production DB now holds **42,952 foods** (OFF 21,823 / USDA 13,259 / CIQUAL 3,323 / CoFID 2,744 / BEDCA 751 / CREA 714 / custom 176 / HHF 86 / MenuStat 48 / chain_co 28), **6,580 aliases**, **293 dish recipes**, **8,608 unit conversions**, and the product now supports **8 languages** (EN/ES/EL/FR core + DE/IT/PT/NL overlay). The current production benchmark is the 700-case Greek-weighted set (76.7% pass / 16.0% pooled macro-MAPE, median-of-3, as of 2026-06-14). For current state see docs/audits/remediation-status-2026-06-15.md.
+
 ---
 
 ## Abstract
 
-We present DietAI24, a multilingual benchmark for evaluating LLM-based nutrition estimation from free-text food descriptions. The benchmark comprises 549 cases across 13 categories in 4 languages (English, Spanish, Greek, French) plus mixed/code-switched inputs. Macro ranges are calibrated against USDA FoodData Central and CIQUAL 2025. We evaluate a deterministic hybrid pipeline (LLM extraction + database lookup + CoT arbitration) achieving 79.2% pass rate, 8.4% calorie MAPE, and 43.8% Acc@7.5 on our multilingual dataset. Our approach demonstrates that coupling LLM parsing with curated food databases produces consistent, reproducible nutrition estimates across languages. (The production benchmark has since expanded to a 700-case Greek-weighted set scoring 76.6% pass / 16.0% pooled macro-MAPE, median-of-3, as of 2026-06-14.)
+We present DietAI24, a multilingual benchmark for evaluating LLM-based nutrition estimation from free-text food descriptions. The benchmark comprises 549 cases across 13 categories in 4 languages (English, Spanish, Greek, French) plus mixed/code-switched inputs. Macro ranges are calibrated against USDA FoodData Central and CIQUAL 2025. We evaluate a deterministic hybrid pipeline (LLM extraction + database lookup + CoT arbitration) achieving 79.2% pass rate, 8.4% calorie MAPE, and 43.8% Acc@7.5 on our multilingual dataset. Our approach demonstrates that coupling LLM parsing with curated food databases produces consistent, reproducible nutrition estimates across languages. (The production benchmark has since expanded to a 700-case Greek-weighted set scoring 76.7% pass / 16.0% pooled macro-MAPE, median-of-3, as of 2026-06-14.)
 
 ---
 
