@@ -30,6 +30,12 @@ const suiteFilter = args.find((a) => a.startsWith('--suite='))?.split('=')[1];
 
 const reportDir = process.env.EVAL_REPORT_DIR || join(process.cwd(), 'agents/evals/reports');
 const enforceGate = process.env.EVAL_ENFORCE_GATE !== '0';
+const requiredSuites = new Set(
+  (process.env.EVAL_REQUIRED_SUITES ?? '')
+    .split(',')
+    .map((suite) => suite.trim())
+    .filter(Boolean),
+);
 mkdirSync(reportDir, { recursive: true });
 
 // ── Shared types ──────────────────────────────────────────────────────────────
@@ -506,7 +512,13 @@ async function main() {
   if (active.length === 0) {
     console.log(yellow('  All suites skipped. Set DEEPSEEK_API_KEY and start the dev server to run full eval.'));
     console.log(yellow(`  GATE: inconclusive — no active suites`));
-    process.exit(process.env.ALLOW_SKIPPED_EVALS === '1' ? 0 : 1);
+    process.exit(1);
+  }
+
+  const skippedRequired = results.filter((r) => r.skipped && requiredSuites.has(r.name));
+  if (skippedRequired.length > 0) {
+    console.log(red(`\n  Required eval suite skipped: ${skippedRequired.map((r) => `${r.name} (${r.skipReason})`).join(', ')}\n`));
+    if (enforceGate) process.exit(1);
   }
 
   const gateColor = aggregateRate >= THRESHOLD ? green : red;

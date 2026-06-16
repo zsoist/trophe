@@ -121,7 +121,9 @@ describe('enterprise hardening invariants', () => {
 
   it('fails the aggregate eval release gate when every suite is skipped', () => {
     const evalRunner = readFileSync(join(root, 'agents/evals/run-all.ts'), 'utf8');
-    expect(evalRunner).toContain("process.exit(process.env.ALLOW_SKIPPED_EVALS === '1' ? 0 : 1)");
+    expect(evalRunner).not.toContain('ALLOW_SKIPPED_EVALS');
+    expect(evalRunner).toContain('process.exit(1)');
+    expect(evalRunner).toContain('Required eval suite skipped');
     expect(evalRunner).not.toContain('GATE: inconclusive — no active suites`));\n    process.exit(0)');
   });
 
@@ -203,10 +205,12 @@ describe('enterprise hardening invariants', () => {
     expect(conversation).not.toContain('after(async');
   });
 
-  it('enforces eval gates in CI with minimum pass rate', () => {
+  it('enforces eval gates in required CI (hard gate + required suites)', () => {
     const workflow = readFileSync(join(root, '.github/workflows/ci.yml'), 'utf8');
     expect(workflow).toContain('EVAL_ENFORCE_GATE: 1');
-    expect(workflow).toContain('EVAL_MIN_PASS_RATE');
+    // The runner hard-codes the 95% threshold; the real no-skip enforcement is the required
+    // suite list. EVAL_MIN_PASS_RATE was removed as unused/misleading config (WP3 truth fix).
+    expect(workflow).toContain('EVAL_REQUIRED_SUITES: recipe_analyze,coach_insight');
     expect(workflow).toContain('Nutrition safety and release-gate tests');
     expect(workflow).toContain('RAG safety and release-gate tests');
   });
