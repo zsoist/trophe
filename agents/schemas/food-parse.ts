@@ -29,6 +29,10 @@ export interface ParsedFoodItem {
   db_source?: string | null;
   /** Matched DB row's data_quality tier ('lab_verified' | 'label' | 'crowdsourced' | 'estimated'). */
   data_quality?: string | null;
+  /** Matched canonical foods.id — written to food_log.food_id so entries stay joinable. */
+  db_food_id?: string | null;
+  /** Photo-path only: model's own uncertainty note, shown as a caption under the item. */
+  accuracy_note?: string | null;
 }
 
 export interface FoodParseInput {

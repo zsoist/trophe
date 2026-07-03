@@ -1,15 +1,67 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { guardAiRoute } from '@/lib/security/api-guard';
 import { run } from '@/agents/food-parse';
-import { modelFor } from '@/agents/router';
 import { z } from 'zod';
 
 export type { ParsedFoodItem } from '@/agents/schemas/food-parse';
 
+// Language is only a prompt hint — the pipeline parses the text regardless.
+// The UI ships 8 locales; unknown values coerce to 'en' instead of 400-ing
+// (18 benchmark failures came from it/de/nl/pt being hard-rejected here).
 const requestSchema = z.object({
   text: z.string().trim().min(1).max(12_000),
-  language: z.enum(['en', 'es', 'el', 'fr']).default('en'),
+  language: z.enum(['en', 'es', 'el', 'fr', 'de', 'it', 'pt', 'nl']).catch('en'),
 }).strict();
+
+// ── User-facing error taxonomy ──────────────────────────────────────────────
+// Raw pipeline internals ("DeepSeek incomplete response (length)", "Nutrition
+// result failed plausibility validation") must never reach users. Failures map
+// to stable codes the client renders friendly copy for; raw detail stays in
+// server logs/telemetry only.
+export type FoodParseErrorCode = 'ai_busy' | 'try_rephrase' | 'too_long' | 'rate_limited' | 'timeout';
+
+interface ClassifiedFailure {
+  code: FoodParseErrorCode;
+  message: string;
+  status: number;
+}
+
+function classifyParseFailure(rawError: string, rawStatus: number, errorCode?: string): ClassifiedFailure {
+  if (errorCode === 'too_long') {
+    return {
+      code: 'too_long',
+      message: 'That entry is too long — keep it under 500 characters, or log the meal in parts.',
+      status: 422,
+    };
+  }
+  if (/timed?\s*out|timeout|abort/i.test(rawError)) {
+    return {
+      code: 'timeout',
+      message: 'This took longer than expected — please try again.',
+      status: 504,
+    };
+  }
+  if (rawStatus === 429 || /rate.?limit/i.test(rawError)) {
+    return {
+      code: 'rate_limited',
+      message: 'Too many requests right now — give it a moment and try again.',
+      status: 502,
+    };
+  }
+  if (/could not parse|plausibility|text is required|no food/i.test(rawError)) {
+    return {
+      code: 'try_rephrase',
+      message: 'Could not read that as food — try rephrasing, e.g. "2 eggs and a slice of toast".',
+      status: 422,
+    };
+  }
+  // Provider/network failures, incomplete responses, empty LLM output, cost ceilings.
+  return {
+    code: 'ai_busy',
+    message: 'The AI had trouble with that one — please try again in a moment.',
+    status: 502,
+  };
+}
 
 export async function POST(request: NextRequest) {
   const guard = await guardAiRoute(request);
@@ -19,7 +71,12 @@ export async function POST(request: NextRequest) {
     const parsed = requestSchema.safeParse(await request.json());
     if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Invalid food parse request' },
+        {
+          code: 'try_rephrase' satisfies FoodParseErrorCode,
+          message: 'Invalid food parse request',
+          error: 'Invalid food parse request',
+          items: [],
+        },
         { status: 400 },
       );
     }
@@ -29,15 +86,32 @@ export async function POST(request: NextRequest) {
     const t = result.telemetry;
 
     if (!result.ok) {
-      const status = t.rawStatus >= 400 && t.rawStatus < 600 ? 502 : 422;
-      return NextResponse.json({ error: result.error || 'Failed to parse food input' }, { status });
+      const failure = classifyParseFailure(result.error ?? '', t.rawStatus, result.errorCode);
+      // Full detail server-side only (console + telemetry keep the raw error).
+      console.error('[food-parse] failed', {
+        code: failure.code,
+        rawStatus: t.rawStatus,
+        model: t.model,
+        traceId: t.traceId,
+        error: result.error,
+      });
+      return NextResponse.json(
+        // `error` mirrors `message` for older consumers (eval scripts read .error).
+        { code: failure.code, message: failure.message, error: failure.message, items: [] },
+        { status: failure.status },
+      );
     }
 
     return NextResponse.json(result.output);
   } catch (error) {
     console.error('Food parse error:', error);
     return NextResponse.json(
-      { error: 'Failed to parse food input. Please try rephrasing or entering items separately.', items: [] },
+      {
+        code: 'ai_busy' satisfies FoodParseErrorCode,
+        message: 'Failed to parse food input. Please try rephrasing or entering items separately.',
+        error: 'Failed to parse food input. Please try rephrasing or entering items separately.',
+        items: [],
+      },
       { status: 500 },
     );
   }

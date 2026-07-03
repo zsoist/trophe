@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import type { FoodLogEntry } from '@/lib/types';
@@ -71,9 +71,13 @@ function XpRing({ pct, color, size = 40 }: { pct: number; color: string; size?: 
 
 export default function MealBadges({ todayLog, streak, targets }: MealBadgesProps) {
   const { t } = useI18n();
+  const reducedMotion = useReducedMotion();
   const [expanded, setExpanded] = useState(false);
   const [newBadge, setNewBadge] = useState<string | null>(null);
   const [earnedSet, setEarnedSet] = useState<Set<string>>(() => loadEarnedBadges());
+  // W9: badges celebrated THIS session — keys the earned tile's XpRing so it
+  // re-draws 0→100 exactly once per earn (grow-only, never reverts).
+  const [celebrated, setCelebrated] = useState<Set<string>>(() => new Set());
 
   const badges: Badge[] = useMemo(() => {
     const mealTypes   = new Set(todayLog.map(e => e.meal_type));
@@ -162,8 +166,13 @@ export default function MealBadges({ todayLog, streak, targets }: MealBadgesProp
     if (!newlyEarned) return;
     const timer = window.setTimeout(() => {
       saveEarnedBadge(newlyEarned.id);
+      setCelebrated(prev => new Set(prev).add(newlyEarned.id));
       setEarnedSet(prev => new Set([...prev, newlyEarned.id]));
       setNewBadge(newlyEarned.id);
+      // W9: haptic pulse for rare+ earns (legendary included)
+      if (newlyEarned.rarity !== 'common' && typeof navigator !== 'undefined') {
+        navigator.vibrate?.([10, 40, 10]);
+      }
       window.setTimeout(() => setNewBadge(null), 4000);
     }, 0);
     return () => window.clearTimeout(timer);
@@ -171,6 +180,7 @@ export default function MealBadges({ todayLog, streak, targets }: MealBadgesProp
 
   const earnedCount = badges.filter(b => b.earned).length;
   const totalXp     = badges.filter(b => b.earned).reduce((s, b) => s + b.xp, 0);
+  const newBadgeData = newBadge ? badges.find(b => b.id === newBadge) ?? null : null;
 
   if (earnedCount === 0 && todayLog.length === 0) return null;
 
@@ -178,8 +188,39 @@ export default function MealBadges({ todayLog, streak, targets }: MealBadgesProp
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="glass p-3 mb-4"
+      className="glass p-3 mb-4 relative"
     >
+      {/* W9: rarity-colored micro-confetti — 8 particles, one-shot, clipped to the card */}
+      {newBadgeData && !reducedMotion && (
+        <div
+          aria-hidden
+          className="absolute inset-0 overflow-hidden pointer-events-none"
+          style={{ borderRadius: 16 }}
+        >
+          {Array.from({ length: 8 }).map((_, i) => (
+            <motion.span
+              key={`${newBadgeData.id}-${i}`}
+              style={{
+                position: 'absolute',
+                top: 4,
+                left: `${8 + i * 11.5}%`,
+                width: i % 2 ? 4 : 5,
+                height: i % 2 ? 4 : 5,
+                borderRadius: i % 3 === 0 ? '50%' : 1,
+                background: RARITY_COLOR[newBadgeData.rarity],
+              }}
+              initial={{ y: 0, x: 0, opacity: 0, rotate: 0 }}
+              animate={{
+                y: 60,
+                x: ((i % 3) - 1) * 10,
+                opacity: [0, 1, 1, 0],
+                rotate: i % 2 ? 200 : -160,
+              }}
+              transition={{ duration: 0.9, delay: 0.12 + i * 0.05, ease: 'easeIn' }}
+            />
+          ))}
+        </div>
+      )}
       {/* Header */}
       <button onClick={() => setExpanded(!expanded)} className="flex items-center justify-between w-full">
         <div className="flex items-center gap-2">
@@ -215,12 +256,27 @@ export default function MealBadges({ todayLog, streak, targets }: MealBadgesProp
             initial={{ opacity: 0, y: -8, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.9 }}
-            className="mt-2 px-3 py-2 rounded-xl flex items-center gap-2"
+            className={`mt-2 px-3 py-2 rounded-xl flex items-center gap-2${
+              newBadgeData?.rarity === 'legendary' && !reducedMotion ? ' celebration-glow' : ''
+            }`}
             style={{ background: 'rgba(212,168,83,.1)', border: '1px solid rgba(212,168,83,.3)' }}
           >
-            <Icon name="i-sparkle" size={13} style={{ color: 'var(--gold-300,#D4A853)', flexShrink: 0 }} />
+            {/* W9: one-shot gold scale-flash behind the sparkle */}
+            <span style={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
+              {!reducedMotion && (
+                <span
+                  aria-hidden
+                  className="confetti-burst"
+                  style={{
+                    position: 'absolute', inset: -6, borderRadius: '50%',
+                    background: 'radial-gradient(circle, rgba(212,168,83,.45), transparent 70%)',
+                  }}
+                />
+              )}
+              <Icon name="i-sparkle" size={13} style={{ color: 'var(--gold-300,#D4A853)' }} />
+            </span>
             <span style={{ fontSize: 11, color: 'var(--t2)', fontWeight: 600 }}>
-              {badges.find(b => b.id === newBadge)?.name} unlocked! +{badges.find(b => b.id === newBadge)?.xp} XP
+              {newBadgeData?.name} unlocked! +{newBadgeData?.xp} XP
             </span>
           </motion.div>
         )}
@@ -257,9 +313,15 @@ export default function MealBadges({ todayLog, streak, targets }: MealBadgesProp
                       position: 'relative',
                     }}
                   >
-                    {/* XP ring + icon */}
+                    {/* XP ring + icon — earned-this-session tiles remount the
+                        ring (key) so it re-draws 0→100 once (W9) */}
                     <div style={{ position: 'relative', width: 40, height: 40 }}>
-                      <XpRing pct={badge.progress ?? (badge.earned ? 1 : 0)} color={color} size={40} />
+                      <XpRing
+                        key={`${badge.id}${!reducedMotion && celebrated.has(badge.id) ? '-earned' : ''}`}
+                        pct={badge.progress ?? (badge.earned ? 1 : 0)}
+                        color={color}
+                        size={40}
+                      />
                       <div style={{
                         position: 'absolute', inset: 0, display: 'flex',
                         alignItems: 'center', justifyContent: 'center',

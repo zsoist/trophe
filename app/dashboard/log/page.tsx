@@ -2,9 +2,10 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { Undo2, Star } from 'lucide-react';
+import { motion, AnimatePresence, useReducedMotion, useAnimationControls } from 'framer-motion';
+import { Undo2, Star, ChefHat } from 'lucide-react';
 import { Icon, AnimatedValue, Stagger, StaggerItem } from '@/components/ui';
+import { MACRO_COLORS } from '@/lib/macro-colors';
 import { supabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
 import { useClientNav } from '@/lib/useClientNav';
@@ -253,6 +254,19 @@ export default function FoodLogPage() {
   const [pendingDelete, setPendingDelete] = useState<{ id: string; entry: FoodLogEntry } | null>(null);
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Batch undo — a multi-item AI log hands its inserted ids up; one tap deletes them all.
+  const [pendingBatch, setPendingBatch] = useState<{ ids: string[]; key: number } | null>(null);
+  const batchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // W3: macro impact ribbons — floating deltas when totals change after a
+  // log/edit/delete refetch, plus a one-shot protein-cell pop for protein-heavy logs.
+  const reducedMotion = useReducedMotion();
+  const [ribbons, setRibbons] = useState<Array<{ id: number; macro: 'calories' | 'protein' | 'carbs' | 'fat' | 'sugar'; delta: number }>>([]);
+  const ribbonIdRef = useRef(0);
+  const prevTotalsRef = useRef<{ date: string; calories: number; protein: number; carbs: number; fat: number; sugar: number } | null>(null);
+  const proteinPopControls = useAnimationControls();
+  const [proteinGlowTick, setProteinGlowTick] = useState(0);
+
   // F4: Macro targets
   const [targets, setTargets] = useState({ calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 });
 
@@ -298,6 +312,48 @@ export default function FoodLogPage() {
 
   // F7: Remaining budget
   const remainingCal = targets.calories - totalCalories;
+
+  // W3: diff totals against the previous render's totals (same day only) and
+  // float mono deltas off the affected macro summary cells. Protein-heavy logs
+  // (protein kcal >40% of the just-logged kcal) additionally pop the protein cell.
+  useEffect(() => {
+    if (pageLoading) return;
+    const totals = {
+      date: selectedDate,
+      calories: totalCalories, protein: totalProtein,
+      carbs: totalCarbs, fat: totalFat, sugar: totalSugar,
+    };
+    const prev = prevTotalsRef.current;
+    prevTotalsRef.current = totals;
+    // First load or date navigation — reset the baseline silently.
+    if (!prev || prev.date !== selectedDate) return;
+
+    const changes: Array<{ macro: 'calories' | 'protein' | 'carbs' | 'fat' | 'sugar'; delta: number }> = [];
+    if (showCalories) {
+      const d = Math.round(totals.calories - prev.calories);
+      if (d !== 0) changes.push({ macro: 'calories', delta: d });
+    }
+    (['protein', 'carbs', 'fat', 'sugar'] as const).forEach(m => {
+      const d = Math.round(totals[m] - prev[m]);
+      if (d !== 0) changes.push({ macro: m, delta: d });
+    });
+    if (changes.length === 0) return;
+
+    const spawned = changes.map(c => ({ id: ++ribbonIdRef.current, ...c }));
+    setRibbons(cur => [...cur, ...spawned].slice(-5)); // ≤5 concurrent
+    const ids = new Set(spawned.map(s => s.id));
+    window.setTimeout(() => setRibbons(cur => cur.filter(r => !ids.has(r.id))), 760);
+
+    const dP = totals.protein - prev.protein;
+    const dCal = totals.calories - prev.calories;
+    if (!reducedMotion && dP > 0 && dCal > 0 && (dP * 4) / dCal > 0.4) {
+      void proteinPopControls.start({
+        scale: [1, 1.18, 1],
+        transition: { duration: 0.5, ease: 'easeOut' },
+      });
+      setProteinGlowTick(tk => tk + 1);
+    }
+  }, [pageLoading, selectedDate, totalCalories, totalProtein, totalCarbs, totalFat, totalSugar, showCalories, reducedMotion, proteinPopControls]);
 
   const handleDateChange = useCallback((date: string) => {
     setSelectedDate(date);
@@ -472,6 +528,32 @@ export default function FoodLogPage() {
     setPendingDelete(null);
   };
 
+  // Batch undo — "Logged N items — Undo" for 10s after a multi-item AI log.
+  const registerBatch = useCallback((ids: string[]) => {
+    if (batchTimerRef.current) clearTimeout(batchTimerRef.current);
+    setPendingBatch({ ids, key: Date.now() });
+    batchTimerRef.current = setTimeout(() => setPendingBatch(null), 10000);
+  }, []);
+
+  const undoBatch = async () => {
+    if (!pendingBatch) return;
+    if (batchTimerRef.current) clearTimeout(batchTimerRef.current);
+    const ids = pendingBatch.ids;
+    setPendingBatch(null);
+    await supabase.from('food_log').delete().in('id', ids);
+    await loadTodayLog();
+  };
+
+  useEffect(() => () => {
+    if (batchTimerRef.current) clearTimeout(batchTimerRef.current);
+  }, []);
+
+  /** MealSlotCard onLogged — batch ids (AI multi-log) arm the batch-undo toast. */
+  const handleSlotLogged = useCallback((ids?: string[]) => {
+    if (ids && ids.length > 0) registerBatch(ids);
+    void loadTodayLog();
+  }, [registerBatch, loadTodayLog]);
+
   // F5: Toggle favorite
   const toggleFavorite = (entry: FoodLogEntry) => {
     const existing = favorites.findIndex(f => f.food_name === entry.food_name);
@@ -573,6 +655,33 @@ export default function FoodLogPage() {
 
   const nextUnfilled = slots.find(s => grouped[s.id].length === 0 && !skippedSlots.has(s.id));
 
+  // W10: THE one next-expected empty slot, matched to the hour — breakfast <11,
+  // lunch 11-15, snack 15-18, dinner 18-22. Today only; skipped/locked excluded.
+  const nextSlot = (() => {
+    if (!isToday) return null;
+    const h = new Date().getHours();
+    const expected: MealType | null =
+      h < 11 ? 'breakfast' : h < 15 ? 'lunch' : h < 18 ? 'snack' : h < 22 ? 'dinner' : null;
+    if (!expected) return null;
+    const empties = slots.filter(s =>
+      grouped[s.id].length === 0 && !skippedSlots.has(s.id) && !lockedSlots.has(s.id)
+    );
+    // Two snack slots exist — at 15-18h prefer the afternoon one.
+    return (expected === 'snack'
+      ? empties.find(s => s.mealType === 'snack' && s.id !== 'snack_am') ?? empties.find(s => s.mealType === 'snack')
+      : empties.find(s => s.mealType === expected)) ?? null;
+  })();
+
+  // W10: protein-first invitation copy; kcal phrasing only when the coach shows calories.
+  const proteinLeft = Math.max(0, Math.round(targets.protein_g - totalProtein));
+  const nextSlotHint = nextSlot
+    ? (targets.protein_g > 0 && proteinLeft > 0
+        ? t('food.next_slot_protein', { slot: nextSlot.label, n: proteinLeft })
+        : showCalories && targets.calories > 0 && remainingCal > 0
+          ? t('food.next_slot_kcal', { slot: nextSlot.label, n: Math.round(remainingCal) })
+          : null)
+    : null;
+
   // CoachFoodRecs quick-log handler
   const logCoachRec = async (rec: { food: string; calories: number; protein: number; carbs: number; fat: number; fiber: number }, mealType: import('@/lib/types').MealType) => {
     if (!userId) return;
@@ -599,17 +708,18 @@ export default function FoodLogPage() {
     return (
       <div className="min-h-screen pb-24" style={{ background: 'var(--bg,#0a0a0a)' }}>
         <div className="max-w-md mx-auto px-4 pt-12">
-          <div className="animate-pulse space-y-3">
-            <div className="h-8 bg-white/[0.05] rounded-xl w-48 mx-auto" />
-            <div className="h-10 bg-white/[0.05] rounded-xl" />
+          {/* Branded skeletons — gold transform-only sheen, no opacity pulse */}
+          <div className="space-y-3">
+            <div className="skeleton h-8 rounded-xl w-48 mx-auto" />
+            <div className="skeleton h-10 rounded-xl" />
             <div className="grid grid-cols-7 gap-2">
               {Array.from({ length: 7 }).map((_, i) => (
-                <div key={i} className="h-10 bg-white/[0.05] rounded-md" />
+                <div key={i} className="skeleton h-10 rounded-md" />
               ))}
             </div>
-            <div className="h-16 bg-white/[0.05] rounded-xl" />
+            <div className="skeleton h-16 rounded-xl" />
             {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="h-24 bg-white/[0.05] rounded-xl" />
+              <div key={i} className="skeleton h-24 rounded-xl" />
             ))}
           </div>
         </div>
@@ -688,30 +798,94 @@ export default function FoodLogPage() {
         <div className="card mb-3" style={{ padding: '10px 8px' }}>
           {(() => {
             const cells = [
-              { label: t('general.calories'), unit: 'kcal', val: Math.round(totalCalories), color: 'var(--gold-300,#D4A853)' },
-              { label: t('general.protein'),  unit: 'g',    val: Math.round(totalProtein),  color: 'var(--err,#E87A6E)' },
-              { label: t('general.carbs'),    unit: 'g',    val: Math.round(totalCarbs),    color: 'var(--info,#7DA3D9)' },
-              { label: t('general.fat'),      unit: 'g',    val: Math.round(totalFat),      color: 'var(--plum,#B89DD9)' },
-              { label: t('general.sugar'),    unit: 'g',    val: Math.round(totalSugar),    color: totalSugar > 25 ? '#f59e0b' : 'var(--warn,#E8B86E)' },
+              { key: 'calories' as const, label: t('general.calories'), unit: 'kcal', val: Math.round(totalCalories), color: 'var(--gold-300,#D4A853)' },
+              { key: 'protein' as const,  label: t('general.protein'),  unit: 'g',    val: Math.round(totalProtein),  color: 'var(--err,#E87A6E)' },
+              { key: 'carbs' as const,    label: t('general.carbs'),    unit: 'g',    val: Math.round(totalCarbs),    color: 'var(--info,#7DA3D9)' },
+              { key: 'fat' as const,      label: t('general.fat'),      unit: 'g',    val: Math.round(totalFat),      color: 'var(--plum,#B89DD9)' },
+              { key: 'sugar' as const,    label: t('general.sugar'),    unit: 'g',    val: Math.round(totalSugar),    color: totalSugar > 25 ? '#f59e0b' : 'var(--warn,#E8B86E)' },
             ].filter(m => showCalories || m.unit !== 'kcal');
             return (
               <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cells.length},1fr)`, gap: 3, textAlign: 'center' }}>
-                {cells.map((m, mIdx) => (
-                  <div key={m.label} style={{ borderRight: mIdx < cells.length - 1 ? '1px solid rgba(255,255,255,.04)' : 'none' }}>
-                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 700, color: m.color, lineHeight: 1.1 }}>
-                      <AnimatedValue value={m.val} grouped={false} />
+                {cells.map((m, mIdx) => {
+                  const isProtein = m.key === 'protein';
+                  const cellBody = (
+                    <>
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 700, color: m.color, lineHeight: 1.1 }}>
+                        <AnimatedValue value={m.val} grouped={false} />
+                      </div>
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--t4)', marginTop: 1, lineHeight: 1.2 }}>{m.unit}</div>
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--t4)', letterSpacing: '.04em', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.label}</div>
+                    </>
+                  );
+                  return (
+                    <div key={m.key} style={{ position: 'relative', borderRight: mIdx < cells.length - 1 ? '1px solid rgba(255,255,255,.04)' : 'none' }}>
+                      {/* W3: one-shot coral glow ring when a protein-heavy log lands */}
+                      {isProtein && proteinGlowTick > 0 && !reducedMotion && (
+                        <motion.span
+                          key={`protein-glow-${proteinGlowTick}`}
+                          aria-hidden
+                          style={{
+                            position: 'absolute', inset: -3, borderRadius: 8, pointerEvents: 'none',
+                            border: '1px solid rgba(232,122,110,.8)',
+                            boxShadow: '0 0 16px rgba(232,122,110,.4)',
+                          }}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: [0, 1, 0] }}
+                          transition={{ duration: 1.4, times: [0, 0.35, 1], type: 'tween', ease: 'easeInOut' }}
+                        />
+                      )}
+                      {/* W3: protein cell pops (scale) on protein-heavy logs — controls
+                          keep the AnimatedValue mounted so the count never resets */}
+                      {isProtein ? (
+                        <motion.div animate={proteinPopControls} style={{ transformOrigin: 'center' }}>
+                          {cellBody}
+                        </motion.div>
+                      ) : cellBody}
+                      {/* W3: floating mono deltas rising off the affected cell */}
+                      <AnimatePresence>
+                        {ribbons.filter(r => r.macro === m.key).map(r => (
+                          <motion.span
+                            key={r.id}
+                            aria-hidden
+                            initial={{ opacity: 0, y: 0 }}
+                            animate={reducedMotion
+                              ? { opacity: [0, 1, 0], y: 0 }
+                              : { opacity: [0, 1, 0], y: -14 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.7, times: [0, 0.3, 1], ease: 'easeOut' }}
+                            style={{
+                              position: 'absolute', top: -6, left: 0, right: 0,
+                              textAlign: 'center', pointerEvents: 'none', zIndex: 1,
+                              fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 700,
+                              color: MACRO_COLORS[r.macro],
+                            }}
+                          >
+                            {r.delta > 0 ? '+' : ''}{r.delta}{m.unit === 'kcal' ? '' : 'g'}
+                          </motion.span>
+                        ))}
+                      </AnimatePresence>
                     </div>
-                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--t4)', marginTop: 1, lineHeight: 1.2 }}>{m.unit}</div>
-                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--t4)', letterSpacing: '.04em', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.label}</div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             );
           })()}
         </div>
 
-        {/* ── Meals section header ── */}
-        <div className="eye-d mb-2">{t('log.meals_count', { done: filledCount, total: slots.length })}</div>
+        {/* ── Meals section header + recipe analyzer entry point ── */}
+        <div className="flex items-center justify-between mb-2">
+          <span className="eye-d">{t('log.meals_count', { done: filledCount, total: slots.length })}</span>
+          {/* RecipeAnalyzerModal was fully built but unreachable — this is its door */}
+          <button
+            onClick={() => setShowRecipeModal(true)}
+            className="glass flex items-center gap-1.5 px-2.5 py-1 text-stone-400 hover:gold-text text-[11px] transition-colors"
+            style={{ borderRadius: 999 }}
+            aria-label={t('food.analyze_recipe_aria')}
+          >
+            <ChefHat size={12} />
+            {t('food.analyze_recipe')}
+          </button>
+        </div>
 
         {/* ── "Day sealed" banner — animated check + gold glow, once per day ── */}
         {allMealsLocked && hasAnyFood && (
@@ -768,7 +942,9 @@ export default function FoodLogPage() {
               skipped={skippedSlots.has(slot.id)}
               locked={lockedSlots.has(slot.id)}
               favorites={favorites}
-              onLogged={loadTodayLog}
+              isNext={nextSlot?.id === slot.id}
+              nextHint={nextSlot?.id === slot.id ? nextSlotHint : null}
+              onLogged={handleSlotLogged}
               onSkip={() => {
                 const next = new Set(skippedSlots);
                 next.add(slot.id);
@@ -967,6 +1143,58 @@ export default function FoodLogPage() {
                 onClick={undoDelete}
                 className="gold-text text-sm font-semibold flex items-center gap-1"
               >
+                <Undo2 size={14} />
+                {t('food.undo_delete')}
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Batch undo toast — "Logged N items — Undo" with a 10s countdown ring;
+          stacks above the single-delete toast if both are somehow visible */}
+      <AnimatePresence>
+        {pendingBatch && (
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            className={`fixed ${
+              pendingDelete
+                ? (budgetPillVisible ? 'bottom-44' : 'bottom-32')
+                : (budgetPillVisible ? 'bottom-32' : 'bottom-20')
+            } left-4 right-4 z-[var(--z-toast,70)] flex justify-center`}
+          >
+            <div className="glass-elevated px-4 py-3 rounded-xl flex items-center gap-3 shadow-lg max-w-sm">
+              <span className="text-stone-300 text-sm flex-1">
+                {pendingBatch.ids.length === 1
+                  ? t('log.batch_logged_one')
+                  : t('log.batch_logged', { n: pendingBatch.ids.length })}
+              </span>
+              <button
+                onClick={() => void undoBatch()}
+                className="gold-text text-sm font-semibold flex items-center gap-1.5"
+                aria-label={t('log.batch_undo_aria', { n: pendingBatch.ids.length })}
+              >
+                {reducedMotion ? (
+                  <span className="text-stone-500 text-xs tabular-nums">(10s)</span>
+                ) : (
+                  <svg
+                    width={16} height={16} viewBox="0 0 16 16" aria-hidden
+                    style={{ transform: 'rotate(-90deg)', flexShrink: 0 }}
+                  >
+                    <circle cx={8} cy={8} r={6} fill="none" stroke="rgba(212,168,83,.2)" strokeWidth={2} />
+                    <motion.circle
+                      key={pendingBatch.key}
+                      cx={8} cy={8} r={6} fill="none"
+                      stroke="var(--gold-300,#D4A853)" strokeWidth={2} strokeLinecap="round"
+                      strokeDasharray={2 * Math.PI * 6}
+                      initial={{ strokeDashoffset: 0 }}
+                      animate={{ strokeDashoffset: 2 * Math.PI * 6 }}
+                      transition={{ duration: 10, ease: 'linear' }}
+                    />
+                  </svg>
+                )}
                 <Undo2 size={14} />
                 {t('food.undo_delete')}
               </button>

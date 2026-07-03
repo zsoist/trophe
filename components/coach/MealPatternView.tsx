@@ -1,8 +1,11 @@
 'use client';
 
 import { memo, useState, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { Sparkles, Pencil, Check, X, Minus, Plus, Loader2 } from 'lucide-react';
 import { Icon, type IconName } from '@/components/ui';
+import { useI18n } from '@/lib/i18n';
+import { trpc } from '@/lib/trpc/client';
 import type { FoodLogEntry } from '@/lib/types';
 
 // ═══════════════════════════════════════════════
@@ -11,6 +14,51 @@ import type { FoodLogEntry } from '@/lib/types';
 
 interface MealPatternViewProps {
   entries: FoodLogEntry[];
+  /**
+   * Client the coach is viewing. When present, entries become editable via
+   * food.log.coachEdit (server-side tenant check — coaches are RLS
+   * SELECT-only on client logs, so writes must go through tRPC).
+   */
+  clientId?: string;
+}
+
+/** Phase 4 columns present on `select('*')` rows but not yet on FoodLogEntry. */
+type EntryExtras = { qty_g?: number | string | null; parse_confidence?: number | null };
+type LogEntry = FoodLogEntry & EntryExtras;
+
+/** AI-sourced: modern rows carry parse_confidence; legacy AI rows only source. */
+function isAiEntry(e: LogEntry): boolean {
+  return (
+    e.parse_confidence != null ||
+    e.source === 'natural_language' ||
+    e.source === 'photo_ai'
+  );
+}
+
+interface EditForm {
+  name: string;
+  grams: number | null;
+  calories: string;
+  protein: string;
+  carbs: string;
+  fat: string;
+  sugar: string;
+}
+
+const EMPTY_FORM: EditForm = {
+  name: '', grams: null, calories: '', protein: '', carbs: '', fat: '', sugar: '',
+};
+
+/** Mono 10px field label — type system (BodyCompCalculator / MealBadges pattern). */
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <span
+      className="block text-[10px] uppercase tracking-wider text-stone-500 mb-0.5"
+      style={{ fontFamily: 'var(--font-mono)' }}
+    >
+      {children}
+    </span>
+  );
 }
 
 interface MealPattern {
@@ -45,13 +93,112 @@ const MAX_CAL_BAR = 800; // max calories for bar scale
 // Component
 // ═══════════════════════════════════════════════
 
-function MealPatternView({ entries }: MealPatternViewProps) {
+function MealPatternView({ entries, clientId }: MealPatternViewProps) {
+  const { t } = useI18n();
   const [view, setView] = useState<'pattern' | 'daily'>('pattern');
+  const reduceMotion = useReducedMotion();
+
+  // ── Coach edit state (one editor open at a time) ──
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState<EditForm>(EMPTY_FORM);
+  const [dirty, setDirty] = useState<Set<keyof EditForm>>(new Set());
+  const [saving, setSaving] = useState(false);
+  const [flashId, setFlashId] = useState<string | null>(null);
+  // Local optimistic overrides — the parent fetches entries once; after a
+  // successful coachEdit we merge the server-returned row over the prop.
+  const [overrides, setOverrides] = useState<Record<string, Partial<LogEntry>>>({});
+
+  const coachEditMutation = trpc.food.log.coachEdit.useMutation();
+
+  const merged: LogEntry[] = useMemo(
+    () =>
+      entries.map((e) => {
+        const o = overrides[e.id];
+        return (o ? { ...e, ...o } : e) as LogEntry;
+      }),
+    [entries, overrides],
+  );
+
+  const setField = (key: keyof EditForm, value: string | number | null) => {
+    setForm((f) => ({ ...f, [key]: value }));
+    setDirty((d) => (d.has(key) ? d : new Set(d).add(key)));
+  };
+
+  const openEditor = (entry: LogEntry) => {
+    setEditingId(entry.id);
+    setDirty(new Set());
+    setForm({
+      name: entry.food_name,
+      grams: entry.qty_g != null && Number(entry.qty_g) > 0 ? Math.round(Number(entry.qty_g)) : null,
+      calories: entry.calories != null ? String(Math.round(entry.calories)) : '',
+      protein: entry.protein_g != null ? String(Math.round(entry.protein_g * 10) / 10) : '',
+      carbs: entry.carbs_g != null ? String(Math.round(entry.carbs_g * 10) / 10) : '',
+      fat: entry.fat_g != null ? String(Math.round(entry.fat_g * 10) / 10) : '',
+      sugar: entry.sugar_g != null ? String(Math.round(entry.sugar_g * 10) / 10) : '',
+    });
+  };
+
+  const closeEditor = () => {
+    setEditingId(null);
+    setDirty(new Set());
+  };
+
+  const saveEdit = async (entry: LogEntry) => {
+    if (saving || !clientId) return;
+    const payload: {
+      clientId: string; entryId: string; foodName?: string; grams?: number;
+      calories?: number; proteinG?: number; carbsG?: number; fatG?: number; sugarG?: number;
+    } = { clientId, entryId: entry.id };
+
+    if (dirty.has('name')) {
+      const name = form.name.trim();
+      if (name && name !== entry.food_name) payload.foodName = name;
+    }
+    if (dirty.has('grams') && form.grams != null && form.grams > 0) payload.grams = form.grams;
+    const numField = (raw: string): number | undefined => {
+      const v = parseFloat(raw);
+      return Number.isFinite(v) && v >= 0 ? v : undefined;
+    };
+    if (dirty.has('calories')) payload.calories = numField(form.calories);
+    if (dirty.has('protein')) payload.proteinG = numField(form.protein);
+    if (dirty.has('carbs')) payload.carbsG = numField(form.carbs);
+    if (dirty.has('fat')) payload.fatG = numField(form.fat);
+    if (dirty.has('sugar')) payload.sugarG = numField(form.sugar);
+
+    if (Object.keys(payload).length <= 2) {
+      closeEditor();
+      return;
+    }
+    setSaving(true);
+    try {
+      const updated = await coachEditMutation.mutateAsync(payload);
+      setOverrides((prev) => ({
+        ...prev,
+        [entry.id]: {
+          food_name: updated.foodName,
+          quantity: updated.quantity,
+          qty_g: updated.qtyG,
+          calories: updated.calories,
+          protein_g: updated.proteinG,
+          carbs_g: updated.carbsG,
+          fat_g: updated.fatG,
+          sugar_g: updated.sugarG,
+        },
+      }));
+      closeEditor();
+      setFlashId(entry.id);
+      window.setTimeout(() => setFlashId((cur) => (cur === entry.id ? null : cur)), 900);
+    } catch {
+      // Keep the editor open so the coach can retry.
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const patterns = useMemo(() => {
     const grouped: Record<string, FoodLogEntry[]> = {};
 
-    entries.forEach((entry) => {
+    merged.forEach((entry) => {
       const key = entry.meal_type || 'snack';
       if (!grouped[key]) grouped[key] = [];
       grouped[key].push(entry);
@@ -120,18 +267,18 @@ function MealPatternView({ entries }: MealPatternViewProps) {
     });
 
     return result;
-  }, [entries]);
+  }, [merged]);
 
   // Daily view: group by date (existing behavior)
   const foodByDate = useMemo(() => {
-    const byDate: Record<string, FoodLogEntry[]> = {};
-    entries.forEach((entry) => {
+    const byDate: Record<string, LogEntry[]> = {};
+    merged.forEach((entry) => {
       const key = entry.logged_date;
       if (!byDate[key]) byDate[key] = [];
       byDate[key].push(entry);
     });
     return byDate;
-  }, [entries]);
+  }, [merged]);
 
   const maxAvgCal = useMemo(
     () => Math.max(...patterns.map((p) => p.avgCalories), MAX_CAL_BAR),
@@ -273,17 +420,143 @@ function MealPatternView({ entries }: MealPatternViewProps) {
                       </span>
                     </div>
                     <div className="space-y-1">
-                      {dayEntries.map((entry) => (
-                        <div
-                          key={entry.id}
-                          className="flex items-center justify-between text-xs py-1 px-2 rounded-lg bg-white/[0.03]"
-                        >
-                          <span className="text-stone-300 truncate">{entry.food_name}</span>
-                          <span className="text-stone-500 whitespace-nowrap ml-2">
-                            {entry.calories || 0} kcal
-                          </span>
-                        </div>
-                      ))}
+                      {dayEntries.map((entry) => {
+                        const aiLogged = isAiEntry(entry);
+                        const isEditing = editingId === entry.id;
+                        return (
+                          <div key={entry.id} className="relative rounded-lg bg-white/[0.03]">
+                            {/* One-shot gold flash after a saved edit */}
+                            {flashId === entry.id && (
+                              <motion.div
+                                initial={{ opacity: reduceMotion ? 0 : 0.35 }}
+                                animate={{ opacity: 0 }}
+                                transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+                                className="absolute inset-0 rounded-lg bg-[#D4A853] pointer-events-none"
+                                aria-hidden
+                              />
+                            )}
+                            <div className="flex items-center justify-between text-xs py-1 px-2">
+                              <span className="text-stone-300 truncate flex items-center gap-1.5 min-w-0">
+                                <span className="truncate">{entry.food_name}</span>
+                                {aiLogged && (
+                                  <span
+                                    className="inline-flex items-center gap-0.5 px-1 py-px rounded bg-[#D4A853]/10 text-[#D4A853] text-[9px] uppercase tracking-wider flex-shrink-0"
+                                    style={{ fontFamily: 'var(--font-mono)' }}
+                                    title={t('coach.mealPattern.aiLoggedTitle')}
+                                  >
+                                    <Sparkles size={8} aria-hidden />
+                                    {t('coach.mealPattern.aiLogged')}
+                                  </span>
+                                )}
+                              </span>
+                              <span className="text-stone-500 whitespace-nowrap ml-2 flex items-center gap-1">
+                                {Math.round(entry.calories || 0)} kcal
+                                {clientId && (
+                                  <button
+                                    onClick={() => (isEditing ? closeEditor() : openEditor(entry))}
+                                    className="p-1.5 text-stone-600 hover:text-[#D4A853] transition-colors"
+                                    aria-label={t('coach.mealPattern.editEntry', { name: entry.food_name })}
+                                  >
+                                    <Pencil size={11} />
+                                  </button>
+                                )}
+                              </span>
+                            </div>
+
+                            {/* Compact coach editor (same pattern as client card) */}
+                            <AnimatePresence>
+                              {isEditing && (
+                                <motion.div
+                                  initial={{ opacity: 0, height: 0 }}
+                                  animate={{ opacity: 1, height: 'auto' }}
+                                  exit={{ opacity: 0, height: 0 }}
+                                  transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
+                                  className="overflow-hidden"
+                                >
+                                  <div className="m-1.5 mt-0 rounded-lg bg-white/[0.04] border border-white/5 p-2.5 space-y-2.5">
+                                    <div>
+                                      <FieldLabel>{t('food.edit.name')}</FieldLabel>
+                                      <input
+                                        type="text"
+                                        value={form.name}
+                                        onChange={(e) => setField('name', e.target.value)}
+                                        maxLength={200}
+                                        className="input-dark w-full text-xs py-1.5"
+                                      />
+                                    </div>
+
+                                    {form.grams != null && (
+                                      <div>
+                                        <FieldLabel>{t('food.edit.grams')}</FieldLabel>
+                                        <div className="flex items-center gap-2">
+                                          <button
+                                            onClick={() => setField('grams', Math.max(1, (form.grams ?? 10) - 10))}
+                                            className="w-11 h-11 rounded-lg bg-white/[0.05] border border-white/10 flex items-center justify-center text-stone-300 hover:border-[#D4A853]/40 active:scale-95 transition-all"
+                                            aria-label={t('food.edit.decreaseGrams')}
+                                          >
+                                            <Minus size={14} />
+                                          </button>
+                                          <div className="flex-1 text-center">
+                                            <span className="text-stone-100 text-sm font-medium tabular-nums">{form.grams}</span>
+                                            <span className="text-stone-500 text-[10px] ml-1">g</span>
+                                          </div>
+                                          <button
+                                            onClick={() => setField('grams', Math.min(10000, (form.grams ?? 0) + 10))}
+                                            className="w-11 h-11 rounded-lg bg-white/[0.05] border border-white/10 flex items-center justify-center text-stone-300 hover:border-[#D4A853]/40 active:scale-95 transition-all"
+                                            aria-label={t('food.edit.increaseGrams')}
+                                          >
+                                            <Plus size={14} />
+                                          </button>
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    <div className="grid grid-cols-3 gap-1.5">
+                                      {([
+                                        ['calories', 'food.edit.kcal'],
+                                        ['protein', 'food.edit.protein'],
+                                        ['carbs', 'food.edit.carbs'],
+                                        ['fat', 'food.edit.fat'],
+                                        ['sugar', 'food.edit.sugar'],
+                                      ] as const).map(([key, labelKey]) => (
+                                        <div key={key}>
+                                          <FieldLabel>{t(labelKey)}</FieldLabel>
+                                          <input
+                                            type="number"
+                                            inputMode="decimal"
+                                            min={0}
+                                            value={form[key]}
+                                            onChange={(e) => setField(key, e.target.value)}
+                                            className="input-dark w-full text-xs py-1.5 text-center"
+                                          />
+                                        </div>
+                                      ))}
+                                    </div>
+
+                                    <div className="flex items-center gap-1.5">
+                                      <button
+                                        disabled={saving}
+                                        onClick={() => void saveEdit(entry)}
+                                        className="flex-1 py-2 rounded-lg bg-[#D4A853] text-stone-950 text-xs font-semibold disabled:opacity-50 flex items-center justify-center gap-1.5 active:scale-[0.99] transition-transform"
+                                      >
+                                        {saving ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                                        {t('food.edit.save')}
+                                      </button>
+                                      <button
+                                        onClick={closeEditor}
+                                        className="p-2 rounded-lg text-stone-500 hover:text-stone-300 border border-white/10 transition-colors"
+                                        aria-label={t('coach.mealPattern.cancel')}
+                                      >
+                                        <X size={14} />
+                                      </button>
+                                    </div>
+                                  </div>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 );

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChefHat, Loader2, Check } from 'lucide-react';
 import { Icon } from '@/components/ui';
+import { useI18n } from '@/lib/i18n';
 import { supabase } from '@/lib/supabase';
 import type { MealType } from '@/lib/types';
 import { MACRO_COLORS } from '@/lib/macro-colors';
@@ -33,6 +34,7 @@ export default function RecipeAnalyzerModal({
   onClose,
   onLogged,
 }: RecipeAnalyzerModalProps) {
+  const { t } = useI18n();
   const [text, setText] = useState('');
   const [servings, setServings] = useState(4);
   const [logServings, setLogServings] = useState(1);
@@ -48,11 +50,15 @@ export default function RecipeAnalyzerModal({
     setAnalyzing(true);
     setError(null);
     setResult(null);
+    // 30s cap — without it a hung analyzer request left the modal spinning forever.
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30_000);
     try {
       const res = await fetch('/api/food/recipe-analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text, servings, language: 'en' }),
+        signal: controller.signal,
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
@@ -62,8 +68,13 @@ export default function RecipeAnalyzerModal({
       setResult(data);
       setLogServings(1);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Analysis failed');
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        setError(t('food.recipe_timeout'));
+      } else {
+        setError(err instanceof Error ? err.message : 'Analysis failed');
+      }
     } finally {
+      clearTimeout(timeout);
       setAnalyzing(false);
     }
   }

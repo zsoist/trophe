@@ -20,6 +20,8 @@ interface AnimatedValueProps {
   duration?: number;
   /** Use locale thousand separators (default true). */
   grouped?: boolean;
+  /** Value the FIRST roll starts from (default 0). Lets steppers roll old→new on mount. */
+  startAt?: number;
 }
 
 export function AnimatedValue({
@@ -28,10 +30,11 @@ export function AnimatedValue({
   className = '',
   duration = 900,
   grouped = true,
+  startAt = 0,
 }: AnimatedValueProps) {
   const reducedMotion = useReducedMotion();
-  const [display, setDisplay] = useState(() => (reducedMotion ? value : 0));
-  const prevRef = useRef(reducedMotion ? value : 0);
+  const [display, setDisplay] = useState(() => (reducedMotion ? value : startAt));
+  const prevRef = useRef(reducedMotion ? value : startAt);
   const frameRef = useRef<number>(0);
 
   useEffect(() => {

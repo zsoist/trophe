@@ -167,8 +167,21 @@ export async function POST(request: NextRequest) {
       [food.estimated_protein_g, food.estimated_carbs_g, food.estimated_fat_g].every((value) => Number.isFinite(value) && value >= 0) &&
       food.estimated_protein_g + food.estimated_carbs_g + food.estimated_fat_g <= food.estimated_grams * 1.15
     );
+    // Per-item plausibility: drop only the implausible items and keep the rest.
+    // One bad estimate on a 4-item plate must not throw away the other three.
+    if (validFoods.length === 0) {
+      console.error(
+        `Photo nutrition estimate failed plausibility validation (all ${foods.length} item(s) implausible)`,
+      );
+      return NextResponse.json(
+        { error: 'Could not read reliable nutrition from this photo — try a clearer shot or enter it manually' },
+        { status: 502 },
+      );
+    }
     if (validFoods.length !== foods.length) {
-      return NextResponse.json({ error: 'Photo nutrition estimate failed plausibility validation' }, { status: 502 });
+      console.warn(
+        `[photo-analyze] dropped ${foods.length - validFoods.length}/${foods.length} item(s) that failed plausibility validation`,
+      );
     }
 
     return NextResponse.json({
