@@ -1,0 +1,173 @@
+[
+  {
+    "id_slug": "gr-freddo-cappuccino-no-sugar",
+    "name_en": "Freddo cappuccino, no sugar",
+    "name_el": "Φρέντο καπουτσίνο χωρίς ζάχαρη",
+    "per100": { "kcal": 27, "p": 1.71, "c": 2.75, "f": 0.99, "sugar": 2.46 },
+    "per100_basis": "ml",
+    "serving_g": 300,
+    "unit_label": "1 cup (300 ml)",
+    "region": ["GR"],
+    "source_url": "https://fdc.nal.usda.gov/food-details/2710472/nutrients",
+    "source_note": "USDA FNDDS 'Coffee, Cappuccino' (FDC ID 2710472), per 100 g: 27 kcal / P 1.71 / C 2.75 / F 0.99 / sugars 2.46. Dairy-based authoritative reference as permitted by task spec. Chain cross-check: Coffee Island blog states 'Freddo Cappuccino with foam contains only 37 calories' per drink (size unstated; CI standard cup is 12oz/355ml per coffeeisland.com.cy catalog) — https://www.coffeeisland.gr/blog/en/10-things-about-coffee-you-might-not-know/",
+    "data_quality": "lab_verified",
+    "confidence_note": "No Greek chain (Gregory's/Mikel/Coffee Island GR) publishes a per-100ml declaration; product pages checked and have none. FNDDS values are for cappuccino as prepared (espresso + milk); a Greek freddo cappuccino additionally contains melting ice, so per-100ml of the served drink is somewhat lower. At 300 ml undiluted this gives 81 kcal vs benchmark gex5-020 expectation 62-79 kcal — consistent once ~10-20% ice dilution is accounted for."
+  },
+  {
+    "id_slug": "gr-freddo-espresso-no-sugar",
+    "name_en": "Freddo espresso, no sugar",
+    "name_el": "Φρέντο εσπρέσο χωρίς ζάχαρη",
+    "per100": { "kcal": 9, "p": 0.12, "c": 1.67, "f": 0.18 },
+    "per100_basis": "ml",
+    "serving_g": 200,
+    "unit_label": "1 glass (200 ml, made from a double shot + ice)",
+    "region": ["GR"],
+    "source_url": "https://fdc.nal.usda.gov/food-details/171891/nutrients",
+    "source_note": "USDA SR Legacy 'Beverages, coffee, brewed, espresso, restaurant-prepared' (FDC ID 171891), per 100 g: 9 kcal / P 0.12 / C 1.67 / F 0.18. Values are for pure espresso; the freddo drink is espresso + ice only (no sugar), so per-100ml of served drink is lower depending on ice melt.",
+    "data_quality": "lab_verified",
+    "confidence_note": "VERIFICATION vs existing seed row (15 kcal/200 ml): a freddo espresso is a double shot (~60-100 ml espresso) shaken with ice; USDA basis gives ~5-9 kcal per drink. 200 ml of PURE espresso would be 18 kcal — the drink is never all espresso. Benchmark gex5-019 expects 8-12 kcal for 240 ml. The seeded 15 kcal/200 ml is ~1.5-2x high; recommend re-basing the seed row on 9 kcal/100 ml espresso with ~60-100 ml espresso content per drink."
+  },
+  {
+    "id_slug": "gr-beer-mythos",
+    "name_en": "Mythos lager beer",
+    "name_el": "Μπύρα Mythos",
+    "per100": { "kcal": 38, "p": 0.5, "c": 2.3, "f": 0, "sugar": 0.4 },
+    "per100_basis": "ml",
+    "serving_g": 330,
+    "unit_label": "1 can/bottle (330 ml)",
+    "region": ["GR"],
+    "source_url": "https://www.olympicbrewery.gr/en/our-products/mythos/mythos/",
+    "source_note": "Official Olympic Brewery (Carlsberg Group) product page nutrition declaration per 100 ml: 160 kJ / 38 kcal, fat 0 g, sat 0 g, carbs 2.3 g, sugars 0.4 g, protein <0.5 g, salt 0 g. ABV listed as 5% on the brewer page (many retail listings state 4.7%).",
+    "data_quality": "label",
+    "confidence_note": "Protein stored as 0.5 = label upper bound ('<0,5 g'). 330 ml = 125.4 kcal, inside benchmark gex5-024 range (124-158) at the low edge. Note: brewer site shows the identical declaration for FIX Hellas (see that row)."
+  },
+  {
+    "id_slug": "gr-beer-fix-hellas",
+    "name_en": "Fix Hellas lager beer",
+    "name_el": "Μπύρα Fix Hellas",
+    "per100": { "kcal": 38, "p": 0.5, "c": 2.3, "f": 0, "sugar": 0.4 },
+    "per100_basis": "ml",
+    "serving_g": 330,
+    "unit_label": "1 can/bottle (330 ml)",
+    "region": ["GR"],
+    "source_url": "https://www.olympicbrewery.gr/en/our-products/fix/fix-hellas/",
+    "source_note": "Official Olympic Brewery product page nutrition declaration per 100 ml: 160 kJ / 38 kcal, fat 0 g, sat 0 g, carbs 2.3 g, sugars 0.4 g, protein <0.5 g, salt 0 g, ABV 5%.",
+    "data_quality": "label",
+    "confidence_note": "Declaration is character-for-character identical to Mythos on the same brewer site (both 5% lagers, plausibly a shared template but it IS the manufacturer's published declaration). Crowd-sourced MyNetDiary entry lists Fix at 41 kcal/100 ml — within rounding noise of the official 38."
+  },
+  {
+    "id_slug": "gr-creta-farms-en-elladi-turkey-slices",
+    "name_en": "Creta Farms 'En Elladi' boiled turkey slices with olive oil",
+    "name_el": "Creta Farms Εν Ελλάδι γαλοπούλα βραστή με ελαιόλαδο (φέτες)",
+    "per100": { "kcal": 97, "p": 13, "c": 4.5, "f": 3.0, "sugar": 1.5 },
+    "serving_g": 32,
+    "unit_label": "2 slices (~16 g each; pack 160 g / 10 slices)",
+    "region": ["GR"],
+    "source_url": "https://www.cretafarms.gr/product/en-elladi-galopoyla-vrasti-fetes-me-elaiolado/",
+    "source_note": "Official Creta Farms product page, Διατροφική Αξία ανά 100g: 409 kJ / 97 kcal, fat 3.0 g (sat 0.8 g), carbs 4.5 g (sugars 1.5 g), protein 13 g, salt 2.3 g. Pack 160 g.",
+    "data_quality": "label",
+    "confidence_note": "Protein 13 g/100g is lower than generic deli turkey (~17-20 g) because this product is brine/olive-oil enriched — label value is authoritative for this SKU. Salt 2.3 g/100g is notable."
+  },
+  {
+    "id_slug": "gr-ion-break-milk-chocolate",
+    "name_en": "ION Break milk chocolate",
+    "name_el": "ΙΟΝ Break σοκολάτα γάλακτος",
+    "per100": { "kcal": 540, "p": 7.3, "c": 61.3, "f": 30.0, "sugar": 56.0 },
+    "serving_g": 21,
+    "unit_label": "4 squares (1 label dosing = 21.25 g; 4 dosings per 85 g bar)",
+    "region": ["GR"],
+    "source_url": "https://www.e-fresh.gr/en/sokolata-galaktos-break-85g",
+    "source_note": "e-Fresh.gr supermarket listing reproducing the on-pack declaration, per 100 g: 2259 kJ / 540 kcal, fat 30.0 g (sat 19.3 g), carbs 61.3 g (sugars 56.0 g), protein 7.3 g, salt 0.32 g. Per dosing (4 squares): 115 kcal.",
+    "data_quality": "label",
+    "confidence_note": "This is the PLAIN Break milk chocolate 85 g (barcode 5201127010414). OFF entry for that barcode exists but has no nutriments — this label supersedes any OFF-derived row. Variants with fillings differ (hazelnut 520, wafer 572 kcal etc.); don't conflate."
+  },
+  {
+    "id_slug": "gr-lu-petit-beurre",
+    "name_en": "LU Le Véritable Petit Beurre biscuits",
+    "name_el": "Μπισκότα LU Petit Beurre",
+    "per100": { "kcal": 438, "p": 8, "c": 73, "f": 12, "fiber": 3, "sugar": 23 },
+    "serving_g": 33,
+    "unit_label": "4 biscuits (8.3 g per biscuit; 24 per 200 g pack)",
+    "region": ["GR"],
+    "source_url": "https://fr.openfoodfacts.org/produit/3017760000109/le-veritable-petit-beurre-lu",
+    "source_note": "Open Food Facts record built from label photos of LU Le Véritable Petit Beurre 200 g (barcode 3017760000109), per 100 g: 1850 kJ / 438 kcal, fat 12 g (sat 7.6 g), carbs 73 g (sugars 23 g), fiber 3 g, protein 8 g, salt 1.4 g. Portion stated on label: 8.3 g per biscuit.",
+    "data_quality": "label",
+    "confidence_note": "Same Mondelez product distributed in Greece. Benchmark v3_branded_en_2 assumes ~400 kcal/100g CIQUAL and 4 biscuits ≈ 40 g; actual label biscuit is 8.3 g (4 = 33.2 g → 145 kcal, inside the benchmark's 138-230 window)."
+  },
+  {
+    "id_slug": "gr-papadopoulou-petit-beurre",
+    "name_en": "Papadopoulou Petit Beurre (Pti Mper) classic biscuits",
+    "name_el": "Παπαδοπούλου Πτι Μπερ κλασικά μπισκότα",
+    "per100": { "kcal": 452, "p": 7.5, "c": 73.0, "f": 14, "sugar": 18.0 },
+    "serving_g": 28,
+    "unit_label": "4 biscuits (~7 g / ~32 kcal per biscuit; pack 225 g ≈ 32 biscuits)",
+    "region": ["GR"],
+    "source_url": "https://www.e-fresh.gr/en/mpiskota-pti-mper-papadopoyloy-225-g",
+    "source_note": "e-Fresh.gr supermarket listing reproducing the on-pack declaration, per 100 g: 1903 kJ / 452 kcal, fat 14 g (sat 6.5 g, mono 5 g, poly 2 g), carbs 73.0 g (sugars 18.0 g), protein 7.5 g, salt 1 g. Manufacturer marketing (papadopoulou.gr, e-fresh description) states 32 kcal per biscuit → ~7.1 g/biscuit.",
+    "data_quality": "label",
+    "confidence_note": "Manufacturer site (papadopoulou.gr/en/product/petit-beurre/, bot-blocked; Google-indexed snippet) shows a slightly different label revision: 1910 kJ/454 kcal, fat 15 g, sat 6.9 g — within label-revision noise of the e-fresh table. Benchmark gex5-009 assumes 4 biscuits = 25 g (6.25 g each); label-derived weight is ~7.1 g — flag for serving-unit alignment."
+  },
+  {
+    "id_slug": "gr-krema-karamele-cup-jotis",
+    "name_en": "Crème caramel ready dessert cup (Jotis)",
+    "name_el": "Κρέμα καραμελέ έτοιμο επιδόρπιο ψυγείου ΓΙΩΤΗΣ",
+    "per100": { "kcal": 113, "p": 2.4, "c": 20, "f": 2.6, "sugar": 17 },
+    "serving_g": 100,
+    "unit_label": "1 cup (100 g; sold as 4x100 g)",
+    "region": ["GR"],
+    "source_url": "https://www.e-fresh.gr/en/krema-karamele-giwths-4-x-100g",
+    "source_note": "e-Fresh.gr supermarket listing reproducing the on-pack declaration, per 100 g: 477 kJ / 113 kcal, fat 2.6 g (sat 1.7 g), carbs 20 g (sugars 17 g), protein 2.4 g, salt 0.13 g. Cup = 100 g.",
+    "data_quality": "label",
+    "confidence_note": "ΓΙΩΤΗΣ (Jotis) is the dominant retail ready crème caramel cup in GR supermarkets (ΔΕΛΤΑ/ΦΑΓΕ don't currently market a plain crème caramel cup). Fat 2.6% cross-validated against the Thanopoulos.gr listing's ingredient text ('λιπαρά 2,6%'). Official jotis.gr product page carries no nutrition table."
+  },
+  {
+    "id_slug": "gr-kalamaki-pork-meat-only",
+    "name_en": "Kalamaki / souvlaki pork skewer, grilled, meat only",
+    "name_el": "Καλαμάκι χοιρινό ψητό (μόνο κρέας)",
+    "per100": { "kcal": 173, "p": 27.6, "c": 0, "f": 6.08 },
+    "serving_g": 100,
+    "unit_label": "1 large skewer, cooked meat only (~100 g)",
+    "region": ["GR"],
+    "source_url": "https://fdc.nal.usda.gov/food-details/168253/nutrients",
+    "source_note": "PROXY, stated explicitly per task spec: USDA SR Legacy 'Pork, fresh, loin, top loin (chops), boneless, separable lean only, cooked, broiled' (FDC ID 168253), per 100 g: 173 kcal / P 27.6 / C 0 / F 6.08.",
+    "data_quality": "lab_verified",
+    "confidence_note": "Greek καλαμάκι is often cut from shoulder/leg (slightly fattier than loin); lean-only loin is the conservative authoritative proxy the task blesses. The Greek composition-tables mirror on users.sch.gr had a 'Σουβλάκι (χοιρινό)' row but its numbers are internally inconsistent (garbled) and were rejected. Typical street skewer is 70-100 g cooked meat."
+  },
+  {
+    "id_slug": "gr-tzatziki-retail-olympus",
+    "name_en": "Tzatziki, retail tub (Olympus)",
+    "name_el": "Τζατζίκι Όλυμπος (κεσεδάκι)",
+    "per100": { "kcal": 117, "p": 3.7, "c": 4.5, "f": 9.3, "sugar": 2.7 },
+    "serving_g": 60,
+    "unit_label": "meze portion (~60 g); tub 250 g",
+    "region": ["GR"],
+    "source_url": "https://world.openfoodfacts.org/product/5202178009280/tzatziki-olympus",
+    "source_note": "Open Food Facts record from label photos of Olympus (Όλυμπος / Hellenic Dairies) tzatziki, barcode 5202178009280, per 100 g: ~483.5 kJ / 117 kcal, fat 9.3 g (sat 5.1 g), carbs 4.5 g (sugars 2.7 g), protein 3.7 g, salt 1.3 g.",
+    "data_quality": "label",
+    "confidence_note": "OFF record flagged incomplete (ingredients not typed in) but the nutriment table is present from the label photo. CONFLICT with benchmark: gex1-004 (60 g → 47-61 kcal ⇒ ≤102 kcal/100g) and el-base-17 (200 g → 80-130 kcal ⇒ 40-65 kcal/100g) both sit below this real full-fat retail label (117 kcal/100g ⇒ 70 kcal/60g, 234 kcal/200g). Benchmark appears calibrated to lean/homemade tzatziki; also the two benchmark cases are mutually inconsistent (~2x per-100g). Olympos.gr product nav no longer lists tzatziki (couldn't confirm on manufacturer site)."
+  },
+  {
+    "unsourced": [
+      {
+        "id_slug": "gr-bougatsa-krema",
+        "name_en": "Bougatsa with custard cream",
+        "name_el": "Μπουγάτσα με κρέμα",
+        "status": "UNSOURCED-ESTIMATE",
+        "candidate_per100": { "kcal": 300, "p": 5, "c": 46, "f": 10, "sugar": 10 },
+        "serving_g": 150,
+        "unit_label": "1 piece (120-180 g typical)",
+        "region": ["GR"],
+        "best_citation": "https://www.mednutrition.gr/portal/efarmoges/leksiko-diatrofis/16381-bougatsa",
+        "secondary_citation": "https://www.fmh.gr/mpougatsa/ (cites Μαρία Μεντζέλου 2019; same per-100g figures: 300 kcal, C 46, P 5, F 10)",
+        "what_was_tried": "1) Hellenic Health Foundation composition tables (hhf-greece.gr) — the food-tables web app is defunct; /tables/ now serves an org homepage SPA whose only data endpoint is publication-stats.json (no foods data). 2) users.sch.gr/cristom40 GreekTables mirror has a 'Μπουγάτσα' row (item 177) but its values are garbled/implausible (37 kcal cooked/100g, water 81%, carbs 2.3 g — clearly a different food or column misalignment); rejected together with its souvlaki row. 3) No ΕΦΕΤ/university per-100g bougatsa table found online; Trichopoulou print tables (ISBN 9789603942849) not accessible to verify values. 4) Remaining sources are Greek dietitian portals with recipe-derived estimates (mednutrition.gr and fmh.gr agree on 300 kcal/100g).",
+        "confidence_note": "Recipe-derived, not lab-verified. Cross-check vs benchmark: el-bake-02 expects 300-450 kcal for a ~150 g piece (⇒ 200-300 kcal/100g) — the 300 kcal/100g estimate sits at the top edge (150 g piece = 450 kcal = exactly the max). gex1-012 expects 209-349 kcal per piece, which fits only for a ~100 g piece at this density. The cited C 46 g/100g is higher than the existing seed row (gr-bougatsa: 270 kcal, C 32, F 13 per 100g) — expect wide real-world variance by shop; do not treat any single figure as ground truth."
+      }
+    ],
+    "meta": {
+      "generated": "2026-07-03",
+      "method": "Label-first web research: official manufacturer pages (olympicbrewery.gr, cretafarms.gr), supermarket listings reproducing on-pack declarations (e-fresh.gr; sklavenitis/mymarket/papadopoulou.gr direct pages are bot-blocked 403), Open Food Facts label-photo records, USDA FDC API (SR Legacy + FNDDS). No values invented; proxies and estimate status stated explicitly per row.",
+      "sourced_count": 11,
+      "unsourced_count": 1
+    }
+  }
+]

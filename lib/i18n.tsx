@@ -846,6 +846,14 @@ const translations: Record<string, Record<CoreLanguage, string>> = {
   'log.batch_logged': { en: 'Logged {n} items', es: '{n} alimentos registrados', el: 'Καταγράφηκαν {n} τρόφιμα' },
   'log.batch_logged_one': { en: 'Logged 1 item', es: '1 alimento registrado', el: 'Καταγράφηκε 1 τρόφιμο' },
   'log.batch_undo_aria': { en: 'Undo logging {n} items', es: 'Deshacer el registro de {n} alimentos', el: 'Αναίρεση καταγραφής {n} τροφίμων' },
+
+  // ── W6 narrative day pill + W8 streak ember ──
+  'food.pill_protein_to_go': { en: '{n}g to go', es: 'faltan {n}g', el: '{n}g ακόμη' },
+  'food.pill_delta_nice':    { en: '+{n}g — nice', es: '+{n}g — ¡bien!', el: '+{n}g — ωραία' },
+  'food.pill_protein_done':  { en: 'Protein ✓', es: 'Proteína ✓', el: 'Πρωτεΐνη ✓' },
+  'food.pill_kcal_left':     { en: '{n} kcal left', es: '{n} kcal restantes', el: '{n} kcal απομένουν' },
+  'food.pill_kcal_over':     { en: '{n} kcal over', es: '{n} kcal de más', el: '{n} kcal πάνω' },
+  'log.streak_ember_aria':   { en: '{n}-day streak', es: 'racha de {n} días', el: 'σερί {n} ημερών' },
 };
 
 // ─── Context & Hook ───
