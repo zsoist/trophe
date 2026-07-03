@@ -838,4 +838,15 @@ export const pt: Record<string, string> = {
   'food.pill_kcal_left': 'restam {n} kcal',
   'food.pill_kcal_over': '{n} kcal a mais',
   'log.streak_ember_aria': 'série de {n} dias',
+
+  // ── W4 provenance passport ──
+  'food.prov_caption_lab': 'Corresponde a dados verificados em laboratório',
+  'food.prov_caption_label': 'Corresponde a um rótulo nutricional',
+  'food.prov_caption_crowdsourced': 'Da comunidade — ajusta se necessário',
+  'food.prov_caption_estimated': 'Estimado a partir da tua descrição — ajusta se necessário',
+  'food.prov_chip_lab': 'LAB',
+  'food.prov_chip_label': 'RÓTULO',
+  'food.prov_chip_community': 'COMUNIDADE',
+  'food.prov_chip_ai_estimate': 'ESTIMATIVA IA',
+  'food.prov_ring_aria': 'Ver de onde vêm estes dados',
 };

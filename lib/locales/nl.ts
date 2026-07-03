@@ -833,4 +833,15 @@ export const nl: Record<string, string> = {
   'food.pill_kcal_left': '{n} kcal over',
   'food.pill_kcal_over': '{n} kcal te veel',
   'log.streak_ember_aria': 'reeks van {n} dagen',
+
+  // ── W4 provenance passport ──
+  'food.prov_caption_lab': 'Komt overeen met lab-geverifieerde gegevens',
+  'food.prov_caption_label': 'Komt overeen met een voedingslabel',
+  'food.prov_caption_crowdsourced': 'Van de community — pas aan indien nodig',
+  'food.prov_caption_estimated': 'Geschat op basis van je beschrijving — pas aan indien nodig',
+  'food.prov_chip_lab': 'LAB',
+  'food.prov_chip_label': 'LABEL',
+  'food.prov_chip_community': 'COMMUNITY',
+  'food.prov_chip_ai_estimate': 'AI-SCHATTING',
+  'food.prov_ring_aria': 'Bekijk waar deze gegevens vandaan komen',
 };
