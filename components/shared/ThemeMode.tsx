@@ -1,8 +1,10 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { Sun, Moon } from 'lucide-react';
+
+// PERF: no framer-motion here — this provider wraps every page and the icon
+// swap is a 200ms CSS animation (.theme-icon-in in globals.css).
 
 // ═══════════════════════════════════════════════
 // Theme Mode Context
@@ -81,29 +83,15 @@ export function ThemeModeToggle({ className = '' }: { className?: string }) {
       title={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
       aria-label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
     >
-      <AnimatePresence mode="wait" initial={false}>
-        {mode === 'dark' ? (
-          <motion.div
-            key="moon"
-            initial={{ rotate: -90, opacity: 0, scale: 0.5 }}
-            animate={{ rotate: 0, opacity: 1, scale: 1 }}
-            exit={{ rotate: 90, opacity: 0, scale: 0.5 }}
-            transition={{ duration: 0.2 }}
-          >
-            <Moon size={16} className="text-stone-400" />
-          </motion.div>
-        ) : (
-          <motion.div
-            key="sun"
-            initial={{ rotate: 90, opacity: 0, scale: 0.5 }}
-            animate={{ rotate: 0, opacity: 1, scale: 1 }}
-            exit={{ rotate: -90, opacity: 0, scale: 0.5 }}
-            transition={{ duration: 0.2 }}
-          >
-            <Sun size={16} className="text-amber-500" />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {mode === 'dark' ? (
+        <div key="moon" className="theme-icon-in">
+          <Moon size={16} className="text-stone-400" />
+        </div>
+      ) : (
+        <div key="sun" className="theme-icon-in">
+          <Sun size={16} className="text-amber-500" />
+        </div>
+      )}
     </button>
   );
 }

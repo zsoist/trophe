@@ -283,65 +283,80 @@ export default function DashboardPage() {
       if (flRes.data)      setFoodLog(flRes.data);
       if (wlRes.data)      setWaterLog(wlRes.data);
 
-      // Load latest coach note (non-client messages only)
-      if (cpRes.data?.coach_id) {
-        const [noteRes, coachProfileRes] = await Promise.all([
-          supabase.from('coach_notes')
-            .select('note, session_type, created_at')
-            .eq('client_id', user.id)
-            .not('note', 'like', '[Client message]:%')
-            .order('created_at', { ascending: false })
-            .limit(3),
-          supabase.from('profiles')
-            .select('full_name')
-            .eq('id', cpRes.data.coach_id)
-            .maybeSingle(),
-        ]);
+      // PERF: everything below only depends on the first batch — run the coach
+      // branch (notes/coach/plan/intake) and the habit branch (checkins) as ONE
+      // parallel batch instead of the old 5-query sequential waterfall
+      // (was: ~5× single-query latency stacked on top of each other).
+      const coachId = cpRes.data?.coach_id as string | null | undefined;
+      const habit = chRes.data && chRes.data.length > 0 ? (chRes.data[0] as ClientHabit) : null;
+      if (habit) setActiveHabit(habit);
+
+      // Today's meal plan (weekly grid: Monday=0 … Sunday=6)
+      const jsDay = new Date().getDay(); // Sun=0
+      const dayOfWeek = jsDay === 0 ? 6 : jsDay - 1;
+
+      const [noteRes, coachProfileRes, planRes, intakeRes, checkinRes, allChRes] = await Promise.all([
+        coachId
+          ? supabase.from('coach_notes')
+              .select('note, session_type, created_at')
+              .eq('client_id', user.id)
+              .not('note', 'like', '[Client message]:%')
+              .order('created_at', { ascending: false })
+              .limit(3)
+          : Promise.resolve({ data: null }),
+        coachId
+          ? supabase.from('profiles').select('full_name').eq('id', coachId).maybeSingle()
+          : Promise.resolve({ data: null }),
+        coachId
+          ? supabase.from('meal_plan_entries')
+              .select('meal_slot, description')
+              .eq('client_id', user.id)
+              .eq('day_of_week', dayOfWeek)
+          : Promise.resolve({ data: null }),
+        coachId
+          ? supabase.from('questionnaire_responses')
+              .select('submitted_at')
+              .eq('client_id', user.id)
+              .not('submitted_at', 'is', null)
+              .order('submitted_at', { ascending: false })
+              .limit(1)
+          : Promise.resolve({ data: null }),
+        habit
+          ? supabase.from('habit_checkins').select('*')
+              .eq('client_habit_id', habit.id).eq('checked_date', today).limit(1)
+          : Promise.resolve({ data: null }),
+        habit
+          ? supabase.from('habit_checkins').select('*')
+              .eq('client_habit_id', habit.id).order('checked_date', { ascending: true })
+          : Promise.resolve({ data: null }),
+      ]);
+
+      if (coachId) {
         const noteRows = (noteRes.data ?? []) as Array<{ note: string; session_type: string | null; created_at: string }>;
         if (noteRows[0]?.note) setLatestCoachNote(noteRows[0].note);
         setPinnedNotes(noteRows);
 
-        // Today's meal plan (weekly grid: Monday=0 … Sunday=6)
-        const jsDay = new Date().getDay(); // Sun=0
-        const dayOfWeek = jsDay === 0 ? 6 : jsDay - 1;
-        const { data: planRows } = await supabase
-          .from('meal_plan_entries')
-          .select('meal_slot, description')
-          .eq('client_id', user.id)
-          .eq('day_of_week', dayOfWeek);
         // Intake CTA: never submitted → first run; older than 90 days → quarterly refresh
-        const { data: intakeResp } = await supabase
-          .from('questionnaire_responses')
-          .select('submitted_at')
-          .eq('client_id', user.id)
-          .not('submitted_at', 'is', null)
-          .order('submitted_at', { ascending: false })
-          .limit(1);
-        const last = intakeResp?.[0]?.submitted_at;
+        const intakeRows = (intakeRes.data ?? []) as Array<{ submitted_at: string }>;
+        const last = intakeRows[0]?.submitted_at;
         if (!last) setIntakePending('first');
         else if (Date.now() - new Date(last).getTime() > 90 * 86400_000) setIntakePending('quarterly');
         else setIntakePending(false);
 
         const slotOrder = ['breakfast', 'snack1', 'lunch', 'snack2', 'dinner'];
         setTodayPlan(
-          ((planRows ?? []) as Array<{ meal_slot: string; description: string }>)
+          ((planRes.data ?? []) as Array<{ meal_slot: string; description: string }>)
             .filter((r) => r.description.trim())
             .sort((a, b) => slotOrder.indexOf(a.meal_slot) - slotOrder.indexOf(b.meal_slot))
         );
-        if (coachProfileRes.data?.full_name) setCoachName(coachProfileRes.data.full_name.split(' ')[0]);
+        const coachData = coachProfileRes.data as { full_name?: string } | null;
+        if (coachData?.full_name) setCoachName(coachData.full_name.split(' ')[0]);
       }
 
-      if (chRes.data && chRes.data.length > 0) {
-        const habit = chRes.data[0] as ClientHabit;
-        setActiveHabit(habit);
-        const { data: checkin } = await supabase
-          .from('habit_checkins').select('*')
-          .eq('client_habit_id', habit.id).eq('checked_date', today).limit(1);
-        if (checkin?.length) setTodayCheckin(checkin[0]);
-
-        const { data: allCh } = await supabase
-          .from('habit_checkins').select('*')
-          .eq('client_habit_id', habit.id).order('checked_date', { ascending: true });
+      if (habit) {
+        const checkinRows = checkinRes.data as HabitCheckin[] | null;
+        if (checkinRows?.length) setTodayCheckin(checkinRows[0]);
+        const allCh = allChRes.data as HabitCheckin[] | null;
         if (allCh) setAllCheckins(allCh);
       }
     } catch (err) {

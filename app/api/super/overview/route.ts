@@ -14,7 +14,7 @@ export async function GET() {
   const guard = await requireSuperAdmin();
   if (guard instanceof NextResponse) return guard;
 
-  const [people, activity, aiCosts, aiByTask, aiErrors, dataHealth, recentSignups, recentFailures] =
+  const [people, activity, aiCosts, aiByTask, aiErrors, dataHealth, recentSignups, recentFailures, logsByDay, facets] =
     await Promise.all([
       db.execute<{ role: string; n: number }>(sql`
         SELECT role, count(*)::int AS n FROM profiles GROUP BY role ORDER BY n DESC`),
@@ -49,10 +49,11 @@ export async function GET() {
         FROM agent_runs
         WHERE created_at >= now() - interval '7 days'
         GROUP BY task_name ORDER BY cost DESC LIMIT 10`),
-      db.execute<{ errors_24h: number; runs_24h: number }>(sql`
+      db.execute<{ errors_24h: number; runs_24h: number; p95_latency_24h: number | null }>(sql`
         SELECT
           count(*) FILTER (WHERE status != 'completed')::int AS errors_24h,
-          count(*)::int AS runs_24h
+          count(*)::int AS runs_24h,
+          percentile_cont(0.95) WITHIN GROUP (ORDER BY latency_ms)::float AS p95_latency_24h
         FROM agent_runs WHERE created_at >= now() - interval '24 hours'`),
       db.execute<{ source: string; n: number; embedded: number }>(sql`
         SELECT source::text, count(*)::int AS n,
@@ -65,6 +66,16 @@ export async function GET() {
         SELECT task_name AS task, status, left(coalesce(error_message, ''), 160) AS error, created_at::text
         FROM agent_runs WHERE status != 'completed'
         ORDER BY created_at DESC LIMIT 8`),
+      db.execute<{ day: string; n: number }>(sql`
+        SELECT d.day::text, coalesce(l.n, 0)::int AS n
+        FROM generate_series(CURRENT_DATE - 13, CURRENT_DATE, '1 day') AS d(day)
+        LEFT JOIN (
+          SELECT logged_date, count(*) AS n FROM food_log
+          WHERE logged_date >= CURRENT_DATE - 13 GROUP BY 1
+        ) l ON l.logged_date = d.day`),
+      db.execute<{ models: string[]; tasks: string[] }>(sql`
+        SELECT array(SELECT DISTINCT model FROM agent_runs WHERE model IS NOT NULL ORDER BY 1) AS models,
+               array(SELECT DISTINCT task_name FROM agent_runs WHERE task_name IS NOT NULL ORDER BY 1) AS tasks`),
     ]);
 
   return NextResponse.json({
@@ -77,5 +88,7 @@ export async function GET() {
     foods: dataHealth.rows,
     recentSignups: recentSignups.rows,
     recentFailures: recentFailures.rows,
+    logsByDay: logsByDay.rows,
+    facets: facets.rows[0] ?? { models: [], tasks: [] },
   });
 }
