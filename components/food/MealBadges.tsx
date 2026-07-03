@@ -169,8 +169,12 @@ export default function MealBadges({ todayLog, streak, targets }: MealBadgesProp
       setCelebrated(prev => new Set(prev).add(newlyEarned.id));
       setEarnedSet(prev => new Set([...prev, newlyEarned.id]));
       setNewBadge(newlyEarned.id);
-      // W9: haptic pulse for rare+ earns (legendary included)
-      if (newlyEarned.rarity !== 'common' && typeof navigator !== 'undefined') {
+      // W9: haptic pulse for rare+ earns (legendary included). Earn-detection
+      // runs on MOUNT from fetched data, so a badge can land on page load —
+      // vibrate() without a prior user gesture is browser-blocked with a
+      // console warning. Gate on userActivation.
+      if (newlyEarned.rarity !== 'common' && typeof navigator !== 'undefined'
+          && navigator.userActivation?.hasBeenActive) {
         navigator.vibrate?.([10, 40, 10]);
       }
       window.setTimeout(() => setNewBadge(null), 4000);
