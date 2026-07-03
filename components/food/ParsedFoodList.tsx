@@ -6,6 +6,7 @@ import { X, Check, Minus, Plus, AlertTriangle, CornerDownLeft } from 'lucide-rea
 import { useI18n } from '@/lib/i18n';
 import { MACRO_COLORS } from '@/lib/macro-colors';
 import { AnimatedValue } from '@/components/ui/AnimatedValue';
+import { ProvenanceRing, resolveTier, type ProvenanceTier } from '@/components/food/ProvenanceRing';
 import type { ParsedFoodItem } from '@/app/api/food/parse/route';
 
 interface ParsedFoodListProps {
@@ -60,14 +61,83 @@ function recalcMacros(item: ParsedFoodItem, newGrams: number): ParsedFoodItem {
   };
 }
 
-function ConfidenceDot({ confidence }: { confidence: number }) {
-  const color = confidence >= 0.8
-    ? 'bg-green-500'
-    : confidence >= 0.5
-      ? 'bg-yellow-500'
-      : 'bg-red-500';
+// ── W4 "provenance passport" helpers ──
+// data_quality / calories_range are already TYPED + POPULATED by the parse
+// pipeline but were never rendered. These map the tier to (a) a plain-language
+// tap-to-explain caption and (b) an optional mono micro-chip. English copy is
+// inline (lib/i18n.tsx is owned by a follow-up pass — keys logged to
+// docs/superpowers/i18n-todo-w4.md). Calm styling only — no red, no shake.
 
-  return <span className={`inline-block w-2 h-2 rounded-full ${color}`} />;
+/** One-line plain-language caption shown when the ring is tapped. */
+const TIER_CAPTION: Record<ProvenanceTier, string> = {
+  lab_verified: 'Matched lab-verified data',
+  label:        'Matched a nutrition label',
+  crowdsourced: 'Community-sourced — adjust if needed',
+  estimated:    'Estimated from your description — adjust if needed',
+};
+
+interface QualityChip {
+  label: string;
+  /** Inline style so we can use the gold token / calm amber without new classes. */
+  color: string;
+}
+
+/**
+ * Resolve the data_quality micro-chip (or null for "no chip").
+ * Rules (mission):
+ *  - lab_verified → LAB (gold)
+ *  - label → LABEL (stone)
+ *  - crowdsourced → COMMUNITY (stone), BUT if db_source==='off' the existing
+ *    "community data" hint already covers it — return null to avoid double-labeling.
+ *  - estimated (data_quality) OR source==='ai_estimate'/'llm_cot' → AI ESTIMATE (amber)
+ *  - null / unknown → null (no chip)
+ */
+function getQualityChip(item: ParsedFoodItem): QualityChip | null {
+  const dq = item.data_quality;
+  const isAiEstimate = dq === 'estimated' || item.source === 'ai_estimate' || item.source === 'llm_cot';
+
+  if (isAiEstimate) return { label: 'AI ESTIMATE', color: '#fbbf24' /* amber-400 */ };
+  if (dq === 'lab_verified') return { label: 'LAB', color: 'var(--gold-300, #D4A853)' };
+  if (dq === 'label') return { label: 'LABEL', color: '#a8a29e' /* stone-400 */ };
+  if (dq === 'crowdsourced') {
+    // OFF products already show the "community data" hint — don't double-label.
+    if (item.db_source === 'off') return null;
+    return { label: 'COMMUNITY', color: '#a8a29e' /* stone-400 */ };
+  }
+  return null;
+}
+
+/**
+ * W4 calories_range settle — a one-shot per item mount.
+ * Shows the "≈min–max kcal" range text, then after ~450ms collapses to the
+ * center kcal figure which rolls in via AnimatedValue. Under reduced motion the
+ * center figure is shown immediately (no range flash, no timer). Only rendered
+ * for implicit-portion items when showCalories is on (gated by the caller).
+ */
+function CaloriesRangeSettle({ range, rangeLabel }: { range: NonNullable<ParsedFoodItem['calories_range']>; rangeLabel: string }) {
+  const reduceMotion = useReducedMotion();
+  // Reduced motion: start settled (no range flash, no timer). Otherwise start on
+  // the range text and flip to the center figure after ~450ms.
+  const [settled, setSettled] = useState(!!reduceMotion);
+  const center = Math.round(range.center);
+
+  useEffect(() => {
+    if (reduceMotion) return;
+    const timer = window.setTimeout(() => setSettled(true), 450);
+    return () => window.clearTimeout(timer);
+  }, [reduceMotion]);
+
+  return (
+    <p className="text-stone-500 text-[10px] mt-1">
+      {settled ? (
+        <span>
+          ≈<AnimatedValue value={center} duration={reduceMotion ? 0 : 450} grouped={false} startAt={Math.round(range.min)} /> kcal
+        </span>
+      ) : (
+        rangeLabel
+      )}
+    </p>
+  );
 }
 
 // Check if a meal has imbalanced macros — returns an i18n key (rendered via t()) or null.
@@ -100,6 +170,9 @@ export default function ParsedFoodList({
   const reduceMotion = useReducedMotion();
   const [items, setItems] = useState<ParsedFoodItem[]>(initialItems);
   const [clarifyAnswer, setClarifyAnswer] = useState('');
+  // W4: which row's provenance caption is open (tap-the-ring to explain).
+  // One row open at a time — tapping another ring moves the caption.
+  const [explainIndex, setExplainIndex] = useState<number | null>(null);
 
   // W5: stepper physics — refs mirror state so press-and-hold ticks never read
   // stale closures; only the last stepper-touched row's grams figure rolls.
@@ -173,6 +246,8 @@ export default function ParsedFoodList({
     // Indices shift — drop the rolling-grams marker rather than roll the wrong row.
     touchedRef.current = null;
     setTouchedIndex(null);
+    // W4: same reason — drop the open provenance caption so it can't reattach to the wrong row.
+    setExplainIndex(null);
     setItems(prev => prev.filter((_, i) => i !== index));
   };
 
@@ -251,7 +326,21 @@ export default function ParsedFoodList({
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
-                    <ConfidenceDot confidence={item.confidence} />
+                    {/* W4: confidence ring draws 0→confidence once on mount in the
+                        tier color; tapping it toggles the plain-language caption. */}
+                    {(() => {
+                      const tier = resolveTier(item.data_quality, item.confidence);
+                      const isOpen = explainIndex === index;
+                      return (
+                        <ProvenanceRing
+                          confidence={item.confidence}
+                          tier={tier}
+                          onClick={() => setExplainIndex(isOpen ? null : index)}
+                          expanded={isOpen}
+                          ariaLabel="Show where this data came from"
+                        />
+                      );
+                    })()}
                     <p className="text-stone-100 text-sm font-medium truncate">
                       {item.name_localized || item.food_name}
                     </p>
@@ -259,21 +348,50 @@ export default function ParsedFoodList({
                   {item.name_localized && item.name_localized !== item.food_name && (
                     <p className="text-stone-500 text-xs mt-0.5">{item.food_name}</p>
                   )}
-                  {/* Branded/community provenance — the "weird branded items" were
-                      OFF products shown with zero labeling. Now the brand is a chip
-                      and community-sourced data is called out. */}
-                  {(item.brand || item.db_source === 'off') && (
-                    <div className="flex items-center gap-1.5 mt-1">
-                      {item.brand && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-stone-800/70 border border-stone-700/50 text-stone-400 truncate max-w-[140px]">
-                          {item.brand}
-                        </span>
-                      )}
-                      {item.db_source === 'off' && (
-                        <span className="text-[10px] text-stone-500">community data</span>
-                      )}
-                    </div>
-                  )}
+                  {/* W4: tap-to-explain — one-line plain-language provenance caption.
+                      i18n keys logged to docs/superpowers/i18n-todo-w4.md. */}
+                  <AnimatePresence initial={false}>
+                    {explainIndex === index && (
+                      <motion.p
+                        key="provenance-caption"
+                        initial={reduceMotion ? { opacity: 1 } : { opacity: 0, y: -2 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -2 }}
+                        transition={{ duration: reduceMotion ? 0 : 0.2 }}
+                        className="text-stone-400 text-[11px] mt-1 leading-snug"
+                      >
+                        {TIER_CAPTION[resolveTier(item.data_quality, item.confidence)]}
+                      </motion.p>
+                    )}
+                  </AnimatePresence>
+                  {/* Branded / data-quality / community provenance chips. The brand
+                      chip + OFF "community data" hint are from a prior wave; the
+                      data_quality micro-chip (LAB / LABEL / COMMUNITY / AI ESTIMATE)
+                      is W4. OFF is never double-labeled (getQualityChip returns null). */}
+                  {(() => {
+                    const chip = getQualityChip(item);
+                    if (!item.brand && item.db_source !== 'off' && !chip) return null;
+                    return (
+                      <div className="flex items-center gap-1.5 mt-1">
+                        {item.brand && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-stone-800/70 border border-stone-700/50 text-stone-400 truncate max-w-[140px]">
+                            {item.brand}
+                          </span>
+                        )}
+                        {chip && (
+                          <span
+                            className="text-[10px] px-1.5 py-0.5 rounded-md bg-stone-800/70 border border-stone-700/50 uppercase tracking-wide"
+                            style={{ color: chip.color, fontFamily: 'var(--font-mono)' }}
+                          >
+                            {chip.label}
+                          </span>
+                        )}
+                        {item.db_source === 'off' && (
+                          <span className="text-[10px] text-stone-500">community data</span>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
                 <button
                   onClick={() => removeItem(index)}
@@ -381,11 +499,14 @@ export default function ParsedFoodList({
                 {(item.sugar_g ?? 0) > 0 && <span className="text-orange-400">S: {item.sugar_g}g</span>}
               </div>
 
-              {/* Estimated-portion spread — only for implicit portions, kcal-gated */}
+              {/* Estimated-portion spread — only for implicit portions, kcal-gated.
+                  W4: on mount shows ≈min–max, then settles to the center kcal
+                  (rolls via AnimatedValue) after ~450ms. */}
               {showCalories && item.portion_explicit === false && item.calories_range && (
-                <p className="text-stone-500 text-[10px] mt-1">
-                  {t('food.range_approx', { min: Math.round(item.calories_range.min), max: Math.round(item.calories_range.max) })}
-                </p>
+                <CaloriesRangeSettle range={item.calories_range} rangeLabel={t('food.range_approx', {
+                  min: Math.round(item.calories_range.min),
+                  max: Math.round(item.calories_range.max),
+                })} />
               )}
 
               {/* Photo-path model uncertainty note */}
