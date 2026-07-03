@@ -1,6 +1,6 @@
 'use client';
 
-import { memo, useMemo } from 'react';
+import { memo, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 
 interface DashboardGreetingProps {
@@ -9,15 +9,19 @@ interface DashboardGreetingProps {
 }
 
 // No emoji \u2014 icons are sprite/Lucide only (design rule); the greeting stands alone.
-function getGreeting(): { text: string } {
+// Time-of-day is applied AFTER mount: the static prerender bakes the build
+// machine's UTC hour, the client sees local time \u2014 rendering it during
+// hydration caused a React #418 text mismatch on every /coach load.
+function getGreeting(): string {
   const hour = new Date().getHours();
-  if (hour < 12) return { text: 'Good morning' };
-  if (hour < 18) return { text: 'Good afternoon' };
-  return { text: 'Good evening' };
+  if (hour < 12) return 'Good morning';
+  if (hour < 18) return 'Good afternoon';
+  return 'Good evening';
 }
 
 export default memo(function DashboardGreeting({ coachName, needsAttention }: DashboardGreetingProps) {
-  const greeting = useMemo(() => getGreeting(), []);
+  const [greeting, setGreeting] = useState('Welcome back');
+  useEffect(() => { setGreeting(getGreeting()); }, []);
 
   return (
     <motion.div
@@ -32,7 +36,7 @@ export default memo(function DashboardGreeting({ coachName, needsAttention }: Da
         transition={{ delay: 0.1, duration: 0.6 }}
         className="text-stone-100 text-xl sm:text-2xl font-bold"
       >
-        {greeting.text}, {coachName}
+        {greeting}, {coachName}
       </motion.h1>
 
       <motion.p
