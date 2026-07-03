@@ -543,11 +543,14 @@ export default function CoachDashboard() {
         setWeeklyActivity(dayCounts);
       }
 
-      // Fetch available habits for batch assign
+      // Fetch available habits for batch assign.
+      // NB: habits has no is_active column (that filter 400'd silently for
+      // months) — template habits are flagged is_template.
       const { data: habitsForAssign } = await supabase
         .from('habits')
         .select('id, name_en, emoji')
-        .eq('is_active', true)
+        .eq('is_template', true)
+        .order('suggested_order', { ascending: true })
         .limit(50);
       if (habitsForAssign) {
         setAvailableHabits(habitsForAssign.map((h: { id: string; name_en: string; emoji: string }) => ({
@@ -707,14 +710,20 @@ export default function CoachDashboard() {
   const atRisk = clients.filter((c) => c.status !== 'green').length;
 
   // ═══ Weekly Summary calculations ═══
+  // weekLabel renders in the prerendered HTML, so it must be computed
+  // client-side only: the static build bakes in the BUILD date (UTC), the
+  // client recomputes with today's local date → hydration text mismatch
+  // (React #418, was firing on every /coach load).
+  const [weekLabel, setWeekLabel] = useState('');
+  useEffect(() => {
+    const ws = new Date();
+    ws.setDate(ws.getDate() - ws.getDay() + 1); // Monday
+    ws.setHours(0, 0, 0, 0);
+    const we = new Date(ws);
+    we.setDate(we.getDate() + 6); // Sunday
+    setWeekLabel(`${ws.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${we.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`);
+  }, []);
   const now = new Date();
-  const weekStart = new Date(now);
-  weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1); // Monday
-  weekStart.setHours(0, 0, 0, 0);
-  const weekEnd = new Date(weekStart);
-  weekEnd.setDate(weekEnd.getDate() + 6); // Sunday
-
-  const weekLabel = `${weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
 
   // Total check-ins this week (clients who checked in today = green status)
   const totalCheckins = clients.filter((c) => c.daysSinceCheckin <= 6).length;
