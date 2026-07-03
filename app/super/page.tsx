@@ -60,6 +60,10 @@ const NAV_LINKS: Array<[string, string]> = [
   ['/admin/orgs', 'Orgs admin'],
 ];
 
+const ROLE_PLURALS: Record<string, string> = {
+  client: 'clients', coach: 'coaches', admin: 'admins', super_admin: 'super admins',
+};
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function SuperCommandCenter() {
@@ -204,7 +208,7 @@ function OverviewSection({ data }: { data: Overview | null }) {
               {data.people.map((p) => (
                 <div key={p.role} style={{ flex: 1, minWidth: 84, textAlign: 'center', padding: '10px 6px', borderRadius: 10, background: 'rgba(255,255,255,.03)', border: '1px solid var(--line)' }}>
                   <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--t1)', fontFamily: MONO }}>{p.n}</div>
-                  <div className="ds-sub" style={{ fontSize: 9, textTransform: 'uppercase' }}>{p.role.replace('_', ' ')}s</div>
+                  <div className="ds-sub" style={{ fontSize: 9, textTransform: 'uppercase' }}>{ROLE_PLURALS[p.role] ?? p.role}</div>
                 </div>
               ))}
             </div>

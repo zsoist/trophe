@@ -64,6 +64,9 @@ export default function CostsPanel() {
   const cacheRate = (t.tokens_in ?? 0) > 0 ? ((t.cache_read ?? 0) / (t.tokens_in! + (t.cache_read ?? 0))) * 100 : 0;
   const failRate = (t.runs ?? 0) > 0 ? ((t.failed ?? 0) / t.runs!) * 100 : 0;
   const maxBreakdownCost = Math.max(...(data?.breakdown ?? []).map((b) => b.cost), 0.0001);
+  // First load: show honest loading placeholders, not misleading zero-spend KPIs.
+  // (The 7d aggregate over agent_runs can take a second or two.)
+  const emptyLabel = data ? 'no runs in window' : 'loading…';
 
   return (
     <div>
@@ -79,24 +82,24 @@ export default function CostsPanel() {
 
       {/* KPI strip */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 8, marginBottom: 12 }}>
-        <Kpi label={`Spend · ${win}`} value={fmtUsd(t.cost)} accent sub={`${fmtNum(t.runs)} runs`} />
-        <Kpi label="Tokens in / out" value={`${fmtNum(t.tokens_in)} / ${fmtNum(t.tokens_out)}`} />
-        <Kpi label="Cache hit" value={`${cacheRate.toFixed(1)}%`} sub={`${fmtNum(t.cache_read)} cached tok`} />
-        <Kpi label="Failure rate" value={`${failRate.toFixed(1)}%`} warn={failRate > 5} sub={`${t.failed ?? 0} failed · ${t.fallbacks ?? 0} fallbacks`} />
-        <Kpi label="Latency p50 / p95 / p99" value={`${fmtMs(t.p50)} / ${fmtMs(t.p95)} / ${fmtMs(t.p99)}`} />
-        <Kpi label="Cost per run" value={fmtUsd((t.runs ?? 0) > 0 ? (t.cost ?? 0) / t.runs! : 0, 4)} />
+        <Kpi label={`Spend · ${win}`} value={data ? fmtUsd(t.cost) : '…'} accent sub={data ? `${fmtNum(t.runs)} runs` : undefined} />
+        <Kpi label="Tokens in / out" value={data ? `${fmtNum(t.tokens_in)} / ${fmtNum(t.tokens_out)}` : '…'} />
+        <Kpi label="Cache hit" value={data ? `${cacheRate.toFixed(1)}%` : '…'} sub={data ? `${fmtNum(t.cache_read)} cached tok` : undefined} />
+        <Kpi label="Failure rate" value={data ? `${failRate.toFixed(1)}%` : '…'} warn={failRate > 5} sub={data ? `${t.failed ?? 0} failed · ${t.fallbacks ?? 0} fallbacks` : undefined} />
+        <Kpi label="Latency p50 / p95 / p99" value={data ? `${fmtMs(t.p50)} / ${fmtMs(t.p95)} / ${fmtMs(t.p99)}` : '…'} />
+        <Kpi label="Cost per run" value={data ? fmtUsd((t.runs ?? 0) > 0 ? (t.cost ?? 0) / t.runs! : 0, 4) : '…'} />
       </div>
 
       {/* Daily spend chart */}
       <Panel title={`DAILY SPEND · ${win}`} meta={<span className="ds-sub" style={{ fontSize: 9, fontFamily: MONO }}>{data?.daily.length ?? 0} days</span>}>
         {data && data.daily.length > 0
           ? <ColumnChart points={data.daily.map((d) => ({ label: d.day, value: d.cost }))} format={(v) => fmtUsd(v, 3)} />
-          : <Empty label="no runs in window" />}
+          : <Empty label={emptyLabel} />}
       </Panel>
 
       {/* Breakdown */}
       <Panel title={`SPEND BY ${groupBy.toUpperCase()}`}>
-        {(data?.breakdown ?? []).length === 0 ? <Empty label="no data" /> : (
+        {(data?.breakdown ?? []).length === 0 ? <Empty label={data ? 'no data' : 'loading…'} /> : (
           <div>
             {(data?.breakdown ?? []).map((b) => (
               <HBar
@@ -114,7 +117,7 @@ export default function CostsPanel() {
 
       {/* Most expensive runs */}
       <Panel title="MOST EXPENSIVE RUNS">
-        {(data?.topRuns ?? []).length === 0 ? <Empty label="no runs" /> : (
+        {(data?.topRuns ?? []).length === 0 ? <Empty label={data ? 'no runs' : 'loading…'} /> : (
           <TableWrap maxHeight={320}>
             <thead>
               <tr>
