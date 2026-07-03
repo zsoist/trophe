@@ -72,13 +72,18 @@ async function accessToken() {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (serviceRoleKey && supabaseUrl && anonKey) {
     try {
-      // Find the eval test user
-      const listRes = await fetch(`${supabaseUrl}/auth/v1/admin/users?per_page=1`, {
+      // Find the eval test user. MUST be the rate-limit-allowlisted eval account
+      // (lib/security/api-guard.ts EVAL_BYPASS): `users[0]` once silently became a
+      // non-allowlisted user when signup order changed → the run hit the 60-req
+      // wall and scored 0 across the board (2026-07-03 incident).
+      const listRes = await fetch(`${supabaseUrl}/auth/v1/admin/users?per_page=50`, {
         headers: { apikey: serviceRoleKey, authorization: `Bearer ${serviceRoleKey}` },
       });
       if (listRes.ok) {
         const data = await listRes.json() as { users?: Array<{ email?: string }> };
-        const evalEmail = data.users?.[0]?.email;
+        const evalEmail = process.env.EVAL_AUTH_EMAIL
+          ?? data.users?.find(u => u.email?.startsWith('eval-tester'))?.email
+          ?? data.users?.[0]?.email;
         if (evalEmail) {
           // Generate a magic link + OTP via admin API
           const linkRes = await fetch(`${supabaseUrl}/auth/v1/admin/generate_link`, {
