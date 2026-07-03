@@ -42,6 +42,22 @@ mission (user, 2026-07-03) — sequence still executes in order with verificatio
 7. Post-ship: corrections table should start accumulating — verify ≥1 row after first
    real edit; add a weekly count to the ops checklist.
 
+### A/B VERDICT (executed 2026-07-03)
+Three single runs: pre 77.0% (MAPE 12.1/15.0/16.8/17.6) · all-levers 76.7%
+(13.2/16.4/18.5/20.0) · levers-minus-L5 76.6% (13.2/16.1/17.6/19.4). All within the
+±1.5–2pp DeepSeek drift band — **no lever produced a NET aggregate change resolvable
+by single runs** (house rule stands: only median-of-3 comparisons are decisions-grade).
+- **L1 verified live** (it/de/nl/pt parse 200 w/ items — probe evidence) but parse≠pass:
+  those cuisines lack DB coverage (NEVO not ingested; gap seeds pending) so recovered
+  parses land on LLM estimates. L1's pass-rate payoff arrives WITH coverage (levers 6+9).
+- **L5 (RAG anchor gate): FOOD_RAG_GATE_DISABLED=1 left SET in prod** (legacy behavior).
+  Isolation showed no measurable benefit and no measurable harm; the catastrophic-anchor
+  class it targets is real but rare. Revisit with a targeted-id median-of-3 A/B inside
+  the accuracy program, not full-set single runs.
+- The pass-rate unlock remains **Michael's canonical table (levers 3+4) + coverage (6+9)**
+  — exactly as the forensics ranked. Prediction miss logged: +2.5–4pp assumed language
+  parses convert to passes without coverage; they don't.
+
 ## Data step A — duplicate merge (identical/near-identical rows; prod-confirmed 2026-07-03)
 Reviewable, run in a transaction; re-points ALL FKs then deletes the losers.
 Clusters (keep the hhf row where one exists; kcal identical or ≤2% apart):
