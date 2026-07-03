@@ -6,10 +6,10 @@
  * correction-flywheel counter + external oversight links.
  */
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Panel, Kpi, StatusChip, RoleChip, TableWrap, Th, Td, Empty,
-  fmtNum, timeAgo, MONO,
+  fmtNum, timeAgo, MONO, GOLD,
 } from './ui';
 
 interface AuditData {
@@ -29,13 +29,51 @@ const EXTERNAL_LINKS: Array<[string, string]> = [
 export default function AuditPanel() {
   const [data, setData] = useState<AuditData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [dryRunReport, setDryRunReport] = useState<{ id: string; text: string } | null>(null);
 
-  useEffect(() => {
-    fetch('/api/super/audit')
+  const load = useCallback(() => {
+    return fetch('/api/super/audit')
       .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
       .then(setData)
       .finally(() => setLoading(false));
   }, []);
+  useEffect(() => { load(); }, [load]);
+
+  // GDPR fulfilment actions (WP5) — POST /api/super/data-requests
+  const act = useCallback(async (requestId: string, action: string, reason?: string) => {
+    setBusy(requestId);
+    try {
+      const res = await fetch('/api/super/data-requests', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ requestId, action, reason }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (action === 'erasure_dry_run' && body.result) {
+        const lines = Object.entries(body.result.counts as Record<string, number>)
+          .map(([k, v]) => `${k}: ${v}`);
+        const errs = (body.result.errors as string[]).map((e) => `ERROR ${e}`);
+        setDryRunReport({ id: requestId, text: [...lines, ...errs].join('\n') || 'nothing to erase' });
+      } else if (!res.ok) {
+        setDryRunReport({ id: requestId, text: `FAILED (${res.status}): ${body.error ?? JSON.stringify(body.result?.errors ?? body)}` });
+      } else {
+        setDryRunReport(null);
+      }
+      await load();
+    } finally {
+      setBusy(null);
+    }
+  }, [load]);
+
+  const confirmErase = useCallback((requestId: string, userName: string | null) => {
+    const expected = 'ERASE';
+    const typed = window.prompt(
+      `IRREVERSIBLE: this deletes ALL data + the account for ${userName ?? 'this user'}.\n` +
+      `Run the dry-run first. Type ${expected} to proceed.`
+    );
+    if (typed === expected) act(requestId, 'execute_erasure');
+  }, [act]);
 
   const pendingRequests = (data?.dataRequests ?? []).filter((d) => d.status === 'pending' || d.status === 'in_progress');
 
@@ -78,20 +116,59 @@ export default function AuditPanel() {
             {loading ? <Empty label="loading…" /> : (data?.dataRequests ?? []).length === 0 ? (
               <Empty label="no data requests — queue is clear" />
             ) : (
-              <TableWrap maxHeight={220}>
-                <thead><tr><Th>User</Th><Th>Type</Th><Th>Status</Th><Th right>Requested</Th><Th right>Due</Th></tr></thead>
+              <TableWrap maxHeight={280}>
+                <thead><tr><Th>User</Th><Th>Type</Th><Th>Status</Th><Th right>Requested</Th><Th right>Due</Th><Th>Fulfil</Th></tr></thead>
                 <tbody>
-                  {(data?.dataRequests ?? []).map((d) => (
-                    <tr key={d.id}>
-                      <Td>{d.user_name ?? '—'}</Td>
-                      <Td mono>{d.request_type}</Td>
-                      <Td><StatusChip status={d.status} /></Td>
-                      <Td right mono dim>{timeAgo(d.requested_at)}</Td>
-                      <Td right mono dim>{d.due_at ? new Date(d.due_at).toLocaleDateString() : '—'}</Td>
-                    </tr>
-                  ))}
+                  {(data?.dataRequests ?? []).map((d) => {
+                    const open = d.status === 'pending' || d.status === 'in_progress';
+                    const btn = (label: string, onClick: () => void, danger?: boolean) => (
+                      <button
+                        key={label}
+                        disabled={busy === d.id}
+                        onClick={onClick}
+                        style={{
+                          padding: '2px 7px', borderRadius: 6, fontSize: 9, fontFamily: MONO, fontWeight: 700,
+                          cursor: busy === d.id ? 'wait' : 'pointer', marginRight: 4,
+                          background: danger ? 'rgba(239,68,68,.1)' : 'rgba(255,255,255,.04)',
+                          border: `1px solid ${danger ? 'rgba(239,68,68,.3)' : 'var(--line)'}`,
+                          color: danger ? '#FCA5A5' : GOLD,
+                        }}
+                      >
+                        {label}
+                      </button>
+                    );
+                    return (
+                      <tr key={d.id}>
+                        <Td>{d.user_name ?? '—'}</Td>
+                        <Td mono>{d.request_type}</Td>
+                        <Td><StatusChip status={d.status} /></Td>
+                        <Td right mono dim>{timeAgo(d.requested_at)}</Td>
+                        <Td right mono dim>{d.due_at ? new Date(d.due_at).toLocaleDateString() : '—'}</Td>
+                        <Td style={{ maxWidth: 'none' }}>
+                          {open && d.status === 'pending' && btn('start', () => act(d.id, 'start'))}
+                          {open && d.request_type === 'deletion' && btn('dry-run', () => act(d.id, 'erasure_dry_run'))}
+                          {open && d.request_type === 'deletion' && btn('erase', () => confirmErase(d.id, d.user_name), true)}
+                          {open && d.request_type !== 'deletion' && btn('complete', () => act(d.id, 'complete'))}
+                          {open && btn('reject', () => {
+                            const reason = window.prompt('Rejection reason (recorded in the audit log):');
+                            if (reason) act(d.id, 'reject', reason);
+                          })}
+                          {!open && <span className="ds-sub" style={{ fontSize: 9, fontFamily: MONO }}>closed</span>}
+                        </Td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </TableWrap>
+            )}
+            {dryRunReport && (
+              <div style={{ marginTop: 8, padding: '8px 10px', borderRadius: 10, background: 'rgba(212,168,83,.05)', border: '1px solid rgba(212,168,83,.2)' }}>
+                <div className="row-b" style={{ marginBottom: 4 }}>
+                  <span className="eye" style={{ fontSize: 9 }}>ERASURE REPORT</span>
+                  <button onClick={() => setDryRunReport(null)} style={{ background: 'none', border: 'none', color: 'var(--t3)', fontSize: 10, cursor: 'pointer', fontFamily: MONO }}>×</button>
+                </div>
+                <pre style={{ fontSize: 10, fontFamily: MONO, color: 'var(--t2)', whiteSpace: 'pre-wrap', margin: 0 }}>{dryRunReport.text}</pre>
+              </div>
             )}
           </Panel>
 
