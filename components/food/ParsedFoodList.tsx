@@ -68,16 +68,17 @@ function recalcMacros(item: ParsedFoodItem, newGrams: number): ParsedFoodItem {
 // inline (lib/i18n.tsx is owned by a follow-up pass — keys logged to
 // docs/superpowers/i18n-todo-w4.md). Calm styling only — no red, no shake.
 
-/** One-line plain-language caption shown when the ring is tapped. */
-const TIER_CAPTION: Record<ProvenanceTier, string> = {
-  lab_verified: 'Matched lab-verified data',
-  label:        'Matched a nutrition label',
-  crowdsourced: 'Community-sourced — adjust if needed',
-  estimated:    'Estimated from your description — adjust if needed',
+/** i18n key for the one-line plain-language caption shown when the ring is tapped. */
+const TIER_CAPTION_KEY: Record<ProvenanceTier, string> = {
+  lab_verified: 'food.prov_caption_lab',
+  label:        'food.prov_caption_label',
+  crowdsourced: 'food.prov_caption_crowdsourced',
+  estimated:    'food.prov_caption_estimated',
 };
 
 interface QualityChip {
-  label: string;
+  /** i18n key for the chip label — resolved with t() at the render site. */
+  labelKey: string;
   /** Inline style so we can use the gold token / calm amber without new classes. */
   color: string;
 }
@@ -96,13 +97,13 @@ function getQualityChip(item: ParsedFoodItem): QualityChip | null {
   const dq = item.data_quality;
   const isAiEstimate = dq === 'estimated' || item.source === 'ai_estimate' || item.source === 'llm_cot';
 
-  if (isAiEstimate) return { label: 'AI ESTIMATE', color: '#fbbf24' /* amber-400 */ };
-  if (dq === 'lab_verified') return { label: 'LAB', color: 'var(--gold-300, #D4A853)' };
-  if (dq === 'label') return { label: 'LABEL', color: '#a8a29e' /* stone-400 */ };
+  if (isAiEstimate) return { labelKey: 'food.prov_chip_ai_estimate', color: '#fbbf24' /* amber-400 */ };
+  if (dq === 'lab_verified') return { labelKey: 'food.prov_chip_lab', color: 'var(--gold-300, #D4A853)' };
+  if (dq === 'label') return { labelKey: 'food.prov_chip_label', color: '#a8a29e' /* stone-400 */ };
   if (dq === 'crowdsourced') {
     // OFF products already show the "community data" hint — don't double-label.
     if (item.db_source === 'off') return null;
-    return { label: 'COMMUNITY', color: '#a8a29e' /* stone-400 */ };
+    return { labelKey: 'food.prov_chip_community', color: '#a8a29e' /* stone-400 */ };
   }
   return null;
 }
@@ -337,7 +338,7 @@ export default function ParsedFoodList({
                           tier={tier}
                           onClick={() => setExplainIndex(isOpen ? null : index)}
                           expanded={isOpen}
-                          ariaLabel="Show where this data came from"
+                          ariaLabel={t('food.prov_ring_aria')}
                         />
                       );
                     })()}
@@ -360,7 +361,7 @@ export default function ParsedFoodList({
                         transition={{ duration: reduceMotion ? 0 : 0.2 }}
                         className="text-stone-400 text-[11px] mt-1 leading-snug"
                       >
-                        {TIER_CAPTION[resolveTier(item.data_quality, item.confidence)]}
+                        {t(TIER_CAPTION_KEY[resolveTier(item.data_quality, item.confidence)])}
                       </motion.p>
                     )}
                   </AnimatePresence>
@@ -383,7 +384,7 @@ export default function ParsedFoodList({
                             className="text-[10px] px-1.5 py-0.5 rounded-md bg-stone-800/70 border border-stone-700/50 uppercase tracking-wide"
                             style={{ color: chip.color, fontFamily: 'var(--font-mono)' }}
                           >
-                            {chip.label}
+                            {t(chip.labelKey)}
                           </span>
                         )}
                         {item.db_source === 'off' && (

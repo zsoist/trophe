@@ -628,6 +628,17 @@ const translations: Record<string, Record<CoreLanguage, string>> = {
   'progress.log_weight_cta':  { en: 'Log a weight now', es: 'Registra un peso ahora', el: 'Κατέγραψε βάρος τώρα' },
   'progress.need_two_weights': { en: 'Log at least 2 weights to see a trend', es: 'Registra al menos 2 pesos para ver la tendencia', el: 'Κατάγραψε τουλάχιστον 2 μετρήσεις βάρους για να δεις την τάση' },
 
+  // ── W4 provenance passport (parse-review data-quality) ──
+  'food.prov_caption_lab':         { en: 'Matched lab-verified data', es: 'Coincide con datos verificados en laboratorio', el: 'Ταιριάζει με εργαστηριακά επιβεβαιωμένα δεδομένα' },
+  'food.prov_caption_label':       { en: 'Matched a nutrition label', es: 'Coincide con una etiqueta nutricional', el: 'Ταιριάζει με ετικέτα διατροφής' },
+  'food.prov_caption_crowdsourced':{ en: 'Community-sourced — adjust if needed', es: 'De la comunidad — ajusta si es necesario', el: 'Από την κοινότητα — προσάρμοσε αν χρειάζεται' },
+  'food.prov_caption_estimated':   { en: 'Estimated from your description — adjust if needed', es: 'Estimado a partir de tu descripción — ajusta si es necesario', el: 'Εκτίμηση από την περιγραφή σου — προσάρμοσε αν χρειάζεται' },
+  'food.prov_chip_lab':            { en: 'LAB', es: 'LAB', el: 'ΕΡΓ' },
+  'food.prov_chip_label':          { en: 'LABEL', es: 'ETIQUETA', el: 'ΕΤΙΚΕΤΑ' },
+  'food.prov_chip_community':      { en: 'COMMUNITY', es: 'COMUNIDAD', el: 'ΚΟΙΝΟΤΗΤΑ' },
+  'food.prov_chip_ai_estimate':    { en: 'AI ESTIMATE', es: 'ESTIMACIÓN IA', el: 'ΕΚΤΙΜΗΣΗ AI' },
+  'food.prov_ring_aria':           { en: 'Show where this data came from', es: 'Ver de dónde vienen estos datos', el: 'Δες από πού προέρχονται τα δεδομένα' },
+
   // ── ConfirmSheet (shared confirmation bottom sheet) ──
   'confirm.confirm': { en: 'Confirm', es: 'Confirmar', el: 'Επιβεβαίωση' },
   'confirm.cancel':  { en: 'Cancel', es: 'Cancelar', el: 'Άκυρο' },
