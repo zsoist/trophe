@@ -4,8 +4,19 @@
  * food-input-10 forensics: "1 Danone Nature" resolved to 100g instead of the
  * actual 125g cup, etc.).
  *
- * Source: OFF search-a-licious (same source as the original off-greece.ts
- * harvest) — fields code + serving_quantity. Guarded 10–1000g.
+ * ⚠️ RATE-LIMIT WARNING (learned 2026-07-03): search-a-licious does NOT expose
+ * serving_quantity (0/6,177 hits carried it — verified), so this falls back to
+ * the v2 PER-BARCODE product API. That API is capped near ~10 req/MIN; hammering
+ * it at ~10 req/sec (3 workers × 300ms) gets IP-throttled to a crawl and never
+ * finishes for 3,578 rows (aborted a live run 2026-07-03). DO NOT bulk-fetch
+ * against the live API.
+ *   Correct path for a real backfill: download the OFF bulk export
+ *   (static.openfoodfacts.org → Greece products CSV / full JSONL) which carries
+ *   serving_size + serving_quantity per product, join locally by barcode, and
+ *   apply via reviewed SQL. This script's --fetch-only stays a small-N (≤~50)
+ *   verification tool, NOT a mass fetcher. Lever 7 remains DEFERRED (task #71).
+ *
+ * Source: OFF v2 product API — field serving_quantity. Guarded 10–1000g.
  *
  * Writes (service-role Supabase client; RLS-bypassing ops script):
  *   foods.default_serving_grams = serving_quantity

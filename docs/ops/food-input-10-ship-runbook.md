@@ -12,12 +12,15 @@ Post-mission coverage levers, tracked here so the ship state is auditable:
   + 8 aliases + 21 unit conversions; **existing wrong `gr-freddo` row basis-fixed**
   (15→4.5 kcal/100ml — was ~2× high). Provenance in `docs/superpowers/greek-gap-foods-research.json`
   (11/12 sourced; tzatziki deferred to Michael — retail label conflicts BOTH benchmark windows).
-- **Lever 7 — OFF GR serving backfill: TOOL BUILT, apply pending.**
-  `scripts/ingest/off-gr-serving-backfill.ts` — `--fetch-only` writes `data/off-gr-servings.json`
-  (v2 per-barcode API; search-a-licious does NOT carry serving_quantity, verified). Apply the
-  resulting {barcode→grams} map via reviewed MCP SQL (UPDATE foods.default_serving_grams +
-  a `food_unit_conversions('serving', grams_per_unit)` row where absent). Marginal (3–6 cases);
-  network-flaky fetch — not a PR blocker.
+- **Lever 7 — OFF GR serving backfill: DEFERRED (approach corrected 2026-07-03).**
+  `scripts/ingest/off-gr-serving-backfill.ts` exists, but the per-barcode fetch path is a
+  dead end for bulk: search-a-licious carries NO serving_quantity (0/6,177 verified), and the
+  v2 product API caps near ~10 req/MIN — a 3,578-row live fetch gets IP-throttled and never
+  finishes (aborted a run). **Correct path**: download the OFF bulk export
+  (static.openfoodfacts.org → Greece products CSV / full JSONL, which carries serving_size +
+  serving_quantity), join locally by barcode, apply via reviewed MCP SQL (UPDATE
+  foods.default_serving_grams + `food_unit_conversions('serving', grams_per_unit)` where absent).
+  Marginal impact (3–6 benchmark cases) — low priority; do it alongside the NEVO bulk ingest.
 - **Lever 9 — NEVO ingest: BLOCKED on operator.** `data/nevo_2023.csv` needs the RIVM license
   form (rivm.nl/en/dutch-food-composition-database/nevo-online-request-dataset), then
   `npx tsx scripts/ingest/nevo.ts`. Converts L1's recovered `nl` parses into passes.
