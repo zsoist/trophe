@@ -6,7 +6,12 @@ import { motion } from 'framer-motion';
 interface ConsistencyScoreProps {
   daysLogged: number;
   totalDays: number;
-  avgMealScore: number;
+  /**
+   * Optional 0-100 meal-quality score. food_log has no real meal score today,
+   * so callers omit it and the score reweights to Logging 57% / Habits 43%
+   * (previously a hardcoded 65 was fed in at 30% weight).
+   */
+  avgMealScore?: number;
   habitAdherence: number;
 }
 
@@ -26,7 +31,10 @@ export default memo(function ConsistencyScore({
   const [animatedScore, setAnimatedScore] = useState(0);
 
   const loggedPct = totalDays > 0 ? (daysLogged / totalDays) * 100 : 0;
-  const score = Math.round(loggedPct * 0.4 + avgMealScore * 0.3 + habitAdherence * 0.3);
+  const hasMealScore = typeof avgMealScore === 'number';
+  const score = hasMealScore
+    ? Math.round(loggedPct * 0.4 + (avgMealScore as number) * 0.3 + habitAdherence * 0.3)
+    : Math.round(loggedPct * 0.57 + habitAdherence * 0.43);
   const clampedScore = Math.min(Math.max(score, 0), 100);
 
   useEffect(() => {
@@ -102,11 +110,13 @@ export default memo(function ConsistencyScore({
       </div>
 
       {/* Breakdown */}
-      <div className="grid grid-cols-3 gap-3 mt-3 w-full">
+      <div className={`grid ${hasMealScore ? 'grid-cols-3' : 'grid-cols-2'} gap-3 mt-3 w-full`}>
         {[
-          { label: 'Logging', value: `${Math.round(loggedPct)}%`, weight: '40%' },
-          { label: 'Meals', value: `${Math.round(avgMealScore)}`, weight: '30%' },
-          { label: 'Habits', value: `${Math.round(habitAdherence)}%`, weight: '30%' },
+          { label: 'Logging', value: `${Math.round(loggedPct)}%`, weight: hasMealScore ? '40%' : '57%' },
+          ...(hasMealScore
+            ? [{ label: 'Meals', value: `${Math.round(avgMealScore as number)}`, weight: '30%' }]
+            : []),
+          { label: 'Habits', value: `${Math.round(habitAdherence)}%`, weight: hasMealScore ? '30%' : '43%' },
         ].map((item) => (
           <div key={item.label} className="text-center">
             <p className="text-stone-200 text-xs font-medium tabular-nums">{item.value}</p>

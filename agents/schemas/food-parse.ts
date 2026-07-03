@@ -23,6 +23,12 @@ export interface ParsedFoodItem {
   portion_explicit?: boolean;
   /** Range-based calorie estimate when portion is implicit */
   calories_range?: MacroRange;
+  /** Matched DB row's brand — branded products render it as a chip in the UI. */
+  brand?: string | null;
+  /** Matched DB row's provenance ('usda' | 'off' | 'ciqual' …). 'off' renders a "community data" hint. */
+  db_source?: string | null;
+  /** Matched DB row's data_quality tier ('lab_verified' | 'label' | 'crowdsourced' | 'estimated'). */
+  data_quality?: string | null;
 }
 
 export interface FoodParseInput {

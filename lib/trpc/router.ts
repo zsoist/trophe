@@ -13,12 +13,14 @@ import { clientsRouter } from './routers/clients';
 import { coachRouter } from './routers/coach';
 import { foodRouter } from './routers/food';
 import { memoryRouter } from './routers/memory';
+import { workoutsRouter } from './routers/workouts';
 
 export const appRouter = router({
   clients: clientsRouter,
   coach: coachRouter,
   food: foodRouter,
   memory: memoryRouter,
+  workouts: workoutsRouter,
 });
 
 /** AppRouter type — import in client.ts and anywhere you need types. */

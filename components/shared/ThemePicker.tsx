@@ -58,7 +58,7 @@ export default function ThemePicker({ onClose }: ThemePickerProps) {
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
         transition={{ type: 'spring', damping: 25 }}
-        className="w-full max-w-md bg-stone-900 rounded-t-2xl p-4"
+        className="w-full max-w-md bg-stone-900 rounded-t-2xl p-4 safe-bottom"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">

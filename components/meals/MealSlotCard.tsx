@@ -8,6 +8,7 @@ import { useI18n } from '@/lib/i18n';
 import { supabase } from '@/lib/supabase';
 import type { FoodLogEntry, MealType } from '@/lib/types';
 import { calculateMealScore, getScoreBgColor } from '@/lib/food/meal-score';
+import { MACRO_COLORS } from '@/lib/macro-colors';
 import QuickFoodInput from '@/components/food/QuickFoodInput';
 
 export interface MealSlot {
@@ -199,9 +200,9 @@ export default function MealSlotCard({
           <div className="flex items-center gap-3">
             <div className="flex gap-2 text-xs">
               <span className="gold-text font-medium">{Math.round(totalCalories)}</span>
-              <span className="text-red-400">P{Math.round(totalProtein)}</span>
-              <span className="text-blue-400">C{Math.round(totalCarbs)}</span>
-              <span className="text-purple-400">F{Math.round(totalFat)}</span>
+              <span style={{ color: MACRO_COLORS.protein }}>P{Math.round(totalProtein)}</span>
+              <span style={{ color: MACRO_COLORS.carbs }}>C{Math.round(totalCarbs)}</span>
+              <span style={{ color: MACRO_COLORS.fat }}>F{Math.round(totalFat)}</span>
             </div>
             <button
               onClick={onUnlock}
@@ -237,9 +238,9 @@ export default function MealSlotCard({
         <div className="flex items-center gap-3">
           <div className="flex gap-2 text-xs">
             <span className="gold-text font-medium">{Math.round(totalCalories)}</span>
-            <span className="text-red-400">P{Math.round(totalProtein)}</span>
-            <span className="text-blue-400">C{Math.round(totalCarbs)}</span>
-            <span className="text-purple-400">F{Math.round(totalFat)}</span>
+            <span style={{ color: MACRO_COLORS.protein }}>P{Math.round(totalProtein)}</span>
+            <span style={{ color: MACRO_COLORS.carbs }}>C{Math.round(totalCarbs)}</span>
+            <span style={{ color: MACRO_COLORS.fat }}>F{Math.round(totalFat)}</span>
           </div>
           {expanded ? <ChevronUp size={14} className="text-stone-500" /> : <ChevronDown size={14} className="text-stone-500" />}
         </div>

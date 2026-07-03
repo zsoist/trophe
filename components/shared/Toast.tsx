@@ -131,7 +131,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={contextValue}>
       {children}
       {/* Toast container - fixed at top center */}
-      <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] flex flex-col gap-2 w-[min(90vw,400px)] pointer-events-none">
+      <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[var(--z-toast,70)] flex flex-col gap-2 w-[min(90vw,400px)] pointer-events-none">
         <AnimatePresence mode="popLayout">
           {toasts.map((t) => (
             <ToastItem key={t.id} toast={t} onDismiss={dismiss} />

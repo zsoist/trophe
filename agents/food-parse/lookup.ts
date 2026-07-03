@@ -139,6 +139,10 @@ async function keywordCandidates(foodName: string): Promise<SelectFood[]> {
     .where(
       sql`(name_en ILIKE ${exactishPattern} OR name_en ILIKE ${singularExactishPattern} OR name_en ILIKE ${pluralExactishPattern} OR name_el ILIKE ${exactishPattern} OR name_es ILIKE ${exactishPattern} OR name_fr ILIKE ${exactishPattern} OR name_it ILIKE ${exactishPattern})`
     )
+    // Deterministic cap: without ORDER BY, WHICH 10 of dozens of matching rows
+    // enter the pool is heap-order roulette ("same query, different weird
+    // result on different days"). Shortest names first = most generic.
+    .orderBy(sql`char_length(coalesce(name_en, name_el, '')) ASC, id ASC`)
     .limit(10);
 
   const mergeUnique = (primary: SelectFood[], secondary: SelectFood[]): SelectFood[] => {
@@ -164,6 +168,7 @@ async function keywordCandidates(foodName: string): Promise<SelectFood[]> {
     .where(
       sql`canonical_food_key IS NOT NULL AND (name_en ILIKE ${canonPattern} OR name_el ILIKE ${canonPattern} OR name_es ILIKE ${canonPattern} OR name_fr ILIKE ${canonPattern} OR name_it ILIKE ${canonPattern})`
     )
+    .orderBy(sql`char_length(coalesce(name_en, name_el, '')) ASC, id ASC`)
     .limit(10);
 
   // ── Alias injection: 114 cross-language aliases (Greek, Spanish, English) ──
@@ -175,6 +180,7 @@ async function keywordCandidates(foodName: string): Promise<SelectFood[]> {
       SELECT DISTINCT fa.food_id
       FROM food_aliases fa
       WHERE to_tsvector('simple', fa.alias) @@ to_tsquery('simple', ${tsQuery})
+      ORDER BY fa.food_id
       LIMIT 10
     `
   );
@@ -196,6 +202,7 @@ async function keywordCandidates(foodName: string): Promise<SelectFood[]> {
       .where(
         sql`(name_en ILIKE ${pattern} OR name_el ILIKE ${pattern} OR name_es ILIKE ${pattern} OR name_fr ILIKE ${pattern} OR name_it ILIKE ${pattern})`
       )
+      .orderBy(sql`char_length(coalesce(name_en, name_el, '')) ASC, id ASC`)
       .limit(KEYWORD_LIMIT);
 
     // Also check aliases via ILIKE for multi-word terms that don't tokenize well
@@ -204,6 +211,7 @@ async function keywordCandidates(foodName: string): Promise<SelectFood[]> {
         SELECT DISTINCT fa.food_id
         FROM food_aliases fa
         WHERE fa.alias ILIKE ${pattern}
+        ORDER BY fa.food_id
         LIMIT 10
       `
     );
@@ -391,6 +399,15 @@ export function lexicalIntentScore(candidate: SelectFood, query: string): number
   if (queryTokens.length <= 2 && /\bwhite\b|\byolk\b|\bsubstitute\b|\bshell\b|\bsolid\b/.test(singularName) && !/\bwhite\b|\byolk\b|\bsubstitute\b|\bshell\b|\bsolid\b/.test(singularQuery)) {
     score -= 3;
   }
+  // Reduced-fat variants are opt-in, not defaults (2026-07-03): a generic
+  // "yogurt"/"γιαούρτι" query resolves to the standard full-fat product unless
+  // the user asked for the diet variant ("2%", "light", "skim"…). −1 only —
+  // just enough to break otherwise-identical score ties (e.g. "Strained
+  // yogurt 2%" vs "Strained yogurt 10%") toward the nutritionist default.
+  const REDUCED_FAT = /\b(?:[012] ?%|[012]|low ?fat|nonfat|fat free|skimmed?|semi ?skimmed|light)\b/;
+  if (queryTokens.length <= 2 && REDUCED_FAT.test(singularName) && !REDUCED_FAT.test(singularQuery)) {
+    score -= 1;
+  }
 
   return score;
 }
@@ -424,6 +441,51 @@ function canonicalRelevanceBoost(food: SelectFood, query: string): number {
   return overlap ? 5 : 0;
 }
 
+/**
+ * Branded/OFF ranking guards (2026-07-02 — the "weird branded items" fix).
+ *
+ *  1. GENERIC queries must not resolve to branded retail SKUs. OFF rows are
+ *     demoted −5 unless the query itself names the brand ("fage", "oreo",
+ *     "monster"). Evidence: "coffee" → "Black Edition Coffee" (a protein
+ *     shake, +104g protein) was 28% of ALL 700-set error mass; "2 Oreo
+ *     cookies" matched "McDONALD'S McFLURRY with OREO".
+ *  2. FOREIGN-MARKET SKUs: 84% of OFF rows are NL/DE supermarket products
+ *     harvested for the overlay locales. When the row's region does not match
+ *     the query region (and the brand isn't named), extra −6 so they never
+ *     outrank curated data in another market. Data stays; ranking gates.
+ *  3. ZERO-MACRO rows (kcal>20 but P=C=F=0 — e.g. old filterless barcode
+ *     cache inserts) are useless for macro coaching: −8 regardless of source.
+ *
+ * One function on purpose: it is the single A/B lever for the branded fix.
+ * Curated sources (usda/ciqual/cofid/bedca/crea/hhf/custom) are untouched by
+ * the OFF-specific penalties.
+ */
+export function brandedOffAdjustment(c: SelectFood, query: string, region: string): number {
+  let adj = 0;
+  const zeroMacros =
+    (c.proteinPer100g ?? 0) === 0 && (c.carbPer100g ?? 0) === 0 && (c.fatPer100g ?? 0) === 0;
+  if (zeroMacros && (c.kcalPer100g ?? 0) > 20) adj -= 8;
+
+  if (c.source !== 'off') return adj;
+
+  const brandNamed = brandTokenInQuery(c.brand, query);
+  if (!brandNamed) {
+    adj -= 5; // generic query → prefer generic (curated) foods over retail SKUs
+    if (!c.region?.includes(region)) adj -= 6; // foreign-market SKU on top of that
+  }
+  return adj;
+}
+
+/** True when any brand token (≥3 chars, accent-insensitive) appears in the query. */
+function brandTokenInQuery(brand: string | null, query: string): boolean {
+  if (!brand) return false;
+  const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  const tokens = norm(brand).split(/[^a-zα-ωά-ώ0-9]+/).filter(t => t.length >= 3);
+  if (tokens.length === 0) return false;
+  const q = norm(query);
+  return tokens.some(t => q.includes(t));
+}
+
 function metadataBoost(candidates: SelectFood[], region: string, query: string): SelectFood[] {
   if (candidates.length <= 1) return candidates;
 
@@ -436,7 +498,8 @@ function metadataBoost(candidates: SelectFood[], region: string, query: string):
       qualityScore(c.dataQuality) +
       (c.region?.includes(region) ? 2 : 0) +
       (c.canonicalFoodKey ? canonicalRelevanceBoost(c, query) : 0) +
-      (c.popularity ?? 0) * 0.01, // popularity is a small tie-breaker
+      (c.popularity ?? 0) * 0.01 + // popularity is a small tie-breaker
+      brandedOffAdjustment(c, query, region),
   }));
 
   scored.sort((a, b) => b.score - a.score);

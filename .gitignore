@@ -59,3 +59,7 @@ playwright-report/
 # CIQUAL data files (large)
 data/ciqual_2025.*
 data/ciqual_batches/
+
+# demo coach roster (local state, not for commit)
+scripts/data/.demo-roster-manifest.json
+scripts/data/.demo-roster-manifest.json.removed

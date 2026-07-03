@@ -18,13 +18,16 @@ import type { CustomFood } from '@/lib/types';
 import { CoachNav } from '@/components/coach/CoachNav';
 import CoachLoadingSkeletons from '@/components/coach/CoachLoadingSkeletons';
 import { BotNav } from '@/components/ui/BotNav';
-import { Icon } from '@/components/ui';
+import { Icon, ConfirmSheet } from '@/components/ui';
+import { useI18n } from '@/lib/i18n';
 
+/* All four tabs point at real routes — matches app/coach/page.tsx
+   (were /coach/clients + /coach/profile 404s) */
 const COACH_NAV = [
-  { href: '/coach',         label: 'Today',   icon: <Icon name="i-grid"    size={18} /> },
-  { href: '/coach/clients', label: 'Clients', icon: <Icon name="i-users"   size={18} /> },
-  { href: '/coach/inbox',   label: 'Inbox',   icon: <Icon name="i-message" size={18} /> },
-  { href: '/coach/profile', label: 'Me',      icon: <Icon name="i-user"    size={18} /> },
+  { href: '/coach',           label: 'Today',    icon: <Icon name="i-grid"     size={18} /> },
+  { href: '/coach/inbox',     label: 'Inbox',    icon: <Icon name="i-message"  size={18} /> },
+  { href: '/coach/calendar',  label: 'Calendar', icon: <Icon name="i-calendar" size={18} /> },
+  { href: '/coach/templates', label: 'Workouts', icon: <Icon name="i-dumbbell" size={18} /> },
 ];
 
 // ═══════════════════════════════════════════════
@@ -61,6 +64,7 @@ const emptyFood = {
 // ═══════════════════════════════════════════════
 
 export default function FoodsPage() {
+  const { t } = useI18n();
   const [foods, setFoods] = useState<CustomFood[]>([]);
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -68,6 +72,8 @@ export default function FoodsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ ...emptyFood });
   const [saving, setSaving] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [search, setSearch] = useState('');
   const [userId, setUserId] = useState<string | null>(null);
 
@@ -173,13 +179,21 @@ export default function FoodsPage() {
     }
   }
 
-  async function deleteFood(id: string) {
-    if (!confirm('Delete this custom food?')) return;
+  function deleteFood(id: string) {
+    setPendingDeleteId(id);
+  }
+
+  async function confirmDeleteFood() {
+    if (!pendingDeleteId) return;
+    setDeleting(true);
     try {
-      await supabase.from('custom_foods').delete().eq('id', id);
-      setFoods(foods.filter((f) => f.id !== id));
+      await supabase.from('custom_foods').delete().eq('id', pendingDeleteId);
+      setFoods((prev) => prev.filter((f) => f.id !== pendingDeleteId));
     } catch (err) {
       console.error('Error deleting food:', err);
+    } finally {
+      setDeleting(false);
+      setPendingDeleteId(null);
     }
   }
 
@@ -407,6 +421,17 @@ export default function FoodsPage() {
         </motion.div>
 
         <BotNav routes={COACH_NAV} />
+
+        <ConfirmSheet
+          open={pendingDeleteId !== null}
+          title={t('confirm.delete_food_title')}
+          message={t('confirm.delete_food_msg')}
+          confirmLabel={t('confirm.delete')}
+          danger
+          loading={deleting}
+          onConfirm={confirmDeleteFood}
+          onCancel={() => setPendingDeleteId(null)}
+        />
 
         {/* ─── Create/Edit Food Modal ─── */}
         {showForm && (

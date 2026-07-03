@@ -14,6 +14,7 @@ import { useThemeMode } from '@/components/shared/ThemeMode';
 import { useI18n } from '@/lib/i18n';
 import { useClientNav } from '@/lib/useClientNav';
 import PrivacyRequests from '@/components/admin/PrivacyRequests';
+import { MACRO_COLORS } from '@/lib/macro-colors';
 
 // Labels are rendered inline with t() in the component
 
@@ -334,20 +335,20 @@ export default function ProfilePage() {
             </div>
             <div className="grid grid-cols-4 gap-2 text-center pt-3 border-t border-white/5">
               <div>
-                <p className="text-red-400 font-bold text-sm">{preview.protein_g}g</p>
-                <p className="text-stone-600 text-[10px]">{t('general.protein')}</p>
+                <p className="font-bold text-sm" style={{ color: MACRO_COLORS.protein }}>{preview.protein_g}g</p>
+                <p className="text-stone-500 text-[10px]">{t('general.protein')}</p>
               </div>
               <div>
-                <p className="text-blue-400 font-bold text-sm">{preview.carbs_g}g</p>
-                <p className="text-stone-600 text-[10px]">{t('general.carbs')}</p>
+                <p className="font-bold text-sm" style={{ color: MACRO_COLORS.carbs }}>{preview.carbs_g}g</p>
+                <p className="text-stone-500 text-[10px]">{t('general.carbs')}</p>
               </div>
               <div>
-                <p className="text-purple-400 font-bold text-sm">{preview.fat_g}g</p>
-                <p className="text-stone-600 text-[10px]">{t('general.fat')}</p>
+                <p className="font-bold text-sm" style={{ color: MACRO_COLORS.fat }}>{preview.fat_g}g</p>
+                <p className="text-stone-500 text-[10px]">{t('general.fat')}</p>
               </div>
               <div>
-                <p className="text-blue-300 font-bold text-sm">{(preview.water_ml / 1000).toFixed(1)}L</p>
-                <p className="text-stone-600 text-[10px]">{t('general.water')}</p>
+                <p className="font-bold text-sm" style={{ color: MACRO_COLORS.water }}>{(preview.water_ml / 1000).toFixed(1)}L</p>
+                <p className="text-stone-500 text-[10px]">{t('general.water')}</p>
               </div>
             </div>
           </motion.div>

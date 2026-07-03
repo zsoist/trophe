@@ -268,16 +268,16 @@ export default function MealBadges({ todayLog, streak, targets }: MealBadgesProp
                       </div>
                     </div>
 
-                    <p style={{ fontSize: 8, color: badge.earned ? 'var(--t2)' : 'var(--t5)', fontWeight: 600, textAlign: 'center', lineHeight: 1.2 }}>
+                    <p style={{ fontSize: 10, color: badge.earned ? 'var(--t2)' : 'var(--t5)', fontWeight: 600, textAlign: 'center', lineHeight: 1.2 }}>
                       {badge.name}
                     </p>
                     {badge.progressLabel && !badge.earned && (
-                      <p style={{ fontSize: 7, color: 'var(--t5)', fontFamily: 'var(--font-mono)' }}>
+                      <p style={{ fontSize: 10, color: 'var(--t5)', fontFamily: 'var(--font-mono)' }}>
                         {badge.progressLabel}
                       </p>
                     )}
                     {badge.earned && (
-                      <span style={{ fontSize: 7, color, fontWeight: 700 }}>+{badge.xp}XP</span>
+                      <span style={{ fontSize: 10, color, fontWeight: 700 }}>+{badge.xp}XP</span>
                     )}
                   </motion.div>
                 );

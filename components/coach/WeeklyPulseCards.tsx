@@ -2,12 +2,13 @@
 
 import { memo, useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Users, TrendingUp, UtensilsCrossed, AlertTriangle } from 'lucide-react';
+import { Users, TrendingUp, ClipboardCheck, AlertTriangle } from 'lucide-react';
 
 interface PulseStats {
   totalClients: number;
   avgCompliance: number;
-  mealsThisWeek: number;
+  /** Habit check-ins this week (from habit_checkins — NOT food logs). */
+  checkinsThisWeek: number;
   needsAttention: number;
 }
 
@@ -76,12 +77,12 @@ const CARDS = [
     explain: 'Average habit-cycle completion across clients with an active habit (current streak ÷ cycle length).',
   },
   {
-    key: 'mealsThisWeek' as const,
-    label: 'Meals Logged',
-    icon: UtensilsCrossed,
+    key: 'checkinsThisWeek' as const,
+    label: 'Check-ins',
+    icon: ClipboardCheck,
     color: '#60a5fa',
     suffix: '',
-    explain: 'Total food-log entries from all your clients in the last 7 days.',
+    explain: 'Total habit check-ins from all your clients this week.',
   },
   {
     key: 'needsAttention' as const,

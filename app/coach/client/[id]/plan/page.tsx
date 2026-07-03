@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
+import { Lock } from 'lucide-react';
 import { Icon } from '@/components/ui';
 import MealSuggestPicker from '@/components/coach/MealSuggestPicker';
 import ShoppingListModal from '@/components/coach/ShoppingListModal';
@@ -428,7 +429,7 @@ export default function PlanEditorPage() {
         style={{ background: 'var(--bg,#0a0a0a)' }}
       >
         <div className="card" style={{ padding: 24, textAlign: 'center', maxWidth: 320 }}>
-          <div style={{ fontSize: 32, marginBottom: 8 }}>🔒</div>
+          <Lock size={28} style={{ color: 'var(--gold-300,#D4A853)', margin: '0 auto 8px', display: 'block' }} aria-hidden />
           <div style={{ fontSize: 14, color: 'var(--t2)', marginBottom: 16 }}>
             Coach access required
           </div>

@@ -2,11 +2,12 @@
 
 import { memo } from 'react';
 import { motion } from 'framer-motion';
+import { Icon, type IconName } from '@/components/ui';
 
 type Severity = 'info' | 'warning' | 'positive';
 
 interface Signal {
-  emoji: string;
+  icon: IconName;
   text: string;
   severity: Severity;
 }
@@ -50,7 +51,7 @@ export default memo(function BehavioralSignals({ signals }: BehavioralSignalsPro
                 borderLeft: `3px solid ${style.border}`,
               }}
             >
-              <span className="text-sm flex-shrink-0 mt-0.5">{signal.emoji}</span>
+              <Icon name={signal.icon} size={14} className="flex-shrink-0 mt-0.5" style={{ color: style.border }} aria-hidden />
               <span className="text-stone-300 text-xs leading-relaxed">
                 {signal.text}
               </span>

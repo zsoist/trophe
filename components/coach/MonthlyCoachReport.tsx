@@ -2,6 +2,8 @@
 
 import { motion } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
+import type { LucideIcon } from 'lucide-react';
+import { Users, BarChart3, TrendingUp, FileText, CheckCircle2, Star, Trophy } from 'lucide-react';
 
 // ═══════════════════════════════════════════════
 // τροφή — Monthly Coach Report (Wave 4)
@@ -14,7 +16,8 @@ interface MonthlyReport {
   avgAdherence: number;
   habitsProgressed: number;
   notesWritten: number;
-  mealsTracked: number;
+  /** Habit check-ins (from habit_checkins — was mislabeled "Meals Tracked"). */
+  checkins: number;
   topImprover: string;
 }
 
@@ -51,15 +54,15 @@ function Counter({ value, suffix = '', delay = 0 }: { value: number; suffix?: st
 const STAT_CONFIG: ReadonlyArray<{
   key: keyof MonthlyReport;
   label: string;
-  icon: string;
+  icon: LucideIcon;
   delay: number;
   suffix?: string;
 }> = [
-  { key: 'clientsManaged', label: 'Clients', icon: '👥', delay: 200 },
-  { key: 'avgAdherence', label: 'Avg Adherence', icon: '📊', delay: 300, suffix: '%' },
-  { key: 'habitsProgressed', label: 'Habits Progressed', icon: '📈', delay: 400 },
-  { key: 'notesWritten', label: 'Notes Written', icon: '📝', delay: 500 },
-  { key: 'mealsTracked', label: 'Meals Tracked', icon: '🍽️', delay: 600 },
+  { key: 'clientsManaged', label: 'Clients', icon: Users, delay: 200 },
+  { key: 'avgAdherence', label: 'Avg Adherence', icon: BarChart3, delay: 300, suffix: '%' },
+  { key: 'habitsProgressed', label: 'Habits Progressed', icon: TrendingUp, delay: 400 },
+  { key: 'notesWritten', label: 'Notes Written', icon: FileText, delay: 500 },
+  { key: 'checkins', label: 'Check-ins', icon: CheckCircle2, delay: 600 },
 ];
 
 export default function MonthlyCoachReport({ report }: MonthlyCoachReportProps) {
@@ -90,7 +93,7 @@ export default function MonthlyCoachReport({ report }: MonthlyCoachReportProps) 
           animate={{ opacity: 1 }}
           transition={{ delay: 0.1 }}
         >
-          <p className="text-[10px] uppercase tracking-[0.25em] text-[#D4A853]/50 mb-1">
+          <p className="text-[10px] uppercase tracking-[0.14em] text-[#D4A853]/60 mb-1">
             Monthly Report
           </p>
           <h3
@@ -119,6 +122,7 @@ export default function MonthlyCoachReport({ report }: MonthlyCoachReportProps) 
         <div className="grid grid-cols-2 gap-3 mb-5">
           {STAT_CONFIG.map((stat) => {
             const value = report[stat.key as keyof MonthlyReport] as number;
+            const StatIcon = stat.icon;
             return (
               <motion.div
                 key={stat.key}
@@ -131,7 +135,7 @@ export default function MonthlyCoachReport({ report }: MonthlyCoachReportProps) 
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: stat.delay / 1000 }}
               >
-                <span className="text-lg mb-1 block">{stat.icon}</span>
+                <StatIcon size={18} className="mb-1.5 mx-auto block" style={{ color: 'var(--gold-300,#D4A853)' }} aria-hidden />
                 <div className="text-xl font-bold text-stone-100">
                   <Counter value={value} suffix={stat.suffix ?? ''} delay={stat.delay} />
                 </div>
@@ -153,7 +157,7 @@ export default function MonthlyCoachReport({ report }: MonthlyCoachReportProps) 
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.7 }}
           >
-            <span className="text-lg mb-1 block">⭐</span>
+            <Star size={18} className="mb-1.5 mx-auto block" style={{ color: 'var(--gold-300,#D4A853)' }} aria-hidden />
             <div className="text-sm font-bold text-[#D4A853] truncate">
               {report.topImprover}
             </div>
@@ -203,7 +207,7 @@ export default function MonthlyCoachReport({ report }: MonthlyCoachReportProps) 
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.9, type: 'spring', stiffness: 200 }}
           >
-            <span className="text-lg">🏅</span>
+            <Trophy size={18} style={{ color: 'var(--gold-300,#D4A853)' }} aria-hidden />
             <span
               className="text-sm font-bold"
               style={{

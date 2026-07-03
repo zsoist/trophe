@@ -73,7 +73,7 @@ export default memo(function ClientComparison({ clientA, clientB }: ClientCompar
       className="bg-white/[0.04] border border-white/[0.06] rounded-xl p-4"
     >
       <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider mb-2 text-center">
-        Macro Targets — Client Comparison
+        7-Day Intake vs Targets
       </h3>
 
       {/* Legend */}

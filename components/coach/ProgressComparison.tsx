@@ -1,7 +1,8 @@
 'use client';
 
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo } from 'react';
 import { motion } from 'framer-motion';
+import { AnimatedValue } from '@/components/ui/AnimatedValue';
 
 interface WeekData {
   avgCalories: number;
@@ -18,39 +19,6 @@ interface ProgressComparisonProps {
   title?: string;
   currentLabel?: string;
   priorLabel?: string;
-}
-
-function AnimatedNumber({
-  value,
-  duration = 900,
-}: {
-  value: number;
-  duration?: number;
-}) {
-  const [display, setDisplay] = useState(0);
-  const prevRef = useRef(0);
-  const frameRef = useRef<number>(0);
-
-  useEffect(() => {
-    const start = prevRef.current;
-    const t0 = performance.now();
-
-    const tick = (now: number) => {
-      const p = Math.min((now - t0) / duration, 1);
-      const eased = 1 - Math.pow(1 - p, 3);
-      setDisplay(start + (value - start) * eased);
-      if (p < 1) {
-        frameRef.current = requestAnimationFrame(tick);
-      } else {
-        prevRef.current = value;
-      }
-    };
-
-    frameRef.current = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frameRef.current);
-  }, [value, duration]);
-
-  return <span className="tabular-nums">{Math.round(display)}</span>;
 }
 
 function DeltaBadge({ current, previous, unit }: { current: number; previous: number; unit: string }) {
@@ -117,11 +85,11 @@ export default memo(function ProgressComparison({
             </div>
             <div className="grid grid-cols-2 gap-x-4 items-center">
               <div className="text-stone-400 text-sm font-medium">
-                <AnimatedNumber value={lastWeek[m.key]} />{m.unit}
+                <AnimatedValue value={lastWeek[m.key]} grouped={false} />{m.unit}
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-stone-100 text-sm font-bold">
-                  <AnimatedNumber value={thisWeek[m.key]} />{m.unit}
+                  <AnimatedValue value={thisWeek[m.key]} grouped={false} />{m.unit}
                 </span>
                 <DeltaBadge
                   current={thisWeek[m.key]}

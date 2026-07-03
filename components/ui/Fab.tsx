@@ -30,7 +30,7 @@ export function Fab({
       type="button"
       aria-label={label}
       className={[
-        'w-10 h-10 rounded-full',
+        'w-11 h-11 rounded-full',
         'flex items-center justify-center',
         'text-[#0a0a0a] text-xl font-light leading-none',
         'fab-shadow',

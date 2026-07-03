@@ -1,6 +1,8 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import type { LucideIcon } from 'lucide-react';
+import { Target, FileText, Flame, Dumbbell, BarChart3, GraduationCap, Trophy, Crown, Star, Gem, Lock } from 'lucide-react';
 
 // ═══════════════════════════════════════════════
 // τροφή — Coach Achievements Badge Grid (Wave 4)
@@ -10,7 +12,7 @@ import { motion } from 'framer-motion';
 interface Achievement {
   id: string;
   name: string;
-  emoji: string;
+  icon: LucideIcon;
   description: string;
   unlocked: boolean;
   unlockedAt?: string;
@@ -21,16 +23,16 @@ interface CoachAchievementsProps {
 }
 
 const DEFAULT_ACHIEVEMENTS: Achievement[] = [
-  { id: 'first-client', name: 'First Client', emoji: '🎯', description: 'Onboard your first client', unlocked: false },
-  { id: '10-notes', name: '10 Notes', emoji: '📝', description: 'Write 10 coaching notes', unlocked: false },
-  { id: '7-day-streak', name: '7-Day Streak', emoji: '🔥', description: 'Log in 7 consecutive days', unlocked: false },
-  { id: 'first-progression', name: 'First Progression', emoji: '💪', description: 'Progress a client habit', unlocked: false },
-  { id: 'all-on-track', name: 'All On Track', emoji: '📊', description: 'All clients compliant in a day', unlocked: false },
-  { id: '5-habits', name: '5 Habits Assigned', emoji: '🎓', description: 'Assign 5 different habits', unlocked: false },
-  { id: '30-day-streak', name: '30-Day Streak', emoji: '🏆', description: 'Log in 30 consecutive days', unlocked: false },
-  { id: '10-clients', name: '10 Clients', emoji: '👑', description: 'Manage 10 active clients', unlocked: false },
-  { id: '100-meals', name: '100 Meals Tracked', emoji: '🌟', description: 'Clients log 100 total meals', unlocked: false },
-  { id: 'perfect-week', name: 'Perfect Week', emoji: '💎', description: 'All clients hit all targets for a week', unlocked: false },
+  { id: 'first-client', name: 'First Client', icon: Target, description: 'Onboard your first client', unlocked: false },
+  { id: '10-notes', name: '10 Notes', icon: FileText, description: 'Write 10 coaching notes', unlocked: false },
+  { id: '7-day-streak', name: '7-Day Streak', icon: Flame, description: 'Log in 7 consecutive days', unlocked: false },
+  { id: 'first-progression', name: 'First Progression', icon: Dumbbell, description: 'Progress a client habit', unlocked: false },
+  { id: 'all-on-track', name: 'All On Track', icon: BarChart3, description: 'All clients compliant in a day', unlocked: false },
+  { id: '5-habits', name: '5 Habits Assigned', icon: GraduationCap, description: 'Assign 5 different habits', unlocked: false },
+  { id: '30-day-streak', name: '30-Day Streak', icon: Trophy, description: 'Log in 30 consecutive days', unlocked: false },
+  { id: '10-clients', name: '10 Clients', icon: Crown, description: 'Manage 10 active clients', unlocked: false },
+  { id: '100-meals', name: '100 Meals Tracked', icon: Star, description: 'Clients log 100 total meals', unlocked: false },
+  { id: 'perfect-week', name: 'Perfect Week', icon: Gem, description: 'All clients hit all targets for a week', unlocked: false },
 ];
 
 export default function CoachAchievements({ achievements }: CoachAchievementsProps) {
@@ -91,18 +93,18 @@ export default function CoachAchievements({ achievements }: CoachAchievementsPro
             {/* Lock overlay for locked badges */}
             {!badge.unlocked && (
               <div className="absolute inset-0 flex items-center justify-center rounded-xl z-10">
-                <span className="text-lg opacity-40">🔒</span>
+                <Lock size={16} className="opacity-40" style={{ color: 'var(--t4,#78716C)' }} aria-hidden />
               </div>
             )}
 
-            {/* Emoji */}
+            {/* Badge icon */}
             <motion.span
-              className="text-2xl mb-1.5"
+              className="mb-1.5 flex items-center justify-center"
               style={{ opacity: badge.unlocked ? 1 : 0.25 }}
               whileHover={badge.unlocked ? { rotate: [0, -10, 10, 0] } : undefined}
               transition={{ duration: 0.4 }}
             >
-              {badge.emoji}
+              <badge.icon size={22} style={{ color: badge.unlocked ? 'var(--gold-300,#D4A853)' : 'var(--t4,#78716C)' }} aria-hidden />
             </motion.span>
 
             {/* Name */}

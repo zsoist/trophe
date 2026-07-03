@@ -1,18 +1,20 @@
 'use client';
 
-import { useCallback, useEffect, useState, useMemo } from 'react';
+import { useCallback, useEffect, useState, useMemo, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   BarChart3,
   Trophy,
   TrendingUp,
   ArrowLeft,
+  ChevronDown,
   Clock,
   Activity,
 } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+import { useI18n } from '@/lib/i18n';
 import { BotNav } from '@/components/ui/BotNav';
 import { Icon } from '@/components/ui';
 import ExerciseComparison from '@/components/progress/ExerciseComparison';
@@ -53,6 +55,55 @@ const muscleLabels: Record<string, string> = {
   full_body: 'Full Body',
   cardio: 'Cardio',
 };
+
+// ─── Glass accordion section (same pattern as the Progress page) ───
+function Section({
+  title,
+  icon,
+  children,
+  defaultOpen = false,
+}: {
+  title: string;
+  icon: ReactNode;
+  children: ReactNode;
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="glass" style={{ overflow: 'hidden' }}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="w-full"
+        style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '14px 16px', cursor: 'pointer', background: 'transparent', border: 'none',
+        }}
+      >
+        <div className="flex items-center gap-2">
+          {icon}
+          <h2 className="text-sm font-semibold text-stone-200">{title}</h2>
+        </div>
+        <motion.span animate={{ rotate: open ? 180 : 0 }} transition={{ duration: 0.2 }} style={{ display: 'flex' }}>
+          <ChevronDown size={14} className="text-stone-500" />
+        </motion.span>
+      </button>
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            key="body"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.22, ease: 'easeInOut' }}
+            style={{ overflow: 'hidden' }}
+          >
+            <div style={{ padding: '0 16px 16px' }}>{children}</div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
 
 function daysSince(dateStr: string): number {
   const now = new Date();
@@ -102,6 +153,7 @@ interface WeeklyVolume {
 // ═══════════════════════════════════════════════
 
 export default function WorkoutStatsPage() {
+  const { t } = useI18n();
   const router = useRouter();
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -402,7 +454,7 @@ export default function WorkoutStatsPage() {
         >
           <div className="flex items-center gap-3 mb-6">
             <Link
-              href="/dashboard"
+              href="/dashboard/workout"
               className="p-2 rounded-xl hover:bg-white/5 text-stone-400 hover:text-stone-200 transition-colors"
             >
               <ArrowLeft size={18} />
@@ -426,50 +478,36 @@ export default function WorkoutStatsPage() {
             <div className="text-center py-20">
               <Activity size={48} className="mx-auto text-stone-700 mb-4" />
               <p className="text-stone-500 mb-2">No workout data yet</p>
-              <Link href="/dashboard" className="text-[#D4A853] text-sm hover:underline">
+              <Link href="/dashboard/workout" className="text-[#D4A853] text-sm hover:underline">
                 Log your first workout
               </Link>
             </div>
           ) : (
-            <div className="space-y-5">
-              {/* ── Weekly Volume by Muscle Group ── */}
-              <motion.div
-                className="glass p-5"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.05 }}
+            <div className="space-y-3">
+              {/* ── Weekly Volume by Muscle Group (only section open by default) ── */}
+              <Section
+                title="Weekly Volume by Muscle"
+                icon={<BarChart3 size={16} className="text-[#D4A853]" />}
+                defaultOpen
               >
-                <div className="flex items-center gap-2 mb-4">
-                  <BarChart3 size={16} className="text-[#D4A853]" />
-                  <h2 className="text-sm font-semibold text-stone-200">Weekly Volume by Muscle</h2>
-                </div>
                 {renderVolumeBars()}
-              </motion.div>
+              </Section>
 
               {/* ── Muscle Frequency ── */}
-              <motion.div
-                className="glass p-5"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 }}
-              >
-                <div className="flex items-center gap-2 mb-4">
-                  <Clock size={16} className="text-[#D4A853]" />
-                  <h2 className="text-sm font-semibold text-stone-200">Muscle Frequency</h2>
-                </div>
+              <Section title="Muscle Frequency" icon={<Clock size={16} className="text-[#D4A853]" />}>
                 <div className="grid grid-cols-2 gap-2">
                   {muscleFrequency.map((mf) => {
                     let statusColor = 'text-red-400';
-                    let statusIcon = '\u26A0\uFE0F';
+                    let dotColor = '#f87171';
                     if (mf.lastTrained === null) {
                       statusColor = 'text-stone-600';
-                      statusIcon = '\u2014';
+                      dotColor = '#57534e';
                     } else if (mf.daysSince <= 3) {
                       statusColor = 'text-green-400';
-                      statusIcon = '\u2705';
+                      dotColor = '#4ade80';
                     } else if (mf.daysSince <= 6) {
                       statusColor = 'text-yellow-400';
-                      statusIcon = '\u23F3';
+                      dotColor = '#facc15';
                     }
 
                     return (
@@ -480,28 +518,21 @@ export default function WorkoutStatsPage() {
                         <span className="text-xs font-medium text-stone-300">
                           {muscleLabels[mf.muscle] || mf.muscle}
                         </span>
-                        <span className={`text-xs ${statusColor}`}>
-                          {mf.lastTrained
-                            ? `${formatRelativeDate(mf.lastTrained)} ${statusIcon}`
-                            : `Never ${statusIcon}`}
+                        <span className={`text-xs flex items-center gap-1.5 ${statusColor}`}>
+                          {mf.lastTrained ? formatRelativeDate(mf.lastTrained) : 'Never'}
+                          <span
+                            aria-hidden
+                            style={{ width: 6, height: 6, borderRadius: 3, background: dotColor, display: 'inline-block', flexShrink: 0 }}
+                          />
                         </span>
                       </div>
                     );
                   })}
                 </div>
-              </motion.div>
+              </Section>
 
               {/* ── Personal Records ── */}
-              <motion.div
-                className="glass p-5"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.15 }}
-              >
-                <div className="flex items-center gap-2 mb-4">
-                  <Trophy size={16} className="text-[#D4A853]" />
-                  <h2 className="text-sm font-semibold text-stone-200">Personal Records</h2>
-                </div>
+              <Section title="Personal Records" icon={<Trophy size={16} className="text-[#D4A853]" />}>
                 {personalRecords.length === 0 ? (
                   <p className="text-stone-600 text-sm text-center py-4">No PRs recorded yet</p>
                 ) : (
@@ -511,7 +542,7 @@ export default function WorkoutStatsPage() {
                         key={i}
                         className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03]"
                       >
-                        <span className="text-lg shrink-0">{'\uD83C\uDFC6'}</span>
+                        <Trophy size={16} className="shrink-0 text-[#D4A853]" />
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-medium text-stone-200 truncate">
                             {pr.exercise_name}
@@ -524,35 +555,16 @@ export default function WorkoutStatsPage() {
                     ))}
                   </div>
                 )}
-              </motion.div>
+              </Section>
 
               {/* ── Weekly Volume Trend ── */}
-              <motion.div
-                className="glass p-5"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-              >
-                <div className="flex items-center gap-2 mb-4">
-                  <TrendingUp size={16} className="text-[#D4A853]" />
-                  <h2 className="text-sm font-semibold text-stone-200">Weekly Volume Trend</h2>
-                  <span className="text-[10px] text-stone-600 ml-auto">Last 8 weeks</span>
-                </div>
+              <Section title="Weekly Volume Trend" icon={<TrendingUp size={16} className="text-[#D4A853]" />}>
+                <div className="text-[10px] text-stone-600 mb-2">Last 8 weeks</div>
                 {renderWeeklyTrendLine()}
-              </motion.div>
+              </Section>
 
               {/* ── Exercise Comparison ── */}
-              <motion.div
-                className="glass p-5"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.25 }}
-              >
-                <div className="flex items-center gap-2 mb-4">
-                  <Activity size={16} className="text-[#D4A853]" />
-                  <h2 className="text-sm font-semibold text-stone-200">Exercise Comparison</h2>
-                </div>
-
+              <Section title="Exercise Comparison" icon={<Activity size={16} className="text-[#D4A853]" />}>
                 <select
                   value={selectedExerciseId || ''}
                   onChange={(e) => setSelectedExerciseId(e.target.value || null)}
@@ -569,15 +581,15 @@ export default function WorkoutStatsPage() {
                 {selectedExerciseId && userId && (
                   <ExerciseComparison exerciseId={selectedExerciseId} userId={userId} />
                 )}
-              </motion.div>
+              </Section>
 
               {/* ── Quick Links ── */}
               <div className="flex gap-3">
                 <Link
-                  href="/dashboard"
+                  href="/dashboard/workout"
                   className="flex-1 glass p-4 text-center text-sm text-stone-400 hover:text-[#D4A853] transition-colors"
                 >
-                  Back to Dashboard
+                  {t('workout.back_to_workout')}
                 </Link>
               </div>
             </div>

@@ -2,11 +2,12 @@
 
 import { memo } from 'react';
 import { motion } from 'framer-motion';
+import { Icon, type IconName } from '@/components/ui';
 
 type SuggestionType = 'concern' | 'progression' | 'check_in';
 
 interface Suggestion {
-  emoji: string;
+  icon: IconName;
   text: string;
   type: SuggestionType;
 }
@@ -62,7 +63,7 @@ export default memo(function SmartNoteSuggestions({
                 border: `1px solid ${style.border}`,
               }}
             >
-              <span className="text-sm">{s.emoji}</span>
+              <Icon name={s.icon} size={13} className="flex-shrink-0" aria-hidden />
               <span>{s.text}</span>
             </motion.button>
           );

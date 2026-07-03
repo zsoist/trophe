@@ -8,6 +8,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Check, X } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { Icon } from '@/components/ui';
 import { BotNav } from '@/components/ui/BotNav';
@@ -306,9 +307,9 @@ export default function CheckinPage() {
             <motion.div
               initial={{ scale: 0 }} animate={{ scale: 1 }}
               transition={{ type: 'spring', stiffness: 260, damping: 16, delay: 0.2 }}
-              style={{ fontSize: 36, marginBottom: 8, display: 'inline-block' }}
+              style={{ marginBottom: 8, display: 'inline-flex' }}
             >
-              ✓
+              <Check size={36} strokeWidth={2.5} style={{ color: 'var(--ok,#65D387)' }} aria-hidden />
             </motion.div>
             <div className="eye" style={{ marginTop: 8, marginBottom: 4 }}>ALREADY LOGGED</div>
             <div className="ds-sub">You checked in earlier today.</div>
@@ -320,7 +321,9 @@ export default function CheckinPage() {
               color: todayCheckin.completed ? 'var(--gold-300,#D4A853)' : 'rgb(239,68,68)',
               fontFamily: 'var(--font-mono)',
             }}>
-              {todayCheckin.completed ? '✓ Completed' : '✗ Skipped'}
+              {todayCheckin.completed
+                ? <><Check size={12} style={{ display: 'inline', verticalAlign: -2 }} aria-hidden /> Completed</>
+                : <><X size={12} style={{ display: 'inline', verticalAlign: -2 }} aria-hidden /> Skipped</>}
               {todayCheckin.mood ? ` · ${todayCheckin.mood}` : ' · no mood'}
             </div>
             {todayCheckin.note && (
@@ -617,9 +620,9 @@ export default function CheckinPage() {
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
                   transition={{ type: 'spring', stiffness: 300, damping: 14 }}
-                  style={{ fontSize: 16 }}
+                  style={{ display: 'inline-flex' }}
                 >
-                  ✓
+                  <Check size={16} strokeWidth={2.5} aria-hidden />
                 </motion.span>
                 Logged!
               </motion.button>

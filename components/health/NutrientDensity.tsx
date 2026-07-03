@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp, Lightbulb } from 'lucide-react';
 import type { FoodLogEntry } from '@/lib/types';
 import { useI18n } from '@/lib/i18n';
 
@@ -46,7 +46,7 @@ function ScoreRing({ score, max = 60 }: { score: number; max?: number }) {
         <span style={{ fontSize: 14, fontWeight: 800, color, lineHeight: 1, fontFamily: 'var(--font-mono)' }}>
           {Math.round(score)}
         </span>
-        <span style={{ fontSize: 7, color: 'var(--t5)', marginTop: 1 }}>score</span>
+        <span style={{ fontSize: 10, color: 'var(--t5)', marginTop: 1 }}>score</span>
       </div>
     </div>
   );
@@ -136,8 +136,9 @@ export default function NutrientDensity({ entries }: NutrientDensityProps) {
               padding: '8px 10px', borderRadius: 10, marginBottom: 10,
               background: gradeBg, border: `1px solid ${gradeBorder}`,
             }}>
-              <p style={{ fontSize: 9.5, color: 'var(--t3)', lineHeight: 1.5 }}>
-                💡 {tip}
+              <p style={{ fontSize: 11, color: 'var(--t3)', lineHeight: 1.5, display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+                <Lightbulb size={12} style={{ color: gradeColor, flexShrink: 0, marginTop: 1 }} aria-hidden />
+                <span>{tip}</span>
               </p>
             </div>
 
@@ -151,7 +152,7 @@ export default function NutrientDensity({ entries }: NutrientDensityProps) {
                     <div className="flex items-center justify-between mb-0.5">
                       <span style={{ fontSize: 9, color: 'var(--t3)', maxWidth: '60%' }} className="truncate">{food.name}</span>
                       <div className="flex items-center gap-2">
-                        <span style={{ fontSize: 8, color: 'var(--t5)', fontFamily: 'var(--font-mono)' }}>
+                        <span style={{ fontSize: 10, color: 'var(--t5)', fontFamily: 'var(--font-mono)' }}>
                           {food.protein}g P · {food.fiber}g F
                         </span>
                         <span style={{ fontSize: 9, fontWeight: 700, color: barColor, fontFamily: 'var(--font-mono)', minWidth: 26, textAlign: 'right' }}>
@@ -174,10 +175,10 @@ export default function NutrientDensity({ entries }: NutrientDensityProps) {
 
             {/* Scale legend */}
             <div className="flex items-center gap-1 mt-3 pt-2" style={{ borderTop: '1px solid rgba(255,255,255,.04)' }}>
-              <span style={{ fontSize: 8, color: 'var(--t5)' }}>{t('density.scale_label')} →</span>
+              <span style={{ fontSize: 10, color: 'var(--t5)' }}>{t('density.scale_label')} →</span>
               {[['< 12', '#E87A6E', 'D'], ['12–22', '#fb923c', 'C'], ['22–35', '#D4A853', 'B'], ['35+', '#65D387', 'A']].map(([range, color, g]) => (
                 <span key={g} style={{
-                  fontSize: 7.5, padding: '1px 5px', borderRadius: 5,
+                  fontSize: 10, padding: '1px 5px', borderRadius: 5,
                   background: `${color}18`, color, border: `1px solid ${color}40`,
                 }}>
                   {g} {range}

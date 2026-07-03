@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useEffect, useState, useCallback } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
   Plus,
@@ -17,8 +17,11 @@ import {
   Dumbbell,
   LayoutTemplate,
   GripVertical,
+  Pencil,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { trpc } from '@/lib/trpc/client';
+import { useI18n } from '@/lib/i18n';
 import { useToast } from '@/components/shared/Toast';
 import type {
   WorkoutTemplate,
@@ -30,15 +33,16 @@ import type {
 } from '@/lib/types';
 import { CoachNav } from '@/components/coach/CoachNav';
 import CoachLoadingSkeletons from '@/components/coach/CoachLoadingSkeletons';
-import WorkoutWeekPlanner from '@/components/coach/WorkoutWeekPlanner';
+import ProgramBuilder, { type BuilderClient } from '@/components/coach/ProgramBuilder';
 import { BotNav } from '@/components/ui/BotNav';
-import { Icon } from '@/components/ui';
+import { Icon, ConfirmSheet } from '@/components/ui';
 
+/* All four tabs point at real routes (were /coach/clients + /coach/profile 404s) */
 const COACH_NAV = [
-  { href: '/coach',         label: 'Today',   icon: <Icon name="i-grid"    size={18} /> },
-  { href: '/coach/clients', label: 'Clients', icon: <Icon name="i-users"   size={18} /> },
-  { href: '/coach/inbox',   label: 'Inbox',   icon: <Icon name="i-message" size={18} /> },
-  { href: '/coach/profile', label: 'Me',      icon: <Icon name="i-user"    size={18} /> },
+  { href: '/coach',           label: 'Today',    icon: <Icon name="i-grid"     size={18} /> },
+  { href: '/coach/inbox',     label: 'Inbox',    icon: <Icon name="i-message"  size={18} /> },
+  { href: '/coach/calendar',  label: 'Calendar', icon: <Icon name="i-calendar" size={18} /> },
+  { href: '/coach/templates', label: 'Workouts', icon: <Icon name="i-dumbbell" size={18} /> },
 ];
 
 // ═══════════════════════════════════════════════
@@ -67,20 +71,39 @@ const muscleLabels: Record<string, string> = {
 // Main Component
 // ═══════════════════════════════════════════════
 
+/**
+ * useSearchParams() requires a Suspense boundary for static prerender —
+ * without it `next build` fails on this route (CSR bailout). The ?client=
+ * deep-link from the client-detail Workouts panel is read inside the inner
+ * component, so the boundary wraps the whole page.
+ */
 export default function TemplatesPage() {
+  return (
+    <Suspense fallback={null}>
+      <TemplatesPageInner />
+    </Suspense>
+  );
+}
+
+function TemplatesPageInner() {
+  const { t } = useI18n();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const toast = useToast();
   const [templates, setTemplates] = useState<WorkoutTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // Exercise search
   const [exerciseLibrary, setExerciseLibrary] = useState<Exercise[]>([]);
   const [exerciseQuery, setExerciseQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Exercise[]>([]);
 
-  // Form state
+  // Form state (create + edit share the same modal)
+  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
   const [formName, setFormName] = useState('');
   const [formDesc, setFormDesc] = useState('');
   const [formDayLabel, setFormDayLabel] = useState('');
@@ -90,10 +113,35 @@ export default function TemplatesPage() {
   const [formShared, setFormShared] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Assign state
-  const [assigningTemplateId, setAssigningTemplateId] = useState<string | null>(null);
-  const [clients, setClients] = useState<(ClientProfile & { profile?: Profile })[]>([]);
-  const [loadingClients, setLoadingClients] = useState(false);
+  // tRPC: template edit (the CRUD gap — create/delete existed, edit didn't)
+  const updateTemplate = trpc.workouts.templates.update.useMutation();
+
+  // Program Builder (real assignment — replaces the fake current_template_id write)
+  const [showBuilder, setShowBuilder] = useState(false);
+  const [builderInitialClient, setBuilderInitialClient] = useState<string | null>(null);
+  const [clients, setClients] = useState<BuilderClient[]>([]);
+
+  const loadClients = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data: clientProfiles } = await supabase
+      .from('client_profiles')
+      .select('user_id')
+      .eq('coach_id', user.id);
+    const userIds = ((clientProfiles ?? []) as Array<Pick<ClientProfile, 'user_id'>>).map((cp) => cp.user_id);
+    if (userIds.length === 0) { setClients([]); return; }
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, full_name, email')
+      .in('id', userIds);
+    setClients(
+      ((profiles ?? []) as Array<Pick<Profile, 'id' | 'full_name' | 'email'>>).map((p) => ({
+        id: p.id,
+        name: p.full_name || p.email || 'Unnamed client',
+        email: p.email,
+      })),
+    );
+  }, []);
 
   useEffect(() => {
     async function checkAuth() {
@@ -104,9 +152,20 @@ export default function TemplatesPage() {
       if (prof?.role === 'client') { router.push('/dashboard'); return; }
       loadTemplates();
       loadExerciseLibrary();
+      loadClients();
     }
     checkAuth();
-  }, [router]);
+  }, [router, loadClients]);
+
+  // ?client=<uuid> deep link (from the client-detail Workouts panel):
+  // preselect that client and open the Program Builder.
+  useEffect(() => {
+    const preselect = searchParams.get('client');
+    if (preselect && !loading) {
+      setBuilderInitialClient(preselect);
+      setShowBuilder(true);
+    }
+  }, [searchParams, loading]);
 
   async function loadTemplates() {
     try {
@@ -137,6 +196,7 @@ export default function TemplatesPage() {
   }
 
   function resetForm() {
+    setEditingTemplateId(null);
     setFormName('');
     setFormDesc('');
     setFormDayLabel('');
@@ -144,6 +204,24 @@ export default function TemplatesPage() {
     setFormTargetMuscles([]);
     setFormExercises([]);
     setFormShared(false);
+  }
+
+  /** Reuse the create modal prefilled with an existing template (Task 4.1). */
+  function openEdit(template: WorkoutTemplate) {
+    setEditingTemplateId(template.id);
+    setFormName(template.name);
+    setFormDesc(template.description || '');
+    setFormDayLabel(template.day_label || '');
+    setFormDifficulty(template.difficulty || 'intermediate');
+    setFormTargetMuscles(template.target_muscles || []);
+    setFormExercises(
+      (template.exercises || []).map((ex) => ({
+        ...ex,
+        _name: exerciseLibrary.find((e) => e.id === ex.exercise_id)?.name,
+      })),
+    );
+    setFormShared(Boolean(template.shared));
+    setShowForm(true);
   }
 
   // ── Exercise search ──
@@ -210,10 +288,10 @@ export default function TemplatesPage() {
     );
   }
 
-  // ── Save ──
+  // ── Save (create via supabase insert, edit via tRPC workouts.templates.update) ──
 
   async function saveTemplate() {
-    if (!formName.trim()) return;
+    if (!formName.trim() || saving) return;
     setSaving(true);
 
     try {
@@ -232,7 +310,55 @@ export default function TemplatesPage() {
           notes: exercise.notes,
         }));
 
-      const { data } = await supabase
+      if (editingTemplateId) {
+        // EDIT — server-side validation + creator-only guard live in the router.
+        if (exercisesForDB.length === 0) {
+          toast.error(t('coach.templates.addExercise'));
+          return;
+        }
+        try {
+          const updated = await updateTemplate.mutateAsync({
+            templateId: editingTemplateId,
+            name: formName.trim(),
+            description: formDesc.trim() || null,
+            dayLabel: formDayLabel.trim() || null,
+            difficulty: formDifficulty as 'beginner' | 'intermediate' | 'advanced',
+            targetMuscles: formTargetMuscles,
+            exercises: exercisesForDB.map((e) => ({
+              exercise_id: e.exercise_id,
+              target_sets: e.target_sets,
+              target_reps: e.target_reps,
+              target_rpe: e.target_rpe ?? undefined,
+              notes: e.notes || undefined,
+            })),
+            shared: formShared,
+          });
+          setTemplates(
+            templates.map((t) =>
+              t.id === editingTemplateId
+                ? {
+                    ...t,
+                    name: updated?.name ?? formName.trim(),
+                    description: updated?.description ?? (formDesc.trim() || null),
+                    day_label: updated?.dayLabel ?? (formDayLabel.trim() || null),
+                    difficulty: (updated?.difficulty ?? formDifficulty) as WorkoutTemplate['difficulty'],
+                    target_muscles: (updated?.targetMuscles ?? formTargetMuscles) as WorkoutTemplate['target_muscles'],
+                    exercises: (updated?.exercises ?? exercisesForDB) as TemplateExercise[],
+                    shared: updated?.shared ?? formShared,
+                  }
+                : t,
+            ),
+          );
+          setShowForm(false);
+          resetForm();
+          toast.success(t('coach.templates.updatedToast'));
+        } catch (err) {
+          toast.error(err instanceof Error ? err.message : t('coach.templates.updateFailedToast'));
+        }
+        return;
+      }
+
+      const { data, error } = await supabase
         .from('workout_templates')
         .insert({
           created_by: user.id,
@@ -252,74 +378,48 @@ export default function TemplatesPage() {
         setShowForm(false);
         resetForm();
         toast.success('Template created');
+      } else if (error) {
+        console.error('Error saving template:', error);
+        toast.error(t('coach.templates.createFailedToast'));
       }
     } catch (err) {
       console.error('Error saving template:', err);
+      toast.error(t('coach.templates.saveFailedToast'));
     } finally {
       setSaving(false);
     }
   }
 
-  async function deleteTemplate(id: string) {
-    if (!confirm('Delete this template?')) return;
+  function deleteTemplate(id: string) {
+    setPendingDeleteId(id);
+  }
+
+  async function confirmDeleteTemplate() {
+    if (!pendingDeleteId) return;
+    setDeleting(true);
     try {
-      await supabase.from('workout_templates').delete().eq('id', id);
-      setTemplates(templates.filter((t) => t.id !== id));
+      await supabase.from('workout_templates').delete().eq('id', pendingDeleteId);
+      setTemplates((prev) => prev.filter((t) => t.id !== pendingDeleteId));
     } catch (err) {
       console.error('Error deleting template:', err);
-    }
-  }
-
-  // ── Assign to Client ──
-
-  async function openAssign(templateId: string) {
-    setAssigningTemplateId(templateId);
-    setLoadingClients(true);
-
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data: clientProfiles } = await supabase
-        .from('client_profiles')
-        .select('*')
-        .eq('coach_id', user.id);
-
-      if (clientProfiles) {
-        const userIds = clientProfiles.map((cp: ClientProfile) => cp.user_id);
-        const { data: profiles } = await supabase.from('profiles').select('*').in('id', userIds);
-
-        const merged = clientProfiles.map((cp: ClientProfile) => ({
-          ...cp,
-          profile: (profiles || []).find((p: Profile) => p.id === cp.user_id),
-        }));
-        setClients(merged);
-      }
-    } catch (err) {
-      console.error('Error loading clients:', err);
     } finally {
-      setLoadingClients(false);
+      setDeleting(false);
+      setPendingDeleteId(null);
     }
   }
 
-  async function assignToClient(clientUserId: string) {
-    if (!assigningTemplateId) return;
-    try {
-      // Update client's active template reference
-      await supabase
-        .from('client_profiles')
-        .update({ current_template_id: assigningTemplateId })
-        .eq('user_id', clientUserId);
+  // ── Program Builder entry (replaces the fake current_template_id write) ──
 
-      setAssigningTemplateId(null);
-      toast.success('Template assigned to client');
-    } catch (err) {
-      console.error('Error assigning template:', err);
-      toast.error('Failed to assign template');
-    }
+  function openBuilder(initialClient: string | null = null) {
+    setBuilderInitialClient(initialClient);
+    setShowBuilder(true);
   }
+
+  const builderTemplates = templates.map((t) => ({
+    id: t.id,
+    name: t.name,
+    exerciseCount: (t.exercises || []).length,
+  }));
 
   // ── Render ──
 
@@ -425,10 +525,20 @@ export default function TemplatesPage() {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            openAssign(template.id);
+                            openEdit(template);
                           }}
                           className="p-2 rounded-lg hover:bg-white/5 text-stone-400 hover:text-[#D4A853] transition-colors"
-                          title="Assign to client"
+                          title={t('coach.templates.edit')}
+                        >
+                          <Pencil size={15} />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openBuilder();
+                          }}
+                          className="p-2 rounded-lg hover:bg-white/5 text-stone-400 hover:text-[#D4A853] transition-colors"
+                          title={t('coach.templates.assignToProgram')}
                         >
                           <UserPlus size={15} />
                         </button>
@@ -438,6 +548,7 @@ export default function TemplatesPage() {
                             deleteTemplate(template.id);
                           }}
                           className="p-2 rounded-lg hover:bg-red-500/10 text-stone-500 hover:text-red-400 transition-colors"
+                          title={t('coach.templates.delete')}
                         >
                           <Trash2 size={15} />
                         </button>
@@ -489,33 +600,29 @@ export default function TemplatesPage() {
               })}
             </div>
           )}
-          {/* ═══ Week Planner ═══ */}
+          {/* ═══ Client Programs — pick a client, see + edit their ACTIVE program ═══ */}
           {!loading && templates.length > 0 && (
-            <div className="mt-8">
-              <WorkoutWeekPlanner
-                days={[
-                  { day: 'Monday', template: null },
-                  { day: 'Tuesday', template: null },
-                  { day: 'Wednesday', template: null },
-                  { day: 'Thursday', template: null },
-                  { day: 'Friday', template: null },
-                  { day: 'Saturday', template: null },
-                  { day: 'Sunday', template: null },
-                ]}
-                templates={templates.map((t) => ({
-                  id: t.id,
-                  name: t.name,
-                  exerciseCount: (t.exercises || []).length,
-                }))}
-                onAssign={() => {
-                  // TODO: wire up template assignment to API
-                }}
+            <div className="mt-8 glass p-5">
+              <ProgramBuilder
+                clients={clients}
+                templates={builderTemplates}
               />
             </div>
           )}
         </motion.div>
 
         <BotNav routes={COACH_NAV} />
+
+        <ConfirmSheet
+          open={pendingDeleteId !== null}
+          title={t('confirm.delete_template_title')}
+          message={t('confirm.delete_template_msg')}
+          confirmLabel={t('confirm.delete')}
+          danger
+          loading={deleting}
+          onConfirm={confirmDeleteTemplate}
+          onCancel={() => setPendingDeleteId(null)}
+        />
 
         {/* ─── Create Template Modal ─── */}
         {showForm && (
@@ -526,9 +633,11 @@ export default function TemplatesPage() {
               className="glass-elevated p-5 w-full max-w-xl max-h-[85vh] overflow-y-auto"
             >
               <div className="flex items-center justify-between mb-5">
-                <h3 className="font-semibold text-stone-100 text-lg">New Template</h3>
+                <h3 className="font-semibold text-stone-100 text-lg">
+                  {editingTemplateId ? t('coach.templates.editTitle') : 'New Template'}
+                </h3>
                 <button
-                  onClick={() => setShowForm(false)}
+                  onClick={() => { setShowForm(false); resetForm(); }}
                   className="text-stone-500 hover:text-stone-300"
                 >
                   <X size={18} />
@@ -769,60 +878,49 @@ export default function TemplatesPage() {
                 {/* Save */}
                 <button
                   onClick={saveTemplate}
-                  disabled={saving || !formName.trim()}
+                  disabled={saving || updateTemplate.isPending || !formName.trim()}
                   className="btn-gold w-full flex items-center justify-center gap-2 disabled:opacity-40"
                 >
                   <Save size={16} />
-                  {saving ? 'Saving...' : 'Create Template'}
+                  {saving || updateTemplate.isPending
+                    ? 'Saving...'
+                    : editingTemplateId
+                    ? t('coach.templates.saveChanges')
+                    : 'Create Template'}
                 </button>
               </div>
             </motion.div>
           </div>
         )}
 
-        {/* ─── Assign to Client Modal ─── */}
-        {assigningTemplateId && (
+        {/* ─── Program Builder Modal (real assignment via trpc workouts.program.assign) ─── */}
+        {showBuilder && (
           <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4">
             <motion.div
               initial={{ opacity: 0, y: 40 }}
               animate={{ opacity: 1, y: 0 }}
-              className="glass-elevated p-5 w-full max-w-md max-h-[70vh] overflow-y-auto"
+              className="glass-elevated p-5 w-full max-w-xl max-h-[85vh] overflow-y-auto"
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-stone-100">Assign to Client</h3>
+                <h3 className="font-semibold text-stone-100">{t('coach.builder.modalTitle')}</h3>
                 <button
-                  onClick={() => setAssigningTemplateId(null)}
+                  onClick={() => { setShowBuilder(false); setBuilderInitialClient(null); }}
                   className="text-stone-500 hover:text-stone-300"
                 >
                   <X size={18} />
                 </button>
               </div>
-              {loadingClients ? (
-                <p className="text-stone-500 text-sm text-center py-6">Loading clients...</p>
-              ) : clients.length === 0 ? (
+              {clients.length === 0 ? (
                 <p className="text-stone-600 text-sm text-center py-6">
-                  No clients assigned to you
+                  {t('coach.builder.noClients')}
                 </p>
               ) : (
-                <div className="space-y-2">
-                  {clients.map((client) => (
-                    <button
-                      key={client.user_id}
-                      onClick={() => assignToClient(client.user_id)}
-                      className="w-full text-left p-3 rounded-xl hover:bg-white/5 transition-colors flex items-center gap-3"
-                    >
-                      <div className="w-8 h-8 rounded-full bg-[#D4A853]/10 flex items-center justify-center text-[#D4A853] text-sm font-semibold">
-                        {client.profile?.full_name?.charAt(0) || '?'}
-                      </div>
-                      <div>
-                        <div className="text-sm font-medium text-stone-200">
-                          {client.profile?.full_name || 'Unknown'}
-                        </div>
-                        <div className="text-xs text-stone-500">{client.profile?.email}</div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
+                <ProgramBuilder
+                  clients={clients}
+                  templates={builderTemplates}
+                  initialClientId={builderInitialClient}
+                  onAssigned={() => { setShowBuilder(false); setBuilderInitialClient(null); }}
+                />
               )}
             </motion.div>
           </div>

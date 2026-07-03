@@ -16,11 +16,12 @@ interface CoachCalendarProps {
   events: CalendarEvent[];
 }
 
-const EVENT_META: Record<EventType, { color: string; label: string; emoji: string }> = {
-  checkin: { color: '#4ade80', label: 'Check-in', emoji: '\u2705' },
-  progression: { color: '#D4A853', label: 'Progression', emoji: '\uD83D\uDE80' },
-  measurement: { color: '#60a5fa', label: 'Measurement', emoji: '\uD83D\uDCCF' },
-  note: { color: '#a78bfa', label: 'Note', emoji: '\uD83D\uDCDD' },
+// No emoji-as-icons (design rule): events are identified by their color dot + label.
+const EVENT_META: Record<EventType, { color: string; label: string }> = {
+  checkin: { color: '#4ade80', label: 'Check-in' },
+  progression: { color: '#D4A853', label: 'Progression' },
+  measurement: { color: '#60a5fa', label: 'Measurement' },
+  note: { color: '#a78bfa', label: 'Note' },
 };
 
 const DAYS_OF_WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -209,10 +210,10 @@ export default memo(function CoachCalendar({ events }: CoachCalendarProps) {
                     className="flex items-center gap-2 py-1.5 px-2 rounded-lg bg-white/[0.02]"
                   >
                     <div
-                      className="w-5 h-5 rounded flex items-center justify-center text-[10px] flex-shrink-0"
+                      className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0"
                       style={{ backgroundColor: `${meta.color}20` }}
                     >
-                      {meta.emoji}
+                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: meta.color }} />
                     </div>
                     <span className="text-stone-300 text-xs flex-1 truncate">{ev.clientName}</span>
                     <span className="text-stone-600 text-[10px] flex-shrink-0">{meta.label}</span>

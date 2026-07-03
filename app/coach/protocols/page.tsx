@@ -21,13 +21,16 @@ import { CoachNav } from '@/components/coach/CoachNav';
 import CoachLoadingSkeletons from '@/components/coach/CoachLoadingSkeletons';
 import ProtocolTemplateLibrary from '@/components/coach/ProtocolTemplateLibrary';
 import { BotNav } from '@/components/ui/BotNav';
-import { Icon } from '@/components/ui';
+import { Icon, ConfirmSheet } from '@/components/ui';
+import { useI18n } from '@/lib/i18n';
 
+/* All four tabs point at real routes — matches app/coach/page.tsx
+   (were /coach/clients + /coach/profile 404s) */
 const COACH_NAV = [
-  { href: '/coach',         label: 'Today',   icon: <Icon name="i-grid"    size={18} /> },
-  { href: '/coach/clients', label: 'Clients', icon: <Icon name="i-users"   size={18} /> },
-  { href: '/coach/inbox',   label: 'Inbox',   icon: <Icon name="i-message" size={18} /> },
-  { href: '/coach/profile', label: 'Me',      icon: <Icon name="i-user"    size={18} /> },
+  { href: '/coach',           label: 'Today',    icon: <Icon name="i-grid"     size={18} /> },
+  { href: '/coach/inbox',     label: 'Inbox',    icon: <Icon name="i-message"  size={18} /> },
+  { href: '/coach/calendar',  label: 'Calendar', icon: <Icon name="i-calendar" size={18} /> },
+  { href: '/coach/templates', label: 'Workouts', icon: <Icon name="i-dumbbell" size={18} /> },
 ];
 
 // ═══════════════════════════════════════════════
@@ -63,12 +66,15 @@ const emptySupplement: SupplementItem = {
 // ═══════════════════════════════════════════════
 
 export default function ProtocolsPage() {
+  const { t } = useI18n();
   const router = useRouter();
   const toast = useToast();
   const [protocols, setProtocols] = useState<SupplementProtocol[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // Form state
   const [formName, setFormName] = useState('');
@@ -165,13 +171,21 @@ export default function ProtocolsPage() {
     }
   }
 
-  async function deleteProtocol(id: string) {
-    if (!confirm('Delete this protocol?')) return;
+  function deleteProtocol(id: string) {
+    setPendingDeleteId(id);
+  }
+
+  async function confirmDeleteProtocol() {
+    if (!pendingDeleteId) return;
+    setDeleting(true);
     try {
-      await supabase.from('supplement_protocols').delete().eq('id', id);
-      setProtocols(protocols.filter((p) => p.id !== id));
+      await supabase.from('supplement_protocols').delete().eq('id', pendingDeleteId);
+      setProtocols((prev) => prev.filter((p) => p.id !== pendingDeleteId));
     } catch (err) {
       console.error('Error deleting protocol:', err);
+    } finally {
+      setDeleting(false);
+      setPendingDeleteId(null);
     }
   }
 
@@ -376,6 +390,17 @@ export default function ProtocolsPage() {
         </motion.div>
 
         <BotNav routes={COACH_NAV} />
+
+        <ConfirmSheet
+          open={pendingDeleteId !== null}
+          title={t('confirm.delete_protocol_title')}
+          message={t('confirm.delete_protocol_msg')}
+          confirmLabel={t('confirm.delete')}
+          danger
+          loading={deleting}
+          onConfirm={confirmDeleteProtocol}
+          onCancel={() => setPendingDeleteId(null)}
+        />
 
         {/* ─── Create Protocol Modal ─── */}
         {showForm && (

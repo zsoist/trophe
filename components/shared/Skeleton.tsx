@@ -2,11 +2,12 @@
 
 // ═══════════════════════════════════════════════
 // τροφή (Trophē) — Loading Skeleton System
-// Gold shimmer on dark background
+// Slow gold-tinted gradient sheen (`.skeleton` in globals.css —
+// transform-only keyframe, respects prefers-reduced-motion)
 // ═══════════════════════════════════════════════
 
 function shimmerClass() {
-  return 'animate-pulse bg-gradient-to-r from-stone-800/60 via-stone-700/40 to-stone-800/60 bg-[length:200%_100%]';
+  return 'skeleton';
 }
 
 // ─── SkeletonText ───
@@ -19,26 +20,14 @@ export function SkeletonText({
 }) {
   const widths = { short: 'w-16', medium: 'w-32', long: 'w-48' };
   return (
-    <div
-      className={`h-3 rounded-md ${shimmerClass()} ${widths[variant]} ${className}`}
-      style={{
-        backgroundImage:
-          'linear-gradient(90deg, rgba(120,113,108,0.1) 0%, rgba(212,168,83,0.08) 50%, rgba(120,113,108,0.1) 100%)',
-      }}
-    />
+    <div className={`h-3 rounded-md ${shimmerClass()} ${widths[variant]} ${className}`} />
   );
 }
 
 // ─── SkeletonBar ───
 export function SkeletonBar({ className = '' }: { className?: string }) {
   return (
-    <div
-      className={`h-3 w-full rounded-full ${shimmerClass()} ${className}`}
-      style={{
-        backgroundImage:
-          'linear-gradient(90deg, rgba(120,113,108,0.1) 0%, rgba(212,168,83,0.08) 50%, rgba(120,113,108,0.1) 100%)',
-      }}
-    />
+    <div className={`h-3 w-full rounded-full ${shimmerClass()} ${className}`} />
   );
 }
 
@@ -53,7 +42,7 @@ export function SkeletonRing({
   const radius = (size - 8) / 2;
   return (
     <div className={`flex flex-col items-center gap-1 ${className}`}>
-      <div style={{ width: size, height: size }}>
+      <div className="skeleton rounded-full !bg-transparent" style={{ width: size, height: size }}>
         <svg width={size} height={size}>
           <circle
             cx={size / 2}
@@ -62,7 +51,6 @@ export function SkeletonRing({
             fill="none"
             stroke="rgba(255,255,255,0.06)"
             strokeWidth={6}
-            className="animate-pulse"
           />
           <circle
             cx={size / 2}
@@ -72,7 +60,6 @@ export function SkeletonRing({
             stroke="rgba(212,168,83,0.1)"
             strokeWidth={6}
             strokeDasharray={`${2 * Math.PI * radius * 0.3} ${2 * Math.PI * radius * 0.7}`}
-            className="animate-pulse"
           />
         </svg>
       </div>

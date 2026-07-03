@@ -13,7 +13,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, ChevronUp, X, Zap } from 'lucide-react';
-import { Icon } from '@/components/ui';
+import { Icon, type IconName } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
 import type { MealType } from '@/lib/types';
@@ -143,10 +143,10 @@ function MacroChip({ label, value, unit = 'g', colorKey }: {
       display: 'inline-flex', alignItems: 'center', gap: 3,
       padding: '2px 7px', borderRadius: 6,
       background: c.bg, border: `1px solid ${c.border}`,
-      fontSize: 9, fontWeight: 700, fontFamily: 'var(--font-mono)',
+      fontSize: 10, fontWeight: 700, fontFamily: 'var(--font-mono)',
       color: c.color, flexShrink: 0,
     }}>
-      <span style={{ fontSize: 7, fontWeight: 400, color: 'var(--t5)' }}>{label}</span>
+      <span style={{ fontSize: 10, fontWeight: 400, color: 'var(--t5)' }}>{label}</span>
       {value}{unit}
     </span>
   );
@@ -173,11 +173,11 @@ function RecDetailSheet({ rec, onClose, onLog }: {
   onLog?: (mealType: MealType) => void;
 }) {
   const { t } = useI18n();
-  const MEAL_OPTIONS: { type: MealType; label: string; icon: string }[] = [
-    { type: 'breakfast',    label: t('food.breakfast'), icon: '☀️' },
-    { type: 'snack',        label: t('food.snack'),     icon: '🍎' },
-    { type: 'lunch',        label: t('food.lunch'),     icon: '🥗' },
-    { type: 'dinner',       label: t('food.dinner'),    icon: '🌙' },
+  const MEAL_OPTIONS: { type: MealType; label: string; icon: IconName }[] = [
+    { type: 'breakfast',    label: t('food.breakfast'), icon: 'i-sun' },
+    { type: 'snack',        label: t('food.snack'),     icon: 'i-apple' },
+    { type: 'lunch',        label: t('food.lunch'),     icon: 'i-bowl' },
+    { type: 'dinner',       label: t('food.dinner'),    icon: 'i-moon' },
   ];
 
   return (
@@ -257,8 +257,8 @@ function RecDetailSheet({ rec, onClose, onLog }: {
               <div style={{ fontSize: 14, fontWeight: 800, color: m.c.color, fontFamily: 'var(--font-mono)', lineHeight: 1 }}>
                 {m.val}
               </div>
-              <div style={{ fontSize: 7, color: 'var(--t4)', marginTop: 2 }}>{m.unit}</div>
-              <div style={{ fontSize: 7, color: 'var(--t5)' }}>{m.label}</div>
+              <div style={{ fontSize: 10, color: 'var(--t4)', marginTop: 2 }}>{m.unit}</div>
+              <div style={{ fontSize: 10, color: 'var(--t5)' }}>{m.label}</div>
             </div>
           ))}
         </div>
@@ -299,7 +299,7 @@ function RecDetailSheet({ rec, onClose, onLog }: {
                     textAlign: 'left',
                   }}
                 >
-                  <span style={{ fontSize: 14 }}>{m.icon}</span>
+                  <Icon name={m.icon} size={14} style={{ color: 'var(--gold-300,#D4A853)', flexShrink: 0 }} />
                   <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--t2)' }}>{m.label}</span>
                 </motion.button>
               ))}
@@ -367,7 +367,7 @@ function RecCard({ rec, index, onSelect }: {
               {rec.food}
             </span>
             <span style={{
-              fontSize: 8, padding: '2px 6px', borderRadius: 5,
+              fontSize: 10, padding: '2px 6px', borderRadius: 5,
               background: 'rgba(212,168,83,.1)',
               color: 'var(--gold-300,#D4A853)',
               border: '1px solid rgba(212,168,83,.2)',
@@ -388,7 +388,7 @@ function RecCard({ rec, index, onSelect }: {
 
           {/* Coach note preview */}
           <p style={{
-            fontSize: 9.5, color: 'var(--t4)', lineHeight: 1.45,
+            fontSize: 10, color: 'var(--t4)', lineHeight: 1.45,
             display: '-webkit-box',
             WebkitLineClamp: 2,
             WebkitBoxOrient: 'vertical',
@@ -490,7 +490,7 @@ export default function CoachFoodRecs({ userId, onLogFood }: CoachFoodRecsProps)
           </span>
           {isCoachData && (
             <span style={{
-              fontSize: 8, padding: '1px 5px', borderRadius: 5,
+              fontSize: 10, padding: '1px 5px', borderRadius: 5,
               background: 'rgba(212,168,83,.1)',
               color: 'var(--gold-300,#D4A853)',
               border: '1px solid rgba(212,168,83,.2)',

@@ -37,14 +37,14 @@
   --color-t2: #D6D3D1;
   --color-t3: #A8A29E;
   --color-t4: #78716C;
-  --color-t5: #57534E;
+  --color-t5: #6B655E; /* lightened from #57534E — tiny-text contrast floor */
   --color-t6: #3a3633;
   /* Legacy compat aliases */
   --color-text-primary:   #FAFAF9;
   --color-text-secondary: #A8A29E;
   --color-text-muted:     #78716C;
   --color-text-faint:     #78716C;
-  --color-text-dim:       #57534E;
+  --color-text-dim:       #6B655E;
   --color-text-ink:       #44403C;
 
   /* ── Semantic colors (Brand Master) ── */
@@ -87,7 +87,7 @@
 
   /* Text */
   --t1: #FAFAF9;  --t2: #D6D3D1;  --t3: #A8A29E;
-  --t4: #78716C;  --t5: #57534E;  --t6: #3a3633;
+  --t4: #78716C;  --t5: #6B655E;  --t6: #3a3633;
 
   /* Lines */
   --line:    rgba(255,255,255,.06);
@@ -122,6 +122,12 @@
   --s-1: 4px;   --s-2: 8px;   --s-3: 12px;
   --s-4: 16px;  --s-5: 24px;  --s-6: 32px;
   --s-7: 48px;  --s-8: 64px;  --s-9: 96px;
+
+  /* Z ladder — every overlay sits on one of these rungs */
+  --z-nav: 30;
+  --z-sheet: 50;
+  --z-modal: 60;
+  --z-toast: 70;
 
   /* ── Legacy aliases (kept for existing component compat) ── */
   --bg-primary: #0a0a0a;
@@ -213,27 +219,69 @@ body {
 /* ─── Brand Eyebrow + Mono Chrome (from v0.3 design handoff) ─── */
 .brand-eye {
   font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
-  font-size: 8px;
-  letter-spacing: 0.2em;
+  font-size: 10px;
+  letter-spacing: 0.14em;
   color: var(--color-gold);
   text-transform: uppercase;
 }
 
 .mono-label {
   font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
-  font-size: 9px;
-  letter-spacing: 0.18em;
+  font-size: 10px;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--text-muted);
 }
 
 .section-title {
   font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
-  font-size: 10px;
-  letter-spacing: 0.22em;
+  font-size: 11px;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--color-gold);
   font-weight: 600;
+}
+
+/* ─── Premium type scale (gold/dark-glass overhaul) ─── */
+/* Serif display — Instrument Serif italic 400, LATIN + DIGITS ONLY (never Greek, never bold). */
+.display-xl {
+  font-family: var(--font-display), Georgia, serif;
+  font-style: italic;
+  font-weight: 400;
+  font-size: 40px;
+  line-height: 44px;
+  letter-spacing: -0.01em;
+}
+.display-lg {
+  font-family: var(--font-display), Georgia, serif;
+  font-style: italic;
+  font-weight: 400;
+  font-size: 28px;
+  line-height: 32px;
+  letter-spacing: -0.01em;
+}
+.title {
+  font-size: 17px;
+  line-height: 24px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.body-md {
+  font-size: 14px;
+  line-height: 21px;
+}
+.caption {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--t3);
+}
+.label-sm {
+  font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 10px;
+  line-height: 14px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
 }
 
 /* ─── Tag/Pill Status System (g=gold, r=danger, y=warn, gn=success) ─── */
@@ -241,7 +289,7 @@ body {
   display: inline-block;
   padding: 2px 6px;
   border-radius: 9999px;
-  font-size: 8px;
+  font-size: 10px;
   font-weight: 500;
   letter-spacing: 0.02em;
   border: 1px solid transparent;
@@ -506,6 +554,48 @@ body {
   100% { transform: scale(2); opacity: 0; }
 }
 
+.water-splash {
+  animation: water-splash 0.5s ease-out forwards;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .water-splash { animation: none; opacity: 0; }
+}
+
+/* ─── Skeleton sheen — slow gold-tinted sweep, transform-only ─── */
+@keyframes skeleton-sheen {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(100%); }
+}
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: rgba(120, 113, 108, 0.10);
+}
+
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 15%, rgba(212, 168, 83, 0.10) 50%, transparent 85%);
+  transform: translateX(-100%);
+  animation: skeleton-sheen 2.2s ease-in-out infinite;
+}
+
+.light .skeleton {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.light .skeleton::after {
+  background: linear-gradient(90deg, transparent 15%, rgba(180, 130, 40, 0.10) 50%, transparent 85%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after { animation: none; }
+}
+
 ::selection {
   background: rgba(212, 168, 83, 0.3);
   color: var(--text-primary);
@@ -589,10 +679,6 @@ body {
 /* Dropdown menus and overlays */
 .light .bg-stone-900\/95 {
   background-color: rgba(255, 255, 255, 0.97) !important;
-}
-
-.light .bg-stone-900\/80 {
-  background-color: rgba(250, 250, 249, 0.9) !important;
 }
 
 /* Status dot borders in light mode */
@@ -705,12 +791,12 @@ body {
 /* ─── Eyebrow labels ─── */
 .eye {
   font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
-  font-size: 8px; letter-spacing: .22em; color: var(--gold-300, #D4A853);
+  font-size: 10px; letter-spacing: .14em; color: var(--gold-300, #D4A853);
   text-transform: uppercase; font-weight: 500;
 }
 .eye-d {
   font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
-  font-size: 8px; letter-spacing: .18em; color: var(--t4, #78716C);
+  font-size: 10px; letter-spacing: .14em; color: var(--t4, #78716C);
   text-transform: uppercase;
 }
 
@@ -737,7 +823,7 @@ body {
   font-size: 22px; font-weight: 700; letter-spacing: -.025em; line-height: 1.05;
 }
 .ds-sub {
-  font-size: 10px; color: var(--t4, #78716C);
+  font-size: 11px; color: var(--t4, #78716C);
 }
 
 /* ─── Tabs (handoff spec) ─── */
@@ -748,7 +834,7 @@ body {
 }
 .hs-tab {
   flex: 1; text-align: center; padding: 6px 4px;
-  border-radius: 7px; font-size: 9px; color: var(--t4);
+  border-radius: 7px; font-size: 10px; color: var(--t4);
   font-weight: 500; white-space: nowrap; letter-spacing: -.01em;
   cursor: pointer; transition: background 0.15s, color 0.15s;
 }
@@ -797,15 +883,8 @@ body {
   font-family: var(--font-mono), 'JetBrains Mono', ui-monospace, monospace;
 }
 
-/* ─── FAB (gold, floating action) ─── */
-.fab {
-  position: absolute; bottom: 78px; right: 14px;
-  width: 44px; height: 44px; border-radius: 22px;
-  background: linear-gradient(135deg, var(--gold-400, #B8923E), var(--gold-200, #E8C078));
-  display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 12px 28px -6px rgba(212,168,83,.45), inset 0 1px 0 rgba(255,255,255,.3);
-  color: #0a0a0a; cursor: pointer; border: none;
-}
+/* FAB styling lives in components/ui/Fab.tsx (single recipe — the old .fab
+   utility class was an unused duplicate spec and was removed). */
 
 /* light mode .card */
 .light .card   { background: rgba(255,255,255,.9); border-color: rgba(0,0,0,.08); }
@@ -814,7 +893,7 @@ body {
 
 /* ─── BotNav active/inactive colors (replaces Tailwind arbitrary CSS-var) ─── */
 .bnav-active { color: #D4A853 !important; }
-.bnav-dim    { color: var(--t5, #57534E); transition: color 0.15s; }
+.bnav-dim    { color: var(--t5, #6B655E); transition: color 0.15s; }
 .bnav-dim:hover { color: var(--t3, #A8A29E); }
 
 /* Coach accessibility: larger text mode (Michael: "letters are too small").

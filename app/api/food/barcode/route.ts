@@ -86,15 +86,27 @@ export async function POST(request: NextRequest) {
     const name = (p.product_name_en || p.product_name || 'Unknown product').slice(0, 200);
     const brand = (p.brands || '').split(',')[0]?.trim().slice(0, 120) || null;
 
-    // Cache for next time (idempotent on the source+source_id unique constraint).
-    await service.from('foods').insert({
-      source: 'off', source_id: barcode, barcode, data_quality: 'crowdsourced',
-      name_en: name, brand,
-      kcal_per_100g: per100g.kcal, protein_per_100g: per100g.protein,
-      carb_per_100g: per100g.carbs, fat_per_100g: per100g.fat,
-      fiber_per_100g: per100g.fiber, sugar_per_100g: per100g.sugar,
-      provenance_notes: 'Open Food Facts (ODbL), live barcode lookup',
-    }).then(() => undefined, () => undefined); // best-effort cache; ignore conflict/errors
+    // Cache for next time (idempotent on the source+source_id unique constraint) —
+    // but ONLY rows passing the same sanity gate as the bulk ingests. This route
+    // previously cached with NO filter and macros defaulting to 0, creating
+    // zero-macro junk rows that then entered every user's parse candidate pool.
+    const atwater = per100g.protein * 4 + per100g.carbs * 4 + per100g.fat * 9;
+    const zeroMacro = per100g.protein === 0 && per100g.carbs === 0 && per100g.fat === 0;
+    const cacheable =
+      per100g.kcal <= 900 &&
+      per100g.protein + per100g.carbs + per100g.fat <= 105 &&
+      !(zeroMacro && per100g.kcal > 20) &&
+      !(atwater > 0 && Math.abs(atwater - per100g.kcal) / Math.max(per100g.kcal, 1) > 0.6);
+    if (cacheable) {
+      await service.from('foods').insert({
+        source: 'off', source_id: barcode, barcode, data_quality: 'crowdsourced',
+        name_en: name, brand,
+        kcal_per_100g: per100g.kcal, protein_per_100g: per100g.protein,
+        carb_per_100g: per100g.carbs, fat_per_100g: per100g.fat,
+        fiber_per_100g: per100g.fiber, sugar_per_100g: per100g.sugar,
+        provenance_notes: 'Open Food Facts (ODbL), live barcode lookup',
+      }).then(() => undefined, () => undefined); // best-effort cache; ignore conflict/errors
+    }
 
     return NextResponse.json({ found: true, name, brand, barcode, source: 'off', per100g });
   } catch {

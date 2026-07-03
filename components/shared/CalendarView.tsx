@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { Icon } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
 
 interface CalendarViewProps {
@@ -188,7 +189,7 @@ export default function CalendarView({
         exit={{ y: '100%' }}
         transition={{ type: 'spring', damping: 30, stiffness: 300 }}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md max-h-[85vh] bg-stone-950 border-t border-white/[0.06] rounded-t-2xl overflow-hidden flex flex-col"
+        className="w-full max-w-md max-h-[85vh] bg-stone-950 border-t border-white/[0.06] rounded-t-2xl overflow-hidden flex flex-col safe-bottom"
       >
         {/* Handle */}
         <div className="flex justify-center pt-3 pb-1">
@@ -308,9 +309,13 @@ export default function CalendarView({
 
                 {/* Streak fire */}
                 {isStreakDay && !isSelected && (
-                  <span className="absolute -top-0.5 -right-0.5 text-[8px] leading-none">
-                    🔥
-                  </span>
+                  <Icon
+                    name="i-flame"
+                    size={9}
+                    className="absolute -top-0.5 -right-0.5"
+                    style={{ color: 'var(--gold-300,#D4A853)' }}
+                    aria-hidden
+                  />
                 )}
               </motion.button>
             );

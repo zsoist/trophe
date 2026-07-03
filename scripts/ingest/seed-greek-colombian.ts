@@ -136,7 +136,10 @@ async function main() {
           kcal_per_100g, protein_per_100g, carb_per_100g, fat_per_100g, fiber_per_100g,
           default_serving_grams, default_serving_unit, macro_confidence, provenance_notes
         ) VALUES (
-          'custom', ${s.id}, 'estimated', ${s.en}, ${s.el ?? null}, ${s.es ?? null}, ${sql.raw(`ARRAY[${s.region.map(r => `'${r}'`).join(',')}]`)},
+          -- 'label' not 'estimated' (2026-07-02): these are curated, source-derived
+          -- dishes. At 'estimated' (quality 0) they ranked BELOW crowdsourced OFF
+          -- rows (1) — an OFF frozen "Moussaka" beat the curated Moussaka on ties.
+          'custom', ${s.id}, 'label', ${s.en}, ${s.el ?? null}, ${s.es ?? null}, ${sql.raw(`ARRAY[${s.region.map(r => `'${r}'`).join(',')}]`)},
           ${s.kcal}, ${s.p}, ${s.c}, ${s.f}, ${s.fiber ?? null},
           ${s.serving}, 'serving', 0.85, ${'Curated regional dish, USDA/CIQUAL-derived'}
         )

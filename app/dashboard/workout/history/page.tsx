@@ -220,13 +220,11 @@ function SessionCard({
                 </div>
               )}
 
-              {/* Repeat button */}
+              {/* Repeat button — the workout page reads ?repeat and prefills a
+                  freestyle session with this session's exercises + weights. */}
               <button
                 onClick={() => {
-                  // Store exercises in sessionStorage for repeat
-                  const exerciseIds = grouped.map((g) => g.exercise.id);
-                  sessionStorage.setItem('trophe_repeat_exercises', JSON.stringify(exerciseIds));
-                  router.push('/dashboard/workout');
+                  router.push(`/dashboard/workout?repeat=${session.id}`);
                 }}
                 className="w-full py-2 rounded-xl text-xs font-medium flex items-center justify-center gap-1.5 transition-colors"
                 style={{ background: 'rgba(212,168,83,0.1)', color: '#D4A853', border: '1px solid rgba(212,168,83,0.2)' }}

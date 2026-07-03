@@ -1,13 +1,13 @@
 'use client';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Icon } from '@/components/ui';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { Icon, AnimatedValue } from '@/components/ui';
 import { BotNav } from '@/components/ui/BotNav';
 import { supabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
 import { useClientNav } from '@/lib/useClientNav';
-import { CLIENT_SHOWS_CALORIES } from '@/lib/client-view';
+import { CLIENT_VIEW_PANELS, isPanelVisible, parseClientViewPrefs } from '@/lib/display-prefs';
 import type { ClientProfile, ClientHabit, HabitCheckin, FoodLogEntry, WaterLogEntry, Mood, Profile } from '@/lib/types';
 import WeeklyCheckin from '@/components/summary/WeeklyCheckin';
 import { DashboardSkeleton } from '@/components/shared/Skeleton';
@@ -23,25 +23,58 @@ function getTimeGreeting(): string {
   return 'good_night';
 }
 
+// Serif display is Latin-only (Instrument Serif has no Greek glyphs) —
+// only style the name in serif when it's safely renderable.
+function isLatinText(s: string): boolean {
+  return /^[A-Za-zÀ-ɏ'’ -]+$/.test(s);
+}
+
 // ─── 88px calorie hero ring ─────────────────────────────────────
 function CompactRing({ value, target, overGoal }: { value: number; target: number; overGoal?: boolean }) {
+  const reducedMotion = useReducedMotion();
   const r = 37;
   const C = 2 * Math.PI * r;
   const pct = target > 0 ? Math.min(value / target, 1) : 0;
+  const goalHit = target > 0 && value >= target;
   const strokeColor = overGoal ? 'var(--err,#E87A6E)' : 'var(--gold-300,#D4A853)';
   return (
-    <svg width={88} height={88} style={{ transform: 'rotate(-90deg)', flexShrink: 0 }}>
-      <circle cx={44} cy={44} r={r} fill="none" stroke="rgba(255,255,255,.05)" strokeWidth={7} />
-      <motion.circle
-        cx={44} cy={44} r={r}
-        fill="none" stroke={strokeColor}
-        strokeWidth={7} strokeLinecap="round"
-        strokeDasharray={C}
-        initial={{ strokeDashoffset: C }}
-        animate={{ strokeDashoffset: C * (1 - pct) }}
-        transition={{ type: 'spring', stiffness: 36, damping: 14, delay: 0.25 }}
-      />
-    </svg>
+    <div style={{ position: 'relative', width: 88, height: 88, flexShrink: 0 }}>
+      <svg width={88} height={88} style={{ transform: 'rotate(-90deg)' }}>
+        <circle cx={44} cy={44} r={r} fill="none" stroke="rgba(255,255,255,.05)" strokeWidth={7} />
+        <motion.circle
+          cx={44} cy={44} r={r}
+          fill="none" stroke={strokeColor}
+          strokeWidth={7} strokeLinecap="round"
+          strokeDasharray={C}
+          initial={{ strokeDashoffset: C }}
+          animate={{ strokeDashoffset: C * (1 - pct) }}
+          transition={{ type: 'spring', stiffness: 36, damping: 14, delay: 0.25 }}
+        />
+      </svg>
+      {/* One-shot gold sweep when the daily target is reached (transform/opacity only) */}
+      {goalHit && !reducedMotion && (
+        <motion.div
+          aria-hidden
+          style={{
+            position: 'absolute', inset: 0, borderRadius: '50%',
+            overflow: 'hidden', pointerEvents: 'none',
+          }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: [0, 1, 0] }}
+          transition={{ duration: 1.2, delay: 0.9, times: [0, 0.35, 1], type: 'tween', ease: 'easeInOut' }}
+        >
+          <motion.div
+            style={{
+              position: 'absolute', inset: -12,
+              background: 'linear-gradient(115deg, transparent 32%, rgba(212,168,83,.5) 50%, transparent 68%)',
+            }}
+            initial={{ x: '-100%' }}
+            animate={{ x: '100%' }}
+            transition={{ duration: 1.2, delay: 0.9, type: 'tween', ease: 'easeInOut' }}
+          />
+        </motion.div>
+      )}
+    </div>
   );
 }
 
@@ -82,7 +115,8 @@ function habitIconName(emoji?: string): Parameters<typeof Icon>[0]['name'] {
 }
 
 // ─── Celebration modal (kept from v0.2) ──────────────────────────
-const CONFETTI_COLORS = ['#D4A853','#E8C878','#22c55e','#3b82f6','#a855f7','#ef4444','#f59e0b'];
+// Confetti palette: gold family (gold-200..500) + white — on-brand celebration.
+const CONFETTI_COLORS = ['#E8C078','#D4A853','#B8923E','#8B6E2B','#FFFFFF'];
 // Pre-computed at module load — Math.random() is not allowed during render (react-hooks/purity)
 const CONFETTI_PARTICLES = Array.from({ length: 30 }).map((_, i) => ({
   left: `${Math.random() * 100}%`,
@@ -171,6 +205,8 @@ export default function DashboardPage() {
   const [todayPlan, setTodayPlan] = useState<Array<{ meal_slot: string; description: string }>>([]);
   const [intakePending, setIntakePending] = useState<false | 'first' | 'quarterly'>(false);
   const [coachName, setCoachName]           = useState<string | null>(null);
+  const [splashTick, setSplashTick]         = useState(0);
+  const reducedMotion = useReducedMotion();
 
   const today = localToday();
 
@@ -216,6 +252,15 @@ export default function DashboardPage() {
   const streakDays = activeHabit?.current_streak ?? 0;
   const cycleDays  = activeHabit?.habit?.cycle_days ?? 14;
   const streakPct  = Math.min((streakDays / cycleDays) * 100, 100);
+
+  // ── Coach-controlled client view prefs (client_profiles.client_view_prefs,
+  //    migration 0050). Unknown/missing keys fall back to Essential defaults.
+  const viewPrefs = parseClientViewPrefs(
+    (clientProfile as (ClientProfile & { client_view_prefs?: unknown }) | null)?.client_view_prefs,
+  );
+  const showCalories     = isPanelVisible(CLIENT_VIEW_PANELS, viewPrefs, 'showCalories');
+  const showSmartInsight = isPanelVisible(CLIENT_VIEW_PANELS, viewPrefs, 'smartInsight');
+  const showWeeklyCheckin = isPanelVisible(CLIENT_VIEW_PANELS, viewPrefs, 'weeklyCheckin');
 
   // ─── Load data ───────────────────────────────────────────────
   const loadData = useCallback(async () => {
@@ -358,7 +403,11 @@ export default function DashboardPage() {
     setAddingWater(true);
     const { data } = await supabase.from('water_log')
       .insert({ user_id: userId, logged_date: today, amount_ml: ml }).select().maybeSingle();
-    if (data) setWaterLog(p => [...p, data]);
+    if (data) {
+      setWaterLog(p => [...p, data]);
+      setSplashTick(t => t + 1);
+      if (typeof navigator !== 'undefined') navigator.vibrate?.(10);
+    }
     setAddingWater(false);
   };
 
@@ -447,8 +496,8 @@ export default function DashboardPage() {
         transition={{ duration: 0.35 }}
         className="max-w-md lg:max-w-4xl mx-auto px-4 pt-3"
       >
-        {/* ── Weekly check-in (Sunday, unobtrusive) ── */}
-        {userId && clientProfile && (
+        {/* ── Weekly check-in (Sunday, unobtrusive; coach can hide it) ── */}
+        {userId && clientProfile && showWeeklyCheckin && (
           <WeeklyCheckin userId={userId} coachId={clientProfile.coach_id} />
         )}
 
@@ -457,8 +506,18 @@ export default function DashboardPage() {
           <div className="row-i" style={{ gap: 10 }}>
             <div className="av-lg">{firstName?.[0]?.toUpperCase() ?? 'N'}</div>
             <div>
-              <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-.01em', color: 'var(--t1,#FAFAF9)' }}>
-                {greeting}{firstName ? `, ${firstName}` : ''}
+              <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-.01em', color: 'var(--t1,#FAFAF9)', display: 'flex', alignItems: 'baseline', gap: 5 }}>
+                <span>{greeting}{firstName ? ',' : ''}</span>
+                {firstName && (
+                  isLatinText(firstName) ? (
+                    // Serif hero moment — Instrument Serif italic, Latin names only
+                    <span className="display-lg" style={{ fontSize: 21, lineHeight: '24px', color: 'var(--gold-300,#D4A853)' }}>
+                      {firstName}
+                    </span>
+                  ) : (
+                    <span>{firstName}</span>
+                  )
+                )}
               </div>
               <div className="ds-sub">{dateLabel}</div>
             </div>
@@ -601,8 +660,8 @@ export default function DashboardPage() {
           }} />
 
           <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-            {/* 88px ring — calories hidden from clients per coach guidance (Michael) */}
-            {CLIENT_SHOWS_CALORIES && (
+            {/* 88px ring — calories hidden unless the coach enables showCalories */}
+            {showCalories && (
             <div style={{ position: 'relative', flexShrink: 0 }}>
               <CompactRing value={totalCalories} target={targetCalories} overGoal={totalCalories > targetCalories} />
               {/* center percentage */}
@@ -620,18 +679,19 @@ export default function DashboardPage() {
 
             {/* Right: hero number + macro bars */}
             <div style={{ flex: 1, minWidth: 0 }}>
-              {CLIENT_SHOWS_CALORIES ? (
+              {showCalories ? (
                 <>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 2 }}>
-                    <span style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--t1,#FAFAF9)', lineHeight: 1 }}>
-                      {Math.round(totalCalories).toLocaleString()}
+                    {/* Serif hero numeral + RAF count-up */}
+                    <span className="display-lg" style={{ fontSize: 32, lineHeight: '32px', color: 'var(--t1,#FAFAF9)' }}>
+                      <AnimatedValue value={Math.round(totalCalories)} />
                     </span>
                     <span style={{ fontSize: 11, color: 'var(--t4)', fontFamily: 'var(--font-mono)' }}>kcal</span>
                   </div>
                   <div style={{ fontSize: 10, color: 'var(--t4)', marginBottom: 10 }}>
                     {remaining > 0
                       ? <><span style={{ color: 'var(--gold-300,#D4A853)', fontWeight: 600 }}>{remaining.toLocaleString()}</span> remaining of {targetCalories.toLocaleString()}</>
-                      : <span style={{ color: 'var(--err,#E87A6E)', fontWeight: 600 }}>Goal reached</span>
+                      : <span style={{ color: 'var(--ok,#65D387)', fontWeight: 600 }}>Goal reached</span>
                     }
                   </div>
                 </>
@@ -694,19 +754,19 @@ export default function DashboardPage() {
                 {todayCheckin.completed ? 'Done today' : 'Skipped today'}
               </div>
             ) : (
-              <div style={{ display: 'flex', gap: 6 }}>
+              <div style={{ display: 'flex', gap: 10 }}>
                 <button
                   className="btn-gold"
-                  style={{ flex: 2, padding: '7px', fontSize: 10, borderRadius: 10 }}
+                  style={{ flex: 2, padding: '12px 10px', minHeight: 44, fontSize: 12, borderRadius: 12 }}
                   disabled={submitting}
                   onClick={e => { e.stopPropagation(); handleCheckin(true); }}
                 >
-                  <Icon name="i-check" size={10} style={{ verticalAlign: -1, marginRight: 3 }} />
+                  <Icon name="i-check" size={12} style={{ verticalAlign: -2, marginRight: 4 }} />
                   Done
                 </button>
                 <button
                   className="btn-ghost"
-                  style={{ flex: 1, padding: '7px', fontSize: 10, borderRadius: 10 }}
+                  style={{ flex: 1, padding: '12px 10px', minHeight: 44, fontSize: 12, borderRadius: 12 }}
                   onClick={e => { e.stopPropagation(); handleCheckin(false); }}
                 >
                   Skip
@@ -721,6 +781,18 @@ export default function DashboardPage() {
             className="card p-4 mb-3 text-center"
           >
             <p className="ds-sub">No active habit · ask your coach</p>
+            <button
+              className="btn-ghost"
+              style={{ marginTop: 10, fontSize: 12, padding: '10px 16px', minHeight: 40 }}
+              onClick={() =>
+                document.getElementById('coach-message-box')?.scrollIntoView({
+                  behavior: reducedMotion ? 'auto' : 'smooth',
+                  block: 'center',
+                })
+              }
+            >
+              {t('dash.message_coach_cta')}
+            </button>
           </motion.div>
         )}
 
@@ -745,9 +817,9 @@ export default function DashboardPage() {
                 {waterGlasses}/{targetGlasses}
               </span>
               {waterLog.length > 0 && (
-                <button onClick={removeLastWater}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--t5)', padding: 2, display: 'flex' }}>
-                  <Icon name="i-x" size={11} />
+                <button onClick={removeLastWater} aria-label="Undo last water"
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--t5)', padding: 6, margin: -4, display: 'flex' }}>
+                  <Icon name="i-x" size={12} />
                 </button>
               )}
             </div>
@@ -770,7 +842,7 @@ export default function DashboardPage() {
                     animate={{ scale: filled ? [1, 1.3, 1] : 1, opacity: filled ? 1 : 0.3 }}
                     transition={{ duration: 0.35, type: 'tween', ease: 'easeOut' }}
                     style={{
-                      width: 24, height: 24, borderRadius: 6,
+                      width: 24, height: 24, borderRadius: 6, position: 'relative',
                       background: filled
                         ? 'linear-gradient(180deg, rgba(125,163,217,.7) 0%, rgba(59,130,246,.8) 100%)'
                         : 'rgba(255,255,255,.05)',
@@ -779,6 +851,18 @@ export default function DashboardPage() {
                     }}
                   >
                     <Icon name="i-drop" size={11} style={{ color: filled ? '#fff' : 'var(--t5)' }} />
+                    {/* One-shot splash ring on the just-filled glass */}
+                    {filled && i === waterGlasses - 1 && splashTick > 0 && !reducedMotion && (
+                      <span
+                        key={splashTick}
+                        className="water-splash"
+                        aria-hidden
+                        style={{
+                          position: 'absolute', inset: -3, borderRadius: 9,
+                          border: '2px solid rgba(125,163,217,.65)',
+                        }}
+                      />
+                    )}
                   </motion.div>
                 </motion.button>
               );
@@ -871,8 +955,9 @@ export default function DashboardPage() {
           </div>
         </motion.div>
 
-        {/* ══ 6 · Smart insight strip ══════════════════════════ */}
-        {(() => {
+        {/* ══ 6 · Smart insight strip (coach-toggleable; calorie phrasing
+               only when showCalories — protein-first otherwise) ══ */}
+        {showSmartInsight && (() => {
           let icon: Parameters<typeof Icon>[0]['name'] = 'i-zap';
           let text = '';
           let color = 'var(--gold-300,#D4A853)';
@@ -885,15 +970,24 @@ export default function DashboardPage() {
             text = t('insight.protein_low', { n: Math.round(Math.max(targetProtein - totalProtein, 0)) }); color = 'var(--err,#E87A6E)';
           } else if (totalWater < 500) {
             icon = 'i-drop'; text = t('insight.hydration_low'); color = 'var(--info,#7DA3D9)';
-          } else if (targetCalories > 0 && totalCalories >= targetCalories) {
+          } else if (showCalories && targetCalories > 0 && totalCalories >= targetCalories) {
             icon = 'i-target'; text = t('insight.goal_reached'); color = 'var(--ok,#65D387)';
-          } else if (targetCalories > 0 && (totalCalories / targetCalories) > 0.8) {
+          } else if (showCalories && targetCalories > 0 && (totalCalories / targetCalories) > 0.8) {
             icon = 'i-check';
             text = t('insight.almost_there', { n: remaining.toLocaleString() }); color = 'var(--ok,#65D387)';
-          } else {
+          } else if (showCalories) {
             icon = 'i-zap';
             const pct = targetCalories > 0 ? Math.round((totalCalories / targetCalories) * 100) : 0;
             text = t('insight.pct_logged', { n: pct }); color = 'var(--gold-300,#D4A853)';
+          } else if (targetProtein > 0 && totalProtein >= targetProtein) {
+            // Protein-first fallbacks — no calorie numbers for clients.
+            icon = 'i-target'; text = t('insight.protein_hit'); color = 'var(--ok,#65D387)';
+          } else if (targetProtein > 0) {
+            icon = 'i-dumbbell';
+            text = t('insight.protein_progress', { n: Math.round(totalProtein), target: Math.round(targetProtein) });
+            color = 'var(--gold-300,#D4A853)';
+          } else {
+            icon = 'i-check'; text = t('insight.keep_logging'); color = 'var(--ok,#65D387)';
           }
           return (
             <motion.div
@@ -913,6 +1007,7 @@ export default function DashboardPage() {
         })()}
         {/* ══ 7 · Coach message box ════════════════════════════ */}
         <motion.div
+          id="coach-message-box"
           initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.32 }}
           className="card mb-3"

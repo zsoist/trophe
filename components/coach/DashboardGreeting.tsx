@@ -8,11 +8,12 @@ interface DashboardGreetingProps {
   needsAttention: number;
 }
 
-function getGreeting(): { text: string; emoji: string } {
+// No emoji \u2014 icons are sprite/Lucide only (design rule); the greeting stands alone.
+function getGreeting(): { text: string } {
   const hour = new Date().getHours();
-  if (hour < 12) return { text: 'Good morning', emoji: '\uD83C\uDF05' };
-  if (hour < 18) return { text: 'Good afternoon', emoji: '\u2600\uFE0F' };
-  return { text: 'Good evening', emoji: '\uD83C\uDF19' };
+  if (hour < 12) return { text: 'Good morning' };
+  if (hour < 18) return { text: 'Good afternoon' };
+  return { text: 'Good evening' };
 }
 
 export default memo(function DashboardGreeting({ coachName, needsAttention }: DashboardGreetingProps) {
@@ -31,7 +32,7 @@ export default memo(function DashboardGreeting({ coachName, needsAttention }: Da
         transition={{ delay: 0.1, duration: 0.6 }}
         className="text-stone-100 text-xl sm:text-2xl font-bold"
       >
-        {greeting.text}, {coachName} {greeting.emoji}
+        {greeting.text}, {coachName}
       </motion.h1>
 
       <motion.p
@@ -46,9 +47,7 @@ export default memo(function DashboardGreeting({ coachName, needsAttention }: Da
             {' '}client{needsAttention !== 1 ? 's' : ''} need{needsAttention === 1 ? 's' : ''} attention today
           </>
         ) : (
-          <span>
-            All clients on track! {'\uD83C\uDFAF'}
-          </span>
+          <span>All clients on track</span>
         )}
       </motion.p>
     </motion.div>

@@ -2,9 +2,9 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Undo2, Star } from 'lucide-react';
-import { Icon } from '@/components/ui';
+import { Icon, AnimatedValue, Stagger, StaggerItem } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
 import { useClientNav } from '@/lib/useClientNav';
@@ -29,6 +29,12 @@ import CoachFoodRecs from '@/components/food/CoachFoodRecs';
 import RecipeAnalyzerModal from '@/components/food/RecipeAnalyzerModal';
 import { useTheme } from '@/components/shared/ThemePicker';
 import { localToday, localDateStr } from '../../../lib/utils/dates';
+import {
+  CLIENT_VIEW_PANELS,
+  isPanelVisible,
+  parseClientViewPrefs,
+  type ClientViewPanelId,
+} from '@/lib/display-prefs';
 
 const DEFAULT_MEAL_SLOTS: MealSlot[] = [
   { id: 'breakfast', mealType: 'breakfast', label: 'Breakfast', icon: 'i-sun', order: 0 },
@@ -137,8 +143,8 @@ function getHealthTip(
   calories: number,
   targets: { calories: number; protein_g: number },
   filledCount: number,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _nextUnfilled: MealSlot | undefined
+  _nextUnfilled: MealSlot | undefined,
+  showCalories: boolean
 ): string {
   const hour = new Date().getHours();
   const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
@@ -148,7 +154,8 @@ function getHealthTip(
   if (targets.protein_g > 0 && protein < targets.protein_g * 0.3 && filledCount >= 2) {
     return t('tip.protein_to_go', { n: Math.round(targets.protein_g - protein) });
   }
-  if (targets.calories > 0 && calories > targets.calories * 1.1) return t('tip.over_calories');
+  // Calorie-target phrasing only when the coach shows calories to this client.
+  if (showCalories && targets.calories > 0 && calories > targets.calories * 1.1) return t('tip.over_calories');
   if (filledCount >= 4) return t('tip.almost_done');
 
   const tipIndex = (dayOfYear * 24 + hour) % HEALTH_TIP_KEYS.length;
@@ -160,13 +167,73 @@ function SectionDivider({ label }: { label: string }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 20, marginBottom: 10 }}>
       <span style={{
-        fontSize: 9, fontWeight: 700, color: 'var(--t5)',
+        fontSize: 10, fontWeight: 700, color: 'var(--t4)',
         letterSpacing: '0.12em', textTransform: 'uppercase', flexShrink: 0,
       }}>
         {label}
       </span>
       <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,.06)' }} />
     </div>
+  );
+}
+
+// ─── "Day sealed" banner — gold check draw + border glow, once per day ─────
+function SealedBanner({ date, label }: { date: string; label: string }) {
+  const reducedMotion = useReducedMotion();
+  // localStorage gate (same pattern as trophe_mastery_*): animate only the
+  // first time a given day gets fully sealed. Read once on mount (the parent
+  // keys this component by date), mark as seen from the effect.
+  const [firstSeal] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return !window.localStorage.getItem(`trophe_sealed_${date}`);
+  });
+  const play = firstSeal && !reducedMotion;
+
+  useEffect(() => {
+    localStorage.setItem(`trophe_sealed_${date}`, 'seen');
+  }, [date]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }}
+      className="mb-3 px-3 py-2 rounded-lg"
+      style={{
+        position: 'relative',
+        background: 'rgba(212,168,83,.07)',
+        border: '1px solid rgba(212,168,83,.3)',
+        display: 'flex', alignItems: 'center', gap: 8,
+      }}
+    >
+      {/* One-shot gold border glow (opacity only) */}
+      {play && (
+        <motion.span
+          aria-hidden
+          style={{
+            position: 'absolute', inset: -1, borderRadius: 8, pointerEvents: 'none',
+            border: '1px solid rgba(212,168,83,.8)',
+            boxShadow: '0 0 20px rgba(212,168,83,.4)',
+          }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: [0, 1, 0] }}
+          transition={{ duration: 1.4, times: [0, 0.35, 1], type: 'tween', ease: 'easeInOut' }}
+        />
+      )}
+      <svg width={16} height={16} viewBox="0 0 16 16" aria-hidden style={{ flexShrink: 0 }}>
+        <motion.path
+          key={play ? 'draw' : 'static'}
+          d="M3 8.5 L6.5 12 L13 4.5"
+          fill="none"
+          stroke="var(--gold-300,#D4A853)"
+          strokeWidth={2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          initial={play ? { pathLength: 0 } : false}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: 0.6, delay: 0.15, ease: 'easeOut' }}
+        />
+      </svg>
+      <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--gold-300,#D4A853)' }}>{label}</p>
+    </motion.div>
   );
 }
 
@@ -188,6 +255,12 @@ export default function FoodLogPage() {
 
   // F4: Macro targets
   const [targets, setTargets] = useState({ calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 });
+
+  // Coach-controlled client view prefs (client_profiles.client_view_prefs, migration 0050)
+  const [viewPrefs, setViewPrefs] = useState<Partial<Record<ClientViewPanelId, boolean>>>({});
+  const showCalories       = isPanelVisible(CLIENT_VIEW_PANELS, viewPrefs, 'showCalories');
+  const showLogAnalytics   = isPanelVisible(CLIENT_VIEW_PANELS, viewPrefs, 'logAnalytics');
+  const showNutritionIntel = isPanelVisible(CLIENT_VIEW_PANELS, viewPrefs, 'nutritionIntel');
 
   // F5: Favorites
   const [favorites, setFavorites] = useState<FavoriteFood[]>(() => loadFavorites());
@@ -264,6 +337,8 @@ export default function FoodLogPage() {
     lockedSlots.has(s.id) || skippedSlots.has(s.id) || grouped[s.id].length === 0
   );
   const hasAnyFood = todayLog.length > 0;
+  // F7 pill visibility — also used to lift the undo toast so they never overlap
+  const budgetPillVisible = showCalories && targets.calories > 0 && hasAnyFood;
 
   const loadTodayLog = useCallback(async () => {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -299,7 +374,7 @@ export default function FoodLogPage() {
         .eq('user_id', user.id)
         .gte('logged_date', weekDates[0]).lte('logged_date', weekDates[6]),
       supabase.from('client_profiles')
-        .select('target_calories, target_protein_g, target_carbs_g, target_fat_g')
+        .select('target_calories, target_protein_g, target_carbs_g, target_fat_g, client_view_prefs')
         .eq('user_id', user.id).maybeSingle(),
       supabase.from('food_log').select('logged_date')
         .eq('user_id', user.id)
@@ -328,6 +403,7 @@ export default function FoodLogPage() {
         carbs_g: profileRes.data.target_carbs_g || 0,
         fat_g: profileRes.data.target_fat_g || 0,
       });
+      setViewPrefs(parseClientViewPrefs(profileRes.data.client_view_prefs));
     }
 
     // F6: Calculate streak (consecutive days with >=3 food entries)
@@ -595,7 +671,7 @@ export default function FoodLogPage() {
               const active  = d.date === selectedDate;
               return (
                 <button key={d.date} onClick={() => handleDateChange(d.date)} style={{
-                  textAlign: 'center', padding: '4px 2px', borderRadius: 6, fontSize: 8, cursor: 'pointer', border: 'none',
+                  textAlign: 'center', padding: '4px 2px', borderRadius: 6, fontSize: 10, cursor: 'pointer', border: 'none',
                   background: active ? 'rgba(212,168,83,.12)' : 'rgba(255,255,255,.03)',
                   outline: active ? '1px solid rgba(212,168,83,.5)' : '1px solid var(--line)',
                   color: active ? 'var(--gold-300,#D4A853)' : d.entries > 0 ? 'var(--t2)' : 'var(--t5)',
@@ -608,38 +684,38 @@ export default function FoodLogPage() {
           </div>
         )}
 
-        {/* ── Macro summary card ── */}
+        {/* ── Macro summary card (kcal column gated by coach pref) ── */}
         <div className="card mb-3" style={{ padding: '10px 8px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 3, textAlign: 'center' }}>
-            {[
+          {(() => {
+            const cells = [
               { label: t('general.calories'), unit: 'kcal', val: Math.round(totalCalories), color: 'var(--gold-300,#D4A853)' },
               { label: t('general.protein'),  unit: 'g',    val: Math.round(totalProtein),  color: 'var(--err,#E87A6E)' },
               { label: t('general.carbs'),    unit: 'g',    val: Math.round(totalCarbs),    color: 'var(--info,#7DA3D9)' },
-              { label: t('general.fat'),      unit: 'g',    val: Math.round(totalFat),      color: '#B89DD9' },
+              { label: t('general.fat'),      unit: 'g',    val: Math.round(totalFat),      color: 'var(--plum,#B89DD9)' },
               { label: t('general.sugar'),    unit: 'g',    val: Math.round(totalSugar),    color: totalSugar > 25 ? '#f59e0b' : 'var(--warn,#E8B86E)' },
-            ].map((m, mIdx) => (
-              <div key={m.label} style={{ borderRight: mIdx < 4 ? '1px solid rgba(255,255,255,.04)' : 'none' }}>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 700, color: m.color, lineHeight: 1.1 }}>{m.val}</div>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 6.5, color: 'var(--t4)', marginTop: 1, lineHeight: 1.2 }}>{m.unit}</div>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 6, color: 'var(--t5)', letterSpacing: '.04em', marginTop: 1 }}>{m.label}</div>
+            ].filter(m => showCalories || m.unit !== 'kcal');
+            return (
+              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cells.length},1fr)`, gap: 3, textAlign: 'center' }}>
+                {cells.map((m, mIdx) => (
+                  <div key={m.label} style={{ borderRight: mIdx < cells.length - 1 ? '1px solid rgba(255,255,255,.04)' : 'none' }}>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 700, color: m.color, lineHeight: 1.1 }}>
+                      <AnimatedValue value={m.val} grouped={false} />
+                    </div>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--t4)', marginTop: 1, lineHeight: 1.2 }}>{m.unit}</div>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--t4)', letterSpacing: '.04em', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.label}</div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            );
+          })()}
         </div>
 
         {/* ── Meals section header ── */}
         <div className="eye-d mb-2">{t('log.meals_count', { done: filledCount, total: slots.length })}</div>
 
-        {/* ── Streak / locked banner (keep existing if present) ── */}
+        {/* ── "Day sealed" banner — animated check + gold glow, once per day ── */}
         {allMealsLocked && hasAnyFood && (
-          <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }}
-            className="mb-3 px-3 py-2 rounded-lg"
-            style={{ background: 'rgba(101,211,135,.08)', border: '1px solid rgba(101,211,135,.2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <p style={{ fontSize: 11, color: 'var(--ok,#65D387)', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Icon name="i-shield" size={12} />
-              {t('log.day_locked')}
-            </p>
-          </motion.div>
+          <SealedBanner key={selectedDate} date={selectedDate} label={t('log.day_locked')} />
         )}
 
 
@@ -660,7 +736,7 @@ export default function FoodLogPage() {
                   }}
                   className="flex-shrink-0 px-2.5 py-1 rounded-full bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.08] text-stone-300 text-[11px] transition-colors"
                 >
-                  {fav.food_name} · {fav.calories}
+                  {fav.food_name}{showCalories ? ` · ${fav.calories}` : ''}
                 </button>
               ))}
             </div>
@@ -675,16 +751,16 @@ export default function FoodLogPage() {
             className="mb-3 px-3 py-2 rounded-lg bg-[#D4A853]/10 border border-[#D4A853]/20"
           >
             <p className="text-xs text-[#D4A853]">
-              {getHealthTip(t, totalProtein, totalCalories, targets, filledCount, nextUnfilled)}
+              {getHealthTip(t, totalProtein, totalCalories, targets, filledCount, nextUnfilled, showCalories)}
             </p>
           </motion.div>
         )}
 
         {/* ── Meal Slot Cards ── */}
-        <div className="space-y-2 mb-2">
+        <Stagger className="space-y-2 mb-2">
           {userId && slots.map(slot => (
+            <StaggerItem key={slot.id}>
             <MealSlotCard
-              key={slot.id}
               slot={slot}
               entries={grouped[slot.id] || []}
               userId={userId}
@@ -708,8 +784,9 @@ export default function FoodLogPage() {
               onDeleteEntry={deleteEntry}
               onToggleFavorite={toggleFavorite}
             />
+            </StaggerItem>
           ))}
-        </div>
+        </Stagger>
 
         {/* ════════════════════════════════════════
             INSIGHTS SECTION
@@ -748,67 +825,71 @@ export default function FoodLogPage() {
             transition={{ delay: 0.16, duration: 0.28 }}
             className="mb-3"
           >
-            <DailyInsights entries={todayLog} targets={targets} />
+            <DailyInsights entries={todayLog} targets={targets} showCalories={showCalories} />
           </motion.div>
         )}
 
         {/* ════════════════════════════════════════
-            NUTRITION INTEL SECTION
+            NUTRITION INTEL SECTION (coach-gated: nutritionIntel pref)
         ════════════════════════════════════════ */}
-        <SectionDivider label={t('log.section_nutrition_intel')} />
+        {showNutritionIntel && (
+          <>
+            <SectionDivider label={t('log.section_nutrition_intel')} />
 
-        {/* Fasting Timer */}
-        {todayLog.length > 0 && isToday && (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.04, duration: 0.28 }}
-            className="mb-3"
-          >
-            <FastingTimer todayLog={todayLog} />
-          </motion.div>
-        )}
+            {/* Fasting Timer */}
+            {todayLog.length > 0 && isToday && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.04, duration: 0.28 }}
+                className="mb-3"
+              >
+                <FastingTimer todayLog={todayLog} />
+              </motion.div>
+            )}
 
-        {/* Protein Distribution */}
-        {todayLog.length >= 2 && (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.08, duration: 0.28 }}
-            className="mb-3"
-          >
-            <ProteinDistribution entries={todayLog} />
-          </motion.div>
-        )}
+            {/* Protein Distribution */}
+            {todayLog.length >= 2 && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.08, duration: 0.28 }}
+                className="mb-3"
+              >
+                <ProteinDistribution entries={todayLog} />
+              </motion.div>
+            )}
 
-        {/* Nutrient Density */}
-        {todayLog.length >= 3 && (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.12, duration: 0.28 }}
-            className="mb-3"
-          >
-            <NutrientDensity entries={todayLog} />
-          </motion.div>
-        )}
+            {/* Nutrient Density */}
+            {todayLog.length >= 3 && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.12, duration: 0.28 }}
+                className="mb-3"
+              >
+                <NutrientDensity entries={todayLog} />
+              </motion.div>
+            )}
 
-        {/* Photo Gallery */}
-        {userId && (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.16, duration: 0.28 }}
-            className="mb-3"
-          >
-            <MealPhotoGallery userId={userId} />
-          </motion.div>
+            {/* Photo Gallery */}
+            {userId && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.16, duration: 0.28 }}
+                className="mb-3"
+              >
+                <MealPhotoGallery userId={userId} />
+              </motion.div>
+            )}
+          </>
         )}
 
         {/* ════════════════════════════════════════
-            ANALYTICS SECTION
+            ANALYTICS SECTION (coach-gated: logAnalytics pref)
         ════════════════════════════════════════ */}
-        {userId && (
+        {userId && showLogAnalytics && (
           <>
             <SectionDivider label={t('log.analytics')} />
 
@@ -818,10 +899,12 @@ export default function FoodLogPage() {
                 <MacroTrendChart userId={userId} />
               </motion.div>
 
-              {/* Calorie Heatmap */}
-              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08, duration: 0.28 }}>
-                <CalorieHeatmap userId={userId} />
-              </motion.div>
+              {/* Calorie Heatmap — additionally needs showCalories */}
+              {showCalories && (
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08, duration: 0.28 }}>
+                  <CalorieHeatmap userId={userId} />
+                </motion.div>
+              )}
 
               {/* Food Frequency */}
               <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12, duration: 0.28 }}>
@@ -838,7 +921,7 @@ export default function FoodLogPage() {
               {/* Monthly Report */}
               {targets.calories > 0 && (
                 <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.24, duration: 0.28 }}>
-                  <MonthlyReport userId={userId} targets={targets} />
+                  <MonthlyReport userId={userId} targets={targets} showCalories={showCalories} />
                 </motion.div>
               )}
             </div>
@@ -846,8 +929,8 @@ export default function FoodLogPage() {
         )}
       </motion.div>
 
-      {/* F7: Floating remaining budget counter */}
-      {targets.calories > 0 && hasAnyFood && (
+      {/* F7: Floating remaining budget counter (kcal — coach-gated) */}
+      {budgetPillVisible && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -867,14 +950,14 @@ export default function FoodLogPage() {
         </motion.div>
       )}
 
-      {/* F3: Undo delete toast */}
+      {/* F3: Undo delete toast — stacks above the budget pill when both show */}
       <AnimatePresence>
         {pendingDelete && (
           <motion.div
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 50 }}
-            className="fixed bottom-20 left-4 right-4 z-50 flex justify-center"
+            className={`fixed ${budgetPillVisible ? 'bottom-32' : 'bottom-20'} left-4 right-4 z-[var(--z-toast,70)] flex justify-center`}
           >
             <div className="glass-elevated px-4 py-3 rounded-xl flex items-center gap-3 shadow-lg max-w-sm">
               <span className="text-stone-300 text-sm flex-1">

@@ -7,6 +7,7 @@ import { Icon } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
 import { localDateStr } from '@/lib/utils/dates';
+import { MACRO_COLORS } from '@/lib/macro-colors';
 
 interface FoodStat {
   food_name:     string;
@@ -242,20 +243,20 @@ export default function FoodFrequency({ userId, days = 30 }: FoodFrequencyProps)
                               {/* Macro grid */}
                               <div className="grid grid-cols-4 gap-2 text-center mb-2.5">
                                 <div>
-                                  <p className="text-orange-400 font-bold text-sm">{food.avgCalories}</p>
-                                  <p className="text-stone-600 text-[9px] mt-0.5">kcal</p>
+                                  <p className="font-bold text-sm" style={{ color: MACRO_COLORS.calories }}>{food.avgCalories}</p>
+                                  <p className="text-stone-500 text-[10px] mt-0.5">kcal</p>
                                 </div>
                                 <div>
-                                  <p className="text-red-400 font-bold text-sm">{food.avgProtein}g</p>
-                                  <p className="text-stone-600 text-[9px] mt-0.5">protein</p>
+                                  <p className="font-bold text-sm" style={{ color: MACRO_COLORS.protein }}>{food.avgProtein}g</p>
+                                  <p className="text-stone-500 text-[10px] mt-0.5">protein</p>
                                 </div>
                                 <div>
-                                  <p className="text-blue-400 font-bold text-sm">{food.avgCarbs}g</p>
-                                  <p className="text-stone-600 text-[9px] mt-0.5">carbs</p>
+                                  <p className="font-bold text-sm" style={{ color: MACRO_COLORS.carbs }}>{food.avgCarbs}g</p>
+                                  <p className="text-stone-500 text-[10px] mt-0.5">carbs</p>
                                 </div>
                                 <div>
-                                  <p className="text-purple-400 font-bold text-sm">{food.avgFat}g</p>
-                                  <p className="text-stone-600 text-[9px] mt-0.5">fat</p>
+                                  <p className="font-bold text-sm" style={{ color: MACRO_COLORS.fat }}>{food.avgFat}g</p>
+                                  <p className="text-stone-500 text-[10px] mt-0.5">fat</p>
                                 </div>
                               </div>
 

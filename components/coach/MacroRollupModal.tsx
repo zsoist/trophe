@@ -63,7 +63,7 @@ export default function MacroRollupModal({ isOpen, clientId, clientName, onClose
     <AnimatePresence>
       <motion.div
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center"
+        className="fixed inset-0 z-[var(--z-modal,60)] flex items-end sm:items-center justify-center"
         style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
         onClick={onClose}
       >
