@@ -251,7 +251,12 @@ function ProteinSealCheck({ date }: { date: string }) {
 
   useEffect(() => {
     localStorage.setItem(`trophe_protein_sealed_${date}`, 'seen');
-    if (firstSeal && typeof navigator !== 'undefined') navigator.vibrate?.([10, 30, 10]);
+    // Vibrate only if the user has interacted this session — the seal can
+    // appear on page LOAD (target already met), and vibrate() without a user
+    // gesture is blocked by the browser with a console warning.
+    if (firstSeal && typeof navigator !== 'undefined' && navigator.userActivation?.hasBeenActive) {
+      navigator.vibrate?.([10, 30, 10]);
+    }
   }, [date, firstSeal]);
 
   return (
