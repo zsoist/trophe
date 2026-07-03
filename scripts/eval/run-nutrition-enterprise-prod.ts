@@ -318,8 +318,11 @@ async function main() {
     })(),
   };
   mkdirSync(join(process.cwd(), 'artifacts', 'evals'), { recursive: true });
+  // Per-dataset filename (2026-07-03): back-to-back v2+v3 runs used to overwrite
+  // each other's per-case dump, destroying A/B forensics for whichever ran first.
+  const datasetTag = process.env.EVAL_DATASET === 'v3' ? 'v3' : 'v2';
   writeFileSync(
-    join(process.cwd(), 'artifacts', 'evals', 'nutrition-enterprise-production.json'),
+    join(process.cwd(), 'artifacts', 'evals', `nutrition-enterprise-production-${datasetTag}.json`),
     JSON.stringify({ createdAt: new Date().toISOString(), summary, results }, null, 2),
   );
   console.log(JSON.stringify(summary, null, 2));
