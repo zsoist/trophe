@@ -4,6 +4,31 @@ Branch: `mission/food-input-10`. Prod = zero-risk: ordered gates below; nothing 
 against prod without the operator-approved sequence. Standing approval exists for this
 mission (user, 2026-07-03) — sequence still executes in order with verification between steps.
 
+## Follow-up: accuracy-program coverage (task #71 — appended 2026-07-03)
+Post-mission coverage levers, tracked here so the ship state is auditable:
+- **Lever 6 — Greek gap seeds: DONE + LIVE in prod.** 9 label-sourced rows
+  (`source_id LIKE 'gap26-%'` — Mythos/Fix beers, freddo cappuccino, Creta Farms turkey,
+  ION Break, LU + Papadopoulou petit beurre, Jotis crème caramel, USDA-proxy kalamaki)
+  + 8 aliases + 21 unit conversions; **existing wrong `gr-freddo` row basis-fixed**
+  (15→4.5 kcal/100ml — was ~2× high). Provenance in `docs/superpowers/greek-gap-foods-research.json`
+  (11/12 sourced; tzatziki deferred to Michael — retail label conflicts BOTH benchmark windows).
+- **Lever 7 — OFF GR serving backfill: TOOL BUILT, apply pending.**
+  `scripts/ingest/off-gr-serving-backfill.ts` — `--fetch-only` writes `data/off-gr-servings.json`
+  (v2 per-barcode API; search-a-licious does NOT carry serving_quantity, verified). Apply the
+  resulting {barcode→grams} map via reviewed MCP SQL (UPDATE foods.default_serving_grams +
+  a `food_unit_conversions('serving', grams_per_unit)` row where absent). Marginal (3–6 cases);
+  network-flaky fetch — not a PR blocker.
+- **Lever 9 — NEVO ingest: BLOCKED on operator.** `data/nevo_2023.csv` needs the RIVM license
+  form (rivm.nl/en/dutch-food-composition-database/nevo-online-request-dataset), then
+  `npx tsx scripts/ingest/nevo.ts`. Converts L1's recovered `nl` parses into passes.
+- **Levers 3+4 — Michael canonical table: BLOCKED on Michael.**
+  `docs/coach/michael-validation-request-2026-07-03.md` — the highest-leverage artifact (+4–7pp).
+- **Benchmark re-measure** deferred until NEVO + Michael land (single 700-runs can't resolve
+  sub-2pp coverage deltas; median-of-3 only, per the A/B verdict below).
+- **Woah waves shipped**: wave 1 (mission PR #35); wave 2 (W6 protein pill / W12 barcode
+  snap-lock / W13 undo ring / W8 streak ember) + 251-key overlay-locale sync + wave-2 i18n
+  → this branch.
+
 ## What ships (code)
 1. **Migration 0051** — `food_log.sugar_g` (three quick-log paths INSERTed it for weeks;
    the column never existed; PostgREST PGRST204 failures were silently swallowed —

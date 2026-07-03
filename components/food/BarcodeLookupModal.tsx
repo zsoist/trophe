@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { X, Barcode, Loader2, Camera, Keyboard, ChevronLeft, RotateCcw } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { MealType } from '@/lib/types';
@@ -43,6 +43,12 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
   const [error, setError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const controlsRef = useRef<{ stop: () => void } | null>(null);
+  // W12 snap-lock: on a ZXing hit the laser freezes where it is, the reticle
+  // snaps gold→ok and morphs into the product card (shared layoutId).
+  const reducedMotion = useReducedMotion();
+  const [locked, setLocked] = useState(false);
+  const [laserTop, setLaserTop] = useState<string | null>(null);
+  const laserRef = useRef<HTMLDivElement | null>(null);
 
   const stopScan = () => {
     try { controlsRef.current?.stop(); } catch { /* already stopped */ }
@@ -51,7 +57,7 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
 
   // Reset on open; always stop the camera on close/unmount.
   useEffect(() => {
-    if (isOpen) { setStep('choose'); setCode(''); setProduct(null); setError(null); setGrams(100); }
+    if (isOpen) { setStep('choose'); setCode(''); setProduct(null); setError(null); setGrams(100); setLocked(false); setLaserTop(null); }
     else stopScan();
     return () => stopScan();
   }, [isOpen]);
@@ -77,6 +83,8 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
         setStep('manual');
       }
     } catch {
+      // W12: release the snap-lock so the reticle doesn't sit green on failure
+      setLocked(false); setLaserTop(null);
       setError('Lookup failed — try again');
     } finally { setLoading(false); }
   }
@@ -109,6 +117,8 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
   // BarcodeDetector needed). Lazy-loaded so the decoder only ships when scanning.
   useEffect(() => {
     if (!isOpen || step !== 'scan') { stopScan(); return; }
+    // W12: every (re)entry into the scan step starts unlocked
+    setLocked(false); setLaserTop(null);
     let cancelled = false;
     (async () => {
       try {
@@ -129,7 +139,16 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
           (result) => {
             if (!result || cancelled) return;
             const v = result.getText().replace(/\D/g, '');
-            if (/^\d{8,14}$/.test(v)) { stopScan(); setCode(v); lookup(v); }
+            if (/^\d{8,14}$/.test(v)) {
+              stopScan();
+              // W12 snap-lock: freeze the laser at its current sweep position
+              // (framer writes style.top each frame), lock the reticle, haptic.
+              setLaserTop(laserRef.current?.style.top || '50%');
+              setLocked(true);
+              if (typeof navigator !== 'undefined') navigator.vibrate?.([15, 30, 15]);
+              setCode(v);
+              lookup(v);
+            }
           },
         );
         if (cancelled) controls.stop(); else controlsRef.current = controls;
@@ -209,9 +228,34 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
           <div className="px-5 pb-5">
             {/* ── Result (shared by both paths) ── */}
             {product ? (
-              <div className="rounded-2xl p-3" style={{ background: 'var(--surface,#141414)', border: '1px solid var(--line,rgba(255,255,255,.07))' }}>
+              /* W12: the locked reticle morphs into this card (shared layoutId);
+                 reduced-motion gets a plain fade instead. */
+              <motion.div
+                layoutId={reducedMotion ? undefined : 'barcode-target'}
+                initial={reducedMotion ? { opacity: 0 } : undefined}
+                animate={reducedMotion ? { opacity: 1 } : undefined}
+                className="p-3"
+                style={{ background: 'var(--surface,#141414)', border: '1px solid var(--line,rgba(255,255,255,.07))', borderRadius: 16 }}
+              >
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm font-semibold" style={{ color: 'var(--t1,#f5f5f4)' }}>{product.name}</span>
+                  {/* W12: product name types in (~30ms/char, capped) after the morph */}
+                  {reducedMotion ? (
+                    <span className="text-sm font-semibold" style={{ color: 'var(--t1,#f5f5f4)' }}>{product.name}</span>
+                  ) : (
+                    <span key={product.barcode} className="text-sm font-semibold" style={{ color: 'var(--t1,#f5f5f4)' }} aria-label={product.name}>
+                      {product.name.split('').map((ch, i) => (
+                        <motion.span
+                          key={i}
+                          aria-hidden
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{ delay: 0.15 + Math.min(i * 0.03, 1.2), duration: 0.12 }}
+                        >
+                          {ch}
+                        </motion.span>
+                      ))}
+                    </span>
+                  )}
                   <span className="text-[9px] uppercase" style={{ color: 'var(--t4,#78716c)', fontFamily: 'var(--font-mono)' }}>{product.source === 'db' ? 'in DB' : 'OFF'}</span>
                 </div>
                 {product.brand && <p className="text-[11px] mb-2" style={{ color: 'var(--t3,#a8a29e)' }}>{product.brand}</p>}
@@ -234,8 +278,8 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
                   style={{ width: '100%', padding: 12, borderRadius: 10, border: 'none', background: 'var(--gold-300,#D4A853)', color: '#0a0a0a', fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', cursor: logging ? 'not-allowed' : 'pointer' }}>
                   {logging ? 'Logging…' : 'Add to log'}
                 </button>
-                <button onClick={() => { setProduct(null); setCode(''); setStep('choose'); }} className="w-full text-[11px] mt-2 inline-flex items-center justify-center gap-1.5" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--t4,#78716c)', fontFamily: 'var(--font-mono)', minHeight: 32 }}><RotateCcw size={11} aria-hidden /> scan another</button>
-              </div>
+                <button onClick={() => { setProduct(null); setCode(''); setLocked(false); setLaserTop(null); setStep('choose'); }} className="w-full text-[11px] mt-2 inline-flex items-center justify-center gap-1.5" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--t4,#78716c)', fontFamily: 'var(--font-mono)', minHeight: 32 }}><RotateCcw size={11} aria-hidden /> scan another</button>
+              </motion.div>
             ) : step === 'choose' ? (
               /* ── Choose: Photo or Input ── */
               <div className="flex gap-3 pt-1">
@@ -246,17 +290,50 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
               /* ── Animated barcode-reader ── */
               <div>
                 <div style={{ position: 'relative', borderRadius: 16, overflow: 'hidden', background: '#000', aspectRatio: '4 / 3' }}>
-                  <video ref={videoRef} playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  {/* reticle */}
+                  {/* W12: camera fades beneath once the code locks */}
+                  <motion.div
+                    animate={{ opacity: locked ? 0.25 : 1 }}
+                    transition={{ duration: reducedMotion ? 0 : 0.4 }}
+                    style={{ width: '100%', height: '100%' }}
+                  >
+                    <video ref={videoRef} playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  </motion.div>
+                  {/* reticle — W12: snaps gold→ok with a scale pulse on lock, pulses
+                      liveGlow through lookup() latency, then morphs into the product
+                      card via the shared layoutId */}
                   <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-                    <div style={{ position: 'relative', width: '78%', height: '38%', border: '2px solid rgba(212,168,83,.9)', borderRadius: 12, boxShadow: '0 0 0 2000px rgba(0,0,0,.35)' }}>
-                      <motion.div
-                        initial={{ top: '6%' }}
-                        animate={{ top: ['6%', '94%', '6%'] }}
-                        transition={{ duration: 2.2, ease: 'easeInOut', repeat: Infinity }}
-                        style={{ position: 'absolute', left: '4%', right: '4%', height: 2, background: 'var(--gold-300,#D4A853)', boxShadow: '0 0 8px 1px rgba(212,168,83,.8)' }}
-                      />
-                    </div>
+                    <motion.div
+                      layoutId={reducedMotion ? undefined : 'barcode-target'}
+                      className={locked && loading && !reducedMotion ? 'live-glow' : undefined}
+                      animate={locked && !reducedMotion ? { scale: [1, 1.06, 1] } : { scale: 1 }}
+                      transition={{ duration: 0.35, ease: 'easeOut' }}
+                      style={{
+                        position: 'relative', width: '78%', height: '38%',
+                        border: `2px solid ${locked ? 'var(--ok,#65D387)' : 'rgba(212,168,83,.9)'}`,
+                        borderRadius: 12, boxShadow: '0 0 0 2000px rgba(0,0,0,.35)',
+                      }}
+                    >
+                      {!locked ? (
+                        <motion.div
+                          ref={laserRef}
+                          initial={{ top: '6%' }}
+                          animate={{ top: ['6%', '94%', '6%'] }}
+                          transition={{ duration: 2.2, ease: 'easeInOut', repeat: Infinity }}
+                          style={{ position: 'absolute', left: '4%', right: '4%', height: 2, background: 'var(--gold-300,#D4A853)', boxShadow: '0 0 8px 1px rgba(212,168,83,.8)' }}
+                        />
+                      ) : (
+                        /* laser stopped dead at its sweep position — white-gold flash */
+                        <motion.div
+                          animate={reducedMotion ? { opacity: 1 } : { opacity: [0.5, 1, 0.4, 1] }}
+                          transition={{ duration: 0.5, ease: 'easeOut' }}
+                          style={{
+                            position: 'absolute', left: '4%', right: '4%', height: 2, top: laserTop ?? '50%',
+                            background: 'linear-gradient(90deg, #FFF6E0, var(--gold-300,#D4A853), #FFF6E0)',
+                            boxShadow: '0 0 12px 2px rgba(255,246,224,.85)',
+                          }}
+                        />
+                      )}
+                    </motion.div>
                   </div>
                 </div>
                 <p className="text-[11px] text-center mt-3" style={{ color: 'var(--t3,#a8a29e)' }}>

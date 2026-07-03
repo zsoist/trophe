@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence, useReducedMotion, useAnimationControls } from 'framer-motion';
-import { Undo2, Star, ChefHat } from 'lucide-react';
+import { Undo2, Star, ChefHat, Zap } from 'lucide-react';
 import { Icon, AnimatedValue, Stagger, StaggerItem } from '@/components/ui';
 import { MACRO_COLORS } from '@/lib/macro-colors';
 import { supabase } from '@/lib/supabase';
@@ -238,6 +238,56 @@ function SealedBanner({ date, label }: { date: string; label: string }) {
   );
 }
 
+// ─── W6: protein-goal seal inside the day pill — SVG check pathLength draw +
+// gold border glow + vibrate([10,30,10]), once per day (trophe_protein_sealed_*,
+// same gate pattern as trophe_sealed_*). SealedBanner vocabulary at pill scale.
+function ProteinSealCheck({ date }: { date: string }) {
+  const reducedMotion = useReducedMotion();
+  const [firstSeal] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return !window.localStorage.getItem(`trophe_protein_sealed_${date}`);
+  });
+  const play = firstSeal && !reducedMotion;
+
+  useEffect(() => {
+    localStorage.setItem(`trophe_protein_sealed_${date}`, 'seen');
+    if (firstSeal && typeof navigator !== 'undefined') navigator.vibrate?.([10, 30, 10]);
+  }, [date, firstSeal]);
+
+  return (
+    <>
+      {/* One-shot gold border glow over the whole pill (opacity only) */}
+      {play && (
+        <motion.span
+          aria-hidden
+          style={{
+            position: 'absolute', inset: -1, borderRadius: 999, pointerEvents: 'none',
+            border: '1px solid rgba(212,168,83,.8)',
+            boxShadow: '0 0 20px rgba(212,168,83,.4)',
+          }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: [0, 1, 0] }}
+          transition={{ duration: 1.4, times: [0, 0.35, 1], type: 'tween', ease: 'easeInOut' }}
+        />
+      )}
+      <svg width={12} height={12} viewBox="0 0 16 16" aria-hidden style={{ flexShrink: 0 }}>
+        <motion.path
+          key={play ? 'draw' : 'static'}
+          d="M3 8.5 L6.5 12 L13 4.5"
+          fill="none"
+          stroke="var(--gold-300,#D4A853)"
+          strokeWidth={2.4}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          initial={play ? { pathLength: 0 } : false}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: 0.6, delay: 0.15, ease: 'easeOut' }}
+        />
+      </svg>
+    </>
+  );
+}
+
 export default function FoodLogPage() {
   const { t } = useI18n();
   const clientNav = useClientNav();
@@ -266,6 +316,19 @@ export default function FoodLogPage() {
   const prevTotalsRef = useRef<{ date: string; calories: number; protein: number; carbs: number; fat: number; sugar: number } | null>(null);
   const proteinPopControls = useAnimationControls();
   const [proteinGlowTick, setProteinGlowTick] = useState(0);
+
+  // W6: narrative day pill — expands ~2.5s with the protein delta after a totals change
+  const [pillDelta, setPillDelta] = useState<{ value: number; key: number } | null>(null);
+  const pillDeltaTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // W13: one-shot gold flash on the slot whose entry an undo just restored
+  const [slotFlash, setSlotFlash] = useState<{ slotId: string; key: number } | null>(null);
+  const slotFlashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // W8: streak ember — ignites once/day when TODAY's entry count crosses ≥3
+  const [emberIgnite, setEmberIgnite] = useState<{ key: number } | null>(null);
+  const emberTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevEntryCountRef = useRef<{ date: string; count: number } | null>(null);
 
   // F4: Macro targets
   const [targets, setTargets] = useState({ calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 });
@@ -339,6 +402,14 @@ export default function FoodLogPage() {
     });
     if (changes.length === 0) return;
 
+    // W6: protein delta expands the narrative day pill for ~2.5s, then it contracts.
+    const dPill = Math.round(totals.protein - prev.protein);
+    if (dPill !== 0 && targets.protein_g > 0) {
+      if (pillDeltaTimerRef.current) clearTimeout(pillDeltaTimerRef.current);
+      setPillDelta({ value: dPill, key: Date.now() });
+      pillDeltaTimerRef.current = setTimeout(() => setPillDelta(null), 2500);
+    }
+
     const spawned = changes.map(c => ({ id: ++ribbonIdRef.current, ...c }));
     setRibbons(cur => [...cur, ...spawned].slice(-5)); // ≤5 concurrent
     const ids = new Set(spawned.map(s => s.id));
@@ -353,12 +424,15 @@ export default function FoodLogPage() {
       });
       setProteinGlowTick(tk => tk + 1);
     }
-  }, [pageLoading, selectedDate, totalCalories, totalProtein, totalCarbs, totalFat, totalSugar, showCalories, reducedMotion, proteinPopControls]);
+  }, [pageLoading, selectedDate, totalCalories, totalProtein, totalCarbs, totalFat, totalSugar, showCalories, reducedMotion, proteinPopControls, targets.protein_g]);
 
   const handleDateChange = useCallback((date: string) => {
     setSelectedDate(date);
     setSkippedSlots(loadStoredSet(`trophe_skipped_${date}`));
     setLockedSlots(loadStoredSet(`trophe_locked_${date}`));
+    // W6: a lingering delta expansion belongs to the previous day's story
+    if (pillDeltaTimerRef.current) clearTimeout(pillDeltaTimerRef.current);
+    setPillDelta(null);
   }, []);
 
   const saveSkipped = (newSkipped: Set<string>) => {
@@ -393,8 +467,12 @@ export default function FoodLogPage() {
     lockedSlots.has(s.id) || skippedSlots.has(s.id) || grouped[s.id].length === 0
   );
   const hasAnyFood = todayLog.length > 0;
-  // F7 pill visibility — also used to lift the undo toast so they never overlap
-  const budgetPillVisible = showCalories && targets.calories > 0 && hasAnyFood;
+  // W6 narrative day-pill visibility (replaces the F7 kcal-only pill) — also
+  // used to lift the undo toasts so they never overlap the pill.
+  const proteinPillActive = targets.protein_g > 0 && hasAnyFood;
+  const kcalPillActive = showCalories && targets.calories > 0 && hasAnyFood;
+  const dayPillVisible = proteinPillActive || kcalPillActive;
+  const proteinDone = targets.protein_g > 0 && totalProtein >= targets.protein_g;
 
   const loadTodayLog = useCallback(async () => {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -519,12 +597,33 @@ export default function FoodLogPage() {
     }, 5000);
   };
 
+  // W13: which slot card renders this entry — mirrors groupBySlot's routing.
+  const slotIdForEntry = (entry: FoodLogEntry): string | null => {
+    const mt = entry.meal_type || 'snack';
+    let slotId: string | undefined;
+    if (mt === 'snack') {
+      slotId = new Date(entry.created_at).getHours() < 14 ? 'snack_am' : 'snack_pm';
+    } else if (mt === 'pre_workout' || mt === 'post_workout') {
+      slotId = 'snack_pm';
+    } else {
+      slotId = slots.find(s => s.mealType === mt)?.id;
+    }
+    return slotId && slots.some(s => s.id === slotId) ? slotId : null;
+  };
+
   const undoDelete = () => {
     if (!pendingDelete) return;
     if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
     setTodayLog(prev => [...prev, pendingDelete.entry].sort(
       (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
     ));
+    // W13: flash the restored entry's slot card gold once (flywheel-editor vocabulary)
+    const slotId = slotIdForEntry(pendingDelete.entry);
+    if (slotId) {
+      if (slotFlashTimerRef.current) clearTimeout(slotFlashTimerRef.current);
+      setSlotFlash({ slotId, key: Date.now() });
+      slotFlashTimerRef.current = setTimeout(() => setSlotFlash(null), 900);
+    }
     setPendingDelete(null);
   };
 
@@ -546,7 +645,33 @@ export default function FoodLogPage() {
 
   useEffect(() => () => {
     if (batchTimerRef.current) clearTimeout(batchTimerRef.current);
+    if (pillDeltaTimerRef.current) clearTimeout(pillDeltaTimerRef.current);
+    if (slotFlashTimerRef.current) clearTimeout(slotFlashTimerRef.current);
+    if (emberTimerRef.current) clearTimeout(emberTimerRef.current);
   }, []);
+
+  // W8: the streak-qualifying event — TODAY's entry count crossing ≥3 — ignites
+  // the date-pill ember once per day (trophe_ember_*). Mount/date-nav resets the
+  // baseline silently so plain page loads never ignite.
+  useEffect(() => {
+    if (pageLoading) return;
+    const count = todayLog.length;
+    const prev = prevEntryCountRef.current;
+    prevEntryCountRef.current = { date: selectedDate, count };
+    if (!isToday || !prev || prev.date !== selectedDate) return;
+    if (prev.count >= 3 || count < 3 || streak < 3) return;
+    if (window.localStorage.getItem(`trophe_ember_${today}`)) return;
+    // Deferred trigger (MealBadges earn-detection pattern) — keeps setState out
+    // of the synchronous effect body.
+    const igniteTimer = window.setTimeout(() => {
+      window.localStorage.setItem(`trophe_ember_${today}`, 'seen');
+      if (typeof navigator !== 'undefined') navigator.vibrate?.(10);
+      setEmberIgnite({ key: Date.now() });
+      if (emberTimerRef.current) clearTimeout(emberTimerRef.current);
+      emberTimerRef.current = setTimeout(() => setEmberIgnite(null), 1200);
+    }, 0);
+    return () => window.clearTimeout(igniteTimer);
+  }, [pageLoading, todayLog.length, selectedDate, isToday, today, streak]);
 
   /** MealSlotCard onLogged — batch ids (AI multi-log) arm the batch-undo toast. */
   const handleSlotLogged = useCallback((ids?: string[]) => {
@@ -764,6 +889,53 @@ export default function FoodLogPage() {
                 {new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short' })}
               </span>
             )}
+            {/* W8: streak ember — gold flame + mono count, ignites once/day */}
+            {streak >= 3 && (
+              <span
+                role="img"
+                aria-label={t('log.streak_ember_aria', { n: streak })}
+                style={{
+                  position: 'relative', display: 'flex', alignItems: 'center', gap: 3,
+                  color: 'var(--gold-300,#D4A853)', marginLeft: 2,
+                }}
+              >
+                <motion.span
+                  aria-hidden
+                  key={emberIgnite ? `ember-pop-${emberIgnite.key}` : 'ember-static'}
+                  initial={false}
+                  animate={emberIgnite && !reducedMotion ? { scale: [1, 1.35, 1] } : { scale: 1 }}
+                  transition={{ duration: 0.45, ease: 'easeOut' }}
+                  style={{ display: 'flex', transformOrigin: 'center bottom' }}
+                >
+                  <Icon name="i-flame" size={11} />
+                </motion.span>
+                <span style={{ fontSize: 10, fontWeight: 700, fontFamily: 'var(--font-mono)' }} aria-hidden>
+                  <AnimatedValue
+                    key={emberIgnite ? `ember-roll-${emberIgnite.key}` : 'ember-idle'}
+                    value={streak}
+                    startAt={emberIgnite ? Math.max(0, streak - 1) : streak}
+                    grouped={false}
+                  />
+                </span>
+                {/* 2 gold spark particles — translate+fade 500ms, absolute in this in-flow container */}
+                {emberIgnite && !reducedMotion && (
+                  <span aria-hidden style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+                    {[0, 1].map(i => (
+                      <motion.span
+                        key={`${emberIgnite.key}-spark-${i}`}
+                        initial={{ opacity: 1, x: 0, y: 0, scale: 1 }}
+                        animate={{ opacity: 0, x: i === 0 ? -7 : 8, y: -11, scale: 0.6 }}
+                        transition={{ duration: 0.5, ease: 'easeOut' }}
+                        style={{
+                          position: 'absolute', left: 3, top: 1, width: 4, height: 4,
+                          borderRadius: '50%', background: 'var(--gold-300,#D4A853)',
+                        }}
+                      />
+                    ))}
+                  </span>
+                )}
+              </span>
+            )}
           </motion.button>
 
           <button onClick={() => handleDateChange(localDateStr(new Date(new Date(selectedDate + 'T12:00:00').getTime() + 86400000)))}
@@ -934,6 +1106,20 @@ export default function FoodLogPage() {
         <Stagger className="space-y-2 mb-2">
           {userId && slots.map(slot => (
             <StaggerItem key={slot.id}>
+            <div style={{ position: 'relative' }}>
+            {/* W13: one-shot gold flash on the slot that just got its entry back
+                (same vocabulary as the flywheel editor's saved-edit flash) */}
+            {slotFlash?.slotId === slot.id && (
+              <motion.div
+                key={slotFlash.key}
+                initial={{ opacity: reducedMotion ? 0 : 0.35 }}
+                animate={{ opacity: 0 }}
+                transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+                className="absolute inset-0 pointer-events-none"
+                style={{ borderRadius: 16, background: 'var(--gold-300,#D4A853)', zIndex: 1 }}
+                aria-hidden
+              />
+            )}
             <MealSlotCard
               slot={slot}
               entries={grouped[slot.id] || []}
@@ -960,6 +1146,7 @@ export default function FoodLogPage() {
               onDeleteEntry={deleteEntry}
               onToggleFavorite={toggleFavorite}
             />
+            </div>
             </StaggerItem>
           ))}
         </Stagger>
@@ -1105,35 +1292,91 @@ export default function FoodLogPage() {
         )}
       </motion.div>
 
-      {/* F7: Floating remaining budget counter (kcal — coach-gated) */}
-      {budgetPillVisible && (
+      {/* W6: narrative day pill — protein-first story (coral "n g to go" → gold
+          "Protein ✓"); kcal joins inside when the coach shows calories.
+          Replaces the F7 kcal-only pill. */}
+      {dayPillVisible && (
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={reducedMotion ? false : { opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="fixed bottom-20 right-4 z-40"
         >
-          <div className={`px-3 py-1.5 rounded-full text-xs font-bold shadow-lg ${
-            remainingCal > 500 ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-            : remainingCal > 200 ? 'bg-[#D4A853]/20 gold-text border border-[#D4A853]/30'
-            : remainingCal > 0 ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-            : 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
-          }`}>
-            {remainingCal >= 0
-              ? t('food.remaining', { n: String(Math.round(remainingCal)) })
-              : t('food.over_budget', { n: String(Math.round(Math.abs(remainingCal))) })
-            }
-          </div>
+          <motion.div
+            layoutId={reducedMotion ? undefined : 'day-pill'}
+            className="px-3 py-1.5 rounded-full text-xs font-bold shadow-lg flex items-center gap-2"
+            style={{
+              position: 'relative',
+              background: !proteinPillActive || proteinDone ? 'rgba(212,168,83,.13)' : 'rgba(232,122,110,.13)',
+              border: `1px solid ${!proteinPillActive || proteinDone ? 'rgba(212,168,83,.35)' : 'rgba(232,122,110,.35)'}`,
+            }}
+          >
+            {/* Protein segment — the default story for the protein-first client */}
+            {proteinPillActive && (proteinDone ? (
+              <span style={{ display: 'flex', alignItems: 'center', gap: 5, color: 'var(--gold-300,#D4A853)', whiteSpace: 'nowrap' }}>
+                <ProteinSealCheck key={selectedDate} date={selectedDate} />
+                {t('food.pill_protein_done')}
+              </span>
+            ) : (
+              <span style={{ display: 'flex', alignItems: 'center', gap: 5, color: MACRO_COLORS.protein, whiteSpace: 'nowrap' }}>
+                <Zap size={11} aria-hidden />
+                {/* i18n around the rolling number: t() without params keeps the
+                    literal {n}, so splitting on it works in every language. */}
+                <span>
+                  {t('food.pill_protein_to_go').split('{n}')[0]}
+                  <AnimatedValue value={proteinLeft} grouped={false} />
+                  {t('food.pill_protein_to_go').split('{n}')[1]}
+                </span>
+              </span>
+            ))}
+            {/* ~2.5s delta expansion after each totals change, then contracts */}
+            <AnimatePresence>
+              {pillDelta && proteinPillActive && !proteinDone && (
+                <motion.span
+                  key={pillDelta.key}
+                  initial={reducedMotion ? false : { opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0, transition: { duration: reducedMotion ? 0 : 0.2 } }}
+                  style={{ color: MACRO_COLORS.protein, whiteSpace: 'nowrap', fontFamily: 'var(--font-mono)', fontWeight: 700 }}
+                >
+                  {pillDelta.value > 0 ? t('food.pill_delta_nice', { n: pillDelta.value }) : `${pillDelta.value}g`}
+                </motion.span>
+              )}
+            </AnimatePresence>
+            {/* kcal segment — coach-gated; keeps the old tone ladder incl. calm
+                over-budget purple (color swap only, never animated on over) */}
+            {kcalPillActive && (
+              <>
+                {proteinPillActive && (
+                  <span aria-hidden style={{ width: 1, alignSelf: 'stretch', background: 'rgba(255,255,255,.14)' }} />
+                )}
+                <span
+                  className={
+                    remainingCal > 500 ? 'text-green-400'
+                    : remainingCal > 200 ? 'gold-text'
+                    : remainingCal > 0 ? 'text-red-400'
+                    : 'text-purple-400'
+                  }
+                  style={{ whiteSpace: 'nowrap' }}
+                >
+                  {t(remainingCal >= 0 ? 'food.pill_kcal_left' : 'food.pill_kcal_over').split('{n}')[0]}
+                  <AnimatedValue value={Math.abs(Math.round(remainingCal))} grouped={false} />
+                  {t(remainingCal >= 0 ? 'food.pill_kcal_left' : 'food.pill_kcal_over').split('{n}')[1]}
+                </span>
+              </>
+            )}
+          </motion.div>
         </motion.div>
       )}
 
-      {/* F3: Undo delete toast — stacks above the budget pill when both show */}
+      {/* F3: Undo delete toast — stacks above the day pill when both show.
+          W13: 5s countdown ring synced to the hard-delete timer (batch-toast vocabulary). */}
       <AnimatePresence>
         {pendingDelete && (
           <motion.div
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 50 }}
-            className={`fixed ${budgetPillVisible ? 'bottom-32' : 'bottom-20'} left-4 right-4 z-[var(--z-toast,70)] flex justify-center`}
+            className={`fixed ${dayPillVisible ? 'bottom-32' : 'bottom-20'} left-4 right-4 z-[var(--z-toast,70)] flex justify-center`}
           >
             <div className="glass-elevated px-4 py-3 rounded-xl flex items-center gap-3 shadow-lg max-w-sm">
               <span className="text-stone-300 text-sm flex-1">
@@ -1141,8 +1384,27 @@ export default function FoodLogPage() {
               </span>
               <button
                 onClick={undoDelete}
-                className="gold-text text-sm font-semibold flex items-center gap-1"
+                className="gold-text text-sm font-semibold flex items-center gap-1.5"
               >
+                {reducedMotion ? (
+                  <span className="text-stone-500 text-xs tabular-nums">(5s)</span>
+                ) : (
+                  <svg
+                    width={16} height={16} viewBox="0 0 16 16" aria-hidden
+                    style={{ transform: 'rotate(-90deg)', flexShrink: 0 }}
+                  >
+                    <circle cx={8} cy={8} r={6} fill="none" stroke="rgba(212,168,83,.2)" strokeWidth={2} />
+                    <motion.circle
+                      key={pendingDelete.id}
+                      cx={8} cy={8} r={6} fill="none"
+                      stroke="var(--gold-300,#D4A853)" strokeWidth={2} strokeLinecap="round"
+                      strokeDasharray={2 * Math.PI * 6}
+                      initial={{ strokeDashoffset: 0 }}
+                      animate={{ strokeDashoffset: 2 * Math.PI * 6 }}
+                      transition={{ duration: 5, ease: 'linear' }}
+                    />
+                  </svg>
+                )}
                 <Undo2 size={14} />
                 {t('food.undo_delete')}
               </button>
@@ -1161,8 +1423,8 @@ export default function FoodLogPage() {
             exit={{ opacity: 0, y: 50 }}
             className={`fixed ${
               pendingDelete
-                ? (budgetPillVisible ? 'bottom-44' : 'bottom-32')
-                : (budgetPillVisible ? 'bottom-32' : 'bottom-20')
+                ? (dayPillVisible ? 'bottom-44' : 'bottom-32')
+                : (dayPillVisible ? 'bottom-32' : 'bottom-20')
             } left-4 right-4 z-[var(--z-toast,70)] flex justify-center`}
           >
             <div className="glass-elevated px-4 py-3 rounded-xl flex items-center gap-3 shadow-lg max-w-sm">
