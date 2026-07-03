@@ -4,11 +4,14 @@ import {
   text,
   timestamp,
   integer,
+  smallint,
   real,
   boolean,
   date,
   jsonb,
   index,
+  uniqueIndex,
+  unique,
   foreignKey,
   pgPolicy,
   check,
@@ -55,6 +58,9 @@ export const workoutTemplates = pgTable('workout_templates', {
   pgPolicy('Coaches manage own templates', { as: 'permissive', for: 'all', to: ['authenticated'],
     using: sql`(created_by = auth.uid())`, withCheck: sql`(created_by = auth.uid())` }),
   pgPolicy('Clients see shared templates', { as: 'permissive', for: 'select', to: ['authenticated'], using: sql`(shared = true)` }),
+  // Migration 0049: clients may read templates referenced by their own program.
+  pgPolicy('Clients see templates in own program', { as: 'permissive', for: 'select', to: ['authenticated'],
+    using: sql`(id IN ( SELECT d.template_id FROM workout_program_days d JOIN workout_programs p ON p.id = d.program_id WHERE p.client_id = auth.uid() ))` }),
   check('workout_templates_difficulty_check', sql`difficulty = ANY (ARRAY['beginner'::text, 'intermediate'::text, 'advanced'::text])`),
 ]);
 
@@ -72,6 +78,8 @@ export const workoutSessions = pgTable('workout_sessions', {
 }, (table) => [
   index('idx_workout_sessions_user').using('btree', table.userId.asc().nullsLast().op('uuid_ops'), table.sessionDate.asc().nullsLast().op('date_ops')),
   foreignKey({ columns: [table.userId], foreignColumns: [profiles.id], name: 'workout_sessions_user_id_fkey' }).onDelete('cascade'),
+  // Migration 0049: template_id finally gets its FK (was a bare uuid, never written).
+  foreignKey({ columns: [table.templateId], foreignColumns: [workoutTemplates.id], name: 'workout_sessions_template_id_fkey' }).onDelete('set null'),
   pgPolicy('Users manage own sessions', { as: 'permissive', for: 'all', to: ['authenticated'],
     using: sql`(user_id = auth.uid())`, withCheck: sql`(user_id = auth.uid())` }),
   pgPolicy('Coaches view client sessions', { as: 'permissive', for: 'select', to: ['authenticated'], using: sql`private.is_coach_of(user_id)` }),
@@ -106,6 +114,55 @@ export const workoutSets = pgTable('workout_sets', {
       SELECT workout_sessions.id FROM workout_sessions
       WHERE private.is_coach_of(workout_sessions.user_id)
     ))` }),
+]);
+
+/**
+ * Coach → client workout program — the assignment layer (migration 0049).
+ * One ACTIVE program per client (partial unique index); assigning a new one
+ * archives the old. Days map weekday (0=Sunday … 6=Saturday, JS Date.getDay())
+ * to a workout_template.
+ */
+export const workoutPrograms = pgTable('workout_programs', {
+  id: uuid().defaultRandom().primaryKey().notNull(),
+  clientId: uuid('client_id').notNull(),
+  coachId: uuid('coach_id').notNull(),
+  name: text().notNull(),
+  notes: text(),
+  status: text().default('active').notNull(),
+  startsOn: date('starts_on'),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).defaultNow(),
+}, (table) => [
+  index('idx_workout_programs_client').using('btree', table.clientId.asc().nullsLast().op('uuid_ops'), table.status.asc().nullsLast().op('text_ops')),
+  uniqueIndex('uq_workout_programs_active_client').using('btree', table.clientId.asc().nullsLast().op('uuid_ops')).where(sql`(status = 'active'::text)`),
+  foreignKey({ columns: [table.clientId], foreignColumns: [profiles.id], name: 'workout_programs_client_id_fkey' }).onDelete('cascade'),
+  foreignKey({ columns: [table.coachId], foreignColumns: [profiles.id], name: 'workout_programs_coach_id_fkey' }),
+  pgPolicy('Clients see own programs', { as: 'permissive', for: 'select', to: ['authenticated'], using: sql`(client_id = auth.uid())` }),
+  pgPolicy('Coaches manage client programs', { as: 'permissive', for: 'all', to: ['authenticated'],
+    using: sql`private.is_coach_of(client_id)`,
+    withCheck: sql`(private.is_coach_of(client_id) AND (coach_id = auth.uid()))` }),
+  check('workout_programs_status_check', sql`status = ANY (ARRAY['active'::text, 'archived'::text])`),
+]);
+
+/** Weekday → template mapping inside a program (migration 0049). */
+export const workoutProgramDays = pgTable('workout_program_days', {
+  id: uuid().defaultRandom().primaryKey().notNull(),
+  programId: uuid('program_id').notNull(),
+  weekday: smallint().notNull(),
+  templateId: uuid('template_id').notNull(),
+  sort: smallint().default(0).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
+}, (table) => [
+  index('idx_workout_program_days_program').using('btree', table.programId.asc().nullsLast().op('uuid_ops'), table.weekday.asc().nullsLast().op('int2_ops')),
+  unique('workout_program_days_unique').on(table.programId, table.weekday, table.templateId),
+  foreignKey({ columns: [table.programId], foreignColumns: [workoutPrograms.id], name: 'workout_program_days_program_id_fkey' }).onDelete('cascade'),
+  foreignKey({ columns: [table.templateId], foreignColumns: [workoutTemplates.id], name: 'workout_program_days_template_id_fkey' }).onDelete('cascade'),
+  pgPolicy('Clients see own program days', { as: 'permissive', for: 'select', to: ['authenticated'],
+    using: sql`(program_id IN ( SELECT id FROM workout_programs WHERE client_id = auth.uid() ))` }),
+  pgPolicy('Coaches manage client program days', { as: 'permissive', for: 'all', to: ['authenticated'],
+    using: sql`(program_id IN ( SELECT id FROM workout_programs WHERE private.is_coach_of(client_id) ))`,
+    withCheck: sql`(program_id IN ( SELECT id FROM workout_programs WHERE private.is_coach_of(client_id) ))` }),
+  check('workout_program_days_weekday_check', sql`((weekday >= 0) AND (weekday <= 6))`),
 ]);
 
 /** AI form-check analysis stored per rep set. */

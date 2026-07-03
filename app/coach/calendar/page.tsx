@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
+import { Check, X, ArrowRight } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { Icon } from '@/components/ui';
 
@@ -150,13 +151,13 @@ export default function CoachCalendarPage() {
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: 6 }}>
-                    <button onClick={() => setApptStatus(a.id, 'completed')} title="Mark completed"
-                      style={{ background: 'none', border: '1px solid rgba(101,211,135,.3)', borderRadius: 8, padding: '4px 8px', color: 'var(--ok,#65D387)', fontSize: 10, cursor: 'pointer' }}>
-                      ✓
+                    <button onClick={() => setApptStatus(a.id, 'completed')} title="Mark completed" aria-label="Mark completed"
+                      style={{ background: 'none', border: '1px solid rgba(101,211,135,.3)', borderRadius: 8, padding: '6px 10px', color: 'var(--ok,#65D387)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }}>
+                      <Check size={13} aria-hidden />
                     </button>
-                    <button onClick={() => setApptStatus(a.id, 'cancelled')} title="Cancel"
-                      style={{ background: 'none', border: '1px solid rgba(239,68,68,.3)', borderRadius: 8, padding: '4px 8px', color: 'rgb(239,68,68)', fontSize: 10, cursor: 'pointer' }}>
-                      ✕
+                    <button onClick={() => setApptStatus(a.id, 'cancelled')} title="Cancel" aria-label="Cancel appointment"
+                      style={{ background: 'none', border: '1px solid rgba(239,68,68,.3)', borderRadius: 8, padding: '6px 10px', color: 'var(--err,#E87A6E)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }}>
+                      <X size={13} aria-hidden />
                     </button>
                   </div>
                 </div>
@@ -184,7 +185,7 @@ export default function CoachCalendarPage() {
                         <input type="time" value={toHHMM(w.start_minute)}
                           onChange={(e) => updateWindow(w.id, { start_minute: fromHHMM(e.target.value) })}
                           className="input-dark text-xs py-1" style={{ width: 92 }} />
-                        <span style={{ color: 'var(--t4)', fontSize: 10 }}>→</span>
+                        <ArrowRight size={11} style={{ color: 'var(--t4)', flexShrink: 0 }} aria-hidden />
                         <input type="time" value={toHHMM(w.end_minute)}
                           onChange={(e) => updateWindow(w.id, { end_minute: fromHHMM(e.target.value) })}
                           className="input-dark text-xs py-1" style={{ width: 92 }} />
@@ -246,8 +247,8 @@ export default function CoachCalendarPage() {
               <div className="row-b">
                 <span className="ds-sub" style={{ fontSize: 10 }}>Clients see this on the booking page.</span>
                 <button onClick={saveInstructions}
-                  style={{ background: instrSaved ? 'rgba(34,197,94,.15)' : 'var(--gold-300,#D4A853)', color: instrSaved ? 'rgb(34,197,94)' : '#0a0a0a', border: 'none', borderRadius: 8, padding: '5px 14px', fontSize: 10, fontFamily: 'var(--font-mono)', fontWeight: 700, cursor: 'pointer', textTransform: 'uppercase' }}>
-                  {instrSaved ? '✓ Saved' : 'Save'}
+                  style={{ background: instrSaved ? 'rgba(101,211,135,.15)' : 'var(--gold-300,#D4A853)', color: instrSaved ? 'var(--ok,#65D387)' : '#0a0a0a', border: 'none', borderRadius: 8, padding: '6px 14px', fontSize: 10, fontFamily: 'var(--font-mono)', fontWeight: 700, cursor: 'pointer', textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  {instrSaved ? <><Check size={11} aria-hidden /> Saved</> : 'Save'}
                 </button>
               </div>
             </div>

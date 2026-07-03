@@ -6,6 +6,7 @@ import {
   timestamp,
   integer,
   real,
+  jsonb,
   index,
   foreignKey,
   pgPolicy,
@@ -39,6 +40,8 @@ export const profiles = pgTable('profiles', {
   timezone: text().default('UTC'),
   /** Coach's default pre-appointment instructions, shown to clients on booking (migration 0041). */
   appointmentInstructions: text('appointment_instructions'),
+  /** Which panels the coach sees on their own surfaces (migration 0050). Keys fall back to the Essential preset in lib/display-prefs.ts. */
+  displayPrefs: jsonb('display_prefs').default({}),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
 }, (table) => [
   foreignKey({
@@ -114,6 +117,8 @@ export const clientProfiles = pgTable('client_profiles', {
   // Graduation / expected return (Michael call 2026-06-12, migration 0040)
   graduatedAt: timestamp('graduated_at', { withTimezone: true, mode: 'string' }),
   expectedReturnMonth: integer('expected_return_month'),
+  /** What this client sees (calories, analytics…), set by their coach (migration 0050). Replaces lib/client-view.ts constants. */
+  clientViewPrefs: jsonb('client_view_prefs').default({}),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).defaultNow(),
 }, (table) => [

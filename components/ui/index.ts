@@ -23,3 +23,6 @@ export { BotNav } from './BotNav';
 export type { BotNavRoute } from './BotNav';
 export { StatusDot } from './StatusDot';
 export { Avatar } from './Avatar';
+export { AnimatedValue } from './AnimatedValue';
+export { Stagger, StaggerItem } from './Stagger';
+export { ConfirmSheet } from './ConfirmSheet';

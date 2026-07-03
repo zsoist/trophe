@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Check, Minus, Plus, AlertTriangle } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
+import { MACRO_COLORS } from '@/lib/macro-colors';
 import type { ParsedFoodItem } from '@/app/api/food/parse/route';
 
 interface ParsedFoodListProps {
@@ -157,6 +158,21 @@ export default function ParsedFoodList({ items: initialItems, clarificationQuest
                   {item.name_localized && item.name_localized !== item.food_name && (
                     <p className="text-stone-500 text-xs mt-0.5">{item.food_name}</p>
                   )}
+                  {/* Branded/community provenance — the "weird branded items" were
+                      OFF products shown with zero labeling. Now the brand is a chip
+                      and community-sourced data is called out. */}
+                  {(item.brand || item.db_source === 'off') && (
+                    <div className="flex items-center gap-1.5 mt-1">
+                      {item.brand && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-stone-800/70 border border-stone-700/50 text-stone-400 truncate max-w-[140px]">
+                          {item.brand}
+                        </span>
+                      )}
+                      {item.db_source === 'off' && (
+                        <span className="text-[10px] text-stone-500">community data</span>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <button
                   onClick={() => removeItem(index)}
@@ -260,23 +276,23 @@ export default function ParsedFoodList({ items: initialItems, clarificationQuest
           <div className="grid grid-cols-5 gap-1 text-center mb-3">
             <div>
               <p className="text-sm font-bold gold-text">{Math.round(totalCalories)}</p>
-              <p className="text-[9px] text-stone-500">kcal</p>
+              <p className="text-[10px] text-stone-500">kcal</p>
             </div>
             <div>
-              <p className="text-sm font-bold text-red-400">{Math.round(totalProtein)}g</p>
-              <p className="text-[9px] text-stone-500">Protein</p>
+              <p className="text-sm font-bold" style={{ color: MACRO_COLORS.protein }}>{Math.round(totalProtein)}g</p>
+              <p className="text-[10px] text-stone-500">Protein</p>
             </div>
             <div>
-              <p className="text-sm font-bold text-blue-400">{Math.round(totalCarbs)}g</p>
-              <p className="text-[9px] text-stone-500">Carbs</p>
+              <p className="text-sm font-bold" style={{ color: MACRO_COLORS.carbs }}>{Math.round(totalCarbs)}g</p>
+              <p className="text-[10px] text-stone-500">Carbs</p>
             </div>
             <div>
-              <p className="text-sm font-bold text-purple-400">{Math.round(totalFat)}g</p>
-              <p className="text-[9px] text-stone-500">Fat</p>
+              <p className="text-sm font-bold" style={{ color: MACRO_COLORS.fat }}>{Math.round(totalFat)}g</p>
+              <p className="text-[10px] text-stone-500">Fat</p>
             </div>
             <div>
-              <p className="text-sm font-bold text-green-400">{Math.round(totalFiber)}g</p>
-              <p className="text-[9px] text-stone-500">Fiber</p>
+              <p className="text-sm font-bold" style={{ color: MACRO_COLORS.fiber }}>{Math.round(totalFiber)}g</p>
+              <p className="text-[10px] text-stone-500">Fiber</p>
             </div>
           </div>
 

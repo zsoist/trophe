@@ -1,9 +1,10 @@
 'use client';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { TrendingDown, TrendingUp, Plus, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { useI18n } from '@/lib/i18n';
 import type { Measurement, ClientProfile, ClientHabit } from '@/lib/types';
 import { BotNav } from '@/components/ui/BotNav';
 import { Icon } from '@/components/ui';
@@ -11,7 +12,7 @@ import { useClientNav } from '@/lib/useClientNav';
 import ProgressPhotos from '@/components/progress/ProgressPhotos';
 import WeeklyMacroChart from '@/components/charts/WeeklyMacroChart';
 import HabitRadar from '@/components/charts/HabitRadar';
-import { CLIENT_SHOWS_CALORIES } from '@/lib/client-view';
+import { CLIENT_VIEW_PANELS, isPanelVisible, parseClientViewPrefs } from '@/lib/display-prefs';
 import { localToday } from '../../../lib/utils/dates';
 
 // ─── Glass accordion card ─────────────────────────────────────────
@@ -59,11 +60,22 @@ function Section({
   );
 }
 
-function WeightChart({ measurements }: { measurements: Measurement[] }) {
+function WeightChart({ measurements, onLogFirst }: { measurements: Measurement[]; onLogFirst?: () => void }) {
+  const reducedMotion = useReducedMotion();
+  const { t } = useI18n();
   if (measurements.length < 2) {
     return (
-      <div className="text-center py-8 text-stone-500 text-sm">
-        Log at least 2 weights to see a trend
+      <div className="text-center py-8">
+        <p className="text-stone-500 text-sm">{t('progress.need_two_weights')}</p>
+        {onLogFirst && (
+          <button
+            onClick={onLogFirst}
+            className="btn-ghost mt-3"
+            style={{ fontSize: 12, padding: '10px 16px', minHeight: 40 }}
+          >
+            {t('progress.log_weight_cta')}
+          </button>
+        )}
       </div>
     );
   }
@@ -113,8 +125,10 @@ function WeightChart({ measurements }: { measurements: Measurement[] }) {
             {diff.toFixed(1)} kg over {measurements.length} entries
           </span>
         </div>
-        <span className="text-stone-100 font-semibold text-sm">
-          {lastWeight.toFixed(1)} kg
+        {/* Serif weigh-in hero numeral */}
+        <span className="display-lg" style={{ fontSize: 26, lineHeight: '28px', color: 'var(--t1,#FAFAF9)' }}>
+          {lastWeight.toFixed(1)}
+          <span style={{ fontFamily: 'var(--font-mono)', fontStyle: 'normal', fontSize: 11, color: 'var(--t4)', marginLeft: 3 }}>kg</span>
         </span>
       </div>
       <svg viewBox={`0 0 ${width} ${height}`} className="w-full" preserveAspectRatio="none">
@@ -136,16 +150,25 @@ function WeightChart({ measurements }: { measurements: Measurement[] }) {
             strokeWidth={1}
           />
         ))}
-        {/* Area */}
-        <polygon points={areaPoints} fill="url(#weightGrad)" />
-        {/* Line */}
-        <polyline
+        {/* Area — fades in after the line draws */}
+        <motion.polygon
+          points={areaPoints}
+          fill="url(#weightGrad)"
+          initial={reducedMotion ? false : { opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5, delay: 0.7, ease: 'easeOut' }}
+        />
+        {/* Line — draw-in (pathLength 0→1) */}
+        <motion.polyline
           points={polyline}
           fill="none"
           stroke="#D4A853"
           strokeWidth={2.5}
           strokeLinecap="round"
           strokeLinejoin="round"
+          initial={reducedMotion ? false : { pathLength: 0 }}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: 1.1, ease: 'easeOut' }}
         />
         {/* Dots */}
         {measurements
@@ -154,7 +177,7 @@ function WeightChart({ measurements }: { measurements: Measurement[] }) {
             const x = padX + (i / (Math.max(arr.length - 1, 1))) * chartW;
             const y = padY + (1 - ((m.weight_kg as number) - minW) / range) * chartH;
             return (
-              <circle
+              <motion.circle
                 key={m.id}
                 cx={x}
                 cy={y}
@@ -162,6 +185,9 @@ function WeightChart({ measurements }: { measurements: Measurement[] }) {
                 fill={i === arr.length - 1 ? '#D4A853' : '#B8923E'}
                 stroke={i === arr.length - 1 ? '#0a0a0a' : 'none'}
                 strokeWidth={2}
+                initial={reducedMotion ? false : { opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.3, delay: reducedMotion ? 0 : 0.15 + (i / Math.max(arr.length - 1, 1)) * 0.9 }}
               />
             );
           })}
@@ -272,6 +298,12 @@ export default function ProgressPage() {
     );
   }
 
+  // Coach-controlled client view prefs (client_profiles.client_view_prefs).
+  const viewPrefs = parseClientViewPrefs(
+    (clientProfile as (ClientProfile & { client_view_prefs?: unknown }) | null)?.client_view_prefs,
+  );
+  const showCalories = isPanelVisible(CLIENT_VIEW_PANELS, viewPrefs, 'showCalories');
+
   // Goal projection logic
   const weights = measurements.filter(m => m.weight_kg !== null);
   const earliest = weights[0];
@@ -310,12 +342,20 @@ export default function ProgressPage() {
 
         {/* ── Weight Trend (accent, open by default) ── */}
         <Section title="Weight Trend" icon="i-pulse" accent defaultOpen>
-          <WeightChart measurements={measurements} />
-          <div style={{ marginTop: 10, borderTop: '1px solid rgba(255,255,255,.05)', paddingTop: 10 }}>
+          <WeightChart
+            measurements={measurements}
+            onLogFirst={() => {
+              setShowForm(true);
+              requestAnimationFrame(() =>
+                document.getElementById('weight-form')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+              );
+            }}
+          />
+          <div id="weight-form" style={{ marginTop: 10, borderTop: '1px solid rgba(255,255,255,.05)', paddingTop: 10 }}>
             <button
               onClick={() => setShowForm(f => !f)}
               className="btn-ghost w-full"
-              style={{ fontSize: 11, padding: '7px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}
+              style={{ fontSize: 11, padding: '10px 7px', minHeight: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}
             >
               <Plus size={12} />
               {showForm ? 'Cancel' : 'Log measurement'}
@@ -391,8 +431,8 @@ export default function ProgressPage() {
           )}
         </Section>
 
-        {/* ── Weekly Macros ── (calorie-adherence view hidden from clients per coach guidance) */}
-        {CLIENT_SHOWS_CALORIES && (
+        {/* ── Weekly Macros ── (calorie-adherence view gated by coach pref) */}
+        {showCalories && (
         <Section title="Weekly Macros" icon="i-bars">
           <WeeklyMacroChart
             userId={userId}
@@ -413,7 +453,7 @@ export default function ProgressPage() {
                 { label: 'BMR',    val: clientProfile.bmr,        unit: 'kcal' },
                 { label: 'TDEE',   val: clientProfile.tdee,       unit: 'kcal' },
                 { label: 'Target', val: clientProfile.target_calories, unit: 'kcal', gold: true },
-              ].filter(s => CLIENT_SHOWS_CALORIES || s.unit !== 'kcal').map(s => (
+              ].filter(s => showCalories || s.unit !== 'kcal').map(s => (
                 <div key={s.label}>
                   <div className="eye-d">{s.label}</div>
                   <div style={{ fontSize: 18, fontWeight: 700, color: s.gold ? 'var(--gold-300,#D4A853)' : 'var(--t1,#FAFAF9)', marginTop: 2 }}>
@@ -426,7 +466,7 @@ export default function ProgressPage() {
               {[
                 { label: 'Protein', val: clientProfile.target_protein_g, color: 'var(--err,#E87A6E)' },
                 { label: 'Carbs',   val: clientProfile.target_carbs_g,   color: 'var(--info,#7DA3D9)' },
-                { label: 'Fat',     val: clientProfile.target_fat_g,     color: '#B89DD9' },
+                { label: 'Fat',     val: clientProfile.target_fat_g,     color: 'var(--plum,#B89DD9)' },
               ].map(m => (
                 <div key={m.label} style={{ textAlign: 'center', padding: '8px 4px', borderRadius: 10, background: 'rgba(255,255,255,.03)' }}>
                   <div style={{ fontSize: 15, fontWeight: 700, color: m.color }}>{m.val ?? '—'}g</div>

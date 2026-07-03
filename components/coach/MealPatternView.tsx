@@ -2,6 +2,7 @@
 
 import { memo, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Icon, type IconName } from '@/components/ui';
 import type { FoodLogEntry } from '@/lib/types';
 
 // ═══════════════════════════════════════════════
@@ -14,7 +15,7 @@ interface MealPatternViewProps {
 
 interface MealPattern {
   mealType: string;
-  emoji: string;
+  icon: IconName;
   label: string;
   totalEntries: number;
   topFoods: { name: string; count: number; avgCalories: number }[];
@@ -29,13 +30,13 @@ interface MealPattern {
 // Constants
 // ═══════════════════════════════════════════════
 
-const MEAL_META: Record<string, { emoji: string; label: string; order: number }> = {
-  breakfast: { emoji: '🌅', label: 'Breakfast', order: 0 },
-  lunch: { emoji: '☀️', label: 'Lunch', order: 1 },
-  dinner: { emoji: '🌙', label: 'Dinner', order: 2 },
-  snack: { emoji: '🍎', label: 'Snacks', order: 3 },
-  pre_workout: { emoji: '💪', label: 'Pre-Workout', order: 4 },
-  post_workout: { emoji: '🥤', label: 'Post-Workout', order: 5 },
+const MEAL_META: Record<string, { icon: IconName; label: string; order: number }> = {
+  breakfast: { icon: 'i-sun', label: 'Breakfast', order: 0 },
+  lunch: { icon: 'i-bowl', label: 'Lunch', order: 1 },
+  dinner: { icon: 'i-moon', label: 'Dinner', order: 2 },
+  snack: { icon: 'i-apple', label: 'Snacks', order: 3 },
+  pre_workout: { icon: 'i-dumbbell', label: 'Pre-Workout', order: 4 },
+  post_workout: { icon: 'i-zap', label: 'Post-Workout', order: 5 },
 };
 
 const MAX_CAL_BAR = 800; // max calories for bar scale
@@ -95,11 +96,11 @@ function MealPatternView({ entries }: MealPatternViewProps) {
         { cal: 0, p: 0, c: 0, f: 0 }
       );
 
-      const meta = MEAL_META[mealType] || { emoji: '🍽️', label: mealType, order: 99 };
+      const meta = MEAL_META[mealType] || { icon: 'i-bowl' as IconName, label: mealType, order: 99 };
 
       return {
         mealType,
-        emoji: meta.emoji,
+        icon: meta.icon,
         label: meta.label,
         totalEntries: items.length,
         topFoods,
@@ -184,9 +185,9 @@ function MealPatternView({ entries }: MealPatternViewProps) {
                   key={pattern.mealType}
                   className="p-4 rounded-xl bg-white/[0.03] border border-white/5"
                 >
-                  {/* Minimal meal header — emoji + label + day count, everything else demoted */}
-                  <div className="flex items-baseline gap-2 mb-3">
-                    <span className="text-base">{pattern.emoji}</span>
+                  {/* Minimal meal header — icon + label + day count, everything else demoted */}
+                  <div className="flex items-center gap-2 mb-3">
+                    <Icon name={pattern.icon} size={15} style={{ color: 'var(--gold-300,#D4A853)', flexShrink: 0 }} />
                     <h4 className="text-sm font-semibold text-stone-200">{pattern.label}</h4>
                     <span className="text-[10px] text-stone-500">
                       · {pattern.uniqueDays} day{pattern.uniqueDays !== 1 ? 's' : ''}

@@ -1,38 +1,51 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+/**
+ * Client workout landing — rebuilt around the coach-assigned program
+ * (workout_programs / workout_program_days, migration 0049).
+ *
+ * Three entry states:
+ *   A) program + template today  → "Today" hero card → GUIDED mode
+ *   B) program + rest day        → rest card + "Train anyway" (freestyle)
+ *   C) no program                → freestyle quick-start (legacy behavior)
+ *
+ * Freestyle logging shares guided mode's crash-safe persistence:
+ * the session row is created lazily at the first completed set and every
+ * completed set is INSERTed immediately (workout-persistence.ts).
+ */
+
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Dumbbell, Plus, Minus, Clock, Trophy, Search, X, AlertTriangle,
-  ChevronDown, ChevronUp, History, Play, Square, Camera, Timer
+  ChevronDown, ChevronUp, History, Play, Square, Camera, Timer,
+  BarChart3, Check, MessageCircle,
 } from 'lucide-react';
 import { BotNav } from '@/components/ui/BotNav';
 import { supabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
 import { useClientNav } from '@/lib/useClientNav';
-import type { Exercise, PainFlag, MuscleGroup, WorkoutSession } from '@/lib/types';
+import type { Exercise, PainFlag, MuscleGroup, WorkoutSession, TemplateExercise } from '@/lib/types';
 import Link from 'next/link';
 import { localToday } from '../../../lib/utils/dates';
+import { trpc } from '@/lib/trpc/client';
+import GuidedSession, { type GuidedExerciseInfo, type GuidedTemplate } from '@/components/workout/GuidedSession';
+import { TodayProgramCard, RestDayCard, type TodayTemplateSummary } from '@/components/workout/TodayProgramCard';
+import PainFlagModal from '@/components/workout/PainFlagModal';
+import { MUSCLE_GROUPS, muscleColor } from '@/components/workout/muscle-groups';
+import {
+  createWorkoutSession,
+  deleteWorkoutSet,
+  finishWorkoutSession,
+  insertWorkoutSet,
+  insertWorkoutSets,
+  loadLastSetsMap,
+  loadPrMap,
+  type CompletedSetInput,
+} from '@/components/workout/workout-persistence';
 
-// ─── Muscle group labels & colors ───
-const MUSCLE_GROUPS: { key: MuscleGroup; label: string; color: string }[] = [
-  { key: 'chest', label: 'Chest', color: '#ef4444' },
-  { key: 'back', label: 'Back', color: '#3b82f6' },
-  { key: 'shoulders', label: 'Shoulders', color: '#f59e0b' },
-  { key: 'biceps', label: 'Biceps', color: '#10b981' },
-  { key: 'triceps', label: 'Triceps', color: '#8b5cf6' },
-  { key: 'forearms', label: 'Forearms', color: '#ec4899' },
-  { key: 'quads', label: 'Quads', color: '#06b6d4' },
-  { key: 'hamstrings', label: 'Hamstrings', color: '#f97316' },
-  { key: 'glutes', label: 'Glutes', color: '#14b8a6' },
-  { key: 'calves', label: 'Calves', color: '#a855f7' },
-  { key: 'core', label: 'Core', color: '#eab308' },
-  { key: 'full_body', label: 'Full Body', color: '#D4A853' },
-  { key: 'cardio', label: 'Cardio', color: '#ef4444' },
-];
-
-// ─── Local set type for editing ───
+// ─── Local set type for freestyle editing ───
 interface LocalSet {
   id: string;
   set_number: number;
@@ -41,120 +54,33 @@ interface LocalSet {
   rpe: string;
   is_warmup: boolean;
   is_pr: boolean;
+  /** Crash-safe persistence: completed sets are already INSERTed. */
+  completed: boolean;
+  saving: boolean;
+  dbId: string | null;
 }
 
 interface ActiveExercise {
   exercise: Exercise;
   sets: LocalSet[];
   collapsed: boolean;
-  /** Sets from the most recent past session of this exercise — shown as ghost placeholders. */
-  lastSets?: { weight_kg: number | null; reps: number | null }[];
+  /** Sets from the most recent past session of this exercise — ghost placeholders. */
+  lastSets?: { weight_kg: number | null; reps: number | null; rpe?: number | null }[];
 }
 
-// ─── Pain Flag Modal ───
-function PainFlagModal({
-  exerciseId,
-  onSave,
-  onClose,
-}: {
-  exerciseId: string;
-  onSave: (flag: PainFlag) => void;
-  onClose: () => void;
-}) {
-  const [bodyPart, setBodyPart] = useState('');
-  const [severity, setSeverity] = useState(1);
-  const [notes, setNotes] = useState('');
-
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center px-4"
-      style={{ background: 'rgba(0,0,0,0.7)' }}
-      onClick={onClose}
-    >
-      <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
-        className="glass-elevated p-6 w-full max-w-sm"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center gap-2 mb-4">
-          <AlertTriangle size={20} className="text-red-400" />
-          <h3 className="text-lg font-semibold">Pain Flag</h3>
-        </div>
-
-        <input
-          type="text"
-          placeholder="Body part (e.g. left shoulder)"
-          value={bodyPart}
-          onChange={(e) => setBodyPart(e.target.value)}
-          className="input-dark mb-3"
-        />
-
-        <div className="mb-3">
-          <label className="text-sm text-stone-400 mb-1 block">
-            Severity: {severity}/5
-          </label>
-          <div className="flex gap-2">
-            {[1, 2, 3, 4, 5].map((s) => (
-              <button
-                key={s}
-                onClick={() => setSeverity(s)}
-                className="flex-1 py-2 rounded-lg text-sm font-medium transition-all"
-                style={{
-                  background: severity >= s
-                    ? `rgba(239, 68, 68, ${0.2 + s * 0.15})`
-                    : 'rgba(255,255,255,0.05)',
-                  color: severity >= s ? '#fca5a5' : '#78716c',
-                  border: severity >= s
-                    ? '1px solid rgba(239,68,68,0.3)'
-                    : '1px solid rgba(255,255,255,0.06)',
-                }}
-              >
-                {s}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <textarea
-          placeholder="Notes (optional)"
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          className="input-dark mb-4 h-16 resize-none"
-        />
-
-        <div className="flex gap-2">
-          <button onClick={onClose} className="btn-ghost flex-1 text-sm py-2">
-            Cancel
-          </button>
-          <button
-            onClick={() => {
-              if (!bodyPart.trim()) return;
-              onSave({
-                exercise_id: exerciseId,
-                body_part: bodyPart.trim(),
-                severity,
-                notes: notes.trim() || undefined,
-              });
-              onClose();
-            }}
-            className="flex-1 py-2 rounded-xl text-sm font-semibold"
-            style={{
-              background: 'rgba(239,68,68,0.2)',
-              color: '#fca5a5',
-              border: '1px solid rgba(239,68,68,0.3)',
-            }}
-          >
-            Save Flag
-          </button>
-        </div>
-      </motion.div>
-    </motion.div>
-  );
+function blankSet(setNumber: number, from?: LocalSet): LocalSet {
+  return {
+    id: crypto.randomUUID(),
+    set_number: setNumber,
+    weight_kg: from?.weight_kg ?? '',
+    reps: from?.reps ?? '',
+    rpe: '',
+    is_warmup: false,
+    is_pr: false,
+    completed: false,
+    saving: false,
+    dbId: null,
+  };
 }
 
 // ─── Custom Exercise Modal ───
@@ -205,7 +131,7 @@ function CustomExerciseModal({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[60] flex items-center justify-center px-4"
+      className="fixed inset-0 z-[var(--z-modal,60)] flex items-center justify-center px-4"
       style={{ background: 'rgba(0,0,0,0.8)' }}
       onClick={onClose}
     >
@@ -492,6 +418,152 @@ function RestChip({ startedAt, onDismiss }: { startedAt: number; onDismiss: () =
   );
 }
 
+// ─── Recent session card (tappable → inline set detail) ───
+interface ExpandedSetRow {
+  id: string;
+  exercise_id: string;
+  set_number: number;
+  weight_kg: number | null;
+  reps: number | null;
+  rpe: number | null;
+  is_warmup: boolean;
+  is_pr: boolean;
+  exercise: { name: string; name_es: string | null; name_el: string | null; muscle_group: string } | null;
+}
+
+function RecentSessionCard({
+  session,
+  lang,
+}: {
+  session: WorkoutSession;
+  lang: string;
+}) {
+  const { t } = useI18n();
+  const [expanded, setExpanded] = useState(false);
+  const [sets, setSets] = useState<ExpandedSetRow[] | null>(null);
+  const [loadingSets, setLoadingSets] = useState(false);
+
+  const d = new Date(session.session_date + 'T00:00:00');
+  const label = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+
+  const toggle = async () => {
+    const next = !expanded;
+    setExpanded(next);
+    if (next && sets === null && !loadingSets) {
+      setLoadingSets(true);
+      const { data } = await supabase
+        .from('workout_sets')
+        .select('id, exercise_id, set_number, weight_kg, reps, rpe, is_warmup, is_pr, exercise:exercises(name, name_es, name_el, muscle_group)')
+        .eq('session_id', session.id)
+        .order('set_number');
+      setSets((data as unknown as ExpandedSetRow[]) ?? []);
+      setLoadingSets(false);
+    }
+  };
+
+  const grouped = useMemo(() => {
+    if (!sets) return [];
+    const map = new Map<string, { name: string; muscle: string; rows: ExpandedSetRow[] }>();
+    for (const s of sets) {
+      const name =
+        lang === 'es' && s.exercise?.name_es ? s.exercise.name_es
+        : lang === 'el' && s.exercise?.name_el ? s.exercise.name_el
+        : s.exercise?.name ?? 'Exercise';
+      if (!map.has(s.exercise_id)) map.set(s.exercise_id, { name, muscle: s.exercise?.muscle_group ?? '', rows: [] });
+      map.get(s.exercise_id)!.rows.push(s);
+    }
+    return Array.from(map.values());
+  }, [sets, lang]);
+
+  return (
+    <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+      <motion.button
+        whileTap={{ scale: 0.98 }}
+        onClick={toggle}
+        className="w-full text-left"
+        style={{ padding: '11px 14px', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', background: 'transparent', border: 'none' }}
+      >
+        <div style={{
+          width: 32, height: 32, borderRadius: 10, flexShrink: 0,
+          background: 'rgba(212,168,83,.1)', border: '1px solid rgba(212,168,83,.2)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <Dumbbell size={14} className="gold-text" />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--t1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {session.name ?? 'Workout'}
+          </div>
+          <div style={{ fontSize: 10, color: 'var(--t4)', marginTop: 1 }}>{label}</div>
+        </div>
+        {session.duration_minutes && (
+          <span style={{ fontSize: 10, color: 'var(--t4)', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
+            <Clock size={9} className="inline mr-1" />
+            {session.duration_minutes}m
+          </span>
+        )}
+        {expanded
+          ? <ChevronUp size={13} style={{ color: 'var(--t4)', flexShrink: 0 }} />
+          : <ChevronDown size={13} style={{ color: 'var(--t4)', flexShrink: 0 }} />}
+      </motion.button>
+
+      <AnimatePresence initial={false}>
+        {expanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.22, ease: 'easeInOut' }}
+            style={{ overflow: 'hidden' }}
+          >
+            <div style={{ padding: '0 14px 12px', borderTop: '1px solid rgba(255,255,255,.05)' }}>
+              {loadingSets && (
+                <p style={{ fontSize: 11, color: 'var(--t4)', padding: '10px 0' }}>Loading…</p>
+              )}
+              {!loadingSets && sets !== null && sets.length === 0 && (
+                <p style={{ fontSize: 11, color: 'var(--t4)', padding: '10px 0' }}>
+                  {session.notes ?? t('workout.no_sets_cardio')}
+                </p>
+              )}
+              {grouped.map((g, gi) => (
+                <div key={gi} style={{ paddingTop: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+                    <div style={{ width: 3, height: 12, borderRadius: 2, background: muscleColor(g.muscle) }} />
+                    <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--t2)' }}>{g.name}</span>
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                    {g.rows.map((r) => (
+                      <span
+                        key={r.id}
+                        style={{
+                          fontSize: 10, fontFamily: 'var(--font-mono)', padding: '2px 7px', borderRadius: 8,
+                          background: r.is_pr ? 'rgba(212,168,83,.14)' : 'rgba(255,255,255,.04)',
+                          border: r.is_pr ? '1px solid rgba(212,168,83,.35)' : '1px solid rgba(255,255,255,.06)',
+                          color: r.is_pr ? '#D4A853' : 'var(--t3)',
+                        }}
+                      >
+                        {r.is_warmup ? 'W ' : ''}{r.weight_kg ?? 0}kg×{r.reps ?? 0}
+                        {r.is_pr && <Trophy size={8} className="inline ml-1" style={{ verticalAlign: -1 }} />}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              {!loadingSets && sets !== null && (
+                <Link href="/dashboard/workout/history">
+                  <span style={{ display: 'inline-block', marginTop: 10, fontSize: 10, color: 'var(--gold-300,#D4A853)', cursor: 'pointer' }}>
+                    {t('workout.view_full_history')}
+                  </span>
+                </Link>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 // ═══════════════════════════════════════════════
 // Main Workout Page
 // ═══════════════════════════════════════════════
@@ -500,11 +572,15 @@ export default function WorkoutPage() {
   const router = useRouter();
   const { t, lang } = useI18n();
 
-  // Session state
-  const [sessionActive, setSessionActive] = useState(false);
-  const [sessionId, setSessionId] = useState<string | null>(null);
+  // View mode
+  const [mode, setMode] = useState<'landing' | 'freestyle' | 'guided'>('landing');
+  const [guidedTemplate, setGuidedTemplate] = useState<GuidedTemplate | null>(null);
+
+  // Freestyle session state (crash-safe: session row created lazily)
   const [sessionName, setSessionName] = useState('');
   const [startTime, setStartTime] = useState<number>(0);
+  const sessionPromiseRef = useRef<Promise<string | null> | null>(null);
+  const sessionIdRef = useRef<string | null>(null);
 
   // Exercise state
   const [exercises, setExercises] = useState<Exercise[]>([]);
@@ -527,116 +603,179 @@ export default function WorkoutPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [restStartedAt, setRestStartedAt] = useState<number | null>(null);
 
-  // Load exercises & user
+  // ── Coach program (tRPC; provider mounted in app/dashboard/layout.tsx) ──
+  const programQuery = trpc.workouts.program.mine.useQuery(undefined, {
+    staleTime: 60 * 1000,
+    retry: 1,
+  });
+  const programData = programQuery.data ?? null;
+
+  const exerciseInfoMap = useMemo(() => {
+    const map: Record<string, GuidedExerciseInfo> = {};
+    for (const e of programData?.exercises ?? []) map[e.id] = e as GuidedExerciseInfo;
+    return map;
+  }, [programData]);
+
+  // Weekday of the user's LOCAL calendar day (0=Sunday … 6=Saturday).
+  const todayWeekday = new Date(localToday() + 'T12:00:00').getDay();
+
+  const toSummary = useCallback(
+    (day: NonNullable<typeof programData>['days'][number]): TodayTemplateSummary => ({
+      templateId: day.template.id,
+      name: day.template.name,
+      dayLabel: day.template.dayLabel,
+      difficulty: day.template.difficulty,
+      exercises: ((day.template.exercises as TemplateExercise[] | null) ?? []).filter(
+        (e) => e && typeof e.exercise_id === 'string',
+      ),
+    }),
+    [],
+  );
+
+  const todaySummaries = useMemo(() => {
+    if (!programData) return [];
+    return programData.days
+      .filter((d) => d.weekday === todayWeekday)
+      .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0))
+      .map(toSummary);
+  }, [programData, todayWeekday, toSummary]);
+
+  const nextScheduled = useMemo(() => {
+    if (!programData || programData.days.length === 0) return null;
+    for (let i = 1; i <= 7; i++) {
+      const wd = (todayWeekday + i) % 7;
+      const day = programData.days
+        .filter((d) => d.weekday === wd)
+        .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0))[0];
+      if (day) return { weekday: wd, templateName: day.template.name };
+    }
+    return null;
+  }, [programData, todayWeekday]);
+
+  // ── Load exercises, user & recents (+ ?repeat=<sessionId> from history) ──
+  const refreshRecents = useCallback(async (uid: string) => {
+    const { data } = await supabase
+      .from('workout_sessions')
+      .select('*')
+      .eq('user_id', uid)
+      .order('session_date', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(5);
+    if (data) setRecentSessions(data);
+  }, []);
+
   useEffect(() => {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { router.push("/login"); return; }
+      if (!user) { router.push('/login'); return; }
       setUserId(user.id);
 
-      const [exercisesRes, sessionsRes] = await Promise.all([
+      const [exercisesRes] = await Promise.all([
         supabase.from('exercises').select('*').order('muscle_group').order('name'),
-        supabase.from('workout_sessions').select('*')
-          .eq('user_id', user.id)
-          .order('session_date', { ascending: false })
-          .limit(5),
+        refreshRecents(user.id),
       ]);
       if (exercisesRes.data) setExercises(exercisesRes.data);
-      if (sessionsRes.data) setRecentSessions(sessionsRes.data);
+
+      // "Repeat" deep-link from history: prefill a freestyle session.
+      const repeatId = new URLSearchParams(window.location.search).get('repeat');
+      if (repeatId) {
+        window.history.replaceState({}, '', '/dashboard/workout');
+        await startRepeat(repeatId, user.id);
+      }
     }
     init();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
   // Load PR records for user
-  const loadPRs = useCallback(async (exerciseIds: string[]) => {
-    if (!userId || exerciseIds.length === 0) return;
-    const { data } = await supabase
-      .from('workout_sets')
-      .select('exercise_id, weight_kg, session_id, workout_sessions!inner(user_id)')
-      .in('exercise_id', exerciseIds)
-      .eq('workout_sessions.user_id', userId)
-      .eq('is_warmup', false)
-      .not('weight_kg', 'is', null);
+  const loadPRs = useCallback(async (uid: string, exerciseIds: string[]) => {
+    const map = await loadPrMap(uid, exerciseIds);
+    setPrRecords((prev) => ({ ...prev, ...map }));
+  }, []);
 
-    if (data) {
-      const maxWeights: Record<string, number> = {};
-      data.forEach((s: { exercise_id: string; weight_kg: number | null }) => {
-        if (s.weight_kg !== null) {
-          maxWeights[s.exercise_id] = Math.max(maxWeights[s.exercise_id] || 0, s.weight_kg);
-        }
-      });
-      setPrRecords((prev) => ({ ...prev, ...maxWeights }));
-    }
-  }, [userId]);
-
-  // ─── Start workout ───
-  const startWorkout = async () => {
+  // ─── Freestyle: start (no DB write — session is created at first set) ───
+  const startFreestyle = () => {
     if (!userId) return;
-    const today = localToday();
-    const defaultName = `Workout — ${today}`;
-    setSessionName(defaultName);
-
-    const { data, error } = await supabase
-      .from('workout_sessions')
-      .insert({
-        user_id: userId,
-        session_date: today,
-        name: defaultName,
-        pain_flags: [],
-      })
-      .select()
-      .maybeSingle();
-
-    if (data && !error) {
-      setSessionId(data.id);
-      setSessionActive(true);
-      setStartTime(Date.now());
-      setActiveExercises([]);
-      setPainFlags([]);
-    }
+    setSessionName(`Workout — ${localToday()}`);
+    sessionPromiseRef.current = null;
+    sessionIdRef.current = null;
+    setActiveExercises([]);
+    setPainFlags([]);
+    setRestStartedAt(null);
+    setStartTime(Date.now());
+    setMode('freestyle');
   };
 
-  // Ghost values: pull the most recent past session's sets for this exercise
-  // so today's inputs show "what you did last time" as placeholders.
+  /** Repeat a past session: same exercises + that session's values as ghosts. */
+  const startRepeat = async (repeatSessionId: string, uid: string) => {
+    const [{ data: sessionRow }, { data: setRows }] = await Promise.all([
+      supabase.from('workout_sessions').select('id, name, user_id').eq('id', repeatSessionId).maybeSingle(),
+      supabase
+        .from('workout_sets')
+        .select('exercise_id, set_number, weight_kg, reps, rpe, is_warmup, exercise:exercises(*)')
+        .eq('session_id', repeatSessionId)
+        .order('set_number'),
+    ]);
+    if (!sessionRow || sessionRow.user_id !== uid) return;
+
+    type RepeatRow = {
+      exercise_id: string;
+      set_number: number;
+      weight_kg: number | null;
+      reps: number | null;
+      rpe: number | null;
+      is_warmup: boolean;
+      exercise: Exercise | null;
+    };
+    const rows = ((setRows as unknown as RepeatRow[]) ?? []).filter((r) => r.exercise);
+    if (rows.length === 0) return;
+
+    const byExercise = new Map<string, { exercise: Exercise; ghosts: { weight_kg: number | null; reps: number | null; rpe: number | null }[] }>();
+    for (const r of rows) {
+      if (!byExercise.has(r.exercise_id)) byExercise.set(r.exercise_id, { exercise: r.exercise!, ghosts: [] });
+      byExercise.get(r.exercise_id)!.ghosts.push({ weight_kg: r.weight_kg, reps: r.reps, rpe: r.rpe });
+    }
+
+    const prefilled: ActiveExercise[] = Array.from(byExercise.values()).map(({ exercise, ghosts }) => ({
+      exercise,
+      collapsed: false,
+      lastSets: ghosts,
+      sets: ghosts.map((_, i) => blankSet(i + 1)),
+    }));
+
+    setSessionName(sessionRow.name ?? `Workout — ${localToday()}`);
+    sessionPromiseRef.current = null;
+    sessionIdRef.current = null;
+    setActiveExercises(prefilled);
+    setPainFlags([]);
+    setRestStartedAt(null);
+    setStartTime(Date.now());
+    setMode('freestyle');
+    void loadPRs(uid, Array.from(byExercise.keys()));
+  };
+
+  // Ghost values for a newly added exercise (shared batched helper).
   const loadLastSets = useCallback(async (exerciseId: string) => {
     if (!userId) return;
-    const { data } = await supabase
-      .from('workout_sets')
-      .select('weight_kg, reps, set_number, session_id, workout_sessions!inner(user_id, session_date)')
-      .eq('exercise_id', exerciseId)
-      .eq('workout_sessions.user_id', userId)
-      .eq('is_warmup', false)
-      .limit(60);
-    if (!data || data.length === 0) return;
-
-    type Row = { weight_kg: number | null; reps: number | null; set_number: number; session_id: string; workout_sessions: { session_date: string } };
-    const rows = data as unknown as Row[];
-    const latestDate = rows.reduce((max, r) => r.workout_sessions.session_date > max ? r.workout_sessions.session_date : max, '');
-    const latestSession = rows.filter(r => r.workout_sessions.session_date === latestDate);
-    const lastSets = latestSession
-      .sort((a, b) => a.set_number - b.set_number)
-      .map(r => ({ weight_kg: r.weight_kg, reps: r.reps }));
-
-    setActiveExercises(prev => prev.map(ae =>
-      ae.exercise.id === exerciseId ? { ...ae, lastSets } : ae
+    const map = await loadLastSetsMap(userId, [exerciseId]);
+    const lastSets = map[exerciseId];
+    if (!lastSets || lastSets.length === 0) return;
+    setActiveExercises((prev) => prev.map((ae) =>
+      ae.exercise.id === exerciseId ? { ...ae, lastSets } : ae,
     ));
   }, [userId]);
 
-  // ─── Add exercise to session ───
+  // ─── Add exercise to freestyle session ───
   const addExercise = (ex: Exercise) => {
     const alreadyAdded = activeExercises.some((ae) => ae.exercise.id === ex.id);
     if (alreadyAdded) return;
 
     setActiveExercises((prev) => [
       ...prev,
-      {
-        exercise: ex,
-        sets: [{ id: crypto.randomUUID(), set_number: 1, weight_kg: '', reps: '', rpe: '', is_warmup: false, is_pr: false }],
-        collapsed: false,
-      },
+      { exercise: ex, sets: [blankSet(1)], collapsed: false },
     ]);
-    loadPRs([ex.id]);
-    loadLastSets(ex.id);
+    if (userId) void loadPRs(userId, [ex.id]);
+    void loadLastSets(ex.id);
   };
 
   // ─── Set management ───
@@ -644,27 +783,23 @@ export default function WorkoutPage() {
     setActiveExercises((prev) => {
       const updated = [...prev];
       const lastSet = updated[exIndex].sets[updated[exIndex].sets.length - 1];
-      updated[exIndex].sets.push({
-        id: crypto.randomUUID(),
-        set_number: updated[exIndex].sets.length + 1,
-        weight_kg: lastSet?.weight_kg || '',
-        reps: lastSet?.reps || '',
-        rpe: '',
-        is_warmup: false,
-        is_pr: false,
-      });
+      updated[exIndex] = {
+        ...updated[exIndex],
+        sets: [...updated[exIndex].sets, blankSet(updated[exIndex].sets.length + 1, lastSet)],
+      };
       return updated;
     });
-    // Adding the next set marks the end of the previous one — start the rest clock.
-    setRestStartedAt(Date.now());
   };
 
   const removeSet = (exIndex: number, setIndex: number) => {
+    const target = activeExercises[exIndex]?.sets[setIndex];
+    if (!target || activeExercises[exIndex].sets.length <= 1) return;
+    if (target.dbId) void deleteWorkoutSet(target.dbId);
     setActiveExercises((prev) => {
       const updated = [...prev];
-      if (updated[exIndex].sets.length <= 1) return prev;
-      updated[exIndex].sets.splice(setIndex, 1);
-      updated[exIndex].sets.forEach((s, i) => (s.set_number = i + 1));
+      const sets = updated[exIndex].sets.filter((_, i) => i !== setIndex);
+      sets.forEach((s, i) => (s.set_number = i + 1));
+      updated[exIndex] = { ...updated[exIndex], sets };
       return updated;
     });
   };
@@ -673,6 +808,7 @@ export default function WorkoutPage() {
     setActiveExercises((prev) => {
       const updated = [...prev];
       const set = { ...updated[exIndex].sets[setIndex], [field]: value };
+      if (set.completed) return prev; // completed sets are locked (uncheck to edit)
 
       // Auto-detect PR
       if (field === 'weight_kg' && typeof value === 'string' && !set.is_warmup) {
@@ -696,52 +832,138 @@ export default function WorkoutPage() {
   };
 
   const removeExercise = (exIndex: number) => {
+    // Persisted sets of a removed exercise are deleted too.
+    for (const s of activeExercises[exIndex]?.sets ?? []) {
+      if (s.dbId) void deleteWorkoutSet(s.dbId);
+    }
     setActiveExercises((prev) => prev.filter((_, i) => i !== exIndex));
   };
 
-  // ─── Finish workout ───
+  // ─── Crash-safe: lazy session creation ───
+  const ensureSession = useCallback((): Promise<string | null> => {
+    if (!userId) return Promise.resolve(null);
+    if (!sessionPromiseRef.current) {
+      const name = sessionName || `Workout — ${localToday()}`;
+      sessionPromiseRef.current = createWorkoutSession(userId, name).then((id) => {
+        sessionIdRef.current = id;
+        if (!id) sessionPromiseRef.current = null; // failed create → allow retry
+        return id;
+      });
+    }
+    return sessionPromiseRef.current;
+  }, [userId, sessionName]);
+
+  const resolveSetInput = (ae: ActiveExercise, set: LocalSet, setIndex: number): CompletedSetInput => {
+    const ghost = ae.lastSets?.[setIndex];
+    const weight = set.weight_kg.trim() !== ''
+      ? (isNaN(parseFloat(set.weight_kg)) ? null : parseFloat(set.weight_kg))
+      : ghost?.weight_kg ?? null;
+    const reps = set.reps.trim() !== ''
+      ? (isNaN(parseInt(set.reps, 10)) ? null : parseInt(set.reps, 10))
+      : ghost?.reps ?? null;
+    const rpe = set.rpe.trim() !== '' && !isNaN(parseFloat(set.rpe)) ? parseFloat(set.rpe) : null;
+    const isPr = !set.is_warmup && weight !== null && weight > (prRecords[ae.exercise.id] ?? 0);
+    return {
+      exercise_id: ae.exercise.id,
+      set_number: set.set_number,
+      weight_kg: weight,
+      reps,
+      rpe,
+      is_warmup: set.is_warmup,
+      is_pr: isPr,
+    };
+  };
+
+  /** Check-to-complete: INSERT immediately (or delete when unchecking). */
+  const completeFreestyleSet = async (exIndex: number, setIndex: number) => {
+    const ae = activeExercises[exIndex];
+    const set = ae?.sets[setIndex];
+    if (!ae || !set || set.saving) return;
+
+    const patch = (p: Partial<LocalSet>) => {
+      setActiveExercises((prev) => {
+        const updated = [...prev];
+        const sets = [...updated[exIndex].sets];
+        sets[setIndex] = { ...sets[setIndex], ...p };
+        updated[exIndex] = { ...updated[exIndex], sets };
+        return updated;
+      });
+    };
+
+    if (set.completed) {
+      patch({ saving: true });
+      if (set.dbId) await deleteWorkoutSet(set.dbId);
+      patch({ saving: false, completed: false, dbId: null, is_pr: false });
+      return;
+    }
+
+    const input = resolveSetInput(ae, set, setIndex);
+    patch({ saving: true });
+    const sessionId = await ensureSession();
+    if (!sessionId) { patch({ saving: false }); return; }
+    const dbId = await insertWorkoutSet(sessionId, input);
+    if (!dbId) { patch({ saving: false }); return; }
+    if (input.is_pr && input.weight_kg !== null) {
+      setPrRecords((prev) => ({ ...prev, [ae.exercise.id]: input.weight_kg as number }));
+    }
+    patch({
+      saving: false,
+      completed: true,
+      dbId,
+      is_pr: input.is_pr,
+      weight_kg: input.weight_kg !== null ? String(input.weight_kg) : set.weight_kg,
+      reps: input.reps !== null ? String(input.reps) : set.reps,
+    });
+    setRestStartedAt(Date.now());
+  };
+
+  // ─── Finish freestyle workout ───
   const finishWorkout = async () => {
-    if (!sessionId || saving) return;
+    if (saving) return;
     setSaving(true);
 
     try {
-      const durationMinutes = Math.round((Date.now() - startTime) / 60000);
+      const durationMinutes = Math.max(1, Math.round((Date.now() - startTime) / 60000));
 
-      // Save all sets
-      const allSets = activeExercises.flatMap((ae) =>
-        ae.sets.map((s) => ({
-          session_id: sessionId,
-          exercise_id: ae.exercise.id,
-          set_number: s.set_number,
-          weight_kg: s.weight_kg ? parseFloat(s.weight_kg) : null,
-          reps: s.reps ? parseInt(s.reps) : null,
-          rpe: s.rpe ? parseFloat(s.rpe) : null,
-          is_warmup: s.is_warmup,
-          is_pr: s.is_pr,
-          notes: null,
-        }))
+      // Rows the user filled but never check-completed still get saved.
+      const pending: CompletedSetInput[] = activeExercises.flatMap((ae) =>
+        ae.sets
+          .filter((s) => !s.completed && (s.weight_kg.trim() !== '' || s.reps.trim() !== ''))
+          .map((s) => {
+            const input = resolveSetInput(ae, s, ae.sets.indexOf(s));
+            return input;
+          }),
       );
 
-      if (allSets.length > 0) {
-        await supabase.from('workout_sets').insert(allSets);
+      const hasAnything = pending.length > 0 || sessionIdRef.current !== null;
+      if (!hasAnything) {
+        // Nothing logged → nothing persisted (no empty-session leak).
+        setMode('landing');
+        setActiveExercises([]);
+        setPainFlags([]);
+        setRestStartedAt(null);
+        return;
       }
 
-      // Update session
-      await supabase
-        .from('workout_sessions')
-        .update({
-          name: sessionName,
+      const sessionId = await ensureSession();
+      if (sessionId) {
+        await insertWorkoutSets(sessionId, pending);
+        await finishWorkoutSession(sessionId, {
+          name: sessionName || `Workout — ${localToday()}`,
           duration_minutes: durationMinutes,
           pain_flags: painFlags,
-        })
-        .eq('id', sessionId);
+        });
+      }
+
+      if (userId) await refreshRecents(userId);
 
       // Reset
-      setSessionActive(false);
-      setSessionId(null);
+      setMode('landing');
       setActiveExercises([]);
       setPainFlags([]);
       setRestStartedAt(null);
+      sessionPromiseRef.current = null;
+      sessionIdRef.current = null;
     } catch (err) {
       console.error('Error finishing workout:', err);
     } finally {
@@ -784,6 +1006,45 @@ export default function WorkoutPage() {
     return ex.name;
   };
 
+  // ─── Guided mode start / exit ───
+  const startGuided = (summary: TodayTemplateSummary) => {
+    if (summary.exercises.length === 0) return;
+    setGuidedTemplate({
+      id: summary.templateId,
+      name: summary.name,
+      dayLabel: summary.dayLabel,
+      difficulty: summary.difficulty,
+      exercises: summary.exercises,
+    });
+    setMode('guided');
+  };
+
+  const exitGuided = (finished: boolean) => {
+    setMode('landing');
+    setGuidedTemplate(null);
+    if (finished && userId) void refreshRecents(userId);
+  };
+
+  // ═══ GUIDED MODE (full-screen takeover) ═══
+  if (mode === 'guided' && guidedTemplate && userId) {
+    return (
+      <div className="min-h-screen pb-28" style={{ background: 'var(--bg,#0a0a0a)' }}>
+        <GuidedSession
+          userId={userId}
+          programName={programData?.program.name ?? 'Program'}
+          template={guidedTemplate}
+          exerciseInfo={exerciseInfoMap}
+          onExit={exitGuided}
+        />
+        <BotNav routes={clientNav} />
+      </div>
+    );
+  }
+
+  const inFreestyle = mode === 'freestyle';
+  const hasProgram = Boolean(programData);
+  const todayHero = todaySummaries[0] ?? null;
+
   return (
     <div className="min-h-screen pb-28" style={{ background: 'var(--bg,#0a0a0a)' }}>
       {/* Header */}
@@ -795,11 +1056,11 @@ export default function WorkoutPage() {
           </div>
           <div className="flex items-center gap-2">
             <AnimatePresence>
-              {sessionActive && restStartedAt !== null && (
+              {inFreestyle && restStartedAt !== null && (
                 <RestChip key={restStartedAt} startedAt={restStartedAt} onDismiss={() => setRestStartedAt(null)} />
               )}
             </AnimatePresence>
-            {sessionActive && (
+            {inFreestyle && (
               <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium"
                 style={{ background: 'rgba(34,197,94,0.15)', color: '#4ade80', border: '1px solid rgba(34,197,94,0.2)' }}>
                 <Clock size={12} />
@@ -816,40 +1077,117 @@ export default function WorkoutPage() {
       </div>
 
       <div className="max-w-md lg:max-w-2xl mx-auto px-4 pt-4">
-        {/* Not in session — Rich landing state */}
-        {!sessionActive && (
+        {/* ═══ LANDING ═══ */}
+        {mode === 'landing' && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
 
-            {/* ── Primary CTA pair ── */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              {/* Strength */}
-              <motion.button
-                whileTap={{ scale: 0.96 }}
-                onClick={startWorkout}
-                className="card"
-                style={{ padding: '20px 12px', textAlign: 'center', cursor: 'pointer' }}
-              >
-                <Dumbbell size={28} className="gold-text mx-auto" />
-                <div style={{ fontSize: 13, fontWeight: 700, marginTop: 8, color: 'var(--t1)', letterSpacing: '-.01em' }}>Strength</div>
-                <div className="ds-sub" style={{ fontSize: 9, marginTop: 3 }}>Weights + sets</div>
-              </motion.button>
+            {/* ── Hero: program-aware entry state ── */}
+            {programQuery.isLoading ? (
+              <div className="card" style={{ height: 150, animation: 'pulse 1.5s infinite' }} />
+            ) : hasProgram && todayHero ? (
+              /* State A — training day */
+              <>
+                <TodayProgramCard
+                  programName={programData!.program.name}
+                  template={todayHero}
+                  alsoToday={todaySummaries.slice(1)}
+                  onStart={startGuided}
+                  starting={false}
+                />
+                {/* Secondary: freestyle + cardio */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <button
+                    onClick={startFreestyle}
+                    className="card"
+                    style={{ padding: '11px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}
+                  >
+                    <Dumbbell size={14} className="gold-text" />
+                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--t2)' }}>{t('workout.freestyle')}</span>
+                  </button>
+                  <button
+                    onClick={() => setShowCardio(v => !v)}
+                    className="card"
+                    style={{
+                      padding: '11px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+                      border: showCardio ? '1px solid rgba(212,168,83,.4)' : undefined,
+                      background: showCardio ? 'rgba(212,168,83,.07)' : undefined,
+                    }}
+                  >
+                    <Play size={14} className="gold-text" />
+                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--t2)' }}>{t('workout.cardio')}</span>
+                  </button>
+                </div>
+              </>
+            ) : hasProgram ? (
+              /* State B — rest day */
+              <>
+                <RestDayCard
+                  programName={programData!.program.name}
+                  nextWeekday={nextScheduled?.weekday ?? null}
+                  nextTemplateName={nextScheduled?.templateName ?? null}
+                  onTrainAnyway={startFreestyle}
+                />
+                <button
+                  onClick={() => setShowCardio(v => !v)}
+                  className="card w-full"
+                  style={{
+                    padding: '11px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+                    border: showCardio ? '1px solid rgba(212,168,83,.4)' : undefined,
+                    background: showCardio ? 'rgba(212,168,83,.07)' : undefined,
+                  }}
+                >
+                  <Play size={14} className="gold-text" />
+                  <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--t2)' }}>{t('workout.log_cardio')}</span>
+                </button>
+              </>
+            ) : (
+              /* State C — no program: freestyle quick-start (legacy) */
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  {/* Strength */}
+                  <motion.button
+                    whileTap={{ scale: 0.96 }}
+                    onClick={startFreestyle}
+                    className="card"
+                    style={{ padding: '20px 12px', textAlign: 'center', cursor: 'pointer' }}
+                  >
+                    <Dumbbell size={28} className="gold-text mx-auto" />
+                    <div style={{ fontSize: 13, fontWeight: 700, marginTop: 8, color: 'var(--t1)', letterSpacing: '-.01em' }}>Strength</div>
+                    <div className="ds-sub" style={{ fontSize: 9, marginTop: 3 }}>Weights + sets</div>
+                  </motion.button>
 
-              {/* Cardio */}
-              <motion.button
-                whileTap={{ scale: 0.96 }}
-                onClick={() => setShowCardio(v => !v)}
-                className="card"
-                style={{
-                  padding: '20px 12px', textAlign: 'center', cursor: 'pointer',
-                  border: showCardio ? '1px solid rgba(212,168,83,.4)' : undefined,
-                  background: showCardio ? 'rgba(212,168,83,.07)' : undefined,
-                }}
-              >
-                <Play size={28} className="gold-text mx-auto" />
-                <div style={{ fontSize: 13, fontWeight: 700, marginTop: 8, color: 'var(--t1)', letterSpacing: '-.01em' }}>Cardio</div>
-                <div className="ds-sub" style={{ fontSize: 9, marginTop: 3 }}>Run · Cycle · HIIT</div>
-              </motion.button>
-            </div>
+                  {/* Cardio */}
+                  <motion.button
+                    whileTap={{ scale: 0.96 }}
+                    onClick={() => setShowCardio(v => !v)}
+                    className="card"
+                    style={{
+                      padding: '20px 12px', textAlign: 'center', cursor: 'pointer',
+                      border: showCardio ? '1px solid rgba(212,168,83,.4)' : undefined,
+                      background: showCardio ? 'rgba(212,168,83,.07)' : undefined,
+                    }}
+                  >
+                    <Play size={28} className="gold-text mx-auto" />
+                    <div style={{ fontSize: 13, fontWeight: 700, marginTop: 8, color: 'var(--t1)', letterSpacing: '-.01em' }}>{t('workout.cardio')}</div>
+                    <div className="ds-sub" style={{ fontSize: 9, marginTop: 3 }}>Run · Cycle · HIIT</div>
+                  </motion.button>
+                </div>
+
+                {/* Subtle coach hint */}
+                <Link href="/dashboard/messages">
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px',
+                    borderRadius: 12, cursor: 'pointer',
+                    background: 'rgba(255,255,255,.02)', border: '1px dashed rgba(255,255,255,.08)',
+                  }}>
+                    <MessageCircle size={12} style={{ color: 'var(--t4)', flexShrink: 0 }} />
+                    <span style={{ fontSize: 11, color: 'var(--t4)' }}>
+                      {t('workout.no_program_hint')}
+                    </span>
+                  </div>
+                </Link>
+              </>
+            )}
 
             {/* ── Cardio quick-log panel (expandable) ── */}
             <AnimatePresence>
@@ -963,16 +1301,23 @@ export default function WorkoutPage() {
               )}
             </AnimatePresence>
 
-            {/* ── AI Form Check ── */}
-            <Link href="/dashboard/workout/form-check">
-              <button className="w-full flex items-center justify-center gap-3 py-3 rounded-2xl text-sm font-semibold transition-all"
-                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#D4A853' }}>
-                <Camera size={16} />
-                AI Form Check
-              </button>
-            </Link>
+            {/* ── Quick links: History · Stats · Form Check ── */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+              {[
+                { href: '/dashboard/workout/history', icon: <History size={16} className="gold-text mx-auto" />, label: t('workout.history') },
+                { href: '/dashboard/workout/stats', icon: <BarChart3 size={16} className="gold-text mx-auto" />, label: t('workout.stats') },
+                { href: '/dashboard/workout/form-check', icon: <Camera size={16} className="gold-text mx-auto" />, label: t('workout.form_check') },
+              ].map((link) => (
+                <Link key={link.href} href={link.href}>
+                  <div className="card" style={{ padding: '12px 6px', textAlign: 'center', cursor: 'pointer' }}>
+                    {link.icon}
+                    <div style={{ fontSize: 10, fontWeight: 600, marginTop: 5, color: 'var(--t2)' }}>{link.label}</div>
+                  </div>
+                </Link>
+              ))}
+            </div>
 
-            {/* ── Recent sessions ── */}
+            {/* ── Recent sessions (tappable → inline set detail) ── */}
             {recentSessions.length > 0 && (
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, marginTop: 4 }}>
@@ -982,38 +1327,9 @@ export default function WorkoutPage() {
                   </Link>
                 </div>
                 <div className="grid gap-2 lg:grid-cols-2">
-                  {recentSessions.slice(0, 4).map(session => {
-                    const d = new Date(session.session_date + 'T00:00:00');
-                    const label = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-                    return (
-                      <motion.div
-                        key={session.id}
-                        whileTap={{ scale: 0.98 }}
-                        className="card"
-                        style={{ padding: '11px 14px', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}
-                      >
-                        <div style={{
-                          width: 32, height: 32, borderRadius: 10, flexShrink: 0,
-                          background: 'rgba(212,168,83,.1)', border: '1px solid rgba(212,168,83,.2)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        }}>
-                          <Dumbbell size={14} className="gold-text" />
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--t1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {session.name ?? 'Workout'}
-                          </div>
-                          <div style={{ fontSize: 10, color: 'var(--t4)', marginTop: 1 }}>{label}</div>
-                        </div>
-                        {session.duration_minutes && (
-                          <span style={{ fontSize: 10, color: 'var(--t4)', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
-                            <Clock size={9} className="inline mr-1" />
-                            {session.duration_minutes}m
-                          </span>
-                        )}
-                      </motion.div>
-                    );
-                  })}
+                  {recentSessions.slice(0, 4).map(session => (
+                    <RecentSessionCard key={session.id} session={session} lang={lang} />
+                  ))}
                 </div>
               </div>
             )}
@@ -1022,14 +1338,16 @@ export default function WorkoutPage() {
               <div className="glass p-5 text-center">
                 <Trophy size={20} className="text-stone-600 mx-auto mb-2" />
                 <p className="text-sm text-stone-400 font-medium">No workouts yet</p>
-                <p className="text-xs text-stone-600 mt-1">Log your first session above to start tracking PRs</p>
+                <p className="text-xs text-stone-600 mt-1">
+                  {hasProgram && todayHero ? t('workout.start_today_hint') : 'Log your first session above to start tracking PRs'}
+                </p>
               </div>
             )}
           </motion.div>
         )}
 
-        {/* Active session */}
-        {sessionActive && (
+        {/* ═══ FREESTYLE SESSION ═══ */}
+        {inFreestyle && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
             {/* Session name */}
             <input
@@ -1112,18 +1430,19 @@ export default function WorkoutPage() {
                         >
                           {/* Column headers */}
                           <div className="flex items-center gap-1 px-3 pb-1 text-[10px] text-stone-600 uppercase tracking-wider">
-                            <div className="w-8 text-center">#</div>
+                            <div className="w-7 text-center">#</div>
                             <div className="flex-1 text-center">kg</div>
                             <div className="flex-1 text-center">reps</div>
-                            <div className="w-12 text-center">rpe</div>
-                            <div className="w-8 text-center">W</div>
-                            <div className="w-6" />
+                            <div className="w-10 text-center">rpe</div>
+                            <div className="w-7 text-center">W</div>
+                            <div className="w-9 text-center"><Check size={10} className="inline" /></div>
+                            <div className="w-5" />
                           </div>
 
                           {/* Set rows */}
                           {ae.sets.map((set, setIndex) => (
                             <div key={set.id} className="flex items-center gap-1 px-3 py-1">
-                              <div className="w-8 text-center text-xs text-stone-500 font-medium">
+                              <div className="w-7 text-center text-xs text-stone-500 font-medium">
                                 {set.set_number}
                               </div>
 
@@ -1131,13 +1450,15 @@ export default function WorkoutPage() {
                                 type="number"
                                 inputMode="decimal"
                                 value={set.weight_kg}
+                                disabled={set.completed}
                                 onChange={(e) => updateSet(exIndex, setIndex, 'weight_kg', e.target.value)}
                                 placeholder={ae.lastSets?.[setIndex]?.weight_kg?.toString() ?? '0'}
-                                className="flex-1 text-center text-sm py-1.5 rounded-lg outline-none transition-colors"
+                                className="flex-1 min-w-0 text-center text-sm py-2 rounded-lg outline-none transition-colors"
                                 style={{
                                   background: set.is_pr ? 'rgba(212,168,83,0.15)' : 'rgba(255,255,255,0.04)',
                                   border: set.is_pr ? '1px solid rgba(212,168,83,0.3)' : '1px solid transparent',
                                   color: set.is_pr ? '#D4A853' : '#f5f5f4',
+                                  opacity: set.completed && !set.is_pr ? 0.65 : 1,
                                 }}
                               />
 
@@ -1145,16 +1466,18 @@ export default function WorkoutPage() {
                                 type="number"
                                 inputMode="numeric"
                                 value={set.reps}
+                                disabled={set.completed}
                                 onChange={(e) => updateSet(exIndex, setIndex, 'reps', e.target.value)}
                                 placeholder={ae.lastSets?.[setIndex]?.reps?.toString() ?? '0'}
-                                className="flex-1 text-center text-sm py-1.5 rounded-lg outline-none"
-                                style={{ background: 'rgba(255,255,255,0.04)', color: '#f5f5f4' }}
+                                className="flex-1 min-w-0 text-center text-sm py-2 rounded-lg outline-none"
+                                style={{ background: 'rgba(255,255,255,0.04)', color: '#f5f5f4', opacity: set.completed ? 0.65 : 1 }}
                               />
 
                               <input
                                 type="number"
                                 inputMode="decimal"
                                 value={set.rpe}
+                                disabled={set.completed}
                                 onChange={(e) => {
                                   const v = e.target.value;
                                   if (v === '' || (parseFloat(v) >= 1 && parseFloat(v) <= 10)) {
@@ -1162,13 +1485,14 @@ export default function WorkoutPage() {
                                   }
                                 }}
                                 placeholder="-"
-                                className="w-12 text-center text-sm py-1.5 rounded-lg outline-none"
-                                style={{ background: 'rgba(255,255,255,0.04)', color: '#a8a29e' }}
+                                className="w-10 text-center text-sm py-2 rounded-lg outline-none"
+                                style={{ background: 'rgba(255,255,255,0.04)', color: '#a8a29e', opacity: set.completed ? 0.65 : 1 }}
                               />
 
                               <button
                                 onClick={() => updateSet(exIndex, setIndex, 'is_warmup', !set.is_warmup)}
-                                className="w-8 h-8 flex items-center justify-center rounded-lg text-[10px] font-bold transition-colors"
+                                disabled={set.completed}
+                                className="w-7 h-9 flex items-center justify-center rounded-lg text-[10px] font-bold transition-colors"
                                 style={{
                                   background: set.is_warmup ? 'rgba(251,191,36,0.15)' : 'rgba(255,255,255,0.04)',
                                   color: set.is_warmup ? '#fbbf24' : '#78716c',
@@ -1177,22 +1501,32 @@ export default function WorkoutPage() {
                                 W
                               </button>
 
+                              {/* Check-to-complete → immediate INSERT */}
+                              <button
+                                onClick={() => completeFreestyleSet(exIndex, setIndex)}
+                                disabled={set.saving}
+                                aria-label={set.completed ? 'Undo set' : 'Complete set'}
+                                className="w-9 h-9 flex items-center justify-center rounded-lg transition-colors"
+                                style={{
+                                  background: set.completed
+                                    ? (set.is_pr ? 'rgba(212,168,83,.22)' : 'rgba(34,197,94,.16)')
+                                    : 'rgba(255,255,255,0.05)',
+                                  border: set.completed
+                                    ? (set.is_pr ? '1px solid rgba(212,168,83,.45)' : '1px solid rgba(34,197,94,.3)')
+                                    : '1px solid rgba(255,255,255,.09)',
+                                  color: set.completed ? (set.is_pr ? '#D4A853' : '#4ade80') : '#78716c',
+                                  opacity: set.saving ? 0.5 : 1,
+                                }}
+                              >
+                                {set.is_pr && set.completed ? <Trophy size={13} /> : <Check size={14} strokeWidth={2.6} />}
+                              </button>
+
                               <button
                                 onClick={() => removeSet(exIndex, setIndex)}
-                                className="w-6 flex items-center justify-center"
+                                className="w-5 flex items-center justify-center"
                               >
                                 <Minus size={12} className="text-stone-600" />
                               </button>
-
-                              {set.is_pr && (
-                                <motion.span
-                                  initial={{ scale: 0 }}
-                                  animate={{ scale: 1 }}
-                                  className="absolute right-2 text-sm"
-                                >
-                                  <Trophy size={14} className="text-yellow-400" />
-                                </motion.span>
-                              )}
                             </div>
                           ))}
 
@@ -1241,22 +1575,20 @@ export default function WorkoutPage() {
             )}
 
             {/* Finish button */}
-            {activeExercises.length > 0 && (
-              <motion.button
-                whileTap={{ scale: 0.98 }}
-                onClick={finishWorkout}
-                disabled={saving}
-                className="w-full py-4 rounded-2xl flex items-center justify-center gap-2 text-base font-bold transition-all"
-                style={{
-                  background: saving ? 'rgba(239,68,68,0.1)' : 'rgba(239,68,68,0.15)',
-                  color: '#fca5a5',
-                  border: '1px solid rgba(239,68,68,0.2)',
-                }}
-              >
-                <Square size={18} />
-                {saving ? 'Saving...' : t('workout.finish')}
-              </motion.button>
-            )}
+            <motion.button
+              whileTap={{ scale: 0.98 }}
+              onClick={finishWorkout}
+              disabled={saving}
+              className="w-full py-4 rounded-2xl flex items-center justify-center gap-2 text-base font-bold transition-all"
+              style={{
+                background: saving ? 'rgba(239,68,68,0.1)' : 'rgba(239,68,68,0.15)',
+                color: '#fca5a5',
+                border: '1px solid rgba(239,68,68,0.2)',
+              }}
+            >
+              <Square size={18} />
+              {saving ? 'Saving...' : t('workout.finish')}
+            </motion.button>
           </motion.div>
         )}
       </div>

@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
+import { Lock } from 'lucide-react';
 import { Icon } from '@/components/ui';
 
 /**
@@ -89,7 +90,7 @@ export default function QuestionnaireBuilderPage() {
   if (authError) {
     return (
       <div className="min-h-screen flex items-center justify-center px-4" style={{ background: 'var(--bg,#0a0a0a)' }}>
-        <div className="card" style={{ padding: 24, textAlign: 'center' }}><div style={{ fontSize: 32 }}>🔒</div><div style={{ fontSize: 14, color: 'var(--t2)' }}>Coach access required</div></div>
+        <div className="card" style={{ padding: 24, textAlign: 'center' }}><Lock size={28} style={{ color: 'var(--gold-300,#D4A853)', margin: '0 auto 8px', display: 'block' }} aria-hidden /><div style={{ fontSize: 14, color: 'var(--t2)' }}>Coach access required</div></div>
       </div>
     );
   }

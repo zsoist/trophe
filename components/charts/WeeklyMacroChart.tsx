@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { BarChart3 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { localDateStr } from '@/lib/utils/dates';
+import { MACRO_COLORS } from '@/lib/macro-colors';
 
 interface DayData {
   date: string;
@@ -234,16 +235,16 @@ export default function WeeklyMacroChart({
             <p className="text-stone-600 text-[10px]">kcal</p>
           </div>
           <div>
-            <p className="text-red-400 font-bold text-sm">{avgProtein}g</p>
-            <p className="text-stone-600 text-[10px]">Protein</p>
+            <p className="font-bold text-sm" style={{ color: MACRO_COLORS.protein }}>{avgProtein}g</p>
+            <p className="text-stone-500 text-[10px]">Protein</p>
           </div>
           <div>
-            <p className="text-blue-400 font-bold text-sm">{avgCarbs}g</p>
-            <p className="text-stone-600 text-[10px]">Carbs</p>
+            <p className="font-bold text-sm" style={{ color: MACRO_COLORS.carbs }}>{avgCarbs}g</p>
+            <p className="text-stone-500 text-[10px]">Carbs</p>
           </div>
           <div>
-            <p className="text-purple-400 font-bold text-sm">{avgFat}g</p>
-            <p className="text-stone-600 text-[10px]">Fat</p>
+            <p className="font-bold text-sm" style={{ color: MACRO_COLORS.fat }}>{avgFat}g</p>
+            <p className="text-stone-500 text-[10px]">Fat</p>
           </div>
         </div>
       </div>

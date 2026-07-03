@@ -35,8 +35,8 @@ export function Tabs<T extends string>({
 }: TabsProps<T>) {
   const baseTab =
     size === 'compact'
-      ? 'px-2 py-1 text-[8px]'
-      : 'px-3 py-1.5 text-[9px]';
+      ? 'px-2 py-1 text-[10px]'
+      : 'px-3 py-1.5 text-[11px]';
   return (
     <div
       className={`flex gap-[3px] p-[3px] rounded-[10px] bg-[rgba(26,26,26,0.7)] border border-white/[0.06] ${className}`}
@@ -63,7 +63,7 @@ export function Tabs<T extends string>({
             {opt.badge !== undefined && (
               <span
                 className={[
-                  'min-w-[14px] h-[14px] px-1 inline-flex items-center justify-center rounded-full text-[7px]',
+                  'min-w-[16px] h-[16px] px-1 inline-flex items-center justify-center rounded-full text-[10px]',
                   active
                     ? 'bg-[var(--color-gold)] text-[#0a0a0a]'
                     : 'bg-white/[0.06] text-[var(--text-muted)]',

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
+import { useI18n } from '@/lib/i18n';
 import { Icon } from '@/components/ui';
 import { BotNav } from '@/components/ui/BotNav';
 
@@ -34,17 +35,23 @@ function relativeTime(dateStr: string | null): string {
   return `${Math.round(diff / 7)}w ago`;
 }
 
+/* All four tabs point at real routes (were /coach/clients + /coach/profile 404s) */
 const COACH_NAV = [
-  { href: '/coach',          label: 'Today',   icon: <Icon name="i-grid"    size={18} /> },
-  { href: '/coach/clients',  label: 'Clients', icon: <Icon name="i-users"   size={18} /> },
-  { href: '/coach/inbox',    label: 'Inbox',   icon: <Icon name="i-message" size={18} /> },
-  { href: '/coach/profile',  label: 'Me',      icon: <Icon name="i-user"    size={18} /> },
+  { href: '/coach',           label: 'Today',    icon: <Icon name="i-grid"     size={18} /> },
+  { href: '/coach/inbox',     label: 'Inbox',    icon: <Icon name="i-message"  size={18} /> },
+  { href: '/coach/calendar',  label: 'Calendar', icon: <Icon name="i-calendar" size={18} /> },
+  { href: '/coach/templates', label: 'Workouts', icon: <Icon name="i-dumbbell" size={18} /> },
 ];
 
+type InboxFilter = 'all' | 'unread' | 'stale';
+
 export default function CoachInboxPage() {
+  const { t } = useI18n();
   const router = useRouter();
   const [clients, setClients] = useState<ClientActivity[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showFilters, setShowFilters] = useState(false);
+  const [filter, setFilter] = useState<InboxFilter>('all');
 
   const load = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -126,6 +133,13 @@ export default function CoachInboxPage() {
 
   const unread = clients.filter(c => c.days_since_log >= 3).length;
 
+  // Functional filter (the button used to do nothing)
+  const visibleClients = clients.filter((c) => {
+    if (filter === 'unread') return c.unreadCount > 0;
+    if (filter === 'stale') return c.days_since_log >= 3;
+    return true;
+  });
+
   return (
     <div className="min-h-screen pb-20" style={{ background: 'var(--bg,#0a0a0a)' }}>
       <motion.div
@@ -141,10 +155,43 @@ export default function CoachInboxPage() {
               {loading ? '…' : unread > 0 ? `${unread} need attention` : 'All caught up'}
             </div>
           </div>
-          <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--t3)' }}>
+          <button
+            onClick={() => setShowFilters((v) => !v)}
+            aria-expanded={showFilters}
+            title={t('coach.inbox.filter')}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: filter !== 'all' || showFilters ? 'var(--gold-300,#D4A853)' : 'var(--t3)',
+              minWidth: 44, minHeight: 44,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+          >
             <Icon name="i-filter" size={16} />
           </button>
         </div>
+
+        {/* ── Filter pills ── */}
+        {showFilters && (
+          <div className="flex gap-2 mb-3">
+            {([
+              { key: 'all' as InboxFilter, label: t('coach.inbox.all') },
+              { key: 'unread' as InboxFilter, label: t('coach.inbox.unread') },
+              { key: 'stale' as InboxFilter, label: t('coach.inbox.quiet3d') },
+            ]).map((f) => (
+              <button
+                key={f.key}
+                onClick={() => setFilter(f.key)}
+                className={`text-xs font-medium px-3 rounded-full border transition-all min-h-[44px] ${
+                  filter === f.key
+                    ? 'border-[#D4A853]/40 bg-[#D4A853]/10 text-[#D4A853]'
+                    : 'border-white/10 text-stone-400 hover:border-white/20 hover:text-stone-300'
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         {loading ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -157,9 +204,16 @@ export default function CoachInboxPage() {
             <Icon name="i-users" size={32} style={{ color: 'var(--t5)', margin: '0 auto 12px' }} />
             <div style={{ fontSize: 13, color: 'var(--t3)' }}>No clients assigned yet</div>
           </div>
+        ) : visibleClients.length === 0 ? (
+          <div className="card p-8 text-center">
+            <Icon name="i-filter" size={32} style={{ color: 'var(--t5)', margin: '0 auto 12px' }} />
+            <div style={{ fontSize: 13, color: 'var(--t3)' }}>
+              {filter === 'unread' ? t('coach.inbox.noUnread') : t('coach.inbox.nobodyQuiet')}
+            </div>
+          </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {clients.map((c, i) => {
+            {visibleClients.map((c, i) => {
               const urgent = c.days_since_log >= 3;
               return (
                 <motion.div

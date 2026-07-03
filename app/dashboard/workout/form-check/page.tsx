@@ -50,11 +50,15 @@ export default function FormCheckPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setSaving(false); return; }
 
-      // Look up the exercise row by its reference key (stored as name_en or key)
+      // Look up the exercise row by its English reference name. The exercises
+      // table's column is `name` (there is no name_en column — the old query
+      // matched nothing, so exercise_id always saved as null).
+      const referenceName = exerciseRef?.name ?? selectedExercise.replace(/_/g, ' ');
       const { data: exerciseRow } = await supabase
         .from('exercises')
         .select('id')
-        .eq('name_en', selectedExercise)
+        .ilike('name', referenceName)
+        .limit(1)
         .maybeSingle();
 
       const { error } = await supabase.from('form_analyses').insert({

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { X, Send, ClipboardCheck } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { localToday, localDateStr } from '@/lib/utils/dates';
@@ -20,6 +20,7 @@ const QUESTIONS = [
 ];
 
 export default function WeeklyCheckin({ userId, coachId }: WeeklyCheckinProps) {
+  const reducedMotion = useReducedMotion();
   const [show, setShow] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [ratings, setRatings] = useState<Record<string, number>>({});
@@ -130,7 +131,21 @@ export default function WeeklyCheckin({ userId, coachId }: WeeklyCheckinProps) {
             animate={{ scale: 1, opacity: 1 }}
             className="text-center py-4"
           >
-            <span className="text-3xl mb-2 block">✅</span>
+            {/* Animated check draw (instant under reduced motion) */}
+            <svg width={40} height={40} viewBox="0 0 40 40" className="mx-auto mb-2 block" aria-hidden>
+              <circle cx={20} cy={20} r={18} fill="none" stroke="var(--ok,#65D387)" strokeWidth={2} opacity={0.25} />
+              <motion.path
+                d="M12 20.5 L17.5 26 L28 14.5"
+                fill="none"
+                stroke="var(--ok,#65D387)"
+                strokeWidth={3}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                initial={reducedMotion ? false : { pathLength: 0 }}
+                animate={{ pathLength: 1 }}
+                transition={{ duration: 0.5, delay: 0.1, ease: 'easeOut' }}
+              />
+            </svg>
             <p className="text-stone-300 text-sm font-medium">Check-in submitted!</p>
             <p className="text-stone-500 text-xs mt-1">Your coach will review this</p>
           </motion.div>

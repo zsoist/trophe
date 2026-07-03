@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Barcode, Loader2, Camera, Keyboard, ChevronLeft } from 'lucide-react';
+import { X, Barcode, Loader2, Camera, Keyboard, ChevronLeft, RotateCcw } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { MealType } from '@/lib/types';
 
@@ -178,7 +178,7 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
     <AnimatePresence>
       <motion.div
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center"
+        className="fixed inset-0 z-[var(--z-modal,60)] flex items-end sm:items-center justify-center"
         style={{ background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(8px)' }}
         onClick={close}
       >
@@ -231,7 +231,7 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
                   style={{ width: '100%', padding: 12, borderRadius: 10, border: 'none', background: 'var(--gold-300,#D4A853)', color: '#0a0a0a', fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', cursor: logging ? 'not-allowed' : 'pointer' }}>
                   {logging ? 'Logging…' : 'Add to log'}
                 </button>
-                <button onClick={() => { setProduct(null); setCode(''); setStep('choose'); }} className="w-full text-[11px] mt-2" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--t4,#78716c)', fontFamily: 'var(--font-mono)' }}>↺ scan another</button>
+                <button onClick={() => { setProduct(null); setCode(''); setStep('choose'); }} className="w-full text-[11px] mt-2 inline-flex items-center justify-center gap-1.5" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--t4,#78716c)', fontFamily: 'var(--font-mono)', minHeight: 32 }}><RotateCcw size={11} aria-hidden /> scan another</button>
               </div>
             ) : step === 'choose' ? (
               /* ── Choose: Photo or Input ── */

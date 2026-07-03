@@ -11,7 +11,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
-import { Icon } from '@/components/ui';
+import { useI18n } from '@/lib/i18n';
+import { Icon, ConfirmSheet } from '@/components/ui';
 
 const SLOT_MIN = 30;
 
@@ -25,6 +26,7 @@ function isLateCancellation(startsAt: string): boolean {
 }
 
 export default function BookPage() {
+  const { t } = useI18n();
   const router = useRouter();
   const [clientId, setClientId] = useState<string | null>(null);
   const [coachId, setCoachId] = useState<string | null>(null);
@@ -35,6 +37,8 @@ export default function BookPage() {
   const [booked, setBooked] = useState<Set<string>>(new Set());
   const [mine, setMine] = useState<Appt[]>([]);
   const [loading, setLoading] = useState(true);
+  const [pendingCancel, setPendingCancel] = useState<Appt | null>(null);
+  const [cancelling, setCancelling] = useState(false);
   const [bookingSlot, setBookingSlot] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -118,14 +122,32 @@ export default function BookPage() {
     setBookingSlot(null);
   };
 
-  const cancel = async (appt: Appt) => {
+  const doCancel = async (appt: Appt) => {
     const late = isLateCancellation(appt.starts_at);
-    if (late && !window.confirm('Less than 24h notice — your coach may apply a late-cancellation charge. Cancel anyway?')) return;
     setMine((m) => m.filter((x) => x.id !== appt.id));
     await supabase.from('appointments').update({
       status: 'cancelled', cancelled_by: 'client',
       cancelled_at: new Date().toISOString(), late_cancellation: late,
     }).eq('id', appt.id);
+  };
+
+  const cancel = async (appt: Appt) => {
+    if (isLateCancellation(appt.starts_at)) {
+      setPendingCancel(appt);
+      return;
+    }
+    await doCancel(appt);
+  };
+
+  const confirmLateCancel = async () => {
+    if (!pendingCancel) return;
+    setCancelling(true);
+    try {
+      await doCancel(pendingCancel);
+    } finally {
+      setCancelling(false);
+      setPendingCancel(null);
+    }
   };
 
   return (
@@ -219,6 +241,18 @@ export default function BookPage() {
           </>
         )}
       </motion.div>
+
+      <ConfirmSheet
+        open={pendingCancel !== null}
+        title={t('confirm.late_cancel_title')}
+        message={t('confirm.late_cancel_msg')}
+        confirmLabel={t('confirm.cancel_anyway')}
+        cancelLabel={t('confirm.keep_booking')}
+        danger
+        loading={cancelling}
+        onConfirm={confirmLateCancel}
+        onCancel={() => setPendingCancel(null)}
+      />
     </div>
   );
 }

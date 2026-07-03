@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ShoppingCart, Loader2, Copy, Check } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import { X, ShoppingCart, Loader2, Copy, Check, Carrot, Beef, Milk, Wheat, Archive, Snowflake, Croissant, ShoppingBasket } from 'lucide-react';
 import type { AggregatedItem } from '@/lib/food/shopping-list';
 
 /**
@@ -27,14 +28,25 @@ interface ApiResponse {
 }
 
 const CATEGORY_LABEL: Record<string, string> = {
-  produce: '🥬 Produce',
-  protein: '🍗 Protein',
-  dairy: '🧀 Dairy',
-  grains: '🌾 Grains',
-  pantry: '🫙 Pantry',
-  frozen: '🧊 Frozen',
-  bakery: '🥖 Bakery',
-  other: '🛒 Other',
+  produce: 'Produce',
+  protein: 'Protein',
+  dairy: 'Dairy',
+  grains: 'Grains',
+  pantry: 'Pantry',
+  frozen: 'Frozen',
+  bakery: 'Bakery',
+  other: 'Other',
+};
+
+const CATEGORY_ICON: Record<string, LucideIcon> = {
+  produce: Carrot,
+  protein: Beef,
+  dairy: Milk,
+  grains: Wheat,
+  pantry: Archive,
+  frozen: Snowflake,
+  bakery: Croissant,
+  other: ShoppingBasket,
 };
 
 const CATEGORY_ORDER = ['produce', 'protein', 'dairy', 'grains', 'bakery', 'frozen', 'pantry', 'other'];
@@ -104,7 +116,7 @@ export default function ShoppingListModal({ isOpen, clientId, clientName, onClos
     <AnimatePresence>
       <motion.div
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center"
+        className="fixed inset-0 z-[var(--z-modal,60)] flex items-end sm:items-center justify-center"
         style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
         onClick={onClose}
       >
@@ -147,9 +159,12 @@ export default function ShoppingListModal({ isOpen, clientId, clientName, onClos
             {data && !loading && data.items.length > 0 && (
               <>
                 <div className="flex flex-col gap-4">
-                  {orderedCats.map((cat) => (
+                  {orderedCats.map((cat) => {
+                    const CatIcon = CATEGORY_ICON[cat] ?? ShoppingBasket;
+                    return (
                     <div key={cat}>
-                      <div className="text-[10px] uppercase tracking-wider mb-1.5" style={{ color: 'var(--t4,#78716c)', fontFamily: 'var(--font-mono)' }}>
+                      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider mb-1.5" style={{ color: 'var(--t4,#78716c)', fontFamily: 'var(--font-mono)' }}>
+                        <CatIcon size={12} style={{ color: 'var(--gold-300,#D4A853)', flexShrink: 0 }} aria-hidden />
                         {CATEGORY_LABEL[cat] ?? cat}
                       </div>
                       <div className="flex flex-col gap-1">
@@ -163,7 +178,8 @@ export default function ShoppingListModal({ isOpen, clientId, clientName, onClos
                         ))}
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 <div className="flex gap-2 mt-5">

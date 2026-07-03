@@ -13,27 +13,24 @@ import {
   Search,
   LayoutGrid,
   Dumbbell,
-  Pill,
-  UtensilsCrossed,
   Calendar,
   MoreHorizontal,
   UserPlus,
   Bell,
   BarChart3,
   Clock,
-  ArrowUpDown,
   LogOut,
-  MessageSquare,
+  RefreshCw,
 } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+import { useI18n } from '@/lib/i18n';
 import Avatar from '@/components/shared/Avatar';
 import { ThemeModeToggle } from '@/components/shared/ThemeMode';
 import ShortcutsModal from '@/components/shared/ShortcutsModal';
 import DashboardGreeting from '@/components/coach/DashboardGreeting';
 import WeeklyPulseCards from '@/components/coach/WeeklyPulseCards';
 import CoachingStreak from '@/components/coach/CoachingStreak';
-import ComplianceConfetti from '@/components/coach/ComplianceConfetti';
 import ClientRiskHeatmap from '@/components/coach/ClientRiskHeatmap';
 import InsightChips from '@/components/coach/InsightChips';
 import GoldGlowCard from '@/components/coach/GoldGlowCard';
@@ -43,6 +40,15 @@ import CoachLoadingSkeletons from '@/components/coach/CoachLoadingSkeletons';
 import BatchHabitAssign from '@/components/coach/BatchHabitAssign';
 import { CoachNav } from '@/components/coach/CoachNav';
 import ClientComparison from '@/components/coach/ClientComparison';
+import { PanelPrefsProvider, Panel } from '@/components/coach/PanelGate';
+import CustomizePanelsBar from '@/components/coach/CustomizePanelsBar';
+import {
+  COACH_DASH_PANELS,
+  parseDisplayPrefs,
+  isPanelVisible,
+  type CoachDashPanelId,
+  type DisplayPrefs,
+} from '@/lib/display-prefs';
 import { localDateStr } from '../../lib/utils/dates';
 import { BotNav } from '@/components/ui/BotNav';
 import { Icon } from '@/components/ui';
@@ -119,7 +125,6 @@ function QuickActionsDropdown({
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const [toast, setToast] = useState(false);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -174,30 +179,15 @@ function QuickActionsDropdown({
               <Dumbbell size={14} className="text-stone-500" />
               Assign Habit
             </Link>
-            <button
-              onClick={() => {
-                setOpen(false);
-                setToast(true);
-                setTimeout(() => setToast(false), 2000);
-              }}
-              className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-stone-300 hover:bg-white/5 hover:text-stone-100 transition-colors border-t border-white/5"
+            {/* Real action (was a "Coming soon" toast): open the 1:1 thread */}
+            <Link
+              href={`/coach/inbox/${clientId}`}
+              className="flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-stone-300 hover:bg-white/5 hover:text-stone-100 transition-colors border-t border-white/5"
+              onClick={() => setOpen(false)}
             >
               <Bell size={14} className="text-stone-500" />
               Send Reminder
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-      {/* Coming Soon toast */}
-      <AnimatePresence>
-        {toast && (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 8 }}
-            className="absolute right-0 top-full mt-1 z-50 px-3 py-2 rounded-lg bg-[#D4A853]/15 border border-[#D4A853]/30 text-[#D4A853] text-xs font-medium whitespace-nowrap"
-          >
-            Coming soon
+            </Link>
           </motion.div>
         )}
       </AnimatePresence>
@@ -292,13 +282,11 @@ function ActivityBarChart({ data }: { data: number[] }) {
 // ═══════════════════════════════════════════════
 
 export default function CoachDashboard() {
+  const { t } = useI18n();
   const [clients, setClients] = useState<ClientCard[]>([]);
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [viewMode] = useState<'cards' | 'table'>('cards');
-  const [sortKey, setSortKey] = useState<'name' | 'streak' | 'compliance' | 'avgKcal' | 'lastCheckin'>('name');
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [filter, setFilter] = useState<FilterStatus>('all');
   const [inlineNoteId, setInlineNoteId] = useState<string | null>(null);
   const [inlineNoteText, setInlineNoteText] = useState('');
@@ -326,6 +314,61 @@ export default function CoachDashboard() {
   const [notesWrittenCount, setNotesWrittenCount] = useState(0);
   const [availableHabits, setAvailableHabits] = useState<{ id: string; name: string; emoji: string }[]>([]);
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // ═══ Display prefs (Customize mode — profiles.display_prefs, overrides only) ═══
+  const [panelEditMode, setPanelEditMode] = useState(false);
+  const [dashOverrides, setDashOverrides] = useState<Partial<Record<CoachDashPanelId, boolean>>>({});
+  const fullPrefsRef = useRef<DisplayPrefs>({});
+  const coachIdRef = useRef<string | null>(null);
+
+  const persistDashOverrides = useCallback(
+    async (next: Partial<Record<CoachDashPanelId, boolean>>) => {
+      if (!coachIdRef.current) return;
+      const merged: DisplayPrefs = { ...fullPrefsRef.current, coachDash: next };
+      if (Object.keys(next).length === 0) delete merged.coachDash;
+      fullPrefsRef.current = merged;
+      const { error } = await supabase
+        .from('profiles')
+        .update({ display_prefs: merged })
+        .eq('id', coachIdRef.current);
+      if (error) console.error('Error saving display prefs:', error);
+    },
+    [],
+  );
+
+  const togglePanel = useCallback(
+    (id: string) => {
+      const panelId = id as CoachDashPanelId;
+      setDashOverrides((prev) => {
+        const current = isPanelVisible(COACH_DASH_PANELS, prev, panelId);
+        const nextValue = !current;
+        const next = { ...prev };
+        if (nextValue === COACH_DASH_PANELS[panelId]) delete next[panelId];
+        else next[panelId] = nextValue;
+        persistDashOverrides(next);
+        return next;
+      });
+    },
+    [persistDashOverrides],
+  );
+
+  const resetPanels = useCallback(() => {
+    setDashOverrides({});
+    persistDashOverrides({});
+  }, [persistDashOverrides]);
+
+  const panelVisible = useCallback(
+    (id: string) => isPanelVisible(COACH_DASH_PANELS, dashOverrides, id as CoachDashPanelId),
+    [dashOverrides],
+  );
+
+  // ═══ Compare Clients — coach picks the two; actual 7d intake vs targets ═══
+  const [compareA, setCompareA] = useState<string>('');
+  const [compareB, setCompareB] = useState<string>('');
+  const [compareLoading, setCompareLoading] = useState(false);
+  const [compareActuals, setCompareActuals] = useState<
+    Record<string, { protein: number; carbs: number; fat: number; fiber: number; water: number }>
+  >({});
 
   // ═══ Keyboard Shortcuts ═══
   const clientsRef = useRef(clients);
@@ -376,9 +419,15 @@ export default function CoachDashboard() {
       if (!user) { router.push("/login"); return; }
 
       // Role gate — only coaches can access this page
-      const { data: profile } = await supabase.from('profiles').select('role, full_name').eq('id', user.id).maybeSingle();
+      const { data: profile } = await supabase.from('profiles').select('role, full_name, display_prefs').eq('id', user.id).maybeSingle();
       if (profile?.role === 'client') { router.replace('/dashboard'); return; }
       setIsSuperAdmin(profile?.role === 'super_admin');
+
+      // Display prefs (piggybacked on the role-gate fetch — no extra roundtrip)
+      coachIdRef.current = user.id;
+      const prefs = parseDisplayPrefs(profile?.display_prefs);
+      fullPrefsRef.current = prefs;
+      setDashOverrides((prefs.coachDash ?? {}) as Partial<Record<CoachDashPanelId, boolean>>);
 
       // P4 business numbers: bookings this month vs last, completed this month
       const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
@@ -584,50 +633,75 @@ export default function CoachDashboard() {
   const countInactive = clients.filter((c) => c.daysSinceCheckin >= 3).length;
 
 
-  // ═══ Comparison Table Data ═══
-  const comparisonData = filtered.map((c) => {
-    const streak = c.activeHabit?.current_streak ?? 0;
-    const cycleDays = c.activeHabit?.habit?.cycle_days ?? 14;
-    const compliance = cycleDays > 0 ? Math.round((streak / cycleDays) * 100) : 0;
-    return {
-      ...c,
-      streak,
-      compliance: Math.min(compliance, 100),
-      avgKcal: 0, // Would need food_log query for real data
-      lastCheckinLabel:
-        c.daysSinceCheckin === 0
-          ? 'Today'
-          : c.daysSinceCheckin === 999
-          ? 'Never'
-          : `${c.daysSinceCheckin}d ago`,
-    };
-  });
+  // ═══ Compare Clients: default picks + 7-day actual intake fetch ═══
+  useEffect(() => {
+    if (!showComparison || clients.length < 2) return;
+    setCompareA((prev) => prev || clients[0].clientProfile.user_id);
+    setCompareB((prev) => prev || clients[1].clientProfile.user_id);
+  }, [showComparison, clients]);
 
-  const handleSort = (key: typeof sortKey) => {
-    if (sortKey === key) {
-      setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortKey(key);
-      setSortDir('asc');
-    }
-  };
+  useEffect(() => {
+    if (!showComparison || !compareA || !compareB || compareA === compareB) return;
+    let cancelled = false;
+    (async () => {
+      setCompareLoading(true);
+      try {
+        const sevenDaysAgo = localDateStr(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000));
+        const ids = [compareA, compareB];
+        const [foodRes, waterRes] = await Promise.all([
+          supabase
+            .from('food_log')
+            .select('user_id, logged_date, protein_g, carbs_g, fat_g, fiber_g')
+            .in('user_id', ids)
+            .gte('logged_date', sevenDaysAgo),
+          supabase
+            .from('water_log')
+            .select('user_id, logged_date, amount_ml')
+            .in('user_id', ids)
+            .gte('logged_date', sevenDaysAgo),
+        ]);
+        if (cancelled) return;
 
-  const sortedComparison = [...comparisonData].sort((a, b) => {
-    const dir = sortDir === 'asc' ? 1 : -1;
-    switch (sortKey) {
-      case 'name':
-        return a.profile.full_name.localeCompare(b.profile.full_name) * dir;
-      case 'streak':
-        return (a.streak - b.streak) * dir;
-      case 'compliance':
-        return (a.compliance - b.compliance) * dir;
-      case 'lastCheckin':
-        return (a.daysSinceCheckin - b.daysSinceCheckin) * dir;
-      default:
-        return 0;
-    }
-  });
-
+        const actuals: typeof compareActuals = {};
+        for (const id of ids) {
+          type FoodRow = { user_id: string; logged_date: string; protein_g: number | null; carbs_g: number | null; fat_g: number | null; fiber_g: number | null };
+          type WaterRow = { user_id: string; logged_date: string; amount_ml: number | null };
+          const food = ((foodRes.data ?? []) as FoodRow[]).filter((r) => r.user_id === id);
+          const water = ((waterRes.data ?? []) as WaterRow[]).filter((r) => r.user_id === id);
+          const byDate: Record<string, { p: number; c: number; f: number; fib: number }> = {};
+          for (const r of food) {
+            if (!byDate[r.logged_date]) byDate[r.logged_date] = { p: 0, c: 0, f: 0, fib: 0 };
+            byDate[r.logged_date].p += r.protein_g ?? 0;
+            byDate[r.logged_date].c += r.carbs_g ?? 0;
+            byDate[r.logged_date].f += r.fat_g ?? 0;
+            byDate[r.logged_date].fib += r.fiber_g ?? 0;
+          }
+          const days = Object.values(byDate);
+          const n = Math.max(days.length, 1);
+          const waterByDate: Record<string, number> = {};
+          for (const r of water) {
+            waterByDate[r.logged_date] = (waterByDate[r.logged_date] ?? 0) + (r.amount_ml ?? 0);
+          }
+          const waterDays = Object.values(waterByDate);
+          actuals[id] = {
+            protein: Math.round(days.reduce((s, d) => s + d.p, 0) / n),
+            carbs: Math.round(days.reduce((s, d) => s + d.c, 0) / n),
+            fat: Math.round(days.reduce((s, d) => s + d.f, 0) / n),
+            fiber: Math.round(days.reduce((s, d) => s + d.fib, 0) / n),
+            water: Math.round(
+              waterDays.reduce((s, d) => s + d, 0) / Math.max(waterDays.length, 1),
+            ),
+          };
+        }
+        setCompareActuals((prev) => ({ ...prev, ...actuals }));
+      } catch (err) {
+        console.error('Error loading comparison intake:', err);
+      } finally {
+        if (!cancelled) setCompareLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [showComparison, compareA, compareB]);
 
   const onTrack = clients.filter((c) => c.status === 'green').length;
   const atRisk = clients.filter((c) => c.status !== 'green').length;
@@ -689,11 +763,12 @@ export default function CoachDashboard() {
 
   // ═══ Computed data for new components ═══
 
-  // Pulse stats
+  // Pulse stats — weeklyActivity counts HABIT CHECK-INS, not meals. Labeled
+  // honestly as "Check-ins" (was fabricated as "Meals Logged").
   const pulseStats = {
     totalClients: clients.length,
     avgCompliance: avgStreakPct,
-    mealsThisWeek: weeklyActivity.reduce((a, b) => a + b, 0),
+    checkinsThisWeek: weeklyActivity.reduce((a, b) => a + b, 0),
     needsAttention: needsAttention.length,
   };
 
@@ -712,16 +787,17 @@ export default function CoachDashboard() {
     const bestStreak = best?.activeHabit?.current_streak ?? 0;
     return streak > bestStreak ? c : best;
   }, null);
+  // No emoji-as-icons (design rule) \u2014 the chip's type color carries the tone.
   if (bestStreaker && (bestStreaker.activeHabit?.current_streak ?? 0) > 0) {
     insightChips.push({
-      emoji: '\uD83D\uDD25',
+      emoji: '',
       text: `${bestStreaker.activeHabit!.current_streak}-day streak by ${bestStreaker.profile.full_name.split(' ')[0]}`,
       type: 'positive',
     });
   }
   if (countAtRisk > 0) {
     insightChips.push({
-      emoji: '\u26A0\uFE0F',
+      emoji: '',
       text: `${countAtRisk} client${countAtRisk !== 1 ? 's' : ''} at risk`,
       type: 'warning',
     });
@@ -729,14 +805,11 @@ export default function CoachDashboard() {
   const readyCount = clients.filter((c) => c.readyForProgression).length;
   if (readyCount > 0) {
     insightChips.push({
-      emoji: '\uD83C\uDFAF',
+      emoji: '',
       text: `${readyCount} ready for progression`,
       type: 'info',
     });
   }
-
-  // All green check for confetti
-  const allClientsGreen = clients.length > 0 && clients.every((c) => c.status === 'green');
 
   // Monthly report
   const currentMonth = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
@@ -747,7 +820,7 @@ export default function CoachDashboard() {
     avgAdherence: avgStreakPct,
     habitsProgressed: clients.filter((c) => c.readyForProgression).length,
     notesWritten: notesWrittenCount,
-    mealsTracked: pulseStats.mealsThisWeek,
+    checkins: pulseStats.checkinsThisWeek,
     topImprover,
   };
 
@@ -782,7 +855,8 @@ export default function CoachDashboard() {
               href="/dashboard"
               className="text-stone-400 hover:text-stone-200 text-xs flex items-center gap-1.5 transition-colors"
             >
-              🔄 Client View
+              <RefreshCw size={12} />
+              Client View
             </Link>
             <button
               onClick={async () => {
@@ -808,37 +882,47 @@ export default function CoachDashboard() {
             >
               Aa
             </button>
+            <CustomizePanelsBar
+              editMode={panelEditMode}
+              onToggleEdit={() => setPanelEditMode((v) => !v)}
+              onReset={resetPanels}
+            />
           </div>
         </div>
         <CoachNav active="/coach" />
 
+        <PanelPrefsProvider
+          value={{ prefs: dashOverrides, editMode: panelEditMode, toggle: togglePanel, visible: panelVisible }}
+        >
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
         >
-          {/* Confetti for all-green */}
-          <ComplianceConfetti trigger={allClientsGreen} />
-
           {/* Greeting */}
           <DashboardGreeting coachName={coachName} needsAttention={needsAttention.length} />
 
           {/* Weekly Pulse Cards */}
-          {!loading && clients.length > 0 && (
-            <div className="mb-6">
-              <WeeklyPulseCards stats={pulseStats} />
-            </div>
-          )}
+          <Panel id="pulseCards" title={t('coach.panel.pulseCards')}>
+            {!loading && clients.length > 0 && (
+              <div className="mb-6">
+                <WeeklyPulseCards stats={pulseStats} />
+              </div>
+            )}
+          </Panel>
 
           {/* Coaching Streak — consecutive days (ending today/yesterday) with at
               least one client check-in. Was hardcoded to 7; Michael flagged it. */}
-          {!loading && (
-            <div className="mb-6" title="Consecutive days where at least one of your clients checked in.">
-              <CoachingStreak streakDays={coachingStreakDays} />
-            </div>
-          )}
+          <Panel id="coachStreak" title={t('coach.panel.coachStreak')}>
+            {!loading && (
+              <div className="mb-6" title="Consecutive days where at least one of your clients checked in.">
+                <CoachingStreak streakDays={coachingStreakDays} />
+              </div>
+            )}
+          </Panel>
 
           {/* ═══ P4 · Business numbers ═══ */}
+          <Panel id="business" title={t('coach.panel.business')}>
           {!loading && (
             <div className="glass p-5 mb-6">
               <h2 className="font-semibold text-stone-200 mb-3 text-sm" title="Bookings counted by when they were made; completed by session date.">
@@ -883,8 +967,10 @@ export default function CoachDashboard() {
               )}
             </div>
           )}
+          </Panel>
 
           {/* ═══ Weekly Summary Card ═══ */}
+          <Panel id="weeklySummary" title={t('coach.panel.weeklySummary')}>
           {!loading && clients.length > 0 && (
             <motion.div
               initial={{ opacity: 0, y: 8 }}
@@ -935,8 +1021,10 @@ export default function CoachDashboard() {
               )}
             </motion.div>
           )}
+          </Panel>
 
           {/* Summary Bar */}
+          <Panel id="summaryBar" title={t('coach.panel.summaryBar')}>
           <div className="grid grid-cols-3 gap-3 mb-6">
             <div className="glass p-4 text-center">
               <div className="text-2xl font-bold text-stone-100">{clients.length}</div>
@@ -957,38 +1045,45 @@ export default function CoachDashboard() {
               </div>
             </div>
           </div>
+          </Panel>
 
           {/* ═══ Client Risk Heatmap ═══ */}
-          {!loading && clients.length > 0 && (
-            <div className="mb-6">
-              <ClientRiskHeatmap clients={heatmapClients} />
-            </div>
-          )}
+          <Panel id="riskHeatmap" title={t('coach.panel.riskHeatmap')}>
+            {!loading && clients.length > 0 && (
+              <div className="mb-6">
+                <ClientRiskHeatmap clients={heatmapClients} />
+              </div>
+            )}
+          </Panel>
 
           {/* ═══ Insight Chips ═══ */}
-          {!loading && insightChips.length > 0 && (
-            <div className="mb-4">
-              <InsightChips insights={insightChips} />
-            </div>
-          )}
+          <Panel id="insightChips" title={t('coach.panel.insightChips')}>
+            {!loading && insightChips.length > 0 && (
+              <div className="mb-4">
+                <InsightChips insights={insightChips} />
+              </div>
+            )}
+          </Panel>
 
           {/* ═══ Batch Assign + Compare Buttons ═══ */}
           {!loading && clients.length > 0 && (
-            <div className="flex gap-2 mb-4">
+            <div className="flex gap-2 mb-4 flex-wrap items-start">
               <button
                 onClick={() => setShowBatchAssign(true)}
                 className="text-xs px-3 py-1.5 rounded-lg border border-[#D4A853]/30 text-[#D4A853] hover:bg-[#D4A853]/10 transition-colors"
               >
                 Batch Assign Habit
               </button>
-              {clients.length >= 2 && (
-                <button
-                  onClick={() => setShowComparison(true)}
-                  className="text-xs px-3 py-1.5 rounded-lg border border-white/10 text-stone-400 hover:text-stone-200 hover:border-white/20 transition-colors"
-                >
-                  Compare Clients
-                </button>
-              )}
+              <Panel id="compareClients" title={t('coach.panel.compareClients')}>
+                {clients.length >= 2 && (
+                  <button
+                    onClick={() => setShowComparison(true)}
+                    className="text-xs px-3 py-1.5 rounded-lg border border-white/10 text-stone-400 hover:text-stone-200 hover:border-white/20 transition-colors"
+                  >
+                    Compare Clients
+                  </button>
+                )}
+              </Panel>
             </div>
           )}
 
@@ -1033,25 +1128,28 @@ export default function CoachDashboard() {
           </div>
 
           {/* ═══ Client Activity This Week Chart (Feature 10) ═══ */}
-          {!loading && clients.length > 0 && weeklyActivity.some((v) => v > 0) && (
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.15 }}
-              className="glass p-5 mb-6"
-            >
-              <h2 className="text-sm font-semibold text-stone-200 flex items-center gap-2 mb-3">
-                <BarChart3 size={16} className="text-[#D4A853]" />
-                Client Activity This Week
-              </h2>
-              <ActivityBarChart data={weeklyActivity} />
-              <p className="text-[10px] text-stone-600 text-center mt-2">
-                Total check-ins across all clients per day
-              </p>
-            </motion.div>
-          )}
+          <Panel id="activityChart" title={t('coach.panel.activityChart')}>
+            {!loading && clients.length > 0 && weeklyActivity.some((v) => v > 0) && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.15 }}
+                className="glass p-5 mb-6"
+              >
+                <h2 className="text-sm font-semibold text-stone-200 flex items-center gap-2 mb-3">
+                  <BarChart3 size={16} className="text-[#D4A853]" />
+                  Client Activity This Week
+                </h2>
+                <ActivityBarChart data={weeklyActivity} />
+                <p className="text-[10px] text-stone-600 text-center mt-2">
+                  Total check-ins across all clients per day
+                </p>
+              </motion.div>
+            )}
+          </Panel>
 
           {/* ═══ Pending Onboarding Section (Feature 8) ═══ */}
+          <Panel id="pendingOnboarding" title={t('coach.panel.pendingOnboarding')}>
           {!loading && filteredOnboarding.length > 0 && (
             <motion.div
               initial={{ opacity: 0, y: 8 }}
@@ -1106,90 +1204,10 @@ export default function CoachDashboard() {
               </div>
             </motion.div>
           )}
+          </Panel>
 
           {/* ═══ Active Client Cards ═══ */}
-          {viewMode === 'table' && !loading ? (
-            <div className="glass overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-white/5">
-                      {[
-                        { key: 'name' as const, label: 'Client' },
-                        { key: 'streak' as const, label: 'Streak' },
-                        { key: 'compliance' as const, label: 'Compliance' },
-                        { key: 'lastCheckin' as const, label: 'Last Check-in' },
-                      ].map((col) => (
-                        <th
-                          key={col.key}
-                          onClick={() => handleSort(col.key)}
-                          className="text-left px-4 py-3 text-stone-400 text-xs uppercase tracking-wider font-semibold cursor-pointer hover:text-stone-200 transition-colors select-none"
-                        >
-                          <span className="flex items-center gap-1">
-                            {col.label}
-                            <ArrowUpDown size={10} className={sortKey === col.key ? 'text-[#D4A853]' : 'text-stone-600'} />
-                          </span>
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sortedComparison.map((client) => (
-                      <tr
-                        key={client.profile.id}
-                        className="border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors cursor-pointer"
-                        onClick={() => router.push(`/coach/client/${client.clientProfile.user_id}`)}
-                      >
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <span className={`status-dot ${client.status}`} />
-                            <span className="text-stone-100 font-medium">{client.profile.full_name}</span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="text-stone-200">{client.streak}d</span>
-                          {client.activeHabit?.habit && (
-                            <span className="text-stone-500 text-xs ml-1">
-                              / {client.activeHabit.habit.cycle_days}d
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <div className="w-16 h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
-                              <div
-                                className="h-full rounded-full"
-                                style={{
-                                  width: `${client.compliance}%`,
-                                  backgroundColor: client.compliance >= 75 ? '#D4A853' : client.compliance >= 50 ? '#f59e0b' : '#ef4444',
-                                }}
-                              />
-                            </div>
-                            <span className={`text-xs font-medium ${
-                              client.compliance >= 75 ? 'text-[#D4A853]' : client.compliance >= 50 ? 'text-amber-400' : 'text-red-400'
-                            }`}>
-                              {client.compliance}%
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`text-xs ${
-                            client.daysSinceCheckin === 0
-                              ? 'text-green-400'
-                              : client.daysSinceCheckin <= 2
-                              ? 'text-amber-400'
-                              : 'text-red-400'
-                          }`}>
-                            {client.lastCheckinLabel}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          ) : loading ? (
+          {loading ? (
             <CoachLoadingSkeletons page="dashboard" />
           ) : filtered.length === 0 && filteredOnboarding.length === 0 ? (
             <div className="text-center py-20">
@@ -1344,21 +1362,26 @@ export default function CoachDashboard() {
           )}
 
           {/* ═══ Coach Achievements ═══ */}
-          {!loading && clients.length > 0 && (
-            <div className="mt-8">
-              <GoldGlowCard>
-                <CoachAchievements />
-              </GoldGlowCard>
-            </div>
-          )}
+          <Panel id="achievements" title={t('coach.panel.achievements')}>
+            {!loading && clients.length > 0 && (
+              <div className="mt-8">
+                <GoldGlowCard>
+                  <CoachAchievements />
+                </GoldGlowCard>
+              </div>
+            )}
+          </Panel>
 
           {/* ═══ Monthly Coach Report ═══ */}
-          {!loading && clients.length > 0 && (
-            <div className="mt-6">
-              <MonthlyCoachReport report={monthlyReport} />
-            </div>
-          )}
+          <Panel id="monthlyReport" title={t('coach.panel.monthlyReport')}>
+            {!loading && clients.length > 0 && (
+              <div className="mt-6">
+                <MonthlyCoachReport report={monthlyReport} />
+              </div>
+            )}
+          </Panel>
         </motion.div>
+        </PanelPrefsProvider>
       </div>
 
       {/* ═══ Batch Habit Assign Modal ═══ */}
@@ -1377,7 +1400,7 @@ export default function CoachDashboard() {
         )}
       </AnimatePresence>
 
-      {/* ═══ Client Comparison Modal ═══ */}
+      {/* ═══ Client Comparison Modal — actual 7d avg intake vs targets ═══ */}
       <AnimatePresence>
         {showComparison && clients.length >= 2 && (
           <motion.div
@@ -1391,39 +1414,77 @@ export default function CoachDashboard() {
               initial={{ opacity: 0, scale: 0.95, y: 16 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 16 }}
-              className="w-full max-w-md"
+              className="w-full max-w-md max-h-[85vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
+              {/* Client pickers */}
+              <div className="grid grid-cols-2 gap-2 mb-3">
+                {([
+                  { value: compareA, set: setCompareA, exclude: compareB, label: t('coach.compare.clientA') },
+                  { value: compareB, set: setCompareB, exclude: compareA, label: t('coach.compare.clientB') },
+                ] as const).map((picker) => (
+                  <div key={picker.label}>
+                    <label className="text-[10px] text-stone-500 uppercase tracking-wider mb-1 block">
+                      {picker.label}
+                    </label>
+                    <select
+                      value={picker.value}
+                      onChange={(e) => picker.set(e.target.value)}
+                      className="input-dark w-full text-xs !py-2"
+                    >
+                      {clients
+                        .filter((c) => c.clientProfile.user_id !== picker.exclude)
+                        .map((c) => (
+                          <option key={c.clientProfile.user_id} value={c.clientProfile.user_id}>
+                            {c.profile.full_name}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                ))}
+              </div>
+
               {(() => {
-                const toMacros = (cp: ClientCard['clientProfile']) => ({
+                const cardA = clients.find((c) => c.clientProfile.user_id === compareA);
+                const cardB = clients.find((c) => c.clientProfile.user_id === compareB);
+                if (!cardA || !cardB) return null;
+                if (compareLoading && (!compareActuals[compareA] || !compareActuals[compareB])) {
+                  return (
+                    <div className="bg-white/[0.04] border border-white/[0.06] rounded-xl p-8 text-center text-stone-500 text-xs">
+                      {t('coach.compare.loading')}
+                    </div>
+                  );
+                }
+                const toTargets = (cp: ClientCard['clientProfile']) => ({
                   protein: cp.target_protein_g ?? 0,
                   carbs: cp.target_carbs_g ?? 0,
                   fat: cp.target_fat_g ?? 0,
                   fiber: cp.target_fiber_g ?? 0,
                   water: cp.target_water_ml ?? 0,
                 });
-                const macrosA = toMacros(clients[0].clientProfile);
-                const macrosB = toMacros(clients[1].clientProfile);
-                const hasDataA = Object.values(macrosA).some((v) => v > 0);
-                const hasDataB = Object.values(macrosB).some((v) => v > 0);
-                if (!hasDataA && !hasDataB) return (
-                  <div className="bg-white/[0.04] border border-white/[0.06] rounded-xl p-4 text-center text-stone-500 text-xs">
-                    No macro targets set for these clients yet.
-                  </div>
-                );
+                const emptyIntake = { protein: 0, carbs: 0, fat: 0, fiber: 0, water: 0 };
+                const targetsA = toTargets(cardA.clientProfile);
+                const targetsB = toTargets(cardB.clientProfile);
+                const actualA = compareActuals[compareA] ?? emptyIntake;
+                const actualB = compareActuals[compareB] ?? emptyIntake;
+                const noTargets =
+                  !Object.values(targetsA).some((v) => v > 0) &&
+                  !Object.values(targetsB).some((v) => v > 0);
                 return (
-                  <ClientComparison
-                    clientA={{
-                      name: clients[0].profile.full_name,
-                      macros: macrosA,
-                      targets: macrosA,
-                    }}
-                    clientB={{
-                      name: clients[1].profile.full_name,
-                      macros: macrosB,
-                      targets: macrosB,
-                    }}
-                  />
+                  <>
+                    <ClientComparison
+                      clientA={{ name: cardA.profile.full_name, macros: actualA, targets: targetsA }}
+                      clientB={{ name: cardB.profile.full_name, macros: actualB, targets: targetsB }}
+                    />
+                    <p className="text-[10px] text-stone-600 text-center mt-2">
+                      {t('coach.compare.footnote')}
+                    </p>
+                    {noTargets && (
+                      <p className="text-[10px] text-amber-400/80 text-center mt-1">
+                        {t('coach.compare.noTargets')}
+                      </p>
+                    )}
+                  </>
                 );
               })()}
               <button
@@ -1452,11 +1513,12 @@ export default function CoachDashboard() {
         {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
       </AnimatePresence>
 
+      {/* All four tabs point at routes that actually exist (were /coach/clients + /coach/profile 404s) */}
       <BotNav routes={[
-        { href: '/coach',         label: 'Today',   icon: <Icon name="i-grid"    size={18} /> },
-        { href: '/coach/clients', label: 'Clients', icon: <Icon name="i-users"   size={18} /> },
-        { href: '/coach/inbox',   label: 'Inbox',   icon: <Icon name="i-message" size={18} /> },
-        { href: '/coach/profile', label: 'Me',      icon: <Icon name="i-user"    size={18} /> },
+        { href: '/coach',           label: 'Today',     icon: <Icon name="i-grid"     size={18} /> },
+        { href: '/coach/inbox',     label: 'Inbox',     icon: <Icon name="i-message"  size={18} /> },
+        { href: '/coach/calendar',  label: t('coach.nav.calendar'),  icon: <Icon name="i-calendar" size={18} /> },
+        { href: '/coach/templates', label: t('coach.nav.workouts'),  icon: <Icon name="i-dumbbell" size={18} /> },
       ]} />
     </div>
   );

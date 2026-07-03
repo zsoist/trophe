@@ -18,6 +18,7 @@ const USER_TABLES: Array<{ table: string; column: string }> = [
   { table: 'measurements', column: 'user_id' },
   { table: 'water_log', column: 'user_id' },
   { table: 'workout_sessions', column: 'user_id' },
+  { table: 'form_analyses', column: 'user_id' },
   { table: 'client_habits', column: 'user_id' },
   { table: 'habit_checkins', column: 'user_id' },
   { table: 'daily_checkins', column: 'user_id' },
@@ -45,6 +46,22 @@ export async function GET(request: NextRequest) {
   // Messages where the user is the client (their coach conversation).
   const { data: messages } = await service.from('messages').select('*').eq('client_id', userId);
   data['messages'] = messages ?? [];
+
+  // workout_sets are session-keyed (no user_id column) — export the sets that
+  // belong to the user's own sessions via the session ids fetched above.
+  const ownSessions = data['workout_sessions'];
+  const sessionIds = Array.isArray(ownSessions)
+    ? (ownSessions as Array<{ id: string }>).map((s) => s.id).filter(Boolean)
+    : [];
+  if (sessionIds.length > 0) {
+    const { data: sets, error: setsError } = await service
+      .from('workout_sets')
+      .select('*')
+      .in('session_id', sessionIds);
+    data['workout_sets'] = setsError ? { error: 'unavailable' } : (sets ?? []);
+  } else {
+    data['workout_sets'] = [];
+  }
 
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? null;
   await service.from('audit_log').insert({

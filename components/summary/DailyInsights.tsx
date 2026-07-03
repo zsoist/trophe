@@ -9,12 +9,18 @@ import { useI18n } from '@/lib/i18n';
 interface DailyInsightsProps {
   entries: FoodLogEntry[];
   targets: { calories: number; protein_g: number; carbs_g: number; fat_g: number };
+  /**
+   * Coach pref (client_view_prefs.showCalories). Default false — calorie
+   * pacing copy is replaced with protein-first phrasing (Michael's rule).
+   */
+  showCalories?: boolean;
 }
 
 function generateInsights(
   entries: FoodLogEntry[],
   targets: { calories: number; protein_g: number; carbs_g: number; fat_g: number },
-  t: (key: string, params?: Record<string, string | number>) => string
+  t: (key: string, params?: Record<string, string | number>) => string,
+  showCalories: boolean
 ): string[] {
   if (entries.length === 0) return [];
 
@@ -43,10 +49,11 @@ function generateInsights(
     insights.push(t('insights.fiber_low', { n: Math.round(totalFiber) }));
   }
 
-  // Calorie pacing
-  if (targets.calories > 0) {
-    const hour = new Date().getHours();
-    const dayProgress = Math.max(0.1, (hour - 6) / 16); // 6am-10pm window
+  // Pacing — calorie copy only when the coach shows calories; otherwise
+  // protein-first phrasing (client_view_prefs.showCalories, Michael's rule).
+  const hour = new Date().getHours();
+  const dayProgress = Math.max(0.1, (hour - 6) / 16); // 6am-10pm window
+  if (showCalories && targets.calories > 0) {
     const expectedCal = targets.calories * dayProgress;
     const pace = totalCal / expectedCal;
 
@@ -54,6 +61,15 @@ function generateInsights(
       insights.push(t('insights.calorie_ahead'));
     } else if (pace < 0.5 && hour > 14) {
       insights.push(t('insights.calorie_behind'));
+    }
+  } else if (!showCalories && targets.protein_g > 0) {
+    const expectedProtein = targets.protein_g * dayProgress;
+    const proteinPace = expectedProtein > 0 ? totalProtein / expectedProtein : 0;
+
+    if (proteinPace > 1.25 && hour < 18) {
+      insights.push(t('insights.protein_ahead'));
+    } else if (proteinPace < 0.5 && hour > 14) {
+      insights.push(t('insights.protein_behind'));
     }
   }
 
@@ -72,10 +88,13 @@ function generateInsights(
   return insights.slice(0, 3);
 }
 
-export default function DailyInsights({ entries, targets }: DailyInsightsProps) {
+export default function DailyInsights({ entries, targets, showCalories = false }: DailyInsightsProps) {
   const { t } = useI18n();
   const [expanded, setExpanded] = useState(false);
-  const insights = useMemo(() => generateInsights(entries, targets, t), [entries, targets, t]);
+  const insights = useMemo(
+    () => generateInsights(entries, targets, t, showCalories),
+    [entries, targets, t, showCalories],
+  );
 
   if (insights.length === 0) return null;
 

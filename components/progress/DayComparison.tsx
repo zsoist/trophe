@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 import type { FoodLogEntry } from '@/lib/types';
 import { calculateMealScore } from '@/lib/food/meal-score';
 import { localToday } from '@/lib/utils/dates';
+import { MACRO_COLORS } from '@/lib/macro-colors';
 
 interface DayComparisonProps {
   userId: string;
@@ -114,22 +115,22 @@ export default function DayComparison({ userId, currentDate, currentLog, compare
 
             {/* Macro comparison */}
             {[
-              { label: 'Calories', a: current.calories, b: compare.calories, unit: 'kcal', color: 'gold-text' },
-              { label: 'Protein', a: current.protein, b: compare.protein, unit: 'g', color: 'text-red-400' },
-              { label: 'Carbs', a: current.carbs, b: compare.carbs, unit: 'g', color: 'text-blue-400' },
-              { label: 'Fat', a: current.fat, b: compare.fat, unit: 'g', color: 'text-purple-400' },
-              { label: 'Fiber', a: current.fiber, b: compare.fiber, unit: 'g', color: 'text-green-400' },
-              { label: 'Items', a: current.items, b: compare.items, unit: '', color: 'text-stone-300' },
+              { label: 'Calories', a: current.calories, b: compare.calories, unit: 'kcal', color: MACRO_COLORS.calories },
+              { label: 'Protein', a: current.protein, b: compare.protein, unit: 'g', color: MACRO_COLORS.protein },
+              { label: 'Carbs', a: current.carbs, b: compare.carbs, unit: 'g', color: MACRO_COLORS.carbs },
+              { label: 'Fat', a: current.fat, b: compare.fat, unit: 'g', color: MACRO_COLORS.fat },
+              { label: 'Fiber', a: current.fiber, b: compare.fiber, unit: 'g', color: MACRO_COLORS.fiber },
+              { label: 'Items', a: current.items, b: compare.items, unit: '', color: 'var(--t2, #D6D3D1)' },
             ].map(row => (
               <div key={row.label} className="grid grid-cols-[1fr_80px_1fr] gap-2 py-1.5 border-b border-white/[0.05]">
-                <p className={`text-sm text-right font-medium ${row.color}`}>
+                <p className="text-sm text-right font-medium" style={{ color: row.color }}>
                   {Math.round(row.a)}{row.unit}
                 </p>
                 <div className="text-center">
-                  <p className="text-[10px] text-stone-600">{row.label}</p>
+                  <p className="text-[10px] text-stone-500">{row.label}</p>
                   <DiffBadge a={row.a} b={row.b} />
                 </div>
-                <p className={`text-sm font-medium ${row.color}`}>
+                <p className="text-sm font-medium" style={{ color: row.color }}>
                   {Math.round(row.b)}{row.unit}
                 </p>
               </div>

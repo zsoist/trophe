@@ -1,405 +1,419 @@
 {
- "version": "7",
- "dialect": "postgresql",
- "entries": [
-  {
-   "idx": 0,
-   "version": "7",
-   "when": 1777647161067,
-   "tag": "0000_complex_johnny_blaze",
-   "breakpoints": true
-  },
-  {
-   "idx": 1,
-   "version": "7",
-   "when": 1777648264027,
-   "tag": "0001_tearful_machine_man",
-   "breakpoints": true
-  },
-  {
-   "idx": 2,
-   "version": "7",
-   "when": 1777648300000,
-   "tag": "0002_role_backfill",
-   "breakpoints": true
-  },
-  {
-   "idx": 3,
-   "version": "7",
-   "when": 1777649617117,
-   "tag": "0003_flashy_molly_hayes",
-   "breakpoints": true
-  },
-  {
-   "idx": 4,
-   "version": "7",
-   "when": 1777650328020,
-   "tag": "0004_first_mongu",
-   "breakpoints": true
-  },
-  {
-   "idx": 5,
-   "version": "7",
-   "when": 1777651595068,
-   "tag": "0005_spotty_baron_zemo",
-   "breakpoints": true
-  },
-  {
-   "idx": 6,
-   "version": "7",
-   "when": 1777652188355,
-   "tag": "0006_red_maximus",
-   "breakpoints": true
-  },
-  {
-   "idx": 7,
-   "version": "7",
-   "when": 1777743700203,
-   "tag": "0007_lean_darkhawk",
-   "breakpoints": true
-  },
-  {
-   "idx": 8,
-   "version": "7",
-   "when": 1780850215486,
-   "tag": "0008_harden_rls_and_supabase_integration",
-   "breakpoints": true
-  },
-  {
-   "idx": 9,
-   "version": "7",
-   "when": 1780851537624,
-   "tag": "0009_canonical_schema_reconciliation",
-   "breakpoints": true
-  },
-  {
-   "idx": 10,
-   "version": "7",
-   "when": 1780852599953,
-   "tag": "0010_slow_boomerang",
-   "breakpoints": true
-  },
-  {
-   "idx": 11,
-   "version": "7",
-   "when": 1780852599954,
-   "tag": "0008_wave3_branded_foods",
-   "breakpoints": true
-  },
-  {
-   "idx": 12,
-   "version": "7",
-   "when": 1780852599955,
-   "tag": "0009_phase3_portion_fixes",
-   "breakpoints": true
-  },
-  {
-   "idx": 13,
-   "version": "7",
-   "when": 1780852599956,
-   "tag": "0010_fried_egg_canonical",
-   "breakpoints": true
-  },
-  {
-   "idx": 14,
-   "version": "7",
-   "when": 1780852599957,
-   "tag": "0011_dish_recipes",
-   "breakpoints": true
-  },
-  {
-   "idx": 15,
-   "version": "7",
-   "when": 1780852599958,
-   "tag": "0011_permission_aware_rag",
-   "breakpoints": true
-  },
-  {
-   "idx": 16,
-   "version": "7",
-   "when": 1780852599959,
-   "tag": "0012_reconcile_ai_governance",
-   "breakpoints": true
-  },
-  {
-   "idx": 17,
-   "version": "7",
-   "when": 1780852599960,
-   "tag": "0012_seed_traditional_dishes",
-   "breakpoints": true
-  },
-  {
-   "idx": 18,
-   "version": "7",
-   "when": 1780852599961,
-   "tag": "0013_add_restaurant_sources",
-   "breakpoints": true
-  },
-  {
-   "idx": 19,
-   "version": "7",
-   "when": 1780852599962,
-   "tag": "0013_compliance_foundation",
-   "breakpoints": true
-  },
-  {
-   "idx": 20,
-   "version": "7",
-   "when": 1780852599963,
-   "tag": "0014_b2b_billing_readiness",
-   "breakpoints": true
-  },
-  {
-   "idx": 21,
-   "version": "7",
-   "when": 1780852599964,
-   "tag": "0015_food_log_calories_real",
-   "breakpoints": true
-  },
-  {
-   "idx": 22,
-   "version": "7",
-   "when": 1780852599965,
-   "tag": "0016_seed_bogota_colombian_food_database",
-   "breakpoints": true
-  },
-  {
-   "idx": 23,
-   "version": "7",
-   "when": 1780852599966,
-   "tag": "0017_organization_ai_budgets",
-   "breakpoints": true
-  },
-  {
-   "idx": 24,
-   "version": "7",
-   "when": 1780852599967,
-   "tag": "0018_durable_rate_limits",
-   "breakpoints": true
-  },
-  {
-   "idx": 25,
-   "version": "7",
-   "when": 1780852599968,
-   "tag": "0014_durable_memory_queue",
-   "breakpoints": true
-  },
-  {
-   "idx": 26,
-   "version": "7",
-   "when": 1780852599969,
-   "tag": "0015_memory_queue_scheduler",
-   "breakpoints": true
-  },
-  {
-   "idx": 27,
-   "version": "7",
-   "when": 1780852599970,
-   "tag": "0019_greek_food_authoritative_seed",
-   "breakpoints": true
-  },
-  {
-   "idx": 28,
-   "version": "7",
-   "when": 1780852599971,
-   "tag": "0020_food_seed_fixups",
-   "breakpoints": true
-  },
-  {
-   "idx": 29,
-   "version": "7",
-   "when": 1780852599972,
-   "tag": "0021_french_language_support",
-   "breakpoints": true
-  },
-  {
-   "idx": 30,
-   "version": "7",
-   "when": 1780852599973,
-   "tag": "0022_crea_italian_food_source",
-   "breakpoints": true
-  },
-  {
-   "idx": 31,
-   "version": "7",
-   "when": 1780852599974,
-   "tag": "0023_bedca_spanish_food_source",
-   "breakpoints": true
-  },
-  {
-   "idx": 32,
-   "version": "7",
-   "when": 1780852599975,
-   "tag": "0024_cofid_uk_food_source",
-   "breakpoints": true
-  },
-  {
-   "idx": 33,
-   "version": "7",
-   "when": 1780852599976,
-   "tag": "0025_coach_phase0_michael",
-   "breakpoints": true
-  },
-  {
-   "idx": 34,
-   "version": "7",
-   "when": 1780852599977,
-   "tag": "0026_messages",
-   "breakpoints": true
-  },
-  {
-   "idx": 35,
-   "version": "7",
-   "when": 1780852599978,
-   "tag": "0027_intake_daily_checkins",
-   "breakpoints": true
-  },
-  {
-   "idx": 36,
-   "version": "7",
-   "when": 1780852599979,
-   "tag": "0028_booking",
-   "breakpoints": true
-  },
-  {
-   "idx": 37,
-   "version": "7",
-   "when": 1780852599980,
-   "tag": "0029_contact_cadence",
-   "breakpoints": true
-  },
-  {
-   "idx": 38,
-   "version": "7",
-   "when": 1780852599981,
-   "tag": "0030_language_expansion",
-   "breakpoints": true
-  },
-  {
-   "idx": 39,
-   "version": "7",
-   "when": 1780852599982,
-   "tag": "0031_fat_gap_dishes",
-   "breakpoints": true
-  },
-  {
-   "idx": 40,
-   "version": "7",
-   "when": 1780852599983,
-   "tag": "0032_nevo_dutch_source",
-   "breakpoints": true
-  },
-  {
-   "idx": 41,
-   "version": "7",
-   "when": 1780852599984,
-   "tag": "0033_fatgap_calibration",
-   "breakpoints": true
-  },
-  {
-   "idx": 42,
-   "version": "7",
-   "when": 1780852599985,
-   "tag": "0034_greek_cooked_dish_gaps",
-   "breakpoints": true
-  },
-  {
-   "idx": 43,
-   "version": "7",
-   "when": 1780852599986,
-   "tag": "0035_food_parse_corrections",
-   "breakpoints": true
-  },
-  {
-   "idx": 44,
-   "version": "7",
-   "when": 1780852599987,
-   "tag": "0036_beta_invite_codes",
-   "breakpoints": true
-  },
-  {
-   "idx": 45,
-   "version": "7",
-   "when": 1780852599988,
-   "tag": "0037_increment_invite_use_fn",
-   "breakpoints": true
-  },
-  {
-   "idx": 46,
-   "version": "7",
-   "when": 1780852599989,
-   "tag": "0038_client_invites",
-   "breakpoints": true
-  },
-  {
-   "idx": 47,
-   "version": "7",
-   "when": 1780852599990,
-   "tag": "0039_feedback",
-   "breakpoints": true
-  },
-  {
-   "idx": 48,
-   "version": "7",
-   "when": 1780852599991,
-   "tag": "0040_client_graduation",
-   "breakpoints": true
-  },
-  {
-   "idx": 49,
-   "version": "7",
-   "when": 1780852599992,
-   "tag": "0041_appointment_instructions",
-   "breakpoints": true
-  },
-  {
-   "idx": 50,
-   "version": "7",
-   "when": 1780852599993,
-   "tag": "0042_invite_reservations",
-   "breakpoints": true
-  },
-  {
-   "idx": 51,
-   "version": "7",
-   "when": 1780852599994,
-   "tag": "0043_find_auth_user_by_reservation",
-   "breakpoints": true
-  },
-  {
-   "idx": 52,
-   "version": "7",
-   "when": 1780852599995,
-   "tag": "0044_reservation_tombstones",
-   "breakpoints": true
-  },
-  {
-   "idx": 53,
-   "version": "7",
-   "when": 1780852599996,
-   "tag": "0045_route_cancel_tombstoned",
-   "breakpoints": true
-  },
-  {
-   "idx": 54,
-   "version": "7",
-   "when": 1780852599997,
-   "tag": "0046_completed_stray_recheck",
-   "breakpoints": true
-  },
-  {
-   "idx": 55,
-   "version": "7",
-   "when": 1780852599998,
-   "tag": "0047_client_activation_email_binding",
-   "breakpoints": true
-  },
-  {
-   "idx": 56,
-   "version": "7",
-   "when": 1780852599999,
-   "tag": "0048_memory_worker_vault_secret",
-   "breakpoints": true
-  }
- ]
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1777647161067,
+      "tag": "0000_complex_johnny_blaze",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1777648264027,
+      "tag": "0001_tearful_machine_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1777648300000,
+      "tag": "0002_role_backfill",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1777649617117,
+      "tag": "0003_flashy_molly_hayes",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1777650328020,
+      "tag": "0004_first_mongu",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1777651595068,
+      "tag": "0005_spotty_baron_zemo",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1777652188355,
+      "tag": "0006_red_maximus",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1777743700203,
+      "tag": "0007_lean_darkhawk",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1780850215486,
+      "tag": "0008_harden_rls_and_supabase_integration",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1780851537624,
+      "tag": "0009_canonical_schema_reconciliation",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1780852599953,
+      "tag": "0010_slow_boomerang",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1780852599954,
+      "tag": "0008_wave3_branded_foods",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1780852599955,
+      "tag": "0009_phase3_portion_fixes",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1780852599956,
+      "tag": "0010_fried_egg_canonical",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1780852599957,
+      "tag": "0011_dish_recipes",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1780852599958,
+      "tag": "0011_permission_aware_rag",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1780852599959,
+      "tag": "0012_reconcile_ai_governance",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1780852599960,
+      "tag": "0012_seed_traditional_dishes",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1780852599961,
+      "tag": "0013_add_restaurant_sources",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1780852599962,
+      "tag": "0013_compliance_foundation",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1780852599963,
+      "tag": "0014_b2b_billing_readiness",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1780852599964,
+      "tag": "0015_food_log_calories_real",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1780852599965,
+      "tag": "0016_seed_bogota_colombian_food_database",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1780852599966,
+      "tag": "0017_organization_ai_budgets",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1780852599967,
+      "tag": "0018_durable_rate_limits",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1780852599968,
+      "tag": "0014_durable_memory_queue",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1780852599969,
+      "tag": "0015_memory_queue_scheduler",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1780852599970,
+      "tag": "0019_greek_food_authoritative_seed",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1780852599971,
+      "tag": "0020_food_seed_fixups",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1780852599972,
+      "tag": "0021_french_language_support",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1780852599973,
+      "tag": "0022_crea_italian_food_source",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1780852599974,
+      "tag": "0023_bedca_spanish_food_source",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1780852599975,
+      "tag": "0024_cofid_uk_food_source",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1780852599976,
+      "tag": "0025_coach_phase0_michael",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1780852599977,
+      "tag": "0026_messages",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1780852599978,
+      "tag": "0027_intake_daily_checkins",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1780852599979,
+      "tag": "0028_booking",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1780852599980,
+      "tag": "0029_contact_cadence",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1780852599981,
+      "tag": "0030_language_expansion",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1780852599982,
+      "tag": "0031_fat_gap_dishes",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1780852599983,
+      "tag": "0032_nevo_dutch_source",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1780852599984,
+      "tag": "0033_fatgap_calibration",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1780852599985,
+      "tag": "0034_greek_cooked_dish_gaps",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1780852599986,
+      "tag": "0035_food_parse_corrections",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1780852599987,
+      "tag": "0036_beta_invite_codes",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1780852599988,
+      "tag": "0037_increment_invite_use_fn",
+      "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1780852599989,
+      "tag": "0038_client_invites",
+      "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1780852599990,
+      "tag": "0039_feedback",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1780852599991,
+      "tag": "0040_client_graduation",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1780852599992,
+      "tag": "0041_appointment_instructions",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1780852599993,
+      "tag": "0042_invite_reservations",
+      "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1780852599994,
+      "tag": "0043_find_auth_user_by_reservation",
+      "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1780852599995,
+      "tag": "0044_reservation_tombstones",
+      "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1780852599996,
+      "tag": "0045_route_cancel_tombstoned",
+      "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1780852599997,
+      "tag": "0046_completed_stray_recheck",
+      "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1780852599998,
+      "tag": "0047_client_activation_email_binding",
+      "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1780852599999,
+      "tag": "0048_memory_worker_vault_secret",
+      "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "7",
+      "when": 1780852600000,
+      "tag": "0049_workout_programs",
+      "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1780852600001,
+      "tag": "0050_display_prefs",
+      "breakpoints": true
+    }
+  ]
 }

@@ -6,6 +6,7 @@ import { X, ChefHat, Loader2, Check } from 'lucide-react';
 import { Icon } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
 import type { MealType } from '@/lib/types';
+import { MACRO_COLORS } from '@/lib/macro-colors';
 import type { RecipeAnalyzeOutput } from '@/agents/schemas/recipe-analyze';
 
 interface RecipeAnalyzerModalProps {
@@ -208,20 +209,20 @@ export default function RecipeAnalyzerModal({
                     </div>
                     <div className="grid grid-cols-4 gap-2 text-center">
                       <div>
-                        <div className="text-sm font-bold text-red-400">{result.per_serving.protein_g}g</div>
-                        <div className="text-[9px] text-stone-500">Protein</div>
+                        <div className="text-sm font-bold" style={{ color: MACRO_COLORS.protein }}>{result.per_serving.protein_g}g</div>
+                        <div className="text-[10px] text-stone-500">Protein</div>
                       </div>
                       <div>
-                        <div className="text-sm font-bold text-blue-400">{result.per_serving.carbs_g}g</div>
-                        <div className="text-[9px] text-stone-500">Carbs</div>
+                        <div className="text-sm font-bold" style={{ color: MACRO_COLORS.carbs }}>{result.per_serving.carbs_g}g</div>
+                        <div className="text-[10px] text-stone-500">Carbs</div>
                       </div>
                       <div>
-                        <div className="text-sm font-bold text-purple-400">{result.per_serving.fat_g}g</div>
-                        <div className="text-[9px] text-stone-500">Fat</div>
+                        <div className="text-sm font-bold" style={{ color: MACRO_COLORS.fat }}>{result.per_serving.fat_g}g</div>
+                        <div className="text-[10px] text-stone-500">Fat</div>
                       </div>
                       <div>
-                        <div className="text-sm font-bold text-green-400">{result.per_serving.fiber_g}g</div>
-                        <div className="text-[9px] text-stone-500">Fiber</div>
+                        <div className="text-sm font-bold" style={{ color: MACRO_COLORS.fiber }}>{result.per_serving.fiber_g}g</div>
+                        <div className="text-[10px] text-stone-500">Fiber</div>
                       </div>
                     </div>
                   </div>

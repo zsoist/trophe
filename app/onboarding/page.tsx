@@ -3,7 +3,11 @@
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { Icon, BrandWordmark, AnimatedValue } from '@/components/ui';
+import type { IconName } from '@/components/ui';
+import { MACRO_COLORS } from '@/lib/macro-colors';
 import { calculateFullProfile, calculateBMR, calculateTDEE, calculateTargetCalories, GOAL_DESCRIPTIONS, ACTIVITY_DESCRIPTIONS } from '@/lib/food/nutrition-engine';
 import type { Sex, ActivityLevel, Goal } from '@/lib/types';
 
@@ -14,6 +18,16 @@ const GOAL_ADJUSTMENT_LABELS: Record<Goal, string> = {
   recomp: '5% deficit',
   endurance: '+15%',
   health: 'No adjustment',
+};
+
+// Sprite icons for goals (replaces GOAL_DESCRIPTIONS emoji — icon work only)
+const GOAL_ICONS: Record<Goal, IconName> = {
+  fat_loss: 'i-flame',
+  muscle_gain: 'i-dumbbell',
+  maintenance: 'i-target',
+  recomp: 'i-refresh',
+  endurance: 'i-shoe',
+  health: 'i-leaf',
 };
 
 const steps = ['welcome', 'body', 'goal', 'activity', 'plan'] as const;
@@ -88,24 +102,26 @@ export default function OnboardingPage() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-6 py-12" style={{ background: 'var(--bg-primary, #0a0a0a)' }}>
       {/* Progress dots + percentage */}
-      <div className="flex flex-col items-center gap-2 mb-12">
+      <div className="flex flex-col items-center gap-2 mb-10">
         <div className="flex gap-2">
           {steps.map((_, i) => (
             <div
               key={i}
               className={`h-1.5 rounded-full transition-all duration-500 ${
-                i === stepIdx ? 'w-8 bg-[#D4A853]' : i < stepIdx ? 'w-4 bg-[#D4A853]/40' : 'w-4 bg-stone-800'
+                i === stepIdx ? 'w-8 bg-[#D4A853]' : i < stepIdx ? 'w-4 bg-[#D4A853]/40' : 'w-4 bg-[var(--bg-4,#242424)]'
               }`}
             />
           ))}
         </div>
-        <p className="text-stone-600 text-xs">
+        <p className="caption" style={{ color: 'var(--t4)' }}>
           Step {stepIdx + 1} of {steps.length} &mdash; {Math.round(((stepIdx + 1) / steps.length) * 100)}%
         </p>
       </div>
 
-      {/* Step content */}
-      <div className="w-full max-w-md relative min-h-[480px]">
+      {/* Step content — flows in normal layout so the nav buttons below are
+          always reachable at 390px (was absolute inset-0 inside min-h-[480px],
+          which let tall steps overflow under the buttons). */}
+      <div className="w-full max-w-md relative overflow-x-clip">
         <AnimatePresence mode="wait" custom={direction}>
           <motion.div
             key={step}
@@ -115,22 +131,22 @@ export default function OnboardingPage() {
             animate="center"
             exit="exit"
             transition={{ duration: 0.35, ease: [0.34, 1.56, 0.64, 1] as const }}
-            className="absolute inset-0"
           >
             {step === 'welcome' && (
               <div className="text-center space-y-6">
-                <h1 className="font-serif text-4xl font-bold text-[#D4A853]">τροφή</h1>
-                <p className="text-stone-300 text-lg">Welcome to your nutrition journey</p>
-                <p className="text-stone-500 text-sm max-w-sm mx-auto">
+                <BrandWordmark size="default" />
+                <p className="body-md" style={{ color: 'var(--t2)', fontSize: 17 }}>Welcome to your nutrition journey</p>
+                <p className="body-md max-w-sm mx-auto" style={{ color: 'var(--t3)' }}>
                   We&apos;ll set up your personalized plan in just 4 quick steps.
                   Everything is based on evidence from ISSN, ACSM, and IOC.
                 </p>
-                <p className="text-stone-600 text-xs mt-2">
+                <p className="caption" style={{ color: 'var(--t4)' }}>
                   Trusted by Precision Nutrition certified coaches
                 </p>
                 <div className="pt-6">
-                  <button onClick={next} className="btn-gold text-lg px-10 py-4">
-                    Let&apos;s go →
+                  <button onClick={next} className="btn-gold text-lg px-10 py-4 inline-flex items-center gap-2">
+                    Let&apos;s go
+                    <ArrowRight size={18} />
                   </button>
                 </div>
               </div>
@@ -139,20 +155,20 @@ export default function OnboardingPage() {
             {step === 'body' && (
               <div className="space-y-6">
                 <div className="text-center mb-2">
-                  <h2 className="text-2xl font-semibold text-stone-100">Body Stats</h2>
-                  <p className="text-stone-500 text-sm">Used to calculate your BMR & targets</p>
+                  <h2 className="display-lg" style={{ color: 'var(--t1)' }}>Body Stats</h2>
+                  <p className="caption mt-1">Used to calculate your BMR &amp; targets</p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-stone-400 text-sm mb-1.5">Age</label>
+                    <label className="block body-md mb-1.5" style={{ color: 'var(--t3)' }}>Age</label>
                     <input
                       type="number" value={age} onChange={(e) => setAge(+e.target.value)}
                       className="input-dark" min={14} max={80}
                     />
                   </div>
                   <div>
-                    <label className="block text-stone-400 text-sm mb-2">Sex</label>
+                    <label className="block body-md mb-2" style={{ color: 'var(--t3)' }}>Sex</label>
                     <div className="flex gap-2">
                       {(['male', 'female'] as Sex[]).map((s) => (
                         <button
@@ -160,11 +176,11 @@ export default function OnboardingPage() {
                           onClick={() => setSex(s)}
                           className={`flex-1 py-2.5 rounded-xl border text-sm font-medium transition-all ${
                             sex === s
-                              ? 'border-[#D4A853] bg-[rgba(212,168,83,0.08)] text-stone-100'
-                              : 'border-stone-800 text-stone-500 hover:border-stone-600'
+                              ? 'border-[#D4A853] bg-[rgba(212,168,83,0.08)] text-[var(--t1)]'
+                              : 'border-[var(--line-2)] text-[var(--t4)] hover:border-[var(--t5)]'
                           }`}
                         >
-                          {s === 'male' ? '♂ Male' : '♀ Female'}
+                          {s === 'male' ? 'Male' : 'Female'}
                         </button>
                       ))}
                     </div>
@@ -172,23 +188,23 @@ export default function OnboardingPage() {
                 </div>
 
                 <div>
-                  <label className="block text-stone-400 text-sm mb-1.5">Height (cm): {heightCm}</label>
+                  <label className="block body-md mb-1.5" style={{ color: 'var(--t3)' }}>Height (cm): {heightCm}</label>
                   <input
                     type="range" min={140} max={220} value={heightCm}
                     onChange={(e) => setHeightCm(+e.target.value)}
                     className="w-full accent-[#D4A853]"
                   />
-                  <div className="flex justify-between text-xs text-stone-600"><span>140</span><span>220</span></div>
+                  <div className="flex justify-between caption" style={{ color: 'var(--t4)' }}><span>140</span><span>220</span></div>
                 </div>
 
                 <div>
-                  <label className="block text-stone-400 text-sm mb-1.5">Weight (kg): {weightKg}</label>
+                  <label className="block body-md mb-1.5" style={{ color: 'var(--t3)' }}>Weight (kg): {weightKg}</label>
                   <input
                     type="range" min={40} max={160} value={weightKg}
                     onChange={(e) => setWeightKg(+e.target.value)}
                     className="w-full accent-[#D4A853]"
                   />
-                  <div className="flex justify-between text-xs text-stone-600"><span>40</span><span>160</span></div>
+                  <div className="flex justify-between caption" style={{ color: 'var(--t4)' }}><span>40</span><span>160</span></div>
                 </div>
               </div>
             )}
@@ -196,8 +212,8 @@ export default function OnboardingPage() {
             {step === 'goal' && (
               <div className="space-y-4">
                 <div className="text-center mb-2">
-                  <h2 className="text-2xl font-semibold text-stone-100">Your Goal</h2>
-                  <p className="text-stone-500 text-sm">This shapes your macro targets</p>
+                  <h2 className="display-lg" style={{ color: 'var(--t1)' }}>Your Goal</h2>
+                  <p className="caption mt-1">This shapes your macro targets</p>
                 </div>
 
                 <div className="space-y-3">
@@ -213,22 +229,26 @@ export default function OnboardingPage() {
                         className={`w-full p-4 rounded-xl border text-left transition-all ${
                           goal === g
                             ? 'border-[#D4A853] bg-[rgba(212,168,83,0.08)] gold-glow'
-                            : 'border-stone-800 hover:border-stone-600'
+                            : 'border-[var(--line-2)] hover:border-[var(--t5)]'
                         }`}
                       >
                         <div className="flex items-center justify-between">
-                          <div>
-                            <span className="text-lg mr-2">{d.emoji}</span>
-                            <span className={`font-medium ${goal === g ? 'text-stone-100' : 'text-stone-300'}`}>
+                          <div className="flex items-center gap-2.5">
+                            <Icon
+                              name={GOAL_ICONS[g]}
+                              size={18}
+                              style={{ color: goal === g ? 'var(--gold-300,#D4A853)' : 'var(--t4)', flexShrink: 0 }}
+                            />
+                            <span className={`font-medium ${goal === g ? 'text-[var(--t1)]' : 'text-[var(--t2)]'}`}>
                               {d.en}
                             </span>
                           </div>
-                          <span className="text-xs text-stone-500">
+                          <span className="caption" style={{ color: 'var(--t4)' }}>
                             ~{previewCals} kcal
                           </span>
                         </div>
                         {goal === g && (
-                          <p className="text-xs text-stone-500 mt-1 ml-8">
+                          <p className="caption mt-1 ml-8" style={{ color: 'var(--t4)' }}>
                             {GOAL_ADJUSTMENT_LABELS[g]} = ~{previewCals} kcal/day
                           </p>
                         )}
@@ -242,8 +262,8 @@ export default function OnboardingPage() {
             {step === 'activity' && (
               <div className="space-y-4">
                 <div className="text-center mb-2">
-                  <h2 className="text-2xl font-semibold text-stone-100">Activity Level</h2>
-                  <p className="text-stone-500 text-sm">How active are you on average?</p>
+                  <h2 className="display-lg" style={{ color: 'var(--t1)' }}>Activity Level</h2>
+                  <p className="caption mt-1">How active are you on average?</p>
                 </div>
 
                 <div className="space-y-3">
@@ -256,13 +276,13 @@ export default function OnboardingPage() {
                         className={`w-full p-4 rounded-xl border text-left transition-all ${
                           activity === a
                             ? 'border-[#D4A853] bg-[rgba(212,168,83,0.08)] gold-glow'
-                            : 'border-stone-800 hover:border-stone-600'
+                            : 'border-[var(--line-2)] hover:border-[var(--t5)]'
                         }`}
                       >
-                        <span className={`font-medium ${activity === a ? 'text-stone-100' : 'text-stone-300'}`}>
+                        <span className={`font-medium ${activity === a ? 'text-[var(--t1)]' : 'text-[var(--t2)]'}`}>
                           {a.replace('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
                         </span>
-                        <p className="text-stone-500 text-xs mt-0.5">{d.en}</p>
+                        <p className="caption mt-0.5" style={{ color: 'var(--t4)' }}>{d.en}</p>
                       </button>
                     );
                   })}
@@ -273,53 +293,69 @@ export default function OnboardingPage() {
             {step === 'plan' && (
               <div className="space-y-6">
                 <div className="text-center mb-2">
-                  <h2 className="text-2xl font-semibold text-stone-100">Your Plan</h2>
-                  <p className="text-stone-500 text-sm">Calculated using Mifflin-St Jeor + ISSN</p>
+                  <h2 className="display-lg" style={{ color: 'var(--t1)' }}>Your Plan</h2>
+                  <p className="caption mt-1">Calculated using Mifflin-St Jeor + ISSN</p>
                 </div>
 
                 <div className="glass-elevated p-6 space-y-4 gold-border">
                   <div className="text-center">
-                    <p className="text-stone-500 text-xs uppercase tracking-wide">Daily Target</p>
-                    <p className="text-4xl font-bold text-[#D4A853] mt-1">{profile.calories}</p>
-                    <p className="text-stone-400 text-sm">kcal / day</p>
+                    <p className="label-sm" style={{ color: 'var(--t4)' }}>Daily Target</p>
+                    {/* Serif hero numeral + count-up */}
+                    <p className="display-xl mt-1" style={{ color: 'var(--gold-300,#D4A853)' }}>
+                      <AnimatedValue value={profile.calories} grouped={false} />
+                    </p>
+                    <p className="body-md" style={{ color: 'var(--t3)' }}>kcal / day</p>
                   </div>
 
                   <div className="grid grid-cols-3 gap-3 text-center">
                     <div className="glass rounded-xl p-3">
-                      <p className="text-lg font-semibold text-blue-400">{profile.protein_g}g</p>
-                      <p className="text-xs text-stone-500">Protein</p>
+                      <p className="text-lg font-semibold" style={{ color: MACRO_COLORS.protein }}>
+                        <AnimatedValue value={profile.protein_g} grouped={false} />g
+                      </p>
+                      <p className="caption" style={{ color: 'var(--t4)' }}>Protein</p>
                     </div>
                     <div className="glass rounded-xl p-3">
-                      <p className="text-lg font-semibold text-amber-400">{profile.carbs_g}g</p>
-                      <p className="text-xs text-stone-500">Carbs</p>
+                      <p className="text-lg font-semibold" style={{ color: MACRO_COLORS.carbs }}>
+                        <AnimatedValue value={profile.carbs_g} grouped={false} />g
+                      </p>
+                      <p className="caption" style={{ color: 'var(--t4)' }}>Carbs</p>
                     </div>
                     <div className="glass rounded-xl p-3">
-                      <p className="text-lg font-semibold text-rose-400">{profile.fat_g}g</p>
-                      <p className="text-xs text-stone-500">Fat</p>
+                      <p className="text-lg font-semibold" style={{ color: MACRO_COLORS.fat }}>
+                        <AnimatedValue value={profile.fat_g} grouped={false} />g
+                      </p>
+                      <p className="caption" style={{ color: 'var(--t4)' }}>Fat</p>
                     </div>
                   </div>
 
-                  <div className="flex justify-between text-sm text-stone-500 pt-2 border-t border-stone-800">
-                    <span>💧 {(profile.water_ml / 1000).toFixed(1)}L water</span>
-                    <span>🌿 {profile.fiber_g}g fiber</span>
+                  <div className="flex justify-between items-center body-md pt-2" style={{ color: 'var(--t4)', borderTop: '1px solid var(--line-2)' }}>
+                    <span className="inline-flex items-center gap-1.5">
+                      <Icon name="i-drop" size={14} style={{ color: MACRO_COLORS.water }} />
+                      {(profile.water_ml / 1000).toFixed(1)}L water
+                    </span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <Icon name="i-leaf" size={14} style={{ color: MACRO_COLORS.fiber }} />
+                      {profile.fiber_g}g fiber
+                    </span>
                     <span>BMR: {profile.bmr}</span>
                   </div>
 
                   {/* Protein per meal & leucine info */}
-                  <div className="pt-2 border-t border-stone-800 space-y-1.5">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-stone-500">Protein per meal (4 meals)</span>
-                      <span className="text-stone-300 font-medium">{Math.round(profile.protein_g / 4)}g</span>
+                  <div className="pt-2 space-y-1.5" style={{ borderTop: '1px solid var(--line-2)' }}>
+                    <div className="flex justify-between body-md">
+                      <span style={{ color: 'var(--t4)' }}>Protein per meal (4 meals)</span>
+                      <span className="font-medium" style={{ color: 'var(--t2)' }}>{Math.round(profile.protein_g / 4)}g</span>
                     </div>
-                    <p className="text-stone-600 text-xs">
+                    <p className="caption" style={{ color: 'var(--t4)' }}>
                       You need ~3g of leucine per meal (~{Math.round(profile.protein_g / 4)}g protein from quality sources)
                     </p>
                   </div>
                 </div>
 
                 <div className="glass p-4 text-center">
-                  <p className="text-stone-400 text-sm">
-                    🎯 Your coach will assign your first habit — one step at a time.
+                  <p className="body-md inline-flex items-center gap-2" style={{ color: 'var(--t3)' }}>
+                    <Icon name="i-target" size={15} style={{ color: 'var(--gold-300,#D4A853)', flexShrink: 0 }} />
+                    Your coach will assign your first habit — one step at a time.
                   </p>
                 </div>
               </div>
@@ -331,14 +367,20 @@ export default function OnboardingPage() {
       {/* Navigation */}
       <div className="flex gap-4 mt-8 w-full max-w-md">
         {stepIdx > 0 && (
-          <button onClick={back} className="btn-ghost flex-1">← Back</button>
+          <button onClick={back} className="btn-ghost flex-1 inline-flex items-center justify-center gap-2">
+            <ArrowLeft size={16} />
+            Back
+          </button>
         )}
         {step !== 'welcome' && step !== 'plan' && (
-          <button onClick={next} className="btn-gold flex-1">Next →</button>
+          <button onClick={next} className="btn-gold flex-1 inline-flex items-center justify-center gap-2">
+            Next
+            <ArrowRight size={16} />
+          </button>
         )}
         {step === 'plan' && (
           <button onClick={finish} disabled={loading} className="btn-gold flex-1 disabled:opacity-50">
-            {loading ? 'Saving...' : '🚀 Start my journey'}
+            {loading ? 'Saving...' : 'Start my journey'}
           </button>
         )}
       </div>

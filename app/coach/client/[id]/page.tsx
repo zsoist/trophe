@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
@@ -22,8 +22,8 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+import { useI18n } from '@/lib/i18n';
 import ActivityTimeline from '@/components/progress/ActivityTimeline';
-import ComplianceTrend from '@/components/charts/ComplianceTrend';
 import CoachingSummary from '@/components/summary/CoachingSummary';
 import SupplementCompliance from '@/components/health/SupplementCompliance';
 // Wave 2 + Wave 3 coach components
@@ -41,15 +41,22 @@ import ClientFoodHeatmap from '@/components/coach/ClientFoodHeatmap';
 import WeekendAnalysis from '@/components/coach/WeekendAnalysis';
 import ProgressComparison from '@/components/coach/ProgressComparison';
 import MeasurementChart from '@/components/coach/MeasurementChart';
-import GoalProgressTracker from '@/components/coach/GoalProgressTracker';
-import WorkoutVolumeChart from '@/components/coach/WorkoutVolumeChart';
 import SmartNoteSuggestions from '@/components/coach/SmartNoteSuggestions';
 import QuickActionsBar from '@/components/coach/QuickActionsBar';
 import AutoMacroOptimizer from '@/components/coach/AutoMacroOptimizer';
-import CalorieCyclingPlanner from '@/components/coach/CalorieCyclingPlanner';
-import RecoveryScore from '@/components/coach/RecoveryScore';
 import MealPatternView from '@/components/coach/MealPatternView';
 import CoachInsightPanel from '@/components/coach/CoachInsightPanel';
+import ClientWorkoutsPanel from '@/components/coach/ClientWorkoutsPanel';
+import ClientViewSettings from '@/components/coach/ClientViewSettings';
+import { PanelPrefsProvider, Panel } from '@/components/coach/PanelGate';
+import CustomizePanelsBar from '@/components/coach/CustomizePanelsBar';
+import {
+  CLIENT_DETAIL_PANELS,
+  parseDisplayPrefs,
+  isPanelVisible,
+  type ClientDetailPanelId,
+  type DisplayPrefs,
+} from '@/lib/display-prefs';
 import { localToday, localDateStr } from '../../../../lib/utils/dates';
 import { Icon } from '@/components/ui';
 import type {
@@ -161,6 +168,7 @@ function StreakCalendar({ checkins, startDate }: { checkins: HabitCheckin[]; sta
 // ═══════════════════════════════════════════════
 
 export default function ClientDetailPage() {
+  const { t } = useI18n();
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
@@ -212,8 +220,54 @@ export default function ClientDetailPage() {
       .eq('user_id', clientId);
   };
   const [intake, setIntake] = useState<Array<{ prompt: string; answer: string }> | null>(null);
-  const [workoutWeeks, setWorkoutWeeks] = useState<Array<{ weekLabel: string; totalSets: number; totalReps: number }>>([]);
   const [intakeOpen, setIntakeOpen] = useState(false);
+
+  // ═══ Display prefs (Customize mode — profiles.display_prefs, overrides only) ═══
+  const [panelEditMode, setPanelEditMode] = useState(false);
+  const [detailOverrides, setDetailOverrides] = useState<Partial<Record<ClientDetailPanelId, boolean>>>({});
+  const fullPrefsRef = useRef<DisplayPrefs>({});
+  const coachIdRef = useRef<string | null>(null);
+
+  const persistDetailOverrides = useCallback(
+    async (next: Partial<Record<ClientDetailPanelId, boolean>>) => {
+      if (!coachIdRef.current) return;
+      const merged: DisplayPrefs = { ...fullPrefsRef.current, clientDetail: next };
+      if (Object.keys(next).length === 0) delete merged.clientDetail;
+      fullPrefsRef.current = merged;
+      const { error } = await supabase
+        .from('profiles')
+        .update({ display_prefs: merged })
+        .eq('id', coachIdRef.current);
+      if (error) console.error('Error saving display prefs:', error);
+    },
+    [],
+  );
+
+  const togglePanel = useCallback(
+    (id: string) => {
+      const panelId = id as ClientDetailPanelId;
+      setDetailOverrides((prev) => {
+        const current = isPanelVisible(CLIENT_DETAIL_PANELS, prev, panelId);
+        const nextValue = !current;
+        const next = { ...prev };
+        if (nextValue === CLIENT_DETAIL_PANELS[panelId]) delete next[panelId];
+        else next[panelId] = nextValue;
+        persistDetailOverrides(next);
+        return next;
+      });
+    },
+    [persistDetailOverrides],
+  );
+
+  const resetPanels = useCallback(() => {
+    setDetailOverrides({});
+    persistDetailOverrides({});
+  }, [persistDetailOverrides]);
+
+  const panelVisible = useCallback(
+    (id: string) => isPanelVisible(CLIENT_DETAIL_PANELS, detailOverrides, id as ClientDetailPanelId),
+    [detailOverrides],
+  );
 
   const saveAssessment = async () => {
     await supabase
@@ -278,7 +332,10 @@ export default function ClientDetailPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push("/login"); return; }
 
-      const threeDaysAgo = localDateStr(new Date(Date.now() - 3 * 24 * 60 * 60 * 1000));
+      // 28 days of food_log — the 7d sparklines, 14v14 comparison, 28d heatmap
+      // and consistency/health scores all read from this window. (Was 3 days,
+      // which silently poisoned every one of those computations.)
+      const twentyEightDaysAgo = localDateStr(new Date(Date.now() - 28 * 24 * 60 * 60 * 1000));
       const thirtyDaysAgo = localDateStr(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000));
 
       const [
@@ -289,15 +346,23 @@ export default function ClientDetailPage() {
         foodRes,
         measurementsRes,
         notesRes,
+        coachProfileRes,
       ] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', clientId).maybeSingle(),
         supabase.from('client_profiles').select('*').eq('user_id', clientId).maybeSingle(),
         supabase.from('client_habits').select('*, habit:habits(*)').eq('client_id', clientId).order('created_at', { ascending: false }),
         supabase.from('habit_checkins').select('*').eq('user_id', clientId).order('checked_date', { ascending: false }).limit(30),
-        supabase.from('food_log').select('*').eq('user_id', clientId).gte('logged_date', threeDaysAgo).order('logged_date', { ascending: false }),
+        supabase.from('food_log').select('*').eq('user_id', clientId).gte('logged_date', twentyEightDaysAgo).order('logged_date', { ascending: false }),
         supabase.from('measurements').select('*').eq('user_id', clientId).gte('measured_date', thirtyDaysAgo).order('measured_date', { ascending: true }),
         supabase.from('coach_notes').select('*').eq('client_id', clientId).order('created_at', { ascending: false }),
+        supabase.from('profiles').select('display_prefs').eq('id', user.id).maybeSingle(),
       ]);
+
+      // Coach's own display prefs (Customize mode)
+      coachIdRef.current = user.id;
+      const prefs = parseDisplayPrefs(coachProfileRes.data?.display_prefs);
+      fullPrefsRef.current = prefs;
+      setDetailOverrides((prefs.clientDetail ?? {}) as Partial<Record<ClientDetailPanelId, boolean>>);
 
       setProfile(profileRes.data);
       setClientProfile(clientProfileRes.data);
@@ -334,36 +399,8 @@ export default function ClientDetailPage() {
         );
       }
 
-      // Real workout volume: last 4 weeks of sessions + sets (was hardcoded zeros)
-      const fourWeeksAgo = new Date(); fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
-      const { data: sessions } = await supabase
-        .from('workout_sessions')
-        .select('id, session_date')
-        .eq('user_id', clientId)
-        .gte('session_date', fourWeeksAgo.toISOString().split('T')[0]);
-      const sessionRows = (sessions ?? []) as Array<{ id: string; session_date: string }>;
-      let setRows: Array<{ session_id: string; reps: number | null }> = [];
-      if (sessionRows.length > 0) {
-        const { data: sets } = await supabase
-          .from('workout_sets')
-          .select('session_id, reps')
-          .in('session_id', sessionRows.map((x) => x.id));
-        setRows = (sets ?? []) as typeof setRows;
-      }
-      const weekOf = (dateStr: string) => {
-        const days = Math.floor((Date.now() - new Date(dateStr + 'T12:00:00').getTime()) / 86400_000);
-        return Math.min(3, Math.floor(days / 7)); // 0 = this week … 3 = 3 weeks ago
-      };
-      const agg = [0, 1, 2, 3].map(() => ({ totalSets: 0, totalReps: 0 }));
-      const sessionWeek = new Map(sessionRows.map((x) => [x.id, weekOf(x.session_date)]));
-      for (const set of setRows) {
-        const w = sessionWeek.get(set.session_id);
-        if (w == null) continue;
-        agg[w].totalSets += 1;
-        agg[w].totalReps += set.reps ?? 0;
-      }
-      const labels = ['This week', 'Last week', '2 weeks ago', '3 weeks ago'];
-      setWorkoutWeeks([3, 2, 1, 0].map((w) => ({ weekLabel: labels[w], ...agg[w] })));
+      // Workout data (program + sessions + volume) now lives in
+      // ClientWorkoutsPanel via tRPC — no page-level supabase fetch needed.
 
       const allHabits = habitsRes.data || [];
       setActiveHabit(allHabits.find((h: ClientHabit) => h.status === 'active') || null);
@@ -626,14 +663,6 @@ export default function ClientDetailPage() {
     }));
   }
 
-  // Group food by date
-  const foodByDate: Record<string, FoodLogEntry[]> = {};
-  foodLog.forEach((entry) => {
-    const key = entry.logged_date;
-    if (!foodByDate[key]) foodByDate[key] = [];
-    foodByDate[key].push(entry);
-  });
-
   // ═══════════════════════════════════════════════
   // Computed data for Wave 2 + Wave 3 components
   // ═══════════════════════════════════════════════
@@ -669,23 +698,26 @@ export default function ClientDetailPage() {
     };
   })();
 
-  // ConsistencyScore
+  // ConsistencyScore — window matches the 28-day food_log fetch. No fake
+  // avgMealScore anymore (there is no real meal score in food_log); the
+  // component reweights to Logging/Habits when it's omitted.
   const consistencyData = (() => {
     const loggedDates = new Set(foodLog.map((e) => e.logged_date));
     const daysLogged = loggedDates.size;
     const createdAt = clientProfile?.created_at;
     const daysSinceCreation = createdAt
       ? Math.max(1, Math.ceil((Date.now() - new Date(createdAt).getTime()) / 86400000))
-      : 30;
-    const totalDays = Math.min(daysSinceCreation, 30);
+      : 28;
+    const totalDays = Math.min(daysSinceCreation, 28);
     const cycleDays = activeHabit?.habit?.cycle_days || 14;
     const habitAdherence = activeHabit
       ? Math.min(100, Math.round((activeHabit.current_streak / cycleDays) * 100))
       : 0;
-    return { daysLogged, totalDays, avgMealScore: 65, habitAdherence };
+    return { daysLogged, totalDays, habitAdherence };
   })();
 
-  // ClientHealthScore: composite of consistency + adherence + streak
+  // ClientHealthScore: composite of consistency + adherence + streak.
+  // Reads real 28-day logging data now (was poisoned by the 3-day fetch).
   const healthScore = Math.round(
     ((consistencyData.daysLogged / Math.max(consistencyData.totalDays, 1)) * 100 +
       consistencyData.habitAdherence +
@@ -705,10 +737,10 @@ export default function ClientDetailPage() {
 
   // BehavioralSignals
   const behavioralSignals = (() => {
-    const signals: Array<{ emoji: string; text: string; severity: 'info' | 'warning' | 'positive' }> = [];
+    const signals: Array<{ icon: import('@/components/ui').IconName; text: string; severity: 'info' | 'warning' | 'positive' }> = [];
     const targetProtein = clientProfile?.target_protein_g || 0;
     if (targetProtein > 0 && todayTotals.protein < targetProtein * 0.7 && todayEntries.length > 0) {
-      signals.push({ emoji: '🥩', text: `Protein low today (${Math.round(todayTotals.protein)}g vs ${targetProtein}g target)`, severity: 'warning' });
+      signals.push({ icon: 'i-egg', text: `Protein low today (${Math.round(todayTotals.protein)}g vs ${targetProtein}g target)`, severity: 'warning' });
     }
     const loggedDates = new Set(foodLog.map((e) => e.logged_date));
     const last7 = Array.from({ length: 7 }, (_, i) => {
@@ -717,13 +749,13 @@ export default function ClientDetailPage() {
     });
     const missedDays = last7.filter((d) => !loggedDates.has(d)).length;
     if (missedDays >= 3) {
-      signals.push({ emoji: '📋', text: `${missedDays} of last 7 days with no food logged`, severity: 'warning' });
+      signals.push({ icon: 'i-list', text: `${missedDays} of last 7 days with no food logged`, severity: 'warning' });
     }
     if (activeHabit && activeHabit.current_streak >= 7) {
-      signals.push({ emoji: '🔥', text: `${activeHabit.current_streak}-day habit streak — great consistency!`, severity: 'positive' });
+      signals.push({ icon: 'i-flame', text: `${activeHabit.current_streak}-day habit streak — great consistency!`, severity: 'positive' });
     }
     if (signals.length === 0) {
-      signals.push({ emoji: '✅', text: 'No flags detected — keep going!', severity: 'info' });
+      signals.push({ icon: 'i-check', text: 'No flags detected — keep going!', severity: 'info' });
     }
     return signals;
   })();
@@ -779,12 +811,13 @@ export default function ClientDetailPage() {
     }));
   })();
 
-  // ClientFoodHeatmap: from available foodLog dates (last 30 days)
+  // ClientFoodHeatmap: 28 days — matches the food_log fetch window exactly
+  // (a 30-day heatmap over a 28-day fetch would fake two empty days).
   const foodHeatmapData = (() => {
     const countByDate: Record<string, number> = {};
     foodLog.forEach((e) => { countByDate[e.logged_date] = (countByDate[e.logged_date] || 0) + 1; });
     const days: Array<{ date: string; count: number }> = [];
-    for (let i = 29; i >= 0; i--) {
+    for (let i = 27; i >= 0; i--) {
       const d = new Date(); d.setDate(d.getDate() - i);
       const dateStr = localDateStr(d);
       days.push({ date: dateStr, count: countByDate[dateStr] || 0 });
@@ -848,21 +881,13 @@ export default function ClientDetailPage() {
     return { thisWeek: calcWindow(currentEntries), lastWeek: calcWindow(priorEntries) };
   })();
 
-  // GoalProgressTracker
-  const goalProgressData = (() => {
-    const currentWeight = clientProfile?.weight_kg || 0;
-    const goal = clientProfile?.goal || 'maintenance';
-    const targetWeight = goal === 'fat_loss' ? currentWeight - 5 : goal === 'muscle_gain' ? currentWeight + 5 : currentWeight;
-    const startWeight = measurements.length > 0 ? measurements[0].weight_kg || currentWeight : currentWeight;
-    return { goal: goal, startValue: startWeight, targetValue: targetWeight, currentValue: currentWeight, unit: 'kg' };
-  })();
-
-  // PlateauDetector
+  // Plateau signal (feeds note suggestions only — GoalProgressTracker and its
+  // fabricated ±5kg target are gone; the coach-set Custom Goal panel remains).
   const plateauData = (() => {
-    if (measurements.length < 3) return { detected: false, daysSinceChange: 0, currentWeight: clientProfile?.weight_kg || 0, targetWeight: goalProgressData.targetValue };
+    if (measurements.length < 3) return { detected: false, daysSinceChange: 0 };
     const recent = measurements.slice(-7);
     const weights = recent.filter((m) => m.weight_kg !== null).map((m) => m.weight_kg!);
-    if (weights.length < 2) return { detected: false, daysSinceChange: 0, currentWeight: clientProfile?.weight_kg || 0, targetWeight: goalProgressData.targetValue };
+    if (weights.length < 2) return { detected: false, daysSinceChange: 0 };
     const range = Math.max(...weights) - Math.min(...weights);
     const firstDate = new Date(recent[0].measured_date);
     const lastDate = new Date(recent[recent.length - 1].measured_date);
@@ -870,30 +895,38 @@ export default function ClientDetailPage() {
     return {
       detected: range < 0.5 && daySpan >= 14,
       daysSinceChange: daySpan,
-      currentWeight: weights[weights.length - 1],
-      targetWeight: goalProgressData.targetValue,
     };
   })();
 
   // SmartNoteSuggestions
   const noteSuggestions = (() => {
-    const suggestions: Array<{ emoji: string; text: string; type: 'concern' | 'progression' | 'check_in' }> = [];
+    const suggestions: Array<{ icon: import('@/components/ui').IconName; text: string; type: 'concern' | 'progression' | 'check_in' }> = [];
     if (activeHabit && activeHabit.current_streak >= (activeHabit.habit?.cycle_days || 14)) {
-      suggestions.push({ emoji: '🎯', text: `${profile?.full_name} completed ${activeHabit.habit?.name_en} cycle — ready for progression!`, type: 'progression' });
+      suggestions.push({ icon: 'i-target', text: `${profile?.full_name} completed ${activeHabit.habit?.name_en} cycle — ready for progression!`, type: 'progression' });
     }
     if (behavioralSignals.some((s) => s.severity === 'warning')) {
-      suggestions.push({ emoji: '⚠️', text: 'Behavioral flags detected — consider addressing in next check-in', type: 'concern' });
+      suggestions.push({ icon: 'i-warning', text: 'Behavioral flags detected — consider addressing in next check-in', type: 'concern' });
     }
     if (plateauData.detected && !stabilization) {
-      suggestions.push({ emoji: '📊', text: `Weight stable for ${plateauData.daysSinceChange}d — review plan or mark stabilization phase`, type: 'concern' });
+      suggestions.push({ icon: 'i-bars', text: `Weight stable for ${plateauData.daysSinceChange}d — review plan or mark stabilization phase`, type: 'concern' });
     }
     if (suggestions.length === 0) {
-      suggestions.push({ emoji: '📝', text: 'Schedule a routine weekly check-in', type: 'check_in' });
+      suggestions.push({ icon: 'i-edit', text: 'Schedule a routine weekly check-in', type: 'check_in' });
     }
     return suggestions;
   })();
 
-  // AutoMacroOptimizer: compare avg intake vs targets
+  // Client has real macro targets? Gates AutoMacroOptimizer and the adherence
+  // gauge — no more fake 2000/150 defaults when nothing is set.
+  const hasTargets = Boolean(
+    clientProfile?.target_calories ||
+      clientProfile?.target_protein_g ||
+      clientProfile?.target_carbs_g ||
+      clientProfile?.target_fat_g,
+  );
+
+  // AutoMacroOptimizer: compare today's intake vs REAL targets only.
+  // (CalorieCyclingPlanner + RecoveryScore were removed — hardcoded inputs.)
   const autoMacroData = (() => {
     const current = {
       calories: Math.round(todayTotals.calories),
@@ -902,32 +935,17 @@ export default function ClientDetailPage() {
       fat: Math.round(todayTotals.fat),
     };
     const recommended = {
-      calories: clientProfile?.target_calories || 2000,
-      protein: clientProfile?.target_protein_g || 150,
-      carbs: clientProfile?.target_carbs_g || 250,
-      fat: clientProfile?.target_fat_g || 65,
+      calories: clientProfile?.target_calories ?? 0,
+      protein: clientProfile?.target_protein_g ?? 0,
+      carbs: clientProfile?.target_carbs_g ?? 0,
+      fat: clientProfile?.target_fat_g ?? 0,
     };
     const diffs: string[] = [];
-    if (current.protein > 0 && current.protein < recommended.protein * 0.8) diffs.push('protein below target');
-    if (current.calories > 0 && current.calories > recommended.calories * 1.1) diffs.push('calories above target');
+    if (recommended.protein > 0 && current.protein > 0 && current.protein < recommended.protein * 0.8) diffs.push('protein below target');
+    if (recommended.calories > 0 && current.calories > 0 && current.calories > recommended.calories * 1.1) diffs.push('calories above target');
     const reason = diffs.length > 0 ? `Based on recent intake: ${diffs.join(', ')}` : 'Current intake aligns well with targets';
     return { current, recommended, reason };
   })();
-
-  // CalorieCyclingPlanner
-  const [cyclingDays, setCyclingDays] = useState<Array<{ day: string; level: 'high' | 'medium' | 'low' | 'rest'; calories: number }>>([]);
-  useEffect(() => {
-    if (!clientProfile?.target_calories) return;
-    const base = clientProfile.target_calories;
-    const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    const levels: Array<'high' | 'medium' | 'low' | 'rest'> = ['high', 'medium', 'high', 'medium', 'high', 'low', 'rest'];
-    const multipliers: Record<string, number> = { high: 1.1, medium: 1.0, low: 0.85, rest: 0.75 };
-    setCyclingDays(dayNames.map((day, i) => ({
-      day,
-      level: levels[i],
-      calories: Math.round(base * multipliers[levels[i]]),
-    })));
-  }, [clientProfile?.target_calories]);
 
   if (loading) {
     return (
@@ -972,6 +990,9 @@ export default function ClientDetailPage() {
   return (
     <div className="min-h-screen px-4 py-6 sm:px-6 lg:px-8" style={{ background: 'var(--bg,#0a0a0a)' }}>
       <div className="max-w-4xl mx-auto">
+        <PanelPrefsProvider
+          value={{ prefs: detailOverrides, editMode: panelEditMode, toggle: togglePanel, visible: panelVisible }}
+        >
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
@@ -985,9 +1006,11 @@ export default function ClientDetailPage() {
               <Icon name="i-chev-l" size={16} />
             </button>
             <span className="eye-d">Client</span>
-            <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--t3)' }}>
-              <Icon name="i-more" size={16} />
-            </button>
+            <CustomizePanelsBar
+              editMode={panelEditMode}
+              onToggleEdit={() => setPanelEditMode((v) => !v)}
+              onReset={resetPanels}
+            />
           </div>
 
           {/* Client identity row */}
@@ -1034,49 +1057,53 @@ export default function ClientDetailPage() {
           </div>
 
           {/* ─── Assessment (interview notes — "before everything, before the goal") ─── */}
-          <div className="glass p-4 mb-4">
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="font-semibold text-stone-200 text-sm">Assessment</h2>
-              <span className="text-[10px] text-stone-500 font-mono">
-                {assessmentSaved ? '✓ saved' : 'interview notes — visible only to you'}
-              </span>
+          <Panel id="assessment" title={t('coach.panel.assessment')}>
+            <div className="glass p-4 mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="font-semibold text-stone-200 text-sm">Assessment</h2>
+                <span className="text-[10px] text-stone-500 font-mono">
+                  {assessmentSaved ? '✓ saved' : 'interview notes — visible only to you'}
+                </span>
+              </div>
+              <textarea
+                value={assessment}
+                onChange={(e) => setAssessment(e.target.value)}
+                onBlur={saveAssessment}
+                placeholder="Who is this client? Interview summary, context, what you agreed…"
+                rows={3}
+                className="input-dark w-full text-sm"
+                style={{ resize: 'vertical' }}
+              />
             </div>
-            <textarea
-              value={assessment}
-              onChange={(e) => setAssessment(e.target.value)}
-              onBlur={saveAssessment}
-              placeholder="Who is this client? Interview summary, context, what you agreed…"
-              rows={3}
-              className="input-dark w-full text-sm"
-              style={{ resize: 'vertical' }}
-            />
-          </div>
+          </Panel>
 
           {/* ─── Intake answers (Phase 2) ─── */}
-          {intake && intake.length > 0 && (
-            <div className="glass p-4 mb-4">
-              <button
-                onClick={() => setIntakeOpen((v) => !v)}
-                className="w-full flex items-center justify-between"
-                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-              >
-                <h2 className="font-semibold text-stone-200 text-sm">
-                  Intake interview <span className="text-stone-500 font-normal">({intake.length} answers)</span>
-                </h2>
-                <span className="text-stone-500 text-xs font-mono">{intakeOpen ? '−' : '+'}</span>
-              </button>
-              {intakeOpen && (
-                <div className="mt-3 space-y-3">
-                  {intake.map((row, i) => (
-                    <div key={i}>
-                      <div className="text-[10px] text-stone-500 mb-0.5 leading-snug">{row.prompt}</div>
-                      <div className="text-xs text-stone-200 leading-relaxed">{row.answer}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+          <Panel id="intake" title={t('coach.panel.intake')}>
+            {intake && intake.length > 0 && (
+              <div className="glass p-4 mb-4">
+                <button
+                  onClick={() => setIntakeOpen((v) => !v)}
+                  className="w-full flex items-center justify-between"
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                >
+                  <h2 className="font-semibold text-stone-200 text-sm">
+                    Intake interview <span className="text-stone-500 font-normal">({intake.length} answers)</span>
+                  </h2>
+                  <span className="text-stone-500 text-xs font-mono">{intakeOpen ? '−' : '+'}</span>
+                </button>
+                {intakeOpen && (
+                  <div className="mt-3 space-y-3">
+                    {intake.map((row, i) => (
+                      <div key={i}>
+                        <div className="text-[10px] text-stone-500 mb-0.5 leading-snug">{row.prompt}</div>
+                        <div className="text-xs text-stone-200 leading-relaxed">{row.answer}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </Panel>
 
           {/* ─── Macro Targets (editable by coach) ─── */}
           <div className="card-g p-4 mb-4">
@@ -1198,13 +1225,32 @@ export default function ClientDetailPage() {
             )}
 
             {/* ─── Wave 2+3: Header Analytics ─── */}
-            <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="glass p-4">
                 <p className="text-[10px] font-semibold text-stone-500 uppercase tracking-wider mb-2">Today&apos;s Adherence</p>
-                <MacroAdherenceGauge
-                  consumed={{ calories: Math.round(todayTotals.calories), protein: Math.round(todayTotals.protein) }}
-                  targets={{ calories: clientProfile.target_calories || 2000, protein: clientProfile.target_protein_g || 150 }}
-                />
+                {hasTargets ? (
+                  <MacroAdherenceGauge
+                    consumed={{ calories: Math.round(todayTotals.calories), protein: Math.round(todayTotals.protein) }}
+                    targets={{ calories: clientProfile.target_calories || 0, protein: clientProfile.target_protein_g || 0 }}
+                  />
+                ) : (
+                  <div className="text-center py-4">
+                    <p className="text-stone-600 text-xs mb-3">
+                      {t('coach.detail.noTargetsAdherence')}
+                    </p>
+                    <button
+                      onClick={() => {
+                        startEditingMacros();
+                        requestAnimationFrame(() => {
+                          document.getElementById('macro-editor')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        });
+                      }}
+                      className="btn-gold !py-2 !px-4 text-xs"
+                    >
+                      {t('coach.detail.setTargets')}
+                    </button>
+                  </div>
+                )}
               </div>
               <div className="glass p-4">
                 <p className="text-[10px] font-semibold text-stone-500 uppercase tracking-wider mb-2">P / C / F Split</p>
@@ -1214,22 +1260,30 @@ export default function ClientDetailPage() {
                   fat={Math.round(todayTotals.fat)}
                 />
               </div>
-              <div className="glass p-4 flex flex-col items-center justify-center">
-                <p className="text-[10px] font-semibold text-stone-500 uppercase tracking-wider mb-2">Health Score</p>
-                <ClientHealthScore score={healthScore} label="Overall" />
-              </div>
             </div>
 
+            {(panelEditMode || panelVisible('healthScore') || panelVisible('consistencyScore')) && (
             <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="glass p-4">
-                <p className="text-[10px] font-semibold text-stone-500 uppercase tracking-wider mb-2">Consistency</p>
-                <ConsistencyScore
-                  daysLogged={consistencyData.daysLogged}
-                  totalDays={consistencyData.totalDays}
-                  avgMealScore={consistencyData.avgMealScore}
-                  habitAdherence={consistencyData.habitAdherence}
-                />
-              </div>
+              <Panel id="healthScore" title={t('coach.panel.healthScore')}>
+                <div className="glass p-4 flex flex-col items-center justify-center h-full">
+                  <p className="text-[10px] font-semibold text-stone-500 uppercase tracking-wider mb-2">Health Score</p>
+                  <ClientHealthScore score={healthScore} label="Overall" />
+                </div>
+              </Panel>
+              <Panel id="consistencyScore" title={t('coach.panel.consistencyScore')}>
+                <div className="glass p-4">
+                  <p className="text-[10px] font-semibold text-stone-500 uppercase tracking-wider mb-2">{t('coach.detail.consistency28d')}</p>
+                  <ConsistencyScore
+                    daysLogged={consistencyData.daysLogged}
+                    totalDays={consistencyData.totalDays}
+                    habitAdherence={consistencyData.habitAdherence}
+                  />
+                </div>
+              </Panel>
+            </div>
+            )}
+
+            <div className="mt-3">
               <div className="glass p-4">
                 <p className="text-[10px] font-semibold text-stone-500 uppercase tracking-wider mb-2">7-Day Macro Trends</p>
                 <div className="space-y-2">
@@ -1246,7 +1300,11 @@ export default function ClientDetailPage() {
             </div>
           </div>
 
-          {/* ═══ Progression Banner ═══ */}
+          {/* ─── What this client sees (client_view_prefs editor) ─── */}
+          <ClientViewSettings clientId={clientId} />
+
+          {/* ═══ Habit card: progression banner + active habit + ONE calendar ═══ */}
+          <Panel id="habitCard" title={t('coach.panel.habitCard')}>
           {activeHabit?.habit && activeHabit.current_streak >= (activeHabit.habit.cycle_days || 14) && (
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
@@ -1333,107 +1391,121 @@ export default function ClientDetailPage() {
                   <span className="flex items-center gap-1"><Trophy size={12} className="text-[#D4A853]" /> Best: {activeHabit.best_streak}</span>
                   <span className="flex items-center gap-1"><Calendar size={12} /> Total: {activeHabit.total_completions}</span>
                 </div>
-                {/* Streak Calendar */}
+                {/* ONE 14-day calendar (the ComplianceTrend heatmap duplicated it) */}
                 <StreakCalendar
                   checkins={checkins.filter((c) => c.client_habit_id === activeHabit.id)}
                   startDate={activeHabit.started_at}
                 />
-
-                {/* Compliance Trend Heatmap */}
-                <div className="mt-4 pt-3 border-t border-white/5">
-                  <p className="text-stone-500 text-xs mb-2 uppercase tracking-wider font-semibold">14-Day Compliance</p>
-                  <ComplianceTrend
-                    clientHabitId={activeHabit.id}
-                    startDate={activeHabit.started_at}
-                    checkins={checkins.filter((c) => c.client_habit_id === activeHabit.id)}
-                  />
-                </div>
               </div>
             ) : (
               <p className="text-stone-600 text-sm text-center py-4">No active habit assigned</p>
             )}
           </div>
+          </Panel>
 
           {/* ─── Supplement Compliance (Feature 9) ─── */}
-          <div className="glass p-5 mb-4">
-            <h2 className="font-semibold text-stone-200 mb-4 flex items-center gap-2">
-              <Pill size={16} className="text-[#D4A853]" />
-              Supplement Compliance (This Week)
-            </h2>
-            <SupplementCompliance clientId={clientId} />
-          </div>
-
-          {/* ─── Wave 2+3: Mood, Behavior, Roadmap ─── */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-            <div className="glass p-5">
-              <h2 className="font-semibold text-stone-200 mb-3 text-sm">Mood Trend</h2>
-              {moodData.length > 0 ? (
-                <MoodTrend moods={moodData} />
-              ) : (
-                <p className="text-stone-600 text-sm text-center py-4">No mood data from check-ins yet</p>
-              )}
-            </div>
-            <div className="glass p-5">
-              <h2 className="font-semibold text-stone-200 mb-3 text-sm">Behavioral Signals</h2>
-              <BehavioralSignals signals={behavioralSignals} />
-            </div>
-          </div>
-
-          {roadmapHabits.length > 0 && (
+          <Panel id="supplementCompliance" title={t('coach.panel.supplementCompliance')}>
             <div className="glass p-5 mb-4">
-              <h2 className="font-semibold text-stone-200 mb-3 text-sm">Coaching Roadmap</h2>
-              <CoachingRoadmap habits={roadmapHabits} />
+              <h2 className="font-semibold text-stone-200 mb-4 flex items-center gap-2">
+                <Pill size={16} className="text-[#D4A853]" />
+                Supplement Compliance (This Week)
+              </h2>
+              <SupplementCompliance clientId={clientId} />
             </div>
-          )}
+          </Panel>
+
+          {/* ─── Wave 2+3: Mood + Behavioral signals ─── */}
+          <Panel id="moodTrend" title={t('coach.panel.moodTrend')}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+              <div className="glass p-5">
+                <h2 className="font-semibold text-stone-200 mb-3 text-sm">Mood Trend</h2>
+                {moodData.length > 0 ? (
+                  <MoodTrend moods={moodData} />
+                ) : (
+                  <p className="text-stone-600 text-sm text-center py-4">No mood data from check-ins yet</p>
+                )}
+              </div>
+              <div className="glass p-5">
+                <h2 className="font-semibold text-stone-200 mb-3 text-sm">Behavioral Signals</h2>
+                <BehavioralSignals signals={behavioralSignals} />
+              </div>
+            </div>
+          </Panel>
+
+          <Panel id="roadmap" title={t('coach.panel.roadmap')}>
+            {roadmapHabits.length > 0 && (
+              <div className="glass p-5 mb-4">
+                <h2 className="font-semibold text-stone-200 mb-3 text-sm">Coaching Roadmap</h2>
+                <CoachingRoadmap habits={roadmapHabits} />
+              </div>
+            )}
+          </Panel>
 
           {/* ─── Food Log (Pattern + Daily views) ─── */}
-          <div className="glass p-5 mb-4">
-            <h2 className="font-semibold text-stone-200 mb-4 flex items-center gap-2">
-              <Calendar size={16} className="text-[#D4A853]" />
-              Recent Food Log
-            </h2>
-            <MealPatternView entries={foodLog} />
-          </div>
+          <Panel id="recentFood" title={t('coach.panel.recentFood')}>
+            <div className="glass p-5 mb-4">
+              <h2 className="font-semibold text-stone-200 mb-4 flex items-center gap-2">
+                <Calendar size={16} className="text-[#D4A853]" />
+                Recent Food Log
+              </h2>
+              <MealPatternView entries={foodLog} />
+            </div>
+          </Panel>
 
           {/* ─── Wave 2+3: Food Analysis ─── */}
+          {(panelEditMode || panelVisible('mealQuality') || panelVisible('proteinDistribution')) && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-            <div className="glass p-5">
-              <h2 className="font-semibold text-stone-200 mb-3 text-sm">Meal Quality (Today)</h2>
-              {mealQualityData.length > 0 ? (
-                <MealQualityTimeline meals={mealQualityData} />
-              ) : (
-                <p className="text-stone-600 text-sm text-center py-4">No meals logged today</p>
-              )}
-            </div>
-            <div className="glass p-5">
-              <h2 className="font-semibold text-stone-200 mb-3 text-sm">Protein Distribution</h2>
-              {proteinDistribution.length > 0 ? (
-                <ProteinDistributionAnalyzer meals={proteinDistribution} />
-              ) : (
-                <p className="text-stone-600 text-sm text-center py-4">No meals logged today</p>
-              )}
-            </div>
+            <Panel id="mealQuality" title={t('coach.panel.mealQuality')}>
+              <div className="glass p-5 h-full">
+                <h2 className="font-semibold text-stone-200 mb-3 text-sm">Meal Quality (Today)</h2>
+                {mealQualityData.length > 0 ? (
+                  <MealQualityTimeline meals={mealQualityData} />
+                ) : (
+                  <p className="text-stone-600 text-sm text-center py-4">No meals logged today</p>
+                )}
+              </div>
+            </Panel>
+            <Panel id="proteinDistribution" title={t('coach.panel.proteinDistribution')}>
+              <div className="glass p-5 h-full">
+                <h2 className="font-semibold text-stone-200 mb-3 text-sm">Protein Distribution</h2>
+                {proteinDistribution.length > 0 ? (
+                  <ProteinDistributionAnalyzer meals={proteinDistribution} />
+                ) : (
+                  <p className="text-stone-600 text-sm text-center py-4">No meals logged today</p>
+                )}
+              </div>
+            </Panel>
           </div>
+          )}
 
-          <div className="glass p-5 mb-4">
-            <h2 className="font-semibold text-stone-200 mb-3 text-sm">Food Logging Heatmap (30d)</h2>
-            <ClientFoodHeatmap data={foodHeatmapData} />
-          </div>
+          <Panel id="foodHeatmap" title={t('coach.panel.foodHeatmap')}>
+            <div className="glass p-5 mb-4">
+              <h2 className="font-semibold text-stone-200 mb-3 text-sm">{t('coach.detail.foodHeatmap28d')}</h2>
+              <ClientFoodHeatmap data={foodHeatmapData} />
+            </div>
+          </Panel>
 
+          {(panelEditMode || panelVisible('weekendAnalysis') || panelVisible('twoWeekComparison')) && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-            <div className="glass p-5">
-              <h2 className="font-semibold text-stone-200 mb-3 text-sm">Weekday vs Weekend</h2>
-              <WeekendAnalysis weekday={weekendAnalysisData.weekday} weekend={weekendAnalysisData.weekend} />
-            </div>
-            <div className="glass p-5">
-              <h2 className="font-semibold text-stone-200 mb-3 text-sm" title="Body responds ~2 weeks delayed — rolling 14-day windows show real change">
-                Last 2 Weeks vs Prior 2
-              </h2>
-              <ProgressComparison thisWeek={progressComparisonData.thisWeek} lastWeek={progressComparisonData.lastWeek} />
-            </div>
+            <Panel id="weekendAnalysis" title={t('coach.panel.weekendAnalysis')}>
+              <div className="glass p-5 h-full">
+                <h2 className="font-semibold text-stone-200 mb-3 text-sm">Weekday vs Weekend</h2>
+                <WeekendAnalysis weekday={weekendAnalysisData.weekday} weekend={weekendAnalysisData.weekend} />
+              </div>
+            </Panel>
+            <Panel id="twoWeekComparison" title={t('coach.panel.twoWeekComparison')}>
+              <div className="glass p-5 h-full">
+                <h2 className="font-semibold text-stone-200 mb-3 text-sm" title="Body responds ~2 weeks delayed — rolling 14-day windows show real change">
+                  Last 2 Weeks vs Prior 2
+                </h2>
+                <ProgressComparison thisWeek={progressComparisonData.thisWeek} lastWeek={progressComparisonData.lastWeek} />
+              </div>
+            </Panel>
           </div>
+          )}
 
-          {/* ─── Weight / Body Composition (enhanced) ─── */}
+          {/* ─── Weight / Body Composition + coach-set Custom Goal ─── */}
+          <Panel id="weightChart" title={t('coach.panel.weightChart')}>
           <div className="glass p-5 mb-4">
             <h2 className="font-semibold text-stone-200 mb-4 flex items-center gap-2">
               <TrendingUp size={16} className="text-[#D4A853]" />
@@ -1442,17 +1514,9 @@ export default function ClientDetailPage() {
             <MeasurementChart measurements={measurements.map((m) => ({ date: m.measured_date, weight: m.weight_kg, bodyFat: m.body_fat_pct }))} />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-            <div className="glass p-5">
-              <h2 className="font-semibold text-stone-200 mb-3 text-sm">Goal Progress</h2>
-              <GoalProgressTracker
-                goal={goalProgressData.goal}
-                startValue={goalProgressData.startValue}
-                targetValue={goalProgressData.targetValue}
-                currentValue={goalProgressData.currentValue}
-                unit={goalProgressData.unit}
-              />
-            </div>
+          {/* GoalProgressTracker removed — it fabricated a ±5kg target. The
+              coach-defined Custom Goal below is the real thing. */}
+          <div className="mb-4">
             <div className="glass p-5">
               {/* Michael: drop auto "plateau" labels — goals change in nature
                   (weight → blood markers → habits). Coach sets a custom goal
@@ -1543,16 +1607,12 @@ export default function ClientDetailPage() {
               </div>
             </div>
           </div>
+          </Panel>
 
-          <div className="glass p-5 mb-4">
-            <h2 className="font-semibold text-stone-200 mb-3 text-sm">Workout Volume</h2>
-            <WorkoutVolumeChart weeks={workoutWeeks.length > 0 ? workoutWeeks : [
-              { weekLabel: '3 weeks ago', totalSets: 0, totalReps: 0 },
-              { weekLabel: '2 weeks ago', totalSets: 0, totalReps: 0 },
-              { weekLabel: 'Last week', totalSets: 0, totalReps: 0 },
-              { weekLabel: 'This week', totalSets: 0, totalReps: 0 },
-            ]} />
-          </div>
+          {/* ─── Workouts: program + sessions + PRs + volume (tRPC-backed) ─── */}
+          <Panel id="workouts" title={t('coach.panel.workouts')}>
+            <ClientWorkoutsPanel clientId={clientId} />
+          </Panel>
 
           {/* ─── Coach Notes ─── */}
           <div className="glass p-5 mb-4">
@@ -1615,6 +1675,15 @@ export default function ClientDetailPage() {
               </div>
             </div>
 
+            {/* Smart suggestions feed the composer above (was a standalone card) */}
+            <div className="mb-4">
+              <p className="text-[10px] font-semibold text-stone-500 uppercase tracking-wider mb-2">{t('coach.detail.smartSuggestions')}</p>
+              <SmartNoteSuggestions
+                suggestions={noteSuggestions}
+                onSelect={(text) => setNewNote(text)}
+              />
+            </div>
+
             {/* Notes list */}
             <div className="space-y-2 max-h-64 overflow-y-auto">
               {notes.length === 0 ? (
@@ -1638,98 +1707,87 @@ export default function ClientDetailPage() {
           </div>
 
           {/* ─── Permission-aware AI coach insight ─── */}
-          <div className="mb-4">
-            <CoachInsightPanel clientId={clientId} />
-          </div>
-
-          {/* ─── Smart Note Suggestions ─── */}
-          <div className="glass p-5 mb-4">
-            <h2 className="font-semibold text-stone-200 mb-3 text-sm">Smart Suggestions</h2>
-            <SmartNoteSuggestions
-              suggestions={noteSuggestions}
-              onSelect={(text) => setNewNote(text)}
-            />
-          </div>
+          <Panel id="aiInsight" title={t('coach.panel.aiInsight')}>
+            <div className="mb-4">
+              <CoachInsightPanel clientId={clientId} />
+            </div>
+          </Panel>
 
           {/* ─── Activity Timeline ─── */}
-          <div className="glass p-5 mb-4">
-            <h2 className="font-semibold text-stone-200 mb-4 flex items-center gap-2">
-              <Calendar size={16} className="text-[#D4A853]" />
-              Activity Timeline
-            </h2>
-            <ActivityTimeline
-              checkins={checkins}
-              notes={notes}
-              measurements={measurements}
-              habits={[...(activeHabit ? [activeHabit] : []), ...pastHabits]}
-            />
-          </div>
-
-          {/* ─── Wave 2+3: Smart Tools ─── */}
-          <div className="glass p-5 mb-4">
-            <h2 className="font-semibold text-stone-200 mb-4 flex items-center gap-2">
-              <Calculator size={16} className="text-[#D4A853]" />
-              Smart Tools
-            </h2>
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-2">Auto Macro Optimizer</h3>
-                <AutoMacroOptimizer
-                  current={autoMacroData.current}
-                  recommended={autoMacroData.recommended}
-                  reason={autoMacroData.reason}
-                />
-              </div>
-              <div className="border-t border-white/5 pt-4">
-                <h3 className="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-2">Calorie Cycling Planner</h3>
-                {cyclingDays.length > 0 ? (
-                  <CalorieCyclingPlanner days={cyclingDays} onChange={setCyclingDays} />
-                ) : (
-                  <p className="text-stone-600 text-sm text-center py-4">Set calorie target to enable cycling planner</p>
-                )}
-              </div>
-              <div className="border-t border-white/5 pt-4">
-                <h3 className="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-2">Recovery Score</h3>
-                <RecoveryScore
-                  sleepScore={70}
-                  moodScore={moodData.length > 0 ? Math.round((moodData.filter((m) => m.mood === 'great' || m.mood === 'good').length / moodData.length) * 100) : 50}
-                  trainingLoad={50}
-                />
-              </div>
+          <Panel id="activityTimeline" title={t('coach.panel.activityTimeline')}>
+            <div className="glass p-5 mb-4">
+              <h2 className="font-semibold text-stone-200 mb-4 flex items-center gap-2">
+                <Calendar size={16} className="text-[#D4A853]" />
+                Activity Timeline
+              </h2>
+              <ActivityTimeline
+                checkins={checkins}
+                notes={notes}
+                measurements={measurements}
+                habits={[...(activeHabit ? [activeHabit] : []), ...pastHabits]}
+              />
             </div>
-          </div>
+          </Panel>
+
+          {/* ─── Smart Tools — AutoMacroOptimizer only, and only with REAL targets.
+                 CalorieCyclingPlanner + RecoveryScore removed (hardcoded inputs). ─── */}
+          <Panel id="smartTools" title={t('coach.panel.smartTools')}>
+            <div className="glass p-5 mb-4">
+              <h2 className="font-semibold text-stone-200 mb-4 flex items-center gap-2">
+                <Calculator size={16} className="text-[#D4A853]" />
+                Smart Tools
+              </h2>
+              {hasTargets ? (
+                <div>
+                  <h3 className="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-2">Auto Macro Optimizer</h3>
+                  <AutoMacroOptimizer
+                    current={autoMacroData.current}
+                    recommended={autoMacroData.recommended}
+                    reason={autoMacroData.reason}
+                  />
+                </div>
+              ) : (
+                <p className="text-stone-600 text-sm text-center py-4">
+                  {t('coach.detail.setTargetsOptimizer')}
+                </p>
+              )}
+            </div>
+          </Panel>
 
           {/* ─── Past Habits ─── */}
-          {pastHabits.length > 0 && (
-            <div className="glass p-5 mb-4">
-              <h2 className="font-semibold text-stone-200 mb-3">Habit History</h2>
-              <div className="space-y-2">
-                {pastHabits.map((h) => (
-                  <div key={h.id} className="flex items-center justify-between p-3 rounded-xl bg-white/[0.03] text-sm">
-                    <div className="flex items-center gap-2">
-                      <span>{h.habit?.emoji}</span>
-                      <span className="text-stone-300">{h.habit?.name_en}</span>
+          <Panel id="habitHistory" title={t('coach.panel.habitHistory')}>
+            {pastHabits.length > 0 && (
+              <div className="glass p-5 mb-4">
+                <h2 className="font-semibold text-stone-200 mb-3">Habit History</h2>
+                <div className="space-y-2">
+                  {pastHabits.map((h) => (
+                    <div key={h.id} className="flex items-center justify-between p-3 rounded-xl bg-white/[0.03] text-sm">
+                      <div className="flex items-center gap-2">
+                        <span>{h.habit?.emoji}</span>
+                        <span className="text-stone-300">{h.habit?.name_en}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs text-stone-500">
+                          {h.total_completions} days | Best: {h.best_streak}
+                        </span>
+                        <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
+                          h.status === 'completed'
+                            ? 'bg-green-500/10 text-green-400'
+                            : h.status === 'paused'
+                            ? 'bg-yellow-500/10 text-yellow-400'
+                            : 'bg-stone-800 text-stone-500'
+                        }`}>
+                          {h.status}
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs text-stone-500">
-                        {h.total_completions} days | Best: {h.best_streak}
-                      </span>
-                      <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
-                        h.status === 'completed'
-                          ? 'bg-green-500/10 text-green-400'
-                          : h.status === 'paused'
-                          ? 'bg-yellow-500/10 text-yellow-400'
-                          : 'bg-stone-800 text-stone-500'
-                      }`}>
-                        {h.status}
-                      </span>
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </Panel>
         </motion.div>
+        </PanelPrefsProvider>
 
         {/* ─── Quick Actions Bar (floating bottom) ─── */}
         <QuickActionsBar

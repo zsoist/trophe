@@ -1183,6 +1183,11 @@ export async function run(
         source:         arb.source,
         food_state:     candidate.food_state as ParsedFoodItem['food_state'],
         portion_explicit: candidate.portion_explicit,
+        // Provenance passthrough (branded-items fix): the UI shows the brand as
+        // a chip and flags community-sourced (OFF) data instead of a bare name.
+        brand:          lookup.food.brand ?? null,
+        db_source:      lookup.food.source ?? null,
+        data_quality:   lookup.food.dataQuality ?? null,
       });
     } else {
       // DB miss — v5 CoT estimate takes priority, then legacy fallback chain

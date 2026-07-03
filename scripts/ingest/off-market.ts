@@ -59,6 +59,10 @@ function sane(n: NonNullable<Hit['nutriments']>): boolean {
   if (kcal == null || p == null || c == null || f == null) return false;
   if (kcal <= 0 || kcal > 900 || p < 0 || c < 0 || f < 0) return false;
   if (p + c + f > 105) return false;
+  // Zero-macro hole (2026-07-02): when P=C=F=0 the Atwater check below is
+  // skipped entirely, so a row claiming 400 kcal with no macros passed. Useless
+  // for macro coaching — reject. (kcal ≤ 20 zero-macro items like diet drinks stay.)
+  if (p + c + f === 0 && kcal > 20) return false;
   const atwater = p * 4 + c * 4 + f * 9;
   if (atwater > 0 && kcal > 0 && Math.abs(atwater - kcal) / Math.max(kcal, 1) > 0.6) return false;
   return true;

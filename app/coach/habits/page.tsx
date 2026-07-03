@@ -16,13 +16,16 @@ import type { Habit, HabitCategory, HabitDifficulty } from '@/lib/types';
 import { CoachNav } from '@/components/coach/CoachNav';
 import CoachLoadingSkeletons from '@/components/coach/CoachLoadingSkeletons';
 import { BotNav } from '@/components/ui/BotNav';
-import { Icon } from '@/components/ui';
+import { Icon, ConfirmSheet } from '@/components/ui';
+import { useI18n } from '@/lib/i18n';
 
+/* All four tabs point at real routes — matches app/coach/page.tsx
+   (were /coach/clients + /coach/profile 404s) */
 const COACH_NAV = [
-  { href: '/coach',         label: 'Today',   icon: <Icon name="i-grid"    size={18} /> },
-  { href: '/coach/clients', label: 'Clients', icon: <Icon name="i-users"   size={18} /> },
-  { href: '/coach/inbox',   label: 'Inbox',   icon: <Icon name="i-message" size={18} /> },
-  { href: '/coach/profile', label: 'Me',      icon: <Icon name="i-user"    size={18} /> },
+  { href: '/coach',           label: 'Today',    icon: <Icon name="i-grid"     size={18} /> },
+  { href: '/coach/inbox',     label: 'Inbox',    icon: <Icon name="i-message"  size={18} /> },
+  { href: '/coach/calendar',  label: 'Calendar', icon: <Icon name="i-calendar" size={18} /> },
+  { href: '/coach/templates', label: 'Workouts', icon: <Icon name="i-dumbbell" size={18} /> },
 ];
 
 // ═══════════════════════════════════════════════
@@ -65,6 +68,7 @@ const emptyHabit = {
 // ═══════════════════════════════════════════════
 
 export default function HabitsPage() {
+  const { t } = useI18n();
   const [habits, setHabits] = useState<Habit[]>([]);
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -72,6 +76,8 @@ export default function HabitsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ ...emptyHabit });
   const [saving, setSaving] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [filterCategory, setFilterCategory] = useState<string>('all');
 
@@ -178,13 +184,21 @@ export default function HabitsPage() {
     }
   }
 
-  async function deleteHabit(id: string) {
-    if (!confirm('Delete this custom habit?')) return;
+  function deleteHabit(id: string) {
+    setPendingDeleteId(id);
+  }
+
+  async function confirmDeleteHabit() {
+    if (!pendingDeleteId) return;
+    setDeleting(true);
     try {
-      await supabase.from('habits').delete().eq('id', id);
-      setHabits(habits.filter((h) => h.id !== id));
+      await supabase.from('habits').delete().eq('id', pendingDeleteId);
+      setHabits((prev) => prev.filter((h) => h.id !== pendingDeleteId));
     } catch (err) {
       console.error('Error deleting habit:', err);
+    } finally {
+      setDeleting(false);
+      setPendingDeleteId(null);
     }
   }
 
@@ -322,6 +336,17 @@ export default function HabitsPage() {
 
         <BotNav routes={COACH_NAV} />
 
+        <ConfirmSheet
+          open={pendingDeleteId !== null}
+          title={t('confirm.delete_habit_title')}
+          message={t('confirm.delete_habit_msg')}
+          confirmLabel={t('confirm.delete')}
+          danger
+          loading={deleting}
+          onConfirm={confirmDeleteHabit}
+          onCancel={() => setPendingDeleteId(null)}
+        />
+
         {/* ─── Create/Edit Modal ─── */}
         {showForm && (
           <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4">
@@ -347,7 +372,7 @@ export default function HabitsPage() {
                     <input
                       value={form.emoji}
                       onChange={(e) => setForm({ ...form, emoji: e.target.value })}
-                      placeholder="💧"
+                      placeholder={t('habits.emoji_placeholder')}
                       className="input-dark text-center text-xl"
                       maxLength={4}
                     />
