@@ -84,12 +84,13 @@ export default function UsersPanel() {
 
   return (
     <div>
-      {/* KPI strip */}
+      {/* KPI strip — honest loading placeholders (roster joins auth.users with
+          4 LATERAL aggregates; first paint can lag a second or two) */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 8, marginBottom: 12 }}>
-        <Kpi label="Accounts" value={fmtNum(users.length)} accent />
-        <Kpi label="Signed in · 7d" value={fmtNum(signIns7d)} />
-        <Kpi label="Attributed AI spend · 30d" value={fmtUsd(totalSpend)} />
-        <Kpi label="Logs · 30d (all users)" value={fmtNum(users.reduce((s, u) => s + u.logs_30d, 0))} />
+        <Kpi label="Accounts" value={loading ? '…' : fmtNum(users.length)} accent />
+        <Kpi label="Signed in · 7d" value={loading ? '…' : fmtNum(signIns7d)} />
+        <Kpi label="Attributed AI spend · 30d" value={loading ? '…' : fmtUsd(totalSpend)} />
+        <Kpi label="Logs · 30d (all users)" value={loading ? '…' : fmtNum(users.reduce((s, u) => s + u.logs_30d, 0))} />
       </div>
 
       {/* Filters */}
