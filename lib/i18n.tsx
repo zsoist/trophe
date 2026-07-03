@@ -6,15 +6,28 @@
 
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import type { Language, CoreLanguage } from './types';
-import { fr } from './locales/fr';
-import { de } from './locales/de';
-import { it } from './locales/it';
-import { pt } from './locales/pt';
-import { nl } from './locales/nl';
 
 // Overlay locales: flat key→string maps with EN fallback for missing keys.
 // Core languages (EN/ES/EL) stay inline below so the compiler enforces full coverage.
-const OVERLAYS: Partial<Record<Language, Record<string, string>>> = { fr, de, it, pt, nl };
+//
+// PERF: overlays are LAZY-LOADED via dynamic import — statically importing all five
+// (~197KB raw) put them in the shared client chunk of every route, including the
+// landing page, for users who will never leave en/es/el. Each locale becomes its
+// own async chunk fetched only when that language is actually selected.
+const OVERLAYS: Partial<Record<Language, Record<string, string>>> = {};
+
+type OverlayLang = 'fr' | 'de' | 'it' | 'pt' | 'nl';
+const OVERLAY_LOADERS: Record<OverlayLang, () => Promise<Record<string, string>>> = {
+  fr: () => import('./locales/fr').then((m) => m.fr),
+  de: () => import('./locales/de').then((m) => m.de),
+  it: () => import('./locales/it').then((m) => m.it),
+  pt: () => import('./locales/pt').then((m) => m.pt),
+  nl: () => import('./locales/nl').then((m) => m.nl),
+};
+
+function isOverlayLang(lang: Language): lang is OverlayLang {
+  return lang in OVERLAY_LOADERS;
+}
 
 // ─── Translation Dictionary ───
 const translations: Record<string, Record<CoreLanguage, string>> = {
@@ -885,6 +898,8 @@ export function I18nProvider({ children, defaultLang = 'en' }: { children: React
   // Initialize with defaultLang so server and client first render match (fixes hydration mismatch).
   // Read localStorage only after mount in useEffect — localStorage is unavailable on the server.
   const [lang, setLangState] = useState<Language>(defaultLang);
+  // Bumped when an overlay locale finishes loading so `t` re-renders with real strings.
+  const [overlayVersion, setOverlayVersion] = useState(0);
 
   useEffect(() => {
     const stored = localStorage.getItem('trophe_lang') as Language | null;
@@ -894,6 +909,18 @@ export function I18nProvider({ children, defaultLang = 'en' }: { children: React
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Lazy-load the overlay dictionary the first time an overlay language is active.
+  // Until it arrives, `t` falls back to English (brief, overlay-users only).
+  useEffect(() => {
+    if (!isOverlayLang(lang) || OVERLAYS[lang]) return;
+    let cancelled = false;
+    OVERLAY_LOADERS[lang]().then((dict) => {
+      OVERLAYS[lang] = dict;
+      if (!cancelled) setOverlayVersion((v) => v + 1);
+    }).catch(() => { /* EN fallback already in place */ });
+    return () => { cancelled = true; };
+  }, [lang]);
 
   const setLang = useCallback((newLang: Language) => {
     setLangState(newLang);
@@ -912,7 +939,9 @@ export function I18nProvider({ children, defaultLang = 'en' }: { children: React
       });
     }
     return text;
-  }, [lang]);
+  // overlayVersion re-binds t when an overlay dictionary arrives.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lang, overlayVersion]);
 
   return (
     <I18nContext.Provider value={{ lang, setLang, t }}>

@@ -30,18 +30,27 @@ import { createSupabaseMiddlewareClient } from '@/lib/supabase/middleware';
 export async function middleware(request: NextRequest) {
   const { supabase, response } = createSupabaseMiddlewareClient(request);
 
-  // Always call getUser() — this is what triggers the cookie refresh.
-  // Do NOT use getSession() here (stale cookie risk).
+  // PERF: a request with no Supabase cookies has no session to validate OR
+  // refresh — skip getUser() entirely. This removes the auth round-trip from
+  // every anonymous page view (landing, pricing, trust), which was adding
+  // latency to exactly the pages that must feel instant. Protected paths
+  // still fail closed: user stays null → redirect to /login below.
+  const hasAuthCookie = request.cookies.getAll().some((c) => c.name.startsWith('sb-'));
+
+  // When cookies exist, always call getUser() — this is what triggers the
+  // cookie refresh. Do NOT use getSession() here (stale cookie risk).
   //
   // Resilience: if the auth backend is unreachable (Supabase outage, CI
   // without a local Supabase), treat the request as anonymous instead of
   // letting the fetch error 500 every page. Public pages stay up; protected
   // paths still fail closed (anonymous → redirect to /login).
   let user: Awaited<ReturnType<typeof supabase.auth.getUser>>['data']['user'] = null;
-  try {
-    ({ data: { user } } = await supabase.auth.getUser());
-  } catch (err) {
-    console.error('[middleware] auth backend unreachable, treating as anonymous:', err instanceof Error ? err.message : err);
+  if (hasAuthCookie) {
+    try {
+      ({ data: { user } } = await supabase.auth.getUser());
+    } catch (err) {
+      console.error('[middleware] auth backend unreachable, treating as anonymous:', err instanceof Error ? err.message : err);
+    }
   }
 
   const { pathname } = request.nextUrl;

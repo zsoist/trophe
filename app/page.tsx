@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { motion } from 'framer-motion';
 import { useState } from 'react';
 import {
   Zap, Camera, Mic, Target, Droplets, Shield,
@@ -117,14 +116,6 @@ const steps = [
 ];
 
 const evidenceSources = ['ISSN', 'ACSM', 'Mifflin-St Jeor', 'IOC', 'Precision Nutrition', 'USDA FDC'];
-
-const fadeUp = {
-  hidden: { opacity: 0, y: 24 },
-  visible: (i: number) => ({
-    opacity: 1, y: 0,
-    transition: { delay: i * 0.08, duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] as const },
-  }),
-};
 
 /* ─── App Preview Mockup ─── */
 function AppPreview() {
@@ -370,36 +361,27 @@ export default function LandingPage() {
       {/* ─── Features (Live) ─── */}
       <section className="px-6 py-16 sm:py-24">
         <div className="max-w-5xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0 }} whileInView={{ opacity: 1 }}
-            viewport={{ once: true }} transition={{ duration: 0.5 }}
-            className="text-center mb-12 sm:mb-16"
-          >
+          <div className="text-center mb-12 sm:mb-16">
             <p className="font-mono text-[10px] tracking-[0.2em] uppercase text-[#D4A853]/60 mb-3">
               {t.features_tag}
             </p>
             <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-stone-100 tracking-tight">
               {t.features_title}
             </h2>
-          </motion.div>
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-            {features.map((f, i) => (
-              <motion.div
+            {features.map((f) => (
+              <div
                 key={f.title.en}
-                custom={i}
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true, margin: '-40px' }}
-                variants={fadeUp}
-                className="glass p-5 sm:p-6 group hover:border-[rgba(212,168,83,0.12)] transition-all duration-300"
+                className="glass scroll-reveal p-5 sm:p-6 group hover:border-[rgba(212,168,83,0.12)] transition-all duration-300"
               >
                 <div className={`w-10 h-10 rounded-xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center mb-4 ${f.color}`}>
                   <f.icon size={20} />
                 </div>
                 <h3 className="text-stone-100 text-sm font-semibold mb-2">{f.title[lang]}</h3>
                 <p className="text-stone-500 text-xs leading-relaxed">{f.desc[lang]}</p>
-              </motion.div>
+              </div>
             ))}
           </div>
         </div>
@@ -408,29 +390,20 @@ export default function LandingPage() {
       {/* ─── How It Works ─── */}
       <section className="px-6 py-16 sm:py-24 border-t border-white/[0.04]">
         <div className="max-w-3xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0 }} whileInView={{ opacity: 1 }}
-            viewport={{ once: true }} transition={{ duration: 0.5 }}
-            className="text-center mb-12"
-          >
+          <div className="text-center mb-12">
             <p className="font-mono text-[10px] tracking-[0.2em] uppercase text-[#D4A853]/60 mb-3">
               {t.how_tag}
             </p>
             <h2 className="text-2xl sm:text-3xl font-bold text-stone-100 tracking-tight">
               {t.how_title}
             </h2>
-          </motion.div>
+          </div>
 
           <div className="space-y-6">
-            {steps.map((step, i) => (
-              <motion.div
+            {steps.map((step) => (
+              <div
                 key={step.n}
-                custom={i}
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true, margin: '-30px' }}
-                variants={fadeUp}
-                className="flex gap-5 items-start"
+                className="scroll-reveal flex gap-5 items-start"
               >
                 <div className="w-12 h-12 rounded-2xl bg-[#D4A853]/10 border border-[#D4A853]/20 flex items-center justify-center flex-shrink-0">
                   <span className="font-mono text-sm font-bold text-[#D4A853]">{step.n}</span>
@@ -439,7 +412,7 @@ export default function LandingPage() {
                   <h3 className="text-stone-100 text-base font-semibold mb-1">{step.title[lang]}</h3>
                   <p className="text-stone-500 text-sm leading-relaxed">{step.desc[lang]}</p>
                 </div>
-              </motion.div>
+              </div>
             ))}
           </div>
         </div>
@@ -448,11 +421,7 @@ export default function LandingPage() {
       {/* ─── Coming Soon ─── */}
       <section className="px-6 py-16 sm:py-24 border-t border-white/[0.04]">
         <div className="max-w-5xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0 }} whileInView={{ opacity: 1 }}
-            viewport={{ once: true }} transition={{ duration: 0.5 }}
-            className="text-center mb-12"
-          >
+          <div className="text-center mb-12">
             <p className="font-mono text-[10px] tracking-[0.2em] uppercase text-[#D4A853]/60 mb-3">
               {t.coming_tag}
             </p>
@@ -462,18 +431,13 @@ export default function LandingPage() {
             <p className="text-stone-500 text-sm max-w-lg mx-auto">
               {t.coming_sub}
             </p>
-          </motion.div>
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {comingSoon.map((item, i) => (
-              <motion.div
+            {comingSoon.map((item) => (
+              <div
                 key={item.title.en}
-                custom={i}
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true, margin: '-30px' }}
-                variants={fadeUp}
-                className="glass p-5 relative overflow-hidden group"
+                className="glass scroll-reveal p-5 relative overflow-hidden group"
               >
                 {/* Coming soon badge */}
                 <div className="absolute top-3 right-3">
@@ -490,7 +454,7 @@ export default function LandingPage() {
                     <p className="text-stone-600 text-xs leading-relaxed">{item.desc[lang]}</p>
                   </div>
                 </div>
-              </motion.div>
+              </div>
             ))}
           </div>
         </div>
@@ -515,12 +479,7 @@ export default function LandingPage() {
       {/* ─── Bottom CTA ─── */}
       <section className="px-6 py-20 sm:py-28 border-t border-white/[0.04]">
         <div className="max-w-xl mx-auto text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-          >
+          <div className="scroll-reveal">
             <h2 className="text-3xl sm:text-4xl font-bold text-stone-100 tracking-tight mb-4">
               {t.bottom_h2}
             </h2>
@@ -538,7 +497,7 @@ export default function LandingPage() {
               <Globe size={10} className="inline mr-1 -mt-px" />
               English · Español · Ελληνικά
             </p>
-          </motion.div>
+          </div>
         </div>
       </section>
 

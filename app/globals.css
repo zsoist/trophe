@@ -875,6 +875,40 @@ body {
   to   { opacity: 1; transform: translateY(0); }
 }
 
+/* Scroll-driven reveal — pure CSS progressive enhancement (replaces the old
+   framer-motion whileInView, which left sections invisible until ~380KB of JS
+   hydrated). Browsers with animation-timeline (Chrome/Edge) get the reveal;
+   everyone else sees content immediately. Never blank, zero JS. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .scroll-reveal {
+      animation: fadeUp 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 55%;
+    }
+  }
+}
+
+/* ─── Toast + theme-toggle animations (CSS replaces framer-motion in the
+   global provider tree — see Toast.tsx / ThemeMode.tsx) ─── */
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(-40px) scale(0.95); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.toast-in { animation: toastIn 0.28s cubic-bezier(0.22, 1.2, 0.36, 1) both; }
+
+@keyframes toastBar {
+  from { width: 100%; }
+  to   { width: 0%; }
+}
+.toast-bar { animation-name: toastBar; animation-timing-function: linear; animation-fill-mode: forwards; }
+
+@keyframes themeIconIn {
+  from { opacity: 0; transform: rotate(-90deg) scale(0.5); }
+  to   { opacity: 1; transform: rotate(0deg) scale(1); }
+}
+.theme-icon-in { animation: themeIconIn 0.2s ease-out both; }
+
 /* ─── Tag: update to flex + mono (backward compatible) ─── */
 .tag {
   display: inline-flex;

@@ -16,6 +16,11 @@ const nextConfig: NextConfig = {
   // webpack config with no turbopack config. An empty turbopack config lets
   // `next dev` (Turbopack) run while production builds use `--webpack`.
   turbopack: {},
+  experimental: {
+    // Tree-shake barrel imports: without this, `import { motion } from 'framer-motion'`
+    // and lucide icons pull far more of the package into shared chunks than is used.
+    optimizePackageImports: ['framer-motion', 'lucide-react'],
+  },
   /* TypeScript and ESLint errors are now caught at build time.
      ignoreBuildErrors was removed 2026-04-07 — build passes clean.
      Next 16 removed eslint config from NextConfig — lint parity is enforced

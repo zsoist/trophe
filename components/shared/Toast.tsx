@@ -1,8 +1,11 @@
 'use client';
 
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
+
+// PERF: this provider wraps EVERY page — importing framer-motion here put ~42KB
+// (gzip) of motion runtime in the global first-load bundle. The enter animation
+// and progress bar are pure CSS now (see .toast-in / .toast-bar in globals.css).
 
 // ═══════════════════════════════════════════════
 // Toast Types & Context
@@ -65,13 +68,8 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string)
   const Icon = config.icon;
 
   return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: -40, scale: 0.95 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: -20, scale: 0.95 }}
-      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-      className="relative overflow-hidden rounded-2xl backdrop-blur-xl pointer-events-auto"
+    <div
+      className="toast-in relative overflow-hidden rounded-2xl backdrop-blur-xl pointer-events-auto"
       style={{
         background: config.bg,
         border: `1px solid ${config.border}`,
@@ -88,15 +86,12 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string)
           <X size={14} />
         </button>
       </div>
-      {/* Progress bar */}
-      <motion.div
-        className="h-[2px] rounded-full"
-        style={{ background: config.bar }}
-        initial={{ width: '100%' }}
-        animate={{ width: '0%' }}
-        transition={{ duration: toast.duration / 1000, ease: 'linear' }}
+      {/* Progress bar — CSS animation, duration driven inline */}
+      <div
+        className="toast-bar h-[2px] rounded-full"
+        style={{ background: config.bar, animationDuration: `${toast.duration}ms` }}
       />
-    </motion.div>
+    </div>
   );
 }
 
@@ -132,11 +127,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
       {/* Toast container - fixed at top center */}
       <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[var(--z-toast,70)] flex flex-col gap-2 w-[min(90vw,400px)] pointer-events-none">
-        <AnimatePresence mode="popLayout">
-          {toasts.map((t) => (
-            <ToastItem key={t.id} toast={t} onDismiss={dismiss} />
-          ))}
-        </AnimatePresence>
+        {toasts.map((t) => (
+          <ToastItem key={t.id} toast={t} onDismiss={dismiss} />
+        ))}
       </div>
     </ToastContext.Provider>
   );
