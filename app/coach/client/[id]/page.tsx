@@ -1448,7 +1448,7 @@ export default function ClientDetailPage() {
                 <Calendar size={16} className="text-[#D4A853]" />
                 Recent Food Log
               </h2>
-              <MealPatternView entries={foodLog} />
+              <MealPatternView entries={foodLog} clientId={clientId} />
             </div>
           </Panel>
 

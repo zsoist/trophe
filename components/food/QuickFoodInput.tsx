@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Camera, Barcode, Loader2, Mic, MicOff, Plus, CheckCircle2, RotateCcw, X } from 'lucide-react';
+import { useState, useRef, useCallback, useEffect } from 'react';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { Send, Camera, Barcode, Loader2, Mic, MicOff, Plus, CheckCircle2, RotateCcw, X, HelpCircle } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { supabase } from '@/lib/supabase';
+import { trpcClient } from '@/lib/trpc/client';
 import type { MealType } from '@/lib/types';
 import type { ParsedFoodItem } from '@/app/api/food/parse/route';
 import ParsedFoodList from '@/components/food/ParsedFoodList';
@@ -14,30 +15,103 @@ interface QuickFoodInputProps {
   userId: string;
   mealType: MealType;
   date: string;
-  onLogged: () => void;
+  /** Batch-logged row ids (from `.select('id')`) ride along so the page can offer batch undo. */
+  onLogged: (ids?: string[]) => void;
   onSearchMode: () => void;
+  /** kcal strings in the review UI render only when enabled (threaded by MealSlotCard). */
+  showCalories?: boolean;
 }
 
-type InputMode = 'idle' | 'parsing' | 'confirming' | 'photo_analyzing' | 'success' | 'manual_entry' | 'listening';
+type InputMode = 'idle' | 'parsing' | 'confirming' | 'photo_analyzing' | 'success' | 'manual_entry' | 'listening' | 'question';
 type InputSource = 'text' | 'photo';
 
-export default function QuickFoodInput({ userId, mealType, date, onLogged }: QuickFoodInputProps) {
+/** Server-side parse limit — mirrored on the textarea (maxLength + counter). */
+const MAX_PARSE_INPUT = 500;
+
+/** Stable error codes from /api/food/parse → i18n keys for friendly copy. Raw internals stay server-side. */
+const PARSE_ERROR_KEYS: Record<string, string> = {
+  ai_busy: 'food.err_ai_busy',
+  try_rephrase: 'food.err_try_rephrase',
+  too_long: 'food.err_too_long',
+  rate_limited: 'food.err_rate_limited',
+  timeout: 'food.err_timeout',
+};
+
+/** Languages the parse API accepts as a hint; anything else falls back to 'en'. */
+const PARSE_LANGUAGES = new Set(['en', 'es', 'el', 'fr', 'de', 'it', 'pt', 'nl']);
+
+/**
+ * W1 "kitchen pass" narration — the stage line crossfades through these on
+ * 1.2s timers. Stage 3 replaces the old standalone "still working" line and
+ * is driven by the 8s slowParse timer instead of the stage clock.
+ */
+const PARSE_STAGE_KEYS = [
+  'food.parse_stage_reading',
+  'food.parse_stage_matching',
+  'food.parse_stage_weighing',
+  'food.parse_stage_still',
+] as const;
+
+/** Estimated item count from raw input — drives how many skeleton cards render. */
+function estimateItemCount(text: string): number {
+  const n = text.split(/,| and | y | και | με |\n/).map(s => s.trim()).filter(Boolean).length;
+  return Math.min(4, Math.max(1, n));
+}
+
+/** BCP-47 tags for the Web Speech API — STT always listens in the UI language. */
+const STT_LANG_TAGS: Record<string, string> = {
+  en: 'en-US', es: 'es-ES', el: 'el-GR', fr: 'fr-FR',
+  de: 'de-DE', it: 'it-IT', pt: 'pt-PT', nl: 'nl-NL',
+};
+
+export default function QuickFoodInput({ userId, mealType, date, onLogged, showCalories = false }: QuickFoodInputProps) {
   const { t, lang } = useI18n();
+  const reducedMotion = useReducedMotion();
   const [text, setText] = useState('');
   const [showBarcode, setShowBarcode] = useState(false);
   const [mode, setMode] = useState<InputMode>('idle');
+  // W1: parse narration — skeleton count estimated from the input, stage line on 1.2s timers.
+  const [estimatedItems, setEstimatedItems] = useState(1);
+  const [parseStage, setParseStage] = useState(0);
   const [parsedItems, setParsedItems] = useState<ParsedFoodItem[]>([]);
   const [clarificationQuestion, setClarificationQuestion] = useState<string | null>(null);
+  const [parseWarnings, setParseWarnings] = useState<string[]>([]);
   const [inputSource, setInputSource] = useState<InputSource>('text');
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const [retryAfterS, setRetryAfterS] = useState(0);
+  const [slowParse, setSlowParse] = useState(false);
   const [logging, setLogging] = useState(false);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [successCount, setSuccessCount] = useState(0);
+  // Clarification loop (empty-items + question): the AI's actual question + the user's answer.
+  const [questionText, setQuestionText] = useState<string | null>(null);
+  const [questionAnswer, setQuestionAnswer] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const lastTextRef = useRef('');
   const lastFileRef = useRef<File | null>(null);
+  const questionOriginalTextRef = useRef('');
+  /** Snapshot of the parse result at confirm-entry — flywheel diffs confirmed values against it. */
+  const originalItemsRef = useRef<ParsedFoodItem[]>([]);
+  const parseBusyRef = useRef(false);
+
+  // 429 Retry-After countdown — Retry stays disabled until it reaches 0.
+  useEffect(() => {
+    if (retryAfterS <= 0) return;
+    const timer = setTimeout(() => setRetryAfterS(v => Math.max(0, v - 1)), 1000);
+    return () => clearTimeout(timer);
+  }, [retryAfterS]);
+
+  // W1: advance the narration stage while parsing (holds on the last stage;
+  // the 8s slowParse timer promotes it to the "still working" text).
+  useEffect(() => {
+    if (mode !== 'parsing') return;
+    setParseStage(0);
+    const t1 = setTimeout(() => setParseStage(1), 1200);
+    const t2 = setTimeout(() => setParseStage(2), 2400);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [mode]);
 
   // Manual entry state
   const [manualCal, setManualCal] = useState('');
@@ -54,57 +128,117 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged }: Qui
     }
   }, []);
 
-  const handleParseText = async () => {
-    if (!text.trim() || mode !== 'idle') return;
+  /**
+   * Parse free text into food items. `textArg` lets callers (voice transcript,
+   * clarification answers) pass the value directly — the old version closed
+   * over stale `text` state and silently no-op'd on voice input.
+   */
+  const handleParseText = async (textArg?: string) => {
+    const value = (textArg ?? text).trim();
+    if (!value || parseBusyRef.current || logging) return;
+    if (value.length > MAX_PARSE_INPUT) {
+      setError(t('food.err_too_long', { max: MAX_PARSE_INPUT }));
+      return;
+    }
+    parseBusyRef.current = true;
     setError(null);
+    setSlowParse(false);
+    setEstimatedItems(estimateItemCount(value));
     setMode('parsing');
-    lastTextRef.current = text.trim();
+    lastTextRef.current = value;
+    const slowTimer = setTimeout(() => setSlowParse(true), 8000);
 
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 25000); // 25s — composites need more time
+      const timeout = setTimeout(() => controller.abort(), 45000); // 45s — composites need more time
 
       const res = await fetch('/api/food/parse', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: text.trim(), language: lang }),
+        body: JSON.stringify({ text: value, language: PARSE_LANGUAGES.has(lang) ? lang : 'en' }),
         signal: controller.signal,
       });
 
       clearTimeout(timeout);
       const data = await res.json();
 
-      if (!res.ok || !data.items || data.items.length === 0) {
-        setError(data.error || t('food.no_items'));
+      if (!res.ok) {
+        if (res.status === 429) {
+          const retryAfter = parseInt(res.headers.get('Retry-After') ?? '', 10);
+          setRetryAfterS(Number.isFinite(retryAfter) && retryAfter > 0 ? Math.min(retryAfter, 600) : 60);
+          setError(t('food.err_rate_limited'));
+        } else {
+          const errorKey = data?.code ? PARSE_ERROR_KEYS[data.code] : undefined;
+          setError(errorKey ? t(errorKey, { max: MAX_PARSE_INPUT }) : data?.message || data?.error || t('food.no_items'));
+        }
+        setRetryCount(prev => prev + 1);
+        setMode('idle');
+        return;
+      }
+
+      const items: ParsedFoodItem[] = Array.isArray(data?.items) ? data.items : [];
+
+      if (items.length === 0) {
+        // A real question came back with no items — surface it and let the
+        // user answer instead of dead-ending on "No food items detected".
+        if (data && data.needs_clarification && data.clarification_question) {
+          setQuestionText(String(data.clarification_question));
+          setQuestionAnswer('');
+          questionOriginalTextRef.current = value;
+          setRetryCount(0);
+          setMode('question');
+          return;
+        }
+        setError(t('food.no_items'));
         setRetryCount(prev => prev + 1);
         setMode('idle');
         return;
       }
 
       setRetryCount(0);
-      setParsedItems(data.items);
+      setParsedItems(items);
+      // Snapshot the parse's original values — handleConfirm diffs against
+      // these to capture user corrections for the flywheel.
+      originalItemsRef.current = items.map(item => ({ ...item }));
+      setParseWarnings(Array.isArray(data.warnings) ? data.warnings : []);
       setClarificationQuestion(data.needs_clarification ? data.clarification_question : null);
+      setQuestionText(null);
       setInputSource('text');
       setMode('confirming');
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
-        setError('Request timed out — try again or enter manually');
+        setError(t('food.err_timeout'));
       } else {
         setError('Failed to parse food — check your connection');
       }
       setRetryCount(prev => prev + 1);
       setMode('idle');
+    } finally {
+      clearTimeout(slowTimer);
+      setSlowParse(false);
+      parseBusyRef.current = false;
     }
   };
 
+  /** Re-parse combined "original — answer" text from the review banner's inline answer field. */
+  const handleReparse = (combinedText: string) => {
+    setParsedItems([]);
+    setClarificationQuestion(null);
+    setParseWarnings([]);
+    originalItemsRef.current = [];
+    handleParseText(combinedText);
+  };
+
   const handleRetry = () => {
+    if (retryAfterS > 0) return;
     setError(null);
     if (lastFileRef.current) {
       processImageFile(lastFileRef.current);
     } else if (lastTextRef.current) {
       setText(lastTextRef.current);
       setMode('idle');
-      setTimeout(() => handleParseText(), 100);
+      const retryText = lastTextRef.current;
+      setTimeout(() => handleParseText(retryText), 100);
     }
   };
 
@@ -143,7 +277,13 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged }: Qui
       const data = await res.json();
 
       if (!res.ok || !data.foods || data.foods.length === 0) {
-        setError(data.error || t('food.no_items'));
+        if (res.status === 429) {
+          const retryAfter = parseInt(res.headers.get('Retry-After') ?? '', 10);
+          setRetryAfterS(Number.isFinite(retryAfter) && retryAfter > 0 ? Math.min(retryAfter, 600) : 60);
+          setError(t('food.err_rate_limited'));
+        } else {
+          setError(data.error || t('food.no_items'));
+        }
         setRetryCount(prev => prev + 1);
         setMode('idle');
         return;
@@ -157,6 +297,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged }: Qui
         estimated_carbs_g: number;
         estimated_fat_g: number;
         confidence: number;
+        accuracy_note?: string;
       }) => ({
         raw_text: f.name,
         food_name: f.name,
@@ -173,11 +314,17 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged }: Qui
         source: 'ai_estimate' as const,
         food_state: 'prepared' as const,
         portion_explicit: false,
+        accuracy_note: f.accuracy_note ?? null,
       }));
 
       setRetryCount(0);
+      // Success — clear the retry file so a later TEXT failure can't re-submit
+      // this (now stale) photo via the Retry button.
+      lastFileRef.current = null;
       setParsedItems(items);
-      setClarificationQuestion('Photo portions are estimates. Review each amount before logging.');
+      originalItemsRef.current = items.map(item => ({ ...item }));
+      setParseWarnings([]);
+      setClarificationQuestion(t('food.photo_estimates_note'));
       setInputSource('photo');
       setMode('confirming');
     } catch (err) {
@@ -218,6 +365,39 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged }: Qui
   // Mic permission denied at OS level — show helpful guidance
   const [micDeniedHelp, setMicDeniedHelp] = useState(false);
 
+  // Voice recognition lives in refs: the old local-variable instance could
+  // never be .stop()ped from the Stop button (hot mic kept overwriting later
+  // typing) and the onend guard read stale `mode` state.
+  const recognitionRef = useRef<{ stop: () => void } | null>(null);
+  const listeningRef = useRef(false);
+  const finalTranscriptRef = useRef('');
+  const unmountedRef = useRef(false);
+
+  useEffect(() => {
+    unmountedRef.current = false;
+    return () => {
+      unmountedRef.current = true;
+      listeningRef.current = false;
+      try {
+        recognitionRef.current?.stop();
+      } catch {
+        // already stopped
+      }
+      recognitionRef.current = null;
+    };
+  }, []);
+
+  /** Stop button: actually stop the mic. onend then parses any final transcript. */
+  const stopVoiceInput = () => {
+    listeningRef.current = false;
+    try {
+      recognitionRef.current?.stop();
+    } catch {
+      // already stopped
+    }
+    setMode('idle');
+  };
+
   // F15: Voice input via Web Speech API — with explicit mic permission request
   const startVoiceInput = async () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -225,7 +405,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged }: Qui
     const SpeechRecognition = w.SpeechRecognition || w.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      setError('Voice input not supported in this browser');
+      setError(t('food.voice_unsupported'));
       return;
     }
 
@@ -264,37 +444,63 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged }: Qui
     }
 
     const recognition = new SpeechRecognition();
-    recognition.lang = lang === 'el' ? 'el-GR' : lang === 'es' ? 'es-ES' : 'en-US';
-    recognition.interimResults = false;
+    recognition.lang = STT_LANG_TAGS[lang] ?? 'en-US';
+    // Live transcript while speaking — the previous dead screen made users
+    // assume voice was broken and start typing over a hot mic.
+    recognition.interimResults = true;
     recognition.maxAlternatives = 1;
 
+    recognitionRef.current = recognition;
+    listeningRef.current = true;
+    finalTranscriptRef.current = '';
+    setError(null);
     setMode('listening');
     recognition.start();
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recognition.onresult = (event: any) => {
-      const transcript = event.results[0][0].transcript;
-      setText(transcript);
-      setMode('idle');
-      setTimeout(() => {
-        if (transcript.trim()) {
-          lastTextRef.current = transcript.trim();
-          handleParseText();
-        }
-      }, 300);
+      if (unmountedRef.current) return;
+      let finalText = '';
+      let interimText = '';
+      for (let i = 0; i < event.results.length; i++) {
+        const result = event.results[i];
+        if (result.isFinal) finalText += result[0].transcript;
+        else interimText += result[0].transcript;
+      }
+      finalTranscriptRef.current = finalText.trim();
+      const live = `${finalText} ${interimText}`.replace(/\s+/g, ' ').trim();
+      if (live) setText(live);
     };
 
     recognition.onerror = (event: { error: string }) => {
+      listeningRef.current = false;
+      recognitionRef.current = null;
+      finalTranscriptRef.current = '';
+      if (unmountedRef.current) return;
       setMode('idle');
       if (event.error === 'not-allowed') {
         setError('Microphone access denied — enable it in browser settings');
-      } else {
+      } else if (event.error !== 'aborted') {
         setError('Could not recognize speech — try again');
       }
     };
 
     recognition.onend = () => {
-      if (mode === 'listening') setMode('idle');
+      recognitionRef.current = null;
+      const wasListening = listeningRef.current;
+      listeningRef.current = false;
+      const transcript = finalTranscriptRef.current.trim();
+      finalTranscriptRef.current = '';
+      if (unmountedRef.current) return;
+      // Ref-based guard — the old `mode === 'listening'` check closed over
+      // stale state and left the UI stuck in listening mode.
+      if (wasListening) setMode('idle');
+      if (transcript) {
+        setText(transcript);
+        // Pass the transcript directly — parsing must not depend on setText
+        // having flushed (the old setTimeout+stale-closure no-op bug).
+        handleParseText(transcript);
+      }
     };
   };
 
@@ -347,12 +553,17 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged }: Qui
     setLogging(true);
 
     try {
-      const dbSource = inputSource === 'photo' ? 'photo_ai' : 'custom';
+      // 'natural_language' for the text path (CHECK constraint allows it) —
+      // collapsing everything to 'custom' erased the AI provenance the
+      // flywheel and coach views depend on.
+      const dbSource = inputSource === 'photo' ? 'photo_ai' : 'natural_language';
       const entries = items.map(item => ({
         user_id: userId,
         logged_date: date,
         meal_type: mealType,
-        food_name: item.food_name,
+        // What the user SAW (localized name / raw input), not the verbose
+        // English DB name — the coach reads the same string back in meal views.
+        food_name: item.name_localized || item.raw_text || item.food_name,
         quantity: item.quantity,
         unit: item.unit,
         calories: item.calories,
@@ -360,10 +571,19 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged }: Qui
         carbs_g: item.carbs_g,
         fat_g: item.fat_g,
         fiber_g: item.fiber_g,
+        sugar_g: item.sugar_g ?? null,
+        parse_confidence: item.confidence ?? null,
+        qty_input: item.quantity,
+        qty_input_unit: item.unit,
+        food_id: item.db_food_id ?? null,
+        llm_recognized: item.source !== 'ai_estimate',
         source: dbSource,
       }));
 
-      const { error: dbError } = await supabase.from('food_log').insert(entries);
+      const { data: inserted, error: dbError } = await supabase
+        .from('food_log')
+        .insert(entries)
+        .select('id');
 
       if (dbError) {
         console.error('Insert error:', dbError);
@@ -380,6 +600,49 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged }: Qui
         return;
       }
 
+      // Correction-capture flywheel: when the user adjusted a portion during
+      // review, record (parse → confirmed) as a gold label. Fire-and-forget —
+      // logging must NEVER block or fail on telemetry.
+      try {
+        const clampG = (v: number) => Math.min(Math.max(v, 0), 10_000);
+        const clampMacro = (v: number) => Math.min(Math.max(v, 0), 1_000);
+        const remaining: Array<ParsedFoodItem | null> = originalItemsRef.current.map(o => ({ ...o }));
+        items.forEach((item, index) => {
+          const originalIndex = remaining.findIndex(
+            o => o !== null && o.raw_text === item.raw_text && o.food_name === item.food_name,
+          );
+          if (originalIndex === -1) return;
+          const original = remaining[originalIndex]!;
+          remaining[originalIndex] = null; // consume — duplicate items map 1:1
+          const adjusted = item.grams !== original.grams ||
+            (original.portion_explicit === false && item.portion_explicit === true);
+          if (!adjusted) return;
+          void trpcClient.food.corrections.captureAdjustment.mutate({
+            rawText: (original.raw_text || item.food_name || 'unknown').slice(0, 500),
+            foodName: String(entries[index].food_name ?? item.food_name).slice(0, 200),
+            aiSource: item.source,
+            parseConfidence: original.confidence ?? null,
+            foodLogId: inserted?.[index]?.id ?? null,
+            before: {
+              grams: clampG(original.grams),
+              calories: clampG(original.calories),
+              protein_g: clampMacro(original.protein_g),
+              carbs_g: clampMacro(original.carbs_g),
+              fat_g: clampMacro(original.fat_g),
+            },
+            after: {
+              grams: clampG(item.grams),
+              calories: clampG(item.calories),
+              protein_g: clampMacro(item.protein_g),
+              carbs_g: clampMacro(item.carbs_g),
+              fat_g: clampMacro(item.fat_g),
+            },
+          }).catch(() => { /* telemetry only */ });
+        });
+      } catch {
+        // never block the logging UX on flywheel capture
+      }
+
       // F2: Success celebration
       setSuccessCount(items.length);
       setMode('success');
@@ -387,12 +650,17 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged }: Qui
       setText('');
       setParsedItems([]);
       setClarificationQuestion(null);
+      setParseWarnings([]);
       setPhotoPreview(null);
+      originalItemsRef.current = [];
 
+      // Batch undo: hand the inserted row ids to the page so the toast can
+      // offer "Logged N items — Undo".
+      const insertedIds = (inserted ?? []).map(r => r.id).filter(Boolean);
       setTimeout(() => {
         setMode('idle');
         setSuccessCount(0);
-        onLogged();
+        onLogged(insertedIds.length > 0 ? insertedIds : undefined);
       }, 1500);
     } catch {
       setError('Failed to save entries');
@@ -403,10 +671,32 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged }: Qui
   const handleCancel = () => {
     setParsedItems([]);
     setClarificationQuestion(null);
+    setParseWarnings([]);
     setPhotoPreview(null);
+    setQuestionText(null);
+    setQuestionAnswer('');
+    originalItemsRef.current = [];
     setMode('idle');
     setError(null);
     setRetryCount(0);
+  };
+
+  /** Submit an answer to the empty-items clarification question — re-parses "original — answer". */
+  const submitQuestionAnswer = () => {
+    const answer = questionAnswer.trim();
+    if (!answer) return;
+    const combined = `${questionOriginalTextRef.current} — ${answer}`;
+    setQuestionText(null);
+    setQuestionAnswer('');
+    handleParseText(combined);
+  };
+
+  /** Leave the question card — the original text is restored, nothing is lost. */
+  const cancelQuestion = () => {
+    setText(questionOriginalTextRef.current);
+    setQuestionText(null);
+    setQuestionAnswer('');
+    setMode('idle');
   };
 
   // F2: Success celebration animation
@@ -422,16 +712,73 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged }: Qui
           animate={{ scale: 1 }}
           transition={{ type: 'spring', damping: 10, stiffness: 200, delay: 0.1 }}
         >
-          <CheckCircle2 size={48} className="text-green-400" />
+          {/* Gold, not green — success joins the celebration grammar (W1) */}
+          <CheckCircle2 size={48} style={{ color: 'var(--gold-300, #D4A853)' }} />
         </motion.div>
         <motion.p
           initial={{ opacity: 0, y: 5 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="text-green-400 font-medium text-sm"
+          className="font-medium text-sm"
+          style={{ color: 'var(--gold-300, #D4A853)' }}
         >
           {t('food.logged_toast', { n: String(successCount) })}
         </motion.p>
+      </motion.div>
+    );
+  }
+
+  // Clarification question card — the parse returned a real question and no
+  // items. Show the actual question with an answer box (was: dead-ended on a
+  // generic "No food items detected" error).
+  if (mode === 'question' && questionText) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="glass p-4 space-y-3"
+      >
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-start gap-2">
+            <HelpCircle size={16} className="text-amber-400 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-stone-300 text-sm font-medium">{t('food.quick_question')}</p>
+              <p className="text-stone-400 text-xs mt-1 leading-relaxed">{questionText}</p>
+            </div>
+          </div>
+          <button
+            onClick={cancelQuestion}
+            className="text-stone-600 hover:text-stone-300 text-xs flex-shrink-0"
+          >
+            {t('general.cancel')}
+          </button>
+        </div>
+        <p className="text-stone-600 text-[11px] italic truncate">“{questionOriginalTextRef.current}”</p>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={questionAnswer}
+            onChange={(e) => setQuestionAnswer(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                submitQuestionAnswer();
+              }
+            }}
+            placeholder={t('food.answer_placeholder')}
+            className="input-dark flex-1 text-sm py-2"
+            aria-label="Answer the clarification question"
+            autoFocus
+          />
+          <button
+            onClick={submitQuestionAnswer}
+            disabled={!questionAnswer.trim()}
+            className="btn-gold px-4 text-sm flex items-center gap-1"
+            aria-label="Submit answer"
+          >
+            <Send size={14} />
+          </button>
+        </div>
       </motion.div>
     );
   }
@@ -465,9 +812,13 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged }: Qui
         <ParsedFoodList
           items={parsedItems}
           clarificationQuestion={clarificationQuestion}
+          warnings={parseWarnings}
+          rawInputText={inputSource === 'text' ? lastTextRef.current : undefined}
+          onReparse={inputSource === 'text' ? handleReparse : undefined}
           onConfirm={handleConfirm}
           onCancel={handleCancel}
           logging={logging}
+          showCalories={showCalories}
         />
       </div>
     );
@@ -558,8 +909,12 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged }: Qui
           <textarea
             ref={textareaRef}
             value={text}
+            maxLength={MAX_PARSE_INPUT}
             onChange={(e) => {
               setText(e.target.value);
+              // Typing starts a new text entry — a failed photo must not be
+              // re-submitted by the Retry button anymore.
+              lastFileRef.current = null;
               autoResize();
             }}
             onKeyDown={(e) => {
@@ -574,6 +929,16 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged }: Qui
             rows={2}
             disabled={mode !== 'idle'}
           />
+          {/* Live character counter — the server refuses (not truncates) >500 chars */}
+          {text.length >= 350 && (
+            <span
+              className={`absolute bottom-1.5 right-2 text-[10px] tabular-nums pointer-events-none ${
+                text.length >= MAX_PARSE_INPUT ? 'text-amber-400' : 'text-stone-600'
+              }`}
+            >
+              {text.length}/{MAX_PARSE_INPUT}
+            </span>
+          )}
           <input
             ref={fileInputRef}
             type="file"
@@ -583,7 +948,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged }: Qui
           />
         </div>
         <button
-          onClick={handleParseText}
+          onClick={() => handleParseText()}
           disabled={!text.trim() || mode !== 'idle'}
           className="btn-gold px-4 text-sm flex items-center gap-1 self-end"
         >
@@ -607,7 +972,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged }: Qui
           Photo
         </button>
         <button
-          onClick={mode === 'listening' ? () => setMode('idle') : startVoiceInput}
+          onClick={mode === 'listening' ? stopVoiceInput : startVoiceInput}
           disabled={mode !== 'idle' && mode !== 'listening'}
           className={`flex items-center gap-1.5 text-xs transition-colors py-1 ${mode === 'listening' ? 'text-red-400 animate-pulse' : 'text-stone-500 hover:gold-text'}`}
           aria-label={mode === 'listening' ? 'Stop voice recording' : 'Start voice input'}
@@ -675,37 +1040,39 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged }: Qui
             transition={{ duration: 0.25, ease: [0.32, 0.72, 0, 1] }}
             className="space-y-2"
           >
-            <div className="flex items-center gap-2 px-1">
-              <Loader2 size={13} className="animate-spin gold-text" />
-              <span className="text-stone-400 text-xs">{t('food.parsing')}</span>
+            {/* W1: kitchen-pass narration — one mono line crossfading through stages.
+                slowParse (8s) promotes the line to the "still working" stage. */}
+            <div className="flex items-center gap-2 px-1" aria-live="polite">
+              <Loader2 size={13} className="animate-spin gold-text flex-shrink-0" />
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.span
+                  key={slowParse ? 3 : parseStage}
+                  initial={reducedMotion ? false : { opacity: 0, y: 3 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={reducedMotion ? { opacity: 1 } : { opacity: 0, y: -3 }}
+                  transition={{ duration: reducedMotion ? 0 : 0.22, ease: 'easeOut' }}
+                  className="text-stone-400 text-[11px]"
+                  style={{ fontFamily: 'var(--font-mono)' }}
+                >
+                  {t(PARSE_STAGE_KEYS[slowParse ? 3 : parseStage])}
+                </motion.span>
+              </AnimatePresence>
             </div>
-            {/* Skeleton preview: items taking shape */}
-            {[0, 1, 2].map((i) => (
+            {/* Skeleton preview: as many cards as the input suggests, branded
+                transform-only sheen (no opacity loops on the glass layer) */}
+            {Array.from({ length: estimatedItems }).map((_, i) => (
               <motion.div
                 key={i}
-                initial={{ opacity: 0, y: 10 }}
+                initial={reducedMotion ? false : { opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.08 + i * 0.09, type: 'spring', stiffness: 380, damping: 30 }}
                 className="glass p-3 flex items-center justify-between"
               >
                 <div className="space-y-1.5 flex-1">
-                  <motion.div
-                    className="h-3 rounded bg-stone-700/50"
-                    style={{ width: `${62 - i * 12}%` }}
-                    animate={{ opacity: [0.4, 0.9, 0.4] }}
-                    transition={{ repeat: Infinity, duration: 1.4, delay: i * 0.18 }}
-                  />
-                  <motion.div
-                    className="h-2 w-24 rounded bg-stone-800/60"
-                    animate={{ opacity: [0.3, 0.7, 0.3] }}
-                    transition={{ repeat: Infinity, duration: 1.4, delay: 0.1 + i * 0.18 }}
-                  />
+                  <div className="skeleton h-3 rounded" style={{ width: `${62 - i * 9}%` }} />
+                  <div className="skeleton h-2 w-24 rounded" />
                 </div>
-                <motion.div
-                  className="h-5 w-12 rounded bg-[#D4A853]/15"
-                  animate={{ opacity: [0.35, 0.8, 0.35] }}
-                  transition={{ repeat: Infinity, duration: 1.4, delay: 0.2 + i * 0.18 }}
-                />
+                <div className="skeleton h-5 w-12 rounded" style={{ background: 'rgba(212,168,83,0.12)' }} />
               </motion.div>
             ))}
           </motion.div>
@@ -781,10 +1148,11 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged }: Qui
             <div className="flex items-center justify-center gap-3">
               <button
                 onClick={handleRetry}
-                className="text-stone-400 hover:gold-text text-xs flex items-center gap-1 transition-colors"
+                disabled={retryAfterS > 0}
+                className="text-stone-400 hover:gold-text text-xs flex items-center gap-1 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <RotateCcw size={12} />
-                {t('food.retry')}
+                {retryAfterS > 0 ? t('food.retry_in', { n: retryAfterS }) : t('food.retry')}
               </button>
               {retryCount >= 2 && (
                 <button

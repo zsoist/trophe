@@ -153,7 +153,10 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
       carbs_g: Math.round(product.per100g.carbs * f * 10) / 10,
       fat_g: Math.round(product.per100g.fat * f * 10) / 10,
       fiber_g: product.per100g.fiber != null ? Math.round(product.per100g.fiber * f * 10) / 10 : 0,
-      source: 'custom' as const,
+      sugar_g: product.per100g.sugar != null ? Math.round(product.per100g.sugar * f * 10) / 10 : null,
+      // Barcode lookups are Open Food Facts provenance (CHECK allows it);
+      // 'custom' stays reserved for the manual-label path below.
+      source: 'openfoodfacts' as const,
     });
     setLogging(false);
     if (insErr) { setError(insErr.message); return; }

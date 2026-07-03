@@ -1878,6 +1878,37 @@ export interface RagMatch {
   protein: number;
   carbs: number;
   fat: number;
+  /** lexicalIntentScore of this candidate vs the query — anchor-confidence gate input. */
+  score: number;
+}
+
+/**
+ * RAG anchor gate (2026-07-03 benchmark forensics). The pre-search used raw
+ * BM25 candidates with an unconditional "prefer its values" instruction. The
+ * worst-in-class error: "bowl of cereal with milk and a side of bacon"
+ * BM25-matched "Candies, milk chocolate, with rice cereal" (candy bar,
+ * ~532 kcal/100g), the LLM anchored to it verbatim → 1673 kcal returned vs
+ * 278–518 kcal expected. The data was fine; the *anchoring instruction* on a
+ * lexically irrelevant candidate was the bug.
+ *
+ * Three gates, all behind FOOD_RAG_GATE_DISABLED (unset = gated behavior ON;
+ * set = legacy behavior) so the A/B is a one-env-var revert:
+ *   1. Candidates need lexicalIntentScore >= RAG_MIN_INTENT_SCORE to be shown
+ *      to the LLM at all (drops token-overlap-only junk like the candy bar).
+ *   2. The "prefer its values" anchor sentence only ships when the BEST
+ *      candidate scores >= RAG_ANCHOR_MIN_SCORE — weaker matches stay visible
+ *      as loose reference data without the instruction to adopt them.
+ *   3. Multi-food inputs (comma / " and " / " με " / " και " / " y " / " con ")
+ *      skip RAG entirely at the injection site (index.v4.ts) — per-item DB
+ *      lookup happens after extraction anyway.
+ *
+ * One gate flag on purpose (mirrors brandedOffAdjustment): single A/B lever.
+ */
+const RAG_MIN_INTENT_SCORE = 3;
+const RAG_ANCHOR_MIN_SCORE = 6;
+
+function ragGateLegacy(): boolean {
+  return Boolean(process.env.FOOD_RAG_GATE_DISABLED);
 }
 
 export async function ragPreSearch(foodText: string, limit = 3): Promise<RagMatch[]> {
@@ -1899,12 +1930,18 @@ export async function ragPreSearch(foodText: string, limit = 3): Promise<RagMatc
     });
     if (filtered.length > 0) candidates = filtered;
 
-    return candidates.slice(0, limit).map(f => ({
+    // Gate 1: require minimal lexical intent alignment before a candidate may
+    // appear in the prompt (see RAG anchor gate comment above).
+    const scored = candidates.map(f => ({ f, score: lexicalIntentScore(f, corrected) }));
+    const admitted = ragGateLegacy() ? scored : scored.filter(s => s.score >= RAG_MIN_INTENT_SCORE);
+
+    return admitted.slice(0, limit).map(({ f, score }) => ({
       name: f.nameEn ?? 'unknown',
       kcal: f.kcalPer100g ?? 0,
       protein: f.proteinPer100g ?? 0,
       carbs: f.carbPer100g ?? 0,
       fat: f.fatPer100g ?? 0,
+      score,
     }));
   } catch {
     return []; // non-critical — LLM works without it
@@ -1916,5 +1953,13 @@ export function formatRagContext(matches: RagMatch[]): string {
   const lines = matches.map(m =>
     `  - ${m.name}: ${m.kcal} kcal, ${m.protein}g protein, ${m.carbs}g carbs, ${m.fat}g fat (per 100g)`
   );
-  return `\n\nREFERENCE DATA from our nutrition database (per 100g):\n${lines.join('\n')}\nUse these as anchors when estimating. If a reference closely matches the food, prefer its values.`;
+  // Gate 2: anchor only when confident. Below RAG_ANCHOR_MIN_SCORE the
+  // reference rows stay (harmless context) but the "prefer its values"
+  // instruction is dropped so the LLM estimates from the food it was told
+  // about, not from a lexically-adjacent DB row.
+  const bestScore = matches.reduce((max, m) => Math.max(max, m.score ?? 0), 0);
+  const anchorInstruction = ragGateLegacy() || bestScore >= RAG_ANCHOR_MIN_SCORE
+    ? '\nUse these as anchors when estimating. If a reference closely matches the food, prefer its values.'
+    : '';
+  return `\n\nREFERENCE DATA from our nutrition database (per 100g):\n${lines.join('\n')}${anchorInstruction}`;
 }

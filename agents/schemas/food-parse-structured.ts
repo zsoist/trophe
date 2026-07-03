@@ -4,18 +4,44 @@ import { z } from 'zod';
 // ({question: "..."} or {text: "..."}) instead of a string, and omits items
 // entirely when asking for clarification. Coerce both instead of 422-ing the
 // whole parse (3 benchmark cases failed on this).
+//
+// 2026-07-03 forensics: two more benchmark 422s came from array entries that
+// matched NEITHER {question} nor {text} (nested arrays / other object keys).
+// The tolerant final branch extracts the first string-ish value, and the
+// outer .catch(null) guarantees a malformed clarification NEVER kills a
+// parse that carries valid items — worst case we just lose the question.
+function firstStringish(v: unknown, depth = 0): string | null {
+  if (depth > 4) return null;
+  if (typeof v === 'string' && v.trim().length > 0) return v;
+  if (Array.isArray(v)) {
+    for (const entry of v) {
+      const s = firstStringish(entry, depth + 1);
+      if (s) return s;
+    }
+    return null;
+  }
+  if (v && typeof v === 'object') {
+    for (const value of Object.values(v)) {
+      const s = firstStringish(value, depth + 1);
+      if (s) return s;
+    }
+  }
+  return null;
+}
+
 const clarificationEntry = z.union([
   z.string(),
   z.object({ question: z.string() }).transform(o => o.question),
   z.object({ text: z.string() }).transform(o => o.text),
+  z.unknown().transform(v => firstStringish(v) ?? ''),
 ]);
 
 export const foodParseStructuredSchema = z.object({
   needs_clarification: z.boolean(),
   clarification_question: z.union([
     z.string(),
-    z.array(clarificationEntry).transform(a => a.join(' ')),
-  ]).nullable(),
+    z.array(clarificationEntry).transform(a => a.filter(s => s.length > 0).join(' ').trim() || null),
+  ]).nullable().catch(null),
   items: z.array(z.object({
     raw_text: z.string(),
     food_name: z.string().min(1),

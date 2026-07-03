@@ -787,6 +787,65 @@ const translations: Record<string, Record<CoreLanguage, string>> = {
   'coach.inbox.quiet3d':     { en: 'Quiet 3d+', es: 'Inactivos 3d+', el: 'Σιωπηλοί 3ημ+' },
   'coach.inbox.noUnread':    { en: 'No unread messages', es: 'No hay mensajes sin leer', el: 'Δεν υπάρχουν μη αναγνωσμένα μηνύματα' },
   'coach.inbox.nobodyQuiet': { en: 'Nobody has been quiet 3+ days', es: 'Nadie lleva 3+ días inactivo', el: 'Κανείς δεν είναι σιωπηλός 3+ ημέρες' },
+
+  // ── AI food-input loop — error taxonomy + clarification (mission/food-input-10) ──
+  'food.err_ai_busy': { en: 'The AI had trouble with that one — please try again in a moment.', es: 'La IA tuvo problemas con eso — inténtalo de nuevo en un momento.', el: 'Το AI δυσκολεύτηκε με αυτό — δοκίμασε ξανά σε λίγο.' },
+  'food.err_try_rephrase': { en: 'Could not read that as food — try rephrasing, e.g. "2 eggs and a slice of toast".', es: 'No se pudo interpretar como comida — reformúlalo, p. ej. "2 huevos y una tostada".', el: 'Δεν αναγνωρίστηκε ως φαγητό — δοκίμασε αλλιώς, π.χ. «2 αυγά και μια φέτα ψωμί».' },
+  'food.err_too_long': { en: 'That entry is too long — keep it under {max} characters, or log the meal in parts.', es: 'Esa entrada es demasiado larga — mantenla por debajo de {max} caracteres o registra la comida por partes.', el: 'Πολύ μεγάλη καταχώρηση — κράτησέ τη κάτω από {max} χαρακτήρες ή κατέγραψε το γεύμα τμηματικά.' },
+  'food.err_rate_limited': { en: 'Too many requests right now — give it a moment and try again.', es: 'Demasiadas solicitudes por ahora — espera un momento e inténtalo de nuevo.', el: 'Πάρα πολλά αιτήματα αυτή τη στιγμή — περίμενε λίγο και δοκίμασε ξανά.' },
+  'food.err_timeout': { en: 'This took longer than expected — please try again.', es: 'Tardó más de lo esperado — inténtalo de nuevo.', el: 'Πήρε περισσότερη ώρα από το αναμενόμενο — δοκίμασε ξανά.' },
+  'food.retry_in': { en: 'Retry ({n}s)', es: 'Reintentar ({n}s)', el: 'Επανάληψη ({n}s)' },
+  'food.quick_question': { en: 'Quick question', es: 'Pregunta rápida', el: 'Γρήγορη ερώτηση' },
+  'food.answer_placeholder': { en: 'Type your answer…', es: 'Escribe tu respuesta…', el: 'Γράψε την απάντησή σου…' },
+  'food.photo_estimates_note': { en: 'Photo portions are estimates. Review each amount before logging.', es: 'Las porciones de la foto son estimaciones. Revisa cada cantidad antes de registrar.', el: 'Οι μερίδες από φωτογραφία είναι εκτιμήσεις. Έλεγξε κάθε ποσότητα πριν την καταχώρηση.' },
+  'food.voice_unsupported': { en: 'Voice input not supported in this browser', es: 'El navegador no admite entrada por voz', el: 'Ο browser δεν υποστηρίζει φωνητική εισαγωγή' },
+
+  // ── W1 parse narration (kitchen pass) ──
+  'food.parse_stage_reading': { en: 'reading your meal…', es: 'leyendo tu comida…', el: 'διαβάζουμε το γεύμα σου…' },
+  'food.parse_stage_matching': { en: 'matching 43,000 foods…', es: 'consultando 43.000 alimentos…', el: 'ψάχνουμε σε 43.000 τρόφιμα…' },
+  'food.parse_stage_weighing': { en: 'weighing portions…', es: 'pesando porciones…', el: 'ζυγίζουμε τις μερίδες…' },
+  'food.parse_stage_still': { en: 'still working — bigger meals take a few extra seconds…', es: 'seguimos trabajando — las comidas grandes tardan unos segundos más…', el: 'ακόμα δουλεύουμε — τα μεγάλα γεύματα θέλουν λίγα δευτερόλεπτα παραπάνω…' },
+
+  // ── Parsed-food review (save-bar warnings + steppers + clarification) ──
+  'food.answer_refine_placeholder': { en: 'Answer to refine…', es: 'Responde para afinar…', el: 'Απάντησε για διευκρίνιση…' },
+  'food.warn_low_protein': { en: 'Low protein — consider adding eggs, chicken, or yogurt', es: 'Poca proteína — añade huevos, pollo o yogur', el: 'Λίγη πρωτεΐνη — πρόσθεσε αυγά, κοτόπουλο ή γιαούρτι' },
+  'food.warn_carb_heavy': { en: 'Very carb-heavy — consider balancing with protein or fat', es: 'Muy alto en carbohidratos — equilibra con proteína o grasa', el: 'Πολλοί υδατάνθρακες — ισορρόπησε με πρωτεΐνη ή λίπος' },
+  'food.large_meal_detected': { en: 'Large meal detected', es: 'Comida abundante detectada', el: 'Εντοπίστηκε μεγάλο γεύμα' },
+  'food.range_approx': { en: '≈{min}–{max} kcal', es: '≈{min}–{max} kcal', el: '≈{min}–{max} kcal' },
+  'food.stepper_decrease': { en: 'Decrease amount', es: 'Reducir cantidad', el: 'Μείωση ποσότητας' },
+  'food.stepper_increase': { en: 'Increase amount', es: 'Aumentar cantidad', el: 'Αύξηση ποσότητας' },
+
+  // ── Recipe analyzer ──
+  'food.recipe_timeout': { en: 'Recipe analysis timed out — please try again', es: 'El análisis de la receta tardó demasiado — inténtalo de nuevo', el: 'Η ανάλυση της συνταγής καθυστέρησε πολύ — δοκίμασε ξανά' },
+  'food.analyze_recipe': { en: 'Analyze recipe', es: 'Analizar receta', el: 'Ανάλυση συνταγής' },
+  'food.analyze_recipe_aria': { en: 'Analyze a recipe', es: 'Analizar una receta', el: 'Ανάλυση συνταγής' },
+
+  // ── Entry detail editor (MealSlotCard + MealPatternView) ──
+  'food.edit.details': { en: 'Edit details', es: 'Editar detalles', el: 'Επεξεργασία λεπτομερειών' },
+  'food.edit.name': { en: 'Name', es: 'Nombre', el: 'Όνομα' },
+  'food.edit.grams': { en: 'Grams', es: 'Gramos', el: 'Γραμμάρια' },
+  'food.edit.kcal': { en: 'Kcal', es: 'Kcal', el: 'Kcal' },
+  'food.edit.protein': { en: 'Protein', es: 'Proteína', el: 'Πρωτεΐνη' },
+  'food.edit.carbs': { en: 'Carbs', es: 'Carbohidratos', el: 'Υδατάνθρακες' },
+  'food.edit.fat': { en: 'Fat', es: 'Grasa', el: 'Λίπος' },
+  'food.edit.sugar': { en: 'Sugar', es: 'Azúcar', el: 'Ζάχαρη' },
+  'food.edit.save': { en: 'Save', es: 'Guardar', el: 'Αποθήκευση' },
+  'food.edit.saveQuantity': { en: 'Save quantity', es: 'Guardar cantidad', el: 'Αποθήκευση ποσότητας' },
+  'food.edit.decreaseGrams': { en: 'Decrease grams', es: 'Reducir gramos', el: 'Μείωση γραμμαρίων' },
+  'food.edit.increaseGrams': { en: 'Increase grams', es: 'Aumentar gramos', el: 'Αύξηση γραμμαρίων' },
+
+  // ── Coach meal pattern view (AI chip + editor) ──
+  'coach.mealPattern.aiLogged': { en: 'AI-logged', es: 'Registrado por IA', el: 'Καταγραφή με AI' },
+  'coach.mealPattern.aiLoggedTitle': { en: 'Parsed by AI — edits train the parser', es: 'Analizado por IA — las ediciones entrenan el analizador', el: 'Αναλύθηκε από AI — οι διορθώσεις εκπαιδεύουν τον αναλυτή' },
+  'coach.mealPattern.editEntry': { en: 'Edit {name}', es: 'Editar {name}', el: 'Επεξεργασία {name}' },
+  'coach.mealPattern.cancel': { en: 'Cancel', es: 'Cancelar', el: 'Άκυρο' },
+
+  // ── W10 next-slot invitation + batch undo (log page) ──
+  'food.next_slot_protein': { en: '{slot} — {n}g protein keeps you on pace', es: '{slot} — {n}g de proteína te mantienen al ritmo', el: '{slot} — {n}g πρωτεΐνης σε κρατούν στον ρυθμό σου' },
+  'food.next_slot_kcal': { en: '{slot} — {n} kcal left today', es: '{slot} — quedan {n} kcal hoy', el: '{slot} — απομένουν {n} kcal σήμερα' },
+  'log.batch_logged': { en: 'Logged {n} items', es: '{n} alimentos registrados', el: 'Καταγράφηκαν {n} τρόφιμα' },
+  'log.batch_logged_one': { en: 'Logged 1 item', es: '1 alimento registrado', el: 'Καταγράφηκε 1 τρόφιμο' },
+  'log.batch_undo_aria': { en: 'Undo logging {n} items', es: 'Deshacer el registro de {n} alimentos', el: 'Αναίρεση καταγραφής {n} τροφίμων' },
 };
 
 // ─── Context & Hook ───

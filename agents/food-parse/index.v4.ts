@@ -84,6 +84,8 @@ export interface FoodParseRunResultV4 {
   ok: boolean;
   output?: FoodParseOutput;
   error?: string;
+  /** Stable failure class for the API layer's user-facing error taxonomy. */
+  errorCode?: 'too_long';
   telemetry: {
     model: string;
     version: string;
@@ -629,6 +631,42 @@ export function shouldRequestClarification(text: string): boolean {
   return false;
 }
 
+// ── Region boost mapping (per-language) ─────────────────────────────────────
+// Used for DB ranking boosts only. Unknown languages fall back to 'US'; a
+// region code with no matching rows simply means the boost never fires, so
+// widening the language set here is always safe.
+const REGION_BY_LANGUAGE: Record<string, string> = {
+  el: 'GR', es: 'CO', fr: 'FR', de: 'DE', it: 'IT', pt: 'PT', nl: 'NL',
+};
+function regionForLanguage(language: string): string {
+  return REGION_BY_LANGUAGE[language] ?? 'US';
+}
+
+// ── Fraction-word quantity correction ────────────────────────────────────────
+// "quarter baguette" / "half an apple" / "μισή μερίδα" parse with quantity=1
+// because the LLM folds the fraction word into the food name. When the raw
+// text LEADS with a fraction word and quantity stayed 1, scale the quantity
+// BEFORE unit resolution so DB conversions compute the fractional weight.
+// Anchored to the start of the text to avoid false hits on products/phrases
+// like "half-and-half" (a cream) or "quarter pounder" (a burger).
+// NOTE: JS \b is ASCII-only — Greek words use (?=\s|$) lookaheads instead.
+const FRACTION_PREFIXES: Array<{ pattern: RegExp; factor: number }> = [
+  { pattern: /^(?:a\s+|the\s+|one\s+)?quarter\b(?!\s*(?:-|pounder))/i, factor: 0.25 },
+  { pattern: /^(?:ένα\s+|ενα\s+)?τέταρτο(?=\s|$)/i, factor: 0.25 },
+  { pattern: /^(?:un\s+|una\s+)?cuarto(?=\s|$)/i, factor: 0.25 },
+  { pattern: /^(?:a\s+|the\s+)?half\b(?!\s*(?:-|and\b|&))/i, factor: 0.5 },
+  { pattern: /^μισ[ήηόο]?(?=\s|$)/i, factor: 0.5 },
+  { pattern: /^(?:media|medio)\s/i, factor: 0.5 },
+  { pattern: /^(?:a\s+|the\s+|one\s+)?third\b(?!\s*-)/i, factor: 0.33 },
+];
+
+export function fractionFactorFor(text: string): number | null {
+  const probe = (text ?? '').trim();
+  if (!probe) return null;
+  const hit = FRACTION_PREFIXES.find(f => f.pattern.test(probe));
+  return hit ? hit.factor : null;
+}
+
 const MACRO_ESTIMATE_PROMPT = `You are a nutrition database. Given food items with quantities, estimate their macronutrient values.
 Return ONLY valid JSON in this exact format:
 {
@@ -708,9 +746,8 @@ export async function run(
   opts?: { userId?: string; metadata?: Record<string, unknown> },
 ): Promise<FoodParseRunResultV4> {
   const MAX_INPUT_LENGTH = 500;
-  const sanitizedText = input.text
-    .trim()
-    .slice(0, MAX_INPUT_LENGTH)
+  const trimmedText = input.text.trim();
+  const sanitizedText = trimmedText
     .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
 
   const policy = pick('food_parse');
@@ -721,6 +758,18 @@ export async function run(
     tokensIn: 0, tokensOut: 0, cacheCreationTokens: 0, cacheReadTokens: 0,
     latencyMs: 0, rawStatus: 0, traceId: null, costUsd: 0, dbHits: 0, dbMisses: 0,
   };
+
+  // Truncation honesty: silently slicing at 500 chars dropped foods the user
+  // typed and logged a partial meal as if it were complete. Refuse instead —
+  // the client shows a live counter + the same limit on the textarea.
+  if (trimmedText.length > MAX_INPUT_LENGTH) {
+    return {
+      ok: false,
+      error: `Input too long (${trimmedText.length} characters, max ${MAX_INPUT_LENGTH})`,
+      errorCode: 'too_long',
+      telemetry: emptyTelemetry,
+    };
+  }
 
   if (!sanitizedText) {
     return { ok: false, error: 'text is required', telemetry: emptyTelemetry };
@@ -771,7 +820,15 @@ export async function run(
   // ── Step 0: RAG pre-search — give the LLM DB reference data ───────────────
   // Only inject RAG for simple (non-composite) inputs.
   // Composite/multi-item inputs get confused when RAG returns a single-ingredient match.
-  const looksComposite = /[,;+]|( and | with | con | και | y | met )/.test(sanitizedText.toLowerCase());
+  // Gate 3 of the RAG anchor gate (see lookup.ts): the gated separator set adds
+  // " με " (Greek 'with') — "cereal with milk and bacon" style inputs must skip
+  // RAG entirely since per-item lookup happens after extraction anyway.
+  // FOOD_RAG_GATE_DISABLED set = legacy separators (one-env-var A/B revert).
+  const ragGateLegacy = Boolean(process.env.FOOD_RAG_GATE_DISABLED);
+  const compositeSeparators = ragGateLegacy
+    ? /[,;+]|( and | with | con | και | y | met )/
+    : /[,;+]|( and | with | con | και | y | met | με )/;
+  const looksComposite = compositeSeparators.test(sanitizedText.toLowerCase());
   const ragMatches = looksComposite ? [] : await ragPreSearch(sanitizedText);
   const ragContext = formatRagContext(ragMatches);
 
@@ -970,6 +1027,20 @@ export async function run(
     }
   }
 
+  // ── Step 1c: Fraction-word quantity correction (pre-lookup) ───────────────
+  // Only fires when the LLM left quantity at exactly 1 — "one and a half
+  // bananas" already parses as 1.5 and must not be re-scaled.
+  for (const item of v4Parsed.items) {
+    if (item.quantity !== 1) continue;
+    const factor = fractionFactorFor(item.raw_text) ?? fractionFactorFor(item.name_localized);
+    if (factor !== null) {
+      item.quantity = factor;
+      item.portion_explicit = true; // the user DID specify the portion — a fraction of one unit
+    }
+  }
+
+  const regionCode = regionForLanguage(language);
+
   // ── Step 2: Check dish_recipes cache (cheap, no LLM) ──────────────────────
   // Composite dishes (souvlaki with pita, arepa con queso) should match
   // dish_recipes BEFORE the foods table to avoid partial matches.
@@ -988,7 +1059,7 @@ export async function run(
       quantity: item.quantity,
       unit: item.unit,
       rawText: item.raw_text,
-      region: language === 'el' ? 'GR' : language === 'es' ? 'CO' : language === 'fr' ? 'FR' : 'US',
+      region: regionCode,
     });
     recipeResults.push(cached);
   }
@@ -996,25 +1067,24 @@ export async function run(
   // ── Step 2b: Classify food types and route composites to decompose ────────
   // Composites that miss recipe cache should skip single-food DB lookup and go
   // directly to decomposeAndLookup — prevents "chicken souvlaki pita" matching "chicken".
+  // Decompositions run in parallel (each is an LLM+DB round-trip); results map
+  // back by index so ordering is preserved.
   const foodTypes = v4Parsed.items.map(item => classifyFoodType(item.food_name));
-  const compositeDecompResults: Array<ParsedFoodItem | null> = v4Parsed.items.map(() => null);
-  const regionCode = language === 'el' ? 'GR' : language === 'es' ? 'CO' : language === 'fr' ? 'FR' : 'US';
-
-  for (let i = 0; i < v4Parsed.items.length; i++) {
-    if (recipeResults[i] !== null) continue; // already resolved via recipe cache
-    if (foodTypes[i] !== 'composite') continue; // only route composites
-
-    const item = v4Parsed.items[i];
-    const decomposed = await decomposeAndLookup({
-      foodName: item.food_name,
-      nameLocalized: item.name_localized,
-      quantity: item.quantity,
-      unit: item.unit,
-      rawText: item.raw_text,
-      region: regionCode,
-    });
-    compositeDecompResults[i] = decomposed; // null means decompose failed → fall through to lookup
-  }
+  const compositeDecompResults: Array<ParsedFoodItem | null> = await Promise.all(
+    v4Parsed.items.map((item, i) => {
+      if (recipeResults[i] !== null) return null; // already resolved via recipe cache
+      if (foodTypes[i] !== 'composite') return null; // only route composites
+      // null result means decompose failed → fall through to lookup
+      return decomposeAndLookup({
+        foodName: item.food_name,
+        nameLocalized: item.name_localized,
+        quantity: item.quantity,
+        unit: item.unit,
+        rawText: item.raw_text,
+        region: regionCode,
+      });
+    }),
+  );
 
   // Look up all items that didn't hit the recipe cache.
   // We ALSO look up composites because a direct DB match (e.g. branded "FAGE Total 2%
@@ -1188,6 +1258,9 @@ export async function run(
         brand:          lookup.food.brand ?? null,
         db_source:      lookup.food.source ?? null,
         data_quality:   lookup.food.dataQuality ?? null,
+        // Canonical food id → written to food_log.food_id by the client so
+        // logged entries stay joinable to the foods table.
+        db_food_id:     lookup.food.id ?? null,
       });
     } else {
       // DB miss — v5 CoT estimate takes priority, then legacy fallback chain
@@ -1248,7 +1321,7 @@ export async function run(
           quantity: candidate.quantity,
           unit: candidate.unit,
           rawText: candidate.raw_text,
-          region: language === 'el' ? 'GR' : language === 'es' ? 'CO' : language === 'fr' ? 'FR' : 'US',
+          region: regionCode,
         });
 
         if (decomposed) {
@@ -1298,6 +1371,22 @@ export async function run(
           portion_explicit: candidate.portion_explicit,
         };
       }
+    }
+  }
+
+  // Zero-mass supplements (real-product fix, 2026-07-03): "vitamin D 2000IU",
+  // "magnesium tablet" etc. legitimately parse with grams≈0 and near-zero
+  // energy, then die on the grams>0 plausibility check below. When the item
+  // carries ≤5 kcal, clamp grams to 1 and keep macros at 0 instead of
+  // rejecting the whole parse.
+  for (const item of finalItems) {
+    if (item.grams <= 0 && item.calories >= 0 && item.calories <= 5) {
+      item.grams = 1;
+      item.protein_g = 0;
+      item.carbs_g = 0;
+      item.fat_g = 0;
+      item.fiber_g = 0;
+      item.sugar_g = 0;
     }
   }
 

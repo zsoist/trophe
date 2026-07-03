@@ -47,6 +47,8 @@ export const foodLog = pgTable('food_log', {
   carbsG: real('carbs_g'),
   fatG: real('fat_g'),
   fiberG: real('fiber_g'),
+  /** Migration 0051: lib/types declared it and three quick-log paths INSERTed it, but the column never existed — those inserts failed silently (PGRST204). */
+  sugarG: real('sugar_g'),
   source: text(),
   sourceId: text('source_id'),
   photoUrl: text('photo_url'),

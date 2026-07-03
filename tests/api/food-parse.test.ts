@@ -25,10 +25,28 @@ describe('POST /api/food/parse', () => {
     mocks.guardAiRoute.mockResolvedValue({ ok: true, userId: 'user-1' });
   });
 
-  it('rejects unsupported languages before invoking the model', async () => {
+  it('coerces unknown languages to English instead of rejecting', async () => {
+    // Language is a prompt hint only — hard-400s on it/de/nl/pt caused 18
+    // benchmark failures before the enum was widened + .catch('en') added.
+    mocks.run.mockResolvedValue({
+      ok: true,
+      output: { items: [{ food_name: 'egg' }] },
+      telemetry: { rawStatus: 200 },
+    });
     const response = await POST(request({ text: 'one egg', language: 'zh' }));
-    expect(response.status).toBe(400);
-    expect(mocks.run).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    expect(mocks.run).toHaveBeenCalledWith({ text: 'one egg', language: 'en' }, { userId: 'user-1' });
+  });
+
+  it('accepts the full 8-language UI set', async () => {
+    mocks.run.mockResolvedValue({
+      ok: true,
+      output: { items: [{ food_name: 'Brot' }] },
+      telemetry: { rawStatus: 200 },
+    });
+    const response = await POST(request({ text: 'eine Scheibe Brot', language: 'de' }));
+    expect(response.status).toBe(200);
+    expect(mocks.run).toHaveBeenCalledWith({ text: 'eine Scheibe Brot', language: 'de' }, { userId: 'user-1' });
   });
 
   it('rejects inputs above the governed parser ceiling', async () => {
@@ -46,5 +64,45 @@ describe('POST /api/food/parse', () => {
     const response = await POST(request({ text: '  one egg  ', language: 'en' }));
     expect(response.status).toBe(200);
     expect(mocks.run).toHaveBeenCalledWith({ text: 'one egg', language: 'en' }, { userId: 'user-1' });
+  });
+
+  it('maps raw pipeline failures to stable user-safe error codes', async () => {
+    mocks.run.mockResolvedValue({
+      ok: false,
+      error: 'DeepSeek incomplete response (length)',
+      telemetry: { rawStatus: 502, model: 'm', traceId: null },
+    });
+    const response = await POST(request({ text: 'one egg', language: 'en' }));
+    expect(response.status).toBe(502);
+    const body = await response.json();
+    expect(body.code).toBe('ai_busy');
+    expect(body.message).not.toContain('DeepSeek');
+    expect(body.error).not.toContain('DeepSeek');
+  });
+
+  it('maps over-long input to the too_long code', async () => {
+    mocks.run.mockResolvedValue({
+      ok: false,
+      error: 'Input too long (720 characters, max 500)',
+      errorCode: 'too_long',
+      telemetry: { rawStatus: 0, model: 'm', traceId: null },
+    });
+    const response = await POST(request({ text: 'long input', language: 'en' }));
+    expect(response.status).toBe(422);
+    const body = await response.json();
+    expect(body.code).toBe('too_long');
+  });
+
+  it('maps plausibility failures to try_rephrase', async () => {
+    mocks.run.mockResolvedValue({
+      ok: false,
+      error: 'Nutrition result failed plausibility validation',
+      telemetry: { rawStatus: 200, model: 'm', traceId: null },
+    });
+    const response = await POST(request({ text: 'one egg', language: 'en' }));
+    expect(response.status).toBe(422);
+    const body = await response.json();
+    expect(body.code).toBe('try_rephrase');
+    expect(body.message).not.toContain('plausibility');
   });
 });
