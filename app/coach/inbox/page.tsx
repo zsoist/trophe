@@ -85,7 +85,7 @@ export default function CoachInboxPage() {
         .in('user_id', clientIds)
         .order('checked_date', { ascending: false }),
       supabase.from('messages')
-        .select('client_id, sender_role, body, read_at, created_at')
+        .select('client_id, sender_role, body, read_at, created_at, attachment_type')
         .eq('coach_id', user.id)
         .order('created_at', { ascending: false })
         .limit(500),
@@ -98,8 +98,12 @@ export default function CoachInboxPage() {
 
     const lastMsg = new Map<string, { body: string; at: string }>();
     const unread = new Map<string, number>();
-    for (const m of (messagesRes.data ?? []) as Array<{ client_id: string; sender_role: string; body: string; read_at: string | null; created_at: string }>) {
-      if (!lastMsg.has(m.client_id)) lastMsg.set(m.client_id, { body: m.body, at: m.created_at });
+    for (const m of (messagesRes.data ?? []) as Array<{ client_id: string; sender_role: string; body: string; read_at: string | null; created_at: string; attachment_type: string | null }>) {
+      if (!lastMsg.has(m.client_id)) {
+        // Attachment-only messages have empty body — label by kind instead.
+        const preview = m.body || (m.attachment_type === 'image' ? '[Photo]' : m.attachment_type === 'audio' ? '[Voice note]' : '');
+        lastMsg.set(m.client_id, { body: preview, at: m.created_at });
+      }
       if (m.sender_role === 'client' && !m.read_at) unread.set(m.client_id, (unread.get(m.client_id) ?? 0) + 1);
     }
 
