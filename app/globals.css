@@ -1004,3 +1004,23 @@ input, textarea, select {
 .accent-chip-active { border-color: var(--accent, #D4A853); color: var(--accent, #D4A853); }
 
 .accent-text { color: var(--accent, #D4A853); }
+
+/* ─── W11 photo scan-reveal (PhotoScanCard) ─── */
+@keyframes photoScanSweep {
+  0%   { top: -12%; }
+  100% { top: 112%; }
+}
+.photo-scan-beam {
+  position: absolute; left: 0; right: 0; height: 12px; pointer-events: none;
+  background: linear-gradient(to bottom, transparent,
+    color-mix(in srgb, var(--accent, #D4A853) 70%, transparent), transparent);
+  animation: photoScanSweep 1.4s ease-in-out infinite;
+}
+.photo-scan-grid {
+  position: absolute; inset: 0; pointer-events: none; opacity: .18;
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--accent, #D4A853) 40%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--accent, #D4A853) 40%, transparent) 1px, transparent 1px);
+  background-size: 21px 21px;
+  mask-image: linear-gradient(to bottom, transparent 20%, black 45%, black 55%, transparent 80%);
+}

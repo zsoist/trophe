@@ -9,6 +9,7 @@ import { trpcClient } from '@/lib/trpc/client';
 import type { MealType } from '@/lib/types';
 import type { ParsedFoodItem } from '@/app/api/food/parse/route';
 import ParsedFoodList from '@/components/food/ParsedFoodList';
+import PhotoScanCard from '@/components/food/PhotoScanCard';
 import BarcodeLookupModal from '@/components/food/BarcodeLookupModal';
 
 interface QuickFoodInputProps {
@@ -797,18 +798,8 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
             <p className="text-red-400 text-xs text-center">{error}</p>
           </motion.div>
         )}
-        {/* F14: Photo preview */}
-        {photoPreview && (
-          <div className="mb-2 flex justify-center">
-            <motion.img
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              src={photoPreview}
-              alt="Food photo"
-              className="w-20 h-20 rounded-xl object-cover border border-white/10"
-            />
-          </div>
-        )}
+        {/* F14 + W11: photo settles with a final beam pass when results land */}
+        {photoPreview && <PhotoScanCard src={photoPreview} state="done" />}
         <ParsedFoodList
           items={parsedItems}
           clarificationQuestion={clarificationQuestion}
@@ -1009,22 +1000,19 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
         />
       )}
 
-      {/* F14: Photo preview while analyzing */}
+      {/* F14 + W11: scan-reveal while the vision model reads the plate */}
       <AnimatePresence>
         {mode === 'photo_analyzing' && photoPreview && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="flex items-center gap-3 glass p-3"
+            className="glass p-3"
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={photoPreview} alt="Analyzing photo preview" className="w-12 h-12 rounded-lg object-cover" />
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <Loader2 size={14} className="animate-spin gold-text" />
-                <span className="text-stone-400 text-sm">{t('food.photo_analyzing')}</span>
-              </div>
+            <PhotoScanCard src={photoPreview} state="scanning" />
+            <div className="flex items-center justify-center gap-2">
+              <Loader2 size={14} className="animate-spin" style={{ color: 'var(--accent, #D4A853)' }} />
+              <span className="text-stone-400 text-sm">{t('food.photo_analyzing')}</span>
             </div>
           </motion.div>
         )}
