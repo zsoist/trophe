@@ -123,7 +123,7 @@ export default function WeeklyMacroChart({
   function getBarColor(calories: number): string {
     if (calories === 0) return 'rgba(255,255,255,0.04)';
     const ratio = calories / targetCalories;
-    if (ratio >= 0.9 && ratio <= 1.1) return '#D4A853'; // Gold - on target
+    if (ratio >= 0.9 && ratio <= 1.1) return 'var(--accent, #D4A853)'; // Gold - on target
     if (ratio < 0.9) return '#6b7280'; // Gray - under
     return '#ef4444'; // Red - over
   }
@@ -153,7 +153,7 @@ export default function WeeklyMacroChart({
             y1={targetY}
             x2={totalWidth + 20}
             y2={targetY}
-            stroke="#D4A853"
+            stroke="var(--accent, #D4A853)"
             strokeWidth={1}
             strokeDasharray="4 3"
             opacity={0.5}
@@ -162,7 +162,7 @@ export default function WeeklyMacroChart({
             x={totalWidth + 18}
             y={targetY - 4}
             textAnchor="end"
-            fill="#D4A853"
+            fill="var(--accent, #D4A853)"
             fontSize={8}
             opacity={0.6}
           >
@@ -208,7 +208,7 @@ export default function WeeklyMacroChart({
                   x={x + barWidth / 2}
                   y={chartHeight + 14}
                   textAnchor="middle"
-                  fill={isToday ? '#D4A853' : '#78716c'}
+                  fill={isToday ? 'var(--accent, #D4A853)' : '#78716c'}
                   fontSize={9}
                   fontWeight={isToday ? 600 : 400}
                 >
@@ -216,7 +216,7 @@ export default function WeeklyMacroChart({
                 </text>
                 {/* Today dot */}
                 {isToday && (
-                  <circle cx={x + barWidth / 2} cy={chartHeight + 22} r={2} fill="#D4A853" />
+                  <circle cx={x + barWidth / 2} cy={chartHeight + 22} r={2} fill="var(--accent, #D4A853)" />
                 )}
               </g>
             );

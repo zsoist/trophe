@@ -889,6 +889,24 @@ body {
   }
 }
 
+/* ─── User appearance system (lib/appearance.ts writes these on <html>) ───
+   --accent* : user-selected accent (defaults to brand gold)
+   --m-*     : user-selected chart palette (defaults = classic macro colors)
+   Components on customizable surfaces read these instead of raw gold/macros. */
+:root {
+  --accent: var(--gold-300, #D4A853);
+  --accent-soft: rgba(212, 168, 83, .12);
+  --accent-strong: var(--gold-200, #E8C078);
+  --m-cal: #D4A853;
+  --m-protein: #E87A6E;
+  --m-carbs: #7DA3D9;
+  --m-fat: #B89DD9;
+  --m-fiber: #65D387;
+}
+/* Density: compact tightens the customizable panels without a re-render */
+html[data-density='compact'] .card { padding: 10px 12px; }
+html[data-density='compact'] .panel-gap { margin-bottom: 8px; }
+
 /* ─── Toast + theme-toggle animations (CSS replaces framer-motion in the
    global provider tree — see Toast.tsx / ThemeMode.tsx) ─── */
 @keyframes toastIn {
@@ -981,3 +999,6 @@ input, textarea, select {
     display: none !important;
   }
 }
+
+/* Accent-aware chip (replaces hardcoded gold Tailwind arbitrary classes) */
+.accent-chip-active { border-color: var(--accent, #D4A853); color: var(--accent, #D4A853); }

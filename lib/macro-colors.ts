@@ -12,11 +12,14 @@
  */
 
 export const MACRO_COLORS = {
-  calories: 'var(--gold-300, #D4A853)',
-  protein: 'var(--err, #E87A6E)',
-  carbs: 'var(--info, #7DA3D9)',
-  fat: 'var(--plum, #B89DD9)',
-  fiber: 'var(--ok, #65D387)',
+  // --m-* are the user-selectable chart-palette layer (lib/appearance.ts sets
+  // them on <html>; globals.css holds the defaults). Falling back to the old
+  // semantic vars keeps SSR + no-JS renders identical to the classic palette.
+  calories: 'var(--m-cal, var(--gold-300, #D4A853))',
+  protein: 'var(--m-protein, var(--err, #E87A6E))',
+  carbs: 'var(--m-carbs, var(--info, #7DA3D9))',
+  fat: 'var(--m-fat, var(--plum, #B89DD9))',
+  fiber: 'var(--m-fiber, var(--ok, #65D387))',
   sugar: 'var(--warn, #E8B86E)',
   water: 'var(--info, #7DA3D9)',
 } as const;
