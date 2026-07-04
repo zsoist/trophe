@@ -137,7 +137,7 @@ function RepRow({ rep }: { rep: RepScore }) {
 
   const angleDiffColor = (diffPct: number) => {
     if (diffPct <= 3) return '#22c55e';
-    if (diffPct <= 8) return '#D4A853';
+    if (diffPct <= 8) return 'var(--accent, #D4A853)';
     if (diffPct <= 16) return '#f59e0b';
     if (diffPct <= 25) return '#f97316';
     return '#ef4444';

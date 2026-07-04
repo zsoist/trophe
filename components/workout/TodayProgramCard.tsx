@@ -19,7 +19,7 @@ import type { TemplateExercise } from '@/lib/types';
 // `label` is an i18n key — resolved with t() at render.
 const DIFFICULTY_STYLE: Record<string, { bg: string; border: string; fg: string; label: string }> = {
   beginner:     { bg: 'rgba(101,211,135,.12)', border: 'rgba(101,211,135,.3)', fg: '#65D387', label: 'workout.difficulty_beginner' },
-  intermediate: { bg: 'rgba(212,168,83,.12)',  border: 'rgba(212,168,83,.3)',  fg: '#D4A853', label: 'workout.difficulty_intermediate' },
+  intermediate: { bg: 'color-mix(in srgb, var(--accent, #D4A853) 12%, transparent)',  border: 'color-mix(in srgb, var(--accent, #D4A853) 30%, transparent)',  fg: 'var(--accent, #D4A853)', label: 'workout.difficulty_intermediate' },
   advanced:     { bg: 'rgba(232,122,110,.12)', border: 'rgba(232,122,110,.3)', fg: '#E87A6E', label: 'workout.difficulty_advanced' },
 };
 
@@ -76,8 +76,8 @@ export function TodayProgramCard({
       className="card-g"
       style={{
         padding: 16,
-        background: 'linear-gradient(135deg, rgba(212,168,83,.14) 0%, rgba(212,168,83,.03) 100%)',
-        border: '1px solid rgba(212,168,83,.32)',
+        background: 'linear-gradient(135deg, color-mix(in srgb, var(--accent, #D4A853) 14%, transparent) 0%, color-mix(in srgb, var(--accent, #D4A853) 3%, transparent) 100%)',
+        border: '1px solid color-mix(in srgb, var(--accent, #D4A853) 32%, transparent)',
         position: 'relative',
         overflow: 'hidden',
       }}
@@ -85,17 +85,17 @@ export function TodayProgramCard({
       <div
         style={{
           position: 'absolute', top: -24, right: -24, width: 120, height: 120,
-          background: 'radial-gradient(circle, rgba(212,168,83,.18) 0%, transparent 70%)',
+          background: 'radial-gradient(circle, color-mix(in srgb, var(--accent, #D4A853) 18%, transparent) 0%, transparent 70%)',
           pointerEvents: 'none',
         }}
       />
 
       {/* Eyebrow: program name */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-        <CalendarDays size={11} style={{ color: 'var(--gold-300,#D4A853)' }} />
+        <CalendarDays size={11} style={{ color: 'var(--accent, #D4A853)' }} />
         <span style={{
           fontSize: 9, fontFamily: 'var(--font-mono)', textTransform: 'uppercase',
-          letterSpacing: '.08em', color: 'var(--gold-300,#D4A853)',
+          letterSpacing: '.08em', color: 'var(--accent, #D4A853)',
         }}>
           {t('workout.program_today', { program: programName })}
         </span>
@@ -123,7 +123,7 @@ export function TodayProgramCard({
       {/* Counts row */}
       <div style={{ display: 'flex', gap: 14, marginTop: 10, marginBottom: 14 }}>
         <span style={{ fontSize: 11, color: 'var(--t3)', display: 'flex', alignItems: 'center', gap: 5 }}>
-          <Dumbbell size={11} style={{ color: 'var(--gold-300,#D4A853)' }} />
+          <Dumbbell size={11} style={{ color: 'var(--accent, #D4A853)' }} />
           {t('workout.exercise_count', { n: exerciseCount })}
         </span>
         <span style={{ fontSize: 11, color: 'var(--t3)' }}>

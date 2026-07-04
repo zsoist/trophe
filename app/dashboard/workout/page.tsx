@@ -23,6 +23,7 @@ import {
   BarChart3, Check, MessageCircle,
 } from 'lucide-react';
 import { BotNav } from '@/components/ui/BotNav';
+import { AnimatedValue } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
 import { useClientNav } from '@/lib/useClientNav';
@@ -272,9 +273,9 @@ function ExercisePicker({
             onClick={() => setFilterMuscle('all')}
             className="shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all"
             style={{
-              background: filterMuscle === 'all' ? 'rgba(212,168,83,0.2)' : 'rgba(255,255,255,0.05)',
-              color: filterMuscle === 'all' ? '#D4A853' : '#a8a29e',
-              border: filterMuscle === 'all' ? '1px solid rgba(212,168,83,0.3)' : '1px solid rgba(255,255,255,0.06)',
+              background: filterMuscle === 'all' ? 'color-mix(in srgb, var(--accent, #D4A853) 20%, transparent)' : 'rgba(255,255,255,0.05)',
+              color: filterMuscle === 'all' ? 'var(--accent, #D4A853)' : '#a8a29e',
+              border: filterMuscle === 'all' ? '1px solid color-mix(in srgb, var(--accent, #D4A853) 30%, transparent)' : '1px solid rgba(255,255,255,0.06)',
             }}
           >
             {t('workout.all')}
@@ -301,7 +302,7 @@ function ExercisePicker({
         <button
           onClick={() => setShowCustomModal(true)}
           className="w-full py-2.5 rounded-xl text-sm font-medium flex items-center justify-center gap-2 transition-colors"
-          style={{ border: '1px dashed rgba(212,168,83,0.3)', background: 'rgba(212,168,83,0.05)', color: '#D4A853' }}
+          style={{ border: '1px dashed color-mix(in srgb, var(--accent, #D4A853) 30%, transparent)', background: 'color-mix(in srgb, var(--accent, #D4A853) 5%, transparent)', color: 'var(--accent, #D4A853)' }}
         >
           <Plus size={16} />
           Add Custom Exercise
@@ -404,9 +405,9 @@ function RestChip({ startedAt, onDismiss }: { startedAt: number; onDismiss: () =
       onClick={onDismiss}
       className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium"
       style={{
-        background: ready ? 'rgba(212,168,83,0.18)' : 'rgba(255,255,255,0.06)',
-        color: ready ? '#D4A853' : '#a8a29e',
-        border: ready ? '1px solid rgba(212,168,83,0.35)' : '1px solid rgba(255,255,255,0.08)',
+        background: ready ? 'color-mix(in srgb, var(--accent, #D4A853) 18%, transparent)' : 'rgba(255,255,255,0.06)',
+        color: ready ? 'var(--accent, #D4A853)' : '#a8a29e',
+        border: ready ? '1px solid color-mix(in srgb, var(--accent, #D4A853) 35%, transparent)' : '1px solid rgba(255,255,255,0.08)',
         animation: ready ? 'pulse 1.6s ease-in-out infinite' : undefined,
       }}
       title="Rest since last set — tap to dismiss"
@@ -485,7 +486,7 @@ function RecentSessionCard({
       >
         <div style={{
           width: 32, height: 32, borderRadius: 10, flexShrink: 0,
-          background: 'rgba(212,168,83,.1)', border: '1px solid rgba(212,168,83,.2)',
+          background: 'color-mix(in srgb, var(--accent, #D4A853) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--accent, #D4A853) 20%, transparent)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
           <Dumbbell size={14} className="gold-text" />
@@ -537,9 +538,9 @@ function RecentSessionCard({
                         key={r.id}
                         style={{
                           fontSize: 10, fontFamily: 'var(--font-mono)', padding: '2px 7px', borderRadius: 8,
-                          background: r.is_pr ? 'rgba(212,168,83,.14)' : 'rgba(255,255,255,.04)',
-                          border: r.is_pr ? '1px solid rgba(212,168,83,.35)' : '1px solid rgba(255,255,255,.06)',
-                          color: r.is_pr ? '#D4A853' : 'var(--t3)',
+                          background: r.is_pr ? 'color-mix(in srgb, var(--accent, #D4A853) 14%, transparent)' : 'rgba(255,255,255,.04)',
+                          border: r.is_pr ? '1px solid color-mix(in srgb, var(--accent, #D4A853) 35%, transparent)' : '1px solid rgba(255,255,255,.06)',
+                          color: r.is_pr ? 'var(--accent, #D4A853)' : 'var(--t3)',
                         }}
                       >
                         {r.is_warmup ? 'W ' : ''}{r.weight_kg ?? 0}kg×{r.reps ?? 0}
@@ -551,7 +552,7 @@ function RecentSessionCard({
               ))}
               {!loadingSets && sets !== null && (
                 <Link href="/dashboard/workout/history">
-                  <span style={{ display: 'inline-block', marginTop: 10, fontSize: 10, color: 'var(--gold-300,#D4A853)', cursor: 'pointer' }}>
+                  <span style={{ display: 'inline-block', marginTop: 10, fontSize: 10, color: 'var(--accent, #D4A853)', cursor: 'pointer' }}>
                     {t('workout.view_full_history')}
                   </span>
                 </Link>
@@ -602,6 +603,9 @@ export default function WorkoutPage() {
   const [saving, setSaving] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [restStartedAt, setRestStartedAt] = useState<number | null>(null);
+  // Session-complete celebration (volume/sets/PRs/minutes) — shown over the
+  // landing after finish; dismissing it is the only way it clears.
+  const [finishSummary, setFinishSummary] = useState<{ volume: number; sets: number; prs: number; minutes: number } | null>(null);
 
   // ── Coach program (tRPC; provider mounted in app/dashboard/layout.tsx) ──
   const programQuery = trpc.workouts.program.mine.useQuery(undefined, {
@@ -914,6 +918,11 @@ export default function WorkoutPage() {
       weight_kg: input.weight_kg !== null ? String(input.weight_kg) : set.weight_kg,
       reps: input.reps !== null ? String(input.reps) : set.reps,
     });
+    // Haptic feedback — the tap IS the gesture, so vibrate is never blocked
+    // here: a firm triple pulse for a PR, a tick for a normal completed set.
+    if (typeof navigator !== 'undefined') {
+      navigator.vibrate?.(input.is_pr ? [12, 40, 12] : 6);
+    }
     setRestStartedAt(Date.now());
   };
 
@@ -945,6 +954,24 @@ export default function WorkoutPage() {
         return;
       }
 
+      // Session summary — the moment the old flow never gave the user.
+      // Completed rows carry live values; pending rows were just resolved.
+      const summarySets = [
+        ...activeExercises.flatMap((ae) =>
+          ae.sets.filter((s) => s.completed && !s.is_warmup).map((s) => ({
+            w: parseFloat(s.weight_kg) || 0, r: parseInt(s.reps, 10) || 0, pr: s.is_pr,
+          }))),
+        ...pending.filter((p) => !p.is_warmup).map((p) => ({
+          w: p.weight_kg ?? 0, r: p.reps ?? 0, pr: p.is_pr,
+        })),
+      ];
+      const summary = {
+        volume: Math.round(summarySets.reduce((s, x) => s + x.w * x.r, 0)),
+        sets: summarySets.length,
+        prs: summarySets.filter((x) => x.pr).length,
+        minutes: durationMinutes,
+      };
+
       const sessionId = await ensureSession();
       if (sessionId) {
         await insertWorkoutSets(sessionId, pending);
@@ -957,13 +984,15 @@ export default function WorkoutPage() {
 
       if (userId) await refreshRecents(userId);
 
-      // Reset
+      // Reset + celebrate
       setMode('landing');
       setActiveExercises([]);
       setPainFlags([]);
       setRestStartedAt(null);
       sessionPromiseRef.current = null;
       sessionIdRef.current = null;
+      setFinishSummary(summary);
+      if (typeof navigator !== 'undefined') navigator.vibrate?.([10, 30, 10, 30, 18]);
     } catch (err) {
       console.error('Error finishing workout:', err);
     } finally {
@@ -1109,8 +1138,8 @@ export default function WorkoutPage() {
                     className="card"
                     style={{
                       padding: '11px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-                      border: showCardio ? '1px solid rgba(212,168,83,.4)' : undefined,
-                      background: showCardio ? 'rgba(212,168,83,.07)' : undefined,
+                      border: showCardio ? '1px solid color-mix(in srgb, var(--accent, #D4A853) 40%, transparent)' : undefined,
+                      background: showCardio ? 'color-mix(in srgb, var(--accent, #D4A853) 7%, transparent)' : undefined,
                     }}
                   >
                     <Play size={14} className="gold-text" />
@@ -1132,8 +1161,8 @@ export default function WorkoutPage() {
                   className="card w-full"
                   style={{
                     padding: '11px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-                    border: showCardio ? '1px solid rgba(212,168,83,.4)' : undefined,
-                    background: showCardio ? 'rgba(212,168,83,.07)' : undefined,
+                    border: showCardio ? '1px solid color-mix(in srgb, var(--accent, #D4A853) 40%, transparent)' : undefined,
+                    background: showCardio ? 'color-mix(in srgb, var(--accent, #D4A853) 7%, transparent)' : undefined,
                   }}
                 >
                   <Play size={14} className="gold-text" />
@@ -1152,7 +1181,7 @@ export default function WorkoutPage() {
                     style={{ padding: '20px 12px', textAlign: 'center', cursor: 'pointer' }}
                   >
                     <Dumbbell size={28} className="gold-text mx-auto" />
-                    <div style={{ fontSize: 13, fontWeight: 700, marginTop: 8, color: 'var(--t1)', letterSpacing: '-.01em' }}>Strength</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, marginTop: 8, color: 'var(--t1)', letterSpacing: '-.01em' }}>{t('workout.strength')}</div>
                     <div className="ds-sub" style={{ fontSize: 9, marginTop: 3 }}>Weights + sets</div>
                   </motion.button>
 
@@ -1163,8 +1192,8 @@ export default function WorkoutPage() {
                     className="card"
                     style={{
                       padding: '20px 12px', textAlign: 'center', cursor: 'pointer',
-                      border: showCardio ? '1px solid rgba(212,168,83,.4)' : undefined,
-                      background: showCardio ? 'rgba(212,168,83,.07)' : undefined,
+                      border: showCardio ? '1px solid color-mix(in srgb, var(--accent, #D4A853) 40%, transparent)' : undefined,
+                      background: showCardio ? 'color-mix(in srgb, var(--accent, #D4A853) 7%, transparent)' : undefined,
                     }}
                   >
                     <Play size={28} className="gold-text mx-auto" />
@@ -1211,9 +1240,9 @@ export default function WorkoutPage() {
                             style={{
                               padding: '5px 12px', borderRadius: 20, fontSize: 11, fontWeight: 600,
                               cursor: 'pointer', transition: 'all .15s',
-                              background: cardioType === type ? 'rgba(212,168,83,.2)' : 'rgba(255,255,255,.04)',
-                              border: cardioType === type ? '1px solid rgba(212,168,83,.5)' : '1px solid rgba(255,255,255,.06)',
-                              color: cardioType === type ? '#D4A853' : 'var(--t3)',
+                              background: cardioType === type ? 'color-mix(in srgb, var(--accent, #D4A853) 20%, transparent)' : 'rgba(255,255,255,.04)',
+                              border: cardioType === type ? '1px solid color-mix(in srgb, var(--accent, #D4A853) 50%, transparent)' : '1px solid rgba(255,255,255,.06)',
+                              color: cardioType === type ? 'var(--accent, #D4A853)' : 'var(--t3)',
                             }}
                           >
                             {type.charAt(0).toUpperCase() + type.slice(1)}
@@ -1256,9 +1285,9 @@ export default function WorkoutPage() {
                               style={{
                                 padding: '4px 8px', borderRadius: 8, fontSize: 10, fontWeight: 600,
                                 cursor: 'pointer',
-                                background: cardioDuration === m ? 'rgba(212,168,83,.2)' : 'rgba(255,255,255,.04)',
-                                border: cardioDuration === m ? '1px solid rgba(212,168,83,.4)' : '1px solid rgba(255,255,255,.06)',
-                                color: cardioDuration === m ? '#D4A853' : 'var(--t4)',
+                                background: cardioDuration === m ? 'color-mix(in srgb, var(--accent, #D4A853) 20%, transparent)' : 'rgba(255,255,255,.04)',
+                                border: cardioDuration === m ? '1px solid color-mix(in srgb, var(--accent, #D4A853) 40%, transparent)' : '1px solid rgba(255,255,255,.06)',
+                                color: cardioDuration === m ? 'var(--accent, #D4A853)' : 'var(--t4)',
                               }}
                             >{m}</button>
                           ))}
@@ -1323,7 +1352,7 @@ export default function WorkoutPage() {
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, marginTop: 4 }}>
                   <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '.06em' }}>Recent</span>
                   <Link href="/dashboard/workout/history">
-                    <span style={{ fontSize: 10, color: 'var(--gold-300,#D4A853)', cursor: 'pointer' }}>See all</span>
+                    <span style={{ fontSize: 10, color: 'var(--accent, #D4A853)', cursor: 'pointer' }}>See all</span>
                   </Link>
                 </div>
                 <div className="grid gap-2 lg:grid-cols-2">
@@ -1455,9 +1484,9 @@ export default function WorkoutPage() {
                                 placeholder={ae.lastSets?.[setIndex]?.weight_kg?.toString() ?? '0'}
                                 className="flex-1 min-w-0 text-center text-sm py-2 rounded-lg outline-none transition-colors"
                                 style={{
-                                  background: set.is_pr ? 'rgba(212,168,83,0.15)' : 'rgba(255,255,255,0.04)',
-                                  border: set.is_pr ? '1px solid rgba(212,168,83,0.3)' : '1px solid transparent',
-                                  color: set.is_pr ? '#D4A853' : '#f5f5f4',
+                                  background: set.is_pr ? 'color-mix(in srgb, var(--accent, #D4A853) 15%, transparent)' : 'rgba(255,255,255,0.04)',
+                                  border: set.is_pr ? '1px solid color-mix(in srgb, var(--accent, #D4A853) 30%, transparent)' : '1px solid transparent',
+                                  color: set.is_pr ? 'var(--accent, #D4A853)' : '#f5f5f4',
                                   opacity: set.completed && !set.is_pr ? 0.65 : 1,
                                 }}
                               />
@@ -1509,12 +1538,12 @@ export default function WorkoutPage() {
                                 className="w-9 h-9 flex items-center justify-center rounded-lg transition-colors"
                                 style={{
                                   background: set.completed
-                                    ? (set.is_pr ? 'rgba(212,168,83,.22)' : 'rgba(34,197,94,.16)')
+                                    ? (set.is_pr ? 'color-mix(in srgb, var(--accent, #D4A853) 22%, transparent)' : 'rgba(34,197,94,.16)')
                                     : 'rgba(255,255,255,0.05)',
                                   border: set.completed
-                                    ? (set.is_pr ? '1px solid rgba(212,168,83,.45)' : '1px solid rgba(34,197,94,.3)')
+                                    ? (set.is_pr ? '1px solid color-mix(in srgb, var(--accent, #D4A853) 45%, transparent)' : '1px solid rgba(34,197,94,.3)')
                                     : '1px solid rgba(255,255,255,.09)',
-                                  color: set.completed ? (set.is_pr ? '#D4A853' : '#4ade80') : '#78716c',
+                                  color: set.completed ? (set.is_pr ? 'var(--accent, #D4A853)' : '#4ade80') : '#78716c',
                                   opacity: set.saving ? 0.5 : 1,
                                 }}
                               >
@@ -1554,7 +1583,7 @@ export default function WorkoutPage() {
               whileTap={{ scale: 0.98 }}
               onClick={() => setShowPicker(true)}
               className="w-full py-3 rounded-2xl flex items-center justify-center gap-2 text-sm font-semibold gold-text transition-colors"
-              style={{ border: '1px dashed rgba(212,168,83,0.3)', background: 'rgba(212,168,83,0.05)' }}
+              style={{ border: '1px dashed color-mix(in srgb, var(--accent, #D4A853) 30%, transparent)', background: 'color-mix(in srgb, var(--accent, #D4A853) 5%, transparent)' }}
             >
               <Plus size={18} />
               {t('workout.add_exercise')}
@@ -1614,6 +1643,57 @@ export default function WorkoutPage() {
             onSave={(flag) => setPainFlags((prev) => [...prev, flag])}
             onClose={() => setPainModalExerciseId(null)}
           />
+        )}
+      </AnimatePresence>
+
+      {/* ── Session-complete celebration ─────────────────────────── */}
+      <AnimatePresence>
+        {finishSummary && (
+          <motion.div
+            className="fixed inset-0 flex items-center justify-center px-6"
+            style={{ zIndex: 60, background: 'rgba(0,0,0,.72)', backdropFilter: 'blur(6px)' }}
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            onClick={() => setFinishSummary(null)}
+          >
+            <motion.div
+              className="card-g w-full max-w-sm text-center"
+              style={{ padding: '26px 22px' }}
+              initial={{ scale: 0.9, y: 16 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 360, damping: 26 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="eye" style={{ color: 'var(--accent)', marginBottom: 6 }}>
+                {t('workout.summary_title')}
+              </div>
+              <div className="display-lg" style={{ fontSize: 44, lineHeight: '48px', color: 'var(--t1)' }}>
+                <AnimatedValue value={finishSummary.volume} />
+                <span style={{ fontFamily: 'var(--font-mono)', fontStyle: 'normal', fontSize: 13, color: 'var(--t4)', marginLeft: 4 }}>kg</span>
+              </div>
+              <div className="eye-d" style={{ marginTop: 2, marginBottom: 16 }}>{t('workout.summary_volume')}</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 18 }}>
+                {[
+                  { v: finishSummary.sets, l: t('workout.summary_sets'), accent: false },
+                  { v: finishSummary.prs, l: t('workout.summary_prs'), accent: finishSummary.prs > 0 },
+                  { v: finishSummary.minutes, l: t('workout.summary_minutes'), accent: false },
+                ].map((s) => (
+                  <div key={s.l} style={{ padding: '10px 6px', borderRadius: 12, background: s.accent ? 'var(--accent-soft)' : 'rgba(255,255,255,.03)', border: `1px solid ${s.accent ? 'var(--accent)' : 'var(--line)'}` }}>
+                    <div style={{ fontSize: 20, fontWeight: 700, fontFamily: 'var(--font-mono)', color: s.accent ? 'var(--accent)' : 'var(--t1)' }}>
+                      <AnimatedValue value={s.v} />
+                    </div>
+                    <div className="eye-d" style={{ marginTop: 2 }}>{s.l}</div>
+                  </div>
+                ))}
+              </div>
+              {finishSummary.prs > 0 && (
+                <div style={{ fontSize: 12, color: 'var(--accent)', fontWeight: 600, marginBottom: 14 }}>
+                  {t('workout.summary_pr_line')}
+                </div>
+              )}
+              <button className="btn-gold w-full" style={{ fontSize: 13, padding: '11px' }} onClick={() => setFinishSummary(null)}>
+                {t('workout.summary_done')}
+              </button>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
 

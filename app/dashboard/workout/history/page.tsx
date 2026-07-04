@@ -40,7 +40,7 @@ function VolumeChart({ sessions }: { sessions: SessionWithSets[] }) {
             transition={{ delay: i * 0.05, duration: 0.4 }}
             className="flex-1 rounded-t-md relative group"
             style={{
-              background: `linear-gradient(to top, rgba(212,168,83,0.3), rgba(212,168,83,0.6))`,
+              background: `linear-gradient(to top, color-mix(in srgb, var(--accent, #D4A853) 30%, transparent), color-mix(in srgb, var(--accent, #D4A853) 60%, transparent))`,
               minHeight: '3px',
             }}
           >
@@ -127,7 +127,7 @@ function SessionCard({
         className="w-full p-4 flex items-start gap-3"
       >
         <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-          style={{ background: 'rgba(212,168,83,0.1)' }}>
+          style={{ background: 'color-mix(in srgb, var(--accent, #D4A853) 10%, transparent)' }}>
           <Dumbbell size={18} className="gold-text" />
         </div>
 
@@ -138,7 +138,7 @@ function SessionCard({
             </p>
             {prCount > 0 && (
               <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold"
-                style={{ background: 'rgba(212,168,83,0.15)', color: '#D4A853' }}>
+                style={{ background: 'color-mix(in srgb, var(--accent, #D4A853) 15%, transparent)', color: 'var(--accent, #D4A853)' }}>
                 <Trophy size={9} /> {prCount}
               </span>
             )}
@@ -227,7 +227,7 @@ function SessionCard({
                   router.push(`/dashboard/workout?repeat=${session.id}`);
                 }}
                 className="w-full py-2 rounded-xl text-xs font-medium flex items-center justify-center gap-1.5 transition-colors"
-                style={{ background: 'rgba(212,168,83,0.1)', color: '#D4A853', border: '1px solid rgba(212,168,83,0.2)' }}
+                style={{ background: 'color-mix(in srgb, var(--accent, #D4A853) 10%, transparent)', color: 'var(--accent, #D4A853)', border: '1px solid color-mix(in srgb, var(--accent, #D4A853) 20%, transparent)' }}
               >
                 <RotateCcw size={12} />
                 {t('workout.repeat')}
@@ -305,7 +305,7 @@ export default function WorkoutHistoryPage() {
       <div className="max-w-md mx-auto px-4 pt-4">
         {loading && (
           <div className="flex items-center justify-center py-16">
-            <div className="w-6 h-6 border-2 border-stone-700 border-t-[#D4A853] rounded-full animate-spin" />
+            <div className="w-6 h-6 border-2 border-stone-700 border-t-[var(--accent,#D4A853)] rounded-full animate-spin" />
           </div>
         )}
 

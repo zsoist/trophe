@@ -94,3 +94,37 @@ with p95 latency, logsByDay, facets.
   wire more mutations through recordAuditEvent as WP5 work.
 - organization_ai_budgets (daily/monthly limits + kill switch) exists but is not
   yet surfaced in the CC Costs tab — natural WP4/WP6 addition.
+
+---
+
+# ADDENDUM — 2026-07-04 sessions (same overhaul arc)
+
+## Progress + Settings mega overhaul (PR #49)
+User-owned appearance system: lib/appearance.ts (6 accents, 4 chart palettes,
+density, PROGRESS_PANELS registry) + AppearanceProvider (localStorage instant,
+profiles.display_prefs.appearance sync, CSS vars --accent*/--m-* — zero
+prop-drilling; MACRO_COLORS reads the palette layer). Progress: registry-driven
+panels w/ user order+visibility (CustomizeSheet; coach gates supreme), Journey
+hero, period pills, BodyComp moved in. Settings: sticky pill nav, appearance
+studio, 8 languages, privacy export. 64 i18n keys × 8 langs.
+
+## Dashboard ↔ workout integration (this PR)
+The disconnect: workout had NO nav tab (2 taps deep), NO home presence, ~29
+hardcoded golds, zero celebrations while home was premium.
+- BotNav: 5th tab Workout (useClientNav) — every client page inherits.
+- Home: TodayWorkoutCard (self-fetching; states trained/assigned/rest/free —
+  trained shows volume/sets/PRs count-ups; assigned shows template+Start;
+  prod reality is 0 active programs, so free/trained are the hot paths).
+- Workout pages 100% accent-aware: 0 raw gold refs left (alpha-preserving
+  color-mix for rgba variants — a naive sed to --accent-soft would have
+  flattened border/gradient hierarchy).
+- Celebrations: set-complete haptic tick / PR triple-pulse (tap = gesture, so
+  never browser-blocked); finish → session-summary overlay (serif volume
+  count-up, sets/PRs/minutes, PR line) — the moment the flow never had.
+- i18n: 24 new workout keys × 8 langs; 'Strength' hardcode killed.
+
+## WP6-lite (Mac-side, no repo change)
+com.macmini.trophe-uptime (300s probe of / + /api/health, state-change paging
+Telegram+Discord, blackboard heartbeat) + resurrected orphan
+com.macmini.trophe-cron-health (script existed since June 15 but had NO plist
+and wasn't executable — never ran once). Delivery test-verified.

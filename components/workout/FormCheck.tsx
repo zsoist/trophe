@@ -405,7 +405,7 @@ export default function FormCheck({ exercise, side, onComplete, onBack }: FormCh
           <button
             onClick={finishRecording}
             className="px-4 py-2 rounded-xl text-sm font-semibold"
-            style={{ background: 'rgba(212,168,83,0.2)', color: '#D4A853', border: '1px solid rgba(212,168,83,0.3)' }}
+            style={{ background: 'color-mix(in srgb, var(--accent, #D4A853) 20%, transparent)', color: 'var(--accent, #D4A853)', border: '1px solid color-mix(in srgb, var(--accent, #D4A853) 30%, transparent)' }}
           >
             Finalizar
           </button>

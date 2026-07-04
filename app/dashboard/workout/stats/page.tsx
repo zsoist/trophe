@@ -36,7 +36,7 @@ const muscleColors: Record<string, string> = {
   glutes: '#22C55E',
   calves: '#22C55E',
   core: '#78716C',
-  full_body: '#D4A853',
+  full_body: 'var(--accent, #D4A853)',
   cardio: '#EC4899',
 };
 
@@ -409,11 +409,11 @@ export default function WorkoutStatsPage() {
         <path d={areaD} fill="url(#goldGradient)" opacity={0.15} />
 
         {/* Line */}
-        <path d={pathD} fill="none" stroke="#D4A853" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+        <path d={pathD} fill="none" stroke="var(--accent, #D4A853)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
 
         {/* Dots */}
         {points.map((p, i) => (
-          <circle key={i} cx={p.x} cy={p.y} r={3} fill="#D4A853" />
+          <circle key={i} cx={p.x} cy={p.y} r={3} fill="var(--accent, #D4A853)" />
         ))}
 
         {/* X labels */}
@@ -433,8 +433,8 @@ export default function WorkoutStatsPage() {
 
         <defs>
           <linearGradient id="goldGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#D4A853" stopOpacity={0.6} />
-            <stop offset="100%" stopColor="#D4A853" stopOpacity={0} />
+            <stop offset="0%" stopColor="var(--accent, #D4A853)" stopOpacity={0.6} />
+            <stop offset="100%" stopColor="var(--accent, #D4A853)" stopOpacity={0} />
           </linearGradient>
         </defs>
       </svg>
@@ -478,7 +478,7 @@ export default function WorkoutStatsPage() {
             <div className="text-center py-20">
               <Activity size={48} className="mx-auto text-stone-700 mb-4" />
               <p className="text-stone-500 mb-2">No workout data yet</p>
-              <Link href="/dashboard/workout" className="text-[#D4A853] text-sm hover:underline">
+              <Link href="/dashboard/workout" className="accent-text text-sm hover:underline">
                 Log your first workout
               </Link>
             </div>
@@ -487,14 +487,14 @@ export default function WorkoutStatsPage() {
               {/* ── Weekly Volume by Muscle Group (only section open by default) ── */}
               <Section
                 title="Weekly Volume by Muscle"
-                icon={<BarChart3 size={16} className="text-[#D4A853]" />}
+                icon={<BarChart3 size={16} className="accent-text" />}
                 defaultOpen
               >
                 {renderVolumeBars()}
               </Section>
 
               {/* ── Muscle Frequency ── */}
-              <Section title="Muscle Frequency" icon={<Clock size={16} className="text-[#D4A853]" />}>
+              <Section title="Muscle Frequency" icon={<Clock size={16} className="accent-text" />}>
                 <div className="grid grid-cols-2 gap-2">
                   {muscleFrequency.map((mf) => {
                     let statusColor = 'text-red-400';
@@ -532,7 +532,7 @@ export default function WorkoutStatsPage() {
               </Section>
 
               {/* ── Personal Records ── */}
-              <Section title="Personal Records" icon={<Trophy size={16} className="text-[#D4A853]" />}>
+              <Section title="Personal Records" icon={<Trophy size={16} className="accent-text" />}>
                 {personalRecords.length === 0 ? (
                   <p className="text-stone-600 text-sm text-center py-4">No PRs recorded yet</p>
                 ) : (
@@ -542,7 +542,7 @@ export default function WorkoutStatsPage() {
                         key={i}
                         className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03]"
                       >
-                        <Trophy size={16} className="shrink-0 text-[#D4A853]" />
+                        <Trophy size={16} className="shrink-0 accent-text" />
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-medium text-stone-200 truncate">
                             {pr.exercise_name}
@@ -558,13 +558,13 @@ export default function WorkoutStatsPage() {
               </Section>
 
               {/* ── Weekly Volume Trend ── */}
-              <Section title="Weekly Volume Trend" icon={<TrendingUp size={16} className="text-[#D4A853]" />}>
+              <Section title="Weekly Volume Trend" icon={<TrendingUp size={16} className="accent-text" />}>
                 <div className="text-[10px] text-stone-600 mb-2">Last 8 weeks</div>
                 {renderWeeklyTrendLine()}
               </Section>
 
               {/* ── Exercise Comparison ── */}
-              <Section title="Exercise Comparison" icon={<Activity size={16} className="text-[#D4A853]" />}>
+              <Section title="Exercise Comparison" icon={<Activity size={16} className="accent-text" />}>
                 <select
                   value={selectedExerciseId || ''}
                   onChange={(e) => setSelectedExerciseId(e.target.value || null)}
@@ -587,7 +587,7 @@ export default function WorkoutStatsPage() {
               <div className="flex gap-3">
                 <Link
                   href="/dashboard/workout"
-                  className="flex-1 glass p-4 text-center text-sm text-stone-400 hover:text-[#D4A853] transition-colors"
+                  className="flex-1 glass p-4 text-center text-sm text-stone-400 hover:accent-text transition-colors"
                 >
                   {t('workout.back_to_workout')}
                 </Link>
