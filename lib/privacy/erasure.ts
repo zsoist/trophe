@@ -148,6 +148,28 @@ export async function eraseUser(userId: string, opts: { dryRun: boolean }): Prom
     return result;
   }
 
+  // 0) Chat attachments in storage — storage.objects has no FK to profiles,
+  //    so the cascade never touches it. Path convention (migration 0052):
+  //    {coach_id}/{client_id}/{uuid}.{ext} — remove every object under each
+  //    coach this client ever messaged with.
+  {
+    const { data: coachRows } = await service
+      .from('messages').select('coach_id').eq('client_id', userId);
+    const coachIds = [...new Set((coachRows ?? []).map((r) => r.coach_id as string))];
+    let objCount = 0;
+    for (const coachId of coachIds) {
+      const prefix = `${coachId}/${userId}`;
+      const { data: objs } = await service.storage.from('chat-attachments').list(prefix, { limit: 1000 });
+      const paths = (objs ?? []).map((o) => `${prefix}/${o.name}`);
+      objCount += paths.length;
+      if (!opts.dryRun && paths.length > 0) {
+        const { error } = await service.storage.from('chat-attachments').remove(paths);
+        if (error) result.errors.push(`chat-attachments remove: ${error.message}`);
+      }
+    }
+    result.counts['chat-attachments storage (delete)'] = objCount;
+  }
+
   // 1) Straggler steps (would block or escape the cascade)
   for (const step of PRE_ERASURE_STEPS) {
     const key = `${step.table}.${step.column} (${step.action})`;
