@@ -241,8 +241,8 @@ export default function HabitRadar({ userId }: HabitRadarProps) {
             {/* Data polygon */}
             <motion.polygon
               points={getPolygonPoints(values)}
-              fill="#D4A85330"
-              stroke="#D4A853"
+              fill="var(--accent-soft, rgba(212,168,83,.19))"
+              stroke="var(--accent, #D4A853)"
               strokeWidth={2}
               strokeLinejoin="round"
               initial={{ opacity: 0, scale: 0 }}
@@ -260,7 +260,7 @@ export default function HabitRadar({ userId }: HabitRadarProps) {
                   cx={pt.x}
                   cy={pt.y}
                   r={3.5}
-                  fill="#D4A853"
+                  fill="var(--accent, #D4A853)"
                   stroke="#0a0a0a"
                   strokeWidth={2}
                   initial={{ opacity: 0 }}
@@ -302,7 +302,7 @@ export default function HabitRadar({ userId }: HabitRadarProps) {
                   style={{
                     color:
                       (scores[cat.key] || 0) >= 75
-                        ? '#D4A853'
+                        ? 'var(--accent, #D4A853)'
                         : (scores[cat.key] || 0) >= 50
                         ? '#a8a29e'
                         : '#78716c',

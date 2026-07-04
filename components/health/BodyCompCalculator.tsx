@@ -15,13 +15,13 @@ interface ZoneInfo {
 function getZone(bf: number, sex: CalcSex): ZoneInfo {
   if (sex === 'male') {
     if (bf < 10) return { label: 'Athletic', color: '#22c55e', bgColor: 'rgba(34,197,94,0.15)' };
-    if (bf < 20) return { label: 'Fit', color: '#D4A853', bgColor: 'rgba(212,168,83,0.15)' };
+    if (bf < 20) return { label: 'Fit', color: 'var(--accent, #D4A853)', bgColor: 'var(--accent-soft, rgba(212,168,83,0.15))' };
     if (bf < 25) return { label: 'Average', color: '#3b82f6', bgColor: 'rgba(59,130,246,0.15)' };
     if (bf < 30) return { label: 'Above Average', color: '#f59e0b', bgColor: 'rgba(245,158,11,0.15)' };
     return { label: 'High', color: '#ef4444', bgColor: 'rgba(239,68,68,0.15)' };
   } else {
     if (bf < 18) return { label: 'Athletic', color: '#22c55e', bgColor: 'rgba(34,197,94,0.15)' };
-    if (bf < 25) return { label: 'Fit', color: '#D4A853', bgColor: 'rgba(212,168,83,0.15)' };
+    if (bf < 25) return { label: 'Fit', color: 'var(--accent, #D4A853)', bgColor: 'var(--accent-soft, rgba(212,168,83,0.15))' };
     if (bf < 32) return { label: 'Average', color: '#3b82f6', bgColor: 'rgba(59,130,246,0.15)' };
     if (bf < 38) return { label: 'Above Average', color: '#f59e0b', bgColor: 'rgba(245,158,11,0.15)' };
     return { label: 'High', color: '#ef4444', bgColor: 'rgba(239,68,68,0.15)' };
@@ -45,14 +45,14 @@ function GaugeArc({ value, sex }: { value: number; sex: CalcSex }) {
   const zones = sex === 'male'
     ? [
         { end: 10, color: '#22c55e' },
-        { end: 20, color: '#D4A853' },
+        { end: 20, color: 'var(--accent, #D4A853)' },
         { end: 25, color: '#3b82f6' },
         { end: 30, color: '#f59e0b' },
         { end: 45, color: '#ef4444' },
       ]
     : [
         { end: 18, color: '#22c55e' },
-        { end: 25, color: '#D4A853' },
+        { end: 25, color: 'var(--accent, #D4A853)' },
         { end: 32, color: '#3b82f6' },
         { end: 38, color: '#f59e0b' },
         { end: 45, color: '#ef4444' },
@@ -163,10 +163,10 @@ export default function BodyCompCalculator({ sex: initialSex }: { sex?: CalcSex 
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.35 }}
       className="glass p-5 mb-4"
-      style={{ borderColor: 'rgba(212, 168, 83, 0.15)', borderWidth: 1 }}
+      style={{ borderColor: 'var(--accent-soft, rgba(212,168,83,0.15))', borderWidth: 1 }}
     >
       <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider mb-4 flex items-center gap-2">
-        <Calculator size={14} className="text-[#D4A853]" />
+        <Calculator size={14} style={{ color: 'var(--accent, #D4A853)' }} />
         Body Fat Estimate (Navy Method)
       </h3>
 
@@ -178,7 +178,7 @@ export default function BodyCompCalculator({ sex: initialSex }: { sex?: CalcSex 
             onClick={() => { setSex(s); setResult(null); }}
             className={`flex-1 py-2 rounded-xl text-sm font-medium border transition-all ${
               sex === s
-                ? 'border-[#D4A853]/40 text-[#D4A853] bg-white/5'
+                ? 'accent-chip-active bg-white/5'
                 : 'border-white/5 text-stone-400'
             }`}
           >
