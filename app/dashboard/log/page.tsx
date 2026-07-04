@@ -678,11 +678,24 @@ export default function FoodLogPage() {
     return () => window.clearTimeout(igniteTimer);
   }, [pageLoading, todayLog.length, selectedDate, isToday, today, streak]);
 
+  // W2 arc-flight — a glowing accent mote arcs from the logging zone into the
+  // day pill the moment a food is confirmed. Purely celebratory; computed at
+  // fire time so it lands on the pill at any viewport size.
+  const [arcFlight, setArcFlight] = useState<{ key: number; from: { x: number; y: number }; to: { x: number; y: number } } | null>(null);
+
   /** MealSlotCard onLogged — batch ids (AI multi-log) arm the batch-undo toast. */
   const handleSlotLogged = useCallback((ids?: string[]) => {
     if (ids && ids.length > 0) registerBatch(ids);
+    if (!reducedMotion && typeof window !== 'undefined') {
+      const pill = document.getElementById('day-pill-target')?.getBoundingClientRect();
+      const to = pill
+        ? { x: pill.left + pill.width / 2, y: pill.top + pill.height / 2 }
+        : { x: window.innerWidth - 56, y: window.innerHeight - 94 }; // pill's fixed slot
+      const from = { x: window.innerWidth / 2, y: window.innerHeight * 0.58 };
+      setArcFlight({ key: Date.now(), from, to });
+    }
     void loadTodayLog();
-  }, [registerBatch, loadTodayLog]);
+  }, [registerBatch, loadTodayLog, reducedMotion]);
 
   // F5: Toggle favorite
   const toggleFavorite = (entry: FoodLogEntry) => {
@@ -1307,6 +1320,7 @@ export default function FoodLogPage() {
           className="fixed bottom-20 right-4 z-40"
         >
           <motion.div
+            id="day-pill-target"
             layoutId={reducedMotion ? undefined : 'day-pill'}
             className="px-3 py-1.5 rounded-full text-xs font-bold shadow-lg flex items-center gap-2"
             style={{
@@ -1505,6 +1519,30 @@ export default function FoodLogPage() {
               localStorage.setItem('trophe_meal_slots', JSON.stringify(newSlots));
             }}
             onClose={() => setShowSlotConfig(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* W2 arc-flight mote — one-shot, self-clearing */}
+      <AnimatePresence>
+        {arcFlight && (
+          <motion.span
+            key={arcFlight.key}
+            initial={{ x: arcFlight.from.x, y: arcFlight.from.y, opacity: 0, scale: 0.4 }}
+            animate={{
+              x: [arcFlight.from.x, (arcFlight.from.x + arcFlight.to.x) / 2, arcFlight.to.x],
+              y: [arcFlight.from.y, Math.min(arcFlight.from.y, arcFlight.to.y) - 120, arcFlight.to.y],
+              opacity: [0, 1, 1, 0.4],
+              scale: [0.4, 1, 0.5],
+            }}
+            transition={{ duration: 0.65, times: [0, 0.55, 1], ease: 'easeInOut' }}
+            onAnimationComplete={() => setArcFlight(null)}
+            style={{
+              position: 'fixed', left: 0, top: 0, zIndex: 45, pointerEvents: 'none',
+              width: 14, height: 14, borderRadius: '50%', marginLeft: -7, marginTop: -7,
+              background: 'var(--accent, #D4A853)',
+              boxShadow: '0 0 14px 4px color-mix(in srgb, var(--accent, #D4A853) 55%, transparent)',
+            }}
           />
         )}
       </AnimatePresence>
