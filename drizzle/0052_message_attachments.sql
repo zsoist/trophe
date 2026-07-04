@@ -24,41 +24,50 @@ ALTER TABLE public.messages
   ADD CONSTRAINT messages_body_or_attachment_check
   CHECK (length(coalesce(body, '')) > 0 OR attachment_path IS NOT NULL);
 
--- ── Private bucket (idempotent) ──────────────────────────────────────────────
-INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-VALUES (
-  'chat-attachments', 'chat-attachments', false,
-  10485760, -- 10 MB
-  ARRAY['image/jpeg','image/png','image/webp','image/heic','audio/webm','audio/mp4','audio/mpeg','audio/ogg']
-)
-ON CONFLICT (id) DO UPDATE
-  SET file_size_limit = EXCLUDED.file_size_limit,
-      allowed_mime_types = EXCLUDED.allowed_mime_types;
-
--- ── storage.objects RLS — participants only ──────────────────────────────────
--- Path segment 1 = coach_id, segment 2 = client_id. A user may touch an object
+-- ── Storage bucket + RLS — Supabase environments only ────────────────────────
+-- CI bootstraps a PLAIN Postgres (no storage schema); guard so the migrator
+-- doesn't explode there. Prod/staging (real Supabase) get the full setup.
+-- Path segment 1 = coach_id, segment 2 = client_id: a user may touch an object
 -- only when they ARE one of the two participants (uid matches either segment).
-DROP POLICY IF EXISTS "chat participants insert" ON storage.objects;
-CREATE POLICY "chat participants insert" ON storage.objects
-  FOR INSERT TO authenticated
-  WITH CHECK (
-    bucket_id = 'chat-attachments'
-    AND (
-      (storage.foldername(name))[1] = auth.uid()::text
-      OR (storage.foldername(name))[2] = auth.uid()::text
-    )
-  );
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.schemata WHERE schema_name = 'storage') THEN
+    RAISE NOTICE 'storage schema absent (plain Postgres) — skipping bucket/RLS';
+    RETURN;
+  END IF;
 
-DROP POLICY IF EXISTS "chat participants select" ON storage.objects;
-CREATE POLICY "chat participants select" ON storage.objects
-  FOR SELECT TO authenticated
-  USING (
-    bucket_id = 'chat-attachments'
-    AND (
-      (storage.foldername(name))[1] = auth.uid()::text
-      OR (storage.foldername(name))[2] = auth.uid()::text
-    )
-  );
+  INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+  VALUES (
+    'chat-attachments', 'chat-attachments', false,
+    10485760, -- 10 MB
+    ARRAY['image/jpeg','image/png','image/webp','image/heic','audio/webm','audio/mp4','audio/mpeg','audio/ogg']
+  )
+  ON CONFLICT (id) DO UPDATE
+    SET file_size_limit = EXCLUDED.file_size_limit,
+        allowed_mime_types = EXCLUDED.allowed_mime_types;
+
+  DROP POLICY IF EXISTS "chat participants insert" ON storage.objects;
+  CREATE POLICY "chat participants insert" ON storage.objects
+    FOR INSERT TO authenticated
+    WITH CHECK (
+      bucket_id = 'chat-attachments'
+      AND (
+        (storage.foldername(name))[1] = auth.uid()::text
+        OR (storage.foldername(name))[2] = auth.uid()::text
+      )
+    );
+
+  DROP POLICY IF EXISTS "chat participants select" ON storage.objects;
+  CREATE POLICY "chat participants select" ON storage.objects
+    FOR SELECT TO authenticated
+    USING (
+      bucket_id = 'chat-attachments'
+      AND (
+        (storage.foldername(name))[1] = auth.uid()::text
+        OR (storage.foldername(name))[2] = auth.uid()::text
+      )
+    );
+END $$;
 
 -- No UPDATE/DELETE policies: attachments are immutable once sent (audit
 -- posture matches messages themselves; GDPR erasure goes through the
