@@ -150,8 +150,8 @@ function RestBar({ startedAt, onDismiss }: { startedAt: number; onDismiss: () =>
       style={{
         marginTop: 10, padding: '10px 14px', borderRadius: 12, cursor: 'pointer',
         display: 'flex', alignItems: 'center', gap: 10, position: 'relative', overflow: 'hidden',
-        background: ready ? 'rgba(212,168,83,.14)' : 'rgba(255,255,255,.04)',
-        border: ready ? '1px solid rgba(212,168,83,.4)' : '1px solid rgba(255,255,255,.08)',
+        background: ready ? 'color-mix(in srgb, var(--accent, #D4A853) 14%, transparent)' : 'rgba(255,255,255,.04)',
+        border: ready ? '1px solid color-mix(in srgb, var(--accent, #D4A853) 40%, transparent)' : '1px solid rgba(255,255,255,.08)',
         animation: ready ? 'pulse 1.6s ease-in-out infinite' : undefined,
       }}
       title={t('workout.rest_dismiss_hint')}
@@ -160,19 +160,19 @@ function RestBar({ startedAt, onDismiss }: { startedAt: number; onDismiss: () =>
         style={{
           position: 'absolute', left: 0, top: 0, bottom: 0,
           width: `${pct * 100}%`,
-          background: 'rgba(212,168,83,.08)',
+          background: 'color-mix(in srgb, var(--accent, #D4A853) 8%, transparent)',
           transition: 'width .5s linear',
           pointerEvents: 'none',
         }}
       />
-      <Timer size={14} style={{ color: ready ? '#D4A853' : 'var(--t4)', flexShrink: 0, position: 'relative' }} />
+      <Timer size={14} style={{ color: ready ? 'var(--accent, #D4A853)' : 'var(--t4)', flexShrink: 0, position: 'relative' }} />
       <span style={{
         fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 700, position: 'relative',
-        color: ready ? '#D4A853' : 'var(--t2)',
+        color: ready ? 'var(--accent, #D4A853)' : 'var(--t2)',
       }}>
         {Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, '0')}
       </span>
-      <span style={{ fontSize: 11, color: ready ? '#D4A853' : 'var(--t4)', position: 'relative', fontWeight: ready ? 700 : 400 }}>
+      <span style={{ fontSize: 11, color: ready ? 'var(--accent, #D4A853)' : 'var(--t4)', position: 'relative', fontWeight: ready ? 700 : 400 }}>
         {ready ? t('workout.rested_go') : t('workout.resting')}
       </span>
     </motion.button>
@@ -494,7 +494,7 @@ export default function GuidedSession({
               style={{
                 position: 'absolute', top: -70, left: '50%', transform: 'translateX(-50%)',
                 width: 260, height: 260, borderRadius: '50%', pointerEvents: 'none',
-                background: 'radial-gradient(circle, rgba(212,168,83,.35) 0%, transparent 70%)',
+                background: 'radial-gradient(circle, color-mix(in srgb, var(--accent, #D4A853) 35%, transparent) 0%, transparent 70%)',
               }}
             />
           )}
@@ -506,11 +506,11 @@ export default function GuidedSession({
             className="mx-auto mb-3"
             style={{
               width: 64, height: 64, borderRadius: 20,
-              background: 'rgba(212,168,83,.14)', border: '1px solid rgba(212,168,83,.4)',
+              background: 'color-mix(in srgb, var(--accent, #D4A853) 14%, transparent)', border: '1px solid color-mix(in srgb, var(--accent, #D4A853) 40%, transparent)',
               display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative',
             }}
           >
-            <Trophy size={30} style={{ color: '#D4A853' }} />
+            <Trophy size={30} style={{ color: 'var(--accent, #D4A853)' }} />
           </motion.div>
 
           <h2 className="text-xl font-bold" style={{ color: 'var(--t1)', letterSpacing: '-.02em' }}>
@@ -538,16 +538,16 @@ export default function GuidedSession({
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.35 }}
               className="mt-4 p-3 rounded-xl text-left"
-              style={{ background: 'rgba(212,168,83,.08)', border: '1px solid rgba(212,168,83,.3)' }}
+              style={{ background: 'color-mix(in srgb, var(--accent, #D4A853) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--accent, #D4A853) 30%, transparent)' }}
             >
-              <div className="display-lg" style={{ fontSize: 19, lineHeight: '23px', color: '#D4A853', marginBottom: 7, display: 'flex', alignItems: 'center', gap: 7 }}>
+              <div className="display-lg" style={{ fontSize: 19, lineHeight: '23px', color: 'var(--accent, #D4A853)', marginBottom: 7, display: 'flex', alignItems: 'center', gap: 7 }}>
                 <Trophy size={15} style={{ flexShrink: 0 }} /> {t('workout.pr_count', { n: finishStats.prs.length })}
               </div>
               {finishStats.prs.map((pr, i) => (
                 <div key={i} style={{ fontSize: 12, color: 'var(--t2)', padding: '2px 0' }}>
                   <span style={{ fontWeight: 600, color: 'var(--t1)' }}>{pr.exerciseName}</span>
                   {' — '}
-                  <span style={{ color: '#D4A853', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+                  <span style={{ color: 'var(--accent, #D4A853)', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
                     {pr.weight}kg{pr.reps ? ` × ${pr.reps}` : ''}
                   </span>
                 </div>
@@ -651,7 +651,7 @@ export default function GuidedSession({
                       style={{
                         fontSize: 10.5, fontWeight: 700, fontFamily: 'var(--font-mono)',
                         padding: '2px 8px', borderRadius: 14,
-                        background: 'rgba(212,168,83,.13)', border: '1px solid rgba(212,168,83,.3)', color: '#D4A853',
+                        background: 'color-mix(in srgb, var(--accent, #D4A853) 13%, transparent)', border: '1px solid color-mix(in srgb, var(--accent, #D4A853) 30%, transparent)', color: 'var(--accent, #D4A853)',
                       }}
                     >
                       {targetChip}
@@ -732,9 +732,9 @@ export default function GuidedSession({
                             className="flex-1 text-center rounded-xl outline-none min-w-0"
                             style={{
                               height: 44, fontSize: 15, fontWeight: 600,
-                              background: set.is_pr ? 'rgba(212,168,83,0.15)' : 'rgba(255,255,255,0.04)',
-                              border: set.is_pr ? '1px solid rgba(212,168,83,0.35)' : '1px solid transparent',
-                              color: set.is_pr ? '#D4A853' : 'var(--t1)',
+                              background: set.is_pr ? 'color-mix(in srgb, var(--accent, #D4A853) 15%, transparent)' : 'rgba(255,255,255,0.04)',
+                              border: set.is_pr ? '1px solid color-mix(in srgb, var(--accent, #D4A853) 35%, transparent)' : '1px solid transparent',
+                              color: set.is_pr ? 'var(--accent, #D4A853)' : 'var(--t1)',
                               opacity: set.completed && !set.is_pr ? 0.65 : 1,
                             }}
                           />
@@ -779,12 +779,12 @@ export default function GuidedSession({
                               width: 46, height: 44, borderRadius: 12, flexShrink: 0,
                               display: 'flex', alignItems: 'center', justifyContent: 'center',
                               background: set.completed
-                                ? (set.is_pr ? 'rgba(212,168,83,.25)' : 'rgba(34,197,94,.18)')
+                                ? (set.is_pr ? 'color-mix(in srgb, var(--accent, #D4A853) 25%, transparent)' : 'rgba(34,197,94,.18)')
                                 : 'rgba(255,255,255,.05)',
                               border: set.completed
-                                ? (set.is_pr ? '1px solid rgba(212,168,83,.5)' : '1px solid rgba(34,197,94,.35)')
+                                ? (set.is_pr ? '1px solid color-mix(in srgb, var(--accent, #D4A853) 50%, transparent)' : '1px solid rgba(34,197,94,.35)')
                                 : '1px solid rgba(255,255,255,.1)',
-                              color: set.completed ? (set.is_pr ? '#D4A853' : '#4ade80') : 'var(--t4)',
+                              color: set.completed ? (set.is_pr ? 'var(--accent, #D4A853)' : '#4ade80') : 'var(--t4)',
                               opacity: set.saving ? 0.5 : 1,
                             }}
                           >

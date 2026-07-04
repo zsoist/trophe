@@ -1002,3 +1002,5 @@ input, textarea, select {
 
 /* Accent-aware chip (replaces hardcoded gold Tailwind arbitrary classes) */
 .accent-chip-active { border-color: var(--accent, #D4A853); color: var(--accent, #D4A853); }
+
+.accent-text { color: var(--accent, #D4A853); }

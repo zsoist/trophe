@@ -177,12 +177,12 @@ export default function FormCheckPage() {
                       style={{
                         background:
                           selectedSide === s
-                            ? 'rgba(212,168,83,0.15)'
+                            ? 'color-mix(in srgb, var(--accent, #D4A853) 15%, transparent)'
                             : 'rgba(255,255,255,0.05)',
-                        color: selectedSide === s ? '#D4A853' : '#a8a29e',
+                        color: selectedSide === s ? 'var(--accent, #D4A853)' : '#a8a29e',
                         border:
                           selectedSide === s
-                            ? '1px solid rgba(212,168,83,0.3)'
+                            ? '1px solid color-mix(in srgb, var(--accent, #D4A853) 30%, transparent)'
                             : '1px solid rgba(255,255,255,0.06)',
                       }}
                     >
