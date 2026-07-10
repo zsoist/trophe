@@ -181,24 +181,34 @@ function RestBar({ startedAt, onDismiss }: { startedAt: number; onDismiss: () =>
 
 // ─── Elapsed timer chip ─────────────────────────────────────────────────────
 
-function ElapsedChip({ startTime }: { startTime: number }) {
+function ElapsedChip({ startTime, readyLabel }: { startTime: number; readyLabel: string }) {
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
+    if (startTime === 0) return;
     const interval = setInterval(() => {
       setElapsed(Math.floor((Date.now() - startTime) / 1000));
     }, 1000);
     return () => clearInterval(interval);
   }, [startTime]);
+  const notStarted = startTime === 0;
   const mins = Math.floor(elapsed / 60);
   return (
     <span
-      className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
-      style={{ background: 'rgba(34,197,94,0.13)', color: '#4ade80', border: '1px solid rgba(34,197,94,0.2)' }}
+      className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold"
+      style={
+        notStarted
+          ? { background: 'rgba(255,255,255,0.05)', color: 'var(--t3)', border: '1px solid rgba(255,255,255,0.08)' }
+          : { background: 'color-mix(in srgb, var(--accent, #D4A853) 15%, transparent)', color: 'var(--accent, #D4A853)', border: '1px solid color-mix(in srgb, var(--accent, #D4A853) 28%, transparent)' }
+      }
     >
       <Clock size={11} />
-      <span className="tabular-nums" style={{ fontFamily: 'var(--font-mono)' }}>
-        {String(mins).padStart(2, '0')}:{String(elapsed % 60).padStart(2, '0')}
-      </span>
+      {notStarted ? (
+        <span>{readyLabel}</span>
+      ) : (
+        <span className="tabular-nums" style={{ fontFamily: 'var(--font-mono)' }}>
+          {String(mins).padStart(2, '0')}:{String(elapsed % 60).padStart(2, '0')}
+        </span>
+      )}
     </span>
   );
 }
@@ -239,14 +249,10 @@ export default function GuidedSession({
   const [painFlags, setPainFlags] = useState<PainFlag[]>([]);
   const [painModalExerciseId, setPainModalExerciseId] = useState<string | null>(null);
 
-  // Session clock starts when guided mode mounts ("Start workout" tapped).
-  // Date.now() is impure during render (react-hooks/purity), so it is set
-  // once on mount — same pattern/disable as MonthlyReport's period loader.
+  // Session clock starts on the FIRST completed set (see completeSet), not on
+  // mount — so elapsed time reflects real training, not warm-up browsing.
+  // 0 = "not started yet"; the chip shows "Ready" until then.
   const [startTime, setStartTime] = useState<number>(0);
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setStartTime((s) => (s === 0 ? Date.now() : s));
-  }, []);
 
   const sessionPromiseRef = useRef<Promise<string | null> | null>(null);
   const sessionIdRef = useRef<string | null>(null);
@@ -365,6 +371,8 @@ export default function GuidedSession({
       return;
     }
     if (isPr && weight !== null) prMapRef.current[exId] = weight;
+    // First logged set starts the session clock (idempotent — only set once).
+    setStartTime((s) => s || Date.now());
     patchSet(exIdx, set.id, {
       saving: false,
       completed: true,
@@ -606,7 +614,7 @@ export default function GuidedSession({
                 {currentIdx + 1} / {exercises.length} · {t('workout.sets_progress', { done: completedCount, total: totalSets })}
               </div>
             </div>
-            {startTime > 0 && <ElapsedChip startTime={startTime} />}
+            <ElapsedChip startTime={startTime} readyLabel={t('workout.ready')} />
           </div>
           {/* Progress bar */}
           <div className="mb-track" style={{ marginTop: 8 }}>

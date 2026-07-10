@@ -34,7 +34,7 @@ import { trpc } from '@/lib/trpc/client';
 import GuidedSession, { type GuidedExerciseInfo, type GuidedTemplate } from '@/components/workout/GuidedSession';
 import { TodayProgramCard, RestDayCard, type TodayTemplateSummary } from '@/components/workout/TodayProgramCard';
 import PainFlagModal from '@/components/workout/PainFlagModal';
-import { MUSCLE_GROUPS, muscleColor } from '@/components/workout/muscle-groups';
+import { MUSCLE_GROUPS, muscleColor, muscleLabelKey } from '@/components/workout/muscle-groups';
 import {
   createWorkoutSession,
   deleteWorkoutSet,
@@ -92,6 +92,7 @@ function CustomExerciseModal({
   onSave: (ex: Exercise) => void;
   onClose: () => void;
 }) {
+  const { t } = useI18n();
   const [name, setName] = useState('');
   const [muscleGroup, setMuscleGroup] = useState<MuscleGroup>('chest');
   const [equipment, setEquipment] = useState('dumbbell');
@@ -145,12 +146,12 @@ function CustomExerciseModal({
       >
         <div className="flex items-center gap-2 mb-4">
           <Dumbbell size={20} className="gold-text" />
-          <h3 className="text-lg font-semibold">Custom Exercise</h3>
+          <h3 className="text-lg font-semibold">{t('workout.custom_title')}</h3>
         </div>
 
         <input
           type="text"
-          placeholder="Exercise name"
+          placeholder={t('workout.custom_name')}
           value={name}
           onChange={(e) => setName(e.target.value)}
           className="input-dark mb-3"
@@ -158,20 +159,20 @@ function CustomExerciseModal({
         />
 
         <div className="mb-3">
-          <label className="text-sm text-stone-400 mb-1 block">Muscle group</label>
+          <label className="text-sm text-stone-400 mb-1 block">{t('workout.custom_muscle')}</label>
           <select
             value={muscleGroup}
             onChange={(e) => setMuscleGroup(e.target.value as MuscleGroup)}
             className="input-dark w-full"
           >
             {MUSCLE_GROUPS.map((mg) => (
-              <option key={mg.key} value={mg.key}>{mg.label}</option>
+              <option key={mg.key} value={mg.key}>{t(muscleLabelKey(mg.key))}</option>
             ))}
           </select>
         </div>
 
         <div className="mb-3">
-          <label className="text-sm text-stone-400 mb-1 block">Equipment</label>
+          <label className="text-sm text-stone-400 mb-1 block">{t('workout.custom_equipment')}</label>
           <select
             value={equipment}
             onChange={(e) => setEquipment(e.target.value)}
@@ -190,19 +191,19 @@ function CustomExerciseModal({
             onChange={(e) => setIsCompound(e.target.checked)}
             className="rounded border-stone-600"
           />
-          <span className="text-sm text-stone-400">Compound movement</span>
+          <span className="text-sm text-stone-400">{t('workout.custom_compound')}</span>
         </label>
 
         <div className="flex gap-2">
           <button onClick={onClose} className="btn-ghost flex-1 text-sm py-2">
-            Cancel
+            {t('workout.custom_cancel')}
           </button>
           <button
             onClick={handleSave}
             disabled={!name.trim() || saving}
             className="btn-gold flex-1 text-sm py-2 font-semibold"
           >
-            {saving ? 'Saving...' : 'Create'}
+            {saving ? t('workout.custom_saving') : t('workout.custom_create')}
           </button>
         </div>
       </motion.div>
@@ -211,14 +212,41 @@ function CustomExerciseModal({
 }
 
 // ─── Exercise Picker Modal ───
+/** One dense, tappable exercise row — muscle dot + name + equipment meta. */
+function ExerciseRow({ ex, name, onPick }: { ex: Exercise; name: string; onPick: () => void }) {
+  const color = muscleColor(ex.muscle_group);
+  const { t } = useI18n();
+  const meta = [
+    ex.equipment ? ex.equipment.charAt(0).toUpperCase() + ex.equipment.slice(1) : null,
+    ex.is_compound ? t('workout.compound') : null,
+  ].filter(Boolean).join(' · ');
+  return (
+    <motion.button
+      whileTap={{ scale: 0.97 }}
+      onClick={onPick}
+      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors"
+      style={{ background: 'rgba(255,255,255,0.035)', border: '1px solid rgba(255,255,255,0.04)' }}
+    >
+      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: color, boxShadow: `0 0 8px ${color}66` }} />
+      <span className="flex-1 min-w-0">
+        <span className="block text-sm font-semibold truncate" style={{ color: 'var(--t1)' }}>{name}</span>
+        {meta && <span className="block text-[11px] truncate" style={{ color: 'var(--t4)' }}>{meta}</span>}
+      </span>
+      <Plus size={16} style={{ color: 'var(--t4)' }} className="shrink-0" />
+    </motion.button>
+  );
+}
+
 function ExercisePicker({
   exercises,
+  recentIds,
   onSelect,
   onClose,
   lang,
   onCustomCreated,
 }: {
   exercises: Exercise[];
+  recentIds: string[];
   onSelect: (ex: Exercise) => void;
   onClose: () => void;
   lang: string;
@@ -234,12 +262,30 @@ function ExercisePicker({
     inputRef.current?.focus();
   }, []);
 
+  const nameOf = (ex: Exercise) =>
+    lang === 'es' && ex.name_es ? ex.name_es : lang === 'el' && ex.name_el ? ex.name_el : ex.name;
+
+  const q = search.trim().toLowerCase();
+  const browsing = q === '' && filterMuscle === 'all';
+
   const filtered = exercises.filter((ex) => {
-    const name = lang === 'es' && ex.name_es ? ex.name_es : lang === 'el' && ex.name_el ? ex.name_el : ex.name;
-    const matchesSearch = name.toLowerCase().includes(search.toLowerCase());
+    const matchesSearch = q === '' || nameOf(ex).toLowerCase().includes(q) || (ex.equipment ?? '').toLowerCase().includes(q);
     const matchesMuscle = filterMuscle === 'all' || ex.muscle_group === filterMuscle;
     return matchesSearch && matchesMuscle;
   });
+
+  const pick = (ex: Exercise) => { onSelect(ex); onClose(); };
+
+  // Recent quick-add — only while browsing (no search, no muscle filter).
+  const recentExercises = browsing
+    ? recentIds.map((id) => exercises.find((e) => e.id === id)).filter((e): e is Exercise => Boolean(e)).slice(0, 8)
+    : [];
+
+  // Sectioned by muscle group (in canonical order) so the list reads as
+  // structure, not an undifferentiated scroll. Flat when searching/filtering.
+  const sections = browsing
+    ? MUSCLE_GROUPS.map((mg) => ({ mg, items: filtered.filter((e) => e.muscle_group === mg.key) })).filter((s) => s.items.length > 0)
+    : [{ mg: null as (typeof MUSCLE_GROUPS)[number] | null, items: filtered }];
 
   return (
     <motion.div
@@ -247,102 +293,125 @@ function ExercisePicker({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 flex flex-col"
-      style={{ background: 'rgba(10,10,10,0.95)' }}
+      style={{ background: 'var(--bg, #0a0a0a)' }}
     >
-      <div className="p-4 flex items-center gap-3">
-        <button onClick={onClose} className="p-2 rounded-xl" style={{ background: 'rgba(255,255,255,0.06)' }}>
-          <X size={20} />
-        </button>
-        <div className="relative flex-1">
-          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-500" />
-          <input
-            ref={inputRef}
-            type="text"
-            placeholder={t('workout.search_exercises')}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="input-dark pl-10"
-          />
-        </div>
-      </div>
-
-      {/* Muscle group filter chips */}
-      <div className="px-4 pb-3 overflow-x-auto scrollbar-hide">
-        <div className="flex gap-2">
-          <button
-            onClick={() => setFilterMuscle('all')}
-            className="shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all"
-            style={{
-              background: filterMuscle === 'all' ? 'color-mix(in srgb, var(--accent, #D4A853) 20%, transparent)' : 'rgba(255,255,255,0.05)',
-              color: filterMuscle === 'all' ? 'var(--accent, #D4A853)' : '#a8a29e',
-              border: filterMuscle === 'all' ? '1px solid color-mix(in srgb, var(--accent, #D4A853) 30%, transparent)' : '1px solid rgba(255,255,255,0.06)',
-            }}
-          >
-            {t('workout.all')}
-          </button>
-          {MUSCLE_GROUPS.map((mg) => (
-            <button
-              key={mg.key}
-              onClick={() => setFilterMuscle(mg.key)}
-              className="shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all"
-              style={{
-                background: filterMuscle === mg.key ? `${mg.color}22` : 'rgba(255,255,255,0.05)',
-                color: filterMuscle === mg.key ? mg.color : '#a8a29e',
-                border: filterMuscle === mg.key ? `1px solid ${mg.color}55` : '1px solid rgba(255,255,255,0.06)',
-              }}
-            >
-              {mg.label}
+      {/* Sticky header: close · search · live count */}
+      <div className="sticky top-0 z-10 glass-elevated">
+        <div className="max-w-md lg:max-w-2xl mx-auto px-4 pt-3 pb-2">
+          <div className="flex items-center gap-3">
+            <button onClick={onClose} aria-label={t('workout.custom_cancel')} className="p-2 rounded-xl transition-colors" style={{ background: 'rgba(255,255,255,0.06)' }}>
+              <X size={20} style={{ color: 'var(--t2)' }} />
             </button>
-          ))}
+            <div className="relative flex-1">
+              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--t4)' }} />
+              <input
+                ref={inputRef}
+                type="text"
+                placeholder={t('workout.search_exercises')}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="input-dark pl-10"
+              />
+            </div>
+          </div>
+
+          {/* Muscle filter chips */}
+          <div className="mt-2.5 -mx-1 px-1 overflow-x-auto scrollbar-hide">
+            <div className="flex gap-2">
+              <button
+                onClick={() => setFilterMuscle('all')}
+                className="shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-all"
+                style={{
+                  background: filterMuscle === 'all' ? 'color-mix(in srgb, var(--accent, #D4A853) 20%, transparent)' : 'rgba(255,255,255,0.05)',
+                  color: filterMuscle === 'all' ? 'var(--accent, #D4A853)' : 'var(--t3)',
+                  border: filterMuscle === 'all' ? '1px solid color-mix(in srgb, var(--accent, #D4A853) 32%, transparent)' : '1px solid rgba(255,255,255,0.06)',
+                }}
+              >
+                {t('workout.all')}
+              </button>
+              {MUSCLE_GROUPS.map((mg) => (
+                <button
+                  key={mg.key}
+                  onClick={() => setFilterMuscle(filterMuscle === mg.key ? 'all' : mg.key)}
+                  className="shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-all whitespace-nowrap"
+                  style={{
+                    background: filterMuscle === mg.key ? `${mg.color}22` : 'rgba(255,255,255,0.05)',
+                    color: filterMuscle === mg.key ? mg.color : 'var(--t3)',
+                    border: filterMuscle === mg.key ? `1px solid ${mg.color}55` : '1px solid rgba(255,255,255,0.06)',
+                  }}
+                >
+                  {t(muscleLabelKey(mg.key))}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Add Custom Exercise button */}
-      <div className="px-4 pb-2">
-        <button
-          onClick={() => setShowCustomModal(true)}
-          className="w-full py-2.5 rounded-xl text-sm font-medium flex items-center justify-center gap-2 transition-colors"
-          style={{ border: '1px dashed color-mix(in srgb, var(--accent, #D4A853) 30%, transparent)', background: 'color-mix(in srgb, var(--accent, #D4A853) 5%, transparent)', color: 'var(--accent, #D4A853)' }}
-        >
-          <Plus size={16} />
-          Add Custom Exercise
-        </button>
-      </div>
-
-      {/* Exercise list */}
-      <div className="flex-1 overflow-y-auto px-4 pb-24">
-        {filtered.length === 0 && (
-          <p className="text-stone-500 text-center py-8 text-sm">No exercises found</p>
-        )}
-        {filtered.map((ex) => {
-          const mg = MUSCLE_GROUPS.find((m) => m.key === ex.muscle_group);
-          const name = lang === 'es' && ex.name_es ? ex.name_es : lang === 'el' && ex.name_el ? ex.name_el : ex.name;
-          return (
-            <motion.button
-              key={ex.id}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => {
-                onSelect(ex);
-                onClose();
-              }}
-              className="w-full flex items-center gap-3 p-3 rounded-xl mb-1 text-left transition-colors"
-              style={{ background: 'rgba(255,255,255,0.03)' }}
-            >
-              <div
-                className="w-2 h-8 rounded-full shrink-0"
-                style={{ background: mg?.color || '#666' }}
-              />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-stone-200 truncate">{name}</p>
-                <p className="text-xs text-stone-500">
-                  {mg?.label || ex.muscle_group}
-                  {ex.equipment && ` · ${ex.equipment}`}
-                  {ex.is_compound && ' · Compound'}
-                </p>
+      {/* Scroll body — width-constrained so rows never sprawl edge-to-edge */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-md lg:max-w-2xl mx-auto px-4 pt-3 pb-28">
+          {/* Recent quick-add */}
+          {recentExercises.length > 0 && (
+            <div className="mb-4">
+              <p className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--t4)' }}>
+                {t('workout.picker_recent')}
+              </p>
+              <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-1 px-1">
+                {recentExercises.map((ex) => (
+                  <button
+                    key={ex.id}
+                    onClick={() => pick(ex)}
+                    className="shrink-0 flex items-center gap-2 px-3 py-2 rounded-xl transition-colors"
+                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.06)' }}
+                  >
+                    <span className="w-2 h-2 rounded-full" style={{ background: muscleColor(ex.muscle_group) }} />
+                    <span className="text-xs font-semibold whitespace-nowrap" style={{ color: 'var(--t2)' }}>{nameOf(ex)}</span>
+                  </button>
+                ))}
               </div>
-            </motion.button>
-          );
-        })}
+            </div>
+          )}
+
+          {/* Result count */}
+          <p className="text-[11px] mb-2" style={{ color: 'var(--t4)' }}>
+            {filtered.length} {t('workout.picker_count')}
+          </p>
+
+          {filtered.length === 0 && (
+            <p className="text-center py-10 text-sm" style={{ color: 'var(--t4)' }}>{t('workout.picker_none')}</p>
+          )}
+
+          {/* Sectioned, 2-col on desktop */}
+          {sections.map((section) => (
+            <div key={section.mg?.key ?? 'flat'} className="mb-4">
+              {section.mg && (
+                <div className="flex items-center gap-2 mb-2 sticky top-0 py-1">
+                  <span className="w-2.5 h-2.5 rounded-full" style={{ background: section.mg.color }} />
+                  <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--t3)' }}>
+                    {t(muscleLabelKey(section.mg.key))}
+                  </span>
+                  <span className="text-[11px]" style={{ color: 'var(--t5)' }}>{section.items.length}</span>
+                </div>
+              )}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-1.5">
+                {section.items.map((ex) => (
+                  <ExerciseRow key={ex.id} ex={ex} name={nameOf(ex)} onPick={() => pick(ex)} />
+                ))}
+              </div>
+            </div>
+          ))}
+
+          {/* Create custom — subtle footer, not competing with the list */}
+          <button
+            onClick={() => setShowCustomModal(true)}
+            className="w-full mt-2 py-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-colors"
+            style={{ border: '1px dashed color-mix(in srgb, var(--accent, #D4A853) 30%, transparent)', background: 'color-mix(in srgb, var(--accent, #D4A853) 5%, transparent)', color: 'var(--accent, #D4A853)' }}
+          >
+            <Plus size={16} />
+            {t('workout.picker_custom')}
+          </button>
+        </div>
       </div>
 
       {/* Custom exercise modal */}
@@ -493,7 +562,7 @@ function RecentSessionCard({
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--t1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {session.name ?? 'Workout'}
+            {session.name ?? t('workout.title')}
           </div>
           <div style={{ fontSize: 10, color: 'var(--t4)', marginTop: 1 }}>{label}</div>
         </div>
@@ -519,7 +588,7 @@ function RecentSessionCard({
           >
             <div style={{ padding: '0 14px 12px', borderTop: '1px solid rgba(255,255,255,.05)' }}>
               {loadingSets && (
-                <p style={{ fontSize: 11, color: 'var(--t4)', padding: '10px 0' }}>Loading…</p>
+                <p style={{ fontSize: 11, color: 'var(--t4)', padding: '10px 0' }}>{t('chat.loading')}</p>
               )}
               {!loadingSets && sets !== null && sets.length === 0 && (
                 <p style={{ fontSize: 11, color: 'var(--t4)', padding: '10px 0' }}>
@@ -585,6 +654,9 @@ export default function WorkoutPage() {
 
   // Exercise state
   const [exercises, setExercises] = useState<Exercise[]>([]);
+  // Recently-logged exercise ids (most-recent first) — powers the picker's
+  // "Recent" quick-add row so re-adding a staple is one tap, not a scroll.
+  const [recentExerciseIds, setRecentExerciseIds] = useState<string[]>([]);
   const [activeExercises, setActiveExercises] = useState<ActiveExercise[]>([]);
   const [showPicker, setShowPicker] = useState(false);
   const [painFlags, setPainFlags] = useState<PainFlag[]>([]);
@@ -674,11 +746,30 @@ export default function WorkoutPage() {
       if (!user) { router.push('/login'); return; }
       setUserId(user.id);
 
-      const [exercisesRes] = await Promise.all([
+      const [exercisesRes, recentSetsRes] = await Promise.all([
         supabase.from('exercises').select('*').order('muscle_group').order('name'),
+        // RLS scopes workout_sets to the caller's own sessions, so no explicit
+        // user filter is needed (workout_sets has no user_id column).
+        supabase
+          .from('workout_sets')
+          .select('exercise_id, created_at')
+          .order('created_at', { ascending: false })
+          .limit(120),
         refreshRecents(user.id),
       ]);
       if (exercisesRes.data) setExercises(exercisesRes.data);
+      // De-dupe most-recent-first into a stable "recently used" list.
+      if (recentSetsRes.data) {
+        const seen = new Set<string>();
+        const ids: string[] = [];
+        for (const row of recentSetsRes.data as { exercise_id: string | null }[]) {
+          if (row.exercise_id && !seen.has(row.exercise_id)) {
+            seen.add(row.exercise_id);
+            ids.push(row.exercise_id);
+          }
+        }
+        setRecentExerciseIds(ids);
+      }
 
       // "Repeat" deep-link from history: prefill a freestyle session.
       const repeatId = new URLSearchParams(window.location.search).get('repeat');
@@ -706,7 +797,7 @@ export default function WorkoutPage() {
     setActiveExercises([]);
     setPainFlags([]);
     setRestStartedAt(null);
-    setStartTime(Date.now());
+    setStartTime(0); // clock starts on the first completed set, not on entry
     setMode('freestyle');
   };
 
@@ -753,7 +844,7 @@ export default function WorkoutPage() {
     setActiveExercises(prefilled);
     setPainFlags([]);
     setRestStartedAt(null);
-    setStartTime(Date.now());
+    setStartTime(0); // clock starts on the first completed set, not on entry
     setMode('freestyle');
     void loadPRs(uid, Array.from(byExercise.keys()));
   };
@@ -907,6 +998,9 @@ export default function WorkoutPage() {
     if (!sessionId) { patch({ saving: false }); return; }
     const dbId = await insertWorkoutSet(sessionId, input);
     if (!dbId) { patch({ saving: false }); return; }
+    // The session clock begins with the FIRST logged set — not on entry — so
+    // elapsed time reflects real training, not time spent picking exercises.
+    setStartTime((s) => s || Date.now());
     if (input.is_pr && input.weight_kg !== null) {
       setPrRecords((prev) => ({ ...prev, [ae.exercise.id]: input.weight_kg as number }));
     }
@@ -1090,10 +1184,14 @@ export default function WorkoutPage() {
               )}
             </AnimatePresence>
             {inFreestyle && (
-              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium"
-                style={{ background: 'rgba(34,197,94,0.15)', color: '#4ade80', border: '1px solid rgba(34,197,94,0.2)' }}>
+              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold tabular-nums"
+                style={
+                  startTime === 0
+                    ? { background: 'rgba(255,255,255,0.05)', color: 'var(--t3)', border: '1px solid rgba(255,255,255,0.08)' }
+                    : { background: 'color-mix(in srgb, var(--accent, #D4A853) 15%, transparent)', color: 'var(--accent, #D4A853)', border: '1px solid color-mix(in srgb, var(--accent, #D4A853) 28%, transparent)' }
+                }>
                 <Clock size={12} />
-                <ElapsedTimer startTime={startTime} />
+                {startTime === 0 ? t('workout.ready') : <ElapsedTimer startTime={startTime} />}
               </div>
             )}
             <Link href="/dashboard/workout/history">
@@ -1182,7 +1280,7 @@ export default function WorkoutPage() {
                   >
                     <Dumbbell size={28} className="gold-text mx-auto" />
                     <div style={{ fontSize: 13, fontWeight: 700, marginTop: 8, color: 'var(--t1)', letterSpacing: '-.01em' }}>{t('workout.strength')}</div>
-                    <div className="ds-sub" style={{ fontSize: 9, marginTop: 3 }}>Weights + sets</div>
+                    <div className="ds-sub" style={{ fontSize: 9, marginTop: 3 }}>{t('workout.strength_sub')}</div>
                   </motion.button>
 
                   {/* Cardio */}
@@ -1198,7 +1296,7 @@ export default function WorkoutPage() {
                   >
                     <Play size={28} className="gold-text mx-auto" />
                     <div style={{ fontSize: 13, fontWeight: 700, marginTop: 8, color: 'var(--t1)', letterSpacing: '-.01em' }}>{t('workout.cardio')}</div>
-                    <div className="ds-sub" style={{ fontSize: 9, marginTop: 3 }}>Run · Cycle · HIIT</div>
+                    <div className="ds-sub" style={{ fontSize: 9, marginTop: 3 }}>{t('workout.cardio_sub')}</div>
                   </motion.button>
                 </div>
 
@@ -1231,7 +1329,7 @@ export default function WorkoutPage() {
                   <div className="glass p-4 rounded-2xl space-y-4">
                     {/* Type chips */}
                     <div>
-                      <p className="ds-sub mb-2" style={{ fontSize: 10 }}>Activity type</p>
+                      <p className="ds-sub mb-2" style={{ fontSize: 10 }}>{t('workout.cardio_type')}</p>
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                         {(['walk', 'run', 'cycle', 'hiit', 'swim', 'other'] as const).map(type => (
                           <button
@@ -1245,7 +1343,7 @@ export default function WorkoutPage() {
                               color: cardioType === type ? 'var(--accent, #D4A853)' : 'var(--t3)',
                             }}
                           >
-                            {type.charAt(0).toUpperCase() + type.slice(1)}
+                            {t(`workout.cardio_${type}`)}
                           </button>
                         ))}
                       </div>
@@ -1253,7 +1351,7 @@ export default function WorkoutPage() {
 
                     {/* Duration stepper */}
                     <div>
-                      <p className="ds-sub mb-2" style={{ fontSize: 10 }}>Duration</p>
+                      <p className="ds-sub mb-2" style={{ fontSize: 10 }}>{t('workout.cardio_duration')}</p>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                         <button
                           onClick={() => setCardioDuration(v => Math.max(5, v - 5))}
@@ -1298,7 +1396,7 @@ export default function WorkoutPage() {
                     {/* Distance (optional) */}
                     {(cardioType === 'run' || cardioType === 'walk' || cardioType === 'cycle') && (
                       <div>
-                        <p className="ds-sub mb-2" style={{ fontSize: 10 }}>Distance (optional)</p>
+                        <p className="ds-sub mb-2" style={{ fontSize: 10 }}>{t('workout.cardio_distance')}</p>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <input
                             type="number"
@@ -1323,7 +1421,7 @@ export default function WorkoutPage() {
                       disabled={savingCardio}
                     >
                       <Play size={14} className="inline mr-2" />
-                      {savingCardio ? 'Saving...' : `Log ${cardioType.charAt(0).toUpperCase() + cardioType.slice(1)} Session`}
+                      {savingCardio ? t('workout.custom_saving') : `${t('workout.cardio_log')} · ${t(`workout.cardio_${cardioType}`)}`}
                     </button>
                   </div>
                 </motion.div>
@@ -1350,9 +1448,9 @@ export default function WorkoutPage() {
             {recentSessions.length > 0 && (
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, marginTop: 4 }}>
-                  <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '.06em' }}>Recent</span>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '.06em' }}>{t('workout.recent')}</span>
                   <Link href="/dashboard/workout/history">
-                    <span style={{ fontSize: 10, color: 'var(--accent, #D4A853)', cursor: 'pointer' }}>See all</span>
+                    <span style={{ fontSize: 10, color: 'var(--accent, #D4A853)', cursor: 'pointer' }}>{t('workout.see_all')}</span>
                   </Link>
                 </div>
                 <div className="grid gap-2 lg:grid-cols-2">
@@ -1366,9 +1464,9 @@ export default function WorkoutPage() {
             {recentSessions.length === 0 && (
               <div className="glass p-5 text-center">
                 <Trophy size={20} className="text-stone-600 mx-auto mb-2" />
-                <p className="text-sm text-stone-400 font-medium">No workouts yet</p>
+                <p className="text-sm text-stone-400 font-medium">{t('workout.no_workouts')}</p>
                 <p className="text-xs text-stone-600 mt-1">
-                  {hasProgram && todayHero ? t('workout.start_today_hint') : 'Log your first session above to start tracking PRs'}
+                  {hasProgram && todayHero ? t('workout.start_today_hint') : t('workout.no_workouts_sub')}
                 </p>
               </div>
             )}
@@ -1593,11 +1691,11 @@ export default function WorkoutPage() {
             {painFlags.length > 0 && (
               <div className="glass p-3">
                 <p className="text-xs text-red-400 font-medium mb-2 flex items-center gap-1">
-                  <AlertTriangle size={12} /> {painFlags.length} pain flag{painFlags.length > 1 ? 's' : ''} recorded
+                  <AlertTriangle size={12} /> {painFlags.length} {t('workout.pain_recorded')}
                 </p>
                 {painFlags.map((pf, i) => (
                   <p key={i} className="text-xs text-stone-500">
-                    {pf.body_part} — severity {pf.severity}/5
+                    {pf.body_part} — {t('workout.pain_severity')} {pf.severity}/5
                   </p>
                 ))}
               </div>
@@ -1616,7 +1714,7 @@ export default function WorkoutPage() {
               }}
             >
               <Square size={18} />
-              {saving ? 'Saving...' : t('workout.finish')}
+              {saving ? t('workout.custom_saving') : t('workout.finish')}
             </motion.button>
           </motion.div>
         )}
@@ -1627,6 +1725,7 @@ export default function WorkoutPage() {
         {showPicker && (
           <ExercisePicker
             exercises={exercises}
+            recentIds={recentExerciseIds}
             onSelect={addExercise}
             onClose={() => setShowPicker(false)}
             lang={lang}
