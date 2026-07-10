@@ -576,6 +576,11 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
         parse_confidence: item.confidence ?? null,
         qty_input: item.quantity,
         qty_input_unit: item.unit,
+        // Persist resolved grams — without this, MealSlotCard's grams editor
+        // never renders and food.log.edit's deterministic per-100g recompute
+        // path is unreachable (existing.qtyG always null). B2B: a coach must be
+        // able to correct a client's portion by grams.
+        qty_g: Number.isFinite(item.grams) ? item.grams : null,
         food_id: item.db_food_id ?? null,
         llm_recognized: item.source !== 'ai_estimate',
         source: dbSource,

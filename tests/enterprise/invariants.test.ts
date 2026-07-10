@@ -127,11 +127,17 @@ describe('enterprise hardening invariants', () => {
     expect(evalRunner).not.toContain('GATE: inconclusive — no active suites`));\n    process.exit(0)');
   });
 
-  it('rejects implausible nutrition values before returning food parse results', () => {
+  it('rejects implausible nutrition values (per-item barrier, post-processing)', () => {
     const foodParse = readFileSync(join(root, 'agents/food-parse/index.v4.ts'), 'utf8');
+    // The barrier still exists with the same physical bounds …
     expect(foodParse).toContain('Nutrition result failed plausibility validation');
-    expect(foodParse).toContain('item.grams > 15_000');
-    expect(foodParse).toContain('item.calories > 15_000');
+    expect(foodParse).toContain('item.grams <= 15_000');
+    expect(foodParse).toContain('item.calories <= 15_000');
+    expect(foodParse).toContain('item.protein_g + item.carbs_g + item.fat_g <= item.grams * 1.15');
+    // … but drops ONLY the bad item and keeps the rest (was all-or-nothing),
+    // failing wholesale only when every item is implausible.
+    expect(foodParse).toContain('finalItems = finalItems.filter(isPlausibleItem)');
+    expect(foodParse).toContain('finalItems.length === 0');
   });
 
   it('repairs one invalid food parse schema response before failing safely', () => {
