@@ -23,19 +23,32 @@ export function clientAccessPredicate(actorId: string, role: UserRole) {
   return eq(clientProfiles.coachId, actorId);
 }
 
+/**
+ * Boolean org-aware access check. Admins are constrained to clients in their
+ * OWN organization (via clientAccessPredicate) — the fix for the cross-tenant
+ * IDOR where REST routes let any admin bypass all ownership checks.
+ */
+export async function canAccessClient(
+  db: Db,
+  actorId: string,
+  role: UserRole,
+  clientId: string,
+): Promise<boolean> {
+  const [row] = await db
+    .select({ userId: clientProfiles.userId })
+    .from(clientProfiles)
+    .where(and(eq(clientProfiles.userId, clientId), clientAccessPredicate(actorId, role)))
+    .limit(1);
+  return !!row;
+}
+
 export async function assertCanAccessClient(
   db: Db,
   actorId: string,
   role: UserRole,
   clientId: string,
 ): Promise<void> {
-  const [row] = await db
-    .select({ userId: clientProfiles.userId })
-    .from(clientProfiles)
-    .where(and(eq(clientProfiles.userId, clientId), clientAccessPredicate(actorId, role)))
-    .limit(1);
-
-  if (!row) {
+  if (!(await canAccessClient(db, actorId, role, clientId))) {
     throw new TRPCError({
       code: 'FORBIDDEN',
       message: 'Client not accessible for this role or organization',

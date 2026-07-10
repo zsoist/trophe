@@ -4,6 +4,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireRole } from '@/lib/auth/require-role';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { canAccessClient } from '@/lib/auth/tenant-access';
+import { db } from '@/db/client';
 import { computeBaseline, type ActivityLevel, type Goal, type Sex } from '@/lib/food/calorie-equations';
 
 /**
@@ -26,7 +28,12 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: 'clientId (uuid) required' }, { status: 400 });
   const { clientId, goal } = parsed.data;
   const userId = guard.session.user.id;
-  const isAdmin = guard.session.role === 'admin' || guard.session.role === 'super_admin';
+
+  // Org-aware ownership: coaches → own clients, admins → own-org clients only
+  // (was a blanket admin bypass = cross-tenant IDOR on client PHI).
+  if (!(await canAccessClient(db, userId, guard.session.role, clientId))) {
+    return NextResponse.json({ error: 'Not your client' }, { status: 403 });
+  }
 
   const service = createSupabaseServiceClient();
   const { data: cp } = await service
@@ -35,7 +42,6 @@ export async function POST(request: NextRequest) {
     .eq('user_id', clientId).maybeSingle();
 
   if (!cp) return NextResponse.json({ error: 'Client profile not found' }, { status: 404 });
-  if (!isAdmin && cp.coach_id !== userId) return NextResponse.json({ error: 'Not your client' }, { status: 403 });
 
   if (!cp.sex || !cp.age || !cp.height_cm || !cp.weight_kg) {
     return NextResponse.json({ error: 'Missing body data (need sex, age, height, weight)' }, { status: 422 });

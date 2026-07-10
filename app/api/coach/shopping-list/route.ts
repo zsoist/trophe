@@ -4,6 +4,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireRole } from '@/lib/auth/require-role';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { canAccessClient } from '@/lib/auth/tenant-access';
+import { db } from '@/db/client';
 import { executeAiTask } from '@/agents/runtime';
 import { invokeStructuredProvider } from '@/agents/runtime/providers/structured';
 import {
@@ -34,20 +36,13 @@ export async function POST(request: NextRequest) {
   }
   const { clientId } = parsed.data;
   const userId = guard.session.user.id;
-  const isAdmin = guard.session.role === 'admin' || guard.session.role === 'super_admin';
 
   const service = createSupabaseServiceClient();
 
-  // Authorize: the requester must be this client's coach (admins bypass).
-  if (!isAdmin) {
-    const { data: cp } = await service
-      .from('client_profiles')
-      .select('coach_id')
-      .eq('user_id', clientId)
-      .maybeSingle();
-    if (!cp || cp.coach_id !== userId) {
-      return NextResponse.json({ error: 'Not your client' }, { status: 403 });
-    }
+  // Authorize: coaches → own clients, admins → own-org clients only. (Was a
+  // blanket admin bypass = cross-tenant IDOR leaking meal plans + LLM cost.)
+  if (!(await canAccessClient(db, userId, guard.session.role, clientId))) {
+    return NextResponse.json({ error: 'Not your client' }, { status: 403 });
   }
 
   // Read the week's meal cells and keep only distinct, non-empty descriptions
