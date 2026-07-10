@@ -733,6 +733,23 @@ const translations: Record<string, Record<CoreLanguage, string>> = {
   'chat.preview_photo': { en: 'Photo', es: 'Foto', el: 'Φωτογραφία' },
   'chat.preview_voice': { en: 'Voice note', es: 'Nota de voz', el: 'Φωνητικό μήνυμα' },
 
+  // ── Workout 10/10 wave (info sheet, plate calc, supersets, units, rest) ──
+  'workout.info_title': { en: 'Exercise info', es: 'Info del ejercicio', el: 'Πληροφορίες άσκησης' },
+  'workout.info_cue': { en: 'Form cue', es: 'Técnica', el: 'Τεχνική' },
+  'workout.info_pr': { en: 'Personal record', es: 'Récord personal', el: 'Προσωπικό ρεκόρ' },
+  'workout.info_last': { en: 'Recent sessions', es: 'Sesiones recientes', el: 'Πρόσφατες προπονήσεις' },
+  'workout.info_no_history': { en: 'No history yet — log a set to start tracking', es: 'Sin historial aún — registra una serie para empezar', el: 'Χωρίς ιστορικό ακόμη — κατέγραψε ένα σετ για να ξεκινήσεις' },
+  'workout.plate_title': { en: 'Plate calculator', es: 'Calculadora de discos', el: 'Υπολογιστής δίσκων' },
+  'workout.plate_per_side': { en: 'Plates per side', es: 'Discos por lado', el: 'Δίσκοι ανά πλευρά' },
+  'workout.plate_bar': { en: 'Bar', es: 'Barra', el: 'Μπάρα' },
+  'workout.plate_below_bar': { en: 'Target is below the bar weight', es: 'El objetivo es menor que el peso de la barra', el: 'Ο στόχος είναι κάτω από το βάρος της μπάρας' },
+  'workout.plate_bar_only': { en: 'Empty bar — no plates needed', es: 'Barra sola — sin discos', el: 'Σκέτη μπάρα — χωρίς δίσκους' },
+  'workout.warmup_title': { en: 'Warm-up ramp', es: 'Series de calentamiento', el: 'Σετ προθέρμανσης' },
+  'workout.superset': { en: 'Superset', es: 'Superserie', el: 'Superset' },
+  'workout.superset_link': { en: 'Link with next exercise', es: 'Enlazar con el siguiente', el: 'Σύνδεση με την επόμενη' },
+  'workout.superset_unlink': { en: 'Unlink superset', es: 'Desenlazar superserie', el: 'Αποσύνδεση superset' },
+  'workout.rest_target': { en: 'Rest target', es: 'Descanso objetivo', el: 'Στόχος ξεκούρασης' },
+
   // ── Weekday names (program cards) ──
   'general.weekday_sunday':    { en: 'Sunday', es: 'domingo', el: 'Κυριακή' },
   'general.weekday_monday':    { en: 'Monday', es: 'lunes', el: 'Δευτέρα' },

@@ -288,6 +288,10 @@ export interface Exercise {
   equipment: string | null;
   is_compound: boolean;
   is_template: boolean;
+  /** One-sentence form cue per language (migration 0056; null for old custom exercises). */
+  instructions?: string | null;
+  instructions_es?: string | null;
+  instructions_el?: string | null;
   created_by: string | null;
   created_at: string;
 }

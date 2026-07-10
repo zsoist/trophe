@@ -449,6 +449,20 @@
       "when": 1783690845008,
       "tag": "0055_expand_exercise_library",
       "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1783695838392,
+      "tag": "0056_workout_10_10_schema",
+      "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1783695838393,
+      "tag": "0057_seed_exercise_cues",
+      "breakpoints": true
     }
   ]
 }

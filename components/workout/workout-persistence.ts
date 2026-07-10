@@ -22,6 +22,8 @@ export interface CompletedSetInput {
   rpe: number | null;
   is_warmup: boolean;
   is_pr: boolean;
+  /** Superset pairing (migration 0056) — same id within a session = same superset. */
+  superset_group?: number | null;
 }
 
 export interface GhostSet {

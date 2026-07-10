@@ -18,13 +18,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
-  AlertTriangle, Check, ChevronLeft, ChevronRight, Clock, Minus, Plus,
+  AlertTriangle, Check, ChevronLeft, ChevronRight, Clock, Info, Minus, Plus,
   SkipForward, Timer, Trophy, X,
 } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
-import type { PainFlag, TemplateExercise } from '@/lib/types';
+import type { Exercise, PainFlag, TemplateExercise } from '@/lib/types';
 import PainFlagModal from './PainFlagModal';
+import ExerciseInfoSheet from './ExerciseInfoSheet';
 import { muscleColor } from './muscle-groups';
+import { useWeightUnit, kgToDisplay, displayToKg } from '@/lib/workout/units';
+import { getRestTarget } from '@/lib/workout/rest-targets';
 import {
   createWorkoutSession,
   deleteWorkoutSet,
@@ -122,11 +126,9 @@ function minutesSince(start: number): number {
   return start > 0 ? Math.max(1, Math.round((Date.now() - start) / 60000)) : 1;
 }
 
-// ─── Rest bar (90s pattern, full-width for one-handed reach) ────────────────
+// ─── Rest bar (per-exercise target, full-width for one-handed reach) ────────
 
-const REST_TARGET_S = 90;
-
-function RestBar({ startedAt, onDismiss }: { startedAt: number; onDismiss: () => void }) {
+function RestBar({ startedAt, targetS, onDismiss }: { startedAt: number; targetS: number; onDismiss: () => void }) {
   const { t } = useI18n();
   const [elapsed, setElapsed] = useState(0);
 
@@ -137,8 +139,8 @@ function RestBar({ startedAt, onDismiss }: { startedAt: number; onDismiss: () =>
     return () => clearInterval(interval);
   }, [startedAt]);
 
-  const ready = elapsed >= REST_TARGET_S;
-  const pct = Math.min(elapsed / REST_TARGET_S, 1);
+  const ready = elapsed >= targetS;
+  const pct = Math.min(elapsed / targetS, 1);
 
   return (
     <motion.button
@@ -246,8 +248,17 @@ export default function GuidedSession({
   const [finishStats, setFinishStats] = useState<FinishStats | null>(null);
   const [finishing, setFinishing] = useState(false);
   const [restStartedAt, setRestStartedAt] = useState<number | null>(null);
+  const [restTargetS, setRestTargetS] = useState(90);
   const [painFlags, setPainFlags] = useState<PainFlag[]>([]);
   const [painModalExerciseId, setPainModalExerciseId] = useState<string | null>(null);
+  // 10/10 wave: display unit + exercise info sheet (full row fetched on demand).
+  const [unit] = useWeightUnit();
+  const [infoExercise, setInfoExercise] = useState<Exercise | null>(null);
+
+  const openInfo = async (exerciseId: string) => {
+    const { data } = await supabase.from('exercises').select('*').eq('id', exerciseId).maybeSingle();
+    if (data) setInfoExercise(data as Exercise);
+  };
 
   // Session clock starts on the FIRST completed set (see completeSet), not on
   // mount — so elapsed time reflects real training, not warm-up browsing.
@@ -320,12 +331,13 @@ export default function GuidedSession({
     patchSet(exIdx, set.id, { is_warmup: !set.is_warmup });
   };
 
-  /** Steppers for the active row — big one-handed +/- controls. */
+  /** Steppers for the active row — big one-handed +/- controls (display unit). */
   const bump = (exIdx: number, set: GuidedSet, field: 'weight' | 'reps', delta: number) => {
     if (set.completed || set.saving) return;
     const base =
       field === 'weight'
-        ? (set.weight.trim() !== '' ? parseFloat(set.weight) : set.ghost?.weight_kg ?? 0)
+        // Typed value is already display-unit; the kg ghost converts for display.
+        ? (set.weight.trim() !== '' ? parseFloat(set.weight) : set.ghost?.weight_kg != null ? kgToDisplay(set.ghost.weight_kg, unit) : 0)
         : (set.reps.trim() !== '' ? parseInt(set.reps, 10) : set.ghost?.reps ?? 0);
     const safeBase = isNaN(base) ? 0 : base;
     const next = Math.max(0, Math.round((safeBase + delta) * 10) / 10);
@@ -346,7 +358,12 @@ export default function GuidedSession({
       return;
     }
 
-    const weight = resolveFloat(set.weight, set.ghost?.weight_kg);
+    // Typed weight is in the DISPLAY unit → convert once to kg for storage.
+    // Ghost fallback (resolveFloat's second arg) is already kg from the DB.
+    const typedWeight = set.weight.trim() !== '' && !isNaN(parseFloat(set.weight))
+      ? displayToKg(parseFloat(set.weight), unit)
+      : null;
+    const weight = typedWeight ?? resolveFloat('', set.ghost?.weight_kg);
     const reps = resolveInt(set.reps, set.ghost?.reps);
     const rpe = resolveFloat(set.rpe, set.ghost?.rpe);
     const isPr = !set.is_warmup && weight !== null && weight > (prMapRef.current[exId] ?? 0);
@@ -378,11 +395,12 @@ export default function GuidedSession({
       completed: true,
       dbId,
       is_pr: isPr,
-      // Show the committed values (ghosts become real once accepted).
-      weight: weight !== null ? String(weight) : set.weight,
+      // Show the committed values in the DISPLAY unit (weight is storage kg).
+      weight: weight !== null ? String(kgToDisplay(weight, unit)) : set.weight,
       reps: reps !== null ? String(reps) : set.reps,
       rpe: rpe !== null ? String(rpe) : set.rpe,
     });
+    setRestTargetS(getRestTarget(exId, exercise.info?.isCompound));
     setRestStartedAt(Date.now());
   };
 
@@ -393,9 +411,10 @@ export default function GuidedSession({
         const last = ex.sets[ex.sets.length - 1];
         const extra = newSet(ex.sets.length + 1, last?.ghost);
         // Carry forward what the lifter just did as the new ghost baseline.
+        // Ghosts live in kg — typed values (display unit) convert on the way in.
         if (last && (last.weight || last.reps)) {
           extra.ghost = {
-            weight_kg: last.weight ? parseFloat(last.weight) : last.ghost?.weight_kg ?? null,
+            weight_kg: last.weight ? displayToKg(parseFloat(last.weight), unit) : last.ghost?.weight_kg ?? null,
             reps: last.reps ? parseInt(last.reps, 10) : last.ghost?.reps ?? null,
             rpe: last.rpe ? parseFloat(last.rpe) : last.ghost?.rpe ?? null,
           };
@@ -529,7 +548,7 @@ export default function GuidedSession({
           <div className="grid grid-cols-3 gap-2 mt-5">
             {[
               { label: t('workout.duration'), value: `${finishStats.durationMin}${t('workout.min')}` },
-              { label: t('workout.volume'), value: finishStats.totalVolume > 1000 ? `${(finishStats.totalVolume / 1000).toFixed(1)}k kg` : `${finishStats.totalVolume} kg` },
+              { label: t('workout.volume'), value: (() => { const v = kgToDisplay(finishStats.totalVolume, unit); return v > 1000 ? `${(v / 1000).toFixed(1)}k ${unit}` : `${Math.round(v)} ${unit}`; })() },
               { label: t('workout.sets_label'), value: String(finishStats.setsDone) },
             ].map((s) => (
               <div key={s.label} className="glass p-3 rounded-xl">
@@ -556,7 +575,7 @@ export default function GuidedSession({
                   <span style={{ fontWeight: 600, color: 'var(--t1)' }}>{pr.exerciseName}</span>
                   {' — '}
                   <span style={{ color: 'var(--accent, #D4A853)', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
-                    {pr.weight}kg{pr.reps ? ` × ${pr.reps}` : ''}
+                    {kgToDisplay(pr.weight, unit)}{unit}{pr.reps ? ` × ${pr.reps}` : ''}
                   </span>
                 </div>
               ))}
@@ -670,6 +689,14 @@ export default function GuidedSession({
                   </div>
                 </div>
                 <button
+                  onClick={() => void openInfo(ex.ref.exercise_id)}
+                  className="p-2 rounded-lg"
+                  style={{ background: 'rgba(255,255,255,0.05)', minWidth: 36, minHeight: 36 }}
+                  aria-label={t('workout.info_title')}
+                >
+                  <Info size={15} className="text-stone-400" />
+                </button>
+                <button
                   onClick={() => setPainModalExerciseId(ex.ref.exercise_id)}
                   className="p-2 rounded-lg"
                   style={{ background: 'rgba(239,68,68,0.1)', minWidth: 36, minHeight: 36 }}
@@ -698,7 +725,7 @@ export default function GuidedSession({
                   {/* Column headers */}
                   <div className="flex items-center gap-1.5 px-1 pb-1 text-[10px] text-stone-600 uppercase tracking-wider">
                     <div style={{ width: 34 }} className="text-center">Set</div>
-                    <div className="flex-1 text-center">kg</div>
+                    <div className="flex-1 text-center">{unit}</div>
                     <div className="flex-1 text-center">{t('workout.reps')}</div>
                     <div style={{ width: 42 }} className="text-center">rpe</div>
                     <div style={{ width: 46 }} />
@@ -736,7 +763,7 @@ export default function GuidedSession({
                             value={set.weight}
                             disabled={set.completed}
                             onChange={(e) => updateSetField(currentIdx, set.id, 'weight', e.target.value)}
-                            placeholder={set.ghost?.weight_kg != null ? String(set.ghost.weight_kg) : '0'}
+                            placeholder={set.ghost?.weight_kg != null ? String(kgToDisplay(set.ghost.weight_kg, unit)) : '0'}
                             className="flex-1 text-center rounded-xl outline-none min-w-0"
                             style={{
                               height: 44, fontSize: 15, fontWeight: 600,
@@ -804,13 +831,14 @@ export default function GuidedSession({
                         {isActive && (
                           <div className="flex gap-1.5 px-1 pb-1.5 pt-0.5">
                             {[
-                              { label: '-2.5', field: 'weight' as const, delta: -2.5 },
-                              { label: '+2.5', field: 'weight' as const, delta: 2.5 },
-                              { label: '-1', field: 'reps' as const, delta: -1 },
-                              { label: '+1', field: 'reps' as const, delta: 1 },
+                              // Weight steps follow the display unit's plate math.
+                              { field: 'weight' as const, delta: -(unit === 'lb' ? 5 : 2.5) },
+                              { field: 'weight' as const, delta: unit === 'lb' ? 5 : 2.5 },
+                              { field: 'reps' as const, delta: -1 },
+                              { field: 'reps' as const, delta: 1 },
                             ].map((b) => (
                               <button
-                                key={b.label + b.field}
+                                key={`${b.field}${b.delta}`}
                                 onClick={() => bump(currentIdx, set, b.field, b.delta)}
                                 style={{
                                   flex: 1, height: 44, borderRadius: 12,
@@ -820,8 +848,8 @@ export default function GuidedSession({
                                 }}
                               >
                                 {b.delta < 0 ? <Minus size={11} /> : <Plus size={11} />}
-                                {b.label.replace('-', '').replace('+', '')}
-                                <span style={{ fontSize: 9, color: 'var(--t5)' }}>{b.field === 'weight' ? 'kg' : 'rep'}</span>
+                                {Math.abs(b.delta)}
+                                <span style={{ fontSize: 9, color: 'var(--t5)' }}>{b.field === 'weight' ? unit : 'rep'}</span>
                               </button>
                             ))}
                           </div>
@@ -856,7 +884,7 @@ export default function GuidedSession({
             {/* Rest timer between sets */}
             <AnimatePresence>
               {restStartedAt !== null && (
-                <RestBar key={restStartedAt} startedAt={restStartedAt} onDismiss={() => setRestStartedAt(null)} />
+                <RestBar key={restStartedAt} startedAt={restStartedAt} targetS={restTargetS} onDismiss={() => setRestStartedAt(null)} />
               )}
             </AnimatePresence>
 
@@ -932,6 +960,17 @@ export default function GuidedSession({
             exerciseId={painModalExerciseId}
             onSave={(flag) => setPainFlags((prev) => [...prev, flag])}
             onClose={() => setPainModalExerciseId(null)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Exercise info sheet (form cue, muscles, PR, recent history) */}
+      <AnimatePresence>
+        {infoExercise && (
+          <ExerciseInfoSheet
+            exercise={infoExercise}
+            userId={userId}
+            onClose={() => setInfoExercise(null)}
           />
         )}
       </AnimatePresence>
