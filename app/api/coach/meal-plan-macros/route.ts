@@ -4,6 +4,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requireRole } from '@/lib/auth/require-role';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
+import { canAccessClient } from '@/lib/auth/tenant-access';
+import { db } from '@/db/client';
 import { run as parseFood } from '@/agents/food-parse';
 
 /**
@@ -40,15 +42,14 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: 'clientId (uuid) required' }, { status: 400 });
   const { clientId } = parsed.data;
   const userId = guard.session.user.id;
-  const isAdmin = guard.session.role === 'admin' || guard.session.role === 'super_admin';
+
+  // Org-aware ownership (was a blanket admin bypass = cross-tenant IDOR +
+  // cross-tenant LLM cost abuse).
+  if (!(await canAccessClient(db, userId, guard.session.role, clientId))) {
+    return NextResponse.json({ error: 'Not your client' }, { status: 403 });
+  }
 
   const service = createSupabaseServiceClient();
-
-  if (!isAdmin) {
-    const { data: cp } = await service
-      .from('client_profiles').select('coach_id').eq('user_id', clientId).maybeSingle();
-    if (!cp || cp.coach_id !== userId) return NextResponse.json({ error: 'Not your client' }, { status: 403 });
-  }
 
   const [{ data: rows }, { data: profile }] = await Promise.all([
     service.from('meal_plan_entries').select('day_of_week, meal_slot, description').eq('client_id', clientId),

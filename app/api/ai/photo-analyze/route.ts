@@ -102,9 +102,12 @@ export async function POST(request: NextRequest) {
 
     const { imageBase64, mediaType } = validation.data;
     if (!process.env.ANTHROPIC_API_KEY) {
+      // Never leak provider/env-var identity to clients (B2B: a clinic client
+      // must see a friendly retry, not our internal config). Log server-side.
+      console.error('[photo-analyze] ANTHROPIC_API_KEY not configured');
       return NextResponse.json(
-        { error: 'ANTHROPIC_API_KEY not configured' },
-        { status: 500 },
+        { error: 'Photo analysis is temporarily unavailable — please try again.' },
+        { status: 503 },
       );
     }
 
