@@ -114,6 +114,24 @@ fi
 
 export DATABASE_URL="postgresql://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}"
 
+# Migration 0048 intentionally fails closed when Supabase Vault exists without the
+# memory worker secret. Local Supabase has Vault, so seed a non-production fixture
+# before running migrations. Plain Postgres CI has no Vault and skips this block.
+if [ "$COMPAT_MODE" = "0" ]; then
+  echo "==> Preparing local-only Vault fixtures"
+  psql -v ON_ERROR_STOP=1 -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" <<'SQL'
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM vault.decrypted_secrets WHERE name = 'memory_cron_secret'
+  ) THEN
+    PERFORM vault.create_secret('local-test-only', 'memory_cron_secret');
+  END IF;
+END
+$$;
+SQL
+fi
+
 echo "==> Applying Drizzle migrations"
 psql -v ON_ERROR_STOP=1 -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" <<'SQL'
 CREATE SCHEMA IF NOT EXISTS drizzle;
