@@ -151,23 +151,56 @@ export async function eraseUser(userId: string, opts: { dryRun: boolean }): Prom
   // 0) Chat attachments in storage — storage.objects has no FK to profiles,
   //    so the cascade never touches it. Path convention (migration 0052):
   //    {coach_id}/{client_id}/{uuid}.{ext} — remove every object under each
-  //    coach this client ever messaged with.
+  //    coach this client ever messaged with. BOTH queries are paginated:
+  //    PostgREST caps at 1000 rows and storage.list caps per page, so a client
+  //    with a long chat history would otherwise leave later attachments behind
+  //    while reporting success.
   {
-    const { data: coachRows } = await service
-      .from('messages').select('coach_id').eq('client_id', userId);
-    const coachIds = [...new Set((coachRows ?? []).map((r) => r.coach_id as string))];
+    // Distinct coach_ids across ALL messages (page past the 1000-row cap).
+    const coachIds = new Set<string>();
+    for (let from = 0; ; from += 1000) {
+      const { data } = await service
+        .from('messages').select('coach_id').eq('client_id', userId)
+        .order('coach_id').range(from, from + 999);
+      for (const r of data ?? []) coachIds.add(r.coach_id as string);
+      if (!data || data.length < 1000) break;
+    }
     let objCount = 0;
     for (const coachId of coachIds) {
       const prefix = `${coachId}/${userId}`;
-      const { data: objs } = await service.storage.from('chat-attachments').list(prefix, { limit: 1000 });
-      const paths = (objs ?? []).map((o) => `${prefix}/${o.name}`);
-      objCount += paths.length;
-      if (!opts.dryRun && paths.length > 0) {
-        const { error } = await service.storage.from('chat-attachments').remove(paths);
-        if (error) result.errors.push(`chat-attachments remove: ${error.message}`);
+      // Page storage.list until a short page (fewer than the limit) is returned.
+      for (let offset = 0; ; offset += 1000) {
+        const { data: objs } = await service.storage.from('chat-attachments')
+          .list(prefix, { limit: 1000, offset });
+        const paths = (objs ?? []).map((o) => `${prefix}/${o.name}`);
+        objCount += paths.length;
+        if (!opts.dryRun && paths.length > 0) {
+          const { error } = await service.storage.from('chat-attachments').remove(paths);
+          if (error) result.errors.push(`chat-attachments remove: ${error.message}`);
+        }
+        if (!objs || objs.length < 1000) break;
       }
     }
     result.counts['chat-attachments storage (delete)'] = objCount;
+  }
+
+  // 0b) client_invites — the invite row that onboarded this client carries
+  //     their email + name + accepted_user_id, and accepted_user_id has NO FK,
+  //     so neither the cascade nor any classified step removes it. Left behind,
+  //     it's an Art. 17 gap (name + email persist after "successful" erasure).
+  {
+    const { data: prof } = await service.from('profiles').select('email').eq('id', userId).maybeSingle();
+    const email = (prof?.email as string | undefined)?.trim() || null;
+    const orClause = email
+      ? `accepted_user_id.eq.${userId},client_email.eq.${email}`
+      : `accepted_user_id.eq.${userId}`;
+    const { count } = await service
+      .from('client_invites').select('*', { count: 'exact', head: true }).or(orClause);
+    result.counts['client_invites (delete)'] = count ?? 0;
+    if (!opts.dryRun && (count ?? 0) > 0) {
+      const { error } = await service.from('client_invites').delete().or(orClause);
+      if (error) result.errors.push(`client_invites: ${error.message}`);
+    }
   }
 
   // 1) Straggler steps (would block or escape the cascade)
