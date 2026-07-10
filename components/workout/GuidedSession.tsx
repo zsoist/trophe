@@ -455,13 +455,19 @@ export default function GuidedSession({
     const done = exercises.flatMap((ex) =>
       ex.sets
         .filter((s) => s.completed)
-        .map((s) => ({
-          exerciseName: localizedName(ex),
-          weight: s.weight ? parseFloat(s.weight) : 0,
-          reps: s.reps ? parseInt(s.reps, 10) : null,
-          volume: (s.weight ? parseFloat(s.weight) : 0) * (s.reps ? parseInt(s.reps, 10) : 0),
-          isPr: s.is_pr,
-        })),
+        .map((s) => {
+          // s.weight is a DISPLAY-unit string; store finish stats in kg so the
+          // render-time kgToDisplay() is correct (was double-converted in lb).
+          const wKg = s.weight ? displayToKg(parseFloat(s.weight), unit) : 0;
+          const r = s.reps ? parseInt(s.reps, 10) : null;
+          return {
+            exerciseName: localizedName(ex),
+            weight: wKg,
+            reps: r,
+            volume: wKg * (r ?? 0),
+            isPr: s.is_pr,
+          };
+        }),
     );
     const stats: FinishStats = {
       durationMin,

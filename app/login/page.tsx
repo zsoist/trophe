@@ -96,12 +96,26 @@ function LoginForm() {
     if (!email) { setError('Enter your email first'); return; }
     setLoading(true);
     setError('');
-    const { error: authError } = await supabase.auth.signInWithOtp({ email });
-    setLoading(false);
-    if (authError) {
-      setError(authError.message);
-    } else {
-      setSuccess('Magic link sent! Check your email.');
+    // Route through the server endpoint (not the browser client) so the
+    // magic link inherits shouldCreateUser:false, a safe redirect, IP rate
+    // limiting, and no email-enumeration leak. A raw signInWithOtp here would
+    // provision a brand-new account for any address and skip all of that.
+    try {
+      const res = await fetch('/api/auth/magic-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error ?? 'Could not send the magic link — try again');
+      } else {
+        setSuccess(data.message ?? 'Magic link sent! Check your email.');
+      }
+    } catch {
+      setError('Network error — please try again');
+    } finally {
+      setLoading(false);
     }
   }
 

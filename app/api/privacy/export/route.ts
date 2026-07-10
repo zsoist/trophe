@@ -19,10 +19,10 @@ const USER_TABLES: Array<{ table: string; column: string }> = [
   { table: 'water_log', column: 'user_id' },
   { table: 'workout_sessions', column: 'user_id' },
   { table: 'form_analyses', column: 'user_id' },
-  { table: 'client_habits', column: 'user_id' },
+  { table: 'client_habits', column: 'client_id' },       // subject ref is client_id, not user_id
   { table: 'habit_checkins', column: 'user_id' },
   { table: 'daily_checkins', column: 'user_id' },
-  { table: 'questionnaire_responses', column: 'user_id' },
+  { table: 'questionnaire_responses', column: 'client_id' }, // subject ref is client_id, not user_id
   { table: 'custom_foods', column: 'created_by' },
   { table: 'consents', column: 'user_id' },
   { table: 'data_requests', column: 'user_id' },

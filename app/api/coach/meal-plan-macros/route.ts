@@ -7,6 +7,11 @@ import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { canAccessClient } from '@/lib/auth/tenant-access';
 import { db } from '@/db/client';
 import { run as parseFood } from '@/agents/food-parse';
+import { consumeRateLimit } from '@/lib/security/durable-rate-limit';
+
+// Cap the distinct meals parsed per call — one DeepSeek call each, so an
+// oversized plan (or an abusive caller) can't fan out unbounded LLM cost.
+const MAX_UNIQUE_MEALS = 80;
 
 /**
  * Per-day meal-plan macro rollup (Daily Nutrafit — "the app counts for me").
@@ -49,6 +54,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Not your client' }, { status: 403 });
   }
 
+  // requireRole does no rate limiting (unlike guardAiRoute) — this route fans
+  // out one DeepSeek call per distinct meal, so bound it: 20 rollups / 10 min.
+  const rate = await consumeRateLimit(`meal-macros:${userId}`, 20, 600);
+  if (!rate.allowed) {
+    return NextResponse.json(
+      { error: 'Too many macro rollups — please try again shortly' },
+      { status: 429, headers: { 'Retry-After': String(rate.retryAfter) } },
+    );
+  }
+
   const service = createSupabaseServiceClient();
 
   const [{ data: rows }, { data: profile }] = await Promise.all([
@@ -63,8 +78,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ days: [], targets: profile ?? null, mealCount: 0 });
   }
 
-  // Parse each DISTINCT description once (a meal repeated across days costs one call).
-  const uniqueDescriptions = Array.from(new Set(cells.map((c) => c.description.trim())));
+  // Parse each DISTINCT description once (a meal repeated across days costs one
+  // call), capped so one request can't trigger an unbounded LLM fan-out.
+  const uniqueDescriptions = Array.from(new Set(cells.map((c) => c.description.trim()))).slice(0, MAX_UNIQUE_MEALS);
   const parsedByDesc = new Map<string, MacroSum>();
   await mapPool(uniqueDescriptions, 4, async (desc) => {
     try {

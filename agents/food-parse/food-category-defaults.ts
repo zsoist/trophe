@@ -98,18 +98,21 @@ const CATEGORY_KEYWORDS: Array<[FoodCategory, string[]]> = [
     'ρύζι', 'ζυμαρικά', 'βρώμη', 'αλεύρι', 'κινόα',
     'arroz', 'pasta', 'fideos', 'avena', 'harina', 'quinua',
   ]],
+  // nut_seed MUST precede legume: classifyIngredient() is first-match substring,
+  // and legume's 'pea' would otherwise swallow 'peanut'/'peanut butter' (a ~4.6x
+  // calorie / ~100x fat underestimate). 'maní'/'cacahuate' likewise before 'soja'.
+  ['nut_seed', [
+    'peanut', 'almond', 'walnut', 'cashew', 'pistachio', 'pecan', 'hazelnut',
+    'pine nut', 'chia', 'flax', 'sesame', 'sunflower seed', 'pumpkin seed',
+    'nut', 'nuts', 'seed', 'seeds', 'tahini',
+    'αμύγδαλο', 'καρύδι', 'φιστίκι', 'ταχίνι',
+    'almendra', 'nuez', 'maní', 'cacahuate', 'semilla',
+  ]],
   ['legume', [
     'bean', 'beans', 'lentil', 'lentils', 'chickpea', 'chickpeas', 'pea', 'peas',
     'soybean', 'tofu', 'tempeh', 'edamame', 'hummus',
     'φασόλι', 'φακές', 'ρεβίθια', 'μπιζέλια',
     'frijol', 'frijoles', 'lenteja', 'lentejas', 'garbanzo', 'soja',
-  ]],
-  ['nut_seed', [
-    'almond', 'walnut', 'peanut', 'cashew', 'pistachio', 'pecan', 'hazelnut',
-    'pine nut', 'chia', 'flax', 'sesame', 'sunflower seed', 'pumpkin seed',
-    'nut', 'nuts', 'seed', 'seeds', 'tahini',
-    'αμύγδαλο', 'καρύδι', 'φιστίκι', 'ταχίνι',
-    'almendra', 'nuez', 'maní', 'cacahuate', 'semilla',
   ]],
   ['vegetable', [
     'tomato', 'onion', 'garlic', 'pepper', 'carrot', 'potato', 'lettuce',
