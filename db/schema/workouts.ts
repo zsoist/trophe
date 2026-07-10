@@ -30,6 +30,10 @@ export const exercises = pgTable('exercises', {
   equipment: text(),
   isCompound: boolean('is_compound').default(false),
   isTemplate: boolean('is_template').default(true),
+  // Migration 0056: one concise form-cue sentence per language (info sheet).
+  instructions: text(),
+  instructionsEs: text('instructions_es'),
+  instructionsEl: text('instructions_el'),
   createdBy: uuid('created_by'),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
 }, (table) => [
@@ -96,6 +100,8 @@ export const workoutSets = pgTable('workout_sets', {
   rpe: real(),
   isWarmup: boolean('is_warmup').default(false),
   isPr: boolean('is_pr').default(false),
+  // Migration 0056: sets sharing a group id within a session form a superset.
+  supersetGroup: integer('superset_group'),
   notes: text(),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
 }, (table) => [

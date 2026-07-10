@@ -18,23 +18,29 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Dumbbell, Plus, Minus, Clock, Trophy, Search, X, AlertTriangle,
+  Dumbbell, Plus, Minus, Clock, Trophy, X, AlertTriangle,
   ChevronDown, ChevronUp, History, Play, Square, Camera, Timer,
-  BarChart3, Check, MessageCircle,
+  Calculator, Info, Link2, BarChart3, Check, MessageCircle,
 } from 'lucide-react';
 import { BotNav } from '@/components/ui/BotNav';
 import { AnimatedValue } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
 import { useClientNav } from '@/lib/useClientNav';
-import type { Exercise, PainFlag, MuscleGroup, WorkoutSession, TemplateExercise } from '@/lib/types';
+import type { Exercise, PainFlag, WorkoutSession, TemplateExercise } from '@/lib/types';
 import Link from 'next/link';
 import { localToday } from '../../../lib/utils/dates';
 import { trpc } from '@/lib/trpc/client';
 import GuidedSession, { type GuidedExerciseInfo, type GuidedTemplate } from '@/components/workout/GuidedSession';
 import { TodayProgramCard, RestDayCard, type TodayTemplateSummary } from '@/components/workout/TodayProgramCard';
 import PainFlagModal from '@/components/workout/PainFlagModal';
-import { MUSCLE_GROUPS, muscleColor, muscleLabelKey } from '@/components/workout/muscle-groups';
+import ExercisePicker from '@/components/workout/ExercisePicker';
+import RecentSessionCard from '@/components/workout/RecentSessionCard';
+import ExerciseInfoSheet from '@/components/workout/ExerciseInfoSheet';
+import PlateCalculator from '@/components/workout/PlateCalculator';
+import { muscleColor } from '@/components/workout/muscle-groups';
+import { useWeightUnit, kgToDisplay, displayToKg } from '@/lib/workout/units';
+import { getRestTarget, setRestTarget as persistRestTarget, REST_CHOICES } from '@/lib/workout/rest-targets';
 import {
   createWorkoutSession,
   deleteWorkoutSet,
@@ -67,6 +73,20 @@ interface ActiveExercise {
   collapsed: boolean;
   /** Sets from the most recent past session of this exercise — ghost placeholders. */
   lastSets?: { weight_kg: number | null; reps: number | null; rpe?: number | null }[];
+  /** Superset pairing: linked with the NEXT exercise in the list (Hevy-style). */
+  linkedBelow?: boolean;
+}
+
+/**
+ * Superset group id for an exercise position, or null when unpaired.
+ * Chained links (A→B→C) share one group; the id is the chain-start index + 1.
+ */
+function supersetGroupFor(list: ActiveExercise[], index: number): number | null {
+  const inChain = list[index]?.linkedBelow || (index > 0 && list[index - 1]?.linkedBelow);
+  if (!inChain) return null;
+  let start = index;
+  while (start > 0 && list[start - 1]?.linkedBelow) start--;
+  return start + 1;
 }
 
 function blankSet(setNumber: number, from?: LocalSet): LocalSet {
@@ -82,352 +102,6 @@ function blankSet(setNumber: number, from?: LocalSet): LocalSet {
     saving: false,
     dbId: null,
   };
-}
-
-// ─── Custom Exercise Modal ───
-function CustomExerciseModal({
-  onSave,
-  onClose,
-}: {
-  onSave: (ex: Exercise) => void;
-  onClose: () => void;
-}) {
-  const { t } = useI18n();
-  const [name, setName] = useState('');
-  const [muscleGroup, setMuscleGroup] = useState<MuscleGroup>('chest');
-  const [equipment, setEquipment] = useState('dumbbell');
-  const [isCompound, setIsCompound] = useState(false);
-  const [saving, setSaving] = useState(false);
-
-  const handleSave = async () => {
-    if (!name.trim() || saving) return;
-    setSaving(true);
-
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setSaving(false); return; }
-
-    const { data, error } = await supabase
-      .from('exercises')
-      .insert({
-        name: name.trim(),
-        muscle_group: muscleGroup,
-        equipment,
-        is_compound: isCompound,
-        is_template: false,
-        created_by: user.id,
-      })
-      .select()
-      .maybeSingle();
-
-    if (data && !error) {
-      onSave(data as Exercise);
-      onClose();
-    } else {
-      console.error('Error creating exercise:', error);
-    }
-    setSaving(false);
-  };
-
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[var(--z-modal,60)] flex items-center justify-center px-4"
-      style={{ background: 'rgba(0,0,0,0.8)' }}
-      onClick={onClose}
-    >
-      <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
-        className="glass-elevated p-6 w-full max-w-sm"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center gap-2 mb-4">
-          <Dumbbell size={20} className="gold-text" />
-          <h3 className="text-lg font-semibold">{t('workout.custom_title')}</h3>
-        </div>
-
-        <input
-          type="text"
-          placeholder={t('workout.custom_name')}
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="input-dark mb-3"
-          autoFocus
-        />
-
-        <div className="mb-3">
-          <label className="text-sm text-stone-400 mb-1 block">{t('workout.custom_muscle')}</label>
-          <select
-            value={muscleGroup}
-            onChange={(e) => setMuscleGroup(e.target.value as MuscleGroup)}
-            className="input-dark w-full"
-          >
-            {MUSCLE_GROUPS.map((mg) => (
-              <option key={mg.key} value={mg.key}>{t(muscleLabelKey(mg.key))}</option>
-            ))}
-          </select>
-        </div>
-
-        <div className="mb-3">
-          <label className="text-sm text-stone-400 mb-1 block">{t('workout.custom_equipment')}</label>
-          <select
-            value={equipment}
-            onChange={(e) => setEquipment(e.target.value)}
-            className="input-dark w-full"
-          >
-            {['barbell', 'dumbbell', 'machine', 'cable', 'bodyweight', 'band', 'kettlebell'].map((eq) => (
-              <option key={eq} value={eq}>{eq.charAt(0).toUpperCase() + eq.slice(1)}</option>
-            ))}
-          </select>
-        </div>
-
-        <label className="flex items-center gap-2 mb-4 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={isCompound}
-            onChange={(e) => setIsCompound(e.target.checked)}
-            className="rounded border-stone-600"
-          />
-          <span className="text-sm text-stone-400">{t('workout.custom_compound')}</span>
-        </label>
-
-        <div className="flex gap-2">
-          <button onClick={onClose} className="btn-ghost flex-1 text-sm py-2">
-            {t('workout.custom_cancel')}
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={!name.trim() || saving}
-            className="btn-gold flex-1 text-sm py-2 font-semibold"
-          >
-            {saving ? t('workout.custom_saving') : t('workout.custom_create')}
-          </button>
-        </div>
-      </motion.div>
-    </motion.div>
-  );
-}
-
-// ─── Exercise Picker Modal ───
-/** One dense, tappable exercise row — muscle dot + name + equipment meta. */
-function ExerciseRow({ ex, name, onPick }: { ex: Exercise; name: string; onPick: () => void }) {
-  const color = muscleColor(ex.muscle_group);
-  const { t } = useI18n();
-  const meta = [
-    ex.equipment ? ex.equipment.charAt(0).toUpperCase() + ex.equipment.slice(1) : null,
-    ex.is_compound ? t('workout.compound') : null,
-  ].filter(Boolean).join(' · ');
-  return (
-    <motion.button
-      whileTap={{ scale: 0.97 }}
-      onClick={onPick}
-      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors"
-      style={{ background: 'rgba(255,255,255,0.035)', border: '1px solid rgba(255,255,255,0.04)' }}
-    >
-      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: color, boxShadow: `0 0 8px ${color}66` }} />
-      <span className="flex-1 min-w-0">
-        <span className="block text-sm font-semibold truncate" style={{ color: 'var(--t1)' }}>{name}</span>
-        {meta && <span className="block text-[11px] truncate" style={{ color: 'var(--t4)' }}>{meta}</span>}
-      </span>
-      <Plus size={16} style={{ color: 'var(--t4)' }} className="shrink-0" />
-    </motion.button>
-  );
-}
-
-function ExercisePicker({
-  exercises,
-  recentIds,
-  onSelect,
-  onClose,
-  lang,
-  onCustomCreated,
-}: {
-  exercises: Exercise[];
-  recentIds: string[];
-  onSelect: (ex: Exercise) => void;
-  onClose: () => void;
-  lang: string;
-  onCustomCreated?: (ex: Exercise) => void;
-}) {
-  const [search, setSearch] = useState('');
-  const [filterMuscle, setFilterMuscle] = useState<MuscleGroup | 'all'>('all');
-  const [showCustomModal, setShowCustomModal] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const { t } = useI18n();
-
-  useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
-
-  const nameOf = (ex: Exercise) =>
-    lang === 'es' && ex.name_es ? ex.name_es : lang === 'el' && ex.name_el ? ex.name_el : ex.name;
-
-  const q = search.trim().toLowerCase();
-  const browsing = q === '' && filterMuscle === 'all';
-
-  const filtered = exercises.filter((ex) => {
-    const matchesSearch = q === '' || nameOf(ex).toLowerCase().includes(q) || (ex.equipment ?? '').toLowerCase().includes(q);
-    const matchesMuscle = filterMuscle === 'all' || ex.muscle_group === filterMuscle;
-    return matchesSearch && matchesMuscle;
-  });
-
-  const pick = (ex: Exercise) => { onSelect(ex); onClose(); };
-
-  // Recent quick-add — only while browsing (no search, no muscle filter).
-  const recentExercises = browsing
-    ? recentIds.map((id) => exercises.find((e) => e.id === id)).filter((e): e is Exercise => Boolean(e)).slice(0, 8)
-    : [];
-
-  // Sectioned by muscle group (in canonical order) so the list reads as
-  // structure, not an undifferentiated scroll. Flat when searching/filtering.
-  const sections = browsing
-    ? MUSCLE_GROUPS.map((mg) => ({ mg, items: filtered.filter((e) => e.muscle_group === mg.key) })).filter((s) => s.items.length > 0)
-    : [{ mg: null as (typeof MUSCLE_GROUPS)[number] | null, items: filtered }];
-
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex flex-col"
-      style={{ background: 'var(--bg, #0a0a0a)' }}
-    >
-      {/* Sticky header: close · search · live count */}
-      <div className="sticky top-0 z-10 glass-elevated">
-        <div className="max-w-md lg:max-w-2xl mx-auto px-4 pt-3 pb-2">
-          <div className="flex items-center gap-3">
-            <button onClick={onClose} aria-label={t('workout.custom_cancel')} className="p-2 rounded-xl transition-colors" style={{ background: 'rgba(255,255,255,0.06)' }}>
-              <X size={20} style={{ color: 'var(--t2)' }} />
-            </button>
-            <div className="relative flex-1">
-              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--t4)' }} />
-              <input
-                ref={inputRef}
-                type="text"
-                placeholder={t('workout.search_exercises')}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="input-dark pl-10"
-              />
-            </div>
-          </div>
-
-          {/* Muscle filter chips */}
-          <div className="mt-2.5 -mx-1 px-1 overflow-x-auto scrollbar-hide">
-            <div className="flex gap-2">
-              <button
-                onClick={() => setFilterMuscle('all')}
-                className="shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-all"
-                style={{
-                  background: filterMuscle === 'all' ? 'color-mix(in srgb, var(--accent, #D4A853) 20%, transparent)' : 'rgba(255,255,255,0.05)',
-                  color: filterMuscle === 'all' ? 'var(--accent, #D4A853)' : 'var(--t3)',
-                  border: filterMuscle === 'all' ? '1px solid color-mix(in srgb, var(--accent, #D4A853) 32%, transparent)' : '1px solid rgba(255,255,255,0.06)',
-                }}
-              >
-                {t('workout.all')}
-              </button>
-              {MUSCLE_GROUPS.map((mg) => (
-                <button
-                  key={mg.key}
-                  onClick={() => setFilterMuscle(filterMuscle === mg.key ? 'all' : mg.key)}
-                  className="shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-all whitespace-nowrap"
-                  style={{
-                    background: filterMuscle === mg.key ? `${mg.color}22` : 'rgba(255,255,255,0.05)',
-                    color: filterMuscle === mg.key ? mg.color : 'var(--t3)',
-                    border: filterMuscle === mg.key ? `1px solid ${mg.color}55` : '1px solid rgba(255,255,255,0.06)',
-                  }}
-                >
-                  {t(muscleLabelKey(mg.key))}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Scroll body — width-constrained so rows never sprawl edge-to-edge */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-md lg:max-w-2xl mx-auto px-4 pt-3 pb-28">
-          {/* Recent quick-add */}
-          {recentExercises.length > 0 && (
-            <div className="mb-4">
-              <p className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--t4)' }}>
-                {t('workout.picker_recent')}
-              </p>
-              <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-1 px-1">
-                {recentExercises.map((ex) => (
-                  <button
-                    key={ex.id}
-                    onClick={() => pick(ex)}
-                    className="shrink-0 flex items-center gap-2 px-3 py-2 rounded-xl transition-colors"
-                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.06)' }}
-                  >
-                    <span className="w-2 h-2 rounded-full" style={{ background: muscleColor(ex.muscle_group) }} />
-                    <span className="text-xs font-semibold whitespace-nowrap" style={{ color: 'var(--t2)' }}>{nameOf(ex)}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Result count */}
-          <p className="text-[11px] mb-2" style={{ color: 'var(--t4)' }}>
-            {filtered.length} {t('workout.picker_count')}
-          </p>
-
-          {filtered.length === 0 && (
-            <p className="text-center py-10 text-sm" style={{ color: 'var(--t4)' }}>{t('workout.picker_none')}</p>
-          )}
-
-          {/* Sectioned, 2-col on desktop */}
-          {sections.map((section) => (
-            <div key={section.mg?.key ?? 'flat'} className="mb-4">
-              {section.mg && (
-                <div className="flex items-center gap-2 mb-2 sticky top-0 py-1">
-                  <span className="w-2.5 h-2.5 rounded-full" style={{ background: section.mg.color }} />
-                  <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--t3)' }}>
-                    {t(muscleLabelKey(section.mg.key))}
-                  </span>
-                  <span className="text-[11px]" style={{ color: 'var(--t5)' }}>{section.items.length}</span>
-                </div>
-              )}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-1.5">
-                {section.items.map((ex) => (
-                  <ExerciseRow key={ex.id} ex={ex} name={nameOf(ex)} onPick={() => pick(ex)} />
-                ))}
-              </div>
-            </div>
-          ))}
-
-          {/* Create custom — subtle footer, not competing with the list */}
-          <button
-            onClick={() => setShowCustomModal(true)}
-            className="w-full mt-2 py-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-colors"
-            style={{ border: '1px dashed color-mix(in srgb, var(--accent, #D4A853) 30%, transparent)', background: 'color-mix(in srgb, var(--accent, #D4A853) 5%, transparent)', color: 'var(--accent, #D4A853)' }}
-          >
-            <Plus size={16} />
-            {t('workout.picker_custom')}
-          </button>
-        </div>
-      </div>
-
-      {/* Custom exercise modal */}
-      <AnimatePresence>
-        {showCustomModal && (
-          <CustomExerciseModal
-            onSave={(ex) => {
-              if (onCustomCreated) onCustomCreated(ex);
-              onSelect(ex);
-            }}
-            onClose={() => setShowCustomModal(false)}
-          />
-        )}
-      </AnimatePresence>
-    </motion.div>
-  );
 }
 
 // ─── Elapsed Timer ───
@@ -450,10 +124,8 @@ function ElapsedTimer({ startTime }: { startTime: number }) {
   );
 }
 
-// ─── Rest timer chip — starts when a set is logged, gold pulse at 90s ───
-const REST_TARGET_S = 90;
-
-function RestChip({ startedAt, onDismiss }: { startedAt: number; onDismiss: () => void }) {
+// ─── Rest timer chip — starts when a set is logged, gold pulse at target ───
+function RestChip({ startedAt, targetS, onDismiss }: { startedAt: number; targetS: number; onDismiss: () => void }) {
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
@@ -463,7 +135,7 @@ function RestChip({ startedAt, onDismiss }: { startedAt: number; onDismiss: () =
     return () => clearInterval(interval);
   }, [startedAt]);
 
-  const ready = elapsed >= REST_TARGET_S;
+  const ready = elapsed >= targetS;
   const mins = Math.floor(elapsed / 60);
 
   return (
@@ -485,152 +157,6 @@ function RestChip({ startedAt, onDismiss }: { startedAt: number; onDismiss: () =
       <span style={{ fontFamily: 'var(--font-mono)' }}>{mins}:{String(elapsed % 60).padStart(2, '0')}</span>
       {ready && <span style={{ fontWeight: 700 }}>go</span>}
     </motion.button>
-  );
-}
-
-// ─── Recent session card (tappable → inline set detail) ───
-interface ExpandedSetRow {
-  id: string;
-  exercise_id: string;
-  set_number: number;
-  weight_kg: number | null;
-  reps: number | null;
-  rpe: number | null;
-  is_warmup: boolean;
-  is_pr: boolean;
-  exercise: { name: string; name_es: string | null; name_el: string | null; muscle_group: string } | null;
-}
-
-function RecentSessionCard({
-  session,
-  lang,
-}: {
-  session: WorkoutSession;
-  lang: string;
-}) {
-  const { t } = useI18n();
-  const [expanded, setExpanded] = useState(false);
-  const [sets, setSets] = useState<ExpandedSetRow[] | null>(null);
-  const [loadingSets, setLoadingSets] = useState(false);
-
-  const d = new Date(session.session_date + 'T00:00:00');
-  const label = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-
-  const toggle = async () => {
-    const next = !expanded;
-    setExpanded(next);
-    if (next && sets === null && !loadingSets) {
-      setLoadingSets(true);
-      const { data } = await supabase
-        .from('workout_sets')
-        .select('id, exercise_id, set_number, weight_kg, reps, rpe, is_warmup, is_pr, exercise:exercises(name, name_es, name_el, muscle_group)')
-        .eq('session_id', session.id)
-        .order('set_number');
-      setSets((data as unknown as ExpandedSetRow[]) ?? []);
-      setLoadingSets(false);
-    }
-  };
-
-  const grouped = useMemo(() => {
-    if (!sets) return [];
-    const map = new Map<string, { name: string; muscle: string; rows: ExpandedSetRow[] }>();
-    for (const s of sets) {
-      const name =
-        lang === 'es' && s.exercise?.name_es ? s.exercise.name_es
-        : lang === 'el' && s.exercise?.name_el ? s.exercise.name_el
-        : s.exercise?.name ?? 'Exercise';
-      if (!map.has(s.exercise_id)) map.set(s.exercise_id, { name, muscle: s.exercise?.muscle_group ?? '', rows: [] });
-      map.get(s.exercise_id)!.rows.push(s);
-    }
-    return Array.from(map.values());
-  }, [sets, lang]);
-
-  return (
-    <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-      <motion.button
-        whileTap={{ scale: 0.98 }}
-        onClick={toggle}
-        className="w-full text-left"
-        style={{ padding: '11px 14px', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', background: 'transparent', border: 'none' }}
-      >
-        <div style={{
-          width: 32, height: 32, borderRadius: 10, flexShrink: 0,
-          background: 'color-mix(in srgb, var(--accent, #D4A853) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--accent, #D4A853) 20%, transparent)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          <Dumbbell size={14} className="gold-text" />
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--t1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {session.name ?? t('workout.title')}
-          </div>
-          <div style={{ fontSize: 10, color: 'var(--t4)', marginTop: 1 }}>{label}</div>
-        </div>
-        {session.duration_minutes && (
-          <span style={{ fontSize: 10, color: 'var(--t4)', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
-            <Clock size={9} className="inline mr-1" />
-            {session.duration_minutes}m
-          </span>
-        )}
-        {expanded
-          ? <ChevronUp size={13} style={{ color: 'var(--t4)', flexShrink: 0 }} />
-          : <ChevronDown size={13} style={{ color: 'var(--t4)', flexShrink: 0 }} />}
-      </motion.button>
-
-      <AnimatePresence initial={false}>
-        {expanded && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.22, ease: 'easeInOut' }}
-            style={{ overflow: 'hidden' }}
-          >
-            <div style={{ padding: '0 14px 12px', borderTop: '1px solid rgba(255,255,255,.05)' }}>
-              {loadingSets && (
-                <p style={{ fontSize: 11, color: 'var(--t4)', padding: '10px 0' }}>{t('chat.loading')}</p>
-              )}
-              {!loadingSets && sets !== null && sets.length === 0 && (
-                <p style={{ fontSize: 11, color: 'var(--t4)', padding: '10px 0' }}>
-                  {session.notes ?? t('workout.no_sets_cardio')}
-                </p>
-              )}
-              {grouped.map((g, gi) => (
-                <div key={gi} style={{ paddingTop: 10 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
-                    <div style={{ width: 3, height: 12, borderRadius: 2, background: muscleColor(g.muscle) }} />
-                    <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--t2)' }}>{g.name}</span>
-                  </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                    {g.rows.map((r) => (
-                      <span
-                        key={r.id}
-                        style={{
-                          fontSize: 10, fontFamily: 'var(--font-mono)', padding: '2px 7px', borderRadius: 8,
-                          background: r.is_pr ? 'color-mix(in srgb, var(--accent, #D4A853) 14%, transparent)' : 'rgba(255,255,255,.04)',
-                          border: r.is_pr ? '1px solid color-mix(in srgb, var(--accent, #D4A853) 35%, transparent)' : '1px solid rgba(255,255,255,.06)',
-                          color: r.is_pr ? 'var(--accent, #D4A853)' : 'var(--t3)',
-                        }}
-                      >
-                        {r.is_warmup ? 'W ' : ''}{r.weight_kg ?? 0}kg×{r.reps ?? 0}
-                        {r.is_pr && <Trophy size={8} className="inline ml-1" style={{ verticalAlign: -1 }} />}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ))}
-              {!loadingSets && sets !== null && (
-                <Link href="/dashboard/workout/history">
-                  <span style={{ display: 'inline-block', marginTop: 10, fontSize: 10, color: 'var(--accent, #D4A853)', cursor: 'pointer' }}>
-                    {t('workout.view_full_history')}
-                  </span>
-                </Link>
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
   );
 }
 
@@ -675,6 +201,12 @@ export default function WorkoutPage() {
   const [saving, setSaving] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [restStartedAt, setRestStartedAt] = useState<number | null>(null);
+  // 10/10 wave: display unit, per-exercise rest targets, info/plate sheets.
+  const [unit, setUnit] = useWeightUnit();
+  const [restTargets, setRestTargets] = useState<Record<string, number>>({});
+  const [restChipTarget, setRestChipTarget] = useState(90);
+  const [infoExercise, setInfoExercise] = useState<Exercise | null>(null);
+  const [plateCalcKg, setPlateCalcKg] = useState<number | null>(null);
   // Session-complete celebration (volume/sets/PRs/minutes) — shown over the
   // landing after finish; dismissing it is the only way it clears.
   const [finishSummary, setFinishSummary] = useState<{ volume: number; sets: number; prs: number; minutes: number } | null>(null);
@@ -869,8 +401,28 @@ export default function WorkoutPage() {
       ...prev,
       { exercise: ex, sets: [blankSet(1)], collapsed: false },
     ]);
+    setRestTargets((prev) => ({ ...prev, [ex.id]: getRestTarget(ex.id, ex.is_compound) }));
     if (userId) void loadPRs(userId, [ex.id]);
     void loadLastSets(ex.id);
+  };
+
+  /** Cycle the exercise's rest target through the standard choices (persists). */
+  const cycleRestTarget = (ex: Exercise) => {
+    const current = restTargets[ex.id] ?? getRestTarget(ex.id, ex.is_compound);
+    const idx = REST_CHOICES.indexOf(current as (typeof REST_CHOICES)[number]);
+    const next = REST_CHOICES[(idx + 1) % REST_CHOICES.length];
+    persistRestTarget(ex.id, next);
+    setRestTargets((prev) => ({ ...prev, [ex.id]: next }));
+  };
+
+  /** Toggle superset pairing between an exercise and the one below it. */
+  const toggleSupersetLink = (exIndex: number) => {
+    setActiveExercises((prev) => {
+      if (exIndex >= prev.length - 1) return prev; // nothing below to pair with
+      const updated = [...prev];
+      updated[exIndex] = { ...updated[exIndex], linkedBelow: !updated[exIndex].linkedBelow };
+      return updated;
+    });
   };
 
   // ─── Set management ───
@@ -905,11 +457,12 @@ export default function WorkoutPage() {
       const set = { ...updated[exIndex].sets[setIndex], [field]: value };
       if (set.completed) return prev; // completed sets are locked (uncheck to edit)
 
-      // Auto-detect PR
+      // Auto-detect PR — typed value is in the DISPLAY unit; PR baselines are kg.
       if (field === 'weight_kg' && typeof value === 'string' && !set.is_warmup) {
         const w = parseFloat(value);
+        const wKg = isNaN(w) ? NaN : displayToKg(w, unit);
         const prevMax = prRecords[updated[exIndex].exercise.id] || 0;
-        set.is_pr = !isNaN(w) && w > 0 && w > prevMax;
+        set.is_pr = !isNaN(wKg) && wKg > 0 && wKg > prevMax;
       }
 
       updated[exIndex] = { ...updated[exIndex], sets: [...updated[exIndex].sets] };
@@ -948,10 +501,18 @@ export default function WorkoutPage() {
     return sessionPromiseRef.current;
   }, [userId, sessionName]);
 
-  const resolveSetInput = (ae: ActiveExercise, set: LocalSet, setIndex: number): CompletedSetInput => {
+  const resolveSetInput = (
+    ae: ActiveExercise,
+    set: LocalSet,
+    setIndex: number,
+    supersetGroup: number | null = null,
+  ): CompletedSetInput => {
     const ghost = ae.lastSets?.[setIndex];
+    // Typed weight is in the DISPLAY unit → convert once to kg for storage.
+    // Ghost fallbacks are already kg (straight from the DB) — no conversion.
+    const typed = set.weight_kg.trim() !== '' ? parseFloat(set.weight_kg) : NaN;
     const weight = set.weight_kg.trim() !== ''
-      ? (isNaN(parseFloat(set.weight_kg)) ? null : parseFloat(set.weight_kg))
+      ? (isNaN(typed) ? null : displayToKg(typed, unit))
       : ghost?.weight_kg ?? null;
     const reps = set.reps.trim() !== ''
       ? (isNaN(parseInt(set.reps, 10)) ? null : parseInt(set.reps, 10))
@@ -966,6 +527,7 @@ export default function WorkoutPage() {
       rpe,
       is_warmup: set.is_warmup,
       is_pr: isPr,
+      superset_group: supersetGroup,
     };
   };
 
@@ -992,7 +554,7 @@ export default function WorkoutPage() {
       return;
     }
 
-    const input = resolveSetInput(ae, set, setIndex);
+    const input = resolveSetInput(ae, set, setIndex, supersetGroupFor(activeExercises, exIndex));
     patch({ saving: true });
     const sessionId = await ensureSession();
     if (!sessionId) { patch({ saving: false }); return; }
@@ -1009,7 +571,8 @@ export default function WorkoutPage() {
       completed: true,
       dbId,
       is_pr: input.is_pr,
-      weight_kg: input.weight_kg !== null ? String(input.weight_kg) : set.weight_kg,
+      // Write back in the DISPLAY unit (input.weight_kg is storage kg).
+      weight_kg: input.weight_kg !== null ? String(kgToDisplay(input.weight_kg, unit)) : set.weight_kg,
       reps: input.reps !== null ? String(input.reps) : set.reps,
     });
     // Haptic feedback — the tap IS the gesture, so vibrate is never blocked
@@ -1017,6 +580,7 @@ export default function WorkoutPage() {
     if (typeof navigator !== 'undefined') {
       navigator.vibrate?.(input.is_pr ? [12, 40, 12] : 6);
     }
+    setRestChipTarget(restTargets[ae.exercise.id] ?? getRestTarget(ae.exercise.id, ae.exercise.is_compound));
     setRestStartedAt(Date.now());
   };
 
@@ -1026,14 +590,16 @@ export default function WorkoutPage() {
     setSaving(true);
 
     try {
-      const durationMinutes = Math.max(1, Math.round((Date.now() - startTime) / 60000));
+      // startTime is 0 until the first check-completed set — a session finished
+      // with only filled (never checked) rows must not divide against epoch 0.
+      const durationMinutes = startTime > 0 ? Math.max(1, Math.round((Date.now() - startTime) / 60000)) : 1;
 
       // Rows the user filled but never check-completed still get saved.
-      const pending: CompletedSetInput[] = activeExercises.flatMap((ae) =>
+      const pending: CompletedSetInput[] = activeExercises.flatMap((ae, aeIndex) =>
         ae.sets
           .filter((s) => !s.completed && (s.weight_kg.trim() !== '' || s.reps.trim() !== ''))
           .map((s) => {
-            const input = resolveSetInput(ae, s, ae.sets.indexOf(s));
+            const input = resolveSetInput(ae, s, ae.sets.indexOf(s), supersetGroupFor(activeExercises, aeIndex));
             return input;
           }),
       );
@@ -1051,9 +617,11 @@ export default function WorkoutPage() {
       // Session summary — the moment the old flow never gave the user.
       // Completed rows carry live values; pending rows were just resolved.
       const summarySets = [
+        // Completed rows hold DISPLAY-unit strings — convert back to kg so the
+        // volume sum stays in one unit alongside pending rows (already kg).
         ...activeExercises.flatMap((ae) =>
           ae.sets.filter((s) => s.completed && !s.is_warmup).map((s) => ({
-            w: parseFloat(s.weight_kg) || 0, r: parseInt(s.reps, 10) || 0, pr: s.is_pr,
+            w: displayToKg(parseFloat(s.weight_kg) || 0, unit), r: parseInt(s.reps, 10) || 0, pr: s.is_pr,
           }))),
         ...pending.filter((p) => !p.is_warmup).map((p) => ({
           w: p.weight_kg ?? 0, r: p.reps ?? 0, pr: p.is_pr,
@@ -1180,9 +748,18 @@ export default function WorkoutPage() {
           <div className="flex items-center gap-2">
             <AnimatePresence>
               {inFreestyle && restStartedAt !== null && (
-                <RestChip key={restStartedAt} startedAt={restStartedAt} onDismiss={() => setRestStartedAt(null)} />
+                <RestChip key={restStartedAt} startedAt={restStartedAt} targetS={restChipTarget} onDismiss={() => setRestStartedAt(null)} />
               )}
             </AnimatePresence>
+            {/* kg/lb display toggle — storage stays kg */}
+            <button
+              onClick={() => setUnit(unit === 'kg' ? 'lb' : 'kg')}
+              className="px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wide transition-colors"
+              style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--t3)', border: '1px solid rgba(255,255,255,0.08)' }}
+              aria-label="kg / lb"
+            >
+              {unit}
+            </button>
             {inFreestyle && (
               <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold tabular-nums"
                 style={
@@ -1488,7 +1065,7 @@ export default function WorkoutPage() {
             {/* Exercises */}
             <AnimatePresence mode="popLayout">
               {activeExercises.map((ae, exIndex) => {
-                const mg = MUSCLE_GROUPS.find((m) => m.key === ae.exercise.muscle_group);
+                const mgColor = muscleColor(ae.exercise.muscle_group);
                 return (
                   <motion.div
                     key={ae.exercise.id}
@@ -1498,12 +1075,22 @@ export default function WorkoutPage() {
                     exit={{ opacity: 0, scale: 0.95 }}
                     className="glass overflow-hidden"
                   >
+                    {/* Superset badge — shown on every exercise in a chain */}
+                    {supersetGroupFor(activeExercises, exIndex) !== null && (
+                      <div className="flex items-center gap-1.5 px-3 pt-2 -mb-1">
+                        <Link2 size={11} style={{ color: 'var(--accent, #D4A853)' }} />
+                        <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--accent, #D4A853)' }}>
+                          {t('workout.superset')} {String.fromCharCode(64 + (supersetGroupFor(activeExercises, exIndex) ?? 1))}
+                        </span>
+                      </div>
+                    )}
+
                     {/* Exercise header */}
                     <button
                       onClick={() => toggleCollapse(exIndex)}
                       className="w-full flex items-center gap-3 p-3"
                     >
-                      <div className="w-1.5 h-10 rounded-full shrink-0" style={{ background: mg?.color || '#666' }} />
+                      <div className="w-1.5 h-10 rounded-full shrink-0" style={{ background: mgColor }} />
                       <div className="flex-1 text-left min-w-0">
                         <p className="text-sm font-semibold text-stone-200 truncate">
                           {getExerciseName(ae.exercise)}
@@ -1512,7 +1099,7 @@ export default function WorkoutPage() {
                           {ae.sets.length} {ae.sets.length === 1 ? 'set' : 'sets'}
                           {ae.lastSets && ae.lastSets.length > 0 && (
                             <span className="ml-1.5 text-stone-600">
-                              · last {ae.lastSets.slice(0, 3).map(ls => `${ls.weight_kg ?? '–'}×${ls.reps ?? '–'}`).join(' ')}
+                              · last {ae.lastSets.slice(0, 3).map(ls => `${ls.weight_kg !== null ? kgToDisplay(ls.weight_kg, unit) : '–'}×${ls.reps ?? '–'}`).join(' ')}
                             </span>
                           )}
                           {ae.sets.some((s) => s.is_pr) && (
@@ -1520,14 +1107,69 @@ export default function WorkoutPage() {
                               initial={{ scale: 0, rotate: -20 }}
                               animate={{ scale: 1, rotate: 0 }}
                               transition={{ type: 'spring', stiffness: 500, damping: 12 }}
-                              className="ml-1.5 inline-block text-yellow-400 font-semibold"
+                              className="ml-1.5 inline-block font-semibold"
+                              style={{ color: 'var(--accent, #D4A853)' }}
                             >
-                              <Trophy size={10} className="inline" /> PR!
+                              <Trophy size={10} className="inline" /> PR
                             </motion.span>
                           )}
                         </p>
                       </div>
                       <div className="flex items-center gap-1">
+                        {/* Rest target — tap to cycle 60/90/120/150/180s (persists) */}
+                        <button
+                          onClick={(e) => { e.stopPropagation(); cycleRestTarget(ae.exercise); }}
+                          className="px-1.5 py-1 rounded-lg text-[10px] font-bold tabular-nums transition-colors"
+                          style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--t4)', fontFamily: 'var(--font-mono)' }}
+                          aria-label={t('workout.rest_target')}
+                          title={t('workout.rest_target')}
+                        >
+                          <Timer size={10} className="inline mr-0.5" style={{ verticalAlign: -1 }} />
+                          {restTargets[ae.exercise.id] ?? getRestTarget(ae.exercise.id, ae.exercise.is_compound)}s
+                        </button>
+                        {/* Superset link with next exercise */}
+                        {exIndex < activeExercises.length - 1 && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); toggleSupersetLink(exIndex); }}
+                            className="p-1.5 rounded-lg transition-colors"
+                            style={{
+                              background: ae.linkedBelow ? 'color-mix(in srgb, var(--accent, #D4A853) 16%, transparent)' : 'rgba(255,255,255,0.05)',
+                              color: ae.linkedBelow ? 'var(--accent, #D4A853)' : '#78716c',
+                            }}
+                            aria-label={ae.linkedBelow ? t('workout.superset_unlink') : t('workout.superset_link')}
+                            title={ae.linkedBelow ? t('workout.superset_unlink') : t('workout.superset_link')}
+                          >
+                            <Link2 size={14} />
+                          </button>
+                        )}
+                        {/* Plate calculator (barbell only) */}
+                        {ae.exercise.equipment === 'barbell' && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const typedRaw = ae.sets.map((s) => parseFloat(s.weight_kg)).find((v) => !isNaN(v) && v > 0);
+                              const typedKg = typedRaw !== undefined ? displayToKg(typedRaw, unit) : undefined;
+                              const target = typedKg ?? ae.lastSets?.[0]?.weight_kg ?? prRecords[ae.exercise.id] ?? 60;
+                              setPlateCalcKg(target);
+                            }}
+                            className="p-1.5 rounded-lg transition-colors"
+                            style={{ background: 'rgba(255,255,255,0.05)' }}
+                            aria-label={t('workout.plate_title')}
+                            title={t('workout.plate_title')}
+                          >
+                            <Calculator size={14} className="text-stone-500" />
+                          </button>
+                        )}
+                        {/* Exercise info sheet */}
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setInfoExercise(ae.exercise); }}
+                          className="p-1.5 rounded-lg transition-colors"
+                          style={{ background: 'rgba(255,255,255,0.05)' }}
+                          aria-label={t('workout.info_title')}
+                          title={t('workout.info_title')}
+                        >
+                          <Info size={14} className="text-stone-500" />
+                        </button>
                         <button
                           onClick={(e) => { e.stopPropagation(); setPainModalExerciseId(ae.exercise.id); }}
                           className="p-1.5 rounded-lg transition-colors"
@@ -1558,7 +1200,7 @@ export default function WorkoutPage() {
                           {/* Column headers */}
                           <div className="flex items-center gap-1 px-3 pb-1 text-[10px] text-stone-600 uppercase tracking-wider">
                             <div className="w-7 text-center">#</div>
-                            <div className="flex-1 text-center">kg</div>
+                            <div className="flex-1 text-center">{unit}</div>
                             <div className="flex-1 text-center">reps</div>
                             <div className="w-10 text-center">rpe</div>
                             <div className="w-7 text-center">W</div>
@@ -1579,7 +1221,11 @@ export default function WorkoutPage() {
                                 value={set.weight_kg}
                                 disabled={set.completed}
                                 onChange={(e) => updateSet(exIndex, setIndex, 'weight_kg', e.target.value)}
-                                placeholder={ae.lastSets?.[setIndex]?.weight_kg?.toString() ?? '0'}
+                                placeholder={
+                                  ae.lastSets?.[setIndex]?.weight_kg != null
+                                    ? String(kgToDisplay(ae.lastSets[setIndex].weight_kg as number, unit))
+                                    : '0'
+                                }
                                 className="flex-1 min-w-0 text-center text-sm py-2 rounded-lg outline-none transition-colors"
                                 style={{
                                   background: set.is_pr ? 'color-mix(in srgb, var(--accent, #D4A853) 15%, transparent)' : 'rgba(255,255,255,0.04)',
@@ -1730,6 +1376,7 @@ export default function WorkoutPage() {
             onClose={() => setShowPicker(false)}
             lang={lang}
             onCustomCreated={(ex) => setExercises((prev) => [...prev, ex])}
+            onInfo={(ex) => setInfoExercise(ex)}
           />
         )}
       </AnimatePresence>
@@ -1741,6 +1388,28 @@ export default function WorkoutPage() {
             exerciseId={painModalExerciseId}
             onSave={(flag) => setPainFlags((prev) => [...prev, flag])}
             onClose={() => setPainModalExerciseId(null)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Exercise info sheet (form cue, muscles, PR, recent history) */}
+      <AnimatePresence>
+        {infoExercise && (
+          <ExerciseInfoSheet
+            exercise={infoExercise}
+            userId={userId}
+            onClose={() => setInfoExercise(null)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Plate calculator (barbell lifts) */}
+      <AnimatePresence>
+        {plateCalcKg !== null && (
+          <PlateCalculator
+            weightKg={plateCalcKg}
+            unit={unit}
+            onClose={() => setPlateCalcKg(null)}
           />
         )}
       </AnimatePresence>
