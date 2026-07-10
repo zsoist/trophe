@@ -34,6 +34,9 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
   const [prefs, setPrefsState] = useState<AppearancePrefs>(DEFAULT_APPEARANCE);
   const userIdRef = useRef<string | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Once the user edits, the mount-time remote fetch must not overwrite their
+  // choice (the "slow profiles fetch reverts my accent" race).
+  const dirtyRef = useRef(false);
 
   // 1) Local first — applies before any network round-trip.
   useEffect(() => {
@@ -42,38 +45,52 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
     applyAppearance(local);
   }, []);
 
-  // 2) DB sync (authenticated users only).
+  // 2) DB sync, driven by auth state so client-side LOGIN (no root remount)
+  //    still wires userIdRef + pulls cross-device prefs. onAuthStateChange
+  //    fires immediately with the current session, covering initial load too.
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      const { data: { user } } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
-      if (!user || cancelled) return;
-      userIdRef.current = user.id;
-      const { data } = await supabase.from('profiles').select('display_prefs').eq('id', user.id).maybeSingle();
+
+    const pull = async (uid: string) => {
+      userIdRef.current = uid;
+      const { data } = await supabase.from('profiles').select('display_prefs').eq('id', uid).maybeSingle();
       const remote = (data?.display_prefs as { appearance?: unknown } | null)?.appearance;
-      if (remote && !cancelled) {
+      // Don't clobber an edit the user made while this fetch was in flight.
+      if (remote && !cancelled && !dirtyRef.current) {
         const parsed = parseAppearance(remote);
         setPrefsState(parsed);
         applyAppearance(parsed);
         saveLocalAppearance(parsed);
       }
-    })();
-    return () => { cancelled = true; };
+    };
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        void pull(session.user.id);
+      } else {
+        userIdRef.current = null;
+      }
+    });
+    return () => { cancelled = true; sub.subscription.unsubscribe(); };
   }, []);
 
   const setPrefs = useCallback((next: AppearancePrefs) => {
+    dirtyRef.current = true;
     setPrefsState(next);
     applyAppearance(next);
     saveLocalAppearance(next);
-    // Debounced remote persist — merge into display_prefs without clobbering
-    // any other keys (coach panel prefs live in the same jsonb).
+    // Debounced ATOMIC persist — jsonb_set on just the 'appearance' key (RPC,
+    // migration 0054) so a concurrent writer to another display_prefs key
+    // (coach panel prefs) can't clobber this and vice-versa.
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
       const uid = userIdRef.current;
       if (!uid) return;
-      const { data } = await supabase.from('profiles').select('display_prefs').eq('id', uid).maybeSingle();
-      const merged = { ...((data?.display_prefs as Record<string, unknown>) ?? {}), appearance: next };
-      await supabase.from('profiles').update({ display_prefs: merged }).eq('id', uid);
+      const { error } = await supabase.rpc('set_display_prefs_key', {
+        p_key: 'appearance',
+        p_value: next as unknown as Record<string, unknown>,
+      });
+      if (error) console.error('appearance save failed:', error.message);
     }, 600);
   }, []);
 

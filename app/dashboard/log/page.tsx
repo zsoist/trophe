@@ -587,8 +587,11 @@ export default function FoodLogPage() {
     // Cancel any previous pending delete
     if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
     if (pendingDelete) {
-      // Execute previous pending delete immediately
-      supabase.from('food_log').delete().eq('id', pendingDelete.id);
+      // Flush the previous pending delete NOW. supabase-js query builders are
+      // lazy thenables — a bare expression never sends the request, so the row
+      // stayed in the DB and reappeared (with its calories) on the next refetch.
+      void supabase.from('food_log').delete().eq('id', pendingDelete.id)
+        .then(({ error }) => { if (error) console.error('food_log delete failed:', error.message); });
     }
 
     // Soft-delete from UI
@@ -682,9 +685,12 @@ export default function FoodLogPage() {
   // day pill the moment a food is confirmed. Purely celebratory; computed at
   // fire time so it lands on the pill at any viewport size.
   const [arcFlight, setArcFlight] = useState<{ key: number; from: { x: number; y: number }; to: { x: number; y: number } } | null>(null);
+  const arcKeyRef = useRef(0);
 
-  /** MealSlotCard onLogged — batch ids (AI multi-log) arm the batch-undo toast. */
-  const handleSlotLogged = useCallback((ids?: string[]) => {
+  /** MealSlotCard onLogged — batch ids (AI multi-log) arm the batch-undo toast.
+   *  Plain function (React Compiler auto-memoizes) — a manual useCallback here
+   *  conflicts with the compiler's inferred deps. */
+  const handleSlotLogged = (ids?: string[]) => {
     if (ids && ids.length > 0) registerBatch(ids);
     if (!reducedMotion && typeof window !== 'undefined') {
       const pill = document.getElementById('day-pill-target')?.getBoundingClientRect();
@@ -692,10 +698,10 @@ export default function FoodLogPage() {
         ? { x: pill.left + pill.width / 2, y: pill.top + pill.height / 2 }
         : { x: window.innerWidth - 56, y: window.innerHeight - 94 }; // pill's fixed slot
       const from = { x: window.innerWidth / 2, y: window.innerHeight * 0.58 };
-      setArcFlight({ key: Date.now(), from, to });
+      setArcFlight({ key: ++arcKeyRef.current, from, to });
     }
     void loadTodayLog();
-  }, [registerBatch, loadTodayLog, reducedMotion]);
+  };
 
   // F5: Toggle favorite
   const toggleFavorite = (entry: FoodLogEntry) => {

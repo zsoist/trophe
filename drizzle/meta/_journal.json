@@ -435,6 +435,13 @@
       "when": 1780852602002,
       "tag": "0053_message_update_guard",
       "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1780852603002,
+      "tag": "0054_display_prefs_atomic",
+      "breakpoints": true
     }
   ]
 }

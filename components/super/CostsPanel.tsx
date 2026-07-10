@@ -5,7 +5,7 @@
  * Filters: window, groupBy, provider/model/task/status. Daily spend chart.
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Panel, Kpi, Pills, Select, HBar, ColumnChart, StatusChip,
   TableWrap, Th, Td, Empty, fmtUsd, fmtNum, fmtMs, MONO,
@@ -45,14 +45,19 @@ export default function CostsPanel() {
   const [model, setModel] = useState('');
   const [task, setTask] = useState('');
   const [loading, setLoading] = useState(false);
+  const reqSeq = useRef(0);
 
   const load = useCallback(async () => {
+    const seq = ++reqSeq.current;
     setLoading(true);
     const q = new URLSearchParams({ window: win, groupBy });
     if (provider) q.set('provider', provider);
     if (model) q.set('model', model);
     if (task) q.set('task', task);
     const res = await fetch(`/api/super/costs?${q}`);
+    // Ignore a stale response: a slow earlier filter must not overwrite the
+    // newer one (the 7d aggregate can outrun a later 24h click).
+    if (seq !== reqSeq.current) return;
     if (res.ok) setData(await res.json());
     setLoading(false);
   }, [win, groupBy, provider, model, task]);
