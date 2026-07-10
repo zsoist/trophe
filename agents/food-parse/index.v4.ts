@@ -209,7 +209,12 @@ function applyMetabolicConsistency(item: ParsedFoodItem): ParsedFoodItem {
   // would invent carbs (the 8×-carbs wine bug). Never scale UP for alcoholic
   // drinks; scaling down (macros overstate energy) is always safe.
   if (divergence > 0.30) {
-    const scaleFactor = item.calories / computedCal;
+    // Clamp scale-UP: an LLM row with high kcal but near-zero macros (the old
+    // filterless barcode-cache class) would otherwise multiply macros by a huge
+    // factor and fabricate values exceeding the item's physical mass. Scale-DOWN
+    // (macros overstate energy) is always safe and stays unbounded.
+    const rawScale = item.calories / computedCal;
+    const scaleFactor = rawScale > 1 ? Math.min(rawScale, 4) : rawScale;
     const isAlcoholic = ALCOHOL_NAME_PATTERN.test(`${item.food_name} ${item.name_localized ?? ''}`);
     if (scaleFactor < 1 || !isAlcoholic) {
       item.protein_g = Math.round(item.protein_g * scaleFactor * 10) / 10;
@@ -951,7 +956,22 @@ export async function run(
       // The normal safe failure below preserves the original telemetry.
     }
   }
-  if (!v4Parsed || v4Parsed.items.length === 0) {
+  if (!v4Parsed) {
+    return { ok: false, error: 'Could not parse food items from LLM response', telemetry };
+  }
+  // Empty items + a real question = the model is ASKING, not failing. The schema
+  // coerces this shape on purpose (food-parse-structured.ts) — surface the
+  // targeted question instead of an opaque "couldn't read that as food". Only a
+  // truly empty response (no items, no question) is a parse failure.
+  if (v4Parsed.items.length === 0) {
+    const question = v4Parsed.clarification_question?.trim();
+    if (v4Parsed.needs_clarification && question) {
+      return {
+        ok: true,
+        output: { items: [], needs_clarification: true, clarification_question: question },
+        telemetry,
+      };
+    }
     return { ok: false, error: 'Could not parse food items from LLM response', telemetry };
   }
 
@@ -1112,7 +1132,7 @@ export async function run(
   }
 
   // ── Step 3: Build final ParsedFoodItem[] with deterministic macros ────────
-  const finalItems: ParsedFoodItem[] = [];
+  let finalItems: ParsedFoodItem[] = [];
   const dbMissFallbacks: { index: number; candidate: V4Candidate }[] = [];
 
   for (let i = 0; i < v4Parsed.items.length; i++) {
@@ -1390,29 +1410,6 @@ export async function run(
     }
   }
 
-  // Safety barrier: reject physically implausible results instead of exposing
-  // silently corrupted nutrition values. These bounds are intentionally broad
-  // enough for large meals while catching unit explosions and malformed data.
-  const unsafeItem = finalItems.find((item) =>
-    !Number.isFinite(item.grams) ||
-    !Number.isFinite(item.calories) ||
-    item.grams <= 0 ||
-    item.grams > 15_000 ||
-    item.calories < 0 ||
-    item.calories > 15_000 ||
-    item.protein_g < 0 ||
-    item.carbs_g < 0 ||
-    item.fat_g < 0 ||
-    item.protein_g + item.carbs_g + item.fat_g > item.grams * 1.15
-  );
-  if (unsafeItem) {
-    return {
-      ok: false,
-      error: 'Nutrition result failed plausibility validation',
-      telemetry,
-    };
-  }
-
   // ── Step 3c: Metabolic consistency (BEFORE plausibility cap) ──────────────
   // Enforce: calories ≈ protein×4 + carbs×4 + fat×9
   // Runs BEFORE the meal-level plausibility cap to avoid double-correction:
@@ -1459,6 +1456,37 @@ export async function run(
     }
   }
 
+  // ── Safety barrier (per-item, AFTER all post-processing) ──────────────────
+  // Runs here — not before Step 3c/4 — so metabolic consistency + the meal cap
+  // can't fabricate values that escape validation. Per-item: one implausible
+  // item (e.g. an LLM unit explosion) drops only THAT item, never the whole
+  // meal — a clinic client typing "2 eggs, toast, nuts" must not lose the eggs
+  // and toast because one item was garbage (mirrors the photo route). Fail
+  // wholesale only when every item is implausible.
+  const isPlausibleItem = (item: ParsedFoodItem): boolean =>
+    Number.isFinite(item.grams) &&
+    Number.isFinite(item.calories) &&
+    item.grams > 0 &&
+    item.grams <= 15_000 &&
+    item.calories >= 0 &&
+    item.calories <= 15_000 &&
+    item.protein_g >= 0 &&
+    item.carbs_g >= 0 &&
+    item.fat_g >= 0 &&
+    item.protein_g + item.carbs_g + item.fat_g <= item.grams * 1.15;
+
+  const droppedCount = finalItems.filter((i) => !isPlausibleItem(i)).length;
+  if (droppedCount > 0) {
+    finalItems = finalItems.filter(isPlausibleItem);
+    if (finalItems.length === 0) {
+      return {
+        ok: false,
+        error: 'Nutrition result failed plausibility validation',
+        telemetry,
+      };
+    }
+  }
+
   const deterministicClarification = requiresPortionClarification(v4Parsed.items) || plausibilityFlag;
   if (deterministicClarification) {
     for (const item of finalItems) {
@@ -1496,6 +1524,9 @@ export async function run(
     warnings.push(`Unusually large quantity (${Math.round(totalGrams)}g / ${Math.round(recalcTotalKcal)} kcal) — please confirm`);
   }
 
+  if (droppedCount > 0) {
+    warnings.push(`${droppedCount} item${droppedCount > 1 ? 's' : ''} couldn't be read reliably and ${droppedCount > 1 ? 'were' : 'was'} skipped — the rest are ready.`);
+  }
   if (anyImplicit) {
     warnings.push('Portions estimated — confirm before saving');
   }
