@@ -1154,6 +1154,7 @@ export default function FoodLogPage() {
               favorites={favorites}
               isNext={nextSlot?.id === slot.id}
               nextHint={nextSlot?.id === slot.id ? nextSlotHint : null}
+              showCalories={showCalories}
               onLogged={handleSlotLogged}
               onSkip={() => {
                 const next = new Set(skippedSlots);

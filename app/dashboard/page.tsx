@@ -201,6 +201,7 @@ export default function DashboardPage() {
   const [coachMessage, setCoachMessage]     = useState('');
   const [sendingMsg, setSendingMsg]         = useState(false);
   const [msgSent, setMsgSent]              = useState(false);
+  const [msgError, setMsgError]            = useState(false);
   const [latestCoachNote, setLatestCoachNote] = useState<string | null>(null);
   const [pinnedNotes, setPinnedNotes] = useState<Array<{ note: string; session_type: string | null; created_at: string }>>([]);
   const [todayPlan, setTodayPlan] = useState<Array<{ meal_slot: string; description: string }>>([]);
@@ -430,19 +431,28 @@ export default function DashboardPage() {
   const sendCoachMessage = async () => {
     if (!coachMessage.trim() || sendingMsg) return;
     setSendingMsg(true);
+    setMsgError(false);
     try {
       // Get access token for the Authorization header — this route requires Bearer auth.
       // getSession() reads from cache so it's fast; the token is still validated server-side.
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token ?? '';
-      await fetch('/api/client/message', {
+      const res = await fetch('/api/client/message', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ message: coachMessage.trim() }),
       });
+      // Only clear the box + show the green confirmation on real success —
+      // a 401 (expired cached token) / 500 must NOT report "sent" and drop
+      // the message (silent data loss to the coach).
+      if (!res.ok) throw new Error(`send failed: ${res.status}`);
       setCoachMessage('');
       setMsgSent(true);
       setTimeout(() => setMsgSent(false), 3000);
+    } catch (err) {
+      console.error('coach message send failed:', err);
+      setMsgError(true);
+      setTimeout(() => setMsgError(false), 4000);
     } finally {
       setSendingMsg(false);
     }
@@ -1071,6 +1081,12 @@ export default function DashboardPage() {
               {t('coach_msg.sent_confirm')}
             </motion.div>
           ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {msgError && (
+              <div style={{ fontSize: 10, color: 'var(--err,#E87A6E)', textAlign: 'center' }}>
+                {t('coach_msg.send_failed')}
+              </div>
+            )}
             <div style={{ display: 'flex', gap: 6 }}>
               <input
                 value={coachMessage}
@@ -1092,6 +1108,7 @@ export default function DashboardPage() {
               >
                 <Icon name="i-send" size={11} />
               </motion.button>
+            </div>
             </div>
           )}
         </motion.div>

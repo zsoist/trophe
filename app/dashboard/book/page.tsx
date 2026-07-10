@@ -13,6 +13,7 @@ import { motion } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
 import { Icon, ConfirmSheet } from '@/components/ui';
+import { localDateStr } from '@/lib/utils/dates';
 
 const SLOT_MIN = 30;
 
@@ -36,6 +37,7 @@ export default function BookPage() {
   const [timeOff, setTimeOff] = useState<TimeOff[]>([]);
   const [booked, setBooked] = useState<Set<string>>(new Set());
   const [mine, setMine] = useState<Appt[]>([]);
+  const [cancelError, setCancelError] = useState(false);
   const [loading, setLoading] = useState(true);
   const [pendingCancel, setPendingCancel] = useState<Appt | null>(null);
   const [cancelling, setCancelling] = useState(false);
@@ -81,7 +83,10 @@ export default function BookPage() {
       const date = new Date(now); date.setDate(now.getDate() + d); date.setSeconds(0, 0);
       const jsDay = date.getDay();
       const dow = jsDay === 0 ? 6 : jsDay - 1; // Mon=0
-      const dateStr = date.toISOString().split('T')[0];
+      // LOCAL calendar date — must match the local weekday above. toISOString()
+      // (UTC) rolled to the next day for users west of UTC in the evening,
+      // matching time-off against the wrong day.
+      const dateStr = localDateStr(date);
       if (timeOff.some((t) => dateStr >= t.starts_on && dateStr <= t.ends_on)) continue;
       for (const w of windows.filter((x) => x.day_of_week === dow)) {
         for (let m = w.start_minute; m + SLOT_MIN <= w.end_minute; m += SLOT_MIN) {
@@ -124,11 +129,19 @@ export default function BookPage() {
 
   const doCancel = async (appt: Appt) => {
     const late = isLateCancellation(appt.starts_at);
+    // Optimistic remove — but if the DB update fails, restore it so the client
+    // doesn't believe a still-booked session is cancelled (no-show risk).
     setMine((m) => m.filter((x) => x.id !== appt.id));
-    await supabase.from('appointments').update({
+    const { error } = await supabase.from('appointments').update({
       status: 'cancelled', cancelled_by: 'client',
       cancelled_at: new Date().toISOString(), late_cancellation: late,
     }).eq('id', appt.id);
+    if (error) {
+      console.error('cancel failed:', error.message);
+      setMine((m) => [...m, appt].sort((a, b) => a.starts_at.localeCompare(b.starts_at)));
+      setCancelError(true);
+      setTimeout(() => setCancelError(false), 4000);
+    }
   };
 
   const cancel = async (appt: Appt) => {
@@ -170,6 +183,11 @@ export default function BookPage() {
           <div className="card p-8 text-center ds-sub">Booking unlocks once a coach is assigned to you.</div>
         ) : (
           <>
+            {cancelError && (
+              <div style={{ fontSize: 11, color: 'var(--err,#E87A6E)', textAlign: 'center', marginBottom: 10 }}>
+                {t('book.cancel_failed')}
+              </div>
+            )}
             {/* My upcoming */}
             {mine.length > 0 && (
               <>

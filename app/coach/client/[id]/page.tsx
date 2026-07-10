@@ -524,9 +524,15 @@ export default function ClientDetailPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Pause current active habit if exists
+      // Pause current active habit if exists, and move it into pastHabits so
+      // it stays visible (in Habit History) instead of vanishing until reload —
+      // matching progressHabit/pauseHabit/assignNextHabit. Also fixes duplicate
+      // sequence_number when two habits are assigned back-to-back (the count
+      // was read from a pastHabits that never updated).
+      const priorPast = pastHabits;
       if (activeHabit) {
         await supabase.from('client_habits').update({ status: 'paused' }).eq('id', activeHabit.id);
+        setPastHabits([{ ...activeHabit, status: 'paused' }, ...pastHabits]);
       }
 
       // Create new client_habit
@@ -539,7 +545,7 @@ export default function ClientDetailPage() {
         current_streak: 0,
         best_streak: 0,
         total_completions: 0,
-        sequence_number: (pastHabits.length || 0) + 2,
+        sequence_number: (priorPast.length || 0) + (activeHabit ? 3 : 2),
       }).select('*, habit:habits(*)').maybeSingle();
 
       if (data) {

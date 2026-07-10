@@ -740,13 +740,20 @@ export default function CoachDashboard() {
       )
     : 0;
 
+  // Graduated clients stop checking in by design, so daysSinceCheckin climbs
+  // forever — they must be excluded from every reach-out surface (the whole
+  // point of graduation), exactly as the forced-green status already excludes
+  // them from the atRisk summary.
+  const isGraduated = (c: typeof clients[number]) => !!c.clientProfile.graduated_at;
+
   // Clients needing attention
-  const needsAttention = clients.filter((c) => c.status === 'red' || c.daysSinceCheckin >= 3);
+  const needsAttention = clients.filter((c) => !isGraduated(c) && (c.status === 'red' || c.daysSinceCheckin >= 3));
 
   // P4 contact-due: clients past their personal cadence since last check-in.
   // Michael: "the app could notify me that the client should contact me" —
   // weekly clients surface after 7 quiet days, quarterly ones after 90.
   const contactDue = clients
+    .filter((c) => !isGraduated(c))
     .map((c) => ({
       c,
       cadence: c.clientProfile.contact_cadence_days ?? 14,
@@ -838,6 +845,15 @@ export default function CoachDashboard() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+      // Pause each client's existing active habit FIRST — the invariant is
+      // exactly one active client_habit per client (single-assign already does
+      // this). Without it a batch assign leaves two active rows, and the
+      // dashboard vs client-detail pages pick different "active" habits →
+      // inconsistent streak/adherence math.
+      await supabase.from('client_habits')
+        .update({ status: 'paused' })
+        .in('client_id', clientIds)
+        .eq('status', 'active');
       const inserts = clientIds.map((clientId) => ({
         client_id: clientId,
         habit_id: habitId,
