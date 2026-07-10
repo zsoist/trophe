@@ -1428,22 +1428,6 @@ export default function WorkoutPage() {
               )}
             </AnimatePresence>
 
-            {/* ── Quick links: History · Stats · Form Check ── */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-              {[
-                { href: '/dashboard/workout/history', icon: <History size={16} className="gold-text mx-auto" />, label: t('workout.history') },
-                { href: '/dashboard/workout/stats', icon: <BarChart3 size={16} className="gold-text mx-auto" />, label: t('workout.stats') },
-                { href: '/dashboard/workout/form-check', icon: <Camera size={16} className="gold-text mx-auto" />, label: t('workout.form_check') },
-              ].map((link) => (
-                <Link key={link.href} href={link.href}>
-                  <div className="card" style={{ padding: '12px 6px', textAlign: 'center', cursor: 'pointer' }}>
-                    {link.icon}
-                    <div style={{ fontSize: 10, fontWeight: 600, marginTop: 5, color: 'var(--t2)' }}>{link.label}</div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-
             {/* ── Recent sessions (tappable → inline set detail) ── */}
             {recentSessions.length > 0 && (
               <div>
@@ -1470,6 +1454,22 @@ export default function WorkoutPage() {
                 </p>
               </div>
             )}
+
+            {/* ── Quick links: History · Stats · Form Check (utilities last) ── */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+              {[
+                { href: '/dashboard/workout/history', icon: <History size={16} className="gold-text mx-auto" />, label: t('workout.history') },
+                { href: '/dashboard/workout/stats', icon: <BarChart3 size={16} className="gold-text mx-auto" />, label: t('workout.stats') },
+                { href: '/dashboard/workout/form-check', icon: <Camera size={16} className="gold-text mx-auto" />, label: t('workout.form_check') },
+              ].map((link) => (
+                <Link key={link.href} href={link.href}>
+                  <div className="card" style={{ padding: '12px 6px', textAlign: 'center', cursor: 'pointer' }}>
+                    {link.icon}
+                    <div style={{ fontSize: 10, fontWeight: 600, marginTop: 5, color: 'var(--t2)' }}>{link.label}</div>
+                  </div>
+                </Link>
+              ))}
+            </div>
           </motion.div>
         )}
 
