@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { useI18n } from '@/lib/i18n';
 import type { WorkoutSet, WorkoutSession } from '@/lib/types';
 
 // ═══════════════════════════════════════════════
@@ -28,6 +29,7 @@ interface ExerciseComparisonProps {
 // ═══════════════════════════════════════════════
 
 export default function ExerciseComparison({ exerciseId, userId }: ExerciseComparisonProps) {
+  const { t } = useI18n();
   const [loading, setLoading] = useState(true);
   const [summaries, setSummaries] = useState<SessionSummary[]>([]);
 
@@ -168,7 +170,7 @@ export default function ExerciseComparison({ exerciseId, userId }: ExerciseCompa
   if (summaries.length === 0) {
     return (
       <p className="text-stone-600 text-sm text-center py-4">
-        No sessions found for this exercise
+        {t('exercisecompare.no_sessions')}
       </p>
     );
   }
@@ -184,11 +186,11 @@ export default function ExerciseComparison({ exerciseId, userId }: ExerciseCompa
         <table className="w-full text-sm">
           <thead>
             <tr className="text-xs text-stone-500 border-b border-white/5">
-              <th className="text-left py-2 px-2 font-medium">Date</th>
-              <th className="text-center py-2 px-2 font-medium">Sets</th>
-              <th className="text-center py-2 px-2 font-medium">Best Wt</th>
-              <th className="text-center py-2 px-2 font-medium">Total Reps</th>
-              <th className="text-center py-2 px-2 font-medium">Volume</th>
+              <th className="text-left py-2 px-2 font-medium">{t('exercisecompare.date')}</th>
+              <th className="text-center py-2 px-2 font-medium">{t('exercisecompare.sets')}</th>
+              <th className="text-center py-2 px-2 font-medium">{t('exercisecompare.best_wt')}</th>
+              <th className="text-center py-2 px-2 font-medium">{t('exercisecompare.total_reps')}</th>
+              <th className="text-center py-2 px-2 font-medium">{t('exercisecompare.volume')}</th>
             </tr>
           </thead>
           <tbody>
@@ -244,7 +246,7 @@ export default function ExerciseComparison({ exerciseId, userId }: ExerciseCompa
       {/* Mini weight trend line */}
       {weightChart && (
         <div className="mt-3 pt-3 border-t border-white/5">
-          <p className="text-[10px] text-stone-600 mb-1">Best Weight Trend</p>
+          <p className="text-[10px] text-stone-600 mb-1">{t('exercisecompare.best_weight_trend')}</p>
           {weightChart}
         </div>
       )}

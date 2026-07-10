@@ -9,6 +9,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { AlertTriangle } from 'lucide-react';
+import { useI18n } from '@/lib/i18n';
 import type { PainFlag } from '@/lib/types';
 
 export default function PainFlagModal({
@@ -20,6 +21,7 @@ export default function PainFlagModal({
   onSave: (flag: PainFlag) => void;
   onClose: () => void;
 }) {
+  const { t } = useI18n();
   const [bodyPart, setBodyPart] = useState('');
   const [severity, setSeverity] = useState(1);
   const [notes, setNotes] = useState('');
@@ -42,12 +44,12 @@ export default function PainFlagModal({
       >
         <div className="flex items-center gap-2 mb-4">
           <AlertTriangle size={20} className="text-red-400" />
-          <h3 className="text-lg font-semibold">Pain Flag</h3>
+          <h3 className="text-lg font-semibold">{t('painflag.title')}</h3>
         </div>
 
         <input
           type="text"
-          placeholder="Body part (e.g. left shoulder)"
+          placeholder={t('painflag.body_part_placeholder')}
           value={bodyPart}
           onChange={(e) => setBodyPart(e.target.value)}
           className="input-dark mb-3"
@@ -55,7 +57,7 @@ export default function PainFlagModal({
 
         <div className="mb-3">
           <label className="text-sm text-stone-400 mb-1 block">
-            Severity: {severity}/5
+            {t('painflag.severity_prefix')}: {severity}/5
           </label>
           <div className="flex gap-2">
             {[1, 2, 3, 4, 5].map((s) => (
@@ -80,7 +82,7 @@ export default function PainFlagModal({
         </div>
 
         <textarea
-          placeholder="Notes (optional)"
+          placeholder={t('painflag.notes_placeholder')}
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           className="input-dark mb-4 h-16 resize-none"
@@ -88,7 +90,7 @@ export default function PainFlagModal({
 
         <div className="flex gap-2">
           <button onClick={onClose} className="btn-ghost flex-1 text-sm py-2">
-            Cancel
+            {t('painflag.cancel')}
           </button>
           <button
             onClick={() => {
@@ -108,7 +110,7 @@ export default function PainFlagModal({
               border: '1px solid rgba(239,68,68,0.3)',
             }}
           >
-            Save Flag
+            {t('painflag.save')}
           </button>
         </div>
       </motion.div>

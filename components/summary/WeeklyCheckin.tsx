@@ -4,6 +4,7 @@ import { useCallback, useState, useEffect } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { X, Send, ClipboardCheck } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { useI18n } from '@/lib/i18n';
 import { localToday, localDateStr } from '@/lib/utils/dates';
 
 interface WeeklyCheckinProps {
@@ -11,16 +12,18 @@ interface WeeklyCheckinProps {
   coachId: string | null;
 }
 
+// Numeric 1–5 scale (no emoji — house rule). labelKey → translated question.
 const QUESTIONS = [
-  { key: 'energy', label: 'Energy level this week', emojis: ['😴', '😐', '🙂', '😊', '⚡'] },
-  { key: 'sleep', label: 'Sleep quality', emojis: ['😵', '😪', '😐', '😌', '💤'] },
-  { key: 'satiety', label: 'Hunger/satiety management', emojis: ['😩', '😕', '😐', '😊', '🎯'] },
-  { key: 'stress', label: 'Stress level', emojis: ['🔥', '😰', '😐', '😌', '🧘'] },
-  { key: 'adherence', label: 'Overall adherence confidence', emojis: ['😣', '😓', '😐', '💪', '🏆'] },
+  { key: 'energy', labelKey: 'checkin.q_energy' },
+  { key: 'sleep', labelKey: 'checkin.q_sleep' },
+  { key: 'satiety', labelKey: 'checkin.q_satiety' },
+  { key: 'stress', labelKey: 'checkin.q_stress' },
+  { key: 'adherence', labelKey: 'checkin.q_adherence' },
 ];
 
 export default function WeeklyCheckin({ userId, coachId }: WeeklyCheckinProps) {
   const reducedMotion = useReducedMotion();
+  const { t } = useI18n();
   const [show, setShow] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [ratings, setRatings] = useState<Record<string, number>>({});
@@ -114,8 +117,8 @@ export default function WeeklyCheckin({ userId, coachId }: WeeklyCheckinProps) {
       >
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <ClipboardCheck size={18} className="text-[#D4A853]" />
-            <h3 className="text-sm font-semibold text-stone-100">Weekly Check-in</h3>
+            <ClipboardCheck size={18} style={{ color: 'var(--accent, #D4A853)' }} />
+            <h3 className="text-sm font-semibold text-stone-100">{t('checkin.title')}</h3>
           </div>
           <button
             onClick={() => setDismissed(true)}
@@ -146,34 +149,39 @@ export default function WeeklyCheckin({ userId, coachId }: WeeklyCheckinProps) {
                 transition={{ duration: 0.5, delay: 0.1, ease: 'easeOut' }}
               />
             </svg>
-            <p className="text-stone-300 text-sm font-medium">Check-in submitted!</p>
-            <p className="text-stone-500 text-xs mt-1">Your coach will review this</p>
+            <p className="text-stone-300 text-sm font-medium">{t('checkin.submitted')}</p>
+            <p className="text-stone-500 text-xs mt-1">{t('checkin.coach_review')}</p>
           </motion.div>
         ) : (
           <>
             <p className="text-stone-500 text-xs mb-4">
-              Rate each area from 1 to 5 to help your coach track your progress.
+              {t('checkin.instructions')}
             </p>
 
             <div className="space-y-3">
               {QUESTIONS.map((q) => (
                 <div key={q.key}>
-                  <p className="text-xs text-stone-400 mb-1.5">{q.label}</p>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <p className="text-xs text-stone-400">{t(q.labelKey)}</p>
+                    <span className="text-[9px] text-stone-600 font-mono">{t('checkin.scale_hint')}</span>
+                  </div>
                   <div className="flex gap-1.5">
-                    {q.emojis.map((emoji, idx) => {
-                      const val = idx + 1;
+                    {[1, 2, 3, 4, 5].map((val) => {
                       const selected = ratings[q.key] === val;
                       return (
                         <button
                           key={val}
                           onClick={() => setRating(q.key, val)}
-                          className={`flex-1 py-2 rounded-lg text-center text-lg transition-all ${
-                            selected
-                              ? 'bg-[#D4A853]/15 border border-[#D4A853]/40 scale-110'
-                              : 'bg-white/[0.03] border border-white/5 hover:bg-white/[0.06]'
-                          }`}
+                          aria-label={`${t(q.labelKey)}: ${val}`}
+                          aria-pressed={selected}
+                          className="flex-1 py-2 rounded-lg text-center text-sm font-bold transition-all"
+                          style={{
+                            background: selected ? 'var(--accent-soft, rgba(212,168,83,.15))' : 'rgba(255,255,255,.03)',
+                            border: `1px solid ${selected ? 'var(--accent, #D4A853)' : 'rgba(255,255,255,.05)'}`,
+                            color: selected ? 'var(--accent, #D4A853)' : 'var(--t3)',
+                          }}
                         >
-                          {emoji}
+                          {val}
                         </button>
                       );
                     })}
@@ -190,7 +198,7 @@ export default function WeeklyCheckin({ userId, coachId }: WeeklyCheckinProps) {
               }`}
             >
               <Send size={14} />
-              {submitting ? 'Submitting...' : 'Submit Check-in'}
+              {submitting ? t('checkin.submitting') : t('checkin.submit')}
             </button>
           </>
         )}
