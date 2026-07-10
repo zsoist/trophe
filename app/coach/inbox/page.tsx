@@ -74,7 +74,7 @@ export default function CoachInboxPage() {
 
     const clientIds = assigned.map(r => r.user_id);
 
-    const [profilesRes, logsRes, checkinsRes, messagesRes] = await Promise.all([
+    const [profilesRes, logsRes, checkinsRes, messagesRes, unreadRes] = await Promise.all([
       supabase.from('profiles').select('id, full_name').in('id', clientIds),
       supabase.from('food_log')
         .select('user_id, logged_date')
@@ -89,6 +89,16 @@ export default function CoachInboxPage() {
         .eq('coach_id', user.id)
         .order('created_at', { ascending: false })
         .limit(500),
+      // Unread badges from an UNREAD-ONLY query, not the 500-newest slice —
+      // otherwise a few chatty clients push a quiet client's unread messages
+      // past position 500 and the coach never sees the badge. Unread backlog
+      // is naturally small, so a single high cap is safe.
+      supabase.from('messages')
+        .select('client_id')
+        .eq('coach_id', user.id)
+        .eq('sender_role', 'client')
+        .is('read_at', null)
+        .limit(5000),
     ]);
 
     const latestLog    = new Map<string, string>();
@@ -97,14 +107,19 @@ export default function CoachInboxPage() {
     for (const c of (checkinsRes.data ?? [])) if (!latestCheckin.has(c.user_id)) latestCheckin.set(c.user_id, c.checked_date);
 
     const lastMsg = new Map<string, { body: string; at: string }>();
-    const unread = new Map<string, number>();
-    for (const m of (messagesRes.data ?? []) as Array<{ client_id: string; sender_role: string; body: string; read_at: string | null; created_at: string; attachment_type: string | null }>) {
+    // Preview from the 500-newest slice (recency-ordered — truncation here only
+    // means a very quiet client shows generic text, which is cosmetic).
+    for (const m of (messagesRes.data ?? []) as Array<{ client_id: string; body: string; created_at: string; attachment_type: string | null }>) {
       if (!lastMsg.has(m.client_id)) {
         // Attachment-only messages have empty body — label by kind instead.
         const preview = m.body || (m.attachment_type === 'image' ? '[Photo]' : m.attachment_type === 'audio' ? '[Voice note]' : '');
         lastMsg.set(m.client_id, { body: preview, at: m.created_at });
       }
-      if (m.sender_role === 'client' && !m.read_at) unread.set(m.client_id, (unread.get(m.client_id) ?? 0) + 1);
+    }
+    // Unread badges from the dedicated unread-only query.
+    const unread = new Map<string, number>();
+    for (const m of (unreadRes.data ?? []) as Array<{ client_id: string }>) {
+      unread.set(m.client_id, (unread.get(m.client_id) ?? 0) + 1);
     }
 
     const today = new Date().toISOString().split('T')[0];
