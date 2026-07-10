@@ -216,9 +216,9 @@ function RecDetailSheet({ rec, onClose, onLog }: {
             background: 'rgba(212,168,83,.08)',
             border: '1px solid rgba(212,168,83,.2)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 26,
+            fontSize: 22, fontWeight: 700, color: 'var(--gold-300,#D4A853)',
           }}>
-            {rec.emoji}
+            {rec.food.charAt(0).toUpperCase()}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--t1)', lineHeight: 1.2, marginBottom: 4 }}>
@@ -355,9 +355,9 @@ function RecCard({ rec, index, onSelect }: {
           background: 'rgba(255,255,255,.05)',
           border: '1px solid rgba(255,255,255,.08)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 18,
+          fontSize: 15, fontWeight: 700, color: 'var(--gold-300,#D4A853)',
         }}>
-          {rec.emoji}
+          {rec.food.charAt(0).toUpperCase()}
         </div>
 
         {/* Content */}

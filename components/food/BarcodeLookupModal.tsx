@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { X, Barcode, Loader2, Camera, Keyboard, ChevronLeft, RotateCcw } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { useI18n } from '@/lib/i18n';
 import type { MealType } from '@/lib/types';
 
 /**
@@ -31,6 +32,7 @@ type Step = 'choose' | 'scan' | 'input' | 'manual';
 const MEAL_OPTIONS: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack'];
 
 export default function BarcodeLookupModal({ userId, selectedDate, defaultMealType = 'snack', isOpen, onClose, onLogged }: Props) {
+  const { t } = useI18n();
   const [step, setStep] = useState<Step>('choose');
   const [code, setCode] = useState('');
   const [product, setProduct] = useState<Product | null>(null);
@@ -63,7 +65,7 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
   }, [isOpen]);
 
   async function lookup(barcode: string) {
-    if (!/^\d{8,14}$/.test(barcode)) { setError('Enter a valid 8–14 digit barcode'); return; }
+    if (!/^\d{8,14}$/.test(barcode)) { setError(t('barcode.err_invalid')); return; }
     setLoading(true); setError(null); setProduct(null);
     try {
       const res = await fetch('/api/food/barcode', {
@@ -85,13 +87,13 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
     } catch {
       // W12: release the snap-lock so the reticle doesn't sit green on failure
       setLocked(false); setLaserTop(null);
-      setError('Lookup failed — try again');
+      setError(t('barcode.err_lookup'));
     } finally { setLoading(false); }
   }
 
   async function logManual() {
     if (logging) return;
-    if (!manual.name.trim()) { setError('Add a product name'); return; }
+    if (!manual.name.trim()) { setError(t('barcode.err_add_name')); return; }
     setError(null);
     setLogging(true);
     const f = grams / 100;
@@ -153,7 +155,7 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
         );
         if (cancelled) controls.stop(); else controlsRef.current = controls;
       } catch {
-        if (!cancelled) { setError('Camera unavailable — enter the barcode manually'); setStep('input'); }
+        if (!cancelled) { setError(t('barcode.err_camera')); setStep('input'); }
       }
     })();
     return () => { cancelled = true; stopScan(); };
@@ -215,10 +217,10 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
           <div className="flex items-center justify-between px-5 pt-5 pb-3">
             <div className="flex items-center gap-2">
               {(step !== 'choose' && !product) && (
-                <button onClick={() => setStep('choose')} aria-label="Back" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--t3,#a8a29e)', display: 'flex' }}><ChevronLeft size={18} /></button>
+                <button onClick={() => setStep('choose')} aria-label={t('barcode.back')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--t3,#a8a29e)', display: 'flex' }}><ChevronLeft size={18} /></button>
               )}
               <Barcode size={16} style={{ color: 'var(--gold-300,#D4A853)' }} />
-              <h2 className="text-base font-bold" style={{ color: 'var(--t1,#f5f5f4)' }}>{product ? 'Add product' : 'Scan a barcode'}</h2>
+              <h2 className="text-base font-bold" style={{ color: 'var(--t1,#f5f5f4)' }}>{product ? t('barcode.add_product') : t('barcode.scan_title')}</h2>
             </div>
             <button onClick={close} className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,.06)' }}>
               <X size={14} style={{ color: 'var(--t3,#a8a29e)' }} />
@@ -256,14 +258,14 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
                       ))}
                     </span>
                   )}
-                  <span className="text-[9px] uppercase" style={{ color: 'var(--t4,#78716c)', fontFamily: 'var(--font-mono)' }}>{product.source === 'db' ? 'in DB' : 'OFF'}</span>
+                  <span className="text-[9px] uppercase" style={{ color: 'var(--t4,#78716c)', fontFamily: 'var(--font-mono)' }}>{product.source === 'db' ? t('barcode.in_db') : 'OFF'}</span>
                 </div>
                 {product.brand && <p className="text-[11px] mb-2" style={{ color: 'var(--t3,#a8a29e)' }}>{product.brand}</p>}
                 <p className="text-[10px] mb-3" style={{ color: 'var(--t4,#78716c)' }}>
-                  per 100g · {product.per100g.kcal} kcal · {product.per100g.protein}P / {product.per100g.carbs}C / {product.per100g.fat}F
+                  {t('barcode.per_100g_line', { kcal: product.per100g.kcal, p: product.per100g.protein, c: product.per100g.carbs, f: product.per100g.fat })}
                 </p>
                 <div className="flex items-center gap-2 mb-3">
-                  <span className="text-[11px]" style={{ color: 'var(--t3,#a8a29e)' }}>Amount</span>
+                  <span className="text-[11px]" style={{ color: 'var(--t3,#a8a29e)' }}>{t('barcode.amount')}</span>
                   <input type="number" min={1} value={grams} onChange={(e) => setGrams(Math.max(1, Number(e.target.value) || 0))}
                     style={{ width: 80, background: 'var(--bg-1,#1c1917)', border: '1px solid var(--line,rgba(255,255,255,.1))', borderRadius: 8, padding: '5px 8px', color: 'var(--t1,#f5f5f4)', fontSize: 13, fontFamily: 'var(--font-mono)' }} />
                   <span className="text-[11px]" style={{ color: 'var(--t4,#78716c)' }}>g →</span>
@@ -276,15 +278,15 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
                 </div>
                 <button onClick={logIt} disabled={logging}
                   style={{ width: '100%', padding: 12, borderRadius: 10, border: 'none', background: 'var(--gold-300,#D4A853)', color: '#0a0a0a', fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', cursor: logging ? 'not-allowed' : 'pointer' }}>
-                  {logging ? 'Logging…' : 'Add to log'}
+                  {logging ? t('barcode.logging') : t('barcode.add_to_log')}
                 </button>
-                <button onClick={() => { setProduct(null); setCode(''); setLocked(false); setLaserTop(null); setStep('choose'); }} className="w-full text-[11px] mt-2 inline-flex items-center justify-center gap-1.5" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--t4,#78716c)', fontFamily: 'var(--font-mono)', minHeight: 32 }}><RotateCcw size={11} aria-hidden /> scan another</button>
+                <button onClick={() => { setProduct(null); setCode(''); setLocked(false); setLaserTop(null); setStep('choose'); }} className="w-full text-[11px] mt-2 inline-flex items-center justify-center gap-1.5" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--t4,#78716c)', fontFamily: 'var(--font-mono)', minHeight: 32 }}><RotateCcw size={11} aria-hidden /> {t('barcode.scan_another')}</button>
               </motion.div>
             ) : step === 'choose' ? (
               /* ── Choose: Photo or Input ── */
               <div className="flex gap-3 pt-1">
-                {choiceCard(<Camera size={22} />, 'Photo', 'Point at the barcode', () => { setError(null); setStep('scan'); })}
-                {choiceCard(<Keyboard size={22} />, 'Input', 'Type the number', () => { setError(null); setStep('input'); })}
+                {choiceCard(<Camera size={22} />, t('barcode.photo'), t('barcode.point_at'), () => { setError(null); setStep('scan'); })}
+                {choiceCard(<Keyboard size={22} />, t('barcode.input'), t('barcode.type_number'), () => { setError(null); setStep('input'); })}
               </div>
             ) : step === 'scan' ? (
               /* ── Animated barcode-reader ── */
@@ -337,10 +339,10 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
                   </div>
                 </div>
                 <p className="text-[11px] text-center mt-3" style={{ color: 'var(--t3,#a8a29e)' }}>
-                  {loading ? 'Looking up…' : 'Hold the barcode inside the frame'}
+                  {loading ? t('barcode.looking_up') : t('barcode.hold_in_frame')}
                 </p>
                 <button onClick={() => setStep('input')} className="w-full text-[11px] mt-2" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--gold-300,#D4A853)', fontFamily: 'var(--font-mono)' }}>
-                  Enter the number manually instead
+                  {t('barcode.enter_manually')}
                 </button>
               </div>
             ) : step === 'input' ? (
@@ -350,37 +352,37 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
                   value={code}
                   onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
                   onKeyDown={(e) => { if (e.key === 'Enter') lookup(code); }}
-                  placeholder="Barcode number (EAN/UPC)"
+                  placeholder={t('barcode.number_placeholder')}
                   inputMode="numeric" autoFocus
                   style={{ width: '100%', background: 'var(--surface,#141414)', border: '1px solid var(--line,rgba(255,255,255,.08))', borderRadius: 10, padding: '11px 12px', color: 'var(--t1,#f5f5f4)', fontSize: 15, fontFamily: 'var(--font-mono)', marginBottom: 10 }}
                 />
                 <button onClick={() => lookup(code)} disabled={loading || !code}
                   style={{ width: '100%', padding: 12, borderRadius: 12, border: 'none', background: 'var(--gold-300,#D4A853)', color: '#0a0a0a', fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', cursor: loading || !code ? 'not-allowed' : 'pointer', opacity: code ? 1 : 0.5, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                  {loading ? <><Loader2 size={14} className="animate-spin" /> Looking up…</> : 'Look up'}
+                  {loading ? <><Loader2 size={14} className="animate-spin" /> {t('barcode.looking_up')}</> : t('barcode.look_up')}
                 </button>
               </div>
             ) : (
               /* ── Manual add (barcode not in Open Food Facts) ── */
               <div>
                 <p className="text-[11px] mb-3" style={{ color: 'var(--t3,#a8a29e)' }}>
-                  Not in the database{code ? ` (#${code})` : ''} — add it from the label (values per 100 g/ml).
+                  {t('barcode.not_in_db', { code: code ? ` (#${code})` : '' })}
                 </p>
                 <input
                   value={manual.name}
                   onChange={(e) => setManual((m) => ({ ...m, name: e.target.value }))}
-                  placeholder="Product name"
+                  placeholder={t('barcode.product_name')}
                   style={{ width: '100%', background: 'var(--surface,#141414)', border: '1px solid var(--line,rgba(255,255,255,.08))', borderRadius: 10, padding: '10px 12px', color: 'var(--t1,#f5f5f4)', fontSize: 14, marginBottom: 8 }}
                 />
                 <div className="grid grid-cols-2 gap-2" style={{ marginBottom: 10 }}>
-                  {([['kcal', 'kcal /100'], ['protein', 'Protein g'], ['carbs', 'Carbs g'], ['fat', 'Fat g']] as const).map(([k, ph]) => (
+                  {([['kcal', 'barcode.ph_kcal'], ['protein', 'barcode.ph_protein'], ['carbs', 'barcode.ph_carbs'], ['fat', 'barcode.ph_fat']] as const).map(([k, ph]) => (
                     <input key={k} value={manual[k]} inputMode="decimal"
                       onChange={(e) => setManual((m) => ({ ...m, [k]: e.target.value.replace(/[^\d.]/g, '') }))}
-                      placeholder={ph}
+                      placeholder={t(ph)}
                       style={{ background: 'var(--surface,#141414)', border: '1px solid var(--line,rgba(255,255,255,.08))', borderRadius: 10, padding: '9px 11px', color: 'var(--t1,#f5f5f4)', fontSize: 13, fontFamily: 'var(--font-mono)' }} />
                   ))}
                 </div>
                 <div className="flex items-center gap-2 mb-3">
-                  <span className="text-[11px]" style={{ color: 'var(--t3,#a8a29e)' }}>Amount</span>
+                  <span className="text-[11px]" style={{ color: 'var(--t3,#a8a29e)' }}>{t('barcode.amount')}</span>
                   <input type="number" min={1} value={grams} onChange={(e) => setGrams(Math.max(1, Number(e.target.value) || 0))}
                     style={{ width: 80, background: 'var(--bg-1,#1c1917)', border: '1px solid var(--line,rgba(255,255,255,.1))', borderRadius: 8, padding: '5px 8px', color: 'var(--t1,#f5f5f4)', fontSize: 13, fontFamily: 'var(--font-mono)' }} />
                   <span className="text-[11px]" style={{ color: 'var(--t4,#78716c)' }}>g/ml</span>
@@ -392,7 +394,7 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
                 </div>
                 <button onClick={logManual} disabled={logging || !manual.name.trim()}
                   style={{ width: '100%', padding: 12, borderRadius: 12, border: 'none', background: 'var(--gold-300,#D4A853)', color: '#0a0a0a', fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', cursor: logging || !manual.name.trim() ? 'not-allowed' : 'pointer', opacity: manual.name.trim() ? 1 : 0.5 }}>
-                  {logging ? 'Logging…' : 'Add to log'}
+                  {logging ? t('barcode.logging') : t('barcode.add_to_log')}
                 </button>
               </div>
             )}

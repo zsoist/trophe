@@ -361,6 +361,19 @@ const translations: Record<string, Record<CoreLanguage, string>> = {
   'coach_msg.sent_confirm':  { en: 'Message sent to coach',es: 'Mensaje enviado al coach', el: 'Το μήνυμα στάλθηκε' },
   'coach_msg.send_failed': { en: 'Could not send — try again', es: 'No se pudo enviar — inténtalo de nuevo', el: 'Αποτυχία αποστολής — δοκίμασε ξανά' },
   'book.cancel_failed': { en: 'Could not cancel — please try again', es: 'No se pudo cancelar — inténtalo de nuevo', el: 'Αποτυχία ακύρωσης — δοκίμασε ξανά' },
+  // ── Weekly check-in (de-emoji + i18n) ──
+  'checkin.title': { en: 'Weekly Check-in', es: 'Registro Semanal', el: 'Εβδομαδιαίος Έλεγχος' },
+  'checkin.instructions': { en: 'Rate each area from 1 to 5 to help your coach track your progress.', es: 'Califica cada área del 1 al 5 para que tu coach siga tu progreso.', el: 'Βαθμολόγησε κάθε τομέα από 1 έως 5 για να παρακολουθεί ο coach την πρόοδό σου.' },
+  'checkin.scale_hint': { en: 'low → high', es: 'bajo → alto', el: 'χαμηλό → υψηλό' },
+  'checkin.q_energy': { en: 'Energy level this week', es: 'Nivel de energía esta semana', el: 'Επίπεδο ενέργειας αυτή την εβδομάδα' },
+  'checkin.q_sleep': { en: 'Sleep quality', es: 'Calidad del sueño', el: 'Ποιότητα ύπνου' },
+  'checkin.q_satiety': { en: 'Hunger / satiety management', es: 'Manejo del hambre y la saciedad', el: 'Διαχείριση πείνας / κορεσμού' },
+  'checkin.q_stress': { en: 'Stress level', es: 'Nivel de estrés', el: 'Επίπεδο άγχους' },
+  'checkin.q_adherence': { en: 'Overall adherence confidence', es: 'Confianza general en la adherencia', el: 'Συνολική εμπιστοσύνη στην τήρηση' },
+  'checkin.submitted': { en: 'Check-in submitted', es: 'Registro enviado', el: 'Ο έλεγχος υποβλήθηκε' },
+  'checkin.coach_review': { en: 'Your coach will review this', es: 'Tu coach lo revisará', el: 'Ο coach σου θα το εξετάσει' },
+  'checkin.submitting': { en: 'Submitting…', es: 'Enviando…', el: 'Υποβολή…' },
+  'checkin.submit': { en: 'Submit Check-in', es: 'Enviar Registro', el: 'Υποβολή Ελέγχου' },
 
   // ── Water card (extended) ──
   'water.log':             { en: 'Log',   es: 'Registrar', el: 'Καταγραφή' },
@@ -990,6 +1003,59 @@ const translations: Record<string, Record<CoreLanguage, string>> = {
   'food.pill_kcal_left':     { en: '{n} kcal left', es: '{n} kcal restantes', el: '{n} kcal απομένουν' },
   'food.pill_kcal_over':     { en: '{n} kcal over', es: '{n} kcal de más', el: '{n} kcal πάνω' },
   'log.streak_ember_aria':   { en: '{n}-day streak', es: 'racha de {n} días', el: 'σερί {n} ημερών' },
+
+  // ── Barcode lookup modal (i18n) ──
+  'barcode.scan_title':         { en: 'Scan a barcode', es: 'Escanear un código', el: 'Σάρωση barcode' },
+  'barcode.add_product':        { en: 'Add product', es: 'Agregar producto', el: 'Προσθήκη προϊόντος' },
+  'barcode.back':               { en: 'Back', es: 'Atrás', el: 'Πίσω' },
+  'barcode.photo':              { en: 'Photo', es: 'Foto', el: 'Φωτογραφία' },
+  'barcode.point_at':           { en: 'Point at the barcode', es: 'Apunta al código', el: 'Στόχευσε στο barcode' },
+  'barcode.input':              { en: 'Input', es: 'Manual', el: 'Πληκτρολόγηση' },
+  'barcode.type_number':        { en: 'Type the number', es: 'Escribe el número', el: 'Πληκτρολόγησε τον αριθμό' },
+  'barcode.hold_in_frame':      { en: 'Hold the barcode inside the frame', es: 'Mantén el código dentro del marco', el: 'Κράτησε το barcode μέσα στο πλαίσιο' },
+  'barcode.looking_up':         { en: 'Looking up…', es: 'Buscando…', el: 'Αναζήτηση…' },
+  'barcode.look_up':            { en: 'Look up', es: 'Buscar', el: 'Αναζήτηση' },
+  'barcode.enter_manually':     { en: 'Enter the number manually instead', es: 'Mejor ingresa el número manualmente', el: 'Εισαγωγή αριθμού χειροκίνητα' },
+  'barcode.number_placeholder': { en: 'Barcode number (EAN/UPC)', es: 'Número de código (EAN/UPC)', el: 'Αριθμός barcode (EAN/UPC)' },
+  'barcode.product_name':       { en: 'Product name', es: 'Nombre del producto', el: 'Όνομα προϊόντος' },
+  'barcode.amount':             { en: 'Amount', es: 'Cantidad', el: 'Ποσότητα' },
+  'barcode.add_to_log':         { en: 'Add to log', es: 'Agregar al registro', el: 'Προσθήκη στο ημερολόγιο' },
+  'barcode.logging':            { en: 'Logging…', es: 'Registrando…', el: 'Καταγραφή…' },
+  'barcode.scan_another':       { en: 'scan another', es: 'escanear otro', el: 'σάρωση άλλου' },
+  'barcode.in_db':              { en: 'in DB', es: 'en BD', el: 'στη ΒΔ' },
+  'barcode.per_100g_line':      { en: 'per 100g · {kcal} kcal · {p}P / {c}C / {f}F', es: 'por 100g · {kcal} kcal · {p}P / {c}C / {f}F', el: 'ανά 100g · {kcal} kcal · {p}P / {c}C / {f}F' },
+  'barcode.not_in_db':          { en: 'Not in the database{code} — add it from the label (values per 100 g/ml).', es: 'No está en la base de datos{code} — agrégalo desde la etiqueta (valores por 100 g/ml).', el: 'Δεν υπάρχει στη βάση{code} — πρόσθεσέ το από την ετικέτα (τιμές ανά 100 g/ml).' },
+  'barcode.ph_kcal':            { en: 'kcal /100', es: 'kcal /100', el: 'kcal /100' },
+  'barcode.ph_protein':         { en: 'Protein g', es: 'Proteína g', el: 'Πρωτεΐνη g' },
+  'barcode.ph_carbs':           { en: 'Carbs g', es: 'Carbos g', el: 'Υδατ. g' },
+  'barcode.ph_fat':             { en: 'Fat g', es: 'Grasa g', el: 'Λίπος g' },
+  'barcode.err_invalid':        { en: 'Enter a valid 8–14 digit barcode', es: 'Ingresa un código válido de 8 a 14 dígitos', el: 'Εισάγετε έγκυρο barcode 8–14 ψηφίων' },
+  'barcode.err_lookup':         { en: 'Lookup failed — try again', es: 'Falló la búsqueda — inténtalo de nuevo', el: 'Αποτυχία αναζήτησης — δοκιμάστε ξανά' },
+  'barcode.err_add_name':       { en: 'Add a product name', es: 'Agrega un nombre de producto', el: 'Προσθέστε όνομα προϊόντος' },
+  'barcode.err_camera':         { en: 'Camera unavailable — enter the barcode manually', es: 'Cámara no disponible — ingresa el código manualmente', el: 'Η κάμερα δεν είναι διαθέσιμη — εισάγετε το barcode χειροκίνητα' },
+
+  // ── Pain flag modal (i18n) ──
+  'painflag.title':             { en: 'Pain Flag', es: 'Alerta de dolor', el: 'Επισήμανση πόνου' },
+  'painflag.body_part_placeholder': { en: 'Body part (e.g. left shoulder)', es: 'Parte del cuerpo (ej. hombro izquierdo)', el: 'Μέρος σώματος (π.χ. αριστερός ώμος)' },
+  'painflag.severity_prefix':   { en: 'Severity', es: 'Severidad', el: 'Σοβαρότητα' },
+  'painflag.notes_placeholder': { en: 'Notes (optional)', es: 'Notas (opcional)', el: 'Σημειώσεις (προαιρετικά)' },
+  'painflag.cancel':            { en: 'Cancel', es: 'Cancelar', el: 'Ακύρωση' },
+  'painflag.save':              { en: 'Save Flag', es: 'Guardar', el: 'Αποθήκευση' },
+
+  // ── Progress photos (i18n) ──
+  'progressphotos.title':        { en: 'Progress Photos', es: 'Fotos de Progreso', el: 'Φωτογραφίες Προόδου' },
+  'progressphotos.upload_first': { en: 'Upload your first progress photo', es: 'Sube tu primera foto de progreso', el: 'Ανέβασε την πρώτη σου φωτογραφία προόδου' },
+  'progressphotos.description':  { en: 'Photos are taken every 30 days. Your coach can review them during sessions.', es: 'Las fotos se toman cada 30 días. Tu coach puede revisarlas durante las sesiones.', el: 'Οι φωτογραφίες λαμβάνονται κάθε 30 ημέρες. Ο coach σου μπορεί να τις εξετάσει στη διάρκεια των συνεδριών.' },
+  'progressphotos.coming_soon':  { en: 'Coming Soon', es: 'Próximamente', el: 'Σύντομα' },
+
+  // ── Exercise comparison (i18n) ──
+  'exercisecompare.date':        { en: 'Date', es: 'Fecha', el: 'Ημερομηνία' },
+  'exercisecompare.sets':        { en: 'Sets', es: 'Series', el: 'Σετ' },
+  'exercisecompare.best_wt':     { en: 'Best Wt', es: 'Mejor Peso', el: 'Καλ. Βάρος' },
+  'exercisecompare.total_reps':  { en: 'Total Reps', es: 'Reps Totales', el: 'Σύν. Επαν.' },
+  'exercisecompare.volume':      { en: 'Volume', es: 'Volumen', el: 'Όγκος' },
+  'exercisecompare.best_weight_trend': { en: 'Best Weight Trend', es: 'Tendencia de Mejor Peso', el: 'Τάση Καλύτερου Βάρους' },
+  'exercisecompare.no_sessions': { en: 'No sessions found for this exercise', es: 'No hay sesiones para este ejercicio', el: 'Δεν βρέθηκαν συνεδρίες για αυτή την άσκηση' },
 };
 
 // ─── Context & Hook ───
