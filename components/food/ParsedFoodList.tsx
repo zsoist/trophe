@@ -28,12 +28,12 @@ interface ParsedFoodListProps {
 /** Volume units where we display ml/L/cl instead of grams */
 const VOLUME_UNITS = new Set(['ml', 'l', 'cl', 'fl_oz', 'fl oz']);
 
-function isVolumeUnit(unit: string): boolean {
+export function isVolumeUnit(unit: string): boolean {
   return VOLUME_UNITS.has(unit.toLowerCase());
 }
 
 /** Get the display quantity for volume items (derived from gram ratio) */
-function getDisplayQuantity(item: ParsedFoodItem): number {
+export function getDisplayQuantity(item: ParsedFoodItem): number {
   if (!isVolumeUnit(item.unit)) return item.grams;
   // Preserve the original quantity-to-grams ratio
   // e.g. 450ml coke → grams=450 (density ~1), display=450ml
