@@ -29,3 +29,8 @@ export function muscleColor(group: string | null | undefined): string {
 export function muscleLabel(group: string | null | undefined): string {
   return MUSCLE_GROUPS.find((m) => m.key === group)?.label ?? (group ?? '');
 }
+
+/** i18n key for a muscle group's translated label (see lib/i18n workout.muscle_*). */
+export function muscleLabelKey(group: string | null | undefined): string {
+  return group ? `workout.muscle_${group}` : 'workout.muscle_full_body';
+}
