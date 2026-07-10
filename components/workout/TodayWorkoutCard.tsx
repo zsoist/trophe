@@ -18,7 +18,7 @@ import { ChevronRight } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
 import { Icon, AnimatedValue } from '@/components/ui';
-import { localToday } from '@/lib/utils/dates';
+import { localToday, localDateStr } from '@/lib/utils/dates';
 
 interface TodayState {
   kind: 'trained' | 'assigned' | 'rest' | 'free';
@@ -64,7 +64,10 @@ export default function TodayWorkoutCard({ userId }: { userId: string | null }) 
         supabase.from('workout_sessions')
           .select('id', { count: 'exact', head: true })
           .eq('user_id', userId)
-          .gte('session_date', new Date(Date.now() - 6 * 86400_000).toISOString().slice(0, 10)),
+          // session_date is written with local calendar days (localToday), so the
+          // 7-day window cutoff must also be local — toISOString() (UTC) mis-counts
+          // by a day for non-UTC users near midnight.
+          .gte('session_date', localDateStr(new Date(Date.now() - 6 * 86400_000))),
       ]);
       if (cancelled) return;
 
