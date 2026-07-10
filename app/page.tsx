@@ -159,9 +159,10 @@ function AppPreview() {
                 </div>
               ))}
             </div>
-            {/* Progress bar */}
-            <div className="mt-2 h-1 bg-stone-800 rounded-full overflow-hidden">
+            {/* Progress bar — with a slow premium sheen */}
+            <div className="mt-2 h-1 bg-stone-800 rounded-full overflow-hidden relative">
               <div className="h-full bg-gradient-to-r from-[#D4A853] to-[#E8C078] rounded-full" style={{ width: '72%' }} />
+              <span aria-hidden className="mock-sheen" />
             </div>
             <p className="text-[8px] text-stone-600 mt-1 text-right">72% of daily target</p>
           </div>
@@ -234,7 +235,7 @@ function AppPreview() {
               <span className="text-[7px]">Home</span>
             </div>
             <div className="text-center">
-              <div className="w-4 h-4 mx-auto mb-0.5 rounded bg-[#D4A853]/20 border border-[#D4A853]/30" />
+              <div className="mock-log-tab w-4 h-4 mx-auto mb-0.5 rounded bg-[#D4A853]/20 border border-[#D4A853]/30" />
               <span className="text-[7px] text-[#D4A853]">Log</span>
             </div>
             <div className="text-center">
@@ -320,11 +321,16 @@ export default function LandingPage() {
                 {t.hero_tag}
               </p>
 
-              {/* Headline */}
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.1] mb-6 animate-[fadeUp_0.6s_0.1s_ease-out_both]">
+              {/* Headline — serif display moment on the accent line (Latin-only
+                  per design rule; Greek falls back to the sans weight) */}
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.08] mb-6 animate-[fadeUp_0.6s_0.1s_ease-out_both]">
                 <span className="text-stone-100">{t.hero_h1}</span>
                 <br />
-                <span className="text-[#D4A853]">{t.hero_h1_accent}</span>
+                <span
+                  className={lang !== 'el' ? 'display-hero text-[#D4A853]' : 'text-[#D4A853]'}
+                >
+                  {t.hero_h1_accent}
+                </span>
               </h1>
 
               {/* Subline */}
@@ -460,18 +466,23 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ─── Evidence / Numbers Bar ─── */}
-      <section className="px-6 py-12 border-t border-white/[0.04]">
-        <div className="max-w-4xl mx-auto text-center">
-          <p className="font-mono text-[10px] tracking-[0.2em] uppercase text-stone-600 mb-6">
-            {t.numbers_tag}
-          </p>
-          <div className="flex flex-wrap justify-center gap-x-5 gap-y-2">
-            {evidenceSources.map((source) => (
-              <span key={source} className="text-stone-500 text-xs sm:text-sm font-medium">
-                {source}
-              </span>
-            ))}
+      {/* ─── Evidence / Numbers Bar — premium band ─── */}
+      <section className="px-6 py-14 border-t border-white/[0.04]">
+        <div className="max-w-4xl mx-auto">
+          <div className="evidence-band scroll-reveal">
+            <p className="font-mono text-[10px] tracking-[0.2em] uppercase text-[#D4A853]/50 mb-5 text-center">
+              {t.numbers_tag}
+            </p>
+            <div className="flex flex-wrap justify-center gap-2.5">
+              {evidenceSources.map((source) => (
+                <span
+                  key={source}
+                  className="font-mono text-[11px] sm:text-xs text-stone-400 px-3.5 py-1.5 rounded-full border border-white/[0.06] bg-white/[0.02]"
+                >
+                  {source}
+                </span>
+              ))}
+            </div>
           </div>
         </div>
       </section>
