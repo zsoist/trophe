@@ -1,8 +1,10 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { getTableConfig } from 'drizzle-orm/pg-core';
 import { PgTable } from 'drizzle-orm/pg-core';
 import * as schema from '@/db/schema';
-import { PRE_ERASURE_STEPS, CASCADE_COVERED, COACH_SCOPE_ONLY } from '@/lib/privacy/erasure';
+import { PRE_ERASURE_STEPS, CASCADE_COVERED, COACH_SCOPE_ONLY, BESPOKE_ERASED } from '@/lib/privacy/erasure';
 
 /**
  * WP5 guard: every user-reference column in the Drizzle schema must be
@@ -62,6 +64,19 @@ describe('erasure coverage (WP5)', () => {
       'this test with a documented reason:',
       ...missing,
     ].join('\n')).toEqual([]);
+  });
+
+  it('erases the SQL-only PII tables the schema introspection cannot see', () => {
+    // client_invites (email/name, no FK, no Drizzle mirror) is invisible to the
+    // introspection above — the exact blind spot that let its PII survive
+    // erasure. Assert each BESPOKE_ERASED table is actually handled in
+    // eraseUser, so removing the handling reds CI.
+    const src = readFileSync(join(process.cwd(), 'lib/privacy/erasure.ts'), 'utf8');
+    const eraseBody = src.slice(src.indexOf('export async function eraseUser'));
+    const unhandled = BESPOKE_ERASED
+      .map((b) => b.table)
+      .filter((table) => !eraseBody.includes(`'${table}'`) && !eraseBody.includes(`"${table}"`));
+    expect(unhandled, `BESPOKE_ERASED tables not referenced in eraseUser: ${unhandled.join(', ')}`).toEqual([]);
   });
 
   it('never classifies the same column twice (delete vs cascade ambiguity)', () => {

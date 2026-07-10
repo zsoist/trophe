@@ -117,6 +117,18 @@ export const COACH_SCOPE_ONLY: Array<{ table: string; column: string }> = [
   { table: 'workout_templates', column: 'created_by' },
 ];
 
+/**
+ * SQL-only user-data erased by a BESPOKE code block in eraseUser (not a
+ * step-list row), because the table has no Drizzle mirror OR no profiles FK,
+ * so neither the cascade nor the coverage-test introspection can see it.
+ * The coverage guard asserts each of these is actually referenced in
+ * eraseUser — so removing the handling reds CI. Keep in sync with eraseUser.
+ */
+export const BESPOKE_ERASED: Array<{ table: string; note: string }> = [
+  { table: 'client_invites', note: 'step 0b — delete by accepted_user_id or client_email' },
+  { table: 'chat-attachments', note: 'step 0 — storage objects under {coach}/{client} prefixes (paginated)' },
+];
+
 export interface ErasureResult {
   dryRun: boolean;
   userId: string;
