@@ -1121,7 +1121,8 @@ export default function CoachDashboard() {
               placeholder="Search clients..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="input-dark pl-10"
+              className="input-dark"
+              style={{ paddingLeft: 40 }}
             />
           </div>
 
