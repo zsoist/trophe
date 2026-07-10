@@ -71,6 +71,9 @@ interface MealSlotCardProps {
   isNext?: boolean;
   /** W10: protein-first caption for the next slot (page computes it; kcal-gated there). */
   nextHint?: string | null;
+  /** Coach's showCalories gate — threaded to QuickFoodInput so the parse-review
+   *  list shows kcal for coach-enabled clients (default false = hidden). */
+  showCalories?: boolean;
   /** ids ride along after a batch AI log (QuickFoodInput) so the page can offer batch undo. */
   onLogged: (ids?: string[]) => void;
   onSkip: () => void;
@@ -91,6 +94,7 @@ export default function MealSlotCard({
   favorites,
   isNext = false,
   nextHint = null,
+  showCalories = false,
   onLogged,
   onSkip,
   onUndoSkip,
@@ -363,6 +367,7 @@ export default function MealSlotCard({
           userId={userId}
           mealType={slot.mealType}
           date={date}
+          showCalories={showCalories}
           onLogged={(ids) => {
             setInputActive(false);
             onLogged(ids);
@@ -668,6 +673,7 @@ export default function MealSlotCard({
                       userId={userId}
                       mealType={slot.mealType}
                       date={date}
+                      showCalories={showCalories}
                       onLogged={(ids) => {
                         setInputActive(false);
                         onLogged(ids);

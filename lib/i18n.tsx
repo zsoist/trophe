@@ -359,6 +359,8 @@ const translations: Record<string, Record<CoreLanguage, string>> = {
   'coach_msg.your_coach':    { en: 'Your Coach',           es: 'Tu Coach',             el: 'Ο Coach σου' },
   'coach_msg.coach_prefix':  { en: 'Coach',                es: 'Coach',                el: 'Coach' },
   'coach_msg.sent_confirm':  { en: 'Message sent to coach',es: 'Mensaje enviado al coach', el: 'Το μήνυμα στάλθηκε' },
+  'coach_msg.send_failed': { en: 'Could not send — try again', es: 'No se pudo enviar — inténtalo de nuevo', el: 'Αποτυχία αποστολής — δοκίμασε ξανά' },
+  'book.cancel_failed': { en: 'Could not cancel — please try again', es: 'No se pudo cancelar — inténtalo de nuevo', el: 'Αποτυχία ακύρωσης — δοκίμασε ξανά' },
 
   // ── Water card (extended) ──
   'water.log':             { en: 'Log',   es: 'Registrar', el: 'Καταγραφή' },
