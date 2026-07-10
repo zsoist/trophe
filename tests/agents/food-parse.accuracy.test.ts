@@ -127,8 +127,8 @@ const GOLDENS: GoldenCase[] = [
     input: { foodName: 'greek yogurt', unit: 'g', qty: 150 },
     expected: {
       matchNameIncludes: 'yogurt',
-      // 100 kcal/100g × 1.5 = 150 kcal
-      macros: { kcal: 150, protein: 13.5, carb: 5.4, fat: 7.5 },
+      // Canonical HHF row: 100 kcal and 9.9g protein per 100g.
+      macros: { kcal: 150, protein: 14.85, carb: 5.4, fat: 7.5 },
     },
   },
 
