@@ -214,9 +214,10 @@ async function llmDecompose(dishName: string, unit: string): Promise<Decompositi
       prompt,
       systemPrompt: getDecomposePrompt(),
       context: { metadata: { operation: 'dish-decompose' } },
-      invoke: ({ policy: selected, signal }) => invokeStructuredProvider({
+      invoke: ({ policy: selected, signal, clientRequestId }) => invokeStructuredProvider({
         policy: selected,
         signal,
+        clientRequestId,
         system: getDecomposePrompt(),
         prompt,
         schema: DECOMPOSITION_JSON_SCHEMA,

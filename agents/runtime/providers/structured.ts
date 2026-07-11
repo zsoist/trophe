@@ -75,6 +75,7 @@ export async function invokeStructuredProvider<T>(input: {
   strict?: boolean;
   maxTokens?: number;
   userId?: string;
+  clientRequestId?: string;
 }): Promise<ProviderResult<T>> {
   if (input.signal.aborted) throw new Error('AI request aborted');
 
@@ -112,6 +113,8 @@ export async function invokeStructuredProvider<T>(input: {
       schema: input.schema,
       validator: input.validator,
       strict,
+      cacheKey: `trophe:${input.policy.model}:${input.policy.promptVersion}`,
+      clientRequestId: input.clientRequestId,
     });
   }
 

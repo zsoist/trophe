@@ -195,9 +195,10 @@ export async function writeMemory(input: WriteMemoryInput): Promise<WriteMemoryR
     prompt: extractionPrompt,
     systemPrompt: EXTRACTION_SYSTEM,
     context: { userId: input.userId, metadata: { sessionId: input.sessionId, agentName: input.agentName } },
-    invoke: ({ policy: selected, signal }) => invokeStructuredProvider({
+    invoke: ({ policy: selected, signal, clientRequestId }) => invokeStructuredProvider({
       policy: selected,
       signal,
+      clientRequestId,
       system: EXTRACTION_SYSTEM,
       prompt: extractionPrompt,
       schema: memoryExtractionGeminiResponseSchema,

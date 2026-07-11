@@ -21,10 +21,13 @@ describe('invokeOpenAiStructured', () => {
       usage: {
         prompt_tokens: 120,
         completion_tokens: 8,
-        prompt_tokens_details: { cached_tokens: 0 },
+        prompt_tokens_details: { cached_tokens: 32, cache_write_tokens: 64 },
         completion_tokens_details: { reasoning_tokens: 0 },
       },
-    }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json', 'x-request-id': 'req_openai_123' },
+    }));
     vi.stubGlobal('fetch', fetchMock);
 
     const result = await invokeOpenAiStructured({
@@ -38,20 +41,44 @@ describe('invokeOpenAiStructured', () => {
       schema: { type: 'object', properties: { value: { type: 'string' } }, required: ['value'], additionalProperties: false },
       validator,
       strict: true,
+      cacheKey: 'trophe:food-parse-v7-luna',
+      clientRequestId: 'client-generation-123',
     });
 
     expect(result.output).toEqual({ value: 'ok' });
     expect(result.providerGenerationId).toBe('resp_123');
-    expect(result.usage).toMatchObject({ inputTokens: 120, outputTokens: 8, cacheReadTokens: 0, reasoningTokens: 0 });
+    expect(result).toMatchObject({
+      providerRequestId: 'req_openai_123',
+      clientRequestId: 'client-generation-123',
+      usage: {
+        inputTokens: 120,
+        outputTokens: 8,
+        cacheReadTokens: 32,
+        cacheWriteTokens: 64,
+        reasoningTokens: 0,
+      },
+    });
+    expect(fetchMock.mock.calls[0][1].headers).toMatchObject({
+      'X-Client-Request-Id': 'client-generation-123',
+    });
     const request = JSON.parse(fetchMock.mock.calls[0][1].body as string);
     expect(request).toMatchObject({
       model: 'gpt-5.6-luna',
       reasoning_effort: 'none',
       max_completion_tokens: 256,
+      prompt_cache_key: 'trophe:food-parse-v7-luna',
+      prompt_cache_options: { mode: 'explicit', ttl: '30m' },
       tool_choice: { type: 'function', function: { name: 'submit_result' } },
     });
+    expect(request.messages[0]).toEqual({
+      role: 'system',
+      content: [{
+        type: 'text',
+        text: 'system',
+        prompt_cache_breakpoint: { mode: 'explicit' },
+      }],
+    });
     expect(request.tools[0].function.strict).toBe(true);
-    expect(request).not.toHaveProperty('prompt_cache_key');
   });
 
   it('rejects missing tool output', async () => {
@@ -76,14 +103,27 @@ describe('invokeOpenAiStructured', () => {
   it('surfaces provider errors without leaking the API key', async () => {
     vi.stubEnv('OPENAI_API_KEY', 'secret-key');
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
-      error: { message: 'invalid model' },
-    }), { status: 400, headers: { 'Content-Type': 'application/json' } })));
+      error: { message: 'invalid model', type: 'invalid_request_error', code: 'model_not_found' },
+    }), {
+      status: 403,
+      headers: { 'Content-Type': 'application/json', 'x-request-id': 'req_denied_123' },
+    })));
 
-    await expect(invokeOpenAiStructured({
+    const rejection = expect(invokeOpenAiStructured({
       model: 'gpt-5.6-luna', system: 'system', prompt: 'prompt', maxTokens: 256,
       signal: new AbortController().signal, toolName: 'submit_result', description: 'Submit result',
-      schema: { type: 'object' }, validator,
-    })).rejects.toThrow('invalid model');
+      schema: { type: 'object' }, validator, cacheKey: 'trophe:test', clientRequestId: 'client-403',
+    })).rejects;
+    await rejection.toThrow('invalid model');
+    await rejection.toMatchObject({
+      name: 'AiProviderError',
+      provider: 'openai',
+      status: 403,
+      errorType: 'invalid_request_error',
+      errorCode: 'model_not_found',
+      providerRequestId: 'req_denied_123',
+      clientRequestId: 'client-403',
+    });
   });
 
   it('retries a rate limit using Retry-After', async () => {
