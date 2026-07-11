@@ -16,6 +16,10 @@ export interface ProviderResult<T> {
   latencyMs: number;
   rawStatus: number;
   providerGenerationId?: string;
+  /** Provider response header used for support/debugging (for example x-request-id). */
+  providerRequestId?: string;
+  /** App-generated request ID sent to providers that support client correlation. */
+  clientRequestId?: string;
 }
 
 export interface AiTaskContext {
@@ -30,7 +34,11 @@ export interface ExecuteAiTaskInput<T> {
   prompt: string;
   systemPrompt?: string;
   context?: AiTaskContext;
-  invoke: (args: { policy: RoutingPolicy; signal: AbortSignal }) => Promise<ProviderResult<T>>;
+  invoke: (args: {
+    policy: RoutingPolicy;
+    signal: AbortSignal;
+    clientRequestId: string;
+  }) => Promise<ProviderResult<T>>;
 }
 
 export interface ExecuteAiTaskResult<T> extends ProviderResult<T> {

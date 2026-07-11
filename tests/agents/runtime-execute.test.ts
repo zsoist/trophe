@@ -30,22 +30,31 @@ describe('executeAiTask integration contract', () => {
   });
 
   it('persists pending and completed generation state', async () => {
+    let invokedClientRequestId: string | undefined;
     const result = await executeAiTask({
       task: 'meal_suggest',
       prompt: 'suggest a meal',
-      invoke: vi.fn(async () => ({
+      invoke: vi.fn(async ({ clientRequestId }) => {
+        invokedClientRequestId = clientRequestId;
+        return {
         output: { suggestions: ['meal'] },
         usage: { inputTokens: 100, outputTokens: 20 },
         latencyMs: 50,
         rawStatus: 200,
         providerGenerationId: 'provider-1',
-      })),
+        providerRequestId: 'req-provider-1',
+        clientRequestId,
+      };
+      }),
     });
 
+    expect(invokedClientRequestId).toBe(result.generationId);
     expect(persistence.createGeneration).toHaveBeenCalledOnce();
     expect(persistence.completeGeneration).toHaveBeenCalledWith(expect.objectContaining({
       generationId: result.generationId,
       providerGenerationId: 'provider-1',
+      providerRequestId: 'req-provider-1',
+      clientRequestId: result.generationId,
       rawStatus: 200,
     }));
     expect(persistence.failGeneration).not.toHaveBeenCalled();

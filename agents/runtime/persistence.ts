@@ -4,6 +4,7 @@ import { eq, sql } from 'drizzle-orm';
 import { resolveOrganizationId } from './org-budget';
 import type { AiTaskContext, AiUsage } from './types';
 import type { RoutingPolicy, TaskName } from '@/agents/router/policies';
+import { AiProviderError, providerErrorMetadata } from './providers/errors';
 
 export async function createGeneration(input: {
   generationId: string;
@@ -38,7 +39,13 @@ export async function completeGeneration(input: {
   latencyMs: number;
   rawStatus: number;
   providerGenerationId?: string;
+  providerRequestId?: string;
+  clientRequestId?: string;
 }): Promise<void> {
+  const diagnosticMetadata = Object.fromEntries(Object.entries({
+    providerRequestId: input.providerRequestId,
+    clientRequestId: input.clientRequestId,
+  }).filter((entry): entry is [string, string] => typeof entry[1] === 'string' && entry[1].length > 0));
   await db.update(agentRuns).set({
     status: 'completed',
     providerGenerationId: input.providerGenerationId,
@@ -53,15 +60,20 @@ export async function completeGeneration(input: {
     actualCostUsd: input.usage.actualCostUsd,
     latencyMs: input.latencyMs,
     rawStatus: input.rawStatus,
+    metadata: sql`coalesce(${agentRuns.metadata}, '{}'::jsonb) || ${JSON.stringify(diagnosticMetadata)}::jsonb`,
     completedAt: new Date(),
   }).where(eq(agentRuns.generationId, input.generationId));
 }
 
 export async function failGeneration(generationId: string, error: unknown): Promise<void> {
   const message = error instanceof Error ? error.message : String(error);
+  const rawStatus = error instanceof AiProviderError ? error.status : undefined;
+  const diagnosticMetadata = providerErrorMetadata(error);
   await db.update(agentRuns).set({
     status: 'failed',
+    rawStatus,
     errorMessage: message.slice(0, 500),
+    metadata: sql`coalesce(${agentRuns.metadata}, '{}'::jsonb) || ${JSON.stringify(diagnosticMetadata)}::jsonb`,
     completedAt: new Date(),
   }).where(eq(agentRuns.generationId, generationId));
 }

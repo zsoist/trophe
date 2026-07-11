@@ -53,7 +53,11 @@ async function attemptInvoke<T>(
         promptVersion: policy.promptVersion,
       },
     }, async () => {
-      providerResult = await input.invoke({ policy, signal: controller.signal });
+      providerResult = await input.invoke({
+        policy,
+        signal: controller.signal,
+        clientRequestId: generationId,
+      });
       return {
         text: '[structured output redacted]',
         usage: {
@@ -68,6 +72,10 @@ async function attemptInvoke<T>(
     });
     if (!providerResult) throw new Error('AI provider returned no result');
 
+    providerResult = {
+      ...providerResult,
+      clientRequestId: providerResult.clientRequestId ?? generationId,
+    };
     const estimatedCostUsd = estimateUsageCost(policy.model, providerResult.usage);
     if (estimatedCostUsd > policy.maxCostUsd) {
       throw new Error(`AI request exceeded cost ceiling (${estimatedCostUsd.toFixed(4)} USD)`);
