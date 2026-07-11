@@ -75,7 +75,7 @@
 - [x] Run `npm test`.
 - [x] Run `npm run build`.
 - [x] Review the complete diff for secret leakage, route changes, production writes, and scope creep.
-- [ ] Push `agent/provider-hardening` and open a draft PR with verification evidence and explicit `NO MERGE / NO DEPLOY` language.
-- [ ] Pause for human review.
+- [x] Push `agent/provider-hardening` and open a draft PR with verification evidence and explicit `NO MERGE / NO DEPLOY` language.
+- [x] Pause for human review.
 
 Plan complete and approved for prepare-only execution in this session. Merge/deploy remain separate decisions.
