@@ -30,18 +30,20 @@ describe('DeepSeek candidate benchmark contract', () => {
   });
 
   it('production provider smoke verifies DeepSeek usage, supported models, and available balance', () => {
-    const source = readFileSync(join(process.cwd(), '.github/workflows/provider-smoke.yml'), 'utf8');
+    const workflow = readFileSync(join(process.cwd(), '.github/workflows/provider-smoke.yml'), 'utf8');
+    expect(workflow).toContain('npm run ai:provider-preflight');
+    const source = readFileSync(join(process.cwd(), 'scripts/ops/provider-preflight.ts'), 'utf8');
     for (const expected of [
-      'usage.prompt_tokens', 'usage.completion_tokens', 'completion.id',
-      '/models', 'deepseek-v4-flash', 'deepseek-v4-pro', '/user/balance', 'balance.is_available',
+      'usage?.prompt_tokens', 'usage?.completion_tokens', 'data.id',
+      '/models', 'deepseek-v4-flash', 'deepseek-v4-pro', '/user/balance', 'data.is_available',
     ]) expect(source).toContain(expected);
   });
 
   it('production provider smoke exercises the Luna primary with authoritative usage', () => {
-    const source = readFileSync(join(process.cwd(), '.github/workflows/provider-smoke.yml'), 'utf8');
+    const source = readFileSync(join(process.cwd(), 'scripts/ops/provider-preflight.ts'), 'utf8');
     for (const expected of [
-      'OPENAI_API_KEY', 'OpenAI Luna', 'gpt-5.6-luna', 'usage.prompt_tokens',
-      'usage.completion_tokens', 'completion.id',
+      'OPENAI_API_KEY', 'openai.entitlement', 'gpt-5.6-luna', 'usage?.prompt_tokens',
+      'usage?.completion_tokens', 'data.id', 'X-Client-Request-Id',
     ]) expect(source).toContain(expected);
   });
 });

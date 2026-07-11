@@ -26,6 +26,7 @@
     "readiness": "tsx scripts/check-enterprise-readiness.ts",
     "readiness:integrations": "tsx scripts/check-integration-readiness.ts",
     "ai:budget-check": "tsx scripts/ops/check-ai-budgets.ts",
+    "ai:provider-preflight": "tsx scripts/ops/provider-preflight.ts",
     "ai:cost-reconcile": "tsx scripts/ops/reconcile-ai-costs.ts",
     "rag:readiness": "tsx scripts/ops/check-rag-readiness.ts",
     "rag:ingest": "tsx scripts/rag/ingest-document.ts",

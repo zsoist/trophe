@@ -9,7 +9,7 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
     environment: production
     env:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -18,114 +18,15 @@ jobs:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
     steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 20
+          cache: npm
 
-      - name: Verify production provider credentials
-        shell: bash
-        run: |
-          node <<'NODE'
-          const checks = [
-            {
-              name: 'Google Gemini',
-              url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GOOGLE_API_KEY}`,
-              init: {
-                method: 'POST',
-                headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({
-                  contents: [{ parts: [{ text: 'Reply OK' }] }],
-                  generationConfig: { maxOutputTokens: 10 },
-                }),
-              },
-            },
-            {
-              name: 'Anthropic',
-              url: 'https://api.anthropic.com/v1/messages',
-              init: {
-                method: 'POST',
-                headers: {
-                  'content-type': 'application/json',
-                  'x-api-key': process.env.ANTHROPIC_API_KEY,
-                  'anthropic-version': '2023-06-01',
-                },
-                body: JSON.stringify({
-                  model: 'claude-haiku-4-5-20251001',
-                  max_tokens: 10,
-                  messages: [{ role: 'user', content: 'Reply OK' }],
-                }),
-              },
-            },
-            {
-              name: 'OpenAI Luna',
-              url: 'https://api.openai.com/v1/chat/completions',
-              init: {
-                method: 'POST',
-                headers: {
-                  authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-                  'content-type': 'application/json',
-                },
-                body: JSON.stringify({
-                  model: 'gpt-5.6-luna',
-                  max_completion_tokens: 64,
-                  reasoning_effort: 'none',
-                  messages: [{ role: 'user', content: 'Reply OK' }],
-                }),
-              },
-            },
-            {
-              name: 'DeepSeek',
-              url: 'https://api.deepseek.com/chat/completions',
-              init: {
-                method: 'POST',
-                headers: {
-                  authorization: `Bearer ${process.env.DEEPSEEK_API_KEY}`,
-                  'content-type': 'application/json',
-                },
-                body: JSON.stringify({
-                  model: 'deepseek-v4-flash',
-                  max_tokens: 10,
-                  thinking: { type: 'disabled' },
-                  messages: [{ role: 'user', content: 'Reply OK' }],
-                }),
-              },
-            },
-          ];
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit
 
-          let failed = false;
-          for (const check of checks) {
-            const startedAt = Date.now();
-            const response = await fetch(check.url, check.init);
-            const duration = Date.now() - startedAt;
-            console.log(`${check.name}: HTTP ${response.status} (${duration}ms)`);
-            if (!response.ok) failed = true;
-
-            if ((check.name === 'DeepSeek' || check.name === 'OpenAI Luna') && response.ok) {
-              const completion = await response.json();
-              const usage = completion.usage ?? {};
-              const hasAuthoritativeUsage = Number(usage.prompt_tokens) > 0
-                && Number(usage.completion_tokens) > 0
-                && typeof completion.id === 'string';
-              console.log(`${check.name} usage: input=${usage.prompt_tokens ?? 0}, output=${usage.completion_tokens ?? 0}, generation=${completion.id ? 'present' : 'missing'}`);
-              if (!hasAuthoritativeUsage) failed = true;
-            }
-          }
-
-          const deepSeekHeaders = {
-            authorization: `Bearer ${process.env.DEEPSEEK_API_KEY}`,
-            accept: 'application/json',
-          };
-          const [modelsResponse, balanceResponse] = await Promise.all([
-            fetch('https://api.deepseek.com/models', { headers: deepSeekHeaders }),
-            fetch('https://api.deepseek.com/user/balance', { headers: deepSeekHeaders }),
-          ]);
-          const models = await modelsResponse.json();
-          const balance = await balanceResponse.json();
-          const modelIds = new Set((models.data ?? []).map((model) => model.id));
-          const requiredModelsPresent = modelIds.has('deepseek-v4-flash') && modelIds.has('deepseek-v4-pro');
-          console.log(`DeepSeek models: HTTP ${modelsResponse.status}, required=${requiredModelsPresent ? 'present' : 'missing'}`);
-          console.log(`DeepSeek balance: HTTP ${balanceResponse.status}, available=${balance.is_available === true}`);
-          if (!modelsResponse.ok || !requiredModelsPresent || !balanceResponse.ok || balance.is_available !== true) failed = true;
-
-          if (failed) process.exit(1);
-          NODE
+      - name: Verify production provider credentials and capabilities
+        run: npm run ai:provider-preflight
