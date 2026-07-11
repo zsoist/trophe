@@ -12,4 +12,24 @@ describe('DeepSeek candidate benchmark contract', () => {
       'completedInferences', 'apiFailures',
     ]) expect(source).toContain(expected);
   });
+
+  it('uses supported V4 model ids across eval generators before the legacy alias retirement', () => {
+    for (const file of [
+      'scripts/eval/generate-replacement-cases.ts',
+      'scripts/eval/generate-french-cases.ts',
+      'scripts/eval/generate-benchmark-cases.ts',
+    ]) {
+      const source = readFileSync(join(process.cwd(), file), 'utf8');
+      expect(source).toContain("const MODEL = 'deepseek-v4-flash'");
+      expect(source).not.toContain("const MODEL = 'deepseek-chat'");
+    }
+  });
+
+  it('production provider smoke verifies DeepSeek usage, supported models, and available balance', () => {
+    const source = readFileSync(join(process.cwd(), '.github/workflows/provider-smoke.yml'), 'utf8');
+    for (const expected of [
+      'usage.prompt_tokens', 'usage.completion_tokens', 'completion.id',
+      '/models', 'deepseek-v4-flash', 'deepseek-v4-pro', '/user/balance', 'balance.is_available',
+    ]) expect(source).toContain(expected);
+  });
 });

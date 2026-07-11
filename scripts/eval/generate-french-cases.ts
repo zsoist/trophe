@@ -8,7 +8,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
-const MODEL = 'deepseek-chat';
+const MODEL = 'deepseek-v4-flash';
 
 type Range = { min: number; max: number };
 type EvalCase = {
