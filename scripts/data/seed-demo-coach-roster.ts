@@ -48,9 +48,14 @@ loadEnvLocal();
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const COACH_EMAIL = 'daniel@reyes.com'; // the super_admin who will showcase the coach dashboard
+// Coach + namespace are env-overridable so each coach can own an ISOLATED demo
+// roster (distinct emails + manifest) without colliding with another's.
+//   SEED_COACH_EMAIL=nikos@biorita.com SEED_NAMESPACE=nik  → demo.nik.<slug>@…
+const COACH_EMAIL = process.env.SEED_COACH_EMAIL || 'daniel@reyes.com';
+const NS = (process.env.SEED_NAMESPACE || '').trim().replace(/\.+$/, ''); // '' | 'nik'
+const NS_PREFIX = NS ? `${NS}.` : '';                                     // '' | 'nik.'
 const EMAIL_DOMAIN = 'demo.trophe.app'; // demo users live here so cleanup is unambiguous
-const MANIFEST = join(process.cwd(), 'scripts/data/.demo-roster-manifest.json');
+const MANIFEST = join(process.cwd(), `scripts/data/.demo-roster-manifest${NS ? '.' + NS : ''}.json`);
 const DAYS = 30;
 
 const MODE = process.argv.includes('--rollback')
@@ -227,7 +232,7 @@ function generateForPersona(p: Persona, userId: string, coachId: string, clientH
   const t = targets(p);
   const out = {
     profile: {
-      id: userId, full_name: p.fullName, email: `demo.${p.slug}@${EMAIL_DOMAIN}`,
+      id: userId, full_name: p.fullName, email: `demo.${NS_PREFIX}${p.slug}@${EMAIL_DOMAIN}`,
       role: 'client', language: p.language, timezone: 'Europe/Athens', created_at: isoTs(p.archetype === 'new' ? 4 : 34, 10),
     },
     client_profile: {
@@ -424,7 +429,7 @@ async function runSeed(dry: boolean) {
 
   for (let pi = 0; pi < PERSONAS.length; pi++) {
     const p = PERSONAS[pi];
-    const email = `demo.${p.slug}@${EMAIL_DOMAIN}`;
+    const email = `demo.${NS_PREFIX}${p.slug}@${EMAIL_DOMAIN}`;
     let userId: string = randomUUID();
     const habitId = await resolveHabitId(p.habitName);
     const clientHabitId = randomUUID();
@@ -486,8 +491,12 @@ async function collectDemoIds(): Promise<string[]> {
     const m = JSON.parse(readFileSync(MANIFEST, 'utf8')) as { users: { id: string }[] };
     for (const u of m.users) ids.add(u.id);
   }
-  // Fallback / belt-and-suspenders: find by email tag (covers a partial seed with no manifest)
-  const { data } = await supabase.from('profiles').select('id').like('email', `demo.%@${EMAIL_DOMAIN}`);
+  // Fallback / belt-and-suspenders: find by email tag (covers a partial seed with
+  // no manifest). Scoped to THIS namespace so a base (NS='') rollback never sweeps
+  // a namespaced roster: `demo.%@` also matches `demo.nik.%@`, so exclude those.
+  let q = supabase.from('profiles').select('id').like('email', `demo.${NS_PREFIX}%@${EMAIL_DOMAIN}`);
+  if (!NS) q = q.not('email', 'like', `demo.%.%@${EMAIL_DOMAIN}`);
+  const { data } = await q;
   for (const r of (data || []) as { id: string }[]) ids.add(r.id);
   return [...ids];
 }

@@ -1,0 +1,36 @@
+{
+  "coachId": "60c5719f-185a-466b-91ba-5af42e67ae39",
+  "createdAt": "2026-07-11T18:37:15.231Z",
+  "users": [
+    {
+      "slug": "eleni",
+      "email": "demo.nik.eleni@demo.trophe.app",
+      "id": "43c1d791-c583-4627-bcab-fbafee0bcb9d"
+    },
+    {
+      "slug": "yannis",
+      "email": "demo.nik.yannis@demo.trophe.app",
+      "id": "cb2809df-5c4f-4424-943f-7a1cde4e570d"
+    },
+    {
+      "slug": "sofia",
+      "email": "demo.nik.sofia@demo.trophe.app",
+      "id": "6ff19e52-0dac-4cd4-a88c-749c678e70c4"
+    },
+    {
+      "slug": "kostas",
+      "email": "demo.nik.kostas@demo.trophe.app",
+      "id": "c8881576-8aac-49a9-bd15-f495eee1d809"
+    },
+    {
+      "slug": "maria",
+      "email": "demo.nik.maria@demo.trophe.app",
+      "id": "1211e3cc-f9df-461a-a4ac-477714f7140e"
+    },
+    {
+      "slug": "dimitris",
+      "email": "demo.nik.dimitris@demo.trophe.app",
+      "id": "da60326a-bd3b-42b7-8f9c-e14bf497283c"
+    }
+  ]
+}
