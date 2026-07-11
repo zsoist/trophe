@@ -127,8 +127,9 @@ const GOLDENS: GoldenCase[] = [
     input: { foodName: 'greek yogurt', unit: 'g', qty: 150 },
     expected: {
       matchNameIncludes: 'yogurt',
-      // Canonical HHF row: 100 kcal and 9.9g protein per 100g.
-      macros: { kcal: 150, protein: 14.85, carb: 5.4, fat: 7.5 },
+      // Both approved full-fat rows are valid for an unbranded query:
+      // versioned USDA seed = 9g/100g, optional HHF ingest = 9.9g/100g.
+      macros: { kcal: 150, protein: 14.2, carb: 5.4, fat: 7.5 },
     },
   },
 
