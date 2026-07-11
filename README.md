@@ -49,7 +49,7 @@ Partnership with Michael Kavdas (Greek nutritionist, PN L1 certified, COO Athlet
 - **Recipe analyzer** (new): paste a recipe → AI extracts ingredients + totals + per-serving → log N servings
 - **Habit engine**: 14-day cycles, one habit at a time, coach-assigned + auto-progression
 - **Coach module (June 2026)**: weekly meal-plan grid (desktop week view + mobile day tabs),
-  realtime coach↔client messaging with unread inbox, intake questionnaire (15-question
+  realtime coach↔client messaging with unread inbox, intake questionnaire (12-question
   interview set), daily lifestyle check-ins, assessment + custom goals, derived calorie
   targets, color-coded coach notes pinned on the client dashboard
 - **Workout module**: 113 exercises, custom exercise modal, PR detection, AI Form Check

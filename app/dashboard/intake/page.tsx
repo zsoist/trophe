@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Intake — a 15-step conversation, not a form.
+ * Intake — a 12-step conversation, not a form.
  * One question per screen, autosaved as you go, with a review pass and a
  * quarterly refresh ("things change — tell me what's different").
  */
@@ -287,7 +287,7 @@ export default function IntakeWizard() {
               <h1 style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-.02em', color: 'var(--t1)', lineHeight: 1.25, marginBottom: 14 }}>
                 {previouslySubmitted
                   ? 'Things change. Tell me what’s different.'
-                  : `Fifteen questions.\nThe plan starts with you.`}
+                  : `Twelve questions.\nThe plan starts with you.`}
               </h1>
               <p style={{ fontSize: 14, color: 'var(--t3)', lineHeight: 1.65, marginBottom: 30, whiteSpace: 'pre-line' }}>
                 {previouslySubmitted
