@@ -60,3 +60,26 @@ test.describe('food parser error states', () => {
     await expect(page.locator('body')).not.toContainText('Application error');
   });
 });
+
+test.describe('authenticated loading states', () => {
+  test.skip(!email || !password, 'Set E2E_CLIENT_EMAIL/E2E_CLIENT_PASSWORD');
+
+  test('slow data keeps a stable dashboard skeleton until content is ready', async ({ page }) => {
+    await page.goto('/login');
+    await page.getByPlaceholder('Email').fill(email!);
+    await page.getByPlaceholder('Password').fill(password!);
+    await page.locator('form').getByRole('button', { name: 'Log in' }).click();
+    await page.waitForURL((url) => !url.pathname.startsWith('/login'));
+    await page.goto('/dashboard/profile');
+
+    await page.route('**/rest/v1/**', async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 1_200));
+      await route.continue();
+    });
+    await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
+
+    await expect(page.locator('.skeleton').first()).toBeVisible();
+    await expect(page.locator('.skeleton')).toHaveCount(0, { timeout: 10_000 });
+    await expect(page.getByRole('link', { name: 'Home' })).toBeVisible();
+  });
+});
