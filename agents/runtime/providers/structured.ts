@@ -3,6 +3,7 @@ import { callGeminiMessages } from '@/agents/clients/google';
 import { invokeAnthropicJson } from './anthropic';
 import { invokeDeepSeekStructured } from './deepseek';
 import { invokeOpenAiStructured } from './openai';
+import { AiProviderError } from './errors';
 import type { RoutingPolicy } from '@/agents/router/policies';
 import type { ProviderResult } from '../types';
 
@@ -124,10 +125,13 @@ export async function invokeStructuredProvider<T>(input: {
       content: Array<{ type: string; name?: string; input?: unknown }>;
     }>({
       signal: input.signal,
+      clientRequestId: input.clientRequestId,
       body: {
         model: input.policy.model,
         max_tokens: input.maxTokens ?? input.policy.maxTokens,
-        system: input.system,
+        system: input.policy.cacheSystem
+          ? [{ type: 'text', text: input.system, cache_control: { type: 'ephemeral' } }]
+          : input.system,
         messages: [{ role: 'user', content: input.prompt }],
         tools: [{
           name: toolName,
@@ -140,13 +144,40 @@ export async function invokeStructuredProvider<T>(input: {
     const toolUse = result.output.content.find(
       (c) => c.type === 'tool_use' && c.name === toolName,
     );
-    if (!toolUse?.input) throw new Error('Anthropic structured response missing tool call');
+    if (!toolUse?.input) {
+      throw new AiProviderError({
+        provider: 'anthropic',
+        message: 'Anthropic structured response missing tool call',
+        status: result.rawStatus,
+        errorType: 'provider_protocol_error',
+        errorCode: 'missing_tool_call',
+        providerRequestId: result.providerRequestId,
+        clientRequestId: result.clientRequestId,
+      });
+    }
+    let output: T;
+    try {
+      output = input.validator.parse(toolUse.input);
+    } catch (error) {
+      throw new AiProviderError({
+        provider: 'anthropic',
+        message: 'Anthropic structured response failed validation',
+        status: result.rawStatus,
+        errorType: 'provider_protocol_error',
+        errorCode: 'invalid_structured_output',
+        providerRequestId: result.providerRequestId,
+        clientRequestId: result.clientRequestId,
+        cause: error,
+      });
+    }
     return {
-      output: input.validator.parse(toolUse.input),
+      output,
       usage: result.usage,
       latencyMs: result.latencyMs,
       rawStatus: result.rawStatus,
       providerGenerationId: result.providerGenerationId,
+      providerRequestId: result.providerRequestId,
+      clientRequestId: result.clientRequestId,
     };
   }
 
