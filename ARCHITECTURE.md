@@ -68,7 +68,7 @@ AI cost governance: `agent_runs` is the trusted table for cost and LLM observabi
 2. Cookie set in response
    → supabase/ssr automatically refreshes the cookie on each response via middleware
 
-3. Middleware (proxy.ts) reads the cookie
+3. Middleware (`middleware.ts`) reads the cookie
    → lib/supabase/middleware.ts creates a server client against request.cookies
    → lib/auth/require-role.ts checks profile.role:
        /coach/*   requires role ∈ {coach, admin, super_admin}
@@ -258,7 +258,7 @@ trophe/
   public/
     sprite.svg        # 56-icon SVG sprite
   drizzle.config.ts
-  proxy.ts            # Next.js middleware (renamed from middleware.ts in v0.3)
+  middleware.ts       # Next.js middleware (root; Supabase session + auth gate)
   .env.local.example
 ```
 

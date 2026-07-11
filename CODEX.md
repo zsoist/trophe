@@ -118,7 +118,7 @@
 
 ```
 Browser → Vercel Edge
-  → proxy.ts (Next.js middleware)
+  → middleware.ts (Next.js middleware)
     → lib/supabase/middleware.ts → getUser() → role check
     → Unauthenticated: 302 /login
     → Wrong role: 302 /dashboard
@@ -416,7 +416,7 @@ AutoMacroOptimizer, BatchHabitAssign, BatchNote, BehavioralSignals, CalorieCycli
 
 ### Session model (v0.3)
 `@supabase/ssr` stores tokens in **HTTP-only cookies** (not localStorage). This means:
-- Middleware (`proxy.ts`) can read the session
+- Middleware (`middleware.ts`) can read the session
 - Server Components can read the session via `cookies()`
 - JavaScript cannot access the token (XSS protection)
 

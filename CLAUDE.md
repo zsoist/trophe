@@ -124,7 +124,7 @@ agents/
   recipe-analyze/index.ts
   insights/wearable-summary.ts
   evals/run-all.ts + datasets/       # 210-case enterprise benchmark
-  prompts/food-parse.v6.md           # ALWAYS bump version on prompt changes
+  prompts/food-parse.v7.md           # production default; ALWAYS bump version on prompt changes
   schemas/                           # input/output types per agent
 ```
 
