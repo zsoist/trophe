@@ -23,15 +23,15 @@ import { consumeRateLimit } from '@/lib/security/durable-rate-limit';
 const AUTH_LIMIT = 60;     // requests per window for authenticated users
 const WINDOW_MS = 15 * 60 * 1_000; // 15 minutes
 
-/**
- * User IDs that bypass the per-user rate limit.
- * Used exclusively for automated eval runs that exceed 60 req / 15 min.
- * Adding/removing requires a code change + deploy (intentional).
- */
-const RATE_LIMIT_BYPASS_USER_IDS = new Set([
-  '7dbb5644-6a38-4f48-a512-d8be68e97ab7', // eval-tester-2026@trophe.app
-  'f7f6350f-b210-46ea-88ce-409d03e9eaa7', // eval-tester-2026@trophe.app (current)
-]);
+/** Eval identities are deployment config, never source literals. */
+function rateLimitBypassUserIds(): Set<string> {
+  return new Set(
+    (process.env.AI_RATE_LIMIT_BYPASS_USER_IDS ?? '')
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean),
+  );
+}
 
 export type AiRouteGuardResult =
   | { ok: true; userId: string }
@@ -100,7 +100,7 @@ export async function guardAiRoute(req: NextRequest): Promise<AiRouteGuardResult
   if (token) {
     const userId = await verifySupabaseUser(token);
     if (userId) {
-      if (!RATE_LIMIT_BYPASS_USER_IDS.has(userId)) {
+      if (!rateLimitBypassUserIds().has(userId)) {
         const rateLimit = await checkLimit(userId, AUTH_LIMIT);
         if (rateLimit) return { ok: false, response: rateLimit };
       }
@@ -112,7 +112,7 @@ export async function guardAiRoute(req: NextRequest): Promise<AiRouteGuardResult
   // Path 2: Cookie-based auth (browser sessions via @supabase/ssr)
   const cookieUserId = await getUserFromCookie();
   if (cookieUserId) {
-    if (!RATE_LIMIT_BYPASS_USER_IDS.has(cookieUserId)) {
+    if (!rateLimitBypassUserIds().has(cookieUserId)) {
       const rateLimit = await checkLimit(cookieUserId, AUTH_LIMIT);
       if (rateLimit) return { ok: false, response: rateLimit };
     }

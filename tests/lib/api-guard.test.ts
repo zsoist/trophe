@@ -26,6 +26,8 @@ function request(auth?: string) {
 describe('guardAiRoute', () => {
   beforeEach(() => {
     getUser.mockReset();
+    consumeRateLimit.mockReset();
+    delete process.env.AI_RATE_LIMIT_BYPASS_USER_IDS;
     process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://project.supabase.co';
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'anon-key';
     consumeRateLimit.mockResolvedValue({ allowed: true, retryAfter: 900 });
@@ -84,5 +86,17 @@ describe('guardAiRoute', () => {
       expect(result.response.status).toBe(429);
       expect(result.response.headers.get('Retry-After')).toBe('321');
     }
+  });
+
+  it('bypasses the AI rate limit only for identities supplied by deployment config', async () => {
+    const evalUserId = '00000000-0000-4000-8000-000000000999';
+    process.env.AI_RATE_LIMIT_BYPASS_USER_IDS = evalUserId;
+    getUser.mockResolvedValue({ data: { user: { id: evalUserId } }, error: null });
+    const { guardAiRoute } = await loadGuard();
+
+    const result = await guardAiRoute(request('Bearer eval.jwt'));
+
+    expect(result).toEqual({ ok: true, userId: evalUserId });
+    expect(consumeRateLimit).not.toHaveBeenCalled();
   });
 });
