@@ -748,7 +748,12 @@ async function estimateMacrosViaLLM(
 // ── Main run function ─────────────────────────────────────────────────────────
 export async function run(
   input: FoodParseInput,
-  opts?: { userId?: string; requestId?: string; metadata?: Record<string, unknown> },
+  opts?: {
+    userId?: string;
+    requestId?: string;
+    metadata?: Record<string, unknown>;
+    onGenerationId?: (generationId: string) => void;
+  },
 ): Promise<FoodParseRunResultV4> {
   const MAX_INPUT_LENGTH = 500;
   const trimmedText = input.text.trim();
@@ -860,7 +865,11 @@ export async function run(
       task: 'food_parse',
       prompt: userMessage,
       systemPrompt: PROMPT_TEMPLATE,
-      context: { userId: opts?.userId, requestId: opts?.requestId, metadata: { version: 'v4', ...opts?.metadata } },
+      context: {
+        userId: opts?.userId,
+        requestId: opts?.requestId,
+        metadata: { pipelineVersion: FOOD_PARSE_VERSION, ...opts?.metadata },
+      },
       invoke: ({ policy: selected, signal }) => invokeStructuredProvider({
         policy: selected,
         signal,
@@ -874,6 +883,7 @@ export async function run(
       }),
     });
     traceId = generation.generationId;
+    opts?.onGenerationId?.(traceId);
     llmResult = {
       output: generation.output,
       usage: {
@@ -943,7 +953,11 @@ export async function run(
         task: 'food_parse',
         prompt: `${userMessage}\n\nYour previous response was invalid. Return only valid JSON matching the required schema.`,
         systemPrompt: PROMPT_TEMPLATE,
-        context: { userId: opts?.userId, requestId: opts?.requestId, metadata: { version: 'v4', operation: 'schema-repair', ...opts?.metadata } },
+        context: {
+          userId: opts?.userId,
+          requestId: opts?.requestId,
+          metadata: { pipelineVersion: FOOD_PARSE_VERSION, operation: 'schema-repair', ...opts?.metadata },
+        },
         invoke: ({ policy: selected, signal }) => invokeStructuredProvider({
           policy: selected,
           signal,

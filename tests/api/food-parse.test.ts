@@ -40,7 +40,11 @@ describe('POST /api/food/parse', () => {
     });
     const response = await POST(request({ text: 'one egg', language: 'zh' }));
     expect(response.status).toBe(200);
-    expect(mocks.run).toHaveBeenCalledWith({ text: 'one egg', language: 'en' }, { userId: 'user-1' });
+    expect(mocks.run).toHaveBeenCalledWith({ text: 'one egg', language: 'en' }, expect.objectContaining({
+      userId: 'user-1',
+      metadata: { canarySegment: 'consumer-luna-week-1' },
+      onGenerationId: expect.any(Function),
+    }));
   });
 
   it('accepts the full 8-language UI set', async () => {
@@ -51,7 +55,11 @@ describe('POST /api/food/parse', () => {
     });
     const response = await POST(request({ text: 'eine Scheibe Brot', language: 'de' }));
     expect(response.status).toBe(200);
-    expect(mocks.run).toHaveBeenCalledWith({ text: 'eine Scheibe Brot', language: 'de' }, { userId: 'user-1' });
+    expect(mocks.run).toHaveBeenCalledWith({ text: 'eine Scheibe Brot', language: 'de' }, expect.objectContaining({
+      userId: 'user-1',
+      metadata: { canarySegment: 'consumer-luna-week-1' },
+      onGenerationId: expect.any(Function),
+    }));
   });
 
   it('rejects inputs above the governed parser ceiling', async () => {
@@ -68,14 +76,18 @@ describe('POST /api/food/parse', () => {
     });
     const response = await POST(request({ text: '  one egg  ', language: 'en' }));
     expect(response.status).toBe(200);
-    expect(mocks.run).toHaveBeenCalledWith({ text: 'one egg', language: 'en' }, { userId: 'user-1' });
+    expect(mocks.run).toHaveBeenCalledWith({ text: 'one egg', language: 'en' }, expect.objectContaining({
+      userId: 'user-1',
+      metadata: { canarySegment: 'consumer-luna-week-1' },
+      onGenerationId: expect.any(Function),
+    }));
   });
 
   it('maps raw pipeline failures to stable user-safe error codes', async () => {
     mocks.run.mockResolvedValue({
       ok: false,
       error: 'DeepSeek incomplete response (length)',
-      telemetry: { rawStatus: 502, model: 'm', traceId: null },
+      telemetry: { rawStatus: 502, model: 'm', traceId: 'generation-malformed' },
     });
     const response = await POST(request({ text: 'one egg', language: 'en' }));
     expect(response.status).toBe(502);
@@ -83,6 +95,10 @@ describe('POST /api/food/parse', () => {
     expect(body.code).toBe('ai_busy');
     expect(body.message).not.toContain('DeepSeek');
     expect(body.error).not.toContain('DeepSeek');
+    expect(mocks.annotateGenerationMetadata).toHaveBeenCalledWith('generation-malformed', {
+      canarySegment: 'consumer-luna-week-1',
+      apiOutcome: 'malformed',
+    });
   });
 
   it('maps over-long input to the too_long code', async () => {
@@ -129,6 +145,7 @@ describe('POST /api/food/parse', () => {
       userId: 'eval-user',
       requestId: 'watch-1',
       metadata: { evalSuite: 'phase3-luna-watchlist', canarySegment: 'consumer-luna-week-1' },
+      onGenerationId: expect.any(Function),
     });
     expect(mocks.annotateGenerationMetadata).toHaveBeenCalledWith('generation-1', {
       evalSuite: 'phase3-luna-watchlist',
@@ -149,9 +166,29 @@ describe('POST /api/food/parse', () => {
       { 'x-trophe-eval-suite': 'phase3-luna-watchlist' },
     ));
 
-    expect(mocks.run).toHaveBeenCalledWith({ text: 'one egg', language: 'en' }, { userId: 'user-1' });
+    expect(mocks.run).toHaveBeenCalledWith({ text: 'one egg', language: 'en' }, expect.objectContaining({
+      userId: 'user-1',
+      metadata: { canarySegment: 'consumer-luna-week-1' },
+      onGenerationId: expect.any(Function),
+    }));
     expect(mocks.annotateGenerationMetadata).toHaveBeenCalledWith('generation-2', {
+      canarySegment: 'consumer-luna-week-1',
       apiOutcome: 'success',
+    });
+  });
+
+  it('records malformed when post-provider processing throws after generation creation', async () => {
+    mocks.run.mockImplementationOnce(async (_input, opts) => {
+      opts.onGenerationId('generation-postprocess');
+      throw new Error('lookup failed after provider success');
+    });
+
+    const response = await POST(request({ text: 'one egg', language: 'en' }));
+
+    expect(response.status).toBe(500);
+    expect(mocks.annotateGenerationMetadata).toHaveBeenCalledWith('generation-postprocess', {
+      canarySegment: 'consumer-luna-week-1',
+      apiOutcome: 'malformed',
     });
   });
 });

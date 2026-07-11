@@ -104,7 +104,12 @@ describe('executeAiTask integration contract', () => {
       prompt: 'suggest a meal',
       context: {
         userId,
-        metadata: { generationId: 'spoofed', isFallback: true, userId: 'raw-user' },
+        metadata: {
+          generationId: 'spoofed',
+          isFallback: true,
+          promptVersion: 'spoofed',
+          userId: 'raw-user',
+        },
       },
       invoke: vi.fn(async () => ({
         output: { suggestions: ['meal'] },
@@ -117,6 +122,7 @@ describe('executeAiTask integration contract', () => {
     const traceInput = observability.traced.mock.calls[0][0];
     expect(traceInput.metadata).toMatchObject({ isFallback: false });
     expect(traceInput.metadata.generationId).not.toBe('spoofed');
+    expect(traceInput.metadata.promptVersion).toBe('meal-suggest-v2-luna');
     expect(traceInput.metadata.userId).toMatch(/^trophe_[0-9a-f]{32}$/);
     expect(traceInput.metadata.userId).not.toBe(userId);
   });

@@ -118,7 +118,7 @@ agents/
   clients/anthropic.ts + google.ts   # thin API wrappers
   observability/langfuse.ts + otel.ts
   memory/read.ts + write.ts + coach-blocks.ts
-  food-parse/index.v4.ts             # v4-v6 pipeline: LLM extract → DB lookup → CoT arbitration
+  food-parse/index.v4.ts             # v4 architecture, v7 prompt: LLM extract → DB lookup → CoT arbitration
   food-parse/lookup.ts               # pgvector + pg_trgm hybrid retrieval + COMMON_PIECE_WEIGHTS
   food-parse/decompose.ts            # dish_recipes cache + LLM decomposition + getPieceWeight()
   recipe-analyze/index.ts

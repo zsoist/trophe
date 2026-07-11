@@ -50,6 +50,7 @@ async function attemptInvoke<T>(
         ...(traceUserId ? { userId: traceUserId } : {}),
         generationId,
         isFallback,
+        promptVersion: policy.promptVersion,
       },
     }, async () => {
       providerResult = await input.invoke({ policy, signal: controller.signal });

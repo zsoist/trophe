@@ -28,12 +28,14 @@ interface ClassifiedFailure {
 }
 
 const TRUSTED_EVAL_SUITES = new Set(['frozen-may-30-probe', 'phase3-luna-watchlist']);
+const CANARY_SEGMENT = 'consumer-luna-week-1';
 
-function trustedEvalMetadata(request: NextRequest, rateLimitBypassed: boolean): Record<string, unknown> | undefined {
-  if (!rateLimitBypassed) return undefined;
+function requestTelemetryMetadata(request: NextRequest, rateLimitBypassed: boolean): Record<string, unknown> {
+  const metadata: Record<string, unknown> = { canarySegment: CANARY_SEGMENT };
+  if (!rateLimitBypassed) return metadata;
   const evalSuite = request.headers.get('x-trophe-eval-suite');
-  if (!evalSuite || !TRUSTED_EVAL_SUITES.has(evalSuite)) return undefined;
-  return { evalSuite, canarySegment: 'consumer-luna-week-1' };
+  if (evalSuite && TRUSTED_EVAL_SUITES.has(evalSuite)) metadata.evalSuite = evalSuite;
+  return metadata;
 }
 
 async function recordFinalOutcome(
@@ -89,6 +91,8 @@ export async function POST(request: NextRequest) {
   const guard = await guardAiRoute(request);
   if (!guard.ok) return guard.response;
 
+  let generationId: string | null = null;
+  let telemetryMetadata: Record<string, unknown> | undefined;
   try {
     const parsed = requestSchema.safeParse(await request.json());
     if (!parsed.success) {
@@ -103,7 +107,7 @@ export async function POST(request: NextRequest) {
       );
     }
     const { text, language } = parsed.data;
-    const evalMetadata = trustedEvalMetadata(request, guard.rateLimitBypassed);
+    telemetryMetadata = requestTelemetryMetadata(request, guard.rateLimitBypassed);
     const requestId = request.headers.get('x-request-id') ?? undefined;
 
     const result = await run(
@@ -111,7 +115,8 @@ export async function POST(request: NextRequest) {
       {
         userId: guard.userId,
         ...(requestId ? { requestId } : {}),
-        ...(evalMetadata ? { metadata: evalMetadata } : {}),
+        metadata: telemetryMetadata,
+        onGenerationId: (id) => { generationId = id; },
       },
     );
     const t = result.telemetry;
@@ -126,7 +131,7 @@ export async function POST(request: NextRequest) {
         traceId: t.traceId,
         error: result.error,
       });
-      await recordFinalOutcome(t.traceId, 'malformed', evalMetadata);
+      await recordFinalOutcome(t.traceId, 'malformed', telemetryMetadata);
       return NextResponse.json(
         // `error` mirrors `message` for older consumers (eval scripts read .error).
         { code: failure.code, message: failure.message, error: failure.message, items: [] },
@@ -134,10 +139,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await recordFinalOutcome(t.traceId, 'success', evalMetadata);
+    await recordFinalOutcome(t.traceId, 'success', telemetryMetadata);
     return NextResponse.json(result.output);
   } catch (error) {
     console.error('Food parse error:', error);
+    await recordFinalOutcome(generationId, 'malformed', telemetryMetadata);
     return NextResponse.json(
       {
         code: 'ai_busy' satisfies FoodParseErrorCode,
