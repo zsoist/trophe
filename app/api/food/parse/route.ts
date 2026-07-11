@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { guardAiRoute } from '@/lib/security/api-guard';
 import { run } from '@/agents/food-parse';
+import { annotateGenerationMetadata } from '@/agents/runtime/persistence';
 import { z } from 'zod';
 
 export type { ParsedFoodItem } from '@/agents/schemas/food-parse';
@@ -24,6 +25,29 @@ interface ClassifiedFailure {
   code: FoodParseErrorCode;
   message: string;
   status: number;
+}
+
+const TRUSTED_EVAL_SUITES = new Set(['frozen-may-30-probe', 'phase3-luna-watchlist']);
+const CANARY_SEGMENT = 'consumer-luna-week-1';
+
+function requestTelemetryMetadata(request: NextRequest, rateLimitBypassed: boolean): Record<string, unknown> {
+  const metadata: Record<string, unknown> = { canarySegment: CANARY_SEGMENT };
+  if (!rateLimitBypassed) return metadata;
+  const evalSuite = request.headers.get('x-trophe-eval-suite');
+  if (evalSuite && TRUSTED_EVAL_SUITES.has(evalSuite)) metadata.evalSuite = evalSuite;
+  return metadata;
+}
+
+async function recordFinalOutcome(
+  generationId: string | null | undefined,
+  outcome: 'success' | 'malformed',
+  metadata?: Record<string, unknown>,
+): Promise<void> {
+  if (!generationId) return;
+  await annotateGenerationMetadata(generationId, {
+    ...metadata,
+    apiOutcome: outcome,
+  }).catch((error) => console.error('[food-parse] outcome annotation failed', error));
 }
 
 function classifyParseFailure(rawError: string, rawStatus: number, errorCode?: string): ClassifiedFailure {
@@ -67,6 +91,8 @@ export async function POST(request: NextRequest) {
   const guard = await guardAiRoute(request);
   if (!guard.ok) return guard.response;
 
+  let generationId: string | null = null;
+  let telemetryMetadata: Record<string, unknown> | undefined;
   try {
     const parsed = requestSchema.safeParse(await request.json());
     if (!parsed.success) {
@@ -81,8 +107,18 @@ export async function POST(request: NextRequest) {
       );
     }
     const { text, language } = parsed.data;
+    telemetryMetadata = requestTelemetryMetadata(request, guard.rateLimitBypassed);
+    const requestId = request.headers.get('x-request-id') ?? undefined;
 
-    const result = await run({ text, language }, { userId: guard.userId });
+    const result = await run(
+      { text, language },
+      {
+        userId: guard.userId,
+        ...(requestId ? { requestId } : {}),
+        metadata: telemetryMetadata,
+        onGenerationId: (id) => { generationId = id; },
+      },
+    );
     const t = result.telemetry;
 
     if (!result.ok) {
@@ -95,6 +131,7 @@ export async function POST(request: NextRequest) {
         traceId: t.traceId,
         error: result.error,
       });
+      await recordFinalOutcome(t.traceId, 'malformed', telemetryMetadata);
       return NextResponse.json(
         // `error` mirrors `message` for older consumers (eval scripts read .error).
         { code: failure.code, message: failure.message, error: failure.message, items: [] },
@@ -102,9 +139,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    await recordFinalOutcome(t.traceId, 'success', telemetryMetadata);
     return NextResponse.json(result.output);
   } catch (error) {
     console.error('Food parse error:', error);
+    await recordFinalOutcome(generationId, 'malformed', telemetryMetadata);
     return NextResponse.json(
       {
         code: 'ai_busy' satisfies FoodParseErrorCode,

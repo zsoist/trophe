@@ -1,0 +1,110 @@
+{
+  "version": "phase3-2026-07-11",
+  "provenance": {
+    "source_report": "artifacts/phase2/phase2-decision-report.md",
+    "selection": "The 10 fully local_db-backed DeepSeek-exclusive wins from the Phase 2 weak-group comparison.",
+    "greek_tag_definition": "The four gex cases explicitly flagged for the Greek tester regression watch-list."
+  },
+  "cases": [
+    {
+      "id": "el-cs-02",
+      "input": "ate σουβλάκι for lunch",
+      "language": "mixed",
+      "category": "code_switch",
+      "greek_tagged": false,
+      "expected_canonical_foods": ["souvlaki pork pita"],
+      "expect_item_count": 1,
+      "expect_total": { "calories": { "min": 362.5, "max": 537.5 }, "protein_g": { "min": 20.4, "max": 36.6 }, "carbs_g": { "min": 27.8, "max": 50.2 }, "fat_g": { "min": 12.5, "max": 27.5 } }
+    },
+    {
+      "id": "el-cs-05",
+      "input": "just a γιαούρτι with honey",
+      "language": "mixed",
+      "category": "code_switch",
+      "greek_tagged": false,
+      "expected_canonical_foods": ["yogurt with honey"],
+      "expect_item_count": 1,
+      "expect_total": { "calories": { "min": 133.8, "max": 296.2 }, "protein_g": { "min": 5, "max": 15 }, "carbs_g": { "min": 15.9, "max": 37.1 }, "fat_g": { "min": 3.9, "max": 15.1 } }
+    },
+    {
+      "id": "el-cs-08",
+      "input": "I made a big φακές plate today",
+      "language": "mixed",
+      "category": "code_switch",
+      "greek_tagged": false,
+      "expected_canonical_foods": ["lentil soup"],
+      "expect_item_count": 1,
+      "expect_total": { "calories": { "min": 231.2, "max": 418.8 }, "protein_g": { "min": 12.8, "max": 25.2 }, "carbs_g": { "min": 32.5, "max": 57.5 }, "fat_g": { "min": 2.8, "max": 15.2 } }
+    },
+    {
+      "id": "v3_code_switch_mixed_8",
+      "input": "un bol de pho bo with bean sprouts and hoisin",
+      "language": "mixed",
+      "category": "code_switch",
+      "greek_tagged": false,
+      "expected_canonical_foods": ["pho with beef"],
+      "expect_item_count": 1,
+      "expect_total": { "calories": { "min": 243.8, "max": 406.2 }, "protein_g": { "min": 18.8, "max": 31.2 }, "carbs_g": { "min": 26.2, "max": 43.8 }, "fat_g": { "min": 5.6, "max": 9.4 } }
+    },
+    {
+      "id": "v3r_code_switch_mixed_3",
+      "input": "arroz con pollo and a side salad",
+      "language": "mixed",
+      "category": "code_switch",
+      "greek_tagged": false,
+      "expected_canonical_foods": ["arroz con pollo", "side salad with olive oil"],
+      "expect_item_count": 2,
+      "expect_total": { "calories": { "min": 465.8, "max": 888.2 }, "protein_g": { "min": 22.9, "max": 43.7 }, "carbs_g": { "min": 43.5, "max": 83 }, "fat_g": { "min": 21.6, "max": 41 } }
+    },
+    {
+      "id": "v3f_regional_cuisine_fr_1",
+      "input": "1 tajine de poulet au citron",
+      "language": "fr",
+      "category": "regional_cuisine",
+      "greek_tagged": false,
+      "expected_canonical_foods": ["chicken lemon tajine"],
+      "expect_item_count": 1,
+      "expect_total": { "calories": { "min": 390, "max": 740 }, "protein_g": { "min": 31, "max": 62 }, "carbs_g": { "min": 13, "max": 28 }, "fat_g": { "min": 18, "max": 38 } }
+    },
+    {
+      "id": "gex1-015",
+      "input": "μερίδα φάβα",
+      "language": "el",
+      "category": "regional_cuisine",
+      "greek_tagged": true,
+      "expected_canonical_foods": ["Greek fava puree"],
+      "expect_item_count": 1,
+      "expect_total": { "calories": { "min": 168.8, "max": 281.2 }, "protein_g": { "min": 10.1, "max": 16.9 }, "carbs_g": { "min": 22.5, "max": 37.5 }, "fat_g": { "min": 7.1, "max": 11.9 } }
+    },
+    {
+      "id": "gex1-016",
+      "input": "120γρ κεφτέδες",
+      "language": "el",
+      "category": "regional_cuisine",
+      "greek_tagged": true,
+      "expected_canonical_foods": ["Keftedes (Greek meatballs)"],
+      "expect_item_count": 1,
+      "expect_total": { "calories": { "min": 202.5, "max": 337.5 }, "protein_g": { "min": 13.5, "max": 22.5 }, "carbs_g": { "min": 7.1, "max": 11.9 }, "fat_g": { "min": 13.9, "max": 23.1 } }
+    },
+    {
+      "id": "gex1-019",
+      "input": "μερίδα στιφάδο",
+      "language": "el",
+      "category": "regional_cuisine",
+      "greek_tagged": true,
+      "expected_canonical_foods": ["stifado"],
+      "expect_item_count": 1,
+      "expect_total": { "calories": { "min": 292.1, "max": 486.9 }, "protein_g": { "min": 26.6, "max": 44.4 }, "carbs_g": { "min": 11.2, "max": 18.8 }, "fat_g": { "min": 14.6, "max": 24.4 } }
+    },
+    {
+      "id": "gex3-023",
+      "input": "ντολμαδάκια με λάδι 150γρ",
+      "language": "el",
+      "category": "regional_cuisine",
+      "greek_tagged": true,
+      "expected_canonical_foods": ["Dolmades Stuffed Grape Leaves"],
+      "expect_item_count": 1,
+      "expect_total": { "calories": { "min": 157.5, "max": 262.5 }, "protein_g": { "min": 2.8, "max": 4.7 }, "carbs_g": { "min": 19, "max": 31.8 }, "fat_g": { "min": 7.3, "max": 12.2 } }
+    }
+  ]
+}

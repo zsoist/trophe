@@ -7,9 +7,7 @@
  *   1. food_parse      — HTTP golden cases against Nikos golden set
  *                        (requires dev server; skips gracefully if unavailable)
  *   2. recipe_analyze  — Direct agent call + schema-validation layer
- *                        (requires DEEPSEEK_API_KEY; skips if absent)
  *   3. coach_insight   — Synthetic coaching output structural + content checks
- *                        (requires DEEPSEEK_API_KEY; skips if absent)
  *
  * Usage:
  *   npx tsx agents/evals/run-all.ts [--url=http://localhost:3333] [--suite=food_parse]
@@ -21,6 +19,8 @@
 
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { foodParseSimulatorPolicy, taskPolicies } from '../router/policies';
+import { invokeTextProvider } from '../runtime/providers/text';
 
 // ── CLI args ──────────────────────────────────────────────────────────────────
 
@@ -71,6 +71,14 @@ function green(s: string): string { return `\x1b[32m${s}\x1b[0m`; }
 function red(s: string): string { return `\x1b[31m${s}\x1b[0m`; }
 function yellow(s: string): string { return `\x1b[33m${s}\x1b[0m`; }
 function dim(s: string): string { return `\x1b[2m${s}\x1b[0m`; }
+
+function hasProviderCredential(provider: string): boolean {
+  if (provider === 'openai') return Boolean(process.env.OPENAI_API_KEY);
+  if (provider === 'anthropic') return Boolean(process.env.ANTHROPIC_API_KEY);
+  if (provider === 'google') return Boolean(process.env.GOOGLE_GENERATIVE_AI_API_KEY);
+  if (provider === 'deepseek') return Boolean(process.env.DEEPSEEK_API_KEY);
+  return true;
+}
 
 function printHeader(title: string) {
   console.log();
@@ -149,15 +157,14 @@ async function runFoodParseSuite(): Promise<SuiteResult> {
   const evalPath = join(process.cwd(), 'agents/evals/food-parse-nikos-golden.json');
   const spec = JSON.parse(readFileSync(evalPath, 'utf-8')) as { cases: FoodCase[] };
 
-  // Require DeepSeek key (same gate as recipe_analyze / coach_insight)
-  const apiKey = process.env.DEEPSEEK_API_KEY;
-  if (!apiKey) {
-    console.warn('\n[food_parse eval] WARNING: DEEPSEEK_API_KEY not set — food_parse suite skipped.');
-    console.warn('  Set DEEPSEEK_API_KEY to run this suite in CI without a dev server.\n');
+  // The simulator reads the exact production object instead of duplicating a
+  // provider/model string. The CI routing guard asserts this identity.
+  if (!hasProviderCredential(foodParseSimulatorPolicy.provider)) {
+    console.warn(`\n[food_parse eval] WARNING: ${foodParseSimulatorPolicy.provider} credential not set — suite skipped.`);
     return {
       name: 'food_parse',
       passed: 0, total: spec.cases.length, rate: 0,
-      skipped: true, skipReason: 'DEEPSEEK_API_KEY not set',
+      skipped: true, skipReason: `${foodParseSimulatorPolicy.provider} credential not set`,
       avgLatencyMs: 0, cases: [],
     };
   }
@@ -298,13 +305,12 @@ function validateRecipeSchema(output: unknown, caseSpec: typeof RECIPE_SYNTHETIC
 }
 
 async function runRecipeAnalyzeSuite(): Promise<SuiteResult> {
-  // recipe_analyze routes through DeepSeek (cost mandate 2026-06-08)
-  const apiKey = process.env.DEEPSEEK_API_KEY;
-  if (!apiKey) {
+  const policy = taskPolicies.recipe_analyze;
+  if (!hasProviderCredential(policy.provider)) {
     return {
       name: 'recipe_analyze',
       passed: 0, total: RECIPE_SYNTHETIC_CASES.length, rate: 0,
-      skipped: true, skipReason: 'DEEPSEEK_API_KEY not set',
+      skipped: true, skipReason: `${policy.provider} credential not set`,
       avgLatencyMs: 0, cases: [],
     };
   }
@@ -385,18 +391,17 @@ const COACH_INSIGHT_SYSTEM = `You are a professional nutrition coach. Given a cl
 Format: 2-3 short paragraphs. Be specific, positive, and practical. Always mention the client's primary opportunity or win.
 Always end with ONE concrete next step phrased as a direct recommendation (e.g. "Check…", "Aim for…", "Try…", "Consider…"). If anything is uncertain or unverified (ingredients, allergens), explicitly tell the client to check or confirm it.`;
 
-async function callDeepSeekDirect(systemPrompt: string, userMessage: string): Promise<{ text: string; tokensIn: number; tokensOut: number }> {
-  // coach_insight routes through DeepSeek (cost mandate 2026-06-08)
-  const { invokeDeepSeekText } = await import('../runtime/providers/deepseek.js');
+async function callCoachPolicy(systemPrompt: string, userMessage: string): Promise<{ text: string; tokensIn: number; tokensOut: number }> {
+  const policy = taskPolicies.coach_insight;
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 30_000);
+  const timer = setTimeout(() => controller.abort(), policy.timeoutMs);
   try {
-    const result = await invokeDeepSeekText({
-      model: 'deepseek-v4-flash',
+    const result = await invokeTextProvider({
+      policy,
       system: systemPrompt,
       prompt: userMessage,
-      maxTokens: 512,
       signal: controller.signal,
+      maxTokens: 512,
     });
     return { text: result.output, tokensIn: result.usage.inputTokens, tokensOut: result.usage.outputTokens };
   } finally {
@@ -436,12 +441,12 @@ function validateCoachInsight(text: string, spec: typeof COACH_INSIGHT_CASES[0])
 }
 
 async function runCoachInsightSuite(): Promise<SuiteResult> {
-  const apiKey = process.env.DEEPSEEK_API_KEY;
-  if (!apiKey) {
+  const policy = taskPolicies.coach_insight;
+  if (!hasProviderCredential(policy.provider)) {
     return {
       name: 'coach_insight',
       passed: 0, total: COACH_INSIGHT_CASES.length, rate: 0,
-      skipped: true, skipReason: 'DEEPSEEK_API_KEY not set',
+      skipped: true, skipReason: `${policy.provider} credential not set`,
       avgLatencyMs: 0, cases: [],
     };
   }
@@ -450,7 +455,7 @@ async function runCoachInsightSuite(): Promise<SuiteResult> {
   for (const spec of COACH_INSIGHT_CASES) {
     const start = Date.now();
     try {
-      const { text } = await callDeepSeekDirect(COACH_INSIGHT_SYSTEM, spec.clientContext);
+      const { text } = await callCoachPolicy(COACH_INSIGHT_SYSTEM, spec.clientContext);
       const latencyMs = Date.now() - start;
       const failures = validateCoachInsight(text, spec);
       cases.push({ id: spec.id, input: spec.clientContext.slice(0, 60) + '…', passed: failures.length === 0, failures, latencyMs, detail: text.slice(0, 200) });
@@ -510,7 +515,7 @@ async function main() {
   console.log();
 
   if (active.length === 0) {
-    console.log(yellow('  All suites skipped. Set DEEPSEEK_API_KEY and start the dev server to run full eval.'));
+    console.log(yellow('  All suites skipped. Configure the routed provider credentials and production-backed DB.'));
     console.log(yellow(`  GATE: inconclusive — no active suites`));
     process.exit(1);
   }

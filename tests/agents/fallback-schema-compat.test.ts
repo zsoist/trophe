@@ -64,14 +64,12 @@ describe('Fallback schema compatibility', () => {
     expect(result.success).toBe(true);
   });
 
-  it('food_parse fallback is a same-provider retry with a longer timeout (DeepSeek-only mandate)', () => {
+  it('food_parse fallback stays inside the compliance lane', () => {
     const primary = taskPolicies.food_parse;
     const fallback = taskFallbacks.food_parse;
     expect(fallback).toBeDefined();
-    // Cost mandate (2026-06-08): all text tasks stay on DeepSeek, so the
-    // fallback retries the same provider with more headroom instead of
-    // switching to Gemini/Anthropic.
-    expect(fallback!.provider).toBe('deepseek');
+    expect(primary).toMatchObject({ provider: 'openai', model: 'gpt-5.6-luna' });
+    expect(fallback).toMatchObject({ provider: 'anthropic', model: 'claude-haiku-4-5-20251001' });
     expect(fallback!.timeoutMs).toBeGreaterThan(primary.timeoutMs);
   });
 

@@ -108,6 +108,23 @@ jobs:
           fi
           echo "✅ Migration journal matches SQL files"
 
+      - name: Guard — golden tolerance changes are justified per commit
+        run: npm run guard:golden-tolerances
+
+      - name: Guard — eval and smoke identities come from env
+        run: npm run guard:eval-identity
+
+      - name: Guard — retired DeepSeek aliases are absent
+        run: |
+          set -euo pipefail
+          legacy_chat=$(printf '%s%s%s' deepseek - chat)
+          legacy_reasoner=$(printf '%s%s%s' deepseek - reasoner)
+          if git grep -nE "${legacy_chat}|${legacy_reasoner}"; then
+            echo "::error::Retired DeepSeek model alias found. Use the routed V4 policy object."
+            exit 1
+          fi
+          echo "✅ Retired DeepSeek aliases absent"
+
       - name: Verify hardcode guard catches known-bad fixture
         # Self-test: confirms grep works in this CI environment.
         # If this step fails to FIND the fixture, the real guard is broken.
@@ -181,12 +198,8 @@ jobs:
       - name: Enterprise readiness checks
         run: npm run readiness
 
-      - name: Agent eval smoke
-        run: npm run evals
-        env:
-          EVAL_REPORT_DIR: artifacts/evals
-          EVAL_REQUIRED_SUITES: recipe_analyze,coach_insight
-          EVAL_ENFORCE_GATE: 1
+      - name: Agent routing and eval contracts (no paid calls)
+        run: npm test -- --run tests/agents/phase3-routing-policy.test.ts tests/agents/golden-tolerance-guard.test.ts tests/agents/food-parse-watchlist.test.ts
 
       - name: AI cost attribution and budget gate
         run: npm run ai:budget-check

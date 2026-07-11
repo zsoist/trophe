@@ -1,11 +1,10 @@
 /**
  * Trophē v0.3 — meal_suggest model eval.
  *
- * Validates Claude Haiku 4.5 + tool_choice as the meal_suggest model.
- * Decision gate for migrating from gemini-2.0-flash (deprecated June 1, 2026).
+ * Validates the live meal_suggest production policy with structured output.
  *
  * Approach:
- *   - Anthropic SDK with tool_use + tool_choice forcing `submit_meal_suggestions`
+ *   - Shared production policy + provider-neutral structured output
  *   - Schema enforcement at decoding layer (no regex extraction needed)
  *   - 10 prompts covering diverse macro scenarios
  *
@@ -27,10 +26,14 @@
 
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { taskPolicies } from '../router/policies';
+import { estimateModelCostUsd } from '../router/pricing';
+import { invokeStructuredProvider } from '../runtime/providers/structured';
+import { mealSuggestionValidator, mealSuggestJsonSchema } from '../schemas/meal-suggest';
 
 // ── Config ──────────────────────────────────────────────────────────────────
 
-const MODEL = 'claude-haiku-4-5-20251001';
+const POLICY = taskPolicies.meal_suggest;
 const REPORT_DIR = join(process.cwd(), 'agents/evals/reports');
 mkdirSync(REPORT_DIR, { recursive: true });
 
@@ -70,37 +73,6 @@ interface CaseScore {
 }
 
 // ── Tool schema ─────────────────────────────────────────────────────────────
-
-const MEAL_SUGGEST_TOOL = {
-  name: 'submit_meal_suggestions',
-  description: 'Submit 3 meal suggestions matching the macro budget',
-  input_schema: {
-    type: 'object' as const,
-    properties: {
-      suggestions: {
-        type: 'array' as const,
-        items: {
-          type: 'object' as const,
-          properties: {
-            name: { type: 'string' as const },
-            description: { type: 'string' as const },
-            ingredients: { type: 'array' as const, items: { type: 'string' as const } },
-            estimated_calories: { type: 'number' as const },
-            estimated_protein_g: { type: 'number' as const },
-            estimated_carbs_g: { type: 'number' as const },
-            estimated_fat_g: { type: 'number' as const },
-          },
-          required: [
-            'name', 'description', 'ingredients',
-            'estimated_calories', 'estimated_protein_g',
-            'estimated_carbs_g', 'estimated_fat_g',
-          ],
-        },
-      },
-    },
-    required: ['suggestions'],
-  },
-};
 
 const SYSTEM_PROMPT = `You are a sports nutritionist. Given a client's remaining macro budget for the day, suggest 3 practical, delicious meal options that fit within the budget. Each suggestion should include a name, brief description, ingredients list with approximate quantities, and estimated macros. Be realistic with portions and calorie estimates.`;
 
@@ -168,18 +140,15 @@ const EVAL_CASES: MealSuggestInput[] = [
   },
 ];
 
-// ── Anthropic API caller ────────────────────────────────────────────────────
+// ── Production-policy caller ────────────────────────────────────────────────
 
-async function callHaikuWithTool(input: MealSuggestInput): Promise<{
+async function callRoutedModel(input: MealSuggestInput): Promise<{
   suggestions: Suggestion[] | null;
   latencyMs: number;
   tokensIn: number;
   tokensOut: number;
   error?: string;
 }> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) throw new Error('ANTHROPIC_API_KEY not set');
-
   const macroContext = [
     `Calories: ${input.remaining_calories} kcal`,
     `Protein: ${input.remaining_protein_g}g`,
@@ -192,47 +161,25 @@ async function callHaikuWithTool(input: MealSuggestInput): Promise<{
 
   const userMessage = `Remaining macro budget: ${macroContext}.${preferencesNote}${mealTypeNote} Suggest 3 meal options.`;
 
-  const start = Date.now();
-
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      max_tokens: 2048,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: userMessage }],
-      tools: [MEAL_SUGGEST_TOOL],
-      tool_choice: { type: 'tool', name: 'submit_meal_suggestions' },
-    }),
-  });
-
-  const latencyMs = Date.now() - start;
-
-  if (!res.ok) {
-    const errText = await res.text();
-    return { suggestions: null, latencyMs, tokensIn: 0, tokensOut: 0, error: `API ${res.status}: ${errText.slice(0, 200)}` };
-  }
-
-  const body = await res.json() as {
-    content: Array<{ type: string; name?: string; input?: { suggestions?: Suggestion[] } }>;
-    usage: { input_tokens: number; output_tokens: number };
-  };
-
-  const toolUse = body.content.find(c => c.type === 'tool_use' && c.name === 'submit_meal_suggestions');
-  if (!toolUse?.input?.suggestions) {
-    return { suggestions: null, latencyMs, tokensIn: body.usage.input_tokens, tokensOut: body.usage.output_tokens, error: 'tool_use not found in response' };
-  }
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), POLICY.timeoutMs);
+  const result = await invokeStructuredProvider({
+    policy: POLICY,
+    signal: controller.signal,
+    system: SYSTEM_PROMPT,
+    prompt: userMessage,
+    schema: mealSuggestJsonSchema as Record<string, unknown>,
+    validator: mealSuggestionValidator,
+    toolName: 'submit_meal_suggestions',
+    toolDescription: 'Submit 3 meal suggestions matching the macro budget',
+    strict: true,
+  }).finally(() => clearTimeout(timeout));
 
   return {
-    suggestions: toolUse.input.suggestions,
-    latencyMs,
-    tokensIn: body.usage.input_tokens,
-    tokensOut: body.usage.output_tokens,
+    suggestions: result.output.suggestions,
+    latencyMs: result.latencyMs,
+    tokensIn: result.usage.inputTokens,
+    tokensOut: result.usage.outputTokens,
   };
 }
 
@@ -340,14 +287,14 @@ function dim(s: string): string { return `\x1b[2m${s}\x1b[0m`; }
 // ── Main ────────────────────────────────────────────────────────────────────
 
 async function main() {
-  console.log(bold('\n🍽️  Trophē — meal_suggest eval (Haiku 4.5 + tool_choice)'));
-  console.log(dim(`   Model: ${MODEL}`));
+  console.log(bold('\n🍽️  Trophē — meal_suggest production-policy eval'));
+  console.log(dim(`   Model: ${POLICY.model}`));
   console.log(dim(`   ${EVAL_CASES.length} prompts × 5 criteria = ${EVAL_CASES.length * 5} max points`));
   console.log(dim(`   Pass threshold: ≥${EVAL_CASES.length * 5 * 0.8}/50 (80%)`));
   console.log(dim(`   ${new Date().toISOString()}\n`));
 
-  if (!process.env.ANTHROPIC_API_KEY) {
-    console.error('❌ ANTHROPIC_API_KEY not set');
+  if (!process.env.OPENAI_API_KEY) {
+    console.error('❌ OPENAI_API_KEY not set');
     process.exit(1);
   }
 
@@ -361,15 +308,14 @@ async function main() {
     process.stdout.write(`  ${input.id.padEnd(28)} `);
 
     try {
-      const { suggestions, latencyMs, tokensIn, tokensOut, error } = await callHaikuWithTool(input);
+      const { suggestions, latencyMs, tokensIn, tokensOut, error } = await callRoutedModel(input);
       const score = scoreCase(input, suggestions, latencyMs, error);
 
       totalLatency += latencyMs;
       totalTokensIn += tokensIn;
       totalTokensOut += tokensOut;
 
-      // Haiku 4.5: $1.00/M in, $5.00/M out
-      const callCost = (tokensIn * 1.0 / 1_000_000) + (tokensOut * 5.0 / 1_000_000);
+      const callCost = estimateModelCostUsd(POLICY.model, tokensIn, tokensOut);
       totalCostUsd += callCost;
 
       const dims = [
@@ -435,7 +381,7 @@ async function main() {
   console.log(bold('\n── DECISION '));
   if (passed) {
     console.log(green(`  ✅ PASS: ${totalPoints}/${maxPoints} (${pct.toFixed(1)}%) ≥ 80% threshold`));
-    console.log(`     Proceed with policies.ts migration to ${MODEL}`);
+    console.log(`     Production policy ${POLICY.model} meets the eval threshold.`);
   } else {
     console.log(red(`  ❌ FAIL: ${totalPoints}/${maxPoints} (${pct.toFixed(1)}%) < 80% threshold`));
     console.log(`     Do NOT ship. Investigate failures above.`);
@@ -449,7 +395,7 @@ async function main() {
     reportPath,
     JSON.stringify({
       when: new Date().toISOString(),
-      model: MODEL,
+      model: POLICY.model,
       totalCases: EVAL_CASES.length,
       totalPoints,
       maxPoints,

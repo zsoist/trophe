@@ -7,7 +7,7 @@
  *   2. Rate limiting: 60 req / 15 min per Supabase user_id.
  *
  * Returns `{ ok: false, response }` (401 or 429) if blocked, otherwise
- * `{ ok: true, userId }` with the verified Supabase user id.
+ * `{ ok: true, userId, rateLimitBypassed }` with verified identity metadata.
  *
  * Usage:
  *   const guard = await guardAiRoute(req);
@@ -34,7 +34,7 @@ function rateLimitBypassUserIds(): Set<string> {
 }
 
 export type AiRouteGuardResult =
-  | { ok: true; userId: string }
+  | { ok: true; userId: string; rateLimitBypassed: boolean }
   | { ok: false; response: NextResponse };
 
 async function checkLimit(key: string, limit: number): Promise<NextResponse | null> {
@@ -100,11 +100,12 @@ export async function guardAiRoute(req: NextRequest): Promise<AiRouteGuardResult
   if (token) {
     const userId = await verifySupabaseUser(token);
     if (userId) {
-      if (!rateLimitBypassUserIds().has(userId)) {
+      const rateLimitBypassed = rateLimitBypassUserIds().has(userId);
+      if (!rateLimitBypassed) {
         const rateLimit = await checkLimit(userId, AUTH_LIMIT);
         if (rateLimit) return { ok: false, response: rateLimit };
       }
-      return { ok: true, userId };
+      return { ok: true, userId, rateLimitBypassed };
     }
     // Invalid Bearer token — fall through to cookie check
   }
@@ -112,11 +113,12 @@ export async function guardAiRoute(req: NextRequest): Promise<AiRouteGuardResult
   // Path 2: Cookie-based auth (browser sessions via @supabase/ssr)
   const cookieUserId = await getUserFromCookie();
   if (cookieUserId) {
-    if (!rateLimitBypassUserIds().has(cookieUserId)) {
+    const rateLimitBypassed = rateLimitBypassUserIds().has(cookieUserId);
+    if (!rateLimitBypassed) {
       const rateLimit = await checkLimit(cookieUserId, AUTH_LIMIT);
       if (rateLimit) return { ok: false, response: rateLimit };
     }
-    return { ok: true, userId: cookieUserId };
+    return { ok: true, userId: cookieUserId, rateLimitBypassed };
   }
 
   return unauthorized();

@@ -3,7 +3,7 @@
 Single source of truth for all LLM-backed features in Trophē v0.3.
 Routes are thin adapters. Prompts are versioned files. Every call is traced.
 
-_Last updated: 2026-06-15 (DeepSeek-first migration — all text tasks now on DeepSeek V4 Flash; Anthropic retained only for photo vision)_
+_Last updated: 2026-07-11 (three-lane routing: consumer Luna/Haiku, health Haiku, synthetic factory DeepSeek)_
 
 ---
 
@@ -16,7 +16,8 @@ agents/
     policies.ts     # declarative taskPolicies map
   runtime/
     providers/
-      deepseek.ts   # DeepSeek V4 Flash — PRIMARY for all text tasks (strict tool calling)
+      deepseek.ts   # DeepSeek V4 Flash — synthetic factory lane
+      openai.ts     # GPT-5.6 Luna — consumer structured-output lane
       text.ts       # text-task dispatch
       structured.ts # structured/tool-call output dispatch
   clients/          # thin API wrappers
@@ -44,7 +45,7 @@ agents/
       regression.ts          # layer 3: golden-set comparison (549-set ~90% / 700-set 76.7% median-of-3)
   prompts/          # versioned prompt templates (git-diffable)
     food-parse.v3.md
-    food-parse.v4.md
+    food-parse.v7.md                 # production default
     recipe-analyze.v1.md
   schemas/          # input/output TypeScript types per agent
 ```
@@ -55,15 +56,16 @@ agents/
 
 | Agent | Model (via router) | Cache | Status |
 |-------|-------------------|-------|--------|
-| `food-parse` | DeepSeek V4 Flash | — | ✅ v0.3 deterministic pipeline |
-| `recipe-analyze` | DeepSeek V4 Flash | — | ✅ live |
+| `food-parse` | GPT-5.6 Luna | — | ✅ v0.3 deterministic pipeline |
+| `recipe-analyze` | GPT-5.6 Luna | — | ✅ live |
 | `photo-analyze` (inline route) | Anthropic Haiku 4.5 (vision) | — | ✅ live |
-| `meal-suggest` (inline route) | DeepSeek V4 Flash | — | ✅ live |
-| `coach-insight` / `wearable-summary` | DeepSeek V4 Flash | — | ✅ live |
-| `memory-write` / `memory-extract` | DeepSeek V4 Flash | — | ✅ live |
-| `shopping-extract` (inline route) | DeepSeek V4 Flash | — | ✅ live |
+| `meal-suggest` (inline route) | GPT-5.6 Luna | — | ✅ live |
+| `coach-insight` / `wearable-summary` | Anthropic Haiku 4.5 | prompt cache | ✅ live |
+| `memory-write` / `memory-extract` | Anthropic Haiku 4.5 | prompt cache | ✅ live |
+| `shopping-extract` (inline route) | GPT-5.6 Luna | — | ✅ live |
+| `factory_generate` | DeepSeek V4 Flash | provider cache | ✅ synthetic-only |
 
-> Cost mandate (2026-06): 100% DeepSeek V4 Flash for ALL text tasks (migrated 2026-06-08). The ONLY non-DeepSeek calls are `photo_analyze` (Anthropic Haiku 4.5 vision) and embeddings (`embed`/`memory_embed` → Voyage voyage-4, 1024-dim).
+> Phase 3 routing: consumer text stays GPT-5.6 Luna → Claude Haiku 4.5, health-context stays Haiku, and DeepSeek is confined to synthetic factory generation.
 
 ---
 
@@ -72,17 +74,18 @@ agents/
 ```ts
 // agents/router/policies.ts
 const taskPolicies = {
-  food_parse:      { provider: 'deepseek',  model: 'deepseek-v4-flash' },
-  recipe_analyze:  { provider: 'deepseek',  model: 'deepseek-v4-flash' },
-  coach_insight:   { provider: 'deepseek',  model: 'deepseek-v4-flash' },
-  meal_suggest:    { provider: 'deepseek',  model: 'deepseek-v4-flash' },
-  memory_extract:  { provider: 'deepseek',  model: 'deepseek-v4-flash' },
-  shopping_extract:{ provider: 'deepseek',  model: 'deepseek-v4-flash' },
+  food_parse:      { provider: 'openai',    model: 'gpt-5.6-luna' },
+  recipe_analyze:  { provider: 'openai',    model: 'gpt-5.6-luna' },
+  coach_insight:   { provider: 'anthropic', model: 'claude-haiku-4-5-20251001' },
+  meal_suggest:    { provider: 'openai',    model: 'gpt-5.6-luna' },
+  memory_extract:  { provider: 'anthropic', model: 'claude-haiku-4-5-20251001' },
+  shopping_extract:{ provider: 'openai',    model: 'gpt-5.6-luna' },
+  factory_generate:{ provider: 'deepseek',  model: 'deepseek-v4-flash' },
   photo_analyze:   { provider: 'anthropic', model: 'claude-haiku-4-5-20251001' }, // vision only
   embed:           { provider: 'voyage',    model: 'voyage-4' },
   memory_embed:    { provider: 'voyage',    model: 'voyage-4' },
 };
-// taskFallbacks: every text task falls back to deepseek-v4-flash (retry, longer timeout) — NOT Gemini/Anthropic.
+// Consumer taskFallbacks use Claude Haiku 4.5. Factory generation has no cross-lane fallback.
 ```
 
 **Never hardcode models in agent files.** Always call `router.pick(task)`.
@@ -120,7 +123,7 @@ Every route MUST pass `telemetry` to `logAPIUsage()` so cost and cache-hit rates
 **v0.3 (fixed)**:
 ```
 User input: "200g feta, 1 banana"
-  → LLM (DeepSeek V4 Flash): identifies {food_name:"feta cheese", qty:200, unit:"g"}
+  → LLM (GPT-5.6 Luna, Haiku fallback): identifies {food_name:"feta cheese", qty:200, unit:"g"}
      LLM NEVER sees or emits macro numbers
   → lookup.ts:
       1. tsvector keyword filter (GIN index on search_text)

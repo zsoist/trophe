@@ -36,4 +36,6 @@ export interface ExecuteAiTaskInput<T> {
 export interface ExecuteAiTaskResult<T> extends ProviderResult<T> {
   generationId: string;
   estimatedCostUsd: number;
+  selectedPolicy: RoutingPolicy;
+  isFallback: boolean;
 }

@@ -1,105 +1,34 @@
-> ⚠️ **SUPERSEDED** (snapshot 2026-06-09). Live priorities & gaps: [`docs/STATUS-2026-06-13.md`](docs/STATUS-2026-06-13.md) ("Known gaps / pending"). Kept for history.
+# TODO-NEXT — current priorities as of 2026-07-11
 
-# TODO-NEXT — Current priorities as of 2026-06-09
+Read this before changing routing, evals, factory generators, or production state.
 
-Read this at the start of the next session before touching branch, deploy, or production data.
+## Current Phase 3 state
 
----
+- Consumer structured-text lane: GPT-5.6 Luna primary, Claude Haiku 4.5 fallback.
+- Health-context lane: `coach_insight` and `memory_extract` remain Claude Haiku 4.5.
+- Factory lane: DeepSeek V4 Flash, synthetic-only, governed through `executeAiTask` / `agent_runs`.
+- Phase 2 evidence: `artifacts/phase2/phase2-decision-report.md`.
+- Daily regression asset: `tests/fixtures/food-parse-luna-watchlist.json`.
+- Canary plan: `docs/ops/consumer-luna-canary-plan-2026-07-11.md`.
+- Rollback point for a separately authorized deployment: `dpl_D4PvE3J6sDegkn3HFQXpZHchq7nV`.
 
-## 🔴 IMMEDIATE: Production promote pending
+## Human approval gates
 
-A preview deploy with 5 code fixes is ready. Auth tokens are domain-scoped so the benchmark
-can only run against production. Promote with:
+1. Review the Phase 3 draft PR diff and full verification evidence.
+2. Decide merge separately. This work order does not authorize merge.
+3. Decide deployment separately after merge review. Every approval is per deploy.
+4. Assemble the 10–15 real-meal photo golden set with Daniela before resuming the vision arm.
 
-```bash
-vercel promote trophe-6neurptj9-2p6y54z6w9-4465s-projects.vercel.app --yes
-```
+## Separate next work order — do not bundle
 
-Then run benchmark:
-```bash
-npx tsx scripts/eval/run-nutrition-enterprise-prod.ts
-```
-
-**Code fixes in preview:**
-1. `COMMON_PIECE_WEIGHTS` +20 composite entries (lookup.ts)
-2. `getPieceWeight()` longest-key-match fix (decompose.ts)
-3. `shouldRequestClarification()` vague input detection (index.v4.ts)
-4. Zero-quantity guard "0 eggs" (index.v4.ts)
-5. Hybrid source protection dbConfidence ≥ 0.85 (index.v4.ts)
-
-**Expected: 155→163-175/210 (78-83%)**
-
----
-
-## P1 — Next code fixes (need deploy)
-
-### Wire food_aliases into BM25 search (+3-5 cases)
-- File: `agents/food-parse/lookup.ts` — BM25 arm of hybrid retrieval
-- 480+ aliases exist in `food_aliases` table but are NEVER queried
-- JOIN or UNION `food_aliases.alias` into the tsvector search
-- Schema: `id, food_id, lang, alias, preferred, created_at` (NOT `alias_text`)
-
-### Multi-item parsing improvements (+3-5 cases)
-- multi-01, multi-03, multi-12: "2 eggs, toast, juice" → 4 items instead of 3
-- multi-05: "salmon, quinoa, salad" → 4 items instead of 3
-- es-comp-12: "sopa de lentejas con platano" → 2 items instead of 1
-
-### Status error handling edge cases
-- en-base-16: "200g broccoli steamed" → intermittent API error
-- adv-05: "10kg of rice" → system caps at 1500g instead of 10000g
-
----
-
-## P2 — Further accuracy improvements
-
-### Wrong food variant matched (retrieval quality)
-- en-base-15: "oatmeal cooked" → matches "Oat bran" instead of instant oats
-- en-base-10: "ground beef" → matches 85/15 crumbles cooked instead of raw
-- es-base-06: "plátano maduro frito" → matches green plantain instead of ripe
-- brand-10: "Monster energy drink" → matches low-carb variant (5 cal) instead of regular
-
-### LLM portion estimation
-- el-base-03: Greek yogurt 10% bowl → LLM says 300g (should be ~170g)
-- clar-01/02: "chicken"/"pasta" → LLM overestimates default portions
-
----
-
-## Benchmark State
-
-| Metric | Value |
-|--------|-------|
-| Current score | 155/210 (73.8%) |
-| DB-only ceiling | ~155±3/210 |
-| Preview score (estimated) | 163-175/210 |
-| DB state | ~8,064 foods, 1,050+ conversions, 210+ recipes, 480+ aliases |
-| Branch | `feat/nutrition-phase1-usda-portions` |
-| Deploys used this session | 1/3 (preview only) |
-
----
-
-## ✅ COMPLETED (June 2026)
-
-- ✅ DB seeding batches 3, 3B, 3C, 4, 4B, 4C (~175 operations)
-- ✅ Score progression: 78 → 143 → 155/210
-- ✅ BENCHMARK-STATUS.md comprehensive failure analysis
-- ✅ DeepSeek V4 Flash integration (coach_insight, meal_suggest)
-- ✅ RAG pre-search for food-parse
-- ✅ Landing page overhaul
-- ✅ All food-parse tests passing (104/104)
-
-## ✅ COMPLETED (May 2026)
-
-- ✅ v0.3-overhaul merged to main (2026-05-03)
-- ✅ B2B readiness hardening
-- ✅ Composite dish decomposition + restaurant chains
-- ✅ All P0 bugs fixed (Spanish input, 0-kcal branded, wrong portions)
-- ✅ Branch governance normalized
-
----
+Curate the Greek/Colombian seed and alias batch using Pattern 3: proposed list, manual human review pause, idempotent migration, and post-write verification. Start with the ten watch-list cases and separately inspect the four Greek-tagged cases. Bad reference data must not be auto-approved.
 
 ## Standing rules
 
-- `agent_runs` is canonical AI cost table; `api_usage_log` is legacy compatibility only
-- Production writes read-only unless migration/deploy explicitly requires them
-- Production branch is `main` — push auto-deploys
-- Trophē is production-critical — zero-risk deploys only, preview-first
+- `agent_runs` is the canonical AI-cost and attribution table; `api_usage_log` is legacy compatibility only.
+- Production writes are read-only unless a work order explicitly authorizes a migration or deployment.
+- Production branch is `main`; pushing to it auto-deploys.
+- Paid factory/simulator jobs run outside UTC 01:00–04:00 and 06:00–10:00.
+- Eval identity is environment-configured; never hardcode a tester email or UUID.
+- Golden tolerance or criteria changes require an adjacent `tolerance_justification` in the same commit.
+- Every gate states its data source. Local bootstrap data is not evidence of production state.

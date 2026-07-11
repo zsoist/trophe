@@ -2,6 +2,7 @@ import type { z } from 'zod';
 import { callGeminiMessages } from '@/agents/clients/google';
 import { invokeAnthropicJson } from './anthropic';
 import { invokeDeepSeekStructured } from './deepseek';
+import { invokeOpenAiStructured } from './openai';
 import type { RoutingPolicy } from '@/agents/router/policies';
 import type { ProviderResult } from '../types';
 
@@ -90,6 +91,22 @@ export async function invokeStructuredProvider<T>(input: {
       maxTokens: input.maxTokens ?? input.policy.maxTokens,
       signal: input.signal,
       userId: input.userId,
+      toolName,
+      description: toolDescription,
+      schema: input.schema,
+      validator: input.validator,
+      strict,
+    });
+  }
+
+  // ── OpenAI: strict function calling (used by the Phase 2 Luna eval) ──
+  if (input.policy.provider === 'openai') {
+    return invokeOpenAiStructured({
+      model: input.policy.model,
+      system: input.system,
+      prompt: input.prompt,
+      maxTokens: input.maxTokens ?? input.policy.maxTokens,
+      signal: input.signal,
       toolName,
       description: toolDescription,
       schema: input.schema,

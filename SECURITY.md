@@ -19,7 +19,7 @@ _Last updated: 2026-05-03_
 | SQL injection | DB compromise | Low | High | All queries use Drizzle parameterized or Supabase PostgREST parameterized. No raw `ilike` on unsanitized input. |
 | Admin bypass | Full DB access | Low | Critical | 4-tier role enum in `profiles.role`. `super_admin` required for `/super/*`; `admin+` for `/admin/*`. Enforced in middleware before render. |
 | Secret exfiltration | API keys | Low | High | `.env.local` in `.gitignore`; service role key never `NEXT_PUBLIC_`; `grep` in pre-deploy checklist |
-| LLM cost abuse | DeepSeek bill (text); Anthropic bill (photo vision) | Medium | Low ($) | `guardAiRoute` rate limiter (60 req / 15 min per authenticated user; no anon tier — verified user required); Langfuse cost tracking per trace |
+| LLM cost abuse | OpenAI/Anthropic consumer bill; DeepSeek synthetic-factory bill | Medium | Low ($) | `guardAiRoute` rate limiter, per-request ceilings, governed factory telemetry, and `agent_runs` reconciliation |
 | XSS via user content | Session hijack | Low | High | React auto-escapes; CSP header; no `dangerouslySetInnerHTML` except hardcoded pre-paint theme script |
 | Clickjacking | Phishing | Low | Medium | `X-Frame-Options: DENY`, `frame-ancestors 'none'` in CSP |
 | Memory poisoning | Agent reads false facts | Low | Medium | `memory_chunks` RLS — `user_id = auth.uid()`; coach block writes verified by coach JWT |
@@ -91,7 +91,7 @@ Webhook endpoint (`/api/integrations/spike/webhook`) verifies HMAC signature bef
 ### Transport + headers
 
 `next.config.ts` emits on every response:
-- `Content-Security-Policy` — `connect-src` is restricted to `'self'`, the Supabase origin (https + wss) and `https://api.nal.usda.gov`. AI provider endpoints (DeepSeek for text, Anthropic for photo vision) are deliberately NOT in `connect-src`: they are called server-side only, so an XSS cannot exfiltrate to them (audit 2026-06-13). `style-src`/`font-src` allow Google Fonts. `unsafe-inline` retained for Framer Motion style attributes (tracked below).
+- `Content-Security-Policy` — `connect-src` is restricted to `'self'`, the Supabase origin (https + wss) and `https://api.nal.usda.gov`. OpenAI, Anthropic, and DeepSeek endpoints are deliberately absent: all provider calls are server-side, so an XSS cannot exfiltrate directly to them. `style-src`/`font-src` allow Google Fonts. `unsafe-inline` is retained for Framer Motion style attributes.
 - `X-Frame-Options: DENY`
 - `X-Content-Type-Options: nosniff`
 - `Referrer-Policy: strict-origin-when-cross-origin`
@@ -133,7 +133,7 @@ Webhook endpoint (`/api/integrations/spike/webhook`) verifies HMAC signature bef
 
 See `RUNBOOK.md` for operational playbooks. For security incidents:
 
-1. **Containment**: rotate affected key (DeepSeek / Supabase / Spike — or Anthropic for the photo-vision/fallback key) via each provider's dashboard; if session compromise suspected, invalidate all sessions via Supabase Auth dashboard
+1. **Containment**: rotate the affected OpenAI, Anthropic, DeepSeek, Supabase, or Spike credential via its provider dashboard; if session compromise is suspected, invalidate all sessions via Supabase Auth dashboard
 2. **Assessment**: pull `audit_log` + `api_usage_log` + Vercel function logs for the affected window
 3. **Notification**: if user data exposed, notify affected users + Michael (co-business) within 72 hours (GDPR baseline)
 4. **Post-mortem**: document in `docs/incidents/YYYY-MM-DD-summary.md`; capture as OpenBrain `PITFALL:` entry

@@ -15,6 +15,7 @@ loadEnvConfig(process.cwd());
 
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { generateFactoryText } from './factory-runtime';
 
 type Range = { min: number; max: number };
 type EvalCase = {
@@ -108,13 +109,7 @@ const CATEGORY_SPECS: Record<string, CategorySpec> = {
   },
 };
 
-const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
-const MODEL = 'deepseek-chat'; // V4 Flash
-
 async function generateCases(category: string, spec: CategorySpec): Promise<EvalCase[]> {
-  const apiKey = process.env.DEEPSEEK_API_KEY;
-  if (!apiKey) throw new Error('DEEPSEEK_API_KEY required');
-
   const cases: EvalCase[] = [];
 
   for (const [lang, count] of Object.entries(spec.languages)) {
@@ -138,30 +133,11 @@ Each case must be a JSON object with these exact fields:
 
 Return ONLY a JSON array of objects. No markdown, no explanation.`;
 
-    const response = await fetch(DEEPSEEK_API_URL, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.7,
-        max_tokens: 4096,
-      }),
+    const content = await generateFactoryText(prompt, {
+      generator: 'nutrition-enterprise-v3',
+      category,
+      language: lang,
     });
-
-    if (!response.ok) {
-      console.error(`[gen] DeepSeek error for ${category}/${lang}: ${response.status}`);
-      continue;
-    }
-
-    const data = await response.json() as {
-      choices: Array<{ message: { content: string } }>;
-    };
-
-    const content = data.choices[0]?.message?.content ?? '';
     try {
       // Strip markdown fences if present
       const cleaned = content.replace(/```json?\n?/g, '').replace(/```/g, '').trim();

@@ -14,9 +14,7 @@ loadEnvConfig(process.cwd());
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-
-const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
-const MODEL = 'deepseek-chat';
+import { generateFactoryText } from './factory-runtime';
 
 type Range = { min: number; max: number };
 type EvalCase = {
@@ -83,9 +81,6 @@ const REPLACEMENT_SPECS: Array<{
 ];
 
 async function generateCases(spec: typeof REPLACEMENT_SPECS[0]): Promise<EvalCase[]> {
-  const apiKey = process.env.DEEPSEEK_API_KEY;
-  if (!apiKey) throw new Error('DEEPSEEK_API_KEY required');
-
   const prompt = `Generate exactly ${spec.count} nutrition benchmark test cases for category "${spec.category}" in language "${spec.lang}".
 
 ${spec.guidance}
@@ -103,27 +98,11 @@ Each case must have this exact JSON structure:
 
 Return ONLY a JSON array. No markdown.`;
 
-  const response = await fetch(DEEPSEEK_API_URL, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.7,
-      max_tokens: 4096,
-    }),
+  const content = await generateFactoryText(prompt, {
+    generator: 'replacement-cases',
+    category: spec.category,
+    language: spec.lang,
   });
-
-  if (!response.ok) {
-    console.error(`[gen] DeepSeek error: ${response.status}`);
-    return [];
-  }
-
-  const data = await response.json() as { choices: Array<{ message: { content: string } }> };
-  const content = data.choices[0]?.message?.content ?? '';
 
   try {
     const cleaned = content.replace(/```json?\n?/g, '').replace(/```/g, '').trim();

@@ -15,6 +15,13 @@ describe('GET /api/health', () => {
     expect(body).toMatchObject({ status: 'ok', db: 'connected' });
     expect(body.version).toBeTypeOf('string');
     expect(body.timestamp).toBeTypeOf('string');
+    expect(body.routing.foodParse).toEqual({
+      provider: 'openai',
+      model: 'gpt-5.6-luna',
+      fallbackProvider: 'anthropic',
+      fallbackModel: 'claude-haiku-4-5-20251001',
+      promptVersion: 'food-parse-v7-luna',
+    });
     expect(body).not.toHaveProperty('env');
     expect(body).not.toHaveProperty('tables');
   });

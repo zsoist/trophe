@@ -28,6 +28,9 @@ async function attemptInvoke<T>(
   const promptHash = createHash('sha256')
     .update(`${policy.promptVersion}\0${input.systemPrompt ?? ''}\0${input.prompt}`)
     .digest('hex');
+  const traceUserId = context?.userId
+    ? `trophe_${createHash('sha256').update(context.userId).digest('hex').slice(0, 32)}`
+    : undefined;
 
   await createGeneration({ generationId, task: input.task, policy, promptHash, context, fallbackFrom });
 
@@ -42,7 +45,13 @@ async function attemptInvoke<T>(
       provider: policy.provider,
       prompt: '[redacted]',
       systemPrompt: '[redacted]',
-      metadata: { generationId, isFallback, ...input.context?.metadata },
+      metadata: {
+        ...context?.metadata,
+        ...(traceUserId ? { userId: traceUserId } : {}),
+        generationId,
+        isFallback,
+        promptVersion: policy.promptVersion,
+      },
     }, async () => {
       providerResult = await input.invoke({ policy, signal: controller.signal });
       return {
@@ -64,15 +73,20 @@ async function attemptInvoke<T>(
       throw new Error(`AI request exceeded cost ceiling (${estimatedCostUsd.toFixed(4)} USD)`);
     }
     await completeGeneration({ generationId, ...providerResult, estimatedCostUsd });
-    return { generationId, estimatedCostUsd, ...providerResult };
+    return { generationId, estimatedCostUsd, selectedPolicy: policy, isFallback, ...providerResult };
   } catch (error) {
     await failGeneration(generationId, error).catch((persistenceError) => {
       console.error('[ai-runtime] Failed to persist generation failure:', persistenceError);
     });
-    // Tag timeout errors so executeAiTask skips fallback — retrying after a
-    // deadline has passed is pointless and would double total latency.
-    if (controller.signal.aborted && error instanceof Error) {
-      Object.defineProperty(error, '_isTimeout', { value: true, enumerable: false });
+    if (error instanceof Error) {
+      Object.defineProperty(error, '_generationId', {
+        value: generationId,
+        enumerable: false,
+        configurable: true,
+      });
+      if (controller.signal.aborted) {
+        Object.defineProperty(error, '_isTimeout', { value: true, enumerable: false, configurable: true });
+      }
     }
     throw error;
   } finally {
@@ -85,17 +99,17 @@ async function attemptInvoke<T>(
 export async function executeAiTask<T>(input: ExecuteAiTaskInput<T>): Promise<ExecuteAiTaskResult<T>> {
   const policy = pick(input.task);
   const organizationId = await resolveOrganizationId(input.context);
-  await assertWithinOrganizationBudget(organizationId);
+  await assertWithinOrganizationBudget(organizationId, input.context?.userId);
   const context = organizationId ? { ...input.context, organizationId } : input.context;
 
   try {
     return await attemptInvoke(input, policy, context, false);
   } catch (primaryError) {
     const fallback = taskFallbacks[input.task];
-    // Skip fallback when: no fallback configured, OR the primary timed out
-    // (retrying after deadline is pointless — it'd double latency)
+    // Most tasks skip fallback after timeout to avoid doubling response latency.
+    // Tasks with an explicitly bounded end-to-end chain may opt in.
     const isTimeout = primaryError && typeof primaryError === 'object' && '_isTimeout' in primaryError;
-    if (!fallback || isTimeout) throw primaryError;
+    if (!fallback || (isTimeout && !policy.fallbackOnTimeout)) throw primaryError;
 
     const reason = primaryError instanceof Error ? primaryError.message : String(primaryError);
     console.warn(
@@ -104,7 +118,7 @@ export async function executeAiTask<T>(input: ExecuteAiTaskInput<T>): Promise<Ex
     );
 
     // Re-check org budget (the failed attempt may have consumed budget)
-    await assertWithinOrganizationBudget(organizationId);
+    await assertWithinOrganizationBudget(organizationId, input.context?.userId);
     return await attemptInvoke(input, fallback, context, true, policy.model);
   }
 }

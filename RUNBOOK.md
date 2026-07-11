@@ -87,14 +87,16 @@ LIMIT 50;
 ```
 
 Common causes:
-- **DeepSeek rate limit (429)**: surge of requests against DeepSeek V4 Flash (all text tasks route here). NOTE: only `photo_analyze` uses Anthropic Haiku vision — a 429 on photo analysis is an Anthropic limit.
-- **DeepSeek API key expired/rotated (401)**: check `error_message` (Anthropic key only matters for the photo-analyze route)
+- **OpenAI rate limit (429)**: consumer Luna calls should fall back to Haiku; inspect fallback rate and final API outcomes.
+- **Anthropic rate limit (429)**: affects the consumer fallback plus health-context and vision lanes.
+- **DeepSeek rate limit (429)**: affects synthetic factory generation only.
+- **Provider key expired/rotated (401)**: run the manual production provider-smoke workflow before routing deployment.
 - **Prompt cache miss causing latency spike**: expected behavior after 5-min idle; not an error
 - **Timeout from Next.js function**: Vercel function maxDuration = 60s (Pro, set in `vercel.json`)
 
 **Fix**:
-- 429: rate-limit clients more aggressively via `lib/security/api-guard.ts` (current limit: 60 req / 15 min per user); contact the provider (DeepSeek for text, Anthropic for photo) if persistent
-- 401: rotate the affected key (DeepSeek for text, Anthropic for photo vision) → update Vercel env → redeploy
+- 429: inspect the routed provider and fallback rate, then tune `lib/security/api-guard.ts` or contact that provider if persistent
+- 401: rotate the affected routed-provider key → update the Vercel env → obtain separate deployment authorization
 - Timeout: inspect the specific call's token count; if prompt grew too large, trim the food reference in `lib/food/food-units.ts`
 
 **Verify**: manual curl against `/api/food/parse` with a trivial input; confirm 200 + parsed items.
