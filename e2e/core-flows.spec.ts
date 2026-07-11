@@ -23,6 +23,14 @@ test('protected dashboard redirects anonymous users to login', async ({ page }) 
   await expect(page).toHaveURL(/\/login/);
 });
 
+test('offline fallback gives a clear recovery action', async ({ page }) => {
+  await page.goto('/offline');
+
+  await expect(page.getByRole('heading', { name: /offline/i })).toBeVisible();
+  await expect(page.getByRole('button', { name: /try again/i })).toBeVisible();
+  await expect(page.getByText('Your logged data is safe.')).toBeVisible();
+});
+
 test('mobile viewport does not introduce horizontal page overflow on public flows', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
 

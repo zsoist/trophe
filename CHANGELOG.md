@@ -4,6 +4,21 @@ All notable changes to Trophē are logged here. Format follows [Keep a Changelog
 
 ---
 
+## [July 2026 stabilization sweep] — 2026-07-11
+
+### Fixed
+- Normalized required Supabase environment values, including accidentally quoted Vercel values, with explicit failures for missing configuration.
+- Restored reproducible local database bootstrap by seeding the local-only Vault fixture before migrations.
+- Removed legacy `PUBLIC` access policies from `dish_recipes` while preserving authenticated and staff policies.
+- Aligned intake copy with the actual 15-step flow and fixed the coach search-field icon overlap on mobile.
+- Prevented the install prompt from producing a server/client hydration mismatch.
+- Rejected malformed food-parser items before rendering so provider garbage output degrades to a safe empty state.
+
+### Changed
+- Added regression coverage for null and malformed LLM output, markdown-safe rendering, branded portions, volume display, quoted environment variables, nutrition goldens, workout unit conversion, and database policy ordering.
+- Added mobile and desktop E2E coverage for client, coach, and admin access, settings and logout, parser 429/timeout/garbage states, slow loading, offline recovery, and first-day empty states.
+- Refreshed the generated service-worker precache after the stabilization build.
+
 ## [Deterministic MAPE reduction (shipped to prod)] — 2026-06-14
 - **Result (median-of-3 vs prod):** backup v3 700-case pooled macro-MAPE **22.4% → 16.0%** (calories 12.6 / protein 16.0 / carbs 17.1 / fat 18.2), pass **75.6% → 76.6%**; official v2 210-case held at **94.3%** (no regression). Latency **p95 9.5s → 8.1s**.
 - **Levers (retrieval/data only — no auth/RLS/schema change):** dried-milk-powder retrieval penalty (biggest lever) + coffee exact-match corrections + confectionery penalty + dish re-routes (bouillabaisse / gazpacho) + Gratin dauphinois seed + saganaki carb fix.

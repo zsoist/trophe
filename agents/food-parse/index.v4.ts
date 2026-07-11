@@ -47,7 +47,7 @@ const COT_ENABLED = promptVersion === 'v5' || promptVersion === 'v6' || promptVe
 const PER_100G_ENABLED = promptVersion === 'v6' || promptVersion === 'v7';
 
 // ── V4/V5 LLM output schema ──────────────────────────────────────────────────
-interface V4Candidate {
+export interface V4Candidate {
   raw_text:      string;
   food_name:     string;
   name_localized: string;
@@ -253,7 +253,7 @@ interface ArbitrationResult {
  * but mediocre at macro breakdown. DBs have precise per-100g values but wrong
  * serving sizes. Combining LLM grams with DB per-100g gives the best accuracy.
  */
-function arbitrateDbVsCoT(
+export function arbitrateDbVsCoT(
   candidate: V4Candidate,
   dbMacros: { kcal: number; protein: number; carb: number; fat: number; fiber?: number },
   dbGrams: number,

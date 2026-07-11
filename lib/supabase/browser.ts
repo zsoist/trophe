@@ -1,6 +1,7 @@
 'use client';
 
 import { createBrowserClient } from '@supabase/ssr';
+import { requiredEnv } from '@/lib/env';
 
 /**
  * Browser Supabase client — Phase 2.
@@ -17,7 +18,7 @@ import { createBrowserClient } from '@supabase/ssr';
  */
 export function createSupabaseBrowserClient() {
   return createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!.trim(),
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!.trim(),
+    requiredEnv(process.env.NEXT_PUBLIC_SUPABASE_URL, 'NEXT_PUBLIC_SUPABASE_URL'),
+    requiredEnv(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, 'NEXT_PUBLIC_SUPABASE_ANON_KEY'),
   );
 }

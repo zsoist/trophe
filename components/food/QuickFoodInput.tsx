@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase';
 import { trpcClient } from '@/lib/trpc/client';
 import type { MealType } from '@/lib/types';
 import type { ParsedFoodItem } from '@/app/api/food/parse/route';
+import { isParsedFoodItem } from '@/agents/schemas/food-parse';
 import ParsedFoodList from '@/components/food/ParsedFoodList';
 import PhotoScanCard from '@/components/food/PhotoScanCard';
 import BarcodeLookupModal from '@/components/food/BarcodeLookupModal';
@@ -177,7 +178,9 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
         return;
       }
 
-      const items: ParsedFoodItem[] = Array.isArray(data?.items) ? data.items : [];
+      const items: ParsedFoodItem[] = Array.isArray(data?.items)
+        ? data.items.filter(isParsedFoodItem)
+        : [];
 
       if (items.length === 0) {
         // A real question came back with no items — surface it and let the
