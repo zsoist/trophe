@@ -12,6 +12,7 @@ async function login(page: Page, email: string, password: string, path = '/login
   await page.getByPlaceholder('Email').fill(email);
   await page.getByPlaceholder('Password').fill(password);
   await page.locator('form').getByRole('button', { name: 'Log in' }).click();
+  await page.waitForURL((url) => !url.pathname.startsWith('/login'));
 }
 
 test.describe('authenticated role flows', () => {
