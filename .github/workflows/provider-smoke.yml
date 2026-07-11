@@ -81,6 +81,33 @@ jobs:
             const duration = Date.now() - startedAt;
             console.log(`${check.name}: HTTP ${response.status} (${duration}ms)`);
             if (!response.ok) failed = true;
+
+            if (check.name === 'DeepSeek' && response.ok) {
+              const completion = await response.json();
+              const usage = completion.usage ?? {};
+              const hasAuthoritativeUsage = Number(usage.prompt_tokens) > 0
+                && Number(usage.completion_tokens) > 0
+                && typeof completion.id === 'string';
+              console.log(`DeepSeek usage: input=${usage.prompt_tokens ?? 0}, output=${usage.completion_tokens ?? 0}, generation=${completion.id ? 'present' : 'missing'}`);
+              if (!hasAuthoritativeUsage) failed = true;
+            }
           }
+
+          const deepSeekHeaders = {
+            authorization: `Bearer ${process.env.DEEPSEEK_API_KEY}`,
+            accept: 'application/json',
+          };
+          const [modelsResponse, balanceResponse] = await Promise.all([
+            fetch('https://api.deepseek.com/models', { headers: deepSeekHeaders }),
+            fetch('https://api.deepseek.com/user/balance', { headers: deepSeekHeaders }),
+          ]);
+          const models = await modelsResponse.json();
+          const balance = await balanceResponse.json();
+          const modelIds = new Set((models.data ?? []).map((model) => model.id));
+          const requiredModelsPresent = modelIds.has('deepseek-v4-flash') && modelIds.has('deepseek-v4-pro');
+          console.log(`DeepSeek models: HTTP ${modelsResponse.status}, required=${requiredModelsPresent ? 'present' : 'missing'}`);
+          console.log(`DeepSeek balance: HTTP ${balanceResponse.status}, available=${balance.is_available === true}`);
+          if (!modelsResponse.ok || !requiredModelsPresent || !balanceResponse.ok || balance.is_available !== true) failed = true;
+
           if (failed) process.exit(1);
           NODE

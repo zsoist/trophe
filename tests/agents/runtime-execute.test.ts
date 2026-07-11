@@ -78,6 +78,24 @@ describe('executeAiTask integration contract', () => {
     expect(persistence.createGeneration).not.toHaveBeenCalled();
   });
 
+  it('passes the user id into solo-user budget enforcement', async () => {
+    const userId = '00000000-0000-0000-0000-000000000002';
+
+    await executeAiTask({
+      task: 'meal_suggest',
+      prompt: 'suggest a meal',
+      context: { userId },
+      invoke: vi.fn(async () => ({
+        output: { suggestions: ['meal'] },
+        usage: { inputTokens: 100, outputTokens: 20 },
+        latencyMs: 50,
+        rawStatus: 200,
+      })),
+    });
+
+    expect(orgBudget.assertWithinOrganizationBudget).toHaveBeenCalledWith(undefined, userId);
+  });
+
   it('persists the resolved organization for attributed costs', async () => {
     orgBudget.resolveOrganizationId.mockResolvedValueOnce('00000000-0000-0000-0000-000000000001');
 
