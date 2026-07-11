@@ -9,8 +9,8 @@ const adminPassword = process.env.E2E_ADMIN_PASSWORD;
 
 async function login(page: Page, email: string, password: string, path = '/login') {
   await page.goto(path);
-  await page.getByPlaceholder('you@example.com').fill(email);
-  await page.getByPlaceholder('••••••••').fill(password);
+  await page.getByPlaceholder('Email').fill(email);
+  await page.getByPlaceholder('Password').fill(password);
   await page.locator('form').getByRole('button', { name: 'Log in' }).click();
 }
 
