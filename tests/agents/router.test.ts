@@ -5,15 +5,11 @@
  * They verify the router's policy dispatch logic and the OTel cost estimator.
  */
 
-import { afterEach, describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { pick, modelFor, taskPolicies } from '../../agents/router';
 import type { TaskName } from '../../agents/router';
 import { estimateCostUsd } from '../../agents/observability/otel';
 import { modelPricing } from '../../agents/router/pricing';
-
-afterEach(() => {
-  delete process.env.DEEPSEEK_COACH_MODEL;
-});
 
 // ─── Router: policy dispatch ──────────────────────────────────────────────
 
@@ -32,17 +28,18 @@ describe('router.pick()', () => {
     expect(policy.model).toBe('deepseek-v4-flash');
   });
 
-  it('returns the correct policy for coach_insight → deepseek/deepseek-v4-flash', () => {
+  it('keeps health-context coach insight on Anthropic', () => {
     const policy = pick('coach_insight');
-    expect(policy.provider).toBe('deepseek');
-    expect(policy.model).toBe('deepseek-v4-flash');
+    expect(policy.provider).toBe('anthropic');
+    expect(policy.model).toBe('claude-haiku-4-5-20251001');
     expect(policy.costClass).toBe('cheap');
   });
 
-  it('allows an explicit DeepSeek coach canary without changing other routes', () => {
+  it('does not let the retired DeepSeek coach override cross the compliance boundary', () => {
     process.env.DEEPSEEK_COACH_MODEL = 'deepseek-v4-pro';
-    expect(pick('coach_insight')).toMatchObject({ provider: 'deepseek', model: 'deepseek-v4-pro' });
+    expect(pick('coach_insight')).toMatchObject({ provider: 'anthropic', model: 'claude-haiku-4-5-20251001' });
     expect(pick('food_parse')).toMatchObject({ provider: 'deepseek', model: 'deepseek-v4-flash' });
+    delete process.env.DEEPSEEK_COACH_MODEL;
   });
 
   it('throws for unknown task names', () => {
@@ -74,7 +71,7 @@ describe('router.modelFor()', () => {
   });
 
   it('returns model string for coach_insight', () => {
-    expect(modelFor('coach_insight')).toBe('deepseek-v4-flash');
+    expect(modelFor('coach_insight')).toBe('claude-haiku-4-5-20251001');
   });
 });
 

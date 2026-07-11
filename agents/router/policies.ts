@@ -7,7 +7,7 @@
  *
  *   - food_parse   → DeepSeek V4 Flash  (cheapest structured output)
  *   - recipe       → DeepSeek V4 Flash
- *   - coach_insight→ DeepSeek V4 Flash
+ *   - coach_insight→ Anthropic Haiku 4.5 (health-context compliance boundary)
  *   - meal_suggest → DeepSeek V4 Flash
  *   - photo_analyze→ Anthropic Haiku 4.5 (needs vision/multimodal)
  *   - embed        → Voyage voyage-4
@@ -82,14 +82,15 @@ export const taskPolicies: Record<TaskName, RoutingPolicy> = {
     timeoutMs: 25_000, maxInputChars: 30_000, maxCostUsd: 0.02, promptVersion: 'recipe-analyze-v1',
   },
   coach_insight: {
-    // Migrated to DeepSeek V4 Flash (2026-06-08): $0.14/$0.28 vs Sonnet $3/$15.
-    // ~98% cost reduction. Fallback: Anthropic Haiku 4.5 — see taskFallbacks.
-    provider: 'deepseek',
-    model: 'deepseek-v4-flash',
+    // Contains direct identifiers and health-context fields. Keep this traffic
+    // off DeepSeek pending the three-lane bake-off and formal vendor review.
+    provider: 'anthropic',
+    model: 'claude-haiku-4-5-20251001',
     costClass: 'cheap',
     latencyClass: 'fast',
+    cacheSystem: true,
     maxTokens: 2048,
-    timeoutMs: 30_000, maxInputChars: 40_000, maxCostUsd: 0.05, promptVersion: 'coach-insight-v1',
+    timeoutMs: 30_000, maxInputChars: 40_000, maxCostUsd: 0.08, promptVersion: 'coach-insight-v2-haiku-compliance',
   },
   meal_suggest: {
     // Migrated to DeepSeek V4 Flash (2026-06-08): $0.14/$0.28 per M tokens
@@ -121,16 +122,14 @@ export const taskPolicies: Record<TaskName, RoutingPolicy> = {
     timeoutMs: 15_000, maxInputChars: 100_000, maxCostUsd: 0.02, promptVersion: 'embed-v1',
   },
   memory_extract: {
-    // Migrated to DeepSeek V4 Flash (2026-06-08): strict tool calling for
-    // structurally reliable fact extraction at $0.14/$0.28 per M tokens.
-    // Eval: 100% structured accuracy across 100 concurrent requests.
-    // Fallback: Gemini 2.5 Flash (constrained decoding) — see taskFallbacks.
-    provider: 'deepseek',
-    model: 'deepseek-v4-flash',
+    // Extracts allergies, goals, measurements, mood, and user-authored text.
+    // Keep this traffic off DeepSeek pending formal vendor review.
+    provider: 'anthropic',
+    model: 'claude-haiku-4-5-20251001',
     costClass: 'cheap',
     latencyClass: 'fast',
     maxTokens: 1024,
-    timeoutMs: 20_000, maxInputChars: 30_000, maxCostUsd: 0.01, promptVersion: 'memory-extract-v3-deepseek',
+    timeoutMs: 20_000, maxInputChars: 30_000, maxCostUsd: 0.05, promptVersion: 'memory-extract-v4-haiku-compliance',
   },
   memory_embed: {
     // Voyage v4 — same embedding model as food/general embeddings for consistency.
@@ -182,12 +181,13 @@ export const taskFallbacks: Partial<Record<TaskName, RoutingPolicy>> = {
     timeoutMs: 25_000, maxInputChars: 30_000, maxCostUsd: 0.05, promptVersion: 'recipe-analyze-v1-fallback',
   },
   coach_insight: {
-    provider: 'deepseek',
-    model: 'deepseek-v4-flash',
+    provider: 'anthropic',
+    model: 'claude-haiku-4-5-20251001',
     costClass: 'cheap',
     latencyClass: 'fast',
     maxTokens: 2048,
-    timeoutMs: 30_000, maxInputChars: 40_000, maxCostUsd: 0.10, promptVersion: 'coach-insight-v1-fallback',
+    cacheSystem: true,
+    timeoutMs: 45_000, maxInputChars: 40_000, maxCostUsd: 0.10, promptVersion: 'coach-insight-v2-haiku-compliance-fallback',
   },
   meal_suggest: {
     provider: 'deepseek',
@@ -198,12 +198,12 @@ export const taskFallbacks: Partial<Record<TaskName, RoutingPolicy>> = {
     timeoutMs: 25_000, maxInputChars: 8_000, maxCostUsd: 0.05, promptVersion: 'meal-suggest-v1-fallback',
   },
   memory_extract: {
-    provider: 'deepseek',
-    model: 'deepseek-v4-flash',
+    provider: 'anthropic',
+    model: 'claude-haiku-4-5-20251001',
     costClass: 'cheap',
     latencyClass: 'fast',
     maxTokens: 1024,
-    timeoutMs: 20_000, maxInputChars: 30_000, maxCostUsd: 0.03, promptVersion: 'memory-extract-v2-fallback',
+    timeoutMs: 30_000, maxInputChars: 30_000, maxCostUsd: 0.08, promptVersion: 'memory-extract-v4-haiku-compliance-fallback',
   },
   shopping_extract: {
     provider: 'deepseek',

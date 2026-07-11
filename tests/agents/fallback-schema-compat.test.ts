@@ -82,7 +82,15 @@ describe('Fallback schema compatibility', () => {
 
   it('memory_extract has a defined fallback', () => {
     expect(taskFallbacks.memory_extract).toBeDefined();
-    expect(taskFallbacks.memory_extract!.provider).toBeTruthy();
+    expect(taskFallbacks.memory_extract!.provider).toBe('anthropic');
+    expect(taskFallbacks.memory_extract!.model).toBe('claude-haiku-4-5-20251001');
+  });
+
+  it('coach_insight fallback cannot send health context to DeepSeek', () => {
+    expect(taskFallbacks.coach_insight).toMatchObject({
+      provider: 'anthropic',
+      model: 'claude-haiku-4-5-20251001',
+    });
   });
 
   it('food_parse schema requires all pipeline-critical fields', () => {

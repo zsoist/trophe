@@ -24,20 +24,6 @@ export function pick(task: TaskName): RoutingPolicy {
   if (!policy) {
     throw new Error(`[router] Unknown task: "${task}". Add it to agents/router/policies.ts.`);
   }
-  if (task === 'coach_insight') {
-    const candidate = process.env.DEEPSEEK_COACH_MODEL;
-    if (candidate === 'deepseek-v4-flash' || candidate === 'deepseek-v4-pro') {
-      return {
-        ...policy,
-        provider: 'deepseek',
-        model: candidate,
-        costClass: candidate === 'deepseek-v4-flash' ? 'cheap' : 'mid',
-        latencyClass: candidate === 'deepseek-v4-flash' ? 'fast' : 'medium',
-        cacheSystem: false,
-        promptVersion: `${policy.promptVersion}-deepseek-canary`,
-      };
-    }
-  }
   return policy;
 }
 
