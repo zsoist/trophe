@@ -1,6 +1,9 @@
 "use client";
 
+import { useSyncExternalStore } from "react";
 import { useInstallPrompt } from "@/hooks/useInstallPrompt";
+
+const subscribeHydration = () => () => {};
 
 /**
  * Premium install prompt card — dark + gold, bilingual (EN/EL).
@@ -12,9 +15,12 @@ import { useInstallPrompt } from "@/hooks/useInstallPrompt";
 export function InstallCard() {
   const { canInstall, isIOS, isInstalled, isDismissed, triggerInstall, dismiss } =
     useInstallPrompt();
+  // The server cannot know the browser's iOS/install state. Keep the first
+  // client render identical to SSR, then reveal the card after hydration.
+  const hydrated = useSyncExternalStore(subscribeHydration, () => true, () => false);
 
   // Only show if something to offer and not already installed / dismissed
-  const shouldShow = (canInstall || isIOS) && !isInstalled && !isDismissed;
+  const shouldShow = hydrated && (canInstall || isIOS) && !isInstalled && !isDismissed;
   if (!shouldShow) return null;
 
   return (
