@@ -109,7 +109,7 @@ const CATEGORY_SPECS: Record<string, CategorySpec> = {
 };
 
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
-const MODEL = 'deepseek-chat'; // V4 Flash
+const MODEL = 'deepseek-v4-flash';
 
 async function generateCases(category: string, spec: CategorySpec): Promise<EvalCase[]> {
   const apiKey = process.env.DEEPSEEK_API_KEY;

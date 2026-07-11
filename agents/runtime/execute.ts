@@ -85,7 +85,7 @@ async function attemptInvoke<T>(
 export async function executeAiTask<T>(input: ExecuteAiTaskInput<T>): Promise<ExecuteAiTaskResult<T>> {
   const policy = pick(input.task);
   const organizationId = await resolveOrganizationId(input.context);
-  await assertWithinOrganizationBudget(organizationId);
+  await assertWithinOrganizationBudget(organizationId, input.context?.userId);
   const context = organizationId ? { ...input.context, organizationId } : input.context;
 
   try {
@@ -104,7 +104,7 @@ export async function executeAiTask<T>(input: ExecuteAiTaskInput<T>): Promise<Ex
     );
 
     // Re-check org budget (the failed attempt may have consumed budget)
-    await assertWithinOrganizationBudget(organizationId);
+    await assertWithinOrganizationBudget(organizationId, input.context?.userId);
     return await attemptInvoke(input, fallback, context, true, policy.model);
   }
 }
