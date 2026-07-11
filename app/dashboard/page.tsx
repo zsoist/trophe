@@ -633,7 +633,7 @@ export default function DashboardPage() {
               <Icon name="i-edit" size={16} style={{ color: 'var(--gold-300,#D4A853)', flexShrink: 0 }} />
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--t1)' }}>
-                  {intakePending === 'quarterly' ? 'Seasonal check-in with your coach' : 'Fifteen questions before we start'}
+                  {intakePending === 'quarterly' ? 'Seasonal check-in with your coach' : 'Twelve questions before we start'}
                 </div>
                 <div className="ds-sub" style={{ fontSize: 10 }}>
                   {intakePending === 'quarterly' ? 'Things change — tell your coach what moved' : '~5 minutes · shapes your whole plan'}
