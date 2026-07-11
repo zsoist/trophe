@@ -36,9 +36,9 @@ async function attemptInvoke<T>(
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), policy.timeoutMs);
+  let providerResult: ProviderResult<T> | undefined;
 
   try {
-    let providerResult: ProviderResult<T> | undefined;
     await traced({
       task: input.task,
       model: policy.model,
@@ -72,10 +72,6 @@ async function attemptInvoke<T>(
     });
     if (!providerResult) throw new Error('AI provider returned no result');
 
-    providerResult = {
-      ...providerResult,
-      clientRequestId: providerResult.clientRequestId ?? generationId,
-    };
     const estimatedCostUsd = estimateUsageCost(policy.model, providerResult.usage);
     if (estimatedCostUsd > policy.maxCostUsd) {
       throw new Error(`AI request exceeded cost ceiling (${estimatedCostUsd.toFixed(4)} USD)`);
@@ -83,7 +79,27 @@ async function attemptInvoke<T>(
     await completeGeneration({ generationId, ...providerResult, estimatedCostUsd });
     return { generationId, estimatedCostUsd, selectedPolicy: policy, isFallback, ...providerResult };
   } catch (error) {
-    await failGeneration(generationId, error).catch((persistenceError) => {
+    const errorUsage = error instanceof Error && 'usage' in error
+      ? (error as Error & { usage?: ProviderResult<T>['usage'] }).usage
+      : undefined;
+    const usage = providerResult?.usage ?? errorUsage;
+    const estimatedCostUsd = usage ? estimateUsageCost(policy.model, usage) : undefined;
+    const providerErrorEvidence = error && typeof error === 'object' ? error as {
+      status?: number;
+      latencyMs?: number;
+      providerGenerationId?: string;
+      providerRequestId?: string;
+      clientRequestId?: string;
+    } : {};
+    await failGeneration(generationId, error, {
+      usage,
+      estimatedCostUsd,
+      latencyMs: providerResult?.latencyMs ?? providerErrorEvidence.latencyMs,
+      rawStatus: providerResult?.rawStatus ?? providerErrorEvidence.status,
+      providerGenerationId: providerResult?.providerGenerationId ?? providerErrorEvidence.providerGenerationId,
+      providerRequestId: providerResult?.providerRequestId ?? providerErrorEvidence.providerRequestId,
+      clientRequestId: providerResult?.clientRequestId ?? providerErrorEvidence.clientRequestId,
+    }).catch((persistenceError) => {
       console.error('[ai-runtime] Failed to persist generation failure:', persistenceError);
     });
     if (error instanceof Error) {

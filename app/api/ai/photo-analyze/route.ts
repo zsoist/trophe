@@ -2,22 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { guardAiRoute } from '@/lib/security/api-guard';
 import { executeAiTask } from '@/agents/runtime';
 import { invokeAnthropicJson } from '@/agents/runtime/providers/anthropic';
+import { AiProviderError } from '@/agents/runtime/providers/errors';
+import {
+  parsePhotoAnalysisOutput,
+  type FoodAnalysis,
+} from '@/agents/runtime/providers/photo-analysis';
 
 interface PhotoAnalyzeRequest {
   imageBase64: string;
   mediaType: string;
-}
-
-interface FoodAnalysis {
-  name: string;
-  estimated_grams: number;
-  estimated_calories: number;
-  estimated_protein_g: number;
-  estimated_carbs_g: number;
-  estimated_fat_g: number;
-  confidence: number;
-  source?: 'ai_estimate';
-  accuracy_note?: string;
 }
 
 const PHOTO_ANALYZE_TOOL = {
@@ -112,80 +105,53 @@ export async function POST(request: NextRequest) {
     }
 
     const prompt = 'Analyze this food photo conservatively and return structured nutrition estimates.';
-    const result = await executeAiTask({
+    const result = await executeAiTask<{ foods: FoodAnalysis[] }>({
       task: 'photo_analyze',
       prompt,
       context: { userId: guard.userId, requestId: request.headers.get('x-request-id') ?? undefined },
-      invoke: ({ policy, signal }) => invokeAnthropicJson({
-        signal,
-        body: {
-          model: policy.model,
-          max_tokens: policy.maxTokens,
-          messages: [
-          {
-            role: 'user',
-            content: [
+      invoke: async ({ policy, signal }) => {
+        const providerResult = await invokeAnthropicJson<unknown>({
+          signal,
+          body: {
+            model: policy.model,
+            max_tokens: policy.maxTokens,
+            messages: [
               {
-                type: 'image',
-                source: {
-                  type: 'base64',
-                  media_type: mediaType,
-                  data: imageBase64,
-                },
-              },
-              {
-                type: 'text',
-                text: 'Analyze this food photo. Identify visible food items and make a conservative rough portion and macro estimate only. estimated_grams must be your estimated edible portion weight, not derived from calories. Photo-only portion estimation is uncertain unless a scale, label, or known container is visible. Do not imply precision. source must be "ai_estimate". confidence is 0 to 1 and should be below 0.75 unless portion size is visually anchored. accuracy_note should briefly say what makes the estimate uncertain.',
+                role: 'user',
+                content: [
+                  {
+                    type: 'image',
+                    source: {
+                      type: 'base64',
+                      media_type: mediaType,
+                      data: imageBase64,
+                    },
+                  },
+                  {
+                    type: 'text',
+                    text: 'Analyze this food photo. Identify visible food items and make a conservative rough portion and macro estimate only. estimated_grams must be your estimated edible portion weight, not derived from calories. Photo-only portion estimation is uncertain unless a scale, label, or known container is visible. Do not imply precision. source must be "ai_estimate". confidence is 0 to 1 and should be below 0.75 unless portion size is visually anchored. accuracy_note should briefly say what makes the estimate uncertain.',
+                  },
+                ],
               },
             ],
+            tools: [PHOTO_ANALYZE_TOOL],
+            tool_choice: { type: 'tool', name: 'submit_food_photo_analysis' },
           },
-        ],
-          tools: [PHOTO_ANALYZE_TOOL],
-          tool_choice: { type: 'tool', name: 'submit_food_photo_analysis' },
-        },
-      }),
+        });
+        const parsed = parsePhotoAnalysisOutput(providerResult.output, {
+          status: providerResult.rawStatus,
+          providerRequestId: providerResult.providerRequestId,
+          providerGenerationId: providerResult.providerGenerationId,
+          usage: providerResult.usage,
+          latencyMs: providerResult.latencyMs,
+        });
+        if (parsed.droppedCount > 0) {
+          console.warn(`[photo-analyze] dropped ${parsed.droppedCount} item(s) that failed validation`);
+        }
+        return { ...providerResult, output: { foods: parsed.foods } };
+      },
     });
-    const data = result.output as { content?: Array<{ type?: string; name?: string; input?: { foods?: FoodAnalysis[] } }> };
-
-    const toolUse = data?.content?.find((c: { type?: string; name?: string }) =>
-      c.type === 'tool_use' && c.name === 'submit_food_photo_analysis',
-    );
-    const foods = toolUse?.input?.foods as FoodAnalysis[] | undefined;
-
-    if (!foods || foods.length === 0) {
-      console.error('No tool_use food analysis in Anthropic response');
-      return NextResponse.json(
-        { error: 'No analysis returned' },
-        { status: 502 },
-      );
-    }
-
-    const validFoods = foods.filter((food) =>
-      Number.isFinite(food.estimated_grams) &&
-      food.estimated_grams > 0 &&
-      food.estimated_grams <= 10_000 &&
-      Number.isFinite(food.estimated_calories) &&
-      food.estimated_calories >= 0 &&
-      food.estimated_calories <= 10_000 &&
-      [food.estimated_protein_g, food.estimated_carbs_g, food.estimated_fat_g].every((value) => Number.isFinite(value) && value >= 0) &&
-      food.estimated_protein_g + food.estimated_carbs_g + food.estimated_fat_g <= food.estimated_grams * 1.15
-    );
-    // Per-item plausibility: drop only the implausible items and keep the rest.
-    // One bad estimate on a 4-item plate must not throw away the other three.
-    if (validFoods.length === 0) {
-      console.error(
-        `Photo nutrition estimate failed plausibility validation (all ${foods.length} item(s) implausible)`,
-      );
-      return NextResponse.json(
-        { error: 'Could not read reliable nutrition from this photo — try a clearer shot or enter it manually' },
-        { status: 502 },
-      );
-    }
-    if (validFoods.length !== foods.length) {
-      console.warn(
-        `[photo-analyze] dropped ${foods.length - validFoods.length}/${foods.length} item(s) that failed plausibility validation`,
-      );
-    }
+    const validFoods = result.output.foods;
 
     return NextResponse.json({
       foods: validFoods.map((food) => ({
@@ -197,9 +163,18 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Photo analysis error:', error);
+    const isProtocolFailure = error instanceof AiProviderError
+      && error.errorType === 'provider_protocol_error';
+    const isProviderFailure = error instanceof AiProviderError;
     return NextResponse.json(
-      { error: 'Failed to analyze photo' },
-      { status: 500 },
+      {
+        error: isProtocolFailure
+          ? 'Could not read reliable nutrition from this photo — try a clearer shot or enter it manually'
+          : (isProviderFailure
+            ? 'Photo analysis is temporarily unavailable — please try again.'
+            : 'Failed to analyze photo'),
+      },
+      { status: isProtocolFailure ? 502 : (isProviderFailure ? 503 : 500) },
     );
   }
 }

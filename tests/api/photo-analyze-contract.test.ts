@@ -5,9 +5,11 @@ import { join } from 'node:path';
 describe('photo nutrition contract', () => {
   it('requires explicit estimated grams and rejects arbitrary calorie-density conversion', () => {
     const route = readFileSync(join(process.cwd(), 'app/api/ai/photo-analyze/route.ts'), 'utf8');
+    const providerBoundary = readFileSync(join(process.cwd(), 'agents/runtime/providers/photo-analysis.ts'), 'utf8');
     const quickInput = readFileSync(join(process.cwd(), 'components/food/QuickFoodInput.tsx'), 'utf8');
     expect(route).toContain('estimated_grams');
-    expect(route).toContain('plausibility validation');
+    expect(route).toContain('parsePhotoAnalysisOutput');
+    expect(providerBoundary).toContain('isPlausible');
     expect(quickInput).toContain('grams: Math.round(f.estimated_grams)');
     expect(quickInput).not.toContain('estimated_calories / 1.5');
   });

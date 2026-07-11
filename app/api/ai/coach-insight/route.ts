@@ -63,7 +63,13 @@ export async function POST(request: NextRequest) {
         knowledgeChunkIds: knowledge.chunks.map((chunk) => chunk.id),
       },
     },
-    invoke: ({ policy, signal }) => invokeTextProvider({ policy, signal, system: systemPrompt, prompt: question, userId: guard.userId }),
+    invoke: ({ policy, signal }) => invokeTextProvider({
+      policy,
+      signal,
+      system: systemPrompt,
+      prompt: question,
+      userId: guard.userId,
+    }),
   });
   await memory.markRetrieved();
 

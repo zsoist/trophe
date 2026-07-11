@@ -150,16 +150,18 @@ User input: "200g feta, 1 banana"
 
 ## Prompt caching
 
-`clients/anthropic.ts` supports `cacheSystem: true` which wraps the system prompt in `cache_control: { type: 'ephemeral' }`.
+`runtime/providers/anthropic.ts` and the structured/text dispatchers honor `cacheSystem: true` by wrapping the stable system prompt in `cache_control: { type: 'ephemeral' }`. OpenAI Luna uses a policy-derived `prompt_cache_key`, an explicit breakpoint after the system block, and a 30-minute TTL.
 
 **Requirements**:
-- Prefix must be ≥2048 tokens
+- Minimum cacheable prefix: OpenAI/Luna 1,024 tokens; Anthropic Haiku 4.5 4,096 tokens
 - Stable prefix: rules + USDA reference values + FOOD_DATABASE constants
-- Cache TTL: ~5 minutes
+- Cache TTL: Luna 30 minutes; Anthropic `ephemeral` defaults to 5 minutes
 - Cache hit: ~10% of normal input cost → ~70% spend reduction at steady state
 
-**Use when**: system prompt ≥2048 tokens AND requests arrive in bursts (typical user sessions).
-**Skip when**: isolated single calls or prompts < 2048 tokens.
+**Use when**: the stable system prefix meets the selected provider/model minimum and requests arrive in bursts (typical user sessions).
+**Skip when**: isolated single calls or prompts below the selected provider/model minimum.
+
+Do not assume a marked block is stable: coach/conversation currently append user-specific memory and knowledge to the system string. Confirm cache-read/write counters before claiming savings; splitting static and dynamic blocks is a separate cache-engineering task.
 
 ---
 
@@ -174,7 +176,7 @@ Every `run()` call:
 
 ## Adding a new agent
 
-1. **Prompt**: `agents/prompts/<agent>.v1.md`. Use `{PLACEHOLDER}` for runtime-injected content. Keep stable prefix ≥2048 tokens for caching.
+1. **Prompt**: `agents/prompts/<agent>.v1.md`. Use `{PLACEHOLDER}` for runtime-injected content. Keep the stable prefix above the selected provider/model cache minimum.
 2. **Schema**: `agents/schemas/<agent>.ts` — input + output TypeScript types + zod validators.
 3. **Agent**: `agents/<agent>/index.ts` — exports `run(input): Promise<RunResult<Output>>`. Calls `router.pick()`, wraps with Langfuse span.
 4. **Route**: `app/api/<path>/route.ts` — validate input, call `run()`, call `logAPIUsage(telemetry)`, return response. Target: <60 lines.

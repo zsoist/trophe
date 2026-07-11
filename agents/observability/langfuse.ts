@@ -19,6 +19,7 @@
  */
 
 import { Langfuse, type LangfuseGenerationClient } from 'langfuse';
+import { AiProviderError } from '@/agents/runtime/providers/errors';
 
 export interface TraceInput {
   /** Trophē task name (food_parse, coach_insight, etc.) */
@@ -49,6 +50,29 @@ export interface TraceResult {
 }
 
 type TracedFn = (generation: LangfuseGenerationClient | null) => Promise<TraceResult>;
+
+export function normalizeTraceUsage(provider: string, usage: TraceResult['usage']): {
+  totalInputTokens: number;
+  cacheReadTokens: number;
+  cacheCreationTokens: number;
+  cacheHitRate: number;
+  cacheMissTokens: number;
+} {
+  const cacheReadTokens = usage.cache_read_input_tokens ?? 0;
+  const cacheCreationTokens = usage.cache_creation_input_tokens ?? 0;
+  const totalInputTokens = provider === 'anthropic'
+    ? usage.input_tokens + cacheReadTokens + cacheCreationTokens
+    : usage.input_tokens;
+  return {
+    totalInputTokens,
+    cacheReadTokens,
+    cacheCreationTokens,
+    cacheHitRate: totalInputTokens > 0
+      ? Math.round((cacheReadTokens / totalInputTokens) * 100) / 100
+      : 0,
+    cacheMissTokens: Math.max(0, totalInputTokens - cacheReadTokens),
+  };
+}
 
 /**
  * Wraps a single LLM call in a Langfuse generation span.
@@ -111,12 +135,13 @@ export async function traced(
   try {
     result = await fn(generation);
 
-    const cacheReadTokens = result.usage.cache_read_input_tokens ?? 0;
-    const cacheCreationTokens = result.usage.cache_creation_input_tokens ?? 0;
-    const totalInputTokens = result.usage.input_tokens;
-    const cacheHitRate = totalInputTokens > 0
-      ? Math.round((cacheReadTokens / totalInputTokens) * 100) / 100
-      : 0;
+    const {
+      totalInputTokens,
+      cacheReadTokens,
+      cacheCreationTokens,
+      cacheHitRate,
+      cacheMissTokens,
+    } = normalizeTraceUsage(input.provider, result.usage);
 
     generation.end({
       output: result.text.slice(0, 2000),
@@ -130,7 +155,7 @@ export async function traced(
         cacheReadTokens,
         cacheCreationTokens,
         cacheHitRate,
-        cacheMissTokens: totalInputTokens - cacheReadTokens,
+        cacheMissTokens,
         latencyMs: result.latencyMs,
       },
       level: result.rawStatus === 0 ? 'ERROR' : 'DEFAULT',
@@ -138,11 +163,42 @@ export async function traced(
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    generation.end({
-      output: '',
-      level: 'ERROR',
-      statusMessage: message,
-    });
+    if (err instanceof AiProviderError && err.usage) {
+      const traceUsage = {
+        input_tokens: err.usage.inputTokens,
+        output_tokens: err.usage.outputTokens,
+        cache_creation_input_tokens: err.usage.cacheWriteTokens,
+        cache_read_input_tokens: err.usage.cacheReadTokens,
+      };
+      const normalized = normalizeTraceUsage(input.provider, traceUsage);
+      generation.end({
+        output: '',
+        usage: {
+          input: normalized.totalInputTokens,
+          output: err.usage.outputTokens,
+          total: normalized.totalInputTokens + err.usage.outputTokens,
+          unit: 'TOKENS',
+        },
+        metadata: {
+          cacheReadTokens: normalized.cacheReadTokens,
+          cacheCreationTokens: normalized.cacheCreationTokens,
+          cacheHitRate: normalized.cacheHitRate,
+          cacheMissTokens: normalized.cacheMissTokens,
+          latencyMs: err.latencyMs,
+          providerGenerationId: err.providerGenerationId,
+          providerRequestId: err.providerRequestId,
+          clientRequestId: err.clientRequestId,
+        },
+        level: 'ERROR',
+        statusMessage: message,
+      });
+    } else {
+      generation.end({
+        output: '',
+        level: 'ERROR',
+        statusMessage: message,
+      });
+    }
     await lf.flushAsync();
     throw err;
   }

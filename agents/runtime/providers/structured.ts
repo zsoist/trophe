@@ -114,7 +114,7 @@ export async function invokeStructuredProvider<T>(input: {
       schema: input.schema,
       validator: input.validator,
       strict,
-      cacheKey: `trophe:${input.policy.model}:${input.policy.promptVersion}`,
+      cacheKey: `trophe:${input.policy.model}:${input.policy.promptVersion}:${toolName}`,
       clientRequestId: input.clientRequestId,
     });
   }
@@ -122,10 +122,9 @@ export async function invokeStructuredProvider<T>(input: {
   // ── Anthropic: tool_use with tool_choice enforcement ──────────────────
   if (input.policy.provider === 'anthropic') {
     const result = await invokeAnthropicJson<{
-      content: Array<{ type: string; name?: string; input?: unknown }>;
+      content?: Array<{ type: string; name?: string; input?: unknown }>;
     }>({
       signal: input.signal,
-      clientRequestId: input.clientRequestId,
       body: {
         model: input.policy.model,
         max_tokens: input.maxTokens ?? input.policy.maxTokens,
@@ -141,7 +140,8 @@ export async function invokeStructuredProvider<T>(input: {
         tool_choice: { type: 'tool', name: toolName },
       },
     });
-    const toolUse = result.output.content.find(
+    const content = Array.isArray(result.output.content) ? result.output.content : [];
+    const toolUse = content.find(
       (c) => c.type === 'tool_use' && c.name === toolName,
     );
     if (!toolUse?.input) {
@@ -152,13 +152,15 @@ export async function invokeStructuredProvider<T>(input: {
         errorType: 'provider_protocol_error',
         errorCode: 'missing_tool_call',
         providerRequestId: result.providerRequestId,
-        clientRequestId: result.clientRequestId,
+        providerGenerationId: result.providerGenerationId,
+        usage: result.usage,
+        latencyMs: result.latencyMs,
       });
     }
     let output: T;
     try {
       output = input.validator.parse(toolUse.input);
-    } catch (error) {
+    } catch {
       throw new AiProviderError({
         provider: 'anthropic',
         message: 'Anthropic structured response failed validation',
@@ -166,8 +168,9 @@ export async function invokeStructuredProvider<T>(input: {
         errorType: 'provider_protocol_error',
         errorCode: 'invalid_structured_output',
         providerRequestId: result.providerRequestId,
-        clientRequestId: result.clientRequestId,
-        cause: error,
+        providerGenerationId: result.providerGenerationId,
+        usage: result.usage,
+        latencyMs: result.latencyMs,
       });
     }
     return {
@@ -177,7 +180,6 @@ export async function invokeStructuredProvider<T>(input: {
       rawStatus: result.rawStatus,
       providerGenerationId: result.providerGenerationId,
       providerRequestId: result.providerRequestId,
-      clientRequestId: result.clientRequestId,
     };
   }
 

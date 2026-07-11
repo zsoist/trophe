@@ -65,13 +65,45 @@ export async function completeGeneration(input: {
   }).where(eq(agentRuns.generationId, input.generationId));
 }
 
-export async function failGeneration(generationId: string, error: unknown): Promise<void> {
+export interface FailedGenerationEvidence {
+  usage?: AiUsage;
+  estimatedCostUsd?: number;
+  latencyMs?: number;
+  rawStatus?: number;
+  providerGenerationId?: string;
+  providerRequestId?: string;
+  clientRequestId?: string;
+}
+
+export async function failGeneration(
+  generationId: string,
+  error: unknown,
+  evidence: FailedGenerationEvidence = {},
+): Promise<void> {
   const message = error instanceof Error ? error.message : String(error);
-  const rawStatus = error instanceof AiProviderError ? error.status : undefined;
-  const diagnosticMetadata = providerErrorMetadata(error);
+  const providerError = error instanceof AiProviderError ? error : undefined;
+  const usage = evidence.usage ?? providerError?.usage;
+  const rawStatus = evidence.rawStatus ?? providerError?.status;
+  const diagnosticMetadata = {
+    ...providerErrorMetadata(error),
+    ...Object.fromEntries(Object.entries({
+      providerRequestId: evidence.providerRequestId,
+      clientRequestId: evidence.clientRequestId,
+    }).filter((entry): entry is [string, string] => typeof entry[1] === 'string' && entry[1].length > 0)),
+  };
   await db.update(agentRuns).set({
     status: 'failed',
     rawStatus,
+    providerGenerationId: evidence.providerGenerationId ?? providerError?.providerGenerationId,
+    tokensIn: usage?.inputTokens,
+    tokensOut: usage?.outputTokens,
+    cacheReadTokens: usage?.cacheReadTokens,
+    cacheWriteTokens: usage?.cacheWriteTokens,
+    reasoningTokens: usage?.reasoningTokens,
+    cachedTokens: usage?.cachedTokens,
+    costUsd: evidence.estimatedCostUsd,
+    estimatedCostUsd: evidence.estimatedCostUsd,
+    latencyMs: evidence.latencyMs ?? providerError?.latencyMs,
     errorMessage: message.slice(0, 500),
     metadata: sql`coalesce(${agentRuns.metadata}, '{}'::jsonb) || ${JSON.stringify(diagnosticMetadata)}::jsonb`,
     completedAt: new Date(),

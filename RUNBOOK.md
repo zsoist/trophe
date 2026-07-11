@@ -79,7 +79,10 @@ Common causes:
 **Diagnose**:
 ```bash
 # Recent API usage log from Supabase SQL editor
-SELECT task_name, provider, model, raw_status, error_message, cost_usd, latency_ms, created_at
+SELECT task_name, provider, model, raw_status, error_message, cost_usd, latency_ms,
+       metadata->>'providerRequestId' AS provider_request_id,
+       metadata->>'clientRequestId' AS client_request_id,
+       created_at
 FROM agent_runs
 WHERE created_at > now() - interval '1 hour'
 ORDER BY created_at DESC
@@ -90,8 +93,8 @@ Common causes:
 - **OpenAI rate limit (429)**: consumer Luna calls should fall back to Haiku; inspect fallback rate and final API outcomes.
 - **Anthropic rate limit (429)**: affects the consumer fallback plus health-context and vision lanes.
 - **DeepSeek rate limit (429)**: affects synthetic factory generation only.
-- **Provider key expired/rotated (401)**: run the manual production provider-smoke workflow before routing deployment.
-- **Prompt cache miss causing latency spike**: expected behavior after 5-min idle; not an error
+- **Provider key expired/rotated (401)**: run the main-only manual production provider-smoke workflow before routing deployment; retain its generation/request/token receipt.
+- **Prompt cache miss causing latency spike**: expected after Luna's explicit 30-minute TTL or Anthropic's default 5-minute ephemeral TTL expires; not an error by itself
 - **Timeout from Next.js function**: Vercel function maxDuration = 60s (Pro, set in `vercel.json`)
 
 **Fix**:
@@ -100,6 +103,8 @@ Common causes:
 - Timeout: inspect the specific call's token count; if prompt grew too large, trim the food reference in `lib/food/food-units.ts`
 
 **Verify**: manual curl against `/api/food/parse` with a trivial input; confirm 200 + parsed items.
+
+The GitHub provider-smoke proves the credentials stored in the GitHub `production` environment only. Vercel credentials are provisioned independently; a green workflow is not evidence that the deployed runtime has the same key. After a key or routing deployment, retain a controlled production invocation receipt as the Vercel-runtime check.
 
 ### 4. Data loss — accidental DELETE or bad UPDATE
 

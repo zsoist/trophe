@@ -11,14 +11,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     environment: production
-    env:
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-      GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      VOYAGE_API_KEY: ${{ secrets.VOYAGE_API_KEY }}
 
     steps:
+      - name: Refuse non-main dispatches
+        run: test "$GITHUB_REF" = "refs/heads/main"
+
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -31,3 +28,8 @@ jobs:
 
       - name: Verify production provider credentials and capabilities
         run: npm run ai:provider-preflight
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          VOYAGE_API_KEY: ${{ secrets.VOYAGE_API_KEY }}

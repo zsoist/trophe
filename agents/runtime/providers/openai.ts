@@ -89,21 +89,56 @@ export async function invokeOpenAiStructured<T>(input: {
   };
   let response: Response | undefined;
   let data: OpenAiResponse = {};
+  let responseWasJson = true;
+  let sentClientRequestId: string | undefined;
   for (let attempt = 0; attempt < 5; attempt++) {
-    response = await fetch(OPENAI_CHAT_COMPLETIONS_URL, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        ...(input.clientRequestId ? { 'X-Client-Request-Id': input.clientRequestId } : {}),
-      },
-      body,
-      signal: input.signal,
-    });
-    const responseText = await response.text();
+    sentClientRequestId = input.clientRequestId
+      ? `${input.clientRequestId}-attempt-${attempt + 1}`
+      : undefined;
     try {
-      data = responseText ? JSON.parse(responseText) as OpenAiResponse : {};
+      response = await fetch(OPENAI_CHAT_COMPLETIONS_URL, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          ...(sentClientRequestId ? { 'X-Client-Request-Id': sentClientRequestId } : {}),
+        },
+        body,
+        signal: input.signal,
+      });
     } catch {
+      const aborted = input.signal.aborted;
+      throw new AiProviderError({
+        provider: 'openai',
+        message: aborted ? 'OpenAI request aborted' : 'OpenAI network request failed',
+        errorType: aborted ? 'request_aborted' : 'network_error',
+        errorCode: aborted ? 'aborted' : undefined,
+        clientRequestId: sentClientRequestId,
+      });
+    }
+    let responseText: string;
+    try {
+      responseText = await response.text();
+    } catch {
+      throw new AiProviderError({
+        provider: 'openai',
+        message: 'OpenAI response body could not be read',
+        status: response.status,
+        errorType: 'provider_protocol_error',
+        errorCode: 'response_read_failed',
+        providerRequestId: response.headers.get('x-request-id') ?? undefined,
+        clientRequestId: sentClientRequestId,
+      });
+    }
+    responseWasJson = true;
+    try {
+      const parsed: unknown = responseText ? JSON.parse(responseText) : undefined;
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        throw new Error('OpenAI response root is not an object');
+      }
+      data = parsed as OpenAiResponse;
+    } catch {
+      responseWasJson = false;
       data = { error: { message: `OpenAI returned a non-JSON response (${response.status})` } };
     }
     if (response.ok) break;
@@ -113,23 +148,35 @@ export async function invokeOpenAiStructured<T>(input: {
         provider: 'openai',
         message: data.error?.message ?? `OpenAI request failed with ${response.status}`,
         status: response.status,
-        errorType: data.error?.type,
-        errorCode: data.error?.code,
+        errorType: responseWasJson ? data.error?.type : 'provider_protocol_error',
+        errorCode: responseWasJson ? data.error?.code : 'invalid_json_response',
         providerRequestId: response.headers.get('x-request-id') ?? undefined,
-        clientRequestId: input.clientRequestId,
+        clientRequestId: sentClientRequestId,
       });
     }
     const retryAfterSeconds = Number(response.headers.get('retry-after'));
     const waitMs = Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
       ? Math.ceil(retryAfterSeconds * 1_000)
       : 500 * 2 ** attempt;
-    await waitForRetry(waitMs, input.signal);
+    try {
+      await waitForRetry(waitMs, input.signal);
+    } catch {
+      throw new AiProviderError({
+        provider: 'openai',
+        message: 'OpenAI retry aborted',
+        status: response.status,
+        errorType: 'request_aborted',
+        errorCode: 'aborted',
+        providerRequestId: response.headers.get('x-request-id') ?? undefined,
+        clientRequestId: sentClientRequestId,
+      });
+    }
   }
   if (!response) {
     throw new AiProviderError({
       provider: 'openai',
       message: 'OpenAI request failed before receiving a response',
-      clientRequestId: input.clientRequestId,
+      clientRequestId: sentClientRequestId,
     });
   }
   if (!response.ok) {
@@ -137,57 +184,100 @@ export async function invokeOpenAiStructured<T>(input: {
       provider: 'openai',
       message: data.error?.message ?? `OpenAI request failed with ${response.status}`,
       status: response.status,
-      errorType: data.error?.type,
-      errorCode: data.error?.code,
+      errorType: responseWasJson ? data.error?.type : 'provider_protocol_error',
+      errorCode: responseWasJson ? data.error?.code : 'invalid_json_response',
       providerRequestId: response.headers.get('x-request-id') ?? undefined,
-      clientRequestId: input.clientRequestId,
+      clientRequestId: sentClientRequestId,
     });
   }
 
   const providerRequestId = response.headers.get('x-request-id') ?? undefined;
-  const protocolError = (message: string, errorCode: string, cause?: unknown) => new AiProviderError({
+  if (!responseWasJson) {
+    throw new AiProviderError({
+      provider: 'openai',
+      message: `OpenAI returned a non-JSON response (${response.status})`,
+      status: response.status,
+      errorType: 'provider_protocol_error',
+      errorCode: 'invalid_json_response',
+      providerRequestId,
+      clientRequestId: sentClientRequestId,
+    });
+  }
+  const protocolError = (
+    message: string,
+    errorCode: string,
+    usage?: ProviderResult<T>['usage'],
+  ) => new AiProviderError({
     provider: 'openai',
     message,
     status: response.status,
     errorType: 'provider_protocol_error',
     errorCode,
     providerRequestId,
-    clientRequestId: input.clientRequestId,
-    cause,
+    clientRequestId: sentClientRequestId,
+    providerGenerationId: typeof data.id === 'string' ? data.id : undefined,
+    usage,
+    latencyMs: Date.now() - startedAt,
   });
+  const promptTokens = data.usage?.prompt_tokens;
+  const completionTokens = data.usage?.completion_tokens;
+  if (!Number.isFinite(promptTokens) || Number(promptTokens) <= 0
+    || !Number.isFinite(completionTokens) || Number(completionTokens) < 0) {
+    throw protocolError('OpenAI response missing authoritative token usage', 'missing_usage_evidence');
+  }
+  const optionalUsageCounters = [
+    data.usage?.prompt_tokens_details?.cached_tokens,
+    data.usage?.prompt_tokens_details?.cache_write_tokens,
+    data.usage?.completion_tokens_details?.reasoning_tokens,
+  ];
+  if (optionalUsageCounters.some((value) => value !== undefined
+    && (!Number.isFinite(value) || Number(value) < 0))) {
+    throw protocolError('OpenAI response contained invalid optional token usage', 'invalid_usage_evidence');
+  }
+  const authoritativeUsage = {
+    inputTokens: promptTokens as number,
+    outputTokens: completionTokens as number,
+    cacheReadTokens: data.usage?.prompt_tokens_details?.cached_tokens ?? 0,
+    cacheWriteTokens: data.usage?.prompt_tokens_details?.cache_write_tokens ?? 0,
+    reasoningTokens: data.usage?.completion_tokens_details?.reasoning_tokens ?? 0,
+  };
+  if (typeof data.id !== 'string' || data.id.length === 0) {
+    throw protocolError('OpenAI response missing generation ID', 'missing_generation_id', authoritativeUsage);
+  }
 
   const choice = data.choices?.[0];
   const toolCall = choice?.message?.tool_calls?.find(
     (call) => call.function?.name === input.toolName,
   );
   const rawArguments = toolCall?.function?.arguments;
-  if (!rawArguments) throw protocolError('OpenAI structured response missing tool call', 'missing_tool_call');
+  if (!rawArguments) {
+    throw protocolError('OpenAI structured response missing tool call', 'missing_tool_call', authoritativeUsage);
+  }
   if (choice?.finish_reason !== 'tool_calls') {
     throw protocolError(
       `OpenAI structured response ended with ${choice?.finish_reason ?? 'unknown reason'}`,
       'unexpected_finish_reason',
+      authoritativeUsage,
     );
   }
 
   let output: T;
   try {
     output = input.validator.parse(JSON.parse(rawArguments));
-  } catch (error) {
-    throw protocolError('OpenAI structured response failed validation', 'invalid_structured_output', error);
+  } catch {
+    throw protocolError(
+      'OpenAI structured response failed validation',
+      'invalid_structured_output',
+      authoritativeUsage,
+    );
   }
 
   return {
     output,
     providerGenerationId: data.id,
     providerRequestId,
-    clientRequestId: input.clientRequestId,
-    usage: {
-      inputTokens: data.usage?.prompt_tokens ?? 0,
-      outputTokens: data.usage?.completion_tokens ?? 0,
-      cacheReadTokens: data.usage?.prompt_tokens_details?.cached_tokens ?? 0,
-      cacheWriteTokens: data.usage?.prompt_tokens_details?.cache_write_tokens ?? 0,
-      reasoningTokens: data.usage?.completion_tokens_details?.reasoning_tokens ?? 0,
-    },
+    clientRequestId: sentClientRequestId,
+    usage: authoritativeUsage,
     latencyMs: Date.now() - startedAt,
     rawStatus: response.status,
   };

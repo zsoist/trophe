@@ -163,6 +163,7 @@ export async function run(
     result.usage.input_tokens,
     result.usage.output_tokens,
     result.usage.cache_read_input_tokens ?? 0,
+    result.usage.cache_creation_input_tokens ?? 0,
   );
 
   emitGenAISpan({

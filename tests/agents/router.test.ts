@@ -92,11 +92,22 @@ describe('estimateCostUsd()', () => {
   });
 
   it('deducts cache-read tokens from billable input (Anthropic cache discount)', () => {
-    // 1000 total input, 800 cached (charged at cache-read rate), 200 new (charged at full rate)
-    const withCache = estimateCostUsd('claude-haiku-4-5-20251001', 1000, 100, 800);
+    // Anthropic reports 200 uncached input + 800 cached input as additive buckets.
+    const withCache = estimateCostUsd('claude-haiku-4-5-20251001', 200, 100, 800);
     const withoutCache = estimateCostUsd('claude-haiku-4-5-20251001', 1000, 100, 0);
     // Cache-read tokens are billed at ~10% of full input rate → should be cheaper
     expect(withCache).toBeLessThan(withoutCache);
+  });
+
+  it('prices Anthropic native input and additive cache buckets without subtracting twice', () => {
+    const cost = estimateCostUsd('claude-haiku-4-5-20251001', 120, 0, 40, 80);
+    expect(cost).toBeCloseTo((120 * 1.00 + 40 * 0.10 + 80 * 1.25) / 1_000_000, 10);
+  });
+
+  it('prices Luna cache reads and writes at their distinct rates', () => {
+    // 100 uncached + 800 read + 100 write tokens, no output.
+    const cost = estimateCostUsd('gpt-5.6-luna', 1_000, 0, 800, 100);
+    expect(cost).toBeCloseTo((100 * 1.00 + 800 * 0.10 + 100 * 1.25) / 1_000_000, 10);
   });
 
   it('returns 0 for unknown model', () => {

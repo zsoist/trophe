@@ -50,7 +50,6 @@ describe('Anthropic structured provider hardening', () => {
         required: ['value'],
       },
       validator,
-      clientRequestId: 'client-generation-456',
     });
 
     const request = JSON.parse(fetchMock.mock.calls[0][1].body as string);
@@ -63,8 +62,7 @@ describe('Anthropic structured provider hardening', () => {
       output: { value: 'ok' },
       providerGenerationId: 'msg_123',
       providerRequestId: 'req_anthropic_123',
-      clientRequestId: 'client-generation-456',
-      usage: { cacheWriteTokens: 80, cacheReadTokens: 40 },
+      usage: { inputTokens: 120, cacheWriteTokens: 80, cacheReadTokens: 40 },
     });
   });
 
@@ -82,7 +80,6 @@ describe('Anthropic structured provider hardening', () => {
     const rejection = expect(invokeAnthropicJson({
       signal: new AbortController().signal,
       body: { model: 'claude-haiku-4-5-20251001' },
-      clientRequestId: 'client-402',
     })).rejects;
 
     await rejection.toThrow('credit balance is too low');
@@ -92,7 +89,126 @@ describe('Anthropic structured provider hardening', () => {
       status: 402,
       errorType: 'billing_error',
       providerRequestId: 'req_header_456',
-      clientRequestId: 'client-402',
     });
+  });
+
+  it('classifies a malformed successful payload without losing request evidence', async () => {
+    vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      id: 'msg_malformed',
+      content: { unexpected: true },
+      usage: { input_tokens: 5, output_tokens: 1 },
+    }), {
+      status: 200,
+      headers: { 'content-type': 'application/json', 'request-id': 'req_malformed' },
+    })));
+
+    await expect(invokeStructuredProvider({
+      policy: {
+        provider: 'anthropic', model: 'claude-haiku-4-5-20251001',
+        costClass: 'cheap', latencyClass: 'fast', maxTokens: 256,
+        timeoutMs: 1_000, maxInputChars: 1_000, maxCostUsd: 0.02,
+        promptVersion: 'test',
+      },
+      system: 'system', prompt: 'prompt', signal: new AbortController().signal,
+      schema: { type: 'object' }, validator,
+    })).rejects.toMatchObject({
+      name: 'AiProviderError',
+      status: 200,
+      errorType: 'provider_protocol_error',
+      errorCode: 'missing_tool_call',
+      providerRequestId: 'req_malformed',
+    });
+  });
+
+  it('classifies a JSON null root as an invalid provider response', async () => {
+    vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('null', {
+      status: 200,
+      headers: { 'content-type': 'application/json', 'request-id': 'req_null' },
+    })));
+
+    await expect(invokeAnthropicJson({
+      signal: new AbortController().signal,
+      body: { model: 'claude-haiku-4-5-20251001' },
+    })).rejects.toMatchObject({
+      name: 'AiProviderError',
+      status: 200,
+      errorType: 'provider_protocol_error',
+      errorCode: 'invalid_json_response',
+      providerRequestId: 'req_null',
+    });
+  });
+
+  it('classifies a network failure before any provider response', async () => {
+    vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('fetch failed')));
+
+    await expect(invokeAnthropicJson({
+      signal: new AbortController().signal,
+      body: { model: 'claude-haiku-4-5-20251001' },
+    })).rejects.toMatchObject({
+      name: 'AiProviderError',
+      provider: 'anthropic',
+      errorType: 'network_error',
+    });
+  });
+
+  it('retains response evidence when the response body cannot be read', async () => {
+    vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
+    const response = {
+      status: 200,
+      headers: new Headers({ 'request-id': 'req_unreadable' }),
+      text: vi.fn().mockRejectedValue(new Error('stream reset')),
+    } as unknown as Response;
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response));
+
+    await expect(invokeAnthropicJson({
+      signal: new AbortController().signal,
+      body: { model: 'claude-haiku-4-5-20251001' },
+    })).rejects.toMatchObject({
+      status: 200,
+      errorType: 'provider_protocol_error',
+      errorCode: 'response_read_failed',
+      providerRequestId: 'req_unreadable',
+    });
+  });
+
+  it('rejects a tool payload without generation and usage evidence', async () => {
+    vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      content: [{ type: 'tool_use', name: 'submit_result', input: { value: 'ok' } }],
+      usage: { input_tokens: 5, output_tokens: 2 },
+    }), {
+      status: 200,
+      headers: { 'content-type': 'application/json', 'request-id': 'req_missing_evidence' },
+    })));
+
+    await expect(invokeAnthropicJson({
+      signal: new AbortController().signal,
+      body: { model: 'claude-haiku-4-5-20251001' },
+    })).rejects.toMatchObject({
+      errorType: 'provider_protocol_error',
+      errorCode: 'missing_generation_id',
+      providerRequestId: 'req_missing_evidence',
+      usage: { inputTokens: 5, outputTokens: 2 },
+    });
+  });
+
+  it('rejects malformed optional usage counters', async () => {
+    vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      id: 'msg_bad_usage',
+      content: [{ type: 'tool_use', name: 'submit_result', input: { value: 'ok' } }],
+      usage: { input_tokens: 5, output_tokens: 2, cache_creation_input_tokens: 'bad' },
+    }), {
+      status: 200,
+      headers: { 'content-type': 'application/json', 'request-id': 'req_bad_usage' },
+    })));
+
+    await expect(invokeAnthropicJson({
+      signal: new AbortController().signal,
+      body: { model: 'claude-haiku-4-5-20251001' },
+    })).rejects.toMatchObject({ errorCode: 'invalid_usage_evidence' });
   });
 });

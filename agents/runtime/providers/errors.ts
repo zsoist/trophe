@@ -1,4 +1,5 @@
 import type { Provider } from '@/agents/router/policies';
+import type { AiUsage } from '../types';
 
 export interface AiProviderErrorInput {
   provider: Provider;
@@ -8,11 +9,15 @@ export interface AiProviderErrorInput {
   errorCode?: string;
   providerRequestId?: string;
   clientRequestId?: string;
-  cause?: unknown;
+  providerGenerationId?: string;
+  usage?: AiUsage;
+  latencyMs?: number;
 }
 
 /**
  * Safe, provider-agnostic diagnostics for persistence and incident triage.
+ * Validated HTTP-200 failures may also carry generation, usage, and latency
+ * evidence so paid attempts are accounted before a fallback runs.
  * Never attach credentials, prompts, or raw response bodies to this error.
  */
 export class AiProviderError extends Error {
@@ -22,9 +27,12 @@ export class AiProviderError extends Error {
   readonly errorCode?: string;
   readonly providerRequestId?: string;
   readonly clientRequestId?: string;
+  readonly providerGenerationId?: string;
+  readonly usage?: AiUsage;
+  readonly latencyMs?: number;
 
   constructor(input: AiProviderErrorInput) {
-    super(input.message, input.cause === undefined ? undefined : { cause: input.cause });
+    super(input.message);
     this.name = 'AiProviderError';
     this.provider = input.provider;
     this.status = input.status;
@@ -32,6 +40,9 @@ export class AiProviderError extends Error {
     this.errorCode = input.errorCode;
     this.providerRequestId = input.providerRequestId;
     this.clientRequestId = input.clientRequestId;
+    this.providerGenerationId = input.providerGenerationId;
+    this.usage = input.usage;
+    this.latencyMs = input.latencyMs;
   }
 }
 
