@@ -173,10 +173,10 @@ describe('loadCoachBlocks() unit', () => {
 // ── 10. Router: memory task policies ──────────────────────────────────────
 
 describe('router: memory task policies', () => {
-  it('memory_extract maps to cost-efficient DeepSeek structured output', () => {
+  it('keeps health-context memory extraction on Anthropic', () => {
     const policy = pick('memory_extract');
-    expect(policy.provider).toBe('deepseek');
-    expect(policy.model).toBe('deepseek-v4-flash');
+    expect(policy.provider).toBe('anthropic');
+    expect(policy.model).toBe('claude-haiku-4-5-20251001');
     expect(policy.costClass).toBe('cheap');
   });
 
