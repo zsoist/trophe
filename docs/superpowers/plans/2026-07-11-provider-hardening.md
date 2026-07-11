@@ -6,7 +6,7 @@
 
 **Architecture:** Provider adapters emit a shared safe diagnostic type and optional request IDs. The runtime persists those fields in existing `agent_runs` columns/metadata. Stable prompt prefixes are marked in the structured-provider wire adapters. A standalone tested preflight script owns manual workflow probes.
 
-**Tech Stack:** TypeScript, Next.js, Vitest, GitHub Actions, OpenAI Chat Completions, Anthropic Messages.
+**Tech Stack:** TypeScript, Next.js, Vitest, GitHub Actions, OpenAI Chat Completions, Anthropic Messages, Voyage Embeddings.
 
 ---
 
@@ -62,7 +62,7 @@
 - Test: `tests/agents/provider-preflight.test.ts`
 - Test: `tests/agents/deepseek-eval-contract.test.ts`
 
-- [ ] Write failing mocked-HTTP tests for all required lane checks, OpenAI/Anthropic read-only batch listing, DeepSeek model/balance checks, non-zero usage, request-ID output, and fail-closed behavior.
+- [ ] Write failing mocked-HTTP tests for all required lane checks, OpenAI/Anthropic/Voyage read-only batch listing, DeepSeek model/balance checks, non-zero usage, request-ID output, and fail-closed behavior.
 - [ ] Run the targeted tests and confirm failure.
 - [ ] Extract the workflow logic into the script and wire the workflow to it. Do not create a batch or make production calls locally.
 - [ ] Run the targeted tests green.

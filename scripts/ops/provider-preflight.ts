@@ -6,6 +6,7 @@ export interface ProviderPreflightEnv {
   DEEPSEEK_API_KEY?: string;
   GOOGLE_API_KEY?: string;
   OPENAI_API_KEY?: string;
+  VOYAGE_API_KEY?: string;
 }
 
 export interface ProviderPreflightCheck {
@@ -224,6 +225,42 @@ export async function runProviderPreflight(input: PreflightInput = {}): Promise<
         };
       },
     })),
+    executeCheck('voyage.entitlement', async () => {
+      const key = env.VOYAGE_API_KEY;
+      if (!key) return missingKey('voyage.entitlement', 'VOYAGE_API_KEY');
+      const startedAt = Date.now();
+      const response = await fetchImpl('https://api.voyageai.com/v1/embeddings', {
+        method: 'POST',
+        headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
+        body: JSON.stringify({
+          input: 'provider preflight',
+          model: 'voyage-4',
+          input_type: 'query',
+          output_dimension: 256,
+        }),
+      });
+      const data = await readJson(response);
+      const usage = data.usage as Record<string, unknown> | undefined;
+      const firstEmbedding = Array.isArray(data.data) && data.data[0] && typeof data.data[0] === 'object'
+        ? (data.data[0] as Record<string, unknown>).embedding
+        : undefined;
+      const inputTokens = Number(usage?.total_tokens ?? 0);
+      const hasEvidence = Array.isArray(firstEmbedding) && firstEmbedding.length > 0 && inputTokens > 0;
+      return {
+        id: 'voyage.entitlement',
+        ok: response.ok && hasEvidence,
+        status: response.status,
+        latencyMs: Date.now() - startedAt,
+        providerRequestId: response.headers.get('request-id')
+          ?? response.headers.get('x-request-id')
+          ?? undefined,
+        inputTokens,
+        outputTokens: 0,
+        ...(response.ok
+          ? (hasEvidence ? {} : { errorType: 'missing_usage_evidence', message: 'Embedding or token usage missing' })
+          : errorFields(data)),
+      };
+    }),
     executeCheck('openai.batch', async () => {
       const key = env.OPENAI_API_KEY;
       if (!key) return missingKey('openai.batch', 'OPENAI_API_KEY');
@@ -253,6 +290,24 @@ export async function runProviderPreflight(input: PreflightInput = {}): Promise<
         ok: response.ok,
         status: response.status,
         providerRequestId: response.headers.get('request-id') ?? undefined,
+        ...(response.ok ? {} : errorFields(data)),
+      };
+    }),
+    executeCheck('voyage.batch', async () => {
+      const key = env.VOYAGE_API_KEY;
+      if (!key) return missingKey('voyage.batch', 'VOYAGE_API_KEY');
+      const response = await fetchImpl('https://api.voyageai.com/v1/batches?limit=1', {
+        method: 'GET',
+        headers: { authorization: `Bearer ${key}`, accept: 'application/json' },
+      });
+      const data = await readJson(response);
+      return {
+        id: 'voyage.batch',
+        ok: response.ok,
+        status: response.status,
+        providerRequestId: response.headers.get('request-id')
+          ?? response.headers.get('x-request-id')
+          ?? undefined,
         ...(response.ok ? {} : errorFields(data)),
       };
     }),
@@ -306,6 +361,12 @@ export async function runProviderPreflight(input: PreflightInput = {}): Promise<
       ok: true,
       balanceState: 'not_api_verifiable',
       message: 'No supported balance endpoint; bounded generation proves current spend entitlement',
+    },
+    {
+      id: 'voyage.balance',
+      ok: true,
+      balanceState: 'not_api_verifiable',
+      message: 'No supported balance endpoint; bounded embedding proves current spend entitlement',
     },
   );
 

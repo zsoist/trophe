@@ -46,4 +46,13 @@ describe('DeepSeek candidate benchmark contract', () => {
       'usage?.completion_tokens', 'data.id', 'X-Client-Request-Id',
     ]) expect(source).toContain(expected);
   });
+
+  it('production provider smoke exercises the Voyage embedding lane and its read-only batch capability', () => {
+    const workflow = readFileSync(join(process.cwd(), '.github/workflows/provider-smoke.yml'), 'utf8');
+    const source = readFileSync(join(process.cwd(), 'scripts/ops/provider-preflight.ts'), 'utf8');
+    for (const expected of [
+      'VOYAGE_API_KEY', 'voyage.entitlement', 'voyage-4', 'api.voyageai.com/v1/embeddings',
+      'voyage.batch', 'api.voyageai.com/v1/batches?limit=1',
+    ]) expect(`${workflow}\n${source}`).toContain(expected);
+  });
 });

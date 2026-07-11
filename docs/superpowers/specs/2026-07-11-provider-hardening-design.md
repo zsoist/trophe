@@ -33,13 +33,13 @@ Cache keys contain model/prompt-version identity only, never a user ID or prompt
 
 Refactor the workflow's inline checks into a tested script. It will:
 
-- issue a minimal live generation for OpenAI Luna, Anthropic Haiku, Google Gemini, and DeepSeek factory routing;
+- issue a minimal live generation for OpenAI Luna, Anthropic Haiku, Google Gemini, and DeepSeek factory routing, plus a minimal Voyage embedding for the active memory lane;
 - require provider generation identity and non-zero authoritative token usage for the active Luna/Haiku lanes;
-- list OpenAI batches (`GET /v1/batches?limit=1`) and Anthropic message batches without creating paid work;
+- list OpenAI batches (`GET /v1/batches?limit=1`), Anthropic message batches, and Voyage embedding batches without creating paid work;
 - verify DeepSeek required model aliases and its supported `/user/balance` availability signal;
 - classify each check as credential, entitlement, batch-capability, or balance evidence and fail the workflow on any required check.
 
-OpenAI and Anthropic do not expose an application balance endpoint in the supported public APIs used here. Their preflight therefore reports balance as console-managed/not API-verifiable and proves spend entitlement through the bounded generation call. Auto-reload and low-balance alerts remain human console controls.
+OpenAI, Anthropic, and Voyage do not expose an application balance endpoint in the supported public APIs used here. Their preflight therefore reports balance as console-managed/not API-verifiable and proves spend entitlement through a bounded generation or embedding call. Auto-reload and low-balance alerts remain human console controls.
 
 ## Verification
 

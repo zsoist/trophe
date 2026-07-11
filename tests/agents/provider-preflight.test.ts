@@ -6,6 +6,7 @@ const env = {
   DEEPSEEK_API_KEY: 'deepseek-test',
   GOOGLE_API_KEY: 'google-test',
   OPENAI_API_KEY: 'openai-test',
+  VOYAGE_API_KEY: 'voyage-test',
 };
 
 function jsonResponse(body: unknown, status = 200, headers: Record<string, string> = {}): Response {
@@ -45,6 +46,14 @@ function successfulFetch() {
         usage: { prompt_tokens: 2, completion_tokens: 1 },
       });
     }
+    if (url === 'https://api.voyageai.com/v1/embeddings') {
+      return jsonResponse({
+        object: 'list',
+        data: [{ object: 'embedding', embedding: [0.1, 0.2], index: 0 }],
+        model: 'voyage-4',
+        usage: { total_tokens: 1 },
+      }, 200, { 'request-id': 'req-voyage-1' });
+    }
     if (url === 'https://api.openai.com/v1/batches?limit=1') {
       expect(init?.method ?? 'GET').toBe('GET');
       return jsonResponse({ object: 'list', data: [], has_more: false });
@@ -52,6 +61,10 @@ function successfulFetch() {
     if (url === 'https://api.anthropic.com/v1/messages/batches?limit=1') {
       expect(init?.method ?? 'GET').toBe('GET');
       return jsonResponse({ data: [], has_more: false });
+    }
+    if (url === 'https://api.voyageai.com/v1/batches?limit=1') {
+      expect(init?.method ?? 'GET').toBe('GET');
+      return jsonResponse({ object: 'list', data: [], has_more: false });
     }
     if (url === 'https://api.deepseek.com/models') {
       return jsonResponse({ data: [{ id: 'deepseek-v4-flash' }, { id: 'deepseek-v4-pro' }] });
@@ -74,11 +87,13 @@ describe('provider preflight', () => {
       expect.objectContaining({ id: 'anthropic.entitlement', ok: true, providerRequestId: 'req-anthropic-1' }),
       expect.objectContaining({ id: 'openai.batch', ok: true }),
       expect.objectContaining({ id: 'anthropic.batch', ok: true }),
+      expect.objectContaining({ id: 'voyage.entitlement', ok: true, providerRequestId: 'req-voyage-1' }),
+      expect.objectContaining({ id: 'voyage.batch', ok: true }),
       expect.objectContaining({ id: 'deepseek.balance', ok: true, balanceState: 'available' }),
     ]));
 
     const batchCalls = fetchImpl.mock.calls.filter(([request]) => String(request).includes('/batches'));
-    expect(batchCalls).toHaveLength(2);
+    expect(batchCalls).toHaveLength(3);
     expect(batchCalls.every(([, init]) => (init?.method ?? 'GET') === 'GET')).toBe(true);
   });
 
