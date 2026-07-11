@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { taskPolicies } from '@/agents/router/policies';
 import { reconcileAiCosts } from '@/agents/runtime/cost-reconciliation';
+import { estimateModelCostUsd } from '@/agents/router/pricing';
 
 const run = {
   id: 'run-1',
@@ -10,7 +11,7 @@ const run = {
   tokensOut: 1_000_000,
   cacheReadTokens: 0,
   cacheWriteTokens: 0,
-  recordedCostUsd: 0.42,
+  recordedCostUsd: estimateModelCostUsd(taskPolicies.food_parse.model, 1_000_000, 1_000_000),
 };
 
 describe('AI cost reconciliation', () => {

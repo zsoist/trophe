@@ -13,9 +13,13 @@ import { loadEnvConfig } from '@next/env';
 loadEnvConfig(process.cwd());
 
 const BASE = process.env.SMOKE_BASE ?? 'https://trophe.app';
-const EVAL_EMAIL = 'eval-tester-2026@trophe.app';
+const EVAL_EMAIL = process.env.EVAL_AUTH_EMAIL;
+const WRITER_EMAIL = process.env.EVAL_WRITER_EMAIL;
 
 async function main() {
+  if (!EVAL_EMAIL || !WRITER_EMAIL) {
+    throw new Error('EVAL_AUTH_EMAIL and EVAL_WRITER_EMAIL are required');
+  }
   const { createClient } = await import('@supabase/supabase-js');
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -46,7 +50,7 @@ async function main() {
   // NOTE: the eval-tester auth user has no profiles row (test account), and
   // food_log.user_id FKs profiles — so the WRITE half runs as a real-profile
   // user (parse already proved the allowlisted path above).
-  const { data: link2, error: linkErr2 } = await admin.auth.admin.generateLink({ type: 'magiclink', email: 'daniel@reyes.com' });
+  const { data: link2, error: linkErr2 } = await admin.auth.admin.generateLink({ type: 'magiclink', email: WRITER_EMAIL });
   if (linkErr2) throw linkErr2;
   const { data: otp2, error: otpErr2 } = await anon.auth.verifyOtp({ type: 'magiclink', token_hash: link2.properties!.hashed_token });
   if (otpErr2 || !otp2.session) throw otpErr2 ?? new Error('no session (writer)');

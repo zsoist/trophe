@@ -107,4 +107,54 @@ describe('invokeOpenAiStructured', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     vi.useRealTimers();
   });
+
+  it('retries a non-JSON 5xx response instead of failing during response parsing', async () => {
+    vi.useFakeTimers();
+    vi.stubEnv('OPENAI_API_KEY', 'test-key');
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response('<html>upstream unavailable</html>', {
+        status: 503,
+        headers: { 'Content-Type': 'text/html' },
+      }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        choices: [{
+          finish_reason: 'tool_calls',
+          message: { tool_calls: [{ function: { name: 'submit_result', arguments: '{"value":"ok"}' } }] },
+        }],
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const pending = invokeOpenAiStructured({
+      model: 'gpt-5.6-luna', system: 'system', prompt: 'prompt', maxTokens: 256,
+      signal: new AbortController().signal, toolName: 'submit_result', description: 'Submit result',
+      schema: { type: 'object' }, validator,
+    });
+    await vi.runAllTimersAsync();
+    await expect(pending).resolves.toMatchObject({ output: { value: 'ok' } });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    vi.useRealTimers();
+  });
+
+  it('aborts during Retry-After backoff without issuing another request', async () => {
+    vi.stubEnv('OPENAI_API_KEY', 'test-key');
+    const controller = new AbortController();
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      error: { message: 'rate limited' },
+    }), {
+      status: 429,
+      headers: { 'Content-Type': 'application/json', 'Retry-After': '60' },
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const pending = invokeOpenAiStructured({
+      model: 'gpt-5.6-luna', system: 'system', prompt: 'prompt', maxTokens: 256,
+      signal: controller.signal, toolName: 'submit_result', description: 'Submit result',
+      schema: { type: 'object' }, validator,
+    });
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+    controller.abort();
+
+    await expect(pending).rejects.toThrow('retry aborted');
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
 });

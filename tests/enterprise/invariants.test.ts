@@ -211,12 +211,15 @@ describe('enterprise hardening invariants', () => {
     expect(conversation).not.toContain('after(async');
   });
 
-  it('enforces eval gates in required CI (hard gate + required suites)', () => {
+  it('enforces deterministic eval contracts in required CI without paid provider calls', () => {
     const workflow = readFileSync(join(root, '.github/workflows/ci.yml'), 'utf8');
-    expect(workflow).toContain('EVAL_ENFORCE_GATE: 1');
-    // The runner hard-codes the 95% threshold; the real no-skip enforcement is the required
-    // suite list. EVAL_MIN_PASS_RATE was removed as unused/misleading config (WP3 truth fix).
-    expect(workflow).toContain('EVAL_REQUIRED_SUITES: recipe_analyze,coach_insight');
+    expect(workflow).toContain('Agent routing and eval contracts (no paid calls)');
+    expect(workflow).toContain('tests/agents/phase3-routing-policy.test.ts');
+    expect(workflow).toContain('tests/agents/golden-tolerance-guard.test.ts');
+    expect(workflow).toContain('tests/agents/food-parse-watchlist.test.ts');
+    expect(workflow).not.toContain('npm run evals');
+    expect(workflow).not.toContain('EVAL_REQUIRED_SUITES');
+    expect(workflow).not.toContain('EVAL_ENFORCE_GATE');
     expect(workflow).toContain('Nutrition safety and release-gate tests');
     expect(workflow).toContain('RAG safety and release-gate tests');
   });

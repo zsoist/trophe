@@ -14,18 +14,18 @@ import { modelPricing } from '../../agents/router/pricing';
 // ─── Router: policy dispatch ──────────────────────────────────────────────
 
 describe('router.pick()', () => {
-  it('returns the correct policy for food_parse → deepseek/deepseek-v4-flash', () => {
+  it('routes food_parse through Luna', () => {
     const policy = pick('food_parse');
-    expect(policy.provider).toBe('deepseek');
-    expect(policy.model).toBe('deepseek-v4-flash');
-    expect(policy.costClass).toBe('cheap');
+    expect(policy.provider).toBe('openai');
+    expect(policy.model).toBe('gpt-5.6-luna');
+    expect(policy.costClass).toBe('mid');
     expect(policy.latencyClass).toBe('fast');
   });
 
-  it('returns the correct policy for recipe_analyze → deepseek/deepseek-v4-flash', () => {
+  it('keeps consumer text tasks out of the factory lane', () => {
     const policy = pick('recipe_analyze');
-    expect(policy.provider).toBe('deepseek');
-    expect(policy.model).toBe('deepseek-v4-flash');
+    expect(policy.provider).toBe('openai');
+    expect(policy.model).toBe('gpt-5.6-luna');
   });
 
   it('keeps health-context coach insight on Anthropic', () => {
@@ -38,7 +38,7 @@ describe('router.pick()', () => {
   it('does not let the retired DeepSeek coach override cross the compliance boundary', () => {
     process.env.DEEPSEEK_COACH_MODEL = 'deepseek-v4-pro';
     expect(pick('coach_insight')).toMatchObject({ provider: 'anthropic', model: 'claude-haiku-4-5-20251001' });
-    expect(pick('food_parse')).toMatchObject({ provider: 'deepseek', model: 'deepseek-v4-flash' });
+    expect(pick('food_parse')).toMatchObject({ provider: 'openai', model: 'gpt-5.6-luna' });
     delete process.env.DEEPSEEK_COACH_MODEL;
   });
 
@@ -67,7 +67,7 @@ describe('router.pick()', () => {
 
 describe('router.modelFor()', () => {
   it('returns model string for food_parse', () => {
-    expect(modelFor('food_parse')).toBe('deepseek-v4-flash');
+    expect(modelFor('food_parse')).toBe('gpt-5.6-luna');
   });
 
   it('returns model string for coach_insight', () => {

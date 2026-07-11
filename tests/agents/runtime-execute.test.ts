@@ -9,12 +9,13 @@ const orgBudget = vi.hoisted(() => ({
   resolveOrganizationId: vi.fn(),
   assertWithinOrganizationBudget: vi.fn(),
 }));
+const observability = vi.hoisted(() => ({
+  traced: vi.fn(async (_input, fn: () => Promise<unknown>) => fn()),
+}));
 
 vi.mock('@/agents/runtime/persistence', () => persistence);
 vi.mock('@/agents/runtime/org-budget', () => orgBudget);
-vi.mock('@/agents/observability/langfuse', () => ({
-  traced: vi.fn(async (_input, fn: () => Promise<unknown>) => fn()),
-}));
+vi.mock('@/agents/observability/langfuse', () => observability);
 
 import { executeAiTask } from '@/agents/runtime/execute';
 
@@ -96,6 +97,30 @@ describe('executeAiTask integration contract', () => {
     expect(orgBudget.assertWithinOrganizationBudget).toHaveBeenCalledWith(undefined, userId);
   });
 
+  it('keeps Langfuse identity and fallback fields authoritative', async () => {
+    const userId = '00000000-0000-0000-0000-000000000002';
+    await executeAiTask({
+      task: 'meal_suggest',
+      prompt: 'suggest a meal',
+      context: {
+        userId,
+        metadata: { generationId: 'spoofed', isFallback: true, userId: 'raw-user' },
+      },
+      invoke: vi.fn(async () => ({
+        output: { suggestions: ['meal'] },
+        usage: { inputTokens: 100, outputTokens: 20 },
+        latencyMs: 50,
+        rawStatus: 200,
+      })),
+    });
+
+    const traceInput = observability.traced.mock.calls[0][0];
+    expect(traceInput.metadata).toMatchObject({ isFallback: false });
+    expect(traceInput.metadata.generationId).not.toBe('spoofed');
+    expect(traceInput.metadata.userId).toMatch(/^trophe_[0-9a-f]{32}$/);
+    expect(traceInput.metadata.userId).not.toBe(userId);
+  });
+
   it('persists the resolved organization for attributed costs', async () => {
     orgBudget.resolveOrganizationId.mockResolvedValueOnce('00000000-0000-0000-0000-000000000001');
 
@@ -139,17 +164,15 @@ describe('executeAiTask integration contract', () => {
   });
 
   it('falls back to secondary provider when primary fails', async () => {
-    // meal_suggest has a fallback (DeepSeek retry with longer timeout).
+    // Consumer text fails over from Luna to Haiku without reopening DeepSeek.
     let callCount = 0;
     const invoke = vi.fn(async ({ policy }: { policy: { provider: string } }) => {
       callCount++;
       if (callCount === 1) {
-        // Primary (deepseek) fails
-        expect(policy.provider).toBe('deepseek');
-        throw new Error('DeepSeek rate limited');
+        expect(policy.provider).toBe('openai');
+        throw new Error('OpenAI rate limited');
       }
-      // Fallback (deepseek retry) succeeds
-      expect(policy.provider).toBe('deepseek');
+      expect(policy.provider).toBe('anthropic');
       return {
         output: { suggestions: ['fallback meal'] },
         usage: { inputTokens: 50, outputTokens: 10 },
@@ -166,11 +189,15 @@ describe('executeAiTask integration contract', () => {
 
     expect(invoke).toHaveBeenCalledTimes(2);
     expect(result.output).toEqual({ suggestions: ['fallback meal'] });
+    expect(result).toMatchObject({
+      selectedPolicy: { provider: 'anthropic', model: 'claude-haiku-4-5-20251001' },
+      isFallback: true,
+    });
     // Both primary failure and fallback success should be persisted
     expect(persistence.failGeneration).toHaveBeenCalledOnce();
     expect(persistence.completeGeneration).toHaveBeenCalledOnce();
     expect(persistence.createGeneration).toHaveBeenLastCalledWith(
-      expect.objectContaining({ fallbackFrom: 'deepseek-v4-flash' }),
+      expect.objectContaining({ fallbackFrom: 'gpt-5.6-luna' }),
     );
   });
 
@@ -190,6 +217,33 @@ describe('executeAiTask integration contract', () => {
 
     await rejection;
     expect(invoke.mock.calls[0]?.[0].signal.aborted).toBe(true);
+    vi.useRealTimers();
+  });
+
+  it('falls back to Haiku when the bounded food_parse primary times out', async () => {
+    vi.useFakeTimers();
+    let callCount = 0;
+    const invoke = vi.fn(({ policy, signal }: { policy: { provider: string }; signal: AbortSignal }) => {
+      callCount++;
+      if (callCount === 1) {
+        expect(policy.provider).toBe('openai');
+        return new Promise<never>((_, reject) => {
+          signal.addEventListener('abort', () => reject(new Error('primary timed out')), { once: true });
+        });
+      }
+      expect(policy.provider).toBe('anthropic');
+      return Promise.resolve({
+        output: { items: [] },
+        usage: { inputTokens: 10, outputTokens: 5 },
+        latencyMs: 50,
+        rawStatus: 200,
+      });
+    });
+
+    const execution = executeAiTask({ task: 'food_parse', prompt: 'one apple', invoke });
+    await vi.advanceTimersByTimeAsync(15_000);
+    await expect(execution).resolves.toMatchObject({ output: { items: [] } });
+    expect(invoke).toHaveBeenCalledTimes(2);
     vi.useRealTimers();
   });
 });

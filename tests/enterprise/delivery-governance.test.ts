@@ -34,12 +34,20 @@ describe('WP3 delivery truth governance', () => {
     expect(mutableUses).toEqual([]);
   });
 
-  it('required CI cannot pass with skipped agent eval suites', () => {
+  it('required CI enforces deterministic agent contracts without paid provider calls', () => {
     const ci = read('.github/workflows/ci.yml');
     const runner = read('agents/evals/run-all.ts');
 
     expect(ci).not.toContain('ALLOW_SKIPPED_EVALS');
-    expect(ci).toContain('EVAL_REQUIRED_SUITES: recipe_analyze,coach_insight');
+    expect(ci).toContain('Agent routing and eval contracts (no paid calls)');
+    expect(ci).toContain('tests/agents/phase3-routing-policy.test.ts');
+    expect(ci).toContain('tests/agents/golden-tolerance-guard.test.ts');
+    expect(ci).toContain('tests/agents/food-parse-watchlist.test.ts');
+    expect(ci).not.toContain('npm run evals');
+    expect(ci).not.toContain('EVAL_REQUIRED_SUITES');
+    expect(ci).not.toContain('EVAL_ENFORCE_GATE');
+
+    // Live evals remain strict when deliberately run; they are not paid PR checks.
     expect(runner).toContain('EVAL_REQUIRED_SUITES');
     expect(runner).toContain('Required eval suite skipped');
   });

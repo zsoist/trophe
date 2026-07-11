@@ -58,7 +58,7 @@ Initial audit findings are hypotheses. Sanity checks are the verification. Don't
 | **Database** | Supabase Postgres (production) + Supabase CLI local stack @ `127.0.0.1:54322` (dev) |
 | **ORM** | Drizzle ORM + Drizzle Kit — schema in `db/schema/`, migrations in `drizzle/` |
 | **API** | tRPC v11 (coach UI) + REST `/api/*` (public / webhooks) |
-| **AI** | LLM router (`agents/router/`) — 100% DeepSeek V4 Flash for ALL text (food-parse, recipe, coach insights, meal-suggest). Only non-DeepSeek: photo_analyze → Anthropic Haiku 4.5 (vision) |
+| **AI** | Three-lane LLM router (`agents/router/`) — consumer text Luna → Haiku, health context Haiku, synthetic factory DeepSeek V4 Flash, vision Haiku |
 | **Embeddings** | Voyage `voyage-4` 1024-dim via `scripts/ingest/embed-foods.ts` |
 | **Observability** | Langfuse via `LANGFUSE_HOST` — OTel GenAI semconv per span |
 | **Computer Vision** | MediaPipe Pose (browser WASM, 33 landmarks, 30+ FPS) for AI Form Check |
@@ -78,7 +78,7 @@ v0.3-overhaul merged to main 2026-05-03. Nutrition accuracy work ongoing June 20
 
 ### What IS running in production (on Supabase Postgres)
 - Auth (cookie-based @supabase/ssr), 30+ tables, RLS, food logging, coach dashboard, workouts, supplements, habits
-- AI food-parse v7 (DeepSeek V4 Flash primary via `/api/food/parse`) with CoT dual-path arbitration
+- AI food-parse v7 (GPT-5.6 Luna → Haiku 4.5 via `/api/food/parse`) with CoT dual-path arbitration
 - 8-language support: EN/ES/EL/FR core + overlay DE/IT/PT/NL
 - Deterministic food lookup: 42,952 foods + 8,608 unit conversions + 293 recipes + 6,580 aliases
 - Composite dish decomposition: 210+ cached recipes + LLM decompose-on-miss pipeline
@@ -113,7 +113,7 @@ v0.3-overhaul merged to main 2026-05-03. Nutrition accuracy work ongoing June 20
 ### AI / Agents (v0.3+)
 ```
 agents/
-  router/index.ts + policies.ts      # task → model selection (DeepSeek for all text; Anthropic for photo vision)
+  router/index.ts + policies.ts      # single source for consumer, health, factory, and vision lanes
   runtime/providers/deepseek.ts      # DeepSeek V4 Flash provider
   clients/anthropic.ts + google.ts   # thin API wrappers
   observability/langfuse.ts + otel.ts
@@ -185,12 +185,12 @@ public/sprite.svg                   # 56-icon SVG sprite
 
 | Route | Method | AI | Auth guard | Purpose |
 |-------|--------|----|------------|---------|
-| `/api/food/parse` | POST | DeepSeek V4 Flash | `guardAiRoute` | NLP text → `{food_name, qty, unit}[]` |
-| `/api/food/recipe-analyze` | POST | DeepSeek V4 Flash | `guardAiRoute` | Recipe text → per-ingredient + totals |
+| `/api/food/parse` | POST | GPT-5.6 Luna → Haiku 4.5 | `guardAiRoute` | NLP text → `{food_name, qty, unit}[]` |
+| `/api/food/recipe-analyze` | POST | GPT-5.6 Luna → Haiku 4.5 | `guardAiRoute` | Recipe text → per-ingredient + totals |
 | `/api/food/search` | GET `?q=` | — | sanitized | USDA FoodData Central (350K+ foods) |
 | `/api/food/local-search` | GET `?q=` | — | anon key | Local Supabase food DB |
 | `/api/ai/photo-analyze` | POST | Haiku 4.5 | `guardAiRoute` | Photo → food identification |
-| `/api/ai/meal-suggest` | POST | DeepSeek V4 Flash | `guardAiRoute` | 12 meal suggestions within macros |
+| `/api/ai/meal-suggest` | POST | GPT-5.6 Luna → Haiku 4.5 | `guardAiRoute` | 12 meal suggestions within macros |
 | `/api/nutrition/calculate` | POST | — | — | BMR/TDEE/macros server-side |
 | `/api/auth/signup` | POST | — | rate limited 5/hr/IP | Server-side signup |
 | `/api/auth/callback` | GET | — | — | OAuth code exchange |
@@ -454,6 +454,16 @@ Trophē tracks the source and confidence of every food's macro data. This is a c
 - Pre-deploy: `git diff --staged | grep -E '(sk-ant-|sbp_|AIza|pa-)'` must be empty.
 - Git identity for Vercel: `zsoist` / `zsoist@users.noreply.github.com`.
 - 2026-05-03: ESLint cache (`.eslintcache`) masks CI lint failures across branches. Local lint passes because cache hits prior passing results; Vercel `next build` runs include lint and fail. Delete `.eslintcache` before pushing or add it to `.gitignore`.
+
+### AI routing and eval integrity (Phase 3, 2026-07-11)
+- `agents/router/policies.ts` is the only production model-routing source of truth. Simulators import the exact task policy object; duplicated model literals are a CI failure.
+- Consumer text stays in the Luna → Haiku chain. DeepSeek is synthetic-factory-only; health-context tasks stay on Haiku.
+- Factory generators must use `factory_generate` through `executeAiTask` so calls are persisted to `agent_runs` with synthetic-lane metadata.
+- Eval identity comes from env only. A literal tester email or UUID in eval code is forbidden.
+- Changes to a golden file's tolerance or pass criteria require an added `tolerance_justification` beside the change in the same commit.
+- Every gate must name the data source it verifies. Local bootstrap state cannot support a production claim.
+- Paid factory and simulator work runs outside UTC 01:00–04:00 and 06:00–10:00.
+- Retired provider aliases must remain absent; the CI alias guard is authoritative.
 
 ### Drag-and-drop
 - HTML5 drag API works on desktop + iPad, NOT mobile touch. Use `onTouchStart/Move/End` for touch.

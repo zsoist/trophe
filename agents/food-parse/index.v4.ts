@@ -748,7 +748,7 @@ async function estimateMacrosViaLLM(
 // ── Main run function ─────────────────────────────────────────────────────────
 export async function run(
   input: FoodParseInput,
-  opts?: { userId?: string; metadata?: Record<string, unknown> },
+  opts?: { userId?: string; requestId?: string; metadata?: Record<string, unknown> },
 ): Promise<FoodParseRunResultV4> {
   const MAX_INPUT_LENGTH = 500;
   const trimmedText = input.text.trim();
@@ -850,6 +850,7 @@ export async function run(
     };
     latencyMs: number;
     rawStatus: number;
+    selectedPolicy: typeof policy;
     rawError?: string;
   };
   let traceId: string | null = null;
@@ -859,7 +860,7 @@ export async function run(
       task: 'food_parse',
       prompt: userMessage,
       systemPrompt: PROMPT_TEMPLATE,
-      context: { userId: opts?.userId, metadata: { version: 'v4', ...opts?.metadata } },
+      context: { userId: opts?.userId, requestId: opts?.requestId, metadata: { version: 'v4', ...opts?.metadata } },
       invoke: ({ policy: selected, signal }) => invokeStructuredProvider({
         policy: selected,
         signal,
@@ -883,8 +884,12 @@ export async function run(
       },
       latencyMs: generation.latencyMs,
       rawStatus: generation.rawStatus,
+      selectedPolicy: generation.selectedPolicy,
     };
   } catch (err) {
+    traceId = err instanceof Error && '_generationId' in err
+      ? String((err as Error & { _generationId: string })._generationId)
+      : null;
     return {
       ok: false,
       error: String(err),
@@ -893,7 +898,7 @@ export async function run(
   }
 
   const costUsd = estimateCostUsd(
-    policy.model,
+    llmResult.selectedPolicy.model,
     llmResult.usage.input_tokens,
     llmResult.usage.output_tokens,
     llmResult.usage.cache_read_input_tokens ?? 0,
@@ -901,8 +906,8 @@ export async function run(
 
   emitGenAISpan({
     task: 'food_parse',
-    system: policy.provider,
-    model: policy.model,
+    system: llmResult.selectedPolicy.provider,
+    model: llmResult.selectedPolicy.model,
     inputTokens: llmResult.usage.input_tokens,
     outputTokens: llmResult.usage.output_tokens,
     finishReasons: ['stop'],
@@ -913,7 +918,7 @@ export async function run(
   });
 
   const telemetry = {
-    model: policy.model,
+    model: llmResult.selectedPolicy.model,
     version: FOOD_PARSE_VERSION,
     tokensIn: llmResult.usage.input_tokens,
     tokensOut: llmResult.usage.output_tokens,
@@ -938,7 +943,7 @@ export async function run(
         task: 'food_parse',
         prompt: `${userMessage}\n\nYour previous response was invalid. Return only valid JSON matching the required schema.`,
         systemPrompt: PROMPT_TEMPLATE,
-        context: { userId: opts?.userId, metadata: { version: 'v4', operation: 'schema-repair', ...opts?.metadata } },
+        context: { userId: opts?.userId, requestId: opts?.requestId, metadata: { version: 'v4', operation: 'schema-repair', ...opts?.metadata } },
         invoke: ({ policy: selected, signal }) => invokeStructuredProvider({
           policy: selected,
           signal,

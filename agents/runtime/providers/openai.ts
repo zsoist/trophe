@@ -2,6 +2,23 @@ import type { z } from 'zod';
 import type { ProviderResult } from '../types';
 
 const OPENAI_CHAT_COMPLETIONS_URL = 'https://api.openai.com/v1/chat/completions';
+const MAX_RETRY_DELAY_MS = 5_000;
+
+function waitForRetry(delayMs: number, signal: AbortSignal): Promise<void> {
+  if (signal.aborted) return Promise.reject(new Error('OpenAI retry aborted'));
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort);
+      resolve();
+    }, Math.min(delayMs, MAX_RETRY_DELAY_MS));
+    const onAbort = () => {
+      clearTimeout(timeout);
+      signal.removeEventListener('abort', onAbort);
+      reject(new Error('OpenAI retry aborted'));
+    };
+    signal.addEventListener('abort', onAbort, { once: true });
+  });
+}
 
 export async function invokeOpenAiStructured<T>(input: {
   model: string;
@@ -20,23 +37,23 @@ export async function invokeOpenAiStructured<T>(input: {
 
   const startedAt = Date.now();
   const body = JSON.stringify({
-      model: input.model,
-      messages: [
-        { role: 'system', content: input.system },
-        { role: 'user', content: input.prompt },
-      ],
-      max_completion_tokens: input.maxTokens,
-      reasoning_effort: 'none',
-      tools: [{
-        type: 'function',
-        function: {
-          name: input.toolName,
-          description: input.description,
-          parameters: input.schema,
-          ...(input.strict ? { strict: true } : {}),
-        },
-      }],
-      tool_choice: { type: 'function', function: { name: input.toolName } },
+    model: input.model,
+    messages: [
+      { role: 'system', content: input.system },
+      { role: 'user', content: input.prompt },
+    ],
+    max_completion_tokens: input.maxTokens,
+    reasoning_effort: 'none',
+    tools: [{
+      type: 'function',
+      function: {
+        name: input.toolName,
+        description: input.description,
+        parameters: input.schema,
+        ...(input.strict ? { strict: true } : {}),
+      },
+    }],
+    tool_choice: { type: 'function', function: { name: input.toolName } },
   });
   type OpenAiResponse = {
     id?: string;
@@ -64,7 +81,12 @@ export async function invokeOpenAiStructured<T>(input: {
       body,
       signal: input.signal,
     });
-    data = await response.json() as OpenAiResponse;
+    const responseText = await response.text();
+    try {
+      data = responseText ? JSON.parse(responseText) as OpenAiResponse : {};
+    } catch {
+      data = { error: { message: `OpenAI returned a non-JSON response (${response.status})` } };
+    }
     if (response.ok) break;
     const retryable = response.status === 429 || [500, 502, 503, 504].includes(response.status);
     if (!retryable || attempt === 4) {
@@ -74,7 +96,7 @@ export async function invokeOpenAiStructured<T>(input: {
     const waitMs = Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
       ? Math.ceil(retryAfterSeconds * 1_000)
       : 500 * 2 ** attempt;
-    await new Promise((resolve) => setTimeout(resolve, waitMs));
+    await waitForRetry(waitMs, input.signal);
   }
   if (!response) throw new Error('OpenAI request failed before receiving a response');
   if (!response.ok) {

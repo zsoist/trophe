@@ -10,8 +10,8 @@
  *   npx tsx scripts/eval/run-greek-colombian-prod.ts
  *
  * Env:
- *   EVAL_EMAIL    — eval tester email (default: eval-tester-2026@trophe.app)
- *   EVAL_PASSWORD — eval tester password
+ *   EVAL_AUTH_EMAIL    — eval tester email (required; identity is never hardcoded)
+ *   EVAL_AUTH_PASSWORD — eval tester password
  *   TROPHE_API    — base URL (default: https://trophe.app)
  *
  * Output:
@@ -19,8 +19,11 @@
  *   stdout — summary table
  */
 
-import { readFileSync, writeFileSync } from 'fs';
+import { writeFileSync } from 'fs';
 import { resolve } from 'path';
+import { execFileSync } from 'node:child_process';
+import { assertOffPeakEvalWindow } from './off-peak';
+import { verifyProductionFoodParsePolicy } from './verify-production-food-parse-policy';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -98,15 +101,16 @@ interface CaseResult {
 
 // ─── Config ─────────────────────────────────────────────────────────────────
 
-const EVAL_EMAIL = process.env.EVAL_EMAIL || 'eval-tester-2026@trophe.app';
-const EVAL_PASSWORD = process.env.EVAL_PASSWORD;
+const EVAL_EMAIL = process.env.EVAL_AUTH_EMAIL;
+const EVAL_PASSWORD = process.env.EVAL_AUTH_PASSWORD;
 const TROPHE_API = process.env.TROPHE_API || 'https://trophe.app';
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'sb_publishable_mEkTXGkdpQyH9ZWqgAWoBQ_b8iTG2cZ';
 const MAX_LATENCY_MS = 8000;
+const FROZEN_GOLDEN_REF = process.env.EVAL_GOLDEN_REF ?? 'f534ee5';
 
-if (!EVAL_PASSWORD || !SUPABASE_URL) {
-  console.error('❌ EVAL_PASSWORD and NEXT_PUBLIC_SUPABASE_URL env vars required');
+if (!EVAL_EMAIL || !EVAL_PASSWORD || !SUPABASE_URL) {
+  console.error('❌ EVAL_AUTH_EMAIL, EVAL_AUTH_PASSWORD, and NEXT_PUBLIC_SUPABASE_URL env vars required');
   console.error('   Source it: source ~/.local/secrets/trophe-eval.env');
   process.exit(1);
 }
@@ -155,6 +159,8 @@ async function runCase(
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
+        'x-trophe-eval-suite': 'frozen-may-30-probe',
+        'x-request-id': `frozen-probe-${c.id}-${Date.now()}`,
       },
       body: JSON.stringify({ text: c.input, language: c.language }),
     });
@@ -437,12 +443,18 @@ function printMultiRunSummary(allRuns: CaseResult[][], golden: GoldenFile) {
 // ─── Main ───────────────────────────────────────────────────────────────────
 
 async function main() {
+  assertOffPeakEvalWindow();
+  await verifyProductionFoodParsePolicy(TROPHE_API);
   const { runs } = parseArgs();
 
   // Load golden cases
-  const goldenPath = resolve(__dirname, '../../agents/evals/food-parse-greek-colombian-golden.json');
-  const golden: GoldenFile = JSON.parse(readFileSync(goldenPath, 'utf-8'));
-  console.log(`📋 Loaded ${golden.cases.length} cases from golden file (${runs} run${runs > 1 ? 's' : ''})`);
+  const goldenPath = 'agents/evals/food-parse-greek-colombian-golden.json';
+  const golden: GoldenFile = JSON.parse(execFileSync(
+    'git',
+    ['show', `${FROZEN_GOLDEN_REF}:${goldenPath}`],
+    { encoding: 'utf8', cwd: resolve(__dirname, '../..') },
+  ));
+  console.log(`📋 Loaded ${golden.cases.length} cases from frozen ${FROZEN_GOLDEN_REF} (${runs} run${runs > 1 ? 's' : ''})`);
 
   // Authenticate
   const token = await getAccessToken();
@@ -476,6 +488,7 @@ async function main() {
     apiBase: TROPHE_API,
     evalUser: EVAL_EMAIL,
     goldenVersion: golden.version,
+    goldenRef: FROZEN_GOLDEN_REF,
     numRuns: runs,
     totalCases: lastRun.length,
     totalPassed: lastRun.filter((r) => r.passed).length,

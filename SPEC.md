@@ -70,20 +70,18 @@ agents/
   memory/           # read.ts, write.ts, coach-blocks.ts (Mem0/Letta hybrid)
   food-parse/       # index.ts (LLM identifies only), lookup.ts (deterministic macros)
   recipe-analyze/   # index.ts
-  insights/         # wearable-summary.ts (Spike → DeepSeek V4 Flash → coach text)
+  insights/         # wearable-summary.ts (Spike → Haiku 4.5 → coach text)
   evals/            # run-all.ts + multi-layer/ (schema, LLM judge, regression)
   prompts/          # versioned .md prompt files
   schemas/          # input/output types per agent
 ```
 
-**v7 food-parse pipeline (June 2026)**: LLM extracts `{food_name, qty, unit}` AND per-100g CoT estimates. `lookup.ts` does pgvector + pg_trgm hybrid retrieval → `foods` table supplies DB macros. `arbitrateDbVsCoT()` picks the best source: explicit portions → DB wins; <30% divergence → DB wins; >30% divergence → LLM grams + DB per-100g ratios; high-confidence DB (≥0.85) → always DB. `decompose.ts` handles composite dishes via `dish_recipes` cache + `COMMON_PIECE_WEIGHTS` map. **100% DeepSeek V4 Flash** for all text (cost mandate; Haiku vision-only). 8-language support (EN/ES/EL inline + FR/DE/IT/PT/NL overlay). **42,952 foods** (OFF/USDA/CIQUAL/CoFID/BEDCA/CREA/Greek + barcodes). Benchmark (verified 2026-06-15, median-of-3 vs prod, after the deterministic MAPE reduction): **official v2 210-case = ~94-95% pass**; backup v3 700-case (Greek-weighted) = **76.7% pass / 16.0% pooled macro-MAPE** (calories MAPE ~17%; fat is the hardest macro at ~25% MAPE), down from a pooled 22.4% Phase-0 baseline. The 700-case benchmark is on-demand only (no nightly cron). Barcode lookup via OFF (ODbL) + ZXing camera scan.
+**v7 food-parse pipeline (June 2026)**: LLM extracts `{food_name, qty, unit}` AND per-100g CoT estimates. `lookup.ts` does pgvector + pg_trgm hybrid retrieval → `foods` table supplies DB macros. `arbitrateDbVsCoT()` picks the best source: explicit portions → DB wins; <30% divergence → DB wins; >30% divergence → LLM grams + DB per-100g ratios; high-confidence DB (≥0.85) → always DB. `decompose.ts` handles composite dishes via `dish_recipes` cache + `COMMON_PIECE_WEIGHTS` map. Consumer extraction uses Luna → Haiku; health context and vision use Haiku; DeepSeek is synthetic-factory-only. 8-language support (EN/ES/EL inline + FR/DE/IT/PT/NL overlay). **42,952 foods** (OFF/USDA/CIQUAL/CoFID/BEDCA/CREA/Greek + barcodes). Benchmark (verified 2026-06-15, median-of-3 vs prod, after the deterministic MAPE reduction): **official v2 210-case = ~94-95% pass**; backup v3 700-case (Greek-weighted) = **76.7% pass / 16.0% pooled macro-MAPE** (calories MAPE ~17%; fat is the hardest macro at ~25% MAPE), down from a pooled 22.4% Phase-0 baseline. The 700-case benchmark is on-demand only (no nightly cron). Barcode lookup via OFF (ODbL) + ZXing camera scan.
 
-**LLM routing** (cost-optimized, 100% DeepSeek for text, June 2026):
-- `food_parse` → DeepSeek V4 Flash (primary + fallback)
-- `recipe` → DeepSeek V4 Flash (primary + fallback)
-- `coach_insight` → DeepSeek V4 Flash (primary + fallback)
-- `meal_suggest` → DeepSeek V4 Flash (primary + fallback)
-- `memory_extract` → DeepSeek V4 Flash (primary + fallback)
+**LLM routing** (three-lane policy, July 2026):
+- `food_parse`, `recipe_analyze`, `meal_suggest`, `shopping_extract` → GPT-5.6 Luna, Haiku 4.5 fallback
+- `coach_insight`, `memory_extract` → Haiku 4.5
+- `factory_generate` → DeepSeek V4 Flash, synthetic-only
 - `photo_analyze` → Anthropic Haiku 4.5 (vision, no fallback)
 - `embed` → Voyage v4 1024-dim
 
@@ -108,7 +106,7 @@ agents/
 | Never `.single()` — always `.maybeSingle()` | ✅ |
 | TypeScript strict mode, 0 errors | ✅ |
 | Mobile-first (390×844) | ✅ |
-| AI cost < $2/month/coach | ✅ (~€2/mo per 50 users; 100% DeepSeek V4 Flash) |
+| AI cost is bounded and attributable | ✅ per-request ceilings + `agent_runs` reconciliation |
 | Security headers (CSP, X-Frame-Options, X-XSS-Protection, Referrer-Policy) | ✅ |
 | Server-side auth middleware with JWT verification + role routing | ✅ (Phase 2) |
 | Input sanitization on all AI routes (length cap + control char strip) | ✅ |

@@ -15,7 +15,7 @@ _Last updated: 2026-06-15_
 | **Database** | Supabase Postgres (cloud, production) + Supabase CLI local stack on OrbStack @ `127.0.0.1:54322` (dev) |
 | **ORM** | Drizzle ORM + Drizzle Kit — versioned migrations in `drizzle/`, schema in `db/schema/` |
 | **API layer** | tRPC v11 (internal coach UI) + REST `/api/v1/*` (external / webhooks) |
-| **LLM router** | `agents/router/` — **DeepSeek V4 Flash for ALL text** (parse, recipe, coach-insight, meal-suggest, memory); Anthropic Haiku 4.5 **vision/photo only**; Voyage-4 embeddings. Cost mandate (2026-06) — no Gemini/Anthropic text. |
+| **LLM router** | `agents/router/` — consumer text GPT-5.6 Luna → Claude Haiku 4.5; health context and vision Haiku 4.5; synthetic factory DeepSeek V4 Flash; Voyage-4 embeddings. |
 | **Embeddings** | Voyage v4 (`voyage-4`, 1024-dim) via `scripts/ingest/embed-foods.ts` |
 | **Observability** | Langfuse via `LANGFUSE_HOST` — OTel GenAI semconv per span |
 | **Computer Vision** | MediaPipe Pose (browser WASM, 33 landmarks, 30+ FPS) for AI Form Check |
@@ -43,9 +43,9 @@ AI cost governance: `agent_runs` is the trusted table for cost and LLM observabi
                     │              │                              │
                     ▼              ▼                              ▼
              ┌───────────┐  ┌───────────┐                ┌──────────────┐
-             │ DeepSeek  │  │ Anthropic │                │  Spike API   │
-             │ V4 Flash  │  │ Haiku 4.5 │                │  (wearables) │
-             │ (all text)│  │ (vision)  │                └──────────────┘
+             │  OpenAI   │  │ Anthropic │                │  Spike API   │
+             │   Luna    │  │ Haiku 4.5 │                │  (wearables) │
+             │(consumer) │  │health/vis.│                └──────────────┘
              └───────────┘  └───────────┘
                     │
                     ▼
@@ -162,11 +162,10 @@ Declarative `taskPolicies` map selects provider+model per task:
 
 | Task | Provider | Model | Rationale |
 |------|----------|-------|-----------|
-| `food_parse` | DeepSeek | deepseek-v4-flash | Cheapest structured output (~$0.14/$0.28 per M tok) |
-| `recipe_analyze` | DeepSeek | deepseek-v4-flash | Structured tool-calling; DeepSeek-only mandate |
-| `coach_insight` | DeepSeek | deepseek-v4-flash | DB-grounded snapshot; ~98% cheaper than Sonnet |
-| `meal_suggest` / `memory_extract` / `shopping_extract` | DeepSeek | deepseek-v4-flash | All text tasks route to DeepSeek (2026-06) |
-| `photo_analyze` | Anthropic | Haiku 4.5 | Vision only — DeepSeek has no vision API |
+| `food_parse` / `recipe_analyze` / `meal_suggest` / `shopping_extract` | OpenAI | gpt-5.6-luna | Consumer structured text; Haiku 4.5 fallback |
+| `coach_insight` / `memory_extract` | Anthropic | Haiku 4.5 | Health-context compliance lane |
+| `photo_analyze` | Anthropic | Haiku 4.5 | Vision lane |
+| `factory_generate` | DeepSeek | deepseek-v4-flash | Synthetic-only, governed telemetry |
 | `embed` | Voyage | voyage-4 | 1024-dim, MTEB 67 |
 
 ### Food parse pipeline (v0.3 deterministic)

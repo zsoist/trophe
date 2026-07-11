@@ -93,7 +93,8 @@
 | `SUPABASE_SERVICE_ROLE_KEY` | Prod only | Server-only full-DB access. **NEVER `NEXT_PUBLIC_`** |
 | `DATABASE_URL` | Local dev only | `postgresql://postgres:postgres@127.0.0.1:54322/postgres` |
 | `ANTHROPIC_API_KEY` | Prod + local | Haiku 4.5 (recipe-analyze, photo) + Sonnet 4.6 (coach insights) |
-| `GEMINI_API_KEY` | Prod + local | Gemini 2.5 Flash (food-parse, meal-suggest) |
+| `OPENAI_API_KEY` | Prod + local | GPT-5.6 Luna (consumer structured-text primary) |
+| `GEMINI_API_KEY` | Optional | Evaluation/vision candidate only |
 | `VOYAGE_API_KEY` | Prod + local | Voyage v4 `voyage-3-large` embeddings |
 | `LANGFUSE_PUBLIC_KEY` | Local | Langfuse tracing public key |
 | `LANGFUSE_SECRET_KEY` | Local | Langfuse tracing secret key |
@@ -231,27 +232,29 @@ agent.run(input)
 
 | Agent | File | Model (via router) | Cache | Purpose |
 |-------|------|-------------------|-------|---------|
-| `food-parse` | `agents/food-parse/index.ts` | Gemini 2.5 Flash | — | Text → `{name, qty, unit}[]`. LLM never sees macro numbers. |
-| `recipe-analyze` | `agents/recipe-analyze/index.ts` | Haiku 4.5 | ephemeral (system) | Recipe text → ingredients + per-serving macros |
+| `food-parse` | `agents/food-parse/index.v4.ts` | GPT-5.6 Luna → Haiku 4.5 | — | Text → `{name, qty, unit}[]`, then DB-grounded macros. |
+| `recipe-analyze` | `agents/recipe-analyze/index.ts` | GPT-5.6 Luna → Haiku 4.5 | fallback cache | Recipe text → ingredients + per-serving macros |
 | `photo-analyze` | `app/api/ai/photo-analyze/route.ts` | Haiku 4.5 | — | Image → food identification |
-| `meal-suggest` | `app/api/ai/meal-suggest/route.ts` | Gemini 2.5 Flash | — | 12 meal suggestions within remaining macros |
-| `coach-insight` | `agents/insights/wearable-summary.ts` | Sonnet 4.6 | — | HRV/sleep/training-load → coach text insight |
-| `memory-write` | `agents/memory/write.ts` | Sonnet 4.6 | — | Post-turn fact extraction → memory_chunks |
+| `meal-suggest` | `app/api/ai/meal-suggest/route.ts` | GPT-5.6 Luna → Haiku 4.5 | fallback cache | Meal suggestions within remaining macros |
+| `coach-insight` | `agents/insights/wearable-summary.ts` | Haiku 4.5 | ephemeral | HRV/sleep/training-load → coach text insight |
+| `memory-write` | `agents/memory/write.ts` | Haiku 4.5 | ephemeral | Post-turn fact extraction → memory_chunks |
+| `factory_generate` | `scripts/eval/factory-runtime.ts` | DeepSeek V4 Flash | provider | Synthetic eval-data generation only |
 
 ### LLM router (`agents/router/`)
 
 ```ts
 // agents/router/policies.ts
 {
-  food_parse:    { provider: 'google',    model: 'gemini-2.5-flash' },
-  recipe:        { provider: 'anthropic', model: 'claude-haiku-4-5-20251001', cacheSystem: true },
-  coach_insight: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
-  embed:         { provider: 'voyage',    model: 'voyage-3-large' },
+  food_parse:      { provider: 'openai',    model: 'gpt-5.6-luna' },
+  recipe_analyze:  { provider: 'openai',    model: 'gpt-5.6-luna' },
+  coach_insight:   { provider: 'anthropic', model: 'claude-haiku-4-5-20251001' },
+  factory_generate:{ provider: 'deepseek',  model: 'deepseek-v4-flash' },
+  embed:           { provider: 'voyage',    model: 'voyage-4' },
 }
 ```
 
 ### Prompt versioning
-All prompts in `agents/prompts/<agent>.v<N>.md`. Never edit in place — copy to `vN+1.md`, update import. Current versions: `food-parse.v3.md`, `food-parse.v4.md`, `recipe-analyze.v1.md`.
+All prompts in `agents/prompts/<agent>.v<N>.md`. Never edit in place — copy to `vN+1.md`, update import. Production food parse defaults to `food-parse.v7.md`; recipe analyze uses `recipe-analyze.v1.md`.
 
 ### Observability
 Every `agent.run()` is wrapped in:
@@ -472,7 +475,7 @@ npm run build            # full production build
 
 ### API costs
 - Target: <$2/month/coach at steady state
-- Gemini 2.5 Flash (food-parse): ~$0.05/active-day vs Haiku ~$0.40 (8× cheaper)
+- Consumer inference remains low-volume; model choice is quality/compliance-led, with per-request cost ceilings and `agent_runs` reconciliation.
 - Haiku 4.5 + prompt cache: ~70% cost reduction on cached tokens within 5-min TTL
 - `agent_runs` tracks every LLM call with tokens, cost, status, user_id, and trace_id
 - `/admin/costs` dashboard (super_admin only) shows spend breakdown

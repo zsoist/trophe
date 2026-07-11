@@ -155,9 +155,10 @@ export async function run(
     rawError: undefined,
   };
   const traceId: string | null = generation.generationId;
+  const selectedPolicy = generation.selectedPolicy;
 
   const costUsd = estimateCostUsd(
-    policy.model,
+    selectedPolicy.model,
     result.usage.input_tokens,
     result.usage.output_tokens,
     result.usage.cache_read_input_tokens ?? 0,
@@ -165,8 +166,8 @@ export async function run(
 
   emitGenAISpan({
     task: 'recipe_analyze',
-    system: policy.provider,
-    model: policy.model,
+    system: selectedPolicy.provider,
+    model: selectedPolicy.model,
     inputTokens: result.usage.input_tokens,
     outputTokens: result.usage.output_tokens,
     finishReasons: ['stop'],
@@ -177,7 +178,7 @@ export async function run(
   });
 
   const telemetry = {
-    model: policy.model,
+    model: selectedPolicy.model,
     version: RECIPE_ANALYZE_VERSION,
     tokensIn: result.usage.input_tokens,
     tokensOut: result.usage.output_tokens,

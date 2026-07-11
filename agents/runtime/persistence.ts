@@ -1,6 +1,6 @@
 import { db } from '@/db/client';
 import { agentRuns } from '@/db/schema/agent_runs';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { resolveOrganizationId } from './org-budget';
 import type { AiTaskContext, AiUsage } from './types';
 import type { RoutingPolicy, TaskName } from '@/agents/router/policies';
@@ -63,5 +63,14 @@ export async function failGeneration(generationId: string, error: unknown): Prom
     status: 'failed',
     errorMessage: message.slice(0, 500),
     completedAt: new Date(),
+  }).where(eq(agentRuns.generationId, generationId));
+}
+
+export async function annotateGenerationMetadata(
+  generationId: string,
+  metadata: Record<string, unknown>,
+): Promise<void> {
+  await db.update(agentRuns).set({
+    metadata: sql`coalesce(${agentRuns.metadata}, '{}'::jsonb) || ${JSON.stringify(metadata)}::jsonb`,
   }).where(eq(agentRuns.generationId, generationId));
 }

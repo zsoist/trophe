@@ -26,9 +26,9 @@ Partnership with Michael Kavdas (Greek nutritionist, PN L1 certified, COO Athlet
 
 - Next.js 16 App Router · React 19 · TypeScript strict · Tailwind CSS 4 · Framer Motion
 - Supabase (Postgres + Auth + RLS + Realtime + Storage)
-- **DeepSeek V4 Flash for ALL text AI** (food-parse v7, recipe-analyze, coach insight,
-  meal suggest, memory extract) — cost mandate 2026-06-08. Anthropic Haiku 4.5 for
-  photo/vision only. Voyage-4 embeddings (1024-dim).
+- Three-lane AI routing: **GPT-5.6 Luna → Claude Haiku 4.5** for consumer text,
+  **Haiku 4.5** for health context and vision, and **DeepSeek V4 Flash** for
+  synthetic factory generation only. Voyage-4 provides embeddings (1024-dim).
 - Food DB: **~42,950 foods** across USDA/FNDDS (US), CIQUAL (FR), CoFID (UK/EU),
   BEDCA (ES), CREA (IT), OpenFoodFacts (GR/DE/NL barcoded products) + curated
   Greek/Colombian dishes. Benchmark (verified 2026-06-14, median-of-3 vs prod):

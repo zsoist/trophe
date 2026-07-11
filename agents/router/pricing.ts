@@ -5,11 +5,13 @@ export interface ModelPricing {
   cacheWritePerMillion?: number;
 }
 
-// Keyed by exact model string. After the 2026-06-08 DeepSeek migration all
-// text tasks route to deepseek-v4-flash — do NOT use computed keys here
-// (they would silently overwrite with the last task's pricing if models ever
-// converge again, as happened with the coach_insight/$3/$15 duplicate).
+// Keyed by exact model string. Do NOT use computed keys here: they silently
+// overwrite when multiple tasks converge on one model.
 export const modelPricing: Record<string, ModelPricing> = {
+  'gpt-5.6-luna': {
+    inputPerMillion: 1.00,
+    outputPerMillion: 6.00,
+  },
   'deepseek-v4-flash': {
     inputPerMillion: 0.14,
     outputPerMillion: 0.28,

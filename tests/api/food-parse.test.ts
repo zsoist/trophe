@@ -4,17 +4,21 @@ import { NextRequest } from 'next/server';
 const mocks = vi.hoisted(() => ({
   guardAiRoute: vi.fn(),
   run: vi.fn(),
+  annotateGenerationMetadata: vi.fn(),
 }));
 
 vi.mock('@/lib/security/api-guard', () => ({ guardAiRoute: mocks.guardAiRoute }));
 vi.mock('@/agents/food-parse', () => ({ run: mocks.run }));
+vi.mock('@/agents/runtime/persistence', () => ({
+  annotateGenerationMetadata: mocks.annotateGenerationMetadata,
+}));
 
 import { POST } from '@/app/api/food/parse/route';
 
-function request(body: unknown) {
+function request(body: unknown, headers?: Record<string, string>) {
   return new NextRequest('http://localhost/api/food/parse', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', ...headers },
     body: JSON.stringify(body),
   });
 }
@@ -22,7 +26,8 @@ function request(body: unknown) {
 describe('POST /api/food/parse', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.guardAiRoute.mockResolvedValue({ ok: true, userId: 'user-1' });
+    mocks.guardAiRoute.mockResolvedValue({ ok: true, userId: 'user-1', rateLimitBypassed: false });
+    mocks.annotateGenerationMetadata.mockResolvedValue(undefined);
   });
 
   it('coerces unknown languages to English instead of rejecting', async () => {
@@ -104,5 +109,49 @@ describe('POST /api/food/parse', () => {
     const body = await response.json();
     expect(body.code).toBe('try_rephrase');
     expect(body.message).not.toContain('plausibility');
+  });
+
+  it('accepts canary segmentation only from a rate-limit-bypassed eval identity', async () => {
+    mocks.guardAiRoute.mockResolvedValue({ ok: true, userId: 'eval-user', rateLimitBypassed: true });
+    mocks.run.mockResolvedValue({
+      ok: true,
+      output: { items: [{ food_name: 'egg' }] },
+      telemetry: { rawStatus: 200, traceId: 'generation-1' },
+    });
+
+    const response = await POST(request(
+      { text: 'one egg', language: 'en' },
+      { 'x-trophe-eval-suite': 'phase3-luna-watchlist', 'x-request-id': 'watch-1' },
+    ));
+
+    expect(response.status).toBe(200);
+    expect(mocks.run).toHaveBeenCalledWith({ text: 'one egg', language: 'en' }, {
+      userId: 'eval-user',
+      requestId: 'watch-1',
+      metadata: { evalSuite: 'phase3-luna-watchlist', canarySegment: 'consumer-luna-week-1' },
+    });
+    expect(mocks.annotateGenerationMetadata).toHaveBeenCalledWith('generation-1', {
+      evalSuite: 'phase3-luna-watchlist',
+      canarySegment: 'consumer-luna-week-1',
+      apiOutcome: 'success',
+    });
+  });
+
+  it('ignores canary headers from ordinary users', async () => {
+    mocks.run.mockResolvedValue({
+      ok: true,
+      output: { items: [{ food_name: 'egg' }] },
+      telemetry: { rawStatus: 200, traceId: 'generation-2' },
+    });
+
+    await POST(request(
+      { text: 'one egg', language: 'en' },
+      { 'x-trophe-eval-suite': 'phase3-luna-watchlist' },
+    ));
+
+    expect(mocks.run).toHaveBeenCalledWith({ text: 'one egg', language: 'en' }, { userId: 'user-1' });
+    expect(mocks.annotateGenerationMetadata).toHaveBeenCalledWith('generation-2', {
+      apiOutcome: 'success',
+    });
   });
 });

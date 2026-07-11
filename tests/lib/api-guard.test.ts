@@ -66,7 +66,11 @@ describe('guardAiRoute', () => {
 
     const result = await guardAiRoute(request('Bearer verified.jwt'));
 
-    expect(result).toEqual({ ok: true, userId: '00000000-0000-4000-8000-000000000123' });
+    expect(result).toEqual({
+      ok: true,
+      userId: '00000000-0000-4000-8000-000000000123',
+      rateLimitBypassed: false,
+    });
     expect(getUser).toHaveBeenCalledWith('verified.jwt');
     expect(consumeRateLimit).toHaveBeenCalledWith('ai:00000000-0000-4000-8000-000000000123', 60, 900);
   });
@@ -96,7 +100,7 @@ describe('guardAiRoute', () => {
 
     const result = await guardAiRoute(request('Bearer eval.jwt'));
 
-    expect(result).toEqual({ ok: true, userId: evalUserId });
+    expect(result).toEqual({ ok: true, userId: evalUserId, rateLimitBypassed: true });
     expect(consumeRateLimit).not.toHaveBeenCalled();
   });
 });
