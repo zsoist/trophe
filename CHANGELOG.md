@@ -4,6 +4,18 @@ All notable changes to Trophē are logged here. Format follows [Keep a Changelog
 
 ---
 
+## [Domain and first-load performance] — 2026-07-11
+
+### Changed
+- Removed the authenticated Supabase, i18n, appearance, toast, and service-worker provider graph from public routes while preserving it in dashboard, coach, admin, super-admin, and onboarding layouts.
+- Disabled automatic login/pricing prefetch and above-the-fold entrance delays on the landing page, reducing the measured cold request graph from 27 to 20 requests and transfer from about 487 KB to 336 KB.
+- Replaced the full-build service-worker precache (156 assets, about 1.41 MiB compressed) with one self-contained offline fallback and immutable same-origin runtime caches only.
+
+### Fixed
+- Prevented the service worker from caching authenticated HTML, RSC payloads, APIs, or Supabase traffic.
+- Added a one-generation migration that activates and purges legacy caches once, while later worker updates remain user-approved and listener-safe.
+- Preserved branded error handling and bilingual offline recovery after relocating the authenticated provider boundary.
+
 ## [July 2026 stabilization sweep] — 2026-07-11
 
 ### Fixed
