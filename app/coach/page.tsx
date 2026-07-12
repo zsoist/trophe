@@ -417,40 +417,57 @@ export default function CoachDashboard() {
       // Get current user
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push("/login"); return; }
+      coachIdRef.current = user.id;
 
-      // Role gate — only coaches can access this page
-      const { data: profile } = await supabase.from('profiles').select('role, full_name, display_prefs').eq('id', user.id).maybeSingle();
+      // Date windows used by the batched queries below.
+      const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
+      const lastMonthStart = new Date(monthStart); lastMonthStart.setMonth(lastMonthStart.getMonth() - 1);
+      const nowD = new Date();
+      const monday = new Date(nowD);
+      monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+      monday.setHours(0, 0, 0, 0);
+      const mondayStr = localDateStr(monday);
+
+      // ── Batch A: everything keyed on the coach's own id — ONE round trip ──
+      // (was 5 sequential awaits: profile → appts → client_profiles →
+      // habitsForAssign → notesCount. From Greece↔us-east-2 that's ~5 network
+      // hops before render; batching pays the latency once.)
+      const [profileRes, apptsRes, clientProfilesRes, habitsForAssignRes, notesCountRes] = await Promise.all([
+        supabase.from('profiles').select('role, full_name, display_prefs').eq('id', user.id).maybeSingle(),
+        supabase.from('appointments').select('starts_at, status, created_at').eq('coach_id', user.id).gte('created_at', lastMonthStart.toISOString()),
+        supabase.from('client_profiles').select('*').eq('coach_id', user.id),
+        // habits has no is_active column (that filter 400'd silently for months) — templates are is_template.
+        supabase.from('habits').select('id, name_en, emoji').eq('is_template', true).order('suggested_order', { ascending: true }).limit(50),
+        supabase.from('coach_notes').select('id', { count: 'exact', head: true }).eq('coach_id', user.id).gte('created_at', monthStart.toISOString()),
+      ]);
+
+      const profile = profileRes.data;
+      // Role gate — only coaches. Batch A already ran (redirect is the rare path;
+      // avoiding an extra serial round trip for every coach is the common win).
       if (profile?.role === 'client') { router.replace('/dashboard'); return; }
       setIsSuperAdmin(profile?.role === 'super_admin');
 
-      // Display prefs (piggybacked on the role-gate fetch — no extra roundtrip)
-      coachIdRef.current = user.id;
       const prefs = parseDisplayPrefs(profile?.display_prefs);
       fullPrefsRef.current = prefs;
       setDashOverrides((prefs.coachDash ?? {}) as Partial<Record<CoachDashPanelId, boolean>>);
+      if (profile?.full_name) setCoachName(profile.full_name.split(' ')[0]);
 
       // P4 business numbers: bookings this month vs last, completed this month
-      const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
-      const lastMonthStart = new Date(monthStart); lastMonthStart.setMonth(lastMonthStart.getMonth() - 1);
-      const { data: appts } = await supabase
-        .from('appointments')
-        .select('starts_at, status, created_at')
-        .eq('coach_id', user.id)
-        .gte('created_at', lastMonthStart.toISOString());
-      const rows = (appts ?? []) as Array<{ starts_at: string; status: string; created_at: string }>;
+      const rows = (apptsRes.data ?? []) as Array<{ starts_at: string; status: string; created_at: string }>;
       setBiz({
         bookedThisMonth: rows.filter((a) => a.created_at >= monthStart.toISOString()).length,
         bookedLastMonth: rows.filter((a) => a.created_at < monthStart.toISOString()).length,
         completedThisMonth: rows.filter((a) => a.status === 'completed' && a.starts_at >= monthStart.toISOString()).length,
       });
-      if (profile?.full_name) setCoachName(profile.full_name.split(' ')[0]);
 
-      // Fetch all client_profiles assigned to this coach
-      const { data: clientProfiles } = await supabase
-        .from('client_profiles')
-        .select('*')
-        .eq('coach_id', user.id);
+      if (habitsForAssignRes.data) {
+        setAvailableHabits(habitsForAssignRes.data.map((h: { id: string; name_en: string; emoji: string }) => ({
+          id: h.id, name: h.name_en, emoji: h.emoji,
+        })));
+      }
+      setNotesWrittenCount(notesCountRes.count ?? 0);
 
+      const clientProfiles = clientProfilesRes.data;
       if (!clientProfiles || clientProfiles.length === 0) {
         setLoading(false);
         return;
@@ -458,8 +475,9 @@ export default function CoachDashboard() {
 
       const userIds = clientProfiles.map((cp: ClientProfile) => cp.user_id);
 
-      // Fetch profiles, active habits, and recent checkins in parallel
-      const [profilesRes, habitsRes, checkinsRes] = await Promise.all([
+      // ── Batch B: everything keyed on the client ids — ONE round trip ──
+      // (was profiles/habits/checkins batch THEN a separate weekCheckins await).
+      const [profilesRes, habitsRes, checkinsRes, weekCheckinsRes] = await Promise.all([
         supabase.from('profiles').select('*').in('id', userIds),
         supabase
           .from('client_habits')
@@ -472,6 +490,12 @@ export default function CoachDashboard() {
           .in('user_id', userIds)
           .gte('checked_date', localDateStr(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)))
           .order('checked_date', { ascending: false }),
+        supabase
+          .from('habit_checkins')
+          .select('checked_date')
+          .in('user_id', userIds)
+          .gte('checked_date', mondayStr)
+          .eq('completed', true),
       ]);
 
       const profiles = profilesRes.data || [];
@@ -518,21 +542,8 @@ export default function CoachDashboard() {
 
       setClients(cards);
 
-      // ═══ Weekly Activity Data (Feature 10) ═══
-      // Get all checkins for the current week (Mon-Sun) grouped by day
-      const now = new Date();
-      const monday = new Date(now);
-      monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
-      monday.setHours(0, 0, 0, 0);
-      const mondayStr = localDateStr(monday);
-
-      const { data: weekCheckins } = await supabase
-        .from('habit_checkins')
-        .select('checked_date')
-        .in('user_id', userIds)
-        .gte('checked_date', mondayStr)
-        .eq('completed', true);
-
+      // ═══ Weekly Activity Data (Feature 10) — from Batch B (no extra RT) ═══
+      const weekCheckins = weekCheckinsRes.data;
       if (weekCheckins) {
         const dayCounts = [0, 0, 0, 0, 0, 0, 0]; // Mon-Sun
         weekCheckins.forEach((c: { checked_date: string }) => {
@@ -542,31 +553,6 @@ export default function CoachDashboard() {
         });
         setWeeklyActivity(dayCounts);
       }
-
-      // Fetch available habits for batch assign.
-      // NB: habits has no is_active column (that filter 400'd silently for
-      // months) — template habits are flagged is_template.
-      const { data: habitsForAssign } = await supabase
-        .from('habits')
-        .select('id, name_en, emoji')
-        .eq('is_template', true)
-        .order('suggested_order', { ascending: true })
-        .limit(50);
-      if (habitsForAssign) {
-        setAvailableHabits(habitsForAssign.map((h: { id: string; name_en: string; emoji: string }) => ({
-          id: h.id,
-          name: h.name_en,
-          emoji: h.emoji,
-        })));
-      }
-
-      // Count notes written this month by this coach
-      const { count: notesCount } = await supabase
-        .from('coach_notes')
-        .select('id', { count: 'exact', head: true })
-        .eq('coach_id', user.id)
-        .gte('created_at', monthStart.toISOString());
-      setNotesWrittenCount(notesCount ?? 0);
     } catch (err) {
       console.error('Error loading clients:', err);
     } finally {
