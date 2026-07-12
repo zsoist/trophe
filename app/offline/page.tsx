@@ -1,5 +1,6 @@
 /**
- * Offline fallback page — served by the service worker when navigation fails.
+ * Online-accessible branded recovery page. The service worker uses the
+ * self-contained public/offline.html for cold offline navigation failures.
  * Bilingual: English primary, Greek secondary.
  * Dark premium aesthetic, no external dependencies.
  *

@@ -1,15 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /**
- * Registers the service worker with updateViaCache:'none' to ensure
- * the browser always fetches a fresh SW manifest.
- * Shows a subtle "update available" toast when a new SW is waiting.
+ * Registers the service worker inside authenticated layouts only. The edge
+ * serves /sw.js as no-store, and updates wait for explicit user approval.
  */
 export function SWRegistration() {
   const [showUpdateToast, setShowUpdateToast] = useState(false);
   const [waitingWorker, setWaitingWorker] = useState<ServiceWorker | null>(null);
+  const reloadRequested = useRef(false);
 
   useEffect(() => {
     if (
@@ -20,48 +20,78 @@ export function SWRegistration() {
       return;
     }
 
-    // Register with updateViaCache:'none' — always network-check SW on page load
+    let disposed = false;
+    let registration: ServiceWorkerRegistration | null = null;
+    let installingWorker: ServiceWorker | null = null;
+
+    const handleStateChange = () => {
+      if (
+        installingWorker?.state === "installed" &&
+        navigator.serviceWorker.controller
+      ) {
+        setWaitingWorker(installingWorker);
+        setShowUpdateToast(true);
+      }
+    };
+
+    const watchInstallingWorker = (worker: ServiceWorker | null) => {
+      installingWorker?.removeEventListener('statechange', handleStateChange);
+      installingWorker = worker;
+      installingWorker?.addEventListener('statechange', handleStateChange);
+      // The worker may have advanced before this listener was attached.
+      handleStateChange();
+    };
+
+    const handleUpdateFound = () => {
+      watchInstallingWorker(registration?.installing ?? null);
+    };
+
+    const handleControllerChange = () => {
+      // A first install may claim this page. Reload only when the user explicitly
+      // accepted a waiting update via the button below.
+      if (!reloadRequested.current) return;
+      reloadRequested.current = false;
+      window.location.reload();
+    };
+
+    navigator.serviceWorker.addEventListener('controllerchange', handleControllerChange);
+
+    // /sw.js is no-store at the edge, so the browser always checks the current worker.
     navigator.serviceWorker
-      .register("/sw.js", { updateViaCache: "none" })
-      .then((registration) => {
+      .register("/sw.js")
+      .then((registeredWorker) => {
+        if (disposed) return;
+        registration = registeredWorker;
+        registration.addEventListener('updatefound', handleUpdateFound);
+
         // Check if a new worker is already waiting
         if (registration.waiting) {
           setWaitingWorker(registration.waiting);
           setShowUpdateToast(true);
         }
 
-        // Listen for future updates
-        registration.addEventListener("updatefound", () => {
-          const newWorker = registration.installing;
-          if (!newWorker) return;
-
-          newWorker.addEventListener("statechange", () => {
-            if (
-              newWorker.state === "installed" &&
-              navigator.serviceWorker.controller
-            ) {
-              setWaitingWorker(newWorker);
-              setShowUpdateToast(true);
-            }
-          });
-        });
+        if (registeredWorker.installing) {
+          watchInstallingWorker(registeredWorker.installing);
+        }
       })
-      .catch(() => {
-        // SW registration failed — non-critical, app still works online
+      .catch((error) => {
+        // Non-critical, but visible to production browser/error telemetry.
+        console.error('[service-worker] registration failed', error);
       });
 
-    // When the controller changes, reload to activate the new SW
-    let refreshing = false;
-    navigator.serviceWorker.addEventListener("controllerchange", () => {
-      if (refreshing) return;
-      refreshing = true;
-      window.location.reload();
-    });
+    return () => {
+      disposed = true;
+      installingWorker?.removeEventListener('statechange', handleStateChange);
+      registration?.removeEventListener('updatefound', handleUpdateFound);
+      navigator.serviceWorker.removeEventListener('controllerchange', handleControllerChange);
+    };
   }, []);
 
   const handleUpdate = () => {
     if (!waitingWorker) return;
-    // Tell the waiting SW to skip waiting and take control
+    reloadRequested.current = true;
+    // Tell the waiting worker to activate; controllerchange performs the one
+    // user-approved reload after it takes control.
     waitingWorker.postMessage({ type: "SKIP_WAITING" });
     setShowUpdateToast(false);
   };

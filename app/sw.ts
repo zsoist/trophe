@@ -1,6 +1,6 @@
-import { defaultCache } from "@serwist/next/worker";
 import type { PrecacheEntry, SerwistGlobalConfig } from "serwist";
-import { CacheFirst, CacheableResponsePlugin, ExpirationPlugin, NetworkFirst, NetworkOnly, Serwist, StaleWhileRevalidate } from "serwist";
+import { CacheFirst, CacheableResponsePlugin, ExpirationPlugin, NetworkOnly, Serwist } from "serwist";
+import { isPublicAssetRequest, isStaticAssetRequest, mustUseNetwork } from "../lib/pwa/sw-policy";
 
 // TypeScript: tell the compiler about the Serwist globals injected at build time
 declare global {
@@ -11,85 +11,95 @@ declare global {
 
 declare const self: ServiceWorkerGlobalScope;
 
+const CURRENT_SW_GENERATION_CACHE = "trophe-sw-v2-marker";
+
+const RETIRED_RUNTIME_CACHES = new Set([
+  "apis",
+  "app-images",
+  "cross-origin",
+  "google-fonts",
+  "google-fonts-stylesheets",
+  "google-fonts-webfonts",
+  "next-data",
+  "next-image",
+  "next-static",
+  "next-static-js-assets",
+  "others",
+  "pages",
+  "pages-rsc",
+  "pages-rsc-prefetch",
+  "static-audio-assets",
+  "static-data-assets",
+  "static-font-assets",
+  "static-image-assets",
+  "static-js-assets",
+  "static-style-assets",
+  "static-video-assets",
+]);
+
 const serwist = new Serwist({
   precacheEntries: self.__SW_MANIFEST,
-  skipWaiting: true,
+  precacheOptions: { cleanupOutdatedCaches: true },
+  skipWaiting: false,
   clientsClaim: true,
   navigationPreload: true,
   runtimeCaching: [
-    // ── NEVER cache authenticated API routes or Supabase ──────────────────
+    // Never persist application documents, RSC payloads, APIs, or Supabase.
     {
-      matcher: ({ url }) =>
-        url.pathname.startsWith("/api/") ||
-        url.hostname.endsWith(".supabase.co") ||
-        url.hostname.endsWith(".supabase.in"),
+      matcher: (context) => mustUseNetwork(context),
       handler: new NetworkOnly(),
     },
 
-    // ── Next.js static assets: CacheFirst, long TTL ───────────────────────
+    // Cache only immutable, same-origin Next.js build assets.
     {
-      matcher: ({ request, url }) =>
-        url.pathname.startsWith("/_next/static/") ||
-        request.destination === "script" ||
-        request.destination === "style",
+      matcher: (context) => isStaticAssetRequest(context),
       handler: new CacheFirst({
-        cacheName: "next-static",
+        cacheName: "trophe-static-v2",
         plugins: [
-          new CacheableResponsePlugin({ statuses: [0, 200] }),
-          new ExpirationPlugin({ maxEntries: 256, maxAgeSeconds: 30 * 24 * 60 * 60 }),
+          new CacheableResponsePlugin({ statuses: [200] }),
+          new ExpirationPlugin({ maxEntries: 128, maxAgeSeconds: 30 * 24 * 60 * 60 }),
         ],
       }),
     },
 
-    // ── App icons & public images: CacheFirst ────────────────────────────
+    // Cache only explicitly public, same-origin brand assets.
     {
-      matcher: ({ url }) =>
-        url.pathname.startsWith("/icons/") ||
-        url.pathname.startsWith("/images/") ||
-        url.pathname === "/favicon.svg" ||
-        url.pathname === "/apple-touch-icon.png",
+      matcher: (context) => isPublicAssetRequest(context),
       handler: new CacheFirst({
-        cacheName: "app-images",
+        cacheName: "trophe-images-v2",
         plugins: [
-          new CacheableResponsePlugin({ statuses: [0, 200] }),
+          new CacheableResponsePlugin({ statuses: [200] }),
           new ExpirationPlugin({ maxEntries: 64, maxAgeSeconds: 365 * 24 * 60 * 60 }),
         ],
       }),
     },
-
-    // ── Google Fonts: StaleWhileRevalidate ───────────────────────────────
-    {
-      matcher: ({ url }) =>
-        url.hostname === "fonts.googleapis.com" || url.hostname === "fonts.gstatic.com",
-      handler: new StaleWhileRevalidate({
-        cacheName: "google-fonts",
-        plugins: [
-          new CacheableResponsePlugin({ statuses: [0, 200] }),
-          new ExpirationPlugin({ maxEntries: 32, maxAgeSeconds: 365 * 24 * 60 * 60 }),
-        ],
-      }),
-    },
-
-    // ── Navigation (HTML pages): NetworkFirst, 3s timeout ────────────────
-    // Authenticated routes excluded — SW must not serve stale authed HTML
-    {
-      matcher: ({ request }) => request.mode === "navigate",
-      handler: new NetworkFirst({
-        cacheName: "pages",
-        networkTimeoutSeconds: 3,
-        plugins: [
-          new CacheableResponsePlugin({ statuses: [0, 200] }),
-          new ExpirationPlugin({ maxEntries: 32, maxAgeSeconds: 24 * 60 * 60 }),
-        ],
-      }),
-    },
-
-    // ── Default: use Serwist's built-in defaults ─────────────────────────
-    ...defaultCache,
   ],
   fallbacks: {
-    entries: [{ url: "/offline", matcher: ({ request }) => request.mode === "navigate" }],
+    entries: [{ url: "/offline.html", matcher: ({ request }) => request.mode === "navigate" }],
   },
+});
+
+self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches.has(CURRENT_SW_GENERATION_CACHE).then((isCurrentGeneration) => {
+      // Bridge only the legacy worker into v2 automatically. Once v2 has
+      // activated, later releases return to the explicit update button.
+      if (!isCurrentGeneration) return self.skipWaiting();
+    }),
+  );
+});
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    Promise.all([
+      caches.open(CURRENT_SW_GENERATION_CACHE),
+      caches.keys().then((cacheNames) => Promise.all(
+        cacheNames
+          .filter((cacheName) => RETIRED_RUNTIME_CACHES.has(cacheName))
+          .map((cacheName) => caches.delete(cacheName)),
+      )),
+    ]),
+  );
 });
 
 serwist.addEventListeners();
