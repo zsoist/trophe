@@ -2,7 +2,7 @@
 
 High-level map of how Trophē v0.3 fits together. For per-agent LLM details see `agents/README.md`. For deploy+env setup see `DEPLOYMENT.md`. For threat model see `SECURITY.md`.
 
-_Last updated: 2026-06-15_
+_Last updated: 2026-07-11_
 
 ---
 
@@ -31,6 +31,13 @@ _Last updated: 2026-06-15_
 Production governance: `main` is the production branch. Vercel auto-deploys on push. v0.3-overhaul was merged 2026-05-03 and archived.
 
 AI cost governance: `agent_runs` is the trusted table for cost and LLM observability. `api_usage_log` remains legacy compatibility only.
+
+### Web delivery boundary
+
+- Public routes, including `/`, do not mount the authenticated provider graph. Supabase, i18n, appearance, toast, and service-worker providers are mounted only by the `dashboard`, `coach`, `admin`, `super`, and `onboarding` layouts.
+- The service worker is registered from authenticated layouts only. Because its scope is `/`, a previously authenticated browser can still be worker-controlled when it later visits a public route.
+- `public/sw.js` is a generated production-build artifact and is not source-controlled. The worker precaches only the self-contained `/offline.html` shell; documents, RSC payloads, APIs, and Supabase traffic are network-only. Runtime caching is limited to immutable same-origin Next.js assets and named public images/icons.
+- The v2 worker auto-activates once to retire legacy caches. Later updates wait for explicit user approval before reloading the page.
 
 ```
 ┌──────────────┐   HTTPS    ┌──────────────┐   direct    ┌─────────────────────┐
