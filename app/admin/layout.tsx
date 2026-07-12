@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import Providers from '@/components/shared/Providers';
 import { getSession, roleAtLeast } from '@/lib/auth/get-session';
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -6,5 +7,5 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (!session) redirect('/login');
   if (!roleAtLeast(session.role, 'admin')) redirect('/dashboard');
 
-  return <>{children}</>;
+  return <Providers>{children}</Providers>;
 }

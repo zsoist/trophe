@@ -5,7 +5,6 @@ import { I18nProvider } from '@/lib/i18n';
 import { ToastProvider } from '@/components/shared/Toast';
 import { ThemeModeProvider } from '@/components/shared/ThemeMode';
 import { AppearanceProvider } from '@/components/shared/AppearanceProvider';
-import ErrorBoundary from '@/components/shared/ErrorBoundary';
 import { SWRegistration } from '@/components/shared/SWRegistration';
 import { supabase } from '@/lib/supabase';
 import type { ReactNode } from 'react';
@@ -43,12 +42,10 @@ export default function Providers({ children }: { children: ReactNode }) {
     <ThemeModeProvider>
       <AppearanceProvider>
         <I18nProvider defaultLang="en">
-          <ErrorBoundary>
-            <ToastProvider>
-              {children}
-              <SWRegistration />
-            </ToastProvider>
-          </ErrorBoundary>
+          <ToastProvider>
+            {children}
+            <SWRegistration />
+          </ToastProvider>
         </I18nProvider>
       </AppearanceProvider>
     </ThemeModeProvider>
