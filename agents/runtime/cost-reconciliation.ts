@@ -29,7 +29,12 @@ export function reconcileAiCosts(
   let recordedTotalUsd = 0;
 
   for (const run of runs) {
-    if (run.status !== 'completed') continue;
+    const hasAuthoritativeSpend = run.recordedCostUsd != null
+      || run.tokensIn > 0
+      || run.tokensOut > 0
+      || run.cacheReadTokens > 0
+      || run.cacheWriteTokens > 0;
+    if (run.status !== 'completed' && !hasAuthoritativeSpend) continue;
     if (!modelPricing[run.model]) {
       issues.push({
         id: run.id, model: run.model, kind: 'unknown_model',

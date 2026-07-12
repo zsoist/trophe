@@ -3,6 +3,8 @@ export interface ModelPricing {
   outputPerMillion: number;
   cacheReadPerMillion?: number;
   cacheWritePerMillion?: number;
+  /** False when provider input_tokens excludes its separate cache buckets. */
+  inputTokensIncludeCache?: boolean;
 }
 
 // Keyed by exact model string. Do NOT use computed keys here: they silently
@@ -11,6 +13,8 @@ export const modelPricing: Record<string, ModelPricing> = {
   'gpt-5.6-luna': {
     inputPerMillion: 1.00,
     outputPerMillion: 6.00,
+    cacheReadPerMillion: 0.10,
+    cacheWritePerMillion: 1.25,
   },
   'deepseek-v4-flash': {
     inputPerMillion: 0.14,
@@ -31,12 +35,14 @@ export const modelPricing: Record<string, ModelPricing> = {
     outputPerMillion: 5.00,
     cacheReadPerMillion: 0.10,
     cacheWritePerMillion: 1.25,
+    inputTokensIncludeCache: false,
   },
   'claude-sonnet-4-6': {
     inputPerMillion: 3.00,
     outputPerMillion: 15.00,
     cacheReadPerMillion: 0.30,
     cacheWritePerMillion: 3.75,
+    inputTokensIncludeCache: false,
   },
   'voyage-4': {
     inputPerMillion: 0.06,
@@ -54,7 +60,9 @@ export function estimateModelCostUsd(
   const pricing = modelPricing[model];
   if (!pricing) return 0;
 
-  const billableInputTokens = Math.max(0, inputTokens - cacheReadTokens - cacheWriteTokens);
+  const billableInputTokens = pricing.inputTokensIncludeCache === false
+    ? Math.max(0, inputTokens)
+    : Math.max(0, inputTokens - cacheReadTokens - cacheWriteTokens);
   const inputCost = billableInputTokens * pricing.inputPerMillion / 1_000_000;
   const outputCost = outputTokens * pricing.outputPerMillion / 1_000_000;
   const cacheCost = cacheReadTokens * (pricing.cacheReadPerMillion ?? pricing.inputPerMillion) / 1_000_000;

@@ -31,7 +31,7 @@ describe('AI runtime governance', () => {
       outputTokens: 0,
     });
     const cacheWrite = estimateUsageCost('claude-haiku-4-5-20251001', {
-      inputTokens: 1_000,
+      inputTokens: 0,
       outputTokens: 0,
       cacheWriteTokens: 1_000,
     });

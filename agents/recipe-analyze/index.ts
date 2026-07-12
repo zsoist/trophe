@@ -127,11 +127,12 @@ export async function run(
     prompt: userMessage,
     systemPrompt,
     context: { userId: opts?.userId, metadata: { servings, ...opts?.metadata } },
-    invoke: ({ policy: selected, signal }) => invokeStructuredProvider<RecipeAnalyzeOutput>({
+    invoke: ({ policy: selected, signal, clientRequestId }) => invokeStructuredProvider<RecipeAnalyzeOutput>({
       policy: selected,
       system: systemPrompt,
       prompt: userMessage,
       signal,
+      clientRequestId,
       schema: RECIPE_ANALYZE_TOOL.input_schema as unknown as Record<string, unknown>,
       validator: z.custom<RecipeAnalyzeOutput>((v) => isRecipeAnalyzeOutput(v)),
       toolName: RECIPE_ANALYZE_TOOL.name,
@@ -162,6 +163,7 @@ export async function run(
     result.usage.input_tokens,
     result.usage.output_tokens,
     result.usage.cache_read_input_tokens ?? 0,
+    result.usage.cache_creation_input_tokens ?? 0,
   );
 
   emitGenAISpan({

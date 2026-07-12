@@ -3,6 +3,7 @@ import { callGeminiMessages } from '@/agents/clients/google';
 import { invokeAnthropicJson } from './anthropic';
 import { invokeDeepSeekStructured } from './deepseek';
 import { invokeOpenAiStructured } from './openai';
+import { AiProviderError } from './errors';
 import type { RoutingPolicy } from '@/agents/router/policies';
 import type { ProviderResult } from '../types';
 
@@ -75,6 +76,7 @@ export async function invokeStructuredProvider<T>(input: {
   strict?: boolean;
   maxTokens?: number;
   userId?: string;
+  clientRequestId?: string;
 }): Promise<ProviderResult<T>> {
   if (input.signal.aborted) throw new Error('AI request aborted');
 
@@ -112,19 +114,23 @@ export async function invokeStructuredProvider<T>(input: {
       schema: input.schema,
       validator: input.validator,
       strict,
+      cacheKey: `trophe:${input.policy.model}:${input.policy.promptVersion}:${toolName}`,
+      clientRequestId: input.clientRequestId,
     });
   }
 
   // ── Anthropic: tool_use with tool_choice enforcement ──────────────────
   if (input.policy.provider === 'anthropic') {
     const result = await invokeAnthropicJson<{
-      content: Array<{ type: string; name?: string; input?: unknown }>;
+      content?: Array<{ type: string; name?: string; input?: unknown }>;
     }>({
       signal: input.signal,
       body: {
         model: input.policy.model,
         max_tokens: input.maxTokens ?? input.policy.maxTokens,
-        system: input.system,
+        system: input.policy.cacheSystem
+          ? [{ type: 'text', text: input.system, cache_control: { type: 'ephemeral' } }]
+          : input.system,
         messages: [{ role: 'user', content: input.prompt }],
         tools: [{
           name: toolName,
@@ -134,16 +140,46 @@ export async function invokeStructuredProvider<T>(input: {
         tool_choice: { type: 'tool', name: toolName },
       },
     });
-    const toolUse = result.output.content.find(
+    const content = Array.isArray(result.output.content) ? result.output.content : [];
+    const toolUse = content.find(
       (c) => c.type === 'tool_use' && c.name === toolName,
     );
-    if (!toolUse?.input) throw new Error('Anthropic structured response missing tool call');
+    if (!toolUse?.input) {
+      throw new AiProviderError({
+        provider: 'anthropic',
+        message: 'Anthropic structured response missing tool call',
+        status: result.rawStatus,
+        errorType: 'provider_protocol_error',
+        errorCode: 'missing_tool_call',
+        providerRequestId: result.providerRequestId,
+        providerGenerationId: result.providerGenerationId,
+        usage: result.usage,
+        latencyMs: result.latencyMs,
+      });
+    }
+    let output: T;
+    try {
+      output = input.validator.parse(toolUse.input);
+    } catch {
+      throw new AiProviderError({
+        provider: 'anthropic',
+        message: 'Anthropic structured response failed validation',
+        status: result.rawStatus,
+        errorType: 'provider_protocol_error',
+        errorCode: 'invalid_structured_output',
+        providerRequestId: result.providerRequestId,
+        providerGenerationId: result.providerGenerationId,
+        usage: result.usage,
+        latencyMs: result.latencyMs,
+      });
+    }
     return {
-      output: input.validator.parse(toolUse.input),
+      output,
       usage: result.usage,
       latencyMs: result.latencyMs,
       rawStatus: result.rawStatus,
       providerGenerationId: result.providerGenerationId,
+      providerRequestId: result.providerRequestId,
     };
   }
 

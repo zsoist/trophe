@@ -18,6 +18,7 @@ vi.mock('@/agents/runtime/org-budget', () => orgBudget);
 vi.mock('@/agents/observability/langfuse', () => observability);
 
 import { executeAiTask } from '@/agents/runtime/execute';
+import { AiProviderError } from '@/agents/runtime/providers/errors';
 
 describe('executeAiTask integration contract', () => {
   beforeEach(() => {
@@ -30,22 +31,31 @@ describe('executeAiTask integration contract', () => {
   });
 
   it('persists pending and completed generation state', async () => {
+    let invokedClientRequestId: string | undefined;
     const result = await executeAiTask({
       task: 'meal_suggest',
       prompt: 'suggest a meal',
-      invoke: vi.fn(async () => ({
+      invoke: vi.fn(async ({ clientRequestId }) => {
+        invokedClientRequestId = clientRequestId;
+        return {
         output: { suggestions: ['meal'] },
         usage: { inputTokens: 100, outputTokens: 20 },
         latencyMs: 50,
         rawStatus: 200,
         providerGenerationId: 'provider-1',
-      })),
+        providerRequestId: 'req-provider-1',
+        clientRequestId,
+      };
+      }),
     });
 
+    expect(invokedClientRequestId).toBe(result.generationId);
     expect(persistence.createGeneration).toHaveBeenCalledOnce();
     expect(persistence.completeGeneration).toHaveBeenCalledWith(expect.objectContaining({
       generationId: result.generationId,
       providerGenerationId: 'provider-1',
+      providerRequestId: 'req-provider-1',
+      clientRequestId: result.generationId,
       rawStatus: 200,
     }));
     expect(persistence.failGeneration).not.toHaveBeenCalled();
@@ -155,7 +165,11 @@ describe('executeAiTask integration contract', () => {
       invoke: vi.fn(async () => { throw providerError; }),
     })).rejects.toBe(providerError);
 
-    expect(persistence.failGeneration).toHaveBeenCalledWith(expect.any(String), providerError);
+    expect(persistence.failGeneration).toHaveBeenCalledWith(
+      expect.any(String),
+      providerError,
+      expect.objectContaining({ usage: undefined, estimatedCostUsd: undefined }),
+    );
   });
 
   it('preserves provider errors when failure persistence is unavailable', async () => {
@@ -176,7 +190,17 @@ describe('executeAiTask integration contract', () => {
       callCount++;
       if (callCount === 1) {
         expect(policy.provider).toBe('openai');
-        throw new Error('OpenAI rate limited');
+        throw new AiProviderError({
+          provider: 'openai',
+          message: 'OpenAI malformed paid response',
+          status: 200,
+          errorType: 'provider_protocol_error',
+          errorCode: 'missing_tool_call',
+          providerRequestId: 'req-paid-failure',
+          providerGenerationId: 'resp-paid-failure',
+          usage: { inputTokens: 1_000, outputTokens: 100, cacheWriteTokens: 200 },
+          latencyMs: 250,
+        });
       }
       expect(policy.provider).toBe('anthropic');
       return {
@@ -201,9 +225,47 @@ describe('executeAiTask integration contract', () => {
     });
     // Both primary failure and fallback success should be persisted
     expect(persistence.failGeneration).toHaveBeenCalledOnce();
+    expect(persistence.failGeneration).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(AiProviderError),
+      expect.objectContaining({
+        usage: { inputTokens: 1_000, outputTokens: 100, cacheWriteTokens: 200 },
+        estimatedCostUsd: expect.any(Number),
+        providerGenerationId: 'resp-paid-failure',
+        providerRequestId: 'req-paid-failure',
+      }),
+    );
     expect(persistence.completeGeneration).toHaveBeenCalledOnce();
     expect(persistence.createGeneration).toHaveBeenLastCalledWith(
       expect.objectContaining({ fallbackFrom: 'gpt-5.6-luna' }),
+    );
+    expect(orgBudget.assertWithinOrganizationBudget).toHaveBeenCalledTimes(2);
+  });
+
+  it('persists known provider spend when a completed call exceeds its request ceiling', async () => {
+    await expect(executeAiTask({
+      task: 'photo_analyze',
+      prompt: 'analyze photo',
+      invoke: vi.fn(async () => ({
+        output: { foods: [] },
+        usage: { inputTokens: 100_000, outputTokens: 100_000 },
+        latencyMs: 500,
+        rawStatus: 200,
+        providerGenerationId: 'msg-over-budget',
+        providerRequestId: 'req-over-budget',
+      })),
+    })).rejects.toThrow('exceeded cost ceiling');
+
+    expect(persistence.failGeneration).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(Error),
+      expect.objectContaining({
+        usage: { inputTokens: 100_000, outputTokens: 100_000 },
+        estimatedCostUsd: expect.any(Number),
+        rawStatus: 200,
+        providerGenerationId: 'msg-over-budget',
+        providerRequestId: 'req-over-budget',
+      }),
     );
   });
 

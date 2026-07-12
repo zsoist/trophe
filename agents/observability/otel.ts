@@ -85,6 +85,7 @@ export function estimateCostUsd(
   inputTokens: number,
   outputTokens: number,
   cacheReadTokens = 0,
+  cacheWriteTokens = 0,
 ): number {
-  return estimateModelCostUsd(model, inputTokens, outputTokens, cacheReadTokens);
+  return estimateModelCostUsd(model, inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens);
 }

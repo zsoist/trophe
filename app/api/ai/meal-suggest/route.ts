@@ -121,16 +121,17 @@ export async function POST(request: NextRequest) {
 
     const userMessage = `Remaining macro budget: ${macroContext}.${preferencesNote}${mealTypeNote} Suggest 3 meal options.`;
 
-    // Provider-agnostic structured output — routes through policy.provider
-    // (DeepSeek primary → Anthropic fallback via taskFallbacks in execute.ts)
+    // Provider-agnostic structured output — routes through the production policy
+    // and its compliance-closed fallback in execute.ts.
     const result = await executeAiTask<MealSuggestionOutput>({
       task: 'meal_suggest',
       prompt: userMessage,
       systemPrompt: SYSTEM_PROMPT,
       context: { userId: guard.userId, requestId: request.headers.get('x-request-id') ?? undefined },
-      invoke: ({ policy, signal }) => invokeStructuredProvider({
+      invoke: ({ policy, signal, clientRequestId }) => invokeStructuredProvider({
         policy,
         signal,
+        clientRequestId,
         system: SYSTEM_PROMPT,
         prompt: userMessage,
         schema: mealSuggestJsonSchema as Record<string, unknown>,

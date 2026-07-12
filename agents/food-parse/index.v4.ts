@@ -711,9 +711,10 @@ async function estimateMacrosViaLLM(
       prompt: userMessage,
       systemPrompt: MACRO_ESTIMATE_PROMPT,
       context: { metadata: { operation: 'macro-estimate' } },
-      invoke: ({ policy: selected, signal }) => invokeStructuredProvider({
+      invoke: ({ policy: selected, signal, clientRequestId }) => invokeStructuredProvider({
         policy: selected,
         signal,
+        clientRequestId,
         system: MACRO_ESTIMATE_PROMPT,
         prompt: userMessage,
         schema: macroEstimateGeminiResponseSchema,
@@ -870,9 +871,10 @@ export async function run(
         requestId: opts?.requestId,
         metadata: { pipelineVersion: FOOD_PARSE_VERSION, ...opts?.metadata },
       },
-      invoke: ({ policy: selected, signal }) => invokeStructuredProvider({
+      invoke: ({ policy: selected, signal, clientRequestId }) => invokeStructuredProvider({
         policy: selected,
         signal,
+        clientRequestId,
         system: PROMPT_TEMPLATE,
         prompt: userMessage,
         schema: foodParseGeminiResponseSchema,
@@ -912,6 +914,7 @@ export async function run(
     llmResult.usage.input_tokens,
     llmResult.usage.output_tokens,
     llmResult.usage.cache_read_input_tokens ?? 0,
+    llmResult.usage.cache_creation_input_tokens ?? 0,
   );
 
   emitGenAISpan({
@@ -958,9 +961,10 @@ export async function run(
           requestId: opts?.requestId,
           metadata: { pipelineVersion: FOOD_PARSE_VERSION, operation: 'schema-repair', ...opts?.metadata },
         },
-        invoke: ({ policy: selected, signal }) => invokeStructuredProvider({
+        invoke: ({ policy: selected, signal, clientRequestId }) => invokeStructuredProvider({
           policy: selected,
           signal,
+          clientRequestId,
           system: PROMPT_TEMPLATE,
           prompt: `${userMessage}\n\nReturn only valid JSON matching the required schema.`,
           schema: foodParseGeminiResponseSchema,

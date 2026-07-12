@@ -18,7 +18,8 @@ import { aggregateIngredients, groupByCategory } from '@/lib/food/shopping-list'
 /**
  * Generate a shopping list from a client's weekly meal plan (Daily Nutrafit
  * "Shopping Lists" feature). Reads meal_plan_entries → DeepSeek extracts grocery
- * line-items → aggregateIngredients() consolidates them.
+ * line-items through the governed provider policy, then aggregateIngredients()
+ * consolidates them.
  *
  * POST { clientId } → { items, byCategory, mealCount }
  */
@@ -68,9 +69,10 @@ export async function POST(request: NextRequest) {
       prompt: userMessage,
       systemPrompt: SYSTEM_PROMPT,
       context: { userId, requestId: request.headers.get('x-request-id') ?? undefined },
-      invoke: ({ policy, signal }) => invokeStructuredProvider({
+      invoke: ({ policy, signal, clientRequestId }) => invokeStructuredProvider({
         policy,
         signal,
+        clientRequestId,
         system: SYSTEM_PROMPT,
         prompt: userMessage,
         schema: shoppingExtractJsonSchema as Record<string, unknown>,
