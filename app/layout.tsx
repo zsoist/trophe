@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Instrument_Serif, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-import Providers from "@/components/shared/Providers";
+import ErrorBoundary from "@/components/shared/ErrorBoundary";
 import { Analytics } from "@vercel/analytics/react";
 
 const inter = Inter({
@@ -78,7 +78,7 @@ export default function RootLayout({
         className="min-h-full font-sans antialiased"
         style={{ background: "var(--bg-primary)", color: "var(--text-primary)" }}
       >
-        <Providers>{children}</Providers>
+        <ErrorBoundary>{children}</ErrorBoundary>
         <Analytics />
       </body>
     </html>

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { InstallCard } from "@/components/shared/InstallCard";
+import Providers from "@/components/shared/Providers";
 import { TRPCProvider } from "@/lib/trpc/provider";
 
 /**
@@ -12,9 +13,11 @@ import { TRPCProvider } from "@/lib/trpc/provider";
  */
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
-    <TRPCProvider>
-      {children}
-      <InstallCard />
-    </TRPCProvider>
+    <Providers>
+      <TRPCProvider>
+        {children}
+        <InstallCard />
+      </TRPCProvider>
+    </Providers>
   );
 }
