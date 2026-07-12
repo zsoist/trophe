@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 const read = (path: string) => readFileSync(join(process.cwd(), path), 'utf8');
 
 describe('service-worker delivery budget', () => {
-  it('registers only inside the authenticated app and precaches only the offline fallback', () => {
+  it('keeps serwist bundling wired and precaches only the offline fallback', () => {
     const config = read('next.config.ts');
 
     expect(config).toMatch(/register:\s*false/);
@@ -21,31 +21,33 @@ describe('service-worker delivery budget', () => {
     expect(offline).toContain('lang="el"');
   });
 
-  it('never caches application HTML, RSC payloads, or API responses', () => {
+  it('ships a self-destructing worker — no runtime caching, unregisters + purges', () => {
+    // 2026-07-12: the runtime-caching worker was retired (iOS Safari ~1-min
+    // loads). app/sw.ts must now take over immediately, purge every cache, and
+    // unregister itself so the origin serves pure static + network.
     const worker = read('app/sw.ts');
 
-    expect(worker).not.toContain('defaultCache');
-    expect(worker).not.toContain('NetworkFirst');
-    expect(worker).toMatch(/skipWaiting:\s*false/);
-    expect(worker).toMatch(/matcher:\s*\(context\)\s*=>\s*mustUseNetwork\(context\)[\s\S]{0,100}new NetworkOnly/);
-    expect(worker).toContain('RETIRED_RUNTIME_CACHES');
-    expect(worker).toContain('pages-rsc');
-    expect(worker).toContain('pages-rsc-prefetch');
-    expect(worker).toContain('CURRENT_SW_GENERATION_CACHE');
-    expect(worker).toMatch(/addEventListener\(["']install["'][\s\S]+caches\.has\(CURRENT_SW_GENERATION_CACHE\)[\s\S]+self\.skipWaiting\(\)/);
-    expect(worker).toMatch(/addEventListener\(["']activate["'][\s\S]+caches\.open\(CURRENT_SW_GENERATION_CACHE\)/);
+    // No serwist caching runtime remains (check real code, not prose).
+    expect(worker).not.toContain('from "serwist"');
+    expect(worker).not.toContain('new Serwist');
+    expect(worker).not.toContain('runtimeCaching:');
+    expect(worker).not.toContain('precacheEntries');
+
+    // Self-destruct lifecycle.
+    expect(worker).toContain('self.skipWaiting()');
+    expect(worker).toMatch(/addEventListener\(["']activate["']/);
+    expect(worker).toContain('self.registration.unregister()');
+    expect(worker).toMatch(/caches\.keys\(\)[\s\S]{0,240}caches\.delete/);
   });
 
-  it('reloads only after a user accepts an update and removes lifecycle listeners', () => {
+  it('no longer registers a worker from the app (devices self-heal)', () => {
     const registration = read('components/shared/SWRegistration.tsx');
 
-    expect(registration).toContain('useRef(false)');
-    expect(registration).toContain('reloadRequested.current = true');
-    expect(registration).toContain('registeredWorker.installing');
-    expect(registration).toContain('watchInstallingWorker(registeredWorker.installing)');
-    expect(registration).toContain("removeEventListener('controllerchange'");
-    expect(registration).toContain("removeEventListener('updatefound'");
-    expect(registration).toContain("console.error('[service-worker] registration failed'");
+    // The component is now a no-op: it must NOT register a worker, so an old
+    // worker is never re-created — the browser's own /sw.js re-check applies the
+    // self-destruct worker to devices that still have one.
+    expect(registration).toContain('return null');
+    expect(registration).not.toContain('navigator.serviceWorker.register');
 
     const gitignore = read('.gitignore');
     expect(gitignore).toContain('public/sw.js');

@@ -1,105 +1,62 @@
-import type { PrecacheEntry, SerwistGlobalConfig } from "serwist";
-import { CacheFirst, CacheableResponsePlugin, ExpirationPlugin, NetworkOnly, Serwist } from "serwist";
-import { isPublicAssetRequest, isStaticAssetRequest, mustUseNetwork } from "../lib/pwa/sw-policy";
+/**
+ * Self-destructing service worker (2026-07-12).
+ *
+ * Why: two test iPhones loaded trophe.app in ~1 minute while every Chromium /
+ * curl / edge measurement showed <1s. The one variable that differs is the
+ * service worker — iOS Safari's SW engine is the notorious quirk zone, and both
+ * testers' phones have a worker installed (it controls the whole origin, so even
+ * the logged-out landing routes through it). Trophē is an ONLINE app: navigations
+ * were already NetworkOnly and /_next/static assets are immutable + long-cached
+ * by the browser's own HTTP cache, so the worker added near-zero benefit at real
+ * iOS risk (stale/stuck workers, preload edge-cases).
+ *
+ * This worker takes over immediately, purges every Cache Storage entry, and
+ * unregisters itself — returning the origin to pure static + network delivery
+ * (measured fast). Any device that loads the page (including phones stuck on an
+ * old worker) heals on the next visit. Fully reversible: a caching worker can be
+ * reintroduced later once the iOS behaviour is understood and validated on-device.
+ */
+/// <reference lib="webworker" />
 
-// TypeScript: tell the compiler about the Serwist globals injected at build time
-declare global {
-  interface WorkerGlobalScope extends SerwistGlobalConfig {
-    __SW_MANIFEST: (PrecacheEntry | string)[] | undefined;
-  }
-}
+declare const self: ServiceWorkerGlobalScope & { __SW_MANIFEST?: unknown };
 
-declare const self: ServiceWorkerGlobalScope;
+// The @serwist/next build injects __SW_MANIFEST; reference it so the bundle is
+// satisfied even though this worker precaches nothing.
+void self.__SW_MANIFEST;
 
-const CURRENT_SW_GENERATION_CACHE = "trophe-sw-v2-marker";
-
-const RETIRED_RUNTIME_CACHES = new Set([
-  "apis",
-  "app-images",
-  "cross-origin",
-  "google-fonts",
-  "google-fonts-stylesheets",
-  "google-fonts-webfonts",
-  "next-data",
-  "next-image",
-  "next-static",
-  "next-static-js-assets",
-  "others",
-  "pages",
-  "pages-rsc",
-  "pages-rsc-prefetch",
-  "static-audio-assets",
-  "static-data-assets",
-  "static-font-assets",
-  "static-image-assets",
-  "static-js-assets",
-  "static-style-assets",
-  "static-video-assets",
-]);
-
-const serwist = new Serwist({
-  precacheEntries: self.__SW_MANIFEST,
-  precacheOptions: { cleanupOutdatedCaches: true },
-  skipWaiting: false,
-  clientsClaim: true,
-  navigationPreload: true,
-  runtimeCaching: [
-    // Never persist application documents, RSC payloads, APIs, or Supabase.
-    {
-      matcher: (context) => mustUseNetwork(context),
-      handler: new NetworkOnly(),
-    },
-
-    // Cache only immutable, same-origin Next.js build assets.
-    {
-      matcher: (context) => isStaticAssetRequest(context),
-      handler: new CacheFirst({
-        cacheName: "trophe-static-v2",
-        plugins: [
-          new CacheableResponsePlugin({ statuses: [200] }),
-          new ExpirationPlugin({ maxEntries: 128, maxAgeSeconds: 30 * 24 * 60 * 60 }),
-        ],
-      }),
-    },
-
-    // Cache only explicitly public, same-origin brand assets.
-    {
-      matcher: (context) => isPublicAssetRequest(context),
-      handler: new CacheFirst({
-        cacheName: "trophe-images-v2",
-        plugins: [
-          new CacheableResponsePlugin({ statuses: [200] }),
-          new ExpirationPlugin({ maxEntries: 64, maxAgeSeconds: 365 * 24 * 60 * 60 }),
-        ],
-      }),
-    },
-  ],
-  fallbacks: {
-    entries: [{ url: "/offline.html", matcher: ({ request }) => request.mode === "navigate" }],
-  },
+self.addEventListener('install', () => {
+  // Skip the waiting phase so this worker replaces any predecessor immediately.
+  void self.skipWaiting();
 });
 
-self.addEventListener("install", (event) => {
+self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.has(CURRENT_SW_GENERATION_CACHE).then((isCurrentGeneration) => {
-      // Bridge only the legacy worker into v2 automatically. Once v2 has
-      // activated, later releases return to the explicit update button.
-      if (!isCurrentGeneration) return self.skipWaiting();
-    }),
+    (async () => {
+      // 1) Purge every cache the old worker created.
+      try {
+        const names = await caches.keys();
+        await Promise.all(names.map((name) => caches.delete(name)));
+      } catch {
+        /* best-effort — a failed purge must not block unregistration */
+      }
+
+      // 2) Remove this worker from the origin entirely.
+      try {
+        await self.registration.unregister();
+      } catch {
+        /* noop */
+      }
+
+      // 3) Reload any controlled tabs once so they continue with NO worker.
+      try {
+        const clients = await self.clients.matchAll({ type: 'window' });
+        for (const client of clients) {
+          const windowClient = client as WindowClient;
+          windowClient.navigate(windowClient.url).catch(() => {});
+        }
+      } catch {
+        /* noop */
+      }
+    })(),
   );
 });
-
-self.addEventListener("activate", (event) => {
-  event.waitUntil(
-    Promise.all([
-      caches.open(CURRENT_SW_GENERATION_CACHE),
-      caches.keys().then((cacheNames) => Promise.all(
-        cacheNames
-          .filter((cacheName) => RETIRED_RUNTIME_CACHES.has(cacheName))
-          .map((cacheName) => caches.delete(cacheName)),
-      )),
-    ]),
-  );
-});
-
-serwist.addEventListeners();
