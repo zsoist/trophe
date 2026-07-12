@@ -201,7 +201,7 @@ Promise<{
 
 Type-safe internal API for coach UI. Public REST stays at `/api/v1/*` for external partners + Spike webhooks.
 
-Routers: `clients`, `coach`, `food`, `memory`. React Query v5 provider wraps the app. Coach pages fetch via tRPC hooks; REST routes remain as thin adapters.
+Routers: `clients`, `coach`, `food`, `memory`. React Query v5 `TRPCProvider` is mounted in the authenticated `dashboard` and `coach` route layouts, not the root app. Coach pages fetch via tRPC hooks; REST routes remain as thin adapters.
 
 ---
 
