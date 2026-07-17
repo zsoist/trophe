@@ -3,7 +3,7 @@
 Single source of truth for all LLM-backed features in Trophē v0.3.
 Routes are thin adapters. Prompts are versioned files. Every call is traced.
 
-_Last updated: 2026-07-11 (three-lane routing: consumer Luna/Haiku, health Haiku, synthetic factory DeepSeek)_
+_Last updated: 2026-07-17 (Luna explicit prefix caching, bounded retries, and provider diagnostics)_
 
 ---
 
@@ -56,13 +56,13 @@ agents/
 
 | Agent | Model (via router) | Cache | Status |
 |-------|-------------------|-------|--------|
-| `food-parse` | GPT-5.6 Luna | — | ✅ v0.3 deterministic pipeline |
-| `recipe-analyze` | GPT-5.6 Luna | — | ✅ live |
+| `food-parse` | GPT-5.6 Luna | explicit stable-prefix cache | ✅ v0.3 deterministic pipeline |
+| `recipe-analyze` | GPT-5.6 Luna | explicit stable-prefix cache | ✅ live |
 | `photo-analyze` (inline route) | Anthropic Haiku 4.5 (vision) | — | ✅ live |
-| `meal-suggest` (inline route) | GPT-5.6 Luna | — | ✅ live |
+| `meal-suggest` (inline route) | GPT-5.6 Luna | explicit stable-prefix cache | ✅ live |
 | `coach-insight` / `wearable-summary` | Anthropic Haiku 4.5 | prompt cache | ✅ live |
 | `memory-write` / `memory-extract` | Anthropic Haiku 4.5 | prompt cache | ✅ live |
-| `shopping-extract` (inline route) | GPT-5.6 Luna | — | ✅ live |
+| `shopping-extract` (inline route) | GPT-5.6 Luna | explicit stable-prefix cache | ✅ live |
 | `factory_generate` | DeepSeek V4 Flash | provider cache | ✅ synthetic-only |
 
 > Phase 3 routing: consumer text stays GPT-5.6 Luna → Claude Haiku 4.5, health-context stays Haiku, and DeepSeek is confined to synthetic factory generation.
@@ -149,6 +149,13 @@ User input: "200g feta, 1 banana"
 ---
 
 ## Prompt caching
+
+GPT-5.6 structured calls use a stable `prompt_cache_key`, explicit cache mode,
+and a breakpoint after the static system block. Dynamic user input stays after
+the breakpoint. The runtime records both `cached_tokens` and
+`cache_write_tokens`; Luna cost accounting uses the current $0.10/M read and
+$1.25/M write rates. Keep traffic near 15 requests/minute per cache key and
+partition with a stable mapping before exceeding that rate.
 
 `clients/anthropic.ts` supports `cacheSystem: true` which wraps the system prompt in `cache_control: { type: 'ephemeral' }`.
 

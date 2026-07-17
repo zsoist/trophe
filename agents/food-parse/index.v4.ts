@@ -912,6 +912,7 @@ export async function run(
     llmResult.usage.input_tokens,
     llmResult.usage.output_tokens,
     llmResult.usage.cache_read_input_tokens ?? 0,
+    llmResult.usage.cache_creation_input_tokens ?? 0,
   );
 
   emitGenAISpan({

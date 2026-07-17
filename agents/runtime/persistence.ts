@@ -2,6 +2,7 @@ import { db } from '@/db/client';
 import { agentRuns } from '@/db/schema/agent_runs';
 import { eq, sql } from 'drizzle-orm';
 import { resolveOrganizationId } from './org-budget';
+import { providerErrorTelemetry } from './provider-error';
 import type { AiTaskContext, AiUsage } from './types';
 import type { RoutingPolicy, TaskName } from '@/agents/router/policies';
 
@@ -59,9 +60,14 @@ export async function completeGeneration(input: {
 
 export async function failGeneration(generationId: string, error: unknown): Promise<void> {
   const message = error instanceof Error ? error.message : String(error);
+  const telemetry = providerErrorTelemetry(error);
   await db.update(agentRuns).set({
     status: 'failed',
     errorMessage: message.slice(0, 500),
+    rawStatus: telemetry.rawStatus,
+    ...(telemetry.metadata ? {
+      metadata: sql`coalesce(${agentRuns.metadata}, '{}'::jsonb) || ${JSON.stringify(telemetry.metadata)}::jsonb`,
+    } : {}),
     completedAt: new Date(),
   }).where(eq(agentRuns.generationId, generationId));
 }

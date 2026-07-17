@@ -11,6 +11,8 @@ export const modelPricing: Record<string, ModelPricing> = {
   'gpt-5.6-luna': {
     inputPerMillion: 1.00,
     outputPerMillion: 6.00,
+    cacheReadPerMillion: 0.10,
+    cacheWritePerMillion: 1.25,
   },
   'deepseek-v4-flash': {
     inputPerMillion: 0.14,

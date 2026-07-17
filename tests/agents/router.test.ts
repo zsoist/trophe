@@ -99,6 +99,18 @@ describe('estimateCostUsd()', () => {
     expect(withCache).toBeLessThan(withoutCache);
   });
 
+  it('prices Luna cache reads and writes at the current OpenAI rates', () => {
+    // 1000 total input = 600 uncached + 300 read + 100 written.
+    const cost = estimateCostUsd('gpt-5.6-luna', 1000, 50, 300, 100);
+    expect(cost).toBeCloseTo(
+      600 * 1.00 / 1_000_000 +
+      300 * 0.10 / 1_000_000 +
+      100 * 1.25 / 1_000_000 +
+      50 * 6.00 / 1_000_000,
+      8,
+    );
+  });
+
   it('returns 0 for unknown model', () => {
     expect(estimateCostUsd('unknown-model-xyz', 1000, 1000)).toBe(0);
   });
