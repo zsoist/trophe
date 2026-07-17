@@ -74,6 +74,8 @@ export async function invokeStructuredProvider<T>(input: {
   /** Enable DeepSeek /beta strict mode (requires additionalProperties: false). */
   strict?: boolean;
   maxTokens?: number;
+  /** OpenAI-only retry bound. Use 1 for strict measurement probes. */
+  maxAttempts?: number;
   userId?: string;
 }): Promise<ProviderResult<T>> {
   if (input.signal.aborted) throw new Error('AI request aborted');
@@ -112,6 +114,7 @@ export async function invokeStructuredProvider<T>(input: {
       schema: input.schema,
       validator: input.validator,
       strict,
+      maxAttempts: input.maxAttempts,
     });
   }
 

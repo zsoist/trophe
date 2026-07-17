@@ -8,6 +8,14 @@ describe('providerErrorTelemetry', () => {
       code: 'insufficient_permissions',
       type: 'invalid_request_error',
       requestId: 'req_luna_123',
+      usage: {
+        inputTokens: 120,
+        outputTokens: 8,
+        cacheReadTokens: 80,
+        cacheWriteTokens: 12,
+      },
+      latencyMs: 321,
+      providerGenerationId: 'resp_123',
     })).toEqual({
       rawStatus: 403,
       metadata: {
@@ -17,6 +25,14 @@ describe('providerErrorTelemetry', () => {
           requestId: 'req_luna_123',
         },
       },
+      usage: {
+        inputTokens: 120,
+        outputTokens: 8,
+        cacheReadTokens: 80,
+        cacheWriteTokens: 12,
+      },
+      latencyMs: 321,
+      providerGenerationId: 'resp_123',
     });
   });
 

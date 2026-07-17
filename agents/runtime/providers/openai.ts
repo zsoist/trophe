@@ -1,10 +1,11 @@
 import { createHash } from 'node:crypto';
 import type { z } from 'zod';
-import type { ProviderResult } from '../types';
+import type { AiUsage, ProviderResult } from '../types';
 
 const OPENAI_CHAT_COMPLETIONS_URL = 'https://api.openai.com/v1/chat/completions';
-const MAX_RETRY_DELAY_MS = 5_000;
 const MAX_ATTEMPTS = 3;
+const MAX_RETRY_DELAY_MS = 8_000;
+const MAX_RETRY_AFTER_MS = 60_000;
 
 type OpenAiErrorBody = {
   message?: string;
@@ -17,6 +18,9 @@ export class OpenAiApiError extends Error {
   readonly code?: string;
   readonly type?: string;
   readonly requestId?: string;
+  readonly usage?: AiUsage;
+  readonly latencyMs?: number;
+  readonly providerGenerationId?: string;
 
   constructor(input: {
     message: string;
@@ -24,6 +28,9 @@ export class OpenAiApiError extends Error {
     code?: string;
     type?: string;
     requestId?: string;
+    usage?: AiUsage;
+    latencyMs?: number;
+    providerGenerationId?: string;
   }) {
     super(input.message);
     this.name = 'OpenAiApiError';
@@ -31,6 +38,9 @@ export class OpenAiApiError extends Error {
     this.code = input.code;
     this.type = input.type;
     this.requestId = input.requestId;
+    this.usage = input.usage;
+    this.latencyMs = input.latencyMs;
+    this.providerGenerationId = input.providerGenerationId;
   }
 }
 
@@ -40,7 +50,7 @@ function waitForRetry(delayMs: number, signal: AbortSignal): Promise<void> {
     const timeout = setTimeout(() => {
       signal.removeEventListener('abort', onAbort);
       resolve();
-    }, Math.min(delayMs, MAX_RETRY_DELAY_MS));
+    }, delayMs);
     const onAbort = () => {
       clearTimeout(timeout);
       signal.removeEventListener('abort', onAbort);
@@ -87,19 +97,25 @@ function shouldRetry(response: Response): boolean {
 function retryDelayMs(response: Response | undefined, attempt: number): number {
   if (response) {
     const retryAfterMs = Number(response.headers.get('retry-after-ms'));
-    if (Number.isFinite(retryAfterMs) && retryAfterMs > 0) return Math.ceil(retryAfterMs);
+    if (Number.isFinite(retryAfterMs) && retryAfterMs > 0 && retryAfterMs <= MAX_RETRY_AFTER_MS) {
+      return Math.ceil(retryAfterMs);
+    }
 
     const retryAfter = response.headers.get('retry-after');
     if (retryAfter) {
       const seconds = Number(retryAfter);
-      if (Number.isFinite(seconds) && seconds > 0) return Math.ceil(seconds * 1_000);
+      if (Number.isFinite(seconds) && seconds > 0 && seconds * 1_000 <= MAX_RETRY_AFTER_MS) {
+        return Math.ceil(seconds * 1_000);
+      }
 
       const retryAt = Date.parse(retryAfter);
-      if (Number.isFinite(retryAt)) return Math.max(0, retryAt - Date.now());
+      const delayMs = retryAt - Date.now();
+      if (Number.isFinite(retryAt) && delayMs > 0 && delayMs <= MAX_RETRY_AFTER_MS) return delayMs;
     }
   }
 
-  return 500 * 2 ** attempt;
+  const exponentialDelay = Math.min(500 * 2 ** attempt, MAX_RETRY_DELAY_MS);
+  return Math.max(0, Math.floor(exponentialDelay * (1 - 0.25 * Math.random())));
 }
 
 function apiError(response: Response, error: OpenAiErrorBody | undefined): OpenAiApiError {
@@ -123,6 +139,8 @@ export async function invokeOpenAiStructured<T>(input: {
   schema: Record<string, unknown>;
   validator: z.ZodType<T>;
   strict?: boolean;
+  /** Defaults to SDK-compatible three total attempts. Set to 1 for measured probes. */
+  maxAttempts?: number;
 }): Promise<ProviderResult<T>> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error('OPENAI_API_KEY not configured');
@@ -177,7 +195,11 @@ export async function invokeOpenAiStructured<T>(input: {
   };
   let response: Response | undefined;
   let data: OpenAiResponse = {};
-  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+  const requestedAttempts = Number.isFinite(input.maxAttempts)
+    ? Math.floor(input.maxAttempts as number)
+    : MAX_ATTEMPTS;
+  const maxAttempts = Math.min(MAX_ATTEMPTS, Math.max(1, requestedAttempts));
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
       response = await fetch(OPENAI_CHAT_COMPLETIONS_URL, {
         method: 'POST',
@@ -189,7 +211,7 @@ export async function invokeOpenAiStructured<T>(input: {
         signal: input.signal,
       });
     } catch (error) {
-      if (input.signal.aborted || attempt === MAX_ATTEMPTS - 1) throw error;
+      if (input.signal.aborted || attempt === maxAttempts - 1) throw error;
       await waitForRetry(retryDelayMs(undefined, attempt), input.signal);
       continue;
     }
@@ -201,32 +223,58 @@ export async function invokeOpenAiStructured<T>(input: {
       data = { error: { message: `OpenAI returned a non-JSON response (${response.status})` } };
     }
     if (response.ok) break;
-    if (!shouldRetry(response) || attempt === MAX_ATTEMPTS - 1) throw apiError(response, data.error);
+    if (!shouldRetry(response) || attempt === maxAttempts - 1) throw apiError(response, data.error);
     await waitForRetry(retryDelayMs(response, attempt), input.signal);
   }
   if (!response) throw new Error('OpenAI request failed before receiving a response');
   if (!response.ok) throw apiError(response, data.error);
+
+  const usage: AiUsage = {
+    inputTokens: data.usage?.prompt_tokens ?? 0,
+    outputTokens: data.usage?.completion_tokens ?? 0,
+    cacheReadTokens: data.usage?.prompt_tokens_details?.cached_tokens ?? 0,
+    cacheWriteTokens: data.usage?.prompt_tokens_details?.cache_write_tokens ?? 0,
+    reasoningTokens: data.usage?.completion_tokens_details?.reasoning_tokens ?? 0,
+  };
+  const malformedResponse = (message: string) => new OpenAiApiError({
+    message,
+    status: response.status,
+    code: 'invalid_structured_output',
+    type: 'response_validation_error',
+    requestId: response.headers.get('x-request-id') ?? undefined,
+    usage,
+    latencyMs: Date.now() - startedAt,
+    providerGenerationId: data.id,
+  });
 
   const choice = data.choices?.[0];
   const toolCall = choice?.message?.tool_calls?.find(
     (call) => call.function?.name === input.toolName,
   );
   const rawArguments = toolCall?.function?.arguments;
-  if (!rawArguments) throw new Error('OpenAI structured response missing tool call');
+  if (!rawArguments) throw malformedResponse('OpenAI structured response missing tool call');
   if (choice?.finish_reason !== 'tool_calls') {
-    throw new Error(`OpenAI structured response ended with ${choice?.finish_reason ?? 'unknown reason'}`);
+    throw malformedResponse(`OpenAI structured response ended with ${choice?.finish_reason ?? 'unknown reason'}`);
+  }
+
+  let parsedArguments: unknown;
+  try {
+    parsedArguments = JSON.parse(rawArguments);
+  } catch {
+    throw malformedResponse('OpenAI structured response arguments were not valid JSON');
+  }
+
+  let output: T;
+  try {
+    output = input.validator.parse(parsedArguments);
+  } catch {
+    throw malformedResponse('OpenAI structured response failed schema validation');
   }
 
   return {
-    output: input.validator.parse(JSON.parse(rawArguments)),
+    output,
     providerGenerationId: data.id,
-    usage: {
-      inputTokens: data.usage?.prompt_tokens ?? 0,
-      outputTokens: data.usage?.completion_tokens ?? 0,
-      cacheReadTokens: data.usage?.prompt_tokens_details?.cached_tokens ?? 0,
-      cacheWriteTokens: data.usage?.prompt_tokens_details?.cache_write_tokens ?? 0,
-      reasoningTokens: data.usage?.completion_tokens_details?.reasoning_tokens ?? 0,
-    },
+    usage,
     latencyMs: Date.now() - startedAt,
     rawStatus: response.status,
   };

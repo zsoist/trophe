@@ -104,10 +104,19 @@ describe('invokeOpenAiStructured', () => {
   it('rejects missing tool output', async () => {
     vi.stubEnv('OPENAI_API_KEY', 'test-key');
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      id: 'resp_malformed',
       choices: [{ finish_reason: 'stop', message: {} }],
-    }), { status: 200, headers: { 'Content-Type': 'application/json' } })));
+      usage: {
+        prompt_tokens: 120,
+        completion_tokens: 8,
+        prompt_tokens_details: { cached_tokens: 80, cache_write_tokens: 12 },
+      },
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json', 'x-request-id': 'req_malformed' },
+    })));
 
-    await expect(invokeOpenAiStructured({
+    const pending = invokeOpenAiStructured({
       model: 'gpt-5.6-luna',
       system: 'system',
       prompt: 'prompt',
@@ -117,7 +126,22 @@ describe('invokeOpenAiStructured', () => {
       description: 'Submit result',
       schema: { type: 'object' },
       validator,
-    })).rejects.toThrow('missing tool call');
+    });
+
+    await expect(pending).rejects.toMatchObject({
+      message: 'OpenAI structured response missing tool call',
+      status: 200,
+      code: 'invalid_structured_output',
+      type: 'response_validation_error',
+      requestId: 'req_malformed',
+      providerGenerationId: 'resp_malformed',
+      usage: {
+        inputTokens: 120,
+        outputTokens: 8,
+        cacheReadTokens: 80,
+        cacheWriteTokens: 12,
+      },
+    } satisfies Partial<OpenAiApiError>);
   });
 
   it('surfaces structured provider diagnostics without retrying permissions failures', async () => {
@@ -269,6 +293,21 @@ describe('invokeOpenAiStructured', () => {
     await rejection;
     expect(fetchMock).toHaveBeenCalledTimes(3);
     vi.useRealTimers();
+  });
+
+  it('disables same-provider retries for controlled measurement probes', async () => {
+    vi.stubEnv('OPENAI_API_KEY', 'test-key');
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      error: { message: 'upstream unavailable', code: 'server_error' },
+    }), { status: 503, headers: { 'Content-Type': 'application/json' } }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(invokeOpenAiStructured({
+      model: 'gpt-5.6-luna', system: 'system', prompt: 'prompt', maxTokens: 256,
+      signal: new AbortController().signal, toolName: 'submit_result', description: 'Submit result',
+      schema: { type: 'object' }, validator, maxAttempts: 1,
+    })).rejects.toMatchObject({ status: 503, code: 'server_error' });
+    expect(fetchMock).toHaveBeenCalledOnce();
   });
 
   it('aborts during Retry-After backoff without issuing another request', async () => {

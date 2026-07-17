@@ -75,7 +75,7 @@ async function attemptInvoke<T>(
     await completeGeneration({ generationId, ...providerResult, estimatedCostUsd });
     return { generationId, estimatedCostUsd, selectedPolicy: policy, isFallback, ...providerResult };
   } catch (error) {
-    await failGeneration(generationId, error).catch((persistenceError) => {
+    await failGeneration(generationId, error, policy.model).catch((persistenceError) => {
       console.error('[ai-runtime] Failed to persist generation failure:', persistenceError);
     });
     if (error instanceof Error) {

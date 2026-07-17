@@ -752,6 +752,8 @@ export async function run(
     userId?: string;
     requestId?: string;
     metadata?: Record<string, unknown>;
+    /** Bound OpenAI attempts for controlled eval probes without changing normal traffic. */
+    maxProviderAttempts?: number;
     onGenerationId?: (generationId: string) => void;
   },
 ): Promise<FoodParseRunResultV4> {
@@ -880,6 +882,7 @@ export async function run(
         toolName: 'submit_food_parse',
         toolDescription: 'Submit parsed food items and clarification state',
         strict: false,
+        maxAttempts: opts?.maxProviderAttempts,
       }),
     });
     traceId = generation.generationId;
@@ -969,6 +972,7 @@ export async function run(
           toolName: 'submit_food_parse',
           toolDescription: 'Submit parsed food items and clarification state',
           strict: false,
+          maxAttempts: opts?.maxProviderAttempts,
         }),
       });
       v4Parsed = repair.output;

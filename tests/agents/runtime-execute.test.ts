@@ -155,7 +155,11 @@ describe('executeAiTask integration contract', () => {
       invoke: vi.fn(async () => { throw providerError; }),
     })).rejects.toBe(providerError);
 
-    expect(persistence.failGeneration).toHaveBeenCalledWith(expect.any(String), providerError);
+    expect(persistence.failGeneration).toHaveBeenCalledWith(
+      expect.any(String),
+      providerError,
+      'gpt-5.6-luna',
+    );
   });
 
   it('preserves provider errors when failure persistence is unavailable', async () => {

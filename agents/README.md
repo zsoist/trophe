@@ -154,15 +154,18 @@ GPT-5.6 structured calls use a stable `prompt_cache_key`, explicit cache mode,
 and a breakpoint after the static system block. Dynamic user input stays after
 the breakpoint. The runtime records both `cached_tokens` and
 `cache_write_tokens`; Luna cost accounting uses the current $0.10/M read and
-$1.25/M write rates. Keep traffic near 15 requests/minute per cache key and
-partition with a stable mapping before exceeding that rate.
+$1.25/M write rates. GPT-5.6 caches eligible prefixes of at least 1024 tokens
+for a minimum of 30 minutes. Keep traffic near 15 requests/minute per cache key
+and partition with a stable mapping before exceeding that rate. Tagged frozen
+and watch-list probes use one Luna attempt per request ID; ordinary production
+traffic keeps the bounded retry policy.
 
 `clients/anthropic.ts` supports `cacheSystem: true` which wraps the system prompt in `cache_control: { type: 'ephemeral' }`.
 
 **Requirements**:
-- Prefix must be ≥2048 tokens
+- Prefix must be ≥1024 tokens for GPT-5.6 (≥2048 for the current Anthropic cache path)
 - Stable prefix: rules + USDA reference values + FOOD_DATABASE constants
-- Cache TTL: ~5 minutes
+- Cache lifetime: GPT-5.6 minimum 30 minutes; Anthropic ephemeral cache ~5 minutes
 - Cache hit: ~10% of normal input cost → ~70% spend reduction at steady state
 
 **Use when**: system prompt ≥2048 tokens AND requests arrive in bursts (typical user sessions).

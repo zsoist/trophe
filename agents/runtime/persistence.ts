@@ -1,6 +1,7 @@
 import { db } from '@/db/client';
 import { agentRuns } from '@/db/schema/agent_runs';
 import { eq, sql } from 'drizzle-orm';
+import { estimateModelCostUsd } from '@/agents/router/pricing';
 import { resolveOrganizationId } from './org-budget';
 import { providerErrorTelemetry } from './provider-error';
 import type { AiTaskContext, AiUsage } from './types';
@@ -58,13 +59,33 @@ export async function completeGeneration(input: {
   }).where(eq(agentRuns.generationId, input.generationId));
 }
 
-export async function failGeneration(generationId: string, error: unknown): Promise<void> {
+export async function failGeneration(generationId: string, error: unknown, model: string): Promise<void> {
   const message = error instanceof Error ? error.message : String(error);
   const telemetry = providerErrorTelemetry(error);
+  const estimatedCostUsd = telemetry.usage
+    ? estimateModelCostUsd(
+        model,
+        telemetry.usage.inputTokens,
+        telemetry.usage.outputTokens,
+        telemetry.usage.cacheReadTokens ?? 0,
+        telemetry.usage.cacheWriteTokens ?? 0,
+      )
+    : undefined;
   await db.update(agentRuns).set({
     status: 'failed',
     errorMessage: message.slice(0, 500),
     rawStatus: telemetry.rawStatus,
+    ...(telemetry.usage ? {
+      tokensIn: telemetry.usage.inputTokens,
+      tokensOut: telemetry.usage.outputTokens,
+      cacheReadTokens: telemetry.usage.cacheReadTokens ?? 0,
+      cacheWriteTokens: telemetry.usage.cacheWriteTokens ?? 0,
+      reasoningTokens: telemetry.usage.reasoningTokens ?? 0,
+      costUsd: estimatedCostUsd,
+      estimatedCostUsd,
+    } : {}),
+    ...(telemetry.latencyMs != null ? { latencyMs: telemetry.latencyMs } : {}),
+    ...(telemetry.providerGenerationId ? { providerGenerationId: telemetry.providerGenerationId } : {}),
     ...(telemetry.metadata ? {
       metadata: sql`coalesce(${agentRuns.metadata}, '{}'::jsonb) || ${JSON.stringify(telemetry.metadata)}::jsonb`,
     } : {}),
