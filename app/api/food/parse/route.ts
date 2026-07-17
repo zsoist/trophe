@@ -116,6 +116,9 @@ export async function POST(request: NextRequest) {
         userId: guard.userId,
         ...(requestId ? { requestId } : {}),
         metadata: telemetryMetadata,
+        // Frozen/watch-list probes measure one Luna attempt per request ID.
+        // Normal production traffic keeps the SDK-compatible retry policy.
+        ...(typeof telemetryMetadata.evalSuite === 'string' ? { maxProviderAttempts: 1 } : {}),
         onGenerationId: (id) => { generationId = id; },
       },
     );

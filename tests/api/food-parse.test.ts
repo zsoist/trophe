@@ -145,6 +145,7 @@ describe('POST /api/food/parse', () => {
       userId: 'eval-user',
       requestId: 'watch-1',
       metadata: { evalSuite: 'phase3-luna-watchlist', canarySegment: 'consumer-luna-week-1' },
+      maxProviderAttempts: 1,
       onGenerationId: expect.any(Function),
     });
     expect(mocks.annotateGenerationMetadata).toHaveBeenCalledWith('generation-1', {
