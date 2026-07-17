@@ -1,95 +1,62 @@
-import { defaultCache } from "@serwist/next/worker";
-import type { PrecacheEntry, SerwistGlobalConfig } from "serwist";
-import { CacheFirst, CacheableResponsePlugin, ExpirationPlugin, NetworkFirst, NetworkOnly, Serwist, StaleWhileRevalidate } from "serwist";
+/**
+ * Self-destructing service worker (2026-07-12).
+ *
+ * Why: two test iPhones loaded trophe.app in ~1 minute while every Chromium /
+ * curl / edge measurement showed <1s. The one variable that differs is the
+ * service worker — iOS Safari's SW engine is the notorious quirk zone, and both
+ * testers' phones have a worker installed (it controls the whole origin, so even
+ * the logged-out landing routes through it). Trophē is an ONLINE app: navigations
+ * were already NetworkOnly and /_next/static assets are immutable + long-cached
+ * by the browser's own HTTP cache, so the worker added near-zero benefit at real
+ * iOS risk (stale/stuck workers, preload edge-cases).
+ *
+ * This worker takes over immediately, purges every Cache Storage entry, and
+ * unregisters itself — returning the origin to pure static + network delivery
+ * (measured fast). Any device that loads the page (including phones stuck on an
+ * old worker) heals on the next visit. Fully reversible: a caching worker can be
+ * reintroduced later once the iOS behaviour is understood and validated on-device.
+ */
+/// <reference lib="webworker" />
 
-// TypeScript: tell the compiler about the Serwist globals injected at build time
-declare global {
-  interface WorkerGlobalScope extends SerwistGlobalConfig {
-    __SW_MANIFEST: (PrecacheEntry | string)[] | undefined;
-  }
-}
+declare const self: ServiceWorkerGlobalScope & { __SW_MANIFEST?: unknown };
 
-declare const self: ServiceWorkerGlobalScope;
+// The @serwist/next build injects __SW_MANIFEST; reference it so the bundle is
+// satisfied even though this worker precaches nothing.
+void self.__SW_MANIFEST;
 
-const serwist = new Serwist({
-  precacheEntries: self.__SW_MANIFEST,
-  skipWaiting: true,
-  clientsClaim: true,
-  navigationPreload: true,
-  runtimeCaching: [
-    // ── NEVER cache authenticated API routes or Supabase ──────────────────
-    {
-      matcher: ({ url }) =>
-        url.pathname.startsWith("/api/") ||
-        url.hostname.endsWith(".supabase.co") ||
-        url.hostname.endsWith(".supabase.in"),
-      handler: new NetworkOnly(),
-    },
-
-    // ── Next.js static assets: CacheFirst, long TTL ───────────────────────
-    {
-      matcher: ({ request, url }) =>
-        url.pathname.startsWith("/_next/static/") ||
-        request.destination === "script" ||
-        request.destination === "style",
-      handler: new CacheFirst({
-        cacheName: "next-static",
-        plugins: [
-          new CacheableResponsePlugin({ statuses: [0, 200] }),
-          new ExpirationPlugin({ maxEntries: 256, maxAgeSeconds: 30 * 24 * 60 * 60 }),
-        ],
-      }),
-    },
-
-    // ── App icons & public images: CacheFirst ────────────────────────────
-    {
-      matcher: ({ url }) =>
-        url.pathname.startsWith("/icons/") ||
-        url.pathname.startsWith("/images/") ||
-        url.pathname === "/favicon.svg" ||
-        url.pathname === "/apple-touch-icon.png",
-      handler: new CacheFirst({
-        cacheName: "app-images",
-        plugins: [
-          new CacheableResponsePlugin({ statuses: [0, 200] }),
-          new ExpirationPlugin({ maxEntries: 64, maxAgeSeconds: 365 * 24 * 60 * 60 }),
-        ],
-      }),
-    },
-
-    // ── Google Fonts: StaleWhileRevalidate ───────────────────────────────
-    {
-      matcher: ({ url }) =>
-        url.hostname === "fonts.googleapis.com" || url.hostname === "fonts.gstatic.com",
-      handler: new StaleWhileRevalidate({
-        cacheName: "google-fonts",
-        plugins: [
-          new CacheableResponsePlugin({ statuses: [0, 200] }),
-          new ExpirationPlugin({ maxEntries: 32, maxAgeSeconds: 365 * 24 * 60 * 60 }),
-        ],
-      }),
-    },
-
-    // ── Navigation (HTML pages): NetworkFirst, 3s timeout ────────────────
-    // Authenticated routes excluded — SW must not serve stale authed HTML
-    {
-      matcher: ({ request }) => request.mode === "navigate",
-      handler: new NetworkFirst({
-        cacheName: "pages",
-        networkTimeoutSeconds: 3,
-        plugins: [
-          new CacheableResponsePlugin({ statuses: [0, 200] }),
-          new ExpirationPlugin({ maxEntries: 32, maxAgeSeconds: 24 * 60 * 60 }),
-        ],
-      }),
-    },
-
-    // ── Default: use Serwist's built-in defaults ─────────────────────────
-    ...defaultCache,
-  ],
-  fallbacks: {
-    entries: [{ url: "/offline", matcher: ({ request }) => request.mode === "navigate" }],
-  },
+self.addEventListener('install', () => {
+  // Skip the waiting phase so this worker replaces any predecessor immediately.
+  void self.skipWaiting();
 });
 
-serwist.addEventListeners();
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    (async () => {
+      // 1) Purge every cache the old worker created.
+      try {
+        const names = await caches.keys();
+        await Promise.all(names.map((name) => caches.delete(name)));
+      } catch {
+        /* best-effort — a failed purge must not block unregistration */
+      }
+
+      // 2) Remove this worker from the origin entirely.
+      try {
+        await self.registration.unregister();
+      } catch {
+        /* noop */
+      }
+
+      // 3) Reload any controlled tabs once so they continue with NO worker.
+      try {
+        const clients = await self.clients.matchAll({ type: 'window' });
+        for (const client of clients) {
+          const windowClient = client as WindowClient;
+          windowClient.navigate(windowClient.url).catch(() => {});
+        }
+      } catch {
+        /* noop */
+      }
+    })(),
+  );
+});

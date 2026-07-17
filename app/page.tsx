@@ -290,12 +290,14 @@ export default function LandingPage() {
             </div>
             <Link
               href="/login"
+              prefetch={false}
               className="text-stone-400 hover:text-stone-200 text-xs font-medium transition-colors no-underline hidden sm:inline"
             >
               Log in
             </Link>
             <Link
               href="/login?mode=signup"
+              prefetch={false}
               className="btn-gold text-xs !py-2 !px-4 !rounded-lg no-underline"
             >
               {t.cta}
@@ -317,13 +319,13 @@ export default function LandingPage() {
             {/* Left — Copy */}
             <div className="flex-1 text-center lg:text-left">
               {/* Eyebrow */}
-              <p className="font-mono text-[10px] sm:text-xs tracking-[0.2em] uppercase text-[#D4A853]/70 mb-6 animate-[fadeUp_0.5s_ease-out_both]">
+              <p className="font-mono text-[10px] sm:text-xs tracking-[0.2em] uppercase text-[#D4A853]/70 mb-6">
                 {t.hero_tag}
               </p>
 
               {/* Headline — serif display moment on the accent line (Latin-only
                   per design rule; Greek falls back to the sans weight) */}
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.08] mb-6 animate-[fadeUp_0.6s_0.1s_ease-out_both]">
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.08] mb-6">
                 <span className="text-stone-100">{t.hero_h1}</span>
                 <br />
                 <span
@@ -334,14 +336,15 @@ export default function LandingPage() {
               </h1>
 
               {/* Subline */}
-              <p className="text-stone-400 text-base sm:text-lg max-w-xl mx-auto lg:mx-0 leading-relaxed mb-10 animate-[fadeUp_0.5s_0.25s_ease-out_both]">
+              <p className="text-stone-400 text-base sm:text-lg max-w-xl mx-auto lg:mx-0 leading-relaxed mb-10">
                 {t.hero_sub}
               </p>
 
               {/* CTAs */}
-              <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start animate-[fadeUp_0.4s_0.4s_ease-out_both]">
+              <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start">
                 <Link
                   href="/login?mode=signup"
+                  prefetch={false}
                   className="btn-gold text-center text-base sm:text-lg px-8 py-3.5 no-underline flex items-center justify-center gap-2 group"
                 >
                   {t.cta}
@@ -349,6 +352,7 @@ export default function LandingPage() {
                 </Link>
                 <Link
                   href="/login"
+                  prefetch={false}
                   className="btn-ghost text-center text-base sm:text-lg px-8 py-3.5 no-underline"
                 >
                   {t.cta2}
@@ -357,7 +361,7 @@ export default function LandingPage() {
             </div>
 
             {/* Right — App Preview */}
-            <div className="animate-[fadeUp_0.7s_0.3s_ease-out_both]">
+            <div>
               <AppPreview />
             </div>
           </div>
@@ -499,6 +503,7 @@ export default function LandingPage() {
             </p>
             <Link
               href="/login?mode=signup"
+              prefetch={false}
               className="btn-gold text-center text-lg px-10 py-4 no-underline inline-flex items-center gap-2 group"
             >
               {t.bottom_cta}
@@ -517,7 +522,7 @@ export default function LandingPage() {
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <span className="font-serif italic text-[#D4A853] text-base select-none">trophē</span>
           <div className="flex items-center gap-5">
-            <Link href="/pricing" className="text-stone-500 hover:text-stone-300 text-[11px] transition-colors no-underline">
+            <Link href="/pricing" prefetch={false} className="text-stone-500 hover:text-stone-300 text-[11px] transition-colors no-underline">
               Pricing
             </Link>
             <a href="/trust" className="text-stone-500 hover:text-stone-300 text-[11px] transition-colors">

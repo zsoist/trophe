@@ -248,7 +248,7 @@ Public signup always forces `role = 'client'`. Invite token required for elevate
 
 - Languages: `en | es | el | fr` core + overlay `de | it | pt | nl` (8 total)
 - 600+ keys organized by domain prefix: `app.*`, `auth.*`, `nav.*`, `general.*`, `log.*`, `heatmap.*`, `adherence.*`, `patterns.*`, `insights.*`, `report.*`, `recs.*`, `day.*`, `analytics.*`
-- Provider: `I18nProvider` in `app/layout.tsx`. Uses `useState(defaultLang)` + `useEffect` to read `localStorage` after mount — **never in lazy initializer** (hydration mismatch risk).
+- Provider: `I18nProvider` is mounted by `components/shared/Providers.tsx` in the authenticated `dashboard`, `coach`, `admin`, `super`, and `onboarding` layouts. Public routes intentionally exclude the authenticated provider graph. It uses `useState(defaultLang)` + `useEffect` to read `localStorage` after mount — **never in lazy initializer** (hydration mismatch risk).
 - Hook: `const { t, lang, setLang } = useI18n()` → `t('key', { n: 42 })` interpolates `{n}`.
 - Language switcher: `Profile` page stores selection in `localStorage['trophe_lang']`.
 

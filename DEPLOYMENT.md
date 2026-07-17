@@ -2,7 +2,7 @@
 
 Production on **Vercel** + **Supabase** (project `iwbpzwmidzvpiofnqexd`). Production URL is `https://trophe.app`. Local dev is standardized on the Supabase CLI stack running on OrbStack. `main` is the production branch; Vercel auto-deploys on push.
 
-_Last updated: 2026-06-15_
+_Last updated: 2026-07-11_
 
 ---
 
@@ -81,6 +81,10 @@ npm run canary:prod     # read-only checks against https://trophe.app
 git push origin main
 # main deploys to production after CI
 ```
+
+### PWA build artifact
+
+`npm run build` generates `public/sw.js` from `app/sw.ts`; the generated file is intentionally ignored by git. Before deploying service-worker changes, verify that the generated manifest contains only `/offline.html` and that no application document, RSC, API, or Supabase route is precached. Do not commit the generated worker.
 
 ## Truth table
 
@@ -192,6 +196,11 @@ curl -sI https://trophe.app | grep -E "(X-Frame|Content-Security)"
 # 5. Vercel function logs
 # Vercel dashboard → deployment → Function logs → watch for 5xx
 ```
+
+For service-worker releases, verify two browser cohorts:
+
+1. A clean public visitor: `/` must not register a worker or eagerly request login/Supabase resources.
+2. A previously controlled browser: the v2 worker must activate, purge retired runtime caches, preserve only the offline shell plus allowed static/public-asset caches, and keep documents/RSC/APIs network-only.
 
 ---
 

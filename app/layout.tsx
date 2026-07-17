@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Instrument_Serif, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-import Providers from "@/components/shared/Providers";
+import ErrorBoundary from "@/components/shared/ErrorBoundary";
 import { Analytics } from "@vercel/analytics/react";
 
 const inter = Inter({
@@ -25,11 +25,17 @@ const instrumentSerif = Instrument_Serif({
   display: "swap",
 });
 
+// Mono is only used for small numeric/metric labels deep in the app — never
+// above the fold on the landing. Ship ONE weight and keep it OUT of the
+// render-critical preload set (preload:false) so a slow connection doesn't
+// block first paint on ~90KB of monospace it doesn't need yet. 500/600 map to
+// the 400 file via the browser's synthetic weighting.
 const jetbrainsMono = JetBrains_Mono({
   variable: "--font-jetbrains-mono",
   subsets: ["latin"],
-  weight: ["400", "500", "600"],
+  weight: "400",
   display: "swap",
+  preload: false,
 });
 
 export const metadata: Metadata = {
@@ -78,7 +84,7 @@ export default function RootLayout({
         className="min-h-full font-sans antialiased"
         style={{ background: "var(--bg-primary)", color: "var(--text-primary)" }}
       >
-        <Providers>{children}</Providers>
+        <ErrorBoundary>{children}</ErrorBoundary>
         <Analytics />
       </body>
     </html>

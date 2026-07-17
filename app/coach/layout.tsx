@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import FeedbackWidget from '@/components/shared/FeedbackWidget';
+import Providers from '@/components/shared/Providers';
 import { TRPCProvider } from '@/lib/trpc/provider';
 
 /**
@@ -13,9 +14,11 @@ import { TRPCProvider } from '@/lib/trpc/provider';
  */
 export default function CoachLayout({ children }: { children: ReactNode }) {
   return (
-    <TRPCProvider>
-      {children}
-      <FeedbackWidget />
-    </TRPCProvider>
+    <Providers>
+      <TRPCProvider>
+        {children}
+        <FeedbackWidget />
+      </TRPCProvider>
+    </Providers>
   );
 }
