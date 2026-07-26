@@ -334,7 +334,7 @@ transport.
 
 Record every classified executable in the language-neutral
 `scripts/safety/tool-policy-manifest.json`. Each path has one owner and may
-declare both `paid-ai` and `production-write` policies; Task 5 of the security
+declare both `paid-ai` and `production-write` policies; Task 7 of the security
 plan consumes the same manifest rather than creating a competing inventory.
 Shell entry points invoke the Node guard CLI before any paid or mutating step.
 
