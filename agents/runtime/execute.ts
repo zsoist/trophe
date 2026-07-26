@@ -12,6 +12,25 @@ import type { ExecuteAiTaskInput, ExecuteAiTaskResult, ProviderResult } from './
 
 // ── Single-attempt invocation ──────────────────────────────────────────────
 
+function assertValidTimeoutMs(timeoutMs: number): void {
+  if (!Number.isFinite(timeoutMs) || !Number.isInteger(timeoutMs) || timeoutMs <= 0) {
+    throw new RangeError('AI attempt timeout must be a positive finite integer');
+  }
+}
+
+function remainingAttemptTimeoutMs(policy: RoutingPolicy, deadlineAt: number): number | undefined {
+  assertValidTimeoutMs(policy.timeoutMs);
+  const remainingChainMs = deadlineAt - Date.now();
+  if (
+    !Number.isFinite(remainingChainMs)
+    || !Number.isInteger(remainingChainMs)
+    || remainingChainMs <= 0
+  ) {
+    return undefined;
+  }
+  return Math.min(policy.timeoutMs, remainingChainMs);
+}
+
 /**
  * @returns result on success
  * @throws tagged Error with `_isTimeout = true` when the internal timer fires
@@ -19,10 +38,12 @@ import type { ExecuteAiTaskInput, ExecuteAiTaskResult, ProviderResult } from './
 async function attemptInvoke<T>(
   input: ExecuteAiTaskInput<T>,
   policy: RoutingPolicy,
+  timeoutMs: number,
   context: ExecuteAiTaskInput<T>['context'],
   isFallback: boolean,
   fallbackFrom?: string,
 ): Promise<ExecuteAiTaskResult<T>> {
+  assertValidTimeoutMs(timeoutMs);
   assertWithinRequestBudget(policy, input.prompt);
 
   const generationId = randomUUID();
@@ -33,12 +54,17 @@ async function attemptInvoke<T>(
     ? `trophe_${createHash('sha256').update(context.userId).digest('hex').slice(0, 32)}`
     : undefined;
 
-  await createGeneration({ generationId, task: input.task, policy, promptHash, context, fallbackFrom });
-
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), policy.timeoutMs);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  let generationCreated = false;
 
   try {
+    await createGeneration({ generationId, task: input.task, policy, promptHash, context, fallbackFrom });
+    generationCreated = true;
+    if (controller.signal.aborted) {
+      throw new Error('AI attempt deadline elapsed before provider invocation');
+    }
+
     let providerResult: ProviderResult<T> | undefined;
     await traced({
       task: input.task,
@@ -76,10 +102,12 @@ async function attemptInvoke<T>(
     await completeGeneration({ generationId, ...providerResult, estimatedCostUsd });
     return { generationId, estimatedCostUsd, selectedPolicy: policy, isFallback, ...providerResult };
   } catch (error) {
-    await failGeneration(generationId, error, policy.model).catch((persistenceError) => {
-      console.error('[ai-runtime] Failed to persist generation failure:', persistenceError);
-    });
-    if (error instanceof Error) {
+    if (generationCreated) {
+      await failGeneration(generationId, error, policy.model).catch((persistenceError) => {
+        console.error('[ai-runtime] Failed to persist generation failure:', persistenceError);
+      });
+    }
+    if (generationCreated && error instanceof Error) {
       Object.defineProperty(error, '_generationId', {
         value: generationId,
         enumerable: false,
@@ -99,12 +127,24 @@ async function attemptInvoke<T>(
 
 export async function executeAiTask<T>(input: ExecuteAiTaskInput<T>): Promise<ExecuteAiTaskResult<T>> {
   const policy = pick(input.task);
+  assertValidTimeoutMs(policy.timeoutMs);
+  const deadlineAt = Date.now() + policy.timeoutMs;
   const organizationId = await resolveOrganizationId(input.context);
   await assertWithinOrganizationBudget(organizationId, input.context?.userId);
   const context = organizationId ? { ...input.context, organizationId } : input.context;
+  const primaryTimeoutMs = remainingAttemptTimeoutMs(policy, deadlineAt);
+  if (primaryTimeoutMs === undefined) {
+    throw new RangeError('AI attempt timeout must be a positive finite integer');
+  }
 
   try {
-    return await attemptInvoke(input, policy, context, false);
+    return await attemptInvoke(
+      input,
+      policy,
+      primaryTimeoutMs,
+      context,
+      false,
+    );
   } catch (primaryError) {
     const fallback = taskFallbacks[input.task];
     const category = classifyAiError(primaryError);
@@ -122,13 +162,18 @@ export async function executeAiTask<T>(input: ExecuteAiTaskInput<T>): Promise<Ex
       throw primaryError;
     }
 
+    if (remainingAttemptTimeoutMs(fallback, deadlineAt) === undefined) throw primaryError;
+
+    // Re-check org budget (the failed attempt may have consumed budget)
+    await assertWithinOrganizationBudget(organizationId, input.context?.userId);
+    const fallbackTimeoutMs = remainingAttemptTimeoutMs(fallback, deadlineAt);
+    if (fallbackTimeoutMs === undefined) throw primaryError;
+
     console.warn(
       `[ai-runtime] ${input.task}: ${policy.provider}/${policy.model} failed (${category}) → ` +
       `fallback ${fallback.provider}/${fallback.model}`,
     );
 
-    // Re-check org budget (the failed attempt may have consumed budget)
-    await assertWithinOrganizationBudget(organizationId, input.context?.userId);
-    return await attemptInvoke(input, fallback, context, true, policy.model);
+    return await attemptInvoke(input, fallback, fallbackTimeoutMs, context, true, policy.model);
   }
 }
