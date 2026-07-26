@@ -41,3 +41,32 @@ contacted, and no golden tolerance or source code was changed.
 The compiler and linter are currently green. The test and build gates complete
 quickly (rather than hanging) but cannot pass without their documented local
 environmental dependencies. This baseline intentionally makes no repair.
+
+## Dependency-tree root cause and preflight — Task 3
+
+The original offloaded checkout remains the root-cause record for the earlier
+compiler stall. Its TypeScript standard-library file was observed as:
+
+```text
+node_modules/typescript/lib/lib.es2016.full.d.ts
+flags: compressed,dataless
+```
+
+In that checkout, TypeScript stalled even for a two-line source file when
+standard libraries were enabled, while the matching `--noLib` invocation exited
+normally. The macOS dataless-file count recorded from that original checkout is
+33,117. This evidence is retained as an environmental diagnosis; no source
+failure was inferred from it.
+
+The current Task 3 worktree was already installed from the committed lockfile
+and is healthy: `find node_modules -flags +dataless -print -quit` returned no
+path and the full dataless count is 0. The healthy `node_modules` tree was not
+moved or deleted to recreate the fault.
+
+`scripts/ci/verify-release.mjs` now runs a bounded macOS-only dependency
+preflight before the canonical gates. It streams `find node_modules -flags
++dataless -print` only to count newline-delimited path records; it neither
+stores nor publishes a filename or any file contents. An offloaded result stops
+before `typecheck`, writes the redacted `dependency_tree_offloaded` category
+with its file count and `npm ci` repair instruction, and exits non-zero. Other
+platforms report a healthy preflight without invoking macOS `find -flags`.

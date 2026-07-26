@@ -8,6 +8,7 @@ import { pathToFileURL } from 'node:url';
 
 const OUTPUT_LIMIT_BYTES = 64 * 1024;
 const TERMINATION_GRACE_MS = 2_000;
+const DEPENDENCY_PROBE_TIMEOUT_MS = 30_000;
 const defaultFileOperations = { mkdir, rename, unlink, writeFile };
 
 function appendBounded(existing, chunk) {
@@ -83,6 +84,58 @@ export function terminateProcessTree(
     }
     return { attempted: false, method: 'termination_failed' };
   }
+}
+
+export function probeDependencyHealth({
+  cwd = process.cwd(),
+  platform = process.platform,
+  spawnProcess = spawn,
+  killProcess = process.kill,
+  timeoutMs = DEPENDENCY_PROBE_TIMEOUT_MS,
+} = {}) {
+  if (platform !== 'darwin') {
+    return Promise.resolve({ status: 'healthy', datalessFileCount: 0 });
+  }
+
+  return new Promise((resolveProbe) => {
+    let datalessFileCount = 0;
+    let timedOut = false;
+    let settled = false;
+    const child = spawnProcess('find', ['node_modules', '-flags', '+dataless', '-print'], {
+      cwd,
+      detached: true,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    const timeoutTimer = setTimeout(() => {
+      timedOut = true;
+      terminateProcessTree(child, { platform, spawnProcess, killProcess });
+    }, timeoutMs);
+    const finish = (result) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeoutTimer);
+      resolveProbe(result);
+    };
+
+    child.stdout?.on('data', (chunk) => {
+      const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      for (const byte of bytes) {
+        if (byte === 0x0a) datalessFileCount += 1;
+      }
+    });
+    child.once('error', () => {
+      finish({ status: 'dependency_health_probe_failed', datalessFileCount: 0 });
+    });
+    child.once('close', (exitCode) => {
+      if (timedOut) {
+        finish({ status: 'dependency_health_probe_timed_out', datalessFileCount: 0 });
+      } else if (exitCode === 0) {
+        finish({ status: 'healthy', datalessFileCount });
+      } else {
+        finish({ status: 'dependency_health_probe_failed', datalessFileCount: 0 });
+      }
+    });
+  });
 }
 
 export function runStep({
@@ -194,11 +247,54 @@ export const releaseSteps = [
   ['build', 'npm', ['run', 'build'], 900_000],
 ];
 
+function dependencyPreflight(probeResult) {
+  const datalessFileCount = Array.isArray(probeResult.datalessPaths)
+    ? probeResult.datalessPaths.length
+    : probeResult.datalessFileCount;
+
+  if (datalessFileCount > 0) {
+    return {
+      status: 'dependency_tree_offloaded',
+      datalessFileCount,
+      repairAction: 'run_npm_ci_from_package_lock',
+      repairInstruction: 'Run npm ci to restore node_modules from package-lock.json.',
+    };
+  }
+
+  if (probeResult.status === 'healthy') {
+    return { status: 'healthy', datalessFileCount: 0 };
+  }
+
+  return {
+    status: probeResult.status ?? 'dependency_health_probe_failed',
+    datalessFileCount: 0,
+    repairAction: 'check_node_modules_and_run_npm_ci',
+    repairInstruction: 'Check node_modules, then run npm ci from package-lock.json.',
+  };
+}
+
 export async function runReleaseVerification(
   cwd = process.cwd(),
-  { steps = releaseSteps, runStepImpl = runStep, publishSummaryImpl = publishSummary } = {},
+  {
+    steps = releaseSteps,
+    dependencyHealthProbeImpl = probeDependencyHealth,
+    runStepImpl = runStep,
+    publishSummaryImpl = publishSummary,
+  } = {},
 ) {
   const results = [];
+  const preflight = dependencyPreflight(await dependencyHealthProbeImpl({ cwd }));
+
+  if (preflight.status !== 'healthy') {
+    const summary = {
+      generatedAt: new Date().toISOString(),
+      status: 'failed',
+      preflight,
+      steps: results,
+    };
+    await publishSummaryImpl(resolve(cwd, 'docs/quality/verification-summary.json'), summary);
+    return summary;
+  }
 
   for (const [name, command, args, timeoutMs] of steps) {
     const result = await runStepImpl({ name, command, args, timeoutMs, cwd });
@@ -209,6 +305,7 @@ export async function runReleaseVerification(
   const summary = {
     generatedAt: new Date().toISOString(),
     status: results.every((result) => result.status === 'passed') ? 'passed' : 'failed',
+    preflight,
     steps: results.map(summaryStep),
   };
   await publishSummaryImpl(resolve(cwd, 'docs/quality/verification-summary.json'), summary);
@@ -221,6 +318,11 @@ const isMain = process.argv[1] && import.meta.url === pathToFileURL(resolve(proc
 if (isMain) {
   runReleaseVerification()
     .then((summary) => {
+      if (summary.preflight?.status === 'dependency_tree_offloaded') {
+        console.error(
+          `dependency_tree_offloaded: ${summary.preflight.datalessFileCount} dataless path(s) found. ${summary.preflight.repairInstruction}`,
+        );
+      }
       if (summary.status !== 'passed') process.exitCode = 1;
     })
     .catch((error) => {

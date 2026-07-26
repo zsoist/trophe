@@ -174,6 +174,47 @@ describe('verification release runner', () => {
     });
   });
 
+  it('stops before typecheck for an offloaded dependency tree', async () => {
+    let publishedSummary: unknown;
+    const runStepImpl = vi.fn(async () => ({
+      name: 'typecheck',
+      status: 'passed',
+      exitCode: 0,
+      signal: null,
+      durationMs: 1,
+      stdout: '',
+      stderr: '',
+      stdoutBytes: 0,
+      stderrBytes: 0,
+      stdoutDigest: 'a'.repeat(64),
+      stderrDigest: 'b'.repeat(64),
+      spawnError: null,
+    }));
+
+    const summary = await runReleaseVerification(cwd, {
+      steps: [['typecheck', 'ignored', [], 1]],
+      dependencyHealthProbeImpl: async () => ({
+        datalessPaths: ['node_modules/typescript/lib/lib.es2016.full.d.ts'],
+      }),
+      runStepImpl,
+      publishSummaryImpl: async (_path: string, value: unknown) => {
+        publishedSummary = value;
+      },
+    });
+
+    expect(runStepImpl).not.toHaveBeenCalled();
+    expect(summary).toMatchObject({
+      status: 'failed',
+      preflight: {
+        status: 'dependency_tree_offloaded',
+        datalessFileCount: 1,
+        repairAction: 'run_npm_ci_from_package_lock',
+      },
+      steps: [],
+    });
+    expect(JSON.stringify(publishedSummary)).not.toContain('lib.es2016.full.d.ts');
+  });
+
   it('publishes summaries atomically and reports publication failures', async () => {
     const operations = {
       mkdir: vi.fn(async () => undefined),
