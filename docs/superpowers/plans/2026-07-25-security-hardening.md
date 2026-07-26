@@ -2,376 +2,678 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Close the validated AI cost-governance, secret-surface, telemetry-redaction, production-tooling, dependency, and privileged-import defects without spending provider money or mutating production.
+**Goal:** Close the validated AI cost-governance, secret-surface, telemetry-redaction, production-tooling, dependency, and privileged-import defects with zero paid-provider spend and zero production access.
 
-**Architecture:** Repository discovery creates authoritative inventories for AI routes, workflows, service-role mutators, API error surfaces, and privileged imports so new entry points cannot silently escape policy. Verified membership and durable rate limits protect the request boundary, while a local-tested database reservation ledger serializes worst-case AI spend before any provider attempt and reconciles it afterward. Shared redaction and mutation-approval modules make safe behavior the default instead of relying on individual call sites.
+**Architecture:** A dependency-free safety launcher is built first and becomes the only executable boundary for migration, test, build, install, audit, and database commands. A cycle-safe workload graph assigns every AI path either a verified user principal or a bounded authenticated system principal; provider adapters declare full billable envelopes, and a PostgreSQL micro-dollar ledger atomically moves each attempt through `reserved -> started -> settled | released | retained`. One language-neutral tool manifest composes paid-AI and production-write approvals across TypeScript, JavaScript, and shell without duplicate policy implementations.
 
-**Tech Stack:** TypeScript 5, Next.js 16 App Router, Vitest 4, Drizzle ORM/PostgreSQL, Supabase SSR, Node.js repository scanners, GitHub Actions.
+**Tech Stack:** TypeScript 5, Node.js 20, Next.js 16 App Router, Vitest 4, Drizzle ORM/PostgreSQL, Supabase SSR/PostgREST, GitHub Actions.
 
 ## Global Constraints
 
-- Paid AI/provider spend is exactly USD `$0.00` during implementation and verification.
-- All provider tests use injected offline transports or fixtures. Never set `TROPHE_ALLOW_PAID_AI=1` while executing this plan.
-- Production is read-only and unauthenticated. Do not invoke a production AI route, production provider smoke, eval runner, service-role script, or production database RPC.
-- A new migration and its RPCs may be generated, applied, and concurrency-tested only on the repository's existing local Supabase PostgreSQL URL `postgresql://postgres:postgres@127.0.0.1:54322/postgres`, as defined by `.env.local.example`, `supabase/config.toml`, and `scripts/test/require-database.mjs`.
-- Do not apply migrations to a linked/remote Supabase project, run `db:push`, deploy, merge, or mutate production. Committed runtime code must continue to treat the production schema as unchanged until a separately approved migration/deploy workflow occurs.
-- Do not print, persist, or compare credential values. Tests use fixed placeholders and report only file, rule, operation ID, and hostname/project reference.
-- Every defect is fixed test-first: add a focused failing regression, observe the expected failure, make the minimum implementation change, then run the focused and adjacent suites.
-- File inventories are discovery-driven. A task is incomplete if its inventory tool finds an unclassified route, workflow, mutator, error surface, or privileged import.
-- Direct paid-tool implementation belongs to Task 6 of `docs/superpowers/plans/2026-07-25-ai-runtime-offline-harness.md`. This plan must not duplicate that implementation; Task 8 requires its `guard:paid-ai-tools` contract before security completion.
-- Preserve unrelated worktree changes. Stage and commit only the files named by the current task.
+- Paid AI/provider spend is exactly USD `$0.00` throughout implementation and verification.
+- Production access is forbidden, including read-only HTTP checks. Do not authenticate, call production, run provider smoke/evals, deploy, merge, push, link Supabase, or apply a remote migration.
+- The canonical local database is exactly `postgresql://postgres:postgres@127.0.0.1:54322/postgres`; the canonical local Supabase HTTP origin is exactly `http://127.0.0.1:54321`.
+- Task 0's launcher must pass before any other task runs `db:generate`, `db:migrate`, database tests, Vitest, typecheck, lint, build, install, registry metadata, or audit commands.
+- After Task 0, every `node`, `npm`, or `npx` execution in this plan goes through `node scripts/safety/run-local-zero-spend.mjs <profile> -- ...`. Bare `git`, `rg`, and path-specific file inspection remain allowed.
+- The launcher rejects remote ambient database/Supabase configuration before spawning, pins both `DATABASE_URL` and `DIRECT_URL` to the canonical local database, pins local Supabase placeholders, scrubs paid keys and live/write/eval approvals, and injects a deny-by-default network guard.
+- Database migrations/RPCs may be generated, applied, and concurrency-tested only on the canonical local database. The production schema remains unchanged until a separately authorized schema-first release.
+- Runtime activation is release-blocked behind schema/backfill/privilege verification. There is no legacy or fail-open budget fallback.
+- Do not print or persist credential values. URL userinfo is private parser input and is discarded before diagnostics, manifests, approval tokens, or logs.
+- Every defect is fixed test-first. Observe the focused regression fail for the expected reason, implement the minimum boundary, then run the focused and adjacent suites through the launcher.
+- Inventories are discovery-driven and fail on unclassified roots, unresolved local dynamic edges, duplicate manifest entries, or unknown pricing/modality.
+- Preserve unrelated worktree changes. Stage only exact task-owned paths after a path-specific diff.
 
 ---
 
 ## Planned File Map
 
-- `lib/security/ai-route-inventory.ts`: discover AI HTTP entry points and report missing auth, limiter, role, and organization-boundary invariants.
-- `lib/security/api-guard.ts`: shared verified-user, durable-rate-limit, and optional role allowlist boundary.
-- `agents/runtime/org-budget.ts`: derive organization identity from verified membership; never trust a request UUID.
-- `db/schema/ai_budget_reservations.ts`: Drizzle schema for pending and reconciled worst-case spend reservations.
-- `agents/runtime/budget-reservation.ts`: reserve, settle, or conservatively retain per-attempt spend.
-- `scripts/ci/check-workflow-security.mjs`: inspect every Actions workflow for job-wide provider secrets and credentials in URLs.
-- `agents/runtime/provider-error.ts`: one allowlist-only provider failure representation.
-- `agents/observability/safe-error.ts`: stable persistence, Langfuse, and log serialization.
-- `scripts/ci/check-production-mutators.mjs`: inventory service-role/network mutators and require a declared operation boundary.
-- `scripts/safety/require-production-write-approval.ts`: dry-run-first, exact-target, exact-operation write authorization.
-- `lib/security/import-graph.ts`: prevent privileged modules from being reachable from client components without relying on the bare `server-only` package.
-- `lib/security/server-runtime.ts`: portable runtime assertion usable by Next, Vitest, and `tsx`.
-- `lib/http/internal-error.ts`: stable generic database/API failure responses.
-- `docs/quality/security-audit-2026-07-25.md`: final evidence, remaining risk, and current-HEAD corrections.
+- `scripts/safety/run-local-zero-spend.mjs`: scrubbed child-process launcher with `local-only`, `npm-registry-readonly`, and exact Supabase CLI release profiles.
+- `scripts/safety/deny-external-network.cjs`: child-injected network policy; loopback-only except exact npm registry access in the registry profile.
+- `scripts/safety/target-policy.mjs`: credential-redacting DSN/URL parser and canonical target comparison.
+- `scripts/safety/tool-policy-manifest.json`: one language-neutral inventory shared with AI offline-harness Task 6 and production-write hardening.
+- `scripts/safety/tool-policy.mjs`: validate manifest ownership and return composed policy decisions to Node or shell callers.
+- `lib/security/ai-workload-graph.ts`: transitive route/caller graph, principal classification, and control findings.
+- `agents/runtime/principal.ts`: verified end-user and allowlisted system-workload principal types.
+- `agents/runtime/billable-envelope.ts`: provider-specific worst-case billable units and micro-dollar ceiling.
+- `db/schema/ai_budget_reservations.ts`: authoritative per-attempt ledger.
+- `agents/runtime/budget-reservation.ts`: service-role RPC client for reserve/start/settle/release/retain transitions.
+- `scripts/ci/check-workflow-security.mjs`: all-workflow job/step secret policy and Google-header guard.
+- `agents/observability/safe-error.ts`: allowlist-only persistence/Langfuse/log serialization.
+- `lib/security/error-flow.ts`: semantic error-derived response/log inventory.
+- `lib/security/privileged-import-graph.ts`: transitive client-to-privileged import guard.
+- `scripts/ci/check-production-mutators.mjs`: semantic JS/TS/shell mutator inventory backed by the shared manifest.
+- `docs/runbooks/ai-budget-schema-first-rollout.md`: non-executable deploy/rollback order.
+- `docs/quality/security-audit-2026-07-25.md`: final local/source evidence and residual risk.
 
-### Task 1: Inventory every AI route and enforce verified tenant identity plus durable limiting
+### Task 0: Build and prove the scrubbed zero-spend/local execution boundary
 
 **Files:**
-- Create: `lib/security/ai-route-inventory.ts`
-- Create: `tests/enterprise/ai-route-security.test.ts`
-- Create: `tests/agents/org-budget.test.ts`
-- Create: `tests/api/shopping-list.test.ts`
-- Modify: `lib/security/api-guard.ts`
-- Modify: `agents/runtime/org-budget.ts`
-- Modify: `app/api/ai/coach-insight/route.ts`
-- Modify: `app/api/coach/shopping-list/route.ts`
-- Modify if reported: any `app/api/**/route.ts` discovered by `discoverAiRouteFiles`
-- Modify: `tests/lib/api-guard.test.ts`
-- Modify: `tests/agents/runtime-execute.test.ts`
+- Create: `scripts/safety/target-policy.mjs`
+- Create: `scripts/safety/deny-external-network.cjs`
+- Create: `scripts/safety/run-local-zero-spend.mjs`
+- Create only if absent; otherwise validate and preserve AI Task 6-owned rows: `scripts/safety/tool-policy-manifest.json`
+- Create: `scripts/safety/tool-policy.mjs`
+- Create: `tests/safety/target-policy.test.mjs`
+- Create: `tests/safety/run-local-zero-spend.test.mjs`
+- Create: `tests/safety/tool-policy.test.mjs`
+- Create: `tests/safety/network-denial-child.test.mjs`
+- Modify: `package.json`
 
 **Interfaces:**
-- Produces: `discoverAiRouteFiles(root: string): Promise<string[]>`
-- Produces: `analyzeAiRouteSource(file: string, source: string): AiRouteSecurityFinding[]`
-- Produces: `guardAiRoute(request, { allowedRoles? }): Promise<AiRouteGuardResult>`
-- Produces: `resolveAuthorizedOrganizationId({ userId, requestedOrganizationId }): Promise<string | undefined>`
-- Invariant: every public AI route authenticates and consumes the durable limiter before reading tenant data or invoking a provider.
-- Invariant: a caller-supplied organization UUID is only a selection hint; verified database membership is authoritative.
+- Produces: `parsePrivateTarget(raw: string): CanonicalTarget`
+- Produces: `assertSafeAmbientEnvironment(env): void`
+- Produces CLI: `node scripts/safety/run-local-zero-spend.mjs local-only -- <command> [args...]`
+- Produces CLI: `node scripts/safety/run-local-zero-spend.mjs npm-registry-readonly -- <command> [args...]`
+- Produces CLI: `node scripts/safety/run-local-zero-spend.mjs supabase-cli-2.109.1-release -- <command> [args...]`
+- Produces CLI: `node scripts/safety/tool-policy.mjs validate`
+- Produces CLI: `node scripts/safety/tool-policy.mjs validate --phase paid-ai-base`
+- Produces CLI: `node scripts/safety/tool-policy.mjs decide --tool <id> --policy <paid-ai|production-write> [--target <ref>]`
 
-- [ ] **Step 1: Write the failing authoritative inventory test**
+**Manifest contract:**
 
-Discover `app/api/**/route.ts` files containing any of these paid-AI signals:
-
-```ts
-export const AI_ROUTE_SIGNALS = [
-  'executeAiTask(',
-  'invokeStructuredProvider(',
-  'invokeTextProvider(',
-  'callAnthropicMessages(',
-  'invokeOpenAiStructured(',
-  'GoogleGenAI',
-] as const;
-
-export type AiRouteSecurityRule =
-  | 'missing-ai-guard'
-  | 'guard-not-awaited'
-  | 'tenant-read-before-guard'
-  | 'provider-before-guard'
-  | 'unverified-user-id'
-  | 'missing-role-allowlist';
-```
-
-The test must assert that the discovery result contains the currently known
-coach insight, conversation, meal suggestion, photo analysis, and shopping-list
-routes, then assert `analyzeAiRouteSource` returns no findings. Do not make that
-known list the inventory; it is only a regression floor.
-
-- [ ] **Step 2: Run the inventory test and observe the shopping-list failure**
-
-```bash
-npx vitest run tests/enterprise/ai-route-security.test.ts --reporter=verbose
-```
-
-Expected: FAIL because `app/api/coach/shopping-list/route.ts` uses role auth
-without the shared durable AI limiter.
-
-- [ ] **Step 3: Implement the source inventory**
-
-Use `node:fs/promises` and deterministic POSIX-relative paths. Ignore test
-fixtures, `.next`, `node_modules`, worktrees, and comments when matching. Report
-only:
-
-```ts
-export interface AiRouteSecurityFinding {
-  file: string;
-  line: number;
-  rule: AiRouteSecurityRule;
+```json
+{
+  "version": 1,
+  "tools": [
+    {
+      "id": "nutrition-enterprise-eval",
+      "entrypoint": "scripts/eval/run-nutrition-enterprise-prod.ts",
+      "runtime": "node",
+      "policies": ["paid-ai", "production-write"],
+      "owners": {
+        "paid-ai": "ai-offline-harness-task-6",
+        "production-write": "security-hardening-task-7"
+      },
+      "operations": {
+        "paid-ai": "nutrition-enterprise-eval",
+        "production-write": "nutrition-enterprise-eval-write"
+      },
+      "classifications": {
+        "serviceRole": true,
+        "localDb": false
+      }
+    }
+  ]
 }
 ```
 
-Sort files and findings so local and CI output are identical.
+This JSON shape is exact: `runtime` is `node` or `shell`; `policies` contains
+only sorted, unique `paid-ai` and/or `production-write` values; and the keys in
+`owners` and `operations` must exactly equal the `policies` array. There is
+exactly one row per entrypoint. AI offline-harness Task 6 creates and owns the
+paid-AI rows first. Security Task 0 validates and preserves those rows without
+staging them; only when the manifest is absent may Task 0 seed exactly
+`{"version":1,"tools":[]}`. Security Task 7 augments each same row with
+`production-write` and the `serviceRole`/`localDb` classifications; it never
+creates a duplicate row or another paid-AI guard. A dual-policy tool must
+receive two successful decisions before execution.
 
-- [ ] **Step 4: Write failing organization-identity tests**
+- [ ] **Step 1: Write dependency-free launcher and target-policy tests**
 
-In `tests/agents/org-budget.test.ts`, mock the Drizzle membership query and
-assert:
+Use Node's built-in test runner so no project tool runs before the launcher
+exists. Assert:
 
-```ts
-await expect(resolveAuthorizedOrganizationId({
-  userId: COACH_ID,
-  requestedOrganizationId: VICTIM_ORG_ID,
-})).rejects.toMatchObject({ name: 'OrganizationMembershipRequiredError' });
+- ambient `DIRECT_URL=postgresql://user:secret@db.prod.example:5432/postgres`
+  rejects before the injected spawn function runs, even when `DATABASE_URL` is
+  local;
+- remote `DATABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_URL`,
+  `E2E_SUPABASE_URL`, `TEST_DATABASE_URL`, and `TROPHE_API` each reject;
+- absent or canonical local database/Supabase variables pass;
+- the child receives both database variables pinned to
+  `127.0.0.1:54322/postgres`;
+- the child receives `NEXT_PUBLIC_SUPABASE_URL`/`SUPABASE_URL` pinned to
+  `http://127.0.0.1:54321` and fixed non-secret local test keys;
+- all discovered paid-provider keys, Langfuse remote credentials, eval auth,
+  production-write approvals, remote-seed flags, `VERCEL_ENV`, and
+  `TROPHE_ALLOW_PAID_AI` are pinned to empty strings in the child;
+- a child that calls `process.loadEnvFile('.env.local')`, `@next/env`, or the
+  repository's dotenv loader against a temporary production-shaped
+  `.env.local` still sees database/Supabase variables pinned local and every
+  paid/live/eval/write value pinned empty;
+- `NODE_ENV=test`, `npm_config_ignore_scripts=true`, and an empty temporary
+  `npm_config_userconfig` are forced for all profiles so ambient `.npmrc`
+  credentials and lifecycle configuration cannot be inherited;
+- pure URL-policy fixtures admit only the exact Supabase CLI `v2.109.1`
+  checksum/archive paths and one allowed release-asset redirect, without
+  opening an external socket;
+- errors never contain input userinfo/passwords.
 
-await expect(resolveAuthorizedOrganizationId({
-  userId: COACH_ID,
-  requestedOrganizationId: NONEXISTENT_ORG_ID,
-})).rejects.toMatchObject({ name: 'OrganizationMembershipRequiredError' });
+Target parser fixtures cover encoded userinfo, malformed URLs, Supabase direct
+and pooler hosts, IPv4 loopback, bracketed IPv6 loopback, deceptive suffixes,
+explicit/default ports, and database names.
 
-await expect(resolveAuthorizedOrganizationId({
-  userId: COACH_ID,
-  requestedOrganizationId: COACH_ORG_ID,
-})).resolves.toBe(COACH_ORG_ID);
-```
-
-Also assert a requested organization with no verified `userId` is rejected,
-while no requested organization resolves the user's actual membership.
-
-- [ ] **Step 5: Prove the membership tests fail**
+- [ ] **Step 2: Prove the bootstrap tests fail in an empty environment**
 
 ```bash
-npx vitest run tests/agents/org-budget.test.ts tests/agents/runtime-execute.test.ts -t "organization" --reporter=verbose
+/usr/bin/env -i PATH="$PATH" HOME="$HOME" CI=1 NODE_ENV=test \
+  node --test tests/safety/target-policy.test.mjs tests/safety/run-local-zero-spend.test.mjs tests/safety/tool-policy.test.mjs
 ```
 
-Expected: FAIL because `resolveOrganizationId` currently returns a supplied UUID
-before querying membership.
+Expected: FAIL because the launcher, parser, network policy, and manifest
+validator do not exist. This is the only pre-launcher Node test command.
 
-- [ ] **Step 6: Implement membership-derived organization identity**
+- [ ] **Step 3: Implement target parsing, environment scrubbing, and network denial**
 
-Replace the trust-first branch with:
-
-```ts
-export async function resolveAuthorizedOrganizationId(input: {
-  userId?: string;
-  requestedOrganizationId?: string;
-}): Promise<string | undefined>;
-```
-
-When `requestedOrganizationId` is present, query the exact
-`organization_members(user_id, org_id)` tuple and throw the stable
-`OrganizationMembershipRequiredError` if absent. When it is omitted, resolve
-the user's membership. Do not fall back from a rejected requested organization
-to a different organization. Pass only the resolved value to RAG, runtime
-context, and `agent_runs`.
-
-- [ ] **Step 7: Write failing durable-limiter and role tests for shopping-list**
-
-Mock `guardAiRoute`, tenant access, and the provider transport. Assert anonymous
-requests return 401, an exhausted durable limit returns 429, a client role
-returns 403, and all three cases make zero tenant reads and zero provider calls.
-Assert an allowed coach uses `guard.userId` for tenant and runtime context.
-
-- [ ] **Step 8: Extend the shared guard and migrate shopping-list**
-
-Use this portable interface:
+`parsePrivateTarget` returns only:
 
 ```ts
-type GuardAiRouteOptions = {
-  allowedRoles?: readonly ('client' | 'coach' | 'admin' | 'super_admin')[];
+type CanonicalTarget = {
+  kind: 'postgres' | 'supabase-http';
+  scheme: string;
+  host: string;
+  port: number;
+  database?: string;
+  projectRef?: string;
 };
 ```
 
-After verified authentication and the durable `consumeRateLimit` call, load the
-profile role only when `allowedRoles` is present. Return a stable 403 on a role
-miss. Change shopping-list to:
+It never returns username/password/raw URL. `assertSafeAmbientEnvironment`
+checks the same `DIRECT_URL || DATABASE_URL` precedence as Drizzle and rejects
+any configured remote value before replacing child variables.
 
-```ts
-const guard = await guardAiRoute(request, {
-  allowedRoles: ['coach', 'admin', 'super_admin'],
-});
-if (!guard.ok) return guard.response;
-```
+The launcher uses an explicit environment allowlist, then adds fixed local
+values. It pins safety-sensitive names rather than deleting them, so dotenv,
+`@next/env`, and `process.loadEnvFile` cannot rehydrate a secret from
+`.env.local`. Its scrub list is generated from the manifest plus semantic
+discovery of paid adapters and includes at minimum OpenAI, Anthropic, DeepSeek,
+Voyage, Gemini/Google, Mistral, Langfuse, eval credentials/tokens/base URLs,
+rate-limit bypass IDs, production-write approvals, remote-seed flags, and
+Vercel live flags. It forces `NODE_ENV=test`, lifecycle scripts off, and
+`npm_config_userconfig` to a newly created empty file that is removed after the
+child exits. The sole lifecycle exception is the exact Task 8 argv
+`npm rebuild sharp --ignore-scripts=false`; the launcher admits that tuple only
+under `local-only`, while its network guard remains active, and rejects every
+other lifecycle opt-out.
 
-Retain `canAccessClient`; remove duplicate request authentication through
-`requireRole`. Ensure limiter bypass remains limited to the existing explicit
-eval identity configuration.
+Inject `deny-external-network.cjs` through `NODE_OPTIONS`. `local-only` permits
+only `localhost`, `127.0.0.0/8`, and `::1`. `npm-registry-readonly` additionally
+permits exactly `registry.npmjs.org`. The
+`supabase-cli-2.109.1-release` profile permits only the exact HTTPS checksum and
+platform archive paths beneath
+`github.com/supabase/cli/releases/download/v2.109.1/`, then at most one
+validated redirect to `release-assets.githubusercontent.com`; it rejects any
+other tag, asset, host, protocol, or redirect. Patch Node
+fetch/http/https/net/tls/DNS entry points and reject provider, Supabase,
+arbitrary Internet, and direct-IP attempts with sanitized host-only
+diagnostics.
 
-- [ ] **Step 9: Verify and commit**
+- [ ] **Step 4: Implement and validate the shared manifest**
+
+Final `tool-policy.mjs validate` rejects duplicate IDs/entrypoints, unknown fields,
+unsorted or duplicate policies, a policy outside `paid-ai` and
+`production-write`, owner/operation mappings that do not exactly match the
+policy array, owner conflicts, invalid runtime/classification values, and a
+paid tool absent from AI Task 6's inventory. `decide` emits one JSON object with
+fixed IDs and booleans only; shell consumes its exit status/JSON before any
+`psql`, `curl`, `npx`, or service-role client construction.
+
+Task 0 uses `validate --phase paid-ai-base`: it applies the same
+ID/entrypoint/runtime/policy/owner/operation checks to AI Task 6's paid rows but
+temporarily permits `classifications` to be absent. It never rewrites that
+file. Task 7 must add the exact boolean classifications and make final
+`validate` pass before any decision is executable.
+
+Add package aliases for convenience, but later plan commands invoke the Node
+launcher directly so npm pre/post hooks cannot run outside it.
+
+- [ ] **Step 5: Prove hostile ambient values and non-loopback transports fail**
 
 ```bash
-npx vitest run tests/enterprise/ai-route-security.test.ts tests/agents/org-budget.test.ts tests/lib/api-guard.test.ts tests/api/shopping-list.test.ts tests/agents/runtime-execute.test.ts --reporter=verbose
-git add lib/security/ai-route-inventory.ts lib/security/api-guard.ts agents/runtime/org-budget.ts app/api/ai/coach-insight/route.ts app/api/coach/shopping-list/route.ts tests/enterprise/ai-route-security.test.ts tests/agents/org-budget.test.ts tests/lib/api-guard.test.ts tests/api/shopping-list.test.ts tests/agents/runtime-execute.test.ts
-git diff --cached --name-only
-git commit -m "fix(security): bind AI routes to verified tenant identity"
+node scripts/safety/run-local-zero-spend.mjs local-only -- \
+  node --test tests/safety/target-policy.test.mjs tests/safety/run-local-zero-spend.test.mjs tests/safety/tool-policy.test.mjs
+node scripts/safety/run-local-zero-spend.mjs local-only -- \
+  node --test tests/safety/network-denial-child.test.mjs
+node scripts/safety/run-local-zero-spend.mjs local-only -- \
+  node scripts/safety/tool-policy.mjs validate --phase paid-ai-base
 ```
 
-Expected: all focused tests pass, and the staged list contains only Task 1
-files.
+The child fixture attempts loopback, a provider hostname, a remote Supabase
+hostname, raw public IP, `http.request`, `tls.connect`, and `fetch`; only
+loopback succeeds. No real provider or production host is contacted because the
+guard rejects before socket creation.
 
-### Task 2: Atomically reserve and reconcile worst-case AI budget
+- [ ] **Step 6: Commit**
+
+```bash
+git add scripts/safety/target-policy.mjs scripts/safety/deny-external-network.cjs scripts/safety/run-local-zero-spend.mjs scripts/safety/tool-policy.mjs tests/safety/target-policy.test.mjs tests/safety/run-local-zero-spend.test.mjs tests/safety/tool-policy.test.mjs tests/safety/network-denial-child.test.mjs
+git add -p -- package.json
+git diff -- scripts/safety/tool-policy-manifest.json
+git diff --cached --name-only
+git commit -m "feat(security): add zero-spend local execution boundary"
+```
+
+Stage `scripts/safety/tool-policy-manifest.json` in Task 0 only when this task
+created the exact empty seed; add that exact path separately after inspecting
+it. If AI Task 6 already created it, validate it, preserve its paid rows
+byte-for-byte, and omit it from Task 0's index.
+
+### Task 1: Build the transitive AI workload graph and verified principal boundary
+
+**Files:**
+- Create: `lib/security/ai-workload-graph.ts`
+- Create: `tests/enterprise/ai-workload-graph.test.ts`
+- Create: `agents/runtime/principal.ts`
+- Create: `tests/agents/principal.test.ts`
+- Modify: `lib/security/api-guard.ts`
+- Modify: `agents/runtime/types.ts`
+- Modify: every graph-discovered AI HTTP/internal root and `executeAiTask` caller
+- Modify: `tests/lib/api-guard.test.ts`
+
+**Interfaces:**
+- Produces: `discoverAiWorkloads(root): AiWorkload[]`
+- Produces: `resolveAiPrincipal(input): Promise<AiPrincipal>`
+- Produces:
+
+```ts
+type AiPrincipal =
+  | { kind: 'end-user'; userId: string; organizationId?: string }
+  | { kind: 'system'; workloadId: SystemWorkloadId; organizationId?: string };
+```
+
+- [ ] **Step 1: Write the failing cycle-safe graph and regression floor**
+
+Start from every `app/api/**/route.{ts,tsx,js,mjs}` plus every
+`executeAiTask` caller. Parse imports, re-exports, literal dynamic imports,
+CommonJS `require`, JS-to-TS substitutions, extensionless paths, and index
+barrels. Traverse transitively with cycle-safe full chains. A computed local
+dynamic/require expression is a finding, not an ignored edge.
+
+Mark a root billable when a reachable module hits `executeAiTask`, a paid
+adapter, or a direct paid-provider hostname/SDK. The floor includes:
+
+- `app/api/ai/coach-insight/route.ts`;
+- `app/api/ai/conversation/route.ts`;
+- `app/api/ai/meal-suggest/route.ts`;
+- `app/api/ai/photo-analyze/route.ts`;
+- `app/api/coach/shopping-list/route.ts`;
+- `app/api/food/parse/route.ts`;
+- `app/api/food/recipe-analyze/route.ts`;
+- `app/api/coach/meal-plan-macros/route.ts`;
+- `app/api/internal/memory-worker/route.ts`.
+
+Assert no discovered billable root is unclassified.
+
+- [ ] **Step 2: Prove direct source-string discovery is insufficient**
+
+```bash
+node scripts/safety/run-local-zero-spend.mjs local-only -- \
+  npx vitest run tests/enterprise/ai-workload-graph.test.ts --reporter=verbose
+```
+
+Expected: FAIL on transitive food parse, recipe analyze, meal-plan fan-out, and
+memory worker paths.
+
+- [ ] **Step 3: Classify workload controls**
+
+The graph assigns:
+
+- `end-user`: verified `guardAiRoute` identity, durable user limiter, tenant
+  resource authorization, and resolved billing principal before tenant reads;
+- `authenticated-fanout`: the same controls plus per-request fan-out ceiling,
+  concurrency ceiling, and per-attempt budget reservation;
+- `internal-scheduled`: exact worker-specific bearer verification, durable
+  workload limiter, fixed allowlisted system principal, and workload budget;
+- `direct-tool`: manifest-owned by AI offline-harness Task 6 and never
+  authorized by the HTTP route policy.
+
+The inventory reports missing control, wrong order, and unsanitized full import
+chain. Internal roots must not be forced through end-user auth; end-user routes
+must not accept a cron/system principal.
+
+- [ ] **Step 4: Write failing identity and multi-organization tests**
+
+Assert:
+
+- requested organization requires exact `(user_id, org_id)` membership;
+- a resource-derived tenant organization overrides caller choice after tenant
+  authorization;
+- zero memberships resolves to the solo-user budget;
+- exactly one membership may be inferred;
+- more than one membership without a resource-derived or explicit verified
+  organization throws `AmbiguousOrganizationPrincipalError`;
+- nonexistent/victim organization throws;
+- missing user identity never becomes a fabricated profile;
+- only registry-listed, bearer-authenticated workers may create a system
+  principal, each with a fixed workload budget ID.
+
+- [ ] **Step 5: Implement principal resolution and controls**
+
+Replace optional raw `context.userId`/`organizationId` attribution with
+`AiPrincipal`. Route code may accept an organization selection but cannot pass
+it to runtime until membership/resource validation succeeds. Convert
+shopping-list and meal-plan-macros to the shared durable AI guard with role and
+fan-out options. Bind memory-worker to `workloadId: 'memory-worker'` only after
+`MEMORY_CRON_SECRET` validation; inventory every other background caller and
+add a distinct fixed workload ID or fail closed.
+
+- [ ] **Step 6: Verify and commit**
+
+```bash
+node scripts/safety/run-local-zero-spend.mjs local-only -- \
+  npx vitest run tests/enterprise/ai-workload-graph.test.ts tests/agents/principal.test.ts tests/lib/api-guard.test.ts tests/api --reporter=verbose
+git add lib/security/ai-workload-graph.ts agents/runtime/principal.ts agents/runtime/types.ts lib/security/api-guard.ts tests/enterprise/ai-workload-graph.test.ts tests/agents/principal.test.ts tests/lib/api-guard.test.ts
+git diff --name-only -- app/api agents
+git diff --cached --name-only
+git commit -m "fix(security): bind AI workloads to verified principals"
+```
+
+Stage only graph-reported route/caller paths from the path-specific diff before
+commit.
+
+### Task 2: Model the full provider-specific billable envelope
+
+**Files:**
+- Create: `agents/runtime/billable-envelope.ts`
+- Create: `tests/agents/billable-envelope.test.ts`
+- Modify: `agents/runtime/types.ts`
+- Modify: `agents/router/pricing.ts`
+- Modify: paid adapters/dispatchers discovered by Task 1
+- Modify: provider adapter tests
+
+**Interfaces:**
+- Produces: `BillableEnvelope`
+- Produces: `estimateWorstCaseMicrousd(envelope): bigint`
+- Invariant: unknown model, modality, pricing class, retry count, or token/media conversion denies before provider transport.
+
+- [ ] **Step 1: Write failing envelope and pricing tests**
+
+Define provider fixture cases for:
+
+- plain text input plus adapter overhead;
+- JSON/tool schema and descriptions;
+- cache-write/read classes, reserving without assuming a discount;
+- bounded output and reasoning tokens;
+- base64 image bytes, MIME type, dimensions/media token formula;
+- embedding batch item count and input token ceiling;
+- internal retry count and a separately priced fallback attempt;
+- sub-cent cost, exact policy threshold, and one micro-dollar over threshold;
+- unknown model/modality/pricing and missing cap.
+
+Assert reservation rounds upward to integer micro-dollars and never rounds down.
+
+- [ ] **Step 2: Prove prompt-only estimation fails**
+
+```bash
+node scripts/safety/run-local-zero-spend.mjs local-only -- \
+  npx vitest run tests/agents/billable-envelope.test.ts --reporter=verbose
+```
+
+Expected: FAIL because current pricing sees usage after execution and cannot
+price tool schema, media, reasoning, embedding, or retries before transport.
+
+- [ ] **Step 3: Implement the envelope contract**
+
+```ts
+type BillableEnvelope = {
+  provider: PaidProvider;
+  model: string;
+  text: { inputTokenCeiling: bigint; adapterOverheadTokens: bigint };
+  tools?: { schemaBytes: bigint; descriptionBytes: bigint };
+  media?: Array<{ kind: 'image'; mime: string; bytes: bigint; width?: number; height?: number }>;
+  embedding?: { itemCount: bigint; inputTokenCeiling: bigint };
+  cache: { readTokenCeiling: bigint; writeTokenCeiling: bigint };
+  outputTokenCeiling: bigint;
+  reasoningTokenCeiling: bigint;
+  maxPhysicalAttempts: bigint;
+  policyMaxMicrousd: bigint;
+};
+```
+
+Each adapter constructs its own envelope from the exact request it will send.
+Tool/schema/media fields are not reconstructed from a short runtime prompt.
+Provider-specific conversion/pricing functions are exhaustive. Unknown data
+throws `UnpriceableAiRequestError`.
+
+- [ ] **Step 4: Deny over-cap rather than clamping**
+
+Calculate the complete worst case, round up once to micro-dollars, and compare
+to `policyMaxMicrousd`. If it exceeds the policy ceiling, throw
+`AiRequestCostCeilingExceededError`; never replace the estimate with the cap and
+continue. Primary/fallback reserve independently; internal retries are included
+in the current attempt envelope.
+
+- [ ] **Step 5: Verify and commit**
+
+```bash
+node scripts/safety/run-local-zero-spend.mjs local-only -- \
+  npx vitest run tests/agents/billable-envelope.test.ts tests/agents/provider-access.test.ts tests/agents/openai-structured.test.ts tests/agents/anthropic-provider.test.ts tests/agents/deepseek-provider.test.ts --reporter=verbose
+git add agents/runtime/billable-envelope.ts agents/runtime/types.ts agents/router/pricing.ts tests/agents/billable-envelope.test.ts
+git diff --name-only -- agents/runtime/providers agents/clients tests/agents
+git diff --cached --name-only
+git commit -m "feat(ai): price complete billable envelopes"
+```
+
+Stage only adapters/tests named by the focused diff.
+
+### Task 3: Establish the authoritative local ledger, privileges, and schema-first rollout
 
 **Files:**
 - Create: `db/schema/ai_budget_reservations.ts`
+- Create: `db/schema/system_ai_budgets.ts`
+- Modify: `db/schema/organization_ai_budgets.ts`
+- Modify: `db/schema/agent_runs.ts`
 - Modify: `db/schema/index.ts`
-- Create: `drizzle/0060_ai_budget_reservations.sql` (the next unused ordinal at plan authoring; stop and choose the actual next unused ordinal if parallel work claims `0060`)
-- Modify: `drizzle/meta/_journal.json` and generated snapshot only if `db:generate` changes them
+- Create: the next unused migration with suffix `ai_budget_authoritative_ledger`
+- Create: `tests/db/ai-budget-ledger.test.ts`
+- Create: `tests/db/ai-budget-privileges.test.ts`
+- Create: `docs/runbooks/ai-budget-schema-first-rollout.md`
+
+**Interfaces:**
+- Produces RPCs: `public.reserve_ai_budget_attempt`, `public.start_ai_budget_attempt`, `public.settle_ai_budget_attempt`, `public.release_ai_budget_attempt`, `public.retain_ai_budget_attempt`
+- Ledger states: `reserved -> started -> settled | released | retained`
+- Authoritative amount: reserved/started/retained use `reserved_microusd`; settled uses `settled_microusd`; released uses zero.
+
+- [ ] **Step 1: Write failing schema, precision, concurrency, and privilege tests**
+
+Test the real local PostgreSQL boundary for:
+
+- 20 concurrent reservations at a threshold that admits exactly three;
+- daily/monthly UTC half-open windows `[start, next_start)`;
+- exact threshold, one micro-dollar over, sub-cent values, UTC midnight and
+  month rollover under a fixed clock;
+- unique reservation and unique `agent_runs.generation_id`;
+- idempotent reserve/transition retries;
+- illegal transitions and duplicate settlement;
+- crash points before/after every state transition;
+- missing budget row, kill switch, victim organization, ambiguous principal;
+- anon/authenticated/PUBLIC unable to inspect ledger or execute RPCs;
+- service role able to access the ledger only through the named RPCs.
+
+- [ ] **Step 2: Prove the local schema is absent through the launcher**
+
+```bash
+node scripts/safety/run-local-zero-spend.mjs local-only -- \
+  npm test -- --run tests/db/ai-budget-ledger.test.ts tests/db/ai-budget-privileges.test.ts
+```
+
+Expected: FAIL because the ledger/RPCs do not exist. The launcher pins both DB
+variables and rejects any ambient remote `DIRECT_URL` before npm starts.
+
+- [ ] **Step 3: Define fixed-precision authoritative accounting**
+
+Store all limits and ledger amounts as nonnegative `bigint` micro-dollars.
+Reservations round upward; trusted settlement converts conservatively and
+rejects negative/overflow values. Add uniqueness to
+`agent_runs.generation_id`. The ledger, not an eventually updated `agent_runs`
+sum, is authoritative:
+
+```text
+reserved  => reserved_microusd
+started   => reserved_microusd
+retained  => reserved_microusd
+settled   => settled_microusd
+released  => 0
+```
+
+No transition removes an amount before its replacement is committed.
+
+- [ ] **Step 4: Implement explicit SECURITY DEFINER boundaries**
+
+Create a dedicated `NOLOGIN` owner `trophe_ai_budget_owner`. Each RPC is
+`SECURITY DEFINER SET search_path = pg_catalog`, schema-qualifies every
+`public`/`private` object, validates the principal/membership/workload inside
+the transaction, locks the exact budget row, and uses one idempotency key per
+generation/attempt.
+
+Use these exact signatures (all return the affected
+`public.ai_budget_reservations` row):
+
+```sql
+public.reserve_ai_budget_attempt(uuid, uuid, text, uuid, uuid, text, bigint, text)
+public.start_ai_budget_attempt(uuid, text)
+public.settle_ai_budget_attempt(uuid, bigint, text)
+public.release_ai_budget_attempt(uuid, text)
+public.retain_ai_budget_attempt(uuid, text)
+```
+
+The reserve arguments are attempt ID, generation ID, principal kind, nullable
+user ID, nullable organization ID, nullable workload ID, reserved micro-USD,
+and idempotency key. Each transition receives attempt ID plus idempotency key;
+settlement also receives settled micro-USD. Database constraints require the
+one valid identity shape for `end-user` or `system`. Server time is obtained
+inside PostgreSQL, never from a caller-supplied timestamp.
+
+For each signature, apply exact ownership and grants, for example:
+
+```sql
+ALTER FUNCTION public.reserve_ai_budget_attempt(uuid, uuid, text, uuid, uuid, text, bigint, text) OWNER TO trophe_ai_budget_owner;
+REVOKE ALL ON FUNCTION public.reserve_ai_budget_attempt(uuid, uuid, text, uuid, uuid, text, bigint, text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.reserve_ai_budget_attempt(uuid, uuid, text, uuid, uuid, text, bigint, text) TO service_role;
+```
+
+Apply equivalent statements to start/settle/release/retain. Tables are RLS
+enabled with no anon/authenticated policy. The application calls these RPCs
+through the verified service-role server client; no direct client role receives
+table access.
+
+- [ ] **Step 5: Add provisioning, backfill, and recovery**
+
+The migration idempotently inserts missing organization budget rows before
+enabling fail-closed runtime use. Organization creation provisions its budget
+atomically via a schema-qualified trigger/function or the same creation
+transaction; test a new organization and conflict-safe retry.
+
+Recovery releases only stale `reserved` rows that have no `started_at`. The
+runtime writes `started` before transport, so a crash between state change and
+network is conservatively charged. Stale `started` becomes `retained` and keeps
+worst case until trusted reconciliation; it is never automatically released.
+System workload budgets are explicit rows keyed by allowlisted workload ID.
+
+- [ ] **Step 6: Generate, inspect, and apply only to local**
+
+```bash
+node scripts/safety/run-local-zero-spend.mjs local-only -- npm run db:generate
+git diff -- db/schema drizzle
+node scripts/safety/run-local-zero-spend.mjs local-only -- npm run db:migrate
+node scripts/safety/run-local-zero-spend.mjs local-only -- \
+  npm test -- --run tests/db/ai-budget-ledger.test.ts tests/db/ai-budget-privileges.test.ts tests/db/rls.test.ts
+```
+
+If the proposed migration ordinal is already used, choose the actual next
+unused ordinal; never overwrite or combine a parallel migration.
+
+- [ ] **Step 7: Document release and rollback without executing either**
+
+The runbook states:
+
+1. apply additive schema/RPC migration;
+2. verify backfill, new-org provisioning, grants, negative roles, and schema
+   version;
+3. only then deploy runtime that requires the ledger;
+4. never activate a permissive fallback;
+5. rollback runtime first while retaining additive ledger schema;
+6. remove schema only in a later separately approved change after proving no
+   runtime uses it.
+
+This plan performs none of those production actions.
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add db/schema/ai_budget_reservations.ts db/schema/system_ai_budgets.ts db/schema/organization_ai_budgets.ts db/schema/agent_runs.ts db/schema/index.ts tests/db/ai-budget-ledger.test.ts tests/db/ai-budget-privileges.test.ts docs/runbooks/ai-budget-schema-first-rollout.md
+git diff --name-only -- drizzle
+git diff --cached --name-only
+git commit -m "feat(security): add authoritative AI budget ledger"
+```
+
+Inspect every generated migration/journal path from the path-specific diff,
+confirm it contains only this task's ledger/RPC/grant changes, then add those
+exact paths one by one before the cached-name review. Do not use a broad
+`git add db/schema` or `git add drizzle`.
+
+### Task 4: Integrate crash-safe reservation into runtime without a fail-open path
+
+**Files:**
 - Create: `agents/runtime/budget-reservation.ts`
+- Create: `tests/agents/budget-reservation.test.ts`
 - Modify: `agents/runtime/execute.ts`
 - Modify: `agents/runtime/persistence.ts`
-- Modify: `agents/runtime/org-budget.ts`
-- Modify: `agents/router/pricing.ts`
-- Create: `tests/agents/budget-reservation.test.ts`
-- Create: `tests/db/ai-budget-reservation.test.ts`
+- Modify: `agents/runtime/error-classification.ts`
 - Modify: `tests/agents/runtime-execute.test.ts`
 
 **Interfaces:**
-- Produces: `estimateWorstCaseAttemptCostUsd(policy, prompt, systemPrompt): number`
-- Produces: `reserveAiBudget(input): Promise<AiBudgetReservation>`
-- Produces: `settleAiBudgetReservation({ reservationId, actualCostUsd }): Promise<void>`
-- Produces: `retainWorstCaseReservation({ reservationId }): Promise<void>`
-- Invariant: no provider attempt starts without a committed reservation.
-- Invariant: missing organization budget rows fail closed.
-- Invariant: a primary and fallback attempt reserve separately.
+- Produces: `reserveAttempt`, `markAttemptStarted`, `settleAttempt`, `releaseUnstartedAttempt`, `retainStartedAttempt`
+- Requires: verified `AiPrincipal` and complete `BillableEnvelope`
+- Denies: unavailable ledger/RPC/schema, missing budget row, unpriceable request, unknown principal, invalid transition.
 
-- [ ] **Step 1: Write failing unit tests for reservation ordering and cleanup**
+- [ ] **Step 1: Write failing ordering, crash, and idempotency tests**
 
-Mock persistence, reservation functions, and provider invocation. Assert:
+Assert:
 
-1. membership resolution occurs before reservation;
-2. reservation occurs before `createGeneration` and before the provider;
-3. a denied or missing budget row causes zero persistence and zero provider calls;
-4. a transport failure before provider start releases the reservation;
-5. a started provider with unknown usage retains the worst-case amount;
-6. success settles to actual/estimated usage;
-7. fallback obtains a separate reservation and cannot start if that reservation
-   is denied.
+1. principal and full envelope resolve before reservation;
+2. reservation commits before generation/provider work;
+3. `started` commits immediately before the first physical transport;
+4. denial/unavailable RPC/missing budget starts zero provider calls;
+5. validation failure before `started` releases idempotently;
+6. any failure/crash after `started` retains worst case unless trusted usage
+   settles it;
+7. persistence/settlement retries cannot double-charge or create an uncounted
+   window;
+8. primary, fallback, and retry accounting matches their envelopes.
 
-- [ ] **Step 2: Prove the unit tests fail**
+- [ ] **Step 2: Prove current runtime lacks the lifecycle**
 
 ```bash
-npx vitest run tests/agents/budget-reservation.test.ts tests/agents/runtime-execute.test.ts -t "reservation|budget|fallback" --reporter=verbose
+node scripts/safety/run-local-zero-spend.mjs local-only -- \
+  npx vitest run tests/agents/budget-reservation.test.ts tests/agents/runtime-execute.test.ts -t "budget|reservation|crash|fallback" --reporter=verbose
 ```
 
-Expected: FAIL because the runtime currently performs a non-atomic aggregate
-check and has no reservation lifecycle.
+- [ ] **Step 3: Implement mandatory RPC lifecycle**
 
-- [ ] **Step 3: Define the reservation schema**
+The RPC client uses the service-role server client only. Generate the attempt
+ID, reserve, create the generation record, persist `started`, then invoke the
+transport. Settlement writes trusted actual/estimated cost to the authoritative
+ledger and telemetry idempotently. A missing function/table/schema marker throws
+`AiBudgetInfrastructureUnavailableError`; do not call the old aggregate checker
+and do not continue.
 
-Model one row per provider attempt:
+Provider adapters expose a callback immediately before each physical transport
+so `started` is durable before network. If an adapter can retry internally, its
+envelope reserves all allowed physical attempts; it cannot exceed that count.
 
-```ts
-type AiBudgetReservationStatus = 'pending' | 'settled' | 'released';
+- [ ] **Step 4: Verify user and system workloads**
 
-interface AiBudgetReservationRow {
-  id: string;
-  generationId: string;
-  organizationId: string | null;
-  userId: string;
-  reservedCostUsd: string;
-  actualCostUsd: string | null;
-  status: AiBudgetReservationStatus;
-  createdAt: Date;
-  settledAt: Date | null;
-}
-```
+Cover end-user, fan-out, and memory-worker principals. A system workload without
+an authenticated allowlisted ID or explicit system budget is rejected. Eval
+and direct tools remain owned by AI Task 6 and must pass the shared manifest's
+paid decision; they do not receive an unmetered runtime context.
 
-Require a unique `generation_id`, foreign keys to organizations/profiles,
-positive bounded amounts, status checks, and indexes for pending organization
-and solo-user window sums. Enable RLS with no anon/authenticated policies.
-Revoke all table/function access from `PUBLIC`, `anon`, and `authenticated`;
-grant only the runtime's privileged database role.
-
-- [ ] **Step 4: Generate and inspect the migration without applying it remotely**
+- [ ] **Step 5: Verify and commit**
 
 ```bash
-npm run db:generate
-git diff -- db/schema drizzle
-DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres npm run db:migrate
-```
-
-Rename the generated migration to `0060_ai_budget_reservations.sql` and keep
-`_journal.json` consistent. If `0060` exists at execution time, stop and use the
-actual next unused ordinal instead of overwriting or combining migrations.
-Before running the migration command, confirm the URL remains identical to all
-three repository-local sources named in Global Constraints. Do not use
-`db:push`, Supabase CLI linking, or a remote database URL. Applying this
-migration locally does not authorize or imply production application.
-
-- [ ] **Step 5: Add failing local PostgreSQL concurrency tests**
-
-The local test must use uniquely named rows in the already-migrated local
-database, clean them in `afterAll`, and exercise the real transaction/RPC
-boundary:
-
-```ts
-const attempts = await Promise.allSettled(
-  Array.from({ length: 20 }, (_, index) =>
-    reserveForTest({ generationId: generationIds[index], worstCaseUsd: 0.40 }),
-  ),
-);
-expect(attempts.filter((result) => result.status === 'fulfilled')).toHaveLength(3);
-```
-
-Use a `$1.20` daily limit so exactly three reservations succeed. Add cases for
-the monthly threshold, kill switch, absent budget row, victim/nonmember
-organization, duplicate generation ID, solo-user daily cap, settlement reducing
-the pending amount, and a retained unknown-cost failure continuing to count.
-
-- [ ] **Step 6: Run the database test against local PostgreSQL only and observe red**
-
-```bash
-DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres npm test -- --run tests/db/ai-budget-reservation.test.ts
-```
-
-Expected: FAIL because the table and atomic reservation operation do not exist.
-If the exact local database is unavailable, start/bootstrap local PostgreSQL;
-do not substitute a Supabase or production URL.
-
-- [ ] **Step 7: Implement the atomic operation**
-
-For an organization reservation, lock the exact budget row with
-`SELECT ... FOR UPDATE`; absence is a stable denial. Re-verify exact membership
-inside the same transaction, sum settled `agent_runs` plus pending reservations
-for the day/month, conditionally insert, and commit. For a solo user, take a
-transaction-scoped advisory lock derived from the user UUID before checking the
-`$1.00` daily limit. Use parameterized SQL only.
-
-Settled reservations stop contributing to the pending sum because the matching
-`agent_runs` cost is authoritative. `released` is legal only when the transport
-provably never started. A started failure without trusted usage remains charged
-at the reserved worst case.
-
-- [ ] **Step 8: Integrate reservation into each attempt**
-
-Compute a conservative amount from the selected model pricing, estimated input
-tokens, `policy.maxTokens`, and `policy.maxCostUsd`; unknown model pricing must
-throw rather than return zero. Generate the attempt UUID, reserve, create the
-generation, then start observability/provider work. Reconcile persistence and
-reservation in one database transaction where possible. Preserve the request
-deadline and ensure primary failure cannot reuse its reservation for fallback.
-
-- [ ] **Step 9: Verify locally and commit**
-
-```bash
-npx vitest run tests/agents/budget-reservation.test.ts tests/agents/runtime-execute.test.ts tests/agents/provider-error.test.ts --reporter=verbose
-DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres npm test -- --run tests/db/ai-budget-reservation.test.ts tests/db/rls.test.ts
-git add db/schema/ai_budget_reservations.ts db/schema/index.ts agents/runtime/budget-reservation.ts agents/runtime/execute.ts agents/runtime/persistence.ts agents/runtime/org-budget.ts agents/router/pricing.ts tests/agents/budget-reservation.test.ts tests/agents/runtime-execute.test.ts tests/db/ai-budget-reservation.test.ts
-git diff --name-only -- drizzle | tee /tmp/trophe-ai-budget-migration-files.txt
-git add --pathspec-from-file=/tmp/trophe-ai-budget-migration-files.txt
+node scripts/safety/run-local-zero-spend.mjs local-only -- \
+  npx vitest run tests/agents/budget-reservation.test.ts tests/agents/runtime-execute.test.ts tests/agents/billable-envelope.test.ts tests/agents/principal.test.ts --reporter=verbose
+node scripts/safety/run-local-zero-spend.mjs local-only -- \
+  npm test -- --run tests/db/ai-budget-ledger.test.ts
+git add agents/runtime/budget-reservation.ts agents/runtime/execute.ts agents/runtime/persistence.ts agents/runtime/error-classification.ts tests/agents/budget-reservation.test.ts tests/agents/runtime-execute.test.ts
 git diff --cached --name-only
-git commit -m "feat(security): reserve AI budget atomically"
+git commit -m "fix(ai): enforce crash-safe budget reservations"
 ```
 
-Stage only the generated migration, journal, and snapshot paths displayed by
-the `git diff --name-only -- drizzle` review before committing. Expected: unit
-and local concurrency tests pass. Do not apply or deploy the migration beyond
-the exact repository-local database.
+Commit is implementation-ready but release-blocked by Task 3's separately
+approved production schema-first runbook.
 
-### Task 3: Remove CI provider secrets and prohibit credentials in workflow URLs
+### Task 5: Scope workflow provider secrets to exact protected network steps
 
 **Files:**
 - Create: `scripts/ci/check-workflow-security.mjs`
@@ -381,57 +683,34 @@ the exact repository-local database.
 - Modify: `package.json`
 
 **Interfaces:**
-- Produces: `discoverWorkflowFiles(root): string[]`
-- Produces: `analyzeWorkflowSource(file, source): WorkflowSecurityFinding[]`
 - Produces: `npm run guard:workflow-security`
-- Invariant: pull-request/push verification receives no paid-provider secret.
-- Invariant: credentials never occur in URLs or query strings.
+- Rules: `provider-secret-at-job-scope`, `provider-secret-on-nonnetwork-step`, `credential-in-url`, `google-key-not-in-header`
 
-- [ ] **Step 1: Write failing workflow-policy tests**
+- [ ] **Step 1: Write failing all-workflow policy tests**
 
-Discover every `.github/workflows/*.{yml,yaml}` file and scan the complete
-source. Use these rule IDs:
+Parse every `.github/workflows/*.{yml,yaml}`. Forbid provider secrets at job
+scope in every workflow, not only pull-request CI. Forbid them on checkout,
+setup, install, cache, test, or build steps. A protected manual provider check
+may receive only the one key used by that exact network step. Reject any
+credential expression/environment variable in URL/query construction.
 
-```ts
-type WorkflowSecurityRule =
-  | 'provider-secret-in-pr-job'
-  | 'credential-in-url'
-  | 'google-key-not-in-header';
-```
-
-Assert the normal CI job does not expose `OPENAI_API_KEY`,
-`ANTHROPIC_API_KEY`, `DEEPSEEK_API_KEY`, `GOOGLE_API_KEY`, `GEMINI_API_KEY`, or
-`VOYAGE_API_KEY` from `${{ secrets.* }}` at job or step scope. Assert no URL
-template contains a key/token/secret query parameter. Assert Google provider
-smoke uses the `x-goog-api-key` header.
-
-- [ ] **Step 2: Prove the tests fail on both validated defects**
+- [ ] **Step 2: Prove current workflow scope and Google URL fail**
 
 ```bash
-npx vitest run tests/enterprise/workflow-security.test.ts --reporter=verbose
+node scripts/safety/run-local-zero-spend.mjs local-only -- \
+  npx vitest run tests/enterprise/workflow-security.test.ts --reporter=verbose
 ```
 
-Expected: FAIL on provider secrets in `.github/workflows/ci.yml` and
-`?key=${process.env.GOOGLE_API_KEY}` in `provider-smoke.yml`.
+- [ ] **Step 3: Implement scanner and workflow changes**
 
-- [ ] **Step 3: Implement the deterministic workflow scanner**
+Normal CI gets no real provider secret. Split provider-smoke into one protected
+network step per provider, with only that provider's key in step-level `env`.
+Keep environment approval and pinned actions. Google uses a key-free URL plus:
 
-Export scanner functions from the `.mjs` module and make its CLI print only:
-
-```text
-.github/workflows/ci.yml:provider-secret-in-pr-job
-.github/workflows/provider-smoke.yml:credential-in-url
+```yaml
+env:
+  GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
 ```
-
-Do not print matching source, expression values, environment values, or shell
-context. The pull-request rule is based on the workflow trigger plus secret
-references, not on whether fork PRs currently receive secrets.
-
-- [ ] **Step 4: Remove secrets from base CI and correct Google authentication**
-
-Delete all real provider secrets from the normal CI job; offline fixtures and
-placeholder local Supabase values remain. In the protected manual provider
-smoke, change the Google request to a key-free URL and:
 
 ```ts
 headers: {
@@ -440,541 +719,423 @@ headers: {
 }
 ```
 
-Keep the smoke workflow manual, production-environment protected, and outside
-all verification commands in this plan.
+Do not execute the workflow.
 
-- [ ] **Step 5: Add the guard script and verify**
-
-Add:
-
-```json
-"guard:workflow-security": "node scripts/ci/check-workflow-security.mjs"
-```
-
-Then run:
+- [ ] **Step 4: Verify and commit**
 
 ```bash
-npm run guard:workflow-security
-npx vitest run tests/enterprise/workflow-security.test.ts tests/agents/provider-access.test.ts --reporter=verbose
-```
-
-Expected: both commands pass without contacting a provider.
-
-- [ ] **Step 6: Commit**
-
-```bash
-git add .github/workflows/ci.yml .github/workflows/provider-smoke.yml scripts/ci/check-workflow-security.mjs tests/enterprise/workflow-security.test.ts package.json
+node scripts/safety/run-local-zero-spend.mjs local-only -- \
+  node scripts/ci/check-workflow-security.mjs
+node scripts/safety/run-local-zero-spend.mjs local-only -- \
+  npx vitest run tests/enterprise/workflow-security.test.ts tests/agents/provider-access.test.ts --reporter=verbose
+git add scripts/ci/check-workflow-security.mjs tests/enterprise/workflow-security.test.ts .github/workflows/ci.yml .github/workflows/provider-smoke.yml package.json
 git diff --cached --name-only
-git commit -m "fix(security): remove provider secrets from CI"
+git commit -m "fix(security): scope provider secrets to network steps"
 ```
 
-### Task 4: Centralize provider, persistence, Langfuse, and log redaction
+### Task 6: Seal semantic error, telemetry, API, and privileged import boundaries
 
 **Files:**
 - Create: `agents/observability/safe-error.ts`
-- Modify: `agents/runtime/provider-error.ts`
-- Modify: `agents/runtime/persistence.ts`
-- Modify: `agents/observability/langfuse.ts`
-- Modify: `agents/runtime/providers/openai.ts`
-- Modify: `agents/runtime/providers/deepseek.ts`
-- Modify: `agents/runtime/providers/voyage.ts`
-- Modify: `agents/clients/google.ts`
-- Modify if reported: AI route files with raw error logging discovered by `analyzeAiRouteSource`
+- Create: `lib/security/error-flow.ts`
+- Create: `lib/http/internal-error.ts`
+- Create: `lib/security/server-runtime.ts`
+- Create: `lib/security/privileged-import-graph.ts`
 - Create: `tests/agents/error-redaction-boundary.test.ts`
 - Create: `tests/agents/langfuse-redaction.test.ts`
-- Modify: `tests/agents/provider-error.test.ts`
-- Modify: `tests/agents/runtime-execute.test.ts`
-- Modify: `tests/enterprise/ai-route-security.test.ts`
+- Create: `tests/enterprise/api-error-flow.test.ts`
+- Create: `tests/enterprise/privileged-import-graph.test.ts`
+- Modify: provider adapters, persistence, Langfuse, and every inventory-reported route
 
 **Interfaces:**
-- Produces: `sanitizeProviderFailure(error: unknown): SafeProviderFailure`
-- Produces: `safeAiErrorLog(surface: string, error: unknown): void`
-- Produces: `safeStatusMessage(error: unknown): string`
-- Rejects: raw provider body/message, prompt, system prompt, stack, URL query, key, email, health text, and arbitrary user IDs.
+- Produces: `sanitizeProviderFailure(error): SafeProviderFailure`
+- Produces: `internalErrorResponse(event: SafeEventId): NextResponse`
+- Produces: `assertServerRuntime(boundary: ServerBoundaryId): void`
+- Produces: `findErrorFlowViolations(root): ErrorFlowFinding[]`
+- Produces: `findPrivilegedClientImportPaths(root): ImportPathFinding[]`
 
-- [ ] **Step 1: Add one cross-sink sentinel regression**
+- [ ] **Step 1: Write cross-sink sentinel and semantic-flow tests**
 
-Construct provider failures whose message, stack, response body, nested detail,
-prompt, email, URL, and API-key fields each contain a distinct sentinel. Inject
-them through OpenAI, DeepSeek, Google, Voyage, runtime failure persistence,
-Langfuse generation completion, and an AI route log. Assert none of the
-sentinels appears in:
+Taint catch bindings and values derived through property access
+(`error.message`, `result.error`, `response.detail`), assignment, object
+destructuring, template strings, concatenation, return values from registered
+error helpers, and fixed-point transitive intraprocedural aliases/call
+summaries. Flag tainted values reaching
+`NextResponse.json`, `Response`, console/log helpers, persistence, or Langfuse.
+Use AST control/data flow rather than source substring matching.
 
-- thrown public error messages;
-- `agent_runs.errorMessage`;
-- persistence metadata;
-- Langfuse `statusMessage`;
-- captured `console.error` arguments;
-- API response bodies.
+Sentinels must remain absent from thrown/public messages,
+`agent_runs.errorMessage`, metadata, Langfuse `statusMessage`, logs, and API
+responses. Regression floors include food parse, recipe analyze, local food
+search, client message, shopping-list, and every Task 1 billable route.
 
-Assert stable status, allowlisted provider code/type/request ID, usage, latency,
-and provider generation ID remain available.
+- [ ] **Step 2: Write the privileged import graph tests**
 
-- [ ] **Step 2: Prove leakage exists**
+Start from every `'use client'` JS/JSX/TS/TSX/MJS entry in
+`app/components/lib/agents`. Resolve alias, relative, extension/index,
+JS-to-TS, imports, re-exports, literal dynamic imports, and `require`
+transitively with cycle safety. Flag unresolved computed local dynamic edges.
+Targets include database client, service-role Supabase, provider credentials,
+secret telemetry, and server auth. Type-only edges are excluded only when the
+compiler erases the entire edge.
+
+- [ ] **Step 3: Prove the current sinks and raw API messages fail**
 
 ```bash
-npx vitest run tests/agents/error-redaction-boundary.test.ts tests/agents/langfuse-redaction.test.ts tests/agents/provider-error.test.ts -t "sentinel|redact" --reporter=verbose
+node scripts/safety/run-local-zero-spend.mjs local-only -- \
+  npx vitest run tests/agents/error-redaction-boundary.test.ts tests/agents/langfuse-redaction.test.ts tests/enterprise/api-error-flow.test.ts tests/enterprise/privileged-import-graph.test.ts --reporter=verbose
 ```
 
-Expected: FAIL because OpenAI/DeepSeek/Voyage/Google raw messages can currently
-reach persistence or Langfuse.
+- [ ] **Step 4: Implement allowlisted IDs and centralized serialization**
 
-- [ ] **Step 3: Define the only durable provider-failure shape**
+Use constant registries:
 
 ```ts
-export interface SafeProviderFailure {
-  message: 'AI provider request failed';
-  rawStatus?: number;
-  code?: string;
-  type?: string;
-  requestId?: string;
-  usage?: AiUsage;
-  latencyMs?: number;
-  providerGenerationId?: string;
-}
+export const SAFE_EVENT_IDS = {
+  ai_provider_failed: true,
+  food_parse_failed: true,
+  database_operation_failed: true,
+} as const;
+export type SafeEventId = keyof typeof SAFE_EVENT_IDS;
+
+export const SERVER_BOUNDARY_IDS = {
+  database: true,
+  service_role: true,
+  provider_credentials: true,
+  server_observability: true,
+} as const;
+export type ServerBoundaryId = keyof typeof SERVER_BOUNDARY_IDS;
 ```
 
-Allowlist code/type values and bounded request/provider IDs. Reject control
-characters and unknown properties. Unknown errors become the same stable
-message with no metadata. Preserve Anthropic's existing generic-body behavior
-as the reference implementation.
+No function accepts a free-form event/boundary string. Provider errors keep only
+generic message plus allowlisted status/code/type/request ID/usage/latency.
+Persistence, Langfuse, and logs consume the sanitized shape. Public 500s use a
+stable generic JSON body.
 
-- [ ] **Step 4: Route every sink through the sanitizer**
-
-Provider adapters must throw generic typed errors and never copy provider body
-text into `Error.message`. `failGeneration` stores only
-`SafeProviderFailure.message`; Langfuse receives `safeStatusMessage`; AI route
-logs use `safeAiErrorLog(surface, error)`, which emits a fixed event name and
-allowlisted low-cardinality metadata. Add `raw-error-log` to
-`AiRouteSecurityRule` so future `console.error(..., error)` calls in discovered
-AI routes fail the inventory test.
+`assertServerRuntime` is a local portable `typeof window` assertion usable by
+Next, Vitest, and `tsx`; do not add a bare `server-only` resolution dependency.
+The transitive import graph is the compile-time enforcement.
 
 - [ ] **Step 5: Verify and commit**
 
 ```bash
-npx vitest run tests/agents/error-redaction-boundary.test.ts tests/agents/langfuse-redaction.test.ts tests/agents/provider-error.test.ts tests/agents/runtime-execute.test.ts tests/enterprise/ai-route-security.test.ts --reporter=verbose
-git add agents/observability/safe-error.ts agents/runtime/provider-error.ts agents/runtime/persistence.ts agents/observability/langfuse.ts agents/runtime/providers/openai.ts agents/runtime/providers/deepseek.ts agents/runtime/providers/voyage.ts agents/clients/google.ts tests/agents/error-redaction-boundary.test.ts tests/agents/langfuse-redaction.test.ts tests/agents/provider-error.test.ts tests/agents/runtime-execute.test.ts tests/enterprise/ai-route-security.test.ts
-git diff --name-only -- app/api
+node scripts/safety/run-local-zero-spend.mjs local-only -- \
+  npx vitest run tests/agents/error-redaction-boundary.test.ts tests/agents/langfuse-redaction.test.ts tests/enterprise/api-error-flow.test.ts tests/enterprise/privileged-import-graph.test.ts tests/api --reporter=verbose
+node scripts/safety/run-local-zero-spend.mjs local-only -- npm run typecheck
+git add agents/observability/safe-error.ts lib/security/error-flow.ts lib/http/internal-error.ts lib/security/server-runtime.ts lib/security/privileged-import-graph.ts tests/agents/error-redaction-boundary.test.ts tests/agents/langfuse-redaction.test.ts tests/enterprise/api-error-flow.test.ts tests/enterprise/privileged-import-graph.test.ts
+git diff --name-only -- agents app/api lib
 git diff --cached --name-only
-git commit -m "fix(security): redact AI failures across telemetry sinks"
+git commit -m "fix(security): seal error and privileged import boundaries"
 ```
 
-Stage each route displayed by `git diff --name-only -- app/api` only after
-confirming the Task 1 inventory reported it. Expected: all sentinels are absent
-and every staged route was reported by the inventory before modification.
+Stage only inventory-reported sink/module paths.
 
-### Task 5: Put every service-role mutator behind a fail-closed production interlock
+### Task 7: Compose production-write interlocks across Node and shell tools
 
 **Files:**
 - Create: `scripts/ci/check-production-mutators.mjs`
-- Create: `scripts/safety/require-production-write-approval.ts`
-- Create: `tests/enterprise/production-write-guard.test.ts`
+- Create: `scripts/safety/require-production-write-approval.mjs`
 - Create: `tests/enterprise/production-mutator-inventory.test.ts`
-- Modify: every mutating script discovered under `scripts/`
+- Create: `tests/safety/production-write-approval.test.mjs`
+- Modify: `scripts/safety/tool-policy-manifest.json`
+- Modify: every manifest-discovered mutator, including shell
 - Modify: `package.json`
 
 **Interfaces:**
-- Produces: `discoverProductionMutators(root): ProductionMutatorCandidate[]`
-- Produces: `requireProductionWriteApproval(input): ProductionWriteDecision`
 - Produces: `npm run guard:production-mutators`
-- Approval: `--execute --target=<exact-ref>` plus `TROPHE_ALLOW_PRODUCTION_WRITE=<operation>:<exact-ref>`
-- Default: dry-run with zero mutation calls.
+- Produces CLI: `node scripts/safety/require-production-write-approval.mjs --tool <id> --target <ref> [--execute] -- <command>`
+- Approval: exact `TROPHE_ALLOW_PRODUCTION_WRITE=<operation-id>:<target-ref>`
+- Default: dry-run, zero client/socket/mutation construction.
 
-- [ ] **Step 1: Build a failing mutator inventory**
+- [ ] **Step 1: Write failing semantic inventory and private-target tests**
 
-Discover script files that reference service-role credentials, privileged
-Supabase clients, direct database URLs, or mutating SQL/API verbs. Classify
-write signals including `.insert(`, `.upsert(`, `.update(`, `.delete(`,
-`auth.admin.createUser`, `auth.admin.deleteUser`, `INSERT`, `UPDATE`, `DELETE`,
-`DROP`, `ALTER`, and production-route POST/PUT/PATCH/DELETE.
+Use TypeScript AST for JS/TS and a tested shell lexer plus `bash -n` for shell.
+Inspect executable nodes/tokens, not comments or string examples. Discover
+service-role construction, mutating Supabase calls, mutation SQL, `psql`,
+production POST/PUT/PATCH/DELETE, and destructive commands.
 
-Each write-capable script must declare exactly one or more fixed operation IDs:
+The floor includes service-role data scripts, erasure smoke, benchmark batch
+scripts, `scripts/db/migrate-production.sh`, and local
+`scripts/db/bootstrap-local.sh`. Classify bootstrap as `localDb`; classify
+migrate-production with the `production-write` policy. `canary-readonly.sh` is
+read-only and is never executed by this plan.
 
-```ts
-const PRODUCTION_WRITE_OPERATIONS = [
-  'erasure-smoke',
-] as const;
-```
+Target tests cover credential-bearing PostgreSQL DSNs, encoded userinfo,
+Supabase poolers, IPv4/IPv6 loopback, malformed URLs, and redaction. Private
+userinfo never enters manifest, `--target`, approval string, errors, or output.
 
-and import the shared approval module. Read-only candidates must carry a tested
-`PRODUCTION_MUTATION_MODE = 'read-only'` marker and contain no write signal.
-The inventory must initially surface at least `smoke-erasure.ts`, benchmark
-batch2/3/4, and any additional current mutators; that list is a regression
-floor, not the authoritative set.
-
-- [ ] **Step 2: Prove the inventory and behavior tests fail**
+- [ ] **Step 2: Prove unguarded Node and shell mutators fail inventory**
 
 ```bash
-npx vitest run tests/enterprise/production-write-guard.test.ts tests/enterprise/production-mutator-inventory.test.ts --reporter=verbose
+node scripts/safety/run-local-zero-spend.mjs local-only -- \
+  npx vitest run tests/enterprise/production-mutator-inventory.test.ts --reporter=verbose
+node scripts/safety/run-local-zero-spend.mjs local-only -- \
+  node --test tests/safety/production-write-approval.test.mjs
 ```
 
-Expected: FAIL because several service-role mutators auto-load `.env.local` and
-write without a shared dry-run/exact-target boundary.
+The second command tests the interlock itself inside the proven Task 0
+boundary; it never executes its child.
 
-- [ ] **Step 3: Implement exact approval semantics**
+- [ ] **Step 3: Extend the one shared manifest without duplicating AI Task 6**
 
-Use:
+For each discovered tool, update the existing manifest row. Paid-only policies
+remain owned by `ai-offline-harness-task-6`; production-write policies are
+owned by `security-hardening-task-7`. Any remote tool that authenticates with a
+service role or can mutate receives `production-write` in addition to any
+existing `paid-ai` policy. Task 7 sets `classifications.serviceRole` and
+`classifications.localDb` on every row, preserves Task 6's paid owner/operation
+values, sorts `policies`, and keeps all three mappings exact. A tool with both
+policies must pass:
 
-```ts
-export interface ProductionWriteApprovalInput {
-  operation: string;
-  targetUrl: string;
-  argv: readonly string[];
-  env: Readonly<Record<string, string | undefined>>;
-}
-
-export type ProductionWriteDecision =
-  | { mode: 'dry-run'; targetRef: string }
-  | { mode: 'execute'; targetRef: string };
+```text
+tool-policy decide --policy paid-ai
+AND
+tool-policy decide --policy production-write
 ```
 
-Derive `targetRef` from `localhost`/`127.0.0.1` or the exact Supabase hostname;
-reject URLs containing credentials. Without `--execute`, always return dry-run.
-Execution requires `--target=<targetRef>` and the exact environment value
-`<operation>:<targetRef>`; truthy values, another operation, another project,
-or a missing target throw before client creation. Errors contain only the fixed
-operation and target reference.
+before credential lookup, service client construction, authentication, report
+write, or network. There is one tool ID and one row.
 
-- [ ] **Step 4: Wire every inventory-discovered mutator**
+- [ ] **Step 4: Implement Node/shell-callable write approval**
 
-For each reported script:
+Without `--execute`, emit a bounded dry-run plan and exit before mutation.
+Remote execution requires exact `--target=<canonical-ref>` and exact approval
+value; truthy/mismatched operation/target rejects. Local tools require
+`classifications.localDb=true`, exact loopback target, and the Task 0 launcher.
 
-1. compute the decision before constructing a service-role client;
-2. print a bounded operation/target/count plan in dry-run mode;
-3. skip every network/database mutation unless `mode === 'execute'`;
-4. require a separate fixed operation ID for logically distinct destructive
-   actions;
-5. preserve or add a deterministic cleanup/rollback manifest.
+Shell scripts call the Node decision CLI and check its exit status before any
+`psql`, `curl`, `npx`, or mutation. Do not source a TypeScript helper from
+shell. Add a static ordering test proving decision precedes the first mutation
+token.
 
-The test harness must inject fake clients/transports and prove production-shaped
-configuration makes zero writes for missing, malformed, mismatched-operation,
-and mismatched-target approvals. Do not run a real script against production.
-
-- [ ] **Step 5: Add the static guard and verify**
-
-Add:
-
-```json
-"guard:production-mutators": "node scripts/ci/check-production-mutators.mjs"
-```
-
-Run:
+- [ ] **Step 5: Verify without invoking a real tool**
 
 ```bash
-npm run guard:production-mutators
-npx vitest run tests/enterprise/production-write-guard.test.ts tests/enterprise/production-mutator-inventory.test.ts tests/privacy --reporter=verbose
+node scripts/safety/run-local-zero-spend.mjs local-only -- \
+  node scripts/safety/tool-policy.mjs validate
+node scripts/safety/run-local-zero-spend.mjs local-only -- \
+  node scripts/ci/check-production-mutators.mjs
+node scripts/safety/run-local-zero-spend.mjs local-only -- \
+  npx vitest run tests/enterprise/production-mutator-inventory.test.ts --reporter=verbose
 ```
 
-Expected: all discovered write-capable scripts declare operations, call the
-shared interlock before privileged client construction, and are dry-run by
-default.
-
-- [ ] **Step 6: Commit only discovered mutators and guard files**
-
-```bash
-git add scripts/ci/check-production-mutators.mjs scripts/safety/require-production-write-approval.ts tests/enterprise/production-write-guard.test.ts tests/enterprise/production-mutator-inventory.test.ts package.json
-npm run --silent guard:production-mutators -- --print-files > /tmp/trophe-production-mutators.txt
-git add --pathspec-from-file=/tmp/trophe-production-mutators.txt
-git diff --cached --name-only
-git commit -m "fix(security): interlock production mutation tools"
-```
-
-The `--print-files` mode must output only repository-relative filenames, one per
-line, so the command is safe and reviewable. Inspect the staged list before
-committing.
-
-### Task 6: Upgrade and audit production plus development dependencies
-
-**Files:**
-- Modify: `package.json`
-- Modify: `package-lock.json`
-- Modify only if compatibility requires: source/config files named by a failed Next.js or Supabase CLI compatibility test
-- Create: `tests/enterprise/dependency-security.test.ts`
-
-**Interfaces:**
-- Requires: Next.js `>=16.2.11`
-- Requires: no production high/critical advisory
-- Requires: no full-tree high/critical advisory, including the Supabase CLI/`tar` chain
-- Prohibits: `npm audit fix --force`
-
-- [ ] **Step 1: Add a failing lockfile policy test**
-
-Parse `package-lock.json` and assert:
-
-```ts
-expect(compareSemver(installedVersion('next'), '16.2.11'))
-  .toBeGreaterThanOrEqual(0);
-expect(installedVersions('sharp').some((value) =>
-  compareSemver(value, '0.35.0') < 0,
-)).toBe(false);
-```
-
-Implement the assertions with a small numeric semver comparator so the test
-does not depend on an undeclared transitive package. Assert the lockfile no
-longer contains the exact package/version pairs reported by the fresh
-production audit in Step 2. Live registry output remains a separate gate and
-must not be embedded in the repository.
-
-- [ ] **Step 2: Capture fresh production and full audit baselines**
-
-```bash
-npm audit --omit=dev --json > /tmp/trophe-prod-audit.json || true
-npm audit --json > /tmp/trophe-full-audit.json || true
-node -e "for (const p of ['/tmp/trophe-prod-audit.json','/tmp/trophe-full-audit.json']) { const a=require(p); console.log(p, a.metadata.vulnerabilities) }"
-npm explain next
-npm explain tar
-```
-
-Expected baseline: Next `16.2.7` and production advisories; the full audit also
-identifies the dev Supabase CLI/`tar` chain. Do not print environment values.
-
-- [ ] **Step 3: Upgrade Next and aligned packages without force**
-
-```bash
-npm install next@^16.2.11 eslint-config-next@^16.2.11
-npm dedupe
-npx vitest run tests/enterprise/dependency-security.test.ts --reporter=verbose
-npm run typecheck
-npm run build
-```
-
-Keep Next and `eslint-config-next` on compatible lines. Confirm the lockfile no
-longer resolves the vulnerable nested Sharp/PostCSS versions. Do not use
-`--force` or suppress an advisory.
-
-- [ ] **Step 4: Upgrade the Supabase CLI/`tar` chain if compatible**
-
-Inspect the registry-selected CLI release before changing the lock:
-
-```bash
-npm view supabase version
-npm install --save-dev supabase@latest
-npm explain tar
-npx supabase --version
-npm run db:doctor
-```
-
-Then run focused database tooling/tests. If the latest compatible CLI still
-contains a high/critical `tar` advisory, the task remains red and the final
-audit must name the exact advisory and upstream constraint; do not hide it with
-an audit exception or forced major upgrade.
-
-- [ ] **Step 5: Run both audits and the full compatibility gate**
-
-```bash
-npm audit --omit=dev --audit-level=high
-npm audit --audit-level=high
-npx vitest run tests/enterprise/dependency-security.test.ts --reporter=verbose
-npm run typecheck
-npm run lint
-npm test
-npm run build
-```
-
-Expected: both audit commands exit zero for high/critical findings and the
-application test/build gates pass. Review any remaining low/moderate advisory
-for reachability in Task 8 rather than auto-fixing it.
+Tests inject fake clients/transports and assert zero writes for absent,
+malformed, mismatched-operation, and mismatched-target approvals. No production
+tool is invoked.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add package.json package-lock.json tests/enterprise/dependency-security.test.ts
-git diff --name-only
+git add scripts/ci/check-production-mutators.mjs scripts/safety/require-production-write-approval.mjs scripts/safety/tool-policy-manifest.json tests/enterprise/production-mutator-inventory.test.ts tests/safety/production-write-approval.test.mjs package.json
+git diff --name-only -- scripts
 git diff --cached --name-only
-git commit -m "chore(security): upgrade vulnerable dependencies"
+git commit -m "fix(security): compose production mutation interlocks"
 ```
 
-If a compatibility check required a source/config change, stage that exact path
-only after `git diff --name-only` confirms why it changed. The final staged set
-is the dependency manifest, lockfile, policy test, and only compatibility files
-changed because a named check failed.
+Stage only manifest-reported mutator paths.
 
-### Task 7: Return stable database errors and enforce portable privileged import boundaries
+### Task 8: Upgrade exact reviewed dependencies and validate audit output
 
 **Files:**
-- Create: `lib/http/internal-error.ts`
-- Create: `lib/security/server-runtime.ts`
-- Create: `lib/security/import-graph.ts`
-- Create: `tests/enterprise/api-error-surface.test.ts`
-- Create: `tests/enterprise/privileged-import-graph.test.ts`
-- Modify: `app/api/food/local-search/route.ts`
-- Modify: `app/api/client/message/route.ts`
-- Modify if reported: every API route discovered returning a database/provider `error.message`
-- Modify: `lib/supabase/server.ts`
-- Modify: `db/client.ts`
-- Modify if reported: privileged secret/service-role modules reachable from a client import root
+- Create: `scripts/ci/validate-npm-audit.mjs`
+- Create: `scripts/ci/install-supabase-cli-artifact.mjs`
+- Create: `scripts/ci/supabase-cli-2.109.1-checksums.json`
+- Create: `tests/enterprise/dependency-security.test.ts`
+- Create: `tests/safety/supabase-cli-artifact.test.mjs`
+- Modify: `package.json`
+- Modify: `package-lock.json`
+- Modify only if a named compatibility check fails: exact source/config path tied to that failure
 
 **Interfaces:**
-- Produces: `internalErrorResponse(event: string): NextResponse`
-- Produces: `assertServerRuntime(boundary: string): void`
-- Produces: `findPrivilegedClientImportPaths(root: string): ImportPathFinding[]`
-- Invariant: API responses never return raw database/provider error strings.
-- Invariant: no `'use client'` import path reaches database, service-role, provider-credential, or secret-bearing telemetry modules.
+- Pins: `next@16.2.12`, `eslint-config-next@16.2.12`, `supabase@2.109.1`
+- Installs: exact Supabase CLI artifact only after required official and committed SHA-256 checks agree
+- Requires: no production or full-tree high/critical advisory
+- Prohibits: lifecycle scripts during install, audit suppression, and `npm audit fix --force`
 
-- [ ] **Step 1: Write failing API sentinel tests**
+- [ ] **Step 1: Write failing lockfile and audit-validator tests**
 
-Inject a database error containing `DB_SENTINEL_DO_NOT_EXPOSE` into local food
-search and client messaging. Assert the response status remains 500, the body is
-exactly a stable public shape such as `{ error: 'Internal server error' }`, and
-the sentinel is absent from response and captured logs. Add a source inventory
-that discovers `NextResponse.json({ error: error.message })` and equivalent
-aliases in every `app/api/**/route.ts`.
+Parse lockfile versions and assert exact reviewed pins. Feed the validator:
+valid clean JSON, valid advisory JSON with npm exit 1, invalid JSON, registry
+error JSON, missing metadata, and truncated output. Advisory exit is distinct
+from transport/parse failure; only valid metadata may support a security claim.
 
-- [ ] **Step 2: Write failing privileged import-graph tests**
+Unit-test the Supabase artifact installer with injected local fixtures. Require
+the exact `v2.109.1` asset name for each supported OS/architecture, an entry in
+the official checksum file, an identical entry in the committed checksum map,
+and a matching downloaded archive SHA-256. Reject absent/malformed/conflicting
+checksums, wrong versions/platforms, HTTP or extra redirects, oversized
+responses, archive traversal, links, extra executable payloads, and a binary
+whose reported version is not `2.109.1`. Tests perform no network access.
 
-Treat files whose first directive is `'use client'` or `"use client"` as client
-roots. Resolve relative imports and the `@/` alias across `.ts`/`.tsx` files.
-Mark these as privileged roots:
-
-- `db/client.ts`;
-- `lib/supabase/server.ts`;
-- modules reading `SUPABASE_SERVICE_ROLE_KEY`;
-- provider credential adapters;
-- server observability modules reading secret configuration.
-
-Assert `findPrivilegedClientImportPaths` returns no path. Add fixtures proving
-the analyzer catches direct, barrel-export, and transitive imports.
-
-- [ ] **Step 3: Prove both regressions fail**
+- [ ] **Step 2: Capture validated baselines through the registry-only profile**
 
 ```bash
-npx vitest run tests/enterprise/api-error-surface.test.ts tests/enterprise/privileged-import-graph.test.ts --reporter=verbose
+node scripts/safety/run-local-zero-spend.mjs npm-registry-readonly -- \
+  node scripts/ci/validate-npm-audit.mjs production /tmp/trophe-prod-audit.json
+node scripts/safety/run-local-zero-spend.mjs npm-registry-readonly -- \
+  node scripts/ci/validate-npm-audit.mjs full /tmp/trophe-full-audit.json
+node scripts/safety/run-local-zero-spend.mjs local-only -- npm explain next
+node scripts/safety/run-local-zero-spend.mjs local-only -- npm explain tar
 ```
 
-Expected: raw database error routes fail the first suite. Import-graph fixtures
-fail until the analyzer is implemented.
+Expected baseline may exit red for advisories, but invalid/failed registry
+responses cannot be interpreted as zero vulnerabilities.
 
-- [ ] **Step 4: Implement stable API error handling**
-
-`internalErrorResponse(event)` returns only the stable public JSON and logs a
-fixed event identifier through the safe logger from Task 4. It must not accept
-an arbitrary error argument. Replace every inventory-reported raw message
-response with this helper; retain existing 4xx validation/authorization copy.
-
-- [ ] **Step 5: Implement a portable server boundary**
-
-Use a local module, not a bare `import 'server-only'` dependency that can break
-`tsx` scripts or Vitest:
-
-```ts
-export function assertServerRuntime(boundary: string): void {
-  if (typeof window !== 'undefined') {
-    throw new Error(`Server-only boundary loaded: ${boundary}`);
-  }
-}
-```
-
-Call it at privileged module initialization. The import graph is the build-time
-enforcement; the runtime assertion is defense in depth. It reports only a fixed
-boundary identifier and never configuration values.
-
-- [ ] **Step 6: Verify and commit**
+- [ ] **Step 3: Install exact packages without lifecycle scripts, then install one verified CLI artifact**
 
 ```bash
-npx vitest run tests/enterprise/api-error-surface.test.ts tests/enterprise/privileged-import-graph.test.ts tests/api tests/lib --reporter=verbose
-npm run typecheck
-git add lib/http/internal-error.ts lib/security/server-runtime.ts lib/security/import-graph.ts lib/supabase/server.ts db/client.ts app/api/food/local-search/route.ts app/api/client/message/route.ts tests/enterprise/api-error-surface.test.ts tests/enterprise/privileged-import-graph.test.ts
-git diff --name-only -- app/api
+node scripts/safety/run-local-zero-spend.mjs npm-registry-readonly -- \
+  npm install --ignore-scripts --save-exact next@16.2.12 eslint-config-next@16.2.12
+node scripts/safety/run-local-zero-spend.mjs npm-registry-readonly -- \
+  npm install --ignore-scripts --save-dev --save-exact supabase@2.109.1
+node scripts/safety/run-local-zero-spend.mjs local-only -- npm dedupe
+node scripts/safety/run-local-zero-spend.mjs supabase-cli-2.109.1-release -- \
+  node scripts/ci/install-supabase-cli-artifact.mjs
+node scripts/safety/run-local-zero-spend.mjs local-only -- \
+  node_modules/supabase/bin/supabase --version
+```
+
+The package installs use an empty npm user config and cannot run lifecycle
+scripts. Do not run Supabase's `postinstall.js`: it may skip verification when
+the expected checksum entry is absent. The bespoke installer accepts only the
+exact official `v2.109.1` checksum and platform archive URLs, requires the
+official checksum entry to equal the reviewed value committed in
+`supabase-cli-2.109.1-checksums.json`, verifies SHA-256 before extraction,
+extracts only the expected binary into `node_modules/supabase/bin`, enforces
+compressed/uncompressed size caps and traversal/link rejection, and atomically
+renames the verified result. It removes partial files on failure. The direct
+binary command—not `npx`—must print exactly `2.109.1`.
+
+Review the lockfile for fixed nested Next/Sharp/PostCSS and Supabase CLI/`tar`
+versions. If a compatibility gate proves Sharp needs its install lifecycle,
+allow only this exact command through `local-only` after the launcher validates
+the package name and argv:
+
+```bash
+node scripts/safety/run-local-zero-spend.mjs local-only -- \
+  npm rebuild sharp --ignore-scripts=false
+```
+
+That narrow exception remains under loopback-only network denial; arbitrary
+`npm rebuild`, another package name, or any pre/post hook remains rejected.
+
+- [ ] **Step 4: Run validated audits and compatibility gates**
+
+```bash
+node scripts/safety/run-local-zero-spend.mjs npm-registry-readonly -- \
+  node scripts/ci/validate-npm-audit.mjs production /tmp/trophe-prod-audit-after.json
+node scripts/safety/run-local-zero-spend.mjs npm-registry-readonly -- \
+  node scripts/ci/validate-npm-audit.mjs full /tmp/trophe-full-audit-after.json
+node scripts/safety/run-local-zero-spend.mjs local-only -- \
+  node --test tests/safety/supabase-cli-artifact.test.mjs
+node scripts/safety/run-local-zero-spend.mjs local-only -- \
+  npx vitest run tests/enterprise/dependency-security.test.ts --reporter=verbose
+node scripts/safety/run-local-zero-spend.mjs local-only -- npm run db:doctor
+node scripts/safety/run-local-zero-spend.mjs local-only -- npm run typecheck
+node scripts/safety/run-local-zero-spend.mjs local-only -- npm run lint
+node scripts/safety/run-local-zero-spend.mjs local-only -- npm test
+node scripts/safety/run-local-zero-spend.mjs local-only -- npm run build
+```
+
+Both validated audits must contain valid metadata and zero high/critical
+findings. If Supabase CLI `2.109.1` still resolves vulnerable `tar`, the task
+remains release-blocking; do not add an exception.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add scripts/ci/validate-npm-audit.mjs scripts/ci/install-supabase-cli-artifact.mjs scripts/ci/supabase-cli-2.109.1-checksums.json tests/enterprise/dependency-security.test.ts tests/safety/supabase-cli-artifact.test.mjs package.json package-lock.json
+git diff --name-only
 git diff --cached --name-only
-git commit -m "fix(security): seal API and privileged import boundaries"
+git commit -m "chore(security): upgrade reviewed dependencies"
 ```
 
-Expected: no raw error response is discovered, no client-to-privileged import
-path exists, and `tsx`-executed tests do not require special module resolution.
-If the API error inventory reports additional routes, stage those exact paths
-after confirming each appears in `git diff --name-only -- app/api`.
+Stage a compatibility file only when a path-specific diff and failed check
+prove it belongs to this task.
 
-### Task 8: Run the final zero-spend security audit and record evidence
+### Task 9: Run the final zero-spend, local/source-only audit
 
 **Files:**
 - Create: `docs/quality/security-audit-2026-07-25.md`
-- Modify only if evidence is stale: `agents/README.md`, `ARCHITECTURE.md`
+- Modify only if made stale by implemented interfaces: `agents/README.md`, `ARCHITECTURE.md`
 
 **Interfaces:**
-- Consumes: every guard and regression from Tasks 1-7
-- Consumes, without reimplementing: `npm run guard:paid-ai-tools` from Task 6 of the AI runtime offline-harness plan
-- Produces: ranked final evidence with current-HEAD corrections and residual risk
+- Consumes: Tasks 0-8
+- Consumes without reimplementation: AI offline-harness Task 6
+  `guard:paid-ai-tools` and its `paid-ai` policy fields in
+  `tool-policy-manifest.json`
+- Produces: ranked final evidence and release blockers
 
-- [ ] **Step 1: Verify all static inventories fail closed**
+- [ ] **Step 1: Verify every inventory through the safety launcher**
 
 ```bash
-npm run guard:workflow-security
-npm run guard:production-mutators
-npm run guard:paid-ai-tools
-npm run guard:eval-identity
-npm run guard:golden-tolerances
-npx vitest run tests/enterprise/ai-route-security.test.ts tests/enterprise/workflow-security.test.ts tests/enterprise/production-mutator-inventory.test.ts tests/enterprise/api-error-surface.test.ts tests/enterprise/privileged-import-graph.test.ts tests/enterprise/dependency-security.test.ts --reporter=verbose
+node scripts/safety/run-local-zero-spend.mjs local-only -- \
+  node scripts/safety/tool-policy.mjs validate
+node scripts/safety/run-local-zero-spend.mjs local-only -- npm run guard:paid-ai-tools
+node scripts/safety/run-local-zero-spend.mjs local-only -- npm run guard:production-mutators
+node scripts/safety/run-local-zero-spend.mjs local-only -- npm run guard:workflow-security
+node scripts/safety/run-local-zero-spend.mjs local-only -- \
+  npx vitest run tests/enterprise/ai-workload-graph.test.ts tests/enterprise/api-error-flow.test.ts tests/enterprise/privileged-import-graph.test.ts tests/enterprise/dependency-security.test.ts --reporter=verbose
 ```
 
-If `guard:paid-ai-tools` is absent or fails, stop: the direct paid-tool boundary
-belongs to the AI plan and is a prerequisite, not work to duplicate here. None
-of these commands may receive provider credentials or invoke production.
+If the paid-tool guard or manifest ownership contract is absent/failing, stop.
+Do not duplicate its implementation in this task.
 
-- [ ] **Step 2: Verify focused security behavior and local database concurrency**
+- [ ] **Step 2: Verify principals, envelopes, ledger, and redaction locally**
 
 ```bash
-npx vitest run tests/agents/org-budget.test.ts tests/agents/budget-reservation.test.ts tests/agents/error-redaction-boundary.test.ts tests/agents/langfuse-redaction.test.ts tests/lib/api-guard.test.ts tests/api/shopping-list.test.ts --reporter=verbose
-DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres npm test -- --run tests/db/ai-budget-reservation.test.ts tests/db/rls.test.ts tests/db/rag-rls.test.ts
+node scripts/safety/run-local-zero-spend.mjs local-only -- \
+  npx vitest run tests/agents/principal.test.ts tests/agents/billable-envelope.test.ts tests/agents/budget-reservation.test.ts tests/agents/error-redaction-boundary.test.ts tests/agents/langfuse-redaction.test.ts tests/lib/api-guard.test.ts --reporter=verbose
+node scripts/safety/run-local-zero-spend.mjs local-only -- \
+  npm test -- --run tests/db/ai-budget-ledger.test.ts tests/db/ai-budget-privileges.test.ts tests/db/rls.test.ts tests/db/rag-rls.test.ts
 ```
 
-Expected: unauthorized/nonmember/budget-denied requests start zero providers,
-the 20-way threshold test admits exactly the budgeted count, and no sentinel
-reaches a durable or external sink.
-
-- [ ] **Step 3: Run dependency, type, lint, test, and build gates**
+- [ ] **Step 3: Verify audited dependencies and full project gates**
 
 ```bash
-npm audit --omit=dev --audit-level=high
-npm audit --audit-level=high
-npm run typecheck
-npm run lint
-npm test
-npm run build
+node scripts/safety/run-local-zero-spend.mjs npm-registry-readonly -- \
+  node scripts/ci/validate-npm-audit.mjs production /tmp/trophe-final-prod-audit.json
+node scripts/safety/run-local-zero-spend.mjs npm-registry-readonly -- \
+  node scripts/ci/validate-npm-audit.mjs full /tmp/trophe-final-full-audit.json
+node scripts/safety/run-local-zero-spend.mjs local-only -- npm run typecheck
+node scripts/safety/run-local-zero-spend.mjs local-only -- npm run lint
+node scripts/safety/run-local-zero-spend.mjs local-only -- npm test
+node scripts/safety/run-local-zero-spend.mjs local-only -- npm run build
 ```
 
-Record exact command exit status and test counts. Do not claim a gate passed
-from a partial suite or stale output.
+- [ ] **Step 4: Review security headers from source only**
 
-- [ ] **Step 4: Perform bounded read-only public-header checks**
+Inspect Next config, middleware, route response helpers, and header tests for
+CSP, HSTS, frame protection, content-type protection, redirect, and cache
+policy. Do not run `curl`, browser automation, production canary, or any live
+URL. Record production headers as **not live-verified in this plan**. A future
+post-deploy verification is a separately authorized phase, not an executable
+step here.
 
-```bash
-curl --fail --silent --show-error --head https://trophe.app/
-curl --fail --silent --show-error --head https://trophe.app/login
-curl --fail --silent --show-error --head https://trophe.app/trust
-curl --silent --show-error --head https://trophe.app/dashboard
-```
+- [ ] **Step 5: Write evidence and release status**
 
-Inspect CSP, HSTS, frame protection, content-type protection, redirect, and
-cache headers. Do not authenticate, submit a form, call `/api/ai/**`, or follow
-a redirect into an authenticated flow.
+For each audit finding record fixed/mitigated/open, two evidence signals,
+focused command/result, residual preconditions, current-HEAD correction, and
+whether it blocks release. State:
 
-- [ ] **Step 5: Write the final evidence report**
+- provider spend `$0.00`;
+- no production/provider endpoint or authenticated external system was called;
+- migration/RPCs were applied only to local `127.0.0.1:54322/postgres`;
+- production schema/runtime remain unchanged;
+- runtime release is blocked until the schema-first runbook is separately
+  approved and completed;
+- production headers were source-reviewed, not live-verified.
 
-For each original finding, record:
-
-- status: fixed, mitigated, or open;
-- two independent evidence signals;
-- focused regression command and result;
-- residual exploit preconditions;
-- current-HEAD correction if source moved during implementation.
-
-Separate defects from hardening. State explicitly that the database migration
-was tested only on localhost and was not applied or deployed to production.
-State that provider spend was `$0.00` and no provider/production AI endpoint was
-called. Include remaining dependency advisories with reachability analysis.
-
-- [ ] **Step 6: Verify report and commit**
+- [ ] **Step 6: Verify and safely stage the report**
 
 ```bash
-rg -n "Critical|Important|Minor|\\$0\\.00|localhost|not applied|guard:paid-ai-tools" docs/quality/security-audit-2026-07-25.md
-git diff --check
-git status --short
-git add docs/quality/security-audit-2026-07-25.md agents/README.md ARCHITECTURE.md
+rg -n "Critical|Important|Minor|\\$0\\.00|54322|release.blocked|not live-verified|guard:paid-ai-tools" docs/quality/security-audit-2026-07-25.md
+git diff --check -- docs/quality/security-audit-2026-07-25.md
+git add docs/quality/security-audit-2026-07-25.md
 git diff --cached --name-only
-git commit -m "docs(security): record hardened security posture"
+git commit -m "docs(security): record fail-closed security evidence"
 ```
 
-Stage `agents/README.md` and `ARCHITECTURE.md` only if the implemented interfaces
-made their current text false. Expected final evidence: no Critical finding,
-all validated Important defects closed or explicitly blocking release, all
-guards green, production unchanged, and paid-provider spend `$0.00`.
+If `agents/README.md` or `ARCHITECTURE.md` became stale, update and commit each
+in a separate path-specific documentation commit. Never stage them with the
+evidence report in a shared worktree.
