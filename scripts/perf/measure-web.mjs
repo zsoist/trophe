@@ -53,6 +53,7 @@ function metricSummary(samples, reducer) {
 export function sanitizeFailureUrl(value) {
   try {
     const url = new URL(value);
+    if (!['http:', 'https:'].includes(url.protocol)) return 'non-http-url';
     url.username = '';
     url.password = '';
     url.search = '';
@@ -83,16 +84,26 @@ export function calculateReport({ url, viewport, samples }) {
 
   const sanitizedSamples = samples.map((sample) => ({
     ...sample,
+    invalidReasons: (sample.invalidReasons ?? [])
+      .filter((reason) => typeof reason === 'string' && /^[a-z0-9_]{1,64}$/.test(reason))
+      .slice(0, MAX_ERROR_EVENTS_PER_SAMPLE),
     consoleErrors: sanitizeConsoleErrors(sample.consoleErrors ?? []),
     networkErrors: sanitizeNetworkErrors(sample.networkErrors ?? []),
   }));
+  const validSamples = sanitizedSamples.filter((sample) => sample.valid !== false);
+  const invalidSamples = sanitizedSamples.filter((sample) => sample.valid === false);
+  const invalidReasons = [...new Set(invalidSamples.flatMap((sample) => sample.invalidReasons))];
 
   return {
     url: sanitizeFailureUrl(url),
     viewport,
     samples: sanitizedSamples,
-    median: metricSummary(sanitizedSamples, median),
-    worst: metricSummary(sanitizedSamples, (values) => values.at(-1)),
+    valid: validSamples.length > 0 && invalidSamples.length === 0,
+    validSampleCount: validSamples.length,
+    invalidSampleCount: invalidSamples.length,
+    invalidReasons,
+    median: validSamples.length > 0 ? metricSummary(validSamples, median) : null,
+    worst: validSamples.length > 0 ? metricSummary(validSamples, (values) => values.at(-1)) : null,
     consoleErrors: sanitizedSamples.flatMap((sample) => sample.consoleErrors ?? []),
     networkErrors: sanitizedSamples.flatMap((sample) => sample.networkErrors),
   };
@@ -203,8 +214,8 @@ export function calculateCls(entries) {
 
   for (const shift of shifts) {
     const startsNewSession = sessionValue === 0
-      || shift.startTime - previousShift > CLS_SESSION_GAP_MS
-      || shift.startTime - sessionStart > CLS_SESSION_MAX_MS;
+      || shift.startTime - previousShift >= CLS_SESSION_GAP_MS
+      || shift.startTime - sessionStart >= CLS_SESSION_MAX_MS;
     if (startsNewSession) {
       sessionValue = shift.value;
       sessionStart = shift.startTime;
@@ -222,21 +233,58 @@ export function createTransferAccumulator() {
   const completed = new Set();
   const cached = new Set();
   const failed = new Set();
+  const inFlight = new Map();
   let transferredBytes = 0;
 
+  const activeRequest = (requestId) => {
+    if (!inFlight.has(requestId)) inFlight.set(requestId, { partialBytes: 0 });
+    return inFlight.get(requestId);
+  };
+
+  const addTerminalBytes = (requestId, terminalBytes = 0) => {
+    const request = inFlight.get(requestId);
+    const partialBytes = request?.partialBytes ?? 0;
+    transferredBytes += Math.max(partialBytes, Number.isFinite(terminalBytes) ? terminalBytes : 0);
+  };
+
   return {
-    loadingFinished({ requestId, encodedDataLength }) {
+    /** @param {{ requestId: string, redirectResponse?: { encodedDataLength?: number } }} event */
+    requestWillBeSent({ requestId, redirectResponse }) {
       if (completed.has(requestId) || cached.has(requestId) || failed.has(requestId)) return;
-      completed.add(requestId);
-      if (Number.isFinite(encodedDataLength) && encodedDataLength > 0) {
-        transferredBytes += encodedDataLength;
+      if (redirectResponse) {
+        addTerminalBytes(requestId, redirectResponse.encodedDataLength);
+        inFlight.set(requestId, { partialBytes: 0 });
+      } else {
+        activeRequest(requestId);
       }
     },
+    dataReceived({ requestId, encodedDataLength }) {
+      if (completed.has(requestId) || cached.has(requestId) || failed.has(requestId)) return;
+      const request = activeRequest(requestId);
+      if (Number.isFinite(encodedDataLength) && encodedDataLength > 0) {
+        request.partialBytes += encodedDataLength;
+      }
+    },
+    loadingFinished({ requestId, encodedDataLength }) {
+      if (completed.has(requestId) || failed.has(requestId)) return;
+      if (!cached.has(requestId)) {
+        addTerminalBytes(requestId, encodedDataLength);
+        completed.add(requestId);
+      }
+      inFlight.delete(requestId);
+    },
     requestServedFromCache({ requestId }) {
-      if (!completed.has(requestId) && !failed.has(requestId)) cached.add(requestId);
+      if (!completed.has(requestId) && !failed.has(requestId)) {
+        activeRequest(requestId);
+        cached.add(requestId);
+      }
     },
     loadingFailed({ requestId }) {
-      if (!completed.has(requestId) && !cached.has(requestId)) failed.add(requestId);
+      if (!completed.has(requestId) && !cached.has(requestId) && !failed.has(requestId)) {
+        addTerminalBytes(requestId);
+        failed.add(requestId);
+      }
+      inFlight.delete(requestId);
     },
     snapshot() {
       return {
@@ -244,6 +292,7 @@ export function createTransferAccumulator() {
         completedCount: completed.size,
         cachedCount: cached.size,
         failedCount: failed.size,
+        inFlightCount: inFlight.size,
       };
     },
   };
@@ -251,6 +300,7 @@ export function createTransferAccumulator() {
 
 export async function waitForNetworkSettle({
   getLastActivityAt,
+  getInFlightCount = () => 0,
   now = Date.now,
   wait,
   quietMs = SETTLE_QUIET_MS,
@@ -259,17 +309,37 @@ export async function waitForNetworkSettle({
   const startedAt = now();
   while (now() - startedAt < maxMs) {
     const quietFor = now() - getLastActivityAt();
-    if (quietFor >= quietMs) return { reason: 'network_quiet', durationMs: now() - startedAt };
+    const remainingInFlightCount = getInFlightCount();
+    if (remainingInFlightCount === 0 && quietFor >= quietMs) {
+      return {
+        reason: 'network_quiet',
+        durationMs: now() - startedAt,
+        remainingInFlightCount: 0,
+      };
+    }
     const remainingQuiet = quietMs - quietFor;
     const remainingTotal = maxMs - (now() - startedAt);
-    await wait(Math.max(1, Math.min(SETTLE_POLL_MS, remainingQuiet, remainingTotal)));
+    await wait(Math.max(1, Math.min(
+      SETTLE_POLL_MS,
+      remainingInFlightCount === 0 ? remainingQuiet : SETTLE_POLL_MS,
+      remainingTotal,
+    )));
   }
-  return { reason: 'max_settle_reached', durationMs: now() - startedAt };
+  return {
+    reason: 'max_settle_reached',
+    durationMs: now() - startedAt,
+    remainingInFlightCount: getInFlightCount(),
+  };
 }
 
 export async function collectSample({ browser, url, viewport, now = Date.now }) {
-  const context = await browser.newContext({ viewport: { width: viewport.width, height: viewport.height } });
+  const normalizedUrl = validatedUrl(url);
+  const context = await browser.newContext({
+    viewport: { width: viewport.width, height: viewport.height },
+    serviceWorkers: 'block',
+  });
   let cdp;
+  let measurementError;
   const consoleErrors = [];
   const networkErrors = [];
   let requestCount = 0;
@@ -286,8 +356,32 @@ export async function collectSample({ browser, url, viewport, now = Date.now }) 
   };
 
   try {
+    if (typeof context.routeWebSocket !== 'function') {
+      throw new Error('WebSocket blocking is unavailable; refusing unsafe measurement');
+    }
+    await context.route('**/*', async (route) => {
+      const request = route.request();
+      if (!isReadOnlyMethod(request.method())) {
+        blockedRequestCount += 1;
+        blockedReasons.set(request, `blocked_${request.method().toLowerCase()}`);
+        await route.abort('blockedbyclient');
+        return;
+      }
+      await route.continue();
+    });
+    await context.routeWebSocket('**/*', (webSocket) => {
+      webSocket.close({ code: 1008, reason: 'read_only_measurement' });
+    });
     const page = await context.newPage();
     cdp = await context.newCDPSession(page);
+    cdp.on('Network.requestWillBeSent', (event) => {
+      lastNetworkActivityAt = now();
+      transfers.requestWillBeSent(event);
+    });
+    cdp.on('Network.dataReceived', (event) => {
+      lastNetworkActivityAt = now();
+      transfers.dataReceived(event);
+    });
     cdp.on('Network.loadingFinished', (event) => {
       lastNetworkActivityAt = now();
       transfers.loadingFinished(event);
@@ -302,16 +396,6 @@ export async function collectSample({ browser, url, viewport, now = Date.now }) 
     });
     await cdp.send('Network.enable');
     await page.addInitScript(installMetricObservers);
-    await page.route('**/*', async (route) => {
-      const request = route.request();
-      if (!isReadOnlyMethod(request.method())) {
-        blockedRequestCount += 1;
-        blockedReasons.set(request, `blocked_${request.method().toLowerCase()}`);
-        await route.abort('blockedbyclient');
-        return;
-      }
-      await route.continue();
-    });
     page.on('request', (request) => {
       requestCount += 1;
       lastNetworkActivityAt = now();
@@ -338,9 +422,10 @@ export async function collectSample({ browser, url, viewport, now = Date.now }) 
       }
     });
 
-    await page.goto(url, { waitUntil: 'load', timeout: 30_000 });
-    await waitForNetworkSettle({
+    await page.goto(normalizedUrl, { waitUntil: 'load', timeout: 30_000 });
+    const settlement = await waitForNetworkSettle({
       getLastActivityAt: () => lastNetworkActivityAt,
+      getInFlightCount: () => transfers.snapshot().inFlightCount,
       now,
       wait: (milliseconds) => page.waitForTimeout(milliseconds),
     });
@@ -360,6 +445,9 @@ export async function collectSample({ browser, url, viewport, now = Date.now }) 
       };
     });
     const transferSnapshot = transfers.snapshot();
+    const invalidReasons = [];
+    if (blockedRequestCount > 0) invalidReasons.push('blocked_requests');
+    if (settlement.reason !== 'network_quiet') invalidReasons.push(settlement.reason);
     return {
       metrics: {
         ...observed,
@@ -369,14 +457,29 @@ export async function collectSample({ browser, url, viewport, now = Date.now }) 
         blockedRequestCount,
         transferredBytes: transferSnapshot.transferredBytes,
       },
-      valid: blockedRequestCount === 0,
+      valid: invalidReasons.length === 0,
+      invalidReasons,
+      settlement,
       transferOutcomes: transferSnapshot,
       consoleErrors,
       networkErrors,
     };
+  } catch (error) {
+    measurementError = error;
+    throw error;
   } finally {
-    await cdp?.detach();
-    await context.close();
+    let cleanupError;
+    try {
+      await cdp?.detach();
+    } catch (error) {
+      cleanupError = error;
+    }
+    try {
+      await context.close();
+    } catch (error) {
+      cleanupError ??= error;
+    }
+    if (!measurementError && cleanupError) throw cleanupError;
   }
 }
 
