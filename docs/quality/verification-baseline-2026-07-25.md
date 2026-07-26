@@ -70,3 +70,36 @@ stores nor publishes a filename or any file contents. An offloaded result stops
 before `typecheck`, writes the redacted `dependency_tree_offloaded` category
 with its file count and `npm ci` repair instruction, and exits non-zero. Other
 platforms report a healthy preflight without invoking macOS `find -flags`.
+
+## Task 4 database prerequisite and resolved gate evidence
+
+- **symptom:** Plain `npm test` produced five local `ECONNREFUSED
+  127.0.0.1:54322` failures when the required local database was unavailable,
+  while `npm run build` failed static generation because local public Supabase
+  configuration was absent.
+- **root_cause:** The documented unit-and-integration test contract depends on
+  the bootstrapped local database, but the command had no single availability
+  boundary. The original build failure was missing local public configuration,
+  not a source-level build defect.
+- **regression:** `tests/enterprise/database-preflight.test.ts` injects both a
+  successful `SELECT 1` client and a rejected client. It proves the rejected
+  result is exactly the redacted `database_unavailable` repair shape and that
+  the client closes on both paths.
+- **fix:** `scripts/test/require-database.mjs` bounds a `SELECT 1` preflight
+  using `DATABASE_URL`, falling back only to the documented local URL outside
+  production. `npm test` runs it before Vitest; `npm run test:vitest` remains
+  the raw focused-test command for TDD. The unavailable CLI diagnostic exposes
+  only `npm run db:bootstrap` as remediation.
+- **local provisioning:** `npm run db:doctor` correctly reported the stopped
+  local Supabase stack. The local stack was started and `npm run db:bootstrap`
+  completed migrations, deterministic local/CI fixtures, schema verification,
+  and explain-plan capture. Ignored `.env.local` holds only the local database
+  URL, local public Supabase URL, local anonymous key, and local site URL.
+- **verification:** `npx vitest run
+  tests/enterprise/database-preflight.test.ts --reporter=verbose` passed 2
+  tests; `npm test -- --reporter=verbose` passed 596 tests with 33 existing
+  skips; and `npm run build` completed static generation for all 62 routes.
+
+No unresolved source-level verification failure remains after documented local
+provisioning. This evidence used no provider credentials or requests, no
+production write, and no golden-tolerance change.
