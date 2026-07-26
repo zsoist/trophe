@@ -232,12 +232,15 @@ export function calculateCls(entries) {
 export function createTransferAccumulator() {
   const completed = new Set();
   const cached = new Set();
+  const terminalCached = new Set();
   const failed = new Set();
   const inFlight = new Map();
   let transferredBytes = 0;
 
   const activeRequest = (requestId) => {
-    if (!inFlight.has(requestId)) inFlight.set(requestId, { partialBytes: 0 });
+    if (!inFlight.has(requestId)) {
+      inFlight.set(requestId, { partialBytes: 0, servedFromCache: false });
+    }
     return inFlight.get(requestId);
   };
 
@@ -250,39 +253,51 @@ export function createTransferAccumulator() {
   return {
     /** @param {{ requestId: string, redirectResponse?: { encodedDataLength?: number } }} event */
     requestWillBeSent({ requestId, redirectResponse }) {
-      if (completed.has(requestId) || cached.has(requestId) || failed.has(requestId)) return;
+      if (completed.has(requestId) || terminalCached.has(requestId) || failed.has(requestId)) return;
       if (redirectResponse) {
-        addTerminalBytes(requestId, redirectResponse.encodedDataLength);
-        inFlight.set(requestId, { partialBytes: 0 });
+        const request = activeRequest(requestId);
+        if (!request.servedFromCache) {
+          addTerminalBytes(requestId, redirectResponse.encodedDataLength);
+        }
+        inFlight.set(requestId, { partialBytes: 0, servedFromCache: false });
       } else {
         activeRequest(requestId);
       }
     },
     dataReceived({ requestId, encodedDataLength }) {
-      if (completed.has(requestId) || cached.has(requestId) || failed.has(requestId)) return;
+      if (completed.has(requestId) || terminalCached.has(requestId) || failed.has(requestId)) return;
       const request = activeRequest(requestId);
+      if (request.servedFromCache) return;
       if (Number.isFinite(encodedDataLength) && encodedDataLength > 0) {
         request.partialBytes += encodedDataLength;
       }
     },
     loadingFinished({ requestId, encodedDataLength }) {
-      if (completed.has(requestId) || failed.has(requestId)) return;
-      if (!cached.has(requestId)) {
+      if (completed.has(requestId) || terminalCached.has(requestId) || failed.has(requestId)) return;
+      const request = activeRequest(requestId);
+      if (request.servedFromCache) {
+        terminalCached.add(requestId);
+      } else {
         addTerminalBytes(requestId, encodedDataLength);
         completed.add(requestId);
       }
       inFlight.delete(requestId);
     },
     requestServedFromCache({ requestId }) {
-      if (!completed.has(requestId) && !failed.has(requestId)) {
-        activeRequest(requestId);
+      if (!completed.has(requestId) && !terminalCached.has(requestId) && !failed.has(requestId)) {
+        const request = activeRequest(requestId);
+        request.partialBytes = 0;
+        request.servedFromCache = true;
         cached.add(requestId);
       }
     },
     loadingFailed({ requestId }) {
-      if (!completed.has(requestId) && !cached.has(requestId) && !failed.has(requestId)) {
-        addTerminalBytes(requestId);
-        failed.add(requestId);
+      if (!completed.has(requestId) && !terminalCached.has(requestId) && !failed.has(requestId)) {
+        const request = activeRequest(requestId);
+        if (!request.servedFromCache) {
+          addTerminalBytes(requestId);
+          failed.add(requestId);
+        }
       }
       inFlight.delete(requestId);
     },
@@ -423,8 +438,9 @@ export async function collectSample({ browser, url, viewport, now = Date.now }) 
     });
 
     await page.goto(normalizedUrl, { waitUntil: 'load', timeout: 30_000 });
+    const loadCompletedAt = now();
     const settlement = await waitForNetworkSettle({
-      getLastActivityAt: () => lastNetworkActivityAt,
+      getLastActivityAt: () => Math.max(lastNetworkActivityAt, loadCompletedAt),
       getInFlightCount: () => transfers.snapshot().inFlightCount,
       now,
       wait: (milliseconds) => page.waitForTimeout(milliseconds),

@@ -310,6 +310,74 @@ describe('web performance measurement harness', () => {
     });
   });
 
+  it('starts the quiet window after load completes and captures later vitals', async () => {
+    let elapsed = 0;
+    const pageHandlers = new Map<string, (value: unknown) => void>();
+    const cdpHandlers = new Map<string, (value: unknown) => void>();
+    const request = {
+      method: () => 'GET',
+      url: () => 'https://example.test/app.js',
+      failure: () => null,
+    };
+    const page = {
+      addInitScript: async () => {},
+      route: async () => {},
+      on: (event: string, handler: (value: unknown) => void) => pageHandlers.set(event, handler),
+      goto: async () => {
+        pageHandlers.get('request')?.(request);
+        cdpHandlers.get('Network.requestWillBeSent')?.({ requestId: 'before-load' });
+        elapsed = 500;
+        cdpHandlers.get('Network.loadingFinished')?.({
+          requestId: 'before-load',
+          encodedDataLength: 250,
+        });
+        elapsed = 2_000;
+      },
+      waitForTimeout: async (milliseconds: number) => { elapsed += milliseconds; },
+      evaluate: async () => ({
+        ttfb: 100,
+        fcp: 200,
+        lcp: elapsed >= 3_000 ? 900 : 300,
+        layoutShifts: elapsed >= 3_000
+          ? [{ startTime: 2_500, value: 0.25, hadRecentInput: false }]
+          : [],
+        load: 2_000,
+        longTasks: 0,
+      }),
+    };
+    const context = {
+      newPage: async () => page,
+      newCDPSession: async () => ({
+        send: async () => {},
+        on: (event: string, handler: (value: unknown) => void) => cdpHandlers.set(event, handler),
+        detach: async () => {},
+      }),
+      route: async () => {},
+      routeWebSocket: async () => {},
+      close: async () => {},
+    };
+
+    const result = await collectSample({
+      browser: { newContext: async () => context },
+      url: 'https://example.test/',
+      viewport: VIEWPORTS[0],
+      now: () => elapsed,
+    });
+
+    expect(elapsed).toBe(3_000);
+    expect(result.valid).toBe(true);
+    expect(result.settlement).toEqual({
+      reason: 'network_quiet',
+      durationMs: SETTLE_QUIET_MS,
+      remainingInFlightCount: 0,
+    });
+    expect(result.metrics).toMatchObject({
+      lcp: 900,
+      cls: 0.25,
+      transferredBytes: 250,
+    });
+  });
+
   it('accounts CDP bytes once and exposes cache and failure outcomes', () => {
     const transfers = createTransferAccumulator();
     transfers.requestWillBeSent({ requestId: 'cross' });
@@ -352,6 +420,46 @@ describe('web performance measurement harness', () => {
     });
   });
 
+  it('resets cached redirect state before a network final hop reuses the request id', () => {
+    const transfers = createTransferAccumulator();
+    transfers.requestWillBeSent({ requestId: 'cached-redirect' });
+    transfers.requestServedFromCache({ requestId: 'cached-redirect' });
+    transfers.requestWillBeSent({
+      requestId: 'cached-redirect',
+      redirectResponse: { encodedDataLength: 0 },
+    });
+    transfers.dataReceived({ requestId: 'cached-redirect', encodedDataLength: 200 });
+    transfers.loadingFinished({ requestId: 'cached-redirect', encodedDataLength: 250 });
+
+    expect(transfers.snapshot()).toEqual({
+      transferredBytes: 250,
+      completedCount: 1,
+      cachedCount: 1,
+      failedCount: 0,
+      inFlightCount: 0,
+    });
+  });
+
+  it('scopes cache state to the final hop of a network-to-cached redirect', () => {
+    const transfers = createTransferAccumulator();
+    transfers.requestWillBeSent({ requestId: 'network-redirect' });
+    transfers.dataReceived({ requestId: 'network-redirect', encodedDataLength: 80 });
+    transfers.requestWillBeSent({
+      requestId: 'network-redirect',
+      redirectResponse: { encodedDataLength: 100 },
+    });
+    transfers.requestServedFromCache({ requestId: 'network-redirect' });
+    transfers.loadingFinished({ requestId: 'network-redirect', encodedDataLength: 0 });
+
+    expect(transfers.snapshot()).toEqual({
+      transferredBytes: 100,
+      completedCount: 0,
+      cachedCount: 1,
+      failedCount: 0,
+      inFlightCount: 0,
+    });
+  });
+
   it('marks a max-settle snapshot invalid with remaining in-flight work', async () => {
     let elapsed = 0;
     const pageHandlers = new Map<string, (value: unknown) => void>();
@@ -368,6 +476,7 @@ describe('web performance measurement harness', () => {
       goto: async () => {
         pageHandlers.get('request')?.(request);
         cdpHandlers.get('Network.requestWillBeSent')?.({ requestId: 'never-finishes' });
+        elapsed = 2_000;
       },
       waitForTimeout: async (milliseconds: number) => { elapsed += milliseconds; },
       evaluate: async () => ({
@@ -393,7 +502,7 @@ describe('web performance measurement harness', () => {
       now: () => elapsed,
     });
 
-    expect(elapsed).toBe(MAX_SETTLE_MS);
+    expect(elapsed).toBe(2_000 + MAX_SETTLE_MS);
     expect(result.valid).toBe(false);
     expect(result.invalidReasons).toContain('max_settle_reached');
     expect(result.settlement).toEqual({
