@@ -4,9 +4,9 @@
 
 **Goal:** Close the validated AI cost-governance, secret-surface, telemetry-redaction, production-tooling, dependency, and privileged-import defects with zero paid-provider spend and zero production access.
 
-**Architecture:** A dependency-free safety launcher is built first and becomes the only executable boundary for migration, test, build, install, audit, and database commands. A cycle-safe workload graph assigns every AI path either a verified user principal or a bounded authenticated system principal; provider adapters declare full billable envelopes, and a PostgreSQL micro-dollar ledger atomically moves each attempt through `reserved -> started -> settled | released | retained`. One language-neutral tool manifest composes paid-AI and production-write approvals across TypeScript, JavaScript, and shell without duplicate policy implementations.
+**Architecture:** A dependency-free launcher drives every real repository command inside a digest-pinned rootless Linux runner whose kernel network is `none` or an internal-only bridge. The only external path is a small, manifest-driven egress gateway used by bounded prefetch/audit phases; tests, installs, builds, migrations, and application code never receive a default route or runtime socket. A cycle-safe workload graph assigns every AI path a verified principal, provider adapters bind full billable envelopes to reproducible pricing evidence, and PostgreSQL atomically moves each attempt through `reserved -> started -> settled | released | retained`.
 
-**Tech Stack:** TypeScript 5, Node.js 20, Next.js 16 App Router, Vitest 4, Drizzle ORM/PostgreSQL, Supabase SSR/PostgREST, GitHub Actions.
+**Tech Stack:** TypeScript 5, Node.js `20.19.5`, npm `10.8.2`, Podman `5.4.2` rootless, Next.js 16 App Router, Vitest 4, Drizzle ORM/PostgreSQL, Supabase SSR/PostgREST, GitHub Actions.
 
 ## Global Constraints
 
@@ -14,44 +14,100 @@
 - Production access is forbidden, including read-only HTTP checks. Do not authenticate, call production, run provider smoke/evals, deploy, merge, push, link Supabase, or apply a remote migration.
 - The canonical local database is exactly `postgresql://postgres:postgres@127.0.0.1:54322/postgres`; the canonical local Supabase HTTP origin is exactly `http://127.0.0.1:54321`.
 - Task 0's launcher must pass before any other task runs `db:generate`, `db:migrate`, database tests, Vitest, typecheck, lint, build, install, registry metadata, or audit commands.
-- After Task 0, every `node`, `npm`, or `npx` execution in this plan goes through `node scripts/safety/run-local-zero-spend.mjs <profile> -- ...`. Bare `git`, `rg`, and path-specific file inspection remain allowed.
-- The launcher rejects remote ambient database/Supabase configuration before spawning, pins both `DATABASE_URL` and `DIRECT_URL` to the canonical local database, pins local Supabase placeholders, scrubs paid keys and live/write/eval approvals, and injects a deny-by-default network guard.
+- After Task 0, every `node`, `npm`, or `npx` execution in this plan—including staging helpers—goes through `node scripts/safety/run-local-zero-spend.mjs <profile> -- ...`. Bare read-only `git`/`rg`/path inspection, exact `git apply --cached` of a verified owned patch, and `git commit` remain allowed.
+- The launcher rejects remote ambient database/Supabase configuration before spawning, pins both database variables to the canonical local target, scrubs paid/live/write/eval state, and starts every real command in the pinned rootless Linux runner. It never treats in-process JavaScript patches as a security boundary.
 - Database migrations/RPCs may be generated, applied, and concurrency-tested only on the canonical local database. The production schema remains unchanged until a separately authorized schema-first release.
 - Runtime activation is release-blocked behind schema/backfill/privilege verification. There is no legacy or fail-open budget fallback.
 - Do not print or persist credential values. URL userinfo is private parser input and is discarded before diagnostics, manifests, approval tokens, or logs.
 - Every defect is fixed test-first. Observe the focused regression fail for the expected reason, implement the minimum boundary, then run the focused and adjacent suites through the launcher.
 - Inventories are discovery-driven and fail on unclassified roots, unresolved local dynamic edges, duplicate manifest entries, or unknown pricing/modality.
-- Full-process-tree external denial uses the strongest self-tested OS/container boundary available. The portable fallback fails closed unless every descendant is a guard-preloaded Node process or an exact local-only native tuple allowed by the active command profile.
-- Repository dotenv/npm configuration is unreadable to guarded descendants. A boundary assertion revalidates the scrubbed environment before every credential lookup, child spawn, worker creation, or transport call.
+- Repository, npm, test, build, audit, migration, Supabase, and staging workloads require the proved rootless container boundary. If the pinned runtime/image/config or kernel proof is unavailable, hard-stop `isolated_runner_unavailable`; there is no portable or Seatbelt execution fallback.
+- The trusted dependency-free launcher/orchestration controller runs host-side
+  only to verify the pinned runtime, create namespaces/containers, and collect
+  bounded attestations; it never imports application/package code or acts as
+  the containment boundary. The only host-side repository test workload is
+  Task 0's dependency-free policy-unit suite. Those tests import only declared
+  `scripts/safety/**` policy modules, receive no repository/npm credentials,
+  perform no application import or real transport, and are not evidence that
+  untrusted Node is contained.
+- Repository dotenv/npm configuration is unreadable inside the runner: the worktree is read-only, `.env*`/`.npmrc` are overmounted with empty read-only files, HOME/XDG/npm config are fresh, and only declared output mounts are writable.
 - Command environments are explicit: `NODE_ENV=test` for tests and local DB fixtures, `NODE_ENV=production` for the exact `npm run build` tuple, and `NODE_ENV=development` for lifecycle-disabled dependency/audit commands.
 - All implementation tasks run in a clean isolated worktree. A staging helper records starting blob/worktree fingerprints, refuses dirty or concurrently changed shared paths, stages existing files through a reviewed binary patch, and compares the cached hunk inventory to that task patch. Package/lockfile and migration generation are forbidden outside this isolation.
 
-**Task-owned staging protocol:** Before Step 1 of every Task 1-9, run
-`stage-task-owned begin` with the same `--shared`, `--new`, and reviewed
-`--shared-from` inventory later passed to `stage`. Discovery that determines
-paths is read-only and must run first; if it finds another path after `begin`,
-abort, reset only the disposable isolated worktree, review the expanded
-inventory, and restart the task. `stage` uses `git diff --binary` plus
-`git apply --cached`, never path-only `git add` for an existing file.
-`verify` compares cached path/hunk IDs and patch SHA-256 to the task manifest
-and requires the unstaged diff to equal only intentionally uncommitted new-task
-work. A user/shared-worktree change, mixed hunk, or baseline mismatch aborts
-without modifying the index.
+**Task-owned staging protocol:** Task 0 commits
+`scripts/safety/task-ownership.json`, whose exact static paths and dynamic
+inventory IDs cover Tasks 0A-9. For every task, the shown `begin`,
+`build-patch`, and `verify-patch` commands use identical
+`--task <id> --declarations scripts/safety/task-ownership.json`; no phase may
+add an argument. `begin` records
+`git status --porcelain=v2 --untracked-files=all`, requires every declared new
+path absent, hashes all shared paths and dynamic inventories, and rejects every
+undeclared tracked or untracked change. The launcher mounts the worktree and
+Git metadata read-only and only
+`.artifacts/security/staging/<task-id>/` read-write. The helper writes an owned
+binary patch and hunk manifest there; it never edits the Git index. After
+`verify-patch`, bare Git applies that exact patch with
+`git apply --cached --check` and `git apply --cached`. Launcher-wrapped
+`verify-index` then reads the index read-only and requires identical
+path/hunk/patch hashes. Mixed ownership, a newly appearing path, changed
+inventory, or any other untracked file aborts.
+
+`task-ownership.json` has exactly `version` and `tasks`. Each task object has
+sorted, unique repo-relative `shared`, `new`, and `dynamicInventoryIds` arrays;
+unknown keys, globs, absolute paths, parent traversal, symlinks, duplicate
+paths, or overlap between `shared` and `new` reject. Every `Modify:` path in
+the task's file list is copied to `shared`, every `Create:` path to `new`, and
+each described generated inventory to `dynamicInventoryIds`. Dynamic IDs map
+only to the fixed ignored
+`.artifacts/security/ownership/<inventory-id>.json` path and that file records
+HEAD, sorted paths, per-path starting blob/absence, and its SHA-256. `begin`
+hashes the complete declaration file bytes plus every inventory; later phases
+must match those exact hashes and may not substitute flags or paths.
+
+The complete pre-edit `begin` command for each post-bootstrap task is:
+
+```bash
+node scripts/safety/run-local-zero-spend.mjs isolated-staging --task security-task-0a -- node scripts/safety/stage-task-owned.mjs begin --task security-task-0a --declarations scripts/safety/task-ownership.json
+node scripts/safety/run-local-zero-spend.mjs isolated-staging --task security-task-0b -- node scripts/safety/stage-task-owned.mjs begin --task security-task-0b --declarations scripts/safety/task-ownership.json
+node scripts/safety/run-local-zero-spend.mjs isolated-staging --task security-task-1 -- node scripts/safety/stage-task-owned.mjs begin --task security-task-1 --declarations scripts/safety/task-ownership.json
+node scripts/safety/run-local-zero-spend.mjs isolated-staging --task security-task-2 -- node scripts/safety/stage-task-owned.mjs begin --task security-task-2 --declarations scripts/safety/task-ownership.json
+node scripts/safety/run-local-zero-spend.mjs isolated-staging --task security-task-3 -- node scripts/safety/stage-task-owned.mjs begin --task security-task-3 --declarations scripts/safety/task-ownership.json
+node scripts/safety/run-local-zero-spend.mjs isolated-staging --task security-task-4 -- node scripts/safety/stage-task-owned.mjs begin --task security-task-4 --declarations scripts/safety/task-ownership.json
+node scripts/safety/run-local-zero-spend.mjs isolated-staging --task security-task-5 -- node scripts/safety/stage-task-owned.mjs begin --task security-task-5 --declarations scripts/safety/task-ownership.json
+node scripts/safety/run-local-zero-spend.mjs isolated-staging --task security-task-6 -- node scripts/safety/stage-task-owned.mjs begin --task security-task-6 --declarations scripts/safety/task-ownership.json
+node scripts/safety/run-local-zero-spend.mjs isolated-staging --task security-task-7 -- node scripts/safety/stage-task-owned.mjs begin --task security-task-7 --declarations scripts/safety/task-ownership.json
+node scripts/safety/run-local-zero-spend.mjs isolated-staging --task security-task-8 -- node scripts/safety/stage-task-owned.mjs begin --task security-task-8 --declarations scripts/safety/task-ownership.json
+node scripts/safety/run-local-zero-spend.mjs isolated-staging --task security-task-9 -- node scripts/safety/stage-task-owned.mjs begin --task security-task-9 --declarations scripts/safety/task-ownership.json
+```
+
+Task 0B must commit the graph exporter before the Task 1/2 begin commands;
+those two commands first regenerate their fixed ownership files exactly as
+shown in their tasks.
 
 ---
 
 ## Planned File Map
 
-- `scripts/safety/run-local-zero-spend.mjs`: scrubbed child-process launcher with `local-only`, `npm-registry-readonly`, and exact Supabase CLI release profiles.
-- `scripts/safety/os-network-sandbox.mjs`: strongest-compatible macOS Seatbelt/Linux rootless-container/process-tree boundary selection and proof.
-- `scripts/safety/guarded-runtime-preload.cjs`: child-injected transport, descendant, worker, and sensitive-file policy.
+- `scripts/safety/run-local-zero-spend.mjs`: dependency-free host controller for `policy-unit-only`, `isolated-offline`, `isolated-db`, `isolated-prefetch`, and `isolated-staging`.
+- `scripts/safety/isolation-lock.json`: exact runner index/platform digests, Node/npm, Podman machine/runtime/config hashes, supported host matrix, and canonical lockfile platform.
+- `scripts/safety/rootless-runner.mjs`: provision/verify names, mounts, namespaces, resource limits, and hard-stop reasons.
+- `scripts/safety/egress-gateway.mjs`: the sole dual-homed process; exposes only manifest-ID fetch/audit endpoints and validates method, host, path, redirects, size, and integrity.
+- `scripts/safety/prefetch-artifacts.mjs`: parse lock/artifact manifests and request only exact IDs from the gateway into a fresh immutable cache.
+- `scripts/safety/local-stack-orchestrator.mjs`: create the pinned no-pull Supabase service topology without exposing the Podman socket to workloads.
+- `scripts/safety/loopback-relay.mjs`: runner-namespace loopback bindings for canonical DB/API ports.
+- `scripts/safety/isolation-topology.json`: exact names, networks, containers, endpoints, ports, health, collision, and teardown contract.
+- `scripts/safety/guarded-runtime-preload.cjs`: defense-in-depth only; never cited as the process/network boundary.
 - `scripts/safety/sensitive-file-policy.mjs`: dotenv/npm masking and guard-state revalidation.
-- `scripts/safety/docker-api-proxy.mjs`: local-stack-only Docker API allowlist that makes image pulls and unknown daemon actions impossible.
 - `scripts/safety/stage-task-owned.mjs`: clean-isolated-worktree and exact cached-hunk ownership enforcement.
+- `scripts/safety/apply-task-owned.sh`: fixed-enum host wrapper that runs build/verify in isolated staging, applies the exact patch, then verifies the index.
+- `scripts/safety/task-ownership.json`: exact per-task static paths and deterministic dynamic inventory inputs.
 - `scripts/safety/target-policy.mjs`: credential-redacting DSN/URL parser and canonical target comparison.
 - `scripts/safety/tool-policy-manifest.json`: one language-neutral inventory shared with AI offline-harness Task 6 and production-write hardening.
 - `scripts/safety/tool-policy.mjs`: validate manifest ownership and return composed policy decisions to Node or shell callers.
 - `scripts/ci/bootstrap-clean-checkout.mjs`: dependency, exact Supabase CLI, and local-stack bootstrap without `npx`.
+- `scripts/ci/check-toolchain.mjs`: enforce Node `20.19.5`, npm `10.8.2`, runner digest, and canonical lockfile platform before any real command.
+- `scripts/ci/export-static-ownership.mjs`: dependency-free fixed-ID superset inventories for Tasks 6 and 7 before their semantic scanners exist.
+- `scripts/ci/export-ai-workload-paths.mjs`: committed early graph CLI that produces Task 1 and Task 2 ownership inventories before their `begin`.
 - `scripts/ci/install-supabase-cli-artifact.mjs`: lifecycle-free exact CLI artifact installer.
 - `scripts/ci/supabase-cli-2.109.1-platforms.json`: exact supported platform/arch/archive/checksum/executable/bin-link contract.
 - `scripts/ci/supabase-local-images-2.109.1.json`: pinned local image-digest inventory required before `supabase start`.
@@ -62,6 +118,10 @@ without modifying the index.
 - `db/schema/user_ai_budgets.ts`: authoritative server-owned solo-user daily/monthly limits.
 - `agents/runtime/budget-reservation.ts`: service-role RPC client for reserve/start/settle/release/retain transitions.
 - `agents/router/pricing-snapshots/2026-07-26.v1.json`: immutable, expiring, source-attributed conservative prices.
+- `agents/router/pricing-evidence/2026-07-26/raw/*`: bounded immutable provider source fragments and response metadata.
+- `agents/router/pricing-evidence/2026-07-26/normalized/*.json`: deterministic normalized source tables and conversion rules.
+- `agents/router/pricing-evidence/2026-07-26/extraction-manifest.v1.json`: every generated price/class/conversion row mapped to a raw artifact and exact locator.
+- `scripts/ci/build-pricing-snapshot.mjs`: reproduce normalized evidence and generated snapshot byte-for-byte or fail uncovered.
 - `agents/router/pricing-snapshot.ts`: exact alias/class resolution and missing/expired-price denial.
 - `scripts/ops/recover-ai-budget-attempts.ts`: fixed-policy, idempotent stale-attempt recovery caller.
 - `app/api/internal/ai-budget-recovery/route.ts`: separately authenticated recovery endpoint; it does not overload invite recovery.
@@ -78,40 +138,55 @@ without modifying the index.
 
 **Files:**
 - Create: `scripts/safety/target-policy.mjs`
-- Create: `scripts/safety/os-network-sandbox.mjs`
+- Create: `scripts/safety/isolation-lock.json`
+- Create: `scripts/safety/isolation-topology.json`
+- Create: `scripts/safety/rootless-runner.mjs`
+- Create: `scripts/safety/egress-gateway.mjs`
+- Create: `scripts/safety/prefetch-artifacts.mjs`
+- Create: `scripts/safety/local-stack-orchestrator.mjs`
+- Create: `scripts/safety/loopback-relay.mjs`
 - Create: `scripts/safety/guarded-runtime-preload.cjs`
 - Create: `scripts/safety/sensitive-file-policy.mjs`
-- Create: `scripts/safety/docker-api-proxy.mjs`
 - Create: `scripts/safety/stage-task-owned.mjs`
+- Create: `scripts/safety/apply-task-owned.sh`
+- Create: `scripts/safety/task-ownership.json`
 - Create: `scripts/safety/run-local-zero-spend.mjs`
+- Create: `scripts/ci/check-toolchain.mjs`
+- Create: `scripts/ci/export-static-ownership.mjs`
 - Create: `scripts/ci/validate-npm-audit.mjs`
 - Create: `scripts/ci/run-npm-audit.mjs`
-- Create only if absent; otherwise validate and preserve AI Task 6-owned rows: `scripts/safety/tool-policy-manifest.json`
 - Create: `scripts/safety/tool-policy.mjs`
 - Create: `tests/safety/target-policy.test.mjs`
 - Create: `tests/safety/run-local-zero-spend.test.mjs`
 - Create: `tests/safety/tool-policy.test.mjs`
 - Create: `tests/safety/network-denial-child.test.mjs`
 - Create: `tests/safety/process-tree-isolation.test.mjs`
+- Create: `tests/safety/internal-binding-hostile.test.mjs`
+- Create: `tests/safety/rootless-runner-integration.test.mjs`
+- Create: `tests/safety/egress-gateway.test.mjs`
+- Create: `tests/safety/local-stack-topology.test.mjs`
 - Create: `tests/safety/hostile-env-npm.test.mjs`
 - Create: `tests/safety/command-environment.test.mjs`
 - Create: `tests/safety/stage-task-owned.test.mjs`
-- Create: `tests/safety/docker-api-proxy.test.mjs`
 - Create: `tests/safety/npm-audit-runner.test.mjs`
 - Modify: `package.json`
 
 **Interfaces:**
 - Produces: `parsePrivateTarget(raw: string): CanonicalTarget`
 - Produces: `assertSafeAmbientEnvironment(env): void`
-- Produces CLI: `node scripts/safety/run-local-zero-spend.mjs local-only -- <command> [args...]`
-- Produces CLI: `node scripts/safety/run-local-zero-spend.mjs npm-registry-readonly -- <command> [args...]`
-- Produces CLI: `node scripts/safety/run-local-zero-spend.mjs supabase-cli-2.109.1-release -- <command> [args...]`
+- Produces CLI: `node scripts/safety/run-local-zero-spend.mjs policy-unit-only -- <node-test-command>`
+- Produces CLI: `node scripts/safety/run-local-zero-spend.mjs isolated-offline -- <command> [args...]`
+- Produces CLI: `node scripts/safety/run-local-zero-spend.mjs isolated-db -- <command> [args...]`
+- Produces CLI: `node scripts/safety/run-local-zero-spend.mjs isolated-prefetch -- <prefetch-or-audit-command>`
+- Produces CLI: `node scripts/safety/run-local-zero-spend.mjs isolated-staging --task <id> -- <staging-command>`
 - Produces CLI: `node scripts/safety/tool-policy.mjs validate`
 - Produces CLI: `node scripts/safety/tool-policy.mjs validate --phase paid-ai-base`
 - Produces CLI: `node scripts/safety/tool-policy.mjs decide --tool <id> --policy <paid-ai|production-write> [--target <ref>]`
-- Produces: `selectIsolationBackend(profile, argv): 'darwin-seatbelt' | 'linux-rootless-container' | 'portable-node-only'`
+- Produces: `assertPinnedIsolationHost(lock, hostProbe): SupportedHost`
+- Produces: `createIsolatedRun(runId, profile): IsolatedRun`
 - Produces: `assertGuardState(boundary, env): void`
-- Produces CLI: `node scripts/safety/stage-task-owned.mjs begin|stage|verify --task <id> [--shared <path...>] [--new <path...>] [--shared-from <reviewed-json>] [--new-from <reviewed-json>]`
+- Produces CLI: `node scripts/safety/stage-task-owned.mjs begin|build-patch|verify-patch|verify-index --task <id> --declarations scripts/safety/task-ownership.json`
+- Produces CLI: `bash scripts/safety/apply-task-owned.sh security-task-0a|security-task-0b|security-task-1|security-task-2|security-task-3|security-task-4|security-task-5|security-task-6|security-task-7|security-task-8|security-task-9`
 - Produces CLI: `node scripts/ci/run-npm-audit.mjs <production|full> --label <baseline|after|final>`
 
 **Manifest contract:**
@@ -146,24 +221,39 @@ This JSON shape is exact: `runtime` is `node` or `shell`; `policies` contains
 only sorted, unique `paid-ai` and/or `production-write` values; and the keys in
 `owners` and `operations` must exactly equal the `policies` array. There is
 exactly one row per entrypoint. AI offline-harness Task 6 creates and owns the
-paid-AI rows first. Security Task 0 validates and preserves those rows without
-staging them; only when the manifest is absent may Task 0 seed exactly
-`{"version":1,"tools":[]}`. Security Task 7 augments each same row with
+paid-AI rows first. Commit `a276402` is an execution prerequisite and supplies
+the reviewed 18-row manifest, including `scripts/rag/ingest-document.ts`.
+Security Task 0 validates and preserves those rows without staging them;
+missing, fewer-than-18, or unclassified paid rows hard-stop. Security Task 7
+augments each same row with
 `production-write` and the `serviceRole`/`localDb` classifications; it never
 creates a duplicate row or another paid-AI guard. A dual-policy tool must
 receive two successful decisions before execution.
+
+`classifications.localDb=true` has one narrow meaning: the executable is
+structurally and at runtime forced through `isolated-db` to the canonical
+`127.0.0.1:54322` PostgreSQL or `127.0.0.1:54321` Supabase target, and it
+rejects caller-supplied targets plus remote database/Supabase environment
+before constructing a client. Merely importing a database client or normally
+using a database never qualifies. `scripts/rag/ingest-document.ts` therefore
+remains `localDb:false` because it can accept a remote target; Task 7 must add
+its `production-write` policy and require the exact remote target approval
+before credentials, client construction, or mutation.
 
 - [ ] **Step 1: Write dependency-free launcher and target-policy tests**
 
 Use Node's built-in test runner so no project tool runs before the launcher
 exists. Assert:
 
-First require `git status --porcelain=v1 --untracked-files=no` to be empty and
-record the exact starting HEAD and `package.json` blob under the isolated
-worktree's private Git metadata. Task 0 is the one bootstrap exception to the
-not-yet-created staging helper; its final `stage --bootstrap-task-0` mode must
-match those records and accepts only the declared `package.json` binary patch
-plus declared new files.
+First require `git status --porcelain=v2 --untracked-files=all` to be empty.
+For every path named `Create:` in Task 0, require filesystem absence and record an
+absence marker plus the starting HEAD and `package.json` blob in
+`.artifacts/security/staging/security-task-0/bootstrap.json`. If the worktree
+contains any tracked/untracked path or a declared new path already exists,
+abort before writing tests. Task 0 is the sole bootstrap exception to the
+not-yet-created helper; `verify-patch --bootstrap-task-0` must reproduce those
+records and accept only the declared `package.json` patch plus paths proven
+absent.
 
 - ambient `DIRECT_URL=postgresql://user:secret@db.prod.example:5432/postgres`
   rejects before the injected spawn function runs, even when `DATABASE_URL` is
@@ -192,12 +282,18 @@ plus declared new files.
   lifecycle settings rejects before spawn; user/global configs remain empty
   even when ambient npm config points elsewhere;
 - `npx` without `--no-install`, an unresolved local package binary, or a
-  command that would consult the registry under `local-only` rejects before
+  command that would consult the registry under `isolated-offline` rejects before
   spawn;
 - pure URL-policy fixtures admit only the exact Supabase CLI `v2.109.1`
   checksum/archive paths and one allowed release-asset redirect, without
   opening an external socket;
 - errors never contain input userinfo/passwords.
+- `policy-unit-only` rejects any import outside the explicit Task 0 policy-test
+  module graph, any package resolution, application file, npm command, worker,
+  child, internal binding, or real socket;
+- every real profile refuses before command spawn when Podman/runtime config,
+  supported host, runner digest, Node/npm version, rootless status, or the
+  kernel no-route proof does not exactly match `isolation-lock.json`.
 
 Target parser fixtures cover encoded userinfo, malformed URLs, Supabase direct
 and pooler hosts, IPv4 loopback, bracketed IPv6 loopback, deceptive suffixes,
@@ -253,86 +349,109 @@ Gemini/Google, Mistral, Langfuse, eval credentials/tokens/base URLs, rate-limit
 bypass IDs, production-write approvals, remote-seed flags, Vercel live flags,
 `HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`, `NO_PROXY`, and credential-shaped npm
 variables. The sole lifecycle exception is the exact Task 8 argv
-`npm rebuild sharp --ignore-scripts=false`; only `local-only` admits that tuple
+`npm rebuild sharp --ignore-scripts=false`; only `isolated-offline` admits that tuple
 with external network still denied.
 
-Inject `guarded-runtime-preload.cjs` through an immutable, launcher-generated
-`NODE_OPTIONS` token. Patch `fetch`, `http`, `https`, `http2`, `net`, `tls`,
-`dns`, `dgram`, global and module-loaded Undici dispatchers/clients, and
-WebSocket. Validate every redirect hop and resolved address. `local-only`
-permits only `localhost`, `127.0.0.0/8`, and `::1`.
-`npm-registry-readonly` additionally permits exactly `registry.npmjs.org`. The
-`supabase-cli-2.109.1-release` profile permits only the exact HTTPS checksum and
-platform archive paths beneath
-`github.com/supabase/cli/releases/download/v2.109.1/`, then only validated
-release-asset redirects to `release-assets.githubusercontent.com`; it rejects
-any other tag, asset, host, protocol, redirect, raw IP, or DNS rebinding.
+Inject `guarded-runtime-preload.cjs` as defense in depth and keep its transport,
+spawn, worker, redirect, and sensitive-file assertions, but do not count those
+assertions as containment. `isolated-offline`, `isolated-db`, and
+`isolated-staging` have no kernel route to an external interface.
+`isolated-prefetch` gives only the manifest-driven gateway container an
+external interface; the client container is connected solely to the internal
+prefetch network and can address only `http://gateway:18080`.
 
 - [ ] **Step 4: Enforce the process-tree boundary and task-owned staging**
 
-`os-network-sandbox.mjs` probes and proves a backend before executing:
+`isolation-lock.json` pins:
 
-- on macOS, a generated `sandbox-exec` profile denies outbound sockets and
-  process execution by default, allowing only the exact profile endpoints,
-  repository/temp reads, output writes, and reviewed child tuples. If
-  `sandbox-exec` is absent or its deny proof fails, it is unavailable rather
-  than assumed;
-- on Linux CI, rootless Docker/Podman must already have the pinned Node runner
-  image by digest. No-network commands run with `--network=none`, read-only
-  repository mounts plus declared output mounts, `--cap-drop=ALL`,
-  `no-new-privileges`, PID/memory/time limits, and the runtime default seccomp
-  profile. DB commands run in a launcher-created `--internal` bridge with only
-  pinned Supabase service containers and launcher-owned loopback relays mapping
-  the internal DB/API to `127.0.0.1:54322`/`:54321` inside the runner. The
-  bridge has no external route. Registry/release commands may run only behind
-  a tested egress proxy that is the container's sole route and applies the same
-  exact endpoint/path/redirect policy; otherwise the launcher uses portable
-  Node-only mode and refuses native children;
-- when neither proved boundary is available, `portable-node-only` wraps all
-  `child_process` exports (`spawn`,
-  `spawnSync`, `exec`, `execSync`, `execFile`, `execFileSync`, and `fork`),
-  `Worker`, and cluster/fork entrypoints. Node descendants must preserve the
-  exact preload token and runs with Node's `--no-addons` so a native addon
-  cannot bypass the guarded file/network APIs. It denies every native child;
-  `npm` is admitted only as the exact current Node plus resolved npm CLI JS
-  tuple. Verified Supabase,
-  Docker, `psql`, Sharp, and any other native operation require a proved
-  Seatbelt/container backend. There is no “trusted binary” bypass.
+- host support exactly `darwin/arm64` developer and `linux/amd64` self-hosted
+  CI; every other host is unsupported and red;
+- Podman `5.4.2`, rootless UID mapping, cgroup v2, netavark backend, machine
+  image/config hashes, and the exact policy/registries configuration hashes;
+- a Node `20.19.5` runner OCI index digest plus separate
+  `linux/arm64`/`linux/amd64` manifest and config digests; both images must
+  report npm `10.8.2`;
+- canonical lockfile generation only on `linux/amd64`. Darwin developers may
+  run `npm ci --offline` in the Linux/arm64 runner but may not mutate
+  `package-lock.json`.
 
-If an argv needs native network behavior that the selected backend cannot
-enforce, fail `isolation_backend_unavailable`; never degrade silently. Tests
-include a real backend self-test whose untrusted descendant tries TCP, UDP,
-DNS, HTTP/2, WebSocket, and a native helper against an injected unreachable
-external address; success is defined as denial by the OS/container before
-transport. Portable tests inject spawn/transport implementations and prove the
-same native helper is refused before spawn. The hostile suite also covers
-cleared `NODE_OPTIONS`, worker/fork, imported Undici, redirect, raw-IP, and DNS
-rebinding. CI skips nothing: unavailable/failed OS isolation is red for every
-native-child tuple.
+The lock file is tracked with real `sha256:` values obtained and independently
+reviewed during Task 0; no tag-only reference is executable. `rootless-runner`
+uses `--pull=never`, verifies image ID/config/architecture after create,
+`--read-only`, `--cap-drop=all`, `--security-opt=no-new-privileges`,
+`--pids-limit=512`, fixed memory/CPU/time limits, and only declared RO/RW
+mounts. No runner receives the Podman/Docker socket. Standard GitHub-hosted CI
+is explicitly unsupported; Task 5 keeps its security gate red unless a
+self-hosted runner labelled
+`self-hosted,linux,x64,trophe-rootless-podman-5.4.2` passes the exact lock
+attestation.
 
-The launcher also exposes a temporary Unix-socket Docker API proxy for the
-exact local-stack profile. It forwards only the reviewed version, image
-inspect/list, network inspect/create, container inspect/create/start/stop, and
-log endpoints needed by Supabase v2.109.1. It denies image create/pull/push,
-build, exec, plugin, secret, swarm, volume deletion, privileged/container-host
-mounts, non-inventory image digests, non-internal networks, and any unknown
-method/path before the real daemon. `DOCKER_HOST` points only to this proxy.
-Offline tests use a fake daemon and assert rejected calls are never forwarded.
+`isolation-topology.json` defines one UUID `runId` and these exact names:
 
-`stage-task-owned.mjs begin` requires a clean isolated worktree, records
-HEAD/path blobs and worktree fingerprints, and rejects pre-existing changes to
-every shared path. `stage` creates a binary patch only for declared shared
-files, checks it with `git apply --cached --check`, applies it to the index, and
-stages declared new files explicitly. `verify` compares the cached hunk
-inventory byte-for-byte with the reviewed task patch, rejects undeclared paths,
-overlapping/unowned hunks, or any shared path changed since `begin`, and prints
-path/hunk identifiers only. Dependency/lockfile or migration tasks additionally
-fail unless the isolated-worktree marker is present.
+- `trophe-sec-<runId>-offline` (`--network=none`);
+- `trophe-sec-<runId>-internal` (Podman `internal=true`);
+- `trophe-sec-<runId>-prefetch` (client-only internal bridge);
+- `trophe-sec-<runId>-egress` (gateway's sole external bridge);
+- containers `trophe-sec-<runId>-runner`,
+  `-gateway`, `-relay`, and `-supabase-<service-id>`.
+
+Every object carries labels `io.trophe.safety.run=<runId>` and
+`io.trophe.safety.owner=trophe-security-plan`. Name collision with an absent or
+different label aborts; never delete it. Teardown stops/removes only matching
+labels in reverse dependency order, verifies no matching container/network
+remains, and records failure as red. SIGINT/SIGTERM/timeout invokes the same
+idempotent teardown. No random host port is published.
+
+The gateway is the only container on both prefetch and egress networks and
+exposes on the internal side exactly:
+
+- `GET /v1/health` (fixed JSON, no upstream);
+- `POST /v1/fetch` with a manifest artifact ID, never a caller URL;
+- `POST /v1/npm-audit` with mode, lockfile SHA-256, and the exact bounded npm
+  audit body;
+- `POST /v1/shutdown` with the run nonce.
+
+It accepts at most 4 KiB request metadata and 8 MiB response bodies, resolves
+only the exact scheme/host/port/path/method in the tracked artifact manifest,
+validates every redirect before following, denies raw IP/alternate port/DNS
+rebinding, strips auth/cookies/proxy headers, and verifies integrity before
+atomic cache publication. Unknown ID/method/path returns fixed rule JSON. The
+prefetch/audit client has no default route, so internal bindings, native
+children, or cleared environment can reach only the gateway. Installs,
+tests/build, and migrations consume the immutable cache with network
+`none`/`internal`; no npm or application command has live egress.
+
+Real hostile integration starts an untrusted descendant inside the pinned
+runner and attempts public/wrapped APIs plus
+`process.binding('spawn_sync')`, `process.binding('tcp_wrap')`,
+`process.binding('udp_wrap')`, `process.binding('process_wrap')`,
+`process.binding('fs')`, `process._linkedBinding`, raw syscalls through native
+`curl`/Python/shell, cleared `NODE_OPTIONS`, worker/fork, HTTP/2, UDP,
+WebSocket, imported Undici, raw IP, redirect, direct gateway bypass, and direct
+upstream DNS/IP. Under offline/internal profiles every attempt is denied by
+the namespace/route; under prefetch only valid manifest IDs succeed through
+the gateway. The test verifies a real descendant PID/cgroup/network namespace,
+not an injected connector. An unavailable proof is failure, never skip.
+
+`stage-task-owned` runs in `isolated-staging`. The launcher automatically
+mounts the worktree/Git metadata read-only and only the selected task's
+`.artifacts/security/staging/<task-id>/` directory read-write. `begin` requires
+all declared new paths absent and includes all untracked paths. `build-patch`
+revalidates the identical declarations/inventory hashes and writes the patch;
+`verify-patch` checks path/hunk ownership before bare Git applies it.
+`verify-index` remounts Git read-only and compares the cached diff to the exact
+patch. The helper has no write mount to the worktree, index, refs, or object
+database.
 
 `run-npm-audit.mjs` is dependency-free and is the only audit entrypoint. It
-spawns exactly `npm audit --omit=dev --json` for `production` and
-`npm audit --json` for `full`, with a 120-second timeout and 8 MiB stdout/stderr
-caps. It captures the actual exit code and requires npm audit report version 2:
+creates a fresh audit-client container with only `package.json`,
+`package-lock.json`, an empty cache, and the prefetch network; it mounts no
+application source or credentials. That client spawns exactly
+`npm audit --omit=dev --json` for `production` and `npm audit --json` for
+`full`. Its only routable peer is the gateway, which admits exactly
+`POST https://registry.npmjs.org/-/npm/v1/security/audits/quick` for the
+bounded lock-derived body. Timeout is 120 seconds and stdout/stderr caps are
+8 MiB. The runner captures the actual exit code and requires npm audit report version 2:
 numeric `metadata.vulnerabilities` counts, dependency metadata, and a
 `vulnerabilities` object. Exit `0` is valid only for a structurally valid
 report; exit `1` is advisory-bearing only when the valid report's counts agree
@@ -372,33 +491,39 @@ launcher directly so npm pre/post hooks cannot run outside it.
 - [ ] **Step 6: Prove hostile ambient values and non-loopback transports fail**
 
 ```bash
-node scripts/safety/run-local-zero-spend.mjs local-only -- \
-  node --test tests/safety/target-policy.test.mjs tests/safety/run-local-zero-spend.test.mjs tests/safety/tool-policy.test.mjs tests/safety/hostile-env-npm.test.mjs tests/safety/command-environment.test.mjs tests/safety/stage-task-owned.test.mjs tests/safety/docker-api-proxy.test.mjs tests/safety/npm-audit-runner.test.mjs
-node scripts/safety/run-local-zero-spend.mjs local-only -- \
-  node --test tests/safety/network-denial-child.test.mjs tests/safety/process-tree-isolation.test.mjs
-node scripts/safety/run-local-zero-spend.mjs local-only -- \
+node scripts/safety/run-local-zero-spend.mjs policy-unit-only -- \
+  node --test tests/safety/target-policy.test.mjs tests/safety/run-local-zero-spend.test.mjs tests/safety/tool-policy.test.mjs
+node scripts/safety/run-local-zero-spend.mjs isolated-offline -- \
+  node --test tests/safety/hostile-env-npm.test.mjs tests/safety/command-environment.test.mjs tests/safety/stage-task-owned.test.mjs tests/safety/egress-gateway.test.mjs tests/safety/local-stack-topology.test.mjs tests/safety/npm-audit-runner.test.mjs
+node scripts/safety/run-local-zero-spend.mjs isolated-offline -- \
+  node --test tests/safety/network-denial-child.test.mjs tests/safety/process-tree-isolation.test.mjs tests/safety/internal-binding-hostile.test.mjs tests/safety/rootless-runner-integration.test.mjs
+node scripts/safety/run-local-zero-spend.mjs isolated-offline -- \
   node scripts/safety/tool-policy.mjs validate --phase paid-ai-base
 ```
 
-Only loopback succeeds. Every external attempt is intercepted before socket or
-native-child creation, and sanitized failures contain rule/name classes only.
+The real descendant proof must show kernel denial even when every JavaScript
+guard is bypassed. No provider/production host is contacted: invalid attempts
+have no route, and the gateway tests use an injected loopback upstream.
 
 - [ ] **Step 7: Commit the exact owned patch**
 
 ```bash
-node scripts/safety/stage-task-owned.mjs stage --task security-task-0 \
-  --bootstrap-task-0 \
-  --shared package.json \
-  --new scripts/safety/target-policy.mjs scripts/safety/os-network-sandbox.mjs scripts/safety/guarded-runtime-preload.cjs scripts/safety/sensitive-file-policy.mjs scripts/safety/docker-api-proxy.mjs scripts/safety/stage-task-owned.mjs scripts/safety/run-local-zero-spend.mjs scripts/safety/tool-policy.mjs scripts/ci/validate-npm-audit.mjs scripts/ci/run-npm-audit.mjs tests/safety/target-policy.test.mjs tests/safety/run-local-zero-spend.test.mjs tests/safety/tool-policy.test.mjs tests/safety/network-denial-child.test.mjs tests/safety/process-tree-isolation.test.mjs tests/safety/hostile-env-npm.test.mjs tests/safety/command-environment.test.mjs tests/safety/stage-task-owned.test.mjs tests/safety/docker-api-proxy.test.mjs tests/safety/npm-audit-runner.test.mjs
-node scripts/safety/stage-task-owned.mjs verify --task security-task-0
+node scripts/safety/run-local-zero-spend.mjs isolated-staging --task security-task-0 -- \
+  node scripts/safety/stage-task-owned.mjs build-patch --task security-task-0 \
+  --declarations scripts/safety/task-ownership.json \
+  --bootstrap-task-0
+node scripts/safety/run-local-zero-spend.mjs isolated-staging --task security-task-0 -- \
+  node scripts/safety/stage-task-owned.mjs verify-patch --task security-task-0 \
+  --declarations scripts/safety/task-ownership.json --bootstrap-task-0
+git apply --cached --check .artifacts/security/staging/security-task-0/owned.patch
+git apply --cached .artifacts/security/staging/security-task-0/owned.patch
+node scripts/safety/run-local-zero-spend.mjs isolated-staging --task security-task-0 -- \
+  node scripts/safety/stage-task-owned.mjs verify-index --task security-task-0 \
+  --declarations scripts/safety/task-ownership.json --bootstrap-task-0
 git commit -m "feat(security): add zero-spend local execution boundary"
 ```
 
-Stage `scripts/safety/tool-policy-manifest.json` in Task 0 only when this task
-created the exact empty seed; in that case include it as a declared `--new` path
-in the same helper manifest and rerun `verify`. If AI Task 6 already created
-it, validate it, preserve its paid rows byte-for-byte, and omit it from Task
-0's patch and index.
+The base manifest is read-only input from `a276402`; Task 0 never stages it.
 
 ### Task 0A: Reproduce dependencies, install the exact Supabase CLI, and bring up the canonical local stack
 
@@ -406,188 +531,273 @@ This task is a hard prerequisite for Task 1. It resolves a clean checkout before
 any project test, migration, or local database command is attempted.
 
 **Files:**
+- Create: `.nvmrc`
+- Create: `.node-version`
 - Create: `scripts/ci/bootstrap-clean-checkout.mjs`
 - Create: `scripts/ci/install-supabase-cli-artifact.mjs`
 - Create: `scripts/ci/supabase-cli-2.109.1-platforms.json`
 - Create: `scripts/ci/supabase-cli-2.109.1-checksums.json`
 - Create: `scripts/ci/supabase-local-images-2.109.1.json`
+- Create: `scripts/ci/supabase-stack-2.109.1.json`
 - Create: `tests/safety/clean-checkout-bootstrap.test.mjs`
 - Create: `tests/safety/supabase-cli-artifact.test.mjs`
+- Create: `tests/safety/local-stack-real-integration.test.mjs`
 - Modify: `package.json`
 - Modify: `package-lock.json`
 - Modify: `scripts/db/bootstrap-local.sh`
 
 **Pinned dependency contract:**
 
-- exact direct versions: `next@16.2.12`, `eslint-config-next@16.2.12`,
-  `supabase@2.109.1`;
-- lifecycle-disabled install: `npm ci --ignore-scripts --include=dev` from the
-  exact lockfile and an initially empty task cache;
+- exact toolchain: `.nvmrc` and `.node-version` contain `20.19.5`;
+  `package.json.engines` requires exactly Node `20.19.5` and npm `10.8.2`;
+  `packageManager` is `npm@10.8.2`;
+- `check-toolchain.mjs` runs before prefetch, lock mutation, install, audit,
+  test, or build and compares the process plus runner image/config digests to
+  `isolation-lock.json`;
+- canonical lockfile generation is only `linux/amd64`; Darwin/arm64 may prove
+  the same committed lock/tree installs in its Linux/arm64 runner but cannot
+  write `package-lock.json`;
+- lifecycle-disabled clean install:
+  `npm ci --offline --ignore-scripts --include=dev` from an initially empty
+  cache populated and sealed by the manifest-driven prefetch phase;
 - local execution only: `npx` is forbidden for bootstrap and every later
   `npx` tuple requires `--no-install`;
-- exact checksum file:
-  `supabase_2.109.1_checksums.txt`;
-- exact supported npm-postinstall-compatible matrix:
+- exact checksum asset `supabase_2.109.1_checksums.txt`.
 
-| Node platform | Node arch | Release archive | Installed executable | Mode/link |
-|---|---|---|---|---|
-| `darwin` | `arm64` | `supabase_darwin_arm64.tar.gz` | `node_modules/supabase/bin/supabase` | `0755`; `.bin/supabase -> ../supabase/bin/supabase` |
-| `darwin` | `x64` | `supabase_darwin_amd64.tar.gz` | `node_modules/supabase/bin/supabase` | `0755`; `.bin/supabase -> ../supabase/bin/supabase` |
-| `linux` | `arm64` | `supabase_linux_arm64.tar.gz` | `node_modules/supabase/bin/supabase` | `0755`; `.bin/supabase -> ../supabase/bin/supabase` |
-| `linux` | `x64` | `supabase_linux_amd64.tar.gz` | `node_modules/supabase/bin/supabase` | `0755`; `.bin/supabase -> ../supabase/bin/supabase` |
-| `win32` | `arm64` | `supabase_windows_arm64.tar.gz` | `node_modules/supabase/bin/supabase.exe` | executable file; `.bin/supabase.cmd`/`.ps1` generated by `bin-links` semantics |
-| `win32` | `x64` | `supabase_windows_amd64.tar.gz` | `node_modules/supabase/bin/supabase.exe` | executable file; `.bin/supabase.cmd`/`.ps1` generated by `bin-links` semantics |
+**Supabase execution support:**
 
-Any other platform/arch fails before URL construction or download. The
-platform JSON records all six rows, exact release/checksum names, executable
-relative path, Unix mode, and link target. The checksum JSON contains all six
-archive SHA-256 values transcribed from the exact official v2.109.1 checksum
-asset; generation records the official release URL, tag, asset name, review
-timestamp, and checksum-file SHA-256. Missing entries, duplicate assets, a
-checksum-file mismatch, or a platform row absent from the official asset list
-is a hard failure. This contract is intentionally locked to the reviewed
-v2.109.1 npm installer; newer Supabase CLI platform-package layouts do not
-change it.
+| Host | Isolated runner | Executed archive | Support gate |
+|---|---|---|---|
+| `darwin/arm64` | pinned `linux/arm64` | `supabase_linux_arm64.tar.gz` | real checksum/extract/mode/link/`--version` proof in the Podman machine |
+| `linux/amd64` | pinned `linux/amd64` | `supabase_linux_amd64.tar.gz` | real proof on the attested self-hosted CI runner |
+
+`darwin/arm64`, `darwin/amd64`, `windows/arm64`, and `windows/amd64` release
+archives remain checksum metadata only. They are not installed, linked,
+executed, or described as supported. Windows and standard GitHub-hosted runners
+hard-stop `unsupported_isolation_host`. The two executed Linux binaries install
+under `.artifacts/tools/supabase/2.109.1/<runner-arch>/supabase`, mode `0755`,
+with `.artifacts/bin/supabase` resolving to the active runner architecture.
+The platform JSON marks each row `executed-supported` or `metadata-only`;
+unsupported rows can never be selected by the installer.
 
 - [ ] **Step 1: Record staging ownership and write offline bootstrap tests**
 
 ```bash
-node scripts/safety/stage-task-owned.mjs begin --task security-task-0a \
-  --shared package.json package-lock.json scripts/db/bootstrap-local.sh
+node scripts/safety/run-local-zero-spend.mjs isolated-staging --task security-task-0a -- \
+  node scripts/safety/stage-task-owned.mjs begin --task security-task-0a \
+  --declarations scripts/safety/task-ownership.json
 ```
 
-Fixtures use local fake registries, release archives, checksums, process
+The Task 0 declaration lists all three shared files and every new file above;
+`begin` proves new-path absence and a completely clean tracked/untracked
+worktree. Fixtures use local fake registries, archives, checksums, process
 adapters, image inventory, and status JSON. Assert:
 
 - a clean checkout with no `node_modules`, empty npm cache, and local fixture
-  cache completes without `npx` or lifecycle scripts;
-- all six supported matrix rows resolve the exact asset and executable/link
-  path, Unix modes are `0755`, and unsupported platform/arch rejects before
-  transport;
+  prefetch produces an immutable cache; the subsequent install is offline,
+  lifecycle-disabled, and contains no `npx`;
+- toolchain mismatch, wrong host/runner architecture, tag-only image,
+  non-rootless runtime, or lock mutation outside Linux/amd64 rejects;
+- the two executed-supported rows resolve exact Linux assets, mode/link, and
+  native version probes; metadata-only rows reject before selection;
 - a missing/changed checksum, traversal/symlink archive entry, extra
   executable, wrong version, broken bin link, or non-atomic partial install
   rejects and removes the partial output;
-- absent `127.0.0.1:54322` status invokes the exact verified binary; present
-  canonical status is idempotent;
-- missing pinned Docker image digest fails `local_supabase_image_missing`
-  before `supabase start`, and no Docker pull is attempted;
-- remote project refs/tokens, linked-project metadata, non-loopback status, or
-  unexpected ports fail before stack start;
+- a missing service/relay image digest fails before create; every Podman run
+  tuple includes `--pull=never`;
+- network/container collision with a foreign label aborts without deletion;
+- canonical loopback DB/API health, second-run idempotency, timeout, partial
+  start, SIGTERM, and reverse-order labelled teardown;
+- real integration emits zero pull events, gives the runner no runtime socket
+  or external route, and rejects provider/public IP/DNS attempts;
 - errors contain only rule, asset/image name, platform, and version.
 
-Run only dependency-free tests first:
+Run the focused tests in the already proved runner:
 
 ```bash
-node scripts/safety/run-local-zero-spend.mjs local-only -- \
-  node --test tests/safety/clean-checkout-bootstrap.test.mjs tests/safety/supabase-cli-artifact.test.mjs
+node scripts/safety/run-local-zero-spend.mjs isolated-offline -- \
+  node --test tests/safety/clean-checkout-bootstrap.test.mjs tests/safety/supabase-cli-artifact.test.mjs tests/safety/local-stack-real-integration.test.mjs
 ```
 
 Expected: FAIL because the bootstrap and installer do not exist.
 
-- [ ] **Step 2: Update and prove the exact lockfile from the isolated worktree**
+- [ ] **Step 2: Prefetch exact current-lock artifacts and capture fresh baselines**
 
-Under `npm-registry-readonly`, use a fresh empty temporary npm cache and the
-empty launcher-owned npm configs:
+`prefetch-artifacts.mjs` reads only the current lockfile and tracked artifact
+manifests. It sends artifact IDs—not caller URLs—to the gateway. The gateway
+fetches exact lockfile `resolved` URLs/checksum and Supabase release assets,
+verifies SRI/SHA-256, writes a fresh content-addressed cache, seals it read-only,
+and emits a manifest containing source ID, bytes, integrity, redirect chain,
+and cache SHA-256. Missing lock integrity or an undeclared URL is red.
 
 ```bash
-node scripts/safety/run-local-zero-spend.mjs npm-registry-readonly -- \
+node scripts/safety/run-local-zero-spend.mjs isolated-prefetch -- \
+  node scripts/ci/check-toolchain.mjs
+node scripts/safety/run-local-zero-spend.mjs isolated-prefetch -- \
+  node scripts/safety/prefetch-artifacts.mjs --lockfile package-lock.json \
+  --artifact-manifest scripts/ci/supabase-cli-2.109.1-platforms.json
+node scripts/safety/run-local-zero-spend.mjs isolated-prefetch -- \
   node scripts/ci/run-npm-audit.mjs production --label baseline
-node scripts/safety/run-local-zero-spend.mjs npm-registry-readonly -- \
+node scripts/safety/run-local-zero-spend.mjs isolated-prefetch -- \
   node scripts/ci/run-npm-audit.mjs full --label baseline
-node scripts/safety/run-local-zero-spend.mjs npm-registry-readonly -- \
-  npm install --ignore-scripts --save-exact next@16.2.12 eslint-config-next@16.2.12
-node scripts/safety/run-local-zero-spend.mjs npm-registry-readonly -- \
-  npm install --ignore-scripts --save-dev --save-exact supabase@2.109.1
-node scripts/safety/run-local-zero-spend.mjs npm-registry-readonly -- \
-  npm ci --ignore-scripts --include=dev
-node scripts/safety/run-local-zero-spend.mjs npm-registry-readonly -- \
-  node scripts/ci/run-npm-audit.mjs production --label after
-node scripts/safety/run-local-zero-spend.mjs npm-registry-readonly -- \
-  node scripts/ci/run-npm-audit.mjs full --label after
 ```
 
-The launcher rejects lockfile drift outside those direct/transitive changes,
-undeclared registry hosts, auth headers, package tarballs whose integrity does
-not match `package-lock.json`, postinstall output, and any attempt to reuse an
-ambient cache/config. A second proof clones the tracked package files into a
-temporary clean-checkout fixture, starts with no `node_modules` and a distinct
-empty cache, and must produce the same package-tree/lock digest. Failure is red;
-do not proceed using an older `node_modules`. Baseline and after audits are
-fresh runner-owned captures; an advisory exit `1` may be recorded only when the
-report is structurally valid. Invalid transport/parse/schema output stops this
-task. High/critical findings after the reviewed upgrades remain
-release-blocking and are not suppressed.
+The audit client mounts no repository source and can route only to the gateway;
+the real npm exit and immutable evidence contract from Task 0 remains intact.
+No provider, Supabase service, or arbitrary registry path is reachable.
 
-- [ ] **Step 3: Implement lifecycle-free artifact installation**
+- [ ] **Step 3: Prove clean-cache offline install and pin toolchain metadata**
 
-The installer downloads only the exact checksum and selected archive under the
-release profile, bounds each response/archive/file size, requires HTTPS,
-validates every redirect, parses exactly one matching checksum entry, verifies
-SHA-256 before extraction, rejects absolute/traversal/symlink/hardlink/device
-entries, extracts to a sibling temporary directory, verifies the binary alone
-reports `2.109.1`, applies Unix mode `0755`, and atomically renames it into the
-matrix path. It then creates and resolves the exact bin link contract without
-running the package postinstall. Re-running is idempotent only after checksum,
-mode/link, and version revalidation.
+On the canonical Linux/amd64 runner only, add the exact engine/package-manager
+metadata and update the root lockfile metadata with npm `10.8.2`; dependency
+versions do not change in this task. Then create a second fresh cache by
+replaying the sealed prefetch manifest, run `npm ci --offline --ignore-scripts
+--include=dev`, and compare lock SHA-256, package tree, executable bins, and
+module file hashes with the first clean fixture. Any attempted socket is
+kernel-denied and fails the task.
 
 ```bash
-node scripts/safety/run-local-zero-spend.mjs supabase-cli-2.109.1-release -- \
+node scripts/safety/run-local-zero-spend.mjs isolated-offline -- \
+  node scripts/ci/check-toolchain.mjs --require-lock-platform
+node scripts/safety/run-local-zero-spend.mjs isolated-offline -- \
+  npm ci --offline --ignore-scripts --include=dev
+node scripts/safety/run-local-zero-spend.mjs isolated-offline -- \
   node scripts/ci/install-supabase-cli-artifact.mjs
-node scripts/safety/run-local-zero-spend.mjs local-only -- \
-  ./node_modules/.bin/supabase --version
+node scripts/safety/run-local-zero-spend.mjs isolated-offline -- \
+  ./.artifacts/bin/supabase --version
 ```
 
 Expected exact version: `2.109.1`.
 
-- [ ] **Step 4: Bootstrap the canonical local stack without hidden pulls**
+- [ ] **Step 4: Bootstrap the exact internal local stack without a runtime socket**
 
-`bootstrap-clean-checkout.mjs` first verifies every image reference and digest
-in `supabase-local-images-2.109.1.json` through exact
-`docker image inspect <repository>@sha256:<digest>` tuples. The inventory is
-derived once from the reviewed v2.109.1 local-stack configuration and contains
-no mutable tags. If any image is absent, stop with
-`local_supabase_image_missing`; image acquisition is a separate explicitly
-authorized prerequisite and this plan never auto-pulls.
+The trusted host orchestrator—not application code or Supabase CLI—verifies
+every service/relay image by digest and uses exact Podman `--pull=never`
+create/start tuples from `supabase-stack-2.109.1.json`. It creates only
+`trophe-sec-<runId>-internal` with `internal=true`; DB is service `db` port
+`5432`, Kong/API is service `kong` port `8000`. The relay container joins that
+network and the runner uses `--network=container:<relay-id>`, sharing its
+network namespace. Relay commands bind only:
 
-With all images present, require a proved Seatbelt/rootless-container backend,
-start the launcher-owned Docker API proxy, and set `DOCKER_HOST` to only its
-mode-`0600` Unix socket. The proxy rejects pulls/builds/exec/privileged mounts
-and constrains image/container/network operations to the pinned inventory and
-internal/local-stack topology. Scrub `SUPABASE_ACCESS_TOKEN`, project refs,
-link metadata, ambient proxy variables, and remote URLs; invoke only
-`./node_modules/.bin/supabase status -o json`, then, when absent, the same
-verified binary's `start`. Parse JSON and require API `127.0.0.1:54321` and DB
-`127.0.0.1:54322`; reject any additional remote host. Run the canonical local
-SQL readiness query through the launcher and make `scripts/db/bootstrap-local.sh`
-delegate to this binary-based flow without `npx`.
-
-```bash
-node scripts/safety/run-local-zero-spend.mjs local-only -- \
-  node scripts/ci/bootstrap-clean-checkout.mjs --ensure-local-stack
-node scripts/safety/run-local-zero-spend.mjs local-only -- \
-  node --test tests/safety/clean-checkout-bootstrap.test.mjs tests/safety/supabase-cli-artifact.test.mjs
+```text
+TCP-LISTEN:54322,bind=127.0.0.1,reuseaddr,fork -> TCP:db:5432
+TCP-LISTEN:54321,bind=127.0.0.1,reuseaddr,fork -> TCP:kong:8000
 ```
 
-If the OS/container boundary, Docker proxy proof, required pinned image, or
-canonical ports are unavailable, record the fixed reason and stop Task 0A. Do
-not use portable Node-only mode for the native CLI, substitute a remote
-database, or relax the boundary.
+No host port is published. Service records contain exact digest, command,
+read-only config mounts, non-secret local env names, dependency order, and
+health probe. The executable minimal service set is fixed:
+
+| Service ID | Internal port | Health contract |
+|---|---:|---|
+| `db` | `5432` | `pg_isready -U postgres -d postgres` |
+| `auth` | `9999` | `GET /health` returns `200` |
+| `rest` | `3000` | `GET /` returns `200` |
+| `realtime` | `4000` | `GET /api/tenants/realtime-dev/health` returns `200` |
+| `storage` | `5000` | `GET /status` returns `200` |
+| `meta` | `8080` | `GET /health` returns `200` |
+| `kong` | `8000` | `GET /health` returns `200` after all dependencies |
+
+Studio, Inbucket, analytics, vector, and imgproxy are excluded; an application
+test that requires one must expand the reviewed stack JSON in a new plan rather
+than auto-start it. DB must accept
+`postgresql://postgres:postgres@127.0.0.1:54322/postgres`; API must return the
+fixed local health status at `http://127.0.0.1:54321/health`. Readiness has a
+120-second deadline with two-second polling. `scripts/db/bootstrap-local.sh`
+delegates only to this orchestrator; no `npx`, CLI `start`, daemon socket, or
+linked project is available inside the runner.
+
+```bash
+node scripts/safety/run-local-zero-spend.mjs isolated-db -- \
+  node scripts/ci/bootstrap-clean-checkout.mjs --ensure-local-stack
+node scripts/safety/run-local-zero-spend.mjs isolated-db -- \
+  node --test tests/safety/clean-checkout-bootstrap.test.mjs tests/safety/supabase-cli-artifact.test.mjs tests/safety/local-stack-real-integration.test.mjs
+```
+
+The real integration starts from preloaded pinned images, sets registry policy
+to reject pulls, observes Podman events, and requires zero pull/build events.
+It proves internal-binding/native descendant attempts cannot reach external
+hosts, then executes labelled teardown and verifies no run objects remain. A
+missing image/runtime/self-hosted attestation is a hard stop, never a pull,
+remote DB, host-side fallback, or skipped job.
 
 - [ ] **Step 5: Stage the exact dependency/bootstrap patch and commit**
 
 ```bash
-node scripts/safety/stage-task-owned.mjs stage --task security-task-0a \
-  --shared package.json package-lock.json scripts/db/bootstrap-local.sh \
-  --new scripts/ci/bootstrap-clean-checkout.mjs scripts/ci/install-supabase-cli-artifact.mjs scripts/ci/supabase-cli-2.109.1-platforms.json scripts/ci/supabase-cli-2.109.1-checksums.json scripts/ci/supabase-local-images-2.109.1.json tests/safety/clean-checkout-bootstrap.test.mjs tests/safety/supabase-cli-artifact.test.mjs
-node scripts/safety/stage-task-owned.mjs verify --task security-task-0a
+bash scripts/safety/apply-task-owned.sh security-task-0a
 git commit -m "fix(security): reproduce dependencies and local stack safely"
+```
+
+### Task 0B: Land the read-only workload graph before any discovered-path consumer
+
+**Files:**
+- Create: `lib/security/ai-workload-graph.ts`
+- Create: `scripts/ci/export-ai-workload-paths.mjs`
+- Create: `tests/enterprise/ai-workload-graph.test.ts`
+
+**Interfaces:**
+- Produces: `discoverAiWorkloads(root): AiWorkload[]`
+- Produces deterministic ignored inventories:
+  `.artifacts/security/ownership/security-task-1-shared.json` and
+  `.artifacts/security/ownership/security-task-2-provider-shared.json`
+- Inventory schema: version, current HEAD, sorted path, starting blob ID,
+  root/import chain, role (`route|caller|adapter|adapter-test`), and whole-file
+  SHA-256.
+
+- [ ] **Step 1: Begin with the complete Task 0B declaration**
+
+```bash
+node scripts/safety/run-local-zero-spend.mjs isolated-staging --task security-task-0b -- \
+  node scripts/safety/stage-task-owned.mjs begin --task security-task-0b \
+  --declarations scripts/safety/task-ownership.json
+```
+
+The declaration names all three files as new; `begin` requires each absent and
+the complete worktree clean including untracked files.
+
+- [ ] **Step 2: Write and fail the cycle-safe semantic graph test**
+
+Start from every AI route and `executeAiTask` caller; parse TypeScript/JavaScript
+imports, re-exports, literal dynamic imports, CommonJS require, extension/index
+resolution, and cycles. Computed local edges are findings. The test includes
+the nine billable roots listed in Task 1 and separate adapter/test fixtures for
+OpenAI, Anthropic, Google, DeepSeek, and Voyage.
+
+```bash
+node scripts/safety/run-local-zero-spend.mjs isolated-offline -- \
+  npx --no-install vitest run tests/enterprise/ai-workload-graph.test.ts --reporter=verbose
+```
+
+Expected: FAIL because the graph/exporter do not exist.
+
+- [ ] **Step 3: Implement, verify, and emit both ownership inventories**
+
+The exporter accepts only fixed output IDs; callers cannot supply arbitrary
+paths. The launcher mounts only
+`.artifacts/security/ownership/` read-write. It fails unresolved edges,
+unclassified billable roots/adapters, duplicate paths, a path outside the
+worktree, or a path whose blob cannot be recorded.
+
+```bash
+node scripts/safety/run-local-zero-spend.mjs isolated-offline \
+  --write-mount .artifacts/security/ownership -- \
+  npx --no-install vitest run tests/enterprise/ai-workload-graph.test.ts --reporter=verbose
+node scripts/safety/run-local-zero-spend.mjs isolated-offline \
+  --write-mount .artifacts/security/ownership -- \
+  node scripts/ci/export-ai-workload-paths.mjs --all-security-inventories
+```
+
+- [ ] **Step 4: Build, verify, apply, and commit the exact patch**
+
+```bash
+bash scripts/safety/apply-task-owned.sh security-task-0b
+git commit -m "feat(security): add deterministic AI workload inventory"
 ```
 
 ### Task 1: Build the transitive AI workload graph and verified principal boundary
 
 **Files:**
-- Create: `lib/security/ai-workload-graph.ts`
-- Create: `tests/enterprise/ai-workload-graph.test.ts`
+- Modify: `tests/enterprise/ai-workload-graph.test.ts`
 - Create: `agents/runtime/principal.ts`
 - Create: `tests/agents/principal.test.ts`
 - Modify: `lib/security/api-guard.ts`
@@ -596,7 +806,7 @@ git commit -m "fix(security): reproduce dependencies and local stack safely"
 - Modify: `tests/lib/api-guard.test.ts`
 
 **Interfaces:**
-- Produces: `discoverAiWorkloads(root): AiWorkload[]`
+- Consumes: Task 0B `discoverAiWorkloads(root): AiWorkload[]`
 - Produces: `resolveAiPrincipal(input): Promise<AiPrincipal>`
 - Produces:
 
@@ -613,16 +823,27 @@ type AiPrincipal =
   | { kind: 'system'; workloadId: SystemWorkloadId; organizationId?: string };
 ```
 
-- [ ] **Step 1: Write the failing cycle-safe graph and regression floor**
+- [ ] **Step 1: Regenerate reviewed ownership and begin with the full declaration**
 
-Start from every `app/api/**/route.{ts,tsx,js,mjs}` plus every
-`executeAiTask` caller. Parse imports, re-exports, literal dynamic imports,
-CommonJS `require`, JS-to-TS substitutions, extensionless paths, and index
-barrels. Traverse transitively with cycle-safe full chains. A computed local
-dynamic/require expression is a finding, not an ignored edge.
+Task 0B's committed exporter runs before any Task 1 edit and rewrites only the
+fixed ignored ownership directory:
 
-Mark a root billable when a reachable module hits `executeAiTask`, a paid
-adapter, or a direct paid-provider hostname/SDK. The floor includes:
+```bash
+node scripts/safety/run-local-zero-spend.mjs isolated-offline \
+  --write-mount .artifacts/security/ownership -- \
+  node scripts/ci/export-ai-workload-paths.mjs --all-security-inventories
+node scripts/safety/run-local-zero-spend.mjs isolated-staging --task security-task-1 -- \
+  node scripts/safety/stage-task-owned.mjs begin --task security-task-1 \
+  --declarations scripts/safety/task-ownership.json
+```
+
+The declaration contains the static shared/new files above and references
+`.artifacts/security/ownership/security-task-1-shared.json`. `begin` validates
+its HEAD/path/blob/hash fields and requires every declared new path absent.
+
+The existing graph marks a root billable when a reachable module hits
+`executeAiTask`, a paid adapter, or a direct paid-provider hostname/SDK. The
+regression floor remains:
 
 - `app/api/ai/coach-insight/route.ts`;
 - `app/api/ai/conversation/route.ts`;
@@ -639,7 +860,7 @@ Assert no discovered billable root is unclassified.
 - [ ] **Step 2: Prove direct source-string discovery is insufficient**
 
 ```bash
-node scripts/safety/run-local-zero-spend.mjs local-only -- \
+node scripts/safety/run-local-zero-spend.mjs isolated-offline -- \
   npx --no-install vitest run tests/enterprise/ai-workload-graph.test.ts --reporter=verbose
 ```
 
@@ -695,21 +916,11 @@ add a distinct fixed workload ID or fail closed.
 - [ ] **Step 6: Verify and commit**
 
 ```bash
-node scripts/safety/run-local-zero-spend.mjs local-only -- \
+node scripts/safety/run-local-zero-spend.mjs isolated-offline -- \
   npx --no-install vitest run tests/enterprise/ai-workload-graph.test.ts tests/agents/principal.test.ts tests/lib/api-guard.test.ts tests/api --reporter=verbose
-git diff --name-only -- app/api agents
-node scripts/safety/stage-task-owned.mjs stage --task security-task-1 \
-  --shared agents/runtime/types.ts lib/security/api-guard.ts tests/lib/api-guard.test.ts \
-  --shared-from .artifacts/security/security-task-1-discovered-shared-paths.json \
-  --new lib/security/ai-workload-graph.ts agents/runtime/principal.ts tests/enterprise/ai-workload-graph.test.ts tests/agents/principal.test.ts
-node scripts/safety/stage-task-owned.mjs verify --task security-task-1
+bash scripts/safety/apply-task-owned.sh security-task-1
 git commit -m "fix(security): bind AI workloads to verified principals"
 ```
-
-Before Step 1, emit the sorted graph-discovered existing route/caller/test
-paths to the named ignored JSON and pass the same file to
-`stage-task-owned begin`. The helper rejects a dirty/missing path or any cached
-path/hunk not present in that reviewed inventory.
 
 ### Task 2: Model the full provider-specific billable envelope
 
@@ -717,8 +928,21 @@ path/hunk not present in that reviewed inventory.
 - Create: `agents/runtime/billable-envelope.ts`
 - Create: `agents/router/pricing-snapshots/2026-07-26.v1.json`
 - Create: `agents/router/pricing-snapshot.ts`
+- Create: `agents/router/pricing-evidence/2026-07-26/raw/openai-api-pricing.fragment.bin`
+- Create: `agents/router/pricing-evidence/2026-07-26/raw/anthropic-api-pricing.fragment.bin`
+- Create: `agents/router/pricing-evidence/2026-07-26/raw/google-gemini-pricing.fragment.bin`
+- Create: `agents/router/pricing-evidence/2026-07-26/raw/deepseek-api-pricing.fragment.bin`
+- Create: `agents/router/pricing-evidence/2026-07-26/raw/voyage-api-pricing.fragment.bin`
+- Create: `agents/router/pricing-evidence/2026-07-26/raw/response-metadata.json`
+- Create: `agents/router/pricing-evidence/2026-07-26/normalized/provider-prices.json`
+- Create: `agents/router/pricing-evidence/2026-07-26/normalized/billing-conversions.json`
+- Create: `agents/router/pricing-evidence/2026-07-26/extraction-manifest.v1.json`
+- Create: `agents/router/pricing-evidence/2026-07-26/artifact-hashes.json`
+- Create: `scripts/ci/capture-pricing-evidence.mjs`
+- Create: `scripts/ci/build-pricing-snapshot.mjs`
 - Create: `tests/agents/billable-envelope.test.ts`
 - Create: `tests/agents/pricing-snapshot.test.ts`
+- Create: `tests/enterprise/pricing-evidence.test.ts`
 - Modify: `agents/runtime/types.ts`
 - Modify: `agents/router/pricing.ts`
 - Modify: paid adapters/dispatchers discovered by Task 1
@@ -733,7 +957,22 @@ path/hunk not present in that reviewed inventory.
   `pricingSnapshotVersion`; unknown, unmapped-alias, or expired pricing denies
   before reservation or provider transport.
 
-- [ ] **Step 1: Write failing envelope and pricing tests**
+- [ ] **Step 1: Regenerate Task 2 ownership, begin, and write failing tests**
+
+```bash
+node scripts/safety/run-local-zero-spend.mjs isolated-offline \
+  --write-mount .artifacts/security/ownership -- \
+  node scripts/ci/export-ai-workload-paths.mjs --all-security-inventories
+node scripts/safety/run-local-zero-spend.mjs isolated-staging --task security-task-2 -- \
+  node scripts/safety/stage-task-owned.mjs begin --task security-task-2 \
+  --declarations scripts/safety/task-ownership.json
+```
+
+The Task 2 declaration includes every static file above plus
+`.artifacts/security/ownership/security-task-2-provider-shared.json`, which
+contains all existing paid adapters, dispatchers, and their tests. `begin` and
+every later staging phase use the same declaration; no post-verify discovery is
+permitted.
 
 Define provider fixture cases for:
 
@@ -749,6 +988,9 @@ Define provider fixture cases for:
   source, model price increase, and alias drift;
 - sub-cent cost, exact policy threshold, and one micro-dollar over threshold;
 - provider-reported actual cost greater than reserved cost;
+- raw source tamper, normalized table tamper, snapshot tamper, invalid byte
+  locator, duplicate locator, conversion without evidence, price row without
+  coverage, and nondeterministic regeneration;
 - unknown model/modality/pricing and missing cap.
 
 Assert reservation rounds upward to integer micro-dollars and never rounds down.
@@ -756,8 +998,8 @@ Assert reservation rounds upward to integer micro-dollars and never rounds down.
 - [ ] **Step 2: Prove prompt-only estimation fails**
 
 ```bash
-node scripts/safety/run-local-zero-spend.mjs local-only -- \
-  npx --no-install vitest run tests/agents/billable-envelope.test.ts tests/agents/pricing-snapshot.test.ts --reporter=verbose
+node scripts/safety/run-local-zero-spend.mjs isolated-offline -- \
+  npx --no-install vitest run tests/agents/billable-envelope.test.ts tests/agents/pricing-snapshot.test.ts tests/enterprise/pricing-evidence.test.ts --reporter=verbose
 ```
 
 Expected: FAIL because current pricing sees usage after execution and cannot
@@ -799,17 +1041,49 @@ For this version, `effectiveAt` and `reviewedAt` are
 - DeepSeek: `https://api-docs.deepseek.com/quick_start/pricing`;
 - Voyage: `https://docs.voyageai.com/docs/pricing`.
 
-Every source row also records retrieval timestamp and content SHA-256. Every
-price row keys exact provider, canonical model, modality,
+Evidence capture is a new-version-only `isolated-prefetch` action. The gateway
+accepts five fixed pricing source IDs and stores no cookie/auth. For each
+response, it caps the retained raw fragment at 256 KiB and total evidence at
+2 MiB, stores the exact relevant table/conversion bytes plus 1 KiB surrounding
+context, and records URL, redirect chain, UTC retrieval time, content type,
+HTTP validators, full-response SHA-256, original byte start/end, and fragment
+SHA-256 in `response-metadata.json`. Existing version directories are
+immutable and capture refuses overwrite.
+
+Every price row keys exact provider, canonical model, modality,
 input/output/cache-read/cache-write/reasoning class, unit, currency, and
 integer numerator/denominator for conservative rational arithmetic. Aliases
 are explicit versioned mappings, never prefix or substring guesses.
 
-Generation/review rejects duplicate coverage, non-USD units, floating point,
-missing reasoning/cache/media classes, an expiry more than 14 days after
-review, or a source that does not correspond to the effective table. A price
-change creates a new immutable version; it never edits one referenced by a
-ledger row. Tests use committed local fixtures and make no provider request.
+`extraction-manifest.v1.json` maps every JSON pointer in `prices`, `aliases`,
+and every token/media/cache/reasoning conversion to one raw artifact ID and an
+exact locator: original byte range, fragment-relative range, selected-byte
+SHA-256, normalized row label, column label, unit, and extractor rule ID.
+`build-pricing-snapshot.mjs` reads only committed raw evidence and that
+manifest, emits the two normalized JSON files with canonical key order and LF
+newlines, then generates the snapshot. `artifact-hashes.json` records SHA-256
+for every raw fragment, metadata file, extraction manifest, both normalized
+files, and the final snapshot. `--check` regenerates all outputs in memory and
+requires byte identity.
+
+Generation/review rejects uncovered or multiply covered rows/conversions,
+out-of-range locators, source-hash mismatch, non-USD units, floating point,
+missing reasoning/cache/media classes, expiry beyond 14 days, or generated
+bytes that differ. A price change creates a new immutable evidence/snapshot
+version; it never edits one referenced by a ledger row. Tests are offline after
+the one bounded source capture and make no billable provider/API call.
+
+```bash
+node scripts/safety/run-local-zero-spend.mjs isolated-prefetch \
+  --write-mount agents/router/pricing-evidence/2026-07-26/raw -- \
+  node scripts/ci/capture-pricing-evidence.mjs --version 2026-07-26.v1
+node scripts/safety/run-local-zero-spend.mjs isolated-offline \
+  --write-mount agents/router/pricing-evidence/2026-07-26 \
+  --write-mount agents/router/pricing-snapshots -- \
+  node scripts/ci/build-pricing-snapshot.mjs --version 2026-07-26.v1
+node scripts/safety/run-local-zero-spend.mjs isolated-offline -- \
+  node scripts/ci/build-pricing-snapshot.mjs --version 2026-07-26.v1 --check
+```
 
 - [ ] **Step 4: Deny over-cap rather than clamping**
 
@@ -828,17 +1102,11 @@ clamps actual to reserved or silently releases the difference.
 - [ ] **Step 5: Verify and commit**
 
 ```bash
-node scripts/safety/run-local-zero-spend.mjs local-only -- \
-  npx --no-install vitest run tests/agents/billable-envelope.test.ts tests/agents/pricing-snapshot.test.ts tests/agents/provider-access.test.ts tests/agents/openai-structured.test.ts tests/agents/anthropic-provider.test.ts tests/agents/deepseek-provider.test.ts --reporter=verbose
-node scripts/safety/stage-task-owned.mjs stage --task security-task-2 \
-  --shared agents/runtime/types.ts agents/router/pricing.ts \
-  --new agents/runtime/billable-envelope.ts agents/router/pricing-snapshots/2026-07-26.v1.json agents/router/pricing-snapshot.ts tests/agents/billable-envelope.test.ts tests/agents/pricing-snapshot.test.ts
-node scripts/safety/stage-task-owned.mjs verify --task security-task-2
-git diff --name-only -- agents/runtime/providers agents/clients tests/agents
+node scripts/safety/run-local-zero-spend.mjs isolated-offline -- \
+  npx --no-install vitest run tests/agents/billable-envelope.test.ts tests/agents/pricing-snapshot.test.ts tests/enterprise/pricing-evidence.test.ts tests/agents/provider-access.test.ts tests/agents/openai-structured.test.ts tests/agents/anthropic-provider.test.ts tests/agents/deepseek-provider.test.ts --reporter=verbose
+bash scripts/safety/apply-task-owned.sh security-task-2
 git commit -m "feat(ai): price complete billable envelopes"
 ```
-
-Stage only adapters/tests named by the focused diff.
 
 ### Task 3: Establish the authoritative local ledger, privileges, and schema-first rollout
 
@@ -898,7 +1166,7 @@ Test the real local PostgreSQL boundary for:
 - [ ] **Step 2: Prove the local schema is absent through the launcher**
 
 ```bash
-node scripts/safety/run-local-zero-spend.mjs local-only -- \
+node scripts/safety/run-local-zero-spend.mjs isolated-db -- \
   npm test -- --run tests/db/ai-budget-ledger.test.ts tests/db/ai-budget-privileges.test.ts
 ```
 
@@ -1043,12 +1311,12 @@ snapshot; mismatch or expiry denies before any provider transport.
 - [ ] **Step 6: Generate, inspect, and apply only to local**
 
 ```bash
-node scripts/safety/run-local-zero-spend.mjs local-only -- npm run db:generate
+node scripts/safety/run-local-zero-spend.mjs isolated-db -- npm run db:generate
 git diff -- db/schema drizzle
-node scripts/safety/run-local-zero-spend.mjs local-only -- npm run db:migrate
-node scripts/safety/run-local-zero-spend.mjs local-only -- \
+node scripts/safety/run-local-zero-spend.mjs isolated-db -- npm run db:migrate
+node scripts/safety/run-local-zero-spend.mjs isolated-db -- \
   npm test -- --run tests/db/ai-budget-ledger.test.ts tests/db/ai-budget-privileges.test.ts tests/db/ai-budget-recovery.test.ts tests/api/internal-ai-budget-recovery.test.ts tests/db/rls.test.ts
-node scripts/safety/run-local-zero-spend.mjs local-only -- \
+node scripts/safety/run-local-zero-spend.mjs isolated-db -- \
   npm run ops:recover-ai-budget -- --run-id 00000000-0000-4000-8000-000000000001
 ```
 
@@ -1078,20 +1346,16 @@ This plan performs none of those production actions.
 - [ ] **Step 8: Commit**
 
 ```bash
-node scripts/safety/stage-task-owned.mjs stage --task security-task-3 \
-  --shared db/schema/organization_ai_budgets.ts db/schema/agent_runs.ts db/schema/index.ts package.json drizzle/meta/_journal.json \
-  --new db/schema/ai_budget_reservations.ts db/schema/ai_pricing_snapshots.ts db/schema/system_ai_budgets.ts db/schema/user_ai_budgets.ts scripts/ops/recover-ai-budget-attempts.ts app/api/internal/ai-budget-recovery/route.ts tests/db/ai-budget-ledger.test.ts tests/db/ai-budget-privileges.test.ts tests/db/ai-budget-recovery.test.ts tests/api/internal-ai-budget-recovery.test.ts docs/runbooks/ai-budget-schema-first-rollout.md \
-  --new-from .artifacts/security/security-task-3-generated-new-paths.json
-node scripts/safety/stage-task-owned.mjs verify --task security-task-3
+bash scripts/safety/apply-task-owned.sh security-task-3
 git commit -m "feat(security): add authoritative AI budget ledger"
 ```
 
-Run `stage-task-owned begin` before the first schema edit with every shared path
-above, including the journal. After generation, export the exact sorted new SQL
-and snapshot paths to the named ignored JSON. Inspect every generated path and
-verify its SQL/metadata contains only this task's
-ledger/RPC/grant changes. Any unexpected generated path, dirty starting schema,
-or mixed hunk aborts; never use broad path staging.
+The global Task 3 `begin` command runs before the first schema edit. Its
+declaration includes the journal and a dynamic `next-drizzle-migration`
+inventory that computes the exact next SQL/snapshot paths, records their
+absence, and later requires generator output to match. Inspect each generated
+path and verify its SQL/metadata contains only this task's ledger/RPC/grant
+changes. Unexpected output, dirty schema, or mixed hunks abort.
 
 ### Task 4: Integrate crash-safe reservation into runtime without a fail-open path
 
@@ -1129,7 +1393,7 @@ Assert:
 - [ ] **Step 2: Prove current runtime lacks the lifecycle**
 
 ```bash
-node scripts/safety/run-local-zero-spend.mjs local-only -- \
+node scripts/safety/run-local-zero-spend.mjs isolated-offline -- \
   npx --no-install vitest run tests/agents/budget-reservation.test.ts tests/agents/runtime-execute.test.ts -t "budget|reservation|crash|fallback" --reporter=verbose
 ```
 
@@ -1159,14 +1423,11 @@ paid decision; they do not receive an unmetered runtime context.
 - [ ] **Step 5: Verify and commit**
 
 ```bash
-node scripts/safety/run-local-zero-spend.mjs local-only -- \
+node scripts/safety/run-local-zero-spend.mjs isolated-offline -- \
   npx --no-install vitest run tests/agents/budget-reservation.test.ts tests/agents/runtime-execute.test.ts tests/agents/billable-envelope.test.ts tests/agents/principal.test.ts --reporter=verbose
-node scripts/safety/run-local-zero-spend.mjs local-only -- \
+node scripts/safety/run-local-zero-spend.mjs isolated-db -- \
   npm test -- --run tests/db/ai-budget-ledger.test.ts
-node scripts/safety/stage-task-owned.mjs stage --task security-task-4 \
-  --shared agents/runtime/execute.ts agents/runtime/persistence.ts agents/runtime/error-classification.ts tests/agents/runtime-execute.test.ts \
-  --new agents/runtime/budget-reservation.ts tests/agents/budget-reservation.test.ts
-node scripts/safety/stage-task-owned.mjs verify --task security-task-4
+bash scripts/safety/apply-task-owned.sh security-task-4
 git commit -m "fix(ai): enforce crash-safe budget reservations"
 ```
 
@@ -1177,7 +1438,10 @@ approved production schema-first runbook.
 
 **Files:**
 - Create: `scripts/ci/check-workflow-security.mjs`
+- Create: `scripts/ci/check-isolated-runner-attestation.mjs`
 - Create: `tests/enterprise/workflow-security.test.ts`
+- Create: `.github/workflows/security-isolated.yml`
+- Create: `docs/runbooks/isolation-runner-provisioning.md`
 - Modify: `.github/workflows/ci.yml`
 - Modify: `.github/workflows/provider-smoke.yml`
 - Modify: `package.json`
@@ -1197,7 +1461,7 @@ credential expression/environment variable in URL/query construction.
 - [ ] **Step 2: Prove current workflow scope and Google URL fail**
 
 ```bash
-node scripts/safety/run-local-zero-spend.mjs local-only -- \
+node scripts/safety/run-local-zero-spend.mjs isolated-offline -- \
   npx --no-install vitest run tests/enterprise/workflow-security.test.ts --reporter=verbose
 ```
 
@@ -1221,17 +1485,29 @@ headers: {
 
 Do not execute the workflow.
 
+The ordinary GitHub-hosted workflow is not an isolation proof. Pin its host to
+`ubuntu-24.04` for static checks and add an explicit red
+`isolated-security-gate` when repository variable
+`TROPHE_ISOLATED_RUNNER_PROVISIONED` is not exactly `1`; it must not run npm,
+tests, build, audit, or database work on that host.
+`security-isolated.yml` runs those real commands only on labels
+`self-hosted,linux,x64,trophe-rootless-podman-5.4.2`. Its first
+dependency-free step compares rootless Podman version, UID maps, cgroup,
+netavark/machine/config hashes, runner image digests, Node/npm, and no-pull
+policy to `isolation-lock.json`; mismatch exits
+`isolated_runner_attestation_failed` before repository execution. The runbook
+specifies the exact preprovisioned Podman `5.4.2` binary checksum/config from
+that lock, rootless service ownership, cache/image preload, labels, rotation,
+and deprovisioning. No workflow installs a floating runtime with apt.
+
 - [ ] **Step 4: Verify and commit**
 
 ```bash
-node scripts/safety/run-local-zero-spend.mjs local-only -- \
+node scripts/safety/run-local-zero-spend.mjs isolated-offline -- \
   node scripts/ci/check-workflow-security.mjs
-node scripts/safety/run-local-zero-spend.mjs local-only -- \
+node scripts/safety/run-local-zero-spend.mjs isolated-offline -- \
   npx --no-install vitest run tests/enterprise/workflow-security.test.ts tests/agents/provider-access.test.ts --reporter=verbose
-node scripts/safety/stage-task-owned.mjs stage --task security-task-5 \
-  --shared .github/workflows/ci.yml .github/workflows/provider-smoke.yml package.json \
-  --new scripts/ci/check-workflow-security.mjs tests/enterprise/workflow-security.test.ts
-node scripts/safety/stage-task-owned.mjs verify --task security-task-5
+bash scripts/safety/apply-task-owned.sh security-task-5
 git commit -m "fix(security): scope provider secrets to network steps"
 ```
 
@@ -1284,7 +1560,7 @@ compiler erases the entire edge.
 - [ ] **Step 3: Prove the current sinks and raw API messages fail**
 
 ```bash
-node scripts/safety/run-local-zero-spend.mjs local-only -- \
+node scripts/safety/run-local-zero-spend.mjs isolated-offline -- \
   npx --no-install vitest run tests/agents/error-redaction-boundary.test.ts tests/agents/langfuse-redaction.test.ts tests/enterprise/api-error-flow.test.ts tests/enterprise/privileged-import-graph.test.ts --reporter=verbose
 ```
 
@@ -1314,27 +1590,33 @@ generic message plus allowlisted status/code/type/request ID/usage/latency.
 Persistence, Langfuse, and logs consume the sanitized shape. Public 500s use a
 stable generic JSON body.
 
-`assertServerRuntime` is a local portable `typeof window` assertion usable by
+`assertServerRuntime` is a local `typeof window` assertion usable by
 Next, Vitest, and `tsx`; do not add a bare `server-only` resolution dependency.
 The transitive import graph is the compile-time enforcement.
 
 - [ ] **Step 5: Verify and commit**
 
 ```bash
-node scripts/safety/run-local-zero-spend.mjs local-only -- \
+node scripts/safety/run-local-zero-spend.mjs isolated-offline -- \
   npx --no-install vitest run tests/agents/error-redaction-boundary.test.ts tests/agents/langfuse-redaction.test.ts tests/enterprise/api-error-flow.test.ts tests/enterprise/privileged-import-graph.test.ts tests/api --reporter=verbose
-node scripts/safety/run-local-zero-spend.mjs local-only -- npm run typecheck
+node scripts/safety/run-local-zero-spend.mjs isolated-offline -- npm run typecheck
 git diff --name-only -- agents app/api lib
-node scripts/safety/stage-task-owned.mjs stage --task security-task-6 \
-  --shared-from .artifacts/security/security-task-6-discovered-shared-paths.json \
-  --new agents/observability/safe-error.ts lib/security/error-flow.ts lib/http/internal-error.ts lib/security/server-runtime.ts lib/security/privileged-import-graph.ts tests/agents/error-redaction-boundary.test.ts tests/agents/langfuse-redaction.test.ts tests/enterprise/api-error-flow.test.ts tests/enterprise/privileged-import-graph.test.ts
-node scripts/safety/stage-task-owned.mjs verify --task security-task-6
+bash scripts/safety/apply-task-owned.sh security-task-6
 git commit -m "fix(security): seal error and privileged import boundaries"
 ```
 
-Before Step 1, export the sorted existing sink/module/test paths from the
-read-only inventory to the named ignored JSON, review it, and use the identical
-file for `begin` and `stage`.
+Before the global Task 6 `begin`, run:
+
+```bash
+node scripts/safety/run-local-zero-spend.mjs isolated-offline \
+  --write-mount .artifacts/security/ownership -- \
+  node scripts/ci/export-static-ownership.mjs --id security-task-6
+```
+
+That fixed ID includes every existing path under `agents/`, `app/api/`, `lib/`,
+`tests/api/`, and the named test files. The declaration references
+`.artifacts/security/ownership/security-task-6-shared.json`; semantic scanners
+may narrow findings but cannot add a path outside this pre-begun superset.
 
 ### Task 7: Compose production-write interlocks across Node and shell tools
 
@@ -1362,8 +1644,12 @@ production POST/PUT/PATCH/DELETE, and destructive commands.
 
 The floor includes service-role data scripts, erasure smoke, benchmark batch
 scripts, `scripts/db/migrate-production.sh`, and local
-`scripts/db/bootstrap-local.sh`. Classify bootstrap as `localDb`; classify
-migrate-production with the `production-write` policy. `canary-readonly.sh` is
+`scripts/db/bootstrap-local.sh`. Set bootstrap to `localDb:true` only after the
+inventory proves that it rejects target input/remote environment and the
+launcher forces canonical loopback. Set migrate-production to `localDb:false`
+and give it the `production-write` policy. Keep
+`scripts/rag/ingest-document.ts` at `localDb:false` and add
+`production-write`, because its target can be remote. `canary-readonly.sh` is
 read-only and is never executed by this plan.
 
 Target tests cover credential-bearing PostgreSQL DSNs, encoded userinfo,
@@ -1373,14 +1659,19 @@ userinfo never enters manifest, `--target`, approval string, errors, or output.
 - [ ] **Step 2: Prove unguarded Node and shell mutators fail inventory**
 
 ```bash
-node scripts/safety/run-local-zero-spend.mjs local-only -- \
+node scripts/safety/run-local-zero-spend.mjs isolated-offline -- \
   npx --no-install vitest run tests/enterprise/production-mutator-inventory.test.ts --reporter=verbose
-node scripts/safety/run-local-zero-spend.mjs local-only -- \
+node scripts/safety/run-local-zero-spend.mjs isolated-offline -- \
   node --test tests/safety/production-write-approval.test.mjs
 ```
 
 The second command tests the interlock itself inside the proven Task 0
-boundary; it never executes its child.
+boundary; it never executes its child. Fixtures must prove the semantic
+inversion fails closed: bootstrap marked `localDb:false`, RAG ingestion marked
+`localDb:true`, or any `localDb:true` executable that accepts a target/remote
+environment is rejected. They also prove every remote-capable mutator with
+`localDb:false`, including RAG ingestion, has `production-write` with an exact
+owner/operation and cannot execute without its target-bound approval.
 
 - [ ] **Step 3: Extend the one shared manifest without duplicating AI Task 6**
 
@@ -1407,7 +1698,9 @@ write, or network. There is one tool ID and one row.
 Without `--execute`, emit a bounded dry-run plan and exit before mutation.
 Remote execution requires exact `--target=<canonical-ref>` and exact approval
 value; truthy/mismatched operation/target rejects. Local tools require
-`classifications.localDb=true`, exact loopback target, and the Task 0 launcher.
+`classifications.localDb=true`, `isolated-db`, exact canonical loopback target,
+and structural proof that no target argument or remote database/Supabase
+environment can reach client construction.
 
 Shell scripts call the Node decision CLI and check its exit status before any
 `psql`, `curl`, `npx`, or mutation. Do not source a TypeScript helper from
@@ -1417,11 +1710,11 @@ token.
 - [ ] **Step 5: Verify without invoking a real tool**
 
 ```bash
-node scripts/safety/run-local-zero-spend.mjs local-only -- \
+node scripts/safety/run-local-zero-spend.mjs isolated-offline -- \
   node scripts/safety/tool-policy.mjs validate
-node scripts/safety/run-local-zero-spend.mjs local-only -- \
+node scripts/safety/run-local-zero-spend.mjs isolated-offline -- \
   node scripts/ci/check-production-mutators.mjs
-node scripts/safety/run-local-zero-spend.mjs local-only -- \
+node scripts/safety/run-local-zero-spend.mjs isolated-offline -- \
   npx --no-install vitest run tests/enterprise/production-mutator-inventory.test.ts --reporter=verbose
 ```
 
@@ -1432,28 +1725,34 @@ tool is invoked.
 - [ ] **Step 6: Commit**
 
 ```bash
-git diff --name-only -- scripts
-node scripts/safety/stage-task-owned.mjs stage --task security-task-7 \
-  --shared scripts/safety/tool-policy-manifest.json package.json \
-  --shared-from .artifacts/security/security-task-7-discovered-shared-paths.json \
-  --new scripts/ci/check-production-mutators.mjs scripts/safety/require-production-write-approval.mjs tests/enterprise/production-mutator-inventory.test.ts tests/safety/production-write-approval.test.mjs
-node scripts/safety/stage-task-owned.mjs verify --task security-task-7
+bash scripts/safety/apply-task-owned.sh security-task-7
 git commit -m "fix(security): compose production mutation interlocks"
 ```
 
-Before Step 1, export the sorted existing manifest-reported mutator paths to the
-named ignored JSON, review it, and use that identical inventory for `begin` and
-`stage`.
+Before the global Task 7 `begin`, run the fixed superset exporter:
+
+```bash
+node scripts/safety/run-local-zero-spend.mjs isolated-offline \
+  --write-mount .artifacts/security/ownership -- \
+  node scripts/ci/export-static-ownership.mjs --id security-task-7
+```
+
+The resulting declaration inventory includes every existing `scripts/**`
+entrypoint plus the manifest and package file. Semantic discovery may narrow
+the mutator set but cannot introduce an unbegun path.
 
 ### Task 8: Validate the reproduced dependency tree, fresh audit evidence, and compatibility
 
-Task 0A owns dependency, lockfile, exact CLI artifact, and local-stack
-bootstrap. This task does not reinstall or silently rewrite them.
+Task 0A proves the current lock installs cleanly and owns the exact CLI/local
+stack. This task performs the reviewed dependency upgrade on the canonical
+Linux/amd64 resolver only, then re-proves an offline clean install.
 
 **Files:**
+- Create: `scripts/ci/dependency-upgrade-request.json`
+- Create: `scripts/ci/resolve-dependency-upgrade.mjs`
 - Create: `tests/enterprise/dependency-security.test.ts`
-- Modify only if a named compatibility check fails: the exact source/config
-  path tied to that failure
+- Modify: `package.json`
+- Modify: `package-lock.json`
 
 **Interfaces:**
 - Requires exact direct pins: `next@16.2.12`,
@@ -1465,7 +1764,12 @@ bootstrap. This task does not reinstall or silently rewrite them.
   suppression, stale artifact reuse, `npm audit fix`, and
   `npm audit fix --force`
 
-- [ ] **Step 1: Write the dependency and evidence regressions**
+- [ ] **Step 1: Begin exact ownership and write dependency/evidence regressions**
+
+Run the global Task 8 `begin` before creating the two scripts/test or changing
+package files. Its declaration has no conditional compatibility path. If a
+compatibility gate later requires another source/config change, stop and amend
+the reviewed ownership plan; Task 8 cannot silently expand scope.
 
 Parse package/lock data and assert exact reviewed direct pins, one resolved
 Next version, matching Next ESLint config, expected Sharp/PostCSS closure,
@@ -1477,7 +1781,7 @@ after/final, truncated output, registry error JSON, fabricated exit `0`,
 advisory exit `1` without valid rows, exit greater than `1`, and stale output.
 
 ```bash
-node scripts/safety/run-local-zero-spend.mjs local-only -- \
+node scripts/safety/run-local-zero-spend.mjs isolated-offline -- \
   npx --no-install vitest run tests/enterprise/dependency-security.test.ts --reporter=verbose
 ```
 
@@ -1487,11 +1791,11 @@ reproduced tree.
 - [ ] **Step 2: Verify artifact and lockfile provenance without reinstalling**
 
 ```bash
-node scripts/safety/run-local-zero-spend.mjs local-only -- npm explain next
-node scripts/safety/run-local-zero-spend.mjs local-only -- npm explain tar
-node scripts/safety/run-local-zero-spend.mjs local-only -- \
-  ./node_modules/.bin/supabase --version
-node scripts/safety/run-local-zero-spend.mjs local-only -- \
+node scripts/safety/run-local-zero-spend.mjs isolated-offline -- npm explain next
+node scripts/safety/run-local-zero-spend.mjs isolated-offline -- npm explain tar
+node scripts/safety/run-local-zero-spend.mjs isolated-offline -- \
+  ./.artifacts/bin/supabase --version
+node scripts/safety/run-local-zero-spend.mjs isolated-offline -- \
   node --test tests/safety/supabase-cli-artifact.test.mjs tests/safety/clean-checkout-bootstrap.test.mjs tests/safety/npm-audit-runner.test.mjs
 ```
 
@@ -1504,27 +1808,52 @@ If a compatibility gate specifically proves Sharp needs its install lifecycle,
 allow only:
 
 ```bash
-node scripts/safety/run-local-zero-spend.mjs local-only -- \
+node scripts/safety/run-local-zero-spend.mjs isolated-offline -- \
   npm rebuild sharp --ignore-scripts=false
 ```
 
-The tuple must use the already locked local package, retain the process-tree
-guard, and make no external connection. Any other lifecycle tuple is rejected.
+The tuple uses the locked local package in the network-none runner. Any other
+lifecycle tuple is rejected. If it changes a tracked compatibility file,
+stop for a new reviewed ownership declaration rather than staging it.
 
-- [ ] **Step 3: Capture fresh final audit runs and validate gates**
+- [ ] **Step 3: Resolve exact upgrades through the gateway, then install offline**
+
+`dependency-upgrade-request.json` contains only
+`next@16.2.12`, `eslint-config-next@16.2.12`, and
+`supabase@2.109.1`. On canonical Linux/amd64,
+`resolve-dependency-upgrade.mjs` creates a resolver container containing only
+the two package files, empty HOME/cache, and npm `10.8.2`; no application
+source is mounted. Its only peer is the gateway. The gateway recursively
+permits registry metadata only for package names proven by the current lock or
+dependency metadata reached from those three exact roots, records every
+expansion, and denies scripts/auth/other hosts. Resolver output may modify only
+the two package files. Then prefetch the new lock's exact tarballs and run a
+fresh `npm ci --offline --ignore-scripts --include=dev` in network-none.
 
 ```bash
-node scripts/safety/run-local-zero-spend.mjs npm-registry-readonly -- \
+node scripts/safety/run-local-zero-spend.mjs isolated-prefetch \
+  --write-mount package.json --write-mount package-lock.json -- \
+  node scripts/ci/resolve-dependency-upgrade.mjs
+node scripts/safety/run-local-zero-spend.mjs isolated-prefetch -- \
+  node scripts/safety/prefetch-artifacts.mjs --lockfile package-lock.json
+node scripts/safety/run-local-zero-spend.mjs isolated-offline -- \
+  npm ci --offline --ignore-scripts --include=dev
+```
+
+- [ ] **Step 4: Capture fresh final audit runs and validate gates**
+
+```bash
+node scripts/safety/run-local-zero-spend.mjs isolated-prefetch -- \
   node scripts/ci/run-npm-audit.mjs production --label final
-node scripts/safety/run-local-zero-spend.mjs npm-registry-readonly -- \
+node scripts/safety/run-local-zero-spend.mjs isolated-prefetch -- \
   node scripts/ci/run-npm-audit.mjs full --label final
-node scripts/safety/run-local-zero-spend.mjs local-only -- \
+node scripts/safety/run-local-zero-spend.mjs isolated-offline -- \
   npx --no-install vitest run tests/enterprise/dependency-security.test.ts --reporter=verbose
-node scripts/safety/run-local-zero-spend.mjs local-only -- npm run db:doctor
-node scripts/safety/run-local-zero-spend.mjs local-only -- npm run typecheck
-node scripts/safety/run-local-zero-spend.mjs local-only -- npm run lint
-node scripts/safety/run-local-zero-spend.mjs local-only -- npm test
-node scripts/safety/run-local-zero-spend.mjs local-only -- npm run build
+node scripts/safety/run-local-zero-spend.mjs isolated-db -- npm run db:doctor
+node scripts/safety/run-local-zero-spend.mjs isolated-offline -- npm run typecheck
+node scripts/safety/run-local-zero-spend.mjs isolated-offline -- npm run lint
+node scripts/safety/run-local-zero-spend.mjs isolated-db -- npm test
+node scripts/safety/run-local-zero-spend.mjs isolated-offline -- npm run build
 ```
 
 The last command must be recognized as the exact production build tuple and
@@ -1535,25 +1864,17 @@ but does not satisfy the gate if any high/critical count is nonzero. Any audit
 transport/timeout/parse/schema failure is release-blocking and cannot be
 reported as clean.
 
-- [ ] **Step 4: Stage only a proved compatibility patch and commit**
-
-If no compatibility source/config change was required, commit only the new
-test. Otherwise `stage-task-owned begin` must have recorded the exact shared
-path before its edit.
+- [ ] **Step 5: Stage the exact declared patch and commit**
 
 ```bash
-node scripts/safety/stage-task-owned.mjs stage --task security-task-8 \
-  --new tests/enterprise/dependency-security.test.ts \
-  --shared-from .artifacts/security/security-task-8-compatibility-paths.json
-node scripts/safety/stage-task-owned.mjs verify --task security-task-8
-git commit -m "test(security): validate reproduced dependency evidence"
+bash scripts/safety/apply-task-owned.sh security-task-8
+git commit -m "chore(security): upgrade and reproduce dependency evidence"
 ```
 
-### Task 9: Run the final zero-spend, local/source-only audit
+### Task 9: Run the final zero-spend isolated audit
 
 **Files:**
 - Create: `docs/quality/security-audit-2026-07-25.md`
-- Modify only if made stale by implemented interfaces: `agents/README.md`, `ARCHITECTURE.md`
 
 **Interfaces:**
 - Consumes: Tasks 0-8
@@ -1565,12 +1886,12 @@ git commit -m "test(security): validate reproduced dependency evidence"
 - [ ] **Step 1: Verify every inventory through the safety launcher**
 
 ```bash
-node scripts/safety/run-local-zero-spend.mjs local-only -- \
+node scripts/safety/run-local-zero-spend.mjs isolated-offline -- \
   node scripts/safety/tool-policy.mjs validate
-node scripts/safety/run-local-zero-spend.mjs local-only -- npm run guard:paid-ai-tools
-node scripts/safety/run-local-zero-spend.mjs local-only -- npm run guard:production-mutators
-node scripts/safety/run-local-zero-spend.mjs local-only -- npm run guard:workflow-security
-node scripts/safety/run-local-zero-spend.mjs local-only -- \
+node scripts/safety/run-local-zero-spend.mjs isolated-offline -- npm run guard:paid-ai-tools
+node scripts/safety/run-local-zero-spend.mjs isolated-offline -- npm run guard:production-mutators
+node scripts/safety/run-local-zero-spend.mjs isolated-offline -- npm run guard:workflow-security
+node scripts/safety/run-local-zero-spend.mjs isolated-offline -- \
   npx --no-install vitest run tests/enterprise/ai-workload-graph.test.ts tests/enterprise/api-error-flow.test.ts tests/enterprise/privileged-import-graph.test.ts tests/enterprise/dependency-security.test.ts --reporter=verbose
 ```
 
@@ -1580,25 +1901,27 @@ Do not duplicate its implementation in this task.
 - [ ] **Step 2: Verify principals, envelopes, ledger, and redaction locally**
 
 ```bash
-node scripts/safety/run-local-zero-spend.mjs local-only -- \
-  npx --no-install vitest run tests/agents/principal.test.ts tests/agents/billable-envelope.test.ts tests/agents/pricing-snapshot.test.ts tests/agents/budget-reservation.test.ts tests/agents/error-redaction-boundary.test.ts tests/agents/langfuse-redaction.test.ts tests/lib/api-guard.test.ts --reporter=verbose
-node scripts/safety/run-local-zero-spend.mjs local-only -- \
+node scripts/safety/run-local-zero-spend.mjs isolated-offline -- \
+  npx --no-install vitest run tests/agents/principal.test.ts tests/agents/billable-envelope.test.ts tests/agents/pricing-snapshot.test.ts tests/enterprise/pricing-evidence.test.ts tests/agents/budget-reservation.test.ts tests/agents/error-redaction-boundary.test.ts tests/agents/langfuse-redaction.test.ts tests/lib/api-guard.test.ts --reporter=verbose
+node scripts/safety/run-local-zero-spend.mjs isolated-db -- \
   npm test -- --run tests/db/ai-budget-ledger.test.ts tests/db/ai-budget-privileges.test.ts tests/db/ai-budget-recovery.test.ts tests/api/internal-ai-budget-recovery.test.ts tests/db/rls.test.ts tests/db/rag-rls.test.ts
-node scripts/safety/run-local-zero-spend.mjs local-only -- \
-  node --test tests/safety/process-tree-isolation.test.mjs tests/safety/hostile-env-npm.test.mjs tests/safety/command-environment.test.mjs tests/safety/stage-task-owned.test.mjs tests/safety/clean-checkout-bootstrap.test.mjs tests/safety/supabase-cli-artifact.test.mjs tests/safety/npm-audit-runner.test.mjs
+node scripts/safety/run-local-zero-spend.mjs isolated-offline -- \
+  node --test tests/safety/process-tree-isolation.test.mjs tests/safety/internal-binding-hostile.test.mjs tests/safety/rootless-runner-integration.test.mjs tests/safety/egress-gateway.test.mjs tests/safety/hostile-env-npm.test.mjs tests/safety/command-environment.test.mjs tests/safety/stage-task-owned.test.mjs tests/safety/clean-checkout-bootstrap.test.mjs tests/safety/supabase-cli-artifact.test.mjs tests/safety/npm-audit-runner.test.mjs
+node scripts/safety/run-local-zero-spend.mjs isolated-db -- \
+  node --test tests/safety/local-stack-topology.test.mjs tests/safety/local-stack-real-integration.test.mjs
 ```
 
 - [ ] **Step 3: Verify audited dependencies and full project gates**
 
 ```bash
-node scripts/safety/run-local-zero-spend.mjs npm-registry-readonly -- \
+node scripts/safety/run-local-zero-spend.mjs isolated-prefetch -- \
   node scripts/ci/run-npm-audit.mjs production --label final
-node scripts/safety/run-local-zero-spend.mjs npm-registry-readonly -- \
+node scripts/safety/run-local-zero-spend.mjs isolated-prefetch -- \
   node scripts/ci/run-npm-audit.mjs full --label final
-node scripts/safety/run-local-zero-spend.mjs local-only -- npm run typecheck
-node scripts/safety/run-local-zero-spend.mjs local-only -- npm run lint
-node scripts/safety/run-local-zero-spend.mjs local-only -- npm test
-node scripts/safety/run-local-zero-spend.mjs local-only -- npm run build
+node scripts/safety/run-local-zero-spend.mjs isolated-offline -- npm run typecheck
+node scripts/safety/run-local-zero-spend.mjs isolated-offline -- npm run lint
+node scripts/safety/run-local-zero-spend.mjs isolated-db -- npm test
+node scripts/safety/run-local-zero-spend.mjs isolated-offline -- npm run build
 ```
 
 - [ ] **Step 4: Review security headers from source only**
@@ -1617,7 +1940,9 @@ focused command/result, residual preconditions, current-HEAD correction, and
 whether it blocks release. State:
 
 - provider spend `$0.00`;
-- no production/provider endpoint or authenticated external system was called;
+- no inference/provider API, production endpoint, or authenticated external
+  system was called; the only egress was the bounded unauthenticated pricing
+  evidence and npm audit manifest IDs recorded by the gateway;
 - migration/RPCs were applied only to local `127.0.0.1:54322/postgres`;
 - production schema/runtime remain unchanged;
 - runtime release is blocked until the schema-first runbook is separately
@@ -1632,12 +1957,10 @@ whether it blocks release. State:
 ```bash
 rg -n "Critical|Important|Minor|\\$0\\.00|54322|release.blocked|not live-verified|guard:paid-ai-tools" docs/quality/security-audit-2026-07-25.md
 git diff --check -- docs/quality/security-audit-2026-07-25.md
-node scripts/safety/stage-task-owned.mjs stage --task security-task-9 \
-  --new docs/quality/security-audit-2026-07-25.md
-node scripts/safety/stage-task-owned.mjs verify --task security-task-9
+bash scripts/safety/apply-task-owned.sh security-task-9
 git commit -m "docs(security): record fail-closed security evidence"
 ```
 
-If `agents/README.md` or `ARCHITECTURE.md` became stale, update and commit each
-in a separate path-specific documentation commit. Never stage them with the
-evidence report in a shared worktree.
+Task 9 owns only the new evidence report. If another document is stale, stop
+and create a separately reviewed documentation task with a new complete
+ownership declaration before editing it.
