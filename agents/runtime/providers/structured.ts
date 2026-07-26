@@ -122,6 +122,13 @@ export async function invokeStructuredProvider<T>(input: {
 
   // ── Anthropic: tool_use with tool_choice enforcement ──────────────────
   if (input.policy.provider === 'anthropic') {
+    const system = input.policy.cacheSystem
+      ? [{
+          type: 'text' as const,
+          text: input.system,
+          cache_control: { type: 'ephemeral' as const },
+        }]
+      : input.system;
     const result = await invokeAnthropicJson<{
       content: Array<{ type: string; name?: string; input?: unknown }>;
     }>({
@@ -130,12 +137,13 @@ export async function invokeStructuredProvider<T>(input: {
       body: {
         model: input.policy.model,
         max_tokens: input.maxTokens ?? input.policy.maxTokens,
-        system: input.system,
+        system,
         messages: [{ role: 'user', content: input.prompt }],
         tools: [{
           name: toolName,
           description: toolDescription,
           input_schema: input.schema,
+          ...(strict ? { strict: true } : {}),
         }],
         tool_choice: { type: 'tool', name: toolName },
       },

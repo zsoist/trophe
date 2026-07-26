@@ -362,6 +362,106 @@ describe('Anthropic provider transport', () => {
     expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({ signal });
   });
 
+  it('sends strict Anthropic tools with a cacheable system block when policy caching is enabled', async () => {
+    vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
+    blockGlobalFetch();
+    const schema = {
+      type: 'object',
+      properties: { value: { type: 'string' } },
+      required: ['value'],
+      additionalProperties: false,
+    };
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      id: 'msg_cached_strict_123',
+      content: [{ type: 'tool_use', name: 'submit_result', input: { value: 'ok' } }],
+      usage: { input_tokens: 1, output_tokens: 1 },
+    }), { status: 200 }));
+
+    await invokeStructuredProvider({
+      policy: {
+        provider: 'anthropic', model: 'claude-haiku-4-5-20251001', costClass: 'cheap', latencyClass: 'fast',
+        maxTokens: 100, timeoutMs: 1_000, maxInputChars: 1_000, maxCostUsd: 1, promptVersion: 'test',
+        cacheSystem: true,
+      },
+      system: 'system',
+      prompt: 'prompt',
+      signal: new AbortController().signal,
+      schema,
+      validator: z.object({ value: z.string() }),
+      strict: true,
+      fetchImpl: fetchMock as unknown as typeof fetch,
+    });
+
+    const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(body).toMatchObject({
+      system: [{
+        type: 'text',
+        text: 'system',
+        cache_control: { type: 'ephemeral' },
+      }],
+      tools: [{
+        name: 'submit_result',
+        input_schema: schema,
+        strict: true,
+      }],
+    });
+  });
+
+  it('omits the Anthropic strict field when structured strict mode is disabled', async () => {
+    vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
+    blockGlobalFetch();
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      id: 'msg_non_strict_123',
+      content: [{ type: 'tool_use', name: 'submit_result', input: { value: 'ok' } }],
+      usage: { input_tokens: 1, output_tokens: 1 },
+    }), { status: 200 }));
+
+    await invokeStructuredProvider({
+      policy: {
+        provider: 'anthropic', model: 'claude-haiku-4-5-20251001', costClass: 'cheap', latencyClass: 'fast',
+        maxTokens: 100, timeoutMs: 1_000, maxInputChars: 1_000, maxCostUsd: 1, promptVersion: 'test',
+        cacheSystem: true,
+      },
+      system: 'system',
+      prompt: 'prompt',
+      signal: new AbortController().signal,
+      schema: { type: 'object' },
+      validator: z.object({ value: z.string() }),
+      strict: false,
+      fetchImpl: fetchMock as unknown as typeof fetch,
+    });
+
+    const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(body.tools[0]).not.toHaveProperty('strict');
+  });
+
+  it('keeps the uncached Anthropic system prompt as a plain string', async () => {
+    vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
+    blockGlobalFetch();
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      id: 'msg_uncached_123',
+      content: [{ type: 'tool_use', name: 'submit_result', input: { value: 'ok' } }],
+      usage: { input_tokens: 1, output_tokens: 1 },
+    }), { status: 200 }));
+
+    await invokeStructuredProvider({
+      policy: {
+        provider: 'anthropic', model: 'claude-haiku-4-5-20251001', costClass: 'cheap', latencyClass: 'fast',
+        maxTokens: 100, timeoutMs: 1_000, maxInputChars: 1_000, maxCostUsd: 1, promptVersion: 'test',
+        cacheSystem: false,
+      },
+      system: 'system',
+      prompt: 'prompt',
+      signal: new AbortController().signal,
+      schema: { type: 'object' },
+      validator: z.object({ value: z.string() }),
+      fetchImpl: fetchMock as unknown as typeof fetch,
+    });
+
+    const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(body.system).toBe('system');
+  });
+
   it('forwards the exact signal through the shared direct adapter used by photo analysis', async () => {
     vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
     blockGlobalFetch();
