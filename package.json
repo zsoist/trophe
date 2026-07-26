@@ -6,6 +6,7 @@
     "dev": "SERWIST_SUPPRESS_TURBOPACK_WARNING=1 next dev",
     "build": "next build --webpack",
     "start": "next start",
+    "perf:measure": "node scripts/perf/measure-web.mjs",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test:vitest": "vitest run",
