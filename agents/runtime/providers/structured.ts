@@ -1,5 +1,8 @@
 import type { z } from 'zod';
-import { callGeminiMessages } from '@/agents/clients/google';
+import {
+  callGeminiMessages,
+  type GeminiGenerateContent,
+} from '@/agents/clients/google';
 import { invokeAnthropicJson } from './anthropic';
 import { invokeDeepSeekStructured } from './deepseek';
 import { invokeOpenAiStructured } from './openai';
@@ -20,6 +23,7 @@ export async function invokeGeminiStructured<T>(input: {
   responseSchema: Record<string, unknown>;
   validator: z.ZodType<T>;
   maxTokens?: number;
+  generateContent?: GeminiGenerateContent;
 }): Promise<ProviderResult<T>> {
   if (input.signal.aborted) throw new Error('AI request aborted');
   if (input.policy.provider !== 'google') throw new Error('Structured Gemini provider requires a Google policy');
@@ -31,6 +35,8 @@ export async function invokeGeminiStructured<T>(input: {
     maxTokens: input.maxTokens ?? input.policy.maxTokens,
     disableThinking: true,
     responseSchema: input.responseSchema,
+    signal: input.signal,
+    generateContent: input.generateContent,
   });
   if (result.rawError || result.rawStatus === 0) throw new Error(result.rawError ?? 'Provider request failed');
 
@@ -79,6 +85,8 @@ export async function invokeStructuredProvider<T>(input: {
   userId?: string;
   /** Test/offline-only Anthropic transport injection. */
   fetchImpl?: typeof fetch;
+  /** Test/offline-only Google SDK transport injection. */
+  generateContent?: GeminiGenerateContent;
 }): Promise<ProviderResult<T>> {
   if (input.signal.aborted) throw new Error('AI request aborted');
 
@@ -100,6 +108,7 @@ export async function invokeStructuredProvider<T>(input: {
       schema: input.schema,
       validator: input.validator,
       strict,
+      fetchImpl: input.fetchImpl,
     });
   }
 
@@ -117,6 +126,7 @@ export async function invokeStructuredProvider<T>(input: {
       validator: input.validator,
       strict,
       maxAttempts: input.maxAttempts,
+      fetchImpl: input.fetchImpl,
     });
   }
 
@@ -171,6 +181,7 @@ export async function invokeStructuredProvider<T>(input: {
       responseSchema: input.schema,
       validator: input.validator,
       maxTokens: input.maxTokens,
+      generateContent: input.generateContent,
     });
   }
 

@@ -9,7 +9,16 @@
  * so `cacheSystem` is accepted but ignored here.
  */
 
-import { GoogleGenAI } from '@google/genai';
+import {
+  GoogleGenAI,
+  type GenerateContentParameters,
+  type GenerateContentResponse,
+} from '@google/genai';
+import { assertPaidProviderAccess } from '@/agents/runtime/provider-access';
+
+export type GeminiGenerateContent = (
+  input: GenerateContentParameters,
+) => Promise<GenerateContentResponse>;
 
 export interface GeminiMessagesInput {
   model: string;
@@ -25,6 +34,8 @@ export interface GeminiMessagesInput {
    */
   disableThinking?: boolean;
   responseSchema?: Record<string, unknown>;
+  signal: AbortSignal;
+  generateContent?: GeminiGenerateContent;
 }
 
 export interface GeminiMessagesResult {
@@ -54,14 +65,20 @@ function getClient(): GoogleGenAI {
 export async function callGeminiMessages(
   input: GeminiMessagesInput,
 ): Promise<GeminiMessagesResult> {
-  const client = getClient();
+  assertPaidProviderAccess({
+    provider: 'google',
+    transportWasInjected: input.generateContent != null,
+  });
+  const generateContent = input.generateContent
+    ?? ((request: GenerateContentParameters) => getClient().models.generateContent(request));
   const startTime = Date.now();
 
   try {
-    const response = await client.models.generateContent({
+    const response = await generateContent({
       model: input.model,
       contents: [{ role: 'user', parts: [{ text: input.userMessage }] }],
       config: {
+        abortSignal: input.signal,
         systemInstruction: input.system,
         maxOutputTokens: input.maxTokens ?? 2048,
         // Extraction tasks expect machine-readable JSON; callers still validate

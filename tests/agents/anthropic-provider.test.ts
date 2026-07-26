@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { callAnthropicMessages } from '@/agents/clients/anthropic';
 import { AnthropicApiError, invokeAnthropicJson } from '@/agents/runtime/providers/anthropic';
@@ -7,6 +7,13 @@ import { invokeStructuredProvider } from '@/agents/runtime/providers/structured'
 import { invokeTextProvider } from '@/agents/runtime/providers/text';
 
 const SENSITIVE_SENTINEL = 'SENSITIVE_SENTINEL_DO_NOT_LOG';
+
+beforeEach(() => {
+  vi.stubEnv('VERCEL_ENV', undefined);
+  vi.stubEnv('TROPHE_ALLOW_PAID_AI', undefined);
+  delete process.env.ANTHROPIC_API_KEY;
+  blockGlobalFetch();
+});
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -29,9 +36,31 @@ async function captureError(work: () => Promise<unknown>): Promise<unknown> {
 }
 
 describe('Anthropic provider transport', () => {
+  it('blocks the Anthropic text adapter before global fetch', async () => {
+    await expect(callAnthropicMessages({
+      model: 'claude-haiku-4-5-20251001',
+      system: 'system',
+      userMessage: 'prompt',
+      signal: new AbortController().signal,
+    })).rejects.toMatchObject({
+      name: 'PaidProviderAccessBlockedError',
+      code: 'paid_provider_access_blocked',
+      provider: 'anthropic',
+    });
+  });
+
+  it('blocks the Anthropic JSON adapter before global fetch', async () => {
+    await expect(invokeAnthropicJson({
+      body: { model: 'claude-haiku-4-5-20251001' },
+      signal: new AbortController().signal,
+    })).rejects.toMatchObject({
+      name: 'PaidProviderAccessBlockedError',
+      code: 'paid_provider_access_blocked',
+      provider: 'anthropic',
+    });
+  });
+
   it('forwards the exact abort signal through the text dispatcher to the injected transport', async () => {
-    vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
-    blockGlobalFetch();
     const signal = new AbortController().signal;
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
       id: 'msg_text_123',
@@ -61,7 +90,14 @@ describe('Anthropic provider transport', () => {
       usage: { inputTokens: 12, outputTokens: 3, cacheWriteTokens: 4, cacheReadTokens: 5 },
     });
     expect(fetchMock).toHaveBeenCalledOnce();
-    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({ signal });
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      signal,
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': 'trophe-offline-placeholder',
+        'anthropic-version': '2023-06-01',
+      },
+    });
   });
 
   it.each([
@@ -69,8 +105,6 @@ describe('Anthropic provider transport', () => {
     [429, { type: 'rate_limit_error', code: 'rate_limited' }, 'req_rate_limited'],
     [503, undefined, 'req_unavailable'],
   ] as const)('normalizes a %i response without retaining provider body text', async (status, providerError, requestId) => {
-    vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
-    blockGlobalFetch();
     const responseBody = providerError
       ? JSON.stringify({
           id: 'msg_error_123',
@@ -118,8 +152,6 @@ describe('Anthropic provider transport', () => {
   });
 
   it('normalizes malformed successful JSON as a typed provider error', async () => {
-    vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
-    blockGlobalFetch();
     const fetchMock = vi.fn().mockResolvedValue(new Response('{malformed', {
       status: 200,
       headers: { 'request-id': 'req_malformed' },
@@ -143,8 +175,6 @@ describe('Anthropic provider transport', () => {
   });
 
   it('throws a safe typed error for failed text responses', async () => {
-    vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
-    blockGlobalFetch();
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
       error: { type: 'authentication_error', message: SENSITIVE_SENTINEL },
     }), {
@@ -178,8 +208,6 @@ describe('Anthropic provider transport', () => {
     ['request-id', { code: 'rate_limited', type: 'rate_limit_error' }, { 'request-id': SENSITIVE_SENTINEL }],
     ['x-request-id', { code: 'rate_limited', type: 'rate_limit_error' }, { 'x-request-id': SENSITIVE_SENTINEL }],
   ] as const)('omits an untrusted Anthropic %s from errors and telemetry', async (_field, providerError, headers, id: string = 'msg_safe_123') => {
-    vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
-    blockGlobalFetch();
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
       id,
       error: providerError,
@@ -206,8 +234,6 @@ describe('Anthropic provider transport', () => {
   });
 
   it('requires complete integer usage while preserving valid zero and absent optional cache counts', async () => {
-    vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
-    blockGlobalFetch();
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
       id: 'msg_zero_123',
       content: [{ type: 'text', text: 'zero-token response' }],
@@ -236,8 +262,6 @@ describe('Anthropic provider transport', () => {
     { input_tokens: 1, output_tokens: 1, cache_read_input_tokens: -1 },
     { input_tokens: 1, output_tokens: 1, cache_creation_input_tokens: 0.5 },
   ])('rejects malformed successful usage %j instead of fabricating zero cost', async (usage) => {
-    vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
-    blockGlobalFetch();
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
       id: 'msg_invalid_usage',
       content: [{ type: 'tool_use', name: 'submit_result', input: { value: 'ok' } }],
@@ -263,8 +287,6 @@ describe('Anthropic provider transport', () => {
     ['whitespace body', ' \n\t '],
     ['empty content', JSON.stringify({ id: 'msg_empty_123', content: [], usage: { input_tokens: 1, output_tokens: 1 } })],
   ])('normalizes a %s as the fixed malformed response error', async (_name, body) => {
-    vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
-    blockGlobalFetch();
     const fetchMock = vi.fn().mockResolvedValue(new Response(body, { status: 200 }));
 
     const error = await captureError(() => invokeAnthropicJson({
@@ -282,8 +304,6 @@ describe('Anthropic provider transport', () => {
   });
 
   it('rejects an oversized Content-Length before buffering the provider body', async () => {
-    vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
-    blockGlobalFetch();
     const fetchMock = vi.fn().mockResolvedValue(new Response('{}', {
       status: 200,
       headers: { 'content-length': '1000000000' },
@@ -299,8 +319,6 @@ describe('Anthropic provider transport', () => {
   });
 
   it('uses the fixed malformed category when an error response exceeds the body cap', async () => {
-    vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
-    blockGlobalFetch();
     const fetchMock = vi.fn().mockResolvedValue(new Response('{}', {
       status: 503,
       headers: { 'content-length': '1000000000' },
@@ -316,8 +334,6 @@ describe('Anthropic provider transport', () => {
   });
 
   it('cancels an oversized streamed body before buffering it', async () => {
-    vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
-    blockGlobalFetch();
     let cancelled = false;
     const response = new Response(new ReadableStream<Uint8Array>({
       start(controller) {
@@ -340,8 +356,6 @@ describe('Anthropic provider transport', () => {
   });
 
   it('forwards the exact signal through the structured Anthropic boundary to injected fetch', async () => {
-    vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
-    blockGlobalFetch();
     const signal = new AbortController().signal;
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
       id: 'msg_structured_123',
@@ -363,8 +377,6 @@ describe('Anthropic provider transport', () => {
   });
 
   it('sends strict Anthropic tools with a cacheable system block when policy caching is enabled', async () => {
-    vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
-    blockGlobalFetch();
     const schema = {
       type: 'object',
       properties: { value: { type: 'string' } },
@@ -408,8 +420,6 @@ describe('Anthropic provider transport', () => {
   });
 
   it('omits the Anthropic strict field when structured strict mode is disabled', async () => {
-    vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
-    blockGlobalFetch();
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
       id: 'msg_non_strict_123',
       content: [{ type: 'tool_use', name: 'submit_result', input: { value: 'ok' } }],
@@ -436,8 +446,6 @@ describe('Anthropic provider transport', () => {
   });
 
   it('keeps the uncached Anthropic system prompt as a plain string', async () => {
-    vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
-    blockGlobalFetch();
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
       id: 'msg_uncached_123',
       content: [{ type: 'tool_use', name: 'submit_result', input: { value: 'ok' } }],
@@ -463,8 +471,6 @@ describe('Anthropic provider transport', () => {
   });
 
   it('forwards the exact signal through the shared direct adapter used by photo analysis', async () => {
-    vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
-    blockGlobalFetch();
     const signal = new AbortController().signal;
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
       id: 'msg_photo_123',

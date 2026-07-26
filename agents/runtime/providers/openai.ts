@@ -1,6 +1,10 @@
 import { createHash } from 'node:crypto';
 import type { z } from 'zod';
 import type { AiUsage, ProviderResult } from '../types';
+import {
+  assertPaidProviderAccess,
+  PAID_PROVIDER_OFFLINE_CREDENTIAL,
+} from '../provider-access';
 
 const OPENAI_CHAT_COMPLETIONS_URL = 'https://api.openai.com/v1/chat/completions';
 const MAX_ATTEMPTS = 3;
@@ -141,9 +145,17 @@ export async function invokeOpenAiStructured<T>(input: {
   strict?: boolean;
   /** Defaults to SDK-compatible three total attempts. Set to 1 for measured probes. */
   maxAttempts?: number;
+  fetchImpl?: typeof fetch;
 }): Promise<ProviderResult<T>> {
-  const apiKey = process.env.OPENAI_API_KEY;
+  const accessMode = assertPaidProviderAccess({
+    provider: 'openai',
+    transportWasInjected: input.fetchImpl != null,
+  });
+  const apiKey = accessMode === 'offline'
+    ? PAID_PROVIDER_OFFLINE_CREDENTIAL
+    : process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error('OPENAI_API_KEY not configured');
+  const fetchImpl = input.fetchImpl ?? fetch;
 
   const startedAt = Date.now();
   const supportsExplicitPromptCache = /^gpt-5\.6(?:-|$)/.test(input.model);
@@ -201,7 +213,7 @@ export async function invokeOpenAiStructured<T>(input: {
   const maxAttempts = Math.min(MAX_ATTEMPTS, Math.max(1, requestedAttempts));
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
-      response = await fetch(OPENAI_CHAT_COMPLETIONS_URL, {
+      response = await fetchImpl(OPENAI_CHAT_COMPLETIONS_URL, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${apiKey}`,

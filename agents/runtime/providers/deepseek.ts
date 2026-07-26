@@ -1,6 +1,10 @@
 import type { ProviderResult } from '../types';
 import { createHash } from 'node:crypto';
 import type { z } from 'zod';
+import {
+  assertPaidProviderAccess,
+  PAID_PROVIDER_OFFLINE_CREDENTIAL,
+} from '../provider-access';
 
 const BASE_URL = 'https://api.deepseek.com';
 
@@ -9,11 +13,23 @@ export function deepSeekUserId(value?: string): string | undefined {
   return `trophe_${createHash('sha256').update(value).digest('hex').slice(0, 32)}`;
 }
 
-async function requestDeepSeek(body: Record<string, unknown>, signal: AbortSignal, beta = false) {
-  const apiKey = process.env.DEEPSEEK_API_KEY;
+async function requestDeepSeek(
+  body: Record<string, unknown>,
+  signal: AbortSignal,
+  beta = false,
+  fetchImpl?: typeof fetch,
+) {
+  const accessMode = assertPaidProviderAccess({
+    provider: 'deepseek',
+    transportWasInjected: fetchImpl != null,
+  });
+  const apiKey = accessMode === 'offline'
+    ? PAID_PROVIDER_OFFLINE_CREDENTIAL
+    : process.env.DEEPSEEK_API_KEY;
   if (!apiKey) throw new Error('DEEPSEEK_API_KEY not configured');
+  const transport = fetchImpl ?? fetch;
   for (let attempt = 0; attempt < 3; attempt++) {
-    const response = await fetch(`${BASE_URL}${beta ? '/beta' : ''}/chat/completions`, {
+    const response = await transport(`${BASE_URL}${beta ? '/beta' : ''}/chat/completions`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -49,6 +65,7 @@ export async function invokeDeepSeekText(input: {
   maxTokens: number;
   signal: AbortSignal;
   userId?: string;
+  fetchImpl?: typeof fetch;
 }): Promise<ProviderResult<string>> {
   const startedAt = Date.now();
   const { response, data } = await requestDeepSeek({
@@ -60,7 +77,7 @@ export async function invokeDeepSeekText(input: {
     max_tokens: input.maxTokens,
     thinking: { type: 'disabled' },
     user_id: deepSeekUserId(input.userId),
-  }, input.signal);
+  }, input.signal, false, input.fetchImpl);
   const output = data.choices?.[0]?.message?.content;
   if (!output) throw new Error(`DeepSeek request failed with ${response.status}`);
   const finishReason = data.choices?.[0]?.finish_reason;
@@ -129,6 +146,7 @@ export async function invokeDeepSeekStructured<T>(input: {
   schema: Record<string, unknown>;
   validator: z.ZodType<T>;
   strict?: boolean;
+  fetchImpl?: typeof fetch;
 }): Promise<ProviderResult<T>> {
   const startedAt = Date.now();
   const { response, data } = await requestDeepSeek({
@@ -151,7 +169,7 @@ export async function invokeDeepSeekStructured<T>(input: {
       },
     }],
     tool_choice: { type: 'function', function: { name: input.toolName } },
-  }, input.signal, input.strict);
+  }, input.signal, input.strict, input.fetchImpl);
   const rawArguments = data.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
   if (!rawArguments) throw new Error('DeepSeek structured response missing tool call');
   if (data.choices?.[0]?.finish_reason !== 'tool_calls') {

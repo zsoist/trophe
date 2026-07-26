@@ -1,8 +1,18 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { invokeOpenAiStructured, OpenAiApiError } from '../../agents/runtime/providers/openai';
+import { invokeStructuredProvider } from '@/agents/runtime/providers/structured';
 
 const validator = z.object({ value: z.string() });
+
+beforeEach(() => {
+  vi.stubEnv('VERCEL_ENV', undefined);
+  vi.stubEnv('TROPHE_ALLOW_PAID_AI', undefined);
+  delete process.env.OPENAI_API_KEY;
+  vi.stubGlobal('fetch', () => {
+    throw new Error('unexpected global fetch');
+  });
+});
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -10,8 +20,50 @@ afterEach(() => {
 });
 
 describe('invokeOpenAiStructured', () => {
+  it('blocks before global fetch when no transport is injected', async () => {
+    await expect(invokeOpenAiStructured({
+      model: 'gpt-5.6-luna',
+      system: 'system',
+      prompt: 'prompt',
+      maxTokens: 256,
+      signal: new AbortController().signal,
+      toolName: 'submit_result',
+      description: 'Submit result',
+      schema: { type: 'object' },
+      validator,
+    })).rejects.toMatchObject({
+      name: 'PaidProviderAccessBlockedError',
+      code: 'paid_provider_access_blocked',
+      provider: 'openai',
+    });
+  });
+
+  it('propagates injected fetch through the structured dispatcher', async () => {
+    const signal = new AbortController().signal;
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      choices: [{
+        finish_reason: 'tool_calls',
+        message: { tool_calls: [{ function: { name: 'submit_result', arguments: '{"value":"ok"}' } }] },
+      }],
+    }), { status: 200 }));
+
+    await expect(invokeStructuredProvider({
+      policy: {
+        provider: 'openai', model: 'gpt-5.6-luna', costClass: 'cheap', latencyClass: 'fast',
+        maxTokens: 100, timeoutMs: 1_000, maxInputChars: 1_000, maxCostUsd: 1, promptVersion: 'test',
+      },
+      system: 'system',
+      prompt: 'prompt',
+      signal,
+      schema: { type: 'object' },
+      validator,
+      fetchImpl: fetchMock as unknown as typeof fetch,
+    })).resolves.toMatchObject({ output: { value: 'ok' } });
+
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({ signal });
+  });
+
   it('sends a strict forced function call and validates its arguments', async () => {
-    vi.stubEnv('OPENAI_API_KEY', 'test-key');
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
       id: 'resp_123',
       choices: [{
@@ -25,8 +77,6 @@ describe('invokeOpenAiStructured', () => {
         completion_tokens_details: { reasoning_tokens: 0 },
       },
     }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
-    vi.stubGlobal('fetch', fetchMock);
-
     const result = await invokeOpenAiStructured({
       model: 'gpt-5.6-luna',
       system: 'system',
@@ -38,6 +88,7 @@ describe('invokeOpenAiStructured', () => {
       schema: { type: 'object', properties: { value: { type: 'string' } }, required: ['value'], additionalProperties: false },
       validator,
       strict: true,
+      fetchImpl: fetchMock as unknown as typeof fetch,
     });
 
     expect(result.output).toEqual({ value: 'ok' });
@@ -70,10 +121,15 @@ describe('invokeOpenAiStructured', () => {
     ]);
     expect(request.tools[0].function.strict).toBe(true);
     expect(request.prompt_cache_key).toMatch(/^trophe-structured-[a-f0-9]{32}$/);
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({
+      headers: {
+        Authorization: 'Bearer trophe-offline-placeholder',
+        'Content-Type': 'application/json',
+      },
+    });
   });
 
   it('uses one stable cache key for the same static prompt prefix', async () => {
-    vi.stubEnv('OPENAI_API_KEY', 'test-key');
     const success = () => new Response(JSON.stringify({
       choices: [{
         finish_reason: 'tool_calls',
@@ -81,7 +137,6 @@ describe('invokeOpenAiStructured', () => {
       }],
     }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     const fetchMock = vi.fn().mockImplementation(success);
-    vi.stubGlobal('fetch', fetchMock);
     const common = {
       model: 'gpt-5.6-luna',
       system: 'large stable system prompt',
@@ -91,6 +146,7 @@ describe('invokeOpenAiStructured', () => {
       description: 'Submit result',
       schema: { type: 'object' },
       validator,
+      fetchImpl: fetchMock as unknown as typeof fetch,
     };
 
     await invokeOpenAiStructured({ ...common, prompt: 'dynamic request one' });
@@ -102,8 +158,7 @@ describe('invokeOpenAiStructured', () => {
   });
 
   it('rejects missing tool output', async () => {
-    vi.stubEnv('OPENAI_API_KEY', 'test-key');
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
       id: 'resp_malformed',
       choices: [{ finish_reason: 'stop', message: {} }],
       usage: {
@@ -114,7 +169,7 @@ describe('invokeOpenAiStructured', () => {
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json', 'x-request-id': 'req_malformed' },
-    })));
+    }));
 
     const pending = invokeOpenAiStructured({
       model: 'gpt-5.6-luna',
@@ -126,6 +181,7 @@ describe('invokeOpenAiStructured', () => {
       description: 'Submit result',
       schema: { type: 'object' },
       validator,
+      fetchImpl: fetchMock as unknown as typeof fetch,
     });
 
     await expect(pending).rejects.toMatchObject({
@@ -145,7 +201,6 @@ describe('invokeOpenAiStructured', () => {
   });
 
   it('surfaces structured provider diagnostics without retrying permissions failures', async () => {
-    vi.stubEnv('OPENAI_API_KEY', 'secret-key');
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
       error: {
         message: 'You have insufficient permissions for this operation.',
@@ -156,12 +211,10 @@ describe('invokeOpenAiStructured', () => {
       status: 403,
       headers: { 'Content-Type': 'application/json', 'x-request-id': 'req_luna_123' },
     }));
-    vi.stubGlobal('fetch', fetchMock);
-
     const pending = invokeOpenAiStructured({
       model: 'gpt-5.6-luna', system: 'system', prompt: 'prompt', maxTokens: 256,
       signal: new AbortController().signal, toolName: 'submit_result', description: 'Submit result',
-      schema: { type: 'object' }, validator,
+      schema: { type: 'object' }, validator, fetchImpl: fetchMock as unknown as typeof fetch,
     });
 
     await expect(pending).rejects.toMatchObject({
@@ -177,7 +230,6 @@ describe('invokeOpenAiStructured', () => {
 
   it('retries a rate limit using Retry-After', async () => {
     vi.useFakeTimers();
-    vi.stubEnv('OPENAI_API_KEY', 'test-key');
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({ error: { message: 'rate limited' } }), {
         status: 429, headers: { 'Content-Type': 'application/json', 'Retry-After': '0.001' },
@@ -185,11 +237,10 @@ describe('invokeOpenAiStructured', () => {
       .mockResolvedValueOnce(new Response(JSON.stringify({
         choices: [{ finish_reason: 'tool_calls', message: { tool_calls: [{ function: { name: 'submit_result', arguments: '{"value":"ok"}' } }] } }],
       }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
-    vi.stubGlobal('fetch', fetchMock);
     const pending = invokeOpenAiStructured({
       model: 'gpt-5.6-luna', system: 'system', prompt: 'prompt', maxTokens: 256,
       signal: new AbortController().signal, toolName: 'submit_result', description: 'Submit result',
-      schema: { type: 'object' }, validator,
+      schema: { type: 'object' }, validator, fetchImpl: fetchMock as unknown as typeof fetch,
     });
     await vi.runAllTimersAsync();
     await expect(pending).resolves.toMatchObject({ output: { value: 'ok' } });
@@ -199,7 +250,6 @@ describe('invokeOpenAiStructured', () => {
 
   it('retries a non-JSON 5xx response instead of failing during response parsing', async () => {
     vi.useFakeTimers();
-    vi.stubEnv('OPENAI_API_KEY', 'test-key');
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(new Response('<html>upstream unavailable</html>', {
         status: 503,
@@ -211,12 +261,10 @@ describe('invokeOpenAiStructured', () => {
           message: { tool_calls: [{ function: { name: 'submit_result', arguments: '{"value":"ok"}' } }] },
         }],
       }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
-    vi.stubGlobal('fetch', fetchMock);
-
     const pending = invokeOpenAiStructured({
       model: 'gpt-5.6-luna', system: 'system', prompt: 'prompt', maxTokens: 256,
       signal: new AbortController().signal, toolName: 'submit_result', description: 'Submit result',
-      schema: { type: 'object' }, validator,
+      schema: { type: 'object' }, validator, fetchImpl: fetchMock as unknown as typeof fetch,
     });
     await vi.runAllTimersAsync();
     await expect(pending).resolves.toMatchObject({ output: { value: 'ok' } });
@@ -226,7 +274,6 @@ describe('invokeOpenAiStructured', () => {
 
   it.each([408, 409])('retries retryable HTTP status %i', async (status) => {
     vi.useFakeTimers();
-    vi.stubEnv('OPENAI_API_KEY', 'test-key');
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({ error: { message: 'retry me' } }), {
         status,
@@ -238,12 +285,10 @@ describe('invokeOpenAiStructured', () => {
           message: { tool_calls: [{ function: { name: 'submit_result', arguments: '{"value":"ok"}' } }] },
         }],
       }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
-    vi.stubGlobal('fetch', fetchMock);
-
     const pending = invokeOpenAiStructured({
       model: 'gpt-5.6-luna', system: 'system', prompt: 'prompt', maxTokens: 256,
       signal: new AbortController().signal, toolName: 'submit_result', description: 'Submit result',
-      schema: { type: 'object' }, validator,
+      schema: { type: 'object' }, validator, fetchImpl: fetchMock as unknown as typeof fetch,
     });
     await vi.runAllTimersAsync();
     await expect(pending).resolves.toMatchObject({ output: { value: 'ok' } });
@@ -253,7 +298,6 @@ describe('invokeOpenAiStructured', () => {
 
   it('retries a transient network failure', async () => {
     vi.useFakeTimers();
-    vi.stubEnv('OPENAI_API_KEY', 'test-key');
     const fetchMock = vi.fn()
       .mockRejectedValueOnce(new TypeError('fetch failed'))
       .mockResolvedValueOnce(new Response(JSON.stringify({
@@ -262,12 +306,10 @@ describe('invokeOpenAiStructured', () => {
           message: { tool_calls: [{ function: { name: 'submit_result', arguments: '{"value":"ok"}' } }] },
         }],
       }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
-    vi.stubGlobal('fetch', fetchMock);
-
     const pending = invokeOpenAiStructured({
       model: 'gpt-5.6-luna', system: 'system', prompt: 'prompt', maxTokens: 256,
       signal: new AbortController().signal, toolName: 'submit_result', description: 'Submit result',
-      schema: { type: 'object' }, validator,
+      schema: { type: 'object' }, validator, fetchImpl: fetchMock as unknown as typeof fetch,
     });
     await vi.runAllTimersAsync();
     await expect(pending).resolves.toMatchObject({ output: { value: 'ok' } });
@@ -277,16 +319,13 @@ describe('invokeOpenAiStructured', () => {
 
   it('caps retryable failures at three total attempts', async () => {
     vi.useFakeTimers();
-    vi.stubEnv('OPENAI_API_KEY', 'test-key');
     const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(new Response(JSON.stringify({
       error: { message: 'upstream unavailable', code: 'server_error' },
     }), { status: 503, headers: { 'Content-Type': 'application/json' } })));
-    vi.stubGlobal('fetch', fetchMock);
-
     const pending = invokeOpenAiStructured({
       model: 'gpt-5.6-luna', system: 'system', prompt: 'prompt', maxTokens: 256,
       signal: new AbortController().signal, toolName: 'submit_result', description: 'Submit result',
-      schema: { type: 'object' }, validator,
+      schema: { type: 'object' }, validator, fetchImpl: fetchMock as unknown as typeof fetch,
     });
     const rejection = expect(pending).rejects.toMatchObject({ status: 503, code: 'server_error' });
     await vi.runAllTimersAsync();
@@ -296,22 +335,19 @@ describe('invokeOpenAiStructured', () => {
   });
 
   it('disables same-provider retries for controlled measurement probes', async () => {
-    vi.stubEnv('OPENAI_API_KEY', 'test-key');
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
       error: { message: 'upstream unavailable', code: 'server_error' },
     }), { status: 503, headers: { 'Content-Type': 'application/json' } }));
-    vi.stubGlobal('fetch', fetchMock);
-
     await expect(invokeOpenAiStructured({
       model: 'gpt-5.6-luna', system: 'system', prompt: 'prompt', maxTokens: 256,
       signal: new AbortController().signal, toolName: 'submit_result', description: 'Submit result',
       schema: { type: 'object' }, validator, maxAttempts: 1,
+      fetchImpl: fetchMock as unknown as typeof fetch,
     })).rejects.toMatchObject({ status: 503, code: 'server_error' });
     expect(fetchMock).toHaveBeenCalledOnce();
   });
 
   it('aborts during Retry-After backoff without issuing another request', async () => {
-    vi.stubEnv('OPENAI_API_KEY', 'test-key');
     const controller = new AbortController();
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
       error: { message: 'rate limited' },
@@ -319,12 +355,10 @@ describe('invokeOpenAiStructured', () => {
       status: 429,
       headers: { 'Content-Type': 'application/json', 'Retry-After': '60' },
     }));
-    vi.stubGlobal('fetch', fetchMock);
-
     const pending = invokeOpenAiStructured({
       model: 'gpt-5.6-luna', system: 'system', prompt: 'prompt', maxTokens: 256,
       signal: controller.signal, toolName: 'submit_result', description: 'Submit result',
-      schema: { type: 'object' }, validator,
+      schema: { type: 'object' }, validator, fetchImpl: fetchMock as unknown as typeof fetch,
     });
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
     controller.abort();

@@ -1,5 +1,8 @@
 import { callAnthropicMessages } from '@/agents/clients/anthropic';
-import { callGeminiMessages } from '@/agents/clients/google';
+import {
+  callGeminiMessages,
+  type GeminiGenerateContent,
+} from '@/agents/clients/google';
 import { invokeDeepSeekText } from './deepseek';
 import type { RoutingPolicy } from '@/agents/router/policies';
 import type { ProviderResult } from '../types';
@@ -14,6 +17,8 @@ export async function invokeTextProvider(input: {
   userId?: string;
   /** Test/offline-only Anthropic transport injection. */
   fetchImpl?: typeof fetch;
+  /** Test/offline-only Google SDK transport injection. */
+  generateContent?: GeminiGenerateContent;
 }): Promise<ProviderResult<string>> {
   if (input.signal.aborted) throw new Error('AI request aborted');
 
@@ -25,6 +30,7 @@ export async function invokeTextProvider(input: {
       maxTokens: input.maxTokens ?? input.policy.maxTokens,
       signal: input.signal,
       userId: input.userId,
+      fetchImpl: input.fetchImpl,
     });
   }
 
@@ -35,6 +41,8 @@ export async function invokeTextProvider(input: {
         userMessage: input.prompt,
         maxTokens: input.maxTokens ?? input.policy.maxTokens,
         disableThinking: input.disableThinking,
+        signal: input.signal,
+        generateContent: input.generateContent,
       })
     : await callAnthropicMessages({
         model: input.policy.model,

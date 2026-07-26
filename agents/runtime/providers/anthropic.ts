@@ -1,4 +1,8 @@
 import type { AiUsage, ProviderResult } from '../types';
+import {
+  assertPaidProviderAccess,
+  PAID_PROVIDER_OFFLINE_CREDENTIAL,
+} from '../provider-access';
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 const MAX_RESPONSE_BYTES = 1_048_576;
@@ -255,7 +259,13 @@ export async function invokeAnthropicJson<T>(input: {
   signal: AbortSignal;
   fetchImpl?: typeof fetch;
 }): Promise<ProviderResult<T>> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const accessMode = assertPaidProviderAccess({
+    provider: 'anthropic',
+    transportWasInjected: input.fetchImpl != null,
+  });
+  const apiKey = accessMode === 'offline'
+    ? PAID_PROVIDER_OFFLINE_CREDENTIAL
+    : process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured');
 
   const startedAt = Date.now();

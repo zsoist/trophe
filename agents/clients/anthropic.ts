@@ -3,6 +3,10 @@ import {
   malformedAnthropicResponse,
   readAnthropicResponse,
 } from '@/agents/runtime/providers/anthropic';
+import {
+  assertPaidProviderAccess,
+  PAID_PROVIDER_OFFLINE_CREDENTIAL,
+} from '@/agents/runtime/provider-access';
 
 // Thin Anthropic client with prompt caching support.
 // The `system` prompt is passed as a cacheable block — Anthropic caches the
@@ -33,7 +37,13 @@ const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 export async function callAnthropicMessages(
   input: AnthropicMessagesInput & { signal: AbortSignal; fetchImpl?: typeof fetch },
 ): Promise<AnthropicMessagesResult> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const accessMode = assertPaidProviderAccess({
+    provider: 'anthropic',
+    transportWasInjected: input.fetchImpl != null,
+  });
+  const apiKey = accessMode === 'offline'
+    ? PAID_PROVIDER_OFFLINE_CREDENTIAL
+    : process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured');
 
   const systemBlock = input.cacheSystem

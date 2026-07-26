@@ -1,16 +1,28 @@
 import type { ProviderResult } from '../types';
+import {
+  assertPaidProviderAccess,
+  PAID_PROVIDER_OFFLINE_CREDENTIAL,
+} from '../provider-access';
 
 export async function invokeVoyageEmbedding(input: {
   model: string;
   text: string;
   inputType: 'query' | 'document';
   signal: AbortSignal;
+  fetchImpl?: typeof fetch;
 }): Promise<ProviderResult<number[]>> {
-  const apiKey = process.env.VOYAGE_API_KEY;
+  const accessMode = assertPaidProviderAccess({
+    provider: 'voyage',
+    transportWasInjected: input.fetchImpl != null,
+  });
+  const apiKey = accessMode === 'offline'
+    ? PAID_PROVIDER_OFFLINE_CREDENTIAL
+    : process.env.VOYAGE_API_KEY;
   if (!apiKey) throw new Error('VOYAGE_API_KEY not configured');
+  const fetchImpl = input.fetchImpl ?? fetch;
 
   const startedAt = Date.now();
-  const response = await fetch('https://api.voyageai.com/v1/embeddings', {
+  const response = await fetchImpl('https://api.voyageai.com/v1/embeddings', {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ model: input.model, input: [input.text], input_type: input.inputType }),
