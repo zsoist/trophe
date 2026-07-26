@@ -9,17 +9,23 @@ import { verifyProductionFoodParsePolicy } from './verify-production-food-parse-
 import {
   FOOD_PARSE_OPAQUE_MAX_PROVIDER_ATTEMPTS,
   requirePaidAiToolApproval,
+  resolvePaidAiRouteEndpoint,
 } from '../safety/require-paid-ai-approval';
 
-const paidEndpoint = new URL(
-  '/api/food/parse',
-  process.env.TROPHE_API ?? 'https://trophe.app',
-).toString();
+const paidEndpoint = resolvePaidAiRouteEndpoint({
+  baseUrl: process.env.TROPHE_API ?? 'https://trophe.app',
+  pathname: '/api/food/parse',
+  operation: 'eval-food-parse-watchlist',
+});
 const paidAiApproval = requirePaidAiToolApproval({
   operation: 'eval-food-parse-watchlist',
   argv: process.argv.slice(2),
   env: process.env,
   endpoints: [paidEndpoint],
+});
+paidAiApproval.reserveOpaqueEnvelope({
+  endpoint: paidEndpoint,
+  maxProviderAttempts: FOOD_PARSE_OPAQUE_MAX_PROVIDER_ATTEMPTS,
 });
 loadEnvConfig(process.cwd());
 

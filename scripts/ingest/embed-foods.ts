@@ -27,15 +27,15 @@
 
 import { loadEnvConfig } from '@next/env';
 import type { Pool as PgPool } from 'pg';
+import { invokeVoyageEmbeddingBatch } from '../safety/paid-ai-provider-facade';
 import {
   PAID_AI_ENDPOINTS,
   requirePaidAiToolApproval,
-  type PaidAiToolApproval,
+  type BeforePaidTransportAttempt,
 } from '../safety/require-paid-ai-approval';
 
 // ── Config ──────────────────────────────────────────────────────────────────
 const VOYAGE_MODEL   = 'voyage-4';
-const VOYAGE_BASE    = 'https://api.voyageai.com/v1';
 const DRY_RUN        = process.env.DRY_RUN === '1';
 const EMBED_DIMS     = 1024;
 if (DRY_RUN) {
@@ -79,32 +79,16 @@ function buildEmbedText(food: {
 // ── Voyage API wrapper ───────────────────────────────────────────────────────
 async function embedBatch(
   texts: string[],
-  apiKey: string,
-  approval: PaidAiToolApproval,
+  beforeTransportAttempt: BeforePaidTransportAttempt,
 ): Promise<number[][]> {
-  const endpoint = `${VOYAGE_BASE}/embeddings`;
-  approval.beforeTransportAttempt(endpoint);
-  const res = await fetch(endpoint, {
-    method: 'POST',
-    redirect: 'error',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type':  'application/json',
-    },
-    body: JSON.stringify({
-      input: texts,
-      model: VOYAGE_MODEL,
-      input_type: 'document',
-    }),
+  const result = await invokeVoyageEmbeddingBatch({
+    model: VOYAGE_MODEL,
+    texts,
+    inputType: 'document',
+    signal: new AbortController().signal,
+    beforeTransportAttempt,
   });
-
-  if (!res.ok) {
-    throw new Error('Voyage embedding request failed');
-  }
-
-  const data = await res.json();
-  // Voyage returns { data: [{ embedding: [...], index: n }] }
-  const sorted = (data.data as Array<{ embedding: number[]; index: number }>)
+  const sorted = result.output
     .sort((a, b) => a.index - b.index);
 
   // Validate dimensions
@@ -189,7 +173,7 @@ async function main() {
     let embeddings: number[][];
 
     try {
-      embeddings = await embedBatch(texts, voyageApiKey, approval);
+      embeddings = await embedBatch(texts, approval.beforeTransportAttempt);
     } catch (err) {
       console.error(`[embed] Voyage error on batch starting at row ${processed}:`, err);
       console.error('[embed] Partial progress committed. Rerun to continue.');

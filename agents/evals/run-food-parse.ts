@@ -7,15 +7,24 @@ import { join } from 'node:path';
 import {
   FOOD_PARSE_OPAQUE_MAX_PROVIDER_ATTEMPTS,
   requirePaidAiToolApproval,
+  resolvePaidAiRouteEndpoint,
 } from '../../scripts/safety/require-paid-ai-approval';
 
 const url = process.argv.find((a) => a.startsWith('--url='))?.split('=')[1] ?? 'http://localhost:3333';
-const paidEndpoint = new URL('/api/food/parse', url).toString();
+const paidEndpoint = resolvePaidAiRouteEndpoint({
+  baseUrl: url,
+  pathname: '/api/food/parse',
+  operation: 'eval-food-parse-route',
+});
 const paidAiApproval = requirePaidAiToolApproval({
   operation: 'eval-food-parse-route',
   argv: process.argv.slice(2),
   env: process.env,
   endpoints: [paidEndpoint],
+});
+paidAiApproval.reserveOpaqueEnvelope({
+  endpoint: paidEndpoint,
+  maxProviderAttempts: FOOD_PARSE_OPAQUE_MAX_PROVIDER_ATTEMPTS,
 });
 
 interface Range {

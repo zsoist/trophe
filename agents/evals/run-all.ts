@@ -20,7 +20,7 @@
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { foodParseSimulatorPolicy, taskPolicies } from '../router/policies';
-import { invokeTextProvider } from '../runtime/providers/text';
+import { invokeTextProvider } from '../../scripts/safety/paid-ai-provider-facade';
 import {
   PAID_AI_ENDPOINT_GROUPS,
   requirePaidAiToolApproval,

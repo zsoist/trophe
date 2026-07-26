@@ -5,6 +5,7 @@ import {
   assertPaidProviderAccess,
   PAID_PROVIDER_OFFLINE_CREDENTIAL,
 } from '../provider-access';
+import { debitPaidTransportAttempt } from '../../../scripts/safety/require-paid-ai-approval';
 
 const BASE_URL = 'https://api.deepseek.com';
 const DEEPSEEK_CHAT_URL = `${BASE_URL}/chat/completions`;
@@ -33,7 +34,7 @@ async function requestDeepSeek(
   const transport = fetchImpl ?? fetch;
   const endpoint = beta ? DEEPSEEK_BETA_CHAT_URL : DEEPSEEK_CHAT_URL;
   for (let attempt = 0; attempt < 3; attempt++) {
-    beforeTransportAttempt?.(endpoint);
+    debitPaidTransportAttempt(beforeTransportAttempt, endpoint);
     const response = await transport(endpoint, {
       method: 'POST',
       redirect: 'error',

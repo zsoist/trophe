@@ -1,7 +1,9 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { invokeDeepSeekText } from '../../agents/runtime/providers/deepseek';
-import { invokeDeepSeekStructured } from '../../agents/runtime/providers/deepseek';
+import {
+  invokeDeepSeekStructured,
+  invokeDeepSeekText,
+} from '../safety/paid-ai-provider-facade';
 import { estimateModelCostUsd } from '../../agents/router/pricing';
 import { z } from 'zod';
 import {

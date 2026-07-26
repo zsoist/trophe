@@ -3,6 +3,7 @@ import {
   assertPaidProviderAccess,
   PAID_PROVIDER_OFFLINE_CREDENTIAL,
 } from '../provider-access';
+import { debitPaidTransportAttempt } from '../../../scripts/safety/require-paid-ai-approval';
 
 export async function invokeVoyageEmbedding(input: {
   model: string;
@@ -24,7 +25,7 @@ export async function invokeVoyageEmbedding(input: {
 
   const startedAt = Date.now();
   const endpoint = 'https://api.voyageai.com/v1/embeddings';
-  input.beforeTransportAttempt?.(endpoint);
+  debitPaidTransportAttempt(input.beforeTransportAttempt, endpoint);
   const response = await fetchImpl(endpoint, {
     method: 'POST',
     redirect: 'error',
@@ -45,6 +46,68 @@ export async function invokeVoyageEmbedding(input: {
     output: data.data[0].embedding,
     usage: { inputTokens: data.usage?.total_tokens ?? 0, outputTokens: 0 },
     latencyMs,
+    rawStatus: response.status,
+  };
+}
+
+export async function invokeVoyageEmbeddingBatch(input: {
+  model: string;
+  texts: readonly string[];
+  inputType: 'query' | 'document';
+  signal: AbortSignal;
+  fetchImpl?: typeof fetch;
+  beforeTransportAttempt?: (endpoint: string) => unknown;
+}): Promise<ProviderResult<Array<{ embedding: number[]; index: number }>>> {
+  const accessMode = assertPaidProviderAccess({
+    provider: 'voyage',
+    transportWasInjected: input.fetchImpl != null,
+  });
+  const apiKey = accessMode === 'offline'
+    ? PAID_PROVIDER_OFFLINE_CREDENTIAL
+    : process.env.VOYAGE_API_KEY;
+  if (!apiKey) throw new Error('VOYAGE_API_KEY not configured');
+  const endpoint = 'https://api.voyageai.com/v1/embeddings';
+  const startedAt = Date.now();
+  debitPaidTransportAttempt(input.beforeTransportAttempt, endpoint);
+  const response = await (input.fetchImpl ?? fetch)(endpoint, {
+    method: 'POST',
+    redirect: 'error',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: input.model,
+      input: input.texts,
+      input_type: input.inputType,
+    }),
+    signal: input.signal,
+  });
+  const data = await response.json() as {
+    data?: Array<{ embedding?: unknown; index?: unknown }>;
+    usage?: { total_tokens?: number };
+    detail?: string;
+  };
+  const embeddings = data.data?.map((entry) => {
+    if (
+      !Array.isArray(entry.embedding)
+      || !entry.embedding.every(Number.isFinite)
+      || !Number.isSafeInteger(entry.index)
+    ) {
+      throw new Error('Voyage returned an invalid embedding batch');
+    }
+    return {
+      embedding: entry.embedding as number[],
+      index: entry.index as number,
+    };
+  });
+  if (!response.ok || embeddings == null) {
+    throw new Error(data.detail ?? `Voyage request failed with ${response.status}`);
+  }
+  return {
+    output: embeddings,
+    usage: { inputTokens: data.usage?.total_tokens ?? 0, outputTokens: 0 },
+    latencyMs: Date.now() - startedAt,
     rawStatus: response.status,
   };
 }

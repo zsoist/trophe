@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { FOOD_PARSE_MAX_ITEMS } from '@/lib/ai/food-parse-limits';
 
 // DeepSeek occasionally emits clarification_question as an array of objects
 // ({question: "..."} or {text: "..."}) instead of a string, and omits items
@@ -76,7 +75,7 @@ export const foodParseStructuredSchema = z.object({
     per_100g_protein: z.number().nonnegative().optional(),
     per_100g_carbs: z.number().nonnegative().optional(),
     per_100g_fat: z.number().nonnegative().optional(),
-  })).max(FOOD_PARSE_MAX_ITEMS).default([]),
+  })).default([]),
 });
 
 export type FoodParseStructuredOutput = z.infer<typeof foodParseStructuredSchema>;
@@ -89,7 +88,6 @@ export const foodParseGeminiResponseSchema = {
     clarification_question: { type: 'string', nullable: true },
     items: {
       type: 'array',
-      maxItems: FOOD_PARSE_MAX_ITEMS,
       items: {
         type: 'object',
         required: ['raw_text', 'food_name', 'name_localized', 'quantity', 'unit', 'food_state', 'portion_explicit', 'confidence', 'recognized'],

@@ -362,6 +362,7 @@ describe('paid AI tool static inventory and order scanner', () => {
 
     expect(await scanFixture(root)).toEqual([
       'scripts/eval/late-nested.ts:approval-after-sensitive-boundary',
+      'scripts/eval/late-nested.ts:direct-paid-transport-outside-facade',
       'scripts/eval/late-nested.ts:paid-transport-capability-missing',
     ]);
   });
@@ -390,6 +391,7 @@ describe('paid AI tool static inventory and order scanner', () => {
     );
 
     expect(await scanFixture(root)).toEqual([
+      'scripts/eval/wrong-operation.ts:direct-paid-transport-outside-facade',
       'scripts/eval/wrong-operation.ts:paid-transport-capability-missing',
       'scripts/eval/wrong-operation.ts:paid-ai-operation-mismatch',
     ].sort());

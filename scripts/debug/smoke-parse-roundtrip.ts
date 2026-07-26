@@ -13,15 +13,24 @@ import { loadEnvConfig } from '@next/env';
 import {
   FOOD_PARSE_OPAQUE_MAX_PROVIDER_ATTEMPTS,
   requirePaidAiToolApproval,
+  resolvePaidAiRouteEndpoint,
 } from '../safety/require-paid-ai-approval';
 
 const BASE = process.env.SMOKE_BASE ?? 'https://trophe.app';
-const paidEndpoint = new URL('/api/food/parse', BASE).toString();
+const paidEndpoint = resolvePaidAiRouteEndpoint({
+  baseUrl: BASE,
+  pathname: '/api/food/parse',
+  operation: 'debug-parse-roundtrip',
+});
 const paidAiApproval = requirePaidAiToolApproval({
   operation: 'debug-parse-roundtrip',
   argv: process.argv.slice(2),
   env: process.env,
   endpoints: [paidEndpoint],
+});
+paidAiApproval.reserveOpaqueEnvelope({
+  endpoint: paidEndpoint,
+  maxProviderAttempts: FOOD_PARSE_OPAQUE_MAX_PROVIDER_ATTEMPTS,
 });
 loadEnvConfig(process.cwd());
 const EVAL_EMAIL = process.env.EVAL_AUTH_EMAIL;

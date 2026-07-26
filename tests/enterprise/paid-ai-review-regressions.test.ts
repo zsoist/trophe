@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process';
 import {
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
@@ -10,6 +11,16 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { invokeDeepSeekText } from '@/agents/runtime/providers/deepseek';
+import {
+  foodParseGeminiResponseSchema,
+  foodParseStructuredSchema,
+} from '@/agents/schemas/food-parse-structured';
+import {
+  DEEPSEEK_STRESS_INPUT_TOKEN_CEILING,
+  DEEPSEEK_STRESS_PRICING_VERSION,
+  deepSeekStressPricing,
+  modelPricing,
+} from '@/agents/router/pricing';
 import {
   PaidAiToolApprovalError,
   createPaidAiAttemptCounter,
@@ -195,25 +206,63 @@ describe('paid transport capability regressions', () => {
 });
 
 describe('DeepSeek stress pricing regression', () => {
-  it('derives a versioned conservative price and rejects unknown or unbounded ceilings', () => {
+  it('derives both maximum envelopes from one versioned price source', () => {
+    expect(DEEPSEEK_STRESS_INPUT_TOKEN_CEILING).toBe(16_384);
+    expect(DEEPSEEK_STRESS_PRICING_VERSION).toBe('deepseek-v4-2026-07-25');
+    expect(modelPricing['deepseek-v4-flash']).toMatchObject(
+      deepSeekStressPricing['deepseek-v4-flash'],
+    );
+    expect(modelPricing['deepseek-v4-pro']).toMatchObject(
+      deepSeekStressPricing['deepseek-v4-pro'],
+    );
+
     expect(deriveDeepSeekStressEstimate({
-      model: 'deepseek-v4-pro',
-      maxInputTokens: 4_096,
+      model: 'deepseek-v4-flash',
       maxOutputTokens: 8_192,
     })).toEqual({
-      pricingVersion: 'deepseek-v4-2026-07-25',
-      estimatedUsdPerAttempt: '0.008909',
+      pricingVersion: DEEPSEEK_STRESS_PRICING_VERSION,
+      estimatedUsdPerAttempt: '0.004588',
+    });
+    expect(deriveDeepSeekStressEstimate({
+      model: 'deepseek-v4-pro',
+      maxOutputTokens: 8_192,
+    })).toEqual({
+      pricingVersion: DEEPSEEK_STRESS_PRICING_VERSION,
+      estimatedUsdPerAttempt: '0.014255',
     });
 
     for (const input of [
-      { model: 'unknown', maxInputTokens: 4_096, maxOutputTokens: 8_192 },
-      { model: 'deepseek-v4-pro', maxInputTokens: 4_096, maxOutputTokens: 57_472 },
-      { model: 'deepseek-v4-pro', maxInputTokens: Number.NaN, maxOutputTokens: 100 },
-      { model: 'deepseek-v4-pro', maxInputTokens: 100, maxOutputTokens: 0 },
+      { model: 'unknown', maxOutputTokens: 8_192 },
+      { model: 'deepseek-v4-pro', maxOutputTokens: 57_472 },
+      { model: 'deepseek-v4-pro', maxOutputTokens: Number.NaN },
+      { model: 'deepseek-v4-pro', maxOutputTokens: 0 },
     ]) {
       expect(() => deriveDeepSeekStressEstimate(input))
         .toThrowError(PaidAiToolApprovalError);
     }
+  });
+});
+
+describe('production food parse cardinality regression', () => {
+  it('accepts a valid six-item meal in Zod and the provider response schema', () => {
+    const item = {
+      raw_text: 'one egg',
+      food_name: 'egg',
+      name_localized: 'egg',
+      quantity: 1,
+      unit: 'piece',
+      food_state: 'boiled',
+      portion_explicit: true,
+      confidence: 0.99,
+      recognized: true,
+    };
+    expect(foodParseStructuredSchema.safeParse({
+      needs_clarification: false,
+      clarification_question: null,
+      items: Array.from({ length: 6 }, () => ({ ...item })),
+    }).success).toBe(true);
+    expect(foodParseGeminiResponseSchema.properties.items)
+      .not.toHaveProperty('maxItems');
   });
 });
 
@@ -320,6 +369,224 @@ describe('repository-wide executable graph scanner regressions', () => {
       'scripts/rag/env.ts:approval-after-sensitive-boundary',
       'scripts/rag/fail-open.sh:shell-guard-fail-open',
     ]));
+  });
+
+  it('discovers package targets and shebang executables outside known directories', async () => {
+    const root = fixtureRoot();
+    mkdirSync(path.join(root, 'tools'), { recursive: true });
+    mkdirSync(path.join(root, 'agents/runtime/providers'), { recursive: true });
+    writeFileSync(path.join(root, 'package.json'), JSON.stringify({
+      scripts: { hidden: 'tsx tools/hidden-paid.ts' },
+    }));
+    writeManifest(root, []);
+    writeFileSync(
+      path.join(root, 'tools/hidden-paid.ts'),
+      [
+        '#!/usr/bin/env -S npx tsx',
+        "import { invokeDeepSeekText } from '../agents/runtime/providers/deepseek';",
+        "void invokeDeepSeekText({ prompt: 'x' });",
+      ].join('\n'),
+    );
+    writeFileSync(
+      path.join(root, 'agents/runtime/providers/deepseek.ts'),
+      'export async function invokeDeepSeekText(_: unknown) {}\n',
+    );
+
+    expect(await scan(root)).toContain(
+      'tools/hidden-paid.ts:unclassified-paid-ai-tool',
+    );
+  });
+
+  it('rejects direct paid fetches and non-literal module loading in paid graphs', async () => {
+    const root = fixtureRoot();
+    mkdirSync(path.join(root, 'tools'), { recursive: true });
+    writeFileSync(path.join(root, 'package.json'), JSON.stringify({
+      scripts: {
+        direct: 'tsx tools/direct.ts',
+        computed: 'tsx tools/computed.ts',
+      },
+    }));
+    writeManifest(root, [
+      manifestRow('tools/direct.ts'),
+      manifestRow('tools/computed.ts'),
+    ]);
+    writeFileSync(
+      path.join(root, 'tools/direct.ts'),
+      [
+        'const approval = requirePaidAiToolApproval({ operation: "eval-deepseek-candidate", argv: [], env: {}, endpoints: [] });',
+        'approval.consumeAttempt();',
+        "await fetch('https://api.deepseek.com/chat/completions');",
+      ].join('\n'),
+    );
+    writeFileSync(
+      path.join(root, 'tools/computed.ts'),
+      [
+        'const approval = requirePaidAiToolApproval({ operation: "eval-deepseek-candidate", argv: [], env: {}, endpoints: [] });',
+        "const paidEndpoint = 'https://api.deepseek.com/chat/completions';",
+        "const modulePath = '../agents/runtime/providers/deepseek';",
+        'await import(modulePath);',
+        'void paidEndpoint;',
+        'void approval;',
+      ].join('\n'),
+    );
+
+    expect(await scan(root)).toEqual(expect.arrayContaining([
+      'tools/direct.ts:direct-paid-transport-outside-facade',
+      'tools/computed.ts:nonliteral-module-load-in-paid-graph',
+    ]));
+  });
+
+  it('rejects dead approval bootstraps, renamed sinks, and forged callbacks', async () => {
+    const root = fixtureRoot();
+    mkdirSync(path.join(root, 'tools'), { recursive: true });
+    mkdirSync(path.join(root, 'agents/runtime/providers'), { recursive: true });
+    writeFileSync(path.join(root, 'package.json'), JSON.stringify({
+      scripts: { forged: 'tsx tools/forged.ts' },
+    }));
+    writeManifest(root, [manifestRow('tools/forged.ts')]);
+    writeFileSync(
+      path.join(root, 'tools/forged.ts'),
+      [
+        "import { invokeDeepSeekText as renamed } from '../agents/runtime/providers/deepseek';",
+        'function neverCalled() {',
+        '  return requirePaidAiToolApproval({ operation: "eval-deepseek-candidate", argv: [], env: {}, endpoints: [] });',
+        '}',
+        'const fake = { beforeTransportAttempt() { return undefined; } };',
+        "await renamed({ prompt: 'x', beforeTransportAttempt: fake.beforeTransportAttempt });",
+      ].join('\n'),
+    );
+    writeFileSync(
+      path.join(root, 'agents/runtime/providers/deepseek.ts'),
+      'export async function invokeDeepSeekText(_: unknown) {}\n',
+    );
+
+    expect(await scan(root)).toEqual(expect.arrayContaining([
+      'tools/forged.ts:approval-bootstrap-not-dominating',
+      'tools/forged.ts:paid-transport-capability-forged',
+      'tools/forged.ts:direct-provider-import-outside-facade',
+    ]));
+  });
+
+  it('parses full shell continuations and CommonJS provider graphs', async () => {
+    const root = fixtureRoot();
+    mkdirSync(path.join(root, 'tools'), { recursive: true });
+    mkdirSync(path.join(root, 'agents/runtime/providers'), { recursive: true });
+    writeFileSync(path.join(root, 'package.json'), JSON.stringify({
+      scripts: {
+        shell: 'bash tools/fail-open.sh',
+        cjs: 'node tools/paid.cjs',
+      },
+    }));
+    writeManifest(root, [
+      manifestRow('tools/fail-open.sh'),
+      manifestRow('tools/paid.cjs'),
+    ]);
+    writeFileSync(
+      path.join(root, 'tools/fail-open.sh'),
+      [
+        '#!/usr/bin/env bash',
+        'set -euo pipefail',
+        'npx tsx scripts/safety/require-paid-ai-approval.ts \\',
+        '  --operation=eval-deepseek-candidate \\',
+        '  "$@" \\',
+        '  || true',
+        'curl https://api.deepseek.com/chat/completions',
+      ].join('\n'),
+    );
+    writeFileSync(
+      path.join(root, 'tools/paid.cjs'),
+      [
+        "const { invokeDeepSeekText } = require('../agents/runtime/providers/deepseek');",
+        'const approval = requirePaidAiToolApproval({ operation: "eval-deepseek-candidate", argv: [], env: {}, endpoints: [] });',
+        "void invokeDeepSeekText({ prompt: 'x', beforeTransportAttempt: approval.beforeTransportAttempt });",
+      ].join('\n'),
+    );
+    writeFileSync(
+      path.join(root, 'agents/runtime/providers/deepseek.ts'),
+      'export async function invokeDeepSeekText(_: unknown) {}\n',
+    );
+
+    expect(await scan(root)).toEqual(expect.arrayContaining([
+      'tools/fail-open.sh:shell-guard-fail-open',
+      'tools/paid.cjs:direct-provider-import-outside-facade',
+    ]));
+  });
+});
+
+describe('configurable paid route URL bootstraps', () => {
+  it('rejects every invalid URL with a low-cardinality error before secrets or auth load', () => {
+    const sentinel = 'SENSITIVE_INVALID_URL_SENTINEL';
+    const targets = [
+      {
+        file: 'agents/evals/run-food-parse.ts',
+        argv: [`--url=${sentinel}`],
+        env: {},
+      },
+      {
+        file: 'scripts/debug/smoke-parse-roundtrip.ts',
+        argv: [],
+        env: { SMOKE_BASE: sentinel },
+      },
+      {
+        file: 'scripts/eval/run-food-parse-watchlist.ts',
+        argv: [],
+        env: { TROPHE_API: sentinel },
+      },
+      {
+        file: 'scripts/eval/run-greek-colombian-prod.ts',
+        argv: [],
+        env: { TROPHE_API: sentinel },
+      },
+      {
+        file: 'scripts/eval/run-nutrition-enterprise-prod.ts',
+        argv: [],
+        env: { TROPHE_API: sentinel },
+      },
+      {
+        file: 'scripts/eval/validate-dataset.ts',
+        argv: [],
+        env: { TROPHE_API: sentinel },
+      },
+    ];
+
+    for (const target of targets) {
+      const env = { ...process.env, ...target.env } as NodeJS.ProcessEnv;
+      delete env.TROPHE_ALLOW_PAID_AI;
+      for (const key of PROVIDER_KEYS) delete env[key];
+      const result = spawnSync(process.execPath, [
+        '--import',
+        'tsx',
+        path.join(REPO_ROOT, target.file),
+        ...target.argv,
+      ], { cwd: REPO_ROOT, env, encoding: 'utf8' });
+      const output = `${result.stdout}${result.stderr}`;
+      expect(result.status, target.file).toBe(1);
+      expect(output, target.file).toContain('Paid AI tool approval blocked');
+      expect(output, target.file).not.toContain(sentinel);
+    }
+  });
+});
+
+describe('tool classification semantics', () => {
+  it('defines localDb by an enforced loopback target, not merely by importing DB code', () => {
+    const manifest = JSON.parse(
+      readFileSync(
+        path.join(REPO_ROOT, 'scripts/safety/tool-policy-manifest.json'),
+        'utf8',
+      ),
+    ) as {
+      classificationSemantics?: { localDb?: string };
+      tools: Array<{
+        entrypoint: string;
+        classifications: { localDb: boolean };
+      }>;
+    };
+    expect(manifest.classificationSemantics?.localDb).toBe(
+      'true only when the executable enforces a loopback-only database target',
+    );
+    expect(manifest.tools.find((tool) =>
+      tool.entrypoint === 'scripts/rag/ingest-document.ts')
+      ?.classifications.localDb).toBe(false);
   });
 });
 

@@ -1,7 +1,10 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
-import { invokeDeepSeekStructured, invokeDeepSeekText } from '../../agents/runtime/providers/deepseek';
+import {
+  invokeDeepSeekStructured,
+  invokeDeepSeekText,
+} from '../safety/paid-ai-provider-facade';
 import { estimateModelCostUsd } from '../../agents/router/pricing';
 import {
   PAID_AI_ENDPOINT_GROUPS,
@@ -10,12 +13,11 @@ import {
 } from '../safety/require-paid-ai-approval';
 
 type Model = 'deepseek-v4-flash' | 'deepseek-v4-pro';
-const maxInputTokens = Number(process.env.DEEPSEEK_STRESS_MAX_INPUT_TOKENS ?? 4_096);
 const maxTokens = Number(process.env.DEEPSEEK_STRESS_MAX_TOKENS ?? 500);
 const models = (process.env.DEEPSEEK_STRESS_MODELS ?? 'deepseek-v4-flash,deepseek-v4-pro')
   .split(',') as Model[];
 const pricingEnvelopes = models.map((model) =>
-  deriveDeepSeekStressEstimate({ model, maxInputTokens, maxOutputTokens: maxTokens }));
+  deriveDeepSeekStressEstimate({ model, maxOutputTokens: maxTokens }));
 const pricing = pricingEnvelopes.reduce((highest, candidate) =>
   candidate.estimatedUsdPerAttempt > highest.estimatedUsdPerAttempt
     ? candidate

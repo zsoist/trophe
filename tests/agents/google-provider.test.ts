@@ -3,6 +3,11 @@ import { z } from 'zod';
 import { callGeminiMessages } from '@/agents/clients/google';
 import { invokeStructuredProvider } from '@/agents/runtime/providers/structured';
 import { invokeTextProvider } from '@/agents/runtime/providers/text';
+import {
+  PaidAiToolApprovalError,
+  createPaidAiAttemptCounter,
+  googleGenerateContentEndpoint,
+} from '../../scripts/safety/require-paid-ai-approval';
 
 const SENSITIVE_SENTINEL = 'SENSITIVE_SENTINEL_DO_NOT_LOG';
 
@@ -45,6 +50,107 @@ afterEach(() => {
 });
 
 describe('Google paid-provider boundary', () => {
+  it('uses one owned raw fetch with redirects disabled and debits immediately before it', async () => {
+    const signal = new AbortController().signal;
+    const endpoint = googleGenerateContentEndpoint('gemini-2.5-flash');
+    const counter = createPaidAiAttemptCounter({
+      operation: 'eval-phase2-round1',
+      maxCalls: 1,
+      maxUsdMicrodollars: 250_000,
+      estimatedUsdPerAttempt: '0.250000',
+      endpoints: [endpoint],
+    });
+    const fetchImpl = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      expect(counter.snapshot().attempts).toBe(1);
+      expect(String(url)).toBe(endpoint);
+      expect(init).toMatchObject({
+        method: 'POST',
+        redirect: 'error',
+        signal,
+      });
+      expect(new Headers(init?.headers).get('x-goog-api-key')).toBe('offline-api-key');
+      expect(JSON.parse(String(init?.body))).toEqual({
+        systemInstruction: { parts: [{ text: 'system' }] },
+        contents: [{ role: 'user', parts: [{ text: 'prompt' }] }],
+        generationConfig: {
+          maxOutputTokens: 123,
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: 'object',
+            properties: { value: { type: 'string' } },
+          },
+          thinkingConfig: { thinkingBudget: 0 },
+        },
+      });
+      return new Response(JSON.stringify({
+        candidates: [{
+          content: { role: 'model', parts: [{ text: '{"value":"ok"}' }] },
+        }],
+        usageMetadata: {
+          promptTokenCount: 7,
+          candidatesTokenCount: 2,
+        },
+      }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    });
+
+    await expect(callGeminiMessages({
+      model: 'gemini-2.5-flash',
+      system: 'system',
+      userMessage: 'prompt',
+      maxTokens: 123,
+      responseSchema: {
+        type: 'object',
+        properties: { value: { type: 'string' } },
+      },
+      disableThinking: true,
+      signal,
+      apiKey: 'offline-api-key',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      beforeTransportAttempt: counter.beforeTransportAttempt,
+    })).resolves.toMatchObject({
+      text: '{"value":"ok"}',
+      usage: { input_tokens: 7, output_tokens: 2 },
+      rawStatus: 200,
+    });
+
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(counter.snapshot().attempts).toBe(1);
+    expect(googleGenAiConstructor).not.toHaveBeenCalled();
+  });
+
+  it('rejects a forged transport callback before the raw fetch', async () => {
+    const fetchImpl = vi.fn();
+    await expect(callGeminiMessages({
+      model: 'gemini-2.5-flash',
+      system: 'system',
+      userMessage: 'prompt',
+      signal: new AbortController().signal,
+      apiKey: 'offline-api-key',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      beforeTransportAttempt: vi.fn(),
+    })).rejects.toBeInstanceOf(PaidAiToolApprovalError);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it('does not require a Task6 capability for ordinary production transport', async () => {
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({
+      candidates: [{ content: { parts: [{ text: 'fixture answer' }] } }],
+    }), { status: 200, headers: { 'content-type': 'application/json' } }));
+
+    await expect(callGeminiMessages({
+      model: 'gemini-2.5-flash',
+      system: 'system',
+      userMessage: 'prompt',
+      signal: new AbortController().signal,
+      apiKey: 'offline-api-key',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    })).resolves.toMatchObject({ text: 'fixture answer', rawStatus: 200 });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
   it('uses injected generateContent with the exact abort signal and no SDK construction', async () => {
     const signal = new AbortController().signal;
     const generateContent = vi.fn().mockResolvedValue({

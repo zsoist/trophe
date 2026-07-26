@@ -2,6 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { invokeOpenAiStructured, OpenAiApiError } from '../../agents/runtime/providers/openai';
 import { invokeStructuredProvider } from '@/agents/runtime/providers/structured';
+import {
+  PAID_AI_ENDPOINTS,
+  createPaidAiAttemptCounter,
+} from '../../scripts/safety/require-paid-ai-approval';
 
 const validator = z.object({ value: z.string() });
 const SENSITIVE_SENTINEL = 'SENSITIVE_SENTINEL_DO_NOT_LOG';
@@ -129,6 +133,51 @@ describe('invokeOpenAiStructured', () => {
       },
     });
     expect(JSON.stringify(fetchMock.mock.calls)).not.toContain(SENSITIVE_SENTINEL);
+  });
+
+  it('owns the Mistral-compatible endpoint and request mapping without a global fetch patch', async () => {
+    const counter = createPaidAiAttemptCounter({
+      operation: 'eval-phase2-round1',
+      maxCalls: 1,
+      maxUsdMicrodollars: 250_000,
+      estimatedUsdPerAttempt: '0.250000',
+      endpoints: [PAID_AI_ENDPOINTS.mistralChat],
+    });
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      choices: [{
+        finish_reason: 'tool_calls',
+        message: {
+          tool_calls: [{
+            function: { name: 'submit_result', arguments: '{"value":"ok"}' },
+          }],
+        },
+      }],
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+
+    await expect(invokeOpenAiStructured({
+      model: 'mistral-small-2603',
+      system: 'system',
+      prompt: 'prompt',
+      maxTokens: 256,
+      signal: new AbortController().signal,
+      toolName: 'submit_result',
+      description: 'Submit result',
+      schema: { type: 'object' },
+      validator,
+      maxAttempts: 1,
+      fetchImpl: fetchMock as unknown as typeof fetch,
+      beforeTransportAttempt: counter.beforeTransportAttempt,
+    })).resolves.toMatchObject({ output: { value: 'ok' } });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toBe(
+      PAID_AI_ENDPOINTS.mistralChat,
+    );
+    const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(body).toMatchObject({ max_tokens: 256 });
+    expect(body).not.toHaveProperty('max_completion_tokens');
+    expect(body).not.toHaveProperty('reasoning_effort');
+    expect(counter.snapshot().attempts).toBe(1);
   });
 
   it('uses one stable cache key for the same static prompt prefix', async () => {

@@ -1,6 +1,6 @@
 import { factoryPolicy } from '../../agents/router/policies';
 import { executeAiTask } from '../../agents/runtime';
-import { invokeTextProvider } from '../../agents/runtime/providers/text';
+import { invokeTextProvider } from '../safety/paid-ai-provider-facade';
 import { assertOffPeakEvalWindow } from './off-peak';
 
 const FACTORY_SYSTEM = 'Generate synthetic nutrition evaluation data only. Never use or infer real-user data.';

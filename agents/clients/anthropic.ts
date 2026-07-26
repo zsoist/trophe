@@ -7,6 +7,7 @@ import {
   assertPaidProviderAccess,
   PAID_PROVIDER_OFFLINE_CREDENTIAL,
 } from '@/agents/runtime/provider-access';
+import { debitPaidTransportAttempt } from '../../scripts/safety/require-paid-ai-approval';
 
 // Thin Anthropic client with prompt caching support.
 // The `system` prompt is passed as a cacheable block — Anthropic caches the
@@ -55,7 +56,7 @@ export async function callAnthropicMessages(
     : input.system;
 
   const startTime = Date.now();
-  input.beforeTransportAttempt?.(ANTHROPIC_API_URL);
+  debitPaidTransportAttempt(input.beforeTransportAttempt, ANTHROPIC_API_URL);
   const response = await (input.fetchImpl ?? fetch)(ANTHROPIC_API_URL, {
     method: 'POST',
     redirect: 'error',

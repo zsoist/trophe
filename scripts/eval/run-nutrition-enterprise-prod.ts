@@ -5,18 +5,24 @@ import { loadEnvConfig } from '@next/env';
 import {
   FOOD_PARSE_OPAQUE_MAX_PROVIDER_ATTEMPTS,
   requirePaidAiToolApproval,
+  resolvePaidAiRouteEndpoint,
 } from '../safety/require-paid-ai-approval';
 
 // Auto-load .env.local so the script works without manual `source .env.local`
-const paidEndpoint = new URL(
-  '/api/food/parse',
-  process.env.TROPHE_API ?? 'https://trophe.app',
-).toString();
+const paidEndpoint = resolvePaidAiRouteEndpoint({
+  baseUrl: process.env.TROPHE_API ?? 'https://trophe.app',
+  pathname: '/api/food/parse',
+  operation: 'eval-nutrition-enterprise-prod',
+});
 const paidAiApproval = requirePaidAiToolApproval({
   operation: 'eval-nutrition-enterprise-prod',
   argv: process.argv.slice(2),
   env: process.env,
   endpoints: [paidEndpoint],
+});
+paidAiApproval.reserveOpaqueEnvelope({
+  endpoint: paidEndpoint,
+  maxProviderAttempts: FOOD_PARSE_OPAQUE_MAX_PROVIDER_ATTEMPTS,
 });
 loadEnvConfig(process.cwd());
 

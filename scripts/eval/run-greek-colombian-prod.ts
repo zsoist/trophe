@@ -27,6 +27,7 @@ import { verifyProductionFoodParsePolicy } from './verify-production-food-parse-
 import {
   FOOD_PARSE_OPAQUE_MAX_PROVIDER_ATTEMPTS,
   requirePaidAiToolApproval,
+  resolvePaidAiRouteEndpoint,
 } from '../safety/require-paid-ai-approval';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -106,12 +107,20 @@ interface CaseResult {
 // ─── Config ─────────────────────────────────────────────────────────────────
 
 const TROPHE_API = process.env.TROPHE_API || 'https://trophe.app';
-const paidEndpoint = new URL('/api/food/parse', TROPHE_API).toString();
+const paidEndpoint = resolvePaidAiRouteEndpoint({
+  baseUrl: TROPHE_API,
+  pathname: '/api/food/parse',
+  operation: 'eval-greek-colombian-prod',
+});
 const paidAiApproval = requirePaidAiToolApproval({
   operation: 'eval-greek-colombian-prod',
   argv: process.argv.slice(2),
   env: process.env,
   endpoints: [paidEndpoint],
+});
+paidAiApproval.reserveOpaqueEnvelope({
+  endpoint: paidEndpoint,
+  maxProviderAttempts: FOOD_PARSE_OPAQUE_MAX_PROVIDER_ATTEMPTS,
 });
 const EVAL_EMAIL = process.env.EVAL_AUTH_EMAIL;
 const EVAL_PASSWORD = process.env.EVAL_AUTH_PASSWORD;

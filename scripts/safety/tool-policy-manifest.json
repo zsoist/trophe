@@ -1,5 +1,8 @@
 {
   "version": 1,
+  "classificationSemantics": {
+    "localDb": "true only when the executable enforces a loopback-only database target"
+  },
   "tools": [
     {
       "id": "agents-evals-run-all",

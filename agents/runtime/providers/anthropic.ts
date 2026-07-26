@@ -3,6 +3,7 @@ import {
   assertPaidProviderAccess,
   PAID_PROVIDER_OFFLINE_CREDENTIAL,
 } from '../provider-access';
+import { debitPaidTransportAttempt } from '../../../scripts/safety/require-paid-ai-approval';
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 const MAX_RESPONSE_BYTES = 1_048_576;
@@ -270,7 +271,7 @@ export async function invokeAnthropicJson<T>(input: {
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured');
 
   const startedAt = Date.now();
-  input.beforeTransportAttempt?.(ANTHROPIC_API_URL);
+  debitPaidTransportAttempt(input.beforeTransportAttempt, ANTHROPIC_API_URL);
   const response = await (input.fetchImpl ?? fetch)(ANTHROPIC_API_URL, {
     method: 'POST',
     redirect: 'error',

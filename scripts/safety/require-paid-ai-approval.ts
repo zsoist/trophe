@@ -1,5 +1,11 @@
 import { pathToFileURL } from 'node:url';
 import {
+  DEEPSEEK_STRESS_INPUT_TOKEN_CEILING,
+  DEEPSEEK_STRESS_OUTPUT_TOKEN_CEILING,
+  DEEPSEEK_STRESS_PRICING_VERSION,
+  deepSeekStressPricing,
+} from '../../agents/router/pricing';
+import {
   FOOD_PARSE_OPAQUE_MAX_PROVIDER_ATTEMPTS,
 } from '../../lib/ai/food-parse-limits';
 export {
@@ -11,9 +17,6 @@ const MAX_APPROVED_USD_MICRODOLLARS = 3_000_000;
 const RUN_ID_PATTERN = /^[a-z0-9](?:[a-z0-9._-]{0,63})$/;
 const MAX_USD_PATTERN = /^(?:0|[1-2])\.\d{6}$|^3\.000000$/;
 const ESTIMATE_PATTERN = /^(?:0|[1-9]\d{0,2})\.(\d{1,12})$/;
-const DEEPSEEK_PRICING_VERSION = 'deepseek-v4-2026-07-25';
-const MAX_DEEPSEEK_INPUT_TOKENS = 16_384;
-const MAX_DEEPSEEK_OUTPUT_TOKENS = 8_192;
 
 export const PAID_AI_ENDPOINTS = Object.freeze({
   anthropicMessages: 'https://api.anthropic.com/v1/messages',
@@ -145,6 +148,7 @@ type ApprovalRule =
   | 'target-mismatch'
   | 'token-limit-invalid'
   | 'tool-opt-in-required'
+  | 'transport-capability-invalid'
   | 'usd-limit'
   | 'usd-limit-invalid';
 
@@ -162,6 +166,7 @@ const APPROVAL_RULES = new Set<ApprovalRule>([
   'target-mismatch',
   'token-limit-invalid',
   'tool-opt-in-required',
+  'transport-capability-invalid',
   'usd-limit',
   'usd-limit-invalid',
 ]);
@@ -287,6 +292,31 @@ export function normalizePaidAiEndpoint(value: string): string {
   return normalizeEndpoint(value, false);
 }
 
+export function resolvePaidAiRouteEndpoint(input: {
+  baseUrl: string;
+  pathname: string;
+  operation: string;
+}): string {
+  const operation = allowlistedOperation(input.operation);
+  if (operation === 'unknown') {
+    blocked('operation-not-allowlisted', input.operation);
+  }
+  if (OPERATION_POLICIES[operation].kind !== 'route') {
+    blocked('target-mismatch', operation);
+  }
+  let resolved: string;
+  try {
+    resolved = new URL(input.pathname, input.baseUrl).toString();
+  } catch {
+    blocked('endpoint-invalid', operation);
+  }
+  const normalized = normalizeEndpoint(resolved, true);
+  if (!endpointAllowed(operation, normalized)) {
+    blocked('target-mismatch', operation);
+  }
+  return normalized;
+}
+
 function endpointAllowed(operation: PaidAiToolOperation, endpoint: string): boolean {
   const kind = OPERATION_POLICIES[operation].kind;
   if (kind === 'route') {
@@ -337,35 +367,31 @@ export function googleGenerateContentEndpoint(model: string): string {
 
 export function deriveDeepSeekStressEstimate(input: {
   model: string;
-  maxInputTokens: number;
   maxOutputTokens: number;
 }): {
-  pricingVersion: typeof DEEPSEEK_PRICING_VERSION;
+  pricingVersion: typeof DEEPSEEK_STRESS_PRICING_VERSION;
   estimatedUsdPerAttempt: string;
 } {
   if (
-    !['deepseek-v4-flash', 'deepseek-v4-pro'].includes(input.model)
-    || !Number.isSafeInteger(input.maxInputTokens)
-    || input.maxInputTokens <= 0
-    || input.maxInputTokens > MAX_DEEPSEEK_INPUT_TOKENS
+    !Object.hasOwn(deepSeekStressPricing, input.model)
     || !Number.isSafeInteger(input.maxOutputTokens)
     || input.maxOutputTokens <= 0
-    || input.maxOutputTokens > MAX_DEEPSEEK_OUTPUT_TOKENS
+    || input.maxOutputTokens > DEEPSEEK_STRESS_OUTPUT_TOKEN_CEILING
   ) {
     blocked('token-limit-invalid', 'eval-deepseek-stress');
   }
-  const rates = input.model === 'deepseek-v4-pro'
-    ? { inputNanoUsd: 435, outputNanoUsd: 870 }
-    : { inputNanoUsd: 27, outputNanoUsd: 390 };
+  const rates = deepSeekStressPricing[
+    input.model as keyof typeof deepSeekStressPricing
+  ];
   const microdollars = Math.ceil(
-    (input.maxInputTokens * rates.inputNanoUsd
-      + input.maxOutputTokens * rates.outputNanoUsd) / 1_000,
+    DEEPSEEK_STRESS_INPUT_TOKEN_CEILING * rates.inputPerMillion
+      + input.maxOutputTokens * rates.outputPerMillion,
   );
   if (!Number.isSafeInteger(microdollars) || microdollars <= 0) {
     blocked('estimate-invalid', 'eval-deepseek-stress');
   }
   return Object.freeze({
-    pricingVersion: DEEPSEEK_PRICING_VERSION,
+    pricingVersion: DEEPSEEK_STRESS_PRICING_VERSION,
     estimatedUsdPerAttempt: `${Math.floor(microdollars / 1_000_000)}.${String(
       microdollars % 1_000_000,
     ).padStart(6, '0')}`,
@@ -380,7 +406,33 @@ export interface PaidAiAttemptSnapshot {
   remainingUsdMicrodollars: number;
 }
 
-export type BeforePaidTransportAttempt = (endpoint: string) => PaidAiAttemptSnapshot;
+export type BeforePaidTransportAttempt = (endpoint: string) => unknown;
+
+const MINTED_PAID_TRANSPORT_CAPABILITIES =
+  new WeakSet<BeforePaidTransportAttempt>();
+
+function mintPaidTransportCapability<T extends BeforePaidTransportAttempt>(
+  capability: T,
+): T {
+  MINTED_PAID_TRANSPORT_CAPABILITIES.add(capability);
+  return capability;
+}
+
+/**
+ * Production request paths normally omit this callback. Task6-paid tools pass
+ * one, and every owned transport validates its module-private provenance before
+ * the request so a structurally similar no-op cannot bypass accounting.
+ */
+export function debitPaidTransportAttempt(
+  capability: BeforePaidTransportAttempt | undefined,
+  endpoint: string,
+): unknown {
+  if (capability == null) return undefined;
+  if (!MINTED_PAID_TRANSPORT_CAPABILITIES.has(capability)) {
+    blocked('transport-capability-invalid', 'unknown');
+  }
+  return capability(endpoint);
+}
 
 export interface PaidAiTransportCapability {
   beforeTransportAttempt: BeforePaidTransportAttempt;
@@ -479,21 +531,21 @@ export function createPaidAiAttemptCounter(input: {
       blocked('usd-limit', operation);
     }
   };
-  const directAttempt: BeforePaidTransportAttempt = (endpoint) => {
+  const directAttempt = mintPaidTransportCapability((endpoint: string) => {
     validateEndpoint(endpoint);
     assertCapacity(1);
     attempts += 1;
     consumedUsdMicrodollars += estimateMicrodollars;
     return snapshot();
-  };
+  });
   const reserve = (endpoint: string, count: number): PaidAiTransportCapability => {
     validateEndpoint(endpoint);
     assertCapacity(count);
     reservedAttempts += count;
     reservedUsdMicrodollars += estimateMicrodollars * count;
     let reservationRemaining = count;
-    return Object.freeze({
-      beforeTransportAttempt(actualEndpoint: string): PaidAiAttemptSnapshot {
+    const beforeTransportAttempt = mintPaidTransportCapability(
+      (actualEndpoint: string): PaidAiAttemptSnapshot => {
         validateEndpoint(actualEndpoint);
         if (reservationRemaining <= 0) blocked('attempt-limit', operation);
         reservationRemaining -= 1;
@@ -503,7 +555,8 @@ export function createPaidAiAttemptCounter(input: {
         consumedUsdMicrodollars += estimateMicrodollars;
         return snapshot();
       },
-    });
+    );
+    return Object.freeze({ beforeTransportAttempt });
   };
 
   const counter: PaidAiAttemptCounter = Object.freeze({
@@ -638,7 +691,7 @@ export function requirePaidAiToolApproval(input: {
   if (input.pricing != null) {
     if (
       operation !== 'eval-deepseek-stress'
-      || input.pricing.pricingVersion !== DEEPSEEK_PRICING_VERSION
+      || input.pricing.pricingVersion !== DEEPSEEK_STRESS_PRICING_VERSION
     ) {
       blocked('estimate-invalid', operation);
     }
@@ -740,7 +793,6 @@ async function runCli(): Promise<void> {
         ? {
             pricing: deriveDeepSeekStressEstimate({
               model: process.env.DEEPSEEK_STRESS_MODEL ?? '',
-              maxInputTokens: Number(process.env.DEEPSEEK_STRESS_MAX_INPUT_TOKENS),
               maxOutputTokens: Number(process.env.DEEPSEEK_STRESS_MAX_TOKENS),
             }),
           }

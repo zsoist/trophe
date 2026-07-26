@@ -8,6 +8,19 @@ import ts from 'typescript';
 const SOURCE_EXTENSIONS = ['.ts', '.tsx', '.mts', '.js', '.mjs', '.cjs'];
 const PAID_MODULE_PATTERN =
   /(?:agents\/(?:runtime\/providers|clients\/(?:anthropic|google)|rag\/ingest)|factory-runtime)/;
+const LOW_LEVEL_PROVIDER_PATTERN =
+  /^(?:agents\/runtime\/providers\/(?:anthropic|deepseek|openai|voyage)\.(?:ts|tsx|js|mjs|cjs)|agents\/clients\/(?:anthropic|google)\.(?:ts|tsx|js|mjs|cjs))$/;
+const APPROVED_PROVIDER_IMPORTERS = new Set([
+  'agents/clients/anthropic.ts',
+  'agents/memory/read.ts',
+  'agents/memory/write.ts',
+  'agents/rag/ingest.ts',
+  'agents/rag/retrieve.ts',
+  'agents/runtime/providers/structured.ts',
+  'agents/runtime/providers/text.ts',
+  'app/api/ai/photo-analyze/route.ts',
+  'scripts/safety/paid-ai-provider-facade.ts',
+]);
 const PAID_TEXT_PATTERNS = [
   /api\.anthropic\.com/i,
   /api\.deepseek\.com/i,
@@ -145,8 +158,9 @@ function parseSource(absolute) {
   };
 }
 
-function moduleSpecifiers(sourceFile) {
+function moduleLoads(sourceFile) {
   const specifiers = [];
+  let hasNonliteralLoad = false;
   function visit(node) {
     if (
       (ts.isImportDeclaration(node) || ts.isExportDeclaration(node))
@@ -157,16 +171,21 @@ function moduleSpecifiers(sourceFile) {
     }
     if (
       ts.isCallExpression(node)
-      && node.expression.kind === ts.SyntaxKind.ImportKeyword
-      && node.arguments.length === 1
-      && ts.isStringLiteralLike(node.arguments[0])
+      && (
+        node.expression.kind === ts.SyntaxKind.ImportKeyword
+        || (ts.isIdentifier(node.expression) && node.expression.text === 'require')
+      )
     ) {
-      specifiers.push(node.arguments[0].text);
+      if (node.arguments.length !== 1 || !ts.isStringLiteralLike(node.arguments[0])) {
+        hasNonliteralLoad = true;
+      } else {
+        specifiers.push(node.arguments[0].text);
+      }
     }
     ts.forEachChild(node, visit);
   }
   visit(sourceFile);
-  return specifiers;
+  return { specifiers, hasNonliteralLoad };
 }
 
 function resolveLocalModule(rootDir, fromFile, specifier) {
@@ -198,7 +217,7 @@ function packageEntrypoints(rootDir) {
   const entrypoints = new Set();
   for (const command of Object.values(scripts ?? {})) {
     if (typeof command !== 'string') continue;
-    for (const token of command.matchAll(/(?:^|[\s"'=])((?:agents|scripts)\/[A-Za-z0-9_./-]+\.(?:[cm]?[jt]sx?|sh))(?=$|[\s"'])/g)) {
+    for (const token of command.matchAll(/(?:^|[\s"'=])([A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_./-]+)*\.(?:[cm]?[jt]sx?|sh))(?=$|[\s"'])/g)) {
       entrypoints.add(token[1]);
     }
   }
@@ -215,7 +234,13 @@ function callName(call) {
   return '';
 }
 
-function hasTopLevelExecution(sourceFile) {
+function hasTopLevelExecution(sourceFile, source) {
+  if (
+    /\brequire\.main\s*===\s*module\b/.test(source)
+    || /\bimport\.meta\.url\b[\s\S]{0,160}\bprocess\.argv\s*\[\s*1\s*\]/.test(source)
+  ) {
+    return true;
+  }
   for (const statement of sourceFile.statements) {
     if (!ts.isExpressionStatement(statement)) continue;
     let expression = statement.expression;
@@ -226,7 +251,20 @@ function hasTopLevelExecution(sourceFile) {
     ) {
       expression = expression.expression;
     }
-    if (ts.isCallExpression(expression)) return true;
+    if (!ts.isCallExpression(expression)) continue;
+    const name = callName(expression);
+    if (['main', 'run', 'execute'].includes(name)) return true;
+    if (
+      ['catch', 'then', 'finally'].includes(name)
+      && ts.isPropertyAccessExpression(expression.expression)
+      && ts.isCallExpression(expression.expression.expression)
+      && ['main', 'run', 'execute'].includes(
+        callName(expression.expression.expression),
+      )
+    ) {
+      return true;
+    }
+    return true;
   }
   return false;
 }
@@ -238,8 +276,10 @@ function executableEntrypoints(rootDir, allFiles, manifest) {
   for (const absolute of allFiles) {
     const file = relativePath(rootDir, absolute);
     if (
-      !(file.startsWith('scripts/') || file.startsWith('agents/evals/'))
-      || file.endsWith('.d.ts')
+      file.endsWith('.d.ts')
+      || file.startsWith('tests/')
+      || /(?:^|\/)__tests__\//.test(file)
+      || /\.(?:spec|test)\.[cm]?[jt]sx?$/.test(file)
     ) {
       continue;
     }
@@ -248,37 +288,79 @@ function executableEntrypoints(rootDir, allFiles, manifest) {
       if (source.startsWith('#!')) entrypoints.add(file);
       continue;
     }
-    if (hasTopLevelExecution(parseSource(absolute).sourceFile)) entrypoints.add(file);
+    const parsed = parseSource(absolute);
+    if (
+      parsed.source.startsWith('#!')
+      || hasTopLevelExecution(parsed.sourceFile, parsed.source)
+    ) {
+      entrypoints.add(file);
+    }
   }
   return [...entrypoints].sort();
 }
 
 function dependencyGraph(rootDir, entrypoint) {
   const start = path.join(rootDir, entrypoint);
-  if (!fs.existsSync(start) || start.endsWith('.sh')) return [];
+  if (!fs.existsSync(start) || start.endsWith('.sh')) {
+    return { files: [], nonliteralFiles: [] };
+  }
   const visited = new Set();
+  const nonliteralFiles = new Set();
   const pending = [start];
   while (pending.length > 0) {
     const absolute = pending.pop();
     if (visited.has(absolute)) continue;
     visited.add(absolute);
     const { sourceFile } = parseSource(absolute);
-    for (const specifier of moduleSpecifiers(sourceFile)) {
+    const loads = moduleLoads(sourceFile);
+    if (loads.hasNonliteralLoad) nonliteralFiles.add(absolute);
+    for (const specifier of loads.specifiers) {
       const dependency = resolveLocalModule(rootDir, absolute, specifier);
       if (dependency && !visited.has(dependency)) pending.push(dependency);
     }
   }
-  return [...visited];
+  return { files: [...visited], nonliteralFiles: [...nonliteralFiles] };
 }
 
 function graphHasPaidSignal(rootDir, graph) {
   return graph.some((absolute) => {
     const file = relativePath(rootDir, absolute);
+    if (
+      file === 'scripts/safety/require-paid-ai-approval.ts'
+      || file === 'scripts/ci/check-paid-ai-tools.mjs'
+    ) {
+      return false;
+    }
     if (PAID_MODULE_PATTERN.test(file)) return true;
     const { sourceFile } = parseSource(absolute);
+    const paidIdentifiers = new Set();
     let paid = false;
     function visit(node) {
+      if (
+        ts.isVariableDeclaration(node)
+        && ts.isIdentifier(node.name)
+        && node.initializer
+        && PAID_TEXT_PATTERNS.some((pattern) =>
+          pattern.test(node.initializer.getText(sourceFile)))
+      ) {
+        paidIdentifiers.add(node.name.text);
+      }
       if (ts.isCallExpression(node) && PAID_CALL_PATTERN.test(callName(node))) paid = true;
+      if (
+        ts.isCallExpression(node)
+        && ['fetch', 'fetchOpaque'].includes(callName(node))
+        && node.arguments[0]
+        && (
+          PAID_TEXT_PATTERNS.some((pattern) =>
+            pattern.test(node.arguments[0].getText(sourceFile)))
+          || (
+            ts.isIdentifier(node.arguments[0])
+            && paidIdentifiers.has(node.arguments[0].text)
+          )
+        )
+      ) {
+        paid = true;
+      }
       if (
         (ts.isImportDeclaration(node) || ts.isExportDeclaration(node))
         && node.moduleSpecifier
@@ -299,6 +381,139 @@ function isProviderBoundaryFile(rootDir, absolute) {
   return file.startsWith('agents/runtime/providers/')
     || file === 'agents/clients/anthropic.ts'
     || file === 'agents/clients/google.ts';
+}
+
+function graphHasDirectProviderImport(rootDir, graph) {
+  for (const absolute of graph) {
+    const importer = relativePath(rootDir, absolute);
+    if (APPROVED_PROVIDER_IMPORTERS.has(importer)) continue;
+    const { sourceFile } = parseSource(absolute);
+    for (const specifier of moduleLoads(sourceFile).specifiers) {
+      const dependency = resolveLocalModule(rootDir, absolute, specifier);
+      if (
+        dependency
+        && LOW_LEVEL_PROVIDER_PATTERN.test(relativePath(rootDir, dependency))
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+function graphHasDirectPaidFetch(rootDir, graph) {
+  for (const absolute of graph) {
+    if (isProviderBoundaryFile(rootDir, absolute)) continue;
+    const file = relativePath(rootDir, absolute);
+    if (file === 'scripts/safety/require-paid-ai-approval.ts') continue;
+    const { sourceFile } = parseSource(absolute);
+    const paidIdentifiers = new Set();
+    function collect(node) {
+      if (
+        ts.isVariableDeclaration(node)
+        && ts.isIdentifier(node.name)
+        && node.initializer
+        && PAID_TEXT_PATTERNS.some((pattern) =>
+          pattern.test(node.initializer.getText(sourceFile)))
+      ) {
+        paidIdentifiers.add(node.name.text);
+      }
+      ts.forEachChild(node, collect);
+    }
+    collect(sourceFile);
+    let found = false;
+    function visit(node) {
+      if (
+        ts.isCallExpression(node)
+        && callName(node) === 'fetch'
+        && node.arguments[0]
+        && (
+          PAID_TEXT_PATTERNS.some((pattern) =>
+            pattern.test(node.arguments[0].getText(sourceFile)))
+          || (
+            ts.isIdentifier(node.arguments[0])
+            && paidIdentifiers.has(node.arguments[0].text)
+          )
+        )
+      ) {
+        found = true;
+      }
+      ts.forEachChild(node, visit);
+    }
+    visit(sourceFile);
+    if (found) return true;
+  }
+  return false;
+}
+
+function approvalVariableNames(sourceFile) {
+  const names = new Set();
+  let changed = true;
+  while (changed) {
+    changed = false;
+    function visit(node) {
+      if (
+        ts.isVariableDeclaration(node)
+        && ts.isIdentifier(node.name)
+        && node.initializer
+      ) {
+        const initializer = node.initializer;
+        const guard = ts.isCallExpression(initializer)
+          && callName(initializer) === 'requirePaidAiToolApproval';
+        const derived = ts.isCallExpression(initializer)
+          && ts.isPropertyAccessExpression(initializer.expression)
+          && initializer.expression.name.text === 'reserveAttemptEnvelope'
+          && ts.isIdentifier(initializer.expression.expression)
+          && names.has(initializer.expression.expression.text);
+        const alias = ts.isIdentifier(initializer) && names.has(initializer.text);
+        const conditional = ts.isConditionalExpression(initializer)
+          && ts.isIdentifier(initializer.whenTrue)
+          && names.has(initializer.whenTrue.text)
+          && ts.isIdentifier(initializer.whenFalse)
+          && names.has(initializer.whenFalse.text);
+        if ((guard || derived || alias || conditional) && !names.has(node.name.text)) {
+          names.add(node.name.text);
+          changed = true;
+        }
+      }
+      ts.forEachChild(node, visit);
+    }
+    visit(sourceFile);
+  }
+  return names;
+}
+
+function entryHasForgedCapability(sourceFile) {
+  const approvedRoots = approvalVariableNames(sourceFile);
+  let forged = false;
+  function visit(node) {
+    if (
+      ts.isMethodDeclaration(node)
+      && node.name.getText(sourceFile).replaceAll(/['"]/g, '')
+        === 'beforeTransportAttempt'
+    ) {
+      forged = true;
+    }
+    if (
+      ts.isPropertyAssignment(node)
+      && node.name.getText(sourceFile).replaceAll(/['"]/g, '')
+        === 'beforeTransportAttempt'
+    ) {
+      const initializer = node.initializer;
+      if (ts.isArrowFunction(initializer) || ts.isFunctionExpression(initializer)) {
+        forged = true;
+      } else if (
+        ts.isPropertyAccessExpression(initializer)
+        && ts.isIdentifier(initializer.expression)
+        && !approvedRoots.has(initializer.expression.text)
+      ) {
+        forged = true;
+      }
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(sourceFile);
+  return forged;
 }
 
 function graphHasTransportCapability(rootDir, graph) {
@@ -358,10 +573,74 @@ function argumentCarriesTransportCapability(node) {
   return capable;
 }
 
+function paidCallBindings(rootDir, absolute, sourceFile) {
+  const bindings = new Set();
+  const isPaidSurface = (specifier) => {
+    const dependency = resolveLocalModule(rootDir, absolute, specifier);
+    if (!dependency) return false;
+    const file = relativePath(rootDir, dependency);
+    return file === 'scripts/safety/paid-ai-provider-facade.ts'
+      || PAID_MODULE_PATTERN.test(file);
+  };
+  function addBindingElements(bindingName) {
+    if (ts.isIdentifier(bindingName)) {
+      bindings.add(bindingName.text);
+      return;
+    }
+    if (ts.isObjectBindingPattern(bindingName)) {
+      for (const element of bindingName.elements) {
+        bindings.add(element.name.getText(sourceFile));
+      }
+    }
+  }
+  function visit(node) {
+    if (
+      ts.isImportDeclaration(node)
+      && ts.isStringLiteralLike(node.moduleSpecifier)
+      && isPaidSurface(node.moduleSpecifier.text)
+      && node.importClause
+    ) {
+      if (node.importClause.name) bindings.add(node.importClause.name.text);
+      const named = node.importClause.namedBindings;
+      if (named && ts.isNamedImports(named)) {
+        for (const element of named.elements) bindings.add(element.name.text);
+      }
+    }
+    if (
+      ts.isVariableDeclaration(node)
+      && node.initializer
+    ) {
+      let initializer = node.initializer;
+      while (ts.isAwaitExpression(initializer) || ts.isParenthesizedExpression(initializer)) {
+        initializer = initializer.expression;
+      }
+      if (
+        ts.isCallExpression(initializer)
+        && (
+          initializer.expression.kind === ts.SyntaxKind.ImportKeyword
+          || (
+            ts.isIdentifier(initializer.expression)
+            && initializer.expression.text === 'require'
+          )
+        )
+        && initializer.arguments.length === 1
+        && ts.isStringLiteralLike(initializer.arguments[0])
+        && isPaidSurface(initializer.arguments[0].text)
+      ) {
+        addBindingElements(node.name);
+      }
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(sourceFile);
+  return bindings;
+}
+
 function graphHasUnprotectedPaidCall(rootDir, graph) {
   for (const absolute of graph) {
     if (isProviderBoundaryFile(rootDir, absolute)) continue;
     const { sourceFile } = parseSource(absolute);
+    const paidBindings = paidCallBindings(rootDir, absolute, sourceFile);
     let unprotected = false;
     function visit(node) {
       if (ts.isCallExpression(node)) {
@@ -375,6 +654,7 @@ function graphHasUnprotectedPaidCall(rootDir, graph) {
         }
         const isPaidBoundary =
           PAID_CALL_PATTERN.test(name)
+          || paidBindings.has(name)
           || ['generateFactoryText', 'ingestKnowledge', 'runAgent', 'runPipeline']
             .includes(name)
           || (name === 'run' && ts.isIdentifier(expression));
@@ -414,12 +694,45 @@ function nearestControlAncestor(node, sourceFile) {
   return undefined;
 }
 
+function functionAncestorName(node, sourceFile) {
+  let current = node.parent;
+  while (current && current !== sourceFile) {
+    if (ts.isFunctionDeclaration(current)) return current.name?.text;
+    if (
+      ts.isFunctionExpression(current)
+      || ts.isArrowFunction(current)
+      || ts.isMethodDeclaration(current)
+    ) {
+      return '';
+    }
+    current = current.parent;
+  }
+  return undefined;
+}
+
+function topLevelInvokedFunctions(sourceFile) {
+  const names = new Set();
+  for (const statement of sourceFile.statements) {
+    if (!ts.isExpressionStatement(statement)) continue;
+    function visit(node) {
+      if (ts.isCallExpression(node)) {
+        const name = callName(node);
+        if (['main', 'run', 'execute'].includes(name)) names.add(name);
+      }
+      ts.forEachChild(node, visit);
+    }
+    visit(statement);
+  }
+  return names;
+}
+
 function analyzeNodeEntrypoint(rootDir, entrypoint, graph, manifestTool, violations) {
   const absolute = path.join(rootDir, entrypoint);
   const { sourceFile } = parseSource(absolute);
   const guards = [];
   const guardOperations = new Set();
   const sensitive = [];
+  const invokedFunctions = topLevelInvokedFunctions(sourceFile);
   for (const statement of sourceFile.statements) {
     if (
       ts.isImportDeclaration(statement)
@@ -433,9 +746,15 @@ function analyzeNodeEntrypoint(rootDir, entrypoint, graph, manifestTool, violati
     if (ts.isCallExpression(node)) {
       const name = callName(node);
       if (name === 'requirePaidAiToolApproval') {
+        const functionName = functionAncestorName(node, sourceFile);
         guards.push({
           position: node.getStart(sourceFile),
-          conditional: nearestControlAncestor(node, sourceFile) != null,
+          reachable:
+            nearestControlAncestor(node, sourceFile) == null
+            && (
+              functionName == null
+              || (functionName !== '' && invokedFunctions.has(functionName))
+            ),
         });
         const object = node.arguments[0];
         if (object && ts.isObjectLiteralExpression(object)) {
@@ -451,6 +770,13 @@ function analyzeNodeEntrypoint(rootDir, entrypoint, graph, manifestTool, violati
         }
       }
       if (SENSITIVE_CALLS.has(name)) sensitive.push(node.getStart(sourceFile));
+      if (
+        PAID_CALL_PATTERN.test(name)
+        || ['fetchOpaque', 'generateFactoryText', 'ingestKnowledge', 'runAgent']
+          .includes(name)
+      ) {
+        sensitive.push(node.getStart(sourceFile));
+      }
       if (
         ts.isPropertyAccessExpression(node.expression)
         && /^(?:db|database|client|pool)\b/.test(
@@ -501,18 +827,22 @@ function analyzeNodeEntrypoint(rootDir, entrypoint, graph, manifestTool, violati
   if (guards.length === 0) {
     violations.add(`${entrypoint}:paid-ai-approval-missing`);
   } else {
+    const reachableGuards = guards.filter((guard) => guard.reachable);
+    if (reachableGuards.length > 1) {
+      violations.add(`${entrypoint}:paid-ai-approval-bootstrap-count`);
+    }
     if (
-      guards.every((guard) => guard.conditional)
+      reachableGuards.length === 0
       || !guardOperations.has(manifestTool.operations['paid-ai'])
     ) {
       violations.add(
-        guards.every((guard) => guard.conditional)
-          ? `${entrypoint}:paid-ai-approval-not-dominating`
+        reachableGuards.length === 0
+          ? `${entrypoint}:approval-bootstrap-not-dominating`
           : `${entrypoint}:paid-ai-operation-mismatch`,
       );
     }
     const firstUnconditionalGuard = Math.min(
-      ...guards.filter((guard) => !guard.conditional).map((guard) => guard.position),
+      ...reachableGuards.map((guard) => guard.position),
     );
     if (sensitive.some((position) => position < firstUnconditionalGuard)) {
       violations.add(`${entrypoint}:approval-after-sensitive-boundary`);
@@ -524,6 +854,15 @@ function analyzeNodeEntrypoint(rootDir, entrypoint, graph, manifestTool, violati
   ) {
     violations.add(`${entrypoint}:paid-transport-capability-missing`);
   }
+  if (entryHasForgedCapability(sourceFile)) {
+    violations.add(`${entrypoint}:paid-transport-capability-forged`);
+  }
+  if (graphHasDirectProviderImport(rootDir, graph)) {
+    violations.add(`${entrypoint}:direct-provider-import-outside-facade`);
+  }
+  if (graphHasDirectPaidFetch(rootDir, graph)) {
+    violations.add(`${entrypoint}:direct-paid-transport-outside-facade`);
+  }
 }
 
 function analyzeShellEntrypoint(rootDir, entrypoint, manifestTool, violations) {
@@ -534,10 +873,16 @@ function analyzeShellEntrypoint(rootDir, entrypoint, manifestTool, violations) {
     return;
   }
   if (!manifestTool.policies.includes('paid-ai')) return;
-  const lines = source.split(/\r?\n/);
-  const guardIndex = lines.findIndex((line) =>
+  const commands = source
+    .replace(/\\\r?\n[ \t]*/g, ' ')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const guardIndex = commands.findIndex((line) =>
     line.includes('safety/require-paid-ai-approval.ts'));
-  const paidIndex = lines.findIndex((line) => /\bcurl\b/.test(line));
+  const paidIndex = commands.findIndex((line) =>
+    /\bcurl\b/.test(line)
+    && PAID_TEXT_PATTERNS.some((pattern) => pattern.test(line)));
   if (guardIndex < 0) {
     violations.add(`${entrypoint}:paid-ai-approval-missing`);
   } else if (guardIndex > paidIndex) {
@@ -546,7 +891,7 @@ function analyzeShellEntrypoint(rootDir, entrypoint, manifestTool, violations) {
   if (
     !source.includes('set -euo pipefail')
     || guardIndex < 0
-    || /(?:\|\||&&|;|&)\s*(?:true|:)?\s*$/.test(lines[guardIndex].trim())
+    || /(?:\|\||&&|;|&)\s*(?:true|:)?\s*$/.test(commands[guardIndex])
   ) {
     violations.add(`${entrypoint}:shell-guard-fail-open`);
   }
@@ -569,9 +914,13 @@ export function scanPaidAiTools({ rootDir = process.cwd() } = {}) {
       analyzeShellEntrypoint(root, entrypoint, manifestTool, violations);
       continue;
     }
-    const graph = dependencyGraph(root, entrypoint);
+    const graphResult = dependencyGraph(root, entrypoint);
+    const graph = graphResult.files;
     const graphIsPaid = graphHasPaidSignal(root, graph);
     if (!graphIsPaid && !manifestTool?.policies.includes('paid-ai')) continue;
+    if (graphResult.nonliteralFiles.length > 0) {
+      violations.add(`${entrypoint}:nonliteral-module-load-in-paid-graph`);
+    }
     if (!manifestTool) {
       violations.add(`${entrypoint}:unclassified-paid-ai-tool`);
       continue;

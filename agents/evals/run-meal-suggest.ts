@@ -28,7 +28,7 @@ import { writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { taskPolicies } from '../router/policies';
 import { estimateModelCostUsd } from '../router/pricing';
-import { invokeStructuredProvider } from '../runtime/providers/structured';
+import { invokeStructuredProvider } from '../../scripts/safety/paid-ai-provider-facade';
 import { mealSuggestionValidator, mealSuggestJsonSchema } from '../schemas/meal-suggest';
 import {
   PAID_AI_ENDPOINT_GROUPS,

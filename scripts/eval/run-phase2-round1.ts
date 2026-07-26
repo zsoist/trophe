@@ -6,7 +6,6 @@ import { loadEnvConfig } from '@next/env';
 import type { RoutingPolicy } from '../../agents/router/policies';
 import {
   PAID_AI_ENDPOINT_GROUPS,
-  PAID_AI_ENDPOINTS,
   requirePaidAiToolApproval,
 } from '../safety/require-paid-ai-approval';
 
@@ -77,27 +76,12 @@ async function main() {
   const originalPolicy = taskPolicies.food_parse;
   const originalFallback = taskFallbacks.food_parse;
   delete taskFallbacks.food_parse;
-  const nativeFetch = globalThis.fetch;
-  const originalOpenAiKey = process.env.OPENAI_API_KEY;
   const allResults: Record<string, unknown> = {};
   let observedColdSpend = 0;
 
   try {
     for (const model of approvedModels) {
       taskPolicies.food_parse = model.policy;
-      process.env.OPENAI_API_KEY = model.name==='mistral-small-2603' ? process.env.MISTRAL_API_KEY : originalOpenAiKey;
-      globalThis.fetch = model.name==='mistral-small-2603'
-        ? (async (input: RequestInfo | URL, init?: RequestInit) => {
-            if (String(input)==='https://api.openai.com/v1/chat/completions' && init?.body) {
-              const body=JSON.parse(String(init.body));
-              delete body.reasoning_effort;
-              body.max_tokens=body.max_completion_tokens;
-              delete body.max_completion_tokens;
-              return nativeFetch('https://api.mistral.ai/v1/chat/completions',{...init,body:JSON.stringify(body)});
-            }
-            return nativeFetch(input,init);
-          }) as typeof fetch
-        : nativeFetch;
 
       const runCases = paidAiApproval.boundCases([
         ...currentGolden.cases.map(c=>({kind:'probe1' as const,c})),
@@ -114,13 +98,7 @@ async function main() {
             {text:c.input,language:(c.language==='mixed'?'en':c.language) as any},
             {
               metadata:{phase2:'round1',model:model.name,caseId:c.id,kind:entry.kind},
-              beforeTransportAttempt: (endpoint: string) =>
-                paidAiApproval.beforeTransportAttempt(
-                  model.name === 'mistral-small-2603'
-                    && endpoint === PAID_AI_ENDPOINTS.openAiChat
-                    ? PAID_AI_ENDPOINTS.mistralChat
-                    : endpoint,
-                ),
+              beforeTransportAttempt: paidAiApproval.beforeTransportAttempt,
             },
           );
           const items=(response.output?.items??[]) as OutputItem[];
@@ -177,8 +155,6 @@ async function main() {
   } finally {
     taskPolicies.food_parse=originalPolicy;
     if(originalFallback) taskFallbacks.food_parse=originalFallback;
-    globalThis.fetch=nativeFetch;
-    process.env.OPENAI_API_KEY=originalOpenAiKey;
   }
   writeFileSync(join(outputDir,'round1-all-models.json'),JSON.stringify({createdAt:new Date().toISOString(),observedColdSpend,results:allResults},null,2));
   console.log(`[phase2] Round 1 complete; observed cold-equivalent spend $${observedColdSpend.toFixed(2)}`);
