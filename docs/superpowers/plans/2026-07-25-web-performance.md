@@ -109,23 +109,26 @@ git commit -m "perf: capture mobile and desktop baselines"
 
 **Files:**
 - Modify: `app/page.tsx`
+- Create: `app/es/page.tsx`
+- Create: `app/el/page.tsx`
+- Create: `components/landing/LandingPage.tsx`
 - Create: `components/landing/LanguageLinks.tsx`
 - Create: `lib/landing-language.ts`
 - Modify: `tests/performance/landing-delivery.test.ts`
 - Create: `e2e/public-language.spec.ts`
 
 **Interfaces:**
-- Consumes: `searchParams.lang`
-- Produces: server-rendered landing page for `en | es | el`
-- Produces: language URLs `/?lang=en`, `/?lang=es`, `/?lang=el`
+- Produces: statically prerendered landing pages for `en | es | el`
+- Produces: canonical language URLs `/`, `/es`, `/el`
 
 - [ ] **Step 1: Add failing language and browser tests**
 
-Unit-test `landingLang` with literal `en`, `es`, `el`, invalid, missing, and
-array inputs. In Playwright, navigate to `/?lang=es` and `/?lang=el`; assert the
-localized hero heading is visible, then use the language links and assert the
-URL and visible heading update. The existing build-budget task verifies that
-the route has no avoidable page-specific client chunk.
+Unit-test the literal route map for `en`, `es`, and `el`. In Playwright,
+navigate to `/es` and `/el`; assert the localized hero heading and the page
+content root's `lang` attribute, then use plain language links and assert the
+canonical URL and visible heading update without requiring hydration. The
+build-budget task verifies that no language route has an avoidable page-specific
+client chunk.
 
 - [ ] **Step 2: Prove red**
 
@@ -135,17 +138,18 @@ npx vitest run tests/performance/landing-delivery.test.ts --reporter=verbose
 
 - [ ] **Step 3: Convert the page to a server component**
 
-Use:
+Use a shared server component:
 
 ```ts
 type LandingLang = 'en' | 'es' | 'el';
-function landingLang(value: string | string[] | undefined): LandingLang {
-  return value === 'es' || value === 'el' ? value : 'en';
-}
+<LandingPage lang="en" />
+<LandingPage lang="es" />
+<LandingPage lang="el" />
 ```
 
-Export `landingLang` from `lib/landing-language.ts`. Resolve `searchParams`,
-select copy on the server, and render plain markup. `LanguageLinks` contains
+Keep `/`, `/es`, and `/el` as concrete static route files. Do not await
+`searchParams`, `cookies()`, or `headers()` on these routes because current
+Next.js treats those request-time APIs as dynamic. `LanguageLinks` contains
 only `Link` elements and requires no client directive.
 
 - [ ] **Step 4: Preserve delivery invariants**
@@ -161,17 +165,66 @@ npx playwright test e2e/public-language.spec.ts --project=mobile-chromium
 npm run build
 ```
 
-Expected: `/` has no page-specific client bundle beyond framework-required
-runtime.
+Expected: all three routes are statically generated and have no page-specific
+client bundle beyond framework-required runtime.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add app/page.tsx components/landing/LanguageLinks.tsx lib/landing-language.ts tests/performance/landing-delivery.test.ts e2e/public-language.spec.ts
+git add app/page.tsx app/es/page.tsx app/el/page.tsx components/landing lib/landing-language.ts tests/performance/landing-delivery.test.ts e2e/public-language.spec.ts
 git commit -m "perf(landing): render public home on the server"
 ```
 
-### Task 4: Remove Framer Motion from the login critical path
+### Task 4: Remove unused public-route font transfer
+
+**Files:**
+- Modify: `app/layout.tsx`
+- Modify: `components/landing/LandingPage.tsx`
+- Create: `tests/performance/font-delivery.test.ts`
+- Modify: `docs/quality/performance-local-baseline.json`
+
+**Interfaces:**
+- Preserves: Inter Latin/Greek, Instrument Serif brand italic, and authenticated
+  JetBrains Mono styling
+- Removes: English landing preload/request of unused Greek, normal display, and
+  monospace font files
+
+- [ ] **Step 1: Write failing delivery assertions**
+
+From a production build and local browser trace, assert `/` does not preload an
+Inter Greek file or Instrument Serif normal file, and does not request
+JetBrains Mono. Assert `/el` still renders Greek with the configured Inter
+family and the brand wordmark still uses Instrument Serif italic.
+
+- [ ] **Step 2: Prove red**
+
+```bash
+npx vitest run tests/performance/font-delivery.test.ts --reporter=verbose
+```
+
+- [ ] **Step 3: Remove deterministic waste**
+
+Disable broad global font preloads where the browser's unicode/style selection
+can load only used faces. Remove `font-mono` from every marketing-only label
+and mockup element so the public DOM does not request JetBrains Mono; preserve
+mono styling in authenticated routes. Do not remove Greek support or change the
+brand italic. Verify any normal Instrument use outside marketing before
+changing its configured styles.
+
+- [ ] **Step 4: Measure, then keep only wins**
+
+Run three clean mobile samples. Keep the change only if English landing font
+transfer is at most 80 KiB and mobile median/worst LCP remain within the
+committed budgets. Record Greek and English traces separately.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add app/layout.tsx components/landing/LandingPage.tsx tests/performance/font-delivery.test.ts docs/quality/performance-local-baseline.json
+git commit -m "perf(fonts): remove unused landing font transfer"
+```
+
+### Task 5: Remove Framer Motion from the login critical path
 
 **Files:**
 - Modify: `app/login/page.tsx`
@@ -216,7 +269,7 @@ git add app/login/page.tsx app/globals.css tests/performance/login-delivery.test
 git commit -m "perf(auth): remove motion runtime from login"
 ```
 
-### Task 5: Enforce public-route delivery budgets
+### Task 6: Enforce public-route delivery budgets
 
 **Files:**
 - Create: `scripts/perf/check-build-budgets.mjs`
@@ -259,7 +312,7 @@ git add scripts/perf/check-build-budgets.mjs tests/performance/build-budget.test
 git commit -m "test(perf): enforce public route bundle budgets"
 ```
 
-### Task 6: Optimize the largest authenticated-route bottleneck
+### Task 7: Optimize the largest authenticated-route bottleneck
 
 **Files:**
 - Modify: `app/coach/client/[id]/page.tsx`
@@ -299,7 +352,7 @@ Run the focused test, affected Playwright flow, build, and bundle budget.
 Commit the route, focused component, regression test, and updated measurement
 artifact as one performance change.
 
-### Task 7: Final performance comparison
+### Task 8: Final performance comparison
 
 **Files:**
 - Create: `docs/quality/performance-local-final.json`

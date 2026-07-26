@@ -241,23 +241,27 @@ git commit -m "fix(ai): bound fallback by request deadline"
 - Modify: `agents/clients/anthropic.ts`
 - Modify: `agents/runtime/providers/deepseek.ts`
 - Modify: `agents/runtime/providers/voyage.ts`
+- Modify: `agents/clients/google.ts`
 - Modify: `agents/runtime/providers/structured.ts`
 - Modify: `agents/runtime/providers/text.ts`
 - Create: `tests/agents/provider-access.test.ts`
 - Modify: `tests/agents/openai-structured.test.ts`
 - Modify: `tests/agents/deepseek-provider.test.ts`
 - Modify: `tests/agents/anthropic-provider.test.ts`
+- Create or modify: a focused Google client test under `tests/agents/`
 
 **Interfaces:**
 - Produces: `PaidProviderAccessBlockedError`
-- Produces: `assertPaidProviderAccess({ provider, fetchImplWasInjected })`
+- Produces: `assertPaidProviderAccess({ provider, transportWasInjected })`
 - Opt-in: `TROPHE_ALLOW_PAID_AI=1`
 
 - [ ] **Step 1: Write failing access-control tests**
 
 Assert non-production execution without injected transport throws before fetch.
-Assert an injected mock transport is allowed. Assert Vercel production is
-allowed. Assert the error names only the provider and contains no key or prompt.
+Assert an injected mock transport is allowed with all provider keys unset.
+Assert Vercel production is allowed. Assert the error names only the provider
+and contains no key, prompt, arbitrary caller text, or environment dump. Cover
+OpenAI, Anthropic, DeepSeek, Voyage, and Google Gemini.
 
 - [ ] **Step 2: Prove red**
 
@@ -276,14 +280,17 @@ const liveAllowed =
 ```
 
 An explicitly injected transport is considered offline and allowed. All other
-non-production live transport is blocked.
+non-production live transport is blocked. The guard runs before reading an API
+key or constructing an SDK client. Only the exact string `1` is an opt-in.
 
 - [ ] **Step 4: Inject transport through every paid adapter and dispatcher**
 
 Add optional `fetchImpl` at the adapter boundary and propagate it through
 `invokeStructuredProvider` and `invokeTextProvider`. Production call sites omit
 it; tests and the offline harness provide it. Update existing provider tests to
-pass their mock as `fetchImpl` instead of replacing global fetch.
+pass their mock as `fetchImpl` instead of replacing global fetch. Google uses an
+injected `generateContent`-equivalent boundary, does not construct
+`GoogleGenAI` in offline mode, and receives the exact runtime `AbortSignal`.
 
 - [ ] **Step 5: Verify**
 
@@ -294,11 +301,61 @@ npx vitest run tests/agents/provider-access.test.ts tests/agents/openai-structur
 - [ ] **Step 6: Commit**
 
 ```bash
-git add agents/runtime/provider-access.ts agents/runtime/providers agents/clients/anthropic.ts tests/agents
+git add agents/runtime/provider-access.ts agents/runtime/providers agents/clients/anthropic.ts agents/clients/google.ts tests/agents
 git commit -m "feat(ai): block unapproved paid-provider access"
 ```
 
-### Task 6: Build the offline provider-contract harness
+### Task 6: Gate every direct paid-AI tool and evaluation entry point
+
+**Files:**
+- Create: `scripts/safety/require-paid-ai-approval.ts`
+- Create: `scripts/ci/check-paid-ai-tools.mjs`
+- Create: `tests/enterprise/paid-ai-tool-guard.test.ts`
+- Modify: paid AI entry points discovered under `agents/evals`, `scripts/eval`,
+  `scripts/debug`, and `scripts/ingest`
+- Modify: `package.json`
+
+**Interfaces:**
+- Produces: `requirePaidAiToolApproval({ operation })`
+- Opt-in: exact `TROPHE_ALLOW_PAID_AI=1`
+- Produces: `npm run guard:paid-ai-tools`
+
+- [ ] **Step 1: Build the authoritative entry-point inventory**
+
+Discover scripts that directly call a paid provider, invoke a production AI
+route, or invoke a production provider adapter. Include direct DeepSeek/Voyage
+tools and production food-parse evaluation scripts. Dry-run-only paths may
+remain usable without approval only when tests prove they cannot reach a paid
+transport.
+
+- [ ] **Step 2: Write failing guard tests**
+
+For every inventoried entry point, assert missing or non-exact opt-in throws
+before credential lookup, HTTP, SDK construction, production authentication,
+or report mutation. Assert the error contains only a fixed operation ID.
+
+- [ ] **Step 3: Wire the shared guard**
+
+Require explicit approval even when a tool targets a production Vercel route;
+production server authorization must not implicitly authorize a local batch
+script. Do not use `NODE_ENV`, `VERCEL_ENV`, key presence, or a truthy value as
+tool approval.
+
+- [ ] **Step 4: Add and run the static guard**
+
+```bash
+npm run guard:paid-ai-tools
+npx vitest run tests/enterprise/paid-ai-tool-guard.test.ts --reporter=verbose
+```
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add scripts/safety scripts/eval scripts/debug scripts/ingest agents/evals tests/enterprise/paid-ai-tool-guard.test.ts package.json
+git commit -m "feat(ai): require approval for paid AI tools"
+```
+
+### Task 7: Build the offline provider-contract harness
 
 **Files:**
 - Create: `agents/evals/offline/types.ts`
@@ -373,7 +430,7 @@ git add agents/evals/offline tests/fixtures/ai-provider-contracts tests/agents/o
 git commit -m "test(ai): add zero-spend provider contract evaluation"
 ```
 
-### Task 7: Final AI verification and documentation
+### Task 8: Final AI verification and documentation
 
 **Files:**
 - Modify: `agents/README.md`
