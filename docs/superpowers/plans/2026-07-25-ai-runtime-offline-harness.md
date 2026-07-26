@@ -312,7 +312,7 @@ git commit -m "feat(ai): block unapproved paid-provider access"
 **Interfaces:**
 - Produces: `runOfflineProviderContracts(): OfflineContractReport`
 - Produces: `npm run evals:offline:providers`
-- Writes: `artifacts/quality/ai-provider-contracts.json`
+- Writes: `docs/quality/ai-provider-contracts.json`
 
 - [ ] **Step 1: Define and test the report schema**
 
@@ -369,7 +369,7 @@ Expected: exit 0, all scenarios pass, and the report declares offline evidence.
 - [ ] **Step 7: Commit**
 
 ```bash
-git add agents/evals/offline tests/fixtures/ai-provider-contracts tests/agents/offline-provider-contracts.test.ts package.json artifacts/quality/ai-provider-contracts.json
+git add agents/evals/offline tests/fixtures/ai-provider-contracts tests/agents/offline-provider-contracts.test.ts package.json docs/quality/ai-provider-contracts.json
 git commit -m "test(ai): add zero-spend provider contract evaluation"
 ```
 
@@ -377,7 +377,7 @@ git commit -m "test(ai): add zero-spend provider contract evaluation"
 
 **Files:**
 - Modify: `agents/README.md`
-- Create: `artifacts/quality/ai-runtime-final-2026-07-25.md`
+- Create: `docs/quality/ai-runtime-final-2026-07-25.md`
 
 - [ ] **Step 1: Run AI-focused suites**
 
@@ -400,6 +400,6 @@ and proof that provider keys were unset.
 - [ ] **Step 4: Commit**
 
 ```bash
-git add agents/README.md artifacts/quality/ai-runtime-final-2026-07-25.md
+git add agents/README.md docs/quality/ai-runtime-final-2026-07-25.md
 git commit -m "docs(ai): record zero-spend runtime verification"
 ```

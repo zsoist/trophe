@@ -21,7 +21,7 @@
 ### Task 1: Re-baseline every gate independently
 
 **Files:**
-- Create: `artifacts/quality/verification-baseline-2026-07-25.md`
+- Create: `docs/quality/verification-baseline-2026-07-25.md`
 
 **Interfaces:**
 - Consumes: repository scripts from `package.json`
@@ -90,7 +90,7 @@ task.
 - [ ] **Step 7: Commit the evidence**
 
 ```bash
-git add artifacts/quality/verification-baseline-2026-07-25.md
+git add docs/quality/verification-baseline-2026-07-25.md
 git commit -m "test: capture verification baseline"
 ```
 
@@ -104,7 +104,7 @@ git commit -m "test: capture verification baseline"
 **Interfaces:**
 - Produces: `runStep({ name, command, args, timeoutMs, cwd })`
 - Produces: `npm run verify:bounded`
-- Writes: `artifacts/quality/verification-summary.json`
+- Writes: `docs/quality/verification-summary.json`
 
 - [ ] **Step 1: Write the failing runner tests**
 
@@ -185,7 +185,7 @@ git commit -m "test: bound and diagnose release verification"
 - Replace locally: `node_modules/` from the committed lockfile
 - Modify: `scripts/ci/verify-release.mjs`
 - Test: `tests/enterprise/verification-runner.test.ts`
-- Modify: `artifacts/quality/verification-baseline-2026-07-25.md`
+- Modify: `docs/quality/verification-baseline-2026-07-25.md`
 
 **Interfaces:**
 - Detects: macOS `dataless` dependency placeholders before running gates
@@ -251,7 +251,7 @@ Expected: neither process blocks on dependency reads.
 
 ```bash
 npx vitest run tests/enterprise/verification-runner.test.ts --reporter=verbose
-git add scripts/ci/verify-release.mjs tests/enterprise/verification-runner.test.ts artifacts/quality/verification-baseline-2026-07-25.md
+git add scripts/ci/verify-release.mjs tests/enterprise/verification-runner.test.ts docs/quality/verification-baseline-2026-07-25.md
 git commit -m "fix(test): detect offloaded dependency trees"
 ```
 
@@ -259,8 +259,8 @@ git commit -m "fix(test): detect offloaded dependency trees"
 
 **Files:**
 - Modify: the exact source and test files named in
-  `artifacts/quality/verification-baseline-2026-07-25.md`
-- Modify: `artifacts/quality/verification-baseline-2026-07-25.md`
+  `docs/quality/verification-baseline-2026-07-25.md`
+- Modify: `docs/quality/verification-baseline-2026-07-25.md`
 
 **Interfaces:**
 - Consumes: deterministic compiler, lint, test, or build diagnostics
@@ -293,7 +293,7 @@ The task ends when the baseline artifact has no unresolved source-level failure.
 ### Task 5: Final verification evidence
 
 **Files:**
-- Create: `artifacts/quality/verification-final-2026-07-25.md`
+- Create: `docs/quality/verification-final-2026-07-25.md`
 
 - [ ] **Step 1: Run the bounded canonical sequence**
 
@@ -322,6 +322,6 @@ build route summary in the final artifact.
 - [ ] **Step 4: Commit**
 
 ```bash
-git add artifacts/quality/verification-final-2026-07-25.md artifacts/quality/verification-summary.json
+git add docs/quality/verification-final-2026-07-25.md docs/quality/verification-summary.json
 git commit -m "test: record green release verification"
 ```

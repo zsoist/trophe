@@ -206,7 +206,7 @@ git commit -m "feat(security): require explicit production-write approval"
 ### Task 5: Security audit and final evidence
 
 **Files:**
-- Create: `artifacts/quality/security-audit-2026-07-25.md`
+- Create: `docs/quality/security-audit-2026-07-25.md`
 
 - [ ] **Step 1: Run all security guards**
 
@@ -231,6 +231,6 @@ fixing or reporting it. Add a “Corrections after sanity checks” section.
 - [ ] **Step 4: Commit**
 
 ```bash
-git add artifacts/quality/security-audit-2026-07-25.md
+git add docs/quality/security-audit-2026-07-25.md
 git commit -m "docs(security): record hardened security posture"
 ```

@@ -29,7 +29,7 @@
 **Interfaces:**
 - Produces: `measureUrl({ url, viewport, samples }): PerformanceReport`
 - Produces: `npm run perf:measure -- --url <url>`
-- Writes: `artifacts/quality/performance-<target>.json`
+- Writes: `docs/quality/performance-<target>.json`
 
 - [ ] **Step 1: Write failing metric-calculation tests**
 
@@ -68,14 +68,14 @@ git commit -m "perf: add repeatable web measurement harness"
 ### Task 2: Capture production and local baselines
 
 **Files:**
-- Create: `artifacts/quality/performance-production-baseline.json`
-- Create: `artifacts/quality/performance-local-baseline.json`
-- Create: `artifacts/quality/performance-baseline-2026-07-25.md`
+- Create: `docs/quality/performance-production-baseline.json`
+- Create: `docs/quality/performance-local-baseline.json`
+- Create: `docs/quality/performance-baseline-2026-07-25.md`
 
 - [ ] **Step 1: Measure production three times per viewport**
 
 ```bash
-npm run perf:measure -- --url https://trophe.app --samples 3 --output artifacts/quality/performance-production-baseline.json
+npm run perf:measure -- --url https://trophe.app --samples 3 --output docs/quality/performance-production-baseline.json
 ```
 
 Measure `/` and `/login`. Do not authenticate or submit data.
@@ -90,7 +90,7 @@ npm run start -- --hostname 127.0.0.1 --port 3300
 - [ ] **Step 3: Measure local three times per viewport**
 
 ```bash
-npm run perf:measure -- --url http://127.0.0.1:3300 --samples 3 --output artifacts/quality/performance-local-baseline.json
+npm run perf:measure -- --url http://127.0.0.1:3300 --samples 3 --output docs/quality/performance-local-baseline.json
 ```
 
 - [ ] **Step 4: Identify code-controlled bottlenecks**
@@ -101,7 +101,7 @@ and server time. Separate production network/CDN effects from local code.
 - [ ] **Step 5: Commit baseline evidence**
 
 ```bash
-git add artifacts/quality/performance-production-baseline.json artifacts/quality/performance-local-baseline.json artifacts/quality/performance-baseline-2026-07-25.md
+git add docs/quality/performance-production-baseline.json docs/quality/performance-local-baseline.json docs/quality/performance-baseline-2026-07-25.md
 git commit -m "perf: capture mobile and desktop baselines"
 ```
 
@@ -302,8 +302,8 @@ artifact as one performance change.
 ### Task 7: Final performance comparison
 
 **Files:**
-- Create: `artifacts/quality/performance-local-final.json`
-- Create: `artifacts/quality/performance-final-2026-07-25.md`
+- Create: `docs/quality/performance-local-final.json`
+- Create: `docs/quality/performance-final-2026-07-25.md`
 
 - [ ] **Step 1: Measure the final local production build**
 
@@ -326,6 +326,6 @@ npx playwright test --project=desktop-chromium
 - [ ] **Step 4: Commit**
 
 ```bash
-git add artifacts/quality/performance-local-final.json artifacts/quality/performance-final-2026-07-25.md
+git add docs/quality/performance-local-final.json docs/quality/performance-final-2026-07-25.md
 git commit -m "docs(perf): record final delivery improvements"
 ```
