@@ -109,6 +109,32 @@ platforms report a healthy preflight without invoking macOS `find -flags`.
   regression and `npm run typecheck` then both passed without changing the
   runtime behavior, test skip policy, or any golden tolerance.
 
+### Task 4 review-fix round 1 — bounded teardown and production rejection
+
+- **symptom/root cause:** The initial preflight bounded `connect` and `SELECT
+  1`, but awaited `client.end()` without a deadline. A hung cleanup could hold
+  `npm test` indefinitely. Its resolver also accepted a supplied
+  `DATABASE_URL` before checking production mode, which could select a
+  production database for integration tests.
+- **regression:** The focused database-preflight suite now covers hung
+  `connect`, hung query, hung cleanup, and query rejection using injected fake
+  clients. Each assertion proves a redacted unavailable result, graceful
+  cleanup, forced teardown on every timeout, and settlement under a 250 ms
+  test bound for a 20 ms stage deadline. It also proves production mode returns
+  no target for both explicit and absent URLs, while CI and local resolution
+  remain available outside production.
+- **fix:** Every `connect`, query, and graceful cleanup stage receives the
+  same finite deadline. A timed-out operation or cleanup calls an injectable
+  forced-destroy seam after the graceful close attempt; the default destroys
+  node-postgres's underlying stream. The complete preflight is bounded by at
+  most three deadline intervals plus synchronous teardown. The default
+  node-postgres client also receives matching connection and query timeouts.
+  Production mode is rejected before any supplied or ambient `DATABASE_URL` is
+  read or used.
+- **verification:** The expanded focused suite passes 8 tests and
+  `npm run typecheck` passes. The full database-backed test gate is rerun after
+  this correction.
+
 No unresolved source-level verification failure remains after documented local
 provisioning. This evidence used no provider credentials or requests, no
 production write, and no golden-tolerance change.
