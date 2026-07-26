@@ -11,7 +11,7 @@ const SENSITIVE_SENTINEL = 'SENSITIVE_SENTINEL_DO_NOT_LOG';
 beforeEach(() => {
   vi.stubEnv('VERCEL_ENV', undefined);
   vi.stubEnv('TROPHE_ALLOW_PAID_AI', undefined);
-  delete process.env.ANTHROPIC_API_KEY;
+  vi.stubEnv('ANTHROPIC_API_KEY', SENSITIVE_SENTINEL);
   blockGlobalFetch();
 });
 
@@ -98,6 +98,7 @@ describe('Anthropic provider transport', () => {
         'anthropic-version': '2023-06-01',
       },
     });
+    expect(JSON.stringify(fetchMock.mock.calls)).not.toContain(SENSITIVE_SENTINEL);
   });
 
   it.each([
@@ -373,7 +374,15 @@ describe('Anthropic provider transport', () => {
       fetchImpl: fetchMock as unknown as typeof fetch,
     })).resolves.toMatchObject({ output: { value: 'ok' } });
 
-    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({ signal });
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      signal,
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': 'trophe-offline-placeholder',
+        'anthropic-version': '2023-06-01',
+      },
+    });
+    expect(JSON.stringify(fetchMock.mock.calls)).not.toContain(SENSITIVE_SENTINEL);
   });
 
   it('sends strict Anthropic tools with a cacheable system block when policy caching is enabled', async () => {

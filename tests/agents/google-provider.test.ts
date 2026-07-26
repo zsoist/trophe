@@ -4,6 +4,8 @@ import { callGeminiMessages } from '@/agents/clients/google';
 import { invokeStructuredProvider } from '@/agents/runtime/providers/structured';
 import { invokeTextProvider } from '@/agents/runtime/providers/text';
 
+const SENSITIVE_SENTINEL = 'SENSITIVE_SENTINEL_DO_NOT_LOG';
+
 const { googleGenAiConstructor } = vi.hoisted(() => ({
   googleGenAiConstructor: vi.fn(function GoogleGenAiFixture() {
     throw new Error('GoogleGenAI must not be constructed offline');
@@ -29,8 +31,8 @@ const googlePolicy = {
 beforeEach(() => {
   vi.stubEnv('VERCEL_ENV', undefined);
   vi.stubEnv('TROPHE_ALLOW_PAID_AI', undefined);
-  delete process.env.GEMINI_API_KEY;
-  delete process.env.GOOGLE_API_KEY;
+  vi.stubEnv('GEMINI_API_KEY', SENSITIVE_SENTINEL);
+  vi.stubEnv('GOOGLE_API_KEY', SENSITIVE_SENTINEL);
   vi.stubGlobal('fetch', () => {
     throw new Error('unexpected global fetch');
   });
@@ -70,6 +72,7 @@ describe('Google paid-provider boundary', () => {
       model: 'gemini-2.5-flash',
       config: { abortSignal: signal },
     });
+    expect(JSON.stringify(generateContent.mock.calls)).not.toContain(SENSITIVE_SENTINEL);
   });
 
   it('propagates injected generateContent through the text dispatcher', async () => {

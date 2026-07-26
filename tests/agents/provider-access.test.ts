@@ -1,4 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { spawnSync } from 'node:child_process';
+import { readdirSync, readFileSync } from 'node:fs';
+import path from 'node:path';
+import ts from 'typescript';
 import {
   assertPaidProviderAccess,
   PaidProviderAccessBlockedError,
@@ -8,16 +12,20 @@ import { invokeVoyageEmbedding } from '@/agents/runtime/providers/voyage';
 
 const PROVIDERS: PaidProvider[] = ['openai', 'anthropic', 'deepseek', 'voyage', 'google'];
 const SENSITIVE_SENTINEL = 'SENSITIVE_SENTINEL_DO_NOT_LOG';
+const REPO_ROOT = process.cwd();
+const PROVIDER_KEYS = [
+  'OPENAI_API_KEY',
+  'ANTHROPIC_API_KEY',
+  'DEEPSEEK_API_KEY',
+  'VOYAGE_API_KEY',
+  'GEMINI_API_KEY',
+  'GOOGLE_API_KEY',
+] as const;
 
 beforeEach(() => {
   vi.stubEnv('VERCEL_ENV', undefined);
   vi.stubEnv('TROPHE_ALLOW_PAID_AI', undefined);
-  delete process.env.OPENAI_API_KEY;
-  delete process.env.ANTHROPIC_API_KEY;
-  delete process.env.DEEPSEEK_API_KEY;
-  delete process.env.VOYAGE_API_KEY;
-  delete process.env.GEMINI_API_KEY;
-  delete process.env.GOOGLE_API_KEY;
+  for (const key of PROVIDER_KEYS) vi.stubEnv(key, SENSITIVE_SENTINEL);
   vi.stubGlobal('fetch', () => {
     throw new Error('unexpected global fetch');
   });
@@ -28,6 +36,61 @@ afterEach(() => {
   vi.unstubAllGlobals();
   vi.resetModules();
 });
+
+function sourceFiles(directory: string): string[] {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const absolute = path.join(directory, entry.name);
+    if (entry.isDirectory()) return sourceFiles(absolute);
+    return /\.(?:ts|tsx)$/.test(entry.name) ? [absolute] : [];
+  });
+}
+
+function importedModules(sourceFile: ts.SourceFile): string[] {
+  const imports: string[] = [];
+  const visit = (node: ts.Node) => {
+    if (
+      (ts.isImportDeclaration(node) || ts.isExportDeclaration(node))
+      && node.moduleSpecifier
+      && ts.isStringLiteral(node.moduleSpecifier)
+    ) {
+      imports.push(node.moduleSpecifier.text);
+    }
+    if (
+      ts.isCallExpression(node)
+      && node.arguments.length === 1
+      && ts.isStringLiteral(node.arguments[0])
+      && (
+        node.expression.kind === ts.SyntaxKind.ImportKeyword
+        || (ts.isIdentifier(node.expression) && node.expression.text === 'require')
+      )
+    ) {
+      imports.push(node.arguments[0].text);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  return imports;
+}
+
+function resolvedModule(importer: string, specifier: string): string | undefined {
+  const candidate = specifier.startsWith('@/')
+    ? path.join(REPO_ROOT, specifier.slice(2))
+    : specifier.startsWith('.')
+      ? path.resolve(path.dirname(importer), specifier)
+      : undefined;
+  return candidate?.replace(/\.(?:ts|tsx|js|jsx)$/, '').replace(/\/index$/, '');
+}
+
+function isPaidProviderModule(modulePath: string): boolean {
+  const providerAccess = path.join(REPO_ROOT, 'agents/runtime/provider-access');
+  const providers = `${path.join(REPO_ROOT, 'agents/runtime/providers')}${path.sep}`;
+  const anthropicClient = path.join(REPO_ROOT, 'agents/clients/anthropic');
+  const googleClient = path.join(REPO_ROOT, 'agents/clients/google');
+  return modulePath === providerAccess
+    || modulePath.startsWith(providers)
+    || modulePath === anthropicClient
+    || modulePath === googleClient;
+}
 
 describe('paid provider access policy', () => {
   it.each([
@@ -132,6 +195,92 @@ describe('paid provider access policy', () => {
     );
   });
 
+  it('keeps paid-provider modules out of use-client source files', () => {
+    const offenders = ['app', 'components', 'lib', 'agents']
+      .flatMap((directory) => sourceFiles(path.join(REPO_ROOT, directory)))
+      .flatMap((filename) => {
+        const source = readFileSync(filename, 'utf8');
+        const sourceFile = ts.createSourceFile(
+          filename,
+          source,
+          ts.ScriptTarget.Latest,
+          true,
+          filename.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+        );
+        const isClient = sourceFile.statements.some((statement) => (
+          ts.isExpressionStatement(statement)
+          && ts.isStringLiteral(statement.expression)
+          && statement.expression.text === 'use client'
+        ));
+        if (!isClient) return [];
+        return importedModules(sourceFile)
+          .map((specifier) => ({ specifier, resolved: resolvedModule(filename, specifier) }))
+          .filter((entry): entry is { specifier: string; resolved: string } => entry.resolved != null)
+          .filter((entry) => isPaidProviderModule(entry.resolved))
+          .map((entry) => `${path.relative(REPO_ROOT, filename)} -> ${entry.specifier}`);
+      });
+
+    expect(offenders).toEqual([]);
+  });
+
+  it('imports paid-provider adapters through the normal tsx CLI before enforcing access', () => {
+    const tsxCli = path.join(REPO_ROOT, 'node_modules/tsx/dist/cli.mjs');
+    const probe = `
+      Promise.all([
+        import('./agents/runtime/provider-access.ts'),
+        import('./agents/runtime/providers/openai.ts'),
+        import('./agents/runtime/providers/anthropic.ts'),
+        import('./agents/runtime/providers/deepseek.ts'),
+        import('./agents/runtime/providers/voyage.ts'),
+        import('./agents/runtime/providers/structured.ts'),
+        import('./agents/runtime/providers/text.ts'),
+        import('./agents/clients/anthropic.ts'),
+        import('./agents/clients/google.ts')
+      ]).then(([access]) => {
+        const providerAccess = access.default ?? access;
+        try {
+          providerAccess.assertPaidProviderAccess({ provider: 'openai', transportWasInjected: false });
+          throw new Error('expected paid-provider access to be blocked');
+        } catch (error) {
+          if (!error || typeof error !== 'object' || error.code !== 'paid_provider_access_blocked') throw error;
+          console.log('tsx-import-ok:paid_provider_access_blocked');
+        }
+      }).catch((error) => {
+        console.error(error);
+        process.exitCode = 1;
+      });
+    `;
+    const unsetArguments = [
+      ...PROVIDER_KEYS.flatMap((key) => ['-u', key]),
+      '-u',
+      'TROPHE_ALLOW_PAID_AI',
+      '-u',
+      'VERCEL_ENV',
+    ];
+    const result = spawnSync('/usr/bin/env', [
+      ...unsetArguments,
+      process.execPath,
+      tsxCli,
+      '-e',
+      probe,
+    ], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      timeout: 15_000,
+    });
+
+    expect({
+      status: result.status,
+      signal: result.signal,
+      stderr: result.stderr,
+    }).toEqual({
+      status: 0,
+      signal: null,
+      stderr: expect.not.stringContaining('Cannot find module'),
+    });
+    expect(result.stdout).toContain('tsx-import-ok:paid_provider_access_blocked');
+  });
+
   it('runs Voyage fixtures with the offline credential and exact signal', async () => {
     const signal = new AbortController().signal;
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
@@ -157,6 +306,7 @@ describe('paid provider access policy', () => {
         'Content-Type': 'application/json',
       },
     });
+    expect(JSON.stringify(fetchMock.mock.calls)).not.toContain(SENSITIVE_SENTINEL);
   });
 
   it('blocks Voyage before the global transport when no transport is injected', async () => {

@@ -4,11 +4,12 @@ import { invokeOpenAiStructured, OpenAiApiError } from '../../agents/runtime/pro
 import { invokeStructuredProvider } from '@/agents/runtime/providers/structured';
 
 const validator = z.object({ value: z.string() });
+const SENSITIVE_SENTINEL = 'SENSITIVE_SENTINEL_DO_NOT_LOG';
 
 beforeEach(() => {
   vi.stubEnv('VERCEL_ENV', undefined);
   vi.stubEnv('TROPHE_ALLOW_PAID_AI', undefined);
-  delete process.env.OPENAI_API_KEY;
+  vi.stubEnv('OPENAI_API_KEY', SENSITIVE_SENTINEL);
   vi.stubGlobal('fetch', () => {
     throw new Error('unexpected global fetch');
   });
@@ -127,6 +128,7 @@ describe('invokeOpenAiStructured', () => {
         'Content-Type': 'application/json',
       },
     });
+    expect(JSON.stringify(fetchMock.mock.calls)).not.toContain(SENSITIVE_SENTINEL);
   });
 
   it('uses one stable cache key for the same static prompt prefix', async () => {

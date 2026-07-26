@@ -3,16 +3,9 @@ import path from 'node:path';
 
 export default defineConfig({
   resolve: {
-    alias: [
-      {
-        find: 'server-only',
-        replacement: path.resolve(__dirname, 'node_modules/next/dist/compiled/server-only/empty.js'),
-      },
-      {
-        find: '@',
-        replacement: path.resolve(__dirname, '.'),
-      },
-    ],
+    alias: {
+      '@': path.resolve(__dirname, '.'),
+    },
   },
   test: {
     environment: 'node',

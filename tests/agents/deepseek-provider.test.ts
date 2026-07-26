@@ -1,13 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { deepSeekUserId, invokeDeepSeekStructured, invokeDeepSeekText } from '@/agents/runtime/providers/deepseek';
 import { estimateModelCostUsd } from '@/agents/router/pricing';
+import { invokeStructuredProvider } from '@/agents/runtime/providers/structured';
 import { invokeTextProvider } from '@/agents/runtime/providers/text';
 import { z } from 'zod';
+
+const SENSITIVE_SENTINEL = 'SENSITIVE_SENTINEL_DO_NOT_LOG';
 
 beforeEach(() => {
   vi.stubEnv('VERCEL_ENV', undefined);
   vi.stubEnv('TROPHE_ALLOW_PAID_AI', undefined);
-  delete process.env.DEEPSEEK_API_KEY;
+  vi.stubEnv('DEEPSEEK_API_KEY', SENSITIVE_SENTINEL);
   vi.stubGlobal('fetch', () => {
     throw new Error('unexpected global fetch');
   });
@@ -65,6 +68,7 @@ describe('DeepSeek governed provider candidate', () => {
         'Content-Type': 'application/json',
       },
     });
+    expect(JSON.stringify(fetchMock.mock.calls)).not.toContain(SENSITIVE_SENTINEL);
   });
 
   it('rejects empty content instead of silently accepting JSON-mode/provider failures', async () => {
@@ -120,6 +124,71 @@ describe('DeepSeek governed provider candidate', () => {
     expect(url).toBe('https://api.deepseek.com/beta/chat/completions');
     expect(JSON.parse(String(init?.body))).toMatchObject({
       tools: [{ function: { strict: true } }],
+    });
+    expect(init).toMatchObject({
+      headers: {
+        Authorization: 'Bearer trophe-offline-placeholder',
+        'Content-Type': 'application/json',
+      },
+    });
+    expect(JSON.stringify(fetchMock.mock.calls)).not.toContain(SENSITIVE_SENTINEL);
+  });
+
+  it('propagates injected fetch through the DeepSeek structured dispatcher', async () => {
+    const signal = new AbortController().signal;
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+      choices: [{
+        finish_reason: 'tool_calls',
+        message: { tool_calls: [{ function: { arguments: '{"value":"ok"}' } }] },
+      }],
+      usage: { prompt_tokens: 5, completion_tokens: 2 },
+    }), { status: 200 }));
+
+    await expect(invokeStructuredProvider({
+      policy: {
+        provider: 'deepseek', model: 'deepseek-v4-flash', costClass: 'cheap', latencyClass: 'fast',
+        maxTokens: 100, timeoutMs: 1_000, maxInputChars: 1_000, maxCostUsd: 1, promptVersion: 'test',
+      },
+      system: 'system',
+      prompt: 'prompt',
+      signal,
+      schema: {
+        type: 'object',
+        properties: { value: { type: 'string' } },
+        required: ['value'],
+        additionalProperties: false,
+      },
+      validator: z.object({ value: z.string() }),
+      fetchImpl: fetchMock as unknown as typeof fetch,
+    })).resolves.toMatchObject({ output: { value: 'ok' } });
+
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe('https://api.deepseek.com/beta/chat/completions');
+    expect(init).toMatchObject({
+      signal,
+      headers: {
+        Authorization: 'Bearer trophe-offline-placeholder',
+        'Content-Type': 'application/json',
+      },
+    });
+    expect(JSON.stringify(fetchMock.mock.calls)).not.toContain(SENSITIVE_SENTINEL);
+  });
+
+  it('blocks the DeepSeek structured dispatcher before global fetch without injection', async () => {
+    await expect(invokeStructuredProvider({
+      policy: {
+        provider: 'deepseek', model: 'deepseek-v4-flash', costClass: 'cheap', latencyClass: 'fast',
+        maxTokens: 100, timeoutMs: 1_000, maxInputChars: 1_000, maxCostUsd: 1, promptVersion: 'test',
+      },
+      system: 'system',
+      prompt: 'prompt',
+      signal: new AbortController().signal,
+      schema: { type: 'object' },
+      validator: z.object({ value: z.string() }),
+    })).rejects.toMatchObject({
+      name: 'PaidProviderAccessBlockedError',
+      code: 'paid_provider_access_blocked',
+      provider: 'deepseek',
     });
   });
 

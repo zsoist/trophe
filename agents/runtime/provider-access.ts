@@ -1,5 +1,3 @@
-import 'server-only';
-
 export type PaidProvider = 'openai' | 'anthropic' | 'deepseek' | 'voyage' | 'google';
 export type PaidProviderAccessMode = 'offline' | 'live';
 
