@@ -99,6 +99,15 @@ platforms report a healthy preflight without invoking macOS `find -flags`.
   tests/enterprise/database-preflight.test.ts --reporter=verbose` passed 2
   tests; `npm test -- --reporter=verbose` passed 596 tests with 33 existing
   skips; and `npm run build` completed static generation for all 62 routes.
+- **compiler root cause:** The initial injected `connect` factory inferred a
+  concrete `pg.Client`, so TypeScript rejected the deliberately minimal fake
+  client in the regression test. The focused regression had already passed at
+  runtime, but `npm run typecheck` deterministically exposed the incompatible
+  test seam.
+- **compiler fix and verification:** The preflight contract now declares only
+  the `connect`, `query`, and `end` methods it consumes. The focused preflight
+  regression and `npm run typecheck` then both passed without changing the
+  runtime behavior, test skip policy, or any golden tolerance.
 
 No unresolved source-level verification failure remains after documented local
 provisioning. This evidence used no provider credentials or requests, no

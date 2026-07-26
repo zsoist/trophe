@@ -5,6 +5,14 @@ import pg from 'pg';
 const LOCAL_DATABASE_URL = 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
 const DATABASE_TIMEOUT_MS = 5_000;
 
+/**
+ * @typedef {{
+ *   connect: () => Promise<unknown>,
+ *   query: (sql: string) => Promise<unknown>,
+ *   end: () => Promise<unknown>,
+ * }} DatabasePreflightClient
+ */
+
 function unavailable() {
   return {
     status: 'database_unavailable',
@@ -31,6 +39,13 @@ export function resolveDatabaseConnectionString({
   return nodeEnv === 'production' ? null : LOCAL_DATABASE_URL;
 }
 
+/**
+ * @param {{
+ *   connectionString?: string | null,
+ *   connect?: (url: string) => DatabasePreflightClient,
+ *   timeoutMs?: number,
+ * }} options
+ */
 export async function runDatabasePreflight({
   connectionString,
   connect = (url) => new pg.Client({ connectionString: url, connectionTimeoutMillis: DATABASE_TIMEOUT_MS }),
