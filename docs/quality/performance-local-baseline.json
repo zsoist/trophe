@@ -79,7 +79,7 @@
   "bottleneckDiagnostic": {
     "schema": {
       "name": "trophe.local-bottleneck-diagnostic",
-      "version": 1,
+      "version": 2,
       "grain": "route × viewport × sample",
       "samplesPerViewport": 3,
       "viewportOrder": [
@@ -95,7 +95,7 @@
         }
       ],
       "timingUnits": "milliseconds from navigationStart",
-      "transferUnits": "CDP Network.loadingFinished encodedDataLength bytes",
+      "transferUnits": "shared Task 1 CDP accumulator: per-hop maximum of partial and terminal encoded bytes, cached hops zero, terminal events deduplicated",
       "traceCategories": [
         "devtools.timeline",
         "v8.execute",
@@ -106,7 +106,8 @@
       "boundedWindow": {
         "starts": "before navigation",
         "ends": "one second of zero CDP in-flight network activity after load",
-        "maximumMs": 5000
+        "maximumMs": 5000,
+        "operationTimeoutMs": 5000
       },
       "hydrationMethod": {
         "boundary": "React DevTools hook renderer injection through last initial commit before bounded network settlement",
@@ -115,11 +116,16 @@
       },
       "criticalChainMethod": {
         "blockingStatus": "PerformanceResourceTiming.renderBlockingStatus",
-        "lcpIdentity": "buffered LargestContentfulPaint entry plus exact element/leaf text node and computed style",
+        "lcpIdentity": "authoritative buffered LargestContentfulPaint candidate plus every direct text-bearing descendant and computed style",
         "resources": "CDP type/status/encoded bytes joined to Resource Timing start/duration/initiator"
       },
       "safety": {
-        "target": "loopback only",
+        "target": "exact http://127.0.0.1:3300 origin for every request and redirect hop",
+        "mainFramePaths": [
+          "/",
+          "/login"
+        ],
+        "statefulUrls": "credentials blocked for every request; query strings and fragments blocked for navigation requests",
         "permittedMethods": [
           "GET",
           "HEAD",
@@ -141,8 +147,8 @@
       "headless": true
     },
     "captureWindowUtc": {
-      "startedAtUtc": "2026-07-26T10:30:39.273Z",
-      "completedAtUtc": "2026-07-26T10:30:53.776Z"
+      "startedAtUtc": "2026-07-26T11:21:11.058Z",
+      "completedAtUtc": "2026-07-26T11:21:25.465Z"
     },
     "routes": [
       {
@@ -171,25 +177,34 @@
             "samples": [
               {
                 "sample": 1,
-                "capturedAtUtc": "2026-07-26T10:30:39.469Z",
+                "capturedAtUtc": "2026-07-26T11:21:11.299Z",
                 "valid": true,
+                "invalidReasons": [],
                 "settlement": {
                   "reason": "network_quiet",
-                  "durationMs": 1045,
+                  "durationMs": 1020,
                   "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 308923,
+                  "completedCount": 16,
+                  "cachedCount": 0,
+                  "failedCount": 1,
+                  "inFlightCount": 0
                 },
                 "safety": {
                   "requestCount": 17,
                   "allowedRequestCount": 17,
                   "blockedRequestCount": 0,
+                  "blockedReasonCounts": {},
                   "consoleErrorCount": 2,
                   "networkErrorCount": 2
                 },
                 "metrics": {
-                  "ttfbMs": 62.2,
-                  "fcpMs": 160,
-                  "lcpMs": 160,
-                  "loadMs": 181.9,
+                  "ttfbMs": 64.8,
+                  "fcpMs": 172,
+                  "lcpMs": 172,
+                  "loadMs": 197,
                   "requestCount": 17,
                   "transferredBytes": 308923,
                   "documentTransferBytes": 8715,
@@ -206,8 +221,8 @@
                   "postReactCommitJavascriptTransferBytes": 0
                 },
                 "lcp": {
-                  "startTimeMs": 160,
-                  "renderTimeMs": 160,
+                  "startTimeMs": 172,
+                  "renderTimeMs": 172,
                   "loadTimeMs": 0,
                   "sizePx2": 31164,
                   "url": null,
@@ -216,120 +231,59 @@
                 "react": {
                   "rendererPackage": "react-dom",
                   "rendererVersion": "19.3.0-canary-3f0b9e61-20260317",
-                  "rendererInjectMs": 158.6,
-                  "firstCommitMs": 189.3,
-                  "lastCommitMs": 194.4,
+                  "rendererInjectMs": 173.1,
+                  "firstCommitMs": 202.7,
+                  "lastCommitMs": 208.3,
                   "commitCount": 4,
-                  "injectToFirstCommitMs": 30.7,
-                  "injectToLastCommitMs": 35.8,
+                  "injectToFirstCommitMs": 29.6,
+                  "injectToLastCommitMs": 35.2,
                   "commitErrors": 0,
                   "finalIsDehydrated": false
                 },
                 "mainThread": {
-                  "traceWindowMs": 1235.9,
-                  "mainThreadBusyToSettleMs": 164.992,
-                  "mainThreadBusyToLcpMs": 90.661,
-                  "scriptingToSettleMs": 56.204,
-                  "scriptingToLcpMs": 24.322,
-                  "scriptingDuringReactWindowMs": 30.727,
-                  "styleLayoutToSettleMs": 44.324,
-                  "paintToSettleMs": 19.378,
-                  "parseHtmlMs": 5.647,
-                  "longestMainThreadTaskMs": 45.187,
+                  "traceWindowMs": 1226.7,
+                  "mainThreadBusyToSettleMs": 177.242,
+                  "mainThreadBusyToLcpMs": 100.3,
+                  "scriptingToSettleMs": 63.524,
+                  "scriptingToLcpMs": 30.387,
+                  "scriptingDuringReactWindowMs": 29.549,
+                  "styleLayoutToSettleMs": 46.98,
+                  "paintToSettleMs": 19.004,
+                  "parseHtmlMs": 5.48,
+                  "longestMainThreadTaskMs": 49.953,
                   "mainThreadTasksOver50Ms": 0
                 }
               },
               {
                 "sample": 2,
-                "capturedAtUtc": "2026-07-26T10:30:40.811Z",
+                "capturedAtUtc": "2026-07-26T11:21:12.628Z",
                 "valid": true,
+                "invalidReasons": [],
                 "settlement": {
                   "reason": "network_quiet",
-                  "durationMs": 1048,
+                  "durationMs": 1017,
                   "remainingInFlightCount": 0
                 },
-                "safety": {
-                  "requestCount": 17,
-                  "allowedRequestCount": 17,
-                  "blockedRequestCount": 0,
-                  "consoleErrorCount": 2,
-                  "networkErrorCount": 2
-                },
-                "metrics": {
-                  "ttfbMs": 3.9,
-                  "fcpMs": 44,
-                  "lcpMs": 44,
-                  "loadMs": 46.3,
-                  "requestCount": 17,
+                "transferOutcomes": {
                   "transferredBytes": 308923,
-                  "documentTransferBytes": 8715,
-                  "renderBlockingTransferBytes": 20892,
-                  "javascriptTransferBytes": 150217,
-                  "cssTransferBytes": 20892,
-                  "fontTransferBytes": 129099,
-                  "fetchTransferBytes": 0,
-                  "otherTransferBytes": 0,
-                  "preloadedFontTransferBytes": 101792,
-                  "initialJavascriptRequestCount": 8,
-                  "initialJavascriptTransferBytes": 150217,
-                  "postReactCommitJavascriptRequestCount": 0,
-                  "postReactCommitJavascriptTransferBytes": 0
-                },
-                "lcp": {
-                  "startTimeMs": 44,
-                  "renderTimeMs": 44,
-                  "loadTimeMs": 0,
-                  "sizePx2": 31164,
-                  "url": null,
-                  "resourceTransferBytes": 0
-                },
-                "react": {
-                  "rendererPackage": "react-dom",
-                  "rendererVersion": "19.3.0-canary-3f0b9e61-20260317",
-                  "rendererInjectMs": 38.6,
-                  "firstCommitMs": 54.4,
-                  "lastCommitMs": 57.1,
-                  "commitCount": 4,
-                  "injectToFirstCommitMs": 15.8,
-                  "injectToLastCommitMs": 18.5,
-                  "commitErrors": 0,
-                  "finalIsDehydrated": false
-                },
-                "mainThread": {
-                  "traceWindowMs": 1098.6,
-                  "mainThreadBusyToSettleMs": 101.535,
-                  "mainThreadBusyToLcpMs": 34.4,
-                  "scriptingToSettleMs": 26.159,
-                  "scriptingToLcpMs": 15.196,
-                  "scriptingDuringReactWindowMs": 15.171,
-                  "styleLayoutToSettleMs": 19.589,
-                  "paintToSettleMs": 23.335,
-                  "parseHtmlMs": 0.909,
-                  "longestMainThreadTaskMs": 16.38,
-                  "mainThreadTasksOver50Ms": 0
-                }
-              },
-              {
-                "sample": 3,
-                "capturedAtUtc": "2026-07-26T10:30:41.996Z",
-                "valid": true,
-                "settlement": {
-                  "reason": "network_quiet",
-                  "durationMs": 1050,
-                  "remainingInFlightCount": 0
+                  "completedCount": 16,
+                  "cachedCount": 0,
+                  "failedCount": 1,
+                  "inFlightCount": 0
                 },
                 "safety": {
                   "requestCount": 17,
                   "allowedRequestCount": 17,
                   "blockedRequestCount": 0,
+                  "blockedReasonCounts": {},
                   "consoleErrorCount": 2,
                   "networkErrorCount": 2
                 },
                 "metrics": {
-                  "ttfbMs": 3.4,
+                  "ttfbMs": 3.3,
                   "fcpMs": 48,
                   "lcpMs": 48,
-                  "loadMs": 55.7,
+                  "loadMs": 44.9,
                   "requestCount": 17,
                   "transferredBytes": 308923,
                   "documentTransferBytes": 8715,
@@ -356,48 +310,130 @@
                 "react": {
                   "rendererPackage": "react-dom",
                   "rendererVersion": "19.3.0-canary-3f0b9e61-20260317",
-                  "rendererInjectMs": 41.1,
-                  "firstCommitMs": 55.5,
-                  "lastCommitMs": 58.7,
+                  "rendererInjectMs": 37.3,
+                  "firstCommitMs": 53.4,
+                  "lastCommitMs": 56,
                   "commitCount": 4,
-                  "injectToFirstCommitMs": 14.4,
-                  "injectToLastCommitMs": 17.6,
+                  "injectToFirstCommitMs": 16.1,
+                  "injectToLastCommitMs": 18.7,
                   "commitErrors": 0,
                   "finalIsDehydrated": false
                 },
                 "mainThread": {
-                  "traceWindowMs": 1109.4,
-                  "mainThreadBusyToSettleMs": 86.016,
-                  "mainThreadBusyToLcpMs": 37.363,
-                  "scriptingToSettleMs": 26.568,
-                  "scriptingToLcpMs": 16.828,
-                  "scriptingDuringReactWindowMs": 15.181,
-                  "styleLayoutToSettleMs": 18.068,
-                  "paintToSettleMs": 16.307,
-                  "parseHtmlMs": 0.876,
-                  "longestMainThreadTaskMs": 15.922,
+                  "traceWindowMs": 1067,
+                  "mainThreadBusyToSettleMs": 87.321,
+                  "mainThreadBusyToLcpMs": 39.487,
+                  "scriptingToSettleMs": 26.529,
+                  "scriptingToLcpMs": 17.842,
+                  "scriptingDuringReactWindowMs": 15.268,
+                  "styleLayoutToSettleMs": 17.824,
+                  "paintToSettleMs": 16.637,
+                  "parseHtmlMs": 0.846,
+                  "longestMainThreadTaskMs": 16.369,
+                  "mainThreadTasksOver50Ms": 0
+                }
+              },
+              {
+                "sample": 3,
+                "capturedAtUtc": "2026-07-26T11:21:13.792Z",
+                "valid": true,
+                "invalidReasons": [],
+                "settlement": {
+                  "reason": "network_quiet",
+                  "durationMs": 1015,
+                  "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 308923,
+                  "completedCount": 16,
+                  "cachedCount": 0,
+                  "failedCount": 1,
+                  "inFlightCount": 0
+                },
+                "safety": {
+                  "requestCount": 17,
+                  "allowedRequestCount": 17,
+                  "blockedRequestCount": 0,
+                  "blockedReasonCounts": {},
+                  "consoleErrorCount": 2,
+                  "networkErrorCount": 2
+                },
+                "metrics": {
+                  "ttfbMs": 3.4,
+                  "fcpMs": 44,
+                  "lcpMs": 44,
+                  "loadMs": 44.3,
+                  "requestCount": 17,
+                  "transferredBytes": 308923,
+                  "documentTransferBytes": 8715,
+                  "renderBlockingTransferBytes": 20892,
+                  "javascriptTransferBytes": 150217,
+                  "cssTransferBytes": 20892,
+                  "fontTransferBytes": 129099,
+                  "fetchTransferBytes": 0,
+                  "otherTransferBytes": 0,
+                  "preloadedFontTransferBytes": 101792,
+                  "initialJavascriptRequestCount": 8,
+                  "initialJavascriptTransferBytes": 150217,
+                  "postReactCommitJavascriptRequestCount": 0,
+                  "postReactCommitJavascriptTransferBytes": 0
+                },
+                "lcp": {
+                  "startTimeMs": 44,
+                  "renderTimeMs": 44,
+                  "loadTimeMs": 0,
+                  "sizePx2": 31164,
+                  "url": null,
+                  "resourceTransferBytes": 0
+                },
+                "react": {
+                  "rendererPackage": "react-dom",
+                  "rendererVersion": "19.3.0-canary-3f0b9e61-20260317",
+                  "rendererInjectMs": 37.3,
+                  "firstCommitMs": 52.6,
+                  "lastCommitMs": 55.1,
+                  "commitCount": 4,
+                  "injectToFirstCommitMs": 15.3,
+                  "injectToLastCommitMs": 17.8,
+                  "commitErrors": 0,
+                  "finalIsDehydrated": false
+                },
+                "mainThread": {
+                  "traceWindowMs": 1062.9,
+                  "mainThreadBusyToSettleMs": 89.514,
+                  "mainThreadBusyToLcpMs": 35.924,
+                  "scriptingToSettleMs": 25.823,
+                  "scriptingToLcpMs": 16.546,
+                  "scriptingDuringReactWindowMs": 14.784,
+                  "styleLayoutToSettleMs": 18.168,
+                  "paintToSettleMs": 18.19,
+                  "parseHtmlMs": 0.879,
+                  "longestMainThreadTaskMs": 15.864,
                   "mainThreadTasksOver50Ms": 0
                 }
               }
             ],
             "summary": {
+              "valid": true,
               "validSampleCount": 3,
+              "invalidSampleCount": 0,
+              "invalidReasons": [],
               "metricSummary": {
                 "ttfbMs": {
-                  "median": 3.9,
-                  "worst": 62.2
+                  "median": 3.4,
+                  "worst": 64.8
                 },
                 "fcpMs": {
                   "median": 48,
-                  "worst": 160
+                  "worst": 172
                 },
                 "lcpMs": {
                   "median": 48,
-                  "worst": 160
+                  "worst": 172
                 },
                 "loadMs": {
-                  "median": 55.7,
-                  "worst": 181.9
+                  "median": 44.9,
+                  "worst": 197
                 },
                 "requestCount": {
                   "median": 17,
@@ -458,44 +494,44 @@
               },
               "mainThreadSummary": {
                 "traceWindowMs": {
-                  "median": 1109.4,
-                  "worst": 1235.9
+                  "median": 1067,
+                  "worst": 1226.7
                 },
                 "mainThreadBusyToSettleMs": {
-                  "median": 101.535,
-                  "worst": 164.992
+                  "median": 89.514,
+                  "worst": 177.242
                 },
                 "mainThreadBusyToLcpMs": {
-                  "median": 37.363,
-                  "worst": 90.661
+                  "median": 39.487,
+                  "worst": 100.3
                 },
                 "scriptingToSettleMs": {
-                  "median": 26.568,
-                  "worst": 56.204
+                  "median": 26.529,
+                  "worst": 63.524
                 },
                 "scriptingToLcpMs": {
-                  "median": 16.828,
-                  "worst": 24.322
+                  "median": 17.842,
+                  "worst": 30.387
                 },
                 "scriptingDuringReactWindowMs": {
-                  "median": 15.181,
-                  "worst": 30.727
+                  "median": 15.268,
+                  "worst": 29.549
                 },
                 "styleLayoutToSettleMs": {
-                  "median": 19.589,
-                  "worst": 44.324
+                  "median": 18.168,
+                  "worst": 46.98
                 },
                 "paintToSettleMs": {
-                  "median": 19.378,
-                  "worst": 23.335
+                  "median": 18.19,
+                  "worst": 19.004
                 },
                 "parseHtmlMs": {
-                  "median": 0.909,
-                  "worst": 5.647
+                  "median": 0.879,
+                  "worst": 5.48
                 },
                 "longestMainThreadTaskMs": {
-                  "median": 16.38,
-                  "worst": 45.187
+                  "median": 16.369,
+                  "worst": 49.953
                 },
                 "mainThreadTasksOver50Ms": {
                   "median": 0,
@@ -504,28 +540,28 @@
               },
               "reactSummary": {
                 "rendererInjectMs": {
-                  "median": 41.1,
-                  "worst": 158.6
+                  "median": 37.3,
+                  "worst": 173.1
                 },
                 "firstCommitMs": {
-                  "median": 55.5,
-                  "worst": 189.3
+                  "median": 53.4,
+                  "worst": 202.7
                 },
                 "lastCommitMs": {
-                  "median": 58.7,
-                  "worst": 194.4
+                  "median": 56,
+                  "worst": 208.3
                 },
                 "commitCount": {
                   "median": 4,
                   "worst": 4
                 },
                 "injectToFirstCommitMs": {
-                  "median": 15.8,
-                  "worst": 30.7
+                  "median": 16.1,
+                  "worst": 29.6
                 },
                 "injectToLastCommitMs": {
-                  "median": 18.5,
-                  "worst": 35.8
+                  "median": 18.7,
+                  "worst": 35.2
                 }
               },
               "javascriptPhases": {
@@ -552,11 +588,11 @@
               },
               "lcpIdentityConsistency": true,
               "lcpIdentityKeys": [
-                "P|P|AI-powered food logging, personalized macro targets, and habit coaching — all in one app. Powered by science, built for athletes.|AI-powered food logging, personalized macro targets, and habit coaching — all in one app. Powered by science, built for athletes.|Inter, \"Inter Fallback\", system-ui, sans-serif|400|normal",
-                "P|P|AI-powered food logging, personalized macro targets, and habit coaching — all in one app. Powered by science, built for athletes.|AI-powered food logging, personalized macro targets, and habit coaching — all in one app. Powered by science, built for athletes.|Inter, \"Inter Fallback\", system-ui, sans-serif|400|normal",
-                "P|P|AI-powered food logging, personalized macro targets, and habit coaching — all in one app. Powered by science, built for athletes.|AI-powered food logging, personalized macro targets, and habit coaching — all in one app. Powered by science, built for athletes.|Inter, \"Inter Fallback\", system-ui, sans-serif|400|normal"
+                "P|AI-powered food logging, personalized macro targets, and habit coaching — all in one app. Powered by science, built for athletes.||P|AI-powered food logging, personalized macro targets, and habit coaching — all in one app. Powered by science, built for athletes.|Inter, \"Inter Fallback\", system-ui, sans-serif|400|normal",
+                "P|AI-powered food logging, personalized macro targets, and habit coaching — all in one app. Powered by science, built for athletes.||P|AI-powered food logging, personalized macro targets, and habit coaching — all in one app. Powered by science, built for athletes.|Inter, \"Inter Fallback\", system-ui, sans-serif|400|normal",
+                "P|AI-powered food logging, personalized macro targets, and habit coaching — all in one app. Powered by science, built for athletes.||P|AI-powered food logging, personalized macro targets, and habit coaching — all in one app. Powered by science, built for athletes.|Inter, \"Inter Fallback\", system-ui, sans-serif|400|normal"
               ],
-              "representativeSample": 3,
+              "representativeSample": 2,
               "representativeLcp": {
                 "startTimeMs": 48,
                 "renderTimeMs": 48,
@@ -570,19 +606,22 @@
                   "className": "text-stone-400 text-base sm:text-lg max-w-xl mx-auto lg:mx-0 leading-relaxed mb-10",
                   "text": "AI-powered food logging, personalized macro targets, and habit coaching — all in one app. Powered by science, built for athletes."
                 },
-                "paintNode": {
-                  "tag": "P",
-                  "id": null,
-                  "className": "text-stone-400 text-base sm:text-lg max-w-xl mx-auto lg:mx-0 leading-relaxed mb-10",
-                  "text": "AI-powered food logging, personalized macro targets, and habit coaching — all in one app. Powered by science, built for athletes.",
-                  "computedStyle": {
-                    "fontFamily": "Inter, \"Inter Fallback\", system-ui, sans-serif",
-                    "fontSize": "16px",
-                    "fontWeight": "400",
-                    "fontStyle": "normal",
-                    "backgroundImage": "none"
+                "textLeaves": [
+                  {
+                    "tag": "P",
+                    "id": null,
+                    "className": "text-stone-400 text-base sm:text-lg max-w-xl mx-auto lg:mx-0 leading-relaxed mb-10",
+                    "text": "AI-powered food logging, personalized macro targets, and habit coaching — all in one app. Powered by science, built for athletes.",
+                    "directText": "AI-powered food logging, personalized macro targets, and habit coaching — all in one app. Powered by science, built for athletes.",
+                    "computedStyle": {
+                      "fontFamily": "Inter, \"Inter Fallback\", system-ui, sans-serif",
+                      "fontSize": "16px",
+                      "fontWeight": "400",
+                      "fontStyle": "normal",
+                      "backgroundImage": "none"
+                    }
                   }
-                }
+                ]
               },
               "criticalRequestChain": [
                 {
@@ -590,7 +629,7 @@
                   "type": "Document",
                   "initiatorType": "navigation",
                   "startMs": 0,
-                  "durationMs": 3.565,
+                  "durationMs": 3.43,
                   "transferBytes": 8715,
                   "decodedBodyBytes": 32697,
                   "status": 200,
@@ -603,29 +642,11 @@
                   ]
                 },
                 {
-                  "url": "/_next/static/media/e4af272ccee01ff0-s.p.woff2",
-                  "type": "Font",
-                  "initiatorType": "link",
-                  "startMs": 5.1,
-                  "durationMs": 5.5,
-                  "transferBytes": 49330,
-                  "decodedBodyBytes": 48432,
-                  "status": 200,
-                  "mimeType": "font/woff2",
-                  "renderBlockingStatus": "non-blocking",
-                  "failed": false,
-                  "fontFace": "Inter Latin",
-                  "relevance": [
-                    "preloaded_font",
-                    "lcp_font_family_candidate"
-                  ]
-                },
-                {
                   "url": "/_next/static/css/00207d0873d00653.css",
                   "type": "Stylesheet",
                   "initiatorType": "link",
-                  "startMs": 5.3,
-                  "durationMs": 4.5,
+                  "startMs": 4.9,
+                  "durationMs": 5.1,
                   "transferBytes": 2021,
                   "decodedBodyBytes": 5890,
                   "status": 200,
@@ -642,8 +663,8 @@
                   "url": "/_next/static/css/b20eb98e3adbc985.css",
                   "type": "Stylesheet",
                   "initiatorType": "link",
-                  "startMs": 5.3,
-                  "durationMs": 6.6,
+                  "startMs": 4.9,
+                  "durationMs": 6.9,
                   "transferBytes": 18871,
                   "decodedBodyBytes": 98730,
                   "status": 200,
@@ -654,6 +675,24 @@
                   "relevance": [
                     "browser_reported_render_blocking",
                     "stylesheet"
+                  ]
+                },
+                {
+                  "url": "/_next/static/media/e4af272ccee01ff0-s.p.woff2",
+                  "type": "Font",
+                  "initiatorType": "link",
+                  "startMs": 4.9,
+                  "durationMs": 4.4,
+                  "transferBytes": 49330,
+                  "decodedBodyBytes": 48432,
+                  "status": 200,
+                  "mimeType": "font/woff2",
+                  "renderBlockingStatus": "non-blocking",
+                  "failed": false,
+                  "fontFace": "Inter Latin",
+                  "relevance": [
+                    "preloaded_font",
+                    "lcp_font_family_candidate"
                   ]
                 }
               ],
@@ -667,10 +706,10 @@
                   "transferredBytes": 308923
                 },
                 "diagnosticMedian": {
-                  "ttfbMs": 3.9,
+                  "ttfbMs": 3.4,
                   "fcpMs": 48,
                   "lcpMs": 48,
-                  "loadMs": 55.7,
+                  "loadMs": 44.9,
                   "requestCount": 17,
                   "transferredBytes": 308923
                 },
@@ -688,17 +727,26 @@
             "samples": [
               {
                 "sample": 1,
-                "capturedAtUtc": "2026-07-26T10:30:43.198Z",
+                "capturedAtUtc": "2026-07-26T11:21:14.937Z",
                 "valid": true,
+                "invalidReasons": [],
                 "settlement": {
                   "reason": "network_quiet",
-                  "durationMs": 1046,
+                  "durationMs": 1009,
                   "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 308923,
+                  "completedCount": 16,
+                  "cachedCount": 0,
+                  "failedCount": 1,
+                  "inFlightCount": 0
                 },
                 "safety": {
                   "requestCount": 17,
                   "allowedRequestCount": 17,
                   "blockedRequestCount": 0,
+                  "blockedReasonCounts": {},
                   "consoleErrorCount": 2,
                   "networkErrorCount": 2
                 },
@@ -706,7 +754,165 @@
                   "ttfbMs": 3.3,
                   "fcpMs": 56,
                   "lcpMs": 56,
-                  "loadMs": 45.6,
+                  "loadMs": 54.7,
+                  "requestCount": 17,
+                  "transferredBytes": 308923,
+                  "documentTransferBytes": 8715,
+                  "renderBlockingTransferBytes": 20892,
+                  "javascriptTransferBytes": 150217,
+                  "cssTransferBytes": 20892,
+                  "fontTransferBytes": 129099,
+                  "fetchTransferBytes": 0,
+                  "otherTransferBytes": 0,
+                  "preloadedFontTransferBytes": 101792,
+                  "initialJavascriptRequestCount": 8,
+                  "initialJavascriptTransferBytes": 150217,
+                  "postReactCommitJavascriptRequestCount": 0,
+                  "postReactCommitJavascriptTransferBytes": 0
+                },
+                "lcp": {
+                  "startTimeMs": 56,
+                  "renderTimeMs": 56,
+                  "loadTimeMs": 0,
+                  "sizePx2": 58078,
+                  "url": null,
+                  "resourceTransferBytes": 0
+                },
+                "react": {
+                  "rendererPackage": "react-dom",
+                  "rendererVersion": "19.3.0-canary-3f0b9e61-20260317",
+                  "rendererInjectMs": 38.9,
+                  "firstCommitMs": 54.7,
+                  "lastCommitMs": 58.3,
+                  "commitCount": 4,
+                  "injectToFirstCommitMs": 15.8,
+                  "injectToLastCommitMs": 19.4,
+                  "commitErrors": 0,
+                  "finalIsDehydrated": false
+                },
+                "mainThread": {
+                  "traceWindowMs": 1067.1,
+                  "mainThreadBusyToSettleMs": 66.853,
+                  "mainThreadBusyToLcpMs": 46.325,
+                  "scriptingToSettleMs": 27.47,
+                  "scriptingToLcpMs": 24.793,
+                  "scriptingDuringReactWindowMs": 16.236,
+                  "styleLayoutToSettleMs": 14.492,
+                  "paintToSettleMs": 7.672,
+                  "parseHtmlMs": 0.879,
+                  "longestMainThreadTaskMs": 16.763,
+                  "mainThreadTasksOver50Ms": 0
+                }
+              },
+              {
+                "sample": 2,
+                "capturedAtUtc": "2026-07-26T11:21:16.092Z",
+                "valid": true,
+                "invalidReasons": [],
+                "settlement": {
+                  "reason": "network_quiet",
+                  "durationMs": 1019,
+                  "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 308923,
+                  "completedCount": 16,
+                  "cachedCount": 0,
+                  "failedCount": 1,
+                  "inFlightCount": 0
+                },
+                "safety": {
+                  "requestCount": 17,
+                  "allowedRequestCount": 17,
+                  "blockedRequestCount": 0,
+                  "blockedReasonCounts": {},
+                  "consoleErrorCount": 2,
+                  "networkErrorCount": 2
+                },
+                "metrics": {
+                  "ttfbMs": 3.4,
+                  "fcpMs": 60,
+                  "lcpMs": 60,
+                  "loadMs": 46.4,
+                  "requestCount": 17,
+                  "transferredBytes": 308923,
+                  "documentTransferBytes": 8715,
+                  "renderBlockingTransferBytes": 20892,
+                  "javascriptTransferBytes": 150217,
+                  "cssTransferBytes": 20892,
+                  "fontTransferBytes": 129099,
+                  "fetchTransferBytes": 0,
+                  "otherTransferBytes": 0,
+                  "preloadedFontTransferBytes": 101792,
+                  "initialJavascriptRequestCount": 8,
+                  "initialJavascriptTransferBytes": 150217,
+                  "postReactCommitJavascriptRequestCount": 0,
+                  "postReactCommitJavascriptTransferBytes": 0
+                },
+                "lcp": {
+                  "startTimeMs": 60,
+                  "renderTimeMs": 60,
+                  "loadTimeMs": 0,
+                  "sizePx2": 58078,
+                  "url": null,
+                  "resourceTransferBytes": 0
+                },
+                "react": {
+                  "rendererPackage": "react-dom",
+                  "rendererVersion": "19.3.0-canary-3f0b9e61-20260317",
+                  "rendererInjectMs": 38.8,
+                  "firstCommitMs": 55.2,
+                  "lastCommitMs": 57.5,
+                  "commitCount": 4,
+                  "injectToFirstCommitMs": 16.4,
+                  "injectToLastCommitMs": 18.7,
+                  "commitErrors": 0,
+                  "finalIsDehydrated": false
+                },
+                "mainThread": {
+                  "traceWindowMs": 1068.7,
+                  "mainThreadBusyToSettleMs": 80.047,
+                  "mainThreadBusyToLcpMs": 49.889,
+                  "scriptingToSettleMs": 26.562,
+                  "scriptingToLcpMs": 25.372,
+                  "scriptingDuringReactWindowMs": 15.564,
+                  "styleLayoutToSettleMs": 18.115,
+                  "paintToSettleMs": 13.201,
+                  "parseHtmlMs": 0.96,
+                  "longestMainThreadTaskMs": 16.429,
+                  "mainThreadTasksOver50Ms": 0
+                }
+              },
+              {
+                "sample": 3,
+                "capturedAtUtc": "2026-07-26T11:21:17.246Z",
+                "valid": true,
+                "invalidReasons": [],
+                "settlement": {
+                  "reason": "network_quiet",
+                  "durationMs": 1019,
+                  "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 308923,
+                  "completedCount": 16,
+                  "cachedCount": 0,
+                  "failedCount": 1,
+                  "inFlightCount": 0
+                },
+                "safety": {
+                  "requestCount": 17,
+                  "allowedRequestCount": 17,
+                  "blockedRequestCount": 0,
+                  "blockedReasonCounts": {},
+                  "consoleErrorCount": 2,
+                  "networkErrorCount": 2
+                },
+                "metrics": {
+                  "ttfbMs": 2.8,
+                  "fcpMs": 56,
+                  "lcpMs": 56,
+                  "loadMs": 46.1,
                   "requestCount": 17,
                   "transferredBytes": 308923,
                   "documentTransferBytes": 8715,
@@ -734,171 +940,34 @@
                   "rendererPackage": "react-dom",
                   "rendererVersion": "19.3.0-canary-3f0b9e61-20260317",
                   "rendererInjectMs": 38.2,
-                  "firstCommitMs": 54.1,
-                  "lastCommitMs": 56.7,
+                  "firstCommitMs": 56.6,
+                  "lastCommitMs": 58.9,
                   "commitCount": 4,
-                  "injectToFirstCommitMs": 15.9,
-                  "injectToLastCommitMs": 18.5,
+                  "injectToFirstCommitMs": 18.4,
+                  "injectToLastCommitMs": 20.7,
                   "commitErrors": 0,
                   "finalIsDehydrated": false
                 },
                 "mainThread": {
-                  "traceWindowMs": 1094.6,
-                  "mainThreadBusyToSettleMs": 69.12,
-                  "mainThreadBusyToLcpMs": 46.742,
-                  "scriptingToSettleMs": 26.168,
-                  "scriptingToLcpMs": 24.622,
-                  "scriptingDuringReactWindowMs": 15.27,
-                  "styleLayoutToSettleMs": 15.374,
-                  "paintToSettleMs": 8.832,
-                  "parseHtmlMs": 0.858,
-                  "longestMainThreadTaskMs": 16.435,
-                  "mainThreadTasksOver50Ms": 0
-                }
-              },
-              {
-                "sample": 2,
-                "capturedAtUtc": "2026-07-26T10:30:44.375Z",
-                "valid": true,
-                "settlement": {
-                  "reason": "network_quiet",
-                  "durationMs": 1043,
-                  "remainingInFlightCount": 0
-                },
-                "safety": {
-                  "requestCount": 17,
-                  "allowedRequestCount": 17,
-                  "blockedRequestCount": 0,
-                  "consoleErrorCount": 2,
-                  "networkErrorCount": 2
-                },
-                "metrics": {
-                  "ttfbMs": 3.3,
-                  "fcpMs": 56,
-                  "lcpMs": 56,
-                  "loadMs": 45.1,
-                  "requestCount": 17,
-                  "transferredBytes": 308923,
-                  "documentTransferBytes": 8715,
-                  "renderBlockingTransferBytes": 20892,
-                  "javascriptTransferBytes": 150217,
-                  "cssTransferBytes": 20892,
-                  "fontTransferBytes": 129099,
-                  "fetchTransferBytes": 0,
-                  "otherTransferBytes": 0,
-                  "preloadedFontTransferBytes": 101792,
-                  "initialJavascriptRequestCount": 8,
-                  "initialJavascriptTransferBytes": 150217,
-                  "postReactCommitJavascriptRequestCount": 0,
-                  "postReactCommitJavascriptTransferBytes": 0
-                },
-                "lcp": {
-                  "startTimeMs": 56,
-                  "renderTimeMs": 56,
-                  "loadTimeMs": 0,
-                  "sizePx2": 58078,
-                  "url": null,
-                  "resourceTransferBytes": 0
-                },
-                "react": {
-                  "rendererPackage": "react-dom",
-                  "rendererVersion": "19.3.0-canary-3f0b9e61-20260317",
-                  "rendererInjectMs": 37.2,
-                  "firstCommitMs": 56.4,
-                  "lastCommitMs": 58.5,
-                  "commitCount": 4,
-                  "injectToFirstCommitMs": 19.2,
-                  "injectToLastCommitMs": 21.3,
-                  "commitErrors": 0,
-                  "finalIsDehydrated": false
-                },
-                "mainThread": {
-                  "traceWindowMs": 1090.8,
-                  "mainThreadBusyToSettleMs": 68.047,
-                  "mainThreadBusyToLcpMs": 47.909,
-                  "scriptingToSettleMs": 26.286,
-                  "scriptingToLcpMs": 22.985,
-                  "scriptingDuringReactWindowMs": 15.334,
-                  "styleLayoutToSettleMs": 15.191,
-                  "paintToSettleMs": 8.166,
-                  "parseHtmlMs": 0.876,
-                  "longestMainThreadTaskMs": 16.71,
-                  "mainThreadTasksOver50Ms": 0
-                }
-              },
-              {
-                "sample": 3,
-                "capturedAtUtc": "2026-07-26T10:30:45.550Z",
-                "valid": true,
-                "settlement": {
-                  "reason": "network_quiet",
-                  "durationMs": 1043,
-                  "remainingInFlightCount": 0
-                },
-                "safety": {
-                  "requestCount": 17,
-                  "allowedRequestCount": 17,
-                  "blockedRequestCount": 0,
-                  "consoleErrorCount": 2,
-                  "networkErrorCount": 2
-                },
-                "metrics": {
-                  "ttfbMs": 3.4,
-                  "fcpMs": 60,
-                  "lcpMs": 60,
-                  "loadMs": 47,
-                  "requestCount": 17,
-                  "transferredBytes": 308923,
-                  "documentTransferBytes": 8715,
-                  "renderBlockingTransferBytes": 20892,
-                  "javascriptTransferBytes": 150217,
-                  "cssTransferBytes": 20892,
-                  "fontTransferBytes": 129099,
-                  "fetchTransferBytes": 0,
-                  "otherTransferBytes": 0,
-                  "preloadedFontTransferBytes": 101792,
-                  "initialJavascriptRequestCount": 8,
-                  "initialJavascriptTransferBytes": 150217,
-                  "postReactCommitJavascriptRequestCount": 0,
-                  "postReactCommitJavascriptTransferBytes": 0
-                },
-                "lcp": {
-                  "startTimeMs": 60,
-                  "renderTimeMs": 60,
-                  "loadTimeMs": 0,
-                  "sizePx2": 58078,
-                  "url": null,
-                  "resourceTransferBytes": 0
-                },
-                "react": {
-                  "rendererPackage": "react-dom",
-                  "rendererVersion": "19.3.0-canary-3f0b9e61-20260317",
-                  "rendererInjectMs": 39.4,
-                  "firstCommitMs": 55.8,
-                  "lastCommitMs": 58,
-                  "commitCount": 4,
-                  "injectToFirstCommitMs": 16.4,
-                  "injectToLastCommitMs": 18.6,
-                  "commitErrors": 0,
-                  "finalIsDehydrated": false
-                },
-                "mainThread": {
-                  "traceWindowMs": 1092.5,
-                  "mainThreadBusyToSettleMs": 66.047,
-                  "mainThreadBusyToLcpMs": 49.563,
-                  "scriptingToSettleMs": 26.655,
-                  "scriptingToLcpMs": 25.583,
-                  "scriptingDuringReactWindowMs": 15.461,
-                  "styleLayoutToSettleMs": 15.414,
-                  "paintToSettleMs": 7.849,
-                  "parseHtmlMs": 0.928,
-                  "longestMainThreadTaskMs": 16.693,
+                  "traceWindowMs": 1068.2,
+                  "mainThreadBusyToSettleMs": 72.596,
+                  "mainThreadBusyToLcpMs": 49.092,
+                  "scriptingToSettleMs": 26.842,
+                  "scriptingToLcpMs": 23.122,
+                  "scriptingDuringReactWindowMs": 15.404,
+                  "styleLayoutToSettleMs": 16.746,
+                  "paintToSettleMs": 9.198,
+                  "parseHtmlMs": 1.631,
+                  "longestMainThreadTaskMs": 16.978,
                   "mainThreadTasksOver50Ms": 0
                 }
               }
             ],
             "summary": {
+              "valid": true,
               "validSampleCount": 3,
+              "invalidSampleCount": 0,
+              "invalidReasons": [],
               "metricSummary": {
                 "ttfbMs": {
                   "median": 3.3,
@@ -913,8 +982,8 @@
                   "worst": 60
                 },
                 "loadMs": {
-                  "median": 45.6,
-                  "worst": 47
+                  "median": 46.4,
+                  "worst": 54.7
                 },
                 "requestCount": {
                   "median": 17,
@@ -975,44 +1044,44 @@
               },
               "mainThreadSummary": {
                 "traceWindowMs": {
-                  "median": 1092.5,
-                  "worst": 1094.6
+                  "median": 1068.2,
+                  "worst": 1068.7
                 },
                 "mainThreadBusyToSettleMs": {
-                  "median": 68.047,
-                  "worst": 69.12
+                  "median": 72.596,
+                  "worst": 80.047
                 },
                 "mainThreadBusyToLcpMs": {
-                  "median": 47.909,
-                  "worst": 49.563
+                  "median": 49.092,
+                  "worst": 49.889
                 },
                 "scriptingToSettleMs": {
-                  "median": 26.286,
-                  "worst": 26.655
+                  "median": 26.842,
+                  "worst": 27.47
                 },
                 "scriptingToLcpMs": {
-                  "median": 24.622,
-                  "worst": 25.583
+                  "median": 24.793,
+                  "worst": 25.372
                 },
                 "scriptingDuringReactWindowMs": {
-                  "median": 15.334,
-                  "worst": 15.461
+                  "median": 15.564,
+                  "worst": 16.236
                 },
                 "styleLayoutToSettleMs": {
-                  "median": 15.374,
-                  "worst": 15.414
+                  "median": 16.746,
+                  "worst": 18.115
                 },
                 "paintToSettleMs": {
-                  "median": 8.166,
-                  "worst": 8.832
+                  "median": 9.198,
+                  "worst": 13.201
                 },
                 "parseHtmlMs": {
-                  "median": 0.876,
-                  "worst": 0.928
+                  "median": 0.96,
+                  "worst": 1.631
                 },
                 "longestMainThreadTaskMs": {
-                  "median": 16.693,
-                  "worst": 16.71
+                  "median": 16.763,
+                  "worst": 16.978
                 },
                 "mainThreadTasksOver50Ms": {
                   "median": 0,
@@ -1021,16 +1090,16 @@
               },
               "reactSummary": {
                 "rendererInjectMs": {
-                  "median": 38.2,
-                  "worst": 39.4
+                  "median": 38.8,
+                  "worst": 38.9
                 },
                 "firstCommitMs": {
-                  "median": 55.8,
-                  "worst": 56.4
+                  "median": 55.2,
+                  "worst": 56.6
                 },
                 "lastCommitMs": {
-                  "median": 58,
-                  "worst": 58.5
+                  "median": 58.3,
+                  "worst": 58.9
                 },
                 "commitCount": {
                   "median": 4,
@@ -1038,11 +1107,11 @@
                 },
                 "injectToFirstCommitMs": {
                   "median": 16.4,
-                  "worst": 19.2
+                  "worst": 18.4
                 },
                 "injectToLastCommitMs": {
-                  "median": 18.6,
-                  "worst": 21.3
+                  "median": 19.4,
+                  "worst": 20.7
                 }
               },
               "javascriptPhases": {
@@ -1069,9 +1138,9 @@
               },
               "lcpIdentityConsistency": true,
               "lcpIdentityKeys": [
-                "H1|SPAN|Track smarter.Eat better.|Eat better.|\"Instrument Serif\", \"Instrument Serif Fallback\", Georgia, serif|400|italic",
-                "H1|SPAN|Track smarter.Eat better.|Eat better.|\"Instrument Serif\", \"Instrument Serif Fallback\", Georgia, serif|400|italic",
-                "H1|SPAN|Track smarter.Eat better.|Eat better.|\"Instrument Serif\", \"Instrument Serif Fallback\", Georgia, serif|400|italic"
+                "H1|Track smarter.Eat better.||SPAN|Track smarter.|Inter, \"Inter Fallback\", system-ui, sans-serif|700|normal||SPAN|Eat better.|\"Instrument Serif\", \"Instrument Serif Fallback\", Georgia, serif|400|italic",
+                "H1|Track smarter.Eat better.||SPAN|Track smarter.|Inter, \"Inter Fallback\", system-ui, sans-serif|700|normal||SPAN|Eat better.|\"Instrument Serif\", \"Instrument Serif Fallback\", Georgia, serif|400|italic",
+                "H1|Track smarter.Eat better.||SPAN|Track smarter.|Inter, \"Inter Fallback\", system-ui, sans-serif|700|normal||SPAN|Eat better.|\"Instrument Serif\", \"Instrument Serif Fallback\", Georgia, serif|400|italic"
               ],
               "representativeSample": 1,
               "representativeLcp": {
@@ -1087,19 +1156,36 @@
                   "className": "text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.08] mb-6",
                   "text": "Track smarter.Eat better."
                 },
-                "paintNode": {
-                  "tag": "SPAN",
-                  "id": null,
-                  "className": "display-hero text-[#D4A853]",
-                  "text": "Eat better.",
-                  "computedStyle": {
-                    "fontFamily": "\"Instrument Serif\", \"Instrument Serif Fallback\", Georgia, serif",
-                    "fontSize": "60px",
-                    "fontWeight": "400",
-                    "fontStyle": "italic",
-                    "backgroundImage": "none"
+                "textLeaves": [
+                  {
+                    "tag": "SPAN",
+                    "id": null,
+                    "className": "text-stone-100",
+                    "text": "Track smarter.",
+                    "directText": "Track smarter.",
+                    "computedStyle": {
+                      "fontFamily": "Inter, \"Inter Fallback\", system-ui, sans-serif",
+                      "fontSize": "60px",
+                      "fontWeight": "700",
+                      "fontStyle": "normal",
+                      "backgroundImage": "none"
+                    }
+                  },
+                  {
+                    "tag": "SPAN",
+                    "id": null,
+                    "className": "display-hero text-[#D4A853]",
+                    "text": "Eat better.",
+                    "directText": "Eat better.",
+                    "computedStyle": {
+                      "fontFamily": "\"Instrument Serif\", \"Instrument Serif Fallback\", Georgia, serif",
+                      "fontSize": "60px",
+                      "fontWeight": "400",
+                      "fontStyle": "italic",
+                      "backgroundImage": "none"
+                    }
                   }
-                }
+                ]
               },
               "criticalRequestChain": [
                 {
@@ -1107,7 +1193,7 @@
                   "type": "Document",
                   "initiatorType": "navigation",
                   "startMs": 0,
-                  "durationMs": 3.5,
+                  "durationMs": 3.328,
                   "transferBytes": 8715,
                   "decodedBodyBytes": 32697,
                   "status": 200,
@@ -1123,8 +1209,8 @@
                   "url": "/_next/static/media/9cc5b37ab1350db7-s.p.woff2",
                   "type": "Font",
                   "initiatorType": "link",
-                  "startMs": 5,
-                  "durationMs": 3.8,
+                  "startMs": 4.9,
+                  "durationMs": 3.7,
                   "transferBytes": 16582,
                   "decodedBodyBytes": 15684,
                   "status": 200,
@@ -1138,11 +1224,29 @@
                   ]
                 },
                 {
+                  "url": "/_next/static/media/e4af272ccee01ff0-s.p.woff2",
+                  "type": "Font",
+                  "initiatorType": "link",
+                  "startMs": 4.9,
+                  "durationMs": 4.8,
+                  "transferBytes": 49330,
+                  "decodedBodyBytes": 48432,
+                  "status": 200,
+                  "mimeType": "font/woff2",
+                  "renderBlockingStatus": "non-blocking",
+                  "failed": false,
+                  "fontFace": "Inter Latin",
+                  "relevance": [
+                    "preloaded_font",
+                    "lcp_font_family_candidate"
+                  ]
+                },
+                {
                   "url": "/_next/static/css/00207d0873d00653.css",
                   "type": "Stylesheet",
                   "initiatorType": "link",
-                  "startMs": 5.2,
-                  "durationMs": 4.8,
+                  "startMs": 5,
+                  "durationMs": 4.3,
                   "transferBytes": 2021,
                   "decodedBodyBytes": 5890,
                   "status": 200,
@@ -1159,8 +1263,8 @@
                   "url": "/_next/static/css/b20eb98e3adbc985.css",
                   "type": "Stylesheet",
                   "initiatorType": "link",
-                  "startMs": 5.2,
-                  "durationMs": 6.7,
+                  "startMs": 5,
+                  "durationMs": 6.3,
                   "transferBytes": 18871,
                   "decodedBodyBytes": 98730,
                   "status": 200,
@@ -1187,7 +1291,7 @@
                   "ttfbMs": 3.3,
                   "fcpMs": 56,
                   "lcpMs": 56,
-                  "loadMs": 45.6,
+                  "loadMs": 46.4,
                   "requestCount": 17,
                   "transferredBytes": 308923
                 },
@@ -1224,25 +1328,34 @@
             "samples": [
               {
                 "sample": 1,
-                "capturedAtUtc": "2026-07-26T10:30:46.735Z",
+                "capturedAtUtc": "2026-07-26T11:21:18.396Z",
                 "valid": true,
+                "invalidReasons": [],
                 "settlement": {
                   "reason": "network_quiet",
-                  "durationMs": 1046,
+                  "durationMs": 1055,
                   "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 419181,
+                  "completedCount": 23,
+                  "cachedCount": 0,
+                  "failedCount": 1,
+                  "inFlightCount": 0
                 },
                 "safety": {
                   "requestCount": 24,
                   "allowedRequestCount": 24,
                   "blockedRequestCount": 0,
+                  "blockedReasonCounts": {},
                   "consoleErrorCount": 2,
                   "networkErrorCount": 2
                 },
                 "metrics": {
-                  "ttfbMs": 5.9,
-                  "fcpMs": 100,
-                  "lcpMs": 100,
-                  "loadMs": 58.3,
+                  "ttfbMs": 6.2,
+                  "fcpMs": 132,
+                  "lcpMs": 132,
+                  "loadMs": 58.4,
                   "requestCount": 24,
                   "transferredBytes": 419181,
                   "documentTransferBytes": 4045,
@@ -1259,8 +1372,8 @@
                   "postReactCommitJavascriptTransferBytes": 9979
                 },
                 "lcp": {
-                  "startTimeMs": 100,
-                  "renderTimeMs": 100,
+                  "startTimeMs": 132,
+                  "renderTimeMs": 132,
                   "loadTimeMs": 0,
                   "sizePx2": 2730,
                   "url": null,
@@ -1269,497 +1382,59 @@
                 "react": {
                   "rendererPackage": "react-dom",
                   "rendererVersion": "19.3.0-canary-3f0b9e61-20260317",
-                  "rendererInjectMs": 32.9,
-                  "firstCommitMs": 58,
-                  "lastCommitMs": 85.2,
+                  "rendererInjectMs": 33.5,
+                  "firstCommitMs": 58.2,
+                  "lastCommitMs": 85.9,
                   "commitCount": 4,
-                  "injectToFirstCommitMs": 25.1,
-                  "injectToLastCommitMs": 52.3,
+                  "injectToFirstCommitMs": 24.7,
+                  "injectToLastCommitMs": 52.4,
                   "commitErrors": 0,
                   "finalIsDehydrated": false
                 },
                 "mainThread": {
-                  "traceWindowMs": 1107.8,
-                  "mainThreadBusyToSettleMs": 92.19,
-                  "mainThreadBusyToLcpMs": 73.649,
-                  "scriptingToSettleMs": 65.224,
-                  "scriptingToLcpMs": 59.842,
-                  "scriptingDuringReactWindowMs": 48.26,
-                  "styleLayoutToSettleMs": 10.154,
-                  "paintToSettleMs": 2.975,
-                  "parseHtmlMs": 0.932,
-                  "longestMainThreadTaskMs": 16.364,
+                  "traceWindowMs": 1117.7,
+                  "mainThreadBusyToSettleMs": 97.066,
+                  "mainThreadBusyToLcpMs": 74.621,
+                  "scriptingToSettleMs": 66.147,
+                  "scriptingToLcpMs": 59.415,
+                  "scriptingDuringReactWindowMs": 47.25,
+                  "styleLayoutToSettleMs": 10.358,
+                  "paintToSettleMs": 4.509,
+                  "parseHtmlMs": 0.517,
+                  "longestMainThreadTaskMs": 16.058,
                   "mainThreadTasksOver50Ms": 0
                 }
               },
               {
                 "sample": 2,
-                "capturedAtUtc": "2026-07-26T10:30:47.940Z",
+                "capturedAtUtc": "2026-07-26T11:21:19.605Z",
                 "valid": true,
+                "invalidReasons": [],
                 "settlement": {
                   "reason": "network_quiet",
-                  "durationMs": 1042,
+                  "durationMs": 1034,
                   "remainingInFlightCount": 0
                 },
-                "safety": {
-                  "requestCount": 24,
-                  "allowedRequestCount": 24,
-                  "blockedRequestCount": 0,
-                  "consoleErrorCount": 2,
-                  "networkErrorCount": 2
-                },
-                "metrics": {
-                  "ttfbMs": 2.9,
-                  "fcpMs": 96,
-                  "lcpMs": 96,
-                  "loadMs": 51.4,
-                  "requestCount": 24,
+                "transferOutcomes": {
                   "transferredBytes": 419181,
-                  "documentTransferBytes": 4045,
-                  "renderBlockingTransferBytes": 20892,
-                  "javascriptTransferBytes": 263740,
-                  "cssTransferBytes": 20892,
-                  "fontTransferBytes": 123902,
-                  "fetchTransferBytes": 6602,
-                  "otherTransferBytes": 0,
-                  "preloadedFontTransferBytes": 101792,
-                  "initialJavascriptRequestCount": 11,
-                  "initialJavascriptTransferBytes": 253761,
-                  "postReactCommitJavascriptRequestCount": 1,
-                  "postReactCommitJavascriptTransferBytes": 9979
-                },
-                "lcp": {
-                  "startTimeMs": 96,
-                  "renderTimeMs": 96,
-                  "loadTimeMs": 0,
-                  "sizePx2": 2730,
-                  "url": null,
-                  "resourceTransferBytes": 0
-                },
-                "react": {
-                  "rendererPackage": "react-dom",
-                  "rendererVersion": "19.3.0-canary-3f0b9e61-20260317",
-                  "rendererInjectMs": 30,
-                  "firstCommitMs": 51.3,
-                  "lastCommitMs": 67.7,
-                  "commitCount": 4,
-                  "injectToFirstCommitMs": 21.3,
-                  "injectToLastCommitMs": 37.7,
-                  "commitErrors": 0,
-                  "finalIsDehydrated": false
-                },
-                "mainThread": {
-                  "traceWindowMs": 1095.7,
-                  "mainThreadBusyToSettleMs": 67.802,
-                  "mainThreadBusyToLcpMs": 58.125,
-                  "scriptingToSettleMs": 49.515,
-                  "scriptingToLcpMs": 46.979,
-                  "scriptingDuringReactWindowMs": 35.571,
-                  "styleLayoutToSettleMs": 8.797,
-                  "paintToSettleMs": 2.112,
-                  "parseHtmlMs": 0.522,
-                  "longestMainThreadTaskMs": 14.816,
-                  "mainThreadTasksOver50Ms": 0
-                }
-              },
-              {
-                "sample": 3,
-                "capturedAtUtc": "2026-07-26T10:30:49.103Z",
-                "valid": true,
-                "settlement": {
-                  "reason": "network_quiet",
-                  "durationMs": 1046,
-                  "remainingInFlightCount": 0
+                  "completedCount": 23,
+                  "cachedCount": 0,
+                  "failedCount": 1,
+                  "inFlightCount": 0
                 },
                 "safety": {
                   "requestCount": 24,
                   "allowedRequestCount": 24,
                   "blockedRequestCount": 0,
+                  "blockedReasonCounts": {},
                   "consoleErrorCount": 2,
                   "networkErrorCount": 2
                 },
                 "metrics": {
-                  "ttfbMs": 2.7,
-                  "fcpMs": 88,
-                  "lcpMs": 88,
-                  "loadMs": 62,
-                  "requestCount": 24,
-                  "transferredBytes": 419181,
-                  "documentTransferBytes": 4045,
-                  "renderBlockingTransferBytes": 20892,
-                  "javascriptTransferBytes": 263740,
-                  "cssTransferBytes": 20892,
-                  "fontTransferBytes": 123902,
-                  "fetchTransferBytes": 6602,
-                  "otherTransferBytes": 0,
-                  "preloadedFontTransferBytes": 101792,
-                  "initialJavascriptRequestCount": 11,
-                  "initialJavascriptTransferBytes": 253761,
-                  "postReactCommitJavascriptRequestCount": 1,
-                  "postReactCommitJavascriptTransferBytes": 9979
-                },
-                "lcp": {
-                  "startTimeMs": 88,
-                  "renderTimeMs": 88,
-                  "loadTimeMs": 0,
-                  "sizePx2": 2730,
-                  "url": null,
-                  "resourceTransferBytes": 0
-                },
-                "react": {
-                  "rendererPackage": "react-dom",
-                  "rendererVersion": "19.3.0-canary-3f0b9e61-20260317",
-                  "rendererInjectMs": 42.1,
-                  "firstCommitMs": 61.8,
-                  "lastCommitMs": 75.4,
-                  "commitCount": 4,
-                  "injectToFirstCommitMs": 19.7,
-                  "injectToLastCommitMs": 33.3,
-                  "commitErrors": 0,
-                  "finalIsDehydrated": false
-                },
-                "mainThread": {
-                  "traceWindowMs": 1111.1,
-                  "mainThreadBusyToSettleMs": 65.98,
-                  "mainThreadBusyToLcpMs": 55.073,
-                  "scriptingToSettleMs": 47.158,
-                  "scriptingToLcpMs": 43.942,
-                  "scriptingDuringReactWindowMs": 31.681,
-                  "styleLayoutToSettleMs": 8.013,
-                  "paintToSettleMs": 1.901,
-                  "parseHtmlMs": 0.589,
-                  "longestMainThreadTaskMs": 14.682,
-                  "mainThreadTasksOver50Ms": 0
-                }
-              }
-            ],
-            "summary": {
-              "validSampleCount": 3,
-              "metricSummary": {
-                "ttfbMs": {
-                  "median": 2.9,
-                  "worst": 5.9
-                },
-                "fcpMs": {
-                  "median": 96,
-                  "worst": 100
-                },
-                "lcpMs": {
-                  "median": 96,
-                  "worst": 100
-                },
-                "loadMs": {
-                  "median": 58.3,
-                  "worst": 62
-                },
-                "requestCount": {
-                  "median": 24,
-                  "worst": 24
-                },
-                "transferredBytes": {
-                  "median": 419181,
-                  "worst": 419181
-                },
-                "documentTransferBytes": {
-                  "median": 4045,
-                  "worst": 4045
-                },
-                "renderBlockingTransferBytes": {
-                  "median": 20892,
-                  "worst": 20892
-                },
-                "javascriptTransferBytes": {
-                  "median": 263740,
-                  "worst": 263740
-                },
-                "cssTransferBytes": {
-                  "median": 20892,
-                  "worst": 20892
-                },
-                "fontTransferBytes": {
-                  "median": 123902,
-                  "worst": 123902
-                },
-                "fetchTransferBytes": {
-                  "median": 6602,
-                  "worst": 6602
-                },
-                "otherTransferBytes": {
-                  "median": 0,
-                  "worst": 0
-                },
-                "preloadedFontTransferBytes": {
-                  "median": 101792,
-                  "worst": 101792
-                },
-                "initialJavascriptRequestCount": {
-                  "median": 11,
-                  "worst": 11
-                },
-                "initialJavascriptTransferBytes": {
-                  "median": 253761,
-                  "worst": 253761
-                },
-                "postReactCommitJavascriptRequestCount": {
-                  "median": 1,
-                  "worst": 1
-                },
-                "postReactCommitJavascriptTransferBytes": {
-                  "median": 9979,
-                  "worst": 9979
-                }
-              },
-              "mainThreadSummary": {
-                "traceWindowMs": {
-                  "median": 1107.8,
-                  "worst": 1111.1
-                },
-                "mainThreadBusyToSettleMs": {
-                  "median": 67.802,
-                  "worst": 92.19
-                },
-                "mainThreadBusyToLcpMs": {
-                  "median": 58.125,
-                  "worst": 73.649
-                },
-                "scriptingToSettleMs": {
-                  "median": 49.515,
-                  "worst": 65.224
-                },
-                "scriptingToLcpMs": {
-                  "median": 46.979,
-                  "worst": 59.842
-                },
-                "scriptingDuringReactWindowMs": {
-                  "median": 35.571,
-                  "worst": 48.26
-                },
-                "styleLayoutToSettleMs": {
-                  "median": 8.797,
-                  "worst": 10.154
-                },
-                "paintToSettleMs": {
-                  "median": 2.112,
-                  "worst": 2.975
-                },
-                "parseHtmlMs": {
-                  "median": 0.589,
-                  "worst": 0.932
-                },
-                "longestMainThreadTaskMs": {
-                  "median": 14.816,
-                  "worst": 16.364
-                },
-                "mainThreadTasksOver50Ms": {
-                  "median": 0,
-                  "worst": 0
-                }
-              },
-              "reactSummary": {
-                "rendererInjectMs": {
-                  "median": 32.9,
-                  "worst": 42.1
-                },
-                "firstCommitMs": {
-                  "median": 58,
-                  "worst": 61.8
-                },
-                "lastCommitMs": {
-                  "median": 75.4,
-                  "worst": 85.2
-                },
-                "commitCount": {
-                  "median": 4,
-                  "worst": 4
-                },
-                "injectToFirstCommitMs": {
-                  "median": 21.3,
-                  "worst": 25.1
-                },
-                "injectToLastCommitMs": {
-                  "median": 37.7,
-                  "worst": 52.3
-                }
-              },
-              "javascriptPhases": {
-                "throughLastReactCommit": {
-                  "requestCount": {
-                    "median": 11,
-                    "worst": 11
-                  },
-                  "transferBytes": {
-                    "median": 253761,
-                    "worst": 253761
-                  }
-                },
-                "afterLastReactCommit": {
-                  "requestCount": {
-                    "median": 1,
-                    "worst": 1
-                  },
-                  "transferBytes": {
-                    "median": 9979,
-                    "worst": 9979
-                  }
-                }
-              },
-              "lcpIdentityConsistency": true,
-              "lcpIdentityKeys": [
-                "A|SPAN|trophē|trophē|\"Instrument Serif\", \"Instrument Serif Fallback\"|400|italic",
-                "A|SPAN|trophē|trophē|\"Instrument Serif\", \"Instrument Serif Fallback\"|400|italic",
-                "A|SPAN|trophē|trophē|\"Instrument Serif\", \"Instrument Serif Fallback\"|400|italic"
-              ],
-              "representativeSample": 2,
-              "representativeLcp": {
-                "startTimeMs": 96,
-                "renderTimeMs": 96,
-                "loadTimeMs": 0,
-                "sizePx2": 2730,
-                "url": null,
-                "resourceTransferBytes": 0,
-                "element": {
-                  "tag": "A",
-                  "id": null,
-                  "className": "no-underline inline-block",
-                  "text": "trophē"
-                },
-                "paintNode": {
-                  "tag": "SPAN",
-                  "id": null,
-                  "className": "font-serif italic text-[#D4A853] text-3xl tracking-tight select-none",
-                  "text": "trophē",
-                  "computedStyle": {
-                    "fontFamily": "\"Instrument Serif\", \"Instrument Serif Fallback\"",
-                    "fontSize": "30px",
-                    "fontWeight": "400",
-                    "fontStyle": "italic",
-                    "backgroundImage": "none"
-                  }
-                }
-              },
-              "criticalRequestChain": [
-                {
-                  "url": "/login",
-                  "type": "Document",
-                  "initiatorType": "navigation",
-                  "startMs": 0,
-                  "durationMs": 2.995,
-                  "transferBytes": 4045,
-                  "decodedBodyBytes": 10209,
-                  "status": 200,
-                  "mimeType": "text/html",
-                  "renderBlockingStatus": "navigation",
-                  "failed": false,
-                  "fontFace": null,
-                  "relevance": [
-                    "navigation_document"
-                  ]
-                },
-                {
-                  "url": "/_next/static/css/00207d0873d00653.css",
-                  "type": "Stylesheet",
-                  "initiatorType": "link",
-                  "startMs": 4.6,
-                  "durationMs": 4.6,
-                  "transferBytes": 2021,
-                  "decodedBodyBytes": 5890,
-                  "status": 200,
-                  "mimeType": "text/css",
-                  "renderBlockingStatus": "blocking",
-                  "failed": false,
-                  "fontFace": null,
-                  "relevance": [
-                    "browser_reported_render_blocking",
-                    "stylesheet"
-                  ]
-                },
-                {
-                  "url": "/_next/static/css/b20eb98e3adbc985.css",
-                  "type": "Stylesheet",
-                  "initiatorType": "link",
-                  "startMs": 4.6,
-                  "durationMs": 6.5,
-                  "transferBytes": 18871,
-                  "decodedBodyBytes": 98730,
-                  "status": 200,
-                  "mimeType": "text/css",
-                  "renderBlockingStatus": "blocking",
-                  "failed": false,
-                  "fontFace": null,
-                  "relevance": [
-                    "browser_reported_render_blocking",
-                    "stylesheet"
-                  ]
-                },
-                {
-                  "url": "/_next/static/media/9cc5b37ab1350db7-s.p.woff2",
-                  "type": "Font",
-                  "initiatorType": "link",
-                  "startMs": 4.6,
-                  "durationMs": 3.5,
-                  "transferBytes": 16582,
-                  "decodedBodyBytes": 15684,
-                  "status": 200,
-                  "mimeType": "font/woff2",
-                  "renderBlockingStatus": "non-blocking",
-                  "failed": false,
-                  "fontFace": "Instrument Serif italic Latin",
-                  "relevance": [
-                    "preloaded_font",
-                    "lcp_font_family_candidate"
-                  ]
-                }
-              ],
-              "baselineReconciliation": {
-                "headlineMedian": {
-                  "ttfb": 3.099999964237213,
-                  "fcp": 84,
-                  "lcp": 84,
-                  "load": 54.80000001192093,
-                  "requestCount": 24,
-                  "transferredBytes": 419181
-                },
-                "diagnosticMedian": {
-                  "ttfbMs": 2.9,
-                  "fcpMs": 96,
-                  "lcpMs": 96,
-                  "loadMs": 58.3,
-                  "requestCount": 24,
-                  "transferredBytes": 419181
-                },
-                "requestCountExactMatch": true,
-                "transferredBytesExactMatch": true
-              }
-            }
-          },
-          {
-            "viewport": {
-              "name": "desktop",
-              "width": 1440,
-              "height": 900
-            },
-            "samples": [
-              {
-                "sample": 1,
-                "capturedAtUtc": "2026-07-26T10:30:50.291Z",
-                "valid": true,
-                "settlement": {
-                  "reason": "network_quiet",
-                  "durationMs": 1043,
-                  "remainingInFlightCount": 0
-                },
-                "safety": {
-                  "requestCount": 24,
-                  "allowedRequestCount": 24,
-                  "blockedRequestCount": 0,
-                  "consoleErrorCount": 2,
-                  "networkErrorCount": 2
-                },
-                "metrics": {
-                  "ttfbMs": 2.7,
+                  "ttfbMs": 2.8,
                   "fcpMs": 76,
                   "lcpMs": 76,
-                  "loadMs": 47.2,
+                  "loadMs": 48.2,
                   "requestCount": 24,
                   "transferredBytes": 419181,
                   "documentTransferBytes": 4045,
@@ -1786,120 +1461,59 @@
                 "react": {
                   "rendererPackage": "react-dom",
                   "rendererVersion": "19.3.0-canary-3f0b9e61-20260317",
-                  "rendererInjectMs": 28.3,
-                  "firstCommitMs": 47.1,
-                  "lastCommitMs": 60.8,
+                  "rendererInjectMs": 29.3,
+                  "firstCommitMs": 48.1,
+                  "lastCommitMs": 61.7,
                   "commitCount": 4,
                   "injectToFirstCommitMs": 18.8,
-                  "injectToLastCommitMs": 32.5,
+                  "injectToLastCommitMs": 32.4,
                   "commitErrors": 0,
                   "finalIsDehydrated": false
                 },
                 "mainThread": {
-                  "traceWindowMs": 1092.5,
-                  "mainThreadBusyToSettleMs": 69.375,
-                  "mainThreadBusyToLcpMs": 53.916,
-                  "scriptingToSettleMs": 47.553,
-                  "scriptingToLcpMs": 43.16,
-                  "scriptingDuringReactWindowMs": 30.97,
-                  "styleLayoutToSettleMs": 9.004,
-                  "paintToSettleMs": 2.423,
-                  "parseHtmlMs": 0.511,
-                  "longestMainThreadTaskMs": 13.895,
-                  "mainThreadTasksOver50Ms": 0
-                }
-              },
-              {
-                "sample": 2,
-                "capturedAtUtc": "2026-07-26T10:30:51.460Z",
-                "valid": true,
-                "settlement": {
-                  "reason": "network_quiet",
-                  "durationMs": 1041,
-                  "remainingInFlightCount": 0
-                },
-                "safety": {
-                  "requestCount": 24,
-                  "allowedRequestCount": 24,
-                  "blockedRequestCount": 0,
-                  "consoleErrorCount": 2,
-                  "networkErrorCount": 2
-                },
-                "metrics": {
-                  "ttfbMs": 2.5,
-                  "fcpMs": 96,
-                  "lcpMs": 96,
-                  "loadMs": 47.4,
-                  "requestCount": 24,
-                  "transferredBytes": 419181,
-                  "documentTransferBytes": 4045,
-                  "renderBlockingTransferBytes": 20892,
-                  "javascriptTransferBytes": 263740,
-                  "cssTransferBytes": 20892,
-                  "fontTransferBytes": 123902,
-                  "fetchTransferBytes": 6602,
-                  "otherTransferBytes": 0,
-                  "preloadedFontTransferBytes": 101792,
-                  "initialJavascriptRequestCount": 11,
-                  "initialJavascriptTransferBytes": 253761,
-                  "postReactCommitJavascriptRequestCount": 1,
-                  "postReactCommitJavascriptTransferBytes": 9979
-                },
-                "lcp": {
-                  "startTimeMs": 96,
-                  "renderTimeMs": 96,
-                  "loadTimeMs": 0,
-                  "sizePx2": 2730,
-                  "url": null,
-                  "resourceTransferBytes": 0
-                },
-                "react": {
-                  "rendererPackage": "react-dom",
-                  "rendererVersion": "19.3.0-canary-3f0b9e61-20260317",
-                  "rendererInjectMs": 28.3,
-                  "firstCommitMs": 47.3,
-                  "lastCommitMs": 62.1,
-                  "commitCount": 4,
-                  "injectToFirstCommitMs": 19,
-                  "injectToLastCommitMs": 33.8,
-                  "commitErrors": 0,
-                  "finalIsDehydrated": false
-                },
-                "mainThread": {
-                  "traceWindowMs": 1090.8,
-                  "mainThreadBusyToSettleMs": 66.58,
-                  "mainThreadBusyToLcpMs": 54.626,
-                  "scriptingToSettleMs": 46.803,
-                  "scriptingToLcpMs": 43.507,
-                  "scriptingDuringReactWindowMs": 32.004,
-                  "styleLayoutToSettleMs": 8.716,
-                  "paintToSettleMs": 2.047,
-                  "parseHtmlMs": 0.511,
-                  "longestMainThreadTaskMs": 14.182,
+                  "traceWindowMs": 1087.4,
+                  "mainThreadBusyToSettleMs": 73.287,
+                  "mainThreadBusyToLcpMs": 52.804,
+                  "scriptingToSettleMs": 48.566,
+                  "scriptingToLcpMs": 42.618,
+                  "scriptingDuringReactWindowMs": 30.946,
+                  "styleLayoutToSettleMs": 9.034,
+                  "paintToSettleMs": 3.038,
+                  "parseHtmlMs": 0.524,
+                  "longestMainThreadTaskMs": 14.02,
                   "mainThreadTasksOver50Ms": 0
                 }
               },
               {
                 "sample": 3,
-                "capturedAtUtc": "2026-07-26T10:30:52.625Z",
+                "capturedAtUtc": "2026-07-26T11:21:20.783Z",
                 "valid": true,
+                "invalidReasons": [],
                 "settlement": {
                   "reason": "network_quiet",
-                  "durationMs": 1047,
+                  "durationMs": 1031,
                   "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 419181,
+                  "completedCount": 23,
+                  "cachedCount": 0,
+                  "failedCount": 1,
+                  "inFlightCount": 0
                 },
                 "safety": {
                   "requestCount": 24,
                   "allowedRequestCount": 24,
                   "blockedRequestCount": 0,
+                  "blockedReasonCounts": {},
                   "consoleErrorCount": 2,
                   "networkErrorCount": 2
                 },
                 "metrics": {
-                  "ttfbMs": 2.5,
-                  "fcpMs": 96,
-                  "lcpMs": 96,
-                  "loadMs": 47.6,
+                  "ttfbMs": 2.8,
+                  "fcpMs": 80,
+                  "lcpMs": 80,
+                  "loadMs": 54.1,
                   "requestCount": 24,
                   "transferredBytes": 419181,
                   "documentTransferBytes": 4045,
@@ -1916,8 +1530,8 @@
                   "postReactCommitJavascriptTransferBytes": 9979
                 },
                 "lcp": {
-                  "startTimeMs": 96,
-                  "renderTimeMs": 96,
+                  "startTimeMs": 80,
+                  "renderTimeMs": 80,
                   "loadTimeMs": 0,
                   "sizePx2": 2730,
                   "url": null,
@@ -1926,48 +1540,51 @@
                 "react": {
                   "rendererPackage": "react-dom",
                   "rendererVersion": "19.3.0-canary-3f0b9e61-20260317",
-                  "rendererInjectMs": 28.4,
-                  "firstCommitMs": 47.4,
-                  "lastCommitMs": 62.6,
+                  "rendererInjectMs": 34.6,
+                  "firstCommitMs": 54,
+                  "lastCommitMs": 68,
                   "commitCount": 4,
-                  "injectToFirstCommitMs": 19,
-                  "injectToLastCommitMs": 34.2,
+                  "injectToFirstCommitMs": 19.4,
+                  "injectToLastCommitMs": 33.4,
                   "commitErrors": 0,
                   "finalIsDehydrated": false
                 },
                 "mainThread": {
-                  "traceWindowMs": 1097.6,
-                  "mainThreadBusyToSettleMs": 72.938,
-                  "mainThreadBusyToLcpMs": 54.882,
-                  "scriptingToSettleMs": 48.916,
-                  "scriptingToLcpMs": 43.704,
-                  "scriptingDuringReactWindowMs": 32.227,
-                  "styleLayoutToSettleMs": 9.709,
-                  "paintToSettleMs": 2.765,
-                  "parseHtmlMs": 0.529,
-                  "longestMainThreadTaskMs": 14.188,
+                  "traceWindowMs": 1088.9,
+                  "mainThreadBusyToSettleMs": 70.977,
+                  "mainThreadBusyToLcpMs": 54.361,
+                  "scriptingToSettleMs": 48.471,
+                  "scriptingToLcpMs": 43.74,
+                  "scriptingDuringReactWindowMs": 31.869,
+                  "styleLayoutToSettleMs": 8.527,
+                  "paintToSettleMs": 2.721,
+                  "parseHtmlMs": 0.59,
+                  "longestMainThreadTaskMs": 14.3,
                   "mainThreadTasksOver50Ms": 0
                 }
               }
             ],
             "summary": {
+              "valid": true,
               "validSampleCount": 3,
+              "invalidSampleCount": 0,
+              "invalidReasons": [],
               "metricSummary": {
                 "ttfbMs": {
-                  "median": 2.5,
-                  "worst": 2.7
+                  "median": 2.8,
+                  "worst": 6.2
                 },
                 "fcpMs": {
-                  "median": 96,
-                  "worst": 96
+                  "median": 80,
+                  "worst": 132
                 },
                 "lcpMs": {
-                  "median": 96,
-                  "worst": 96
+                  "median": 80,
+                  "worst": 132
                 },
                 "loadMs": {
-                  "median": 47.4,
-                  "worst": 47.6
+                  "median": 54.1,
+                  "worst": 58.4
                 },
                 "requestCount": {
                   "median": 24,
@@ -2028,44 +1645,44 @@
               },
               "mainThreadSummary": {
                 "traceWindowMs": {
-                  "median": 1092.5,
-                  "worst": 1097.6
+                  "median": 1088.9,
+                  "worst": 1117.7
                 },
                 "mainThreadBusyToSettleMs": {
-                  "median": 69.375,
-                  "worst": 72.938
+                  "median": 73.287,
+                  "worst": 97.066
                 },
                 "mainThreadBusyToLcpMs": {
-                  "median": 54.626,
-                  "worst": 54.882
+                  "median": 54.361,
+                  "worst": 74.621
                 },
                 "scriptingToSettleMs": {
-                  "median": 47.553,
-                  "worst": 48.916
+                  "median": 48.566,
+                  "worst": 66.147
                 },
                 "scriptingToLcpMs": {
-                  "median": 43.507,
-                  "worst": 43.704
+                  "median": 43.74,
+                  "worst": 59.415
                 },
                 "scriptingDuringReactWindowMs": {
-                  "median": 32.004,
-                  "worst": 32.227
+                  "median": 31.869,
+                  "worst": 47.25
                 },
                 "styleLayoutToSettleMs": {
-                  "median": 9.004,
-                  "worst": 9.709
+                  "median": 9.034,
+                  "worst": 10.358
                 },
                 "paintToSettleMs": {
-                  "median": 2.423,
-                  "worst": 2.765
+                  "median": 3.038,
+                  "worst": 4.509
                 },
                 "parseHtmlMs": {
-                  "median": 0.511,
-                  "worst": 0.529
+                  "median": 0.524,
+                  "worst": 0.59
                 },
                 "longestMainThreadTaskMs": {
-                  "median": 14.182,
-                  "worst": 14.188
+                  "median": 14.3,
+                  "worst": 16.058
                 },
                 "mainThreadTasksOver50Ms": {
                   "median": 0,
@@ -2074,28 +1691,28 @@
               },
               "reactSummary": {
                 "rendererInjectMs": {
-                  "median": 28.3,
-                  "worst": 28.4
+                  "median": 33.5,
+                  "worst": 34.6
                 },
                 "firstCommitMs": {
-                  "median": 47.3,
-                  "worst": 47.4
+                  "median": 54,
+                  "worst": 58.2
                 },
                 "lastCommitMs": {
-                  "median": 62.1,
-                  "worst": 62.6
+                  "median": 68,
+                  "worst": 85.9
                 },
                 "commitCount": {
                   "median": 4,
                   "worst": 4
                 },
                 "injectToFirstCommitMs": {
-                  "median": 19,
-                  "worst": 19
+                  "median": 19.4,
+                  "worst": 24.7
                 },
                 "injectToLastCommitMs": {
-                  "median": 33.8,
-                  "worst": 34.2
+                  "median": 33.4,
+                  "worst": 52.4
                 }
               },
               "javascriptPhases": {
@@ -2122,14 +1739,14 @@
               },
               "lcpIdentityConsistency": true,
               "lcpIdentityKeys": [
-                "A|SPAN|trophē|trophē|\"Instrument Serif\", \"Instrument Serif Fallback\"|400|italic",
-                "A|SPAN|trophē|trophē|\"Instrument Serif\", \"Instrument Serif Fallback\"|400|italic",
-                "A|SPAN|trophē|trophē|\"Instrument Serif\", \"Instrument Serif Fallback\"|400|italic"
+                "A|trophē||SPAN|trophē|\"Instrument Serif\", \"Instrument Serif Fallback\"|400|italic",
+                "A|trophē||SPAN|trophē|\"Instrument Serif\", \"Instrument Serif Fallback\"|400|italic",
+                "A|trophē||SPAN|trophē|\"Instrument Serif\", \"Instrument Serif Fallback\"|400|italic"
               ],
-              "representativeSample": 2,
+              "representativeSample": 3,
               "representativeLcp": {
-                "startTimeMs": 96,
-                "renderTimeMs": 96,
+                "startTimeMs": 80,
+                "renderTimeMs": 80,
                 "loadTimeMs": 0,
                 "sizePx2": 2730,
                 "url": null,
@@ -2140,19 +1757,22 @@
                   "className": "no-underline inline-block",
                   "text": "trophē"
                 },
-                "paintNode": {
-                  "tag": "SPAN",
-                  "id": null,
-                  "className": "font-serif italic text-[#D4A853] text-3xl tracking-tight select-none",
-                  "text": "trophē",
-                  "computedStyle": {
-                    "fontFamily": "\"Instrument Serif\", \"Instrument Serif Fallback\"",
-                    "fontSize": "30px",
-                    "fontWeight": "400",
-                    "fontStyle": "italic",
-                    "backgroundImage": "none"
+                "textLeaves": [
+                  {
+                    "tag": "SPAN",
+                    "id": null,
+                    "className": "font-serif italic text-[#D4A853] text-3xl tracking-tight select-none",
+                    "text": "trophē",
+                    "directText": "trophē",
+                    "computedStyle": {
+                      "fontFamily": "\"Instrument Serif\", \"Instrument Serif Fallback\"",
+                      "fontSize": "30px",
+                      "fontWeight": "400",
+                      "fontStyle": "italic",
+                      "backgroundImage": "none"
+                    }
                   }
-                }
+                ]
               },
               "criticalRequestChain": [
                 {
@@ -2160,7 +1780,557 @@
                   "type": "Document",
                   "initiatorType": "navigation",
                   "startMs": 0,
-                  "durationMs": 2.686,
+                  "durationMs": 2.934,
+                  "transferBytes": 4045,
+                  "decodedBodyBytes": 10209,
+                  "status": 200,
+                  "mimeType": "text/html",
+                  "renderBlockingStatus": "navigation",
+                  "failed": false,
+                  "fontFace": null,
+                  "relevance": [
+                    "navigation_document"
+                  ]
+                },
+                {
+                  "url": "/_next/static/css/00207d0873d00653.css",
+                  "type": "Stylesheet",
+                  "initiatorType": "link",
+                  "startMs": 4.4,
+                  "durationMs": 4.7,
+                  "transferBytes": 2021,
+                  "decodedBodyBytes": 5890,
+                  "status": 200,
+                  "mimeType": "text/css",
+                  "renderBlockingStatus": "blocking",
+                  "failed": false,
+                  "fontFace": null,
+                  "relevance": [
+                    "browser_reported_render_blocking",
+                    "stylesheet"
+                  ]
+                },
+                {
+                  "url": "/_next/static/css/b20eb98e3adbc985.css",
+                  "type": "Stylesheet",
+                  "initiatorType": "link",
+                  "startMs": 4.4,
+                  "durationMs": 7.6,
+                  "transferBytes": 18871,
+                  "decodedBodyBytes": 98730,
+                  "status": 200,
+                  "mimeType": "text/css",
+                  "renderBlockingStatus": "blocking",
+                  "failed": false,
+                  "fontFace": null,
+                  "relevance": [
+                    "browser_reported_render_blocking",
+                    "stylesheet"
+                  ]
+                },
+                {
+                  "url": "/_next/static/media/9cc5b37ab1350db7-s.p.woff2",
+                  "type": "Font",
+                  "initiatorType": "link",
+                  "startMs": 4.4,
+                  "durationMs": 3.7,
+                  "transferBytes": 16582,
+                  "decodedBodyBytes": 15684,
+                  "status": 200,
+                  "mimeType": "font/woff2",
+                  "renderBlockingStatus": "non-blocking",
+                  "failed": false,
+                  "fontFace": "Instrument Serif italic Latin",
+                  "relevance": [
+                    "preloaded_font",
+                    "lcp_font_family_candidate"
+                  ]
+                }
+              ],
+              "baselineReconciliation": {
+                "headlineMedian": {
+                  "ttfb": 3.099999964237213,
+                  "fcp": 84,
+                  "lcp": 84,
+                  "load": 54.80000001192093,
+                  "requestCount": 24,
+                  "transferredBytes": 419181
+                },
+                "diagnosticMedian": {
+                  "ttfbMs": 2.8,
+                  "fcpMs": 80,
+                  "lcpMs": 80,
+                  "loadMs": 54.1,
+                  "requestCount": 24,
+                  "transferredBytes": 419181
+                },
+                "requestCountExactMatch": true,
+                "transferredBytesExactMatch": true
+              }
+            }
+          },
+          {
+            "viewport": {
+              "name": "desktop",
+              "width": 1440,
+              "height": 900
+            },
+            "samples": [
+              {
+                "sample": 1,
+                "capturedAtUtc": "2026-07-26T11:21:21.962Z",
+                "valid": true,
+                "invalidReasons": [],
+                "settlement": {
+                  "reason": "network_quiet",
+                  "durationMs": 1029,
+                  "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 419181,
+                  "completedCount": 23,
+                  "cachedCount": 0,
+                  "failedCount": 1,
+                  "inFlightCount": 0
+                },
+                "safety": {
+                  "requestCount": 24,
+                  "allowedRequestCount": 24,
+                  "blockedRequestCount": 0,
+                  "blockedReasonCounts": {},
+                  "consoleErrorCount": 2,
+                  "networkErrorCount": 2
+                },
+                "metrics": {
+                  "ttfbMs": 2.7,
+                  "fcpMs": 80,
+                  "lcpMs": 80,
+                  "loadMs": 48,
+                  "requestCount": 24,
+                  "transferredBytes": 419181,
+                  "documentTransferBytes": 4045,
+                  "renderBlockingTransferBytes": 20892,
+                  "javascriptTransferBytes": 263740,
+                  "cssTransferBytes": 20892,
+                  "fontTransferBytes": 123902,
+                  "fetchTransferBytes": 6602,
+                  "otherTransferBytes": 0,
+                  "preloadedFontTransferBytes": 101792,
+                  "initialJavascriptRequestCount": 11,
+                  "initialJavascriptTransferBytes": 253761,
+                  "postReactCommitJavascriptRequestCount": 1,
+                  "postReactCommitJavascriptTransferBytes": 9979
+                },
+                "lcp": {
+                  "startTimeMs": 80,
+                  "renderTimeMs": 80,
+                  "loadTimeMs": 0,
+                  "sizePx2": 2730,
+                  "url": null,
+                  "resourceTransferBytes": 0
+                },
+                "react": {
+                  "rendererPackage": "react-dom",
+                  "rendererVersion": "19.3.0-canary-3f0b9e61-20260317",
+                  "rendererInjectMs": 28.7,
+                  "firstCommitMs": 47.9,
+                  "lastCommitMs": 61.5,
+                  "commitCount": 4,
+                  "injectToFirstCommitMs": 19.2,
+                  "injectToLastCommitMs": 32.8,
+                  "commitErrors": 0,
+                  "finalIsDehydrated": false
+                },
+                "mainThread": {
+                  "traceWindowMs": 1082.1,
+                  "mainThreadBusyToSettleMs": 75.177,
+                  "mainThreadBusyToLcpMs": 53.846,
+                  "scriptingToSettleMs": 49.63,
+                  "scriptingToLcpMs": 43.449,
+                  "scriptingDuringReactWindowMs": 31.318,
+                  "styleLayoutToSettleMs": 9.717,
+                  "paintToSettleMs": 2.73,
+                  "parseHtmlMs": 0.519,
+                  "longestMainThreadTaskMs": 14.112,
+                  "mainThreadTasksOver50Ms": 0
+                }
+              },
+              {
+                "sample": 2,
+                "capturedAtUtc": "2026-07-26T11:21:23.140Z",
+                "valid": true,
+                "invalidReasons": [],
+                "settlement": {
+                  "reason": "network_quiet",
+                  "durationMs": 1035,
+                  "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 419181,
+                  "completedCount": 23,
+                  "cachedCount": 0,
+                  "failedCount": 1,
+                  "inFlightCount": 0
+                },
+                "safety": {
+                  "requestCount": 24,
+                  "allowedRequestCount": 24,
+                  "blockedRequestCount": 0,
+                  "blockedReasonCounts": {},
+                  "consoleErrorCount": 2,
+                  "networkErrorCount": 2
+                },
+                "metrics": {
+                  "ttfbMs": 2.8,
+                  "fcpMs": 88,
+                  "lcpMs": 88,
+                  "loadMs": 47.9,
+                  "requestCount": 24,
+                  "transferredBytes": 419181,
+                  "documentTransferBytes": 4045,
+                  "renderBlockingTransferBytes": 20892,
+                  "javascriptTransferBytes": 263740,
+                  "cssTransferBytes": 20892,
+                  "fontTransferBytes": 123902,
+                  "fetchTransferBytes": 6602,
+                  "otherTransferBytes": 0,
+                  "preloadedFontTransferBytes": 101792,
+                  "initialJavascriptRequestCount": 11,
+                  "initialJavascriptTransferBytes": 253761,
+                  "postReactCommitJavascriptRequestCount": 1,
+                  "postReactCommitJavascriptTransferBytes": 9979
+                },
+                "lcp": {
+                  "startTimeMs": 88,
+                  "renderTimeMs": 88,
+                  "loadTimeMs": 0,
+                  "sizePx2": 2730,
+                  "url": null,
+                  "resourceTransferBytes": 0
+                },
+                "react": {
+                  "rendererPackage": "react-dom",
+                  "rendererVersion": "19.3.0-canary-3f0b9e61-20260317",
+                  "rendererInjectMs": 28.9,
+                  "firstCommitMs": 47.7,
+                  "lastCommitMs": 61.3,
+                  "commitCount": 4,
+                  "injectToFirstCommitMs": 18.8,
+                  "injectToLastCommitMs": 32.4,
+                  "commitErrors": 0,
+                  "finalIsDehydrated": false
+                },
+                "mainThread": {
+                  "traceWindowMs": 1087.3,
+                  "mainThreadBusyToSettleMs": 78.303,
+                  "mainThreadBusyToLcpMs": 54.38,
+                  "scriptingToSettleMs": 50.089,
+                  "scriptingToLcpMs": 43.342,
+                  "scriptingDuringReactWindowMs": 30.959,
+                  "styleLayoutToSettleMs": 10.359,
+                  "paintToSettleMs": 2.681,
+                  "parseHtmlMs": 0.529,
+                  "longestMainThreadTaskMs": 13.997,
+                  "mainThreadTasksOver50Ms": 0
+                }
+              },
+              {
+                "sample": 3,
+                "capturedAtUtc": "2026-07-26T11:21:24.315Z",
+                "valid": true,
+                "invalidReasons": [],
+                "settlement": {
+                  "reason": "network_quiet",
+                  "durationMs": 1033,
+                  "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 419181,
+                  "completedCount": 23,
+                  "cachedCount": 0,
+                  "failedCount": 1,
+                  "inFlightCount": 0
+                },
+                "safety": {
+                  "requestCount": 24,
+                  "allowedRequestCount": 24,
+                  "blockedRequestCount": 0,
+                  "blockedReasonCounts": {},
+                  "consoleErrorCount": 2,
+                  "networkErrorCount": 2
+                },
+                "metrics": {
+                  "ttfbMs": 2.5,
+                  "fcpMs": 96,
+                  "lcpMs": 96,
+                  "loadMs": 47.9,
+                  "requestCount": 24,
+                  "transferredBytes": 419181,
+                  "documentTransferBytes": 4045,
+                  "renderBlockingTransferBytes": 20892,
+                  "javascriptTransferBytes": 263740,
+                  "cssTransferBytes": 20892,
+                  "fontTransferBytes": 123902,
+                  "fetchTransferBytes": 6602,
+                  "otherTransferBytes": 0,
+                  "preloadedFontTransferBytes": 101792,
+                  "initialJavascriptRequestCount": 11,
+                  "initialJavascriptTransferBytes": 253761,
+                  "postReactCommitJavascriptRequestCount": 1,
+                  "postReactCommitJavascriptTransferBytes": 9979
+                },
+                "lcp": {
+                  "startTimeMs": 96,
+                  "renderTimeMs": 96,
+                  "loadTimeMs": 0,
+                  "sizePx2": 2730,
+                  "url": null,
+                  "resourceTransferBytes": 0
+                },
+                "react": {
+                  "rendererPackage": "react-dom",
+                  "rendererVersion": "19.3.0-canary-3f0b9e61-20260317",
+                  "rendererInjectMs": 29.1,
+                  "firstCommitMs": 47.8,
+                  "lastCommitMs": 62.9,
+                  "commitCount": 4,
+                  "injectToFirstCommitMs": 18.7,
+                  "injectToLastCommitMs": 33.8,
+                  "commitErrors": 0,
+                  "finalIsDehydrated": false
+                },
+                "mainThread": {
+                  "traceWindowMs": 1085.2,
+                  "mainThreadBusyToSettleMs": 73.662,
+                  "mainThreadBusyToLcpMs": 54.133,
+                  "scriptingToSettleMs": 48.755,
+                  "scriptingToLcpMs": 43.031,
+                  "scriptingDuringReactWindowMs": 31.949,
+                  "styleLayoutToSettleMs": 9.612,
+                  "paintToSettleMs": 2.532,
+                  "parseHtmlMs": 0.53,
+                  "longestMainThreadTaskMs": 13.849,
+                  "mainThreadTasksOver50Ms": 0
+                }
+              }
+            ],
+            "summary": {
+              "valid": true,
+              "validSampleCount": 3,
+              "invalidSampleCount": 0,
+              "invalidReasons": [],
+              "metricSummary": {
+                "ttfbMs": {
+                  "median": 2.7,
+                  "worst": 2.8
+                },
+                "fcpMs": {
+                  "median": 88,
+                  "worst": 96
+                },
+                "lcpMs": {
+                  "median": 88,
+                  "worst": 96
+                },
+                "loadMs": {
+                  "median": 47.9,
+                  "worst": 48
+                },
+                "requestCount": {
+                  "median": 24,
+                  "worst": 24
+                },
+                "transferredBytes": {
+                  "median": 419181,
+                  "worst": 419181
+                },
+                "documentTransferBytes": {
+                  "median": 4045,
+                  "worst": 4045
+                },
+                "renderBlockingTransferBytes": {
+                  "median": 20892,
+                  "worst": 20892
+                },
+                "javascriptTransferBytes": {
+                  "median": 263740,
+                  "worst": 263740
+                },
+                "cssTransferBytes": {
+                  "median": 20892,
+                  "worst": 20892
+                },
+                "fontTransferBytes": {
+                  "median": 123902,
+                  "worst": 123902
+                },
+                "fetchTransferBytes": {
+                  "median": 6602,
+                  "worst": 6602
+                },
+                "otherTransferBytes": {
+                  "median": 0,
+                  "worst": 0
+                },
+                "preloadedFontTransferBytes": {
+                  "median": 101792,
+                  "worst": 101792
+                },
+                "initialJavascriptRequestCount": {
+                  "median": 11,
+                  "worst": 11
+                },
+                "initialJavascriptTransferBytes": {
+                  "median": 253761,
+                  "worst": 253761
+                },
+                "postReactCommitJavascriptRequestCount": {
+                  "median": 1,
+                  "worst": 1
+                },
+                "postReactCommitJavascriptTransferBytes": {
+                  "median": 9979,
+                  "worst": 9979
+                }
+              },
+              "mainThreadSummary": {
+                "traceWindowMs": {
+                  "median": 1085.2,
+                  "worst": 1087.3
+                },
+                "mainThreadBusyToSettleMs": {
+                  "median": 75.177,
+                  "worst": 78.303
+                },
+                "mainThreadBusyToLcpMs": {
+                  "median": 54.133,
+                  "worst": 54.38
+                },
+                "scriptingToSettleMs": {
+                  "median": 49.63,
+                  "worst": 50.089
+                },
+                "scriptingToLcpMs": {
+                  "median": 43.342,
+                  "worst": 43.449
+                },
+                "scriptingDuringReactWindowMs": {
+                  "median": 31.318,
+                  "worst": 31.949
+                },
+                "styleLayoutToSettleMs": {
+                  "median": 9.717,
+                  "worst": 10.359
+                },
+                "paintToSettleMs": {
+                  "median": 2.681,
+                  "worst": 2.73
+                },
+                "parseHtmlMs": {
+                  "median": 0.529,
+                  "worst": 0.53
+                },
+                "longestMainThreadTaskMs": {
+                  "median": 13.997,
+                  "worst": 14.112
+                },
+                "mainThreadTasksOver50Ms": {
+                  "median": 0,
+                  "worst": 0
+                }
+              },
+              "reactSummary": {
+                "rendererInjectMs": {
+                  "median": 28.9,
+                  "worst": 29.1
+                },
+                "firstCommitMs": {
+                  "median": 47.8,
+                  "worst": 47.9
+                },
+                "lastCommitMs": {
+                  "median": 61.5,
+                  "worst": 62.9
+                },
+                "commitCount": {
+                  "median": 4,
+                  "worst": 4
+                },
+                "injectToFirstCommitMs": {
+                  "median": 18.8,
+                  "worst": 19.2
+                },
+                "injectToLastCommitMs": {
+                  "median": 32.8,
+                  "worst": 33.8
+                }
+              },
+              "javascriptPhases": {
+                "throughLastReactCommit": {
+                  "requestCount": {
+                    "median": 11,
+                    "worst": 11
+                  },
+                  "transferBytes": {
+                    "median": 253761,
+                    "worst": 253761
+                  }
+                },
+                "afterLastReactCommit": {
+                  "requestCount": {
+                    "median": 1,
+                    "worst": 1
+                  },
+                  "transferBytes": {
+                    "median": 9979,
+                    "worst": 9979
+                  }
+                }
+              },
+              "lcpIdentityConsistency": true,
+              "lcpIdentityKeys": [
+                "A|trophē||SPAN|trophē|\"Instrument Serif\", \"Instrument Serif Fallback\"|400|italic",
+                "A|trophē||SPAN|trophē|\"Instrument Serif\", \"Instrument Serif Fallback\"|400|italic",
+                "A|trophē||SPAN|trophē|\"Instrument Serif\", \"Instrument Serif Fallback\"|400|italic"
+              ],
+              "representativeSample": 2,
+              "representativeLcp": {
+                "startTimeMs": 88,
+                "renderTimeMs": 88,
+                "loadTimeMs": 0,
+                "sizePx2": 2730,
+                "url": null,
+                "resourceTransferBytes": 0,
+                "element": {
+                  "tag": "A",
+                  "id": null,
+                  "className": "no-underline inline-block",
+                  "text": "trophē"
+                },
+                "textLeaves": [
+                  {
+                    "tag": "SPAN",
+                    "id": null,
+                    "className": "font-serif italic text-[#D4A853] text-3xl tracking-tight select-none",
+                    "text": "trophē",
+                    "directText": "trophē",
+                    "computedStyle": {
+                      "fontFamily": "\"Instrument Serif\", \"Instrument Serif Fallback\"",
+                      "fontSize": "30px",
+                      "fontWeight": "400",
+                      "fontStyle": "italic",
+                      "backgroundImage": "none"
+                    }
+                  }
+                ]
+              },
+              "criticalRequestChain": [
+                {
+                  "url": "/login",
+                  "type": "Document",
+                  "initiatorType": "navigation",
+                  "startMs": 0,
+                  "durationMs": 2.927,
                   "transferBytes": 4045,
                   "decodedBodyBytes": 10209,
                   "status": 200,
@@ -2176,8 +2346,8 @@
                   "url": "/_next/static/media/9cc5b37ab1350db7-s.p.woff2",
                   "type": "Font",
                   "initiatorType": "link",
-                  "startMs": 4.1,
-                  "durationMs": 3.7,
+                  "startMs": 4.4,
+                  "durationMs": 3.3,
                   "transferBytes": 16582,
                   "decodedBodyBytes": 15684,
                   "status": 200,
@@ -2194,7 +2364,7 @@
                   "url": "/_next/static/css/00207d0873d00653.css",
                   "type": "Stylesheet",
                   "initiatorType": "link",
-                  "startMs": 4.2,
+                  "startMs": 4.5,
                   "durationMs": 4.3,
                   "transferBytes": 2021,
                   "decodedBodyBytes": 5890,
@@ -2212,7 +2382,7 @@
                   "url": "/_next/static/css/b20eb98e3adbc985.css",
                   "type": "Stylesheet",
                   "initiatorType": "link",
-                  "startMs": 4.2,
+                  "startMs": 4.5,
                   "durationMs": 6.1,
                   "transferBytes": 18871,
                   "decodedBodyBytes": 98730,
@@ -2237,10 +2407,10 @@
                   "transferredBytes": 419181
                 },
                 "diagnosticMedian": {
-                  "ttfbMs": 2.5,
-                  "fcpMs": 96,
-                  "lcpMs": 96,
-                  "loadMs": 47.4,
+                  "ttfbMs": 2.7,
+                  "fcpMs": 88,
+                  "lcpMs": 88,
+                  "loadMs": 47.9,
                   "requestCount": 24,
                   "transferredBytes": 419181
                 },

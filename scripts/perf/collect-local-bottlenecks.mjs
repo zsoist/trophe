@@ -1,8 +1,14 @@
 #!/usr/bin/env node
 
-import { readFile, writeFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import {
+  lstat,
+  open,
+  readFile,
+  realpath,
+} from 'node:fs/promises';
+import { basename, dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { createTransferAccumulator } from './measure-web.mjs';
 
 export const DIAGNOSTIC_VIEWPORTS = [
   { name: 'mobile', width: 390, height: 844 },
@@ -11,6 +17,7 @@ export const DIAGNOSTIC_VIEWPORTS = [
 export const DIAGNOSTIC_ROUTES = ['/', '/login'];
 export const DIAGNOSTIC_QUIET_MS = 1_000;
 export const DIAGNOSTIC_MAX_SETTLE_MS = 5_000;
+export const DIAGNOSTIC_OPERATION_TIMEOUT_MS = 5_000;
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 const TRACE_CATEGORIES = [
@@ -63,6 +70,53 @@ export function isDiagnosticReadOnlyMethod(method) {
   return typeof method === 'string' && SAFE_METHODS.has(method.toUpperCase());
 }
 
+export function diagnosticRequestRejectionReason(request) {
+  const method = request.method();
+  if (!isDiagnosticReadOnlyMethod(method)) {
+    return `blocked_method_${String(method).toLowerCase()}`;
+  }
+  let url;
+  try {
+    url = new URL(request.url());
+  } catch {
+    return 'blocked_invalid_url';
+  }
+  if (url.origin !== 'http://127.0.0.1:3300') {
+    return 'blocked_external_origin';
+  }
+  if (url.username || url.password) return 'blocked_credentials';
+  if (request.isNavigationRequest?.()) {
+    const frame = request.frame?.();
+    if (!frame || typeof frame.parentFrame !== 'function') {
+      return 'blocked_unverifiable_navigation';
+    }
+    if (url.search) return 'blocked_query';
+    if (url.hash) return 'blocked_fragment';
+    if (frame.parentFrame() === null && !DIAGNOSTIC_ROUTES.includes(url.pathname)) {
+      return 'blocked_main_frame_path';
+    }
+  }
+  return null;
+}
+
+/**
+ * @param {{ onBlocked?: (reason: string, request: object) => void }} [options]
+ */
+export function createDiagnosticRouteHandler({
+  onBlocked = () => {},
+} = {}) {
+  return async (route) => {
+    const request = route.request();
+    const reason = diagnosticRequestRejectionReason(request);
+    if (reason) {
+      onBlocked(reason, request);
+      await route.abort('blockedbyclient');
+      return;
+    }
+    await route.continue();
+  };
+}
+
 export function validatedLoopbackTarget(rawUrl) {
   let url;
   try {
@@ -98,6 +152,43 @@ export function validatedDiagnosticOutputPath(rawPath) {
     throw new Error('Output must be a JSON file in a unique temporary trace directory');
   }
   return output;
+}
+
+export async function writeDiagnosticOutput(rawPath, contents) {
+  const output = validatedDiagnosticOutputPath(rawPath);
+  const parent = dirname(output);
+  const parentStat = await lstat(parent);
+  if (parentStat.isSymbolicLink()) {
+    throw new Error('Diagnostic output parent must not be a symlink');
+  }
+  if (!parentStat.isDirectory()) {
+    throw new Error('Diagnostic output parent must be a directory');
+  }
+  const [temporaryRoot, realParent] = await Promise.all([
+    realpath('/tmp'),
+    realpath(parent),
+  ]);
+  if (
+    dirname(realParent) !== temporaryRoot
+    || basename(realParent) !== basename(parent)
+  ) {
+    throw new Error('Diagnostic output parent escapes the real temporary root');
+  }
+  try {
+    const outputStat = await lstat(output);
+    if (outputStat.isSymbolicLink()) {
+      throw new Error('Diagnostic output file must not be a symlink');
+    }
+    throw new Error('Diagnostic output file already exists; exclusive create required');
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+  }
+  const handle = await open(output, 'wx', 0o600);
+  try {
+    await handle.writeFile(contents);
+  } finally {
+    await handle.close();
+  }
 }
 
 export function parseDiagnosticCliArgs(argv) {
@@ -189,6 +280,115 @@ export function summarizeResourceTransfers(resources) {
   };
 }
 
+export function createDiagnosticNetworkAccumulator() {
+  const transfers = createTransferAccumulator();
+  const active = new Map();
+  const resources = [];
+
+  const startRecord = (event) => ({
+    url: event.request.url,
+    type: event.type,
+    initiatorType: event.initiator?.type ?? null,
+    startTimestamp: event.timestamp,
+    finishTimestamp: null,
+    partialBytes: 0,
+    transferBytes: 0,
+    status: null,
+    mimeType: null,
+    failed: false,
+    servedFromCache: false,
+  });
+  const finishRecord = (
+    requestId,
+    {
+      terminalBytes = 0,
+      timestamp = null,
+      response = null,
+      failed = false,
+    } = {},
+  ) => {
+    const record = active.get(requestId);
+    if (!record) return;
+    if (response) {
+      record.url = response.url ?? record.url;
+      record.status = response.status ?? record.status;
+      record.mimeType = response.mimeType ?? record.mimeType;
+    }
+    record.finishTimestamp = timestamp;
+    record.transferBytes = record.servedFromCache
+      ? 0
+      : Math.max(
+        record.partialBytes,
+        Number.isFinite(terminalBytes) ? terminalBytes : 0,
+      );
+    record.failed = failed;
+    resources.push({ ...record });
+    active.delete(requestId);
+  };
+
+  return {
+    requestWillBeSent(event) {
+      transfers.requestWillBeSent(event);
+      if (event.redirectResponse) {
+        finishRecord(event.requestId, {
+          terminalBytes: event.redirectResponse.encodedDataLength,
+          timestamp: event.timestamp,
+          response: event.redirectResponse,
+        });
+      }
+      active.set(event.requestId, startRecord(event));
+    },
+    dataReceived(event) {
+      transfers.dataReceived(event);
+      const record = active.get(event.requestId);
+      if (
+        record
+        && !record.servedFromCache
+        && Number.isFinite(event.encodedDataLength)
+        && event.encodedDataLength > 0
+      ) {
+        record.partialBytes += event.encodedDataLength;
+      }
+    },
+    responseReceived(event) {
+      const record = active.get(event.requestId);
+      if (record) {
+        record.type = event.type ?? record.type;
+        record.status = event.response.status;
+        record.mimeType = event.response.mimeType;
+      }
+    },
+    requestServedFromCache(event) {
+      transfers.requestServedFromCache(event);
+      const record = active.get(event.requestId);
+      if (record) {
+        record.partialBytes = 0;
+        record.servedFromCache = true;
+      }
+    },
+    loadingFinished(event) {
+      transfers.loadingFinished(event);
+      finishRecord(event.requestId, {
+        terminalBytes: event.encodedDataLength,
+        timestamp: event.timestamp,
+      });
+    },
+    loadingFailed(event) {
+      transfers.loadingFailed(event);
+      finishRecord(event.requestId, {
+        timestamp: event.timestamp,
+        failed: true,
+      });
+    },
+    snapshot() {
+      return {
+        transferOutcomes: transfers.snapshot(),
+        resources: resources.map((resource) => ({ ...resource })),
+      };
+    },
+  };
+}
+
 export function selectRepresentativeSample(samples) {
   const medianLcp = median(samples.map((sample) => sample.metrics.lcpMs));
   return [...samples].sort((left, right) => (
@@ -210,9 +410,52 @@ function sanitizedResourcePath(value, baseUrl) {
     : `${url.origin}${url.pathname}`;
 }
 
-function lcpFontCandidate(resource, lcp) {
-  const style = lcp.paintNode.computedStyle;
-  return (
+function compactElementDescription(node) {
+  return node ? {
+    tag: node.tagName,
+    id: node.id || null,
+    className: typeof node.className === 'string'
+      ? node.className.slice(0, 320)
+      : null,
+    text: (node.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 240),
+  } : null;
+}
+
+export function collectLcpTextLeaves(
+  element,
+  getStyle = (node) => getComputedStyle(node),
+  textNodeType = Node.TEXT_NODE,
+) {
+  if (!element) return [];
+  return [element, ...element.querySelectorAll('*')].flatMap((candidate) => {
+    const directText = [...candidate.childNodes]
+      .filter((node) => node.nodeType === textNodeType)
+      .map((node) => node.textContent?.trim())
+      .filter(Boolean)
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .slice(0, 240);
+    if (!directText) return [];
+    const style = getStyle(candidate);
+    return [{
+      ...compactElementDescription(candidate),
+      directText,
+      computedStyle: style ? {
+        fontFamily: style.fontFamily,
+        fontSize: style.fontSize,
+        fontWeight: style.fontWeight,
+        fontStyle: style.fontStyle,
+        backgroundImage: style.backgroundImage,
+      } : null,
+    }];
+  });
+}
+
+export function lcpFontCandidate(resource, lcp) {
+  const leaves = lcp.textLeaves ?? (
+    lcp.paintNode ? [lcp.paintNode] : []
+  );
+  return leaves.some(({ computedStyle: style }) => style && ((
     resource.fontFace === 'Inter Latin'
     && style.fontFamily.includes('Inter')
     && style.fontStyle === 'normal'
@@ -227,7 +470,7 @@ function lcpFontCandidate(resource, lcp) {
   ) || (
     resource.fontFace === 'JetBrains Mono Latin'
     && style.fontFamily.includes('JetBrains Mono')
-  );
+  )));
 }
 
 function addResourceRelevance(resource, lcp, baseUrl) {
@@ -312,15 +555,6 @@ function installDiagnosticObservers() {
   new PerformanceObserver((list) => {
     for (const entry of list.getEntries()) {
       const element = entry.element;
-      const leafCandidates = element
-        ? [element, ...element.querySelectorAll('*')].filter((candidate) => (
-          [...candidate.childNodes].some((node) => (
-            node.nodeType === Node.TEXT_NODE && node.textContent.trim()
-          ))
-        ))
-        : [];
-      const paintNode = leafCandidates.at(-1) ?? element;
-      const style = paintNode ? getComputedStyle(paintNode) : null;
       const describe = (node) => node ? {
         tag: node.tagName,
         id: node.id || null,
@@ -329,6 +563,30 @@ function installDiagnosticObservers() {
           : null,
         text: (node.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 240),
       } : null;
+      const textLeaves = element
+        ? [element, ...element.querySelectorAll('*')].flatMap((candidate) => {
+          const directText = [...candidate.childNodes]
+            .filter((node) => node.nodeType === Node.TEXT_NODE)
+            .map((node) => node.textContent?.trim())
+            .filter(Boolean)
+            .join(' ')
+            .replace(/\s+/g, ' ')
+            .slice(0, 240);
+          if (!directText) return [];
+          const style = getComputedStyle(candidate);
+          return [{
+            ...describe(candidate),
+            directText,
+            computedStyle: {
+              fontFamily: style.fontFamily,
+              fontSize: style.fontSize,
+              fontWeight: style.fontWeight,
+              fontStyle: style.fontStyle,
+              backgroundImage: style.backgroundImage,
+            },
+          }];
+        })
+        : [];
       window.__tropheBottleneckDiagnostic.lcp = {
         startTime: entry.startTime,
         renderTime: entry.renderTime,
@@ -336,16 +594,7 @@ function installDiagnosticObservers() {
         size: entry.size,
         url: entry.url || null,
         element: describe(element),
-        paintNode: {
-          ...describe(paintNode),
-          computedStyle: style ? {
-            fontFamily: style.fontFamily,
-            fontSize: style.fontSize,
-            fontWeight: style.fontWeight,
-            fontStyle: style.fontStyle,
-            backgroundImage: style.backgroundImage,
-          } : null,
-        },
+        textLeaves,
       };
     }
   }).observe({ type: 'largest-contentful-paint', buffered: true });
@@ -380,33 +629,95 @@ function installDiagnosticObservers() {
   });
 }
 
-async function waitForDiagnosticSettle(page, getLastActivityAt, getInFlightCount) {
-  const startedAt = Date.now();
-  while (Date.now() - startedAt < DIAGNOSTIC_MAX_SETTLE_MS) {
+export async function waitForDiagnosticSettle({
+  getLastActivityAt,
+  loadCompletedAt,
+  getInFlightCount,
+  now = Date.now,
+  wait,
+  quietMs = DIAGNOSTIC_QUIET_MS,
+  maxMs = DIAGNOSTIC_MAX_SETTLE_MS,
+}) {
+  const startedAt = now();
+  while (now() - startedAt < maxMs) {
+    const quietFor = now() - Math.max(getLastActivityAt(), loadCompletedAt);
+    const remainingInFlightCount = getInFlightCount();
     if (
-      getInFlightCount() === 0
-      && Date.now() - getLastActivityAt() >= DIAGNOSTIC_QUIET_MS
+      remainingInFlightCount === 0
+      && quietFor >= quietMs
     ) {
       return {
         reason: 'network_quiet',
-        durationMs: Date.now() - startedAt,
+        durationMs: now() - startedAt,
         remainingInFlightCount: 0,
       };
     }
-    await page.waitForTimeout(50);
+    const remainingQuiet = quietMs - quietFor;
+    const remainingTotal = maxMs - (now() - startedAt);
+    await wait(Math.max(1, Math.min(
+      50,
+      remainingInFlightCount === 0 ? remainingQuiet : 50,
+      remainingTotal,
+    )));
   }
   return {
     reason: 'max_settle_reached',
-    durationMs: Date.now() - startedAt,
+    durationMs: now() - startedAt,
     remainingInFlightCount: getInFlightCount(),
   };
 }
 
-async function collectDiagnosticSample(browser, {
+export async function withDiagnosticDeadline(promise, {
+  label,
+  timeoutMs = DIAGNOSTIC_OPERATION_TIMEOUT_MS,
+  setTimer = setTimeout,
+  clearTimer = clearTimeout,
+}) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimer(() => {
+      reject(new Error(`${label} timed out after ${timeoutMs} ms`));
+    }, timeoutMs);
+  });
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    clearTimer(timer);
+  }
+}
+
+export async function runWithBoundedCleanup({
+  operation,
+  cleanup,
+  deadline = (promise, label) => withDiagnosticDeadline(promise, { label }),
+}) {
+  let result;
+  let primaryError;
+  try {
+    result = await operation();
+  } catch (error) {
+    primaryError = error;
+  }
+  let cleanupError;
+  for (const item of cleanup) {
+    try {
+      await deadline(Promise.resolve().then(item.run), item.label);
+    } catch (error) {
+      cleanupError ??= error;
+    }
+  }
+  if (primaryError) throw primaryError;
+  if (cleanupError) throw cleanupError;
+  return result;
+}
+
+export async function collectDiagnosticSample(browser, {
   baseUrl,
   routePath,
   viewport,
   sampleIndex,
+  now = Date.now,
+  deadline = (promise, label) => withDiagnosticDeadline(promise, { label }),
 }) {
   const targetUrl = new URL(routePath, baseUrl).toString();
   const context = await browser.newContext({
@@ -418,24 +729,23 @@ async function collectDiagnosticSample(browser, {
   let allowedRequestCount = 0;
   let consoleErrorCount = 0;
   let networkErrorCount = 0;
-  let lastActivityAt = Date.now();
-  const inFlight = new Set();
-  const network = new Map();
+  let lastActivityAt = now();
+  const blockedReasonCounts = {};
+  const network = createDiagnosticNetworkAccumulator();
   const trace = [];
   let cdp;
 
-  try {
+  return runWithBoundedCleanup({
+    operation: async () => {
     if (typeof context.routeWebSocket !== 'function') {
       throw new Error('WebSocket blocking unavailable; refusing unsafe diagnostic');
     }
-    await context.route('**/*', async (route) => {
-      if (!isDiagnosticReadOnlyMethod(route.request().method())) {
+    await context.route('**/*', createDiagnosticRouteHandler({
+      onBlocked(reason) {
         blockedRequestCount += 1;
-        await route.abort('blockedbyclient');
-        return;
-      }
-      await route.continue();
-    });
+        blockedReasonCounts[reason] = (blockedReasonCounts[reason] ?? 0) + 1;
+      },
+    }));
     await context.routeWebSocket('**/*', (webSocket) => {
       webSocket.close({ code: 1008, reason: 'read_only_measurement' });
     });
@@ -443,19 +753,21 @@ async function collectDiagnosticSample(browser, {
     await page.addInitScript(installDiagnosticObservers);
     page.on('request', (request) => {
       requestCount += 1;
-      if (isDiagnosticReadOnlyMethod(request.method())) allowedRequestCount += 1;
-      lastActivityAt = Date.now();
+      if (diagnosticRequestRejectionReason(request) === null) {
+        allowedRequestCount += 1;
+      }
+      lastActivityAt = now();
     });
     page.on('console', (message) => {
       if (message.type() === 'error') consoleErrorCount += 1;
     });
     page.on('requestfailed', () => {
       networkErrorCount += 1;
-      lastActivityAt = Date.now();
+      lastActivityAt = now();
     });
     page.on('response', (response) => {
       if (response.status() >= 400) networkErrorCount += 1;
-      lastActivityAt = Date.now();
+      lastActivityAt = now();
     });
 
     cdp = await context.newCDPSession(page);
@@ -466,58 +778,28 @@ async function collectDiagnosticSample(browser, {
     cdp.on('Tracing.dataCollected', (event) => trace.push(...event.value));
     cdp.on('Tracing.tracingComplete', tracingComplete);
     cdp.on('Network.requestWillBeSent', (event) => {
-      lastActivityAt = Date.now();
-      inFlight.add(event.requestId);
-      network.set(event.requestId, {
-        url: event.request.url,
-        type: event.type,
-        initiatorType: event.initiator?.type ?? null,
-        startTimestamp: event.timestamp,
-        finishTimestamp: null,
-        partialBytes: 0,
-        transferBytes: 0,
-        status: null,
-        mimeType: null,
-        failed: false,
-      });
+      lastActivityAt = now();
+      network.requestWillBeSent(event);
     });
     cdp.on('Network.dataReceived', (event) => {
-      lastActivityAt = Date.now();
-      const record = network.get(event.requestId);
-      if (record && Number.isFinite(event.encodedDataLength)) {
-        record.partialBytes += Math.max(0, event.encodedDataLength);
-      }
+      lastActivityAt = now();
+      network.dataReceived(event);
     });
     cdp.on('Network.responseReceived', (event) => {
-      lastActivityAt = Date.now();
-      const record = network.get(event.requestId);
-      if (record) {
-        record.type = event.type;
-        record.status = event.response.status;
-        record.mimeType = event.response.mimeType;
-      }
+      lastActivityAt = now();
+      network.responseReceived(event);
+    });
+    cdp.on('Network.requestServedFromCache', (event) => {
+      lastActivityAt = now();
+      network.requestServedFromCache(event);
     });
     cdp.on('Network.loadingFinished', (event) => {
-      lastActivityAt = Date.now();
-      inFlight.delete(event.requestId);
-      const record = network.get(event.requestId);
-      if (record) {
-        record.finishTimestamp = event.timestamp;
-        record.transferBytes = Math.max(
-          record.partialBytes,
-          event.encodedDataLength ?? 0,
-        );
-      }
+      lastActivityAt = now();
+      network.loadingFinished(event);
     });
     cdp.on('Network.loadingFailed', (event) => {
-      lastActivityAt = Date.now();
-      inFlight.delete(event.requestId);
-      const record = network.get(event.requestId);
-      if (record) {
-        record.finishTimestamp = event.timestamp;
-        record.transferBytes = record.partialBytes;
-        record.failed = true;
-      }
+      lastActivityAt = now();
+      network.loadingFailed(event);
     });
     await cdp.send('Network.enable');
     await cdp.send('Tracing.start', {
@@ -527,11 +809,16 @@ async function collectDiagnosticSample(browser, {
 
     const capturedAtUtc = new Date().toISOString();
     await page.goto(targetUrl, { waitUntil: 'load', timeout: 30_000 });
-    const settlement = await waitForDiagnosticSettle(
-      page,
-      () => lastActivityAt,
-      () => inFlight.size,
-    );
+    const loadCompletedAt = now();
+    const settlement = await waitForDiagnosticSettle({
+      getLastActivityAt: () => lastActivityAt,
+      loadCompletedAt,
+      getInFlightCount: () => (
+        network.snapshot().transferOutcomes.inFlightCount
+      ),
+      now,
+      wait: (milliseconds) => page.waitForTimeout(milliseconds),
+    });
     const observed = await page.evaluate(() => {
       const navigation = performance.getEntriesByType('navigation')[0];
       const paints = performance.getEntriesByType('paint');
@@ -548,8 +835,8 @@ async function collectDiagnosticSample(browser, {
         diagnostic: window.__tropheBottleneckDiagnostic,
       };
     });
-    await cdp.send('Tracing.end');
-    await traceDone;
+    await deadline(cdp.send('Tracing.end'), 'Tracing.end');
+    await deadline(traceDone, 'Tracing.tracingComplete');
 
     const lcp = observed.diagnostic.lcp;
     const renderer = observed.diagnostic.react.renderer;
@@ -571,15 +858,15 @@ async function collectDiagnosticSample(browser, {
       commitErrors: commits.filter((commit) => commit.didError).length,
       finalIsDehydrated: commits.at(-1).isDehydrated,
     };
-    const navigationRequest = [...network.values()].find(
+    const networkSnapshot = network.snapshot();
+    const navigationRequest = networkSnapshot.resources.find(
       (record) => record.url === targetUrl,
     );
     if (!navigationRequest) throw new Error(`Missing document request for ${targetUrl}`);
     const timingByUrl = new Map(
       observed.resources.map((entry) => [entry.name, entry]),
     );
-    const resources = [...network.values()]
-      .filter((record) => record.finishTimestamp !== null)
+    const resources = networkSnapshot.resources
       .map((record) => {
         const timing = timingByUrl.get(record.url);
         const isDocument = record.url === targetUrl;
@@ -618,21 +905,38 @@ async function collectDiagnosticSample(browser, {
         left.startMs - right.startMs || left.url.localeCompare(right.url)
       ));
     const transfers = summarizeResourceTransfers(resources);
+    if (
+      transfers.transferredBytes
+      !== networkSnapshot.transferOutcomes.transferredBytes
+    ) {
+      throw new Error(`CDP transfer reconciliation failed for ${routePath}`);
+    }
     const initialScripts = resources.filter((resource) => (
       resource.type === 'Script' && resource.startMs <= react.lastCommitMs
     ));
     const postCommitScripts = resources.filter((resource) => (
       resource.type === 'Script' && resource.startMs > react.lastCommitMs
     ));
+    const invalidReasons = [];
+    const blockedReasons = Object.keys(blockedReasonCounts).sort();
+    if (blockedRequestCount > 0) {
+      invalidReasons.push('blocked_requests', ...blockedReasons);
+    }
+    if (settlement.reason !== 'network_quiet') {
+      invalidReasons.push(settlement.reason);
+    }
     return {
       sample: sampleIndex,
       capturedAtUtc,
-      valid: settlement.reason === 'network_quiet' && blockedRequestCount === 0,
+      valid: invalidReasons.length === 0,
+      invalidReasons,
       settlement,
+      transferOutcomes: networkSnapshot.transferOutcomes,
       safety: {
         requestCount,
         allowedRequestCount,
         blockedRequestCount,
+        blockedReasonCounts,
         consoleErrorCount,
         networkErrorCount,
       },
@@ -668,7 +972,7 @@ async function collectDiagnosticSample(browser, {
             .reduce((total, resource) => total + resource.transferBytes, 0)
           : 0,
         element: lcp.element,
-        paintNode: lcp.paintNode,
+        textLeaves: lcp.textLeaves,
       },
       react,
       mainThread: traceMetrics(
@@ -680,10 +984,21 @@ async function collectDiagnosticSample(browser, {
       ),
       resources,
     };
-  } finally {
-    if (cdp) await cdp.detach().catch(() => {});
-    await context.close();
-  }
+    },
+    cleanup: [
+      {
+        label: 'CDP detach',
+        run: async () => {
+          if (cdp) await cdp.detach();
+        },
+      },
+      {
+        label: 'context close',
+        run: () => context.close(),
+      },
+    ],
+    deadline,
+  });
 }
 
 function numericSummary(samples, objectKey, keys) {
@@ -696,21 +1011,63 @@ function numericSummary(samples, objectKey, keys) {
   }));
 }
 
-function lcpIdentityKey(lcp) {
-  return [
+export function lcpIdentityKey(lcp) {
+  const candidate = [
     lcp.element?.tag,
-    lcp.paintNode?.tag,
     lcp.element?.text,
-    lcp.paintNode?.text,
-    lcp.paintNode?.computedStyle?.fontFamily,
-    lcp.paintNode?.computedStyle?.fontWeight,
-    lcp.paintNode?.computedStyle?.fontStyle,
   ].join('|');
+  const leaves = lcp.textLeaves ?? (
+    lcp.paintNode ? [lcp.paintNode] : []
+  );
+  return [candidate, ...leaves.map((leaf) => [
+    leaf.tag,
+    leaf.directText ?? leaf.text,
+    leaf.computedStyle?.fontFamily,
+    leaf.computedStyle?.fontWeight,
+    leaf.computedStyle?.fontStyle,
+  ].join('|'))].join('||');
 }
 
-function summarizeDiagnosticSamples(samples, baselineMedian) {
-  const metricKeys = Object.keys(samples[0].metrics);
-  const mainThreadKeys = Object.keys(samples[0].mainThread);
+export function summarizeDiagnosticSamples(samples, baselineMedian) {
+  const validSamples = samples.filter((sample) => sample.valid);
+  const invalidReasons = [...new Set(
+    samples.flatMap((sample) => sample.invalidReasons ?? []),
+  )];
+  const validity = {
+    valid: validSamples.length > 0 && validSamples.length === samples.length,
+    validSampleCount: validSamples.length,
+    invalidSampleCount: samples.length - validSamples.length,
+    invalidReasons,
+  };
+  if (validSamples.length === 0) {
+    return {
+      ...validity,
+      metricSummary: null,
+      mainThreadSummary: null,
+      reactSummary: null,
+      javascriptPhases: null,
+      lcpIdentityConsistency: null,
+      lcpIdentityKeys: [],
+      representativeSample: null,
+      representativeLcp: null,
+      criticalRequestChain: [],
+      baselineReconciliation: {
+        headlineMedian: {
+          ttfb: baselineMedian.ttfb,
+          fcp: baselineMedian.fcp,
+          lcp: baselineMedian.lcp,
+          load: baselineMedian.load,
+          requestCount: baselineMedian.requestCount,
+          transferredBytes: baselineMedian.transferredBytes,
+        },
+        diagnosticMedian: null,
+        requestCountExactMatch: false,
+        transferredBytesExactMatch: false,
+      },
+    };
+  }
+  const metricKeys = Object.keys(validSamples[0].metrics);
+  const mainThreadKeys = Object.keys(validSamples[0].mainThread);
   const reactKeys = [
     'rendererInjectMs',
     'firstCommitMs',
@@ -719,14 +1076,18 @@ function summarizeDiagnosticSamples(samples, baselineMedian) {
     'injectToFirstCommitMs',
     'injectToLastCommitMs',
   ];
-  const representative = selectRepresentativeSample(samples);
-  const metricSummary = numericSummary(samples, 'metrics', metricKeys);
-  const identities = samples.map((sample) => lcpIdentityKey(sample.lcp));
+  const representative = selectRepresentativeSample(validSamples);
+  const metricSummary = numericSummary(validSamples, 'metrics', metricKeys);
+  const identities = validSamples.map((sample) => lcpIdentityKey(sample.lcp));
   return {
-    validSampleCount: samples.filter((sample) => sample.valid).length,
+    ...validity,
     metricSummary,
-    mainThreadSummary: numericSummary(samples, 'mainThread', mainThreadKeys),
-    reactSummary: numericSummary(samples, 'react', reactKeys),
+    mainThreadSummary: numericSummary(
+      validSamples,
+      'mainThread',
+      mainThreadKeys,
+    ),
+    reactSummary: numericSummary(validSamples, 'react', reactKeys),
     javascriptPhases: {
       throughLastReactCommit: {
         requestCount: metricSummary.initialJavascriptRequestCount,
@@ -774,7 +1135,9 @@ function compactSample(sample) {
     sample: sample.sample,
     capturedAtUtc: sample.capturedAtUtc,
     valid: sample.valid,
+    invalidReasons: sample.invalidReasons,
     settlement: sample.settlement,
+    transferOutcomes: sample.transferOutcomes,
     safety: sample.safety,
     metrics: sample.metrics,
     lcp: {
@@ -796,6 +1159,7 @@ export async function collectLocalBottlenecks({
   samples = 3,
   browserFactory,
   baselinePath = 'docs/quality/performance-local-baseline.json',
+  deadline = (promise, label) => withDiagnosticDeadline(promise, { label }),
 }) {
   const target = validatedLoopbackTarget(baseUrl);
   const normalizedBaseUrl = `${target.origin}/`;
@@ -810,7 +1174,8 @@ export async function collectLocalBottlenecks({
   });
   const browser = await launchBrowser();
   const startedAtUtc = new Date().toISOString();
-  try {
+  const report = await runWithBoundedCleanup({
+    operation: async () => {
     const routes = [];
     for (const routePath of DIAGNOSTIC_ROUTES) {
       const baselineRoute = baseline.routes.find((route) => route.path === routePath);
@@ -824,6 +1189,7 @@ export async function collectLocalBottlenecks({
             routePath,
             viewport,
             sampleIndex,
+            deadline,
           }));
         }
         const baselineMedian = baselineRoute.summaryByViewport.find(
@@ -850,17 +1216,18 @@ export async function collectLocalBottlenecks({
     const report = {
       schema: {
         name: 'trophe.local-bottleneck-diagnostic',
-        version: 1,
+        version: 2,
         grain: 'route × viewport × sample',
         samplesPerViewport: samples,
         viewportOrder: DIAGNOSTIC_VIEWPORTS,
         timingUnits: 'milliseconds from navigationStart',
-        transferUnits: 'CDP Network.loadingFinished encodedDataLength bytes',
+        transferUnits: 'shared Task 1 CDP accumulator: per-hop maximum of partial and terminal encoded bytes, cached hops zero, terminal events deduplicated',
         traceCategories: TRACE_CATEGORIES,
         boundedWindow: {
           starts: 'before navigation',
           ends: 'one second of zero CDP in-flight network activity after load',
           maximumMs: DIAGNOSTIC_MAX_SETTLE_MS,
+          operationTimeoutMs: DIAGNOSTIC_OPERATION_TIMEOUT_MS,
         },
         hydrationMethod: {
           boundary: 'React DevTools hook renderer injection through last initial commit before bounded network settlement',
@@ -869,11 +1236,13 @@ export async function collectLocalBottlenecks({
         },
         criticalChainMethod: {
           blockingStatus: 'PerformanceResourceTiming.renderBlockingStatus',
-          lcpIdentity: 'buffered LargestContentfulPaint entry plus exact element/leaf text node and computed style',
+          lcpIdentity: 'authoritative buffered LargestContentfulPaint candidate plus every direct text-bearing descendant and computed style',
           resources: 'CDP type/status/encoded bytes joined to Resource Timing start/duration/initiator',
         },
         safety: {
-          target: 'loopback only',
+          target: 'exact http://127.0.0.1:3300 origin for every request and redirect hop',
+          mainFramePaths: DIAGNOSTIC_ROUTES,
+          statefulUrls: 'credentials blocked for every request; query strings and fragments blocked for navigation requests',
           permittedMethods: [...SAFE_METHODS],
           serviceWorkers: 'blocked',
           webSockets: 'blocked',
@@ -896,11 +1265,16 @@ export async function collectLocalBottlenecks({
       },
       routes,
     };
-    await writeFile(outputPath, `${JSON.stringify(report, null, 2)}\n`);
     return report;
-  } finally {
-    await browser.close();
-  }
+    },
+    cleanup: [{
+      label: 'browser close',
+      run: () => browser.close(),
+    }],
+    deadline,
+  });
+  await writeDiagnosticOutput(outputPath, `${JSON.stringify(report, null, 2)}\n`);
+  return report;
 }
 
 async function main() {

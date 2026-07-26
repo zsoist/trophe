@@ -2,7 +2,7 @@
 
 **Plan date:** 2026-07-25
 **Captured:** 2026-07-26, 09:38–09:41 UTC
-**Local diagnostic trace:** 2026-07-26, 10:30:39–10:30:53 UTC
+**Local diagnostic trace:** 2026-07-26, 11:21:11–11:21:25 UTC
 **Source state:** `222f21d63681bfb79a10c06196c2f4063affb29c`
 **Harness:** `e3c25db95f929d7c8319d8f210ce740611816208`
 **Targets:** production and a scrubbed local Next.js production build
@@ -30,10 +30,11 @@ Current local build output references 939,565 raw JavaScript bytes for
 preloaded font files totaling 98,200 raw bytes.
 
 A separate local-only diagnostic trace now identifies the browser-reported
-render-blocking chain, exact LCP text element, and a bounded React
-hydration/main-thread proxy. Its 12 samples reproduced the headline baseline's
-request counts and transferred-byte totals exactly. It is diagnostic evidence,
-not a replacement for the approved headline timings.
+render-blocking chain, authoritative LCP candidate and text leaves, and a
+bounded React hydration/main-thread proxy. Its fail-closed contract admitted
+all 12 samples: every request remained on the exact loopback origin, no request
+was blocked, and every sample settled after network quiet. This is diagnostic
+evidence, not a replacement for the approved headline timings.
 
 ## Measurement contract
 
@@ -122,15 +123,24 @@ This bounded diagnostic used Playwright 1.59.1 with headless Chromium
 `127.0.0.1:3300`. It collected three mobile samples before three desktop
 samples for each route, always in a fresh context. The diagnostic:
 
-- started a CDP trace before navigation and stopped after one second with zero
-  CDP in-flight requests after load, with the same five-second cap;
-- allowed only GET, HEAD, and OPTIONS, blocked Service Workers and WebSockets,
-  supplied no cookies, and performed no interaction;
+- started a CDP trace before navigation and required a full second with zero
+  CDP in-flight requests after load, with five-second deadlines for settlement,
+  trace completion, and cleanup;
+- required every request and redirect hop to remain on the exact
+  `http://127.0.0.1:3300` origin, restricted main-frame navigation to `/` and
+  `/login`, rejected credentials and navigation query/fragment state, allowed
+  exact-origin non-navigation requests such as Next.js RSC fetches, allowed only
+  GET, HEAD, and OPTIONS, and blocked Service Workers and WebSockets;
+- supplied no cookies and performed no interaction;
+- reused the approved Task 1 CDP transfer accumulator so redirect hops,
+  partial failures, cached responses, and duplicate terminal events follow the
+  same accounting contract;
 - joined CDP resource type, status, and encoded transfer bytes to Resource
   Timing start, duration, initiator, and browser-reported
   `renderBlockingStatus`;
-- observed the final buffered LCP entry and retained its exact candidate
-  element, leaf text node, computed font, size, and resource URL; and
+- treated the final buffered LCP candidate as authoritative and retained every
+  direct text-bearing descendant with its computed font, plus candidate size
+  and resource URL; and
 - installed an observer-only React DevTools hook before application code. The
   hydration proxy is the union of non-overlapping renderer-main scripting
   events from React renderer injection through the last initial commit before
@@ -139,97 +149,106 @@ samples for each route, always in a fresh context. The diagnostic:
 The React interval is an upper-bound proxy for hydration plus immediate client
 effects, not a React Profiler duration. Trace instrumentation can perturb
 timing, so the approved uninstrumented samples above remain the headline
-baseline. All 12 diagnostic samples were valid, settled after network quiet,
-had zero in-flight and zero blocked requests, and recorded two console plus two
-network errors per sample—the same counts as the already documented local
-Insights failures.
+baseline. All 12 samples settled after network quiet with zero remaining
+in-flight work. All 12 were valid, had zero blocked requests, and recorded the
+already documented local Insights error counts. Login also made one same-origin
+RSC fetch per sample after the last React commit; those read-only subresource
+requests remained inside the loopback boundary.
 
 ### Reconciliation and transferred-byte composition
 
-The diagnostic exactly reproduced the headline request and CDP byte totals.
-The route asset totals therefore reconcile across three layers: uncompressed
-build files, actual CDP transfer, and renderer-main execution.
+Every diagnostic group exactly reproduced the approved headline request and
+CDP byte totals. All summary, representative, identity, and request-chain
+values below are calculated from valid samples only.
+
+| Route | Viewport | Valid | Invalid | Invalid reasons |
+|---|---|---:|---:|---|
+| `/` | Mobile | 3 | 0 | None |
+| `/` | Desktop | 3 | 0 | None |
+| `/login` | Mobile | 3 | 0 | None |
+| `/login` | Desktop | 3 | 0 | None |
 
 | Route | Viewport | Trace TTFB median | Trace LCP median / worst | Requests | Total transfer | Document | Blocking CSS | JavaScript | Fonts | Fetch | Other | Preloaded fonts |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| `/` | Mobile | 3.9 ms | 48 / 160 ms | 17 | 308,923 B | 8,715 B | 20,892 B | 150,217 B | 129,099 B | 0 B | 0 B | 101,792 B |
+| `/` | Mobile | 3.4 ms | 48 / 172 ms | 17 | 308,923 B | 8,715 B | 20,892 B | 150,217 B | 129,099 B | 0 B | 0 B | 101,792 B |
 | `/` | Desktop | 3.3 ms | 56 / 60 ms | 17 | 308,923 B | 8,715 B | 20,892 B | 150,217 B | 129,099 B | 0 B | 0 B | 101,792 B |
-| `/login` | Mobile | 2.9 ms | 96 / 100 ms | 24 | 419,181 B | 4,045 B | 20,892 B | 263,740 B | 123,902 B | 6,602 B | 0 B | 101,792 B |
-| `/login` | Desktop | 2.5 ms | 96 / 96 ms | 24 | 419,181 B | 4,045 B | 20,892 B | 263,740 B | 123,902 B | 6,602 B | 0 B | 101,792 B |
+| `/login` | Mobile | 2.8 ms | 80 / 132 ms | 24 | 419,181 B | 4,045 B | 20,892 B | 263,740 B | 123,902 B | 6,602 B | 0 B | 101,792 B |
+| `/login` | Desktop | 2.7 ms | 88 / 96 ms | 24 | 419,181 B | 4,045 B | 20,892 B | 263,740 B | 123,902 B | 6,602 B | 0 B | 101,792 B |
 
 Document, CSS, JavaScript, font, Fetch, and Other are mutually exclusive CDP
 resource types and sum to each row's total; the CSS responses are both
-browser-reported blocking. The four preloaded font responses total 101,792
-transferred bytes including response overhead, versus 98,200 raw font-file
-bytes. The two stylesheets total
-20,892 transferred bytes versus 104,620 raw bytes. JavaScript transfer is
-150,217 bytes for root and 263,740 bytes for login versus 589,610 and 939,565
-raw build bytes respectively.
+browser-reported blocking. On both routes, the four preloaded font responses
+total 101,792 transferred bytes including response overhead, versus 98,200 raw
+font-file bytes. The two stylesheets total 20,892 transferred bytes versus
+104,620 raw bytes. Root JavaScript transfer is 150,217 bytes versus 589,610 raw
+build bytes; login JavaScript transfer is 263,740 bytes versus 939,565 raw build
+bytes. Login's post-commit RSC fetch transfers 6,602 bytes as `Fetch`.
 
 ### Browser-reported critical request chain
 
-The table retains the median-LCP representative sample for each
-route/viewport. Times are relative to navigation start. `blocking` is the
-browser's Resource Timing classification; the LCP font is preloaded and
-non-blocking but is retained because the exact LCP leaf uses that face.
+The table retains the median-LCP representative sample for every route and
+viewport. Times are relative to navigation start. `blocking` is the browser's
+Resource Timing classification; LCP font candidates are preloaded and
+non-blocking but retained because the authoritative candidate's direct text
+leaves use those faces.
 
 | Route | Viewport | Resource | Type / initiator | Start | Duration | Transfer | Blocking relevance |
 |---|---|---|---|---:|---:|---:|---|
-| `/` | Mobile | `/` | Document / navigation | 0 ms | 3.565 ms | 8,715 B | Navigation |
-| `/` | Mobile | `e4af272ccee01ff0-s.p.woff2` | Font / link | 5.1 ms | 5.5 ms | 49,330 B | Non-blocking preload; LCP Inter candidate |
-| `/` | Mobile | `00207d0873d00653.css` | Stylesheet / link | 5.3 ms | 4.5 ms | 2,021 B | Browser-reported blocking |
-| `/` | Mobile | `b20eb98e3adbc985.css` | Stylesheet / link | 5.3 ms | 6.6 ms | 18,871 B | Browser-reported blocking |
-| `/` | Desktop | `/` | Document / navigation | 0 ms | 3.500 ms | 8,715 B | Navigation |
-| `/` | Desktop | `9cc5b37ab1350db7-s.p.woff2` | Font / link | 5.0 ms | 3.8 ms | 16,582 B | Non-blocking preload; LCP serif candidate |
-| `/` | Desktop | `00207d0873d00653.css` | Stylesheet / link | 5.2 ms | 4.8 ms | 2,021 B | Browser-reported blocking |
-| `/` | Desktop | `b20eb98e3adbc985.css` | Stylesheet / link | 5.2 ms | 6.7 ms | 18,871 B | Browser-reported blocking |
-| `/login` | Mobile | `/login` | Document / navigation | 0 ms | 2.995 ms | 4,045 B | Navigation |
-| `/login` | Mobile | `00207d0873d00653.css` | Stylesheet / link | 4.6 ms | 4.6 ms | 2,021 B | Browser-reported blocking |
-| `/login` | Mobile | `b20eb98e3adbc985.css` | Stylesheet / link | 4.6 ms | 6.5 ms | 18,871 B | Browser-reported blocking |
-| `/login` | Mobile | `9cc5b37ab1350db7-s.p.woff2` | Font / link | 4.6 ms | 3.5 ms | 16,582 B | Non-blocking preload; LCP serif candidate |
-| `/login` | Desktop | `/login` | Document / navigation | 0 ms | 2.686 ms | 4,045 B | Navigation |
-| `/login` | Desktop | `9cc5b37ab1350db7-s.p.woff2` | Font / link | 4.1 ms | 3.7 ms | 16,582 B | Non-blocking preload; LCP serif candidate |
-| `/login` | Desktop | `00207d0873d00653.css` | Stylesheet / link | 4.2 ms | 4.3 ms | 2,021 B | Browser-reported blocking |
-| `/login` | Desktop | `b20eb98e3adbc985.css` | Stylesheet / link | 4.2 ms | 6.1 ms | 18,871 B | Browser-reported blocking |
+| `/` | Mobile | `/` | Document / navigation | 0 ms | 3.430 ms | 8,715 B | Navigation |
+| `/` | Mobile | `00207d0873d00653.css` | Stylesheet / link | 4.9 ms | 5.1 ms | 2,021 B | Browser-reported blocking |
+| `/` | Mobile | `b20eb98e3adbc985.css` | Stylesheet / link | 4.9 ms | 6.9 ms | 18,871 B | Browser-reported blocking |
+| `/` | Mobile | `e4af272ccee01ff0-s.p.woff2` | Font / link | 4.9 ms | 4.4 ms | 49,330 B | Non-blocking preload; LCP Inter candidate |
+| `/` | Desktop | `/` | Document / navigation | 0 ms | 3.328 ms | 8,715 B | Navigation |
+| `/` | Desktop | `9cc5b37ab1350db7-s.p.woff2` | Font / link | 4.9 ms | 3.7 ms | 16,582 B | Non-blocking preload; LCP Instrument Serif candidate |
+| `/` | Desktop | `e4af272ccee01ff0-s.p.woff2` | Font / link | 4.9 ms | 4.8 ms | 49,330 B | Non-blocking preload; LCP Inter candidate |
+| `/` | Desktop | `00207d0873d00653.css` | Stylesheet / link | 5.0 ms | 4.3 ms | 2,021 B | Browser-reported blocking |
+| `/` | Desktop | `b20eb98e3adbc985.css` | Stylesheet / link | 5.0 ms | 6.3 ms | 18,871 B | Browser-reported blocking |
+| `/login` | Mobile | `/login` | Document / navigation | 0 ms | 2.934 ms | 4,045 B | Navigation |
+| `/login` | Mobile | `00207d0873d00653.css` | Stylesheet / link | 4.4 ms | 4.7 ms | 2,021 B | Browser-reported blocking |
+| `/login` | Mobile | `b20eb98e3adbc985.css` | Stylesheet / link | 4.4 ms | 7.6 ms | 18,871 B | Browser-reported blocking |
+| `/login` | Mobile | `9cc5b37ab1350db7-s.p.woff2` | Font / link | 4.4 ms | 3.7 ms | 16,582 B | Non-blocking preload; LCP Instrument Serif candidate |
+| `/login` | Desktop | `/login` | Document / navigation | 0 ms | 2.927 ms | 4,045 B | Navigation |
+| `/login` | Desktop | `9cc5b37ab1350db7-s.p.woff2` | Font / link | 4.4 ms | 3.3 ms | 16,582 B | Non-blocking preload; LCP Instrument Serif candidate |
+| `/login` | Desktop | `00207d0873d00653.css` | Stylesheet / link | 4.5 ms | 4.3 ms | 2,021 B | Browser-reported blocking |
+| `/login` | Desktop | `b20eb98e3adbc985.css` | Stylesheet / link | 4.5 ms | 6.1 ms | 18,871 B | Browser-reported blocking |
 
 No JavaScript is browser-reported render-blocking. It remains relevant to
 interactivity and hydration, measured separately below.
 
-### Exact hero/LCP identity
+### Authoritative hero/LCP identity
 
-| Route | Viewport | LCP candidate and painted leaf | Font | Size | Trace LCP median / worst | Direct resource |
+| Route | Viewport | LCP candidate and direct text leaves | Fonts | Size | Trace LCP median / worst | Direct resource |
 |---|---|---|---|---:|---:|---|
-| `/` | Mobile | `P`: “AI-powered food logging…built for athletes.” | Inter 400 normal | 31,164 px² | 48 / 160 ms | Text; 0 B |
-| `/` | Desktop | `H1`: “Track smarter. Eat better.”; painted `SPAN`: “Eat better.” | Instrument Serif 400 italic | 58,078 px² | 56 / 60 ms | Text; 0 B |
-| `/login` | Mobile | `A` / painted `SPAN`: “trophē” | Instrument Serif 400 italic | 2,730 px² | 96 / 100 ms | Text; 0 B |
-| `/login` | Desktop | `A` / painted `SPAN`: “trophē” | Instrument Serif 400 italic | 2,730 px² | 96 / 96 ms | Text; 0 B |
+| `/` | Mobile | `P` candidate and direct text: “AI-powered food logging…built for athletes.” | Inter 400 normal | 31,164 px² | 48 / 172 ms | Text; 0 B |
+| `/` | Desktop | `H1` candidate: “Track smarter. Eat better.”; `SPAN`: “Track smarter.”; `SPAN`: “Eat better.” | Inter 700 normal + Instrument Serif 400 italic | 58,078 px² | 56 / 60 ms | Text; 0 B |
+| `/login` | Mobile | `A` candidate; `SPAN`: “trophē” | Instrument Serif 400 italic | 2,730 px² | 80 / 132 ms | Text; 0 B |
+| `/login` | Desktop | `A` candidate; `SPAN`: “trophē” | Instrument Serif 400 italic | 2,730 px² | 88 / 96 ms | Text; 0 B |
 
-All three samples in each row produced the same element identity. None of these
-LCP candidates is an image or has its own resource URL, so hero media transfer
-is zero. Their delivery constraints are the HTML, the two blocking stylesheets,
-and the named preloaded font candidate already counted in the critical chain.
+All three samples in each row produced the same authoritative candidate and
+direct-text-leaf identity. None of the candidates is an image or has its own
+resource URL, so direct LCP media transfer is zero. The desktop root heading has
+two font dependencies—not one—both retained in its critical chain; login's
+wordmark uses Instrument Serif.
 
 ### Hydration and renderer-main cost
 
 The `Initial JS` column counts seven Next.js requests on root and ten on login;
 the diagnostic's all-script count is one higher because the zero-byte failed
-Insights script can begin before the last React commit. Login also fetches the
-9,979-byte root page chunk after its last initial commit as route prefetch. The
-static HTML reference counts below are one higher than the modern-Chromium
-initial request counts because they include the `nomodule` polyfills script,
-which this browser does not fetch.
+Insights script can begin before the last React commit. The static HTML
+reference count is one higher than the modern-Chromium initial request count
+because it includes the `nomodule` polyfills script, which this browser does not
+fetch. Login then fetches one 9,979-byte Next.js route chunk after the last
+initial React commit.
 
 | Route | Viewport | Initial Next JS | Post-commit route prefetch | Inject→first commit median / worst | Inject→last commit median / worst | Scripting in React window median / worst | Main-thread busy to settle median | Longest task worst |
 |---|---|---:|---:|---:|---:|---:|---:|---:|
-| `/` | Mobile | 7 / 150,217 B | 0 / 0 B | 15.8 / 30.7 ms | 18.5 / 35.8 ms | 15.181 / 30.727 ms | 101.535 ms | 45.187 ms |
-| `/` | Desktop | 7 / 150,217 B | 0 / 0 B | 16.4 / 19.2 ms | 18.6 / 21.3 ms | 15.334 / 15.461 ms | 68.047 ms | 16.710 ms |
-| `/login` | Mobile | 10 / 253,761 B | 1 / 9,979 B | 21.3 / 25.1 ms | 37.7 / 52.3 ms | 35.571 / 48.260 ms | 67.802 ms | 16.364 ms |
-| `/login` | Desktop | 10 / 253,761 B | 1 / 9,979 B | 19.0 / 19.0 ms | 33.8 / 34.2 ms | 32.004 / 32.227 ms | 69.375 ms | 14.188 ms |
+| `/` | Mobile | 7 / 150,217 B | 0 / 0 B | 16.1 / 29.6 ms | 18.7 / 35.2 ms | 15.268 / 29.549 ms | 89.514 ms | 49.953 ms |
+| `/` | Desktop | 7 / 150,217 B | 0 / 0 B | 16.4 / 18.4 ms | 19.4 / 20.7 ms | 15.564 / 16.236 ms | 72.596 ms | 16.978 ms |
+| `/login` | Mobile | 10 / 253,761 B | 1 / 9,979 B | 19.4 / 24.7 ms | 33.4 / 52.4 ms | 31.869 / 47.250 ms | 73.287 ms | 16.058 ms |
+| `/login` | Desktop | 10 / 253,761 B | 1 / 9,979 B | 18.8 / 19.2 ms | 32.8 / 33.8 ms | 31.318 / 31.949 ms | 75.177 ms | 14.112 ms |
 
 Every sample recorded four initial React commits, no commit error, a final
-non-dehydrated root, and zero renderer-main tasks over 50 ms. Login's
-hydration-plus-effects scripting proxy is about twice root's, consistent with
-its larger interactive bundle, but neither route produced a long task.
+non-dehydrated root, and zero renderer-main tasks over 50 ms.
 
 ## Route delivery observations
 
@@ -275,44 +294,44 @@ can be changed in this repository.
 
 2. **Public-route JavaScript and hydration — largest code-controlled cost.**
    Root transfers 150,217 JavaScript bytes across seven initial Next.js
-   requests and spends 15.2–15.3 ms median renderer-main scripting inside the
-   React window. Login transfers 253,761 bytes across ten initial Next.js
-   requests, then prefetches another 9,979-byte route chunk; its React-window
-   scripting is 32.0–35.6 ms median. The raw build references are 589,610 bytes
-   for root and 939,565 for login. The complete landing page is a Client
-   Component even though most of it is static.
+   requests and spends 15.3–15.6 ms median renderer-main scripting inside the
+   React window. Login transfers 263,740 JavaScript bytes, including a
+   9,979-byte route chunk after the last initial React commit, and spends
+   31.3–31.9 ms median scripting in the React window. Build inspection shows
+   939,565 raw JavaScript bytes referenced by login versus 589,610 by root. The
+   complete landing page is a Client Component even though most of it is static.
 
 3. **Fonts — second-largest code-controlled transfer, mostly unconditional.**
    Each route preloads four font files totaling 98,200 raw bytes and 101,792
    transferred bytes. Total font transfer reaches 129,099 bytes on root and
-   123,902 on login after CSS-selected runtime faces. Only one named face is an
-   LCP candidate in each representative chain, so the unconditional four-font
-   preload is broader than the observed LCP dependency.
+   123,902 bytes on login after CSS-selected runtime faces. Mobile root uses
+   Inter for its LCP; desktop root uses both Inter and Instrument Serif; login
+   uses Instrument Serif. The unconditional four-font preload is still broader
+   than the observed LCP dependencies.
 
 4. **Render-blocking resources — real but locally short.** Chromium classifies
    exactly the two CSS files as blocking. Together they transfer 20,892 bytes;
-   in representative samples the larger sheet finishes 6.1–6.7 ms after its
-   4.2–5.3 ms start. No JavaScript or font response is browser-reported
-   blocking. CSS is a critical-path constraint, but smaller than the JS and font
-   transfer opportunities on loopback.
+   in representative samples the larger sheet takes 6.1–7.6 ms after its
+   4.4–5.0 ms start. No JavaScript or font response is browser-reported
+   blocking. CSS is a critical-path constraint, but smaller than the JS and
+   font transfer opportunities on loopback.
 
-5. **Hero/LCP content — text-only, not a heavy media bottleneck.** Mobile root
-   LCP is the hero-support paragraph, desktop root is the “Track smarter. Eat
-   better.” heading, and login is the “trophē” wordmark. All have zero direct
-   resource bytes and stable identity across the three diagnostic samples.
-   Their constraints are document, CSS, and the named font candidate already
-   ranked above; there is no hero image to optimize in the current routes.
+5. **Hero/LCP content — text-only, not a heavy media bottleneck.**
+   Mobile root LCP is the hero-support paragraph; desktop root is the “Track
+   smarter. Eat better.” heading with Inter and Instrument Serif text leaves.
+   Login LCP is the Instrument Serif “trophē” wordmark. Every candidate has zero
+   direct resource bytes and stable identity across its three samples.
 
 6. **Local server time — not a current code bottleneck.** Headline local median
-   TTFB is 3.0–4.1 ms and instrumented diagnostic medians are 2.5–3.9 ms. The
+   TTFB is 3.0–4.1 ms and instrumented medians are 2.7–3.4 ms. The
    first-run 63.3 ms root tail is preserved, but the three-sample medians do not
    support prioritizing local server execution ahead of delivery, JavaScript,
    fonts, or CSS.
 
 CLS remains effectively zero. Neither the approved samples nor the diagnostic
-observed a long task, and every diagnostic renderer-main task was below 50 ms,
-so layout instability and severe main-thread blocking are not first-order
-targets.
+observed a Long Tasks API entry. Every diagnostic renderer-main task was below
+50 ms, so layout instability and severe main-thread blocking are not
+first-order targets.
 
 ## Measurement-contract distinction
 
@@ -322,6 +341,14 @@ results that use a different viewport or simulated throttling. This report does
 not rely on an ignored reconnaissance file for its ranked claims; the
 production/local comparison, local trace, and build observations needed for the
 ranking are retained in the committed evidence.
+
+The local diagnostic deliberately has a stricter request contract than the
+approved headline harness: every request and redirect hop must preserve the
+exact loopback origin, URL credentials are always forbidden, and navigation
+query/fragment state is rejected. Exact-origin non-navigation requests may
+retain the query state needed by Next.js RSC fetches; this does not permit a
+different host, scheme, or port, and main-frame navigation remains restricted
+to `/` and `/login`.
 
 ## Commands and environment
 
@@ -378,7 +405,7 @@ directory:
 ```bash
 node scripts/perf/collect-local-bottlenecks.mjs \
   --url http://127.0.0.1:3300 \
-  --output /tmp/trophe-bottleneck-trace.8A8nJh/local-bottlenecks.json \
+  --output /tmp/trophe-bottleneck-trace.WWIyod/local-bottlenecks.json \
   --samples 3
 ```
 
@@ -410,5 +437,6 @@ events were not added to the repository.
 
 ## Release status
 
-Baseline evidence is ready. No source optimization, deployment, merge, push,
-authentication, production mutation, provider API call, or paid spend occurred.
+The approved production/local baseline and valid diagnostic evidence are ready.
+No source optimization, deployment, merge, push, authentication, production
+mutation, provider API call, or paid spend occurred.
