@@ -110,18 +110,22 @@ git commit -m "perf: capture mobile and desktop baselines"
 **Files:**
 - Modify: `app/page.tsx`
 - Create: `components/landing/LanguageLinks.tsx`
+- Create: `lib/landing-language.ts`
 - Modify: `tests/performance/landing-delivery.test.ts`
+- Create: `e2e/public-language.spec.ts`
 
 **Interfaces:**
 - Consumes: `searchParams.lang`
 - Produces: server-rendered landing page for `en | es | el`
 - Produces: language URLs `/?lang=en`, `/?lang=es`, `/?lang=el`
 
-- [ ] **Step 1: Add failing source and browser tests**
+- [ ] **Step 1: Add failing language and browser tests**
 
-Assert `app/page.tsx` does not contain `'use client'`, `useState`, or
-`useEffect`. Assert language links have `prefetch={false}`, preserve the
-selected language through a query parameter, and render one language’s copy.
+Unit-test `landingLang` with literal `en`, `es`, `el`, invalid, missing, and
+array inputs. In Playwright, navigate to `/?lang=es` and `/?lang=el`; assert the
+localized hero heading is visible, then use the language links and assert the
+URL and visible heading update. The existing build-budget task verifies that
+the route has no avoidable page-specific client chunk.
 
 - [ ] **Step 2: Prove red**
 
@@ -140,8 +144,9 @@ function landingLang(value: string | string[] | undefined): LandingLang {
 }
 ```
 
-Resolve `searchParams`, select copy on the server, and render plain markup.
-`LanguageLinks` contains only `Link` elements and requires no client directive.
+Export `landingLang` from `lib/landing-language.ts`. Resolve `searchParams`,
+select copy on the server, and render plain markup. `LanguageLinks` contains
+only `Link` elements and requires no client directive.
 
 - [ ] **Step 4: Preserve delivery invariants**
 
@@ -152,6 +157,7 @@ animation, and the authenticated provider graph out of the root layout.
 
 ```bash
 npx vitest run tests/performance/landing-delivery.test.ts --reporter=verbose
+npx playwright test e2e/public-language.spec.ts --project=mobile-chromium
 npm run build
 ```
 
@@ -161,7 +167,7 @@ runtime.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add app/page.tsx components/landing/LanguageLinks.tsx tests/performance/landing-delivery.test.ts
+git add app/page.tsx components/landing/LanguageLinks.tsx lib/landing-language.ts tests/performance/landing-delivery.test.ts e2e/public-language.spec.ts
 git commit -m "perf(landing): render public home on the server"
 ```
 
@@ -171,16 +177,18 @@ git commit -m "perf(landing): render public home on the server"
 - Modify: `app/login/page.tsx`
 - Modify: `app/globals.css`
 - Create: `tests/performance/login-delivery.test.ts`
+- Modify: `e2e/core-flows.spec.ts`
 
 **Interfaces:**
 - Preserves: login, signup, password strength, and loading behavior
 - Removes: `framer-motion` import from `/login`
 
-- [ ] **Step 1: Write failing delivery tests**
+- [ ] **Step 1: Write failing bundle and visible-form tests**
 
-Assert the login page does not import `framer-motion` and does not hide the form
-at initial paint. Assert password-strength bars still expose width changes
-through CSS classes or inline width.
+Use a build-manifest fixture to assert the `/login` route has no Framer Motion
+chunk. In Playwright, assert the email field and submit action are visible at
+initial paint, then switch to signup and verify password-strength feedback
+changes after typing a strong password.
 
 - [ ] **Step 2: Prove red**
 
