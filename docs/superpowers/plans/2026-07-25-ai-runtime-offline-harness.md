@@ -308,6 +308,7 @@ git commit -m "feat(ai): block unapproved paid-provider access"
 ### Task 6: Gate every direct paid-AI tool and evaluation entry point
 
 **Files:**
+- Create: `scripts/safety/tool-policy-manifest.json`
 - Create: `scripts/safety/require-paid-ai-approval.ts`
 - Create: `scripts/ci/check-paid-ai-tools.mjs`
 - Create: `tests/enterprise/paid-ai-tool-guard.test.ts`
@@ -316,8 +317,11 @@ git commit -m "feat(ai): block unapproved paid-provider access"
 - Modify: `package.json`
 
 **Interfaces:**
-- Produces: `requirePaidAiToolApproval({ operation })`
-- Opt-in: exact `TROPHE_ALLOW_PAID_AI=1`
+- Produces: `requirePaidAiToolApproval({ operation, argv, env })`
+- Produces: a per-run attempt counter that refuses calls beyond the approved
+  maximum count or USD ceiling
+- Opt-in: exact `TROPHE_ALLOW_PAID_AI=1`, `--live`, exact target, run ID,
+  maximum calls, maximum estimated USD, and operation/run-bound acknowledgement
 - Produces: `npm run guard:paid-ai-tools`
 
 - [ ] **Step 1: Build the authoritative entry-point inventory**
@@ -328,18 +332,32 @@ tools and production food-parse evaluation scripts. Dry-run-only paths may
 remain usable without approval only when tests prove they cannot reach a paid
 transport.
 
+Record every classified executable in the language-neutral
+`scripts/safety/tool-policy-manifest.json`. Each path has one owner and may
+declare both `paid-ai` and `production-write` policies; Task 5 of the security
+plan consumes the same manifest rather than creating a competing inventory.
+Shell entry points invoke the Node guard CLI before any paid or mutating step.
+
 - [ ] **Step 2: Write failing guard tests**
 
 For every inventoried entry point, assert missing or non-exact opt-in throws
 before credential lookup, HTTP, SDK construction, production authentication,
 or report mutation. Assert the error contains only a fixed operation ID.
+Also reject missing/malformed `--live`, `--target`, `--run-id`, `--max-calls`,
+`--max-usd`, or `--ack` inputs. Prove the per-run counter cannot exceed either
+ceiling and that the typed acknowledgement is bound to the fixed operation and
+run ID. Production `VERCEL_ENV` alone is never an authorization.
 
 - [ ] **Step 3: Wire the shared guard**
 
 Require explicit approval even when a tool targets a production Vercel route;
 production server authorization must not implicitly authorize a local batch
 script. Do not use `NODE_ENV`, `VERCEL_ENV`, key presence, or a truthy value as
-tool approval.
+tool approval. Every paid attempt must consume from the returned run counter
+before transport. Refuse unbounded datasets and default live-capable evaluation
+tools to a one-case canary unless the explicit call ceiling is lower. The tool
+must reject before any paid attempt when its conservative estimate would exceed
+the declared USD ceiling.
 
 - [ ] **Step 4: Add and run the static guard**
 
