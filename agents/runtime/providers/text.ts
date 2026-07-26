@@ -12,6 +12,8 @@ export async function invokeTextProvider(input: {
   maxTokens?: number;
   disableThinking?: boolean;
   userId?: string;
+  /** Test/offline-only Anthropic transport injection. */
+  fetchImpl?: typeof fetch;
 }): Promise<ProviderResult<string>> {
   if (input.signal.aborted) throw new Error('AI request aborted');
 
@@ -40,11 +42,9 @@ export async function invokeTextProvider(input: {
         userMessage: input.prompt,
         maxTokens: input.maxTokens ?? input.policy.maxTokens,
         cacheSystem: input.policy.cacheSystem,
+        signal: input.signal,
+        fetchImpl: input.fetchImpl,
       });
-
-  if (result.rawError || result.rawStatus === 0) {
-    throw new Error(result.rawError ?? 'Provider request failed');
-  }
 
   return {
     output: result.text,
