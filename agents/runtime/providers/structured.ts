@@ -71,7 +71,7 @@ export async function invokeStructuredProvider<T>(input: {
   toolName?: string;
   /** Tool description for DeepSeek/Anthropic (default: 'Submit structured result'). */
   toolDescription?: string;
-  /** Enable DeepSeek /beta strict mode (requires additionalProperties: false). */
+  /** Enable provider strict tool schemas; DeepSeek requires additionalProperties: false. */
   strict?: boolean;
   maxTokens?: number;
   /** OpenAI-only retry bound. Use 1 for strict measurement probes. */
