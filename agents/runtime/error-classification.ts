@@ -1,3 +1,4 @@
+import { types as nodeUtilTypes } from 'node:util';
 import type { AiErrorCategory } from './types';
 
 const CATEGORY_BY_DIAGNOSTIC = new Map<string, AiErrorCategory>([
@@ -33,7 +34,12 @@ const INTERNAL_CATEGORY_BY_NAME = new Map<string, AiErrorCategory>([
 ]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
+  if (typeof value !== 'object' || value === null) return false;
+  try {
+    return !nodeUtilTypes.isProxy(value) && !Array.isArray(value);
+  } catch {
+    return false;
+  }
 }
 
 type OwnField =
@@ -70,9 +76,13 @@ function categoryFromDiagnostic(value: unknown): AiErrorCategory | undefined {
 export function classifyAiError(error: unknown): AiErrorCategory {
   if (!isRecord(error)) return 'unknown';
 
+  const categories: AiErrorCategory[] = [];
   const timeout = ownField(error, '_isTimeout');
   if (timeout.kind === 'invalid') return 'unknown';
-  if (timeout.kind === 'value' && timeout.value === true) return 'timeout';
+  if (timeout.kind === 'value') {
+    if (typeof timeout.value !== 'boolean') return 'unknown';
+    if (timeout.value) categories.push('timeout');
+  }
 
   const status = ownField(error, 'status');
   if (status.kind === 'invalid') return 'unknown';
@@ -87,22 +97,37 @@ export function classifyAiError(error: unknown): AiErrorCategory {
     }
 
     const statusCategory = categoryFromStatus(status.value);
-    if (statusCategory) return statusCategory;
+    if (statusCategory) categories.push(statusCategory);
   }
 
   const name = ownField(error, 'name');
   if (name.kind === 'invalid') return 'unknown';
-  const internalCategory = name.kind === 'value' && typeof name.value === 'string'
-    ? INTERNAL_CATEGORY_BY_NAME.get(name.value)
-    : undefined;
-  if (internalCategory) return internalCategory;
+  if (name.kind === 'value') {
+    if (typeof name.value !== 'string') return 'unknown';
+    const internalCategory = INTERNAL_CATEGORY_BY_NAME.get(name.value);
+    if (internalCategory) categories.push(internalCategory);
+  }
 
   const code = ownField(error, 'code');
   const type = ownField(error, 'type');
   if (code.kind === 'invalid' || type.kind === 'invalid') return 'unknown';
-  return categoryFromDiagnostic(code.kind === 'value' ? code.value : undefined)
-    ?? categoryFromDiagnostic(type.kind === 'value' ? type.value : undefined)
-    ?? 'unknown';
+  for (const field of [code, type]) {
+    if (field.kind !== 'value' || field.value === undefined) continue;
+    if (typeof field.value !== 'string') return 'unknown';
+    const category = categoryFromDiagnostic(field.value);
+    if (category) categories.push(category);
+  }
+
+  const nonRecoverable = [...new Set(categories.filter(
+    (category) => !isFallbackEligible(category),
+  ))];
+  if (nonRecoverable.length === 1) return nonRecoverable[0];
+  if (nonRecoverable.length > 1) return 'unknown';
+
+  if (categories.includes('timeout')) return 'timeout';
+  if (categories.includes('rate_limit')) return 'rate_limit';
+  if (categories.includes('transient')) return 'transient';
+  return 'unknown';
 }
 
 export function isFallbackEligible(category: AiErrorCategory): boolean {

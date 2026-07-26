@@ -44,6 +44,49 @@ const fallbackSuccess = {
   rawStatus: 200,
 };
 
+const nonRecoverableConflictCases = [
+  {
+    label: '503 plus auth code',
+    fields: { status: 503, code: 'invalid_api_key' },
+    expected: 'auth',
+  },
+  {
+    label: '503 plus schema type',
+    fields: { status: 503, type: 'response_validation_error' },
+    expected: 'schema',
+  },
+  {
+    label: '503 plus budget code',
+    fields: { status: 503, code: 'budget_exceeded' },
+    expected: 'budget',
+  },
+  {
+    label: '503 plus policy type',
+    fields: { status: 503, type: 'content_policy_violation' },
+    expected: 'policy',
+  },
+  {
+    label: '503 plus invalid-input code',
+    fields: { status: 503, code: 'invalid_request_error' },
+    expected: 'invalid_input',
+  },
+  {
+    label: '403 plus rate-limit code',
+    fields: { status: 403, code: 'rate_limit_error' },
+    expected: 'auth',
+  },
+  {
+    label: '429 plus schema code',
+    fields: { status: 429, code: 'invalid_response' },
+    expected: 'schema',
+  },
+  {
+    label: 'rate-limit code plus auth type',
+    fields: { code: 'rate_limit_error', type: 'authentication_error' },
+    expected: 'auth',
+  },
+] as const;
+
 describe('AI error classification', () => {
   it.each([
     { label: 'HTTP auth', error: typedProviderError('auth', { status: 401 }), expected: 'auth' },
@@ -74,6 +117,72 @@ describe('AI error classification', () => {
   ] as const)('marks %s fallback eligibility as %s', (category, expected) => {
     expect(isFallbackEligible(category)).toBe(expected);
   });
+
+  it('returns unknown for a revoked Proxy instead of throwing', () => {
+    const revocable = Proxy.revocable({ status: 503 }, {});
+    revocable.revoke();
+
+    expect(() => classifyAiError(revocable.proxy)).not.toThrow();
+    expect(classifyAiError(revocable.proxy)).toBe('unknown');
+  });
+
+  it('rejects a live Proxy without executing reflection traps', () => {
+    const trapCalls = {
+      get: 0,
+      has: 0,
+      ownKeys: 0,
+      getOwnPropertyDescriptor: 0,
+    };
+    const error = new Proxy({ status: 503 }, {
+      get(target, property, receiver) {
+        trapCalls.get++;
+        return Reflect.get(target, property, receiver);
+      },
+      has(target, property) {
+        trapCalls.has++;
+        return Reflect.has(target, property);
+      },
+      ownKeys(target) {
+        trapCalls.ownKeys++;
+        return Reflect.ownKeys(target);
+      },
+      getOwnPropertyDescriptor(target, property) {
+        trapCalls.getOwnPropertyDescriptor++;
+        return Reflect.getOwnPropertyDescriptor(target, property);
+      },
+    });
+
+    expect(classifyAiError(error)).toBe('unknown');
+    expect(trapCalls).toEqual({
+      get: 0,
+      has: 0,
+      ownKeys: 0,
+      getOwnPropertyDescriptor: 0,
+    });
+  });
+
+  it('rejects accessor-shaped fields without invoking their getters', () => {
+    let getterCalls = 0;
+    const error = {};
+    for (const field of ['_isTimeout', 'status', 'name', 'code', 'type']) {
+      Object.defineProperty(error, field, {
+        get() {
+          getterCalls++;
+          return field === 'status' ? 503 : 'rate_limit_error';
+        },
+      });
+    }
+
+    expect(classifyAiError(error)).toBe('unknown');
+    expect(getterCalls).toBe(0);
+  });
+
+  it.each(nonRecoverableConflictCases)(
+    'classifies $label as $expected',
+    ({ fields, expected }) => {
+      expect(classifyAiError(typedProviderError('conflict', fields))).toBe(expected);
+    },
+  );
 });
 
 describe('executeAiTask integration contract', () => {
@@ -290,6 +399,24 @@ describe('executeAiTask integration contract', () => {
 
     expect(invoke).toHaveBeenCalledOnce();
   });
+
+  it.each(nonRecoverableConflictCases)(
+    'does not fallback for $label and preserves the original error',
+    async ({ fields }) => {
+      const primaryError = typedProviderError('conflicting provider error', fields);
+      const invoke = vi.fn(async () => {
+        throw primaryError;
+      });
+
+      await expect(executeAiTask({
+        task: 'meal_suggest',
+        prompt: 'suggest a meal',
+        invoke,
+      })).rejects.toBe(primaryError);
+
+      expect(invoke).toHaveBeenCalledOnce();
+    },
+  );
 
   it.each([
     '429',
