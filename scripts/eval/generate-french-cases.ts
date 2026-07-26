@@ -3,16 +3,21 @@
  * Uses DeepSeek exclusively. Merges into v3 dataset.
  */
 import { loadEnvConfig } from '@next/env';
-loadEnvConfig(process.cwd());
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { requirePaidAiToolApproval } from '../safety/require-paid-ai-approval';
+import { PAID_AI_ENDPOINT_GROUPS, requirePaidAiToolApproval } from '../safety/require-paid-ai-approval';
 
+if (process.env.DRY_RUN === '1') {
+  console.log('[gen] DRY_RUN — provider attempts: 0; dotenv loads: 0; report mutations: 0.');
+  process.exit(0);
+}
 const paidAiApproval = requirePaidAiToolApproval({
   operation: 'eval-generate-french',
   argv: process.argv.slice(2),
   env: process.env,
+  endpoints: PAID_AI_ENDPOINT_GROUPS.factoryRuntime,
 });
+loadEnvConfig(process.cwd());
 
 type Range = { min: number; max: number };
 type EvalCase = {
@@ -61,11 +66,11 @@ Return ONLY a JSON array. No markdown.`;
   const content = await generateFactoryText(prompt, {
     generator: 'french-cases',
     category: spec.category,
-  }, () => paidAiApproval.consumeAttempt());
+  }, paidAiApproval.beforeTransportAttempt);
   try {
     const cleaned = content.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
     const generated = JSON.parse(cleaned) as Partial<EvalCase>[];
-    return paidAiApproval.boundCases(generated).map((c, i) => ({
+    return generated.map((c, i) => ({
       id: `v3f_${spec.category}_fr_${i + 1}`,
       input: c.input ?? '',
       language: 'fr' as const,

@@ -4,12 +4,16 @@ import { invokeDeepSeekText } from '../../agents/runtime/providers/deepseek';
 import { invokeDeepSeekStructured } from '../../agents/runtime/providers/deepseek';
 import { estimateModelCostUsd } from '../../agents/router/pricing';
 import { z } from 'zod';
-import { requirePaidAiToolApproval } from '../safety/require-paid-ai-approval';
+import {
+  PAID_AI_ENDPOINT_GROUPS,
+  requirePaidAiToolApproval,
+} from '../safety/require-paid-ai-approval';
 
 const paidAiApproval = requirePaidAiToolApproval({
   operation: 'eval-deepseek-candidate',
   argv: process.argv.slice(2),
   env: process.env,
+  endpoints: PAID_AI_ENDPOINT_GROUPS.deepSeekStructured,
 });
 
 type Model = 'deepseek-v4-flash' | 'deepseek-v4-pro';
@@ -109,9 +113,9 @@ async function runCase(model: Model, test: Case) {
   const timeout = setTimeout(() => controller.abort(), 45_000);
   const startedAt = Date.now();
   try {
-    paidAiApproval.consumeAttempt();
     const result = await invokeDeepSeekText({
       model, system: test.system, prompt: test.prompt, maxTokens: 500, signal: controller.signal,
+      beforeTransportAttempt: paidAiApproval.beforeTransportAttempt,
     });
     const failures = [
       ...test.required.filter((pattern) => !pattern.test(result.output)).map((pattern) => `missing ${pattern}`),
@@ -139,7 +143,6 @@ async function runStructured(model: Model, iteration: number): Promise<Benchmark
   const controller = new AbortController();
   const startedAt = Date.now();
   try {
-    paidAiApproval.consumeAttempt();
     const result = await invokeDeepSeekStructured({
       model,
       system: 'Extract foods only. Do not estimate nutrition.',
@@ -150,6 +153,7 @@ async function runStructured(model: Model, iteration: number): Promise<Benchmark
       description: 'Submit extracted food portions',
       schema: extractionJsonSchema,
       validator: extractionSchema,
+      beforeTransportAttempt: paidAiApproval.beforeTransportAttempt,
     });
     const correct = result.output.foods.length === 3
       && result.output.foods.some((food) => /egg/i.test(food.name) && food.quantity === 2)

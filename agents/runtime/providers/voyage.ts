@@ -10,6 +10,7 @@ export async function invokeVoyageEmbedding(input: {
   inputType: 'query' | 'document';
   signal: AbortSignal;
   fetchImpl?: typeof fetch;
+  beforeTransportAttempt?: (endpoint: string) => unknown;
 }): Promise<ProviderResult<number[]>> {
   const accessMode = assertPaidProviderAccess({
     provider: 'voyage',
@@ -22,8 +23,11 @@ export async function invokeVoyageEmbedding(input: {
   const fetchImpl = input.fetchImpl ?? fetch;
 
   const startedAt = Date.now();
-  const response = await fetchImpl('https://api.voyageai.com/v1/embeddings', {
+  const endpoint = 'https://api.voyageai.com/v1/embeddings';
+  input.beforeTransportAttempt?.(endpoint);
+  const response = await fetchImpl(endpoint, {
     method: 'POST',
+    redirect: 'error',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ model: input.model, input: [input.text], input_type: input.inputType }),
     signal: input.signal,

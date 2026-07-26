@@ -4,12 +4,18 @@
 
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { requirePaidAiToolApproval } from '../../scripts/safety/require-paid-ai-approval';
+import {
+  FOOD_PARSE_OPAQUE_MAX_PROVIDER_ATTEMPTS,
+  requirePaidAiToolApproval,
+} from '../../scripts/safety/require-paid-ai-approval';
 
+const url = process.argv.find((a) => a.startsWith('--url='))?.split('=')[1] ?? 'http://localhost:3333';
+const paidEndpoint = new URL('/api/food/parse', url).toString();
 const paidAiApproval = requirePaidAiToolApproval({
   operation: 'eval-food-parse-route',
   argv: process.argv.slice(2),
   env: process.env,
+  endpoints: [paidEndpoint],
 });
 
 interface Range {
@@ -61,7 +67,6 @@ interface ParseResponse {
   error?: string;
 }
 
-const url = process.argv.find((a) => a.startsWith('--url='))?.split('=')[1] ?? 'http://localhost:3333';
 const evalPath = join(process.cwd(), 'agents/evals/food-parse-nikos-golden.json');
 const reportDir = join(process.cwd(), 'agents/evals/reports');
 mkdirSync(reportDir, { recursive: true });
@@ -106,12 +111,11 @@ interface CaseResult {
 async function runCase(c: Case): Promise<CaseResult> {
   const start = Date.now();
   try {
-    paidAiApproval.consumeAttempt();
-    const res = await fetch(`${url}/api/food/parse`, {
+    const res = await paidAiApproval.fetchOpaque(paidEndpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text: c.input, language: c.language }),
-    });
+    }, { maxProviderAttempts: FOOD_PARSE_OPAQUE_MAX_PROVIDER_ATTEMPTS });
     const latencyMs = Date.now() - start;
     const body = (await res.json()) as ParseResponse;
 
@@ -170,7 +174,9 @@ async function runCase(c: Case): Promise<CaseResult> {
 }
 
 async function main() {
-  const boundedCases = paidAiApproval.boundCases(spec.cases);
+  const boundedCases = paidAiApproval.boundJobs(spec.cases, {
+    maxAttemptsPerJob: FOOD_PARSE_OPAQUE_MAX_PROVIDER_ATTEMPTS,
+  });
   console.log(`Food-parse eval · model=${spec.model} · agent=${spec.agent_version} · cases=${boundedCases.length} · url=${url}`);
   console.log('─'.repeat(100));
 

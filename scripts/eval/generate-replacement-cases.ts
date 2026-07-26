@@ -10,17 +10,23 @@
  */
 
 import { loadEnvConfig } from '@next/env';
-loadEnvConfig(process.cwd());
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { requirePaidAiToolApproval } from '../safety/require-paid-ai-approval';
+import { PAID_AI_ENDPOINT_GROUPS, requirePaidAiToolApproval } from '../safety/require-paid-ai-approval';
 
+const dryRun = process.env.DRY_RUN === '1';
+if (dryRun) {
+  console.log('[gen] DRY_RUN — provider attempts: 0; dotenv loads: 0; report mutations: 0.');
+  process.exit(0);
+}
 const paidAiApproval = requirePaidAiToolApproval({
   operation: 'eval-generate-replacements',
   argv: process.argv.slice(2),
   env: process.env,
+  endpoints: PAID_AI_ENDPOINT_GROUPS.factoryRuntime,
 });
+loadEnvConfig(process.cwd());
 
 type Range = { min: number; max: number };
 type EvalCase = {
@@ -109,12 +115,12 @@ Return ONLY a JSON array. No markdown.`;
     generator: 'replacement-cases',
     category: spec.category,
     language: spec.lang,
-  }, () => paidAiApproval.consumeAttempt());
+  }, paidAiApproval.beforeTransportAttempt);
 
   try {
     const cleaned = content.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
     const generated = JSON.parse(cleaned) as Partial<EvalCase>[];
-    return paidAiApproval.boundCases(generated).map((c, i) => ({
+    return generated.map((c, i) => ({
       id: `v3r_${spec.category}_${spec.lang}_${i + 1}`,
       input: c.input ?? '',
       language: spec.lang,
@@ -132,17 +138,7 @@ Return ONLY a JSON array. No markdown.`;
 }
 
 async function main() {
-  const dryRun = process.env.DRY_RUN === '1';
-
   console.log(`[gen] generating ${REPLACEMENT_SPECS.reduce((s, sp) => s + sp.count, 0)} replacement cases across ${REPLACEMENT_SPECS.length} specs`);
-
-  if (dryRun) {
-    console.log('[gen] DRY_RUN — specs only:');
-    for (const spec of REPLACEMENT_SPECS) {
-      console.log(`  ${spec.category}/${spec.lang}: +${spec.count}`);
-    }
-    return;
-  }
 
   const allNew: EvalCase[] = [];
   for (const spec of paidAiApproval.boundCases(REPLACEMENT_SPECS)) {

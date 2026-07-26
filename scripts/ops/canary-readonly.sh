@@ -2,10 +2,12 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-node --import tsx "$SCRIPT_DIR/../safety/require-paid-ai-approval.ts" \
-  --operation=canary-production-ai-route "$@"
-
 BASE_URL="${BASE_URL:-https://trophe.app}"
+PAID_ENDPOINT="${BASE_URL%/}/api/ai/meal-suggest"
+node --import tsx "$SCRIPT_DIR/../safety/require-paid-ai-approval.ts" \
+  --operation=canary-production-ai-route \
+  "--actual-endpoint=$PAID_ENDPOINT" \
+  "$@"
 
 fail() {
   echo "canary: FAIL - $*" >&2

@@ -258,6 +258,7 @@ export async function invokeAnthropicJson<T>(input: {
   body: Record<string, unknown>;
   signal: AbortSignal;
   fetchImpl?: typeof fetch;
+  beforeTransportAttempt?: (endpoint: string) => unknown;
 }): Promise<ProviderResult<T>> {
   const accessMode = assertPaidProviderAccess({
     provider: 'anthropic',
@@ -269,8 +270,10 @@ export async function invokeAnthropicJson<T>(input: {
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured');
 
   const startedAt = Date.now();
+  input.beforeTransportAttempt?.(ANTHROPIC_API_URL);
   const response = await (input.fetchImpl ?? fetch)(ANTHROPIC_API_URL, {
     method: 'POST',
+    redirect: 'error',
     headers: {
       'Content-Type': 'application/json',
       'x-api-key': apiKey,

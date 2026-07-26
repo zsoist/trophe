@@ -19,6 +19,7 @@ export async function invokeTextProvider(input: {
   fetchImpl?: typeof fetch;
   /** Test/offline-only Google SDK transport injection. */
   generateContent?: GeminiGenerateContent;
+  beforeTransportAttempt?: (endpoint: string) => unknown;
 }): Promise<ProviderResult<string>> {
   if (input.signal.aborted) throw new Error('AI request aborted');
 
@@ -31,6 +32,7 @@ export async function invokeTextProvider(input: {
       signal: input.signal,
       userId: input.userId,
       fetchImpl: input.fetchImpl,
+      beforeTransportAttempt: input.beforeTransportAttempt,
     });
   }
 
@@ -43,6 +45,7 @@ export async function invokeTextProvider(input: {
         disableThinking: input.disableThinking,
         signal: input.signal,
         generateContent: input.generateContent,
+        beforeTransportAttempt: input.beforeTransportAttempt,
       })
     : await callAnthropicMessages({
         model: input.policy.model,
@@ -52,6 +55,7 @@ export async function invokeTextProvider(input: {
         cacheSystem: input.policy.cacheSystem,
         signal: input.signal,
         fetchImpl: input.fetchImpl,
+        beforeTransportAttempt: input.beforeTransportAttempt,
       });
 
   return {

@@ -36,6 +36,7 @@ export interface GeminiMessagesInput {
   responseSchema?: Record<string, unknown>;
   signal: AbortSignal;
   generateContent?: GeminiGenerateContent;
+  beforeTransportAttempt?: (endpoint: string) => unknown;
 }
 
 export interface GeminiMessagesResult {
@@ -73,6 +74,9 @@ export async function callGeminiMessages(
     ?? ((request: GenerateContentParameters) => getClient().models.generateContent(request));
   const startTime = Date.now();
 
+  input.beforeTransportAttempt?.(
+    `https://generativelanguage.googleapis.com/v1beta/models/${input.model}:generateContent`,
+  );
   try {
     const response = await generateContent({
       model: input.model,

@@ -1,79 +1,131 @@
 import { pathToFileURL } from 'node:url';
+import {
+  FOOD_PARSE_OPAQUE_MAX_PROVIDER_ATTEMPTS,
+} from '../../lib/ai/food-parse-limits';
+export {
+  FOOD_PARSE_OPAQUE_MAX_PROVIDER_ATTEMPTS,
+} from '../../lib/ai/food-parse-limits';
 
 const MAX_APPROVED_CALLS = 1_000;
 const MAX_APPROVED_USD_MICRODOLLARS = 3_000_000;
 const RUN_ID_PATTERN = /^[a-z0-9](?:[a-z0-9._-]{0,63})$/;
 const MAX_USD_PATTERN = /^(?:0|[1-2])\.\d{6}$|^3\.000000$/;
 const ESTIMATE_PATTERN = /^(?:0|[1-9]\d{0,2})\.(\d{1,12})$/;
+const DEEPSEEK_PRICING_VERSION = 'deepseek-v4-2026-07-25';
+const MAX_DEEPSEEK_INPUT_TOKENS = 16_384;
+const MAX_DEEPSEEK_OUTPUT_TOKENS = 8_192;
+
+export const PAID_AI_ENDPOINTS = Object.freeze({
+  anthropicMessages: 'https://api.anthropic.com/v1/messages',
+  deepSeekChat: 'https://api.deepseek.com/chat/completions',
+  deepSeekBetaChat: 'https://api.deepseek.com/beta/chat/completions',
+  mistralChat: 'https://api.mistral.ai/v1/chat/completions',
+  openAiChat: 'https://api.openai.com/v1/chat/completions',
+  tropheFoodParse: 'https://trophe.app/api/food/parse',
+  voyageEmbeddings: 'https://api.voyageai.com/v1/embeddings',
+});
+export const PAID_AI_ENDPOINT_GROUPS = Object.freeze({
+  consumerRuntime: Object.freeze([
+    PAID_AI_ENDPOINTS.anthropicMessages,
+    PAID_AI_ENDPOINTS.openAiChat,
+  ]),
+  deepSeekText: Object.freeze([PAID_AI_ENDPOINTS.deepSeekChat]),
+  deepSeekStructured: Object.freeze([
+    PAID_AI_ENDPOINTS.deepSeekChat,
+    PAID_AI_ENDPOINTS.deepSeekBetaChat,
+  ]),
+  factoryRuntime: Object.freeze([PAID_AI_ENDPOINTS.deepSeekChat]),
+  phase2: Object.freeze([
+    PAID_AI_ENDPOINTS.anthropicMessages,
+    PAID_AI_ENDPOINTS.deepSeekChat,
+    PAID_AI_ENDPOINTS.deepSeekBetaChat,
+    PAID_AI_ENDPOINTS.mistralChat,
+    PAID_AI_ENDPOINTS.openAiChat,
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent',
+  ]),
+});
+
+const PROVIDER_ENDPOINTS = new Set<string>([
+  PAID_AI_ENDPOINTS.anthropicMessages,
+  PAID_AI_ENDPOINTS.deepSeekChat,
+  PAID_AI_ENDPOINTS.deepSeekBetaChat,
+  PAID_AI_ENDPOINTS.mistralChat,
+  PAID_AI_ENDPOINTS.openAiChat,
+  PAID_AI_ENDPOINTS.voyageEmbeddings,
+]);
 
 const OPERATION_POLICIES = {
   'canary-production-ai-route': {
-    target: 'production-ai-canary',
-    estimatedUsdPerAttempt: '0.250000',
+    kind: 'route',
+    estimatedUsdPerAttempt: '0.020000',
   },
   'debug-parse-roundtrip': {
-    target: 'trophe-production',
-    estimatedUsdPerAttempt: '0.250000',
+    kind: 'route',
+    estimatedUsdPerAttempt: '0.020000',
   },
   'eval-all': {
-    target: 'provider-runtime',
+    kind: 'provider',
     estimatedUsdPerAttempt: '0.250000',
   },
   'eval-deepseek-candidate': {
-    target: 'deepseek',
+    kind: 'deepseek',
     estimatedUsdPerAttempt: '0.050000',
   },
   'eval-deepseek-stress': {
-    target: 'deepseek',
+    kind: 'deepseek',
     estimatedUsdPerAttempt: '0.050000',
   },
   'eval-food-parse-fifty': {
-    target: 'provider-runtime',
+    kind: 'provider',
     estimatedUsdPerAttempt: '0.250000',
   },
   'eval-food-parse-route': {
-    target: 'food-parse-route',
-    estimatedUsdPerAttempt: '0.250000',
+    kind: 'route',
+    estimatedUsdPerAttempt: '0.020000',
   },
   'eval-food-parse-watchlist': {
-    target: 'trophe-production',
-    estimatedUsdPerAttempt: '0.250000',
+    kind: 'route',
+    estimatedUsdPerAttempt: '0.020000',
   },
   'eval-generate-benchmark': {
-    target: 'provider-runtime',
+    kind: 'provider',
     estimatedUsdPerAttempt: '0.250000',
   },
   'eval-generate-french': {
-    target: 'provider-runtime',
+    kind: 'provider',
     estimatedUsdPerAttempt: '0.250000',
   },
   'eval-generate-replacements': {
-    target: 'provider-runtime',
+    kind: 'provider',
     estimatedUsdPerAttempt: '0.250000',
   },
   'eval-greek-colombian-prod': {
-    target: 'trophe-production',
-    estimatedUsdPerAttempt: '0.250000',
+    kind: 'route',
+    estimatedUsdPerAttempt: '0.020000',
   },
   'eval-meal-suggest': {
-    target: 'meal-suggest-provider',
+    kind: 'provider',
     estimatedUsdPerAttempt: '0.250000',
   },
   'eval-nutrition-enterprise-prod': {
-    target: 'trophe-production',
-    estimatedUsdPerAttempt: '0.250000',
+    kind: 'route',
+    estimatedUsdPerAttempt: '0.020000',
   },
   'eval-phase2-round1': {
-    target: 'provider-runtime',
+    kind: 'provider',
     estimatedUsdPerAttempt: '0.250000',
   },
   'eval-validate-dataset': {
-    target: 'food-parse-route',
-    estimatedUsdPerAttempt: '0.250000',
+    kind: 'route',
+    estimatedUsdPerAttempt: '0.020000',
   },
   'ingest-food-embeddings': {
-    target: 'voyage',
+    kind: 'voyage',
     estimatedUsdPerAttempt: '0.010000',
+  },
+  'ingest-rag-document': {
+    kind: 'voyage',
+    estimatedUsdPerAttempt: '0.000100',
   },
 } as const;
 
@@ -85,11 +137,13 @@ type ApprovalRule =
   | 'call-limit-invalid'
   | 'case-limit-invalid'
   | 'dataset-unbounded'
+  | 'endpoint-invalid'
   | 'estimate-invalid'
   | 'live-flag-required'
   | 'operation-not-allowlisted'
   | 'run-id-invalid'
   | 'target-mismatch'
+  | 'token-limit-invalid'
   | 'tool-opt-in-required'
   | 'usd-limit'
   | 'usd-limit-invalid';
@@ -100,11 +154,13 @@ const APPROVAL_RULES = new Set<ApprovalRule>([
   'call-limit-invalid',
   'case-limit-invalid',
   'dataset-unbounded',
+  'endpoint-invalid',
   'estimate-invalid',
   'live-flag-required',
   'operation-not-allowlisted',
   'run-id-invalid',
   'target-mismatch',
+  'token-limit-invalid',
   'tool-opt-in-required',
   'usd-limit',
   'usd-limit-invalid',
@@ -185,10 +241,7 @@ function parseMaxUsd(value: string, operation: string): number {
   return microdollars;
 }
 
-function estimateToMicrodollarsCeil(
-  value: string,
-  operation: string,
-): number {
+function estimateToMicrodollarsCeil(value: string, operation: string): number {
   const match = ESTIMATE_PATTERN.exec(value);
   if (!match) blocked('estimate-invalid', operation);
   const [whole] = value.split('.');
@@ -204,18 +257,148 @@ function estimateToMicrodollarsCeil(
   return rounded;
 }
 
+function normalizeEndpoint(value: string, allowRouteLoopback: boolean): string {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    blocked('endpoint-invalid', 'unknown');
+  }
+  if (
+    (url.protocol !== 'https:'
+      && !(allowRouteLoopback
+        && url.protocol === 'http:'
+        && ['localhost', '127.0.0.1'].includes(url.hostname)))
+    || url.username !== ''
+    || url.password !== ''
+    || url.hash !== ''
+    || url.search !== ''
+  ) {
+    blocked('endpoint-invalid', 'unknown');
+  }
+  const normalizedPath = url.pathname.length > 1
+    ? url.pathname.replace(/\/+$/, '')
+    : url.pathname;
+  url.pathname = normalizedPath;
+  return url.toString().replace(/\/$/, normalizedPath === '/' ? '/' : '');
+}
+
+export function normalizePaidAiEndpoint(value: string): string {
+  return normalizeEndpoint(value, false);
+}
+
+function endpointAllowed(operation: PaidAiToolOperation, endpoint: string): boolean {
+  const kind = OPERATION_POLICIES[operation].kind;
+  if (kind === 'route') {
+    if (operation === 'canary-production-ai-route') {
+      return endpoint === 'https://trophe.app/api/ai/meal-suggest';
+    }
+    return endpoint === PAID_AI_ENDPOINTS.tropheFoodParse
+      || endpoint === 'http://localhost:3333/api/food/parse'
+      || endpoint === 'http://127.0.0.1:3333/api/food/parse';
+  }
+  if (kind === 'deepseek') {
+    return endpoint === PAID_AI_ENDPOINTS.deepSeekChat
+      || endpoint === PAID_AI_ENDPOINTS.deepSeekBetaChat;
+  }
+  if (kind === 'voyage') return endpoint === PAID_AI_ENDPOINTS.voyageEmbeddings;
+  return PROVIDER_ENDPOINTS.has(endpoint)
+    || /^https:\/\/generativelanguage\.googleapis\.com\/v1beta\/models\/[A-Za-z0-9._-]+:generateContent$/.test(endpoint);
+}
+
+function normalizedEndpointSet(
+  endpoints: readonly string[],
+  operation: PaidAiToolOperation,
+): readonly string[] {
+  if (!Array.isArray(endpoints) || endpoints.length === 0) {
+    blocked('target-mismatch', operation);
+  }
+  const normalized = [...new Set(endpoints.map((endpoint) =>
+    normalizeEndpoint(endpoint, OPERATION_POLICIES[operation].kind === 'route')))].sort();
+  if (normalized.some((endpoint) => !endpointAllowed(operation, endpoint))) {
+    blocked('target-mismatch', operation);
+  }
+  return Object.freeze(normalized);
+}
+
+export function paidAiTargetIdentity(endpoints: readonly string[]): string {
+  if (!Array.isArray(endpoints) || endpoints.length === 0) {
+    blocked('target-mismatch', 'unknown');
+  }
+  return [...new Set(endpoints.map(normalizePaidAiEndpoint))].sort().join(',');
+}
+
+export function googleGenerateContentEndpoint(model: string): string {
+  if (!/^[A-Za-z0-9._-]{1,128}$/.test(model)) {
+    blocked('endpoint-invalid', 'unknown');
+  }
+  return `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+}
+
+export function deriveDeepSeekStressEstimate(input: {
+  model: string;
+  maxInputTokens: number;
+  maxOutputTokens: number;
+}): {
+  pricingVersion: typeof DEEPSEEK_PRICING_VERSION;
+  estimatedUsdPerAttempt: string;
+} {
+  if (
+    !['deepseek-v4-flash', 'deepseek-v4-pro'].includes(input.model)
+    || !Number.isSafeInteger(input.maxInputTokens)
+    || input.maxInputTokens <= 0
+    || input.maxInputTokens > MAX_DEEPSEEK_INPUT_TOKENS
+    || !Number.isSafeInteger(input.maxOutputTokens)
+    || input.maxOutputTokens <= 0
+    || input.maxOutputTokens > MAX_DEEPSEEK_OUTPUT_TOKENS
+  ) {
+    blocked('token-limit-invalid', 'eval-deepseek-stress');
+  }
+  const rates = input.model === 'deepseek-v4-pro'
+    ? { inputNanoUsd: 435, outputNanoUsd: 870 }
+    : { inputNanoUsd: 27, outputNanoUsd: 390 };
+  const microdollars = Math.ceil(
+    (input.maxInputTokens * rates.inputNanoUsd
+      + input.maxOutputTokens * rates.outputNanoUsd) / 1_000,
+  );
+  if (!Number.isSafeInteger(microdollars) || microdollars <= 0) {
+    blocked('estimate-invalid', 'eval-deepseek-stress');
+  }
+  return Object.freeze({
+    pricingVersion: DEEPSEEK_PRICING_VERSION,
+    estimatedUsdPerAttempt: `${Math.floor(microdollars / 1_000_000)}.${String(
+      microdollars % 1_000_000,
+    ).padStart(6, '0')}`,
+  });
+}
+
 export interface PaidAiAttemptSnapshot {
   attempts: number;
+  reservedAttempts: number;
   consumedUsdMicrodollars: number;
   remainingCalls: number;
   remainingUsdMicrodollars: number;
 }
 
-export interface PaidAiAttemptCounter {
+export type BeforePaidTransportAttempt = (endpoint: string) => PaidAiAttemptSnapshot;
+
+export interface PaidAiTransportCapability {
+  beforeTransportAttempt: BeforePaidTransportAttempt;
+}
+
+export interface PaidAiAttemptCounter extends PaidAiTransportCapability {
   readonly operation: PaidAiToolOperation;
   readonly maxCalls: number;
   readonly maxUsdMicrodollars: number;
-  consumeAttempt(): PaidAiAttemptSnapshot;
+  consumeAttempt(endpoint?: string): PaidAiAttemptSnapshot;
+  reserveAttemptEnvelope(input: {
+    endpoint: string;
+    maxProviderAttempts: number;
+  }): PaidAiTransportCapability;
+  reserveOpaqueEnvelope(input: {
+    endpoint: string;
+    maxProviderAttempts: number;
+  }): PaidAiAttemptSnapshot;
   snapshot(): PaidAiAttemptSnapshot;
 }
 
@@ -224,6 +407,7 @@ export function createPaidAiAttemptCounter(input: {
   maxCalls: number;
   maxUsdMicrodollars: number;
   estimatedUsdPerAttempt: string;
+  endpoints?: readonly string[];
 }): PaidAiAttemptCounter {
   const operation = allowlistedOperation(input.operation);
   if (operation === 'unknown') blocked('operation-not-allowlisted', input.operation);
@@ -241,6 +425,15 @@ export function createPaidAiAttemptCounter(input: {
   ) {
     blocked('usd-limit-invalid', operation);
   }
+  const endpoints = normalizedEndpointSet(
+    input.endpoints ?? [OPERATION_POLICIES[operation].kind === 'route'
+      ? PAID_AI_ENDPOINTS.tropheFoodParse
+      : OPERATION_POLICIES[operation].kind === 'voyage'
+        ? PAID_AI_ENDPOINTS.voyageEmbeddings
+        : PAID_AI_ENDPOINTS.deepSeekChat],
+    operation,
+  );
+  const approvedEndpoints = new Set(endpoints);
   const estimateMicrodollars = estimateToMicrodollarsCeil(
     input.estimatedUsdPerAttempt,
     operation,
@@ -249,45 +442,134 @@ export function createPaidAiAttemptCounter(input: {
     blocked('usd-limit', operation);
   }
   let attempts = 0;
+  let reservedAttempts = 0;
   let consumedUsdMicrodollars = 0;
+  let reservedUsdMicrodollars = 0;
 
+  const validateEndpoint = (endpoint: string): string => {
+    const normalized = normalizeEndpoint(
+      endpoint,
+      OPERATION_POLICIES[operation].kind === 'route',
+    );
+    if (!approvedEndpoints.has(normalized)) blocked('target-mismatch', operation);
+    return normalized;
+  };
   const snapshot = (): PaidAiAttemptSnapshot => Object.freeze({
     attempts,
-    consumedUsdMicrodollars,
-    remainingCalls: input.maxCalls - attempts,
-    remainingUsdMicrodollars: input.maxUsdMicrodollars - consumedUsdMicrodollars,
+    reservedAttempts,
+    consumedUsdMicrodollars: consumedUsdMicrodollars + reservedUsdMicrodollars,
+    remainingCalls: input.maxCalls - attempts - reservedAttempts,
+    remainingUsdMicrodollars:
+      input.maxUsdMicrodollars - consumedUsdMicrodollars - reservedUsdMicrodollars,
   });
+  const assertCapacity = (count: number): void => {
+    if (
+      !Number.isSafeInteger(count)
+      || count <= 0
+      || attempts + reservedAttempts + count > input.maxCalls
+    ) {
+      blocked('attempt-limit', operation);
+    }
+    const cost = estimateMicrodollars * count;
+    if (
+      !Number.isSafeInteger(cost)
+      || consumedUsdMicrodollars + reservedUsdMicrodollars + cost
+        > input.maxUsdMicrodollars
+    ) {
+      blocked('usd-limit', operation);
+    }
+  };
+  const directAttempt: BeforePaidTransportAttempt = (endpoint) => {
+    validateEndpoint(endpoint);
+    assertCapacity(1);
+    attempts += 1;
+    consumedUsdMicrodollars += estimateMicrodollars;
+    return snapshot();
+  };
+  const reserve = (endpoint: string, count: number): PaidAiTransportCapability => {
+    validateEndpoint(endpoint);
+    assertCapacity(count);
+    reservedAttempts += count;
+    reservedUsdMicrodollars += estimateMicrodollars * count;
+    let reservationRemaining = count;
+    return Object.freeze({
+      beforeTransportAttempt(actualEndpoint: string): PaidAiAttemptSnapshot {
+        validateEndpoint(actualEndpoint);
+        if (reservationRemaining <= 0) blocked('attempt-limit', operation);
+        reservationRemaining -= 1;
+        reservedAttempts -= 1;
+        reservedUsdMicrodollars -= estimateMicrodollars;
+        attempts += 1;
+        consumedUsdMicrodollars += estimateMicrodollars;
+        return snapshot();
+      },
+    });
+  };
 
-  return Object.freeze({
+  const counter: PaidAiAttemptCounter = Object.freeze({
     operation,
     maxCalls: input.maxCalls,
     maxUsdMicrodollars: input.maxUsdMicrodollars,
-    consumeAttempt(): PaidAiAttemptSnapshot {
-      if (attempts >= input.maxCalls) blocked('attempt-limit', operation);
-      if (consumedUsdMicrodollars + estimateMicrodollars > input.maxUsdMicrodollars) {
-        blocked('usd-limit', operation);
-      }
-      attempts += 1;
-      consumedUsdMicrodollars += estimateMicrodollars;
+    beforeTransportAttempt: directAttempt,
+    consumeAttempt(endpoint = endpoints[0]): PaidAiAttemptSnapshot {
+      return directAttempt(endpoint);
+    },
+    reserveAttemptEnvelope({
+      endpoint,
+      maxProviderAttempts,
+    }: {
+      endpoint: string;
+      maxProviderAttempts: number;
+    }) {
+      return reserve(endpoint, maxProviderAttempts);
+    },
+    reserveOpaqueEnvelope({
+      endpoint,
+      maxProviderAttempts,
+    }: {
+      endpoint: string;
+      maxProviderAttempts: number;
+    }) {
+      reserve(endpoint, maxProviderAttempts);
       return snapshot();
     },
     snapshot,
   });
+  return counter;
 }
 
 export interface PaidAiToolApproval extends PaidAiAttemptCounter {
   readonly target: string;
+  readonly endpoints: readonly string[];
   readonly runId: string;
+  boundJobs<T>(
+    jobs: readonly T[],
+    options?: Readonly<{ maxAttemptsPerJob?: number }>,
+  ): readonly T[];
+  /** @deprecated Use boundJobs; retained for callers that have not migrated yet. */
   boundCases<T>(
     cases: readonly T[],
     options?: Readonly<{ attemptsPerCase?: number }>,
   ): readonly T[];
+  fetchOpaque(
+    endpoint: string,
+    init: RequestInit,
+    options: {
+      maxProviderAttempts: number;
+      fetchImpl?: typeof fetch;
+    },
+  ): Promise<Response>;
 }
 
 export function requirePaidAiToolApproval(input: {
   operation: string;
   argv: readonly string[];
   env: Readonly<Record<string, string | undefined>>;
+  endpoints: readonly string[];
+  pricing?: {
+    pricingVersion: string;
+    estimatedUsdPerAttempt: string;
+  };
 }): PaidAiToolApproval {
   const operation = allowlistedOperation(input.operation);
   if (operation === 'unknown') {
@@ -303,13 +585,9 @@ export function requirePaidAiToolApproval(input: {
     blocked('live-flag-required', operation);
   }
 
-  const target = exactSingleFlag(
-    input.argv,
-    '--target',
-    operation,
-    'target-mismatch',
-  );
-  if (target !== OPERATION_POLICIES[operation].target) {
+  const endpoints = normalizedEndpointSet(input.endpoints, operation);
+  const target = endpoints.join(',');
+  if (exactSingleFlag(input.argv, '--target', operation, 'target-mismatch') !== target) {
     blocked('target-mismatch', operation);
   }
   const maxCalls = parseMaxCalls(
@@ -333,7 +611,10 @@ export function requirePaidAiToolApproval(input: {
     operation,
     'ack-required',
   );
-  if (acknowledgement !== `I_UNDERSTAND_PAID_AI:${operation}:${runId}`) {
+  if (
+    acknowledgement
+    !== `I_UNDERSTAND_PAID_AI:${operation}:${runId}:${target}`
+  ) {
     blocked('ack-required', operation);
   }
 
@@ -352,58 +633,124 @@ export function requirePaidAiToolApproval(input: {
     }
   }
 
+  let estimatedUsdPerAttempt: string =
+    OPERATION_POLICIES[operation].estimatedUsdPerAttempt;
+  if (input.pricing != null) {
+    if (
+      operation !== 'eval-deepseek-stress'
+      || input.pricing.pricingVersion !== DEEPSEEK_PRICING_VERSION
+    ) {
+      blocked('estimate-invalid', operation);
+    }
+    estimatedUsdPerAttempt = input.pricing.estimatedUsdPerAttempt;
+  } else if (operation === 'eval-deepseek-stress') {
+    blocked('estimate-invalid', operation);
+  }
   const counter = createPaidAiAttemptCounter({
     operation,
     maxCalls,
     maxUsdMicrodollars,
-    estimatedUsdPerAttempt: OPERATION_POLICIES[operation].estimatedUsdPerAttempt,
+    estimatedUsdPerAttempt,
+    endpoints,
   });
   const estimateMicrodollars = estimateToMicrodollarsCeil(
-    OPERATION_POLICIES[operation].estimatedUsdPerAttempt,
+    estimatedUsdPerAttempt,
     operation,
   );
-  const maxAffordableCalls = Math.floor(
-    maxUsdMicrodollars / estimateMicrodollars,
-  );
-  return Object.freeze({
+  const maxAffordableCalls = Math.floor(maxUsdMicrodollars / estimateMicrodollars);
+  const boundJobs = <T>(
+    jobs: readonly T[],
+    maxAttemptsPerJob: number,
+  ): readonly T[] => {
+    if (!Array.isArray(jobs)) blocked('dataset-unbounded', operation);
+    if (
+      !Number.isSafeInteger(maxAttemptsPerJob)
+      || maxAttemptsPerJob <= 0
+      || maxAttemptsPerJob > maxCalls
+    ) {
+      blocked('dataset-unbounded', operation);
+    }
+    const approvedJobs = Math.min(
+      Math.floor(maxCalls / maxAttemptsPerJob),
+      Math.floor(maxAffordableCalls / maxAttemptsPerJob),
+    );
+    if (approvedJobs <= 0) blocked('dataset-unbounded', operation);
+    return Object.freeze(jobs.slice(0, Math.min(caseLimit, approvedJobs)));
+  };
+
+  const approval: PaidAiToolApproval = Object.freeze({
     ...counter,
     target,
+    endpoints,
     runId,
+    boundJobs<T>(
+      jobs: readonly T[],
+      options: Readonly<{ maxAttemptsPerJob?: number }> = {},
+    ): readonly T[] {
+      return boundJobs(jobs, options.maxAttemptsPerJob ?? 1);
+    },
     boundCases<T>(
       cases: readonly T[],
       options: Readonly<{ attemptsPerCase?: number }> = {},
     ): readonly T[] {
-      if (!Array.isArray(cases)) blocked('dataset-unbounded', operation);
-      const attemptsPerCase = options.attemptsPerCase ?? 1;
-      if (
-        !Number.isSafeInteger(attemptsPerCase)
-        || attemptsPerCase <= 0
-        || attemptsPerCase > maxCalls
-      ) {
-        blocked('dataset-unbounded', operation);
-      }
-      const approvedCases = Math.min(
-        Math.floor(maxCalls / attemptsPerCase),
-        Math.floor(maxAffordableCalls / attemptsPerCase),
-      );
-      if (approvedCases <= 0) blocked('dataset-unbounded', operation);
-      return Object.freeze(cases.slice(0, Math.min(caseLimit, approvedCases)));
+      return boundJobs(cases, options.attemptsPerCase ?? 1);
+    },
+    async fetchOpaque(
+      endpoint: string,
+      init: RequestInit,
+      options: {
+        maxProviderAttempts: number;
+        fetchImpl?: typeof fetch;
+      },
+    ): Promise<Response> {
+      counter.reserveOpaqueEnvelope({
+        endpoint,
+        maxProviderAttempts: options.maxProviderAttempts,
+      });
+      return (options.fetchImpl ?? fetch)(normalizeEndpoint(endpoint, true), {
+        ...init,
+        redirect: 'error',
+      });
     },
   });
+  return approval;
 }
 
 async function runCli(): Promise<void> {
-  const operationArg = process.argv
-    .slice(2)
-    .find((arg) => arg.startsWith('--operation='));
+  const args = process.argv.slice(2);
+  const operationArg = args.find((arg) => arg.startsWith('--operation='));
   const operation = operationArg?.slice('--operation='.length) ?? 'unknown';
+  const targetArg = args.find((arg) => arg.startsWith('--target='));
+  const target = targetArg?.slice('--target='.length) ?? '';
+  const actualEndpointArg = args.find((arg) =>
+    arg.startsWith('--actual-endpoint='));
+  const actualEndpoint =
+    actualEndpointArg?.slice('--actual-endpoint='.length) ?? '';
   try {
     const approval = requirePaidAiToolApproval({
       operation,
-      argv: process.argv.slice(2),
+      argv: args,
       env: process.env,
+      endpoints: actualEndpoint
+        ? [actualEndpoint]
+        : target
+          ? target.split(',')
+          : [],
+      ...(operation === 'eval-deepseek-stress'
+        ? {
+            pricing: deriveDeepSeekStressEstimate({
+              model: process.env.DEEPSEEK_STRESS_MODEL ?? '',
+              maxInputTokens: Number(process.env.DEEPSEEK_STRESS_MAX_INPUT_TOKENS),
+              maxOutputTokens: Number(process.env.DEEPSEEK_STRESS_MAX_TOKENS),
+            }),
+          }
+        : {}),
     });
-    approval.consumeAttempt();
+    approval.reserveOpaqueEnvelope({
+      endpoint: approval.endpoints[0],
+      maxProviderAttempts:
+        operation === 'canary-production-ai-route' ? 4 : 1,
+    });
   } catch (error) {
     const safeError = error instanceof PaidAiToolApprovalError
       ? error

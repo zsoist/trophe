@@ -9,17 +9,25 @@
  */
 
 import { loadEnvConfig } from '@next/env';
-loadEnvConfig(process.cwd());
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { requirePaidAiToolApproval } from '../safety/require-paid-ai-approval';
+import {
+  FOOD_PARSE_OPAQUE_MAX_PROVIDER_ATTEMPTS,
+  requirePaidAiToolApproval,
+} from '../safety/require-paid-ai-approval';
 
+const paidEndpoint = new URL(
+  '/api/food/parse',
+  process.env.TROPHE_API ?? 'https://trophe.app',
+).toString();
 const paidAiApproval = requirePaidAiToolApproval({
   operation: 'eval-validate-dataset',
   argv: process.argv.slice(2),
   env: process.env,
+  endpoints: [paidEndpoint],
 });
+loadEnvConfig(process.cwd());
 
 type Range = { min: number; max: number };
 type EvalCase = {
@@ -82,14 +90,12 @@ function validateCase(
 }
 
 async function runLookup(input: string): Promise<LookupResult | null> {
-  const baseUrl = process.env.TROPHE_API ?? 'https://trophe.app';
   try {
-    paidAiApproval.consumeAttempt();
-    const res = await fetch(`${baseUrl}/api/food-parse`, {
+    const res = await paidAiApproval.fetchOpaque(paidEndpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ input, language: 'en' }),
-    });
+    }, { maxProviderAttempts: FOOD_PARSE_OPAQUE_MAX_PROVIDER_ATTEMPTS });
     if (!res.ok) return null;
     const data = await res.json() as any;
     if (!data.items?.length) return null;
@@ -112,7 +118,9 @@ async function main() {
   const version = process.env.EVAL_DATASET ?? 'v3';
   const datasetPath = join(process.cwd(), `agents/evals/datasets/nutrition-enterprise-${version}.json`);
   const dataset = JSON.parse(readFileSync(datasetPath, 'utf8')) as { cases: EvalCase[] };
-  const approvedCases = paidAiApproval.boundCases(dataset.cases);
+  const approvedCases = paidAiApproval.boundJobs(dataset.cases, {
+    maxAttemptsPerJob: FOOD_PARSE_OPAQUE_MAX_PROVIDER_ATTEMPTS,
+  });
 
   console.log(`[validate] dataset: ${version} (${approvedCases.length} cases)`);
 

@@ -11,17 +11,23 @@
  */
 
 import { loadEnvConfig } from '@next/env';
-loadEnvConfig(process.cwd());
 
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { requirePaidAiToolApproval } from '../safety/require-paid-ai-approval';
+import { PAID_AI_ENDPOINT_GROUPS, requirePaidAiToolApproval } from '../safety/require-paid-ai-approval';
 
+const dryRun = process.env.DRY_RUN === '1';
+if (dryRun) {
+  console.log('[gen] DRY_RUN — provider attempts: 0; dotenv loads: 0; report mutations: 0.');
+  process.exit(0);
+}
 const paidAiApproval = requirePaidAiToolApproval({
   operation: 'eval-generate-benchmark',
   argv: process.argv.slice(2),
   env: process.env,
+  endpoints: PAID_AI_ENDPOINT_GROUPS.factoryRuntime,
 });
+loadEnvConfig(process.cwd());
 
 type Range = { min: number; max: number };
 type EvalCase = {
@@ -144,12 +150,12 @@ Return ONLY a JSON array of objects. No markdown, no explanation.`;
       generator: 'nutrition-enterprise-v3',
       category,
       language: lang,
-    }, () => paidAiApproval.consumeAttempt());
+    }, paidAiApproval.beforeTransportAttempt);
     try {
       // Strip markdown fences if present
       const cleaned = content.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
       const generated = JSON.parse(cleaned) as Partial<EvalCase>[];
-      for (const c of paidAiApproval.boundCases(generated)) {
+      for (const c of generated) {
         cases.push({
           id: `v3_${category}_${lang}_${cases.length + 1}`,
           input: c.input ?? '',
@@ -171,8 +177,6 @@ Return ONLY a JSON array of objects. No markdown, no explanation.`;
 }
 
 async function main() {
-  const dryRun = process.env.DRY_RUN === '1';
-
   if (Object.keys(CATEGORY_SPECS).length === 0) {
     console.error('[gen] CATEGORY_SPECS is empty — implement it first (look for TODO(human))');
     process.exit(1);
@@ -186,14 +190,6 @@ async function main() {
   const allNewCases: EvalCase[] = [];
   const totalDelta = Object.values(CATEGORY_SPECS).reduce((sum, s) => sum + s.delta, 0);
   console.log(`[gen] generating ${totalDelta} new cases across ${Object.keys(CATEGORY_SPECS).length} categories`);
-
-  if (dryRun) {
-    console.log('[gen] DRY_RUN — printing specs only:');
-    for (const [cat, spec] of Object.entries(CATEGORY_SPECS)) {
-      console.log(`  ${cat}: +${spec.delta} (${Object.entries(spec.languages).map(([l, n]) => `${l}:${n}`).join(', ')})`);
-    }
-    return;
-  }
 
   for (const [cat, spec] of paidAiApproval.boundCases(Object.entries(CATEGORY_SPECS))) {
     console.log(`[gen] generating ${spec.delta} cases for "${cat}"...`);

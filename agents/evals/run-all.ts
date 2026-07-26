@@ -21,7 +21,10 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { foodParseSimulatorPolicy, taskPolicies } from '../router/policies';
 import { invokeTextProvider } from '../runtime/providers/text';
-import { requirePaidAiToolApproval } from '../../scripts/safety/require-paid-ai-approval';
+import {
+  PAID_AI_ENDPOINT_GROUPS,
+  requirePaidAiToolApproval,
+} from '../../scripts/safety/require-paid-ai-approval';
 
 // ── CLI args ──────────────────────────────────────────────────────────────────
 
@@ -30,6 +33,7 @@ const paidAiApproval = requirePaidAiToolApproval({
   operation: 'eval-all',
   argv: args,
   env: process.env,
+  endpoints: PAID_AI_ENDPOINT_GROUPS.consumerRuntime,
 });
 const url = args.find((a) => a.startsWith('--url='))?.split('=')[1] ?? 'http://localhost:3333';
 const suiteFilter = args.find((a) => a.startsWith('--suite='))?.split('=')[1];
@@ -126,11 +130,16 @@ interface FoodCase {
   expect_total: { calories?: Range; protein_g?: Range; carbs_g?: Range; fat_g?: Range; fiber_g?: Range; };
 }
 
-async function runFoodParseCase(c: FoodCase, runPipeline: (input: { text: string; language?: string }) => Promise<{ ok: boolean; output?: { items: Array<{ calories: number; protein_g: number; carbs_g: number; fat_g: number; fiber_g: number }> }; error?: string }>): Promise<CaseResult> {
+async function runFoodParseCase(c: FoodCase, runPipeline: (
+  input: { text: string; language?: string },
+  opts?: { beforeTransportAttempt?: (endpoint: string) => unknown },
+) => Promise<{ ok: boolean; output?: { items: Array<{ calories: number; protein_g: number; carbs_g: number; fat_g: number; fiber_g: number }> }; error?: string }>): Promise<CaseResult> {
   const start = Date.now();
   try {
-    paidAiApproval.consumeAttempt();
-    const result = await runPipeline({ text: c.input, language: c.language });
+    const result = await runPipeline(
+      { text: c.input, language: c.language },
+      { beforeTransportAttempt: paidAiApproval.beforeTransportAttempt },
+    );
     const latencyMs = Date.now() - start;
 
     if (!result.ok || !result.output?.items) {
@@ -207,7 +216,10 @@ async function runFoodParseSuite(): Promise<SuiteResult> {
   }
 
   // Import the pipeline function directly — no HTTP server or auth token required.
-  type RunFn = (input: { text: string; language?: string }) => Promise<{ ok: boolean; output?: { items: Array<{ calories: number; protein_g: number; carbs_g: number; fat_g: number; fiber_g: number }> }; error?: string }>;
+  type RunFn = (
+    input: { text: string; language?: string },
+    opts?: { beforeTransportAttempt?: (endpoint: string) => unknown },
+  ) => Promise<{ ok: boolean; output?: { items: Array<{ calories: number; protein_g: number; carbs_g: number; fat_g: number; fiber_g: number }> }; error?: string }>;
   let runPipeline: RunFn | null = null;
   try {
     const mod = await import('../food-parse/index.v4.js');
@@ -322,7 +334,10 @@ async function runRecipeAnalyzeSuite(): Promise<SuiteResult> {
     };
   }
 
-  type RecipeRunFn = (input: { text: string; servings: number; language?: string }) => Promise<{ ok: boolean; output?: RecipeOutput; error?: string }>;
+  type RecipeRunFn = (
+    input: { text: string; servings: number; language?: string },
+    opts?: { beforeTransportAttempt?: (endpoint: string) => unknown },
+  ) => Promise<{ ok: boolean; output?: RecipeOutput; error?: string }>;
   let runAgent: RecipeRunFn | null = null;
   try {
     const mod = await import('../recipe-analyze/index.js');
@@ -340,8 +355,10 @@ async function runRecipeAnalyzeSuite(): Promise<SuiteResult> {
   for (const spec of paidAiApproval.boundCases(RECIPE_SYNTHETIC_CASES)) {
     const start = Date.now();
     try {
-      paidAiApproval.consumeAttempt();
-      const result = await runAgent!({ text: spec.text, servings: spec.servings, language: spec.language });
+      const result = await runAgent!(
+        { text: spec.text, servings: spec.servings, language: spec.language },
+        { beforeTransportAttempt: paidAiApproval.beforeTransportAttempt },
+      );
       const latencyMs = Date.now() - start;
 
       if (!result.ok || !result.output) {
@@ -404,13 +421,13 @@ async function callCoachPolicy(systemPrompt: string, userMessage: string): Promi
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), policy.timeoutMs);
   try {
-    paidAiApproval.consumeAttempt();
     const result = await invokeTextProvider({
       policy,
       system: systemPrompt,
       prompt: userMessage,
       signal: controller.signal,
       maxTokens: 512,
+      beforeTransportAttempt: paidAiApproval.beforeTransportAttempt,
     });
     return { text: result.output, tokensIn: result.usage.inputTokens, tokensOut: result.usage.outputTokens };
   } finally {

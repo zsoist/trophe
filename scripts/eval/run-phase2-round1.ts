@@ -4,14 +4,19 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadEnvConfig } from '@next/env';
 import type { RoutingPolicy } from '../../agents/router/policies';
-import { requirePaidAiToolApproval } from '../safety/require-paid-ai-approval';
+import {
+  PAID_AI_ENDPOINT_GROUPS,
+  PAID_AI_ENDPOINTS,
+  requirePaidAiToolApproval,
+} from '../safety/require-paid-ai-approval';
 
-loadEnvConfig(process.cwd());
 const paidAiApproval = requirePaidAiToolApproval({
   operation: 'eval-phase2-round1',
   argv: process.argv.slice(2),
   env: process.env,
+  endpoints: PAID_AI_ENDPOINT_GROUPS.phase2,
 });
+loadEnvConfig(process.cwd());
 
 type Range = { min: number; max: number };
 type EnterpriseCase = {
@@ -105,8 +110,19 @@ async function main() {
         while(next<runCases.length){
           const index=next++; const entry=runCases[index]; const c=entry.c;
           const started=Date.now();
-          paidAiApproval.consumeAttempt();
-          const response=await run({text:c.input,language:(c.language==='mixed'?'en':c.language) as any},{metadata:{phase2:'round1',model:model.name,caseId:c.id,kind:entry.kind}});
+          const response=await run(
+            {text:c.input,language:(c.language==='mixed'?'en':c.language) as any},
+            {
+              metadata:{phase2:'round1',model:model.name,caseId:c.id,kind:entry.kind},
+              beforeTransportAttempt: (endpoint: string) =>
+                paidAiApproval.beforeTransportAttempt(
+                  model.name === 'mistral-small-2603'
+                    && endpoint === PAID_AI_ENDPOINTS.openAiChat
+                    ? PAID_AI_ENDPOINTS.mistralChat
+                    : endpoint,
+                ),
+            },
+          );
           const items=(response.output?.items??[]) as OutputItem[];
           const result={kind:entry.kind,id:c.id,input:c.input,language:c.language,category:'category' in c?c.category:undefined,ok:response.ok,error:response.error,items,totals:totals(items),needsClarification:response.output?.needs_clarification===true,latencyMs:Date.now()-started,telemetry:response.telemetry};
           results[index]=result;

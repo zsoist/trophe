@@ -30,7 +30,10 @@ import { taskPolicies } from '../router/policies';
 import { estimateModelCostUsd } from '../router/pricing';
 import { invokeStructuredProvider } from '../runtime/providers/structured';
 import { mealSuggestionValidator, mealSuggestJsonSchema } from '../schemas/meal-suggest';
-import { requirePaidAiToolApproval } from '../../scripts/safety/require-paid-ai-approval';
+import {
+  PAID_AI_ENDPOINT_GROUPS,
+  requirePaidAiToolApproval,
+} from '../../scripts/safety/require-paid-ai-approval';
 
 // ── Config ──────────────────────────────────────────────────────────────────
 
@@ -38,6 +41,7 @@ const paidAiApproval = requirePaidAiToolApproval({
   operation: 'eval-meal-suggest',
   argv: process.argv.slice(2),
   env: process.env,
+  endpoints: PAID_AI_ENDPOINT_GROUPS.consumerRuntime,
 });
 const POLICY = taskPolicies.meal_suggest;
 const REPORT_DIR = join(process.cwd(), 'agents/evals/reports');
@@ -169,7 +173,6 @@ async function callRoutedModel(input: MealSuggestInput): Promise<{
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), POLICY.timeoutMs);
-  paidAiApproval.consumeAttempt();
   const result = await invokeStructuredProvider({
     policy: POLICY,
     signal: controller.signal,
@@ -180,6 +183,7 @@ async function callRoutedModel(input: MealSuggestInput): Promise<{
     toolName: 'submit_meal_suggestions',
     toolDescription: 'Submit 3 meal suggestions matching the macro budget',
     strict: true,
+    beforeTransportAttempt: paidAiApproval.beforeTransportAttempt,
   }).finally(() => clearTimeout(timeout));
 
   return {

@@ -3,15 +3,31 @@ import { join } from 'node:path';
 import { z } from 'zod';
 import { invokeDeepSeekStructured, invokeDeepSeekText } from '../../agents/runtime/providers/deepseek';
 import { estimateModelCostUsd } from '../../agents/router/pricing';
-import { requirePaidAiToolApproval } from '../safety/require-paid-ai-approval';
+import {
+  PAID_AI_ENDPOINT_GROUPS,
+  deriveDeepSeekStressEstimate,
+  requirePaidAiToolApproval,
+} from '../safety/require-paid-ai-approval';
 
+type Model = 'deepseek-v4-flash' | 'deepseek-v4-pro';
+const maxInputTokens = Number(process.env.DEEPSEEK_STRESS_MAX_INPUT_TOKENS ?? 4_096);
+const maxTokens = Number(process.env.DEEPSEEK_STRESS_MAX_TOKENS ?? 500);
+const models = (process.env.DEEPSEEK_STRESS_MODELS ?? 'deepseek-v4-flash,deepseek-v4-pro')
+  .split(',') as Model[];
+const pricingEnvelopes = models.map((model) =>
+  deriveDeepSeekStressEstimate({ model, maxInputTokens, maxOutputTokens: maxTokens }));
+const pricing = pricingEnvelopes.reduce((highest, candidate) =>
+  candidate.estimatedUsdPerAttempt > highest.estimatedUsdPerAttempt
+    ? candidate
+    : highest);
 const paidAiApproval = requirePaidAiToolApproval({
   operation: 'eval-deepseek-stress',
   argv: process.argv.slice(2),
   env: process.env,
+  endpoints: PAID_AI_ENDPOINT_GROUPS.deepSeekStructured,
+  pricing,
 });
 
-type Model = 'deepseek-v4-flash' | 'deepseek-v4-pro';
 type Result = {
   model: Model;
   concurrency: number;
@@ -64,9 +80,7 @@ async function runOne(model: Model, concurrency: number, index: number): Promise
   const timeout = setTimeout(() => controller.abort(), 45_000);
   const startedAt = Date.now();
   const kind = index % 2 === 0 ? 'text' : 'structured';
-  const maxTokens = Number(process.env.DEEPSEEK_STRESS_MAX_TOKENS ?? 500);
   try {
-    paidAiApproval.consumeAttempt();
     const result = kind === 'text'
       ? await invokeDeepSeekText({
           model,
@@ -75,6 +89,7 @@ async function runOne(model: Model, concurrency: number, index: number): Promise
           maxTokens,
           signal: controller.signal,
           userId: `stress-user-${index % 5}`,
+          beforeTransportAttempt: paidAiApproval.beforeTransportAttempt,
         })
       : await invokeDeepSeekStructured({
           model,
@@ -88,6 +103,7 @@ async function runOne(model: Model, concurrency: number, index: number): Promise
           schema: jsonSchema,
           validator: schema,
           strict: true,
+          beforeTransportAttempt: paidAiApproval.beforeTransportAttempt,
         });
     return {
       model,
@@ -127,8 +143,6 @@ async function main() {
   if (!process.env.DEEPSEEK_API_KEY) throw new Error('DEEPSEEK_API_KEY is required');
   const levels = (process.env.DEEPSEEK_STRESS_LEVELS ?? '1,5,10,25')
     .split(',').map(Number).filter((value) => Number.isInteger(value) && value > 0);
-  const models = (process.env.DEEPSEEK_STRESS_MODELS ?? 'deepseek-v4-flash,deepseek-v4-pro')
-    .split(',') as Model[];
   const jobs = models.flatMap((model) => levels.flatMap((concurrency) =>
     Array.from({ length: concurrency }, (_, index) => ({ model, concurrency, index })),
   ));

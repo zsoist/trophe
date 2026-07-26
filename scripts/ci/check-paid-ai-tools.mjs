@@ -5,26 +5,13 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import ts from 'typescript';
 
-const SCAN_ROOTS = [
-  'agents/evals',
-  'scripts/debug',
-  'scripts/eval',
-  'scripts/ingest',
-  'scripts/ops',
-];
-const SOURCE_EXTENSIONS = new Set(['.cjs', '.js', '.mjs', '.mts', '.ts', '.tsx']);
-const NON_EXECUTABLE_PAID_HELPERS = new Set([
-  'scripts/eval/factory-runtime.ts',
-]);
-const PAID_IMPORT_PATTERNS = [
-  /agents\/runtime\/providers\//,
-  /agents\/clients\/(?:anthropic|google)/,
-  /agents\/food-parse\//,
-  /\.\/factory-runtime(?:\.[a-z]+)?$/,
-];
-const PAID_TRANSPORT_PATTERNS = [
+const SOURCE_EXTENSIONS = ['.ts', '.tsx', '.mts', '.js', '.mjs', '.cjs'];
+const PAID_MODULE_PATTERN =
+  /(?:agents\/(?:runtime\/providers|clients\/(?:anthropic|google)|rag\/ingest)|factory-runtime)/;
+const PAID_TEXT_PATTERNS = [
   /api\.anthropic\.com/i,
   /api\.deepseek\.com/i,
+  /api\.mistral\.ai/i,
   /api\.openai\.com/i,
   /api\.voyageai\.com/i,
   /generativelanguage\.googleapis\.com/i,
@@ -32,43 +19,34 @@ const PAID_TRANSPORT_PATTERNS = [
   /\/api\/food\/parse/i,
   /\/api\/food-parse/i,
 ];
-const PROVIDER_CALL_PATTERN =
-  /^(?:generateFactoryText|runPipeline|invoke(?:DeepSeek|StructuredProvider|TextProvider|Voyage))/;
-const MUTATION_CALLS = new Set([
+const PAID_CALL_PATTERN =
+  /^(?:call(?:Anthropic|Gemini)|generateFactoryText|invoke(?:Anthropic|DeepSeek|Gemini|OpenAi|StructuredProvider|TextProvider|Voyage)|runPipeline)/;
+const SENSITIVE_CALLS = new Set([
   'appendFile',
   'appendFileSync',
+  'createClient',
+  'loadEnvConfig',
   'mkdir',
   'mkdirSync',
+  'Pool',
   'writeFile',
   'writeFileSync',
+]);
+const SENSITIVE_IMPORT_PATTERN =
+  /(?:^|\/)(?:db\/client|agents\/rag\/ingest)(?:\.[a-z]+)?$/;
+const IGNORED_DIRECTORIES = new Set([
+  '.git',
+  '.next',
+  '.turbo',
+  'coverage',
+  'dist',
+  'node_modules',
+  'reports',
+  'eval-results',
 ]);
 
 function relativePath(rootDir, absolute) {
   return path.relative(rootDir, absolute).split(path.sep).join('/');
-}
-
-function walkSources(rootDir) {
-  const files = [];
-  for (const scanRoot of SCAN_ROOTS) {
-    const absoluteRoot = path.join(rootDir, scanRoot);
-    if (!fs.existsSync(absoluteRoot)) continue;
-    const pending = [absoluteRoot];
-    while (pending.length > 0) {
-      const current = pending.pop();
-      for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
-        const absolute = path.join(current, entry.name);
-        if (entry.isDirectory()) {
-          pending.push(absolute);
-        } else if (
-          SOURCE_EXTENSIONS.has(path.extname(entry.name))
-          || entry.name.endsWith('.sh')
-        ) {
-          files.push(absolute);
-        }
-      }
-    }
-  }
-  return files.sort();
 }
 
 function readManifest(rootDir, violations) {
@@ -131,290 +109,449 @@ function readManifest(rootDir, violations) {
   return manifest;
 }
 
-function sourceText(expression, constants) {
-  if (!expression) return '';
-  if (ts.isStringLiteralLike(expression)) return expression.text;
-  if (ts.isNoSubstitutionTemplateLiteral(expression)) return expression.text;
-  if (ts.isTemplateExpression(expression)) {
-    return [
-      expression.head.text,
-      ...expression.templateSpans.map((span) =>
-        `${sourceText(span.expression, constants)}${span.literal.text}`),
-    ].join('');
+function walkRepositorySources(rootDir) {
+  const files = [];
+  const pending = [rootDir];
+  while (pending.length > 0) {
+    const current = pending.pop();
+    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+      if (entry.isDirectory() && IGNORED_DIRECTORIES.has(entry.name)) continue;
+      const absolute = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        pending.push(absolute);
+      } else if (
+        SOURCE_EXTENSIONS.includes(path.extname(entry.name))
+        || entry.name.endsWith('.sh')
+      ) {
+        files.push(absolute);
+      }
+    }
   }
-  if (ts.isIdentifier(expression)) return constants.get(expression.text) ?? '';
-  if (ts.isBinaryExpression(expression) && expression.operatorToken.kind === ts.SyntaxKind.PlusToken) {
-    return `${sourceText(expression.left, constants)}${sourceText(expression.right, constants)}`;
+  return files.sort();
+}
+
+function parseSource(absolute) {
+  const source = fs.readFileSync(absolute, 'utf8');
+  const kind = absolute.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
+  return {
+    source,
+    sourceFile: ts.createSourceFile(
+      absolute,
+      source,
+      ts.ScriptTarget.Latest,
+      true,
+      kind,
+    ),
+  };
+}
+
+function moduleSpecifiers(sourceFile) {
+  const specifiers = [];
+  function visit(node) {
+    if (
+      (ts.isImportDeclaration(node) || ts.isExportDeclaration(node))
+      && node.moduleSpecifier
+      && ts.isStringLiteralLike(node.moduleSpecifier)
+    ) {
+      specifiers.push(node.moduleSpecifier.text);
+    }
+    if (
+      ts.isCallExpression(node)
+      && node.expression.kind === ts.SyntaxKind.ImportKeyword
+      && node.arguments.length === 1
+      && ts.isStringLiteralLike(node.arguments[0])
+    ) {
+      specifiers.push(node.arguments[0].text);
+    }
+    ts.forEachChild(node, visit);
   }
-  if (ts.isNewExpression(expression) && expression.expression.getText() === 'URL') {
-    return expression.arguments?.map((argument) => sourceText(argument, constants)).join('') ?? '';
+  visit(sourceFile);
+  return specifiers;
+}
+
+function resolveLocalModule(rootDir, fromFile, specifier) {
+  let base;
+  if (specifier.startsWith('@/')) {
+    base = path.join(rootDir, specifier.slice(2));
+  } else if (specifier.startsWith('.')) {
+    base = path.resolve(path.dirname(fromFile), specifier);
+  } else {
+    return undefined;
   }
-  return '';
+  const candidates = [
+    base,
+    ...SOURCE_EXTENSIONS.map((extension) => `${base}${extension}`),
+    ...SOURCE_EXTENSIONS.map((extension) => path.join(base, `index${extension}`)),
+  ];
+  return candidates.find((candidate) => fs.existsSync(candidate) && fs.statSync(candidate).isFile());
+}
+
+function packageEntrypoints(rootDir) {
+  const packagePath = path.join(rootDir, 'package.json');
+  if (!fs.existsSync(packagePath)) return new Set();
+  let scripts;
+  try {
+    scripts = JSON.parse(fs.readFileSync(packagePath, 'utf8'))?.scripts;
+  } catch {
+    return new Set();
+  }
+  const entrypoints = new Set();
+  for (const command of Object.values(scripts ?? {})) {
+    if (typeof command !== 'string') continue;
+    for (const token of command.matchAll(/(?:^|[\s"'=])((?:agents|scripts)\/[A-Za-z0-9_./-]+\.(?:[cm]?[jt]sx?|sh))(?=$|[\s"'])/g)) {
+      entrypoints.add(token[1]);
+    }
+  }
+  return entrypoints;
 }
 
 function callName(call) {
-  const expression = call.expression;
+  let expression = call.expression;
+  while (ts.isNonNullExpression(expression) || ts.isParenthesizedExpression(expression)) {
+    expression = expression.expression;
+  }
   if (ts.isIdentifier(expression)) return expression.text;
   if (ts.isPropertyAccessExpression(expression)) return expression.name.text;
   return '';
 }
 
-function functionScope(node, sourceFile) {
+function hasTopLevelExecution(sourceFile) {
+  for (const statement of sourceFile.statements) {
+    if (!ts.isExpressionStatement(statement)) continue;
+    let expression = statement.expression;
+    while (
+      ts.isVoidExpression(expression)
+      || ts.isAwaitExpression(expression)
+      || ts.isParenthesizedExpression(expression)
+    ) {
+      expression = expression.expression;
+    }
+    if (ts.isCallExpression(expression)) return true;
+  }
+  return false;
+}
+
+function executableEntrypoints(rootDir, allFiles, manifest) {
+  const packagePaths = packageEntrypoints(rootDir);
+  const manifestPaths = new Set(manifest.tools.map((tool) => tool.entrypoint));
+  const entrypoints = new Set([...packagePaths, ...manifestPaths]);
+  for (const absolute of allFiles) {
+    const file = relativePath(rootDir, absolute);
+    if (
+      !(file.startsWith('scripts/') || file.startsWith('agents/evals/'))
+      || file.endsWith('.d.ts')
+    ) {
+      continue;
+    }
+    if (absolute.endsWith('.sh')) {
+      const source = fs.readFileSync(absolute, 'utf8');
+      if (source.startsWith('#!')) entrypoints.add(file);
+      continue;
+    }
+    if (hasTopLevelExecution(parseSource(absolute).sourceFile)) entrypoints.add(file);
+  }
+  return [...entrypoints].sort();
+}
+
+function dependencyGraph(rootDir, entrypoint) {
+  const start = path.join(rootDir, entrypoint);
+  if (!fs.existsSync(start) || start.endsWith('.sh')) return [];
+  const visited = new Set();
+  const pending = [start];
+  while (pending.length > 0) {
+    const absolute = pending.pop();
+    if (visited.has(absolute)) continue;
+    visited.add(absolute);
+    const { sourceFile } = parseSource(absolute);
+    for (const specifier of moduleSpecifiers(sourceFile)) {
+      const dependency = resolveLocalModule(rootDir, absolute, specifier);
+      if (dependency && !visited.has(dependency)) pending.push(dependency);
+    }
+  }
+  return [...visited];
+}
+
+function graphHasPaidSignal(rootDir, graph) {
+  return graph.some((absolute) => {
+    const file = relativePath(rootDir, absolute);
+    if (PAID_MODULE_PATTERN.test(file)) return true;
+    const { sourceFile } = parseSource(absolute);
+    let paid = false;
+    function visit(node) {
+      if (ts.isCallExpression(node) && PAID_CALL_PATTERN.test(callName(node))) paid = true;
+      if (
+        (ts.isImportDeclaration(node) || ts.isExportDeclaration(node))
+        && node.moduleSpecifier
+        && ts.isStringLiteralLike(node.moduleSpecifier)
+        && PAID_MODULE_PATTERN.test(node.moduleSpecifier.text)
+      ) {
+        paid = true;
+      }
+      ts.forEachChild(node, visit);
+    }
+    visit(sourceFile);
+    return paid;
+  });
+}
+
+function isProviderBoundaryFile(rootDir, absolute) {
+  const file = relativePath(rootDir, absolute);
+  return file.startsWith('agents/runtime/providers/')
+    || file === 'agents/clients/anthropic.ts'
+    || file === 'agents/clients/google.ts';
+}
+
+function graphHasTransportCapability(rootDir, graph) {
+  for (const absolute of graph) {
+    if (isProviderBoundaryFile(rootDir, absolute)) continue;
+    const { sourceFile } = parseSource(absolute);
+    let capable = false;
+    function visit(node) {
+      if (
+        ts.isPropertyAssignment(node)
+        && (
+          (ts.isIdentifier(node.name) && node.name.text === 'beforeTransportAttempt')
+          || (ts.isStringLiteral(node.name) && node.name.text === 'beforeTransportAttempt')
+        )
+      ) {
+        capable = true;
+      }
+      if (
+        ts.isShorthandPropertyAssignment(node)
+        && node.name.text === 'beforeTransportAttempt'
+      ) {
+        capable = true;
+      }
+      if (
+        ts.isCallExpression(node)
+        && ts.isPropertyAccessExpression(node.expression)
+        && node.expression.name.text === 'fetchOpaque'
+      ) {
+        capable = true;
+      }
+      ts.forEachChild(node, visit);
+    }
+    visit(sourceFile);
+    if (capable) return true;
+  }
+  return false;
+}
+
+function argumentCarriesTransportCapability(node) {
+  let capable = false;
+  function visit(candidate) {
+    if (
+      ts.isPropertyAccessExpression(candidate)
+      && candidate.name.text === 'beforeTransportAttempt'
+    ) {
+      capable = true;
+    }
+    if (
+      (ts.isPropertyAssignment(candidate) || ts.isShorthandPropertyAssignment(candidate))
+      && candidate.name.getText().replaceAll(/['"]/g, '') === 'beforeTransportAttempt'
+    ) {
+      capable = true;
+    }
+    ts.forEachChild(candidate, visit);
+  }
+  visit(node);
+  return capable;
+}
+
+function graphHasUnprotectedPaidCall(rootDir, graph) {
+  for (const absolute of graph) {
+    if (isProviderBoundaryFile(rootDir, absolute)) continue;
+    const { sourceFile } = parseSource(absolute);
+    let unprotected = false;
+    function visit(node) {
+      if (ts.isCallExpression(node)) {
+        const name = callName(node);
+        let expression = node.expression;
+        while (
+          ts.isNonNullExpression(expression)
+          || ts.isParenthesizedExpression(expression)
+        ) {
+          expression = expression.expression;
+        }
+        const isPaidBoundary =
+          PAID_CALL_PATTERN.test(name)
+          || ['generateFactoryText', 'ingestKnowledge', 'runAgent', 'runPipeline']
+            .includes(name)
+          || (name === 'run' && ts.isIdentifier(expression));
+        if (
+          isPaidBoundary
+          && !node.arguments.some(argumentCarriesTransportCapability)
+        ) {
+          unprotected = true;
+        }
+      }
+      ts.forEachChild(node, visit);
+    }
+    visit(sourceFile);
+    if (unprotected) return true;
+  }
+  return false;
+}
+
+function nearestControlAncestor(node, sourceFile) {
   let current = node.parent;
   while (current && current !== sourceFile) {
     if (
-      ts.isFunctionDeclaration(current)
-      || ts.isFunctionExpression(current)
-      || ts.isArrowFunction(current)
-      || ts.isMethodDeclaration(current)
+      ts.isIfStatement(current)
+      || ts.isConditionalExpression(current)
+      || ts.isForStatement(current)
+      || ts.isForInStatement(current)
+      || ts.isForOfStatement(current)
+      || ts.isWhileStatement(current)
+      || ts.isDoStatement(current)
+      || ts.isSwitchStatement(current)
+      || ts.isTryStatement(current)
     ) {
       return current;
     }
     current = current.parent;
   }
-  return sourceFile;
+  return undefined;
 }
 
-function analyzeNodeSource(rootDir, absolute, manifestTool, violations) {
-  const file = relativePath(rootDir, absolute);
-  const source = fs.readFileSync(absolute, 'utf8');
-  const kind = absolute.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
-  const sourceFile = ts.createSourceFile(
-    absolute,
-    source,
-    ts.ScriptTarget.Latest,
-    true,
-    kind,
-  );
-  const constants = new Map();
-  const paidImports = new Set();
-  const importedPaidRunNames = new Set();
-  const guardPositionsByScope = new Map();
+function analyzeNodeEntrypoint(rootDir, entrypoint, graph, manifestTool, violations) {
+  const absolute = path.join(rootDir, entrypoint);
+  const { sourceFile } = parseSource(absolute);
+  const guards = [];
   const guardOperations = new Set();
-  const sensitivePositionsByScope = new Map();
-  const mainCallPositions = [];
-  let hasExecutablePaidSignal = false;
-  const paidAttempts = [];
-  const consumesByScope = new Map();
-
+  const sensitive = [];
   for (const statement of sourceFile.statements) {
     if (
-      ts.isVariableStatement(statement)
-      && statement.declarationList.declarations.length === 1
+      ts.isImportDeclaration(statement)
+      && ts.isStringLiteralLike(statement.moduleSpecifier)
+      && SENSITIVE_IMPORT_PATTERN.test(statement.moduleSpecifier.text)
     ) {
-      const declaration = statement.declarationList.declarations[0];
-      if (ts.isIdentifier(declaration.name) && declaration.initializer) {
-        const value = sourceText(declaration.initializer, constants);
-        if (value) constants.set(declaration.name.text, value);
-      }
-    }
-    if (ts.isImportDeclaration(statement) && ts.isStringLiteral(statement.moduleSpecifier)) {
-      const specifier = statement.moduleSpecifier.text;
-      if (PAID_IMPORT_PATTERNS.some((pattern) => pattern.test(specifier))) {
-        paidImports.add(specifier);
-        const clause = statement.importClause;
-        if (specifier.includes('agents/food-parse/') && clause?.namedBindings && ts.isNamedImports(clause.namedBindings)) {
-          for (const element of clause.namedBindings.elements) {
-            if ((element.propertyName?.text ?? element.name.text) === 'run') {
-              importedPaidRunNames.add(element.name.text);
-            }
-          }
-        }
-      }
+      sensitive.push(statement.getStart(sourceFile));
     }
   }
-
   function visit(node) {
     if (ts.isCallExpression(node)) {
       const name = callName(node);
-      const scope = functionScope(node, sourceFile);
-      if (name === 'main' && scope === sourceFile) {
-        mainCallPositions.push(node.getStart(sourceFile));
+      if (name === 'requirePaidAiToolApproval') {
+        guards.push({
+          position: node.getStart(sourceFile),
+          conditional: nearestControlAncestor(node, sourceFile) != null,
+        });
+        const object = node.arguments[0];
+        if (object && ts.isObjectLiteralExpression(object)) {
+          for (const property of object.properties) {
+            if (
+              ts.isPropertyAssignment(property)
+              && property.name.getText(sourceFile).replaceAll(/['"]/g, '') === 'operation'
+              && ts.isStringLiteralLike(property.initializer)
+            ) {
+              guardOperations.add(property.initializer.text);
+            }
+          }
+        }
+      }
+      if (SENSITIVE_CALLS.has(name)) sensitive.push(node.getStart(sourceFile));
+      if (
+        ts.isPropertyAccessExpression(node.expression)
+        && /^(?:db|database|client|pool)\b/.test(
+          node.expression.expression.getText(sourceFile),
+        )
+        && /^(?:delete|execute|insert|query|update)$/.test(name)
+      ) {
+        sensitive.push(node.getStart(sourceFile));
       }
       if (
         node.expression.kind === ts.SyntaxKind.ImportKeyword
-        && PAID_IMPORT_PATTERNS.some((pattern) =>
-          pattern.test(sourceText(node.arguments[0], constants)))
+        && node.arguments[0]
+        && ts.isStringLiteralLike(node.arguments[0])
+        && SENSITIVE_IMPORT_PATTERN.test(node.arguments[0].text)
       ) {
-        importedPaidRunNames.add('run');
+        sensitive.push(node.getStart(sourceFile));
       }
-      if (name === 'requirePaidAiToolApproval') {
-        const positions = guardPositionsByScope.get(scope) ?? [];
-        positions.push(node.getStart(sourceFile));
-        guardPositionsByScope.set(scope, positions);
-        const input = node.arguments[0];
-        if (input && ts.isObjectLiteralExpression(input)) {
-          const operationProperty = input.properties.find((property) =>
-            ts.isPropertyAssignment(property)
-            && (
-              (ts.isIdentifier(property.name) && property.name.text === 'operation')
-              || (ts.isStringLiteral(property.name) && property.name.text === 'operation')
-            ));
-          if (
-            operationProperty
-            && ts.isPropertyAssignment(operationProperty)
-            && ts.isStringLiteralLike(operationProperty.initializer)
-          ) {
-            guardOperations.add(operationProperty.initializer.text);
-          }
-        }
+      if (
+        name === 'fetch'
+        && node.arguments[0]
+        && PAID_TEXT_PATTERNS.some((pattern) =>
+          pattern.test(node.arguments[0].getText(sourceFile)))
+      ) {
+        sensitive.push(node.getStart(sourceFile));
       }
-      if (name === 'consumeAttempt') {
-        const positions = consumesByScope.get(scope) ?? [];
-        positions.push(node.getStart(sourceFile));
-        consumesByScope.set(scope, positions);
-      }
-
-      const transportText = name === 'fetch'
-        ? sourceText(node.arguments[0], constants)
-        : '';
-      const isPaidFetch = name === 'fetch'
-        && PAID_TRANSPORT_PATTERNS.some((pattern) => pattern.test(transportText));
-      const isPaidProviderCall = PROVIDER_CALL_PATTERN.test(name);
-      const isPaidImportedRun = importedPaidRunNames.has(name);
-      if (isPaidFetch || isPaidProviderCall || isPaidImportedRun) {
-        hasExecutablePaidSignal = true;
-        let inlineBudgeted = false;
-        for (const argument of node.arguments) {
-          function findInlineBudget(candidate) {
-            if (
-              ts.isCallExpression(candidate)
-              && callName(candidate) === 'consumeAttempt'
-            ) {
-              inlineBudgeted = true;
-            }
-            ts.forEachChild(candidate, findInlineBudget);
-          }
-          findInlineBudget(argument);
-        }
-        paidAttempts.push({
-          position: node.getStart(sourceFile),
-          scope,
-          inlineBudgeted,
-        });
-      }
-
-      const isAuthBoundary = name === 'fetch'
-        && /\/auth\/v1\/token/i.test(transportText);
-      const isMutation = MUTATION_CALLS.has(name)
-        || ['delete', 'insert', 'update'].includes(name);
-      const isClientBoundary = name === 'createClient' || name === 'Pool';
-      if (isAuthBoundary || isMutation || isClientBoundary || isPaidFetch || isPaidProviderCall) {
-        const positions = sensitivePositionsByScope.get(scope) ?? [];
-        positions.push(node.getStart(sourceFile));
-        sensitivePositionsByScope.set(scope, positions);
+      if (
+        name === 'fetch'
+        && node.arguments[0]
+        && /\/auth\/v1\/token/i.test(node.arguments[0].getText(sourceFile))
+      ) {
+        sensitive.push(node.getStart(sourceFile));
       }
     }
-
     if (
       ts.isPropertyAccessExpression(node)
       && ts.isPropertyAccessExpression(node.expression)
       && ts.isIdentifier(node.expression.expression)
       && node.expression.expression.text === 'process'
       && node.expression.name.text === 'env'
-      && /(?:API_KEY|SERVICE_ROLE_KEY)$/.test(node.name.text)
+      && /(?:API_KEY|SERVICE_ROLE_KEY|DATABASE_URL)$/.test(node.name.text)
     ) {
-      const scope = functionScope(node, sourceFile);
-      const positions = sensitivePositionsByScope.get(scope) ?? [];
-      positions.push(node.getStart(sourceFile));
-      sensitivePositionsByScope.set(scope, positions);
+      sensitive.push(node.getStart(sourceFile));
     }
     ts.forEachChild(node, visit);
   }
   visit(sourceFile);
 
-  const directTopLevelPaidCall = paidAttempts.some(({ scope }) => scope === sourceFile);
-  const invokesMain = sourceFile.statements.some((statement) => {
-    let found = false;
-    function findMainCall(node) {
-      if (
-        ts.isCallExpression(node)
-        && callName(node) === 'main'
-        && functionScope(node, sourceFile) === sourceFile
-      ) {
-        found = true;
-      }
-      ts.forEachChild(node, findMainCall);
-    }
-    findMainCall(statement);
-    return found;
-  });
-  const executable = directTopLevelPaidCall || invokesMain;
-  const paid = executable
-    && (hasExecutablePaidSignal || paidImports.size > 0);
-  const isAllowlistedHelper = NON_EXECUTABLE_PAID_HELPERS.has(file) && !executable;
-  if (paid && !manifestTool && !isAllowlistedHelper) {
-    violations.add(`${file}:unclassified-paid-ai-tool`);
-    return;
-  }
-  if (!manifestTool || !manifestTool.policies.includes('paid-ai')) return;
-
-  const allGuardPositions = [...guardPositionsByScope.values()].flat();
-  if (allGuardPositions.length === 0) {
-    violations.add(`${file}:paid-ai-approval-missing`);
+  if (guards.length === 0) {
+    violations.add(`${entrypoint}:paid-ai-approval-missing`);
   } else {
-    if (!guardOperations.has(manifestTool.operations['paid-ai'])) {
-      violations.add(`${file}:paid-ai-operation-mismatch`);
+    if (
+      guards.every((guard) => guard.conditional)
+      || !guardOperations.has(manifestTool.operations['paid-ai'])
+    ) {
+      violations.add(
+        guards.every((guard) => guard.conditional)
+          ? `${entrypoint}:paid-ai-approval-not-dominating`
+          : `${entrypoint}:paid-ai-operation-mismatch`,
+      );
     }
-    const topLevelGuards = guardPositionsByScope.get(sourceFile) ?? [];
-    const firstMainCall = mainCallPositions.length > 0
-      ? Math.min(...mainCallPositions)
-      : Number.POSITIVE_INFINITY;
-    let orderViolation = false;
-    for (const [scope, sensitivePositions] of sensitivePositionsByScope) {
-      const localGuards = guardPositionsByScope.get(scope) ?? [];
-      for (const sensitivePosition of sensitivePositions) {
-        const protectedLocally = localGuards.some(
-          (guardPosition) => guardPosition < sensitivePosition,
-        );
-        const protectedByModuleGuard = scope !== sourceFile
-          && topLevelGuards.some((guardPosition) => guardPosition < firstMainCall);
-        if (!protectedLocally && !protectedByModuleGuard) {
-          orderViolation = true;
-        }
-      }
-    }
-    if (orderViolation) {
-      violations.add(`${file}:approval-after-sensitive-boundary`);
+    const firstUnconditionalGuard = Math.min(
+      ...guards.filter((guard) => !guard.conditional).map((guard) => guard.position),
+    );
+    if (sensitive.some((position) => position < firstUnconditionalGuard)) {
+      violations.add(`${entrypoint}:approval-after-sensitive-boundary`);
     }
   }
-  for (const attempt of paidAttempts) {
-    if (attempt.inlineBudgeted) continue;
-    const priorConsumes = consumesByScope.get(attempt.scope) ?? [];
-    if (!priorConsumes.some((position) => position < attempt.position)) {
-      violations.add(`${file}:paid-attempt-not-budgeted`);
-      break;
-    }
+  if (
+    !graphHasTransportCapability(rootDir, graph)
+    || graphHasUnprotectedPaidCall(rootDir, graph)
+  ) {
+    violations.add(`${entrypoint}:paid-transport-capability-missing`);
   }
 }
 
-function analyzeShellSource(rootDir, absolute, manifestTool, violations) {
-  const file = relativePath(rootDir, absolute);
-  const source = fs.readFileSync(absolute, 'utf8');
-  const meaningful = source
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => line && !line.startsWith('#'))
-    .join('\n');
-  const paidPosition = PAID_TRANSPORT_PATTERNS
-    .map((pattern) => meaningful.search(pattern))
-    .filter((position) => position >= 0)
-    .sort((a, b) => a - b)[0];
-  if (paidPosition === undefined) return;
+function analyzeShellEntrypoint(rootDir, entrypoint, manifestTool, violations) {
+  const source = fs.readFileSync(path.join(rootDir, entrypoint), 'utf8');
+  if (!PAID_TEXT_PATTERNS.some((pattern) => pattern.test(source))) return;
   if (!manifestTool) {
-    violations.add(`${file}:unclassified-paid-ai-tool`);
+    violations.add(`${entrypoint}:unclassified-paid-ai-tool`);
     return;
   }
   if (!manifestTool.policies.includes('paid-ai')) return;
-  const guardPosition = meaningful.indexOf('safety/require-paid-ai-approval.ts');
-  if (guardPosition < 0) {
-    violations.add(`${file}:paid-ai-approval-missing`);
-  } else if (guardPosition > paidPosition) {
-    violations.add(`${file}:approval-after-sensitive-boundary`);
+  const lines = source.split(/\r?\n/);
+  const guardIndex = lines.findIndex((line) =>
+    line.includes('safety/require-paid-ai-approval.ts'));
+  const paidIndex = lines.findIndex((line) => /\bcurl\b/.test(line));
+  if (guardIndex < 0) {
+    violations.add(`${entrypoint}:paid-ai-approval-missing`);
+  } else if (guardIndex > paidIndex) {
+    violations.add(`${entrypoint}:approval-after-sensitive-boundary`);
   }
-  const expectedOperation = manifestTool.operations['paid-ai'];
-  if (!meaningful.includes(`--operation=${expectedOperation}`)) {
-    violations.add(`${file}:paid-ai-operation-mismatch`);
+  if (
+    !source.includes('set -euo pipefail')
+    || guardIndex < 0
+    || /(?:\|\||&&|;|&)\s*(?:true|:)?\s*$/.test(lines[guardIndex].trim())
+  ) {
+    violations.add(`${entrypoint}:shell-guard-fail-open`);
+  }
+  if (!source.includes(`--operation=${manifestTool.operations['paid-ai']}`)) {
+    violations.add(`${entrypoint}:paid-ai-operation-mismatch`);
   }
 }
 
@@ -425,14 +562,22 @@ export function scanPaidAiTools({ rootDir = process.cwd() } = {}) {
   const manifestByPath = new Map(
     manifest.tools.map((tool) => [tool.entrypoint, tool]),
   );
-  for (const absolute of walkSources(root)) {
-    const file = relativePath(root, absolute);
-    const tool = manifestByPath.get(file);
-    if (absolute.endsWith('.sh')) {
-      analyzeShellSource(root, absolute, tool, violations);
-    } else {
-      analyzeNodeSource(root, absolute, tool, violations);
+  const allFiles = walkRepositorySources(root);
+  for (const entrypoint of executableEntrypoints(root, allFiles, manifest)) {
+    const manifestTool = manifestByPath.get(entrypoint);
+    if (entrypoint.endsWith('.sh')) {
+      analyzeShellEntrypoint(root, entrypoint, manifestTool, violations);
+      continue;
     }
+    const graph = dependencyGraph(root, entrypoint);
+    const graphIsPaid = graphHasPaidSignal(root, graph);
+    if (!graphIsPaid && !manifestTool?.policies.includes('paid-ai')) continue;
+    if (!manifestTool) {
+      violations.add(`${entrypoint}:unclassified-paid-ai-tool`);
+      continue;
+    }
+    if (!manifestTool.policies.includes('paid-ai')) continue;
+    analyzeNodeEntrypoint(root, entrypoint, graph, manifestTool, violations);
   }
   return [...violations].sort();
 }

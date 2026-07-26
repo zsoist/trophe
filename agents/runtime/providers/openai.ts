@@ -146,6 +146,7 @@ export async function invokeOpenAiStructured<T>(input: {
   /** Defaults to SDK-compatible three total attempts. Set to 1 for measured probes. */
   maxAttempts?: number;
   fetchImpl?: typeof fetch;
+  beforeTransportAttempt?: (endpoint: string) => unknown;
 }): Promise<ProviderResult<T>> {
   const accessMode = assertPaidProviderAccess({
     provider: 'openai',
@@ -212,9 +213,11 @@ export async function invokeOpenAiStructured<T>(input: {
     : MAX_ATTEMPTS;
   const maxAttempts = Math.min(MAX_ATTEMPTS, Math.max(1, requestedAttempts));
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    input.beforeTransportAttempt?.(OPENAI_CHAT_COMPLETIONS_URL);
     try {
       response = await fetchImpl(OPENAI_CHAT_COMPLETIONS_URL, {
         method: 'POST',
+        redirect: 'error',
         headers: {
           Authorization: `Bearer ${apiKey}`,
           'Content-Type': 'application/json',

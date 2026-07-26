@@ -16,12 +16,16 @@
  * Requires: DATABASE_URL pointing to a DB with foods + dish_recipes data.
  */
 
-import { requirePaidAiToolApproval } from '../safety/require-paid-ai-approval';
+import {
+  PAID_AI_ENDPOINT_GROUPS,
+  requirePaidAiToolApproval,
+} from '../safety/require-paid-ai-approval';
 
 const paidAiApproval = requirePaidAiToolApproval({
   operation: 'eval-food-parse-fifty',
   argv: process.argv.slice(2),
   env: process.env,
+  endpoints: PAID_AI_ENDPOINT_GROUPS.consumerRuntime,
 });
 
 // ── Test cases ──────────────────────────────────────────────────────────────────
@@ -129,8 +133,10 @@ type RunPipeline = typeof import('../../agents/food-parse/index.v4')['run'];
 async function runCase(tc: TestCase, runPipeline: RunPipeline): Promise<CaseResult> {
   const start = Date.now();
   try {
-    paidAiApproval.consumeAttempt();
-    const result = await runPipeline({ text: tc.input, language: tc.language });
+    const result = await runPipeline(
+      { text: tc.input, language: tc.language },
+      { beforeTransportAttempt: paidAiApproval.beforeTransportAttempt },
+    );
     const latency = Date.now() - start;
 
     if (!result.ok || !result.output?.items?.length) {

@@ -31,7 +31,8 @@ describe('Phase 3 Luna watch-list', () => {
 
   it('runs the watch-list against the deployed API and counts explicit malformed state', () => {
     const source = readFileSync(join(process.cwd(), 'scripts/eval/run-food-parse-watchlist.ts'), 'utf8');
-    expect(source).toContain("`${apiBase}/api/food/parse`");
+    expect(source).toContain("'/api/food/parse'");
+    expect(source).toContain('paidAiApproval.fetchOpaque(paidEndpoint');
     expect(source).toContain('verifyProductionFoodParsePolicy(apiBase)');
     expect(source).toContain('verifiedDeployedPolicy: deployedPolicy');
     expect(source).toContain('const malformed = !response?.ok || !body || !Array.isArray(body.items);');

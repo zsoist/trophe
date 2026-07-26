@@ -85,7 +85,11 @@ export interface RecipeAnalyzeRunResult {
 
 export async function run(
   input: RecipeAnalyzeInput,
-  opts?: { userId?: string; metadata?: Record<string, unknown> },
+  opts?: {
+    userId?: string;
+    metadata?: Record<string, unknown>;
+    beforeTransportAttempt?: (endpoint: string) => unknown;
+  },
 ): Promise<RecipeAnalyzeRunResult> {
   const MAX_INPUT_LENGTH = 4000;
   const sanitizedText = input.text
@@ -139,6 +143,7 @@ export async function run(
       // Schema does not declare additionalProperties:false, so DeepSeek /beta
       // strict mode would reject it — use standard tool calling.
       strict: false,
+      beforeTransportAttempt: opts?.beforeTransportAttempt,
     }),
   });
   const parsed = generation.output as RecipeAnalyzeOutput | undefined;

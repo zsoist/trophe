@@ -698,6 +698,7 @@ Rules:
 
 async function estimateMacrosViaLLM(
   items: { food_name: string; quantity: number; unit: string; raw_text: string }[],
+  beforeTransportAttempt?: (endpoint: string) => unknown,
 ): Promise<(MacroEstimate | null)[]> {
   if (items.length === 0) return [];
 
@@ -721,6 +722,7 @@ async function estimateMacrosViaLLM(
         toolName: 'submit_macro_estimates',
         toolDescription: 'Submit conservative macro estimates for food items',
         strict: false,
+        beforeTransportAttempt,
       }),
     });
     const estimates = generation.output.estimates;
@@ -754,6 +756,7 @@ export async function run(
     metadata?: Record<string, unknown>;
     /** Bound OpenAI attempts for controlled eval probes without changing normal traffic. */
     maxProviderAttempts?: number;
+    beforeTransportAttempt?: (endpoint: string) => unknown;
     onGenerationId?: (generationId: string) => void;
   },
 ): Promise<FoodParseRunResultV4> {
@@ -883,6 +886,7 @@ export async function run(
         toolDescription: 'Submit parsed food items and clarification state',
         strict: false,
         maxAttempts: opts?.maxProviderAttempts,
+        beforeTransportAttempt: opts?.beforeTransportAttempt,
       }),
     });
     traceId = generation.generationId;
@@ -973,6 +977,7 @@ export async function run(
           toolDescription: 'Submit parsed food items and clarification state',
           strict: false,
           maxAttempts: opts?.maxProviderAttempts,
+          beforeTransportAttempt: opts?.beforeTransportAttempt,
         }),
       });
       v4Parsed = repair.output;
@@ -1126,6 +1131,7 @@ export async function run(
         unit: item.unit,
         rawText: item.raw_text,
         region: regionCode,
+        beforeTransportAttempt: opts?.beforeTransportAttempt,
       });
     }),
   );
@@ -1366,6 +1372,7 @@ export async function run(
           unit: candidate.unit,
           rawText: candidate.raw_text,
           region: regionCode,
+          beforeTransportAttempt: opts?.beforeTransportAttempt,
         });
 
         if (decomposed) {
@@ -1387,7 +1394,7 @@ export async function run(
         quantity: f.candidate.quantity,
         unit: f.candidate.unit,
         raw_text: f.candidate.raw_text,
-      }]).then((results) => results[0]),
+      }], opts?.beforeTransportAttempt).then((results) => results[0]),
     );
 
     const estimates = await Promise.all(estimatePromises);

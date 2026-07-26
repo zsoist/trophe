@@ -35,7 +35,11 @@ export interface AnthropicMessagesResult {
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 
 export async function callAnthropicMessages(
-  input: AnthropicMessagesInput & { signal: AbortSignal; fetchImpl?: typeof fetch },
+  input: AnthropicMessagesInput & {
+    signal: AbortSignal;
+    fetchImpl?: typeof fetch;
+    beforeTransportAttempt?: (endpoint: string) => unknown;
+  },
 ): Promise<AnthropicMessagesResult> {
   const accessMode = assertPaidProviderAccess({
     provider: 'anthropic',
@@ -51,8 +55,10 @@ export async function callAnthropicMessages(
     : input.system;
 
   const startTime = Date.now();
+  input.beforeTransportAttempt?.(ANTHROPIC_API_URL);
   const response = await (input.fetchImpl ?? fetch)(ANTHROPIC_API_URL, {
     method: 'POST',
+    redirect: 'error',
     headers: {
       'Content-Type': 'application/json',
       'x-api-key': apiKey,

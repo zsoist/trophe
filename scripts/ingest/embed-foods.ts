@@ -26,13 +26,9 @@
  */
 
 import { loadEnvConfig } from '@next/env';
-loadEnvConfig(process.cwd());
-
-import { drizzle } from 'drizzle-orm/node-postgres';
-import { Pool } from 'pg';
-import { foods } from '../../db/schema/foods';
-import { sql } from 'drizzle-orm';
+import type { Pool as PgPool } from 'pg';
 import {
+  PAID_AI_ENDPOINTS,
   requirePaidAiToolApproval,
   type PaidAiToolApproval,
 } from '../safety/require-paid-ai-approval';
@@ -40,16 +36,20 @@ import {
 // ── Config ──────────────────────────────────────────────────────────────────
 const VOYAGE_MODEL   = 'voyage-4';
 const VOYAGE_BASE    = 'https://api.voyageai.com/v1';
-const BATCH_SIZE     = parseInt(process.env.BATCH_SIZE || '96');
 const DRY_RUN        = process.env.DRY_RUN === '1';
 const EMBED_DIMS     = 1024;
-const paidAiApproval = DRY_RUN
-  ? null
-  : requirePaidAiToolApproval({
-      operation: 'ingest-food-embeddings',
-      argv: process.argv.slice(2),
-      env: process.env,
-    });
+if (DRY_RUN) {
+  console.log('[embed] DRY_RUN=1 — provider attempts: 0; database reads: 0; database mutations: 0; dotenv loads: 0.');
+  process.exit(0);
+}
+const paidAiApproval = requirePaidAiToolApproval({
+  operation: 'ingest-food-embeddings',
+  argv: process.argv.slice(2),
+  env: process.env,
+  endpoints: [PAID_AI_ENDPOINTS.voyageEmbeddings],
+});
+loadEnvConfig(process.cwd());
+const BATCH_SIZE = parseInt(process.env.BATCH_SIZE || '96');
 
 // ── Text preparation ─────────────────────────────────────────────────────────
 /**
@@ -82,9 +82,11 @@ async function embedBatch(
   apiKey: string,
   approval: PaidAiToolApproval,
 ): Promise<number[][]> {
-  approval.consumeAttempt();
-  const res = await fetch(`${VOYAGE_BASE}/embeddings`, {
+  const endpoint = `${VOYAGE_BASE}/embeddings`;
+  approval.beforeTransportAttempt(endpoint);
+  const res = await fetch(endpoint, {
     method: 'POST',
+    redirect: 'error',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type':  'application/json',
@@ -117,12 +119,7 @@ async function embedBatch(
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 async function main() {
-  if (DRY_RUN) {
-    console.log('[embed] DRY_RUN=1 — provider attempts: 0; database reads: 0; database mutations: 0.');
-    return;
-  }
   const approval = paidAiApproval;
-  if (!approval) throw new Error('Paid AI approval is required');
   const voyageApiKey = process.env.VOYAGE_API_KEY;
   if (!voyageApiKey) {
     throw new Error('VOYAGE_API_KEY is required');
@@ -134,6 +131,12 @@ async function main() {
   if (!dbUrl) {
     throw new Error('DATABASE_URL is required. See .env.local.example.');
   }
+  const [{ drizzle }, { Pool }, { foods }, { sql }] = await Promise.all([
+    import('drizzle-orm/node-postgres'),
+    import('pg'),
+    import('../../db/schema/foods'),
+    import('drizzle-orm'),
+  ]);
   const pool = new Pool({ connectionString: dbUrl, max: 3 });
   const db = drizzle(pool);
 
@@ -157,7 +160,7 @@ async function main() {
 
   let processed = 0;
   const totalBatches = Math.ceil(count / BATCH_SIZE);
-  const batchSlots = approval.boundCases(
+  const batchSlots = approval.boundJobs(
     Array.from(
       { length: Math.min(totalBatches, approval.maxCalls) },
       (_, index) => index,
@@ -218,7 +221,7 @@ async function main() {
   await pool.end();
 }
 
-async function ensureHnswIndex(pool: Pool) {
+async function ensureHnswIndex(pool: PgPool) {
   const client = await pool.connect();
   try {
     // Check if index exists

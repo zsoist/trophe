@@ -24,6 +24,7 @@ export async function invokeGeminiStructured<T>(input: {
   validator: z.ZodType<T>;
   maxTokens?: number;
   generateContent?: GeminiGenerateContent;
+  beforeTransportAttempt?: (endpoint: string) => unknown;
 }): Promise<ProviderResult<T>> {
   if (input.signal.aborted) throw new Error('AI request aborted');
   if (input.policy.provider !== 'google') throw new Error('Structured Gemini provider requires a Google policy');
@@ -37,6 +38,7 @@ export async function invokeGeminiStructured<T>(input: {
     responseSchema: input.responseSchema,
     signal: input.signal,
     generateContent: input.generateContent,
+    beforeTransportAttempt: input.beforeTransportAttempt,
   });
   if (result.rawError || result.rawStatus === 0) throw new Error(result.rawError ?? 'Provider request failed');
 
@@ -87,6 +89,7 @@ export async function invokeStructuredProvider<T>(input: {
   fetchImpl?: typeof fetch;
   /** Test/offline-only Google SDK transport injection. */
   generateContent?: GeminiGenerateContent;
+  beforeTransportAttempt?: (endpoint: string) => unknown;
 }): Promise<ProviderResult<T>> {
   if (input.signal.aborted) throw new Error('AI request aborted');
 
@@ -109,6 +112,7 @@ export async function invokeStructuredProvider<T>(input: {
       validator: input.validator,
       strict,
       fetchImpl: input.fetchImpl,
+      beforeTransportAttempt: input.beforeTransportAttempt,
     });
   }
 
@@ -127,6 +131,7 @@ export async function invokeStructuredProvider<T>(input: {
       strict,
       maxAttempts: input.maxAttempts,
       fetchImpl: input.fetchImpl,
+      beforeTransportAttempt: input.beforeTransportAttempt,
     });
   }
 
@@ -144,6 +149,7 @@ export async function invokeStructuredProvider<T>(input: {
     }>({
       signal: input.signal,
       fetchImpl: input.fetchImpl,
+      beforeTransportAttempt: input.beforeTransportAttempt,
       body: {
         model: input.policy.model,
         max_tokens: input.maxTokens ?? input.policy.maxTokens,
@@ -182,6 +188,7 @@ export async function invokeStructuredProvider<T>(input: {
       validator: input.validator,
       maxTokens: input.maxTokens,
       generateContent: input.generateContent,
+      beforeTransportAttempt: input.beforeTransportAttempt,
     });
   }
 

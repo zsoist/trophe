@@ -100,6 +100,7 @@ interface DecomposeInput {
   unit: string;
   rawText: string;
   region?: string;
+  beforeTransportAttempt?: (endpoint: string) => unknown;
 }
 
 const COUNT_UNITS = new Set([
@@ -203,7 +204,11 @@ export async function lookupCachedRecipe(dishName: string): Promise<CachedRecipe
  * Uses invokeStructuredProvider (DeepSeek tool calling) + Zod validation
  * to eliminate silent-corruption risk from raw JSON.parse.
  */
-async function llmDecompose(dishName: string, unit: string): Promise<DecompositionResult | null> {
+async function llmDecompose(
+  dishName: string,
+  unit: string,
+  beforeTransportAttempt?: (endpoint: string) => unknown,
+): Promise<DecompositionResult | null> {
   // Cache decompositions per unit. The caller applies quantity after
   // aggregation; including it here would scale the result twice.
   const prompt = `Decompose one unit of this dish into base ingredients:\n\nInput: "${dishName}" (1 ${unit})`;
@@ -225,6 +230,7 @@ async function llmDecompose(dishName: string, unit: string): Promise<Decompositi
         toolDescription: 'Submit dish decomposition into base ingredients with gram weights',
         strict: true,
         maxTokens: 1024,
+        beforeTransportAttempt,
       }),
     });
     return generation.output;
@@ -404,7 +410,11 @@ export async function decomposeAndLookup(input: DecomposeInput): Promise<ParsedF
   }
 
   // ── Step 2: LLM decomposition ────────────────────────────────────────────
-  const decomposition = await llmDecompose(input.foodName, input.unit);
+  const decomposition = await llmDecompose(
+    input.foodName,
+    input.unit,
+    input.beforeTransportAttempt,
+  );
   if (!decomposition) return null;
 
   // ── Step 3: Lookup each ingredient in foods table ────────────────────────

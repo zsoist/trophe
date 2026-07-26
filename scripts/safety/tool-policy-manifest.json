@@ -290,6 +290,24 @@
       }
     },
     {
+      "id": "scripts-rag-ingest-document",
+      "entrypoint": "scripts/rag/ingest-document.ts",
+      "runtime": "node",
+      "policies": [
+        "paid-ai"
+      ],
+      "owners": {
+        "paid-ai": "ai-offline-harness-task-6"
+      },
+      "operations": {
+        "paid-ai": "ingest-rag-document"
+      },
+      "classifications": {
+        "serviceRole": false,
+        "localDb": false
+      }
+    },
+    {
       "id": "scripts-ops-canary-readonly",
       "entrypoint": "scripts/ops/canary-readonly.sh",
       "runtime": "shell",

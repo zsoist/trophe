@@ -21,7 +21,7 @@ import {
 
 const REPO_ROOT = path.resolve(__dirname, '../..');
 const VALID_OPERATION = 'eval-food-parse-route';
-const VALID_TARGET = 'food-parse-route';
+const VALID_TARGET = 'https://trophe.app/api/food/parse';
 const VALID_RUN_ID = 'canary-20260726';
 const VALID_ARGV = [
   '--live',
@@ -29,7 +29,7 @@ const VALID_ARGV = [
   '--max-calls=2',
   '--max-usd=0.500000',
   `--run-id=${VALID_RUN_ID}`,
-  `--ack=I_UNDERSTAND_PAID_AI:${VALID_OPERATION}:${VALID_RUN_ID}`,
+  `--ack=I_UNDERSTAND_PAID_AI:${VALID_OPERATION}:${VALID_RUN_ID}:${VALID_TARGET}`,
 ];
 const VALID_ENV = { TROPHE_ALLOW_PAID_AI: '1' };
 const PROVIDER_KEYS = [
@@ -59,6 +59,7 @@ function approval(
     operation: VALID_OPERATION,
     argv,
     env,
+    endpoints: [VALID_TARGET],
   });
 }
 
@@ -177,6 +178,7 @@ describe('paid AI tool approval policy', () => {
         operation: sentinel,
         argv: [`--target=https://example.invalid/${sentinel}`],
         env: { TROPHE_ALLOW_PAID_AI: sentinel },
+        endpoints: [`https://example.invalid/${sentinel}`],
       });
       throw new Error('expected approval to fail');
     } catch (error) {
@@ -198,6 +200,7 @@ describe('paid AI attempt counter', () => {
 
     expect(counter.consumeAttempt()).toEqual({
       attempts: 1,
+      reservedAttempts: 0,
       consumedUsdMicrodollars: 2,
       remainingCalls: 1,
       remainingUsdMicrodollars: 1,
@@ -221,7 +224,7 @@ describe('paid AI attempt counter', () => {
 
   it('rejects a run before credentials or auth when one known attempt exceeds its USD ceiling', () => {
     const tooSmall = VALID_ARGV.map((arg) =>
-      arg.startsWith('--max-usd=') ? '--max-usd=0.249999' : arg,
+      arg.startsWith('--max-usd=') ? '--max-usd=0.019999' : arg,
     );
     expect(() => approval(tooSmall)).toThrowError(PaidAiToolApprovalError);
     expect(() => createPaidAiAttemptCounter({
@@ -329,7 +332,7 @@ describe('paid AI tool static inventory and order scanner', () => {
 
     expect(await scanFixture(root)).toEqual([
       'scripts/eval/unsafe.ts:approval-after-sensitive-boundary',
-      'scripts/eval/unsafe.ts:paid-attempt-not-budgeted',
+      'scripts/eval/unsafe.ts:paid-transport-capability-missing',
     ]);
   });
 
@@ -359,6 +362,7 @@ describe('paid AI tool static inventory and order scanner', () => {
 
     expect(await scanFixture(root)).toEqual([
       'scripts/eval/late-nested.ts:approval-after-sensitive-boundary',
+      'scripts/eval/late-nested.ts:paid-transport-capability-missing',
     ]);
   });
 
@@ -386,8 +390,9 @@ describe('paid AI tool static inventory and order scanner', () => {
     );
 
     expect(await scanFixture(root)).toEqual([
+      'scripts/eval/wrong-operation.ts:paid-transport-capability-missing',
       'scripts/eval/wrong-operation.ts:paid-ai-operation-mismatch',
-    ]);
+    ].sort());
   });
 
   it('accepts a guarded and budgeted paid executable', async () => {
@@ -408,8 +413,7 @@ describe('paid AI tool static inventory and order scanner', () => {
         "import { requirePaidAiToolApproval } from '../safety/require-paid-ai-approval';",
         'const approval = requirePaidAiToolApproval({ operation: "eval-food-parse-route", argv: process.argv.slice(2), env: process.env });',
         'async function main() {',
-        '  approval.consumeAttempt();',
-        "  await invokeTextProvider({ prompt: 'bounded' });",
+        "  await invokeTextProvider({ prompt: 'bounded', beforeTransportAttempt: approval.beforeTransportAttempt });",
         '}',
         'void main();',
       ].join('\n'),
@@ -450,6 +454,7 @@ describe('paid AI tool static inventory and order scanner', () => {
       'scripts/eval/generate-french-cases.ts',
       'scripts/eval/generate-replacement-cases.ts',
       'scripts/ingest/embed-foods.ts',
+      'scripts/rag/ingest-document.ts',
     ];
 
     expect(manifest.version).toBe(1);
