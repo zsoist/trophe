@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
 import { callAnthropicMessages } from '@/agents/clients/anthropic';
 import { AnthropicApiError, invokeAnthropicJson } from '@/agents/runtime/providers/anthropic';
+import { providerErrorTelemetry } from '@/agents/runtime/provider-error';
+import { invokeStructuredProvider } from '@/agents/runtime/providers/structured';
 import { invokeTextProvider } from '@/agents/runtime/providers/text';
 
 const SENSITIVE_SENTINEL = 'SENSITIVE_SENTINEL_DO_NOT_LOG';
@@ -166,5 +169,220 @@ describe('Anthropic provider transport', () => {
     } satisfies Partial<AnthropicApiError>);
     expect(String(error)).not.toContain(SENSITIVE_SENTINEL);
     expect(JSON.stringify(error)).not.toContain(SENSITIVE_SENTINEL);
+  });
+
+  it.each([
+    ['code', { code: SENSITIVE_SENTINEL, type: 'rate_limit_error' }, { 'request-id': 'req_safe_123' }],
+    ['type', { code: 'rate_limited', type: SENSITIVE_SENTINEL }, { 'request-id': 'req_safe_123' }],
+    ['generation id', { code: 'rate_limited', type: 'rate_limit_error' }, { 'request-id': 'req_safe_123' }, SENSITIVE_SENTINEL],
+    ['request-id', { code: 'rate_limited', type: 'rate_limit_error' }, { 'request-id': SENSITIVE_SENTINEL }],
+    ['x-request-id', { code: 'rate_limited', type: 'rate_limit_error' }, { 'x-request-id': SENSITIVE_SENTINEL }],
+  ] as const)('omits an untrusted Anthropic %s from errors and telemetry', async (_field, providerError, headers, id: string = 'msg_safe_123') => {
+    vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
+    blockGlobalFetch();
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      id,
+      error: providerError,
+      usage: { input_tokens: 1, output_tokens: 1 },
+    }), { status: 429, headers }));
+
+    const error = await captureError(() => invokeAnthropicJson({
+      body: { model: 'claude-haiku-4-5-20251001' },
+      signal: new AbortController().signal,
+      fetchImpl: fetchMock as unknown as typeof fetch,
+    }));
+    const telemetry = providerErrorTelemetry(error);
+
+    expect(error).toBeInstanceOf(AnthropicApiError);
+    expect(String(error)).not.toContain(SENSITIVE_SENTINEL);
+    expect(JSON.stringify(error)).not.toContain(SENSITIVE_SENTINEL);
+    expect(JSON.stringify(telemetry)).not.toContain(SENSITIVE_SENTINEL);
+    expect(telemetry.metadata?.providerError).not.toEqual(expect.objectContaining({
+      code: SENSITIVE_SENTINEL,
+      type: SENSITIVE_SENTINEL,
+      requestId: SENSITIVE_SENTINEL,
+    }));
+    expect(telemetry.providerGenerationId).not.toBe(SENSITIVE_SENTINEL);
+  });
+
+  it('requires complete integer usage while preserving valid zero and absent optional cache counts', async () => {
+    vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
+    blockGlobalFetch();
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      id: 'msg_zero_123',
+      content: [{ type: 'text', text: 'zero-token response' }],
+      usage: { input_tokens: 0, output_tokens: 0 },
+    }), { status: 200 }));
+
+    const result = await callAnthropicMessages({
+      model: 'claude-haiku-4-5-20251001',
+      system: 'system',
+      userMessage: 'prompt',
+      signal: new AbortController().signal,
+      fetchImpl: fetchMock as unknown as typeof fetch,
+    });
+
+    expect(result.usage).toEqual({ input_tokens: 0, output_tokens: 0 });
+    expect(result.usage).not.toHaveProperty('cache_creation_input_tokens');
+    expect(result.usage).not.toHaveProperty('cache_read_input_tokens');
+  });
+
+  it.each([
+    undefined,
+    { output_tokens: 1 },
+    { input_tokens: '1', output_tokens: 1 },
+    { input_tokens: -1, output_tokens: 1 },
+    { input_tokens: 1.5, output_tokens: 1 },
+    { input_tokens: 1, output_tokens: 1, cache_read_input_tokens: -1 },
+    { input_tokens: 1, output_tokens: 1, cache_creation_input_tokens: 0.5 },
+  ])('rejects malformed successful usage %j instead of fabricating zero cost', async (usage) => {
+    vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
+    blockGlobalFetch();
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      id: 'msg_invalid_usage',
+      content: [{ type: 'tool_use', name: 'submit_result', input: { value: 'ok' } }],
+      ...(usage === undefined ? {} : { usage }),
+    }), { status: 200 }));
+
+    const error = await captureError(() => invokeAnthropicJson({
+      body: { model: 'claude-haiku-4-5-20251001' },
+      signal: new AbortController().signal,
+      fetchImpl: fetchMock as unknown as typeof fetch,
+    }));
+
+    expect(error).toMatchObject({
+      name: 'AnthropicApiError',
+      status: 200,
+      code: 'invalid_response',
+      type: 'response_validation_error',
+    } satisfies Partial<AnthropicApiError>);
+  });
+
+  it.each([
+    ['empty body', ''],
+    ['whitespace body', ' \n\t '],
+    ['empty content', JSON.stringify({ id: 'msg_empty_123', content: [], usage: { input_tokens: 1, output_tokens: 1 } })],
+  ])('normalizes a %s as the fixed malformed response error', async (_name, body) => {
+    vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
+    blockGlobalFetch();
+    const fetchMock = vi.fn().mockResolvedValue(new Response(body, { status: 200 }));
+
+    const error = await captureError(() => invokeAnthropicJson({
+      body: { model: 'claude-haiku-4-5-20251001' },
+      signal: new AbortController().signal,
+      fetchImpl: fetchMock as unknown as typeof fetch,
+    }));
+
+    expect(error).toMatchObject({
+      name: 'AnthropicApiError',
+      status: 200,
+      code: 'invalid_response',
+      type: 'response_validation_error',
+    } satisfies Partial<AnthropicApiError>);
+  });
+
+  it('rejects an oversized Content-Length before buffering the provider body', async () => {
+    vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
+    blockGlobalFetch();
+    const fetchMock = vi.fn().mockResolvedValue(new Response('{}', {
+      status: 200,
+      headers: { 'content-length': '1000000000' },
+    }));
+
+    const error = await captureError(() => invokeAnthropicJson({
+      body: { model: 'claude-haiku-4-5-20251001', max_tokens: 1 },
+      signal: new AbortController().signal,
+      fetchImpl: fetchMock as unknown as typeof fetch,
+    }));
+
+    expect(error).toMatchObject({ code: 'invalid_response', type: 'response_validation_error' });
+  });
+
+  it('uses the fixed malformed category when an error response exceeds the body cap', async () => {
+    vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
+    blockGlobalFetch();
+    const fetchMock = vi.fn().mockResolvedValue(new Response('{}', {
+      status: 503,
+      headers: { 'content-length': '1000000000' },
+    }));
+
+    const error = await captureError(() => invokeAnthropicJson({
+      body: { model: 'claude-haiku-4-5-20251001', max_tokens: 1 },
+      signal: new AbortController().signal,
+      fetchImpl: fetchMock as unknown as typeof fetch,
+    }));
+
+    expect(error).toMatchObject({ code: 'invalid_response', type: 'response_validation_error' });
+  });
+
+  it('cancels an oversized streamed body before buffering it', async () => {
+    vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
+    blockGlobalFetch();
+    let cancelled = false;
+    const response = new Response(new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array(2_000_000));
+      },
+      cancel() {
+        cancelled = true;
+      },
+    }), { status: 200 });
+    const fetchMock = vi.fn().mockResolvedValue(response);
+
+    const error = await captureError(() => invokeAnthropicJson({
+      body: { model: 'claude-haiku-4-5-20251001', max_tokens: 1 },
+      signal: new AbortController().signal,
+      fetchImpl: fetchMock as unknown as typeof fetch,
+    }));
+
+    expect(error).toMatchObject({ code: 'invalid_response', type: 'response_validation_error' });
+    expect(cancelled).toBe(true);
+  });
+
+  it('forwards the exact signal through the structured Anthropic boundary to injected fetch', async () => {
+    vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
+    blockGlobalFetch();
+    const signal = new AbortController().signal;
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      id: 'msg_structured_123',
+      content: [{ type: 'tool_use', name: 'submit_result', input: { value: 'ok' } }],
+      usage: { input_tokens: 0, output_tokens: 0 },
+    }), { status: 200 }));
+
+    await expect(invokeStructuredProvider({
+      policy: {
+        provider: 'anthropic', model: 'claude-haiku-4-5-20251001', costClass: 'cheap', latencyClass: 'fast',
+        maxTokens: 100, timeoutMs: 1_000, maxInputChars: 1_000, maxCostUsd: 1, promptVersion: 'test',
+      },
+      system: 'system', prompt: 'prompt', signal,
+      schema: { type: 'object' }, validator: z.object({ value: z.string() }),
+      fetchImpl: fetchMock as unknown as typeof fetch,
+    })).resolves.toMatchObject({ output: { value: 'ok' } });
+
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({ signal });
+  });
+
+  it('forwards the exact signal through the shared direct adapter used by photo analysis', async () => {
+    vi.stubEnv('ANTHROPIC_API_KEY', 'test-key');
+    blockGlobalFetch();
+    const signal = new AbortController().signal;
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      id: 'msg_photo_123',
+      content: [{ type: 'tool_use', name: 'submit_food_photo_analysis', input: { foods: [] } }],
+      usage: { input_tokens: 0, output_tokens: 0 },
+    }), { status: 200 }));
+
+    await expect(invokeAnthropicJson({
+      body: {
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 100,
+        messages: [{ role: 'user', content: [{ type: 'image', source: { type: 'base64' } }] }],
+        tools: [{ name: 'submit_food_photo_analysis' }],
+      },
+      signal,
+      fetchImpl: fetchMock as unknown as typeof fetch,
+    })).resolves.toMatchObject({ providerGenerationId: 'msg_photo_123' });
+
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({ signal });
   });
 });

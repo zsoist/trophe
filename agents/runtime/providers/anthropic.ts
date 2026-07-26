@@ -1,9 +1,32 @@
 import type { AiUsage, ProviderResult } from '../types';
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
-const MAX_DIAGNOSTIC_LENGTH = 120;
+const MAX_RESPONSE_BYTES = 1_048_576;
+const MIN_RESPONSE_BYTES = 65_536;
+const RESPONSE_BYTES_PER_TOKEN = 16;
 
-type AnthropicResponseBody = {
+const ANTHROPIC_ERROR_CODES = new Set([
+  'invalid_request_error',
+  'authentication_error',
+  'permission_error',
+  'not_found_error',
+  'request_too_large',
+  'rate_limit_error',
+  'api_error',
+  'overloaded_error',
+  'forbidden',
+  'rate_limited',
+  'invalid_response',
+]);
+const ANTHROPIC_ERROR_TYPES = new Set([
+  ...ANTHROPIC_ERROR_CODES,
+  'http_error',
+  'response_validation_error',
+]);
+const REQUEST_ID_PATTERN = /^req_[A-Za-z0-9_-]{1,116}$/;
+const MESSAGE_ID_PATTERN = /^msg_[A-Za-z0-9_-]{1,116}$/;
+
+export type AnthropicResponseBody = {
   id?: unknown;
   content?: unknown;
   usage?: {
@@ -37,47 +60,76 @@ export class AnthropicApiError extends Error {
     latencyMs?: number;
     providerGenerationId?: string;
   }) {
-    super(boundDiagnostic(input.message) ?? 'Anthropic request failed');
+    super('Anthropic request failed');
     this.name = 'AnthropicApiError';
     this.status = input.status;
-    this.code = boundDiagnostic(input.code);
-    this.type = boundDiagnostic(input.type);
-    this.requestId = boundDiagnostic(input.requestId);
+    this.code = knownCode(input.code);
+    this.type = knownType(input.type);
+    this.requestId = requestId(input.requestId);
     this.usage = input.usage;
     this.latencyMs = input.latencyMs;
-    this.providerGenerationId = boundDiagnostic(input.providerGenerationId);
+    this.providerGenerationId = messageId(input.providerGenerationId);
   }
 }
 
-function boundDiagnostic(value: unknown): string | undefined {
-  if (typeof value !== 'string') return undefined;
-  return value.slice(0, MAX_DIAGNOSTIC_LENGTH);
+function knownCode(value: unknown): string | undefined {
+  return typeof value === 'string' && ANTHROPIC_ERROR_CODES.has(value) ? value : undefined;
+}
+
+function knownType(value: unknown): string | undefined {
+  return typeof value === 'string' && ANTHROPIC_ERROR_TYPES.has(value) ? value : undefined;
+}
+
+function requestId(value: unknown): string | undefined {
+  return typeof value === 'string' && REQUEST_ID_PATTERN.test(value) ? value : undefined;
+}
+
+function messageId(value: unknown): string | undefined {
+  return typeof value === 'string' && MESSAGE_ID_PATTERN.test(value) ? value : undefined;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function tokenCount(value: unknown): number {
-  return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : 0;
+function nonNegativeInteger(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : undefined;
 }
 
+function optionalUsageValue(usage: Record<string, unknown>, field: string): {
+  valid: boolean;
+  value?: number;
+} {
+  if (!Object.hasOwn(usage, field)) return { valid: true };
+  const value = nonNegativeInteger(usage[field]);
+  return value == null ? { valid: false } : { valid: true, value };
+}
+
+/** Returns undefined when required or present optional usage is invalid. */
 export function anthropicUsage(data: AnthropicResponseBody): AiUsage | undefined {
   if (!isRecord(data.usage)) return undefined;
+  const inputTokens = nonNegativeInteger(data.usage.input_tokens);
+  const outputTokens = nonNegativeInteger(data.usage.output_tokens);
+  if (inputTokens == null || outputTokens == null) return undefined;
+
+  const cacheWriteTokens = optionalUsageValue(data.usage, 'cache_creation_input_tokens');
+  const cacheReadTokens = optionalUsageValue(data.usage, 'cache_read_input_tokens');
+  if (!cacheWriteTokens.valid || !cacheReadTokens.valid) return undefined;
+
   return {
-    inputTokens: tokenCount(data.usage.input_tokens),
-    outputTokens: tokenCount(data.usage.output_tokens),
-    cacheWriteTokens: tokenCount(data.usage.cache_creation_input_tokens),
-    cacheReadTokens: tokenCount(data.usage.cache_read_input_tokens),
+    inputTokens,
+    outputTokens,
+    ...(cacheWriteTokens.value != null ? { cacheWriteTokens: cacheWriteTokens.value } : {}),
+    ...(cacheReadTokens.value != null ? { cacheReadTokens: cacheReadTokens.value } : {}),
   };
 }
 
 function requestIdFrom(response: Response): string | undefined {
-  return boundDiagnostic(response.headers.get('request-id') ?? response.headers.get('x-request-id'));
+  return requestId(response.headers.get('request-id')) ?? requestId(response.headers.get('x-request-id'));
 }
 
 function providerGenerationIdFrom(data: AnthropicResponseBody): string | undefined {
-  return boundDiagnostic(data.id);
+  return messageId(data.id);
 }
 
 function apiError(input: {
@@ -92,8 +144,8 @@ function apiError(input: {
       ? 'Anthropic returned a malformed response'
       : `Anthropic request failed with status ${input.response.status}`,
     status: input.response.status,
-    code: input.malformed ? 'invalid_response' : boundDiagnostic(error?.code),
-    type: input.malformed ? 'response_validation_error' : boundDiagnostic(error?.type) ?? 'http_error',
+    code: input.malformed ? 'invalid_response' : knownCode(error?.code),
+    type: input.malformed ? 'response_validation_error' : knownType(error?.type) ?? 'http_error',
     requestId: requestIdFrom(input.response),
     usage: input.data ? anthropicUsage(input.data) : undefined,
     latencyMs: input.latencyMs,
@@ -101,32 +153,87 @@ function apiError(input: {
   });
 }
 
+function responseByteLimit(maxTokens: unknown): number {
+  const outputTokens = nonNegativeInteger(maxTokens);
+  if (outputTokens == null) return MAX_RESPONSE_BYTES;
+  return Math.min(MAX_RESPONSE_BYTES, Math.max(MIN_RESPONSE_BYTES, outputTokens * RESPONSE_BYTES_PER_TOKEN + MIN_RESPONSE_BYTES));
+}
+
+async function cancel(body: ReadableStream<Uint8Array> | null): Promise<void> {
+  try {
+    await body?.cancel();
+  } catch {
+    // The body is being discarded and must never be surfaced as diagnostics.
+  }
+}
+
+async function readBoundedBody(response: Response, maxBytes: number): Promise<{
+  text?: string;
+  exceeded: boolean;
+}> {
+  const contentLength = Number(response.headers.get('content-length'));
+  if (Number.isFinite(contentLength) && contentLength > maxBytes) {
+    await cancel(response.body);
+    return { exceeded: true };
+  }
+
+  if (!response.body) return { text: '', exceeded: false };
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      totalBytes += value.byteLength;
+      if (totalBytes > maxBytes) {
+        await reader.cancel();
+        return { exceeded: true };
+      }
+      chunks.push(value);
+    }
+  } catch {
+    await reader.cancel();
+    return { exceeded: false };
+  } finally {
+    reader.releaseLock();
+  }
+
+  const bytes = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return { text: new TextDecoder().decode(bytes), exceeded: false };
+}
+
 /**
- * Parses Anthropic's message response without retaining provider body text.
- * Both text and structured call sites share this boundary so their failures
- * have the same typed, allowlisted diagnostics.
+ * Parses Anthropic's message response with a bounded buffer and never retains
+ * provider response text in errors or telemetry.
  */
 export async function readAnthropicResponse(input: {
   response: Response;
   startedAt: number;
+  maxTokens?: unknown;
 }): Promise<AnthropicResponseBody> {
   const { response } = input;
+  const responseBody = await readBoundedBody(response, responseByteLimit(input.maxTokens));
   const latencyMs = Date.now() - input.startedAt;
-  const responseText = await response.text();
   let data: AnthropicResponseBody | undefined;
 
-  if (responseText) {
+  if (responseBody.text?.trim()) {
     try {
-      const parsed: unknown = JSON.parse(responseText);
+      const parsed: unknown = JSON.parse(responseBody.text);
       if (isRecord(parsed)) data = parsed;
     } catch {
       // Provider bodies are deliberately never copied into errors or telemetry.
     }
   }
 
+  if (responseBody.exceeded) throw apiError({ response, data, latencyMs, malformed: true });
   if (!response.ok) throw apiError({ response, data, latencyMs });
   if (!data) throw apiError({ response, latencyMs, malformed: true });
-
   return data;
 }
 
@@ -162,14 +269,15 @@ export async function invokeAnthropicJson<T>(input: {
     body: JSON.stringify(input.body),
     signal: input.signal,
   });
-  const data = await readAnthropicResponse({ response, startedAt });
-  if (!Array.isArray(data.content)) {
+  const data = await readAnthropicResponse({ response, startedAt, maxTokens: input.body.max_tokens });
+  const usage = anthropicUsage(data);
+  if (!Array.isArray(data.content) || data.content.length === 0 || !usage) {
     throw malformedAnthropicResponse({ response, startedAt, data });
   }
 
   return {
     output: data as T,
-    usage: anthropicUsage(data) ?? { inputTokens: 0, outputTokens: 0 },
+    usage,
     latencyMs: Date.now() - startedAt,
     rawStatus: response.status,
     providerGenerationId: providerGenerationIdFrom(data),

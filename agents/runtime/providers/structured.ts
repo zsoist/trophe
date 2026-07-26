@@ -77,6 +77,8 @@ export async function invokeStructuredProvider<T>(input: {
   /** OpenAI-only retry bound. Use 1 for strict measurement probes. */
   maxAttempts?: number;
   userId?: string;
+  /** Test/offline-only Anthropic transport injection. */
+  fetchImpl?: typeof fetch;
 }): Promise<ProviderResult<T>> {
   if (input.signal.aborted) throw new Error('AI request aborted');
 
@@ -124,6 +126,7 @@ export async function invokeStructuredProvider<T>(input: {
       content: Array<{ type: string; name?: string; input?: unknown }>;
     }>({
       signal: input.signal,
+      fetchImpl: input.fetchImpl,
       body: {
         model: input.policy.model,
         max_tokens: input.maxTokens ?? input.policy.maxTokens,

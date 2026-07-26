@@ -56,7 +56,11 @@ export async function callAnthropicMessages(
     }),
     signal: input.signal,
   });
-  const data = await readAnthropicResponse({ response, startedAt: startTime });
+  const data = await readAnthropicResponse({
+    response,
+    startedAt: startTime,
+    maxTokens: input.maxTokens ?? 2048,
+  });
   const textBlock = Array.isArray(data.content)
     ? data.content.find((content): content is { type?: unknown; text: string } => (
         typeof content === 'object'
@@ -68,15 +72,18 @@ export async function callAnthropicMessages(
   if (!textBlock || !textBlock.text) {
     throw malformedAnthropicResponse({ response, startedAt: startTime, data });
   }
-  const usage = anthropicUsage(data) ?? { inputTokens: 0, outputTokens: 0 };
+  const usage = anthropicUsage(data);
+  if (!usage) {
+    throw malformedAnthropicResponse({ response, startedAt: startTime, data });
+  }
 
   return {
     text: textBlock.text,
     usage: {
       input_tokens: usage.inputTokens,
       output_tokens: usage.outputTokens,
-      cache_creation_input_tokens: usage.cacheWriteTokens,
-      cache_read_input_tokens: usage.cacheReadTokens,
+      ...(usage.cacheWriteTokens != null ? { cache_creation_input_tokens: usage.cacheWriteTokens } : {}),
+      ...(usage.cacheReadTokens != null ? { cache_read_input_tokens: usage.cacheReadTokens } : {}),
     },
     latencyMs: Date.now() - startTime,
     rawStatus: response.status,
