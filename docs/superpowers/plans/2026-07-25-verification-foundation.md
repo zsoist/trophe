@@ -255,38 +255,111 @@ git add scripts/ci/verify-release.mjs tests/enterprise/verification-runner.test.
 git commit -m "fix(test): detect offloaded dependency trees"
 ```
 
-### Task 4: Fix any source-level failures exposed after dependency repair
+### Task 4: Make integration prerequisites explicit and fix remaining failures
 
 **Files:**
+- Create: `scripts/test/require-database.mjs`
+- Create: `tests/enterprise/database-preflight.test.ts`
+- Modify: `package.json`
 - Modify: the exact source and test files named in
   `docs/quality/verification-baseline-2026-07-25.md`
 - Modify: `docs/quality/verification-baseline-2026-07-25.md`
 
 **Interfaces:**
+- Produces: `runDatabasePreflight({ connectionString, connect })`
+- Keeps: `npm test` as the documented database-backed unit-and-integration gate
+- Produces: one safe remediation when the database prerequisite is unavailable
 - Consumes: deterministic compiler, lint, test, or build diagnostics
 - Produces: one independently reviewed commit per root cause
 
-- [ ] **Step 1: Reduce one recorded failure**
+- [ ] **Step 1: Write a failing database-preflight regression**
+
+Inject one successful `SELECT 1` connection and one rejected connection. Assert
+the unavailable result exposes only:
+
+```ts
+{
+  status: 'database_unavailable',
+  repairAction: 'run_npm_run_db_bootstrap',
+}
+```
+
+It must not expose the connection string, hostname, password, driver error, or
+stack. Also assert the client closes in both cases.
+
+- [ ] **Step 2: Prove red and implement the minimum preflight**
+
+Run:
+
+```bash
+npx vitest run tests/enterprise/database-preflight.test.ts --reporter=verbose
+```
+
+Implement a bounded `SELECT 1` against `DATABASE_URL`, falling back only to the
+documented local URL in non-production. On failure, exit before Vitest with one
+safe message and the exact remediation `npm run db:bootstrap`. Never silently
+skip database-backed integration tests.
+
+- [ ] **Step 3: Wire the canonical test command**
+
+Keep a raw focused-test escape hatch for TDD:
+
+```json
+"test:vitest": "vitest run",
+"test": "node scripts/test/require-database.mjs && vitest run"
+```
+
+CI continues to run `npm test` after `npm run db:bootstrap`.
+
+- [ ] **Step 4: Provision only the documented local prerequisites**
+
+Run:
+
+```bash
+npm run db:doctor
+npm run db:bootstrap
+```
+
+Create an ignored `.env.local` containing only the local database URL, local
+Supabase URL, local anonymous key, and local site URL obtained from the local
+Supabase stack. Do not copy a service-role key or any AI-provider key into it.
+Never point these values at production.
+
+- [ ] **Step 5: Prove the integration gate is green**
+
+Run:
+
+```bash
+npx vitest run tests/enterprise/database-preflight.test.ts --reporter=verbose
+npm test -- --reporter=verbose
+npm run build
+```
+
+Expected: the database prerequisite passes, all database-backed assertions run,
+and the build receives only local public configuration.
+
+- [ ] **Step 6: Reduce any source-level failure that remains**
 
 Use the exact file and test name from the baseline artifact. Run only that test
 or compiler target.
 
-- [ ] **Step 2: Add a regression that fails for the observed cause**
+- [ ] **Step 7: Add a regression that fails for the observed source cause**
 
 The assertion encodes the broken behavior. It must not increase a timeout, skip
 a suite, mock success, or change a golden tolerance.
 
-- [ ] **Step 3: Prove red, implement the minimum correction, and prove green**
+- [ ] **Step 8: Prove red, implement the minimum correction, and prove green**
 
 Run the regression before and after the correction, then run its enclosing
 canonical gate.
 
-- [ ] **Step 4: Record and commit**
+- [ ] **Step 9: Record and commit**
 
 Append `symptom`, `root_cause`, `regression`, `fix`, and `verification` to the
-baseline artifact. Commit only the files for this root cause.
+baseline artifact. Commit the database preflight as one root cause, and keep any
+later source root cause in its own commit.
 
-- [ ] **Step 5: Repeat for every remaining source-level failure**
+- [ ] **Step 10: Repeat for every remaining source-level failure**
 
 The task ends when the baseline artifact has no unresolved source-level failure.
 
