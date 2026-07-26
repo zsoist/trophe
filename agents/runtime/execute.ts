@@ -12,23 +12,124 @@ import type { ExecuteAiTaskInput, ExecuteAiTaskResult, ProviderResult } from './
 
 // ── Single-attempt invocation ──────────────────────────────────────────────
 
-function assertValidTimeoutMs(timeoutMs: number): void {
-  if (!Number.isFinite(timeoutMs) || !Number.isInteger(timeoutMs) || timeoutMs <= 0) {
-    throw new RangeError('AI attempt timeout must be a positive finite integer');
+const MAX_TIMER_DELAY_MS = 2_147_483_647;
+
+class AiChainDeadlineExceededError extends Error {
+  readonly _isTimeout = true;
+
+  constructor() {
+    super('AI provider chain deadline exceeded');
+    this.name = 'AiChainDeadlineExceededError';
   }
 }
 
-function remainingAttemptTimeoutMs(policy: RoutingPolicy, deadlineAt: number): number | undefined {
-  assertValidTimeoutMs(policy.timeoutMs);
-  const remainingChainMs = deadlineAt - Date.now();
+interface TimedBoundary {
+  signal: AbortSignal;
+  deadlineAt: number;
+  abortIfExpired: () => void;
+  dispose: () => void;
+}
+
+function assertValidTimeoutMs(timeoutMs: number): void {
   if (
-    !Number.isFinite(remainingChainMs)
-    || !Number.isInteger(remainingChainMs)
-    || remainingChainMs <= 0
+    !Number.isSafeInteger(timeoutMs)
+    || timeoutMs <= 0
+    || timeoutMs > MAX_TIMER_DELAY_MS
   ) {
-    return undefined;
+    throw new RangeError(
+      'AI attempt timeout must be a positive finite integer no greater than 2,147,483,647',
+    );
   }
-  return Math.min(policy.timeoutMs, remainingChainMs);
+}
+
+function timeoutError(signal: AbortSignal): Error {
+  return signal.reason instanceof Error
+    ? signal.reason
+    : new AiChainDeadlineExceededError();
+}
+
+function runBeforeAbort<T>(boundary: TimedBoundary, start: () => Promise<T> | T): Promise<T> {
+  boundary.abortIfExpired();
+  const { signal } = boundary;
+  if (signal.aborted) return Promise.reject(timeoutError(signal));
+
+  let operation: Promise<T>;
+  try {
+    operation = Promise.resolve(start());
+  } catch (error) {
+    return Promise.reject(error);
+  }
+
+  return new Promise<T>((resolve, reject) => {
+    let settled = false;
+    const cleanup = () => signal.removeEventListener('abort', onAbort);
+    const settleSuccess = (value: T) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve(value);
+    };
+    const settleFailure = (error: unknown) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(error);
+    };
+    const onAbort = () => settleFailure(timeoutError(signal));
+    const settleOperationSuccess = (value: T) => {
+      boundary.abortIfExpired();
+      if (signal.aborted) {
+        settleFailure(timeoutError(signal));
+        return;
+      }
+      settleSuccess(value);
+    };
+    const settleOperationFailure = (error: unknown) => {
+      boundary.abortIfExpired();
+      settleFailure(signal.aborted ? timeoutError(signal) : error);
+    };
+
+    signal.addEventListener('abort', onAbort, { once: true });
+    operation.then(
+      settleOperationSuccess,
+      settleOperationFailure,
+    );
+    if (signal.aborted) onAbort();
+  });
+}
+
+function createTimedBoundary(timeoutMs: number, parent?: TimedBoundary): TimedBoundary {
+  assertValidTimeoutMs(timeoutMs);
+  const controller = new AbortController();
+  const deadlineAt = Math.min(
+    performance.now() + timeoutMs,
+    parent?.deadlineAt ?? Number.POSITIVE_INFINITY,
+  );
+  const abortFromParent = () => controller.abort(timeoutError(parent!.signal));
+  if (parent?.signal.aborted) {
+    abortFromParent();
+  } else {
+    parent?.signal.addEventListener('abort', abortFromParent, { once: true });
+  }
+  const timer = setTimeout(
+    () => controller.abort(new AiChainDeadlineExceededError()),
+    Math.max(0, deadlineAt - performance.now()),
+  );
+
+  return {
+    signal: controller.signal,
+    deadlineAt,
+    abortIfExpired: () => {
+      parent?.abortIfExpired();
+      if (!controller.signal.aborted && performance.now() >= deadlineAt) {
+        controller.abort(new AiChainDeadlineExceededError());
+      }
+    },
+    dispose: () => {
+      clearTimeout(timer);
+      parent?.signal.removeEventListener('abort', abortFromParent);
+    },
+  };
 }
 
 /**
@@ -38,12 +139,13 @@ function remainingAttemptTimeoutMs(policy: RoutingPolicy, deadlineAt: number): n
 async function attemptInvoke<T>(
   input: ExecuteAiTaskInput<T>,
   policy: RoutingPolicy,
-  timeoutMs: number,
+  chainBoundary: TimedBoundary,
   context: ExecuteAiTaskInput<T>['context'],
   isFallback: boolean,
   fallbackFrom?: string,
+  onProviderStart?: () => void,
 ): Promise<ExecuteAiTaskResult<T>> {
-  assertValidTimeoutMs(timeoutMs);
+  assertValidTimeoutMs(policy.timeoutMs);
   assertWithinRequestBudget(policy, input.prompt);
 
   const generationId = randomUUID();
@@ -54,19 +156,26 @@ async function attemptInvoke<T>(
     ? `trophe_${createHash('sha256').update(context.userId).digest('hex').slice(0, 32)}`
     : undefined;
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  const attemptBoundary = createTimedBoundary(policy.timeoutMs, chainBoundary);
+  const signal = attemptBoundary.signal;
   let generationCreated = false;
+  let providerStarted = false;
+  let providerRejected = false;
+  let providerError: unknown;
 
   try {
-    await createGeneration({ generationId, task: input.task, policy, promptHash, context, fallbackFrom });
+    await runBeforeAbort(attemptBoundary, () => createGeneration({
+      generationId,
+      task: input.task,
+      policy,
+      promptHash,
+      context,
+      fallbackFrom,
+    }));
     generationCreated = true;
-    if (controller.signal.aborted) {
-      throw new Error('AI attempt deadline elapsed before provider invocation');
-    }
 
     let providerResult: ProviderResult<T> | undefined;
-    await traced({
+    await runBeforeAbort(attemptBoundary, () => traced({
       task: input.task,
       model: policy.model,
       provider: policy.provider,
@@ -80,7 +189,23 @@ async function attemptInvoke<T>(
         promptVersion: policy.promptVersion,
       },
     }, async () => {
-      providerResult = await input.invoke({ policy, signal: controller.signal });
+      attemptBoundary.abortIfExpired();
+      if (signal.aborted) throw timeoutError(signal);
+      onProviderStart?.();
+      providerStarted = true;
+      let invocation: Promise<ProviderResult<T>>;
+      try {
+        invocation = Promise.resolve(input.invoke({ policy, signal }));
+      } catch (error) {
+        providerRejected = true;
+        providerError = error;
+        throw error;
+      }
+      void invocation.then(undefined, (error: unknown) => {
+        providerRejected = true;
+        providerError = error;
+      });
+      providerResult = await invocation;
       return {
         text: '[structured output redacted]',
         usage: {
@@ -92,34 +217,57 @@ async function attemptInvoke<T>(
         latencyMs: providerResult.latencyMs,
         rawStatus: providerResult.rawStatus,
       };
-    });
+    }));
     if (!providerResult) throw new Error('AI provider returned no result');
 
     const estimatedCostUsd = estimateUsageCost(policy.model, providerResult.usage);
     if (estimatedCostUsd > policy.maxCostUsd) {
       throw new Error(`AI request exceeded cost ceiling (${estimatedCostUsd.toFixed(4)} USD)`);
     }
-    await completeGeneration({ generationId, ...providerResult, estimatedCostUsd });
+    await runBeforeAbort(attemptBoundary, () => completeGeneration({
+      generationId,
+      ...providerResult!,
+      estimatedCostUsd,
+    }));
     return { generationId, estimatedCostUsd, selectedPolicy: policy, isFallback, ...providerResult };
   } catch (error) {
-    if (generationCreated) {
-      await failGeneration(generationId, error, policy.model).catch((persistenceError) => {
-        console.error('[ai-runtime] Failed to persist generation failure:', persistenceError);
-      });
+    if (signal.aborted && providerStarted && !providerRejected) {
+      // An abort-aware provider can reject from its signal handler just after
+      // the boundary wins the race. Let that already-started invocation expose
+      // its typed error without delaying the public deadline.
+      await Promise.resolve();
+      await Promise.resolve();
     }
-    if (generationCreated && error instanceof Error) {
-      Object.defineProperty(error, '_generationId', {
+    const surfacedError = signal.aborted && providerRejected ? providerError : error;
+    if (generationCreated && !signal.aborted) {
+      try {
+        await runBeforeAbort(
+          attemptBoundary,
+          () => failGeneration(generationId, surfacedError, policy.model),
+        );
+      } catch (persistenceError) {
+        if (!signal.aborted) {
+          console.error('[ai-runtime] Failed to persist generation failure:', persistenceError);
+        }
+      }
+    }
+    if (generationCreated && surfacedError instanceof Error) {
+      Object.defineProperty(surfacedError, '_generationId', {
         value: generationId,
         enumerable: false,
         configurable: true,
       });
-      if (controller.signal.aborted) {
-        Object.defineProperty(error, '_isTimeout', { value: true, enumerable: false, configurable: true });
+      if (signal.aborted) {
+        Object.defineProperty(surfacedError, '_isTimeout', {
+          value: true,
+          enumerable: false,
+          configurable: true,
+        });
       }
     }
-    throw error;
+    throw surfacedError;
   } finally {
-    clearTimeout(timeout);
+    attemptBoundary.dispose();
   }
 }
 
@@ -128,52 +276,79 @@ async function attemptInvoke<T>(
 export async function executeAiTask<T>(input: ExecuteAiTaskInput<T>): Promise<ExecuteAiTaskResult<T>> {
   const policy = pick(input.task);
   assertValidTimeoutMs(policy.timeoutMs);
-  const deadlineAt = Date.now() + policy.timeoutMs;
-  const organizationId = await resolveOrganizationId(input.context);
-  await assertWithinOrganizationBudget(organizationId, input.context?.userId);
-  const context = organizationId ? { ...input.context, organizationId } : input.context;
-  const primaryTimeoutMs = remainingAttemptTimeoutMs(policy, deadlineAt);
-  if (primaryTimeoutMs === undefined) {
-    throw new RangeError('AI attempt timeout must be a positive finite integer');
-  }
+  const chainBoundary = createTimedBoundary(policy.timeoutMs);
 
   try {
-    return await attemptInvoke(
-      input,
-      policy,
-      primaryTimeoutMs,
-      context,
-      false,
+    const organizationId = await runBeforeAbort(
+      chainBoundary,
+      () => resolveOrganizationId(input.context),
     );
-  } catch (primaryError) {
-    const fallback = taskFallbacks[input.task];
-    const category = classifyAiError(primaryError);
-    // Most tasks skip fallback after timeout to avoid doubling response latency.
-    // Tasks with an explicitly bounded end-to-end chain may opt in.
-    const isTimeout = category === 'timeout';
-    const isIdenticalFallback = fallback?.provider === policy.provider
-      && fallback.model === policy.model;
-    if (
-      !fallback
-      || !isFallbackEligible(category)
-      || (isTimeout && !policy.fallbackOnTimeout)
-      || isIdenticalFallback
-    ) {
-      throw primaryError;
+    await runBeforeAbort(
+      chainBoundary,
+      () => assertWithinOrganizationBudget(organizationId, input.context?.userId),
+    );
+    const context = organizationId ? { ...input.context, organizationId } : input.context;
+
+    try {
+      return await attemptInvoke(input, policy, chainBoundary, context, false);
+    } catch (primaryError) {
+      const fallback = taskFallbacks[input.task];
+      const category = classifyAiError(primaryError);
+      // Most tasks skip fallback after timeout to avoid doubling response latency.
+      // Tasks with an explicitly bounded end-to-end chain may opt in.
+      const isTimeout = category === 'timeout';
+      const isIdenticalFallback = fallback?.provider === policy.provider
+        && fallback.model === policy.model;
+      if (
+        !fallback
+        || !isFallbackEligible(category)
+        || (isTimeout && !policy.fallbackOnTimeout)
+        || isIdenticalFallback
+        || chainBoundary.signal.aborted
+      ) {
+        throw primaryError;
+      }
+
+      try {
+        // Re-check org budget (the failed attempt may have consumed budget)
+        await runBeforeAbort(
+          chainBoundary,
+          () => assertWithinOrganizationBudget(organizationId, input.context?.userId),
+        );
+      } catch (fallbackSetupError) {
+        if (chainBoundary.signal.aborted) throw primaryError;
+        throw fallbackSetupError;
+      }
+
+      let fallbackProviderStarted = false;
+      try {
+        return await attemptInvoke(
+          input,
+          fallback,
+          chainBoundary,
+          context,
+          true,
+          policy.model,
+          () => {
+            fallbackProviderStarted = true;
+            console.warn(
+              `[ai-runtime] ${input.task}: ${policy.provider}/${policy.model} failed (${category}) → ` +
+              `fallback ${fallback.provider}/${fallback.model}`,
+            );
+          },
+        );
+      } catch (fallbackError) {
+        if (
+          !fallbackProviderStarted
+          && chainBoundary.signal.aborted
+          && classifyAiError(fallbackError) === 'timeout'
+        ) {
+          throw primaryError;
+        }
+        throw fallbackError;
+      }
     }
-
-    if (remainingAttemptTimeoutMs(fallback, deadlineAt) === undefined) throw primaryError;
-
-    // Re-check org budget (the failed attempt may have consumed budget)
-    await assertWithinOrganizationBudget(organizationId, input.context?.userId);
-    const fallbackTimeoutMs = remainingAttemptTimeoutMs(fallback, deadlineAt);
-    if (fallbackTimeoutMs === undefined) throw primaryError;
-
-    console.warn(
-      `[ai-runtime] ${input.task}: ${policy.provider}/${policy.model} failed (${category}) → ` +
-      `fallback ${fallback.provider}/${fallback.model}`,
-    );
-
-    return await attemptInvoke(input, fallback, fallbackTimeoutMs, context, true, policy.model);
+  } finally {
+    chainBoundary.dispose();
   }
 }
