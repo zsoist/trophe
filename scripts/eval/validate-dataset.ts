@@ -13,6 +13,13 @@ loadEnvConfig(process.cwd());
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { requirePaidAiToolApproval } from '../safety/require-paid-ai-approval';
+
+const paidAiApproval = requirePaidAiToolApproval({
+  operation: 'eval-validate-dataset',
+  argv: process.argv.slice(2),
+  env: process.env,
+});
 
 type Range = { min: number; max: number };
 type EvalCase = {
@@ -77,6 +84,7 @@ function validateCase(
 async function runLookup(input: string): Promise<LookupResult | null> {
   const baseUrl = process.env.TROPHE_API ?? 'https://trophe.app';
   try {
+    paidAiApproval.consumeAttempt();
     const res = await fetch(`${baseUrl}/api/food-parse`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -104,17 +112,18 @@ async function main() {
   const version = process.env.EVAL_DATASET ?? 'v3';
   const datasetPath = join(process.cwd(), `agents/evals/datasets/nutrition-enterprise-${version}.json`);
   const dataset = JSON.parse(readFileSync(datasetPath, 'utf8')) as { cases: EvalCase[] };
+  const approvedCases = paidAiApproval.boundCases(dataset.cases);
 
-  console.log(`[validate] dataset: ${version} (${dataset.cases.length} cases)`);
+  console.log(`[validate] dataset: ${version} (${approvedCases.length} cases)`);
 
   const verdicts: ValidationVerdict[] = [];
   const concurrency = 5;
   let next = 0;
 
   await Promise.all(Array.from({ length: concurrency }, async () => {
-    while (next < dataset.cases.length) {
+    while (next < approvedCases.length) {
       const idx = next++;
-      const c = dataset.cases[idx];
+      const c = approvedCases[idx];
       const lookup = await runLookup(c.input);
       verdicts[idx] = validateCase(c, lookup);
       if (verdicts[idx].status === 'flag') {

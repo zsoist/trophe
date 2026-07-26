@@ -21,10 +21,16 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { foodParseSimulatorPolicy, taskPolicies } from '../router/policies';
 import { invokeTextProvider } from '../runtime/providers/text';
+import { requirePaidAiToolApproval } from '../../scripts/safety/require-paid-ai-approval';
 
 // ── CLI args ──────────────────────────────────────────────────────────────────
 
 const args = process.argv.slice(2);
+const paidAiApproval = requirePaidAiToolApproval({
+  operation: 'eval-all',
+  argv: args,
+  env: process.env,
+});
 const url = args.find((a) => a.startsWith('--url='))?.split('=')[1] ?? 'http://localhost:3333';
 const suiteFilter = args.find((a) => a.startsWith('--suite='))?.split('=')[1];
 
@@ -123,6 +129,7 @@ interface FoodCase {
 async function runFoodParseCase(c: FoodCase, runPipeline: (input: { text: string; language?: string }) => Promise<{ ok: boolean; output?: { items: Array<{ calories: number; protein_g: number; carbs_g: number; fat_g: number; fiber_g: number }> }; error?: string }>): Promise<CaseResult> {
   const start = Date.now();
   try {
+    paidAiApproval.consumeAttempt();
     const result = await runPipeline({ text: c.input, language: c.language });
     const latencyMs = Date.now() - start;
 
@@ -217,7 +224,7 @@ async function runFoodParseSuite(): Promise<SuiteResult> {
   }
 
   const cases: CaseResult[] = [];
-  for (const c of spec.cases) {
+  for (const c of paidAiApproval.boundCases(spec.cases)) {
     cases.push(await runFoodParseCase(c, runPipeline!));
   }
 
@@ -330,9 +337,10 @@ async function runRecipeAnalyzeSuite(): Promise<SuiteResult> {
   }
 
   const cases: CaseResult[] = [];
-  for (const spec of RECIPE_SYNTHETIC_CASES) {
+  for (const spec of paidAiApproval.boundCases(RECIPE_SYNTHETIC_CASES)) {
     const start = Date.now();
     try {
+      paidAiApproval.consumeAttempt();
       const result = await runAgent!({ text: spec.text, servings: spec.servings, language: spec.language });
       const latencyMs = Date.now() - start;
 
@@ -396,6 +404,7 @@ async function callCoachPolicy(systemPrompt: string, userMessage: string): Promi
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), policy.timeoutMs);
   try {
+    paidAiApproval.consumeAttempt();
     const result = await invokeTextProvider({
       policy,
       system: systemPrompt,
@@ -452,7 +461,7 @@ async function runCoachInsightSuite(): Promise<SuiteResult> {
   }
 
   const cases: CaseResult[] = [];
-  for (const spec of COACH_INSIGHT_CASES) {
+  for (const spec of paidAiApproval.boundCases(COACH_INSIGHT_CASES)) {
     const start = Date.now();
     try {
       const { text } = await callCoachPolicy(COACH_INSIGHT_SYSTEM, spec.clientContext);

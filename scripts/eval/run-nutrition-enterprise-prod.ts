@@ -2,9 +2,15 @@ import { mkdirSync, readFileSync, writeFileSync, appendFileSync } from 'node:fs'
 import { execSync } from 'node:child_process';
 import { join } from 'node:path';
 import { loadEnvConfig } from '@next/env';
+import { requirePaidAiToolApproval } from '../safety/require-paid-ai-approval';
 
 // Auto-load .env.local so the script works without manual `source .env.local`
 loadEnvConfig(process.cwd());
+const paidAiApproval = requirePaidAiToolApproval({
+  operation: 'eval-nutrition-enterprise-prod',
+  argv: process.argv.slice(2),
+  env: process.env,
+});
 
 type Range = { min: number; max: number };
 type EvalCase = {
@@ -154,6 +160,7 @@ const runsPerCase = Math.min(Math.max(Number(process.env.EVAL_RUNS_PER_CASE ?? 1
 async function callOnce(test: EvalCase, token: string) {
   const startedAt = Date.now();
   const language = test.language === 'mixed' ? 'en' : test.language;
+  paidAiApproval.consumeAttempt();
   const response = await fetch(`${baseUrl}/api/food/parse`, {
     method: 'POST',
     headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
@@ -249,13 +256,16 @@ async function runCase(test: EvalCase, token: string) {
 }
 
 async function main() {
+  const approvedCases = paidAiApproval.boundCases(dataset.cases, {
+    attemptsPerCase: runsPerCase,
+  });
   const token = await accessToken();
   const results: Awaited<ReturnType<typeof runCase>>[] = [];
   let next = 0;
   await Promise.all(Array.from({ length: concurrency }, async () => {
-    while (next < dataset.cases.length) {
+    while (next < approvedCases.length) {
       const index = next++;
-      results[index] = await runCase(dataset.cases[index], token);
+      results[index] = await runCase(approvedCases[index], token);
     }
   }));
 

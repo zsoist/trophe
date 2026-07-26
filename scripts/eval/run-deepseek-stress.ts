@@ -3,6 +3,13 @@ import { join } from 'node:path';
 import { z } from 'zod';
 import { invokeDeepSeekStructured, invokeDeepSeekText } from '../../agents/runtime/providers/deepseek';
 import { estimateModelCostUsd } from '../../agents/router/pricing';
+import { requirePaidAiToolApproval } from '../safety/require-paid-ai-approval';
+
+const paidAiApproval = requirePaidAiToolApproval({
+  operation: 'eval-deepseek-stress',
+  argv: process.argv.slice(2),
+  env: process.env,
+});
 
 type Model = 'deepseek-v4-flash' | 'deepseek-v4-pro';
 type Result = {
@@ -59,6 +66,7 @@ async function runOne(model: Model, concurrency: number, index: number): Promise
   const kind = index % 2 === 0 ? 'text' : 'structured';
   const maxTokens = Number(process.env.DEEPSEEK_STRESS_MAX_TOKENS ?? 500);
   try {
+    paidAiApproval.consumeAttempt();
     const result = kind === 'text'
       ? await invokeDeepSeekText({
           model,
@@ -121,17 +129,19 @@ async function main() {
     .split(',').map(Number).filter((value) => Number.isInteger(value) && value > 0);
   const models = (process.env.DEEPSEEK_STRESS_MODELS ?? 'deepseek-v4-flash,deepseek-v4-pro')
     .split(',') as Model[];
-  const results: Result[] = [];
+  const jobs = models.flatMap((model) => levels.flatMap((concurrency) =>
+    Array.from({ length: concurrency }, (_, index) => ({ model, concurrency, index })),
+  ));
+  const approvedJobs = paidAiApproval.boundCases(jobs);
+  const results = await Promise.all(
+    approvedJobs.map((job) => runOne(job.model, job.concurrency, job.index)),
+  );
 
-  for (const model of models) {
-    for (const concurrency of levels) {
-      results.push(...await Promise.all(
-        Array.from({ length: concurrency }, (_, index) => runOne(model, concurrency, index)),
-      ));
-    }
-  }
-
-  const summary = models.flatMap((model) => levels.map((concurrency) => {
+  const evaluatedGroups = [...new Map(results.map((result) => [
+    `${result.model}:${result.concurrency}`,
+    { model: result.model, concurrency: result.concurrency },
+  ])).values()];
+  const summary = evaluatedGroups.map(({ model, concurrency }) => {
     const selected = results.filter((result) => result.model === model && result.concurrency === concurrency);
     const latencies = selected.map((result) => result.latencyMs);
     return {
@@ -150,7 +160,7 @@ async function main() {
       cacheReadTokens: selected.reduce((sum, result) => sum + result.cacheReadTokens, 0),
       totalCostUsd: selected.reduce((sum, result) => sum + result.costUsd, 0),
     };
-  }));
+  });
 
   mkdirSync(join(process.cwd(), 'artifacts', 'evals'), { recursive: true });
   writeFileSync(

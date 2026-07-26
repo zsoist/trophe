@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+node --import tsx "$SCRIPT_DIR/../safety/require-paid-ai-approval.ts" \
+  --operation=canary-production-ai-route "$@"
+
 BASE_URL="${BASE_URL:-https://trophe.app}"
 
 fail() {

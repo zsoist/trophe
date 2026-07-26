@@ -32,19 +32,24 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import { foods } from '../../db/schema/foods';
 import { sql } from 'drizzle-orm';
+import {
+  requirePaidAiToolApproval,
+  type PaidAiToolApproval,
+} from '../safety/require-paid-ai-approval';
 
 // ── Config ──────────────────────────────────────────────────────────────────
-const VOYAGE_API_KEY = process.env.VOYAGE_API_KEY;
 const VOYAGE_MODEL   = 'voyage-4';
 const VOYAGE_BASE    = 'https://api.voyageai.com/v1';
 const BATCH_SIZE     = parseInt(process.env.BATCH_SIZE || '96');
 const DRY_RUN        = process.env.DRY_RUN === '1';
 const EMBED_DIMS     = 1024;
-
-if (!VOYAGE_API_KEY && !DRY_RUN) {
-  console.error('[embed] ❌ VOYAGE_API_KEY not set. Run: source ~/.local/secrets/voyage.env');
-  process.exit(1);
-}
+const paidAiApproval = DRY_RUN
+  ? null
+  : requirePaidAiToolApproval({
+      operation: 'ingest-food-embeddings',
+      argv: process.argv.slice(2),
+      env: process.env,
+    });
 
 // ── Text preparation ─────────────────────────────────────────────────────────
 /**
@@ -72,11 +77,16 @@ function buildEmbedText(food: {
 }
 
 // ── Voyage API wrapper ───────────────────────────────────────────────────────
-async function embedBatch(texts: string[]): Promise<number[][]> {
+async function embedBatch(
+  texts: string[],
+  apiKey: string,
+  approval: PaidAiToolApproval,
+): Promise<number[][]> {
+  approval.consumeAttempt();
   const res = await fetch(`${VOYAGE_BASE}/embeddings`, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${VOYAGE_API_KEY}`,
+      'Authorization': `Bearer ${apiKey}`,
       'Content-Type':  'application/json',
     },
     body: JSON.stringify({
@@ -87,8 +97,7 @@ async function embedBatch(texts: string[]): Promise<number[][]> {
   });
 
   if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Voyage API error ${res.status}: ${body.slice(0, 300)}`);
+    throw new Error('Voyage embedding request failed');
   }
 
   const data = await res.json();
@@ -108,6 +117,19 @@ async function embedBatch(texts: string[]): Promise<number[][]> {
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 async function main() {
+  if (DRY_RUN) {
+    console.log('[embed] DRY_RUN=1 — provider attempts: 0; database reads: 0; database mutations: 0.');
+    return;
+  }
+  const approval = paidAiApproval;
+  if (!approval) throw new Error('Paid AI approval is required');
+  const voyageApiKey = process.env.VOYAGE_API_KEY;
+  if (!voyageApiKey) {
+    throw new Error('VOYAGE_API_KEY is required');
+  }
+  if (!Number.isSafeInteger(BATCH_SIZE) || BATCH_SIZE <= 0 || BATCH_SIZE > 128) {
+    throw new Error('Embedding batch size must be an integer from 1 to 128');
+  }
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) {
     throw new Error('DATABASE_URL is required. See .env.local.example.');
@@ -123,10 +145,8 @@ async function main() {
     .where(sql`embedding IS NULL`);
 
   console.log(`[embed] Found ${count} foods without embeddings.`);
-  if (DRY_RUN) {
-    console.log('[embed] DRY_RUN=1 — exiting without API calls.');
-    await pool.end();
-    return;
+  if (!Number.isSafeInteger(count) || count < 0) {
+    throw new Error('Unembedded food count is not safely bounded');
   }
   if (count === 0) {
     console.log('[embed] All foods already embedded. Checking HNSW index...');
@@ -136,9 +156,15 @@ async function main() {
   }
 
   let processed = 0;
-  let offset = 0;
+  const totalBatches = Math.ceil(count / BATCH_SIZE);
+  const batchSlots = approval.boundCases(
+    Array.from(
+      { length: Math.min(totalBatches, approval.maxCalls) },
+      (_, index) => index,
+    ),
+  );
 
-  while (true) {
+  for (let batchIndex = 0; batchIndex < batchSlots.length; batchIndex++) {
     // Fetch a batch of un-embedded foods
     const batch = await db
       .select({
@@ -160,7 +186,7 @@ async function main() {
     let embeddings: number[][];
 
     try {
-      embeddings = await embedBatch(texts);
+      embeddings = await embedBatch(texts, voyageApiKey, approval);
     } catch (err) {
       console.error(`[embed] Voyage error on batch starting at row ${processed}:`, err);
       console.error('[embed] Partial progress committed. Rerun to continue.');
@@ -185,10 +211,10 @@ async function main() {
     await sleep(100);
   }
 
-  console.log(`\n[embed] ✅ Embeddings complete. Total: ${processed}`);
+  console.log(`\n[embed] Approved embedding batches complete. Total: ${processed}`);
 
   // Build HNSW index post-ingest
-  await ensureHnswIndex(pool);
+  if (processed >= count) await ensureHnswIndex(pool);
   await pool.end();
 }
 

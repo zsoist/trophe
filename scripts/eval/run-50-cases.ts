@@ -16,8 +16,13 @@
  * Requires: DATABASE_URL pointing to a DB with foods + dish_recipes data.
  */
 
-import { run } from '../../agents/food-parse/index.v4';
-import type { ParsedFoodItem } from '../../agents/schemas/food-parse';
+import { requirePaidAiToolApproval } from '../safety/require-paid-ai-approval';
+
+const paidAiApproval = requirePaidAiToolApproval({
+  operation: 'eval-food-parse-fifty',
+  argv: process.argv.slice(2),
+  env: process.env,
+});
 
 // ── Test cases ──────────────────────────────────────────────────────────────────
 
@@ -119,10 +124,13 @@ interface CaseResult {
   error?: string;
 }
 
-async function runCase(tc: TestCase): Promise<CaseResult> {
+type RunPipeline = typeof import('../../agents/food-parse/index.v4')['run'];
+
+async function runCase(tc: TestCase, runPipeline: RunPipeline): Promise<CaseResult> {
   const start = Date.now();
   try {
-    const result = await run({ text: tc.input, language: tc.language });
+    paidAiApproval.consumeAttempt();
+    const result = await runPipeline({ text: tc.input, language: tc.language });
     const latency = Date.now() - start;
 
     if (!result.ok || !result.output?.items?.length) {
@@ -172,17 +180,19 @@ async function runCase(tc: TestCase): Promise<CaseResult> {
 // ── Main ────────────────────────────────────────────────────────────────────────
 
 async function main() {
+  const { run: runPipeline } = await import('../../agents/food-parse/index.v4');
   console.log('═══════════════════════════════════════════════════════════════');
   console.log(' Trophē v4 Food Parse — 50-Case Production Eval');
   console.log('═══════════════════════════════════════════════════════════════\n');
 
   const results: CaseResult[] = [];
-  const total = TEST_CASES.length;
+  const approvedCases = paidAiApproval.boundCases(TEST_CASES);
+  const total = approvedCases.length;
 
   for (let i = 0; i < total; i++) {
-    const tc = TEST_CASES[i];
+    const tc = approvedCases[i];
     process.stdout.write(`[${i + 1}/${total}] ${tc.id}: "${tc.input}" ... `);
-    const result = await runCase(tc);
+    const result = await runCase(tc, runPipeline);
     results.push(result);
     console.log(result.pass ? '✅' : `❌ ${result.error}`);
 
@@ -207,7 +217,9 @@ async function main() {
 
   const scoreCategory = (cases: CaseResult[]) => {
     const p = cases.filter(c => c.pass).length;
-    return `${p}/${cases.length} (${Math.round(p / cases.length * 100)}%)`;
+    return cases.length === 0
+      ? '0/0 (n/a)'
+      : `${p}/${cases.length} (${Math.round(p / cases.length * 100)}%)`;
   };
 
   console.log(`  Overall:              ${passed.length}/${total} (${Math.round(passed.length / total * 100)}%)`);
@@ -234,7 +246,10 @@ async function main() {
     const tc = TEST_CASES.find(t => t.id === r.id)!;
     return r.source === tc.expected.source_preferred;
   });
-  console.log(`\n  Composite dish cache hit rate: ${sourceCompliant.length}/${compositeResults.length} (${Math.round(sourceCompliant.length / compositeResults.length * 100)}%)`);
+  const compositeRate = compositeResults.length === 0
+    ? 'n/a'
+    : `${Math.round(sourceCompliant.length / compositeResults.length * 100)}%`;
+  console.log(`\n  Composite dish cache hit rate: ${sourceCompliant.length}/${compositeResults.length} (${compositeRate})`);
 
   // Latency stats
   const latencies = results.map(r => r.latency_ms).sort((a, b) => a - b);

@@ -24,6 +24,7 @@ import { resolve } from 'path';
 import { execFileSync } from 'node:child_process';
 import { assertOffPeakEvalWindow } from './off-peak';
 import { verifyProductionFoodParsePolicy } from './verify-production-food-parse-policy';
+import { requirePaidAiToolApproval } from '../safety/require-paid-ai-approval';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -101,6 +102,11 @@ interface CaseResult {
 
 // ─── Config ─────────────────────────────────────────────────────────────────
 
+const paidAiApproval = requirePaidAiToolApproval({
+  operation: 'eval-greek-colombian-prod',
+  argv: process.argv.slice(2),
+  env: process.env,
+});
 const EVAL_EMAIL = process.env.EVAL_AUTH_EMAIL;
 const EVAL_PASSWORD = process.env.EVAL_AUTH_PASSWORD;
 const TROPHE_API = process.env.TROPHE_API || 'https://trophe.app';
@@ -154,6 +160,7 @@ async function runCase(
   let response: { items: ParsedItem[] } | null = null;
 
   try {
+    paidAiApproval.consumeAttempt();
     const res = await fetch(`${TROPHE_API}/api/food/parse`, {
       method: 'POST',
       headers: {
@@ -449,11 +456,17 @@ async function main() {
 
   // Load golden cases
   const goldenPath = 'agents/evals/food-parse-greek-colombian-golden.json';
-  const golden: GoldenFile = JSON.parse(execFileSync(
+  const goldenSource: GoldenFile = JSON.parse(execFileSync(
     'git',
     ['show', `${FROZEN_GOLDEN_REF}:${goldenPath}`],
     { encoding: 'utf8', cwd: resolve(__dirname, '../..') },
   ));
+  const golden: GoldenFile = {
+    ...goldenSource,
+    cases: [...paidAiApproval.boundCases(goldenSource.cases, {
+      attemptsPerCase: runs,
+    })],
+  };
   console.log(`📋 Loaded ${golden.cases.length} cases from frozen ${FROZEN_GOLDEN_REF} (${runs} run${runs > 1 ? 's' : ''})`);
 
   // Authenticate

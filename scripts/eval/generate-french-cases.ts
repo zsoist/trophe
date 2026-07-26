@@ -6,7 +6,13 @@ import { loadEnvConfig } from '@next/env';
 loadEnvConfig(process.cwd());
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { generateFactoryText } from './factory-runtime';
+import { requirePaidAiToolApproval } from '../safety/require-paid-ai-approval';
+
+const paidAiApproval = requirePaidAiToolApproval({
+  operation: 'eval-generate-french',
+  argv: process.argv.slice(2),
+  env: process.env,
+});
 
 type Range = { min: number; max: number };
 type EvalCase = {
@@ -34,6 +40,7 @@ const SPECS: Array<{ count: number; category: string; guidance: string }> = [
 ];
 
 async function generate(spec: typeof SPECS[0]): Promise<EvalCase[]> {
+  const { generateFactoryText } = await import('./factory-runtime');
   const prompt = `Generate exactly ${spec.count} nutrition benchmark test cases in French for category "${spec.category}".
 
 ${spec.guidance}
@@ -54,11 +61,11 @@ Return ONLY a JSON array. No markdown.`;
   const content = await generateFactoryText(prompt, {
     generator: 'french-cases',
     category: spec.category,
-  });
+  }, () => paidAiApproval.consumeAttempt());
   try {
     const cleaned = content.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
     const generated = JSON.parse(cleaned) as Partial<EvalCase>[];
-    return generated.map((c, i) => ({
+    return paidAiApproval.boundCases(generated).map((c, i) => ({
       id: `v3f_${spec.category}_fr_${i + 1}`,
       input: c.input ?? '',
       language: 'fr' as const,
@@ -77,7 +84,7 @@ async function main() {
   console.log(`[gen] generating ${total} French cases across ${SPECS.length} categories`);
 
   const allNew: EvalCase[] = [];
-  for (const spec of SPECS) {
+  for (const spec of paidAiApproval.boundCases(SPECS)) {
     console.log(`[gen] ${spec.category}: +${spec.count}...`);
     const cases = await generate(spec);
     console.log(`[gen]   → got ${cases.length}`);

@@ -10,8 +10,14 @@
  *   npx tsx scripts/debug/smoke-parse-roundtrip.ts
  */
 import { loadEnvConfig } from '@next/env';
+import { requirePaidAiToolApproval } from '../safety/require-paid-ai-approval';
 loadEnvConfig(process.cwd());
 
+const paidAiApproval = requirePaidAiToolApproval({
+  operation: 'debug-parse-roundtrip',
+  argv: process.argv.slice(2),
+  env: process.env,
+});
 const BASE = process.env.SMOKE_BASE ?? 'https://trophe.app';
 const EVAL_EMAIL = process.env.EVAL_AUTH_EMAIL;
 const WRITER_EMAIL = process.env.EVAL_WRITER_EMAIL;
@@ -35,6 +41,7 @@ async function main() {
   console.log('auth ok:', otp.user?.email);
 
   // 1) Parse
+  paidAiApproval.consumeAttempt();
   const res = await fetch(`${BASE}/api/food/parse`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: `Bearer ${jwt}` },

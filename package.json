@@ -25,6 +25,7 @@
     "evals:rag": "tsx agents/evals/run-rag-eval.ts",
     "guard:golden-tolerances": "node scripts/ci/check-golden-tolerance-justification.mjs",
     "guard:eval-identity": "node scripts/ci/check-eval-identity.mjs",
+    "guard:paid-ai-tools": "node scripts/ci/check-paid-ai-tools.mjs",
     "readiness": "tsx scripts/check-enterprise-readiness.ts",
     "readiness:integrations": "tsx scripts/check-integration-readiness.ts",
     "ai:budget-check": "tsx scripts/ops/check-ai-budgets.ts",

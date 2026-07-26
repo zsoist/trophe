@@ -4,8 +4,14 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadEnvConfig } from '@next/env';
 import type { RoutingPolicy } from '../../agents/router/policies';
+import { requirePaidAiToolApproval } from '../safety/require-paid-ai-approval';
 
 loadEnvConfig(process.cwd());
+const paidAiApproval = requirePaidAiToolApproval({
+  operation: 'eval-phase2-round1',
+  argv: process.argv.slice(2),
+  env: process.env,
+});
 
 type Range = { min: number; max: number };
 type EnterpriseCase = {
@@ -54,7 +60,8 @@ async function main() {
   if (currentGolden.cases.length!==30 || frozenGolden.cases.length!==30) throw new Error('probe identity failure');
 
   if (selectedModels.length === 0) throw new Error('PHASE2_MODELS matched no configured candidates');
-  const projectedRound1 = selectedModels.reduce((s,m)=>s+coldCost(201,m.inputPrice,m.outputPrice),0);
+  const approvedModels = paidAiApproval.boundCases(selectedModels);
+  const projectedRound1 = approvedModels.reduce((s,m)=>s+coldCost(1,m.inputPrice,m.outputPrice),0);
   if (projectedRound1 > HARD_CAP) throw new Error(`projected Round 1 $${projectedRound1.toFixed(2)} exceeds $${HARD_CAP} hard cap`);
   if (projectedRound1 >= SOFT_CAP) console.warn(`[phase2] SOFT ALERT projected Round 1 $${projectedRound1.toFixed(2)}`);
   else console.log(`[phase2] projected Round 1 cold spend $${projectedRound1.toFixed(2)} (< $${SOFT_CAP} soft alert)`);
@@ -71,7 +78,7 @@ async function main() {
   let observedColdSpend = 0;
 
   try {
-    for (const model of selectedModels) {
+    for (const model of approvedModels) {
       taskPolicies.food_parse = model.policy;
       process.env.OPENAI_API_KEY = model.name==='mistral-small-2603' ? process.env.MISTRAL_API_KEY : originalOpenAiKey;
       globalThis.fetch = model.name==='mistral-small-2603'
@@ -87,17 +94,18 @@ async function main() {
           }) as typeof fetch
         : nativeFetch;
 
-      const runCases = [
+      const runCases = paidAiApproval.boundCases([
         ...currentGolden.cases.map(c=>({kind:'probe1' as const,c})),
         ...currentGolden.cases.map(c=>({kind:'probe2' as const,c})),
         ...weak.map(c=>({kind:'weak' as const,c})),
-      ];
+      ]);
       const results: any[] = new Array(runCases.length);
       let next=0;
       await Promise.all(Array.from({length:concurrency},async()=>{
         while(next<runCases.length){
           const index=next++; const entry=runCases[index]; const c=entry.c;
           const started=Date.now();
+          paidAiApproval.consumeAttempt();
           const response=await run({text:c.input,language:(c.language==='mixed'?'en':c.language) as any},{metadata:{phase2:'round1',model:model.name,caseId:c.id,kind:entry.kind}});
           const items=(response.output?.items??[]) as OutputItem[];
           const result={kind:entry.kind,id:c.id,input:c.input,language:c.language,category:'category' in c?c.category:undefined,ok:response.ok,error:response.error,items,totals:totals(items),needsClarification:response.output?.needs_clarification===true,latencyMs:Date.now()-started,telemetry:response.telemetry};
@@ -108,6 +116,23 @@ async function main() {
           if((index+1)%25===0) console.log(`[phase2] ${model.name} ${index+1}/${runCases.length}`);
         }
       }));
+
+      if (runCases.length !== 201) {
+        const canarySummary = {
+          model: model.name,
+          canary: true,
+          completedCalls: results.length,
+          successfulCalls: results.filter((result) => result.ok).length,
+          coldActualUsd: results.reduce((sum, result) =>
+            sum + ((result.telemetry.tokensIn ?? 0) * model.inputPrice
+              + (result.telemetry.tokensOut ?? 0) * model.outputPrice) / 1_000_000, 0),
+        };
+        allResults[model.name] = { summary: canarySummary, results };
+        mkdirSync(outputDir,{recursive:true});
+        writeFileSync(join(outputDir,`round1-${model.name}.json`),JSON.stringify(allResults[model.name],null,2));
+        console.log('[phase2] canary complete', JSON.stringify(canarySummary));
+        continue;
+      }
 
       const probes=(kind:string)=>results.filter(r=>r.kind===kind);
       const scoreProbe=(r:any,g:GoldenCase,requireFallback:boolean)=>{

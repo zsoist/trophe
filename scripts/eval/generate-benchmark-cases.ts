@@ -15,7 +15,13 @@ loadEnvConfig(process.cwd());
 
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { generateFactoryText } from './factory-runtime';
+import { requirePaidAiToolApproval } from '../safety/require-paid-ai-approval';
+
+const paidAiApproval = requirePaidAiToolApproval({
+  operation: 'eval-generate-benchmark',
+  argv: process.argv.slice(2),
+  env: process.env,
+});
 
 type Range = { min: number; max: number };
 type EvalCase = {
@@ -110,9 +116,10 @@ const CATEGORY_SPECS: Record<string, CategorySpec> = {
 };
 
 async function generateCases(category: string, spec: CategorySpec): Promise<EvalCase[]> {
+  const { generateFactoryText } = await import('./factory-runtime');
   const cases: EvalCase[] = [];
 
-  for (const [lang, count] of Object.entries(spec.languages)) {
+  for (const [lang, count] of paidAiApproval.boundCases(Object.entries(spec.languages))) {
     if (count === 0) continue;
 
     const prompt = `Generate exactly ${count} nutrition benchmark test cases in ${lang === 'mixed' ? 'mixed languages (code-switching)' : `${lang} language`}.
@@ -137,12 +144,12 @@ Return ONLY a JSON array of objects. No markdown, no explanation.`;
       generator: 'nutrition-enterprise-v3',
       category,
       language: lang,
-    });
+    }, () => paidAiApproval.consumeAttempt());
     try {
       // Strip markdown fences if present
       const cleaned = content.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
       const generated = JSON.parse(cleaned) as Partial<EvalCase>[];
-      for (const c of generated) {
+      for (const c of paidAiApproval.boundCases(generated)) {
         cases.push({
           id: `v3_${category}_${lang}_${cases.length + 1}`,
           input: c.input ?? '',
@@ -188,7 +195,7 @@ async function main() {
     return;
   }
 
-  for (const [cat, spec] of Object.entries(CATEGORY_SPECS)) {
+  for (const [cat, spec] of paidAiApproval.boundCases(Object.entries(CATEGORY_SPECS))) {
     console.log(`[gen] generating ${spec.delta} cases for "${cat}"...`);
     const cases = await generateCases(cat, spec);
     console.log(`[gen]   → got ${cases.length} cases`);

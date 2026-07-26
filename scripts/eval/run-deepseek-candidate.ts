@@ -4,6 +4,13 @@ import { invokeDeepSeekText } from '../../agents/runtime/providers/deepseek';
 import { invokeDeepSeekStructured } from '../../agents/runtime/providers/deepseek';
 import { estimateModelCostUsd } from '../../agents/router/pricing';
 import { z } from 'zod';
+import { requirePaidAiToolApproval } from '../safety/require-paid-ai-approval';
+
+const paidAiApproval = requirePaidAiToolApproval({
+  operation: 'eval-deepseek-candidate',
+  argv: process.argv.slice(2),
+  env: process.env,
+});
 
 type Model = 'deepseek-v4-flash' | 'deepseek-v4-pro';
 type Case = { id: string; system: string; prompt: string; required: RegExp[]; forbidden?: RegExp[] };
@@ -102,6 +109,7 @@ async function runCase(model: Model, test: Case) {
   const timeout = setTimeout(() => controller.abort(), 45_000);
   const startedAt = Date.now();
   try {
+    paidAiApproval.consumeAttempt();
     const result = await invokeDeepSeekText({
       model, system: test.system, prompt: test.prompt, maxTokens: 500, signal: controller.signal,
     });
@@ -131,6 +139,7 @@ async function runStructured(model: Model, iteration: number): Promise<Benchmark
   const controller = new AbortController();
   const startedAt = Date.now();
   try {
+    paidAiApproval.consumeAttempt();
     const result = await invokeDeepSeekStructured({
       model,
       system: 'Extract foods only. Do not estimate nutrition.',
@@ -164,11 +173,21 @@ async function runStructured(model: Model, iteration: number): Promise<Benchmark
 async function main() {
   if (!process.env.DEEPSEEK_API_KEY) throw new Error('DEEPSEEK_API_KEY is required; use a rotated secret, never a key shared in chat');
   const results: BenchmarkResult[] = [];
-  for (const model of models) {
-    for (const test of cases) results.push(await runCase(model, test));
-    for (let iteration = 1; iteration <= 10; iteration++) results.push(await runStructured(model, iteration));
+  const jobs = models.flatMap((model) => [
+    ...cases.map((test) => ({ kind: 'text' as const, model, test })),
+    ...Array.from({ length: 10 }, (_, index) => ({
+      kind: 'structured' as const,
+      model,
+      iteration: index + 1,
+    })),
+  ]);
+  for (const job of paidAiApproval.boundCases(jobs)) {
+    results.push(job.kind === 'text'
+      ? await runCase(job.model, job.test)
+      : await runStructured(job.model, job.iteration));
   }
-  const summary = models.map((model) => {
+  const evaluatedModels = [...new Set(results.map((result) => result.model))];
+  const summary = evaluatedModels.map((model) => {
     const selected = results.filter((result) => result.model === model);
     const apiFailures = selected.filter((result) =>
       result.inputTokens === 0 && result.outputTokens === 0 && result.output === '',

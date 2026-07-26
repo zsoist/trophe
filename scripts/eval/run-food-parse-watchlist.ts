@@ -6,8 +6,14 @@ import { loadEnvConfig } from '@next/env';
 import { foodParseSimulatorPolicy, taskPolicies } from '../../agents/router/policies';
 import { assertOffPeakEvalWindow } from './off-peak';
 import { verifyProductionFoodParsePolicy } from './verify-production-food-parse-policy';
+import { requirePaidAiToolApproval } from '../safety/require-paid-ai-approval';
 
 loadEnvConfig(process.cwd());
+const paidAiApproval = requirePaidAiToolApproval({
+  operation: 'eval-food-parse-watchlist',
+  argv: process.argv.slice(2),
+  env: process.env,
+});
 
 type Range = { min: number; max: number };
 type WatchCase = {
@@ -83,12 +89,13 @@ async function main(): Promise<void> {
   const deployedPolicy = await verifyProductionFoodParsePolicy(apiBase);
 
   const results = [];
-  for (const testCase of fixture.cases) {
+  for (const testCase of paidAiApproval.boundCases(fixture.cases)) {
     const startedAt = Date.now();
     let response: Response | undefined;
     let body: ParseResponseBody | null = null;
     let transportError: string | undefined;
     try {
+      paidAiApproval.consumeAttempt();
       response = await fetch(`${apiBase}/api/food/parse`, {
         method: 'POST',
         headers: {

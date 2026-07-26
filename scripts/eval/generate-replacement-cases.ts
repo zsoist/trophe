@@ -14,7 +14,13 @@ loadEnvConfig(process.cwd());
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { generateFactoryText } from './factory-runtime';
+import { requirePaidAiToolApproval } from '../safety/require-paid-ai-approval';
+
+const paidAiApproval = requirePaidAiToolApproval({
+  operation: 'eval-generate-replacements',
+  argv: process.argv.slice(2),
+  env: process.env,
+});
 
 type Range = { min: number; max: number };
 type EvalCase = {
@@ -81,6 +87,7 @@ const REPLACEMENT_SPECS: Array<{
 ];
 
 async function generateCases(spec: typeof REPLACEMENT_SPECS[0]): Promise<EvalCase[]> {
+  const { generateFactoryText } = await import('./factory-runtime');
   const prompt = `Generate exactly ${spec.count} nutrition benchmark test cases for category "${spec.category}" in language "${spec.lang}".
 
 ${spec.guidance}
@@ -102,12 +109,12 @@ Return ONLY a JSON array. No markdown.`;
     generator: 'replacement-cases',
     category: spec.category,
     language: spec.lang,
-  });
+  }, () => paidAiApproval.consumeAttempt());
 
   try {
     const cleaned = content.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
     const generated = JSON.parse(cleaned) as Partial<EvalCase>[];
-    return generated.map((c, i) => ({
+    return paidAiApproval.boundCases(generated).map((c, i) => ({
       id: `v3r_${spec.category}_${spec.lang}_${i + 1}`,
       input: c.input ?? '',
       language: spec.lang,
@@ -138,7 +145,7 @@ async function main() {
   }
 
   const allNew: EvalCase[] = [];
-  for (const spec of REPLACEMENT_SPECS) {
+  for (const spec of paidAiApproval.boundCases(REPLACEMENT_SPECS)) {
     console.log(`[gen] generating ${spec.count} ${spec.category}/${spec.lang} cases...`);
     const cases = await generateCases(spec);
     console.log(`[gen]   → got ${cases.length}`);

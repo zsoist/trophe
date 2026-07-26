@@ -4,6 +4,13 @@
 
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { requirePaidAiToolApproval } from '../../scripts/safety/require-paid-ai-approval';
+
+const paidAiApproval = requirePaidAiToolApproval({
+  operation: 'eval-food-parse-route',
+  argv: process.argv.slice(2),
+  env: process.env,
+});
 
 interface Range {
   min: number;
@@ -99,6 +106,7 @@ interface CaseResult {
 async function runCase(c: Case): Promise<CaseResult> {
   const start = Date.now();
   try {
+    paidAiApproval.consumeAttempt();
     const res = await fetch(`${url}/api/food/parse`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -162,11 +170,12 @@ async function runCase(c: Case): Promise<CaseResult> {
 }
 
 async function main() {
-  console.log(`Food-parse eval · model=${spec.model} · agent=${spec.agent_version} · cases=${spec.cases.length} · url=${url}`);
+  const boundedCases = paidAiApproval.boundCases(spec.cases);
+  console.log(`Food-parse eval · model=${spec.model} · agent=${spec.agent_version} · cases=${boundedCases.length} · url=${url}`);
   console.log('─'.repeat(100));
 
   const results: CaseResult[] = [];
-  for (const c of spec.cases) {
+  for (const c of boundedCases) {
     const r = await runCase(c);
     results.push(r);
     const status = r.passed ? 'PASS' : 'FAIL';

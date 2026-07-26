@@ -8,6 +8,7 @@ const FACTORY_SYSTEM = 'Generate synthetic nutrition evaluation data only. Never
 export async function generateFactoryText(
   prompt: string,
   metadata: Record<string, unknown>,
+  beforePaidAttempt: () => void,
 ): Promise<string> {
   assertOffPeakEvalWindow();
   const generation = await executeAiTask({
@@ -16,6 +17,7 @@ export async function generateFactoryText(
     systemPrompt: FACTORY_SYSTEM,
     context: { metadata: { ...metadata, lane: 'factory', syntheticOnly: true } },
     invoke: ({ policy, signal }) => {
+      beforePaidAttempt();
       if (policy !== factoryPolicy) {
         throw new Error('Factory simulator policy diverged from production routing policy');
       }
