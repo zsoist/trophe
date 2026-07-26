@@ -2,6 +2,7 @@ import { EventEmitter } from 'node:events';
 import { describe, expect, it, vi } from 'vitest';
 import {
   publishSummary,
+  probeDependencyHealth,
   runReleaseVerification,
   runStep,
   terminateProcessTree,
@@ -213,6 +214,64 @@ describe('verification release runner', () => {
       steps: [],
     });
     expect(JSON.stringify(publishedSummary)).not.toContain('lib.es2016.full.d.ts');
+  });
+
+  it('counts NUL-delimited macOS dataless paths across chunks without retaining names', async () => {
+    const child = Object.assign(new EventEmitter(), {
+      pid: 4242,
+      stdout: new EventEmitter(),
+    });
+    const spawnProcess = vi.fn(() => child);
+    const probe = probeDependencyHealth({
+      cwd,
+      platform: 'darwin',
+      spawnProcess: spawnProcess as never,
+    });
+
+    child.stdout.emit('data', Buffer.from('node_modules/line\ninside-name\0node_modules/second'));
+    child.stdout.emit('data', Buffer.from('-name\0'));
+    child.emit('close', 0);
+
+    await expect(probe).resolves.toEqual({ status: 'healthy', datalessFileCount: 2 });
+    expect(spawnProcess).toHaveBeenCalledWith(
+      'find',
+      ['node_modules', '-flags', '+dataless', '-print0'],
+      expect.objectContaining({ cwd }),
+    );
+  });
+
+  it('forces a timed-out macOS dependency probe to settle after SIGKILL grace', async () => {
+    vi.useFakeTimers();
+    try {
+      const child = Object.assign(new EventEmitter(), {
+        pid: 4242,
+        stdout: new EventEmitter(),
+      });
+      const killProcess = vi.fn();
+      const probe = probeDependencyHealth({
+        cwd,
+        platform: 'darwin',
+        spawnProcess: (() => child) as never,
+        killProcess,
+        timeoutMs: 50,
+      });
+
+      await vi.advanceTimersByTimeAsync(50);
+      expect(killProcess).toHaveBeenCalledWith(-4242, 'SIGTERM');
+
+      await vi.advanceTimersByTimeAsync(2_000);
+      await expect(probe).resolves.toEqual({
+        status: 'dependency_health_probe_timed_out',
+        datalessFileCount: 0,
+      });
+      expect(killProcess).toHaveBeenLastCalledWith(-4242, 'SIGKILL');
+      expect(vi.getTimerCount()).toBe(0);
+      expect(child.listenerCount('error')).toBe(0);
+      expect(child.listenerCount('close')).toBe(0);
+      expect(child.stdout.listenerCount('data')).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('publishes summaries atomically and reports publication failures', async () => {

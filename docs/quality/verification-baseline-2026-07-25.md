@@ -65,7 +65,7 @@ moved or deleted to recreate the fault.
 
 `scripts/ci/verify-release.mjs` now runs a bounded macOS-only dependency
 preflight before the canonical gates. It streams `find node_modules -flags
-+dataless -print` only to count newline-delimited path records; it neither
++dataless -print0` only to count NUL-delimited path records; it neither
 stores nor publishes a filename or any file contents. An offloaded result stops
 before `typecheck`, writes the redacted `dependency_tree_offloaded` category
 with its file count and `npm ci` repair instruction, and exits non-zero. Other

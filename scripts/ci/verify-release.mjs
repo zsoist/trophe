@@ -101,32 +101,39 @@ export function probeDependencyHealth({
     let datalessFileCount = 0;
     let timedOut = false;
     let settled = false;
-    const child = spawnProcess('find', ['node_modules', '-flags', '+dataless', '-print'], {
+    let timeoutTimer;
+    let killTimer;
+    const child = spawnProcess('find', ['node_modules', '-flags', '+dataless', '-print0'], {
       cwd,
       detached: true,
       stdio: ['ignore', 'pipe', 'ignore'],
     });
-    const timeoutTimer = setTimeout(() => {
-      timedOut = true;
-      terminateProcessTree(child, { platform, spawnProcess, killProcess });
-    }, timeoutMs);
+    const onData = (chunk) => {
+      const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      for (const byte of bytes) {
+        if (byte === 0x00) datalessFileCount += 1;
+      }
+    };
+    const cleanup = () => {
+      clearTimeout(timeoutTimer);
+      clearTimeout(killTimer);
+      child.stdout?.removeListener?.('data', onData);
+      child.removeListener?.('error', onError);
+      child.removeListener?.('close', onClose);
+    };
     const finish = (result) => {
       if (settled) return;
       settled = true;
-      clearTimeout(timeoutTimer);
+      cleanup();
       resolveProbe(result);
     };
-
-    child.stdout?.on('data', (chunk) => {
-      const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-      for (const byte of bytes) {
-        if (byte === 0x0a) datalessFileCount += 1;
-      }
-    });
-    child.once('error', () => {
-      finish({ status: 'dependency_health_probe_failed', datalessFileCount: 0 });
-    });
-    child.once('close', (exitCode) => {
+    const onError = () => {
+      finish({
+        status: timedOut ? 'dependency_health_probe_timed_out' : 'dependency_health_probe_failed',
+        datalessFileCount: 0,
+      });
+    };
+    const onClose = (exitCode) => {
       if (timedOut) {
         finish({ status: 'dependency_health_probe_timed_out', datalessFileCount: 0 });
       } else if (exitCode === 0) {
@@ -134,7 +141,24 @@ export function probeDependencyHealth({
       } else {
         finish({ status: 'dependency_health_probe_failed', datalessFileCount: 0 });
       }
-    });
+    };
+
+    child.stdout?.on('data', onData);
+    child.once('error', onError);
+    child.once('close', onClose);
+    timeoutTimer = setTimeout(() => {
+      timedOut = true;
+      terminateProcessTree(child, { platform, spawnProcess, killProcess });
+      killTimer = setTimeout(() => {
+        terminateProcessTree(child, {
+          platform,
+          spawnProcess,
+          killProcess,
+          signal: 'SIGKILL',
+        });
+        finish({ status: 'dependency_health_probe_timed_out', datalessFileCount: 0 });
+      }, TERMINATION_GRACE_MS);
+    }, timeoutMs);
   });
 }
 
