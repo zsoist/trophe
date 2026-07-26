@@ -4,6 +4,7 @@ import { taskFallbacks } from '@/agents/router/policies';
 import { traced } from '@/agents/observability/langfuse';
 import { assertWithinRequestBudget } from './budget';
 import { estimateUsageCost } from './cost';
+import { classifyAiError, isFallbackEligible } from './error-classification';
 import { assertWithinOrganizationBudget, resolveOrganizationId } from './org-budget';
 import { completeGeneration, createGeneration, failGeneration } from './persistence';
 import type { RoutingPolicy } from '@/agents/router/policies';
@@ -106,15 +107,24 @@ export async function executeAiTask<T>(input: ExecuteAiTaskInput<T>): Promise<Ex
     return await attemptInvoke(input, policy, context, false);
   } catch (primaryError) {
     const fallback = taskFallbacks[input.task];
+    const category = classifyAiError(primaryError);
     // Most tasks skip fallback after timeout to avoid doubling response latency.
     // Tasks with an explicitly bounded end-to-end chain may opt in.
-    const isTimeout = primaryError && typeof primaryError === 'object' && '_isTimeout' in primaryError;
-    if (!fallback || (isTimeout && !policy.fallbackOnTimeout)) throw primaryError;
+    const isTimeout = category === 'timeout';
+    const isIdenticalFallback = fallback?.provider === policy.provider
+      && fallback.model === policy.model;
+    if (
+      !fallback
+      || !isFallbackEligible(category)
+      || (isTimeout && !policy.fallbackOnTimeout)
+      || isIdenticalFallback
+    ) {
+      throw primaryError;
+    }
 
-    const reason = primaryError instanceof Error ? primaryError.message : String(primaryError);
     console.warn(
-      `[ai-runtime] ${input.task}: ${policy.provider}/${policy.model} failed → ` +
-      `fallback ${fallback.provider}/${fallback.model} | ${reason}`,
+      `[ai-runtime] ${input.task}: ${policy.provider}/${policy.model} failed (${category}) → ` +
+      `fallback ${fallback.provider}/${fallback.model}`,
     );
 
     // Re-check org budget (the failed attempt may have consumed budget)

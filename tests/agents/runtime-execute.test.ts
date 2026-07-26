@@ -18,6 +18,63 @@ vi.mock('@/agents/runtime/org-budget', () => orgBudget);
 vi.mock('@/agents/observability/langfuse', () => observability);
 
 import { executeAiTask } from '@/agents/runtime/execute';
+import { classifyAiError, isFallbackEligible } from '@/agents/runtime/error-classification';
+
+function typedProviderError(
+  label: string,
+  fields: Record<string, unknown>,
+): Error & Record<string, unknown> {
+  return Object.assign(new Error(label), fields);
+}
+
+function errorWithThrowingStatus(): Error {
+  const error = new Error('untrusted error shape');
+  Object.defineProperty(error, 'status', {
+    get() {
+      throw new Error('status getter must not execute');
+    },
+  });
+  return error;
+}
+
+const fallbackSuccess = {
+  output: { suggestions: ['fallback meal'] },
+  usage: { inputTokens: 50, outputTokens: 10 },
+  latencyMs: 100,
+  rawStatus: 200,
+};
+
+describe('AI error classification', () => {
+  it.each([
+    { label: 'HTTP auth', error: typedProviderError('auth', { status: 401 }), expected: 'auth' },
+    { label: 'schema diagnostic', error: typedProviderError('schema', { status: 200, type: 'response_validation_error' }), expected: 'schema' },
+    { label: 'budget diagnostic', error: typedProviderError('budget', { status: 400, code: 'budget_exceeded' }), expected: 'budget' },
+    { label: 'policy diagnostic', error: typedProviderError('policy', { status: 400, code: 'content_policy_violation' }), expected: 'policy' },
+    { label: 'invalid-input diagnostic', error: typedProviderError('invalid', { status: 400, code: 'invalid_request_error' }), expected: 'invalid_input' },
+    { label: 'HTTP rate limit', error: typedProviderError('rate', { status: 429 }), expected: 'rate_limit' },
+    { label: 'HTTP request timeout', error: typedProviderError('request timeout', { status: 408 }), expected: 'transient' },
+    { label: 'HTTP server error', error: typedProviderError('server', { status: 503 }), expected: 'transient' },
+    { label: 'runtime timeout', error: typedProviderError('local timeout', { _isTimeout: true }), expected: 'timeout' },
+    { label: 'organization budget error', error: Object.assign(new Error('budget'), { name: 'OrganizationAiBudgetExceededError' }), expected: 'budget' },
+    { label: 'message-only error', error: new Error('HTTP 503 rate_limit_error'), expected: 'unknown' },
+  ] as const)('classifies $label as $expected', ({ error, expected }) => {
+    expect(classifyAiError(error)).toBe(expected);
+  });
+
+  it.each([
+    ['timeout', true],
+    ['rate_limit', true],
+    ['transient', true],
+    ['auth', false],
+    ['schema', false],
+    ['budget', false],
+    ['policy', false],
+    ['invalid_input', false],
+    ['unknown', false],
+  ] as const)('marks %s fallback eligibility as %s', (category, expected) => {
+    expect(isFallbackEligible(category)).toBe(expected);
+  });
+});
 
 describe('executeAiTask integration contract', () => {
   beforeEach(() => {
@@ -173,22 +230,24 @@ describe('executeAiTask integration contract', () => {
     })).rejects.toBe(providerError);
   });
 
-  it('falls back to secondary provider when primary fails', async () => {
+  it.each([
+    [429, 'rate_limit_exceeded'],
+    [408, undefined],
+    [409, undefined],
+    [500, undefined],
+    [502, undefined],
+    [503, undefined],
+  ] as const)('falls back to secondary provider for recoverable status %i', async (status, code) => {
     // Consumer text fails over from Luna to Haiku without reopening DeepSeek.
     let callCount = 0;
     const invoke = vi.fn(async ({ policy }: { policy: { provider: string } }) => {
       callCount++;
       if (callCount === 1) {
         expect(policy.provider).toBe('openai');
-        throw new Error('OpenAI rate limited');
+        throw typedProviderError('provider failure', { status, ...(code ? { code } : {}) });
       }
       expect(policy.provider).toBe('anthropic');
-      return {
-        output: { suggestions: ['fallback meal'] },
-        usage: { inputTokens: 50, outputTokens: 10 },
-        latencyMs: 100,
-        rawStatus: 200,
-      };
+      return fallbackSuccess;
     });
 
     const result = await executeAiTask({
@@ -211,6 +270,89 @@ describe('executeAiTask integration contract', () => {
     );
   });
 
+  it.each([
+    ['auth', typedProviderError('auth', { status: 403, code: 'insufficient_permissions' })],
+    ['schema', typedProviderError('schema', { status: 200, code: 'invalid_response' })],
+    ['budget', typedProviderError('budget', { status: 400, code: 'budget_exceeded' })],
+    ['policy', typedProviderError('policy', { status: 400, code: 'content_policy_violation' })],
+    ['invalid input', typedProviderError('invalid input', { status: 400, code: 'invalid_request_error' })],
+    ['unknown', new Error('HTTP 503 rate_limit_error')],
+  ])('does not fallback for %s errors and preserves their identity', async (_category, primaryError) => {
+    const invoke = vi.fn(async () => {
+      throw primaryError;
+    });
+
+    await expect(executeAiTask({
+      task: 'meal_suggest',
+      prompt: 'suggest a meal',
+      invoke,
+    })).rejects.toBe(primaryError);
+
+    expect(invoke).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    '429',
+    99,
+    600,
+    429.5,
+    Number.NaN,
+    errorWithThrowingStatus(),
+  ])('does not fallback when provider status is malformed (%s)', async (status) => {
+    const primaryError = status instanceof Error
+      ? status
+      : typedProviderError('malformed status', {
+        status,
+        code: 'rate_limit_error',
+      });
+    const invoke = vi.fn(async () => {
+      throw primaryError;
+    });
+
+    await expect(executeAiTask({
+      task: 'meal_suggest',
+      prompt: 'suggest a meal',
+      invoke,
+    })).rejects.toBe(primaryError);
+
+    expect(invoke).toHaveBeenCalledOnce();
+  });
+
+  it('skips fallback when provider and model match the primary', async () => {
+    const primaryError = typedProviderError('temporary outage', { status: 503 });
+    const invoke = vi.fn(async () => {
+      throw primaryError;
+    });
+
+    await expect(executeAiTask({
+      task: 'coach_insight',
+      prompt: 'summarize',
+      invoke,
+    })).rejects.toBe(primaryError);
+
+    expect(invoke).toHaveBeenCalledOnce();
+  });
+
+  it('never invokes fallback more than once', async () => {
+    const fallbackError = typedProviderError('fallback unavailable', { status: 503 });
+    let attempts = 0;
+    const invoke = vi.fn(async () => {
+      attempts++;
+      if (attempts === 1) {
+        throw typedProviderError('primary unavailable', { status: 503 });
+      }
+      throw fallbackError;
+    });
+
+    await expect(executeAiTask({
+      task: 'meal_suggest',
+      prompt: 'suggest a meal',
+      invoke,
+    })).rejects.toBe(fallbackError);
+
+    expect(invoke).toHaveBeenCalledTimes(2);
+  });
+
   it('aborts provider work when the task timeout expires', async () => {
     vi.useFakeTimers();
     const invoke = vi.fn(({ signal }: { signal: AbortSignal }) => new Promise<never>((_, reject) => {
@@ -227,6 +369,7 @@ describe('executeAiTask integration contract', () => {
 
     await rejection;
     expect(invoke.mock.calls[0]?.[0].signal.aborted).toBe(true);
+    expect(invoke).toHaveBeenCalledOnce();
     vi.useRealTimers();
   });
 
