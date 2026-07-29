@@ -18,7 +18,7 @@ import { z } from 'zod';
 import { router, protectedProcedure, coachProcedure } from '../init';
 import { foodLog, foodParseCorrections } from '@/db/schema/food';
 import { foods } from '@/db/schema/foods';
-import { eq, and, desc, ilike, sql } from 'drizzle-orm';
+import { eq, and, desc, sql } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import { assertCanAccessClient } from '@/lib/auth/tenant-access';
 import { recordAuditEvent } from '@/lib/utils/audit';
@@ -46,6 +46,15 @@ type FoodLogRow = typeof foodLog.$inferSelect;
 const num = (v: number | string | null | undefined): number =>
   v == null ? 0 : Number(v);
 const round1 = (v: number): number => Math.round(v * 10) / 10;
+
+export const foodSearchInputSchema = z.object({
+  query: z.string().trim().min(2).max(200),
+  limit: z.number().int().min(1).max(20).default(10),
+});
+
+export function escapeFoodSearchPattern(query: string): string {
+  return `%${query.replace(/[\\%_]/g, '\\$&')}%`;
+}
 
 /**
  * Is this entry AI-sourced (i.e. a correction to it is a training label)?
@@ -528,22 +537,30 @@ export const foodRouter = router({
 
   // ── Reference food search ────────────────────────────────────────────
   search: protectedProcedure
-    .input(
-      z.object({
-        query: z.string().min(1).max(200),
-        limit: z.number().min(1).max(20).default(10),
-      }),
-    )
+    .input(foodSearchInputSchema)
     .query(async ({ ctx, input }) => {
-      const q = `%${input.query}%`;
+      const q = escapeFoodSearchPattern(input.query);
+      const foodSearchText = sql<string>`(
+        COALESCE(${foods.nameEn}, '') || ' ' ||
+        COALESCE(${foods.nameEl}, '') || ' ' ||
+        COALESCE(${foods.nameEs}, '') || ' ' ||
+        COALESCE(${foods.nameFr}, '') || ' ' ||
+        COALESCE(${foods.nameIt}, '') || ' ' ||
+        COALESCE(${foods.nameNl}, '') || ' ' ||
+        COALESCE(${foods.brand}, '')
+      )`;
 
-      // Simple ilike search — Phase 4 lookup.ts handles hybrid pgvector search
-      // This endpoint is for the food log UI autocomplete (fast, no embedding needed)
+      // This expression exactly matches the trigram GIN index in migration 0063.
+      // It keeps substring autocomplete multilingual without invoking embeddings.
       const rows = await ctx.db
         .select({
           id: foods.id,
           nameEn: foods.nameEn,
           nameEl: foods.nameEl,
+          nameEs: foods.nameEs,
+          nameFr: foods.nameFr,
+          nameIt: foods.nameIt,
+          nameNl: foods.nameNl,
           brand: foods.brand,
           kcalPer100g: foods.kcalPer100g,
           proteinPer100g: foods.proteinPer100g,
@@ -553,7 +570,8 @@ export const foodRouter = router({
           dataQuality: foods.dataQuality,
         })
         .from(foods)
-        .where(ilike(foods.nameEn, q))
+        .where(sql`${foodSearchText} ILIKE ${q} ESCAPE '\\'`)
+        .orderBy(desc(foods.popularity), foods.nameEn)
         .limit(input.limit);
 
       return rows;
