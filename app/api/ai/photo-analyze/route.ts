@@ -6,6 +6,7 @@ import {
   normalizePhotoAnalysisFoods,
   type PhotoAnalysisFood,
 } from '@/lib/food/photo-analysis';
+import { safeErrorMetadata } from '@/lib/security/safe-error-log';
 
 interface PhotoAnalyzeRequest {
   imageBase64: string;
@@ -177,7 +178,7 @@ export async function POST(request: NextRequest) {
       foods: foods satisfies PhotoAnalysisFood[],
     });
   } catch (error) {
-    console.error('Photo analysis error:', error);
+    console.error('[photo-analyze] unhandled error', safeErrorMetadata(error));
     return NextResponse.json(
       { error: 'Failed to analyze photo' },
       { status: 500 },

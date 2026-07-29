@@ -24,6 +24,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { FoodParseInput, FoodParseOutput, ParsedFoodItem } from '../schemas/food-parse';
+import { safeErrorMetadata } from '../../lib/security/safe-error-log';
 import { enrichWithLocalDB } from './enrich';
 import { lookupFoodBatch, ragPreSearch, formatRagContext, correctFoodName } from './lookup';
 import type { LookupInput } from './lookup';
@@ -742,7 +743,7 @@ async function estimateMacrosViaLLM(
       };
     });
   } catch (err) {
-    console.error('[food-parse] LLM macro estimation failed:', err);
+    console.error('[food-parse] LLM macro estimation failed', safeErrorMetadata(err));
     return items.map(() => null);
   }
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { guardAiRoute } from '@/lib/security/api-guard';
 import { run } from '@/agents/food-parse';
 import { annotateGenerationMetadata } from '@/agents/runtime/persistence';
+import { safeErrorMetadata } from '@/lib/security/safe-error-log';
 import { z } from 'zod';
 
 export type { ParsedFoodItem } from '@/agents/schemas/food-parse';
@@ -47,7 +48,10 @@ async function recordFinalOutcome(
   await annotateGenerationMetadata(generationId, {
     ...metadata,
     apiOutcome: outcome,
-  }).catch((error) => console.error('[food-parse] outcome annotation failed', error));
+  }).catch((error) => console.error(
+    '[food-parse] outcome annotation failed',
+    safeErrorMetadata(error),
+  ));
 }
 
 function classifyParseFailure(rawError: string, rawStatus: number, errorCode?: string): ClassifiedFailure {
@@ -132,7 +136,7 @@ export async function POST(request: NextRequest) {
         rawStatus: t.rawStatus,
         model: t.model,
         traceId: t.traceId,
-        error: result.error,
+        pipelineErrorCode: result.errorCode ?? 'unclassified',
       });
       await recordFinalOutcome(t.traceId, 'malformed', telemetryMetadata);
       return NextResponse.json(
@@ -145,7 +149,7 @@ export async function POST(request: NextRequest) {
     await recordFinalOutcome(t.traceId, 'success', telemetryMetadata);
     return NextResponse.json(result.output);
   } catch (error) {
-    console.error('Food parse error:', error);
+    console.error('[food-parse] unhandled error', safeErrorMetadata(error));
     await recordFinalOutcome(generationId, 'malformed', telemetryMetadata);
     return NextResponse.json(
       {

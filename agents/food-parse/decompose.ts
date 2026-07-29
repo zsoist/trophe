@@ -27,6 +27,7 @@ import { invokeStructuredProvider } from '../runtime/providers/structured';
 import { lookupFood, COMMON_PIECE_WEIGHTS, correctFoodName } from './lookup';
 import type { LookupInput, LookupResult } from './lookup';
 import type { ParsedFoodItem } from '../schemas/food-parse';
+import { safeErrorMetadata } from '../../lib/security/safe-error-log';
 import { classifyIngredient, getCategoryMacros } from './food-category-defaults';
 
 // ── Zod schema for LLM decomposition output ──────────────────────────────────
@@ -236,7 +237,7 @@ async function llmDecompose(
     return generation.output;
   } catch (err) {
     // Zod validation error or provider failure — treat as decomposition miss
-    console.warn('[decompose] LLM structured call failed:', err instanceof Error ? err.message : err);
+    console.warn('[decompose] LLM structured call failed', safeErrorMetadata(err));
     return null;
   }
 }
@@ -275,7 +276,7 @@ async function cacheRecipe(
     `);
   } catch (err) {
     // Non-critical — cache miss is OK, just means next call will re-decompose
-    console.warn('[decompose] Cache write failed:', err instanceof Error ? err.message : err);
+    console.warn('[decompose] Cache write failed', safeErrorMetadata(err));
   }
 }
 
@@ -485,16 +486,18 @@ export async function decomposeAndLookup(input: DecomposeInput): Promise<ParsedF
   // 0.35 threshold: allows 2/5 or 3/7 ingredients matched (partial but usable).
   // Between 0.35-0.5: accept but with reduced confidence (set below).
   if (matchRatio < 0.35) {
-    console.warn(`[decompose] Low match ratio (${matchedCount}/${decomposition.ingredients.length}) for "${input.foodName}" — using governed fallback`);
+    console.warn(
+      `[decompose] Low match ratio (${matchedCount}/${decomposition.ingredients.length}) — using governed fallback`,
+    );
     return null;
   }
 
   // Log which ingredients used category defaults
   if (matchRatio < 1) {
-    const fallbackNames = ingredientDetails
-      .filter(d => d.food_id === null)
-      .map(d => d.food_name);
-    console.warn(`[decompose] Partial match (${matchedCount}/${decomposition.ingredients.length}) for "${input.foodName}" — category defaults used for: ${fallbackNames.join(', ')}`);
+    const fallbackCount = ingredientDetails.filter(d => d.food_id === null).length;
+    console.warn(
+      `[decompose] Partial match (${matchedCount}/${decomposition.ingredients.length}) — category defaults used for ${fallbackCount} ingredient(s)`,
+    );
   }
 
   // Round totals
