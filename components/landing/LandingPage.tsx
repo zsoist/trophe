@@ -134,7 +134,7 @@ function AppPreview() {
 
           {/* App header */}
           <div className="px-4 pt-2 pb-3">
-            <p className="text-[10px] text-stone-500 font-mono tracking-wider uppercase">Today</p>
+            <p className="text-[10px] text-stone-500 tracking-wider uppercase">Today</p>
             <div className="flex items-baseline justify-between mt-1">
               <p className="text-stone-200 text-sm font-semibold">Monday, Jun 9</p>
             </div>
@@ -305,7 +305,7 @@ export default function LandingPage({ lang }: { lang: LandingLang }) {
             {/* Left — Copy */}
             <div className="flex-1 text-center lg:text-left">
               {/* Eyebrow */}
-              <p className="font-mono text-[10px] sm:text-xs tracking-[0.2em] uppercase text-[#D4A853]/70 mb-6">
+              <p className="text-[10px] sm:text-xs tracking-[0.2em] uppercase text-[#D4A853]/70 mb-6">
                 {t.hero_tag}
               </p>
 
@@ -358,7 +358,7 @@ export default function LandingPage({ lang }: { lang: LandingLang }) {
       <section className="px-6 py-16 sm:py-24">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-12 sm:mb-16">
-            <p className="font-mono text-[10px] tracking-[0.2em] uppercase text-[#D4A853]/60 mb-3">
+            <p className="text-[10px] tracking-[0.2em] uppercase text-[#D4A853]/60 mb-3">
               {t.features_tag}
             </p>
             <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-stone-100 tracking-tight">
@@ -387,7 +387,7 @@ export default function LandingPage({ lang }: { lang: LandingLang }) {
       <section className="px-6 py-16 sm:py-24 border-t border-white/[0.04]">
         <div className="max-w-3xl mx-auto">
           <div className="text-center mb-12">
-            <p className="font-mono text-[10px] tracking-[0.2em] uppercase text-[#D4A853]/60 mb-3">
+            <p className="text-[10px] tracking-[0.2em] uppercase text-[#D4A853]/60 mb-3">
               {t.how_tag}
             </p>
             <h2 className="text-2xl sm:text-3xl font-bold text-stone-100 tracking-tight">
@@ -402,7 +402,7 @@ export default function LandingPage({ lang }: { lang: LandingLang }) {
                 className="scroll-reveal flex gap-5 items-start"
               >
                 <div className="w-12 h-12 rounded-2xl bg-[#D4A853]/10 border border-[#D4A853]/20 flex items-center justify-center flex-shrink-0">
-                  <span className="font-mono text-sm font-bold text-[#D4A853]">{step.n}</span>
+                  <span className="text-sm font-bold text-[#D4A853]">{step.n}</span>
                 </div>
                 <div className="pt-1">
                   <h3 className="text-stone-100 text-base font-semibold mb-1">{step.title[lang]}</h3>
@@ -418,7 +418,7 @@ export default function LandingPage({ lang }: { lang: LandingLang }) {
       <section className="px-6 py-16 sm:py-24 border-t border-white/[0.04]">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-12">
-            <p className="font-mono text-[10px] tracking-[0.2em] uppercase text-[#D4A853]/60 mb-3">
+            <p className="text-[10px] tracking-[0.2em] uppercase text-[#D4A853]/60 mb-3">
               {t.coming_tag}
             </p>
             <h2 className="text-2xl sm:text-3xl font-bold text-stone-100 tracking-tight mb-3">
@@ -437,7 +437,7 @@ export default function LandingPage({ lang }: { lang: LandingLang }) {
               >
                 {/* Coming soon badge */}
                 <div className="absolute top-3 right-3">
-                  <span className="font-mono text-[8px] tracking-widest uppercase px-2 py-0.5 rounded-full bg-[#D4A853]/10 text-[#D4A853]/60 border border-[#D4A853]/15">
+                  <span className="text-[8px] tracking-widest uppercase px-2 py-0.5 rounded-full bg-[#D4A853]/10 text-[#D4A853]/60 border border-[#D4A853]/15">
                     {t.coming_tag}
                   </span>
                 </div>
@@ -460,14 +460,14 @@ export default function LandingPage({ lang }: { lang: LandingLang }) {
       <section className="px-6 py-14 border-t border-white/[0.04]">
         <div className="max-w-4xl mx-auto">
           <div className="evidence-band scroll-reveal">
-            <p className="font-mono text-[10px] tracking-[0.2em] uppercase text-[#D4A853]/50 mb-5 text-center">
+            <p className="text-[10px] tracking-[0.2em] uppercase text-[#D4A853]/50 mb-5 text-center">
               {t.numbers_tag}
             </p>
             <div className="flex flex-wrap justify-center gap-2.5">
               {evidenceSources.map((source) => (
                 <span
                   key={source}
-                  className="font-mono text-[11px] sm:text-xs text-stone-400 px-3.5 py-1.5 rounded-full border border-white/[0.06] bg-white/[0.02]"
+                  className="text-[11px] sm:text-xs text-stone-400 px-3.5 py-1.5 rounded-full border border-white/[0.06] bg-white/[0.02]"
                 >
                   {source}
                 </span>
@@ -495,7 +495,7 @@ export default function LandingPage({ lang }: { lang: LandingLang }) {
               {t.bottom_cta}
               <ChevronRight size={18} className="group-hover:translate-x-0.5 transition-transform" />
             </Link>
-            <p className="text-stone-700 text-[10px] font-mono tracking-wider uppercase mt-8">
+            <p className="font-[system-ui] text-stone-700 text-[10px] tracking-wider uppercase mt-8">
               <Globe size={10} className="inline mr-1 -mt-px" />
               English · Español · Ελληνικά
             </p>
@@ -515,7 +515,7 @@ export default function LandingPage({ lang }: { lang: LandingLang }) {
               Trust &amp; Data Protection
             </a>
           </div>
-          <p className="text-stone-700 text-[10px]">
+          <p className="font-[system-ui] text-stone-700 text-[10px]">
             &copy; 2026 Trophē
           </p>
         </div>

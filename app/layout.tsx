@@ -8,6 +8,7 @@ const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin", "greek"],
   display: "swap",
+  preload: false,
 });
 
 /**
@@ -23,6 +24,7 @@ const instrumentSerif = Instrument_Serif({
   style: ["normal", "italic"],
   subsets: ["latin"],
   display: "swap",
+  preload: false,
 });
 
 // Mono is only used for small numeric/metric labels deep in the app — never
