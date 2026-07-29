@@ -102,7 +102,17 @@ export function buildLocalDevEnv(baseEnv, status, port) {
   return env;
 }
 
-export async function withDisposableUsers({ admin, users, execute }) {
+async function defaultCleanupRetryDelay(attempt) {
+  await new Promise((resolve) => setTimeout(resolve, attempt * 150));
+}
+
+export async function withDisposableUsers({
+  admin,
+  users,
+  execute,
+  cleanupAttempts = 3,
+  cleanupRetryDelay = defaultCleanupRetryDelay,
+}) {
   const createdIds = [];
   let executionError;
   let result;
@@ -120,10 +130,17 @@ export async function withDisposableUsers({ admin, users, execute }) {
 
   let cleanupError;
   for (const id of [...createdIds].reverse()) {
-    try {
-      await admin.deleteUser(id);
-    } catch (error) {
-      cleanupError ??= error;
+    for (let attempt = 1; attempt <= cleanupAttempts; attempt++) {
+      try {
+        await admin.deleteUser(id);
+        break;
+      } catch (error) {
+        if (attempt === cleanupAttempts) {
+          cleanupError ??= error;
+          break;
+        }
+        await cleanupRetryDelay(attempt);
+      }
     }
   }
 

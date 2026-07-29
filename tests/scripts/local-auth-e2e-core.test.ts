@@ -172,4 +172,30 @@ describe('local authenticated E2E harness', () => {
       'delete:client-id',
     ]);
   });
+
+  it('retries transient cleanup failures without leaking disposable users', async () => {
+    const attempts: string[] = [];
+    const users = [
+      { email: 'client@test.invalid', password: 'one', role: 'client' as const },
+    ];
+    const admin = {
+      async createUser() {
+        return { id: 'client-id' };
+      },
+      async provisionProfile() {},
+      async deleteUser(id: string) {
+        attempts.push(id);
+        if (attempts.length < 3) throw new Error('transient socket close');
+      },
+    };
+
+    await expect(withDisposableUsers({
+      admin,
+      users,
+      execute: async () => 'passed',
+      cleanupRetryDelay: async () => {},
+    })).resolves.toBe('passed');
+
+    expect(attempts).toEqual(['client-id', 'client-id', 'client-id']);
+  });
 });
