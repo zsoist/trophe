@@ -235,6 +235,7 @@ export const it: Record<string, string> = {
   'profile.language_save_failed': 'I dati nutrizionali sono stati salvati, ma la lingua no — riprova',
   'profile.invalid_body': 'Controlla età, altezza e peso prima di salvare',
   'profile.macros_adjusted': 'Proteine e grassi sono stati adattati all’obiettivo calorico. Il tuo coach può rivedere questi valori iniziali.',
+  'profile.load_failed': 'Non è stato possibile caricare il profilo — riprova',
   'profile.log_out': 'Esci',
 
   // ── Goal labels ──

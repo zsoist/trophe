@@ -80,6 +80,7 @@ function SectionCard({ id, title, icon, children, delay = 0 }: {
 export default function ProfilePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -109,8 +110,14 @@ export default function ProfilePage() {
   };
 
   const loadData = useCallback(async () => {
+    setLoading(true);
+    setLoadError(false);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
+      if (authError) throw new Error('profile_load_failed');
       if (!user) { router.push('/login'); return; }
 
       const [profRes, cpRes] = await Promise.all([
@@ -118,22 +125,27 @@ export default function ProfilePage() {
         supabase.from('client_profiles').select('*').eq('user_id', user.id).maybeSingle(),
       ]);
 
-      if (profRes.data) {
-        setProfile(profRes.data);
-        setLanguage(profRes.data.language || 'en');
+      const loadFailure = profRes.error || cpRes.error;
+      if (loadFailure || !profRes.data) {
+        throw new Error('profile_load_failed');
       }
-      if (cpRes.data) {
-        const cp = cpRes.data;
-        setClientProfile(cp);
-        setAge(cp.age?.toString() ?? '');
-        setSex(cp.sex ?? 'male');
-        setHeightCm(cp.height_cm?.toString() ?? '');
-        setWeightKg(cp.weight_kg?.toString() ?? '');
-        setActivity(cp.activity_level ?? 'moderate');
-        setGoal(cp.goal ?? 'maintenance');
+      if (!cpRes.data) {
+        router.replace('/onboarding');
+        return;
       }
-    } catch (err) {
-      console.error('Profile load error:', err);
+
+      setProfile(profRes.data);
+      setLanguage(profRes.data.language || 'en');
+      const cp = cpRes.data;
+      setClientProfile(cp);
+      setAge(cp.age?.toString() ?? '');
+      setSex(cp.sex ?? 'male');
+      setHeightCm(cp.height_cm?.toString() ?? '');
+      setWeightKg(cp.weight_kg?.toString() ?? '');
+      setActivity(cp.activity_level ?? 'moderate');
+      setGoal(cp.goal ?? 'maintenance');
+    } catch {
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -264,6 +276,24 @@ export default function ProfilePage() {
               </div>
             ))}
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div
+        className="min-h-screen flex items-center justify-center px-4"
+        style={{ background: 'var(--bg,#0a0a0a)' }}
+      >
+        <div className="glass w-full max-w-sm p-6 text-center">
+          <p role="alert" className="mb-4 text-sm leading-relaxed text-stone-300">
+            {t('profile.load_failed')}
+          </p>
+          <button type="button" onClick={loadData} className="btn-gold w-full rounded-xl py-3 text-sm font-semibold">
+            {t('food.retry')}
+          </button>
         </div>
       </div>
     );

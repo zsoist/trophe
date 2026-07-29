@@ -10,6 +10,7 @@ describe('profile save feedback translations', () => {
       'profile.language_save_failed',
       'profile.invalid_body',
       'profile.macros_adjusted',
+      'profile.load_failed',
     ]) {
       expect(core).toContain(`'${key}': { en:`);
       for (const locale of ['de', 'fr', 'it', 'nl', 'pt']) {

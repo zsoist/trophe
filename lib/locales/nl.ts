@@ -235,6 +235,7 @@ export const nl: Record<string, string> = {
   'profile.language_save_failed': 'Voedingsgegevens zijn opgeslagen, maar de taal niet — probeer opnieuw',
   'profile.invalid_body': 'Controleer leeftijd, lengte en gewicht voordat je opslaat',
   'profile.macros_adjusted': 'Eiwit en vet zijn aangepast aan het caloriedoel. Je coach kan deze startwaarden beoordelen.',
+  'profile.load_failed': 'Je profiel kon niet worden geladen — probeer opnieuw',
   'profile.log_out': 'Uitloggen',
 
   // ── Goal labels ──
