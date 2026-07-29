@@ -1,0 +1,61 @@
+{
+  "provider": "anthropic",
+  "scenarios": [
+    {
+      "id": "anthropic_success",
+      "reportCategory": "success",
+      "runtimeCategory": "success",
+      "expectedAttempts": 1,
+      "expectedFallbackUsed": false,
+      "expectedSuccess": true,
+      "expectedUsage": { "inputTokens": 110, "outputTokens": 18 },
+      "steps": [{ "kind": "response", "status": 200, "body": { "id": "msg_offline_success", "content": [{ "type": "tool_use", "name": "submit_result", "input": { "value": "ok" } }], "usage": { "input_tokens": 110, "output_tokens": 18 } } }]
+    },
+    {
+      "id": "anthropic_cache_read_write",
+      "reportCategory": "cache_accounting",
+      "runtimeCategory": "success",
+      "expectedAttempts": 1,
+      "expectedFallbackUsed": false,
+      "expectedSuccess": true,
+      "expectedUsage": { "inputTokens": 180, "outputTokens": 16, "cacheReadTokens": 60, "cacheWriteTokens": 30 },
+      "steps": [{ "kind": "response", "status": 200, "body": { "id": "msg_offline_cache", "content": [{ "type": "tool_use", "name": "submit_result", "input": { "value": "cached" } }], "usage": { "input_tokens": 180, "output_tokens": 16, "cache_read_input_tokens": 60, "cache_creation_input_tokens": 30 } } }]
+    },
+    {
+      "id": "anthropic_forbidden_redacted",
+      "reportCategory": "auth",
+      "runtimeCategory": "auth",
+      "expectedAttempts": 1,
+      "expectedFallbackUsed": false,
+      "expectedSuccess": false,
+      "steps": [{ "kind": "response", "status": 403, "headers": { "request-id": "req_anthropic403" }, "body": { "error": { "code": "forbidden", "type": "permission_error", "message": "SENSITIVE_SENTINEL_DO_NOT_LOG" } } }]
+    },
+    {
+      "id": "anthropic_malformed_json",
+      "reportCategory": "malformed_json",
+      "runtimeCategory": "schema",
+      "expectedAttempts": 1,
+      "expectedFallbackUsed": false,
+      "expectedSuccess": false,
+      "steps": [{ "kind": "response", "status": 200, "rawBody": "{SENSITIVE_SENTINEL_DO_NOT_LOG" }]
+    },
+    {
+      "id": "anthropic_missing_tool_call",
+      "reportCategory": "missing_tool_call",
+      "runtimeCategory": "schema",
+      "expectedAttempts": 1,
+      "expectedFallbackUsed": false,
+      "expectedSuccess": false,
+      "steps": [{ "kind": "response", "status": 200, "body": { "id": "msg_missing_tool", "content": [{ "type": "text", "text": "SENSITIVE_SENTINEL_DO_NOT_LOG" }], "usage": { "input_tokens": 25, "output_tokens": 4 } } }]
+    },
+    {
+      "id": "anthropic_schema_failure",
+      "reportCategory": "schema",
+      "runtimeCategory": "schema",
+      "expectedAttempts": 1,
+      "expectedFallbackUsed": false,
+      "expectedSuccess": false,
+      "steps": [{ "kind": "response", "status": 200, "body": { "id": "msg_schema_failure", "content": [{ "type": "tool_use", "name": "submit_result", "input": { "value": 7 } }], "usage": { "input_tokens": 30, "output_tokens": 5 } } }]
+    }
+  ]
+}

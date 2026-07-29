@@ -1,0 +1,279 @@
+{
+  "title": "offline provider-contract evaluation",
+  "generatedAt": "2026-07-29T13:55:04.965Z",
+  "evidenceKind": "offline_provider_contract",
+  "liveModelQualityEvidence": false,
+  "networkPolicy": "injected_fixture_transports_only",
+  "summary": {
+    "total": 17,
+    "passed": 17,
+    "failed": 0,
+    "passRate": 1,
+    "liveTransportAttempts": 0
+  },
+  "results": [
+    {
+      "id": "openai_success",
+      "provider": "openai",
+      "attempts": 1,
+      "fallbackUsed": false,
+      "category": "success",
+      "usage": {
+        "inputTokens": 120,
+        "outputTokens": 24,
+        "cacheReadTokens": 0,
+        "cacheWriteTokens": 0,
+        "reasoningTokens": 0
+      },
+      "estimatedCostUsd": 0.000264,
+      "passed": true,
+      "leakedSentinel": false
+    },
+    {
+      "id": "openai_cache_read_write",
+      "provider": "openai",
+      "attempts": 1,
+      "fallbackUsed": false,
+      "category": "cache_accounting",
+      "usage": {
+        "inputTokens": 200,
+        "outputTokens": 20,
+        "cacheReadTokens": 80,
+        "cacheWriteTokens": 40,
+        "reasoningTokens": 3
+      },
+      "estimatedCostUsd": 0.00025800000000000004,
+      "passed": true,
+      "leakedSentinel": false
+    },
+    {
+      "id": "openai_forbidden_redacted",
+      "provider": "openai",
+      "attempts": 1,
+      "fallbackUsed": false,
+      "category": "auth",
+      "usage": {
+        "inputTokens": 0,
+        "outputTokens": 0
+      },
+      "estimatedCostUsd": 0,
+      "passed": true,
+      "leakedSentinel": false
+    },
+    {
+      "id": "openai_rate_limit_retry",
+      "provider": "openai",
+      "attempts": 2,
+      "fallbackUsed": false,
+      "category": "rate_limit",
+      "usage": {
+        "inputTokens": 90,
+        "outputTokens": 12,
+        "cacheReadTokens": 0,
+        "cacheWriteTokens": 0,
+        "reasoningTokens": 0
+      },
+      "estimatedCostUsd": 0.000162,
+      "passed": true,
+      "leakedSentinel": false
+    },
+    {
+      "id": "openai_transient_retry",
+      "provider": "openai",
+      "attempts": 2,
+      "fallbackUsed": false,
+      "category": "transient",
+      "usage": {
+        "inputTokens": 95,
+        "outputTokens": 13,
+        "cacheReadTokens": 0,
+        "cacheWriteTokens": 0,
+        "reasoningTokens": 0
+      },
+      "estimatedCostUsd": 0.000173,
+      "passed": true,
+      "leakedSentinel": false
+    },
+    {
+      "id": "openai_abort",
+      "provider": "openai",
+      "attempts": 1,
+      "fallbackUsed": false,
+      "category": "abort",
+      "usage": {
+        "inputTokens": 0,
+        "outputTokens": 0
+      },
+      "estimatedCostUsd": 0,
+      "passed": true,
+      "leakedSentinel": false
+    },
+    {
+      "id": "openai_malformed_json",
+      "provider": "openai",
+      "attempts": 1,
+      "fallbackUsed": false,
+      "category": "malformed_json",
+      "usage": {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "cacheReadTokens": 0,
+        "cacheWriteTokens": 0,
+        "reasoningTokens": 0
+      },
+      "estimatedCostUsd": 0,
+      "passed": true,
+      "leakedSentinel": false
+    },
+    {
+      "id": "openai_missing_tool_call",
+      "provider": "openai",
+      "attempts": 1,
+      "fallbackUsed": false,
+      "category": "missing_tool_call",
+      "usage": {
+        "inputTokens": 20,
+        "outputTokens": 2,
+        "cacheReadTokens": 0,
+        "cacheWriteTokens": 0,
+        "reasoningTokens": 0
+      },
+      "estimatedCostUsd": 0.000032000000000000005,
+      "passed": true,
+      "leakedSentinel": false
+    },
+    {
+      "id": "openai_schema_failure",
+      "provider": "openai",
+      "attempts": 1,
+      "fallbackUsed": false,
+      "category": "schema",
+      "usage": {
+        "inputTokens": 30,
+        "outputTokens": 3,
+        "cacheReadTokens": 0,
+        "cacheWriteTokens": 0,
+        "reasoningTokens": 0
+      },
+      "estimatedCostUsd": 0.000048,
+      "passed": true,
+      "leakedSentinel": false
+    },
+    {
+      "id": "openai_to_anthropic_fallback",
+      "provider": "openai",
+      "attempts": 2,
+      "fallbackUsed": true,
+      "category": "fallback_success",
+      "usage": {
+        "inputTokens": 70,
+        "outputTokens": 9,
+        "cacheWriteTokens": 10,
+        "cacheReadTokens": 5
+      },
+      "estimatedCostUsd": 0.00011300000000000001,
+      "passed": true,
+      "leakedSentinel": false
+    },
+    {
+      "id": "openai_anthropic_fallback_exhausted",
+      "provider": "openai",
+      "attempts": 2,
+      "fallbackUsed": true,
+      "category": "fallback_exhausted",
+      "usage": {
+        "inputTokens": 0,
+        "outputTokens": 0
+      },
+      "estimatedCostUsd": 0,
+      "passed": true,
+      "leakedSentinel": false
+    },
+    {
+      "id": "anthropic_success",
+      "provider": "anthropic",
+      "attempts": 1,
+      "fallbackUsed": false,
+      "category": "success",
+      "usage": {
+        "inputTokens": 110,
+        "outputTokens": 18
+      },
+      "estimatedCostUsd": 0.0002,
+      "passed": true,
+      "leakedSentinel": false
+    },
+    {
+      "id": "anthropic_cache_read_write",
+      "provider": "anthropic",
+      "attempts": 1,
+      "fallbackUsed": false,
+      "category": "cache_accounting",
+      "usage": {
+        "inputTokens": 180,
+        "outputTokens": 16,
+        "cacheWriteTokens": 30,
+        "cacheReadTokens": 60
+      },
+      "estimatedCostUsd": 0.0002135,
+      "passed": true,
+      "leakedSentinel": false
+    },
+    {
+      "id": "anthropic_forbidden_redacted",
+      "provider": "anthropic",
+      "attempts": 1,
+      "fallbackUsed": false,
+      "category": "auth",
+      "usage": {
+        "inputTokens": 0,
+        "outputTokens": 0
+      },
+      "estimatedCostUsd": 0,
+      "passed": true,
+      "leakedSentinel": false
+    },
+    {
+      "id": "anthropic_malformed_json",
+      "provider": "anthropic",
+      "attempts": 1,
+      "fallbackUsed": false,
+      "category": "malformed_json",
+      "usage": {
+        "inputTokens": 0,
+        "outputTokens": 0
+      },
+      "estimatedCostUsd": 0,
+      "passed": true,
+      "leakedSentinel": false
+    },
+    {
+      "id": "anthropic_missing_tool_call",
+      "provider": "anthropic",
+      "attempts": 1,
+      "fallbackUsed": false,
+      "category": "missing_tool_call",
+      "usage": {
+        "inputTokens": 25,
+        "outputTokens": 4
+      },
+      "estimatedCostUsd": 0.000045,
+      "passed": true,
+      "leakedSentinel": false
+    },
+    {
+      "id": "anthropic_schema_failure",
+      "provider": "anthropic",
+      "attempts": 1,
+      "fallbackUsed": false,
+      "category": "schema",
+      "usage": {
+        "inputTokens": 0,
+        "outputTokens": 0
+      },
+      "estimatedCostUsd": 0,
+      "passed": true,
+      "leakedSentinel": false
+    }
+  ]
+}

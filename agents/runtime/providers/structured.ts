@@ -3,7 +3,7 @@ import {
   callGeminiMessages,
   type GeminiGenerateContent,
 } from '@/agents/clients/google';
-import { invokeAnthropicJson } from './anthropic';
+import { AnthropicApiError, invokeAnthropicJson } from './anthropic';
 import { invokeDeepSeekStructured } from './deepseek';
 import { invokeOpenAiStructured } from './openai';
 import type { RoutingPolicy } from '@/agents/router/policies';
@@ -167,7 +167,17 @@ export async function invokeStructuredProvider<T>(input: {
     const toolUse = result.output.content.find(
       (c) => c.type === 'tool_use' && c.name === toolName,
     );
-    if (!toolUse?.input) throw new Error('Anthropic structured response missing tool call');
+    if (!toolUse?.input) {
+      throw new AnthropicApiError({
+        message: 'Anthropic structured response missing tool call',
+        status: result.rawStatus,
+        code: 'invalid_response',
+        type: 'response_validation_error',
+        usage: result.usage,
+        latencyMs: result.latencyMs,
+        providerGenerationId: result.providerGenerationId,
+      });
+    }
     return {
       output: input.validator.parse(toolUse.input),
       usage: result.usage,

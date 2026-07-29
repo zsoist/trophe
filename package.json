@@ -16,6 +16,7 @@
     "test:e2e": "playwright test",
     "test:e2e:install": "playwright install --with-deps chromium",
     "evals": "tsx agents/evals/run-all.ts",
+    "evals:offline:providers": "tsx agents/evals/offline/run-provider-contracts.ts",
     "evals:colombian-search": "tsx scripts/eval/run-colombian-search-cases.ts",
     "evals:nutrition": "tsx scripts/eval/run-greek-colombian-prod.ts",
     "evals:nutrition:enterprise": "tsx scripts/eval/run-nutrition-enterprise-prod.ts",
