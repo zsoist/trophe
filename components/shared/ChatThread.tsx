@@ -22,6 +22,7 @@ import {
   releaseUnreferencedPreviewUrls,
 } from '@/lib/chat/preview-url-lifecycle';
 import { chronologicalFromNewest } from '@/lib/chat/message-order';
+import { stopMediaStream } from '@/lib/chat/media-recorder-lifecycle';
 
 export interface ChatMessage {
   id: string;
@@ -84,15 +85,19 @@ async function signedUrl(path: string): Promise<string | null> {
 /** Downscale to ≤1600px JPEG — chat photos never need more. */
 async function compressImage(file: File): Promise<{ blob: Blob; width: number; height: number }> {
   const bitmap = await createImageBitmap(file);
-  const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
-  const w = Math.round(bitmap.width * scale);
-  const h = Math.round(bitmap.height * scale);
-  const canvas = document.createElement('canvas');
-  canvas.width = w; canvas.height = h;
-  canvas.getContext('2d')!.drawImage(bitmap, 0, 0, w, h);
-  const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, 'image/jpeg', 0.85));
-  if (!blob) throw new Error('compress failed');
-  return { blob, width: w, height: h };
+  try {
+    const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
+    const w = Math.round(bitmap.width * scale);
+    const h = Math.round(bitmap.height * scale);
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    canvas.getContext('2d')!.drawImage(bitmap, 0, 0, w, h);
+    const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, 'image/jpeg', 0.85));
+    if (!blob) throw new Error('compress failed');
+    return { blob, width: w, height: h };
+  } finally {
+    bitmap.close();
+  }
 }
 
 function fmtDuration(s: number | undefined): string {
@@ -216,8 +221,10 @@ export default function ChatThread({ coachId, clientId, viewerRole, counterpartN
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
+  const activeStreamRef = useRef<MediaStream | null>(null);
   const recordTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const recordCancelledRef = useRef(false);
+  const mediaMountedRef = useRef(true);
   const ownedPreviewUrlsRef = useRef(new Set<string>());
 
   const createPreviewUrl = useCallback((blob: Blob) => {
@@ -354,8 +361,15 @@ export default function ChatThread({ coachId, clientId, viewerRole, counterpartN
 
   // ── Voice note (MediaRecorder) ──────────────────────────────────────────────
   const startRecording = async () => {
+    let requestedStream: MediaStream | null = null;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      requestedStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (!mediaMountedRef.current) {
+        stopMediaStream(requestedStream);
+        return;
+      }
+      const stream = requestedStream;
+      activeStreamRef.current = stream;
       const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus'
         : MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : '';
       const rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
@@ -364,8 +378,11 @@ export default function ChatThread({ coachId, clientId, viewerRole, counterpartN
       recordCancelledRef.current = false;
       rec.ondataavailable = (ev) => { if (ev.data.size > 0) chunks.push(ev.data); };
       rec.onstop = () => {
-        stream.getTracks().forEach((tr) => tr.stop());
+        stopMediaStream(stream);
+        if (activeStreamRef.current === stream) activeStreamRef.current = null;
+        if (recorderRef.current === rec) recorderRef.current = null;
         if (recordTimerRef.current) { clearInterval(recordTimerRef.current); recordTimerRef.current = null; }
+        if (!mediaMountedRef.current) return;
         setRecording(false);
         setRecordSecs(0);
         if (recordCancelledRef.current) return;
@@ -380,22 +397,46 @@ export default function ChatThread({ coachId, clientId, viewerRole, counterpartN
           mime: type.split(';')[0],
         });
       };
-      recorderRef.current = rec;
       rec.start();
+      recorderRef.current = rec;
       setRecording(true);
       setRecordSecs(0);
       recordTimerRef.current = setInterval(() => setRecordSecs((s) => s + 1), 1000);
       navigator.vibrate?.(8);
     } catch {
-      setUploadError(t('chat.mic_denied'));
+      stopMediaStream(requestedStream);
+      if (activeStreamRef.current === requestedStream) activeStreamRef.current = null;
+      if (mediaMountedRef.current) setUploadError(t('chat.mic_denied'));
     }
   };
 
   const stopRecording = (cancel: boolean) => {
     recordCancelledRef.current = cancel;
-    recorderRef.current?.stop();
+    const recorder = recorderRef.current;
+    if (recorder?.state !== 'inactive') recorder?.stop();
   };
-  useEffect(() => () => { try { recorderRef.current?.stop(); } catch { /* unmount */ } }, []);
+  useEffect(() => {
+    mediaMountedRef.current = true;
+    return () => {
+      mediaMountedRef.current = false;
+      recordCancelledRef.current = true;
+      if (recordTimerRef.current) {
+        clearInterval(recordTimerRef.current);
+        recordTimerRef.current = null;
+      }
+      const recorder = recorderRef.current;
+      if (recorder) {
+        recorder.ondataavailable = null;
+        recorder.onstop = null;
+        if (recorder.state !== 'inactive') {
+          try { recorder.stop(); } catch { /* already stopping */ }
+        }
+      }
+      recorderRef.current = null;
+      stopMediaStream(activeStreamRef.current);
+      activeStreamRef.current = null;
+    };
+  }, []);
 
   // ── Send (text and/or attachment) ───────────────────────────────────────────
   const send = async () => {
