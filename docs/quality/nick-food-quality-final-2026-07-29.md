@@ -59,6 +59,8 @@ Scope: food parsing, nutrition review/logging, photo/manual boundaries, local DB
 - Coach meal-plan macro rollups now share a 55-second route deadline and 48-transport ceiling across all concurrent parsers, stop starting work without a full parser reserve, and allow five manual rollups per ten minutes.
 - Meal-plan parse failures or budget skips mark affected days incomplete in the coach UI; they are no longer presented as zero-calorie totals.
 - Expired, incomplete, or cancelled auth callbacks now return Nick to login with safe recovery guidance instead of a blank form or reflected provider error details.
+- Malformed conversation and coach-insight JSON now returns a stable 400 before any memory, client-context, or model work begins.
+- Coach-insight requests for an inaccessible client now return an explicit 403 before reading client data or invoking AI, rather than surfacing an authorization throw as a 500.
 - Edited portions are capped and validated again before the food-log insert.
 - Manual entry rejects invalid calories/macros before writing and now displays the validation error in the manual-entry view.
 - Photo analysis drops malformed or implausible items, caps confidence, and preserves an uncertainty note.

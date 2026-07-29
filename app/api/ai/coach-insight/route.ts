@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { guardAiRoute } from '@/lib/security/api-guard';
-import { assertCanAccessClient } from '@/lib/auth/tenant-access';
+import { canAccessClient } from '@/lib/auth/tenant-access';
 import { db } from '@/db/client';
 import { profiles } from '@/db/schema/profiles';
 import { eq } from 'drizzle-orm';
@@ -26,7 +26,7 @@ Do not diagnose medical conditions. Identify missing information and cite knowle
 export async function POST(request: NextRequest) {
   const guard = await guardAiRoute(request);
   if (!guard.ok) return guard.response;
-  const parsed = requestSchema.safeParse(await request.json());
+  const parsed = requestSchema.safeParse(await request.json().catch(() => ({})));
   if (!parsed.success) return NextResponse.json({ error: 'Invalid coach insight request' }, { status: 400 });
   const { clientId, question, organizationId } = parsed.data;
   const [actor] = await db.select({ role: profiles.role }).from(profiles).where(eq(profiles.id, guard.userId)).limit(1);
@@ -35,7 +35,9 @@ export async function POST(request: NextRequest) {
   if (!actor || !['coach', 'admin', 'super_admin'].includes(actor.role)) {
     return NextResponse.json({ error: 'Coach access required' }, { status: 403 });
   }
-  await assertCanAccessClient(db, guard.userId, actor.role, clientId);
+  if (!(await canAccessClient(db, guard.userId, actor.role, clientId))) {
+    return NextResponse.json({ error: 'Client access denied' }, { status: 403 });
+  }
 
   const [memory, coachBlocks, knowledge, snapshot] = await Promise.all([
     readMemory({ userId: clientId, queryText: question, agentName: 'coach_insight', scopes: ['user', 'agent'] }),

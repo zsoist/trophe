@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
   const guard = await guardAiRoute(request);
   if (!guard.ok) return guard.response;
 
-  const parsed = requestSchema.safeParse(await request.json());
+  const parsed = requestSchema.safeParse(await request.json().catch(() => ({})));
   if (!parsed.success) {
     return NextResponse.json({ error: 'Invalid conversation request' }, { status: 400 });
   }

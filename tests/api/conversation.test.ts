@@ -80,6 +80,21 @@ describe('POST /api/ai/conversation', () => {
     expect(mocks.executeAiTask).not.toHaveBeenCalled();
   });
 
+  it('returns 400 for malformed JSON without starting AI work', async () => {
+    const malformed = new NextRequest('http://localhost/api/ai/conversation', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{',
+    });
+
+    const result = await POST(malformed);
+
+    expect(result.status).toBe(400);
+    expect(await result.json()).toEqual({ error: 'Invalid conversation request' });
+    expect(mocks.readMemory).not.toHaveBeenCalled();
+    expect(mocks.executeAiTask).not.toHaveBeenCalled();
+  });
+
   it('reads scoped memory, persists messages, and returns citations', async () => {
     const result = await POST(request({ sessionId: 'session-1', message: 'What should I eat?' }));
 
