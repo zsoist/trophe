@@ -1421,7 +1421,7 @@ export default function WorkoutPage() {
             onClose={() => setShowPicker(false)}
             lang={lang}
             onCustomCreated={(ex) => setExercises((prev) => [...prev, ex])}
-            onInfo={(ex) => setInfoExercise(ex)}
+            onInfo={(ex) => { setShowPicker(false); setInfoExercise(ex); }}
           />
         )}
       </AnimatePresence>
