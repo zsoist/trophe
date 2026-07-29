@@ -91,11 +91,12 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
   // Clarification loop (empty-items + question): the AI's actual question + the user's answer.
   const [questionText, setQuestionText] = useState<string | null>(null);
   const [questionAnswer, setQuestionAnswer] = useState('');
+  const [questionOriginalText, setQuestionOriginalText] = useState('');
+  const [lastTextForReview, setLastTextForReview] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const lastTextRef = useRef('');
   const lastFileRef = useRef<File | null>(null);
-  const questionOriginalTextRef = useRef('');
   /** Snapshot of the parse result at confirm-entry — flywheel diffs confirmed values against it. */
   const originalItemsRef = useRef<ParsedFoodItem[]>([]);
   const parseBusyRef = useRef(false);
@@ -150,6 +151,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
     setEstimatedItems(estimateItemCount(value));
     setMode('parsing');
     lastTextRef.current = value;
+    setLastTextForReview(value);
     const slowTimer = setTimeout(() => setSlowParse(true), 8000);
     let requestTimeout: ReturnType<typeof setTimeout> | null = null;
 
@@ -190,7 +192,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
         if (data && data.needs_clarification && data.clarification_question) {
           setQuestionText(String(data.clarification_question));
           setQuestionAnswer('');
-          questionOriginalTextRef.current = value;
+          setQuestionOriginalText(value);
           setRetryCount(0);
           setMode('question');
           return;
@@ -709,7 +711,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
   const submitQuestionAnswer = () => {
     const answer = questionAnswer.trim();
     if (!answer) return;
-    const combined = `${questionOriginalTextRef.current} — ${answer}`;
+    const combined = `${questionOriginalText} — ${answer}`;
     setQuestionText(null);
     setQuestionAnswer('');
     handleParseText(combined);
@@ -717,7 +719,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
 
   /** Leave the question card — the original text is restored, nothing is lost. */
   const cancelQuestion = () => {
-    setText(questionOriginalTextRef.current);
+    setText(questionOriginalText);
     setQuestionText(null);
     setQuestionAnswer('');
     setMode('idle');
@@ -777,7 +779,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
             {t('general.cancel')}
           </button>
         </div>
-        <p className="text-stone-600 text-[11px] italic truncate">“{questionOriginalTextRef.current}”</p>
+        <p className="text-stone-600 text-[11px] italic truncate">“{questionOriginalText}”</p>
         <div className="flex gap-2">
           <input
             type="text"
@@ -827,7 +829,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
           items={parsedItems}
           clarificationQuestion={clarificationQuestion}
           warnings={parseWarnings}
-          rawInputText={inputSource === 'text' ? lastTextRef.current : undefined}
+          rawInputText={inputSource === 'text' ? lastTextForReview : undefined}
           onReparse={inputSource === 'text' ? handleReparse : undefined}
           onConfirm={handleConfirm}
           onCancel={handleCancel}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { X, Check, Minus, Plus, AlertTriangle, CornerDownLeft } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
@@ -28,6 +28,45 @@ interface ParsedFoodListProps {
 /** Volume units where we display ml/L/cl instead of grams */
 const VOLUME_UNITS = new Set(['ml', 'l', 'cl', 'fl_oz', 'fl oz']);
 const MAX_EDITABLE_GRAMS = 15_000;
+
+function PortionStepperButton({
+  delta,
+  label,
+  reduceMotion,
+  onStart,
+  onEnd,
+  onKeyboard,
+  children,
+}: {
+  delta: number;
+  label: string;
+  reduceMotion: boolean | null;
+  onStart: (delta: number) => void;
+  onEnd: () => void;
+  onKeyboard: (delta: number) => void;
+  children: ReactNode;
+}) {
+  return (
+    <motion.button
+      onPointerDown={() => onStart(delta)}
+      onPointerUp={onEnd}
+      onPointerLeave={onEnd}
+      onPointerCancel={onEnd}
+      onContextMenu={(event) => event.preventDefault()}
+      onClick={(event) => {
+        // Keyboard-generated clicks have detail=0. Pointer input already
+        // ticked on pointerdown so it must not double-fire.
+        if (event.detail === 0) onKeyboard(delta);
+      }}
+      whileTap={reduceMotion ? undefined : { scale: 0.88 }}
+      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+      className="w-11 h-11 flex items-center justify-center glass rounded-lg text-stone-400 hover:text-stone-200 transition-colors select-none touch-none"
+      aria-label={label}
+    >
+      {children}
+    </motion.button>
+  );
+}
 
 export function isVolumeUnit(unit: string): boolean {
   return VOLUME_UNITS.has(unit.toLowerCase());
@@ -182,13 +221,10 @@ export default function ParsedFoodList({
   useEffect(() => { itemsRef.current = items; }, [items]);
   const [touchedIndex, setTouchedIndex] = useState<number | null>(null);
   const [typingIndex, setTypingIndex] = useState<number | null>(null);
-  const touchedRef = useRef<number | null>(null);
   /** Display value at the moment a row is first stepper-touched — seeds the roll. */
   const [touchSeed, setTouchSeed] = useState(0);
   const holdDelayRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const holdRepeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  /** Set on pointerdown so the trailing click doesn't double-fire; keyboard clicks pass through. */
-  const pointerFiredRef = useRef(false);
 
   const endHold = useCallback(() => {
     if (holdDelayRef.current) { clearTimeout(holdDelayRef.current); holdDelayRef.current = null; }
@@ -207,23 +243,27 @@ export default function ParsedFoodList({
       const crossed100 = Math.floor(item.grams / 100) !== Math.floor(newGrams / 100);
       navigator.vibrate?.(crossed100 ? [5, 20, 5] : 5);
     }
-    if (touchedRef.current !== index) {
-      const perUnit = item.quantity > 0 ? item.grams / item.quantity : 1;
-      setTouchSeed(isVolumeUnit(item.unit) ? Math.round(item.grams / perUnit) : item.grams);
-      touchedRef.current = index;
-      setTouchedIndex(index);
-    }
     setItems(prev => prev.map((it, i) => (i === index ? recalcMacros(it, newGrams) : it)));
   }, []);
+
+  const markStepperTouched = useCallback((index: number) => {
+    if (touchedIndex === index) return;
+    const item = itemsRef.current[index];
+    if (!item) return;
+    const perUnit = item.quantity > 0 ? item.grams / item.quantity : 1;
+    setTouchSeed(isVolumeUnit(item.unit) ? Math.round(item.grams / perUnit) : item.grams);
+    setTouchedIndex(index);
+  }, [touchedIndex]);
 
   /** Press-and-hold auto-repeat: first tick on press, then 110ms ticks after 450ms. */
   const startHold = useCallback((index: number, delta: number) => {
     endHold();
+    markStepperTouched(index);
     stepGrams(index, delta);
     holdDelayRef.current = setTimeout(() => {
       holdRepeatRef.current = setInterval(() => stepGrams(index, delta), 110);
     }, 450);
-  }, [endHold, stepGrams]);
+  }, [endHold, markStepperTouched, stepGrams]);
 
   const submitClarification = () => {
     const answer = clarifyAnswer.trim();
@@ -246,7 +286,6 @@ export default function ParsedFoodList({
 
   const removeItem = (index: number) => {
     // Indices shift — drop the rolling-grams marker rather than roll the wrong row.
-    touchedRef.current = null;
     setTouchedIndex(null);
     // W4: same reason — drop the open provenance caption so it can't reattach to the wrong row.
     setExplainIndex(null);
@@ -417,27 +456,23 @@ export default function ParsedFoodList({
                   // W5: only the stepper-touched row rolls its grams figure —
                   // typing (focus) suspends the overlay so the caret stays visible.
                   const rolling = touchedIndex === index && typingIndex !== index;
-                  const stepperProps = (delta: number) => ({
-                    onPointerDown: () => { pointerFiredRef.current = true; startHold(index, delta); },
-                    onPointerUp: endHold,
-                    onPointerLeave: () => { endHold(); pointerFiredRef.current = false; },
-                    onPointerCancel: () => { endHold(); pointerFiredRef.current = false; },
-                    onContextMenu: (e: React.MouseEvent) => e.preventDefault(),
-                    // Keyboard activation only — pointer path already ticked on pointerdown.
-                    onClick: () => {
-                      if (pointerFiredRef.current) { pointerFiredRef.current = false; return; }
-                      stepGrams(index, delta);
-                    },
-                    whileTap: reduceMotion ? undefined : { scale: 0.88 },
-                    transition: { type: 'spring' as const, stiffness: 500, damping: 30 },
-                    className: 'w-11 h-11 flex items-center justify-center glass rounded-lg text-stone-400 hover:text-stone-200 transition-colors select-none touch-none',
-                  });
+                  const handleKeyboardStep = (delta: number) => {
+                    markStepperTouched(index);
+                    stepGrams(index, delta);
+                  };
 
                   return (
                     <>
-                      <motion.button {...stepperProps(-gramStep)} aria-label={t('food.stepper_decrease')}>
+                      <PortionStepperButton
+                        delta={-gramStep}
+                        label={t('food.stepper_decrease')}
+                        reduceMotion={reduceMotion}
+                        onStart={(delta) => startHold(index, delta)}
+                        onEnd={endHold}
+                        onKeyboard={handleKeyboardStep}
+                      >
                         <Minus size={16} />
-                      </motion.button>
+                      </PortionStepperButton>
                       <div className="flex items-center gap-1">
                         <div className="relative">
                           <input
@@ -447,7 +482,6 @@ export default function ParsedFoodList({
                             onChange={(e) => {
                               // Typing is explicit control — drop the rolling marker so
                               // blur doesn't replay a roll from a stale stepper seed.
-                              touchedRef.current = null;
                               setTouchedIndex(null);
                               const newDisplay = parseInt(e.target.value) || 1;
                               const newGrams = vol
@@ -478,9 +512,16 @@ export default function ParsedFoodList({
                         </div>
                         <span className="text-stone-500 text-xs">{displayUnit}</span>
                       </div>
-                      <motion.button {...stepperProps(gramStep)} aria-label={t('food.stepper_increase')}>
+                      <PortionStepperButton
+                        delta={gramStep}
+                        label={t('food.stepper_increase')}
+                        reduceMotion={reduceMotion}
+                        onStart={(delta) => startHold(index, delta)}
+                        onEnd={endHold}
+                        onKeyboard={handleKeyboardStep}
+                      >
                         <Plus size={16} />
-                      </motion.button>
+                      </PortionStepperButton>
                       {/* Show original input as hint (for non-volume, show quantity+unit) */}
                       {!vol && (
                         <span className="text-stone-600 text-xs ml-auto">

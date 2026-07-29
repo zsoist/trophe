@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { X, Barcode, Loader2, Camera, Keyboard, ChevronLeft, RotateCcw } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -52,19 +52,19 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
   const [laserTop, setLaserTop] = useState<string | null>(null);
   const laserRef = useRef<HTMLDivElement | null>(null);
 
-  const stopScan = () => {
+  const stopScan = useCallback(() => {
     try { controlsRef.current?.stop(); } catch { /* already stopped */ }
     controlsRef.current = null;
-  };
+  }, []);
 
   // Reset on open; always stop the camera on close/unmount.
   useEffect(() => {
     if (isOpen) { setStep('choose'); setCode(''); setProduct(null); setError(null); setGrams(100); setLocked(false); setLaserTop(null); }
     else stopScan();
     return () => stopScan();
-  }, [isOpen]);
+  }, [isOpen, stopScan]);
 
-  async function lookup(barcode: string) {
+  const lookup = useCallback(async (barcode: string) => {
     if (!/^\d{8,14}$/.test(barcode)) { setError(t('barcode.err_invalid')); return; }
     setLoading(true); setError(null); setProduct(null);
     try {
@@ -89,7 +89,7 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
       setLocked(false); setLaserTop(null);
       setError(t('barcode.err_lookup'));
     } finally { setLoading(false); }
-  }
+  }, [stopScan, t]);
 
   async function logManual() {
     if (logging) return;
@@ -164,7 +164,7 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
       }
     })();
     return () => { cancelled = true; stopScan(); };
-  }, [isOpen, step]);
+  }, [isOpen, lookup, step, stopScan, t]);
 
   async function logIt() {
     if (!product || logging) return;

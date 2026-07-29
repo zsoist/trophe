@@ -373,9 +373,12 @@ export default function CoachDashboard() {
 
   // ═══ Keyboard Shortcuts ═══
   const clientsRef = useRef(clients);
-  clientsRef.current = clients;
   const searchRef = useRef(search);
-  searchRef.current = search;
+
+  useEffect(() => {
+    clientsRef.current = clients;
+    searchRef.current = search;
+  }, [clients, search]);
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
