@@ -454,7 +454,7 @@ export default function GuidedSession({
     const durationMin = minutesSince(startTime);
     const done = exercises.flatMap((ex) =>
       ex.sets
-        .filter((s) => s.completed)
+        .filter((s) => s.completed && !s.is_warmup)
         .map((s) => {
           // s.weight is a DISPLAY-unit string; store finish stats in kg so the
           // render-time kgToDisplay() is correct (was double-converted in lb).

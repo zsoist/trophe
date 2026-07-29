@@ -1434,8 +1434,8 @@ export default function WorkoutPage() {
                 {t('workout.summary_title')}
               </div>
               <div className="display-lg" style={{ fontSize: 44, lineHeight: '48px', color: 'var(--t1)' }}>
-                <AnimatedValue value={finishSummary.volume} />
-                <span style={{ fontFamily: 'var(--font-mono)', fontStyle: 'normal', fontSize: 13, color: 'var(--t4)', marginLeft: 4 }}>kg</span>
+                <AnimatedValue value={kgToDisplay(finishSummary.volume, unit)} />
+                <span style={{ fontFamily: 'var(--font-mono)', fontStyle: 'normal', fontSize: 13, color: 'var(--t4)', marginLeft: 4 }}>{unit}</span>
               </div>
               <div className="eye-d" style={{ marginTop: 2, marginBottom: 16 }}>{t('workout.summary_volume')}</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 18 }}>
