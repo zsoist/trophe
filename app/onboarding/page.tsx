@@ -43,6 +43,7 @@ export default function OnboardingPage() {
   const [stepIdx, setStepIdx] = useState(0);
   const [direction, setDirection] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [onboardingError, setOnboardingError] = useState<string | null>(null);
 
   // Form state
   const [age, setAge] = useState(28);
@@ -71,29 +72,42 @@ export default function OnboardingPage() {
   }
 
   async function finish() {
+    if (!Number.isInteger(age) || age < 14 || age > 80) {
+      setOnboardingError('Enter an age between 14 and 80');
+      return;
+    }
     setLoading(true);
+    setOnboardingError(null);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push('/login'); return; }
 
-      await supabase.from('client_profiles').upsert({
-        user_id: user.id,
-        age, sex, height_cm: heightCm, weight_kg: weightKg,
-        activity_level: activity, goal,
-        bmr: profile.bmr, tdee: profile.tdee,
-        target_calories: profile.calories,
-        target_protein_g: profile.protein_g,
-        target_carbs_g: profile.carbs_g,
-        target_fat_g: profile.fat_g,
-        target_fiber_g: profile.fiber_g,
-        target_water_ml: profile.water_ml,
-        coaching_phase: 'active',
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'user_id' });
+      const { data, error } = await supabase
+        .from('client_profiles')
+        .upsert({
+          user_id: user.id,
+          age, sex, height_cm: heightCm, weight_kg: weightKg,
+          activity_level: activity, goal,
+          bmr: profile.bmr, tdee: profile.tdee,
+          target_calories: profile.calories,
+          target_protein_g: profile.protein_g,
+          target_carbs_g: profile.carbs_g,
+          target_fat_g: profile.fat_g,
+          target_fiber_g: profile.fiber_g,
+          target_water_ml: profile.water_ml,
+          coaching_phase: 'active',
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'user_id' })
+        .select('user_id')
+        .maybeSingle();
+      if (error || !data) {
+        setOnboardingError('Your profile was not saved — try again');
+        return;
+      }
 
       router.push('/dashboard');
-    } catch (err) {
-      console.error('Onboarding error:', err);
+    } catch {
+      setOnboardingError('Your profile was not saved — try again');
     } finally {
       setLoading(false);
     }
@@ -365,6 +379,15 @@ export default function OnboardingPage() {
       </div>
 
       {/* Navigation */}
+      {onboardingError && (
+        <div
+          role="alert"
+          className="w-full max-w-md mt-6 text-center"
+          style={{ color: 'var(--err,#E87A6E)', fontSize: 12 }}
+        >
+          {onboardingError}
+        </div>
+      )}
       <div className="flex gap-4 mt-8 w-full max-w-md">
         {stepIdx > 0 && (
           <button onClick={back} className="btn-ghost flex-1 inline-flex items-center justify-center gap-2">
