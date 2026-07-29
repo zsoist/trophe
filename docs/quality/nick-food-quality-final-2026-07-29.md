@@ -9,7 +9,7 @@ Scope: food parsing, nutrition review/logging, photo/manual boundaries, local DB
 - Bounded release verifier: **passed**
   - typecheck: passed
   - full lint: passed
-  - unit/integration suite: 932 passed, 33 intentionally skipped
+  - unit/integration suite: 1,148 passed, 33 intentionally skipped
   - production build: passed
 - Deterministic food lookup gate: **43/43 coverage (100%) and 43/43 accuracy (100%)**
   - required coverage: 100%
@@ -28,6 +28,14 @@ Scope: food parsing, nutrition review/logging, photo/manual boundaries, local DB
   - three random disposable local users created for the run and removed afterward
   - independent database check after the run: 0 matching auth users and 0 matching profiles
   - Supabase API and database targets are guarded as loopback-only; paid-provider keys and approval are forcibly blanked
+- Local signup/confirmation gate: **passed with zero skips**
+  - `npm run dev:local` bootstraps/checks Supabase and derives credentials in memory
+  - signup 202, pre-confirm login rejection, Mailpit delivery, replay/resend convergence, gateway verification redirect, and post-confirm login all passed
+  - cleanup retries transient loopback socket failures and an independent SQL check confirmed zero disposable Auth/profile rows
+- Exhaustive local UI QA: **all 6 baseline issues fixed**
+  - zero-cost parser, signup, confirmation link, mobile exercise picker, localized document language, and local Analytics CSP noise
+  - `/signup` is now a safe compatibility route to the supported signup tab and preserves only a bounded invite code
+- Production dependency audit: **0 vulnerabilities**
 - DB read-only verification: schema, RLS policies, functions, vector columns, audit immutability, and required indexes passed.
 - Query-plan check:
   - food full-text lookup uses `idx_foods_search_text`
@@ -101,9 +109,19 @@ Use a non-production client tester account on the release candidate.
 
 The authenticated local matrix can be repeated with `npm run test:e2e:local-auth`. The harness refuses non-loopback Supabase API or database targets, creates random disposable client/coach/admin identities, runs the three authenticated browser specs sequentially, blanks paid-provider capabilities, and removes the identities even if the browser run fails. It does not require persistent tester credentials.
 
+For a clean local acceptance session, run `npm run dev:local`, open
+`http://127.0.0.1:3000`, and use Mailpit at `http://127.0.0.1:54324` for the
+signup confirmation message. No hosted Supabase keys or paid provider keys are
+required.
+
 ## Explicit limits
 
 - No live AI/provider call was made. Real-model quality and live photo latency were not measured in this zero-spend run.
+- The local catalog currently contains 144 rows; 114 do not have embeddings
+  compatible with the configured vector model. Deterministic aliases,
+  multilingual full-text/trigram lookup, and the verified local parser remain
+  available at zero cost, but complete semantic-vector coverage requires a
+  deliberate free-local embedding migration or later provider approval.
 - No production database was read or changed.
 - Migration `0060_food_database_trigram_search` was applied and profiled only on loopback Supabase; production application remains an operator action.
 - The formal security plan requires a separate protected control-plane repository, signed broker/controller release, protected host identity, required GitHub App check, and Podman-based attestation. Those external prerequisites are not installed on this workstation, so no formal protected-lane attestation is claimed.
