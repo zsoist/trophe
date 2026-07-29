@@ -6,6 +6,7 @@
 
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import type { Language, CoreLanguage } from './types';
+import { interpolateTranslation } from './i18n-interpolate';
 
 // Overlay locales: flat key→string maps with EN fallback for missing keys.
 // Core languages (EN/ES/EL) stay inline below so the compiler enforces full coverage.
@@ -1195,13 +1196,8 @@ export function I18nProvider({ children, defaultLang = 'en' }: { children: React
 
   const t = useCallback((key: string, params?: Record<string, string | number>): string => {
     const inline = translations[key]?.[lang as CoreLanguage];
-    let text = inline || OVERLAYS[lang]?.[key] || translations[key]?.['en'] || key;
-    if (params) {
-      Object.entries(params).forEach(([k, v]) => {
-        text = text.replace(`{${k}}`, String(v));
-      });
-    }
-    return text;
+    const text = inline || OVERLAYS[lang]?.[key] || translations[key]?.['en'] || key;
+    return interpolateTranslation(text, params);
   // overlayVersion re-binds t when an overlay dictionary arrives.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lang, overlayVersion]);
