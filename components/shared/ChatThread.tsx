@@ -17,6 +17,10 @@ import { Paperclip, Mic, X, Play, Pause, Square } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { Icon } from '@/components/ui';
 import { useI18n } from '@/lib/i18n';
+import {
+  releaseAllPreviewUrls,
+  releaseUnreferencedPreviewUrls,
+} from '@/lib/chat/preview-url-lifecycle';
 
 export interface ChatMessage {
   id: string;
@@ -66,10 +70,14 @@ const signedCache = new Map<string, { url: string; expires: number }>();
 async function signedUrl(path: string): Promise<string | null> {
   const hit = signedCache.get(path);
   if (hit && hit.expires > Date.now()) return hit.url;
-  const { data } = await supabase.storage.from('chat-attachments').createSignedUrl(path, 3600);
-  if (!data?.signedUrl) return null;
-  signedCache.set(path, { url: data.signedUrl, expires: Date.now() + 55 * 60_000 });
-  return data.signedUrl;
+  try {
+    const { data } = await supabase.storage.from('chat-attachments').createSignedUrl(path, 3600);
+    if (!data?.signedUrl) return null;
+    signedCache.set(path, { url: data.signedUrl, expires: Date.now() + 55 * 60_000 });
+    return data.signedUrl;
+  } catch {
+    return null;
+  }
 }
 
 /** Downscale to ≤1600px JPEG — chat photos never need more. */
@@ -93,33 +101,34 @@ function fmtDuration(s: number | undefined): string {
 
 // ── Bubble: image (blur-in, tap → lightbox) ──────────────────────────────────
 function ImageBubble({ m, onOpen }: { m: ChatMessage; onOpen: (url: string) => void }) {
-  const [url, setUrl] = useState<string | null>(m.localUrl ?? null);
+  const [remoteUrl, setRemoteUrl] = useState<string | null>(null);
   useEffect(() => {
     if (m.localUrl || !m.attachment_path) return;
     let live = true;
-    signedUrl(m.attachment_path).then((u) => { if (live && u) setUrl(u); });
+    signedUrl(m.attachment_path).then((u) => { if (live && u) setRemoteUrl(u); });
     return () => { live = false; };
   }, [m.attachment_path, m.localUrl]);
+  const displayUrl = m.localUrl ?? remoteUrl;
 
   const ratio = m.attachment_meta?.width && m.attachment_meta?.height
     ? m.attachment_meta.height / m.attachment_meta.width : 0.75;
 
   return (
     <button
-      onClick={() => url && onOpen(url)}
+      onClick={() => displayUrl && onOpen(displayUrl)}
       style={{
         display: 'block', padding: 0, border: 'none', background: 'rgba(255,255,255,.04)',
-        borderRadius: 12, overflow: 'hidden', cursor: url ? 'pointer' : 'default',
+        borderRadius: 12, overflow: 'hidden', cursor: displayUrl ? 'pointer' : 'default',
         width: 216, height: Math.min(280, Math.round(216 * ratio)),
       }}
       aria-label="attachment"
     >
-      {url ? (
+      {displayUrl ? (
         <motion.img
           initial={{ opacity: 0, filter: 'blur(8px)' }}
           animate={{ opacity: 1, filter: 'blur(0px)' }}
           transition={{ duration: 0.35 }}
-          src={url}
+          src={displayUrl}
           alt=""
           style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
         />
@@ -208,6 +217,35 @@ export default function ChatThread({ coachId, clientId, viewerRole, counterpartN
   const recorderRef = useRef<MediaRecorder | null>(null);
   const recordTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const recordCancelledRef = useRef(false);
+  const ownedPreviewUrlsRef = useRef(new Set<string>());
+
+  const createPreviewUrl = useCallback((blob: Blob) => {
+    const url = URL.createObjectURL(blob);
+    ownedPreviewUrlsRef.current.add(url);
+    return url;
+  }, []);
+
+  useEffect(() => {
+    const referenced = new Set<string>();
+    if (pending) referenced.add(pending.previewUrl);
+    for (const message of msgs) {
+      if (message.localUrl?.startsWith('blob:')) referenced.add(message.localUrl);
+    }
+
+    // Let exit animations and media cleanup finish before retiring the old URL.
+    const timer = window.setTimeout(() => {
+      releaseUnreferencedPreviewUrls(
+        ownedPreviewUrlsRef.current,
+        referenced,
+        URL.revokeObjectURL,
+      );
+    }, 400);
+    return () => window.clearTimeout(timer);
+  }, [msgs, pending]);
+
+  useEffect(() => () => {
+    releaseAllPreviewUrls(ownedPreviewUrlsRef.current, URL.revokeObjectURL);
+  }, []);
 
   const load = useCallback(async () => {
     const { data } = await supabase
@@ -304,7 +342,7 @@ export default function ChatThread({ coachId, clientId, viewerRole, counterpartN
     try {
       const { blob, width, height } = await compressImage(file);
       setPending({
-        kind: 'image', blob, previewUrl: URL.createObjectURL(blob),
+        kind: 'image', blob, previewUrl: createPreviewUrl(blob),
         meta: { width, height }, ext: 'jpg', mime: 'image/jpeg',
       });
       setUploadError(null);
@@ -335,7 +373,7 @@ export default function ChatThread({ coachId, clientId, viewerRole, counterpartN
         if (blob.size < 200) return; // accidental tap
         const duration_s = Math.round((Date.now() - startedAt) / 1000);
         setPending({
-          kind: 'audio', blob, previewUrl: URL.createObjectURL(blob),
+          kind: 'audio', blob, previewUrl: createPreviewUrl(blob),
           meta: { duration_s },
           ext: type.includes('mp4') ? 'm4a' : type.includes('ogg') ? 'ogg' : 'webm',
           mime: type.split(';')[0],
@@ -411,7 +449,11 @@ export default function ChatThread({ coachId, clientId, viewerRole, counterpartN
       setDraft(body);
       if (att) setPending(att);
     } else {
-      const real = { ...(data as ChatMessage), localUrl: att?.previewUrl };
+      const persistedUrl = attachment_path ? await signedUrl(attachment_path) : null;
+      const real = {
+        ...(data as ChatMessage),
+        localUrl: persistedUrl ?? att?.previewUrl,
+      };
       // Replace temp; realtime may have raced the real row in already
       setMsgs((prev) => {
         const withoutTemp = prev.filter((m) => m.id !== tempId);
@@ -519,7 +561,7 @@ export default function ChatThread({ coachId, clientId, viewerRole, counterpartN
                 {pending.kind === 'image' ? t('chat.photo_ready') : t('chat.voice_ready')}
               </span>
               <button
-                onClick={() => { URL.revokeObjectURL(pending.previewUrl); setPending(null); }}
+                onClick={() => setPending(null)}
                 aria-label={t('chat.remove_attachment')}
                 style={{ background: 'rgba(255,255,255,.05)', border: '1px solid var(--line)', borderRadius: 8, padding: 6, cursor: 'pointer', color: 'var(--t3)', lineHeight: 0 }}
               >
