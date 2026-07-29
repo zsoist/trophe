@@ -134,6 +134,7 @@ export const pt: Record<string, string> = {
   'food.entry_deleted': 'Entrada eliminada',
   'food.retry': 'Repetir',
   'food.log_load_failed': 'Não foi possível carregar o teu registo alimentar — tenta novamente',
+  'food.delete_failed': 'Não foi possível remover o alimento — o teu registo foi atualizado',
   'food.manual_entry': 'Inserir manualmente',
   'food.quick_add': 'Adicionar rápido',
   'food.remaining': '{n} kcal restantes',

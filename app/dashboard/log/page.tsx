@@ -300,10 +300,12 @@ export default function FoodLogPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [pageLoading, setPageLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
+  const [mutationError, setMutationError] = useState<string | null>(null);
   const loadRequestRef = useRef(0);
   const [todayLog, setTodayLog] = useState<FoodLogEntry[]>([]);
   const today = localToday();
   const [selectedDate, setSelectedDate] = useState(today);
+  const selectedDateRef = useRef(today);
   const [skippedSlots, setSkippedSlots] = useState<Set<string>>(() => loadStoredSet(`trophe_skipped_${today}`));
   const [lockedSlots, setLockedSlots] = useState<Set<string>>(() => loadStoredSet(`trophe_locked_${today}`));
 
@@ -435,6 +437,7 @@ export default function FoodLogPage() {
 
   const handleDateChange = useCallback((date: string) => {
     loadRequestRef.current += 1;
+    selectedDateRef.current = date;
     setPageLoading(true);
     setLoadError(false);
     setSelectedDate(date);
@@ -607,19 +610,45 @@ export default function FoodLogPage() {
   const [copying, setCopying] = useState(false);
   const [showRecipeModal, setShowRecipeModal] = useState(false);
 
+  const restoreDeletedEntry = (entry: FoodLogEntry) => {
+    if (entry.logged_date === selectedDateRef.current) {
+      setTodayLog(prev => (
+        prev.some(existing => existing.id === entry.id)
+          ? prev
+          : [...prev, entry].sort(
+            (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+          )
+      ));
+    }
+    setMutationError(t('food.delete_failed'));
+  };
+
+  const commitDelete = async ({ id, entry }: { id: string; entry: FoodLogEntry }) => {
+    try {
+      const { data, error } = await supabase
+        .from('food_log')
+        .delete()
+        .eq('id', id)
+        .select('id')
+        .maybeSingle();
+      if (error || !data) {
+        restoreDeletedEntry(entry);
+      }
+    } catch {
+      restoreDeletedEntry(entry);
+    }
+  };
+
   // F3: Undo delete — soft delete with 5s timeout
   const deleteEntry = (id: string) => {
     const entry = todayLog.find(e => e.id === id);
     if (!entry) return;
+    setMutationError(null);
 
     // Cancel any previous pending delete
     if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
     if (pendingDelete) {
-      // Flush the previous pending delete NOW. supabase-js query builders are
-      // lazy thenables — a bare expression never sends the request, so the row
-      // stayed in the DB and reappeared (with its calories) on the next refetch.
-      void supabase.from('food_log').delete().eq('id', pendingDelete.id)
-        .then(({ error }) => { if (error) console.error('food_log delete failed:', error.message); });
+      void commitDelete(pendingDelete);
     }
 
     // Soft-delete from UI
@@ -627,9 +656,9 @@ export default function FoodLogPage() {
     setPendingDelete({ id, entry });
 
     // Hard-delete after 5 seconds
-    undoTimerRef.current = setTimeout(async () => {
-      await supabase.from('food_log').delete().eq('id', id);
-      setPendingDelete(null);
+    undoTimerRef.current = setTimeout(() => {
+      setPendingDelete(cur => (cur?.id === id ? null : cur));
+      void commitDelete({ id, entry });
     }, 5000);
   };
 
@@ -675,9 +704,23 @@ export default function FoodLogPage() {
     if (batchTimerRef.current) clearTimeout(batchTimerRef.current);
     const ids = pendingBatch.ids;
     setPendingBatch(null);
-    await supabase.from('food_log').delete().in('id', ids);
+    setMutationError(null);
+    const { data, error } = await supabase
+      .from('food_log')
+      .delete()
+      .in('id', ids)
+      .select('id');
+    if (error || !data || data.length !== ids.length) {
+      setMutationError(t('food.delete_failed'));
+    }
     await loadTodayLog();
   };
+
+  useEffect(() => {
+    if (!mutationError) return;
+    const timer = window.setTimeout(() => setMutationError(null), 5000);
+    return () => window.clearTimeout(timer);
+  }, [mutationError]);
 
   useEffect(() => () => {
     if (batchTimerRef.current) clearTimeout(batchTimerRef.current);
@@ -930,6 +973,19 @@ export default function FoodLogPage() {
 
   return (
     <div className="min-h-screen pb-24" style={{ background: 'var(--bg,#0a0a0a)' }}>
+      <AnimatePresence>
+        {mutationError && (
+          <motion.div
+            role="alert"
+            initial={{ opacity: 0, y: -12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -12 }}
+            className="fixed left-4 right-4 top-4 z-[var(--z-toast,70)] mx-auto max-w-sm rounded-xl border border-red-500/20 bg-red-950/95 px-4 py-3 text-center text-sm text-red-200 shadow-lg"
+          >
+            {mutationError}
+          </motion.div>
+        )}
+      </AnimatePresence>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}

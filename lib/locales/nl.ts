@@ -129,6 +129,7 @@ export const nl: Record<string, string> = {
   'food.entry_deleted': 'Invoer verwijderd',
   'food.retry': 'Opnieuw proberen',
   'food.log_load_failed': 'Je voedingslogboek kon niet worden geladen — probeer opnieuw',
+  'food.delete_failed': 'Het voedingsmiddel kon niet worden verwijderd — je logboek is vernieuwd',
   'food.manual_entry': 'Handmatig invoeren',
   'food.quick_add': 'Snel toevoegen',
   'food.remaining': '{n} kcal over',

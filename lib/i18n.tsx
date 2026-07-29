@@ -161,6 +161,7 @@ const translations: Record<string, Record<CoreLanguage, string>> = {
   'food.entry_deleted': { en: 'Entry deleted', es: 'Entrada eliminada', el: 'Η καταχώρηση διαγράφηκε' },
   'food.retry': { en: 'Retry', es: 'Reintentar', el: 'Επανάληψη' },
   'food.log_load_failed': { en: 'Your food log could not be loaded — try again', es: 'No se pudo cargar tu registro de comida — inténtalo de nuevo', el: 'Δεν ήταν δυνατή η φόρτωση του ημερολογίου φαγητού — δοκίμασε ξανά' },
+  'food.delete_failed': { en: 'Food could not be removed — your log was refreshed', es: 'No se pudo eliminar la comida — tu registro se actualizó', el: 'Δεν ήταν δυνατή η αφαίρεση του φαγητού — το ημερολόγιό σου ανανεώθηκε' },
   'food.manual_entry': { en: 'Enter manually', es: 'Ingresar manualmente', el: 'Χειροκίνητη εισαγωγή' },
   'food.quick_add': { en: 'Quick add', es: 'Agregar rápido', el: 'Γρήγορη προσθήκη' },
   'food.remaining': { en: '{n} kcal left', es: '{n} kcal restantes', el: '{n} kcal απομένουν' },
