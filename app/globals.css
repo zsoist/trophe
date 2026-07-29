@@ -903,6 +903,13 @@ body {
   transition: width 180ms ease-out;
 }
 
+/* Keep SSR content and layout space while deferring below-the-fold analytics
+   rendering work until the coach approaches the panels. */
+.client-analytics-deferred {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 900px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .login-enter {
     animation: none;
