@@ -231,6 +231,10 @@ export const it: Record<string, string> = {
   'profile.save_profile': 'Salva Profilo',
   'profile.saving': 'Salvataggio...',
   'profile.saved': 'Salvato',
+  'profile.save_failed': 'Il profilo non è stato salvato — riprova',
+  'profile.language_save_failed': 'I dati nutrizionali sono stati salvati, ma la lingua no — riprova',
+  'profile.invalid_body': 'Controlla età, altezza e peso prima di salvare',
+  'profile.macros_adjusted': 'Proteine e grassi sono stati adattati all’obiettivo calorico. Il tuo coach può rivedere questi valori iniziali.',
   'profile.log_out': 'Esci',
 
   // ── Goal labels ──

@@ -263,6 +263,10 @@ const translations: Record<string, Record<CoreLanguage, string>> = {
   'profile.save_profile': { en: 'Save Profile', es: 'Guardar Perfil', el: 'Αποθήκευση Προφίλ' },
   'profile.saving': { en: 'Saving...', es: 'Guardando...', el: 'Αποθήκευση...' },
   'profile.saved': { en: 'Saved', es: 'Guardado', el: 'Αποθηκεύτηκε' },
+  'profile.save_failed': { en: 'Profile was not saved — try again', es: 'El perfil no se guardó — inténtalo de nuevo', el: 'Το προφίλ δεν αποθηκεύτηκε — δοκίμασε ξανά' },
+  'profile.language_save_failed': { en: 'Nutrition saved, but language was not saved — try again', es: 'La nutrición se guardó, pero el idioma no — inténtalo de nuevo', el: 'Η διατροφή αποθηκεύτηκε, αλλά η γλώσσα όχι — δοκίμασε ξανά' },
+  'profile.invalid_body': { en: 'Check age, height, and weight before saving', es: 'Revisa la edad, la altura y el peso antes de guardar', el: 'Έλεγξε την ηλικία, το ύψος και το βάρος πριν την αποθήκευση' },
+  'profile.macros_adjusted': { en: 'Protein and fat were adjusted to fit the calorie target. Your coach can review these starting targets.', es: 'La proteína y la grasa se ajustaron al objetivo calórico. Tu coach puede revisar estos valores iniciales.', el: 'Η πρωτεΐνη και το λίπος προσαρμόστηκαν στον στόχο θερμίδων. Ο coach σου μπορεί να ελέγξει αυτές τις αρχικές τιμές.' },
   'profile.log_out': { en: 'Log Out', es: 'Cerrar Sesión', el: 'Αποσύνδεση' },
 
   // ── Goal labels ──

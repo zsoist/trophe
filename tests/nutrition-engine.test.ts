@@ -9,6 +9,7 @@ import {
   macroPercentage,
   caloriesFromSteps,
   remainingMacros,
+  nutritionProfileInputIssue,
 } from '@/lib/food/nutrition-engine';
 
 // Reference case — Daniela-like profile (drove the ChatGPT comparison incident).
@@ -146,6 +147,22 @@ describe('calculateFullProfile', () => {
     expect(p.tdee).toBeGreaterThan(p.bmr);
     expect(p.protein_g).toBeGreaterThan(0);
     expect(p.calories).toBe(p.tdee); // maintenance = tdee
+  });
+
+  it('identifies unsupported body inputs before preview or persistence', () => {
+    const valid = {
+      weight_kg: 80,
+      height_cm: 180,
+      age: 30,
+      sex: 'male' as const,
+      activityLevel: 'moderate' as const,
+      goal: 'maintenance' as const,
+    };
+
+    expect(nutritionProfileInputIssue(valid)).toBeNull();
+    expect(nutritionProfileInputIssue({ ...valid, age: 12 })).toBe('age');
+    expect(nutritionProfileInputIssue({ ...valid, weight_kg: 301 })).toBe('weight');
+    expect(nutritionProfileInputIssue({ ...valid, height_cm: 99 })).toBe('height');
   });
 });
 

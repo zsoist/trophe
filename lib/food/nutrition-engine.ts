@@ -24,6 +24,39 @@ const GOAL_CALORIE_ADJUSTMENTS: Record<Goal, (tdee: number) => number> = {
   health: (tdee) => Math.round(tdee),                // no adjustment
 };
 
+export interface NutritionProfileInput {
+  weight_kg: number;
+  height_cm: number;
+  age: number;
+  sex: Sex;
+  activityLevel: ActivityLevel;
+  goal: Goal;
+}
+
+export type NutritionProfileInputIssue =
+  | 'sex'
+  | 'age'
+  | 'weight'
+  | 'height'
+  | 'activity'
+  | 'goal';
+
+/**
+ * Validate the supported nutrition-calculator domain before previewing or
+ * persisting calculated targets.
+ */
+export function nutritionProfileInputIssue(
+  input: NutritionProfileInput,
+): NutritionProfileInputIssue | null {
+  if (input.sex !== 'male' && input.sex !== 'female') return 'sex';
+  if (!Number.isInteger(input.age) || input.age < 13 || input.age > 120) return 'age';
+  if (!Number.isFinite(input.weight_kg) || input.weight_kg < 20 || input.weight_kg > 300) return 'weight';
+  if (!Number.isFinite(input.height_cm) || input.height_cm < 100 || input.height_cm > 250) return 'height';
+  if (!Object.prototype.hasOwnProperty.call(ACTIVITY_MULTIPLIERS, input.activityLevel)) return 'activity';
+  if (!Object.prototype.hasOwnProperty.call(GOAL_CALORIE_ADJUSTMENTS, input.goal)) return 'goal';
+  return null;
+}
+
 // ─── Macro targets by goal (g/kg/day) ───
 // Sources: ISSN Position Stand, ACSM Guidelines
 const MACRO_RATIOS: Record<Goal, { protein: number; carbs: [number, number]; fat: number }> = {

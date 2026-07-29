@@ -231,6 +231,10 @@ export const fr: Record<string, string> = {
   'profile.save_profile': 'Sauvegarder le profil',
   'profile.saving': 'Enregistrement...',
   'profile.saved': 'Enregistré',
+  'profile.save_failed': 'Le profil n’a pas été enregistré — réessaie',
+  'profile.language_save_failed': 'Les données nutritionnelles ont été enregistrées, mais pas la langue — réessaie',
+  'profile.invalid_body': 'Vérifie l’âge, la taille et le poids avant d’enregistrer',
+  'profile.macros_adjusted': 'Les protéines et les lipides ont été ajustés à l’objectif calorique. Ton coach peut vérifier ces valeurs de départ.',
   'profile.log_out': 'Déconnexion',
 
   // ── Goal labels ──
