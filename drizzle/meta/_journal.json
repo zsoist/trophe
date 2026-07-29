@@ -484,6 +484,13 @@
       "when": 1785337826000,
       "tag": "0060_food_database_trigram_search",
       "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1785342100000,
+      "tag": "0061_chat_attachment_orphan_cleanup",
+      "breakpoints": true
     }
   ]
 }

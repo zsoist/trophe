@@ -950,6 +950,7 @@ export const nl: Record<string, string> = {
   'chat.voice_ready': 'Spraakmemo klaar om te versturen',
   'chat.remove_attachment': 'Bijlage verwijderen',
   'chat.attach_failed': 'Toevoegen mislukt — probeer opnieuw',
+  'chat.send_failed': 'Bericht niet verzonden — probeer opnieuw',
   'chat.mic_denied': 'Microfoon niet beschikbaar — controleer de machtigingen',
   'chat.preview_photo': 'Foto',
   'chat.preview_voice': 'Spraakmemo',

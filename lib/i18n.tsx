@@ -729,6 +729,7 @@ const translations: Record<string, Record<CoreLanguage, string>> = {
   'chat.voice_ready': { en: 'Voice note ready to send', es: 'Nota de voz lista para enviar', el: 'Το φωνητικό είναι έτοιμο' },
   'chat.remove_attachment': { en: 'Remove attachment', es: 'Quitar adjunto', el: 'Αφαίρεση συνημμένου' },
   'chat.attach_failed': { en: 'Could not attach — try again', es: 'No se pudo adjuntar — inténtalo de nuevo', el: 'Αποτυχία επισύναψης — δοκίμασε ξανά' },
+  'chat.send_failed': { en: 'Message not sent — try again', es: 'No se envió el mensaje — inténtalo de nuevo', el: 'Το μήνυμα δεν στάλθηκε — δοκίμασε ξανά' },
   'chat.mic_denied': { en: 'Microphone unavailable — check permissions', es: 'Micrófono no disponible — revisa los permisos', el: 'Το μικρόφωνο δεν είναι διαθέσιμο — έλεγξε τις άδειες' },
   'chat.preview_photo': { en: 'Photo', es: 'Foto', el: 'Φωτογραφία' },
   'chat.preview_voice': { en: 'Voice note', es: 'Nota de voz', el: 'Φωνητικό μήνυμα' },

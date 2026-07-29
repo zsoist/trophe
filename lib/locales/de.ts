@@ -950,6 +950,7 @@ export const de: Record<string, string> = {
   'chat.voice_ready': 'Sprachnotiz bereit zum Senden',
   'chat.remove_attachment': 'Anhang entfernen',
   'chat.attach_failed': 'Anhängen fehlgeschlagen — versuch es erneut',
+  'chat.send_failed': 'Nachricht nicht gesendet — versuch es erneut',
   'chat.mic_denied': 'Mikrofon nicht verfügbar — prüfe die Berechtigungen',
   'chat.preview_photo': 'Foto',
   'chat.preview_voice': 'Sprachnotiz',

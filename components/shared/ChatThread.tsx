@@ -445,10 +445,18 @@ export default function ChatThread({ coachId, clientId, viewerRole, counterpartN
       .maybeSingle();
 
     if (error || !data) {
-      // Send failed — remove the ghost and restore the draft
+      // The upload is not referenced by a message, so its narrow DELETE
+      // policy permits the uploader to reclaim it before a retry.
+      if (attachment_path) {
+        await supabase.storage
+          .from('chat-attachments')
+          .remove([attachment_path]);
+      }
+      // Send failed — remove the ghost and restore the draft/attachment.
       setMsgs((prev) => prev.filter((m) => m.id !== tempId));
       setDraft(body);
       if (att) setPending(att);
+      setUploadError(t('chat.send_failed'));
     } else {
       const persistedUrl = attachment_path ? await signedUrl(attachment_path) : null;
       const real = {

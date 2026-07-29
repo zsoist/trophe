@@ -950,6 +950,7 @@ export const fr: Record<string, string> = {
   'chat.voice_ready': 'Note vocale prête à envoyer',
   'chat.remove_attachment': 'Retirer la pièce jointe',
   'chat.attach_failed': 'Impossible de joindre — réessaie',
+  'chat.send_failed': "Message non envoyé — réessaie",
   'chat.mic_denied': 'Micro indisponible — vérifie les autorisations',
   'chat.preview_photo': 'Photo',
   'chat.preview_voice': 'Note vocale',
