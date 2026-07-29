@@ -20,6 +20,14 @@ Scope: food parsing, nutrition review/logging, photo/manual boundaries, local DB
   - production adapters exercised with injected fixture transports
   - provider keys and paid-tool approval forcibly blanked
   - live transport attempts: 0
+- Authenticated local browser matrix: **22/22 passed**
+  - Chromium mobile and desktop projects
+  - client, coach, and super-admin role journeys
+  - parser rate-limit, timeout, malformed-payload, editable-review, and manual-validation states
+  - settings, language/units, stable loading, safe destination handling, and logout
+  - three random disposable local users created for the run and removed afterward
+  - independent database check after the run: 0 matching auth users and 0 matching profiles
+  - Supabase API and database targets are guarded as loopback-only; paid-provider keys and approval are forcibly blanked
 - DB read-only verification: schema, RLS policies, functions, vector columns, audit immutability, and required indexes passed.
 - Query-plan check:
   - food full-text lookup uses `idx_foods_search_text`
@@ -35,7 +43,7 @@ Scope: food parsing, nutrition review/logging, photo/manual boundaries, local DB
 - Nutrition calculations keep two-decimal precision at the lookup boundary, preventing small macros from being hidden by early rounding.
 - Parser results fail closed when values are missing, non-finite, negative, implausible, out of bounds, or from an unknown source.
 - Edited portions are capped and validated again before the food-log insert.
-- Manual entry rejects invalid calories/macros before writing.
+- Manual entry rejects invalid calories/macros before writing and now displays the validation error in the manual-entry view.
 - Photo analysis drops malformed or implausible items, caps confidence, and preserves an uncertainty note.
 - Food text, ingredient names, provider messages, stacks, and nested errors are no longer written to server logs.
 - Public landing/login delivery and coach analytics loading are lighter; recorded performance evidence is in `docs/quality/performance-final-2026-07-29.md`.
@@ -65,7 +73,7 @@ Use a non-production client tester account on the release candidate.
 9. Trigger Retry after a parser error. A failed photo must never be silently resubmitted after switching to text.
 10. Confirm the success state returns to the meal and the logged row is editable/undoable where the flow provides an inserted row ID.
 
-Automated authenticated coverage for parser error, valid review/edit, and manual-invalid states is in `e2e/food-error-states.spec.ts`. It runs when `E2E_CLIENT_EMAIL` and `E2E_CLIENT_PASSWORD` are supplied; this environment did not contain those tester credentials, so the authenticated browser cases were correctly skipped.
+The authenticated local matrix can be repeated with `npm run test:e2e:local-auth`. The harness refuses non-loopback Supabase API or database targets, creates random disposable client/coach/admin identities, runs the three authenticated browser specs sequentially, blanks paid-provider capabilities, and removes the identities even if the browser run fails. It does not require persistent tester credentials.
 
 ## Explicit limits
 

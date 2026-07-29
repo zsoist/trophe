@@ -917,6 +917,14 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
             />
           </div>
         </div>
+        {error && (
+          <p
+            role="alert"
+            className="text-red-400 text-xs text-center"
+          >
+            {error}
+          </p>
+        )}
         <motion.button
           onClick={handleManualEntry}
           disabled={logging || !manualCal}

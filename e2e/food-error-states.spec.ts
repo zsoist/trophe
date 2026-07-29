@@ -92,12 +92,13 @@ test.describe('food parser error states', () => {
     await page.getByPlaceholder(/What did you eat/).press('Enter');
 
     await expect(page.getByText('Φέτα', { exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Confirm all \(1\)/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Log All (1)' })).toBeVisible();
 
     const grams = page.locator('input[type="number"]').first();
     await grams.fill('150');
     await expect(page.getByText('396 kcal', { exact: true })).toBeVisible();
-    await expect(page.getByText('21.3g', { exact: true })).toBeVisible();
+    await expect(page.getByText('P: 21.3g', { exact: true })).toBeVisible();
+    await expect(page.getByText('F: 32g', { exact: true })).toBeVisible();
   });
 
   test('manual entry rejects unsafe nutrition before any save request', async ({ page }) => {
