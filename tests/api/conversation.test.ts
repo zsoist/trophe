@@ -123,7 +123,11 @@ describe('POST /api/ai/conversation', () => {
         metadata: expect.objectContaining({ memoryChunkIds: ['chunk-1'], knowledgeChunkIds: ['knowledge-1'] }),
       }),
     }));
-    expect(mocks.values).toHaveBeenCalledTimes(2);
+    expect(mocks.values).toHaveBeenCalledOnce();
+    expect(mocks.values).toHaveBeenCalledWith([
+      expect.objectContaining({ role: 'user', content: 'What should I eat?' }),
+      expect.objectContaining({ role: 'assistant', content: 'Eat a balanced meal.' }),
+    ]);
     expect(mocks.markRetrieved).toHaveBeenCalledOnce();
     expect(mocks.enqueueConversationMemory).toHaveBeenCalledWith({
       userId: 'user-1',
@@ -143,5 +147,22 @@ describe('POST /api/ai/conversation', () => {
       message: 'Eat a balanced meal.',
       memoryWriteStatus: 'degraded',
     });
+  });
+
+  it('returns a stable 503 and persists no orphan turn when generation fails', async () => {
+    mocks.executeAiTask.mockRejectedValueOnce(new Error('provider detail'));
+
+    const result = await POST(request({
+      sessionId: 'session-1',
+      message: 'What should I eat?',
+    }));
+
+    expect(result.status).toBe(503);
+    expect(await result.json()).toEqual({
+      error: 'The conversation assistant is temporarily unavailable — please try again.',
+    });
+    expect(mocks.insert).not.toHaveBeenCalled();
+    expect(mocks.markRetrieved).not.toHaveBeenCalled();
+    expect(mocks.enqueueConversationMemory).not.toHaveBeenCalled();
   });
 });

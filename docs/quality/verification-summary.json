@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-29T15:43:38.622Z",
+  "generatedAt": "2026-07-29T15:49:06.985Z",
   "status": "passed",
   "preflight": {
     "status": "healthy",
@@ -11,7 +11,7 @@
       "status": "passed",
       "exitCode": 0,
       "signal": null,
-      "durationMs": 1715,
+      "durationMs": 1716,
       "stdoutBytes": 42,
       "stderrBytes": 0,
       "stdoutDigest": "be56bf41e64d499a7527f0215a475c662d6800f7bce45172e48dc3cef6d6f189",
@@ -23,7 +23,7 @@
       "status": "passed",
       "exitCode": 0,
       "signal": null,
-      "durationMs": 9018,
+      "durationMs": 9070,
       "stdoutBytes": 18530,
       "stderrBytes": 0,
       "stdoutDigest": "410752705ce7bcde2d61e8ef51a535497b921667e2d4a4a19a2a3d75ef5f10b3",
@@ -35,11 +35,11 @@
       "status": "passed",
       "exitCode": 0,
       "signal": null,
-      "durationMs": 4961,
+      "durationMs": 4921,
       "stdoutBytes": 65536,
-      "stderrBytes": 6964,
-      "stdoutDigest": "bd7bff9b9ea02edbf6b92709569c7acaa5b49ce4fe3d2dfc1b3cee1a478132c6",
-      "stderrDigest": "2fa4772ddc5dd35d5b9937db9adfa878b6d5384f42983d15c75fc9e8388f2b55",
+      "stderrBytes": 7157,
+      "stdoutDigest": "0376190919b84f684dd7c56d0d1545f41f1b1b77fb9235d91ca21d75ab995e2f",
+      "stderrDigest": "323e2b1dd78310567267a2b1b6b3db47e6766b23bdc148b7b7eb874ffa73fc15",
       "spawnError": null
     },
     {
@@ -47,11 +47,11 @@
       "status": "passed",
       "exitCode": 0,
       "signal": null,
-      "durationMs": 22070,
+      "durationMs": 16512,
       "stdoutBytes": 3318,
       "stderrBytes": 1136,
-      "stdoutDigest": "2c73d497ed1a90d3c5fac58be8e1c9c4138d2798f72a00991fd8d1312ae007b3",
-      "stderrDigest": "4a497d9b2f85d235c9e37cee84b642d9a7fc90c70503e9d387f8befa89dc7e1a",
+      "stdoutDigest": "00a41a4a7642a334e8adc4941d59f3100b9e408306356df289cae969c98217d8",
+      "stderrDigest": "7419488230225fec9d9165256377cd0db203b4aac1a75874b2c923f9d28d4202",
       "spawnError": null
     }
   ]

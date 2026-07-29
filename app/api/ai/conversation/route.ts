@@ -9,6 +9,7 @@ import { executeAiTask } from '@/agents/runtime';
 import { invokeTextProvider } from '@/agents/runtime/providers/text';
 import { retrieveKnowledge } from '@/agents/rag/retrieve';
 import { groundingStatus } from '@/agents/rag/grounding';
+import { safeErrorMetadata } from '@/lib/security/safe-error-log';
 
 const requestSchema = z.object({
   sessionId: z.string().min(1).max(200),
@@ -42,11 +43,7 @@ export async function POST(request: NextRequest) {
   });
   const systemPrompt = [SYSTEM_PROMPT, memory.systemPromptBlock, knowledge.systemPromptBlock].filter(Boolean).join('\n\n');
 
-  await db.insert(agentConversation).values({
-    userId: guard.userId, agentName: 'conversation', sessionId, role: 'user', content: message,
-  });
-
-  const generation = await executeAiTask({
+  const generationResult = await executeAiTask({
     task: 'coach_insight',
     prompt: message,
     systemPrompt,
@@ -63,18 +60,43 @@ export async function POST(request: NextRequest) {
     invoke: ({ policy, signal }) => invokeTextProvider({
       policy, signal, system: systemPrompt, prompt: message, userId: guard.userId,
     }),
-  });
+  })
+    .then((generation) => ({ ok: true as const, generation }))
+    .catch((error) => {
+      console.error('[conversation] generation failed', safeErrorMetadata(error));
+      return { ok: false as const };
+    });
 
-  await db.insert(agentConversation).values({
-    userId: guard.userId,
-    agentName: 'conversation',
-    sessionId,
-    role: 'assistant',
-    content: generation.output,
-    tokensIn: generation.usage.inputTokens,
-    tokensOut: generation.usage.outputTokens,
-    costUsd: generation.usage.actualCostUsd ?? generation.estimatedCostUsd,
-  });
+  if (!generationResult.ok) {
+    return NextResponse.json(
+      { error: 'The conversation assistant is temporarily unavailable — please try again.' },
+      { status: 503 },
+    );
+  }
+  const generation = generationResult.generation;
+
+  // One SQL statement keeps the immutable user/assistant pair atomic. Provider
+  // failures above persist neither turn, so conversation history cannot contain
+  // a permanent unanswered user row.
+  await db.insert(agentConversation).values([
+    {
+      userId: guard.userId,
+      agentName: 'conversation',
+      sessionId,
+      role: 'user',
+      content: message,
+    },
+    {
+      userId: guard.userId,
+      agentName: 'conversation',
+      sessionId,
+      role: 'assistant',
+      content: generation.output,
+      tokensIn: generation.usage.inputTokens,
+      tokensOut: generation.usage.outputTokens,
+      costUsd: generation.usage.actualCostUsd ?? generation.estimatedCostUsd,
+    },
+  ]);
   await memory.markRetrieved();
 
   let memoryWriteStatus: 'queued' | 'degraded' = 'queued';
