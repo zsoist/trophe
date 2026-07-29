@@ -65,7 +65,9 @@ export async function GET(req: NextRequest) {
 
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) {
-    return NextResponse.redirect(`${appUrl}/login?redirect=/dashboard/integrations`);
+    return NextResponse.redirect(
+      `${appUrl}/login?redirectTo=${encodeURIComponent('/dashboard/integrations')}`,
+    );
   }
 
   // ── Verify CSRF state ─────────────────────────────────────────────────

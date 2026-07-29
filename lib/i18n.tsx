@@ -6,6 +6,7 @@
 
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import type { Language, CoreLanguage } from './types';
+import { interpolateTranslation } from './i18n-interpolate';
 
 // Overlay locales: flat key→string maps with EN fallback for missing keys.
 // Core languages (EN/ES/EL) stay inline below so the compiler enforces full coverage.
@@ -160,6 +161,11 @@ const translations: Record<string, Record<CoreLanguage, string>> = {
   'food.undo_delete': { en: 'Undo', es: 'Deshacer', el: 'Αναίρεση' },
   'food.entry_deleted': { en: 'Entry deleted', es: 'Entrada eliminada', el: 'Η καταχώρηση διαγράφηκε' },
   'food.retry': { en: 'Retry', es: 'Reintentar', el: 'Επανάληψη' },
+  'food.log_load_failed': { en: 'Your food log could not be loaded — try again', es: 'No se pudo cargar tu registro de comida — inténtalo de nuevo', el: 'Δεν ήταν δυνατή η φόρτωση του ημερολογίου φαγητού — δοκίμασε ξανά' },
+  'food.delete_failed': { en: 'Food could not be removed — your log was refreshed', es: 'No se pudo eliminar la comida — tu registro se actualizó', el: 'Δεν ήταν δυνατή η αφαίρεση του φαγητού — το ημερολόγιό σου ανανεώθηκε' },
+  'food.save_failed': { en: 'Your meal was not saved — review it and try again', es: 'Tu comida no se guardó — revísala e inténtalo de nuevo', el: 'Το γεύμα σου δεν αποθηκεύτηκε — έλεγξέ το και δοκίμασε ξανά' },
+  'food.session_expired': { en: 'Your session expired — refresh and sign in again', es: 'Tu sesión caducó — actualiza e inicia sesión de nuevo', el: 'Η συνεδρία σου έληξε — ανανέωσε και συνδέσου ξανά' },
+  'food.invalid_entry': { en: 'This meal has an invalid value — review it and try again', es: 'Esta comida tiene un valor no válido — revísala e inténtalo de nuevo', el: 'Αυτό το γεύμα έχει μη έγκυρη τιμή — έλεγξέ το και δοκίμασε ξανά' },
   'food.manual_entry': { en: 'Enter manually', es: 'Ingresar manualmente', el: 'Χειροκίνητη εισαγωγή' },
   'food.quick_add': { en: 'Quick add', es: 'Agregar rápido', el: 'Γρήγορη προσθήκη' },
   'food.remaining': { en: '{n} kcal left', es: '{n} kcal restantes', el: '{n} kcal απομένουν' },
@@ -205,6 +211,11 @@ const translations: Record<string, Record<CoreLanguage, string>> = {
   'workout.title': { en: 'Workout', es: 'Entreno', el: 'Άσκηση' },
   'workout.start': { en: 'Start Workout', es: 'Iniciar Entreno', el: 'Έναρξη Άσκησης' },
   'workout.finish': { en: 'Finish Workout', es: 'Finalizar Entreno', el: 'Τέλος Άσκησης' },
+  'workout.save_failed': {
+    en: 'Your workout was not saved. Please try again.',
+    es: 'El entrenamiento no se guardó. Inténtalo de nuevo.',
+    el: 'Η προπόνηση δεν αποθηκεύτηκε. Δοκιμάστε ξανά.',
+  },
   'workout.add_exercise': { en: 'Add Exercise', es: 'Agregar Ejercicio', el: 'Προσθήκη Άσκησης' },
   'workout.search_exercises': { en: 'Search exercises...', es: 'Buscar ejercicios...', el: 'Αναζήτηση ασκήσεων...' },
   'workout.set': { en: 'Set', es: 'Serie', el: 'Σετ' },
@@ -263,6 +274,11 @@ const translations: Record<string, Record<CoreLanguage, string>> = {
   'profile.save_profile': { en: 'Save Profile', es: 'Guardar Perfil', el: 'Αποθήκευση Προφίλ' },
   'profile.saving': { en: 'Saving...', es: 'Guardando...', el: 'Αποθήκευση...' },
   'profile.saved': { en: 'Saved', es: 'Guardado', el: 'Αποθηκεύτηκε' },
+  'profile.save_failed': { en: 'Profile was not saved — try again', es: 'El perfil no se guardó — inténtalo de nuevo', el: 'Το προφίλ δεν αποθηκεύτηκε — δοκίμασε ξανά' },
+  'profile.language_save_failed': { en: 'Nutrition saved, but language was not saved — try again', es: 'La nutrición se guardó, pero el idioma no — inténtalo de nuevo', el: 'Η διατροφή αποθηκεύτηκε, αλλά η γλώσσα όχι — δοκίμασε ξανά' },
+  'profile.invalid_body': { en: 'Check age, height, and weight before saving', es: 'Revisa la edad, la altura y el peso antes de guardar', el: 'Έλεγξε την ηλικία, το ύψος και το βάρος πριν την αποθήκευση' },
+  'profile.macros_adjusted': { en: 'Protein and fat were adjusted to fit the calorie target. Your coach can review these starting targets.', es: 'La proteína y la grasa se ajustaron al objetivo calórico. Tu coach puede revisar estos valores iniciales.', el: 'Η πρωτεΐνη και το λίπος προσαρμόστηκαν στον στόχο θερμίδων. Ο coach σου μπορεί να ελέγξει αυτές τις αρχικές τιμές.' },
+  'profile.load_failed': { en: 'Your profile could not be loaded — try again', es: 'No se pudo cargar tu perfil — inténtalo de nuevo', el: 'Δεν ήταν δυνατή η φόρτωση του προφίλ σου — δοκίμασε ξανά' },
   'profile.log_out': { en: 'Log Out', es: 'Cerrar Sesión', el: 'Αποσύνδεση' },
 
   // ── Goal labels ──
@@ -729,6 +745,7 @@ const translations: Record<string, Record<CoreLanguage, string>> = {
   'chat.voice_ready': { en: 'Voice note ready to send', es: 'Nota de voz lista para enviar', el: 'Το φωνητικό είναι έτοιμο' },
   'chat.remove_attachment': { en: 'Remove attachment', es: 'Quitar adjunto', el: 'Αφαίρεση συνημμένου' },
   'chat.attach_failed': { en: 'Could not attach — try again', es: 'No se pudo adjuntar — inténtalo de nuevo', el: 'Αποτυχία επισύναψης — δοκίμασε ξανά' },
+  'chat.send_failed': { en: 'Message not sent — try again', es: 'No se envió el mensaje — inténtalo de nuevo', el: 'Το μήνυμα δεν στάλθηκε — δοκίμασε ξανά' },
   'chat.mic_denied': { en: 'Microphone unavailable — check permissions', es: 'Micrófono no disponible — revisa los permisos', el: 'Το μικρόφωνο δεν είναι διαθέσιμο — έλεγξε τις άδειες' },
   'chat.preview_photo': { en: 'Photo', es: 'Foto', el: 'Φωτογραφία' },
   'chat.preview_voice': { en: 'Voice note', es: 'Nota de voz', el: 'Φωνητικό μήνυμα' },
@@ -748,6 +765,7 @@ const translations: Record<string, Record<CoreLanguage, string>> = {
   'workout.superset': { en: 'Superset', es: 'Superserie', el: 'Superset' },
   'workout.superset_link': { en: 'Link with next exercise', es: 'Enlazar con el siguiente', el: 'Σύνδεση με την επόμενη' },
   'workout.superset_unlink': { en: 'Unlink superset', es: 'Desenlazar superserie', el: 'Αποσύνδεση superset' },
+  'workout.superset_save_failed': { en: 'Superset change was not saved — please try again', es: 'El cambio de superserie no se guardó — inténtalo de nuevo', el: 'Η αλλαγή superset δεν αποθηκεύτηκε — δοκιμάστε ξανά' },
   'workout.rest_target': { en: 'Rest target', es: 'Descanso objetivo', el: 'Στόχος ξεκούρασης' },
 
   // ── Weekday names (program cards) ──
@@ -1052,6 +1070,8 @@ const translations: Record<string, Record<CoreLanguage, string>> = {
   'food.edit.sugar': { en: 'Sugar', es: 'Azúcar', el: 'Ζάχαρη' },
   'food.edit.save': { en: 'Save', es: 'Guardar', el: 'Αποθήκευση' },
   'food.edit.saveQuantity': { en: 'Save quantity', es: 'Guardar cantidad', el: 'Αποθήκευση ποσότητας' },
+  'food.edit.invalid': { en: 'Check the edited values before saving', es: 'Revisa los valores editados antes de guardar', el: 'Έλεγξε τις αλλαγμένες τιμές πριν την αποθήκευση' },
+  'food.edit.failed': { en: 'This edit was not saved — try again', es: 'Este cambio no se guardó — inténtalo de nuevo', el: 'Αυτή η αλλαγή δεν αποθηκεύτηκε — δοκίμασε ξανά' },
   'food.edit.decreaseGrams': { en: 'Decrease grams', es: 'Reducir gramos', el: 'Μείωση γραμμαρίων' },
   'food.edit.increaseGrams': { en: 'Increase grams', es: 'Aumentar gramos', el: 'Αύξηση γραμμαρίων' },
 
@@ -1182,13 +1202,8 @@ export function I18nProvider({ children, defaultLang = 'en' }: { children: React
 
   const t = useCallback((key: string, params?: Record<string, string | number>): string => {
     const inline = translations[key]?.[lang as CoreLanguage];
-    let text = inline || OVERLAYS[lang]?.[key] || translations[key]?.['en'] || key;
-    if (params) {
-      Object.entries(params).forEach(([k, v]) => {
-        text = text.replace(`{${k}}`, String(v));
-      });
-    }
-    return text;
+    const text = inline || OVERLAYS[lang]?.[key] || translations[key]?.['en'] || key;
+    return interpolateTranslation(text, params);
   // overlayVersion re-binds t when an overlay dictionary arrives.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lang, overlayVersion]);

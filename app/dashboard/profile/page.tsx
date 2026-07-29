@@ -5,7 +5,11 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { User, LogOut, Save, Globe, Sun, Moon, Palette, SlidersHorizontal, Download, ShieldCheck } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { calculateFullProfile, ACTIVITY_DESCRIPTIONS } from '@/lib/food/nutrition-engine';
+import {
+  calculateFullProfile,
+  nutritionProfileInputIssue,
+  ACTIVITY_DESCRIPTIONS,
+} from '@/lib/food/nutrition-engine';
 import type { ClientProfile, Profile, Sex, ActivityLevel, Goal, Language } from '@/lib/types';
 import { BotNav } from '@/components/ui/BotNav';
 import { Icon } from '@/components/ui';
@@ -76,8 +80,10 @@ function SectionCard({ id, title, icon, children, delay = 0 }: {
 export default function ProfilePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [clientProfile, setClientProfile] = useState<ClientProfile | null>(null);
   const [showPanelManager, setShowPanelManager] = useState(false);
@@ -104,8 +110,14 @@ export default function ProfilePage() {
   };
 
   const loadData = useCallback(async () => {
+    setLoading(true);
+    setLoadError(false);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
+      if (authError) throw new Error('profile_load_failed');
       if (!user) { router.push('/login'); return; }
 
       const [profRes, cpRes] = await Promise.all([
@@ -113,22 +125,27 @@ export default function ProfilePage() {
         supabase.from('client_profiles').select('*').eq('user_id', user.id).maybeSingle(),
       ]);
 
-      if (profRes.data) {
-        setProfile(profRes.data);
-        setLanguage(profRes.data.language || 'en');
+      const loadFailure = profRes.error || cpRes.error;
+      if (loadFailure || !profRes.data) {
+        throw new Error('profile_load_failed');
       }
-      if (cpRes.data) {
-        const cp = cpRes.data;
-        setClientProfile(cp);
-        setAge(cp.age?.toString() ?? '');
-        setSex(cp.sex ?? 'male');
-        setHeightCm(cp.height_cm?.toString() ?? '');
-        setWeightKg(cp.weight_kg?.toString() ?? '');
-        setActivity(cp.activity_level ?? 'moderate');
-        setGoal(cp.goal ?? 'maintenance');
+      if (!cpRes.data) {
+        router.replace('/onboarding');
+        return;
       }
-    } catch (err) {
-      console.error('Profile load error:', err);
+
+      setProfile(profRes.data);
+      setLanguage(profRes.data.language || 'en');
+      const cp = cpRes.data;
+      setClientProfile(cp);
+      setAge(cp.age?.toString() ?? '');
+      setSex(cp.sex ?? 'male');
+      setHeightCm(cp.height_cm?.toString() ?? '');
+      setWeightKg(cp.weight_kg?.toString() ?? '');
+      setActivity(cp.activity_level ?? 'moderate');
+      setGoal(cp.goal ?? 'maintenance');
+    } catch {
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -154,36 +171,78 @@ export default function ProfilePage() {
     return () => observer.disconnect();
   }, [loading]);
 
+  const ageNum = Number(age);
+  const heightNum = Number(heightCm);
+  const weightNum = Number(weightKg);
+  const bodyInputIssue = nutritionProfileInputIssue({
+    age: ageNum,
+    sex,
+    height_cm: heightNum,
+    weight_kg: weightNum,
+    activityLevel: activity,
+    goal,
+  });
+  const preview = !bodyInputIssue
+    ? calculateFullProfile(weightNum, heightNum, ageNum, sex, activity, goal)
+    : null;
+
   const handleSave = async () => {
-    if (!clientProfile || !profile) return;
+    if (!clientProfile || !profile || saving) return;
     setSaving(true);
     setSaved(false);
+    setSaveError(null);
+    let nutritionSaved = false;
 
-    const ageNum = parseInt(age);
-    const heightNum = parseFloat(heightCm);
-    const weightNum = parseFloat(weightKg);
-    if (!ageNum || !heightNum || !weightNum) { setSaving(false); return; }
+    try {
+      if (bodyInputIssue) {
+        setSaveError(t('profile.invalid_body'));
+        return;
+      }
 
-    const calc = calculateFullProfile(weightNum, heightNum, ageNum, sex, activity, goal);
-    const updates = {
-      age: ageNum, sex, height_cm: heightNum, weight_kg: weightNum,
-      activity_level: activity, goal,
-      bmr: calc.bmr, tdee: calc.tdee,
-      target_calories: calc.calories, target_protein_g: calc.protein_g,
-      target_carbs_g: calc.carbs_g, target_fat_g: calc.fat_g,
-      target_fiber_g: calc.fiber_g, target_water_ml: calc.water_ml,
-      updated_at: new Date().toISOString(),
-    };
+      const calc = calculateFullProfile(weightNum, heightNum, ageNum, sex, activity, goal);
+      const updates = {
+        age: ageNum, sex, height_cm: heightNum, weight_kg: weightNum,
+        activity_level: activity, goal,
+        bmr: calc.bmr, tdee: calc.tdee,
+        target_calories: calc.calories, target_protein_g: calc.protein_g,
+        target_carbs_g: calc.carbs_g, target_fat_g: calc.fat_g,
+        target_fiber_g: calc.fiber_g, target_water_ml: calc.water_ml,
+        updated_at: new Date().toISOString(),
+      };
 
-    await Promise.all([
-      supabase.from('client_profiles').update(updates).eq('id', clientProfile.id),
-      supabase.from('profiles').update({ language }).eq('id', profile.id),
-    ]);
+      const nutritionResult = await supabase
+        .from('client_profiles')
+        .update(updates)
+        .eq('id', clientProfile.id)
+        .select('id')
+        .maybeSingle();
+      if (nutritionResult.error || !nutritionResult.data) {
+        setSaveError(t('profile.save_failed'));
+        return;
+      }
 
-    setClientProfile((prev) => (prev ? { ...prev, ...updates } : prev));
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+      nutritionSaved = true;
+      setClientProfile((prev) => (prev ? { ...prev, ...updates } : prev));
+
+      const languageResult = await supabase
+        .from('profiles')
+        .update({ language })
+        .eq('id', profile.id)
+        .select('id')
+        .maybeSingle();
+      if (languageResult.error || !languageResult.data) {
+        setSaveError(t('profile.language_save_failed'));
+        return;
+      }
+
+      setProfile((prev) => (prev ? { ...prev, language } : prev));
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch {
+      setSaveError(t(nutritionSaved ? 'profile.language_save_failed' : 'profile.save_failed'));
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleLogout = async () => {
@@ -194,13 +253,6 @@ export default function ProfilePage() {
   const scrollTo = (id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
-
-  // Preview calculations
-  const ageNum = parseInt(age);
-  const heightNum = parseFloat(heightCm);
-  const weightNum = parseFloat(weightKg);
-  const canCalc = ageNum > 0 && heightNum > 0 && weightNum > 0;
-  const preview = canCalc ? calculateFullProfile(weightNum, heightNum, ageNum, sex, activity, goal) : null;
 
   const viewPrefs = parseClientViewPrefs(
     (clientProfile as (ClientProfile & { client_view_prefs?: unknown }) | null)?.client_view_prefs,
@@ -224,6 +276,24 @@ export default function ProfilePage() {
               </div>
             ))}
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div
+        className="min-h-screen flex items-center justify-center px-4"
+        style={{ background: 'var(--bg,#0a0a0a)' }}
+      >
+        <div className="glass w-full max-w-sm p-6 text-center">
+          <p role="alert" className="mb-4 text-sm leading-relaxed text-stone-300">
+            {t('profile.load_failed')}
+          </p>
+          <button type="button" onClick={loadData} className="btn-gold w-full rounded-xl py-3 text-sm font-semibold">
+            {t('food.retry')}
+          </button>
         </div>
       </div>
     );
@@ -285,7 +355,7 @@ export default function ProfilePage() {
           <div className="grid grid-cols-2 gap-3 mb-4">
             <div>
               <label className="text-stone-500 text-[10px] uppercase tracking-wider">{t('onboard.age')}</label>
-              <input type="number" value={age} onChange={(e) => setAge(e.target.value)}
+              <input type="number" min="13" max="120" value={age} onChange={(e) => setAge(e.target.value)}
                 className="input-dark text-sm mt-1" placeholder="30" />
             </div>
             <div>
@@ -306,12 +376,12 @@ export default function ProfilePage() {
             </div>
             <div>
               <label className="text-stone-500 text-[10px] uppercase tracking-wider">{t('onboard.height')}</label>
-              <input type="number" value={heightCm} onChange={(e) => setHeightCm(e.target.value)}
+              <input type="number" min="100" max="250" value={heightCm} onChange={(e) => setHeightCm(e.target.value)}
                 className="input-dark text-sm mt-1" placeholder="175" />
             </div>
             <div>
               <label className="text-stone-500 text-[10px] uppercase tracking-wider">{t('onboard.weight')}</label>
-              <input type="number" step="0.1" value={weightKg} onChange={(e) => setWeightKg(e.target.value)}
+              <input type="number" min="20" max="300" step="0.1" value={weightKg} onChange={(e) => setWeightKg(e.target.value)}
                 className="input-dark text-sm mt-1" placeholder="75" />
             </div>
           </div>
@@ -389,6 +459,11 @@ export default function ProfilePage() {
                   </div>
                 ))}
               </div>
+              {preview.macros_adjusted && (
+                <p className="mt-3 text-xs leading-relaxed text-amber-300/80" role="note">
+                  {t('profile.macros_adjusted')}
+                </p>
+              )}
             </div>
           )}
         </SectionCard>
@@ -538,6 +613,14 @@ export default function ProfilePage() {
 
         {/* ─── Save ─── */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+          {saveError && (
+            <div
+              role="alert"
+              className="mb-3 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2.5 text-sm text-red-300"
+            >
+              {saveError}
+            </div>
+          )}
           <button
             onClick={handleSave}
             disabled={saving}

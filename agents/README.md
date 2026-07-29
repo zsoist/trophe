@@ -182,6 +182,43 @@ Every `run()` call:
 
 ---
 
+## Runtime reliability and zero-spend verification
+
+`executeAiTask()` owns one monotonic end-to-end deadline for the primary and
+fallback chain. The remaining deadline is propagated through the exact
+`AbortSignal`; fallback cannot reset the clock. Only normalized `timeout`,
+`rate_limit`, and `transient` failures are fallback-eligible. Authentication,
+schema, budget, policy, invalid-input, and unknown failures fail closed without
+a second provider attempt.
+
+Provider adapters normalize status, allowlisted diagnostics, token usage,
+cache-read/write usage, latency, and provider request IDs. Raw provider bodies,
+prompts, keys, and arbitrary error messages are not persistence or telemetry
+fields. Structured OpenAI and Anthropic calls require the selected tool output
+and validate it with Zod before returning.
+
+In non-production environments, a live paid-provider transport is denied
+unless `TROPHE_ALLOW_PAID_AI=1` is set exactly. Tests and offline evaluations
+must inject their transport; an injected transport is the only normal
+zero-spend path. Batch/evaluation tools have additional operation-bound,
+target-bound, call-count, and USD-ceiling approval requirements.
+
+Run the provider contract suite without credentials:
+
+```bash
+env -u OPENAI_API_KEY -u ANTHROPIC_API_KEY -u DEEPSEEK_API_KEY \
+  -u VOYAGE_API_KEY -u GEMINI_API_KEY -u MISTRAL_API_KEY \
+  -u TROPHE_ALLOW_PAID_AI npm run evals:offline:providers
+```
+
+This writes `docs/quality/ai-provider-contracts.json` and exercises production
+OpenAI and Anthropic adapters through injected fixture transports. The result
+is explicitly an **offline provider-contract evaluation**. It proves adapter
+and runtime behavior; it does not measure live model quality or nutrition
+accuracy.
+
+---
+
 ## Adding a new agent
 
 1. **Prompt**: `agents/prompts/<agent>.v1.md`. Use `{PLACEHOLDER}` for runtime-injected content. Keep stable prefix ≥2048 tokens for caching.

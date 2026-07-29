@@ -177,18 +177,18 @@ export default function FormCheck({ exercise, side, onComplete, onBack }: FormCh
   }, []);
 
   // ─── Detection loop ───
-  const detectLoop = useCallback(() => {
+  const detectLoop = useCallback(function runDetection() {
     const video = videoRef.current;
     const poseLandmarker = poseLandmarkerRef.current;
 
     if (!video || !poseLandmarker || video.readyState < 4) {
-      animationFrameRef.current = requestAnimationFrame(detectLoop);
+      animationFrameRef.current = requestAnimationFrame(runDetection);
       return;
     }
 
     const now = performance.now();
     if (now === lastTimestampRef.current) {
-      animationFrameRef.current = requestAnimationFrame(detectLoop);
+      animationFrameRef.current = requestAnimationFrame(runDetection);
       return;
     }
     lastTimestampRef.current = now;
@@ -280,7 +280,7 @@ export default function FormCheck({ exercise, side, onComplete, onBack }: FormCh
       // Detection errors are non-fatal, just skip frame
     }
 
-    animationFrameRef.current = requestAnimationFrame(detectLoop);
+    animationFrameRef.current = requestAnimationFrame(runDetection);
   }, [side, reference]);
 
   // ─── Start recording ───

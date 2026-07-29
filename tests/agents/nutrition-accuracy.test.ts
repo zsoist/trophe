@@ -5,6 +5,43 @@ import type { RecipeAnalyzeOutput } from '../../agents/schemas/recipe-analyze';
 import type { LookupResult } from '../../agents/food-parse/lookup';
 
 describe('nutrition accuracy guardrails', () => {
+  it.each([
+    ['eggplant', 25, 1, 6, 0.2],
+    ['pineapple', 50, 0.5, 13, 0.1],
+  ])('does not enrich %s with a shorter food-name substring', (
+    foodName,
+    calories,
+    protein,
+    carbs,
+    fat,
+  ) => {
+    const [item] = enrichWithLocalDB([
+      {
+        raw_text: foodName,
+        food_name: foodName,
+        name_localized: foodName,
+        quantity: 1,
+        unit: 'serving',
+        grams: 100,
+        calories,
+        protein_g: protein,
+        carbs_g: carbs,
+        fat_g: fat,
+        fiber_g: 2,
+        sugar_g: 1,
+        confidence: 0.4,
+        source: 'ai_estimate',
+      },
+    ]);
+
+    expect(item).toMatchObject({
+      calories,
+      protein_g: protein,
+      carbs_g: carbs,
+      fat_g: fat,
+    });
+  });
+
   it('does not promote fallback food-parse enrichment to authoritative local_db confidence', () => {
     const [item] = enrichWithLocalDB([
       {

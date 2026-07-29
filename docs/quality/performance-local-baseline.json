@@ -1,0 +1,3666 @@
+{
+  "schema": {
+    "name": "trophe.web-performance-baseline",
+    "version": 1,
+    "routeOrder": [
+      "/",
+      "/login"
+    ],
+    "routeShape": "{ path, summaryByViewport, sourceObservation?, rawReport }",
+    "rawReportShape": "scripts/perf/measure-web.mjs runMeasurements output",
+    "metricUnits": {
+      "ttfb": "ms",
+      "fcp": "ms",
+      "lcp": "ms",
+      "cls": "unitless",
+      "load": "ms",
+      "requestCount": "requests",
+      "transferredBytes": "bytes",
+      "longTasks": "count"
+    }
+  },
+  "sourceState": {
+    "head": "222f21d63681bfb79a10c06196c2f4063affb29c",
+    "worktree": "clean at baseline-file generation",
+    "nextVersion": "16.2.7"
+  },
+  "harness": {
+    "commit": "e3c25db95f929d7c8319d8f210ce740611816208",
+    "samplesPerViewport": 3,
+    "viewportOrder": [
+      {
+        "name": "mobile",
+        "width": 390,
+        "height": 844
+      },
+      {
+        "name": "desktop",
+        "width": 1440,
+        "height": 900
+      }
+    ],
+    "browserIsolation": "fresh context per sample; service workers and WebSockets blocked",
+    "permittedMethods": [
+      "GET",
+      "HEAD",
+      "OPTIONS"
+    ],
+    "settlement": {
+      "quietMs": 1000,
+      "maximumMs": 5000
+    }
+  },
+  "target": "local-production-build",
+  "baseUrl": "http://127.0.0.1:3300",
+  "captureWindowUtc": {
+    "startedAtUtc": "2026-07-26T09:40:12.802Z",
+    "completedAtUtc": "2026-07-26T09:40:30.085Z"
+  },
+  "constraints": {
+    "boundAddress": "127.0.0.1:3300",
+    "providerKeys": "pinned empty",
+    "paidAiApproval": "pinned empty",
+    "databaseTargets": "postgresql://postgres:postgres@127.0.0.1:54322/postgres",
+    "supabaseTargets": "http://127.0.0.1:54321",
+    "interactions": false,
+    "formsSubmitted": false,
+    "providerApiCalls": false,
+    "mutationRequests": false
+  },
+  "build": {
+    "command": "npm run build",
+    "result": "pass",
+    "routeRendering": {
+      "/": "static",
+      "/login": "static"
+    },
+    "generatedServiceWorkerRecovery": "/tmp/trophe-perf-baseline.OaOZXO/generated-public-sw.js"
+  },
+  "bottleneckDiagnostic": {
+    "schema": {
+      "name": "trophe.local-bottleneck-diagnostic",
+      "version": 2,
+      "grain": "route × viewport × sample",
+      "samplesPerViewport": 3,
+      "viewportOrder": [
+        {
+          "name": "mobile",
+          "width": 390,
+          "height": 844
+        },
+        {
+          "name": "desktop",
+          "width": 1440,
+          "height": 900
+        }
+      ],
+      "timingUnits": "milliseconds from navigationStart",
+      "transferUnits": "shared Task 1 CDP accumulator: per-hop maximum of partial and terminal encoded bytes, cached hops zero, terminal events deduplicated",
+      "traceCategories": [
+        "devtools.timeline",
+        "v8.execute",
+        "blink.user_timing",
+        "loading",
+        "disabled-by-default-devtools.timeline"
+      ],
+      "boundedWindow": {
+        "starts": "before navigation",
+        "ends": "one second of zero CDP in-flight network activity after load",
+        "maximumMs": 5000,
+        "operationTimeoutMs": 5000
+      },
+      "hydrationMethod": {
+        "boundary": "React DevTools hook renderer injection through last initial commit before bounded network settlement",
+        "cost": "union of non-overlapping renderer-main scripting events in that boundary",
+        "interpretation": "diagnostic upper-bound proxy for hydration plus immediate client effects; not a React profiler duration and not a replacement for headline harness timings"
+      },
+      "criticalChainMethod": {
+        "blockingStatus": "PerformanceResourceTiming.renderBlockingStatus",
+        "lcpIdentity": "authoritative buffered LargestContentfulPaint candidate plus every direct text-bearing descendant and computed style",
+        "resources": "CDP type/status/encoded bytes joined to Resource Timing start/duration/initiator"
+      },
+      "safety": {
+        "target": "exact http://127.0.0.1:3300 origin for every request and redirect hop",
+        "mainFramePaths": [
+          "/",
+          "/login"
+        ],
+        "statefulUrls": "credentials blocked for every request; query strings and fragments blocked for navigation requests",
+        "permittedMethods": [
+          "GET",
+          "HEAD",
+          "OPTIONS"
+        ],
+        "serviceWorkers": "blocked",
+        "webSockets": "blocked",
+        "context": "fresh per sample",
+        "interactions": false,
+        "cookiesSupplied": false
+      }
+    },
+    "target": "local-production-build",
+    "baseUrl": "http://127.0.0.1:3300",
+    "browser": {
+      "engine": "Chromium",
+      "version": "147.0.7727.15",
+      "playwrightVersion": "1.59.1",
+      "headless": true
+    },
+    "captureWindowUtc": {
+      "startedAtUtc": "2026-07-26T11:21:11.058Z",
+      "completedAtUtc": "2026-07-26T11:21:25.465Z"
+    },
+    "routes": [
+      {
+        "path": "/",
+        "buildAssetRawBytes": {
+          "javascript": {
+            "count": 8,
+            "rawBytes": 589610
+          },
+          "fonts": {
+            "count": 4,
+            "rawBytes": 98200
+          },
+          "css": {
+            "count": 2,
+            "rawBytes": 104620
+          }
+        },
+        "viewports": [
+          {
+            "viewport": {
+              "name": "mobile",
+              "width": 390,
+              "height": 844
+            },
+            "samples": [
+              {
+                "sample": 1,
+                "capturedAtUtc": "2026-07-26T11:21:11.299Z",
+                "valid": true,
+                "invalidReasons": [],
+                "settlement": {
+                  "reason": "network_quiet",
+                  "durationMs": 1020,
+                  "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 308923,
+                  "completedCount": 16,
+                  "cachedCount": 0,
+                  "failedCount": 1,
+                  "inFlightCount": 0
+                },
+                "safety": {
+                  "requestCount": 17,
+                  "allowedRequestCount": 17,
+                  "blockedRequestCount": 0,
+                  "blockedReasonCounts": {},
+                  "consoleErrorCount": 2,
+                  "networkErrorCount": 2
+                },
+                "metrics": {
+                  "ttfbMs": 64.8,
+                  "fcpMs": 172,
+                  "lcpMs": 172,
+                  "loadMs": 197,
+                  "requestCount": 17,
+                  "transferredBytes": 308923,
+                  "documentTransferBytes": 8715,
+                  "renderBlockingTransferBytes": 20892,
+                  "javascriptTransferBytes": 150217,
+                  "cssTransferBytes": 20892,
+                  "fontTransferBytes": 129099,
+                  "fetchTransferBytes": 0,
+                  "otherTransferBytes": 0,
+                  "preloadedFontTransferBytes": 101792,
+                  "initialJavascriptRequestCount": 8,
+                  "initialJavascriptTransferBytes": 150217,
+                  "postReactCommitJavascriptRequestCount": 0,
+                  "postReactCommitJavascriptTransferBytes": 0
+                },
+                "lcp": {
+                  "startTimeMs": 172,
+                  "renderTimeMs": 172,
+                  "loadTimeMs": 0,
+                  "sizePx2": 31164,
+                  "url": null,
+                  "resourceTransferBytes": 0
+                },
+                "react": {
+                  "rendererPackage": "react-dom",
+                  "rendererVersion": "19.3.0-canary-3f0b9e61-20260317",
+                  "rendererInjectMs": 173.1,
+                  "firstCommitMs": 202.7,
+                  "lastCommitMs": 208.3,
+                  "commitCount": 4,
+                  "injectToFirstCommitMs": 29.6,
+                  "injectToLastCommitMs": 35.2,
+                  "commitErrors": 0,
+                  "finalIsDehydrated": false
+                },
+                "mainThread": {
+                  "traceWindowMs": 1226.7,
+                  "mainThreadBusyToSettleMs": 177.242,
+                  "mainThreadBusyToLcpMs": 100.3,
+                  "scriptingToSettleMs": 63.524,
+                  "scriptingToLcpMs": 30.387,
+                  "scriptingDuringReactWindowMs": 29.549,
+                  "styleLayoutToSettleMs": 46.98,
+                  "paintToSettleMs": 19.004,
+                  "parseHtmlMs": 5.48,
+                  "longestMainThreadTaskMs": 49.953,
+                  "mainThreadTasksOver50Ms": 0
+                }
+              },
+              {
+                "sample": 2,
+                "capturedAtUtc": "2026-07-26T11:21:12.628Z",
+                "valid": true,
+                "invalidReasons": [],
+                "settlement": {
+                  "reason": "network_quiet",
+                  "durationMs": 1017,
+                  "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 308923,
+                  "completedCount": 16,
+                  "cachedCount": 0,
+                  "failedCount": 1,
+                  "inFlightCount": 0
+                },
+                "safety": {
+                  "requestCount": 17,
+                  "allowedRequestCount": 17,
+                  "blockedRequestCount": 0,
+                  "blockedReasonCounts": {},
+                  "consoleErrorCount": 2,
+                  "networkErrorCount": 2
+                },
+                "metrics": {
+                  "ttfbMs": 3.3,
+                  "fcpMs": 48,
+                  "lcpMs": 48,
+                  "loadMs": 44.9,
+                  "requestCount": 17,
+                  "transferredBytes": 308923,
+                  "documentTransferBytes": 8715,
+                  "renderBlockingTransferBytes": 20892,
+                  "javascriptTransferBytes": 150217,
+                  "cssTransferBytes": 20892,
+                  "fontTransferBytes": 129099,
+                  "fetchTransferBytes": 0,
+                  "otherTransferBytes": 0,
+                  "preloadedFontTransferBytes": 101792,
+                  "initialJavascriptRequestCount": 8,
+                  "initialJavascriptTransferBytes": 150217,
+                  "postReactCommitJavascriptRequestCount": 0,
+                  "postReactCommitJavascriptTransferBytes": 0
+                },
+                "lcp": {
+                  "startTimeMs": 48,
+                  "renderTimeMs": 48,
+                  "loadTimeMs": 0,
+                  "sizePx2": 31164,
+                  "url": null,
+                  "resourceTransferBytes": 0
+                },
+                "react": {
+                  "rendererPackage": "react-dom",
+                  "rendererVersion": "19.3.0-canary-3f0b9e61-20260317",
+                  "rendererInjectMs": 37.3,
+                  "firstCommitMs": 53.4,
+                  "lastCommitMs": 56,
+                  "commitCount": 4,
+                  "injectToFirstCommitMs": 16.1,
+                  "injectToLastCommitMs": 18.7,
+                  "commitErrors": 0,
+                  "finalIsDehydrated": false
+                },
+                "mainThread": {
+                  "traceWindowMs": 1067,
+                  "mainThreadBusyToSettleMs": 87.321,
+                  "mainThreadBusyToLcpMs": 39.487,
+                  "scriptingToSettleMs": 26.529,
+                  "scriptingToLcpMs": 17.842,
+                  "scriptingDuringReactWindowMs": 15.268,
+                  "styleLayoutToSettleMs": 17.824,
+                  "paintToSettleMs": 16.637,
+                  "parseHtmlMs": 0.846,
+                  "longestMainThreadTaskMs": 16.369,
+                  "mainThreadTasksOver50Ms": 0
+                }
+              },
+              {
+                "sample": 3,
+                "capturedAtUtc": "2026-07-26T11:21:13.792Z",
+                "valid": true,
+                "invalidReasons": [],
+                "settlement": {
+                  "reason": "network_quiet",
+                  "durationMs": 1015,
+                  "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 308923,
+                  "completedCount": 16,
+                  "cachedCount": 0,
+                  "failedCount": 1,
+                  "inFlightCount": 0
+                },
+                "safety": {
+                  "requestCount": 17,
+                  "allowedRequestCount": 17,
+                  "blockedRequestCount": 0,
+                  "blockedReasonCounts": {},
+                  "consoleErrorCount": 2,
+                  "networkErrorCount": 2
+                },
+                "metrics": {
+                  "ttfbMs": 3.4,
+                  "fcpMs": 44,
+                  "lcpMs": 44,
+                  "loadMs": 44.3,
+                  "requestCount": 17,
+                  "transferredBytes": 308923,
+                  "documentTransferBytes": 8715,
+                  "renderBlockingTransferBytes": 20892,
+                  "javascriptTransferBytes": 150217,
+                  "cssTransferBytes": 20892,
+                  "fontTransferBytes": 129099,
+                  "fetchTransferBytes": 0,
+                  "otherTransferBytes": 0,
+                  "preloadedFontTransferBytes": 101792,
+                  "initialJavascriptRequestCount": 8,
+                  "initialJavascriptTransferBytes": 150217,
+                  "postReactCommitJavascriptRequestCount": 0,
+                  "postReactCommitJavascriptTransferBytes": 0
+                },
+                "lcp": {
+                  "startTimeMs": 44,
+                  "renderTimeMs": 44,
+                  "loadTimeMs": 0,
+                  "sizePx2": 31164,
+                  "url": null,
+                  "resourceTransferBytes": 0
+                },
+                "react": {
+                  "rendererPackage": "react-dom",
+                  "rendererVersion": "19.3.0-canary-3f0b9e61-20260317",
+                  "rendererInjectMs": 37.3,
+                  "firstCommitMs": 52.6,
+                  "lastCommitMs": 55.1,
+                  "commitCount": 4,
+                  "injectToFirstCommitMs": 15.3,
+                  "injectToLastCommitMs": 17.8,
+                  "commitErrors": 0,
+                  "finalIsDehydrated": false
+                },
+                "mainThread": {
+                  "traceWindowMs": 1062.9,
+                  "mainThreadBusyToSettleMs": 89.514,
+                  "mainThreadBusyToLcpMs": 35.924,
+                  "scriptingToSettleMs": 25.823,
+                  "scriptingToLcpMs": 16.546,
+                  "scriptingDuringReactWindowMs": 14.784,
+                  "styleLayoutToSettleMs": 18.168,
+                  "paintToSettleMs": 18.19,
+                  "parseHtmlMs": 0.879,
+                  "longestMainThreadTaskMs": 15.864,
+                  "mainThreadTasksOver50Ms": 0
+                }
+              }
+            ],
+            "summary": {
+              "valid": true,
+              "validSampleCount": 3,
+              "invalidSampleCount": 0,
+              "invalidReasons": [],
+              "metricSummary": {
+                "ttfbMs": {
+                  "median": 3.4,
+                  "worst": 64.8
+                },
+                "fcpMs": {
+                  "median": 48,
+                  "worst": 172
+                },
+                "lcpMs": {
+                  "median": 48,
+                  "worst": 172
+                },
+                "loadMs": {
+                  "median": 44.9,
+                  "worst": 197
+                },
+                "requestCount": {
+                  "median": 17,
+                  "worst": 17
+                },
+                "transferredBytes": {
+                  "median": 308923,
+                  "worst": 308923
+                },
+                "documentTransferBytes": {
+                  "median": 8715,
+                  "worst": 8715
+                },
+                "renderBlockingTransferBytes": {
+                  "median": 20892,
+                  "worst": 20892
+                },
+                "javascriptTransferBytes": {
+                  "median": 150217,
+                  "worst": 150217
+                },
+                "cssTransferBytes": {
+                  "median": 20892,
+                  "worst": 20892
+                },
+                "fontTransferBytes": {
+                  "median": 129099,
+                  "worst": 129099
+                },
+                "fetchTransferBytes": {
+                  "median": 0,
+                  "worst": 0
+                },
+                "otherTransferBytes": {
+                  "median": 0,
+                  "worst": 0
+                },
+                "preloadedFontTransferBytes": {
+                  "median": 101792,
+                  "worst": 101792
+                },
+                "initialJavascriptRequestCount": {
+                  "median": 8,
+                  "worst": 8
+                },
+                "initialJavascriptTransferBytes": {
+                  "median": 150217,
+                  "worst": 150217
+                },
+                "postReactCommitJavascriptRequestCount": {
+                  "median": 0,
+                  "worst": 0
+                },
+                "postReactCommitJavascriptTransferBytes": {
+                  "median": 0,
+                  "worst": 0
+                }
+              },
+              "mainThreadSummary": {
+                "traceWindowMs": {
+                  "median": 1067,
+                  "worst": 1226.7
+                },
+                "mainThreadBusyToSettleMs": {
+                  "median": 89.514,
+                  "worst": 177.242
+                },
+                "mainThreadBusyToLcpMs": {
+                  "median": 39.487,
+                  "worst": 100.3
+                },
+                "scriptingToSettleMs": {
+                  "median": 26.529,
+                  "worst": 63.524
+                },
+                "scriptingToLcpMs": {
+                  "median": 17.842,
+                  "worst": 30.387
+                },
+                "scriptingDuringReactWindowMs": {
+                  "median": 15.268,
+                  "worst": 29.549
+                },
+                "styleLayoutToSettleMs": {
+                  "median": 18.168,
+                  "worst": 46.98
+                },
+                "paintToSettleMs": {
+                  "median": 18.19,
+                  "worst": 19.004
+                },
+                "parseHtmlMs": {
+                  "median": 0.879,
+                  "worst": 5.48
+                },
+                "longestMainThreadTaskMs": {
+                  "median": 16.369,
+                  "worst": 49.953
+                },
+                "mainThreadTasksOver50Ms": {
+                  "median": 0,
+                  "worst": 0
+                }
+              },
+              "reactSummary": {
+                "rendererInjectMs": {
+                  "median": 37.3,
+                  "worst": 173.1
+                },
+                "firstCommitMs": {
+                  "median": 53.4,
+                  "worst": 202.7
+                },
+                "lastCommitMs": {
+                  "median": 56,
+                  "worst": 208.3
+                },
+                "commitCount": {
+                  "median": 4,
+                  "worst": 4
+                },
+                "injectToFirstCommitMs": {
+                  "median": 16.1,
+                  "worst": 29.6
+                },
+                "injectToLastCommitMs": {
+                  "median": 18.7,
+                  "worst": 35.2
+                }
+              },
+              "javascriptPhases": {
+                "throughLastReactCommit": {
+                  "requestCount": {
+                    "median": 8,
+                    "worst": 8
+                  },
+                  "transferBytes": {
+                    "median": 150217,
+                    "worst": 150217
+                  }
+                },
+                "afterLastReactCommit": {
+                  "requestCount": {
+                    "median": 0,
+                    "worst": 0
+                  },
+                  "transferBytes": {
+                    "median": 0,
+                    "worst": 0
+                  }
+                }
+              },
+              "lcpIdentityConsistency": true,
+              "lcpIdentityKeys": [
+                "P|AI-powered food logging, personalized macro targets, and habit coaching — all in one app. Powered by science, built for athletes.||P|AI-powered food logging, personalized macro targets, and habit coaching — all in one app. Powered by science, built for athletes.|Inter, \"Inter Fallback\", system-ui, sans-serif|400|normal",
+                "P|AI-powered food logging, personalized macro targets, and habit coaching — all in one app. Powered by science, built for athletes.||P|AI-powered food logging, personalized macro targets, and habit coaching — all in one app. Powered by science, built for athletes.|Inter, \"Inter Fallback\", system-ui, sans-serif|400|normal",
+                "P|AI-powered food logging, personalized macro targets, and habit coaching — all in one app. Powered by science, built for athletes.||P|AI-powered food logging, personalized macro targets, and habit coaching — all in one app. Powered by science, built for athletes.|Inter, \"Inter Fallback\", system-ui, sans-serif|400|normal"
+              ],
+              "representativeSample": 2,
+              "representativeLcp": {
+                "startTimeMs": 48,
+                "renderTimeMs": 48,
+                "loadTimeMs": 0,
+                "sizePx2": 31164,
+                "url": null,
+                "resourceTransferBytes": 0,
+                "element": {
+                  "tag": "P",
+                  "id": null,
+                  "className": "text-stone-400 text-base sm:text-lg max-w-xl mx-auto lg:mx-0 leading-relaxed mb-10",
+                  "text": "AI-powered food logging, personalized macro targets, and habit coaching — all in one app. Powered by science, built for athletes."
+                },
+                "textLeaves": [
+                  {
+                    "tag": "P",
+                    "id": null,
+                    "className": "text-stone-400 text-base sm:text-lg max-w-xl mx-auto lg:mx-0 leading-relaxed mb-10",
+                    "text": "AI-powered food logging, personalized macro targets, and habit coaching — all in one app. Powered by science, built for athletes.",
+                    "directText": "AI-powered food logging, personalized macro targets, and habit coaching — all in one app. Powered by science, built for athletes.",
+                    "computedStyle": {
+                      "fontFamily": "Inter, \"Inter Fallback\", system-ui, sans-serif",
+                      "fontSize": "16px",
+                      "fontWeight": "400",
+                      "fontStyle": "normal",
+                      "backgroundImage": "none"
+                    }
+                  }
+                ]
+              },
+              "criticalRequestChain": [
+                {
+                  "url": "/",
+                  "type": "Document",
+                  "initiatorType": "navigation",
+                  "startMs": 0,
+                  "durationMs": 3.43,
+                  "transferBytes": 8715,
+                  "decodedBodyBytes": 32697,
+                  "status": 200,
+                  "mimeType": "text/html",
+                  "renderBlockingStatus": "navigation",
+                  "failed": false,
+                  "fontFace": null,
+                  "relevance": [
+                    "navigation_document"
+                  ]
+                },
+                {
+                  "url": "/_next/static/css/00207d0873d00653.css",
+                  "type": "Stylesheet",
+                  "initiatorType": "link",
+                  "startMs": 4.9,
+                  "durationMs": 5.1,
+                  "transferBytes": 2021,
+                  "decodedBodyBytes": 5890,
+                  "status": 200,
+                  "mimeType": "text/css",
+                  "renderBlockingStatus": "blocking",
+                  "failed": false,
+                  "fontFace": null,
+                  "relevance": [
+                    "browser_reported_render_blocking",
+                    "stylesheet"
+                  ]
+                },
+                {
+                  "url": "/_next/static/css/b20eb98e3adbc985.css",
+                  "type": "Stylesheet",
+                  "initiatorType": "link",
+                  "startMs": 4.9,
+                  "durationMs": 6.9,
+                  "transferBytes": 18871,
+                  "decodedBodyBytes": 98730,
+                  "status": 200,
+                  "mimeType": "text/css",
+                  "renderBlockingStatus": "blocking",
+                  "failed": false,
+                  "fontFace": null,
+                  "relevance": [
+                    "browser_reported_render_blocking",
+                    "stylesheet"
+                  ]
+                },
+                {
+                  "url": "/_next/static/media/e4af272ccee01ff0-s.p.woff2",
+                  "type": "Font",
+                  "initiatorType": "link",
+                  "startMs": 4.9,
+                  "durationMs": 4.4,
+                  "transferBytes": 49330,
+                  "decodedBodyBytes": 48432,
+                  "status": 200,
+                  "mimeType": "font/woff2",
+                  "renderBlockingStatus": "non-blocking",
+                  "failed": false,
+                  "fontFace": "Inter Latin",
+                  "relevance": [
+                    "preloaded_font",
+                    "lcp_font_family_candidate"
+                  ]
+                }
+              ],
+              "baselineReconciliation": {
+                "headlineMedian": {
+                  "ttfb": 4.100000023841858,
+                  "fcp": 48,
+                  "lcp": 48,
+                  "load": 49.10000002384186,
+                  "requestCount": 17,
+                  "transferredBytes": 308923
+                },
+                "diagnosticMedian": {
+                  "ttfbMs": 3.4,
+                  "fcpMs": 48,
+                  "lcpMs": 48,
+                  "loadMs": 44.9,
+                  "requestCount": 17,
+                  "transferredBytes": 308923
+                },
+                "requestCountExactMatch": true,
+                "transferredBytesExactMatch": true
+              }
+            }
+          },
+          {
+            "viewport": {
+              "name": "desktop",
+              "width": 1440,
+              "height": 900
+            },
+            "samples": [
+              {
+                "sample": 1,
+                "capturedAtUtc": "2026-07-26T11:21:14.937Z",
+                "valid": true,
+                "invalidReasons": [],
+                "settlement": {
+                  "reason": "network_quiet",
+                  "durationMs": 1009,
+                  "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 308923,
+                  "completedCount": 16,
+                  "cachedCount": 0,
+                  "failedCount": 1,
+                  "inFlightCount": 0
+                },
+                "safety": {
+                  "requestCount": 17,
+                  "allowedRequestCount": 17,
+                  "blockedRequestCount": 0,
+                  "blockedReasonCounts": {},
+                  "consoleErrorCount": 2,
+                  "networkErrorCount": 2
+                },
+                "metrics": {
+                  "ttfbMs": 3.3,
+                  "fcpMs": 56,
+                  "lcpMs": 56,
+                  "loadMs": 54.7,
+                  "requestCount": 17,
+                  "transferredBytes": 308923,
+                  "documentTransferBytes": 8715,
+                  "renderBlockingTransferBytes": 20892,
+                  "javascriptTransferBytes": 150217,
+                  "cssTransferBytes": 20892,
+                  "fontTransferBytes": 129099,
+                  "fetchTransferBytes": 0,
+                  "otherTransferBytes": 0,
+                  "preloadedFontTransferBytes": 101792,
+                  "initialJavascriptRequestCount": 8,
+                  "initialJavascriptTransferBytes": 150217,
+                  "postReactCommitJavascriptRequestCount": 0,
+                  "postReactCommitJavascriptTransferBytes": 0
+                },
+                "lcp": {
+                  "startTimeMs": 56,
+                  "renderTimeMs": 56,
+                  "loadTimeMs": 0,
+                  "sizePx2": 58078,
+                  "url": null,
+                  "resourceTransferBytes": 0
+                },
+                "react": {
+                  "rendererPackage": "react-dom",
+                  "rendererVersion": "19.3.0-canary-3f0b9e61-20260317",
+                  "rendererInjectMs": 38.9,
+                  "firstCommitMs": 54.7,
+                  "lastCommitMs": 58.3,
+                  "commitCount": 4,
+                  "injectToFirstCommitMs": 15.8,
+                  "injectToLastCommitMs": 19.4,
+                  "commitErrors": 0,
+                  "finalIsDehydrated": false
+                },
+                "mainThread": {
+                  "traceWindowMs": 1067.1,
+                  "mainThreadBusyToSettleMs": 66.853,
+                  "mainThreadBusyToLcpMs": 46.325,
+                  "scriptingToSettleMs": 27.47,
+                  "scriptingToLcpMs": 24.793,
+                  "scriptingDuringReactWindowMs": 16.236,
+                  "styleLayoutToSettleMs": 14.492,
+                  "paintToSettleMs": 7.672,
+                  "parseHtmlMs": 0.879,
+                  "longestMainThreadTaskMs": 16.763,
+                  "mainThreadTasksOver50Ms": 0
+                }
+              },
+              {
+                "sample": 2,
+                "capturedAtUtc": "2026-07-26T11:21:16.092Z",
+                "valid": true,
+                "invalidReasons": [],
+                "settlement": {
+                  "reason": "network_quiet",
+                  "durationMs": 1019,
+                  "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 308923,
+                  "completedCount": 16,
+                  "cachedCount": 0,
+                  "failedCount": 1,
+                  "inFlightCount": 0
+                },
+                "safety": {
+                  "requestCount": 17,
+                  "allowedRequestCount": 17,
+                  "blockedRequestCount": 0,
+                  "blockedReasonCounts": {},
+                  "consoleErrorCount": 2,
+                  "networkErrorCount": 2
+                },
+                "metrics": {
+                  "ttfbMs": 3.4,
+                  "fcpMs": 60,
+                  "lcpMs": 60,
+                  "loadMs": 46.4,
+                  "requestCount": 17,
+                  "transferredBytes": 308923,
+                  "documentTransferBytes": 8715,
+                  "renderBlockingTransferBytes": 20892,
+                  "javascriptTransferBytes": 150217,
+                  "cssTransferBytes": 20892,
+                  "fontTransferBytes": 129099,
+                  "fetchTransferBytes": 0,
+                  "otherTransferBytes": 0,
+                  "preloadedFontTransferBytes": 101792,
+                  "initialJavascriptRequestCount": 8,
+                  "initialJavascriptTransferBytes": 150217,
+                  "postReactCommitJavascriptRequestCount": 0,
+                  "postReactCommitJavascriptTransferBytes": 0
+                },
+                "lcp": {
+                  "startTimeMs": 60,
+                  "renderTimeMs": 60,
+                  "loadTimeMs": 0,
+                  "sizePx2": 58078,
+                  "url": null,
+                  "resourceTransferBytes": 0
+                },
+                "react": {
+                  "rendererPackage": "react-dom",
+                  "rendererVersion": "19.3.0-canary-3f0b9e61-20260317",
+                  "rendererInjectMs": 38.8,
+                  "firstCommitMs": 55.2,
+                  "lastCommitMs": 57.5,
+                  "commitCount": 4,
+                  "injectToFirstCommitMs": 16.4,
+                  "injectToLastCommitMs": 18.7,
+                  "commitErrors": 0,
+                  "finalIsDehydrated": false
+                },
+                "mainThread": {
+                  "traceWindowMs": 1068.7,
+                  "mainThreadBusyToSettleMs": 80.047,
+                  "mainThreadBusyToLcpMs": 49.889,
+                  "scriptingToSettleMs": 26.562,
+                  "scriptingToLcpMs": 25.372,
+                  "scriptingDuringReactWindowMs": 15.564,
+                  "styleLayoutToSettleMs": 18.115,
+                  "paintToSettleMs": 13.201,
+                  "parseHtmlMs": 0.96,
+                  "longestMainThreadTaskMs": 16.429,
+                  "mainThreadTasksOver50Ms": 0
+                }
+              },
+              {
+                "sample": 3,
+                "capturedAtUtc": "2026-07-26T11:21:17.246Z",
+                "valid": true,
+                "invalidReasons": [],
+                "settlement": {
+                  "reason": "network_quiet",
+                  "durationMs": 1019,
+                  "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 308923,
+                  "completedCount": 16,
+                  "cachedCount": 0,
+                  "failedCount": 1,
+                  "inFlightCount": 0
+                },
+                "safety": {
+                  "requestCount": 17,
+                  "allowedRequestCount": 17,
+                  "blockedRequestCount": 0,
+                  "blockedReasonCounts": {},
+                  "consoleErrorCount": 2,
+                  "networkErrorCount": 2
+                },
+                "metrics": {
+                  "ttfbMs": 2.8,
+                  "fcpMs": 56,
+                  "lcpMs": 56,
+                  "loadMs": 46.1,
+                  "requestCount": 17,
+                  "transferredBytes": 308923,
+                  "documentTransferBytes": 8715,
+                  "renderBlockingTransferBytes": 20892,
+                  "javascriptTransferBytes": 150217,
+                  "cssTransferBytes": 20892,
+                  "fontTransferBytes": 129099,
+                  "fetchTransferBytes": 0,
+                  "otherTransferBytes": 0,
+                  "preloadedFontTransferBytes": 101792,
+                  "initialJavascriptRequestCount": 8,
+                  "initialJavascriptTransferBytes": 150217,
+                  "postReactCommitJavascriptRequestCount": 0,
+                  "postReactCommitJavascriptTransferBytes": 0
+                },
+                "lcp": {
+                  "startTimeMs": 56,
+                  "renderTimeMs": 56,
+                  "loadTimeMs": 0,
+                  "sizePx2": 58078,
+                  "url": null,
+                  "resourceTransferBytes": 0
+                },
+                "react": {
+                  "rendererPackage": "react-dom",
+                  "rendererVersion": "19.3.0-canary-3f0b9e61-20260317",
+                  "rendererInjectMs": 38.2,
+                  "firstCommitMs": 56.6,
+                  "lastCommitMs": 58.9,
+                  "commitCount": 4,
+                  "injectToFirstCommitMs": 18.4,
+                  "injectToLastCommitMs": 20.7,
+                  "commitErrors": 0,
+                  "finalIsDehydrated": false
+                },
+                "mainThread": {
+                  "traceWindowMs": 1068.2,
+                  "mainThreadBusyToSettleMs": 72.596,
+                  "mainThreadBusyToLcpMs": 49.092,
+                  "scriptingToSettleMs": 26.842,
+                  "scriptingToLcpMs": 23.122,
+                  "scriptingDuringReactWindowMs": 15.404,
+                  "styleLayoutToSettleMs": 16.746,
+                  "paintToSettleMs": 9.198,
+                  "parseHtmlMs": 1.631,
+                  "longestMainThreadTaskMs": 16.978,
+                  "mainThreadTasksOver50Ms": 0
+                }
+              }
+            ],
+            "summary": {
+              "valid": true,
+              "validSampleCount": 3,
+              "invalidSampleCount": 0,
+              "invalidReasons": [],
+              "metricSummary": {
+                "ttfbMs": {
+                  "median": 3.3,
+                  "worst": 3.4
+                },
+                "fcpMs": {
+                  "median": 56,
+                  "worst": 60
+                },
+                "lcpMs": {
+                  "median": 56,
+                  "worst": 60
+                },
+                "loadMs": {
+                  "median": 46.4,
+                  "worst": 54.7
+                },
+                "requestCount": {
+                  "median": 17,
+                  "worst": 17
+                },
+                "transferredBytes": {
+                  "median": 308923,
+                  "worst": 308923
+                },
+                "documentTransferBytes": {
+                  "median": 8715,
+                  "worst": 8715
+                },
+                "renderBlockingTransferBytes": {
+                  "median": 20892,
+                  "worst": 20892
+                },
+                "javascriptTransferBytes": {
+                  "median": 150217,
+                  "worst": 150217
+                },
+                "cssTransferBytes": {
+                  "median": 20892,
+                  "worst": 20892
+                },
+                "fontTransferBytes": {
+                  "median": 129099,
+                  "worst": 129099
+                },
+                "fetchTransferBytes": {
+                  "median": 0,
+                  "worst": 0
+                },
+                "otherTransferBytes": {
+                  "median": 0,
+                  "worst": 0
+                },
+                "preloadedFontTransferBytes": {
+                  "median": 101792,
+                  "worst": 101792
+                },
+                "initialJavascriptRequestCount": {
+                  "median": 8,
+                  "worst": 8
+                },
+                "initialJavascriptTransferBytes": {
+                  "median": 150217,
+                  "worst": 150217
+                },
+                "postReactCommitJavascriptRequestCount": {
+                  "median": 0,
+                  "worst": 0
+                },
+                "postReactCommitJavascriptTransferBytes": {
+                  "median": 0,
+                  "worst": 0
+                }
+              },
+              "mainThreadSummary": {
+                "traceWindowMs": {
+                  "median": 1068.2,
+                  "worst": 1068.7
+                },
+                "mainThreadBusyToSettleMs": {
+                  "median": 72.596,
+                  "worst": 80.047
+                },
+                "mainThreadBusyToLcpMs": {
+                  "median": 49.092,
+                  "worst": 49.889
+                },
+                "scriptingToSettleMs": {
+                  "median": 26.842,
+                  "worst": 27.47
+                },
+                "scriptingToLcpMs": {
+                  "median": 24.793,
+                  "worst": 25.372
+                },
+                "scriptingDuringReactWindowMs": {
+                  "median": 15.564,
+                  "worst": 16.236
+                },
+                "styleLayoutToSettleMs": {
+                  "median": 16.746,
+                  "worst": 18.115
+                },
+                "paintToSettleMs": {
+                  "median": 9.198,
+                  "worst": 13.201
+                },
+                "parseHtmlMs": {
+                  "median": 0.96,
+                  "worst": 1.631
+                },
+                "longestMainThreadTaskMs": {
+                  "median": 16.763,
+                  "worst": 16.978
+                },
+                "mainThreadTasksOver50Ms": {
+                  "median": 0,
+                  "worst": 0
+                }
+              },
+              "reactSummary": {
+                "rendererInjectMs": {
+                  "median": 38.8,
+                  "worst": 38.9
+                },
+                "firstCommitMs": {
+                  "median": 55.2,
+                  "worst": 56.6
+                },
+                "lastCommitMs": {
+                  "median": 58.3,
+                  "worst": 58.9
+                },
+                "commitCount": {
+                  "median": 4,
+                  "worst": 4
+                },
+                "injectToFirstCommitMs": {
+                  "median": 16.4,
+                  "worst": 18.4
+                },
+                "injectToLastCommitMs": {
+                  "median": 19.4,
+                  "worst": 20.7
+                }
+              },
+              "javascriptPhases": {
+                "throughLastReactCommit": {
+                  "requestCount": {
+                    "median": 8,
+                    "worst": 8
+                  },
+                  "transferBytes": {
+                    "median": 150217,
+                    "worst": 150217
+                  }
+                },
+                "afterLastReactCommit": {
+                  "requestCount": {
+                    "median": 0,
+                    "worst": 0
+                  },
+                  "transferBytes": {
+                    "median": 0,
+                    "worst": 0
+                  }
+                }
+              },
+              "lcpIdentityConsistency": true,
+              "lcpIdentityKeys": [
+                "H1|Track smarter.Eat better.||SPAN|Track smarter.|Inter, \"Inter Fallback\", system-ui, sans-serif|700|normal||SPAN|Eat better.|\"Instrument Serif\", \"Instrument Serif Fallback\", Georgia, serif|400|italic",
+                "H1|Track smarter.Eat better.||SPAN|Track smarter.|Inter, \"Inter Fallback\", system-ui, sans-serif|700|normal||SPAN|Eat better.|\"Instrument Serif\", \"Instrument Serif Fallback\", Georgia, serif|400|italic",
+                "H1|Track smarter.Eat better.||SPAN|Track smarter.|Inter, \"Inter Fallback\", system-ui, sans-serif|700|normal||SPAN|Eat better.|\"Instrument Serif\", \"Instrument Serif Fallback\", Georgia, serif|400|italic"
+              ],
+              "representativeSample": 1,
+              "representativeLcp": {
+                "startTimeMs": 56,
+                "renderTimeMs": 56,
+                "loadTimeMs": 0,
+                "sizePx2": 58078,
+                "url": null,
+                "resourceTransferBytes": 0,
+                "element": {
+                  "tag": "H1",
+                  "id": null,
+                  "className": "text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.08] mb-6",
+                  "text": "Track smarter.Eat better."
+                },
+                "textLeaves": [
+                  {
+                    "tag": "SPAN",
+                    "id": null,
+                    "className": "text-stone-100",
+                    "text": "Track smarter.",
+                    "directText": "Track smarter.",
+                    "computedStyle": {
+                      "fontFamily": "Inter, \"Inter Fallback\", system-ui, sans-serif",
+                      "fontSize": "60px",
+                      "fontWeight": "700",
+                      "fontStyle": "normal",
+                      "backgroundImage": "none"
+                    }
+                  },
+                  {
+                    "tag": "SPAN",
+                    "id": null,
+                    "className": "display-hero text-[#D4A853]",
+                    "text": "Eat better.",
+                    "directText": "Eat better.",
+                    "computedStyle": {
+                      "fontFamily": "\"Instrument Serif\", \"Instrument Serif Fallback\", Georgia, serif",
+                      "fontSize": "60px",
+                      "fontWeight": "400",
+                      "fontStyle": "italic",
+                      "backgroundImage": "none"
+                    }
+                  }
+                ]
+              },
+              "criticalRequestChain": [
+                {
+                  "url": "/",
+                  "type": "Document",
+                  "initiatorType": "navigation",
+                  "startMs": 0,
+                  "durationMs": 3.328,
+                  "transferBytes": 8715,
+                  "decodedBodyBytes": 32697,
+                  "status": 200,
+                  "mimeType": "text/html",
+                  "renderBlockingStatus": "navigation",
+                  "failed": false,
+                  "fontFace": null,
+                  "relevance": [
+                    "navigation_document"
+                  ]
+                },
+                {
+                  "url": "/_next/static/media/9cc5b37ab1350db7-s.p.woff2",
+                  "type": "Font",
+                  "initiatorType": "link",
+                  "startMs": 4.9,
+                  "durationMs": 3.7,
+                  "transferBytes": 16582,
+                  "decodedBodyBytes": 15684,
+                  "status": 200,
+                  "mimeType": "font/woff2",
+                  "renderBlockingStatus": "non-blocking",
+                  "failed": false,
+                  "fontFace": "Instrument Serif italic Latin",
+                  "relevance": [
+                    "preloaded_font",
+                    "lcp_font_family_candidate"
+                  ]
+                },
+                {
+                  "url": "/_next/static/media/e4af272ccee01ff0-s.p.woff2",
+                  "type": "Font",
+                  "initiatorType": "link",
+                  "startMs": 4.9,
+                  "durationMs": 4.8,
+                  "transferBytes": 49330,
+                  "decodedBodyBytes": 48432,
+                  "status": 200,
+                  "mimeType": "font/woff2",
+                  "renderBlockingStatus": "non-blocking",
+                  "failed": false,
+                  "fontFace": "Inter Latin",
+                  "relevance": [
+                    "preloaded_font",
+                    "lcp_font_family_candidate"
+                  ]
+                },
+                {
+                  "url": "/_next/static/css/00207d0873d00653.css",
+                  "type": "Stylesheet",
+                  "initiatorType": "link",
+                  "startMs": 5,
+                  "durationMs": 4.3,
+                  "transferBytes": 2021,
+                  "decodedBodyBytes": 5890,
+                  "status": 200,
+                  "mimeType": "text/css",
+                  "renderBlockingStatus": "blocking",
+                  "failed": false,
+                  "fontFace": null,
+                  "relevance": [
+                    "browser_reported_render_blocking",
+                    "stylesheet"
+                  ]
+                },
+                {
+                  "url": "/_next/static/css/b20eb98e3adbc985.css",
+                  "type": "Stylesheet",
+                  "initiatorType": "link",
+                  "startMs": 5,
+                  "durationMs": 6.3,
+                  "transferBytes": 18871,
+                  "decodedBodyBytes": 98730,
+                  "status": 200,
+                  "mimeType": "text/css",
+                  "renderBlockingStatus": "blocking",
+                  "failed": false,
+                  "fontFace": null,
+                  "relevance": [
+                    "browser_reported_render_blocking",
+                    "stylesheet"
+                  ]
+                }
+              ],
+              "baselineReconciliation": {
+                "headlineMedian": {
+                  "ttfb": 3.199999988079071,
+                  "fcp": 64,
+                  "lcp": 64,
+                  "load": 50.09999996423721,
+                  "requestCount": 17,
+                  "transferredBytes": 308923
+                },
+                "diagnosticMedian": {
+                  "ttfbMs": 3.3,
+                  "fcpMs": 56,
+                  "lcpMs": 56,
+                  "loadMs": 46.4,
+                  "requestCount": 17,
+                  "transferredBytes": 308923
+                },
+                "requestCountExactMatch": true,
+                "transferredBytesExactMatch": true
+              }
+            }
+          }
+        ]
+      },
+      {
+        "path": "/login",
+        "buildAssetRawBytes": {
+          "javascript": {
+            "count": 11,
+            "rawBytes": 939565
+          },
+          "fonts": {
+            "count": 4,
+            "rawBytes": 98200
+          },
+          "css": {
+            "count": 2,
+            "rawBytes": 104620
+          }
+        },
+        "viewports": [
+          {
+            "viewport": {
+              "name": "mobile",
+              "width": 390,
+              "height": 844
+            },
+            "samples": [
+              {
+                "sample": 1,
+                "capturedAtUtc": "2026-07-26T11:21:18.396Z",
+                "valid": true,
+                "invalidReasons": [],
+                "settlement": {
+                  "reason": "network_quiet",
+                  "durationMs": 1055,
+                  "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 419181,
+                  "completedCount": 23,
+                  "cachedCount": 0,
+                  "failedCount": 1,
+                  "inFlightCount": 0
+                },
+                "safety": {
+                  "requestCount": 24,
+                  "allowedRequestCount": 24,
+                  "blockedRequestCount": 0,
+                  "blockedReasonCounts": {},
+                  "consoleErrorCount": 2,
+                  "networkErrorCount": 2
+                },
+                "metrics": {
+                  "ttfbMs": 6.2,
+                  "fcpMs": 132,
+                  "lcpMs": 132,
+                  "loadMs": 58.4,
+                  "requestCount": 24,
+                  "transferredBytes": 419181,
+                  "documentTransferBytes": 4045,
+                  "renderBlockingTransferBytes": 20892,
+                  "javascriptTransferBytes": 263740,
+                  "cssTransferBytes": 20892,
+                  "fontTransferBytes": 123902,
+                  "fetchTransferBytes": 6602,
+                  "otherTransferBytes": 0,
+                  "preloadedFontTransferBytes": 101792,
+                  "initialJavascriptRequestCount": 11,
+                  "initialJavascriptTransferBytes": 253761,
+                  "postReactCommitJavascriptRequestCount": 1,
+                  "postReactCommitJavascriptTransferBytes": 9979
+                },
+                "lcp": {
+                  "startTimeMs": 132,
+                  "renderTimeMs": 132,
+                  "loadTimeMs": 0,
+                  "sizePx2": 2730,
+                  "url": null,
+                  "resourceTransferBytes": 0
+                },
+                "react": {
+                  "rendererPackage": "react-dom",
+                  "rendererVersion": "19.3.0-canary-3f0b9e61-20260317",
+                  "rendererInjectMs": 33.5,
+                  "firstCommitMs": 58.2,
+                  "lastCommitMs": 85.9,
+                  "commitCount": 4,
+                  "injectToFirstCommitMs": 24.7,
+                  "injectToLastCommitMs": 52.4,
+                  "commitErrors": 0,
+                  "finalIsDehydrated": false
+                },
+                "mainThread": {
+                  "traceWindowMs": 1117.7,
+                  "mainThreadBusyToSettleMs": 97.066,
+                  "mainThreadBusyToLcpMs": 74.621,
+                  "scriptingToSettleMs": 66.147,
+                  "scriptingToLcpMs": 59.415,
+                  "scriptingDuringReactWindowMs": 47.25,
+                  "styleLayoutToSettleMs": 10.358,
+                  "paintToSettleMs": 4.509,
+                  "parseHtmlMs": 0.517,
+                  "longestMainThreadTaskMs": 16.058,
+                  "mainThreadTasksOver50Ms": 0
+                }
+              },
+              {
+                "sample": 2,
+                "capturedAtUtc": "2026-07-26T11:21:19.605Z",
+                "valid": true,
+                "invalidReasons": [],
+                "settlement": {
+                  "reason": "network_quiet",
+                  "durationMs": 1034,
+                  "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 419181,
+                  "completedCount": 23,
+                  "cachedCount": 0,
+                  "failedCount": 1,
+                  "inFlightCount": 0
+                },
+                "safety": {
+                  "requestCount": 24,
+                  "allowedRequestCount": 24,
+                  "blockedRequestCount": 0,
+                  "blockedReasonCounts": {},
+                  "consoleErrorCount": 2,
+                  "networkErrorCount": 2
+                },
+                "metrics": {
+                  "ttfbMs": 2.8,
+                  "fcpMs": 76,
+                  "lcpMs": 76,
+                  "loadMs": 48.2,
+                  "requestCount": 24,
+                  "transferredBytes": 419181,
+                  "documentTransferBytes": 4045,
+                  "renderBlockingTransferBytes": 20892,
+                  "javascriptTransferBytes": 263740,
+                  "cssTransferBytes": 20892,
+                  "fontTransferBytes": 123902,
+                  "fetchTransferBytes": 6602,
+                  "otherTransferBytes": 0,
+                  "preloadedFontTransferBytes": 101792,
+                  "initialJavascriptRequestCount": 11,
+                  "initialJavascriptTransferBytes": 253761,
+                  "postReactCommitJavascriptRequestCount": 1,
+                  "postReactCommitJavascriptTransferBytes": 9979
+                },
+                "lcp": {
+                  "startTimeMs": 76,
+                  "renderTimeMs": 76,
+                  "loadTimeMs": 0,
+                  "sizePx2": 2730,
+                  "url": null,
+                  "resourceTransferBytes": 0
+                },
+                "react": {
+                  "rendererPackage": "react-dom",
+                  "rendererVersion": "19.3.0-canary-3f0b9e61-20260317",
+                  "rendererInjectMs": 29.3,
+                  "firstCommitMs": 48.1,
+                  "lastCommitMs": 61.7,
+                  "commitCount": 4,
+                  "injectToFirstCommitMs": 18.8,
+                  "injectToLastCommitMs": 32.4,
+                  "commitErrors": 0,
+                  "finalIsDehydrated": false
+                },
+                "mainThread": {
+                  "traceWindowMs": 1087.4,
+                  "mainThreadBusyToSettleMs": 73.287,
+                  "mainThreadBusyToLcpMs": 52.804,
+                  "scriptingToSettleMs": 48.566,
+                  "scriptingToLcpMs": 42.618,
+                  "scriptingDuringReactWindowMs": 30.946,
+                  "styleLayoutToSettleMs": 9.034,
+                  "paintToSettleMs": 3.038,
+                  "parseHtmlMs": 0.524,
+                  "longestMainThreadTaskMs": 14.02,
+                  "mainThreadTasksOver50Ms": 0
+                }
+              },
+              {
+                "sample": 3,
+                "capturedAtUtc": "2026-07-26T11:21:20.783Z",
+                "valid": true,
+                "invalidReasons": [],
+                "settlement": {
+                  "reason": "network_quiet",
+                  "durationMs": 1031,
+                  "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 419181,
+                  "completedCount": 23,
+                  "cachedCount": 0,
+                  "failedCount": 1,
+                  "inFlightCount": 0
+                },
+                "safety": {
+                  "requestCount": 24,
+                  "allowedRequestCount": 24,
+                  "blockedRequestCount": 0,
+                  "blockedReasonCounts": {},
+                  "consoleErrorCount": 2,
+                  "networkErrorCount": 2
+                },
+                "metrics": {
+                  "ttfbMs": 2.8,
+                  "fcpMs": 80,
+                  "lcpMs": 80,
+                  "loadMs": 54.1,
+                  "requestCount": 24,
+                  "transferredBytes": 419181,
+                  "documentTransferBytes": 4045,
+                  "renderBlockingTransferBytes": 20892,
+                  "javascriptTransferBytes": 263740,
+                  "cssTransferBytes": 20892,
+                  "fontTransferBytes": 123902,
+                  "fetchTransferBytes": 6602,
+                  "otherTransferBytes": 0,
+                  "preloadedFontTransferBytes": 101792,
+                  "initialJavascriptRequestCount": 11,
+                  "initialJavascriptTransferBytes": 253761,
+                  "postReactCommitJavascriptRequestCount": 1,
+                  "postReactCommitJavascriptTransferBytes": 9979
+                },
+                "lcp": {
+                  "startTimeMs": 80,
+                  "renderTimeMs": 80,
+                  "loadTimeMs": 0,
+                  "sizePx2": 2730,
+                  "url": null,
+                  "resourceTransferBytes": 0
+                },
+                "react": {
+                  "rendererPackage": "react-dom",
+                  "rendererVersion": "19.3.0-canary-3f0b9e61-20260317",
+                  "rendererInjectMs": 34.6,
+                  "firstCommitMs": 54,
+                  "lastCommitMs": 68,
+                  "commitCount": 4,
+                  "injectToFirstCommitMs": 19.4,
+                  "injectToLastCommitMs": 33.4,
+                  "commitErrors": 0,
+                  "finalIsDehydrated": false
+                },
+                "mainThread": {
+                  "traceWindowMs": 1088.9,
+                  "mainThreadBusyToSettleMs": 70.977,
+                  "mainThreadBusyToLcpMs": 54.361,
+                  "scriptingToSettleMs": 48.471,
+                  "scriptingToLcpMs": 43.74,
+                  "scriptingDuringReactWindowMs": 31.869,
+                  "styleLayoutToSettleMs": 8.527,
+                  "paintToSettleMs": 2.721,
+                  "parseHtmlMs": 0.59,
+                  "longestMainThreadTaskMs": 14.3,
+                  "mainThreadTasksOver50Ms": 0
+                }
+              }
+            ],
+            "summary": {
+              "valid": true,
+              "validSampleCount": 3,
+              "invalidSampleCount": 0,
+              "invalidReasons": [],
+              "metricSummary": {
+                "ttfbMs": {
+                  "median": 2.8,
+                  "worst": 6.2
+                },
+                "fcpMs": {
+                  "median": 80,
+                  "worst": 132
+                },
+                "lcpMs": {
+                  "median": 80,
+                  "worst": 132
+                },
+                "loadMs": {
+                  "median": 54.1,
+                  "worst": 58.4
+                },
+                "requestCount": {
+                  "median": 24,
+                  "worst": 24
+                },
+                "transferredBytes": {
+                  "median": 419181,
+                  "worst": 419181
+                },
+                "documentTransferBytes": {
+                  "median": 4045,
+                  "worst": 4045
+                },
+                "renderBlockingTransferBytes": {
+                  "median": 20892,
+                  "worst": 20892
+                },
+                "javascriptTransferBytes": {
+                  "median": 263740,
+                  "worst": 263740
+                },
+                "cssTransferBytes": {
+                  "median": 20892,
+                  "worst": 20892
+                },
+                "fontTransferBytes": {
+                  "median": 123902,
+                  "worst": 123902
+                },
+                "fetchTransferBytes": {
+                  "median": 6602,
+                  "worst": 6602
+                },
+                "otherTransferBytes": {
+                  "median": 0,
+                  "worst": 0
+                },
+                "preloadedFontTransferBytes": {
+                  "median": 101792,
+                  "worst": 101792
+                },
+                "initialJavascriptRequestCount": {
+                  "median": 11,
+                  "worst": 11
+                },
+                "initialJavascriptTransferBytes": {
+                  "median": 253761,
+                  "worst": 253761
+                },
+                "postReactCommitJavascriptRequestCount": {
+                  "median": 1,
+                  "worst": 1
+                },
+                "postReactCommitJavascriptTransferBytes": {
+                  "median": 9979,
+                  "worst": 9979
+                }
+              },
+              "mainThreadSummary": {
+                "traceWindowMs": {
+                  "median": 1088.9,
+                  "worst": 1117.7
+                },
+                "mainThreadBusyToSettleMs": {
+                  "median": 73.287,
+                  "worst": 97.066
+                },
+                "mainThreadBusyToLcpMs": {
+                  "median": 54.361,
+                  "worst": 74.621
+                },
+                "scriptingToSettleMs": {
+                  "median": 48.566,
+                  "worst": 66.147
+                },
+                "scriptingToLcpMs": {
+                  "median": 43.74,
+                  "worst": 59.415
+                },
+                "scriptingDuringReactWindowMs": {
+                  "median": 31.869,
+                  "worst": 47.25
+                },
+                "styleLayoutToSettleMs": {
+                  "median": 9.034,
+                  "worst": 10.358
+                },
+                "paintToSettleMs": {
+                  "median": 3.038,
+                  "worst": 4.509
+                },
+                "parseHtmlMs": {
+                  "median": 0.524,
+                  "worst": 0.59
+                },
+                "longestMainThreadTaskMs": {
+                  "median": 14.3,
+                  "worst": 16.058
+                },
+                "mainThreadTasksOver50Ms": {
+                  "median": 0,
+                  "worst": 0
+                }
+              },
+              "reactSummary": {
+                "rendererInjectMs": {
+                  "median": 33.5,
+                  "worst": 34.6
+                },
+                "firstCommitMs": {
+                  "median": 54,
+                  "worst": 58.2
+                },
+                "lastCommitMs": {
+                  "median": 68,
+                  "worst": 85.9
+                },
+                "commitCount": {
+                  "median": 4,
+                  "worst": 4
+                },
+                "injectToFirstCommitMs": {
+                  "median": 19.4,
+                  "worst": 24.7
+                },
+                "injectToLastCommitMs": {
+                  "median": 33.4,
+                  "worst": 52.4
+                }
+              },
+              "javascriptPhases": {
+                "throughLastReactCommit": {
+                  "requestCount": {
+                    "median": 11,
+                    "worst": 11
+                  },
+                  "transferBytes": {
+                    "median": 253761,
+                    "worst": 253761
+                  }
+                },
+                "afterLastReactCommit": {
+                  "requestCount": {
+                    "median": 1,
+                    "worst": 1
+                  },
+                  "transferBytes": {
+                    "median": 9979,
+                    "worst": 9979
+                  }
+                }
+              },
+              "lcpIdentityConsistency": true,
+              "lcpIdentityKeys": [
+                "A|trophē||SPAN|trophē|\"Instrument Serif\", \"Instrument Serif Fallback\"|400|italic",
+                "A|trophē||SPAN|trophē|\"Instrument Serif\", \"Instrument Serif Fallback\"|400|italic",
+                "A|trophē||SPAN|trophē|\"Instrument Serif\", \"Instrument Serif Fallback\"|400|italic"
+              ],
+              "representativeSample": 3,
+              "representativeLcp": {
+                "startTimeMs": 80,
+                "renderTimeMs": 80,
+                "loadTimeMs": 0,
+                "sizePx2": 2730,
+                "url": null,
+                "resourceTransferBytes": 0,
+                "element": {
+                  "tag": "A",
+                  "id": null,
+                  "className": "no-underline inline-block",
+                  "text": "trophē"
+                },
+                "textLeaves": [
+                  {
+                    "tag": "SPAN",
+                    "id": null,
+                    "className": "font-serif italic text-[#D4A853] text-3xl tracking-tight select-none",
+                    "text": "trophē",
+                    "directText": "trophē",
+                    "computedStyle": {
+                      "fontFamily": "\"Instrument Serif\", \"Instrument Serif Fallback\"",
+                      "fontSize": "30px",
+                      "fontWeight": "400",
+                      "fontStyle": "italic",
+                      "backgroundImage": "none"
+                    }
+                  }
+                ]
+              },
+              "criticalRequestChain": [
+                {
+                  "url": "/login",
+                  "type": "Document",
+                  "initiatorType": "navigation",
+                  "startMs": 0,
+                  "durationMs": 2.934,
+                  "transferBytes": 4045,
+                  "decodedBodyBytes": 10209,
+                  "status": 200,
+                  "mimeType": "text/html",
+                  "renderBlockingStatus": "navigation",
+                  "failed": false,
+                  "fontFace": null,
+                  "relevance": [
+                    "navigation_document"
+                  ]
+                },
+                {
+                  "url": "/_next/static/css/00207d0873d00653.css",
+                  "type": "Stylesheet",
+                  "initiatorType": "link",
+                  "startMs": 4.4,
+                  "durationMs": 4.7,
+                  "transferBytes": 2021,
+                  "decodedBodyBytes": 5890,
+                  "status": 200,
+                  "mimeType": "text/css",
+                  "renderBlockingStatus": "blocking",
+                  "failed": false,
+                  "fontFace": null,
+                  "relevance": [
+                    "browser_reported_render_blocking",
+                    "stylesheet"
+                  ]
+                },
+                {
+                  "url": "/_next/static/css/b20eb98e3adbc985.css",
+                  "type": "Stylesheet",
+                  "initiatorType": "link",
+                  "startMs": 4.4,
+                  "durationMs": 7.6,
+                  "transferBytes": 18871,
+                  "decodedBodyBytes": 98730,
+                  "status": 200,
+                  "mimeType": "text/css",
+                  "renderBlockingStatus": "blocking",
+                  "failed": false,
+                  "fontFace": null,
+                  "relevance": [
+                    "browser_reported_render_blocking",
+                    "stylesheet"
+                  ]
+                },
+                {
+                  "url": "/_next/static/media/9cc5b37ab1350db7-s.p.woff2",
+                  "type": "Font",
+                  "initiatorType": "link",
+                  "startMs": 4.4,
+                  "durationMs": 3.7,
+                  "transferBytes": 16582,
+                  "decodedBodyBytes": 15684,
+                  "status": 200,
+                  "mimeType": "font/woff2",
+                  "renderBlockingStatus": "non-blocking",
+                  "failed": false,
+                  "fontFace": "Instrument Serif italic Latin",
+                  "relevance": [
+                    "preloaded_font",
+                    "lcp_font_family_candidate"
+                  ]
+                }
+              ],
+              "baselineReconciliation": {
+                "headlineMedian": {
+                  "ttfb": 3.099999964237213,
+                  "fcp": 84,
+                  "lcp": 84,
+                  "load": 54.80000001192093,
+                  "requestCount": 24,
+                  "transferredBytes": 419181
+                },
+                "diagnosticMedian": {
+                  "ttfbMs": 2.8,
+                  "fcpMs": 80,
+                  "lcpMs": 80,
+                  "loadMs": 54.1,
+                  "requestCount": 24,
+                  "transferredBytes": 419181
+                },
+                "requestCountExactMatch": true,
+                "transferredBytesExactMatch": true
+              }
+            }
+          },
+          {
+            "viewport": {
+              "name": "desktop",
+              "width": 1440,
+              "height": 900
+            },
+            "samples": [
+              {
+                "sample": 1,
+                "capturedAtUtc": "2026-07-26T11:21:21.962Z",
+                "valid": true,
+                "invalidReasons": [],
+                "settlement": {
+                  "reason": "network_quiet",
+                  "durationMs": 1029,
+                  "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 419181,
+                  "completedCount": 23,
+                  "cachedCount": 0,
+                  "failedCount": 1,
+                  "inFlightCount": 0
+                },
+                "safety": {
+                  "requestCount": 24,
+                  "allowedRequestCount": 24,
+                  "blockedRequestCount": 0,
+                  "blockedReasonCounts": {},
+                  "consoleErrorCount": 2,
+                  "networkErrorCount": 2
+                },
+                "metrics": {
+                  "ttfbMs": 2.7,
+                  "fcpMs": 80,
+                  "lcpMs": 80,
+                  "loadMs": 48,
+                  "requestCount": 24,
+                  "transferredBytes": 419181,
+                  "documentTransferBytes": 4045,
+                  "renderBlockingTransferBytes": 20892,
+                  "javascriptTransferBytes": 263740,
+                  "cssTransferBytes": 20892,
+                  "fontTransferBytes": 123902,
+                  "fetchTransferBytes": 6602,
+                  "otherTransferBytes": 0,
+                  "preloadedFontTransferBytes": 101792,
+                  "initialJavascriptRequestCount": 11,
+                  "initialJavascriptTransferBytes": 253761,
+                  "postReactCommitJavascriptRequestCount": 1,
+                  "postReactCommitJavascriptTransferBytes": 9979
+                },
+                "lcp": {
+                  "startTimeMs": 80,
+                  "renderTimeMs": 80,
+                  "loadTimeMs": 0,
+                  "sizePx2": 2730,
+                  "url": null,
+                  "resourceTransferBytes": 0
+                },
+                "react": {
+                  "rendererPackage": "react-dom",
+                  "rendererVersion": "19.3.0-canary-3f0b9e61-20260317",
+                  "rendererInjectMs": 28.7,
+                  "firstCommitMs": 47.9,
+                  "lastCommitMs": 61.5,
+                  "commitCount": 4,
+                  "injectToFirstCommitMs": 19.2,
+                  "injectToLastCommitMs": 32.8,
+                  "commitErrors": 0,
+                  "finalIsDehydrated": false
+                },
+                "mainThread": {
+                  "traceWindowMs": 1082.1,
+                  "mainThreadBusyToSettleMs": 75.177,
+                  "mainThreadBusyToLcpMs": 53.846,
+                  "scriptingToSettleMs": 49.63,
+                  "scriptingToLcpMs": 43.449,
+                  "scriptingDuringReactWindowMs": 31.318,
+                  "styleLayoutToSettleMs": 9.717,
+                  "paintToSettleMs": 2.73,
+                  "parseHtmlMs": 0.519,
+                  "longestMainThreadTaskMs": 14.112,
+                  "mainThreadTasksOver50Ms": 0
+                }
+              },
+              {
+                "sample": 2,
+                "capturedAtUtc": "2026-07-26T11:21:23.140Z",
+                "valid": true,
+                "invalidReasons": [],
+                "settlement": {
+                  "reason": "network_quiet",
+                  "durationMs": 1035,
+                  "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 419181,
+                  "completedCount": 23,
+                  "cachedCount": 0,
+                  "failedCount": 1,
+                  "inFlightCount": 0
+                },
+                "safety": {
+                  "requestCount": 24,
+                  "allowedRequestCount": 24,
+                  "blockedRequestCount": 0,
+                  "blockedReasonCounts": {},
+                  "consoleErrorCount": 2,
+                  "networkErrorCount": 2
+                },
+                "metrics": {
+                  "ttfbMs": 2.8,
+                  "fcpMs": 88,
+                  "lcpMs": 88,
+                  "loadMs": 47.9,
+                  "requestCount": 24,
+                  "transferredBytes": 419181,
+                  "documentTransferBytes": 4045,
+                  "renderBlockingTransferBytes": 20892,
+                  "javascriptTransferBytes": 263740,
+                  "cssTransferBytes": 20892,
+                  "fontTransferBytes": 123902,
+                  "fetchTransferBytes": 6602,
+                  "otherTransferBytes": 0,
+                  "preloadedFontTransferBytes": 101792,
+                  "initialJavascriptRequestCount": 11,
+                  "initialJavascriptTransferBytes": 253761,
+                  "postReactCommitJavascriptRequestCount": 1,
+                  "postReactCommitJavascriptTransferBytes": 9979
+                },
+                "lcp": {
+                  "startTimeMs": 88,
+                  "renderTimeMs": 88,
+                  "loadTimeMs": 0,
+                  "sizePx2": 2730,
+                  "url": null,
+                  "resourceTransferBytes": 0
+                },
+                "react": {
+                  "rendererPackage": "react-dom",
+                  "rendererVersion": "19.3.0-canary-3f0b9e61-20260317",
+                  "rendererInjectMs": 28.9,
+                  "firstCommitMs": 47.7,
+                  "lastCommitMs": 61.3,
+                  "commitCount": 4,
+                  "injectToFirstCommitMs": 18.8,
+                  "injectToLastCommitMs": 32.4,
+                  "commitErrors": 0,
+                  "finalIsDehydrated": false
+                },
+                "mainThread": {
+                  "traceWindowMs": 1087.3,
+                  "mainThreadBusyToSettleMs": 78.303,
+                  "mainThreadBusyToLcpMs": 54.38,
+                  "scriptingToSettleMs": 50.089,
+                  "scriptingToLcpMs": 43.342,
+                  "scriptingDuringReactWindowMs": 30.959,
+                  "styleLayoutToSettleMs": 10.359,
+                  "paintToSettleMs": 2.681,
+                  "parseHtmlMs": 0.529,
+                  "longestMainThreadTaskMs": 13.997,
+                  "mainThreadTasksOver50Ms": 0
+                }
+              },
+              {
+                "sample": 3,
+                "capturedAtUtc": "2026-07-26T11:21:24.315Z",
+                "valid": true,
+                "invalidReasons": [],
+                "settlement": {
+                  "reason": "network_quiet",
+                  "durationMs": 1033,
+                  "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 419181,
+                  "completedCount": 23,
+                  "cachedCount": 0,
+                  "failedCount": 1,
+                  "inFlightCount": 0
+                },
+                "safety": {
+                  "requestCount": 24,
+                  "allowedRequestCount": 24,
+                  "blockedRequestCount": 0,
+                  "blockedReasonCounts": {},
+                  "consoleErrorCount": 2,
+                  "networkErrorCount": 2
+                },
+                "metrics": {
+                  "ttfbMs": 2.5,
+                  "fcpMs": 96,
+                  "lcpMs": 96,
+                  "loadMs": 47.9,
+                  "requestCount": 24,
+                  "transferredBytes": 419181,
+                  "documentTransferBytes": 4045,
+                  "renderBlockingTransferBytes": 20892,
+                  "javascriptTransferBytes": 263740,
+                  "cssTransferBytes": 20892,
+                  "fontTransferBytes": 123902,
+                  "fetchTransferBytes": 6602,
+                  "otherTransferBytes": 0,
+                  "preloadedFontTransferBytes": 101792,
+                  "initialJavascriptRequestCount": 11,
+                  "initialJavascriptTransferBytes": 253761,
+                  "postReactCommitJavascriptRequestCount": 1,
+                  "postReactCommitJavascriptTransferBytes": 9979
+                },
+                "lcp": {
+                  "startTimeMs": 96,
+                  "renderTimeMs": 96,
+                  "loadTimeMs": 0,
+                  "sizePx2": 2730,
+                  "url": null,
+                  "resourceTransferBytes": 0
+                },
+                "react": {
+                  "rendererPackage": "react-dom",
+                  "rendererVersion": "19.3.0-canary-3f0b9e61-20260317",
+                  "rendererInjectMs": 29.1,
+                  "firstCommitMs": 47.8,
+                  "lastCommitMs": 62.9,
+                  "commitCount": 4,
+                  "injectToFirstCommitMs": 18.7,
+                  "injectToLastCommitMs": 33.8,
+                  "commitErrors": 0,
+                  "finalIsDehydrated": false
+                },
+                "mainThread": {
+                  "traceWindowMs": 1085.2,
+                  "mainThreadBusyToSettleMs": 73.662,
+                  "mainThreadBusyToLcpMs": 54.133,
+                  "scriptingToSettleMs": 48.755,
+                  "scriptingToLcpMs": 43.031,
+                  "scriptingDuringReactWindowMs": 31.949,
+                  "styleLayoutToSettleMs": 9.612,
+                  "paintToSettleMs": 2.532,
+                  "parseHtmlMs": 0.53,
+                  "longestMainThreadTaskMs": 13.849,
+                  "mainThreadTasksOver50Ms": 0
+                }
+              }
+            ],
+            "summary": {
+              "valid": true,
+              "validSampleCount": 3,
+              "invalidSampleCount": 0,
+              "invalidReasons": [],
+              "metricSummary": {
+                "ttfbMs": {
+                  "median": 2.7,
+                  "worst": 2.8
+                },
+                "fcpMs": {
+                  "median": 88,
+                  "worst": 96
+                },
+                "lcpMs": {
+                  "median": 88,
+                  "worst": 96
+                },
+                "loadMs": {
+                  "median": 47.9,
+                  "worst": 48
+                },
+                "requestCount": {
+                  "median": 24,
+                  "worst": 24
+                },
+                "transferredBytes": {
+                  "median": 419181,
+                  "worst": 419181
+                },
+                "documentTransferBytes": {
+                  "median": 4045,
+                  "worst": 4045
+                },
+                "renderBlockingTransferBytes": {
+                  "median": 20892,
+                  "worst": 20892
+                },
+                "javascriptTransferBytes": {
+                  "median": 263740,
+                  "worst": 263740
+                },
+                "cssTransferBytes": {
+                  "median": 20892,
+                  "worst": 20892
+                },
+                "fontTransferBytes": {
+                  "median": 123902,
+                  "worst": 123902
+                },
+                "fetchTransferBytes": {
+                  "median": 6602,
+                  "worst": 6602
+                },
+                "otherTransferBytes": {
+                  "median": 0,
+                  "worst": 0
+                },
+                "preloadedFontTransferBytes": {
+                  "median": 101792,
+                  "worst": 101792
+                },
+                "initialJavascriptRequestCount": {
+                  "median": 11,
+                  "worst": 11
+                },
+                "initialJavascriptTransferBytes": {
+                  "median": 253761,
+                  "worst": 253761
+                },
+                "postReactCommitJavascriptRequestCount": {
+                  "median": 1,
+                  "worst": 1
+                },
+                "postReactCommitJavascriptTransferBytes": {
+                  "median": 9979,
+                  "worst": 9979
+                }
+              },
+              "mainThreadSummary": {
+                "traceWindowMs": {
+                  "median": 1085.2,
+                  "worst": 1087.3
+                },
+                "mainThreadBusyToSettleMs": {
+                  "median": 75.177,
+                  "worst": 78.303
+                },
+                "mainThreadBusyToLcpMs": {
+                  "median": 54.133,
+                  "worst": 54.38
+                },
+                "scriptingToSettleMs": {
+                  "median": 49.63,
+                  "worst": 50.089
+                },
+                "scriptingToLcpMs": {
+                  "median": 43.342,
+                  "worst": 43.449
+                },
+                "scriptingDuringReactWindowMs": {
+                  "median": 31.318,
+                  "worst": 31.949
+                },
+                "styleLayoutToSettleMs": {
+                  "median": 9.717,
+                  "worst": 10.359
+                },
+                "paintToSettleMs": {
+                  "median": 2.681,
+                  "worst": 2.73
+                },
+                "parseHtmlMs": {
+                  "median": 0.529,
+                  "worst": 0.53
+                },
+                "longestMainThreadTaskMs": {
+                  "median": 13.997,
+                  "worst": 14.112
+                },
+                "mainThreadTasksOver50Ms": {
+                  "median": 0,
+                  "worst": 0
+                }
+              },
+              "reactSummary": {
+                "rendererInjectMs": {
+                  "median": 28.9,
+                  "worst": 29.1
+                },
+                "firstCommitMs": {
+                  "median": 47.8,
+                  "worst": 47.9
+                },
+                "lastCommitMs": {
+                  "median": 61.5,
+                  "worst": 62.9
+                },
+                "commitCount": {
+                  "median": 4,
+                  "worst": 4
+                },
+                "injectToFirstCommitMs": {
+                  "median": 18.8,
+                  "worst": 19.2
+                },
+                "injectToLastCommitMs": {
+                  "median": 32.8,
+                  "worst": 33.8
+                }
+              },
+              "javascriptPhases": {
+                "throughLastReactCommit": {
+                  "requestCount": {
+                    "median": 11,
+                    "worst": 11
+                  },
+                  "transferBytes": {
+                    "median": 253761,
+                    "worst": 253761
+                  }
+                },
+                "afterLastReactCommit": {
+                  "requestCount": {
+                    "median": 1,
+                    "worst": 1
+                  },
+                  "transferBytes": {
+                    "median": 9979,
+                    "worst": 9979
+                  }
+                }
+              },
+              "lcpIdentityConsistency": true,
+              "lcpIdentityKeys": [
+                "A|trophē||SPAN|trophē|\"Instrument Serif\", \"Instrument Serif Fallback\"|400|italic",
+                "A|trophē||SPAN|trophē|\"Instrument Serif\", \"Instrument Serif Fallback\"|400|italic",
+                "A|trophē||SPAN|trophē|\"Instrument Serif\", \"Instrument Serif Fallback\"|400|italic"
+              ],
+              "representativeSample": 2,
+              "representativeLcp": {
+                "startTimeMs": 88,
+                "renderTimeMs": 88,
+                "loadTimeMs": 0,
+                "sizePx2": 2730,
+                "url": null,
+                "resourceTransferBytes": 0,
+                "element": {
+                  "tag": "A",
+                  "id": null,
+                  "className": "no-underline inline-block",
+                  "text": "trophē"
+                },
+                "textLeaves": [
+                  {
+                    "tag": "SPAN",
+                    "id": null,
+                    "className": "font-serif italic text-[#D4A853] text-3xl tracking-tight select-none",
+                    "text": "trophē",
+                    "directText": "trophē",
+                    "computedStyle": {
+                      "fontFamily": "\"Instrument Serif\", \"Instrument Serif Fallback\"",
+                      "fontSize": "30px",
+                      "fontWeight": "400",
+                      "fontStyle": "italic",
+                      "backgroundImage": "none"
+                    }
+                  }
+                ]
+              },
+              "criticalRequestChain": [
+                {
+                  "url": "/login",
+                  "type": "Document",
+                  "initiatorType": "navigation",
+                  "startMs": 0,
+                  "durationMs": 2.927,
+                  "transferBytes": 4045,
+                  "decodedBodyBytes": 10209,
+                  "status": 200,
+                  "mimeType": "text/html",
+                  "renderBlockingStatus": "navigation",
+                  "failed": false,
+                  "fontFace": null,
+                  "relevance": [
+                    "navigation_document"
+                  ]
+                },
+                {
+                  "url": "/_next/static/media/9cc5b37ab1350db7-s.p.woff2",
+                  "type": "Font",
+                  "initiatorType": "link",
+                  "startMs": 4.4,
+                  "durationMs": 3.3,
+                  "transferBytes": 16582,
+                  "decodedBodyBytes": 15684,
+                  "status": 200,
+                  "mimeType": "font/woff2",
+                  "renderBlockingStatus": "non-blocking",
+                  "failed": false,
+                  "fontFace": "Instrument Serif italic Latin",
+                  "relevance": [
+                    "preloaded_font",
+                    "lcp_font_family_candidate"
+                  ]
+                },
+                {
+                  "url": "/_next/static/css/00207d0873d00653.css",
+                  "type": "Stylesheet",
+                  "initiatorType": "link",
+                  "startMs": 4.5,
+                  "durationMs": 4.3,
+                  "transferBytes": 2021,
+                  "decodedBodyBytes": 5890,
+                  "status": 200,
+                  "mimeType": "text/css",
+                  "renderBlockingStatus": "blocking",
+                  "failed": false,
+                  "fontFace": null,
+                  "relevance": [
+                    "browser_reported_render_blocking",
+                    "stylesheet"
+                  ]
+                },
+                {
+                  "url": "/_next/static/css/b20eb98e3adbc985.css",
+                  "type": "Stylesheet",
+                  "initiatorType": "link",
+                  "startMs": 4.5,
+                  "durationMs": 6.1,
+                  "transferBytes": 18871,
+                  "decodedBodyBytes": 98730,
+                  "status": 200,
+                  "mimeType": "text/css",
+                  "renderBlockingStatus": "blocking",
+                  "failed": false,
+                  "fontFace": null,
+                  "relevance": [
+                    "browser_reported_render_blocking",
+                    "stylesheet"
+                  ]
+                }
+              ],
+              "baselineReconciliation": {
+                "headlineMedian": {
+                  "ttfb": 3,
+                  "fcp": 96,
+                  "lcp": 96,
+                  "load": 52.5,
+                  "requestCount": 24,
+                  "transferredBytes": 419181
+                },
+                "diagnosticMedian": {
+                  "ttfbMs": 2.7,
+                  "fcpMs": 88,
+                  "lcpMs": 88,
+                  "loadMs": 47.9,
+                  "requestCount": 24,
+                  "transferredBytes": 419181
+                },
+                "requestCountExactMatch": true,
+                "transferredBytesExactMatch": true
+              }
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "routes": [
+    {
+      "path": "/",
+      "summaryByViewport": [
+        {
+          "viewport": {
+            "name": "mobile",
+            "width": 390,
+            "height": 844
+          },
+          "valid": true,
+          "validSampleCount": 3,
+          "invalidSampleCount": 0,
+          "invalidReasons": [],
+          "median": {
+            "ttfb": 4.100000023841858,
+            "fcp": 48,
+            "lcp": 48,
+            "cls": 0.0005008652868870871,
+            "load": 49.10000002384186,
+            "requestCount": 17,
+            "transferredBytes": 308923,
+            "longTasks": 0
+          },
+          "worst": {
+            "ttfb": 63.30000001192093,
+            "fcp": 160,
+            "lcp": 160,
+            "cls": 0.0005008652868870871,
+            "load": 182.4000000357628,
+            "requestCount": 17,
+            "transferredBytes": 308923,
+            "longTasks": 0
+          },
+          "consoleErrorCount": 6,
+          "networkErrorCount": 6,
+          "blockedRequestCount": 0,
+          "settlementReasons": [
+            "network_quiet"
+          ]
+        },
+        {
+          "viewport": {
+            "name": "desktop",
+            "width": 1440,
+            "height": 900
+          },
+          "valid": true,
+          "validSampleCount": 3,
+          "invalidSampleCount": 0,
+          "invalidReasons": [],
+          "median": {
+            "ttfb": 3.199999988079071,
+            "fcp": 64,
+            "lcp": 64,
+            "cls": 0.00015246913580246912,
+            "load": 50.09999996423721,
+            "requestCount": 17,
+            "transferredBytes": 308923,
+            "longTasks": 0
+          },
+          "worst": {
+            "ttfb": 4.400000035762787,
+            "fcp": 64,
+            "lcp": 64,
+            "cls": 0.00015246913580246912,
+            "load": 58.80000001192093,
+            "requestCount": 17,
+            "transferredBytes": 308923,
+            "longTasks": 0
+          },
+          "consoleErrorCount": 6,
+          "networkErrorCount": 6,
+          "blockedRequestCount": 0,
+          "settlementReasons": [
+            "network_quiet"
+          ]
+        }
+      ],
+      "failureInventory": {
+        "consoleCategories": [
+          "console_error"
+        ],
+        "networkFailures": [
+          {
+            "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+            "reason": "http_404"
+          },
+          {
+            "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+            "reason": "request_failed"
+          }
+        ]
+      },
+      "sourceObservation": {
+        "evidence": "current scrubbed local Next production build static HTML and .next/static files",
+        "htmlPath": ".next/server/app/index.html",
+        "htmlRawBytes": 32697,
+        "sourcePath": "app/page.tsx",
+        "clientComponent": true,
+        "referencedAssets": {
+          "javascript": {
+            "count": 8,
+            "rawBytes": 589610
+          },
+          "fonts": {
+            "count": 4,
+            "rawBytes": 98200
+          },
+          "css": {
+            "count": 2,
+            "rawBytes": 104620
+          }
+        },
+        "pageChunks": [
+          {
+            "url": "/_next/static/chunks/app/layout-557d95e89cf56365.js",
+            "rawBytes": 8266,
+            "type": "javascript",
+            "preloaded": false
+          },
+          {
+            "url": "/_next/static/chunks/app/page-ddfccc19e1818655.js",
+            "rawBytes": 28763,
+            "type": "javascript",
+            "preloaded": false
+          }
+        ],
+        "preloadedFonts": [
+          {
+            "url": "/_next/static/media/19cfc7226ec3afaa-s.p.woff2",
+            "rawBytes": 19044,
+            "type": "font",
+            "preloaded": true
+          },
+          {
+            "url": "/_next/static/media/9cc5b37ab1350db7-s.p.woff2",
+            "rawBytes": 15684,
+            "type": "font",
+            "preloaded": true
+          },
+          {
+            "url": "/_next/static/media/e4af272ccee01ff0-s.p.woff2",
+            "rawBytes": 48432,
+            "type": "font",
+            "preloaded": true
+          },
+          {
+            "url": "/_next/static/media/e6099e249fd938cc-s.p.woff2",
+            "rawBytes": 15040,
+            "type": "font",
+            "preloaded": true
+          }
+        ],
+        "note": "Asset bytes are uncompressed file sizes, not transferred-byte measurements."
+      },
+      "rawReport": {
+        "url": "http://127.0.0.1:3300/",
+        "samples": 3,
+        "reports": [
+          {
+            "url": "http://127.0.0.1:3300/",
+            "viewport": {
+              "name": "mobile",
+              "width": 390,
+              "height": 844
+            },
+            "samples": [
+              {
+                "metrics": {
+                  "ttfb": 63.30000001192093,
+                  "fcp": 160,
+                  "lcp": 160,
+                  "layoutShifts": [
+                    {
+                      "startTime": 175.60000002384186,
+                      "value": 0.0005008652868870871,
+                      "hadRecentInput": false
+                    }
+                  ],
+                  "load": 182.4000000357628,
+                  "longTasks": 0,
+                  "cls": 0.0005008652868870871,
+                  "requestCount": 17,
+                  "allowedRequestCount": 17,
+                  "blockedRequestCount": 0,
+                  "transferredBytes": 308923
+                },
+                "valid": true,
+                "invalidReasons": [],
+                "settlement": {
+                  "reason": "network_quiet",
+                  "durationMs": 1023,
+                  "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 308923,
+                  "completedCount": 16,
+                  "cachedCount": 0,
+                  "failedCount": 1,
+                  "inFlightCount": 0
+                },
+                "consoleErrors": [
+                  {
+                    "category": "console_error"
+                  },
+                  {
+                    "category": "console_error"
+                  }
+                ],
+                "networkErrors": [
+                  {
+                    "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                    "reason": "http_404"
+                  },
+                  {
+                    "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                    "reason": "request_failed"
+                  }
+                ]
+              },
+              {
+                "metrics": {
+                  "ttfb": 3.199999988079071,
+                  "fcp": 48,
+                  "lcp": 48,
+                  "layoutShifts": [
+                    {
+                      "startTime": 47.89999997615814,
+                      "value": 0.0005008652868870871,
+                      "hadRecentInput": false
+                    }
+                  ],
+                  "load": 45.89999997615814,
+                  "longTasks": 0,
+                  "cls": 0.0005008652868870871,
+                  "requestCount": 17,
+                  "allowedRequestCount": 17,
+                  "blockedRequestCount": 0,
+                  "transferredBytes": 308923
+                },
+                "valid": true,
+                "invalidReasons": [],
+                "settlement": {
+                  "reason": "network_quiet",
+                  "durationMs": 1017,
+                  "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 308923,
+                  "completedCount": 16,
+                  "cachedCount": 0,
+                  "failedCount": 1,
+                  "inFlightCount": 0
+                },
+                "consoleErrors": [
+                  {
+                    "category": "console_error"
+                  },
+                  {
+                    "category": "console_error"
+                  }
+                ],
+                "networkErrors": [
+                  {
+                    "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                    "reason": "http_404"
+                  },
+                  {
+                    "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                    "reason": "request_failed"
+                  }
+                ]
+              },
+              {
+                "metrics": {
+                  "ttfb": 4.100000023841858,
+                  "fcp": 48,
+                  "lcp": 48,
+                  "layoutShifts": [
+                    {
+                      "startTime": 50.80000001192093,
+                      "value": 0.0005008652868870871,
+                      "hadRecentInput": false
+                    }
+                  ],
+                  "load": 49.10000002384186,
+                  "longTasks": 0,
+                  "cls": 0.0005008652868870871,
+                  "requestCount": 17,
+                  "allowedRequestCount": 17,
+                  "blockedRequestCount": 0,
+                  "transferredBytes": 308923
+                },
+                "valid": true,
+                "invalidReasons": [],
+                "settlement": {
+                  "reason": "network_quiet",
+                  "durationMs": 1016,
+                  "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 308923,
+                  "completedCount": 16,
+                  "cachedCount": 0,
+                  "failedCount": 1,
+                  "inFlightCount": 0
+                },
+                "consoleErrors": [
+                  {
+                    "category": "console_error"
+                  },
+                  {
+                    "category": "console_error"
+                  }
+                ],
+                "networkErrors": [
+                  {
+                    "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                    "reason": "http_404"
+                  },
+                  {
+                    "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                    "reason": "request_failed"
+                  }
+                ]
+              }
+            ],
+            "valid": true,
+            "validSampleCount": 3,
+            "invalidSampleCount": 0,
+            "invalidReasons": [],
+            "median": {
+              "ttfb": 4.100000023841858,
+              "fcp": 48,
+              "lcp": 48,
+              "cls": 0.0005008652868870871,
+              "load": 49.10000002384186,
+              "requestCount": 17,
+              "transferredBytes": 308923,
+              "longTasks": 0
+            },
+            "worst": {
+              "ttfb": 63.30000001192093,
+              "fcp": 160,
+              "lcp": 160,
+              "cls": 0.0005008652868870871,
+              "load": 182.4000000357628,
+              "requestCount": 17,
+              "transferredBytes": 308923,
+              "longTasks": 0
+            },
+            "consoleErrors": [
+              {
+                "category": "console_error"
+              },
+              {
+                "category": "console_error"
+              },
+              {
+                "category": "console_error"
+              },
+              {
+                "category": "console_error"
+              },
+              {
+                "category": "console_error"
+              },
+              {
+                "category": "console_error"
+              }
+            ],
+            "networkErrors": [
+              {
+                "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                "reason": "http_404"
+              },
+              {
+                "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                "reason": "request_failed"
+              },
+              {
+                "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                "reason": "http_404"
+              },
+              {
+                "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                "reason": "request_failed"
+              },
+              {
+                "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                "reason": "http_404"
+              },
+              {
+                "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                "reason": "request_failed"
+              }
+            ]
+          },
+          {
+            "url": "http://127.0.0.1:3300/",
+            "viewport": {
+              "name": "desktop",
+              "width": 1440,
+              "height": 900
+            },
+            "samples": [
+              {
+                "metrics": {
+                  "ttfb": 4.400000035762787,
+                  "fcp": 64,
+                  "lcp": 64,
+                  "layoutShifts": [],
+                  "load": 58.80000001192093,
+                  "longTasks": 0,
+                  "cls": 0,
+                  "requestCount": 17,
+                  "allowedRequestCount": 17,
+                  "blockedRequestCount": 0,
+                  "transferredBytes": 308923
+                },
+                "valid": true,
+                "invalidReasons": [],
+                "settlement": {
+                  "reason": "network_quiet",
+                  "durationMs": 1010,
+                  "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 308923,
+                  "completedCount": 16,
+                  "cachedCount": 0,
+                  "failedCount": 1,
+                  "inFlightCount": 0
+                },
+                "consoleErrors": [
+                  {
+                    "category": "console_error"
+                  },
+                  {
+                    "category": "console_error"
+                  }
+                ],
+                "networkErrors": [
+                  {
+                    "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                    "reason": "http_404"
+                  },
+                  {
+                    "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                    "reason": "request_failed"
+                  }
+                ]
+              },
+              {
+                "metrics": {
+                  "ttfb": 3.199999988079071,
+                  "fcp": 56,
+                  "lcp": 56,
+                  "layoutShifts": [
+                    {
+                      "startTime": 50,
+                      "value": 0.00015246913580246912,
+                      "hadRecentInput": false
+                    }
+                  ],
+                  "load": 45.09999996423721,
+                  "longTasks": 0,
+                  "cls": 0.00015246913580246912,
+                  "requestCount": 17,
+                  "allowedRequestCount": 17,
+                  "blockedRequestCount": 0,
+                  "transferredBytes": 308923
+                },
+                "valid": true,
+                "invalidReasons": [],
+                "settlement": {
+                  "reason": "network_quiet",
+                  "durationMs": 1023,
+                  "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 308923,
+                  "completedCount": 16,
+                  "cachedCount": 0,
+                  "failedCount": 1,
+                  "inFlightCount": 0
+                },
+                "consoleErrors": [
+                  {
+                    "category": "console_error"
+                  },
+                  {
+                    "category": "console_error"
+                  }
+                ],
+                "networkErrors": [
+                  {
+                    "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                    "reason": "http_404"
+                  },
+                  {
+                    "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                    "reason": "request_failed"
+                  }
+                ]
+              },
+              {
+                "metrics": {
+                  "ttfb": 3.099999964237213,
+                  "fcp": 64,
+                  "lcp": 64,
+                  "layoutShifts": [
+                    {
+                      "startTime": 52.30000001192093,
+                      "value": 0.00015246913580246912,
+                      "hadRecentInput": false
+                    }
+                  ],
+                  "load": 50.09999996423721,
+                  "longTasks": 0,
+                  "cls": 0.00015246913580246912,
+                  "requestCount": 17,
+                  "allowedRequestCount": 17,
+                  "blockedRequestCount": 0,
+                  "transferredBytes": 308923
+                },
+                "valid": true,
+                "invalidReasons": [],
+                "settlement": {
+                  "reason": "network_quiet",
+                  "durationMs": 1018,
+                  "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 308923,
+                  "completedCount": 16,
+                  "cachedCount": 0,
+                  "failedCount": 1,
+                  "inFlightCount": 0
+                },
+                "consoleErrors": [
+                  {
+                    "category": "console_error"
+                  },
+                  {
+                    "category": "console_error"
+                  }
+                ],
+                "networkErrors": [
+                  {
+                    "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                    "reason": "http_404"
+                  },
+                  {
+                    "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                    "reason": "request_failed"
+                  }
+                ]
+              }
+            ],
+            "valid": true,
+            "validSampleCount": 3,
+            "invalidSampleCount": 0,
+            "invalidReasons": [],
+            "median": {
+              "ttfb": 3.199999988079071,
+              "fcp": 64,
+              "lcp": 64,
+              "cls": 0.00015246913580246912,
+              "load": 50.09999996423721,
+              "requestCount": 17,
+              "transferredBytes": 308923,
+              "longTasks": 0
+            },
+            "worst": {
+              "ttfb": 4.400000035762787,
+              "fcp": 64,
+              "lcp": 64,
+              "cls": 0.00015246913580246912,
+              "load": 58.80000001192093,
+              "requestCount": 17,
+              "transferredBytes": 308923,
+              "longTasks": 0
+            },
+            "consoleErrors": [
+              {
+                "category": "console_error"
+              },
+              {
+                "category": "console_error"
+              },
+              {
+                "category": "console_error"
+              },
+              {
+                "category": "console_error"
+              },
+              {
+                "category": "console_error"
+              },
+              {
+                "category": "console_error"
+              }
+            ],
+            "networkErrors": [
+              {
+                "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                "reason": "http_404"
+              },
+              {
+                "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                "reason": "request_failed"
+              },
+              {
+                "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                "reason": "http_404"
+              },
+              {
+                "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                "reason": "request_failed"
+              },
+              {
+                "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                "reason": "http_404"
+              },
+              {
+                "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                "reason": "request_failed"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "path": "/login",
+      "summaryByViewport": [
+        {
+          "viewport": {
+            "name": "mobile",
+            "width": 390,
+            "height": 844
+          },
+          "valid": true,
+          "validSampleCount": 3,
+          "invalidSampleCount": 0,
+          "invalidReasons": [],
+          "median": {
+            "ttfb": 3.099999964237213,
+            "fcp": 84,
+            "lcp": 84,
+            "cls": 0,
+            "load": 54.80000001192093,
+            "requestCount": 24,
+            "transferredBytes": 419181,
+            "longTasks": 0
+          },
+          "worst": {
+            "ttfb": 7.100000023841858,
+            "fcp": 104,
+            "lcp": 104,
+            "cls": 0,
+            "load": 70.80000001192093,
+            "requestCount": 24,
+            "transferredBytes": 419181,
+            "longTasks": 0
+          },
+          "consoleErrorCount": 6,
+          "networkErrorCount": 6,
+          "blockedRequestCount": 0,
+          "settlementReasons": [
+            "network_quiet"
+          ]
+        },
+        {
+          "viewport": {
+            "name": "desktop",
+            "width": 1440,
+            "height": 900
+          },
+          "valid": true,
+          "validSampleCount": 3,
+          "invalidSampleCount": 0,
+          "invalidReasons": [],
+          "median": {
+            "ttfb": 3,
+            "fcp": 96,
+            "lcp": 96,
+            "cls": 0,
+            "load": 52.5,
+            "requestCount": 24,
+            "transferredBytes": 419181,
+            "longTasks": 0
+          },
+          "worst": {
+            "ttfb": 3.100000023841858,
+            "fcp": 96,
+            "lcp": 96,
+            "cls": 0,
+            "load": 54.5,
+            "requestCount": 24,
+            "transferredBytes": 419181,
+            "longTasks": 0
+          },
+          "consoleErrorCount": 6,
+          "networkErrorCount": 6,
+          "blockedRequestCount": 0,
+          "settlementReasons": [
+            "network_quiet"
+          ]
+        }
+      ],
+      "failureInventory": {
+        "consoleCategories": [
+          "console_error"
+        ],
+        "networkFailures": [
+          {
+            "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+            "reason": "http_404"
+          },
+          {
+            "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+            "reason": "request_failed"
+          }
+        ]
+      },
+      "sourceObservation": {
+        "evidence": "current scrubbed local Next production build static HTML and .next/static files",
+        "htmlPath": ".next/server/app/login.html",
+        "htmlRawBytes": 10209,
+        "sourcePath": "app/login/page.tsx",
+        "clientComponent": true,
+        "referencedAssets": {
+          "javascript": {
+            "count": 11,
+            "rawBytes": 939565
+          },
+          "fonts": {
+            "count": 4,
+            "rawBytes": 98200
+          },
+          "css": {
+            "count": 2,
+            "rawBytes": 104620
+          }
+        },
+        "pageChunks": [
+          {
+            "url": "/_next/static/chunks/app/layout-557d95e89cf56365.js",
+            "rawBytes": 8266,
+            "type": "javascript",
+            "preloaded": false
+          },
+          {
+            "url": "/_next/static/chunks/app/login/page-e842e9513ec9d41c.js",
+            "rawBytes": 11491,
+            "type": "javascript",
+            "preloaded": false
+          }
+        ],
+        "preloadedFonts": [
+          {
+            "url": "/_next/static/media/19cfc7226ec3afaa-s.p.woff2",
+            "rawBytes": 19044,
+            "type": "font",
+            "preloaded": true
+          },
+          {
+            "url": "/_next/static/media/9cc5b37ab1350db7-s.p.woff2",
+            "rawBytes": 15684,
+            "type": "font",
+            "preloaded": true
+          },
+          {
+            "url": "/_next/static/media/e4af272ccee01ff0-s.p.woff2",
+            "rawBytes": 48432,
+            "type": "font",
+            "preloaded": true
+          },
+          {
+            "url": "/_next/static/media/e6099e249fd938cc-s.p.woff2",
+            "rawBytes": 15040,
+            "type": "font",
+            "preloaded": true
+          }
+        ],
+        "note": "Asset bytes are uncompressed file sizes, not transferred-byte measurements."
+      },
+      "rawReport": {
+        "url": "http://127.0.0.1:3300/login",
+        "samples": 3,
+        "reports": [
+          {
+            "url": "http://127.0.0.1:3300/login",
+            "viewport": {
+              "name": "mobile",
+              "width": 390,
+              "height": 844
+            },
+            "samples": [
+              {
+                "metrics": {
+                  "ttfb": 7.100000023841858,
+                  "fcp": 104,
+                  "lcp": 104,
+                  "layoutShifts": [],
+                  "load": 70.80000001192093,
+                  "longTasks": 0,
+                  "cls": 0,
+                  "requestCount": 24,
+                  "allowedRequestCount": 24,
+                  "blockedRequestCount": 0,
+                  "transferredBytes": 419181
+                },
+                "valid": true,
+                "invalidReasons": [],
+                "settlement": {
+                  "reason": "network_quiet",
+                  "durationMs": 1053,
+                  "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 419181,
+                  "completedCount": 23,
+                  "cachedCount": 0,
+                  "failedCount": 1,
+                  "inFlightCount": 0
+                },
+                "consoleErrors": [
+                  {
+                    "category": "console_error"
+                  },
+                  {
+                    "category": "console_error"
+                  }
+                ],
+                "networkErrors": [
+                  {
+                    "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                    "reason": "http_404"
+                  },
+                  {
+                    "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                    "reason": "request_failed"
+                  }
+                ]
+              },
+              {
+                "metrics": {
+                  "ttfb": 3.099999964237213,
+                  "fcp": 84,
+                  "lcp": 84,
+                  "layoutShifts": [],
+                  "load": 51.5,
+                  "longTasks": 0,
+                  "cls": 0,
+                  "requestCount": 24,
+                  "allowedRequestCount": 24,
+                  "blockedRequestCount": 0,
+                  "transferredBytes": 419181
+                },
+                "valid": true,
+                "invalidReasons": [],
+                "settlement": {
+                  "reason": "network_quiet",
+                  "durationMs": 1026,
+                  "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 419181,
+                  "completedCount": 23,
+                  "cachedCount": 0,
+                  "failedCount": 1,
+                  "inFlightCount": 0
+                },
+                "consoleErrors": [
+                  {
+                    "category": "console_error"
+                  },
+                  {
+                    "category": "console_error"
+                  }
+                ],
+                "networkErrors": [
+                  {
+                    "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                    "reason": "http_404"
+                  },
+                  {
+                    "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                    "reason": "request_failed"
+                  }
+                ]
+              },
+              {
+                "metrics": {
+                  "ttfb": 2.900000035762787,
+                  "fcp": 80,
+                  "lcp": 80,
+                  "layoutShifts": [],
+                  "load": 54.80000001192093,
+                  "longTasks": 0,
+                  "cls": 0,
+                  "requestCount": 24,
+                  "allowedRequestCount": 24,
+                  "blockedRequestCount": 0,
+                  "transferredBytes": 419181
+                },
+                "valid": true,
+                "invalidReasons": [],
+                "settlement": {
+                  "reason": "network_quiet",
+                  "durationMs": 1031,
+                  "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 419181,
+                  "completedCount": 23,
+                  "cachedCount": 0,
+                  "failedCount": 1,
+                  "inFlightCount": 0
+                },
+                "consoleErrors": [
+                  {
+                    "category": "console_error"
+                  },
+                  {
+                    "category": "console_error"
+                  }
+                ],
+                "networkErrors": [
+                  {
+                    "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                    "reason": "http_404"
+                  },
+                  {
+                    "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                    "reason": "request_failed"
+                  }
+                ]
+              }
+            ],
+            "valid": true,
+            "validSampleCount": 3,
+            "invalidSampleCount": 0,
+            "invalidReasons": [],
+            "median": {
+              "ttfb": 3.099999964237213,
+              "fcp": 84,
+              "lcp": 84,
+              "cls": 0,
+              "load": 54.80000001192093,
+              "requestCount": 24,
+              "transferredBytes": 419181,
+              "longTasks": 0
+            },
+            "worst": {
+              "ttfb": 7.100000023841858,
+              "fcp": 104,
+              "lcp": 104,
+              "cls": 0,
+              "load": 70.80000001192093,
+              "requestCount": 24,
+              "transferredBytes": 419181,
+              "longTasks": 0
+            },
+            "consoleErrors": [
+              {
+                "category": "console_error"
+              },
+              {
+                "category": "console_error"
+              },
+              {
+                "category": "console_error"
+              },
+              {
+                "category": "console_error"
+              },
+              {
+                "category": "console_error"
+              },
+              {
+                "category": "console_error"
+              }
+            ],
+            "networkErrors": [
+              {
+                "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                "reason": "http_404"
+              },
+              {
+                "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                "reason": "request_failed"
+              },
+              {
+                "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                "reason": "http_404"
+              },
+              {
+                "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                "reason": "request_failed"
+              },
+              {
+                "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                "reason": "http_404"
+              },
+              {
+                "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                "reason": "request_failed"
+              }
+            ]
+          },
+          {
+            "url": "http://127.0.0.1:3300/login",
+            "viewport": {
+              "name": "desktop",
+              "width": 1440,
+              "height": 900
+            },
+            "samples": [
+              {
+                "metrics": {
+                  "ttfb": 3.100000023841858,
+                  "fcp": 96,
+                  "lcp": 96,
+                  "layoutShifts": [],
+                  "load": 54.5,
+                  "longTasks": 0,
+                  "cls": 0,
+                  "requestCount": 24,
+                  "allowedRequestCount": 24,
+                  "blockedRequestCount": 0,
+                  "transferredBytes": 419181
+                },
+                "valid": true,
+                "invalidReasons": [],
+                "settlement": {
+                  "reason": "network_quiet",
+                  "durationMs": 1035,
+                  "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 419181,
+                  "completedCount": 23,
+                  "cachedCount": 0,
+                  "failedCount": 1,
+                  "inFlightCount": 0
+                },
+                "consoleErrors": [
+                  {
+                    "category": "console_error"
+                  },
+                  {
+                    "category": "console_error"
+                  }
+                ],
+                "networkErrors": [
+                  {
+                    "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                    "reason": "http_404"
+                  },
+                  {
+                    "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                    "reason": "request_failed"
+                  }
+                ]
+              },
+              {
+                "metrics": {
+                  "ttfb": 2.799999952316284,
+                  "fcp": 96,
+                  "lcp": 96,
+                  "layoutShifts": [],
+                  "load": 49,
+                  "longTasks": 0,
+                  "cls": 0,
+                  "requestCount": 24,
+                  "allowedRequestCount": 24,
+                  "blockedRequestCount": 0,
+                  "transferredBytes": 419181
+                },
+                "valid": true,
+                "invalidReasons": [],
+                "settlement": {
+                  "reason": "network_quiet",
+                  "durationMs": 1028,
+                  "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 419181,
+                  "completedCount": 23,
+                  "cachedCount": 0,
+                  "failedCount": 1,
+                  "inFlightCount": 0
+                },
+                "consoleErrors": [
+                  {
+                    "category": "console_error"
+                  },
+                  {
+                    "category": "console_error"
+                  }
+                ],
+                "networkErrors": [
+                  {
+                    "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                    "reason": "http_404"
+                  },
+                  {
+                    "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                    "reason": "request_failed"
+                  }
+                ]
+              },
+              {
+                "metrics": {
+                  "ttfb": 3,
+                  "fcp": 96,
+                  "lcp": 96,
+                  "layoutShifts": [],
+                  "load": 52.5,
+                  "longTasks": 0,
+                  "cls": 0,
+                  "requestCount": 24,
+                  "allowedRequestCount": 24,
+                  "blockedRequestCount": 0,
+                  "transferredBytes": 419181
+                },
+                "valid": true,
+                "invalidReasons": [],
+                "settlement": {
+                  "reason": "network_quiet",
+                  "durationMs": 1037,
+                  "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 419181,
+                  "completedCount": 23,
+                  "cachedCount": 0,
+                  "failedCount": 1,
+                  "inFlightCount": 0
+                },
+                "consoleErrors": [
+                  {
+                    "category": "console_error"
+                  },
+                  {
+                    "category": "console_error"
+                  }
+                ],
+                "networkErrors": [
+                  {
+                    "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                    "reason": "http_404"
+                  },
+                  {
+                    "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                    "reason": "request_failed"
+                  }
+                ]
+              }
+            ],
+            "valid": true,
+            "validSampleCount": 3,
+            "invalidSampleCount": 0,
+            "invalidReasons": [],
+            "median": {
+              "ttfb": 3,
+              "fcp": 96,
+              "lcp": 96,
+              "cls": 0,
+              "load": 52.5,
+              "requestCount": 24,
+              "transferredBytes": 419181,
+              "longTasks": 0
+            },
+            "worst": {
+              "ttfb": 3.100000023841858,
+              "fcp": 96,
+              "lcp": 96,
+              "cls": 0,
+              "load": 54.5,
+              "requestCount": 24,
+              "transferredBytes": 419181,
+              "longTasks": 0
+            },
+            "consoleErrors": [
+              {
+                "category": "console_error"
+              },
+              {
+                "category": "console_error"
+              },
+              {
+                "category": "console_error"
+              },
+              {
+                "category": "console_error"
+              },
+              {
+                "category": "console_error"
+              },
+              {
+                "category": "console_error"
+              }
+            ],
+            "networkErrors": [
+              {
+                "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                "reason": "http_404"
+              },
+              {
+                "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                "reason": "request_failed"
+              },
+              {
+                "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                "reason": "http_404"
+              },
+              {
+                "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                "reason": "request_failed"
+              },
+              {
+                "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                "reason": "http_404"
+              },
+              {
+                "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                "reason": "request_failed"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -60,29 +60,39 @@ Partnership with Michael Kavdas (Greek nutritionist, PN L1 certified, COO Athlet
 
 ## Getting started
 
-Prerequisites: Node 20+, OrbStack or another Docker-compatible runtime, and a Supabase project for hosted env vars.
+Prerequisites: Node 20+ and OrbStack or another Docker-compatible runtime.
 
 ```bash
 git clone git@github.com:zsoist/trophe.git
 cd trophe
 npm install
-cp .env.local.example .env.local
-# Fill in the 5 required env vars (see DEPLOYMENT.md)
-npm run db:bootstrap
-npm run dev
+npm run dev:local
 # http://localhost:3000
 ```
+
+`dev:local` starts/bootstrap-checks the local Supabase stack, derives its URL and
+Auth keys in memory, launches the app, and disables every paid AI provider. Local
+signup confirmation emails appear in Mailpit at
+[http://127.0.0.1:54324](http://127.0.0.1:54324). Use
+`TROPHE_LOCAL_PORT=3300 npm run dev:local` if port 3000 is occupied.
+With the app running, `npm run test:e2e:local-signup` verifies signup, Mailpit
+delivery, confirmation, login, replay safety, and cleanup in one command.
+
+For hosted development or deployment, copy `.env.local.example` to `.env.local`
+and configure the environment-specific values described in `DEPLOYMENT.md`.
 
 ## Scripts
 
 ```bash
 npm run dev           # dev server
+npm run dev:local     # zero-cost local stack + app; no manual Supabase keys
 npm run build         # production build
 npm run typecheck     # tsc --noEmit
 npm run lint          # eslint
 npm test              # vitest run (unit tests)
 npm run test:watch    # vitest watch mode
 npm run test:coverage # vitest + coverage report
+npm run test:e2e:local-signup # local signup → email → confirmation → login
 npm run db:doctor     # OrbStack/Docker/Supabase readiness
 npm run db:local:start
 npm run db:bootstrap  # canonical local DB bootstrap (Supabase local + Drizzle)

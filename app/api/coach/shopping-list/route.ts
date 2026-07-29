@@ -14,6 +14,8 @@ import {
   type ShoppingExtractOutput,
 } from '@/agents/schemas/shopping-extract';
 import { aggregateIngredients, groupByCategory } from '@/lib/food/shopping-list';
+import { consumeRateLimit } from '@/lib/security/durable-rate-limit';
+import { safeErrorMetadata } from '@/lib/security/safe-error-log';
 
 /**
  * Generate a shopping list from a client's weekly meal plan (Daily Nutrafit
@@ -23,6 +25,7 @@ import { aggregateIngredients, groupByCategory } from '@/lib/food/shopping-list'
  * POST { clientId } → { items, byCategory, mealCount }
  */
 const bodySchema = z.object({ clientId: z.string().uuid() }).strict();
+const MAX_WEEKLY_MEAL_CELLS = 35;
 
 const SYSTEM_PROMPT = `You are a meal-prep assistant. You are given a week of meal-plan entries written as free text (possibly Greek, Spanish, or other languages). Extract every distinct grocery ingredient as a FLAT list of line items — one entry per ingredient occurrence. Do NOT merge duplicates; that happens downstream. For each item: a canonical lowercase singular name, a numeric quantity (0 if unspecified), a unit (g, ml, piece, cup, tbsp, slice, or empty string), and a store category (produce, protein, dairy, grains, pantry, frozen, bakery, other). Skip pure seasonings "to taste", water, and cooking verbs.`;
 
@@ -37,23 +40,48 @@ export async function POST(request: NextRequest) {
   const { clientId } = parsed.data;
   const userId = guard.session.user.id;
 
-  const service = createSupabaseServiceClient();
-
   // Authorize: coaches → own clients, admins → own-org clients only. (Was a
   // blanket admin bypass = cross-tenant IDOR leaking meal plans + LLM cost.)
   if (!(await canAccessClient(db, userId, guard.session.role, clientId))) {
     return NextResponse.json({ error: 'Not your client' }, { status: 403 });
   }
 
+  const rate = await consumeRateLimit(`shopping-list:${userId}`, 5, 600);
+  if (!rate.allowed) {
+    return NextResponse.json(
+      { error: 'Too many shopping-list requests — please try again shortly' },
+      { status: 429, headers: { 'Retry-After': String(rate.retryAfter) } },
+    );
+  }
+
+  const service = createSupabaseServiceClient();
+
   // Read the week's meal cells and keep only distinct, non-empty descriptions
   // (a breakfast repeated 7× should cost one line in the prompt, not seven).
-  const { data: rows } = await service
+  const { data, error: mealPlanError } = await service
     .from('meal_plan_entries')
     .select('description')
-    .eq('client_id', clientId);
+    .eq('client_id', clientId)
+    .limit(MAX_WEEKLY_MEAL_CELLS + 1);
+
+  if (mealPlanError) {
+    console.error('[shopping-list] meal plan read failed', safeErrorMetadata(mealPlanError));
+    return NextResponse.json(
+      { error: 'Could not read the meal plan — please try again.' },
+      { status: 503 },
+    );
+  }
+
+  const rows = data ?? [];
+  if (rows.length > MAX_WEEKLY_MEAL_CELLS) {
+    return NextResponse.json(
+      { error: 'Meal plan exceeds the weekly 35-meal limit' },
+      { status: 422 },
+    );
+  }
 
   const uniqueMeals = Array.from(
-    new Set((rows ?? []).map((r) => (r.description ?? '').trim()).filter(Boolean)),
+    new Set(rows.map((r) => (r.description ?? '').trim()).filter(Boolean)),
   );
 
   if (uniqueMeals.length === 0) {
@@ -88,7 +116,7 @@ export async function POST(request: NextRequest) {
       mealCount: uniqueMeals.length,
     });
   } catch (error) {
-    console.error('Shopping-list generation error:', error);
+    console.error('[shopping-list] generation failed', safeErrorMetadata(error));
     return NextResponse.json({ error: 'Could not generate shopping list' }, { status: 502 });
   }
 }

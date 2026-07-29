@@ -9,6 +9,8 @@ import { trpcClient } from '@/lib/trpc/client';
 import type { MealType } from '@/lib/types';
 import type { ParsedFoodItem } from '@/app/api/food/parse/route';
 import { isParsedFoodItem } from '@/agents/schemas/food-parse';
+import { validateManualNutrition } from '@/lib/food/manual-entry';
+import { photoAnalysisToParsedItems } from '@/lib/food/photo-analysis';
 import ParsedFoodList from '@/components/food/ParsedFoodList';
 import PhotoScanCard from '@/components/food/PhotoScanCard';
 import BarcodeLookupModal from '@/components/food/BarcodeLookupModal';
@@ -89,11 +91,12 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
   // Clarification loop (empty-items + question): the AI's actual question + the user's answer.
   const [questionText, setQuestionText] = useState<string | null>(null);
   const [questionAnswer, setQuestionAnswer] = useState('');
+  const [questionOriginalText, setQuestionOriginalText] = useState('');
+  const [lastTextForReview, setLastTextForReview] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const lastTextRef = useRef('');
   const lastFileRef = useRef<File | null>(null);
-  const questionOriginalTextRef = useRef('');
   /** Snapshot of the parse result at confirm-entry — flywheel diffs confirmed values against it. */
   const originalItemsRef = useRef<ParsedFoodItem[]>([]);
   const parseBusyRef = useRef(false);
@@ -148,11 +151,13 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
     setEstimatedItems(estimateItemCount(value));
     setMode('parsing');
     lastTextRef.current = value;
+    setLastTextForReview(value);
     const slowTimer = setTimeout(() => setSlowParse(true), 8000);
+    let requestTimeout: ReturnType<typeof setTimeout> | null = null;
 
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 45000); // 45s — composites need more time
+      requestTimeout = setTimeout(() => controller.abort(), 45000); // 45s — composites need more time
 
       const res = await fetch('/api/food/parse', {
         method: 'POST',
@@ -161,7 +166,6 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
         signal: controller.signal,
       });
 
-      clearTimeout(timeout);
       const data = await res.json();
 
       if (!res.ok) {
@@ -188,7 +192,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
         if (data && data.needs_clarification && data.clarification_question) {
           setQuestionText(String(data.clarification_question));
           setQuestionAnswer('');
-          questionOriginalTextRef.current = value;
+          setQuestionOriginalText(value);
           setRetryCount(0);
           setMode('question');
           return;
@@ -218,6 +222,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
       setRetryCount(prev => prev + 1);
       setMode('idle');
     } finally {
+      if (requestTimeout) clearTimeout(requestTimeout);
       clearTimeout(slowTimer);
       setSlowParse(false);
       parseBusyRef.current = false;
@@ -251,9 +256,12 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
       setError('Please choose an image file.');
       return;
     }
+    if (parseBusyRef.current || logging) return;
+    parseBusyRef.current = true;
     setError(null);
     setMode('photo_analyzing');
     lastFileRef.current = file;
+    let requestTimeout: ReturnType<typeof setTimeout> | null = null;
 
     // Create preview thumbnail
     const reader = new FileReader();
@@ -267,7 +275,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
       const mediaType = 'image/jpeg';
 
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 20000); // 20s for photo
+      requestTimeout = setTimeout(() => controller.abort(), 20000); // 20s for photo
 
       const res = await fetch('/api/ai/photo-analyze', {
         method: 'POST',
@@ -276,11 +284,9 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
         signal: controller.signal,
       });
 
-      clearTimeout(timeout);
-
       const data = await res.json();
 
-      if (!res.ok || !data.foods || data.foods.length === 0) {
+      if (!res.ok || !Array.isArray(data.foods) || data.foods.length === 0) {
         if (res.status === 429) {
           const retryAfter = parseInt(res.headers.get('Retry-After') ?? '', 10);
           setRetryAfterS(Number.isFinite(retryAfter) && retryAfter > 0 ? Math.min(retryAfter, 600) : 60);
@@ -293,33 +299,14 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
         return;
       }
 
-      const items: ParsedFoodItem[] = data.foods.map((f: {
-        name: string;
-        estimated_grams: number;
-        estimated_calories: number;
-        estimated_protein_g: number;
-        estimated_carbs_g: number;
-        estimated_fat_g: number;
-        confidence: number;
-        accuracy_note?: string;
-      }) => ({
-        raw_text: f.name,
-        food_name: f.name,
-        name_localized: f.name,
-        quantity: 1,
-        unit: 'serving',
-        grams: Math.round(f.estimated_grams),
-        calories: Math.round(f.estimated_calories),
-        protein_g: Math.round(f.estimated_protein_g * 10) / 10,
-        carbs_g: Math.round(f.estimated_carbs_g * 10) / 10,
-        fat_g: Math.round(f.estimated_fat_g * 10) / 10,
-        fiber_g: 0,
-        confidence: f.confidence,
-        source: 'ai_estimate' as const,
-        food_state: 'prepared' as const,
-        portion_explicit: false,
-        accuracy_note: f.accuracy_note ?? null,
-      }));
+      const items = photoAnalysisToParsedItems(data.foods);
+
+      if (items.length === 0) {
+        setError(t('food.no_items'));
+        setRetryCount(prev => prev + 1);
+        setMode('idle');
+        return;
+      }
 
       setRetryCount(0);
       // Success — clear the retry file so a later TEXT failure can't re-submit
@@ -339,6 +326,9 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
       }
       setRetryCount(prev => prev + 1);
       setMode('idle');
+    } finally {
+      if (requestTimeout) clearTimeout(requestTimeout);
+      parseBusyRef.current = false;
     }
   };
 
@@ -510,50 +500,78 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
 
   // F21: Manual entry (quick add)
   const handleManualEntry = async () => {
-    const calories = parseInt(manualCal) || 0;
-    if (calories === 0) return;
+    const validated = validateManualNutrition({
+      name: manualName,
+      calories: manualCal,
+      protein: manualProtein,
+      carbs: manualCarbs,
+      fat: manualFat,
+    });
+    if (!validated.ok) {
+      const messages = {
+        calories_out_of_range: 'Enter calories between 1 and 10,000.',
+        macro_out_of_range: 'Protein, carbs, and fat must each be between 0 and 1,000 g.',
+        name_too_long: 'Keep the food name under 200 characters.',
+      } as const;
+      setError(messages[validated.code]);
+      return;
+    }
 
     setLogging(true);
+    setError(null);
+    const { value } = validated;
     const entry = {
       user_id: userId,
       logged_date: date,
       meal_type: mealType,
-      food_name: manualName.trim() || `Quick add — ${calories} kcal`,
+      food_name: value.name || `Quick add — ${value.calories} kcal`,
       quantity: 1,
       unit: 'serving',
-      calories,
-      protein_g: parseFloat(manualProtein) || 0,
-      carbs_g: parseFloat(manualCarbs) || 0,
-      fat_g: parseFloat(manualFat) || 0,
+      calories: value.calories,
+      protein_g: value.protein,
+      carbs_g: value.carbs,
+      fat_g: value.fat,
       fiber_g: 0,
       source: 'custom' as const,
     };
 
-    const { error: dbError } = await supabase.from('food_log').insert(entry);
-    setLogging(false);
+    try {
+      const { data: manualInsert, error: dbError } = await supabase
+        .from('food_log')
+        .insert(entry)
+        .select('id')
+        .maybeSingle();
 
-    if (dbError) {
-      console.error('Manual entry error:', dbError);
-      setError('Failed to save');
-      return;
+      if (dbError || !manualInsert) {
+        setError(t('food.save_failed'));
+        return;
+      }
+
+      setSuccessCount(1);
+      setMode('success');
+      setManualCal('');
+      setManualProtein('');
+      setManualCarbs('');
+      setManualFat('');
+      setManualName('');
+      setTimeout(() => {
+        setMode('idle');
+        setSuccessCount(0);
+        onLogged([manualInsert.id]);
+      }, 1500);
+    } catch {
+      setError(t('food.save_failed'));
+    } finally {
+      setLogging(false);
     }
-
-    setSuccessCount(1);
-    setMode('success');
-    setManualCal('');
-    setManualProtein('');
-    setManualCarbs('');
-    setManualFat('');
-    setManualName('');
-    setTimeout(() => {
-      setMode('idle');
-      setSuccessCount(0);
-      onLogged();
-    }, 1500);
   };
 
   const handleConfirm = async (items: ParsedFoodItem[]) => {
     if (logging || items.length === 0) return;
+    if (!items.every(isParsedFoodItem)) {
+      setError('One or more items has an invalid amount. Adjust the portion and try again.');
+      return;
+    }
     setLogging(true);
 
     try {
@@ -594,16 +612,15 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
         .insert(entries)
         .select('id');
 
-      if (dbError) {
-        console.error('Insert error:', dbError);
+      if (dbError || !inserted || inserted.length !== entries.length) {
         // RLS violation or auth issue — session likely expired
-        if (dbError.code === '42501' || dbError.message?.includes('policy') || dbError.code === 'PGRST301') {
-          setError('Session expired — please refresh the page to log in again');
-        } else if (dbError.code === '23514') {
+        if (dbError?.code === '42501' || dbError?.message?.includes('policy') || dbError?.code === 'PGRST301') {
+          setError(t('food.session_expired'));
+        } else if (dbError?.code === '23514') {
           // CHECK constraint violation (e.g. invalid source value)
-          setError('Failed to save — invalid entry format');
+          setError(t('food.invalid_entry'));
         } else {
-          setError('Failed to save entries — try again');
+          setError(t('food.save_failed'));
         }
         setLogging(false);
         return;
@@ -631,7 +648,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
             foodName: String(entries[index].food_name ?? item.food_name).slice(0, 200),
             aiSource: item.source,
             parseConfidence: original.confidence ?? null,
-            foodLogId: inserted?.[index]?.id ?? null,
+            foodLogId: inserted[index]?.id ?? null,
             before: {
               grams: clampG(original.grams),
               calories: clampG(original.calories),
@@ -665,14 +682,14 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
 
       // Batch undo: hand the inserted row ids to the page so the toast can
       // offer "Logged N items — Undo".
-      const insertedIds = (inserted ?? []).map(r => r.id).filter(Boolean);
+      const insertedIds = inserted.map(r => r.id);
       setTimeout(() => {
         setMode('idle');
         setSuccessCount(0);
-        onLogged(insertedIds.length > 0 ? insertedIds : undefined);
+        onLogged(insertedIds);
       }, 1500);
     } catch {
-      setError('Failed to save entries');
+      setError(t('food.save_failed'));
       setLogging(false);
     }
   };
@@ -694,7 +711,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
   const submitQuestionAnswer = () => {
     const answer = questionAnswer.trim();
     if (!answer) return;
-    const combined = `${questionOriginalTextRef.current} — ${answer}`;
+    const combined = `${questionOriginalText} — ${answer}`;
     setQuestionText(null);
     setQuestionAnswer('');
     handleParseText(combined);
@@ -702,7 +719,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
 
   /** Leave the question card — the original text is restored, nothing is lost. */
   const cancelQuestion = () => {
-    setText(questionOriginalTextRef.current);
+    setText(questionOriginalText);
     setQuestionText(null);
     setQuestionAnswer('');
     setMode('idle');
@@ -762,7 +779,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
             {t('general.cancel')}
           </button>
         </div>
-        <p className="text-stone-600 text-[11px] italic truncate">“{questionOriginalTextRef.current}”</p>
+        <p className="text-stone-600 text-[11px] italic truncate">“{questionOriginalText}”</p>
         <div className="flex gap-2">
           <input
             type="text"
@@ -812,7 +829,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
           items={parsedItems}
           clarificationQuestion={clarificationQuestion}
           warnings={parseWarnings}
-          rawInputText={inputSource === 'text' ? lastTextRef.current : undefined}
+          rawInputText={inputSource === 'text' ? lastTextForReview : undefined}
           onReparse={inputSource === 'text' ? handleReparse : undefined}
           onConfirm={handleConfirm}
           onCancel={handleCancel}
@@ -843,6 +860,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
           onChange={(e) => setManualName(e.target.value)}
           placeholder="Food name (optional)"
           className="input-dark w-full text-sm py-2"
+          maxLength={200}
         />
         <div className="grid grid-cols-4 gap-2">
           <div>
@@ -853,6 +871,10 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
               onChange={(e) => setManualCal(e.target.value)}
               className="input-dark w-full text-sm py-2 text-center"
               placeholder="300"
+              min={1}
+              max={10000}
+              step={1}
+              inputMode="numeric"
               autoFocus
             />
           </div>
@@ -864,6 +886,10 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
               onChange={(e) => setManualProtein(e.target.value)}
               className="input-dark w-full text-sm py-2 text-center"
               placeholder="0"
+              min={0}
+              max={1000}
+              step={0.1}
+              inputMode="decimal"
             />
           </div>
           <div>
@@ -874,6 +900,10 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
               onChange={(e) => setManualCarbs(e.target.value)}
               className="input-dark w-full text-sm py-2 text-center"
               placeholder="0"
+              min={0}
+              max={1000}
+              step={0.1}
+              inputMode="decimal"
             />
           </div>
           <div>
@@ -884,9 +914,21 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
               onChange={(e) => setManualFat(e.target.value)}
               className="input-dark w-full text-sm py-2 text-center"
               placeholder="0"
+              min={0}
+              max={1000}
+              step={0.1}
+              inputMode="decimal"
             />
           </div>
         </div>
+        {error && (
+          <p
+            role="alert"
+            className="text-red-400 text-xs text-center"
+          >
+            {error}
+          </p>
+        )}
         <motion.button
           onClick={handleManualEntry}
           disabled={logging || !manualCal}

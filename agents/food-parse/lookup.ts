@@ -66,6 +66,12 @@ export interface LookupInput {
   region?: string;
   /** Voyage embedding of the food name. If omitted, skips vector re-rank. */
   queryEmbedding?: number[];
+  /**
+   * Original user-authored text used only for branded-intent decisions.
+   * This must not be replaced with an AI-normalized food name: a model that
+   * invents "Starbucks latte" for "latte" must not create brand intent.
+   */
+  intentText?: string;
 }
 
 export interface LookupResult {
@@ -86,13 +92,12 @@ export interface LookupResult {
 // ── Stage 1: keyword filter ───────────────────────────────────────────────────
 async function keywordCandidates(foodName: string): Promise<SelectFood[]> {
   if (!foodName || typeof foodName !== 'string') return [];
-  // Tokenize input: split on spaces, clean, build tsquery
-  // NFD normalize + strip combining marks converts accented Latin chars to ASCII
-  // (café→cafe, plátano→platano) so BM25 matches regardless of accent usage.
-  // Greek letters (α-ω, ά-ώ) are preserved as-is since they're in the allowed range.
+  // Tokenize input: split on spaces, clean, build tsquery. Preserve the original
+  // NFC spelling as well as an accent-folded variant. Dropping combining marks
+  // outright made real Greek queries such as "φέτα" become "φετα", which no
+  // longer matched the correctly accented generated search vector.
   const tokens = foodName
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')  // strip combining diacritical marks (é→e, ñ→n, etc.)
+    .normalize('NFC')
     .toLowerCase()
     // Hyphens/dashes/slashes are WORD SEPARATORS, not noise: "croque-monsieur"
     // must tokenize to ["croque","monsieur"] to match the simple-tsconfig
@@ -111,10 +116,16 @@ async function keywordCandidates(foodName: string): Promise<SelectFood[]> {
     t.length > 3 && t.endsWith('s') && !t.endsWith('ss') ? t.slice(0, -1) : t
   );
 
-  // Build tsquery with BOTH forms: "egg:* | eggs:*" so we catch singular AND plural
+  const accentFold = (token: string) =>
+    token.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+  // Build tsquery with original, accent-folded, singular, and plural forms.
   const tsQuery = tokens.map((t, i) => {
     const s = singularTokens[i];
-    return s !== t ? `(${s}:* | ${t}:*)` : `${t}:*`;
+    const variants = [...new Set([t, accentFold(t), s, accentFold(s)])];
+    return variants.length > 1
+      ? `(${variants.map(variant => `${variant}:*`).join(' | ')})`
+      : `${t}:*`;
   }).join(' & ');
 
   const rows = await db
@@ -429,7 +440,10 @@ function canonicalRelevanceBoost(food: SelectFood, query: string): number {
   const nameTokens = nameNormalized.split(/\s+/);
 
   // Also check canonical_food_key tokens (e.g. "egg_chicken_whole_raw" → ["egg","chicken","whole","raw"])
-  const keyTokens = (food.canonicalFoodKey ?? '').split(/[_-]+/).filter(t => t.length >= 3);
+  const keyTokens = (food.canonicalFoodKey ?? '')
+    .split(/[_-]+/)
+    .map(token => singularize(token))
+    .filter(t => t.length >= 3);
   const allFoodTokens = [...nameTokens, ...keyTokens];
 
   // Exact token match only (not prefix) — prevents "frie" (from "fries")
@@ -460,18 +474,67 @@ function canonicalRelevanceBoost(food: SelectFood, query: string): number {
  * Curated sources (usda/ciqual/cofid/bedca/crea/hhf/custom) are untouched by
  * the OFF-specific penalties.
  */
-export function brandedOffAdjustment(c: SelectFood, query: string, region: string): number {
+const BRAND_TOKEN_STOPWORDS = new Set([
+  'america', 'burger', 'cola', 'company', 'foods', 'group', 'inc',
+  'incorporated', 'llc', 'ltd', 'north', 'operations', 'products', 'red',
+  'the', 'usa',
+]);
+
+const BRANDED_INTENT_MARKERS: Array<{ query: RegExp; candidate: RegExp }> = [
+  { query: /\b(?:mcdonalds?|big mac|mcnuggets?|egg mcmuffin)\b/, candidate: /\b(?:mcdonalds?|big mac|mcnuggets?|egg mcmuffin|mcdonalds_)\b/ },
+  { query: /\b(?:burger king|whopper)\b/, candidate: /\b(?:burger king|whopper|burger_king_)\b/ },
+  { query: /\b(?:starbucks)\b/, candidate: /\b(?:starbucks)\b/ },
+  { query: /\b(?:coke|coca cola)\b/, candidate: /\b(?:coca cola|coca_cola)\b/ },
+  { query: /\b(?:pepsi)\b/, candidate: /\b(?:pepsi)\b/ },
+  { query: /\b(?:red bull)\b/, candidate: /\b(?:red bull|red_bull)\b/ },
+  { query: /\b(?:sprite)\b/, candidate: /\b(?:sprite)\b/ },
+  { query: /\b(?:fanta)\b/, candidate: /\b(?:fanta)\b/ },
+  { query: /\b(?:tropicana)\b/, candidate: /\b(?:tropicana)\b/ },
+  { query: /\b(?:kfc)\b/, candidate: /\b(?:kfc)\b/ },
+  { query: /\b(?:chick fil a)\b/, candidate: /\b(?:chick fil a|chickfila)\b/ },
+  { query: /\b(?:subway)\b/, candidate: /\b(?:subway)\b/ },
+  { query: /\b(?:wendys?)\b/, candidate: /\b(?:wendys?)\b/ },
+];
+
+function brandedCandidateIdentity(c: SelectFood): string {
+  return normalizeLexicalName(
+    `${c.nameEn ?? ''} ${c.brand ?? ''} ${(c.canonicalFoodKey ?? '').replace(/_/g, ' ')}`,
+  );
+}
+
+function isBrandedCandidate(c: SelectFood): boolean {
+  if (c.source === 'off' || Boolean(c.brand?.trim())) return true;
+  const candidateIdentity = brandedCandidateIdentity(c);
+  return BRANDED_INTENT_MARKERS.some(marker => marker.candidate.test(candidateIdentity));
+}
+
+function brandedIntentInQuery(c: SelectFood, query: string): boolean {
+  if (brandTokenInQuery(c.brand, query)) return true;
+
+  const normalizedQuery = normalizeLexicalName(query);
+  const candidateIdentity = brandedCandidateIdentity(c);
+  return BRANDED_INTENT_MARKERS.some(
+    marker => marker.query.test(normalizedQuery) && marker.candidate.test(candidateIdentity),
+  );
+}
+
+export function brandedOffAdjustment(
+  c: SelectFood,
+  query: string,
+  region: string,
+  intentQuery = query,
+): number {
   let adj = 0;
   const zeroMacros =
     (c.proteinPer100g ?? 0) === 0 && (c.carbPer100g ?? 0) === 0 && (c.fatPer100g ?? 0) === 0;
   if (zeroMacros && (c.kcalPer100g ?? 0) > 20) adj -= 8;
 
-  if (c.source !== 'off') return adj;
+  if (!isBrandedCandidate(c)) return adj;
 
-  const brandNamed = brandTokenInQuery(c.brand, query);
+  const brandNamed = brandedIntentInQuery(c, intentQuery);
   if (!brandNamed) {
     adj -= 5; // generic query → prefer generic (curated) foods over retail SKUs
-    if (!c.region?.includes(region)) adj -= 6; // foreign-market SKU on top of that
+    if (c.source === 'off' && !c.region?.includes(region)) adj -= 6; // foreign-market SKU on top of that
   }
   return adj;
 }
@@ -480,18 +543,28 @@ export function brandedOffAdjustment(c: SelectFood, query: string, region: strin
 function brandTokenInQuery(brand: string | null, query: string): boolean {
   if (!brand) return false;
   const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-  const tokens = norm(brand).split(/[^a-zα-ωά-ώ0-9]+/).filter(t => t.length >= 3);
+  const tokens = norm(brand)
+    .split(/[^a-zα-ωά-ώ0-9]+/)
+    .filter(t => t.length >= 3 && !BRAND_TOKEN_STOPWORDS.has(t));
   if (tokens.length === 0) return false;
-  const q = norm(query);
-  return tokens.some(t => q.includes(t));
+  const queryTokens = new Set(norm(query).split(/[^a-zα-ωά-ώ0-9]+/).filter(Boolean));
+  return tokens.some(t => queryTokens.has(t));
 }
 
-function metadataBoost(candidates: SelectFood[], region: string, query: string): SelectFood[] {
-  if (candidates.length <= 1) return candidates;
+function metadataBoost(
+  candidates: SelectFood[],
+  region: string,
+  query: string,
+  intentQuery = query,
+): SelectFood[] {
+  const eligible = candidates.filter(
+    candidate => !isBrandedCandidate(candidate) || brandedIntentInQuery(candidate, intentQuery),
+  );
+  if (eligible.length <= 1) return eligible;
 
   // Score: quality weight + region match
   const qualityScore = (q: string) => ({ lab_verified: 3, label: 2, crowdsourced: 1, estimated: 0 }[q] ?? 0);
-  const scored = candidates.map(c => ({
+  const scored = eligible.map(c => ({
     food: c,
     score:
       lexicalIntentScore(c, query) +
@@ -499,7 +572,7 @@ function metadataBoost(candidates: SelectFood[], region: string, query: string):
       (c.region?.includes(region) ? 2 : 0) +
       (c.canonicalFoodKey ? canonicalRelevanceBoost(c, query) : 0) +
       (c.popularity ?? 0) * 0.01 + // popularity is a small tie-breaker
-      brandedOffAdjustment(c, query, region),
+      brandedOffAdjustment(c, query, region, intentQuery),
   }));
 
   scored.sort((a, b) => b.score - a.score);
@@ -712,6 +785,44 @@ export const COMMON_PIECE_WEIGHTS: Record<string, number> = {
   falafel: 25, croquette: 30, arancini: 80,
 };
 
+function normalizePieceWeightKey(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_|_$/g, '');
+}
+
+/**
+ * Resolve a common piece weight using whole normalized tokens only.
+ *
+ * The reverse substring check previously turned short foods into unrelated
+ * longer keys (ham → hamburger, pea → peach). Longest token-bounded match wins
+ * so specific entries such as souvlaki_chicken_pita beat pita.
+ */
+export function resolveCommonPieceWeight(foodName: string): number | null {
+  const key = normalizePieceWeightKey(foodName);
+  if (!key) return null;
+
+  let bestPattern = '';
+  let bestWeight: number | null = null;
+  const paddedKey = `_${key}_`;
+
+  for (const [rawPattern, weight] of Object.entries(COMMON_PIECE_WEIGHTS)) {
+    const pattern = normalizePieceWeightKey(rawPattern);
+    if (
+      (key === pattern || paddedKey.includes(`_${pattern}_`))
+      && pattern.length > bestPattern.length
+    ) {
+      bestPattern = pattern;
+      bestWeight = weight;
+    }
+  }
+
+  return bestWeight;
+}
+
 async function resolveUnit(
   foodId: string,
   unit: string,
@@ -840,16 +951,8 @@ async function resolveUnit(
   // instead of falling through to the 100g universal default.
   // Sources: USDA FNDDS 2019-2020, British Nutrition Foundation portion guide.
   if (normalizedUnit === 'piece') {
-    const bakeryWeight = COMMON_PIECE_WEIGHTS[canonicalFoodKey?.toLowerCase().replace(/[^a-z]+/g, '_') ?? ''];
-    if (bakeryWeight) return { id: null, gramsPerUnit: bakeryWeight };
-
-    // Fuzzy match: check if any key token appears in the canonical food key
-    const ck = canonicalFoodKey?.toLowerCase() ?? '';
-    for (const [pattern, weight] of Object.entries(COMMON_PIECE_WEIGHTS)) {
-      if (ck.includes(pattern) || pattern.includes(ck.replace(/[^a-z]/g, ''))) {
-        return { id: null, gramsPerUnit: weight };
-      }
-    }
+    const commonWeight = resolveCommonPieceWeight(canonicalFoodKey ?? '');
+    if (commonWeight) return { id: null, gramsPerUnit: commonWeight };
   }
 
   // 4. Universal fallback (food_id IS NULL)
@@ -1250,12 +1353,17 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
   'cafe con leche': 'cafe con leche',
   'café con leche': 'cafe con leche',
   'coffee with milk': 'cafe con leche',
-  'latte': 'cafe con leche',
+  'latte': 'Coffee, Latte',
+  'cafe latte': 'Coffee, Latte',
+  'caffe latte': 'Coffee, Latte',
   'cappuccino': 'cappuccino',
   'tea': 'tea brewed',
   'te': 'tea brewed',
   'té': 'tea brewed',
   'juice': 'orange juice',
+  'soda': 'Soft drink, NFS',
+  'soft drink': 'Soft drink, NFS',
+  'cola': 'Soft drink, cola',
   'jugo': 'orange juice',
   'jugo de naranja': 'orange juice',
   'water': 'water',
@@ -1787,28 +1895,42 @@ export async function lookupFood(input: LookupInput): Promise<LookupResult | nul
   if (candidates.length === 0) return null;
 
   // Stage 3: metadata boost (use corrected name for scoring)
-  const ranked = metadataBoost(candidates, region, correctedFoodName);
+  const ranked = metadataBoost(
+    candidates,
+    region,
+    correctedFoodName,
+    input.intentText ?? input.foodName,
+  );
   if (ranked.length === 0) return null;
 
   const food = ranked[0];
   const normalizedQuery = normalizeLexicalName(correctedFoodName);
-  const normalizedTopName = normalizeLexicalName(food.nameEn);
+  const normalizedTopName = normalizeLexicalName(
+    [food.nameEn, food.nameEl, food.nameEs, food.nameFr, food.nameIt]
+      .filter(Boolean)
+      .join(' '),
+  );
 
   // ── Weak-match rejection gate ──────────────────────────────────────────────
   // If the top result shares zero meaningful tokens with the query, it's likely
   // a false match from semantic similarity (e.g. "tahini" matching "sesame seeds").
   // Reject and let the pipeline fall through to decompose/LLM fallback.
-  const queryTokens = normalizedQuery.split(' ').filter(t => t.length >= 3);
-  const topNameTokens = normalizedTopName.split(' ').filter(t => t.length >= 3);
+  const queryTokens = singularize(normalizedQuery).split(' ').filter(t => t.length >= 3);
+  const topNameTokens = singularize(normalizedTopName).split(' ').filter(t => t.length >= 3);
   const sharedTokens = queryTokens.filter(qt =>
-    topNameTokens.some(nt => nt === qt || nt.startsWith(qt) || qt.startsWith(nt))
+    topNameTokens.some(nt => nt === qt)
   );
-  // Reject when: multi-token query has zero overlap with top name, AND
-  // no exact/prefix match, AND no canonical key match
+  const explicitBrandedIntent = isBrandedCandidate(food)
+    && brandedIntentInQuery(food, input.intentText ?? input.foodName);
+  // Reject when the query has zero overlap with the top name, no canonical
+  // key match, and no explicit branded alias. This includes single-token
+  // queries: "cola" must not fall through to an unrelated yogurt after every
+  // branded cola candidate has been correctly filtered out.
   if (
-    queryTokens.length >= 2 &&
+    queryTokens.length >= 1 &&
     sharedTokens.length === 0 &&
-    !food.canonicalFoodKey?.toLowerCase().split(/[_-]+/).some(t => queryTokens.includes(t))
+    !food.canonicalFoodKey?.toLowerCase().split(/[_-]+/).some(t => queryTokens.includes(singularize(t))) &&
+    !explicitBrandedIntent
   ) {
     return null;
   }
@@ -1840,12 +1962,12 @@ export async function lookupFood(input: LookupInput): Promise<LookupResult | nul
       const grams = qty * gramsPerUnit;
       const factor = grams / 100;
       return {
-        kcal:    Math.round(food.kcalPer100g    * factor * 10) / 10,
-        protein: Math.round(food.proteinPer100g * factor * 10) / 10,
-        carb:    Math.round(food.carbPer100g    * factor * 10) / 10,
-        fat:     Math.round(food.fatPer100g     * factor * 10) / 10,
+        kcal:    Math.round(food.kcalPer100g    * factor * 100) / 100,
+        protein: Math.round(food.proteinPer100g * factor * 100) / 100,
+        carb:    Math.round(food.carbPer100g    * factor * 100) / 100,
+        fat:     Math.round(food.fatPer100g     * factor * 100) / 100,
         fiber:   food.fiberPer100g != null
-          ? Math.round(food.fiberPer100g * factor * 10) / 10
+          ? Math.round(food.fiberPer100g * factor * 100) / 100
           : null,
       };
     },
@@ -1917,6 +2039,11 @@ export async function ragPreSearch(foodText: string, limit = 3): Promise<RagMatc
   try {
     const corrected = correctFoodName(foodText);
     let candidates = await keywordCandidates(corrected);
+    if (candidates.length === 0) return [];
+
+    candidates = candidates.filter(
+      candidate => !isBrandedCandidate(candidate) || brandedIntentInQuery(candidate, foodText),
+    );
     if (candidates.length === 0) return [];
 
     // Exclude specialty preparations the user didn't ask for — a RAG line like

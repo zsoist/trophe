@@ -1,6 +1,6 @@
 import { factoryPolicy } from '../../agents/router/policies';
 import { executeAiTask } from '../../agents/runtime';
-import { invokeTextProvider } from '../../agents/runtime/providers/text';
+import { invokeTextProvider } from '../safety/paid-ai-provider-facade';
 import { assertOffPeakEvalWindow } from './off-peak';
 
 const FACTORY_SYSTEM = 'Generate synthetic nutrition evaluation data only. Never use or infer real-user data.';
@@ -8,6 +8,7 @@ const FACTORY_SYSTEM = 'Generate synthetic nutrition evaluation data only. Never
 export async function generateFactoryText(
   prompt: string,
   metadata: Record<string, unknown>,
+  beforeTransportAttempt: (endpoint: string) => unknown,
 ): Promise<string> {
   assertOffPeakEvalWindow();
   const generation = await executeAiTask({
@@ -24,6 +25,7 @@ export async function generateFactoryText(
         signal,
         system: FACTORY_SYSTEM,
         prompt,
+        beforeTransportAttempt,
       });
     },
   });

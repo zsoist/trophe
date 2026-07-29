@@ -69,6 +69,25 @@ describe('POST /api/client/message', () => {
     expect(mocks.insert).not.toHaveBeenCalled();
   });
 
+  it('returns 400 for malformed JSON instead of throwing', async () => {
+    const malformed = new NextRequest('http://localhost/api/client/message', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        Authorization: 'Bearer valid-token',
+      },
+      body: '{',
+    });
+
+    const response = await POST(malformed);
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: 'Invalid message (1-2000 characters)',
+    });
+    expect(mocks.insert).not.toHaveBeenCalled();
+  });
+
   it('enforces the durable rate limit with Retry-After', async () => {
     mocks.consumeRateLimit.mockResolvedValue({ allowed: false, retryAfter: 42 });
     const response = await POST(request({ message: 'hello' }));
@@ -94,5 +113,20 @@ describe('POST /api/client/message', () => {
       sender_role: 'client',
       body: 'hello coach',
     });
+  });
+
+  it('does not expose database details when persistence fails', async () => {
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mocks.insert.mockResolvedValue({
+      error: { code: '42501', message: 'private row-level policy detail' },
+    });
+
+    const response = await POST(request({ message: 'hello' }));
+    const body = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(body).toEqual({ error: 'Message could not be sent — please try again.' });
+    expect(JSON.stringify(body)).not.toContain('private row-level policy detail');
+    log.mockRestore();
   });
 });

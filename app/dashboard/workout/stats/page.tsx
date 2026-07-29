@@ -19,6 +19,7 @@ import { BotNav } from '@/components/ui/BotNav';
 import { Icon } from '@/components/ui';
 import ExerciseComparison from '@/components/progress/ExerciseComparison';
 import type { WorkoutSet, WorkoutSession, Exercise, MuscleGroup } from '@/lib/types';
+import { localDateStr, localWeekStart } from '@/lib/utils/dates';
 
 // ═══════════════════════════════════════════════
 // Constants
@@ -118,14 +119,6 @@ function formatRelativeDate(dateStr: string): string {
   return `${days} days ago`;
 }
 
-function getWeekStart(d: Date): string {
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-  const monday = new Date(d);
-  monday.setDate(diff);
-  return monday.toISOString().slice(0, 10);
-}
-
 // ═══════════════════════════════════════════════
 // Types
 // ═══════════════════════════════════════════════
@@ -174,7 +167,7 @@ export default function WorkoutStatsPage() {
         .from('workout_sessions')
         .select('*')
         .eq('user_id', user.id)
-        .gte('session_date', eightWeeksAgo.toISOString().slice(0, 10))
+        .gte('session_date', localDateStr(eightWeeksAgo))
         .order('session_date', { ascending: false });
 
       if (!sessions || sessions.length === 0) {
@@ -209,7 +202,7 @@ export default function WorkoutStatsPage() {
 
   // ── Computed Data ──
 
-  const thisWeekStart = useMemo(() => getWeekStart(new Date()), []);
+  const thisWeekStart = useMemo(() => localWeekStart(new Date()), []);
 
   // Weekly volume by muscle group (this week)
   const weeklyVolumeByMuscle = useMemo(() => {
@@ -269,7 +262,7 @@ export default function WorkoutStatsPage() {
     const weekMap: Record<string, number> = {};
     sets.forEach((s) => {
       if (!s.is_warmup) {
-        const ws = getWeekStart(new Date(s.session.session_date));
+        const ws = localWeekStart(new Date(`${s.session.session_date}T12:00:00`));
         weekMap[ws] = (weekMap[ws] || 0) + 1;
       }
     });
@@ -278,7 +271,7 @@ export default function WorkoutStatsPage() {
     for (let i = 7; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i * 7);
-      const ws = getWeekStart(d);
+      const ws = localWeekStart(d);
       weeks.push({ weekStart: ws, totalSets: weekMap[ws] || 0 });
     }
     return weeks;

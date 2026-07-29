@@ -20,7 +20,10 @@ describe('DeepSeek candidate benchmark contract', () => {
       'scripts/eval/generate-benchmark-cases.ts',
     ]) {
       const source = readFileSync(join(process.cwd(), file), 'utf8');
-      expect(source).toContain("import { generateFactoryText } from './factory-runtime'");
+      expect(source).toContain("await import('./factory-runtime')");
+      expect(source.indexOf('requirePaidAiToolApproval')).toBeLessThan(
+        source.indexOf("await import('./factory-runtime')"),
+      );
       expect(source).not.toContain('api.deepseek.com');
     }
     const runtime = readFileSync(join(process.cwd(), 'scripts/eval/factory-runtime.ts'), 'utf8');

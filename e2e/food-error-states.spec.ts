@@ -59,6 +59,56 @@ test.describe('food parser error states', () => {
     await expect(page.getByText('No food items detected')).toBeVisible();
     await expect(page.locator('body')).not.toContainText('Application error');
   });
+
+  test('valid parser output reaches an editable, reviewable save state', async ({ page }) => {
+    await page.route('**/api/food/parse', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        items: [{
+          raw_text: '100g feta',
+          food_name: 'Feta cheese',
+          name_localized: 'Φέτα',
+          quantity: 100,
+          unit: 'g',
+          grams: 100,
+          calories: 264,
+          protein_g: 14.2,
+          carbs_g: 4.1,
+          fat_g: 21.3,
+          fiber_g: 0,
+          sugar_g: 0,
+          confidence: 0.95,
+          source: 'local_db',
+          portion_explicit: true,
+          data_quality: 'lab_verified',
+        }],
+        needs_clarification: false,
+        warnings: [],
+      }),
+    }));
+    await openFoodInput(page);
+    await page.getByPlaceholder(/What did you eat/).fill('100g feta');
+    await page.getByPlaceholder(/What did you eat/).press('Enter');
+
+    await expect(page.getByText('Φέτα', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Log All (1)' })).toBeVisible();
+
+    const grams = page.locator('input[type="number"]').first();
+    await grams.fill('150');
+    await expect(page.getByText('396 kcal', { exact: true })).toBeVisible();
+    await expect(page.getByText('P: 21.3g', { exact: true })).toBeVisible();
+    await expect(page.getByText('F: 32g', { exact: true })).toBeVisible();
+  });
+
+  test('manual entry rejects unsafe nutrition before any save request', async ({ page }) => {
+    await openFoodInput(page);
+    await page.getByRole('button', { name: 'Custom' }).click();
+    await page.getByPlaceholder('300').fill('-1');
+    await page.getByRole('button', { name: 'Quick add' }).click();
+
+    await expect(page.getByText('Enter calories between 1 and 10,000.')).toBeVisible();
+  });
 });
 
 test.describe('authenticated loading states', () => {

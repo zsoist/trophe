@@ -3,10 +3,21 @@
  * Uses DeepSeek exclusively. Merges into v3 dataset.
  */
 import { loadEnvConfig } from '@next/env';
-loadEnvConfig(process.cwd());
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { generateFactoryText } from './factory-runtime';
+import { PAID_AI_ENDPOINT_GROUPS, requirePaidAiToolApproval } from '../safety/require-paid-ai-approval';
+
+if (process.env.DRY_RUN === '1') {
+  console.log('[gen] DRY_RUN — provider attempts: 0; dotenv loads: 0; report mutations: 0.');
+  process.exit(0);
+}
+const paidAiApproval = requirePaidAiToolApproval({
+  operation: 'eval-generate-french',
+  argv: process.argv.slice(2),
+  env: process.env,
+  endpoints: PAID_AI_ENDPOINT_GROUPS.factoryRuntime,
+});
+loadEnvConfig(process.cwd());
 
 type Range = { min: number; max: number };
 type EvalCase = {
@@ -34,6 +45,7 @@ const SPECS: Array<{ count: number; category: string; guidance: string }> = [
 ];
 
 async function generate(spec: typeof SPECS[0]): Promise<EvalCase[]> {
+  const { generateFactoryText } = await import('./factory-runtime');
   const prompt = `Generate exactly ${spec.count} nutrition benchmark test cases in French for category "${spec.category}".
 
 ${spec.guidance}
@@ -54,7 +66,7 @@ Return ONLY a JSON array. No markdown.`;
   const content = await generateFactoryText(prompt, {
     generator: 'french-cases',
     category: spec.category,
-  });
+  }, paidAiApproval.beforeTransportAttempt);
   try {
     const cleaned = content.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
     const generated = JSON.parse(cleaned) as Partial<EvalCase>[];
@@ -77,7 +89,7 @@ async function main() {
   console.log(`[gen] generating ${total} French cases across ${SPECS.length} categories`);
 
   const allNew: EvalCase[] = [];
-  for (const spec of SPECS) {
+  for (const spec of paidAiApproval.boundCases(SPECS)) {
     console.log(`[gen] ${spec.category}: +${spec.count}...`);
     const cases = await generate(spec);
     console.log(`[gen]   → got ${cases.length}`);

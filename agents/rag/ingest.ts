@@ -5,6 +5,8 @@ import { knowledgeChunks } from '@/db/schema/knowledge_chunks';
 import { knowledgeDocuments } from '@/db/schema/knowledge_documents';
 import { executeAiTask } from '@/agents/runtime';
 import { invokeVoyageEmbedding } from '@/agents/runtime/providers/voyage';
+import { chunkKnowledge } from './chunk';
+export { chunkKnowledge } from './chunk';
 
 export interface IngestKnowledgeInput {
   title: string;
@@ -18,28 +20,11 @@ export interface IngestKnowledgeInput {
   classification?: 'public' | 'internal' | 'confidential' | 'restricted';
   consentBasis?: string;
   retentionUntil?: Date;
+  chunks?: readonly string[];
+  beforeTransportAttempt?: (endpoint: string) => unknown;
 }
 
 const checksum = (value: string) => createHash('sha256').update(value).digest('hex');
-
-export function chunkKnowledge(content: string, maxChars = 2_400): string[] {
-  const paragraphs = content.replace(/\r\n/g, '\n').split(/\n{2,}/).map((part) => part.trim()).filter(Boolean);
-  const chunks: string[] = [];
-  let current = '';
-  for (const paragraph of paragraphs) {
-    if (current && current.length + paragraph.length + 2 > maxChars) {
-      chunks.push(current);
-      current = '';
-    }
-    if (paragraph.length > maxChars) {
-      for (let offset = 0; offset < paragraph.length; offset += maxChars) chunks.push(paragraph.slice(offset, offset + maxChars));
-    } else {
-      current = current ? `${current}\n\n${paragraph}` : paragraph;
-    }
-  }
-  if (current) chunks.push(current);
-  return chunks;
-}
 
 export async function ingestKnowledge(input: IngestKnowledgeInput): Promise<{ documentId: string; chunks: number }> {
   if (input.organizationId && input.userId) throw new Error('Knowledge must have only one private scope');
@@ -61,7 +46,7 @@ export async function ingestKnowledge(input: IngestKnowledgeInput): Promise<{ do
   if (!document) throw new Error('Unable to create knowledge document');
 
   try {
-    const chunks = chunkKnowledge(input.content);
+    const chunks = input.chunks ?? chunkKnowledge(input.content);
     for (const [chunkIndex, content] of chunks.entries()) {
       const [chunk] = await db.insert(knowledgeChunks).values({
         documentId: document.id,
@@ -75,7 +60,13 @@ export async function ingestKnowledge(input: IngestKnowledgeInput): Promise<{ do
         task: 'embed',
         prompt: content,
         context: { userId: input.createdBy, organizationId: input.organizationId, metadata: { documentId: document.id, chunkId: chunk.id } },
-        invoke: ({ policy, signal }) => invokeVoyageEmbedding({ model: policy.model, text: content, inputType: 'document', signal }),
+        invoke: ({ policy, signal }) => invokeVoyageEmbedding({
+          model: policy.model,
+          text: content,
+          inputType: 'document',
+          signal,
+          beforeTransportAttempt: input.beforeTransportAttempt,
+        }),
       });
       const vector = `[${generation.output.join(',')}]`;
       await db.execute(sql`UPDATE knowledge_chunks SET embedding = ${vector}::vector WHERE id = ${chunk.id}`);

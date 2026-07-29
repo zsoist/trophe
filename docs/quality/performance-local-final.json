@@ -1,0 +1,1136 @@
+{
+  "schema": {
+    "name": "trophe.web-performance-final",
+    "version": 1,
+    "metricUnits": {
+      "timings": "ms",
+      "cls": "unitless",
+      "transferredBytes": "bytes"
+    }
+  },
+  "capturedAt": "2026-07-29",
+  "sourceState": "43c9b0f7cf57ebeaec0defe7a59a8d3e7a0277fb",
+  "target": "local-production-build",
+  "method": {
+    "samplesPerViewport": 3,
+    "order": [
+      "/",
+      "/login"
+    ],
+    "warmup": "one read-only GET per route",
+    "execution": "sequential",
+    "viewports": [
+      "mobile 390x844",
+      "desktop 1440x900"
+    ]
+  },
+  "constraints": {
+    "boundAddress": "127.0.0.1:3300",
+    "interactions": false,
+    "formsSubmitted": false,
+    "providerApiCalls": false,
+    "mutationRequests": false
+  },
+  "routes": [
+    {
+      "path": "/",
+      "summaryByViewport": [
+        {
+          "viewport": {
+            "name": "mobile",
+            "width": 390,
+            "height": 844
+          },
+          "validSampleCount": 3,
+          "invalidSampleCount": 0,
+          "median": {
+            "ttfb": 4.400000095367432,
+            "fcp": 48,
+            "lcp": 48,
+            "cls": 0.0007599715979609738,
+            "load": 48.799999952316284,
+            "requestCount": 14,
+            "transferredBytes": 250187,
+            "longTasks": 0
+          },
+          "worst": {
+            "ttfb": 14.100000023841858,
+            "fcp": 100,
+            "lcp": 100,
+            "cls": 0.0007599715979609738,
+            "load": 128.10000002384186,
+            "requestCount": 14,
+            "transferredBytes": 250187,
+            "longTasks": 0
+          }
+        },
+        {
+          "viewport": {
+            "name": "desktop",
+            "width": 1440,
+            "height": 900
+          },
+          "validSampleCount": 3,
+          "invalidSampleCount": 0,
+          "median": {
+            "ttfb": 4.799999952316284,
+            "fcp": 64,
+            "lcp": 64,
+            "cls": 0.00045284288194444446,
+            "load": 56.700000047683716,
+            "requestCount": 14,
+            "transferredBytes": 250187,
+            "longTasks": 0
+          },
+          "worst": {
+            "ttfb": 7.300000071525574,
+            "fcp": 92,
+            "lcp": 92,
+            "cls": 0.00045284288194444446,
+            "load": 73.70000004768372,
+            "requestCount": 14,
+            "transferredBytes": 250187,
+            "longTasks": 0
+          }
+        }
+      ],
+      "rawReport": {
+        "url": "http://127.0.0.1:3300/",
+        "samples": 3,
+        "reports": [
+          {
+            "url": "http://127.0.0.1:3300/",
+            "viewport": {
+              "name": "mobile",
+              "width": 390,
+              "height": 844
+            },
+            "samples": [
+              {
+                "metrics": {
+                  "ttfb": 14.100000023841858,
+                  "fcp": 100,
+                  "lcp": 100,
+                  "layoutShifts": [
+                    {
+                      "startTime": 87.5,
+                      "value": 0.0007599715979609738,
+                      "hadRecentInput": false
+                    }
+                  ],
+                  "load": 128.10000002384186,
+                  "longTasks": 0,
+                  "cls": 0.0007599715979609738,
+                  "requestCount": 14,
+                  "allowedRequestCount": 14,
+                  "blockedRequestCount": 0,
+                  "transferredBytes": 250187
+                },
+                "valid": true,
+                "invalidReasons": [],
+                "settlement": {
+                  "reason": "network_quiet",
+                  "durationMs": 1019,
+                  "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 250187,
+                  "completedCount": 13,
+                  "cachedCount": 0,
+                  "failedCount": 1,
+                  "inFlightCount": 0
+                },
+                "consoleErrors": [
+                  {
+                    "category": "console_error"
+                  },
+                  {
+                    "category": "console_error"
+                  }
+                ],
+                "networkErrors": [
+                  {
+                    "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                    "reason": "http_404"
+                  },
+                  {
+                    "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                    "reason": "request_failed"
+                  }
+                ]
+              },
+              {
+                "metrics": {
+                  "ttfb": 4.400000095367432,
+                  "fcp": 44,
+                  "lcp": 44,
+                  "layoutShifts": [
+                    {
+                      "startTime": 51.60000002384186,
+                      "value": 0.0007599715979609738,
+                      "hadRecentInput": false
+                    }
+                  ],
+                  "load": 46.60000002384186,
+                  "longTasks": 0,
+                  "cls": 0.0007599715979609738,
+                  "requestCount": 14,
+                  "allowedRequestCount": 14,
+                  "blockedRequestCount": 0,
+                  "transferredBytes": 250187
+                },
+                "valid": true,
+                "invalidReasons": [],
+                "settlement": {
+                  "reason": "network_quiet",
+                  "durationMs": 1021,
+                  "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 250187,
+                  "completedCount": 13,
+                  "cachedCount": 0,
+                  "failedCount": 1,
+                  "inFlightCount": 0
+                },
+                "consoleErrors": [
+                  {
+                    "category": "console_error"
+                  },
+                  {
+                    "category": "console_error"
+                  }
+                ],
+                "networkErrors": [
+                  {
+                    "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                    "reason": "http_404"
+                  },
+                  {
+                    "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                    "reason": "request_failed"
+                  }
+                ]
+              },
+              {
+                "metrics": {
+                  "ttfb": 4.399999976158142,
+                  "fcp": 48,
+                  "lcp": 48,
+                  "layoutShifts": [
+                    {
+                      "startTime": 53.39999997615814,
+                      "value": 0.0007599715979609738,
+                      "hadRecentInput": false
+                    }
+                  ],
+                  "load": 48.799999952316284,
+                  "longTasks": 0,
+                  "cls": 0.0007599715979609738,
+                  "requestCount": 14,
+                  "allowedRequestCount": 14,
+                  "blockedRequestCount": 0,
+                  "transferredBytes": 250187
+                },
+                "valid": true,
+                "invalidReasons": [],
+                "settlement": {
+                  "reason": "network_quiet",
+                  "durationMs": 1023,
+                  "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 250187,
+                  "completedCount": 13,
+                  "cachedCount": 0,
+                  "failedCount": 1,
+                  "inFlightCount": 0
+                },
+                "consoleErrors": [
+                  {
+                    "category": "console_error"
+                  },
+                  {
+                    "category": "console_error"
+                  }
+                ],
+                "networkErrors": [
+                  {
+                    "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                    "reason": "http_404"
+                  },
+                  {
+                    "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                    "reason": "request_failed"
+                  }
+                ]
+              }
+            ],
+            "valid": true,
+            "validSampleCount": 3,
+            "invalidSampleCount": 0,
+            "invalidReasons": [],
+            "median": {
+              "ttfb": 4.400000095367432,
+              "fcp": 48,
+              "lcp": 48,
+              "cls": 0.0007599715979609738,
+              "load": 48.799999952316284,
+              "requestCount": 14,
+              "transferredBytes": 250187,
+              "longTasks": 0
+            },
+            "worst": {
+              "ttfb": 14.100000023841858,
+              "fcp": 100,
+              "lcp": 100,
+              "cls": 0.0007599715979609738,
+              "load": 128.10000002384186,
+              "requestCount": 14,
+              "transferredBytes": 250187,
+              "longTasks": 0
+            },
+            "consoleErrors": [
+              {
+                "category": "console_error"
+              },
+              {
+                "category": "console_error"
+              },
+              {
+                "category": "console_error"
+              },
+              {
+                "category": "console_error"
+              },
+              {
+                "category": "console_error"
+              },
+              {
+                "category": "console_error"
+              }
+            ],
+            "networkErrors": [
+              {
+                "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                "reason": "http_404"
+              },
+              {
+                "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                "reason": "request_failed"
+              },
+              {
+                "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                "reason": "http_404"
+              },
+              {
+                "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                "reason": "request_failed"
+              },
+              {
+                "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                "reason": "http_404"
+              },
+              {
+                "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                "reason": "request_failed"
+              }
+            ]
+          },
+          {
+            "url": "http://127.0.0.1:3300/",
+            "viewport": {
+              "name": "desktop",
+              "width": 1440,
+              "height": 900
+            },
+            "samples": [
+              {
+                "metrics": {
+                  "ttfb": 7.300000071525574,
+                  "fcp": 92,
+                  "lcp": 92,
+                  "layoutShifts": [
+                    {
+                      "startTime": 46.5,
+                      "value": 0.00045284288194444446,
+                      "hadRecentInput": false
+                    }
+                  ],
+                  "load": 73.70000004768372,
+                  "longTasks": 0,
+                  "cls": 0.00045284288194444446,
+                  "requestCount": 14,
+                  "allowedRequestCount": 14,
+                  "blockedRequestCount": 0,
+                  "transferredBytes": 250187
+                },
+                "valid": true,
+                "invalidReasons": [],
+                "settlement": {
+                  "reason": "network_quiet",
+                  "durationMs": 1053,
+                  "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 250187,
+                  "completedCount": 13,
+                  "cachedCount": 0,
+                  "failedCount": 1,
+                  "inFlightCount": 0
+                },
+                "consoleErrors": [
+                  {
+                    "category": "console_error"
+                  },
+                  {
+                    "category": "console_error"
+                  }
+                ],
+                "networkErrors": [
+                  {
+                    "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                    "reason": "http_404"
+                  },
+                  {
+                    "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                    "reason": "request_failed"
+                  }
+                ]
+              },
+              {
+                "metrics": {
+                  "ttfb": 4.799999952316284,
+                  "fcp": 64,
+                  "lcp": 64,
+                  "layoutShifts": [
+                    {
+                      "startTime": 59.700000047683716,
+                      "value": 0.00045284288194444446,
+                      "hadRecentInput": false
+                    }
+                  ],
+                  "load": 50.39999997615814,
+                  "longTasks": 0,
+                  "cls": 0.00045284288194444446,
+                  "requestCount": 14,
+                  "allowedRequestCount": 14,
+                  "blockedRequestCount": 0,
+                  "transferredBytes": 250187
+                },
+                "valid": true,
+                "invalidReasons": [],
+                "settlement": {
+                  "reason": "network_quiet",
+                  "durationMs": 1040,
+                  "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 250187,
+                  "completedCount": 13,
+                  "cachedCount": 0,
+                  "failedCount": 1,
+                  "inFlightCount": 0
+                },
+                "consoleErrors": [
+                  {
+                    "category": "console_error"
+                  },
+                  {
+                    "category": "console_error"
+                  }
+                ],
+                "networkErrors": [
+                  {
+                    "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                    "reason": "http_404"
+                  },
+                  {
+                    "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                    "reason": "request_failed"
+                  }
+                ]
+              },
+              {
+                "metrics": {
+                  "ttfb": 4.100000023841858,
+                  "fcp": 64,
+                  "lcp": 64,
+                  "layoutShifts": [],
+                  "load": 56.700000047683716,
+                  "longTasks": 0,
+                  "cls": 0,
+                  "requestCount": 13,
+                  "allowedRequestCount": 13,
+                  "blockedRequestCount": 0,
+                  "transferredBytes": 240846
+                },
+                "valid": true,
+                "invalidReasons": [],
+                "settlement": {
+                  "reason": "network_quiet",
+                  "durationMs": 1010,
+                  "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 240846,
+                  "completedCount": 12,
+                  "cachedCount": 0,
+                  "failedCount": 1,
+                  "inFlightCount": 0
+                },
+                "consoleErrors": [
+                  {
+                    "category": "console_error"
+                  },
+                  {
+                    "category": "console_error"
+                  }
+                ],
+                "networkErrors": [
+                  {
+                    "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                    "reason": "http_404"
+                  },
+                  {
+                    "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                    "reason": "request_failed"
+                  }
+                ]
+              }
+            ],
+            "valid": true,
+            "validSampleCount": 3,
+            "invalidSampleCount": 0,
+            "invalidReasons": [],
+            "median": {
+              "ttfb": 4.799999952316284,
+              "fcp": 64,
+              "lcp": 64,
+              "cls": 0.00045284288194444446,
+              "load": 56.700000047683716,
+              "requestCount": 14,
+              "transferredBytes": 250187,
+              "longTasks": 0
+            },
+            "worst": {
+              "ttfb": 7.300000071525574,
+              "fcp": 92,
+              "lcp": 92,
+              "cls": 0.00045284288194444446,
+              "load": 73.70000004768372,
+              "requestCount": 14,
+              "transferredBytes": 250187,
+              "longTasks": 0
+            },
+            "consoleErrors": [
+              {
+                "category": "console_error"
+              },
+              {
+                "category": "console_error"
+              },
+              {
+                "category": "console_error"
+              },
+              {
+                "category": "console_error"
+              },
+              {
+                "category": "console_error"
+              },
+              {
+                "category": "console_error"
+              }
+            ],
+            "networkErrors": [
+              {
+                "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                "reason": "http_404"
+              },
+              {
+                "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                "reason": "request_failed"
+              },
+              {
+                "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                "reason": "http_404"
+              },
+              {
+                "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                "reason": "request_failed"
+              },
+              {
+                "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                "reason": "http_404"
+              },
+              {
+                "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                "reason": "request_failed"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "path": "/login",
+      "summaryByViewport": [
+        {
+          "viewport": {
+            "name": "mobile",
+            "width": 390,
+            "height": 844
+          },
+          "validSampleCount": 3,
+          "invalidSampleCount": 0,
+          "median": {
+            "ttfb": 3.8000000715255737,
+            "fcp": 76,
+            "lcp": 76,
+            "cls": 0.0003314812696068522,
+            "load": 50.800000071525574,
+            "requestCount": 22,
+            "transferredBytes": 347566,
+            "longTasks": 0
+          },
+          "worst": {
+            "ttfb": 4.600000023841858,
+            "fcp": 80,
+            "lcp": 80,
+            "cls": 0.0003314812696068522,
+            "load": 54.39999997615814,
+            "requestCount": 22,
+            "transferredBytes": 347566,
+            "longTasks": 0
+          }
+        },
+        {
+          "viewport": {
+            "name": "desktop",
+            "width": 1440,
+            "height": 900
+          },
+          "validSampleCount": 3,
+          "invalidSampleCount": 0,
+          "median": {
+            "ttfb": 2.899999976158142,
+            "fcp": 68,
+            "lcp": 68,
+            "cls": 0.000053851351849172664,
+            "load": 43,
+            "requestCount": 22,
+            "transferredBytes": 347566,
+            "longTasks": 0
+          },
+          "worst": {
+            "ttfb": 4,
+            "fcp": 68,
+            "lcp": 68,
+            "cls": 0.000053851351849172664,
+            "load": 46.199999928474426,
+            "requestCount": 22,
+            "transferredBytes": 347566,
+            "longTasks": 0
+          }
+        }
+      ],
+      "rawReport": {
+        "url": "http://127.0.0.1:3300/login",
+        "samples": 3,
+        "reports": [
+          {
+            "url": "http://127.0.0.1:3300/login",
+            "viewport": {
+              "name": "mobile",
+              "width": 390,
+              "height": 844
+            },
+            "samples": [
+              {
+                "metrics": {
+                  "ttfb": 4.600000023841858,
+                  "fcp": 80,
+                  "lcp": 80,
+                  "layoutShifts": [
+                    {
+                      "startTime": 94.20000004768372,
+                      "value": 0.0003314812696068522,
+                      "hadRecentInput": false
+                    }
+                  ],
+                  "load": 54.39999997615814,
+                  "longTasks": 0,
+                  "cls": 0.0003314812696068522,
+                  "requestCount": 22,
+                  "allowedRequestCount": 22,
+                  "blockedRequestCount": 0,
+                  "transferredBytes": 347566
+                },
+                "valid": true,
+                "invalidReasons": [],
+                "settlement": {
+                  "reason": "network_quiet",
+                  "durationMs": 1050,
+                  "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 347566,
+                  "completedCount": 21,
+                  "cachedCount": 0,
+                  "failedCount": 1,
+                  "inFlightCount": 0
+                },
+                "consoleErrors": [
+                  {
+                    "category": "console_error"
+                  },
+                  {
+                    "category": "console_error"
+                  }
+                ],
+                "networkErrors": [
+                  {
+                    "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                    "reason": "http_404"
+                  },
+                  {
+                    "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                    "reason": "request_failed"
+                  }
+                ]
+              },
+              {
+                "metrics": {
+                  "ttfb": 3.8000000715255737,
+                  "fcp": 76,
+                  "lcp": 76,
+                  "layoutShifts": [
+                    {
+                      "startTime": 93.80000007152557,
+                      "value": 0.0003314812696068522,
+                      "hadRecentInput": false
+                    }
+                  ],
+                  "load": 50.800000071525574,
+                  "longTasks": 0,
+                  "cls": 0.0003314812696068522,
+                  "requestCount": 22,
+                  "allowedRequestCount": 22,
+                  "blockedRequestCount": 0,
+                  "transferredBytes": 347566
+                },
+                "valid": true,
+                "invalidReasons": [],
+                "settlement": {
+                  "reason": "network_quiet",
+                  "durationMs": 1042,
+                  "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 347566,
+                  "completedCount": 21,
+                  "cachedCount": 0,
+                  "failedCount": 1,
+                  "inFlightCount": 0
+                },
+                "consoleErrors": [
+                  {
+                    "category": "console_error"
+                  },
+                  {
+                    "category": "console_error"
+                  }
+                ],
+                "networkErrors": [
+                  {
+                    "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                    "reason": "http_404"
+                  },
+                  {
+                    "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                    "reason": "request_failed"
+                  }
+                ]
+              },
+              {
+                "metrics": {
+                  "ttfb": 2.799999952316284,
+                  "fcp": 60,
+                  "lcp": 60,
+                  "layoutShifts": [
+                    {
+                      "startTime": 83.29999995231628,
+                      "value": 0.0003314812696068522,
+                      "hadRecentInput": false
+                    }
+                  ],
+                  "load": 42.699999928474426,
+                  "longTasks": 0,
+                  "cls": 0.0003314812696068522,
+                  "requestCount": 22,
+                  "allowedRequestCount": 22,
+                  "blockedRequestCount": 0,
+                  "transferredBytes": 347566
+                },
+                "valid": true,
+                "invalidReasons": [],
+                "settlement": {
+                  "reason": "network_quiet",
+                  "durationMs": 1045,
+                  "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 347566,
+                  "completedCount": 21,
+                  "cachedCount": 0,
+                  "failedCount": 1,
+                  "inFlightCount": 0
+                },
+                "consoleErrors": [
+                  {
+                    "category": "console_error"
+                  },
+                  {
+                    "category": "console_error"
+                  }
+                ],
+                "networkErrors": [
+                  {
+                    "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                    "reason": "http_404"
+                  },
+                  {
+                    "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                    "reason": "request_failed"
+                  }
+                ]
+              }
+            ],
+            "valid": true,
+            "validSampleCount": 3,
+            "invalidSampleCount": 0,
+            "invalidReasons": [],
+            "median": {
+              "ttfb": 3.8000000715255737,
+              "fcp": 76,
+              "lcp": 76,
+              "cls": 0.0003314812696068522,
+              "load": 50.800000071525574,
+              "requestCount": 22,
+              "transferredBytes": 347566,
+              "longTasks": 0
+            },
+            "worst": {
+              "ttfb": 4.600000023841858,
+              "fcp": 80,
+              "lcp": 80,
+              "cls": 0.0003314812696068522,
+              "load": 54.39999997615814,
+              "requestCount": 22,
+              "transferredBytes": 347566,
+              "longTasks": 0
+            },
+            "consoleErrors": [
+              {
+                "category": "console_error"
+              },
+              {
+                "category": "console_error"
+              },
+              {
+                "category": "console_error"
+              },
+              {
+                "category": "console_error"
+              },
+              {
+                "category": "console_error"
+              },
+              {
+                "category": "console_error"
+              }
+            ],
+            "networkErrors": [
+              {
+                "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                "reason": "http_404"
+              },
+              {
+                "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                "reason": "request_failed"
+              },
+              {
+                "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                "reason": "http_404"
+              },
+              {
+                "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                "reason": "request_failed"
+              },
+              {
+                "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                "reason": "http_404"
+              },
+              {
+                "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                "reason": "request_failed"
+              }
+            ]
+          },
+          {
+            "url": "http://127.0.0.1:3300/login",
+            "viewport": {
+              "name": "desktop",
+              "width": 1440,
+              "height": 900
+            },
+            "samples": [
+              {
+                "metrics": {
+                  "ttfb": 4,
+                  "fcp": 68,
+                  "lcp": 68,
+                  "layoutShifts": [
+                    {
+                      "startTime": 73.39999997615814,
+                      "value": 0.000053851351849172664,
+                      "hadRecentInput": false
+                    }
+                  ],
+                  "load": 46.199999928474426,
+                  "longTasks": 0,
+                  "cls": 0.000053851351849172664,
+                  "requestCount": 22,
+                  "allowedRequestCount": 22,
+                  "blockedRequestCount": 0,
+                  "transferredBytes": 347566
+                },
+                "valid": true,
+                "invalidReasons": [],
+                "settlement": {
+                  "reason": "network_quiet",
+                  "durationMs": 1034,
+                  "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 347566,
+                  "completedCount": 21,
+                  "cachedCount": 0,
+                  "failedCount": 1,
+                  "inFlightCount": 0
+                },
+                "consoleErrors": [
+                  {
+                    "category": "console_error"
+                  },
+                  {
+                    "category": "console_error"
+                  }
+                ],
+                "networkErrors": [
+                  {
+                    "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                    "reason": "http_404"
+                  },
+                  {
+                    "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                    "reason": "request_failed"
+                  }
+                ]
+              },
+              {
+                "metrics": {
+                  "ttfb": 2.700000047683716,
+                  "fcp": 68,
+                  "lcp": 68,
+                  "layoutShifts": [
+                    {
+                      "startTime": 78.80000007152557,
+                      "value": 0.000053851351849172664,
+                      "hadRecentInput": false
+                    }
+                  ],
+                  "load": 42.700000047683716,
+                  "longTasks": 0,
+                  "cls": 0.000053851351849172664,
+                  "requestCount": 22,
+                  "allowedRequestCount": 22,
+                  "blockedRequestCount": 0,
+                  "transferredBytes": 347566
+                },
+                "valid": true,
+                "invalidReasons": [],
+                "settlement": {
+                  "reason": "network_quiet",
+                  "durationMs": 1034,
+                  "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 347566,
+                  "completedCount": 21,
+                  "cachedCount": 0,
+                  "failedCount": 1,
+                  "inFlightCount": 0
+                },
+                "consoleErrors": [
+                  {
+                    "category": "console_error"
+                  },
+                  {
+                    "category": "console_error"
+                  }
+                ],
+                "networkErrors": [
+                  {
+                    "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                    "reason": "http_404"
+                  },
+                  {
+                    "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                    "reason": "request_failed"
+                  }
+                ]
+              },
+              {
+                "metrics": {
+                  "ttfb": 2.899999976158142,
+                  "fcp": 68,
+                  "lcp": 68,
+                  "layoutShifts": [
+                    {
+                      "startTime": 69.19999992847443,
+                      "value": 0.000053851351849172664,
+                      "hadRecentInput": false
+                    }
+                  ],
+                  "load": 43,
+                  "longTasks": 0,
+                  "cls": 0.000053851351849172664,
+                  "requestCount": 22,
+                  "allowedRequestCount": 22,
+                  "blockedRequestCount": 0,
+                  "transferredBytes": 347566
+                },
+                "valid": true,
+                "invalidReasons": [],
+                "settlement": {
+                  "reason": "network_quiet",
+                  "durationMs": 1029,
+                  "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 347566,
+                  "completedCount": 21,
+                  "cachedCount": 0,
+                  "failedCount": 1,
+                  "inFlightCount": 0
+                },
+                "consoleErrors": [
+                  {
+                    "category": "console_error"
+                  },
+                  {
+                    "category": "console_error"
+                  }
+                ],
+                "networkErrors": [
+                  {
+                    "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                    "reason": "http_404"
+                  },
+                  {
+                    "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                    "reason": "request_failed"
+                  }
+                ]
+              }
+            ],
+            "valid": true,
+            "validSampleCount": 3,
+            "invalidSampleCount": 0,
+            "invalidReasons": [],
+            "median": {
+              "ttfb": 2.899999976158142,
+              "fcp": 68,
+              "lcp": 68,
+              "cls": 0.000053851351849172664,
+              "load": 43,
+              "requestCount": 22,
+              "transferredBytes": 347566,
+              "longTasks": 0
+            },
+            "worst": {
+              "ttfb": 4,
+              "fcp": 68,
+              "lcp": 68,
+              "cls": 0.000053851351849172664,
+              "load": 46.199999928474426,
+              "requestCount": 22,
+              "transferredBytes": 347566,
+              "longTasks": 0
+            },
+            "consoleErrors": [
+              {
+                "category": "console_error"
+              },
+              {
+                "category": "console_error"
+              },
+              {
+                "category": "console_error"
+              },
+              {
+                "category": "console_error"
+              },
+              {
+                "category": "console_error"
+              },
+              {
+                "category": "console_error"
+              }
+            ],
+            "networkErrors": [
+              {
+                "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                "reason": "http_404"
+              },
+              {
+                "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                "reason": "request_failed"
+              },
+              {
+                "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                "reason": "http_404"
+              },
+              {
+                "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                "reason": "request_failed"
+              },
+              {
+                "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                "reason": "http_404"
+              },
+              {
+                "url": "http://127.0.0.1:3300/_vercel/insights/script.js",
+                "reason": "request_failed"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "buildBudgets": {
+    "landing": {
+      "baselineBytes": 18283,
+      "allowedBytes": 20111,
+      "result": "pass"
+    },
+    "login": {
+      "baselineBytes": 271430,
+      "allowedBytes": 298573,
+      "result": "pass"
+    }
+  }
+}

@@ -1,0 +1,800 @@
+{
+  "schema": {
+    "name": "trophe.web-performance-baseline",
+    "version": 1,
+    "routeOrder": [
+      "/",
+      "/login"
+    ],
+    "routeShape": "{ path, summaryByViewport, sourceObservation?, rawReport }",
+    "rawReportShape": "scripts/perf/measure-web.mjs runMeasurements output",
+    "metricUnits": {
+      "ttfb": "ms",
+      "fcp": "ms",
+      "lcp": "ms",
+      "cls": "unitless",
+      "load": "ms",
+      "requestCount": "requests",
+      "transferredBytes": "bytes",
+      "longTasks": "count"
+    }
+  },
+  "sourceState": {
+    "head": "222f21d63681bfb79a10c06196c2f4063affb29c",
+    "worktree": "clean at baseline-file generation",
+    "nextVersion": "16.2.7"
+  },
+  "harness": {
+    "commit": "e3c25db95f929d7c8319d8f210ce740611816208",
+    "samplesPerViewport": 3,
+    "viewportOrder": [
+      {
+        "name": "mobile",
+        "width": 390,
+        "height": 844
+      },
+      {
+        "name": "desktop",
+        "width": 1440,
+        "height": 900
+      }
+    ],
+    "browserIsolation": "fresh context per sample; service workers and WebSockets blocked",
+    "permittedMethods": [
+      "GET",
+      "HEAD",
+      "OPTIONS"
+    ],
+    "settlement": {
+      "quietMs": 1000,
+      "maximumMs": 5000
+    }
+  },
+  "target": "production",
+  "baseUrl": "https://trophe.app",
+  "captureWindowUtc": {
+    "startedAtUtc": "2026-07-26T09:38:17.271Z",
+    "completedAtUtc": "2026-07-26T09:38:42.272Z"
+  },
+  "constraints": {
+    "unauthenticated": true,
+    "interactions": false,
+    "formsSubmitted": false,
+    "cookiesSupplied": false,
+    "providerApiCalls": false,
+    "mutationRequests": false,
+    "measurementTraffic": "public route navigation and read-only subresources only"
+  },
+  "routes": [
+    {
+      "path": "/",
+      "summaryByViewport": [
+        {
+          "viewport": {
+            "name": "mobile",
+            "width": 390,
+            "height": 844
+          },
+          "valid": true,
+          "validSampleCount": 3,
+          "invalidSampleCount": 0,
+          "invalidReasons": [],
+          "median": {
+            "ttfb": 297.19999998807907,
+            "fcp": 608,
+            "lcp": 608,
+            "cls": 0.0005008652868870871,
+            "load": 702.6999999880791,
+            "requestCount": 17,
+            "transferredBytes": 302712,
+            "longTasks": 0
+          },
+          "worst": {
+            "ttfb": 335.5,
+            "fcp": 652,
+            "lcp": 652,
+            "cls": 0.0005008652868870871,
+            "load": 742.4000000357628,
+            "requestCount": 17,
+            "transferredBytes": 302717,
+            "longTasks": 0
+          },
+          "consoleErrorCount": 0,
+          "networkErrorCount": 0,
+          "blockedRequestCount": 0,
+          "settlementReasons": [
+            "network_quiet"
+          ]
+        },
+        {
+          "viewport": {
+            "name": "desktop",
+            "width": 1440,
+            "height": 900
+          },
+          "valid": true,
+          "validSampleCount": 3,
+          "invalidSampleCount": 0,
+          "invalidReasons": [],
+          "median": {
+            "ttfb": 315.80000001192093,
+            "fcp": 548,
+            "lcp": 548,
+            "cls": 0.00015246913580246912,
+            "load": 689.9000000357628,
+            "requestCount": 17,
+            "transferredBytes": 302733,
+            "longTasks": 0
+          },
+          "worst": {
+            "ttfb": 338.60000002384186,
+            "fcp": 612,
+            "lcp": 612,
+            "cls": 0.00015246913580246912,
+            "load": 720.2000000476837,
+            "requestCount": 17,
+            "transferredBytes": 302735,
+            "longTasks": 0
+          },
+          "consoleErrorCount": 0,
+          "networkErrorCount": 0,
+          "blockedRequestCount": 0,
+          "settlementReasons": [
+            "network_quiet"
+          ]
+        }
+      ],
+      "failureInventory": {
+        "consoleCategories": [],
+        "networkFailures": []
+      },
+      "rawReport": {
+        "url": "https://trophe.app/",
+        "samples": 3,
+        "reports": [
+          {
+            "url": "https://trophe.app/",
+            "viewport": {
+              "name": "mobile",
+              "width": 390,
+              "height": 844
+            },
+            "samples": [
+              {
+                "metrics": {
+                  "ttfb": 335.5,
+                  "fcp": 652,
+                  "lcp": 652,
+                  "layoutShifts": [
+                    {
+                      "startTime": 749.5,
+                      "value": 0.0005008652868870871,
+                      "hadRecentInput": false
+                    }
+                  ],
+                  "load": 742.4000000357628,
+                  "longTasks": 0,
+                  "cls": 0.0005008652868870871,
+                  "requestCount": 17,
+                  "allowedRequestCount": 17,
+                  "blockedRequestCount": 0,
+                  "transferredBytes": 302712
+                },
+                "valid": true,
+                "invalidReasons": [],
+                "settlement": {
+                  "reason": "network_quiet",
+                  "durationMs": 1123,
+                  "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 302712,
+                  "completedCount": 17,
+                  "cachedCount": 0,
+                  "failedCount": 0,
+                  "inFlightCount": 0
+                },
+                "consoleErrors": [],
+                "networkErrors": []
+              },
+              {
+                "metrics": {
+                  "ttfb": 297.19999998807907,
+                  "fcp": 576,
+                  "lcp": 576,
+                  "layoutShifts": [
+                    {
+                      "startTime": 683.1999999880791,
+                      "value": 0.0005008652868870871,
+                      "hadRecentInput": false
+                    }
+                  ],
+                  "load": 681.4000000357628,
+                  "longTasks": 0,
+                  "cls": 0.0005008652868870871,
+                  "requestCount": 17,
+                  "allowedRequestCount": 17,
+                  "blockedRequestCount": 0,
+                  "transferredBytes": 302709
+                },
+                "valid": true,
+                "invalidReasons": [],
+                "settlement": {
+                  "reason": "network_quiet",
+                  "durationMs": 1116,
+                  "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 302709,
+                  "completedCount": 17,
+                  "cachedCount": 0,
+                  "failedCount": 0,
+                  "inFlightCount": 0
+                },
+                "consoleErrors": [],
+                "networkErrors": []
+              },
+              {
+                "metrics": {
+                  "ttfb": 297.10000002384186,
+                  "fcp": 608,
+                  "lcp": 608,
+                  "layoutShifts": [
+                    {
+                      "startTime": 704.6000000238419,
+                      "value": 0.0005008652868870871,
+                      "hadRecentInput": false
+                    }
+                  ],
+                  "load": 702.6999999880791,
+                  "longTasks": 0,
+                  "cls": 0.0005008652868870871,
+                  "requestCount": 17,
+                  "allowedRequestCount": 17,
+                  "blockedRequestCount": 0,
+                  "transferredBytes": 302717
+                },
+                "valid": true,
+                "invalidReasons": [],
+                "settlement": {
+                  "reason": "network_quiet",
+                  "durationMs": 1111,
+                  "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 302717,
+                  "completedCount": 17,
+                  "cachedCount": 0,
+                  "failedCount": 0,
+                  "inFlightCount": 0
+                },
+                "consoleErrors": [],
+                "networkErrors": []
+              }
+            ],
+            "valid": true,
+            "validSampleCount": 3,
+            "invalidSampleCount": 0,
+            "invalidReasons": [],
+            "median": {
+              "ttfb": 297.19999998807907,
+              "fcp": 608,
+              "lcp": 608,
+              "cls": 0.0005008652868870871,
+              "load": 702.6999999880791,
+              "requestCount": 17,
+              "transferredBytes": 302712,
+              "longTasks": 0
+            },
+            "worst": {
+              "ttfb": 335.5,
+              "fcp": 652,
+              "lcp": 652,
+              "cls": 0.0005008652868870871,
+              "load": 742.4000000357628,
+              "requestCount": 17,
+              "transferredBytes": 302717,
+              "longTasks": 0
+            },
+            "consoleErrors": [],
+            "networkErrors": []
+          },
+          {
+            "url": "https://trophe.app/",
+            "viewport": {
+              "name": "desktop",
+              "width": 1440,
+              "height": 900
+            },
+            "samples": [
+              {
+                "metrics": {
+                  "ttfb": 338.60000002384186,
+                  "fcp": 612,
+                  "lcp": 612,
+                  "layoutShifts": [
+                    {
+                      "startTime": 657.7000000476837,
+                      "value": 0.00015246913580246912,
+                      "hadRecentInput": false
+                    }
+                  ],
+                  "load": 720.2000000476837,
+                  "longTasks": 0,
+                  "cls": 0.00015246913580246912,
+                  "requestCount": 17,
+                  "allowedRequestCount": 17,
+                  "blockedRequestCount": 0,
+                  "transferredBytes": 302733
+                },
+                "valid": true,
+                "invalidReasons": [],
+                "settlement": {
+                  "reason": "network_quiet",
+                  "durationMs": 1113,
+                  "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 302733,
+                  "completedCount": 17,
+                  "cachedCount": 0,
+                  "failedCount": 0,
+                  "inFlightCount": 0
+                },
+                "consoleErrors": [],
+                "networkErrors": []
+              },
+              {
+                "metrics": {
+                  "ttfb": 315.80000001192093,
+                  "fcp": 548,
+                  "lcp": 548,
+                  "layoutShifts": [
+                    {
+                      "startTime": 641.1000000238419,
+                      "value": 0.00015246913580246912,
+                      "hadRecentInput": false
+                    }
+                  ],
+                  "load": 648.6000000238419,
+                  "longTasks": 0,
+                  "cls": 0.00015246913580246912,
+                  "requestCount": 17,
+                  "allowedRequestCount": 17,
+                  "blockedRequestCount": 0,
+                  "transferredBytes": 302709
+                },
+                "valid": true,
+                "invalidReasons": [],
+                "settlement": {
+                  "reason": "network_quiet",
+                  "durationMs": 1108,
+                  "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 302709,
+                  "completedCount": 17,
+                  "cachedCount": 0,
+                  "failedCount": 0,
+                  "inFlightCount": 0
+                },
+                "consoleErrors": [],
+                "networkErrors": []
+              },
+              {
+                "metrics": {
+                  "ttfb": 295.60000002384186,
+                  "fcp": 544,
+                  "lcp": 544,
+                  "layoutShifts": [
+                    {
+                      "startTime": 641,
+                      "value": 0.00015246913580246912,
+                      "hadRecentInput": false
+                    }
+                  ],
+                  "load": 689.9000000357628,
+                  "longTasks": 0,
+                  "cls": 0.00015246913580246912,
+                  "requestCount": 17,
+                  "allowedRequestCount": 17,
+                  "blockedRequestCount": 0,
+                  "transferredBytes": 302735
+                },
+                "valid": true,
+                "invalidReasons": [],
+                "settlement": {
+                  "reason": "network_quiet",
+                  "durationMs": 1105,
+                  "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 302735,
+                  "completedCount": 17,
+                  "cachedCount": 0,
+                  "failedCount": 0,
+                  "inFlightCount": 0
+                },
+                "consoleErrors": [],
+                "networkErrors": []
+              }
+            ],
+            "valid": true,
+            "validSampleCount": 3,
+            "invalidSampleCount": 0,
+            "invalidReasons": [],
+            "median": {
+              "ttfb": 315.80000001192093,
+              "fcp": 548,
+              "lcp": 548,
+              "cls": 0.00015246913580246912,
+              "load": 689.9000000357628,
+              "requestCount": 17,
+              "transferredBytes": 302733,
+              "longTasks": 0
+            },
+            "worst": {
+              "ttfb": 338.60000002384186,
+              "fcp": 612,
+              "lcp": 612,
+              "cls": 0.00015246913580246912,
+              "load": 720.2000000476837,
+              "requestCount": 17,
+              "transferredBytes": 302735,
+              "longTasks": 0
+            },
+            "consoleErrors": [],
+            "networkErrors": []
+          }
+        ]
+      }
+    },
+    {
+      "path": "/login",
+      "summaryByViewport": [
+        {
+          "viewport": {
+            "name": "mobile",
+            "width": 390,
+            "height": 844
+          },
+          "valid": true,
+          "validSampleCount": 3,
+          "invalidSampleCount": 0,
+          "invalidReasons": [],
+          "median": {
+            "ttfb": 296,
+            "fcp": 852,
+            "lcp": 852,
+            "cls": 0,
+            "load": 730.3999999761581,
+            "requestCount": 24,
+            "transferredBytes": 412333,
+            "longTasks": 0
+          },
+          "worst": {
+            "ttfb": 321.69999998807907,
+            "fcp": 880,
+            "lcp": 880,
+            "cls": 0,
+            "load": 791.8000000119209,
+            "requestCount": 24,
+            "transferredBytes": 412350,
+            "longTasks": 0
+          },
+          "consoleErrorCount": 0,
+          "networkErrorCount": 0,
+          "blockedRequestCount": 0,
+          "settlementReasons": [
+            "network_quiet"
+          ]
+        },
+        {
+          "viewport": {
+            "name": "desktop",
+            "width": 1440,
+            "height": 900
+          },
+          "valid": true,
+          "validSampleCount": 3,
+          "invalidSampleCount": 0,
+          "invalidReasons": [],
+          "median": {
+            "ttfb": 307.5,
+            "fcp": 848,
+            "lcp": 848,
+            "cls": 0,
+            "load": 777.7000000476837,
+            "requestCount": 24,
+            "transferredBytes": 412333,
+            "longTasks": 0
+          },
+          "worst": {
+            "ttfb": 325.10000002384186,
+            "fcp": 952,
+            "lcp": 952,
+            "cls": 0,
+            "load": 794.3000000119209,
+            "requestCount": 24,
+            "transferredBytes": 412334,
+            "longTasks": 0
+          },
+          "consoleErrorCount": 0,
+          "networkErrorCount": 0,
+          "blockedRequestCount": 0,
+          "settlementReasons": [
+            "network_quiet"
+          ]
+        }
+      ],
+      "failureInventory": {
+        "consoleCategories": [],
+        "networkFailures": []
+      },
+      "rawReport": {
+        "url": "https://trophe.app/login",
+        "samples": 3,
+        "reports": [
+          {
+            "url": "https://trophe.app/login",
+            "viewport": {
+              "name": "mobile",
+              "width": 390,
+              "height": 844
+            },
+            "samples": [
+              {
+                "metrics": {
+                  "ttfb": 321.69999998807907,
+                  "fcp": 832,
+                  "lcp": 832,
+                  "layoutShifts": [],
+                  "load": 791.8000000119209,
+                  "longTasks": 0,
+                  "cls": 0,
+                  "requestCount": 24,
+                  "allowedRequestCount": 24,
+                  "blockedRequestCount": 0,
+                  "transferredBytes": 412350
+                },
+                "valid": true,
+                "invalidReasons": [],
+                "settlement": {
+                  "reason": "network_quiet",
+                  "durationMs": 1570,
+                  "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 412350,
+                  "completedCount": 24,
+                  "cachedCount": 0,
+                  "failedCount": 0,
+                  "inFlightCount": 0
+                },
+                "consoleErrors": [],
+                "networkErrors": []
+              },
+              {
+                "metrics": {
+                  "ttfb": 294.19999998807907,
+                  "fcp": 852,
+                  "lcp": 852,
+                  "layoutShifts": [],
+                  "load": 710.5,
+                  "longTasks": 0,
+                  "cls": 0,
+                  "requestCount": 24,
+                  "allowedRequestCount": 24,
+                  "blockedRequestCount": 0,
+                  "transferredBytes": 412322
+                },
+                "valid": true,
+                "invalidReasons": [],
+                "settlement": {
+                  "reason": "network_quiet",
+                  "durationMs": 1444,
+                  "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 412322,
+                  "completedCount": 24,
+                  "cachedCount": 0,
+                  "failedCount": 0,
+                  "inFlightCount": 0
+                },
+                "consoleErrors": [],
+                "networkErrors": []
+              },
+              {
+                "metrics": {
+                  "ttfb": 296,
+                  "fcp": 880,
+                  "lcp": 880,
+                  "layoutShifts": [],
+                  "load": 730.3999999761581,
+                  "longTasks": 0,
+                  "cls": 0,
+                  "requestCount": 24,
+                  "allowedRequestCount": 24,
+                  "blockedRequestCount": 0,
+                  "transferredBytes": 412333
+                },
+                "valid": true,
+                "invalidReasons": [],
+                "settlement": {
+                  "reason": "network_quiet",
+                  "durationMs": 1403,
+                  "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 412333,
+                  "completedCount": 24,
+                  "cachedCount": 0,
+                  "failedCount": 0,
+                  "inFlightCount": 0
+                },
+                "consoleErrors": [],
+                "networkErrors": []
+              }
+            ],
+            "valid": true,
+            "validSampleCount": 3,
+            "invalidSampleCount": 0,
+            "invalidReasons": [],
+            "median": {
+              "ttfb": 296,
+              "fcp": 852,
+              "lcp": 852,
+              "cls": 0,
+              "load": 730.3999999761581,
+              "requestCount": 24,
+              "transferredBytes": 412333,
+              "longTasks": 0
+            },
+            "worst": {
+              "ttfb": 321.69999998807907,
+              "fcp": 880,
+              "lcp": 880,
+              "cls": 0,
+              "load": 791.8000000119209,
+              "requestCount": 24,
+              "transferredBytes": 412350,
+              "longTasks": 0
+            },
+            "consoleErrors": [],
+            "networkErrors": []
+          },
+          {
+            "url": "https://trophe.app/login",
+            "viewport": {
+              "name": "desktop",
+              "width": 1440,
+              "height": 900
+            },
+            "samples": [
+              {
+                "metrics": {
+                  "ttfb": 325.10000002384186,
+                  "fcp": 820,
+                  "lcp": 820,
+                  "layoutShifts": [],
+                  "load": 777.7000000476837,
+                  "longTasks": 0,
+                  "cls": 0,
+                  "requestCount": 24,
+                  "allowedRequestCount": 24,
+                  "blockedRequestCount": 0,
+                  "transferredBytes": 412313
+                },
+                "valid": true,
+                "invalidReasons": [],
+                "settlement": {
+                  "reason": "network_quiet",
+                  "durationMs": 1380,
+                  "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 412313,
+                  "completedCount": 24,
+                  "cachedCount": 0,
+                  "failedCount": 0,
+                  "inFlightCount": 0
+                },
+                "consoleErrors": [],
+                "networkErrors": []
+              },
+              {
+                "metrics": {
+                  "ttfb": 295,
+                  "fcp": 848,
+                  "lcp": 848,
+                  "layoutShifts": [],
+                  "load": 699.0999999642372,
+                  "longTasks": 0,
+                  "cls": 0,
+                  "requestCount": 24,
+                  "allowedRequestCount": 24,
+                  "blockedRequestCount": 0,
+                  "transferredBytes": 412333
+                },
+                "valid": true,
+                "invalidReasons": [],
+                "settlement": {
+                  "reason": "network_quiet",
+                  "durationMs": 1403,
+                  "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 412333,
+                  "completedCount": 24,
+                  "cachedCount": 0,
+                  "failedCount": 0,
+                  "inFlightCount": 0
+                },
+                "consoleErrors": [],
+                "networkErrors": []
+              },
+              {
+                "metrics": {
+                  "ttfb": 307.5,
+                  "fcp": 952,
+                  "lcp": 952,
+                  "layoutShifts": [],
+                  "load": 794.3000000119209,
+                  "longTasks": 0,
+                  "cls": 0,
+                  "requestCount": 24,
+                  "allowedRequestCount": 24,
+                  "blockedRequestCount": 0,
+                  "transferredBytes": 412334
+                },
+                "valid": true,
+                "invalidReasons": [],
+                "settlement": {
+                  "reason": "network_quiet",
+                  "durationMs": 1402,
+                  "remainingInFlightCount": 0
+                },
+                "transferOutcomes": {
+                  "transferredBytes": 412334,
+                  "completedCount": 24,
+                  "cachedCount": 0,
+                  "failedCount": 0,
+                  "inFlightCount": 0
+                },
+                "consoleErrors": [],
+                "networkErrors": []
+              }
+            ],
+            "valid": true,
+            "validSampleCount": 3,
+            "invalidSampleCount": 0,
+            "invalidReasons": [],
+            "median": {
+              "ttfb": 307.5,
+              "fcp": 848,
+              "lcp": 848,
+              "cls": 0,
+              "load": 777.7000000476837,
+              "requestCount": 24,
+              "transferredBytes": 412333,
+              "longTasks": 0
+            },
+            "worst": {
+              "ttfb": 325.10000002384186,
+              "fcp": 952,
+              "lcp": 952,
+              "cls": 0,
+              "load": 794.3000000119209,
+              "requestCount": 24,
+              "transferredBytes": 412334,
+              "longTasks": 0
+            },
+            "consoleErrors": [],
+            "networkErrors": []
+          }
+        ]
+      }
+    }
+  ]
+}

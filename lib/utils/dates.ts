@@ -18,3 +18,11 @@ export function localDateStr(date: Date): string {
   const d = String(date.getDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
 }
+
+/** Monday for the Date's local calendar week, formatted as YYYY-MM-DD. */
+export function localWeekStart(date: Date): string {
+  const monday = new Date(date);
+  const day = monday.getDay();
+  monday.setDate(monday.getDate() + (day === 0 ? -6 : 1 - day));
+  return localDateStr(monday);
+}

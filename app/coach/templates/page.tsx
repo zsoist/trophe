@@ -143,31 +143,7 @@ function TemplatesPageInner() {
     );
   }, []);
 
-  useEffect(() => {
-    async function checkAuth() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { router.push("/login"); return; }
-      // Role guard — only coaches can access
-      const { data: prof } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
-      if (prof?.role === 'client') { router.push('/dashboard'); return; }
-      loadTemplates();
-      loadExerciseLibrary();
-      loadClients();
-    }
-    checkAuth();
-  }, [router, loadClients]);
-
-  // ?client=<uuid> deep link (from the client-detail Workouts panel):
-  // preselect that client and open the Program Builder.
-  useEffect(() => {
-    const preselect = searchParams.get('client');
-    if (preselect && !loading) {
-      setBuilderInitialClient(preselect);
-      setShowBuilder(true);
-    }
-  }, [searchParams, loading]);
-
-  async function loadTemplates() {
+  const loadTemplates = useCallback(async () => {
     try {
       const { data } = await supabase
         .from('workout_templates')
@@ -180,9 +156,9 @@ function TemplatesPageInner() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
-  async function loadExerciseLibrary() {
+  const loadExerciseLibrary = useCallback(async () => {
     try {
       const { data } = await supabase
         .from('exercises')
@@ -193,7 +169,31 @@ function TemplatesPageInner() {
     } catch (err) {
       console.error('Error loading exercises:', err);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    async function checkAuth() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { router.push("/login"); return; }
+      // Role guard — only coaches can access
+      const { data: prof } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
+      if (prof?.role === 'client') { router.push('/dashboard'); return; }
+      loadTemplates();
+      loadExerciseLibrary();
+      loadClients();
+    }
+    checkAuth();
+  }, [router, loadClients, loadTemplates, loadExerciseLibrary]);
+
+  // ?client=<uuid> deep link (from the client-detail Workouts panel):
+  // preselect that client and open the Program Builder.
+  useEffect(() => {
+    const preselect = searchParams.get('client');
+    if (preselect && !loading) {
+      setBuilderInitialClient(preselect);
+      setShowBuilder(true);
+    }
+  }, [searchParams, loading]);
 
   function resetForm() {
     setEditingTemplateId(null);

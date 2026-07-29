@@ -15,6 +15,10 @@ test('login page renders user-visible auth controls', async ({ page }) => {
   await expect(page.locator('form').getByRole('button', { name: 'Log in' })).toBeVisible();
   await expect(page.getByRole('textbox', { name: 'Email' })).toBeVisible();
   await expect(page.getByRole('textbox', { name: 'Password' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Sign up' }).click();
+  await page.getByRole('textbox', { name: /create password/i }).fill('NickReady!2026');
+  await expect(page.getByText('Password strength: Strong')).toBeVisible();
 });
 
 test('protected dashboard redirects anonymous users to login', async ({ page }) => {

@@ -1,5 +1,16 @@
 import type { TaskName, RoutingPolicy } from '@/agents/router/policies';
 
+export type AiErrorCategory =
+  | 'timeout'
+  | 'rate_limit'
+  | 'transient'
+  | 'auth'
+  | 'schema'
+  | 'budget'
+  | 'policy'
+  | 'invalid_input'
+  | 'unknown';
+
 export interface AiUsage {
   inputTokens: number;
   outputTokens: number;

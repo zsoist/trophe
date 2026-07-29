@@ -889,6 +889,37 @@ body {
   }
 }
 
+/* Login is readable before animation and needs no animation runtime. */
+@keyframes login-enter {
+  from { transform: translateY(12px); }
+  to { transform: translateY(0); }
+}
+
+.login-enter {
+  animation: login-enter 0.35s cubic-bezier(.25, .46, .45, .94) both;
+}
+
+.password-strength-fill {
+  transition: width 180ms ease-out;
+}
+
+/* Keep SSR content and layout space while deferring below-the-fold analytics
+   rendering work until the coach approaches the panels. */
+.client-analytics-deferred {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 900px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-enter {
+    animation: none;
+  }
+
+  .password-strength-fill {
+    transition: none;
+  }
+}
+
 /* ─── User appearance system (lib/appearance.ts writes these on <html>) ───
    --accent* : user-selected accent (defaults to brand gold)
    --m-*     : user-selected chart palette (defaults = classic macro colors)

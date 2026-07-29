@@ -41,14 +41,17 @@ import PlateCalculator from '@/components/workout/PlateCalculator';
 import { muscleColor } from '@/components/workout/muscle-groups';
 import { useWeightUnit, kgToDisplay, displayToKg } from '@/lib/workout/units';
 import { getRestTarget, setRestTarget as persistRestTarget, REST_CHOICES } from '@/lib/workout/rest-targets';
+import { supersetGroupFor, supersetLabelFor } from '@/lib/workout/supersets';
 import {
   createWorkoutSession,
   deleteWorkoutSet,
+  deleteWorkoutSets,
   finishWorkoutSession,
   insertWorkoutSet,
   insertWorkoutSets,
   loadLastSetsMap,
   loadPrMap,
+  updateWorkoutSupersetGroups,
   type CompletedSetInput,
 } from '@/components/workout/workout-persistence';
 
@@ -75,18 +78,6 @@ interface ActiveExercise {
   lastSets?: { weight_kg: number | null; reps: number | null; rpe?: number | null }[];
   /** Superset pairing: linked with the NEXT exercise in the list (Hevy-style). */
   linkedBelow?: boolean;
-}
-
-/**
- * Superset group id for an exercise position, or null when unpaired.
- * Chained links (A→B→C) share one group; the id is the chain-start index + 1.
- */
-function supersetGroupFor(list: ActiveExercise[], index: number): number | null {
-  const inChain = list[index]?.linkedBelow || (index > 0 && list[index - 1]?.linkedBelow);
-  if (!inChain) return null;
-  let start = index;
-  while (start > 0 && list[start - 1]?.linkedBelow) start--;
-  return start + 1;
 }
 
 function blankSet(setNumber: number, from?: LocalSet): LocalSet {
@@ -199,6 +190,7 @@ export default function WorkoutPage() {
 
   // UI state
   const [saving, setSaving] = useState(false);
+  const [syncingSupersets, setSyncingSupersets] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [restStartedAt, setRestStartedAt] = useState<number | null>(null);
   // 10/10 wave: display unit, per-exercise rest targets, info/plate sheets.
@@ -248,7 +240,7 @@ export default function WorkoutPage() {
       .map(toSummary);
   }, [programData, todayWeekday, toSummary]);
 
-  const nextScheduled = useMemo(() => {
+  const nextScheduled = (() => {
     if (!programData || programData.days.length === 0) return null;
     for (let i = 1; i <= 7; i++) {
       const wd = (todayWeekday + i) % 7;
@@ -258,7 +250,7 @@ export default function WorkoutPage() {
       if (day) return { weekday: wd, templateName: day.template.name };
     }
     return null;
-  }, [programData, todayWeekday]);
+  })();
 
   // ── Load exercises, user & recents (+ ?repeat=<sessionId> from history) ──
   const refreshRecents = useCallback(async (uid: string) => {
@@ -271,48 +263,6 @@ export default function WorkoutPage() {
       .limit(5);
     if (data) setRecentSessions(data);
   }, []);
-
-  useEffect(() => {
-    async function init() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { router.push('/login'); return; }
-      setUserId(user.id);
-
-      const [exercisesRes, recentSetsRes] = await Promise.all([
-        supabase.from('exercises').select('*').order('muscle_group').order('name'),
-        // RLS scopes workout_sets to the caller's own sessions, so no explicit
-        // user filter is needed (workout_sets has no user_id column).
-        supabase
-          .from('workout_sets')
-          .select('exercise_id, created_at')
-          .order('created_at', { ascending: false })
-          .limit(120),
-        refreshRecents(user.id),
-      ]);
-      if (exercisesRes.data) setExercises(exercisesRes.data);
-      // De-dupe most-recent-first into a stable "recently used" list.
-      if (recentSetsRes.data) {
-        const seen = new Set<string>();
-        const ids: string[] = [];
-        for (const row of recentSetsRes.data as { exercise_id: string | null }[]) {
-          if (row.exercise_id && !seen.has(row.exercise_id)) {
-            seen.add(row.exercise_id);
-            ids.push(row.exercise_id);
-          }
-        }
-        setRecentExerciseIds(ids);
-      }
-
-      // "Repeat" deep-link from history: prefill a freestyle session.
-      const repeatId = new URLSearchParams(window.location.search).get('repeat');
-      if (repeatId) {
-        window.history.replaceState({}, '', '/dashboard/workout');
-        await startRepeat(repeatId, user.id);
-      }
-    }
-    init();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router]);
 
   // Load PR records for user
   const loadPRs = useCallback(async (uid: string, exerciseIds: string[]) => {
@@ -381,6 +331,49 @@ export default function WorkoutPage() {
     void loadPRs(uid, Array.from(byExercise.keys()));
   };
 
+  useEffect(() => {
+    async function init() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { router.push('/login'); return; }
+      setUserId(user.id);
+
+      const [exercisesRes, recentSetsRes] = await Promise.all([
+        supabase.from('exercises').select('*').order('muscle_group').order('name'),
+        // RLS scopes workout_sets to the caller's own sessions, so no explicit
+        // user filter is needed (workout_sets has no user_id column).
+        supabase
+          .from('workout_sets')
+          .select('exercise_id, created_at')
+          .order('created_at', { ascending: false })
+          .limit(120),
+        refreshRecents(user.id),
+      ]);
+      if (exercisesRes.data) setExercises(exercisesRes.data);
+      // De-dupe most-recent-first into a stable "recently used" list.
+      if (recentSetsRes.data) {
+        const seen = new Set<string>();
+        const ids: string[] = [];
+        for (const row of recentSetsRes.data as { exercise_id: string | null }[]) {
+          if (row.exercise_id && !seen.has(row.exercise_id)) {
+            seen.add(row.exercise_id);
+            ids.push(row.exercise_id);
+          }
+        }
+        setRecentExerciseIds(ids);
+      }
+
+      // "Repeat" deep-link from history: prefill a freestyle session.
+      const repeatId = new URLSearchParams(window.location.search).get('repeat');
+      if (repeatId) {
+        window.history.replaceState({}, '', '/dashboard/workout');
+        await startRepeat(repeatId, user.id);
+      }
+    }
+    init();
+    // startRepeat intentionally stays bound to the initial route load.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router, refreshRecents]);
+
   // Ghost values for a newly added exercise (shared batched helper).
   const loadLastSets = useCallback(async (exerciseId: string) => {
     if (!userId) return;
@@ -416,13 +409,37 @@ export default function WorkoutPage() {
   };
 
   /** Toggle superset pairing between an exercise and the one below it. */
-  const toggleSupersetLink = (exIndex: number) => {
-    setActiveExercises((prev) => {
-      if (exIndex >= prev.length - 1) return prev; // nothing below to pair with
-      const updated = [...prev];
-      updated[exIndex] = { ...updated[exIndex], linkedBelow: !updated[exIndex].linkedBelow };
-      return updated;
-    });
+  const toggleSupersetLink = async (exIndex: number) => {
+    if (syncingSupersets || exIndex >= activeExercises.length - 1) return;
+    const previous = activeExercises;
+    const updated = [...previous];
+    updated[exIndex] = {
+      ...updated[exIndex],
+      linkedBelow: !updated[exIndex].linkedBelow,
+    };
+    setActiveExercises(updated);
+
+    const persisted = updated.flatMap((exercise, index) =>
+      exercise.sets.flatMap((set) =>
+        set.dbId
+          ? [{ id: set.dbId, superset_group: supersetGroupFor(updated, index) }]
+          : [],
+      ),
+    );
+    if (persisted.length === 0) return;
+
+    setSyncingSupersets(true);
+    try {
+      const saved = await updateWorkoutSupersetGroups(persisted);
+      if (saved) return;
+      setActiveExercises((current) => current === updated ? previous : current);
+      window.alert(t('workout.superset_save_failed'));
+    } catch {
+      setActiveExercises((current) => current === updated ? previous : current);
+      window.alert(t('workout.superset_save_failed'));
+    } finally {
+      setSyncingSupersets(false);
+    }
   };
 
   // ─── Set management ───
@@ -438,10 +455,16 @@ export default function WorkoutPage() {
     });
   };
 
-  const removeSet = (exIndex: number, setIndex: number) => {
+  const removeSet = async (exIndex: number, setIndex: number) => {
     const target = activeExercises[exIndex]?.sets[setIndex];
     if (!target || activeExercises[exIndex].sets.length <= 1) return;
-    if (target.dbId) void deleteWorkoutSet(target.dbId);
+    if (target.dbId) {
+      const deleted = await deleteWorkoutSet(target.dbId);
+      if (!deleted) {
+        window.alert(t('workout.save_failed'));
+        return;
+      }
+    }
     setActiveExercises((prev) => {
       const updated = [...prev];
       const sets = updated[exIndex].sets.filter((_, i) => i !== setIndex);
@@ -479,10 +502,15 @@ export default function WorkoutPage() {
     });
   };
 
-  const removeExercise = (exIndex: number) => {
+  const removeExercise = async (exIndex: number) => {
     // Persisted sets of a removed exercise are deleted too.
-    for (const s of activeExercises[exIndex]?.sets ?? []) {
-      if (s.dbId) void deleteWorkoutSet(s.dbId);
+    const setIds = (activeExercises[exIndex]?.sets ?? [])
+      .map((set) => set.dbId)
+      .filter((id): id is string => Boolean(id));
+    const deleted = await deleteWorkoutSets(setIds);
+    if (!deleted) {
+      window.alert(t('workout.save_failed'));
+      return;
     }
     setActiveExercises((prev) => prev.filter((_, i) => i !== exIndex));
   };
@@ -549,7 +577,12 @@ export default function WorkoutPage() {
 
     if (set.completed) {
       patch({ saving: true });
-      if (set.dbId) await deleteWorkoutSet(set.dbId);
+      const deleted = set.dbId ? await deleteWorkoutSet(set.dbId) : false;
+      if (!deleted) {
+        patch({ saving: false });
+        window.alert(t('workout.save_failed'));
+        return;
+      }
       patch({ saving: false, completed: false, dbId: null, is_pr: false });
       return;
     }
@@ -557,9 +590,17 @@ export default function WorkoutPage() {
     const input = resolveSetInput(ae, set, setIndex, supersetGroupFor(activeExercises, exIndex));
     patch({ saving: true });
     const sessionId = await ensureSession();
-    if (!sessionId) { patch({ saving: false }); return; }
+    if (!sessionId) {
+      patch({ saving: false });
+      window.alert(t('workout.save_failed'));
+      return;
+    }
     const dbId = await insertWorkoutSet(sessionId, input);
-    if (!dbId) { patch({ saving: false }); return; }
+    if (!dbId) {
+      patch({ saving: false });
+      window.alert(t('workout.save_failed'));
+      return;
+    }
     // The session clock begins with the FIRST logged set — not on entry — so
     // elapsed time reflects real training, not time spent picking exercises.
     setStartTime((s) => s || Date.now());
@@ -635,13 +676,15 @@ export default function WorkoutPage() {
       };
 
       const sessionId = await ensureSession();
-      if (sessionId) {
-        await insertWorkoutSets(sessionId, pending);
-        await finishWorkoutSession(sessionId, {
-          name: sessionName || `Workout — ${localToday()}`,
-          duration_minutes: durationMinutes,
-          pain_flags: painFlags,
-        });
+      if (!sessionId) throw new Error('Workout session could not be created');
+      const inserted = await insertWorkoutSets(sessionId, pending);
+      const finished = inserted && await finishWorkoutSession(sessionId, {
+        name: sessionName || `Workout — ${localToday()}`,
+        duration_minutes: durationMinutes,
+        pain_flags: painFlags,
+      });
+      if (!inserted || !finished) {
+        throw new Error('Workout writes could not be verified');
       }
 
       if (userId) await refreshRecents(userId);
@@ -657,6 +700,7 @@ export default function WorkoutPage() {
       if (typeof navigator !== 'undefined') navigator.vibrate?.([10, 30, 10, 30, 18]);
     } catch (err) {
       console.error('Error finishing workout:', err);
+      window.alert(t('workout.save_failed'));
     } finally {
       setSaving(false);
     }
@@ -1080,7 +1124,7 @@ export default function WorkoutPage() {
                       <div className="flex items-center gap-1.5 px-3 pt-2 -mb-1">
                         <Link2 size={11} style={{ color: 'var(--accent, #D4A853)' }} />
                         <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--accent, #D4A853)' }}>
-                          {t('workout.superset')} {String.fromCharCode(64 + (supersetGroupFor(activeExercises, exIndex) ?? 1))}
+                          {t('workout.superset')} {supersetLabelFor(activeExercises, exIndex)}
                         </span>
                       </div>
                     )}
@@ -1131,10 +1175,12 @@ export default function WorkoutPage() {
                         {exIndex < activeExercises.length - 1 && (
                           <button
                             onClick={(e) => { e.stopPropagation(); toggleSupersetLink(exIndex); }}
+                            disabled={syncingSupersets}
                             className="p-1.5 rounded-lg transition-colors"
                             style={{
                               background: ae.linkedBelow ? 'color-mix(in srgb, var(--accent, #D4A853) 16%, transparent)' : 'rgba(255,255,255,0.05)',
                               color: ae.linkedBelow ? 'var(--accent, #D4A853)' : '#78716c',
+                              opacity: syncingSupersets ? 0.5 : 1,
                             }}
                             aria-label={ae.linkedBelow ? t('workout.superset_unlink') : t('workout.superset_link')}
                             title={ae.linkedBelow ? t('workout.superset_unlink') : t('workout.superset_link')}
@@ -1376,7 +1422,7 @@ export default function WorkoutPage() {
             onClose={() => setShowPicker(false)}
             lang={lang}
             onCustomCreated={(ex) => setExercises((prev) => [...prev, ex])}
-            onInfo={(ex) => setInfoExercise(ex)}
+            onInfo={(ex) => { setShowPicker(false); setInfoExercise(ex); }}
           />
         )}
       </AnimatePresence>
@@ -1434,8 +1480,8 @@ export default function WorkoutPage() {
                 {t('workout.summary_title')}
               </div>
               <div className="display-lg" style={{ fontSize: 44, lineHeight: '48px', color: 'var(--t1)' }}>
-                <AnimatedValue value={finishSummary.volume} />
-                <span style={{ fontFamily: 'var(--font-mono)', fontStyle: 'normal', fontSize: 13, color: 'var(--t4)', marginLeft: 4 }}>kg</span>
+                <AnimatedValue value={kgToDisplay(finishSummary.volume, unit)} />
+                <span style={{ fontFamily: 'var(--font-mono)', fontStyle: 'normal', fontSize: 13, color: 'var(--t4)', marginLeft: 4 }}>{unit}</span>
               </div>
               <div className="eye-d" style={{ marginTop: 2, marginBottom: 16 }}>{t('workout.summary_volume')}</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 18 }}>

@@ -1,0 +1,161 @@
+# Nick Food Experience — Zero-Spend Quality Handoff
+
+Date: 2026-07-29  
+Branch: `codex/trophe-10x-quality`  
+Scope: food parsing, nutrition review/logging, photo/manual boundaries, local DB lookup, performance, and zero-spend AI contracts.
+
+## Release evidence
+
+- Bounded release verifier: **passed**
+  - typecheck: passed
+  - full lint: passed
+  - unit/integration suite: 1,149 passed, 33 intentionally skipped
+  - production build: passed
+- Deterministic food lookup gate: **43/43 coverage (100%) and 43/43 accuracy (100%)**
+  - required coverage: 100%
+  - required accuracy: at least 95%
+  - missing DB rows are failures; they are no longer removed from the denominator
+- Focused food/nutrition regression suite: **198/198 passed**
+- Branded-query regression suite: **59/59 passed**
+  - generic `fries`, `french fries`, `burger`, `cheeseburger`, `caffe latte`,
+    `cola`, `soda`, `juice`, and `energy drink` never select an unrequested brand
+  - explicit `Big Mac`, `McNuggets`, `Starbucks latte`, `Pepsi`, and `Red Bull`
+    retain branded intent
+  - original user text, not an AI-normalized food name, controls brand intent
+- Food-agent suite: **475 passed, 3 intentionally skipped**
+- Offline provider contracts: **17/17 passed**
+  - production adapters exercised with injected fixture transports
+  - provider keys and paid-tool approval forcibly blanked
+  - live transport attempts: 0
+- Authenticated local browser matrix: **22/22 passed**
+  - Chromium mobile and desktop projects
+  - client, coach, and super-admin role journeys
+  - parser rate-limit, timeout, malformed-payload, editable-review, and manual-validation states
+  - settings, language/units, stable loading, safe destination handling, and logout
+  - three random disposable local users created for the run and removed afterward
+  - independent database check after the run: 0 matching auth users and 0 matching profiles
+  - Supabase API and database targets are guarded as loopback-only; paid-provider keys and approval are forcibly blanked
+- Local signup/confirmation gate: **passed with zero skips**
+  - `npm run dev:local` bootstraps/checks Supabase and derives credentials in memory
+  - signup 202, pre-confirm login rejection, Mailpit delivery, replay/resend convergence, gateway verification redirect, and post-confirm login all passed
+  - cleanup retries transient loopback socket failures and an independent SQL check confirmed zero disposable Auth/profile rows
+- Exhaustive local UI QA: **all 6 baseline issues fixed**
+  - zero-cost parser, signup, confirmation link, mobile exercise picker, localized document language, and local Analytics CSP noise
+  - `/signup` is now a safe compatibility route to the supported signup tab and preserves only a bounded invite code
+- Production dependency audit: **0 vulnerabilities**
+- DB read-only verification: schema, RLS policies, functions, vector columns, audit immutability, and required indexes passed.
+- Query-plan check:
+  - food full-text lookup uses `idx_foods_search_text`
+  - memory lookup uses `idx_mc_user_scope_active`
+  - wearable lookup uses `idx_wd_user_type_recorded`
+  - tiny local `food_log` and organization fixture tables use cheaper sequential scans; their production indexes are present
+- Warm branded/generic lookup benchmark: **480 lookups, 0 branded leaks**
+  - p50: 1.97 ms
+  - p95: 2.65 ms
+  - p99: 3.19 ms
+  - max: 3.36 ms
+- Public local-search hardening:
+  - malformed limits fall back safely; valid limits are clamped to 1–50
+  - database failures return stable public copy without raw database details
+  - migration `0060_food_database_trigram_search` adds GIN trigram indexes for English, Greek, and Spanish substring search
+  - a rolled-back 50,000-row local simulation used a `BitmapOr` across all three indexes and completed in about 3 ms
+  - the simulation left 0 probe rows
+- Bundle budgets: `/` and `/login` passed.
+
+## Product changes Nick should notice
+
+- Greek accented lookup works for `φέτα`, `ελαιόλαδο`, and `κοτόπουλο στήθος`.
+- Generic English food requests no longer drift into restaurant or retail
+  products. If the catalog has only branded candidates, lookup fails closed and
+  lets the parser request a generic estimate instead of fabricating brand intent.
+- Brand selection is source-agnostic: USDA restaurant rows, Open Food Facts
+  products, and any row with brand metadata are filtered unless Nick named the
+  brand. Known legacy restaurant rows now carry truthful brand metadata.
+- Generic `fries` and `french fries` use the zero-provider fast path and resolve
+  to `Fast foods, potato, french fried in vegetable oil`.
+- The deterministic local/CI catalog covers the complete 43-case golden set, including Colombian, Mediterranean, fitness, and edge-case portions.
+- Nutrition calculations keep two-decimal precision at the lookup boundary, preventing small macros from being hidden by early rounding.
+- Parser results fail closed when values are missing, non-finite, negative, implausible, out of bounds, or from an unknown source.
+- A partial dish decomposition now keeps its category-default provenance and computed confidence after caching; cache hits can no longer turn a mostly guessed recipe into a 0.75-confidence `local_db` result.
+- Decomposition confidence is monotonic at the 50% ingredient-match boundary instead of scoring 50% coverage below 40% coverage.
+- Common piece weights use whole normalized food tokens: short names such as `ham` and `pea` can no longer inherit `hamburger` or `peach` weights, while real matches such as `butter croissant` and `souvlaki chicken pita` still resolve.
+- Composite-dish ingredient lookups run through the order-preserving parallel batch API instead of one database round-trip at a time.
+- The full parser has a 50-second aggregate work budget and will not start another AI phase without a 16-second execution/cleanup reserve below the 60-second function cap.
+- Recipe-cache probes and non-composite decompositions run in parallel, each item is decomposed at most once, and unresolved macro estimates share one batched fallback execution.
+- One meal review is capped at 12 items; larger model outputs ask the user to split the meal in the selected app language instead of starting unbounded work.
+- The bounded parser’s computed worst-case provider envelope is 60 transports. Opaque live-route tools remain intentionally blocked at 1,001 attempts during the zero-spend phase.
+- Coach meal-plan macro rollups now share a 55-second route deadline and 48-transport ceiling across all concurrent parsers, stop starting work without a full parser reserve, and allow five manual rollups per ten minutes.
+- Meal-plan parse failures or budget skips mark affected days incomplete in the coach UI; they are no longer presented as zero-calorie totals.
+- Expired, incomplete, or cancelled auth callbacks now return Nick to login with safe recovery guidance instead of a blank form or reflected provider error details.
+- Malformed conversation and coach-insight JSON now returns a stable 400 before any memory, client-context, or model work begins.
+- Coach-insight requests for an inaccessible client now return an explicit 403 before reading client data or invoking AI, rather than surfacing an authorization throw as a 500.
+- Conversation provider/budget failures now return a stable retryable 503 and persist no orphan turn; successful user/assistant pairs are appended in one atomic database statement.
+- Privacy downloads now cover the client-subject nutrition, supplement, wearable, appointment, meal-plan, AI-memory/conversation, feedback, and attachment records classified by erasure coverage, with 1,000-row pagination.
+- A failed export source now produces `206 Partial Content`, `complete: false`, and an explicit `unavailableTables` list instead of a complete-looking 200 that silently omits health data.
+- Typechecking excludes only ignored `.next` conflict-copy filenames (for example `routes.d 5.ts`); prebuild clears the ignored `.next` tree and deletes numbered service-worker copies only when byte-identical to `public/sw.js`, preventing macOS Documents sync artifacts from breaking Nick’s verification runs.
+- Weekly calorie charts treat a zero/invalid target as “not configured”: logged days stay neutral and no false red status or zero target line is rendered.
+- An expired Spike wearable callback now returns through login to `/dashboard/integrations` using the redirect parameter the login page actually consumes.
+- Coach weekly habit activity is derived from the existing seven-day check-in result, removing a duplicate database query and bucketing ISO dates without west-of-UTC day shifts.
+- Edited portions are capped and validated again before the food-log insert.
+- Manual entry rejects invalid calories/macros before writing and now displays the validation error in the manual-entry view.
+- Photo analysis drops malformed or implausible items, caps confidence, and preserves an uncertainty note.
+- Food text, ingredient names, provider messages, stacks, and nested errors are no longer written to server logs.
+- Public landing/login delivery and coach analytics loading are lighter; recorded performance evidence is in `docs/quality/performance-final-2026-07-29.md`.
+
+## Nick acceptance checklist
+
+Use a non-production client tester account on the release candidate.
+
+1. Open `/dashboard/log`, choose a meal, and confirm the food input is immediately usable on desktop and mobile.
+2. Exercise text review with:
+   - `100g feta cheese`
+   - `1 tbsp olive oil`
+   - `1 cup black beans`
+   - `1 rice cake`
+   - `φέτα`
+   - `ελαιόλαδο`
+   - `κοτόπουλο στήθος`
+   - `fries`
+   - `french fries`
+   - `burger`
+   - `caffe latte`
+   - `cola`
+   - `energy drink`
+   - `Big Mac`
+   - `Starbucks latte`
+   - `Pepsi`
+   - `Red Bull`
+3. Confirm generic English inputs never acquire an unrequested brand. Explicit
+   brand inputs may resolve to that brand. Every successful result must show a
+   recognizable name, portion, macros, and provenance; no item should jump
+   directly into the log without review.
+4. Change a 100 g portion to 150 g. The displayed macros should scale immediately and the save action should remain available.
+5. Remove one item from a multi-item meal and confirm totals update.
+6. Submit an ambiguous serving and answer the clarification question. The original text must remain recoverable on cancel.
+7. Try manual entry:
+   - valid: 300 kcal, 20 g protein, 35 g carbs, 9 g fat
+   - invalid: -1 kcal, `Infinity`, negative macros, and an overlong name
+   - only the valid entry may reach save
+8. Try a clear food photo and a deliberately unclear photo. Results must be labeled as estimates with uncertainty; an unreliable response must suggest a clearer photo or manual entry.
+9. Trigger Retry after a parser error. A failed photo must never be silently resubmitted after switching to text.
+10. Confirm the success state returns to the meal and the logged row is editable/undoable where the flow provides an inserted row ID.
+
+The authenticated local matrix can be repeated with `npm run test:e2e:local-auth`. The harness refuses non-loopback Supabase API or database targets, creates random disposable client/coach/admin identities, runs the three authenticated browser specs sequentially, blanks paid-provider capabilities, and removes the identities even if the browser run fails. It does not require persistent tester credentials.
+
+For a clean local acceptance session, run `npm run dev:local`, open
+`http://127.0.0.1:3000`, and use Mailpit at `http://127.0.0.1:54324` for the
+signup confirmation message. No hosted Supabase keys or paid provider keys are
+required.
+
+## Explicit limits
+
+- No live AI/provider call was made. Real-model quality and live photo latency were not measured in this zero-spend run.
+- The local catalog currently contains 144 rows; 87 do not have embeddings
+  compatible with the configured vector model. Deterministic aliases,
+  multilingual full-text/trigram lookup, and the verified local parser remain
+  available at zero cost, but complete semantic-vector coverage requires a
+  deliberate free-local embedding migration or later provider approval.
+- No production database was read or changed.
+- Migration `0060_food_database_trigram_search` was applied and profiled only on loopback Supabase; production application remains an operator action.
+- The formal security plan requires a separate protected control-plane repository, signed broker/controller release, protected host identity, required GitHub App check, and Podman-based attestation. Those external prerequisites are not installed on this workstation, so no formal protected-lane attestation is claimed.
+- Production deployment, merge, and external writes remain operator actions.

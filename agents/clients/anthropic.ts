@@ -1,3 +1,14 @@
+import {
+  anthropicUsage,
+  malformedAnthropicResponse,
+  readAnthropicResponse,
+} from '@/agents/runtime/providers/anthropic';
+import {
+  assertPaidProviderAccess,
+  PAID_PROVIDER_OFFLINE_CREDENTIAL,
+} from '@/agents/runtime/provider-access';
+import { debitPaidTransportAttempt } from '../../scripts/safety/require-paid-ai-approval';
+
 // Thin Anthropic client with prompt caching support.
 // The `system` prompt is passed as a cacheable block — Anthropic caches the
 // prefix server-side so subsequent calls within the TTL reuse it at ~10% cost.
@@ -20,15 +31,24 @@ export interface AnthropicMessagesResult {
   };
   latencyMs: number;
   rawStatus: number;
-  rawError?: string;
 }
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 
 export async function callAnthropicMessages(
-  input: AnthropicMessagesInput,
+  input: AnthropicMessagesInput & {
+    signal: AbortSignal;
+    fetchImpl?: typeof fetch;
+    beforeTransportAttempt?: (endpoint: string) => unknown;
+  },
 ): Promise<AnthropicMessagesResult> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const accessMode = assertPaidProviderAccess({
+    provider: 'anthropic',
+    transportWasInjected: input.fetchImpl != null,
+  });
+  const apiKey = accessMode === 'offline'
+    ? PAID_PROVIDER_OFFLINE_CREDENTIAL
+    : process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured');
 
   const systemBlock = input.cacheSystem
@@ -36,8 +56,10 @@ export async function callAnthropicMessages(
     : input.system;
 
   const startTime = Date.now();
-  const response = await fetch(ANTHROPIC_API_URL, {
+  debitPaidTransportAttempt(input.beforeTransportAttempt, ANTHROPIC_API_URL);
+  const response = await (input.fetchImpl ?? fetch)(ANTHROPIC_API_URL, {
     method: 'POST',
+    redirect: 'error',
     headers: {
       'Content-Type': 'application/json',
       'x-api-key': apiKey,
@@ -49,41 +71,38 @@ export async function callAnthropicMessages(
       system: systemBlock,
       messages: [{ role: 'user', content: input.userMessage }],
     }),
+    signal: input.signal,
   });
-  const latencyMs = Date.now() - startTime;
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    return {
-      text: '',
-      usage: { input_tokens: 0, output_tokens: 0 },
-      latencyMs,
-      rawStatus: response.status,
-      rawError: errorText.slice(0, 500),
-    };
+  const data = await readAnthropicResponse({
+    response,
+    startedAt: startTime,
+    maxTokens: input.maxTokens ?? 2048,
+  });
+  const textBlock = Array.isArray(data.content)
+    ? data.content.find((content): content is { type?: unknown; text: string } => (
+        typeof content === 'object'
+        && content !== null
+        && 'text' in content
+        && typeof content.text === 'string'
+      ))
+    : undefined;
+  if (!textBlock || !textBlock.text) {
+    throw malformedAnthropicResponse({ response, startedAt: startTime, data });
+  }
+  const usage = anthropicUsage(data);
+  if (!usage) {
+    throw malformedAnthropicResponse({ response, startedAt: startTime, data });
   }
 
-  const data = (await response.json()) as {
-    content?: Array<{ text?: string }>;
-    usage?: {
-      input_tokens?: number;
-      output_tokens?: number;
-      cache_creation_input_tokens?: number;
-      cache_read_input_tokens?: number;
-    };
-  };
-  const text = data?.content?.[0]?.text ?? '';
-  const u = data?.usage ?? {};
-
   return {
-    text,
+    text: textBlock.text,
     usage: {
-      input_tokens: u.input_tokens ?? 0,
-      output_tokens: u.output_tokens ?? 0,
-      cache_creation_input_tokens: u.cache_creation_input_tokens,
-      cache_read_input_tokens: u.cache_read_input_tokens,
+      input_tokens: usage.inputTokens,
+      output_tokens: usage.outputTokens,
+      ...(usage.cacheWriteTokens != null ? { cache_creation_input_tokens: usage.cacheWriteTokens } : {}),
+      ...(usage.cacheReadTokens != null ? { cache_read_input_tokens: usage.cacheReadTokens } : {}),
     },
-    latencyMs,
+    latencyMs: Date.now() - startTime,
     rawStatus: response.status,
   };
 }

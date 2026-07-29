@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
@@ -126,6 +126,8 @@ export default function PlanEditorPage() {
   const [profileEmail, setProfileEmail] = useState<string | null>(null);
   const [activeHabits, setActiveHabits] = useState<ClientHabit[]>([]);
   const [templateHabits, setTemplateHabits] = useState<TemplateHabit[]>([]);
+  const [habitActionPending, setHabitActionPending] = useState<string | null>(null);
+  const [habitActionError, setHabitActionError] = useState<string | null>(null);
 
   // Editable state
   const [targets, setTargets] = useState<MacroTargets>({
@@ -138,6 +140,7 @@ export default function PlanEditorPage() {
   const [phase, setPhase] = useState<string>('active');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [suggesting, setSuggesting] = useState(false);
   const [suggestMsg, setSuggestMsg] = useState<string | null>(null);
 
@@ -145,6 +148,8 @@ export default function PlanEditorPage() {
   const [mealGrid, setMealGrid] = useState<MealGrid>({});
   const [activeDay, setActiveDay] = useState(0);
   const [mealSaving, setMealSaving] = useState(false);
+  const [mealSaveError, setMealSaveError] = useState<string | null>(null);
+  const mealSavesInFlight = useRef(0);
   // AI meal-suggest picker — scoped to a specific (day, slot) cell.
   const [picker, setPicker] = useState<{ day: number; slot: MealSlot } | null>(null);
   // Shopping-list generator modal.
@@ -155,10 +160,14 @@ export default function PlanEditorPage() {
   // UI state
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // ── Load ────────────────────────────────────────
 
   const loadData = useCallback(async () => {
+    setLoading(true);
+    setAuthError(false);
+    setLoadError(null);
     try {
       const {
         data: { user },
@@ -170,16 +179,16 @@ export default function PlanEditorPage() {
       }
 
       // Verify coach role
-      const { data: coachProfile } = await supabase
+      const { data: coachProfile, error: coachProfileError } = await supabase
         .from('profiles')
         .select('role')
         .eq('id', user.id)
         .maybeSingle();
+      if (coachProfileError) throw new Error('plan_load_failed');
 
       const role = coachProfile?.role ?? '';
       if (!['coach', 'admin', 'super_admin'].includes(role)) {
         setAuthError(true);
-        setLoading(false);
         return;
       }
 
@@ -213,8 +222,19 @@ export default function PlanEditorPage() {
           supabase
             .from('meal_plan_entries')
             .select('day_of_week, meal_slot, description')
-            .eq('client_id', clientId),
-        ]);
+             .eq('client_id', clientId),
+         ]);
+
+      const loadFailure = [
+        profileRes.error,
+        clientProfileRes.error,
+        activeHabitsRes.error,
+        templateHabitsRes.error,
+        mealPlanRes.error,
+      ].find(Boolean);
+      if (loadFailure || !profileRes.data || !clientProfileRes.data) {
+        throw new Error('plan_load_failed');
+      }
 
       setProfileName(profileRes.data?.full_name ?? null);
       setProfileEmail(profileRes.data?.email ?? null);
@@ -247,8 +267,8 @@ export default function PlanEditorPage() {
         grid[`${row.day_of_week}-${row.meal_slot}`] = row.description;
       }
       setMealGrid(grid);
-    } catch (err) {
-      console.error('PlanEditor: load error', err);
+    } catch {
+      setLoadError('Could not load this client plan — try again');
     } finally {
       setLoading(false);
     }
@@ -262,21 +282,34 @@ export default function PlanEditorPage() {
 
   const handleSave = async () => {
     setSaving(true);
-    await supabase
-      .from('client_profiles')
-      .update({
-        target_calories: kcalFromMacros(targets),
-        target_protein_g: targets.protein,
-        target_carbs_g: targets.carbs,
-        target_fat_g: targets.fat,
-        target_water_ml: targets.water,
-        coaching_phase: phase,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('user_id', clientId);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-    setSaving(false);
+    setSaved(false);
+    setSaveError(null);
+    try {
+      const { data, error } = await supabase
+        .from('client_profiles')
+        .update({
+          target_calories: kcalFromMacros(targets),
+          target_protein_g: targets.protein,
+          target_carbs_g: targets.carbs,
+          target_fat_g: targets.fat,
+          target_water_ml: targets.water,
+          coaching_phase: phase,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('user_id', clientId)
+        .select('user_id')
+        .maybeSingle();
+      if (error || !data) {
+        setSaveError('Could not save plan — try again');
+        return;
+      }
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch {
+      setSaveError('Could not save plan — try again');
+    } finally {
+      setSaving(false);
+    }
   };
 
   // Deterministic calorie/macro baseline from the client's body composition.
@@ -290,11 +323,21 @@ export default function PlanEditorPage() {
         body: JSON.stringify({ clientId }),
       });
       const data = (await res.json().catch(() => ({}))) as {
-        target?: { protein_g: number; carbs_g: number; fat_g: number }; tdee?: number; error?: string;
+        target?: {
+          protein_g: number;
+          carbs_g: number;
+          fat_g: number;
+          protein_capped?: boolean;
+        };
+        tdee?: number;
+        error?: string;
       };
       if (res.ok && data.target) {
         setTargets((t) => ({ ...t, protein: data.target!.protein_g, carbs: data.target!.carbs_g, fat: data.target!.fat_g }));
-        setSuggestMsg(`Suggested from TDEE ≈ ${data.tdee} kcal — review and Save`);
+        const capNote = data.target.protein_capped
+          ? ' Protein was capped to fit the calorie target.'
+          : '';
+        setSuggestMsg(`Suggested from TDEE ≈ ${data.tdee} kcal — review and Save.${capNote}`);
       } else {
         setSuggestMsg(data.error || 'Need sex, age, height & weight on the client first');
       }
@@ -306,32 +349,61 @@ export default function PlanEditorPage() {
   };
 
   const addHabit = async (habitId: string) => {
-    if (!coachId) return;
-    const { data } = await supabase
-      .from('client_habits')
-      .insert({
-        client_id: clientId,
-        habit_id: habitId,
-        assigned_by: coachId,
-        status: 'active',
-        sequence_number: activeHabits.length + 1,
-      })
-      .select(
-        'id, status, sequence_number, coach_note, habit:habits(id, name_en, emoji, category, difficulty)'
-      )
-      .maybeSingle();
-    if (data) {
+    if (habitActionPending) return;
+    if (!coachId) {
+      setHabitActionError('Habit was not added — try again');
+      return;
+    }
+    setHabitActionPending(`add:${habitId}`);
+    setHabitActionError(null);
+    try {
+      const { data, error } = await supabase
+        .from('client_habits')
+        .insert({
+          client_id: clientId,
+          habit_id: habitId,
+          assigned_by: coachId,
+          status: 'active',
+          sequence_number: activeHabits.length + 1,
+        })
+        .select(
+          'id, status, sequence_number, coach_note, habit:habits(id, name_en, emoji, category, difficulty)'
+        )
+        .maybeSingle();
+      if (error || !data) {
+        setHabitActionError('Habit was not added — try again');
+        return;
+      }
       const typed = data as unknown as ClientHabit;
       setActiveHabits((prev) => [...prev, typed]);
+    } catch {
+      setHabitActionError('Habit was not added — try again');
+    } finally {
+      setHabitActionPending(null);
     }
   };
 
   const removeHabit = async (clientHabitId: string) => {
-    await supabase
-      .from('client_habits')
-      .update({ status: 'paused' })
-      .eq('id', clientHabitId);
-    setActiveHabits((prev) => prev.filter((h) => h.id !== clientHabitId));
+    if (habitActionPending) return;
+    setHabitActionPending(`remove:${clientHabitId}`);
+    setHabitActionError(null);
+    try {
+      const { data, error } = await supabase
+        .from('client_habits')
+        .update({ status: 'paused' })
+        .eq('id', clientHabitId)
+        .select('id')
+        .maybeSingle();
+      if (error || !data) {
+        setHabitActionError('Habit was not removed — try again');
+        return;
+      }
+      setActiveHabits((prev) => prev.filter((h) => h.id !== clientHabitId));
+    } catch {
+      setHabitActionError('Habit was not removed — try again');
+    } finally {
+      setHabitActionPending(null);
+    }
   };
 
   // ── Step helpers ─────────────────────────────────
@@ -341,23 +413,53 @@ export default function PlanEditorPage() {
 
   // ── Meal plan helpers ─────────────────────────────
 
-  const saveMealCell = async (day: number, slot: MealSlot, description: string) => {
-    if (!coachId) return;
+  const beginMealSave = () => {
+    mealSavesInFlight.current += 1;
     setMealSaving(true);
-    await supabase
-      .from('meal_plan_entries')
-      .upsert(
-        {
-          client_id: clientId,
-          coach_id: coachId,
-          day_of_week: day,
-          meal_slot: slot,
-          description,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'client_id,day_of_week,meal_slot' }
-      );
-    setMealSaving(false);
+  };
+  const finishMealSave = () => {
+    mealSavesInFlight.current = Math.max(0, mealSavesInFlight.current - 1);
+    if (mealSavesInFlight.current === 0) setMealSaving(false);
+  };
+
+  const saveMealCell = async (
+    day: number,
+    slot: MealSlot,
+    description: string,
+  ): Promise<boolean> => {
+    if (!coachId) {
+      setMealSaveError('Meal change not saved — try again');
+      return false;
+    }
+    beginMealSave();
+    setMealSaveError(null);
+    try {
+      const { data, error } = await supabase
+        .from('meal_plan_entries')
+        .upsert(
+          {
+            client_id: clientId,
+            coach_id: coachId,
+            day_of_week: day,
+            meal_slot: slot,
+            description,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'client_id,day_of_week,meal_slot' }
+        )
+        .select('day_of_week')
+        .maybeSingle();
+      if (error || !data) {
+        setMealSaveError('Meal change not saved — try again');
+        return false;
+      }
+      return true;
+    } catch {
+      setMealSaveError('Meal change not saved — try again');
+      return false;
+    } finally {
+      finishMealSave();
+    }
   };
 
   const setMealCell = (day: number, slot: MealSlot, value: string) =>
@@ -368,8 +470,8 @@ export default function PlanEditorPage() {
     if (!picker) return;
     const { day, slot } = picker;
     setMealCell(day, slot, text);
-    await saveMealCell(day, slot, text);
-    setPicker(null);
+    const saved = await saveMealCell(day, slot, text);
+    if (saved) setPicker(null);
   };
 
   // Michael: "breakfast should maybe be the same for all week"
@@ -377,7 +479,8 @@ export default function PlanEditorPage() {
     if (!coachId) return;
     const source = mealGrid[`${activeDay}-${slot}`] ?? '';
     if (!source.trim()) return;
-    setMealSaving(true);
+    beginMealSave();
+    setMealSaveError(null);
     const rows = Array.from({ length: 7 }, (_, day) => ({
       client_id: clientId,
       coach_id: coachId,
@@ -386,15 +489,25 @@ export default function PlanEditorPage() {
       description: source,
       updated_at: new Date().toISOString(),
     }));
-    await supabase
-      .from('meal_plan_entries')
-      .upsert(rows, { onConflict: 'client_id,day_of_week,meal_slot' });
-    setMealGrid((g) => {
-      const next = { ...g };
-      for (let day = 0; day < 7; day++) next[`${day}-${slot}`] = source;
-      return next;
-    });
-    setMealSaving(false);
+    try {
+      const { data, error } = await supabase
+        .from('meal_plan_entries')
+        .upsert(rows, { onConflict: 'client_id,day_of_week,meal_slot' })
+        .select('day_of_week');
+      if (error || data?.length !== 7) {
+        setMealSaveError('Weekly copy not saved — try again');
+        return;
+      }
+      setMealGrid((g) => {
+        const next = { ...g };
+        for (let day = 0; day < 7; day++) next[`${day}-${slot}`] = source;
+        return next;
+      });
+    } catch {
+      setMealSaveError('Weekly copy not saved — try again');
+    } finally {
+      finishMealSave();
+    }
   };
 
   // ── Render guards ────────────────────────────────
@@ -450,6 +563,39 @@ export default function PlanEditorPage() {
             }}
           >
             Go Back
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div
+        className="min-h-screen flex items-center justify-center px-4"
+        style={{ background: 'var(--bg,#0a0a0a)' }}
+      >
+        <div className="card" style={{ padding: 24, textAlign: 'center', maxWidth: 340 }}>
+          <div role="alert" style={{ fontSize: 13, color: 'var(--t2)', marginBottom: 16 }}>
+            {loadError}
+          </div>
+          <button
+            onClick={loadData}
+            style={{
+              background: 'var(--gold-300,#D4A853)',
+              color: '#0a0a0a',
+              border: 'none',
+              borderRadius: 10,
+              padding: '10px 20px',
+              fontFamily: 'var(--font-mono)',
+              fontSize: 11,
+              fontWeight: 700,
+              cursor: 'pointer',
+              textTransform: 'uppercase',
+              letterSpacing: '.08em',
+            }}
+          >
+            Retry
           </button>
         </div>
       </div>
@@ -599,8 +745,8 @@ export default function PlanEditorPage() {
         </div>
 
         {/* ══ Weekly Meal Plan ══ */}
-        <div className="row-b" style={{ marginBottom: 8 }}>
-          <span className="eye">WEEKLY MEAL PLAN</span>
+         <div className="row-b" style={{ marginBottom: 8 }}>
+           <span className="eye">WEEKLY MEAL PLAN</span>
           <div className="row-i" style={{ gap: 12 }}>
             {mealSaving && (
               <span style={{ fontSize: 10, color: 'var(--t3)', fontFamily: 'var(--font-mono)' }}>saving…</span>
@@ -632,10 +778,18 @@ export default function PlanEditorPage() {
             >
               <Icon name="i-list" size={12} style={{ color: 'var(--gold-300,#D4A853)' }} />
               Shopping list
-            </button>
-          </div>
-        </div>
-        {/* Desktop: full 7-day week grid (Michael demos on PC) */}
+             </button>
+           </div>
+         </div>
+         {mealSaveError && (
+           <div
+             role="alert"
+             style={{ color: 'var(--err,#E87A6E)', fontSize: 11, marginBottom: 8 }}
+           >
+             {mealSaveError}
+           </div>
+         )}
+         {/* Desktop: full 7-day week grid (Michael demos on PC) */}
         <div className="hidden lg:block card" style={{ padding: 14, marginBottom: 16, overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 6 }}>
             <thead>
@@ -782,10 +936,18 @@ export default function PlanEditorPage() {
         </div>
 
         {/* ══ Active Habits ══ */}
-        <div className="eye" style={{ marginBottom: 8 }}>
-          ACTIVE HABITS ({activeHabits.length})
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
+         <div className="eye" style={{ marginBottom: 8 }}>
+           ACTIVE HABITS ({activeHabits.length})
+         </div>
+         {habitActionError && (
+           <div
+             role="alert"
+             style={{ color: 'var(--err,#E87A6E)', fontSize: 11, marginBottom: 8 }}
+           >
+             {habitActionError}
+           </div>
+         )}
+         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
           {activeHabits.map((ch) => (
             <div
               key={ch.id}
@@ -803,13 +965,14 @@ export default function PlanEditorPage() {
                   </div>
                 </div>
               </div>
-              <button
-                onClick={() => removeHabit(ch.id)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  color: 'var(--t4)',
+               <button
+                 onClick={() => removeHabit(ch.id)}
+                 disabled={habitActionPending !== null}
+                 style={{
+                   background: 'none',
+                   border: 'none',
+                   cursor: habitActionPending ? 'not-allowed' : 'pointer',
+                   color: 'var(--t4)',
                   padding: 4,
                 }}
                 title="Remove habit"
@@ -845,10 +1008,11 @@ export default function PlanEditorPage() {
                 }}
               >
                 {availableToAdd.map((h) => (
-                  <button
-                    key={h.id}
-                    onClick={() => addHabit(h.id)}
-                    style={{
+                   <button
+                     key={h.id}
+                     onClick={() => addHabit(h.id)}
+                     disabled={habitActionPending !== null}
+                     style={{
                       display: 'flex',
                       alignItems: 'center',
                       gap: 8,
@@ -856,7 +1020,7 @@ export default function PlanEditorPage() {
                       background: 'transparent',
                       border: '1px solid var(--line)',
                       borderRadius: 8,
-                      cursor: 'pointer',
+                       cursor: habitActionPending ? 'not-allowed' : 'pointer',
                       textAlign: 'left',
                       width: '100%',
                     }}
@@ -871,10 +1035,23 @@ export default function PlanEditorPage() {
               </div>
             </div>
           </>
-        )}
+         )}
 
-        {/* ══ Save Button ══ */}
-        <button
+         {/* ══ Save Button ══ */}
+         {saveError && (
+           <div
+             role="alert"
+             style={{
+               color: 'var(--err,#E87A6E)',
+               fontSize: 11,
+               marginBottom: 8,
+               textAlign: 'center',
+             }}
+           >
+             {saveError}
+           </div>
+         )}
+         <button
           onClick={handleSave}
           disabled={saving}
           style={{

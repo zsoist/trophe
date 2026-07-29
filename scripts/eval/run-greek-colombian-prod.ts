@@ -24,6 +24,11 @@ import { resolve } from 'path';
 import { execFileSync } from 'node:child_process';
 import { assertOffPeakEvalWindow } from './off-peak';
 import { verifyProductionFoodParsePolicy } from './verify-production-food-parse-policy';
+import {
+  FOOD_PARSE_OPAQUE_MAX_PROVIDER_ATTEMPTS,
+  requirePaidAiToolApproval,
+  resolvePaidAiRouteEndpoint,
+} from '../safety/require-paid-ai-approval';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -101,9 +106,24 @@ interface CaseResult {
 
 // ─── Config ─────────────────────────────────────────────────────────────────
 
+const TROPHE_API = process.env.TROPHE_API || 'https://trophe.app';
+const paidEndpoint = resolvePaidAiRouteEndpoint({
+  baseUrl: TROPHE_API,
+  pathname: '/api/food/parse',
+  operation: 'eval-greek-colombian-prod',
+});
+const paidAiApproval = requirePaidAiToolApproval({
+  operation: 'eval-greek-colombian-prod',
+  argv: process.argv.slice(2),
+  env: process.env,
+  endpoints: [paidEndpoint],
+});
+paidAiApproval.reserveOpaqueEnvelope({
+  endpoint: paidEndpoint,
+  maxProviderAttempts: FOOD_PARSE_OPAQUE_MAX_PROVIDER_ATTEMPTS,
+});
 const EVAL_EMAIL = process.env.EVAL_AUTH_EMAIL;
 const EVAL_PASSWORD = process.env.EVAL_AUTH_PASSWORD;
-const TROPHE_API = process.env.TROPHE_API || 'https://trophe.app';
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'sb_publishable_mEkTXGkdpQyH9ZWqgAWoBQ_b8iTG2cZ';
 const MAX_LATENCY_MS = 8000;
@@ -154,7 +174,7 @@ async function runCase(
   let response: { items: ParsedItem[] } | null = null;
 
   try {
-    const res = await fetch(`${TROPHE_API}/api/food/parse`, {
+    const res = await paidAiApproval.fetchOpaque(paidEndpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -163,7 +183,7 @@ async function runCase(
         'x-request-id': `frozen-probe-${c.id}-${Date.now()}`,
       },
       body: JSON.stringify({ text: c.input, language: c.language }),
-    });
+    }, { maxProviderAttempts: FOOD_PARSE_OPAQUE_MAX_PROVIDER_ATTEMPTS });
     httpStatus = res.status;
     const rawBody = await res.text();
     const body = rawBody ? JSON.parse(rawBody) : {};
@@ -449,11 +469,17 @@ async function main() {
 
   // Load golden cases
   const goldenPath = 'agents/evals/food-parse-greek-colombian-golden.json';
-  const golden: GoldenFile = JSON.parse(execFileSync(
+  const goldenSource: GoldenFile = JSON.parse(execFileSync(
     'git',
     ['show', `${FROZEN_GOLDEN_REF}:${goldenPath}`],
     { encoding: 'utf8', cwd: resolve(__dirname, '../..') },
   ));
+  const golden: GoldenFile = {
+    ...goldenSource,
+    cases: [...paidAiApproval.boundJobs(goldenSource.cases, {
+      maxAttemptsPerJob: FOOD_PARSE_OPAQUE_MAX_PROVIDER_ATTEMPTS * runs,
+    })],
+  };
   console.log(`📋 Loaded ${golden.cases.length} cases from frozen ${FROZEN_GOLDEN_REF} (${runs} run${runs > 1 ? 's' : ''})`);
 
   // Authenticate

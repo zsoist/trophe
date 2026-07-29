@@ -232,6 +232,8 @@ export interface MacroTargets {
   fiber_g: number;
   sugar_g: number;
   water_ml: number;
+  /** Protein/fat anchors were proportionally fitted to the calorie ceiling. */
+  macros_adjusted?: boolean;
 }
 
 export interface DailyMacroSummary {

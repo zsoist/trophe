@@ -28,7 +28,12 @@ export async function GET(request: NextRequest) {
   // OAuth error from provider (e.g. user cancelled)
   if (error) {
     const loginUrl = new URL('/login', origin);
-    loginUrl.searchParams.set('error', errorDescription ?? error);
+    const cancelled = error === 'access_denied' || /cancel|denied/i.test(errorDescription ?? '');
+    if (cancelled) {
+      loginUrl.searchParams.set('error', 'cancelled');
+    } else {
+      loginUrl.searchParams.set('error', 'invalid_or_expired');
+    }
     return NextResponse.redirect(loginUrl);
   }
 
@@ -38,7 +43,7 @@ export async function GET(request: NextRequest) {
 
     if (exchangeError) {
       const loginUrl = new URL('/login', origin);
-      loginUrl.searchParams.set('error', 'Auth code exchange failed. Please try again.');
+      loginUrl.searchParams.set('error', 'invalid_or_expired');
       return NextResponse.redirect(loginUrl);
     }
 
@@ -48,6 +53,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL(safeNext, origin));
   }
 
-  // No code and no error — something unexpected. Send back to login.
-  return NextResponse.redirect(new URL('/login', origin));
+  // No code and no error means the callback URL is incomplete.
+  const loginUrl = new URL('/login', origin);
+  loginUrl.searchParams.set('error', 'invalid_or_expired');
+  return NextResponse.redirect(loginUrl);
 }

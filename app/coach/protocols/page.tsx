@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/components/shared/Toast';
 import { motion } from 'framer-motion';
@@ -88,19 +88,7 @@ export default function ProtocolsPage() {
   const [clients, setClients] = useState<(ClientProfile & { profile?: Profile })[]>([]);
   const [loadingClients, setLoadingClients] = useState(false);
 
-  useEffect(() => {
-    async function checkAuth() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { router.push("/login"); return; }
-      // Role guard — only coaches can access
-      const { data: prof } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
-      if (prof?.role === 'client') { router.push('/dashboard'); return; }
-      loadProtocols();
-    }
-    checkAuth();
-  }, [router]);
-
-  async function loadProtocols() {
+  const loadProtocols = useCallback(async () => {
     try {
       const { data } = await supabase
         .from('supplement_protocols')
@@ -113,7 +101,19 @@ export default function ProtocolsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    async function checkAuth() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { router.push("/login"); return; }
+      // Role guard — only coaches can access
+      const { data: prof } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
+      if (prof?.role === 'client') { router.push('/dashboard'); return; }
+      loadProtocols();
+    }
+    checkAuth();
+  }, [router, loadProtocols]);
 
   function resetForm() {
     setFormName('');

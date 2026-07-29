@@ -6,6 +6,10 @@ import { BarChart3 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { localDateStr } from '@/lib/utils/dates';
 import { MACRO_COLORS } from '@/lib/macro-colors';
+import {
+  weeklyCalorieBarColor,
+  weeklyCalorieTargetY,
+} from '@/lib/nutrition/weekly-calorie-visuals';
 
 interface DayData {
   date: string;
@@ -118,15 +122,7 @@ export default function WeeklyMacroChart({
     ? Math.round(daysWithData.reduce((s, d) => s + d.fat_g, 0) / daysWithData.length)
     : 0;
 
-  const targetY = chartHeight - (targetCalories / maxCal) * chartHeight;
-
-  function getBarColor(calories: number): string {
-    if (calories === 0) return 'rgba(255,255,255,0.04)';
-    const ratio = calories / targetCalories;
-    if (ratio >= 0.9 && ratio <= 1.1) return 'var(--accent, #D4A853)'; // Gold - on target
-    if (ratio < 0.9) return '#6b7280'; // Gray - under
-    return '#ef4444'; // Red - over
-  }
+  const targetY = weeklyCalorieTargetY(targetCalories, maxCal, chartHeight);
 
   return (
     <motion.div
@@ -147,34 +143,38 @@ export default function WeeklyMacroChart({
           viewBox={`0 0 ${totalWidth + 20} ${chartHeight + 28}`}
           className="overflow-visible"
         >
-          {/* Target line */}
-          <line
-            x1={0}
-            y1={targetY}
-            x2={totalWidth + 20}
-            y2={targetY}
-            stroke="var(--accent, #D4A853)"
-            strokeWidth={1}
-            strokeDasharray="4 3"
-            opacity={0.5}
-          />
-          <text
-            x={totalWidth + 18}
-            y={targetY - 4}
-            textAnchor="end"
-            fill="var(--accent, #D4A853)"
-            fontSize={8}
-            opacity={0.6}
-          >
-            {targetCalories}
-          </text>
+          {/* A zero target means "not configured", so render no threshold. */}
+          {targetY !== null && (
+            <>
+              <line
+                x1={0}
+                y1={targetY}
+                x2={totalWidth + 20}
+                y2={targetY}
+                stroke="var(--accent, #D4A853)"
+                strokeWidth={1}
+                strokeDasharray="4 3"
+                opacity={0.5}
+              />
+              <text
+                x={totalWidth + 18}
+                y={targetY - 4}
+                textAnchor="end"
+                fill="var(--accent, #D4A853)"
+                fontSize={8}
+                opacity={0.6}
+              >
+                {targetCalories}
+              </text>
+            </>
+          )}
 
           {/* Bars */}
           {weekData.map((day, i) => {
             const x = 10 + i * (barWidth + gap);
             const barH = day.calories > 0 ? (day.calories / maxCal) * chartHeight : 4;
             const y = chartHeight - barH;
-            const color = getBarColor(day.calories);
+            const color = weeklyCalorieBarColor(day.calories, targetCalories);
             const isToday = i === 6;
 
             return (
