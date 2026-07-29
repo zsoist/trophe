@@ -240,7 +240,7 @@ export default function WorkoutPage() {
       .map(toSummary);
   }, [programData, todayWeekday, toSummary]);
 
-  const nextScheduled = useMemo(() => {
+  const nextScheduled = (() => {
     if (!programData || programData.days.length === 0) return null;
     for (let i = 1; i <= 7; i++) {
       const wd = (todayWeekday + i) % 7;
@@ -250,7 +250,7 @@ export default function WorkoutPage() {
       if (day) return { weekday: wd, templateName: day.template.name };
     }
     return null;
-  }, [programData, todayWeekday]);
+  })();
 
   // ── Load exercises, user & recents (+ ?repeat=<sessionId> from history) ──
   const refreshRecents = useCallback(async (uid: string) => {
@@ -263,48 +263,6 @@ export default function WorkoutPage() {
       .limit(5);
     if (data) setRecentSessions(data);
   }, []);
-
-  useEffect(() => {
-    async function init() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { router.push('/login'); return; }
-      setUserId(user.id);
-
-      const [exercisesRes, recentSetsRes] = await Promise.all([
-        supabase.from('exercises').select('*').order('muscle_group').order('name'),
-        // RLS scopes workout_sets to the caller's own sessions, so no explicit
-        // user filter is needed (workout_sets has no user_id column).
-        supabase
-          .from('workout_sets')
-          .select('exercise_id, created_at')
-          .order('created_at', { ascending: false })
-          .limit(120),
-        refreshRecents(user.id),
-      ]);
-      if (exercisesRes.data) setExercises(exercisesRes.data);
-      // De-dupe most-recent-first into a stable "recently used" list.
-      if (recentSetsRes.data) {
-        const seen = new Set<string>();
-        const ids: string[] = [];
-        for (const row of recentSetsRes.data as { exercise_id: string | null }[]) {
-          if (row.exercise_id && !seen.has(row.exercise_id)) {
-            seen.add(row.exercise_id);
-            ids.push(row.exercise_id);
-          }
-        }
-        setRecentExerciseIds(ids);
-      }
-
-      // "Repeat" deep-link from history: prefill a freestyle session.
-      const repeatId = new URLSearchParams(window.location.search).get('repeat');
-      if (repeatId) {
-        window.history.replaceState({}, '', '/dashboard/workout');
-        await startRepeat(repeatId, user.id);
-      }
-    }
-    init();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router]);
 
   // Load PR records for user
   const loadPRs = useCallback(async (uid: string, exerciseIds: string[]) => {
@@ -372,6 +330,49 @@ export default function WorkoutPage() {
     setMode('freestyle');
     void loadPRs(uid, Array.from(byExercise.keys()));
   };
+
+  useEffect(() => {
+    async function init() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { router.push('/login'); return; }
+      setUserId(user.id);
+
+      const [exercisesRes, recentSetsRes] = await Promise.all([
+        supabase.from('exercises').select('*').order('muscle_group').order('name'),
+        // RLS scopes workout_sets to the caller's own sessions, so no explicit
+        // user filter is needed (workout_sets has no user_id column).
+        supabase
+          .from('workout_sets')
+          .select('exercise_id, created_at')
+          .order('created_at', { ascending: false })
+          .limit(120),
+        refreshRecents(user.id),
+      ]);
+      if (exercisesRes.data) setExercises(exercisesRes.data);
+      // De-dupe most-recent-first into a stable "recently used" list.
+      if (recentSetsRes.data) {
+        const seen = new Set<string>();
+        const ids: string[] = [];
+        for (const row of recentSetsRes.data as { exercise_id: string | null }[]) {
+          if (row.exercise_id && !seen.has(row.exercise_id)) {
+            seen.add(row.exercise_id);
+            ids.push(row.exercise_id);
+          }
+        }
+        setRecentExerciseIds(ids);
+      }
+
+      // "Repeat" deep-link from history: prefill a freestyle session.
+      const repeatId = new URLSearchParams(window.location.search).get('repeat');
+      if (repeatId) {
+        window.history.replaceState({}, '', '/dashboard/workout');
+        await startRepeat(repeatId, user.id);
+      }
+    }
+    init();
+    // startRepeat intentionally stays bound to the initial route load.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router, refreshRecents]);
 
   // Ghost values for a newly added exercise (shared batched helper).
   const loadLastSets = useCallback(async (exerciseId: string) => {
