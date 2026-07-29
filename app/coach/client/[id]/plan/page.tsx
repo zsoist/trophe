@@ -160,10 +160,14 @@ export default function PlanEditorPage() {
   // UI state
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // ── Load ────────────────────────────────────────
 
   const loadData = useCallback(async () => {
+    setLoading(true);
+    setAuthError(false);
+    setLoadError(null);
     try {
       const {
         data: { user },
@@ -175,16 +179,16 @@ export default function PlanEditorPage() {
       }
 
       // Verify coach role
-      const { data: coachProfile } = await supabase
+      const { data: coachProfile, error: coachProfileError } = await supabase
         .from('profiles')
         .select('role')
         .eq('id', user.id)
         .maybeSingle();
+      if (coachProfileError) throw new Error('plan_load_failed');
 
       const role = coachProfile?.role ?? '';
       if (!['coach', 'admin', 'super_admin'].includes(role)) {
         setAuthError(true);
-        setLoading(false);
         return;
       }
 
@@ -218,8 +222,19 @@ export default function PlanEditorPage() {
           supabase
             .from('meal_plan_entries')
             .select('day_of_week, meal_slot, description')
-            .eq('client_id', clientId),
-        ]);
+             .eq('client_id', clientId),
+         ]);
+
+      const loadFailure = [
+        profileRes.error,
+        clientProfileRes.error,
+        activeHabitsRes.error,
+        templateHabitsRes.error,
+        mealPlanRes.error,
+      ].find(Boolean);
+      if (loadFailure || !profileRes.data || !clientProfileRes.data) {
+        throw new Error('plan_load_failed');
+      }
 
       setProfileName(profileRes.data?.full_name ?? null);
       setProfileEmail(profileRes.data?.email ?? null);
@@ -252,8 +267,8 @@ export default function PlanEditorPage() {
         grid[`${row.day_of_week}-${row.meal_slot}`] = row.description;
       }
       setMealGrid(grid);
-    } catch (err) {
-      console.error('PlanEditor: load error', err);
+    } catch {
+      setLoadError('Could not load this client plan — try again');
     } finally {
       setLoading(false);
     }
@@ -548,6 +563,39 @@ export default function PlanEditorPage() {
             }}
           >
             Go Back
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div
+        className="min-h-screen flex items-center justify-center px-4"
+        style={{ background: 'var(--bg,#0a0a0a)' }}
+      >
+        <div className="card" style={{ padding: 24, textAlign: 'center', maxWidth: 340 }}>
+          <div role="alert" style={{ fontSize: 13, color: 'var(--t2)', marginBottom: 16 }}>
+            {loadError}
+          </div>
+          <button
+            onClick={loadData}
+            style={{
+              background: 'var(--gold-300,#D4A853)',
+              color: '#0a0a0a',
+              border: 'none',
+              borderRadius: 10,
+              padding: '10px 20px',
+              fontFamily: 'var(--font-mono)',
+              fontSize: 11,
+              fontWeight: 700,
+              cursor: 'pointer',
+              textTransform: 'uppercase',
+              letterSpacing: '.08em',
+            }}
+          >
+            Retry
           </button>
         </div>
       </div>
