@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter, Instrument_Serif, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import ErrorBoundary from "@/components/shared/ErrorBoundary";
+import DocumentLanguage from "@/components/shared/DocumentLanguage";
 import { Analytics } from "@vercel/analytics/react";
 
 const inter = Inter({
@@ -78,7 +79,7 @@ export default function RootLayout({
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var m=localStorage.getItem('trophe_theme_mode');var c=m==='light'?'light':'dark';document.documentElement.classList.add(c);}catch(e){document.documentElement.classList.add('dark');}})();`,
+            __html: `(function(){var p=location.pathname.split('/')[1];document.documentElement.lang=p==='es'||p==='el'?p:'en';try{var m=localStorage.getItem('trophe_theme_mode');var c=m==='light'?'light':'dark';document.documentElement.classList.add(c);}catch(e){document.documentElement.classList.add('dark');}})();`,
           }}
         />
       </head>
@@ -86,8 +87,9 @@ export default function RootLayout({
         className="min-h-full font-sans antialiased"
         style={{ background: "var(--bg-primary)", color: "var(--text-primary)" }}
       >
+        <DocumentLanguage />
         <ErrorBoundary>{children}</ErrorBoundary>
-        <Analytics />
+        {process.env.NODE_ENV === "production" && <Analytics />}
       </body>
     </html>
   );
