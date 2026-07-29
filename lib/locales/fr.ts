@@ -820,6 +820,8 @@ export const fr: Record<string, string> = {
   'food.edit.sugar': 'Sucre',
   'food.edit.save': 'Enregistrer',
   'food.edit.saveQuantity': 'Enregistrer la quantité',
+  'food.edit.invalid': 'Vérifie les valeurs modifiées avant d’enregistrer',
+  'food.edit.failed': 'Cette modification n’a pas été enregistrée — réessaie',
   'food.edit.decreaseGrams': 'Réduire les grammes',
   'food.edit.increaseGrams': 'Augmenter les grammes',
 

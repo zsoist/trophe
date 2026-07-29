@@ -820,6 +820,8 @@ export const nl: Record<string, string> = {
   'food.edit.sugar': 'Suiker',
   'food.edit.save': 'Opslaan',
   'food.edit.saveQuantity': 'Hoeveelheid opslaan',
+  'food.edit.invalid': 'Controleer de gewijzigde waarden voordat je opslaat',
+  'food.edit.failed': 'Deze wijziging is niet opgeslagen — probeer opnieuw',
   'food.edit.decreaseGrams': 'Gram verlagen',
   'food.edit.increaseGrams': 'Gram verhogen',
 
