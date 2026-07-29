@@ -33,3 +33,15 @@ export function signupErrorMessage(reason: string): string {
 export function confirmedLoginNotice(confirmedParam: string | null): string | null {
   return confirmedParam === '1' ? 'Account confirmed — sign in to continue.' : null;
 }
+
+/**
+ * Safe login-page copy for OAuth/magic-link callback failures.
+ *
+ * The callback only emits stable codes, but unknown values still map to the
+ * generic recovery message so provider/database details are never reflected.
+ */
+export function authCallbackErrorNotice(errorParam: string | null): string | null {
+  if (!errorParam) return null;
+  if (errorParam === 'cancelled') return 'Sign-in was cancelled. Please try again.';
+  return 'That sign-in link is invalid or expired. Request a new link and try again.';
+}

@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Mail, ArrowRight, Loader2, Eye, EyeOff } from 'lucide-react';
 import { submitSignup, resendConfirmation, fetchDeps } from '@/lib/auth/signup-client';
-import { confirmedLoginNotice } from '@/lib/auth/auth-messages';
+import { authCallbackErrorNotice, confirmedLoginNotice } from '@/lib/auth/auth-messages';
 
 function safeRedirectTo(value: string | null): string | null {
   if (!value || !value.startsWith('/') || value.startsWith('//') || value.startsWith('/login')) {
@@ -54,6 +54,13 @@ function LoginForm() {
   useEffect(() => {
     const urlMode = searchParams.get('mode');
     if (urlMode === 'signup') setMode('signup');
+    const callbackError = authCallbackErrorNotice(searchParams.get('error'));
+    if (callbackError) {
+      setMode('login');
+      setSuccess('');
+      setError(callbackError);
+      return;
+    }
     const notice = confirmedLoginNotice(searchParams.get('confirmed'));
     if (notice) { setMode('login'); setSuccess(notice); }
   }, [searchParams]);

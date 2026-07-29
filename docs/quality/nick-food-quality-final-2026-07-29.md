@@ -58,6 +58,7 @@ Scope: food parsing, nutrition review/logging, photo/manual boundaries, local DB
 - The bounded parser’s computed worst-case provider envelope is 60 transports. Opaque live-route tools remain intentionally blocked at 1,001 attempts during the zero-spend phase.
 - Coach meal-plan macro rollups now share a 55-second route deadline and 48-transport ceiling across all concurrent parsers, stop starting work without a full parser reserve, and allow five manual rollups per ten minutes.
 - Meal-plan parse failures or budget skips mark affected days incomplete in the coach UI; they are no longer presented as zero-calorie totals.
+- Expired, incomplete, or cancelled auth callbacks now return Nick to login with safe recovery guidance instead of a blank form or reflected provider error details.
 - Edited portions are capped and validated again before the food-log insert.
 - Manual entry rejects invalid calories/macros before writing and now displays the validation error in the manual-entry view.
 - Photo analysis drops malformed or implausible items, caps confidence, and preserves an uncertainty note.
