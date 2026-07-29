@@ -1,6 +1,5 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { z } from 'zod';
 import { taskFallbacks, taskPolicies, type RoutingPolicy } from '@/agents/router/policies';
 import { estimateUsageCost } from '@/agents/runtime/cost';
@@ -236,20 +235,4 @@ export async function runOfflineProviderContracts(
     await writeFile(REPORT_PATH, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
   }
   return report;
-}
-
-async function main(): Promise<void> {
-  const report = await runOfflineProviderContracts();
-  console.log(
-    `${report.title}: ${report.summary.passed}/${report.summary.total} scenarios passed`,
-  );
-  if (report.summary.failed > 0) process.exitCode = 1;
-}
-
-const entrypoint = process.argv[1] ? pathToFileURL(path.resolve(process.argv[1])).href : '';
-if (import.meta.url === entrypoint) {
-  void main().catch(() => {
-    console.error('offline provider-contract evaluation failed');
-    process.exitCode = 1;
-  });
 }

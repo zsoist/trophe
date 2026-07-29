@@ -1,6 +1,6 @@
 {
   "title": "offline provider-contract evaluation",
-  "generatedAt": "2026-07-29T13:55:52.106Z",
+  "generatedAt": "2026-07-29T14:46:36.274Z",
   "evidenceKind": "offline_provider_contract",
   "liveModelQualityEvidence": false,
   "networkPolicy": "injected_fixture_transports_only",

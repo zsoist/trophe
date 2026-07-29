@@ -20,7 +20,9 @@ const REQUIRED_CATEGORIES = new Set([
 
 describe('offline provider-contract evaluation', () => {
   it('runs the complete sanitized scenario matrix through production adapters', async () => {
-    const report = await runOfflineProviderContracts({ writeReport: false });
+    const report = await runOfflineProviderContracts({
+      writeReport: process.env.WRITE_OFFLINE_PROVIDER_REPORT === '1',
+    });
 
     expect(report.title).toBe(OFFLINE_PROVIDER_CONTRACT_TITLE);
     expect(report.title).toBe('offline provider-contract evaluation');
