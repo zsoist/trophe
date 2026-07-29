@@ -128,6 +128,7 @@ export const fr: Record<string, string> = {
   'food.undo_delete': 'Annuler',
   'food.entry_deleted': 'Entrée supprimée',
   'food.retry': 'Réessayer',
+  'food.log_load_failed': 'Ton journal alimentaire n’a pas pu être chargé — réessaie',
   'food.manual_entry': 'Saisir manuellement',
   'food.quick_add': 'Ajout rapide',
   'food.remaining': '{n} kcal restantes',

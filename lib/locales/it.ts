@@ -128,6 +128,7 @@ export const it: Record<string, string> = {
   'food.undo_delete': 'Annulla',
   'food.entry_deleted': 'Voce eliminata',
   'food.retry': 'Riprova',
+  'food.log_load_failed': 'Non è stato possibile caricare il diario alimentare — riprova',
   'food.manual_entry': 'Inserisci manualmente',
   'food.quick_add': 'Aggiunta rapida',
   'food.remaining': '{n} kcal rimanenti',

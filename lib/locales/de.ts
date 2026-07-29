@@ -128,6 +128,7 @@ export const de: Record<string, string> = {
   'food.undo_delete': 'Rückgängig',
   'food.entry_deleted': 'Eintrag gelöscht',
   'food.retry': 'Wiederholen',
+  'food.log_load_failed': 'Dein Ernährungstagebuch konnte nicht geladen werden — versuch es erneut',
   'food.manual_entry': 'Manuell eingeben',
   'food.quick_add': 'Schnell hinzufügen',
   'food.remaining': '{n} kcal übrig',

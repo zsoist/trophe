@@ -299,6 +299,8 @@ export default function FoodLogPage() {
   const router = useRouter();
   const [userId, setUserId] = useState<string | null>(null);
   const [pageLoading, setPageLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const loadRequestRef = useRef(0);
   const [todayLog, setTodayLog] = useState<FoodLogEntry[]>([]);
   const today = localToday();
   const [selectedDate, setSelectedDate] = useState(today);
@@ -432,6 +434,9 @@ export default function FoodLogPage() {
   }, [pageLoading, selectedDate, totalCalories, totalProtein, totalCarbs, totalFat, totalSugar, showCalories, reducedMotion, proteinPopControls, targets.protein_g]);
 
   const handleDateChange = useCallback((date: string) => {
+    loadRequestRef.current += 1;
+    setPageLoading(true);
+    setLoadError(false);
     setSelectedDate(date);
     setSkippedSlots(loadStoredSet(`trophe_skipped_${date}`));
     setLockedSlots(loadStoredSet(`trophe_locked_${date}`));
@@ -480,50 +485,74 @@ export default function FoodLogPage() {
   const proteinDone = targets.protein_g > 0 && totalProtein >= targets.protein_g;
 
   const loadTodayLog = useCallback(async () => {
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (!user) {
-      // If network error (not auth failure), don't redirect — show error state
-      if (authError && authError.message?.includes('fetch')) {
+    const requestId = ++loadRequestRef.current;
+    setLoadError(false);
+
+    try {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (requestId !== loadRequestRef.current) return;
+      if (authError) {
+        setLoadError(true);
         setPageLoading(false);
         return;
       }
-      router.push('/login');
-      return;
-    }
-    setUserId(user.id);
+      if (!user) {
+        router.push('/login');
+        return;
+      }
 
-    // Compute week date range upfront for parallel queries
-    const weekDates: string[] = [];
-    const wd = new Date(selectedDate + 'T12:00:00');
-    const dayOfWeek = wd.getDay();
-    const monday = new Date(wd);
-    monday.setDate(wd.getDate() - ((dayOfWeek + 6) % 7));
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(monday);
-      d.setDate(monday.getDate() + i);
-      weekDates.push(localDateStr(d));
-    }
+      // Compute week date range upfront for parallel queries
+      const weekDates: string[] = [];
+      const wd = new Date(selectedDate + 'T12:00:00');
+      const dayOfWeek = wd.getDay();
+      const monday = new Date(wd);
+      monday.setDate(wd.getDate() - ((dayOfWeek + 6) % 7));
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(monday);
+        d.setDate(monday.getDate() + i);
+        weekDates.push(localDateStr(d));
+      }
 
-    // Parallel: all 4 queries fire simultaneously (~200ms vs ~800ms sequential)
-    const [todayRes, weekRes, profileRes, streakRes] = await Promise.all([
-      supabase.from('food_log').select('*')
-        .eq('user_id', user.id).eq('logged_date', selectedDate)
-        .order('created_at', { ascending: true }),
-      supabase.from('food_log').select('logged_date, calories')
-        .eq('user_id', user.id)
-        .gte('logged_date', weekDates[0]).lte('logged_date', weekDates[6]),
-      supabase.from('client_profiles')
-        .select('target_calories, target_protein_g, target_carbs_g, target_fat_g, client_view_prefs')
-        .eq('user_id', user.id).maybeSingle(),
-      supabase.from('food_log').select('logged_date')
-        .eq('user_id', user.id)
-        .gte('logged_date', localDateStr(new Date(Date.now() - 60 * 86400000)))
-        .order('logged_date', { ascending: false }),
-    ]);
+      // Parallel: all 4 queries fire simultaneously (~200ms vs ~800ms sequential)
+      const [todayRes, weekRes, profileRes, streakRes] = await Promise.all([
+        supabase.from('food_log').select('*')
+          .eq('user_id', user.id).eq('logged_date', selectedDate)
+          .order('created_at', { ascending: true }),
+        supabase.from('food_log').select('logged_date, calories')
+          .eq('user_id', user.id)
+          .gte('logged_date', weekDates[0]).lte('logged_date', weekDates[6]),
+        supabase.from('client_profiles')
+          .select('target_calories, target_protein_g, target_carbs_g, target_fat_g, client_view_prefs')
+          .eq('user_id', user.id).maybeSingle(),
+        supabase.from('food_log').select('logged_date')
+          .eq('user_id', user.id)
+          .gte('logged_date', localDateStr(new Date(Date.now() - 60 * 86400000)))
+          .order('logged_date', { ascending: false }),
+      ]);
 
-    if (todayRes.data) setTodayLog(todayRes.data);
+      if (requestId !== loadRequestRef.current) return;
+      const loadFailure = [
+        todayRes.error,
+        weekRes.error,
+        profileRes.error,
+        streakRes.error,
+      ].find(Boolean);
+      if (loadFailure ||
+        !todayRes.data ||
+        !weekRes.data ||
+        !streakRes.data
+      ) {
+        setLoadError(true);
+        setPageLoading(false);
+        return;
+      }
+      if (!profileRes.data) {
+        router.replace('/onboarding');
+        return;
+      }
 
-    if (weekRes.data) {
+      setUserId(user.id);
+      setTodayLog(todayRes.data);
       setWeekData(weekDates.map(date => {
         const dayEntries = weekRes.data.filter(e => e.logged_date === date);
         return {
@@ -532,10 +561,8 @@ export default function FoodLogPage() {
           entries: dayEntries.length,
         };
       }));
-    }
 
-    // F4: Load macro targets from client_profiles
-    if (profileRes.data) {
+      // F4: Load macro targets from client_profiles
       setTargets({
         calories: profileRes.data.target_calories || 0,
         protein_g: profileRes.data.target_protein_g || 0,
@@ -543,10 +570,8 @@ export default function FoodLogPage() {
         fat_g: profileRes.data.target_fat_g || 0,
       });
       setViewPrefs(parseClientViewPrefs(profileRes.data.client_view_prefs));
-    }
 
-    // F6: Calculate streak (consecutive days with >=3 food entries)
-    if (streakRes.data) {
+      // F6: Calculate streak (consecutive days with >=3 food entries)
       const dayCounts = new Map<string, number>();
       for (const log of streakRes.data) {
         dayCounts.set(log.logged_date, (dayCounts.get(log.logged_date) || 0) + 1);
@@ -564,9 +589,12 @@ export default function FoodLogPage() {
         d.setDate(d.getDate() - 1);
       }
       setStreak(s);
+      setPageLoading(false);
+    } catch {
+      if (requestId !== loadRequestRef.current) return;
+      setLoadError(true);
+      setPageLoading(false);
     }
-
-    setPageLoading(false);
   }, [selectedDate, router]);
 
   useEffect(() => {
@@ -871,6 +899,29 @@ export default function FoodLogPage() {
               <div key={i} className="skeleton h-24 rounded-xl" />
             ))}
           </div>
+        </div>
+        <BotNav routes={clientNav} />
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div
+        className="min-h-screen flex items-center justify-center px-4 pb-24"
+        style={{ background: 'var(--bg,#0a0a0a)' }}
+      >
+        <div className="glass w-full max-w-sm p-6 text-center">
+          <p role="alert" className="mb-4 text-sm leading-relaxed text-stone-300">
+            {t('food.log_load_failed')}
+          </p>
+          <button
+            type="button"
+            onClick={() => void loadTodayLog()}
+            className="btn-gold w-full rounded-xl py-3 text-sm font-semibold"
+          >
+            {t('food.retry')}
+          </button>
         </div>
         <BotNav routes={clientNav} />
       </div>
