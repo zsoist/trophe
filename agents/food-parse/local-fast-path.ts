@@ -60,6 +60,8 @@ const FOOD_ALIASES = new Map<string, string>([
   ['potatoes', 'potato'],
   ['olive oil', 'olive oil'],
   ['peanut butter', 'peanut butter'],
+  ['fries', 'french fries'],
+  ['french fries', 'french fries'],
 ]);
 
 const UNIT_ALIASES = new Map<string, string>([

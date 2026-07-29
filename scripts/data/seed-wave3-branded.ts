@@ -217,7 +217,7 @@ VALUES (
   ${macros.fiber_g ?? 'NULL'}, ${macros.sugar_g ?? 'NULL'},
   100, '100g', ${match.fdcId}, ${confidence},
   ${escapeSQL(food.key)}, ${escapeSQL(provenanceNote)}, NOW(), 80,
-  ${escapeSQL(match.brandOwner || null)}
+  ${escapeSQL(food.brand ?? match.brandOwner ?? null)}
 ) ON CONFLICT (source, source_id) DO UPDATE SET
   canonical_food_key = EXCLUDED.canonical_food_key,
   usda_fdc_id = EXCLUDED.usda_fdc_id,
@@ -283,7 +283,7 @@ FROM foods f WHERE f.source = 'usda' AND f.source_id = ${escapeSQL(fdcIdStr)}
         dataQuality: dataQuality,
         popularity: 80,
         region: food.region,
-        brand: match.brandOwner || null,
+        brand: food.brand ?? match.brandOwner ?? null,
         kcalPer100g: macros.calories,
         proteinPer100g: macros.protein_g,
         carbPer100g: macros.carbs_g,
@@ -304,7 +304,7 @@ FROM foods f WHERE f.source = 'usda' AND f.source_id = ${escapeSQL(fdcIdStr)}
       dataQuality,
       nameEn: match.description,
       region: food.region,
-      brand: match.brandOwner || null,
+      brand: food.brand ?? match.brandOwner ?? null,
       kcalPer100g: macros.calories,
       proteinPer100g: macros.protein_g,
       carbPer100g: macros.carbs_g,

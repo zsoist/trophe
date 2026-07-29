@@ -16,6 +16,8 @@
 export interface CanonicalFood {
   key: string;
   searchQuery: string;
+  /** Explicit consumer-facing brand for branded rows; never infer it from data type. */
+  brand?: string;
   preferredTypes: string[];
   region: string[];
   category: 'mediterranean' | 'latin' | 'standard';

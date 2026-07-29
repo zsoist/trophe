@@ -52,6 +52,30 @@ describe('brandedOffAdjustment — generic-query OFF demotion', () => {
   });
 });
 
+describe('brandedOffAdjustment — branded rows from curated databases', () => {
+  it('demotes a USDA branded row when the generic query never names the brand', () => {
+    const c = food({
+      source: 'usda',
+      nameEn: 'CAFFE LATTE ICED ESPRESSO BEVERAGE, CAFFE LATTE',
+      brand: 'STARBUCKS, INC',
+      region: ['US'],
+    });
+
+    expect(brandedOffAdjustment(c, 'caffe latte', 'US')).toBe(-5);
+  });
+
+  it('keeps a USDA branded row eligible when the user names the brand', () => {
+    const c = food({
+      source: 'usda',
+      nameEn: 'CAFFE LATTE ICED ESPRESSO BEVERAGE, CAFFE LATTE',
+      brand: 'STARBUCKS, INC',
+      region: ['US'],
+    });
+
+    expect(brandedOffAdjustment(c, 'starbucks latte', 'US')).toBe(0);
+  });
+});
+
 describe('brandedOffAdjustment — foreign-market SKUs (NL/DE pollution)', () => {
   it('OFF row from another market gets -5 generic + -6 region = -11', () => {
     const c = food({ source: 'off', brand: 'Jumbo', region: ['NL'] });
@@ -86,10 +110,10 @@ describe('brandedOffAdjustment — zero-macro junk', () => {
 
 describe('brandedOffAdjustment — curated sources untouched', () => {
   it.each(['usda', 'ciqual', 'cofid', 'bedca', 'crea', 'hhf', 'custom'])(
-    'source %s with normal macros gets 0 adjustment',
+    'unbranded source %s with normal macros gets 0 adjustment',
     (source) => {
       const c = food({ source, region: ['FR'] });
-      // even with region mismatch + no brand — penalties are OFF-only
+      // Unbranded curated foods remain unaffected.
       expect(brandedOffAdjustment(c, 'yogurt', 'GR')).toBe(0);
     },
   );

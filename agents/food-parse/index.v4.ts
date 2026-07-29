@@ -855,6 +855,7 @@ export async function run(
         foodName: candidate.foodName,
         unit: candidate.unit,
         region: regionForLanguage(language),
+        intentText: sanitizedText,
       })));
 
       if (localLookups.every((lookup) => lookup !== null)) {
@@ -1264,6 +1265,7 @@ export async function run(
       unit:      v4Parsed.items[i].unit,
       qualifier: v4Parsed.items[i].qualifier ?? undefined,
       region:    regionCode,
+      intentText: sanitizedText,
     });
   }
 

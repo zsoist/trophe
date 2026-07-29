@@ -57,6 +57,17 @@ describe('local food parse fast path', () => {
     ]);
   });
 
+  it('normalizes generic fries without introducing a restaurant brand', () => {
+    expect(extractLocalFoodCandidates('french fries')).toEqual([
+      expect.objectContaining({
+        foodName: 'french fries',
+        quantity: 1,
+        unit: 'serving',
+        portionExplicit: false,
+      }),
+    ]);
+  });
+
   it.each([
     'mac and cheese',
     'peanut butter and jelly',
@@ -88,5 +99,25 @@ describe('local food parse fast path', () => {
       dbHits: 5,
       dbMisses: 0,
     });
+  });
+
+  it('resolves generic fries locally and never attempts provider transport', async () => {
+    const beforeTransportAttempt = vi.fn(() => {
+      throw new Error('paid provider transport must not run');
+    });
+
+    const result = await run(
+      { text: 'french fries', language: 'en' },
+      { beforeTransportAttempt },
+    );
+
+    expect(beforeTransportAttempt).not.toHaveBeenCalled();
+    expect(result.ok).toBe(true);
+    expect(result.output?.items).toHaveLength(1);
+    expect(result.output?.items[0]).toMatchObject({
+      source: 'local_db',
+      brand: null,
+    });
+    expect(result.output?.items[0].food_name).toMatch(/french/i);
   });
 });

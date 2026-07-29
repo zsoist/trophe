@@ -16,7 +16,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { lookupFood } from '../../agents/food-parse/lookup';
+import { lookupFood, ragPreSearch } from '../../agents/food-parse/lookup';
 
 // These tests require the local DB with seeded foods (canonical entries).
 // CI has a DATABASE_URL but no seeded foods table — skip there.
@@ -32,6 +32,8 @@ describe.skipIf(!HAS_SEEDED_DB)('food-parse ranking (Wave 2 regression)', () => 
       expect(result).not.toBeNull();
       expect(result!.food.nameEn.toLowerCase()).not.toContain('plantain');
       expect(result!.food.nameEn.toLowerCase()).toContain('frie');
+      expect(result!.food.nameEn.toLowerCase()).not.toContain('mcdonald');
+      expect(result!.food.brand).toBeNull();
     });
 
     it('"french fries" should return french fries', async () => {
@@ -39,6 +41,8 @@ describe.skipIf(!HAS_SEEDED_DB)('food-parse ranking (Wave 2 regression)', () => 
       expect(result).not.toBeNull();
       expect(result!.food.nameEn.toLowerCase()).toContain('french');
       expect(result!.food.nameEn.toLowerCase()).not.toContain('plantain');
+      expect(result!.food.nameEn.toLowerCase()).not.toContain('mcdonald');
+      expect(result!.food.brand).toBeNull();
     });
 
     it('"plantain" still returns canonical plantain (boost IS applied)', async () => {
@@ -66,6 +70,60 @@ describe.skipIf(!HAS_SEEDED_DB)('food-parse ranking (Wave 2 regression)', () => 
       const result = await lookupFood({ foodName: 'banana', unit: 'piece', region: 'US' });
       expect(result).not.toBeNull();
       expect(result!.food.canonicalFoodKey).toBe('banana_raw');
+    });
+  });
+
+  describe('generic English queries do not invent branded intent', () => {
+    it.each([
+      ['burger', 'serving', /burger|hamburger/i],
+      ['cheeseburger', 'piece', /cheeseburger/i],
+      ['caffe latte', 'cup', /latte|coffee|milk/i],
+      ['cola', 'can', /cola/i],
+      ['soda', 'can', /soda|cola/i],
+      ['juice', 'glass', /juice/i],
+      ['energy drink', 'can', /energy|drink/i],
+    ])('generic "%s" never resolves to a branded or unrelated product', async (query, unit, genericName) => {
+      const result = await lookupFood({ foodName: query, unit, region: 'US' });
+
+      expect(result?.food.brand ?? null).toBeNull();
+      expect(result?.food.nameEn ?? '').not.toMatch(
+        /mcdonald|burger king|starbucks|pepsi|tropicana|red bull/i,
+      );
+      if (result) expect(result.food.nameEn).toMatch(genericName);
+    });
+
+    it.each([
+      ['big mac', 'MCDONALD', 'McDonald'],
+      ['starbucks latte', 'STARBUCKS', 'Starbucks'],
+      ['pepsi', 'PEPSI', 'Pepsi'],
+      ['red bull', 'RED BULL', 'Red Bull'],
+    ])('explicit branded query "%s" still resolves to %s', async (query, expected, expectedBrand) => {
+      const result = await lookupFood({ foodName: query, unit: 'serving', region: 'US' });
+
+      expect(result).not.toBeNull();
+      expect(`${result!.food.nameEn} ${result!.food.brand ?? ''}`.toUpperCase())
+        .toContain(expected);
+      expect(result!.food.brand?.toUpperCase() ?? '')
+        .toContain(expectedBrand.toUpperCase());
+    });
+
+    it('uses the original user text instead of an AI-invented brand name', async () => {
+      const input = {
+        foodName: 'starbucks latte',
+        unit: 'cup',
+        region: 'US',
+        intentText: 'latte',
+      } as Parameters<typeof lookupFood>[0];
+
+      const result = await lookupFood(input);
+
+      expect(result).toBeNull();
+    });
+
+    it('does not inject a branded latte into generic RAG context', async () => {
+      const matches = await ragPreSearch('caffe latte');
+
+      expect(matches).toEqual([]);
     });
   });
 

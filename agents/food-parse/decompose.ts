@@ -418,6 +418,7 @@ export async function decomposeAndLookup(input: DecomposeInput): Promise<ParsedF
     foodName: ing.name,
     unit: 'g',
     region,
+    intentText: input.rawText,
   }));
 
   const lookupResults = await lookupFoodBatch(lookupInputs);
