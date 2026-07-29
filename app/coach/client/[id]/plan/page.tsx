@@ -138,6 +138,7 @@ export default function PlanEditorPage() {
   const [phase, setPhase] = useState<string>('active');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [suggesting, setSuggesting] = useState(false);
   const [suggestMsg, setSuggestMsg] = useState<string | null>(null);
 
@@ -262,21 +263,34 @@ export default function PlanEditorPage() {
 
   const handleSave = async () => {
     setSaving(true);
-    await supabase
-      .from('client_profiles')
-      .update({
-        target_calories: kcalFromMacros(targets),
-        target_protein_g: targets.protein,
-        target_carbs_g: targets.carbs,
-        target_fat_g: targets.fat,
-        target_water_ml: targets.water,
-        coaching_phase: phase,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('user_id', clientId);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-    setSaving(false);
+    setSaved(false);
+    setSaveError(null);
+    try {
+      const { data, error } = await supabase
+        .from('client_profiles')
+        .update({
+          target_calories: kcalFromMacros(targets),
+          target_protein_g: targets.protein,
+          target_carbs_g: targets.carbs,
+          target_fat_g: targets.fat,
+          target_water_ml: targets.water,
+          coaching_phase: phase,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('user_id', clientId)
+        .select('user_id')
+        .maybeSingle();
+      if (error || !data) {
+        setSaveError('Could not save plan — try again');
+        return;
+      }
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch {
+      setSaveError('Could not save plan — try again');
+    } finally {
+      setSaving(false);
+    }
   };
 
   // Deterministic calorie/macro baseline from the client's body composition.
@@ -881,10 +895,23 @@ export default function PlanEditorPage() {
               </div>
             </div>
           </>
-        )}
+         )}
 
-        {/* ══ Save Button ══ */}
-        <button
+         {/* ══ Save Button ══ */}
+         {saveError && (
+           <div
+             role="alert"
+             style={{
+               color: 'var(--err,#E87A6E)',
+               fontSize: 11,
+               marginBottom: 8,
+               textAlign: 'center',
+             }}
+           >
+             {saveError}
+           </div>
+         )}
+         <button
           onClick={handleSave}
           disabled={saving}
           style={{
