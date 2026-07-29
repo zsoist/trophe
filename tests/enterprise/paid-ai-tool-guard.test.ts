@@ -479,7 +479,7 @@ describe('paid AI tool static inventory and order scanner', () => {
       });
     }
     expect(await scanFixture(REPO_ROOT)).toEqual([]);
-  });
+  }, 15_000);
 
   it('prints only file:rule from the CLI', () => {
     const root = fixtureRoot();

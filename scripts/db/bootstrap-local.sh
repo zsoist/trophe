@@ -192,7 +192,7 @@ fi
 # Canonical lookup foods required by the local/CI food-lookup regression tests.
 # Seeded HERE (bootstrap path) and deliberately NOT as a journaled migration, so these
 # deterministic fixtures never enter production: prod already holds the real USDA/HHF rows
-# for these canonical_food_keys. Macros are standard USDA SR reference values.
+# for these canonical_food_keys. Macros are reviewed USDA/HHF reference values.
 echo "==> Seeding canonical lookup foods (local/CI bootstrap fixture only — not production)"
 psql -v ON_ERROR_STOP=1 -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" <<'SQL'
 INSERT INTO foods (
@@ -282,7 +282,19 @@ INSERT INTO foods (
    'USDA SR reference values; deterministic local/CI bootstrap fixture (not production data).', now(), 84, 'manual'),
   ('usda', 'wp2-seed-feta-cheese', 'lab_verified', 'Feta cheese', ARRAY['GR','US'],
    264, 14.2, 4.1, 21.3, 0.0, 30, 'slice', 0.9, true, 'feta_cheese',
-   'USDA SR reference values; deterministic local/CI bootstrap fixture (not production data).', now(), 85, 'manual')
+   'USDA SR reference values; deterministic local/CI bootstrap fixture (not production data).', now(), 85, 'manual'),
+  ('hhf', 'wp2-seed-spanakopita', 'estimated', 'Spanakopita', ARRAY['GR'],
+   215, 7.7, 16.9, 13.8, 2.6, 130, 'piece', 0.85, true, 'spanakopita',
+   'Reviewed Greek-dish reference values; deterministic local/CI bootstrap fixture (not production data).', now(), 75, 'manual'),
+  ('hhf', 'wp2-seed-lentil-soup', 'estimated', 'Lentil soup (Fakes)', ARRAY['GR'],
+   59, 4.2, 8.8, 0.8, 3.7, 300, 'bowl', 0.85, true, 'lentil_soup_fakes',
+   'HHF reference values; deterministic local/CI bootstrap fixture (not production data).', now(), 75, 'manual'),
+  ('hhf', 'wp2-seed-fasolada', 'estimated', 'Fasolada bean soup', ARRAY['GR'],
+   73, 4.0, 10.7, 2.0, 4.0, 350, 'bowl', 0.8, true, 'fasolada_bean_soup',
+   'HHF reference values; deterministic local/CI bootstrap fixture (not production data).', now(), 70, 'manual'),
+  ('hhf', 'wp2-seed-revithosoupa', 'estimated', 'Chickpea revithosoupa', ARRAY['GR'],
+   75, 4.5, 11.5, 1.5, 4.5, 350, 'bowl', 0.8, true, 'chickpea_revithosoupa',
+   'HHF reference values; deterministic local/CI bootstrap fixture (not production data).', now(), 70, 'manual')
 ON CONFLICT (source, source_id) DO UPDATE SET
   data_quality = EXCLUDED.data_quality,
   name_en = EXCLUDED.name_en,
@@ -310,6 +322,14 @@ UPDATE foods SET name_el = 'Ελαιόλαδο'
 WHERE source = 'usda' AND source_id = 'wp2-seed-olive-oil';
 UPDATE foods SET name_el = 'Κοτόπουλο στήθος'
 WHERE source = 'usda' AND source_id = 'wp2-seed-chicken-breast-grilled';
+UPDATE foods SET name_el = 'Σπανακόπιτα'
+WHERE source = 'hhf' AND source_id = 'wp2-seed-spanakopita';
+UPDATE foods SET name_el = 'Φακές'
+WHERE source = 'hhf' AND source_id = 'wp2-seed-lentil-soup';
+UPDATE foods SET name_el = 'Φασολάδα'
+WHERE source = 'hhf' AND source_id = 'wp2-seed-fasolada';
+UPDATE foods SET name_el = 'Ρεβιθόσουπα'
+WHERE source = 'hhf' AND source_id = 'wp2-seed-revithosoupa';
 SQL
 
 echo "==> Verifying schema and capturing explain plans"

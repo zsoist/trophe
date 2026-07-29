@@ -163,7 +163,7 @@ describe('database test preflight', () => {
     const ciUrl = 'postgresql://postgres:postgres@127.0.0.1:5432/postgres';
 
     expect(resolveDatabaseConnectionString({ connectionString: ciUrl, nodeEnv: 'test' })).toBe(ciUrl);
-    expect(resolveDatabaseConnectionString({ nodeEnv: 'test' }))
+    expect(resolveDatabaseConnectionString({ nodeEnv: 'test', environment: {} }))
       .toBe('postgresql://postgres:postgres@127.0.0.1:54322/postgres');
   });
 });

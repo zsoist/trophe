@@ -52,15 +52,20 @@ async function closeWithinDeadline(client, timeoutMs) {
 }
 
 /**
- * @param {{ connectionString?: string | null, nodeEnv?: string }} options
+ * @param {{
+ *   connectionString?: string | null,
+ *   nodeEnv?: string,
+ *   environment?: Record<string, string | undefined>,
+ * }} options
  * @returns {string | null}
  */
 export function resolveDatabaseConnectionString({
   connectionString,
   nodeEnv = process.env.NODE_ENV,
+  environment = process.env,
 } = {}) {
   if (nodeEnv === 'production') return null;
-  return connectionString || process.env.DATABASE_URL || LOCAL_DATABASE_URL;
+  return connectionString || environment.DATABASE_URL || LOCAL_DATABASE_URL;
 }
 
 /**
