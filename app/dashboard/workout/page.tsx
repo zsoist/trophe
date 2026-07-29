@@ -50,6 +50,7 @@ import {
   insertWorkoutSets,
   loadLastSetsMap,
   loadPrMap,
+  updateWorkoutSupersetGroups,
   type CompletedSetInput,
 } from '@/components/workout/workout-persistence';
 
@@ -188,6 +189,7 @@ export default function WorkoutPage() {
 
   // UI state
   const [saving, setSaving] = useState(false);
+  const [syncingSupersets, setSyncingSupersets] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [restStartedAt, setRestStartedAt] = useState<number | null>(null);
   // 10/10 wave: display unit, per-exercise rest targets, info/plate sheets.
@@ -405,13 +407,37 @@ export default function WorkoutPage() {
   };
 
   /** Toggle superset pairing between an exercise and the one below it. */
-  const toggleSupersetLink = (exIndex: number) => {
-    setActiveExercises((prev) => {
-      if (exIndex >= prev.length - 1) return prev; // nothing below to pair with
-      const updated = [...prev];
-      updated[exIndex] = { ...updated[exIndex], linkedBelow: !updated[exIndex].linkedBelow };
-      return updated;
-    });
+  const toggleSupersetLink = async (exIndex: number) => {
+    if (syncingSupersets || exIndex >= activeExercises.length - 1) return;
+    const previous = activeExercises;
+    const updated = [...previous];
+    updated[exIndex] = {
+      ...updated[exIndex],
+      linkedBelow: !updated[exIndex].linkedBelow,
+    };
+    setActiveExercises(updated);
+
+    const persisted = updated.flatMap((exercise, index) =>
+      exercise.sets.flatMap((set) =>
+        set.dbId
+          ? [{ id: set.dbId, superset_group: supersetGroupFor(updated, index) }]
+          : [],
+      ),
+    );
+    if (persisted.length === 0) return;
+
+    setSyncingSupersets(true);
+    try {
+      const saved = await updateWorkoutSupersetGroups(persisted);
+      if (saved) return;
+      setActiveExercises((current) => current === updated ? previous : current);
+      window.alert(t('workout.superset_save_failed'));
+    } catch {
+      setActiveExercises((current) => current === updated ? previous : current);
+      window.alert(t('workout.superset_save_failed'));
+    } finally {
+      setSyncingSupersets(false);
+    }
   };
 
   // ─── Set management ───
@@ -1120,10 +1146,12 @@ export default function WorkoutPage() {
                         {exIndex < activeExercises.length - 1 && (
                           <button
                             onClick={(e) => { e.stopPropagation(); toggleSupersetLink(exIndex); }}
+                            disabled={syncingSupersets}
                             className="p-1.5 rounded-lg transition-colors"
                             style={{
                               background: ae.linkedBelow ? 'color-mix(in srgb, var(--accent, #D4A853) 16%, transparent)' : 'rgba(255,255,255,0.05)',
                               color: ae.linkedBelow ? 'var(--accent, #D4A853)' : '#78716c',
+                              opacity: syncingSupersets ? 0.5 : 1,
                             }}
                             aria-label={ae.linkedBelow ? t('workout.superset_unlink') : t('workout.superset_link')}
                             title={ae.linkedBelow ? t('workout.superset_unlink') : t('workout.superset_link')}

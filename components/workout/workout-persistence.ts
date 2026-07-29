@@ -26,6 +26,36 @@ export interface CompletedSetInput {
   superset_group?: number | null;
 }
 
+export interface SupersetGroupUpdate {
+  id: string;
+  superset_group: number | null;
+}
+
+export async function updateWorkoutSupersetGroups(
+  updates: SupersetGroupUpdate[],
+): Promise<boolean> {
+  if (updates.length === 0) return true;
+
+  const idsByGroup = new Map<number | null, string[]>();
+  for (const update of updates) {
+    const ids = idsByGroup.get(update.superset_group) ?? [];
+    ids.push(update.id);
+    idsByGroup.set(update.superset_group, ids);
+  }
+
+  const results = await Promise.all(
+    Array.from(idsByGroup, async ([supersetGroup, ids]) => {
+      const { data, error } = await supabase
+        .from('workout_sets')
+        .update({ superset_group: supersetGroup })
+        .in('id', ids)
+        .select('id');
+      return !error && data?.length === ids.length;
+    }),
+  );
+  return results.every(Boolean);
+}
+
 export interface GhostSet {
   weight_kg: number | null;
   reps: number | null;

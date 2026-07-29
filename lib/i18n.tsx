@@ -760,6 +760,7 @@ const translations: Record<string, Record<CoreLanguage, string>> = {
   'workout.superset': { en: 'Superset', es: 'Superserie', el: 'Superset' },
   'workout.superset_link': { en: 'Link with next exercise', es: 'Enlazar con el siguiente', el: 'Σύνδεση με την επόμενη' },
   'workout.superset_unlink': { en: 'Unlink superset', es: 'Desenlazar superserie', el: 'Αποσύνδεση superset' },
+  'workout.superset_save_failed': { en: 'Superset change was not saved — please try again', es: 'El cambio de superserie no se guardó — inténtalo de nuevo', el: 'Η αλλαγή superset δεν αποθηκεύτηκε — δοκιμάστε ξανά' },
   'workout.rest_target': { en: 'Rest target', es: 'Descanso objetivo', el: 'Στόχος ξεκούρασης' },
 
   // ── Weekday names (program cards) ──
