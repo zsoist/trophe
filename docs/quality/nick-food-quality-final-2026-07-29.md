@@ -62,6 +62,9 @@ Scope: food parsing, nutrition review/logging, photo/manual boundaries, local DB
 - Malformed conversation and coach-insight JSON now returns a stable 400 before any memory, client-context, or model work begins.
 - Coach-insight requests for an inaccessible client now return an explicit 403 before reading client data or invoking AI, rather than surfacing an authorization throw as a 500.
 - Conversation provider/budget failures now return a stable retryable 503 and persist no orphan turn; successful user/assistant pairs are appended in one atomic database statement.
+- Privacy downloads now cover the client-subject nutrition, supplement, wearable, appointment, meal-plan, AI-memory/conversation, feedback, and attachment records classified by erasure coverage, with 1,000-row pagination.
+- A failed export source now produces `206 Partial Content`, `complete: false`, and an explicit `unavailableTables` list instead of a complete-looking 200 that silently omits health data.
+- Typechecking excludes only ignored `.next` conflict-copy filenames (for example `routes.d 5.ts`), preventing macOS Documents sync artifacts from breaking Nick’s otherwise-clean verification runs.
 - Edited portions are capped and validated again before the food-log insert.
 - Manual entry rejects invalid calories/macros before writing and now displays the validation error in the manual-entry view.
 - Photo analysis drops malformed or implausible items, caps confidence, and preserves an uncertainty note.
