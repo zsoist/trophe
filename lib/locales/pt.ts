@@ -183,6 +183,7 @@ export const pt: Record<string, string> = {
   'workout.title': 'Treino',
   'workout.start': 'Iniciar Treino',
   'workout.finish': 'Terminar Treino',
+  'workout.save_failed': 'O treino não foi guardado. Tenta novamente.',
   'workout.add_exercise': 'Adicionar Exercício',
   'workout.search_exercises': 'Pesquisar exercícios...',
   'workout.set': 'Série',

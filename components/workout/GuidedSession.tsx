@@ -353,7 +353,12 @@ export default function GuidedSession({
     // Un-complete → delete the persisted row.
     if (set.completed) {
       patchSet(exIdx, set.id, { saving: true });
-      if (set.dbId) await deleteWorkoutSet(set.dbId);
+      const deleted = set.dbId ? await deleteWorkoutSet(set.dbId) : false;
+      if (!deleted) {
+        patchSet(exIdx, set.id, { saving: false });
+        window.alert(t('workout.save_failed'));
+        return;
+      }
       patchSet(exIdx, set.id, { saving: false, completed: false, dbId: null, is_pr: false });
       return;
     }
@@ -372,6 +377,7 @@ export default function GuidedSession({
     const sessionId = await ensureSession();
     if (!sessionId) {
       patchSet(exIdx, set.id, { saving: false });
+      window.alert(t('workout.save_failed'));
       return;
     }
     const dbId = await insertWorkoutSet(sessionId, {
@@ -385,6 +391,7 @@ export default function GuidedSession({
     });
     if (!dbId) {
       patchSet(exIdx, set.id, { saving: false });
+      window.alert(t('workout.save_failed'));
       return;
     }
     if (isPr && weight !== null) prMapRef.current[exId] = weight;
@@ -477,13 +484,21 @@ export default function GuidedSession({
     };
 
     const sessionId = sessionIdRef.current ?? (await ensureSession());
-    if (sessionId) {
-      await finishWorkoutSession(sessionId, {
-        name: template.name,
-        duration_minutes: durationMin,
-        pain_flags: painFlags,
-        template_id: template.id,
-      });
+    if (!sessionId) {
+      setFinishing(false);
+      window.alert(t('workout.save_failed'));
+      return;
+    }
+    const finished = await finishWorkoutSession(sessionId, {
+      name: template.name,
+      duration_minutes: durationMin,
+      pain_flags: painFlags,
+      template_id: template.id,
+    });
+    if (!finished) {
+      setFinishing(false);
+      window.alert(t('workout.save_failed'));
+      return;
     }
     setFinishStats(stats);
     setFinishing(false);

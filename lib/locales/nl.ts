@@ -178,6 +178,7 @@ export const nl: Record<string, string> = {
   'workout.title': 'Training',
   'workout.start': 'Training starten',
   'workout.finish': 'Training afronden',
+  'workout.save_failed': 'De training is niet opgeslagen. Probeer het opnieuw.',
   'workout.add_exercise': 'Oefening toevoegen',
   'workout.search_exercises': 'Oefeningen zoeken...',
   'workout.set': 'Set',

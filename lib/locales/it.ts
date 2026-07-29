@@ -178,6 +178,7 @@ export const it: Record<string, string> = {
   'workout.title': 'Allenamento',
   'workout.start': 'Inizia Allenamento',
   'workout.finish': 'Termina Allenamento',
+  'workout.save_failed': "L'allenamento non è stato salvato. Riprova.",
   'workout.add_exercise': 'Aggiungi Esercizio',
   'workout.search_exercises': 'Cerca esercizi...',
   'workout.set': 'Serie',

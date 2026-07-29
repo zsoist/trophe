@@ -45,6 +45,7 @@ import { supersetGroupFor, supersetLabelFor } from '@/lib/workout/supersets';
 import {
   createWorkoutSession,
   deleteWorkoutSet,
+  deleteWorkoutSets,
   finishWorkoutSession,
   insertWorkoutSet,
   insertWorkoutSets,
@@ -453,10 +454,16 @@ export default function WorkoutPage() {
     });
   };
 
-  const removeSet = (exIndex: number, setIndex: number) => {
+  const removeSet = async (exIndex: number, setIndex: number) => {
     const target = activeExercises[exIndex]?.sets[setIndex];
     if (!target || activeExercises[exIndex].sets.length <= 1) return;
-    if (target.dbId) void deleteWorkoutSet(target.dbId);
+    if (target.dbId) {
+      const deleted = await deleteWorkoutSet(target.dbId);
+      if (!deleted) {
+        window.alert(t('workout.save_failed'));
+        return;
+      }
+    }
     setActiveExercises((prev) => {
       const updated = [...prev];
       const sets = updated[exIndex].sets.filter((_, i) => i !== setIndex);
@@ -494,10 +501,15 @@ export default function WorkoutPage() {
     });
   };
 
-  const removeExercise = (exIndex: number) => {
+  const removeExercise = async (exIndex: number) => {
     // Persisted sets of a removed exercise are deleted too.
-    for (const s of activeExercises[exIndex]?.sets ?? []) {
-      if (s.dbId) void deleteWorkoutSet(s.dbId);
+    const setIds = (activeExercises[exIndex]?.sets ?? [])
+      .map((set) => set.dbId)
+      .filter((id): id is string => Boolean(id));
+    const deleted = await deleteWorkoutSets(setIds);
+    if (!deleted) {
+      window.alert(t('workout.save_failed'));
+      return;
     }
     setActiveExercises((prev) => prev.filter((_, i) => i !== exIndex));
   };
@@ -564,7 +576,12 @@ export default function WorkoutPage() {
 
     if (set.completed) {
       patch({ saving: true });
-      if (set.dbId) await deleteWorkoutSet(set.dbId);
+      const deleted = set.dbId ? await deleteWorkoutSet(set.dbId) : false;
+      if (!deleted) {
+        patch({ saving: false });
+        window.alert(t('workout.save_failed'));
+        return;
+      }
       patch({ saving: false, completed: false, dbId: null, is_pr: false });
       return;
     }
@@ -572,9 +589,17 @@ export default function WorkoutPage() {
     const input = resolveSetInput(ae, set, setIndex, supersetGroupFor(activeExercises, exIndex));
     patch({ saving: true });
     const sessionId = await ensureSession();
-    if (!sessionId) { patch({ saving: false }); return; }
+    if (!sessionId) {
+      patch({ saving: false });
+      window.alert(t('workout.save_failed'));
+      return;
+    }
     const dbId = await insertWorkoutSet(sessionId, input);
-    if (!dbId) { patch({ saving: false }); return; }
+    if (!dbId) {
+      patch({ saving: false });
+      window.alert(t('workout.save_failed'));
+      return;
+    }
     // The session clock begins with the FIRST logged set — not on entry — so
     // elapsed time reflects real training, not time spent picking exercises.
     setStartTime((s) => s || Date.now());
@@ -650,13 +675,15 @@ export default function WorkoutPage() {
       };
 
       const sessionId = await ensureSession();
-      if (sessionId) {
-        await insertWorkoutSets(sessionId, pending);
-        await finishWorkoutSession(sessionId, {
-          name: sessionName || `Workout — ${localToday()}`,
-          duration_minutes: durationMinutes,
-          pain_flags: painFlags,
-        });
+      if (!sessionId) throw new Error('Workout session could not be created');
+      const inserted = await insertWorkoutSets(sessionId, pending);
+      const finished = inserted && await finishWorkoutSession(sessionId, {
+        name: sessionName || `Workout — ${localToday()}`,
+        duration_minutes: durationMinutes,
+        pain_flags: painFlags,
+      });
+      if (!inserted || !finished) {
+        throw new Error('Workout writes could not be verified');
       }
 
       if (userId) await refreshRecents(userId);
@@ -672,6 +699,7 @@ export default function WorkoutPage() {
       if (typeof navigator !== 'undefined') navigator.vibrate?.([10, 30, 10, 30, 18]);
     } catch (err) {
       console.error('Error finishing workout:', err);
+      window.alert(t('workout.save_failed'));
     } finally {
       setSaving(false);
     }

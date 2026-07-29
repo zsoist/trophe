@@ -178,6 +178,7 @@ export const de: Record<string, string> = {
   'workout.title': 'Training',
   'workout.start': 'Training starten',
   'workout.finish': 'Training beenden',
+  'workout.save_failed': 'Das Training wurde nicht gespeichert. Bitte versuche es erneut.',
   'workout.add_exercise': 'Übung hinzufügen',
   'workout.search_exercises': 'Übungen suchen...',
   'workout.set': 'Satz',

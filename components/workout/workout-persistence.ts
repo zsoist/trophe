@@ -145,18 +145,35 @@ export async function insertWorkoutSet(
 export async function insertWorkoutSets(
   sessionId: string,
   sets: CompletedSetInput[],
-): Promise<void> {
-  if (sets.length === 0) return;
-  const { error } = await supabase
+): Promise<boolean> {
+  if (sets.length === 0) return true;
+  const { data, error } = await supabase
     .from('workout_sets')
-    .insert(sets.map((s) => ({ session_id: sessionId, notes: null, ...s })));
-  if (error) console.error('insertWorkoutSets error:', error);
+    .insert(sets.map((s) => ({ session_id: sessionId, notes: null, ...s })))
+    .select('id');
+  return !error && data?.length === sets.length;
 }
 
 /** Un-complete a set — remove the persisted row. */
-export async function deleteWorkoutSet(setId: string): Promise<void> {
-  const { error } = await supabase.from('workout_sets').delete().eq('id', setId);
-  if (error) console.error('deleteWorkoutSet error:', error);
+export async function deleteWorkoutSet(setId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('workout_sets')
+    .delete()
+    .eq('id', setId)
+    .select('id');
+  return !error && data?.length === 1;
+}
+
+/** Delete a group of persisted sets and confirm every requested row changed. */
+export async function deleteWorkoutSets(setIds: string[]): Promise<boolean> {
+  const uniqueIds = [...new Set(setIds)];
+  if (uniqueIds.length === 0) return true;
+  const { data, error } = await supabase
+    .from('workout_sets')
+    .delete()
+    .in('id', uniqueIds)
+    .select('id');
+  return !error && data?.length === uniqueIds.length;
 }
 
 /** Final session UPDATE (name = template/session name, duration, flags, FK). */
@@ -168,12 +185,13 @@ export async function finishWorkoutSession(
     pain_flags: PainFlag[];
     template_id?: string | null;
   },
-): Promise<void> {
-  const { error } = await supabase
+): Promise<boolean> {
+  const { data, error } = await supabase
     .from('workout_sessions')
     .update(patch)
-    .eq('id', sessionId);
-  if (error) console.error('finishWorkoutSession error:', error);
+    .eq('id', sessionId)
+    .select('id');
+  return !error && data?.length === 1;
 }
 
 /**

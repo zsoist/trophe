@@ -211,6 +211,11 @@ const translations: Record<string, Record<CoreLanguage, string>> = {
   'workout.title': { en: 'Workout', es: 'Entreno', el: 'Άσκηση' },
   'workout.start': { en: 'Start Workout', es: 'Iniciar Entreno', el: 'Έναρξη Άσκησης' },
   'workout.finish': { en: 'Finish Workout', es: 'Finalizar Entreno', el: 'Τέλος Άσκησης' },
+  'workout.save_failed': {
+    en: 'Your workout was not saved. Please try again.',
+    es: 'El entrenamiento no se guardó. Inténtalo de nuevo.',
+    el: 'Η προπόνηση δεν αποθηκεύτηκε. Δοκιμάστε ξανά.',
+  },
   'workout.add_exercise': { en: 'Add Exercise', es: 'Agregar Ejercicio', el: 'Προσθήκη Άσκησης' },
   'workout.search_exercises': { en: 'Search exercises...', es: 'Buscar ejercicios...', el: 'Αναζήτηση ασκήσεων...' },
   'workout.set': { en: 'Set', es: 'Serie', el: 'Σετ' },

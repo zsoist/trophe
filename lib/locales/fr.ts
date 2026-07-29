@@ -178,6 +178,7 @@ export const fr: Record<string, string> = {
   'workout.title': 'Entraînement',
   'workout.start': "Démarrer l'entraînement",
   'workout.finish': "Terminer l'entraînement",
+  'workout.save_failed': "L'entraînement n'a pas été enregistré. Réessayez.",
   'workout.add_exercise': 'Ajouter un exercice',
   'workout.search_exercises': 'Chercher des exercices...',
   'workout.set': 'Série',
