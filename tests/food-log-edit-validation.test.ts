@@ -21,16 +21,16 @@ describe('food log edit validation', () => {
 
   it.each([
     [{ quantity: 0 }, 'quantity'],
-    [{ quantity: 10001 }, 'quantity'],
+    [{ quantity: 1001 }, 'quantity'],
     [{ foodName: '   ' }, 'foodName'],
-    [{ foodName: 'x'.repeat(501) }, 'foodName'],
+    [{ foodName: 'x'.repeat(201) }, 'foodName'],
     [{ grams: Number.NaN }, 'grams'],
     [{ grams: 10001 }, 'grams'],
     [{ calories: '' }, 'calories'],
     [{ calories: '-1' }, 'calories'],
-    [{ calories: '100001' }, 'calories'],
+    [{ calories: '10001' }, 'calories'],
     [{ proteinG: 'not-a-number' }, 'proteinG'],
-    [{ carbsG: '10001' }, 'carbsG'],
+    [{ carbsG: '1001' }, 'carbsG'],
     [{ fatG: '-0.1' }, 'fatG'],
     [{ sugarG: '' }, 'sugarG'],
   ])('rejects invalid edits instead of silently dropping them', (input, issue) => {

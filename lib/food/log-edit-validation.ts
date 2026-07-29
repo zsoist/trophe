@@ -41,9 +41,9 @@ function boundedNumber(
 }
 
 /**
- * Validate sparse food-log edits against the same bounds enforced by the
- * database. Undefined fields mean "unchanged"; supplied invalid fields fail
- * the entire edit instead of being silently dropped.
+ * Validate sparse food-log edits against the tRPC API contract. PostgreSQL
+ * retains broader outer guardrails for every integration. Undefined fields
+ * mean "unchanged"; supplied invalid fields fail the entire edit.
  */
 export function validateFoodLogEdit(
   draft: FoodLogEditDraft,
@@ -52,26 +52,27 @@ export function validateFoodLogEdit(
 
   if (draft.foodName !== undefined) {
     const foodName = draft.foodName.trim();
-    if (foodName.length < 1 || foodName.length > 500) {
+    if (foodName.length < 1 || foodName.length > 200) {
       return { ok: false, issue: 'foodName' };
     }
     value.foodName = foodName;
   }
 
-  for (const field of ['quantity', 'grams'] as const) {
+  const amountBounds = { quantity: 1_000, grams: 10_000 } as const;
+  for (const field of Object.keys(amountBounds) as Array<keyof typeof amountBounds>) {
     const raw = draft[field];
     if (raw === undefined) continue;
-    const parsed = boundedNumber(raw, 0, 10_000, true);
+    const parsed = boundedNumber(raw, 0, amountBounds[field], true);
     if (parsed === null) return { ok: false, issue: field };
     value[field] = parsed;
   }
 
   const nutritionBounds = {
-    calories: 100_000,
-    proteinG: 10_000,
-    carbsG: 10_000,
-    fatG: 10_000,
-    sugarG: 10_000,
+    calories: 10_000,
+    proteinG: 1_000,
+    carbsG: 1_000,
+    fatG: 1_000,
+    sugarG: 1_000,
   } as const;
   for (const field of Object.keys(nutritionBounds) as Array<keyof typeof nutritionBounds>) {
     const raw = draft[field];
