@@ -3,7 +3,6 @@
 import { Suspense, useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { Mail, ArrowRight, Loader2, Eye, EyeOff } from 'lucide-react';
 import { submitSignup, resendConfirmation, fetchDeps } from '@/lib/auth/signup-client';
@@ -14,6 +13,20 @@ function safeRedirectTo(value: string | null): string | null {
     return null;
   }
   return value;
+}
+
+function passwordStrength(password: string): { label: 'Weak' | 'Good' | 'Strong'; percent: number } {
+  const checks = [
+    password.length >= 8,
+    /[a-z]/.test(password) && /[A-Z]/.test(password),
+    /\d/.test(password),
+    /[^A-Za-z0-9]/.test(password),
+  ];
+  const score = checks.filter(Boolean).length;
+
+  if (score >= 4) return { label: 'Strong', percent: 100 };
+  if (score >= 2) return { label: 'Good', percent: 66 };
+  return { label: 'Weak', percent: 33 };
 }
 
 function LoginForm() {
@@ -35,6 +48,7 @@ function LoginForm() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [pendingEmail, setPendingEmail] = useState<string | null>(null); // 202 → check-email screen
+  const strength = passwordStrength(password);
 
   // Sync mode with URL param changes; surface the post-confirmation success notice (P1).
   useEffect(() => {
@@ -126,12 +140,7 @@ function LoginForm() {
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-[#D4A853] rounded-full opacity-[0.02] blur-[120px]" />
       </div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="w-full max-w-sm relative"
-      >
+      <div className="login-enter w-full max-w-sm relative">
         {/* Logo */}
         <div className="text-center mb-8">
           <Link href="/" className="no-underline inline-block">
@@ -167,6 +176,8 @@ function LoginForm() {
           {/* Mode Toggle */}
           <div className="flex gap-0.5 bg-stone-900/60 rounded-xl p-1 mb-5">
             <button
+              type="button"
+              aria-pressed={mode === 'login'}
               onClick={() => { setMode('login'); setError(''); }}
               className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${
                 mode === 'login'
@@ -177,6 +188,8 @@ function LoginForm() {
               Log in
             </button>
             <button
+              type="button"
+              aria-pressed={mode === 'signup'}
               onClick={() => { setMode('signup'); setError(''); }}
               className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${
                 mode === 'signup'
@@ -225,13 +238,31 @@ function LoginForm() {
               />
               <button
                 type="button"
+                aria-label={showPw ? 'Hide password' : 'Show password'}
                 onClick={() => setShowPw(!showPw)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-600 hover:text-stone-400 transition-colors"
-                tabIndex={-1}
               >
                 {showPw ? <EyeOff size={14} /> : <Eye size={14} />}
               </button>
             </div>
+
+            {mode === 'signup' && password.length > 0 && (
+              <div
+                aria-live="polite"
+                className="space-y-1"
+                role="status"
+              >
+                <div className="h-1 overflow-hidden rounded-full bg-stone-800">
+                  <div
+                    className="password-strength-fill h-full rounded-full bg-[#D4A853]"
+                    style={{ width: `${strength.percent}%` }}
+                  />
+                </div>
+                <p className="text-[10px] text-stone-500">
+                  Password strength: <span className="text-stone-300">{strength.label}</span>
+                </p>
+              </div>
+            )}
 
             {mode === 'signup' && (
               <label className="flex gap-2 items-start text-[11px] text-stone-500 leading-relaxed py-1">
@@ -241,23 +272,21 @@ function LoginForm() {
             )}
 
             {error && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
+              <div
+                role="alert"
                 className="bg-red-500/8 border border-red-500/15 rounded-xl px-3 py-2"
               >
                 <p className="text-red-400 text-xs">{error}</p>
-              </motion.div>
+              </div>
             )}
 
             {success && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
+              <div
+                role="status"
                 className="bg-green-500/8 border border-green-500/15 rounded-xl px-3 py-2"
               >
                 <p className="text-green-400 text-xs">{success}</p>
-              </motion.div>
+              </div>
             )}
 
             <button
@@ -309,7 +338,7 @@ function LoginForm() {
             ← Back to home
           </Link>
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 }
