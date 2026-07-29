@@ -34,6 +34,12 @@ Scope: food parsing, nutrition review/logging, photo/manual boundaries, local DB
   - memory lookup uses `idx_mc_user_scope_active`
   - wearable lookup uses `idx_wd_user_type_recorded`
   - tiny local `food_log` and organization fixture tables use cheaper sequential scans; their production indexes are present
+- Public local-search hardening:
+  - malformed limits fall back safely; valid limits are clamped to 1–50
+  - database failures return stable public copy without raw database details
+  - migration `0060_food_database_trigram_search` adds GIN trigram indexes for English, Greek, and Spanish substring search
+  - a rolled-back 50,000-row local simulation used a `BitmapOr` across all three indexes and completed in about 3 ms
+  - the simulation left 0 probe rows
 - Bundle budgets: `/` and `/login` passed.
 
 ## Product changes Nick should notice
@@ -42,6 +48,8 @@ Scope: food parsing, nutrition review/logging, photo/manual boundaries, local DB
 - The deterministic local/CI catalog covers the complete 43-case golden set, including Colombian, Mediterranean, fitness, and edge-case portions.
 - Nutrition calculations keep two-decimal precision at the lookup boundary, preventing small macros from being hidden by early rounding.
 - Parser results fail closed when values are missing, non-finite, negative, implausible, out of bounds, or from an unknown source.
+- A partial dish decomposition now keeps its category-default provenance and computed confidence after caching; cache hits can no longer turn a mostly guessed recipe into a 0.75-confidence `local_db` result.
+- Decomposition confidence is monotonic at the 50% ingredient-match boundary instead of scoring 50% coverage below 40% coverage.
 - Edited portions are capped and validated again before the food-log insert.
 - Manual entry rejects invalid calories/macros before writing and now displays the validation error in the manual-entry view.
 - Photo analysis drops malformed or implausible items, caps confidence, and preserves an uncertainty note.
@@ -79,5 +87,6 @@ The authenticated local matrix can be repeated with `npm run test:e2e:local-auth
 
 - No live AI/provider call was made. Real-model quality and live photo latency were not measured in this zero-spend run.
 - No production database was read or changed.
+- Migration `0060_food_database_trigram_search` was applied and profiled only on loopback Supabase; production application remains an operator action.
 - The formal security plan requires a separate protected control-plane repository, signed broker/controller release, protected host identity, required GitHub App check, and Podman-based attestation. Those external prerequisites are not installed on this workstation, so no formal protected-lane attestation is claimed.
 - Production deployment, merge, and external writes remain operator actions.

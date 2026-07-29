@@ -9,5 +9,8 @@ describe('composite decomposition nutrition safety', () => {
     expect(source).not.toContain('totalProtein += 8 * factor');
     expect(source).toContain('if (matchRatio < 1)');
     expect(source).toContain('using governed fallback');
+    expect(source).toContain('const cachedQuality = resolveCachedRecipeQuality');
+    expect(source).toContain('const confidence = confidenceForMatchRatio(matchRatio)');
+    expect(source).toContain('source: cachedQuality.source');
   });
 });

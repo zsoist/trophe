@@ -29,6 +29,10 @@ import type { LookupInput, LookupResult } from './lookup';
 import type { ParsedFoodItem } from '../schemas/food-parse';
 import { safeErrorMetadata } from '../../lib/security/safe-error-log';
 import { classifyIngredient, getCategoryMacros } from './food-category-defaults';
+import {
+  confidenceForMatchRatio,
+  resolveCachedRecipeQuality,
+} from './decomposition-quality';
 
 // ── Zod schema for LLM decomposition output ──────────────────────────────────
 
@@ -89,9 +93,18 @@ interface CachedRecipe {
   total_carbs: number;
   total_fat: number;
   total_fiber: number | null;
-  ingredients: Array<{ food_id: string | null; food_name: string; grams: number; matched_confidence: number }>;
+  ingredients: RecipeIngredientDetail[];
   source: string;
   confidence: number;
+}
+
+interface RecipeIngredientDetail {
+  food_id: string | null;
+  food_name: string;
+  grams: number;
+  matched_confidence: number;
+  estimation_source?: 'category_default';
+  category?: string;
 }
 
 interface DecomposeInput {
@@ -250,7 +263,8 @@ async function cacheRecipe(
   region: string,
   totalGrams: number,
   totals: { kcal: number; protein: number; carbs: number; fat: number; fiber: number },
-  ingredients: Array<{ food_id: string | null; food_name: string; grams: number; matched_confidence: number }>,
+  ingredients: RecipeIngredientDetail[],
+  confidence: number,
 ): Promise<void> {
   try {
     await db.execute(sql`
@@ -270,7 +284,7 @@ async function cacheRecipe(
         ${totals.fiber},
         ${JSON.stringify(ingredients)}::jsonb,
         'llm_decomp',
-        0.75
+        ${confidence}
       )
       ON CONFLICT (dish_name, lang) DO NOTHING
     `);
@@ -298,6 +312,7 @@ export async function lookupCachedRecipeAsItem(input: DecomposeInput): Promise<P
     ?? (correctedName !== input.foodName ? await lookupCachedRecipe(input.foodName) : null)
     ?? (input.nameLocalized ? await lookupCachedRecipe(input.nameLocalized) : null);
   if (!finalCached) return null;
+  const cachedQuality = resolveCachedRecipeQuality(finalCached);
 
   // Count-unit scaling: "6 empanadas" should be 6 × per-piece weight, not 6 × full serving.
   // If we know the piece weight, scale by (pieceWeight / cachedTotalGrams) per unit.
@@ -321,8 +336,8 @@ export async function lookupCachedRecipeAsItem(input: DecomposeInput): Promise<P
       fat_g: Math.round(finalCached.total_fat * totalScale * 10) / 10,
       fiber_g: Math.round((finalCached.total_fiber ?? 0) * totalScale * 10) / 10,
       sugar_g: 0,
-      confidence: finalCached.confidence * 0.85, // slightly lower confidence for piece-weight scaling
-      source: 'local_db',
+      confidence: cachedQuality.confidence * 0.85, // slightly lower confidence for piece-weight scaling
+      source: cachedQuality.source,
     };
   }
 
@@ -340,8 +355,8 @@ export async function lookupCachedRecipeAsItem(input: DecomposeInput): Promise<P
     fat_g: Math.round(finalCached.total_fat * scale * 10) / 10,
     fiber_g: Math.round((finalCached.total_fiber ?? 0) * scale * 10) / 10,
     sugar_g: 0,
-    confidence: finalCached.confidence,
-    source: 'local_db',
+    confidence: cachedQuality.confidence,
+    source: cachedQuality.source,
   };
 }
 
@@ -364,6 +379,7 @@ export async function decomposeAndLookup(input: DecomposeInput): Promise<ParsedF
     ?? (input.nameLocalized ? await lookupCachedRecipe(input.nameLocalized) : null);
 
   if (cached) {
+    const cachedQuality = resolveCachedRecipeQuality(cached);
     // Count-unit: scale by known piece weight if available
     if (isCountUnit(input.unit)) {
       const pieceWeight = getPieceWeight(input.foodName);
@@ -383,8 +399,8 @@ export async function decomposeAndLookup(input: DecomposeInput): Promise<ParsedF
           fat_g: Math.round(cached.total_fat * totalScale * 10) / 10,
           fiber_g: Math.round((cached.total_fiber ?? 0) * totalScale * 10) / 10,
           sugar_g: 0,
-          confidence: cached.confidence * 0.85,
-          source: 'local_db',
+          confidence: cachedQuality.confidence * 0.85,
+          source: cachedQuality.source,
         };
       }
       // Unknown piece weight — fall through to LLM decomposition
@@ -404,8 +420,8 @@ export async function decomposeAndLookup(input: DecomposeInput): Promise<ParsedF
         fat_g: Math.round(cached.total_fat * scale * 10) / 10,
         fiber_g: Math.round((cached.total_fiber ?? 0) * scale * 10) / 10,
         sugar_g: 0,
-        confidence: cached.confidence,
-        source: 'local_db',
+        confidence: cachedQuality.confidence,
+        source: cachedQuality.source,
       };
     }
   }
@@ -434,7 +450,7 @@ export async function decomposeAndLookup(input: DecomposeInput): Promise<ParsedF
   let totalKcal = 0, totalProtein = 0, totalCarbs = 0, totalFat = 0, totalFiber = 0;
   let totalGrams = 0;
   let matchedCount = 0;
-  const ingredientDetails: Array<{ food_id: string | null; food_name: string; grams: number; matched_confidence: number }> = [];
+  const ingredientDetails: RecipeIngredientDetail[] = [];
 
   for (let i = 0; i < decomposition.ingredients.length; i++) {
     const ing = decomposition.ingredients[i];
@@ -476,7 +492,7 @@ export async function decomposeAndLookup(input: DecomposeInput): Promise<ParsedF
         matched_confidence: 0.3,
         estimation_source: 'category_default',
         category,
-      } as typeof ingredientDetails[number]);
+      });
     }
   }
 
@@ -508,6 +524,7 @@ export async function decomposeAndLookup(input: DecomposeInput): Promise<ParsedF
     fat: Math.round(totalFat * 10) / 10,
     fiber: Math.round(totalFiber * 10) / 10,
   };
+  const confidence = confidenceForMatchRatio(matchRatio);
 
   // ── Step 5: Cache the decomposition ──────────────────────────────────────
   cacheRecipe(
@@ -517,16 +534,11 @@ export async function decomposeAndLookup(input: DecomposeInput): Promise<ParsedF
     totalGrams,
     totals,
     ingredientDetails,
+    confidence,
   ).catch(() => { /* non-critical */ });
 
   // ── Step 6: Return aggregated item ───────────────────────────────────────
   const scale = input.quantity;
-  // Full match: 0.85, partial match (≥0.5): 0.65, low-partial (0.35-0.5): 0.45
-  const confidence = matchRatio === 1
-    ? 0.85
-    : matchRatio >= 0.5
-      ? Math.min(0.65, matchRatio * 0.75)
-      : 0.45; // 0.35-0.5 range: accept with low confidence
 
   return {
     raw_text: input.rawText,
