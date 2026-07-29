@@ -1,6 +1,7 @@
 import { EventEmitter } from 'node:events';
 import { describe, expect, it, vi } from 'vitest';
 import {
+  formatVerificationFailure,
   publishSummary,
   probeDependencyHealth,
   runReleaseVerification,
@@ -12,6 +13,26 @@ const node = process.execPath;
 const cwd = process.cwd();
 
 describe('verification release runner', () => {
+  it('reports the failed step and a safe rerun command without captured output', () => {
+    const message = formatVerificationFailure({
+      status: 'failed',
+      preflight: { status: 'healthy', datalessFileCount: 0 },
+      steps: [{
+        name: 'test',
+        status: 'failed',
+        exitCode: 1,
+        stdout: 'private meal details',
+        stderr: '/Users/example/secret-provider-response',
+      }],
+    });
+
+    expect(message).toBe(
+      'verification_failed: test exited 1. Re-run: npm test -- --reporter=verbose',
+    );
+    expect(message).not.toContain('private meal details');
+    expect(message).not.toContain('/Users/example');
+  });
+
   it('records a successful command', async () => {
     const result = await runStep({
       name: 'success',

@@ -9,10 +9,11 @@ describe('local database bootstrap Vault ordering', () => {
 
   it('creates the local memory worker secret before migrations run', () => {
     const secretSetup = script.indexOf("vault.create_secret('local-test-only', 'memory_cron_secret')");
-    const migrationRun = script.indexOf('npx tsx scripts/db/run-migrations.ts');
+    const migrationRun = script.indexOf('"$TSX_BIN" scripts/db/run-migrations.ts');
 
     expect(secretSetup).toBeGreaterThan(-1);
     expect(migrationRun).toBeGreaterThan(secretSetup);
+    expect(script).not.toContain('npx tsx scripts/db/run-migrations.ts');
   });
 
   it('limits the fixture to the local Supabase path', () => {

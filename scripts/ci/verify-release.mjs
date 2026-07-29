@@ -271,6 +271,30 @@ export const releaseSteps = [
   ['build', 'npm', ['run', 'build'], 900_000],
 ];
 
+const SAFE_RERUN_COMMANDS = {
+  typecheck: 'npm run typecheck',
+  lint: 'npm run lint -- --no-cache',
+  test: 'npm test -- --reporter=verbose',
+  build: 'npm run build',
+};
+
+export function formatVerificationFailure(summary) {
+  const failedStep = [...(summary.steps ?? [])]
+    .reverse()
+    .find((step) => step.status !== 'passed');
+  if (!failedStep) {
+    return `verification_failed: preflight ${summary.preflight?.status ?? 'unknown'}`;
+  }
+
+  const outcome = failedStep.status === 'timed_out'
+    ? 'timed out'
+    : failedStep.exitCode === null || failedStep.exitCode === undefined
+      ? 'failed to start'
+      : `exited ${failedStep.exitCode}`;
+  const rerun = SAFE_RERUN_COMMANDS[failedStep.name];
+  return `verification_failed: ${failedStep.name} ${outcome}.${rerun ? ` Re-run: ${rerun}` : ''}`;
+}
+
 function dependencyPreflight(probeResult) {
   const datalessFileCount = Array.isArray(probeResult.datalessPaths)
     ? probeResult.datalessPaths.length
@@ -347,7 +371,10 @@ if (isMain) {
           `dependency_tree_offloaded: ${summary.preflight.datalessFileCount} dataless path(s) found. ${summary.preflight.repairInstruction}`,
         );
       }
-      if (summary.status !== 'passed') process.exitCode = 1;
+      if (summary.status !== 'passed') {
+        console.error(formatVerificationFailure(summary));
+        process.exitCode = 1;
+      }
     })
     .catch((error) => {
       console.error(error.code === 'SUMMARY_PUBLISH_FAILED' ? error.code : error);
