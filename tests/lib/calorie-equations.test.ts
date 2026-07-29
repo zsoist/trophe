@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { mifflinStJeor, katchMcArdle, tdeeFromBmr, targetCalories, macroSplit, computeBaseline } from '@/lib/food/calorie-equations';
+import { mifflinStJeor, katchMcArdle, tdeeFromBmr, targetCalories, macroSplit, computeBaseline, baselineInputIssue } from '@/lib/food/calorie-equations';
 
 describe('calorie-equations', () => {
   it('Mifflin-St Jeor — male & female', () => {
@@ -49,5 +49,26 @@ describe('calorie-equations', () => {
     expect(noBf.formula).toBe('mifflin_st_jeor');
     expect(noBf.tdee).toBeGreaterThan(noBf.bmr);
     expect(noBf.target.protein_g).toBeGreaterThan(0);
+  });
+
+  it('rejects unsupported body data before calculating a baseline', () => {
+    const valid = {
+      sex: 'male' as const,
+      ageYears: 30,
+      weightKg: 80,
+      heightCm: 180,
+      bodyFatPct: 18,
+      activity: 'moderate' as const,
+      goal: 'maintain' as const,
+    };
+
+    expect(baselineInputIssue(valid)).toBeNull();
+    expect(baselineInputIssue({ ...valid, ageYears: -1 })).toBe('age');
+    expect(baselineInputIssue({ ...valid, weightKg: 0 })).toBe('weight');
+    expect(baselineInputIssue({ ...valid, heightCm: 999 })).toBe('height');
+    expect(baselineInputIssue({ ...valid, bodyFatPct: 101 })).toBe('body_fat');
+    expect(() => computeBaseline({ ...valid, bodyFatPct: 101 })).toThrow(
+      'Unsupported baseline input: body_fat',
+    );
   });
 });
