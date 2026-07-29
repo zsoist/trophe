@@ -41,6 +41,7 @@ import PlateCalculator from '@/components/workout/PlateCalculator';
 import { muscleColor } from '@/components/workout/muscle-groups';
 import { useWeightUnit, kgToDisplay, displayToKg } from '@/lib/workout/units';
 import { getRestTarget, setRestTarget as persistRestTarget, REST_CHOICES } from '@/lib/workout/rest-targets';
+import { supersetGroupFor, supersetLabelFor } from '@/lib/workout/supersets';
 import {
   createWorkoutSession,
   deleteWorkoutSet,
@@ -75,18 +76,6 @@ interface ActiveExercise {
   lastSets?: { weight_kg: number | null; reps: number | null; rpe?: number | null }[];
   /** Superset pairing: linked with the NEXT exercise in the list (Hevy-style). */
   linkedBelow?: boolean;
-}
-
-/**
- * Superset group id for an exercise position, or null when unpaired.
- * Chained links (A→B→C) share one group; the id is the chain-start index + 1.
- */
-function supersetGroupFor(list: ActiveExercise[], index: number): number | null {
-  const inChain = list[index]?.linkedBelow || (index > 0 && list[index - 1]?.linkedBelow);
-  if (!inChain) return null;
-  let start = index;
-  while (start > 0 && list[start - 1]?.linkedBelow) start--;
-  return start + 1;
 }
 
 function blankSet(setNumber: number, from?: LocalSet): LocalSet {
@@ -1080,7 +1069,7 @@ export default function WorkoutPage() {
                       <div className="flex items-center gap-1.5 px-3 pt-2 -mb-1">
                         <Link2 size={11} style={{ color: 'var(--accent, #D4A853)' }} />
                         <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--accent, #D4A853)' }}>
-                          {t('workout.superset')} {String.fromCharCode(64 + (supersetGroupFor(activeExercises, exIndex) ?? 1))}
+                          {t('workout.superset')} {supersetLabelFor(activeExercises, exIndex)}
                         </span>
                       </div>
                     )}
