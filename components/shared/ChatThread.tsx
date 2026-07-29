@@ -21,6 +21,7 @@ import {
   releaseAllPreviewUrls,
   releaseUnreferencedPreviewUrls,
 } from '@/lib/chat/preview-url-lifecycle';
+import { chronologicalFromNewest } from '@/lib/chat/message-order';
 
 export interface ChatMessage {
   id: string;
@@ -253,9 +254,9 @@ export default function ChatThread({ coachId, clientId, viewerRole, counterpartN
       .select(MSG_COLS)
       .eq('coach_id', coachId)
       .eq('client_id', clientId)
-      .order('created_at', { ascending: true })
+      .order('created_at', { ascending: false })
       .limit(200);
-    setMsgs((data ?? []) as ChatMessage[]);
+    setMsgs(chronologicalFromNewest((data ?? []) as ChatMessage[]));
     setLoading(false);
 
     // Mark the other side's messages as read
@@ -290,14 +291,14 @@ export default function ChatThread({ coachId, clientId, viewerRole, counterpartN
           .select(MSG_COLS)
           .eq('coach_id', coachId)
           .eq('client_id', clientId)
-          .order('created_at', { ascending: true })
+          .order('created_at', { ascending: false })
           .limit(200);
         if (data) {
           setMsgs((prev) => {
-            const fresh = data as ChatMessage[];
+            const fresh = chronologicalFromNewest(data as ChatMessage[]);
             // Keep optimistic temps that haven't been confirmed yet
             const temps = prev.filter((m) => m.id.startsWith('temp-'));
-            return [...fresh, ...temps.filter((tm) => !fresh.some((f) => f.body === tm.body && f.attachment_type === tm.attachment_type))];
+            return [...fresh, ...temps];
           });
         }
       }, 8000);
