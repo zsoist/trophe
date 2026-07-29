@@ -340,7 +340,22 @@ export default function OnboardingPage() {
                       </p>
                       <p className="caption" style={{ color: 'var(--t4)' }}>Fat</p>
                     </div>
-                  </div>
+                   </div>
+
+                  {profile.macros_adjusted && (
+                    <div
+                      role="note"
+                      className="rounded-xl p-3 text-center"
+                      style={{
+                        background: 'rgba(212,168,83,.08)',
+                        border: '1px solid rgba(212,168,83,.2)',
+                        color: 'var(--t3)',
+                        fontSize: 11,
+                      }}
+                    >
+                      Protein and fat were adjusted to fit your calorie target. Your coach can review these starting targets.
+                    </div>
+                  )}
 
                   <div className="flex justify-between items-center body-md pt-2" style={{ color: 'var(--t4)', borderTop: '1px solid var(--line-2)' }}>
                     <span className="inline-flex items-center gap-1.5">

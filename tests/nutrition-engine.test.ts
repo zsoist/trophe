@@ -116,12 +116,19 @@ describe('calculateMacroTargets (ISSN-grade ratios)', () => {
     // calories = protein*4 + fat*9 + carbs*4 (within rounding)
     const reconstructed = t.protein_g * 4 + t.fat_g * 9 + t.carbs_g * 4;
     expect(Math.abs(t.calories - reconstructed)).toBeLessThanOrEqual(4);
+    expect(t.macros_adjusted).toBe(false);
   });
 
-  it('never returns negative carbs (protein+fat cannot exceed target)', () => {
-    // Extreme fat_loss tiny person — carbs must stay >= 0
-    const t = calculateMacroTargets(45, 150, 25, 'female', 'sedentary', 'fat_loss');
+  it('fits impossible protein and fat anchors inside the calorie target', () => {
+    const t = calculateMacroTargets(160, 140, 80, 'female', 'sedentary', 'fat_loss');
+    const reconstructed = t.protein_g * 4 + t.fat_g * 9 + t.carbs_g * 4;
+
+    expect(t.macros_adjusted).toBe(true);
+    expect(t.protein_g).toBeGreaterThan(0);
+    expect(t.fat_g).toBeGreaterThan(0);
     expect(t.carbs_g).toBeGreaterThanOrEqual(0);
+    expect(reconstructed).toBeLessThanOrEqual(t.calories);
+    expect(t.calories - reconstructed).toBeLessThan(4);
   });
 });
 

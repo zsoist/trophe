@@ -77,17 +77,22 @@ export function calculateMacroTargets(
 
   const ratios = MACRO_RATIOS[goal];
 
-  // Protein: fixed g/kg target
-  const protein_g = Math.round(ratios.protein * weight_kg);
+  // Protein and fat begin at their g/kg anchors. In a mathematically
+  // impossible deficit, fit both proportionally instead of silently returning
+  // macros whose energy exceeds the displayed calorie target.
+  const requestedProtein_g = Math.round(ratios.protein * weight_kg);
+  const requestedFat_g = Math.round(ratios.fat * weight_kg);
+  const anchorCalories = requestedProtein_g * 4 + requestedFat_g * 9;
+  const macros_adjusted = anchorCalories > targetCalories;
+  const anchorScale = macros_adjusted ? targetCalories / anchorCalories : 1;
+  const protein_g = Math.max(0, Math.floor(requestedProtein_g * anchorScale));
+  const fat_g = Math.max(0, Math.floor(requestedFat_g * anchorScale));
   const proteinCalories = protein_g * 4;
-
-  // Fat: fixed g/kg target
-  const fat_g = Math.round(ratios.fat * weight_kg);
   const fatCalories = fat_g * 9;
 
   // Carbs: fill remaining calories
   const remainingCalories = Math.max(0, targetCalories - proteinCalories - fatCalories);
-  const carbs_g = Math.round(remainingCalories / 4);
+  const carbs_g = Math.floor(remainingCalories / 4);
 
   // Fiber: 14g per 1000 kcal (IOM recommendation)
   const fiber_g = Math.round((targetCalories / 1000) * 14);
@@ -107,6 +112,7 @@ export function calculateMacroTargets(
     fiber_g,
     sugar_g,
     water_ml,
+    macros_adjusted,
   };
 }
 
