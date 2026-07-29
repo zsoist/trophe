@@ -67,6 +67,7 @@ Scope: food parsing, nutrition review/logging, photo/manual boundaries, local DB
 - Typechecking excludes only ignored `.next` conflict-copy filenames (for example `routes.d 5.ts`); prebuild clears the ignored `.next` tree and deletes numbered service-worker copies only when byte-identical to `public/sw.js`, preventing macOS Documents sync artifacts from breaking Nick’s verification runs.
 - Weekly calorie charts treat a zero/invalid target as “not configured”: logged days stay neutral and no false red status or zero target line is rendered.
 - An expired Spike wearable callback now returns through login to `/dashboard/integrations` using the redirect parameter the login page actually consumes.
+- Coach weekly habit activity is derived from the existing seven-day check-in result, removing a duplicate database query and bucketing ISO dates without west-of-UTC day shifts.
 - Edited portions are capped and validated again before the food-log insert.
 - Manual entry rejects invalid calories/macros before writing and now displays the validation error in the manual-entry view.
 - Photo analysis drops malformed or implausible items, caps confidence, and preserves an uncertainty note.
