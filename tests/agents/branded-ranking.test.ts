@@ -10,7 +10,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { brandedOffAdjustment } from '@/agents/food-parse/lookup';
+import { brandedOffAdjustment, correctFoodName } from '@/agents/food-parse/lookup';
 
 type Candidate = Parameters<typeof brandedOffAdjustment>[0];
 
@@ -29,6 +29,17 @@ function food(overrides: Partial<Record<string, unknown>>): Candidate {
     ...overrides,
   } as unknown as Candidate;
 }
+
+describe('generic English beverage corrections', () => {
+  it.each([
+    ['soda', 'Soft drink, NFS'],
+    ['cola', 'Soft drink, cola'],
+    ['latte', 'Coffee, Latte'],
+    ['caffe latte', 'Coffee, Latte'],
+  ])('maps "%s" to an unambiguous generic beverage', (query, expected) => {
+    expect(correctFoodName(query)).toBe(expected);
+  });
+});
 
 describe('brandedOffAdjustment — generic-query OFF demotion', () => {
   it('demotes an OFF row -5 when the query never names the brand (same region)', () => {
