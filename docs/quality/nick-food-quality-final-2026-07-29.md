@@ -50,6 +50,8 @@ Scope: food parsing, nutrition review/logging, photo/manual boundaries, local DB
 - Parser results fail closed when values are missing, non-finite, negative, implausible, out of bounds, or from an unknown source.
 - A partial dish decomposition now keeps its category-default provenance and computed confidence after caching; cache hits can no longer turn a mostly guessed recipe into a 0.75-confidence `local_db` result.
 - Decomposition confidence is monotonic at the 50% ingredient-match boundary instead of scoring 50% coverage below 40% coverage.
+- Common piece weights use whole normalized food tokens: short names such as `ham` and `pea` can no longer inherit `hamburger` or `peach` weights, while real matches such as `butter croissant` and `souvlaki chicken pita` still resolve.
+- Composite-dish ingredient lookups run through the order-preserving parallel batch API instead of one database round-trip at a time.
 - Edited portions are capped and validated again before the food-log insert.
 - Manual entry rejects invalid calories/macros before writing and now displays the validation error in the manual-entry view.
 - Photo analysis drops malformed or implausible items, caps confidence, and preserves an uncertainty note.

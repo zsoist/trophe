@@ -717,6 +717,44 @@ export const COMMON_PIECE_WEIGHTS: Record<string, number> = {
   falafel: 25, croquette: 30, arancini: 80,
 };
 
+function normalizePieceWeightKey(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_|_$/g, '');
+}
+
+/**
+ * Resolve a common piece weight using whole normalized tokens only.
+ *
+ * The reverse substring check previously turned short foods into unrelated
+ * longer keys (ham → hamburger, pea → peach). Longest token-bounded match wins
+ * so specific entries such as souvlaki_chicken_pita beat pita.
+ */
+export function resolveCommonPieceWeight(foodName: string): number | null {
+  const key = normalizePieceWeightKey(foodName);
+  if (!key) return null;
+
+  let bestPattern = '';
+  let bestWeight: number | null = null;
+  const paddedKey = `_${key}_`;
+
+  for (const [rawPattern, weight] of Object.entries(COMMON_PIECE_WEIGHTS)) {
+    const pattern = normalizePieceWeightKey(rawPattern);
+    if (
+      (key === pattern || paddedKey.includes(`_${pattern}_`))
+      && pattern.length > bestPattern.length
+    ) {
+      bestPattern = pattern;
+      bestWeight = weight;
+    }
+  }
+
+  return bestWeight;
+}
+
 async function resolveUnit(
   foodId: string,
   unit: string,
@@ -845,16 +883,8 @@ async function resolveUnit(
   // instead of falling through to the 100g universal default.
   // Sources: USDA FNDDS 2019-2020, British Nutrition Foundation portion guide.
   if (normalizedUnit === 'piece') {
-    const bakeryWeight = COMMON_PIECE_WEIGHTS[canonicalFoodKey?.toLowerCase().replace(/[^a-z]+/g, '_') ?? ''];
-    if (bakeryWeight) return { id: null, gramsPerUnit: bakeryWeight };
-
-    // Fuzzy match: check if any key token appears in the canonical food key
-    const ck = canonicalFoodKey?.toLowerCase() ?? '';
-    for (const [pattern, weight] of Object.entries(COMMON_PIECE_WEIGHTS)) {
-      if (ck.includes(pattern) || pattern.includes(ck.replace(/[^a-z]/g, ''))) {
-        return { id: null, gramsPerUnit: weight };
-      }
-    }
+    const commonWeight = resolveCommonPieceWeight(canonicalFoodKey ?? '');
+    if (commonWeight) return { id: null, gramsPerUnit: commonWeight };
   }
 
   // 4. Universal fallback (food_id IS NULL)

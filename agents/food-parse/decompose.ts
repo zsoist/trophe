@@ -24,8 +24,12 @@ import { sql } from 'drizzle-orm';
 import { executeAiTask } from '../runtime';
 import { invokeStructuredProvider } from '../runtime/providers/structured';
 // Note: invokeTextProvider removed — decompose uses invokeStructuredProvider (DeepSeek) only.
-import { lookupFood, COMMON_PIECE_WEIGHTS, correctFoodName } from './lookup';
-import type { LookupInput, LookupResult } from './lookup';
+import {
+  correctFoodName,
+  lookupFoodBatch,
+  resolveCommonPieceWeight,
+} from './lookup';
+import type { LookupInput } from './lookup';
 import type { ParsedFoodItem } from '../schemas/food-parse';
 import { safeErrorMetadata } from '../../lib/security/safe-error-log';
 import { classifyIngredient, getCategoryMacros } from './food-category-defaults';
@@ -125,31 +129,6 @@ const COUNT_UNITS = new Set([
 
 function isCountUnit(unit: string): boolean {
   return COUNT_UNITS.has(unit.toLowerCase().trim());
-}
-
-/**
- * Look up per-piece grams for a food name using the shared COMMON_PIECE_WEIGHTS map.
- * Tries exact key match first, then substring fuzzy match.
- * Returns null if no known piece weight exists.
- */
-function getPieceWeight(foodName: string): number | null {
-  const key = foodName.toLowerCase().replace(/[^a-z]+/g, '_').replace(/^_|_$/g, '');
-
-  // Exact match
-  if (COMMON_PIECE_WEIGHTS[key]) return COMMON_PIECE_WEIGHTS[key];
-
-  // Fuzzy: find the LONGEST matching key (most specific wins)
-  let bestMatch: string | null = null;
-  let bestWeight: number | null = null;
-  for (const [pattern, weight] of Object.entries(COMMON_PIECE_WEIGHTS)) {
-    if (key.includes(pattern) || pattern.includes(key)) {
-      if (!bestMatch || pattern.length > bestMatch.length) {
-        bestMatch = pattern;
-        bestWeight = weight;
-      }
-    }
-  }
-  return bestWeight;
 }
 
 // ── Prompt ───────────────────────────────────────────────────────────────────
@@ -318,7 +297,7 @@ export async function lookupCachedRecipeAsItem(input: DecomposeInput): Promise<P
   // If we know the piece weight, scale by (pieceWeight / cachedTotalGrams) per unit.
   // If we don't know the piece weight, fall through to null (decompose will handle it).
   if (isCountUnit(input.unit)) {
-    const pieceWeight = getPieceWeight(input.foodName);
+    const pieceWeight = resolveCommonPieceWeight(input.foodName);
     if (!pieceWeight) return null; // Unknown piece weight — can't safely scale
 
     const perPieceScale = pieceWeight / (finalCached.total_grams || 1);
@@ -382,7 +361,7 @@ export async function decomposeAndLookup(input: DecomposeInput): Promise<ParsedF
     const cachedQuality = resolveCachedRecipeQuality(cached);
     // Count-unit: scale by known piece weight if available
     if (isCountUnit(input.unit)) {
-      const pieceWeight = getPieceWeight(input.foodName);
+      const pieceWeight = resolveCommonPieceWeight(input.foodName);
       if (pieceWeight) {
         const perPieceScale = pieceWeight / (cached.total_grams || 1);
         const totalScale = perPieceScale * input.quantity;
@@ -441,10 +420,7 @@ export async function decomposeAndLookup(input: DecomposeInput): Promise<ParsedF
     region,
   }));
 
-  const lookupResults: Array<LookupResult | null> = [];
-  for (const li of lookupInputs) {
-    lookupResults.push(await lookupFood(li));
-  }
+  const lookupResults = await lookupFoodBatch(lookupInputs);
 
   // ── Step 4: Aggregate macros deterministically ───────────────────────────
   let totalKcal = 0, totalProtein = 0, totalCarbs = 0, totalFat = 0, totalFiber = 0;

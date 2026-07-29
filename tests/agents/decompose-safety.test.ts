@@ -12,5 +12,7 @@ describe('composite decomposition nutrition safety', () => {
     expect(source).toContain('const cachedQuality = resolveCachedRecipeQuality');
     expect(source).toContain('const confidence = confidenceForMatchRatio(matchRatio)');
     expect(source).toContain('source: cachedQuality.source');
+    expect(source).toContain('await lookupFoodBatch(lookupInputs)');
+    expect(source).not.toContain('lookupResults.push(await lookupFood(li))');
   });
 });
