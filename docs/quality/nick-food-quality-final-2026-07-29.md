@@ -16,6 +16,13 @@ Scope: food parsing, nutrition review/logging, photo/manual boundaries, local DB
   - required accuracy: at least 95%
   - missing DB rows are failures; they are no longer removed from the denominator
 - Focused food/nutrition regression suite: **198/198 passed**
+- Branded-query regression suite: **59/59 passed**
+  - generic `fries`, `french fries`, `burger`, `cheeseburger`, `caffe latte`,
+    `cola`, `soda`, `juice`, and `energy drink` never select an unrequested brand
+  - explicit `Big Mac`, `McNuggets`, `Starbucks latte`, `Pepsi`, and `Red Bull`
+    retain branded intent
+  - original user text, not an AI-normalized food name, controls brand intent
+- Food-agent suite: **475 passed, 3 intentionally skipped**
 - Offline provider contracts: **17/17 passed**
   - production adapters exercised with injected fixture transports
   - provider keys and paid-tool approval forcibly blanked
@@ -42,6 +49,11 @@ Scope: food parsing, nutrition review/logging, photo/manual boundaries, local DB
   - memory lookup uses `idx_mc_user_scope_active`
   - wearable lookup uses `idx_wd_user_type_recorded`
   - tiny local `food_log` and organization fixture tables use cheaper sequential scans; their production indexes are present
+- Warm branded/generic lookup benchmark: **480 lookups, 0 branded leaks**
+  - p50: 1.97 ms
+  - p95: 2.65 ms
+  - p99: 3.19 ms
+  - max: 3.36 ms
 - Public local-search hardening:
   - malformed limits fall back safely; valid limits are clamped to 1–50
   - database failures return stable public copy without raw database details
@@ -53,6 +65,14 @@ Scope: food parsing, nutrition review/logging, photo/manual boundaries, local DB
 ## Product changes Nick should notice
 
 - Greek accented lookup works for `φέτα`, `ελαιόλαδο`, and `κοτόπουλο στήθος`.
+- Generic English food requests no longer drift into restaurant or retail
+  products. If the catalog has only branded candidates, lookup fails closed and
+  lets the parser request a generic estimate instead of fabricating brand intent.
+- Brand selection is source-agnostic: USDA restaurant rows, Open Food Facts
+  products, and any row with brand metadata are filtered unless Nick named the
+  brand. Known legacy restaurant rows now carry truthful brand metadata.
+- Generic `fries` and `french fries` use the zero-provider fast path and resolve
+  to `Fast foods, potato, french fried in vegetable oil`.
 - The deterministic local/CI catalog covers the complete 43-case golden set, including Colombian, Mediterranean, fitness, and edge-case portions.
 - Nutrition calculations keep two-decimal precision at the lookup boundary, preventing small macros from being hidden by early rounding.
 - Parser results fail closed when values are missing, non-finite, negative, implausible, out of bounds, or from an unknown source.
@@ -95,7 +115,20 @@ Use a non-production client tester account on the release candidate.
    - `φέτα`
    - `ελαιόλαδο`
    - `κοτόπουλο στήθος`
-3. Confirm every result shows a recognizable name, portion, macros, and provenance; no item should jump directly into the log without review.
+   - `fries`
+   - `french fries`
+   - `burger`
+   - `caffe latte`
+   - `cola`
+   - `energy drink`
+   - `Big Mac`
+   - `Starbucks latte`
+   - `Pepsi`
+   - `Red Bull`
+3. Confirm generic English inputs never acquire an unrequested brand. Explicit
+   brand inputs may resolve to that brand. Every successful result must show a
+   recognizable name, portion, macros, and provenance; no item should jump
+   directly into the log without review.
 4. Change a 100 g portion to 150 g. The displayed macros should scale immediately and the save action should remain available.
 5. Remove one item from a multi-item meal and confirm totals update.
 6. Submit an ambiguous serving and answer the clarification question. The original text must remain recoverable on cancel.
@@ -117,7 +150,7 @@ required.
 ## Explicit limits
 
 - No live AI/provider call was made. Real-model quality and live photo latency were not measured in this zero-spend run.
-- The local catalog currently contains 144 rows; 114 do not have embeddings
+- The local catalog currently contains 144 rows; 87 do not have embeddings
   compatible with the configured vector model. Deterministic aliases,
   multilingual full-text/trigram lookup, and the verified local parser remain
   available at zero cost, but complete semantic-vector coverage requires a
