@@ -29,6 +29,7 @@ import { enrichWithLocalDB } from './enrich';
 import { lookupFoodBatch, ragPreSearch, formatRagContext, correctFoodName } from './lookup';
 import type { LookupInput } from './lookup';
 import { decomposeAndLookup, lookupCachedRecipeAsItem } from './decompose';
+import { extractLocalFoodCandidates } from './local-fast-path';
 import { pick } from '../router';
 import { emitGenAISpan, estimateCostUsd } from '../observability/otel';
 import { executeAiTask } from '../runtime';
@@ -840,6 +841,93 @@ export async function run(
       },
       telemetry: emptyTelemetry,
     };
+  }
+
+  // ── Local fast path: common foods, zero provider cost ─────────────────────
+  // The extractor is intentionally narrow and every candidate must resolve in
+  // the canonical foods database. If grammar or retrieval is uncertain, fall
+  // through untouched to the full AI-assisted pipeline.
+  const localFastPathStartedAt = performance.now();
+  const localCandidates = extractLocalFoodCandidates(sanitizedText);
+  if (localCandidates) {
+    try {
+      const localLookups = await lookupFoodBatch(localCandidates.map(candidate => ({
+        foodName: candidate.foodName,
+        unit: candidate.unit,
+        region: regionForLanguage(language),
+      })));
+
+      if (localLookups.every((lookup) => lookup !== null)) {
+        const localItems: ParsedFoodItem[] = localCandidates.map((candidate, index) => {
+          const lookup = localLookups[index]!;
+          const macros = lookup.macros(candidate.quantity);
+          const grams = lookup.gramsTotal(candidate.quantity);
+          const hasFoodSpecificConversion = lookup.conversionId !== null;
+          const confidence = candidate.portionExplicit
+            ? (hasFoodSpecificConversion ? 0.95 : 0.85)
+            : (hasFoodSpecificConversion ? 0.75 : 0.60);
+          const caloriesRange = candidate.portionExplicit
+            ? undefined
+            : {
+                min: Math.round(macros.kcal * 0.7 * 10) / 10,
+                center: macros.kcal,
+                max: Math.round(macros.kcal * 1.4 * 10) / 10,
+              };
+
+          return {
+            raw_text: candidate.rawText,
+            food_name: lookup.food.nameEn,
+            name_localized: candidate.nameLocalized,
+            quantity: candidate.quantity,
+            unit: candidate.unit,
+            grams,
+            calories: macros.kcal,
+            protein_g: macros.protein,
+            carbs_g: macros.carb,
+            fat_g: macros.fat,
+            fiber_g: macros.fiber ?? 0,
+            sugar_g: Math.round(
+              (lookup.food.sugarPer100g ?? 0) * grams / 100 * 100,
+            ) / 100,
+            confidence,
+            source: 'local_db',
+            portion_explicit: candidate.portionExplicit,
+            calories_range: caloriesRange,
+            brand: lookup.food.brand ?? null,
+            db_source: lookup.food.source ?? null,
+            data_quality: lookup.food.dataQuality ?? null,
+            db_food_id: lookup.food.id ?? null,
+          };
+        });
+        const hasImplicitPortions = localCandidates.some(
+          candidate => !candidate.portionExplicit,
+        );
+
+        return {
+          ok: true,
+          output: {
+            items: localItems,
+            needs_clarification: hasImplicitPortions,
+            clarification_question: hasImplicitPortions
+              ? clarificationQuestion(language)
+              : null,
+            warnings: hasImplicitPortions
+              ? ['Portions estimated — confirm before saving']
+              : undefined,
+          },
+          telemetry: {
+            ...emptyTelemetry,
+            latencyMs: Math.round(performance.now() - localFastPathStartedAt),
+            rawStatus: 200,
+            dbHits: localItems.length,
+          },
+        };
+      }
+    } catch (err) {
+      // A local lookup failure is not a parse result. Preserve the established
+      // full pipeline fallback without logging the user's meal text.
+      console.error('[food-parse] local fast path unavailable', safeErrorMetadata(err));
+    }
   }
 
   // ── Step 0: RAG pre-search — give the LLM DB reference data ───────────────
