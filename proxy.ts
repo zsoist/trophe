@@ -46,7 +46,7 @@ function redirectWithSessionCookies(
  *
  * Closes codex HIGH #1: "middleware.ts admits auth is handled client-side".
  */
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { supabase, response } = createSupabaseMiddlewareClient(request);
 
   // PERF: a request with no Supabase cookies has no session to validate OR
@@ -68,7 +68,7 @@ export async function middleware(request: NextRequest) {
     try {
       ({ data: { user } } = await supabase.auth.getUser());
     } catch (err) {
-      console.error('[middleware] auth backend unreachable, treating as anonymous:', err instanceof Error ? err.message : err);
+      console.error('[proxy] auth backend unreachable, treating as anonymous:', err instanceof Error ? err.message : err);
     }
   }
 

@@ -10,7 +10,7 @@ vi.mock('@/lib/supabase/middleware', () => ({
   createSupabaseMiddlewareClient: mocks.createSupabaseMiddlewareClient,
 }));
 
-import { middleware } from '@/middleware';
+import { proxy } from '@/proxy';
 
 function request(path: string) {
   return new NextRequest(`http://localhost${path}`, {
@@ -18,7 +18,7 @@ function request(path: string) {
   });
 }
 
-describe('middleware session refresh redirects', () => {
+describe('proxy session refresh redirects', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     const response = NextResponse.next();
@@ -36,7 +36,7 @@ describe('middleware session refresh redirects', () => {
   it('keeps rotated cookies when an authenticated user leaves the login page', async () => {
     mocks.getUser.mockResolvedValue({ data: { user: { id: 'user-1' } } });
 
-    const response = await middleware(request('/login'));
+    const response = await proxy(request('/login'));
 
     expect(response.status).toBe(307);
     expect(response.headers.get('location')).toBe('http://localhost/dashboard');
@@ -48,7 +48,7 @@ describe('middleware session refresh redirects', () => {
   it('keeps cookie updates when a protected request redirects to login', async () => {
     mocks.getUser.mockResolvedValue({ data: { user: null } });
 
-    const response = await middleware(request('/dashboard/food'));
+    const response = await proxy(request('/dashboard/food'));
 
     expect(response.status).toBe(307);
     expect(response.headers.get('location')).toBe(
