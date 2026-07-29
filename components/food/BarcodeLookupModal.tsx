@@ -96,23 +96,28 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
     if (!manual.name.trim()) { setError(t('barcode.err_add_name')); return; }
     setError(null);
     setLogging(true);
-    const f = grams / 100;
-    const num = (s: string) => Math.max(0, Number(s) || 0);
-    const { error: insErr } = await supabase.from('food_log').insert({
-      user_id: userId, logged_date: selectedDate, meal_type: mealType,
-      food_name: manual.name.trim(),
-      quantity: grams, unit: 'g',
-      calories: Math.round(num(manual.kcal) * f),
-      protein_g: Math.round(num(manual.protein) * f * 10) / 10,
-      carbs_g: Math.round(num(manual.carbs) * f * 10) / 10,
-      fat_g: Math.round(num(manual.fat) * f * 10) / 10,
-      fiber_g: 0,
-      source: 'custom' as const,
-    });
-    setLogging(false);
-    if (insErr) { setError(insErr.message); return; }
-    onLogged();
-    onClose();
+    try {
+      const f = grams / 100;
+      const num = (s: string) => Math.max(0, Number(s) || 0);
+      const { data: inserted, error: insErr } = await supabase.from('food_log').insert({
+        user_id: userId, logged_date: selectedDate, meal_type: mealType,
+        food_name: manual.name.trim(),
+        quantity: grams, unit: 'g',
+        calories: Math.round(num(manual.kcal) * f),
+        protein_g: Math.round(num(manual.protein) * f * 10) / 10,
+        carbs_g: Math.round(num(manual.carbs) * f * 10) / 10,
+        fat_g: Math.round(num(manual.fat) * f * 10) / 10,
+        fiber_g: 0,
+        source: 'custom' as const,
+      }).select('id').maybeSingle();
+      if (insErr || !inserted) { setError(t('food.save_failed')); return; }
+      onLogged();
+      onClose();
+    } catch {
+      setError(t('food.save_failed'));
+    } finally {
+      setLogging(false);
+    }
   }
 
   // Live camera scan via ZXing (works on iOS Safari + Android — no native
@@ -163,26 +168,32 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
 
   async function logIt() {
     if (!product || logging) return;
+    setError(null);
     setLogging(true);
-    const f = grams / 100;
-    const { error: insErr } = await supabase.from('food_log').insert({
-      user_id: userId, logged_date: selectedDate, meal_type: mealType,
-      food_name: product.brand ? `${product.name} — ${product.brand}` : product.name,
-      quantity: grams, unit: 'g',
-      calories: Math.round(product.per100g.kcal * f),
-      protein_g: Math.round(product.per100g.protein * f * 10) / 10,
-      carbs_g: Math.round(product.per100g.carbs * f * 10) / 10,
-      fat_g: Math.round(product.per100g.fat * f * 10) / 10,
-      fiber_g: product.per100g.fiber != null ? Math.round(product.per100g.fiber * f * 10) / 10 : 0,
-      sugar_g: product.per100g.sugar != null ? Math.round(product.per100g.sugar * f * 10) / 10 : null,
-      // Barcode lookups are Open Food Facts provenance (CHECK allows it);
-      // 'custom' stays reserved for the manual-label path below.
-      source: 'openfoodfacts' as const,
-    });
-    setLogging(false);
-    if (insErr) { setError(insErr.message); return; }
-    onLogged();
-    onClose();
+    try {
+      const f = grams / 100;
+      const { data: inserted, error: insErr } = await supabase.from('food_log').insert({
+        user_id: userId, logged_date: selectedDate, meal_type: mealType,
+        food_name: product.brand ? `${product.name} — ${product.brand}` : product.name,
+        quantity: grams, unit: 'g',
+        calories: Math.round(product.per100g.kcal * f),
+        protein_g: Math.round(product.per100g.protein * f * 10) / 10,
+        carbs_g: Math.round(product.per100g.carbs * f * 10) / 10,
+        fat_g: Math.round(product.per100g.fat * f * 10) / 10,
+        fiber_g: product.per100g.fiber != null ? Math.round(product.per100g.fiber * f * 10) / 10 : 0,
+        sugar_g: product.per100g.sugar != null ? Math.round(product.per100g.sugar * f * 10) / 10 : null,
+        // Barcode lookups are Open Food Facts provenance (CHECK allows it);
+        // 'custom' stays reserved for the manual-label path below.
+        source: 'openfoodfacts' as const,
+      }).select('id').maybeSingle();
+      if (insErr || !inserted) { setError(t('food.save_failed')); return; }
+      onLogged();
+      onClose();
+    } catch {
+      setError(t('food.save_failed'));
+    } finally {
+      setLogging(false);
+    }
   }
 
   if (!isOpen) return null;

@@ -98,15 +98,20 @@ export default function RecipeAnalyzerModal({
         fiber_g: Math.round(ps.fiber_g * logServings * 10) / 10,
         source: 'custom' as const,
       };
-      const { error: insertError } = await supabase.from('food_log').insert(entry);
-      if (insertError) {
-        setError(insertError.message);
-        setLogging(false);
+      const { data: inserted, error: insertError } = await supabase
+        .from('food_log')
+        .insert(entry)
+        .select('id')
+        .maybeSingle();
+      if (insertError || !inserted) {
+        setError(t('food.save_failed'));
         return;
       }
       onLogged();
       reset();
       onClose();
+    } catch {
+      setError(t('food.save_failed'));
     } finally {
       setLogging(false);
     }

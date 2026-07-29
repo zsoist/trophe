@@ -798,6 +798,7 @@ export default function FoodLogPage() {
   // F5: Quick-log a favorite
   const logFavorite = async (fav: FavoriteFood, mealType: MealType) => {
     if (!userId) return;
+    setMutationError(null);
     const entry = {
       user_id: userId,
       logged_date: selectedDate,
@@ -813,8 +814,20 @@ export default function FoodLogPage() {
       sugar_g: fav.sugar_g,
       source: 'custom' as const,
     };
-    const { error } = await supabase.from('food_log').insert(entry);
-    if (!error) await loadTodayLog();
+    try {
+      const { data: inserted, error } = await supabase
+        .from('food_log')
+        .insert(entry)
+        .select('id')
+        .maybeSingle();
+      if (error || !inserted) {
+        setMutationError(t('food.save_failed'));
+        return;
+      }
+      await loadTodayLog();
+    } catch {
+      setMutationError(t('food.save_failed'));
+    }
   };
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -905,22 +918,31 @@ export default function FoodLogPage() {
   // CoachFoodRecs quick-log handler
   const logCoachRec = async (rec: { food: string; calories: number; protein: number; carbs: number; fat: number; fiber: number }, mealType: import('@/lib/types').MealType) => {
     if (!userId) return;
-    await supabase.from('food_log').insert({
-      user_id: userId,
-      logged_date: selectedDate,
-      meal_type: mealType,
-      food_name: rec.food,
-      quantity: 1,
-      unit: 'serving',
-      calories: rec.calories,
-      protein_g: rec.protein,
-      carbs_g: rec.carbs,
-      fat_g: rec.fat,
-      fiber_g: rec.fiber,
-      sugar_g: 0,
-      source: 'custom' as const,
-    });
-    await loadTodayLog();
+    setMutationError(null);
+    try {
+      const { data: inserted, error } = await supabase.from('food_log').insert({
+        user_id: userId,
+        logged_date: selectedDate,
+        meal_type: mealType,
+        food_name: rec.food,
+        quantity: 1,
+        unit: 'serving',
+        calories: rec.calories,
+        protein_g: rec.protein,
+        carbs_g: rec.carbs,
+        fat_g: rec.fat,
+        fiber_g: rec.fiber,
+        sugar_g: 0,
+        source: 'custom' as const,
+      }).select('id').maybeSingle();
+      if (error || !inserted) {
+        setMutationError(t('food.save_failed'));
+        return;
+      }
+      await loadTodayLog();
+    } catch {
+      setMutationError(t('food.save_failed'));
+    }
   };
 
   // Loading skeleton while auth + data resolve
