@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
@@ -146,6 +146,8 @@ export default function PlanEditorPage() {
   const [mealGrid, setMealGrid] = useState<MealGrid>({});
   const [activeDay, setActiveDay] = useState(0);
   const [mealSaving, setMealSaving] = useState(false);
+  const [mealSaveError, setMealSaveError] = useState<string | null>(null);
+  const mealSavesInFlight = useRef(0);
   // AI meal-suggest picker — scoped to a specific (day, slot) cell.
   const [picker, setPicker] = useState<{ day: number; slot: MealSlot } | null>(null);
   // Shopping-list generator modal.
@@ -365,23 +367,53 @@ export default function PlanEditorPage() {
 
   // ── Meal plan helpers ─────────────────────────────
 
-  const saveMealCell = async (day: number, slot: MealSlot, description: string) => {
-    if (!coachId) return;
+  const beginMealSave = () => {
+    mealSavesInFlight.current += 1;
     setMealSaving(true);
-    await supabase
-      .from('meal_plan_entries')
-      .upsert(
-        {
-          client_id: clientId,
-          coach_id: coachId,
-          day_of_week: day,
-          meal_slot: slot,
-          description,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'client_id,day_of_week,meal_slot' }
-      );
-    setMealSaving(false);
+  };
+  const finishMealSave = () => {
+    mealSavesInFlight.current = Math.max(0, mealSavesInFlight.current - 1);
+    if (mealSavesInFlight.current === 0) setMealSaving(false);
+  };
+
+  const saveMealCell = async (
+    day: number,
+    slot: MealSlot,
+    description: string,
+  ): Promise<boolean> => {
+    if (!coachId) {
+      setMealSaveError('Meal change not saved — try again');
+      return false;
+    }
+    beginMealSave();
+    setMealSaveError(null);
+    try {
+      const { data, error } = await supabase
+        .from('meal_plan_entries')
+        .upsert(
+          {
+            client_id: clientId,
+            coach_id: coachId,
+            day_of_week: day,
+            meal_slot: slot,
+            description,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'client_id,day_of_week,meal_slot' }
+        )
+        .select('day_of_week')
+        .maybeSingle();
+      if (error || !data) {
+        setMealSaveError('Meal change not saved — try again');
+        return false;
+      }
+      return true;
+    } catch {
+      setMealSaveError('Meal change not saved — try again');
+      return false;
+    } finally {
+      finishMealSave();
+    }
   };
 
   const setMealCell = (day: number, slot: MealSlot, value: string) =>
@@ -392,8 +424,8 @@ export default function PlanEditorPage() {
     if (!picker) return;
     const { day, slot } = picker;
     setMealCell(day, slot, text);
-    await saveMealCell(day, slot, text);
-    setPicker(null);
+    const saved = await saveMealCell(day, slot, text);
+    if (saved) setPicker(null);
   };
 
   // Michael: "breakfast should maybe be the same for all week"
@@ -401,7 +433,8 @@ export default function PlanEditorPage() {
     if (!coachId) return;
     const source = mealGrid[`${activeDay}-${slot}`] ?? '';
     if (!source.trim()) return;
-    setMealSaving(true);
+    beginMealSave();
+    setMealSaveError(null);
     const rows = Array.from({ length: 7 }, (_, day) => ({
       client_id: clientId,
       coach_id: coachId,
@@ -410,15 +443,25 @@ export default function PlanEditorPage() {
       description: source,
       updated_at: new Date().toISOString(),
     }));
-    await supabase
-      .from('meal_plan_entries')
-      .upsert(rows, { onConflict: 'client_id,day_of_week,meal_slot' });
-    setMealGrid((g) => {
-      const next = { ...g };
-      for (let day = 0; day < 7; day++) next[`${day}-${slot}`] = source;
-      return next;
-    });
-    setMealSaving(false);
+    try {
+      const { data, error } = await supabase
+        .from('meal_plan_entries')
+        .upsert(rows, { onConflict: 'client_id,day_of_week,meal_slot' })
+        .select('day_of_week');
+      if (error || data?.length !== 7) {
+        setMealSaveError('Weekly copy not saved — try again');
+        return;
+      }
+      setMealGrid((g) => {
+        const next = { ...g };
+        for (let day = 0; day < 7; day++) next[`${day}-${slot}`] = source;
+        return next;
+      });
+    } catch {
+      setMealSaveError('Weekly copy not saved — try again');
+    } finally {
+      finishMealSave();
+    }
   };
 
   // ── Render guards ────────────────────────────────
@@ -623,8 +666,8 @@ export default function PlanEditorPage() {
         </div>
 
         {/* ══ Weekly Meal Plan ══ */}
-        <div className="row-b" style={{ marginBottom: 8 }}>
-          <span className="eye">WEEKLY MEAL PLAN</span>
+         <div className="row-b" style={{ marginBottom: 8 }}>
+           <span className="eye">WEEKLY MEAL PLAN</span>
           <div className="row-i" style={{ gap: 12 }}>
             {mealSaving && (
               <span style={{ fontSize: 10, color: 'var(--t3)', fontFamily: 'var(--font-mono)' }}>saving…</span>
@@ -656,10 +699,18 @@ export default function PlanEditorPage() {
             >
               <Icon name="i-list" size={12} style={{ color: 'var(--gold-300,#D4A853)' }} />
               Shopping list
-            </button>
-          </div>
-        </div>
-        {/* Desktop: full 7-day week grid (Michael demos on PC) */}
+             </button>
+           </div>
+         </div>
+         {mealSaveError && (
+           <div
+             role="alert"
+             style={{ color: 'var(--err,#E87A6E)', fontSize: 11, marginBottom: 8 }}
+           >
+             {mealSaveError}
+           </div>
+         )}
+         {/* Desktop: full 7-day week grid (Michael demos on PC) */}
         <div className="hidden lg:block card" style={{ padding: 14, marginBottom: 16, overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 6 }}>
             <thead>
