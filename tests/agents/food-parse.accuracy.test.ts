@@ -24,6 +24,11 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { conservativeDenseFoodServing, lookupFood } from '../../agents/food-parse/lookup';
+import {
+  evaluateFoodAccuracyGate,
+  FOOD_ACCURACY_THRESHOLD,
+  FOOD_GOLDEN_COVERAGE_THRESHOLD,
+} from '../../agents/evals/food-accuracy-gate';
 import { Pool } from 'pg';
 
 // ── DB setup ──────────────────────────────────────────────────────────────────
@@ -542,10 +547,6 @@ const GOLDENS: GoldenCase[] = [
 ];
 
 // ── Test runner ───────────────────────────────────────────────────────────────
-// CI gate: configurable via env var, default 75%.
-// 95% was the Phase 4 aspiration; 75% is the honest starting threshold.
-const HARD_GATE = parseFloat(process.env.EVAL_FOOD_PARSE_THRESHOLD ?? '0.75');
-
 function withinTolerance(actual: number, expected: number, tolerancePct: number): boolean {
   if (expected === 0) return Math.abs(actual) < 0.5; // near-zero check
   return Math.abs(actual - expected) / Math.abs(expected) <= tolerancePct / 100 + Number.EPSILON;
@@ -641,19 +642,26 @@ describe('food-parse v4 accuracy (lookup layer)', () => {
     });
   }
 
-  it(`HARD GATE: ≥${HARD_GATE * 100}% of in-scope golden cases must pass`, () => {
-    // Separate in-scope from expectedFailure and not-in-DB
+  it(`HARD GATE: 100% coverage and ≥${FOOD_ACCURACY_THRESHOLD * 100}% accuracy`, () => {
+    // Missing canonical foods are coverage failures, not invisible skips.
     const notInDB = results.filter(r => r.reason?.includes('food not in DB'));
     const expectedFail = results.filter(r => r.expectedFailure);
     const inScope = results.filter(r => !r.expectedFailure && !r.reason?.includes('food not in DB'));
+    const totalInScope = GOLDENS.filter(golden => !golden.expectedFailure).length;
 
-    if (inScope.length === 0) {
-      console.warn('[accuracy] No in-scope results yet — run ingest scripts first');
+    // CI jobs that intentionally have no DB retain the existing graceful skip.
+    // A reachable, migrated DB must contain the complete deterministic fixture.
+    if (!dbAvailable) {
+      console.warn('[accuracy] DB unavailable — hard gate not evaluated');
       return;
     }
 
     const passed = inScope.filter(r => r.passed).length;
-    const rate = passed / inScope.length;
+    const gate = evaluateFoodAccuracyGate({
+      totalCases: totalInScope,
+      resolvedCases: inScope.length,
+      passedCases: passed,
+    });
 
     const failures = inScope.filter(r => !r.passed);
     if (failures.length > 0) {
@@ -668,8 +676,16 @@ describe('food-parse v4 accuracy (lookup layer)', () => {
       console.log(`[accuracy] Not in DB (skipped): ${notInDB.length}`);
     }
 
-    console.log(`[accuracy] Pass rate: ${passed}/${inScope.length} (${(rate * 100).toFixed(1)}%) — gate: ${HARD_GATE * 100}%`);
-    expect(rate, `Pass rate ${(rate * 100).toFixed(1)}% below hard gate of ${HARD_GATE * 100}%`).toBeGreaterThanOrEqual(HARD_GATE);
+    console.log(
+      `[accuracy] Coverage: ${inScope.length}/${totalInScope} (${(gate.coverageRate * 100).toFixed(1)}%) — gate: ${FOOD_GOLDEN_COVERAGE_THRESHOLD * 100}%`,
+    );
+    console.log(
+      `[accuracy] Accuracy: ${passed}/${inScope.length} (${(gate.accuracyRate * 100).toFixed(1)}%) — gate: ${FOOD_ACCURACY_THRESHOLD * 100}%`,
+    );
+    expect(
+      gate.failures,
+      `Food accuracy gate failed: ${gate.failures.join(', ')}`,
+    ).toEqual([]);
   });
 });
 

@@ -86,13 +86,12 @@ export interface LookupResult {
 // ── Stage 1: keyword filter ───────────────────────────────────────────────────
 async function keywordCandidates(foodName: string): Promise<SelectFood[]> {
   if (!foodName || typeof foodName !== 'string') return [];
-  // Tokenize input: split on spaces, clean, build tsquery
-  // NFD normalize + strip combining marks converts accented Latin chars to ASCII
-  // (café→cafe, plátano→platano) so BM25 matches regardless of accent usage.
-  // Greek letters (α-ω, ά-ώ) are preserved as-is since they're in the allowed range.
+  // Tokenize input: split on spaces, clean, build tsquery. Preserve the original
+  // NFC spelling as well as an accent-folded variant. Dropping combining marks
+  // outright made real Greek queries such as "φέτα" become "φετα", which no
+  // longer matched the correctly accented generated search vector.
   const tokens = foodName
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')  // strip combining diacritical marks (é→e, ñ→n, etc.)
+    .normalize('NFC')
     .toLowerCase()
     // Hyphens/dashes/slashes are WORD SEPARATORS, not noise: "croque-monsieur"
     // must tokenize to ["croque","monsieur"] to match the simple-tsconfig
@@ -111,10 +110,16 @@ async function keywordCandidates(foodName: string): Promise<SelectFood[]> {
     t.length > 3 && t.endsWith('s') && !t.endsWith('ss') ? t.slice(0, -1) : t
   );
 
-  // Build tsquery with BOTH forms: "egg:* | eggs:*" so we catch singular AND plural
+  const accentFold = (token: string) =>
+    token.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+  // Build tsquery with original, accent-folded, singular, and plural forms.
   const tsQuery = tokens.map((t, i) => {
     const s = singularTokens[i];
-    return s !== t ? `(${s}:* | ${t}:*)` : `${t}:*`;
+    const variants = [...new Set([t, accentFold(t), s, accentFold(s)])];
+    return variants.length > 1
+      ? `(${variants.map(variant => `${variant}:*`).join(' | ')})`
+      : `${t}:*`;
   }).join(' & ');
 
   const rows = await db
@@ -1792,7 +1797,11 @@ export async function lookupFood(input: LookupInput): Promise<LookupResult | nul
 
   const food = ranked[0];
   const normalizedQuery = normalizeLexicalName(correctedFoodName);
-  const normalizedTopName = normalizeLexicalName(food.nameEn);
+  const normalizedTopName = normalizeLexicalName(
+    [food.nameEn, food.nameEl, food.nameEs, food.nameFr, food.nameIt]
+      .filter(Boolean)
+      .join(' '),
+  );
 
   // ── Weak-match rejection gate ──────────────────────────────────────────────
   // If the top result shares zero meaningful tokens with the query, it's likely
@@ -1840,12 +1849,12 @@ export async function lookupFood(input: LookupInput): Promise<LookupResult | nul
       const grams = qty * gramsPerUnit;
       const factor = grams / 100;
       return {
-        kcal:    Math.round(food.kcalPer100g    * factor * 10) / 10,
-        protein: Math.round(food.proteinPer100g * factor * 10) / 10,
-        carb:    Math.round(food.carbPer100g    * factor * 10) / 10,
-        fat:     Math.round(food.fatPer100g     * factor * 10) / 10,
+        kcal:    Math.round(food.kcalPer100g    * factor * 100) / 100,
+        protein: Math.round(food.proteinPer100g * factor * 100) / 100,
+        carb:    Math.round(food.carbPer100g    * factor * 100) / 100,
+        fat:     Math.round(food.fatPer100g     * factor * 100) / 100,
         fiber:   food.fiberPer100g != null
-          ? Math.round(food.fiberPer100g * factor * 10) / 10
+          ? Math.round(food.fiberPer100g * factor * 100) / 100
           : null,
       };
     },
