@@ -534,11 +534,14 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
     };
 
     try {
-      const { error: dbError } = await supabase.from('food_log').insert(entry);
+      const { data: manualInsert, error: dbError } = await supabase
+        .from('food_log')
+        .insert(entry)
+        .select('id')
+        .maybeSingle();
 
-      if (dbError) {
-        console.error('Manual entry error:', dbError);
-        setError('Failed to save');
+      if (dbError || !manualInsert) {
+        setError(t('food.save_failed'));
         return;
       }
 
@@ -552,10 +555,10 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
       setTimeout(() => {
         setMode('idle');
         setSuccessCount(0);
-        onLogged();
+        onLogged([manualInsert.id]);
       }, 1500);
     } catch {
-      setError('Failed to save — check your connection and try again.');
+      setError(t('food.save_failed'));
     } finally {
       setLogging(false);
     }
@@ -607,16 +610,15 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
         .insert(entries)
         .select('id');
 
-      if (dbError) {
-        console.error('Insert error:', dbError);
+      if (dbError || !inserted || inserted.length !== entries.length) {
         // RLS violation or auth issue — session likely expired
-        if (dbError.code === '42501' || dbError.message?.includes('policy') || dbError.code === 'PGRST301') {
-          setError('Session expired — please refresh the page to log in again');
-        } else if (dbError.code === '23514') {
+        if (dbError?.code === '42501' || dbError?.message?.includes('policy') || dbError?.code === 'PGRST301') {
+          setError(t('food.session_expired'));
+        } else if (dbError?.code === '23514') {
           // CHECK constraint violation (e.g. invalid source value)
-          setError('Failed to save — invalid entry format');
+          setError(t('food.invalid_entry'));
         } else {
-          setError('Failed to save entries — try again');
+          setError(t('food.save_failed'));
         }
         setLogging(false);
         return;
@@ -644,7 +646,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
             foodName: String(entries[index].food_name ?? item.food_name).slice(0, 200),
             aiSource: item.source,
             parseConfidence: original.confidence ?? null,
-            foodLogId: inserted?.[index]?.id ?? null,
+            foodLogId: inserted[index]?.id ?? null,
             before: {
               grams: clampG(original.grams),
               calories: clampG(original.calories),
@@ -678,14 +680,14 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
 
       // Batch undo: hand the inserted row ids to the page so the toast can
       // offer "Logged N items — Undo".
-      const insertedIds = (inserted ?? []).map(r => r.id).filter(Boolean);
+      const insertedIds = inserted.map(r => r.id);
       setTimeout(() => {
         setMode('idle');
         setSuccessCount(0);
-        onLogged(insertedIds.length > 0 ? insertedIds : undefined);
+        onLogged(insertedIds);
       }, 1500);
     } catch {
-      setError('Failed to save entries');
+      setError(t('food.save_failed'));
       setLogging(false);
     }
   };
