@@ -505,6 +505,13 @@
       "when": 1785347000000,
       "tag": "0063_foods_multilingual_trigram_search",
       "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1785349500000,
+      "tag": "0064_tenant_relationship_guards",
+      "breakpoints": true
     }
   ]
 }
