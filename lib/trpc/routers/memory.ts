@@ -10,12 +10,13 @@
  */
 
 import { z } from 'zod';
-import { router, coachProcedure, protectedProcedure } from '../init';
+import { router, protectedProcedure } from '../init';
 import { memoryChunks } from '@/db/schema/memory_chunks';
-import { clientProfiles } from '@/db/schema/profiles';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import { db as dbType } from '@/db/client';
+import { assertCanAccessClient } from '@/lib/auth/tenant-access';
+import type { UserRole } from '@/lib/auth/get-session';
 
 // ── Guard helper ───────────────────────────────────────────────────────────
 
@@ -23,7 +24,7 @@ async function assertCanReadMemory(
   db: typeof dbType,
   requesterId: string,
   targetUserId: string,
-  requesterRole: string | undefined,
+  requesterRole: UserRole | undefined,
 ): Promise<void> {
   if (requesterId === targetUserId) return; // own memory
 
@@ -33,18 +34,7 @@ async function assertCanReadMemory(
     throw new TRPCError({ code: 'FORBIDDEN', message: 'Cannot read another user\'s memory' });
   }
 
-  // Verify coach–client assignment
-  const [assignment] = await db
-    .select({ userId: clientProfiles.userId })
-    .from(clientProfiles)
-    .where(
-      and(eq(clientProfiles.coachId, requesterId), eq(clientProfiles.userId, targetUserId)),
-    )
-    .limit(1);
-
-  if (!assignment) {
-    throw new TRPCError({ code: 'FORBIDDEN', message: 'Client not assigned to you' });
-  }
+  await assertCanAccessClient(db, requesterId, requesterRole, targetUserId);
 }
 
 // ── Router ─────────────────────────────────────────────────────────────────
@@ -116,7 +106,7 @@ export const memoryRouter = router({
     }),
 
   // ── Soft-delete a memory chunk ─────────────────────────────────────
-  delete: coachProcedure
+  delete: protectedProcedure
     .input(z.object({ chunkId: z.string().uuid(), userId: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       await assertCanReadMemory(
@@ -126,7 +116,7 @@ export const memoryRouter = router({
         ctx.profile?.role,
       );
 
-      await ctx.db
+      const updated = await ctx.db
         .update(memoryChunks)
         .set({ active: false })
         .where(
@@ -134,7 +124,12 @@ export const memoryRouter = router({
             eq(memoryChunks.id, input.chunkId),
             eq(memoryChunks.userId, input.userId),
           ),
-        );
+        )
+        .returning({ id: memoryChunks.id });
+
+      if (updated.length !== 1) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Memory chunk not found' });
+      }
 
       return { ok: true };
     }),
