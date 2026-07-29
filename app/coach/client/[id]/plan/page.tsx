@@ -126,6 +126,8 @@ export default function PlanEditorPage() {
   const [profileEmail, setProfileEmail] = useState<string | null>(null);
   const [activeHabits, setActiveHabits] = useState<ClientHabit[]>([]);
   const [templateHabits, setTemplateHabits] = useState<TemplateHabit[]>([]);
+  const [habitActionPending, setHabitActionPending] = useState<string | null>(null);
+  const [habitActionError, setHabitActionError] = useState<string | null>(null);
 
   // Editable state
   const [targets, setTargets] = useState<MacroTargets>({
@@ -332,32 +334,61 @@ export default function PlanEditorPage() {
   };
 
   const addHabit = async (habitId: string) => {
-    if (!coachId) return;
-    const { data } = await supabase
-      .from('client_habits')
-      .insert({
-        client_id: clientId,
-        habit_id: habitId,
-        assigned_by: coachId,
-        status: 'active',
-        sequence_number: activeHabits.length + 1,
-      })
-      .select(
-        'id, status, sequence_number, coach_note, habit:habits(id, name_en, emoji, category, difficulty)'
-      )
-      .maybeSingle();
-    if (data) {
+    if (habitActionPending) return;
+    if (!coachId) {
+      setHabitActionError('Habit was not added — try again');
+      return;
+    }
+    setHabitActionPending(`add:${habitId}`);
+    setHabitActionError(null);
+    try {
+      const { data, error } = await supabase
+        .from('client_habits')
+        .insert({
+          client_id: clientId,
+          habit_id: habitId,
+          assigned_by: coachId,
+          status: 'active',
+          sequence_number: activeHabits.length + 1,
+        })
+        .select(
+          'id, status, sequence_number, coach_note, habit:habits(id, name_en, emoji, category, difficulty)'
+        )
+        .maybeSingle();
+      if (error || !data) {
+        setHabitActionError('Habit was not added — try again');
+        return;
+      }
       const typed = data as unknown as ClientHabit;
       setActiveHabits((prev) => [...prev, typed]);
+    } catch {
+      setHabitActionError('Habit was not added — try again');
+    } finally {
+      setHabitActionPending(null);
     }
   };
 
   const removeHabit = async (clientHabitId: string) => {
-    await supabase
-      .from('client_habits')
-      .update({ status: 'paused' })
-      .eq('id', clientHabitId);
-    setActiveHabits((prev) => prev.filter((h) => h.id !== clientHabitId));
+    if (habitActionPending) return;
+    setHabitActionPending(`remove:${clientHabitId}`);
+    setHabitActionError(null);
+    try {
+      const { data, error } = await supabase
+        .from('client_habits')
+        .update({ status: 'paused' })
+        .eq('id', clientHabitId)
+        .select('id')
+        .maybeSingle();
+      if (error || !data) {
+        setHabitActionError('Habit was not removed — try again');
+        return;
+      }
+      setActiveHabits((prev) => prev.filter((h) => h.id !== clientHabitId));
+    } catch {
+      setHabitActionError('Habit was not removed — try again');
+    } finally {
+      setHabitActionPending(null);
+    }
   };
 
   // ── Step helpers ─────────────────────────────────
@@ -857,10 +888,18 @@ export default function PlanEditorPage() {
         </div>
 
         {/* ══ Active Habits ══ */}
-        <div className="eye" style={{ marginBottom: 8 }}>
-          ACTIVE HABITS ({activeHabits.length})
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
+         <div className="eye" style={{ marginBottom: 8 }}>
+           ACTIVE HABITS ({activeHabits.length})
+         </div>
+         {habitActionError && (
+           <div
+             role="alert"
+             style={{ color: 'var(--err,#E87A6E)', fontSize: 11, marginBottom: 8 }}
+           >
+             {habitActionError}
+           </div>
+         )}
+         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
           {activeHabits.map((ch) => (
             <div
               key={ch.id}
@@ -878,13 +917,14 @@ export default function PlanEditorPage() {
                   </div>
                 </div>
               </div>
-              <button
-                onClick={() => removeHabit(ch.id)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  color: 'var(--t4)',
+               <button
+                 onClick={() => removeHabit(ch.id)}
+                 disabled={habitActionPending !== null}
+                 style={{
+                   background: 'none',
+                   border: 'none',
+                   cursor: habitActionPending ? 'not-allowed' : 'pointer',
+                   color: 'var(--t4)',
                   padding: 4,
                 }}
                 title="Remove habit"
@@ -920,10 +960,11 @@ export default function PlanEditorPage() {
                 }}
               >
                 {availableToAdd.map((h) => (
-                  <button
-                    key={h.id}
-                    onClick={() => addHabit(h.id)}
-                    style={{
+                   <button
+                     key={h.id}
+                     onClick={() => addHabit(h.id)}
+                     disabled={habitActionPending !== null}
+                     style={{
                       display: 'flex',
                       alignItems: 'center',
                       gap: 8,
@@ -931,7 +972,7 @@ export default function PlanEditorPage() {
                       background: 'transparent',
                       border: '1px solid var(--line)',
                       borderRadius: 8,
-                      cursor: 'pointer',
+                       cursor: habitActionPending ? 'not-allowed' : 'pointer',
                       textAlign: 'left',
                       width: '100%',
                     }}
