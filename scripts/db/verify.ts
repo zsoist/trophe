@@ -246,13 +246,32 @@ withPool(config, async (pool) => {
     FROM information_schema.role_table_grants
     WHERE table_schema = 'public'
       AND grantee = 'anon'
-      AND NOT (table_name = 'food_database' AND privilege_type = 'SELECT')
+      AND NOT (
+        privilege_type = 'SELECT'
+        AND table_name IN (
+          'food_database',
+          'copa_config',
+          'copa_games',
+          'copa_group_scores',
+          'copa_matches',
+          'copa_players',
+          'copa_teams'
+        )
+      )
     ORDER BY 1;
   `);
   if (anonGrants.rowCount !== 0) {
     throw new Error(`unexpected anon table grants: ${anonGrants.rows.map((row) => row.grant).join(', ')}`);
   }
-  report.anon_grant_allowlist = ['food_database:SELECT'];
+  report.anon_grant_allowlist = [
+    'food_database:SELECT',
+    'copa_config:SELECT',
+    'copa_games:SELECT',
+    'copa_group_scores:SELECT',
+    'copa_matches:SELECT',
+    'copa_players:SELECT',
+    'copa_teams:SELECT',
+  ];
 
   writeArtifact('verify.json', JSON.stringify(report, null, 2));
   console.log('Verified DB schema, policies, functions, and index inventory.');
