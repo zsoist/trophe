@@ -8,10 +8,13 @@ import { canAccessClient } from '@/lib/auth/tenant-access';
 import { db } from '@/db/client';
 import { run as parseFood } from '@/agents/food-parse';
 import { consumeRateLimit } from '@/lib/security/durable-rate-limit';
-
-// Cap the distinct meals parsed per call — one DeepSeek call each, so an
-// oversized plan (or an abusive caller) can't fan out unbounded LLM cost.
-const MAX_UNIQUE_MEALS = 80;
+import {
+  MAX_MEAL_PLAN_UNIQUE_DESCRIPTIONS,
+  type MealPlanMacroResult,
+  type MealPlanMacroSum,
+  buildMealPlanDayTotals,
+  createMealPlanMacroBudget,
+} from './core';
 
 /**
  * Per-day meal-plan macro rollup (Daily Nutrafit — "the app counts for me").
@@ -21,13 +24,13 @@ const MAX_UNIQUE_MEALS = 80;
  *
  * POST { clientId } → { days: [{day, kcal, protein, carbs, fat, slots}], targets }
  *
- * On-demand (coach clicks "Macros") rather than on-load — each unique meal is
- * one DeepSeek call, so we dedupe hard and parse with bounded concurrency.
+ * On-demand (coach clicks "Macros") rather than on-load. Descriptions are
+ * deduplicated, parsed with bounded concurrency, and share one hard route-wide
+ * transport/deadline budget.
  */
 const bodySchema = z.object({ clientId: z.string().uuid() }).strict();
 
-interface MacroSum { kcal: number; protein: number; carbs: number; fat: number; }
-const ZERO: MacroSum = { kcal: 0, protein: 0, carbs: 0, fat: 0 };
+const ZERO: MealPlanMacroSum = { kcal: 0, protein: 0, carbs: 0, fat: 0 };
 
 async function mapPool<T, R>(items: T[], limit: number, fn: (t: T) => Promise<R>): Promise<R[]> {
   const out: R[] = new Array(items.length);
@@ -40,6 +43,7 @@ async function mapPool<T, R>(items: T[], limit: number, fn: (t: T) => Promise<R>
 }
 
 export async function POST(request: NextRequest) {
+  const budget = createMealPlanMacroBudget();
   const guard = await requireRole(['coach', 'admin', 'super_admin'], { request });
   if (guard instanceof NextResponse) return guard;
 
@@ -54,9 +58,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Not your client' }, { status: 403 });
   }
 
-  // requireRole does no rate limiting (unlike guardAiRoute) — this route fans
-  // out one DeepSeek call per distinct meal, so bound it: 20 rollups / 10 min.
-  const rate = await consumeRateLimit(`meal-macros:${userId}`, 20, 600);
+  // requireRole does no rate limiting (unlike guardAiRoute). Five manual
+  // rollups per ten minutes supports retries without allowing cost-amplifying
+  // click loops.
+  const rate = await consumeRateLimit(`meal-macros:${userId}`, 5, 600);
   if (!rate.allowed) {
     return NextResponse.json(
       { error: 'Too many macro rollups — please try again shortly' },
@@ -75,47 +80,51 @@ export async function POST(request: NextRequest) {
 
   const cells = (rows ?? []).filter((r) => (r.description ?? '').trim().length > 0);
   if (cells.length === 0) {
-    return NextResponse.json({ days: [], targets: profile ?? null, mealCount: 0 });
+    return NextResponse.json({
+      days: [],
+      targets: profile ?? null,
+      mealCount: 0,
+      parsedMealCount: 0,
+      failedMealCount: 0,
+      complete: true,
+    });
   }
 
-  // Parse each DISTINCT description once (a meal repeated across days costs one
-  // call), capped so one request can't trigger an unbounded LLM fan-out.
-  const uniqueDescriptions = Array.from(new Set(cells.map((c) => c.description.trim()))).slice(0, MAX_UNIQUE_MEALS);
-  const parsedByDesc = new Map<string, MacroSum>();
+  // The schema allows seven days × five slots = 35 cells. Keep that invariant
+  // explicit and mark anything beyond the bound incomplete instead of silently
+  // treating an unparsed meal as zero nutrition.
+  const allUniqueDescriptions = Array.from(new Set(cells.map((c) => c.description.trim())));
+  const uniqueDescriptions = allUniqueDescriptions.slice(0, MAX_MEAL_PLAN_UNIQUE_DESCRIPTIONS);
+  const parsedByDesc = new Map<string, MealPlanMacroResult>();
   await mapPool(uniqueDescriptions, 4, async (desc) => {
+    if (!budget.canStartParse()) {
+      parsedByDesc.set(desc, { ok: false, sum: { ...ZERO } });
+      return;
+    }
+
     try {
-      const result = await parseFood({ text: desc }, { userId });
+      const result = await parseFood(
+        { text: desc },
+        { userId, beforeTransportAttempt: budget.beforeTransportAttempt },
+      );
       const items = result.ok ? (result.output?.items ?? []) : [];
-      const sum = items.reduce<MacroSum>((acc, it) => ({
+      const sum = items.reduce<MealPlanMacroSum>((acc, it) => ({
         kcal: acc.kcal + (it.calories || 0),
         protein: acc.protein + (it.protein_g || 0),
         carbs: acc.carbs + (it.carbs_g || 0),
         fat: acc.fat + (it.fat_g || 0),
       }), { ...ZERO });
-      parsedByDesc.set(desc, sum);
+      parsedByDesc.set(desc, { ok: result.ok && items.length > 0, sum });
     } catch {
-      parsedByDesc.set(desc, { ...ZERO });
+      parsedByDesc.set(desc, { ok: false, sum: { ...ZERO } });
     }
   });
 
-  // Sum per day-of-week (0..6) across that day's slots.
-  const dayTotals = new Map<number, MacroSum & { slots: number }>();
-  for (const cell of cells) {
-    const m = parsedByDesc.get(cell.description.trim()) ?? ZERO;
-    const d = dayTotals.get(cell.day_of_week) ?? { ...ZERO, slots: 0 };
-    dayTotals.set(cell.day_of_week, {
-      kcal: d.kcal + m.kcal, protein: d.protein + m.protein,
-      carbs: d.carbs + m.carbs, fat: d.fat + m.fat, slots: d.slots + 1,
-    });
-  }
-
-  const r1 = (n: number) => Math.round(n);
-  const days = Array.from(dayTotals.entries())
-    .sort((a, b) => a[0] - b[0])
-    .map(([day, t]) => ({
-      day, slots: t.slots,
-      kcal: r1(t.kcal), protein: r1(t.protein), carbs: r1(t.carbs), fat: r1(t.fat),
-    }));
+  const days = buildMealPlanDayTotals(cells, parsedByDesc);
+  const parsedMealCount = allUniqueDescriptions.filter(
+    (description) => parsedByDesc.get(description)?.ok === true,
+  ).length;
+  const failedMealCount = allUniqueDescriptions.length - parsedMealCount;
 
   return NextResponse.json({
     days,
@@ -126,5 +135,8 @@ export async function POST(request: NextRequest) {
       fat: profile.target_fat_g ?? null,
     } : null,
     mealCount: cells.length,
+    parsedMealCount,
+    failedMealCount,
+    complete: failedMealCount === 0,
   });
 }

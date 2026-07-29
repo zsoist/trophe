@@ -56,6 +56,8 @@ Scope: food parsing, nutrition review/logging, photo/manual boundaries, local DB
 - Recipe-cache probes and non-composite decompositions run in parallel, each item is decomposed at most once, and unresolved macro estimates share one batched fallback execution.
 - One meal review is capped at 12 items; larger model outputs ask the user to split the meal in the selected app language instead of starting unbounded work.
 - The bounded parser’s computed worst-case provider envelope is 60 transports. Opaque live-route tools remain intentionally blocked at 1,001 attempts during the zero-spend phase.
+- Coach meal-plan macro rollups now share a 55-second route deadline and 48-transport ceiling across all concurrent parsers, stop starting work without a full parser reserve, and allow five manual rollups per ten minutes.
+- Meal-plan parse failures or budget skips mark affected days incomplete in the coach UI; they are no longer presented as zero-calorie totals.
 - Edited portions are capped and validated again before the food-log insert.
 - Manual entry rejects invalid calories/macros before writing and now displays the validation error in the manual-entry view.
 - Photo analysis drops malformed or implausible items, caps confidence, and preserves an uncertainty note.
