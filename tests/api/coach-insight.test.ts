@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   buildClientSnapshot: vi.fn(),
   executeAiTask: vi.fn(),
   invokeTextProvider: vi.fn(),
+  markRetrieved: vi.fn(),
 }));
 
 vi.mock('@/lib/security/api-guard', () => ({ guardAiRoute: mocks.guardAiRoute }));
@@ -52,6 +53,22 @@ describe('POST /api/ai/coach-insight boundaries', () => {
     mocks.where.mockReturnValue({ limit: mocks.limit });
     mocks.limit.mockResolvedValue([{ role: 'coach' }]);
     mocks.canAccessClient.mockResolvedValue(true);
+    mocks.markRetrieved.mockResolvedValue(undefined);
+    mocks.readMemory.mockResolvedValue({
+      systemPromptBlock: '',
+      chunks: [],
+      markRetrieved: mocks.markRetrieved,
+    });
+    mocks.loadCoachBlocks.mockResolvedValue({ systemPromptBlock: '' });
+    mocks.retrieveKnowledge.mockResolvedValue({
+      systemPromptBlock: '',
+      chunks: [],
+    });
+    mocks.buildClientSnapshot.mockResolvedValue({ systemPromptBlock: '' });
+    mocks.executeAiTask.mockResolvedValue({
+      generationId: 'generation-1',
+      output: 'Keep the current plan.',
+    });
   });
 
   it('returns 400 for malformed JSON without reading client context', async () => {
@@ -83,5 +100,24 @@ describe('POST /api/ai/coach-insight boundaries', () => {
     );
     expect(mocks.readMemory).not.toHaveBeenCalled();
     expect(mocks.executeAiTask).not.toHaveBeenCalled();
+  });
+
+  it('returns stable retry copy when context or generation fails', async () => {
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mocks.executeAiTask.mockRejectedValueOnce(new Error('private provider detail'));
+
+    const result = await POST(request(JSON.stringify({
+      clientId: CLIENT_ID,
+      question: 'What should change?',
+    })));
+    const body = await result.json();
+
+    expect(result.status).toBe(503);
+    expect(body).toEqual({
+      error: 'Coach insight is temporarily unavailable — please try again.',
+    });
+    expect(JSON.stringify(body)).not.toContain('private provider detail');
+    expect(mocks.markRetrieved).not.toHaveBeenCalled();
+    log.mockRestore();
   });
 });
