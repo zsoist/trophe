@@ -27,6 +27,7 @@ interface ParsedFoodListProps {
 
 /** Volume units where we display ml/L/cl instead of grams */
 const VOLUME_UNITS = new Set(['ml', 'l', 'cl', 'fl_oz', 'fl oz']);
+const MAX_EDITABLE_GRAMS = 15_000;
 
 export function isVolumeUnit(unit: string): boolean {
   return VOLUME_UNITS.has(unit.toLowerCase());
@@ -200,7 +201,7 @@ export default function ParsedFoodList({
   const stepGrams = useCallback((index: number, delta: number) => {
     const item = itemsRef.current[index];
     if (!item) return;
-    const newGrams = Math.max(5, item.grams + delta);
+    const newGrams = Math.min(MAX_EDITABLE_GRAMS, Math.max(5, item.grams + delta));
     if (newGrams === item.grams) return;
     if (typeof navigator !== 'undefined') {
       const crossed100 = Math.floor(item.grams / 100) !== Math.floor(newGrams / 100);
@@ -255,7 +256,7 @@ export default function ParsedFoodList({
   const setGrams = (index: number, grams: number) => {
     setItems(prev => prev.map((item, i) => {
       if (i !== index) return item;
-      return recalcMacros(item, Math.max(1, grams));
+      return recalcMacros(item, Math.min(MAX_EDITABLE_GRAMS, Math.max(1, grams)));
     }));
   };
 
@@ -458,6 +459,7 @@ export default function ParsedFoodList({
                             onBlur={() => setTypingIndex(null)}
                             className={`input-dark text-center text-sm w-20 py-2 ${rolling ? 'text-transparent' : ''}`}
                             min={1}
+                            max={MAX_EDITABLE_GRAMS}
                           />
                           {/* Rolling digits painted over the (transparent) input text */}
                           {rolling && (

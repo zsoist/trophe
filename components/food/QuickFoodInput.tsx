@@ -563,6 +563,10 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
 
   const handleConfirm = async (items: ParsedFoodItem[]) => {
     if (logging || items.length === 0) return;
+    if (!items.every(isParsedFoodItem)) {
+      setError('One or more items has an invalid amount. Adjust the portion and try again.');
+      return;
+    }
     setLogging(true);
 
     try {
