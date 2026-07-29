@@ -16,6 +16,13 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
 
+SUPABASE_BIN="$ROOT/node_modules/.bin/supabase"
+TSX_BIN="$ROOT/node_modules/.bin/tsx"
+if [ ! -x "$SUPABASE_BIN" ] || [ ! -x "$TSX_BIN" ]; then
+  echo "Local CLI dependencies are missing. Run npm ci." >&2
+  exit 1
+fi
+
 ARTIFACT_DIR="${DB_ARTIFACT_DIR:-$ROOT/artifacts/db}"
 mkdir -p "$ARTIFACT_DIR"
 
@@ -28,7 +35,7 @@ COMPAT_MODE=1
 
 if [ "${SKIP_SUPABASE_START:-0}" != "1" ] && [ "${CI:-false}" != "true" ]; then
   echo "==> Checking OrbStack / Docker / Supabase readiness"
-  if ! npx tsx scripts/db/doctor.ts >/dev/null 2>&1; then
+  if ! "$TSX_BIN" scripts/db/doctor.ts >/dev/null 2>&1; then
     echo "==> Starting OrbStack"
     orbctl start >/dev/null
   fi
@@ -38,9 +45,9 @@ if [ "${SKIP_SUPABASE_START:-0}" != "1" ] && [ "${CI:-false}" != "true" ]; then
     exit 1
   fi
 
-  if ! npx supabase status -o pretty >/dev/null 2>&1; then
+  if ! "$SUPABASE_BIN" status -o pretty >/dev/null 2>&1; then
     echo "==> Starting local Supabase stack"
-    npx supabase start >"$ARTIFACT_DIR/supabase-start.log" 2>&1
+    "$SUPABASE_BIN" start >"$ARTIFACT_DIR/supabase-start.log" 2>&1
   fi
 
   LOCAL_HOST=127.0.0.1
@@ -159,7 +166,7 @@ else
   echo "   - running drizzle-orm migrator"
   DIRECT_URL="postgresql://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}" \
   DATABASE_URL="postgresql://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}" \
-    npx tsx scripts/db/run-migrations.ts
+    "$TSX_BIN" scripts/db/run-migrations.ts
 fi
 
 if [ "$COMPAT_MODE" = "1" ]; then
@@ -306,7 +313,7 @@ WHERE source = 'usda' AND source_id = 'wp2-seed-chicken-breast-grilled';
 SQL
 
 echo "==> Verifying schema and capturing explain plans"
-npx tsx scripts/db/verify.ts
-npx tsx scripts/db/explain.ts
+"$TSX_BIN" scripts/db/verify.ts
+"$TSX_BIN" scripts/db/explain.ts
 
 echo "==> Bootstrap complete."

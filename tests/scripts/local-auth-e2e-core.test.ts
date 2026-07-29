@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   assertLoopbackDatabaseUrl,
   assertLoopbackSupabaseUrl,
+  buildLocalDevEnv,
   buildLocalPlaywrightEnv,
+  localAppOrigin,
   parseSupabaseStatusEnv,
   withDisposableUsers,
 } from '../../scripts/test/local-auth-e2e-core.mjs';
@@ -85,6 +87,47 @@ describe('local authenticated E2E harness', () => {
       OPENAI_API_KEY: '',
       VOYAGE_API_KEY: '',
     });
+  });
+
+  it('builds a complete zero-cost app environment from local Supabase status', () => {
+    const env = buildLocalDevEnv(
+      {
+        EXISTING: 'kept',
+        OPENAI_API_KEY: 'must-not-survive',
+        TROPHE_ALLOW_PAID_AI: 'must-not-survive',
+      },
+      {
+        API_URL: 'http://127.0.0.1:54321',
+        ANON_KEY: 'anon-local',
+        SERVICE_ROLE_KEY: 'service-local',
+        DB_URL: 'postgresql://postgres:postgres@127.0.0.1:54322/postgres',
+      },
+      3300,
+    );
+
+    expect(env).toMatchObject({
+      EXISTING: 'kept',
+      NEXT_PUBLIC_SUPABASE_URL: 'http://127.0.0.1:54321',
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: 'anon-local',
+      SUPABASE_SERVICE_ROLE_KEY: 'service-local',
+      DATABASE_URL: 'postgresql://postgres:postgres@127.0.0.1:54322/postgres',
+      NEXT_PUBLIC_SITE_URL: 'http://127.0.0.1:3300',
+      NEXT_PUBLIC_APP_URL: 'http://127.0.0.1:3300',
+      AI_PAID_TOOL_APPROVAL: '',
+      TROPHE_ALLOW_PAID_AI: '',
+      OPENAI_API_KEY: '',
+    });
+  });
+
+  it.each([0, 80, 65_536, 3_000.5, Number.NaN])(
+    'rejects unsafe local app port %s',
+    (port) => {
+      expect(() => localAppOrigin(port)).toThrow('port');
+    },
+  );
+
+  it('uses an explicit loopback origin for the selected local app port', () => {
+    expect(localAppOrigin(3000)).toBe('http://127.0.0.1:3000');
   });
 
   it('deletes every created user in reverse order when browser execution fails', async () => {

@@ -12,6 +12,7 @@ const PAID_CAPABILITY_KEYS = [
   'GEMINI_API_KEY',
   'GOOGLE_GENERATIVE_AI_API_KEY',
   'OPENAI_API_KEY',
+  'TROPHE_ALLOW_PAID_AI',
   'VOYAGE_API_KEY',
 ];
 
@@ -71,6 +72,31 @@ export function buildLocalPlaywrightEnv(baseEnv, status, credentials) {
     E2E_COACH_PASSWORD: credentials.coach.password,
     E2E_ADMIN_EMAIL: credentials.admin.email,
     E2E_ADMIN_PASSWORD: credentials.admin.password,
+  };
+  for (const key of PAID_CAPABILITY_KEYS) env[key] = '';
+  return env;
+}
+
+export function localAppOrigin(port) {
+  if (!Number.isInteger(port) || port < 1024 || port > 65_535) {
+    throw new Error('Local app port must be an integer from 1024 through 65535');
+  }
+  return `http://127.0.0.1:${port}`;
+}
+
+export function buildLocalDevEnv(baseEnv, status, port) {
+  assertLoopbackSupabaseUrl(status.API_URL);
+  assertLoopbackDatabaseUrl(status.DB_URL);
+  const appOrigin = localAppOrigin(port);
+  const env = {
+    ...baseEnv,
+    NEXT_PUBLIC_SUPABASE_URL: status.API_URL,
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: status.ANON_KEY,
+    SUPABASE_SERVICE_ROLE_KEY: status.SERVICE_ROLE_KEY,
+    DATABASE_URL: status.DB_URL,
+    NEXT_PUBLIC_SITE_URL: appOrigin,
+    NEXT_PUBLIC_APP_URL: appOrigin,
+    SERWIST_SUPPRESS_TURBOPACK_WARNING: '1',
   };
   for (const key of PAID_CAPABILITY_KEYS) env[key] = '';
   return env;
