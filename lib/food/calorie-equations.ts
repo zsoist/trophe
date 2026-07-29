@@ -39,20 +39,39 @@ export function targetCalories(tdee: number, goal: Goal): number {
   return tdee;
 }
 
-export interface MacroSplit { protein_g: number; carbs_g: number; fat_g: number; calories: number; }
+export interface MacroSplit {
+  protein_g: number;
+  carbs_g: number;
+  fat_g: number;
+  calories: number;
+  protein_capped: boolean;
+}
 
 /**
  * Split a calorie target into macros. Protein anchored to body weight
  * (2.0 g/kg default — Michael can raise for athletes/older clients), fat at 25%
- * of calories, carbs fill the remainder. Calories are recomputed from the macros
- * (Atwater 4/4/9) so the split is internally consistent.
+ * of calories, carbs fill the remainder. If protein plus fat cannot fit, protein
+ * is capped and the coach is told to review the result. Calories are recomputed
+ * from the macros (Atwater 4/4/9) so the split is internally consistent.
  */
 export function macroSplit(calories: number, weightKg: number, proteinPerKg = 2.0): MacroSplit {
-  const protein_g = Math.round(weightKg * proteinPerKg);
-  const fat_g = Math.round((calories * 0.25) / 9);
-  const remaining = calories - (protein_g * 4 + fat_g * 9);
-  const carbs_g = Math.max(0, Math.round(remaining / 4));
-  return { protein_g, carbs_g, fat_g, calories: protein_g * 4 + carbs_g * 4 + fat_g * 9 };
+  const calorieBudget = Number.isFinite(calories) ? Math.max(0, Math.round(calories)) : 0;
+  const requestedProtein = Number.isFinite(weightKg * proteinPerKg)
+    ? Math.max(0, Math.round(weightKg * proteinPerKg))
+    : 0;
+  const fat_g = Math.round((calorieBudget * 0.25) / 9);
+  const proteinBudget = Math.max(0, calorieBudget - fat_g * 9);
+  const protein_g = Math.min(requestedProtein, Math.floor(proteinBudget / 4));
+  const remaining = calorieBudget - (protein_g * 4 + fat_g * 9);
+  // Whole grams must never round the recommendation above its calorie ceiling.
+  const carbs_g = Math.max(0, Math.floor(remaining / 4));
+  return {
+    protein_g,
+    carbs_g,
+    fat_g,
+    calories: protein_g * 4 + carbs_g * 4 + fat_g * 9,
+    protein_capped: protein_g < requestedProtein,
+  };
 }
 
 export interface BaselineInput {

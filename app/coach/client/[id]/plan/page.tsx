@@ -290,11 +290,21 @@ export default function PlanEditorPage() {
         body: JSON.stringify({ clientId }),
       });
       const data = (await res.json().catch(() => ({}))) as {
-        target?: { protein_g: number; carbs_g: number; fat_g: number }; tdee?: number; error?: string;
+        target?: {
+          protein_g: number;
+          carbs_g: number;
+          fat_g: number;
+          protein_capped?: boolean;
+        };
+        tdee?: number;
+        error?: string;
       };
       if (res.ok && data.target) {
         setTargets((t) => ({ ...t, protein: data.target!.protein_g, carbs: data.target!.carbs_g, fat: data.target!.fat_g }));
-        setSuggestMsg(`Suggested from TDEE ≈ ${data.tdee} kcal — review and Save`);
+        const capNote = data.target.protein_capped
+          ? ' Protein was capped to fit the calorie target.'
+          : '';
+        setSuggestMsg(`Suggested from TDEE ≈ ${data.tdee} kcal — review and Save.${capNote}`);
       } else {
         setSuggestMsg(data.error || 'Need sex, age, height & weight on the client first');
       }

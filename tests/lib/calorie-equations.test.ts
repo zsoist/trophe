@@ -25,9 +25,21 @@ describe('calorie-equations', () => {
   it('macroSplit is Atwater-consistent', () => {
     const s = macroSplit(2000, 80, 2.0);
     expect(s.protein_g).toBe(160); // 2 g/kg
+    expect(s.protein_capped).toBe(false);
     // calories recomputed from the split (4/4/9) ≈ input
     expect(s.protein_g * 4 + s.carbs_g * 4 + s.fat_g * 9).toBe(s.calories);
     expect(Math.abs(s.calories - 2000)).toBeLessThanOrEqual(5);
+  });
+
+  it('caps an impossible protein target instead of exceeding the calorie ceiling', () => {
+    const s = macroSplit(1200, 150, 2.0);
+
+    expect(s.protein_capped).toBe(true);
+    expect(s.protein_g).toBeLessThan(300);
+    expect(s.fat_g).toBeGreaterThan(0);
+    expect(s.calories).toBeLessThanOrEqual(1200);
+    expect(1200 - s.calories).toBeLessThan(4);
+    expect(s.protein_g * 4 + s.carbs_g * 4 + s.fat_g * 9).toBe(s.calories);
   });
 
   it('computeBaseline picks Katch when body fat is known, else Mifflin', () => {
