@@ -64,7 +64,9 @@ Scope: food parsing, nutrition review/logging, photo/manual boundaries, local DB
 - Conversation provider/budget failures now return a stable retryable 503 and persist no orphan turn; successful user/assistant pairs are appended in one atomic database statement.
 - Privacy downloads now cover the client-subject nutrition, supplement, wearable, appointment, meal-plan, AI-memory/conversation, feedback, and attachment records classified by erasure coverage, with 1,000-row pagination.
 - A failed export source now produces `206 Partial Content`, `complete: false`, and an explicit `unavailableTables` list instead of a complete-looking 200 that silently omits health data.
-- Typechecking excludes only ignored `.next` conflict-copy filenames (for example `routes.d 5.ts`), preventing macOS Documents sync artifacts from breaking Nick’s otherwise-clean verification runs.
+- Typechecking excludes only ignored `.next` conflict-copy filenames (for example `routes.d 5.ts`); prebuild clears the ignored `.next` tree and deletes numbered service-worker copies only when byte-identical to `public/sw.js`, preventing macOS Documents sync artifacts from breaking Nick’s verification runs.
+- Weekly calorie charts treat a zero/invalid target as “not configured”: logged days stay neutral and no false red status or zero target line is rendered.
+- An expired Spike wearable callback now returns through login to `/dashboard/integrations` using the redirect parameter the login page actually consumes.
 - Edited portions are capped and validated again before the food-log insert.
 - Manual entry rejects invalid calories/macros before writing and now displays the validation error in the manual-entry view.
 - Photo analysis drops malformed or implausible items, caps confidence, and preserves an uncertainty note.
