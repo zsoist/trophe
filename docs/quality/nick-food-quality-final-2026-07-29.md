@@ -9,7 +9,7 @@ Scope: food parsing, nutrition review/logging, photo/manual boundaries, local DB
 - Bounded release verifier: **passed**
   - typecheck: passed
   - full lint: passed
-  - unit/integration suite: 1,148 passed, 33 intentionally skipped
+  - unit/integration suite: 1,149 passed, 33 intentionally skipped
   - production build: passed
 - Deterministic food lookup gate: **43/43 coverage (100%) and 43/43 accuracy (100%)**
   - required coverage: 100%
