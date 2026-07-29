@@ -1,13 +1,19 @@
+import { FOOD_PARSE_MAX_ITEMS } from '../../agents/food-parse/pipeline-budget';
+
 /**
- * One food-parse request can make:
- * - one initial extraction execution; and
- * - for each returned item, two decomposition executions plus one macro fallback.
+ * One bounded food-parse request can make at most:
+ * - one initial extraction and one schema repair;
+ * - one decomposition per returned item; and
+ * - one batched macro fallback for every unresolved item.
  *
- * An execution can make three OpenAI transports and one Anthropic fallback.
- * Production intentionally has no artificial meal-item ceiling. An opaque
- * route evaluator therefore cannot prove a finite provider-attempt envelope.
- * Setting this above the approval system's hard 1,000-call ceiling makes every
- * such evaluator fail closed before it can select or execute a case.
+ * Each execution can make three OpenAI transports and one Anthropic fallback.
+ * The computed ceiling is documented for review, while opaque live-route tools
+ * intentionally retain a value above the approval system's hard 1,000-call
+ * ceiling so they remain disabled during the zero-spend phase.
  */
 export const FOOD_PARSE_MAX_TRANSPORTS_PER_EXECUTION = 4;
+export const FOOD_PARSE_MAX_EXECUTIONS =
+  2 + FOOD_PARSE_MAX_ITEMS + 1;
+export const FOOD_PARSE_COMPUTED_MAX_PROVIDER_ATTEMPTS =
+  FOOD_PARSE_MAX_EXECUTIONS * FOOD_PARSE_MAX_TRANSPORTS_PER_EXECUTION;
 export const FOOD_PARSE_OPAQUE_MAX_PROVIDER_ATTEMPTS = 1_001;

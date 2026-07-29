@@ -52,6 +52,10 @@ Scope: food parsing, nutrition review/logging, photo/manual boundaries, local DB
 - Decomposition confidence is monotonic at the 50% ingredient-match boundary instead of scoring 50% coverage below 40% coverage.
 - Common piece weights use whole normalized food tokens: short names such as `ham` and `pea` can no longer inherit `hamburger` or `peach` weights, while real matches such as `butter croissant` and `souvlaki chicken pita` still resolve.
 - Composite-dish ingredient lookups run through the order-preserving parallel batch API instead of one database round-trip at a time.
+- The full parser has a 50-second aggregate work budget and will not start another AI phase without a 16-second execution/cleanup reserve below the 60-second function cap.
+- Recipe-cache probes and non-composite decompositions run in parallel, each item is decomposed at most once, and unresolved macro estimates share one batched fallback execution.
+- One meal review is capped at 12 items; larger model outputs ask the user to split the meal in the selected app language instead of starting unbounded work.
+- The bounded parser’s computed worst-case provider envelope is 60 transports. Opaque live-route tools remain intentionally blocked at 1,001 attempts during the zero-spend phase.
 - Edited portions are capped and validated again before the food-log insert.
 - Manual entry rejects invalid calories/macros before writing and now displays the validation error in the manual-entry view.
 - Photo analysis drops malformed or implausible items, caps confidence, and preserves an uncertainty note.

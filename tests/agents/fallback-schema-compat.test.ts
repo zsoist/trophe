@@ -41,6 +41,7 @@ const FOOD_PARSE_FIXTURE = {
 const MACRO_ESTIMATE_FIXTURE = {
   estimates: [
     {
+      item_index: 1,
       food_name: 'scrambled eggs',
       grams: 122,
       calories: 197,
@@ -119,7 +120,7 @@ describe('Fallback schema compatibility', () => {
   });
 
   it('macro_estimate schema requires all pipeline-critical fields', () => {
-    const estPaths = ['food_name', 'grams', 'calories'];
+    const estPaths = ['item_index', 'food_name', 'grams', 'calories'];
 
     for (const path of estPaths) {
       const badEst = { ...MACRO_ESTIMATE_FIXTURE.estimates[0], [path]: undefined };
