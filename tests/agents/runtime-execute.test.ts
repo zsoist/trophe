@@ -20,6 +20,7 @@ vi.mock('@/agents/observability/langfuse', () => observability);
 import { executeAiTask } from '@/agents/runtime/execute';
 import { classifyAiError, isFallbackEligible } from '@/agents/runtime/error-classification';
 import { taskPolicies } from '@/agents/router/policies';
+import { estimateUsageCost } from '@/agents/runtime/cost';
 
 function typedProviderError(
   label: string,
@@ -106,6 +107,14 @@ const nonRecoverableConflictCases = [
 ] as const;
 
 describe('AI error classification', () => {
+  it('prefers an explicit provider cost for non-token-priced work', () => {
+    expect(estimateUsageCost('gpt-transcribe', {
+      inputTokens: 0,
+      outputTokens: 0,
+      actualCostUsd: 0.00225,
+    })).toBe(0.00225);
+  });
+
   it.each([
     { label: 'HTTP auth', error: typedProviderError('auth', { status: 401 }), expected: 'auth' },
     { label: 'schema diagnostic', error: typedProviderError('schema', { status: 200, type: 'response_validation_error' }), expected: 'schema' },

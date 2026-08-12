@@ -35,6 +35,7 @@ export type TaskName =
   | 'memory_extract'  // Phase 5: extract structured facts from conversation turns
   | 'memory_embed'    // Phase 5: embed memory fact text for kNN retrieval
   | 'shopping_extract' // Extract grocery line-items from a week's meal-plan text
+  | 'transcribe'
   | 'factory_generate'; // Synthetic eval-data generation; never consumer traffic
 
 export interface RoutingPolicy {
@@ -144,6 +145,17 @@ export const taskPolicies: Record<TaskName, RoutingPolicy> = {
     latencyClass: 'fast',
     maxTokens: 2048,
     timeoutMs: 25_000, maxInputChars: 12_000, maxCostUsd: 0.02, promptVersion: 'shopping-extract-v1',
+  },
+  transcribe: {
+    provider: 'openai',
+    model: 'gpt-transcribe',
+    costClass: 'cheap',
+    latencyClass: 'fast',
+    maxTokens: 0,
+    timeoutMs: 20_000,
+    maxInputChars: 256,
+    maxCostUsd: 0.00225,
+    promptVersion: 'transcribe-v1',
   },
   factory_generate: {
     // Synthetic-only lane. Generator scripts must consume this exact object

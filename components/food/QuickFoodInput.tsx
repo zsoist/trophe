@@ -19,7 +19,7 @@ import {
   startSpeechRecognitionSession,
   type SpeechRecognitionLike,
   type VoiceInputError,
-  type VoiceSession,
+  type MicrophoneSession,
 } from '@/lib/microphone/speech-recognition';
 
 interface QuickFoodInputProps {
@@ -387,7 +387,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
 
   // A session controller owns every browser callback and guarantees exactly
   // one terminal state, including browsers that never emit `end` after Stop.
-  const voiceSessionRef = useRef<VoiceSession | null>(null);
+  const voiceSessionRef = useRef<MicrophoneSession | null>(null);
 
   useEffect(() => {
     return () => {
