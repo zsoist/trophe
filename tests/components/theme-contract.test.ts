@@ -53,6 +53,23 @@ function contrast(selector: string, foreground: string, background: string): num
   return (light + 0.05) / (dark + 0.05);
 }
 
+function reducedMotionDeclaration(selector: string, property: string): string | undefined {
+  let resolved: string | undefined;
+
+  stylesheet.walkAtRules('media', (atRule) => {
+    if (atRule.params !== '(prefers-reduced-motion: reduce)') return;
+    atRule.walkRules((rule: Rule) => {
+      const selectors = rule.selectors.map((candidate) => candidate.trim());
+      if (!selectors.includes(selector)) return;
+      rule.walkDecls(property, (decl) => {
+        resolved = decl.value.trim();
+      });
+    });
+  });
+
+  return resolved;
+}
+
 describe('semantic theme token contract', () => {
   it('provides semantic tokens with accessible core color pairs in both themes', () => {
     for (const selector of [':root', '.light']) {
@@ -61,6 +78,22 @@ describe('semantic theme token contract', () => {
       expect(contrast(selector, '--content-secondary', '--canvas')).toBeGreaterThanOrEqual(4.5);
       expect(contrast(selector, '--content-muted', '--canvas')).toBeGreaterThanOrEqual(4.5);
       expect(contrast(selector, '--action-on-primary', '--action-primary')).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it('keeps light success status text readable against its semantic background', () => {
+    expect(contrast('.light', '--status-success-fg', '--status-success-bg')).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('turns off every nonessential animation when reduced motion is requested', () => {
+    const nonessentialAnimations = [
+      '.toast-in', '.toast-bar', '.theme-icon-in', '.skeleton::after',
+      '.confetti-burst', '.confetti-particle', '.water-fill',
+      '.ring-draw', '.live-glow', '.float-y',
+    ];
+
+    for (const selector of nonessentialAnimations) {
+      expect(reducedMotionDeclaration(selector, 'animation')).toBe('none');
     }
   });
 });
