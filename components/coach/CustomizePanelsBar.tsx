@@ -30,7 +30,7 @@ export default function CustomizePanelsBar({
         type="button"
         onClick={onToggleEdit}
         title={t('coach.customize.title')}
-        className="min-h-[44px] min-w-[44px] -my-2 flex items-center justify-center gap-1 text-xs text-stone-500 hover:text-[#D4A853] transition-colors"
+        className="min-h-[44px] min-w-[44px] -my-2 flex items-center justify-center gap-1 text-xs text-[var(--content-muted)] hover:text-[#D4A853] transition-colors"
       >
         <SlidersHorizontal size={15} />
         <span className="hidden sm:inline">{t('coach.customize.button')}</span>
@@ -43,7 +43,7 @@ export default function CustomizePanelsBar({
       <button
         type="button"
         onClick={onReset}
-        className="min-h-[44px] flex items-center gap-1 px-2.5 text-[11px] text-stone-400 hover:text-stone-200 transition-colors"
+        className="min-h-[44px] flex items-center gap-1 px-2.5 text-xs text-[var(--content-secondary)] hover:text-[var(--content-primary)] transition-colors"
         title={t('coach.customize.reset')}
       >
         <RotateCcw size={13} />

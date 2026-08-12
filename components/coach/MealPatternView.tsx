@@ -53,7 +53,7 @@ const EMPTY_FORM: EditForm = {
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
     <span
-      className="block text-[10px] uppercase tracking-wider text-stone-500 mb-0.5"
+      className="block text-xs uppercase tracking-wider text-[var(--content-muted)] mb-0.5"
       style={{ fontFamily: 'var(--font-mono)' }}
     >
       {children}
@@ -286,19 +286,19 @@ function MealPatternView({ entries, clientId }: MealPatternViewProps) {
   );
 
   if (entries.length === 0) {
-    return <p className="text-stone-600 text-sm text-center py-4">No food logged recently</p>;
+    return <p className="text-[var(--content-muted)] text-sm text-center py-4">No food logged recently</p>;
   }
 
   return (
     <div>
       {/* Toggle */}
-      <div className="flex gap-1 p-0.5 rounded-lg bg-white/[0.04] mb-4 w-fit">
+      <div className="flex gap-1 p-0.5 rounded-lg bg-[var(--surface-hover)] mb-4 w-fit">
         <button
           onClick={() => setView('pattern')}
           className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
             view === 'pattern'
               ? 'bg-[#D4A853]/15 text-[#D4A853]'
-              : 'text-stone-500 hover:text-stone-300'
+              : 'text-[var(--content-muted)] hover:text-[var(--content-secondary)]'
           }`}
         >
           Pattern View
@@ -308,7 +308,7 @@ function MealPatternView({ entries, clientId }: MealPatternViewProps) {
           className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
             view === 'daily'
               ? 'bg-[#D4A853]/15 text-[#D4A853]'
-              : 'text-stone-500 hover:text-stone-300'
+              : 'text-[var(--content-muted)] hover:text-[var(--content-secondary)]'
           }`}
         >
           Daily View
@@ -330,13 +330,13 @@ function MealPatternView({ entries, clientId }: MealPatternViewProps) {
               return (
                 <div
                   key={pattern.mealType}
-                  className="p-4 rounded-xl bg-white/[0.03] border border-white/5"
+                  className="p-4 rounded-xl bg-[var(--surface-hover)] border border-[var(--border-subtle)]"
                 >
                   {/* Minimal meal header — icon + label + day count, everything else demoted */}
                   <div className="flex items-center gap-2 mb-3">
                     <Icon name={pattern.icon} size={15} style={{ color: 'var(--gold-300,#D4A853)', flexShrink: 0 }} />
-                    <h4 className="text-sm font-semibold text-stone-200">{pattern.label}</h4>
-                    <span className="text-[10px] text-stone-500">
+                    <h4 className="text-sm font-semibold text-[var(--content-primary)]">{pattern.label}</h4>
+                    <span className="text-xs text-[var(--content-muted)]">
                       · {pattern.uniqueDays} day{pattern.uniqueDays !== 1 ? 's' : ''}
                     </span>
                   </div>
@@ -348,14 +348,14 @@ function MealPatternView({ entries, clientId }: MealPatternViewProps) {
                       return (
                         <div key={food.name} className="space-y-0.5">
                           <div className="flex items-baseline justify-between gap-2">
-                            <span className="text-sm text-stone-100 capitalize truncate">
+                            <span className="text-sm text-[var(--content-primary)] capitalize truncate">
                               {food.name}
                             </span>
-                            <span className="text-[10px] text-stone-500 whitespace-nowrap tabular-nums">
+                            <span className="text-xs text-[var(--content-muted)] whitespace-nowrap tabular-nums">
                               {food.count}×{food.avgCalories > 0 ? ` · ~${food.avgCalories} kcal` : ''}
                             </span>
                           </div>
-                          <div className="h-1 rounded-full bg-white/[0.05] overflow-hidden">
+                          <div className="h-1 rounded-full bg-[var(--surface-hover)] overflow-hidden">
                             <motion.div
                               className="h-full rounded-full bg-[#D4A853]/60"
                               initial={{ width: 0 }}
@@ -369,11 +369,11 @@ function MealPatternView({ entries, clientId }: MealPatternViewProps) {
                   </div>
 
                   {/* Demoted footer — totals in small print */}
-                  <div className="mt-3 pt-2 border-t border-white/5 flex items-center justify-between text-[10px] text-stone-500">
+                  <div className="mt-3 pt-2 border-t border-[var(--border-subtle)] flex items-center justify-between text-xs text-[var(--content-muted)]">
                     <span>
                       ~{pattern.avgCalories} kcal/day · P{pattern.avgProtein} C{pattern.avgCarbs} F{pattern.avgFat}
                     </span>
-                    <div className="h-1 w-16 rounded-full bg-white/[0.04] overflow-hidden">
+                    <div className="h-1 w-16 rounded-full bg-[var(--surface-hover)] overflow-hidden">
                       <div
                         className="h-full bg-[#D4A853]/30 rounded-full"
                         style={{ width: `${Math.min((pattern.avgCalories / maxAvgCal) * 100, 100)}%` }}
@@ -408,13 +408,13 @@ function MealPatternView({ entries, clientId }: MealPatternViewProps) {
                 return (
                   <div key={date}>
                     <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-xs font-medium text-stone-400">
+                      <span className="text-xs font-medium text-[var(--content-secondary)]">
                         {new Date(date).toLocaleDateString('en-US', {
                           month: 'short',
                           day: 'numeric',
                         })}
                       </span>
-                      <span className="text-xs text-stone-500">
+                      <span className="text-xs text-[var(--content-muted)]">
                         {Math.round(totals.cal)} kcal | P:{Math.round(totals.p)}g C:
                         {Math.round(totals.c)}g F:{Math.round(totals.f)}g
                       </span>
@@ -424,7 +424,7 @@ function MealPatternView({ entries, clientId }: MealPatternViewProps) {
                         const aiLogged = isAiEntry(entry);
                         const isEditing = editingId === entry.id;
                         return (
-                          <div key={entry.id} className="relative rounded-lg bg-white/[0.03]">
+                          <div key={entry.id} className="relative rounded-lg bg-[var(--surface-hover)]">
                             {/* One-shot gold flash after a saved edit */}
                             {flashId === entry.id && (
                               <motion.div
@@ -436,11 +436,11 @@ function MealPatternView({ entries, clientId }: MealPatternViewProps) {
                               />
                             )}
                             <div className="flex items-center justify-between text-xs py-1 px-2">
-                              <span className="text-stone-300 truncate flex items-center gap-1.5 min-w-0">
+                              <span className="text-[var(--content-secondary)] truncate flex items-center gap-1.5 min-w-0">
                                 <span className="truncate">{entry.food_name}</span>
                                 {aiLogged && (
                                   <span
-                                    className="inline-flex items-center gap-0.5 px-1 py-px rounded bg-[#D4A853]/10 text-[#D4A853] text-[9px] uppercase tracking-wider flex-shrink-0"
+                                    className="inline-flex items-center gap-0.5 px-1 py-px rounded bg-[#D4A853]/10 text-[#D4A853] text-xs uppercase tracking-wider flex-shrink-0"
                                     style={{ fontFamily: 'var(--font-mono)' }}
                                     title={t('coach.mealPattern.aiLoggedTitle')}
                                   >
@@ -449,12 +449,12 @@ function MealPatternView({ entries, clientId }: MealPatternViewProps) {
                                   </span>
                                 )}
                               </span>
-                              <span className="text-stone-500 whitespace-nowrap ml-2 flex items-center gap-1">
+                              <span className="text-[var(--content-muted)] whitespace-nowrap ml-2 flex items-center gap-1">
                                 {Math.round(entry.calories || 0)} kcal
                                 {clientId && (
                                   <button
                                     onClick={() => (isEditing ? closeEditor() : openEditor(entry))}
-                                    className="p-1.5 text-stone-600 hover:text-[#D4A853] transition-colors"
+                                    className="p-1.5 text-[var(--content-muted)] hover:text-[#D4A853] transition-colors"
                                     aria-label={t('coach.mealPattern.editEntry', { name: entry.food_name })}
                                   >
                                     <Pencil size={11} />
@@ -473,7 +473,7 @@ function MealPatternView({ entries, clientId }: MealPatternViewProps) {
                                   transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
                                   className="overflow-hidden"
                                 >
-                                  <div className="m-1.5 mt-0 rounded-lg bg-white/[0.04] border border-white/5 p-2.5 space-y-2.5">
+                                  <div className="m-1.5 mt-0 rounded-lg bg-[var(--surface-hover)] border border-[var(--border-subtle)] p-2.5 space-y-2.5">
                                     <div>
                                       <FieldLabel>{t('food.edit.name')}</FieldLabel>
                                       <input
@@ -481,7 +481,7 @@ function MealPatternView({ entries, clientId }: MealPatternViewProps) {
                                         value={form.name}
                                         onChange={(e) => setField('name', e.target.value)}
                                         maxLength={200}
-                                        className="input-dark w-full text-xs py-1.5"
+                                        className="input-dark text-base w-full text-xs py-1.5"
                                       />
                                     </div>
 
@@ -491,18 +491,18 @@ function MealPatternView({ entries, clientId }: MealPatternViewProps) {
                                         <div className="flex items-center gap-2">
                                           <button
                                             onClick={() => setField('grams', Math.max(1, (form.grams ?? 10) - 10))}
-                                            className="w-11 h-11 rounded-lg bg-white/[0.05] border border-white/10 flex items-center justify-center text-stone-300 hover:border-[#D4A853]/40 active:scale-95 transition-all"
+                                            className="w-11 h-11 rounded-lg bg-[var(--surface-hover)] border border-[var(--border-subtle)] flex items-center justify-center text-[var(--content-secondary)] hover:border-[#D4A853]/40 active:scale-95 transition-all"
                                             aria-label={t('food.edit.decreaseGrams')}
                                           >
                                             <Minus size={14} />
                                           </button>
                                           <div className="flex-1 text-center">
-                                            <span className="text-stone-100 text-sm font-medium tabular-nums">{form.grams}</span>
-                                            <span className="text-stone-500 text-[10px] ml-1">g</span>
+                                            <span className="text-[var(--content-primary)] text-sm font-medium tabular-nums">{form.grams}</span>
+                                            <span className="text-[var(--content-muted)] text-xs ml-1">g</span>
                                           </div>
                                           <button
                                             onClick={() => setField('grams', Math.min(10000, (form.grams ?? 0) + 10))}
-                                            className="w-11 h-11 rounded-lg bg-white/[0.05] border border-white/10 flex items-center justify-center text-stone-300 hover:border-[#D4A853]/40 active:scale-95 transition-all"
+                                            className="w-11 h-11 rounded-lg bg-[var(--surface-hover)] border border-[var(--border-subtle)] flex items-center justify-center text-[var(--content-secondary)] hover:border-[#D4A853]/40 active:scale-95 transition-all"
                                             aria-label={t('food.edit.increaseGrams')}
                                           >
                                             <Plus size={14} />
@@ -527,7 +527,7 @@ function MealPatternView({ entries, clientId }: MealPatternViewProps) {
                                             min={0}
                                             value={form[key]}
                                             onChange={(e) => setField(key, e.target.value)}
-                                            className="input-dark w-full text-xs py-1.5 text-center"
+                                            className="input-dark text-base w-full text-xs py-1.5 text-center"
                                           />
                                         </div>
                                       ))}
@@ -537,14 +537,14 @@ function MealPatternView({ entries, clientId }: MealPatternViewProps) {
                                       <button
                                         disabled={saving}
                                         onClick={() => void saveEdit(entry)}
-                                        className="flex-1 py-2 rounded-lg bg-[#D4A853] text-stone-950 text-xs font-semibold disabled:opacity-50 flex items-center justify-center gap-1.5 active:scale-[0.99] transition-transform"
+                                        className="flex-1 py-2 rounded-lg bg-[#D4A853] text-[var(--content-disabled)] text-xs font-semibold disabled:opacity-50 flex items-center justify-center gap-1.5 active:scale-[0.99] transition-transform"
                                       >
                                         {saving ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
                                         {t('food.edit.save')}
                                       </button>
                                       <button
                                         onClick={closeEditor}
-                                        className="p-2 rounded-lg text-stone-500 hover:text-stone-300 border border-white/10 transition-colors"
+                                        className="p-2 rounded-lg text-[var(--content-muted)] hover:text-[var(--content-secondary)] border border-[var(--border-subtle)] transition-colors"
                                         aria-label={t('coach.mealPattern.cancel')}
                                       >
                                         <X size={14} />

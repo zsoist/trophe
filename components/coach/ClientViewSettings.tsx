@@ -89,11 +89,11 @@ export default function ClientViewSettings({ clientId }: { clientId: string }) {
   return (
     <div className="glass p-4 mb-4">
       <div className="flex items-center justify-between mb-2">
-        <h2 className="font-semibold text-stone-200 text-sm flex items-center gap-2">
+        <h2 className="font-semibold text-[var(--content-primary)] text-sm flex items-center gap-2">
           <Eye size={14} className="text-[#D4A853]" />
           {t('coach.clientView.title')}
         </h2>
-        <span className="text-[10px] text-stone-500 font-mono">
+        <span className="text-xs text-[var(--content-muted)] font-mono">
           {saveState === 'saving'
             ? t('coach.clientView.saving')
             : saveState === 'saved'
@@ -106,7 +106,7 @@ export default function ClientViewSettings({ clientId }: { clientId: string }) {
       {!loaded ? (
         <div className="space-y-1.5">
           {[0, 1, 2].map((i) => (
-            <div key={i} className="h-9 rounded-lg bg-white/[0.04] animate-pulse" />
+            <div key={i} className="h-9 rounded-lg bg-[var(--surface-hover)] animate-pulse" />
           ))}
         </div>
       ) : (
@@ -124,16 +124,16 @@ export default function ClientViewSettings({ clientId }: { clientId: string }) {
                 <span className="min-w-0">
                   <span
                     className={`block text-xs font-medium ${
-                      on ? 'text-stone-200' : 'text-stone-400'
-                    } group-hover:text-stone-100 transition-colors`}
+                      on ? 'text-[var(--content-primary)]' : 'text-[var(--content-secondary)]'
+                    } group-hover:text-[var(--content-primary)] transition-colors`}
                   >
                     {t(row.label)}
                   </span>
-                  <span className="block text-[10px] text-stone-600 truncate">{t(row.hint)}</span>
+                  <span className="block text-xs text-[var(--content-muted)] truncate">{t(row.hint)}</span>
                 </span>
                 <span
                   className={`w-9 h-5 rounded-full shrink-0 transition-colors relative ${
-                    on ? 'bg-[#D4A853]' : 'bg-white/10'
+                    on ? 'bg-[#D4A853]' : 'bg-[var(--surface-hover)]'
                   }`}
                 >
                   <span
