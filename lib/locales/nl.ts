@@ -811,6 +811,14 @@ export const nl: Record<string, string> = {
   'food.voice_permission_retry': 'Opnieuw proberen',
   'food.voice_recording_failed': 'Audio opnemen is mislukt. Controleer de microfoon en probeer opnieuw.',
   'food.voice_transcription_failed': 'De opname kon niet in tekst worden omgezet. Probeer opnieuw.',
+  'intake.voice_answer': 'Antwoord met spraak',
+  'intake.voice_stop': 'Stoppen',
+  'intake.voice_start_aria': 'Beantwoord deze vraag met spraak',
+  'intake.voice_stop_aria': 'Spraakantwoord stoppen',
+  'intake.voice_requesting': 'Wachten op microfoontoestemming…',
+  'intake.voice_listening': 'Luisteren… spreek natuurlijk',
+  'intake.voice_transcribing': 'Antwoord wordt omgezet in tekst…',
+  'intake.voice_failed': 'Het spraakantwoord is mislukt. Probeer opnieuw.',
 
   // ── Parse narration ──
   'food.parse_stage_reading': 'je maaltijd lezen…',

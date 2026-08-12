@@ -811,6 +811,14 @@ export const de: Record<string, string> = {
   'food.voice_permission_retry': 'Erneut versuchen',
   'food.voice_recording_failed': 'Audio konnte nicht aufgenommen werden. Prüfe das Mikrofon und versuch es erneut.',
   'food.voice_transcription_failed': 'Die Aufnahme konnte nicht in Text umgewandelt werden. Versuch es erneut.',
+  'intake.voice_answer': 'Per Sprache antworten',
+  'intake.voice_stop': 'Stopp',
+  'intake.voice_start_aria': 'Diese Frage per Sprache beantworten',
+  'intake.voice_stop_aria': 'Sprachantwort stoppen',
+  'intake.voice_requesting': 'Warten auf Mikrofonberechtigung…',
+  'intake.voice_listening': 'Ich höre zu… sprich ganz natürlich',
+  'intake.voice_transcribing': 'Antwort wird in Text umgewandelt…',
+  'intake.voice_failed': 'Die Sprachantwort ist fehlgeschlagen. Versuch es erneut.',
 
   // ── Parse narration ──
   'food.parse_stage_reading': 'deine Mahlzeit wird gelesen…',

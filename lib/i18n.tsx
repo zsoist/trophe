@@ -1060,6 +1060,14 @@ const translations: Record<string, Record<CoreLanguage, string>> = {
   'food.voice_permission_retry': { en: 'Try again', es: 'Intentar de nuevo', el: 'Δοκιμή ξανά' },
   'food.voice_recording_failed': { en: 'Could not record audio. Check your microphone and try again.', es: 'No se pudo grabar el audio. Revisa el micrófono e inténtalo de nuevo.', el: 'Δεν ήταν δυνατή η εγγραφή ήχου. Έλεγξε το μικρόφωνο και δοκίμασε ξανά.' },
   'food.voice_transcription_failed': { en: 'Could not turn that recording into text. Please try again.', es: 'No se pudo convertir la grabación en texto. Inténtalo de nuevo.', el: 'Δεν ήταν δυνατή η μετατροπή της εγγραφής σε κείμενο. Δοκίμασε ξανά.' },
+  'intake.voice_answer': { en: 'Answer by voice', es: 'Responder por voz', el: 'Απάντηση με φωνή' },
+  'intake.voice_stop': { en: 'Stop', es: 'Detener', el: 'Διακοπή' },
+  'intake.voice_start_aria': { en: 'Answer this question by voice', es: 'Responder esta pregunta por voz', el: 'Απάντηση αυτής της ερώτησης με φωνή' },
+  'intake.voice_stop_aria': { en: 'Stop voice answer', es: 'Detener respuesta de voz', el: 'Διακοπή φωνητικής απάντησης' },
+  'intake.voice_requesting': { en: 'Waiting for microphone permission…', es: 'Esperando permiso para usar el micrófono…', el: 'Αναμονή άδειας μικροφώνου…' },
+  'intake.voice_listening': { en: 'Listening… speak naturally', es: 'Escuchando… habla con naturalidad', el: 'Ακούω… μίλησε φυσικά' },
+  'intake.voice_transcribing': { en: 'Turning your answer into text…', es: 'Convirtiendo tu respuesta en texto…', el: 'Μετατροπή της απάντησής σου σε κείμενο…' },
+  'intake.voice_failed': { en: 'Voice answer failed. Please try again.', es: 'La respuesta de voz falló. Inténtalo de nuevo.', el: 'Η φωνητική απάντηση απέτυχε. Δοκίμασε ξανά.' },
 
   // ── W1 parse narration (kitchen pass) ──
   'food.parse_stage_reading': { en: 'reading your meal…', es: 'leyendo tu comida…', el: 'διαβάζουμε το γεύμα σου…' },

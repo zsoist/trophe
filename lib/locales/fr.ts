@@ -811,6 +811,14 @@ export const fr: Record<string, string> = {
   'food.voice_permission_retry': 'Réessayer',
   'food.voice_recording_failed': 'Impossible d’enregistrer le son. Vérifie le microphone et réessaie.',
   'food.voice_transcription_failed': 'Impossible de convertir cet enregistrement en texte. Réessaie.',
+  'intake.voice_answer': 'Répondre par la voix',
+  'intake.voice_stop': 'Arrêter',
+  'intake.voice_start_aria': 'Répondre à cette question par la voix',
+  'intake.voice_stop_aria': 'Arrêter la réponse vocale',
+  'intake.voice_requesting': 'En attente de l’autorisation du microphone…',
+  'intake.voice_listening': 'Écoute… parle naturellement',
+  'intake.voice_transcribing': 'Conversion de ta réponse en texte…',
+  'intake.voice_failed': 'La réponse vocale a échoué. Réessaie.',
 
   // ── Parse narration ──
   'food.parse_stage_reading': 'lecture de ton repas…',
