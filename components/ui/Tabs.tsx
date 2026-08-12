@@ -8,7 +8,9 @@ export interface TabOption<T extends string> {
   label: ReactNode;
   /** Optional badge count rendered after the label. */
   badge?: number | string;
-  /** Id of the tabpanel this option controls, when the panel is rendered elsewhere. */
+  /** Content rendered in the real tabpanel owned by this tab. */
+  panel?: ReactNode;
+  /** Stable id override for the tabpanel rendered by this primitive. */
   panelId?: string;
 }
 
@@ -34,6 +36,10 @@ export function Tabs<T extends string>({
 
   function tabId(option: TabOption<T>) {
     return `${idPrefix}-tab-${option.id}`;
+  }
+
+  function panelId(option: TabOption<T>) {
+    return option.panelId ?? `${idPrefix}-panel-${option.id}`;
   }
 
   function selectAndFocus(index: number) {
@@ -68,56 +74,73 @@ export function Tabs<T extends string>({
   }
 
   return (
-    <div className={`relative ${className}`}>
-      <div
-        className="scrollbar-hide flex gap-[3px] overflow-x-auto rounded-[10px] border border-[var(--border-subtle)] bg-[var(--surface-2)] p-[3px]"
-        role="tablist"
-        aria-orientation="horizontal"
-      >
-        {options.map((opt, index) => {
-          const active = opt.id === value;
-          const id = tabId(opt);
-          return (
-            <button
-              key={opt.id}
-              id={id}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              aria-controls={opt.panelId}
-              tabIndex={active ? 0 : -1}
-              onClick={() => onChange(opt.id)}
-              onKeyDown={(event) => onKeyDown(event, index)}
-              className={[
-                'min-h-11 flex min-w-max flex-1 items-center justify-center gap-1.5 rounded-[7px] uppercase tracking-[0.05em] whitespace-nowrap font-medium transition-colors',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]',
-                baseTab,
-                active
-                  ? 'bg-[var(--action-secondary)] text-[var(--content-primary)]'
-                  : 'text-[var(--content-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--content-secondary)]',
-              ].join(' ')}
-            >
-              {opt.label}
-              {opt.badge !== undefined && (
-                <span
-                  className={[
-                    'min-w-[16px] h-[16px] px-1 inline-flex items-center justify-center rounded-full text-[10px]',
-                    active
-                      ? 'bg-[var(--action-primary)] text-[var(--action-on-primary)]'
-                      : 'bg-[var(--surface-3)] text-[var(--content-muted)]',
-                  ].join(' ')}
-                >
-                  {opt.badge}
-                </span>
-              )}
-            </button>
-          );
-        })}
+    <div className={className}>
+      <div className="relative">
+        <div
+          className="scrollbar-hide flex gap-[3px] overflow-x-auto rounded-[10px] border border-[var(--border-subtle)] bg-[var(--surface-2)] p-[3px]"
+          role="tablist"
+          aria-orientation="horizontal"
+        >
+          {options.map((opt, index) => {
+            const active = opt.id === value;
+            const id = tabId(opt);
+            const controlledPanelId = panelId(opt);
+            return (
+              <button
+                key={opt.id}
+                id={id}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                aria-controls={controlledPanelId}
+                tabIndex={active ? 0 : -1}
+                onClick={() => onChange(opt.id)}
+                onKeyDown={(event) => onKeyDown(event, index)}
+                className={[
+                  'min-h-11 flex min-w-max flex-1 items-center justify-center gap-1.5 rounded-[7px] uppercase tracking-[0.05em] whitespace-nowrap font-medium transition-colors',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]',
+                  baseTab,
+                  active
+                    ? 'bg-[var(--action-secondary)] text-[var(--content-primary)]'
+                    : 'text-[var(--content-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--content-secondary)]',
+                ].join(' ')}
+              >
+                {opt.label}
+                {opt.badge !== undefined && (
+                  <span
+                    className={[
+                      'min-w-[16px] h-[16px] px-1 inline-flex items-center justify-center rounded-full text-[10px]',
+                      active
+                        ? 'bg-[var(--action-primary)] text-[var(--action-on-primary)]'
+                        : 'bg-[var(--surface-3)] text-[var(--content-muted)]',
+                    ].join(' ')}
+                  >
+                    {opt.badge}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-[var(--surface-2)] to-transparent"
+        />
       </div>
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-[var(--surface-2)] to-transparent"
-      />
+      {options.map((opt) => {
+        const id = tabId(opt);
+        return (
+          <div
+            key={opt.id}
+            id={panelId(opt)}
+            role="tabpanel"
+            aria-labelledby={id}
+            hidden={opt.id !== value}
+          >
+            {opt.panel}
+          </div>
+        );
+      })}
     </div>
   );
 }

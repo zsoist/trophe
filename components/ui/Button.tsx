@@ -25,7 +25,7 @@ const variantClass: Record<ButtonVariant, string> = {
   primary: 'bg-[var(--action-primary)] text-[var(--action-on-primary)] hover:bg-[var(--action-primary-hover)]',
   secondary: 'bg-[var(--action-secondary)] text-[var(--content-primary)] hover:bg-[var(--surface-hover)] border border-[var(--border-default)]',
   ghost: 'bg-transparent text-[var(--content-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--content-primary)] border border-[var(--border-default)]',
-  danger: 'bg-[var(--status-danger-fg)] text-white hover:opacity-90',
+  danger: 'bg-[var(--status-danger-fg)] text-[var(--content-inverse)] hover:opacity-90',
 };
 
 const sharedButtonClass = [

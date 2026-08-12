@@ -4,8 +4,23 @@ import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { AlertTriangle } from 'lucide-react';
 import { useEffect, useId, useRef } from 'react';
+import type { KeyboardEvent } from 'react';
 import { useI18n } from '@/lib/i18n';
 import { Button } from './Button';
+
+const focusableSelector = [
+  'a[href]',
+  'button:not([disabled])',
+  'input:not([disabled])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  '[tabindex]:not([tabindex="-1"])',
+].join(',');
+
+function getFocusableElements(container: HTMLElement) {
+  return Array.from(container.querySelectorAll<HTMLElement>(focusableSelector))
+    .filter((element) => element.getAttribute('aria-hidden') !== 'true');
+}
 
 /**
  * Shared glass confirmation bottom sheet — replaces native confirm()/alert().
@@ -50,6 +65,39 @@ export function ConfirmSheet({
   const confirmText = confirmLabel ?? t('confirm.confirm');
   const cancelText = cancelLabel ?? t('confirm.cancel');
 
+  function onDialogKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.key === 'Escape' && !loading) {
+      event.preventDefault();
+      onCancel();
+      return;
+    }
+
+    if (event.key !== 'Tab') return;
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    const focusableElements = getFocusableElements(dialog);
+
+    if (focusableElements.length === 0) {
+      event.preventDefault();
+      dialog.focus();
+      return;
+    }
+
+    const first = focusableElements[0];
+    const last = focusableElements[focusableElements.length - 1];
+    const activeElement = document.activeElement;
+    const shouldWrapBackward = event.shiftKey && (activeElement === first || activeElement === dialog);
+    const shouldWrapForward = !event.shiftKey && (activeElement === last || activeElement === dialog);
+
+    if (shouldWrapBackward) {
+      event.preventDefault();
+      last.focus();
+    } else if (shouldWrapForward) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
+
   useEffect(() => {
     if (!open) return;
 
@@ -74,8 +122,7 @@ export function ConfirmSheet({
           initial={reducedMotion ? false : { opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={reducedMotion ? undefined : { opacity: 0 }}
-          className="fixed inset-0 z-[var(--z-sheet,50)] flex items-end sm:items-center justify-center"
-          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
+          className="fixed inset-0 z-[var(--z-sheet,50)] flex items-end sm:items-center justify-center bg-[var(--canvas)]/80 backdrop-blur-sm"
           onClick={loading ? undefined : onCancel}
         >
           <motion.div
@@ -84,12 +131,7 @@ export function ConfirmSheet({
             exit={reducedMotion ? { opacity: 0 } : { y: '100%', opacity: 0 }}
             transition={{ type: 'spring', damping: 28, stiffness: 300 }}
             onClick={(e) => e.stopPropagation()}
-            onKeyDown={(event) => {
-              if (event.key === 'Escape' && !loading) {
-                event.preventDefault();
-                onCancel();
-              }
-            }}
+            onKeyDown={onDialogKeyDown}
             ref={dialogRef}
             role="alertdialog"
             aria-modal="true"
@@ -113,7 +155,7 @@ export function ConfirmSheet({
                   width: 36,
                   height: 4,
                   borderRadius: 2,
-                  background: 'var(--line-2, rgba(255,255,255,0.10))',
+                  background: 'var(--border-default)',
                   margin: '-6px auto 14px',
                 }}
               />
@@ -125,13 +167,13 @@ export function ConfirmSheet({
                     width: 36,
                     height: 36,
                     borderRadius: 12,
-                    background: danger ? 'rgba(232,122,110,.12)' : 'rgba(212,168,83,.12)',
-                    border: `1px solid ${danger ? 'rgba(232,122,110,.3)' : 'rgba(212,168,83,.3)'}`,
+                    background: danger ? 'var(--status-danger-bg)' : 'var(--action-secondary)',
+                    border: `1px solid ${danger ? 'var(--status-danger-border)' : 'var(--border-focus)'}`,
                   }}
                 >
                   <AlertTriangle
                     size={16}
-                    style={{ color: danger ? 'var(--err,#E87A6E)' : 'var(--gold-300,#D4A853)' }}
+                    style={{ color: danger ? 'var(--status-danger-fg)' : 'var(--action-primary)' }}
                   />
                 </div>
                 <div className="flex-1 min-w-0 pt-0.5">
