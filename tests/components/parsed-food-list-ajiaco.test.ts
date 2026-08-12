@@ -69,12 +69,15 @@ vi.mock('@/lib/i18n', () => ({
         'food.items_found': '{n} item(s) found',
         'food.portion_large': 'Large',
         'food.portion_medium': 'Medium',
+        'food.portion_gram_equivalence': '{amount} {unit} ≈ {grams} g',
         'food.portion_small': 'Small',
         'food.remove_item_aria': 'Remove {name}',
         'food.stepper_decrease': 'Decrease amount',
         'food.stepper_increase': 'Increase amount',
         'food.unit.bowl_one': 'bowl',
         'food.unit.bowl_other': 'bowls',
+        'food.unit.serving_one': 'serving',
+        'food.unit.serving_other': 'servings',
         'general.cancel': 'Cancel',
       };
       return Object.entries(params ?? {}).reduce(
@@ -157,6 +160,49 @@ describe('ajiaco soup portion review', () => {
     expect(onConfirm).toHaveBeenCalledWith([
       expect.objectContaining({ grams: 687.5, quantity: 1.25, portion_explicit: true }),
     ]);
+  });
+
+  it('explains bowl amounts and every size choice with gram equivalents', () => {
+    renderAjiaco();
+
+    expect(screen.getByText('1 bowl ≈ 550 g')).toBeTruthy();
+    expect(screen.getByText('0.7 bowls · 385 g')).toBeTruthy();
+    expect(screen.getByText('1 bowl · 550 g')).toBeTruthy();
+    expect(screen.getByText('1.4 bowls · 770 g')).toBeTruthy();
+  });
+
+  it('explains a generic serving with its gram anchor', () => {
+    render(React.createElement(ParsedFoodList, {
+      items: [{ ...AJIACO, unit: 'serving' }],
+      clarificationQuestion: QUESTION,
+      onConfirm: vi.fn(),
+      onCancel: vi.fn(),
+      logging: false,
+    }));
+
+    expect(screen.getByText('1 serving ≈ 550 g')).toBeTruthy();
+  });
+
+  it('keeps the fixed save bar outside transformed meal-card ancestors on iPhone', () => {
+    const { unmount } = render(React.createElement(
+      'div',
+      { 'data-testid': 'transformed-meal', style: { transform: 'translateY(0)' } },
+      React.createElement(ParsedFoodList, {
+        items: [AJIACO],
+        onConfirm: vi.fn(),
+        onCancel: vi.fn(),
+        logging: false,
+      }),
+    ));
+
+    const transformedMeal = screen.getByTestId('transformed-meal');
+    const saveShell = document.body.querySelector('.portion-review-save-shell');
+
+    expect(saveShell).not.toBeNull();
+    expect(transformedMeal.contains(saveShell)).toBe(false);
+
+    unmount();
+    expect(document.body.querySelector('.portion-review-save-shell')).toBeNull();
   });
 
   it('tracks the rendered fixed bar height so translated notes cannot cover the last item', () => {

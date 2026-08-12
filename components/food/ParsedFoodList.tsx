@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { X, Check, Minus, Plus, AlertTriangle, Camera, CornerDownLeft, PencilLine } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
@@ -44,6 +45,9 @@ interface ParsedFoodListProps {
 /** Volume units where we display ml/L/cl instead of grams */
 const VOLUME_UNITS = new Set(['ml', 'l', 'cl', 'fl_oz', 'fl oz']);
 const MAX_EDITABLE_GRAMS = 15_000;
+const subscribeToClient = () => () => {};
+const getClientSnapshot = () => true;
+const getServerSnapshot = () => false;
 
 function PortionStepperButton({
   delta,
@@ -204,6 +208,11 @@ export default function ParsedFoodList({
   logging,
   showCalories = false,
 }: ParsedFoodListProps) {
+  const canUseDom = useSyncExternalStore(
+    subscribeToClient,
+    getClientSnapshot,
+    getServerSnapshot,
+  );
   const { t, lang } = useI18n();
   const reduceMotion = useReducedMotion();
   const [items, setItems] = useState<ParsedFoodItem[]>(() => (
@@ -258,7 +267,7 @@ export default function ParsedFoodList({
       window.removeEventListener('resize', measure);
       observer?.disconnect();
     };
-  }, []);
+  }, [canUseDom]);
 
   /** One stepper tick: haptic per tap, triple-pulse when crossing a 100g boundary. */
   const stepGrams = useCallback((index: number, delta: number) => {
@@ -661,6 +670,15 @@ export default function ParsedFoodList({
                       >
                         <Plus size={16} />
                       </PortionStepperButton>
+                      {humanUnit && (
+                        <p className="portion-review-gram-equivalence">
+                          {t('food.portion_gram_equivalence', {
+                            amount: displayVal,
+                            unit: displayUnit,
+                            grams: Math.round(item.grams),
+                          })}
+                        </p>
+                      )}
                     </>
                   );
                 })()}
@@ -702,6 +720,9 @@ export default function ParsedFoodList({
                                 lang,
                               ) ?? formatNaturalPortionUnit(item.unit, option.grams))
                             : isVolumeUnit(item.unit) ? item.unit : 'g'}
+                          {(naturalPortion || isVolumeUnit(item.unit)) && (
+                            <> · {option.grams} g</>
+                          )}
                         </span>
                       </button>
                     ))}
@@ -846,8 +867,8 @@ export default function ParsedFoodList({
         ) : null}
       </motion.div>
 
-      {/* F1: Sticky Save Bar — always visible at bottom */}
-      <motion.div
+      {/* F1: Body-level Save Bar — transformed meal cards must not capture fixed positioning. */}
+      {canUseDom && createPortal(<motion.div
         initial={{ y: 100, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
@@ -919,7 +940,7 @@ export default function ParsedFoodList({
             </motion.button>
           </div>
         </div>
-      </motion.div>
+      </motion.div>, document.body)}
     </div>
   );
 }
