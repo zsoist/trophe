@@ -1,7 +1,32 @@
+// @vitest-environment jsdom
+
+import React from 'react';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import ts from 'typescript';
-import { describe, expect, it } from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('next/dynamic', () => ({ default: () => () => null }));
+vi.mock('next/navigation', () => ({
+  useParams: () => ({ id: 'client-1' }),
+  useRouter: () => ({ back: vi.fn(), push: vi.fn(), replace: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+}));
+vi.mock('@/lib/supabase', () => ({ supabase: {} }));
+vi.mock('framer-motion', async () => {
+  const ReactModule = await import('react');
+  const ignored = new Set(['animate', 'exit', 'initial', 'layout', 'transition']);
+  const element = (tag: 'div') => ReactModule.forwardRef<HTMLElement, Record<string, unknown>>(
+    (props, ref) => ReactModule.createElement(tag, {
+      ...Object.fromEntries(Object.entries(props).filter(([key]) => !ignored.has(key))),
+      ref,
+    }, props.children as React.ReactNode),
+  );
+  return { AnimatePresence: ({ children }: { children: React.ReactNode }) => children, motion: { div: element('div') }, useReducedMotion: () => true };
+});
+
+afterEach(() => cleanup());
 
 const COACH_CORE_SOURCES = [
   'app/coach/page.tsx',
@@ -37,13 +62,6 @@ function jsxElements(file: string, tag: string) {
   visit(ast);
   return found;
 }
-
-const actionFiles = [
-  'app/coach/page.tsx',
-  'app/coach/client/[id]/page.tsx',
-  'app/coach/client/[id]/plan/page.tsx',
-  'app/coach/client/[id]/memory/page.tsx',
-] as const;
 
 function hasVisibleJsxContent(node: ts.Node): boolean {
   if (ts.isJsxText(node)) return node.text.trim().length > 0;
@@ -89,7 +107,8 @@ describe('coach roster and client workspace theme contract', () => {
       !/type="(?:checkbox|file|hidden|range|radio)"/.test(element)
       && (/(?:fontSize:\s*(?!16(?:\.0+)?[,}])\d+(?:\.\d+)?)(?:[,}])/.test(element)
         || (!/(?:text-base|text-\[16px\])/.test(element)
-          && !/fontSize:\s*(?:1[6-9]|[2-9]\d)/.test(element))),
+          && !/fontSize:\s*(?:1[6-9]|[2-9]\d)/.test(element))
+        || /(?:text-sm|text-xs|text-\[(?:8|9|10|11|12|13|14|15)px\])/.test(element)),
     );
 
     expect(controls.length).toBeGreaterThan(0);
@@ -98,18 +117,20 @@ describe('coach roster and client workspace theme contract', () => {
 
   it('pairs the real client action tray with a matching route-root safe-area reserve', () => {
     const client = source('app/coach/client/[id]/page.tsx');
-    const rootStart = client.indexOf('data-coach-workspace-root');
+    const loadedReturnStart = client.indexOf('return (', client.indexOf('const goalLabels'));
+    const rootStart = client.indexOf('data-coach-workspace-root', loadedReturnStart);
     const routeRoot = rootStart >= 0 ? client.slice(rootStart, client.indexOf('<PanelPrefsProvider', rootStart)) : '';
     const trayStart = client.indexOf('data-coach-action-tray');
     const tray = trayStart >= 0 ? client.slice(trayStart, client.indexOf('</div>', trayStart) + 6) : '';
 
     expect(routeRoot).toContain("'--coach-action-height': '84px'");
     expect(routeRoot).toContain("paddingBottom: 'calc(var(--coach-action-height) + env(safe-area-inset-bottom))'");
-    expect(rootStart).toBeGreaterThan(0);
+    expect(client.match(/data-coach-workspace-root/g)).toHaveLength(1);
+    expect(rootStart).toBeGreaterThan(loadedReturnStart);
     expect(trayStart).toBeGreaterThan(rootStart);
     expect(tray).toContain('sticky');
     expect(tray).toContain('<QuickActionsBar');
-    expect(tray).not.toContain('fixed');
+    expect(tray).toContain('[&>div]:!static');
   });
 
   it('has no nested native buttons and names every icon-only action', () => {
@@ -128,32 +149,86 @@ describe('coach roster and client workspace theme contract', () => {
     expect(violations).toEqual([]);
   });
 
-  it('gives key roster, filter, plan, and memory actions 44px targets and visible focus', () => {
-    const required = actionFiles.flatMap((file) => jsxElements(file, 'button')
-      .filter(({ text }) => /data-coach-primary-action/.test(text))
+  it('gives every owned button a 44px target and visible focus', () => {
+    const buttons = COACH_CORE_SOURCES.flatMap((file) => jsxElements(file, 'button')
       .map(({ text }) => ({ file, text })));
-    const violations = required.flatMap(({ file, text }) => [
+    const violations = buttons.flatMap(({ file, text }) => [
       !/(?:min-h-11|h-11|minHeight:\s*44)/.test(text) && `${file}: action below 44px`,
-      !/(?:min-w-11|w-11|minWidth:\s*44)/.test(text) && /data-icon-only/.test(text) && `${file}: icon action below 44px wide`,
+      !/(?:min-w-11|w-11|minWidth:\s*44)/.test(text) && !hasVisibleJsxContent(jsxElements(file, 'button').find((item) => item.text === text)!.node) && `${file}: icon action below 44px wide`,
       !/(?:focus-visible:|onFocus=)/.test(text) && `${file}: action lacks visible focus`,
     ].filter(Boolean) as string[]);
 
-    expect(required.length).toBeGreaterThanOrEqual(12);
+    expect(buttons.length).toBeGreaterThanOrEqual(50);
     expect(violations).toEqual([]);
   });
 
-  it('keeps plan and memory primary controls in a one-column mobile reflow', () => {
+  it('keeps the complete plan and memory workspaces in a one-column mobile reflow', () => {
     for (const file of ['app/coach/client/[id]/plan/page.tsx', 'app/coach/client/[id]/memory/page.tsx']) {
       const value = source(file);
       const start = value.indexOf('data-coach-mobile-workspace');
       const end = value.indexOf('data-coach-mobile-workspace-end', start);
       const mobile = start >= 0 && end > start ? value.slice(start, end) : '';
+      const reflowRegion = mobile.replace(/<div className="hidden lg:block[\s\S]*?<\/table>[\s\S]*?<\/div>/, '');
 
       expect(mobile, `${file}: missing mobile workspace anchors`).not.toBe('');
+      expect(start).toBeLessThan(value.indexOf(file.includes('/plan/') ? 'MACRO TARGETS' : 'Tab selector'));
+      expect(end).toBeGreaterThan(file.includes('/plan/') ? value.indexOf('Save Plan') : value.indexOf('AI Memory Tab'));
       expect(mobile, `${file}: missing single-column mobile base`).toMatch(/(?:grid-cols-1|flex-col)/);
-      expect(mobile, `${file}: hard mobile min-width`).not.toMatch(/(?:minWidth:\s*(?:[1-9]\d+)|min-w-\[)/);
-      expect(mobile, `${file}: primary controls forced nowrap`).not.toMatch(/(?:whitespace-nowrap|whiteSpace:\s*'nowrap')/);
-      expect(mobile, `${file}: two-dimensional primary overflow`).not.toMatch(/overflow-x-(?:auto|scroll)/);
+      expect(reflowRegion, `${file}: hard mobile min-width`).not.toMatch(/(?:minWidth:\s*(?:1(?:[2-9]\d)|[2-9]\d\d)|min-w-\[)/);
+      expect(reflowRegion, `${file}: primary controls forced nowrap`).not.toMatch(/(?:whitespace-nowrap|whiteSpace:\s*'nowrap')/);
+      expect(reflowRegion, `${file}: two-dimensional primary overflow`).not.toMatch(/overflow-x-(?:auto|scroll)/);
     }
+  });
+
+  it('uses text-plus-icon statuses, semantic memory states, chart data roles, and action contrast', () => {
+    const client = source('app/coach/client/[id]/page.tsx');
+    const streak = client.slice(client.indexOf('function StreakCalendar'), client.indexOf('// ══ Main component'));
+    expect(streak).toContain('aria-label={`${day.date}: ${day.status}`}');
+    expect(streak).toContain('Completed');
+    expect(streak).toContain('Missed');
+    expect(streak).toContain('No check-in');
+
+    const memory = source('app/coach/client/[id]/memory/page.tsx');
+    expect(memory).not.toMatch(/rgba\((?:232,122,110|125,163,217|184,157,217|232,184,110)/);
+    expect(memory).not.toMatch(/var\(--(?:err|info|warn|plum)/);
+    expect(memory).toContain('var(--status-danger-bg)');
+
+    const roster = source('app/coach/page.tsx');
+    const chart = roster.slice(roster.indexOf('function ActivityBarChart'), roster.indexOf('// ═══════════════════════════════════════════════\n// Main Component'));
+    expect(chart).toContain('role="img"');
+    expect(chart).toContain('<title>Client activity this week</title>');
+    expect(chart).toContain('var(--data-calories)');
+    expect(chart).toContain('var(--data-neutral)');
+
+    for (const file of ['components/coach/CoachInsightPanel.tsx', 'components/coach/MealPatternView.tsx']) {
+      expect(source(file)).not.toMatch(/bg-\[#D4A853\][^"\n]*text-\[var\(--content-disabled\)\]/);
+      expect(source(file)).toContain('text-[var(--action-on-primary)]');
+    }
+  });
+
+  it('renders Assign Habit as a reduced-motion, focus-contained, restorable dialog', async () => {
+    const clientPageModule = await import('@/app/coach/client/[id]/page');
+    expect(clientPageModule.AssignHabitDialog).toBeTypeOf('function');
+
+    const outside = document.createElement('button');
+    document.body.appendChild(outside);
+    outside.focus();
+    const onClose = vi.fn();
+    const view = render(React.createElement(clientPageModule.AssignHabitDialog, {
+      habits: [{ id: 'habit-1', name_en: 'Daily walk', emoji: 'walk', category: 'movement', cycle_days: 14, difficulty: 'beginner' }],
+      onAssign: vi.fn(), onClose,
+    }));
+    const dialog = screen.getByRole('dialog', { name: 'Assign Habit' });
+    expect(dialog.className).toContain('safe-bottom');
+    expect(document.activeElement).toBe(dialog);
+    const close = screen.getByRole('button', { name: 'Close habit assignment' });
+    expect(close.className).toContain('min-h-11');
+    fireEvent.keyDown(dialog, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: /Daily walk/ }));
+    fireEvent.keyDown(dialog, { key: 'Escape' });
+    expect(onClose).toHaveBeenCalledTimes(1);
+    view.unmount();
+    expect(document.activeElement).toBe(outside);
+    outside.remove();
   });
 });

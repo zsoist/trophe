@@ -144,7 +144,7 @@ function QuickActionsDropdown({
         data-coach-primary-action
         data-icon-only
         onClick={() => setOpen(!open)}
-        className="min-h-11 min-w-11 p-2 rounded-lg hover:bg-[var(--surface-hover)] text-[var(--content-secondary)] hover:text-[var(--content-primary)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+        className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] min-h-11 min-w-11 p-2 rounded-lg hover:bg-[var(--surface-hover)] text-[var(--content-secondary)] hover:text-[var(--content-primary)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
         title="More actions"
       >
         <MoreHorizontal size={16} />
@@ -169,7 +169,7 @@ function QuickActionsDropdown({
             <button
               data-coach-primary-action
               onClick={() => { onAddNote(clientId); setOpen(false); }}
-              className="min-h-11 w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-[var(--content-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--content-primary)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+              className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] min-h-11 w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-[var(--content-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--content-primary)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             >
               <StickyNote size={14} className="text-[var(--content-muted)]" />
               Add Note
@@ -211,7 +211,8 @@ function ActivityBarChart({ data }: { data: number[] }) {
   const gap = (w - barW * 7) / 8;
 
   return (
-    <svg viewBox={`0 0 ${w} ${h + 20}`} className="w-full" preserveAspectRatio="xMidYMid meet">
+    <svg role="img" aria-describedby="activity-chart-summary" viewBox={`0 0 ${w} ${h + 20}`} className="w-full" preserveAspectRatio="xMidYMid meet">
+      <title>Client activity this week</title>
       {/* Grid lines */}
       {[0, 0.5, 1].map((pct) => (
         <line
@@ -247,7 +248,7 @@ function ActivityBarChart({ data }: { data: number[] }) {
               x={x}
               width={barW}
               rx={4}
-              fill="#D4A853"
+              fill="var(--data-calories)"
               opacity={val > 0 ? 0.7 : 0.15}
             />
             {/* Value label */}
@@ -256,7 +257,7 @@ function ActivityBarChart({ data }: { data: number[] }) {
                 x={x + barW / 2}
                 y={y - 3}
                 textAnchor="middle"
-                fill="#D4A853"
+                fill="var(--data-calories)"
                 fontSize="12"
                 fontWeight="600"
               >
@@ -268,7 +269,7 @@ function ActivityBarChart({ data }: { data: number[] }) {
               x={x + barW / 2}
               y={h + 14}
               textAnchor="middle"
-              fill="#78716c"
+              fill="var(--data-neutral)"
               fontSize="12"
             >
               {days[i]}
@@ -863,7 +864,7 @@ export default function CoachDashboard() {
                 await supabase.auth.signOut();
                 router.push('/login');
               }}
-              className="text-[var(--content-muted)] hover:text-[var(--content-secondary)] text-xs flex items-center gap-1.5 transition-colors"
+              className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] text-[var(--content-muted)] hover:text-[var(--content-secondary)] text-xs flex items-center gap-1.5 transition-colors"
             >
               <LogOut size={14} />
               Log out
@@ -878,7 +879,7 @@ export default function CoachDashboard() {
             <button
               onClick={toggleLargeText}
               title="Toggle larger text"
-              className={`text-xs flex items-center gap-1 transition-colors ${largeText ? 'text-[#D4A853]' : 'text-[var(--content-muted)] hover:text-[var(--content-secondary)]'}`}
+              className={`min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] text-xs flex items-center gap-1 transition-colors ${largeText ? 'text-[#D4A853]' : 'text-[var(--content-muted)] hover:text-[var(--content-secondary)]'}`}
             >
               Aa
             </button>
@@ -1071,7 +1072,7 @@ export default function CoachDashboard() {
               <button
                 data-coach-primary-action
                 onClick={() => setShowBatchAssign(true)}
-                className="min-h-11 text-xs px-3 py-1.5 rounded-lg border border-[#D4A853]/30 text-[#D4A853] hover:bg-[#D4A853]/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] min-h-11 text-xs px-3 py-1.5 rounded-lg border border-[#D4A853]/30 text-[#D4A853] hover:bg-[#D4A853]/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
               >
                 Batch Assign Habit
               </button>
@@ -1080,7 +1081,7 @@ export default function CoachDashboard() {
                   <button
                     data-coach-primary-action
                     onClick={() => setShowComparison(true)}
-                    className="min-h-11 text-xs px-3 py-1.5 rounded-lg border border-[var(--border-subtle)] text-[var(--content-secondary)] hover:text-[var(--content-primary)] hover:border-[var(--border-subtle)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                    className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] min-h-11 text-xs px-3 py-1.5 rounded-lg border border-[var(--border-subtle)] text-[var(--content-secondary)] hover:text-[var(--content-primary)] hover:border-[var(--border-subtle)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                   >
                     Compare Clients
                   </button>
@@ -1115,7 +1116,7 @@ export default function CoachDashboard() {
                 data-coach-primary-action
                 key={f.key}
                 onClick={() => setFilter(f.key)}
-                className={`min-h-11 flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] ${
+                className={`min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] min-h-11 flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] ${
                   filter === f.key
                     ? 'border-[#D4A853]/40 bg-[#D4A853]/10 text-[#D4A853]'
                     : 'border-[var(--border-subtle)] text-[var(--content-secondary)] hover:border-[var(--border-subtle)] hover:text-[var(--content-secondary)]'
@@ -1145,7 +1146,7 @@ export default function CoachDashboard() {
                   Client Activity This Week
                 </h2>
                 <ActivityBarChart data={weeklyActivity} />
-                <p className="text-xs text-[var(--content-muted)] text-center mt-2">
+                <p id="activity-chart-summary" className="text-xs text-[var(--content-muted)] text-center mt-2">
                   Total check-ins across all clients per day
                 </p>
               </motion.div>
@@ -1315,14 +1316,14 @@ export default function CoachDashboard() {
                                   value={inlineNoteText}
                                   onChange={(e) => setInlineNoteText(e.target.value)}
                                   placeholder="Quick note..."
-                                  className="input-dark text-base flex-1 !py-2 text-sm"
+                                  className="input-dark text-base flex-1 !py-2"
                                   autoFocus
                                   onKeyDown={(e) => { if (e.key === 'Enter') saveInlineNote(); if (e.key === 'Escape') setInlineNoteId(null); }}
                                 />
                                 <button
                                   onClick={saveInlineNote}
                                   disabled={savingNote || !inlineNoteText.trim()}
-                                  className="btn-gold !py-2 !px-3 text-xs disabled:opacity-40"
+                                  className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] btn-gold !py-2 !px-3 text-xs disabled:opacity-40"
                                 >
                                   {savingNote ? '...' : 'Save'}
                                 </button>
@@ -1343,7 +1344,7 @@ export default function CoachDashboard() {
                         </Link>
                         {client.readyForProgression && (
                           <button
-                            className="p-2 rounded-lg hover:bg-[#D4A853]/10 text-[#D4A853] transition-colors"
+                            className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] p-2 rounded-lg hover:bg-[#D4A853]/10 text-[#D4A853] transition-colors"
                             title="Progress to next habit"
                           >
                             <ArrowUpRight size={16} />
@@ -1434,7 +1435,7 @@ export default function CoachDashboard() {
                     <select
                       value={picker.value}
                       onChange={(e) => picker.set(e.target.value)}
-                      className="input-dark text-base w-full text-xs !py-2"
+                      className="input-dark text-base w-full !py-2"
                     >
                       {clients
                         .filter((c) => c.clientProfile.user_id !== picker.exclude)
@@ -1493,7 +1494,7 @@ export default function CoachDashboard() {
               })()}
               <button
                 onClick={() => setShowComparison(false)}
-                className="mt-3 w-full text-center text-xs text-[var(--content-muted)] hover:text-[var(--content-secondary)] transition-colors py-2"
+                className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] mt-3 w-full text-center text-xs text-[var(--content-muted)] hover:text-[var(--content-secondary)] transition-colors py-2"
               >
                 Close
               </button>
@@ -1506,7 +1507,7 @@ export default function CoachDashboard() {
       <div className="fixed bottom-4 right-4 z-30">
         <button
           onClick={() => setShowShortcuts(true)}
-          className="text-xs text-[var(--content-muted)] hover:text-[var(--content-secondary)] transition-colors px-3 py-1.5 rounded-lg bg-[var(--surface-2)] backdrop-blur-sm border border-[var(--border-default)]"
+          className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] text-xs text-[var(--content-muted)] hover:text-[var(--content-secondary)] transition-colors px-3 py-1.5 rounded-lg bg-[var(--surface-2)] backdrop-blur-sm border border-[var(--border-default)]"
         >
           Press <kbd className="font-mono text-[#D4A853] mx-0.5">?</kbd> for shortcuts
         </button>

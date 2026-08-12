@@ -118,7 +118,7 @@ export default function ClientViewSettings({ clientId }: { clientId: string }) {
                 key={row.id}
                 type="button"
                 onClick={() => toggle(row.id)}
-                className="w-full min-h-[44px] flex items-center justify-between gap-3 py-1.5 text-left group"
+                className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] w-full min-h-[44px] flex items-center justify-between gap-3 py-1.5 text-left group"
                 aria-pressed={on}
               >
                 <span className="min-w-0">

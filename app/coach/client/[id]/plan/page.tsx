@@ -551,7 +551,7 @@ export default function PlanEditorPage() {
             data-icon-only
             aria-label="Back to client workspace"
             onClick={() => router.back()}
-            className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+            className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             style={{
               background: 'var(--gold-300,#D4A853)',
               color: '#0a0a0a',
@@ -583,7 +583,7 @@ export default function PlanEditorPage() {
           <div role="alert" style={{ fontSize: 13, color: 'var(--content-secondary)', marginBottom: 16 }}>
             {loadError}
           </div>
-          <button
+          <button className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             onClick={loadData}
             style={{
               background: 'var(--gold-300,#D4A853)',
@@ -633,7 +633,8 @@ export default function PlanEditorPage() {
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
 
       <motion.div
-        className="max-w-md lg:max-w-5xl mx-auto px-4 pt-3"
+        data-coach-mobile-workspace
+        className="max-w-md lg:max-w-5xl mx-auto grid grid-cols-1 px-4 pt-3"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
@@ -645,7 +646,7 @@ export default function PlanEditorPage() {
             data-icon-only
             aria-label="Back to client workspace"
             onClick={() => router.back()}
-            className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+            className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--content-muted)' }}
           >
             <Icon name="i-chev-l" size={16} />
@@ -708,7 +709,7 @@ export default function PlanEditorPage() {
           <button
             onClick={suggestFromBodyComp}
             disabled={suggesting}
-            className="row-i"
+            className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] row-i"
             style={{
               gap: 6, marginBottom: 10, padding: '7px 10px', borderRadius: 8, width: '100%',
               justifyContent: 'center', cursor: suggesting ? 'not-allowed' : 'pointer',
@@ -729,7 +730,7 @@ export default function PlanEditorPage() {
             <div key={f.key} className="row-b" style={{ marginBottom: 10 }}>
               <span style={{ fontSize: 12, color: 'var(--content-secondary)', width: 60 }}>{f.label}</span>
               <div className="row-i" style={{ gap: 6 }}>
-                <button style={stepBtn} onClick={() => step(f.key, -f.stepSize)}>
+                <button className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" style={stepBtn} onClick={() => step(f.key, -f.stepSize)}>
                   −
                 </button>
                 <span
@@ -744,7 +745,7 @@ export default function PlanEditorPage() {
                   {targets[f.key]}
                   {f.unit}
                 </span>
-                <button style={stepBtn} onClick={() => step(f.key, f.stepSize)}>
+                <button className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" style={stepBtn} onClick={() => step(f.key, f.stepSize)}>
                   +
                 </button>
               </div>
@@ -762,7 +763,7 @@ export default function PlanEditorPage() {
             <button
               onClick={() => setShowMacros(true)}
               title="Count this week's plan into macros per day vs target"
-              className="row-i"
+              className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] row-i"
               style={{
                 gap: 5, padding: '5px 10px', borderRadius: 8, cursor: 'pointer',
                 background: 'rgba(212,168,83,.12)', border: '1px solid rgba(212,168,83,.3)',
@@ -776,7 +777,7 @@ export default function PlanEditorPage() {
             <button
               onClick={() => setShowShopping(true)}
               title="Generate a shopping list from this week's plan"
-              className="row-i"
+              className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] row-i"
               style={{
                 gap: 5, padding: '5px 10px', borderRadius: 8, cursor: 'pointer',
                 background: 'rgba(212,168,83,.12)', border: '1px solid rgba(212,168,83,.3)',
@@ -832,7 +833,7 @@ export default function PlanEditorPage() {
                             resize: 'vertical', fontFamily: 'inherit',
                           }}
                         />
-                        <button
+                        <button className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                           onClick={() => setPicker({ day, slot })}
                           title="AI: suggest a meal for this slot"
                           style={{
@@ -855,13 +856,13 @@ export default function PlanEditorPage() {
         </div>
 
         {/* Mobile: per-day editor with slot copy */}
-        <div data-coach-mobile-workspace className="lg:hidden card grid grid-cols-1" style={{ padding: 12, marginBottom: 16 }}>
+        <div className="lg:hidden card grid grid-cols-1" style={{ padding: 12, marginBottom: 16 }}>
           {/* Day selector */}
           <div style={{ display: 'flex', gap: 4, marginBottom: 12 }}>
             {DAY_LABELS.map((d, i) => {
               const dayHasContent = MEAL_SLOTS.some((s) => (mealGrid[`${i}-${s}`] ?? '').trim());
               return (
-                <button
+                <button className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                   key={d}
                   onClick={() => setActiveDay(i)}
                   style={{
@@ -895,7 +896,7 @@ export default function PlanEditorPage() {
                   <button
                     onClick={() => setPicker({ day: activeDay, slot })}
                     title="AI: suggest a meal for this slot"
-                    className="row-i"
+                    className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] row-i"
                     style={{
                       background: 'none', border: 'none', cursor: 'pointer', gap: 3,
                       color: 'var(--gold-300,#D4A853)', fontSize: 12, fontFamily: 'var(--font-mono)',
@@ -904,7 +905,7 @@ export default function PlanEditorPage() {
                     <Icon name="i-sparkle" size={11} style={{ color: 'var(--gold-300,#D4A853)' }} />
                     AI
                   </button>
-                  <button
+                  <button className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                     onClick={() => copySlotToWeek(slot)}
                     disabled={!(mealGrid[`${activeDay}-${slot}`] ?? '').trim()}
                     title="Copy this meal to every day of the week"
@@ -942,7 +943,6 @@ export default function PlanEditorPage() {
             </div>
           ))}
         </div>
-        <span data-coach-mobile-workspace-end className="sr-only" />
 
         {/* ══ Active Habits ══ */}
          <div className="eye" style={{ marginBottom: 8 }}>
@@ -974,7 +974,7 @@ export default function PlanEditorPage() {
                   </div>
                 </div>
               </div>
-               <button
+               <button className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                  onClick={() => removeHabit(ch.id)}
                  disabled={habitActionPending !== null}
                  style={{
@@ -1017,7 +1017,7 @@ export default function PlanEditorPage() {
                 }}
               >
                 {availableToAdd.map((h) => (
-                   <button
+                   <button className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                      key={h.id}
                      onClick={() => addHabit(h.id)}
                      disabled={habitActionPending !== null}
@@ -1060,7 +1060,7 @@ export default function PlanEditorPage() {
              {saveError}
            </div>
          )}
-         <button
+         <button className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
           onClick={handleSave}
           disabled={saving}
           style={{
@@ -1082,6 +1082,7 @@ export default function PlanEditorPage() {
           {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save Plan'}
         </button>
       </motion.div>
+      <span data-coach-mobile-workspace-end className="sr-only" />
 
       {/* AI meal-suggest / recipe-analyze picker, scoped to the chosen cell */}
       {picker && (

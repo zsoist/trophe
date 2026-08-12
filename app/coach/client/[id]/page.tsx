@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef, type CSSProperties } from 'react';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import {
   Calendar,
   TrendingUp,
@@ -70,7 +70,6 @@ import type {
 const ClientAnalyticsPanels = dynamic(() => import('@/components/coach/ClientAnalyticsPanels'), {
   loading: () => (
     <div
-      data-coach-workspace-root
       aria-label="Loading client analytics"
       className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2"
       role="status"
@@ -80,6 +79,104 @@ const ClientAnalyticsPanels = dynamic(() => import('@/components/coach/ClientAna
     </div>
   ),
 });
+
+type AssignableHabit = Pick<Habit, 'id' | 'name_en' | 'emoji' | 'category' | 'cycle_days' | 'difficulty'>;
+
+export function AssignHabitDialog({
+  habits,
+  onAssign,
+  onClose,
+}: {
+  habits: AssignableHabit[];
+  onAssign: (habit: AssignableHabit) => void;
+  onClose: () => void;
+}) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const previousFocus = useRef<HTMLElement | null>(null);
+  const reduceMotion = useReducedMotion();
+
+  useEffect(() => {
+    previousFocus.current = document.activeElement as HTMLElement | null;
+    dialogRef.current?.focus();
+    return () => {
+      if (previousFocus.current?.isConnected) previousFocus.current.focus();
+    };
+  }, []);
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Escape') {
+      event.stopPropagation();
+      onClose();
+      return;
+    }
+    if (event.key !== 'Tab' || !dialogRef.current) return;
+    const controls = Array.from(dialogRef.current.querySelectorAll<HTMLElement>('button:not(:disabled), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'));
+    if (controls.length === 0) return;
+    const first = controls[0];
+    const last = controls[controls.length - 1];
+    if (event.shiftKey && document.activeElement === dialogRef.current) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-[var(--surface-overlay)] p-4 sm:items-center">
+      <motion.div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="assign-habit-title"
+        tabIndex={-1}
+        onKeyDown={handleKeyDown}
+        initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 40 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="safe-bottom glass-elevated max-h-[70vh] w-full max-w-md overflow-y-auto p-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <h3 id="assign-habit-title" className="font-semibold text-[var(--content-primary)]">Assign Habit</h3>
+          <button
+            aria-label="Close habit assignment"
+            onClick={onClose}
+            className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] text-[var(--content-muted)] hover:text-[var(--content-secondary)]"
+          >
+            <X size={18} />
+          </button>
+        </div>
+        <div className="space-y-2">
+          {habits.length === 0 ? (
+            <p className="py-4 text-center text-sm text-[var(--content-muted)]">No habit templates found</p>
+          ) : habits.map((habit) => (
+            <button
+              key={habit.id}
+              aria-label={`Assign ${habit.name_en}`}
+              onClick={() => onAssign(habit)}
+              className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] flex w-full items-center gap-3 rounded-xl p-3 text-left transition-colors hover:bg-[var(--surface-hover)]"
+            >
+              <span className="text-xl">{habit.emoji}</span>
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-medium text-[var(--content-primary)]">{habit.name_en}</div>
+                <div className="flex items-center gap-2 text-xs text-[var(--content-muted)]">
+                  <span className="capitalize">{habit.category}</span><span>-</span><span>{habit.cycle_days}d cycle</span>
+                </div>
+              </div>
+              <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                habit.difficulty === 'beginner'
+                  ? 'bg-[var(--status-success-bg)] text-[var(--status-success-fg)]'
+                  : habit.difficulty === 'intermediate'
+                    ? 'bg-[var(--status-warning-bg)] text-[var(--status-warning-fg)]'
+                    : 'bg-[var(--status-danger-bg)] text-[var(--status-danger-fg)]'
+              }`}>{habit.difficulty}</span>
+            </button>
+          ))}
+        </div>
+      </motion.div>
+    </div>
+  );
+}
 
 // ═══════════════════════════════════════════════
 // Helpers
@@ -153,10 +250,12 @@ function StreakCalendar({ checkins, startDate }: { checkins: HabitCheckin[]; sta
   }
 
   return (
-    <div className="grid grid-cols-7 gap-1.5">
-      {days.map((day) => (
+    <div>
+      <div className="grid grid-cols-7 gap-1.5">
+        {days.map((day) => (
         <div
           key={day.date}
+          aria-label={`${day.date}: ${day.status}`}
           className={`aspect-square rounded-lg flex items-center justify-center text-xs font-medium ${
             day.status === 'completed'
               ? 'bg-[#D4A853]/20 text-[#D4A853] border border-[#D4A853]/30'
@@ -166,9 +265,13 @@ function StreakCalendar({ checkins, startDate }: { checkins: HabitCheckin[]; sta
           }`}
           title={`${day.date}: ${day.status}`}
         >
-          {new Date(day.date).getDate()}
+          <span aria-hidden="true">{day.status === 'completed' ? '✓' : day.status === 'missed' ? '×' : '·'} {new Date(day.date).getDate()}</span>
         </div>
-      ))}
+        ))}
+      </div>
+      <div className="mt-2 flex flex-wrap gap-3 text-xs text-[var(--content-muted)]" aria-label="Check-in status legend">
+        <span>✓ Completed</span><span>× Missed</span><span>· No check-in</span>
+      </div>
     </div>
   );
 }
@@ -1005,6 +1108,7 @@ export default function ClientDetailPage() {
 
   return (
     <div
+      data-coach-workspace-root
       className="min-h-screen px-4 py-6 sm:px-6 lg:px-8"
       style={{
         background: 'var(--canvas)',
@@ -1025,7 +1129,7 @@ export default function ClientDetailPage() {
           {/* Back row */}
           <div className="row-b mb-3">
             <button data-coach-primary-action data-icon-only aria-label="Back to coach roster" onClick={() => router.back()}
-              className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+              className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
               style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--content-muted)' }}>
               <Icon name="i-chev-l" size={16} />
             </button>
@@ -1095,7 +1199,7 @@ export default function ClientDetailPage() {
                 onBlur={saveAssessment}
                 placeholder="Who is this client? Interview summary, context, what you agreed…"
                 rows={3}
-                className="input-dark text-base w-full text-sm"
+                className="input-dark text-base w-full"
                 style={{ resize: 'vertical' }}
               />
             </div>
@@ -1108,7 +1212,7 @@ export default function ClientDetailPage() {
                 <button
                   data-coach-primary-action
                   onClick={() => setIntakeOpen((v) => !v)}
-                  className="min-h-11 w-full flex items-center justify-between focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                  className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] min-h-11 w-full flex items-center justify-between focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                   style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
                 >
                   <h2 className="font-semibold text-[var(--content-primary)] text-sm">
@@ -1140,7 +1244,7 @@ export default function ClientDetailPage() {
                   <div className="flex gap-1.5">
                     <button
                       onClick={recalcMacros}
-                      className="text-xs text-[var(--content-secondary)] hover:text-[#D4A853] flex items-center gap-1 px-2 py-1 rounded-lg border border-[var(--border-subtle)] hover:border-[#D4A853]/30 transition-all"
+                      className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] text-xs text-[var(--content-secondary)] hover:text-[#D4A853] flex items-center gap-1 px-2 py-1 rounded-lg border border-[var(--border-subtle)] hover:border-[#D4A853]/30 transition-all"
                       title="Recalculate from client stats"
                     >
                       <Calculator size={12} />
@@ -1154,7 +1258,7 @@ export default function ClientDetailPage() {
                   <select
                     value={macroForm.goal}
                     onChange={e => setMacroForm(prev => ({ ...prev, goal: e.target.value }))}
-                    className="input-dark text-base w-full text-sm py-2"
+                    className="input-dark text-base w-full py-2"
                   >
                     <option value="">Not set</option>
                     {Object.entries(goalLabels).map(([val, label]) => (
@@ -1179,7 +1283,7 @@ export default function ClientDetailPage() {
                           type="number"
                           value={macroForm[key] || ''}
                           onChange={e => setMacroForm(prev => ({ ...prev, [key]: parseInt(e.target.value) || 0 }))}
-                          className="input-dark text-base w-full text-sm py-2 text-center pr-6"
+                          className="input-dark text-base w-full py-2 text-center pr-6"
                           placeholder="0"
                         />
                         <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-[var(--content-muted)]">{unit}</span>
@@ -1193,7 +1297,7 @@ export default function ClientDetailPage() {
                     data-coach-primary-action
                     onClick={saveMacros}
                     disabled={savingMacros}
-                    className="btn-gold min-h-11 flex-1 py-2 text-sm flex items-center justify-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                    className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] btn-gold min-h-11 flex-1 py-2 text-sm flex items-center justify-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                   >
                     <Check size={14} />
                     {savingMacros ? 'Saving...' : 'Save Targets'}
@@ -1201,7 +1305,7 @@ export default function ClientDetailPage() {
                   <button
                     data-coach-primary-action
                     onClick={() => setEditingMacros(false)}
-                    className="btn-ghost min-h-11 flex-1 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                    className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] btn-ghost min-h-11 flex-1 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                   >
                     Cancel
                   </button>
@@ -1244,7 +1348,7 @@ export default function ClientDetailPage() {
                 <button
                   data-coach-primary-action
                   onClick={startEditingMacros}
-                  className="min-h-11 mt-3 text-xs text-[var(--content-muted)] hover:text-[#D4A853] flex items-center gap-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                  className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] min-h-11 mt-3 text-xs text-[var(--content-muted)] hover:text-[#D4A853] flex items-center gap-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                 >
                   <Pencil size={12} />
                   Edit macro targets
@@ -1273,7 +1377,7 @@ export default function ClientDetailPage() {
                           document.getElementById('macro-editor')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                         });
                       }}
-                      className="btn-gold !py-2 !px-4 text-xs"
+                      className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] btn-gold !py-2 !px-4 text-xs"
                     >
                       {t('coach.detail.setTargets')}
                     </button>
@@ -1363,7 +1467,7 @@ export default function ClientDetailPage() {
                     data-coach-primary-action
                     onClick={assignNextHabit}
                     disabled={assigningNext}
-                    className="btn-gold min-h-11 !py-2 !px-4 text-xs flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                    className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] btn-gold min-h-11 !py-2 !px-4 text-xs flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                   >
                     <ChevronRight size={14} />
                     {assigningNext ? 'Assigning...' : 'Assign Next'}
@@ -1372,7 +1476,7 @@ export default function ClientDetailPage() {
               ) : (
                 <button
                   onClick={loadTemplates}
-                  className="btn-gold w-full text-sm py-2.5 flex items-center justify-center gap-2"
+                  className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] btn-gold w-full text-sm py-2.5 flex items-center justify-center gap-2"
                 >
                   <Plus size={14} /> Choose Next Habit Manually
                 </button>
@@ -1390,15 +1494,15 @@ export default function ClientDetailPage() {
               <div className="flex gap-1.5">
                 {activeHabit && (
                   <>
-                    <button onClick={progressHabit} className="text-xs btn-gold !py-1.5 !px-3 flex items-center gap-1">
+                    <button onClick={progressHabit} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] text-xs btn-gold !py-1.5 !px-3 flex items-center gap-1">
                       <ChevronRight size={12} /> Progress
                     </button>
-                    <button onClick={pauseHabit} className="text-xs btn-ghost !py-1.5 !px-3 flex items-center gap-1">
+                    <button onClick={pauseHabit} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] text-xs btn-ghost !py-1.5 !px-3 flex items-center gap-1">
                       <Pause size={12} /> Pause
                     </button>
                   </>
                 )}
-                <button onClick={loadTemplates} className="text-xs btn-ghost !py-1.5 !px-3 flex items-center gap-1">
+                <button onClick={loadTemplates} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] text-xs btn-ghost !py-1.5 !px-3 flex items-center gap-1">
                   <Plus size={12} /> Assign
                 </button>
               </div>
@@ -1527,7 +1631,7 @@ export default function ClientDetailPage() {
                   onChange={(e) => setGoalForm((g) => ({ ...g, title: e.target.value }))}
                   onBlur={saveCustomGoal}
                   placeholder="Goal title (e.g. Lower LDL, −4 kg, daily fruit)"
-                  className="input-dark text-base w-full text-sm py-2"
+                  className="input-dark text-base w-full py-2"
                 />
                 <div className="grid grid-cols-2 gap-2">
                   <input
@@ -1535,19 +1639,19 @@ export default function ClientDetailPage() {
                     onChange={(e) => setGoalForm((g) => ({ ...g, metric: e.target.value }))}
                     onBlur={saveCustomGoal}
                     placeholder="Metric (kg, mg/dL…)"
-                    className="input-dark text-base w-full text-sm py-2"
+                    className="input-dark text-base w-full py-2"
                   />
                   <input
                     value={goalForm.window}
                     onChange={(e) => setGoalForm((g) => ({ ...g, window: e.target.value }))}
                     onBlur={saveCustomGoal}
                     placeholder="Window (8 weeks…)"
-                    className="input-dark text-base w-full text-sm py-2"
+                    className="input-dark text-base w-full py-2"
                   />
                 </div>
                 <button
                   onClick={toggleStabilization}
-                  className={`w-full text-xs py-2 rounded-lg border transition-all ${
+                  className={`min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] w-full text-xs py-2 rounded-lg border transition-all ${
                     stabilization
                       ? 'border-[var(--status-info-border)] bg-[var(--status-info-bg)] text-[var(--status-info-fg)]'
                       : 'border-[var(--border-subtle)] text-[var(--content-muted)] hover:text-[var(--content-secondary)]'
@@ -1559,7 +1663,7 @@ export default function ClientDetailPage() {
                 {/* Graduation — Michael: clients are "free to go, book when ready" */}
                 <button
                   onClick={toggleGraduated}
-                  className={`w-full text-xs py-2 rounded-lg border transition-all ${
+                  className={`min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] w-full text-xs py-2 rounded-lg border transition-all ${
                     graduated
                       ? 'border-[var(--status-success-border)] bg-[var(--status-success-bg)] text-[var(--status-success-fg)]'
                       : 'border-[var(--border-subtle)] text-[var(--content-muted)] hover:text-[var(--content-secondary)]'
@@ -1574,7 +1678,7 @@ export default function ClientDetailPage() {
                     <select
                       value={returnMonth ?? ''}
                       onChange={(e) => saveReturnMonth(e.target.value ? Number(e.target.value) : null)}
-                      className="input-dark text-base text-xs py-1 px-2"
+                      className="input-dark text-base py-1 px-2"
                     >
                       <option value="">—</option>
                       {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map((m, i) => (
@@ -1590,7 +1694,7 @@ export default function ClientDetailPage() {
                     {[7, 14, 30, 90].map((d) => (
                       <button key={d}
                         onClick={() => saveCadence(d)}
-                        className={`text-xs font-mono px-2 py-1 rounded-lg border transition-all ${
+                        className={`min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] text-xs font-mono px-2 py-1 rounded-lg border transition-all ${
                           cadence === d
                             ? 'border-[#D4A853]/50 bg-[#D4A853]/10 text-[#D4A853]'
                             : 'border-[var(--border-subtle)] text-[var(--content-muted)] hover:text-[var(--content-secondary)]'
@@ -1630,7 +1734,7 @@ export default function ClientDetailPage() {
                         setNewNote(tmpl.text);
                         setNoteType(tmpl.type);
                       }}
-                      className="text-xs px-2.5 py-1.5 rounded-lg border border-[var(--border-subtle)] text-[var(--content-secondary)] hover:border-[#D4A853]/30 hover:text-[#D4A853] hover:bg-[#D4A853]/5 transition-all"
+                      className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] text-xs px-2.5 py-1.5 rounded-lg border border-[var(--border-subtle)] text-[var(--content-secondary)] hover:border-[#D4A853]/30 hover:text-[#D4A853] hover:bg-[#D4A853]/5 transition-all"
                     >
                       {tmpl.label}
                     </button>
@@ -1643,7 +1747,7 @@ export default function ClientDetailPage() {
                   <button
                     key={t}
                     onClick={() => setNoteType(t)}
-                    className={`text-xs px-2.5 py-1 rounded-full border transition-all ${
+                    className={`min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] text-xs px-2.5 py-1 rounded-full border transition-all ${
                       noteType === t
                         ? 'border-[#D4A853]/40 bg-[#D4A853]/10 text-[#D4A853]'
                         : 'border-[var(--border-default)] text-[var(--content-muted)] hover:border-[var(--border-default)]'
@@ -1658,14 +1762,14 @@ export default function ClientDetailPage() {
                   value={newNote}
                   onChange={(e) => setNewNote(e.target.value)}
                   placeholder="Write a coaching note or select a template..."
-                  className="input-dark text-base flex-1 min-h-[60px] resize-none text-sm"
+                  className="input-dark text-base flex-1 min-h-[60px] resize-none"
                   rows={3}
                 />
                 <button
                   aria-label="Save coach note"
                   onClick={saveNote}
                   disabled={savingNote || !newNote.trim()}
-                  className="btn-gold self-end !p-3 disabled:opacity-40"
+                  className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] btn-gold self-end !p-3 disabled:opacity-40"
                 >
                   <Send size={16} />
                 </button>
@@ -1853,58 +1957,12 @@ export default function ClientDetailPage() {
           />
         </div>
 
-        {/* ─── Assign Habit Modal ─── */}
         {showAssign && (
-          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-            <motion.div
-              initial={{ opacity: 0, y: 40 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="glass-elevated p-5 w-full max-w-md max-h-[70vh] overflow-y-auto"
-            >
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-[var(--content-primary)]">Assign Habit</h3>
-                <button
-                  aria-label="Close habit assignment"
-                  onClick={() => setShowAssign(false)}
-                  className="min-h-11 min-w-11 text-[var(--content-muted)] hover:text-[var(--content-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-                >
-                  <X size={18} />
-                </button>
-              </div>
-              <div className="space-y-2">
-                {habitTemplates.length === 0 ? (
-                  <p className="text-[var(--content-muted)] text-sm text-center py-4">No habit templates found</p>
-                ) : (
-                  habitTemplates.map((habit) => (
-                    <button
-                      key={habit.id}
-                      onClick={() => assignHabit(habit)}
-                      className="w-full text-left p-3 rounded-xl hover:bg-[var(--surface-hover)] transition-colors flex items-center gap-3"
-                    >
-                      <span className="text-xl">{habit.emoji}</span>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium text-[var(--content-primary)]">{habit.name_en}</div>
-                        <div className="text-xs text-[var(--content-muted)] flex items-center gap-2">
-                          <span className="capitalize">{habit.category}</span>
-                          <span>-</span>
-                          <span>{habit.cycle_days}d cycle</span>
-                        </div>
-                      </div>
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                        habit.difficulty === 'beginner'
-                          ? 'bg-[var(--status-success-bg)] text-[var(--status-success-fg)]'
-                          : habit.difficulty === 'intermediate'
-                          ? 'bg-[var(--status-warning-bg)] text-[var(--status-warning-fg)]'
-                          : 'bg-[var(--status-danger-bg)] text-[var(--status-danger-fg)]'
-                      }`}>
-                        {habit.difficulty}
-                      </span>
-                    </button>
-                  ))
-                )}
-              </div>
-            </motion.div>
-          </div>
+          <AssignHabitDialog
+            habits={habitTemplates}
+            onAssign={(habit) => assignHabit(habit as Habit)}
+            onClose={() => setShowAssign(false)}
+          />
         )}
       </div>
     </div>

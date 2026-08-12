@@ -75,7 +75,7 @@ export default function CoachInsightPanel({ clientId }: { clientId: string }) {
           type="button"
           onClick={() => void generateInsight()}
           disabled={!question.trim() || loading}
-          className="self-end rounded-lg bg-[#D4A853] p-2.5 text-[var(--content-disabled)] transition-colors hover:bg-[#e2bb6d] disabled:cursor-not-allowed disabled:opacity-40"
+          className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] self-end rounded-lg bg-[var(--action-primary)] p-2.5 text-[var(--action-on-primary)] transition-colors hover:bg-[var(--action-primary-hover)] disabled:cursor-not-allowed disabled:opacity-40"
           aria-label="Generate coach insight"
         >
           {loading ? <LoaderCircle size={18} className="animate-spin" /> : <Send size={18} />}

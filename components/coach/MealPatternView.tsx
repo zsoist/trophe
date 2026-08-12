@@ -295,7 +295,7 @@ function MealPatternView({ entries, clientId }: MealPatternViewProps) {
       <div className="flex gap-1 p-0.5 rounded-lg bg-[var(--surface-hover)] mb-4 w-fit">
         <button
           onClick={() => setView('pattern')}
-          className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+          className={`min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
             view === 'pattern'
               ? 'bg-[#D4A853]/15 text-[#D4A853]'
               : 'text-[var(--content-muted)] hover:text-[var(--content-secondary)]'
@@ -305,7 +305,7 @@ function MealPatternView({ entries, clientId }: MealPatternViewProps) {
         </button>
         <button
           onClick={() => setView('daily')}
-          className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+          className={`min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
             view === 'daily'
               ? 'bg-[#D4A853]/15 text-[#D4A853]'
               : 'text-[var(--content-muted)] hover:text-[var(--content-secondary)]'
@@ -454,7 +454,7 @@ function MealPatternView({ entries, clientId }: MealPatternViewProps) {
                                 {clientId && (
                                   <button
                                     onClick={() => (isEditing ? closeEditor() : openEditor(entry))}
-                                    className="p-1.5 text-[var(--content-muted)] hover:text-[#D4A853] transition-colors"
+                                    className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] p-1.5 text-[var(--content-muted)] hover:text-[#D4A853] transition-colors"
                                     aria-label={t('coach.mealPattern.editEntry', { name: entry.food_name })}
                                   >
                                     <Pencil size={11} />
@@ -481,7 +481,7 @@ function MealPatternView({ entries, clientId }: MealPatternViewProps) {
                                         value={form.name}
                                         onChange={(e) => setField('name', e.target.value)}
                                         maxLength={200}
-                                        className="input-dark text-base w-full text-xs py-1.5"
+                                        className="input-dark text-base w-full py-1.5"
                                       />
                                     </div>
 
@@ -491,7 +491,7 @@ function MealPatternView({ entries, clientId }: MealPatternViewProps) {
                                         <div className="flex items-center gap-2">
                                           <button
                                             onClick={() => setField('grams', Math.max(1, (form.grams ?? 10) - 10))}
-                                            className="w-11 h-11 rounded-lg bg-[var(--surface-hover)] border border-[var(--border-subtle)] flex items-center justify-center text-[var(--content-secondary)] hover:border-[#D4A853]/40 active:scale-95 transition-all"
+                                            className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] w-11 h-11 rounded-lg bg-[var(--surface-hover)] border border-[var(--border-subtle)] flex items-center justify-center text-[var(--content-secondary)] hover:border-[#D4A853]/40 active:scale-95 transition-all"
                                             aria-label={t('food.edit.decreaseGrams')}
                                           >
                                             <Minus size={14} />
@@ -502,7 +502,7 @@ function MealPatternView({ entries, clientId }: MealPatternViewProps) {
                                           </div>
                                           <button
                                             onClick={() => setField('grams', Math.min(10000, (form.grams ?? 0) + 10))}
-                                            className="w-11 h-11 rounded-lg bg-[var(--surface-hover)] border border-[var(--border-subtle)] flex items-center justify-center text-[var(--content-secondary)] hover:border-[#D4A853]/40 active:scale-95 transition-all"
+                                            className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] w-11 h-11 rounded-lg bg-[var(--surface-hover)] border border-[var(--border-subtle)] flex items-center justify-center text-[var(--content-secondary)] hover:border-[#D4A853]/40 active:scale-95 transition-all"
                                             aria-label={t('food.edit.increaseGrams')}
                                           >
                                             <Plus size={14} />
@@ -527,7 +527,7 @@ function MealPatternView({ entries, clientId }: MealPatternViewProps) {
                                             min={0}
                                             value={form[key]}
                                             onChange={(e) => setField(key, e.target.value)}
-                                            className="input-dark text-base w-full text-xs py-1.5 text-center"
+                                            className="input-dark text-base w-full py-1.5 text-center"
                                           />
                                         </div>
                                       ))}
@@ -537,14 +537,14 @@ function MealPatternView({ entries, clientId }: MealPatternViewProps) {
                                       <button
                                         disabled={saving}
                                         onClick={() => void saveEdit(entry)}
-                                        className="flex-1 py-2 rounded-lg bg-[#D4A853] text-[var(--content-disabled)] text-xs font-semibold disabled:opacity-50 flex items-center justify-center gap-1.5 active:scale-[0.99] transition-transform"
+                                        className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] flex-1 py-2 rounded-lg bg-[var(--action-primary)] text-[var(--action-on-primary)] text-xs font-semibold disabled:opacity-50 flex items-center justify-center gap-1.5 active:scale-[0.99] transition-transform"
                                       >
                                         {saving ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
                                         {t('food.edit.save')}
                                       </button>
                                       <button
                                         onClick={closeEditor}
-                                        className="p-2 rounded-lg text-[var(--content-muted)] hover:text-[var(--content-secondary)] border border-[var(--border-subtle)] transition-colors"
+                                        className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] p-2 rounded-lg text-[var(--content-muted)] hover:text-[var(--content-secondary)] border border-[var(--border-subtle)] transition-colors"
                                         aria-label={t('coach.mealPattern.cancel')}
                                       >
                                         <X size={14} />
