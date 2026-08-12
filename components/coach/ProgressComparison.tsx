@@ -31,7 +31,7 @@ function DeltaBadge({ current, previous, unit }: { current: number; previous: nu
   const arrow = isPositive ? '\u2191' : '\u2193';
 
   return (
-    <span className={`text-[10px] font-medium ${color}`}>
+    <span className={`text-xs font-medium ${color}`}>
       {arrow} {sign}{Math.round(diff * 10) / 10}{unit}
     </span>
   );
@@ -61,13 +61,13 @@ export default memo(function ProgressComparison({
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="bg-white/[0.04] border border-white/[0.06] rounded-xl p-4"
+      className="bg-[var(--surface-hover)] border border-[var(--border-subtle)] rounded-xl p-4"
     >
-      <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider mb-3">
+      <h3 className="text-[var(--content-secondary)] text-xs font-semibold uppercase tracking-wider mb-3">
         {title}
       </h3>
 
-      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[10px] text-stone-500 uppercase tracking-wider mb-2">
+      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-[var(--content-muted)] uppercase tracking-wider mb-2">
         <span>{priorLabel}</span>
         <span>{currentLabel}</span>
       </div>
@@ -80,15 +80,15 @@ export default memo(function ProgressComparison({
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.06, duration: 0.3 }}
           >
-            <div className="text-stone-500 text-[10px] uppercase tracking-wider mb-1">
+            <div className="text-[var(--content-muted)] text-xs uppercase tracking-wider mb-1">
               {m.label}
             </div>
             <div className="grid grid-cols-2 gap-x-4 items-center">
-              <div className="text-stone-400 text-sm font-medium">
+              <div className="text-[var(--content-secondary)] text-sm font-medium">
                 <AnimatedValue value={lastWeek[m.key]} grouped={false} />{m.unit}
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-stone-100 text-sm font-bold">
+                <span className="text-[var(--content-primary)] text-sm font-bold">
                   <AnimatedValue value={thisWeek[m.key]} grouped={false} />{m.unit}
                 </span>
                 <DeltaBadge

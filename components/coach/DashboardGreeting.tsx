@@ -34,7 +34,7 @@ export default memo(function DashboardGreeting({ coachName, needsAttention }: Da
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.1, duration: 0.6 }}
-        className="text-stone-100 text-xl sm:text-2xl font-bold"
+        className="text-[var(--content-primary)] text-xl sm:text-2xl font-bold"
       >
         {greeting}, {coachName}
       </motion.h1>
@@ -43,11 +43,11 @@ export default memo(function DashboardGreeting({ coachName, needsAttention }: Da
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.25, duration: 0.5 }}
-        className="text-stone-400 text-sm mt-1"
+        className="text-[var(--content-secondary)] text-sm mt-1"
       >
         {needsAttention > 0 ? (
           <>
-            <span className="text-[#D4A853] font-semibold">{needsAttention}</span>
+            <span className="text-[var(--action-primary)] font-semibold">{needsAttention}</span>
             {' '}client{needsAttention !== 1 ? 's' : ''} need{needsAttention === 1 ? 's' : ''} attention today
           </>
         ) : (

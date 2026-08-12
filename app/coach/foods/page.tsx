@@ -1,8 +1,8 @@
 'use client';
 import { useRouter } from 'next/navigation';
 
-import { useCallback, useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
 import {
   Plus,
   Pencil,
@@ -59,6 +59,42 @@ const emptyFood = {
   shared: false,
 };
 
+function useDialogFocus(open: boolean, onClose: () => void, dialogRef: RefObject<HTMLDivElement | null>) {
+  const previousFocus = useRef<HTMLElement | null>(null);
+  const returnFocus = useRef(onClose);
+  useEffect(() => { returnFocus.current = onClose; }, [onClose]);
+
+  useEffect(() => {
+    if (!open) return;
+    previousFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const dialog = dialogRef.current;
+    const focusable = () => [...(dialog?.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    ) ?? [])];
+    requestAnimationFrame(() => focusable()[0]?.focus());
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return;
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        returnFocus.current();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const items = focusable();
+      if (!items.length) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      previousFocus.current?.focus();
+    };
+  }, [open, dialogRef]);
+}
+
 // ═══════════════════════════════════════════════
 // Main Component
 // ═══════════════════════════════════════════════
@@ -76,6 +112,9 @@ export default function FoodsPage() {
   const [deleting, setDeleting] = useState(false);
   const [search, setSearch] = useState('');
   const [userId, setUserId] = useState<string | null>(null);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const reducedMotion = useReducedMotion();
+  useDialogFocus(showForm, () => setShowForm(false), dialogRef);
 
   const loadFoods = useCallback(async () => {
     try {
@@ -220,37 +259,37 @@ export default function FoodsPage() {
   const sharedFoods = filtered.filter((f) => f.created_by !== userId && f.shared);
 
   return (
-    <div className="min-h-screen pb-20 px-4 py-6 sm:px-6 lg:px-8" style={{ background: 'var(--bg,#0a0a0a)' }}>
-      <div className="max-w-5xl mx-auto">
+    <div data-coach-mobile-workspace className="min-h-screen min-w-0 pb-20 px-4 py-6 sm:px-6 lg:px-8" style={{ background: 'var(--canvas)' }}>
+      <div className="max-w-5xl min-w-0 mx-auto">
         <CoachNav active="/coach/foods" />
 
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
+          initial={reducedMotion ? false : { opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
         >
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-stone-100">Custom Foods</h1>
-              <p className="text-stone-500 text-sm mt-1">
+              <h1 className="text-2xl sm:text-3xl font-bold text-[var(--content-primary)]">Custom Foods</h1>
+              <p className="text-[var(--content-secondary)] text-sm mt-1">
                 {foods.length} food{foods.length !== 1 ? 's' : ''} in database
               </p>
             </div>
-            <button onClick={openCreate} className="btn-gold flex items-center gap-2 text-sm">
+            <button onClick={openCreate} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] btn-gold flex items-center gap-2 text-sm">
               <Plus size={16} /> Add Food
             </button>
           </div>
 
           {/* Search */}
           <div className="relative mb-6">
-            <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-500" />
+            <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--content-secondary)]" />
             <input
               type="text"
               placeholder="Search foods or categories..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="input-dark pl-10"
+              className="text-base input-dark pl-10"
             />
           </div>
 
@@ -259,8 +298,8 @@ export default function FoodsPage() {
             <CoachLoadingSkeletons page="foods" />
           ) : filtered.length === 0 ? (
             <div className="text-center py-20">
-              <UtensilsCrossed size={48} className="mx-auto text-stone-700 mb-4" />
-              <p className="text-stone-500">
+              <UtensilsCrossed size={48} className="mx-auto text-[var(--content-muted)] mb-4" />
+              <p className="text-[var(--content-secondary)]">
                 {foods.length === 0 ? 'No custom foods yet' : 'No foods match your search'}
               </p>
             </div>
@@ -269,12 +308,12 @@ export default function FoodsPage() {
               {/* My Foods Section */}
               {myFoods.length > 0 && (
                 <div className="mb-8">
-                  <h2 className="text-sm font-semibold text-stone-400 uppercase tracking-wider mb-3">
+                  <h2 className="text-sm font-semibold text-[var(--content-secondary)] uppercase tracking-wider mb-3">
                     My Foods ({myFoods.length})
                   </h2>
                   <div className="glass overflow-hidden">
                     {/* Table header */}
-                    <div className="hidden sm:grid grid-cols-[1fr_70px_60px_60px_60px_60px_70px_50px_50px] gap-2 px-4 py-2.5 text-[10px] font-semibold text-stone-500 uppercase tracking-wider border-b border-white/5">
+                    <div className="grid max-sm:hidden grid-cols-[1fr_70px_60px_60px_60px_60px_70px_50px_50px] gap-2 px-4 py-2.5 text-xs font-semibold text-[var(--content-secondary)] uppercase tracking-wider border-b border-[var(--border-subtle)]">
                       <div>Name</div>
                       <div className="text-right">Cal</div>
                       <div className="text-right">P</div>
@@ -288,31 +327,31 @@ export default function FoodsPage() {
                     {myFoods.map((food, i) => (
                       <div
                         key={food.id}
-                        className={`px-4 py-3 ${i > 0 ? 'border-t border-white/5' : ''}`}
+                        className={`px-4 py-3 ${i > 0 ? 'border-t border-[var(--border-subtle)]' : ''}`}
                       >
                         {/* Desktop row */}
-                        <div className="hidden sm:grid grid-cols-[1fr_70px_60px_60px_60px_60px_70px_50px_50px] gap-2 items-center">
+                        <div className="grid max-sm:hidden grid-cols-[1fr_70px_60px_60px_60px_60px_70px_50px_50px] gap-2 items-center">
                           <div className="flex items-center gap-2 min-w-0">
-                            <span className="text-sm font-medium text-stone-200 truncate">{food.name}</span>
+                            <span className="text-sm font-medium text-[var(--content-primary)] truncate">{food.name}</span>
                             {food.category && (
-                              <span className="text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-white/5 text-stone-500 capitalize whitespace-nowrap">
+                              <span className="text-xs font-medium px-1.5 py-0.5 rounded-full bg-[var(--surface-2)] text-[var(--content-secondary)] capitalize whitespace-nowrap">
                                 {food.category}
                               </span>
                             )}
                           </div>
-                          <div className="text-right text-sm text-stone-300">{food.calories ?? '-'}</div>
-                          <div className="text-right text-sm text-stone-400">{food.protein_g ?? '-'}g</div>
-                          <div className="text-right text-sm text-stone-400">{food.carbs_g ?? '-'}g</div>
-                          <div className="text-right text-sm text-stone-400">{food.fat_g ?? '-'}g</div>
-                          <div className="text-right text-sm text-stone-500">{food.fiber_g ?? '-'}g</div>
-                          <div className="text-center text-xs text-stone-500">{food.unit}</div>
+                          <div className="text-right text-sm text-[var(--content-primary)]">{food.calories ?? '-'}</div>
+                          <div className="text-right text-sm text-[var(--content-secondary)]">{food.protein_g ?? '-'}g</div>
+                          <div className="text-right text-sm text-[var(--content-secondary)]">{food.carbs_g ?? '-'}g</div>
+                          <div className="text-right text-sm text-[var(--content-secondary)]">{food.fat_g ?? '-'}g</div>
+                          <div className="text-right text-sm text-[var(--content-secondary)]">{food.fiber_g ?? '-'}g</div>
+                          <div className="text-center text-xs text-[var(--content-secondary)]">{food.unit}</div>
                           <div className="flex justify-center">
                             <button
                               onClick={() => toggleShared(food)}
-                              className={`p-1 rounded transition-colors ${
+                              className={`min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] p-1 rounded transition-colors ${
                                 food.shared
-                                  ? 'text-[#D4A853]'
-                                  : 'text-stone-700 hover:text-stone-500'
+                                  ? 'text-[var(--action-primary)]'
+                                  : 'text-[var(--content-muted)] hover:text-[var(--content-secondary)]'
                               }`}
                               title={food.shared ? 'Shared with clients' : 'Not shared'}
                             >
@@ -322,13 +361,15 @@ export default function FoodsPage() {
                           <div className="flex gap-0.5 justify-end">
                             <button
                               onClick={() => openEdit(food)}
-                              className="p-1 text-stone-600 hover:text-stone-300 transition-colors"
+                              aria-label={`Edit ${food.name}`}
+                              className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] p-1 text-[var(--content-muted)] hover:text-[var(--content-primary)] transition-colors"
                             >
                               <Pencil size={13} />
                             </button>
                             <button
                               onClick={() => deleteFood(food.id)}
-                              className="p-1 text-stone-600 hover:text-red-400 transition-colors"
+                              aria-label={`Delete ${food.name}`}
+                              className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] p-1 text-[var(--content-muted)] hover:text-red-400 transition-colors"
                             >
                               <Trash2 size={13} />
                             </button>
@@ -339,24 +380,24 @@ export default function FoodsPage() {
                         <div className="sm:hidden">
                           <div className="flex items-center justify-between mb-1.5">
                             <div className="flex items-center gap-2">
-                              <span className="text-sm font-medium text-stone-200">{food.name}</span>
-                              {food.shared && <Share2 size={12} className="text-[#D4A853]" />}
+                              <span className="text-sm font-medium text-[var(--content-primary)]">{food.name}</span>
+                              {food.shared && <Share2 size={12} className="text-[var(--action-primary)]" />}
                             </div>
                             <div className="flex gap-1">
-                              <button onClick={() => openEdit(food)} className="p-1.5 text-stone-600 hover:text-stone-300">
+                              <button onClick={() => openEdit(food)} aria-label={`Edit ${food.name}`} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] p-1.5 text-[var(--content-muted)] hover:text-[var(--content-primary)]">
                                 <Pencil size={14} />
                               </button>
-                              <button onClick={() => deleteFood(food.id)} className="p-1.5 text-stone-600 hover:text-red-400">
+                              <button onClick={() => deleteFood(food.id)} aria-label={`Delete ${food.name}`} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] p-1.5 text-[var(--content-muted)] hover:text-red-400">
                                 <Trash2 size={14} />
                               </button>
                             </div>
                           </div>
-                          <div className="flex items-center gap-3 text-xs text-stone-400">
-                            <span className="text-stone-300 font-medium">{food.calories ?? '-'} kcal</span>
+                          <div className="flex items-center gap-3 text-xs text-[var(--content-secondary)]">
+                            <span className="text-[var(--content-primary)] font-medium">{food.calories ?? '-'} kcal</span>
                             <span>P:{food.protein_g ?? '-'}g</span>
                             <span>C:{food.carbs_g ?? '-'}g</span>
                             <span>F:{food.fat_g ?? '-'}g</span>
-                            <span className="text-stone-600">per {food.unit}</span>
+                            <span className="text-[var(--content-muted)]">per {food.unit}</span>
                           </div>
                         </div>
                       </div>
@@ -368,11 +409,11 @@ export default function FoodsPage() {
               {/* Shared Foods Section */}
               {sharedFoods.length > 0 && (
                 <div>
-                  <h2 className="text-sm font-semibold text-stone-400 uppercase tracking-wider mb-3">
+                  <h2 className="text-sm font-semibold text-[var(--content-secondary)] uppercase tracking-wider mb-3">
                     Shared Foods ({sharedFoods.length})
                   </h2>
                   <div className="glass overflow-hidden">
-                    <div className="hidden sm:grid grid-cols-[1fr_70px_60px_60px_60px_60px_70px] gap-2 px-4 py-2.5 text-[10px] font-semibold text-stone-500 uppercase tracking-wider border-b border-white/5">
+                    <div className="grid max-sm:hidden grid-cols-[1fr_70px_60px_60px_60px_60px_70px] gap-2 px-4 py-2.5 text-xs font-semibold text-[var(--content-secondary)] uppercase tracking-wider border-b border-[var(--border-subtle)]">
                       <div>Name</div>
                       <div className="text-right">Cal</div>
                       <div className="text-right">P</div>
@@ -384,28 +425,28 @@ export default function FoodsPage() {
                     {sharedFoods.map((food, i) => (
                       <div
                         key={food.id}
-                        className={`px-4 py-3 ${i > 0 ? 'border-t border-white/5' : ''}`}
+                        className={`px-4 py-3 ${i > 0 ? 'border-t border-[var(--border-subtle)]' : ''}`}
                       >
-                        <div className="hidden sm:grid grid-cols-[1fr_70px_60px_60px_60px_60px_70px] gap-2 items-center">
+                        <div className="grid max-sm:hidden grid-cols-[1fr_70px_60px_60px_60px_60px_70px] gap-2 items-center">
                           <div className="flex items-center gap-2 min-w-0">
-                            <span className="text-sm text-stone-300 truncate">{food.name}</span>
+                            <span className="text-sm text-[var(--content-primary)] truncate">{food.name}</span>
                             {food.category && (
-                              <span className="text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-white/5 text-stone-500 capitalize whitespace-nowrap">
+                              <span className="text-xs font-medium px-1.5 py-0.5 rounded-full bg-[var(--surface-2)] text-[var(--content-secondary)] capitalize whitespace-nowrap">
                                 {food.category}
                               </span>
                             )}
                           </div>
-                          <div className="text-right text-sm text-stone-300">{food.calories ?? '-'}</div>
-                          <div className="text-right text-sm text-stone-400">{food.protein_g ?? '-'}g</div>
-                          <div className="text-right text-sm text-stone-400">{food.carbs_g ?? '-'}g</div>
-                          <div className="text-right text-sm text-stone-400">{food.fat_g ?? '-'}g</div>
-                          <div className="text-right text-sm text-stone-500">{food.fiber_g ?? '-'}g</div>
-                          <div className="text-center text-xs text-stone-500">{food.unit}</div>
+                          <div className="text-right text-sm text-[var(--content-primary)]">{food.calories ?? '-'}</div>
+                          <div className="text-right text-sm text-[var(--content-secondary)]">{food.protein_g ?? '-'}g</div>
+                          <div className="text-right text-sm text-[var(--content-secondary)]">{food.carbs_g ?? '-'}g</div>
+                          <div className="text-right text-sm text-[var(--content-secondary)]">{food.fat_g ?? '-'}g</div>
+                          <div className="text-right text-sm text-[var(--content-secondary)]">{food.fiber_g ?? '-'}g</div>
+                          <div className="text-center text-xs text-[var(--content-secondary)]">{food.unit}</div>
                         </div>
                         <div className="sm:hidden">
-                          <div className="text-sm text-stone-300 mb-1">{food.name}</div>
-                          <div className="flex items-center gap-3 text-xs text-stone-400">
-                            <span className="text-stone-300">{food.calories ?? '-'} kcal</span>
+                          <div className="text-sm text-[var(--content-primary)] mb-1">{food.name}</div>
+                          <div className="flex items-center gap-3 text-xs text-[var(--content-secondary)]">
+                            <span className="text-[var(--content-primary)]">{food.calories ?? '-'} kcal</span>
                             <span>P:{food.protein_g ?? '-'}g</span>
                             <span>C:{food.carbs_g ?? '-'}g</span>
                             <span>F:{food.fat_g ?? '-'}g</span>
@@ -435,17 +476,21 @@ export default function FoodsPage() {
 
         {/* ─── Create/Edit Food Modal ─── */}
         {showForm && (
-          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[var(--surface-overlay)] backdrop-blur-sm p-4">
             <motion.div
-              initial={{ opacity: 0, y: 40 }}
+              ref={dialogRef}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="food-dialog-title"
+              initial={reducedMotion ? false : { opacity: 0, y: 40 }}
               animate={{ opacity: 1, y: 0 }}
-              className="glass-elevated p-5 w-full max-w-md max-h-[85vh] overflow-y-auto"
+              className="glass-elevated safe-bottom p-5 w-full max-w-md max-h-[85vh] overflow-y-auto"
             >
               <div className="flex items-center justify-between mb-5">
-                <h3 className="font-semibold text-stone-100 text-lg">
+                <h3 id="food-dialog-title" className="font-semibold text-[var(--content-primary)] text-lg">
                   {editingId ? 'Edit Food' : 'Add Custom Food'}
                 </h3>
-                <button onClick={() => setShowForm(false)} className="text-stone-500 hover:text-stone-300">
+                <button onClick={() => setShowForm(false)} aria-label="Close food editor" className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] text-[var(--content-secondary)] hover:text-[var(--content-primary)]">
                   <X size={18} />
                 </button>
               </div>
@@ -453,88 +498,88 @@ export default function FoodsPage() {
               <div className="space-y-4">
                 {/* Name */}
                 <div>
-                  <label className="text-xs text-stone-500 mb-1 block">Food Name *</label>
+                  <label className="text-xs text-[var(--content-secondary)] mb-1 block">Food Name *</label>
                   <input
                     value={form.name}
                     onChange={(e) => setForm({ ...form, name: e.target.value })}
                     placeholder="e.g. Homemade Granola"
-                    className="input-dark"
+                    className="text-base input-dark"
                   />
                 </div>
 
                 {/* Macros */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs text-stone-500 mb-1 block">Calories</label>
+                    <label className="text-xs text-[var(--content-secondary)] mb-1 block">Calories</label>
                     <input
                       value={form.calories}
                       onChange={(e) => setForm({ ...form, calories: e.target.value })}
                       placeholder="0"
                       type="number"
-                      className="input-dark"
+                      className="text-base input-dark"
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-stone-500 mb-1 block">Protein (g)</label>
+                    <label className="text-xs text-[var(--content-secondary)] mb-1 block">Protein (g)</label>
                     <input
                       value={form.protein_g}
                       onChange={(e) => setForm({ ...form, protein_g: e.target.value })}
                       placeholder="0"
                       type="number"
-                      className="input-dark"
+                      className="text-base input-dark"
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-stone-500 mb-1 block">Carbs (g)</label>
+                    <label className="text-xs text-[var(--content-secondary)] mb-1 block">Carbs (g)</label>
                     <input
                       value={form.carbs_g}
                       onChange={(e) => setForm({ ...form, carbs_g: e.target.value })}
                       placeholder="0"
                       type="number"
-                      className="input-dark"
+                      className="text-base input-dark"
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-stone-500 mb-1 block">Fat (g)</label>
+                    <label className="text-xs text-[var(--content-secondary)] mb-1 block">Fat (g)</label>
                     <input
                       value={form.fat_g}
                       onChange={(e) => setForm({ ...form, fat_g: e.target.value })}
                       placeholder="0"
                       type="number"
-                      className="input-dark"
+                      className="text-base input-dark"
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-stone-500 mb-1 block">Fiber (g)</label>
+                    <label className="text-xs text-[var(--content-secondary)] mb-1 block">Fiber (g)</label>
                     <input
                       value={form.fiber_g}
                       onChange={(e) => setForm({ ...form, fiber_g: e.target.value })}
                       placeholder="0"
                       type="number"
-                      className="input-dark"
+                      className="text-base input-dark"
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-stone-500 mb-1 block">Unit</label>
+                    <label className="text-xs text-[var(--content-secondary)] mb-1 block">Unit</label>
                     <input
                       value={form.unit}
                       onChange={(e) => setForm({ ...form, unit: e.target.value })}
                       placeholder="100g"
-                      className="input-dark"
+                      className="text-base input-dark"
                     />
                   </div>
                 </div>
 
                 {/* Category */}
                 <div>
-                  <label className="text-xs text-stone-500 mb-1 block">Category</label>
+                  <label className="text-xs text-[var(--content-secondary)] mb-1 block">Category</label>
                   <select
                     value={form.category}
                     onChange={(e) => setForm({ ...form, category: e.target.value })}
-                    className="input-dark capitalize"
+                    className="text-base input-dark capitalize"
                   >
                     {foodCategories.map((c) => (
-                      <option key={c} value={c} className="bg-stone-900 capitalize">{c}</option>
+                      <option key={c} value={c} className="bg-[var(--surface-1)] capitalize">{c}</option>
                     ))}
                   </select>
                 </div>
@@ -543,17 +588,17 @@ export default function FoodsPage() {
                 <label className="flex items-center gap-3 cursor-pointer">
                   <div
                     className={`relative w-10 h-5 rounded-full transition-colors ${
-                      form.shared ? 'bg-[#D4A853]' : 'bg-stone-700'
+                      form.shared ? 'bg-[var(--action-primary)]' : 'bg-[var(--surface-2)]'
                     }`}
                     onClick={() => setForm({ ...form, shared: !form.shared })}
                   >
                     <div
-                      className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+                      className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-[var(--surface-1)] transition-transform ${
                         form.shared ? 'translate-x-5' : ''
                       }`}
                     />
                   </div>
-                  <span className="text-sm text-stone-300">
+                  <span className="text-sm text-[var(--content-primary)]">
                     Share with assigned clients
                   </span>
                 </label>
@@ -562,7 +607,7 @@ export default function FoodsPage() {
                 <button
                   onClick={saveFood}
                   disabled={saving || !form.name.trim()}
-                  className="btn-gold w-full flex items-center justify-center gap-2 disabled:opacity-40"
+                  className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] btn-gold w-full flex items-center justify-center gap-2 disabled:opacity-40"
                 >
                   <Save size={16} />
                   {saving ? 'Saving...' : editingId ? 'Update Food' : 'Add Food'}

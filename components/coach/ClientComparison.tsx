@@ -25,8 +25,8 @@ interface ClientComparisonProps {
 const AXES = ['protein', 'carbs', 'fat', 'fiber', 'water'] as const;
 const AXIS_LABELS = ['Protein', 'Carbs', 'Fat', 'Fiber', 'Water'];
 
-const COLOR_A = '#D4A853'; // gold
-const COLOR_B = '#60a5fa'; // blue
+const COLOR_A = 'var(--action-primary)'; // gold
+const COLOR_B = 'var(--status-info-fg)'; // blue
 
 export default memo(function ClientComparison({ clientA, clientB }: ClientComparisonProps) {
   const cx = 100;
@@ -70,9 +70,9 @@ export default memo(function ClientComparison({ clientA, clientB }: ClientCompar
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="bg-white/[0.04] border border-white/[0.06] rounded-xl p-4"
+      className="bg-[var(--surface-hover)] border border-[var(--border-subtle)] rounded-xl p-4"
     >
-      <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider mb-2 text-center">
+      <h3 className="text-[var(--content-secondary)] text-xs font-semibold uppercase tracking-wider mb-2 text-center">
         7-Day Intake vs Targets
       </h3>
 
@@ -80,13 +80,13 @@ export default memo(function ClientComparison({ clientA, clientB }: ClientCompar
       <div className="flex items-center justify-center gap-4 mb-3">
         <div className="flex items-center gap-1.5">
           <div className="w-3 h-0.5 rounded" style={{ backgroundColor: COLOR_A }} />
-          <span className="text-[10px] font-medium" style={{ color: COLOR_A }}>
+          <span className="text-xs font-medium" style={{ color: COLOR_A }}>
             {clientA.name}
           </span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-3 h-0.5 rounded" style={{ backgroundColor: COLOR_B }} />
-          <span className="text-[10px] font-medium" style={{ color: COLOR_B }}>
+          <span className="text-xs font-medium" style={{ color: COLOR_B }}>
             {clientB.name}
           </span>
         </div>
@@ -102,7 +102,7 @@ export default memo(function ClientComparison({ clientA, clientB }: ClientCompar
               key={r}
               d={path}
               fill="none"
-              stroke="rgba(255,255,255,0.05)"
+              stroke="var(--border-subtle)"
               strokeWidth="0.5"
             />
           );
@@ -118,7 +118,7 @@ export default memo(function ClientComparison({ clientA, clientB }: ClientCompar
               y1={cy}
               x2={p.x}
               y2={p.y}
-              stroke="rgba(255,255,255,0.08)"
+              stroke="var(--border-subtle)"
               strokeWidth="0.5"
             />
           );
@@ -128,7 +128,7 @@ export default memo(function ClientComparison({ clientA, clientB }: ClientCompar
         {(() => {
           const pts = Array.from({ length: n }, (_, i) => getPoint(i, 1));
           const path = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ') + ' Z';
-          return <path d={path} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="1" strokeDasharray="4 3" />;
+          return <path d={path} fill="none" stroke="var(--border-subtle)" strokeWidth="1" strokeDasharray="4 3" />;
         })()}
 
         {/* Client A polygon */}
@@ -202,7 +202,7 @@ export default memo(function ClientComparison({ clientA, clientB }: ClientCompar
               textAnchor="middle"
               dominantBaseline="middle"
               className="fill-stone-500"
-              fontSize="9"
+              fontSize="12"
             >
               {AXIS_LABELS[i]}
             </text>
@@ -211,11 +211,11 @@ export default memo(function ClientComparison({ clientA, clientB }: ClientCompar
       </svg>
 
       {/* Numeric comparison table */}
-      <div className="mt-3 grid grid-cols-3 gap-x-2 text-[10px]">
+      <div className="mt-3 grid grid-cols-3 gap-x-2 text-xs">
         <div className="text-right font-medium" style={{ color: COLOR_A }}>
           {clientA.name}
         </div>
-        <div className="text-center text-stone-500 font-semibold">vs</div>
+        <div className="text-center text-[var(--content-muted)] font-semibold">vs</div>
         <div className="text-left font-medium" style={{ color: COLOR_B }}>
           {clientB.name}
         </div>
@@ -226,7 +226,7 @@ export default memo(function ClientComparison({ clientA, clientB }: ClientCompar
               {Math.round(clientA.macros[axis])}
               {axis === 'water' ? 'ml' : 'g'}
             </div>
-            <div className="text-center text-stone-600">{AXIS_LABELS[i]}</div>
+            <div className="text-center text-[var(--content-muted)]">{AXIS_LABELS[i]}</div>
             <div className="text-left tabular-nums" style={{ color: COLOR_B }}>
               {Math.round(clientB.macros[axis])}
               {axis === 'water' ? 'ml' : 'g'}

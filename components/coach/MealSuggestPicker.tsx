@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { KeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { X, Sparkles, Loader2, ChefHat } from 'lucide-react';
 import type { RecipeAnalyzeOutput } from '@/agents/schemas/recipe-analyze';
 
@@ -66,6 +67,10 @@ export default function MealSuggestPicker({ isOpen, slotLabel, slotFraction, tar
   const [loadingRecipe, setLoadingRecipe] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const previousFocus = useRef<HTMLElement | null>(null);
+  const reduceMotion = useReducedMotion();
 
   const budget = {
     calories: r(targets.calories * slotFraction),
@@ -135,63 +140,104 @@ export default function MealSuggestPicker({ isOpen, slotLabel, slotFraction, tar
     onPick(`${recipe.recipe_name} (~${r(recipe.per_serving.calories)} kcal/serving)`);
   }
 
+  useEffect(() => {
+    if (!isOpen) return;
+    previousFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    closeRef.current?.focus();
+    const handleEscape = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      event.stopPropagation();
+      onClose();
+    };
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', handleEscape);
+      if (previousFocus.current?.isConnected) previousFocus.current.focus();
+    };
+  }, [isOpen, onClose]);
+
+  const containFocus = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'Tab' || !dialogRef.current) return;
+    const controls = Array.from(dialogRef.current.querySelectorAll<HTMLElement>('button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])'));
+    if (controls.length === 0) return;
+    const first = controls[0];
+    const last = controls[controls.length - 1];
+    if (event.shiftKey && (document.activeElement === first || document.activeElement === dialogRef.current)) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
+
   if (!isOpen) return null;
 
   const tabBtn = (active: boolean): React.CSSProperties => ({
     flex: 1, padding: '8px 0', borderRadius: 9, border: 'none', cursor: 'pointer',
-    background: active ? 'var(--gold-300,#D4A853)' : 'transparent',
-    color: active ? '#0a0a0a' : 'var(--t3,#a8a29e)',
-    fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 700,
+    background: active ? 'var(--action-primary)' : 'transparent',
+    color: active ? 'var(--action-on-primary)' : 'var(--content-muted)',
+    fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700,
     letterSpacing: '.04em', textTransform: 'uppercase',
   });
 
   return createPortal(
     <AnimatePresence>
       <motion.div
-        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        initial={reduceMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
         className="fixed inset-0 z-[var(--z-modal,60)] flex items-end sm:items-center justify-center"
-        style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
+        style={{ background: 'color-mix(in srgb, var(--canvas) 80%, transparent)', backdropFilter: 'blur(8px)' }}
         onClick={onClose}
       >
         <motion.div
-          initial={{ y: '100%', opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: '100%', opacity: 0 }}
-          transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+          ref={dialogRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="meal-suggest-title"
+          tabIndex={-1}
+          onKeyDown={containFocus}
+          initial={reduceMotion ? false : { y: '100%', opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: '100%', opacity: 0 }}
+          transition={reduceMotion ? { duration: 0 } : { type: 'spring', damping: 28, stiffness: 300 }}
           onClick={(e) => e.stopPropagation()}
-          className="w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl overflow-hidden"
-          style={{ background: 'var(--bg-1,#1c1917)', border: '1px solid var(--line-2,rgba(255,255,255,0.08))', maxHeight: '88vh', overflowY: 'auto' }}
+          className="safe-bottom w-full overflow-hidden rounded-t-3xl pb-[env(safe-area-inset-bottom)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] sm:max-w-md sm:rounded-3xl"
+          style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)', maxHeight: '88vh', overflowY: 'auto' }}
         >
           {/* Header */}
           <div className="flex items-center justify-between px-5 pt-5 pb-2">
             <div className="flex items-center gap-2">
-              <Sparkles size={16} style={{ color: 'var(--gold-300,#D4A853)' }} />
-              <h2 className="text-base font-bold" style={{ color: 'var(--t1,#f5f5f4)' }}>AI for {slotLabel}</h2>
+              <Sparkles size={16} style={{ color: 'var(--action-primary)' }} />
+              <h2 id="meal-suggest-title" className="text-base font-bold" style={{ color: 'var(--content-primary)' }}>AI for {slotLabel}</h2>
             </div>
-            <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,.06)' }}>
-              <X size={14} style={{ color: 'var(--t3,#a8a29e)' }} />
+            <button ref={closeRef} aria-label="Close meal assistant" onClick={onClose} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] w-8 h-8 rounded-full flex items-center justify-center" style={{ background: 'var(--border-subtle)' }}>
+              <X aria-hidden="true" size={14} style={{ color: 'var(--content-muted)' }} />
             </button>
           </div>
 
           {/* Tabs */}
-          <div className="mx-5 mb-3 p-1 rounded-xl flex gap-1" style={{ background: 'var(--surface,#141414)' }}>
-            <button style={tabBtn(mode === 'suggest')} onClick={() => setMode('suggest')}>Suggest</button>
-            <button style={tabBtn(mode === 'recipe')} onClick={() => setMode('recipe')}>Analyze recipe</button>
+          <div className="mx-5 mb-3 p-1 rounded-xl flex gap-1" style={{ background: 'var(--surface-1)' }}>
+            <button className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" style={tabBtn(mode === 'suggest')} onClick={() => setMode('suggest')}>Suggest</button>
+            <button className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" style={tabBtn(mode === 'recipe')} onClick={() => setMode('recipe')}>Analyze recipe</button>
           </div>
 
           <div className="px-5 pb-5">
-            {error && <p className="text-xs mb-3" style={{ color: '#f87171' }}>{error}</p>}
+            {error && <p className="text-xs mb-3" style={{ color: 'var(--status-danger-fg)' }}>{error}</p>}
 
             {mode === 'suggest' ? (
               <>
-                <p className="text-xs mb-3" style={{ color: 'var(--t3,#a8a29e)' }}>
-                  Budget for this slot ≈ <b style={{ color: 'var(--t2,#d6d3d1)' }}>{budget.calories} kcal</b> · {budget.protein}P / {budget.carbs}C / {budget.fat}F
+                <p className="text-xs mb-3" style={{ color: 'var(--content-muted)' }}>
+                  Budget for this slot ≈ <b style={{ color: 'var(--content-secondary)' }}>{budget.calories} kcal</b> · {budget.protein}P / {budget.carbs}C / {budget.fat}F
                 </p>
                 {!suggestions && (
-                  <button
+                  <button className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                     onClick={fetchSuggestions}
                     disabled={loadingSuggest}
                     style={{
                       width: '100%', padding: 12, borderRadius: 12, border: 'none',
-                      background: 'var(--gold-300,#D4A853)', color: '#0a0a0a',
+                      background: 'var(--action-primary)', color: 'var(--action-on-primary)',
                       fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase',
                       cursor: loadingSuggest ? 'not-allowed' : 'pointer',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
@@ -203,28 +249,28 @@ export default function MealSuggestPicker({ isOpen, slotLabel, slotFraction, tar
                 {suggestions && (
                   <div className="flex flex-col gap-2.5">
                     {suggestions.map((s, i) => (
-                      <div key={i} className="rounded-2xl p-3" style={{ background: 'var(--surface,#141414)', border: '1px solid var(--line,rgba(255,255,255,.07))' }}>
+                      <div key={i} className="rounded-2xl p-3" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-subtle)' }}>
                         <div className="flex items-start justify-between gap-2 mb-1">
-                          <span className="text-sm font-semibold" style={{ color: 'var(--t1,#f5f5f4)' }}>{s.name}</span>
-                          <span className="text-[10px] whitespace-nowrap" style={{ color: 'var(--gold-300,#D4A853)', fontFamily: 'var(--font-mono)' }}>{r(s.estimated_calories)} kcal</span>
+                          <span className="text-sm font-semibold" style={{ color: 'var(--content-primary)' }}>{s.name}</span>
+                          <span className="text-xs whitespace-nowrap" style={{ color: 'var(--action-primary)', fontFamily: 'var(--font-mono)' }}>{r(s.estimated_calories)} kcal</span>
                         </div>
-                        <p className="text-[11px] mb-2" style={{ color: 'var(--t3,#a8a29e)' }}>{s.description}</p>
-                        <p className="text-[10px] mb-2" style={{ color: 'var(--t4,#78716c)' }}>
+                        <p className="text-xs mb-2" style={{ color: 'var(--content-muted)' }}>{s.description}</p>
+                        <p className="text-xs mb-2" style={{ color: 'var(--content-muted)' }}>
                           {s.estimated_protein_g}P · {s.estimated_carbs_g}C · {s.estimated_fat_g}F &nbsp;·&nbsp; {s.ingredients.slice(0, 4).join(', ')}
                         </p>
-                        <button
+                        <button className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                           onClick={() => applySuggestion(s)}
                           style={{
                             width: '100%', padding: '7px 0', borderRadius: 8, cursor: 'pointer',
-                            background: 'rgba(212,168,83,.12)', border: '1px solid rgba(212,168,83,.3)',
-                            color: 'var(--gold-300,#D4A853)', fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase',
+                            background: 'var(--status-warning-bg)', border: '1px solid var(--status-warning-border)',
+                            color: 'var(--action-primary)', fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase',
                           }}
                         >
                           Use this
                         </button>
                       </div>
                     ))}
-                    <button onClick={fetchSuggestions} disabled={loadingSuggest} className="text-[11px] mt-1" style={{ color: 'var(--t4,#78716c)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-mono)' }}>
+                    <button onClick={fetchSuggestions} disabled={loadingSuggest} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] text-xs mt-1" style={{ color: 'var(--content-muted)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-mono)' }}>
                       {loadingSuggest ? 'Thinking…' : '↻ regenerate'}
                     </button>
                   </div>
@@ -238,16 +284,16 @@ export default function MealSuggestPicker({ isOpen, slotLabel, slotFraction, tar
                   placeholder={'Paste a recipe — e.g.\nGreek chicken bowl\n- 150g chicken breast\n- 100g rice\n- 1 tbsp olive oil'}
                   rows={5}
                   style={{
-                    width: '100%', background: 'var(--surface,#141414)', border: '1px solid var(--line,rgba(255,255,255,.08))',
-                    borderRadius: 10, padding: '9px 11px', color: 'var(--t1,#f5f5f4)', fontSize: 13, resize: 'vertical', fontFamily: 'inherit', marginBottom: 10,
+                    width: '100%', background: 'var(--surface-1)', border: '1px solid var(--border-subtle)',
+                    borderRadius: 10, padding: '9px 11px', color: 'var(--content-primary)', fontSize: 16, resize: 'vertical', fontFamily: 'inherit', marginBottom: 10,
                   }}
                 />
-                <button
+                <button className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                   onClick={analyzeRecipe}
                   disabled={loadingRecipe || !recipeText.trim()}
                   style={{
                     width: '100%', padding: 12, borderRadius: 12, border: 'none',
-                    background: 'var(--gold-300,#D4A853)', color: '#0a0a0a',
+                    background: 'var(--action-primary)', color: 'var(--action-on-primary)',
                     fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase',
                     cursor: loadingRecipe || !recipeText.trim() ? 'not-allowed' : 'pointer', opacity: recipeText.trim() ? 1 : 0.5,
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
@@ -256,20 +302,20 @@ export default function MealSuggestPicker({ isOpen, slotLabel, slotFraction, tar
                   {loadingRecipe ? <><Loader2 size={14} className="animate-spin" /> Analyzing…</> : <><ChefHat size={14} /> Analyze macros</>}
                 </button>
                 {recipe && (
-                  <div className="rounded-2xl p-3 mt-3" style={{ background: 'var(--surface,#141414)', border: '1px solid var(--line,rgba(255,255,255,.07))' }}>
+                  <div className="rounded-2xl p-3 mt-3" style={{ background: 'var(--surface-1)', border: '1px solid var(--border-subtle)' }}>
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-semibold" style={{ color: 'var(--t1,#f5f5f4)' }}>{recipe.recipe_name}</span>
-                      <span className="text-[10px]" style={{ color: 'var(--gold-300,#D4A853)', fontFamily: 'var(--font-mono)' }}>{r(recipe.per_serving.calories)} kcal/serving</span>
+                      <span className="text-sm font-semibold" style={{ color: 'var(--content-primary)' }}>{recipe.recipe_name}</span>
+                      <span className="text-xs" style={{ color: 'var(--action-primary)', fontFamily: 'var(--font-mono)' }}>{r(recipe.per_serving.calories)} kcal/serving</span>
                     </div>
-                    <p className="text-[10px] mb-2" style={{ color: 'var(--t4,#78716c)' }}>
+                    <p className="text-xs mb-2" style={{ color: 'var(--content-muted)' }}>
                       per serving · {r(recipe.per_serving.protein_g)}P · {r(recipe.per_serving.carbs_g)}C · {r(recipe.per_serving.fat_g)}F
                     </p>
-                    <button
+                    <button className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                       onClick={useRecipe}
                       style={{
                         width: '100%', padding: '7px 0', borderRadius: 8, cursor: 'pointer',
-                        background: 'rgba(212,168,83,.12)', border: '1px solid rgba(212,168,83,.3)',
-                        color: 'var(--gold-300,#D4A853)', fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase',
+                        background: 'var(--status-warning-bg)', border: '1px solid var(--status-warning-border)',
+                        color: 'var(--action-primary)', fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase',
                       }}
                     >
                       Use this dish

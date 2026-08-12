@@ -18,10 +18,10 @@ interface CoachCalendarProps {
 
 // No emoji-as-icons (design rule): events are identified by their color dot + label.
 const EVENT_META: Record<EventType, { color: string; label: string }> = {
-  checkin: { color: '#4ade80', label: 'Check-in' },
-  progression: { color: '#D4A853', label: 'Progression' },
-  measurement: { color: '#60a5fa', label: 'Measurement' },
-  note: { color: '#a78bfa', label: 'Note' },
+  checkin: { color: 'var(--status-success-fg)', label: 'Check-in' },
+  progression: { color: 'var(--action-primary)', label: 'Progression' },
+  measurement: { color: 'var(--status-info-fg)', label: 'Measurement' },
+  note: { color: 'var(--data-fat)', label: 'Note' },
 };
 
 const DAYS_OF_WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -98,31 +98,33 @@ export default memo(function CoachCalendar({ events }: CoachCalendarProps) {
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="bg-white/[0.04] border border-white/[0.06] rounded-xl p-4"
+      className="bg-[var(--surface-hover)] border border-[var(--border-subtle)] rounded-xl p-4"
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <button
           type="button"
+          aria-label="Previous month"
           onClick={prevMonth}
-          className="p-1.5 rounded-lg hover:bg-white/[0.06] transition-colors text-stone-400 hover:text-stone-200"
+          className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] p-1.5 rounded-lg hover:bg-[var(--surface-hover)] transition-colors text-[var(--content-secondary)] hover:text-[var(--content-primary)]"
         >
-          <ChevronLeft size={16} />
+          <ChevronLeft aria-hidden="true" size={16} />
         </button>
-        <h3 className="text-stone-200 text-sm font-semibold">{monthLabel}</h3>
+        <h3 className="text-[var(--content-primary)] text-sm font-semibold">{monthLabel}</h3>
         <button
           type="button"
+          aria-label="Next month"
           onClick={nextMonth}
-          className="p-1.5 rounded-lg hover:bg-white/[0.06] transition-colors text-stone-400 hover:text-stone-200"
+          className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] p-1.5 rounded-lg hover:bg-[var(--surface-hover)] transition-colors text-[var(--content-secondary)] hover:text-[var(--content-primary)]"
         >
-          <ChevronRight size={16} />
+          <ChevronRight aria-hidden="true" size={16} />
         </button>
       </div>
 
       {/* Day headers */}
       <div className="grid grid-cols-7 gap-1 mb-1">
         {DAYS_OF_WEEK.map((d) => (
-          <div key={d} className="text-stone-600 text-[10px] text-center font-medium py-1">
+          <div key={d} className="text-[var(--content-muted)] text-xs text-center font-medium py-1">
             {d}
           </div>
         ))}
@@ -150,17 +152,17 @@ export default memo(function CoachCalendar({ events }: CoachCalendarProps) {
               key={day}
               type="button"
               onClick={() => setSelectedDay(dateKey === selectedDay ? null : dateKey)}
-              className={`aspect-square rounded-lg flex flex-col items-center justify-center gap-0.5 transition-colors relative ${
+              className={`min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] aspect-square rounded-lg flex flex-col items-center justify-center gap-0.5 transition-colors relative ${
                 isSelected
-                  ? 'bg-[#D4A853]/20 border border-[#D4A853]/40'
+                  ? 'bg-[var(--action-primary)]/20 border border-[var(--action-primary)]/40'
                   : isToday
-                    ? 'bg-[#D4A853]/10 border border-[#D4A853]/20'
-                    : 'hover:bg-white/[0.04] border border-transparent'
+                    ? 'bg-[var(--action-primary)]/10 border border-[var(--action-primary)]/20'
+                    : 'hover:bg-[var(--surface-hover)] border border-transparent'
               }`}
             >
               <span
-                className={`text-[11px] font-medium ${
-                  isToday ? 'text-[#D4A853]' : isSelected ? 'text-stone-100' : 'text-stone-400'
+                className={`text-xs font-medium ${
+                  isToday ? 'text-[var(--action-primary)]' : isSelected ? 'text-[var(--content-primary)]' : 'text-[var(--content-secondary)]'
                 }`}
               >
                 {day}
@@ -191,8 +193,8 @@ export default memo(function CoachCalendar({ events }: CoachCalendarProps) {
             transition={{ duration: 0.25, ease: 'easeInOut' }}
             className="overflow-hidden"
           >
-            <div className="mt-3 pt-3 border-t border-white/[0.06] space-y-1.5">
-              <p className="text-stone-500 text-[10px] font-medium uppercase tracking-wider">
+            <div className="mt-3 pt-3 border-t border-[var(--border-subtle)] space-y-1.5">
+              <p className="text-[var(--content-muted)] text-xs font-medium uppercase tracking-wider">
                 {new Date(selectedDay + 'T00:00:00').toLocaleDateString('en-US', {
                   weekday: 'long',
                   month: 'short',
@@ -207,7 +209,7 @@ export default memo(function CoachCalendar({ events }: CoachCalendarProps) {
                     initial={{ opacity: 0, x: -8 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: idx * 0.05, duration: 0.2 }}
-                    className="flex items-center gap-2 py-1.5 px-2 rounded-lg bg-white/[0.02]"
+                    className="flex items-center gap-2 py-1.5 px-2 rounded-lg bg-[var(--surface-hover)]"
                   >
                     <div
                       className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0"
@@ -215,8 +217,8 @@ export default memo(function CoachCalendar({ events }: CoachCalendarProps) {
                     >
                       <span className="w-2 h-2 rounded-full" style={{ backgroundColor: meta.color }} />
                     </div>
-                    <span className="text-stone-300 text-xs flex-1 truncate">{ev.clientName}</span>
-                    <span className="text-stone-600 text-[10px] flex-shrink-0">{meta.label}</span>
+                    <span className="text-[var(--content-secondary)] text-xs flex-1 truncate">{ev.clientName}</span>
+                    <span className="text-[var(--content-muted)] text-xs flex-shrink-0">{meta.label}</span>
                   </motion.div>
                 );
               })}
@@ -226,11 +228,11 @@ export default memo(function CoachCalendar({ events }: CoachCalendarProps) {
       </AnimatePresence>
 
       {/* Legend */}
-      <div className="flex items-center justify-center gap-3 mt-3 pt-3 border-t border-white/[0.06]">
+      <div className="flex items-center justify-center gap-3 mt-3 pt-3 border-t border-[var(--border-subtle)]">
         {Object.entries(EVENT_META).map(([key, meta]) => (
           <div key={key} className="flex items-center gap-1">
             <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: meta.color }} />
-            <span className="text-stone-600 text-[9px]">{meta.label}</span>
+            <span className="text-[var(--content-muted)] text-xs">{meta.label}</span>
           </div>
         ))}
       </div>

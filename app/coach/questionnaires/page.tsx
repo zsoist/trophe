@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 import { Lock } from 'lucide-react';
 import { Icon } from '@/components/ui';
@@ -23,6 +23,7 @@ const KIND_LABEL: Record<Kind, string> = { text: 'Free text', boolean: 'Yes / No
 
 export default function QuestionnaireBuilderPage() {
   const router = useRouter();
+  const reducedMotion = useReducedMotion();
   const [coachId, setCoachId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState(false);
@@ -85,26 +86,26 @@ export default function QuestionnaireBuilderPage() {
   }
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg,#0a0a0a)' }}><span className="eye-d">Loading…</span></div>;
+    return <div data-coach-mobile-workspace className="min-h-screen min-w-0 flex items-center justify-center" style={{ background: 'var(--canvas)' }}><span className="eye-d">Loading…</span></div>;
   }
   if (authError) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4" style={{ background: 'var(--bg,#0a0a0a)' }}>
-        <div className="card" style={{ padding: 24, textAlign: 'center' }}><Lock size={28} style={{ color: 'var(--gold-300,#D4A853)', margin: '0 auto 8px', display: 'block' }} aria-hidden /><div style={{ fontSize: 14, color: 'var(--t2)' }}>Coach access required</div></div>
+      <div data-coach-mobile-workspace className="min-h-screen min-w-0 flex items-center justify-center px-4" style={{ background: 'var(--canvas)' }}>
+        <div className="card" style={{ padding: 24, textAlign: 'center' }}><Lock size={28} style={{ color: 'var(--action-primary)', margin: '0 auto 8px', display: 'block' }} aria-hidden /><div style={{ fontSize: 14, color: 'var(--content-secondary)' }}>Coach access required</div></div>
       </div>
     );
   }
 
   const input: React.CSSProperties = {
-    background: 'var(--surface,#141414)', border: '1px solid var(--line)', borderRadius: 8,
-    padding: '8px 10px', color: 'var(--t1)', fontSize: 13, fontFamily: 'inherit',
+    background: 'var(--surface-2)', border: '1px solid var(--border-default)', borderRadius: 8,
+    padding: '8px 10px', color: 'var(--content-primary)', fontSize: 16, fontFamily: 'inherit', minHeight: 44,
   };
 
   return (
-    <div className="min-h-screen" style={{ background: 'var(--bg,#0a0a0a)', paddingBottom: 40 }}>
-      <motion.div className="max-w-md lg:max-w-2xl mx-auto px-4 pt-3" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+    <div data-coach-mobile-workspace className="min-h-screen min-w-0" style={{ background: 'var(--canvas)', paddingBottom: 40 }}>
+      <motion.div className="max-w-md lg:max-w-2xl mx-auto min-w-0 px-4 pt-3" initial={reducedMotion ? false : { opacity: 0, y: 10 }} animate={reducedMotion ? undefined : { opacity: 1, y: 0 }}>
         <div className="row-b" style={{ marginBottom: 16 }}>
-          <button onClick={() => router.back()} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--t3)' }}><Icon name="i-chev-l" size={16} /></button>
+          <button aria-label="Go back" onClick={() => router.back()} className="min-h-11 min-w-11 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)]" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--content-secondary)' }}><Icon name="i-chev-l" size={16} /></button>
           <span className="eye-d">Intake Questionnaires</span>
           <div style={{ width: 16 }} />
         </div>
@@ -115,10 +116,10 @@ export default function QuestionnaireBuilderPage() {
           {existing.map((q) => (
             <div key={q.id} className="card row-b" style={{ padding: '10px 12px' }}>
               <div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--t1)' }}>{q.title}</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--content-primary)' }}>{q.title}</div>
                 <div className="ds-sub">{q.count} questions{q.is_default ? ' · default' : ''}</div>
               </div>
-              {q.is_default && <span className="ds-sub" style={{ color: 'var(--gold-300,#D4A853)' }}>standard</span>}
+              {q.is_default && <span className="ds-sub" style={{ color: 'var(--action-primary)' }}>standard</span>}
             </div>
           ))}
           {existing.length === 0 && <div className="card ds-sub" style={{ padding: 16, textAlign: 'center' }}>No sets yet</div>}
@@ -127,33 +128,33 @@ export default function QuestionnaireBuilderPage() {
         {/* Builder */}
         <div className="eye" style={{ marginBottom: 8 }}>NEW QUESTIONNAIRE</div>
         <div className="card" style={{ padding: 14, marginBottom: 16 }}>
-          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title — e.g. My clinical intake" style={{ ...input, width: '100%', marginBottom: 12 }} />
+          <input className="text-base" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title — e.g. My clinical intake" style={{ ...input, width: '100%', marginBottom: 12 }} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {questions.map((q, i) => (
-              <div key={i} style={{ borderTop: i ? '1px solid var(--line)' : 'none', paddingTop: i ? 10 : 0 }}>
+              <div key={i} style={{ borderTop: i ? '1px solid var(--border-default)' : 'none', paddingTop: i ? 10 : 0 }}>
                 <div className="row-b" style={{ marginBottom: 6, gap: 8 }}>
-                  <input value={q.prompt} onChange={(e) => setQ(i, { prompt: e.target.value })} placeholder={`Question ${i + 1}`} style={{ ...input, flex: 1 }} />
-                  <button onClick={() => removeQ(i)} title="Remove" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--t4)' }}><Icon name="i-x" size={14} /></button>
+                  <input className="text-base" value={q.prompt} onChange={(e) => setQ(i, { prompt: e.target.value })} placeholder={`Question ${i + 1}`} style={{ ...input, flex: 1 }} />
+                  <button aria-label="Remove question" onClick={() => removeQ(i)} title="Remove" className="min-h-11 min-w-11 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)]" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--content-muted)' }}><Icon name="i-x" size={14} /></button>
                 </div>
                 <div className="row-i" style={{ gap: 8 }}>
-                  <select value={q.kind} onChange={(e) => setQ(i, { kind: e.target.value as Kind })} style={{ ...input, padding: '4px 8px', fontSize: 11 }}>
+                  <select className="text-base" value={q.kind} onChange={(e) => setQ(i, { kind: e.target.value as Kind })} style={{ ...input }}>
                     {(['text', 'boolean', 'scale'] as Kind[]).map((k) => <option key={k} value={k}>{KIND_LABEL[k]}</option>)}
                   </select>
-                  <label className="row-i" style={{ gap: 4, fontSize: 11, color: 'var(--t3)', cursor: 'pointer' }}>
+                  <label className="row-i" style={{ gap: 4, fontSize: 12, color: 'var(--content-secondary)', cursor: 'pointer' }}>
                     <input type="checkbox" checked={q.required} onChange={(e) => setQ(i, { required: e.target.checked })} /> required
                   </label>
                 </div>
               </div>
             ))}
           </div>
-          <button onClick={addQ} className="row-i" style={{ gap: 5, marginTop: 12, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--gold-300,#D4A853)', fontSize: 11, fontFamily: 'var(--font-mono)' }}>
-            <Icon name="i-plus" size={12} style={{ color: 'var(--gold-300,#D4A853)' }} /> add question
+          <button onClick={addQ} className="row-i min-h-11 px-3 text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)]" style={{ gap: 5, marginTop: 12, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--action-primary)', fontFamily: 'var(--font-mono)' }}>
+            <Icon name="i-plus" size={12} style={{ color: 'var(--action-primary)' }} /> add question
           </button>
         </div>
 
-        <button onClick={save} disabled={saving || !title.trim()} style={{
+        <button onClick={save} disabled={saving || !title.trim()} className="min-h-11 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)]" style={{
           width: '100%', padding: 14, borderRadius: 12, border: 'none',
-          background: saved ? 'rgba(34,197,94,.15)' : 'var(--gold-300,#D4A853)', color: saved ? 'rgb(34,197,94)' : '#0a0a0a',
+          background: saved ? 'var(--status-success-surface)' : 'var(--action-primary)', color: saved ? 'var(--status-success-foreground)' : 'var(--action-on-primary)',
           fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase',
           cursor: saving || !title.trim() ? 'not-allowed' : 'pointer', opacity: title.trim() ? 1 : 0.5,
         }}>

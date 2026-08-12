@@ -41,32 +41,32 @@ export default function CoachInvitePage() {
   }
 
   return (
-    <div style={{ background: 'var(--bg,#0a0a0a)', minHeight: '100vh', color: '#e7e5e4' }}>
-      <div style={{ maxWidth: 460, margin: '0 auto', padding: '32px 20px' }}>
-        <Link href="/coach" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#a8a29e', fontSize: 13, marginBottom: 20 }}>
+    <div data-coach-mobile-workspace className="min-h-screen min-w-0" style={{ background: 'var(--canvas)', color: 'var(--content-primary)' }}>
+      <div className="min-w-0" style={{ maxWidth: 460, margin: '0 auto', padding: '32px 20px' }}>
+        <Link href="/coach" className="min-h-11 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)]" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--content-secondary)', fontSize: 13, marginBottom: 20 }}>
           <ArrowLeft size={15} /> Back
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
           <UserPlus size={20} className="gold-text" />
           <h1 style={{ fontSize: 22, fontWeight: 700 }}>Invite a client</h1>
         </div>
-        <p style={{ color: '#a8a29e', fontSize: 14, marginBottom: 24 }}>
+        <p style={{ color: 'var(--content-secondary)', fontSize: 14, marginBottom: 24 }}>
           Generate a private link and send it to your client (WhatsApp, email, anywhere). They&rsquo;ll
           create an account linked to you and give consent — no manual setup on your side.
         </p>
         <div className="space-y-3">
-          <input className="input-dark w-full" placeholder="Client name (optional)" value={name} onChange={(e) => setName(e.target.value)} />
-          <input className="input-dark w-full" type="email" placeholder="Client email (optional)" value={email} onChange={(e) => setEmail(e.target.value)} />
-          <button className="btn-gold w-full py-3" onClick={generate} disabled={loading}>
+          <input className="input-dark min-h-11 w-full text-base" placeholder="Client name (optional)" value={name} onChange={(e) => setName(e.target.value)} />
+          <input className="input-dark min-h-11 w-full text-base" type="email" placeholder="Client email (optional)" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <button className="btn-gold min-h-11 w-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)]" onClick={generate} disabled={loading}>
             {loading ? 'Generating…' : 'Generate invite link'}
           </button>
-          {error && <p style={{ color: '#fca5a5', fontSize: 13 }}>{error}</p>}
+          {error && <p style={{ color: 'var(--status-danger-foreground)', fontSize: 13 }}>{error}</p>}
           {link && (
             <div className="glass p-3 rounded-xl" style={{ marginTop: 8 }}>
-              <p style={{ fontSize: 11, color: '#a8a29e', marginBottom: 6 }}>Share this link (valid 14 days):</p>
+              <p style={{ fontSize: 12, color: 'var(--content-secondary)', marginBottom: 6 }}>Share this link (valid 14 days):</p>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <code style={{ flex: 1, fontSize: 11, wordBreak: 'break-all', color: '#D4A853' }}>{link}</code>
-                <button onClick={copy} className="p-2 rounded-lg" style={{ background: 'rgba(212,168,83,0.15)', flexShrink: 0 }} aria-label="Copy link">
+                <code style={{ flex: 1, fontSize: 12, wordBreak: 'break-all', color: 'var(--action-primary)' }}>{link}</code>
+                <button onClick={copy} className="min-h-11 min-w-11 rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)]" style={{ background: 'var(--surface-active)', flexShrink: 0 }} aria-label="Copy link">
                   {copied ? <Check size={15} className="text-green-400" /> : <Copy size={15} className="gold-text" />}
                 </button>
               </div>

@@ -19,16 +19,16 @@ interface SmartNoteSuggestionsProps {
 
 const TYPE_STYLES: Record<SuggestionType, { bg: string; border: string }> = {
   concern: {
-    bg: 'rgba(248, 113, 113, 0.08)',
-    border: 'rgba(248, 113, 113, 0.2)',
+    bg: 'var(--status-danger-bg)',
+    border: 'var(--status-danger-bg)',
   },
   progression: {
-    bg: 'rgba(74, 222, 128, 0.08)',
-    border: 'rgba(74, 222, 128, 0.2)',
+    bg: 'var(--status-success-bg)',
+    border: 'var(--status-success-bg)',
   },
   check_in: {
-    bg: 'rgba(212, 168, 83, 0.08)',
-    border: 'rgba(212, 168, 83, 0.2)',
+    bg: 'var(--status-warning-bg)',
+    border: 'var(--status-warning-bg)',
   },
 };
 
@@ -41,9 +41,9 @@ export default memo(function SmartNoteSuggestions({
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="bg-white/[0.04] border border-white/[0.06] rounded-xl p-4"
+      className="bg-[var(--surface-hover)] border border-[var(--border-subtle)] rounded-xl p-4"
     >
-      <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider mb-3">
+      <h3 className="text-[var(--content-secondary)] text-xs font-semibold uppercase tracking-wider mb-3">
         Quick Notes
       </h3>
 
@@ -57,7 +57,7 @@ export default memo(function SmartNoteSuggestions({
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: i * 0.04, duration: 0.2 }}
               onClick={() => onSelect?.(s.text)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs text-stone-300 transition-all hover:scale-105 active:scale-95 cursor-pointer"
+              className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs text-[var(--content-secondary)] transition-all hover:scale-105 active:scale-95 cursor-pointer"
               style={{
                 backgroundColor: style.bg,
                 border: `1px solid ${style.border}`,
@@ -71,7 +71,7 @@ export default memo(function SmartNoteSuggestions({
       </div>
 
       {suggestions.length === 0 && (
-        <p className="text-stone-500 text-xs text-center py-4">
+        <p className="text-[var(--content-muted)] text-xs text-center py-4">
           No suggestions available
         </p>
       )}

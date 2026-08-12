@@ -19,16 +19,16 @@ export default function GoldGlowCard({ children, className = '', glow = true }: 
     <motion.div
       className={`relative rounded-2xl overflow-hidden ${className}`}
       style={{
-        background: 'rgba(255,255,255,0.04)',
-        border: '1px solid rgba(255,255,255,0.06)',
+        background: 'var(--border-subtle)',
+        border: '1px solid var(--border-subtle)',
         backdropFilter: 'blur(12px)',
         WebkitBackdropFilter: 'blur(12px)',
       }}
       whileHover={
         glow
           ? {
-              boxShadow: '0 0 20px rgba(212,168,83,0.15), 0 0 40px rgba(212,168,83,0.05)',
-              borderColor: 'rgba(212,168,83,0.2)',
+              boxShadow: '0 0 20px var(--status-warning-bg), 0 0 40px var(--status-warning-bg)',
+              borderColor: 'var(--status-warning-bg)',
             }
           : undefined
       }
@@ -40,7 +40,7 @@ export default function GoldGlowCard({ children, className = '', glow = true }: 
           className="absolute inset-0 pointer-events-none rounded-2xl"
           style={{
             background:
-              'linear-gradient(135deg, rgba(212,168,83,0.04) 0%, transparent 40%, transparent 60%, rgba(212,168,83,0.02) 100%)',
+              'linear-gradient(135deg, var(--status-warning-bg) 0%, transparent 40%, transparent 60%, var(--status-warning-bg) 100%)',
             opacity: 0,
           }}
           whileHover={{ opacity: 1 }}

@@ -29,10 +29,10 @@ interface ProtocolTemplateLibraryProps {
 }
 
 const EVIDENCE_COLORS: Record<string, { color: string; bg: string; label: string }> = {
-  A: { color: '#4ade80', bg: 'rgba(74, 222, 128, 0.15)', label: 'Strong evidence' },
-  B: { color: '#D4A853', bg: 'rgba(212, 168, 83, 0.15)', label: 'Moderate evidence' },
-  C: { color: '#fb923c', bg: 'rgba(251, 146, 60, 0.15)', label: 'Limited evidence' },
-  D: { color: '#f87171', bg: 'rgba(248, 113, 113, 0.15)', label: 'Emerging evidence' },
+  A: { color: 'var(--status-success-fg)', bg: 'var(--status-success-bg)', label: 'Strong evidence' },
+  B: { color: 'var(--action-primary)', bg: 'var(--status-warning-bg)', label: 'Moderate evidence' },
+  C: { color: 'var(--status-warning-fg)', bg: 'var(--status-warning-bg)', label: 'Limited evidence' },
+  D: { color: 'var(--status-danger-fg)', bg: 'var(--status-danger-bg)', label: 'Emerging evidence' },
 };
 
 const PROTOCOLS: Protocol[] = [
@@ -101,10 +101,10 @@ export default memo(function ProtocolTemplateLibrary({ onSelect }: ProtocolTempl
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="bg-white/[0.04] border border-white/[0.06] rounded-xl p-4"
+      className="bg-[var(--surface-hover)] border border-[var(--border-subtle)] rounded-xl p-4"
     >
-      <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider mb-3 flex items-center gap-2">
-        <FlaskConical size={14} className="text-[#D4A853]" />
+      <h3 className="text-[var(--content-secondary)] text-xs font-semibold uppercase tracking-wider mb-3 flex items-center gap-2">
+        <FlaskConical size={14} className="text-[var(--action-primary)]" />
         Protocol Templates
       </h3>
 
@@ -116,18 +116,18 @@ export default memo(function ProtocolTemplateLibrary({ onSelect }: ProtocolTempl
           return (
             <div
               key={protocol.id}
-              className="rounded-xl border border-white/[0.06] overflow-hidden bg-white/[0.02]"
+              className="rounded-xl border border-[var(--border-subtle)] overflow-hidden bg-[var(--surface-hover)]"
             >
               {/* Card header */}
               <button
                 type="button"
                 onClick={() => toggle(protocol.id)}
-                className="w-full flex items-center gap-3 p-3 hover:bg-white/[0.03] transition-colors text-left"
+                className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] w-full flex items-center gap-3 p-3 hover:bg-[var(--surface-hover)] transition-colors text-left"
               >
                 <span className="text-lg flex-shrink-0">{protocol.emoji}</span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-stone-200 text-sm font-semibold">{protocol.name}</p>
-                  <p className="text-stone-500 text-[10px] truncate">{protocol.description}</p>
+                  <p className="text-[var(--content-primary)] text-sm font-semibold">{protocol.name}</p>
+                  <p className="text-[var(--content-muted)] text-xs truncate">{protocol.description}</p>
                 </div>
 
                 {/* Evidence badge */}
@@ -137,7 +137,7 @@ export default memo(function ProtocolTemplateLibrary({ onSelect }: ProtocolTempl
                   title={evidence.label}
                 >
                   <Shield size={10} style={{ color: evidence.color }} />
-                  <span className="text-[9px] font-semibold" style={{ color: evidence.color }}>
+                  <span className="text-xs font-semibold" style={{ color: evidence.color }}>
                     {protocol.evidenceLevel}
                   </span>
                 </div>
@@ -146,7 +146,7 @@ export default memo(function ProtocolTemplateLibrary({ onSelect }: ProtocolTempl
                   animate={{ rotate: isOpen ? 180 : 0 }}
                   transition={{ duration: 0.2 }}
                 >
-                  <ChevronDown size={14} className="text-stone-500" />
+                  <ChevronDown size={14} className="text-[var(--content-muted)]" />
                 </motion.div>
               </button>
 
@@ -162,15 +162,15 @@ export default memo(function ProtocolTemplateLibrary({ onSelect }: ProtocolTempl
                   >
                     <div className="px-3 pb-3 space-y-2">
                       {/* Supplements table */}
-                      <div className="border border-white/[0.06] rounded-lg overflow-hidden">
-                        <div className="grid grid-cols-3 gap-px bg-white/[0.04]">
-                          <div className="bg-stone-950 px-2.5 py-1.5 text-[10px] font-semibold text-stone-500 uppercase tracking-wider">
+                      <div className="border border-[var(--border-subtle)] rounded-lg overflow-hidden">
+                        <div className="grid grid-cols-3 gap-px bg-[var(--surface-hover)]">
+                          <div className="bg-[var(--surface-1)] px-2.5 py-1.5 text-xs font-semibold text-[var(--content-muted)] uppercase tracking-wider">
                             Supplement
                           </div>
-                          <div className="bg-stone-950 px-2.5 py-1.5 text-[10px] font-semibold text-stone-500 uppercase tracking-wider">
+                          <div className="bg-[var(--surface-1)] px-2.5 py-1.5 text-xs font-semibold text-[var(--content-muted)] uppercase tracking-wider">
                             Dose
                           </div>
-                          <div className="bg-stone-950 px-2.5 py-1.5 text-[10px] font-semibold text-stone-500 uppercase tracking-wider">
+                          <div className="bg-[var(--surface-1)] px-2.5 py-1.5 text-xs font-semibold text-[var(--content-muted)] uppercase tracking-wider">
                             Timing
                           </div>
                         </div>
@@ -180,15 +180,15 @@ export default memo(function ProtocolTemplateLibrary({ onSelect }: ProtocolTempl
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             transition={{ delay: si * 0.05 }}
-                            className="grid grid-cols-3 gap-px bg-white/[0.04]"
+                            className="grid grid-cols-3 gap-px bg-[var(--surface-hover)]"
                           >
-                            <div className="bg-stone-950/80 px-2.5 py-2 text-xs text-stone-200">
+                            <div className="bg-[var(--surface-1)]/80 px-2.5 py-2 text-xs text-[var(--content-primary)]">
                               {supp.name}
                             </div>
-                            <div className="bg-stone-950/80 px-2.5 py-2 text-xs text-[#D4A853] font-mono">
+                            <div className="bg-[var(--surface-1)]/80 px-2.5 py-2 text-xs text-[var(--action-primary)] font-mono">
                               {supp.dose}
                             </div>
-                            <div className="bg-stone-950/80 px-2.5 py-2 text-xs text-stone-400">
+                            <div className="bg-[var(--surface-1)]/80 px-2.5 py-2 text-xs text-[var(--content-secondary)]">
                               {supp.timing}
                             </div>
                           </motion.div>
@@ -196,7 +196,7 @@ export default memo(function ProtocolTemplateLibrary({ onSelect }: ProtocolTempl
                       </div>
 
                       {/* Evidence note */}
-                      <p className="text-stone-600 text-[10px] flex items-center gap-1">
+                      <p className="text-[var(--content-muted)] text-xs flex items-center gap-1">
                         <Shield size={10} style={{ color: evidence.color }} />
                         {evidence.label}
                       </p>
@@ -205,12 +205,12 @@ export default memo(function ProtocolTemplateLibrary({ onSelect }: ProtocolTempl
                       <button
                         type="button"
                         onClick={() => handleSelect(protocol)}
-                        className="w-full py-2 rounded-lg font-semibold text-sm transition-all flex items-center justify-center gap-2"
+                        className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] w-full py-2 rounded-lg font-semibold text-sm transition-all flex items-center justify-center gap-2"
                         style={{
-                          backgroundColor: 'rgba(212, 168, 83, 0.15)',
-                          color: '#D4A853',
+                          backgroundColor: 'var(--status-warning-bg)',
+                          color: 'var(--action-primary)',
                           borderWidth: 1,
-                          borderColor: 'rgba(212, 168, 83, 0.3)',
+                          borderColor: 'var(--status-warning-border)',
                         }}
                       >
                         Use This Protocol

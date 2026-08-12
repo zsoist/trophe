@@ -25,12 +25,12 @@ export default memo(function MeasurementChart({ measurements }: MeasurementChart
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        className="bg-white/[0.04] border border-white/[0.06] rounded-xl p-4"
+        className="bg-[var(--surface-hover)] border border-[var(--border-subtle)] rounded-xl p-4"
       >
-        <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider mb-3">
+        <h3 className="text-[var(--content-secondary)] text-xs font-semibold uppercase tracking-wider mb-3">
           Measurements
         </h3>
-        <p className="text-stone-500 text-xs text-center py-4">Not enough data</p>
+        <p className="text-[var(--content-muted)] text-xs text-center py-4">Not enough data</p>
       </motion.div>
     );
   }
@@ -77,20 +77,20 @@ export default memo(function MeasurementChart({ measurements }: MeasurementChart
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="bg-white/[0.04] border border-white/[0.06] rounded-xl p-4"
+      className="bg-[var(--surface-hover)] border border-[var(--border-subtle)] rounded-xl p-4"
     >
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider">
+        <h3 className="text-[var(--content-secondary)] text-xs font-semibold uppercase tracking-wider">
           Measurements
         </h3>
         <div className="flex items-center gap-3">
           {wDelta !== null && (
-            <span className={`text-[10px] font-medium ${wDelta > 0 ? 'text-red-400' : 'text-green-400'}`}>
+            <span className={`text-xs font-medium ${wDelta > 0 ? 'text-red-400' : 'text-green-400'}`}>
               {wDelta > 0 ? '+' : ''}{wDelta}kg
             </span>
           )}
           {fDelta !== null && (
-            <span className={`text-[10px] font-medium ${fDelta > 0 ? 'text-red-400' : 'text-green-400'}`}>
+            <span className={`text-xs font-medium ${fDelta > 0 ? 'text-red-400' : 'text-green-400'}`}>
               {fDelta > 0 ? '+' : ''}{fDelta}%bf
             </span>
           )}
@@ -103,7 +103,7 @@ export default memo(function MeasurementChart({ measurements }: MeasurementChart
           <motion.path
             d={buildPath(weightPoints)}
             fill="none"
-            stroke="#D4A853"
+            stroke="var(--action-primary)"
             strokeWidth={2}
             strokeLinecap="round"
             initial={{ pathLength: 0 }}
@@ -117,7 +117,7 @@ export default memo(function MeasurementChart({ measurements }: MeasurementChart
           <motion.path
             d={buildPath(fatPoints)}
             fill="none"
-            stroke="#a78bfa"
+            stroke="var(--data-fat)"
             strokeWidth={2}
             strokeLinecap="round"
             initial={{ pathLength: 0 }}
@@ -128,22 +128,22 @@ export default memo(function MeasurementChart({ measurements }: MeasurementChart
 
         {/* Dots */}
         {weightPoints.map((p, i) => (
-          <circle key={`w-${i}`} cx={p.x} cy={p.y} r={3} fill="#D4A853" />
+          <circle key={`w-${i}`} cx={p.x} cy={p.y} r={3} fill="var(--action-primary)" />
         ))}
         {fatPoints.map((p, i) => (
-          <circle key={`f-${i}`} cx={p.x} cy={p.y} r={3} fill="#a78bfa" />
+          <circle key={`f-${i}`} cx={p.x} cy={p.y} r={3} fill="var(--data-fat)" />
         ))}
       </svg>
 
       {/* Legend */}
       <div className="flex items-center gap-4 mt-2">
         <div className="flex items-center gap-1.5">
-          <div className="w-2 h-2 rounded-full bg-[#D4A853]" />
-          <span className="text-stone-500 text-[10px]">Weight</span>
+          <div className="w-2 h-2 rounded-full bg-[var(--action-primary)]" />
+          <span className="text-[var(--content-muted)] text-xs">Weight</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="w-2 h-2 rounded-full bg-[#a78bfa]" />
-          <span className="text-stone-500 text-[10px]">Body Fat %</span>
+          <div className="w-2 h-2 rounded-full bg-[var(--data-fat)]" />
+          <span className="text-[var(--content-muted)] text-xs">Body Fat %</span>
         </div>
       </div>
     </motion.div>

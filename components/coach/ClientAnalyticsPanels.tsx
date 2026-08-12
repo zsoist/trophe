@@ -72,21 +72,21 @@ export default function ClientAnalyticsPanels({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           <Panel id="mealQuality" title={titles.mealQuality}>
             <div className="glass p-5 h-full">
-              <h2 className="font-semibold text-stone-200 mb-3 text-sm">Meal Quality (Today)</h2>
+              <h2 className="font-semibold text-[var(--content-primary)] mb-3 text-sm">Meal Quality (Today)</h2>
               {mealQualityData.length > 0 ? (
                 <MealQualityTimeline meals={mealQualityData} />
               ) : (
-                <p className="text-stone-600 text-sm text-center py-4">No meals logged today</p>
+                <p className="text-[var(--content-muted)] text-sm text-center py-4">No meals logged today</p>
               )}
             </div>
           </Panel>
           <Panel id="proteinDistribution" title={titles.proteinDistribution}>
             <div className="glass p-5 h-full">
-              <h2 className="font-semibold text-stone-200 mb-3 text-sm">Protein Distribution</h2>
+              <h2 className="font-semibold text-[var(--content-primary)] mb-3 text-sm">Protein Distribution</h2>
               {proteinDistribution.length > 0 ? (
                 <ProteinDistributionAnalyzer meals={proteinDistribution} />
               ) : (
-                <p className="text-stone-600 text-sm text-center py-4">No meals logged today</p>
+                <p className="text-[var(--content-muted)] text-sm text-center py-4">No meals logged today</p>
               )}
             </div>
           </Panel>
@@ -95,7 +95,7 @@ export default function ClientAnalyticsPanels({
 
       <Panel id="foodHeatmap" title={titles.foodHeatmap}>
         <div className="glass p-5 mb-4">
-          <h2 className="font-semibold text-stone-200 mb-3 text-sm">{titles.foodHeatmapHeading}</h2>
+          <h2 className="font-semibold text-[var(--content-primary)] mb-3 text-sm">{titles.foodHeatmapHeading}</h2>
           <ClientFoodHeatmap data={foodHeatmapData} />
         </div>
       </Panel>
@@ -104,7 +104,7 @@ export default function ClientAnalyticsPanels({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           <Panel id="weekendAnalysis" title={titles.weekendAnalysis}>
             <div className="glass p-5 h-full">
-              <h2 className="font-semibold text-stone-200 mb-3 text-sm">Weekday vs Weekend</h2>
+              <h2 className="font-semibold text-[var(--content-primary)] mb-3 text-sm">Weekday vs Weekend</h2>
               <WeekendAnalysis
                 weekday={weekendAnalysisData.weekday}
                 weekend={weekendAnalysisData.weekend}
@@ -114,7 +114,7 @@ export default function ClientAnalyticsPanels({
           <Panel id="twoWeekComparison" title={titles.twoWeekComparison}>
             <div className="glass p-5 h-full">
               <h2
-                className="font-semibold text-stone-200 mb-3 text-sm"
+                className="font-semibold text-[var(--content-primary)] mb-3 text-sm"
                 title="Body responds ~2 weeks delayed — rolling 14-day windows show real change"
               >
                 Last 2 Weeks vs Prior 2

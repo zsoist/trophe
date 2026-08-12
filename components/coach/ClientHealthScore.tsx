@@ -19,15 +19,15 @@ const RADIUS = (SIZE - STROKE_WIDTH) / 2;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
 function getScoreColor(score: number): string {
-  if (score > 80) return '#22c55e';
-  if (score >= 50) return '#D4A853';
-  return '#ef4444';
+  if (score > 80) return 'var(--status-success-fg)';
+  if (score >= 50) return 'var(--action-primary)';
+  return 'var(--status-danger-fg)';
 }
 
 function getScoreGlow(score: number): string {
-  if (score > 80) return 'rgba(34,197,94,0.2)';
-  if (score >= 50) return 'rgba(212,168,83,0.2)';
-  return 'rgba(239,68,68,0.2)';
+  if (score > 80) return 'var(--status-success-bg)';
+  if (score >= 50) return 'var(--status-warning-bg)';
+  return 'var(--status-danger-bg)';
 }
 
 export default function ClientHealthScore({ score, label }: ClientHealthScoreProps) {
@@ -68,7 +68,7 @@ export default function ClientHealthScore({ score, label }: ClientHealthScorePro
             cy={SIZE / 2}
             r={RADIUS}
             fill="none"
-            stroke="rgba(255,255,255,0.04)"
+            stroke="var(--border-subtle)"
             strokeWidth={STROKE_WIDTH}
           />
 
@@ -109,7 +109,7 @@ export default function ClientHealthScore({ score, label }: ClientHealthScorePro
       {/* Label */}
       {label && (
         <motion.span
-          className="text-[11px] text-stone-400 mt-1.5 text-center"
+          className="text-xs text-[var(--content-secondary)] mt-1.5 text-center"
           initial={{ opacity: 0, y: 5 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}

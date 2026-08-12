@@ -68,21 +68,21 @@ export default function ProgramBuilder({
   return (
     <div>
       <div className="flex items-center gap-2 mb-3">
-        <ClipboardList size={15} className="text-[#D4A853]" />
-        <h3 className="text-sm font-semibold text-stone-200">{t('coach.builder.title')}</h3>
+        <ClipboardList size={15} className="text-[var(--action-primary)]" />
+        <h3 className="text-sm font-semibold text-[var(--content-primary)]">{t('coach.builder.title')}</h3>
         {activeProgram && (
-          <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#D4A853]/10 text-[#D4A853] font-medium">
+          <span className="text-xs px-2 py-0.5 rounded-full bg-[var(--action-primary)]/10 text-[var(--action-primary)] font-medium">
             {t('coach.builder.editingActive')}
           </span>
         )}
       </div>
 
       <div className="mb-3">
-        <label className="text-xs text-stone-500 mb-1 block">{t('coach.builder.client')} *</label>
+        <label className="text-xs text-[var(--content-muted)] mb-1 block">{t('coach.builder.client')} *</label>
         <select
           value={clientId}
           onChange={(e) => setClientId(e.target.value)}
-          className="input-dark w-full text-sm"
+          className="input-dark w-full text-base"
         >
           <option value="">{t('coach.builder.selectClient')}</option>
           {clients.map((c) => (
@@ -94,11 +94,11 @@ export default function ProgramBuilder({
       </div>
 
       {!clientId ? (
-        <p className="text-[10px] text-stone-600 text-center py-3">
+        <p className="text-xs text-[var(--content-muted)] text-center py-3">
           {t('coach.builder.pickClientHint')}
         </p>
       ) : programQuery.isLoading ? (
-        <div className="h-32 rounded-xl bg-white/[0.04] animate-pulse" />
+        <div className="h-32 rounded-xl bg-[var(--surface-hover)] animate-pulse" />
       ) : (
         <ProgramDraftForm
           key={`${clientId}:${activeProgram?.program.id ?? 'new'}`}
@@ -194,12 +194,12 @@ function ProgramDraftForm({
   return (
     <div>
       <div className="mb-3">
-        <label className="text-xs text-stone-500 mb-1 block">{t('coach.builder.programName')} *</label>
+        <label className="text-xs text-[var(--content-muted)] mb-1 block">{t('coach.builder.programName')} *</label>
         <input
           value={programName}
           onChange={(e) => setProgramName(e.target.value)}
           placeholder={t('coach.builder.programNamePlaceholder')}
-          className="input-dark w-full text-sm"
+          className="input-dark w-full text-base"
         />
       </div>
 
@@ -217,7 +217,7 @@ function ProgramDraftForm({
         type="button"
         onClick={save}
         disabled={!canSave}
-        className="btn-gold w-full flex items-center justify-center gap-2 disabled:opacity-40"
+        className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] btn-gold w-full flex items-center justify-center gap-2 disabled:opacity-40"
       >
         <Save size={15} />
         {assignMutation.isPending
@@ -227,7 +227,7 @@ function ProgramDraftForm({
           : t('coach.builder.assignProgram')}
       </button>
       {trainingDays === 0 && (
-        <p className="text-[10px] text-stone-600 text-center mt-2">
+        <p className="text-xs text-[var(--content-muted)] text-center mt-2">
           {t('coach.builder.addTrainingDay')}
         </p>
       )}

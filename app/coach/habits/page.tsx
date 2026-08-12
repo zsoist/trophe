@@ -1,8 +1,8 @@
 'use client';
 import { useRouter } from 'next/navigation';
 
-import { useCallback, useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
 import {
   Plus,
   Pencil,
@@ -63,6 +63,30 @@ const emptyHabit = {
   cycle_days: '21',
 };
 
+function useDialogFocus(open: boolean, onClose: () => void, dialogRef: RefObject<HTMLDivElement | null>) {
+  const previousFocus = useRef<HTMLElement | null>(null);
+  const returnFocus = useRef(onClose);
+  useEffect(() => { returnFocus.current = onClose; }, [onClose]);
+  useEffect(() => {
+    if (!open) return;
+    previousFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const dialog = dialogRef.current;
+    const focusable = () => [...(dialog?.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])') ?? [])];
+    requestAnimationFrame(() => focusable()[0]?.focus());
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return;
+      if (event.key === 'Escape') { event.preventDefault(); returnFocus.current(); return; }
+      if (event.key !== 'Tab') return;
+      const items = focusable(); if (!items.length) return;
+      const first = items[0]; const last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => { document.removeEventListener('keydown', onKeyDown); previousFocus.current?.focus(); };
+  }, [open, dialogRef]);
+}
+
 // ═══════════════════════════════════════════════
 // Main Component
 // ═══════════════════════════════════════════════
@@ -80,6 +104,9 @@ export default function HabitsPage() {
   const [deleting, setDeleting] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [filterCategory, setFilterCategory] = useState<string>('all');
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const reducedMotion = useReducedMotion();
+  useDialogFocus(showForm, () => setShowForm(false), dialogRef);
 
   const loadData = useCallback(async () => {
     try {
@@ -207,24 +234,24 @@ export default function HabitsPage() {
     : habits.filter((h) => h.category === filterCategory);
 
   return (
-    <div className="min-h-screen pb-20 px-4 py-6 sm:px-6 lg:px-8" style={{ background: 'var(--bg,#0a0a0a)' }}>
+    <div data-coach-mobile-workspace className="min-h-screen min-w-0 pb-20 px-4 py-6 sm:px-6 lg:px-8" style={{ background: 'var(--canvas)' }}>
       <div className="max-w-5xl mx-auto">
         <CoachNav active="/coach/habits" />
 
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
+          initial={reducedMotion ? false : { opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
         >
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-stone-100">Habit Library</h1>
-              <p className="text-stone-500 text-sm mt-1">
+              <h1 className="text-2xl sm:text-3xl font-bold text-[var(--content-primary)]">Habit Library</h1>
+              <p className="text-[var(--content-secondary)] text-sm mt-1">
                 {habits.length} habits ({habits.filter((h) => h.is_template).length} templates)
               </p>
             </div>
-            <button onClick={openCreate} className="btn-gold flex items-center gap-2 text-sm">
+            <button onClick={openCreate} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] btn-gold flex items-center gap-2 text-sm">
               <Plus size={16} /> New Habit
             </button>
           </div>
@@ -233,10 +260,10 @@ export default function HabitsPage() {
           <div className="flex gap-1.5 mb-6 overflow-x-auto pb-1">
             <button
               onClick={() => setFilterCategory('all')}
-              className={`text-xs px-3 py-1.5 rounded-full border whitespace-nowrap transition-all ${
+              className={`min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] text-xs px-3 py-1.5 rounded-full border whitespace-nowrap transition-all ${
                 filterCategory === 'all'
-                  ? 'border-[#D4A853]/40 bg-[#D4A853]/10 text-[#D4A853]'
-                  : 'border-stone-800 text-stone-500 hover:border-stone-700'
+                  ? 'border-[var(--action-primary)] bg-[var(--surface-active)] text-[var(--action-primary)]'
+                  : 'border-[var(--border-default)] text-[var(--content-secondary)] hover:border-[var(--border-default)]'
               }`}
             >
               All
@@ -245,10 +272,10 @@ export default function HabitsPage() {
               <button
                 key={cat}
                 onClick={() => setFilterCategory(cat)}
-                className={`text-xs px-3 py-1.5 rounded-full border whitespace-nowrap transition-all capitalize ${
+                className={`min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] text-xs px-3 py-1.5 rounded-full border whitespace-nowrap transition-all capitalize ${
                   filterCategory === cat
-                    ? 'border-[#D4A853]/40 bg-[#D4A853]/10 text-[#D4A853]'
-                    : 'border-stone-800 text-stone-500 hover:border-stone-700'
+                    ? 'border-[var(--action-primary)] bg-[var(--surface-active)] text-[var(--action-primary)]'
+                    : 'border-[var(--border-default)] text-[var(--content-secondary)] hover:border-[var(--border-default)]'
                 }`}
               >
                 {cat}
@@ -261,8 +288,8 @@ export default function HabitsPage() {
             <CoachLoadingSkeletons page="habits" />
           ) : filtered.length === 0 ? (
             <div className="text-center py-20">
-              <Dumbbell size={48} className="mx-auto text-stone-700 mb-4" />
-              <p className="text-stone-500">No habits found</p>
+              <Dumbbell size={48} className="mx-auto text-[var(--content-muted)] mb-4" />
+              <p className="text-[var(--content-secondary)]">No habits found</p>
             </div>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2">
@@ -278,34 +305,34 @@ export default function HabitsPage() {
                     <span className="text-2xl">{habit.emoji}</span>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <h3 className="font-medium text-stone-100 truncate">{habit.name_en}</h3>
+                        <h3 className="font-medium text-[var(--content-primary)] truncate">{habit.name_en}</h3>
                         {habit.is_template && (
-                          <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-white/5 text-stone-500">
+                          <span className="text-xs font-semibold px-1.5 py-0.5 rounded bg-[var(--surface-2)] text-[var(--content-secondary)]">
                             TEMPLATE
                           </span>
                         )}
                       </div>
                       {habit.name_es && (
-                        <div className="text-xs text-stone-500 truncate">{habit.name_es}</div>
+                        <div className="text-xs text-[var(--content-secondary)] truncate">{habit.name_es}</div>
                       )}
                       {habit.description_en && (
-                        <p className="text-xs text-stone-400 mt-1 line-clamp-2">{habit.description_en}</p>
+                        <p className="text-xs text-[var(--content-secondary)] mt-1 line-clamp-2">{habit.description_en}</p>
                       )}
                       <div className="flex items-center gap-2 mt-2 flex-wrap">
                         {habit.category && (
-                          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full capitalize ${categoryColors[habit.category]}`}>
+                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${categoryColors[habit.category]}`}>
                             {habit.category}
                           </span>
                         )}
-                        <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full capitalize ${difficultyColors[habit.difficulty]}`}>
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${difficultyColors[habit.difficulty]}`}>
                           {habit.difficulty}
                         </span>
                         {habit.target_value && (
-                          <span className="text-[10px] text-stone-500">
+                          <span className="text-xs text-[var(--content-secondary)]">
                             Target: {habit.target_value} {habit.target_unit || ''}
                           </span>
                         )}
-                        <span className="text-[10px] text-stone-600">
+                        <span className="text-xs text-[var(--content-muted)]">
                           {habit.cycle_days}d cycle
                         </span>
                       </div>
@@ -314,14 +341,16 @@ export default function HabitsPage() {
                     <div className="flex gap-1 shrink-0">
                       <button
                         onClick={() => openEdit(habit)}
-                        className="p-1.5 rounded-lg hover:bg-white/5 text-stone-500 hover:text-stone-300 transition-colors"
+                        aria-label={`Edit ${habit.name_en}`}
+                        className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] p-1.5 rounded-lg hover:bg-[var(--surface-2)] text-[var(--content-secondary)] hover:text-[var(--content-primary)] transition-colors"
                       >
                         <Pencil size={14} />
                       </button>
                       {!habit.is_template && (
                         <button
                           onClick={() => deleteHabit(habit.id)}
-                          className="p-1.5 rounded-lg hover:bg-red-500/10 text-stone-500 hover:text-red-400 transition-colors"
+                          aria-label={`Delete ${habit.name_en}`}
+                          className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] p-1.5 rounded-lg hover:bg-red-500/10 text-[var(--content-secondary)] hover:text-red-400 transition-colors"
                         >
                           <Trash2 size={14} />
                         </button>
@@ -349,17 +378,21 @@ export default function HabitsPage() {
 
         {/* ─── Create/Edit Modal ─── */}
         {showForm && (
-          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[var(--surface-overlay)] backdrop-blur-sm p-4">
             <motion.div
-              initial={{ opacity: 0, y: 40 }}
+              ref={dialogRef}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="habit-dialog-title"
+              initial={reducedMotion ? false : { opacity: 0, y: 40 }}
               animate={{ opacity: 1, y: 0 }}
-              className="glass-elevated p-5 w-full max-w-lg max-h-[85vh] overflow-y-auto"
+              className="glass-elevated safe-bottom p-5 w-full max-w-lg max-h-[85vh] overflow-y-auto"
             >
               <div className="flex items-center justify-between mb-5">
-                <h3 className="font-semibold text-stone-100 text-lg">
+                <h3 id="habit-dialog-title" className="font-semibold text-[var(--content-primary)] text-lg">
                   {editingId ? 'Edit Habit' : 'Create New Habit'}
                 </h3>
-                <button onClick={() => setShowForm(false)} className="text-stone-500 hover:text-stone-300">
+                <button onClick={() => setShowForm(false)} aria-label="Close habit editor" className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] text-[var(--content-secondary)] hover:text-[var(--content-primary)]">
                   <X size={18} />
                 </button>
               </div>
@@ -368,22 +401,22 @@ export default function HabitsPage() {
                 {/* Emoji + Name EN */}
                 <div className="grid grid-cols-[60px_1fr] gap-3">
                   <div>
-                    <label className="text-xs text-stone-500 mb-1 block">Emoji</label>
+                    <label className="text-xs text-[var(--content-secondary)] mb-1 block">Emoji</label>
                     <input
                       value={form.emoji}
                       onChange={(e) => setForm({ ...form, emoji: e.target.value })}
                       placeholder={t('habits.emoji_placeholder')}
-                      className="input-dark text-center text-xl"
+                      className="text-base input-dark text-center text-xl"
                       maxLength={4}
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-stone-500 mb-1 block">Name (English) *</label>
+                    <label className="text-xs text-[var(--content-secondary)] mb-1 block">Name (English) *</label>
                     <input
                       value={form.name_en}
                       onChange={(e) => setForm({ ...form, name_en: e.target.value })}
                       placeholder="Drink 2L water daily"
-                      className="input-dark"
+                      className="text-base input-dark"
                     />
                   </div>
                 </div>
@@ -391,32 +424,32 @@ export default function HabitsPage() {
                 {/* Name ES + EL */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs text-stone-500 mb-1 block">Name (Spanish)</label>
+                    <label className="text-xs text-[var(--content-secondary)] mb-1 block">Name (Spanish)</label>
                     <input
                       value={form.name_es}
                       onChange={(e) => setForm({ ...form, name_es: e.target.value })}
                       placeholder="Beber 2L de agua"
-                      className="input-dark"
+                      className="text-base input-dark"
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-stone-500 mb-1 block">Name (Greek)</label>
+                    <label className="text-xs text-[var(--content-secondary)] mb-1 block">Name (Greek)</label>
                     <input
                       value={form.name_el}
                       onChange={(e) => setForm({ ...form, name_el: e.target.value })}
-                      className="input-dark"
+                      className="text-base input-dark"
                     />
                   </div>
                 </div>
 
                 {/* Description */}
                 <div>
-                  <label className="text-xs text-stone-500 mb-1 block">Description</label>
+                  <label className="text-xs text-[var(--content-secondary)] mb-1 block">Description</label>
                   <textarea
                     value={form.description_en}
                     onChange={(e) => setForm({ ...form, description_en: e.target.value })}
                     placeholder="Why this habit matters and how to do it..."
-                    className="input-dark resize-none"
+                    className="text-base input-dark resize-none"
                     rows={3}
                   />
                 </div>
@@ -424,26 +457,26 @@ export default function HabitsPage() {
                 {/* Category + Difficulty */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs text-stone-500 mb-1 block">Category</label>
+                    <label className="text-xs text-[var(--content-secondary)] mb-1 block">Category</label>
                     <select
                       value={form.category}
                       onChange={(e) => setForm({ ...form, category: e.target.value as HabitCategory })}
-                      className="input-dark capitalize"
+                      className="text-base input-dark capitalize"
                     >
                       {categories.map((c) => (
-                        <option key={c} value={c} className="bg-stone-900 capitalize">{c}</option>
+                        <option key={c} value={c} className="bg-[var(--surface-1)] capitalize">{c}</option>
                       ))}
                     </select>
                   </div>
                   <div>
-                    <label className="text-xs text-stone-500 mb-1 block">Difficulty</label>
+                    <label className="text-xs text-[var(--content-secondary)] mb-1 block">Difficulty</label>
                     <select
                       value={form.difficulty}
                       onChange={(e) => setForm({ ...form, difficulty: e.target.value as HabitDifficulty })}
-                      className="input-dark capitalize"
+                      className="text-base input-dark capitalize"
                     >
                       {difficulties.map((d) => (
-                        <option key={d} value={d} className="bg-stone-900 capitalize">{d}</option>
+                        <option key={d} value={d} className="bg-[var(--surface-1)] capitalize">{d}</option>
                       ))}
                     </select>
                   </div>
@@ -452,32 +485,32 @@ export default function HabitsPage() {
                 {/* Target + Unit + Cycle */}
                 <div className="grid grid-cols-3 gap-3">
                   <div>
-                    <label className="text-xs text-stone-500 mb-1 block">Target Value</label>
+                    <label className="text-xs text-[var(--content-secondary)] mb-1 block">Target Value</label>
                     <input
                       value={form.target_value}
                       onChange={(e) => setForm({ ...form, target_value: e.target.value })}
                       placeholder="2000"
                       type="number"
-                      className="input-dark"
+                      className="text-base input-dark"
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-stone-500 mb-1 block">Unit</label>
+                    <label className="text-xs text-[var(--content-secondary)] mb-1 block">Unit</label>
                     <input
                       value={form.target_unit}
                       onChange={(e) => setForm({ ...form, target_unit: e.target.value })}
                       placeholder="ml"
-                      className="input-dark"
+                      className="text-base input-dark"
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-stone-500 mb-1 block">Cycle Days</label>
+                    <label className="text-xs text-[var(--content-secondary)] mb-1 block">Cycle Days</label>
                     <input
                       value={form.cycle_days}
                       onChange={(e) => setForm({ ...form, cycle_days: e.target.value })}
                       placeholder="21"
                       type="number"
-                      className="input-dark"
+                      className="text-base input-dark"
                     />
                   </div>
                 </div>
@@ -486,7 +519,7 @@ export default function HabitsPage() {
                 <button
                   onClick={saveHabit}
                   disabled={saving || !form.name_en.trim() || !form.emoji.trim()}
-                  className="btn-gold w-full flex items-center justify-center gap-2 disabled:opacity-40"
+                  className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] btn-gold w-full flex items-center justify-center gap-2 disabled:opacity-40"
                 >
                   <Save size={16} />
                   {saving ? 'Saving...' : editingId ? 'Update Habit' : 'Create Habit'}

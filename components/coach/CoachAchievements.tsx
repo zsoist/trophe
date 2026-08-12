@@ -44,17 +44,17 @@ export default function CoachAchievements({ achievements }: CoachAchievementsPro
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-lg font-bold text-stone-100">Achievements</h3>
-          <p className="text-xs text-stone-500">
+          <h3 className="text-lg font-bold text-[var(--content-primary)]">Achievements</h3>
+          <p className="text-xs text-[var(--content-muted)]">
             {unlockedCount}/{badges.length} unlocked
           </p>
         </div>
         <div
           className="px-3 py-1 rounded-full text-xs font-semibold"
           style={{
-            background: 'rgba(212,168,83,0.12)',
-            color: '#D4A853',
-            border: '1px solid rgba(212,168,83,0.2)',
+            background: 'var(--status-warning-bg)',
+            color: 'var(--action-primary)',
+            border: '1px solid var(--status-warning-bg)',
           }}
         >
           Level {Math.floor(unlockedCount / 3) + 1}
@@ -79,13 +79,13 @@ export default function CoachAchievements({ achievements }: CoachAchievementsPro
             className="relative flex flex-col items-center py-4 px-2 rounded-xl text-center transition-shadow duration-300"
             style={{
               background: badge.unlocked
-                ? 'rgba(212,168,83,0.06)'
-                : 'rgba(255,255,255,0.02)',
+                ? 'var(--status-warning-bg)'
+                : 'var(--border-subtle)',
               border: badge.unlocked
-                ? '1px solid rgba(212,168,83,0.2)'
-                : '1px solid rgba(255,255,255,0.04)',
+                ? '1px solid var(--status-warning-bg)'
+                : '1px solid var(--border-subtle)',
               boxShadow: badge.unlocked
-                ? '0 0 20px rgba(212,168,83,0.08)'
+                ? '0 0 20px var(--status-warning-bg)'
                 : 'none',
               filter: badge.unlocked ? 'none' : 'grayscale(1)',
             }}
@@ -93,7 +93,7 @@ export default function CoachAchievements({ achievements }: CoachAchievementsPro
             {/* Lock overlay for locked badges */}
             {!badge.unlocked && (
               <div className="absolute inset-0 flex items-center justify-center rounded-xl z-10">
-                <Lock size={16} className="opacity-40" style={{ color: 'var(--t4,#78716C)' }} aria-hidden />
+                <Lock size={16} className="opacity-40" style={{ color: 'var(--content-muted)' }} aria-hidden />
               </div>
             )}
 
@@ -104,14 +104,14 @@ export default function CoachAchievements({ achievements }: CoachAchievementsPro
               whileHover={badge.unlocked ? { rotate: [0, -10, 10, 0] } : undefined}
               transition={{ duration: 0.4 }}
             >
-              <badge.icon size={22} style={{ color: badge.unlocked ? 'var(--gold-300,#D4A853)' : 'var(--t4,#78716C)' }} aria-hidden />
+              <badge.icon size={22} style={{ color: badge.unlocked ? 'var(--action-primary)' : 'var(--content-muted)' }} aria-hidden />
             </motion.span>
 
             {/* Name */}
             <span
-              className="text-[10px] font-semibold leading-tight"
+              className="text-xs font-semibold leading-tight"
               style={{
-                color: badge.unlocked ? '#D4A853' : 'rgba(168,162,158,0.4)',
+                color: badge.unlocked ? 'var(--action-primary)' : 'var(--border-strong)',
               }}
             >
               {badge.name}
@@ -119,7 +119,7 @@ export default function CoachAchievements({ achievements }: CoachAchievementsPro
 
             {/* Unlocked date */}
             {badge.unlocked && badge.unlockedAt && (
-              <span className="text-[8px] text-stone-600 mt-0.5">
+              <span className="text-xs text-[var(--content-muted)] mt-0.5">
                 {new Date(badge.unlockedAt).toLocaleDateString('en-US', {
                   month: 'short',
                   day: 'numeric',
@@ -132,13 +132,13 @@ export default function CoachAchievements({ achievements }: CoachAchievementsPro
               <motion.div
                 className="absolute inset-0 rounded-xl pointer-events-none"
                 style={{
-                  boxShadow: '0 0 15px rgba(212,168,83,0.12), inset 0 0 15px rgba(212,168,83,0.04)',
+                  boxShadow: '0 0 15px var(--status-warning-bg), inset 0 0 15px var(--status-warning-bg)',
                 }}
                 animate={{
                   boxShadow: [
-                    '0 0 15px rgba(212,168,83,0.12), inset 0 0 15px rgba(212,168,83,0.04)',
-                    '0 0 25px rgba(212,168,83,0.18), inset 0 0 20px rgba(212,168,83,0.06)',
-                    '0 0 15px rgba(212,168,83,0.12), inset 0 0 15px rgba(212,168,83,0.04)',
+                    '0 0 15px var(--status-warning-bg), inset 0 0 15px var(--status-warning-bg)',
+                    '0 0 25px var(--status-warning-bg), inset 0 0 20px var(--status-warning-bg)',
+                    '0 0 15px var(--status-warning-bg), inset 0 0 15px var(--status-warning-bg)',
                   ],
                 }}
                 transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}

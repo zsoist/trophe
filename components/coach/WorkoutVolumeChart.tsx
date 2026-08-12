@@ -21,12 +21,12 @@ export default memo(function WorkoutVolumeChart({ weeks }: WorkoutVolumeChartPro
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        className="bg-white/[0.04] border border-white/[0.06] rounded-xl p-4"
+        className="bg-[var(--surface-hover)] border border-[var(--border-subtle)] rounded-xl p-4"
       >
-        <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider mb-3">
+        <h3 className="text-[var(--content-secondary)] text-xs font-semibold uppercase tracking-wider mb-3">
           Training Volume
         </h3>
-        <p className="text-stone-500 text-xs text-center py-4">No training data</p>
+        <p className="text-[var(--content-muted)] text-xs text-center py-4">No training data</p>
       </motion.div>
     );
   }
@@ -60,9 +60,9 @@ export default memo(function WorkoutVolumeChart({ weeks }: WorkoutVolumeChartPro
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="bg-white/[0.04] border border-white/[0.06] rounded-xl p-4"
+      className="bg-[var(--surface-hover)] border border-[var(--border-subtle)] rounded-xl p-4"
     >
-      <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider mb-3">
+      <h3 className="text-[var(--content-secondary)] text-xs font-semibold uppercase tracking-wider mb-3">
         Training Volume
       </h3>
 
@@ -86,7 +86,7 @@ export default memo(function WorkoutVolumeChart({ weeks }: WorkoutVolumeChartPro
                 width={barW}
                 height={barH}
                 rx={4}
-                fill={hoveredIdx === i ? '#D4A853' : 'rgba(212, 168, 83, 0.6)'}
+                fill={hoveredIdx === i ? 'var(--action-primary)' : 'var(--status-warning-border)'}
                 initial={{ height: 0, y: padY + chartH }}
                 animate={{ height: barH, y }}
                 transition={{ delay: i * 0.06, duration: 0.5, ease: 'easeOut' }}
@@ -97,7 +97,7 @@ export default memo(function WorkoutVolumeChart({ weeks }: WorkoutVolumeChartPro
                 x={x + barW / 2}
                 y={h - padBottom + 14}
                 textAnchor="middle"
-                fill="#78716c"
+                fill="var(--data-neutral)"
                 fontSize={8}
                 fontFamily="sans-serif"
               >
@@ -110,7 +110,7 @@ export default memo(function WorkoutVolumeChart({ weeks }: WorkoutVolumeChartPro
                   x={x + barW / 2}
                   y={y - 6}
                   textAnchor="middle"
-                  fill="#D4A853"
+                  fill="var(--action-primary)"
                   fontSize={9}
                   fontWeight="bold"
                 >
@@ -126,7 +126,7 @@ export default memo(function WorkoutVolumeChart({ weeks }: WorkoutVolumeChartPro
           <motion.path
             d={trendPath}
             fill="none"
-            stroke="rgba(212, 168, 83, 0.3)"
+            stroke="var(--status-warning-border)"
             strokeWidth={1.5}
             strokeDasharray="4 2"
             strokeLinecap="round"

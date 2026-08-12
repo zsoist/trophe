@@ -17,19 +17,19 @@ interface InsightChipsProps {
 
 const TYPE_STYLES: Record<InsightType, { bg: string; text: string; border: string }> = {
   positive: {
-    bg: 'rgba(74, 222, 128, 0.1)',
-    text: '#4ade80',
-    border: 'rgba(74, 222, 128, 0.2)',
+    bg: 'var(--status-success-bg)',
+    text: 'var(--status-success-fg)',
+    border: 'var(--status-success-bg)',
   },
   warning: {
-    bg: 'rgba(251, 191, 36, 0.1)',
-    text: '#fbbf24',
-    border: 'rgba(251, 191, 36, 0.2)',
+    bg: 'var(--status-warning-bg)',
+    text: 'var(--status-warning-fg)',
+    border: 'var(--status-warning-bg)',
   },
   info: {
-    bg: 'rgba(96, 165, 250, 0.1)',
-    text: '#60a5fa',
-    border: 'rgba(96, 165, 250, 0.2)',
+    bg: 'var(--status-info-bg)',
+    text: 'var(--status-info-fg)',
+    border: 'var(--status-info-bg)',
   },
 };
 

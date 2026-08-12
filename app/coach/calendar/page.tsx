@@ -8,7 +8,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { Check, X, ArrowRight } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { Icon } from '@/components/ui';
@@ -27,6 +27,7 @@ const fromHHMM = (v: string) => { const [h, m] = v.split(':').map(Number); retur
 
 export default function CoachCalendarPage() {
   const router = useRouter();
+  const reducedMotion = useReducedMotion();
   const [coachId, setCoachId] = useState<string | null>(null);
   const [windows, setWindows] = useState<Window_[]>([]);
   const [timeOff, setTimeOff] = useState<TimeOff[]>([]);
@@ -116,13 +117,13 @@ export default function CoachCalendarPage() {
   };
 
   return (
-    <div className="min-h-screen" style={{ background: 'var(--bg,#0a0a0a)', paddingBottom: 40 }}>
+    <div data-coach-mobile-workspace className="min-h-screen min-w-0" style={{ background: 'var(--canvas)', paddingBottom: 40 }}>
       <motion.div
-        className="max-w-md lg:max-w-3xl mx-auto px-4 pt-3"
-        initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}
+        className="max-w-md lg:max-w-3xl mx-auto min-w-0 px-4 pt-3"
+        initial={reducedMotion ? false : { opacity: 0, y: 10 }} animate={reducedMotion ? undefined : { opacity: 1, y: 0 }} transition={{ duration: 0.3 }}
       >
         <div className="row-b" style={{ marginBottom: 14 }}>
-          <button onClick={() => router.back()} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--t3)' }}>
+          <button aria-label="Go back" onClick={() => router.back()} className="min-h-11 min-w-11 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)]" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--content-secondary)' }}>
             <Icon name="i-chev-l" size={16} />
           </button>
           <span className="eye-d">Calendar &amp; Availability</span>
@@ -144,19 +145,19 @@ export default function CoachCalendarPage() {
               {appts.filter((a) => a.status === 'booked').map((a) => (
                 <div key={a.id} className="card row-b" style={{ padding: '10px 12px' }}>
                   <div>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--t1)' }}>{a.client_name}</div>
-                    <div className="ds-sub" style={{ fontSize: 10 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--content-primary)' }}>{a.client_name}</div>
+                    <div className="ds-sub" style={{ fontSize: 12 }}>
                       {new Date(a.starts_at).toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                       {' · '}{a.duration_min}min · {a.kind}
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: 6 }}>
                     <button onClick={() => setApptStatus(a.id, 'completed')} title="Mark completed" aria-label="Mark completed"
-                      style={{ background: 'none', border: '1px solid rgba(101,211,135,.3)', borderRadius: 8, padding: '6px 10px', color: 'var(--ok,#65D387)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }}>
+                      className="min-h-11 min-w-11 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)]" style={{ background: 'var(--status-success-surface)', border: '1px solid var(--status-success-border)', borderRadius: 8, color: 'var(--status-success-foreground)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
                       <Check size={13} aria-hidden />
                     </button>
                     <button onClick={() => setApptStatus(a.id, 'cancelled')} title="Cancel" aria-label="Cancel appointment"
-                      style={{ background: 'none', border: '1px solid rgba(239,68,68,.3)', borderRadius: 8, padding: '6px 10px', color: 'var(--err,#E87A6E)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }}>
+                      className="min-h-11 min-w-11 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)]" style={{ background: 'var(--status-danger-surface)', border: '1px solid var(--status-danger-border)', borderRadius: 8, color: 'var(--status-danger-foreground)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
                       <X size={13} aria-hidden />
                     </button>
                   </div>
@@ -172,11 +173,11 @@ export default function CoachCalendarPage() {
                 return (
                   <div key={day} style={{ marginBottom: 8 }}>
                     <div className="row-b" style={{ marginBottom: 4 }}>
-                      <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', fontWeight: 700, color: dayWindows.length ? 'var(--t1)' : 'var(--t4)' }}>
+                      <span style={{ fontSize: 12, fontFamily: 'var(--font-mono)', fontWeight: 700, color: dayWindows.length ? 'var(--content-primary)' : 'var(--content-muted)' }}>
                         {label}
                       </span>
-                      <button onClick={() => addWindow(day)}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--gold-300,#D4A853)', fontSize: 10, fontFamily: 'var(--font-mono)' }}>
+                      <button onClick={() => addWindow(day)} className="min-h-11 px-3 text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)]"
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--action-primary)', fontFamily: 'var(--font-mono)' }}>
                         + window
                       </button>
                     </div>
@@ -184,13 +185,13 @@ export default function CoachCalendarPage() {
                       <div key={w.id} className="row-i" style={{ gap: 6, marginBottom: 4 }}>
                         <input type="time" value={toHHMM(w.start_minute)}
                           onChange={(e) => updateWindow(w.id, { start_minute: fromHHMM(e.target.value) })}
-                          className="input-dark text-xs py-1" style={{ width: 92 }} />
-                        <ArrowRight size={11} style={{ color: 'var(--t4)', flexShrink: 0 }} aria-hidden />
+                          className="input-dark min-h-11 text-base" style={{ width: 92 }} />
+                        <ArrowRight size={12} style={{ color: 'var(--content-muted)', flexShrink: 0 }} aria-hidden />
                         <input type="time" value={toHHMM(w.end_minute)}
                           onChange={(e) => updateWindow(w.id, { end_minute: fromHHMM(e.target.value) })}
-                          className="input-dark text-xs py-1" style={{ width: 92 }} />
-                        <button onClick={() => removeWindow(w.id)}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--t4)', padding: 2 }}>
+                          className="input-dark min-h-11 text-base" style={{ width: 92 }} />
+                        <button aria-label={`Remove ${label} availability window`} onClick={() => removeWindow(w.id)} className="min-h-11 min-w-11 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)]"
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--content-muted)' }}>
                           <Icon name="i-x" size={12} />
                         </button>
                       </div>
@@ -205,27 +206,27 @@ export default function CoachCalendarPage() {
             <div className="card" style={{ padding: 12, marginBottom: 18 }}>
               {timeOff.map((t) => (
                 <div key={t.id} className="row-b" style={{ marginBottom: 6 }}>
-                  <span style={{ fontSize: 11, color: 'var(--t2)' }}>
+                  <span style={{ fontSize: 12, color: 'var(--content-secondary)' }}>
                     {t.starts_on} → {t.ends_on}{t.reason ? ` · ${t.reason}` : ''}
                   </span>
-                  <button onClick={() => removeTimeOff(t.id)}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--t4)' }}>
+                  <button aria-label="Remove time off" onClick={() => removeTimeOff(t.id)} className="min-h-11 min-w-11 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)]"
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--content-muted)' }}>
                     <Icon name="i-x" size={12} />
                   </button>
                 </div>
               ))}
               <div className="row-i" style={{ gap: 6, flexWrap: 'wrap' }}>
                 <input type="date" value={newOff.from} onChange={(e) => setNewOff((o) => ({ ...o, from: e.target.value }))}
-                  className="input-dark text-xs py-1" style={{ width: 130 }} />
+                  className="input-dark min-h-11 text-base" style={{ width: 130 }} />
                 <input type="date" value={newOff.to} onChange={(e) => setNewOff((o) => ({ ...o, to: e.target.value }))}
-                  className="input-dark text-xs py-1" style={{ width: 130 }} />
+                  className="input-dark min-h-11 text-base" style={{ width: 130 }} />
                 <input placeholder="reason (optional)" value={newOff.reason} onChange={(e) => setNewOff((o) => ({ ...o, reason: e.target.value }))}
-                  className="input-dark text-xs py-1" style={{ flex: 1, minWidth: 100 }} />
-                <button onClick={addTimeOff} disabled={!newOff.from || !newOff.to}
+                  className="input-dark min-h-11 text-base" style={{ flex: 1, minWidth: 100 }} />
+                <button onClick={addTimeOff} disabled={!newOff.from || !newOff.to} className="min-h-11 px-4 text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)]"
                   style={{
-                    background: newOff.from && newOff.to ? 'var(--gold-300,#D4A853)' : 'rgba(255,255,255,.06)',
-                    color: newOff.from && newOff.to ? '#0a0a0a' : 'var(--t4)',
-                    border: 'none', borderRadius: 8, padding: '5px 12px', fontSize: 10,
+                    background: newOff.from && newOff.to ? 'var(--action-primary)' : 'var(--surface-active)',
+                    color: newOff.from && newOff.to ? 'var(--action-on-primary)' : 'var(--content-muted)',
+                    border: 'none', borderRadius: 8,
                     fontFamily: 'var(--font-mono)', fontWeight: 700, cursor: 'pointer',
                   }}>
                   ADD
@@ -241,19 +242,19 @@ export default function CoachCalendarPage() {
                 onChange={(e) => setInstructions(e.target.value)}
                 placeholder="e.g. Bring recent blood work. No food or drink (water is fine) for 3h before. Please cancel at least 24h ahead or a fee applies."
                 rows={4}
-                className="input-dark w-full text-sm"
+                className="input-dark min-h-11 w-full text-base"
                 style={{ resize: 'vertical', marginBottom: 8 }}
               />
               <div className="row-b">
-                <span className="ds-sub" style={{ fontSize: 10 }}>Clients see this on the booking page.</span>
-                <button onClick={saveInstructions}
-                  style={{ background: instrSaved ? 'rgba(101,211,135,.15)' : 'var(--gold-300,#D4A853)', color: instrSaved ? 'var(--ok,#65D387)' : '#0a0a0a', border: 'none', borderRadius: 8, padding: '6px 14px', fontSize: 10, fontFamily: 'var(--font-mono)', fontWeight: 700, cursor: 'pointer', textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <span className="ds-sub" style={{ fontSize: 12 }}>Clients see this on the booking page.</span>
+                <button onClick={saveInstructions} className="min-h-11 px-4 text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)]"
+                  style={{ background: instrSaved ? 'var(--status-success-surface)' : 'var(--action-primary)', color: instrSaved ? 'var(--status-success-foreground)' : 'var(--action-on-primary)', border: 'none', borderRadius: 8, fontFamily: 'var(--font-mono)', fontWeight: 700, cursor: 'pointer', textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                   {instrSaved ? <><Check size={11} aria-hidden /> Saved</> : 'Save'}
                 </button>
               </div>
             </div>
 
-            <div className="ds-sub" style={{ fontSize: 10, lineHeight: 1.5 }}>
+            <div className="ds-sub" style={{ fontSize: 12, lineHeight: 1.5 }}>
               Clients book within your windows. Cancellations under 24h are flagged
               automatically so you can apply your late-cancellation policy.
             </div>

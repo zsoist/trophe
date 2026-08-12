@@ -64,7 +64,7 @@ const CARDS = [
     key: 'totalClients' as const,
     label: 'Total Clients',
     icon: Users,
-    color: '#D4A853',
+    color: 'var(--action-primary)',
     suffix: '',
     explain: 'All clients currently assigned to you.',
   },
@@ -72,7 +72,7 @@ const CARDS = [
     key: 'avgCompliance' as const,
     label: 'Avg Compliance',
     icon: TrendingUp,
-    color: '#4ade80',
+    color: 'var(--status-success-fg)',
     suffix: '%',
     explain: 'Average habit-cycle completion across clients with an active habit (current streak ÷ cycle length).',
   },
@@ -80,7 +80,7 @@ const CARDS = [
     key: 'checkinsThisWeek' as const,
     label: 'Check-ins',
     icon: ClipboardCheck,
-    color: '#60a5fa',
+    color: 'var(--status-info-fg)',
     suffix: '',
     explain: 'Total habit check-ins from all your clients this week.',
   },
@@ -88,7 +88,7 @@ const CARDS = [
     key: 'needsAttention' as const,
     label: 'Need Attention',
     icon: AlertTriangle,
-    color: '#f87171',
+    color: 'var(--status-danger-fg)',
     suffix: '',
     explain: 'Clients flagged red or with no check-in for 3+ days.',
   },
@@ -105,7 +105,7 @@ export default memo(function WeeklyPulseCards({ stats }: WeeklyPulseCardsProps) 
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.08, duration: 0.4 }}
-            className="bg-white/[0.04] border border-white/[0.06] rounded-xl p-4 flex flex-col items-center gap-2"
+            className="bg-[var(--surface-hover)] border border-[var(--border-subtle)] rounded-xl p-4 flex flex-col items-center gap-2"
             title={card.explain}
           >
             <div
@@ -114,10 +114,10 @@ export default memo(function WeeklyPulseCards({ stats }: WeeklyPulseCardsProps) 
             >
               <Icon size={18} style={{ color: card.color }} />
             </div>
-            <span className="text-stone-200 text-xl font-bold tabular-nums">
+            <span className="text-[var(--content-primary)] text-xl font-bold tabular-nums">
               <AnimatedCount value={stats[card.key]} suffix={card.suffix} />
             </span>
-            <span className="text-stone-500 text-[10px] uppercase tracking-wider font-medium">
+            <span className="text-[var(--content-muted)] text-xs uppercase tracking-wider font-medium">
               {card.label}
             </span>
           </motion.div>

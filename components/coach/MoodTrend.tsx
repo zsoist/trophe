@@ -30,12 +30,12 @@ export default memo(function MoodTrend({ moods }: MoodTrendProps) {
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        className="bg-white/[0.04] border border-white/[0.06] rounded-xl p-4"
+        className="bg-[var(--surface-hover)] border border-[var(--border-subtle)] rounded-xl p-4"
       >
-        <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider mb-3">
+        <h3 className="text-[var(--content-secondary)] text-xs font-semibold uppercase tracking-wider mb-3">
           Mood Trend (14d)
         </h3>
-        <p className="text-stone-500 text-xs text-center py-4">Not enough data</p>
+        <p className="text-[var(--content-muted)] text-xs text-center py-4">Not enough data</p>
       </motion.div>
     );
   }
@@ -63,9 +63,9 @@ export default memo(function MoodTrend({ moods }: MoodTrendProps) {
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="bg-white/[0.04] border border-white/[0.06] rounded-xl p-4"
+      className="bg-[var(--surface-hover)] border border-[var(--border-subtle)] rounded-xl p-4"
     >
-      <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider mb-3">
+      <h3 className="text-[var(--content-secondary)] text-xs font-semibold uppercase tracking-wider mb-3">
         Mood Trend (14d)
       </h3>
 
@@ -84,7 +84,7 @@ export default memo(function MoodTrend({ moods }: MoodTrendProps) {
               y1={y}
               x2={w - padX}
               y2={y}
-              stroke="rgba(255,255,255,0.04)"
+              stroke="var(--border-subtle)"
               strokeWidth={1}
             />
           );
@@ -94,7 +94,7 @@ export default memo(function MoodTrend({ moods }: MoodTrendProps) {
         <motion.path
           d={linePath}
           fill="none"
-          stroke="#D4A853"
+          stroke="var(--action-primary)"
           strokeWidth={2}
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -131,15 +131,15 @@ export default memo(function MoodTrend({ moods }: MoodTrendProps) {
                   width={60}
                   height={18}
                   rx={4}
-                  fill="rgba(28,25,23,0.95)"
-                  stroke="rgba(255,255,255,0.1)"
+                  fill="var(--surface-overlay)"
+                  stroke="var(--border-subtle)"
                   strokeWidth={0.5}
                 />
                 <text
                   x={p.x}
                   y={p.y - 17}
                   textAnchor="middle"
-                  fill="#a8a29e"
+                  fill="var(--data-neutral)"
                   fontSize={8}
                 >
                   {p.date}

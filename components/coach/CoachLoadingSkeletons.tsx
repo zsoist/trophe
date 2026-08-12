@@ -16,7 +16,7 @@ function Pulse({ className = '', style }: { className?: string; style?: React.CS
     <motion.div
       className={`rounded-lg ${className}`}
       style={{
-        background: 'linear-gradient(90deg, rgba(120,113,108,0.08) 0%, rgba(212,168,83,0.06) 50%, rgba(120,113,108,0.08) 100%)',
+        background: 'linear-gradient(90deg, var(--border-subtle) 0%, var(--status-warning-bg) 50%, var(--border-subtle) 100%)',
         backgroundSize: '200% 100%',
         ...style,
       }}
@@ -33,8 +33,8 @@ function GlassBox({ children, className = '' }: { children: React.ReactNode; cla
     <div
       className={`rounded-2xl p-5 ${className}`}
       style={{
-        background: 'rgba(255,255,255,0.03)',
-        border: '1px solid rgba(255,255,255,0.04)',
+        background: 'var(--border-subtle)',
+        border: '1px solid var(--border-subtle)',
       }}
     >
       {children}
@@ -205,7 +205,7 @@ function FoodsSkeleton() {
         <div
           key={i}
           className="flex items-center gap-3 py-3"
-          style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}
+          style={{ borderBottom: '1px solid var(--border-subtle)' }}
         >
           <Pulse className="w-10 h-10 rounded-lg flex-shrink-0" />
           <div className="flex-1 space-y-1.5">

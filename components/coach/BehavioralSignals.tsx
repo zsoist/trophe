@@ -17,9 +17,9 @@ interface BehavioralSignalsProps {
 }
 
 const SEVERITY_STYLES: Record<Severity, { border: string; bg: string }> = {
-  warning: { border: '#f59e0b', bg: 'rgba(245, 158, 11, 0.06)' },
-  positive: { border: '#4ade80', bg: 'rgba(74, 222, 128, 0.06)' },
-  info: { border: '#60a5fa', bg: 'rgba(96, 165, 250, 0.06)' },
+  warning: { border: 'var(--status-warning-fg)', bg: 'var(--status-warning-bg)' },
+  positive: { border: 'var(--status-success-fg)', bg: 'var(--status-success-bg)' },
+  info: { border: 'var(--status-info-fg)', bg: 'var(--status-info-bg)' },
 };
 
 export default memo(function BehavioralSignals({ signals }: BehavioralSignalsProps) {
@@ -30,9 +30,9 @@ export default memo(function BehavioralSignals({ signals }: BehavioralSignalsPro
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="bg-white/[0.04] border border-white/[0.06] rounded-xl p-4"
+      className="bg-[var(--surface-hover)] border border-[var(--border-subtle)] rounded-xl p-4"
     >
-      <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider mb-3">
+      <h3 className="text-[var(--content-secondary)] text-xs font-semibold uppercase tracking-wider mb-3">
         Behavioral Signals
       </h3>
 
@@ -52,7 +52,7 @@ export default memo(function BehavioralSignals({ signals }: BehavioralSignalsPro
               }}
             >
               <Icon name={signal.icon} size={14} className="flex-shrink-0 mt-0.5" style={{ color: style.border }} aria-hidden />
-              <span className="text-stone-300 text-xs leading-relaxed">
+              <span className="text-[var(--content-secondary)] text-xs leading-relaxed">
                 {signal.text}
               </span>
             </motion.div>
@@ -61,7 +61,7 @@ export default memo(function BehavioralSignals({ signals }: BehavioralSignalsPro
       </div>
 
       {signals.length === 0 && (
-        <p className="text-stone-500 text-xs text-center py-4">
+        <p className="text-[var(--content-muted)] text-xs text-center py-4">
           No signals detected
         </p>
       )}

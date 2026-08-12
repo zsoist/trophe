@@ -15,18 +15,18 @@ interface ClientRiskHeatmapProps {
 
 const STATUS_COLORS: Record<ClientCell['status'], { bg: string; border: string; label: string }> = {
   green: {
-    bg: 'rgba(74, 222, 128, 0.35)',
-    border: 'rgba(74, 222, 128, 0.5)',
+    bg: 'var(--status-success-border)',
+    border: 'var(--status-success-border)',
     label: 'On Track',
   },
   yellow: {
-    bg: 'rgba(212, 168, 83, 0.35)',
-    border: 'rgba(212, 168, 83, 0.5)',
+    bg: 'var(--status-warning-border)',
+    border: 'var(--status-warning-border)',
     label: 'Needs Attention',
   },
   red: {
-    bg: 'rgba(248, 113, 113, 0.35)',
-    border: 'rgba(248, 113, 113, 0.5)',
+    bg: 'var(--status-danger-border)',
+    border: 'var(--status-danger-border)',
     label: 'At Risk',
   },
 };
@@ -50,10 +50,10 @@ export default memo(function ClientRiskHeatmap({ clients }: ClientRiskHeatmapPro
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="bg-white/[0.04] border border-white/[0.06] rounded-xl p-4"
+      className="bg-[var(--surface-hover)] border border-[var(--border-subtle)] rounded-xl p-4"
     >
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider">
+        <h3 className="text-[var(--content-secondary)] text-xs font-semibold uppercase tracking-wider">
           Client Risk Map
         </h3>
         <div className="flex items-center gap-3">
@@ -63,7 +63,7 @@ export default memo(function ClientRiskHeatmap({ clients }: ClientRiskHeatmapPro
                 className="w-2.5 h-2.5 rounded-sm"
                 style={{ backgroundColor: STATUS_COLORS[status].bg }}
               />
-              <span className="text-stone-500 text-[10px]">
+              <span className="text-[var(--content-muted)] text-xs">
                 {counts[status]} {STATUS_COLORS[status].label}
               </span>
             </div>
@@ -96,9 +96,9 @@ export default memo(function ClientRiskHeatmap({ clients }: ClientRiskHeatmapPro
                   animate={{ opacity: 1, y: 0 }}
                   className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 z-20 whitespace-nowrap"
                 >
-                  <div className="bg-stone-900 border border-white/10 rounded-lg px-2.5 py-1.5 shadow-xl">
-                    <p className="text-stone-200 text-[10px] font-medium">{client.name}</p>
-                    <p className="text-stone-400 text-[9px]">
+                  <div className="bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded-lg px-2.5 py-1.5 shadow-xl">
+                    <p className="text-[var(--content-primary)] text-xs font-medium">{client.name}</p>
+                    <p className="text-[var(--content-secondary)] text-xs">
                       {client.adherence}% adherence
                     </p>
                   </div>
@@ -110,7 +110,7 @@ export default memo(function ClientRiskHeatmap({ clients }: ClientRiskHeatmapPro
       </div>
 
       {clients.length === 0 && (
-        <p className="text-stone-500 text-xs text-center py-6">No clients yet</p>
+        <p className="text-[var(--content-muted)] text-xs text-center py-6">No clients yet</p>
       )}
     </motion.div>
   );
