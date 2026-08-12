@@ -827,6 +827,7 @@ export const pt: Record<string, string> = {
   'food.take_photo': 'Tirar fotografia',
   'food.amount_input_aria': 'Quantidade de alimento',
   'food.amount_input_aria_with_unit': 'Quantidade em {unit}',
+  'food.remove_item_aria': 'Remover {name}',
   'food.estimated_portion_help': 'Não precisas de adivinhar os gramas. Escolhe o tamanho mais próximo, introduz uma quantidade ou usa uma foto.',
   'food.estimated_portion_summary': '{n} porção(ões) estimada(s) — escolhe acima um tamanho, uma quantidade ou uma foto.',
   'food.estimated_portion_count': '{n} porção(ões) estimada(s) — revê as opções acima',

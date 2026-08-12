@@ -70,6 +70,7 @@ vi.mock('@/lib/i18n', () => ({
         'food.portion_large': 'Large',
         'food.portion_medium': 'Medium',
         'food.portion_small': 'Small',
+        'food.remove_item_aria': 'Remove {name}',
         'food.stepper_decrease': 'Decrease amount',
         'food.stepper_increase': 'Increase amount',
         'food.unit.bowl_one': 'bowl',
@@ -106,7 +107,11 @@ const AJIACO: ParsedFoodItem = {
 
 const QUESTION = 'What portion size of ajiaco did you have (for example, a bowl or grams)?';
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 
 function renderAjiaco(onConfirm = vi.fn()) {
   render(React.createElement(ParsedFoodList, {
@@ -125,6 +130,7 @@ describe('ajiaco soup portion review', () => {
     const input = screen.getByRole('spinbutton', { name: 'Amount in bowl' }) as HTMLInputElement;
 
     expect(input.value).toBe('1');
+    expect(screen.getByRole('button', { name: 'Remove ajiaco santafereño' })).toBeTruthy();
     expect(screen.getByText(QUESTION)).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: /Small/ }));
@@ -151,5 +157,48 @@ describe('ajiaco soup portion review', () => {
     expect(onConfirm).toHaveBeenCalledWith([
       expect.objectContaining({ grams: 687.5, quantity: 1.25, portion_explicit: true }),
     ]);
+  });
+
+  it('tracks the rendered fixed bar height so translated notes cannot cover the last item', () => {
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      bottom: 194,
+      height: 194,
+      left: 0,
+      right: 320,
+      top: 0,
+      width: 320,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+
+    class ResizeObserverMock {
+      constructor(private readonly callback: ResizeObserverCallback) {}
+      observe(target: Element) {
+        this.callback([{
+          target,
+          // Deliberately smaller than the rendered border box. The component
+          // must include the save bar's padding and border in its inset.
+          contentRect: { height: 170 } as DOMRectReadOnly,
+          borderBoxSize: [] as unknown as ResizeObserverSize[],
+          contentBoxSize: [] as unknown as ResizeObserverSize[],
+          devicePixelContentBoxSize: [] as unknown as ResizeObserverSize[],
+        }], this as unknown as ResizeObserver);
+      }
+      disconnect() {}
+      unobserve() {}
+    }
+    vi.stubGlobal('ResizeObserver', ResizeObserverMock);
+
+    const { container } = render(React.createElement(ParsedFoodList, {
+      items: [{ ...AJIACO, calories: 400, protein_g: 2, carbs_g: 80 }],
+      clarificationQuestion: QUESTION,
+      onConfirm: vi.fn(),
+      onCancel: vi.fn(),
+      logging: false,
+    }));
+
+    expect((container.querySelector('.portion-review-list') as HTMLElement).style.paddingBottom)
+      .toBe('206px');
   });
 });

@@ -4,6 +4,15 @@ All notable changes to Trophē are logged here. Format follows [Keep a Changelog
 
 ---
 
+## [Light-mode portion review] — 2026-08-12
+
+### Changed
+- Increased light-mode contrast and type size throughout food portion review.
+- Enlarged amount and size controls while reducing nested-card padding and unused bottom space.
+
+### Fixed
+- Preserved readable, WCAG-AA macro and estimate colors in light mode without changing dark mode, natural-unit editing, macro recalculation, or confirmation behavior.
+
 ## [Soup portion review] — 2026-08-12
 
 ### Changed
