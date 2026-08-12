@@ -145,6 +145,66 @@
   --scrollbar-thumb: #2a2a2a;
   --scrollbar-hover: #333333;
   --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.3);
+
+  /* ── Semantic theme roles ── */
+  --canvas: #0A0A0A;
+  --canvas-subtle: #111111;
+  --canvas-inverse: #FAFAF9;
+  --surface-1: #141414;
+  --surface-2: #1A1A1A;
+  --surface-3: #242424;
+  --surface-hover: #222222;
+  --surface-active: #2A2A2A;
+  --surface-overlay: #1A1A1A;
+  --content-primary: #FAFAF9;
+  --content-secondary: #D6D3D1;
+  --content-muted: #A8A29E;
+  --content-inverse: #1C1917;
+  --content-disabled: #78716C;
+  --border-subtle: #242424;
+  --border-default: #333333;
+  --border-strong: #57534E;
+  --border-focus: #E8C078;
+  --action-primary: #D4A853;
+  --action-primary-hover: #E8C078;
+  --action-on-primary: #1C1917;
+  --action-secondary: #242424;
+  --focus-ring: #E8C078;
+  --status-success-fg: var(--ok);
+  --status-success-bg: #10351E;
+  --status-success-border: #246B3B;
+  --status-warning-fg: var(--warn);
+  --status-warning-bg: #3B2A12;
+  --status-warning-border: #805B25;
+  --status-danger-fg: var(--err);
+  --status-danger-bg: #3D1E1A;
+  --status-danger-border: #874136;
+  --status-info-fg: var(--info);
+  --status-info-bg: #182A43;
+  --status-info-border: #355982;
+  --data-calories: var(--m-cal, #D4A853);
+  --data-protein: var(--m-protein, #E87A6E);
+  --data-carbs: var(--m-carbs, #7DA3D9);
+  --data-fat: var(--m-fat, #B89DD9);
+  --data-fiber: var(--m-fiber, #65D387);
+  --data-sugar: var(--warn);
+  --data-neutral: #A8A29E;
+  --shadow-low: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-medium: 0 8px 24px -8px rgba(0, 0, 0, 0.5);
+  --shadow-high: 0 16px 48px -12px rgba(0, 0, 0, 0.6);
+
+  /* Existing component primitives now resolve through the semantic roles. */
+  --bg: var(--canvas);
+  --bg-1: var(--canvas-subtle);
+  --bg-2: var(--surface-1);
+  --bg-3: var(--surface-2);
+  --bg-4: var(--surface-3);
+  --t1: var(--content-primary);
+  --t2: var(--content-secondary);
+  --t3: var(--content-muted);
+  --line: var(--border-subtle);
+  --line-2: var(--border-default);
+  --line-g: var(--border-focus);
 }
 
 .light {
@@ -191,6 +251,82 @@
   --info: #1d4ed8;
   --ok:   #15803d;
   --plum: #7c3aed;
+
+  /* ── Semantic theme roles ── */
+  --canvas: #FAFAF9;
+  --canvas-subtle: #F5F5F4;
+  --canvas-inverse: #0A0A0A;
+  --surface-1: #FFFFFF;
+  --surface-2: #F5F5F4;
+  --surface-3: #E7E5E4;
+  --surface-hover: #E7E5E4;
+  --surface-active: #D6D3D1;
+  --surface-overlay: #FFFFFF;
+  --content-primary: #1C1917;
+  --content-secondary: #44403C;
+  --content-muted: #57534E;
+  --content-inverse: #FAFAF9;
+  --content-disabled: #A8A29E;
+  --border-subtle: #E7E5E4;
+  --border-default: #D6D3D1;
+  --border-strong: #A8A29E;
+  --border-focus: #7C5C19;
+  --action-primary: #8B6E2B;
+  --action-primary-hover: #5A4719;
+  --action-on-primary: #FFFFFF;
+  --action-secondary: #E7E5E4;
+  --focus-ring: #7C5C19;
+  --status-success-fg: var(--ok);
+  --status-success-bg: #E7F6EC;
+  --status-success-border: #86D3A1;
+  --status-warning-fg: var(--warn);
+  --status-warning-bg: #FFF4E5;
+  --status-warning-border: #E3B16A;
+  --status-danger-fg: var(--err);
+  --status-danger-bg: #FDECEA;
+  --status-danger-border: #E8A199;
+  --status-info-fg: var(--info);
+  --status-info-bg: #EAF1FF;
+  --status-info-border: #9DB9E8;
+  --data-calories: var(--m-cal, #8B6E2B);
+  --data-protein: var(--m-protein, #C0392B);
+  --data-carbs: var(--m-carbs, #1D4ED8);
+  --data-fat: var(--m-fat, #7C3AED);
+  --data-fiber: var(--m-fiber, #15803D);
+  --data-sugar: var(--warn);
+  --data-neutral: #57534E;
+  --shadow-low: 0 1px 2px rgba(0, 0, 0, 0.08);
+  --shadow-medium: 0 4px 16px rgba(0, 0, 0, 0.10);
+  --shadow-high: 0 16px 40px rgba(0, 0, 0, 0.14);
+
+  /* Existing component primitives now resolve through the semantic roles. */
+  --bg: var(--canvas);
+  --bg-1: var(--canvas-subtle);
+  --bg-2: var(--surface-1);
+  --bg-3: var(--surface-2);
+  --bg-4: var(--surface-3);
+  --t1: var(--content-primary);
+  --t2: var(--content-secondary);
+  --t3: var(--content-muted);
+  --line: var(--border-subtle);
+  --line-2: var(--border-default);
+  --line-g: var(--border-focus);
+}
+
+/* ─── Global interaction accessibility ─── */
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+:where(button, input, select, textarea, option):disabled,
+:where([aria-disabled='true']) {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+[aria-disabled='true'] {
+  pointer-events: none;
 }
 
 /* Light mode: make glass borders visible */
@@ -1185,6 +1321,33 @@ html[data-density='compact'] .panel-gap { margin-bottom: 8px; }
   to   { opacity: 1; transform: rotate(0deg) scale(1); }
 }
 .theme-icon-in { animation: themeIconIn 0.2s ease-out both; }
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .toast-in,
+  .toast-bar,
+  .theme-icon-in,
+  .skeleton::after {
+    animation: none !important;
+  }
+
+  .modal,
+  .sheet,
+  [role='dialog'],
+  [role='alertdialog'] {
+    transform: none !important;
+  }
+
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+  }
+}
 
 /* ─── Tag: update to flex + mono (backward compatible) ─── */
 .tag {
