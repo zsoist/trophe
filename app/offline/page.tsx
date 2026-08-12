@@ -10,6 +10,7 @@
 
 import type { Metadata } from "next";
 import { RetryButton } from "./RetryButton";
+import { ThemeModeProvider, ThemeModeToggle } from "@/components/shared/ThemeMode";
 
 export const metadata: Metadata = {
   title: "Offline — Trophē",
@@ -18,19 +19,9 @@ export const metadata: Metadata = {
 
 export default function OfflinePage() {
   return (
-    <div
-      style={{
-        minHeight: "100dvh",
-        background: "#0a0a0a",
-        color: "#FAFAF9",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "24px",
-        fontFamily: "system-ui, -apple-system, sans-serif",
-      }}
-    >
+    <ThemeModeProvider>
+    <main className="relative flex min-h-[100dvh] flex-col items-center justify-center overflow-x-hidden bg-[var(--canvas)] p-6 text-[var(--content-primary)]">
+      <div className="fixed right-4 top-4 z-20"><ThemeModeToggle /></div>
       {/* Ambient glow */}
       <div
         style={{
@@ -41,7 +32,7 @@ export default function OfflinePage() {
           width: 600,
           height: 600,
           borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(212,168,83,0.06) 0%, transparent 70%)",
+          background: "radial-gradient(circle, color-mix(in srgb, var(--action-primary) 8%, transparent) 0%, transparent 70%)",
           pointerEvents: "none",
         }}
       />
@@ -53,8 +44,8 @@ export default function OfflinePage() {
             width: 72,
             height: 72,
             borderRadius: 20,
-            background: "rgba(212,168,83,0.08)",
-            border: "1px solid rgba(212,168,83,0.2)",
+            background: "var(--surface-2)",
+            border: "1px solid var(--border-focus)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -73,8 +64,8 @@ export default function OfflinePage() {
           style={{
             fontFamily: "Georgia, 'Times New Roman', serif",
             fontStyle: "italic",
-            color: "#D4A853",
-            fontSize: 13,
+            color: "var(--action-primary)",
+            fontSize: 14,
             letterSpacing: "0.12em",
             textTransform: "uppercase",
             marginBottom: 24,
@@ -91,7 +82,7 @@ export default function OfflinePage() {
             letterSpacing: "-0.02em",
             lineHeight: 1.2,
             marginBottom: 12,
-            color: "#FAFAF9",
+            color: "var(--content-primary)",
           }}
         >
           You&rsquo;re offline
@@ -101,7 +92,7 @@ export default function OfflinePage() {
         <p
           style={{
             fontSize: 14,
-            color: "#78716C",
+            color: "var(--content-muted)",
             marginBottom: 24,
             letterSpacing: "0.02em",
           }}
@@ -113,7 +104,7 @@ export default function OfflinePage() {
         <p
           style={{
             fontSize: 15,
-            color: "#A8A29E",
+            color: "var(--content-secondary)",
             lineHeight: 1.65,
             marginBottom: 40,
           }}
@@ -126,20 +117,22 @@ export default function OfflinePage() {
         <div
           style={{
             height: 1,
-            background: "rgba(255,255,255,0.06)",
+            background: "var(--border-subtle)",
             marginBottom: 32,
           }}
         />
 
         {/* Client component: retry button with onClick */}
-        <RetryButton />
+        <div className="[&_button]:min-h-11 [&_button]:border-[var(--border-focus)] [&_button]:bg-[var(--surface-2)] [&_button]:text-[var(--action-primary)]">
+          <RetryButton />
+        </div>
 
         {/* Footer note */}
         <p
           style={{
             marginTop: 48,
-            fontSize: 11,
-            color: "#57534E",
+            fontSize: 12,
+            color: "var(--content-muted)",
             fontFamily: "monospace",
             letterSpacing: "0.08em",
             textTransform: "uppercase",
@@ -148,6 +141,7 @@ export default function OfflinePage() {
           Precision Nutrition Coaching
         </p>
       </div>
-    </div>
+    </main>
+    </ThemeModeProvider>
   );
 }

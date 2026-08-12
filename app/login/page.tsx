@@ -7,6 +7,11 @@ import Link from 'next/link';
 import { Mail, ArrowRight, Loader2, Eye, EyeOff } from 'lucide-react';
 import { submitSignup, resendConfirmation, fetchDeps } from '@/lib/auth/signup-client';
 import { authCallbackErrorNotice, confirmedLoginNotice } from '@/lib/auth/auth-messages';
+import { recoverInvalidBrowserSession } from '@/lib/auth/recover-browser-session';
+import { ThemeModeProvider, ThemeModeToggle } from '@/components/shared/ThemeMode';
+import { Button, IconButton } from '@/components/ui';
+
+const clearInvalidLocalSession = () => supabase.auth.signOut({ scope: 'local' });
 
 function safeRedirectTo(value: string | null): string | null {
   if (!value || !value.startsWith('/') || value.startsWith('//') || value.startsWith('/login')) {
@@ -52,18 +57,36 @@ function LoginForm() {
 
   // Sync mode with URL param changes; surface the post-confirmation success notice (P1).
   useEffect(() => {
-    const urlMode = searchParams.get('mode');
-    if (urlMode === 'signup') setMode('signup');
-    const callbackError = authCallbackErrorNotice(searchParams.get('error'));
-    if (callbackError) {
-      setMode('login');
-      setSuccess('');
-      setError(callbackError);
-      return;
-    }
-    const notice = confirmedLoginNotice(searchParams.get('confirmed'));
-    if (notice) { setMode('login'); setSuccess(notice); }
+    let active = true;
+    queueMicrotask(() => {
+      if (!active) return;
+      const urlMode = searchParams.get('mode');
+      if (urlMode === 'signup') setMode('signup');
+      const callbackError = authCallbackErrorNotice(searchParams.get('error'));
+      if (callbackError) {
+        setMode('login');
+        setSuccess('');
+        setError(callbackError);
+        return;
+      }
+      const notice = confirmedLoginNotice(searchParams.get('confirmed'));
+      if (notice) { setMode('login'); setSuccess(notice); }
+    });
+    return () => { active = false; };
   }, [searchParams]);
+
+  useEffect(() => {
+    let active = true;
+
+    supabase.auth.getUser().then(async ({ error: authError }) => {
+      if (!active || !authError) return;
+      await recoverInvalidBrowserSession(authError, clearInvalidLocalSession);
+    }).catch(() => {
+      // Network failures leave browser auth state untouched and the form usable.
+    });
+
+    return () => { active = false; };
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -141,7 +164,10 @@ function LoginForm() {
   }
 
   return (
-    <div className="min-h-screen bg-stone-950 flex items-center justify-center px-5">
+    <main className="relative flex min-h-screen items-center justify-center overflow-x-hidden bg-[var(--canvas)] px-5 py-20 text-[var(--content-primary)]">
+      <div className="fixed right-4 top-4 z-20">
+        <ThemeModeToggle />
+      </div>
       {/* Ambient glow */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-[#D4A853] rounded-full opacity-[0.02] blur-[120px]" />
@@ -155,7 +181,7 @@ function LoginForm() {
               trophē
             </span>
           </Link>
-          <p className="text-stone-600 text-[10px] font-mono tracking-widest uppercase mt-2">
+          <p className="mt-2 text-xs font-mono uppercase tracking-widest text-[var(--content-muted)]">
             Precision Nutrition
           </p>
         </div>
@@ -165,31 +191,31 @@ function LoginForm() {
           {pendingEmail ? (
             <div className="text-center py-4">
               <Mail size={28} className="mx-auto text-[#D4A853] mb-3" />
-              <h2 className="text-stone-200 text-base font-semibold mb-1">Check your email</h2>
-              <p className="text-stone-500 text-xs leading-relaxed mb-4">
-                We sent a confirmation link to <span className="text-stone-300">{pendingEmail}</span>. Click it to
+              <h2 className="mb-1 text-base font-semibold text-[var(--content-primary)]">Check your email</h2>
+              <p className="mb-4 text-sm leading-relaxed text-[var(--content-muted)]">
+                We sent a confirmation link to <span className="text-[var(--content-secondary)]">{pendingEmail}</span>. Click it to
                 activate your account, then come back and log in.
               </p>
-              {error && <p className="text-red-400 text-xs mb-2">{error}</p>}
-              {success && <p className="text-green-400 text-xs mb-2">{success}</p>}
-              <button type="button" onClick={handleResend} disabled={loading} className="btn-ghost w-full !py-2.5 text-xs mb-2 disabled:opacity-40">
+              {error && <p className="mb-2 text-sm text-[var(--status-danger-fg)]">{error}</p>}
+              {success && <p className="mb-2 text-sm text-[var(--status-success-fg)]">{success}</p>}
+              <Button type="button" variant="secondary" fullWidth onClick={handleResend} disabled={loading} className="mb-2">
                 {loading ? 'Sending…' : 'Resend confirmation email'}
-              </button>
-              <button type="button" onClick={() => { setPendingEmail(null); setMode('login'); setError(''); setSuccess(''); }} className="text-stone-500 hover:text-stone-300 text-xs">
+              </Button>
+              <button type="button" onClick={() => { setPendingEmail(null); setMode('login'); setError(''); setSuccess(''); }} className="min-h-11 text-sm text-[var(--content-muted)] hover:text-[var(--content-primary)]">
                 ← Back to log in
               </button>
             </div>
           ) : (<>
           {/* Mode Toggle */}
-          <div className="flex gap-0.5 bg-stone-900/60 rounded-xl p-1 mb-5">
+          <div className="mb-5 flex gap-0.5 rounded-xl bg-[var(--surface-2)] p-1">
             <button
               type="button"
               aria-pressed={mode === 'login'}
               onClick={() => { setMode('login'); setError(''); }}
-              className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${
+              className={`min-h-11 flex-1 rounded-lg text-sm font-semibold transition-all ${
                 mode === 'login'
-                  ? 'bg-[#D4A853]/12 text-[#D4A853] shadow-sm'
-                  : 'text-stone-500 hover:text-stone-300'
+                  ? 'bg-[var(--surface-1)] text-[var(--action-primary)] shadow-sm'
+                  : 'text-[var(--content-muted)] hover:text-[var(--content-primary)]'
               }`}
             >
               Log in
@@ -198,10 +224,10 @@ function LoginForm() {
               type="button"
               aria-pressed={mode === 'signup'}
               onClick={() => { setMode('signup'); setError(''); }}
-              className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${
+              className={`min-h-11 flex-1 rounded-lg text-sm font-semibold transition-all ${
                 mode === 'signup'
-                  ? 'bg-[#D4A853]/12 text-[#D4A853] shadow-sm'
-                  : 'text-stone-500 hover:text-stone-300'
+                  ? 'bg-[var(--surface-1)] text-[var(--action-primary)] shadow-sm'
+                  : 'text-[var(--content-muted)] hover:text-[var(--content-primary)]'
               }`}
             >
               Sign up
@@ -210,47 +236,59 @@ function LoginForm() {
 
           <form onSubmit={handleSubmit} className="space-y-3">
             {mode === 'signup' && (
-              <input
-                type="text"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                className="input-dark text-sm"
-                placeholder="Your name"
-                required
-                autoComplete="name"
-              />
+              <div>
+                <label htmlFor="full-name" className="mb-1.5 block text-sm font-medium text-[var(--content-secondary)]">Your name</label>
+                <input
+                  id="full-name"
+                  type="text"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  className="input-dark"
+                  placeholder="Your name"
+                  required
+                  autoComplete="name"
+                />
+              </div>
             )}
 
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="input-dark text-sm"
-              placeholder="Email"
-              required
-              autoComplete="email"
-              autoFocus
-            />
-
-            <div className="relative">
+            <div>
+              <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-[var(--content-secondary)]">Email</label>
               <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="input-dark"
+                placeholder="Email"
+                required
+                autoComplete="email"
+                autoFocus
+              />
+            </div>
+
+            <div>
+              <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-[var(--content-secondary)]">{mode === 'signup' ? 'Create password' : 'Password'}</label>
+              <div className="relative">
+              <input
+                id="password"
                 type={showPw ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="input-dark text-sm pr-10"
+                className="input-dark pr-12"
                 placeholder={mode === 'signup' ? 'Create password (8+ chars)' : 'Password'}
                 required
                 minLength={mode === 'signup' ? 8 : 6}
                 autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
               />
-              <button
+              <IconButton
                 type="button"
                 aria-label={showPw ? 'Hide password' : 'Show password'}
                 onClick={() => setShowPw(!showPw)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-600 hover:text-stone-400 transition-colors"
+                className="absolute right-0 top-1/2 -translate-y-1/2 border-0 text-[var(--content-muted)]"
               >
                 {showPw ? <EyeOff size={14} /> : <Eye size={14} />}
-              </button>
+              </IconButton>
+              </div>
             </div>
 
             {mode === 'signup' && password.length > 0 && (
@@ -259,47 +297,48 @@ function LoginForm() {
                 className="space-y-1"
                 role="status"
               >
-                <div className="h-1 overflow-hidden rounded-full bg-stone-800">
+                <div className="h-1 overflow-hidden rounded-full bg-[var(--surface-3)]">
                   <div
                     className="password-strength-fill h-full rounded-full bg-[#D4A853]"
                     style={{ width: `${strength.percent}%` }}
                   />
                 </div>
-                <p className="text-[10px] text-stone-500">
-                  Password strength: <span className="text-stone-300">{strength.label}</span>
+                <p className="text-xs text-[var(--content-muted)]">
+                  Password strength: <span className="text-[var(--content-secondary)]">{strength.label}</span>
                 </p>
               </div>
             )}
 
             {mode === 'signup' && (
-              <label className="flex gap-2 items-start text-[11px] text-stone-500 leading-relaxed py-1">
+              <label className="flex items-start gap-3 py-1 text-sm leading-relaxed text-[var(--content-muted)]">
                 <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} required className="mt-0.5" />
-                <span>I consent to trophē processing my nutrition &amp; body-composition data (special-category health data) for personalised coaching. I can withdraw anytime in Settings. See the <a href="/trust" target="_blank" className="text-[#D4A853]">Trust &amp; Data page</a>.</span>
+                <span>I consent to trophē processing my nutrition &amp; body-composition data (special-category health data) for personalised coaching. I can withdraw anytime in Settings. See the <a href="/trust" target="_blank" className="inline-flex min-h-11 items-center text-[var(--action-primary)]">Trust &amp; Data page</a>.</span>
               </label>
             )}
 
             {error && (
               <div
                 role="alert"
-                className="bg-red-500/8 border border-red-500/15 rounded-xl px-3 py-2"
+                className="rounded-xl border border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] px-3 py-2"
               >
-                <p className="text-red-400 text-xs">{error}</p>
+                <p className="text-sm text-[var(--status-danger-fg)]">{error}</p>
               </div>
             )}
 
             {success && (
               <div
                 role="status"
-                className="bg-green-500/8 border border-green-500/15 rounded-xl px-3 py-2"
+                className="rounded-xl border border-[var(--status-success-border)] bg-[var(--status-success-bg)] px-3 py-2"
               >
-                <p className="text-green-400 text-xs">{success}</p>
+                <p className="text-sm text-[var(--status-success-fg)]">{success}</p>
               </div>
             )}
 
-            <button
+            <Button
               type="submit"
               disabled={loading}
-              className="btn-gold w-full !py-3 text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
+              fullWidth
+              className="gap-2"
             >
               {loading ? (
                 <Loader2 size={14} className="animate-spin" />
@@ -309,30 +348,33 @@ function LoginForm() {
                   <ArrowRight size={14} />
                 </>
               )}
-            </button>
+            </Button>
           </form>
 
           {mode === 'login' && (
             <>
               <div className="flex items-center gap-3 my-4">
-                <div className="flex-1 h-px bg-white/[0.04]" />
-                <span className="text-stone-700 text-[10px] font-mono uppercase">or</span>
-                <div className="flex-1 h-px bg-white/[0.04]" />
+                <div className="h-px flex-1 bg-[var(--border-subtle)]" />
+                <span className="font-mono text-xs uppercase text-[var(--content-muted)]">or</span>
+                <div className="h-px flex-1 bg-[var(--border-subtle)]" />
               </div>
 
-              <button
+              <Button
+                type="button"
                 onClick={handleMagicLink}
                 disabled={loading}
-                className="btn-ghost w-full !py-2.5 text-xs flex items-center justify-center gap-2 disabled:opacity-30"
+                variant="secondary"
+                fullWidth
+                className="gap-2"
               >
                 <Mail size={13} />
                 Send magic link
-              </button>
+              </Button>
             </>
           )}
 
           {mode === 'signup' && (
-            <p className="text-stone-600 text-[10px] text-center mt-4 leading-relaxed">
+            <p className="mt-4 text-center text-xs leading-relaxed text-[var(--content-muted)]">
               Creates a client account. Coach seats by invite only.
             </p>
           )}
@@ -341,19 +383,21 @@ function LoginForm() {
 
         {/* Back to home */}
         <div className="text-center mt-6">
-          <Link href="/" className="text-stone-600 hover:text-stone-400 text-xs transition-colors no-underline">
+          <Link href="/" className="inline-flex min-h-11 items-center text-sm text-[var(--content-muted)] transition-colors hover:text-[var(--content-primary)] no-underline">
             ← Back to home
           </Link>
         </div>
       </div>
-    </div>
+    </main>
   );
 }
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-stone-950" />}>
-      <LoginForm />
-    </Suspense>
+    <ThemeModeProvider>
+      <Suspense fallback={<div className="min-h-screen bg-[var(--canvas)]" />}>
+        <LoginForm />
+      </Suspense>
+    </ThemeModeProvider>
   );
 }

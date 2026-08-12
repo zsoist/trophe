@@ -4,6 +4,8 @@ import { Suspense, useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { submitActivation, resendConfirmation, fetchDeps } from '@/lib/auth/signup-client';
+import { ThemeModeProvider, ThemeModeToggle } from '@/components/shared/ThemeMode';
+import { Button, Card } from '@/components/ui';
 
 /**
  * Client activation via a coach invite link (/activate?token=…). Plan B1.
@@ -14,7 +16,7 @@ import { submitActivation, resendConfirmation, fetchDeps } from '@/lib/auth/sign
 function ActivateForm() {
   const token = useSearchParams().get('token') ?? '';
 
-  const [state, setState] = useState<'loading' | 'invalid' | 'ready'>('loading');
+  const [state, setState] = useState<'loading' | 'invalid' | 'ready'>(token ? 'loading' : 'invalid');
   const [coachName, setCoachName] = useState('your coach');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -25,7 +27,7 @@ function ActivateForm() {
   const [pendingEmail, setPendingEmail] = useState<string | null>(null); // 202 → check-email
 
   useEffect(() => {
-    if (!token) { setState('invalid'); return; }
+    if (!token) return;
     fetch(`/api/auth/activate-client?token=${encodeURIComponent(token)}`)
       .then((r) => r.json())
       .then((d) => {
@@ -57,13 +59,13 @@ function ActivateForm() {
 
   if (pendingEmail) {
     return (
-      <div style={{ maxWidth: 420, margin: '0 auto', padding: '64px 24px', textAlign: 'center' }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 12 }}>Check your email</h1>
-        <p style={{ color: '#a8a29e', fontSize: 14, marginBottom: 20 }}>We sent a confirmation link to <span style={{ color: '#e7e5e4' }}>{pendingEmail}</span>. Click it to activate your account, then log in.</p>
-        {error && <p style={{ color: '#fca5a5', fontSize: 13, marginBottom: 12 }}>{error}</p>}
-        <button type="button" onClick={handleResend} disabled={submitting} className="btn-ghost" style={{ marginBottom: 12 }}>{submitting ? 'Sending…' : 'Resend confirmation email'}</button>
-        <div><a href="/login" style={{ color: '#a8a29e', fontSize: 13 }}>← Go to log in</a></div>
-      </div>
+      <Card className="mx-auto max-w-[420px] p-6 text-center sm:p-8">
+        <h1 className="mb-3 text-2xl font-bold">Check your email</h1>
+        <p className="mb-5 text-sm text-[var(--content-muted)]">We sent a confirmation link to <span className="text-[var(--content-secondary)]">{pendingEmail}</span>. Click it to activate your account, then log in.</p>
+        {error && <p role="alert" className="mb-3 text-sm text-[var(--status-danger-fg)]">{error}</p>}
+        <Button type="button" variant="secondary" onClick={handleResend} disabled={submitting} className="mb-3">{submitting ? 'Sending…' : 'Resend confirmation email'}</Button>
+        <div><a href="/login" className="inline-flex min-h-11 items-center text-sm text-[var(--content-muted)]">← Go to log in</a></div>
+      </Card>
     );
   }
 
@@ -72,41 +74,45 @@ function ActivateForm() {
   }
   if (state === 'invalid') {
     return (
-      <div style={{ maxWidth: 420, margin: '0 auto', padding: '64px 24px', textAlign: 'center' }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 12 }}>Invite not valid</h1>
-        <p style={{ color: '#a8a29e' }}>This invitation link is invalid or has expired. Please ask your coach to send you a new one.</p>
-      </div>
+      <Card className="mx-auto max-w-[420px] p-6 text-center sm:p-8">
+        <h1 className="mb-3 text-2xl font-bold">Invite not valid</h1>
+        <p className="text-sm text-[var(--content-muted)]">This invitation link is invalid or has expired. Please ask your coach to send you a new one.</p>
+        <a href="/login" className="mt-4 inline-flex min-h-11 items-center text-sm text-[var(--action-primary)]">Go to log in</a>
+      </Card>
     );
   }
 
   return (
-    <div style={{ maxWidth: 420, margin: '0 auto', padding: '48px 24px' }}>
-      <div style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: '.12em', color: '#D4A853', textTransform: 'uppercase', marginBottom: 8 }}>Activate your account</div>
-      <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>{coachName} invited you to trophē</h1>
-      <p style={{ color: '#a8a29e', fontSize: 14, marginBottom: 24 }}>Create your account to start working with your nutritionist.</p>
+    <Card className="mx-auto max-w-[420px] p-6 sm:p-8">
+      <div className="mb-2 font-mono text-xs uppercase tracking-[.12em] text-[var(--action-primary)]">Activate your account</div>
+      <h1 className="mb-2 text-2xl font-bold">{coachName} invited you to trophē</h1>
+      <p className="mb-6 text-sm text-[var(--content-muted)]">Create your account to start working with your nutritionist.</p>
       <form onSubmit={handleSubmit} className="space-y-3">
-        <input className="input-dark w-full" placeholder="Your name" value={fullName} onChange={(e) => setFullName(e.target.value)} required autoComplete="name" />
-        <input className="input-dark w-full" type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
-        <input className="input-dark w-full" type="password" placeholder="Create password (8+ chars)" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} autoComplete="new-password" />
-        <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 12.5, color: '#a8a29e', padding: '8px 0' }}>
-          <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} style={{ marginTop: 3 }} />
-          <span>I consent to trophē and {coachName} processing my nutrition and body-composition data (special-category health data) to provide personalised coaching. I can withdraw consent anytime from Settings. See the <a href="/trust" target="_blank" style={{ color: '#D4A853' }}>Trust &amp; Data page</a>.</span>
+        <label className="block text-sm font-medium text-[var(--content-secondary)]">Your name<input className="input-dark mt-1.5" placeholder="Your name" value={fullName} onChange={(e) => setFullName(e.target.value)} required autoComplete="name" /></label>
+        <label className="block text-sm font-medium text-[var(--content-secondary)]">Email<input className="input-dark mt-1.5" type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" /></label>
+        <label className="block text-sm font-medium text-[var(--content-secondary)]">Create password<input className="input-dark mt-1.5" type="password" placeholder="8 or more characters" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} autoComplete="new-password" /></label>
+        <label className="flex items-start gap-3 py-2 text-sm leading-relaxed text-[var(--content-muted)]">
+          <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-1" />
+          <span>I consent to trophē and {coachName} processing my nutrition and body-composition data (special-category health data) to provide personalised coaching. I can withdraw consent anytime from Settings. See the <a href="/trust" target="_blank" className="inline-flex min-h-11 items-center text-[var(--action-primary)]">Trust &amp; Data page</a>.</span>
         </label>
-        {error && <p style={{ color: '#fca5a5', fontSize: 13 }}>{error}</p>}
-        <button type="submit" className="btn-gold w-full py-3" disabled={submitting || !consent}>
+        {error && <p role="alert" className="text-sm text-[var(--status-danger-fg)]">{error}</p>}
+        <Button type="submit" fullWidth disabled={submitting || !consent}>
           {submitting ? 'Creating account…' : 'Create my account'}
-        </button>
+        </Button>
       </form>
-    </div>
+    </Card>
   );
 }
 
 export default function ActivatePage() {
   return (
-    <div style={{ background: 'var(--bg,#0a0a0a)', minHeight: '100vh', color: '#e7e5e4' }}>
-      <Suspense fallback={<div style={{ minHeight: '60vh', display: 'grid', placeItems: 'center' }}><Loader2 className="animate-spin" /></div>}>
-        <ActivateForm />
-      </Suspense>
-    </div>
+    <ThemeModeProvider>
+      <main className="relative grid min-h-screen place-items-center bg-[var(--canvas)] px-5 py-20 text-[var(--content-primary)]">
+        <div className="fixed right-4 top-4 z-20"><ThemeModeToggle /></div>
+        <Suspense fallback={<div className="grid min-h-[60vh] place-items-center"><Loader2 className="animate-spin" /></div>}>
+          <ActivateForm />
+        </Suspense>
+      </main>
+    </ThemeModeProvider>
   );
 }

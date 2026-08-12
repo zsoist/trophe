@@ -6,6 +6,7 @@
 
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { ThemeModeProvider, ThemeModeToggle } from '@/components/shared/ThemeMode';
 
 export const metadata: Metadata = {
   title: 'Pricing — trophē',
@@ -13,8 +14,8 @@ export const metadata: Metadata = {
     'Simple, transparent pricing for nutrition coaches and clinics. Coach Free forever, Coach Pro €29/mo, Clinic €99/mo per location. Launch pricing — validated with beta cohort.',
 };
 
-const GOLD = '#D4A853';
-const BG = '#0a0a0a';
+const GOLD = 'var(--action-primary)';
+const BG = 'var(--canvas)';
 
 /* ─── Tier data ─── */
 const tiers = [
@@ -104,7 +105,7 @@ const tiers = [
 function Check() {
   return (
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true" style={{ flexShrink: 0, marginTop: 2 }}>
-      <circle cx="7" cy="7" r="7" fill={`${GOLD}22`} />
+      <circle cx="7" cy="7" r="7" fill="var(--surface-active)" />
       <path d="M4 7l2 2 4-4" stroke={GOLD} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
@@ -113,8 +114,8 @@ function Check() {
 function Cross() {
   return (
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true" style={{ flexShrink: 0, marginTop: 2 }}>
-      <circle cx="7" cy="7" r="7" fill="rgba(255,255,255,0.03)" />
-      <path d="M5 5l4 4M9 5l-4 4" stroke="#57534e" strokeWidth="1.4" strokeLinecap="round" />
+      <circle cx="7" cy="7" r="7" fill="var(--surface-2)" />
+      <path d="M5 5l4 4M9 5l-4 4" stroke="var(--content-muted)" strokeWidth="1.4" strokeLinecap="round" />
     </svg>
   );
 }
@@ -130,8 +131,8 @@ function TierCard({ tier }: { tier: (typeof tiers)[number] }) {
         borderRadius: 20,
         padding: '2px',
         background: isGold
-          ? `linear-gradient(135deg, ${GOLD}55 0%, ${GOLD}22 50%, transparent 100%)`
-          : 'rgba(255,255,255,0.06)',
+          ? 'linear-gradient(135deg, var(--border-focus) 0%, var(--border-default) 50%, transparent 100%)'
+          : 'var(--border-default)',
         flex: '1 1 280px',
         maxWidth: 360,
       }}
@@ -145,8 +146,8 @@ function TierCard({ tier }: { tier: (typeof tiers)[number] }) {
             left: '50%',
             transform: 'translateX(-50%)',
             background: GOLD,
-            color: '#0a0a0a',
-            fontSize: 10,
+            color: 'var(--action-on-primary)',
+            fontSize: 12,
             fontWeight: 700,
             letterSpacing: '0.1em',
             textTransform: 'uppercase',
@@ -164,7 +165,7 @@ function TierCard({ tier }: { tier: (typeof tiers)[number] }) {
       <div
         style={{
           borderRadius: 18,
-          background: isGold ? 'rgba(15,12,8,0.95)' : 'rgba(12,12,12,0.9)',
+          background: isGold ? 'var(--surface-2)' : 'var(--surface-1)',
           padding: '28px 24px 32px',
           height: '100%',
           display: 'flex',
@@ -175,10 +176,10 @@ function TierCard({ tier }: { tier: (typeof tiers)[number] }) {
         <p
           style={{
             fontFamily: 'monospace',
-            fontSize: 10,
+            fontSize: 12,
             letterSpacing: '0.14em',
             textTransform: 'uppercase',
-            color: isGold ? GOLD : '#78716c',
+            color: isGold ? GOLD : 'var(--content-muted)',
             marginBottom: 10,
           }}
         >
@@ -187,21 +188,21 @@ function TierCard({ tier }: { tier: (typeof tiers)[number] }) {
 
         {/* Price */}
         <div style={{ marginBottom: 6 }}>
-          <span style={{ fontSize: 42, fontWeight: 800, letterSpacing: '-0.03em', color: '#f5f5f4', lineHeight: 1 }}>
+          <span style={{ fontSize: 42, fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--content-primary)', lineHeight: 1 }}>
             {tier.price}
           </span>
-          <span style={{ fontSize: 14, color: '#78716c', marginLeft: 4 }}>{tier.period}</span>
+          <span style={{ fontSize: 14, color: 'var(--content-muted)', marginLeft: 4 }}>{tier.period}</span>
         </div>
 
         {/* Yearly note */}
         {tier.yearlyNote && (
-          <p style={{ fontSize: 11, color: GOLD, marginBottom: 10, fontFamily: 'monospace' }}>
+          <p style={{ fontSize: 12, color: GOLD, marginBottom: 10, fontFamily: 'monospace' }}>
             {tier.yearlyNote}
           </p>
         )}
 
         {/* Tagline */}
-        <p style={{ fontSize: 13, color: '#a8a29e', lineHeight: 1.6, marginBottom: 24 }}>
+        <p style={{ fontSize: 14, color: 'var(--content-muted)', lineHeight: 1.6, marginBottom: 24 }}>
           {tier.tagline}
         </p>
 
@@ -210,11 +211,14 @@ function TierCard({ tier }: { tier: (typeof tiers)[number] }) {
           href={tier.ctaHref}
           {...(tier.ctaHref.startsWith('mailto:') ? {} : {})}
           style={{
-            display: 'block',
+            display: 'flex',
+            minHeight: 44,
+            alignItems: 'center',
+            justifyContent: 'center',
             textAlign: 'center',
             padding: '12px 20px',
             borderRadius: 12,
-            fontSize: 13,
+            fontSize: 14,
             fontWeight: 600,
             textDecoration: 'none',
             marginBottom: 24,
@@ -222,12 +226,12 @@ function TierCard({ tier }: { tier: (typeof tiers)[number] }) {
             ...(tier.ctaStyle === 'gold'
               ? {
                   background: GOLD,
-                  color: '#0a0a0a',
+                  color: 'var(--action-on-primary)',
                 }
               : {
                   background: 'transparent',
-                  border: `1px solid ${isGold ? `${GOLD}50` : 'rgba(255,255,255,0.10)'}`,
-                  color: isGold ? GOLD : '#d6d3d1',
+                  border: `1px solid ${isGold ? 'var(--border-focus)' : 'var(--border-default)'}`,
+                  color: isGold ? GOLD : 'var(--content-secondary)',
                 }),
           }}
         >
@@ -235,18 +239,18 @@ function TierCard({ tier }: { tier: (typeof tiers)[number] }) {
         </a>
 
         {/* Divider */}
-        <div style={{ height: 1, background: 'rgba(255,255,255,0.05)', marginBottom: 20 }} />
+        <div style={{ height: 1, background: 'var(--border-subtle)', marginBottom: 20 }} />
 
         {/* Features */}
         <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 10, flex: 1 }}>
           {tier.features.map((f) => (
-            <li key={f} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 13, color: '#d6d3d1', lineHeight: 1.5 }}>
+            <li key={f} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 14, color: 'var(--content-secondary)', lineHeight: 1.5 }}>
               <Check />
               {f}
             </li>
           ))}
           {tier.missing.map((f) => (
-            <li key={f} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 13, color: '#57534e', lineHeight: 1.5 }}>
+            <li key={f} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 14, color: 'var(--content-muted)', lineHeight: 1.5 }}>
               <Cross />
               {f}
             </li>
@@ -260,7 +264,8 @@ function TierCard({ tier }: { tier: (typeof tiers)[number] }) {
 /* ─── Page ─── */
 export default function PricingPage() {
   return (
-    <div style={{ background: BG, minHeight: '100vh', color: '#e7e5e4' }}>
+    <ThemeModeProvider>
+    <main style={{ background: BG, minHeight: '100vh', color: 'var(--content-primary)' }}>
       {/* Ambient glow */}
       <div
         aria-hidden="true"
@@ -282,13 +287,14 @@ export default function PricingPage() {
       <div style={{ maxWidth: 1040, margin: '0 auto', padding: '72px 24px 96px', position: 'relative' }}>
 
         {/* ─── Back nav ─── */}
-        <div style={{ marginBottom: 48 }}>
+        <div style={{ marginBottom: 48, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Link
             href="/"
-            style={{ fontSize: 11, fontFamily: 'monospace', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#78716c', textDecoration: 'none' }}
+            style={{ minHeight: 44, display: 'inline-flex', alignItems: 'center', fontSize: 12, fontFamily: 'monospace', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--content-muted)', textDecoration: 'none' }}
           >
             ← trophē
           </Link>
+          <ThemeModeToggle />
         </div>
 
         {/* ─── Header ─── */}
@@ -296,10 +302,10 @@ export default function PricingPage() {
           <p
             style={{
               fontFamily: 'monospace',
-              fontSize: 10,
+              fontSize: 12,
               letterSpacing: '0.16em',
               textTransform: 'uppercase',
-              color: `${GOLD}99`,
+              color: GOLD,
               marginBottom: 16,
             }}
           >
@@ -312,7 +318,7 @@ export default function PricingPage() {
               letterSpacing: '-0.02em',
               lineHeight: 1.1,
               marginBottom: 16,
-              color: '#f5f5f4',
+              color: 'var(--content-primary)',
             }}
           >
             Charge the coach,{' '}
@@ -323,7 +329,7 @@ export default function PricingPage() {
               maxWidth: 520,
               margin: '0 auto',
               fontSize: 15,
-              color: '#a8a29e',
+              color: 'var(--content-muted)',
               lineHeight: 1.7,
             }}
           >
@@ -338,10 +344,10 @@ export default function PricingPage() {
               marginTop: 20,
               padding: '8px 16px',
               borderRadius: 999,
-              border: `1px solid ${GOLD}30`,
-              background: `${GOLD}0d`,
-              fontSize: 11,
-              color: '#a8a29e',
+              border: '1px solid var(--border-focus)',
+              background: 'var(--surface-2)',
+              fontSize: 12,
+              color: 'var(--content-muted)',
               fontFamily: 'monospace',
             }}
           >
@@ -372,15 +378,15 @@ export default function PricingPage() {
             margin: '0 auto 56px',
             padding: '20px 24px',
             borderRadius: 14,
-            border: '1px solid rgba(255,255,255,0.06)',
-            background: 'rgba(255,255,255,0.02)',
-            fontSize: 13,
-            color: '#78716c',
+            border: '1px solid var(--border-default)',
+            background: 'var(--surface-1)',
+            fontSize: 14,
+            color: 'var(--content-muted)',
             lineHeight: 1.7,
             textAlign: 'center',
           }}
         >
-          <span style={{ color: '#a8a29e', fontWeight: 600 }}>Booking commission.</span>{' '}
+          <span style={{ color: 'var(--content-secondary)', fontWeight: 600 }}>Booking commission.</span>{' '}
           Pro and Clinic coaches keep 92% of every consult paid through trophē — we take 8% and handle payouts.
           Free coaches pay 12% (incentive to upgrade). You set the price; your client pays in-app.
         </div>
@@ -408,38 +414,39 @@ export default function PricingPage() {
             <div
               key={q as string}
               style={{
-                borderTop: '1px solid rgba(255,255,255,0.05)',
+                borderTop: '1px solid var(--border-subtle)',
                 padding: '20px 0',
               }}
             >
-              <p style={{ fontWeight: 600, fontSize: 14, color: '#d6d3d1', marginBottom: 8 }}>{q}</p>
-              <p style={{ fontSize: 13, color: '#78716c', lineHeight: 1.7 }}>{a}</p>
+              <p style={{ fontWeight: 600, fontSize: 14, color: 'var(--content-secondary)', marginBottom: 8 }}>{q}</p>
+              <p style={{ fontSize: 14, color: 'var(--content-muted)', lineHeight: 1.7 }}>{a}</p>
             </div>
           ))}
         </div>
 
         {/* ─── Footer notes ─── */}
         <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
-          <p style={{ fontSize: 12, color: '#57534e', fontFamily: 'monospace' }}>
+          <p style={{ fontSize: 12, color: 'var(--content-muted)', fontFamily: 'monospace' }}>
             Prices shown exclude VAT &mdash; EU VAT (where applicable) added at checkout.
           </p>
-          <p style={{ fontSize: 12, color: '#57534e' }}>
+          <p style={{ fontSize: 12, color: 'var(--content-muted)' }}>
             Questions about GDPR, data processing agreements, or hosting?{' '}
-            <Link href="/trust" style={{ color: `${GOLD}cc`, textDecoration: 'none' }}>
+            <Link href="/trust" style={{ color: GOLD, textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center' }}>
               Read our Trust &amp; Data Protection page →
             </Link>
           </p>
-          <p style={{ fontSize: 12, color: '#57534e' }}>
-            <a href="mailto:hello@trophe.app" style={{ color: '#78716c', textDecoration: 'none' }}>
+          <p style={{ fontSize: 12, color: 'var(--content-muted)' }}>
+            <a href="mailto:hello@trophe.app" style={{ color: 'var(--content-muted)', textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center' }}>
               hello@trophe.app
             </a>
             {' '}&middot;{' '}
-            <a href="mailto:dpo@trophe.app" style={{ color: '#78716c', textDecoration: 'none' }}>
+            <a href="mailto:dpo@trophe.app" style={{ color: 'var(--content-muted)', textDecoration: 'none', minHeight: 44, display: 'inline-flex', alignItems: 'center' }}>
               dpo@trophe.app
             </a>
           </p>
         </div>
       </div>
-    </div>
+    </main>
+    </ThemeModeProvider>
   );
 }
