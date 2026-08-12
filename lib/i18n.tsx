@@ -1035,6 +1035,18 @@ const translations: Record<string, Record<CoreLanguage, string>> = {
   'food.range_approx': { en: '≈{min}–{max} kcal', es: '≈{min}–{max} kcal', el: '≈{min}–{max} kcal' },
   'food.stepper_decrease': { en: 'Decrease amount', es: 'Reducir cantidad', el: 'Μείωση ποσότητας' },
   'food.stepper_increase': { en: 'Increase amount', es: 'Aumentar cantidad', el: 'Αύξηση ποσότητας' },
+  'food.portion_small': { en: 'Small', es: 'Pequeña', el: 'Μικρή' },
+  'food.portion_medium': { en: 'Medium', es: 'Mediana', el: 'Μεσαία' },
+  'food.portion_large': { en: 'Large', es: 'Grande', el: 'Μεγάλη' },
+  'food.portion_answer_small': { en: 'a small portion', es: 'una porción pequeña', el: 'μια μικρή μερίδα' },
+  'food.portion_answer_medium': { en: 'a medium portion', es: 'una porción mediana', el: 'μια μεσαία μερίδα' },
+  'food.portion_answer_large': { en: 'a large portion', es: 'una porción grande', el: 'μια μεγάλη μερίδα' },
+  'food.enter_amount': { en: 'Enter amount', es: 'Escribir cantidad', el: 'Γράψε ποσότητα' },
+  'food.take_photo': { en: 'Take photo', es: 'Tomar foto', el: 'Βγάλε φωτογραφία' },
+  'food.amount_input_aria': { en: 'Food amount', es: 'Cantidad de comida', el: 'Ποσότητα φαγητού' },
+  'food.estimated_portion_help': { en: 'No need to guess grams. Choose the closest size, enter an amount, or use a photo.', es: 'No hace falta adivinar los gramos. Elige el tamaño más cercano, escribe una cantidad o usa una foto.', el: 'Δεν χρειάζεται να μαντέψεις γραμμάρια. Διάλεξε μέγεθος, γράψε ποσότητα ή χρησιμοποίησε φωτογραφία.' },
+  'food.estimated_portion_summary': { en: '{n} estimated portion(s) — choose a size, amount, or photo above.', es: '{n} porción(es) estimada(s) — elige tamaño, cantidad o foto arriba.', el: '{n} εκτιμώμενη(ες) μερίδα(ες) — διάλεξε μέγεθος, ποσότητα ή φωτογραφία.' },
+  'food.estimated_portion_count': { en: '{n} estimated portion(s) — review the choices above', es: '{n} porción(es) estimada(s) — revisa las opciones de arriba', el: '{n} εκτιμώμενη(ες) μερίδα(ες) — έλεγξε τις επιλογές παραπάνω' },
 
   // ── Recipe analyzer ──
   'food.recipe_timeout': { en: 'Recipe analysis timed out — please try again', es: 'El análisis de la receta tardó demasiado — inténtalo de nuevo', el: 'Η ανάλυση της συνταγής καθυστέρησε πολύ — δοκίμασε ξανά' },

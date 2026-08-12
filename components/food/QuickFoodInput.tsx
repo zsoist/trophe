@@ -12,6 +12,7 @@ import { isParsedFoodItem } from '@/agents/schemas/food-parse';
 import ParsedFoodList from '@/components/food/ParsedFoodList';
 import PhotoScanCard from '@/components/food/PhotoScanCard';
 import BarcodeLookupModal from '@/components/food/BarcodeLookupModal';
+import { isPortionClarificationQuestion } from '@/components/food/portion-controls';
 
 interface QuickFoodInputProps {
   userId: string;
@@ -691,14 +692,16 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
   };
 
   /** Submit an answer to the empty-items clarification question — re-parses "original — answer". */
-  const submitQuestionAnswer = () => {
-    const answer = questionAnswer.trim();
+  const submitQuestionChoice = (answerValue: string) => {
+    const answer = answerValue.trim();
     if (!answer) return;
     const combined = `${questionOriginalTextRef.current} — ${answer}`;
     setQuestionText(null);
     setQuestionAnswer('');
     handleParseText(combined);
   };
+
+  const submitQuestionAnswer = () => submitQuestionChoice(questionAnswer);
 
   /** Leave the question card — the original text is restored, nothing is lost. */
   const cancelQuestion = () => {
@@ -741,12 +744,20 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
   // items. Show the actual question with an answer box (was: dead-ended on a
   // generic "No food items detected" error).
   if (mode === 'question' && questionText) {
+    const isPortionQuestion = isPortionClarificationQuestion(questionText);
     return (
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         className="glass p-4 space-y-3"
       >
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handlePhotoCapture}
+          className="hidden"
+        />
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-start gap-2">
             <HelpCircle size={16} className="text-amber-400 flex-shrink-0 mt-0.5" />
@@ -763,6 +774,20 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
           </button>
         </div>
         <p className="text-stone-600 text-[11px] italic truncate">“{questionOriginalTextRef.current}”</p>
+        {isPortionQuestion && (
+          <div className="grid grid-cols-3 gap-1.5">
+            {(['small', 'medium', 'large'] as const).map(size => (
+              <button
+                key={size}
+                type="button"
+                onClick={() => submitQuestionChoice(t(`food.portion_answer_${size}`))}
+                className="min-h-11 rounded-lg border border-amber-500/20 bg-amber-500/[0.06] text-amber-200 text-xs hover:bg-amber-500/10 transition-colors"
+              >
+                {t(`food.portion_${size}`)}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="flex gap-2">
           <input
             type="text"
@@ -788,6 +813,14 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
             <Send size={14} />
           </button>
         </div>
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className="min-h-10 w-full rounded-lg border border-white/[0.08] text-stone-300 text-xs flex items-center justify-center gap-1.5 hover:bg-white/[0.04] transition-colors"
+        >
+          <Camera size={14} />
+          {t('food.take_photo')}
+        </button>
       </motion.div>
     );
   }
@@ -808,12 +841,20 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
         )}
         {/* F14 + W11: photo settles with a final beam pass when results land */}
         {photoPreview && <PhotoScanCard src={photoPreview} state="done" />}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handlePhotoCapture}
+          className="hidden"
+        />
         <ParsedFoodList
           items={parsedItems}
           clarificationQuestion={clarificationQuestion}
           warnings={parseWarnings}
           rawInputText={inputSource === 'text' ? lastTextRef.current : undefined}
           onReparse={inputSource === 'text' ? handleReparse : undefined}
+          onTakePhoto={() => fileInputRef.current?.click()}
           onConfirm={handleConfirm}
           onCancel={handleCancel}
           logging={logging}
