@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   getGramsForHumanPortion,
   getHumanPortionAmount,
+  formatNaturalPortionUnit,
   getPortionDisplayAmount,
   getPortionSizeOptions,
   isNaturalPortionUnit,
@@ -80,6 +81,12 @@ describe('natural container portions', () => {
       quantity: 1,
       humanAmount: 1.25,
     })).toBe(687.5);
+  });
+
+  it('pluralizes the common English container label for decimal portions', () => {
+    expect(formatNaturalPortionUnit('bowl', 1)).toBe('bowl');
+    expect(formatNaturalPortionUnit('bowl', 0.7)).toBe('bowls');
+    expect(formatNaturalPortionUnit('cup', 1.4)).toBe('cups');
   });
 
   it('falls back safely when the parser quantity is invalid', () => {

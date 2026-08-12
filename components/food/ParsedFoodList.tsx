@@ -8,8 +8,14 @@ import { MACRO_COLORS } from '@/lib/macro-colors';
 import { AnimatedValue } from '@/components/ui/AnimatedValue';
 import { ProvenanceRing, resolveTier, type ProvenanceTier } from '@/components/food/ProvenanceRing';
 import {
+  formatNaturalPortionUnit,
+  getGramsForHumanPortion,
+  getHumanPortionAmount,
   getPortionDisplayAmount,
   getPortionSizeOptions,
+  isNaturalPortionUnit,
+  isPortionClarificationQuestion,
+  normalizeItemsForPortionReview,
   resolveAmountDraft,
 } from '@/components/food/portion-controls';
 import type { ParsedFoodItem } from '@/app/api/food/parse/route';
@@ -95,7 +101,7 @@ function recalcMacros(item: ParsedFoodItem, newGrams: number): ParsedFoodItem {
     grams: newGrams,
     // Update quantity to match new grams (keeps ratio consistent)
     quantity: item.quantity > 0
-      ? Math.round((item.quantity * ratio) * 10) / 10
+      ? Math.round((item.quantity * ratio) * 100) / 100
       : item.quantity,
     calories: Math.round(item.calories * ratio),
     protein_g: Math.round(item.protein_g * ratio * 10) / 10,
@@ -217,7 +223,9 @@ export default function ParsedFoodList({
 }: ParsedFoodListProps) {
   const { t } = useI18n();
   const reduceMotion = useReducedMotion();
-  const [items, setItems] = useState<ParsedFoodItem[]>(initialItems);
+  const [items, setItems] = useState<ParsedFoodItem[]>(() => (
+    normalizeItemsForPortionReview(initialItems, clarificationQuestion)
+  ));
   const [clarifyAnswer, setClarifyAnswer] = useState('');
   // W4: which row's provenance caption is open (tap-the-ring to explain).
   // One row open at a time — tapping another ring moves the caption.
@@ -261,8 +269,13 @@ export default function ParsedFoodList({
     if (touchedIndex === index) return;
     const item = itemsRef.current[index];
     if (!item) return;
-    const perUnit = item.quantity > 0 ? item.grams / item.quantity : 1;
-    setTouchSeed(isVolumeUnit(item.unit) ? Math.round(item.grams / perUnit) : item.grams);
+    const volume = isVolumeUnit(item.unit);
+    const natural = isNaturalPortionUnit(item.unit);
+    setTouchSeed(volume
+      ? getDisplayQuantity(item)
+      : natural
+        ? getHumanPortionAmount({ grams: item.grams, quantity: item.quantity })
+        : item.grams);
     setTouchedIndex(index);
   }, [touchedIndex]);
 
@@ -329,17 +342,22 @@ export default function ParsedFoodList({
   const commitAmountDraft = (
     index: number,
     previousDisplay: number,
-    gramsPerDisplayUnit: number,
-    volume: boolean,
+    humanUnit: boolean,
   ) => {
     const committedDisplay = resolveAmountDraft(
       amountDrafts[index] ?? String(previousDisplay),
       previousDisplay,
     );
-    const committedGrams = volume
-      ? Math.round(committedDisplay * gramsPerDisplayUnit)
+    const currentItem = itemsRef.current[index];
+    if (!currentItem) return;
+    const committedGrams = humanUnit
+      ? getGramsForHumanPortion({
+          grams: currentItem.grams,
+          quantity: currentItem.quantity,
+          humanAmount: committedDisplay,
+        })
       : Math.round(committedDisplay);
-    if (committedGrams !== itemsRef.current[index]?.grams || itemsRef.current[index]?.portion_explicit === false) {
+    if (committedGrams !== currentItem.grams || currentItem.portion_explicit === false) {
       setGrams(index, committedGrams);
     }
     discardAmountDraft(index);
@@ -359,6 +377,9 @@ export default function ParsedFoodList({
   const totalFiber = items.reduce((s, i) => s + i.fiber_g, 0);
   const warning = getMacroWarning(items);
   const unresolvedPortions = items.filter((item) => item.portion_explicit === false).length;
+  const hasPortionClarification = !!clarificationQuestion
+    && isPortionClarificationQuestion(clarificationQuestion);
+  const showClarificationQuestion = !!clarificationQuestion && !hasPortionClarification;
 
   if (items.length === 0) {
     return (
@@ -495,16 +516,27 @@ export default function ParsedFoodList({
                 </button>
               </div>
 
-              {/* Quantity adjuster — shows volume unit (ml/L) for liquids, grams otherwise */}
+              {/* Quantity adjuster — preserves volume and natural units; grams stay internal. */}
               <div className="flex items-center gap-2 mt-2">
                 {(() => {
                   const vol = isVolumeUnit(item.unit);
-                  const step = vol ? 50 : 25;
-                  const displayVal = vol ? getDisplayQuantity(item) : item.grams;
-                  const displayUnit = vol ? item.unit : 'g';
+                  const natural = isNaturalPortionUnit(item.unit);
+                  const humanUnit = vol || natural;
+                  const step = vol ? 50 : natural ? 0.25 : 25;
+                  const displayVal = vol
+                    ? getDisplayQuantity(item)
+                    : natural
+                      ? getHumanPortionAmount({ grams: item.grams, quantity: item.quantity })
+                      : item.grams;
+                  const displayUnit = natural
+                    ? formatNaturalPortionUnit(item.unit, displayVal)
+                    : vol ? item.unit : 'g';
                   // Convert display delta to gram delta
                   const gramsPerDisplayUnit = item.quantity > 0 ? item.grams / item.quantity : 1;
-                  const gramStep = vol ? Math.round(step * gramsPerDisplayUnit) : step;
+                  const gramStep = humanUnit ? step * gramsPerDisplayUnit : step;
+                  const maxDisplay = humanUnit
+                    ? getPortionDisplayAmount(MAX_EDITABLE_GRAMS, gramsPerDisplayUnit)
+                    : MAX_EDITABLE_GRAMS;
 
                   // W5: only the stepper-touched row rolls its grams figure —
                   // typing (focus) suspends the overlay so the caret stays visible.
@@ -531,7 +563,8 @@ export default function ParsedFoodList({
                           <input
                             ref={(node) => { amountInputRefs.current[index] = node; }}
                             type="number"
-                            inputMode="numeric"
+                            inputMode={natural ? 'decimal' : 'numeric'}
+                            step={natural ? 0.25 : 1}
                             value={typingIndex === index
                               ? (amountDrafts[index] ?? String(displayVal))
                               : displayVal}
@@ -547,7 +580,7 @@ export default function ParsedFoodList({
                             }}
                             onBlur={() => {
                               if (skipBlurCommitRef.current.delete(index)) return;
-                              commitAmountDraft(index, displayVal, gramsPerDisplayUnit, vol);
+                              commitAmountDraft(index, displayVal, humanUnit);
                             }}
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') {
@@ -561,9 +594,9 @@ export default function ParsedFoodList({
                               }
                             }}
                             className={`input-dark text-center text-sm w-20 py-2 ${rolling ? 'text-transparent' : ''}`}
-                            min={1}
+                            min={natural ? 0.01 : 1}
                             aria-label={t('food.amount_input_aria')}
-                            max={MAX_EDITABLE_GRAMS}
+                            max={maxDisplay}
                           />
                           {/* Rolling digits painted over the (transparent) input text */}
                           {rolling && (
@@ -592,8 +625,8 @@ export default function ParsedFoodList({
                       >
                         <Plus size={16} />
                       </PortionStepperButton>
-                      {/* Show original input as hint (for non-volume, show quantity+unit) */}
-                      {!vol && (
+                      {/* Mass items keep the original parsed unit as a secondary hint. */}
+                      {!humanUnit && (
                         <span className="text-stone-600 text-xs ml-auto">
                           {item.quantity} {item.unit}
                         </span>
@@ -606,7 +639,9 @@ export default function ParsedFoodList({
               {item.portion_explicit === false && (
                 <div className="mt-3 rounded-xl border border-amber-500/20 bg-amber-500/[0.06] p-2.5 space-y-2">
                   <p className="text-amber-200/80 text-[11px] leading-snug">
-                    {t('food.estimated_portion_help')}
+                    {hasPortionClarification && items.length === 1
+                      ? clarificationQuestion
+                      : t('food.estimated_portion_help')}
                   </p>
                   <div className="grid grid-cols-3 gap-1.5">
                     {getPortionSizeOptions(item.grams).map(option => (
@@ -621,13 +656,21 @@ export default function ParsedFoodList({
                           {t(`food.portion_${option.size}`)}
                         </span>
                         <span className="block text-stone-500 text-[10px] mt-0.5">
-                          {isVolumeUnit(item.unit)
+                          {isVolumeUnit(item.unit) || isNaturalPortionUnit(item.unit)
                             ? getPortionDisplayAmount(
                                 option.grams,
                                 item.quantity > 0 ? item.grams / item.quantity : 1,
                               )
                             : option.grams}{' '}
-                          {isVolumeUnit(item.unit) ? item.unit : 'g'}
+                          {isNaturalPortionUnit(item.unit)
+                            ? formatNaturalPortionUnit(
+                                item.unit,
+                                getPortionDisplayAmount(
+                                  option.grams,
+                                  item.quantity > 0 ? item.grams / item.quantity : 1,
+                                ),
+                              )
+                            : isVolumeUnit(item.unit) ? item.unit : 'g'}
                         </span>
                       </button>
                     ))}
@@ -706,7 +749,7 @@ export default function ParsedFoodList({
         {/* Clarification — show the AI's ACTUAL question with an inline answer
             field (text path). Answering re-parses "original — answer". The old
             banner replaced the question with generic copy and no way to reply. */}
-        {clarificationQuestion ? (
+        {showClarificationQuestion ? (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -756,7 +799,7 @@ export default function ParsedFoodList({
               </button>
             )}
           </motion.div>
-        ) : unresolvedPortions > 0 ? (
+        ) : !hasPortionClarification && unresolvedPortions > 0 ? (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

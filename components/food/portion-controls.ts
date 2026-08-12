@@ -42,6 +42,39 @@ const NATURAL_PORTION_UNITS = new Set([
   'tsp',
 ]);
 
+const NATURAL_PORTION_LABELS: Record<string, [singular: string, plural: string]> = {
+  bottle: ['bottle', 'bottles'],
+  bottles: ['bottle', 'bottles'],
+  bowl: ['bowl', 'bowls'],
+  bowls: ['bowl', 'bowls'],
+  can: ['can', 'cans'],
+  cans: ['can', 'cans'],
+  cup: ['cup', 'cups'],
+  cups: ['cup', 'cups'],
+  dish: ['dish', 'dishes'],
+  dishes: ['dish', 'dishes'],
+  glass: ['glass', 'glasses'],
+  glasses: ['glass', 'glasses'],
+  piece: ['piece', 'pieces'],
+  pieces: ['piece', 'pieces'],
+  pint: ['pint', 'pints'],
+  pints: ['pint', 'pints'],
+  plate: ['plate', 'plates'],
+  plates: ['plate', 'plates'],
+  portion: ['portion', 'portions'],
+  portions: ['portion', 'portions'],
+  scoop: ['scoop', 'scoops'],
+  scoops: ['scoop', 'scoops'],
+  serving: ['serving', 'servings'],
+  servings: ['serving', 'servings'],
+  slice: ['slice', 'slices'],
+  slices: ['slice', 'slices'],
+  tablespoon: ['tablespoon', 'tablespoons'],
+  tablespoons: ['tablespoon', 'tablespoons'],
+  teaspoon: ['teaspoon', 'teaspoons'],
+  teaspoons: ['teaspoon', 'teaspoons'],
+};
+
 function clampPortion(grams: number): number {
   return Math.max(1, Math.min(MAX_PORTION_GRAMS, grams));
 }
@@ -70,6 +103,13 @@ export function getPortionDisplayAmount(grams: number, gramsPerDisplayUnit: numb
 
 export function isNaturalPortionUnit(unit: string): boolean {
   return NATURAL_PORTION_UNITS.has(unit.trim().toLowerCase().replace(/\.$/, ''));
+}
+
+export function formatNaturalPortionUnit(unit: string, amount: number): string {
+  const normalized = unit.trim().toLowerCase().replace(/\.$/, '');
+  const labels = NATURAL_PORTION_LABELS[normalized];
+  if (!labels) return unit;
+  return amount === 1 ? labels[0] : labels[1];
 }
 
 export function getHumanPortionAmount({
@@ -125,4 +165,20 @@ export function shouldTreatPortionAsEstimated({
   return itemCount === 1
     && !!clarificationQuestion
     && isPortionClarificationQuestion(clarificationQuestion);
+}
+
+export function normalizeItemsForPortionReview<T extends { portion_explicit?: boolean }>(
+  items: T[],
+  clarificationQuestion?: string | null,
+): T[] {
+  return items.map(item => {
+    if (!shouldTreatPortionAsEstimated({
+      portionExplicit: item.portion_explicit,
+      itemCount: items.length,
+      clarificationQuestion,
+    }) || item.portion_explicit === false) {
+      return item;
+    }
+    return { ...item, portion_explicit: false };
+  });
 }

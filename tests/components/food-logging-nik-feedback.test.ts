@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   applyUserStatedNutrients,
@@ -5,6 +7,7 @@ import {
   repairNutrientClaimPortion,
 } from '@/agents/food-parse/nutrient-claims';
 import {
+  normalizeItemsForPortionReview,
   getPortionSizeOptions,
   resolveAmountDraft,
 } from '@/components/food/portion-controls';
@@ -52,6 +55,36 @@ describe("Nik's food-logging feedback", () => {
     ]);
     expect(resolveAmountDraft('', 500)).toBe(500);
     expect(resolveAmountDraft('700', 500)).toBe(700);
+  });
+
+  it('repairs the exact ajiaco bowl payload before the review renders', () => {
+    const [ajiaco] = normalizeItemsForPortionReview([{
+      food_name: 'ajiaco santafereño',
+      grams: 550,
+      quantity: 1,
+      unit: 'bowl',
+      portion_explicit: true,
+    }], 'What portion size of ajiaco did you have (for example, a bowl or grams)?');
+
+    expect(ajiaco).toMatchObject({
+      grams: 550,
+      quantity: 1,
+      unit: 'bowl',
+      portion_explicit: false,
+    });
+  });
+
+  it('wires natural bowl amounts and resolved clarification state into the review UI', () => {
+    const source = readFileSync(
+      join(process.cwd(), 'components/food/ParsedFoodList.tsx'),
+      'utf8',
+    );
+
+    expect(source).toContain('normalizeItemsForPortionReview(');
+    expect(source).toContain('isNaturalPortionUnit(item.unit)');
+    expect(source).toContain('getHumanPortionAmount({');
+    expect(source).toContain('getGramsForHumanPortion({');
+    expect(source).toContain('showClarificationQuestion');
   });
 
   it('keeps 13 g protein as a label fact while resolving the bar at 60 g', () => {
