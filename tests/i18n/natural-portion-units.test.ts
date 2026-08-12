@@ -8,6 +8,18 @@ const UNIT_KEYS = [
 ];
 
 describe('natural portion unit translations', () => {
+  it('includes an accessible amount label with the localized unit', () => {
+    const core = readFileSync(join(process.cwd(), 'lib/i18n.tsx'), 'utf8');
+    const overlays = ['de', 'fr', 'it', 'nl', 'pt'].map(locale => (
+      readFileSync(join(process.cwd(), `lib/locales/${locale}.ts`), 'utf8')
+    ));
+
+    expect(core).toContain("'food.amount_input_aria_with_unit': { en:");
+    for (const overlay of overlays) {
+      expect(overlay).toContain("'food.amount_input_aria_with_unit':");
+    }
+  });
+
   it('covers singular and plural labels in every supported language', () => {
     const core = readFileSync(join(process.cwd(), 'lib/i18n.tsx'), 'utf8');
     const overlays = ['de', 'fr', 'it', 'nl', 'pt'].map(locale => (

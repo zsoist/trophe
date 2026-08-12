@@ -111,6 +111,27 @@ describe('natural container portions', () => {
     expect(getNaturalPortionUnitTranslationKey('g', 1)).toBeNull();
   });
 
+  it.each([
+    ['Schüssel', 'bowl'],
+    ['ciotola', 'bowl'],
+    ['tigela', 'bowl'],
+    ['kom', 'bowl'],
+    ['Flaschen', 'bottle'],
+    ['bicchieri', 'glass'],
+    ['porções', 'portion'],
+    ['eetlepels', 'tablespoon'],
+  ])('recognizes the localized alias %s as %s', (alias, canonical) => {
+    expect(isNaturalPortionUnit(alias)).toBe(true);
+    expect(getNaturalPortionUnitTranslationKey(alias, 1)).toBe(`food.unit.${canonical}_one`);
+  });
+
+  it('resolves the cross-language dose collision using the active locale', () => {
+    expect(getNaturalPortionUnitTranslationKey('Dose', 1, 'de')).toBe('food.unit.can_one');
+    expect(getNaturalPortionUnitTranslationKey('dose', 1, 'pt')).toBe('food.unit.serving_one');
+    expect(getNaturalPortionUnitTranslationKey('doses', 2, 'pt')).toBe('food.unit.serving_other');
+    expect(getNaturalPortionUnitTranslationKey('dose', 1, 'it')).toBe('food.unit.serving_one');
+  });
+
   it('falls back safely when the parser quantity is invalid', () => {
     expect(canUseNaturalPortionDisplay({ unit: 'bowl', grams: 550, quantity: 0 })).toBe(false);
     expect(canUseNaturalPortionDisplay({ unit: 'g', grams: 550, quantity: 1 })).toBe(false);

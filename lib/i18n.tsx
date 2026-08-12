@@ -1070,6 +1070,7 @@ const translations: Record<string, Record<CoreLanguage, string>> = {
   'food.enter_amount': { en: 'Enter amount', es: 'Escribir cantidad', el: 'Γράψε ποσότητα' },
   'food.take_photo': { en: 'Take photo', es: 'Tomar foto', el: 'Βγάλε φωτογραφία' },
   'food.amount_input_aria': { en: 'Food amount', es: 'Cantidad de comida', el: 'Ποσότητα φαγητού' },
+  'food.amount_input_aria_with_unit': { en: 'Amount in {unit}', es: 'Cantidad en {unit}', el: 'Ποσότητα σε {unit}' },
   'food.estimated_portion_help': { en: 'No need to guess grams. Choose the closest size, enter an amount, or use a photo.', es: 'No hace falta adivinar los gramos. Elige el tamaño más cercano, escribe una cantidad o usa una foto.', el: 'Δεν χρειάζεται να μαντέψεις γραμμάρια. Διάλεξε μέγεθος, γράψε ποσότητα ή χρησιμοποίησε φωτογραφία.' },
   'food.estimated_portion_summary': { en: '{n} estimated portion(s) — choose a size, amount, or photo above.', es: '{n} porción(es) estimada(s) — elige tamaño, cantidad o foto arriba.', el: '{n} εκτιμώμενη(ες) μερίδα(ες) — διάλεξε μέγεθος, ποσότητα ή φωτογραφία.' },
   'food.estimated_portion_count': { en: '{n} estimated portion(s) — review the choices above', es: '{n} porción(es) estimada(s) — revisa las opciones de arriba', el: '{n} εκτιμώμενη(ες) μερίδα(ες) — έλεγξε τις επιλογές παραπάνω' },

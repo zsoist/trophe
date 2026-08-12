@@ -94,20 +94,21 @@ type NaturalPortionUnitKey =
 
 const NATURAL_PORTION_UNIT_KEYS: Record<string, NaturalPortionUnitKey> = {
   bottle: 'bottle', bottles: 'bottle', botella: 'bottle', botellas: 'bottle', bouteille: 'bottle', bouteilles: 'bottle',
-  bowl: 'bowl', bowls: 'bowl', bol: 'bowl', bols: 'bowl', 'μπολ': 'bowl', 'μπωλ': 'bowl',
-  can: 'can', cans: 'can', lata: 'can', latas: 'can', canette: 'can', canettes: 'can',
-  cup: 'cup', cups: 'cup', taza: 'cup', tazas: 'cup', tasse: 'cup', tasses: 'cup', 'φλιτζάνι': 'cup', 'φλιτζάνια': 'cup',
-  dish: 'dish', dishes: 'dish', plato: 'dish', platos: 'dish', plat: 'dish', plats: 'dish', 'πιάτο': 'dish', 'πιάτα': 'dish',
-  glass: 'glass', glasses: 'glass', vaso: 'glass', vasos: 'glass', verre: 'glass', verres: 'glass', 'ποτήρι': 'glass', 'ποτήρια': 'glass',
-  piece: 'piece', pieces: 'piece', pieza: 'piece', piezas: 'piece', morceau: 'piece', morceaux: 'piece', 'κομμάτι': 'piece', 'κομμάτια': 'piece',
+  flasche: 'bottle', flaschen: 'bottle', bottiglia: 'bottle', bottiglie: 'bottle', garrafa: 'bottle', garrafas: 'bottle', fles: 'bottle', flessen: 'bottle', 'μπουκάλι': 'bottle', 'μπουκάλια': 'bottle',
+  bowl: 'bowl', bowls: 'bowl', bol: 'bowl', bols: 'bowl', schüssel: 'bowl', schüsseln: 'bowl', ciotola: 'bowl', ciotole: 'bowl', tigela: 'bowl', tigelas: 'bowl', kom: 'bowl', kommen: 'bowl', 'μπολ': 'bowl', 'μπωλ': 'bowl',
+  can: 'can', cans: 'can', lata: 'can', latas: 'can', canette: 'can', canettes: 'can', dosen: 'can', lattina: 'can', lattine: 'can', blik: 'can', blikken: 'can', 'κουτάκι': 'can', 'κουτάκια': 'can',
+  cup: 'cup', cups: 'cup', taza: 'cup', tazas: 'cup', tasse: 'cup', tasses: 'cup', tassen: 'cup', tazza: 'cup', tazze: 'cup', 'xícara': 'cup', 'xícaras': 'cup', xicara: 'cup', xicaras: 'cup', 'chávena': 'cup', 'chávenas': 'cup', chavena: 'cup', chavenas: 'cup', kop: 'cup', koppen: 'cup', 'φλιτζάνι': 'cup', 'φλιτζάνια': 'cup',
+  dish: 'dish', dishes: 'dish', plato: 'dish', platos: 'dish', plat: 'dish', plats: 'dish', gericht: 'dish', gerichte: 'dish', piatto: 'dish', piatti: 'dish', prato: 'dish', pratos: 'dish', gerecht: 'dish', gerechten: 'dish', 'πιάτο': 'dish', 'πιάτα': 'dish',
+  glass: 'glass', glasses: 'glass', vaso: 'glass', vasos: 'glass', verre: 'glass', verres: 'glass', glas: 'glass', gläser: 'glass', bicchiere: 'glass', bicchieri: 'glass', copo: 'glass', copos: 'glass', glazen: 'glass', 'ποτήρι': 'glass', 'ποτήρια': 'glass',
+  piece: 'piece', pieces: 'piece', pieza: 'piece', piezas: 'piece', morceau: 'piece', morceaux: 'piece', stück: 'piece', stücke: 'piece', pezzo: 'piece', pezzi: 'piece', 'pedaço': 'piece', 'pedaços': 'piece', pedaco: 'piece', pedacos: 'piece', stuk: 'piece', stukken: 'piece', 'κομμάτι': 'piece', 'κομμάτια': 'piece',
   pint: 'pint', pints: 'pint', pinta: 'pint', pintas: 'pint', pinte: 'pint', pintes: 'pint', 'πίντα': 'pint', 'πίντες': 'pint',
-  plate: 'plate', plates: 'plate', assiette: 'plate', assiettes: 'plate',
-  portion: 'portion', portions: 'portion', 'porción': 'portion', porciones: 'portion', 'μερίδα': 'portion', 'μερίδες': 'portion',
-  scoop: 'scoop', scoops: 'scoop', medida: 'scoop', medidas: 'scoop', dosette: 'scoop', dosettes: 'scoop', 'μεζούρα': 'scoop', 'μεζούρες': 'scoop',
-  serving: 'serving', servings: 'serving', racion: 'serving', 'ración': 'serving', raciones: 'serving',
-  slice: 'slice', slices: 'slice', rebanada: 'slice', rebanadas: 'slice', tranche: 'slice', tranches: 'slice', 'φέτα': 'slice', 'φέτες': 'slice',
-  tablespoon: 'tablespoon', tablespoons: 'tablespoon', tbsp: 'tablespoon', cucharada: 'tablespoon', cucharadas: 'tablespoon', cuillere: 'tablespoon', 'cuillère': 'tablespoon', 'κουταλιά': 'tablespoon', 'κουταλιές': 'tablespoon',
-  teaspoon: 'teaspoon', teaspoons: 'teaspoon', tsp: 'teaspoon', cucharadita: 'teaspoon', cucharaditas: 'teaspoon', 'cuillère à café': 'teaspoon', 'κουταλάκι': 'teaspoon', 'κουταλάκια': 'teaspoon',
+  plate: 'plate', plates: 'plate', assiette: 'plate', assiettes: 'plate', teller: 'plate', bord: 'plate', borden: 'plate',
+  portion: 'portion', portions: 'portion', 'porción': 'portion', porciones: 'portion', portionen: 'portion', porzione: 'portion', porzioni: 'portion', 'porção': 'portion', 'porções': 'portion', porcao: 'portion', porcoes: 'portion', portie: 'portion', porties: 'portion', 'μερίδα': 'portion', 'μερίδες': 'portion',
+  scoop: 'scoop', scoops: 'scoop', medida: 'scoop', medidas: 'scoop', dosette: 'scoop', dosettes: 'scoop', messlöffel: 'scoop', messloeffel: 'scoop', misurino: 'scoop', misurini: 'scoop', maatschep: 'scoop', maatscheppen: 'scoop', 'μεζούρα': 'scoop', 'μεζούρες': 'scoop',
+  serving: 'serving', servings: 'serving', racion: 'serving', 'ración': 'serving', raciones: 'serving', dose: 'serving', doses: 'serving', dosi: 'serving',
+  slice: 'slice', slices: 'slice', rebanada: 'slice', rebanadas: 'slice', tranche: 'slice', tranches: 'slice', scheibe: 'slice', scheiben: 'slice', fetta: 'slice', fette: 'slice', fatia: 'slice', fatias: 'slice', plak: 'slice', plakken: 'slice', 'φέτα': 'slice', 'φέτες': 'slice',
+  tablespoon: 'tablespoon', tablespoons: 'tablespoon', tbsp: 'tablespoon', cucharada: 'tablespoon', cucharadas: 'tablespoon', cuillere: 'tablespoon', 'cuillère': 'tablespoon', 'cuillère à soupe': 'tablespoon', 'cuillères à soupe': 'tablespoon', esslöffel: 'tablespoon', essloeffel: 'tablespoon', cucchiaio: 'tablespoon', cucchiai: 'tablespoon', 'colher de sopa': 'tablespoon', 'colheres de sopa': 'tablespoon', eetlepel: 'tablespoon', eetlepels: 'tablespoon', 'κουταλιά': 'tablespoon', 'κουταλιές': 'tablespoon',
+  teaspoon: 'teaspoon', teaspoons: 'teaspoon', tsp: 'teaspoon', cucharadita: 'teaspoon', cucharaditas: 'teaspoon', 'cuillère à café': 'teaspoon', 'cuillères à café': 'teaspoon', teelöffel: 'teaspoon', teeloeffel: 'teaspoon', cucchiaino: 'teaspoon', cucchiaini: 'teaspoon', 'colher de chá': 'teaspoon', 'colheres de chá': 'teaspoon', 'colher de cha': 'teaspoon', 'colheres de cha': 'teaspoon', theelepel: 'teaspoon', theelepels: 'teaspoon', 'κουταλάκι': 'teaspoon', 'κουταλάκια': 'teaspoon',
 };
 
 function normalizeNaturalPortionUnit(unit: string): string {
@@ -203,8 +204,16 @@ export function formatNaturalPortionUnit(unit: string, amount: number): string {
   return amount === 1 ? labels[0] : labels[1];
 }
 
-export function getNaturalPortionUnitTranslationKey(unit: string, amount: number): string | null {
-  const unitKey = NATURAL_PORTION_UNIT_KEYS[normalizeNaturalPortionUnit(unit)];
+export function getNaturalPortionUnitTranslationKey(
+  unit: string,
+  amount: number,
+  locale?: string,
+): string | null {
+  const normalized = normalizeNaturalPortionUnit(unit);
+  // “Dose” is a can in German, but a serving in Portuguese and Italian.
+  const unitKey = normalized === 'dose' && locale?.toLowerCase().startsWith('de')
+    ? 'can'
+    : NATURAL_PORTION_UNIT_KEYS[normalized];
   return unitKey ? `food.unit.${unitKey}_${amount === 1 ? 'one' : 'other'}` : null;
 }
 

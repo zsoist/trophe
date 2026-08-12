@@ -204,7 +204,7 @@ export default function ParsedFoodList({
   logging,
   showCalories = false,
 }: ParsedFoodListProps) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const reduceMotion = useReducedMotion();
   const [items, setItems] = useState<ParsedFoodItem[]>(() => (
     normalizeItemsForPortionReview(initialItems, clarificationQuestion)
@@ -529,7 +529,7 @@ export default function ParsedFoodList({
                       ? getHumanPortionAmount({ grams: item.grams, quantity: item.quantity })
                       : item.grams;
                   const displayUnit = natural
-                    ? t(getNaturalPortionUnitTranslationKey(item.unit, displayVal)
+                    ? t(getNaturalPortionUnitTranslationKey(item.unit, displayVal, lang)
                         ?? formatNaturalPortionUnit(item.unit, displayVal))
                     : vol ? item.unit : 'g';
                   // Convert display delta to gram delta
@@ -597,7 +597,7 @@ export default function ParsedFoodList({
                             }}
                             className={`input-dark text-center text-sm w-20 py-2 ${rolling ? 'text-transparent' : ''}`}
                             min={minDisplay}
-                            aria-label={t('food.amount_input_aria')}
+                            aria-label={t('food.amount_input_aria_with_unit', { unit: displayUnit })}
                             max={maxDisplay}
                           />
                           {/* Rolling digits painted over the (transparent) input text */}
@@ -672,6 +672,7 @@ export default function ParsedFoodList({
                                   option.grams,
                                   item.quantity > 0 ? item.grams / item.quantity : 1,
                                 ),
+                                lang,
                               ) ?? formatNaturalPortionUnit(item.unit, option.grams))
                             : isVolumeUnit(item.unit) ? item.unit : 'g'}
                         </span>

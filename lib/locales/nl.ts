@@ -821,6 +821,7 @@ export const nl: Record<string, string> = {
   'food.enter_amount': 'Hoeveelheid invoeren',
   'food.take_photo': 'Foto maken',
   'food.amount_input_aria': 'Hoeveelheid voeding',
+  'food.amount_input_aria_with_unit': 'Hoeveelheid in {unit}',
   'food.estimated_portion_help': 'Je hoeft geen grammen te schatten. Kies de dichtstbijzijnde grootte, voer een hoeveelheid in of gebruik een foto.',
   'food.estimated_portion_summary': '{n} geschatte portie(s) — kies hierboven een grootte, hoeveelheid of foto.',
   'food.estimated_portion_count': '{n} geschatte portie(s) — controleer de opties hierboven',
