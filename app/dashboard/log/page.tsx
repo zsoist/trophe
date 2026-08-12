@@ -167,12 +167,12 @@ function SectionDivider({ label }: { label: string }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 20, marginBottom: 10 }}>
       <span style={{
-        fontSize: 10, fontWeight: 700, color: 'var(--t4)',
+        fontSize: 12, fontWeight: 700, color: 'var(--content-muted)',
         letterSpacing: '0.12em', textTransform: 'uppercase', flexShrink: 0,
       }}>
         {label}
       </span>
-      <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,.06)' }} />
+      <div style={{ flex: 1, height: 1, background: 'var(--border-subtle)' }} />
     </div>
   );
 }
@@ -232,7 +232,7 @@ function SealedBanner({ date, label }: { date: string; label: string }) {
           transition={{ duration: 0.6, delay: 0.15, ease: 'easeOut' }}
         />
       </svg>
-      <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--gold-300,#D4A853)' }}>{label}</p>
+      <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--gold-300,#D4A853)' }}>{label}</p>
     </motion.div>
   );
 }
@@ -946,7 +946,7 @@ export default function FoodLogPage() {
   // Loading skeleton while auth + data resolve
   if (pageLoading) {
     return (
-      <div className="min-h-screen pb-24" style={{ background: 'var(--bg,#0a0a0a)' }}>
+      <div className="min-h-screen pb-24" style={{ background: 'var(--canvas)' }}>
         <div className="max-w-md mx-auto px-4 pt-12">
           {/* Branded skeletons — gold transform-only sheen, no opacity pulse */}
           <div className="space-y-3">
@@ -972,7 +972,7 @@ export default function FoodLogPage() {
     return (
       <div
         className="min-h-screen flex items-center justify-center px-4 pb-24"
-        style={{ background: 'var(--bg,#0a0a0a)' }}
+        style={{ background: 'var(--canvas)' }}
       >
         <div className="glass w-full max-w-sm p-6 text-center">
           <p role="alert" className="mb-4 text-sm leading-relaxed text-[var(--content-secondary)]">
@@ -981,7 +981,7 @@ export default function FoodLogPage() {
           <button
             type="button"
             onClick={() => void loadTodayLog()}
-            className="btn-gold w-full rounded-xl py-3 text-sm font-semibold"
+            className="btn-gold min-h-11 min-w-11 w-full rounded-xl py-3 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
           >
             {t('food.retry')}
           </button>
@@ -1035,11 +1035,11 @@ export default function FoodLogPage() {
             }}
           >
             <Icon name="i-calendar" size={12} style={{ color: 'var(--gold-300,#D4A853)' }} />
-            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--t1)' }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--content-primary)' }}>
               {isToday ? t('log.today') : new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
             </span>
             {!isToday && (
-              <span style={{ fontSize: 9, color: 'var(--t5)', fontFamily: 'var(--font-mono)' }}>
+              <span style={{ fontSize: 12, color: 'var(--content-muted)', fontFamily: 'var(--font-mono)' }}>
                 {new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short' })}
               </span>
             )}
@@ -1063,7 +1063,7 @@ export default function FoodLogPage() {
                 >
                   <Icon name="i-flame" size={11} />
                 </motion.span>
-                <span style={{ fontSize: 10, fontWeight: 700, fontFamily: 'var(--font-mono)' }} aria-hidden>
+                <span style={{ fontSize: 12, fontWeight: 700, fontFamily: 'var(--font-mono)' }} aria-hidden>
                   <AnimatedValue
                     key={emberIgnite ? `ember-roll-${emberIgnite.key}` : 'ember-idle'}
                     value={streak}
@@ -1109,9 +1109,9 @@ export default function FoodLogPage() {
               return (
                 <button key={d.date} aria-label={`Select ${d.date}`} onClick={() => handleDateChange(d.date)} className="min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" style={{
                   textAlign: 'center', padding: '4px 2px', borderRadius: 6, fontSize: 12, cursor: 'pointer', border: 'none',
-                  background: active ? 'rgba(212,168,83,.12)' : 'rgba(255,255,255,.03)',
-                  outline: active ? '1px solid rgba(212,168,83,.5)' : '1px solid var(--line)',
-                  color: active ? 'var(--gold-300,#D4A853)' : d.entries > 0 ? 'var(--t2)' : 'var(--t5)',
+                  background: active ? 'rgba(212,168,83,.12)' : 'var(--surface-2)',
+                  outline: active ? '1px solid rgba(212,168,83,.5)' : '1px solid var(--border-default)',
+                  color: active ? 'var(--gold-300,#D4A853)' : d.entries > 0 ? 'var(--content-primary)' : 'var(--content-muted)',
                 }}>
                   <div>{dayAbbr}</div>
                   <div style={{ fontWeight: 700, fontSize: 12 }}>{dayNum}</div>
@@ -1140,12 +1140,12 @@ export default function FoodLogPage() {
                       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 700, color: m.color, lineHeight: 1.1 }}>
                         <AnimatedValue value={m.val} grouped={false} />
                       </div>
-                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--t4)', marginTop: 1, lineHeight: 1.2 }}>{m.unit}</div>
-                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--t4)', letterSpacing: '.04em', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.label}</div>
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--content-muted)', marginTop: 1, lineHeight: 1.2 }}>{m.unit}</div>
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--content-muted)', letterSpacing: '.04em', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.label}</div>
                     </>
                   );
                   return (
-                    <div key={m.key} style={{ position: 'relative', borderRight: mIdx < cells.length - 1 ? '1px solid rgba(255,255,255,.04)' : 'none' }}>
+                    <div key={m.key} style={{ position: 'relative', borderRight: mIdx < cells.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
                       {/* W3: one-shot coral glow ring when a protein-heavy log lands */}
                       {isProtein && proteinGlowTick > 0 && !reducedMotion && (
                         <motion.span
@@ -1183,7 +1183,7 @@ export default function FoodLogPage() {
                             style={{
                               position: 'absolute', top: -6, left: 0, right: 0,
                               textAlign: 'center', pointerEvents: 'none', zIndex: 1,
-                              fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 700,
+                              fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700,
                               color: MACRO_COLORS[r.macro],
                             }}
                           >
@@ -1205,7 +1205,7 @@ export default function FoodLogPage() {
           {/* RecipeAnalyzerModal was fully built but unreachable — this is its door */}
           <button
             onClick={() => setShowRecipeModal(true)}
-            className="glass min-h-11 flex items-center gap-1.5 px-2.5 py-1 text-[var(--content-secondary)] hover:gold-text text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+            className="glass min-h-11 min-w-11 flex items-center gap-1.5 px-2.5 py-1 text-[var(--content-secondary)] hover:gold-text text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             style={{ borderRadius: 999 }}
             aria-label={t('food.analyze_recipe_aria')}
           >
@@ -1235,7 +1235,7 @@ export default function FoodLogPage() {
                     const nextSlot = slots.find(s => grouped[s.id].length === 0 && !skippedSlots.has(s.id));
                     if (nextSlot) logFavorite(fav, nextSlot.mealType);
                   }}
-                  className="min-h-11 flex-shrink-0 px-2.5 py-1 rounded-full bg-[var(--surface-2)] hover:bg-[var(--surface-hover)] border border-[var(--border-subtle)] text-[var(--content-secondary)] text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                  className="min-h-11 min-w-11 flex-shrink-0 px-2.5 py-1 rounded-full bg-[var(--surface-2)] hover:bg-[var(--surface-hover)] border border-[var(--border-subtle)] text-[var(--content-secondary)] text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                 >
                   {fav.food_name}{showCalories ? ` · ${fav.calories}` : ''}
                 </button>
@@ -1504,7 +1504,7 @@ export default function FoodLogPage() {
             {kcalPillActive && (
               <>
                 {proteinPillActive && (
-                  <span aria-hidden style={{ width: 1, alignSelf: 'stretch', background: 'rgba(255,255,255,.14)' }} />
+                  <span aria-hidden style={{ width: 1, alignSelf: 'stretch', background: 'var(--border-subtle)' }} />
                 )}
                 <span
                   className={
@@ -1541,7 +1541,7 @@ export default function FoodLogPage() {
               </span>
               <button
                 onClick={undoDelete}
-                className="gold-text text-sm font-semibold flex items-center gap-1.5"
+                className="gold-text min-h-11 min-w-11 text-sm font-semibold flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
               >
                 {reducedMotion ? (
                   <span className="text-[var(--content-muted)] text-xs tabular-nums">(5s)</span>
@@ -1592,7 +1592,7 @@ export default function FoodLogPage() {
               </span>
               <button
                 onClick={() => void undoBatch()}
-                className="gold-text text-sm font-semibold flex items-center gap-1.5"
+                className="gold-text min-h-11 min-w-11 text-sm font-semibold flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                 aria-label={t('log.batch_undo_aria', { n: pendingBatch.ids.length })}
               >
                 {reducedMotion ? (

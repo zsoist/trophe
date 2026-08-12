@@ -1,7 +1,7 @@
 'use client';
 import { useRouter } from 'next/navigation';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { User, LogOut, Save, Globe, Sun, Moon, Palette, SlidersHorizontal, Download, ShieldCheck } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -93,7 +93,6 @@ export default function ProfilePage() {
   const { prefs, setPrefs } = useAppearance();
   const { t, lang, setLang } = useI18n();
   const clientNav = useClientNav();
-  const navRef = useRef<HTMLDivElement>(null);
 
   // Form state
   const [age, setAge] = useState('');
@@ -265,14 +264,14 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen pb-24" style={{ background: 'var(--bg,#0a0a0a)' }}>
+      <div className="min-h-screen pb-24" style={{ background: 'var(--canvas)' }}>
         <div className="max-w-md mx-auto px-4 pt-12 space-y-4">
-          <div className="h-7 w-32 rounded bg-stone-800/60 animate-pulse" />
+          <div className="h-7 w-32 rounded bg-[var(--surface-2)] animate-pulse" />
           <div className="glass p-5 space-y-4">
             {[0, 1, 2, 3].map((i) => (
               <div key={i} className="space-y-1.5">
-                <div className="h-3 w-20 rounded bg-stone-800/60 animate-pulse" />
-                <div className="h-11 w-full rounded-xl bg-stone-800/40 animate-pulse" />
+                <div className="h-3 w-20 rounded bg-[var(--surface-2)] animate-pulse" />
+                <div className="h-11 w-full rounded-xl bg-[var(--surface-2)] animate-pulse" />
               </div>
             ))}
           </div>
@@ -291,7 +290,7 @@ export default function ProfilePage() {
           <p role="alert" className="mb-4 text-sm leading-relaxed text-[var(--content-secondary)]">
             {t('profile.load_failed')}
           </p>
-          <button type="button" onClick={loadData} className="btn-gold w-full rounded-xl py-3 text-sm font-semibold">
+          <button type="button" onClick={loadData} className="btn-gold min-h-11 min-w-11 w-full rounded-xl py-3 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
             {t('food.retry')}
           </button>
         </div>
@@ -325,24 +324,30 @@ export default function ProfilePage() {
 
         {/* ─── Sticky section nav ─── */}
         <div
-          ref={navRef}
+          role="navigation"
+          aria-label="Profile sections"
           style={{
             position: 'sticky', top: 0, zIndex: 20, margin: '0 -16px 16px', padding: '10px 16px',
             background: 'color-mix(in srgb, var(--canvas) 88%, transparent)',
             backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-            display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none',
+            display: 'flex', gap: 6, flexWrap: 'wrap', overflowX: 'visible',
           }}
         >
           {SECTIONS.map((s) => (
             <button
               key={s.id}
-              onClick={() => scrollTo(s.id)}
+              onClick={(event) => {
+                event.currentTarget.scrollIntoView({ behavior: 'auto', block: 'nearest', inline: 'center' });
+                scrollTo(s.id);
+              }}
+              aria-current={activeSection === s.id ? 'location' : undefined}
+              className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
               style={{
-                minHeight: 44, padding: '6px 12px', borderRadius: 999, fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap',
+                minHeight: 44, minWidth: 44, padding: '6px 12px', borderRadius: 999, fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap',
                 cursor: 'pointer', transition: 'all .15s', flexShrink: 0,
-                background: activeSection === s.id ? 'var(--accent-soft)' : 'rgba(255,255,255,.03)',
-                border: `1px solid ${activeSection === s.id ? 'var(--accent)' : 'var(--line)'}`,
-                color: activeSection === s.id ? 'var(--accent)' : 'var(--t3)',
+                background: activeSection === s.id ? 'var(--accent-soft)' : 'var(--surface-2)',
+                border: `1px solid ${activeSection === s.id ? 'var(--accent)' : 'var(--border-default)'}`,
+                color: activeSection === s.id ? 'var(--accent)' : 'var(--content-secondary)',
               }}
             >
               {t(s.labelKey)}
@@ -356,7 +361,7 @@ export default function ProfilePage() {
             <div>
               <label className="text-[var(--content-muted)] text-xs uppercase tracking-wider">{t('onboard.age')}</label>
               <input type="number" min="13" max="120" value={age} onChange={(e) => setAge(e.target.value)}
-                className="input-dark text-sm mt-1" placeholder="30" />
+                className="input-dark text-base sm:text-sm mt-1" placeholder="30" />
             </div>
             <div>
               <label className="text-[var(--content-muted)] text-xs uppercase tracking-wider">{t('onboard.sex')}</label>
@@ -365,6 +370,7 @@ export default function ProfilePage() {
                   <button
                     key={s}
                     onClick={() => setSex(s)}
+                    aria-pressed={sex === s}
                     className={`min-h-11 flex-1 py-2.5 rounded-xl text-sm font-medium border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] ${
                       sex === s ? 'accent-chip-active bg-[var(--surface-2)]' : 'border-[var(--border-subtle)] text-[var(--content-secondary)]'
                     }`}
@@ -377,12 +383,12 @@ export default function ProfilePage() {
             <div>
               <label className="text-[var(--content-muted)] text-xs uppercase tracking-wider">{t('onboard.height')}</label>
               <input type="number" min="100" max="250" value={heightCm} onChange={(e) => setHeightCm(e.target.value)}
-                className="input-dark text-sm mt-1" placeholder="175" />
+                className="input-dark text-base sm:text-sm mt-1" placeholder="175" />
             </div>
             <div>
               <label className="text-[var(--content-muted)] text-xs uppercase tracking-wider">{t('onboard.weight')}</label>
               <input type="number" min="20" max="300" step="0.1" value={weightKg} onChange={(e) => setWeightKg(e.target.value)}
-                className="input-dark text-sm mt-1" placeholder="75" />
+                className="input-dark text-base sm:text-sm mt-1" placeholder="75" />
             </div>
           </div>
 
@@ -393,6 +399,7 @@ export default function ProfilePage() {
                 <button
                   key={a}
                   onClick={() => setActivity(a)}
+                  aria-pressed={activity === a}
                   className={`min-h-11 w-full text-left px-3 py-2.5 rounded-xl text-sm border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] ${
                     activity === a ? 'accent-chip-active bg-[var(--surface-2)]' : 'border-[var(--border-subtle)] text-[var(--content-secondary)] hover:bg-[var(--surface-2)]'
                   }`}
@@ -413,6 +420,7 @@ export default function ProfilePage() {
                 <button
                   key={g}
                   onClick={() => setGoal(g)}
+                  aria-pressed={goal === g}
                   className={`min-h-11 text-left px-3 py-2.5 rounded-xl text-sm border transition-all flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] ${
                     goal === g ? 'accent-chip-active bg-[var(--surface-2)]' : 'border-[var(--border-subtle)] text-[var(--content-secondary)] hover:bg-[var(--surface-2)]'
                   }`}
@@ -420,7 +428,7 @@ export default function ProfilePage() {
                   <Icon
                     name={GOAL_ICONS[g] as Parameters<typeof Icon>[0]['name']}
                     size={11}
-                    style={{ flexShrink: 0, color: goal === g ? 'var(--accent,#D4A853)' : 'var(--t4,#78716C)' }}
+                    style={{ flexShrink: 0, color: goal === g ? 'var(--accent,#D4A853)' : 'var(--content-muted)' }}
                   />
                   <span className="text-xs">{t(`goal.${g}`)}</span>
                 </button>
@@ -473,6 +481,7 @@ export default function ProfilePage() {
           {/* Theme mode */}
           <button
             onClick={toggleMode}
+            aria-pressed={mode === 'dark'}
             className="min-h-11 w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm border border-[var(--border-subtle)] hover:bg-[var(--surface-2)] transition-all mb-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
           >
             <span className="text-[var(--content-secondary)]">
@@ -496,11 +505,12 @@ export default function ProfilePage() {
                     aria-pressed={on}
                     title={t(a.labelKey)}
                     onClick={() => setPrefs({ ...prefs, accent: a.id })}
+                    className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                     style={{
                       width: 44, height: 44, borderRadius: '50%', cursor: 'pointer',
                       background: a.value,
                       border: '3px solid',
-                      borderColor: on ? 'var(--t1,#FAFAF9)' : 'transparent',
+                      borderColor: on ? 'var(--content-primary)' : 'transparent',
                       outline: on ? `2px solid ${a.value}` : 'none',
                       outlineOffset: 2,
                       transition: 'transform .15s, border-color .15s',
@@ -510,7 +520,7 @@ export default function ProfilePage() {
                 );
               })}
             </div>
-            <div className="ds-sub" style={{ fontSize: 10, marginTop: 8 }}>
+            <div className="ds-sub" style={{ fontSize: 12, marginTop: 8 }}>
               {t('appearance.accent_hint')}
             </div>
           </div>
@@ -529,10 +539,11 @@ export default function ProfilePage() {
                     key={p.id}
                     aria-pressed={on}
                     onClick={() => setPrefs({ ...prefs, palette: p.id })}
+                    className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                     style={{
                       minHeight: 44, padding: '10px 12px', borderRadius: 12, cursor: 'pointer', textAlign: 'left',
-                      background: on ? 'var(--accent-soft)' : 'rgba(255,255,255,.02)',
-                      border: `1px solid ${on ? 'var(--accent)' : 'var(--line)'}`,
+                      background: on ? 'var(--accent-soft)' : 'var(--surface-2)',
+                      border: `1px solid ${on ? 'var(--accent)' : 'var(--border-default)'}`,
                       transition: 'all .15s',
                     }}
                   >
@@ -544,7 +555,7 @@ export default function ProfilePage() {
                         }} />
                       ))}
                     </div>
-                    <span style={{ fontSize: 11, fontWeight: 600, color: on ? 'var(--accent)' : 'var(--t3)' }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: on ? 'var(--accent)' : 'var(--content-secondary)' }}>
                       {t(p.labelKey)}
                     </span>
                   </button>
@@ -561,6 +572,7 @@ export default function ProfilePage() {
                 <button
                   key={d}
                   onClick={() => setPrefs({ ...prefs, density: d })}
+                  aria-pressed={prefs.density === d}
                   className={`min-h-11 flex-1 py-2.5 rounded-xl text-sm font-medium border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] ${
                     prefs.density === d ? 'accent-chip-active bg-[var(--surface-2)]' : 'border-[var(--border-subtle)] text-[var(--content-secondary)]'
                   }`}
@@ -580,7 +592,7 @@ export default function ProfilePage() {
               <SlidersHorizontal size={14} />
               {t('appearance.manage_panels')}
             </span>
-            <span className="ds-sub" style={{ fontSize: 10 }}>{t('appearance.manage_panels_hint')}</span>
+            <span className="ds-sub" style={{ fontSize: 12 }}>{t('appearance.manage_panels_hint')}</span>
           </button>
         </SectionCard>
 
@@ -593,14 +605,15 @@ export default function ProfilePage() {
                 <button
                   key={l.value}
                   onClick={() => handleLangChange(l.value)}
+                  aria-pressed={on}
                   className={`min-h-11 py-2.5 px-3 rounded-xl text-sm border transition-all text-left flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] ${
                     on ? 'accent-chip-active bg-[var(--surface-2)]' : 'border-[var(--border-subtle)] text-[var(--content-secondary)]'
                   }`}
                 >
                   <span style={{
-                    fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 700,
+                    fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700,
                     padding: '2px 6px', borderRadius: 6,
-                    background: on ? 'var(--accent-soft)' : 'rgba(255,255,255,.05)',
+                    background: on ? 'var(--accent-soft)' : 'var(--surface-2)',
                   }}>
                     {l.code}
                   </span>
@@ -624,7 +637,7 @@ export default function ProfilePage() {
           <button
             onClick={handleSave}
             disabled={saving}
-            className={`w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all ${
+            className={`min-h-11 min-w-11 w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] ${
               saved ? 'bg-green-500/15 text-green-400 border border-green-500/20' : 'btn-gold'
             }`}
           >
@@ -650,7 +663,7 @@ export default function ProfilePage() {
               <Download size={14} />
               {t('settings.export_data')}
             </span>
-            <span className="ds-sub" style={{ fontSize: 10 }}>JSON</span>
+            <span className="ds-sub" style={{ fontSize: 12 }}>JSON</span>
           </a>
           <PrivacyRequests />
         </SectionCard>
@@ -659,7 +672,7 @@ export default function ProfilePage() {
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="mt-2 mb-4">
           <button
             onClick={handleLogout}
-            className="w-full py-3 rounded-xl text-sm font-medium text-red-400 border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 transition-all flex items-center justify-center gap-2"
+            className="min-h-11 min-w-11 w-full py-3 rounded-xl text-sm font-medium text-red-400 border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 transition-all flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
           >
             <LogOut size={16} /> {t('profile.log_out')}
           </button>

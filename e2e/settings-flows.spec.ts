@@ -46,12 +46,15 @@ test.describe('client settings flows', () => {
   });
 
   test('theme persists across core routes and mobile controls remain reachable', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
     await login(page);
 
     await page.goto('/dashboard');
     const themeToggle = page.getByRole('button', { name: /Switch to (light|dark) mode/ });
     await expect(themeToggle).toBeVisible();
-    await expect(themeToggle).toHaveJSProperty('offsetWidth', 44);
+    const themeToggleBox = await themeToggle.boundingBox();
+    expect(themeToggleBox?.width).toBeGreaterThanOrEqual(44);
+    expect(themeToggleBox?.height).toBeGreaterThanOrEqual(44);
     await themeToggle.click();
     await expect.poll(() => page.evaluate(() => document.documentElement.classList.contains('light'))).toBe(true);
 
@@ -64,9 +67,12 @@ test.describe('client settings flows', () => {
     await page.goto('/dashboard/profile');
     const profileTabs = page.locator('button').filter({ hasText: /Account|Body|Appearance|Language|Privacy/ });
     await expect(profileTabs.last()).toBeVisible();
-    const tabsBox = await profileTabs.last().boundingBox();
-    expect(tabsBox?.x).toBeGreaterThanOrEqual(0);
-    expect((tabsBox?.x ?? 0) + (tabsBox?.width ?? 0)).toBeLessThanOrEqual(390);
+    const viewportWidth = page.viewportSize()!.width;
+    for (let index = 0; index < await profileTabs.count(); index += 1) {
+      const tabsBox = await profileTabs.nth(index).boundingBox();
+      expect(tabsBox?.x).toBeGreaterThanOrEqual(0);
+      expect((tabsBox?.x ?? 0) + (tabsBox?.width ?? 0)).toBeLessThanOrEqual(viewportWidth);
+    }
 
     await page.goto('/dashboard');
     const waterButtons = page.getByRole('button', { name: /Log water cup \d+/ });

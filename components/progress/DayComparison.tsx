@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { X, ArrowRight } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { FoodLogEntry } from '@/lib/types';
@@ -21,6 +21,7 @@ interface DayComparisonProps {
 export default function DayComparison({ userId, currentDate, currentLog, compareDate, onClose }: DayComparisonProps) {
   const [compareLog, setCompareLog] = useState<FoodLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const reducedMotion = useReducedMotion();
 
   useEffect(() => {
     const load = async () => {
@@ -69,21 +70,22 @@ export default function DayComparison({ userId, currentDate, currentLog, compare
 
   return (
     <motion.div
-      initial={{ opacity: 0 }}
+      initial={{ opacity: reducedMotion ? 1 : 0 }}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
+      exit={{ opacity: reducedMotion ? 1 : 0 }}
+      transition={{ duration: reducedMotion ? 0 : 0.15 }}
       className="fixed inset-0 z-50 bg-black/60 flex items-end justify-center"
       onClick={onClose}
     >
       <motion.div
-        initial={{ y: '100%' }}
-        animate={{ y: 0 }}
-        exit={{ y: '100%' }}
-        transition={{ type: 'spring', damping: 25 }}
+        initial={reducedMotion ? { opacity: 0 } : { y: '100%' }}
+        animate={reducedMotion ? { opacity: 1 } : { y: 0 }}
+        exit={reducedMotion ? { opacity: 0 } : { y: '100%' }}
+        transition={reducedMotion ? { duration: 0 } : { type: 'spring', damping: 25 }}
         role="dialog"
         aria-modal="true"
         aria-label="Day comparison"
-        className="w-full max-w-md bg-[var(--surface-1)] rounded-t-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] max-h-[70vh] overflow-y-auto"
+        className="w-full max-w-md bg-[var(--surface-1)] rounded-t-2xl p-4 pb-[calc(5rem+env(safe-area-inset-bottom))] max-h-[70vh] overflow-y-auto"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
@@ -123,7 +125,7 @@ export default function DayComparison({ userId, currentDate, currentLog, compare
               { label: 'Carbs', a: current.carbs, b: compare.carbs, unit: 'g', color: MACRO_COLORS.carbs },
               { label: 'Fat', a: current.fat, b: compare.fat, unit: 'g', color: MACRO_COLORS.fat },
               { label: 'Fiber', a: current.fiber, b: compare.fiber, unit: 'g', color: MACRO_COLORS.fiber },
-              { label: 'Items', a: current.items, b: compare.items, unit: '', color: 'var(--t2, #D6D3D1)' },
+              { label: 'Items', a: current.items, b: compare.items, unit: '', color: 'var(--content-primary)' },
             ].map(row => (
               <div key={row.label} className="grid grid-cols-[1fr_80px_1fr] gap-2 py-1.5 border-b border-[var(--border-subtle)]">
                 <p className="text-sm text-right font-medium" style={{ color: row.color }}>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Plus, Trash2, GripVertical, Copy } from 'lucide-react';
 import type { MealSlot } from '@/components/meals/MealSlotCard';
 import type { MealType } from '@/lib/types';
@@ -27,6 +27,7 @@ export default function MealSlotConfig({ slots: initialSlots, onSave, onClose }:
   const [editingEmoji, setEditingEmoji] = useState<string | null>(null);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const reducedMotion = useReducedMotion();
 
   // Touch drag state (mobile)
   const touchRef = useRef<{ startY: number; fromIndex: number; slotHeight: number } | null>(null);
@@ -138,17 +139,18 @@ export default function MealSlotConfig({ slots: initialSlots, onSave, onClose }:
 
   return (
     <motion.div
-      initial={{ opacity: 0 }}
+      initial={{ opacity: reducedMotion ? 1 : 0 }}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
+      exit={{ opacity: reducedMotion ? 1 : 0 }}
+      transition={{ duration: reducedMotion ? 0 : 0.15 }}
       className="fixed inset-0 z-50 bg-black/60 flex items-end justify-center"
       onClick={onClose}
     >
       <motion.div
-        initial={{ y: '100%' }}
-        animate={{ y: 0 }}
-        exit={{ y: '100%' }}
-        transition={{ type: 'spring', damping: 25 }}
+        initial={reducedMotion ? { opacity: 0 } : { y: '100%' }}
+        animate={reducedMotion ? { opacity: 1 } : { y: 0 }}
+        exit={reducedMotion ? { opacity: 0 } : { y: '100%' }}
+        transition={reducedMotion ? { duration: 0 } : { type: 'spring', damping: 25 }}
         role="dialog"
         aria-modal="true"
         aria-label="Customize meals"
@@ -194,16 +196,22 @@ export default function MealSlotConfig({ slots: initialSlots, onSave, onClose }:
               {/* Top row: grip + emoji + label + duplicate + delete */}
               <div className="flex items-center gap-2 mb-2">
                 {/* Drag handle — touch events for mobile */}
-                <div
-                  className="text-[var(--content-muted)] flex-shrink-0 cursor-grab active:cursor-grabbing touch-none p-1"
+                <button
+                  type="button"
+                  className="min-h-11 min-w-11 text-[var(--content-muted)] flex-shrink-0 cursor-grab active:cursor-grabbing touch-none p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                   onTouchStart={e => handleTouchStart(e, index)}
                   onTouchMove={handleTouchMove}
                   onTouchEnd={handleTouchEnd}
-                  aria-label={`Drag to reorder ${slot.label}`}
-                  role="button"
+                  onKeyDown={(event) => {
+                    if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
+                    event.preventDefault();
+                    const target = index + (event.key === 'ArrowUp' ? -1 : 1);
+                    if (target >= 0 && target < slots.length) reorder(index, target);
+                  }}
+                  aria-label={`Reorder ${slot.label}`}
                 >
                   <GripVertical size={18} />
-                </div>
+                </button>
 
                 {/* Emoji picker */}
                 <button
@@ -219,7 +227,7 @@ export default function MealSlotConfig({ slots: initialSlots, onSave, onClose }:
                   type="text"
                   value={slot.label}
                   onChange={e => updateSlot(slot.id, { label: e.target.value })}
-                  className="input-dark flex-1 text-sm py-2 min-w-0"
+                  className="input-dark flex-1 text-base sm:text-sm py-2 min-w-0"
                   maxLength={20}
                   placeholder="Meal name"
                 />
@@ -252,7 +260,7 @@ export default function MealSlotConfig({ slots: initialSlots, onSave, onClose }:
                 <select
                   value={slot.mealType}
                   onChange={e => updateSlot(slot.id, { mealType: e.target.value as MealType })}
-                  className="input-dark text-xs py-1.5 flex-1"
+                  className="input-dark text-base sm:text-sm py-1.5 flex-1"
                 >
                   {MEAL_TYPES.map(mt => (
                     <option key={mt.value} value={mt.value}>{mt.label}</option>
@@ -264,9 +272,10 @@ export default function MealSlotConfig({ slots: initialSlots, onSave, onClose }:
               <AnimatePresence>
                 {editingEmoji === slot.id && (
                   <motion.div
-                    initial={{ opacity: 0, height: 0 }}
+                    initial={reducedMotion ? { opacity: 0 } : { opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
+                    exit={reducedMotion ? { opacity: 0 } : { opacity: 0, height: 0 }}
+                    transition={{ duration: reducedMotion ? 0 : 0.15 }}
                     className="mt-2 glass-elevated p-2 rounded-lg grid grid-cols-8 gap-1.5 overflow-hidden"
                   >
                     {EMOJI_OPTIONS.map(emoji => (

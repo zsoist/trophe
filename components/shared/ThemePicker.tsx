@@ -1,10 +1,11 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { Palette, X, Check, Moon, Sun } from 'lucide-react';
 import { useAppearance } from '@/components/shared/AppearanceProvider';
 import { ACCENTS } from '@/lib/appearance';
 import { useThemeMode } from '@/components/shared/ThemeMode';
+import { useI18n } from '@/lib/i18n';
 
 interface ThemePickerProps {
   onClose: () => void;
@@ -13,6 +14,8 @@ interface ThemePickerProps {
 export default function ThemePicker({ onClose }: ThemePickerProps) {
   const { prefs, setPrefs } = useAppearance();
   const { mode, toggleMode } = useThemeMode();
+  const { t } = useI18n();
+  const reducedMotion = useReducedMotion();
 
   const handleSelect = (id: string) => {
     setPrefs({ ...prefs, accent: id });
@@ -20,18 +23,22 @@ export default function ThemePicker({ onClose }: ThemePickerProps) {
 
   return (
     <motion.div
-      initial={{ opacity: 0 }}
+      initial={{ opacity: reducedMotion ? 1 : 0 }}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
+      exit={{ opacity: reducedMotion ? 1 : 0 }}
+      transition={{ duration: reducedMotion ? 0 : 0.15 }}
       className="fixed inset-0 z-50 bg-black/60 flex items-end justify-center"
       onClick={onClose}
     >
       <motion.div
-        initial={{ y: '100%' }}
-        animate={{ y: 0 }}
-        exit={{ y: '100%' }}
-        transition={{ type: 'spring', damping: 25 }}
-        className="w-full max-w-md bg-[var(--surface-1)] rounded-t-2xl p-4 safe-bottom"
+        initial={reducedMotion ? { opacity: 0 } : { y: '100%' }}
+        animate={reducedMotion ? { opacity: 1 } : { y: 0 }}
+        exit={reducedMotion ? { opacity: 0 } : { y: '100%' }}
+        transition={reducedMotion ? { duration: 0 } : { type: 'spring', damping: 25 }}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Appearance"
+        className="w-full max-w-md bg-[var(--surface-1)] rounded-t-2xl p-4 pb-[calc(5rem+env(safe-area-inset-bottom))]"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
@@ -46,6 +53,7 @@ export default function ThemePicker({ onClose }: ThemePickerProps) {
 
         <button
           onClick={toggleMode}
+          aria-pressed={mode === 'dark'}
           className="mb-4 flex min-h-11 w-full items-center justify-between rounded-xl border border-[var(--border-default)] bg-[var(--surface-2)] px-3 text-sm text-[var(--content-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
         >
           <span>{mode === 'dark' ? 'Dark mode' : 'Light mode'}</span>
@@ -57,8 +65,9 @@ export default function ThemePicker({ onClose }: ThemePickerProps) {
             <button
               key={theme.id}
               onClick={() => handleSelect(theme.id)}
+              aria-label={t(theme.labelKey)}
               aria-pressed={prefs.accent === theme.id}
-              className={`min-h-11 rounded-xl border p-3 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] ${
+              className={`min-h-11 min-w-11 rounded-xl border p-3 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] ${
                 prefs.accent === theme.id
                   ? 'border-[var(--border-focus)] bg-[var(--surface-2)]'
                   : 'border-[var(--border-subtle)] hover:border-[var(--border-default)]'
@@ -70,12 +79,12 @@ export default function ThemePicker({ onClose }: ThemePickerProps) {
               >
                 {prefs.accent === theme.id && <Check size={14} className="text-black" />}
               </div>
-              <p className="text-xs text-[var(--content-secondary)] text-center">{theme.id}</p>
+              <p className="text-xs text-[var(--content-secondary)] text-center">{t(theme.labelKey)}</p>
             </button>
           ))}
         </div>
 
-        <button onClick={onClose} className="btn-gold w-full py-2.5 text-sm">
+        <button onClick={onClose} className="btn-gold min-h-11 w-full py-2.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
           Done
         </button>
       </motion.div>

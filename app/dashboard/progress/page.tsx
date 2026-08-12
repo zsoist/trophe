@@ -36,11 +36,13 @@ function Section({
   defaultOpen?: boolean; accent?: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const reducedMotion = useReducedMotion();
   return (
     <div className={accent ? 'card-g mb-3 panel-gap' : 'card mb-3 panel-gap'} style={{ overflow: 'hidden' }}>
       <button
         onClick={() => setOpen(o => !o)}
-        className="w-full"
+        aria-expanded={open}
+        className="min-h-11 w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
         style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           padding: '13px 14px', cursor: 'pointer', background: 'transparent', border: 'none',
@@ -48,21 +50,21 @@ function Section({
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Icon name={icon as Parameters<typeof Icon>[0]['name']} size={13}
-            style={{ color: accent ? 'var(--accent,#D4A853)' : 'var(--t3,#A8A29E)' }} />
+            style={{ color: accent ? 'var(--accent,#D4A853)' : 'var(--content-secondary)' }} />
           <span className="eye-d">{title}</span>
         </div>
-        <motion.span animate={{ rotate: open ? 180 : 0 }} transition={{ duration: 0.2 }}>
-          <Icon name="i-chev-d" size={12} style={{ color: 'var(--t4,#78716C)' }} />
+        <motion.span animate={{ rotate: reducedMotion ? 0 : open ? 180 : 0 }} transition={{ duration: reducedMotion ? 0 : 0.2 }}>
+          <Icon name="i-chev-d" size={12} style={{ color: 'var(--content-muted)' }} />
         </motion.span>
       </button>
       <AnimatePresence initial={false}>
         {open && (
           <motion.div
             key="body"
-            initial={{ height: 0, opacity: 0 }}
+            initial={reducedMotion ? { opacity: 0 } : { height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.22, ease: 'easeInOut' }}
+            exit={reducedMotion ? { opacity: 0 } : { height: 0, opacity: 0 }}
+            transition={{ duration: reducedMotion ? 0 : 0.22, ease: 'easeInOut' }}
             style={{ overflow: 'hidden' }}
           >
             <div style={{ padding: '0 14px 14px' }}>{children}</div>
@@ -97,8 +99,8 @@ function WeightChart({ measurements, onLogFirst }: { measurements: Measurement[]
         {onLogFirst && (
           <button
             onClick={onLogFirst}
-            className="btn-ghost mt-3"
-            style={{ fontSize: 12, padding: '10px 16px', minHeight: 40 }}
+            className="btn-ghost mt-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+            style={{ fontSize: 12, padding: '10px 16px', minHeight: 44, minWidth: 44 }}
           >
             {t('progress.log_weight_cta')}
           </button>
@@ -148,9 +150,9 @@ function WeightChart({ measurements, onLogFirst }: { measurements: Measurement[]
             {diff > 0 ? '+' : ''}{diff.toFixed(1)} kg · {rows.length} {t('progress.entries')}
           </span>
         </div>
-        <span className="display-lg" style={{ fontSize: 26, lineHeight: '28px', color: 'var(--t1,#FAFAF9)' }}>
+        <span className="display-lg" style={{ fontSize: 26, lineHeight: '28px', color: 'var(--content-primary)' }}>
           {lastWeight.toFixed(1)}
-          <span style={{ fontFamily: 'var(--font-mono)', fontStyle: 'normal', fontSize: 11, color: 'var(--t4)', marginLeft: 3 }}>kg</span>
+          <span style={{ fontFamily: 'var(--font-mono)', fontStyle: 'normal', fontSize: 12, color: 'var(--content-muted)', marginLeft: 3 }}>kg</span>
         </span>
       </div>
 
@@ -160,12 +162,14 @@ function WeightChart({ measurements, onLogFirst }: { measurements: Measurement[]
           <button
             key={p.v}
             onClick={() => setPeriod(p.v)}
+            aria-pressed={period === p.v}
+            className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             style={{
-              padding: '3px 10px', borderRadius: 999, fontSize: 10, fontWeight: 600, cursor: 'pointer',
+              padding: '3px 10px', minWidth: 44, minHeight: 44, borderRadius: 999, fontSize: 12, fontWeight: 600, cursor: 'pointer',
               fontFamily: 'var(--font-mono)',
               background: period === p.v ? 'var(--accent-soft)' : 'transparent',
-              border: `1px solid ${period === p.v ? 'var(--accent)' : 'var(--line)'}`,
-              color: period === p.v ? 'var(--accent)' : 'var(--t4)',
+              border: `1px solid ${period === p.v ? 'var(--accent)' : 'var(--border-default)'}`,
+              color: period === p.v ? 'var(--accent)' : 'var(--content-muted)',
               transition: 'all .15s',
             }}
           >
@@ -185,7 +189,7 @@ function WeightChart({ measurements, onLogFirst }: { measurements: Measurement[]
           <line
             key={pct}
             x1={padX} y1={padY + pct * chartH} x2={width - padX} y2={padY + pct * chartH}
-            stroke="rgba(255,255,255,0.04)" strokeWidth={1}
+            stroke="var(--border-subtle)" strokeWidth={1}
           />
         ))}
         <motion.polygon
@@ -215,17 +219,17 @@ function WeightChart({ measurements, onLogFirst }: { measurements: Measurement[]
             r={i === arr.length - 1 ? 4 : 2.5}
             fill={i === arr.length - 1 ? 'var(--accent,#D4A853)' : 'var(--accent-strong,#B8923E)'}
             opacity={i === arr.length - 1 ? 1 : 0.7}
-            stroke={i === arr.length - 1 ? 'var(--bg,#0a0a0a)' : 'none'}
+            stroke={i === arr.length - 1 ? 'var(--canvas)' : 'none'}
             strokeWidth={2}
             initial={reducedMotion ? false : { opacity: 0 }}
             animate={{ opacity: i === arr.length - 1 ? 1 : 0.7 }}
             transition={{ duration: 0.3, delay: reducedMotion ? 0 : 0.15 + (i / Math.max(arr.length - 1, 1)) * 0.9 }}
           />
         ))}
-        <text x={width - padX} y={padY + 4} textAnchor="end" fill="var(--t4,#78716c)" fontSize={9}>
+        <text x={width - padX} y={padY + 4} textAnchor="end" fill="var(--content-muted)" fontSize={12}>
           {maxW.toFixed(0)} kg
         </text>
-        <text x={width - padX} y={height - padY + 10} textAnchor="end" fill="var(--t4,#78716c)" fontSize={9}>
+        <text x={width - padX} y={height - padY + 10} textAnchor="end" fill="var(--content-muted)" fontSize={12}>
           {minW.toFixed(0)} kg
         </text>
       </svg>
@@ -238,6 +242,7 @@ export default function ProgressPage() {
   const clientNav = useClientNav();
   const { t } = useI18n();
   const { prefs } = useAppearance();
+  const reducedMotion = useReducedMotion();
   const [loading, setLoading] = useState(true);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [clientProfile, setClientProfile] = useState<ClientProfile | null>(null);
@@ -319,7 +324,7 @@ export default function ProgressPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen pb-24" style={{ background: 'var(--bg,#0a0a0a)' }}>
+      <div className="min-h-screen pb-24" style={{ background: 'var(--canvas)' }}>
         <div className="max-w-md mx-auto px-4 pt-12 space-y-3">
           {[1, 2, 3].map(i => (
             <div key={i} className="card" style={{ height: 56, animation: 'pulse 1.5s infinite' }} />
@@ -369,18 +374,18 @@ export default function ProgressPage() {
             <div className="eye-d" style={{ marginBottom: 10, color: 'var(--accent)' }}>{t('progress.panel_journey')}</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
               <div>
-                <div className="display-lg" style={{ fontSize: 24, color: 'var(--t1)' }}>
+                <div className="display-lg" style={{ fontSize: 24, color: 'var(--content-primary)' }}>
                   {weights.length ? (
                     <AnimatedValue value={Number(currentWeight.toFixed(1))} decimals={1} />
                   ) : '—'}
-                  <span style={{ fontFamily: 'var(--font-mono)', fontStyle: 'normal', fontSize: 10, color: 'var(--t4)', marginLeft: 2 }}>kg</span>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontStyle: 'normal', fontSize: 12, color: 'var(--content-muted)', marginLeft: 2 }}>kg</span>
                 </div>
                 <div className="eye-d" style={{ marginTop: 2 }}>{t('progress.journey_current')}</div>
               </div>
               <div>
                 <div style={{
                   fontSize: 20, fontWeight: 700, fontFamily: 'var(--font-mono)',
-                  color: weights.length > 1 ? (deltaGood ? 'var(--ok,#65D387)' : totalDelta === 0 ? 'var(--t1)' : 'var(--warn,#E8B86E)') : 'var(--t1)',
+                  color: weights.length > 1 ? (deltaGood ? 'var(--ok,#65D387)' : totalDelta === 0 ? 'var(--content-primary)' : 'var(--warn,#E8B86E)') : 'var(--content-primary)',
                 }}>
                   {weights.length > 1 ? (
                     <>
@@ -388,14 +393,14 @@ export default function ProgressPage() {
                       <AnimatedValue value={Number(totalDelta.toFixed(1))} decimals={1} />
                     </>
                   ) : '—'}
-                  <span style={{ fontSize: 10, color: 'var(--t4)', marginLeft: 2 }}>kg</span>
+                  <span style={{ fontSize: 12, color: 'var(--content-muted)', marginLeft: 2 }}>kg</span>
                 </div>
                 <div className="eye-d" style={{ marginTop: 2 }}>{t('progress.journey_change')}</div>
               </div>
               <div>
                 <div style={{ fontSize: 20, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--accent)' }}>
                   <AnimatedValue value={activeStreak} />
-                  <span style={{ fontSize: 10, color: 'var(--t4)', marginLeft: 2 }}>{t('progress.journey_days')}</span>
+                  <span style={{ fontSize: 12, color: 'var(--content-muted)', marginLeft: 2 }}>{t('progress.journey_days')}</span>
                 </div>
                 <div className="eye-d" style={{ marginTop: 2 }}>{t('progress.journey_streak')}</div>
               </div>
@@ -410,15 +415,15 @@ export default function ProgressPage() {
               onLogFirst={() => {
                 setShowForm(true);
                 requestAnimationFrame(() =>
-                  document.getElementById('weight-form')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                  document.getElementById('weight-form')?.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'center' })
                 );
               }}
             />
-            <div id="weight-form" style={{ marginTop: 10, borderTop: '1px solid rgba(255,255,255,.05)', paddingTop: 10 }}>
+            <div id="weight-form" style={{ marginTop: 10, borderTop: '1px solid var(--border-subtle)', paddingTop: 10 }}>
               <button
                 onClick={() => setShowForm(f => !f)}
-                className="btn-ghost w-full"
-                style={{ fontSize: 11, padding: '10px 7px', minHeight: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}
+                className="btn-ghost w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                style={{ fontSize: 12, padding: '10px 7px', minHeight: 44, minWidth: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}
               >
                 <Plus size={12} />
                 {showForm ? t('general.cancel') : t('progress.log_measurement')}
@@ -427,8 +432,8 @@ export default function ProgressPage() {
             <AnimatePresence>
               {showForm && (
                 <motion.div
-                  initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
+                  initial={reducedMotion ? { opacity: 0 } : { height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}
+                  exit={reducedMotion ? { opacity: 0 } : { height: 0, opacity: 0 }}
                   style={{ overflow: 'hidden', marginTop: 8 }}
                 >
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 8 }}>
@@ -441,13 +446,13 @@ export default function ProgressPage() {
                         <div className="eye-d" style={{ marginBottom: 4 }}>{f.label}</div>
                         <input type="number" step={f.step} value={f.val}
                           onChange={e => f.set(e.target.value)}
-                          className="input-dark" style={{ fontSize: 12, width: '100%' }}
+                          className="input-dark text-base sm:text-sm" style={{ width: '100%' }}
                           placeholder={f.ph} />
                       </div>
                     ))}
                   </div>
                   <button onClick={addMeasurement} disabled={saving || !formWeight}
-                    className="btn-gold w-full" style={{ fontSize: 11, padding: '8px' }}>
+                    className="btn-gold min-h-11 min-w-11 w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" style={{ fontSize: 12, padding: '8px' }}>
                     {saving ? t('profile.saving') : t('general.save')}
                   </button>
                 </motion.div>
@@ -468,7 +473,7 @@ export default function ProgressPage() {
                   <span className="ds-sub">{t('progress.weekly_trend')}</span>
                   <span style={{
                     fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4,
-                    color: weeklyChange > 0 ? 'var(--err,#E87A6E)' : weeklyChange < 0 ? 'var(--ok,#65D387)' : 'var(--t4)',
+                    color: weeklyChange > 0 ? 'var(--err,#E87A6E)' : weeklyChange < 0 ? 'var(--ok,#65D387)' : 'var(--content-muted)',
                   }}>
                     {weeklyChange > 0 ? <TrendingUp size={12} /> : weeklyChange < 0 ? <TrendingDown size={12} /> : null}
                     {weeklyChange > 0 ? '+' : ''}{weeklyChange.toFixed(2)} kg/wk
@@ -476,7 +481,7 @@ export default function ProgressPage() {
                 </div>
                 {weeksToGoal !== null && goalWeightTarget !== null && !movingWrong && (
                   <div style={{ padding: '8px 10px', borderRadius: 10, background: 'var(--accent-soft)', border: '1px solid var(--accent-soft)' }}>
-                    <span style={{ fontSize: 12, color: 'var(--t2)' }}>
+                    <span style={{ fontSize: 12, color: 'var(--content-primary)' }}>
                       {t('progress.projection_prefix')}{' '}
                       <span style={{ color: 'var(--accent)', fontWeight: 700 }}>{goalWeightTarget.toFixed(1)} kg</span>
                       {' '}{t('progress.projection_in')} ~<span style={{ color: 'var(--accent)', fontWeight: 700 }}>{Math.round(weeksToGoal)}</span> {t('progress.projection_weeks')}
@@ -527,19 +532,19 @@ export default function ProgressPage() {
               ].filter(s => showCalories || s.unit !== 'kcal').map(s => (
                 <div key={s.label}>
                   <div className="eye-d">{s.label}</div>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: s.accent ? 'var(--accent)' : 'var(--t1,#FAFAF9)', marginTop: 2 }}>
-                    {s.val ?? '—'}<span style={{ fontSize: 10, color: 'var(--t4)', marginLeft: 3 }}>{s.unit}</span>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: s.accent ? 'var(--accent)' : 'var(--content-primary)', marginTop: 2 }}>
+                    {s.val ?? '—'}<span style={{ fontSize: 12, color: 'var(--content-muted)', marginLeft: 3 }}>{s.unit}</span>
                   </div>
                 </div>
               ))}
             </div>
-            <div style={{ borderTop: '1px solid rgba(255,255,255,.05)', paddingTop: 10, display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
+            <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 10, display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
               {[
                 { label: t('general.protein'), val: clientProfile.target_protein_g, color: MACRO_COLORS.protein },
                 { label: t('general.carbs'), val: clientProfile.target_carbs_g, color: MACRO_COLORS.carbs },
                 { label: t('general.fat'), val: clientProfile.target_fat_g, color: MACRO_COLORS.fat },
               ].map(m => (
-                <div key={m.label} style={{ textAlign: 'center', padding: '8px 4px', borderRadius: 10, background: 'rgba(255,255,255,.03)' }}>
+                <div key={m.label} style={{ textAlign: 'center', padding: '8px 4px', borderRadius: 10, background: 'var(--surface-2)' }}>
                   <div style={{ fontSize: 15, fontWeight: 700, color: m.color }}>{m.val ?? '—'}g</div>
                   <div className="eye-d">{m.label}</div>
                 </div>
@@ -563,11 +568,11 @@ export default function ProgressPage() {
                 {completedHabits.map(ch => (
                   <div key={ch.id} style={{
                     display: 'flex', alignItems: 'center', gap: 10,
-                    padding: '8px 10px', borderRadius: 10, background: 'rgba(255,255,255,.02)',
+                    padding: '8px 10px', borderRadius: 10, background: 'var(--surface-2)',
                   }}>
                     <Icon name="i-check" size={12} style={{ color: 'var(--ok,#65D387)', flexShrink: 0 }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--t1)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--content-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {ch.habit?.name_en ?? t('progress.habit_fallback')}
                       </div>
                       <div className="ds-sub">
@@ -596,7 +601,7 @@ export default function ProgressPage() {
   };
 
   return (
-    <div className="min-h-screen pb-24" style={{ background: 'var(--bg,#0a0a0a)' }}>
+    <div className="min-h-screen pb-24" style={{ background: 'var(--canvas)' }}>
       <motion.div
         initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35 }}
@@ -605,7 +610,7 @@ export default function ProgressPage() {
         {/* Header */}
         <div className="row-b mb-4">
           <div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--t1,#FAFAF9)', letterSpacing: '-.02em' }}>
+            <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--content-primary)', letterSpacing: '-.02em' }}>
               {t('progress.title')}
             </div>
             <div className="ds-sub">{t('progress.subtitle')}</div>
@@ -618,9 +623,10 @@ export default function ProgressPage() {
             <button
               aria-label={t('progress.customize_title')}
               onClick={() => setShowCustomize(true)}
+              className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
               style={{
-                background: 'rgba(255,255,255,.03)', border: '1px solid var(--line)', borderRadius: 10,
-                padding: '7px 8px', cursor: 'pointer', color: 'var(--t3)', lineHeight: 0,
+                background: 'var(--surface-2)', border: '1px solid var(--border-default)', borderRadius: 10,
+                minWidth: 44, minHeight: 44, padding: '7px 8px', cursor: 'pointer', color: 'var(--content-secondary)', lineHeight: 0,
               }}
             >
               <SlidersHorizontal size={14} />

@@ -276,7 +276,7 @@ export default function MealSlotCard({
           </div>
           <button
             onClick={onUndoSkip}
-            className="min-h-11 text-[var(--content-muted)] hover:text-[var(--content-secondary)] text-xs flex items-center gap-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+            className="min-h-11 min-w-11 text-[var(--content-muted)] hover:text-[var(--content-secondary)] text-xs flex items-center gap-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
           >
             <Undo2 size={12} />
             {t('food.undo_skip')}
@@ -295,9 +295,15 @@ export default function MealSlotCard({
     return (
       <motion.div
         layout
-        whileTap={{ scale: 0.98 }}
+        whileTap={reduceMotion ? undefined : { scale: 0.98 }}
         onClick={() => setInputActive(true)}
-        onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setInputActive(true); } }}
+        onKeyDown={(event) => {
+          if (event.target !== event.currentTarget) return;
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            setInputActive(true);
+          }
+        }}
         role="button"
         tabIndex={0}
         aria-label={`Log ${slot.label}`}
@@ -337,7 +343,7 @@ export default function MealSlotCard({
           <div className="flex items-center gap-2">
             <button
               onClick={(e) => { e.stopPropagation(); onSkip(); }}
-              className="min-h-11 text-[var(--content-muted)] hover:text-[var(--content-secondary)] text-xs flex items-center gap-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+              className="min-h-11 min-w-11 text-[var(--content-muted)] hover:text-[var(--content-secondary)] text-xs flex items-center gap-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             >
               <SkipForward size={12} />
               {t('food.skip_meal')}
@@ -418,7 +424,7 @@ export default function MealSlotCard({
   return (
     <motion.div layout className="glass p-3">
       <div
-        className="flex items-center justify-between cursor-pointer"
+        className="min-h-11 flex items-center justify-between cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
         onClick={toggleExpand}
         onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); toggleExpand(); } }}
         role="button"
@@ -498,7 +504,7 @@ export default function MealSlotCard({
                             onChange={(e) => setEditQty(parseFloat(e.target.value) || 1)}
                             min={0.25}
                             step={0.25}
-                            className="input-dark text-xs w-14 py-0.5 text-center"
+                            className="input-dark text-base sm:text-sm w-14 py-0.5 text-center"
                             autoFocus
                           />
                           <span className="text-[var(--content-muted)] text-xs">{entry.unit}</span>
@@ -519,7 +525,7 @@ export default function MealSlotCard({
                           </button>
                           <button
                             onClick={() => setDetailsOpen((o) => !o)}
-                            className="min-h-11 ml-auto flex items-center gap-1 text-xs text-[var(--content-muted)] hover:text-[#D4A853] transition-colors py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                            className="min-h-11 min-w-11 ml-auto flex items-center gap-1 text-xs text-[var(--content-muted)] hover:text-[#D4A853] transition-colors py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                             aria-expanded={detailsOpen}
                           >
                             {t('food.edit.details')}
@@ -550,7 +556,7 @@ export default function MealSlotCard({
                                     value={form.name}
                                     onChange={(e) => setField('name', e.target.value)}
                                     maxLength={200}
-                                    className="input-dark w-full text-xs py-1.5"
+                                    className="input-dark w-full text-base sm:text-sm py-1.5"
                                   />
                                 </div>
 
@@ -596,7 +602,7 @@ export default function MealSlotCard({
                                         min={0}
                                         value={form[key]}
                                         onChange={(e) => setField(key, e.target.value)}
-                                        className="input-dark w-full text-xs py-1.5 text-center"
+                                        className="input-dark w-full text-base sm:text-sm py-1.5 text-center"
                                       />
                                     </div>
                                   ))}
@@ -658,7 +664,7 @@ export default function MealSlotCard({
                   value={note}
                   onChange={(e) => saveNote(e.target.value)}
                   placeholder="Add a note about this meal..."
-                  className="input-dark w-full text-xs resize-none min-h-[36px] py-1.5"
+                  className="input-dark w-full text-base sm:text-sm resize-none min-h-11 py-1.5"
                   rows={1}
                   autoFocus
                   onBlur={() => { if (!note.trim()) setShowNote(false); }}
@@ -667,7 +673,7 @@ export default function MealSlotCard({
             ) : note ? (
               <button
                 onClick={() => setShowNote(true)}
-                className="pt-1 text-[var(--content-muted)] text-xs italic truncate block w-full text-left"
+                className="min-h-11 min-w-11 pt-1 text-[var(--content-muted)] text-xs italic truncate block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
               >
                 {note}
               </button>
@@ -679,7 +685,7 @@ export default function MealSlotCard({
                 {!inputActive ? (
                   <button
                     onClick={() => setInputActive(true)}
-                    className="min-h-11 text-[var(--content-muted)] hover:gold-text text-xs transition-colors text-left py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                    className="min-h-11 min-w-11 text-[var(--content-muted)] hover:gold-text text-xs transition-colors text-left py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                   >
                     + Add more
                   </button>
@@ -698,7 +704,7 @@ export default function MealSlotCard({
                     />
                     <button
                       onClick={() => setInputActive(false)}
-                      className="text-[var(--content-muted)] hover:text-[var(--content-secondary)] text-xs transition-colors mt-1"
+                      className="min-h-11 min-w-11 text-[var(--content-muted)] hover:text-[var(--content-secondary)] text-xs transition-colors mt-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                     >
                       {t('general.cancel')}
                     </button>
@@ -721,7 +727,7 @@ export default function MealSlotCard({
                   {/* Lock */}
                   <button
                     onClick={onLock}
-                    className="min-h-11 text-[var(--content-muted)] hover:text-green-400 text-xs flex items-center gap-1 transition-colors py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                    className="min-h-11 min-w-11 text-[var(--content-muted)] hover:text-green-400 text-xs flex items-center gap-1 transition-colors py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                   >
                     <Lock size={11} />
                     {t('food.lock_meal')}
