@@ -1,6 +1,6 @@
 # τροφή (Trophē) — Product Specification
 
-_Last updated: 2026-06-15_
+_Last updated: 2026-08-11_
 
 ---
 
@@ -22,7 +22,7 @@ Professional nutritionists manage clients using spreadsheets, MyFitnessPal, and 
 ### Client Flow
 1. Sign up → onboarding wizard (5 screens: body stats, goal, activity, plan, targets)
 2. Daily: log food via text / photo / voice / paste / USDA search / manual entry
-3. AI parses input → client reviews and adjusts → confirms → food_log entry saved
+3. AI parses input → client reviews and adjusts with practical size, amount, or photo controls → confirms → food_log entry saved
 4. Daily: check in on assigned habit (one tap) → 14-day cycle → mastered → next
 5. Optional: log workouts (sets/reps/RPE, PR detection), track water, log supplements
 6. Optional: AI Form Check (MediaPipe Pose, browser WASM — no server)
@@ -76,7 +76,7 @@ agents/
   schemas/          # input/output types per agent
 ```
 
-**v7 food-parse pipeline (June 2026)**: LLM extracts `{food_name, qty, unit}` AND per-100g CoT estimates. `lookup.ts` does pgvector + pg_trgm hybrid retrieval → `foods` table supplies DB macros. `arbitrateDbVsCoT()` picks the best source: explicit portions → DB wins; <30% divergence → DB wins; >30% divergence → LLM grams + DB per-100g ratios; high-confidence DB (≥0.85) → always DB. `decompose.ts` handles composite dishes via `dish_recipes` cache + `COMMON_PIECE_WEIGHTS` map. Consumer extraction uses Luna → Haiku; health context and vision use Haiku; DeepSeek is synthetic-factory-only. 8-language support (EN/ES/EL inline + FR/DE/IT/PT/NL overlay). **42,952 foods** (OFF/USDA/CIQUAL/CoFID/BEDCA/CREA/Greek + barcodes). Benchmark (verified 2026-06-15, median-of-3 vs prod, after the deterministic MAPE reduction): **official v2 210-case = ~94-95% pass**; backup v3 700-case (Greek-weighted) = **76.7% pass / 16.0% pooled macro-MAPE** (calories MAPE ~17%; fat is the hardest macro at ~25% MAPE), down from a pooled 22.4% Phase-0 baseline. The 700-case benchmark is on-demand only (no nightly cron). Barcode lookup via OFF (ODbL) + ZXing camera scan.
+**v8 food-parse pipeline (August 2026)**: LLM extracts `{food_name, qty, unit}` and secondary per-100g CoT estimates. `lookup.ts` does pgvector + pg_trgm hybrid retrieval → `foods` supplies DB macros. `arbitrateDbVsCoT()` prefers explicit conversions and high-confidence DB matches. Explicitly named nutrition-label facts such as “13 g protein” override only the stated nutrient after item-scoped extraction and physical/metabolic plausibility checks; they never redefine the food's total weight. `decompose.ts` handles composite dishes via `dish_recipes` cache + `COMMON_PIECE_WEIGHTS`. Consumer extraction uses Luna → Haiku; health context and vision use Haiku; DeepSeek is synthetic-factory-only. 8-language support (EN/ES/EL inline + FR/DE/IT/PT/NL overlay). **42,952 foods** (OFF/USDA/CIQUAL/CoFID/BEDCA/CREA/Greek + barcodes). Benchmark (verified 2026-06-15, median-of-3 vs prod, after the deterministic MAPE reduction): **official v2 210-case = ~94-95% pass**; backup v3 700-case (Greek-weighted) = **76.7% pass / 16.0% pooled macro-MAPE** (calories MAPE ~17%; fat is the hardest macro at ~25% MAPE), down from a pooled 22.4% Phase-0 baseline. The 700-case benchmark is on-demand only (no nightly cron). Barcode lookup via OFF (ODbL) + ZXing camera scan.
 
 **LLM routing** (three-lane policy, July 2026):
 - `food_parse`, `recipe_analyze`, `meal_suggest`, `shopping_extract` → GPT-5.6 Luna, Haiku 4.5 fallback

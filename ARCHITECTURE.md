@@ -2,7 +2,7 @@
 
 High-level map of how Trophē v0.3 fits together. For per-agent LLM details see `agents/README.md`. For deploy+env setup see `DEPLOYMENT.md`. For threat model see `SECURITY.md`.
 
-_Last updated: 2026-07-11_
+_Last updated: 2026-08-11_
 
 ---
 
@@ -177,7 +177,7 @@ Declarative `taskPolicies` map selects provider+model per task:
 
 ### Food parse pipeline (v0.3 deterministic)
 **Old (v0.2)**: LLM emitted invented macro numbers → ~81% accuracy.
-**New (v0.3)**: LLM identifies `{food_name, qty, unit}` only. `agents/food-parse/lookup.ts` does pgvector + pg_trgm hybrid retrieval → `foods` table supplies macros. Macros computed as `grams * food.kcal_per_100g / 100`. **LLM never sees a number.** Current validated benchmark (2026-06-15): 549-set ~90% pass; harder Greek-weighted 700-set 76.7% pass; pooled macro-MAPE 16.0% (post 2026-06-14 deterministic reduction, was 22.4%); v2 210-set ~94-95%. Cal MAPE ~17%, Fat MAPE ~25% (hardest macro). The ≥95% Nikos-golden-set target remains aspirational — not met on the harder sets; sub-10% MAPE requires fine-tuning + Michael-validated Greek ranges, not prompt/retrieval tweaks. The 700-case benchmark is on-demand only (no nightly cron, as of WP3).
+**Current (v8 prompt on v4 pipeline architecture)**: LLM identifies foods, quantities, and units and provides secondary per-100g estimates. `agents/food-parse/lookup.ts` retrieves canonical records; explicit conversions and high-confidence DB macros remain authoritative. Explicitly stated nutrition-label facts override only the named nutrient after the food's portion is resolved and after physical/metabolic plausibility checks. Current validated benchmark (2026-06-15): 549-set ~90% pass; harder Greek-weighted 700-set 76.7% pass; pooled macro-MAPE 16.0% (post 2026-06-14 deterministic reduction, was 22.4%); v2 210-set ~94-95%. Cal MAPE ~17%, Fat MAPE ~25% (hardest macro). The ≥95% Nikos-golden-set target remains aspirational — not met on the harder sets; sub-10% MAPE requires fine-tuning + Michael-validated Greek ranges, not prompt/retrieval tweaks. The 700-case benchmark is on-demand only (no nightly cron, as of WP3).
 
 ### Observability
 Every `agent.run()` is wrapped in a Langfuse generation span (via `agents/observability/langfuse.ts`) and emits OTel GenAI semconv attributes: `gen_ai.system`, `gen_ai.request.model`, `gen_ai.usage.input_tokens`, `gen_ai.response.finish_reasons`.
@@ -278,6 +278,6 @@ trophe/
 3. **All AI routes cap input** at 500 chars (food-parse) / 4000 chars (recipe-analyze) + strip control chars.
 4. **Routes return errors via `NextResponse.json({error}, {status})`** — never leak stack traces.
 5. **Supabase service role key is server-only** (no `NEXT_PUBLIC_` prefix).
-6. **LLM never emits macro numbers** (v0.3 food pipeline) — all nutrition values come from `foods` table.
+6. **DB-grounded nutrition stays authoritative** — LLM estimates are secondary, while explicit user label facts may override only named nutrients after item-scoped plausibility checks.
 7. **Mobile-first**: design + verify at 390×844 (iPhone 14 Pro) before desktop.
 8. **Privileged route invariant** — `/api/admin/*`, `/api/seed/*`, and future privileged HTTP routes must be covered by proxy auth and route-level role guards.
