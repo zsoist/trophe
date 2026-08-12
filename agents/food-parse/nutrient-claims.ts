@@ -29,7 +29,7 @@ const MASS_UNITS = new Set(['g', 'gram', 'grams', 'gr', 'γρ']);
 const COUNTABLE_PRODUCT = /\b(?:bar|cookie|biscuit|brownie|muffin|egg|banana|apple|piece|packet|pack)\b/i;
 const PRODUCT_NOUN_AFTER_PROTEIN = /^(?:bar|shake|powder|cookie|snack|drink|en\s+polvo|en\s+poudre|σε\s+σκονη|in\s+polvere|em\s+po|pulver|poeder|barra|batido|galleta|bebida|barre)\b/iu;
 const CLAIM_CONTEXT = /\b(?:with|has|have|contains?|provides?|con|contiene|avec|contient|με|εχει)\b/i;
-const ALCOHOL_NAME_PATTERN = /wine|beer|ale\b|lager|stout|cocktail|mojito|margarita|martini|sangria|champagne|prosecco|cava\b|cider|rum\b|vodka|whisk|tequila|gin\b|brandy|cognac|liqueur|aperol|spritz|negroni|alcohol|vino|cerveza|biere|κρασι|μπιρα|μπυρα|ουζο|τσιπουρο|ouzo|raki|soju|sake/i;
+const ALCOHOL_NAME_PATTERN = /\b(?:wine|beer|ale|lager|stout|cocktail|mojito|margarita|martini|sangria|champagne|prosecco|cava|cider|rum|vodka|whisk(?:y|ey)?|tequila|gin|brandy|cognac|liqueur|aperol|spritz|negroni|alcohol|vino|cerveza|biere|κρασι|μπιρα|μπυρα|ουζο|τσιπουρο|ouzo|raki|soju|sake)\b/iu;
 
 function normalize(text: string): string {
   return text

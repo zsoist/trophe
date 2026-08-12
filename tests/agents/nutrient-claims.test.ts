@@ -186,4 +186,19 @@ describe('user-stated nutrient overrides', () => {
       user_stated_nutrients: { calories: 150 },
     });
   });
+
+  it.each(['kale salad', 'virgin smoothie'])('does not classify %s as alcohol by substring', (foodName) => {
+    const item = {
+      grams: 60,
+      calories: 190,
+      protein_g: 20,
+      carbs_g: 18,
+      fat_g: 6,
+      fiber_g: 4,
+      sugar_g: 3,
+      food_name: foodName,
+    };
+
+    expect(applyUserStatedNutrients(item, { calories: 500 })).toEqual(item);
+  });
 });
