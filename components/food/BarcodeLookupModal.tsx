@@ -51,6 +51,8 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
   const [locked, setLocked] = useState(false);
   const [laserTop, setLaserTop] = useState<string | null>(null);
   const laserRef = useRef<HTMLDivElement | null>(null);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
 
   const stopScan = useCallback(() => {
     try { controlsRef.current?.stop(); } catch { /* already stopped */ }
@@ -63,6 +65,20 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
     else stopScan();
     return () => stopScan();
   }, [isOpen, stopScan]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const frame = requestAnimationFrame(() => dialogRef.current?.focus());
+    const closeOnEscape = (event: KeyboardEvent) => event.key === 'Escape' && onClose();
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener('keydown', closeOnEscape);
+      returnFocusRef.current?.focus();
+      returnFocusRef.current = null;
+    };
+  }, [isOpen, onClose]);
 
   const lookup = useCallback(async (barcode: string) => {
     if (!/^\d{8,14}$/.test(barcode)) { setError(t('barcode.err_invalid')); return; }
@@ -201,40 +217,45 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
   const close = () => { stopScan(); onClose(); };
 
   const choiceCard = (icon: React.ReactNode, label: string, sub: string, onClick: () => void): React.ReactElement => (
-    <button onClick={onClick} className="flex-1 flex flex-col items-center gap-2 rounded-2xl"
-      style={{ padding: '22px 12px', background: 'var(--surface,#141414)', border: '1px solid var(--line,rgba(255,255,255,.08))', cursor: 'pointer' }}>
-      <div className="flex items-center justify-center rounded-full" style={{ width: 46, height: 46, background: 'rgba(212,168,83,.12)', color: 'var(--gold-300,#D4A853)' }}>{icon}</div>
-      <span className="text-sm font-semibold" style={{ color: 'var(--t1,#f5f5f4)' }}>{label}</span>
-      <span className="text-[10px] text-center" style={{ color: 'var(--t4,#78716c)' }}>{sub}</span>
+    <button onClick={onClick} className="flex-1 flex flex-col items-center gap-2 rounded-2xl min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+      style={{ padding: '22px 12px', background: 'var(--surface-1)', border: '1px solid var(--border-default)', cursor: 'pointer' }}>
+      <div className="flex items-center justify-center rounded-full" style={{ width: 46, height: 46, background: 'var(--action-secondary)', color: 'var(--action-primary)' }}>{icon}</div>
+      <span className="text-sm font-semibold" style={{ color: 'var(--content-primary)' }}>{label}</span>
+      <span className="text-xs text-center" style={{ color: 'var(--content-muted)' }}>{sub}</span>
     </button>
   );
 
   return (
     <AnimatePresence>
       <motion.div
-        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        initial={reducedMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={reducedMotion ? undefined : { opacity: 0 }}
         className="fixed inset-0 z-[var(--z-modal,60)] flex items-end sm:items-center justify-center"
-        style={{ background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(8px)' }}
+        style={{ background: 'var(--surface-overlay)', backdropFilter: 'blur(8px)' }}
         onClick={close}
       >
         <motion.div
-          initial={{ y: '100%', opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: '100%', opacity: 0 }}
+          ref={dialogRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label={product ? t('barcode.add_product') : t('barcode.scan_title')}
+          tabIndex={-1}
+          initial={reducedMotion ? false : { y: '100%', opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={reducedMotion ? undefined : { y: '100%', opacity: 0 }}
           transition={{ type: 'spring', damping: 28, stiffness: 300 }}
           onClick={(e) => e.stopPropagation()}
-          className="w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl overflow-hidden"
-          style={{ background: 'var(--bg-1,#1c1917)', border: '1px solid var(--line-2,rgba(255,255,255,0.08))', maxHeight: '90vh', overflowY: 'auto' }}
+          className="safe-bottom w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl overflow-hidden pb-[calc(5rem+env(safe-area-inset-bottom))] outline-none"
+          style={{ background: 'var(--surface-1)', border: '1px solid var(--border-strong)', maxHeight: '90vh', overflowY: 'auto' }}
         >
           {/* Header */}
           <div className="flex items-center justify-between px-5 pt-5 pb-3">
             <div className="flex items-center gap-2">
               {(step !== 'choose' && !product) && (
-                <button onClick={() => setStep('choose')} aria-label={t('barcode.back')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--t3,#a8a29e)', display: 'flex' }}><ChevronLeft size={18} /></button>
+                <button onClick={() => setStep('choose')} aria-label={t('barcode.back')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--content-secondary)', display: 'flex' }} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"><ChevronLeft size={18} /></button>
               )}
-              <Barcode size={16} style={{ color: 'var(--gold-300,#D4A853)' }} />
-              <h2 className="text-base font-bold" style={{ color: 'var(--t1,#f5f5f4)' }}>{product ? t('barcode.add_product') : t('barcode.scan_title')}</h2>
+              <Barcode size={16} style={{ color: 'var(--action-primary)' }} />
+              <h2 className="text-base font-bold" style={{ color: 'var(--content-primary)' }}>{product ? t('barcode.add_product') : t('barcode.scan_title')}</h2>
             </div>
-            <button onClick={close} className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,.06)' }}>
-              <X size={14} style={{ color: 'var(--t3,#a8a29e)' }} />
+            <button onClick={close} aria-label={t('barcode.close')} className="w-8 h-8 rounded-full flex items-center justify-center min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" style={{ background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)' }}>
+              <X size={14} style={{ color: 'var(--content-secondary)' }} />
             </button>
           </div>
 
@@ -248,14 +269,14 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
                 initial={reducedMotion ? { opacity: 0 } : undefined}
                 animate={reducedMotion ? { opacity: 1 } : undefined}
                 className="p-3"
-                style={{ background: 'var(--surface,#141414)', border: '1px solid var(--line,rgba(255,255,255,.07))', borderRadius: 16 }}
+                style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)', borderRadius: 16 }}
               >
                 <div className="flex items-center justify-between mb-1">
                   {/* W12: product name types in (~30ms/char, capped) after the morph */}
                   {reducedMotion ? (
-                    <span className="text-sm font-semibold" style={{ color: 'var(--t1,#f5f5f4)' }}>{product.name}</span>
+                    <span className="text-sm font-semibold" style={{ color: 'var(--content-primary)' }}>{product.name}</span>
                   ) : (
-                    <span key={product.barcode} className="text-sm font-semibold" style={{ color: 'var(--t1,#f5f5f4)' }} aria-label={product.name}>
+                    <span key={product.barcode} className="text-sm font-semibold" style={{ color: 'var(--content-primary)' }} aria-label={product.name}>
                       {product.name.split('').map((ch, i) => (
                         <motion.span
                           key={i}
@@ -269,29 +290,29 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
                       ))}
                     </span>
                   )}
-                  <span className="text-[9px] uppercase" style={{ color: 'var(--t4,#78716c)', fontFamily: 'var(--font-mono)' }}>{product.source === 'db' ? t('barcode.in_db') : 'OFF'}</span>
+                  <span className="text-xs uppercase" style={{ color: 'var(--content-muted)', fontFamily: 'var(--font-mono)' }}>{product.source === 'db' ? t('barcode.in_db') : 'OFF'}</span>
                 </div>
-                {product.brand && <p className="text-[11px] mb-2" style={{ color: 'var(--t3,#a8a29e)' }}>{product.brand}</p>}
-                <p className="text-[10px] mb-3" style={{ color: 'var(--t4,#78716c)' }}>
+                {product.brand && <p className="text-xs mb-2" style={{ color: 'var(--content-secondary)' }}>{product.brand}</p>}
+                <p className="text-xs mb-3" style={{ color: 'var(--content-muted)' }}>
                   {t('barcode.per_100g_line', { kcal: product.per100g.kcal, p: product.per100g.protein, c: product.per100g.carbs, f: product.per100g.fat })}
                 </p>
                 <div className="flex items-center gap-2 mb-3">
-                  <span className="text-[11px]" style={{ color: 'var(--t3,#a8a29e)' }}>{t('barcode.amount')}</span>
+                  <span className="text-xs" style={{ color: 'var(--content-secondary)' }}>{t('barcode.amount')}</span>
                   <input type="number" min={1} value={grams} onChange={(e) => setGrams(Math.max(1, Number(e.target.value) || 0))}
-                    style={{ width: 80, background: 'var(--bg-1,#1c1917)', border: '1px solid var(--line,rgba(255,255,255,.1))', borderRadius: 8, padding: '5px 8px', color: 'var(--t1,#f5f5f4)', fontSize: 13, fontFamily: 'var(--font-mono)' }} />
-                  <span className="text-[11px]" style={{ color: 'var(--t4,#78716c)' }}>g →</span>
-                  <span className="text-[12px] font-semibold" style={{ color: 'var(--gold-300,#D4A853)' }}>{Math.round(product.per100g.kcal * f)} kcal</span>
+                    style={{ width: 80, background: 'var(--surface-1)', border: '1px solid var(--border-default)', borderRadius: 8, padding: '5px 8px', color: 'var(--content-primary)', fontSize: 13, fontFamily: 'var(--font-mono)' }} className="text-base" />
+                  <span className="text-xs" style={{ color: 'var(--content-muted)' }}>g →</span>
+                  <span className="text-[12px] font-semibold" style={{ color: 'var(--action-primary)' }}>{Math.round(product.per100g.kcal * f)} kcal</span>
                 </div>
                 <div className="flex gap-1 mb-3">
                   {MEAL_OPTIONS.map((m) => (
-                    <button key={m} onClick={() => setMealType(m)} className="flex-1 text-[10px]" style={{ padding: '6px 0', borderRadius: 8, textTransform: 'capitalize', cursor: 'pointer', border: '1px solid', borderColor: mealType === m ? 'var(--gold-300,#D4A853)' : 'var(--line,rgba(255,255,255,.1))', background: mealType === m ? 'rgba(212,168,83,.12)' : 'transparent', color: mealType === m ? 'var(--gold-300,#D4A853)' : 'var(--t3,#a8a29e)', fontFamily: 'var(--font-mono)' }}>{m}</button>
+                    <button key={m} onClick={() => setMealType(m)} className="flex-1 text-xs min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" style={{ padding: '6px 0', borderRadius: 8, textTransform: 'capitalize', cursor: 'pointer', border: '1px solid', borderColor: mealType === m ? 'var(--action-primary)' : 'var(--border-default)', background: mealType === m ? 'var(--action-secondary)' : 'transparent', color: mealType === m ? 'var(--action-primary)' : 'var(--content-secondary)', fontFamily: 'var(--font-mono)' }}>{m}</button>
                   ))}
                 </div>
                 <button onClick={logIt} disabled={logging}
-                  style={{ width: '100%', padding: 12, borderRadius: 10, border: 'none', background: 'var(--gold-300,#D4A853)', color: '#0a0a0a', fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', cursor: logging ? 'not-allowed' : 'pointer' }}>
+                  style={{ width: '100%', padding: 12, borderRadius: 10, border: 'none', background: 'var(--action-primary)', color: 'var(--action-on-primary)', fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', cursor: logging ? 'not-allowed' : 'pointer' }} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
                   {logging ? t('barcode.logging') : t('barcode.add_to_log')}
                 </button>
-                <button onClick={() => { setProduct(null); setCode(''); setLocked(false); setLaserTop(null); setStep('choose'); }} className="w-full text-[11px] mt-2 inline-flex items-center justify-center gap-1.5" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--t4,#78716c)', fontFamily: 'var(--font-mono)', minHeight: 32 }}><RotateCcw size={11} aria-hidden /> {t('barcode.scan_another')}</button>
+                <button onClick={() => { setProduct(null); setCode(''); setLocked(false); setLaserTop(null); setStep('choose'); }} className="w-full text-xs mt-2 inline-flex items-center justify-center gap-1.5 min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--content-muted)', fontFamily: 'var(--font-mono)', minHeight: 32 }}><RotateCcw size={11} aria-hidden /> {t('barcode.scan_another')}</button>
               </motion.div>
             ) : step === 'choose' ? (
               /* ── Choose: Photo or Input ── */
@@ -302,7 +323,7 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
             ) : step === 'scan' ? (
               /* ── Animated barcode-reader ── */
               <div>
-                <div style={{ position: 'relative', borderRadius: 16, overflow: 'hidden', background: '#000', aspectRatio: '4 / 3' }}>
+                <div data-theme-exempt="media-canvas" style={{ position: 'relative', borderRadius: 16, overflow: 'hidden', background: '#000', aspectRatio: '4 / 3' }}>
                   {/* W12: camera fades beneath once the code locks */}
                   <motion.div
                     animate={{ opacity: locked ? 0.25 : 1 }}
@@ -322,8 +343,8 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
                       transition={{ duration: 0.35, ease: 'easeOut' }}
                       style={{
                         position: 'relative', width: '78%', height: '38%',
-                        border: `2px solid ${locked ? 'var(--ok,#65D387)' : 'rgba(212,168,83,.9)'}`,
-                        borderRadius: 12, boxShadow: '0 0 0 2000px rgba(0,0,0,.35)',
+                        border: `2px solid ${locked ? 'var(--status-success-fg)' : 'var(--action-secondary)'}`,
+                        borderRadius: 12, boxShadow: '0 0 0 2000px var(--surface-overlay)',
                       }}
                     >
                       {!locked ? (
@@ -332,7 +353,7 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
                           initial={{ top: '6%' }}
                           animate={{ top: ['6%', '94%', '6%'] }}
                           transition={{ duration: 2.2, ease: 'easeInOut', repeat: Infinity }}
-                          style={{ position: 'absolute', left: '4%', right: '4%', height: 2, background: 'var(--gold-300,#D4A853)', boxShadow: '0 0 8px 1px rgba(212,168,83,.8)' }}
+                          style={{ position: 'absolute', left: '4%', right: '4%', height: 2, background: 'var(--action-primary)', boxShadow: '0 0 8px 1px var(--action-secondary)' }}
                         />
                       ) : (
                         /* laser stopped dead at its sweep position — white-gold flash */
@@ -341,7 +362,7 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
                           transition={{ duration: 0.5, ease: 'easeOut' }}
                           style={{
                             position: 'absolute', left: '4%', right: '4%', height: 2, top: laserTop ?? '50%',
-                            background: 'linear-gradient(90deg, #FFF6E0, var(--gold-300,#D4A853), #FFF6E0)',
+                            background: 'linear-gradient(90deg, #FFF6E0, var(--action-primary), #FFF6E0)',
                             boxShadow: '0 0 12px 2px rgba(255,246,224,.85)',
                           }}
                         />
@@ -349,10 +370,10 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
                     </motion.div>
                   </div>
                 </div>
-                <p className="text-[11px] text-center mt-3" style={{ color: 'var(--t3,#a8a29e)' }}>
+                <p className="text-xs text-center mt-3" style={{ color: 'var(--content-secondary)' }}>
                   {loading ? t('barcode.looking_up') : t('barcode.hold_in_frame')}
                 </p>
-                <button onClick={() => setStep('input')} className="w-full text-[11px] mt-2" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--gold-300,#D4A853)', fontFamily: 'var(--font-mono)' }}>
+                <button onClick={() => setStep('input')} className="w-full text-xs mt-2 min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--action-primary)', fontFamily: 'var(--font-mono)' }}>
                   {t('barcode.enter_manually')}
                 </button>
               </div>
@@ -365,52 +386,52 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
                   onKeyDown={(e) => { if (e.key === 'Enter') lookup(code); }}
                   placeholder={t('barcode.number_placeholder')}
                   inputMode="numeric" autoFocus
-                  style={{ width: '100%', background: 'var(--surface,#141414)', border: '1px solid var(--line,rgba(255,255,255,.08))', borderRadius: 10, padding: '11px 12px', color: 'var(--t1,#f5f5f4)', fontSize: 15, fontFamily: 'var(--font-mono)', marginBottom: 10 }}
+                  style={{ width: '100%', background: 'var(--surface-1)', border: '1px solid var(--border-default)', borderRadius: 10, padding: '11px 12px', color: 'var(--content-primary)', fontSize: 15, fontFamily: 'var(--font-mono)', marginBottom: 10 }} className="text-base"
                 />
                 <button onClick={() => lookup(code)} disabled={loading || !code}
-                  style={{ width: '100%', padding: 12, borderRadius: 12, border: 'none', background: 'var(--gold-300,#D4A853)', color: '#0a0a0a', fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', cursor: loading || !code ? 'not-allowed' : 'pointer', opacity: code ? 1 : 0.5, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                  style={{ width: '100%', padding: 12, borderRadius: 12, border: 'none', background: 'var(--action-primary)', color: 'var(--action-on-primary)', fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', cursor: loading || !code ? 'not-allowed' : 'pointer', opacity: code ? 1 : 0.5, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
                   {loading ? <><Loader2 size={14} className="animate-spin" /> {t('barcode.looking_up')}</> : t('barcode.look_up')}
                 </button>
               </div>
             ) : (
               /* ── Manual add (barcode not in Open Food Facts) ── */
               <div>
-                <p className="text-[11px] mb-3" style={{ color: 'var(--t3,#a8a29e)' }}>
+                <p className="text-xs mb-3" style={{ color: 'var(--content-secondary)' }}>
                   {t('barcode.not_in_db', { code: code ? ` (#${code})` : '' })}
                 </p>
                 <input
                   value={manual.name}
                   onChange={(e) => setManual((m) => ({ ...m, name: e.target.value }))}
                   placeholder={t('barcode.product_name')}
-                  style={{ width: '100%', background: 'var(--surface,#141414)', border: '1px solid var(--line,rgba(255,255,255,.08))', borderRadius: 10, padding: '10px 12px', color: 'var(--t1,#f5f5f4)', fontSize: 14, marginBottom: 8 }}
+                  style={{ width: '100%', background: 'var(--surface-1)', border: '1px solid var(--border-default)', borderRadius: 10, padding: '10px 12px', color: 'var(--content-primary)', fontSize: 14, marginBottom: 8 }} className="text-base"
                 />
                 <div className="grid grid-cols-2 gap-2" style={{ marginBottom: 10 }}>
                   {([['kcal', 'barcode.ph_kcal'], ['protein', 'barcode.ph_protein'], ['carbs', 'barcode.ph_carbs'], ['fat', 'barcode.ph_fat']] as const).map(([k, ph]) => (
                     <input key={k} value={manual[k]} inputMode="decimal"
                       onChange={(e) => setManual((m) => ({ ...m, [k]: e.target.value.replace(/[^\d.]/g, '') }))}
                       placeholder={t(ph)}
-                      style={{ background: 'var(--surface,#141414)', border: '1px solid var(--line,rgba(255,255,255,.08))', borderRadius: 10, padding: '9px 11px', color: 'var(--t1,#f5f5f4)', fontSize: 13, fontFamily: 'var(--font-mono)' }} />
+                      style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)', borderRadius: 10, padding: '9px 11px', color: 'var(--content-primary)', fontSize: 13, fontFamily: 'var(--font-mono)' }} className="text-base" />
                   ))}
                 </div>
                 <div className="flex items-center gap-2 mb-3">
-                  <span className="text-[11px]" style={{ color: 'var(--t3,#a8a29e)' }}>{t('barcode.amount')}</span>
+                  <span className="text-xs" style={{ color: 'var(--content-secondary)' }}>{t('barcode.amount')}</span>
                   <input type="number" min={1} value={grams} onChange={(e) => setGrams(Math.max(1, Number(e.target.value) || 0))}
-                    style={{ width: 80, background: 'var(--bg-1,#1c1917)', border: '1px solid var(--line,rgba(255,255,255,.1))', borderRadius: 8, padding: '5px 8px', color: 'var(--t1,#f5f5f4)', fontSize: 13, fontFamily: 'var(--font-mono)' }} />
-                  <span className="text-[11px]" style={{ color: 'var(--t4,#78716c)' }}>g/ml</span>
+                    style={{ width: 80, background: 'var(--surface-1)', border: '1px solid var(--border-default)', borderRadius: 8, padding: '5px 8px', color: 'var(--content-primary)', fontSize: 13, fontFamily: 'var(--font-mono)' }} className="text-base" />
+                  <span className="text-xs" style={{ color: 'var(--content-muted)' }}>g/ml</span>
                 </div>
                 <div className="flex gap-1 mb-3">
                   {MEAL_OPTIONS.map((m) => (
-                    <button key={m} onClick={() => setMealType(m)} className="flex-1 text-[10px]" style={{ padding: '6px 0', borderRadius: 8, textTransform: 'capitalize', cursor: 'pointer', border: '1px solid', borderColor: mealType === m ? 'var(--gold-300,#D4A853)' : 'var(--line,rgba(255,255,255,.1))', background: mealType === m ? 'rgba(212,168,83,.12)' : 'transparent', color: mealType === m ? 'var(--gold-300,#D4A853)' : 'var(--t3,#a8a29e)', fontFamily: 'var(--font-mono)' }}>{m}</button>
+                    <button key={m} onClick={() => setMealType(m)} className="flex-1 text-xs min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" style={{ padding: '6px 0', borderRadius: 8, textTransform: 'capitalize', cursor: 'pointer', border: '1px solid', borderColor: mealType === m ? 'var(--action-primary)' : 'var(--border-default)', background: mealType === m ? 'var(--action-secondary)' : 'transparent', color: mealType === m ? 'var(--action-primary)' : 'var(--content-secondary)', fontFamily: 'var(--font-mono)' }}>{m}</button>
                   ))}
                 </div>
                 <button onClick={logManual} disabled={logging || !manual.name.trim()}
-                  style={{ width: '100%', padding: 12, borderRadius: 12, border: 'none', background: 'var(--gold-300,#D4A853)', color: '#0a0a0a', fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', cursor: logging || !manual.name.trim() ? 'not-allowed' : 'pointer', opacity: manual.name.trim() ? 1 : 0.5 }}>
+                  style={{ width: '100%', padding: 12, borderRadius: 12, border: 'none', background: 'var(--action-primary)', color: 'var(--action-on-primary)', fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', cursor: logging || !manual.name.trim() ? 'not-allowed' : 'pointer', opacity: manual.name.trim() ? 1 : 0.5 }} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
                   {logging ? t('barcode.logging') : t('barcode.add_to_log')}
                 </button>
               </div>
             )}
 
-            {error && <p className="text-xs mt-3 text-center" style={{ color: '#f87171' }}>{error}</p>}
+            {error && <p className="text-xs mt-3 text-center" style={{ color: 'var(--status-danger-fg)' }}>{error}</p>}
           </div>
         </motion.div>
       </motion.div>

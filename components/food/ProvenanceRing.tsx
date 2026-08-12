@@ -21,10 +21,10 @@ export type ProvenanceTier = 'lab_verified' | 'label' | 'crowdsourced' | 'estima
 
 /** Ring stroke colors — gold token + stone palette + calm amber (never red). */
 const TIER_COLOR: Record<ProvenanceTier, string> = {
-  lab_verified: 'var(--gold-300, #D4A853)',
-  label:        '#78716c', // stone-500
+  lab_verified: 'var(--action-primary)',
+  label:        'var(--content-muted)', // stone-500
   crowdsourced: '#57534e', // stone-600 (dim)
-  estimated:    '#fbbf24', // amber-400 (calm)
+  estimated:    'var(--status-warning-fg)', // amber-400 (calm)
 };
 
 /**
@@ -87,7 +87,7 @@ export function ProvenanceRing({
     >
       <circle
         cx={size / 2} cy={size / 2} r={r}
-        fill="none" stroke="rgba(255,255,255,.08)" strokeWidth={strokeWidth}
+        fill="none" stroke="color-mix(in srgb, var(--content-primary) 8%, transparent)" strokeWidth={strokeWidth}
       />
       <motion.circle
         cx={size / 2} cy={size / 2} r={r}
@@ -110,7 +110,7 @@ export function ProvenanceRing({
       onClick={onClick}
       aria-label={ariaLabel}
       aria-expanded={expanded}
-      className="inline-flex items-center justify-center flex-shrink-0 rounded-full focus:outline-none focus-visible:ring-1 focus-visible:ring-stone-500"
+      className="inline-flex items-center justify-center flex-shrink-0 rounded-full focus:outline-none focus-visible:ring-1 focus-visible:ring-stone-500 min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
       style={{ width: size, height: size, padding: 0, background: 'transparent', border: 'none', cursor: 'pointer' }}
     >
       {svg}

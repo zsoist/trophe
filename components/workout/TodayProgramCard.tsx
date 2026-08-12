@@ -18,9 +18,9 @@ import type { TemplateExercise } from '@/lib/types';
 
 // `label` is an i18n key — resolved with t() at render.
 const DIFFICULTY_STYLE: Record<string, { bg: string; border: string; fg: string; label: string }> = {
-  beginner:     { bg: 'rgba(101,211,135,.12)', border: 'rgba(101,211,135,.3)', fg: '#65D387', label: 'workout.difficulty_beginner' },
-  intermediate: { bg: 'color-mix(in srgb, var(--accent, #D4A853) 12%, transparent)',  border: 'color-mix(in srgb, var(--accent, #D4A853) 30%, transparent)',  fg: 'var(--accent, #D4A853)', label: 'workout.difficulty_intermediate' },
-  advanced:     { bg: 'rgba(232,122,110,.12)', border: 'rgba(232,122,110,.3)', fg: '#E87A6E', label: 'workout.difficulty_advanced' },
+  beginner:     { bg: 'var(--status-success-bg)', border: 'var(--status-success-border)', fg: 'var(--status-success-fg)', label: 'workout.difficulty_beginner' },
+  intermediate: { bg: 'color-mix(in srgb, var(--action-primary) 12%, transparent)',  border: 'color-mix(in srgb, var(--action-primary) 30%, transparent)',  fg: 'var(--action-primary)', label: 'workout.difficulty_intermediate' },
+  advanced:     { bg: 'var(--status-danger-bg)', border: 'var(--status-danger-border)', fg: 'var(--status-danger-fg)', label: 'workout.difficulty_advanced' },
 };
 
 const WEEKDAY_KEYS = [
@@ -76,8 +76,8 @@ export function TodayProgramCard({
       className="card-g"
       style={{
         padding: 16,
-        background: 'linear-gradient(135deg, color-mix(in srgb, var(--accent, #D4A853) 14%, transparent) 0%, color-mix(in srgb, var(--accent, #D4A853) 3%, transparent) 100%)',
-        border: '1px solid color-mix(in srgb, var(--accent, #D4A853) 32%, transparent)',
+        background: 'linear-gradient(135deg, color-mix(in srgb, var(--action-primary) 14%, transparent) 0%, color-mix(in srgb, var(--action-primary) 3%, transparent) 100%)',
+        border: '1px solid color-mix(in srgb, var(--action-primary) 32%, transparent)',
         position: 'relative',
         overflow: 'hidden',
       }}
@@ -85,17 +85,17 @@ export function TodayProgramCard({
       <div
         style={{
           position: 'absolute', top: -24, right: -24, width: 120, height: 120,
-          background: 'radial-gradient(circle, color-mix(in srgb, var(--accent, #D4A853) 18%, transparent) 0%, transparent 70%)',
+          background: 'radial-gradient(circle, color-mix(in srgb, var(--action-primary) 18%, transparent) 0%, transparent 70%)',
           pointerEvents: 'none',
         }}
       />
 
       {/* Eyebrow: program name */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-        <CalendarDays size={11} style={{ color: 'var(--accent, #D4A853)' }} />
+        <CalendarDays size={11} style={{ color: 'var(--action-primary)' }} />
         <span style={{
-          fontSize: 9, fontFamily: 'var(--font-mono)', textTransform: 'uppercase',
-          letterSpacing: '.08em', color: 'var(--accent, #D4A853)',
+          fontSize: 12, fontFamily: 'var(--font-mono)', textTransform: 'uppercase',
+          letterSpacing: '.08em', color: 'var(--action-primary)',
         }}>
           {t('workout.program_today', { program: programName })}
         </span>
@@ -104,15 +104,15 @@ export function TodayProgramCard({
       {/* Template name + day label */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 19, fontWeight: 800, letterSpacing: '-.02em', color: 'var(--t1,#FAFAF9)', lineHeight: 1.15 }}>
+          <div style={{ fontSize: 19, fontWeight: 800, letterSpacing: '-.02em', color: 'var(--content-primary)', lineHeight: 1.15 }}>
             {template.name}
           </div>
           {template.dayLabel && (
-            <div style={{ fontSize: 11, color: 'var(--t3,#A8A29E)', marginTop: 2 }}>{template.dayLabel}</div>
+            <div style={{ fontSize: 12, color: 'var(--content-secondary)', marginTop: 2 }}>{template.dayLabel}</div>
           )}
         </div>
         <span style={{
-          flexShrink: 0, padding: '3px 9px', borderRadius: 20, fontSize: 9.5, fontWeight: 700,
+          flexShrink: 0, padding: '3px 9px', borderRadius: 20, fontSize: 12, fontWeight: 700,
           background: diff.bg, border: `1px solid ${diff.border}`, color: diff.fg,
           textTransform: 'uppercase', letterSpacing: '.05em',
         }}>
@@ -122,11 +122,11 @@ export function TodayProgramCard({
 
       {/* Counts row */}
       <div style={{ display: 'flex', gap: 14, marginTop: 10, marginBottom: 14 }}>
-        <span style={{ fontSize: 11, color: 'var(--t3)', display: 'flex', alignItems: 'center', gap: 5 }}>
-          <Dumbbell size={11} style={{ color: 'var(--accent, #D4A853)' }} />
+        <span style={{ fontSize: 12, color: 'var(--content-secondary)', display: 'flex', alignItems: 'center', gap: 5 }}>
+          <Dumbbell size={11} style={{ color: 'var(--action-primary)' }} />
           {t('workout.exercise_count', { n: exerciseCount })}
         </span>
-        <span style={{ fontSize: 11, color: 'var(--t3)' }}>
+        <span style={{ fontSize: 12, color: 'var(--content-secondary)' }}>
           {t('workout.est_sets', { n: totalSets })}
         </span>
       </div>
@@ -136,7 +136,7 @@ export function TodayProgramCard({
         whileTap={{ scale: 0.97 }}
         onClick={() => onStart(template)}
         disabled={starting}
-        className="btn-gold w-full"
+        className="btn-gold w-full min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
         style={{
           padding: '14px', fontSize: 14, fontWeight: 800, borderRadius: 14,
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
@@ -158,16 +158,16 @@ export function TodayProgramCard({
               style={{
                 display: 'flex', alignItems: 'center', gap: 8, width: '100%',
                 padding: '9px 12px', borderRadius: 12, cursor: 'pointer', textAlign: 'left',
-                background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.08)',
-              }}
+                background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--content-primary) 8%, transparent)',
+              }} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             >
-              <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--t4)', textTransform: 'uppercase', letterSpacing: '.06em', flexShrink: 0 }}>
+              <span style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--content-muted)', textTransform: 'uppercase', letterSpacing: '.06em', flexShrink: 0 }}>
                 {t('workout.also_today')}
               </span>
-              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--t1)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--content-primary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {t2.name}
               </span>
-              <ChevronRight size={13} style={{ color: 'var(--t4)', flexShrink: 0 }} />
+              <ChevronRight size={13} style={{ color: 'var(--content-muted)', flexShrink: 0 }} />
             </button>
           ))}
         </div>
@@ -216,23 +216,23 @@ export function RestDayCard({
       />
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-        <Moon size={11} style={{ color: 'var(--info,#7DA3D9)' }} />
+        <Moon size={11} style={{ color: 'var(--status-info-fg)' }} />
         <span style={{
-          fontSize: 9, fontFamily: 'var(--font-mono)', textTransform: 'uppercase',
-          letterSpacing: '.08em', color: 'var(--info,#7DA3D9)',
+          fontSize: 12, fontFamily: 'var(--font-mono)', textTransform: 'uppercase',
+          letterSpacing: '.08em', color: 'var(--status-info-fg)',
         }}>
           {programName} · {t('workout.rest_day')}
         </span>
       </div>
 
-      <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-.02em', color: 'var(--t1,#FAFAF9)' }}>
+      <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-.02em', color: 'var(--content-primary)' }}>
         {t('workout.rest_nothing_today')}
       </div>
 
       {nextWeekday !== null && (
-        <div style={{ fontSize: 12, color: 'var(--t3)', marginTop: 4 }}>
+        <div style={{ fontSize: 12, color: 'var(--content-secondary)', marginTop: 4 }}>
           {t('workout.next_session')}{' '}
-          <span style={{ color: 'var(--t1)', fontWeight: 600 }}>
+          <span style={{ color: 'var(--content-primary)', fontWeight: 600 }}>
             {nextTemplateName ?? 'Workout'}
           </span>{' '}
           · {daysAway === 1 ? t('workout.tomorrow') : t(WEEKDAY_KEYS[nextWeekday])}
@@ -241,15 +241,15 @@ export function RestDayCard({
 
       <div style={{
         marginTop: 12, padding: '9px 11px', borderRadius: 10,
-        background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.06)',
-        fontSize: 11, color: 'var(--t3)', lineHeight: 1.5,
+        background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--content-primary) 8%, transparent)',
+        fontSize: 12, color: 'var(--content-secondary)', lineHeight: 1.5,
       }}>
         {tip}
       </div>
 
       <button
         onClick={onTrainAnyway}
-        className="btn-ghost w-full"
+        className="btn-ghost w-full min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
         style={{
           marginTop: 12, padding: '11px', fontSize: 12, fontWeight: 600, borderRadius: 12,
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,

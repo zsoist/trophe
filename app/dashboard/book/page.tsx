@@ -164,13 +164,13 @@ export default function BookPage() {
   };
 
   return (
-    <div className="min-h-screen" style={{ background: 'var(--bg,#0a0a0a)', paddingBottom: 40 }}>
+    <div className="min-h-screen pb-[calc(5rem+env(safe-area-inset-bottom))]" style={{ background: 'var(--canvas)' }}>
       <motion.div
         className="max-w-md lg:max-w-xl mx-auto px-4 pt-3"
         initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}
       >
         <div className="row-b" style={{ marginBottom: 14 }}>
-          <button onClick={() => router.back()} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--t3)' }}>
+          <button aria-label="Back to dashboard" className="min-h-11 min-w-11 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" onClick={() => router.back()} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--content-secondary)' }}>
             <Icon name="i-chev-l" size={16} />
           </button>
           <span className="eye-d">Book {coachName ? `with ${coachName.split(' ')[0]}` : 'a session'}</span>
@@ -184,7 +184,7 @@ export default function BookPage() {
         ) : (
           <>
             {cancelError && (
-              <div style={{ fontSize: 11, color: 'var(--err,#E87A6E)', textAlign: 'center', marginBottom: 10 }}>
+              <div style={{ fontSize: 12, color: 'var(--status-danger-fg)', textAlign: 'center', marginBottom: 10 }}>
                 {t('book.cancel_failed')}
               </div>
             )}
@@ -196,12 +196,13 @@ export default function BookPage() {
                   {mine.map((a) => (
                     <motion.div key={a.id} layout className="card row-b" style={{ padding: '10px 12px' }}
                       initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-                      <span style={{ fontSize: 12, color: 'var(--t1)' }}>
+                      <span style={{ fontSize: 12, color: 'var(--content-primary)' }}>
                         {new Date(a.starts_at).toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                         <span className="ds-sub"> · {a.duration_min}min</span>
                       </span>
                       <button onClick={() => cancel(a)}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--t4)', fontSize: 10, fontFamily: 'var(--font-mono)' }}>
+                        className="min-h-11 rounded-xl px-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--content-muted)', fontSize: 12, fontFamily: 'var(--font-mono)' }}>
                         cancel
                       </button>
                     </motion.div>
@@ -212,9 +213,9 @@ export default function BookPage() {
 
             {/* Coach's pre-appointment instructions (Michael) */}
             {coachInstructions && (
-              <div className="card" style={{ padding: 14, marginBottom: 18, borderColor: 'rgba(212,168,83,.3)', background: 'rgba(212,168,83,.06)' }}>
+              <div className="card" style={{ padding: 14, marginBottom: 18, borderColor: 'var(--action-secondary)', background: 'var(--action-secondary)' }}>
                 <div className="eye" style={{ marginBottom: 6 }}>BEFORE YOUR APPOINTMENT</div>
-                <p style={{ fontSize: 13, lineHeight: 1.55, color: 'var(--t2)', whiteSpace: 'pre-wrap' }}>{coachInstructions}</p>
+                <p style={{ fontSize: 13, lineHeight: 1.55, color: 'var(--content-secondary)', whiteSpace: 'pre-wrap' }}>{coachInstructions}</p>
               </div>
             )}
 
@@ -227,7 +228,7 @@ export default function BookPage() {
             ) : (
               slotsByDay.map(([day, daySlots]) => (
                 <div key={day} style={{ marginBottom: 12 }}>
-                  <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--t3)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '.06em' }}>
+                  <div style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--content-secondary)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '.06em' }}>
                     {day}
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -239,10 +240,10 @@ export default function BookPage() {
                         disabled={bookingSlot !== null}
                         style={{
                           padding: '7px 12px', borderRadius: 10, cursor: 'pointer',
-                          border: '1px solid var(--line)', background: 'rgba(255,255,255,.04)',
-                          color: 'var(--t1)', fontSize: 12, fontFamily: 'var(--font-mono)',
+                          border: '1px solid var(--border-default)', background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)',
+                          color: 'var(--content-primary)', fontSize: 12, fontFamily: 'var(--font-mono)',
                           opacity: bookingSlot && bookingSlot !== s.iso ? 0.4 : 1,
-                        }}
+                        }} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                       >
                         {bookingSlot === s.iso ? '…' : s.label}
                       </motion.button>
@@ -252,7 +253,7 @@ export default function BookPage() {
               ))
             )}
 
-            <div className="ds-sub" style={{ fontSize: 10, marginTop: 8, lineHeight: 1.5 }}>
+            <div className="ds-sub" style={{ fontSize: 12, marginTop: 8, lineHeight: 1.5 }}>
               Cancellations less than 24 hours before the session may be charged,
               per your coach&apos;s policy.
             </div>

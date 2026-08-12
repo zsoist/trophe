@@ -28,7 +28,7 @@ function ScoreRing({ score, max = 60 }: { score: number; max?: number }) {
   return (
     <div style={{ position: 'relative', width: 64, height: 64, flexShrink: 0 }}>
       <svg width={64} height={64} style={{ transform: 'rotate(-90deg)' }}>
-        <circle cx={32} cy={32} r={r} fill="none" stroke="rgba(255,255,255,.06)" strokeWidth={5} />
+        <circle cx={32} cy={32} r={r} fill="none" stroke="color-mix(in srgb, var(--content-primary) 8%, transparent)" strokeWidth={5} />
         <motion.circle
           cx={32} cy={32} r={r} fill="none" stroke={color}
           strokeWidth={5} strokeLinecap="round"
@@ -46,7 +46,7 @@ function ScoreRing({ score, max = 60 }: { score: number; max?: number }) {
         <span style={{ fontSize: 14, fontWeight: 800, color, lineHeight: 1, fontFamily: 'var(--font-mono)' }}>
           {Math.round(score)}
         </span>
-        <span style={{ fontSize: 10, color: 'var(--t5)', marginTop: 1 }}>score</span>
+        <span style={{ fontSize: 12, color: 'var(--content-disabled)', marginTop: 1 }}>score</span>
       </div>
     </div>
   );
@@ -80,18 +80,18 @@ export default function NutrientDensity({ entries }: NutrientDensityProps) {
   const tip    = avgScore >= 30 ? t('density.tip_high') : avgScore >= 18 ? t('density.tip_med') : t('density.tip_low');
 
   const gradeColor = { A: '#65D387', B: '#D4A853', C: '#fb923c', D: '#E87A6E' }[grade];
-  const gradeBg    = { A: 'rgba(101,211,135,.08)', B: 'rgba(212,168,83,.08)', C: 'rgba(251,146,60,.08)', D: 'rgba(232,122,110,.08)' }[grade];
-  const gradeBorder = { A: 'rgba(101,211,135,.2)', B: 'rgba(212,168,83,.2)', C: 'rgba(251,146,60,.2)', D: 'rgba(232,122,110,.2)' }[grade];
+  const gradeBg    = { A: 'var(--status-success-bg)', B: 'var(--action-secondary)', C: 'rgba(251,146,60,.08)', D: 'rgba(232,122,110,.08)' }[grade];
+  const gradeBorder = { A: 'var(--status-success-bg)', B: 'var(--action-secondary)', C: 'rgba(251,146,60,.2)', D: 'rgba(232,122,110,.2)' }[grade];
 
   return (
     <div className="glass p-3">
-      <button onClick={() => setExpanded(e => !e)} className="w-full flex items-center justify-between mb-1">
-        <span className="text-stone-300 text-xs font-semibold uppercase tracking-wider">
+      <button onClick={() => setExpanded(e => !e)} className="w-full flex items-center justify-between mb-1 min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
+        <span className="text-[var(--content-secondary)] text-xs font-semibold uppercase tracking-wider">
           {t('analytics.nutrient_density')}
         </span>
         <div className="flex items-center gap-2">
-          <span style={{ fontSize: 10, fontWeight: 700, color: gradeColor }}>{label}</span>
-          {expanded ? <ChevronUp size={13} className="text-stone-500" /> : <ChevronDown size={13} className="text-stone-500" />}
+          <span style={{ fontSize: 12, fontWeight: 700, color: gradeColor }}>{label}</span>
+          {expanded ? <ChevronUp size={13} className="text-[var(--content-muted)]" /> : <ChevronDown size={13} className="text-[var(--content-muted)]" />}
         </div>
       </button>
 
@@ -117,7 +117,7 @@ export default function NutrientDensity({ entries }: NutrientDensityProps) {
                     {grade}
                   </span>
                   <div style={{
-                    padding: '2px 7px', borderRadius: 8, fontSize: 9, fontWeight: 600,
+                    padding: '2px 7px', borderRadius: 8, fontSize: 12, fontWeight: 600,
                     background: gradeBg, border: `1px solid ${gradeBorder}`,
                     color: gradeColor,
                   }}>
@@ -125,7 +125,7 @@ export default function NutrientDensity({ entries }: NutrientDensityProps) {
                   </div>
                 </div>
                 {/* What the score means */}
-                <p style={{ fontSize: 9, color: 'var(--t4)', lineHeight: 1.5 }}>
+                <p style={{ fontSize: 12, color: 'var(--content-muted)', lineHeight: 1.5 }}>
                   {t('density.score_desc')}
                 </p>
               </div>
@@ -136,7 +136,7 @@ export default function NutrientDensity({ entries }: NutrientDensityProps) {
               padding: '8px 10px', borderRadius: 10, marginBottom: 10,
               background: gradeBg, border: `1px solid ${gradeBorder}`,
             }}>
-              <p style={{ fontSize: 11, color: 'var(--t3)', lineHeight: 1.5, display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+              <p style={{ fontSize: 12, color: 'var(--content-secondary)', lineHeight: 1.5, display: 'flex', gap: 6, alignItems: 'flex-start' }}>
                 <Lightbulb size={12} style={{ color: gradeColor, flexShrink: 0, marginTop: 1 }} aria-hidden />
                 <span>{tip}</span>
               </p>
@@ -146,21 +146,21 @@ export default function NutrientDensity({ entries }: NutrientDensityProps) {
             <div className="space-y-2">
               {scored.slice(0, 6).map((food, i) => {
                 const barPct   = maxScore > 0 ? (food.score / maxScore) * 100 : 0;
-                const barColor = food.score >= 35 ? '#65D387' : food.score >= 22 ? '#D4A853' : food.score >= 12 ? '#fb923c' : '#78716c';
+                const barColor = food.score >= 35 ? '#65D387' : food.score >= 22 ? '#D4A853' : food.score >= 12 ? '#fb923c' : 'var(--content-muted)';
                 return (
                   <div key={`${food.name}-${i}`}>
                     <div className="flex items-center justify-between mb-0.5">
-                      <span style={{ fontSize: 9, color: 'var(--t3)', maxWidth: '60%' }} className="truncate">{food.name}</span>
+                      <span style={{ fontSize: 12, color: 'var(--content-secondary)', maxWidth: '60%' }} className="truncate">{food.name}</span>
                       <div className="flex items-center gap-2">
-                        <span style={{ fontSize: 10, color: 'var(--t5)', fontFamily: 'var(--font-mono)' }}>
+                        <span style={{ fontSize: 12, color: 'var(--content-disabled)', fontFamily: 'var(--font-mono)' }}>
                           {food.protein}g P · {food.fiber}g F
                         </span>
-                        <span style={{ fontSize: 9, fontWeight: 700, color: barColor, fontFamily: 'var(--font-mono)', minWidth: 26, textAlign: 'right' }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: barColor, fontFamily: 'var(--font-mono)', minWidth: 26, textAlign: 'right' }}>
                           {food.score}
                         </span>
                       </div>
                     </div>
-                    <div style={{ height: 4, borderRadius: 2, background: 'rgba(255,255,255,.05)', overflow: 'hidden' }}>
+                    <div style={{ height: 4, borderRadius: 2, background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)', overflow: 'hidden' }}>
                       <motion.div
                         style={{ height: '100%', borderRadius: 2, backgroundColor: barColor }}
                         initial={{ width: 0 }}
@@ -174,11 +174,11 @@ export default function NutrientDensity({ entries }: NutrientDensityProps) {
             </div>
 
             {/* Scale legend */}
-            <div className="flex items-center gap-1 mt-3 pt-2" style={{ borderTop: '1px solid rgba(255,255,255,.04)' }}>
-              <span style={{ fontSize: 10, color: 'var(--t5)' }}>{t('density.scale_label')} →</span>
+            <div className="flex items-center gap-1 mt-3 pt-2" style={{ borderTop: '1px solid color-mix(in srgb, var(--content-primary) 8%, transparent)' }}>
+              <span style={{ fontSize: 12, color: 'var(--content-disabled)' }}>{t('density.scale_label')} →</span>
               {[['< 12', '#E87A6E', 'D'], ['12–22', '#fb923c', 'C'], ['22–35', '#D4A853', 'B'], ['35+', '#65D387', 'A']].map(([range, color, g]) => (
                 <span key={g} style={{
-                  fontSize: 10, padding: '1px 5px', borderRadius: 5,
+                  fontSize: 12, padding: '1px 5px', borderRadius: 5,
                   background: `${color}18`, color, border: `1px solid ${color}40`,
                 }}>
                   {g} {range}

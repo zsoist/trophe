@@ -148,12 +148,12 @@ function RestBar({ startedAt, targetS, onDismiss }: { startedAt: number; targetS
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0 }}
       onClick={onDismiss}
-      className="w-full"
+      className="w-full min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
       style={{
         marginTop: 10, padding: '10px 14px', borderRadius: 12, cursor: 'pointer',
         display: 'flex', alignItems: 'center', gap: 10, position: 'relative', overflow: 'hidden',
-        background: ready ? 'color-mix(in srgb, var(--accent, #D4A853) 14%, transparent)' : 'rgba(255,255,255,.04)',
-        border: ready ? '1px solid color-mix(in srgb, var(--accent, #D4A853) 40%, transparent)' : '1px solid rgba(255,255,255,.08)',
+        background: ready ? 'color-mix(in srgb, var(--action-primary) 14%, transparent)' : 'color-mix(in srgb, var(--content-primary) 8%, transparent)',
+        border: ready ? '1px solid color-mix(in srgb, var(--action-primary) 40%, transparent)' : '1px solid color-mix(in srgb, var(--content-primary) 8%, transparent)',
         animation: ready ? 'pulse 1.6s ease-in-out infinite' : undefined,
       }}
       title={t('workout.rest_dismiss_hint')}
@@ -162,19 +162,19 @@ function RestBar({ startedAt, targetS, onDismiss }: { startedAt: number; targetS
         style={{
           position: 'absolute', left: 0, top: 0, bottom: 0,
           width: `${pct * 100}%`,
-          background: 'color-mix(in srgb, var(--accent, #D4A853) 8%, transparent)',
+          background: 'color-mix(in srgb, var(--action-primary) 8%, transparent)',
           transition: 'width .5s linear',
           pointerEvents: 'none',
         }}
       />
-      <Timer size={14} style={{ color: ready ? 'var(--accent, #D4A853)' : 'var(--t4)', flexShrink: 0, position: 'relative' }} />
+      <Timer size={14} style={{ color: ready ? 'var(--action-primary)' : 'var(--content-muted)', flexShrink: 0, position: 'relative' }} />
       <span style={{
         fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 700, position: 'relative',
-        color: ready ? 'var(--accent, #D4A853)' : 'var(--t2)',
+        color: ready ? 'var(--action-primary)' : 'var(--content-secondary)',
       }}>
         {Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, '0')}
       </span>
-      <span style={{ fontSize: 11, color: ready ? 'var(--accent, #D4A853)' : 'var(--t4)', position: 'relative', fontWeight: ready ? 700 : 400 }}>
+      <span style={{ fontSize: 12, color: ready ? 'var(--action-primary)' : 'var(--content-muted)', position: 'relative', fontWeight: ready ? 700 : 400 }}>
         {ready ? t('workout.rested_go') : t('workout.resting')}
       </span>
     </motion.button>
@@ -199,8 +199,8 @@ function ElapsedChip({ startTime, readyLabel }: { startTime: number; readyLabel:
       className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold"
       style={
         notStarted
-          ? { background: 'rgba(255,255,255,0.05)', color: 'var(--t3)', border: '1px solid rgba(255,255,255,0.08)' }
-          : { background: 'color-mix(in srgb, var(--accent, #D4A853) 15%, transparent)', color: 'var(--accent, #D4A853)', border: '1px solid color-mix(in srgb, var(--accent, #D4A853) 28%, transparent)' }
+          ? { background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)', color: 'var(--content-secondary)', border: '1px solid color-mix(in srgb, var(--content-primary) 8%, transparent)' }
+          : { background: 'color-mix(in srgb, var(--action-primary) 15%, transparent)', color: 'var(--action-primary)', border: '1px solid color-mix(in srgb, var(--action-primary) 28%, transparent)' }
       }
     >
       <Clock size={11} />
@@ -542,7 +542,7 @@ export default function GuidedSession({
               style={{
                 position: 'absolute', top: -70, left: '50%', transform: 'translateX(-50%)',
                 width: 260, height: 260, borderRadius: '50%', pointerEvents: 'none',
-                background: 'radial-gradient(circle, color-mix(in srgb, var(--accent, #D4A853) 35%, transparent) 0%, transparent 70%)',
+                background: 'radial-gradient(circle, color-mix(in srgb, var(--action-primary) 35%, transparent) 0%, transparent 70%)',
               }}
             />
           )}
@@ -554,17 +554,17 @@ export default function GuidedSession({
             className="mx-auto mb-3"
             style={{
               width: 64, height: 64, borderRadius: 20,
-              background: 'color-mix(in srgb, var(--accent, #D4A853) 14%, transparent)', border: '1px solid color-mix(in srgb, var(--accent, #D4A853) 40%, transparent)',
+              background: 'color-mix(in srgb, var(--action-primary) 14%, transparent)', border: '1px solid color-mix(in srgb, var(--action-primary) 40%, transparent)',
               display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative',
             }}
           >
-            <Trophy size={30} style={{ color: 'var(--accent, #D4A853)' }} />
+            <Trophy size={30} style={{ color: 'var(--action-primary)' }} />
           </motion.div>
 
-          <h2 className="text-xl font-bold" style={{ color: 'var(--t1)', letterSpacing: '-.02em' }}>
+          <h2 className="text-xl font-bold" style={{ color: 'var(--content-primary)', letterSpacing: '-.02em' }}>
             {t('workout.template_done', { name: template.name })}
           </h2>
-          <p className="text-xs mt-1" style={{ color: 'var(--t4)' }}>{programName}</p>
+          <p className="text-xs mt-1" style={{ color: 'var(--content-muted)' }}>{programName}</p>
 
           <div className="grid grid-cols-3 gap-2 mt-5">
             {[
@@ -574,8 +574,8 @@ export default function GuidedSession({
             ].map((s) => (
               <div key={s.label} className="glass p-3 rounded-xl">
                 {/* Serif display numerals (digits/units only — never Greek) */}
-                <div className="display-lg" style={{ fontSize: 22, lineHeight: '26px', color: 'var(--t1)' }}>{s.value}</div>
-                <div style={{ fontSize: 10, color: 'var(--t4)', textTransform: 'uppercase', letterSpacing: '.08em', marginTop: 2 }}>{s.label}</div>
+                <div className="display-lg" style={{ fontSize: 22, lineHeight: '26px', color: 'var(--content-primary)' }}>{s.value}</div>
+                <div style={{ fontSize: 12, color: 'var(--content-muted)', textTransform: 'uppercase', letterSpacing: '.08em', marginTop: 2 }}>{s.label}</div>
               </div>
             ))}
           </div>
@@ -586,16 +586,16 @@ export default function GuidedSession({
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.35 }}
               className="mt-4 p-3 rounded-xl text-left"
-              style={{ background: 'color-mix(in srgb, var(--accent, #D4A853) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--accent, #D4A853) 30%, transparent)' }}
+              style={{ background: 'color-mix(in srgb, var(--action-primary) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--action-primary) 30%, transparent)' }}
             >
-              <div className="display-lg" style={{ fontSize: 19, lineHeight: '23px', color: 'var(--accent, #D4A853)', marginBottom: 7, display: 'flex', alignItems: 'center', gap: 7 }}>
+              <div className="display-lg" style={{ fontSize: 19, lineHeight: '23px', color: 'var(--action-primary)', marginBottom: 7, display: 'flex', alignItems: 'center', gap: 7 }}>
                 <Trophy size={15} style={{ flexShrink: 0 }} /> {t('workout.pr_count', { n: finishStats.prs.length })}
               </div>
               {finishStats.prs.map((pr, i) => (
-                <div key={i} style={{ fontSize: 12, color: 'var(--t2)', padding: '2px 0' }}>
-                  <span style={{ fontWeight: 600, color: 'var(--t1)' }}>{pr.exerciseName}</span>
+                <div key={i} style={{ fontSize: 12, color: 'var(--content-secondary)', padding: '2px 0' }}>
+                  <span style={{ fontWeight: 600, color: 'var(--content-primary)' }}>{pr.exerciseName}</span>
                   {' — '}
-                  <span style={{ color: 'var(--accent, #D4A853)', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+                  <span style={{ color: 'var(--action-primary)', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
                     {kgToDisplay(pr.weight, unit)}{unit}{pr.reps ? ` × ${pr.reps}` : ''}
                   </span>
                 </div>
@@ -604,19 +604,19 @@ export default function GuidedSession({
           )}
 
           {painFlags.length > 0 && (
-            <div className="mt-3 p-3 rounded-xl text-left" style={{ background: 'rgba(239,68,68,.06)', border: '1px solid rgba(239,68,68,.2)' }}>
+            <div className="mt-3 p-3 rounded-xl text-left" style={{ background: 'var(--status-danger-bg)', border: '1px solid var(--status-danger-border)' }}>
               <p className="text-xs text-red-400 font-medium mb-1 flex items-center gap-1">
                 <AlertTriangle size={11} /> {t('workout.pain_shared', { n: painFlags.length })}
               </p>
               {painFlags.map((pf, i) => (
-                <p key={i} className="text-xs text-stone-500">
+                <p key={i} className="text-xs text-[var(--content-muted)]">
                   {pf.body_part} — severity {pf.severity}/5
                 </p>
               ))}
             </div>
           )}
 
-          <button onClick={() => onExit(true)} className="btn-gold w-full mt-5" style={{ padding: 14, fontSize: 14, fontWeight: 800, borderRadius: 14 }}>
+          <button onClick={() => onExit(true)} className="btn-gold w-full mt-5 min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" style={{ padding: 14, fontSize: 14, fontWeight: 800, borderRadius: 14 }}>
             {t('workout.done')}
           </button>
         </motion.div>
@@ -633,24 +633,24 @@ export default function GuidedSession({
   const firstOpenIdx = ex.sets.findIndex((s) => !s.completed);
 
   return (
-    <div className="min-h-screen" style={{ background: 'var(--bg,#0a0a0a)' }}>
+    <div className="min-h-screen" style={{ background: 'var(--canvas)' }}>
       {/* Sticky guided header: exit + name + elapsed + progress */}
       <div className="sticky top-0 z-40 glass-elevated px-4 pt-3 pb-2">
         <div className="max-w-md lg:max-w-2xl mx-auto">
           <div className="flex items-center justify-between gap-2">
             <button
               onClick={handleBack}
-              className="p-2 rounded-xl"
-              style={{ background: 'rgba(255,255,255,0.06)', minWidth: 38, minHeight: 38 }}
+              className="p-2 rounded-xl min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+              style={{ background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)', minWidth: 38, minHeight: 38 }}
               aria-label={t('workout.exit')}
             >
-              <X size={18} className="text-stone-400" />
+              <X size={18} className="text-[var(--content-secondary)]" />
             </button>
             <div className="flex-1 min-w-0 text-center">
-              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--t1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--content-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {template.name}
               </div>
-              <div style={{ fontSize: 9, color: 'var(--t4)', fontFamily: 'var(--font-mono)' }}>
+              <div style={{ fontSize: 12, color: 'var(--content-muted)', fontFamily: 'var(--font-mono)' }}>
                 {currentIdx + 1} / {exercises.length} · {t('workout.sets_progress', { done: completedCount, total: totalSets })}
               </div>
             </div>
@@ -691,36 +691,36 @@ export default function GuidedSession({
               <div className="flex items-center gap-3 p-4 pb-3">
                 <div className="w-1.5 h-12 rounded-full shrink-0" style={{ background: color }} />
                 <div className="flex-1 min-w-0">
-                  <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--t1)', letterSpacing: '-.01em' }} className="truncate">
+                  <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--content-primary)', letterSpacing: '-.01em' }} className="truncate">
                     {exName}
                   </p>
                   <div className="flex items-center gap-2 mt-1 flex-wrap">
                     <span
                       style={{
-                        fontSize: 10.5, fontWeight: 700, fontFamily: 'var(--font-mono)',
+                        fontSize: 12, fontWeight: 700, fontFamily: 'var(--font-mono)',
                         padding: '2px 8px', borderRadius: 14,
-                        background: 'color-mix(in srgb, var(--accent, #D4A853) 13%, transparent)', border: '1px solid color-mix(in srgb, var(--accent, #D4A853) 30%, transparent)', color: 'var(--accent, #D4A853)',
+                        background: 'color-mix(in srgb, var(--action-primary) 13%, transparent)', border: '1px solid color-mix(in srgb, var(--action-primary) 30%, transparent)', color: 'var(--action-primary)',
                       }}
                     >
                       {targetChip}
                     </span>
                     {ex.info?.equipment && (
-                      <span style={{ fontSize: 10, color: 'var(--t4)' }}>{ex.info.equipment}</span>
+                      <span style={{ fontSize: 12, color: 'var(--content-muted)' }}>{ex.info.equipment}</span>
                     )}
                   </div>
                 </div>
                 <button
                   onClick={() => void openInfo(ex.ref.exercise_id)}
-                  className="p-2 rounded-lg"
-                  style={{ background: 'rgba(255,255,255,0.05)', minWidth: 36, minHeight: 36 }}
+                  className="p-2 rounded-lg min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                  style={{ background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)', minWidth: 36, minHeight: 36 }}
                   aria-label={t('workout.info_title')}
                 >
-                  <Info size={15} className="text-stone-400" />
+                  <Info size={15} className="text-[var(--content-secondary)]" />
                 </button>
                 <button
                   onClick={() => setPainModalExerciseId(ex.ref.exercise_id)}
-                  className="p-2 rounded-lg"
-                  style={{ background: 'rgba(239,68,68,0.1)', minWidth: 36, minHeight: 36 }}
+                  className="p-2 rounded-lg min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                  style={{ background: 'var(--status-danger-bg)', minWidth: 36, minHeight: 36 }}
                   aria-label={t('workout.report_pain')}
                 >
                   <AlertTriangle size={15} className="text-red-400" />
@@ -730,21 +730,21 @@ export default function GuidedSession({
               {/* Coach notes on this exercise */}
               {ex.ref.notes && (
                 <div className="mx-4 mb-2 px-3 py-2 rounded-lg" style={{ background: 'rgba(125,163,217,.07)', border: '1px solid rgba(125,163,217,.18)' }}>
-                  <p style={{ fontSize: 11, color: 'var(--info,#7DA3D9)', lineHeight: 1.45 }}>{ex.ref.notes}</p>
+                  <p style={{ fontSize: 12, color: 'var(--status-info-fg)', lineHeight: 1.45 }}>{ex.ref.notes}</p>
                 </div>
               )}
 
               {ex.skipped ? (
                 <div className="px-4 pb-4 pt-1 text-center">
-                  <p style={{ fontSize: 12, color: 'var(--t4)', marginBottom: 10 }}>{t('workout.exercise_skipped')}</p>
-                  <button onClick={() => toggleSkip(currentIdx)} className="btn-ghost text-xs px-4 py-2">
+                  <p style={{ fontSize: 12, color: 'var(--content-muted)', marginBottom: 10 }}>{t('workout.exercise_skipped')}</p>
+                  <button onClick={() => toggleSkip(currentIdx)} className="btn-ghost text-xs px-4 py-2 min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
                     {t('workout.undo_skip')}
                   </button>
                 </div>
               ) : (
                 <div className="px-3 pb-3">
                   {/* Column headers */}
-                  <div className="flex items-center gap-1.5 px-1 pb-1 text-[10px] text-stone-600 uppercase tracking-wider">
+                  <div className="flex items-center gap-1.5 px-1 pb-1 text-xs text-[var(--content-muted)] uppercase tracking-wider">
                     <div style={{ width: 34 }} className="text-center">Set</div>
                     <div className="flex-1 text-center">{unit}</div>
                     <div className="flex-1 text-center">{t('workout.reps')}</div>
@@ -760,7 +760,7 @@ export default function GuidedSession({
                           className="flex items-center gap-1.5 px-1 py-1"
                           style={{
                             borderRadius: 12,
-                            background: isActive ? 'rgba(255,255,255,.025)' : 'transparent',
+                            background: isActive ? 'color-mix(in srgb, var(--content-primary) 8%, transparent)' : 'transparent',
                           }}
                         >
                           {/* Set number — tap toggles warmup */}
@@ -770,10 +770,10 @@ export default function GuidedSession({
                             style={{
                               width: 34, height: 44, borderRadius: 10, flexShrink: 0,
                               fontSize: set.is_warmup ? 11 : 12, fontWeight: 700,
-                              background: set.is_warmup ? 'rgba(251,191,36,0.13)' : 'rgba(255,255,255,0.04)',
-                              color: set.is_warmup ? '#fbbf24' : 'var(--t4)',
+                              background: set.is_warmup ? 'rgba(251,191,36,0.13)' : 'color-mix(in srgb, var(--content-primary) 8%, transparent)',
+                              color: set.is_warmup ? 'var(--status-warning-fg)' : 'var(--content-muted)',
                               border: '1px solid transparent',
-                            }}
+                            }} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                           >
                             {set.is_warmup ? 'W' : set.set_number}
                           </button>
@@ -785,12 +785,12 @@ export default function GuidedSession({
                             disabled={set.completed}
                             onChange={(e) => updateSetField(currentIdx, set.id, 'weight', e.target.value)}
                             placeholder={set.ghost?.weight_kg != null ? String(kgToDisplay(set.ghost.weight_kg, unit)) : '0'}
-                            className="flex-1 text-center rounded-xl outline-none min-w-0"
+                            className="flex-1 text-center rounded-xl outline-none min-w-0 text-base"
                             style={{
                               height: 44, fontSize: 15, fontWeight: 600,
-                              background: set.is_pr ? 'color-mix(in srgb, var(--accent, #D4A853) 15%, transparent)' : 'rgba(255,255,255,0.04)',
-                              border: set.is_pr ? '1px solid color-mix(in srgb, var(--accent, #D4A853) 35%, transparent)' : '1px solid transparent',
-                              color: set.is_pr ? 'var(--accent, #D4A853)' : 'var(--t1)',
+                              background: set.is_pr ? 'color-mix(in srgb, var(--action-primary) 15%, transparent)' : 'color-mix(in srgb, var(--content-primary) 8%, transparent)',
+                              border: set.is_pr ? '1px solid color-mix(in srgb, var(--action-primary) 35%, transparent)' : '1px solid transparent',
+                              color: set.is_pr ? 'var(--action-primary)' : 'var(--content-primary)',
                               opacity: set.completed && !set.is_pr ? 0.65 : 1,
                             }}
                           />
@@ -802,10 +802,10 @@ export default function GuidedSession({
                             disabled={set.completed}
                             onChange={(e) => updateSetField(currentIdx, set.id, 'reps', e.target.value)}
                             placeholder={set.ghost?.reps != null ? String(set.ghost.reps) : ex.ref.target_reps}
-                            className="flex-1 text-center rounded-xl outline-none min-w-0"
+                            className="flex-1 text-center rounded-xl outline-none min-w-0 text-base"
                             style={{
                               height: 44, fontSize: 15, fontWeight: 600,
-                              background: 'rgba(255,255,255,0.04)', color: 'var(--t1)',
+                              background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)', color: 'var(--content-primary)',
                               opacity: set.completed ? 0.65 : 1,
                             }}
                           />
@@ -817,10 +817,10 @@ export default function GuidedSession({
                             disabled={set.completed}
                             onChange={(e) => updateSetField(currentIdx, set.id, 'rpe', e.target.value)}
                             placeholder={set.ghost?.rpe != null ? String(set.ghost.rpe) : (ex.ref.target_rpe ? String(ex.ref.target_rpe) : '-')}
-                            className="text-center rounded-xl outline-none"
+                            className="text-center rounded-xl outline-none text-base"
                             style={{
                               width: 42, height: 44, fontSize: 13,
-                              background: 'rgba(255,255,255,0.04)', color: 'var(--t3)',
+                              background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)', color: 'var(--content-secondary)',
                               opacity: set.completed ? 0.65 : 1,
                             }}
                           />
@@ -835,14 +835,14 @@ export default function GuidedSession({
                               width: 46, height: 44, borderRadius: 12, flexShrink: 0,
                               display: 'flex', alignItems: 'center', justifyContent: 'center',
                               background: set.completed
-                                ? (set.is_pr ? 'color-mix(in srgb, var(--accent, #D4A853) 25%, transparent)' : 'rgba(34,197,94,.18)')
-                                : 'rgba(255,255,255,.05)',
+                                ? (set.is_pr ? 'color-mix(in srgb, var(--action-primary) 25%, transparent)' : 'rgba(34,197,94,.18)')
+                                : 'color-mix(in srgb, var(--content-primary) 8%, transparent)',
                               border: set.completed
-                                ? (set.is_pr ? '1px solid color-mix(in srgb, var(--accent, #D4A853) 50%, transparent)' : '1px solid rgba(34,197,94,.35)')
-                                : '1px solid rgba(255,255,255,.1)',
-                              color: set.completed ? (set.is_pr ? 'var(--accent, #D4A853)' : '#4ade80') : 'var(--t4)',
+                                ? (set.is_pr ? '1px solid color-mix(in srgb, var(--action-primary) 50%, transparent)' : '1px solid rgba(34,197,94,.35)')
+                                : '1px solid color-mix(in srgb, var(--content-primary) 8%, transparent)',
+                              color: set.completed ? (set.is_pr ? 'var(--action-primary)' : 'var(--status-success-fg)') : 'var(--content-muted)',
                               opacity: set.saving ? 0.5 : 1,
-                            }}
+                            }} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                           >
                             {set.is_pr && set.completed ? <Trophy size={17} /> : <Check size={19} strokeWidth={2.6} />}
                           </motion.button>
@@ -863,14 +863,14 @@ export default function GuidedSession({
                                 onClick={() => bump(currentIdx, set, b.field, b.delta)}
                                 style={{
                                   flex: 1, height: 44, borderRadius: 12,
-                                  background: 'rgba(255,255,255,.035)', border: '1px solid rgba(255,255,255,.08)',
-                                  color: 'var(--t3)', fontSize: 12, fontWeight: 700, fontFamily: 'var(--font-mono)',
+                                  background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--content-primary) 8%, transparent)',
+                                  color: 'var(--content-secondary)', fontSize: 12, fontWeight: 700, fontFamily: 'var(--font-mono)',
                                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3,
-                                }}
+                                }} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                               >
                                 {b.delta < 0 ? <Minus size={11} /> : <Plus size={11} />}
                                 {Math.abs(b.delta)}
-                                <span style={{ fontSize: 9, color: 'var(--t5)' }}>{b.field === 'weight' ? unit : 'rep'}</span>
+                                <span style={{ fontSize: 12, color: 'var(--content-disabled)' }}>{b.field === 'weight' ? unit : 'rep'}</span>
                               </button>
                             ))}
                           </div>
@@ -883,16 +883,16 @@ export default function GuidedSession({
                   <div className="flex gap-2 px-1 pt-2">
                     <button
                       onClick={() => addExtraSet(currentIdx)}
-                      className="flex-1 rounded-xl text-xs font-medium flex items-center justify-center gap-1.5"
-                      style={{ height: 40, background: 'rgba(255,255,255,0.04)', color: 'var(--t3)', border: '1px dashed rgba(255,255,255,.12)' }}
+                      className="flex-1 rounded-xl text-xs font-medium flex items-center justify-center gap-1.5 min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                      style={{ height: 40, background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)', color: 'var(--content-secondary)', border: '1px dashed color-mix(in srgb, var(--content-primary) 8%, transparent)' }}
                     >
                       <Plus size={13} />
                       {t('workout.add_extra_set')}
                     </button>
                     <button
                       onClick={() => toggleSkip(currentIdx)}
-                      className="rounded-xl text-xs font-medium flex items-center justify-center gap-1.5 px-4"
-                      style={{ height: 40, background: 'rgba(255,255,255,0.03)', color: 'var(--t4)' }}
+                      className="rounded-xl text-xs font-medium flex items-center justify-center gap-1.5 px-4 min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                      style={{ height: 40, background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)', color: 'var(--content-muted)' }}
                     >
                       <SkipForward size={13} />
                       {t('workout.skip')}
@@ -912,10 +912,10 @@ export default function GuidedSession({
             {/* Up-next preview */}
             {!isLast && (
               <div className="mt-3 px-1 flex items-center gap-2" style={{ opacity: 0.8 }}>
-                <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--t5)' }}>
+                <span style={{ fontSize: 12, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--content-disabled)' }}>
                   {t('workout.up_next')}
                 </span>
-                <span style={{ fontSize: 11, color: 'var(--t3)', fontWeight: 600 }} className="truncate">
+                <span style={{ fontSize: 12, color: 'var(--content-secondary)', fontWeight: 600 }} className="truncate">
                   {localizedName(exercises[currentIdx + 1])}
                 </span>
               </div>
@@ -933,18 +933,18 @@ export default function GuidedSession({
           <button
             onClick={() => setCurrentIdx((i) => Math.max(0, i - 1))}
             disabled={currentIdx === 0}
-            className="glass-elevated rounded-2xl flex items-center justify-center"
+            className="glass-elevated rounded-2xl flex items-center justify-center min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             style={{ width: 56, height: 52, opacity: currentIdx === 0 ? 0.35 : 1 }}
             aria-label="Previous exercise"
           >
-            <ChevronLeft size={20} className="text-stone-300" />
+            <ChevronLeft size={20} className="text-[var(--content-secondary)]" />
           </button>
           {isLast ? (
             <motion.button
               whileTap={{ scale: 0.97 }}
               onClick={handleFinish}
               disabled={finishing}
-              className="btn-gold flex-1 rounded-2xl flex items-center justify-center gap-2"
+              className="btn-gold flex-1 rounded-2xl flex items-center justify-center gap-2 min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
               style={{ height: 52, fontSize: 14, fontWeight: 800, opacity: finishing ? 0.7 : 1 }}
             >
               <Trophy size={16} />
@@ -954,7 +954,7 @@ export default function GuidedSession({
             <motion.button
               whileTap={{ scale: 0.97 }}
               onClick={() => setCurrentIdx((i) => Math.min(exercises.length - 1, i + 1))}
-              className="btn-gold flex-1 rounded-2xl flex items-center justify-center gap-2"
+              className="btn-gold flex-1 rounded-2xl flex items-center justify-center gap-2 min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
               style={{ height: 52, fontSize: 14, fontWeight: 800 }}
             >
               {t('workout.next_exercise')}
@@ -965,8 +965,8 @@ export default function GuidedSession({
             <button
               onClick={handleFinish}
               disabled={finishing}
-              className="glass-elevated rounded-2xl flex items-center justify-center px-3"
-              style={{ height: 52, fontSize: 10, fontWeight: 700, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '.05em' }}
+              className="glass-elevated rounded-2xl flex items-center justify-center px-3 min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+              style={{ height: 52, fontSize: 12, fontWeight: 700, color: 'var(--content-secondary)', textTransform: 'uppercase', letterSpacing: '.05em' }}
             >
               {finishing ? '…' : t('workout.end_early')}
             </button>

@@ -10,8 +10,8 @@
  * recommendations when no coach-specific notes are found.
  */
 
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { ChevronDown, ChevronUp, X, Zap } from 'lucide-react';
 import { Icon, type IconName } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
@@ -123,11 +123,11 @@ const CURATED: CoachRec[] = [
 
 // ─── Macro chip colors ────────────────────────────────────────
 const MACRO_COLORS = {
-  cal:     { bg: 'rgba(212,168,83,.12)',  border: 'rgba(212,168,83,.3)',  color: '#D4A853' },
-  protein: { bg: 'rgba(232,122,110,.12)', border: 'rgba(232,122,110,.3)', color: '#E87A6E' },
-  carbs:   { bg: 'rgba(125,163,217,.12)', border: 'rgba(125,163,217,.3)', color: '#7DA3D9' },
-  fat:     { bg: 'rgba(184,157,217,.12)', border: 'rgba(184,157,217,.3)', color: '#B89DD9' },
-  fiber:   { bg: 'rgba(101,211,135,.12)', border: 'rgba(101,211,135,.3)', color: '#65D387' },
+  cal:     { bg: 'color-mix(in srgb, var(--data-calories) 12%, transparent)',  border: 'color-mix(in srgb, var(--data-calories) 30%, transparent)',  color: 'var(--data-calories)' },
+  protein: { bg: 'color-mix(in srgb, var(--data-protein) 12%, transparent)', border: 'color-mix(in srgb, var(--data-protein) 30%, transparent)', color: 'var(--data-protein)' },
+  carbs:   { bg: 'color-mix(in srgb, var(--data-carbs) 12%, transparent)', border: 'color-mix(in srgb, var(--data-carbs) 30%, transparent)', color: 'var(--data-carbs)' },
+  fat:     { bg: 'color-mix(in srgb, var(--data-fat) 12%, transparent)', border: 'color-mix(in srgb, var(--data-fat) 30%, transparent)', color: 'var(--data-fat)' },
+  fiber:   { bg: 'color-mix(in srgb, var(--data-fiber) 12%, transparent)', border: 'color-mix(in srgb, var(--data-fiber) 30%, transparent)', color: 'var(--data-fiber)' },
 };
 
 // ─── MacroChip ────────────────────────────────────────────────
@@ -143,10 +143,10 @@ function MacroChip({ label, value, unit = 'g', colorKey }: {
       display: 'inline-flex', alignItems: 'center', gap: 3,
       padding: '2px 7px', borderRadius: 6,
       background: c.bg, border: `1px solid ${c.border}`,
-      fontSize: 10, fontWeight: 700, fontFamily: 'var(--font-mono)',
+      fontSize: 12, fontWeight: 700, fontFamily: 'var(--font-mono)',
       color: c.color, flexShrink: 0,
     }}>
-      <span style={{ fontSize: 10, fontWeight: 400, color: 'var(--t5)' }}>{label}</span>
+      <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--content-disabled)' }}>{label}</span>
       {value}{unit}
     </span>
   );
@@ -173,6 +173,8 @@ function RecDetailSheet({ rec, onClose, onLog }: {
   onLog?: (mealType: MealType) => void;
 }) {
   const { t } = useI18n();
+  const reducedMotion = useReducedMotion();
+  const dialogRef = useRef<HTMLDivElement>(null);
   const MEAL_OPTIONS: { type: MealType; label: string; icon: IconName }[] = [
     { type: 'breakfast',    label: t('food.breakfast'), icon: 'i-sun' },
     { type: 'snack',        label: t('food.snack'),     icon: 'i-apple' },
@@ -180,32 +182,49 @@ function RecDetailSheet({ rec, onClose, onLog }: {
     { type: 'dinner',       label: t('food.dinner'),    icon: 'i-moon' },
   ];
 
+  useEffect(() => {
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const frame = requestAnimationFrame(() => dialogRef.current?.focus());
+    const closeOnEscape = (event: KeyboardEvent) => event.key === 'Escape' && onClose();
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener('keydown', closeOnEscape);
+      previousFocus?.focus();
+    };
+  }, [onClose]);
+
   return (
     <motion.div
-      initial={{ opacity: 0 }}
+      initial={reducedMotion ? false : { opacity: 0 }}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm"
+      exit={reducedMotion ? undefined : { opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-end justify-center bg-[var(--surface-overlay)] backdrop-blur-sm"
       onClick={onClose}
     >
       <motion.div
-        initial={{ y: '100%' }}
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={rec.food}
+        tabIndex={-1}
+        initial={reducedMotion ? false : { y: '100%' }}
         animate={{ y: 0 }}
-        exit={{ y: '100%' }}
+        exit={reducedMotion ? undefined : { y: '100%' }}
         transition={{ type: 'spring', damping: 28, stiffness: 280 }}
         onClick={e => e.stopPropagation()}
         style={{
           width: '100%', maxWidth: 448,
-          background: 'var(--bg-1,#111)',
+          background: 'var(--surface-1)',
           borderRadius: '20px 20px 0 0',
-          border: '1px solid rgba(255,255,255,.08)',
-          padding: '20px 20px 32px',
+          border: '1px solid color-mix(in srgb, var(--content-primary) 8%, transparent)',
+          padding: '20px 20px calc(5rem + env(safe-area-inset-bottom))',
         }}
       >
         {/* Handle */}
         <div style={{
           width: 36, height: 4, borderRadius: 2,
-          background: 'rgba(255,255,255,.15)',
+          background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)',
           margin: '-8px auto 16px',
         }} />
 
@@ -213,27 +232,27 @@ function RecDetailSheet({ rec, onClose, onLog }: {
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginBottom: 16 }}>
           <div style={{
             width: 52, height: 52, borderRadius: 14, flexShrink: 0,
-            background: 'rgba(212,168,83,.08)',
-            border: '1px solid rgba(212,168,83,.2)',
+            background: 'var(--action-secondary)',
+            border: '1px solid var(--action-secondary)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 22, fontWeight: 700, color: 'var(--gold-300,#D4A853)',
+            fontSize: 22, fontWeight: 700, color: 'var(--action-primary)',
           }}>
             {rec.food.charAt(0).toUpperCase()}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--t1)', lineHeight: 1.2, marginBottom: 4 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--content-primary)', lineHeight: 1.2, marginBottom: 4 }}>
               {rec.food}
             </div>
             <span style={{
-              display: 'inline-block', fontSize: 9, padding: '2px 7px',
-              borderRadius: 6, background: 'rgba(212,168,83,.1)',
-              border: '1px solid rgba(212,168,83,.2)',
-              color: 'var(--gold-300,#D4A853)', fontWeight: 600,
+              display: 'inline-block', fontSize: 12, padding: '2px 7px',
+              borderRadius: 6, background: 'var(--action-secondary)',
+              border: '1px solid var(--action-secondary)',
+              color: 'var(--action-primary)', fontWeight: 600,
             }}>
               {useCategoryLabel(rec.isCoachPick ? 'coach_pick' : rec.category, t)}
             </span>
           </div>
-          <button onClick={onClose} style={{ color: 'var(--t5)', background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
+          <button onClick={onClose} aria-label="Close food recommendation" style={{ color: 'var(--content-disabled)', background: 'none', border: 'none', cursor: 'pointer', padding: 4 }} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
             <X size={16} />
           </button>
         </div>
@@ -242,8 +261,8 @@ function RecDetailSheet({ rec, onClose, onLog }: {
         <div style={{
           display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 6,
           padding: '10px 12px', borderRadius: 12,
-          background: 'rgba(255,255,255,.03)',
-          border: '1px solid rgba(255,255,255,.06)',
+          background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)',
+          border: '1px solid color-mix(in srgb, var(--content-primary) 8%, transparent)',
           marginBottom: 14,
         }}>
           {[
@@ -257,8 +276,8 @@ function RecDetailSheet({ rec, onClose, onLog }: {
               <div style={{ fontSize: 14, fontWeight: 800, color: m.c.color, fontFamily: 'var(--font-mono)', lineHeight: 1 }}>
                 {m.val}
               </div>
-              <div style={{ fontSize: 10, color: 'var(--t4)', marginTop: 2 }}>{m.unit}</div>
-              <div style={{ fontSize: 10, color: 'var(--t5)' }}>{m.label}</div>
+              <div style={{ fontSize: 12, color: 'var(--content-muted)', marginTop: 2 }}>{m.unit}</div>
+              <div style={{ fontSize: 12, color: 'var(--content-disabled)' }}>{m.label}</div>
             </div>
           ))}
         </div>
@@ -266,12 +285,12 @@ function RecDetailSheet({ rec, onClose, onLog }: {
         {/* Coach note */}
         <div style={{
           padding: '10px 12px', borderRadius: 10, marginBottom: 16,
-          background: 'rgba(212,168,83,.06)',
-          border: '1px solid rgba(212,168,83,.15)',
+          background: 'var(--action-secondary)',
+          border: '1px solid var(--action-secondary)',
         }}>
           <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-            <Icon name="i-user" size={12} style={{ color: 'var(--gold-300,#D4A853)', flexShrink: 0, marginTop: 1 }} />
-            <p style={{ fontSize: 11, color: 'var(--t3)', lineHeight: 1.5, fontStyle: 'italic' }}>
+            <Icon name="i-user" size={12} style={{ color: 'var(--action-primary)', flexShrink: 0, marginTop: 1 }} />
+            <p style={{ fontSize: 12, color: 'var(--content-secondary)', lineHeight: 1.5, fontStyle: 'italic' }}>
               &ldquo;{rec.note}&rdquo;
             </p>
           </div>
@@ -280,7 +299,7 @@ function RecDetailSheet({ rec, onClose, onLog }: {
         {/* Log to meal */}
         {onLog && (
           <div>
-            <p style={{ fontSize: 9, color: 'var(--t5)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }}>
+            <p style={{ fontSize: 12, color: 'var(--content-disabled)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }}>
               {t('recs.log_to_meal')}
             </p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 6 }}>
@@ -292,15 +311,15 @@ function RecDetailSheet({ rec, onClose, onLog }: {
                   style={{
                     padding: '9px 10px',
                     borderRadius: 10,
-                    border: '1px solid rgba(255,255,255,.08)',
-                    background: 'rgba(255,255,255,.04)',
+                    border: '1px solid color-mix(in srgb, var(--content-primary) 8%, transparent)',
+                    background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)',
                     cursor: 'pointer',
                     display: 'flex', alignItems: 'center', gap: 7,
                     textAlign: 'left',
-                  }}
+                  }} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                 >
-                  <Icon name={m.icon} size={14} style={{ color: 'var(--gold-300,#D4A853)', flexShrink: 0 }} />
-                  <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--t2)' }}>{m.label}</span>
+                  <Icon name={m.icon} size={14} style={{ color: 'var(--action-primary)', flexShrink: 0 }} />
+                  <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--content-secondary)' }}>{m.label}</span>
                 </motion.button>
               ))}
             </div>
@@ -326,8 +345,8 @@ function RecCard({ rec, index, onSelect }: {
       whileTap={{ scale: 0.97 }}
       onClick={() => onSelect(rec)}
       style={{
-        background: 'rgba(255,255,255,.035)',
-        border: '1px solid rgba(255,255,255,.07)',
+        background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)',
+        border: '1px solid color-mix(in srgb, var(--content-primary) 8%, transparent)',
         borderRadius: 14,
         padding: '11px 12px',
         cursor: 'pointer',
@@ -335,7 +354,7 @@ function RecCard({ rec, index, onSelect }: {
         width: '100%',
         position: 'relative',
         overflow: 'hidden',
-      }}
+      }} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
     >
       {/* Coach pick accent */}
       {rec.isCoachPick && (
@@ -344,7 +363,7 @@ function RecCard({ rec, index, onSelect }: {
           width: 0, height: 0,
           borderStyle: 'solid',
           borderWidth: '0 22px 22px 0',
-          borderColor: 'transparent rgba(212,168,83,.45) transparent transparent',
+          borderColor: 'transparent var(--action-secondary) transparent transparent',
         }} />
       )}
 
@@ -352,10 +371,10 @@ function RecCard({ rec, index, onSelect }: {
         {/* Emoji avatar */}
         <div style={{
           width: 38, height: 38, borderRadius: 10, flexShrink: 0,
-          background: 'rgba(255,255,255,.05)',
-          border: '1px solid rgba(255,255,255,.08)',
+          background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)',
+          border: '1px solid color-mix(in srgb, var(--content-primary) 8%, transparent)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 15, fontWeight: 700, color: 'var(--gold-300,#D4A853)',
+          fontSize: 15, fontWeight: 700, color: 'var(--action-primary)',
         }}>
           {rec.food.charAt(0).toUpperCase()}
         </div>
@@ -363,14 +382,14 @@ function RecCard({ rec, index, onSelect }: {
         {/* Content */}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
-            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--t1)', lineHeight: 1 }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--content-primary)', lineHeight: 1 }}>
               {rec.food}
             </span>
             <span style={{
-              fontSize: 10, padding: '2px 6px', borderRadius: 5,
-              background: 'rgba(212,168,83,.1)',
-              color: 'var(--gold-300,#D4A853)',
-              border: '1px solid rgba(212,168,83,.2)',
+              fontSize: 12, padding: '2px 6px', borderRadius: 5,
+              background: 'var(--action-secondary)',
+              color: 'var(--action-primary)',
+              border: '1px solid var(--action-secondary)',
               fontWeight: 600, flexShrink: 0,
             }}>
               {useCategoryLabel(rec.category, t)}
@@ -388,7 +407,7 @@ function RecCard({ rec, index, onSelect }: {
 
           {/* Coach note preview */}
           <p style={{
-            fontSize: 10, color: 'var(--t4)', lineHeight: 1.45,
+            fontSize: 12, color: 'var(--content-muted)', lineHeight: 1.45,
             display: '-webkit-box',
             WebkitLineClamp: 2,
             WebkitBoxOrient: 'vertical',
@@ -481,19 +500,19 @@ export default function CoachFoodRecs({ userId, onLogFood }: CoachFoodRecsProps)
       {/* Accordion header */}
       <button
         onClick={() => setExpanded(e => !e)}
-        className="w-full flex items-center justify-between"
+        className="w-full flex items-center justify-between min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
       >
         <div className="flex items-center gap-2">
-          <Icon name="i-user" size={13} style={{ color: 'var(--gold-300,#D4A853)' }} />
-          <span className="text-stone-300 text-xs font-semibold">
+          <Icon name="i-user" size={13} style={{ color: 'var(--action-primary)' }} />
+          <span className="text-[var(--content-secondary)] text-xs font-semibold">
             {isCoachData ? t('recs.coach_food_picks') : t('recs.recommended_foods')}
           </span>
           {isCoachData && (
             <span style={{
-              fontSize: 10, padding: '1px 5px', borderRadius: 5,
-              background: 'rgba(212,168,83,.1)',
-              color: 'var(--gold-300,#D4A853)',
-              border: '1px solid rgba(212,168,83,.2)',
+              fontSize: 12, padding: '1px 5px', borderRadius: 5,
+              background: 'var(--action-secondary)',
+              color: 'var(--action-primary)',
+              border: '1px solid var(--action-secondary)',
               fontWeight: 700,
             }}>
               COACH
@@ -501,10 +520,10 @@ export default function CoachFoodRecs({ userId, onLogFood }: CoachFoodRecsProps)
           )}
         </div>
         <div className="flex items-center gap-2">
-          <span style={{ fontSize: 9, color: 'var(--t5)' }}>{t('recs.foods_count', { n: recs.length })}</span>
+          <span style={{ fontSize: 12, color: 'var(--content-disabled)' }}>{t('recs.foods_count', { n: recs.length })}</span>
           {expanded
-            ? <ChevronUp size={13} className="text-stone-500" />
-            : <ChevronDown size={13} className="text-stone-500" />
+            ? <ChevronUp size={13} className="text-[var(--content-muted)]" />
+            : <ChevronDown size={13} className="text-[var(--content-muted)]" />
           }
         </div>
       </button>
@@ -532,15 +551,15 @@ export default function CoachFoodRecs({ userId, onLogFood }: CoachFoodRecsProps)
                         style={{
                           position: 'absolute', inset: 0,
                           borderRadius: 14,
-                          background: 'rgba(101,211,135,.12)',
-                          border: '1px solid rgba(101,211,135,.35)',
+                          background: 'var(--status-success-bg)',
+                          border: '1px solid var(--status-success-bg)',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                           pointerEvents: 'none',
                         }}
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <Icon name="i-check" size={14} style={{ color: 'var(--ok,#65D387)' }} />
-                          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ok,#65D387)' }}>{t('recs.logged')}</span>
+                          <Icon name="i-check" size={14} style={{ color: 'var(--status-success-fg)' }} />
+                          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--status-success-fg)' }}>{t('recs.logged')}</span>
                         </div>
                       </motion.div>
                     )}
@@ -552,12 +571,12 @@ export default function CoachFoodRecs({ userId, onLogFood }: CoachFoodRecsProps)
             {/* Footer hint */}
             <div style={{
               marginTop: 10, padding: '7px 10px', borderRadius: 8,
-              background: 'rgba(255,255,255,.02)',
-              border: '1px solid rgba(255,255,255,.05)',
+              background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)',
+              border: '1px solid color-mix(in srgb, var(--content-primary) 8%, transparent)',
               display: 'flex', alignItems: 'center', gap: 7,
             }}>
-              <Zap size={10} style={{ color: 'var(--t5)', flexShrink: 0 }} />
-              <p style={{ fontSize: 9, color: 'var(--t5)', lineHeight: 1.4 }}>
+              <Zap size={10} style={{ color: 'var(--content-disabled)', flexShrink: 0 }} />
+              <p style={{ fontSize: 12, color: 'var(--content-disabled)', lineHeight: 1.4 }}>
                 {isCoachData ? t('recs.coach_footer') : t('recs.curated_footer')}
               </p>
             </div>

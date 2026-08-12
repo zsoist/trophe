@@ -32,7 +32,7 @@ interface Question {
 }
 
 const DEFAULT_QUESTIONNAIRE_ID = '11111111-1111-4111-8111-111111111101';
-const GOLD = 'var(--gold-300,#D4A853)';
+const GOLD = 'var(--action-primary)';
 
 const ENERGY_LABELS = ['Running on fumes', 'Low most days', 'Up and down', 'Mostly good', 'Firing on all cylinders'];
 
@@ -270,19 +270,19 @@ export default function IntakeWizard() {
                 style={{
                   display: 'flex', alignItems: 'center', gap: 12,
                   padding: '13px 16px', borderRadius: 14, cursor: 'pointer', textAlign: 'left',
-                  border: `1px solid ${active ? GOLD : 'var(--line)'}`,
-                  background: active ? 'rgba(212,168,83,.1)' : 'rgba(255,255,255,.03)',
+                  border: `1px solid ${active ? GOLD : 'var(--border-default)'}`,
+                  background: active ? 'var(--action-secondary)' : 'color-mix(in srgb, var(--content-primary) 8%, transparent)',
                   transition: 'border-color .15s, background .15s',
-                }}
+                }} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
               >
                 <span style={{
                   width: 26, height: 26, borderRadius: 13, flexShrink: 0,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700,
-                  background: active ? GOLD : 'rgba(255,255,255,.06)',
-                  color: active ? '#0a0a0a' : 'var(--t3)',
+                  background: active ? GOLD : 'color-mix(in srgb, var(--content-primary) 8%, transparent)',
+                  color: active ? 'var(--action-on-primary)' : 'var(--content-secondary)',
                 }}>{n}</span>
-                <span style={{ fontSize: 13, color: active ? 'var(--t1)' : 'var(--t2)' }}>
+                <span style={{ fontSize: 13, color: active ? 'var(--content-primary)' : 'var(--content-secondary)' }}>
                   {ENERGY_LABELS[n - 1]}
                 </span>
               </motion.button>
@@ -301,10 +301,10 @@ export default function IntakeWizard() {
                 onClick={() => setAnswers((a) => ({ ...a, [question.id]: opt }))}
                 style={{
                   flex: 1, padding: '14px 0', borderRadius: 14, cursor: 'pointer', fontSize: 14,
-                  border: `1px solid ${active ? GOLD : 'var(--line)'}`,
-                  background: active ? 'rgba(212,168,83,.1)' : 'rgba(255,255,255,.03)',
-                  color: active ? GOLD : 'var(--t2)',
-                }}>
+                  border: `1px solid ${active ? GOLD : 'var(--border-default)'}`,
+                  background: active ? 'var(--action-secondary)' : 'color-mix(in srgb, var(--content-primary) 8%, transparent)',
+                  color: active ? GOLD : 'var(--content-secondary)',
+                }} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
                 {opt}
               </motion.button>
             );
@@ -321,14 +321,14 @@ export default function IntakeWizard() {
           rows={4}
           placeholder="Take your time — plain words are perfect."
           style={{
-            width: '100%', background: 'rgba(255,255,255,.03)',
-            border: '1px solid var(--line)', borderRadius: 14,
-            padding: '14px 16px', color: 'var(--t1)', fontSize: 14, lineHeight: 1.6,
+            width: '100%', background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)',
+            border: '1px solid var(--border-default)', borderRadius: 14,
+            padding: '14px 16px', color: 'var(--content-primary)', fontSize: 14, lineHeight: 1.6,
             resize: 'vertical', fontFamily: 'inherit', outline: 'none',
           }}
-          onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(212,168,83,.4)'; }}
-          onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--line)'; }}
-          disabled={microphoneMode !== 'idle' && voiceQuestionRef.current === question.id}
+          onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--action-secondary)'; }}
+          onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--border-default)'; }}
+          disabled={microphoneMode !== 'idle' && voiceQuestionRef.current === question.id} className="text-base"
         />
         <button
           onClick={() => microphoneMode === 'idle' ? startVoice(question.id) : stopVoice()}
@@ -339,15 +339,15 @@ export default function IntakeWizard() {
             minHeight: 44, minWidth: 44, borderRadius: 10,
             background: microphoneMode === 'idle' ? 'none' : 'rgba(248,113,113,.08)',
             border: 'none', cursor: 'pointer', padding: '8px 10px',
-            color: microphoneMode === 'idle' ? 'var(--t4)' : 'rgb(248,113,113)',
-            fontSize: 11, fontFamily: 'var(--font-mono)',
-          }}
+            color: microphoneMode === 'idle' ? 'var(--content-muted)' : 'rgb(248,113,113)',
+            fontSize: 12, fontFamily: 'var(--font-mono)',
+          }} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
         >
           <Icon name="i-mic" size={13} />
           {microphoneMode === 'idle' ? t('intake.voice_answer') : t('intake.voice_stop')}
         </button>
         {(microphoneMode !== 'idle' || microphoneError) && (
-          <p aria-live="polite" role="status" style={{ color: microphoneError ? 'rgb(248,113,113)' : 'var(--t4)', fontSize: 11, marginTop: 4 }}>
+          <p aria-live="polite" role="status" style={{ color: microphoneError ? 'rgb(248,113,113)' : 'var(--content-muted)', fontSize: 12, marginTop: 4 }}>
             {microphoneError ?? t(microphoneMode === 'requesting'
               ? 'intake.voice_requesting'
               : microphoneMode === 'transcribing'
@@ -361,12 +361,12 @@ export default function IntakeWizard() {
 
   // ── Screens ────────────────────────────────────────────────────────────
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center ds-sub" style={{ background: 'var(--bg,#0a0a0a)' }}>Loading…</div>;
+    return <div className="min-h-screen flex items-center justify-center ds-sub" style={{ background: 'var(--canvas)' }}>Loading…</div>;
   }
 
   if (!coachId) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-6" style={{ background: 'var(--bg,#0a0a0a)' }}>
+      <div className="min-h-screen flex items-center justify-center px-6" style={{ background: 'var(--canvas)' }}>
         <div className="card p-8 text-center ds-sub" style={{ maxWidth: 340 }}>
           This conversation unlocks once a coach takes you on.
         </div>
@@ -375,17 +375,17 @@ export default function IntakeWizard() {
   }
 
   return (
-    <div className="min-h-screen" style={{ background: 'var(--bg,#0a0a0a)', display: 'flex', flexDirection: 'column' }}>
+    <div className="min-h-screen pb-[calc(5rem+env(safe-area-inset-bottom))]" style={{ background: 'var(--canvas)', display: 'flex', flexDirection: 'column' }}>
       <div className="max-w-md lg:max-w-lg mx-auto px-5 pt-4 w-full" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
 
         {/* Top bar: exit + progress */}
         <div className="row-b" style={{ marginBottom: 10 }}>
           <button onClick={() => { cancelVoice(); persist(false); router.push('/dashboard'); }}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--t4)' }}>
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--content-muted)' }} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
             <Icon name="i-x" size={15} />
           </button>
           {stage === 'steps' && (
-            <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--t4)' }}>
+            <span style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--content-muted)' }}>
               {step + 1} / {questions.length}{saving ? ' · saving…' : ''}
             </span>
           )}
@@ -394,7 +394,7 @@ export default function IntakeWizard() {
 
         {/* Progress bar */}
         {stage === 'steps' && (
-          <div style={{ height: 3, borderRadius: 2, background: 'rgba(255,255,255,.06)', marginBottom: 28, overflow: 'hidden' }}>
+          <div style={{ height: 3, borderRadius: 2, background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)', marginBottom: 28, overflow: 'hidden' }}>
             <motion.div
               animate={{ width: `${((step + 1) / questions.length) * 100}%` }}
               transition={{ type: 'spring', stiffness: 200, damping: 26 }}
@@ -411,15 +411,15 @@ export default function IntakeWizard() {
               transition={{ type: 'spring', stiffness: 300, damping: 30 }}
               style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', paddingBottom: 80 }}
             >
-              <div style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: GOLD, letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 14 }}>
+              <div style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: GOLD, letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 14 }}>
                 {previouslySubmitted ? 'Quarterly check-in' : 'Before we start'}
               </div>
-              <h1 style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-.02em', color: 'var(--t1)', lineHeight: 1.25, marginBottom: 14 }}>
+              <h1 style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-.02em', color: 'var(--content-primary)', lineHeight: 1.25, marginBottom: 14 }}>
                 {previouslySubmitted
                   ? 'Things change. Tell me what’s different.'
                   : `Twelve questions.\nThe plan starts with you.`}
               </h1>
-              <p style={{ fontSize: 14, color: 'var(--t3)', lineHeight: 1.65, marginBottom: 30, whiteSpace: 'pre-line' }}>
+              <p style={{ fontSize: 14, color: 'var(--content-secondary)', lineHeight: 1.65, marginBottom: 30, whiteSpace: 'pre-line' }}>
                 {previouslySubmitted
                   ? `Your earlier answers are below — update anything that moved.\n${coachName ?? 'Your coach'} reads every word.`
                   : `No right answers, no judgement — honest beats impressive.\n${coachName ?? 'Your coach'} reads every word, and it shapes everything that follows.\n\nAbout 5 minutes. Your progress saves as you go.`}
@@ -428,9 +428,9 @@ export default function IntakeWizard() {
                 onClick={() => { setStage('steps'); setStep(0); setDirection(1); }}
                 style={{
                   padding: '15px 0', borderRadius: 14, border: 'none', cursor: 'pointer',
-                  background: GOLD, color: '#0a0a0a', fontSize: 13,
+                  background: GOLD, color: 'var(--action-on-primary)', fontSize: 13,
                   fontFamily: 'var(--font-mono)', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase',
-                }}>
+                }} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
                 {previouslySubmitted ? 'Review my answers' : 'Let’s begin'}
               </motion.button>
             </motion.div>
@@ -447,10 +447,10 @@ export default function IntakeWizard() {
               transition={{ type: 'spring', stiffness: 340, damping: 32 }}
               style={{ flex: 1, display: 'flex', flexDirection: 'column' }}
             >
-              <h2 style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-.015em', color: 'var(--t1)', lineHeight: 1.35, marginBottom: 6 }}>
+              <h2 style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-.015em', color: 'var(--content-primary)', lineHeight: 1.35, marginBottom: 6 }}>
                 {q.prompt}
               </h2>
-              <div className="ds-sub" style={{ fontSize: 10, marginBottom: 22 }}>
+              <div className="ds-sub" style={{ fontSize: 12, marginBottom: 22 }}>
                 {q.required ? ' ' : 'Optional — skip if nothing comes to mind.'}
               </div>
 
@@ -460,9 +460,9 @@ export default function IntakeWizard() {
               <div style={{ display: 'flex', gap: 10, marginTop: 24, paddingBottom: 28 }}>
                 <button onClick={() => go(-1)}
                   style={{
-                    width: 52, borderRadius: 14, border: '1px solid var(--line)', background: 'transparent',
-                    color: 'var(--t3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>
+                    width: 52, borderRadius: 14, border: '1px solid var(--border-default)', background: 'transparent',
+                    color: 'var(--content-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
                   <Icon name="i-chev-l" size={15} />
                 </button>
                 <motion.button whileTap={{ scale: 0.97 }}
@@ -471,12 +471,12 @@ export default function IntakeWizard() {
                   style={{
                     flex: 1, padding: '14px 0', borderRadius: 14, border: 'none',
                     cursor: canAdvance ? 'pointer' : 'default',
-                    background: canAdvance ? GOLD : 'rgba(255,255,255,.05)',
-                    color: canAdvance ? '#0a0a0a' : 'var(--t4)',
+                    background: canAdvance ? GOLD : 'color-mix(in srgb, var(--content-primary) 8%, transparent)',
+                    color: canAdvance ? 'var(--action-on-primary)' : 'var(--content-muted)',
                     fontSize: 13, fontFamily: 'var(--font-mono)', fontWeight: 700,
                     letterSpacing: '.08em', textTransform: 'uppercase',
                     transition: 'background .2s, color .2s',
-                  }}>
+                  }} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
                   {step === questions.length - 1 ? 'Review' : 'Next'}
                 </motion.button>
               </div>
@@ -490,18 +490,18 @@ export default function IntakeWizard() {
               transition={{ type: 'spring', stiffness: 300, damping: 30 }}
               style={{ paddingBottom: 32 }}
             >
-              <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--t1)', marginBottom: 4 }}>One last look</h2>
+              <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--content-primary)', marginBottom: 4 }}>One last look</h2>
               <p className="ds-sub" style={{ marginBottom: 18 }}>Tap anything to change it.</p>
               {questions.map((question, i) => (
                 <button key={question.id}
                   onClick={() => { cancelVoice(); setStage('steps'); setStep(i); setDirection(1); }}
                   style={{
                     display: 'block', width: '100%', textAlign: 'left', cursor: 'pointer',
-                    background: 'rgba(255,255,255,.03)', border: '1px solid var(--line)',
+                    background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)', border: '1px solid var(--border-default)',
                     borderRadius: 12, padding: '11px 14px', marginBottom: 8,
-                  }}>
-                  <div style={{ fontSize: 10, color: 'var(--t4)', marginBottom: 3, lineHeight: 1.4 }}>{question.prompt}</div>
-                  <div style={{ fontSize: 12.5, color: answered(question.id) ? 'var(--t1)' : 'rgba(239,68,68,.8)', lineHeight: 1.5 }}>
+                  }} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
+                  <div style={{ fontSize: 12, color: 'var(--content-muted)', marginBottom: 3, lineHeight: 1.4 }}>{question.prompt}</div>
+                  <div style={{ fontSize: 12.5, color: answered(question.id) ? 'var(--content-primary)' : 'var(--status-danger-fg)', lineHeight: 1.5 }}>
                     {question.kind === 'scale' && answers[question.id]
                       ? `${answers[question.id]} — ${ENERGY_LABELS[Number(answers[question.id]) - 1]}`
                       : answers[question.id]?.trim() || (question.required ? 'Still needs an answer' : '—')}
@@ -514,11 +514,11 @@ export default function IntakeWizard() {
                 style={{
                   width: '100%', padding: '15px 0', borderRadius: 14, border: 'none', marginTop: 10,
                   cursor: missingRequired.length > 0 ? 'default' : 'pointer',
-                  background: missingRequired.length > 0 ? 'rgba(255,255,255,.05)' : GOLD,
-                  color: missingRequired.length > 0 ? 'var(--t4)' : '#0a0a0a',
+                  background: missingRequired.length > 0 ? 'color-mix(in srgb, var(--content-primary) 8%, transparent)' : GOLD,
+                  color: missingRequired.length > 0 ? 'var(--content-muted)' : 'var(--action-on-primary)',
                   fontSize: 13, fontFamily: 'var(--font-mono)', fontWeight: 700,
                   letterSpacing: '.08em', textTransform: 'uppercase',
-                }}>
+                }} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
                 {saving ? 'Sending…'
                   : missingRequired.length > 0 ? `${missingRequired.length} answer${missingRequired.length > 1 ? 's' : ''} missing`
                   : `Send to ${coachName ?? 'my coach'}`}
@@ -538,24 +538,24 @@ export default function IntakeWizard() {
                 transition={{ type: 'spring', stiffness: 220, damping: 14, delay: 0.15 }}
                 style={{
                   width: 72, height: 72, borderRadius: 36, marginBottom: 22,
-                  background: 'rgba(212,168,83,.12)', border: '1px solid rgba(212,168,83,.35)',
+                  background: 'var(--action-secondary)', border: '1px solid var(--action-secondary)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
                 <Icon name="i-check" size={30} style={{ color: GOLD }} />
               </motion.div>
-              <h2 style={{ fontSize: 24, fontWeight: 700, color: 'var(--t1)', marginBottom: 10 }}>
+              <h2 style={{ fontSize: 24, fontWeight: 700, color: 'var(--content-primary)', marginBottom: 10 }}>
                 {coachName ? `${coachName} has it` : 'Your coach has it'}
               </h2>
-              <p style={{ fontSize: 13.5, color: 'var(--t3)', lineHeight: 1.65, maxWidth: 300, marginBottom: 28 }}>
+              <p style={{ fontSize: 13.5, color: 'var(--content-secondary)', lineHeight: 1.65, maxWidth: 300, marginBottom: 28 }}>
                 Your answers shape the plan from day one. You can update them
                 any time — and we&rsquo;ll check in again each season.
               </p>
               <motion.button whileTap={{ scale: 0.97 }} onClick={() => router.push('/dashboard')}
                 style={{
                   padding: '13px 36px', borderRadius: 14, border: 'none', cursor: 'pointer',
-                  background: GOLD, color: '#0a0a0a', fontSize: 12,
+                  background: GOLD, color: 'var(--action-on-primary)', fontSize: 12,
                   fontFamily: 'var(--font-mono)', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase',
-                }}>
+                }} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
                 Back to today
               </motion.button>
             </motion.div>

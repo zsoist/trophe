@@ -12,10 +12,10 @@ import { localToday, localDateStr } from '../../../lib/utils/dates';
 import { useClientNav } from '@/lib/useClientNav';
 
 const EVIDENCE_COLORS: Record<string, string> = {
-  A: 'bg-green-500/15 text-green-400 border-green-500/30',
-  B: 'bg-blue-500/15 text-blue-400 border-blue-500/30',
-  C: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30',
-  D: 'bg-stone-500/15 text-stone-400 border-stone-500/30',
+  A: 'bg-[var(--status-success-bg)] text-[var(--status-success-fg)] border-[var(--status-success-border)]',
+  B: 'bg-[var(--status-info-bg)] text-[var(--status-info-fg)] border-[var(--status-info-border)]',
+  C: 'bg-[var(--status-warning-bg)] text-[var(--status-warning-fg)] border-[var(--status-warning-border)]',
+  D: 'bg-[var(--surface-2)] text-[var(--content-secondary)] border-[var(--border-default)]',
 };
 
 const EVIDENCE_LABELS: Record<string, string> = {
@@ -126,16 +126,16 @@ export default function SupplementsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen pb-24" style={{ background: 'var(--bg,#0a0a0a)' }}>
+      <div className="min-h-screen pb-[calc(5rem+env(safe-area-inset-bottom))]" style={{ background: 'var(--canvas)' }}>
         <div className="max-w-md mx-auto px-4 pt-12 space-y-4">
-          <div className="h-7 w-36 rounded bg-stone-800/60 animate-pulse" />
+          <div className="h-7 w-36 rounded bg-[var(--surface-2)] animate-pulse" />
           {[0, 1, 2].map((i) => (
             <div key={i} className="glass p-5 space-y-3">
-              <div className="h-4 w-28 rounded bg-stone-800/60 animate-pulse" />
-              <div className="h-3 w-48 rounded bg-stone-800/40 animate-pulse" />
+              <div className="h-4 w-28 rounded bg-[var(--surface-2)] animate-pulse" />
+              <div className="h-3 w-48 rounded bg-[var(--surface-2)] animate-pulse" />
               <div className="space-y-2">
-                <div className="h-10 w-full rounded-xl bg-stone-800/40 animate-pulse" />
-                <div className="h-10 w-full rounded-xl bg-stone-800/40 animate-pulse" />
+                <div className="h-10 w-full rounded-xl bg-[var(--surface-2)] animate-pulse" />
+                <div className="h-10 w-full rounded-xl bg-[var(--surface-2)] animate-pulse" />
               </div>
             </div>
           ))}
@@ -145,7 +145,7 @@ export default function SupplementsPage() {
   }
 
   return (
-    <div className="min-h-screen pb-24" style={{ background: 'var(--bg,#0a0a0a)' }}>
+    <div className="min-h-screen pb-[calc(5rem+env(safe-area-inset-bottom))]" style={{ background: 'var(--canvas)' }}>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -155,7 +155,7 @@ export default function SupplementsPage() {
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">
           <Pill size={24} className="gold-text" />
-          <h1 className="text-2xl font-bold text-stone-100">Supplements</h1>
+          <h1 className="text-2xl font-bold text-[var(--content-primary)]">Supplements</h1>
         </div>
 
         {supplements.length === 0 ? (
@@ -164,9 +164,9 @@ export default function SupplementsPage() {
             animate={{ opacity: 1, y: 0 }}
             className="glass p-8 text-center"
           >
-            <div className="mb-4 flex justify-center"><Icon name="i-leaf" size={40} className="text-stone-500" /></div>
-            <h2 className="text-stone-200 font-semibold mb-2">No Protocol Assigned</h2>
-            <p className="text-stone-500 text-sm">
+            <div className="mb-4 flex justify-center"><Icon name="i-leaf" size={40} className="text-[var(--content-muted)]" /></div>
+            <h2 className="text-[var(--content-primary)] font-semibold mb-2">No Protocol Assigned</h2>
+            <p className="text-[var(--content-muted)] text-sm">
               Your coach will assign a personalized supplement protocol based on your goals and needs.
             </p>
           </motion.div>
@@ -181,14 +181,14 @@ export default function SupplementsPage() {
             >
               <div className="flex items-center justify-between mb-3">
                 <div>
-                  <p className="text-stone-500 text-xs">Today</p>
-                  <p className="text-stone-100 text-lg font-bold">
+                  <p className="text-[var(--content-muted)] text-xs">Today</p>
+                  <p className="text-[var(--content-primary)] text-lg font-bold">
                     {takenToday}/{totalSupps}{' '}
-                    <span className="text-sm font-normal text-stone-500">taken</span>
+                    <span className="text-sm font-normal text-[var(--content-muted)]">taken</span>
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-stone-500 text-xs">Week</p>
+                  <p className="text-[var(--content-muted)] text-xs">Week</p>
                   <p className="gold-text text-lg font-bold">{weeklyPct}%</p>
                 </div>
               </div>
@@ -204,7 +204,7 @@ export default function SupplementsPage() {
 
             {/* Protocol Name */}
             {clientSupp?.protocol?.name && (
-              <p className="text-stone-400 text-xs font-medium uppercase tracking-wider mb-3">
+              <p className="text-[var(--content-secondary)] text-xs font-medium uppercase tracking-wider mb-3">
                 {clientSupp.protocol.name}
               </p>
             )}
@@ -232,7 +232,7 @@ export default function SupplementsPage() {
                       {isTaken ? (
                         <CheckCircle2 size={20} className="gold-text" />
                       ) : (
-                        <Circle size={20} className="text-stone-600" />
+                        <Circle size={20} className="text-[var(--content-muted)]" />
                       )}
                     </div>
 
@@ -241,14 +241,14 @@ export default function SupplementsPage() {
                       <div className="flex items-center gap-2">
                         <p
                           className={`text-sm font-medium ${
-                            isTaken ? 'text-stone-300 line-through' : 'text-stone-100'
+                            isTaken ? 'text-[var(--content-secondary)] line-through' : 'text-[var(--content-primary)]'
                           }`}
                         >
                           {supp.name}
                         </p>
                         {supp.evidence_level && (
                           <span
-                            className={`text-[10px] px-1.5 py-0.5 rounded-full border font-semibold ${
+                            className={`text-xs px-1.5 py-0.5 rounded-full border font-semibold ${
                               EVIDENCE_COLORS[supp.evidence_level]
                             }`}
                             title={EVIDENCE_LABELS[supp.evidence_level]}
@@ -257,11 +257,11 @@ export default function SupplementsPage() {
                           </span>
                         )}
                       </div>
-                      <p className="text-stone-500 text-xs mt-0.5">
+                      <p className="text-[var(--content-muted)] text-xs mt-0.5">
                         {supp.dose} &middot; {supp.timing}
                       </p>
                       {supp.notes && (
-                        <p className="text-stone-600 text-xs mt-1 flex items-center gap-1">
+                        <p className="text-[var(--content-muted)] text-xs mt-1 flex items-center gap-1">
                           <Info size={10} />
                           {supp.notes}
                         </p>

@@ -25,7 +25,7 @@ export default function PhotoScanCard({ src, state }: { src: string; state: 'sca
           width: state === 'scanning' ? 168 : 84,
           height: state === 'scanning' ? 168 : 84,
           border: '1px solid',
-          borderColor: state === 'done' ? 'var(--accent, #D4A853)' : 'rgba(255,255,255,.12)',
+          borderColor: state === 'done' ? 'var(--action-primary)' : 'color-mix(in srgb, var(--content-primary) 8%, transparent)',
           transition: 'width .35s ease, height .35s ease, border-color .4s ease',
         }}
       >
@@ -52,7 +52,7 @@ export default function PhotoScanCard({ src, state }: { src: string; state: 'sca
             transition={{ duration: 0.5, ease: 'easeIn' }}
             style={{
               position: 'absolute', left: 0, right: 0, height: 10, pointerEvents: 'none',
-              background: 'linear-gradient(to bottom, transparent, color-mix(in srgb, var(--accent, #D4A853) 65%, transparent), transparent)',
+              background: 'linear-gradient(to bottom, transparent, color-mix(in srgb, var(--action-primary) 65%, transparent), transparent)',
             }}
           />
         )}

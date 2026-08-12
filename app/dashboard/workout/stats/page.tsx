@@ -37,7 +37,7 @@ const muscleColors: Record<string, string> = {
   glutes: '#22C55E',
   calves: '#22C55E',
   core: '#78716C',
-  full_body: 'var(--accent, #D4A853)',
+  full_body: 'var(--action-primary)',
   cardio: '#EC4899',
 };
 
@@ -74,7 +74,7 @@ function Section({
     <div className="glass" style={{ overflow: 'hidden' }}>
       <button
         onClick={() => setOpen((o) => !o)}
-        className="w-full"
+        className="w-full min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
         style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           padding: '14px 16px', cursor: 'pointer', background: 'transparent', border: 'none',
@@ -82,10 +82,10 @@ function Section({
       >
         <div className="flex items-center gap-2">
           {icon}
-          <h2 className="text-sm font-semibold text-stone-200">{title}</h2>
+          <h2 className="text-sm font-semibold text-[var(--content-primary)]">{title}</h2>
         </div>
         <motion.span animate={{ rotate: open ? 180 : 0 }} transition={{ duration: 0.2 }} style={{ display: 'flex' }}>
-          <ChevronDown size={14} className="text-stone-500" />
+          <ChevronDown size={14} className="text-[var(--content-muted)]" />
         </motion.span>
       </button>
       <AnimatePresence initial={false}>
@@ -295,7 +295,7 @@ export default function WorkoutStatsPage() {
   function renderVolumeBars() {
     if (weeklyVolumeByMuscle.length === 0) {
       return (
-        <div className="text-center py-8 text-stone-600 text-sm">
+        <div className="text-center py-8 text-[var(--content-muted)] text-sm">
           No sets logged this week
         </div>
       );
@@ -324,7 +324,7 @@ export default function WorkoutStatsPage() {
                 x={labelWidth - 8}
                 y={y + barHeight / 2 + 4}
                 textAnchor="end"
-                fill="#A8A29E"
+                fill="var(--content-muted)"
                 fontSize="12"
                 fontWeight="500"
               >
@@ -342,8 +342,8 @@ export default function WorkoutStatsPage() {
               <text
                 x={labelWidth + barW + 8}
                 y={y + barHeight / 2 + 4}
-                fill="#D6D3D1"
-                fontSize="11"
+                fill="var(--content-secondary)"
+                fontSize="12"
                 fontWeight="600"
               >
                 {item.sets} sets
@@ -358,7 +358,7 @@ export default function WorkoutStatsPage() {
   function renderWeeklyTrendLine() {
     if (weeklyTrend.every((w) => w.totalSets === 0)) {
       return (
-        <div className="text-center py-8 text-stone-600 text-sm">
+        <div className="text-center py-8 text-[var(--content-muted)] text-sm">
           No data yet
         </div>
       );
@@ -392,7 +392,7 @@ export default function WorkoutStatsPage() {
               y1={y}
               x2={width - padding.right}
               y2={y}
-              stroke="#44403C"
+              stroke="var(--border-default)"
               strokeWidth={0.5}
             />
           );
@@ -402,32 +402,32 @@ export default function WorkoutStatsPage() {
         <path d={areaD} fill="url(#goldGradient)" opacity={0.15} />
 
         {/* Line */}
-        <path d={pathD} fill="none" stroke="var(--accent, #D4A853)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+        <path d={pathD} fill="none" stroke="var(--action-primary)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
 
         {/* Dots */}
         {points.map((p, i) => (
-          <circle key={i} cx={p.x} cy={p.y} r={3} fill="var(--accent, #D4A853)" />
+          <circle key={i} cx={p.x} cy={p.y} r={3} fill="var(--action-primary)" />
         ))}
 
         {/* X labels */}
         {points.filter((_, i) => i % 2 === 0 || i === points.length - 1).map((p, i) => (
-          <text key={i} x={p.x} y={height - 4} textAnchor="middle" fill="#78716C" fontSize="9">
+          <text key={i} x={p.x} y={height - 4} textAnchor="middle" fill="#78716C" fontSize="12">
             {p.label}
           </text>
         ))}
 
         {/* Y label */}
-        <text x={padding.left - 8} y={padding.top + 4} textAnchor="end" fill="#78716C" fontSize="9">
+        <text x={padding.left - 8} y={padding.top + 4} textAnchor="end" fill="#78716C" fontSize="12">
           {maxWeeklySets}
         </text>
-        <text x={padding.left - 8} y={padding.top + chartH + 4} textAnchor="end" fill="#78716C" fontSize="9">
+        <text x={padding.left - 8} y={padding.top + chartH + 4} textAnchor="end" fill="#78716C" fontSize="12">
           0
         </text>
 
         <defs>
           <linearGradient id="goldGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--accent, #D4A853)" stopOpacity={0.6} />
-            <stop offset="100%" stopColor="var(--accent, #D4A853)" stopOpacity={0} />
+            <stop offset="0%" stopColor="var(--action-primary)" stopOpacity={0.6} />
+            <stop offset="100%" stopColor="var(--action-primary)" stopOpacity={0} />
           </linearGradient>
         </defs>
       </svg>
@@ -437,7 +437,7 @@ export default function WorkoutStatsPage() {
   // ── Render ──
 
   return (
-    <div className="min-h-screen px-4 py-6 pb-24 sm:px-6 lg:px-8" style={{ background: 'var(--bg-primary)' }}>
+    <div className="min-h-screen px-4 py-6 pb-24 sm:px-6 lg:px-8" style={{ background: 'var(--canvas)' }}>
       <div className="max-w-2xl mx-auto">
         {/* Header */}
         <motion.div
@@ -448,13 +448,13 @@ export default function WorkoutStatsPage() {
           <div className="flex items-center gap-3 mb-6">
             <Link
               href="/dashboard/workout"
-              className="p-2 rounded-xl hover:bg-white/5 text-stone-400 hover:text-stone-200 transition-colors"
+              className="p-2 rounded-xl hover:bg-[var(--surface-2)] text-[var(--content-secondary)] hover:text-[var(--content-primary)] transition-colors"
             >
               <ArrowLeft size={18} />
             </Link>
             <div>
-              <h1 className="text-2xl font-bold text-stone-100">Workout Analytics</h1>
-              <p className="text-stone-500 text-sm">Performance overview</p>
+              <h1 className="text-2xl font-bold text-[var(--content-primary)]">Workout Analytics</h1>
+              <p className="text-[var(--content-muted)] text-sm">Performance overview</p>
             </div>
           </div>
 
@@ -462,15 +462,15 @@ export default function WorkoutStatsPage() {
             <div className="space-y-4">
               {[1, 2, 3].map((i) => (
                 <div key={i} className="glass p-6 animate-pulse">
-                  <div className="h-4 bg-stone-800 rounded w-1/3 mb-4" />
-                  <div className="h-24 bg-stone-800/50 rounded" />
+                  <div className="h-4 bg-[var(--surface-2)] rounded w-1/3 mb-4" />
+                  <div className="h-24 bg-[var(--surface-2)] rounded" />
                 </div>
               ))}
             </div>
           ) : sets.length === 0 ? (
             <div className="text-center py-20">
-              <Activity size={48} className="mx-auto text-stone-700 mb-4" />
-              <p className="text-stone-500 mb-2">No workout data yet</p>
+              <Activity size={48} className="mx-auto text-[var(--content-muted)] mb-4" />
+              <p className="text-[var(--content-muted)] mb-2">No workout data yet</p>
               <Link href="/dashboard/workout" className="accent-text text-sm hover:underline">
                 Log your first workout
               </Link>
@@ -491,13 +491,13 @@ export default function WorkoutStatsPage() {
                 <div className="grid grid-cols-2 gap-2">
                   {muscleFrequency.map((mf) => {
                     let statusColor = 'text-red-400';
-                    let dotColor = '#f87171';
+                    let dotColor = 'var(--status-danger-fg)';
                     if (mf.lastTrained === null) {
-                      statusColor = 'text-stone-600';
+                      statusColor = 'text-[var(--content-muted)]';
                       dotColor = '#57534e';
                     } else if (mf.daysSince <= 3) {
                       statusColor = 'text-green-400';
-                      dotColor = '#4ade80';
+                      dotColor = 'var(--status-success-fg)';
                     } else if (mf.daysSince <= 6) {
                       statusColor = 'text-yellow-400';
                       dotColor = '#facc15';
@@ -506,9 +506,9 @@ export default function WorkoutStatsPage() {
                     return (
                       <div
                         key={mf.muscle}
-                        className="flex items-center justify-between p-2.5 rounded-xl bg-white/[0.03]"
+                        className="flex items-center justify-between p-2.5 rounded-xl bg-[var(--surface-2)]"
                       >
-                        <span className="text-xs font-medium text-stone-300">
+                        <span className="text-xs font-medium text-[var(--content-secondary)]">
                           {muscleLabels[mf.muscle] || mf.muscle}
                         </span>
                         <span className={`text-xs flex items-center gap-1.5 ${statusColor}`}>
@@ -527,20 +527,20 @@ export default function WorkoutStatsPage() {
               {/* ── Personal Records ── */}
               <Section title="Personal Records" icon={<Trophy size={16} className="accent-text" />}>
                 {personalRecords.length === 0 ? (
-                  <p className="text-stone-600 text-sm text-center py-4">No PRs recorded yet</p>
+                  <p className="text-[var(--content-muted)] text-sm text-center py-4">No PRs recorded yet</p>
                 ) : (
                   <div className="space-y-2">
                     {personalRecords.map((pr, i) => (
                       <div
                         key={i}
-                        className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03]"
+                        className="flex items-center gap-3 p-3 rounded-xl bg-[var(--surface-2)]"
                       >
                         <Trophy size={16} className="shrink-0 accent-text" />
                         <div className="flex-1 min-w-0">
-                          <div className="text-sm font-medium text-stone-200 truncate">
+                          <div className="text-sm font-medium text-[var(--content-primary)] truncate">
                             {pr.exercise_name}
                           </div>
-                          <div className="text-xs text-stone-500">
+                          <div className="text-xs text-[var(--content-muted)]">
                             {pr.weight_kg}kg {pr.reps ? `x ${pr.reps}` : ''} &middot; {pr.date}
                           </div>
                         </div>
@@ -552,7 +552,7 @@ export default function WorkoutStatsPage() {
 
               {/* ── Weekly Volume Trend ── */}
               <Section title="Weekly Volume Trend" icon={<TrendingUp size={16} className="accent-text" />}>
-                <div className="text-[10px] text-stone-600 mb-2">Last 8 weeks</div>
+                <div className="text-xs text-[var(--content-muted)] mb-2">Last 8 weeks</div>
                 {renderWeeklyTrendLine()}
               </Section>
 
@@ -561,7 +561,7 @@ export default function WorkoutStatsPage() {
                 <select
                   value={selectedExerciseId || ''}
                   onChange={(e) => setSelectedExerciseId(e.target.value || null)}
-                  className="input-dark text-sm mb-4"
+                  className="input-dark text-sm mb-4 text-base"
                 >
                   <option value="">Select an exercise...</option>
                   {uniqueExercises.map((ex) => (
@@ -580,7 +580,7 @@ export default function WorkoutStatsPage() {
               <div className="flex gap-3">
                 <Link
                   href="/dashboard/workout"
-                  className="flex-1 glass p-4 text-center text-sm text-stone-400 hover:accent-text transition-colors"
+                  className="flex-1 glass p-4 text-center text-sm text-[var(--content-secondary)] hover:accent-text transition-colors"
                 >
                   {t('workout.back_to_workout')}
                 </Link>

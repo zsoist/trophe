@@ -18,7 +18,7 @@ import { useClientNav } from '@/lib/useClientNav';
 
 // ─── Shimmer skeleton atoms ───────────────────────────────────
 const shimmerStyle: React.CSSProperties = {
-  background: 'linear-gradient(90deg, rgba(120,113,108,.1) 0%, rgba(212,168,83,.06) 50%, rgba(120,113,108,.1) 100%)',
+  background: 'linear-gradient(90deg, rgba(120,113,108,.1) 0%, var(--action-secondary) 50%, rgba(120,113,108,.1) 100%)',
   backgroundSize: '200% 100%',
   animation: 'shimmer 1.6s ease-in-out infinite',
   borderRadius: 10,
@@ -30,7 +30,7 @@ function SkimBlock({ h = 16, w = '100%' }: { h?: number; w?: string | number }) 
 
 function CheckinSkeleton({ nav }: { nav: ReturnType<typeof useClientNav> }) {
   return (
-    <div className="min-h-screen pb-20" style={{ background: 'var(--bg,#0a0a0a)' }}>
+    <div className="min-h-screen pb-[calc(5rem+env(safe-area-inset-bottom))]" style={{ background: 'var(--canvas)' }}>
       <style>{`@keyframes shimmer { 0%,100%{background-position:200% 0} 50%{background-position:-200% 0} }`}</style>
       <div className="max-w-md mx-auto px-4 pt-3">
         {/* header */}
@@ -94,8 +94,8 @@ const goldBtnStyle: React.CSSProperties = {
   padding: '14px',
   borderRadius: 12,
   cursor: 'pointer',
-  background: 'var(--gold-300,#D4A853)',
-  color: '#0a0a0a',
+  background: 'var(--action-primary)',
+  color: 'var(--action-on-primary)',
   fontFamily: 'var(--font-mono)',
   fontSize: 12,
   letterSpacing: '.1em',
@@ -237,7 +237,7 @@ export default function CheckinPage() {
   // ─── No habit assigned ────────────────────────────────────
   if (noHabit) {
     return (
-      <div className="min-h-screen pb-20" style={{ background: 'var(--bg,#0a0a0a)' }}>
+      <div className="min-h-screen pb-[calc(5rem+env(safe-area-inset-bottom))]" style={{ background: 'var(--canvas)' }}>
         <motion.div
           initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35 }}
@@ -248,7 +248,7 @@ export default function CheckinPage() {
             <button
               onClick={() => router.back()}
               style={{ background: 'transparent', border: 'none', cursor: 'pointer',
-                color: 'var(--t3)', padding: 4, display: 'flex', alignItems: 'center' }}
+                color: 'var(--content-secondary)', padding: 4, display: 'flex', alignItems: 'center' }} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             >
               <Icon name="i-chev-l" size={18} />
             </button>
@@ -257,7 +257,7 @@ export default function CheckinPage() {
           </div>
 
           <div className="card-g p-6 text-center">
-            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12, color: 'var(--t5)' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12, color: 'var(--content-disabled)' }}>
               <Icon name="i-target" size={32} />
             </div>
             <div className="eye" style={{ marginBottom: 6 }}>NO HABIT ASSIGNED</div>
@@ -266,7 +266,7 @@ export default function CheckinPage() {
             </div>
             <button
               onClick={() => router.push('/dashboard')}
-              style={{ ...goldBtnStyle, marginTop: 20 }}
+              style={{ ...goldBtnStyle, marginTop: 20 }} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             >
               Back to Dashboard
             </button>
@@ -280,7 +280,7 @@ export default function CheckinPage() {
   // ─── Already checked in today ─────────────────────────────
   if (todayCheckin) {
     return (
-      <div className="min-h-screen pb-20" style={{ background: 'var(--bg,#0a0a0a)' }}>
+      <div className="min-h-screen pb-[calc(5rem+env(safe-area-inset-bottom))]" style={{ background: 'var(--canvas)' }}>
         <motion.div
           initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35 }}
@@ -291,7 +291,7 @@ export default function CheckinPage() {
             <button
               onClick={() => router.back()}
               style={{ background: 'transparent', border: 'none', cursor: 'pointer',
-                color: 'var(--t3)', padding: 4, display: 'flex', alignItems: 'center' }}
+                color: 'var(--content-secondary)', padding: 4, display: 'flex', alignItems: 'center' }} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             >
               <Icon name="i-chev-l" size={18} />
             </button>
@@ -309,16 +309,16 @@ export default function CheckinPage() {
               transition={{ type: 'spring', stiffness: 260, damping: 16, delay: 0.2 }}
               style={{ marginBottom: 8, display: 'inline-flex' }}
             >
-              <Check size={36} strokeWidth={2.5} style={{ color: 'var(--ok,#65D387)' }} aria-hidden />
+              <Check size={36} strokeWidth={2.5} style={{ color: 'var(--status-success-fg)' }} aria-hidden />
             </motion.div>
             <div className="eye" style={{ marginTop: 8, marginBottom: 4 }}>ALREADY LOGGED</div>
             <div className="ds-sub">You checked in earlier today.</div>
-            <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--t1)', marginTop: 12 }}>
+            <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--content-primary)', marginTop: 12 }}>
               {habit?.habit?.name_en}
             </div>
             <div style={{
               marginTop: 6, fontSize: 12,
-              color: todayCheckin.completed ? 'var(--gold-300,#D4A853)' : 'rgb(239,68,68)',
+              color: todayCheckin.completed ? 'var(--action-primary)' : 'rgb(239,68,68)',
               fontFamily: 'var(--font-mono)',
             }}>
               {todayCheckin.completed
@@ -329,8 +329,8 @@ export default function CheckinPage() {
             {todayCheckin.note && (
               <div style={{
                 marginTop: 10, padding: '8px 12px', borderRadius: 8,
-                background: 'rgba(255,255,255,.04)',
-                fontSize: 12, color: 'var(--t3)', textAlign: 'left',
+                background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)',
+                fontSize: 12, color: 'var(--content-secondary)', textAlign: 'left',
                 fontStyle: 'italic',
               }}>
                 &ldquo;{todayCheckin.note}&rdquo;
@@ -338,7 +338,7 @@ export default function CheckinPage() {
             )}
             <button
               onClick={() => router.push('/dashboard')}
-              style={{ ...goldBtnStyle, marginTop: 20 }}
+              style={{ ...goldBtnStyle, marginTop: 20 }} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             >
               Back to Dashboard
             </button>
@@ -354,7 +354,7 @@ export default function CheckinPage() {
   const streakDays = h.current_streak ?? 0;
 
   return (
-    <div className="min-h-screen pb-20" style={{ background: 'var(--bg,#0a0a0a)' }}>
+    <div className="min-h-screen pb-[calc(5rem+env(safe-area-inset-bottom))]" style={{ background: 'var(--canvas)' }}>
       <style>{`@keyframes shimmer { 0%,100%{background-position:200% 0} 50%{background-position:-200% 0} }`}</style>
 
       <motion.div
@@ -368,7 +368,7 @@ export default function CheckinPage() {
           <button
             onClick={() => router.back()}
             style={{ background: 'transparent', border: 'none', cursor: 'pointer',
-              color: 'var(--t3)', padding: 4, display: 'flex', alignItems: 'center' }}
+              color: 'var(--content-secondary)', padding: 4, display: 'flex', alignItems: 'center' }} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
           >
             <Icon name="i-chev-l" size={18} />
           </button>
@@ -384,18 +384,18 @@ export default function CheckinPage() {
         >
           <div className="eye" style={{ marginBottom: 8 }}>TODAY&apos;S HABIT</div>
           <div className="row-i" style={{ gap: 12 }}>
-            <span style={{ flexShrink: 0, color: 'var(--gold-300,#D4A853)' }}>
+            <span style={{ flexShrink: 0, color: 'var(--action-primary)' }}>
               <Icon name="i-target" size={26} />
             </span>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{
-                fontSize: 14, fontWeight: 700, color: 'var(--t1)',
+                fontSize: 14, fontWeight: 700, color: 'var(--content-primary)',
                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
               }}>
                 {h.habit?.name_en ?? 'Daily Habit'}
               </div>
               <div className="ds-sub" style={{
-                fontSize: 11, marginTop: 2,
+                fontSize: 12, marginTop: 2,
                 display: '-webkit-box', WebkitLineClamp: 2,
                 WebkitBoxOrient: 'vertical' as const, overflow: 'hidden',
               }}>
@@ -406,14 +406,14 @@ export default function CheckinPage() {
 
           {/* Streak badge */}
           <div className="row-i" style={{ marginTop: 12, gap: 6 }}>
-            <Icon name="i-flame" size={12} style={{ color: 'var(--gold-300,#D4A853)', flexShrink: 0 }} />
-            <span className="eye" style={{ fontSize: 10 }}>
+            <Icon name="i-flame" size={12} style={{ color: 'var(--action-primary)', flexShrink: 0 }} />
+            <span className="eye" style={{ fontSize: 12 }}>
               {streakDays} day{streakDays !== 1 ? 's' : ''} streak
             </span>
             {h.habit?.target_value && h.habit?.target_unit && (
               <>
-                <span style={{ color: 'var(--t4)', fontSize: 9 }}>·</span>
-                <span className="eye-d" style={{ fontSize: 9 }}>
+                <span style={{ color: 'var(--content-muted)', fontSize: 12 }}>·</span>
+                <span className="eye-d" style={{ fontSize: 12 }}>
                   Target: {h.habit.target_value} {h.habit.target_unit}
                 </span>
               </>
@@ -440,17 +440,17 @@ export default function CheckinPage() {
                     padding: '9px 2px',
                     borderRadius: 10,
                     border: isSelected
-                      ? '1px solid var(--gold-300,#D4A853)'
-                      : '1px solid var(--line,rgba(255,255,255,.08))',
-                    background: isSelected ? 'rgba(212,168,83,.1)' : 'transparent',
-                    fontSize: 9,
+                      ? '1px solid var(--action-primary)'
+                      : '1px solid var(--border-default)',
+                    background: isSelected ? 'var(--action-secondary)' : 'transparent',
+                    fontSize: 12,
                     fontFamily: 'var(--font-mono)',
-                    color: isSelected ? 'var(--gold-300,#D4A853)' : 'var(--t3)',
+                    color: isSelected ? 'var(--action-primary)' : 'var(--content-secondary)',
                     cursor: 'pointer',
                     textTransform: 'uppercase' as const,
                     letterSpacing: '.08em',
                     transition: 'all .15s',
-                  }}
+                  }} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                 >
                   {label}
                 </button>
@@ -473,13 +473,13 @@ export default function CheckinPage() {
               style={{
                 flex: 1, padding: 13, borderRadius: 12, cursor: 'pointer',
                 border: completed === true
-                  ? '1px solid var(--gold-300,#D4A853)'
-                  : '1px solid var(--line,rgba(255,255,255,.08))',
-                background: completed === true ? 'rgba(212,168,83,.1)' : 'transparent',
+                  ? '1px solid var(--action-primary)'
+                  : '1px solid var(--border-default)',
+                background: completed === true ? 'var(--action-secondary)' : 'transparent',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                color: completed === true ? 'var(--gold-300,#D4A853)' : 'var(--t3)',
+                color: completed === true ? 'var(--action-primary)' : 'var(--content-secondary)',
                 transition: 'all .15s',
-              }}
+              }} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             >
               <Icon name="i-check" size={14} />
               <span style={{ fontSize: 12, fontFamily: 'var(--font-mono)', fontWeight: 700 }}>YES</span>
@@ -490,13 +490,13 @@ export default function CheckinPage() {
               style={{
                 flex: 1, padding: 13, borderRadius: 12, cursor: 'pointer',
                 border: completed === false
-                  ? '1px solid rgba(239,68,68,.5)'
-                  : '1px solid var(--line,rgba(255,255,255,.08))',
-                background: completed === false ? 'rgba(239,68,68,.08)' : 'transparent',
+                  ? '1px solid var(--status-danger-bg)'
+                  : '1px solid var(--border-default)',
+                background: completed === false ? 'var(--status-danger-bg)' : 'transparent',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                color: completed === false ? 'rgb(239,68,68)' : 'var(--t3)',
+                color: completed === false ? 'rgb(239,68,68)' : 'var(--content-secondary)',
                 transition: 'all .15s',
-              }}
+              }} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             >
               <Icon name="i-x" size={14} />
               <span style={{ fontSize: 12, fontFamily: 'var(--font-mono)', fontWeight: 700 }}>SKIP</span>
@@ -511,7 +511,7 @@ export default function CheckinPage() {
           className="card p-4 mb-4"
         >
           <div className="eye" style={{ marginBottom: 10 }}>
-            DAILY SIGNALS <span style={{ color: 'var(--t4)', fontSize: 9, fontWeight: 400 }}>(OPTIONAL)</span>
+            DAILY SIGNALS <span style={{ color: 'var(--content-muted)', fontSize: 12, fontWeight: 400 }}>(OPTIONAL)</span>
           </div>
           {([
             ['Went to the toilet today (№2)', bowel, setBowel],
@@ -519,18 +519,18 @@ export default function CheckinPage() {
             ['Drank enough water (~1.5 L+)', waterOk, setWaterOk],
           ] as Array<[string, boolean | null, (v: boolean | null) => void]>).map(([label, value, setter]) => (
             <div key={label} className="row-b" style={{ marginBottom: 8 }}>
-              <span style={{ fontSize: 11, color: 'var(--t2)' }}>{label}</span>
+              <span style={{ fontSize: 12, color: 'var(--content-secondary)' }}>{label}</span>
               <div style={{ display: 'flex', gap: 4 }}>
                 {[true, false].map((opt) => (
                   <button key={String(opt)}
                     onClick={() => setter(value === opt ? null : opt)}
                     style={{
-                      width: 40, padding: '4px 0', borderRadius: 8, cursor: 'pointer', fontSize: 10,
+                      width: 40, padding: '4px 0', borderRadius: 8, cursor: 'pointer', fontSize: 12,
                       fontFamily: 'var(--font-mono)', fontWeight: 700,
-                      border: `1px solid ${value === opt ? (opt ? 'rgba(101,211,135,.5)' : 'rgba(239,68,68,.4)') : 'var(--line)'}`,
-                      background: value === opt ? (opt ? 'rgba(101,211,135,.1)' : 'rgba(239,68,68,.07)') : 'transparent',
-                      color: value === opt ? (opt ? 'var(--ok,#65D387)' : 'rgb(239,68,68)') : 'var(--t4)',
-                    }}>
+                      border: `1px solid ${value === opt ? (opt ? 'var(--status-success-border)' : 'var(--status-danger-border)') : 'var(--border-default)'}`,
+                      background: value === opt ? (opt ? 'var(--status-success-bg)' : 'var(--status-danger-bg)') : 'transparent',
+                      color: value === opt ? (opt ? 'var(--status-success-fg)' : 'rgb(239,68,68)') : 'var(--content-muted)',
+                    }} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
                     {opt ? 'YES' : 'NO'}
                   </button>
                 ))}
@@ -538,18 +538,18 @@ export default function CheckinPage() {
             </div>
           ))}
           <div className="row-b">
-            <span style={{ fontSize: 11, color: 'var(--t2)' }}>Energy today</span>
+            <span style={{ fontSize: 12, color: 'var(--content-secondary)' }}>Energy today</span>
             <div style={{ display: 'flex', gap: 4 }}>
               {[1, 2, 3, 4, 5].map((n) => (
                 <button key={n}
                   onClick={() => setEnergy(energy === n ? null : n)}
                   style={{
-                    width: 26, padding: '4px 0', borderRadius: 8, cursor: 'pointer', fontSize: 11,
+                    width: 26, padding: '4px 0', borderRadius: 8, cursor: 'pointer', fontSize: 12,
                     fontFamily: 'var(--font-mono)',
-                    border: `1px solid ${energy === n ? 'var(--gold-300,#D4A853)' : 'var(--line)'}`,
-                    background: energy === n ? 'rgba(212,168,83,.12)' : 'transparent',
-                    color: energy === n ? 'var(--gold-300,#D4A853)' : 'var(--t4)',
-                  }}>
+                    border: `1px solid ${energy === n ? 'var(--action-primary)' : 'var(--border-default)'}`,
+                    background: energy === n ? 'var(--action-secondary)' : 'transparent',
+                    color: energy === n ? 'var(--action-primary)' : 'var(--content-muted)',
+                  }} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
                   {n}
                 </button>
               ))}
@@ -563,7 +563,7 @@ export default function CheckinPage() {
           transition={{ delay: 0.19 }}
           className="card p-4 mb-4"
         >
-          <div className="eye" style={{ marginBottom: 8 }}>NOTE <span style={{ color: 'var(--t4)', fontSize: 9, fontWeight: 400 }}>(OPTIONAL)</span></div>
+          <div className="eye" style={{ marginBottom: 8 }}>NOTE <span style={{ color: 'var(--content-muted)', fontSize: 12, fontWeight: 400 }}>(OPTIONAL)</span></div>
           <textarea
             value={note}
             onChange={e => setNote(e.target.value)}
@@ -574,17 +574,17 @@ export default function CheckinPage() {
               background: 'transparent',
               border: 'none',
               outline: 'none',
-              color: 'var(--t1)',
+              color: 'var(--content-primary)',
               fontSize: 13,
               resize: 'none',
               fontFamily: 'inherit',
               minHeight: 64,
               lineHeight: 1.5,
-              caretColor: 'var(--gold-300,#D4A853)',
-            }}
+              caretColor: 'var(--action-primary)',
+            }} className="text-base"
           />
           {note.length > 0 && (
-            <div style={{ textAlign: 'right', fontSize: 9, color: 'var(--t4)', marginTop: 2,
+            <div style={{ textAlign: 'right', fontSize: 12, color: 'var(--content-muted)', marginTop: 2,
               fontFamily: 'var(--font-mono)' }}>
               {note.length}/500
             </div>
@@ -606,15 +606,15 @@ export default function CheckinPage() {
                 transition={{ type: 'spring', stiffness: 260, damping: 16 }}
                 style={{
                   ...goldBtnStyle,
-                  background: '#22c55e',
-                  color: '#fff',
+                  background: 'var(--status-success-fg)',
+                  color: 'var(--content-inverse)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: 8,
                   cursor: 'default',
                 }}
-                disabled
+                disabled className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
               >
                 <motion.span
                   initial={{ scale: 0 }}
@@ -635,22 +635,22 @@ export default function CheckinPage() {
                 whileTap={completed !== null && !saving ? { scale: 0.97 } : {}}
                 style={{
                   ...goldBtnStyle,
-                  background: completed !== null ? 'var(--gold-300,#D4A853)' : 'rgba(255,255,255,.05)',
-                  color: completed !== null ? '#0a0a0a' : 'var(--t4)',
+                  background: completed !== null ? 'var(--action-primary)' : 'color-mix(in srgb, var(--content-primary) 8%, transparent)',
+                  color: completed !== null ? 'var(--action-on-primary)' : 'var(--content-muted)',
                   cursor: completed !== null && !saving ? 'pointer' : 'not-allowed',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: 6,
-                }}
+                }} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
               >
                 {saving ? (
                   <>
                     <motion.span
                       animate={{ rotate: 360 }}
                       transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                      style={{ width: 12, height: 12, border: '2px solid rgba(0,0,0,.3)',
-                        borderTopColor: '#0a0a0a', borderRadius: '50%', display: 'inline-block' }}
+                      style={{ width: 12, height: 12, border: '2px solid var(--surface-overlay)',
+                        borderTopColor: 'var(--action-on-primary)', borderRadius: '50%', display: 'inline-block' }}
                     />
                     Saving…
                   </>
