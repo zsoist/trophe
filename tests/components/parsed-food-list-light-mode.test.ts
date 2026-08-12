@@ -59,6 +59,13 @@ describe('food portion review visual contract', () => {
     expect(spacer).toBeLessThanOrEqual(9);
   });
 
+  it('does not clip keyboard focus and keeps small light-mode controls readable', () => {
+    expect(declaration('.portion-review-amount-group', 'overflow')).toBe('visible');
+    expect(declaration('.portion-review-remove', 'color')).toBe('var(--t3)');
+    expect(declaration('.portion-review-remove:hover', 'color')).toBe('var(--err)');
+    expect(declaration('.portion-review-mass-hint', 'color')).toBe('var(--t3)');
+  });
+
   it('uses WCAG AA warning text in light mode', () => {
     const warning = declaration('.light', '--warn');
     const background = declaration('.light', '--bg-primary');
@@ -70,16 +77,17 @@ describe('food portion review visual contract', () => {
   it('keeps every macro total readable on the light save bar', () => {
     const background = declaration('.light', '--bg-primary');
     const accessibleMacroColors = [
-      ['.light .portion-review-total-calories', '--gold-600', ':root'],
-      ['.light .portion-review-total-protein', '--err', '.light'],
-      ['.light .portion-review-total-carbs', '--info', '.light'],
-      ['.light .portion-review-total-fat', '--plum', '.light'],
-      ['.light .portion-review-total-fiber', '--ok', '.light'],
+      ['.light .portion-review-total-calories', '--m-cal', '--gold-600', ':root'],
+      ['.light .portion-review-total-protein', '--m-protein', '--err', '.light'],
+      ['.light .portion-review-total-carbs', '--m-carbs', '--info', '.light'],
+      ['.light .portion-review-total-fat', '--m-fat', '--plum', '.light'],
+      ['.light .portion-review-total-fiber', '--m-fiber', '--ok', '.light'],
     ] as const;
 
-    for (const [selector, token, tokenScope] of accessibleMacroColors) {
-      expect(declaration(selector, 'color')).toBe(`var(${token})`);
-      expect(contrastRatio(declaration(tokenScope, token), background)).toBeGreaterThanOrEqual(4.5);
+    for (const [selector, paletteToken, semanticToken, tokenScope] of accessibleMacroColors) {
+      expect(declaration('.light .portion-review-save', paletteToken)).toBe(`var(${semanticToken})`);
+      expect(declaration(selector, 'color')).toBe(`var(${semanticToken})`);
+      expect(contrastRatio(declaration(tokenScope, semanticToken), background)).toBeGreaterThanOrEqual(4.5);
     }
   });
 });

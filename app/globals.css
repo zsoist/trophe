@@ -453,6 +453,11 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  color: var(--t3);
+}
+
+.portion-review-remove:hover {
+  color: var(--err);
 }
 
 .portion-review-quantity {
@@ -474,7 +479,7 @@ body {
   align-items: center;
   justify-content: center;
   gap: 5px;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .portion-review-amount {
@@ -502,6 +507,7 @@ body {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 11px;
+  color: var(--t3);
 }
 
 .portion-review-estimate {
@@ -598,44 +604,54 @@ body {
 .light .portion-review-estimate-copy,
 .light .portion-review-choice-label,
 .light .portion-review-save-note {
-  color: var(--warn) !important;
+  color: var(--warn);
 }
 
 .light .portion-review-choice-value,
 .light .portion-review-unit,
 .light .portion-review-total-label {
-  color: var(--t3) !important;
+  color: var(--t3);
 }
 
 .light .portion-review-secondary-action {
-  color: var(--t2) !important;
-  border-color: var(--border-default) !important;
+  color: var(--t2);
+  border-color: var(--border-default);
+}
+
+.light .portion-review-save {
+  /* Appearance palettes are tuned for dark charts; the compact light review
+     summary uses semantic equivalents so every 16px total remains AA-readable. */
+  --m-cal: var(--gold-600);
+  --m-protein: var(--err);
+  --m-carbs: var(--info);
+  --m-fat: var(--plum);
+  --m-fiber: var(--ok);
 }
 
 .light .portion-review-item .gold-text,
 .light .portion-review-total-calories {
-  color: var(--gold-600) !important;
+  color: var(--gold-600);
 }
 
 .light .portion-review-total-protein {
-  color: var(--err) !important;
+  color: var(--err);
 }
 
 .light .portion-review-total-carbs {
-  color: var(--info) !important;
+  color: var(--info);
 }
 
 .light .portion-review-total-fat {
-  color: var(--plum) !important;
+  color: var(--plum);
 }
 
 .light .portion-review-total-fiber,
 .light .portion-review-fiber {
-  color: var(--ok) !important;
+  color: var(--ok);
 }
 
 .light .portion-review-sugar {
-  color: var(--warn) !important;
+  color: var(--warn);
 }
 
 /* ─── Status Indicators ─── */

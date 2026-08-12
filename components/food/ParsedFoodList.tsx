@@ -222,9 +222,11 @@ export default function ParsedFoodList({
   const [typingIndex, setTypingIndex] = useState<number | null>(null);
   const [amountDrafts, setAmountDrafts] = useState<Record<number, string>>({});
   const amountInputRefs = useRef<Record<number, HTMLInputElement | null>>({});
+  const saveBarRef = useRef<HTMLDivElement | null>(null);
   const skipBlurCommitRef = useRef<Set<number>>(new Set());
   /** Display value at the moment a row is first stepper-touched — seeds the roll. */
   const [touchSeed, setTouchSeed] = useState(0);
+  const [saveBarInset, setSaveBarInset] = useState(144);
   const holdDelayRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const holdRepeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -234,6 +236,29 @@ export default function ParsedFoodList({
   }, []);
 
   useEffect(() => endHold, [endHold]);
+
+  useEffect(() => {
+    const saveBar = saveBarRef.current;
+    if (!saveBar) return;
+
+    const applyHeight = (height: number) => {
+      setSaveBarInset(Math.max(144, Math.ceil(height) + 12));
+    };
+    const measure = () => applyHeight(saveBar.getBoundingClientRect().height);
+
+    const initialMeasure = window.setTimeout(measure, 0);
+    window.addEventListener('resize', measure);
+    const observer = typeof ResizeObserver === 'undefined'
+      ? null
+      : new ResizeObserver(measure);
+    observer?.observe(saveBar);
+
+    return () => {
+      window.clearTimeout(initialMeasure);
+      window.removeEventListener('resize', measure);
+      observer?.disconnect();
+    };
+  }, []);
 
   /** One stepper tick: haptic per tap, triple-pulse when crossing a 100g boundary. */
   const stepGrams = useCallback((index: number, delta: number) => {
@@ -393,6 +418,7 @@ export default function ParsedFoodList({
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         className="portion-review-list space-y-2"
+        style={{ paddingBottom: `${saveBarInset}px` }}
       >
         {/* Item count header — Cancel moved to save bar only */}
         <div className="px-1">
@@ -511,7 +537,7 @@ export default function ParsedFoodList({
                 </div>
                 <button
                   onClick={() => removeItem(index)}
-                  className="portion-review-remove text-stone-600 hover:text-red-400 transition-colors flex-shrink-0"
+                  className="portion-review-remove transition-colors flex-shrink-0"
                   aria-label={t('food.remove_item_aria', { name: itemName })}
                 >
                   <X size={16} />
@@ -620,7 +646,7 @@ export default function ParsedFoodList({
                         </div>
                         <span className="portion-review-unit text-stone-500">{displayUnit}</span>
                         {!humanUnit && (
-                          <span className="portion-review-mass-hint text-stone-600">
+                          <span className="portion-review-mass-hint">
                             {item.quantity} {item.unit}
                           </span>
                         )}
@@ -827,7 +853,7 @@ export default function ParsedFoodList({
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
         className="portion-review-save-shell fixed bottom-24 left-0 right-0 z-50"
       >
-        <div className="portion-review-save max-w-md mx-auto glass-elevated rounded-2xl border border-[#D4A853]/20 shadow-[0_-4px_24px_rgba(212,168,83,0.15)]">
+        <div ref={saveBarRef} className="portion-review-save max-w-md mx-auto glass-elevated rounded-2xl border border-[#D4A853]/20 shadow-[0_-4px_24px_rgba(212,168,83,0.15)]">
           {/* Macro summary row — totals roll (W5) as steppers adjust portions */}
           <div className="grid grid-cols-5 gap-1 text-center mb-3">
             <div>
