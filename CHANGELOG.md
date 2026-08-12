@@ -4,6 +4,21 @@ All notable changes to Trophē are logged here. Format follows [Keep a Changelog
 
 ---
 
+## [Production microphone experience] — 2026-08-12
+
+### Added
+- Added native-first food and intake dictation with a bounded recorded fallback for browsers without reliable speech recognition. Fallback recordings stop at 30 seconds, stay in memory, and are never retained by Trophē.
+- Added authenticated, separately rate-limited `gpt-transcribe` processing that reuses the existing server-only OpenAI credential. One maximum-length fallback costs no more than $0.00225.
+- Added consistent requesting, listening, transcribing, permission recovery, Stop, Cancel, play, and pause copy across all eight supported languages.
+
+### Changed
+- Chat voice notes now share the leak-safe recorder lifecycle, remain local until Send, and stop automatically after five minutes.
+- Microphone controls now meet the 44×44 touch target and reduced-motion behavior, with a same-origin browser Permissions Policy for microphone and camera use.
+
+### Fixed
+- Prevented late permission results, duplicate recorder events, question navigation, unmounts, and provider failures from leaking tracks, losing typed answers, attaching duplicate audio, or leaving the interface stuck.
+- Tightened food transcription instructions so generic spoken foods cannot gain an invented brand, product, ingredient, or quantity.
+
 ## [iPhone portion review hotfix] — 2026-08-12
 
 ### Changed
