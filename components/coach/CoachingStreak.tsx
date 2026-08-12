@@ -1,17 +1,22 @@
 'use client';
 
 import { memo, useEffect, useRef, useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 
 interface CoachingStreakProps {
   streakDays: number;
 }
 
 export default memo(function CoachingStreak({ streakDays }: CoachingStreakProps) {
+  const reduceMotion = useReducedMotion();
   const [display, setDisplay] = useState(0);
   const frameRef = useRef<number>(0);
 
   useEffect(() => {
+    if (reduceMotion) {
+      setDisplay(streakDays);
+      return;
+    }
     const startTime = performance.now();
     const duration = 800;
 
@@ -28,7 +33,7 @@ export default memo(function CoachingStreak({ streakDays }: CoachingStreakProps)
 
     frameRef.current = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(frameRef.current);
-  }, [streakDays]);
+  }, [reduceMotion, streakDays]);
 
   const tier = streakDays >= 30 ? 'legendary' : streakDays >= 14 ? 'strong' : streakDays >= 7 ? 'solid' : 'building';
 
@@ -52,8 +57,9 @@ export default memo(function CoachingStreak({ streakDays }: CoachingStreakProps)
       {tier === 'strong' && (
         <motion.div
           className="absolute inset-0 pointer-events-none"
-          animate={{ opacity: [0.05, 0.12, 0.05] }}
-          transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+          initial={reduceMotion ? false : undefined}
+          animate={reduceMotion ? undefined : { opacity: [0.05, 0.12, 0.05] }}
+          transition={reduceMotion ? { duration: 0 } : { duration: 2, repeat: Number.POSITIVE_INFINITY, ease: 'easeInOut' }}
           style={{
             background: 'radial-gradient(circle at 30% 50%, var(--status-warning-bg) 0%, transparent 60%)',
           }}
@@ -63,8 +69,9 @@ export default memo(function CoachingStreak({ streakDays }: CoachingStreakProps)
         <>
           <motion.div
             className="absolute inset-0 pointer-events-none"
-            animate={{ opacity: [0.08, 0.2, 0.08] }}
-            transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
+            initial={reduceMotion ? false : undefined}
+            animate={reduceMotion ? undefined : { opacity: [0.08, 0.2, 0.08] }}
+            transition={reduceMotion ? { duration: 0 } : { duration: 1.5, repeat: Number.POSITIVE_INFINITY, ease: 'easeInOut' }}
             style={{
               background: 'radial-gradient(circle at 30% 50%, var(--status-warning-bg) 0%, transparent 60%)',
             }}
@@ -75,7 +82,8 @@ export default memo(function CoachingStreak({ streakDays }: CoachingStreakProps)
               key={n}
               className="absolute w-1 h-1 rounded-full pointer-events-none"
               style={{ backgroundColor: 'var(--action-primary)' }}
-              animate={{
+              initial={reduceMotion ? false : { left: `${25 + n * 8}%`, top: '50%' }}
+              animate={reduceMotion ? undefined : {
                 x: [0, (n - 1) * 20, 0],
                 y: [0, -15 - n * 5, 0],
                 opacity: [0, 1, 0],
@@ -84,10 +92,9 @@ export default memo(function CoachingStreak({ streakDays }: CoachingStreakProps)
               transition={{
                 duration: 2,
                 delay: n * 0.6,
-                repeat: Infinity,
+                repeat: Number.POSITIVE_INFINITY,
                 ease: 'easeInOut',
               }}
-              initial={{ left: `${25 + n * 8}%`, top: '50%' }}
             />
           ))}
         </>
@@ -97,15 +104,14 @@ export default memo(function CoachingStreak({ streakDays }: CoachingStreakProps)
       <div className="relative z-10">
         <motion.span
           className="text-3xl block"
-          animate={
-            tier === 'strong' || tier === 'legendary'
+          initial={reduceMotion ? false : undefined}
+          animate={!reduceMotion && (tier === 'strong' || tier === 'legendary')
               ? { scale: [1, 1.1, 1], rotate: [0, 3, -3, 0] }
               : {}
           }
-          transition={
-            tier === 'strong' || tier === 'legendary'
-              ? { duration: 1.5, repeat: Infinity, ease: 'easeInOut' }
-              : {}
+          transition={!reduceMotion && (tier === 'strong' || tier === 'legendary')
+              ? { duration: 1.5, repeat: Number.POSITIVE_INFINITY, ease: 'easeInOut' }
+              : { duration: 0 }
           }
         >
           {'\uD83D\uDD25'}

@@ -1,6 +1,6 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import type { LucideIcon } from 'lucide-react';
 import { Target, FileText, Flame, Dumbbell, BarChart3, GraduationCap, Trophy, Crown, Star, Gem, Lock } from 'lucide-react';
 
@@ -36,6 +36,7 @@ const DEFAULT_ACHIEVEMENTS: Achievement[] = [
 ];
 
 export default function CoachAchievements({ achievements }: CoachAchievementsProps) {
+  const reduceMotion = useReducedMotion();
   const badges = achievements ?? DEFAULT_ACHIEVEMENTS;
   const unlockedCount = badges.filter((a) => a.unlocked).length;
 
@@ -134,14 +135,15 @@ export default function CoachAchievements({ achievements }: CoachAchievementsPro
                 style={{
                   boxShadow: '0 0 15px var(--status-warning-bg), inset 0 0 15px var(--status-warning-bg)',
                 }}
-                animate={{
+                initial={reduceMotion ? false : undefined}
+                animate={reduceMotion ? undefined : {
                   boxShadow: [
                     '0 0 15px var(--status-warning-bg), inset 0 0 15px var(--status-warning-bg)',
                     '0 0 25px var(--status-warning-bg), inset 0 0 20px var(--status-warning-bg)',
                     '0 0 15px var(--status-warning-bg), inset 0 0 15px var(--status-warning-bg)',
                   ],
                 }}
-                transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+                transition={reduceMotion ? { duration: 0 } : { duration: 3, repeat: Number.POSITIVE_INFINITY, ease: 'easeInOut' }}
               />
             )}
           </motion.div>

@@ -65,7 +65,7 @@ export default memo(function BatchHabitAssign({
     closeRef.current?.focus();
 
     const handleDocumentKeyDown = (event: globalThis.KeyboardEvent) => {
-      if (event.key !== 'Escape') return;
+      if (event.defaultPrevented || event.key !== 'Escape' || !dialogRef.current?.contains(document.activeElement)) return;
       event.preventDefault();
       event.stopPropagation();
       onClose();

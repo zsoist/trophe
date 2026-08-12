@@ -16,6 +16,7 @@ vi.mock('framer-motion', async () => {
     (props, ref) => ReactModule.createElement(tag, {
       ...Object.fromEntries(Object.entries(props).filter(([key]) => !ignored.has(key))),
       'data-motion-initial': props.initial === undefined ? undefined : JSON.stringify(props.initial),
+      'data-motion-animate': props.animate === undefined ? undefined : JSON.stringify(props.animate),
       ref,
     }, props.children as React.ReactNode),
   );
@@ -27,6 +28,8 @@ vi.mock('framer-motion', async () => {
 });
 
 import BatchHabitAssign from '@/components/coach/BatchHabitAssign';
+import CoachLoadingSkeletons from '@/components/coach/CoachLoadingSkeletons';
+import { FoodSharingSwitch } from '@/components/coach/FoodSharingSwitch';
 import MacroRollupModal from '@/components/coach/MacroRollupModal';
 import MealSuggestPicker from '@/components/coach/MealSuggestPicker';
 import QuickActionsBar from '@/components/coach/QuickActionsBar';
@@ -170,6 +173,58 @@ describe('coach operational routes and modal library contract', () => {
     expect(tray).toContain('<QuickActionsBar');
     expect(tray).toContain('sticky bottom-[calc(1rem+env(safe-area-inset-bottom))]');
     expect(source('components/coach/QuickActionsBar.tsx')).not.toMatch(/className="[^"]*fixed/);
+  });
+
+  it('uses an accessible 44px shared-food switch instead of a click-only visual', () => {
+    const foods = source('app/coach/foods/page.tsx');
+    const start = foods.indexOf('{/* Shared toggle */}');
+    const sharingControl = foods.slice(start, foods.indexOf('{/* Save */}', start));
+
+    expect(sharingControl).toContain('<FoodSharingSwitch');
+    const onChange = vi.fn();
+    render(React.createElement(FoodSharingSwitch, { checked: false, onChange }));
+    const toggle = screen.getByRole('switch', { name: 'Share with assigned clients' });
+    expect(toggle.getAttribute('aria-checked')).toBe('false');
+    expect(toggle.className).toContain('min-h-11');
+    expect(toggle.className).toContain('focus-visible:');
+    fireEvent.click(toggle);
+    expect(onChange).toHaveBeenCalledWith(true);
+  });
+
+  it('keeps semantic chart paints valid without concatenating CSS variables', () => {
+    const invalidPaint = [
+      source('components/coach/ClientComparison.tsx'),
+      source('components/coach/CoachCalendar.tsx'),
+    ].join('\n');
+
+    expect(invalidPaint).not.toMatch(/\$\{(?:COLOR_[AB]|meta\.color)\}(?:15|20)/);
+  });
+
+  it('renders reduced-motion loading skeletons without a decorative sweep', () => {
+    const view = render(React.createElement(CoachLoadingSkeletons, { page: 'dashboard' }));
+    const pulses = [...view.container.querySelectorAll('.rounded-lg[data-motion-animate]')];
+
+    expect(pulses.length).toBeGreaterThan(0);
+    expect(pulses.every((pulse) => pulse.getAttribute('data-motion-animate') === 'false')).toBe(true);
+  });
+
+  it('does not retain unguarded infinite decorative motion in operational coach surfaces', () => {
+    const files = [
+      'components/coach/CoachAchievements.tsx',
+      'components/coach/CoachingRoadmap.tsx',
+      'components/coach/CoachingStreak.tsx',
+      'components/coach/CoachLoadingSkeletons.tsx',
+    ];
+    const perpetualMotion = files.flatMap((file) => {
+      const value = source(file);
+      return [
+        /repeat:\s*Infinity/.test(value) && `${file}: bare Infinity`,
+        !/useReducedMotion/.test(value) && `${file}: no reduced-motion preference`,
+        !/animate=\{(?:reduceMotion \? (?:false|undefined)|!reduceMotion)/.test(value) && `${file}: no static reduced-motion animation branch`,
+      ].filter(Boolean);
+    });
+
+    expect(perpetualMotion).toEqual([]);
   });
 
   it('keeps every actual mobile text control at 16px without contradictory inline or utility overrides', () => {
@@ -318,9 +373,7 @@ describe('coach operational routes and modal library contract', () => {
       const close = screen.getByRole('button', { name: utility.closeName });
       expect(document.activeElement).toBe(close);
       expect(dialog.className).toContain('safe-bottom');
-      const animated = [dialog.parentElement, dialog].filter(
-        (element): element is Element => Boolean(element?.hasAttribute('data-motion-initial')),
-      );
+      const animated = [dialog.parentElement, dialog].filter((element): element is HTMLElement => element instanceof HTMLElement && element.hasAttribute('data-motion-initial'));
       expect(animated.length).toBeGreaterThanOrEqual(2);
       expect(animated.every((element) => element.getAttribute('data-motion-initial') === 'false')).toBe(true);
       fireEvent.keyDown(close, { key: 'Tab', shiftKey: true });
@@ -331,5 +384,24 @@ describe('coach operational routes and modal library contract', () => {
       expect(document.activeElement).toBe(outside);
       outside.remove();
     }
+  });
+
+  it('closes only the focused topmost utility dialog for one Escape press', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ days: [], targets: null, mealCount: 0, parsedMealCount: 0, failedMealCount: 0, complete: true }),
+    }));
+    const parentClose = vi.fn();
+    const childClose = vi.fn();
+    render(React.createElement(React.Fragment, null,
+      React.createElement(BatchHabitAssign, { ...batchProps, onClose: parentClose }),
+      React.createElement(MacroRollupModal, { isOpen: true, clientId: 'client-1', onClose: childClose }),
+    ));
+
+    await screen.findByRole('dialog', { name: 'Plan macros by day' });
+    screen.getByRole('button', { name: 'Close plan macro summary' }).focus();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(childClose).toHaveBeenCalledTimes(1);
+    expect(parentClose).not.toHaveBeenCalled();
   });
 });

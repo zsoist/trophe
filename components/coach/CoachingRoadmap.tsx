@@ -1,7 +1,7 @@
 'use client';
 
 import { memo } from 'react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 
 type HabitStatus = 'completed' | 'active' | 'upcoming';
 
@@ -42,6 +42,7 @@ const STATUS_STYLES: Record<HabitStatus, {
 };
 
 export default memo(function CoachingRoadmap({ habits }: CoachingRoadmapProps) {
+  const reduceMotion = useReducedMotion();
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -95,13 +96,14 @@ export default memo(function CoachingRoadmap({ habits }: CoachingRoadmapProps) {
                   {habit.status === 'active' && (
                     <motion.div
                       className="absolute inset-0 rounded-full border-2 border-[var(--action-primary)]"
-                      animate={{
+                      initial={reduceMotion ? false : undefined}
+                      animate={reduceMotion ? undefined : {
                         scale: [1, 1.4],
                         opacity: [0.6, 0],
                       }}
-                      transition={{
+                      transition={reduceMotion ? { duration: 0 } : {
                         duration: 1.5,
-                        repeat: Infinity,
+                        repeat: Number.POSITIVE_INFINITY,
                         ease: 'easeOut',
                       }}
                     />

@@ -1,6 +1,6 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 
 // ═══════════════════════════════════════════════
 // τροφή — Coach Loading Skeletons (Wave 4)
@@ -12,6 +12,7 @@ interface CoachLoadingSkeletonsProps {
 }
 
 function Pulse({ className = '', style }: { className?: string; style?: React.CSSProperties }) {
+  const reduceMotion = useReducedMotion();
   return (
     <motion.div
       className={`rounded-lg ${className}`}
@@ -20,10 +21,9 @@ function Pulse({ className = '', style }: { className?: string; style?: React.CS
         backgroundSize: '200% 100%',
         ...style,
       }}
-      animate={{
-        backgroundPosition: ['200% 0', '-200% 0'],
-      }}
-      transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+      initial={reduceMotion ? false : undefined}
+      animate={reduceMotion ? false : { backgroundPosition: ['200% 0', '-200% 0'] }}
+      transition={reduceMotion ? { duration: 0 } : { duration: 2, repeat: Number.POSITIVE_INFINITY, ease: 'linear' }}
     />
   );
 }

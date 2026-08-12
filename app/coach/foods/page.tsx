@@ -17,6 +17,7 @@ import { supabase } from '@/lib/supabase';
 import type { CustomFood } from '@/lib/types';
 import { CoachNav } from '@/components/coach/CoachNav';
 import CoachLoadingSkeletons from '@/components/coach/CoachLoadingSkeletons';
+import { FoodSharingSwitch } from '@/components/coach/FoodSharingSwitch';
 import { BotNav } from '@/components/ui/BotNav';
 import { Icon, ConfirmSheet } from '@/components/ui';
 import { useI18n } from '@/lib/i18n';
@@ -73,7 +74,7 @@ function useDialogFocus(open: boolean, onClose: () => void, dialogRef: RefObject
     ) ?? [])];
     requestAnimationFrame(() => focusable()[0]?.focus());
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented) return;
+      if (event.defaultPrevented || !dialog?.contains(document.activeElement)) return;
       if (event.key === 'Escape') {
         event.preventDefault();
         returnFocus.current();
@@ -586,18 +587,7 @@ export default function FoodsPage() {
 
                 {/* Shared toggle */}
                 <label className="flex items-center gap-3 cursor-pointer">
-                  <div
-                    className={`relative w-10 h-5 rounded-full transition-colors ${
-                      form.shared ? 'bg-[var(--action-primary)]' : 'bg-[var(--surface-2)]'
-                    }`}
-                    onClick={() => setForm({ ...form, shared: !form.shared })}
-                  >
-                    <div
-                      className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-[var(--surface-1)] transition-transform ${
-                        form.shared ? 'translate-x-5' : ''
-                      }`}
-                    />
-                  </div>
+                  <FoodSharingSwitch checked={form.shared} onChange={(shared) => setForm({ ...form, shared })} />
                   <span className="text-sm text-[var(--content-primary)]">
                     Share with assigned clients
                   </span>

@@ -134,7 +134,7 @@ export default memo(function ClientComparison({ clientA, clientB }: ClientCompar
         {/* Client A polygon */}
         <motion.path
           d={pathA}
-          fill={`${COLOR_A}15`}
+          fill="var(--status-warning-bg)"
           stroke={COLOR_A}
           strokeWidth="1.5"
           initial={{ opacity: 0, scale: 0.5 }}
@@ -146,7 +146,7 @@ export default memo(function ClientComparison({ clientA, clientB }: ClientCompar
         {/* Client B polygon */}
         <motion.path
           d={pathB}
-          fill={`${COLOR_B}15`}
+          fill="var(--status-info-bg)"
           stroke={COLOR_B}
           strokeWidth="1.5"
           initial={{ opacity: 0, scale: 0.5 }}

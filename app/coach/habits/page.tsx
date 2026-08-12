@@ -74,7 +74,7 @@ function useDialogFocus(open: boolean, onClose: () => void, dialogRef: RefObject
     const focusable = () => [...(dialog?.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])') ?? [])];
     requestAnimationFrame(() => focusable()[0]?.focus());
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented) return;
+      if (event.defaultPrevented || !dialog?.contains(document.activeElement)) return;
       if (event.key === 'Escape') { event.preventDefault(); returnFocus.current(); return; }
       if (event.key !== 'Tab') return;
       const items = focusable(); if (!items.length) return;

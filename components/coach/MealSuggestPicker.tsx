@@ -147,7 +147,7 @@ export default function MealSuggestPicker({ isOpen, slotLabel, slotFraction, tar
     document.body.style.overflow = 'hidden';
     closeRef.current?.focus();
     const handleEscape = (event: globalThis.KeyboardEvent) => {
-      if (event.key !== 'Escape') return;
+      if (event.defaultPrevented || event.key !== 'Escape' || !dialogRef.current?.contains(document.activeElement)) return;
       event.preventDefault();
       event.stopPropagation();
       onClose();
