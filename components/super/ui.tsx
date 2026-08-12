@@ -10,8 +10,6 @@ import { type ReactNode } from "react";
 
 export const MONO = "var(--font-mono), ui-monospace, monospace";
 export const GOLD = "var(--action-primary)";
-// The global stylesheet consumes this same prefers-reduced-motion contract.
-export const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
 
@@ -170,7 +168,7 @@ export function Pills<T extends string>({
       {options.map((o) => (
         <button
           key={o.v}
-          className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+          className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] motion-reduce:transition-none"
           onClick={() => onChange(o.v)}
           onKeyDown={(event) => onKeyDown?.(event, o.v)}
           role={tabs ? "tab" : undefined}
@@ -331,6 +329,7 @@ export function ColumnChart({
       {points.map((p) => (
         <div
           key={p.label}
+          className="motion-reduce:transition-none"
           title={`${p.label} — ${format(p.value)}`}
           style={{
             flex: 1,

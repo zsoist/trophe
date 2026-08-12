@@ -1,6 +1,17 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+// @vitest-environment jsdom
+
+import React from "react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("next/link", async () => {
+  const react = await import("react");
+  return { default: ({ children, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => react.createElement("a", props, children) };
+});
+
+afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 const ADMIN_THEME_SOURCES = [
   "app/admin/orgs/page.tsx",
@@ -124,7 +135,7 @@ describe("admin and super-admin theme and accessibility contract", () => {
       "tabIndex={tabs ? (value === o.v ? 0 : -1) : undefined}",
     );
     expect(superUi).toContain("var(--data-");
-    expect(superUi).toContain("prefers-reduced-motion");
+    expect(superUi).toMatch(/transition:[\s\S]*?motion-reduce:transition-none/);
   });
 
   it("renders named privacy actions and semantic request statuses", () => {
@@ -135,5 +146,28 @@ describe("admin and super-admin theme and accessibility contract", () => {
     expect(privacy).toContain("statusClass");
     expect(privacy).toContain("grid-cols-1 gap-2 sm:grid-cols-2");
     expect(privacy).toContain("focus-visible:");
+  });
+
+  it("renders real roving super-admin tabs with keyboard panel ownership", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ generatedAt: new Date().toISOString(), people: [], activity: {}, aiCosts: [], aiByTask: [], aiErrors: {}, foods: [], logsByDay: [], recentSignups: [], recentFailures: [] }) }));
+    const { default: SuperCommandCenter } = await import("@/app/super/page");
+    render(React.createElement(SuperCommandCenter));
+    const tabs = screen.getAllByRole("tab");
+    expect(tabs).toHaveLength(6);
+    expect(tabs[0].getAttribute("aria-selected")).toBe("true");
+    expect(tabs[0].getAttribute("tabindex")).toBe("0");
+    expect(tabs[1].getAttribute("tabindex")).toBe("-1");
+    fireEvent.keyDown(tabs[0], { key: "ArrowRight" });
+    expect(tabs[1].getAttribute("aria-selected")).toBe("true");
+    expect(document.activeElement).toBe(tabs[1]);
+    fireEvent.keyDown(tabs[1], { key: "End" });
+    expect(tabs[5].getAttribute("aria-selected")).toBe("true");
+    fireEvent.keyDown(tabs[5], { key: "Home" });
+    expect(tabs[0].getAttribute("aria-selected")).toBe("true");
+    fireEvent.keyDown(tabs[0], { key: "ArrowLeft" });
+    expect(tabs[5].getAttribute("aria-selected")).toBe("true");
+    const panel = screen.getByRole("tabpanel");
+    expect(panel.getAttribute("id")).toBe("super-panel-audit");
+    expect(panel.getAttribute("aria-labelledby")).toBe("super-tab-audit");
   });
 });
