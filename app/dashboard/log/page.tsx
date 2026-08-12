@@ -1000,7 +1000,7 @@ export default function FoodLogPage() {
             initial={{ opacity: 0, y: -12 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -12 }}
-            className="fixed left-4 right-4 top-4 z-[var(--z-toast,70)] mx-auto max-w-sm rounded-xl border border-red-500/20 bg-red-950/95 px-4 py-3 text-center text-sm text-red-200 shadow-lg"
+            className="fixed left-4 right-4 top-4 z-[var(--z-toast,70)] mx-auto max-w-sm rounded-xl border border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] px-4 py-3 text-center text-sm text-[var(--status-danger-fg)] shadow-lg"
           >
             {mutationError}
           </motion.div>

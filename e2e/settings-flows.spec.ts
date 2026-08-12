@@ -58,10 +58,26 @@ test.describe('client settings flows', () => {
     await themeToggle.click();
     await expect.poll(() => page.evaluate(() => document.documentElement.classList.contains('light'))).toBe(true);
 
-    for (const route of ['/dashboard/log', '/dashboard/progress', '/dashboard/profile']) {
+    for (const route of ['/dashboard', '/dashboard/log', '/dashboard/progress', '/dashboard/profile']) {
       await page.goto(route);
       await expect.poll(() => page.evaluate(() => document.documentElement.classList.contains('light'))).toBe(true);
       await expect(page.locator('nav a').first()).toBeVisible();
+      const sharedThemeToggle = page.getByRole('button', { name: 'Toggle color theme' });
+      await expect(sharedThemeToggle).toBeVisible();
+      const bottomNav = page.locator('nav').first();
+      const lightNavStyle = await bottomNav.evaluate((element) => {
+        const style = getComputedStyle(element);
+        return `${style.backgroundColor}|${style.borderColor}|${style.color}`;
+      });
+      await sharedThemeToggle.click();
+      await expect.poll(() => page.evaluate(() => document.documentElement.classList.contains('light'))).toBe(false);
+      const darkNavStyle = await bottomNav.evaluate((element) => {
+        const style = getComputedStyle(element);
+        return `${style.backgroundColor}|${style.borderColor}|${style.color}`;
+      });
+      expect(darkNavStyle).not.toBe(lightNavStyle);
+      await sharedThemeToggle.click();
+      await expect.poll(() => page.evaluate(() => document.documentElement.classList.contains('light'))).toBe(true);
     }
 
     await page.goto('/dashboard/profile');

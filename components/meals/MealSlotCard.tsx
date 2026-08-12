@@ -566,7 +566,7 @@ export default function MealSlotCard({
                                     <div className="flex items-center gap-2">
                                       <button
                                         onClick={() => setField('grams', Math.max(1, (form.grams ?? 10) - 10))}
-                                        className="w-11 h-11 rounded-lg bg-[var(--surface-2)] border border-[var(--border-subtle)] flex items-center justify-center text-[var(--content-secondary)] hover:border-[#D4A853]/40 active:scale-95 transition-all"
+                                        className="w-11 h-11 rounded-lg bg-[var(--surface-2)] border border-[var(--border-subtle)] flex items-center justify-center text-[var(--content-secondary)] hover:border-[#D4A853]/40 active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                                         aria-label={t('food.edit.decreaseGrams')}
                                       >
                                         <Minus size={14} />
@@ -577,7 +577,7 @@ export default function MealSlotCard({
                                       </div>
                                       <button
                                         onClick={() => setField('grams', Math.min(10000, (form.grams ?? 0) + 10))}
-                                        className="w-11 h-11 rounded-lg bg-[var(--surface-2)] border border-[var(--border-subtle)] flex items-center justify-center text-[var(--content-secondary)] hover:border-[#D4A853]/40 active:scale-95 transition-all"
+                                        className="w-11 h-11 rounded-lg bg-[var(--surface-2)] border border-[var(--border-subtle)] flex items-center justify-center text-[var(--content-secondary)] hover:border-[#D4A853]/40 active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                                         aria-label={t('food.edit.increaseGrams')}
                                       >
                                         <Plus size={14} />
@@ -611,7 +611,7 @@ export default function MealSlotCard({
                                 <button
                                   disabled={saving}
                                   onClick={() => void saveDetails(entry)}
-                                  className="min-h-11 w-full py-2 rounded-lg bg-[#D4A853] text-stone-950 text-xs font-semibold disabled:opacity-50 flex items-center justify-center gap-1.5 active:scale-[0.99] transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                                  className="min-h-11 w-full py-2 rounded-lg bg-[var(--action-primary)] text-[var(--action-on-primary)] text-xs font-semibold disabled:opacity-50 flex items-center justify-center gap-1.5 active:scale-[0.99] transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                                 >
                                   {saving ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
                                   {t('food.edit.save')}

@@ -324,7 +324,7 @@ export default function ProgressPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen pb-24" style={{ background: 'var(--canvas)' }}>
+      <div className="min-h-screen pb-[calc(6rem+env(safe-area-inset-bottom))]" style={{ background: 'var(--canvas)' }}>
         <div className="max-w-md mx-auto px-4 pt-12 space-y-3">
           {[1, 2, 3].map(i => (
             <div key={i} className="card" style={{ height: 56, animation: 'pulse 1.5s infinite' }} />
@@ -601,7 +601,7 @@ export default function ProgressPage() {
   };
 
   return (
-    <div className="min-h-screen pb-24" style={{ background: 'var(--canvas)' }}>
+    <div className="min-h-screen pb-[calc(6rem+env(safe-area-inset-bottom))]" style={{ background: 'var(--canvas)' }}>
       <motion.div
         initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35 }}

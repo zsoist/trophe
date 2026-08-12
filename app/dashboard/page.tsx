@@ -703,8 +703,18 @@ export default function DashboardPage() {
           <motion.div
             initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.12 }}
-            className="card p-3 mb-3"
+            className="card min-h-11 p-3 mb-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             style={{ cursor: 'pointer' }}
+            role="button"
+            tabIndex={0}
+            aria-label={`View ${activeHabit.habit.name_en} details`}
+            onKeyDown={(event) => {
+              if (event.target !== event.currentTarget) return;
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                setShowHabitModal(true);
+              }
+            }}
             onClick={() => setShowHabitModal(true)}
           >
             <div className="row-b mb-2">

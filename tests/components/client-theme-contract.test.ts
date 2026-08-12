@@ -86,7 +86,8 @@ describe('client core theme and accessibility contract', () => {
   it('contains no hardcoded dark islands, legacy content tokens, or sub-12px labels', () => {
     const forbidden = [
       /bg-stone-9\d\d/g,
-      /text-stone-[1-6]\d\d/g,
+      /text-stone-\d{2,3}/g,
+      /(?:bg-red-(?:8|9)\d\d|text-red-[12]\d\d)(?:\/[\d.]+)?/g,
       /(?:bg|border)-white\/(?:\[|\d)/g,
       /rgba\(255,\s*255,\s*255/g,
       /var\(--(?:t[1-6]|line(?:-2)?|bg(?:-1)?)(?:[,\)])/g,
@@ -98,6 +99,26 @@ describe('client core theme and accessibility contract', () => {
     ));
 
     expect(violations).toEqual([]);
+  });
+
+  it('reserves the bottom navigation safe area on every progress page root', () => {
+    const roots = source('app/dashboard/progress/page.tsx').match(/<div className="min-h-screen[^"]*"/g) ?? [];
+    const unsafeRoots = roots.filter((root) => !/pb-\[calc\([^\]]*env\(safe-area-inset-bottom\)/.test(root));
+
+    expect(roots).toHaveLength(2);
+    expect(unsafeRoots).toEqual([]);
+  });
+
+  it('uses a keyboard-native control for the dashboard habit details action', () => {
+    const dashboard = source('app/dashboard/page.tsx');
+    const habitAction = dashboard.match(/<motion\.(?:button|div)[\s\S]{0,1200}?onClick=\{\(\) => setShowHabitModal\(true\)\}/)?.[0];
+
+    expect(habitAction).toBeDefined();
+    expect(habitAction).toMatch(/role="button"/);
+    expect(habitAction).toMatch(/tabIndex=\{0\}/);
+    expect(habitAction).toMatch(/onKeyDown=/);
+    expect(habitAction).toMatch(/min-h-11/);
+    expect(habitAction).toMatch(/focus-visible:ring-2/);
   });
 
   it('keeps mobile form controls at a non-zooming base size throughout the owned inventory', () => {
