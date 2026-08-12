@@ -89,7 +89,7 @@ export default memo(function CoachingStreak({ streakDays }: CoachingStreakProps)
                 opacity: [0, 1, 0],
                 scale: [0, 1.2, 0],
               }}
-              transition={{
+              transition={reduceMotion ? { duration: 0 } : {
                 duration: 2,
                 delay: n * 0.6,
                 repeat: Number.POSITIVE_INFINITY,

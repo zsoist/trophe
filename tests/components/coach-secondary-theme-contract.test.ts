@@ -17,6 +17,7 @@ vi.mock('framer-motion', async () => {
       ...Object.fromEntries(Object.entries(props).filter(([key]) => !ignored.has(key))),
       'data-motion-initial': props.initial === undefined ? undefined : JSON.stringify(props.initial),
       'data-motion-animate': props.animate === undefined ? undefined : JSON.stringify(props.animate),
+      'data-motion-exit': props.exit === undefined ? undefined : JSON.stringify(props.exit),
       'data-motion-while-hover': props.whileHover === undefined ? undefined : JSON.stringify(props.whileHover),
       ref,
     }, props.children as React.ReactNode),
@@ -107,14 +108,41 @@ function hasVisibleContent(node: ts.Node): boolean {
 }
 
 function motionNodes(container: HTMLElement) {
-  return [...container.querySelectorAll<HTMLElement>('[data-motion-initial], [data-motion-animate], [data-motion-while-hover]')];
+  return [...container.querySelectorAll<HTMLElement>('[data-motion-initial], [data-motion-animate], [data-motion-exit], [data-motion-while-hover]')];
 }
 
 function hasOnlyStaticMotion(container: HTMLElement) {
-  return motionNodes(container).every((node) => ['data-motion-initial', 'data-motion-animate', 'data-motion-while-hover'].every((attribute) => {
+  return motionNodes(container).every((node) => ['data-motion-initial', 'data-motion-animate', 'data-motion-exit', 'data-motion-while-hover'].every((attribute) => {
     const value = node.getAttribute(attribute);
     return value === null || value === 'false';
   }));
+}
+
+function repeatingMotionViolations(file: string) {
+  const value = source(file);
+  const ast = ts.createSourceFile(file, value, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const violations: string[] = [];
+  const visit = (node: ts.Node) => {
+    if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node)) {
+      const opening = ts.isJsxElement(node) ? node.openingElement : node;
+      if (opening.tagName.getText(ast).startsWith('motion.')) {
+        const attributes = opening.attributes.properties.filter(ts.isJsxAttribute);
+        const property = (name: string) => attributes.find((attribute) => attribute.name.getText(ast) === name)?.initializer?.getText(ast) ?? '';
+        const transition = property('transition');
+        if (/\b(?:Infinity|Number\.POSITIVE_INFINITY)\b/.test(transition)) {
+          const animate = property('animate');
+          const hasStaticAnimate = /(?:\breduceMotion\s*\?\s*(?:false|undefined)\b|!reduceMotion\s*&&)/.test(animate);
+          const hasStaticTransition = /(?:\breduceMotion\s*\?\s*\{[\s\S]*?\bduration\s*:\s*0\b|!reduceMotion\s*&&)/.test(transition);
+          if (!hasStaticAnimate || !hasStaticTransition) {
+            violations.push(`${file}: ${opening.tagName.getText(ast)} repeating motion lacks ${!hasStaticAnimate ? 'a static animate branch' : 'a static transition branch'}`);
+          }
+        }
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(ast);
+  return violations;
 }
 
 function RouteDialogHarness({ renderUtility }: { renderUtility: (onClose: () => void) => React.ReactNode }) {
@@ -252,22 +280,14 @@ describe('coach operational routes and modal library contract', () => {
     expect(pulses.every((pulse) => pulse.getAttribute('data-motion-animate') === 'false')).toBe(true);
   });
 
-  it('does not retain unguarded infinite decorative motion in operational coach surfaces', () => {
+  it('keeps every repeating coach motion element static when reduced motion is requested', () => {
     const files = [
       'components/coach/CoachAchievements.tsx',
       'components/coach/CoachingRoadmap.tsx',
       'components/coach/CoachingStreak.tsx',
       'components/coach/CoachLoadingSkeletons.tsx',
     ];
-    const perpetualMotion = files.flatMap((file) => {
-      const value = source(file);
-      const hasInfiniteRepeat = /repeat:\s*(?:Infinity|Number\.POSITIVE_INFINITY)/.test(value);
-      const hasStaticPreferenceBranch = /animate=\{(?:reduceMotion \? (?:false|undefined)|!reduceMotion)/.test(value);
-      return [
-        !/useReducedMotion/.test(value) && `${file}: no reduced-motion preference`,
-        hasInfiniteRepeat && !hasStaticPreferenceBranch && `${file}: infinite repetition lacks a static reduced-motion branch`,
-      ].filter(Boolean);
-    });
+    const perpetualMotion = files.flatMap(repeatingMotionViolations);
 
     expect(perpetualMotion).toEqual([]);
   });
