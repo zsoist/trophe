@@ -73,6 +73,21 @@ describe('nutrient-claim portion repair', () => {
     };
     expect(repairNutrientClaimPortion(candidate, { protein_g: 13 })).toEqual(candidate);
   });
+
+  it('preserves a Spanish food-weight span that equals the protein claim', () => {
+    const rawText = '13 g de proteína en polvo con 13 g de proteína';
+    const candidate = {
+      raw_text: rawText,
+      food_name: 'protein powder',
+      quantity: 13,
+      unit: 'g',
+      portion_explicit: true,
+      estimated_grams: 13,
+    };
+
+    expect(extractNutrientClaims(rawText)).toEqual({ protein_g: 13 });
+    expect(repairNutrientClaimPortion(candidate, { protein_g: 13 })).toEqual(candidate);
+  });
 });
 
 describe('user-stated nutrient overrides', () => {
@@ -133,5 +148,42 @@ describe('user-stated nutrient overrides', () => {
       sugar_g: 3,
     };
     expect(applyUserStatedNutrients(item, { protein_g: 50, carbs_g: 50, fat_g: 50 })).toEqual(item);
+  });
+
+  it('ignores calories that conflict with the projected label macros', () => {
+    const item = {
+      grams: 60,
+      calories: 190,
+      protein_g: 20,
+      carbs_g: 18,
+      fat_g: 6,
+      fiber_g: 4,
+      sugar_g: 3,
+      food_name: 'protein bar',
+    };
+
+    expect(applyUserStatedNutrients(item, { calories: 500, protein_g: 13 })).toMatchObject({
+      calories: 190,
+      protein_g: 13,
+      user_stated_nutrients: { protein_g: 13 },
+    });
+  });
+
+  it('preserves the metabolic-consistency exception for alcoholic drinks', () => {
+    const item = {
+      grams: 150,
+      calories: 125,
+      protein_g: 0,
+      carbs_g: 4,
+      fat_g: 0,
+      fiber_g: 0,
+      sugar_g: 1,
+      food_name: 'red wine',
+    };
+
+    expect(applyUserStatedNutrients(item, { calories: 150 })).toMatchObject({
+      calories: 150,
+      user_stated_nutrients: { calories: 150 },
+    });
   });
 });

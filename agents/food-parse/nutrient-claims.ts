@@ -27,9 +27,9 @@ const GRAM_SOURCE = '(?:g|gr|grams?|gramos?|grammes?|γρ\\.?)';
 const OF_SOURCE = '(?:of|de|del|d|απο)?';
 const MASS_UNITS = new Set(['g', 'gram', 'grams', 'gr', 'γρ']);
 const COUNTABLE_PRODUCT = /\b(?:bar|cookie|biscuit|brownie|muffin|egg|banana|apple|piece|packet|pack)\b/i;
-const PRODUCT_NOUN_AFTER_PROTEIN = /^(?:bar|shake|powder|cookie|snack|drink)\b/i;
+const PRODUCT_NOUN_AFTER_PROTEIN = /^(?:bar|shake|powder|cookie|snack|drink|en\s+polvo|en\s+poudre|σε\s+σκονη|in\s+polvere|em\s+po|pulver|poeder|barra|batido|galleta|bebida|barre)\b/iu;
 const CLAIM_CONTEXT = /\b(?:with|has|have|contains?|provides?|con|contiene|avec|contient|με|εχει)\b/i;
-const COMMON_PRODUCT_AFTER_MASS = '(?:protein\\s+)?(?:bar|powder|shake|cookie|snack|drink|packet|pack)';
+const ALCOHOL_NAME_PATTERN = /wine|beer|ale\b|lager|stout|cocktail|mojito|margarita|martini|sangria|champagne|prosecco|cava\b|cider|rum\b|vodka|whisk|tequila|gin\b|brandy|cognac|liqueur|aperol|spritz|negroni|alcohol|vino|cerveza|biere|κρασι|μπιρα|μπυρα|ουζο|τσιπουρο|ouzo|raki|soju|sake/i;
 
 function normalize(text: string): string {
   return text
@@ -43,22 +43,35 @@ function toPositiveNumber(value: string): number | null {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
-function escapeRegex(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
 function hasIndependentFoodMass(candidate: NutrientCandidate): boolean {
   const rawText = normalize(candidate.raw_text ?? '');
-  const foodName = normalize(candidate.food_name ?? '').trim();
-  if (!rawText || !foodName) return false;
+  if (!rawText) return false;
 
-  const quantity = escapeRegex(String(candidate.quantity)).replace('\\.', '[.,]');
-  const food = escapeRegex(foodName).replace(/\\\s+/g, '\\s+');
-  const pattern = new RegExp(
-    `(?:^|[^\\d])${quantity}\\s*${GRAM_SOURCE}\\s+(?:${food}|${COMMON_PRODUCT_AFTER_MASS})(?=$|[^\\p{L}])`,
-    'iu',
-  );
-  return pattern.test(rawText);
+  const massPattern = new RegExp(`(?<!\\d)${NUMBER_SOURCE}\\s*${GRAM_SOURCE}`, 'giu');
+  for (const match of rawText.matchAll(massPattern)) {
+    const value = toPositiveNumber(match[1]);
+    if (value === null || Math.abs(value - candidate.quantity) >= 0.01) continue;
+
+    const suffix = rawText.slice((match.index ?? 0) + match[0].length);
+    let isNutrientClaim = false;
+    for (const definition of NUTRIENTS) {
+      const nutrient = new RegExp(
+        `^\\s*${OF_SOURCE}\\s*(?:${definition.aliases})(?=$|[^\\p{L}])`,
+        'iu',
+      ).exec(suffix);
+      if (!nutrient) continue;
+
+      const afterNutrient = suffix.slice(nutrient[0].length).trimStart();
+      isNutrientClaim = !(
+        definition.key === 'protein_g' &&
+        PRODUCT_NOUN_AFTER_PROTEIN.test(afterNutrient)
+      );
+      break;
+    }
+
+    if (!isNutrientClaim) return true;
+  }
+  return false;
 }
 
 function firstGramClaim(text: string, definition: NutrientDefinition): number | null {
@@ -76,11 +89,9 @@ function firstGramClaim(text: string, definition: NutrientDefinition): number | 
     // explicit "of/de" connector before it can override nutrition.
     const suffix = text.slice((match.index ?? 0) + match[0].length).trimStart();
     const prefix = text.slice(Math.max(0, (match.index ?? 0) - 40), match.index ?? 0);
-    const explicitConnector = /\b(?:of|de|del)\b/.test(match[0]);
     if (
       definition.key === 'protein_g' &&
       PRODUCT_NOUN_AFTER_PROTEIN.test(suffix) &&
-      !explicitConnector &&
       !CLAIM_CONTEXT.test(prefix)
     ) {
       continue;
@@ -174,6 +185,8 @@ export interface NutrientResult {
   fat_g: number;
   fiber_g: number;
   sugar_g: number;
+  food_name?: string;
+  name_localized?: string;
 }
 
 export function applyUserStatedNutrients<T extends NutrientResult>(
@@ -184,15 +197,6 @@ export function applyUserStatedNutrients<T extends NutrientResult>(
 
   const accepted: UserStatedNutrients = {};
   const massLimit = item.grams * 1.15;
-
-  if (
-    typeof claims.calories === 'number' &&
-    Number.isFinite(claims.calories) &&
-    claims.calories > 0 &&
-    claims.calories <= item.grams * 9.5
-  ) {
-    accepted.calories = claims.calories;
-  }
 
   const macroKeys = ['protein_g', 'carbs_g', 'fat_g'] as const;
   const projectedMacros = {
@@ -219,6 +223,32 @@ export function applyUserStatedNutrients<T extends NutrientResult>(
     const value = claims[key];
     if (typeof value === 'number' && Number.isFinite(value) && value > 0 && value <= massLimit) {
       accepted[key] = value;
+    }
+  }
+
+  const claimedCalories = claims.calories;
+  if (
+    typeof claimedCalories === 'number' &&
+    Number.isFinite(claimedCalories) &&
+    claimedCalories > 0 &&
+    claimedCalories <= item.grams * 9.5
+  ) {
+    const finalMacros = macrosArePlausible ? projectedMacros : {
+      protein_g: item.protein_g,
+      carbs_g: item.carbs_g,
+      fat_g: item.fat_g,
+    };
+    const finalFiber = accepted.fiber_g ?? item.fiber_g;
+    const computedCalories = finalMacros.protein_g * 4 +
+      (finalMacros.carbs_g - finalFiber) * 4 +
+      finalFiber * 2 +
+      finalMacros.fat_g * 9;
+    const isAlcoholic = ALCOHOL_NAME_PATTERN.test(`${item.food_name ?? ''} ${item.name_localized ?? ''}`);
+    const divergence = computedCalories > 0
+      ? Math.abs(computedCalories - claimedCalories) / claimedCalories
+      : Number.POSITIVE_INFINITY;
+    if (divergence <= 0.30 || (isAlcoholic && claimedCalories > computedCalories)) {
+      accepted.calories = claimedCalories;
     }
   }
 
