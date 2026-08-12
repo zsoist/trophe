@@ -198,4 +198,31 @@ describe('local authenticated E2E harness', () => {
 
     expect(attempts).toEqual(['client-id', 'client-id', 'client-id']);
   });
+
+  it('allows slower local auth shutdowns to settle before declaring cleanup failed', async () => {
+    const attempts: number[] = [];
+    const delays: number[] = [];
+    const admin = {
+      async createUser() {
+        return { id: 'coach-id' };
+      },
+      async provisionProfile() {},
+      async deleteUser() {
+        attempts.push(attempts.length + 1);
+        if (attempts.length < 5) throw new Error('auth session is still closing');
+      },
+    };
+
+    await expect(withDisposableUsers({
+      admin,
+      users: [{ email: 'coach@test.invalid', password: 'one', role: 'coach' }],
+      execute: async () => 'passed',
+      cleanupRetryDelay: async (attempt) => {
+        delays.push(attempt);
+      },
+    })).resolves.toBe('passed');
+
+    expect(attempts).toEqual([1, 2, 3, 4, 5]);
+    expect(delays).toEqual([1, 2, 3, 4]);
+  });
 });
