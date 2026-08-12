@@ -15,6 +15,7 @@ import {
 
 const TEST_SPECS = [
   'e2e/food-error-states.spec.ts',
+  'e2e/microphone-flows.spec.ts',
   'e2e/settings-flows.spec.ts',
   'e2e/authenticated-role-flows.spec.ts',
 ];
@@ -109,20 +110,42 @@ export async function runLocalAuthenticatedE2E() {
     coach: users[1],
     admin: users[2],
   };
+  const userIds = new Map();
+  const disposableAdmin = adminAdapter(service);
   const childEnv = buildLocalPlaywrightEnv(process.env, status, credentials);
 
   return withDisposableUsers({
-    admin: adminAdapter(service),
+    admin: {
+      ...disposableAdmin,
+      async createUser(user) {
+        const created = await disposableAdmin.createUser(user);
+        userIds.set(user.role, created.id);
+        return created;
+      },
+    },
     users,
     execute: async () => {
+      const clientId = userIds.get('client');
+      const coachId = userIds.get('coach');
+      if (!clientId || !coachId) throw new Error('local E2E relationship users are unavailable');
+      const { error: linkError } = await service
+        .from('client_profiles')
+        .update({ coach_id: coachId })
+        .eq('user_id', clientId);
+      if (linkError) throw new Error('local E2E coach relationship provisioning failed');
+
       const playwrightBin = path.resolve('node_modules/@playwright/test/cli.js');
-      const result = spawnSync(
-        process.execPath,
-        [playwrightBin, 'test', '--workers=1', ...TEST_SPECS],
-        { stdio: 'inherit', env: childEnv },
-      );
-      if (result.error || result.status !== 0) {
-        throw new Error(`authenticated E2E failed with status ${result.status ?? 1}`);
+      try {
+        const result = spawnSync(
+          process.execPath,
+          [playwrightBin, 'test', '--workers=1', ...TEST_SPECS],
+          { stdio: 'inherit', env: childEnv },
+        );
+        if (result.error || result.status !== 0) {
+          throw new Error(`authenticated E2E failed with status ${result.status ?? 1}`);
+        }
+      } finally {
+        await service.from('client_profiles').update({ coach_id: null }).eq('user_id', clientId);
       }
     },
   });
