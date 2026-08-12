@@ -1,3 +1,5 @@
+import type { UserStatedNutrients } from '@/agents/food-parse/nutrient-claims';
+
 export interface MacroRange {
   min: number;
   center: number;
@@ -33,6 +35,8 @@ export interface ParsedFoodItem {
   db_food_id?: string | null;
   /** Photo-path only: model's own uncertainty note, shown as a caption under the item. */
   accuracy_note?: string | null;
+  /** Nutrition totals the user stated explicitly, e.g. a label's 13 g protein. */
+  user_stated_nutrients?: UserStatedNutrients;
 }
 
 export interface FoodParseInput {

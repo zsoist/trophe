@@ -26,4 +26,4 @@ Paid factory and simulator jobs run outside UTC 01:00–04:00 and 06:00–10:00.
 
 ## 7. Food-parse prompt and decision reference
 
-Production food parsing loads `agents/prompts/food-parse.v7.md` by default from `agents/food-parse/index.v4.ts`. The `index.v4.ts` filename describes pipeline architecture, not prompt version; do not infer that production uses the v4 prompt. The routing decision and Phase 2 evidence are in `artifacts/phase2/phase2-decision-report.md`.
+Production food parsing loads `agents/prompts/food-parse.v8.md` by default from `agents/food-parse/index.v4.ts`. The `index.v4.ts` filename describes pipeline architecture, not prompt version; do not infer that production uses the v4 prompt. v8 distinguishes nutrition-label facts from food weight and keeps those facts item-scoped behind plausibility checks. The routing decision and Phase 2 evidence are in `artifacts/phase2/phase2-decision-report.md`.

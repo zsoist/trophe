@@ -2,11 +2,16 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { X, Check, Minus, Plus, AlertTriangle, CornerDownLeft } from 'lucide-react';
+import { X, Check, Minus, Plus, AlertTriangle, Camera, CornerDownLeft, PencilLine } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { MACRO_COLORS } from '@/lib/macro-colors';
 import { AnimatedValue } from '@/components/ui/AnimatedValue';
 import { ProvenanceRing, resolveTier, type ProvenanceTier } from '@/components/food/ProvenanceRing';
+import {
+  getPortionDisplayAmount,
+  getPortionSizeOptions,
+  resolveAmountDraft,
+} from '@/components/food/portion-controls';
 import type { ParsedFoodItem } from '@/app/api/food/parse/route';
 
 interface ParsedFoodListProps {
@@ -18,6 +23,8 @@ interface ParsedFoodListProps {
   rawInputText?: string;
   /** Re-runs the parse with `${rawInputText} — ${answer}`. Absent (photo path) = question is informational only. */
   onReparse?: (text: string) => void;
+  /** Opens the existing photo analyzer without leaving clarification/review. */
+  onTakePhoto?: () => void;
   onConfirm: (items: ParsedFoodItem[]) => void;
   onCancel: () => void;
   logging: boolean;
@@ -202,6 +209,7 @@ export default function ParsedFoodList({
   warnings,
   rawInputText,
   onReparse,
+  onTakePhoto,
   onConfirm,
   onCancel,
   logging,
@@ -221,6 +229,9 @@ export default function ParsedFoodList({
   useEffect(() => { itemsRef.current = items; }, [items]);
   const [touchedIndex, setTouchedIndex] = useState<number | null>(null);
   const [typingIndex, setTypingIndex] = useState<number | null>(null);
+  const [amountDrafts, setAmountDrafts] = useState<Record<number, string>>({});
+  const amountInputRefs = useRef<Record<number, HTMLInputElement | null>>({});
+  const skipBlurCommitRef = useRef<Set<number>>(new Set());
   /** Display value at the moment a row is first stepper-touched — seeds the roll. */
   const [touchSeed, setTouchSeed] = useState(0);
   const holdDelayRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -289,6 +300,7 @@ export default function ParsedFoodList({
     setTouchedIndex(null);
     // W4: same reason — drop the open provenance caption so it can't reattach to the wrong row.
     setExplainIndex(null);
+    setAmountDrafts({});
     setItems(prev => prev.filter((_, i) => i !== index));
   };
 
@@ -297,6 +309,47 @@ export default function ParsedFoodList({
       if (i !== index) return item;
       return recalcMacros(item, Math.min(MAX_EDITABLE_GRAMS, Math.max(1, grams)));
     }));
+  };
+
+  const beginAmountEdit = (index: number, displayValue: number) => {
+    setTouchedIndex(null);
+    setTypingIndex(index);
+    setAmountDrafts(prev => ({ ...prev, [index]: String(displayValue) }));
+  };
+
+  const discardAmountDraft = (index: number) => {
+    setAmountDrafts(prev => {
+      const next = { ...prev };
+      delete next[index];
+      return next;
+    });
+    setTypingIndex(current => current === index ? null : current);
+  };
+
+  const commitAmountDraft = (
+    index: number,
+    previousDisplay: number,
+    gramsPerDisplayUnit: number,
+    volume: boolean,
+  ) => {
+    const committedDisplay = resolveAmountDraft(
+      amountDrafts[index] ?? String(previousDisplay),
+      previousDisplay,
+    );
+    const committedGrams = volume
+      ? Math.round(committedDisplay * gramsPerDisplayUnit)
+      : Math.round(committedDisplay);
+    if (committedGrams !== itemsRef.current[index]?.grams || itemsRef.current[index]?.portion_explicit === false) {
+      setGrams(index, committedGrams);
+    }
+    discardAmountDraft(index);
+  };
+
+  const focusAmountInput = (index: number) => {
+    const input = amountInputRefs.current[index];
+    if (!input) return;
+    input.focus();
+    input.select();
   };
 
   const totalCalories = items.reduce((s, i) => s + i.calories, 0);
@@ -476,23 +529,40 @@ export default function ParsedFoodList({
                       <div className="flex items-center gap-1">
                         <div className="relative">
                           <input
+                            ref={(node) => { amountInputRefs.current[index] = node; }}
                             type="number"
                             inputMode="numeric"
-                            value={displayVal}
+                            value={typingIndex === index
+                              ? (amountDrafts[index] ?? String(displayVal))
+                              : displayVal}
                             onChange={(e) => {
                               // Typing is explicit control — drop the rolling marker so
                               // blur doesn't replay a roll from a stale stepper seed.
                               setTouchedIndex(null);
-                              const newDisplay = parseInt(e.target.value) || 1;
-                              const newGrams = vol
-                                ? Math.round(newDisplay * gramsPerDisplayUnit)
-                                : newDisplay;
-                              setGrams(index, newGrams);
+                              setAmountDrafts(prev => ({ ...prev, [index]: e.target.value }));
                             }}
-                            onFocus={() => setTypingIndex(index)}
-                            onBlur={() => setTypingIndex(null)}
+                            onFocus={(e) => {
+                              beginAmountEdit(index, displayVal);
+                              e.currentTarget.select();
+                            }}
+                            onBlur={() => {
+                              if (skipBlurCommitRef.current.delete(index)) return;
+                              commitAmountDraft(index, displayVal, gramsPerDisplayUnit, vol);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                e.currentTarget.blur();
+                              } else if (e.key === 'Escape') {
+                                e.preventDefault();
+                                skipBlurCommitRef.current.add(index);
+                                discardAmountDraft(index);
+                                e.currentTarget.blur();
+                              }
+                            }}
                             className={`input-dark text-center text-sm w-20 py-2 ${rolling ? 'text-transparent' : ''}`}
                             min={1}
+                            aria-label={t('food.amount_input_aria')}
                             max={MAX_EDITABLE_GRAMS}
                           />
                           {/* Rolling digits painted over the (transparent) input text */}
@@ -533,6 +603,60 @@ export default function ParsedFoodList({
                 })()}
               </div>
 
+              {item.portion_explicit === false && (
+                <div className="mt-3 rounded-xl border border-amber-500/20 bg-amber-500/[0.06] p-2.5 space-y-2">
+                  <p className="text-amber-200/80 text-[11px] leading-snug">
+                    {t('food.estimated_portion_help')}
+                  </p>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {getPortionSizeOptions(item.grams).map(option => (
+                      <button
+                        key={option.size}
+                        type="button"
+                        onClick={() => setGrams(index, option.grams)}
+                        disabled={logging}
+                        className="min-h-12 rounded-lg border border-amber-500/20 bg-black/10 px-1.5 py-1.5 text-center hover:bg-amber-500/10 disabled:opacity-40 transition-colors"
+                      >
+                        <span className="block text-amber-200 text-[11px] font-medium">
+                          {t(`food.portion_${option.size}`)}
+                        </span>
+                        <span className="block text-stone-500 text-[10px] mt-0.5">
+                          {isVolumeUnit(item.unit)
+                            ? getPortionDisplayAmount(
+                                option.grams,
+                                item.quantity > 0 ? item.grams / item.quantity : 1,
+                              )
+                            : option.grams}{' '}
+                          {isVolumeUnit(item.unit) ? item.unit : 'g'}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                  <div className={`grid gap-1.5 ${onTakePhoto ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                    <button
+                      type="button"
+                      onClick={() => focusAmountInput(index)}
+                      disabled={logging}
+                      className="min-h-10 rounded-lg border border-white/[0.08] px-2 py-2 text-stone-300 text-[11px] flex items-center justify-center gap-1.5 hover:bg-white/[0.04] disabled:opacity-40 transition-colors"
+                    >
+                      <PencilLine size={13} />
+                      {t('food.enter_amount')}
+                    </button>
+                    {onTakePhoto && (
+                      <button
+                        type="button"
+                        onClick={onTakePhoto}
+                        disabled={logging}
+                        className="min-h-10 rounded-lg border border-white/[0.08] px-2 py-2 text-stone-300 text-[11px] flex items-center justify-center gap-1.5 hover:bg-white/[0.04] disabled:opacity-40 transition-colors"
+                      >
+                        <Camera size={13} />
+                        {t('food.take_photo')}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Macros */}
               <div className="flex gap-3 mt-2 text-xs text-stone-400">
                 <span className="gold-text font-medium">{item.calories} kcal</span>
@@ -542,6 +666,24 @@ export default function ParsedFoodList({
                 {item.fiber_g > 0 && <span className="text-green-400">Fb: {item.fiber_g}g</span>}
                 {(item.sugar_g ?? 0) > 0 && <span className="text-orange-400">S: {item.sugar_g}g</span>}
               </div>
+
+              {item.user_stated_nutrients && (() => {
+                const stated = item.user_stated_nutrients;
+                const facts = [
+                  stated.protein_g !== undefined ? `${stated.protein_g} g ${t('food.edit.protein')}` : null,
+                  stated.carbs_g !== undefined ? `${stated.carbs_g} g ${t('food.edit.carbs')}` : null,
+                  stated.fat_g !== undefined ? `${stated.fat_g} g ${t('food.edit.fat')}` : null,
+                  stated.fiber_g !== undefined ? `${stated.fiber_g} g ${t('food.edit.fiber')}` : null,
+                  stated.sugar_g !== undefined ? `${stated.sugar_g} g ${t('food.edit.sugar')}` : null,
+                  showCalories && stated.calories !== undefined ? `${stated.calories} ${t('food.edit.kcal')}` : null,
+                ].filter((fact): fact is string => fact !== null);
+                if (facts.length === 0) return null;
+                return (
+                  <p className="mt-1.5 text-[10px] leading-snug text-emerald-300/80">
+                    {t('food.using_label', { facts: facts.join(' · ') })}
+                  </p>
+                );
+              })()}
 
               {/* Estimated-portion spread — only for implicit portions, kcal-gated.
                   W4: on mount shows ≈min–max, then settles to the center kcal
@@ -602,6 +744,17 @@ export default function ParsedFoodList({
                 </button>
               </div>
             )}
+            {onTakePhoto && (
+              <button
+                type="button"
+                onClick={onTakePhoto}
+                disabled={logging}
+                className="ml-6 min-h-10 rounded-lg border border-amber-500/20 px-3 py-2 text-amber-200 text-[11px] flex items-center justify-center gap-1.5 hover:bg-amber-500/10 disabled:opacity-40 transition-colors"
+              >
+                <Camera size={13} />
+                {t('food.take_photo')}
+              </button>
+            )}
           </motion.div>
         ) : unresolvedPortions > 0 ? (
           <motion.div
@@ -612,7 +765,7 @@ export default function ParsedFoodList({
           >
             <AlertTriangle size={14} className="text-amber-400 flex-shrink-0" />
             <p className="text-amber-300/80 text-[11px] line-clamp-2">
-              {unresolvedPortions === 1 ? 'Estimated portion' : `${unresolvedPortions} estimated portions`} — adjust if needed, or save as-is.
+              {t('food.estimated_portion_summary', { n: String(unresolvedPortions) })}
             </p>
           </motion.div>
         ) : null}
@@ -663,7 +816,7 @@ export default function ParsedFoodList({
           {/* Soft warning for estimated portions — non-blocking */}
           {unresolvedPortions > 0 && (
             <p className="text-amber-400/70 text-[10px] text-center mb-2">
-              {unresolvedPortions} estimated portion{unresolvedPortions > 1 ? 's' : ''} — tap items to adjust
+              {t('food.estimated_portion_count', { n: String(unresolvedPortions) })}
             </p>
           )}
 

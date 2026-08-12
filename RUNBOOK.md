@@ -170,14 +170,14 @@ Common causes:
 
 **Diagnose**:
 ```bash
-# Diff the prompt against last known-good version (current canonical: v7)
-git log --oneline agents/prompts/food-parse.v7.md
-git diff <last-good-commit> agents/prompts/food-parse.v7.md
+# Diff the prompt against last known-good version (current canonical: v8)
+git log --oneline agents/prompts/food-parse.v8.md
+git diff <last-good-commit> agents/prompts/food-parse.v8.md
 ```
 
 **Fix**:
-- Bump version: copy `food-parse.v7.md` → `food-parse.v8.md`, revert the regression
-- Update the version in `agents/food-parse/index.v4.ts` (defaults to `FOOD_PARSE_PROMPT_VERSION ?? 'v7'`)
+- Bump version: copy `food-parse.v8.md` → `food-parse.v9.md`, revert the regression
+- Update the version in `agents/food-parse/index.v4.ts` (defaults to `FOOD_PARSE_PROMPT_VERSION ?? 'v8'`)
 - Ship the fix; keep the previous version file for audit trail
 
 **Verify**: run Promptfoo locally against the golden set; scores recovered.

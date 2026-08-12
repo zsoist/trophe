@@ -3,7 +3,7 @@
 Single source of truth for all LLM-backed features in Trophē v0.3.
 Routes are thin adapters. Prompts are versioned files. Every call is traced.
 
-_Last updated: 2026-07-17 (Luna explicit prefix caching, bounded retries, and provider diagnostics)_
+_Last updated: 2026-08-11 (label-aware food parsing, practical portions, and fail-safe voice input)_
 
 ---
 
@@ -45,7 +45,7 @@ agents/
       regression.ts          # layer 3: golden-set comparison (549-set ~90% / 700-set 76.7% median-of-3)
   prompts/          # versioned prompt templates (git-diffable)
     food-parse.v3.md
-    food-parse.v7.md                 # production default
+    food-parse.v8.md                 # production default
     recipe-analyze.v1.md
   schemas/          # input/output TypeScript types per agent
 ```
@@ -120,17 +120,19 @@ Every route MUST pass `telemetry` to `logAPIUsage()` so cost and cache-hit rates
 
 **v0.2 (broken)**: LLM emitted invented macro numbers → ~81% accuracy (historical v0.2 figure; not current — see benchmark below).
 
-**v0.3 (fixed)**:
+**v0.3 (current)**:
 ```
 User input: "200g feta, 1 banana"
-  → LLM (GPT-5.6 Luna, Haiku fallback): identifies {food_name:"feta cheese", qty:200, unit:"g"}
-     LLM NEVER sees or emits macro numbers
+  → LLM (GPT-5.6 Luna, Haiku fallback): identifies foods, quantities, units,
+    and secondary per-100g estimates
   → lookup.ts:
       1. tsvector keyword filter (GIN index on search_text)
       2. cosine kNN on embedding (HNSW pgvector, 1024-dim Voyage v4)
       3. metadata rerank (source quality, region, name similarity)
       → food_id + grams_per_unit from food_unit_conversions
-  → macros: grams × food.kcal_per_100g / 100 (pure arithmetic)
+  → arbitration prefers DB macros for high-confidence matches
+  → an explicitly named label fact such as "13 g protein" overrides only
+    that nutrient after the food's portion is resolved and plausibility-checked
   → food_log.food_id FK set, food_log.qty_g set, food_log.parse_confidence set
 ```
 

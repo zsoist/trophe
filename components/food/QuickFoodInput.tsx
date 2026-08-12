@@ -14,6 +14,13 @@ import { photoAnalysisToParsedItems } from '@/lib/food/photo-analysis';
 import ParsedFoodList from '@/components/food/ParsedFoodList';
 import PhotoScanCard from '@/components/food/PhotoScanCard';
 import BarcodeLookupModal from '@/components/food/BarcodeLookupModal';
+import { isPortionClarificationQuestion } from '@/components/food/portion-controls';
+import {
+  startVoiceSession,
+  type SpeechRecognitionLike,
+  type VoiceInputError,
+  type VoiceSession,
+} from '@/components/food/voice-input';
 
 interface QuickFoodInputProps {
   userId: string;
@@ -68,6 +75,20 @@ const STT_LANG_TAGS: Record<string, string> = {
   de: 'de-DE', it: 'it-IT', pt: 'pt-PT', nl: 'nl-NL',
 };
 
+const VOICE_ERROR_KEYS: Record<VoiceInputError, string> = {
+  'permission-denied': 'food.voice_permission_denied',
+  'no-speech': 'food.voice_no_speech',
+  'audio-capture': 'food.voice_audio_capture',
+  network: 'food.voice_network',
+  timeout: 'food.voice_timeout',
+  'start-failed': 'food.voice_start_failed',
+  aborted: 'food.voice_aborted',
+  unknown: 'food.voice_unknown',
+};
+
+type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
+type RetryAction = 'text' | 'photo' | 'voice';
+
 export default function QuickFoodInput({ userId, mealType, date, onLogged, showCalories = false }: QuickFoodInputProps) {
   const { t, lang } = useI18n();
   const reducedMotion = useReducedMotion();
@@ -100,6 +121,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
   /** Snapshot of the parse result at confirm-entry — flywheel diffs confirmed values against it. */
   const originalItemsRef = useRef<ParsedFoodItem[]>([]);
   const parseBusyRef = useRef(false);
+  const retryActionRef = useRef<RetryAction>('text');
 
   // 429 Retry-After countdown — Retry stays disabled until it reaches 0.
   useEffect(() => {
@@ -146,6 +168,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
       return;
     }
     parseBusyRef.current = true;
+    retryActionRef.current = 'text';
     setError(null);
     setSlowParse(false);
     setEstimatedItems(estimateItemCount(value));
@@ -241,7 +264,9 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
   const handleRetry = () => {
     if (retryAfterS > 0) return;
     setError(null);
-    if (lastFileRef.current) {
+    if (retryActionRef.current === 'voice') {
+      startVoiceInput();
+    } else if (retryActionRef.current === 'photo' && lastFileRef.current) {
       processImageFile(lastFileRef.current);
     } else if (lastTextRef.current) {
       setText(lastTextRef.current);
@@ -259,6 +284,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
     if (parseBusyRef.current || logging) return;
     parseBusyRef.current = true;
     setError(null);
+    retryActionRef.current = 'photo';
     setMode('photo_analyzing');
     lastFileRef.current = file;
     let requestTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -359,143 +385,63 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
   // Mic permission denied at OS level — show helpful guidance
   const [micDeniedHelp, setMicDeniedHelp] = useState(false);
 
-  // Voice recognition lives in refs: the old local-variable instance could
-  // never be .stop()ped from the Stop button (hot mic kept overwriting later
-  // typing) and the onend guard read stale `mode` state.
-  const recognitionRef = useRef<{ stop: () => void } | null>(null);
-  const listeningRef = useRef(false);
-  const finalTranscriptRef = useRef('');
-  const unmountedRef = useRef(false);
+  // A session controller owns every browser callback and guarantees exactly
+  // one terminal state, including browsers that never emit `end` after Stop.
+  const voiceSessionRef = useRef<VoiceSession | null>(null);
 
   useEffect(() => {
-    unmountedRef.current = false;
     return () => {
-      unmountedRef.current = true;
-      listeningRef.current = false;
-      try {
-        recognitionRef.current?.stop();
-      } catch {
-        // already stopped
-      }
-      recognitionRef.current = null;
+      voiceSessionRef.current?.cancel();
+      voiceSessionRef.current = null;
     };
   }, []);
 
-  /** Stop button: actually stop the mic. onend then parses any final transcript. */
+  /** Stop keeps the live transcript and waits for the controller's safe finish. */
   const stopVoiceInput = () => {
-    listeningRef.current = false;
-    try {
-      recognitionRef.current?.stop();
-    } catch {
-      // already stopped
-    }
-    setMode('idle');
+    voiceSessionRef.current?.stop();
   };
 
-  // F15: Voice input via Web Speech API — with explicit mic permission request
-  const startVoiceInput = async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const w = window as any;
+  // F15: Voice input via Web Speech API. The recognition controller sets all
+  // handlers before start, enforces a watchdog, and preserves interim speech.
+  const startVoiceInput = () => {
+    const w = window as typeof window & {
+      SpeechRecognition?: SpeechRecognitionConstructor;
+      webkitSpeechRecognition?: SpeechRecognitionConstructor;
+    };
     const SpeechRecognition = w.SpeechRecognition || w.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
+      retryActionRef.current = 'voice';
       setError(t('food.voice_unsupported'));
       return;
     }
 
-    // Check/request mic permission explicitly before starting recognition.
-    // This shows a clear browser permission prompt with context, instead of
-    // the browser silently asking mid-action (which feels unexpected).
-    if (navigator.permissions) {
-      try {
-        const status = await navigator.permissions.query({ name: 'microphone' as PermissionName });
-        if (status.state === 'denied') {
-          // OS-level denial — JS cannot re-trigger the system prompt.
-          // Show step-by-step guidance to the user instead.
-          setMicDeniedHelp(true);
-          return;
-        }
-      } catch {
-        // permissions API not available on all browsers — continue anyway
-      }
-    }
-
-    // Warm up the mic permission dialog before starting recognition.
-    // getUserMedia fires the "Allow mic?" prompt with our app context visible.
-    if (navigator.mediaDevices?.getUserMedia) {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        // Immediately release the stream — we only needed the permission grant
-        stream.getTracks().forEach(t => t.stop());
-      } catch (err) {
-        if (err instanceof DOMException && err.name === 'NotAllowedError') {
-          // Could be OS-level or browser-level denial
-          setMicDeniedHelp(true);
-          return;
-        }
-        // Other errors (NotFoundError, etc.) — try recognition anyway
-      }
-    }
-
-    const recognition = new SpeechRecognition();
-    recognition.lang = STT_LANG_TAGS[lang] ?? 'en-US';
-    // Live transcript while speaking — the previous dead screen made users
-    // assume voice was broken and start typing over a hot mic.
-    recognition.interimResults = true;
-    recognition.maxAlternatives = 1;
-
-    recognitionRef.current = recognition;
-    listeningRef.current = true;
-    finalTranscriptRef.current = '';
+    voiceSessionRef.current?.cancel();
+    retryActionRef.current = 'voice';
+    setMicDeniedHelp(false);
     setError(null);
-    setMode('listening');
-    recognition.start();
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    recognition.onresult = (event: any) => {
-      if (unmountedRef.current) return;
-      let finalText = '';
-      let interimText = '';
-      for (let i = 0; i < event.results.length; i++) {
-        const result = event.results[i];
-        if (result.isFinal) finalText += result[0].transcript;
-        else interimText += result[0].transcript;
-      }
-      finalTranscriptRef.current = finalText.trim();
-      const live = `${finalText} ${interimText}`.replace(/\s+/g, ' ').trim();
-      if (live) setText(live);
-    };
-
-    recognition.onerror = (event: { error: string }) => {
-      listeningRef.current = false;
-      recognitionRef.current = null;
-      finalTranscriptRef.current = '';
-      if (unmountedRef.current) return;
-      setMode('idle');
-      if (event.error === 'not-allowed') {
-        setError('Microphone access denied — enable it in browser settings');
-      } else if (event.error !== 'aborted') {
-        setError('Could not recognize speech — try again');
-      }
-    };
-
-    recognition.onend = () => {
-      recognitionRef.current = null;
-      const wasListening = listeningRef.current;
-      listeningRef.current = false;
-      const transcript = finalTranscriptRef.current.trim();
-      finalTranscriptRef.current = '';
-      if (unmountedRef.current) return;
-      // Ref-based guard — the old `mode === 'listening'` check closed over
-      // stale state and left the UI stuck in listening mode.
-      if (wasListening) setMode('idle');
-      if (transcript) {
+    const session = startVoiceSession({
+      recognition: new SpeechRecognition(),
+      language: STT_LANG_TAGS[lang] ?? 'en-US',
+      onListening: () => setMode('listening'),
+      onTranscript: transcript => setText(transcript),
+      onComplete: transcript => {
+        voiceSessionRef.current = null;
+        setMode('idle');
         setText(transcript);
-        // Pass the transcript directly — parsing must not depend on setText
-        // having flushed (the old setTimeout+stale-closure no-op bug).
-        handleParseText(transcript);
-      }
-    };
+        // Parse the callback value directly; React state may not have flushed.
+        void handleParseText(transcript);
+      },
+      onError: voiceError => {
+        voiceSessionRef.current = null;
+        setMode('idle');
+        if (voiceError === 'permission-denied') setMicDeniedHelp(true);
+        setError(t(VOICE_ERROR_KEYS[voiceError]));
+      },
+    });
+
+    voiceSessionRef.current = session.active ? session : null;
   };
 
   // F21: Manual entry (quick add)
@@ -695,6 +641,8 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
   };
 
   const handleCancel = () => {
+    voiceSessionRef.current?.cancel();
+    voiceSessionRef.current = null;
     setParsedItems([]);
     setClarificationQuestion(null);
     setParseWarnings([]);
@@ -708,14 +656,16 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
   };
 
   /** Submit an answer to the empty-items clarification question — re-parses "original — answer". */
-  const submitQuestionAnswer = () => {
-    const answer = questionAnswer.trim();
+  const submitQuestionChoice = (answerValue: string) => {
+    const answer = answerValue.trim();
     if (!answer) return;
     const combined = `${questionOriginalText} — ${answer}`;
     setQuestionText(null);
     setQuestionAnswer('');
     handleParseText(combined);
   };
+
+  const submitQuestionAnswer = () => submitQuestionChoice(questionAnswer);
 
   /** Leave the question card — the original text is restored, nothing is lost. */
   const cancelQuestion = () => {
@@ -758,12 +708,20 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
   // items. Show the actual question with an answer box (was: dead-ended on a
   // generic "No food items detected" error).
   if (mode === 'question' && questionText) {
+    const isPortionQuestion = isPortionClarificationQuestion(questionText);
     return (
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         className="glass p-4 space-y-3"
       >
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handlePhotoCapture}
+          className="hidden"
+        />
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-start gap-2">
             <HelpCircle size={16} className="text-amber-400 flex-shrink-0 mt-0.5" />
@@ -780,6 +738,20 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
           </button>
         </div>
         <p className="text-stone-600 text-[11px] italic truncate">“{questionOriginalText}”</p>
+        {isPortionQuestion && (
+          <div className="grid grid-cols-3 gap-1.5">
+            {(['small', 'medium', 'large'] as const).map(size => (
+              <button
+                key={size}
+                type="button"
+                onClick={() => submitQuestionChoice(t(`food.portion_answer_${size}`))}
+                className="min-h-11 rounded-lg border border-amber-500/20 bg-amber-500/[0.06] text-amber-200 text-xs hover:bg-amber-500/10 transition-colors"
+              >
+                {t(`food.portion_${size}`)}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="flex gap-2">
           <input
             type="text"
@@ -805,6 +777,14 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
             <Send size={14} />
           </button>
         </div>
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className="min-h-10 w-full rounded-lg border border-white/[0.08] text-stone-300 text-xs flex items-center justify-center gap-1.5 hover:bg-white/[0.04] transition-colors"
+        >
+          <Camera size={14} />
+          {t('food.take_photo')}
+        </button>
       </motion.div>
     );
   }
@@ -825,12 +805,20 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
         )}
         {/* F14 + W11: photo settles with a final beam pass when results land */}
         {photoPreview && <PhotoScanCard src={photoPreview} state="done" />}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handlePhotoCapture}
+          className="hidden"
+        />
         <ParsedFoodList
           items={parsedItems}
           clarificationQuestion={clarificationQuestion}
           warnings={parseWarnings}
           rawInputText={inputSource === 'text' ? lastTextForReview : undefined}
           onReparse={inputSource === 'text' ? handleReparse : undefined}
+          onTakePhoto={() => fileInputRef.current?.click()}
           onConfirm={handleConfirm}
           onCancel={handleCancel}
           logging={logging}

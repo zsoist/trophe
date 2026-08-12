@@ -8,8 +8,9 @@ At the end of each phase, create a new `STATUS-YYYY-MM-DD.md`; everything else i
 |---|---|
 | [`STATUS-2026-06-13.md`](STATUS-2026-06-13.md) | **Live snapshot** — what's shipped, benchmark, known gaps |
 | [`../README.md`](../README.md) | Project overview + setup |
-| [`../ARCHITECTURE.md`](../ARCHITECTURE.md) | Stack, data model, LLM routing (100% DeepSeek text) |
+| [`../ARCHITECTURE.md`](../ARCHITECTURE.md) | Stack, data model, and three-lane LLM routing |
 | [`../CLAUDE.md`](../CLAUDE.md) · [`../AGENTS.md`](../AGENTS.md) | Coding rules & agent conventions |
+| [`LLM-HANDOFF.md`](LLM-HANDOFF.md) | Production model policy, prompt version, and eval rules |
 
 ## Plans (current)
 - [`plans/nutrafit-master-plan.md`](plans/nutrafit-master-plan.md) — phase roadmap (Daily Nutrafit × Trophē)

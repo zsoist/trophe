@@ -4,6 +4,17 @@ All notable changes to Trophē are logged here. Format follows [Keep a Changelog
 
 ---
 
+## [Food logging reliability] — 2026-08-11
+
+### Changed
+- Uncertain portions now offer Small, Medium, and Large choices, a direct amount field, and a photo path instead of requiring users to estimate grams by eye.
+- Voice logging now preserves interim speech, always exits listening after Stop, and recovers with clear retry states when the browser fails or times out.
+
+### Fixed
+- Food amounts can be cleared and replaced directly, including entries such as 700 g, without snapping back to 1 while the user is typing.
+- Nutrition-label phrases such as “13 g protein” are treated as facts about the food, not as the total weight of the bar or serving.
+- User-stated label values now pass physical and metabolic plausibility checks, and volume portion choices stay in the original unit.
+
 ## [Zero-spend quality and parser hardening] — 2026-07-29
 
 ### Added

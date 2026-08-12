@@ -45,7 +45,7 @@ Partnership with Michael Kavdas (Greek nutritionist, PN L1 certified, COO Athlet
 
 ## Key features (current)
 
-- **Food logging**: text, photo, voice, paste, manual — AI parses into structured entries with macros
+- **Food logging**: text, photo, voice, paste, manual — with practical portion choices, editable amounts, and nutrition-label-aware parsing
 - **Recipe analyzer** (new): paste a recipe → AI extracts ingredients + totals + per-serving → log N servings
 - **Habit engine**: 14-day cycles, one habit at a time, coach-assigned + auto-progression
 - **Coach module (June 2026)**: weekly meal-plan grid (desktop week view + mobile day tabs),
