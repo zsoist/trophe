@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { X, Check, Minus, Plus, AlertTriangle, Camera, CornerDownLeft, PencilLine } from 'lucide-react';
@@ -394,12 +394,33 @@ export default function ParsedFoodList({
     input.select();
   };
 
-  const totalCalories = items.reduce((s, i) => s + i.calories, 0);
-  const totalProtein = items.reduce((s, i) => s + i.protein_g, 0);
-  const totalCarbs = items.reduce((s, i) => s + i.carbs_g, 0);
-  const totalFat = items.reduce((s, i) => s + i.fat_g, 0);
-  const totalFiber = items.reduce((s, i) => s + i.fiber_g, 0);
-  const warning = getMacroWarning(items);
+  const reviewedItems = useMemo(() => items.map((item, index) => {
+    if (typingIndex !== index) return item;
+    const draft = amountDrafts[index];
+    if (draft == null || draft.trim() === '') return item;
+    const amount = Number(draft);
+    if (!Number.isFinite(amount) || amount <= 0) return item;
+    const humanUnit = isVolumeUnit(item.unit) || canUseNaturalPortionDisplay({
+      unit: item.unit,
+      grams: item.grams,
+      quantity: item.quantity,
+    });
+    const previewGrams = humanUnit
+      ? getGramsForHumanPortion({
+          grams: item.grams,
+          quantity: item.quantity,
+          humanAmount: amount,
+        })
+      : Math.round(amount);
+    return recalculatePortion(item, previewGrams);
+  }), [amountDrafts, items, typingIndex]);
+
+  const totalCalories = reviewedItems.reduce((s, i) => s + i.calories, 0);
+  const totalProtein = reviewedItems.reduce((s, i) => s + i.protein_g, 0);
+  const totalCarbs = reviewedItems.reduce((s, i) => s + i.carbs_g, 0);
+  const totalFat = reviewedItems.reduce((s, i) => s + i.fat_g, 0);
+  const totalFiber = reviewedItems.reduce((s, i) => s + i.fiber_g, 0);
+  const warning = getMacroWarning(reviewedItems);
   const unresolvedPortions = items.filter((item) => item.portion_explicit === false).length;
   const hasPortionClarification = !!clarificationQuestion
     && isPortionClarificationQuestion(clarificationQuestion);
@@ -454,7 +475,7 @@ export default function ParsedFoodList({
         )}
 
         <AnimatePresence>
-          {items.map((item, index) => {
+          {reviewedItems.map((item, index) => {
             const itemName = item.name_localized || item.food_name;
             const naturalPortion = canUseNaturalPortionDisplay({
               unit: item.unit,
@@ -930,7 +951,7 @@ export default function ParsedFoodList({
               {t('general.cancel')}
             </button>
             <motion.button
-              onClick={() => onConfirm(items)}
+              onClick={() => onConfirm(reviewedItems)}
               disabled={logging || items.length === 0}
               whileTap={{ scale: 0.97 }}
               className="btn-gold flex-1 py-3 text-sm font-semibold flex items-center justify-center gap-2 shadow-[0_4px_16px_rgba(212,168,83,0.3)]"

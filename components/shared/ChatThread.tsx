@@ -12,7 +12,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Paperclip, Mic, X, Play, Pause, Square } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { Icon } from '@/components/ui';
@@ -22,7 +22,12 @@ import {
   releaseUnreferencedPreviewUrls,
 } from '@/lib/chat/preview-url-lifecycle';
 import { chronologicalFromNewest } from '@/lib/chat/message-order';
-import { stopMediaStream } from '@/lib/chat/media-recorder-lifecycle';
+import { chatAudioAttachmentDetails } from '@/lib/chat/media-recorder-lifecycle';
+import {
+  startAudioRecordingSession,
+  type AudioRecordingSession,
+  type RecordingError,
+} from '@/lib/microphone/recording-session';
 
 export interface ChatMessage {
   id: string;
@@ -147,6 +152,7 @@ function ImageBubble({ m, onOpen }: { m: ChatMessage; onOpen: (url: string) => v
 
 // ── Bubble: voice note (custom accent player) ─────────────────────────────────
 function AudioBubble({ m, mine }: { m: ChatMessage; mine: boolean }) {
+  const { t } = useI18n();
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0); // 0..1
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -172,9 +178,9 @@ function AudioBubble({ m, mine }: { m: ChatMessage; mine: boolean }) {
     <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 168 }}>
       <button
         onClick={toggle}
-        aria-label={playing ? 'pause' : 'play'}
+        aria-label={playing ? t('chat.pause_voice') : t('chat.play_voice')}
         style={{
-          width: 32, height: 32, borderRadius: '50%', border: 'none', flexShrink: 0,
+          width: 44, height: 44, borderRadius: '50%', border: 'none', flexShrink: 0,
           background: mine ? 'var(--accent, #D4A853)' : 'rgba(255,255,255,.1)',
           color: mine ? '#0a0a0a' : 'var(--t1)', cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -209,22 +215,21 @@ interface Pending {
 
 export default function ChatThread({ coachId, clientId, viewerRole, counterpartName }: ChatThreadProps) {
   const { t } = useI18n();
+  const reducedMotion = useReducedMotion();
   const [msgs, setMsgs] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState<Pending | null>(null);
   const [recording, setRecording] = useState(false);
+  const [recordingStarted, setRecordingStarted] = useState(false);
   const [recordSecs, setRecordSecs] = useState(0);
   const [lightbox, setLightbox] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-  const recorderRef = useRef<MediaRecorder | null>(null);
-  const activeStreamRef = useRef<MediaStream | null>(null);
+  const recordingSessionRef = useRef<AudioRecordingSession | null>(null);
   const recordTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const recordCancelledRef = useRef(false);
-  const mediaMountedRef = useRef(true);
   const ownedPreviewUrlsRef = useRef(new Set<string>());
 
   const createPreviewUrl = useCallback((blob: Blob) => {
@@ -359,82 +364,82 @@ export default function ChatThread({ coachId, clientId, viewerRole, counterpartN
     }
   };
 
-  // ── Voice note (MediaRecorder) ──────────────────────────────────────────────
-  const startRecording = async () => {
-    let requestedStream: MediaStream | null = null;
-    try {
-      requestedStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      if (!mediaMountedRef.current) {
-        stopMediaStream(requestedStream);
-        return;
-      }
-      const stream = requestedStream;
-      activeStreamRef.current = stream;
-      const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus'
-        : MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : '';
-      const rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
-      const chunks: Blob[] = [];
-      const startedAt = Date.now();
-      recordCancelledRef.current = false;
-      rec.ondataavailable = (ev) => { if (ev.data.size > 0) chunks.push(ev.data); };
-      rec.onstop = () => {
-        stopMediaStream(stream);
-        if (activeStreamRef.current === stream) activeStreamRef.current = null;
-        if (recorderRef.current === rec) recorderRef.current = null;
-        if (recordTimerRef.current) { clearInterval(recordTimerRef.current); recordTimerRef.current = null; }
-        if (!mediaMountedRef.current) return;
-        setRecording(false);
+  const clearRecordingUi = () => {
+    if (recordTimerRef.current) clearInterval(recordTimerRef.current);
+    recordTimerRef.current = null;
+    setRecording(false);
+    setRecordingStarted(false);
+    setRecordSecs(0);
+  };
+
+  const recordingErrorKey = (error: RecordingError): string => {
+    if (error === 'permission-denied') return 'chat.mic_denied';
+    if (error === 'no-audio') return 'chat.no_audio';
+    if (error === 'unsupported') return 'chat.mic_unsupported';
+    return 'chat.record_failed';
+  };
+
+  // ── Voice note (shared recorder lifecycle; remains local until Send) ───────
+  const startRecording = () => {
+    recordingSessionRef.current?.cancel();
+    setUploadError(null);
+    const session = startAudioRecordingSession({
+      maxDurationMs: 300_000,
+      onRequesting: () => {
+        setRecording(true);
+        setRecordingStarted(false);
         setRecordSecs(0);
-        if (recordCancelledRef.current) return;
-        const type = rec.mimeType || 'audio/webm';
-        const blob = new Blob(chunks, { type });
-        if (blob.size < 200) return; // accidental tap
-        const duration_s = Math.round((Date.now() - startedAt) / 1000);
+      },
+      onRecording: () => {
+        setRecording(true);
+        setRecordingStarted(true);
+        recordTimerRef.current = setInterval(() => setRecordSecs(seconds => Math.min(300, seconds + 1)), 1_000);
+        navigator.vibrate?.(8);
+      },
+      onComplete: result => {
+        recordingSessionRef.current = null;
+        clearRecordingUi();
+        if (result.blob.size < 200) {
+          setUploadError(t('chat.no_audio'));
+          return;
+        }
+        const details = chatAudioAttachmentDetails(result.mimeType, result.durationMs);
         setPending({
-          kind: 'audio', blob, previewUrl: createPreviewUrl(blob),
-          meta: { duration_s },
-          ext: type.includes('mp4') ? 'm4a' : type.includes('ogg') ? 'ogg' : 'webm',
-          mime: type.split(';')[0],
+          kind: 'audio',
+          blob: result.blob,
+          previewUrl: createPreviewUrl(result.blob),
+          meta: { duration_s: details.duration_s },
+          ext: details.ext,
+          mime: details.mime,
         });
-      };
-      rec.start();
-      recorderRef.current = rec;
-      setRecording(true);
-      setRecordSecs(0);
-      recordTimerRef.current = setInterval(() => setRecordSecs((s) => s + 1), 1000);
-      navigator.vibrate?.(8);
-    } catch {
-      stopMediaStream(requestedStream);
-      if (activeStreamRef.current === requestedStream) activeStreamRef.current = null;
-      if (mediaMountedRef.current) setUploadError(t('chat.mic_denied'));
-    }
+        if (result.reason === 'limit') setUploadError(t('chat.recording_limit'));
+      },
+      onError: error => {
+        recordingSessionRef.current = null;
+        clearRecordingUi();
+        setUploadError(t(recordingErrorKey(error)));
+      },
+    });
+    if (session.active) recordingSessionRef.current = session;
   };
 
   const stopRecording = (cancel: boolean) => {
-    recordCancelledRef.current = cancel;
-    const recorder = recorderRef.current;
-    if (recorder?.state !== 'inactive') recorder?.stop();
+    if (cancel) {
+      recordingSessionRef.current?.cancel();
+      recordingSessionRef.current = null;
+      clearRecordingUi();
+      return;
+    }
+    recordingSessionRef.current?.stop();
   };
   useEffect(() => {
-    mediaMountedRef.current = true;
     return () => {
-      mediaMountedRef.current = false;
-      recordCancelledRef.current = true;
       if (recordTimerRef.current) {
         clearInterval(recordTimerRef.current);
         recordTimerRef.current = null;
       }
-      const recorder = recorderRef.current;
-      if (recorder) {
-        recorder.ondataavailable = null;
-        recorder.onstop = null;
-        if (recorder.state !== 'inactive') {
-          try { recorder.stop(); } catch { /* already stopping */ }
-        }
-      }
-      recorderRef.current = null;
-      stopMediaStream(activeStreamRef.current);
-      activeStreamRef.current = null;
+      recordingSessionRef.current?.cancel();
+      recordingSessionRef.current = null;
     };
   }, []);
 
@@ -613,7 +618,7 @@ export default function ChatThread({ coachId, clientId, viewerRole, counterpartN
               <button
                 onClick={() => setPending(null)}
                 aria-label={t('chat.remove_attachment')}
-                style={{ background: 'rgba(255,255,255,.05)', border: '1px solid var(--line)', borderRadius: 8, padding: 6, cursor: 'pointer', color: 'var(--t3)', lineHeight: 0 }}
+                style={{ width: 44, height: 44, background: 'rgba(255,255,255,.05)', border: '1px solid var(--line)', borderRadius: 8, cursor: 'pointer', color: 'var(--t3)', lineHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               >
                 <X size={12} />
               </button>
@@ -630,24 +635,25 @@ export default function ChatThread({ coachId, clientId, viewerRole, counterpartN
           /* Recording bar replaces the whole composer row */
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 12, background: 'var(--accent-soft)', border: '1px solid var(--accent)' }}>
             <motion.span
-              animate={{ opacity: [1, 0.25, 1] }}
-              transition={{ duration: 1.1, repeat: Infinity }}
+              animate={reducedMotion ? undefined : { opacity: [1, 0.25, 1] }}
+              transition={reducedMotion ? undefined : { duration: 1.1, repeat: Infinity }}
               style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--err,#E87A6E)', flexShrink: 0 }}
             />
             <span style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--t1)', flex: 1 }}>
-              {t('chat.recording')} {fmtDuration(recordSecs)}
+              {recordingStarted ? `${t('chat.recording')} ${fmtDuration(recordSecs)}` : t('chat.requesting_mic')}
             </span>
             <button
               onClick={() => stopRecording(true)}
-              style={{ background: 'none', border: 'none', color: 'var(--t3)', fontSize: 11, cursor: 'pointer' }}
+              style={{ minHeight: 44, padding: '0 8px', background: 'none', border: 'none', color: 'var(--t3)', fontSize: 11, cursor: 'pointer' }}
             >
               {t('general.cancel')}
             </button>
             <button
               onClick={() => stopRecording(false)}
+              disabled={!recordingStarted}
               aria-label={t('chat.stop_recording')}
               style={{
-                width: 34, height: 34, borderRadius: 10, border: 'none', cursor: 'pointer',
+                width: 44, height: 44, borderRadius: 10, border: 'none', cursor: recordingStarted ? 'pointer' : 'default',
                 background: 'var(--accent, #D4A853)', color: '#0a0a0a',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}
@@ -661,7 +667,7 @@ export default function ChatThread({ coachId, clientId, viewerRole, counterpartN
               onClick={() => fileRef.current?.click()}
               aria-label={t('chat.attach_photo')}
               style={{
-                width: 38, height: 38, borderRadius: 12, border: '1px solid var(--line)', flexShrink: 0,
+                width: 44, height: 44, borderRadius: 12, border: '1px solid var(--line)', flexShrink: 0,
                 background: 'rgba(255,255,255,.03)', color: 'var(--t3)', cursor: 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', alignSelf: 'flex-end',
               }}
@@ -672,7 +678,7 @@ export default function ChatThread({ coachId, clientId, viewerRole, counterpartN
               onClick={startRecording}
               aria-label={t('chat.record_voice')}
               style={{
-                width: 38, height: 38, borderRadius: 12, border: '1px solid var(--line)', flexShrink: 0,
+                width: 44, height: 44, borderRadius: 12, border: '1px solid var(--line)', flexShrink: 0,
                 background: 'rgba(255,255,255,.03)', color: 'var(--t3)', cursor: 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', alignSelf: 'flex-end',
               }}
@@ -709,7 +715,7 @@ export default function ChatThread({ coachId, clientId, viewerRole, counterpartN
               disabled={!canSend}
               aria-label={t('chat.send')}
               style={{
-                width: 38, height: 38, borderRadius: 12, border: 'none',
+                width: 44, height: 44, borderRadius: 12, border: 'none',
                 background: canSend ? 'var(--accent, #D4A853)' : 'rgba(255,255,255,.06)',
                 color: canSend ? '#0a0a0a' : 'var(--t4)',
                 cursor: canSend ? 'pointer' : 'default',

@@ -24,6 +24,7 @@ export const PAID_AI_ENDPOINTS = Object.freeze({
   deepSeekBetaChat: 'https://api.deepseek.com/beta/chat/completions',
   mistralChat: 'https://api.mistral.ai/v1/chat/completions',
   openAiChat: 'https://api.openai.com/v1/chat/completions',
+  openAiTranscriptions: 'https://api.openai.com/v1/audio/transcriptions',
   tropheFoodParse: 'https://trophe.app/api/food/parse',
   voyageEmbeddings: 'https://api.voyageai.com/v1/embeddings',
 });
@@ -31,6 +32,7 @@ export const PAID_AI_ENDPOINT_GROUPS = Object.freeze({
   consumerRuntime: Object.freeze([
     PAID_AI_ENDPOINTS.anthropicMessages,
     PAID_AI_ENDPOINTS.openAiChat,
+    PAID_AI_ENDPOINTS.openAiTranscriptions,
   ]),
   deepSeekText: Object.freeze([PAID_AI_ENDPOINTS.deepSeekChat]),
   deepSeekStructured: Object.freeze([
@@ -54,6 +56,7 @@ const PROVIDER_ENDPOINTS = new Set<string>([
   PAID_AI_ENDPOINTS.deepSeekBetaChat,
   PAID_AI_ENDPOINTS.mistralChat,
   PAID_AI_ENDPOINTS.openAiChat,
+  PAID_AI_ENDPOINTS.openAiTranscriptions,
   PAID_AI_ENDPOINTS.voyageEmbeddings,
 ]);
 

@@ -103,14 +103,15 @@ export function buildLocalDevEnv(baseEnv, status, port) {
 }
 
 async function defaultCleanupRetryDelay(attempt) {
-  await new Promise((resolve) => setTimeout(resolve, attempt * 150));
+  const delayMs = Math.min(500 * (2 ** (attempt - 1)), 3_000);
+  await new Promise((resolve) => setTimeout(resolve, delayMs));
 }
 
 export async function withDisposableUsers({
   admin,
   users,
   execute,
-  cleanupAttempts = 3,
+  cleanupAttempts = 5,
   cleanupRetryDelay = defaultCleanupRetryDelay,
 }) {
   const createdIds = [];

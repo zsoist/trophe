@@ -30,6 +30,7 @@ import { lookupFoodBatch, ragPreSearch, formatRagContext, correctFoodName } from
 import type { LookupInput } from './lookup';
 import { decomposeAndLookup, lookupCachedRecipeAsItem } from './decompose';
 import { extractLocalFoodCandidates } from './local-fast-path';
+import { enforceLiteralBrandName } from './brand-fidelity';
 import { pick } from '../router';
 import { emitGenAISpan, estimateCostUsd } from '../observability/otel';
 import { executeAiTask } from '../runtime';
@@ -1125,6 +1126,29 @@ export async function run(
       telemetry,
     };
   }
+
+  // Prompt wording is not a sufficient control: strip common branded identities
+  // the user did not type, and discard any nutrition estimates biased by them.
+  v4Parsed.items = v4Parsed.items.map(item => {
+    const foodName = enforceLiteralBrandName(item.food_name, sanitizedText);
+    const localizedName = enforceLiteralBrandName(item.name_localized, sanitizedText);
+    if (!foodName.changed && !localizedName.changed) return item;
+    return {
+      ...item,
+      food_name: foodName.name,
+      name_localized: localizedName.name,
+      estimated_grams: undefined,
+      estimated_calories: undefined,
+      estimated_protein_g: undefined,
+      estimated_carbs_g: undefined,
+      estimated_fat_g: undefined,
+      per_100g_kcal: undefined,
+      per_100g_protein: undefined,
+      per_100g_carbs: undefined,
+      per_100g_fat: undefined,
+      estimation_confidence: undefined,
+    };
+  });
 
   // ── Step 1a2: Single-word input override ──────────────────────────────────
   // When the user types a single word like "chicken", the LLM sometimes

@@ -6,11 +6,22 @@
  * quarterly refresh ("things change — tell me what's different").
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 import { Icon } from '@/components/ui';
+import { useI18n } from '@/lib/i18n';
+import { appendTranscript } from '@/lib/microphone/transcript';
+import { speechLanguageTag } from '@/lib/microphone/languages';
+import {
+  startSpeechRecognitionSession,
+  type MicrophoneSession,
+  type SpeechRecognitionLike,
+} from '@/lib/microphone/speech-recognition';
+import { startAudioRecordingSession } from '@/lib/microphone/recording-session';
+import { transcribeRecording } from '@/lib/microphone/transcription-client';
+import type { TranscriptionLocale } from '@/agents/schemas/transcribe';
 
 interface Question {
   id: string;
@@ -26,9 +37,13 @@ const GOLD = 'var(--gold-300,#D4A853)';
 const ENERGY_LABELS = ['Running on fumes', 'Low most days', 'Up and down', 'Mostly good', 'Firing on all cylinders'];
 
 type Stage = 'intro' | 'steps' | 'review' | 'done';
+type MicrophoneMode = 'idle' | 'requesting' | 'listening' | 'transcribing';
+type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
+const TRANSCRIPTION_LOCALES = new Set(['en', 'es', 'el', 'fr', 'de', 'it', 'pt', 'nl']);
 
 export default function IntakeWizard() {
   const router = useRouter();
+  const { t, lang } = useI18n();
   const [userId, setUserId] = useState<string | null>(null);
   const [coachId, setCoachId] = useState<string | null>(null);
   const [coachName, setCoachName] = useState<string | null>(null);
@@ -40,34 +55,134 @@ export default function IntakeWizard() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [previouslySubmitted, setPreviouslySubmitted] = useState<string | null>(null);
-  const [listening, setListening] = useState(false);
+  const [microphoneMode, setMicrophoneMode] = useState<MicrophoneMode>('idle');
+  const [microphoneError, setMicrophoneError] = useState<string | null>(null);
+  const microphoneSessionRef = useRef<MicrophoneSession | null>(null);
+  const transcriptionAbortRef = useRef<AbortController | null>(null);
+  const voiceQuestionRef = useRef<string | null>(null);
+  const nativeBaseAnswerRef = useRef('');
 
-  // Answer by voice: browser speech-to-text appends to the current answer.
-  // (DeepSeek has no audio API — STT is native, the polish is in the questions.)
+  const cancelVoice = useCallback(() => {
+    microphoneSessionRef.current?.cancel();
+    microphoneSessionRef.current = null;
+    transcriptionAbortRef.current?.abort();
+    transcriptionAbortRef.current = null;
+    voiceQuestionRef.current = null;
+    setMicrophoneMode('idle');
+  }, []);
+
+  useEffect(() => () => {
+    microphoneSessionRef.current?.cancel();
+    transcriptionAbortRef.current?.abort();
+  }, []);
+
+  const startRecordedVoice = (questionId: string) => {
+    cancelVoice();
+    voiceQuestionRef.current = questionId;
+    setMicrophoneError(null);
+    const session = startAudioRecordingSession({
+      maxDurationMs: 30_000,
+      onRequesting: () => setMicrophoneMode('requesting'),
+      onRecording: () => setMicrophoneMode('listening'),
+      onComplete: result => {
+        microphoneSessionRef.current = null;
+        setMicrophoneMode('transcribing');
+        const controller = new AbortController();
+        transcriptionAbortRef.current = controller;
+        const locale = (TRANSCRIPTION_LOCALES.has(lang) ? lang : 'en') as TranscriptionLocale;
+        void transcribeRecording(result.blob, {
+          locale,
+          context: 'intake',
+          durationMs: result.durationMs,
+          signal: controller.signal,
+        }).then(output => {
+          if (controller.signal.aborted || voiceQuestionRef.current !== questionId) return;
+          setAnswers(current => ({
+            ...current,
+            [questionId]: appendTranscript(current[questionId] ?? '', output.text),
+          }));
+          transcriptionAbortRef.current = null;
+          voiceQuestionRef.current = null;
+          setMicrophoneMode('idle');
+        }).catch(() => {
+          if (controller.signal.aborted) return;
+          transcriptionAbortRef.current = null;
+          voiceQuestionRef.current = null;
+          setMicrophoneMode('idle');
+          setMicrophoneError(t('intake.voice_failed'));
+        });
+      },
+      onError: () => {
+        microphoneSessionRef.current = null;
+        voiceQuestionRef.current = null;
+        setMicrophoneMode('idle');
+        setMicrophoneError(t('intake.voice_failed'));
+      },
+    });
+    if (session.active) microphoneSessionRef.current = session;
+  };
+
   const startVoice = (questionId: string) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const w = window as any;
-    const SR = w.SpeechRecognition || w.webkitSpeechRecognition;
-    if (!SR || listening) return;
-    const rec = new SR();
-    rec.lang = navigator.language || 'en-US';
-    rec.interimResults = false;
-    rec.maxAlternatives = 1;
-    setListening(true);
-    try { rec.start(); } catch { setListening(false); return; }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    rec.onresult = (event: any) => {
-      const transcript = String(event.results[0][0].transcript ?? '').trim();
-      if (transcript) {
-        setAnswers((a) => ({
-          ...a,
-          [questionId]: a[questionId]?.trim() ? `${a[questionId].trim()} ${transcript}` : transcript,
-        }));
-      }
-      setListening(false);
+    if (microphoneMode !== 'idle') return;
+    const browser = window as typeof window & {
+      SpeechRecognition?: SpeechRecognitionConstructor;
+      webkitSpeechRecognition?: SpeechRecognitionConstructor;
     };
-    rec.onerror = () => setListening(false);
-    rec.onend = () => setListening(false);
+    const SpeechRecognition = browser.SpeechRecognition || browser.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      startRecordedVoice(questionId);
+      return;
+    }
+
+    cancelVoice();
+    voiceQuestionRef.current = questionId;
+    nativeBaseAnswerRef.current = answers[questionId] ?? '';
+    setMicrophoneError(null);
+    const session = startSpeechRecognitionSession({
+      recognition: new SpeechRecognition(),
+      language: speechLanguageTag(lang),
+      onListening: () => setMicrophoneMode('listening'),
+      onTranscript: transcript => {
+        if (voiceQuestionRef.current !== questionId) return;
+        setAnswers(current => ({
+          ...current,
+          [questionId]: appendTranscript(nativeBaseAnswerRef.current, transcript),
+        }));
+      },
+      onComplete: transcript => {
+        if (voiceQuestionRef.current !== questionId) return;
+        setAnswers(current => ({
+          ...current,
+          [questionId]: appendTranscript(nativeBaseAnswerRef.current, transcript),
+        }));
+        microphoneSessionRef.current = null;
+        voiceQuestionRef.current = null;
+        setMicrophoneMode('idle');
+      },
+      onError: error => {
+        microphoneSessionRef.current = null;
+        voiceQuestionRef.current = null;
+        setMicrophoneMode('idle');
+        if (error === 'start-failed' || error === 'network' || error === 'timeout') {
+          startRecordedVoice(questionId);
+          return;
+        }
+        setMicrophoneError(t('intake.voice_failed'));
+      },
+    });
+    if (session.active) microphoneSessionRef.current = session;
+  };
+
+  const stopVoice = () => {
+    if (microphoneMode === 'requesting') {
+      cancelVoice();
+      return;
+    }
+    if (microphoneMode === 'transcribing') {
+      cancelVoice();
+      return;
+    }
+    microphoneSessionRef.current?.stop();
   };
 
   const load = useCallback(async () => {
@@ -126,6 +241,7 @@ export default function IntakeWizard() {
   const missingRequired = questions.filter((x) => x.required && !answered(x.id));
 
   const go = (dir: 1 | -1) => {
+    cancelVoice();
     setDirection(dir);
     const next = step + dir;
     if (next < 0) { setStage('intro'); return; }
@@ -212,19 +328,33 @@ export default function IntakeWizard() {
           }}
           onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(212,168,83,.4)'; }}
           onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--line)'; }}
+          disabled={microphoneMode !== 'idle' && voiceQuestionRef.current === question.id}
         />
         <button
-          onClick={() => startVoice(question.id)}
+          onClick={() => microphoneMode === 'idle' ? startVoice(question.id) : stopVoice()}
+          aria-label={microphoneMode === 'idle' ? t('intake.voice_start_aria') : t('intake.voice_stop_aria')}
+          aria-pressed={microphoneMode !== 'idle'}
           style={{
             marginTop: 8, display: 'flex', alignItems: 'center', gap: 6,
-            background: 'none', border: 'none', cursor: 'pointer', padding: '4px 2px',
-            color: listening ? 'rgb(248,113,113)' : 'var(--t4)',
+            minHeight: 44, minWidth: 44, borderRadius: 10,
+            background: microphoneMode === 'idle' ? 'none' : 'rgba(248,113,113,.08)',
+            border: 'none', cursor: 'pointer', padding: '8px 10px',
+            color: microphoneMode === 'idle' ? 'var(--t4)' : 'rgb(248,113,113)',
             fontSize: 11, fontFamily: 'var(--font-mono)',
           }}
         >
           <Icon name="i-mic" size={13} />
-          {listening ? 'Listening… speak naturally' : 'Answer by voice'}
+          {microphoneMode === 'idle' ? t('intake.voice_answer') : t('intake.voice_stop')}
         </button>
+        {(microphoneMode !== 'idle' || microphoneError) && (
+          <p aria-live="polite" role="status" style={{ color: microphoneError ? 'rgb(248,113,113)' : 'var(--t4)', fontSize: 11, marginTop: 4 }}>
+            {microphoneError ?? t(microphoneMode === 'requesting'
+              ? 'intake.voice_requesting'
+              : microphoneMode === 'transcribing'
+                ? 'intake.voice_transcribing'
+                : 'intake.voice_listening')}
+          </p>
+        )}
       </div>
     );
   };
@@ -250,7 +380,7 @@ export default function IntakeWizard() {
 
         {/* Top bar: exit + progress */}
         <div className="row-b" style={{ marginBottom: 10 }}>
-          <button onClick={() => { persist(false); router.push('/dashboard'); }}
+          <button onClick={() => { cancelVoice(); persist(false); router.push('/dashboard'); }}
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--t4)' }}>
             <Icon name="i-x" size={15} />
           </button>
@@ -364,7 +494,7 @@ export default function IntakeWizard() {
               <p className="ds-sub" style={{ marginBottom: 18 }}>Tap anything to change it.</p>
               {questions.map((question, i) => (
                 <button key={question.id}
-                  onClick={() => { setStage('steps'); setStep(i); setDirection(1); }}
+                  onClick={() => { cancelVoice(); setStage('steps'); setStep(i); setDirection(1); }}
                   style={{
                     display: 'block', width: '100%', textAlign: 'left', cursor: 'pointer',
                     background: 'rgba(255,255,255,.03)', border: '1px solid var(--line)',

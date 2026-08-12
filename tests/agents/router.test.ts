@@ -57,11 +57,20 @@ describe('router.pick()', () => {
     }
   });
 
-  it('all routed models have non-zero input pricing entries', () => {
+  it('all routed models have a non-zero price for their billing unit', () => {
     for (const [task, policy] of Object.entries(taskPolicies)) {
-      expect(modelPricing[policy.model], `${task}.model pricing`).toBeTruthy();
-      expect(modelPricing[policy.model]?.inputPerMillion, `${task}.input pricing`).toBeGreaterThan(0);
+      const pricing = modelPricing[policy.model];
+      expect(pricing, `${task}.model pricing`).toBeTruthy();
+      expect(pricing?.inputPerMillion, `${task}.input pricing`).toBeGreaterThan(0);
     }
+  });
+
+  it('registers transcription at the governed token price', () => {
+    expect(modelPricing['gpt-4o-mini-transcribe']).toMatchObject({
+      billingUnit: 'tokens',
+      inputPerMillion: 1.25,
+      outputPerMillion: 5,
+    });
   });
 });
 

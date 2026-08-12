@@ -222,7 +222,15 @@ async function attemptInvoke<T>(
 
     const estimatedCostUsd = estimateUsageCost(policy.model, providerResult.usage);
     if (estimatedCostUsd > policy.maxCostUsd) {
-      throw new Error(`AI request exceeded cost ceiling (${estimatedCostUsd.toFixed(4)} USD)`);
+      throw Object.assign(
+        new Error(`AI request exceeded cost ceiling (${estimatedCostUsd.toFixed(4)} USD)`),
+        {
+          usage: providerResult.usage,
+          latencyMs: providerResult.latencyMs,
+          status: providerResult.rawStatus,
+          providerGenerationId: providerResult.providerGenerationId,
+        },
+      );
     }
     await runBeforeAbort(attemptBoundary, () => completeGeneration({
       generationId,

@@ -1,3 +1,5 @@
+import { normalizeTranscript } from '@/lib/microphone/transcript';
+
 export interface SpeechRecognitionEventLike {
   results: ArrayLike<{
     isFinal: boolean;
@@ -27,7 +29,7 @@ export type VoiceInputError =
   | 'aborted'
   | 'unknown';
 
-export interface VoiceSession {
+export interface MicrophoneSession {
   readonly active: boolean;
   stop: () => void;
   cancel: () => void;
@@ -44,10 +46,6 @@ interface StartVoiceSessionOptions {
 
 const MAX_LISTENING_MS = 30_000;
 const STOP_FALLBACK_MS = 1_500;
-
-function normalizeTranscript(value: string): string {
-  return value.replace(/\s+/g, ' ').trim();
-}
 
 function mapRecognitionError(error: string): VoiceInputError {
   switch (error) {
@@ -67,21 +65,15 @@ function mapRecognitionError(error: string): VoiceInputError {
   }
 }
 
-/**
- * Owns one Web Speech recognition lifecycle.
- *
- * Browsers are inconsistent about whether `onend` fires after Stop and may
- * emit a late error/end pair. This controller turns those loose browser
- * callbacks into exactly one completion or error and always becomes inactive.
- */
-export function startVoiceSession({
+/** Owns one Web Speech recognition lifecycle and settles exactly once. */
+export function startSpeechRecognitionSession({
   recognition,
   language,
   onListening,
   onTranscript,
   onComplete,
   onError,
-}: StartVoiceSessionOptions): VoiceSession {
+}: StartVoiceSessionOptions): MicrophoneSession {
   let active = true;
   let latestTranscript = '';
   let watchdog: ReturnType<typeof setTimeout> | null = null;
@@ -118,28 +110,21 @@ export function startVoiceSession({
   recognition.lang = language;
   recognition.interimResults = true;
   recognition.maxAlternatives = 1;
-
-  // Attach every handler before start(): some implementations can fail or
-  // finish synchronously, and attaching afterwards leaves the UI stranded.
   recognition.onresult = event => {
     if (!active) return;
     let combined = '';
-    for (let i = 0; i < event.results.length; i += 1) {
-      combined += ` ${event.results[i][0].transcript}`;
+    for (let index = 0; index < event.results.length; index += 1) {
+      combined += ` ${event.results[index][0].transcript}`;
     }
     const transcript = normalizeTranscript(combined);
     if (!transcript) return;
     latestTranscript = transcript;
     onTranscript(transcript);
   };
-
   recognition.onerror = event => {
     settle(() => onError(mapRecognitionError(event.error)));
   };
-
-  recognition.onend = () => {
-    completeFromLatest();
-  };
+  recognition.onend = completeFromLatest;
 
   try {
     recognition.start();
@@ -154,7 +139,7 @@ export function startVoiceSession({
       try {
         recognition.abort?.();
       } catch {
-        // The session is already terminal; a browser abort failure is harmless.
+        // The session is already terminal.
       }
     }, MAX_LISTENING_MS);
   }
@@ -171,11 +156,7 @@ export function startVoiceSession({
         completeFromLatest();
         return;
       }
-      // Some implementations fire `end` from stop() before returning. That
-      // terminal path already cleared everything, so do not create a new timer.
       if (!active) return;
-      // Safari/Chrome occasionally omit onend after stop. Preserve the live
-      // interim transcript and release the UI even when that happens.
       stopFallback = setTimeout(completeFromLatest, STOP_FALLBACK_MS);
     },
     cancel() {
@@ -183,7 +164,7 @@ export function startVoiceSession({
       try {
         recognition.abort?.();
       } catch {
-        // Nothing else to clean up after a silent cancellation.
+        // Nothing remains after silent cancellation.
       }
     },
   };

@@ -20,7 +20,7 @@ const withSerwist = withSerwistInit({
   additionalPrecacheEntries: [{ url: "/offline.html", revision: offlineHtmlRevision }],
 });
 
-const nextConfig: NextConfig = {
+export const nextConfig: NextConfig = {
   // Worktrees can sit beside another lockfile. Pin tracing to the checkout
   // actually being built so Next never guesses a parent/sibling workspace.
   outputFileTracingRoot: process.cwd(),
@@ -55,6 +55,7 @@ const nextConfig: NextConfig = {
           { key: 'X-XSS-Protection', value: '1; mode=block' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
           { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
+          { key: 'Permissions-Policy', value: 'microphone=(self), camera=(self)' },
           {
             key: 'Content-Security-Policy',
             value: [

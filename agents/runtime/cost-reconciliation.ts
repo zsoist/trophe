@@ -30,7 +30,8 @@ export function reconcileAiCosts(
 
   for (const run of runs) {
     if (run.status !== 'completed') continue;
-    if (!modelPricing[run.model]) {
+    const pricing = modelPricing[run.model];
+    if (!pricing) {
       issues.push({
         id: run.id, model: run.model, kind: 'unknown_model',
         recordedCostUsd: run.recordedCostUsd, expectedCostUsd: null, relativeDrift: null,

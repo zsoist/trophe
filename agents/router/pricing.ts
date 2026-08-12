@@ -3,6 +3,7 @@ export interface ModelPricing {
   outputPerMillion: number;
   cacheReadPerMillion?: number;
   cacheWritePerMillion?: number;
+  billingUnit?: 'tokens';
 }
 
 export const DEEPSEEK_STRESS_PRICING_VERSION = 'deepseek-v4-2026-07-25';
@@ -30,6 +31,11 @@ export const deepSeekStressPricing = Object.freeze({
 // Keyed by exact model string. Do NOT use computed keys here: they silently
 // overwrite when multiple tasks converge on one model.
 export const modelPricing: Record<string, ModelPricing> = {
+  'gpt-4o-mini-transcribe': {
+    billingUnit: 'tokens',
+    inputPerMillion: 1.25,
+    outputPerMillion: 5.00,
+  },
   'gpt-5.6-luna': {
     inputPerMillion: 1.00,
     outputPerMillion: 6.00,
