@@ -7,7 +7,11 @@ import { useI18n } from '@/lib/i18n';
 import { MACRO_COLORS } from '@/lib/macro-colors';
 import { AnimatedValue } from '@/components/ui/AnimatedValue';
 import { ProvenanceRing, resolveTier, type ProvenanceTier } from '@/components/food/ProvenanceRing';
-import { getPortionSizeOptions, resolveAmountDraft } from '@/components/food/portion-controls';
+import {
+  getPortionDisplayAmount,
+  getPortionSizeOptions,
+  resolveAmountDraft,
+} from '@/components/food/portion-controls';
 import type { ParsedFoodItem } from '@/app/api/food/parse/route';
 
 interface ParsedFoodListProps {
@@ -572,7 +576,15 @@ export default function ParsedFoodList({
                         <span className="block text-amber-200 text-[11px] font-medium">
                           {t(`food.portion_${option.size}`)}
                         </span>
-                        <span className="block text-stone-500 text-[10px] mt-0.5">{option.grams} g</span>
+                        <span className="block text-stone-500 text-[10px] mt-0.5">
+                          {isVolumeUnit(item.unit)
+                            ? getPortionDisplayAmount(
+                                option.grams,
+                                item.quantity > 0 ? item.grams / item.quantity : 1,
+                              )
+                            : option.grams}{' '}
+                          {isVolumeUnit(item.unit) ? item.unit : 'g'}
+                        </span>
                       </button>
                     ))}
                   </div>

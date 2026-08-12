@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  getPortionDisplayAmount,
   getPortionSizeOptions,
   isPortionClarificationQuestion,
   resolveAmountDraft,
@@ -21,6 +22,11 @@ describe('portion size choices', () => {
       { size: 'large', grams: 1 },
     ]);
     expect(getPortionSizeOptions(20_000)[2].grams).toBe(15_000);
+  });
+
+  it('converts gram options back to the original volume unit', () => {
+    expect(getPortionDisplayAmount(182, 1.04)).toBe(175);
+    expect(getPortionDisplayAmount(700, 1_000)).toBe(0.7);
   });
 });
 

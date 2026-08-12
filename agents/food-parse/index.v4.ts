@@ -1521,9 +1521,16 @@ export async function run(
     item.grams <= 15_000 &&
     item.calories >= 0 &&
     item.calories <= 15_000 &&
+    item.calories / item.grams <= 9.5 &&
     item.protein_g >= 0 &&
     item.carbs_g >= 0 &&
     item.fat_g >= 0 &&
+    Number.isFinite(item.fiber_g) &&
+    Number.isFinite(item.sugar_g) &&
+    item.fiber_g >= 0 &&
+    item.sugar_g >= 0 &&
+    item.fiber_g <= item.grams * 1.15 &&
+    item.sugar_g <= item.grams * 1.15 &&
     item.protein_g + item.carbs_g + item.fat_g <= item.grams * 1.15;
 
   const droppedCount = finalItems.filter((i) => !isPlausibleItem(i)).length;

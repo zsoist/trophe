@@ -29,6 +29,7 @@ const MASS_UNITS = new Set(['g', 'gram', 'grams', 'gr', 'γρ']);
 const COUNTABLE_PRODUCT = /\b(?:bar|cookie|biscuit|brownie|muffin|egg|banana|apple|piece|packet|pack)\b/i;
 const PRODUCT_NOUN_AFTER_PROTEIN = /^(?:bar|shake|powder|cookie|snack|drink)\b/i;
 const CLAIM_CONTEXT = /\b(?:with|has|have|contains?|provides?|con|contiene|avec|contient|με|εχει)\b/i;
+const COMMON_PRODUCT_AFTER_MASS = '(?:protein\\s+)?(?:bar|powder|shake|cookie|snack|drink|packet|pack)';
 
 function normalize(text: string): string {
   return text
@@ -40,6 +41,24 @@ function normalize(text: string): string {
 function toPositiveNumber(value: string): number | null {
   const parsed = Number(value.replace(',', '.'));
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function hasIndependentFoodMass(candidate: NutrientCandidate): boolean {
+  const rawText = normalize(candidate.raw_text ?? '');
+  const foodName = normalize(candidate.food_name ?? '').trim();
+  if (!rawText || !foodName) return false;
+
+  const quantity = escapeRegex(String(candidate.quantity)).replace('\\.', '[.,]');
+  const food = escapeRegex(foodName).replace(/\\\s+/g, '\\s+');
+  const pattern = new RegExp(
+    `(?:^|[^\\d])${quantity}\\s*${GRAM_SOURCE}\\s+(?:${food}|${COMMON_PRODUCT_AFTER_MASS})(?=$|[^\\p{L}])`,
+    'iu',
+  );
+  return pattern.test(rawText);
 }
 
 function firstGramClaim(text: string, definition: NutrientDefinition): number | null {
@@ -130,6 +149,7 @@ export function repairNutrientClaimPortion<T extends NutrientCandidate>(
     .filter((value): value is number => typeof value === 'number');
   const quantityCameFromClaim = claimedGramValues.some(value => Math.abs(value - candidate.quantity) < 0.01);
   if (!quantityCameFromClaim) return candidate;
+  if (hasIndependentFoodMass(candidate)) return candidate;
 
   const productName = candidate.food_name ?? candidate.raw_text ?? '';
   return {
@@ -161,14 +181,56 @@ export function applyUserStatedNutrients<T extends NutrientResult>(
   claims: UserStatedNutrients,
 ): T & { user_stated_nutrients?: UserStatedNutrients } {
   if (!hasUserStatedNutrients(claims)) return item;
-  return {
-    ...item,
-    calories: claims.calories ?? item.calories,
+
+  const accepted: UserStatedNutrients = {};
+  const massLimit = item.grams * 1.15;
+
+  if (
+    typeof claims.calories === 'number' &&
+    Number.isFinite(claims.calories) &&
+    claims.calories > 0 &&
+    claims.calories <= item.grams * 9.5
+  ) {
+    accepted.calories = claims.calories;
+  }
+
+  const macroKeys = ['protein_g', 'carbs_g', 'fat_g'] as const;
+  const projectedMacros = {
     protein_g: claims.protein_g ?? item.protein_g,
     carbs_g: claims.carbs_g ?? item.carbs_g,
     fat_g: claims.fat_g ?? item.fat_g,
-    fiber_g: claims.fiber_g ?? item.fiber_g,
-    sugar_g: claims.sugar_g ?? item.sugar_g,
-    user_stated_nutrients: { ...claims },
+  };
+  const macrosArePlausible = macroKeys.every(key => (
+    Number.isFinite(projectedMacros[key]) &&
+    projectedMacros[key] >= 0 &&
+    projectedMacros[key] <= massLimit
+  )) && Object.values(projectedMacros).reduce((sum, value) => sum + value, 0) <= massLimit;
+
+  if (macrosArePlausible) {
+    for (const key of macroKeys) {
+      const value = claims[key];
+      if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+        accepted[key] = value;
+      }
+    }
+  }
+
+  for (const key of ['fiber_g', 'sugar_g'] as const) {
+    const value = claims[key];
+    if (typeof value === 'number' && Number.isFinite(value) && value > 0 && value <= massLimit) {
+      accepted[key] = value;
+    }
+  }
+
+  if (!hasUserStatedNutrients(accepted)) return item;
+  return {
+    ...item,
+    calories: accepted.calories ?? item.calories,
+    protein_g: accepted.protein_g ?? item.protein_g,
+    carbs_g: accepted.carbs_g ?? item.carbs_g,
+    fat_g: accepted.fat_g ?? item.fat_g,
+    fiber_g: accepted.fiber_g ?? item.fiber_g,
+    sugar_g: accepted.sugar_g ?? item.sugar_g,
+    user_stated_nutrients: accepted,
   };
 }

@@ -25,6 +25,14 @@ export function getPortionSizeOptions(grams: number): PortionSizeOption[] {
   ];
 }
 
+export function getPortionDisplayAmount(grams: number, gramsPerDisplayUnit: number): number {
+  if (!Number.isFinite(gramsPerDisplayUnit) || gramsPerDisplayUnit <= 0) return grams;
+  const display = grams / gramsPerDisplayUnit;
+  return display >= 10
+    ? Math.round(display)
+    : Math.round(display * 10) / 10;
+}
+
 export function resolveAmountDraft(draft: string, previous: number): number {
   if (draft.trim() === '') return previous;
   const parsed = Number(draft);

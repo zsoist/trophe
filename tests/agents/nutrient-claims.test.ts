@@ -61,6 +61,18 @@ describe('nutrient-claim portion repair', () => {
     };
     expect(repairNutrientClaimPortion(candidate, { protein_g: 13 })).toEqual(candidate);
   });
+
+  it('preserves an independent food weight even when it equals the protein claim', () => {
+    const candidate = {
+      raw_text: '13 g protein powder with 13 g protein',
+      food_name: 'protein powder',
+      quantity: 13,
+      unit: 'g',
+      portion_explicit: true,
+      estimated_grams: 13,
+    };
+    expect(repairNutrientClaimPortion(candidate, { protein_g: 13 })).toEqual(candidate);
+  });
 });
 
 describe('user-stated nutrient overrides', () => {
@@ -88,5 +100,38 @@ describe('user-stated nutrient overrides', () => {
   it('reports whether any usable claims exist', () => {
     expect(hasUserStatedNutrients({})).toBe(false);
     expect(hasUserStatedNutrients({ carbs_g: 22 })).toBe(true);
+  });
+
+  it('ignores impossible label values while retaining plausible stated facts', () => {
+    const result = applyUserStatedNutrients({
+      grams: 60,
+      calories: 190,
+      protein_g: 20,
+      carbs_g: 18,
+      fat_g: 6,
+      fiber_g: 4,
+      sugar_g: 3,
+    }, { protein_g: 13, calories: 10_000, fiber_g: 1_000 });
+
+    expect(result).toMatchObject({
+      grams: 60,
+      calories: 190,
+      protein_g: 13,
+      fiber_g: 4,
+      user_stated_nutrients: { protein_g: 13 },
+    });
+  });
+
+  it('rejects a physically impossible combination of claimed macros', () => {
+    const item = {
+      grams: 60,
+      calories: 190,
+      protein_g: 20,
+      carbs_g: 18,
+      fat_g: 6,
+      fiber_g: 4,
+      sugar_g: 3,
+    };
+    expect(applyUserStatedNutrients(item, { protein_g: 50, carbs_g: 50, fat_g: 50 })).toEqual(item);
   });
 });
