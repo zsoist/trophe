@@ -6,7 +6,14 @@ import { requireRole } from '@/lib/auth/require-role';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { canAccessClient } from '@/lib/auth/tenant-access';
 import { db } from '@/db/client';
-import { computeBaseline, type ActivityLevel, type Goal, type Sex } from '@/lib/food/calorie-equations';
+import {
+  baselineInputIssue,
+  computeBaseline,
+  type ActivityLevel,
+  type BaselineInput,
+  type Goal,
+  type Sex,
+} from '@/lib/food/calorie-equations';
 
 /**
  * Deterministic calorie/macro baseline for a client (Daily Nutrafit — Michael).
@@ -36,18 +43,21 @@ export async function POST(request: NextRequest) {
   }
 
   const service = createSupabaseServiceClient();
-  const { data: cp } = await service
+  const { data: cp, error: profileError } = await service
     .from('client_profiles')
     .select('coach_id, sex, age, height_cm, weight_kg, body_fat_pct, activity_level')
     .eq('user_id', clientId).maybeSingle();
 
+  if (profileError) {
+    return NextResponse.json({ error: 'Could not load client profile' }, { status: 503 });
+  }
   if (!cp) return NextResponse.json({ error: 'Client profile not found' }, { status: 404 });
 
   if (!cp.sex || !cp.age || !cp.height_cm || !cp.weight_kg) {
     return NextResponse.json({ error: 'Missing body data (need sex, age, height, weight)' }, { status: 422 });
   }
 
-  const result = computeBaseline({
+  const input: BaselineInput = {
     sex: cp.sex as Sex,
     ageYears: cp.age,
     weightKg: cp.weight_kg,
@@ -55,7 +65,15 @@ export async function POST(request: NextRequest) {
     bodyFatPct: cp.body_fat_pct,
     activity: (cp.activity_level as ActivityLevel) ?? 'moderate',
     goal: (goal as Goal) ?? 'maintain',
-  });
+  };
+  const inputIssue = baselineInputIssue(input);
+  if (inputIssue) {
+    return NextResponse.json(
+      { error: 'Body data is outside supported ranges' },
+      { status: 422 },
+    );
+  }
+  const result = computeBaseline(input);
 
   return NextResponse.json(result);
 }

@@ -56,6 +56,8 @@ const eslintConfig = defineConfig([
     "docs/v0.3/design-handoff/**",
     // Drizzle Kit auto-generated artifacts (introspect output and migrations).
     "drizzle/**",
+    // Supabase CLI runtime state (generated containers, secrets, and bundles).
+    "supabase/.temp/**",
     // Generated PWA service worker (Serwist build output — minified, not source).
     "public/sw.js",
     "public/**",

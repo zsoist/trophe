@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { consumeRateLimit } from '@/lib/security/durable-rate-limit';
+import { safeErrorMetadata } from '@/lib/security/safe-error-log';
+
+function parseSearchLimit(raw: string | null): number {
+  const normalized = raw?.trim();
+  if (!normalized || !/^-?\d+$/.test(normalized)) return 15;
+  const parsed = Number(normalized);
+  if (!Number.isSafeInteger(parsed)) return 15;
+  return Math.min(Math.max(1, parsed), 50);
+}
 
 export async function GET(request: NextRequest) {
   // PUBLIC ENDPOINT — intentional. Uses anon key; Supabase RLS on food_database
@@ -10,7 +19,7 @@ export async function GET(request: NextRequest) {
   const rate = await consumeRateLimit(`local-search:${ip}`, 120, 3600);
   if (!rate.allowed) return NextResponse.json({ error: 'Too many requests' }, { status: 429, headers: { 'Retry-After': String(rate.retryAfter) } });
   const q = request.nextUrl.searchParams.get('q');
-  const limit = parseInt(request.nextUrl.searchParams.get('limit') || '15');
+  const safeLim = parseSearchLimit(request.nextUrl.searchParams.get('limit'));
 
   if (!q || q.trim().length === 0) {
     return NextResponse.json({ error: 'Query parameter "q" is required' }, { status: 400 });
@@ -27,8 +36,6 @@ export async function GET(request: NextRequest) {
   const supabase = createClient(supabaseUrl, anonKey);
   // Sanitize ilike input: escape %, _, and backslash to prevent injection
   const query = q.trim().toLowerCase().replace(/[%_\\]/g, '\\$&');
-  // Clamp limit to prevent table dumps
-  const safeLim = Math.min(Math.max(1, limit), 50);
 
   // Search across name, name_el, name_es
   const { data, error } = await supabase
@@ -39,8 +46,11 @@ export async function GET(request: NextRequest) {
     .limit(safeLim);
 
   if (error) {
-    console.error('Local search error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error('Local search error', safeErrorMetadata(error));
+    return NextResponse.json(
+      { error: 'Food search temporarily unavailable' },
+      { status: 503 },
+    );
   }
 
   // Map to the format expected by the frontend (same as USDA search)

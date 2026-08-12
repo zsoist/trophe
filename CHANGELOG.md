@@ -4,6 +4,24 @@ All notable changes to Trophē are logged here. Format follows [Keep a Changelog
 
 ---
 
+## [Zero-spend quality and parser hardening] — 2026-07-29
+
+### Added
+- Added bounded, fail-closed release verification with reproducible database, performance, provider-contract, and authenticated browser evidence.
+- Added deterministic multilingual food coverage, public search indexes, parser accuracy gates, offline provider contracts, and local signup/confirmation test harnesses.
+- Added database constraints and tenant-relationship guards for nutrition, messaging, memory, and coaching workflows.
+
+### Changed
+- Reduced public-route and coach-dashboard delivery cost, removed unused font and motion work, and made performance measurements settle on completed page loads.
+- Bounded AI fallback, retry, route-deadline, and paid-provider behavior so local verification makes no paid calls and production work stays within explicit budgets.
+- Made food, workout, profile, coaching, chat, and privacy flows verify persistence and surface incomplete work instead of reporting false success.
+
+### Fixed
+- Prevented generic English food queries such as `fries`, `burger`, `latte`, `cola`, `juice`, and `energy drink` from selecting unrequested branded products.
+- Preserved explicit branded intent for queries such as `Big Mac`, `Starbucks latte`, `Pepsi`, and `Red Bull`, and backfilled truthful brand metadata for known restaurant foods.
+- Hardened nutrition review, manual entry, photo analysis, parser decomposition, portion matching, and food-log writes against malformed, implausible, or partial data.
+- Closed auth callback, tenant access, privacy export, chat lifecycle, workout persistence, localization, and loading-state failures found by the quality sweep.
+
 ## [Domain and first-load performance] — 2026-07-11
 
 ### Changed

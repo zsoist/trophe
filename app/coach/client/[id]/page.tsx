@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { motion } from 'framer-motion';
 import {
   Calendar,
@@ -35,11 +36,6 @@ import ClientHealthScore from '@/components/coach/ClientHealthScore';
 import MoodTrend from '@/components/coach/MoodTrend';
 import BehavioralSignals from '@/components/coach/BehavioralSignals';
 import CoachingRoadmap from '@/components/coach/CoachingRoadmap';
-import MealQualityTimeline from '@/components/coach/MealQualityTimeline';
-import ProteinDistributionAnalyzer from '@/components/coach/ProteinDistributionAnalyzer';
-import ClientFoodHeatmap from '@/components/coach/ClientFoodHeatmap';
-import WeekendAnalysis from '@/components/coach/WeekendAnalysis';
-import ProgressComparison from '@/components/coach/ProgressComparison';
 import MeasurementChart from '@/components/coach/MeasurementChart';
 import SmartNoteSuggestions from '@/components/coach/SmartNoteSuggestions';
 import QuickActionsBar from '@/components/coach/QuickActionsBar';
@@ -70,6 +66,19 @@ import type {
   CoachNote,
   SessionType,
 } from '@/lib/types';
+
+const ClientAnalyticsPanels = dynamic(() => import('@/components/coach/ClientAnalyticsPanels'), {
+  loading: () => (
+    <div
+      aria-label="Loading client analytics"
+      className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2"
+      role="status"
+    >
+      <div className="h-48 animate-pulse rounded-2xl bg-stone-900/60" />
+      <div className="h-48 animate-pulse rounded-2xl bg-stone-900/60" />
+    </div>
+  ),
+});
 
 // ═══════════════════════════════════════════════
 // Helpers
@@ -1458,57 +1467,24 @@ export default function ClientDetailPage() {
             </div>
           </Panel>
 
-          {/* ─── Wave 2+3: Food Analysis ─── */}
-          {(panelEditMode || panelVisible('mealQuality') || panelVisible('proteinDistribution')) && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-            <Panel id="mealQuality" title={t('coach.panel.mealQuality')}>
-              <div className="glass p-5 h-full">
-                <h2 className="font-semibold text-stone-200 mb-3 text-sm">Meal Quality (Today)</h2>
-                {mealQualityData.length > 0 ? (
-                  <MealQualityTimeline meals={mealQualityData} />
-                ) : (
-                  <p className="text-stone-600 text-sm text-center py-4">No meals logged today</p>
-                )}
-              </div>
-            </Panel>
-            <Panel id="proteinDistribution" title={t('coach.panel.proteinDistribution')}>
-              <div className="glass p-5 h-full">
-                <h2 className="font-semibold text-stone-200 mb-3 text-sm">Protein Distribution</h2>
-                {proteinDistribution.length > 0 ? (
-                  <ProteinDistributionAnalyzer meals={proteinDistribution} />
-                ) : (
-                  <p className="text-stone-600 text-sm text-center py-4">No meals logged today</p>
-                )}
-              </div>
-            </Panel>
-          </div>
-          )}
-
-          <Panel id="foodHeatmap" title={t('coach.panel.foodHeatmap')}>
-            <div className="glass p-5 mb-4">
-              <h2 className="font-semibold text-stone-200 mb-3 text-sm">{t('coach.detail.foodHeatmap28d')}</h2>
-              <ClientFoodHeatmap data={foodHeatmapData} />
-            </div>
-          </Panel>
-
-          {(panelEditMode || panelVisible('weekendAnalysis') || panelVisible('twoWeekComparison')) && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-            <Panel id="weekendAnalysis" title={t('coach.panel.weekendAnalysis')}>
-              <div className="glass p-5 h-full">
-                <h2 className="font-semibold text-stone-200 mb-3 text-sm">Weekday vs Weekend</h2>
-                <WeekendAnalysis weekday={weekendAnalysisData.weekday} weekend={weekendAnalysisData.weekend} />
-              </div>
-            </Panel>
-            <Panel id="twoWeekComparison" title={t('coach.panel.twoWeekComparison')}>
-              <div className="glass p-5 h-full">
-                <h2 className="font-semibold text-stone-200 mb-3 text-sm" title="Body responds ~2 weeks delayed — rolling 14-day windows show real change">
-                  Last 2 Weeks vs Prior 2
-                </h2>
-                <ProgressComparison thisWeek={progressComparisonData.thisWeek} lastWeek={progressComparisonData.lastWeek} />
-              </div>
-            </Panel>
-          </div>
-          )}
+          {/* Below-the-fold food analytics load as one SSR-preserving boundary. */}
+          <ClientAnalyticsPanels
+            panelEditMode={panelEditMode}
+            panelVisible={panelVisible}
+            titles={{
+              mealQuality: t('coach.panel.mealQuality'),
+              proteinDistribution: t('coach.panel.proteinDistribution'),
+              foodHeatmap: t('coach.panel.foodHeatmap'),
+              foodHeatmapHeading: t('coach.detail.foodHeatmap28d'),
+              weekendAnalysis: t('coach.panel.weekendAnalysis'),
+              twoWeekComparison: t('coach.panel.twoWeekComparison'),
+            }}
+            mealQualityData={mealQualityData}
+            proteinDistribution={proteinDistribution}
+            foodHeatmapData={foodHeatmapData}
+            weekendAnalysisData={weekendAnalysisData}
+            progressComparisonData={progressComparisonData}
+          />
 
           {/* ─── Weight / Body Composition + coach-set Custom Goal ─── */}
           <Panel id="weightChart" title={t('coach.panel.weightChart')}>

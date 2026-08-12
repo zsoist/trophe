@@ -81,6 +81,7 @@ export async function POST(request: NextRequest) {
       fat_g: profile.fat_g,
       fiber_g: profile.fiber_g,
       water_ml: profile.water_ml,
+      macros_adjusted: profile.macros_adjusted,
     });
   } catch (error) {
     console.error('Nutrition calculation error:', error);

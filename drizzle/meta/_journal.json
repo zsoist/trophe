@@ -477,6 +477,55 @@
       "when": 1783716420000,
       "tag": "0059_drop_public_dish_recipe_policies",
       "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1785337826000,
+      "tag": "0060_food_database_trigram_search",
+      "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1785342100000,
+      "tag": "0061_chat_attachment_orphan_cleanup",
+      "breakpoints": true
+    },
+    {
+      "idx": 70,
+      "version": "7",
+      "when": 1785344590000,
+      "tag": "0062_food_log_nutrition_constraints",
+      "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1785347000000,
+      "tag": "0063_foods_multilingual_trigram_search",
+      "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1785349500000,
+      "tag": "0064_tenant_relationship_guards",
+      "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1785359220144,
+      "tag": "0073_backfill_food_brands",
+      "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "7",
+      "when": 1785364464632,
+      "tag": "0074_secure_dedupe_backup",
+      "breakpoints": true
     }
   ]
 }

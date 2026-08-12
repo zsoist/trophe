@@ -1,9 +1,22 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { invokeDeepSeekText } from '../../agents/runtime/providers/deepseek';
-import { invokeDeepSeekStructured } from '../../agents/runtime/providers/deepseek';
+import {
+  invokeDeepSeekStructured,
+  invokeDeepSeekText,
+} from '../safety/paid-ai-provider-facade';
 import { estimateModelCostUsd } from '../../agents/router/pricing';
 import { z } from 'zod';
+import {
+  PAID_AI_ENDPOINT_GROUPS,
+  requirePaidAiToolApproval,
+} from '../safety/require-paid-ai-approval';
+
+const paidAiApproval = requirePaidAiToolApproval({
+  operation: 'eval-deepseek-candidate',
+  argv: process.argv.slice(2),
+  env: process.env,
+  endpoints: PAID_AI_ENDPOINT_GROUPS.deepSeekStructured,
+});
 
 type Model = 'deepseek-v4-flash' | 'deepseek-v4-pro';
 type Case = { id: string; system: string; prompt: string; required: RegExp[]; forbidden?: RegExp[] };
@@ -104,6 +117,7 @@ async function runCase(model: Model, test: Case) {
   try {
     const result = await invokeDeepSeekText({
       model, system: test.system, prompt: test.prompt, maxTokens: 500, signal: controller.signal,
+      beforeTransportAttempt: paidAiApproval.beforeTransportAttempt,
     });
     const failures = [
       ...test.required.filter((pattern) => !pattern.test(result.output)).map((pattern) => `missing ${pattern}`),
@@ -141,6 +155,7 @@ async function runStructured(model: Model, iteration: number): Promise<Benchmark
       description: 'Submit extracted food portions',
       schema: extractionJsonSchema,
       validator: extractionSchema,
+      beforeTransportAttempt: paidAiApproval.beforeTransportAttempt,
     });
     const correct = result.output.foods.length === 3
       && result.output.foods.some((food) => /egg/i.test(food.name) && food.quantity === 2)
@@ -164,11 +179,21 @@ async function runStructured(model: Model, iteration: number): Promise<Benchmark
 async function main() {
   if (!process.env.DEEPSEEK_API_KEY) throw new Error('DEEPSEEK_API_KEY is required; use a rotated secret, never a key shared in chat');
   const results: BenchmarkResult[] = [];
-  for (const model of models) {
-    for (const test of cases) results.push(await runCase(model, test));
-    for (let iteration = 1; iteration <= 10; iteration++) results.push(await runStructured(model, iteration));
+  const jobs = models.flatMap((model) => [
+    ...cases.map((test) => ({ kind: 'text' as const, model, test })),
+    ...Array.from({ length: 10 }, (_, index) => ({
+      kind: 'structured' as const,
+      model,
+      iteration: index + 1,
+    })),
+  ]);
+  for (const job of paidAiApproval.boundCases(jobs)) {
+    results.push(job.kind === 'text'
+      ? await runCase(job.model, job.test)
+      : await runStructured(job.model, job.iteration));
   }
-  const summary = models.map((model) => {
+  const evaluatedModels = [...new Set(results.map((result) => result.model))];
+  const summary = evaluatedModels.map((model) => {
     const selected = results.filter((result) => result.model === model);
     const apiFailures = selected.filter((result) =>
       result.inputTokens === 0 && result.outputTokens === 0 && result.output === '',

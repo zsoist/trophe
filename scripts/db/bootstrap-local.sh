@@ -16,6 +16,13 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
 
+SUPABASE_BIN="$ROOT/node_modules/.bin/supabase"
+TSX_BIN="$ROOT/node_modules/.bin/tsx"
+if [ ! -x "$SUPABASE_BIN" ] || [ ! -x "$TSX_BIN" ]; then
+  echo "Local CLI dependencies are missing. Run npm ci." >&2
+  exit 1
+fi
+
 ARTIFACT_DIR="${DB_ARTIFACT_DIR:-$ROOT/artifacts/db}"
 mkdir -p "$ARTIFACT_DIR"
 
@@ -28,7 +35,7 @@ COMPAT_MODE=1
 
 if [ "${SKIP_SUPABASE_START:-0}" != "1" ] && [ "${CI:-false}" != "true" ]; then
   echo "==> Checking OrbStack / Docker / Supabase readiness"
-  if ! npx tsx scripts/db/doctor.ts >/dev/null 2>&1; then
+  if ! "$TSX_BIN" scripts/db/doctor.ts >/dev/null 2>&1; then
     echo "==> Starting OrbStack"
     orbctl start >/dev/null
   fi
@@ -38,9 +45,9 @@ if [ "${SKIP_SUPABASE_START:-0}" != "1" ] && [ "${CI:-false}" != "true" ]; then
     exit 1
   fi
 
-  if ! npx supabase status -o pretty >/dev/null 2>&1; then
+  if ! "$SUPABASE_BIN" status -o pretty >/dev/null 2>&1; then
     echo "==> Starting local Supabase stack"
-    npx supabase start >"$ARTIFACT_DIR/supabase-start.log" 2>&1
+    "$SUPABASE_BIN" start >"$ARTIFACT_DIR/supabase-start.log" 2>&1
   fi
 
   LOCAL_HOST=127.0.0.1
@@ -159,7 +166,7 @@ else
   echo "   - running drizzle-orm migrator"
   DIRECT_URL="postgresql://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}" \
   DATABASE_URL="postgresql://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}" \
-    npx tsx scripts/db/run-migrations.ts
+    "$TSX_BIN" scripts/db/run-migrations.ts
 fi
 
 if [ "$COMPAT_MODE" = "1" ]; then
@@ -185,7 +192,7 @@ fi
 # Canonical lookup foods required by the local/CI food-lookup regression tests.
 # Seeded HERE (bootstrap path) and deliberately NOT as a journaled migration, so these
 # deterministic fixtures never enter production: prod already holds the real USDA/HHF rows
-# for these canonical_food_keys. Macros are standard USDA SR reference values.
+# for these canonical_food_keys. Macros are reviewed USDA/HHF reference values.
 echo "==> Seeding canonical lookup foods (local/CI bootstrap fixture only — not production)"
 psql -v ON_ERROR_STOP=1 -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" <<'SQL'
 INSERT INTO foods (
@@ -202,7 +209,7 @@ INSERT INTO foods (
    309, 1.5, 49.2, 11.8, 2.3, 119, 'piece', 0.85, true, 'plantain_fried',
    'USDA SR reference values; deterministic local/CI bootstrap fixture (not production data).', now(), 80, 'manual'),
   ('usda', 'wp2-seed-banana-raw', 'lab_verified', 'Banana, raw', ARRAY['US','CO','GR'],
-   89, 1.1, 22.8, 0.3, 2.6, 118, 'medium', 0.9, true, 'banana_raw',
+   89, 1.1, 22.8, 0.33, 2.6, 118, 'medium', 0.9, true, 'banana_raw',
    'USDA SR reference values; deterministic local/CI bootstrap fixture (not production data).', now(), 90, 'manual'),
   ('usda', 'wp2-seed-chicken-breast-grilled', 'lab_verified', 'Chicken breast, grilled', ARRAY['US','GR','CO'],
    165, 31.0, 0.0, 3.6, 0.0, 120, 'piece', 0.9, true, 'chicken_breast_grilled',
@@ -231,12 +238,63 @@ INSERT INTO foods (
   ('usda', 'wp2-seed-honey', 'lab_verified', 'Honey', ARRAY['US','GR','CO'],
    304, 0.3, 82.4, 0.0, 0.2, 21, 'tablespoon', 0.9, true, 'honey',
    'USDA SR reference values; deterministic local/CI bootstrap fixture (not production data).', now(), 80, 'manual'),
-  ('usda', 'wp2-seed-whey-protein-powder', 'lab_verified', 'Protein powder, whey', ARRAY['US','GR','CO'],
-   400, 80.0, 8.0, 6.0, 0.0, 30, 'scoop', 0.75, true, 'protein_powder_whey',
+  ('usda', 'wp2-seed-whey-protein-powder', 'lab_verified', 'Whey protein isolate', ARRAY['US','GR','CO'],
+   352, 78.1, 6.27, 1.57, 0.0, 30, 'scoop', 0.85, true, 'whey_protein_powder',
    'USDA SR reference values; deterministic local/CI bootstrap fixture (not production data).', now(), 72, 'manual'),
+  ('usda', 'wp2-seed-olive-oil', 'lab_verified', 'Olive oil, extra virgin', ARRAY['US','GR','CO'],
+   884, 0.0, 0.0, 100.0, 0.0, 14, 'tbsp', 0.9, true, 'olive_oil_extra_virgin',
+   'USDA SR reference values; deterministic local/CI bootstrap fixture (not production data).', now(), 90, 'manual'),
+  ('usda', 'wp2-seed-black-beans-cooked', 'lab_verified', 'Black beans, cooked', ARRAY['US','CO'],
+   132, 8.86, 23.7, 0.54, 8.7, 172, 'cup', 0.9, true, 'black_beans_cooked',
+   'USDA SR reference values; deterministic local/CI bootstrap fixture (not production data).', now(), 82, 'manual'),
+  ('usda', 'wp2-seed-arepa-corn', 'lab_verified', 'Arepa, cornmeal cake', ARRAY['CO'],
+   362, 8.12, 76.9, 3.58, 7.3, 65, 'piece', 0.75, true, 'arepa_corn',
+   'USDA cornmeal proxy; deterministic local/CI bootstrap fixture (not production data).', now(), 82, 'manual'),
+  ('usda', 'wp2-seed-ground-beef-cooked', 'lab_verified', 'Ground beef, 80% lean, 20% fat, cooked, pan-browned', ARRAY['US','CO'],
+   250, 25.9, 0.0, 15.4, 0.0, 100, 'serving', 0.9, true, 'ground_beef_cooked',
+   'USDA SR reference values; deterministic local/CI bootstrap fixture (not production data).', now(), 85, 'manual'),
+  ('usda', 'wp2-seed-avocado-raw', 'lab_verified', 'Avocado, raw', ARRAY['US','GR','CO'],
+   160, 2.0, 8.53, 14.7, 6.7, 201, 'piece', 0.9, true, 'avocado_raw',
+   'USDA SR reference values; deterministic local/CI bootstrap fixture (not production data).', now(), 88, 'manual'),
+  ('usda', 'wp2-seed-oats-rolled-dry', 'lab_verified', 'Cereals, oats, regular, quick, instant, dry', ARRAY['US','GR'],
+   379, 13.2, 67.7, 6.52, 10.1, 81, 'cup', 0.9, true, 'oats_rolled_dry',
+   'USDA SR reference values; deterministic local/CI bootstrap fixture (not production data).', now(), 84, 'manual'),
+  ('usda', 'wp2-seed-salmon-atlantic-raw', 'lab_verified', 'Fish, salmon, Atlantic, farmed, raw', ARRAY['US','GR'],
+   142, 19.8, 0.0, 6.34, 0.0, 198, 'fillet', 0.9, true, 'salmon_atlantic_raw',
+   'USDA SR reference values; deterministic local/CI bootstrap fixture (not production data).', now(), 86, 'manual'),
+  ('usda', 'wp2-seed-broccoli-raw', 'lab_verified', 'Broccoli, raw', ARRAY['US','GR'],
+   34, 2.82, 6.64, 0.37, 2.6, 91, 'cup', 0.9, true, 'broccoli_raw',
+   'USDA SR reference values; deterministic local/CI bootstrap fixture (not production data).', now(), 84, 'manual'),
+  ('usda', 'wp2-seed-peanut-butter', 'lab_verified', 'Peanut butter, smooth', ARRAY['US'],
+   598, 22.2, 22.3, 51.4, 5.0, 16, 'tbsp', 0.9, true, 'peanut_butter',
+   'USDA SR reference values; deterministic local/CI bootstrap fixture (not production data).', now(), 82, 'manual'),
+  ('usda', 'wp2-seed-almonds', 'lab_verified', 'Almonds, raw', ARRAY['US','GR'],
+   579, 21.2, 21.6, 49.9, 12.5, 30, 'handful', 0.9, true, 'almonds',
+   'USDA SR reference values; deterministic local/CI bootstrap fixture (not production data).', now(), 82, 'manual'),
+  ('usda', 'wp2-seed-rice-cake-plain', 'lab_verified', 'Rice cake, brown rice, plain', ARRAY['US','GR'],
+   387, 8.22, 81.6, 2.78, 4.2, 9, 'piece', 0.9, true, 'rice_cake_plain',
+   'USDA SR reference values; deterministic local/CI bootstrap fixture (not production data).', now(), 82, 'manual'),
+  ('usda', 'wp2-seed-canned-tuna-water', 'lab_verified', 'Tuna, canned in water, drained', ARRAY['US','GR'],
+   116, 25.5, 0.0, 0.82, 0.0, 165, 'can', 0.9, true, 'canned_tuna_water',
+   'USDA SR reference values; deterministic local/CI bootstrap fixture (not production data).', now(), 84, 'manual'),
+  ('usda', 'wp2-seed-whole-wheat-bread', 'lab_verified', 'Whole wheat bread', ARRAY['US','GR','CO'],
+   252, 12.4, 42.7, 3.5, 6.0, 28, 'slice', 0.9, true, 'whole_wheat_bread',
+   'USDA SR reference values; deterministic local/CI bootstrap fixture (not production data).', now(), 84, 'manual'),
   ('usda', 'wp2-seed-feta-cheese', 'lab_verified', 'Feta cheese', ARRAY['GR','US'],
    264, 14.2, 4.1, 21.3, 0.0, 30, 'slice', 0.9, true, 'feta_cheese',
-   'USDA SR reference values; deterministic local/CI bootstrap fixture (not production data).', now(), 85, 'manual')
+   'USDA SR reference values; deterministic local/CI bootstrap fixture (not production data).', now(), 85, 'manual'),
+  ('hhf', 'wp2-seed-spanakopita', 'lab_verified', 'Spanakopita', ARRAY['GR'],
+   215, 7.7, 16.9, 13.8, 2.6, 130, 'piece', 0.85, true, 'spanakopita',
+   'Reviewed Greek-dish reference values; deterministic local/CI bootstrap fixture (not production data).', now(), 75, 'manual'),
+  ('hhf', 'wp2-seed-lentil-soup', 'lab_verified', 'Lentil soup (Fakes)', ARRAY['GR'],
+   59, 4.2, 8.8, 0.8, 3.7, 300, 'bowl', 0.85, true, 'lentil_soup_fakes',
+   'HHF reference values; deterministic local/CI bootstrap fixture (not production data).', now(), 75, 'manual'),
+  ('hhf', 'wp2-seed-fasolada', 'lab_verified', 'Fasolada bean soup', ARRAY['GR'],
+   73, 4.0, 10.7, 2.0, 4.0, 350, 'bowl', 0.8, true, 'fasolada_bean_soup',
+   'HHF reference values; deterministic local/CI bootstrap fixture (not production data).', now(), 70, 'manual'),
+  ('hhf', 'wp2-seed-revithosoupa', 'lab_verified', 'Chickpea revithosoupa', ARRAY['GR'],
+   75, 4.5, 11.5, 1.5, 4.5, 350, 'bowl', 0.8, true, 'chickpea_revithosoupa',
+   'HHF reference values; deterministic local/CI bootstrap fixture (not production data).', now(), 70, 'manual')
 ON CONFLICT (source, source_id) DO UPDATE SET
   data_quality = EXCLUDED.data_quality,
   name_en = EXCLUDED.name_en,
@@ -255,10 +313,27 @@ ON CONFLICT (source, source_id) DO UPDATE SET
   data_reviewed_at = EXCLUDED.data_reviewed_at,
   popularity = EXCLUDED.popularity,
   verified = EXCLUDED.verified;
+
+-- The generated search vector includes localized names, so these deterministic
+-- translations exercise the same cross-language lookup path as production.
+UPDATE foods SET name_el = 'Φέτα'
+WHERE source = 'usda' AND source_id = 'wp2-seed-feta-cheese';
+UPDATE foods SET name_el = 'Ελαιόλαδο'
+WHERE source = 'usda' AND source_id = 'wp2-seed-olive-oil';
+UPDATE foods SET name_el = 'Κοτόπουλο στήθος'
+WHERE source = 'usda' AND source_id = 'wp2-seed-chicken-breast-grilled';
+UPDATE foods SET name_el = 'Σπανακόπιτα'
+WHERE source = 'hhf' AND source_id = 'wp2-seed-spanakopita';
+UPDATE foods SET name_el = 'Φακές'
+WHERE source = 'hhf' AND source_id = 'wp2-seed-lentil-soup';
+UPDATE foods SET name_el = 'Φασολάδα'
+WHERE source = 'hhf' AND source_id = 'wp2-seed-fasolada';
+UPDATE foods SET name_el = 'Ρεβιθόσουπα'
+WHERE source = 'hhf' AND source_id = 'wp2-seed-revithosoupa';
 SQL
 
 echo "==> Verifying schema and capturing explain plans"
-npx tsx scripts/db/verify.ts
-npx tsx scripts/db/explain.ts
+"$TSX_BIN" scripts/db/verify.ts
+"$TSX_BIN" scripts/db/explain.ts
 
 echo "==> Bootstrap complete."

@@ -2,7 +2,6 @@ import {
   pgTable,
   uuid,
   text,
-  boolean,
   timestamp,
   index,
   foreignKey,

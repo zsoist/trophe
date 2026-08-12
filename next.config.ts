@@ -21,6 +21,9 @@ const withSerwist = withSerwistInit({
 });
 
 const nextConfig: NextConfig = {
+  // Worktrees can sit beside another lockfile. Pin tracing to the checkout
+  // actually being built so Next never guesses a parent/sibling workspace.
+  outputFileTracingRoot: process.cwd(),
   // Serwist injects a webpack config; Next 16 (Turbopack default) errors on a
   // webpack config with no turbopack config. An empty turbopack config lets
   // `next dev` (Turbopack) run while production builds use `--webpack`.

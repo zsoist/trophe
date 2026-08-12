@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { signupErrorMessage, confirmedLoginNotice } from '@/lib/auth/auth-messages';
+import {
+  authCallbackErrorNotice,
+  confirmedLoginNotice,
+  signupErrorMessage,
+} from '@/lib/auth/auth-messages';
 
 describe('P1 activation/deliverability copy', () => {
   // `conflict` must NOT claim "already registered": claim_ordinary_signup returns conflict for a
@@ -29,5 +33,14 @@ describe('P1 activation/deliverability copy', () => {
     expect(confirmedLoginNotice('0')).toBeNull();
     expect(confirmedLoginNotice('true')).toBeNull();
     expect(confirmedLoginNotice(null)).toBeNull();
+  });
+
+  it('maps callback failures to safe actionable login copy without reflecting provider text', () => {
+    expect(authCallbackErrorNotice('cancelled')).toBe('Sign-in was cancelled. Please try again.');
+    expect(authCallbackErrorNotice('invalid_or_expired')).toContain('invalid or expired');
+    expect(authCallbackErrorNotice('raw provider database detail')).toBe(
+      'That sign-in link is invalid or expired. Request a new link and try again.',
+    );
+    expect(authCallbackErrorNotice(null)).toBeNull();
   });
 });

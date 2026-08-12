@@ -9,13 +9,18 @@
  * opens the ExerciseInfoSheet (form cues, muscles, PR, recent history).
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Dumbbell, Info, Plus, Search, X } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
 import type { Exercise, MuscleGroup } from '@/lib/types';
 import { MUSCLE_GROUPS, muscleColor, muscleLabelKey } from './muscle-groups';
+
+const subscribeToClient = () => () => {};
+const getClientSnapshot = () => true;
+const getServerSnapshot = () => false;
 
 // ─── Custom Exercise Modal ───
 export function CustomExerciseModal({
@@ -215,11 +220,36 @@ export default function ExercisePicker({
   const [filterMuscle, setFilterMuscle] = useState<MuscleGroup | 'all'>('all');
   const [showCustomModal, setShowCustomModal] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const onCloseRef = useRef(onClose);
+  const canUseDom = useSyncExternalStore(
+    subscribeToClient,
+    getClientSnapshot,
+    getServerSnapshot,
+  );
   const { t } = useI18n();
 
   useEffect(() => {
-    inputRef.current?.focus();
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onCloseRef.current();
+    };
+
+    document.body.style.overflow = 'hidden';
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', handleKeyDown);
+    };
   }, []);
+
+  useEffect(() => {
+    if (canUseDom) inputRef.current?.focus();
+  }, [canUseDom]);
 
   const nameOf = (ex: Exercise) =>
     lang === 'es' && ex.name_es ? ex.name_es : lang === 'el' && ex.name_el ? ex.name_el : ex.name;
@@ -246,13 +276,18 @@ export default function ExercisePicker({
     ? MUSCLE_GROUPS.map((mg) => ({ mg, items: filtered.filter((e) => e.muscle_group === mg.key) })).filter((s) => s.items.length > 0)
     : [{ mg: null as (typeof MUSCLE_GROUPS)[number] | null, items: filtered }];
 
-  return (
+  if (!canUseDom) return null;
+
+  return createPortal(
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex flex-col"
-      style={{ background: 'var(--bg, #0a0a0a)' }}
+      role="dialog"
+      aria-modal="true"
+      aria-label={t('workout.add_exercise')}
+      className="fixed inset-0 z-[var(--z-modal,60)] flex flex-col"
+      style={{ background: '#0a0a0a', isolation: 'isolate' }}
     >
       {/* Sticky header: close · search · live count */}
       <div className="sticky top-0 z-10 glass-elevated">
@@ -385,6 +420,7 @@ export default function ExercisePicker({
           />
         )}
       </AnimatePresence>
-    </motion.div>
+    </motion.div>,
+    document.body,
   );
 }

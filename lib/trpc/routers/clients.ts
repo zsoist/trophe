@@ -14,7 +14,7 @@
 import { z } from 'zod';
 import { router, coachProcedure } from '../init';
 import { profiles, clientProfiles } from '@/db/schema/profiles';
-import { eq, and, ilike, or, desc } from 'drizzle-orm';
+import { eq, and, ilike, or, desc, count } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import { clientAccessPredicate } from '@/lib/auth/tenant-access';
 
@@ -23,37 +23,45 @@ export const clientsRouter = router({
   list: coachProcedure
     .input(
       z.object({
-        limit: z.number().min(1).max(100).default(50),
-        offset: z.number().min(0).default(0),
+        limit: z.number().int().min(1).max(100).default(50),
+        offset: z.number().int().min(0).default(0),
       }),
     )
     .query(async ({ ctx, input }) => {
       const coachId = ctx.user!.id;
       const role = ctx.profile!.role;
+      const access = clientAccessPredicate(coachId, role);
 
-      const rows = await ctx.db
-        .select({
-          id: profiles.id,
-          fullName: profiles.fullName,
-          email: profiles.email,
-          avatarUrl: profiles.avatarUrl,
-          createdAt: profiles.createdAt,
-          clientProfile: {
-            targetCalories: clientProfiles.targetCalories,
-            targetProteinG: clientProfiles.targetProteinG,
-            targetCarbsG: clientProfiles.targetCarbsG,
-            targetFatG: clientProfiles.targetFatG,
-            goal: clientProfiles.goal,
-          },
-        })
-        .from(clientProfiles)
-        .innerJoin(profiles, eq(profiles.id, clientProfiles.userId))
-        .where(clientAccessPredicate(coachId, role))
-        .orderBy(desc(profiles.createdAt))
-        .limit(input.limit)
-        .offset(input.offset);
+      const [rows, [totalRow]] = await Promise.all([
+        ctx.db
+          .select({
+            id: profiles.id,
+            fullName: profiles.fullName,
+            email: profiles.email,
+            avatarUrl: profiles.avatarUrl,
+            createdAt: profiles.createdAt,
+            clientProfile: {
+              targetCalories: clientProfiles.targetCalories,
+              targetProteinG: clientProfiles.targetProteinG,
+              targetCarbsG: clientProfiles.targetCarbsG,
+              targetFatG: clientProfiles.targetFatG,
+              goal: clientProfiles.goal,
+            },
+          })
+          .from(clientProfiles)
+          .innerJoin(profiles, eq(profiles.id, clientProfiles.userId))
+          .where(access)
+          .orderBy(desc(profiles.createdAt))
+          .limit(input.limit)
+          .offset(input.offset),
+        ctx.db
+          .select({ total: count() })
+          .from(clientProfiles)
+          .innerJoin(profiles, eq(profiles.id, clientProfiles.userId))
+          .where(access),
+      ]);
 
-      return { clients: rows, total: rows.length };
+      return { clients: rows, total: totalRow?.total ?? 0 };
     }),
 
   // ── Single client detail ─────────────────────────────────────────────

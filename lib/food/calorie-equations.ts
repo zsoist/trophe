@@ -39,26 +39,77 @@ export function targetCalories(tdee: number, goal: Goal): number {
   return tdee;
 }
 
-export interface MacroSplit { protein_g: number; carbs_g: number; fat_g: number; calories: number; }
+export interface MacroSplit {
+  protein_g: number;
+  carbs_g: number;
+  fat_g: number;
+  calories: number;
+  protein_capped: boolean;
+}
 
 /**
  * Split a calorie target into macros. Protein anchored to body weight
  * (2.0 g/kg default — Michael can raise for athletes/older clients), fat at 25%
- * of calories, carbs fill the remainder. Calories are recomputed from the macros
- * (Atwater 4/4/9) so the split is internally consistent.
+ * of calories, carbs fill the remainder. If protein plus fat cannot fit, protein
+ * is capped and the coach is told to review the result. Calories are recomputed
+ * from the macros (Atwater 4/4/9) so the split is internally consistent.
  */
 export function macroSplit(calories: number, weightKg: number, proteinPerKg = 2.0): MacroSplit {
-  const protein_g = Math.round(weightKg * proteinPerKg);
-  const fat_g = Math.round((calories * 0.25) / 9);
-  const remaining = calories - (protein_g * 4 + fat_g * 9);
-  const carbs_g = Math.max(0, Math.round(remaining / 4));
-  return { protein_g, carbs_g, fat_g, calories: protein_g * 4 + carbs_g * 4 + fat_g * 9 };
+  const calorieBudget = Number.isFinite(calories) ? Math.max(0, Math.round(calories)) : 0;
+  const requestedProtein = Number.isFinite(weightKg * proteinPerKg)
+    ? Math.max(0, Math.round(weightKg * proteinPerKg))
+    : 0;
+  const fat_g = Math.round((calorieBudget * 0.25) / 9);
+  const proteinBudget = Math.max(0, calorieBudget - fat_g * 9);
+  const protein_g = Math.min(requestedProtein, Math.floor(proteinBudget / 4));
+  const remaining = calorieBudget - (protein_g * 4 + fat_g * 9);
+  // Whole grams must never round the recommendation above its calorie ceiling.
+  const carbs_g = Math.max(0, Math.floor(remaining / 4));
+  return {
+    protein_g,
+    carbs_g,
+    fat_g,
+    calories: protein_g * 4 + carbs_g * 4 + fat_g * 9,
+    protein_capped: protein_g < requestedProtein,
+  };
 }
 
 export interface BaselineInput {
   sex: Sex; ageYears: number; weightKg: number; heightCm: number;
   bodyFatPct?: number | null; activity?: ActivityLevel; goal?: Goal; proteinPerKg?: number;
 }
+export type BaselineInputIssue =
+  | 'sex'
+  | 'age'
+  | 'weight'
+  | 'height'
+  | 'body_fat'
+  | 'activity'
+  | 'goal'
+  | 'protein';
+
+export function baselineInputIssue(i: BaselineInput): BaselineInputIssue | null {
+  if (i.sex !== 'male' && i.sex !== 'female') return 'sex';
+  if (!Number.isInteger(i.ageYears) || i.ageYears < 13 || i.ageYears > 120) return 'age';
+  if (!Number.isFinite(i.weightKg) || i.weightKg < 20 || i.weightKg > 300) return 'weight';
+  if (!Number.isFinite(i.heightCm) || i.heightCm < 100 || i.heightCm > 250) return 'height';
+  if (
+    i.bodyFatPct != null
+    && i.bodyFatPct !== 0
+    && (!Number.isFinite(i.bodyFatPct) || i.bodyFatPct < 1 || i.bodyFatPct > 75)
+  ) return 'body_fat';
+  if (
+    i.activity
+    && !Object.prototype.hasOwnProperty.call(ACTIVITY_FACTOR, i.activity)
+  ) return 'activity';
+  if (i.goal && !(['lose', 'maintain', 'gain'] as const).includes(i.goal)) return 'goal';
+  if (
+    i.proteinPerKg != null
+    && (!Number.isFinite(i.proteinPerKg) || i.proteinPerKg <= 0 || i.proteinPerKg > 4)
+  ) return 'protein';
+  return null;
+}
+
 export interface BaselineResult {
   bmr: number; tdee: number; formula: 'mifflin_st_jeor' | 'katch_mccardle';
   target: MacroSplit;
@@ -66,6 +117,8 @@ export interface BaselineResult {
 
 /** End-to-end: body comp → BMR → TDEE → goal-adjusted calorie target → macro split. */
 export function computeBaseline(i: BaselineInput): BaselineResult {
+  const issue = baselineInputIssue(i);
+  if (issue) throw new RangeError(`Unsupported baseline input: ${issue}`);
   const useKatch = typeof i.bodyFatPct === 'number' && i.bodyFatPct > 0;
   const bmr = useKatch ? katchMcArdle(i.weightKg, i.bodyFatPct as number)
                        : mifflinStJeor(i.sex, i.ageYears, i.weightKg, i.heightCm);

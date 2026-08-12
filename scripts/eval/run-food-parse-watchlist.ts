@@ -6,7 +6,27 @@ import { loadEnvConfig } from '@next/env';
 import { foodParseSimulatorPolicy, taskPolicies } from '../../agents/router/policies';
 import { assertOffPeakEvalWindow } from './off-peak';
 import { verifyProductionFoodParsePolicy } from './verify-production-food-parse-policy';
+import {
+  FOOD_PARSE_OPAQUE_MAX_PROVIDER_ATTEMPTS,
+  requirePaidAiToolApproval,
+  resolvePaidAiRouteEndpoint,
+} from '../safety/require-paid-ai-approval';
 
+const paidEndpoint = resolvePaidAiRouteEndpoint({
+  baseUrl: process.env.TROPHE_API ?? 'https://trophe.app',
+  pathname: '/api/food/parse',
+  operation: 'eval-food-parse-watchlist',
+});
+const paidAiApproval = requirePaidAiToolApproval({
+  operation: 'eval-food-parse-watchlist',
+  argv: process.argv.slice(2),
+  env: process.env,
+  endpoints: [paidEndpoint],
+});
+paidAiApproval.reserveOpaqueEnvelope({
+  endpoint: paidEndpoint,
+  maxProviderAttempts: FOOD_PARSE_OPAQUE_MAX_PROVIDER_ATTEMPTS,
+});
 loadEnvConfig(process.cwd());
 
 type Range = { min: number; max: number };
@@ -34,6 +54,7 @@ type ParseResponseBody = { items?: ParsedItem[]; error?: string };
 
 const fixturePath = join(process.cwd(), 'tests/fixtures/food-parse-luna-watchlist.json');
 const fixture = JSON.parse(readFileSync(fixturePath, 'utf8')) as WatchFixture;
+const apiBase = new URL(paidEndpoint).origin;
 
 function inRange(value: number, range: Range): boolean {
   return value >= range.min && value <= range.max;
@@ -79,17 +100,18 @@ async function main(): Promise<void> {
     throw new Error('Watch-list simulator policy is not the production food_parse policy object');
   }
   const token = await getAccessToken();
-  const apiBase = process.env.TROPHE_API ?? 'https://trophe.app';
   const deployedPolicy = await verifyProductionFoodParsePolicy(apiBase);
 
   const results = [];
-  for (const testCase of fixture.cases) {
+  for (const testCase of paidAiApproval.boundJobs(fixture.cases, {
+    maxAttemptsPerJob: FOOD_PARSE_OPAQUE_MAX_PROVIDER_ATTEMPTS,
+  })) {
     const startedAt = Date.now();
     let response: Response | undefined;
     let body: ParseResponseBody | null = null;
     let transportError: string | undefined;
     try {
-      response = await fetch(`${apiBase}/api/food/parse`, {
+      response = await paidAiApproval.fetchOpaque(paidEndpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -98,7 +120,7 @@ async function main(): Promise<void> {
           'x-request-id': `watchlist-${testCase.id}-${Date.now()}`,
         },
         body: JSON.stringify({ text: testCase.input, language: testCase.language }),
-      });
+      }, { maxProviderAttempts: FOOD_PARSE_OPAQUE_MAX_PROVIDER_ATTEMPTS });
       body = await response.json().catch(() => null) as ParseResponseBody | null;
     } catch (error) {
       transportError = error instanceof Error ? error.message : String(error);

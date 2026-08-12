@@ -1,6 +1,9 @@
 import type { z } from 'zod';
-import { callGeminiMessages } from '@/agents/clients/google';
-import { invokeAnthropicJson } from './anthropic';
+import {
+  callGeminiMessages,
+  type GeminiGenerateContent,
+} from '@/agents/clients/google';
+import { AnthropicApiError, invokeAnthropicJson } from './anthropic';
 import { invokeDeepSeekStructured } from './deepseek';
 import { invokeOpenAiStructured } from './openai';
 import type { RoutingPolicy } from '@/agents/router/policies';
@@ -20,6 +23,8 @@ export async function invokeGeminiStructured<T>(input: {
   responseSchema: Record<string, unknown>;
   validator: z.ZodType<T>;
   maxTokens?: number;
+  generateContent?: GeminiGenerateContent;
+  beforeTransportAttempt?: (endpoint: string) => unknown;
 }): Promise<ProviderResult<T>> {
   if (input.signal.aborted) throw new Error('AI request aborted');
   if (input.policy.provider !== 'google') throw new Error('Structured Gemini provider requires a Google policy');
@@ -31,6 +36,9 @@ export async function invokeGeminiStructured<T>(input: {
     maxTokens: input.maxTokens ?? input.policy.maxTokens,
     disableThinking: true,
     responseSchema: input.responseSchema,
+    signal: input.signal,
+    generateContent: input.generateContent,
+    beforeTransportAttempt: input.beforeTransportAttempt,
   });
   if (result.rawError || result.rawStatus === 0) throw new Error(result.rawError ?? 'Provider request failed');
 
@@ -71,12 +79,17 @@ export async function invokeStructuredProvider<T>(input: {
   toolName?: string;
   /** Tool description for DeepSeek/Anthropic (default: 'Submit structured result'). */
   toolDescription?: string;
-  /** Enable DeepSeek /beta strict mode (requires additionalProperties: false). */
+  /** Enable provider strict tool schemas; DeepSeek requires additionalProperties: false. */
   strict?: boolean;
   maxTokens?: number;
   /** OpenAI-only retry bound. Use 1 for strict measurement probes. */
   maxAttempts?: number;
   userId?: string;
+  /** Test/offline-only Anthropic transport injection. */
+  fetchImpl?: typeof fetch;
+  /** Test/offline-only Google SDK transport injection. */
+  generateContent?: GeminiGenerateContent;
+  beforeTransportAttempt?: (endpoint: string) => unknown;
 }): Promise<ProviderResult<T>> {
   if (input.signal.aborted) throw new Error('AI request aborted');
 
@@ -98,6 +111,8 @@ export async function invokeStructuredProvider<T>(input: {
       schema: input.schema,
       validator: input.validator,
       strict,
+      fetchImpl: input.fetchImpl,
+      beforeTransportAttempt: input.beforeTransportAttempt,
     });
   }
 
@@ -115,24 +130,36 @@ export async function invokeStructuredProvider<T>(input: {
       validator: input.validator,
       strict,
       maxAttempts: input.maxAttempts,
+      fetchImpl: input.fetchImpl,
+      beforeTransportAttempt: input.beforeTransportAttempt,
     });
   }
 
   // ── Anthropic: tool_use with tool_choice enforcement ──────────────────
   if (input.policy.provider === 'anthropic') {
+    const system = input.policy.cacheSystem
+      ? [{
+          type: 'text' as const,
+          text: input.system,
+          cache_control: { type: 'ephemeral' as const },
+        }]
+      : input.system;
     const result = await invokeAnthropicJson<{
       content: Array<{ type: string; name?: string; input?: unknown }>;
     }>({
       signal: input.signal,
+      fetchImpl: input.fetchImpl,
+      beforeTransportAttempt: input.beforeTransportAttempt,
       body: {
         model: input.policy.model,
         max_tokens: input.maxTokens ?? input.policy.maxTokens,
-        system: input.system,
+        system,
         messages: [{ role: 'user', content: input.prompt }],
         tools: [{
           name: toolName,
           description: toolDescription,
           input_schema: input.schema,
+          ...(strict ? { strict: true } : {}),
         }],
         tool_choice: { type: 'tool', name: toolName },
       },
@@ -140,7 +167,17 @@ export async function invokeStructuredProvider<T>(input: {
     const toolUse = result.output.content.find(
       (c) => c.type === 'tool_use' && c.name === toolName,
     );
-    if (!toolUse?.input) throw new Error('Anthropic structured response missing tool call');
+    if (!toolUse?.input) {
+      throw new AnthropicApiError({
+        message: 'Anthropic structured response missing tool call',
+        status: result.rawStatus,
+        code: 'invalid_response',
+        type: 'response_validation_error',
+        usage: result.usage,
+        latencyMs: result.latencyMs,
+        providerGenerationId: result.providerGenerationId,
+      });
+    }
     return {
       output: input.validator.parse(toolUse.input),
       usage: result.usage,
@@ -160,6 +197,8 @@ export async function invokeStructuredProvider<T>(input: {
       responseSchema: input.schema,
       validator: input.validator,
       maxTokens: input.maxTokens,
+      generateContent: input.generateContent,
+      beforeTransportAttempt: input.beforeTransportAttempt,
     });
   }
 

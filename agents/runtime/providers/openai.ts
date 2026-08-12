@@ -1,8 +1,14 @@
 import { createHash } from 'node:crypto';
 import type { z } from 'zod';
 import type { AiUsage, ProviderResult } from '../types';
+import {
+  assertPaidProviderAccess,
+  PAID_PROVIDER_OFFLINE_CREDENTIAL,
+} from '../provider-access';
+import { debitPaidTransportAttempt } from '../../../scripts/safety/require-paid-ai-approval';
 
 const OPENAI_CHAT_COMPLETIONS_URL = 'https://api.openai.com/v1/chat/completions';
+const MISTRAL_CHAT_COMPLETIONS_URL = 'https://api.mistral.ai/v1/chat/completions';
 const MAX_ATTEMPTS = 3;
 const MAX_RETRY_DELAY_MS = 8_000;
 const MAX_RETRY_AFTER_MS = 60_000;
@@ -141,9 +147,30 @@ export async function invokeOpenAiStructured<T>(input: {
   strict?: boolean;
   /** Defaults to SDK-compatible three total attempts. Set to 1 for measured probes. */
   maxAttempts?: number;
+  fetchImpl?: typeof fetch;
+  beforeTransportAttempt?: (endpoint: string) => unknown;
 }): Promise<ProviderResult<T>> {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) throw new Error('OPENAI_API_KEY not configured');
+  const isMistralCompatible = /^mistral(?:-|$)/.test(input.model);
+  const endpoint = isMistralCompatible
+    ? MISTRAL_CHAT_COMPLETIONS_URL
+    : OPENAI_CHAT_COMPLETIONS_URL;
+  const accessMode = assertPaidProviderAccess({
+    provider: 'openai',
+    transportWasInjected: input.fetchImpl != null,
+  });
+  const apiKey = accessMode === 'offline'
+    ? PAID_PROVIDER_OFFLINE_CREDENTIAL
+    : isMistralCompatible
+      ? process.env.MISTRAL_API_KEY
+      : process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error(
+      isMistralCompatible
+        ? 'MISTRAL_API_KEY not configured'
+        : 'OPENAI_API_KEY not configured',
+    );
+  }
+  const fetchImpl = input.fetchImpl ?? fetch;
 
   const startedAt = Date.now();
   const supportsExplicitPromptCache = /^gpt-5\.6(?:-|$)/.test(input.model);
@@ -162,8 +189,12 @@ export async function invokeOpenAiStructured<T>(input: {
         : { role: 'system', content: input.system },
       { role: 'user', content: input.prompt },
     ],
-    max_completion_tokens: input.maxTokens,
-    reasoning_effort: 'none',
+    ...(isMistralCompatible
+      ? { max_tokens: input.maxTokens }
+      : {
+          max_completion_tokens: input.maxTokens,
+          reasoning_effort: 'none',
+        }),
     ...(supportsExplicitPromptCache ? {
       prompt_cache_key: promptCacheKey(input),
       prompt_cache_options: { mode: 'explicit' },
@@ -200,9 +231,14 @@ export async function invokeOpenAiStructured<T>(input: {
     : MAX_ATTEMPTS;
   const maxAttempts = Math.min(MAX_ATTEMPTS, Math.max(1, requestedAttempts));
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    debitPaidTransportAttempt(
+      input.beforeTransportAttempt,
+      endpoint,
+    );
     try {
-      response = await fetch(OPENAI_CHAT_COMPLETIONS_URL, {
+      response = await fetchImpl(endpoint, {
         method: 'POST',
+        redirect: 'error',
         headers: {
           Authorization: `Bearer ${apiKey}`,
           'Content-Type': 'application/json',

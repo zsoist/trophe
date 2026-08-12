@@ -1,6 +1,25 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { createSupabaseMiddlewareClient } from '@/lib/supabase/middleware';
 
+function applySecurityHeaders(response: NextResponse): NextResponse {
+  response.headers.set('X-Content-Type-Options', 'nosniff');
+  response.headers.set('X-Frame-Options', 'DENY');
+  response.headers.set('X-XSS-Protection', '1; mode=block');
+  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  return response;
+}
+
+function redirectWithSessionCookies(
+  url: URL,
+  sessionResponse: NextResponse,
+): NextResponse {
+  const redirect = NextResponse.redirect(url);
+  for (const cookie of sessionResponse.cookies.getAll()) {
+    redirect.cookies.set(cookie);
+  }
+  return applySecurityHeaders(redirect);
+}
+
 /**
  * Trophē proxy — Phase 2.
  *
@@ -27,7 +46,7 @@ import { createSupabaseMiddlewareClient } from '@/lib/supabase/middleware';
  *
  * Closes codex HIGH #1: "middleware.ts admits auth is handled client-side".
  */
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { supabase, response } = createSupabaseMiddlewareClient(request);
 
   // PERF: a request with no Supabase cookies has no session to validate OR
@@ -49,7 +68,7 @@ export async function middleware(request: NextRequest) {
     try {
       ({ data: { user } } = await supabase.auth.getUser());
     } catch (err) {
-      console.error('[middleware] auth backend unreachable, treating as anonymous:', err instanceof Error ? err.message : err);
+      console.error('[proxy] auth backend unreachable, treating as anonymous:', err instanceof Error ? err.message : err);
     }
   }
 
@@ -68,22 +87,17 @@ export async function middleware(request: NextRequest) {
   if (isProtected && !user) {
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('redirectTo', pathname);
-    return NextResponse.redirect(loginUrl);
+    return redirectWithSessionCookies(loginUrl, response);
   }
 
   // ─── Auth pages — redirect authenticated users away ─────────────────────────
   const isAuthPage = pathname === '/login' || pathname === '/signup';
   if (isAuthPage && user) {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+    return redirectWithSessionCookies(new URL('/dashboard', request.url), response);
   }
 
   // ─── Security headers (applied to all responses) ────────────────────────────
-  response.headers.set('X-Content-Type-Options', 'nosniff');
-  response.headers.set('X-Frame-Options', 'DENY');
-  response.headers.set('X-XSS-Protection', '1; mode=block');
-  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-
-  return response;
+  return applySecurityHeaders(response);
 }
 
 export const config = {

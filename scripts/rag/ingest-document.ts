@@ -1,9 +1,11 @@
 import { createHash } from 'node:crypto';
 import { readFileSync, statSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
-import { sql } from 'drizzle-orm';
-import { ingestKnowledge, chunkKnowledge } from '../../agents/rag/ingest';
-import { db } from '../../db/client';
+import { chunkKnowledge } from '../../agents/rag/chunk';
+import {
+  PAID_AI_ENDPOINTS,
+  requirePaidAiToolApproval,
+} from '../safety/require-paid-ai-approval';
 
 const args = Object.fromEntries(process.argv.slice(2).map((arg) => {
   const [key, ...value] = arg.replace(/^--/, '').split('=');
@@ -40,6 +42,33 @@ const checksum = createHash('sha256').update(content).digest('hex');
 const chunks = chunkKnowledge(content);
 
 async function main() {
+  if (dryRun) {
+    console.log(JSON.stringify({
+      dryRun: true, file, title: args.title ?? basename(file), source, classification,
+      organizationId: organizationId ?? null, userId: userId ?? null, checksum, chunks: chunks.length,
+    }, null, 2));
+    return;
+  }
+
+  const approval = requirePaidAiToolApproval({
+    operation: 'ingest-rag-document',
+    argv: process.argv.slice(2),
+    env: process.env,
+    endpoints: [PAID_AI_ENDPOINTS.voyageEmbeddings],
+  });
+  const approvedChunks = approval.boundJobs(chunks);
+  if (approvedChunks.length !== chunks.length) {
+    throw new Error('Approved case limit must cover every document chunk');
+  }
+  const transport = approval.reserveAttemptEnvelope({
+    endpoint: PAID_AI_ENDPOINTS.voyageEmbeddings,
+    maxProviderAttempts: approvedChunks.length,
+  });
+  const [{ sql }, { db }, { ingestKnowledge }] = await Promise.all([
+    import('drizzle-orm'),
+    import('../../db/client'),
+    import('../../agents/rag/ingest'),
+  ]);
   const existing = await db.execute(sql`
     SELECT id, status FROM knowledge_documents
     WHERE checksum = ${checksum}
@@ -49,14 +78,6 @@ async function main() {
     LIMIT 1
   `);
   if (existing.rows.length) fail(`Document already exists in this scope (${existing.rows[0].id}, ${existing.rows[0].status})`);
-
-  if (dryRun) {
-    console.log(JSON.stringify({
-      dryRun: true, file, title: args.title ?? basename(file), source, classification,
-      organizationId: organizationId ?? null, userId: userId ?? null, checksum, chunks: chunks.length,
-    }, null, 2));
-    return;
-  }
 
   const result = await ingestKnowledge({
     title: args.title ?? basename(file),
@@ -69,6 +90,8 @@ async function main() {
     version: args.version,
     classification: classification as typeof allowedClassifications[number],
     consentBasis: args['consent-basis'],
+    chunks: approvedChunks,
+    beforeTransportAttempt: transport.beforeTransportAttempt,
   });
   console.log(JSON.stringify({ ...result, checksum }, null, 2));
 }

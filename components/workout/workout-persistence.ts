@@ -26,10 +26,78 @@ export interface CompletedSetInput {
   superset_group?: number | null;
 }
 
+export interface SupersetGroupUpdate {
+  id: string;
+  superset_group: number | null;
+}
+
+export async function updateWorkoutSupersetGroups(
+  updates: SupersetGroupUpdate[],
+): Promise<boolean> {
+  if (updates.length === 0) return true;
+
+  const idsByGroup = new Map<number | null, string[]>();
+  for (const update of updates) {
+    const ids = idsByGroup.get(update.superset_group) ?? [];
+    ids.push(update.id);
+    idsByGroup.set(update.superset_group, ids);
+  }
+
+  const results = await Promise.all(
+    Array.from(idsByGroup, async ([supersetGroup, ids]) => {
+      const { data, error } = await supabase
+        .from('workout_sets')
+        .update({ superset_group: supersetGroup })
+        .in('id', ids)
+        .select('id');
+      return !error && data?.length === ids.length;
+    }),
+  );
+  return results.every(Boolean);
+}
+
 export interface GhostSet {
   weight_kg: number | null;
   reps: number | null;
   rpe: number | null;
+}
+
+export interface GhostHistoryRow {
+  exercise_id: string;
+  weight_kg: number | null;
+  reps: number | null;
+  rpe: number | null;
+  set_number: number;
+  session_id: string;
+  workout_sessions: {
+    session_date: string;
+    created_at: string;
+  };
+}
+
+export function buildLastSetsMap(rows: GhostHistoryRow[]): Record<string, GhostSet[]> {
+  const map: Record<string, GhostSet[]> = {};
+  for (const exId of new Set(rows.map((row) => row.exercise_id))) {
+    const exerciseRows = rows.filter((row) => row.exercise_id === exId);
+    const latest = exerciseRows.reduce((best, row) => {
+      const bestSession = best.workout_sessions;
+      const rowSession = row.workout_sessions;
+      if (rowSession.session_date !== bestSession.session_date) {
+        return rowSession.session_date > bestSession.session_date ? row : best;
+      }
+      return rowSession.created_at > bestSession.created_at ? row : best;
+    });
+
+    map[exId] = exerciseRows
+      .filter((row) => row.session_id === latest.session_id)
+      .sort((a, b) => a.set_number - b.set_number)
+      .map((row) => ({
+        weight_kg: row.weight_kg,
+        reps: row.reps,
+        rpe: row.rpe,
+      }));
+  }
+  return map;
 }
 
 /** Create the session row. Call lazily at the FIRST completed set. */
@@ -77,18 +145,35 @@ export async function insertWorkoutSet(
 export async function insertWorkoutSets(
   sessionId: string,
   sets: CompletedSetInput[],
-): Promise<void> {
-  if (sets.length === 0) return;
-  const { error } = await supabase
+): Promise<boolean> {
+  if (sets.length === 0) return true;
+  const { data, error } = await supabase
     .from('workout_sets')
-    .insert(sets.map((s) => ({ session_id: sessionId, notes: null, ...s })));
-  if (error) console.error('insertWorkoutSets error:', error);
+    .insert(sets.map((s) => ({ session_id: sessionId, notes: null, ...s })))
+    .select('id');
+  return !error && data?.length === sets.length;
 }
 
 /** Un-complete a set — remove the persisted row. */
-export async function deleteWorkoutSet(setId: string): Promise<void> {
-  const { error } = await supabase.from('workout_sets').delete().eq('id', setId);
-  if (error) console.error('deleteWorkoutSet error:', error);
+export async function deleteWorkoutSet(setId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('workout_sets')
+    .delete()
+    .eq('id', setId)
+    .select('id');
+  return !error && data?.length === 1;
+}
+
+/** Delete a group of persisted sets and confirm every requested row changed. */
+export async function deleteWorkoutSets(setIds: string[]): Promise<boolean> {
+  const uniqueIds = [...new Set(setIds)];
+  if (uniqueIds.length === 0) return true;
+  const { data, error } = await supabase
+    .from('workout_sets')
+    .delete()
+    .in('id', uniqueIds)
+    .select('id');
+  return !error && data?.length === uniqueIds.length;
 }
 
 /** Final session UPDATE (name = template/session name, duration, flags, FK). */
@@ -100,12 +185,13 @@ export async function finishWorkoutSession(
     pain_flags: PainFlag[];
     template_id?: string | null;
   },
-): Promise<void> {
-  const { error } = await supabase
+): Promise<boolean> {
+  const { data, error } = await supabase
     .from('workout_sessions')
     .update(patch)
-    .eq('id', sessionId);
-  if (error) console.error('finishWorkoutSession error:', error);
+    .eq('id', sessionId)
+    .select('id');
+  return !error && data?.length === 1;
 }
 
 /**
@@ -119,36 +205,16 @@ export async function loadLastSetsMap(
   if (exerciseIds.length === 0) return {};
   const { data } = await supabase
     .from('workout_sets')
-    .select('exercise_id, weight_kg, reps, rpe, set_number, session_id, workout_sessions!inner(user_id, session_date)')
+    .select('exercise_id, weight_kg, reps, rpe, set_number, session_id, workout_sessions!inner(user_id, session_date, created_at)')
     .in('exercise_id', exerciseIds)
     .eq('workout_sessions.user_id', userId)
     .eq('is_warmup', false)
+    .order('session_date', { ascending: false, referencedTable: 'workout_sessions' })
+    .order('created_at', { ascending: false, referencedTable: 'workout_sessions' })
     .limit(600);
   if (!data || data.length === 0) return {};
 
-  type Row = {
-    exercise_id: string;
-    weight_kg: number | null;
-    reps: number | null;
-    rpe: number | null;
-    set_number: number;
-    session_id: string;
-    workout_sessions: { session_date: string };
-  };
-  const rows = data as unknown as Row[];
-  const map: Record<string, GhostSet[]> = {};
-  for (const exId of new Set(rows.map((r) => r.exercise_id))) {
-    const exRows = rows.filter((r) => r.exercise_id === exId);
-    const latestDate = exRows.reduce(
-      (max, r) => (r.workout_sessions.session_date > max ? r.workout_sessions.session_date : max),
-      '',
-    );
-    map[exId] = exRows
-      .filter((r) => r.workout_sessions.session_date === latestDate)
-      .sort((a, b) => a.set_number - b.set_number)
-      .map((r) => ({ weight_kg: r.weight_kg, reps: r.reps, rpe: r.rpe }));
-  }
-  return map;
+  return buildLastSetsMap(data as unknown as GhostHistoryRow[]);
 }
 
 /** Max non-warmup weight per exercise — the PR baseline (client-side detection). */

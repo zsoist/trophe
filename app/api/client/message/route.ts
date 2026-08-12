@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createSupabaseServiceClient } from '@/lib/supabase/server';
 import { consumeRateLimit } from '@/lib/security/durable-rate-limit';
+import { safeErrorMetadata } from '@/lib/security/safe-error-log';
 
 const bodySchema = z.object({
   message: z.string().trim().min(1).max(2000),
@@ -31,19 +32,26 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const parsed = bodySchema.safeParse(await req.json());
+  const parsed = bodySchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: 'Invalid message (1-2000 characters)' }, { status: 400 });
   }
   const { message } = parsed.data;
 
   // Get client's assigned coach
-  const { data: cp } = await admin
+  const { data: cp, error: profileError } = await admin
     .from('client_profiles')
     .select('coach_id')
     .eq('user_id', user.id)
     .maybeSingle();
 
+  if (profileError) {
+    console.error('[client-message] coach lookup failed', safeErrorMetadata(profileError));
+    return NextResponse.json(
+      { error: 'Message could not be sent — please try again.' },
+      { status: 503 },
+    );
+  }
   if (!cp?.coach_id) {
     return NextResponse.json({ error: 'No coach assigned' }, { status: 400 });
   }
@@ -56,6 +64,12 @@ export async function POST(req: NextRequest) {
     body:        message.trim(),
   });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error('[client-message] insert failed', safeErrorMetadata(error));
+    return NextResponse.json(
+      { error: 'Message could not be sent — please try again.' },
+      { status: 503 },
+    );
+  }
   return NextResponse.json({ ok: true });
 }

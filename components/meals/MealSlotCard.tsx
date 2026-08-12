@@ -8,6 +8,7 @@ import { useI18n } from '@/lib/i18n';
 import { trpc } from '@/lib/trpc/client';
 import type { FoodLogEntry, MealType } from '@/lib/types';
 import { calculateMealScore, getScoreBgColor } from '@/lib/food/meal-score';
+import { validateFoodLogEdit } from '@/lib/food/log-edit-validation';
 import { MACRO_COLORS } from '@/lib/macro-colors';
 import QuickFoodInput from '@/components/food/QuickFoodInput';
 
@@ -110,6 +111,7 @@ export default function MealSlotCard({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editQty, setEditQty] = useState(1);
   const [saving, setSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
 
   // Full edit form ("Edit details" expander) — one editor open at a time.
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -149,6 +151,7 @@ export default function MealSlotCard({
     setEditQty(entry.quantity || 1);
     setDetailsOpen(false);
     setDirty(new Set());
+    setEditError(null);
     setForm({
       name: entry.food_name,
       grams: ext.qty_g != null && Number(ext.qty_g) > 0 ? Math.round(Number(ext.qty_g)) : null,
@@ -164,20 +167,27 @@ export default function MealSlotCard({
     setEditingId(null);
     setDetailsOpen(false);
     setDirty(new Set());
+    setEditError(null);
   };
 
   // Quick path (default view): quantity-only edit — server rescales macros
   // by the quantity factor and captures a correction row when AI-sourced.
   const saveQuick = async (entry: FoodLogEntry) => {
     if (saving) return;
+    const quickValidation = validateFoodLogEdit({ quantity: editQty });
+    if (!quickValidation.ok) {
+      setEditError(t('food.edit.invalid'));
+      return;
+    }
+    setEditError(null);
     setSaving(true);
     try {
-      await editMutation.mutateAsync({ entryId: entry.id, quantity: editQty });
+      await editMutation.mutateAsync({ entryId: entry.id, ...quickValidation.value });
       closeEditor();
       triggerFlash(entry.id);
       onLogged();
     } catch {
-      // Keep the editor open so the user can retry.
+      setEditError(t('food.edit.failed'));
     } finally {
       setSaving(false);
     }
@@ -187,41 +197,32 @@ export default function MealSlotCard({
   // (e.g. grams-only edit rescales macros; explicit macros win per-field).
   const saveDetails = async (entry: FoodLogEntry) => {
     if (saving) return;
-    const payload: {
-      entryId: string; foodName?: string; grams?: number; calories?: number;
-      proteinG?: number; carbsG?: number; fatG?: number; sugarG?: number;
-    } = { entryId: entry.id };
-
-    if (dirty.has('name')) {
-      const name = form.name.trim();
-      if (name && name !== entry.food_name) payload.foodName = name;
+    const detailValidation = validateFoodLogEdit({
+      foodName: dirty.has('name') ? form.name : undefined,
+      grams: dirty.has('grams') ? (form.grams ?? Number.NaN) : undefined,
+      calories: dirty.has('calories') ? form.calories : undefined,
+      proteinG: dirty.has('protein') ? form.protein : undefined,
+      carbsG: dirty.has('carbs') ? form.carbs : undefined,
+      fatG: dirty.has('fat') ? form.fat : undefined,
+      sugarG: dirty.has('sugar') ? form.sugar : undefined,
+    });
+    if (!detailValidation.ok) {
+      setEditError(t('food.edit.invalid'));
+      return;
     }
-    if (dirty.has('grams') && form.grams != null && form.grams > 0) {
-      payload.grams = form.grams;
-    }
-    const numField = (raw: string): number | undefined => {
-      const v = parseFloat(raw);
-      return Number.isFinite(v) && v >= 0 ? v : undefined;
-    };
-    if (dirty.has('calories')) payload.calories = numField(form.calories);
-    if (dirty.has('protein')) payload.proteinG = numField(form.protein);
-    if (dirty.has('carbs')) payload.carbsG = numField(form.carbs);
-    if (dirty.has('fat')) payload.fatG = numField(form.fat);
-    if (dirty.has('sugar')) payload.sugarG = numField(form.sugar);
-
-    const hasChanges = Object.keys(payload).length > 1;
-    if (!hasChanges) {
+    if (Object.keys(detailValidation.value).length === 0) {
       closeEditor();
       return;
     }
+    setEditError(null);
     setSaving(true);
     try {
-      await editMutation.mutateAsync(payload);
+      await editMutation.mutateAsync({ entryId: entry.id, ...detailValidation.value });
       closeEditor();
       triggerFlash(entry.id);
       onLogged();
     } catch {
-      // Keep the editor open so the user can retry.
+      setEditError(t('food.edit.failed'));
     } finally {
       setSaving(false);
     }
@@ -515,6 +516,11 @@ export default function MealSlotCard({
                             {detailsOpen ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
                           </button>
                         </div>
+                        {editError && (
+                          <p role="alert" className="rounded-lg border border-red-500/20 bg-red-500/10 px-2 py-1.5 text-[10px] text-red-300">
+                            {editError}
+                          </p>
+                        )}
 
                         {/* Bottom-sheet-lite: full editor inside the card */}
                         <AnimatePresence>

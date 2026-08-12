@@ -1,0 +1,332 @@
+{
+  "version": 1,
+  "classificationSemantics": {
+    "localDb": "true only when the executable enforces a loopback-only database target"
+  },
+  "tools": [
+    {
+      "id": "agents-evals-run-all",
+      "entrypoint": "agents/evals/run-all.ts",
+      "runtime": "node",
+      "policies": [
+        "paid-ai"
+      ],
+      "owners": {
+        "paid-ai": "ai-offline-harness-task-6"
+      },
+      "operations": {
+        "paid-ai": "eval-all"
+      },
+      "classifications": {
+        "serviceRole": true,
+        "localDb": false
+      }
+    },
+    {
+      "id": "agents-evals-run-food-parse",
+      "entrypoint": "agents/evals/run-food-parse.ts",
+      "runtime": "node",
+      "policies": [
+        "paid-ai"
+      ],
+      "owners": {
+        "paid-ai": "ai-offline-harness-task-6"
+      },
+      "operations": {
+        "paid-ai": "eval-food-parse-route"
+      },
+      "classifications": {
+        "serviceRole": false,
+        "localDb": false
+      }
+    },
+    {
+      "id": "agents-evals-run-meal-suggest",
+      "entrypoint": "agents/evals/run-meal-suggest.ts",
+      "runtime": "node",
+      "policies": [
+        "paid-ai"
+      ],
+      "owners": {
+        "paid-ai": "ai-offline-harness-task-6"
+      },
+      "operations": {
+        "paid-ai": "eval-meal-suggest"
+      },
+      "classifications": {
+        "serviceRole": false,
+        "localDb": false
+      }
+    },
+    {
+      "id": "scripts-debug-smoke-parse-roundtrip",
+      "entrypoint": "scripts/debug/smoke-parse-roundtrip.ts",
+      "runtime": "node",
+      "policies": [
+        "paid-ai"
+      ],
+      "owners": {
+        "paid-ai": "ai-offline-harness-task-6"
+      },
+      "operations": {
+        "paid-ai": "debug-parse-roundtrip"
+      },
+      "classifications": {
+        "serviceRole": true,
+        "localDb": false
+      }
+    },
+    {
+      "id": "scripts-eval-generate-benchmark-cases",
+      "entrypoint": "scripts/eval/generate-benchmark-cases.ts",
+      "runtime": "node",
+      "policies": [
+        "paid-ai"
+      ],
+      "owners": {
+        "paid-ai": "ai-offline-harness-task-6"
+      },
+      "operations": {
+        "paid-ai": "eval-generate-benchmark"
+      },
+      "classifications": {
+        "serviceRole": false,
+        "localDb": false
+      }
+    },
+    {
+      "id": "scripts-eval-generate-french-cases",
+      "entrypoint": "scripts/eval/generate-french-cases.ts",
+      "runtime": "node",
+      "policies": [
+        "paid-ai"
+      ],
+      "owners": {
+        "paid-ai": "ai-offline-harness-task-6"
+      },
+      "operations": {
+        "paid-ai": "eval-generate-french"
+      },
+      "classifications": {
+        "serviceRole": false,
+        "localDb": false
+      }
+    },
+    {
+      "id": "scripts-eval-generate-replacement-cases",
+      "entrypoint": "scripts/eval/generate-replacement-cases.ts",
+      "runtime": "node",
+      "policies": [
+        "paid-ai"
+      ],
+      "owners": {
+        "paid-ai": "ai-offline-harness-task-6"
+      },
+      "operations": {
+        "paid-ai": "eval-generate-replacements"
+      },
+      "classifications": {
+        "serviceRole": false,
+        "localDb": false
+      }
+    },
+    {
+      "id": "scripts-eval-run-50-cases",
+      "entrypoint": "scripts/eval/run-50-cases.ts",
+      "runtime": "node",
+      "policies": [
+        "paid-ai"
+      ],
+      "owners": {
+        "paid-ai": "ai-offline-harness-task-6"
+      },
+      "operations": {
+        "paid-ai": "eval-food-parse-fifty"
+      },
+      "classifications": {
+        "serviceRole": false,
+        "localDb": true
+      }
+    },
+    {
+      "id": "scripts-eval-run-deepseek-candidate",
+      "entrypoint": "scripts/eval/run-deepseek-candidate.ts",
+      "runtime": "node",
+      "policies": [
+        "paid-ai"
+      ],
+      "owners": {
+        "paid-ai": "ai-offline-harness-task-6"
+      },
+      "operations": {
+        "paid-ai": "eval-deepseek-candidate"
+      },
+      "classifications": {
+        "serviceRole": false,
+        "localDb": false
+      }
+    },
+    {
+      "id": "scripts-eval-run-deepseek-stress",
+      "entrypoint": "scripts/eval/run-deepseek-stress.ts",
+      "runtime": "node",
+      "policies": [
+        "paid-ai"
+      ],
+      "owners": {
+        "paid-ai": "ai-offline-harness-task-6"
+      },
+      "operations": {
+        "paid-ai": "eval-deepseek-stress"
+      },
+      "classifications": {
+        "serviceRole": false,
+        "localDb": false
+      }
+    },
+    {
+      "id": "scripts-eval-run-food-parse-watchlist",
+      "entrypoint": "scripts/eval/run-food-parse-watchlist.ts",
+      "runtime": "node",
+      "policies": [
+        "paid-ai"
+      ],
+      "owners": {
+        "paid-ai": "ai-offline-harness-task-6"
+      },
+      "operations": {
+        "paid-ai": "eval-food-parse-watchlist"
+      },
+      "classifications": {
+        "serviceRole": false,
+        "localDb": false
+      }
+    },
+    {
+      "id": "scripts-eval-run-greek-colombian-prod",
+      "entrypoint": "scripts/eval/run-greek-colombian-prod.ts",
+      "runtime": "node",
+      "policies": [
+        "paid-ai"
+      ],
+      "owners": {
+        "paid-ai": "ai-offline-harness-task-6"
+      },
+      "operations": {
+        "paid-ai": "eval-greek-colombian-prod"
+      },
+      "classifications": {
+        "serviceRole": false,
+        "localDb": false
+      }
+    },
+    {
+      "id": "scripts-eval-run-nutrition-enterprise-prod",
+      "entrypoint": "scripts/eval/run-nutrition-enterprise-prod.ts",
+      "runtime": "node",
+      "policies": [
+        "paid-ai"
+      ],
+      "owners": {
+        "paid-ai": "ai-offline-harness-task-6"
+      },
+      "operations": {
+        "paid-ai": "eval-nutrition-enterprise-prod"
+      },
+      "classifications": {
+        "serviceRole": true,
+        "localDb": false
+      }
+    },
+    {
+      "id": "scripts-eval-run-phase2-round1",
+      "entrypoint": "scripts/eval/run-phase2-round1.ts",
+      "runtime": "node",
+      "policies": [
+        "paid-ai"
+      ],
+      "owners": {
+        "paid-ai": "ai-offline-harness-task-6"
+      },
+      "operations": {
+        "paid-ai": "eval-phase2-round1"
+      },
+      "classifications": {
+        "serviceRole": false,
+        "localDb": true
+      }
+    },
+    {
+      "id": "scripts-eval-validate-dataset",
+      "entrypoint": "scripts/eval/validate-dataset.ts",
+      "runtime": "node",
+      "policies": [
+        "paid-ai"
+      ],
+      "owners": {
+        "paid-ai": "ai-offline-harness-task-6"
+      },
+      "operations": {
+        "paid-ai": "eval-validate-dataset"
+      },
+      "classifications": {
+        "serviceRole": false,
+        "localDb": false
+      }
+    },
+    {
+      "id": "scripts-ingest-embed-foods",
+      "entrypoint": "scripts/ingest/embed-foods.ts",
+      "runtime": "node",
+      "policies": [
+        "paid-ai"
+      ],
+      "owners": {
+        "paid-ai": "ai-offline-harness-task-6"
+      },
+      "operations": {
+        "paid-ai": "ingest-food-embeddings"
+      },
+      "classifications": {
+        "serviceRole": false,
+        "localDb": true
+      }
+    },
+    {
+      "id": "scripts-rag-ingest-document",
+      "entrypoint": "scripts/rag/ingest-document.ts",
+      "runtime": "node",
+      "policies": [
+        "paid-ai"
+      ],
+      "owners": {
+        "paid-ai": "ai-offline-harness-task-6"
+      },
+      "operations": {
+        "paid-ai": "ingest-rag-document"
+      },
+      "classifications": {
+        "serviceRole": false,
+        "localDb": false
+      }
+    },
+    {
+      "id": "scripts-ops-canary-readonly",
+      "entrypoint": "scripts/ops/canary-readonly.sh",
+      "runtime": "shell",
+      "policies": [
+        "paid-ai"
+      ],
+      "owners": {
+        "paid-ai": "ai-offline-harness-task-6"
+      },
+      "operations": {
+        "paid-ai": "canary-production-ai-route"
+      },
+      "classifications": {
+        "serviceRole": false,
+        "localDb": false
+      }
+    }
+  ]
+}

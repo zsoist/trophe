@@ -1,0 +1,58 @@
+{
+  "generatedAt": "2026-07-29T22:02:07.366Z",
+  "status": "passed",
+  "preflight": {
+    "status": "healthy",
+    "datalessFileCount": 0
+  },
+  "steps": [
+    {
+      "name": "typecheck",
+      "status": "passed",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 37911,
+      "stdoutBytes": 42,
+      "stderrBytes": 0,
+      "stdoutDigest": "be56bf41e64d499a7527f0215a475c662d6800f7bce45172e48dc3cef6d6f189",
+      "stderrDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "spawnError": null
+    },
+    {
+      "name": "lint",
+      "status": "passed",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 25591,
+      "stdoutBytes": 57527,
+      "stderrBytes": 0,
+      "stdoutDigest": "2e86c8c78deaced4c1656848cb4c2b4bb327c624453e59dd5ea94aba60cc0ed6",
+      "stderrDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "spawnError": null
+    },
+    {
+      "name": "test",
+      "status": "passed",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 9583,
+      "stdoutBytes": 65536,
+      "stderrBytes": 6966,
+      "stdoutDigest": "04c9eb74c2d4a057ed36d3a0afb3ead461291490fed128c62df1b5056fac6359",
+      "stderrDigest": "017c42e488c5a926fd3ced63d679d4c98ab27108881f147a2630e391e61982bc",
+      "spawnError": null
+    },
+    {
+      "name": "build",
+      "status": "passed",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 23329,
+      "stdoutBytes": 3404,
+      "stderrBytes": 0,
+      "stdoutDigest": "64ef381068a12b94fe511ed353773a15069e715d3e6c36d46d0bbae0c8800be7",
+      "stderrDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "spawnError": null
+    }
+  ]
+}

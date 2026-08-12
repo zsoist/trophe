@@ -50,6 +50,7 @@ import {
   type DisplayPrefs,
 } from '@/lib/display-prefs';
 import { localDateStr } from '../../lib/utils/dates';
+import { weeklyHabitActivity } from '@/lib/habits/weekly-activity';
 import { BotNav } from '@/components/ui/BotNav';
 import { Icon } from '@/components/ui';
 import type {
@@ -372,9 +373,12 @@ export default function CoachDashboard() {
 
   // ═══ Keyboard Shortcuts ═══
   const clientsRef = useRef(clients);
-  clientsRef.current = clients;
   const searchRef = useRef(search);
-  searchRef.current = search;
+
+  useEffect(() => {
+    clientsRef.current = clients;
+    searchRef.current = search;
+  }, [clients, search]);
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -476,8 +480,7 @@ export default function CoachDashboard() {
       const userIds = clientProfiles.map((cp: ClientProfile) => cp.user_id);
 
       // ── Batch B: everything keyed on the client ids — ONE round trip ──
-      // (was profiles/habits/checkins batch THEN a separate weekCheckins await).
-      const [profilesRes, habitsRes, checkinsRes, weekCheckinsRes] = await Promise.all([
+      const [profilesRes, habitsRes, checkinsRes] = await Promise.all([
         supabase.from('profiles').select('*').in('id', userIds),
         supabase
           .from('client_habits')
@@ -490,12 +493,6 @@ export default function CoachDashboard() {
           .in('user_id', userIds)
           .gte('checked_date', localDateStr(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)))
           .order('checked_date', { ascending: false }),
-        supabase
-          .from('habit_checkins')
-          .select('checked_date')
-          .in('user_id', userIds)
-          .gte('checked_date', mondayStr)
-          .eq('completed', true),
       ]);
 
       const profiles = profilesRes.data || [];
@@ -543,16 +540,7 @@ export default function CoachDashboard() {
       setClients(cards);
 
       // ═══ Weekly Activity Data (Feature 10) — from Batch B (no extra RT) ═══
-      const weekCheckins = weekCheckinsRes.data;
-      if (weekCheckins) {
-        const dayCounts = [0, 0, 0, 0, 0, 0, 0]; // Mon-Sun
-        weekCheckins.forEach((c: { checked_date: string }) => {
-          const d = new Date(c.checked_date);
-          const dayIdx = (d.getDay() + 6) % 7; // 0=Mon, 6=Sun
-          dayCounts[dayIdx]++;
-        });
-        setWeeklyActivity(dayCounts);
-      }
+      setWeeklyActivity(weeklyHabitActivity(checkins, mondayStr));
     } catch (err) {
       console.error('Error loading clients:', err);
     } finally {

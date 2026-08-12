@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { X, Barcode, Loader2, Camera, Keyboard, ChevronLeft, RotateCcw } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -52,19 +52,19 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
   const [laserTop, setLaserTop] = useState<string | null>(null);
   const laserRef = useRef<HTMLDivElement | null>(null);
 
-  const stopScan = () => {
+  const stopScan = useCallback(() => {
     try { controlsRef.current?.stop(); } catch { /* already stopped */ }
     controlsRef.current = null;
-  };
+  }, []);
 
   // Reset on open; always stop the camera on close/unmount.
   useEffect(() => {
     if (isOpen) { setStep('choose'); setCode(''); setProduct(null); setError(null); setGrams(100); setLocked(false); setLaserTop(null); }
     else stopScan();
     return () => stopScan();
-  }, [isOpen]);
+  }, [isOpen, stopScan]);
 
-  async function lookup(barcode: string) {
+  const lookup = useCallback(async (barcode: string) => {
     if (!/^\d{8,14}$/.test(barcode)) { setError(t('barcode.err_invalid')); return; }
     setLoading(true); setError(null); setProduct(null);
     try {
@@ -89,30 +89,35 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
       setLocked(false); setLaserTop(null);
       setError(t('barcode.err_lookup'));
     } finally { setLoading(false); }
-  }
+  }, [stopScan, t]);
 
   async function logManual() {
     if (logging) return;
     if (!manual.name.trim()) { setError(t('barcode.err_add_name')); return; }
     setError(null);
     setLogging(true);
-    const f = grams / 100;
-    const num = (s: string) => Math.max(0, Number(s) || 0);
-    const { error: insErr } = await supabase.from('food_log').insert({
-      user_id: userId, logged_date: selectedDate, meal_type: mealType,
-      food_name: manual.name.trim(),
-      quantity: grams, unit: 'g',
-      calories: Math.round(num(manual.kcal) * f),
-      protein_g: Math.round(num(manual.protein) * f * 10) / 10,
-      carbs_g: Math.round(num(manual.carbs) * f * 10) / 10,
-      fat_g: Math.round(num(manual.fat) * f * 10) / 10,
-      fiber_g: 0,
-      source: 'custom' as const,
-    });
-    setLogging(false);
-    if (insErr) { setError(insErr.message); return; }
-    onLogged();
-    onClose();
+    try {
+      const f = grams / 100;
+      const num = (s: string) => Math.max(0, Number(s) || 0);
+      const { data: inserted, error: insErr } = await supabase.from('food_log').insert({
+        user_id: userId, logged_date: selectedDate, meal_type: mealType,
+        food_name: manual.name.trim(),
+        quantity: grams, unit: 'g',
+        calories: Math.round(num(manual.kcal) * f),
+        protein_g: Math.round(num(manual.protein) * f * 10) / 10,
+        carbs_g: Math.round(num(manual.carbs) * f * 10) / 10,
+        fat_g: Math.round(num(manual.fat) * f * 10) / 10,
+        fiber_g: 0,
+        source: 'custom' as const,
+      }).select('id').maybeSingle();
+      if (insErr || !inserted) { setError(t('food.save_failed')); return; }
+      onLogged();
+      onClose();
+    } catch {
+      setError(t('food.save_failed'));
+    } finally {
+      setLogging(false);
+    }
   }
 
   // Live camera scan via ZXing (works on iOS Safari + Android — no native
@@ -159,30 +164,36 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
       }
     })();
     return () => { cancelled = true; stopScan(); };
-  }, [isOpen, step]);
+  }, [isOpen, lookup, step, stopScan, t]);
 
   async function logIt() {
     if (!product || logging) return;
+    setError(null);
     setLogging(true);
-    const f = grams / 100;
-    const { error: insErr } = await supabase.from('food_log').insert({
-      user_id: userId, logged_date: selectedDate, meal_type: mealType,
-      food_name: product.brand ? `${product.name} — ${product.brand}` : product.name,
-      quantity: grams, unit: 'g',
-      calories: Math.round(product.per100g.kcal * f),
-      protein_g: Math.round(product.per100g.protein * f * 10) / 10,
-      carbs_g: Math.round(product.per100g.carbs * f * 10) / 10,
-      fat_g: Math.round(product.per100g.fat * f * 10) / 10,
-      fiber_g: product.per100g.fiber != null ? Math.round(product.per100g.fiber * f * 10) / 10 : 0,
-      sugar_g: product.per100g.sugar != null ? Math.round(product.per100g.sugar * f * 10) / 10 : null,
-      // Barcode lookups are Open Food Facts provenance (CHECK allows it);
-      // 'custom' stays reserved for the manual-label path below.
-      source: 'openfoodfacts' as const,
-    });
-    setLogging(false);
-    if (insErr) { setError(insErr.message); return; }
-    onLogged();
-    onClose();
+    try {
+      const f = grams / 100;
+      const { data: inserted, error: insErr } = await supabase.from('food_log').insert({
+        user_id: userId, logged_date: selectedDate, meal_type: mealType,
+        food_name: product.brand ? `${product.name} — ${product.brand}` : product.name,
+        quantity: grams, unit: 'g',
+        calories: Math.round(product.per100g.kcal * f),
+        protein_g: Math.round(product.per100g.protein * f * 10) / 10,
+        carbs_g: Math.round(product.per100g.carbs * f * 10) / 10,
+        fat_g: Math.round(product.per100g.fat * f * 10) / 10,
+        fiber_g: product.per100g.fiber != null ? Math.round(product.per100g.fiber * f * 10) / 10 : 0,
+        sugar_g: product.per100g.sugar != null ? Math.round(product.per100g.sugar * f * 10) / 10 : null,
+        // Barcode lookups are Open Food Facts provenance (CHECK allows it);
+        // 'custom' stays reserved for the manual-label path below.
+        source: 'openfoodfacts' as const,
+      }).select('id').maybeSingle();
+      if (insErr || !inserted) { setError(t('food.save_failed')); return; }
+      onLogged();
+      onClose();
+    } catch {
+      setError(t('food.save_failed'));
+    } finally {
+      setLogging(false);
+    }
   }
 
   if (!isOpen) return null;

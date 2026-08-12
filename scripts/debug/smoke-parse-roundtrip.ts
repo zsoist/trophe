@@ -10,9 +10,29 @@
  *   npx tsx scripts/debug/smoke-parse-roundtrip.ts
  */
 import { loadEnvConfig } from '@next/env';
-loadEnvConfig(process.cwd());
+import {
+  FOOD_PARSE_OPAQUE_MAX_PROVIDER_ATTEMPTS,
+  requirePaidAiToolApproval,
+  resolvePaidAiRouteEndpoint,
+} from '../safety/require-paid-ai-approval';
 
 const BASE = process.env.SMOKE_BASE ?? 'https://trophe.app';
+const paidEndpoint = resolvePaidAiRouteEndpoint({
+  baseUrl: BASE,
+  pathname: '/api/food/parse',
+  operation: 'debug-parse-roundtrip',
+});
+const paidAiApproval = requirePaidAiToolApproval({
+  operation: 'debug-parse-roundtrip',
+  argv: process.argv.slice(2),
+  env: process.env,
+  endpoints: [paidEndpoint],
+});
+paidAiApproval.reserveOpaqueEnvelope({
+  endpoint: paidEndpoint,
+  maxProviderAttempts: FOOD_PARSE_OPAQUE_MAX_PROVIDER_ATTEMPTS,
+});
+loadEnvConfig(process.cwd());
 const EVAL_EMAIL = process.env.EVAL_AUTH_EMAIL;
 const WRITER_EMAIL = process.env.EVAL_WRITER_EMAIL;
 
@@ -35,11 +55,11 @@ async function main() {
   console.log('auth ok:', otp.user?.email);
 
   // 1) Parse
-  const res = await fetch(`${BASE}/api/food/parse`, {
+  const res = await paidAiApproval.fetchOpaque(paidEndpoint, {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: `Bearer ${jwt}` },
     body: JSON.stringify({ text: '2 αυγά βραστά και 200γρ γιαούρτι στραγγιστό 10%', language: 'el' }),
-  });
+  }, { maxProviderAttempts: FOOD_PARSE_OPAQUE_MAX_PROVIDER_ATTEMPTS });
   const parsed = await res.json();
   console.log('parse status:', res.status, '| items:', parsed.items?.length ?? 0, '| clarification:', parsed.needs_clarification ?? false);
   if (!res.ok || !parsed.items?.length) { console.log('BODY:', JSON.stringify(parsed).slice(0, 400)); throw new Error('parse failed'); }

@@ -24,10 +24,12 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { FoodParseInput, FoodParseOutput, ParsedFoodItem } from '../schemas/food-parse';
+import { safeErrorMetadata } from '../../lib/security/safe-error-log';
 import { enrichWithLocalDB } from './enrich';
 import { lookupFoodBatch, ragPreSearch, formatRagContext, correctFoodName } from './lookup';
 import type { LookupInput } from './lookup';
 import { decomposeAndLookup, lookupCachedRecipeAsItem } from './decompose';
+import { extractLocalFoodCandidates } from './local-fast-path';
 import { pick } from '../router';
 import { emitGenAISpan, estimateCostUsd } from '../observability/otel';
 import { executeAiTask } from '../runtime';
@@ -41,6 +43,12 @@ import {
   repairNutrientClaimPortion,
   type UserStatedNutrients,
 } from './nutrient-claims';
+import {
+  FOOD_PARSE_MAX_ITEMS,
+  FOOD_PARSE_PIPELINE_BUDGET_MS,
+  foodParseItemLimitQuestion,
+  hasFoodParseAiPhaseBudget,
+} from './pipeline-budget';
 
 export const FOOD_PARSE_VERSION = 'v4';
 
@@ -684,6 +692,7 @@ Return ONLY valid JSON in this exact format:
 {
   "estimates": [
     {
+      "item_index": <the 1-based input item number>,
       "food_name": "the food name",
       "grams": <estimated total grams for the given quantity>,
       "calories": <total kcal>,
@@ -697,6 +706,7 @@ Return ONLY valid JSON in this exact format:
 }
 
 Rules:
+- Return exactly one estimate per input item and preserve each input's 1-based item_index.
 - Use standard serving sizes for the region (e.g., 1 arepa ~120g, 1 empanada ~100g, 1 serving soup ~350g).
 - All values should be for the TOTAL quantity specified, not per 100g.
 - Round to 1 decimal place.
@@ -705,6 +715,7 @@ Rules:
 
 async function estimateMacrosViaLLM(
   items: { food_name: string; quantity: number; unit: string; raw_text: string }[],
+  beforeTransportAttempt?: (endpoint: string) => unknown,
 ): Promise<(MacroEstimate | null)[]> {
   if (items.length === 0) return [];
 
@@ -728,12 +739,13 @@ async function estimateMacrosViaLLM(
         toolName: 'submit_macro_estimates',
         toolDescription: 'Submit conservative macro estimates for food items',
         strict: false,
+        beforeTransportAttempt,
       }),
     });
     const estimates = generation.output.estimates;
 
     return items.map((_, i) => {
-      const est = estimates![i];
+      const est = estimates!.find((estimate) => estimate.item_index === i + 1);
       if (!est || typeof est.calories !== 'number') return null;
       return {
         food_name: est.food_name ?? items[i].food_name,
@@ -747,7 +759,7 @@ async function estimateMacrosViaLLM(
       };
     });
   } catch (err) {
-    console.error('[food-parse] LLM macro estimation failed:', err);
+    console.error('[food-parse] LLM macro estimation failed', safeErrorMetadata(err));
     return items.map(() => null);
   }
 }
@@ -761,9 +773,11 @@ export async function run(
     metadata?: Record<string, unknown>;
     /** Bound OpenAI attempts for controlled eval probes without changing normal traffic. */
     maxProviderAttempts?: number;
+    beforeTransportAttempt?: (endpoint: string) => unknown;
     onGenerationId?: (generationId: string) => void;
   },
 ): Promise<FoodParseRunResultV4> {
+  const pipelineDeadlineAt = performance.now() + FOOD_PARSE_PIPELINE_BUDGET_MS;
   const MAX_INPUT_LENGTH = 500;
   const trimmedText = input.text.trim();
   const sanitizedText = trimmedText
@@ -837,6 +851,94 @@ export async function run(
     };
   }
 
+  // ── Local fast path: common foods, zero provider cost ─────────────────────
+  // The extractor is intentionally narrow and every candidate must resolve in
+  // the canonical foods database. If grammar or retrieval is uncertain, fall
+  // through untouched to the full AI-assisted pipeline.
+  const localFastPathStartedAt = performance.now();
+  const localCandidates = extractLocalFoodCandidates(sanitizedText);
+  if (localCandidates) {
+    try {
+      const localLookups = await lookupFoodBatch(localCandidates.map(candidate => ({
+        foodName: candidate.foodName,
+        unit: candidate.unit,
+        region: regionForLanguage(language),
+        intentText: sanitizedText,
+      })));
+
+      if (localLookups.every((lookup) => lookup !== null)) {
+        const localItems: ParsedFoodItem[] = localCandidates.map((candidate, index) => {
+          const lookup = localLookups[index]!;
+          const macros = lookup.macros(candidate.quantity);
+          const grams = lookup.gramsTotal(candidate.quantity);
+          const hasFoodSpecificConversion = lookup.conversionId !== null;
+          const confidence = candidate.portionExplicit
+            ? (hasFoodSpecificConversion ? 0.95 : 0.85)
+            : (hasFoodSpecificConversion ? 0.75 : 0.60);
+          const caloriesRange = candidate.portionExplicit
+            ? undefined
+            : {
+                min: Math.round(macros.kcal * 0.7 * 10) / 10,
+                center: macros.kcal,
+                max: Math.round(macros.kcal * 1.4 * 10) / 10,
+              };
+
+          return {
+            raw_text: candidate.rawText,
+            food_name: lookup.food.nameEn,
+            name_localized: candidate.nameLocalized,
+            quantity: candidate.quantity,
+            unit: candidate.unit,
+            grams,
+            calories: macros.kcal,
+            protein_g: macros.protein,
+            carbs_g: macros.carb,
+            fat_g: macros.fat,
+            fiber_g: macros.fiber ?? 0,
+            sugar_g: Math.round(
+              (lookup.food.sugarPer100g ?? 0) * grams / 100 * 100,
+            ) / 100,
+            confidence,
+            source: 'local_db',
+            portion_explicit: candidate.portionExplicit,
+            calories_range: caloriesRange,
+            brand: lookup.food.brand ?? null,
+            db_source: lookup.food.source ?? null,
+            data_quality: lookup.food.dataQuality ?? null,
+            db_food_id: lookup.food.id ?? null,
+          };
+        });
+        const hasImplicitPortions = localCandidates.some(
+          candidate => !candidate.portionExplicit,
+        );
+
+        return {
+          ok: true,
+          output: {
+            items: localItems,
+            needs_clarification: hasImplicitPortions,
+            clarification_question: hasImplicitPortions
+              ? clarificationQuestion(language)
+              : null,
+            warnings: hasImplicitPortions
+              ? ['Portions estimated — confirm before saving']
+              : undefined,
+          },
+          telemetry: {
+            ...emptyTelemetry,
+            latencyMs: Math.round(performance.now() - localFastPathStartedAt),
+            rawStatus: 200,
+            dbHits: localItems.length,
+          },
+        };
+      }
+    } catch (err) {
+      // A local lookup failure is not a parse result. Preserve the established
+      // full pipeline fallback without logging the user's meal text.
+      console.error('[food-parse] local fast path unavailable', safeErrorMetadata(err));
+    }
+  }
+
   // ── Step 0: RAG pre-search — give the LLM DB reference data ───────────────
   // Only inject RAG for simple (non-composite) inputs.
   // Composite/multi-item inputs get confused when RAG returns a single-ingredient match.
@@ -853,6 +955,10 @@ export async function run(
   const ragContext = formatRagContext(ragMatches);
 
   const userMessage = `Parse this food input (language: ${language}):\n\n"${sanitizedText}"${ragContext}`;
+
+  if (!hasFoodParseAiPhaseBudget(pipelineDeadlineAt)) {
+    return { ok: false, error: 'Food parse pipeline timeout', telemetry: emptyTelemetry };
+  }
 
   // ── Step 1: LLM identifies foods (no macro numbers) ──────────────────────
   let llmResult: {
@@ -891,6 +997,7 @@ export async function run(
         toolDescription: 'Submit parsed food items and clarification state',
         strict: false,
         maxAttempts: opts?.maxProviderAttempts,
+        beforeTransportAttempt: opts?.beforeTransportAttempt,
       }),
     });
     traceId = generation.generationId;
@@ -981,6 +1088,7 @@ export async function run(
           toolDescription: 'Submit parsed food items and clarification state',
           strict: false,
           maxAttempts: opts?.maxProviderAttempts,
+          beforeTransportAttempt: opts?.beforeTransportAttempt,
         }),
       });
       v4Parsed = repair.output;
@@ -1005,6 +1113,17 @@ export async function run(
       };
     }
     return { ok: false, error: 'Could not parse food items from LLM response', telemetry };
+  }
+  if (v4Parsed.items.length > FOOD_PARSE_MAX_ITEMS) {
+    return {
+      ok: true,
+      output: {
+        items: [],
+        needs_clarification: true,
+        clarification_question: foodParseItemLimitQuestion(language, v4Parsed.items.length),
+      },
+      telemetry,
+    };
   }
 
   // ── Step 1a2: Single-word input override ──────────────────────────────────
@@ -1108,15 +1227,11 @@ export async function run(
   // Composite dishes (souvlaki with pita, arepa con queso) should match
   // dish_recipes BEFORE the foods table to avoid partial matches.
   // This is a single DB query per item — no LLM cost.
-  const recipeResults: Array<ParsedFoodItem | null> = [];
-  for (const item of v4Parsed.items) {
+  const recipeResults: Array<ParsedFoodItem | null> = await Promise.all(v4Parsed.items.map(async (item) => {
     const explicitMassUnit = ['g', 'gram', 'grams', 'gr', 'γρ', 'kg', 'kilogram', 'kilograms']
       .includes(item.unit.toLowerCase().trim());
-    if (explicitMassUnit) {
-      recipeResults.push(null);
-      continue;
-    }
-    const cached = await lookupCachedRecipeAsItem({
+    if (explicitMassUnit) return null;
+    return lookupCachedRecipeAsItem({
       foodName: item.food_name,
       nameLocalized: item.name_localized,
       quantity: item.quantity,
@@ -1124,8 +1239,7 @@ export async function run(
       rawText: item.raw_text,
       region: regionCode,
     });
-    recipeResults.push(cached);
-  }
+  }));
 
   // ── Step 2b: Classify food types and route composites to decompose ────────
   // Composites that miss recipe cache should skip single-food DB lookup and go
@@ -1133,10 +1247,16 @@ export async function run(
   // Decompositions run in parallel (each is an LLM+DB round-trip); results map
   // back by index so ordering is preserved.
   const foodTypes = v4Parsed.items.map(item => classifyFoodType(item.food_name));
+  let budgetLimited = false;
+  const canDecomposeComposites = hasFoodParseAiPhaseBudget(pipelineDeadlineAt);
+  if (!canDecomposeComposites && foodTypes.some((type, i) => type === 'composite' && recipeResults[i] === null)) {
+    budgetLimited = true;
+  }
   const compositeDecompResults: Array<ParsedFoodItem | null> = await Promise.all(
     v4Parsed.items.map((item, i) => {
       if (recipeResults[i] !== null) return null; // already resolved via recipe cache
       if (foodTypes[i] !== 'composite') return null; // only route composites
+      if (!canDecomposeComposites) return null;
       // null result means decompose failed → fall through to lookup
       return decomposeAndLookup({
         foodName: item.food_name,
@@ -1145,6 +1265,7 @@ export async function run(
         unit: item.unit,
         rawText: item.raw_text,
         region: regionCode,
+        beforeTransportAttempt: opts?.beforeTransportAttempt,
       });
     }),
   );
@@ -1163,6 +1284,7 @@ export async function run(
       unit:      v4Parsed.items[i].unit,
       qualifier: v4Parsed.items[i].qualifier ?? undefined,
       region:    regionCode,
+      intentText: sanitizedText,
     });
   }
 
@@ -1177,6 +1299,10 @@ export async function run(
   // ── Step 3: Build final ParsedFoodItem[] with deterministic macros ────────
   let finalItems: ParsedFoodItem[] = [];
   const dbMissFallbacks: { index: number; candidate: V4Candidate }[] = [];
+  const legacyDecompFallbacks: {
+    index: number;
+    candidate: V4Candidate;
+  }[] = [];
 
   for (let i = 0; i < v4Parsed.items.length; i++) {
     const candidate = v4Parsed.items[i];
@@ -1376,40 +1502,56 @@ export async function run(
         // enrichWithLocalDB found a match in the small static DB
         finalItems.push({ ...enriched, source: 'ai_estimate' });
       } else {
-        // Try composite dish decomposition before raw LLM estimation
-        // (DietAI24 pattern: decompose → lookup ingredients → aggregate)
-        const decomposed = await decomposeAndLookup({
-          foodName: candidate.food_name,
-          nameLocalized: candidate.name_localized,
-          quantity: candidate.quantity,
-          unit: candidate.unit,
-          rawText: candidate.raw_text,
-          region: regionCode,
-        });
-
-        if (decomposed) {
-          finalItems.push(decomposed);
+        const index = finalItems.length;
+        finalItems.push(legacyItem); // placeholder, overwritten by a later phase when possible
+        if (foodTypes[i] === 'composite') {
+          // Composite decomposition already ran in Step 2b. Never pay for the
+          // same attempt twice; go directly to the final estimate fallback.
+          dbMissFallbacks.push({ index, candidate });
         } else {
-          // No match anywhere — use LLM to estimate macros
-          dbMissFallbacks.push({ index: finalItems.length, candidate });
-          finalItems.push(legacyItem); // placeholder, will be overwritten
+          legacyDecompFallbacks.push({ index, candidate });
         }
       }
     }
   }
 
-  // ── Step 3b: LLM macro estimation for DB misses (parallel, per-item) ─────
-  if (dbMissFallbacks.length > 0) {
-    const estimatePromises = dbMissFallbacks.map((f) =>
-      estimateMacrosViaLLM([{
+  // ── Step 3a: Non-composite decompositions (parallel, at most once/item) ──
+  const canDecomposeLegacy = hasFoodParseAiPhaseBudget(pipelineDeadlineAt);
+  if (!canDecomposeLegacy && legacyDecompFallbacks.length > 0) budgetLimited = true;
+  const legacyDecompResults = await Promise.all(
+    legacyDecompFallbacks.map((fallback) => {
+      if (!canDecomposeLegacy) return null;
+      return decomposeAndLookup({
+        foodName: fallback.candidate.food_name,
+        nameLocalized: fallback.candidate.name_localized,
+        quantity: fallback.candidate.quantity,
+        unit: fallback.candidate.unit,
+        rawText: fallback.candidate.raw_text,
+        region: regionCode,
+        beforeTransportAttempt: opts?.beforeTransportAttempt,
+      });
+    }),
+  );
+  for (let i = 0; i < legacyDecompFallbacks.length; i++) {
+    const fallback = legacyDecompFallbacks[i];
+    const decomposed = legacyDecompResults[i];
+    if (decomposed) {
+      finalItems[fallback.index] = decomposed;
+    } else {
+      dbMissFallbacks.push({ index: fallback.index, candidate: fallback.candidate });
+    }
+  }
+
+  // ── Step 3b: LLM macro estimation for DB misses (one indexed batch) ─────
+  const canEstimateMisses = hasFoodParseAiPhaseBudget(pipelineDeadlineAt);
+  if (!canEstimateMisses && dbMissFallbacks.length > 0) budgetLimited = true;
+  if (dbMissFallbacks.length > 0 && canEstimateMisses) {
+    const estimates = await estimateMacrosViaLLM(dbMissFallbacks.map((f) => ({
         food_name: f.candidate.food_name,
         quantity: f.candidate.quantity,
         unit: f.candidate.unit,
         raw_text: f.candidate.raw_text,
-      }]).then((results) => results[0]),
-    );
-
-    const estimates = await Promise.all(estimatePromises);
+      })), opts?.beforeTransportAttempt);
 
     for (let i = 0; i < dbMissFallbacks.length; i++) {
       const { index, candidate } = dbMissFallbacks[i];
@@ -1539,13 +1681,16 @@ export async function run(
     if (finalItems.length === 0) {
       return {
         ok: false,
-        error: 'Nutrition result failed plausibility validation',
+        error: budgetLimited
+          ? 'Food parse pipeline timeout'
+          : 'Nutrition result failed plausibility validation',
         telemetry,
       };
     }
   }
 
-  const deterministicClarification = requiresPortionClarification(v4Parsed.items) || plausibilityFlag;
+  const deterministicClarification =
+    requiresPortionClarification(v4Parsed.items) || plausibilityFlag || budgetLimited;
   if (deterministicClarification) {
     for (const item of finalItems) {
       if (item.portion_explicit === false) item.confidence = Math.min(item.confidence, 0.65);
@@ -1584,6 +1729,9 @@ export async function run(
 
   if (droppedCount > 0) {
     warnings.push(`${droppedCount} item${droppedCount > 1 ? 's' : ''} couldn't be read reliably and ${droppedCount > 1 ? 'were' : 'was'} skipped — the rest are ready.`);
+  }
+  if (budgetLimited) {
+    warnings.push('Some items needed more processing time and were skipped — review the remaining items or log the meal in smaller groups.');
   }
   if (anyImplicit) {
     warnings.push('Portions estimated — confirm before saving');

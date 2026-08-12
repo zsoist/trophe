@@ -2,22 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { guardAiRoute } from '@/lib/security/api-guard';
 import { executeAiTask } from '@/agents/runtime';
 import { invokeAnthropicJson } from '@/agents/runtime/providers/anthropic';
+import {
+  normalizePhotoAnalysisFoods,
+  type PhotoAnalysisFood,
+} from '@/lib/food/photo-analysis';
+import { safeErrorMetadata } from '@/lib/security/safe-error-log';
 
 interface PhotoAnalyzeRequest {
   imageBase64: string;
   mediaType: string;
-}
-
-interface FoodAnalysis {
-  name: string;
-  estimated_grams: number;
-  estimated_calories: number;
-  estimated_protein_g: number;
-  estimated_carbs_g: number;
-  estimated_fat_g: number;
-  confidence: number;
-  source?: 'ai_estimate';
-  accuracy_note?: string;
 }
 
 const PHOTO_ANALYZE_TOOL = {
@@ -145,14 +138,18 @@ export async function POST(request: NextRequest) {
         },
       }),
     });
-    const data = result.output as { content?: Array<{ type?: string; name?: string; input?: { foods?: FoodAnalysis[] } }> };
+    const data = result.output as {
+      content?: Array<{ type?: string; name?: string; input?: { foods?: unknown } }>;
+    };
 
     const toolUse = data?.content?.find((c: { type?: string; name?: string }) =>
       c.type === 'tool_use' && c.name === 'submit_food_photo_analysis',
     );
-    const foods = toolUse?.input?.foods as FoodAnalysis[] | undefined;
+    const candidateFoods = toolUse?.input?.foods;
+    const foods = normalizePhotoAnalysisFoods(candidateFoods);
+    const candidateCount = Array.isArray(candidateFoods) ? candidateFoods.length : 0;
 
-    if (!foods || foods.length === 0) {
+    if (candidateCount === 0) {
       console.error('No tool_use food analysis in Anthropic response');
       return NextResponse.json(
         { error: 'No analysis returned' },
@@ -160,43 +157,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const validFoods = foods.filter((food) =>
-      Number.isFinite(food.estimated_grams) &&
-      food.estimated_grams > 0 &&
-      food.estimated_grams <= 10_000 &&
-      Number.isFinite(food.estimated_calories) &&
-      food.estimated_calories >= 0 &&
-      food.estimated_calories <= 10_000 &&
-      [food.estimated_protein_g, food.estimated_carbs_g, food.estimated_fat_g].every((value) => Number.isFinite(value) && value >= 0) &&
-      food.estimated_protein_g + food.estimated_carbs_g + food.estimated_fat_g <= food.estimated_grams * 1.15
-    );
     // Per-item plausibility: drop only the implausible items and keep the rest.
     // One bad estimate on a 4-item plate must not throw away the other three.
-    if (validFoods.length === 0) {
+    if (foods.length === 0) {
       console.error(
-        `Photo nutrition estimate failed plausibility validation (all ${foods.length} item(s) implausible)`,
+        `Photo nutrition estimate failed plausibility validation (all ${candidateCount} item(s) implausible)`,
       );
       return NextResponse.json(
         { error: 'Could not read reliable nutrition from this photo — try a clearer shot or enter it manually' },
         { status: 502 },
       );
     }
-    if (validFoods.length !== foods.length) {
+    if (foods.length !== candidateCount) {
       console.warn(
-        `[photo-analyze] dropped ${foods.length - validFoods.length}/${foods.length} item(s) that failed plausibility validation`,
+        `[photo-analyze] dropped ${candidateCount - foods.length}/${candidateCount} item(s) that failed plausibility validation`,
       );
     }
 
     return NextResponse.json({
-      foods: validFoods.map((food) => ({
-        ...food,
-        source: 'ai_estimate' as const,
-        confidence: Math.min(food.confidence, 0.75),
-        accuracy_note: food.accuracy_note ?? 'Photo-only nutrition is an estimate; confirm weight or serving size for accurate tracking.',
-      })),
+      foods: foods satisfies PhotoAnalysisFood[],
     });
   } catch (error) {
-    console.error('Photo analysis error:', error);
+    console.error('[photo-analyze] unhandled error', safeErrorMetadata(error));
     return NextResponse.json(
       { error: 'Failed to analyze photo' },
       { status: 500 },

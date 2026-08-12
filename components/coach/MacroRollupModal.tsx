@@ -11,9 +11,25 @@ import { X, Calculator, Loader2 } from 'lucide-react';
  * per day. Shows daily kcal/P/C/F vs the client's targets, colour-coded.
  */
 
-interface DayRow { day: number; slots: number; kcal: number; protein: number; carbs: number; fat: number; }
+interface DayRow {
+  day: number;
+  slots: number;
+  kcal: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  complete: boolean;
+}
 interface Targets { kcal: number | null; protein: number | null; carbs: number | null; fat: number | null; }
-interface ApiResponse { days: DayRow[]; targets: Targets | null; mealCount: number; error?: string; }
+interface ApiResponse {
+  days: DayRow[];
+  targets: Targets | null;
+  mealCount: number;
+  parsedMealCount: number;
+  failedMealCount: number;
+  complete: boolean;
+  error?: string;
+}
 
 interface Props { isOpen: boolean; clientId: string; clientName?: string | null; onClose: () => void; }
 
@@ -100,6 +116,15 @@ export default function MacroRollupModal({ isOpen, clientId, clientName, onClose
             )}
             {data && !loading && data.days.length > 0 && (
               <>
+                {!data.complete && (
+                  <div
+                    role="alert"
+                    className="text-[11px] mb-3 rounded-lg px-3 py-2"
+                    style={{ color: '#fbbf24', background: 'rgba(251,191,36,.08)', border: '1px solid rgba(251,191,36,.2)' }}
+                  >
+                    Some meal descriptions could not be counted ({data.failedMealCount}). Incomplete days show — instead of misleading zero totals.
+                  </div>
+                )}
                 {t?.kcal && (
                   <div className="text-[11px] mb-3" style={{ color: 'var(--t3,#a8a29e)', fontFamily: 'var(--font-mono)' }}>
                     Target: {t.kcal} kcal · {t.protein ?? '–'}P / {t.carbs ?? '–'}C / {t.fat ?? '–'}F
@@ -119,16 +144,18 @@ export default function MacroRollupModal({ isOpen, clientId, clientName, onClose
                     {data.days.map((d) => (
                       <tr key={d.day} style={{ borderTop: '1px solid var(--line,rgba(255,255,255,.06))' }}>
                         <td style={{ padding: '7px 6px', color: 'var(--t2,#d6d3d1)', fontFamily: 'var(--font-mono)' }}>{DAY_LABELS[d.day] ?? d.day}</td>
-                        <td style={{ padding: '7px 6px', textAlign: 'right', fontWeight: 700, color: kcalColor(d.kcal, t?.kcal ?? null) }}>{d.kcal}</td>
-                        <td style={{ padding: '7px 6px', textAlign: 'right', color: 'var(--t2,#d6d3d1)' }}>{d.protein}</td>
-                        <td style={{ padding: '7px 6px', textAlign: 'right', color: 'var(--t2,#d6d3d1)' }}>{d.carbs}</td>
-                        <td style={{ padding: '7px 6px', textAlign: 'right', color: 'var(--t2,#d6d3d1)' }}>{d.fat}</td>
+                        <td style={{ padding: '7px 6px', textAlign: 'right', fontWeight: 700, color: d.complete ? kcalColor(d.kcal, t?.kcal ?? null) : 'var(--t4,#78716c)' }}>{d.complete ? d.kcal : '—'}</td>
+                        <td style={{ padding: '7px 6px', textAlign: 'right', color: 'var(--t2,#d6d3d1)' }}>{d.complete ? d.protein : '—'}</td>
+                        <td style={{ padding: '7px 6px', textAlign: 'right', color: 'var(--t2,#d6d3d1)' }}>{d.complete ? d.carbs : '—'}</td>
+                        <td style={{ padding: '7px 6px', textAlign: 'right', color: 'var(--t2,#d6d3d1)' }}>{d.complete ? d.fat : '—'}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
                 <p className="text-[10px] mt-3" style={{ color: 'var(--t4,#78716c)' }}>
-                  Estimated from meal text via the food database — accuracy ±10-15%. Green = within 10% of target kcal.
+                  {data.complete
+                    ? 'Estimated from meal text via the food database — accuracy ±10-15%. Green = within 10% of target kcal.'
+                    : 'Only complete days are shown as totals. Retry after reviewing any long or ambiguous meal descriptions.'}
                 </p>
               </>
             )}

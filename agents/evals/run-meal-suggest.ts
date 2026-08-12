@@ -28,11 +28,21 @@ import { writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { taskPolicies } from '../router/policies';
 import { estimateModelCostUsd } from '../router/pricing';
-import { invokeStructuredProvider } from '../runtime/providers/structured';
+import { invokeStructuredProvider } from '../../scripts/safety/paid-ai-provider-facade';
 import { mealSuggestionValidator, mealSuggestJsonSchema } from '../schemas/meal-suggest';
+import {
+  PAID_AI_ENDPOINT_GROUPS,
+  requirePaidAiToolApproval,
+} from '../../scripts/safety/require-paid-ai-approval';
 
 // ── Config ──────────────────────────────────────────────────────────────────
 
+const paidAiApproval = requirePaidAiToolApproval({
+  operation: 'eval-meal-suggest',
+  argv: process.argv.slice(2),
+  env: process.env,
+  endpoints: PAID_AI_ENDPOINT_GROUPS.consumerRuntime,
+});
 const POLICY = taskPolicies.meal_suggest;
 const REPORT_DIR = join(process.cwd(), 'agents/evals/reports');
 mkdirSync(REPORT_DIR, { recursive: true });
@@ -173,6 +183,7 @@ async function callRoutedModel(input: MealSuggestInput): Promise<{
     toolName: 'submit_meal_suggestions',
     toolDescription: 'Submit 3 meal suggestions matching the macro budget',
     strict: true,
+    beforeTransportAttempt: paidAiApproval.beforeTransportAttempt,
   }).finally(() => clearTimeout(timeout));
 
   return {
@@ -287,10 +298,11 @@ function dim(s: string): string { return `\x1b[2m${s}\x1b[0m`; }
 // ── Main ────────────────────────────────────────────────────────────────────
 
 async function main() {
+  const approvedCases = paidAiApproval.boundCases(EVAL_CASES);
   console.log(bold('\n🍽️  Trophē — meal_suggest production-policy eval'));
   console.log(dim(`   Model: ${POLICY.model}`));
-  console.log(dim(`   ${EVAL_CASES.length} prompts × 5 criteria = ${EVAL_CASES.length * 5} max points`));
-  console.log(dim(`   Pass threshold: ≥${EVAL_CASES.length * 5 * 0.8}/50 (80%)`));
+  console.log(dim(`   ${approvedCases.length} prompts × 5 criteria = ${approvedCases.length * 5} max points`));
+  console.log(dim(`   Pass threshold: ≥${approvedCases.length * 5 * 0.8}/${approvedCases.length * 5} (80%)`));
   console.log(dim(`   ${new Date().toISOString()}\n`));
 
   if (!process.env.OPENAI_API_KEY) {
@@ -304,7 +316,7 @@ async function main() {
   let totalTokensOut = 0;
   let totalCostUsd = 0;
 
-  for (const input of EVAL_CASES) {
+  for (const input of approvedCases) {
     process.stdout.write(`  ${input.id.padEnd(28)} `);
 
     try {
@@ -354,7 +366,7 @@ async function main() {
   // ── Summary ─────────────────────────────────────────────────────────────
 
   const totalPoints = results.reduce((s, r) => s + r.score.points, 0);
-  const maxPoints = EVAL_CASES.length * 5;
+  const maxPoints = approvedCases.length * 5;
   const pct = (totalPoints / maxPoints) * 100;
   const passed = pct >= 80;
 
@@ -363,13 +375,13 @@ async function main() {
   const criteriaNames = ['schemaValid', 'suggestionCount', 'macroFit', 'diversity', 'realism'] as const;
   for (const criterion of criteriaNames) {
     const count = results.filter(r => r.score[criterion]).length;
-    const rate = ((count / EVAL_CASES.length) * 100).toFixed(0);
-    const color = count === EVAL_CASES.length ? green : count >= EVAL_CASES.length * 0.8 ? (s: string) => s : red;
-    console.log(`  ${criterion.padEnd(22)} ${color(`${rate}%`)} (${count}/${EVAL_CASES.length})`);
+    const rate = ((count / approvedCases.length) * 100).toFixed(0);
+    const color = count === approvedCases.length ? green : count >= approvedCases.length * 0.8 ? (s: string) => s : red;
+    console.log(`  ${criterion.padEnd(22)} ${color(`${rate}%`)} (${count}/${approvedCases.length})`);
   }
 
-  const avgLatency = Math.round(totalLatency / EVAL_CASES.length);
-  const avgCost = totalCostUsd / EVAL_CASES.length;
+  const avgLatency = Math.round(totalLatency / approvedCases.length);
+  const avgCost = totalCostUsd / approvedCases.length;
 
   console.log();
   console.log(`  Total score:        ${pct >= 80 ? green(`${totalPoints}/${maxPoints}`) : red(`${totalPoints}/${maxPoints}`)} (${pct.toFixed(1)}%)`);
@@ -396,7 +408,7 @@ async function main() {
     JSON.stringify({
       when: new Date().toISOString(),
       model: POLICY.model,
-      totalCases: EVAL_CASES.length,
+      totalCases: approvedCases.length,
       totalPoints,
       maxPoints,
       pct,

@@ -36,7 +36,7 @@ describe('providerErrorTelemetry', () => {
     });
   });
 
-  it('rejects invalid status values and truncates untrusted strings', () => {
+  it('rejects invalid status values and omits unrecognized diagnostics', () => {
     const result = providerErrorTelemetry({
       status: 999,
       code: 'x'.repeat(300),
@@ -44,8 +44,7 @@ describe('providerErrorTelemetry', () => {
     });
 
     expect(result.rawStatus).toBe(0);
-    expect(result.metadata?.providerError.code).toHaveLength(120);
-    expect(result.metadata?.providerError).not.toHaveProperty('requestId');
+    expect(result.metadata).toBeUndefined();
   });
 
   it('returns empty telemetry for ordinary errors', () => {

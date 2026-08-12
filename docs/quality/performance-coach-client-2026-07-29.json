@@ -1,0 +1,35 @@
+{
+  "route": "/coach/client/[id]",
+  "measurement": "Next.js production client-reference manifest, raw JavaScript bytes",
+  "before": {
+    "referencedClientBytes": 891001,
+    "routePageChunkBytes": 119757
+  },
+  "after": {
+    "referencedClientBytes": 882045,
+    "routePageChunkBytes": 107871,
+    "analyticsBoundaryChunkBytes": 10998
+  },
+  "change": {
+    "referencedClientBytes": -8956,
+    "referencedClientPercent": -1.01,
+    "routePageChunkBytes": -11886,
+    "routePageChunkPercent": -9.93
+  },
+  "rendering": {
+    "serverRenderingPreserved": true,
+    "belowFoldContentVisibility": "auto",
+    "containIntrinsicSize": "auto 900px"
+  },
+  "verification": {
+    "focusedTestsPassed": 2,
+    "typecheckPassed": true,
+    "productionBuildPassed": true,
+    "publicRouteBudgetPassed": true,
+    "authenticatedBrowserTests": "skipped: credentials not configured"
+  },
+  "constraints": {
+    "paidProviderCalls": 0,
+    "productionWrites": 0
+  }
+}

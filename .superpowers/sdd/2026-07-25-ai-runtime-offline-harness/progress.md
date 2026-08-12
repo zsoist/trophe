@@ -1,0 +1,20 @@
+# SDD ledger — plan: docs/superpowers/plans/2026-07-25-ai-runtime-offline-harness.md
+
+- Task 1 fix round 1: `c35fd96` resolves the four Important and one Minor findings from `task-1-review.md`; focused Anthropic and telemetry tests pass 30/30, full local-DB suite passes 629 with 33 skipped, and typecheck/lint/build pass.
+- Task 1 complete: round-1 re-review APPROVED in `task-1-rereview-1.md`; no Critical or Important findings remain.
+- Task 2 implementation: `7a57232` adds Anthropic strict-tool and cacheable-system wire contracts; focused compatibility tests pass 38/38 and typecheck passes.
+- Task 2 fix round 1: `20ae563` corrects the sole stale shared-policy comment identified as Minor.
+- Task 2 complete: round-1 re-review APPROVED in `task-2-rereview-1.md`; no findings remain.
+- Task 3 implementation: `982060e` restricts fallback to typed recoverable failures and removes raw error messages from fallback logs; focused tests pass 53/53.
+- Task 3 fix round 1: `4419196` rejects Proxy/accessor-shaped errors without reflection side effects and makes non-recoverable signals dominate recoverable conflicts; focused tests pass 72/72.
+- Task 3 complete: round-1 re-review APPROVED in `task-3-rereview-1.md`; both Important findings are resolved with no new Critical or Important regression.
+- Task 4 implementation: `b31a4fc` adds a shared provider-chain deadline; initial review found four Important await, timing, identity, and timer-range gaps.
+- Task 4 fix round 1: `d826ea7` replaces duration snapshots with one validated monotonic chain boundary, safely observes uncancellable late work, bounds every public await, preserves fallback identity, and rejects Node timer overflow; runtime tests pass 103/103.
+- Task 4 complete: round-1 re-review APPROVED in `task-4-rereview-1.md`; all four Important findings are resolved with no new Critical or Important regression.
+- Task 5 implementation: `c615f79` adds fail-closed paid-provider access across OpenAI, Anthropic, DeepSeek, Voyage, Google, and the shared text/structured dispatchers using injected offline transports.
+- Task 5 fix round 1: `794c1e8` preserves normal `tsx` imports, makes ambient-key tests mutation-strong and hermetic, and adds direct DeepSeek structured injection/blocking coverage.
+- Task 5 fix round 2: `2dac1ac` replaces the shallow client-source check with a reusable transitive, cycle-safe import graph covering aliases, helpers, barrels, re-exports, dynamic imports, `require`, and erased type-only edges.
+- Task 5 complete: round-2 re-review APPROVED in `task-5-review.md`; focused offline tests pass 25/25, the real graph scans 159 client roots with zero violations, the normal `tsx` blocked-access probe passes, and no Critical or Important finding remains.
+- Task 6 implementation: `222f21d` adds bounded approval for the initial paid-AI executable inventory; independent review requested transport-boundary, endpoint-binding, scanner, dotenv-order, stress-pricing, generator-cardinality, and RAG-ingestion fixes.
+- Task 6 fix round 1: `a27640233fd71398e26aa383186f01d3a0ed7349` enforces exact endpoint-bound transport budgets, adds repository-wide executable-graph scanning and the missing RAG path, and resolves every finding in `task-6-review.md`; focused tests pass 144/144, the zero-credential non-DB offline suite passes 736 with 25 skipped, scanner/typecheck/diff checks pass, lint has 0 errors, and provider spend is `$0.00`.
+- Task 6 fix round 2: this commit replaces presence-based safety with repository-wide executable discovery, cycle-safe ESM/CJS graph enforcement, a single tool provider facade, and module-private WeakSet capability provenance; owns Google raw-fetch and Mistral-compatible retry/redirect semantics, shares corrected DeepSeek pricing with a fixed input envelope, restores unbounded production meal cardinality while failing opaque evals closed, makes all configurable URL bootstraps sentinel-safe, and documents why RAG remains `localDb:false` until loopback is enforced. Scanner and 88 focused tests pass; the full offline suite passes 886 with 33 skipped; typecheck/lint pass; provider spend is `$0.00`.

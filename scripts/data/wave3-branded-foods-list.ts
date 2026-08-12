@@ -29,6 +29,7 @@ export const WAVE3_BRANDED_FOODS: CanonicalFood[] = [
   {
     key: 'mcdonalds_big_mac',
     searchQuery: "McDONALD'S BIG MAC",
+    brand: "McDonald's",
     preferredTypes: ['SR Legacy', 'Survey (FNDDS)'],
     region: ['US', 'CO', 'GR'],
     category: 'standard',
@@ -38,6 +39,7 @@ export const WAVE3_BRANDED_FOODS: CanonicalFood[] = [
   {
     key: 'mcdonalds_chicken_mcnuggets',
     searchQuery: "McDONALD'S Chicken McNUGGETS",
+    brand: "McDonald's",
     preferredTypes: ['SR Legacy'],
     region: ['US', 'CO', 'GR'],
     category: 'standard',
@@ -47,6 +49,7 @@ export const WAVE3_BRANDED_FOODS: CanonicalFood[] = [
   {
     key: 'mcdonalds_french_fries_large',
     searchQuery: "McDONALD'S french fries",
+    brand: "McDonald's",
     preferredTypes: ['SR Legacy'],
     region: ['US', 'CO', 'GR'],
     category: 'standard',
@@ -56,6 +59,7 @@ export const WAVE3_BRANDED_FOODS: CanonicalFood[] = [
   {
     key: 'mcdonalds_cheeseburger',
     searchQuery: "McDONALD'S Cheeseburger",
+    brand: "McDonald's",
     preferredTypes: ['SR Legacy'],
     region: ['US', 'CO'],
     category: 'standard',
@@ -65,6 +69,7 @@ export const WAVE3_BRANDED_FOODS: CanonicalFood[] = [
   {
     key: 'mcdonalds_egg_mcmuffin',
     searchQuery: "McDONALD'S Egg McMUFFIN",
+    brand: "McDonald's",
     preferredTypes: ['SR Legacy'],
     region: ['US', 'CO'],
     category: 'standard',
@@ -76,6 +81,7 @@ export const WAVE3_BRANDED_FOODS: CanonicalFood[] = [
   {
     key: 'burger_king_whopper',
     searchQuery: 'BURGER KING WHOPPER no cheese',
+    brand: 'Burger King',
     preferredTypes: ['SR Legacy', 'Survey (FNDDS)'],
     region: ['US', 'CO'],
     category: 'standard',
@@ -85,6 +91,7 @@ export const WAVE3_BRANDED_FOODS: CanonicalFood[] = [
   {
     key: 'burger_king_whopper_cheese',
     searchQuery: 'BURGER KING WHOPPER with cheese',
+    brand: 'Burger King',
     preferredTypes: ['Survey (FNDDS)', 'SR Legacy'],
     region: ['US', 'CO'],
     category: 'standard',
@@ -96,6 +103,7 @@ export const WAVE3_BRANDED_FOODS: CanonicalFood[] = [
   {
     key: 'kfc_popcorn_chicken',
     searchQuery: 'KFC Popcorn Chicken',
+    brand: 'KFC',
     preferredTypes: ['SR Legacy'],
     region: ['US', 'CO'],
     category: 'standard',
@@ -105,6 +113,7 @@ export const WAVE3_BRANDED_FOODS: CanonicalFood[] = [
   {
     key: 'kfc_crispy_strips',
     searchQuery: 'KFC Crispy Chicken Strips',
+    brand: 'KFC',
     preferredTypes: ['SR Legacy'],
     region: ['US', 'CO'],
     category: 'standard',
@@ -116,6 +125,7 @@ export const WAVE3_BRANDED_FOODS: CanonicalFood[] = [
   {
     key: 'chickfila_chicken_sandwich',
     searchQuery: 'CHICK-FIL-A chicken sandwich',
+    brand: 'Chick-fil-A',
     preferredTypes: ['SR Legacy'],
     region: ['US'],
     category: 'standard',
@@ -125,6 +135,7 @@ export const WAVE3_BRANDED_FOODS: CanonicalFood[] = [
   {
     key: 'chickfila_chicken_strips',
     searchQuery: 'CHICK-FIL-A Chick-n-Strips',
+    brand: 'Chick-fil-A',
     preferredTypes: ['SR Legacy'],
     region: ['US'],
     category: 'standard',
@@ -136,6 +147,7 @@ export const WAVE3_BRANDED_FOODS: CanonicalFood[] = [
   {
     key: 'subway_turkey_breast_sub',
     searchQuery: 'SUBWAY turkey breast sub on white bread',
+    brand: 'Subway',
     preferredTypes: ['SR Legacy'],
     region: ['US', 'CO'],
     category: 'standard',
@@ -145,6 +157,7 @@ export const WAVE3_BRANDED_FOODS: CanonicalFood[] = [
   {
     key: 'subway_meatball_sub',
     searchQuery: 'SUBWAY meatball marinara sub on white bread',
+    brand: 'Subway',
     preferredTypes: ['SR Legacy'],
     region: ['US', 'CO'],
     category: 'standard',
@@ -165,6 +178,7 @@ export const WAVE3_BRANDED_FOODS: CanonicalFood[] = [
   {
     key: 'chicken_nuggets_fast_food',
     searchQuery: "WENDY'S Chicken Nuggets",
+    brand: "Wendy's",
     preferredTypes: ['SR Legacy'],
     region: ['US', 'CO'],
     category: 'standard',
@@ -179,6 +193,7 @@ export const WAVE3_BRANDED_FOODS: CanonicalFood[] = [
   {
     key: 'coca_cola',
     searchQuery: 'COCA-COLA COLA',
+    brand: 'Coca-Cola',
     preferredTypes: ['Branded'],
     region: ['US', 'CO', 'GR'],
     category: 'standard',
@@ -188,6 +203,7 @@ export const WAVE3_BRANDED_FOODS: CanonicalFood[] = [
   {
     key: 'sprite',
     searchQuery: 'Sprite',
+    brand: 'Sprite',
     preferredTypes: ['Branded'],
     region: ['US', 'CO', 'GR'],
     category: 'standard',
@@ -197,6 +213,7 @@ export const WAVE3_BRANDED_FOODS: CanonicalFood[] = [
   {
     key: 'pepsi_cola',
     searchQuery: 'PEPSI SODA 500 ML',
+    brand: 'Pepsi',
     preferredTypes: ['Branded'],
     region: ['US', 'CO'],
     category: 'standard',
@@ -206,6 +223,7 @@ export const WAVE3_BRANDED_FOODS: CanonicalFood[] = [
   {
     key: 'fanta_orange',
     searchQuery: 'FANTA SODA ORANGE ORANGE',
+    brand: 'Fanta',
     preferredTypes: ['Branded'],
     region: ['US', 'CO', 'GR'],
     category: 'standard',
@@ -215,6 +233,7 @@ export const WAVE3_BRANDED_FOODS: CanonicalFood[] = [
   {
     key: 'red_bull_energy_drink',
     searchQuery: 'RED BULL ENERGY DRINK',
+    brand: 'Red Bull',
     preferredTypes: ['Branded'],
     region: ['US', 'CO', 'GR'],
     category: 'standard',
@@ -224,6 +243,7 @@ export const WAVE3_BRANDED_FOODS: CanonicalFood[] = [
   {
     key: 'starbucks_caffe_latte',
     searchQuery: 'CAFFE LATTE ICED ESPRESSO BEVERAGE Starbucks',
+    brand: 'Starbucks',
     preferredTypes: ['Branded'],
     region: ['US', 'CO', 'GR'],
     category: 'standard',
@@ -233,6 +253,7 @@ export const WAVE3_BRANDED_FOODS: CanonicalFood[] = [
   {
     key: 'orange_juice_commercial',
     searchQuery: 'TROPICANA 100% JUICE ORANGE',
+    brand: 'Tropicana',
     preferredTypes: ['Branded', 'SR Legacy'],
     region: ['US', 'CO', 'GR'],
     category: 'standard',

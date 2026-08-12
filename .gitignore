@@ -46,6 +46,7 @@ yarn-error.log*
 next-env.d.ts
 .forge/
 .gstack/
+/.worktrees/
 
 # v0.3 — drizzle migration artifacts (committed) vs local snapshot caches
 drizzle/.snapshots/

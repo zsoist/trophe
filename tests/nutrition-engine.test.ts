@@ -9,6 +9,7 @@ import {
   macroPercentage,
   caloriesFromSteps,
   remainingMacros,
+  nutritionProfileInputIssue,
 } from '@/lib/food/nutrition-engine';
 
 // Reference case — Daniela-like profile (drove the ChatGPT comparison incident).
@@ -116,12 +117,19 @@ describe('calculateMacroTargets (ISSN-grade ratios)', () => {
     // calories = protein*4 + fat*9 + carbs*4 (within rounding)
     const reconstructed = t.protein_g * 4 + t.fat_g * 9 + t.carbs_g * 4;
     expect(Math.abs(t.calories - reconstructed)).toBeLessThanOrEqual(4);
+    expect(t.macros_adjusted).toBe(false);
   });
 
-  it('never returns negative carbs (protein+fat cannot exceed target)', () => {
-    // Extreme fat_loss tiny person — carbs must stay >= 0
-    const t = calculateMacroTargets(45, 150, 25, 'female', 'sedentary', 'fat_loss');
+  it('fits impossible protein and fat anchors inside the calorie target', () => {
+    const t = calculateMacroTargets(160, 140, 80, 'female', 'sedentary', 'fat_loss');
+    const reconstructed = t.protein_g * 4 + t.fat_g * 9 + t.carbs_g * 4;
+
+    expect(t.macros_adjusted).toBe(true);
+    expect(t.protein_g).toBeGreaterThan(0);
+    expect(t.fat_g).toBeGreaterThan(0);
     expect(t.carbs_g).toBeGreaterThanOrEqual(0);
+    expect(reconstructed).toBeLessThanOrEqual(t.calories);
+    expect(t.calories - reconstructed).toBeLessThan(4);
   });
 });
 
@@ -139,6 +147,22 @@ describe('calculateFullProfile', () => {
     expect(p.tdee).toBeGreaterThan(p.bmr);
     expect(p.protein_g).toBeGreaterThan(0);
     expect(p.calories).toBe(p.tdee); // maintenance = tdee
+  });
+
+  it('identifies unsupported body inputs before preview or persistence', () => {
+    const valid = {
+      weight_kg: 80,
+      height_cm: 180,
+      age: 30,
+      sex: 'male' as const,
+      activityLevel: 'moderate' as const,
+      goal: 'maintenance' as const,
+    };
+
+    expect(nutritionProfileInputIssue(valid)).toBeNull();
+    expect(nutritionProfileInputIssue({ ...valid, age: 12 })).toBe('age');
+    expect(nutritionProfileInputIssue({ ...valid, weight_kg: 301 })).toBe('weight');
+    expect(nutritionProfileInputIssue({ ...valid, height_cm: 99 })).toBe('height');
   });
 });
 

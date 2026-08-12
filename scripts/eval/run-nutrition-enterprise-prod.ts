@@ -2,8 +2,28 @@ import { mkdirSync, readFileSync, writeFileSync, appendFileSync } from 'node:fs'
 import { execSync } from 'node:child_process';
 import { join } from 'node:path';
 import { loadEnvConfig } from '@next/env';
+import {
+  FOOD_PARSE_OPAQUE_MAX_PROVIDER_ATTEMPTS,
+  requirePaidAiToolApproval,
+  resolvePaidAiRouteEndpoint,
+} from '../safety/require-paid-ai-approval';
 
 // Auto-load .env.local so the script works without manual `source .env.local`
+const paidEndpoint = resolvePaidAiRouteEndpoint({
+  baseUrl: process.env.TROPHE_API ?? 'https://trophe.app',
+  pathname: '/api/food/parse',
+  operation: 'eval-nutrition-enterprise-prod',
+});
+const paidAiApproval = requirePaidAiToolApproval({
+  operation: 'eval-nutrition-enterprise-prod',
+  argv: process.argv.slice(2),
+  env: process.env,
+  endpoints: [paidEndpoint],
+});
+paidAiApproval.reserveOpaqueEnvelope({
+  endpoint: paidEndpoint,
+  maxProviderAttempts: FOOD_PARSE_OPAQUE_MAX_PROVIDER_ATTEMPTS,
+});
 loadEnvConfig(process.cwd());
 
 type Range = { min: number; max: number };
@@ -37,7 +57,7 @@ const datasetVersion = process.env.EVAL_DATASET ?? 'v2';
 const datasetPath = join(process.cwd(), `agents/evals/datasets/nutrition-enterprise-${datasetVersion}.json`);
 const dataset = JSON.parse(readFileSync(datasetPath, 'utf8')) as { version: string; cases: EvalCase[] };
 console.log(`[eval] dataset: ${datasetVersion} (${dataset.cases.length} cases)`);
-const baseUrl = process.env.TROPHE_API ?? 'https://trophe.app';
+const baseUrl = new URL(paidEndpoint).origin;
 const concurrency = Math.min(Math.max(Number(process.env.EVAL_CONCURRENCY ?? 5), 1), 10);
 const email = process.env.EVAL_AUTH_EMAIL;
 const password = process.env.EVAL_AUTH_PASSWORD;
@@ -154,11 +174,11 @@ const runsPerCase = Math.min(Math.max(Number(process.env.EVAL_RUNS_PER_CASE ?? 1
 async function callOnce(test: EvalCase, token: string) {
   const startedAt = Date.now();
   const language = test.language === 'mixed' ? 'en' : test.language;
-  const response = await fetch(`${baseUrl}/api/food/parse`, {
+  const response = await paidAiApproval.fetchOpaque(paidEndpoint, {
     method: 'POST',
     headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
     body: JSON.stringify({ text: test.input, language }),
-  });
+  }, { maxProviderAttempts: FOOD_PARSE_OPAQUE_MAX_PROVIDER_ATTEMPTS });
   const data = await response.json().catch(() => ({})) as {
     items?: ParsedItem[];
     needs_clarification?: boolean;
@@ -249,13 +269,17 @@ async function runCase(test: EvalCase, token: string) {
 }
 
 async function main() {
+  const approvedCases = paidAiApproval.boundJobs(dataset.cases, {
+    maxAttemptsPerJob:
+      FOOD_PARSE_OPAQUE_MAX_PROVIDER_ATTEMPTS * runsPerCase,
+  });
   const token = await accessToken();
   const results: Awaited<ReturnType<typeof runCase>>[] = [];
   let next = 0;
   await Promise.all(Array.from({ length: concurrency }, async () => {
-    while (next < dataset.cases.length) {
+    while (next < approvedCases.length) {
       const index = next++;
-      results[index] = await runCase(dataset.cases[index], token);
+      results[index] = await runCase(approvedCases[index], token);
     }
   }));
 
