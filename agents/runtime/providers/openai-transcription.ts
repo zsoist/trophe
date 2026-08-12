@@ -5,11 +5,11 @@ import {
   assertPaidProviderAccess,
   PAID_PROVIDER_OFFLINE_CREDENTIAL,
 } from '@/agents/runtime/provider-access';
-import { TRANSCRIPTION_USD_PER_MINUTE } from '@/agents/router/pricing';
+import { estimateModelCostUsd } from '@/agents/router/pricing';
 import { debitPaidTransportAttempt } from '@/scripts/safety/require-paid-ai-approval';
+import { normalizeAudioMediaType } from '@/lib/server/audio-duration';
 
 const OPENAI_TRANSCRIPTIONS_URL = 'https://api.openai.com/v1/audio/transcriptions';
-const MAX_TRANSCRIPTION_COST_USD = 0.00225;
 
 const EXTENSIONS_BY_MEDIA_TYPE: Record<string, string> = {
   'audio/flac': 'flac',
@@ -49,7 +49,7 @@ export async function invokeOpenAiTranscription(input: {
   model: string;
   file: File;
   locale: TranscriptionLocale;
-  prompt: string;
+  prompt?: string;
   durationMs: number;
   signal: AbortSignal;
   fetchImpl?: typeof fetch;
@@ -64,16 +64,17 @@ export async function invokeOpenAiTranscription(input: {
     : process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error('OPENAI_API_KEY not configured');
 
-  const extension = EXTENSIONS_BY_MEDIA_TYPE[input.file.type];
+  const mediaType = normalizeAudioMediaType(input.file.type);
+  const extension = EXTENSIONS_BY_MEDIA_TYPE[mediaType];
   if (!extension) {
     throw new OpenAiTranscriptionError('Unsupported transcription media type', 415, 'unsupported_audio');
   }
 
   const body = new FormData();
-  body.set('file', new File([input.file], `recording.${extension}`, { type: input.file.type }));
+  body.set('file', new File([input.file], `recording.${extension}`, { type: mediaType }));
   body.set('model', input.model);
-  body.set('languages[]', input.locale);
-  body.set('prompt', input.prompt);
+  body.set('language', input.locale);
+  if (input.prompt) body.set('prompt', input.prompt);
 
   debitPaidTransportAttempt(input.beforeTransportAttempt, OPENAI_TRANSCRIPTIONS_URL);
   const startedAt = performance.now();
@@ -115,15 +116,30 @@ export async function invokeOpenAiTranscription(input: {
     );
   }
 
-  const actualCostUsd = Math.min(
-    MAX_TRANSCRIPTION_COST_USD,
-    Math.max(0, input.durationMs) / 60_000 * TRANSCRIPTION_USD_PER_MINUTE,
-  );
+  const inputTokens = typeof usageRecord.input_tokens === 'number'
+    ? usageRecord.input_tokens
+    : Number.NaN;
+  const outputTokens = typeof usageRecord.output_tokens === 'number'
+    ? usageRecord.output_tokens
+    : Number.NaN;
+  if (
+    !Number.isSafeInteger(inputTokens)
+    || inputTokens < 0
+    || !Number.isSafeInteger(outputTokens)
+    || outputTokens < 0
+  ) {
+    throw new OpenAiTranscriptionError(
+      'OpenAI returned invalid transcription usage',
+      response.status,
+      'invalid_transcription_usage',
+    );
+  }
+  const actualCostUsd = estimateModelCostUsd(input.model, inputTokens, outputTokens);
   return {
     output: parsed.data,
     usage: {
-      inputTokens: typeof usageRecord.input_tokens === 'number' ? usageRecord.input_tokens : 0,
-      outputTokens: typeof usageRecord.output_tokens === 'number' ? usageRecord.output_tokens : 0,
+      inputTokens,
+      outputTokens,
       actualCostUsd,
     },
     latencyMs: Math.max(0, Math.round(performance.now() - startedAt)),

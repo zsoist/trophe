@@ -29,11 +29,16 @@ export function runTranscription(
     beforeTransportAttempt?: (endpoint: string) => unknown;
   },
 ) {
-  const providerPrompt = PROMPT_TEMPLATE.replace('{{CONTEXT}}', input.context);
+  const auditPrompt = PROMPT_TEMPLATE.replace('{{CONTEXT}}', input.context);
+  // OpenAI requires the optional transcription prompt to match the audio
+  // language. The English anti-hallucination prompt is therefore only sent
+  // for English recordings; other locales rely on literal ASR without a
+  // mismatched language bias.
+  const providerPrompt = input.locale === 'en' ? auditPrompt : undefined;
   return executeAiTask<TranscriptionOutput>({
     task: 'transcribe',
     prompt: `locale=${input.locale}; context=${input.context}; duration_ms=${input.durationMs}`,
-    systemPrompt: providerPrompt,
+    systemPrompt: auditPrompt,
     context,
     invoke: ({ policy, signal }) => invokeOpenAiTranscription({
       model: policy.model,

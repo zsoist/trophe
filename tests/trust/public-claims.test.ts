@@ -36,11 +36,10 @@ const FORBIDDEN_PAGE: Array<[RegExp, string]> = [
   [/it is governed by[^.]*standard contractual clauses/i, 'transfers not SCC-executed (SCC)'],
   [/can only ever read clients explicitly assigned/i, 'cross-tenant guarantee unproven (RLS)'],
   [/zero-retention/i, 'no zero-retention agreement (AI-ANTHROPIC)'],
-  [/minimal task context/i, 'DeepSeek receives more than minimal context (AI-DEEPSEEK)'],
-  [/never full (health|account) record/i, 'we do send health-adjacent text (AI-DEEPSEEK)'],
-  [/no client data is (ever )?used to train/i, 'DeepSeek may train on inputs (AI-DEEPSEEK)'],
-  [/providers'? api terms[^.]*do not train/i, 'universal no-train claim false for DeepSeek'],
-  [/not your name or contact/i, 'coaching snapshot DOES send full_name (AI-EGRESS)'],
+  [/minimal task context/i, 'AI egress scope is not universally verified (AI-EGRESS)'],
+  [/never full (health|account) record/i, 'universal egress minimisation is unverified (AI-EGRESS)'],
+  [/no client data is (ever )?used to train/i, 'universal no-train language is too broad'],
+  [/providers'? api terms[^.]*do not train/i, 'universal no-train claim is not evidenced'],
   [/food names only/i, 'Voyage embeds more than food names (VOYAGE)'],
   [/embeddings?[^.]*no personal data/i, 'Voyage receives personal data (VOYAGE)'],
   [/http-?only cook/i, 'sessions are NOT httpOnly (ENCRYPT)'],
@@ -56,8 +55,8 @@ const REQUIRED_PAGE: Array<[RegExp, string]> = [
   [/erasure workflow[^.]*in active development/i, 'erasure disclosed as in development'],
   [/transfer-impact assessment and executed DPAs are in progress/i, 'transfer basis disclosed'],
   [/as processor[^.]*notifies affected controllers/i, 'breach worded for the processor role'],
-  [/deepseek[^.]*china/i, 'DeepSeek China processing disclosed'],
-  [/can include names/i, 'DeepSeek receiving identifiers disclosed (AI-EGRESS)'],
+  [/deepseek[^.]*china/i, 'DeepSeek location disclosed'],
+  [/openai[^.]*microphone transcription/i, 'OpenAI text/audio processing disclosed'],
   [/embeddings via Voyage/i, 'Voyage embedding scope disclosed (VOYAGE)'],
   [/cle1/i, 'Vercel function region (cle1) stated accurately (REGION)'],
   [/self-hosted via cloudflare tunnel/i, 'Langfuse self-hosting disclosed honestly'],
@@ -81,9 +80,9 @@ const FORBIDDEN_DPA: Array<[RegExp, string]> = [
   [/embeddings \(food names only\)/i, 'Voyage embeds more than food names'],
 ];
 
-const SUB_PROCESSORS = ['Supabase', 'Vercel', 'DeepSeek', 'Anthropic', 'Voyage AI', 'Langfuse'];
+const SUB_PROCESSORS = ['Supabase', 'Vercel', 'OpenAI', 'DeepSeek', 'Anthropic', 'Voyage AI', 'Langfuse'];
 const NOT_VERIFIED_ROWS = [
-  '| BACKUPS', '| ERASURE', '| TELEMETRY', '| DPA', '| AI-EGRESS', '| AI-DEEPSEEK',
+  '| BACKUPS', '| ERASURE', '| TELEMETRY', '| DPA', '| AI-EGRESS', '| AI-OPENAI',
   '| VOYAGE', '| ENDPOINT-CONTROLS', '| CONSENT-WD', '| RIGHTS-30D', '| SCC',
 ];
 

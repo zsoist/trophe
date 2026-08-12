@@ -88,7 +88,7 @@ As described in §§2–4.
 - Role-based access (super_admin / admin / coach / client) with database-enforced policies
 - Automated backups and point-in-time recovery planned with the Supabase Pro migration; not yet enabled (no restore drill yet)
 - Input validation (zod) and durable rate limiting on key mutation endpoints (e.g. signup, activation, messaging); coverage across all endpoints is being completed
-- AI calls governed: per-org budgets, run recording (`agent_runs`). Note: the text provider (DeepSeek, China) may use inputs to improve its services — data-use/transfer basis under review; the vision provider (Anthropic) does not train on API inputs
+- AI calls governed: per-org budgets and run recording (`agent_runs`). Consumer food text and short microphone transcription use OpenAI; OpenAI states API inputs are not used for training unless opted in and documents no retention for `/v1/audio/transcriptions`. Health-context text, consumer fallback and vision use Anthropic, whose API terms do not train on API inputs. DeepSeek is code-restricted to synthetic evaluation generation. Our OpenAI/Anthropic/Voyage transfer assessments and executed vendor documentation remain under review
 - Secrets in environment configuration only, never in source; CI gate on type-checks and tests before deploy
 - Pseudonymous AI run telemetry; automated retention/pruning policy in development
 - Incident response runbook; as processor we notify controllers without undue delay
@@ -98,8 +98,9 @@ As described in §§2–4.
 |---|---|---|
 | Supabase | Database, auth, storage | United States (AWS us-east-2) — EU migration planned |
 | Vercel | Hosting & delivery | United States (functions cle1) + global edge |
-| DeepSeek | AI text inference (food + coaching) | China — may use inputs to improve services; basis under review |
-| Anthropic | AI vision inference (meal photos) | US — no training on API inputs |
+| OpenAI | Consumer food/recipe text inference + short microphone transcription | US/global — no API training unless opted in; audio transcription documents no retention; TIA/executed DPA/regional configuration review in progress |
+| DeepSeek | Synthetic evaluation-data generation only; consumer routing prohibited | China — may use inputs to improve services; synthetic inputs only under current policy |
+| Anthropic | Health-context text, consumer fallback + meal-photo vision | US — no training on API inputs |
 | Voyage AI | Embeddings over food + memory/conversation/knowledge text (may include personal data) | US — basis under review |
 | Langfuse | Self-hosted AI observability (pseudonymous) | Self-hosted via Cloudflare Tunnel — region not independently verified |
 

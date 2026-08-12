@@ -98,4 +98,20 @@ describe('live portion nutrition preview', () => {
       expect.objectContaining({ grams: 150, calories: 396, protein_g: 21.3, fat_g: 32 }),
     ]);
   });
+
+  it('never confirms a focused draft above the 15 kg storage guard', () => {
+    const onConfirm = vi.fn();
+    render(React.createElement(ParsedFoodList, {
+      items: [FETA], onConfirm, onCancel: vi.fn(), logging: false,
+    }));
+
+    const input = screen.getByRole('spinbutton', { name: 'Amount in g' });
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: '999999999' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Log All (1)' }));
+
+    expect(onConfirm).toHaveBeenCalledWith([
+      expect.objectContaining({ grams: 15_000 }),
+    ]);
+  });
 });

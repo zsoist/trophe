@@ -148,13 +148,15 @@ export const taskPolicies: Record<TaskName, RoutingPolicy> = {
   },
   transcribe: {
     provider: 'openai',
-    model: 'gpt-transcribe',
+    model: 'gpt-4o-mini-transcribe',
     costClass: 'cheap',
     latencyClass: 'fast',
     maxTokens: 0,
     timeoutMs: 20_000,
     maxInputChars: 256,
-    maxCostUsd: 0.00225,
+    // Model hard maximum: 16K input × $1.25/M + 2K output × $5/M.
+    // A 30-second recording is normally far below this fail-closed ceiling.
+    maxCostUsd: 0.03,
     promptVersion: 'transcribe-v1',
   },
   factory_generate: {

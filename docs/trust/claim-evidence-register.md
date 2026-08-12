@@ -39,8 +39,9 @@ sub-processor is registered, and blocks flipping a non-verified row to a verifie
 | ERASURE | "Deletion via dpo@; automated audited erasure **in development**; manual for now" | `in-progress` | privacy route is **intake-only**; no fulfilment/backup-handling/auth-deletion (HIGH-02/WP5) | 2026-07-31 |
 | TELEMETRY | "AI run telemetry is pseudonymous; automated retention/pruning **in development**" | `in-progress` | no `agent_runs` pruning job; Langfuse retention not configured | 2026-07-31 |
 | AI-ANTHROPIC | "Meal-photo vision (Anthropic) does not train on API inputs" | `contractual` | Anthropic published API terms: no training on API inputs | 2026-12-14 |
-| AI-DEEPSEEK | "Text AI (DeepSeek) processes inputs in China; may use inputs to improve; basis unresolved; **can include names/identifiers**" | `in-progress` | `client-snapshot.ts` sends `full_name`; coach notes/intake/conversations are free text. DeepSeek may train; China. Minimisation + egress tests pending (HIGH-03/WP3/WP5) | 2026-07-31 |
-| AI-EGRESS | "Coaching features send client/coach-visible text that **can include names, contact, health-adjacent** info; minimisation + egress tests **in development**" | `in-progress` | no automated egress tests; `full_name` + free-text confirmed sent (client-snapshot, memory, conversation) | 2026-07-31 |
+| AI-OPENAI | "Consumer food/recipe text and short microphone audio use OpenAI; OpenAI states no API training unless opted in and no retention for audio transcriptions; our TIA/executed DPA/regional review remains in progress" | `in-progress` | `agents/router/policies.ts`; `/v1/audio/transcriptions`; OpenAI API data-controls documentation; vendor review not completed | 2026-11-12 |
+| AI-DEEPSEEK | "DeepSeek is restricted to synthetic evaluation generation and receives no consumer traffic under current routing policy" | `verified-technical` | `tests/agents/phase3-routing-policy.test.ts`; `taskPolicies.factory_generate`; consumer primary/fallback matrix | 2026-11-12 |
+| AI-EGRESS | "Consumer food text/audio can reach OpenAI; health-context text/images can reach Anthropic; embeddings can include personal data; minimisation + egress tests are in development" | `in-progress` | routing policy and transcription endpoint verified; full automated egress coverage pending | 2026-10-31 |
 | VOYAGE | "Embeddings (Voyage, US) cover food text **and** memory/conversation/knowledge content (may include personal data)" | `in-progress` | `memory/write.ts` embeds memory facts; `rag/ingest.ts` embeds knowledge chunks; basis under review | 2026-07-31 |
 | CONSENT-WD | "Withdraw consent via dpo@ (no prejudice to prior lawfulness)" | `in-progress` | manual; no self-serve toggle or downstream-enforcement proof (BLOCKER-03/04, WP1) | 2026-07-15 |
 | RIGHTS-30D | *(public SLA removed)* "rights via dpo@; automated fulfilment + SLA **in development**" | `in-progress` | `data_requests` intake exists; no fulfilment/SLA monitoring (WP5) | 2026-07-31 |
@@ -55,8 +56,9 @@ sub-processor is registered, and blocks flipping a non-verified row to a verifie
 |---|---|---|---|
 | Supabase | All app data (DB/auth/storage) | US (AWS us-east-2) | processor DPA + SCCs (execution in progress) |
 | Vercel | Hosting/delivery | US (functions cle1) + global edge | processor DPA + SCCs (execution in progress) |
-| DeepSeek | Food + coaching/lifestyle/memory snapshot **text incl. names/identifiers** | **China** | **unresolved** — provider may use inputs to improve; minimisation in progress |
-| Anthropic | Meal-photo images | US | API terms: no training on API inputs |
+| OpenAI | Consumer food/recipe text + short food/intake audio | US/global | API inputs not used for training unless opted in; audio transcription documents no retention; TIA/executed DPA/regional review in progress |
+| DeepSeek | Synthetic evaluation inputs only; no consumer routing | **China** | provider may use inputs to improve; current inputs are synthetic by enforced policy |
+| Anthropic | Health-context text, consumer fallback + meal-photo images | US | API terms: no training on API inputs |
 | Voyage AI | Embeddings over food text **and** memory/conversation/knowledge content (may include personal data) | US | **under review** — not "food names only" |
 | Langfuse | Pseudonymous AI run telemetry | **Self-hosted via Cloudflare Tunnel — region not independently verified** | self-hosted; retention/pruning policy in development |
 
@@ -64,7 +66,7 @@ sub-processor is registered, and blocks flipping a non-verified row to a verifie
 1. **No PITR / managed backups** — Supabase free tier; no restore drill. (WP6)
 2. **Erasure is intake-only** — no fulfilment/backup-handling/auth-deletion. (WP5)
 3. **AI telemetry has no retention/pruning** — retained indefinitely. (WP5)
-4. **DeepSeek processes health-adjacent text *including client names/identifiers* in China and may train on it** — transfer + data-use basis unresolved; minimisation + egress tests not built. (HIGH-03)
+4. **OpenAI receives consumer food text and short microphone audio; regional routing, TIA and executed vendor documentation are not independently verified.** Audio transcription retention and API no-training statements are provider-attributed, not a claim that our account has ZDR. (HIGH-03)
 5. **Voyage embeds personal/health-adjacent text** (memory facts, conversations, knowledge docs), not just food names — basis under review. (HIGH-03)
 6. **Session cookies are not httpOnly** — `@supabase/ssr` default. (WP1/WP3)
 7. **Rate-limit/validation coverage is partial** — not on every mutation endpoint (e.g. consent-withdrawal, invite-client lack limiters). (WP1/WP3)
@@ -72,6 +74,7 @@ sub-processor is registered, and blocks flipping a non-verified row to a verifie
 9. **DPA/DPIA/transfer assessment not counsel-finalised; per-tenant RLS unproven; consent withdrawal manual; no SLO/load/restore evidence; paid plans not an operational lifecycle.** (WP1–WP6)
 
 ## Change log
+- **2026-08-12:** aligned public AI routing with production policy, added OpenAI text/audio processing, and recorded the synthetic-only DeepSeek boundary.
 - **2026-06-14 (round 4, post 3rd review):** corrected favourable-scope claims that failed
   audit — DeepSeek/coaching snapshot includes `full_name` (dropped "not name/contact");
   Voyage embeds memory/conversation/knowledge text, not "food names only" (new VOYAGE row);

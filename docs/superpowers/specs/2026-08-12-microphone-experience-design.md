@@ -34,7 +34,7 @@ Every terminal path detaches callbacks, clears timers, and stops all media track
 
 Food and intake use browser Web Speech first because it is fast and adds no Trophē API charge. When Web Speech is unavailable, throws during startup, or has already proven unreliable for the current retry, Trophē records a completed clip and sends it to `/api/ai/transcribe`.
 
-The fallback uses `gpt-transcribe`, the OpenAI model recommended for bounded recorded speech. It reuses the production `OPENAI_API_KEY` already used by Luna; it does not route audio through `gpt-5.6-luna`, because the Audio Transcriptions endpoint has its own model contract.
+The fallback uses `gpt-4o-mini-transcribe`, OpenAI's lower-cost specialized speech-to-text model. It reuses the production `OPENAI_API_KEY` already used by Luna; it does not route audio through `gpt-5.6-luna`, because the Audio Transcriptions endpoint has its own model contract.
 
 The recording limit is 30 seconds. The browser stops automatically at the limit and immediately enters a transcribing state. Food transcription is parsed through the existing food review pipeline. Intake transcription appends to the existing answer without erasing typed text.
 
@@ -57,7 +57,7 @@ Server guarantees:
 - response validation before returning `{ text, languages }`
 - no storage upload, database audio field, provider-body logging, or raw transcript telemetry
 
-The transcription agent is registered as the `transcribe` task and writes one `agent_runs` row. The conservative cost ceiling is `$0.0045/minute × 0.5 minute = $0.00225` per request. The request records no more than that amount even if client duration metadata is missing. Existing organization and solo-user daily budget checks remain active.
+The transcription agent is registered as the `transcribe` task and writes one `agent_runs` row. Cost accounting uses the API's returned token usage at the model's published rates ($1.25/M input and $5/M output), with a fail-closed $0.03 hard request ceiling derived from the model's maximum context and output. Existing organization and solo-user daily budget checks remain active.
 
 The food prompt asks for exact dictation and explicitly forbids inventing brands or products. It supplies nutrition vocabulary but no brand-name keyword list, because over-hinting brands can itself create false branded terms.
 

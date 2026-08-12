@@ -46,6 +46,14 @@ class FakeRecorder implements MediaRecorderLike {
   }
 }
 
+class HangingStopRecorder extends FakeRecorder {
+  override stop() {
+    if (this.state === 'inactive') throw new Error('already inactive');
+    this.state = 'inactive';
+    // Simulates a browser that never dispatches dataavailable or stop.
+  }
+}
+
 function makeStream(): MediaStreamLike & { stop: ReturnType<typeof vi.fn> } {
   const stop = vi.fn();
   return { stop, getTracks: () => [{ stop }] };
@@ -145,6 +153,28 @@ describe('audio recording session', () => {
     expect(stream.stop).toHaveBeenCalledOnce();
   });
 
+  it('releases the microphone and reports an error if stop never arrives', async () => {
+    const stream = makeStream();
+    const recorder = new HangingStopRecorder();
+    const state = makeState();
+    const session = startAudioRecordingSession({
+      acquireStream: async () => stream,
+      createRecorder: () => recorder,
+      isTypeSupported: () => true,
+      maxDurationMs: 30_000,
+      ...state.callbacks,
+    });
+
+    await vi.waitFor(() => expect(recorder.state).toBe('recording'));
+    session.stop();
+    vi.advanceTimersByTime(1_000);
+
+    expect(state.errors).toEqual(['recorder-error']);
+    expect(state.completions).toEqual([]);
+    expect(stream.stop).toHaveBeenCalledOnce();
+    expect(session.active).toBe(false);
+  });
+
   it('maps permission denial and does not construct a recorder', async () => {
     const state = makeState();
     const createRecorder = vi.fn(() => new FakeRecorder());
@@ -198,5 +228,25 @@ describe('audio recording session', () => {
     await vi.waitFor(() => expect(state.errors).toEqual(['unsupported']));
     expect(createRecorder).not.toHaveBeenCalled();
     expect(stream.stop).toHaveBeenCalledOnce();
+  });
+
+  it('releases every track even when one track stop throws', async () => {
+    const firstStop = vi.fn(() => { throw new Error('track stop failed'); });
+    const secondStop = vi.fn();
+    const stream: MediaStreamLike = {
+      getTracks: () => [{ stop: firstStop }, { stop: secondStop }],
+    };
+    const state = makeState();
+    startAudioRecordingSession({
+      acquireStream: async () => stream,
+      createRecorder: () => new FakeRecorder(),
+      isTypeSupported: () => false,
+      maxDurationMs: 30_000,
+      ...state.callbacks,
+    });
+
+    await vi.waitFor(() => expect(state.errors).toEqual(['unsupported']));
+    expect(firstStop).toHaveBeenCalledOnce();
+    expect(secondStop).toHaveBeenCalledOnce();
   });
 });

@@ -108,11 +108,10 @@ const nonRecoverableConflictCases = [
 
 describe('AI error classification', () => {
   it('prefers an explicit provider cost for non-token-priced work', () => {
-    expect(estimateUsageCost('gpt-transcribe', {
-      inputTokens: 0,
-      outputTokens: 0,
-      actualCostUsd: 0.00225,
-    })).toBe(0.00225);
+    expect(estimateUsageCost('gpt-4o-mini-transcribe', {
+      inputTokens: 100,
+      outputTokens: 25,
+    })).toBe(100 * 1.25 / 1_000_000 + 25 * 5 / 1_000_000);
   });
 
   it.each([
@@ -259,6 +258,37 @@ describe('executeAiTask integration contract', () => {
 
     expect(invoke).not.toHaveBeenCalled();
     expect(persistence.createGeneration).not.toHaveBeenCalled();
+  });
+
+  it('preserves provider usage when a post-call cost ceiling rejects the result', async () => {
+    const originalMaxCostUsd = taskPolicies.meal_suggest.maxCostUsd;
+    taskPolicies.meal_suggest.maxCostUsd = 0.000001;
+    try {
+      await expect(executeAiTask({
+        task: 'meal_suggest',
+        prompt: 'suggest a meal',
+        invoke: vi.fn(async () => ({
+          output: { suggestions: ['meal'] },
+          usage: { inputTokens: 100, outputTokens: 20 },
+          latencyMs: 50,
+          rawStatus: 200,
+          providerGenerationId: 'resp_cost_ceiling',
+        })),
+      })).rejects.toThrow(/cost ceiling/);
+
+      expect(persistence.failGeneration).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          usage: { inputTokens: 100, outputTokens: 20 },
+          latencyMs: 50,
+          status: 200,
+          providerGenerationId: 'resp_cost_ceiling',
+        }),
+        taskPolicies.meal_suggest.model,
+      );
+    } finally {
+      taskPolicies.meal_suggest.maxCostUsd = originalMaxCostUsd;
+    }
   });
 
   it('rejects organization budget violations before persistence or provider invocation', async () => {

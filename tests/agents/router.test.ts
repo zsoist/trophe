@@ -61,18 +61,15 @@ describe('router.pick()', () => {
     for (const [task, policy] of Object.entries(taskPolicies)) {
       const pricing = modelPricing[policy.model];
       expect(pricing, `${task}.model pricing`).toBeTruthy();
-      if (pricing?.billingUnit === 'audio_minute') {
-        expect(pricing.audioPerMinute, `${task}.audio pricing`).toBeGreaterThan(0);
-      } else {
-        expect(pricing?.inputPerMillion, `${task}.input pricing`).toBeGreaterThan(0);
-      }
+      expect(pricing?.inputPerMillion, `${task}.input pricing`).toBeGreaterThan(0);
     }
   });
 
-  it('registers transcription at the governed duration price', () => {
-    expect(modelPricing['gpt-transcribe']).toMatchObject({
-      billingUnit: 'audio_minute',
-      audioPerMinute: 0.0045,
+  it('registers transcription at the governed token price', () => {
+    expect(modelPricing['gpt-4o-mini-transcribe']).toMatchObject({
+      billingUnit: 'tokens',
+      inputPerMillion: 1.25,
+      outputPerMillion: 5,
     });
   });
 });

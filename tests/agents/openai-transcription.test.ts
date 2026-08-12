@@ -18,7 +18,7 @@ describe('invokeOpenAiTranscription', () => {
 
   it('blocks live provider access outside production before global fetch', async () => {
     await expect(invokeOpenAiTranscription({
-      model: 'gpt-transcribe',
+      model: 'gpt-4o-mini-transcribe',
       file: new File(['audio'], 'voice.webm', { type: 'audio/webm' }),
       locale: 'en',
       prompt: 'Transcribe only spoken words.',
@@ -35,7 +35,7 @@ describe('invokeOpenAiTranscription', () => {
     }), { status: 200, headers: { 'x-request-id': 'req_transcribe_1' } }));
 
     const result = await invokeOpenAiTranscription({
-      model: 'gpt-transcribe',
+      model: 'gpt-4o-mini-transcribe',
       file: new File(['spoken audio'], 'untrusted-name.bin', { type: 'audio/webm' }),
       locale: 'en',
       prompt: 'Transcribe only spoken food words. Never invent a brand.',
@@ -53,22 +53,48 @@ describe('invokeOpenAiTranscription', () => {
       headers: { Authorization: 'Bearer trophe-offline-placeholder' },
     });
     const body = fetchMock.mock.calls[0][1].body as FormData;
-    expect(body.get('model')).toBe('gpt-transcribe');
-    expect(body.get('languages[]')).toBe('en');
+    expect(body.get('model')).toBe('gpt-4o-mini-transcribe');
+    expect(body.get('language')).toBe('en');
+    expect(body.has('languages[]')).toBe(false);
     expect(body.get('prompt')).toContain('Never invent a brand');
     const file = body.get('file') as File;
     expect(file.name).toBe('recording.webm');
     expect(file.type).toBe('audio/webm');
     expect(result.output).toEqual({ text: 'two eggs and toast', languages: ['en'] });
-    expect(result.usage).toMatchObject({ inputTokens: 12, outputTokens: 7, actualCostUsd: 0.001125 });
+    expect(result.usage).toMatchObject({
+      inputTokens: 12,
+      outputTokens: 7,
+      actualCostUsd: 12 * 1.25 / 1_000_000 + 7 * 5 / 1_000_000,
+    });
     expect(result.providerGenerationId).toBe('req_transcribe_1');
     expect(JSON.stringify(fetchMock.mock.calls)).not.toContain(SENSITIVE_SENTINEL);
+  });
+
+  it('accepts a codec-qualified browser MIME type', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      text: 'plain yogurt',
+      usage: { type: 'tokens', input_tokens: 10, output_tokens: 4 },
+    }), { status: 200 }));
+
+    await invokeOpenAiTranscription({
+      model: 'gpt-4o-mini-transcribe',
+      file: new File(['audio'], 'voice.webm', { type: 'audio/webm;codecs=opus' }),
+      locale: 'en',
+      prompt: 'Transcribe literally.',
+      durationMs: 5_000,
+      signal: new AbortController().signal,
+      fetchImpl: fetchMock as unknown as typeof fetch,
+    });
+
+    const file = (fetchMock.mock.calls[0][1].body as FormData).get('file') as File;
+    expect(file.name).toBe('recording.webm');
+    expect(file.type).toBe('audio/webm');
   });
 
   it('rejects malformed successful output without retrying', async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ text: '' }), { status: 200 }));
     await expect(invokeOpenAiTranscription({
-      model: 'gpt-transcribe',
+      model: 'gpt-4o-mini-transcribe',
       file: new File(['audio'], 'voice.mp4', { type: 'audio/mp4' }),
       locale: 'es',
       prompt: 'Transcribe.',
@@ -77,5 +103,41 @@ describe('invokeOpenAiTranscription', () => {
       fetchImpl: fetchMock as unknown as typeof fetch,
     })).rejects.toMatchObject({ code: 'invalid_transcription_output', status: 200 });
     expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it('rejects successful output without billable usage', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      text: 'plain yogurt',
+    }), { status: 200 }));
+
+    await expect(invokeOpenAiTranscription({
+      model: 'gpt-4o-mini-transcribe',
+      file: new File(['audio'], 'voice.webm', { type: 'audio/webm' }),
+      locale: 'en',
+      prompt: 'Transcribe literally.',
+      durationMs: 5_000,
+      signal: new AbortController().signal,
+      fetchImpl: fetchMock as unknown as typeof fetch,
+    })).rejects.toMatchObject({ code: 'invalid_transcription_usage', status: 200 });
+  });
+
+  it('omits a mismatched English prompt for non-English audio', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      text: 'yogur natural',
+      usage: { type: 'tokens', input_tokens: 10, output_tokens: 4 },
+    }), { status: 200 }));
+
+    await invokeOpenAiTranscription({
+      model: 'gpt-4o-mini-transcribe',
+      file: new File(['audio'], 'voice.webm', { type: 'audio/webm' }),
+      locale: 'es',
+      durationMs: 5_000,
+      signal: new AbortController().signal,
+      fetchImpl: fetchMock as unknown as typeof fetch,
+    });
+
+    const body = fetchMock.mock.calls[0][1].body as FormData;
+    expect(body.get('language')).toBe('es');
+    expect(body.has('prompt')).toBe(false);
   });
 });

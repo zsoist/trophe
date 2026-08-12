@@ -9,13 +9,14 @@ import {
 import { guardAiRoute } from '@/lib/security/api-guard';
 import { consumeRateLimit } from '@/lib/security/durable-rate-limit';
 import { safeErrorMetadata } from '@/lib/security/safe-error-log';
+import { normalizeAudioMediaType, readAudioDurationMs } from '@/lib/server/audio-duration';
 
 const MAX_AUDIO_BYTES = 2 * 1024 * 1024;
 const MAX_DURATION_MS = 30_000;
 const TRANSCRIPTION_LIMIT = 10;
 const TRANSCRIPTION_WINDOW_SECONDS = 15 * 60;
 const SUPPORTED_MEDIA_TYPES = new Set([
-  'audio/flac', 'audio/mp4', 'audio/mpeg', 'audio/ogg', 'audio/wav', 'audio/webm', 'video/mp4',
+  'audio/mp4', 'audio/webm', 'video/mp4',
 ]);
 const SUPPORTED_CONTEXTS = new Set<TranscriptionContext>(['food', 'intake']);
 
@@ -54,7 +55,8 @@ export async function POST(request: NextRequest) {
     if (file.size > MAX_AUDIO_BYTES) {
       return errorResponse('invalid_audio', 'Recording is too large.', 413);
     }
-    if (!SUPPORTED_MEDIA_TYPES.has(file.type)) {
+    const mediaType = normalizeAudioMediaType(file.type);
+    if (!SUPPORTED_MEDIA_TYPES.has(mediaType)) {
       return errorResponse('unsupported_audio', 'This recording format is not supported.', 415);
     }
     if (
@@ -69,12 +71,22 @@ export async function POST(request: NextRequest) {
       return errorResponse('invalid_request', 'Recording details are invalid.', 400);
     }
 
+    let measuredDurationMs: number;
+    try {
+      measuredDurationMs = await readAudioDurationMs(file);
+    } catch {
+      return errorResponse('invalid_audio', 'Recording could not be verified.', 400);
+    }
+    if (measuredDurationMs > MAX_DURATION_MS) {
+      return errorResponse('invalid_audio', 'Recording is longer than 30 seconds.', 413);
+    }
+
     const generation = await runTranscription(
       {
         file,
         locale: locale as TranscriptionLocale,
         context: context as TranscriptionContext,
-        durationMs,
+        durationMs: measuredDurationMs,
       },
       {
         userId: guard.userId,

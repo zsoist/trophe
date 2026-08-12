@@ -19,13 +19,13 @@ describe('runTranscription', () => {
       output: { text: 'plain yogurt', languages: ['en'] },
       generationId: 'generation-1',
       estimatedCostUsd: 0.00075,
-      selectedPolicy: { model: 'gpt-transcribe' },
+      selectedPolicy: { model: 'gpt-4o-mini-transcribe' },
       isFallback: false,
       usage: { inputTokens: 0, outputTokens: 0, actualCostUsd: 0.00075 },
       latencyMs: 30,
       rawStatus: 200,
       ...(await input.invoke({
-        policy: { model: 'gpt-transcribe' },
+        policy: { model: 'gpt-4o-mini-transcribe' },
         signal: new AbortController().signal,
       })),
     }));
@@ -51,7 +51,7 @@ describe('runTranscription', () => {
       context: { userId: 'user-1', requestId: 'request-1' },
     }));
     expect(mocks.invokeOpenAiTranscription).toHaveBeenCalledWith(expect.objectContaining({
-      model: 'gpt-transcribe',
+      model: 'gpt-4o-mini-transcribe',
       file,
       locale: 'en',
       durationMs: 10_000,
@@ -59,5 +59,18 @@ describe('runTranscription', () => {
       prompt: expect.stringMatching(/only.*spoken|spoken.*only/i),
     }));
     expect(mocks.invokeOpenAiTranscription.mock.calls[0][0].prompt).toMatch(/never (infer|invent).*brand/i);
+  });
+
+  it('does not send an English provider prompt for non-English audio', async () => {
+    const file = new File(['audio'], 'recording.webm', { type: 'audio/webm' });
+    await runTranscription(
+      { file, locale: 'es', context: 'food', durationMs: 10_000 },
+      { userId: 'user-1' },
+    );
+
+    expect(mocks.invokeOpenAiTranscription).toHaveBeenCalledWith(expect.objectContaining({
+      locale: 'es',
+      prompt: undefined,
+    }));
   });
 });

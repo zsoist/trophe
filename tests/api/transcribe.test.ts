@@ -5,11 +5,16 @@ const mocks = vi.hoisted(() => ({
   guardAiRoute: vi.fn(),
   consumeRateLimit: vi.fn(),
   runTranscription: vi.fn(),
+  readAudioDurationMs: vi.fn(),
 }));
 
 vi.mock('@/lib/security/api-guard', () => ({ guardAiRoute: mocks.guardAiRoute }));
 vi.mock('@/lib/security/durable-rate-limit', () => ({ consumeRateLimit: mocks.consumeRateLimit }));
 vi.mock('@/agents/transcribe', () => ({ runTranscription: mocks.runTranscription }));
+vi.mock('@/lib/server/audio-duration', () => ({
+  normalizeAudioMediaType: (value: string) => value.split(';', 1)[0].trim().toLowerCase(),
+  readAudioDurationMs: mocks.readAudioDurationMs,
+}));
 
 import { POST } from '@/app/api/ai/transcribe/route';
 
@@ -34,6 +39,7 @@ describe('POST /api/ai/transcribe', () => {
     mocks.guardAiRoute.mockResolvedValue({ ok: true, userId: 'user-1', rateLimitBypassed: false });
     mocks.consumeRateLimit.mockResolvedValue({ allowed: true, retryAfter: 0 });
     mocks.runTranscription.mockResolvedValue({ output: { text: 'two eggs and toast', languages: ['en'] } });
+    mocks.readAudioDurationMs.mockResolvedValue(10_000);
   });
 
   it('authenticates before parsing multipart data', async () => {
@@ -65,6 +71,29 @@ describe('POST /api/ai/transcribe', () => {
   it('rejects unsupported media types', async () => {
     expect((await POST(audioRequest({ type: 'text/plain' }))).status).toBe(415);
     expect(mocks.runTranscription).not.toHaveBeenCalled();
+  });
+
+  it('accepts the codec-qualified MIME type emitted by Chrome', async () => {
+    const response = await POST(audioRequest({ type: 'audio/webm;codecs=opus' }));
+    expect(response.status).toBe(200);
+    expect(mocks.runTranscription).toHaveBeenCalledOnce();
+  });
+
+  it('rejects audio whose server-measured duration exceeds 30 seconds', async () => {
+    mocks.readAudioDurationMs.mockResolvedValue(30_001);
+    const response = await POST(audioRequest({ durationMs: '1000' }));
+    expect(response.status).toBe(413);
+    expect(mocks.runTranscription).not.toHaveBeenCalled();
+  });
+
+  it('uses server-measured duration for provider governance', async () => {
+    mocks.readAudioDurationMs.mockResolvedValue(9_750);
+    const response = await POST(audioRequest({ durationMs: '1000' }));
+    expect(response.status).toBe(200);
+    expect(mocks.runTranscription).toHaveBeenCalledWith(
+      expect.objectContaining({ durationMs: 9_750 }),
+      expect.any(Object),
+    );
   });
 
   it('rejects duration or locale fields outside the bounded contract', async () => {

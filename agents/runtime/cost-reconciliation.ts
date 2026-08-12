@@ -39,19 +39,6 @@ export function reconcileAiCosts(
       continue;
     }
 
-    if (pricing.billingUnit === 'audio_minute') {
-      if (run.recordedCostUsd == null) {
-        issues.push({
-          id: run.id, model: run.model, kind: 'missing_cost',
-          recordedCostUsd: null, expectedCostUsd: null, relativeDrift: null,
-        });
-        continue;
-      }
-      recordedTotalUsd += run.recordedCostUsd;
-      expectedTotalUsd += run.recordedCostUsd;
-      continue;
-    }
-
     const expected = estimateModelCostUsd(
       run.model, run.tokensIn, run.tokensOut, run.cacheReadTokens, run.cacheWriteTokens,
     );

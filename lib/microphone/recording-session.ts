@@ -53,9 +53,16 @@ interface StartAudioRecordingSessionOptions {
 
 const MIME_TYPE_PREFERENCES = ['audio/webm;codecs=opus', 'audio/mp4'] as const;
 const AUDIO_BITS_PER_SECOND = 32_000;
+const STOP_EVENT_TIMEOUT_MS = 1_000;
 
 function stopStream(stream: MediaStreamLike | null): void {
-  stream?.getTracks().forEach(track => track.stop());
+  stream?.getTracks().forEach(track => {
+    try {
+      track.stop();
+    } catch {
+      // Release remaining tracks even if one browser track is already broken.
+    }
+  });
 }
 
 function mapAcquireError(error: unknown): RecordingError {
@@ -108,11 +115,14 @@ export function startAudioRecordingSession({
   let startedAt = 0;
   let completionReason: AudioRecordingResult['reason'] = 'stopped';
   let limitTimer: ReturnType<typeof setTimeout> | null = null;
+  let stopEventTimer: ReturnType<typeof setTimeout> | null = null;
   const chunks: Blob[] = [];
 
   const cleanup = () => {
     if (limitTimer) clearTimeout(limitTimer);
     limitTimer = null;
+    if (stopEventTimer) clearTimeout(stopEventTimer);
+    stopEventTimer = null;
     if (recorder) {
       recorder.ondataavailable = null;
       recorder.onstop = null;
@@ -146,6 +156,11 @@ export function startAudioRecordingSession({
     if (!active || !recorder || recorder.state === 'inactive') return;
     try {
       recorder.stop();
+      if (active) {
+        stopEventTimer = setTimeout(() => {
+          settle(() => onError('recorder-error'));
+        }, STOP_EVENT_TIMEOUT_MS);
+      }
     } catch {
       settle(() => onError('recorder-error'));
     }
@@ -200,6 +215,8 @@ export function startAudioRecordingSession({
       active = false;
       if (limitTimer) clearTimeout(limitTimer);
       limitTimer = null;
+      if (stopEventTimer) clearTimeout(stopEventTimer);
+      stopEventTimer = null;
       if (recorder) {
         recorder.ondataavailable = null;
         recorder.onstop = null;

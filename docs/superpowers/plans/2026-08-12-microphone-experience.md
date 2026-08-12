@@ -4,7 +4,7 @@
 
 **Goal:** Make food dictation, intake answers, and chat voice notes responsive, recoverable, accessible, and safe across Trophē's supported browsers.
 
-**Architecture:** Shared microphone lifecycle helpers own Web Speech and MediaRecorder resources. Food and intake select native Web Speech first and use a bounded `gpt-transcribe` file-upload fallback; chat uses the same recorder lifecycle without transcription. The server route is authenticated, separately rate-limited, validated, cost-capped, and recorded in `agent_runs` without retaining audio or transcript content.
+**Architecture:** Shared microphone lifecycle helpers own Web Speech and MediaRecorder resources. Food and intake select native Web Speech first and use a bounded `gpt-4o-mini-transcribe` file-upload fallback; chat uses the same recorder lifecycle without transcription. The server route is authenticated, separately rate-limited, validated, cost-capped, and recorded in `agent_runs` without retaining audio or transcript content.
 
 **Tech Stack:** Next.js 16.2 Route Handlers, React 19, TypeScript strict, Web Speech API, MediaRecorder/getUserMedia, OpenAI Audio Transcriptions, Drizzle/Postgres rate limits and telemetry, Vitest 4, Testing Library, Playwright browser QA.
 
@@ -12,7 +12,7 @@
 
 - Native speech remains the first path; server transcription is fallback-only.
 - Fallback clips stop at 30,000 ms and uploads stop at 2 MiB.
-- One fallback is capped at $0.00225 and one provider attempt.
+- One fallback is capped at $0.03 and one provider attempt; actual charges are recorded from returned token usage.
 - Audio is processed in memory and is never stored by Trophē.
 - Chat voice notes stop at 300,000 ms and remain local until Send.
 - All visible microphone copy ships in EN, ES, EL, FR, DE, IT, PT, and NL.
@@ -118,14 +118,14 @@ git commit -m "feat(microphone): unify browser recording lifecycles"
 - Modify: `tests/agents/runtime-execute.test.ts`
 
 **Interfaces:**
-- Adds routing task `transcribe` with model `gpt-transcribe`, timeout `20_000`, and `maxCostUsd: 0.00225`.
+- Adds routing task `transcribe` with model `gpt-4o-mini-transcribe`, timeout `20_000`, and `maxCostUsd: 0.03`.
 - Produces: `runTranscription({ file, locale, context, durationMs }, aiContext, deps?)`.
 - Produces: `transcribeRecording(blob, { locale, context, durationMs }, fetchImpl?)`.
 - Route returns `{ text: string, languages: string[] }` or `{ code, message }`.
 
 - [ ] **Step 1: Write failing provider and route tests**
 
-Assert that an injected transport receives one multipart request with `model=gpt-transcribe`, the extension-bearing audio file, `languages[]`, prompt text, and no client-supplied model. Assert 401 before form parsing, 413 above 2 MiB, 415 for unsupported media, 429 after the dedicated limiter rejects, and 502 for malformed provider output.
+Assert that an injected transport receives one multipart request with `model=gpt-4o-mini-transcribe`, the extension-bearing audio file, singular `language`, an English-only anti-hallucination prompt, and no client-supplied model. Assert 401 before form parsing, 413 above 2 MiB, 415 for unsupported media, 429 after the dedicated limiter rejects, and 502 for malformed provider output.
 
 ```ts
 const response = await POST(requestWithAudio({ type: 'audio/webm', size: 512 }));
@@ -136,11 +136,10 @@ expect(await response.json()).toEqual({ text: 'two eggs and toast', languages: [
 - [ ] **Step 2: Write the failing actual-cost precedence test**
 
 ```ts
-expect(estimateUsageCost('gpt-transcribe', {
-  inputTokens: 0,
-  outputTokens: 0,
-  actualCostUsd: 0.00225,
-})).toBe(0.00225);
+expect(estimateUsageCost('gpt-4o-mini-transcribe', {
+  inputTokens: 100,
+  outputTokens: 25,
+})).toBe(0.00025);
 ```
 
 - [ ] **Step 3: Run server tests and verify RED**
@@ -151,7 +150,7 @@ npx vitest run tests/agents/openai-transcription.test.ts tests/agents/transcribe
 
 - [ ] **Step 4: Implement provider, agent, route, and client**
 
-The provider calls only `https://api.openai.com/v1/audio/transcriptions`, invokes `assertPaidProviderAccess`, performs one fetch with the runtime AbortSignal, validates the JSON schema, and returns token usage plus a conservative cost no greater than `$0.00225`.
+The provider calls only `https://api.openai.com/v1/audio/transcriptions`, invokes `assertPaidProviderAccess`, performs one fetch with the runtime AbortSignal, validates the JSON schema and billable usage, and returns exact token-priced cost under the `$0.03` hard ceiling.
 
 The route calls `guardAiRoute()` first, then `consumeRateLimit('transcribe:' + userId, 10, 900)`, then validates the multipart file and enum fields before invoking the agent. It logs only safe error metadata.
 
