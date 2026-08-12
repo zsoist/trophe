@@ -21,6 +21,16 @@ import {
   type VoiceInputError,
   type MicrophoneSession,
 } from '@/lib/microphone/speech-recognition';
+import {
+  startAudioRecordingSession,
+  type RecordingError,
+} from '@/lib/microphone/recording-session';
+import { speechLanguageTag } from '@/lib/microphone/languages';
+import {
+  transcribeRecording,
+  type TranscriptionClientError,
+} from '@/lib/microphone/transcription-client';
+import type { TranscriptionLocale } from '@/agents/schemas/transcribe';
 
 interface QuickFoodInputProps {
   userId: string;
@@ -33,7 +43,7 @@ interface QuickFoodInputProps {
   showCalories?: boolean;
 }
 
-type InputMode = 'idle' | 'parsing' | 'confirming' | 'photo_analyzing' | 'success' | 'manual_entry' | 'listening' | 'question';
+type InputMode = 'idle' | 'parsing' | 'confirming' | 'photo_analyzing' | 'success' | 'manual_entry' | 'requesting' | 'listening' | 'transcribing' | 'question';
 type InputSource = 'text' | 'photo';
 
 /** Server-side parse limit — mirrored on the textarea (maxLength + counter). */
@@ -69,12 +79,6 @@ function estimateItemCount(text: string): number {
   return Math.min(4, Math.max(1, n));
 }
 
-/** BCP-47 tags for the Web Speech API — STT always listens in the UI language. */
-const STT_LANG_TAGS: Record<string, string> = {
-  en: 'en-US', es: 'es-ES', el: 'el-GR', fr: 'fr-FR',
-  de: 'de-DE', it: 'it-IT', pt: 'pt-PT', nl: 'nl-NL',
-};
-
 const VOICE_ERROR_KEYS: Record<VoiceInputError, string> = {
   'permission-denied': 'food.voice_permission_denied',
   'no-speech': 'food.voice_no_speech',
@@ -86,6 +90,14 @@ const VOICE_ERROR_KEYS: Record<VoiceInputError, string> = {
   unknown: 'food.voice_unknown',
 };
 
+const RECORDING_ERROR_KEYS: Record<RecordingError, string> = {
+  'permission-denied': 'food.voice_permission_denied',
+  unsupported: 'food.voice_recording_failed',
+  'no-audio': 'food.voice_no_speech',
+  'recorder-error': 'food.voice_recording_failed',
+  'start-failed': 'food.voice_recording_failed',
+};
+
 type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
 type RetryAction = 'text' | 'photo' | 'voice';
 
@@ -95,6 +107,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
   const [text, setText] = useState('');
   const [showBarcode, setShowBarcode] = useState(false);
   const [mode, setMode] = useState<InputMode>('idle');
+  const voiceActive = mode === 'requesting' || mode === 'listening' || mode === 'transcribing';
   // W1: parse narration — skeleton count estimated from the input, stage line on 1.2s timers.
   const [estimatedItems, setEstimatedItems] = useState(1);
   const [parseStage, setParseStage] = useState(0);
@@ -388,17 +401,79 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
   // A session controller owns every browser callback and guarantees exactly
   // one terminal state, including browsers that never emit `end` after Stop.
   const voiceSessionRef = useRef<MicrophoneSession | null>(null);
+  const transcriptionAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     return () => {
       voiceSessionRef.current?.cancel();
       voiceSessionRef.current = null;
+      transcriptionAbortRef.current?.abort();
+      transcriptionAbortRef.current = null;
     };
   }, []);
 
-  /** Stop keeps the live transcript and waits for the controller's safe finish. */
+  /** Stop preserves captured speech; while permission/transcription is pending it cancels cleanly. */
   const stopVoiceInput = () => {
+    if (mode === 'requesting') {
+      voiceSessionRef.current?.cancel();
+      voiceSessionRef.current = null;
+      setMode('idle');
+      return;
+    }
+    if (mode === 'transcribing') {
+      transcriptionAbortRef.current?.abort();
+      transcriptionAbortRef.current = null;
+      setMode('idle');
+      return;
+    }
     voiceSessionRef.current?.stop();
+  };
+
+  const startRecordedFallback = () => {
+    voiceSessionRef.current?.cancel();
+    transcriptionAbortRef.current?.abort();
+    transcriptionAbortRef.current = null;
+    retryActionRef.current = 'voice';
+    setMicDeniedHelp(false);
+    setError(null);
+
+    const session = startAudioRecordingSession({
+      maxDurationMs: 30_000,
+      onRequesting: () => setMode('requesting'),
+      onRecording: () => setMode('listening'),
+      onComplete: result => {
+        voiceSessionRef.current = null;
+        setMode('transcribing');
+        const controller = new AbortController();
+        transcriptionAbortRef.current = controller;
+        const locale = (PARSE_LANGUAGES.has(lang) ? lang : 'en') as TranscriptionLocale;
+        void transcribeRecording(result.blob, {
+          locale,
+          context: 'food',
+          durationMs: result.durationMs,
+          signal: controller.signal,
+        }).then(output => {
+          if (controller.signal.aborted) return;
+          transcriptionAbortRef.current = null;
+          setMode('idle');
+          setText(output.text);
+          void handleParseText(output.text);
+        }).catch((transcriptionError: unknown) => {
+          if (controller.signal.aborted) return;
+          transcriptionAbortRef.current = null;
+          setMode('idle');
+          const code = (transcriptionError as TranscriptionClientError | undefined)?.code;
+          setError(t(code === 'rate_limited' ? 'food.err_rate_limited' : 'food.voice_transcription_failed'));
+        });
+      },
+      onError: recordingError => {
+        voiceSessionRef.current = null;
+        setMode('idle');
+        if (recordingError === 'permission-denied') setMicDeniedHelp(true);
+        setError(t(RECORDING_ERROR_KEYS[recordingError]));
+      },
+    });
+    if (session.active) voiceSessionRef.current = session;
   };
 
   // F15: Voice input via Web Speech API. The recognition controller sets all
@@ -411,8 +486,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
     const SpeechRecognition = w.SpeechRecognition || w.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      retryActionRef.current = 'voice';
-      setError(t('food.voice_unsupported'));
+      startRecordedFallback();
       return;
     }
 
@@ -423,7 +497,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
 
     const session = startSpeechRecognitionSession({
       recognition: new SpeechRecognition(),
-      language: STT_LANG_TAGS[lang] ?? 'en-US',
+      language: speechLanguageTag(lang),
       onListening: () => setMode('listening'),
       onTranscript: transcript => setText(transcript),
       onComplete: transcript => {
@@ -436,12 +510,16 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
       onError: voiceError => {
         voiceSessionRef.current = null;
         setMode('idle');
+        if (voiceError === 'start-failed' || voiceError === 'network' || voiceError === 'timeout') {
+          startRecordedFallback();
+          return;
+        }
         if (voiceError === 'permission-denied') setMicDeniedHelp(true);
         setError(t(VOICE_ERROR_KEYS[voiceError]));
       },
     });
 
-    voiceSessionRef.current = session.active ? session : null;
+    if (session.active) voiceSessionRef.current = session;
   };
 
   // F21: Manual entry (quick add)
@@ -643,6 +721,8 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
   const handleCancel = () => {
     voiceSessionRef.current?.cancel();
     voiceSessionRef.current = null;
+    transcriptionAbortRef.current?.abort();
+    transcriptionAbortRef.current = null;
     setParsedItems([]);
     setClarificationQuestion(null);
     setParseWarnings([]);
@@ -953,7 +1033,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
               }
             }}
             onPaste={handlePaste}
-            placeholder={mode === 'listening' ? t('food.speak_meal') : t('food.quick_placeholder')}
+            placeholder={voiceActive ? t('food.speak_meal') : t('food.quick_placeholder')}
             className="input-dark w-full resize-none text-sm min-h-[52px] py-3"
             rows={2}
             disabled={mode !== 'idle'}
@@ -1001,14 +1081,14 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
           Photo
         </button>
         <button
-          onClick={mode === 'listening' ? stopVoiceInput : startVoiceInput}
-          disabled={mode !== 'idle' && mode !== 'listening'}
-          className={`flex items-center gap-1.5 text-xs transition-colors py-1 ${mode === 'listening' ? 'text-red-400 animate-pulse' : 'text-stone-500 hover:gold-text'}`}
-          aria-label={mode === 'listening' ? 'Stop voice recording' : 'Start voice input'}
-          aria-pressed={mode === 'listening'}
+          onClick={voiceActive ? stopVoiceInput : startVoiceInput}
+          disabled={mode !== 'idle' && !voiceActive}
+          className={`min-h-11 min-w-11 px-2 rounded-lg flex items-center justify-center gap-1.5 text-xs transition-colors ${voiceActive ? 'text-red-400 bg-red-500/10' : 'text-stone-500 hover:gold-text hover:bg-white/[0.04]'}`}
+          aria-label={voiceActive ? t('food.voice_stop_aria') : t('food.voice_start_aria')}
+          aria-pressed={voiceActive}
         >
-          {mode === 'listening' ? <MicOff size={14} /> : <Mic size={14} />}
-          {mode === 'listening' ? 'Stop' : 'Voice'}
+          {voiceActive ? <MicOff size={16} /> : <Mic size={16} />}
+          {voiceActive ? t('food.voice_stop') : t('food.voice')}
         </button>
         <button
           onClick={() => setMode('manual_entry')}
@@ -1105,22 +1185,30 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
         )}
       </AnimatePresence>
 
-      {/* Listening state */}
+      {/* Microphone status */}
       <AnimatePresence>
-        {mode === 'listening' && (
+        {voiceActive && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
             className="glass p-4 flex items-center justify-center gap-3"
+            aria-live="polite"
+            role="status"
           >
             <motion.div
-              animate={{ scale: [1, 1.2, 1] }}
-              transition={{ repeat: Infinity, duration: 1.5 }}
+              animate={reducedMotion ? undefined : { scale: [1, 1.2, 1] }}
+              transition={reducedMotion ? undefined : { repeat: Infinity, duration: 1.5 }}
             >
               <Mic size={20} className="text-red-400" />
             </motion.div>
-            <span className="text-stone-400 text-sm">{t('food.listening')}</span>
+            <span className="text-stone-400 text-sm">
+              {t(mode === 'requesting'
+                ? 'food.voice_requesting'
+                : mode === 'transcribing'
+                  ? 'food.voice_transcribing'
+                  : 'food.listening')}
+            </span>
           </motion.div>
         )}
       </AnimatePresence>
@@ -1135,27 +1223,27 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
             className="glass p-4 space-y-2 border border-amber-500/20"
           >
             <div className="flex items-center justify-between">
-              <p className="text-amber-400 text-xs font-semibold">Microphone Access Needed</p>
+              <p className="text-amber-400 text-xs font-semibold">{t('food.voice_permission_title')}</p>
               <button
                 onClick={() => setMicDeniedHelp(false)}
-                className="text-stone-600 hover:text-stone-300 p-1"
-                aria-label="Dismiss microphone help"
+                className="min-h-11 min-w-11 rounded-lg text-stone-600 hover:text-stone-300 flex items-center justify-center"
+                aria-label={t('food.voice_permission_dismiss_aria')}
               >
                 <X size={14} />
               </button>
             </div>
             <p className="text-stone-400 text-xs leading-relaxed">
               {/iPhone|iPad/.test(navigator.userAgent)
-                ? 'Open Settings → Safari → Microphone → Allow. Then come back and tap Voice again.'
+                ? t('food.voice_permission_ios')
                 : /Android/.test(navigator.userAgent)
-                  ? 'Open Settings → Apps → Browser → Permissions → Microphone → Allow. Then tap Voice again.'
-                  : 'Click the lock/site icon in your browser address bar → Site Settings → Microphone → Allow. Then tap Voice again.'}
+                  ? t('food.voice_permission_android')
+                  : t('food.voice_permission_desktop')}
             </p>
             <button
               onClick={() => { setMicDeniedHelp(false); startVoiceInput(); }}
-              className="text-amber-400 hover:text-amber-300 text-xs font-medium transition-colors"
+              className="min-h-11 px-3 rounded-lg text-amber-400 hover:text-amber-300 text-xs font-medium transition-colors"
             >
-              Try again →
+              {t('food.voice_permission_retry')}
             </button>
           </motion.div>
         )}
