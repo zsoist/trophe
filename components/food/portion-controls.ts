@@ -7,6 +7,41 @@ export interface PortionSizeOption {
 
 const MAX_PORTION_GRAMS = 15_000;
 
+const NATURAL_PORTION_UNITS = new Set([
+  'bottle',
+  'bottles',
+  'bowl',
+  'bowls',
+  'can',
+  'cans',
+  'cup',
+  'cups',
+  'dish',
+  'dishes',
+  'glass',
+  'glasses',
+  'piece',
+  'pieces',
+  'pint',
+  'pints',
+  'plate',
+  'plates',
+  'portion',
+  'portions',
+  'scoop',
+  'scoops',
+  'serving',
+  'servings',
+  'slice',
+  'slices',
+  'tablespoon',
+  'tablespoons',
+  'tbsp',
+  'teaspoon',
+  'teaspoons',
+  'tsp',
+]);
+
 function clampPortion(grams: number): number {
   return Math.max(1, Math.min(MAX_PORTION_GRAMS, grams));
 }
@@ -33,6 +68,36 @@ export function getPortionDisplayAmount(grams: number, gramsPerDisplayUnit: numb
     : Math.round(display * 10) / 10;
 }
 
+export function isNaturalPortionUnit(unit: string): boolean {
+  return NATURAL_PORTION_UNITS.has(unit.trim().toLowerCase().replace(/\.$/, ''));
+}
+
+export function getHumanPortionAmount({
+  grams,
+  quantity,
+}: {
+  grams: number;
+  quantity: number;
+}): number {
+  if (!Number.isFinite(quantity) || quantity <= 0) return grams;
+  const gramsPerHumanUnit = grams / quantity;
+  return getPortionDisplayAmount(grams, gramsPerHumanUnit);
+}
+
+export function getGramsForHumanPortion({
+  grams,
+  quantity,
+  humanAmount,
+}: {
+  grams: number;
+  quantity: number;
+  humanAmount: number;
+}): number {
+  if (!Number.isFinite(humanAmount) || humanAmount <= 0) return grams;
+  if (!Number.isFinite(quantity) || quantity <= 0) return clampPortion(humanAmount);
+  return clampPortion(humanAmount * (grams / quantity));
+}
+
 export function resolveAmountDraft(draft: string, previous: number): number {
   if (draft.trim() === '') return previous;
   const parsed = Number(draft);
@@ -45,4 +110,19 @@ const PORTION_QUESTION_PATTERN = /\b(?:how\s+much|quantity|grams?|portion|servin
 
 export function isPortionClarificationQuestion(question: string): boolean {
   return PORTION_QUESTION_PATTERN.test(question);
+}
+
+export function shouldTreatPortionAsEstimated({
+  portionExplicit,
+  itemCount,
+  clarificationQuestion,
+}: {
+  portionExplicit?: boolean;
+  itemCount: number;
+  clarificationQuestion?: string | null;
+}): boolean {
+  if (portionExplicit === false) return true;
+  return itemCount === 1
+    && !!clarificationQuestion
+    && isPortionClarificationQuestion(clarificationQuestion);
 }

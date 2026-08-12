@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
+  getGramsForHumanPortion,
+  getHumanPortionAmount,
   getPortionDisplayAmount,
   getPortionSizeOptions,
+  isNaturalPortionUnit,
   isPortionClarificationQuestion,
   resolveAmountDraft,
+  shouldTreatPortionAsEstimated,
 } from '@/components/food/portion-controls';
 
 describe('portion size choices', () => {
@@ -41,6 +45,46 @@ describe('portion clarification questions', () => {
 
   it('does not offer sizes for a food identity question', () => {
     expect(isPortionClarificationQuestion('Did you mean chicken breast or whole chicken?')).toBe(false);
+  });
+
+  it('treats the contradictory single-item ajiaco payload as estimated', () => {
+    expect(shouldTreatPortionAsEstimated({
+      portionExplicit: true,
+      itemCount: 1,
+      clarificationQuestion: 'What portion size of ajiaco did you have (for example, a bowl or grams)?',
+    })).toBe(true);
+  });
+
+  it('does not spread a generic portion question across explicit multi-item meals', () => {
+    expect(shouldTreatPortionAsEstimated({
+      portionExplicit: true,
+      itemCount: 2,
+      clarificationQuestion: 'What portion size did you have?',
+    })).toBe(false);
+  });
+});
+
+describe('natural container portions', () => {
+  it.each(['bowl', 'BOWLS', 'cup', 'glass', 'plate', 'serving'])('recognizes %s', (unit) => {
+    expect(isNaturalPortionUnit(unit)).toBe(true);
+  });
+
+  it('displays the parsed ajiaco quantity instead of asking the user for grams', () => {
+    expect(getHumanPortionAmount({ grams: 550, quantity: 1 })).toBe(1);
+    expect(getHumanPortionAmount({ grams: 770, quantity: 1.4 })).toBe(1.4);
+  });
+
+  it('converts an exact bowl draft back to internal grams', () => {
+    expect(getGramsForHumanPortion({
+      grams: 550,
+      quantity: 1,
+      humanAmount: 1.25,
+    })).toBe(687.5);
+  });
+
+  it('falls back safely when the parser quantity is invalid', () => {
+    expect(getHumanPortionAmount({ grams: 550, quantity: 0 })).toBe(550);
+    expect(getGramsForHumanPortion({ grams: 550, quantity: 0, humanAmount: 1.25 })).toBe(1.25);
   });
 });
 
