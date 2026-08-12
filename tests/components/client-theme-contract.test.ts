@@ -109,16 +109,23 @@ describe('client core theme and accessibility contract', () => {
     expect(unsafeRoots).toEqual([]);
   });
 
-  it('uses a keyboard-native control for the dashboard habit details action', () => {
+  it('separates the habit details action from its Done and Skip buttons', () => {
     const dashboard = source('app/dashboard/page.tsx');
-    const habitAction = dashboard.match(/<motion\.(?:button|div)[\s\S]{0,1200}?onClick=\{\(\) => setShowHabitModal\(true\)\}/)?.[0];
+    const habitCard = dashboard.match(/\{activeHabit\?\.habit \? \([\s\S]*?\n        \) : \(/)?.[0] ?? '';
+    const detailsAction = habitCard.match(/<button[\s\S]*?onClick=\{\(\) => setShowHabitModal\(true\)\}[\s\S]*?<\/button>/)?.[0] ?? '';
+    const roleButtonAncestor = habitCard.match(/<[^>]+role="button"[^>]*>[\s\S]*?<button\b/);
+    const nestedNativeButton = (habitCard.match(/<button\b[\s\S]*?<\/button>/g) ?? [])
+      .find((button) => (button.match(/<button\b/g) ?? []).length > 1);
 
-    expect(habitAction).toBeDefined();
-    expect(habitAction).toMatch(/role="button"/);
-    expect(habitAction).toMatch(/tabIndex=\{0\}/);
-    expect(habitAction).toMatch(/onKeyDown=/);
-    expect(habitAction).toMatch(/min-h-11/);
-    expect(habitAction).toMatch(/focus-visible:ring-2/);
+    expect(habitCard).not.toBe('');
+    expect(roleButtonAncestor).toBeNull();
+    expect(nestedNativeButton).toBeUndefined();
+    expect(detailsAction).toMatch(/aria-label=\{`View \$\{activeHabit\.habit\.name_en\} details`\}/);
+    expect(detailsAction).toMatch(/min-h-11/);
+    expect(detailsAction).toMatch(/focus-visible:ring-2/);
+    expect(detailsAction).not.toContain('handleCheckin');
+    expect(habitCard).toMatch(/onClick=\{e => \{ e\.stopPropagation\(\); handleCheckin\(true\); \}\}/);
+    expect(habitCard).toMatch(/onClick=\{e => \{ e\.stopPropagation\(\); handleCheckin\(false\); \}\}/);
   });
 
   it('keeps mobile form controls at a non-zooming base size throughout the owned inventory', () => {

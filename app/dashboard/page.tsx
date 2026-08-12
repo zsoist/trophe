@@ -703,42 +703,37 @@ export default function DashboardPage() {
           <motion.div
             initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.12 }}
-            className="card min-h-11 p-3 mb-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-            style={{ cursor: 'pointer' }}
-            role="button"
-            tabIndex={0}
-            aria-label={`View ${activeHabit.habit.name_en} details`}
-            onKeyDown={(event) => {
-              if (event.target !== event.currentTarget) return;
-              if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault();
-                setShowHabitModal(true);
-              }
-            }}
-            onClick={() => setShowHabitModal(true)}
+            className="card p-3 mb-3"
           >
-            <div className="row-b mb-2">
-              <div className="row-i" style={{ gap: 8 }}>
-                <Icon name={habitIconName(activeHabit.habit.emoji)} size={14}
-                  style={{ color: 'var(--info,#7DA3D9)', flexShrink: 0 }} />
-                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--content-primary)' }}>
-                  {activeHabit.habit.name_en}
+            <button
+              type="button"
+              aria-label={`View ${activeHabit.habit.name_en} details`}
+              onClick={() => setShowHabitModal(true)}
+              className="min-h-11 w-full cursor-pointer border-0 bg-transparent p-0 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+            >
+              <div className="row-b mb-2">
+                <div className="row-i" style={{ gap: 8 }}>
+                  <Icon name={habitIconName(activeHabit.habit.emoji)} size={14}
+                    style={{ color: 'var(--info,#7DA3D9)', flexShrink: 0 }} />
+                  <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--content-primary)' }}>
+                    {activeHabit.habit.name_en}
+                  </span>
+                </div>
+                <span className="eye" style={{ fontSize: 12 }}>
+                  {Math.round(streakPct)}%
                 </span>
               </div>
-              <span className="eye" style={{ fontSize: 12 }}>
-                {Math.round(streakPct)}%
-              </span>
-            </div>
 
-            {/* streak bar */}
-            <div className="mb-track mb-2">
-              <motion.div
-                className="mb-fill"
-                style={{ background: 'linear-gradient(90deg,var(--gold-400,#B8923E),var(--gold-200,#E8C078))' }}
-                initial={{ width: 0 }} animate={{ width: `${streakPct}%` }}
-                transition={{ duration: 0.8, delay: 0.3 }}
-              />
-            </div>
+              {/* streak bar */}
+              <div className="mb-track mb-2">
+                <motion.div
+                  className="mb-fill"
+                  style={{ background: 'linear-gradient(90deg,var(--gold-400,#B8923E),var(--gold-200,#E8C078))' }}
+                  initial={{ width: 0 }} animate={{ width: `${streakPct}%` }}
+                  transition={{ duration: 0.8, delay: 0.3 }}
+                />
+              </div>
+            </button>
 
             {/* buttons */}
             {todayCheckin ? (
