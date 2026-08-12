@@ -4,6 +4,17 @@ All notable changes to Trophē are logged here. Format follows [Keep a Changelog
 
 ---
 
+## [Soup portion review] — 2026-08-12
+
+### Changed
+- Soups and other foods measured by bowls, cups, plates, servings, and similar units now stay in those natural units during review while grams remain an internal calculation detail.
+- Estimated single-food portions now offer Small, Medium, and Large choices with localized unit labels across all eight supported languages.
+
+### Fixed
+- Ajiaco clarification now treats the contradictory `1 bowl` plus portion question as an estimate the user can resolve, rather than asking them to guess or edit grams.
+- Exact decimal portions such as `0.75` or `1.25 bowls` can be entered directly, update nutrients proportionally, and clear the resolved clarification.
+- Localized container aliases and accessible amount labels now preserve the correct unit, including the German/Portuguese meaning of `Dose`/`dose`.
+
 ## [Food logging reliability] — 2026-08-11
 
 ### Changed
