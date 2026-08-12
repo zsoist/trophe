@@ -1,5 +1,6 @@
 'use client';
 
+import { useId } from 'react';
 import type { KeyboardEvent, ReactNode } from 'react';
 
 export interface TabOption<T extends string> {
@@ -7,11 +8,13 @@ export interface TabOption<T extends string> {
   label: ReactNode;
   /** Optional badge count rendered after the label. */
   badge?: number | string;
-  /** Id of the externally rendered tabpanel controlled by this tab. */
-  panelId: string;
+  /** Recommended id of the externally rendered tabpanel controlled by this tab. */
+  panelId?: string;
 }
 
-interface TabsProps<T extends string> {
+export interface TabsProps<T extends string> {
+  /** Stable group id used to derive legacy fallback panel ids. */
+  id?: string;
   value: T;
   onChange: (id: T) => void;
   options: TabOption<T>[];
@@ -20,17 +23,33 @@ interface TabsProps<T extends string> {
   size?: 'compact' | 'default';
 }
 
+function sanitizeIdPart(value: string) {
+  return value.replace(/[^a-zA-Z0-9_-]/g, '');
+}
+
+/** Returns the external panel id for options that use the legacy fallback contract. */
+export function getTabPanelId(groupId: string, optionId: string): string {
+  return `${sanitizeIdPart(groupId)}-panel-${sanitizeIdPart(optionId)}`;
+}
+
 export function Tabs<T extends string>({
+  id,
   value,
   onChange,
   options,
   className = '',
   size = 'default',
 }: TabsProps<T>) {
+  const generatedId = useId();
+  const groupId = id ?? `tabs-${sanitizeIdPart(generatedId)}`;
   const baseTab = size === 'compact' ? 'px-2 text-[12px]' : 'px-3 text-[12px]';
 
   function tabId(option: TabOption<T>) {
-    return `${option.panelId}-tab`;
+    return `${panelId(option)}-tab`;
+  }
+
+  function panelId(option: TabOption<T>) {
+    return option.panelId ?? getTabPanelId(groupId, option.id);
   }
 
   function selectAndFocus(index: number) {
@@ -65,7 +84,7 @@ export function Tabs<T extends string>({
   }
 
   return (
-    <div className={className}>
+    <div id={groupId} className={className}>
       <div className="relative">
         <div
           className="scrollbar-hide flex gap-[3px] overflow-x-auto rounded-[10px] border border-[var(--border-subtle)] bg-[var(--surface-2)] p-[3px]"
@@ -82,7 +101,7 @@ export function Tabs<T extends string>({
                 type="button"
                 role="tab"
                 aria-selected={active}
-                aria-controls={opt.panelId}
+                aria-controls={panelId(opt)}
                 tabIndex={active ? 0 : -1}
                 onClick={() => onChange(opt.id)}
                 onKeyDown={(event) => onKeyDown(event, index)}

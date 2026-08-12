@@ -130,6 +130,38 @@ describe('accessible UI primitive contract', () => {
     expect(document.activeElement).toBe(tabs[0]);
   });
 
+  it('gives legacy options unique stable controls without rendering owned panels', () => {
+    render(React.createElement(Tabs, {
+      id: 'legacy-tabs',
+      value: 'overview',
+      onChange: vi.fn(),
+      options: [
+        { id: 'overview', label: 'Overview' },
+        { id: 'activity', label: 'Activity' },
+      ],
+    }));
+
+    const tabs = screen.getAllByRole('tab');
+    const controls = tabs.map((tab) => tab.getAttribute('aria-controls'));
+    expect(controls).toEqual(['legacy-tabs-panel-overview', 'legacy-tabs-panel-activity']);
+    expect(new Set(controls).size).toBe(2);
+    expect(screen.queryAllByRole('tabpanel', { hidden: true })).toHaveLength(0);
+  });
+
+  it('gives same-id options in separate groups different fallback controls', () => {
+    const option = [{ id: 'overview', label: 'Overview' }];
+    render(React.createElement(
+      React.Fragment,
+      null,
+      React.createElement(Tabs, { id: 'first-tabs', value: 'overview', onChange: vi.fn(), options: option }),
+      React.createElement(Tabs, { id: 'second-tabs', value: 'overview', onChange: vi.fn(), options: option }),
+    ));
+
+    const [firstTab, secondTab] = screen.getAllByRole('tab');
+    expect(firstTab.getAttribute('aria-controls')).toBe('first-tabs-panel-overview');
+    expect(secondTab.getAttribute('aria-controls')).toBe('second-tabs-panel-overview');
+  });
+
   it('keeps focus in an open confirmation sheet and returns it after Escape', () => {
     const onCancel = vi.fn();
     const opener = document.createElement('button');
