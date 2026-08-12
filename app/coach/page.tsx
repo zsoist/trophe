@@ -26,7 +26,6 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
 import Avatar from '@/components/shared/Avatar';
-import { ThemeModeToggle } from '@/components/shared/ThemeMode';
 import ShortcutsModal from '@/components/shared/ShortcutsModal';
 import DashboardGreeting from '@/components/coach/DashboardGreeting';
 import WeeklyPulseCards from '@/components/coach/WeeklyPulseCards';
@@ -849,7 +848,6 @@ export default function CoachDashboard() {
         <div className="flex items-center justify-between mb-2">
           <div /> {/* spacer */}
           <div className="flex items-center gap-3">
-            <ThemeModeToggle />
             <Link
               href="/dashboard"
               className="text-stone-400 hover:text-stone-200 text-xs flex items-center gap-1.5 transition-colors"

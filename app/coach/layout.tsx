@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import FeedbackWidget from '@/components/shared/FeedbackWidget';
 import Providers from '@/components/shared/Providers';
 import { TRPCProvider } from '@/lib/trpc/provider';
+import { AppHeader } from '@/components/shared/AppHeader';
 
 /**
  * Coach-area layout. Passes children through untouched and mounts the beta
@@ -16,7 +17,10 @@ export default function CoachLayout({ children }: { children: ReactNode }) {
   return (
     <Providers>
       <TRPCProvider>
-        {children}
+        <AppHeader title="Coach workspace" eyebrow="Professional" backHref="/dashboard" />
+        <div id="main-content" tabIndex={-1} className="outline-none">
+          {children}
+        </div>
         <FeedbackWidget />
       </TRPCProvider>
     </Providers>

@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { InstallCard } from "@/components/shared/InstallCard";
 import Providers from "@/components/shared/Providers";
 import { TRPCProvider } from "@/lib/trpc/provider";
+import { AppHeader } from "@/components/shared/AppHeader";
 
 /**
  * Dashboard layout — wraps all /dashboard/* routes.
@@ -15,7 +16,10 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
     <Providers>
       <TRPCProvider>
-        {children}
+        <AppHeader title="Trophē" eyebrow="Client" />
+        <div id="main-content" tabIndex={-1} className="outline-none">
+          {children}
+        </div>
         <InstallCard />
       </TRPCProvider>
     </Providers>

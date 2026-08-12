@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   Users,
@@ -10,7 +11,9 @@ import {
   UtensilsCrossed,
   LayoutGrid,
   ClipboardList,
+  MoreHorizontal,
 } from 'lucide-react';
+import { IconButton } from '@/components/ui';
 
 export const coachNav = [
   { label: 'Clients', href: '/coach', icon: Users },
@@ -24,26 +27,95 @@ export const coachNav = [
 ];
 
 export function CoachNav({ active }: { active: string }) {
+  const [moreOpen, setMoreOpen] = useState(false);
+  const disclosureRef = useRef<HTMLDivElement>(null);
+  const primary = coachNav.slice(0, 4);
+  const secondary = coachNav.slice(4);
+
+  useEffect(() => {
+    if (!moreOpen) return;
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setMoreOpen(false);
+        disclosureRef.current?.querySelector('button')?.focus();
+      }
+    }
+
+    function handlePointerDown(event: MouseEvent) {
+      if (!disclosureRef.current?.contains(event.target as Node)) {
+        setMoreOpen(false);
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('mousedown', handlePointerDown);
+    };
+  }, [moreOpen]);
+
+  const navLinkClass = (href: string) => [
+    'flex min-h-11 items-center gap-2 whitespace-nowrap rounded-xl px-3 text-sm font-medium transition-colors motion-reduce:transition-none',
+    active === href
+      ? 'bg-[var(--surface-active)] text-[var(--action-primary)]'
+      : 'text-[var(--content-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--content-primary)]',
+  ].join(' ');
+
+  const renderLink = (item: (typeof coachNav)[number]) => {
+    const ItemIcon = item.icon;
+    return (
+      <Link key={item.href} href={item.href} className={navLinkClass(item.href)}>
+        <ItemIcon size={16} aria-hidden="true" />
+        {item.label}
+      </Link>
+    );
+  };
+
   return (
-    <nav className="flex gap-1 p-1 rounded-2xl glass mb-8 overflow-x-auto">
-      {coachNav.map((item) => {
-        const Icon = item.icon;
-        const isActive = active === item.href;
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all whitespace-nowrap ${
-              isActive
-                ? 'bg-[#D4A853]/15 text-[#D4A853]'
-                : 'text-stone-400 hover:text-stone-200 hover:bg-white/5'
-            }`}
+    <nav
+      aria-label="Coach destinations"
+      className="mb-8 flex flex-wrap items-center gap-1 rounded-2xl border border-[var(--border-default)] bg-[var(--surface-1)] p-1 shadow-[var(--shadow-low)]"
+    >
+      {primary.map(renderLink)}
+      <div className="hidden flex-wrap items-center gap-1 md:flex">
+        {secondary.map(renderLink)}
+      </div>
+      <div ref={disclosureRef} className="relative ml-auto md:hidden">
+        <IconButton
+          aria-label="More coach destinations"
+          aria-expanded={moreOpen}
+          aria-controls="coach-more-destinations"
+          onClick={() => setMoreOpen((open) => !open)}
+          className={moreOpen ? 'bg-[var(--surface-active)] text-[var(--action-primary)]' : ''}
+        >
+          <MoreHorizontal size={18} aria-hidden="true" />
+        </IconButton>
+        {moreOpen ? (
+          <div
+            id="coach-more-destinations"
+            role="group"
+            aria-label="More coach destinations"
+            className="absolute right-0 top-full z-[var(--z-dropdown,40)] mt-2 grid min-w-48 gap-1 rounded-xl border border-[var(--border-default)] bg-[var(--surface-overlay)] p-1 shadow-[var(--shadow-high)]"
           >
-            <Icon size={16} />
-            {item.label}
-          </Link>
-        );
-      })}
+            {secondary.map((item) => {
+              const ItemIcon = item.icon;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={navLinkClass(item.href)}
+                  onClick={() => setMoreOpen(false)}
+                >
+                  <ItemIcon size={16} aria-hidden="true" />
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
+        ) : null}
+      </div>
     </nav>
   );
 }
