@@ -1020,6 +1020,14 @@ const translations: Record<string, Record<CoreLanguage, string>> = {
   'food.answer_placeholder': { en: 'Type your answer…', es: 'Escribe tu respuesta…', el: 'Γράψε την απάντησή σου…' },
   'food.photo_estimates_note': { en: 'Photo portions are estimates. Review each amount before logging.', es: 'Las porciones de la foto son estimaciones. Revisa cada cantidad antes de registrar.', el: 'Οι μερίδες από φωτογραφία είναι εκτιμήσεις. Έλεγξε κάθε ποσότητα πριν την καταχώρηση.' },
   'food.voice_unsupported': { en: 'Voice input not supported in this browser', es: 'El navegador no admite entrada por voz', el: 'Ο browser δεν υποστηρίζει φωνητική εισαγωγή' },
+  'food.voice_permission_denied': { en: 'Microphone access is blocked. Allow it in your browser settings, then try again.', es: 'El acceso al micrófono está bloqueado. Permítelo en la configuración del navegador y vuelve a intentarlo.', el: 'Η πρόσβαση στο μικρόφωνο είναι αποκλεισμένη. Επίτρεψέ την στις ρυθμίσεις του browser και δοκίμασε ξανά.' },
+  'food.voice_no_speech': { en: "I didn't hear anything. Tap Voice and try again.", es: 'No escuché nada. Toca Voz y vuelve a intentarlo.', el: 'Δεν άκουσα κάτι. Πάτησε Φωνή και δοκίμασε ξανά.' },
+  'food.voice_audio_capture': { en: 'No microphone was found. Check your device audio settings.', es: 'No se encontró ningún micrófono. Revisa la configuración de audio del dispositivo.', el: 'Δεν βρέθηκε μικρόφωνο. Έλεγξε τις ρυθμίσεις ήχου της συσκευής.' },
+  'food.voice_network': { en: 'Voice recognition lost its connection. Please try again.', es: 'El reconocimiento de voz perdió la conexión. Vuelve a intentarlo.', el: 'Η φωνητική αναγνώριση έχασε τη σύνδεση. Δοκίμασε ξανά.' },
+  'food.voice_timeout': { en: 'Voice input stopped after 30 seconds. Nothing is stuck—tap Voice to try again.', es: 'La entrada de voz se detuvo después de 30 segundos. Nada quedó bloqueado: toca Voz para volver a intentarlo.', el: 'Η φωνητική εισαγωγή σταμάτησε μετά από 30 δευτερόλεπτα. Δεν κόλλησε—πάτησε Φωνή για νέα προσπάθεια.' },
+  'food.voice_start_failed': { en: 'Voice input could not start. Wait a moment and try again.', es: 'La entrada de voz no pudo iniciarse. Espera un momento y vuelve a intentarlo.', el: 'Η φωνητική εισαγωγή δεν μπόρεσε να ξεκινήσει. Περίμενε λίγο και δοκίμασε ξανά.' },
+  'food.voice_aborted': { en: 'Voice input stopped unexpectedly. Please try again.', es: 'La entrada de voz se detuvo inesperadamente. Vuelve a intentarlo.', el: 'Η φωνητική εισαγωγή σταμάτησε απρόσμενα. Δοκίμασε ξανά.' },
+  'food.voice_unknown': { en: 'Could not recognize speech. Please try again.', es: 'No se pudo reconocer la voz. Vuelve a intentarlo.', el: 'Δεν έγινε αναγνώριση της ομιλίας. Δοκίμασε ξανά.' },
 
   // ── W1 parse narration (kitchen pass) ──
   'food.parse_stage_reading': { en: 'reading your meal…', es: 'leyendo tu comida…', el: 'διαβάζουμε το γεύμα σου…' },
