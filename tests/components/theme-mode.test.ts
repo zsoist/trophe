@@ -1,10 +1,12 @@
 // @vitest-environment jsdom
 
-import React from 'react';
+import React, { act } from 'react';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { hydrateRoot, type Root } from 'react-dom/client';
+import { renderToString } from 'react-dom/server';
 import { applyThemeMode, isThemeMode, resolveInitialTheme } from '@/lib/theme';
 import { ThemeModeProvider, ThemeModeToggle } from '@/components/shared/ThemeMode';
 
@@ -64,13 +66,14 @@ describe('theme mode contracts', () => {
 
     render(React.createElement(ThemeModeProvider, null, React.createElement(ThemeModeToggle)));
 
-    const toggle = screen.getByRole('button', { name: 'Switch to dark mode' });
+    const toggle = screen.getByRole('button', { name: 'Toggle color theme' });
     expect(document.documentElement.classList.contains('light')).toBe(true);
     expect(document.documentElement.classList.contains('dark')).toBe(false);
+    expect(toggle.querySelectorAll('[data-theme-icon]')).toHaveLength(2);
 
     fireEvent.click(toggle);
 
-    expect(screen.getByRole('button', { name: 'Switch to light mode' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Toggle color theme' })).toBeTruthy();
     expect(document.documentElement.className).toBe('font-vars h-full dark');
     expect(document.documentElement.style.colorScheme).toBe('dark');
     expect(document.querySelector('meta[name="theme-color"]')?.getAttribute('content')).toBe('#0A0A0A');
@@ -80,5 +83,47 @@ describe('theme mode contracts', () => {
   it('keeps the toggle target at least 44px', () => {
     const source = readFileSync(join(process.cwd(), 'components/shared/ThemeMode.tsx'), 'utf8');
     expect(source).toContain('min-h-11 min-w-11');
+  });
+
+  it('keeps the toggle accessible name and icon tree independent of provider mode', () => {
+    const source = readFileSync(join(process.cwd(), 'components/shared/ThemeMode.tsx'), 'utf8');
+
+    expect(source).toContain('aria-label="Toggle color theme"');
+    expect(source).toContain('data-theme-icon="dark"');
+    expect(source).toContain('data-theme-icon="light"');
+    expect(source).toContain('[.light_&]:hidden');
+    expect(source).toContain('hidden [.light_&]:block');
+  });
+
+  it('hydrates pre-painted light mode over the dark server fallback without recovering markup', async () => {
+    const browserDocument = document;
+    vi.stubGlobal('document', undefined);
+    const serverMarkup = renderToString(
+      React.createElement(ThemeModeProvider, null, React.createElement(ThemeModeToggle)),
+    );
+    vi.stubGlobal('document', browserDocument);
+
+    document.documentElement.className = 'font-vars h-full light';
+    setStoredTheme('light');
+    const container = document.createElement('div');
+    container.innerHTML = serverMarkup;
+    document.body.append(container);
+    const recoverableErrors: unknown[] = [];
+    let root: Root | undefined;
+
+    await act(async () => {
+      root = hydrateRoot(
+        container,
+        React.createElement(ThemeModeProvider, null, React.createElement(ThemeModeToggle)),
+        { onRecoverableError: error => recoverableErrors.push(error) },
+      );
+    });
+
+    expect(recoverableErrors).toEqual([]);
+    expect(container.querySelector('button')?.getAttribute('aria-label')).toBe('Toggle color theme');
+    expect(container.querySelectorAll('[data-theme-icon]')).toHaveLength(2);
+
+    await act(async () => root?.unmount());
+    container.remove();
   });
 });

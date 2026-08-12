@@ -75,24 +75,29 @@ function persistTheme(mode: ThemeMode) {
 // ═══════════════════════════════════════════════
 
 export function ThemeModeToggle({ className = '' }: { className?: string }) {
-  const { mode, toggleMode } = useThemeMode();
+  const { toggleMode } = useThemeMode();
 
   return (
     <button
       onClick={toggleMode}
       className={`relative min-h-11 min-w-11 rounded-xl border border-[var(--border-default)] flex items-center justify-center transition-colors hover:bg-[var(--bg-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-primary)] ${className}`}
-      title={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-      aria-label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+      title="Toggle color theme"
+      aria-label="Toggle color theme"
     >
-      {mode === 'dark' ? (
-        <div key="moon" className="theme-icon-in">
-          <Moon size={16} className="text-stone-400" />
-        </div>
-      ) : (
-        <div key="sun" className="theme-icon-in">
-          <Sun size={16} className="text-amber-500" />
-        </div>
-      )}
+      <div
+        data-theme-icon="dark"
+        aria-hidden="true"
+        className="theme-icon-in [.light_&]:hidden"
+      >
+        <Moon size={16} className="text-stone-400" />
+      </div>
+      <div
+        data-theme-icon="light"
+        aria-hidden="true"
+        className="theme-icon-in hidden [.light_&]:block"
+      >
+        <Sun size={16} className="text-amber-500" />
+      </div>
     </button>
   );
 }
