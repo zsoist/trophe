@@ -17,7 +17,7 @@ export { Icon } from './Icon';
 export type { IconName } from './Icon';
 export { Button, IconButton, BtnGold, BtnGhost } from './Button';
 export type { ButtonProps, ButtonVariant, IconButtonProps } from './Button';
-export { Tabs, getTabPanelId } from './Tabs';
+export { Tabs } from './Tabs';
 export type { TabOption, TabsProps } from './Tabs';
 export { Fab } from './Fab';
 export { BotNav } from './BotNav';

@@ -1,6 +1,5 @@
 'use client';
 
-import { useId } from 'react';
 import type { KeyboardEvent, ReactNode } from 'react';
 
 export interface TabOption<T extends string> {
@@ -13,8 +12,6 @@ export interface TabOption<T extends string> {
 }
 
 export interface TabsProps<T extends string> {
-  /** Stable group id used to derive legacy fallback panel ids. */
-  id?: string;
   value: T;
   onChange: (id: T) => void;
   options: TabOption<T>[];
@@ -23,40 +20,21 @@ export interface TabsProps<T extends string> {
   size?: 'compact' | 'default';
 }
 
-function sanitizeIdPart(value: string) {
-  return value.replace(/[^a-zA-Z0-9_-]/g, '');
-}
-
-/** Returns the external panel id for options that use the legacy fallback contract. */
-export function getTabPanelId(groupId: string, optionId: string): string {
-  return `${sanitizeIdPart(groupId)}-panel-${sanitizeIdPart(optionId)}`;
-}
-
 export function Tabs<T extends string>({
-  id,
   value,
   onChange,
   options,
   className = '',
   size = 'default',
 }: TabsProps<T>) {
-  const generatedId = useId();
-  const groupId = id ?? `tabs-${sanitizeIdPart(generatedId)}`;
   const baseTab = size === 'compact' ? 'px-2 text-[12px]' : 'px-3 text-[12px]';
-
-  function tabId(option: TabOption<T>) {
-    return `${panelId(option)}-tab`;
-  }
-
-  function panelId(option: TabOption<T>) {
-    return option.panelId ?? getTabPanelId(groupId, option.id);
-  }
+  const usesTabSemantics = options.length > 0 && options.every((option) => option.panelId);
 
   function selectAndFocus(index: number) {
     const option = options[index];
     if (!option) return;
     onChange(option.id);
-    document.getElementById(tabId(option))?.focus();
+    document.getElementById(`${option.panelId}-tab`)?.focus();
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number) {
@@ -84,27 +62,27 @@ export function Tabs<T extends string>({
   }
 
   return (
-    <div id={groupId} className={className}>
+    <div className={className}>
       <div className="relative">
         <div
           className="scrollbar-hide flex gap-[3px] overflow-x-auto rounded-[10px] border border-[var(--border-subtle)] bg-[var(--surface-2)] p-[3px]"
-          role="tablist"
-          aria-orientation="horizontal"
+          role={usesTabSemantics ? 'tablist' : 'group'}
+          aria-orientation={usesTabSemantics ? 'horizontal' : undefined}
         >
           {options.map((opt, index) => {
             const active = opt.id === value;
-            const id = tabId(opt);
             return (
               <button
                 key={opt.id}
-                id={id}
+                id={usesTabSemantics ? `${opt.panelId}-tab` : undefined}
                 type="button"
-                role="tab"
-                aria-selected={active}
-                aria-controls={panelId(opt)}
-                tabIndex={active ? 0 : -1}
+                role={usesTabSemantics ? 'tab' : undefined}
+                aria-selected={usesTabSemantics ? active : undefined}
+                aria-controls={usesTabSemantics ? opt.panelId : undefined}
+                aria-pressed={usesTabSemantics ? undefined : active}
+                tabIndex={usesTabSemantics ? (active ? 0 : -1) : undefined}
                 onClick={() => onChange(opt.id)}
-                onKeyDown={(event) => onKeyDown(event, index)}
+                onKeyDown={usesTabSemantics ? (event) => onKeyDown(event, index) : undefined}
                 className={[
                   'min-h-11 flex min-w-max flex-1 items-center justify-center gap-1.5 rounded-[7px] uppercase tracking-[0.05em] whitespace-nowrap font-medium transition-colors',
                   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]',
