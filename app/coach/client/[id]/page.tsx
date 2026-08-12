@@ -114,7 +114,7 @@ export function AssignHabitDialog({
     if (controls.length === 0) return;
     const first = controls[0];
     const last = controls[controls.length - 1];
-    if (event.shiftKey && document.activeElement === dialogRef.current) {
+    if (event.shiftKey && (document.activeElement === dialogRef.current || document.activeElement === first)) {
       event.preventDefault();
       last.focus();
     } else if (!event.shiftKey && document.activeElement === last) {

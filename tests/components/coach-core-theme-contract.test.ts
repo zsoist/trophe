@@ -224,7 +224,11 @@ describe('coach roster and client workspace theme contract', () => {
     const close = screen.getByRole('button', { name: 'Close habit assignment' });
     expect(close.className).toContain('min-h-11');
     fireEvent.keyDown(dialog, { key: 'Tab', shiftKey: true });
-    expect(document.activeElement).toBe(screen.getByRole('button', { name: /Daily walk/ }));
+    const assign = screen.getByRole('button', { name: /Daily walk/ });
+    expect(document.activeElement).toBe(assign);
+    close.focus();
+    fireEvent.keyDown(dialog, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(assign);
     fireEvent.keyDown(dialog, { key: 'Escape' });
     expect(onClose).toHaveBeenCalledTimes(1);
     view.unmount();
