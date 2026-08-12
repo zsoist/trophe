@@ -33,7 +33,7 @@ const EMPTY_FORM: DetailsForm = {
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
     <span
-      className="block text-[10px] uppercase tracking-wider text-stone-500 mb-0.5"
+      className="block text-xs uppercase tracking-wider text-[var(--content-muted)] mb-0.5"
       style={{ fontFamily: 'var(--font-mono)' }}
     >
       {children}
@@ -271,12 +271,12 @@ export default function MealSlotCard({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             {slot.icon ? <Icon name={slot.icon} size={20} /> : <span className="text-lg">{slot.emoji}</span>}
-            <span className="text-stone-500 text-sm line-through">{slot.label}</span>
-            <span className="text-stone-600 text-xs">— {t('food.skipped')}</span>
+            <span className="text-[var(--content-muted)] text-sm line-through">{slot.label}</span>
+            <span className="text-[var(--content-muted)] text-xs">— {t('food.skipped')}</span>
           </div>
           <button
             onClick={onUndoSkip}
-            className="text-stone-600 hover:text-stone-300 text-xs flex items-center gap-1 transition-colors"
+            className="min-h-11 text-[var(--content-muted)] hover:text-[var(--content-secondary)] text-xs flex items-center gap-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
           >
             <Undo2 size={12} />
             {t('food.undo_skip')}
@@ -297,7 +297,11 @@ export default function MealSlotCard({
         layout
         whileTap={{ scale: 0.98 }}
         onClick={() => setInputActive(true)}
-        className={`relative glass p-4 cursor-pointer transition-colors border ${
+        onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setInputActive(true); } }}
+        role="button"
+        tabIndex={0}
+        aria-label={`Log ${slot.label}`}
+        className={`relative glass min-h-11 p-4 cursor-pointer transition-colors border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] ${
           invite ? 'border-[#D4A853]/20' : 'border-transparent hover:border-[#D4A853]/30'
         }`}
       >
@@ -328,12 +332,12 @@ export default function MealSlotCard({
             ) : (
               slotGlyph
             )}
-            <span className="text-stone-200 text-sm font-medium">{slot.label}</span>
+            <span className="text-[var(--content-primary)] text-sm font-medium">{slot.label}</span>
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={(e) => { e.stopPropagation(); onSkip(); }}
-              className="text-stone-600 hover:text-stone-400 text-xs flex items-center gap-1 transition-colors"
+              className="min-h-11 text-[var(--content-muted)] hover:text-[var(--content-secondary)] text-xs flex items-center gap-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             >
               <SkipForward size={12} />
               {t('food.skip_meal')}
@@ -341,7 +345,7 @@ export default function MealSlotCard({
           </div>
         </div>
         {/* W10: protein-first invitation replaces the generic caption on the next slot */}
-        <p className={`text-xs mt-1 ml-8 ${invite && nextHint ? 'text-[#D4A853]/80' : 'text-stone-600'}`}>
+        <p className={`text-xs mt-1 ml-8 ${invite && nextHint ? 'text-[#D4A853]/80' : 'text-[var(--content-muted)]'}`}>
           {invite && nextHint ? nextHint : t('food.tap_to_log')}
         </p>
       </motion.div>
@@ -355,11 +359,11 @@ export default function MealSlotCard({
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             {slot.icon ? <Icon name={slot.icon} size={20} /> : <span className="text-lg">{slot.emoji}</span>}
-            <span className="text-stone-200 text-sm font-medium">{slot.label}</span>
+            <span className="text-[var(--content-primary)] text-sm font-medium">{slot.label}</span>
           </div>
           <button
             onClick={() => setInputActive(false)}
-            className="text-stone-600 hover:text-stone-300 text-xs transition-colors"
+            className="min-h-11 min-w-11 text-[var(--content-muted)] hover:text-[var(--content-secondary)] text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
           >
             {t('general.cancel')}
           </button>
@@ -386,7 +390,7 @@ export default function MealSlotCard({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             {slot.icon ? <Icon name={slot.icon} size={20} className="opacity-70" /> : <span className="text-lg opacity-70">{slot.emoji}</span>}
-            <span className="text-stone-300 text-sm font-medium">{slot.label}</span>
+            <span className="text-[var(--content-secondary)] text-sm font-medium">{slot.label}</span>
             <Lock size={12} className="text-green-500/60" />
           </div>
           <div className="flex items-center gap-3">
@@ -398,8 +402,9 @@ export default function MealSlotCard({
             </div>
             <button
               onClick={onUnlock}
-              className="text-stone-600 hover:text-stone-300 p-1 transition-colors"
+              className="min-h-11 min-w-11 text-[var(--content-muted)] hover:text-[var(--content-secondary)] p-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
               title={t('food.unlock')}
+              aria-label={t('food.unlock')}
             >
               <Unlock size={12} />
             </button>
@@ -415,16 +420,21 @@ export default function MealSlotCard({
       <div
         className="flex items-center justify-between cursor-pointer"
         onClick={toggleExpand}
+        onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); toggleExpand(); } }}
+        role="button"
+        tabIndex={0}
+        aria-expanded={expanded}
+        aria-label={`${slot.label}, ${entries.length} items`}
       >
         <div className="flex items-center gap-2">
           {/* Audit fix: default slots have icon (no emoji) — the old bare
               {slot.emoji} vanished as soon as food was logged */}
           {slot.icon ? <Icon name={slot.icon} size={20} /> : <span className="text-lg">{slot.emoji}</span>}
-          <span className="text-stone-200 text-sm font-medium">{slot.label}</span>
-          <span className="text-stone-500 text-xs">({entries.length})</span>
+          <span className="text-[var(--content-primary)] text-sm font-medium">{slot.label}</span>
+          <span className="text-[var(--content-muted)] text-xs">({entries.length})</span>
           {/* F10: Meal quality score badge */}
           {mealScore && (
-            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${mealScore.color} ${getScoreBgColor(mealScore.score)}`}>
+            <span className={`text-xs font-bold px-1.5 py-0.5 rounded border ${mealScore.color} ${getScoreBgColor(mealScore.score)}`}>
               {mealScore.label}
             </span>
           )}
@@ -436,7 +446,7 @@ export default function MealSlotCard({
             <span style={{ color: MACRO_COLORS.carbs }}>C{Math.round(totalCarbs)}</span>
             <span style={{ color: MACRO_COLORS.fat }}>F{Math.round(totalFat)}</span>
           </div>
-          {expanded ? <ChevronUp size={14} className="text-stone-500" /> : <ChevronDown size={14} className="text-stone-500" />}
+          {expanded ? <ChevronUp size={14} className="text-[var(--content-muted)]" /> : <ChevronDown size={14} className="text-[var(--content-muted)]" />}
         </div>
       </div>
 
@@ -464,7 +474,7 @@ export default function MealSlotCard({
                     delay: Math.min(entryIndex * 0.04, 0.25),
                   }}
                   onClick={() => { if (!isEditing) openEditor(entry); }}
-                  className={`relative flex items-center justify-between py-1.5 px-2 rounded bg-white/[0.03] ${isEditing ? '' : 'cursor-pointer'}`}
+                  className={`relative flex items-center justify-between py-1.5 px-2 rounded bg-[var(--surface-2)] ${isEditing ? '' : 'cursor-pointer'}`}
                 >
                   {/* One-shot gold flash after a saved edit */}
                   {flashId === entry.id && (
@@ -477,7 +487,7 @@ export default function MealSlotCard({
                     />
                   )}
                   <div className="flex-1 min-w-0">
-                    <p className="text-stone-300 text-xs truncate">{entry.food_name}</p>
+                    <p className="text-[var(--content-secondary)] text-xs truncate">{entry.food_name}</p>
                     {isEditing ? (
                       <div className="mt-1 space-y-2" onClick={(e) => e.stopPropagation()}>
                         {/* Quick quantity path (default) */}
@@ -491,25 +501,25 @@ export default function MealSlotCard({
                             className="input-dark text-xs w-14 py-0.5 text-center"
                             autoFocus
                           />
-                          <span className="text-stone-500 text-[10px]">{entry.unit}</span>
+                          <span className="text-[var(--content-muted)] text-xs">{entry.unit}</span>
                           <button
                             disabled={saving}
                             onClick={() => void saveQuick(entry)}
-                            className="p-1 text-green-500 hover:text-green-400 disabled:opacity-50"
+                            className="min-h-11 min-w-11 p-1 text-green-500 hover:text-green-400 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                             aria-label={t('food.edit.saveQuantity')}
                           >
                             {saving && !detailsOpen ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
                           </button>
                           <button
                             onClick={closeEditor}
-                            className="p-1 text-stone-600 hover:text-stone-300"
+                            className="min-h-11 min-w-11 p-1 text-[var(--content-muted)] hover:text-[var(--content-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                             aria-label={t('general.cancel')}
                           >
                             <X size={12} />
                           </button>
                           <button
                             onClick={() => setDetailsOpen((o) => !o)}
-                            className="ml-auto flex items-center gap-1 text-[10px] text-stone-500 hover:text-[#D4A853] transition-colors py-1"
+                            className="min-h-11 ml-auto flex items-center gap-1 text-xs text-[var(--content-muted)] hover:text-[#D4A853] transition-colors py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                             aria-expanded={detailsOpen}
                           >
                             {t('food.edit.details')}
@@ -517,7 +527,7 @@ export default function MealSlotCard({
                           </button>
                         </div>
                         {editError && (
-                          <p role="alert" className="rounded-lg border border-red-500/20 bg-red-500/10 px-2 py-1.5 text-[10px] text-red-300">
+                          <p role="alert" className="rounded-lg border border-red-500/20 bg-red-500/10 px-2 py-1.5 text-xs text-red-300">
                             {editError}
                           </p>
                         )}
@@ -532,7 +542,7 @@ export default function MealSlotCard({
                               transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
                               className="overflow-hidden"
                             >
-                              <div className="rounded-lg bg-white/[0.04] border border-white/5 p-2.5 space-y-2.5">
+                              <div className="rounded-lg bg-[var(--surface-2)] border border-[var(--border-subtle)] p-2.5 space-y-2.5">
                                 <div>
                                   <FieldLabel>{t('food.edit.name')}</FieldLabel>
                                   <input
@@ -550,18 +560,18 @@ export default function MealSlotCard({
                                     <div className="flex items-center gap-2">
                                       <button
                                         onClick={() => setField('grams', Math.max(1, (form.grams ?? 10) - 10))}
-                                        className="w-11 h-11 rounded-lg bg-white/[0.05] border border-white/10 flex items-center justify-center text-stone-300 hover:border-[#D4A853]/40 active:scale-95 transition-all"
+                                        className="w-11 h-11 rounded-lg bg-[var(--surface-2)] border border-[var(--border-subtle)] flex items-center justify-center text-[var(--content-secondary)] hover:border-[#D4A853]/40 active:scale-95 transition-all"
                                         aria-label={t('food.edit.decreaseGrams')}
                                       >
                                         <Minus size={14} />
                                       </button>
                                       <div className="flex-1 text-center">
-                                        <span className="text-stone-100 text-sm font-medium tabular-nums">{form.grams}</span>
-                                        <span className="text-stone-500 text-[10px] ml-1">g</span>
+                                        <span className="text-[var(--content-primary)] text-sm font-medium tabular-nums">{form.grams}</span>
+                                        <span className="text-[var(--content-muted)] text-xs ml-1">g</span>
                                       </div>
                                       <button
                                         onClick={() => setField('grams', Math.min(10000, (form.grams ?? 0) + 10))}
-                                        className="w-11 h-11 rounded-lg bg-white/[0.05] border border-white/10 flex items-center justify-center text-stone-300 hover:border-[#D4A853]/40 active:scale-95 transition-all"
+                                        className="w-11 h-11 rounded-lg bg-[var(--surface-2)] border border-[var(--border-subtle)] flex items-center justify-center text-[var(--content-secondary)] hover:border-[#D4A853]/40 active:scale-95 transition-all"
                                         aria-label={t('food.edit.increaseGrams')}
                                       >
                                         <Plus size={14} />
@@ -595,7 +605,7 @@ export default function MealSlotCard({
                                 <button
                                   disabled={saving}
                                   onClick={() => void saveDetails(entry)}
-                                  className="w-full py-2 rounded-lg bg-[#D4A853] text-stone-950 text-xs font-semibold disabled:opacity-50 flex items-center justify-center gap-1.5 active:scale-[0.99] transition-transform"
+                                  className="min-h-11 w-full py-2 rounded-lg bg-[#D4A853] text-stone-950 text-xs font-semibold disabled:opacity-50 flex items-center justify-center gap-1.5 active:scale-[0.99] transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                                 >
                                   {saving ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
                                   {t('food.edit.save')}
@@ -606,7 +616,7 @@ export default function MealSlotCard({
                         </AnimatePresence>
                       </div>
                     ) : (
-                      <div className="flex gap-2 text-[10px] text-stone-500 mt-0.5">
+                      <div className="flex gap-2 text-xs text-[var(--content-muted)] mt-0.5">
                         <span>{entry.quantity} {entry.unit}</span>
                         <span>{Math.round(entry.calories ?? 0)} kcal</span>
                       </div>
@@ -616,21 +626,21 @@ export default function MealSlotCard({
                     <div className="flex items-center gap-0.5 flex-shrink-0">
                       <button
                         onClick={(e) => { e.stopPropagation(); onToggleFavorite(entry); }}
-                        className={`p-1.5 transition-colors ${favorites.some(f => f.food_name === entry.food_name) ? 'text-[#D4A853]' : 'text-stone-600 hover:text-[#D4A853]'}`}
+                        className={`min-h-11 min-w-11 p-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] ${favorites.some(f => f.food_name === entry.food_name) ? 'text-[#D4A853]' : 'text-[var(--content-muted)] hover:text-[#D4A853]'}`}
                         aria-label={`${favorites.some(f => f.food_name === entry.food_name) ? 'Remove from' : 'Add to'} favorites: ${entry.food_name}`}
                       >
                         <Star size={11} fill={favorites.some(f => f.food_name === entry.food_name) ? 'currentColor' : 'none'} />
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); openEditor(entry); }}
-                        className="p-1.5 text-stone-600 hover:text-stone-300 transition-colors"
+                        className="min-h-11 min-w-11 p-1.5 text-[var(--content-muted)] hover:text-[var(--content-secondary)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                         aria-label={`Edit ${entry.food_name}`}
                       >
                         <Pencil size={11} />
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); onDeleteEntry(entry.id); }}
-                        className="p-1.5 text-stone-600 hover:text-red-400 transition-colors"
+                        className="min-h-11 min-w-11 p-1.5 text-[var(--content-muted)] hover:text-red-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                         aria-label={`Delete ${entry.food_name}`}
                       >
                         <Trash2 size={12} />
@@ -657,7 +667,7 @@ export default function MealSlotCard({
             ) : note ? (
               <button
                 onClick={() => setShowNote(true)}
-                className="pt-1 text-stone-500 text-[10px] italic truncate block w-full text-left"
+                className="pt-1 text-[var(--content-muted)] text-xs italic truncate block w-full text-left"
               >
                 {note}
               </button>
@@ -669,7 +679,7 @@ export default function MealSlotCard({
                 {!inputActive ? (
                   <button
                     onClick={() => setInputActive(true)}
-                    className="text-stone-500 hover:gold-text text-xs transition-colors text-left py-1"
+                    className="min-h-11 text-[var(--content-muted)] hover:gold-text text-xs transition-colors text-left py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                   >
                     + Add more
                   </button>
@@ -688,7 +698,7 @@ export default function MealSlotCard({
                     />
                     <button
                       onClick={() => setInputActive(false)}
-                      className="text-stone-600 hover:text-stone-300 text-xs transition-colors mt-1"
+                      className="text-[var(--content-muted)] hover:text-[var(--content-secondary)] text-xs transition-colors mt-1"
                     >
                       {t('general.cancel')}
                     </button>
@@ -701,7 +711,8 @@ export default function MealSlotCard({
                   {!showNote && !note && (
                     <button
                       onClick={() => setShowNote(true)}
-                      className="text-stone-600 hover:text-stone-400 p-1 transition-colors"
+                      aria-label="Add note"
+                      className="min-h-11 min-w-11 text-[var(--content-muted)] hover:text-[var(--content-secondary)] p-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                       title="Add note"
                     >
                       <MessageSquare size={11} />
@@ -710,7 +721,7 @@ export default function MealSlotCard({
                   {/* Lock */}
                   <button
                     onClick={onLock}
-                    className="text-stone-600 hover:text-green-400 text-xs flex items-center gap-1 transition-colors py-1"
+                    className="min-h-11 text-[var(--content-muted)] hover:text-green-400 text-xs flex items-center gap-1 transition-colors py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                   >
                     <Lock size={11} />
                     {t('food.lock_meal')}

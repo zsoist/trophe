@@ -44,4 +44,39 @@ test.describe('client settings flows', () => {
     await page.getByRole('button', { name: 'Log Out' }).click();
     await expect(page).toHaveURL(/\/login/);
   });
+
+  test('theme persists across core routes and mobile controls remain reachable', async ({ page }) => {
+    await login(page);
+
+    await page.goto('/dashboard');
+    const themeToggle = page.getByRole('button', { name: /Switch to (light|dark) mode/ });
+    await expect(themeToggle).toBeVisible();
+    await expect(themeToggle).toHaveJSProperty('offsetWidth', 44);
+    await themeToggle.click();
+    await expect.poll(() => page.evaluate(() => document.documentElement.classList.contains('light'))).toBe(true);
+
+    for (const route of ['/dashboard/log', '/dashboard/progress', '/dashboard/profile']) {
+      await page.goto(route);
+      await expect.poll(() => page.evaluate(() => document.documentElement.classList.contains('light'))).toBe(true);
+      await expect(page.locator('nav a').first()).toBeVisible();
+    }
+
+    await page.goto('/dashboard/profile');
+    const profileTabs = page.locator('button').filter({ hasText: /Account|Body|Appearance|Language|Privacy/ });
+    await expect(profileTabs.last()).toBeVisible();
+    const tabsBox = await profileTabs.last().boundingBox();
+    expect(tabsBox?.x).toBeGreaterThanOrEqual(0);
+    expect((tabsBox?.x ?? 0) + (tabsBox?.width ?? 0)).toBeLessThanOrEqual(390);
+
+    await page.goto('/dashboard');
+    const waterButtons = page.getByRole('button', { name: /Log water cup \d+/ });
+    await expect(waterButtons.first()).toBeVisible();
+    const count = await waterButtons.count();
+    expect(count).toBeGreaterThan(0);
+    for (let index = 0; index < count; index += 1) {
+      const box = await waterButtons.nth(index).boundingBox();
+      expect(box?.width).toBeGreaterThanOrEqual(44);
+      expect(box?.height).toBeGreaterThanOrEqual(44);
+    }
+  });
 });

@@ -1,6 +1,6 @@
 'use client';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Icon, AnimatedValue } from '@/components/ui';
 import { BotNav } from '@/components/ui/BotNav';
@@ -13,6 +13,7 @@ import type { ClientProfile, ClientHabit, HabitCheckin, FoodLogEntry, WaterLogEn
 import WeeklyCheckin from '@/components/summary/WeeklyCheckin';
 import { DashboardSkeleton } from '@/components/shared/Skeleton';
 import HabitDetailModal from '@/components/habits/HabitDetailModal';
+import { useThemeMode } from '@/components/shared/ThemeMode';
 import { localToday } from '../../lib/utils/dates';
 
 // ─── Greeting (no emojis — handoff spec) ───────────────────────
@@ -155,19 +156,19 @@ function CelebrationModal({ streakDays, cycleDays, completionPct, habitName, bes
         <h2 className="text-2xl font-bold gold-text mb-2" style={{ fontFamily: 'var(--font-serif)' }}>
           Habit Mastered!
         </h2>
-        <p className="text-stone-400 text-sm mb-6">
+        <p className="text-[var(--content-secondary)] text-sm mb-6">
           You completed the {cycleDays}-day cycle
-          {habitName && <> for <span className="text-stone-200 font-medium">{habitName}</span></>}
+          {habitName && <> for <span className="text-[var(--content-primary)] font-medium">{habitName}</span></>}
         </p>
         <div className="grid grid-cols-3 gap-3 mb-6">
           {[['Days', streakDays], ['Completion', `${Math.min(completionPct, 100)}%`], ['Best', bestStreak ?? '—']].map(([l, v]) => (
             <div key={String(l)} className="glass p-3 rounded-xl">
-              <div className="text-lg font-bold text-stone-100">{v}</div>
-              <div className="text-[10px] text-stone-500 uppercase tracking-wider">{l}</div>
+              <div className="text-lg font-bold text-[var(--content-primary)]">{v}</div>
+              <div className="text-xs text-[var(--content-muted)] uppercase tracking-wider">{l}</div>
             </div>
           ))}
         </div>
-        <p className="text-stone-500 text-xs mb-6">Your coach will assign your next challenge</p>
+        <p className="text-[var(--content-muted)] text-xs mb-6">Your coach will assign your next challenge</p>
         <button onClick={onDismiss} className="btn-gold w-full text-sm py-3">Continue</button>
       </motion.div>
     </motion.div>
@@ -196,8 +197,6 @@ export default function DashboardPage() {
   const [celebrationChecked, setCelebrationChecked] = useState(false);
   const [addingWater, setAddingWater]       = useState(false);
   const [waterSize, setWaterSize]           = useState<150|250|330|500>(250);
-  const [theme, setTheme]                   = useState<'dark' | 'light'>('dark');
-  const [themeFlash, setThemeFlash]         = useState(false);
   const [coachMessage, setCoachMessage]     = useState('');
   const [sendingMsg, setSendingMsg]         = useState(false);
   const [msgSent, setMsgSent]              = useState(false);
@@ -209,33 +208,9 @@ export default function DashboardPage() {
   const [coachName, setCoachName]           = useState<string | null>(null);
   const [splashTick, setSplashTick]         = useState(0);
   const reducedMotion = useReducedMotion();
+  const { mode: theme, toggleMode: toggleTheme } = useThemeMode();
 
   const today = localToday();
-
-  // ─── Theme toggle ──────────────────────────────────────────────
-  const toggleTheme = useCallback(() => {
-    setTheme(prev => {
-      const next = prev === 'dark' ? 'light' : 'dark';
-      document.documentElement.classList.toggle('light', next === 'light');
-      localStorage.setItem('trophe-theme', next);
-      return next;
-    });
-    // WOAH flash
-    setThemeFlash(true);
-    setTimeout(() => setThemeFlash(false), 500);
-  }, []);
-
-  // ─── Load saved theme ─────────────────────────────────────────
-  const themeLoaded = useRef(false);
-  useEffect(() => {
-    if (themeLoaded.current) return;
-    themeLoaded.current = true;
-    const saved = localStorage.getItem('trophe-theme') as 'dark' | 'light' | null;
-    if (saved) {
-      setTheme(saved);
-      document.documentElement.classList.toggle('light', saved === 'light');
-    }
-  }, []);
 
   // ─── Derived totals ───────────────────────────────────────────
   const totalCalories = foodLog.reduce((s, f) => s + (f.calories ?? 0), 0);
@@ -485,26 +460,7 @@ export default function DashboardPage() {
 
   // ─── RENDER ───────────────────────────────────────────────────
   return (
-    <div className="min-h-screen pb-20" style={{ background: 'var(--bg,#0a0a0a)' }}>
-
-      {/* ── Theme switch WOAH flash ── */}
-      <AnimatePresence>
-        {themeFlash && (
-          <motion.div
-            key="theme-flash"
-            initial={{ opacity: 0.7 }}
-            animate={{ opacity: 0 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.5, ease: 'easeOut' }}
-            style={{
-              position: 'fixed', inset: 0, zIndex: 9999, pointerEvents: 'none',
-              background: theme === 'light'
-                ? 'radial-gradient(ellipse at 50% 30%, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0) 70%)'
-                : 'radial-gradient(ellipse at 50% 30%, rgba(10,10,10,0.95) 0%, rgba(10,10,10,0) 70%)',
-            }}
-          />
-        )}
-      </AnimatePresence>
+    <div className="min-h-screen pb-[calc(5rem+env(safe-area-inset-bottom))]" style={{ background: 'var(--canvas)' }}>
 
       {/* ── Celebration modal ── */}
       <AnimatePresence>
@@ -566,18 +522,19 @@ export default function DashboardPage() {
                 {streakDays}d
               </span>
             )}
-            {/* Theme toggle — WOAH animation */}
+            {/* Theme mode is shared across all authenticated layouts. */}
             <motion.button
               onClick={toggleTheme}
               whileTap={{ scale: 0.8 }}
               style={{
-                width: 34, height: 34, borderRadius: 17,
+                width: 44, height: 44, borderRadius: 22,
                 background: theme === 'dark' ? 'rgba(212,168,83,.08)' : 'rgba(212,168,83,.15)',
                 border: `1px solid ${theme === 'dark' ? 'rgba(212,168,83,.2)' : 'rgba(212,168,83,.4)'}`,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 cursor: 'pointer', flexShrink: 0,
               }}
               aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             >
               <AnimatePresence mode="wait">
                 <motion.span
@@ -847,7 +804,8 @@ export default function DashboardPage() {
               </span>
               {waterLog.length > 0 && (
                 <button onClick={removeLastWater} aria-label="Undo last water"
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--t5)', padding: 6, margin: -4, display: 'flex' }}>
+                  className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--content-muted)', minWidth: 44, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Icon name="i-x" size={12} />
                 </button>
               )}
@@ -863,7 +821,10 @@ export default function DashboardPage() {
                   key={i}
                   onClick={() => filled ? undefined : addWater()}
                   whileTap={!filled ? { scale: 1.25 } : {}}
-                  style={{ background: 'none', border: 'none', cursor: filled ? 'default' : 'pointer', padding: 0 }}
+                  aria-label={`Log water cup ${i + 1}`}
+                  aria-pressed={filled}
+                  className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                  style={{ background: 'none', border: 'none', cursor: filled ? 'default' : 'pointer', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                   disabled={addingWater}
                 >
                   <motion.div
@@ -904,8 +865,10 @@ export default function DashboardPage() {
               <button
                 key={ml}
                 onClick={() => setWaterSize(ml)}
+                aria-pressed={waterSize === ml}
+                className="min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                 style={{
-                  flex: 1, padding: '5px 2px', borderRadius: 8, fontSize: 9, cursor: 'pointer', fontWeight: 600,
+                  flex: 1, padding: '5px 2px', borderRadius: 8, fontSize: 12, cursor: 'pointer', fontWeight: 600,
                   background: waterSize === ml ? 'rgba(125,163,217,.18)' : 'rgba(255,255,255,.04)',
                   border: `1px solid ${waterSize === ml ? 'rgba(125,163,217,.45)' : 'rgba(255,255,255,.07)'}`,
                   color: waterSize === ml ? 'var(--info,#7DA3D9)' : 'var(--t4)',
@@ -918,7 +881,7 @@ export default function DashboardPage() {
             <motion.button
               className="btn-gold"
               whileTap={{ scale: 0.95 }}
-              style={{ flex: 2, padding: '5px 10px', fontSize: 10, borderRadius: 8 }}
+              style={{ flex: 2, minHeight: 44, padding: '5px 10px', fontSize: 12, borderRadius: 8 }}
               onClick={() => addWater(waterSize)}
               disabled={addingWater}
             >

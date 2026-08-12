@@ -28,7 +28,6 @@ import MealPhotoGallery from '@/components/meals/MealPhotoGallery';
 import DayComparison from '@/components/progress/DayComparison';
 import CoachFoodRecs from '@/components/food/CoachFoodRecs';
 import RecipeAnalyzerModal from '@/components/food/RecipeAnalyzerModal';
-import { useTheme } from '@/components/shared/ThemePicker';
 import { localToday, localDateStr } from '../../../lib/utils/dates';
 import {
   CLIENT_VIEW_PANELS,
@@ -367,7 +366,6 @@ export default function FoodLogPage() {
   const [weekData, setWeekData] = useState<{ date: string; calories: number; entries: number }[]>([]);
 
   // Apply theme
-  useTheme();
 
   const isToday = selectedDate === today;
   const defaultSlots = getLocalizedSlots(t);
@@ -977,7 +975,7 @@ export default function FoodLogPage() {
         style={{ background: 'var(--bg,#0a0a0a)' }}
       >
         <div className="glass w-full max-w-sm p-6 text-center">
-          <p role="alert" className="mb-4 text-sm leading-relaxed text-stone-300">
+          <p role="alert" className="mb-4 text-sm leading-relaxed text-[var(--content-secondary)]">
             {t('food.log_load_failed')}
           </p>
           <button
@@ -994,7 +992,7 @@ export default function FoodLogPage() {
   }
 
   return (
-    <div className="min-h-screen pb-24" style={{ background: 'var(--bg,#0a0a0a)' }}>
+    <div className="min-h-screen pb-[calc(6rem+env(safe-area-inset-bottom))]" style={{ background: 'var(--canvas)' }}>
       <AnimatePresence>
         {mutationError && (
           <motion.div
@@ -1016,8 +1014,9 @@ export default function FoodLogPage() {
       >
         {/* ── Date navigation ── */}
         <div className="row-b mb-3" style={{ marginTop: 8 }}>
-          <button onClick={() => handleDateChange(localDateStr(new Date(new Date(selectedDate + 'T12:00:00').getTime() - 86400000)))}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--t3)', padding: '6px' }}>
+          <button aria-label="Previous day" onClick={() => handleDateChange(localDateStr(new Date(new Date(selectedDate + 'T12:00:00').getTime() - 86400000)))}
+            className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--content-secondary)', padding: '6px' }}>
             <Icon name="i-chev-l" size={16} />
           </button>
 
@@ -1025,6 +1024,8 @@ export default function FoodLogPage() {
           <motion.button
             whileTap={{ scale: 0.95 }}
             onClick={() => setShowCalendar(true)}
+            aria-label={isToday ? 'Today' : `Select date ${selectedDate}`}
+            className="min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             style={{
               background: 'rgba(212,168,83,.07)',
               border: '1px solid rgba(212,168,83,.18)',
@@ -1091,8 +1092,9 @@ export default function FoodLogPage() {
             )}
           </motion.button>
 
-          <button onClick={() => handleDateChange(localDateStr(new Date(new Date(selectedDate + 'T12:00:00').getTime() + 86400000)))}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--t3)', padding: '6px' }}>
+          <button aria-label="Next day" onClick={() => handleDateChange(localDateStr(new Date(new Date(selectedDate + 'T12:00:00').getTime() + 86400000)))}
+            className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--content-secondary)', padding: '6px' }}>
             <Icon name="i-chev-r" size={16} />
           </button>
         </div>
@@ -1105,14 +1107,14 @@ export default function FoodLogPage() {
               const dayNum  = new Date(d.date + 'T12:00:00').getDate();
               const active  = d.date === selectedDate;
               return (
-                <button key={d.date} onClick={() => handleDateChange(d.date)} style={{
-                  textAlign: 'center', padding: '4px 2px', borderRadius: 6, fontSize: 10, cursor: 'pointer', border: 'none',
+                <button key={d.date} aria-label={`Select ${d.date}`} onClick={() => handleDateChange(d.date)} className="min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" style={{
+                  textAlign: 'center', padding: '4px 2px', borderRadius: 6, fontSize: 12, cursor: 'pointer', border: 'none',
                   background: active ? 'rgba(212,168,83,.12)' : 'rgba(255,255,255,.03)',
                   outline: active ? '1px solid rgba(212,168,83,.5)' : '1px solid var(--line)',
                   color: active ? 'var(--gold-300,#D4A853)' : d.entries > 0 ? 'var(--t2)' : 'var(--t5)',
                 }}>
                   <div>{dayAbbr}</div>
-                  <div style={{ fontWeight: 700, fontSize: 10 }}>{dayNum}</div>
+                  <div style={{ fontWeight: 700, fontSize: 12 }}>{dayNum}</div>
                 </button>
               );
             })}
@@ -1203,7 +1205,7 @@ export default function FoodLogPage() {
           {/* RecipeAnalyzerModal was fully built but unreachable — this is its door */}
           <button
             onClick={() => setShowRecipeModal(true)}
-            className="glass flex items-center gap-1.5 px-2.5 py-1 text-stone-400 hover:gold-text text-[11px] transition-colors"
+            className="glass min-h-11 flex items-center gap-1.5 px-2.5 py-1 text-[var(--content-secondary)] hover:gold-text text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             style={{ borderRadius: 999 }}
             aria-label={t('food.analyze_recipe_aria')}
           >
@@ -1223,7 +1225,7 @@ export default function FoodLogPage() {
           <div className="mb-3">
             <div className="flex items-center gap-1.5 mb-1.5">
               <Star size={10} className="gold-text" />
-              <span className="text-stone-500 text-[10px]">{t('food.favorites')}</span>
+              <span className="text-[var(--content-muted)] text-xs">{t('food.favorites')}</span>
             </div>
             <div className="flex gap-1.5 overflow-x-auto scrollbar-hide pb-1">
               {favorites.slice(0, 8).map((fav) => (
@@ -1233,7 +1235,7 @@ export default function FoodLogPage() {
                     const nextSlot = slots.find(s => grouped[s.id].length === 0 && !skippedSlots.has(s.id));
                     if (nextSlot) logFavorite(fav, nextSlot.mealType);
                   }}
-                  className="flex-shrink-0 px-2.5 py-1 rounded-full bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.08] text-stone-300 text-[11px] transition-colors"
+                  className="min-h-11 flex-shrink-0 px-2.5 py-1 rounded-full bg-[var(--surface-2)] hover:bg-[var(--surface-hover)] border border-[var(--border-subtle)] text-[var(--content-secondary)] text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                 >
                   {fav.food_name}{showCalories ? ` · ${fav.calories}` : ''}
                 </button>
@@ -1534,7 +1536,7 @@ export default function FoodLogPage() {
             className={`fixed ${dayPillVisible ? 'bottom-32' : 'bottom-20'} left-4 right-4 z-[var(--z-toast,70)] flex justify-center`}
           >
             <div className="glass-elevated px-4 py-3 rounded-xl flex items-center gap-3 shadow-lg max-w-sm">
-              <span className="text-stone-300 text-sm flex-1">
+              <span className="text-[var(--content-secondary)] text-sm flex-1">
                 {t('food.entry_deleted')}
               </span>
               <button
@@ -1542,7 +1544,7 @@ export default function FoodLogPage() {
                 className="gold-text text-sm font-semibold flex items-center gap-1.5"
               >
                 {reducedMotion ? (
-                  <span className="text-stone-500 text-xs tabular-nums">(5s)</span>
+                  <span className="text-[var(--content-muted)] text-xs tabular-nums">(5s)</span>
                 ) : (
                   <svg
                     width={16} height={16} viewBox="0 0 16 16" aria-hidden
@@ -1583,7 +1585,7 @@ export default function FoodLogPage() {
             } left-4 right-4 z-[var(--z-toast,70)] flex justify-center`}
           >
             <div className="glass-elevated px-4 py-3 rounded-xl flex items-center gap-3 shadow-lg max-w-sm">
-              <span className="text-stone-300 text-sm flex-1">
+              <span className="text-[var(--content-secondary)] text-sm flex-1">
                 {pendingBatch.ids.length === 1
                   ? t('log.batch_logged_one')
                   : t('log.batch_logged', { n: pendingBatch.ids.length })}
@@ -1594,7 +1596,7 @@ export default function FoodLogPage() {
                 aria-label={t('log.batch_undo_aria', { n: pendingBatch.ids.length })}
               >
                 {reducedMotion ? (
-                  <span className="text-stone-500 text-xs tabular-nums">(10s)</span>
+                  <span className="text-[var(--content-muted)] text-xs tabular-nums">(10s)</span>
                 ) : (
                   <svg
                     width={16} height={16} viewBox="0 0 16 16" aria-hidden

@@ -93,7 +93,7 @@ function WeightChart({ measurements, onLogFirst }: { measurements: Measurement[]
   if (measurements.length < 2) {
     return (
       <div className="text-center py-8">
-        <p className="text-stone-500 text-sm">{t('progress.need_two_weights')}</p>
+        <p className="text-[var(--content-muted)] text-sm">{t('progress.need_two_weights')}</p>
         {onLogFirst && (
           <button
             onClick={onLogFirst}
@@ -144,7 +144,7 @@ function WeightChart({ measurements, onLogFirst }: { measurements: Measurement[]
           ) : diff > 0 ? (
             <TrendingUp size={16} style={{ color: 'var(--err,#E87A6E)' }} />
           ) : null}
-          <span className="text-stone-400 text-xs">
+          <span className="text-[var(--content-secondary)] text-xs">
             {diff > 0 ? '+' : ''}{diff.toFixed(1)} kg · {rows.length} {t('progress.entries')}
           </span>
         </div>

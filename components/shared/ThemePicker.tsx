@@ -1,48 +1,21 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Palette, X, Check } from 'lucide-react';
+import { Palette, X, Check, Moon, Sun } from 'lucide-react';
+import { useAppearance } from '@/components/shared/AppearanceProvider';
+import { ACCENTS } from '@/lib/appearance';
+import { useThemeMode } from '@/components/shared/ThemeMode';
 
 interface ThemePickerProps {
   onClose: () => void;
 }
 
-const THEMES = [
-  { id: 'gold', label: 'Gold', primary: '#D4A853', dark: '#B8923E', light: '#E8C878' },
-  { id: 'blue', label: 'Ocean', primary: '#3b82f6', dark: '#2563eb', light: '#60a5fa' },
-  { id: 'green', label: 'Forest', primary: '#22c55e', dark: '#16a34a', light: '#4ade80' },
-  { id: 'purple', label: 'Amethyst', primary: '#a855f7', dark: '#9333ea', light: '#c084fc' },
-  { id: 'rose', label: 'Rose', primary: '#f43f5e', dark: '#e11d48', light: '#fb7185' },
-  { id: 'amber', label: 'Amber', primary: '#f59e0b', dark: '#d97706', light: '#fbbf24' },
-];
-
-export function loadTheme(): string {
-  if (typeof window === 'undefined') return 'gold';
-  return localStorage.getItem('trophe_theme') || 'gold';
-}
-
-export function applyTheme(themeId: string) {
-  const theme = THEMES.find(t => t.id === themeId) || THEMES[0];
-  document.documentElement.style.setProperty('--color-gold', theme.primary);
-  document.documentElement.style.setProperty('--color-gold-dark', theme.dark);
-  document.documentElement.style.setProperty('--color-gold-light', theme.light);
-  localStorage.setItem('trophe_theme', themeId);
-}
-
-// Auto-apply on load
-export function useTheme() {
-  useEffect(() => {
-    applyTheme(loadTheme());
-  }, []);
-}
-
 export default function ThemePicker({ onClose }: ThemePickerProps) {
-  const [selected, setSelected] = useState(loadTheme());
+  const { prefs, setPrefs } = useAppearance();
+  const { mode, toggleMode } = useThemeMode();
 
   const handleSelect = (id: string) => {
-    setSelected(id);
-    applyTheme(id);
+    setPrefs({ ...prefs, accent: id });
   };
 
   return (
@@ -58,37 +31,46 @@ export default function ThemePicker({ onClose }: ThemePickerProps) {
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
         transition={{ type: 'spring', damping: 25 }}
-        className="w-full max-w-md bg-stone-900 rounded-t-2xl p-4 safe-bottom"
+        className="w-full max-w-md bg-[var(--surface-1)] rounded-t-2xl p-4 safe-bottom"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <Palette size={16} className="text-stone-300" />
-            <h2 className="text-stone-100 font-semibold">Accent Color</h2>
+            <Palette size={16} className="text-[var(--content-secondary)]" />
+            <h2 className="text-[var(--content-primary)] font-semibold">Appearance</h2>
           </div>
-          <button onClick={onClose} className="text-stone-500 hover:text-stone-300">
+          <button onClick={onClose} aria-label="Close appearance picker" className="min-h-11 min-w-11 text-[var(--content-muted)] hover:text-[var(--content-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
             <X size={18} />
           </button>
         </div>
 
+        <button
+          onClick={toggleMode}
+          className="mb-4 flex min-h-11 w-full items-center justify-between rounded-xl border border-[var(--border-default)] bg-[var(--surface-2)] px-3 text-sm text-[var(--content-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+        >
+          <span>{mode === 'dark' ? 'Dark mode' : 'Light mode'}</span>
+          {mode === 'dark' ? <Moon size={16} aria-hidden="true" /> : <Sun size={16} aria-hidden="true" />}
+        </button>
+
         <div className="grid grid-cols-3 gap-3 mb-4">
-          {THEMES.map(theme => (
+          {ACCENTS.map(theme => (
             <button
               key={theme.id}
               onClick={() => handleSelect(theme.id)}
-              className={`p-3 rounded-xl border transition-all ${
-                selected === theme.id
-                  ? 'border-white/20 bg-white/[0.05]'
-                  : 'border-white/[0.05] hover:border-white/10'
+              aria-pressed={prefs.accent === theme.id}
+              className={`min-h-11 rounded-xl border p-3 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] ${
+                prefs.accent === theme.id
+                  ? 'border-[var(--border-focus)] bg-[var(--surface-2)]'
+                  : 'border-[var(--border-subtle)] hover:border-[var(--border-default)]'
               }`}
             >
               <div
                 className="w-8 h-8 rounded-full mx-auto mb-1.5 flex items-center justify-center"
-                style={{ backgroundColor: theme.primary }}
+                style={{ backgroundColor: theme.value }}
               >
-                {selected === theme.id && <Check size={14} className="text-black" />}
+                {prefs.accent === theme.id && <Check size={14} className="text-black" />}
               </div>
-              <p className="text-xs text-stone-400 text-center">{theme.label}</p>
+              <p className="text-xs text-[var(--content-secondary)] text-center">{theme.id}</p>
             </button>
           ))}
         </div>
