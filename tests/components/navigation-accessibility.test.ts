@@ -107,20 +107,20 @@ describe('authenticated navigation accessibility', () => {
     expect(screen.getByRole('banner').className).toContain('bg-[var(--surface-overlay)]');
     expect(screen.getByRole('banner').className).toContain('pt-[env(safe-area-inset-top)]');
     expect(screen.getByRole('link', { name: 'Back' }).className).toContain('min-h-11');
-    expect(screen.getByRole('button', { name: 'Switch to light mode' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Toggle color theme' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Help' })).toBeTruthy();
   });
 
   it('mounts shell-level theme access for client and coach routes', () => {
     const { unmount } = render(React.createElement(DashboardLayout, null, React.createElement('p', null, 'Client content')));
     expect(screen.getByRole('heading', { name: 'Trophē' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Switch to light mode' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Toggle color theme' })).toBeTruthy();
     expect(document.getElementById('main-content')?.textContent).toContain('Client content');
     unmount();
 
     render(React.createElement(CoachLayout, null, React.createElement('p', null, 'Coach content')));
     expect(screen.getByRole('heading', { name: 'Coach workspace' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Switch to light mode' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Toggle color theme' })).toBeTruthy();
     expect(document.getElementById('main-content')?.textContent).toContain('Coach content');
   });
 
@@ -133,7 +133,7 @@ describe('authenticated navigation accessibility', () => {
     const adminTree = await AdminLayout({ children: React.createElement('p', null, 'Admin content') });
     const { unmount } = render(adminTree);
     expect(screen.getByRole('heading', { name: 'Administration' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Switch to light mode' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Toggle color theme' })).toBeTruthy();
     expect(document.getElementById('main-content')?.className).toContain('max-w-6xl');
     for (const name of ['Organizations', 'AI costs']) {
       const shortcut = screen.getByRole('link', { name });
@@ -154,7 +154,7 @@ describe('authenticated navigation accessibility', () => {
     const superTree = await SuperLayout({ children: React.createElement('p', null, 'Super content') });
     render(superTree);
     expect(screen.getByRole('heading', { name: 'Operations' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Switch to light mode' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Toggle color theme' })).toBeTruthy();
     expect(document.getElementById('main-content')?.className).toContain('max-w-6xl');
     const adminShortcut = screen.getByRole('link', { name: 'Administration' });
     for (const targetClass of ['inline-flex', 'min-h-11', 'min-w-11', 'items-center', 'justify-center', 'px-3', 'focus-visible:ring-2']) {
