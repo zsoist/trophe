@@ -606,6 +606,24 @@ export default function ParsedFoodList({
                 {(item.sugar_g ?? 0) > 0 && <span className="text-orange-400">S: {item.sugar_g}g</span>}
               </div>
 
+              {item.user_stated_nutrients && (() => {
+                const stated = item.user_stated_nutrients;
+                const facts = [
+                  stated.protein_g !== undefined ? `${stated.protein_g} g ${t('food.edit.protein')}` : null,
+                  stated.carbs_g !== undefined ? `${stated.carbs_g} g ${t('food.edit.carbs')}` : null,
+                  stated.fat_g !== undefined ? `${stated.fat_g} g ${t('food.edit.fat')}` : null,
+                  stated.fiber_g !== undefined ? `${stated.fiber_g} g ${t('food.edit.fiber')}` : null,
+                  stated.sugar_g !== undefined ? `${stated.sugar_g} g ${t('food.edit.sugar')}` : null,
+                  showCalories && stated.calories !== undefined ? `${stated.calories} ${t('food.edit.kcal')}` : null,
+                ].filter((fact): fact is string => fact !== null);
+                if (facts.length === 0) return null;
+                return (
+                  <p className="mt-1.5 text-[10px] leading-snug text-emerald-300/80">
+                    {t('food.using_label', { facts: facts.join(' · ') })}
+                  </p>
+                );
+              })()}
+
               {/* Estimated-portion spread — only for implicit portions, kcal-gated.
                   W4: on mount shows ≈min–max, then settles to the center kcal
                   (rolls via AnimatedValue) after ~450ms. */}

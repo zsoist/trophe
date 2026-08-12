@@ -34,17 +34,24 @@ import { executeAiTask } from '../runtime';
 import { invokeStructuredProvider } from '../runtime/providers/structured';
 import { foodParseGeminiResponseSchema, foodParseStructuredSchema } from '../schemas/food-parse-structured';
 import { macroEstimateGeminiResponseSchema, macroEstimateStructuredSchema } from '../schemas/macro-estimate-structured';
+import {
+  applyUserStatedNutrients,
+  extractNutrientClaims,
+  hasUserStatedNutrients,
+  repairNutrientClaimPortion,
+  type UserStatedNutrients,
+} from './nutrient-claims';
 
 export const FOOD_PARSE_VERSION = 'v4';
 
 // ── Prompt ───────────────────────────────────────────────────────────────────
 // v5 prompt adds CoT macro estimation alongside food identification.
 // Set FOOD_PARSE_PROMPT_VERSION=v4 to revert to identification-only mode.
-const promptVersion = process.env.FOOD_PARSE_PROMPT_VERSION ?? 'v7';
+const promptVersion = process.env.FOOD_PARSE_PROMPT_VERSION ?? 'v8';
 const PROMPT_PATH = join(process.cwd(), `agents/prompts/food-parse.${promptVersion}.md`);
 const PROMPT_TEMPLATE = readFileSync(PROMPT_PATH, 'utf-8');
-const COT_ENABLED = promptVersion === 'v5' || promptVersion === 'v6' || promptVersion === 'v7';
-const PER_100G_ENABLED = promptVersion === 'v6' || promptVersion === 'v7';
+const COT_ENABLED = ['v5', 'v6', 'v7', 'v8'].includes(promptVersion);
+const PER_100G_ENABLED = ['v6', 'v7', 'v8'].includes(promptVersion);
 
 // ── V4/V5 LLM output schema ──────────────────────────────────────────────────
 export interface V4Candidate {
@@ -761,6 +768,7 @@ export async function run(
   const trimmedText = input.text.trim();
   const sanitizedText = trimmedText
     .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+  const wholeInputNutrientClaims = extractNutrientClaims(sanitizedText);
 
   const policy = pick('food_parse');
   const language = input.language ?? 'en';
@@ -1082,6 +1090,17 @@ export async function run(
       item.portion_explicit = true; // the user DID specify the portion — a fraction of one unit
     }
   }
+
+  // User-stated nutrients describe the food's label/total, not its mass.
+  // Providers sometimes turn "13 g protein" into quantity=13/unit=g. Repair
+  // that before any DB/recipe lookup so the normal bar/serving weight wins.
+  const nutrientClaimsByItem: UserStatedNutrients[] = v4Parsed.items.map((item) => {
+    const itemClaims = extractNutrientClaims(item.raw_text);
+    if (hasUserStatedNutrients(itemClaims)) return itemClaims;
+    return v4Parsed.items.length === 1 ? wholeInputNutrientClaims : {};
+  });
+  v4Parsed.items = v4Parsed.items.map((item, index) =>
+    repairNutrientClaimPortion(item, nutrientClaimsByItem[index]));
 
   const regionCode = regionForLanguage(language);
 
@@ -1478,6 +1497,14 @@ export async function run(
         item.confidence = Math.min(item.confidence, 0.45);
       }
     }
+  }
+
+  // Explicit label facts win over estimates for only the named nutrients.
+  // Food grams and every unclaimed macro remain on the resolved DB/portion path.
+  // This runs after automatic meal scaling so user facts are never scaled away,
+  // and before the safety barrier so impossible claims still fail closed.
+  for (let i = 0; i < finalItems.length; i++) {
+    finalItems[i] = applyUserStatedNutrients(finalItems[i], nutrientClaimsByItem[i] ?? {});
   }
 
   // ── Safety barrier (per-item, AFTER all post-processing) ──────────────────

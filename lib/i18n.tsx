@@ -1047,6 +1047,7 @@ const translations: Record<string, Record<CoreLanguage, string>> = {
   'food.estimated_portion_help': { en: 'No need to guess grams. Choose the closest size, enter an amount, or use a photo.', es: 'No hace falta adivinar los gramos. Elige el tamaño más cercano, escribe una cantidad o usa una foto.', el: 'Δεν χρειάζεται να μαντέψεις γραμμάρια. Διάλεξε μέγεθος, γράψε ποσότητα ή χρησιμοποίησε φωτογραφία.' },
   'food.estimated_portion_summary': { en: '{n} estimated portion(s) — choose a size, amount, or photo above.', es: '{n} porción(es) estimada(s) — elige tamaño, cantidad o foto arriba.', el: '{n} εκτιμώμενη(ες) μερίδα(ες) — διάλεξε μέγεθος, ποσότητα ή φωτογραφία.' },
   'food.estimated_portion_count': { en: '{n} estimated portion(s) — review the choices above', es: '{n} porción(es) estimada(s) — revisa las opciones de arriba', el: '{n} εκτιμώμενη(ες) μερίδα(ες) — έλεγξε τις επιλογές παραπάνω' },
+  'food.using_label': { en: 'Using your label: {facts}', es: 'Usando tu etiqueta: {facts}', el: 'Χρήση των στοιχείων ετικέτας: {facts}' },
 
   // ── Recipe analyzer ──
   'food.recipe_timeout': { en: 'Recipe analysis timed out — please try again', es: 'El análisis de la receta tardó demasiado — inténtalo de nuevo', el: 'Η ανάλυση της συνταγής καθυστέρησε πολύ — δοκίμασε ξανά' },
@@ -1061,6 +1062,7 @@ const translations: Record<string, Record<CoreLanguage, string>> = {
   'food.edit.protein': { en: 'Protein', es: 'Proteína', el: 'Πρωτεΐνη' },
   'food.edit.carbs': { en: 'Carbs', es: 'Carbohidratos', el: 'Υδατάνθρακες' },
   'food.edit.fat': { en: 'Fat', es: 'Grasa', el: 'Λίπος' },
+  'food.edit.fiber': { en: 'Fiber', es: 'Fibra', el: 'Φυτικές ίνες' },
   'food.edit.sugar': { en: 'Sugar', es: 'Azúcar', el: 'Ζάχαρη' },
   'food.edit.save': { en: 'Save', es: 'Guardar', el: 'Αποθήκευση' },
   'food.edit.saveQuantity': { en: 'Save quantity', es: 'Guardar cantidad', el: 'Αποθήκευση ποσότητας' },
