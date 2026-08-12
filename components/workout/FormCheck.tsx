@@ -389,14 +389,14 @@ export default function FormCheck({ exercise, side, onComplete, onBack }: FormCh
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
-              style={{ background: 'var(--status-danger-bg)', border: '1px solid rgba(239,68,68,0.3)' }}
+              style={{ background: 'var(--status-danger-bg)', border: '1px solid var(--status-danger-border)' }}
             >
               <motion.div
                 animate={{ opacity: [1, 0.3, 1] }}
                 transition={{ repeat: Infinity, duration: 1.2 }}
-                className="w-2 h-2 rounded-full bg-red-400"
+                className="w-2 h-2 rounded-full bg-[var(--status-danger-fg)]"
               />
-              <span className="text-xs font-medium text-red-300">REC</span>
+              <span className="text-xs font-medium text-[var(--status-danger-fg)]">REC</span>
             </motion.div>
           )}
         </div>
@@ -470,7 +470,7 @@ export default function FormCheck({ exercise, side, onComplete, onBack }: FormCh
               className="absolute inset-0 flex flex-col items-center justify-center z-20 px-8"
               style={{ background: 'rgba(10,10,10,0.95)' }}
             >
-              <AlertCircle size={40} className="text-red-400 mb-4" />
+              <AlertCircle size={40} className="text-[var(--status-danger-fg)] mb-4" />
               <p className="text-sm text-[var(--content-secondary)] text-center mb-4">{error}</p>
               <button
                 onClick={onBack}

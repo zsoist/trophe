@@ -12,6 +12,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Paperclip, Mic, X, Play, Pause, Square } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -28,6 +29,16 @@ import {
   type AudioRecordingSession,
   type RecordingError,
 } from '@/lib/microphone/recording-session';
+
+const focusableSelector = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+function trapFocus(event: ReactKeyboardEvent<HTMLElement>, container: HTMLElement | null) {
+  if (event.key !== 'Tab' || !container) return;
+  const items = Array.from(container.querySelectorAll<HTMLElement>(focusableSelector));
+  const first = items[0]; const last = items.at(-1);
+  if (!first || !last) { event.preventDefault(); container.focus(); return; }
+  if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+  else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+}
 
 export interface ChatMessage {
   id: string;
@@ -721,7 +732,7 @@ export default function ChatThread({ coachId, clientId, viewerRole, counterpartN
                 borderRadius: 12,
                 padding: '9px 12px',
                 color: 'var(--content-primary)',
-                fontSize: 13,
+                fontSize: 16,
                 resize: 'none',
                 fontFamily: 'inherit',
               }} className="text-base"
@@ -754,6 +765,7 @@ export default function ChatThread({ coachId, clientId, viewerRole, counterpartN
             aria-modal="true"
             aria-label="Image preview"
             tabIndex={-1}
+            onKeyDown={(event) => trapFocus(event, lightboxRef.current)}
             className="safe-bottom pb-[calc(5rem+env(safe-area-inset-bottom))] outline-none"
             initial={reducedMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={reducedMotion ? undefined : { opacity: 0 }}
             onClick={() => setLightbox(null)}

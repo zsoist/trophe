@@ -138,8 +138,8 @@ function RepRow({ rep }: { rep: RepScore }) {
   const angleDiffColor = (diffPct: number) => {
     if (diffPct <= 3) return 'var(--status-success-fg)';
     if (diffPct <= 8) return 'var(--action-primary)';
-    if (diffPct <= 16) return '#f59e0b';
-    if (diffPct <= 25) return '#f97316';
+    if (diffPct <= 16) return 'var(--status-warning-fg)';
+    if (diffPct <= 25) return 'var(--status-warning-fg)';
     return 'var(--status-danger-fg)';
   };
 

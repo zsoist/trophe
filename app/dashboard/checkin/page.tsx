@@ -7,7 +7,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Check, X } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { Icon } from '@/components/ui';
@@ -17,14 +17,14 @@ import { localToday } from '@/lib/utils/dates';
 import { useClientNav } from '@/lib/useClientNav';
 
 // ─── Shimmer skeleton atoms ───────────────────────────────────
-const shimmerStyle: React.CSSProperties = {
-  background: 'linear-gradient(90deg, rgba(120,113,108,.1) 0%, var(--action-secondary) 50%, rgba(120,113,108,.1) 100%)',
-  backgroundSize: '200% 100%',
-  animation: 'shimmer 1.6s ease-in-out infinite',
-  borderRadius: 10,
-};
-
 function SkimBlock({ h = 16, w = '100%' }: { h?: number; w?: string | number }) {
+  const reducedMotion = useReducedMotion();
+  const shimmerStyle: React.CSSProperties = {
+    background: 'linear-gradient(90deg, color-mix(in srgb, var(--content-muted) 10%, transparent) 0%, var(--action-secondary) 50%, color-mix(in srgb, var(--content-muted) 10%, transparent) 100%)',
+    backgroundSize: '200% 100%',
+    animation: reducedMotion ? 'none' : 'shimmer 1.6s ease-in-out infinite',
+    borderRadius: 10,
+  };
   return <div style={{ height: h, width: w, ...shimmerStyle }} />;
 }
 
@@ -246,6 +246,7 @@ export default function CheckinPage() {
           {/* Header */}
           <div className="row-b mb-6">
             <button
+              aria-label="Back to dashboard"
               onClick={() => router.back()}
               style={{ background: 'transparent', border: 'none', cursor: 'pointer',
                 color: 'var(--content-secondary)', padding: 4, display: 'flex', alignItems: 'center' }} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
@@ -289,6 +290,7 @@ export default function CheckinPage() {
           {/* Header */}
           <div className="row-b mb-6">
             <button
+              aria-label="Back to dashboard"
               onClick={() => router.back()}
               style={{ background: 'transparent', border: 'none', cursor: 'pointer',
                 color: 'var(--content-secondary)', padding: 4, display: 'flex', alignItems: 'center' }} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
@@ -318,7 +320,7 @@ export default function CheckinPage() {
             </div>
             <div style={{
               marginTop: 6, fontSize: 12,
-              color: todayCheckin.completed ? 'var(--action-primary)' : 'rgb(239,68,68)',
+              color: todayCheckin.completed ? 'var(--action-primary)' : 'var(--status-danger-fg)',
               fontFamily: 'var(--font-mono)',
             }}>
               {todayCheckin.completed
@@ -366,6 +368,7 @@ export default function CheckinPage() {
         {/* ══ Header ═══════════════════════════════════════════ */}
         <div className="row-b mb-4">
           <button
+            aria-label="Back to dashboard"
             onClick={() => router.back()}
             style={{ background: 'transparent', border: 'none', cursor: 'pointer',
               color: 'var(--content-secondary)', padding: 4, display: 'flex', alignItems: 'center' }} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
@@ -490,11 +493,11 @@ export default function CheckinPage() {
               style={{
                 flex: 1, padding: 13, borderRadius: 12, cursor: 'pointer',
                 border: completed === false
-                  ? '1px solid var(--status-danger-bg)'
+                  ? '1px solid var(--status-danger-border)'
                   : '1px solid var(--border-default)',
                 background: completed === false ? 'var(--status-danger-bg)' : 'transparent',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                color: completed === false ? 'rgb(239,68,68)' : 'var(--content-secondary)',
+                color: completed === false ? 'var(--status-danger-fg)' : 'var(--content-secondary)',
                 transition: 'all .15s',
               }} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             >
@@ -529,7 +532,7 @@ export default function CheckinPage() {
                       fontFamily: 'var(--font-mono)', fontWeight: 700,
                       border: `1px solid ${value === opt ? (opt ? 'var(--status-success-border)' : 'var(--status-danger-border)') : 'var(--border-default)'}`,
                       background: value === opt ? (opt ? 'var(--status-success-bg)' : 'var(--status-danger-bg)') : 'transparent',
-                      color: value === opt ? (opt ? 'var(--status-success-fg)' : 'rgb(239,68,68)') : 'var(--content-muted)',
+                      color: value === opt ? (opt ? 'var(--status-success-fg)' : 'var(--status-danger-fg)') : 'var(--content-muted)',
                     }} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
                     {opt ? 'YES' : 'NO'}
                   </button>
@@ -575,7 +578,7 @@ export default function CheckinPage() {
               border: 'none',
               outline: 'none',
               color: 'var(--content-primary)',
-              fontSize: 13,
+              fontSize: 16,
               resize: 'none',
               fontFamily: 'inherit',
               minHeight: 64,

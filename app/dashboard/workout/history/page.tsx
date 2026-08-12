@@ -190,9 +190,9 @@ function SessionCard({
                       >
                         <span className="w-5 text-[var(--content-muted)] text-right">{set.set_number}</span>
                         {set.is_warmup && (
-                          <span className="text-xs text-amber-400 font-medium">W</span>
+                          <span className="text-xs text-[var(--content-secondary)] font-medium">W</span>
                         )}
-                        <span className={set.is_pr ? 'text-yellow-400 font-semibold' : 'text-[var(--content-secondary)]'}>
+                        <span className={set.is_pr ? 'text-[var(--action-primary)] font-semibold' : 'text-[var(--content-secondary)]'}>
                           {set.weight_kg || 0}kg
                         </span>
                         <span className="text-[var(--content-muted)]">x</span>
@@ -200,7 +200,7 @@ function SessionCard({
                         {set.rpe && (
                           <span className="text-[var(--content-muted)]">@{set.rpe}</span>
                         )}
-                        {set.is_pr && <Trophy size={10} className="text-yellow-400" />}
+                        {set.is_pr && <Trophy size={10} className="text-[var(--action-primary)]" />}
                       </div>
                     ))}
                   </div>
@@ -210,7 +210,7 @@ function SessionCard({
               {/* Pain flags */}
               {session.pain_flags && session.pain_flags.length > 0 && (
                 <div className="pt-2 border-t" style={{ borderColor: 'color-mix(in srgb, var(--content-primary) 8%, transparent)' }}>
-                  <p className="text-xs text-red-400 mb-1">Pain Flags</p>
+                  <p className="text-xs text-[var(--status-danger-fg)] mb-1">Pain Flags</p>
                   {session.pain_flags.map((pf, i) => (
                     <p key={i} className="text-xs text-[var(--content-muted)]">
                       {pf.body_part} — severity {pf.severity}/5
@@ -294,7 +294,7 @@ export default function WorkoutHistoryPage() {
       <div className="sticky top-0 z-40 glass-elevated px-4 py-3">
         <div className="max-w-md mx-auto flex items-center gap-3">
           <Link href="/dashboard/workout">
-            <button className="p-2 rounded-xl transition-colors min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" style={{ background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)' }}>
+            <button aria-label="Back to workout" className="p-2 rounded-xl transition-colors min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" style={{ background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)' }}>
               <ArrowLeft size={18} className="text-[var(--content-secondary)]" />
             </button>
           </Link>

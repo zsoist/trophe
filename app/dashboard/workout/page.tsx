@@ -15,6 +15,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import {
@@ -38,6 +39,16 @@ import ExercisePicker from '@/components/workout/ExercisePicker';
 import RecentSessionCard from '@/components/workout/RecentSessionCard';
 import ExerciseInfoSheet from '@/components/workout/ExerciseInfoSheet';
 import PlateCalculator from '@/components/workout/PlateCalculator';
+
+const focusableSelector = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+function trapFocus(event: ReactKeyboardEvent<HTMLElement>, container: HTMLElement | null) {
+  if (event.key !== 'Tab' || !container) return;
+  const items = Array.from(container.querySelectorAll<HTMLElement>(focusableSelector));
+  const first = items[0]; const last = items.at(-1);
+  if (!first || !last) { event.preventDefault(); container.focus(); return; }
+  if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+  else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+}
 import { muscleColor } from '@/components/workout/muscle-groups';
 import { useWeightUnit, kgToDisplay, displayToKg } from '@/lib/workout/units';
 import { getRestTarget, setRestTarget as persistRestTarget, REST_CHOICES } from '@/lib/workout/rest-targets';
@@ -203,12 +214,21 @@ export default function WorkoutPage() {
   // Session-complete celebration (volume/sets/PRs/minutes) — shown over the
   // landing after finish; dismissing it is the only way it clears.
   const [finishSummary, setFinishSummary] = useState<{ volume: number; sets: number; prs: number; minutes: number } | null>(null);
+  const finishDialogRef = useRef<HTMLDivElement>(null);
+  const finishReturnFocusRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (!finishSummary) return;
+    finishReturnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const frame = requestAnimationFrame(() => finishDialogRef.current?.focus());
     const closeOnEscape = (event: KeyboardEvent) => event.key === 'Escape' && setFinishSummary(null);
     document.addEventListener('keydown', closeOnEscape);
-    return () => document.removeEventListener('keydown', closeOnEscape);
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener('keydown', closeOnEscape);
+      finishReturnFocusRef.current?.focus();
+      finishReturnFocusRef.current = null;
+    };
   }, [finishSummary]);
 
   // ── Coach program (tRPC; provider mounted in app/dashboard/layout.tsx) ──
@@ -1036,7 +1056,7 @@ export default function WorkoutPage() {
                             style={{
                               width: 80, padding: '8px 10px', borderRadius: 10, textAlign: 'center',
                               background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--content-primary) 8%, transparent)',
-                              color: 'var(--content-primary)', fontSize: 15, fontFamily: 'var(--font-mono)', outline: 'none',
+                              color: 'var(--content-primary)', fontSize: 16, fontFamily: 'var(--font-mono)', outline: 'none',
                             }} className="text-base"
                           />
                           <span style={{ fontSize: 12, color: 'var(--content-muted)' }}>km</span>
@@ -1138,12 +1158,15 @@ export default function WorkoutPage() {
                     )}
 
                     {/* Exercise header */}
-                    <button
-                      onClick={() => toggleCollapse(exIndex)}
-                      className="w-full flex items-center gap-3 p-3 min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-                    >
-                      <div className="w-1.5 h-10 rounded-full shrink-0" style={{ background: mgColor }} />
-                      <div className="flex-1 text-left min-w-0">
+                    <div className="flex items-center gap-1 p-3">
+                      <button
+                        onClick={() => toggleCollapse(exIndex)}
+                        aria-label={`Toggle ${getExerciseName(ae.exercise)} exercise`}
+                        aria-expanded={!ae.collapsed}
+                        className="flex min-h-11 min-w-11 flex-1 items-center gap-3 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                      >
+                        <div className="w-1.5 h-10 rounded-full shrink-0" style={{ background: mgColor }} />
+                        <div className="flex-1 text-left min-w-0">
                         <p className="text-sm font-semibold text-[var(--content-primary)] truncate">
                           {getExerciseName(ae.exercise)}
                         </p>
@@ -1166,7 +1189,9 @@ export default function WorkoutPage() {
                             </motion.span>
                           )}
                         </p>
-                      </div>
+                        </div>
+                        {ae.collapsed ? <ChevronDown size={16} className="text-[var(--content-muted)]" /> : <ChevronUp size={16} className="text-[var(--content-muted)]" />}
+                      </button>
                       <div className="flex items-center gap-1">
                         {/* Rest target — tap to cycle 60/90/120/150/180s (persists) */}
                         <button
@@ -1226,21 +1251,22 @@ export default function WorkoutPage() {
                         </button>
                         <button
                           onClick={(e) => { e.stopPropagation(); setPainModalExerciseId(ae.exercise.id); }}
+                          aria-label={`Report pain for ${getExerciseName(ae.exercise)}`}
                           className="p-1.5 rounded-lg transition-colors min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                           style={{ background: 'var(--status-danger-bg)' }}
                         >
-                          <AlertTriangle size={14} className="text-red-400" />
+                          <AlertTriangle size={14} className="text-[var(--status-danger-fg)]" />
                         </button>
                         <button
                           onClick={(e) => { e.stopPropagation(); removeExercise(exIndex); }}
+                          aria-label={`Remove ${getExerciseName(ae.exercise)}`}
                           className="p-1.5 rounded-lg transition-colors min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                           style={{ background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)' }}
                         >
                           <X size={14} className="text-[var(--content-muted)]" />
                         </button>
-                        {ae.collapsed ? <ChevronDown size={16} className="text-[var(--content-muted)]" /> : <ChevronUp size={16} className="text-[var(--content-muted)]" />}
                       </div>
-                    </button>
+                    </div>
 
                     {/* Sets */}
                     <AnimatePresence>
@@ -1336,10 +1362,10 @@ export default function WorkoutPage() {
                                 className="w-9 h-9 flex items-center justify-center rounded-lg transition-colors min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                                 style={{
                                   background: set.completed
-                                    ? (set.is_pr ? 'color-mix(in srgb, var(--action-primary) 22%, transparent)' : 'rgba(34,197,94,.16)')
+                                    ? (set.is_pr ? 'color-mix(in srgb, var(--action-primary) 22%, transparent)' : 'var(--status-success-bg)')
                                     : 'color-mix(in srgb, var(--content-primary) 8%, transparent)',
                                   border: set.completed
-                                    ? (set.is_pr ? '1px solid color-mix(in srgb, var(--action-primary) 45%, transparent)' : '1px solid rgba(34,197,94,.3)')
+                                    ? (set.is_pr ? '1px solid color-mix(in srgb, var(--action-primary) 45%, transparent)' : '1px solid var(--status-success-border)')
                                     : '1px solid color-mix(in srgb, var(--content-primary) 8%, transparent)',
                                   color: set.completed ? (set.is_pr ? 'var(--action-primary)' : 'var(--status-success-fg)') : 'var(--content-muted)',
                                   opacity: set.saving ? 0.5 : 1,
@@ -1390,7 +1416,7 @@ export default function WorkoutPage() {
             {/* Pain flags summary */}
             {painFlags.length > 0 && (
               <div className="glass p-3">
-                <p className="text-xs text-red-400 font-medium mb-2 flex items-center gap-1">
+                <p className="text-xs text-[var(--status-danger-fg)] font-medium mb-2 flex items-center gap-1">
                   <AlertTriangle size={12} /> {painFlags.length} {t('workout.pain_recorded')}
                 </p>
                 {painFlags.map((pf, i) => (
@@ -1410,7 +1436,7 @@ export default function WorkoutPage() {
               style={{
                 background: saving ? 'var(--status-danger-bg)' : 'var(--status-danger-bg)',
                 color: 'var(--status-danger-fg)',
-                border: '1px solid rgba(239,68,68,0.2)',
+                border: '1px solid var(--status-danger-border)',
               }}
             >
               <Square size={18} />
@@ -1473,16 +1499,19 @@ export default function WorkoutPage() {
         {finishSummary && (
           <motion.div
             className="fixed inset-0 flex items-center justify-center px-6"
-            role="dialog"
-            aria-modal="true"
-            aria-label={t('workout.summary_title')}
             style={{ zIndex: 60, background: 'var(--surface-overlay)', backdropFilter: 'blur(6px)' }}
             initial={reducedMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={reducedMotion ? undefined : { opacity: 0 }}
             onClick={() => setFinishSummary(null)}
           >
             <motion.div
-              className="card-g safe-bottom w-full max-w-sm text-center pb-[calc(5rem+env(safe-area-inset-bottom))]"
-              style={{ padding: '26px 22px' }}
+              ref={finishDialogRef}
+              role="dialog"
+              aria-modal="true"
+              aria-label={t('workout.summary_title')}
+              tabIndex={-1}
+              onKeyDown={(event) => trapFocus(event, finishDialogRef.current)}
+              className="card-g safe-bottom w-full max-w-sm text-center outline-none"
+              style={{ padding: '26px 22px calc(5rem + env(safe-area-inset-bottom))' }}
               initial={reducedMotion ? false : { scale: 0.9, y: 16 }} animate={{ scale: 1, y: 0 }} exit={reducedMotion ? undefined : { scale: 0.95, opacity: 0 }}
               transition={{ type: 'spring', stiffness: 360, damping: 26 }}
               onClick={(e) => e.stopPropagation()}

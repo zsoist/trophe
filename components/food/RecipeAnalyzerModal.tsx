@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { X, ChefHat, Loader2, Check } from 'lucide-react';
 import { Icon } from '@/components/ui';
@@ -25,6 +26,15 @@ const MEAL_OPTIONS: { value: MealType; label: string; icon: string }[] = [
   { value: 'dinner',    label: 'Dinner',    icon: 'i-moon'   },
   { value: 'snack',     label: 'Snack',     icon: 'i-apple'  },
 ];
+const focusableSelector = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+function trapFocus(event: ReactKeyboardEvent<HTMLElement>, container: HTMLElement | null) {
+  if (event.key !== 'Tab' || !container) return;
+  const items = Array.from(container.querySelectorAll<HTMLElement>(focusableSelector));
+  const first = items[0]; const last = items.at(-1);
+  if (!first || !last) { event.preventDefault(); container.focus(); return; }
+  if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+  else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+}
 
 export default function RecipeAnalyzerModal({
   userId,
@@ -165,6 +175,7 @@ export default function RecipeAnalyzerModal({
             aria-modal="true"
             aria-label="Analyze recipe"
             tabIndex={-1}
+            onKeyDown={(event) => trapFocus(event, dialogRef.current)}
             initial={reducedMotion ? false : { opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
             exit={reducedMotion ? undefined : { opacity: 0, y: 40 }}
@@ -214,7 +225,7 @@ export default function RecipeAnalyzerModal({
                   </div>
 
                   {error && (
-                    <div className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg p-2.5">
+                    <div className="text-xs text-[var(--status-danger-fg)] bg-[var(--status-danger-bg)] border border-[var(--status-danger-border)] rounded-lg p-2.5">
                       {error}
                     </div>
                   )}
@@ -350,7 +361,7 @@ export default function RecipeAnalyzerModal({
                     </div>
 
                     {error && (
-                      <div className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg p-2.5">
+                      <div className="text-xs text-[var(--status-danger-fg)] bg-[var(--status-danger-bg)] border border-[var(--status-danger-border)] rounded-lg p-2.5">
                         {error}
                       </div>
                     )}

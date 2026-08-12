@@ -11,6 +11,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { ChevronDown, ChevronUp, X, Zap } from 'lucide-react';
 import { Icon, type IconName } from '@/components/ui';
@@ -31,6 +32,15 @@ interface CoachRec {
   note: string;
   category: string;
   isCoachPick: boolean;
+}
+const focusableSelector = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+function trapFocus(event: ReactKeyboardEvent<HTMLElement>, container: HTMLElement | null) {
+  if (event.key !== 'Tab' || !container) return;
+  const items = Array.from(container.querySelectorAll<HTMLElement>(focusableSelector));
+  const first = items[0]; const last = items.at(-1);
+  if (!first || !last) { event.preventDefault(); container.focus(); return; }
+  if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+  else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
 }
 
 interface CoachFoodRecsProps {
@@ -208,6 +218,7 @@ function RecDetailSheet({ rec, onClose, onLog }: {
         aria-modal="true"
         aria-label={rec.food}
         tabIndex={-1}
+        onKeyDown={(event) => trapFocus(event, dialogRef.current)}
         initial={reducedMotion ? false : { y: '100%' }}
         animate={{ y: 0 }}
         exit={reducedMotion ? undefined : { y: '100%' }}
@@ -552,7 +563,7 @@ export default function CoachFoodRecs({ userId, onLogFood }: CoachFoodRecsProps)
                           position: 'absolute', inset: 0,
                           borderRadius: 14,
                           background: 'var(--status-success-bg)',
-                          border: '1px solid var(--status-success-bg)',
+                          border: '1px solid var(--status-success-border)',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                           pointerEvents: 'none',
                         }}

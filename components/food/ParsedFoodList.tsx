@@ -463,11 +463,11 @@ export default function ParsedFoodList({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             role="status"
-            className="px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20 space-y-1"
+            className="px-3 py-2 rounded-lg bg-[var(--status-warning-bg)] border border-[var(--status-warning-border)] space-y-1"
           >
             {visibleWarnings.map((w, i) => (
-              <p key={i} className="flex items-start gap-1.5 text-amber-300/80 text-xs leading-snug">
-                <AlertTriangle size={12} className="text-amber-400/80 flex-shrink-0 mt-0.5" />
+              <p key={i} className="flex items-start gap-1.5 text-[var(--status-warning-fg)] text-xs leading-snug">
+                <AlertTriangle size={12} className="text-[var(--status-warning-fg)] flex-shrink-0 mt-0.5" />
                 <span>{w}</span>
               </p>
             ))}
@@ -493,7 +493,7 @@ export default function ParsedFoodList({
                 type: 'spring', stiffness: 420, damping: 32,
                 delay: Math.min(index * 0.045, 0.35),
               }}
-              className={`portion-review-item glass${!item.portion_explicit ? ' border-l-2 border-amber-500/40' : ''}`}
+              className={`portion-review-item glass${!item.portion_explicit ? ' border-l-2 border-[var(--status-warning-border)]' : ''}`}
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
@@ -779,8 +779,8 @@ export default function ParsedFoodList({
                 <span>P: {item.protein_g}g</span>
                 <span>C: {item.carbs_g}g</span>
                 <span>F: {item.fat_g}g</span>
-                {item.fiber_g > 0 && <span className="portion-review-fiber text-green-400">Fb: {item.fiber_g}g</span>}
-                {(item.sugar_g ?? 0) > 0 && <span className="portion-review-sugar text-orange-400">S: {item.sugar_g}g</span>}
+                {item.fiber_g > 0 && <span className="portion-review-fiber text-[var(--data-fiber)]">Fb: {item.fiber_g}g</span>}
+                {(item.sugar_g ?? 0) > 0 && <span className="portion-review-sugar text-[var(--data-sugar)]">S: {item.sugar_g}g</span>}
               </div>
 
               {item.user_stated_nutrients && (() => {
@@ -795,7 +795,7 @@ export default function ParsedFoodList({
                 ].filter((fact): fact is string => fact !== null);
                 if (facts.length === 0) return null;
                 return (
-                  <p className="mt-1.5 text-xs leading-snug text-emerald-300/80">
+                  <p className="mt-1.5 text-xs leading-snug text-[color-mix(in_srgb,var(--status-info-fg)_80%,transparent)]">
                     {t('food.using_label', { facts: facts.join(' · ') })}
                   </p>
                 );
@@ -828,11 +828,11 @@ export default function ParsedFoodList({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             role="alert"
-            className="px-3 py-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 space-y-2"
+            className="px-3 py-2.5 rounded-lg bg-[var(--status-warning-bg)] border border-[var(--status-warning-border)] space-y-2"
           >
             <div className="flex items-start gap-2">
-              <AlertTriangle size={14} className="text-amber-400 flex-shrink-0 mt-0.5" />
-              <p className="text-amber-300/90 text-xs leading-snug">{clarificationQuestion}</p>
+              <AlertTriangle size={14} className="text-[var(--status-warning-fg)] flex-shrink-0 mt-0.5" />
+              <p className="text-[var(--status-warning-fg)] text-xs leading-snug">{clarificationQuestion}</p>
             </div>
             {onReparse && (
               <div className="flex gap-1.5 pl-6">
@@ -854,7 +854,7 @@ export default function ParsedFoodList({
                 <button
                   onClick={submitClarification}
                   disabled={!clarifyAnswer.trim() || logging}
-                  className="px-2.5 rounded-lg border border-amber-500/30 text-amber-300 hover:bg-amber-500/10 disabled:opacity-40 transition-colors flex items-center min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                  className="px-2.5 rounded-lg border border-[var(--status-warning-border)] text-[var(--status-warning-fg)] hover:bg-[var(--status-warning-bg)] disabled:opacity-40 transition-colors flex items-center min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                   aria-label="Submit answer and re-analyze"
                 >
                   <CornerDownLeft size={13} />
@@ -866,7 +866,7 @@ export default function ParsedFoodList({
                 type="button"
                 onClick={onTakePhoto}
                 disabled={logging}
-                className="ml-6 min-h-10 rounded-lg border border-amber-500/20 px-3 py-2 text-amber-200 text-xs flex items-center justify-center gap-1.5 hover:bg-amber-500/10 disabled:opacity-40 transition-colors min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                className="ml-6 rounded-lg border border-[var(--status-warning-border)] px-3 py-2 text-[var(--status-warning-fg)] text-xs flex items-center justify-center gap-1.5 hover:bg-[var(--status-warning-bg)] disabled:opacity-40 transition-colors min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
               >
                 <Camera size={13} />
                 {t('food.take_photo')}
@@ -878,10 +878,10 @@ export default function ParsedFoodList({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             role="alert"
-            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30"
+            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--status-warning-bg)] border border-[var(--status-warning-border)]"
           >
-            <AlertTriangle size={14} className="text-amber-400 flex-shrink-0" />
-            <p className="text-amber-300/80 text-xs line-clamp-2">
+            <AlertTriangle size={14} className="text-[var(--status-warning-fg)] flex-shrink-0" />
+            <p className="text-[var(--status-warning-fg)] text-xs line-clamp-2">
               {t('food.estimated_portion_summary', { n: String(unresolvedPortions) })}
             </p>
           </motion.div>

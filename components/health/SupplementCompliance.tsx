@@ -180,16 +180,16 @@ export default function SupplementCompliance({ clientId }: { clientId: string })
                 key={i}
                 className={`aspect-square rounded-md flex items-center justify-center transition-colors ${
                   status === 'taken'
-                    ? 'bg-green-500/15 border border-green-500/25'
+                    ? 'bg-[var(--status-success-bg)] border border-[var(--status-success-border)]'
                     : status === 'missed'
-                    ? 'bg-red-500/10 border border-red-500/20'
+                    ? 'bg-[var(--status-danger-bg)] border border-[var(--status-danger-border)]'
                     : 'bg-[var(--surface-2)] border border-[var(--border-default)]'
                 }`}
               >
                 {status === 'taken' ? (
-                  <CheckCircle2 size={12} className="text-green-400" />
+                  <CheckCircle2 size={12} className="text-[var(--status-success-fg)]" />
                 ) : status === 'missed' ? (
-                  <XCircle size={10} className="text-red-400/60" />
+                  <XCircle size={10} className="text-[var(--status-danger-fg)] opacity-60" />
                 ) : null}
               </div>
             ))}
@@ -197,10 +197,10 @@ export default function SupplementCompliance({ clientId }: { clientId: string })
             {/* Compliance percentage */}
             <div className={`text-center text-xs font-semibold ${
               row.compliance >= 80
-                ? 'text-green-400'
+                ? 'text-[var(--status-success-fg)]'
                 : row.compliance >= 50
-                ? 'text-yellow-400'
-                : 'text-red-400'
+                ? 'text-[var(--status-warning-fg)]'
+                : 'text-[var(--status-danger-fg)]'
             }`}>
               {row.compliance}%
             </div>

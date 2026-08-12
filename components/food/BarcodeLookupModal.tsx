@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { X, Barcode, Loader2, Camera, Keyboard, ChevronLeft, RotateCcw } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -30,6 +31,15 @@ interface Product { name: string; brand: string | null; barcode: string; per100g
 type Step = 'choose' | 'scan' | 'input' | 'manual';
 
 const MEAL_OPTIONS: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack'];
+const focusableSelector = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+function trapFocus(event: ReactKeyboardEvent<HTMLElement>, container: HTMLElement | null) {
+  if (event.key !== 'Tab' || !container) return;
+  const items = Array.from(container.querySelectorAll<HTMLElement>(focusableSelector));
+  const first = items[0]; const last = items.at(-1);
+  if (!first || !last) { event.preventDefault(); container.focus(); return; }
+  if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+  else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+}
 
 export default function BarcodeLookupModal({ userId, selectedDate, defaultMealType = 'snack', isOpen, onClose, onLogged }: Props) {
   const { t } = useI18n();
@@ -239,6 +249,7 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
           aria-modal="true"
           aria-label={product ? t('barcode.add_product') : t('barcode.scan_title')}
           tabIndex={-1}
+          onKeyDown={(event) => trapFocus(event, dialogRef.current)}
           initial={reducedMotion ? false : { y: '100%', opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={reducedMotion ? undefined : { y: '100%', opacity: 0 }}
           transition={{ type: 'spring', damping: 28, stiffness: 300 }}
           onClick={(e) => e.stopPropagation()}
@@ -299,7 +310,7 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
                 <div className="flex items-center gap-2 mb-3">
                   <span className="text-xs" style={{ color: 'var(--content-secondary)' }}>{t('barcode.amount')}</span>
                   <input type="number" min={1} value={grams} onChange={(e) => setGrams(Math.max(1, Number(e.target.value) || 0))}
-                    style={{ width: 80, background: 'var(--surface-1)', border: '1px solid var(--border-default)', borderRadius: 8, padding: '5px 8px', color: 'var(--content-primary)', fontSize: 13, fontFamily: 'var(--font-mono)' }} className="text-base" />
+                    style={{ width: 80, background: 'var(--surface-1)', border: '1px solid var(--border-default)', borderRadius: 8, padding: '5px 8px', color: 'var(--content-primary)', fontSize: 16, fontFamily: 'var(--font-mono)' }} className="text-base" />
                   <span className="text-xs" style={{ color: 'var(--content-muted)' }}>g →</span>
                   <span className="text-[12px] font-semibold" style={{ color: 'var(--action-primary)' }}>{Math.round(product.per100g.kcal * f)} kcal</span>
                 </div>
@@ -352,7 +363,7 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
                           ref={laserRef}
                           initial={{ top: '6%' }}
                           animate={{ top: ['6%', '94%', '6%'] }}
-                          transition={{ duration: 2.2, ease: 'easeInOut', repeat: Infinity }}
+                          transition={{ duration: 2.2, ease: 'easeInOut', repeat: reducedMotion ? 0 : Infinity }}
                           style={{ position: 'absolute', left: '4%', right: '4%', height: 2, background: 'var(--action-primary)', boxShadow: '0 0 8px 1px var(--action-secondary)' }}
                         />
                       ) : (
@@ -386,7 +397,7 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
                   onKeyDown={(e) => { if (e.key === 'Enter') lookup(code); }}
                   placeholder={t('barcode.number_placeholder')}
                   inputMode="numeric" autoFocus
-                  style={{ width: '100%', background: 'var(--surface-1)', border: '1px solid var(--border-default)', borderRadius: 10, padding: '11px 12px', color: 'var(--content-primary)', fontSize: 15, fontFamily: 'var(--font-mono)', marginBottom: 10 }} className="text-base"
+                  style={{ width: '100%', background: 'var(--surface-1)', border: '1px solid var(--border-default)', borderRadius: 10, padding: '11px 12px', color: 'var(--content-primary)', fontSize: 16, fontFamily: 'var(--font-mono)', marginBottom: 10 }} className="text-base"
                 />
                 <button onClick={() => lookup(code)} disabled={loading || !code}
                   style={{ width: '100%', padding: 12, borderRadius: 12, border: 'none', background: 'var(--action-primary)', color: 'var(--action-on-primary)', fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', cursor: loading || !code ? 'not-allowed' : 'pointer', opacity: code ? 1 : 0.5, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
@@ -403,20 +414,20 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
                   value={manual.name}
                   onChange={(e) => setManual((m) => ({ ...m, name: e.target.value }))}
                   placeholder={t('barcode.product_name')}
-                  style={{ width: '100%', background: 'var(--surface-1)', border: '1px solid var(--border-default)', borderRadius: 10, padding: '10px 12px', color: 'var(--content-primary)', fontSize: 14, marginBottom: 8 }} className="text-base"
+                  style={{ width: '100%', background: 'var(--surface-1)', border: '1px solid var(--border-default)', borderRadius: 10, padding: '10px 12px', color: 'var(--content-primary)', fontSize: 16, marginBottom: 8 }} className="text-base"
                 />
                 <div className="grid grid-cols-2 gap-2" style={{ marginBottom: 10 }}>
                   {([['kcal', 'barcode.ph_kcal'], ['protein', 'barcode.ph_protein'], ['carbs', 'barcode.ph_carbs'], ['fat', 'barcode.ph_fat']] as const).map(([k, ph]) => (
                     <input key={k} value={manual[k]} inputMode="decimal"
                       onChange={(e) => setManual((m) => ({ ...m, [k]: e.target.value.replace(/[^\d.]/g, '') }))}
                       placeholder={t(ph)}
-                      style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)', borderRadius: 10, padding: '9px 11px', color: 'var(--content-primary)', fontSize: 13, fontFamily: 'var(--font-mono)' }} className="text-base" />
+                      style={{ background: 'var(--surface-1)', border: '1px solid var(--border-default)', borderRadius: 10, padding: '9px 11px', color: 'var(--content-primary)', fontSize: 16, fontFamily: 'var(--font-mono)' }} className="text-base" />
                   ))}
                 </div>
                 <div className="flex items-center gap-2 mb-3">
                   <span className="text-xs" style={{ color: 'var(--content-secondary)' }}>{t('barcode.amount')}</span>
                   <input type="number" min={1} value={grams} onChange={(e) => setGrams(Math.max(1, Number(e.target.value) || 0))}
-                    style={{ width: 80, background: 'var(--surface-1)', border: '1px solid var(--border-default)', borderRadius: 8, padding: '5px 8px', color: 'var(--content-primary)', fontSize: 13, fontFamily: 'var(--font-mono)' }} className="text-base" />
+                    style={{ width: 80, background: 'var(--surface-1)', border: '1px solid var(--border-default)', borderRadius: 8, padding: '5px 8px', color: 'var(--content-primary)', fontSize: 16, fontFamily: 'var(--font-mono)' }} className="text-base" />
                   <span className="text-xs" style={{ color: 'var(--content-muted)' }}>g/ml</span>
                 </div>
                 <div className="flex gap-1 mb-3">

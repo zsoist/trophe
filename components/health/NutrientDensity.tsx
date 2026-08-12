@@ -23,7 +23,7 @@ function ScoreRing({ score, max = 60 }: { score: number; max?: number }) {
   const r   = 26;
   const C   = 2 * Math.PI * r;
   const pct = Math.min(score / max, 1);
-  const color = score >= 35 ? '#65D387' : score >= 22 ? '#D4A853' : score >= 12 ? '#fb923c' : '#E87A6E';
+  const color = score >= 35 ? 'var(--status-success-fg)' : score >= 22 ? 'var(--action-primary)' : score >= 12 ? 'var(--status-warning-fg)' : 'var(--status-danger-fg)';
 
   return (
     <div style={{ position: 'relative', width: 64, height: 64, flexShrink: 0 }}>
@@ -79,9 +79,9 @@ export default function NutrientDensity({ entries }: NutrientDensityProps) {
   const label  = avgScore >= 35 ? t('density.excellent') : avgScore >= 22 ? t('density.good') : avgScore >= 12 ? t('density.fair') : t('density.low');
   const tip    = avgScore >= 30 ? t('density.tip_high') : avgScore >= 18 ? t('density.tip_med') : t('density.tip_low');
 
-  const gradeColor = { A: '#65D387', B: '#D4A853', C: '#fb923c', D: '#E87A6E' }[grade];
-  const gradeBg    = { A: 'var(--status-success-bg)', B: 'var(--action-secondary)', C: 'rgba(251,146,60,.08)', D: 'rgba(232,122,110,.08)' }[grade];
-  const gradeBorder = { A: 'var(--status-success-bg)', B: 'var(--action-secondary)', C: 'rgba(251,146,60,.2)', D: 'rgba(232,122,110,.2)' }[grade];
+  const gradeColor = { A: 'var(--status-success-fg)', B: 'var(--action-primary)', C: 'var(--status-warning-fg)', D: 'var(--status-danger-fg)' }[grade];
+  const gradeBg    = { A: 'var(--status-success-bg)', B: 'var(--action-secondary)', C: 'var(--status-warning-bg)', D: 'var(--status-danger-bg)' }[grade];
+  const gradeBorder = { A: 'var(--status-success-border)', B: 'var(--border-focus)', C: 'var(--status-warning-border)', D: 'var(--status-danger-border)' }[grade];
 
   return (
     <div className="glass p-3">
@@ -146,7 +146,7 @@ export default function NutrientDensity({ entries }: NutrientDensityProps) {
             <div className="space-y-2">
               {scored.slice(0, 6).map((food, i) => {
                 const barPct   = maxScore > 0 ? (food.score / maxScore) * 100 : 0;
-                const barColor = food.score >= 35 ? '#65D387' : food.score >= 22 ? '#D4A853' : food.score >= 12 ? '#fb923c' : 'var(--content-muted)';
+                const barColor = food.score >= 35 ? 'var(--status-success-fg)' : food.score >= 22 ? 'var(--action-primary)' : food.score >= 12 ? 'var(--status-warning-fg)' : 'var(--status-danger-fg)';
                 return (
                   <div key={`${food.name}-${i}`}>
                     <div className="flex items-center justify-between mb-0.5">
@@ -176,10 +176,10 @@ export default function NutrientDensity({ entries }: NutrientDensityProps) {
             {/* Scale legend */}
             <div className="flex items-center gap-1 mt-3 pt-2" style={{ borderTop: '1px solid color-mix(in srgb, var(--content-primary) 8%, transparent)' }}>
               <span style={{ fontSize: 12, color: 'var(--content-disabled)' }}>{t('density.scale_label')} →</span>
-              {[['< 12', '#E87A6E', 'D'], ['12–22', '#fb923c', 'C'], ['22–35', '#D4A853', 'B'], ['35+', '#65D387', 'A']].map(([range, color, g]) => (
+              {[['< 12', 'var(--status-danger-fg)', 'D'], ['12–22', 'var(--status-warning-fg)', 'C'], ['22–35', 'var(--action-primary)', 'B'], ['35+', 'var(--status-success-fg)', 'A']].map(([range, color, g]) => (
                 <span key={g} style={{
                   fontSize: 12, padding: '1px 5px', borderRadius: 5,
-                  background: `${color}18`, color, border: `1px solid ${color}40`,
+                  background: 'var(--surface-2)', color, border: '1px solid var(--border-default)',
                 }}>
                   {g} {range}
                 </span>

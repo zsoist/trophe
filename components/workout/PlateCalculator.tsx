@@ -7,6 +7,7 @@
  */
 
 import { useEffect, useRef } from 'react';
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { X } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
@@ -17,6 +18,16 @@ const RACKS: Record<WeightUnit, { bar: number; plates: number[] }> = {
   kg: { bar: 20, plates: [25, 20, 15, 10, 5, 2.5, 1.25] },
   lb: { bar: 45, plates: [45, 35, 25, 10, 5, 2.5] },
 };
+
+const focusableSelector = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+function trapFocus(event: ReactKeyboardEvent<HTMLElement>, container: HTMLElement | null) {
+  if (event.key !== 'Tab' || !container) return;
+  const items = Array.from(container.querySelectorAll<HTMLElement>(focusableSelector));
+  const first = items[0]; const last = items.at(-1);
+  if (!first || !last) { event.preventDefault(); container.focus(); return; }
+  if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+  else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+}
 
 /** Greedy per-side plate breakdown in the display unit. */
 export function platesPerSide(totalDisplay: number, unit: WeightUnit): { plate: number; count: number }[] | null {
@@ -91,6 +102,7 @@ export default function PlateCalculator({
         aria-modal="true"
         aria-label={t('workout.plate_title')}
         tabIndex={-1}
+        onKeyDown={(event) => trapFocus(event, dialogRef.current)}
         initial={reducedMotion ? false : { y: 80, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         exit={reducedMotion ? undefined : { y: 80, opacity: 0 }}

@@ -14,16 +14,16 @@ interface ZoneInfo {
 
 function getZone(bf: number, sex: CalcSex): ZoneInfo {
   if (sex === 'male') {
-    if (bf < 10) return { label: 'Athletic', color: 'var(--status-success-fg)', bgColor: 'rgba(34,197,94,0.15)' };
+    if (bf < 10) return { label: 'Athletic', color: 'var(--status-success-fg)', bgColor: 'var(--status-success-bg)' };
     if (bf < 20) return { label: 'Fit', color: 'var(--action-primary)', bgColor: 'var(--accent-soft, rgba(212,168,83,0.15))' };
-    if (bf < 25) return { label: 'Average', color: '#3b82f6', bgColor: 'rgba(59,130,246,0.15)' };
-    if (bf < 30) return { label: 'Above Average', color: '#f59e0b', bgColor: 'rgba(245,158,11,0.15)' };
+    if (bf < 25) return { label: 'Average', color: 'var(--status-info-fg)', bgColor: 'var(--status-info-bg)' };
+    if (bf < 30) return { label: 'Above Average', color: 'var(--status-warning-fg)', bgColor: 'var(--status-warning-bg)' };
     return { label: 'High', color: 'var(--status-danger-fg)', bgColor: 'var(--status-danger-bg)' };
   } else {
-    if (bf < 18) return { label: 'Athletic', color: 'var(--status-success-fg)', bgColor: 'rgba(34,197,94,0.15)' };
+    if (bf < 18) return { label: 'Athletic', color: 'var(--status-success-fg)', bgColor: 'var(--status-success-bg)' };
     if (bf < 25) return { label: 'Fit', color: 'var(--action-primary)', bgColor: 'var(--accent-soft, rgba(212,168,83,0.15))' };
-    if (bf < 32) return { label: 'Average', color: '#3b82f6', bgColor: 'rgba(59,130,246,0.15)' };
-    if (bf < 38) return { label: 'Above Average', color: '#f59e0b', bgColor: 'rgba(245,158,11,0.15)' };
+    if (bf < 32) return { label: 'Average', color: 'var(--status-info-fg)', bgColor: 'var(--status-info-bg)' };
+    if (bf < 38) return { label: 'Above Average', color: 'var(--status-warning-fg)', bgColor: 'var(--status-warning-bg)' };
     return { label: 'High', color: 'var(--status-danger-fg)', bgColor: 'var(--status-danger-bg)' };
   }
 }
@@ -46,15 +46,15 @@ function GaugeArc({ value, sex }: { value: number; sex: CalcSex }) {
     ? [
         { end: 10, color: 'var(--status-success-fg)' },
         { end: 20, color: 'var(--action-primary)' },
-        { end: 25, color: '#3b82f6' },
-        { end: 30, color: '#f59e0b' },
+        { end: 25, color: 'var(--status-info-fg)' },
+        { end: 30, color: 'var(--status-warning-fg)' },
         { end: 45, color: 'var(--status-danger-fg)' },
       ]
     : [
         { end: 18, color: 'var(--status-success-fg)' },
         { end: 25, color: 'var(--action-primary)' },
-        { end: 32, color: '#3b82f6' },
-        { end: 38, color: '#f59e0b' },
+        { end: 32, color: 'var(--status-info-fg)' },
+        { end: 38, color: 'var(--status-warning-fg)' },
         { end: 45, color: 'var(--status-danger-fg)' },
       ];
 

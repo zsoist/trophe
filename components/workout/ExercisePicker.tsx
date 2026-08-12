@@ -10,6 +10,7 @@
  */
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Dumbbell, Info, Plus, Search, X } from 'lucide-react';
@@ -21,6 +22,15 @@ import { MUSCLE_GROUPS, muscleColor, muscleLabelKey } from './muscle-groups';
 const subscribeToClient = () => () => {};
 const getClientSnapshot = () => true;
 const getServerSnapshot = () => false;
+const focusableSelector = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+function trapFocus(event: ReactKeyboardEvent<HTMLElement>, container: HTMLElement | null) {
+  if (event.key !== 'Tab' || !container) return;
+  const items = Array.from(container.querySelectorAll<HTMLElement>(focusableSelector));
+  const first = items[0]; const last = items.at(-1);
+  if (!first || !last) { event.preventDefault(); container.focus(); return; }
+  if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+  else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+}
 
 // ─── Custom Exercise Modal ───
 export function CustomExerciseModal({
@@ -95,6 +105,7 @@ export function CustomExerciseModal({
         aria-modal="true"
         aria-label={t('workout.custom_title')}
         tabIndex={-1}
+        onKeyDown={(event) => trapFocus(event, dialogRef.current)}
         initial={reducedMotion ? false : { scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={reducedMotion ? undefined : { scale: 0.9, opacity: 0 }}
@@ -257,7 +268,7 @@ export default function ExercisePicker({
     const previousOverflow = document.body.style.overflow;
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onCloseRef.current();
+      if (event.key === 'Escape' && !showCustomModal) onCloseRef.current();
     };
 
     document.body.style.overflow = 'hidden';
@@ -268,7 +279,7 @@ export default function ExercisePicker({
       document.removeEventListener('keydown', handleKeyDown);
       previousFocus?.focus();
     };
-  }, []);
+  }, [showCustomModal]);
 
   useEffect(() => {
     if (canUseDom) inputRef.current?.focus();
@@ -305,6 +316,7 @@ export default function ExercisePicker({
     <motion.div
       ref={pickerRef}
       tabIndex={-1}
+      onKeyDown={(event) => trapFocus(event, pickerRef.current)}
       initial={reducedMotion ? false : { opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={reducedMotion ? undefined : { opacity: 0 }}

@@ -101,6 +101,7 @@ export default function FormCheckPage() {
       <div className="sticky top-0 z-40 glass-elevated px-4 py-3">
         <div className="max-w-md mx-auto flex items-center gap-3">
           <button
+            aria-label="Back to workout"
             onClick={() => router.push('/dashboard/workout')}
             className="p-2 rounded-xl min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             style={{ background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)' }}

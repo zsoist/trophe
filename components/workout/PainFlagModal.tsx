@@ -7,10 +7,21 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { AlertTriangle } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import type { PainFlag } from '@/lib/types';
+
+const focusableSelector = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+function trapFocus(event: ReactKeyboardEvent<HTMLElement>, container: HTMLElement | null) {
+  if (event.key !== 'Tab' || !container) return;
+  const items = Array.from(container.querySelectorAll<HTMLElement>(focusableSelector));
+  const first = items[0]; const last = items.at(-1);
+  if (!first || !last) { event.preventDefault(); container.focus(); return; }
+  if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+  else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+}
 
 export default function PainFlagModal({
   exerciseId,
@@ -55,6 +66,7 @@ export default function PainFlagModal({
         aria-modal="true"
         aria-label={t('painflag.title')}
         tabIndex={-1}
+        onKeyDown={(event) => trapFocus(event, dialogRef.current)}
         initial={reducedMotion ? false : { scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={reducedMotion ? undefined : { scale: 0.9, opacity: 0 }}
@@ -62,7 +74,7 @@ export default function PainFlagModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-2 mb-4">
-          <AlertTriangle size={20} className="text-red-400" />
+          <AlertTriangle size={20} className="text-[var(--status-danger-fg)]" />
           <h3 className="text-lg font-semibold">{t('painflag.title')}</h3>
         </div>
 
@@ -86,11 +98,11 @@ export default function PainFlagModal({
                 className="flex-1 py-2 rounded-lg text-sm font-medium transition-all min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                 style={{
                   background: severity >= s
-                    ? `rgba(239, 68, 68, ${0.2 + s * 0.15})`
+                    ? 'var(--status-danger-bg)'
                     : 'color-mix(in srgb, var(--content-primary) 8%, transparent)',
                   color: severity >= s ? 'var(--status-danger-fg)' : 'var(--content-muted)',
                   border: severity >= s
-                    ? '1px solid rgba(239,68,68,0.3)'
+                    ? '1px solid var(--status-danger-border)'
                     : '1px solid color-mix(in srgb, var(--content-primary) 8%, transparent)',
                 }}
               >
@@ -126,7 +138,7 @@ export default function PainFlagModal({
             style={{
               background: 'var(--status-danger-bg)',
               color: 'var(--status-danger-fg)',
-              border: '1px solid rgba(239,68,68,0.3)',
+              border: '1px solid var(--status-danger-border)',
             }}
           >
             {t('painflag.save')}

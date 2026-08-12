@@ -7,6 +7,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { Dumbbell, Trophy, X } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -20,6 +21,16 @@ interface HistoryEntry {
   topWeightKg: number | null;
   topReps: number | null;
   sets: number;
+}
+
+const focusableSelector = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+function trapFocus(event: ReactKeyboardEvent<HTMLElement>, container: HTMLElement | null) {
+  if (event.key !== 'Tab' || !container) return;
+  const items = Array.from(container.querySelectorAll<HTMLElement>(focusableSelector));
+  const first = items[0]; const last = items.at(-1);
+  if (!first || !last) { event.preventDefault(); container.focus(); return; }
+  if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+  else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
 }
 
 export default function ExerciseInfoSheet({
@@ -117,6 +128,7 @@ export default function ExerciseInfoSheet({
         aria-modal="true"
         aria-label={name}
         tabIndex={-1}
+        onKeyDown={(event) => trapFocus(event, dialogRef.current)}
         initial={reducedMotion ? false : { y: 80, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         exit={reducedMotion ? undefined : { y: 80, opacity: 0 }}

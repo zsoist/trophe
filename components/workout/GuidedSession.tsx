@@ -605,7 +605,7 @@ export default function GuidedSession({
 
           {painFlags.length > 0 && (
             <div className="mt-3 p-3 rounded-xl text-left" style={{ background: 'var(--status-danger-bg)', border: '1px solid var(--status-danger-border)' }}>
-              <p className="text-xs text-red-400 font-medium mb-1 flex items-center gap-1">
+              <p className="text-xs text-[var(--status-danger-fg)] font-medium mb-1 flex items-center gap-1">
                 <AlertTriangle size={11} /> {t('workout.pain_shared', { n: painFlags.length })}
               </p>
               {painFlags.map((pf, i) => (
@@ -723,7 +723,7 @@ export default function GuidedSession({
                   style={{ background: 'var(--status-danger-bg)', minWidth: 36, minHeight: 36 }}
                   aria-label={t('workout.report_pain')}
                 >
-                  <AlertTriangle size={15} className="text-red-400" />
+                  <AlertTriangle size={15} className="text-[var(--status-danger-fg)]" />
                 </button>
               </div>
 
@@ -787,7 +787,7 @@ export default function GuidedSession({
                             placeholder={set.ghost?.weight_kg != null ? String(kgToDisplay(set.ghost.weight_kg, unit)) : '0'}
                             className="flex-1 text-center rounded-xl outline-none min-w-0 text-base"
                             style={{
-                              height: 44, fontSize: 15, fontWeight: 600,
+                              height: 44, fontSize: 16, fontWeight: 600,
                               background: set.is_pr ? 'color-mix(in srgb, var(--action-primary) 15%, transparent)' : 'color-mix(in srgb, var(--content-primary) 8%, transparent)',
                               border: set.is_pr ? '1px solid color-mix(in srgb, var(--action-primary) 35%, transparent)' : '1px solid transparent',
                               color: set.is_pr ? 'var(--action-primary)' : 'var(--content-primary)',
@@ -804,7 +804,7 @@ export default function GuidedSession({
                             placeholder={set.ghost?.reps != null ? String(set.ghost.reps) : ex.ref.target_reps}
                             className="flex-1 text-center rounded-xl outline-none min-w-0 text-base"
                             style={{
-                              height: 44, fontSize: 15, fontWeight: 600,
+                              height: 44, fontSize: 16, fontWeight: 600,
                               background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)', color: 'var(--content-primary)',
                               opacity: set.completed ? 0.65 : 1,
                             }}
@@ -819,7 +819,7 @@ export default function GuidedSession({
                             placeholder={set.ghost?.rpe != null ? String(set.ghost.rpe) : (ex.ref.target_rpe ? String(ex.ref.target_rpe) : '-')}
                             className="text-center rounded-xl outline-none text-base"
                             style={{
-                              width: 42, height: 44, fontSize: 13,
+                              width: 42, height: 44, fontSize: 16,
                               background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)', color: 'var(--content-secondary)',
                               opacity: set.completed ? 0.65 : 1,
                             }}
@@ -835,10 +835,10 @@ export default function GuidedSession({
                               width: 46, height: 44, borderRadius: 12, flexShrink: 0,
                               display: 'flex', alignItems: 'center', justifyContent: 'center',
                               background: set.completed
-                                ? (set.is_pr ? 'color-mix(in srgb, var(--action-primary) 25%, transparent)' : 'rgba(34,197,94,.18)')
+                                ? (set.is_pr ? 'color-mix(in srgb, var(--action-primary) 25%, transparent)' : 'var(--status-success-bg)')
                                 : 'color-mix(in srgb, var(--content-primary) 8%, transparent)',
                               border: set.completed
-                                ? (set.is_pr ? '1px solid color-mix(in srgb, var(--action-primary) 50%, transparent)' : '1px solid rgba(34,197,94,.35)')
+                                ? (set.is_pr ? '1px solid color-mix(in srgb, var(--action-primary) 50%, transparent)' : '1px solid var(--status-success-border)')
                                 : '1px solid color-mix(in srgb, var(--content-primary) 8%, transparent)',
                               color: set.completed ? (set.is_pr ? 'var(--action-primary)' : 'var(--status-success-fg)') : 'var(--content-muted)',
                               opacity: set.saving ? 0.5 : 1,

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { Icon } from '@/components/ui';
@@ -42,6 +43,15 @@ const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
+const focusableSelector = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+function trapFocus(event: ReactKeyboardEvent<HTMLElement>, container: HTMLElement | null) {
+  if (event.key !== 'Tab' || !container) return;
+  const items = Array.from(container.querySelectorAll<HTMLElement>(focusableSelector));
+  const first = items[0]; const last = items.at(-1);
+  if (!first || !last) { event.preventDefault(); container.focus(); return; }
+  if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+  else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+}
 
 export default function CalendarView({
   selectedDate,
@@ -171,9 +181,9 @@ export default function CalendarView({
   }
 
   function getDayBorderColor(entries: number): string {
-    if (entries >= 5) return 'border-green-500/60';
+    if (entries >= 5) return 'border-[var(--status-success-border)]';
     if (entries >= 3) return 'border-[var(--border-focus)]/50';
-    if (entries >= 1) return 'border-stone-600/50';
+    if (entries >= 1) return 'border-[var(--border-default)]';
     return 'border-transparent';
   }
 
@@ -203,6 +213,7 @@ export default function CalendarView({
         aria-modal="true"
         aria-label="Food log calendar"
         tabIndex={-1}
+        onKeyDown={(event) => trapFocus(event, dialogRef.current)}
         initial={reducedMotion ? false : { y: '100%' }}
         animate={{ y: 0 }}
         exit={reducedMotion ? undefined : { y: '100%' }}
@@ -234,7 +245,7 @@ export default function CalendarView({
                 initial="enter"
                 animate="center"
                 exit="exit"
-                transition={{ duration: 0.2 }}
+                transition={{ duration: reducedMotion ? 0 : 0.2 }}
                 className="text-[var(--content-primary)] font-semibold text-base whitespace-nowrap"
               >
                 {MONTH_NAMES[viewMonth]} {viewYear}
@@ -357,7 +368,7 @@ export default function CalendarView({
               avg <span className="text-[var(--content-primary)] font-medium">{avgCalories}</span> kcal
             </span>
           </div>
-          <span className={`font-semibold ${consistency >= 80 ? 'text-green-400' : consistency >= 50 ? 'text-[var(--action-primary)]' : 'text-[var(--content-muted)]'}`}>
+          <span className={`font-semibold ${consistency >= 80 ? 'text-[var(--status-success-fg)]' : consistency >= 50 ? 'text-[var(--action-primary)]' : 'text-[var(--content-muted)]'}`}>
             {consistency}%
           </span>
         </div>

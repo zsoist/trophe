@@ -26,19 +26,19 @@ import { localDateStr, localWeekStart } from '@/lib/utils/dates';
 // ═══════════════════════════════════════════════
 
 const muscleColors: Record<string, string> = {
-  chest: '#EF4444',
-  back: '#3B82F6',
-  shoulders: '#F59E0B',
-  biceps: '#A855F7',
-  triceps: '#A855F7',
-  forearms: '#A855F7',
-  quads: '#22C55E',
-  hamstrings: '#22C55E',
-  glutes: '#22C55E',
-  calves: '#22C55E',
-  core: '#78716C',
+  chest: 'var(--data-protein)',
+  back: 'var(--data-carbs)',
+  shoulders: 'var(--data-calories)',
+  biceps: 'var(--data-fat)',
+  triceps: 'var(--data-fat)',
+  forearms: 'var(--data-fat)',
+  quads: 'var(--data-fiber)',
+  hamstrings: 'var(--data-fiber)',
+  glutes: 'var(--data-fiber)',
+  calves: 'var(--data-fiber)',
+  core: 'var(--data-neutral)',
   full_body: 'var(--action-primary)',
-  cardio: '#EC4899',
+  cardio: 'var(--data-sugar)',
 };
 
 const muscleLabels: Record<string, string> = {
@@ -490,17 +490,17 @@ export default function WorkoutStatsPage() {
               <Section title="Muscle Frequency" icon={<Clock size={16} className="accent-text" />}>
                 <div className="grid grid-cols-2 gap-2">
                   {muscleFrequency.map((mf) => {
-                    let statusColor = 'text-red-400';
+                    let statusColor = 'text-[var(--status-danger-fg)]';
                     let dotColor = 'var(--status-danger-fg)';
                     if (mf.lastTrained === null) {
                       statusColor = 'text-[var(--content-muted)]';
-                      dotColor = '#57534e';
+                      dotColor = 'var(--content-muted)';
                     } else if (mf.daysSince <= 3) {
-                      statusColor = 'text-green-400';
+                      statusColor = 'text-[var(--status-success-fg)]';
                       dotColor = 'var(--status-success-fg)';
                     } else if (mf.daysSince <= 6) {
-                      statusColor = 'text-yellow-400';
-                      dotColor = '#facc15';
+                      statusColor = 'text-[var(--status-warning-fg)]';
+                      dotColor = 'var(--status-warning-fg)';
                     }
 
                     return (

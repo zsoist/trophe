@@ -804,7 +804,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
         />
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-start gap-2">
-            <HelpCircle size={16} className="text-amber-400 flex-shrink-0 mt-0.5" />
+            <HelpCircle size={16} className="text-[var(--status-warning-fg)] flex-shrink-0 mt-0.5" />
             <div>
               <p className="text-[var(--content-secondary)] text-sm font-medium">{t('food.quick_question')}</p>
               <p className="text-[var(--content-secondary)] text-xs mt-1 leading-relaxed">{questionText}</p>
@@ -825,7 +825,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
                 key={size}
                 type="button"
                 onClick={() => submitQuestionChoice(t(`food.portion_answer_${size}`))}
-                className="min-h-11 rounded-lg border border-amber-500/20 bg-amber-500/[0.06] text-amber-200 text-xs hover:bg-amber-500/10 transition-colors min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                className="rounded-lg border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] text-[var(--status-warning-fg)] text-xs hover:bg-[var(--status-warning-bg)] transition-colors min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
               >
                 {t(`food.portion_${size}`)}
               </button>
@@ -878,9 +878,9 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
-            className="mb-2 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20"
+            className="mb-2 px-3 py-2 rounded-lg bg-[var(--status-danger-bg)] border border-[var(--status-danger-border)]"
           >
-            <p className="text-red-400 text-xs text-center">{error}</p>
+            <p className="text-[var(--status-danger-fg)] text-xs text-center">{error}</p>
           </motion.div>
         )}
         {/* F14 + W11: photo settles with a final beam pass when results land */}
@@ -992,7 +992,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
         {error && (
           <p
             role="alert"
-            className="text-red-400 text-xs text-center"
+            className="text-[var(--status-danger-fg)] text-xs text-center"
           >
             {error}
           </p>
@@ -1042,7 +1042,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
           {text.length >= 350 && (
             <span
               className={`absolute bottom-1.5 right-2 text-xs tabular-nums pointer-events-none ${
-                text.length >= MAX_PARSE_INPUT ? 'text-amber-400' : 'text-[var(--content-muted)]'
+                text.length >= MAX_PARSE_INPUT ? 'text-[var(--status-warning-fg)]' : 'text-[var(--content-muted)]'
               }`}
             >
               {text.length}/{MAX_PARSE_INPUT}
@@ -1200,7 +1200,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
               animate={reducedMotion ? undefined : { scale: [1, 1.2, 1] }}
               transition={reducedMotion ? undefined : { repeat: Infinity, duration: 1.5 }}
             >
-              <Mic size={20} className="text-red-400" />
+              <Mic size={20} className="text-[var(--status-danger-fg)]" />
             </motion.div>
             <span className="text-[var(--content-secondary)] text-sm">
               {t(mode === 'requesting'
@@ -1220,13 +1220,13 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="glass p-4 space-y-2 border border-amber-500/20"
+            className="glass p-4 space-y-2 border border-[var(--status-warning-border)]"
           >
             <div className="flex items-center justify-between">
-              <p className="text-amber-400 text-xs font-semibold">{t('food.voice_permission_title')}</p>
+              <p className="text-[var(--status-warning-fg)] text-xs font-semibold">{t('food.voice_permission_title')}</p>
               <button
                 onClick={() => setMicDeniedHelp(false)}
-                className="min-h-11 min-w-11 rounded-lg text-[var(--content-muted)] hover:text-[var(--content-secondary)] flex items-center justify-center min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                className="min-h-11 min-w-11 rounded-lg text-[var(--content-muted)] hover:text-[var(--content-secondary)] flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                 aria-label={t('food.voice_permission_dismiss_aria')}
               >
                 <X size={14} />
@@ -1241,7 +1241,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
             </p>
             <button
               onClick={() => { setMicDeniedHelp(false); startVoiceInput(); }}
-              className="min-h-11 px-3 rounded-lg text-amber-400 hover:text-amber-300 text-xs font-medium transition-colors min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+              className="px-3 rounded-lg text-[var(--status-warning-fg)] text-xs font-medium transition-colors min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             >
               {t('food.voice_permission_retry')}
             </button>
@@ -1258,7 +1258,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
             exit={{ opacity: 0 }}
             className="space-y-2"
           >
-            <p className="text-red-400 text-xs text-center">{error}</p>
+            <p className="text-[var(--status-danger-fg)] text-xs text-center">{error}</p>
             <div className="flex items-center justify-center gap-3">
               <button
                 onClick={handleRetry}

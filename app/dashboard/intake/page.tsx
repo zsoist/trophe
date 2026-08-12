@@ -323,7 +323,7 @@ export default function IntakeWizard() {
           style={{
             width: '100%', background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)',
             border: '1px solid var(--border-default)', borderRadius: 14,
-            padding: '14px 16px', color: 'var(--content-primary)', fontSize: 14, lineHeight: 1.6,
+            padding: '14px 16px', color: 'var(--content-primary)', fontSize: 16, lineHeight: 1.6,
             resize: 'vertical', fontFamily: 'inherit', outline: 'none',
           }}
           onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--action-secondary)'; }}
@@ -337,9 +337,9 @@ export default function IntakeWizard() {
           style={{
             marginTop: 8, display: 'flex', alignItems: 'center', gap: 6,
             minHeight: 44, minWidth: 44, borderRadius: 10,
-            background: microphoneMode === 'idle' ? 'none' : 'rgba(248,113,113,.08)',
+            background: microphoneMode === 'idle' ? 'none' : 'var(--status-danger-bg)',
             border: 'none', cursor: 'pointer', padding: '8px 10px',
-            color: microphoneMode === 'idle' ? 'var(--content-muted)' : 'rgb(248,113,113)',
+            color: microphoneMode === 'idle' ? 'var(--content-muted)' : 'var(--status-danger-fg)',
             fontSize: 12, fontFamily: 'var(--font-mono)',
           }} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
         >
@@ -347,7 +347,7 @@ export default function IntakeWizard() {
           {microphoneMode === 'idle' ? t('intake.voice_answer') : t('intake.voice_stop')}
         </button>
         {(microphoneMode !== 'idle' || microphoneError) && (
-          <p aria-live="polite" role="status" style={{ color: microphoneError ? 'rgb(248,113,113)' : 'var(--content-muted)', fontSize: 12, marginTop: 4 }}>
+          <p aria-live="polite" role="status" style={{ color: microphoneError ? 'var(--status-danger-fg)' : 'var(--content-muted)', fontSize: 12, marginTop: 4 }}>
             {microphoneError ?? t(microphoneMode === 'requesting'
               ? 'intake.voice_requesting'
               : microphoneMode === 'transcribing'
@@ -380,7 +380,7 @@ export default function IntakeWizard() {
 
         {/* Top bar: exit + progress */}
         <div className="row-b" style={{ marginBottom: 10 }}>
-          <button onClick={() => { cancelVoice(); persist(false); router.push('/dashboard'); }}
+          <button aria-label="Exit intake" onClick={() => { cancelVoice(); persist(false); router.push('/dashboard'); }}
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--content-muted)' }} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
             <Icon name="i-x" size={15} />
           </button>
