@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  canUseNaturalPortionDisplay,
   getGramsForHumanPortion,
   getHumanPortionAmount,
   formatNaturalPortionUnit,
@@ -7,8 +8,10 @@ import {
   getPortionSizeOptions,
   isNaturalPortionUnit,
   isPortionClarificationQuestion,
+  getNaturalPortionUnitTranslationKey,
   resolveAmountDraft,
   shouldTreatPortionAsEstimated,
+  shouldShowGlobalClarification,
 } from '@/components/food/portion-controls';
 
 describe('portion size choices', () => {
@@ -63,6 +66,16 @@ describe('portion clarification questions', () => {
       clarificationQuestion: 'What portion size did you have?',
     })).toBe(false);
   });
+
+  it('keeps multi-item portion questions in the answerable global clarification flow', () => {
+    const question = 'What portion size did you have?';
+    expect(shouldShowGlobalClarification({ clarificationQuestion: question, itemCount: 1 })).toBe(false);
+    expect(shouldShowGlobalClarification({ clarificationQuestion: question, itemCount: 2 })).toBe(true);
+    expect(shouldShowGlobalClarification({
+      clarificationQuestion: 'Was that chicken breast or thigh?',
+      itemCount: 1,
+    })).toBe(true);
+  });
 });
 
 describe('natural container portions', () => {
@@ -71,8 +84,10 @@ describe('natural container portions', () => {
   });
 
   it('displays the parsed ajiaco quantity instead of asking the user for grams', () => {
+    expect(canUseNaturalPortionDisplay({ unit: 'bowl', grams: 550, quantity: 1 })).toBe(true);
     expect(getHumanPortionAmount({ grams: 550, quantity: 1 })).toBe(1);
     expect(getHumanPortionAmount({ grams: 770, quantity: 1.4 })).toBe(1.4);
+    expect(getHumanPortionAmount({ grams: 687.5, quantity: 1.25 })).toBe(1.25);
   });
 
   it('converts an exact bowl draft back to internal grams', () => {
@@ -89,7 +104,16 @@ describe('natural container portions', () => {
     expect(formatNaturalPortionUnit('cup', 1.4)).toBe('cups');
   });
 
+  it('maps canonical and localized container aliases to translation keys', () => {
+    expect(getNaturalPortionUnitTranslationKey('bowl', 1)).toBe('food.unit.bowl_one');
+    expect(getNaturalPortionUnitTranslationKey('μπολ', 1.25)).toBe('food.unit.bowl_other');
+    expect(getNaturalPortionUnitTranslationKey('tazas', 1)).toBe('food.unit.cup_one');
+    expect(getNaturalPortionUnitTranslationKey('g', 1)).toBeNull();
+  });
+
   it('falls back safely when the parser quantity is invalid', () => {
+    expect(canUseNaturalPortionDisplay({ unit: 'bowl', grams: 550, quantity: 0 })).toBe(false);
+    expect(canUseNaturalPortionDisplay({ unit: 'g', grams: 550, quantity: 1 })).toBe(false);
     expect(getHumanPortionAmount({ grams: 550, quantity: 0 })).toBe(550);
     expect(getGramsForHumanPortion({ grams: 550, quantity: 0, humanAmount: 1.25 })).toBe(1.25);
   });
@@ -102,6 +126,10 @@ describe('amount editing drafts', () => {
 
   it('commits a replacement value such as 700', () => {
     expect(resolveAmountDraft('700', 500)).toBe(700);
+  });
+
+  it('commits a fractional natural portion without coercing it to one', () => {
+    expect(resolveAmountDraft('0.75', 1, { min: 0.01, max: 27.27 })).toBe(0.75);
   });
 
   it.each(['0', '-2', 'not a number'])('restores the previous amount for %j', (draft) => {

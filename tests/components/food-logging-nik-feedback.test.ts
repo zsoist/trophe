@@ -9,6 +9,7 @@ import {
 import {
   normalizeItemsForPortionReview,
   getPortionSizeOptions,
+  recalculatePortion,
   resolveAmountDraft,
 } from '@/components/food/portion-controls';
 import {
@@ -74,6 +75,39 @@ describe("Nik's food-logging feedback", () => {
     });
   });
 
+  it('resolves the ajiaco warning and macros through size and exact-bowl interactions', () => {
+    const estimated = {
+      food_name: 'ajiaco santafereño',
+      grams: 550,
+      quantity: 1,
+      unit: 'bowl',
+      calories: 385,
+      protein_g: 24.8,
+      carbs_g: 44,
+      fat_g: 13.8,
+      fiber_g: 7.8,
+      sugar_g: 0,
+      portion_explicit: false,
+      confidence: 0.6,
+    };
+    const small = recalculatePortion(estimated, 385);
+    const exact = recalculatePortion(estimated, 687.5);
+
+    expect(small).toMatchObject({
+      grams: 385,
+      quantity: 0.7,
+      calories: 270,
+      portion_explicit: true,
+      confidence: 0.8,
+    });
+    expect(exact).toMatchObject({
+      grams: 687.5,
+      quantity: 1.25,
+      calories: 481,
+      portion_explicit: true,
+    });
+  });
+
   it('wires natural bowl amounts and resolved clarification state into the review UI', () => {
     const source = readFileSync(
       join(process.cwd(), 'components/food/ParsedFoodList.tsx'),
@@ -81,10 +115,11 @@ describe("Nik's food-logging feedback", () => {
     );
 
     expect(source).toContain('normalizeItemsForPortionReview(');
-    expect(source).toContain('isNaturalPortionUnit(item.unit)');
+    expect(source).toContain('canUseNaturalPortionDisplay({');
     expect(source).toContain('getHumanPortionAmount({');
     expect(source).toContain('getGramsForHumanPortion({');
     expect(source).toContain('showClarificationQuestion');
+    expect(source).toContain('decimals={natural ? 2 : 0}');
   });
 
   it('keeps 13 g protein as a label fact while resolving the bar at 60 g', () => {
