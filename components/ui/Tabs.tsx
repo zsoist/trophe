@@ -1,6 +1,5 @@
 'use client';
 
-import { useId } from 'react';
 import type { KeyboardEvent, ReactNode } from 'react';
 
 export interface TabOption<T extends string> {
@@ -8,10 +7,8 @@ export interface TabOption<T extends string> {
   label: ReactNode;
   /** Optional badge count rendered after the label. */
   badge?: number | string;
-  /** Content rendered in the real tabpanel owned by this tab. */
-  panel?: ReactNode;
-  /** Stable id override for the tabpanel rendered by this primitive. */
-  panelId?: string;
+  /** Id of the externally rendered tabpanel controlled by this tab. */
+  panelId: string;
 }
 
 interface TabsProps<T extends string> {
@@ -30,16 +27,10 @@ export function Tabs<T extends string>({
   className = '',
   size = 'default',
 }: TabsProps<T>) {
-  const generatedId = useId();
-  const idPrefix = `tabs-${generatedId.replace(/[^a-zA-Z0-9_-]/g, '')}`;
   const baseTab = size === 'compact' ? 'px-2 text-[12px]' : 'px-3 text-[12px]';
 
   function tabId(option: TabOption<T>) {
-    return `${idPrefix}-tab-${option.id}`;
-  }
-
-  function panelId(option: TabOption<T>) {
-    return option.panelId ?? `${idPrefix}-panel-${option.id}`;
+    return `${option.panelId}-tab`;
   }
 
   function selectAndFocus(index: number) {
@@ -84,7 +75,6 @@ export function Tabs<T extends string>({
           {options.map((opt, index) => {
             const active = opt.id === value;
             const id = tabId(opt);
-            const controlledPanelId = panelId(opt);
             return (
               <button
                 key={opt.id}
@@ -92,7 +82,7 @@ export function Tabs<T extends string>({
                 type="button"
                 role="tab"
                 aria-selected={active}
-                aria-controls={controlledPanelId}
+                aria-controls={opt.panelId}
                 tabIndex={active ? 0 : -1}
                 onClick={() => onChange(opt.id)}
                 onKeyDown={(event) => onKeyDown(event, index)}
@@ -127,20 +117,6 @@ export function Tabs<T extends string>({
           className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-[var(--surface-2)] to-transparent"
         />
       </div>
-      {options.map((opt) => {
-        const id = tabId(opt);
-        return (
-          <div
-            key={opt.id}
-            id={panelId(opt)}
-            role="tabpanel"
-            aria-labelledby={id}
-            hidden={opt.id !== value}
-          >
-            {opt.panel}
-          </div>
-        );
-      })}
     </div>
   );
 }

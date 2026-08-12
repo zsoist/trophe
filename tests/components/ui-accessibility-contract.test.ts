@@ -92,21 +92,29 @@ describe('accessible UI primitive contract', () => {
 
   it('links every tab to a panel and moves selection and focus with keyboard navigation', () => {
     const onChange = vi.fn();
-    render(React.createElement(Tabs, {
-      value: 'overview',
-      onChange,
-      options: [
-        { id: 'overview', label: 'Overview', panel: 'Overview content' },
-        { id: 'activity', label: 'Activity', panel: 'Activity content' },
-        { id: 'notes', label: 'Notes', panel: 'Notes content' },
-      ],
-    }));
+    const options = [
+      { id: 'overview', label: 'Overview', panelId: 'overview-panel' },
+      { id: 'activity', label: 'Activity', panelId: 'activity-panel' },
+      { id: 'notes', label: 'Notes', panelId: 'notes-panel' },
+    ] as const;
+    render(React.createElement(
+      React.Fragment,
+      null,
+      React.createElement(Tabs, { value: 'overview', onChange, options: [...options] }),
+      ...options.map(({ id, label, panelId }) => React.createElement(
+        'div',
+        { id: panelId, role: 'tabpanel', 'aria-labelledby': `${panelId}-tab` },
+        `${label} content`,
+      )),
+    ));
 
     const tabs = screen.getAllByRole('tab');
     const panels = screen.getAllByRole('tabpanel', { hidden: true });
     expect(tabs).toHaveLength(3);
     expect(panels).toHaveLength(3);
-    expect(tabs[0].getAttribute('aria-controls')).toBe(panels[0].id);
+    expect(new Set(panels.map((panel) => panel.id)).size).toBe(3);
+    expect(tabs[0].getAttribute('aria-controls')).toBe('overview-panel');
+    expect(tabs[0].id).toBe(panels[0].getAttribute('aria-labelledby'));
 
     tabs[0].focus();
     fireEvent.keyDown(tabs[0], { key: 'ArrowRight' });
