@@ -324,7 +324,7 @@ export default function OnboardingPage() {
 
                 <div className="glass-elevated p-6 space-y-4 gold-border">
                   <div className="text-center">
-                    <p className="label-sm" style={{ color: 'var(--t4)' }}>Daily Target</p>
+                    <p className="label-sm" style={{ color: 'var(--t4)', fontSize: 12 }}>Daily Target</p>
                     {/* Serif hero numeral + count-up */}
                     <p className="display-xl mt-1" style={{ color: 'var(--gold-300,#D4A853)' }}>
                       <AnimatedValue value={profile.calories} grouped={false} />

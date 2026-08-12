@@ -176,7 +176,7 @@ function LoginForm() {
       <div className="login-enter w-full max-w-sm relative">
         {/* Logo */}
         <div className="text-center mb-8">
-          <Link href="/" className="no-underline inline-block">
+          <Link href="/" className="inline-flex min-h-11 min-w-11 items-center justify-center no-underline">
             <span className="font-serif italic text-[#D4A853] text-3xl tracking-tight select-none">
               trophē
             </span>

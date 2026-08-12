@@ -282,7 +282,7 @@ export default function LandingPage({ lang }: { lang: LandingLang }) {
             <Link
               href="/login"
               prefetch={false}
-              className="hidden min-h-11 items-center text-sm font-medium text-[var(--content-secondary)] transition-colors hover:text-[var(--content-primary)] no-underline sm:inline-flex"
+              className="hidden min-h-11 min-w-11 items-center justify-center px-2 text-sm font-medium text-[var(--content-secondary)] transition-colors hover:text-[var(--content-primary)] no-underline sm:inline-flex"
             >
               Log in
             </Link>

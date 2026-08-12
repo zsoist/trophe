@@ -80,3 +80,29 @@ test('mobile viewport does not introduce horizontal page overflow on public flow
     }
   }
 });
+
+test('public identity and login links meet the minimum target size in both themes', async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 844 });
+
+  const targets = [
+    { path: '/', name: 'Log in' },
+    { path: '/login', name: 'trophē' },
+  ];
+
+  for (const theme of ['dark', 'light'] as const) {
+    await page.goto('/');
+    await page.evaluate((mode) => localStorage.setItem('trophe_theme_mode', mode), theme);
+
+    for (const target of targets) {
+      await page.goto(target.path);
+
+      const link = page.getByRole('link', { name: target.name, exact: true });
+      await expect(link).toBeVisible();
+      const box = await link.boundingBox();
+
+      expect(box, `${target.path}: ${target.name} should have a measurable target`).not.toBeNull();
+      expect.soft(box!.width, `${target.path}: ${target.name} should be at least 44px wide`).toBeGreaterThanOrEqual(44);
+      expect.soft(box!.height, `${target.path}: ${target.name} should be at least 44px tall`).toBeGreaterThanOrEqual(44);
+    }
+  }
+});
