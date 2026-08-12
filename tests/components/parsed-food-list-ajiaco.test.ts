@@ -159,6 +159,28 @@ describe('ajiaco soup portion review', () => {
     ]);
   });
 
+  it('keeps the fixed save bar outside transformed meal-card ancestors on iPhone', () => {
+    const { unmount } = render(React.createElement(
+      'div',
+      { 'data-testid': 'transformed-meal', style: { transform: 'translateY(0)' } },
+      React.createElement(ParsedFoodList, {
+        items: [AJIACO],
+        onConfirm: vi.fn(),
+        onCancel: vi.fn(),
+        logging: false,
+      }),
+    ));
+
+    const transformedMeal = screen.getByTestId('transformed-meal');
+    const saveShell = document.body.querySelector('.portion-review-save-shell');
+
+    expect(saveShell).not.toBeNull();
+    expect(transformedMeal.contains(saveShell)).toBe(false);
+
+    unmount();
+    expect(document.body.querySelector('.portion-review-save-shell')).toBeNull();
+  });
+
   it('tracks the rendered fixed bar height so translated notes cannot cover the last item', () => {
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
       bottom: 194,
