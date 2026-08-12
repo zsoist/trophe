@@ -49,7 +49,7 @@ function trapFocus(event: ReactKeyboardEvent<HTMLElement>, container: HTMLElemen
   if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
   else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
 }
-export function restoreCompletionFocus(returnTarget: HTMLElement | null, fallback: HTMLElement | null) {
+function restoreCompletionFocus(returnTarget: HTMLElement | null, fallback: HTMLElement | null) {
   if (returnTarget?.isConnected) returnTarget.focus();
   else fallback?.focus();
 }
@@ -861,7 +861,7 @@ export default function WorkoutPage() {
       <div className="max-w-md lg:max-w-2xl mx-auto px-4 pt-4">
         {/* ═══ LANDING ═══ */}
         {mode === 'landing' && (
-          <motion.div ref={landingFocusRef} tabIndex={-1} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-3 outline-none">
+          <motion.div ref={landingFocusRef} data-testid="workout-landing-focus" tabIndex={-1} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-3 outline-none">
 
             {/* ── Hero: program-aware entry state ── */}
             {programQuery.isLoading ? (

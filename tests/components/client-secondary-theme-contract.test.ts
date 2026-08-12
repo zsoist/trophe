@@ -6,26 +6,64 @@ import { join } from 'node:path';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+const motionPreference = vi.hoisted(() => ({ reduced: true }));
+
 vi.mock('framer-motion', async () => {
   const ReactModule = await import('react');
   const ignored = new Set(['animate', 'exit', 'initial', 'layout', 'layoutId', 'transition', 'variants', 'whileTap', 'custom']);
   const element = (tag: 'button' | 'div' | 'span' | 'h2') => ReactModule.forwardRef<HTMLElement, Record<string, unknown>>(
     (props, ref) => ReactModule.createElement(tag, {
-      ...Object.fromEntries(Object.entries(props).filter(([key]) => !ignored.has(key))), ref,
+      ...Object.fromEntries(Object.entries(props).filter(([key]) => !ignored.has(key))),
+      'data-motion-animate': props.animate === undefined ? undefined : JSON.stringify(props.animate),
+      ref,
     }, props.children as React.ReactNode),
   );
   return {
     AnimatePresence: ({ children }: { children: React.ReactNode }) => children,
     motion: { button: element('button'), div: element('div'), span: element('span'), h2: element('h2') },
-    useReducedMotion: () => true,
+    useReducedMotion: () => motionPreference.reduced,
   };
 });
 
 vi.mock('@/lib/i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
-vi.mock('@/lib/supabase', () => ({ supabase: { auth: { getUser: vi.fn() } } }));
+vi.mock('next/navigation', () => ({ usePathname: () => '/dashboard/workout', useRouter: () => ({ push: vi.fn() }) }));
+vi.mock('next/link', () => ({ default: ({ children, href }: { children: React.ReactNode; href: string }) => React.createElement('a', { href }, children) }));
+vi.mock('@/lib/useClientNav', () => ({ useClientNav: () => [] }));
+vi.mock('@/lib/trpc/client', () => ({
+  trpc: { workouts: { program: { mine: { useQuery: () => ({ data: null, isLoading: false }) } } } },
+}));
+vi.mock('@/lib/workout/units', () => ({ useWeightUnit: () => ['kg', vi.fn()], kgToDisplay: (value: number) => value, displayToKg: (value: number) => value }));
+vi.mock('@/components/workout/workout-persistence', () => ({
+  createWorkoutSession: vi.fn().mockResolvedValue('session-1'),
+  deleteWorkoutSet: vi.fn(), deleteWorkoutSets: vi.fn(),
+  finishWorkoutSession: vi.fn().mockResolvedValue(true),
+  insertWorkoutSet: vi.fn().mockResolvedValue('set-1'),
+  insertWorkoutSets: vi.fn().mockResolvedValue(true),
+  loadLastSetsMap: vi.fn().mockResolvedValue({}),
+  loadPrMap: vi.fn().mockResolvedValue({}),
+  updateWorkoutSupersetGroups: vi.fn().mockResolvedValue(true),
+}));
+vi.mock('@zxing/browser', () => ({
+  BrowserMultiFormatReader: class { decodeFromConstraints() { return new Promise(() => undefined); } },
+}));
+vi.mock('@zxing/library', () => ({ DecodeHintType: { POSSIBLE_FORMATS: 'formats' }, BarcodeFormat: {} }));
+vi.mock('@/lib/supabase', () => {
+  const exercise = { id: 'exercise-1', name: 'Test squat', muscle_group: 'quads', equipment: 'barbell', is_compound: true };
+  const from = vi.fn((table: string) => {
+    const result = { data: table === 'exercises' ? [exercise] : [], error: null };
+    const query: Record<string, unknown> = {};
+    for (const method of ['select', 'eq', 'order', 'limit', 'maybeSingle', 'insert', 'update', 'delete']) {
+      query[method] = vi.fn(() => query);
+    }
+    query.then = (resolve: (value: typeof result) => unknown) => Promise.resolve(result).then(resolve);
+    return query;
+  });
+  return { supabase: { auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'user-1' } } }) }, from } };
+});
 
 import ExercisePicker from '@/components/workout/ExercisePicker';
-import { restoreCompletionFocus } from '@/app/dashboard/workout/page';
+import BarcodeLookupModal from '@/components/food/BarcodeLookupModal';
+import WorkoutPage from '@/app/dashboard/workout/page';
 
 const ROUTE_SOURCES = [
   'app/dashboard/book/page.tsx',
@@ -98,7 +136,10 @@ const EXPECTED_DIALOG_ROOTS: Record<(typeof OVERLAY_SOURCES)[number], number> = 
 
 const source = (file: string) => readFileSync(join(process.cwd(), file), 'utf8');
 
-afterEach(() => cleanup());
+afterEach(() => {
+  cleanup();
+  motionPreference.reduced = true;
+});
 
 function inventory(patterns: readonly RegExp[], files: readonly string[] = OWNED_SOURCES) {
   return files.flatMap((file) => patterns.flatMap((pattern) =>
@@ -216,23 +257,49 @@ describe('client secondary theme and accessibility contract', () => {
     outside.remove();
   });
 
-  it('captures completion focus before the workout mode transition', () => {
-    const workout = source('app/dashboard/workout/page.tsx');
-    const completion = workout.slice(workout.indexOf('// Reset + celebrate'), workout.indexOf("navigator.vibrate?.([10, 30, 10, 30, 18])"));
+  it('restores real workout completion focus to a connected trigger or mounted landing fallback', async () => {
+    const outside = document.createElement('button');
+    document.body.appendChild(outside);
+    render(React.createElement(WorkoutPage));
 
-    expect(completion).toMatch(/finishReturnFocusRef\.current\s*=\s*document\.activeElement[\s\S]*setMode\('landing'\)/);
-    expect(workout).not.toMatch(/if \(!finishSummary\) return;\s*finishReturnFocusRef\.current = document\.activeElement/);
+    const completeWorkout = async (keepOutsideFocus: boolean) => {
+      await waitFor(() => expect(screen.getByRole('button', { name: /workout\.strength/ })).toBeTruthy());
+      if (keepOutsideFocus) outside.focus();
+      fireEvent.click(screen.getByRole('button', { name: /workout\.strength/ }));
+      fireEvent.click(await screen.findByRole('button', { name: 'workout.add_exercise' }));
+      const pickButtons = await screen.findAllByRole('button', { name: 'workout.add_exercise' });
+      fireEvent.click(pickButtons.at(-1)!);
+      const weight = (await screen.findAllByRole('spinbutton'))[0];
+      fireEvent.change(weight, { target: { value: '40' } });
+      const finish = screen.getByRole('button', { name: 'workout.finish' });
+      if (!keepOutsideFocus) finish.focus();
+      fireEvent.click(finish);
+      await screen.findByRole('dialog', { name: 'workout.summary_title' });
+      fireEvent.click(screen.getByRole('button', { name: 'workout.summary_done' }));
+      await waitFor(() => expect(screen.queryByRole('dialog', { name: 'workout.summary_title' })).toBeNull());
+    };
 
-    const trigger = document.createElement('button');
-    const fallback = document.createElement('div');
-    fallback.tabIndex = -1;
-    document.body.append(trigger, fallback);
-    restoreCompletionFocus(trigger, fallback);
-    expect(document.activeElement).toBe(trigger);
-    trigger.remove();
-    restoreCompletionFocus(trigger, fallback);
-    expect(document.activeElement).toBe(fallback);
-    fallback.remove();
+    await completeWorkout(true);
+    expect(document.activeElement).toBe(outside);
+    await completeWorkout(false);
+    expect(document.activeElement).toBe(screen.getByTestId('workout-landing-focus'));
+    outside.remove();
+  });
+
+  it('renders a static reduced-motion barcode laser and retains the normal sweep branch', async () => {
+    const props = { userId: 'user-1', selectedDate: '2026-08-12', isOpen: true, onClose: vi.fn(), onLogged: vi.fn() };
+    const view = render(React.createElement(BarcodeLookupModal, props));
+    fireEvent.click(screen.getByRole('button', { name: /barcode\.photo/ }));
+    const staticLaser = await screen.findByTestId('barcode-laser');
+    expect(staticLaser.getAttribute('data-motion-animate')).toBeNull();
+    expect(staticLaser.style.top).toBe('50%');
+
+    view.unmount();
+    motionPreference.reduced = false;
+    render(React.createElement(BarcodeLookupModal, props));
+    fireEvent.click(screen.getByRole('button', { name: /barcode\.photo/ }));
+    const animatedLaser = await screen.findByTestId('barcode-laser');
+    expect(animatedLaser.getAttribute('data-motion-animate')).toContain('94%');
   });
 
   it('keeps exercise toolbar controls outside the collapse button and names owned icon controls', () => {
