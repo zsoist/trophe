@@ -260,14 +260,15 @@ const SKELETON_MAP = {
 };
 
 export default function CoachLoadingSkeletons({ page }: CoachLoadingSkeletonsProps) {
+  const reduceMotion = useReducedMotion();
   const SkeletonComponent = SKELETON_MAP[page];
 
   return (
     <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.3 }}
+      initial={reduceMotion ? false : { opacity: 0 }}
+      animate={reduceMotion ? false : { opacity: 1 }}
+      exit={reduceMotion ? undefined : { opacity: 0 }}
+      transition={reduceMotion ? { duration: 0 } : { duration: 0.3 }}
       className="min-h-[400px]"
     >
       <SkeletonComponent />

@@ -3,37 +3,51 @@
 import React from 'react';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ts from 'typescript';
 
 const motionPreference = vi.hoisted(() => ({ reduced: true }));
 
 vi.mock('framer-motion', async () => {
   const ReactModule = await import('react');
-  const ignored = new Set(['animate', 'exit', 'initial', 'layout', 'transition']);
-  const element = (tag: 'button' | 'div') => ReactModule.forwardRef<HTMLElement, Record<string, unknown>>(
+  const ignored = new Set(['animate', 'exit', 'initial', 'layout', 'transition', 'whileHover']);
+  const element = (tag: string) => ReactModule.forwardRef<HTMLElement, Record<string, unknown>>(
     (props, ref) => ReactModule.createElement(tag, {
       ...Object.fromEntries(Object.entries(props).filter(([key]) => !ignored.has(key))),
       'data-motion-initial': props.initial === undefined ? undefined : JSON.stringify(props.initial),
       'data-motion-animate': props.animate === undefined ? undefined : JSON.stringify(props.animate),
+      'data-motion-while-hover': props.whileHover === undefined ? undefined : JSON.stringify(props.whileHover),
       ref,
     }, props.children as React.ReactNode),
   );
+  const elementCache = new Map<string, ReturnType<typeof element>>();
   return {
     AnimatePresence: ({ children }: { children: React.ReactNode }) => children,
-    motion: { button: element('button'), div: element('div') },
+    motion: new Proxy({}, { get: (_, tag) => {
+      const name = String(tag);
+      const cached = elementCache.get(name);
+      if (cached) return cached;
+      const created = element(name);
+      elementCache.set(name, created);
+      return created;
+    } }),
     useReducedMotion: () => motionPreference.reduced,
   };
 });
 
 import BatchHabitAssign from '@/components/coach/BatchHabitAssign';
+import CoachAchievements from '@/components/coach/CoachAchievements';
 import CoachLoadingSkeletons from '@/components/coach/CoachLoadingSkeletons';
+import CoachingRoadmap from '@/components/coach/CoachingRoadmap';
+import CoachingStreak from '@/components/coach/CoachingStreak';
 import { FoodSharingSwitch } from '@/components/coach/FoodSharingSwitch';
 import MacroRollupModal from '@/components/coach/MacroRollupModal';
 import MealSuggestPicker from '@/components/coach/MealSuggestPicker';
 import QuickActionsBar from '@/components/coach/QuickActionsBar';
 import ShoppingListModal from '@/components/coach/ShoppingListModal';
+import { useCoachDialogFocus } from '@/components/coach/useCoachDialogFocus';
+import { Trophy } from 'lucide-react';
 
 const ROUTE_SOURCES = [
   'app/coach/calendar/page.tsx',
@@ -92,6 +106,32 @@ function hasVisibleContent(node: ts.Node): boolean {
   return false;
 }
 
+function motionNodes(container: HTMLElement) {
+  return [...container.querySelectorAll<HTMLElement>('[data-motion-initial], [data-motion-animate], [data-motion-while-hover]')];
+}
+
+function hasOnlyStaticMotion(container: HTMLElement) {
+  return motionNodes(container).every((node) => ['data-motion-initial', 'data-motion-animate', 'data-motion-while-hover'].every((attribute) => {
+    const value = node.getAttribute(attribute);
+    return value === null || value === 'false';
+  }));
+}
+
+function RouteDialogHarness({ renderUtility }: { renderUtility: (onClose: () => void) => React.ReactNode }) {
+  const [open, setOpen] = React.useState(false);
+  const [utilityOpen, setUtilityOpen] = React.useState(false);
+  const ref = React.useRef<HTMLDivElement>(null);
+  useCoachDialogFocus(open, () => setOpen(false), ref);
+  return React.createElement(React.Fragment, null,
+    React.createElement('button', { onClick: () => setOpen(true) }, 'Open route dialog'),
+    open && React.createElement('div', { ref, role: 'dialog', 'aria-label': 'Underlying route dialog', tabIndex: -1 },
+      React.createElement('button', { onClick: () => setOpen(false) }, 'Close route dialog'),
+      React.createElement('button', { onClick: () => setUtilityOpen(true) }, 'Open utility dialog'),
+      utilityOpen && renderUtility(() => setUtilityOpen(false)),
+    ),
+  );
+}
+
 const OVERLAY_SOURCES = [
   'app/coach/foods/page.tsx',
   'app/coach/habits/page.tsx',
@@ -120,6 +160,10 @@ const batchProps = {
   onAssign: vi.fn(),
   onClose: vi.fn(),
 };
+
+beforeEach(() => {
+  motionPreference.reduced = true;
+});
 
 afterEach(() => {
   cleanup();
@@ -217,10 +261,11 @@ describe('coach operational routes and modal library contract', () => {
     ];
     const perpetualMotion = files.flatMap((file) => {
       const value = source(file);
+      const hasInfiniteRepeat = /repeat:\s*(?:Infinity|Number\.POSITIVE_INFINITY)/.test(value);
+      const hasStaticPreferenceBranch = /animate=\{(?:reduceMotion \? (?:false|undefined)|!reduceMotion)/.test(value);
       return [
-        /repeat:\s*Infinity/.test(value) && `${file}: bare Infinity`,
         !/useReducedMotion/.test(value) && `${file}: no reduced-motion preference`,
-        !/animate=\{(?:reduceMotion \? (?:false|undefined)|!reduceMotion)/.test(value) && `${file}: no static reduced-motion animation branch`,
+        hasInfiniteRepeat && !hasStaticPreferenceBranch && `${file}: infinite repetition lacks a static reduced-motion branch`,
       ].filter(Boolean);
     });
 
@@ -294,8 +339,8 @@ describe('coach operational routes and modal library contract', () => {
         !/aria-modal="true"/.test(value) && `${file}: missing modal semantics`,
         !/aria-(?:label|labelledby)=/.test(value) && `${file}: missing dialog name`,
         !/(?:safe-bottom|env\(safe-area-inset-bottom\))/.test(value) && `${file}: missing safe-area reserve`,
-        !/(?:Escape)/.test(value) && `${file}: missing Escape behavior`,
-        !/(?:previousFocus|returnFocus|ReturnFocus)/.test(value) && `${file}: missing focus restoration`,
+        !(/useCoachDialogFocus/.test(value) || /(?:Escape)/.test(value)) && `${file}: missing Escape behavior`,
+        !(/useCoachDialogFocus/.test(value) || /(?:previousFocus|returnFocus|ReturnFocus)/.test(value)) && `${file}: missing focus restoration`,
         !/(?:useReducedMotion|motion-reduce:)/.test(value) && `${file}: missing reduced-motion behavior`,
       ].filter(Boolean) as string[];
     });
@@ -371,7 +416,7 @@ describe('coach operational routes and modal library contract', () => {
       const view = render(utility.renderDialog(onClose));
       const dialog = await screen.findByRole('dialog', { name: utility.name });
       const close = screen.getByRole('button', { name: utility.closeName });
-      expect(document.activeElement).toBe(close);
+      await waitFor(() => expect(document.activeElement).toBe(close));
       expect(dialog.className).toContain('safe-bottom');
       const animated = [dialog.parentElement, dialog].filter((element): element is HTMLElement => element instanceof HTMLElement && element.hasAttribute('data-motion-initial'));
       expect(animated.length).toBeGreaterThanOrEqual(2);
@@ -403,5 +448,74 @@ describe('coach operational routes and modal library contract', () => {
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(childClose).toHaveBeenCalledTimes(1);
     expect(parentClose).not.toHaveBeenCalled();
+  });
+
+  it('makes every actual coach decorative surface static for reduced motion while retaining representative motion normally', () => {
+    const surfaces = [
+      React.createElement(CoachAchievements, { achievements: [{ id: 'win', name: 'Win', icon: Trophy, description: 'Unlocked', unlocked: true }] }),
+      React.createElement(CoachingRoadmap, { habits: [{ name: 'Walk', emoji: '🚶', status: 'active' as const }] }),
+      React.createElement(CoachingStreak, { streakDays: 30 }),
+      React.createElement(CoachLoadingSkeletons, { page: 'dashboard' }),
+    ];
+
+    for (const surface of surfaces) {
+      const reduced = render(surface);
+      expect(motionNodes(reduced.container).length).toBeGreaterThan(0);
+      expect(hasOnlyStaticMotion(reduced.container)).toBe(true);
+      reduced.unmount();
+    }
+
+    motionPreference.reduced = false;
+    const normal = render(React.createElement(CoachAchievements, { achievements: [{ id: 'win', name: 'Win', icon: Trophy, description: 'Unlocked', unlocked: true }] }));
+    expect(motionNodes(normal.container).some((node) => node.getAttribute('data-motion-animate') !== null && node.getAttribute('data-motion-animate') !== 'false')).toBe(true);
+    motionPreference.reduced = true;
+  });
+
+  it('keeps a route dialog open while each focused utility dialog consumes one Escape', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ days: [], targets: null, mealCount: 0, parsedMealCount: 0, failedMealCount: 0, complete: true, items: [], byCategory: {} }),
+    }));
+    const utilities = [
+      { name: 'Plan macros by day', render: (onClose: () => void) => React.createElement(MacroRollupModal, { isOpen: true, clientId: 'client-1', onClose }) },
+      { name: 'AI for Lunch', render: (onClose: () => void) => React.createElement(MealSuggestPicker, { isOpen: true, slotLabel: 'Lunch', slotFraction: 0.3, targets: { calories: 2000, protein: 150, carbs: 220, fat: 60 }, onPick: vi.fn(), onClose }) },
+      { name: 'Shopping list', render: (onClose: () => void) => React.createElement(ShoppingListModal, { isOpen: true, clientId: 'client-1', onClose }) },
+    ];
+
+    for (const utility of utilities) {
+      const onClose = vi.fn();
+      const view = render(React.createElement(RouteDialogHarness, { renderUtility: (closeUtility) => utility.render(() => { closeUtility(); onClose(); }) }));
+      try {
+        fireEvent.click(screen.getByRole('button', { name: 'Open route dialog' }));
+        const routeDialog = await screen.findByRole('dialog', { name: 'Underlying route dialog' });
+        await waitFor(() => expect(routeDialog.contains(document.activeElement)).toBe(true));
+        fireEvent.click(screen.getByRole('button', { name: 'Open utility dialog' }));
+        const utilityDialog = await screen.findByRole('dialog', { name: utility.name });
+        await waitFor(() => expect(utilityDialog.contains(document.activeElement)).toBe(true));
+        fireEvent.keyDown(document, { key: 'Escape' });
+        expect(onClose).toHaveBeenCalledTimes(1);
+        await waitFor(() => expect(screen.queryByRole('dialog', { name: utility.name })).toBeNull());
+        expect(routeDialog.isConnected).toBe(true);
+      } finally {
+        view.unmount();
+      }
+    }
+  });
+
+  it('uses one synchronous stack-safe coach dialog hook for every route-owned dialog helper', () => {
+    const routes = [
+      'app/coach/foods/page.tsx',
+      'app/coach/habits/page.tsx',
+      'app/coach/protocols/page.tsx',
+      'app/coach/templates/page.tsx',
+    ];
+    const violations = routes.flatMap((file) => {
+      const value = source(file);
+      return [
+        !/useCoachDialogFocus\(/.test(value) && `${file}: does not call shared dialog hook`,
+        /requestAnimationFrame\(/.test(value) && `${file}: delayed dialog focus`,
+      ].filter(Boolean);
+    });
+    expect(violations).toEqual([]);
   });
 });

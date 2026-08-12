@@ -39,9 +39,9 @@ export default memo(function CoachingStreak({ streakDays }: CoachingStreakProps)
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.4, type: 'spring', stiffness: 200 }}
+      initial={reduceMotion ? false : { opacity: 0, scale: 0.9 }}
+      animate={reduceMotion ? false : { opacity: 1, scale: 1 }}
+      transition={reduceMotion ? { duration: 0 } : { duration: 0.4, type: 'spring', stiffness: 200 }}
       className="bg-[var(--surface-hover)] border border-[var(--border-subtle)] rounded-xl p-4 flex items-center gap-4 relative overflow-hidden"
       title="Consecutive days at least one of your clients logged a check-in — your coaching consistency. Resets when a day passes with no client activity."
     >
@@ -58,7 +58,7 @@ export default memo(function CoachingStreak({ streakDays }: CoachingStreakProps)
         <motion.div
           className="absolute inset-0 pointer-events-none"
           initial={reduceMotion ? false : undefined}
-          animate={reduceMotion ? undefined : { opacity: [0.05, 0.12, 0.05] }}
+          animate={reduceMotion ? false : { opacity: [0.05, 0.12, 0.05] }}
           transition={reduceMotion ? { duration: 0 } : { duration: 2, repeat: Number.POSITIVE_INFINITY, ease: 'easeInOut' }}
           style={{
             background: 'radial-gradient(circle at 30% 50%, var(--status-warning-bg) 0%, transparent 60%)',
@@ -70,7 +70,7 @@ export default memo(function CoachingStreak({ streakDays }: CoachingStreakProps)
           <motion.div
             className="absolute inset-0 pointer-events-none"
             initial={reduceMotion ? false : undefined}
-            animate={reduceMotion ? undefined : { opacity: [0.08, 0.2, 0.08] }}
+            animate={reduceMotion ? false : { opacity: [0.08, 0.2, 0.08] }}
             transition={reduceMotion ? { duration: 0 } : { duration: 1.5, repeat: Number.POSITIVE_INFINITY, ease: 'easeInOut' }}
             style={{
               background: 'radial-gradient(circle at 30% 50%, var(--status-warning-bg) 0%, transparent 60%)',
@@ -83,7 +83,7 @@ export default memo(function CoachingStreak({ streakDays }: CoachingStreakProps)
               className="absolute w-1 h-1 rounded-full pointer-events-none"
               style={{ backgroundColor: 'var(--action-primary)' }}
               initial={reduceMotion ? false : { left: `${25 + n * 8}%`, top: '50%' }}
-              animate={reduceMotion ? undefined : {
+              animate={reduceMotion ? false : {
                 x: [0, (n - 1) * 20, 0],
                 y: [0, -15 - n * 5, 0],
                 opacity: [0, 1, 0],
@@ -107,7 +107,7 @@ export default memo(function CoachingStreak({ streakDays }: CoachingStreakProps)
           initial={reduceMotion ? false : undefined}
           animate={!reduceMotion && (tier === 'strong' || tier === 'legendary')
               ? { scale: [1, 1.1, 1], rotate: [0, 3, -3, 0] }
-              : {}
+              : false
           }
           transition={!reduceMotion && (tier === 'strong' || tier === 'legendary')
               ? { duration: 1.5, repeat: Number.POSITIVE_INFINITY, ease: 'easeInOut' }

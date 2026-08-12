@@ -45,9 +45,9 @@ export default memo(function CoachingRoadmap({ habits }: CoachingRoadmapProps) {
   const reduceMotion = useReducedMotion();
   return (
     <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
+      initial={reduceMotion ? false : { opacity: 0, y: 12 }}
+      animate={reduceMotion ? false : { opacity: 1, y: 0 }}
+      transition={reduceMotion ? { duration: 0 } : { duration: 0.4 }}
       className="bg-[var(--surface-hover)] border border-[var(--border-subtle)] rounded-xl p-4"
     >
       <h3 className="text-[var(--content-secondary)] text-xs font-semibold uppercase tracking-wider mb-4">
@@ -62,9 +62,9 @@ export default memo(function CoachingRoadmap({ habits }: CoachingRoadmapProps) {
           return (
             <motion.div
               key={`${habit.name}-${i}`}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.08, duration: 0.3 }}
+              initial={reduceMotion ? false : { opacity: 0, y: 10 }}
+              animate={reduceMotion ? false : { opacity: 1, y: 0 }}
+              transition={reduceMotion ? { duration: 0 } : { delay: i * 0.08, duration: 0.3 }}
               className="flex items-start flex-shrink-0"
             >
               <div className="flex flex-col items-center min-w-[72px]">
@@ -97,7 +97,7 @@ export default memo(function CoachingRoadmap({ habits }: CoachingRoadmapProps) {
                     <motion.div
                       className="absolute inset-0 rounded-full border-2 border-[var(--action-primary)]"
                       initial={reduceMotion ? false : undefined}
-                      animate={reduceMotion ? undefined : {
+                      animate={reduceMotion ? false : {
                         scale: [1, 1.4],
                         opacity: [0.6, 0],
                       }}

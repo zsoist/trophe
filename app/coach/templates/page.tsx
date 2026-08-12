@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useState, useCallback, useRef, type RefObject } from 'react';
+import { Suspense, useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, useReducedMotion } from 'framer-motion';
 import {
@@ -33,6 +33,7 @@ import type {
 } from '@/lib/types';
 import { CoachNav } from '@/components/coach/CoachNav';
 import CoachLoadingSkeletons from '@/components/coach/CoachLoadingSkeletons';
+import { useCoachDialogFocus } from '@/components/coach/useCoachDialogFocus';
 import ProgramBuilder, { type BuilderClient } from '@/components/coach/ProgramBuilder';
 import { BotNav } from '@/components/ui/BotNav';
 import { Icon, ConfirmSheet } from '@/components/ui';
@@ -66,30 +67,6 @@ const muscleLabels: Record<string, string> = {
   triceps: 'Triceps', forearms: 'Forearms', quads: 'Quads', hamstrings: 'Hamstrings',
   glutes: 'Glutes', calves: 'Calves', core: 'Core', full_body: 'Full Body',
 };
-
-function useDialogFocus(open: boolean, onClose: () => void, dialogRef: RefObject<HTMLDivElement | null>) {
-  const previousFocus = useRef<HTMLElement | null>(null);
-  const returnFocus = useRef(onClose);
-  useEffect(() => { returnFocus.current = onClose; }, [onClose]);
-  useEffect(() => {
-    if (!open) return;
-    previousFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const dialog = dialogRef.current;
-    const focusable = () => [...(dialog?.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])') ?? [])];
-    requestAnimationFrame(() => focusable()[0]?.focus());
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || !dialog?.contains(document.activeElement)) return;
-      if (event.key === 'Escape') { event.preventDefault(); returnFocus.current(); return; }
-      if (event.key !== 'Tab') return;
-      const items = focusable(); if (!items.length) return;
-      const first = items[0]; const last = items[items.length - 1];
-      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
-      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => { document.removeEventListener('keydown', onKeyDown); previousFocus.current?.focus(); };
-  }, [open, dialogRef]);
-}
 
 // ═══════════════════════════════════════════════
 // Main Component
@@ -147,8 +124,8 @@ function TemplatesPageInner() {
   const formDialogRef = useRef<HTMLDivElement | null>(null);
   const builderDialogRef = useRef<HTMLDivElement | null>(null);
   const reducedMotion = useReducedMotion();
-  useDialogFocus(showForm, () => { setShowForm(false); resetForm(); }, formDialogRef);
-  useDialogFocus(showBuilder, () => { setShowBuilder(false); setBuilderInitialClient(null); }, builderDialogRef);
+  useCoachDialogFocus(showForm, () => { setShowForm(false); resetForm(); }, formDialogRef);
+  useCoachDialogFocus(showBuilder, () => { setShowBuilder(false); setBuilderInitialClient(null); }, builderDialogRef);
 
   const loadClients = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();

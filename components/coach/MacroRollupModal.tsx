@@ -1,10 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { KeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { X, Calculator, Loader2 } from 'lucide-react';
+import { useCoachDialogFocus } from '@/components/coach/useCoachDialogFocus';
 
 /**
  * Per-day meal-plan macro rollup (coach). Calls /api/coach/meal-plan-macros,
@@ -50,8 +50,6 @@ export default function MacroRollupModal({ isOpen, clientId, clientName, onClose
   const [data, setData] = useState<ApiResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
-  const closeRef = useRef<HTMLButtonElement>(null);
-  const previousFocus = useRef<HTMLElement | null>(null);
   const reduceMotion = useReducedMotion();
 
   const generate = useCallback(async () => {
@@ -69,41 +67,16 @@ export default function MacroRollupModal({ isOpen, clientId, clientName, onClose
     } finally { setLoading(false); }
   }, [clientId]);
 
+  useCoachDialogFocus(isOpen, onClose, dialogRef);
   useEffect(() => {
     if (!isOpen) return;
-    previousFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     generate();
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    closeRef.current?.focus();
-    const handleEscape = (event: globalThis.KeyboardEvent) => {
-      if (event.defaultPrevented || event.key !== 'Escape' || !dialogRef.current?.contains(document.activeElement)) return;
-      event.preventDefault();
-      event.stopPropagation();
-      onClose();
-    };
-    document.addEventListener('keydown', handleEscape);
     return () => {
       document.body.style.overflow = prev;
-      document.removeEventListener('keydown', handleEscape);
-      if (previousFocus.current?.isConnected) previousFocus.current.focus();
     };
-  }, [isOpen, generate, onClose]);
-
-  const containFocus = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key !== 'Tab' || !dialogRef.current) return;
-    const controls = Array.from(dialogRef.current.querySelectorAll<HTMLElement>('button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])'));
-    if (controls.length === 0) return;
-    const first = controls[0];
-    const last = controls[controls.length - 1];
-    if (event.shiftKey && (document.activeElement === first || document.activeElement === dialogRef.current)) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault();
-      first.focus();
-    }
-  };
+  }, [isOpen, generate]);
 
   if (!isOpen) return null;
   const t = data?.targets;
@@ -111,7 +84,7 @@ export default function MacroRollupModal({ isOpen, clientId, clientName, onClose
   return createPortal(
     <AnimatePresence>
       <motion.div
-        initial={reduceMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        initial={reduceMotion ? false : { opacity: 0 }} animate={reduceMotion ? undefined : { opacity: 1 }} exit={reduceMotion ? undefined : { opacity: 0 }}
         className="fixed inset-0 z-[var(--z-modal,60)] flex items-end sm:items-center justify-center"
         style={{ background: 'color-mix(in srgb, var(--canvas) 80%, transparent)', backdropFilter: 'blur(8px)' }}
         onClick={onClose}
@@ -122,8 +95,7 @@ export default function MacroRollupModal({ isOpen, clientId, clientName, onClose
           aria-modal="true"
           aria-labelledby="macro-rollup-title"
           tabIndex={-1}
-          onKeyDown={containFocus}
-          initial={reduceMotion ? false : { y: '100%', opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: '100%', opacity: 0 }}
+          initial={reduceMotion ? false : { y: '100%', opacity: 0 }} animate={reduceMotion ? undefined : { y: 0, opacity: 1 }} exit={reduceMotion ? undefined : { y: '100%', opacity: 0 }}
           transition={reduceMotion ? { duration: 0 } : { type: 'spring', damping: 28, stiffness: 300 }}
           onClick={(e) => e.stopPropagation()}
           className="safe-bottom w-full overflow-hidden rounded-t-3xl pb-[env(safe-area-inset-bottom)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] sm:max-w-lg sm:rounded-3xl"
@@ -137,7 +109,7 @@ export default function MacroRollupModal({ isOpen, clientId, clientName, onClose
                 {clientName && <p className="text-xs" style={{ color: 'var(--content-muted)' }}>{clientName}{data ? ` · ${data.mealCount} meals` : ''}</p>}
               </div>
             </div>
-            <button ref={closeRef} aria-label="Close plan macro summary" onClick={onClose} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] w-8 h-8 rounded-full flex items-center justify-center" style={{ background: 'var(--border-subtle)' }}>
+            <button aria-label="Close plan macro summary" onClick={onClose} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] w-8 h-8 rounded-full flex items-center justify-center" style={{ background: 'var(--border-subtle)' }}>
               <X aria-hidden="true" size={14} style={{ color: 'var(--content-muted)' }} />
             </button>
           </div>

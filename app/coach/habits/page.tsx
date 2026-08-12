@@ -1,7 +1,7 @@
 'use client';
 import { useRouter } from 'next/navigation';
 
-import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import {
   Plus,
@@ -15,6 +15,7 @@ import { supabase } from '@/lib/supabase';
 import type { Habit, HabitCategory, HabitDifficulty } from '@/lib/types';
 import { CoachNav } from '@/components/coach/CoachNav';
 import CoachLoadingSkeletons from '@/components/coach/CoachLoadingSkeletons';
+import { useCoachDialogFocus } from '@/components/coach/useCoachDialogFocus';
 import { BotNav } from '@/components/ui/BotNav';
 import { Icon, ConfirmSheet } from '@/components/ui';
 import { useI18n } from '@/lib/i18n';
@@ -63,30 +64,6 @@ const emptyHabit = {
   cycle_days: '21',
 };
 
-function useDialogFocus(open: boolean, onClose: () => void, dialogRef: RefObject<HTMLDivElement | null>) {
-  const previousFocus = useRef<HTMLElement | null>(null);
-  const returnFocus = useRef(onClose);
-  useEffect(() => { returnFocus.current = onClose; }, [onClose]);
-  useEffect(() => {
-    if (!open) return;
-    previousFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const dialog = dialogRef.current;
-    const focusable = () => [...(dialog?.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])') ?? [])];
-    requestAnimationFrame(() => focusable()[0]?.focus());
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || !dialog?.contains(document.activeElement)) return;
-      if (event.key === 'Escape') { event.preventDefault(); returnFocus.current(); return; }
-      if (event.key !== 'Tab') return;
-      const items = focusable(); if (!items.length) return;
-      const first = items[0]; const last = items[items.length - 1];
-      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
-      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => { document.removeEventListener('keydown', onKeyDown); previousFocus.current?.focus(); };
-  }, [open, dialogRef]);
-}
-
 // ═══════════════════════════════════════════════
 // Main Component
 // ═══════════════════════════════════════════════
@@ -106,7 +83,7 @@ export default function HabitsPage() {
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const reducedMotion = useReducedMotion();
-  useDialogFocus(showForm, () => setShowForm(false), dialogRef);
+  useCoachDialogFocus(showForm, () => setShowForm(false), dialogRef);
 
   const loadData = useCallback(async () => {
     try {

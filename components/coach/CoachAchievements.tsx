@@ -67,16 +67,16 @@ export default function CoachAchievements({ achievements }: CoachAchievementsPro
         {badges.map((badge, i) => (
           <motion.div
             key={badge.id}
-            initial={{ opacity: 0, scale: 0.6, y: 15 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            transition={{
+            initial={reduceMotion ? false : { opacity: 0, scale: 0.6, y: 15 }}
+            animate={reduceMotion ? false : { opacity: 1, scale: 1, y: 0 }}
+            transition={reduceMotion ? { duration: 0 } : {
               delay: i * 0.06,
               duration: 0.4,
               type: 'spring',
               stiffness: 300,
               damping: 20,
             }}
-            whileHover={badge.unlocked ? { scale: 1.08, y: -2 } : undefined}
+            whileHover={!reduceMotion && badge.unlocked ? { scale: 1.08, y: -2 } : undefined}
             className="relative flex flex-col items-center py-4 px-2 rounded-xl text-center transition-shadow duration-300"
             style={{
               background: badge.unlocked
@@ -102,8 +102,8 @@ export default function CoachAchievements({ achievements }: CoachAchievementsPro
             <motion.span
               className="mb-1.5 flex items-center justify-center"
               style={{ opacity: badge.unlocked ? 1 : 0.25 }}
-              whileHover={badge.unlocked ? { rotate: [0, -10, 10, 0] } : undefined}
-              transition={{ duration: 0.4 }}
+              whileHover={!reduceMotion && badge.unlocked ? { rotate: [0, -10, 10, 0] } : undefined}
+              transition={reduceMotion ? { duration: 0 } : { duration: 0.4 }}
             >
               <badge.icon size={22} style={{ color: badge.unlocked ? 'var(--action-primary)' : 'var(--content-muted)' }} aria-hidden />
             </motion.span>
@@ -136,7 +136,7 @@ export default function CoachAchievements({ achievements }: CoachAchievementsPro
                   boxShadow: '0 0 15px var(--status-warning-bg), inset 0 0 15px var(--status-warning-bg)',
                 }}
                 initial={reduceMotion ? false : undefined}
-                animate={reduceMotion ? undefined : {
+                animate={reduceMotion ? false : {
                   boxShadow: [
                     '0 0 15px var(--status-warning-bg), inset 0 0 15px var(--status-warning-bg)',
                     '0 0 25px var(--status-warning-bg), inset 0 0 20px var(--status-warning-bg)',
