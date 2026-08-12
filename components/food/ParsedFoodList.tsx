@@ -267,7 +267,7 @@ export default function ParsedFoodList({
       window.removeEventListener('resize', measure);
       observer?.disconnect();
     };
-  }, []);
+  }, [canUseDom]);
 
   /** One stepper tick: haptic per tap, triple-pulse when crossing a 100g boundary. */
   const stepGrams = useCallback((index: number, delta: number) => {
@@ -670,6 +670,15 @@ export default function ParsedFoodList({
                       >
                         <Plus size={16} />
                       </PortionStepperButton>
+                      {humanUnit && (
+                        <p className="portion-review-gram-equivalence">
+                          {t('food.portion_gram_equivalence', {
+                            amount: displayVal,
+                            unit: displayUnit,
+                            grams: Math.round(item.grams),
+                          })}
+                        </p>
+                      )}
                     </>
                   );
                 })()}
@@ -711,6 +720,9 @@ export default function ParsedFoodList({
                                 lang,
                               ) ?? formatNaturalPortionUnit(item.unit, option.grams))
                             : isVolumeUnit(item.unit) ? item.unit : 'g'}
+                          {(naturalPortion || isVolumeUnit(item.unit)) && (
+                            <> · {option.grams} g</>
+                          )}
                         </span>
                       </button>
                     ))}

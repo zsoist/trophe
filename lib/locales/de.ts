@@ -822,6 +822,7 @@ export const de: Record<string, string> = {
   'food.take_photo': 'Foto aufnehmen',
   'food.amount_input_aria': 'Lebensmittelmenge',
   'food.amount_input_aria_with_unit': 'Menge in {unit}',
+  'food.portion_gram_equivalence': '{amount} {unit} ≈ {grams} g',
   'food.remove_item_aria': '{name} entfernen',
   'food.estimated_portion_help': 'Du musst keine Gramm schätzen. Wähle die passendste Größe, gib eine Menge ein oder nutze ein Foto.',
   'food.estimated_portion_summary': '{n} geschätzte Portion(en) — wähle oben eine Größe, Menge oder ein Foto.',

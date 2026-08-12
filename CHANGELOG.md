@@ -4,6 +4,14 @@ All notable changes to Trophē are logged here. Format follows [Keep a Changelog
 
 ---
 
+## [iPhone portion review hotfix] — 2026-08-12
+
+### Changed
+- Added visible gram anchors for bowls, servings, and other human portion units, including Small, Medium, and Large choices in all eight supported languages.
+
+### Fixed
+- Moved the fixed nutrition confirmation bar outside animated meal cards so iPhone Safari anchors it to the viewport instead of covering amount and photo controls.
+
 ## [Light-mode portion review] — 2026-08-12
 
 ### Changed
