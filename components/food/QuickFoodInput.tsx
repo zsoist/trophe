@@ -16,11 +16,11 @@ import PhotoScanCard from '@/components/food/PhotoScanCard';
 import BarcodeLookupModal from '@/components/food/BarcodeLookupModal';
 import { isPortionClarificationQuestion } from '@/components/food/portion-controls';
 import {
-  startVoiceSession,
+  startSpeechRecognitionSession,
   type SpeechRecognitionLike,
   type VoiceInputError,
   type VoiceSession,
-} from '@/components/food/voice-input';
+} from '@/lib/microphone/speech-recognition';
 
 interface QuickFoodInputProps {
   userId: string;
@@ -421,7 +421,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
     setMicDeniedHelp(false);
     setError(null);
 
-    const session = startVoiceSession({
+    const session = startSpeechRecognitionSession({
       recognition: new SpeechRecognition(),
       language: STT_LANG_TAGS[lang] ?? 'en-US',
       onListening: () => setMode('listening'),

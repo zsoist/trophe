@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  startVoiceSession,
+  startSpeechRecognitionSession,
   type SpeechRecognitionEventLike,
   type SpeechRecognitionLike,
   type VoiceInputError,
-} from '@/components/food/voice-input';
+} from '@/lib/microphone/speech-recognition';
 
 class FakeRecognition implements SpeechRecognitionLike {
   lang = '';
@@ -77,7 +77,7 @@ describe('voice input session', () => {
   it('attaches handlers before start and completes exactly once with final speech', () => {
     const recognition = new FakeRecognition();
     const state = makeCallbacks();
-    const session = startVoiceSession({ recognition, language: 'en-US', ...state.callbacks });
+    const session = startSpeechRecognitionSession({ recognition, language: 'en-US', ...state.callbacks });
 
     expect(recognition.handlersAttachedAtStart).toBe(true);
     expect(state.listening).toBe(1);
@@ -93,7 +93,7 @@ describe('voice input session', () => {
   it('manual stop preserves interim speech if the browser never sends an end event', () => {
     const recognition = new FakeRecognition();
     const state = makeCallbacks();
-    const session = startVoiceSession({ recognition, language: 'en-US', ...state.callbacks });
+    const session = startSpeechRecognitionSession({ recognition, language: 'en-US', ...state.callbacks });
 
     recognition.emitResult([{ transcript: 'protein bar with thirteen grams protein', isFinal: false }]);
     session.stop();
@@ -108,7 +108,7 @@ describe('voice input session', () => {
     const recognition = new FakeRecognition();
     recognition.endSynchronouslyOnStop = true;
     const state = makeCallbacks();
-    const session = startVoiceSession({ recognition, language: 'en-US', ...state.callbacks });
+    const session = startSpeechRecognitionSession({ recognition, language: 'en-US', ...state.callbacks });
 
     recognition.emitResult([{ transcript: 'ajiaco for dinner', isFinal: false }]);
     session.stop();
@@ -122,7 +122,7 @@ describe('voice input session', () => {
     const recognition = new FakeRecognition();
     recognition.startError = new Error('already started');
     const state = makeCallbacks();
-    const session = startVoiceSession({ recognition, language: 'en-US', ...state.callbacks });
+    const session = startSpeechRecognitionSession({ recognition, language: 'en-US', ...state.callbacks });
 
     expect(state.listening).toBe(0);
     expect(state.errors).toEqual(['start-failed']);
@@ -132,7 +132,7 @@ describe('voice input session', () => {
   it('maps browser permission denial to an actionable terminal error', () => {
     const recognition = new FakeRecognition();
     const state = makeCallbacks();
-    const session = startVoiceSession({ recognition, language: 'en-US', ...state.callbacks });
+    const session = startSpeechRecognitionSession({ recognition, language: 'en-US', ...state.callbacks });
 
     recognition.emitError('not-allowed');
     recognition.emitEnd();
@@ -145,7 +145,7 @@ describe('voice input session', () => {
   it('aborts and recovers when the browser emits nothing for thirty seconds', () => {
     const recognition = new FakeRecognition();
     const state = makeCallbacks();
-    const session = startVoiceSession({ recognition, language: 'en-US', ...state.callbacks });
+    const session = startSpeechRecognitionSession({ recognition, language: 'en-US', ...state.callbacks });
 
     vi.advanceTimersByTime(30_000);
 
@@ -158,7 +158,7 @@ describe('voice input session', () => {
   it('ignores late duplicate events after a terminal error', () => {
     const recognition = new FakeRecognition();
     const state = makeCallbacks();
-    startVoiceSession({ recognition, language: 'en-US', ...state.callbacks });
+    startSpeechRecognitionSession({ recognition, language: 'en-US', ...state.callbacks });
 
     recognition.emitError('network');
     recognition.emitResult([{ transcript: 'late speech', isFinal: true }]);

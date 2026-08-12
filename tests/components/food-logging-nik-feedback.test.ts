@@ -13,11 +13,11 @@ import {
   resolveAmountDraft,
 } from '@/components/food/portion-controls';
 import {
-  startVoiceSession,
+  startSpeechRecognitionSession,
   type SpeechRecognitionEventLike,
   type SpeechRecognitionLike,
   type VoiceInputError,
-} from '@/components/food/voice-input';
+} from '@/lib/microphone/speech-recognition';
 
 class NikVoiceRecognition implements SpeechRecognitionLike {
   lang = '';
@@ -151,7 +151,7 @@ describe("Nik's food-logging feedback", () => {
     const recognition = new NikVoiceRecognition();
     const completed: string[] = [];
     const errors: VoiceInputError[] = [];
-    const session = startVoiceSession({
+    const session = startSpeechRecognitionSession({
       recognition,
       language: 'en-US',
       onListening: () => {},
@@ -177,7 +177,7 @@ describe("Nik's food-logging feedback", () => {
     const recognition = new NikVoiceRecognition();
     recognition.throwOnStart = throwOnStart;
     const errors: VoiceInputError[] = [];
-    const session = startVoiceSession({
+    const session = startSpeechRecognitionSession({
       recognition,
       language: 'en-US',
       onListening: () => {},
