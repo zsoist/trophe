@@ -5,10 +5,10 @@ import {
   assertPaidProviderAccess,
   PAID_PROVIDER_OFFLINE_CREDENTIAL,
 } from '@/agents/runtime/provider-access';
+import { TRANSCRIPTION_USD_PER_MINUTE } from '@/agents/router/pricing';
 import { debitPaidTransportAttempt } from '@/scripts/safety/require-paid-ai-approval';
 
 const OPENAI_TRANSCRIPTIONS_URL = 'https://api.openai.com/v1/audio/transcriptions';
-const TRANSCRIPTION_USD_PER_MINUTE = 0.0045;
 const MAX_TRANSCRIPTION_COST_USD = 0.00225;
 
 const EXTENSIONS_BY_MEDIA_TYPE: Record<string, string> = {

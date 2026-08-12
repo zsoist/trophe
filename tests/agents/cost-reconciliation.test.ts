@@ -35,4 +35,18 @@ describe('AI cost reconciliation', () => {
   it('ignores non-completed generations', () => {
     expect(reconcileAiCosts([{ ...run, status: 'failed', recordedCostUsd: null }]).issues).toEqual([]);
   });
+
+  it('accepts provider-recorded duration costs without treating them as token drift', () => {
+    const result = reconcileAiCosts([{
+      ...run,
+      model: 'gpt-transcribe',
+      tokensIn: 0,
+      tokensOut: 0,
+      recordedCostUsd: 0.001125,
+    }]);
+
+    expect(result.issues).toEqual([]);
+    expect(result.expectedTotalUsd).toBe(0.001125);
+    expect(result.recordedTotalUsd).toBe(0.001125);
+  });
 });
