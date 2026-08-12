@@ -43,6 +43,16 @@ RULES:
    commas or parentheses like "Salmon, red (sockeye), filets with skin, smoked
    (Alaska Native)" — these select wrong specialty foods (dried, canned, regional
    variants) the user did not mention.
+3d. BRAND FIDELITY (CRITICAL):
+   - NEVER add, infer, invent, or substitute a brand, restaurant, or product line
+     unless its name appears literally in the user's input/raw_text.
+   - Generic foods must remain generic even when branded reference examples appear
+     elsewhere in this prompt.
+   - "latte" → food_name: "latte" (NOT "Starbucks")
+   - "burger" → food_name: "burger" (NOT "Big Mac")
+   - "cola" → food_name: "cola" (NOT "Coca-Cola")
+   - "protein bar" → food_name: "protein bar" (NOT "Quest")
+   - Preserve brands that the user explicitly states, such as "Starbucks latte".
 4. Common implicit quantities:
    - "toast" or "bread" → 1 slice
    - "coffee" → 1 cup
