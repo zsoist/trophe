@@ -1042,6 +1042,13 @@ export const nl: Record<string, string> = {
   'chat.attach_failed': 'Toevoegen mislukt — probeer opnieuw',
   'chat.send_failed': 'Bericht niet verzonden — probeer opnieuw',
   'chat.mic_denied': 'Microfoon niet beschikbaar — controleer de machtigingen',
+  'chat.mic_unsupported': 'Spraakberichten worden niet ondersteund in deze browser.',
+  'chat.no_audio': 'Geen audio opgenomen — wacht even en probeer opnieuw.',
+  'chat.record_failed': 'Het spraakbericht kon niet worden opgenomen. Probeer opnieuw.',
+  'chat.requesting_mic': 'Wachten op microfoontoestemming…',
+  'chat.recording_limit': 'Limiet van vijf minuten bereikt — het spraakbericht is klaar.',
+  'chat.play_voice': 'Spraakbericht afspelen',
+  'chat.pause_voice': 'Spraakbericht pauzeren',
   'chat.preview_photo': 'Foto',
   'chat.preview_voice': 'Spraakmemo',
 

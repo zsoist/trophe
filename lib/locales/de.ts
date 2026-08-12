@@ -1042,6 +1042,13 @@ export const de: Record<string, string> = {
   'chat.attach_failed': 'Anhängen fehlgeschlagen — versuch es erneut',
   'chat.send_failed': 'Nachricht nicht gesendet — versuch es erneut',
   'chat.mic_denied': 'Mikrofon nicht verfügbar — prüfe die Berechtigungen',
+  'chat.mic_unsupported': 'Sprachnachrichten werden in diesem Browser nicht unterstützt.',
+  'chat.no_audio': 'Kein Audio aufgenommen — warte kurz und versuch es erneut.',
+  'chat.record_failed': 'Die Sprachnachricht konnte nicht aufgenommen werden. Versuch es erneut.',
+  'chat.requesting_mic': 'Warten auf Mikrofonberechtigung…',
+  'chat.recording_limit': 'Fünf-Minuten-Limit erreicht — die Sprachnachricht ist bereit.',
+  'chat.play_voice': 'Sprachnachricht abspielen',
+  'chat.pause_voice': 'Sprachnachricht pausieren',
   'chat.preview_photo': 'Foto',
   'chat.preview_voice': 'Sprachnotiz',
 

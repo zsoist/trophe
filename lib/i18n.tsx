@@ -747,6 +747,13 @@ const translations: Record<string, Record<CoreLanguage, string>> = {
   'chat.attach_failed': { en: 'Could not attach — try again', es: 'No se pudo adjuntar — inténtalo de nuevo', el: 'Αποτυχία επισύναψης — δοκίμασε ξανά' },
   'chat.send_failed': { en: 'Message not sent — try again', es: 'No se envió el mensaje — inténtalo de nuevo', el: 'Το μήνυμα δεν στάλθηκε — δοκίμασε ξανά' },
   'chat.mic_denied': { en: 'Microphone unavailable — check permissions', es: 'Micrófono no disponible — revisa los permisos', el: 'Το μικρόφωνο δεν είναι διαθέσιμο — έλεγξε τις άδειες' },
+  'chat.mic_unsupported': { en: 'Voice notes are not supported on this browser.', es: 'Este navegador no admite notas de voz.', el: 'Αυτός ο browser δεν υποστηρίζει φωνητικά μηνύματα.' },
+  'chat.no_audio': { en: 'No audio was captured — wait a moment and try again.', es: 'No se capturó audio — espera un momento e inténtalo de nuevo.', el: 'Δεν καταγράφηκε ήχος — περίμενε λίγο και δοκίμασε ξανά.' },
+  'chat.record_failed': { en: 'Could not record the voice note. Please try again.', es: 'No se pudo grabar la nota de voz. Inténtalo de nuevo.', el: 'Δεν ήταν δυνατή η εγγραφή του φωνητικού. Δοκίμασε ξανά.' },
+  'chat.requesting_mic': { en: 'Waiting for microphone permission…', es: 'Esperando permiso para usar el micrófono…', el: 'Αναμονή άδειας μικροφώνου…' },
+  'chat.recording_limit': { en: 'Five-minute limit reached — your voice note is ready.', es: 'Se alcanzó el límite de cinco minutos — la nota está lista.', el: 'Έφτασες το όριο των πέντε λεπτών — το φωνητικό είναι έτοιμο.' },
+  'chat.play_voice': { en: 'Play voice note', es: 'Reproducir nota de voz', el: 'Αναπαραγωγή φωνητικού' },
+  'chat.pause_voice': { en: 'Pause voice note', es: 'Pausar nota de voz', el: 'Παύση φωνητικού' },
   'chat.preview_photo': { en: 'Photo', es: 'Foto', el: 'Φωτογραφία' },
   'chat.preview_voice': { en: 'Voice note', es: 'Nota de voz', el: 'Φωνητικό μήνυμα' },
 

@@ -1042,6 +1042,13 @@ export const it: Record<string, string> = {
   'chat.attach_failed': 'Impossibile allegare — riprova',
   'chat.send_failed': 'Messaggio non inviato — riprova',
   'chat.mic_denied': 'Microfono non disponibile — controlla i permessi',
+  'chat.mic_unsupported': 'Le note vocali non sono supportate da questo browser.',
+  'chat.no_audio': 'Nessun audio registrato — attendi un momento e riprova.',
+  'chat.record_failed': 'Impossibile registrare la nota vocale. Riprova.',
+  'chat.requesting_mic': 'In attesa del permesso per il microfono…',
+  'chat.recording_limit': 'Limite di cinque minuti raggiunto — la nota vocale è pronta.',
+  'chat.play_voice': 'Riproduci nota vocale',
+  'chat.pause_voice': 'Metti in pausa la nota vocale',
   'chat.preview_photo': 'Foto',
   'chat.preview_voice': 'Nota vocale',
 
