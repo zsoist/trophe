@@ -14,7 +14,10 @@ export default async function SuperLayout({ children }: { children: React.ReactN
         title="Operations"
         eyebrow="Super admin"
         actions={(
-          <Link href="/admin/orgs" className="hidden hover:text-[var(--content-primary)] sm:inline-flex">
+          <Link
+            href="/admin/orgs"
+            className="hidden min-h-11 min-w-11 items-center justify-center rounded-xl px-3 transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--content-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] sm:inline-flex"
+          >
             Administration
           </Link>
         )}

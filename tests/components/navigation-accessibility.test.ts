@@ -55,9 +55,16 @@ describe('authenticated navigation accessibility', () => {
     const navigation = screen.getByRole('navigation', { name: 'Primary' });
     expect(navigation.className).toContain('bg-[var(--surface-overlay)]');
     expect(navigation.className).toContain('border-[var(--border-default)]');
+    expect(navigation.className).toContain('safe-bottom');
     screen.getAllByRole('link').forEach((link) => {
       expect(link.className).toContain('min-h-14');
     });
+    const animatedElements = Array.from(navigation.querySelectorAll<HTMLElement>('[class*="transition"]'));
+    expect(animatedElements.length).toBeGreaterThan(0);
+    animatedElements.forEach((element) => {
+      expect(element.className).toContain('motion-reduce:transition-none');
+    });
+    expect(navigation.querySelector('[class*="scale"], [class*="transform"]')).toBeNull();
     expect(screen.getByRole('link', { name: /Home/ }).className).toContain('text-[var(--action-primary)]');
     expect(screen.getByRole('link', { name: /Log/ }).className).toContain('text-[var(--content-muted)]');
   });
@@ -71,6 +78,8 @@ describe('authenticated navigation accessibility', () => {
     }
 
     const more = within(navigation).getByRole('button', { name: 'More coach destinations' });
+    expect(more.parentElement?.className).toContain('md:hidden');
+    expect(within(navigation).getByRole('link', { name: 'Protocols' }).parentElement?.className).toContain('md:flex');
     expect(more.getAttribute('aria-expanded')).toBe('false');
     fireEvent.click(more);
     expect(more.getAttribute('aria-expanded')).toBe('true');
@@ -126,6 +135,16 @@ describe('authenticated navigation accessibility', () => {
     expect(screen.getByRole('heading', { name: 'Administration' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Switch to light mode' })).toBeTruthy();
     expect(document.getElementById('main-content')?.className).toContain('max-w-6xl');
+    for (const name of ['Organizations', 'AI costs']) {
+      const shortcut = screen.getByRole('link', { name });
+      expect(shortcut.className).toContain('inline-flex');
+      expect(shortcut.className).toContain('min-h-11');
+      expect(shortcut.className).toContain('min-w-11');
+      expect(shortcut.className).toContain('items-center');
+      expect(shortcut.className).toContain('justify-center');
+      expect(shortcut.className).toContain('px-3');
+      expect(shortcut.className).toContain('focus-visible:ring-2');
+    }
     unmount();
 
     vi.mocked(getSession).mockResolvedValue({
@@ -137,5 +156,9 @@ describe('authenticated navigation accessibility', () => {
     expect(screen.getByRole('heading', { name: 'Operations' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Switch to light mode' })).toBeTruthy();
     expect(document.getElementById('main-content')?.className).toContain('max-w-6xl');
+    const adminShortcut = screen.getByRole('link', { name: 'Administration' });
+    for (const targetClass of ['inline-flex', 'min-h-11', 'min-w-11', 'items-center', 'justify-center', 'px-3', 'focus-visible:ring-2']) {
+      expect(adminShortcut.className).toContain(targetClass);
+    }
   });
 });

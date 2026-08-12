@@ -16,8 +16,18 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         eyebrow="Admin"
         actions={(
           <nav aria-label="Admin shortcuts" className="hidden items-center gap-3 sm:flex">
-            <Link href="/admin/orgs" className="hover:text-[var(--content-primary)]">Organizations</Link>
-            <Link href="/admin/costs" className="hover:text-[var(--content-primary)]">AI costs</Link>
+            <Link
+              href="/admin/orgs"
+              className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl px-3 transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--content-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+            >
+              Organizations
+            </Link>
+            <Link
+              href="/admin/costs"
+              className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl px-3 transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--content-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+            >
+              AI costs
+            </Link>
           </nav>
         )}
       >
