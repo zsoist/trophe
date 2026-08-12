@@ -729,7 +729,7 @@ export default function GuidedSession({
 
               {/* Coach notes on this exercise */}
               {ex.ref.notes && (
-                <div className="mx-4 mb-2 px-3 py-2 rounded-lg" style={{ background: 'rgba(125,163,217,.07)', border: '1px solid rgba(125,163,217,.18)' }}>
+                <div className="mx-4 mb-2 px-3 py-2 rounded-lg" style={{ background: 'var(--status-info-bg)', border: '1px solid var(--status-info-border)' }}>
                   <p style={{ fontSize: 12, color: 'var(--status-info-fg)', lineHeight: 1.45 }}>{ex.ref.notes}</p>
                 </div>
               )}
@@ -770,7 +770,7 @@ export default function GuidedSession({
                             style={{
                               width: 34, height: 44, borderRadius: 10, flexShrink: 0,
                               fontSize: set.is_warmup ? 11 : 12, fontWeight: 700,
-                              background: set.is_warmup ? 'rgba(251,191,36,0.13)' : 'color-mix(in srgb, var(--content-primary) 8%, transparent)',
+                              background: set.is_warmup ? 'var(--status-warning-bg)' : 'color-mix(in srgb, var(--content-primary) 8%, transparent)',
                               color: set.is_warmup ? 'var(--status-warning-fg)' : 'var(--content-muted)',
                               border: '1px solid transparent',
                             }} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"

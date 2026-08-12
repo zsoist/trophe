@@ -3,7 +3,7 @@
 import React from 'react';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('framer-motion', async () => {
@@ -25,6 +25,7 @@ vi.mock('@/lib/i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
 vi.mock('@/lib/supabase', () => ({ supabase: { auth: { getUser: vi.fn() } } }));
 
 import ExercisePicker from '@/components/workout/ExercisePicker';
+import { restoreCompletionFocus } from '@/app/dashboard/workout/page';
 
 const ROUTE_SOURCES = [
   'app/dashboard/book/page.tsx',
@@ -194,6 +195,46 @@ describe('client secondary theme and accessibility contract', () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
+  it('keeps parent focus ownership stable while a child dialog opens and closes', async () => {
+    const outside = document.createElement('button');
+    document.body.appendChild(outside);
+    outside.focus();
+    const { unmount } = render(React.createElement(ExercisePicker, {
+      exercises: [], recentIds: [], onSelect: vi.fn(), onClose: vi.fn(), lang: 'en',
+    }));
+    const customTrigger = screen.getByRole('button', { name: 'workout.picker_custom' });
+    customTrigger.focus();
+    fireEvent.click(customTrigger);
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByPlaceholderText('workout.custom_name')));
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await waitFor(() => expect(document.activeElement).toBe(customTrigger));
+    expect(screen.getAllByRole('dialog')).toHaveLength(1);
+
+    unmount();
+    expect(document.activeElement).toBe(outside);
+    outside.remove();
+  });
+
+  it('captures completion focus before the workout mode transition', () => {
+    const workout = source('app/dashboard/workout/page.tsx');
+    const completion = workout.slice(workout.indexOf('// Reset + celebrate'), workout.indexOf("navigator.vibrate?.([10, 30, 10, 30, 18])"));
+
+    expect(completion).toMatch(/finishReturnFocusRef\.current\s*=\s*document\.activeElement[\s\S]*setMode\('landing'\)/);
+    expect(workout).not.toMatch(/if \(!finishSummary\) return;\s*finishReturnFocusRef\.current = document\.activeElement/);
+
+    const trigger = document.createElement('button');
+    const fallback = document.createElement('div');
+    fallback.tabIndex = -1;
+    document.body.append(trigger, fallback);
+    restoreCompletionFocus(trigger, fallback);
+    expect(document.activeElement).toBe(trigger);
+    trigger.remove();
+    restoreCompletionFocus(trigger, fallback);
+    expect(document.activeElement).toBe(fallback);
+    fallback.remove();
+  });
+
   it('keeps exercise toolbar controls outside the collapse button and names owned icon controls', () => {
     const workout = source('app/dashboard/workout/page.tsx');
     const nestedNativeButton = (workout.match(/<button\b[\s\S]*?<\/button>/g) ?? [])
@@ -212,7 +253,8 @@ describe('client secondary theme and accessibility contract', () => {
     const calendar = source('components/shared/CalendarView.tsx');
     const checkin = source('app/dashboard/checkin/page.tsx');
 
-    expect(barcode).toMatch(/repeat:\s*reducedMotion \? 0 : Infinity/);
+    expect(barcode).not.toMatch(/repeat:\s*reducedMotion/);
+    expect(barcode).toMatch(/reducedMotion\s*\?\s*\(\s*<div[\s\S]{0,350}data-testid="barcode-laser"[\s\S]{0,350}\)\s*:\s*\(\s*<motion\.div[\s\S]{0,350}animate=\{\{ top:/);
     expect(calendar).toMatch(/transition=\{\{ duration: reducedMotion \? 0 : 0\.2 \}\}/);
     expect(checkin).toContain('useReducedMotion');
     expect(checkin).toMatch(/animation:\s*reducedMotion \? 'none'/);
@@ -227,6 +269,13 @@ describe('client secondary theme and accessibility contract', () => {
     ];
 
     expect(inventory(forbidden)).toEqual([]);
+    expect(inventory([
+      /(?:#78716c|rgba\((?:251,\s*191,\s*36|125,\s*163,\s*217))/gi,
+    ], [
+      'app/dashboard/workout/page.tsx',
+      'app/dashboard/workout/stats/page.tsx',
+      'components/workout/GuidedSession.tsx',
+    ])).toEqual([]);
   });
 
   it('marks intrinsic black camera and image canvases without making their shells dark-only', () => {

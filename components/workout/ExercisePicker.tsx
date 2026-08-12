@@ -43,6 +43,7 @@ export function CustomExerciseModal({
   const { t } = useI18n();
   const reducedMotion = useReducedMotion();
   const dialogRef = useRef<HTMLDivElement>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
   const [name, setName] = useState('');
   const [muscleGroup, setMuscleGroup] = useState<MuscleGroup>('chest');
   const [equipment, setEquipment] = useState('dumbbell');
@@ -51,7 +52,7 @@ export function CustomExerciseModal({
 
   useEffect(() => {
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const frame = requestAnimationFrame(() => dialogRef.current?.focus());
+    const frame = requestAnimationFrame(() => nameInputRef.current?.focus());
     const closeOnEscape = (event: KeyboardEvent) => event.key === 'Escape' && onClose();
     document.addEventListener('keydown', closeOnEscape);
     return () => {
@@ -118,12 +119,12 @@ export function CustomExerciseModal({
         </div>
 
         <input
+          ref={nameInputRef}
           type="text"
           placeholder={t('workout.custom_name')}
           value={name}
           onChange={(e) => setName(e.target.value)}
           className="input-dark mb-3 text-base"
-          autoFocus
         />
 
         <div className="mb-3">
@@ -252,6 +253,7 @@ export default function ExercisePicker({
   const inputRef = useRef<HTMLInputElement>(null);
   const pickerRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
+  const showCustomModalRef = useRef(showCustomModal);
   const reducedMotion = useReducedMotion();
   const canUseDom = useSyncExternalStore(
     subscribeToClient,
@@ -265,10 +267,14 @@ export default function ExercisePicker({
   }, [onClose]);
 
   useEffect(() => {
+    showCustomModalRef.current = showCustomModal;
+  }, [showCustomModal]);
+
+  useEffect(() => {
     const previousOverflow = document.body.style.overflow;
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !showCustomModal) onCloseRef.current();
+      if (event.key === 'Escape' && !showCustomModalRef.current) onCloseRef.current();
     };
 
     document.body.style.overflow = 'hidden';
@@ -279,7 +285,7 @@ export default function ExercisePicker({
       document.removeEventListener('keydown', handleKeyDown);
       previousFocus?.focus();
     };
-  }, [showCustomModal]);
+  }, []);
 
   useEffect(() => {
     if (canUseDom) inputRef.current?.focus();

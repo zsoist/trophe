@@ -49,6 +49,10 @@ function trapFocus(event: ReactKeyboardEvent<HTMLElement>, container: HTMLElemen
   if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
   else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
 }
+export function restoreCompletionFocus(returnTarget: HTMLElement | null, fallback: HTMLElement | null) {
+  if (returnTarget?.isConnected) returnTarget.focus();
+  else fallback?.focus();
+}
 import { muscleColor } from '@/components/workout/muscle-groups';
 import { useWeightUnit, kgToDisplay, displayToKg } from '@/lib/workout/units';
 import { getRestTarget, setRestTarget as persistRestTarget, REST_CHOICES } from '@/lib/workout/rest-targets';
@@ -216,17 +220,18 @@ export default function WorkoutPage() {
   const [finishSummary, setFinishSummary] = useState<{ volume: number; sets: number; prs: number; minutes: number } | null>(null);
   const finishDialogRef = useRef<HTMLDivElement>(null);
   const finishReturnFocusRef = useRef<HTMLElement | null>(null);
+  const landingFocusRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!finishSummary) return;
-    finishReturnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const fallbackFocus = landingFocusRef.current;
     const frame = requestAnimationFrame(() => finishDialogRef.current?.focus());
     const closeOnEscape = (event: KeyboardEvent) => event.key === 'Escape' && setFinishSummary(null);
     document.addEventListener('keydown', closeOnEscape);
     return () => {
       cancelAnimationFrame(frame);
       document.removeEventListener('keydown', closeOnEscape);
-      finishReturnFocusRef.current?.focus();
+      restoreCompletionFocus(finishReturnFocusRef.current, fallbackFocus);
       finishReturnFocusRef.current = null;
     };
   }, [finishSummary]);
@@ -718,6 +723,7 @@ export default function WorkoutPage() {
       if (userId) await refreshRecents(userId);
 
       // Reset + celebrate
+      finishReturnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
       setMode('landing');
       setActiveExercises([]);
       setPainFlags([]);
@@ -855,7 +861,7 @@ export default function WorkoutPage() {
       <div className="max-w-md lg:max-w-2xl mx-auto px-4 pt-4">
         {/* ═══ LANDING ═══ */}
         {mode === 'landing' && (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
+          <motion.div ref={landingFocusRef} tabIndex={-1} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-3 outline-none">
 
             {/* ── Hero: program-aware entry state ── */}
             {programQuery.isLoading ? (
@@ -1347,7 +1353,7 @@ export default function WorkoutPage() {
                                 disabled={set.completed}
                                 className="w-7 h-9 flex items-center justify-center rounded-lg text-xs font-bold transition-colors min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                                 style={{
-                                  background: set.is_warmup ? 'rgba(251,191,36,0.15)' : 'color-mix(in srgb, var(--content-primary) 8%, transparent)',
+                                  background: set.is_warmup ? 'var(--status-warning-bg)' : 'color-mix(in srgb, var(--content-primary) 8%, transparent)',
                                   color: set.is_warmup ? 'var(--status-warning-fg)' : 'var(--content-muted)',
                                 }}
                               >

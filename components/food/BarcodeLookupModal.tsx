@@ -359,13 +359,22 @@ export default function BarcodeLookupModal({ userId, selectedDate, defaultMealTy
                       }}
                     >
                       {!locked ? (
-                        <motion.div
-                          ref={laserRef}
-                          initial={{ top: '6%' }}
-                          animate={{ top: ['6%', '94%', '6%'] }}
-                          transition={{ duration: 2.2, ease: 'easeInOut', repeat: reducedMotion ? 0 : Infinity }}
-                          style={{ position: 'absolute', left: '4%', right: '4%', height: 2, background: 'var(--action-primary)', boxShadow: '0 0 8px 1px var(--action-secondary)' }}
-                        />
+                        reducedMotion ? (
+                          <div
+                            ref={laserRef}
+                            data-testid="barcode-laser"
+                            style={{ position: 'absolute', top: '50%', left: '4%', right: '4%', height: 2, background: 'var(--action-primary)', boxShadow: '0 0 8px 1px var(--action-secondary)' }}
+                          />
+                        ) : (
+                          <motion.div
+                            ref={laserRef}
+                            data-testid="barcode-laser"
+                            initial={{ top: '6%' }}
+                            animate={{ top: ['6%', '94%', '6%'] }}
+                            transition={{ duration: 2.2, ease: 'easeInOut', repeat: Infinity }}
+                            style={{ position: 'absolute', left: '4%', right: '4%', height: 2, background: 'var(--action-primary)', boxShadow: '0 0 8px 1px var(--action-secondary)' }}
+                          />
+                        )
                       ) : (
                         /* laser stopped dead at its sweep position — white-gold flash */
                         <motion.div

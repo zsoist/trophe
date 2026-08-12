@@ -316,7 +316,7 @@ export default function WorkoutStatsPage() {
         {weeklyVolumeByMuscle.map((item, i) => {
           const y = i * (barHeight + gap);
           const barW = (item.sets / maxSets) * chartWidth;
-          const color = muscleColors[item.muscle] || '#78716C';
+          const color = muscleColors[item.muscle] || 'var(--data-neutral)';
 
           return (
             <g key={item.muscle}>
@@ -411,16 +411,16 @@ export default function WorkoutStatsPage() {
 
         {/* X labels */}
         {points.filter((_, i) => i % 2 === 0 || i === points.length - 1).map((p, i) => (
-          <text key={i} x={p.x} y={height - 4} textAnchor="middle" fill="#78716C" fontSize="12">
+          <text key={i} x={p.x} y={height - 4} textAnchor="middle" fill="var(--content-muted)" fontSize="12">
             {p.label}
           </text>
         ))}
 
         {/* Y label */}
-        <text x={padding.left - 8} y={padding.top + 4} textAnchor="end" fill="#78716C" fontSize="12">
+        <text x={padding.left - 8} y={padding.top + 4} textAnchor="end" fill="var(--content-muted)" fontSize="12">
           {maxWeeklySets}
         </text>
-        <text x={padding.left - 8} y={padding.top + chartH + 4} textAnchor="end" fill="#78716C" fontSize="12">
+        <text x={padding.left - 8} y={padding.top + chartH + 4} textAnchor="end" fill="var(--content-muted)" fontSize="12">
           0
         </text>
 
