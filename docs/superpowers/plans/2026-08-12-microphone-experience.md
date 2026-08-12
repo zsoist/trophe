@@ -391,4 +391,3 @@ Wait for the `main` deployment to become Ready. Verify `https://trophe.app/api/h
 - [ ] **Step 7: Run extended canary and save the deploy report**
 
 Monitor HTTP health, console errors, failed requests, latency, and the new transcription task's `agent_runs` outcome. Save the PR number, merge SHA, deploy ID, canary result, and paid-call total in the deployment report.
-

@@ -120,4 +120,3 @@ Client errors distinguish permission denied, missing device, unsupported recordi
 - **Always use server transcription:** simpler, but adds avoidable cost and latency to browsers where native recognition is already responsive.
 - **Realtime transcription:** unnecessary for a bounded 30-second dictation and materially more complex and expensive.
 - **On-device WASM transcription:** avoids provider processing but adds a large model download, memory pressure, and slow startup on the mobile devices Trophē prioritizes.
-
