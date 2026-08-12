@@ -70,6 +70,7 @@ vi.mock('@/lib/i18n', () => ({
         'food.portion_large': 'Large',
         'food.portion_medium': 'Medium',
         'food.portion_small': 'Small',
+        'food.remove_item_aria': 'Remove {name}',
         'food.stepper_decrease': 'Decrease amount',
         'food.stepper_increase': 'Increase amount',
         'food.unit.bowl_one': 'bowl',
@@ -125,6 +126,7 @@ describe('ajiaco soup portion review', () => {
     const input = screen.getByRole('spinbutton', { name: 'Amount in bowl' }) as HTMLInputElement;
 
     expect(input.value).toBe('1');
+    expect(screen.getByRole('button', { name: 'Remove ajiaco santafereño' })).toBeTruthy();
     expect(screen.getByText(QUESTION)).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: /Small/ }));

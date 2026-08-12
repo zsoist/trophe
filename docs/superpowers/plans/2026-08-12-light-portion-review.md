@@ -50,7 +50,7 @@ expect(px('.portion-review-stepper', 'width')).toBeGreaterThanOrEqual(52);
 expect(px('.portion-review-stepper', 'height')).toBeGreaterThanOrEqual(52);
 expect(px('.portion-review-amount', 'font-size')).toBeGreaterThanOrEqual(20);
 expect(px('.portion-review-choice', 'min-height')).toBeGreaterThanOrEqual(58);
-expect(rem('.portion-review-list', 'padding-bottom')).toBeLessThanOrEqual(11);
+expect(rem('.portion-review-list', 'padding-bottom')).toBeLessThanOrEqual(9);
 expect(value('.light .portion-review-estimate-copy', 'color')).toBe('var(--warn)');
 expect(contrast(lightWarn, lightBackground)).toBeGreaterThanOrEqual(4.5);
 ```
@@ -111,7 +111,7 @@ Add `food.remove_item_aria` to the base dictionary and overlays with these value
 Use the following component contract; minor ordering changes are allowed but the values and selectors are fixed:
 
 ```css
-.portion-review-list { padding-bottom: 11rem; }
+.portion-review-list { padding-bottom: 9rem; }
 .portion-review-item { padding: 10px; }
 .portion-review-quantity {
   display: grid;

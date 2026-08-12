@@ -435,6 +435,209 @@ body {
   box-shadow: 0 0 0 3px rgba(212, 168, 83, 0.1);
 }
 
+/* ─── Food portion review ───
+   Dense enough for a 390px viewport, but with full-size values and touch targets. */
+.portion-review-list {
+  padding-bottom: 9rem;
+}
+
+.portion-review-item {
+  padding: 10px;
+}
+
+.portion-review-remove {
+  width: 44px;
+  height: 44px;
+  margin-top: -8px;
+  margin-right: -8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.portion-review-quantity {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) 52px;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.portion-review-stepper {
+  width: 52px;
+  height: 52px;
+}
+
+.portion-review-amount-group {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  overflow: hidden;
+}
+
+.portion-review-amount {
+  width: 96px;
+  min-width: 72px;
+  min-height: 52px;
+  padding: 8px 10px;
+  font-size: 20px;
+  font-weight: 600;
+  flex: 0 1 96px;
+}
+
+.portion-review-unit {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  color: var(--t3);
+}
+
+.portion-review-mass-hint {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+}
+
+.portion-review-estimate {
+  padding: 10px;
+  background: rgba(245, 158, 11, 0.07);
+  border-color: rgba(245, 158, 11, 0.24);
+}
+
+.portion-review-estimate-copy {
+  color: rgba(253, 230, 138, 0.9);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.portion-review-choice {
+  min-height: 58px;
+  padding: 7px 4px;
+  background: rgba(0, 0, 0, 0.16);
+  border-color: rgba(245, 158, 11, 0.24);
+}
+
+.portion-review-choice:hover {
+  background: rgba(245, 158, 11, 0.12);
+}
+
+.portion-review-choice-label {
+  color: var(--gold-100);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.portion-review-choice-value {
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.portion-review-secondary-action {
+  min-height: 44px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  font-size: 14px;
+}
+
+.portion-review-item-macros {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 12px;
+  row-gap: 4px;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.portion-review-save-shell {
+  padding-right: 10px;
+  padding-left: 10px;
+}
+
+.portion-review-save {
+  padding: 12px;
+}
+
+.portion-review-total-value {
+  font-size: 16px;
+  line-height: 1.25;
+}
+
+.portion-review-total-label {
+  margin-top: 1px;
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.portion-review-save-note {
+  color: rgba(251, 191, 36, 0.82);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.light .portion-review-estimate {
+  background: rgba(180, 83, 9, 0.06);
+  border-color: rgba(180, 83, 9, 0.28);
+}
+
+.light .portion-review-choice {
+  background: rgba(180, 83, 9, 0.055);
+  border-color: rgba(180, 83, 9, 0.28);
+}
+
+.light .portion-review-choice:hover {
+  background: rgba(180, 83, 9, 0.1);
+}
+
+.light .portion-review-estimate-copy,
+.light .portion-review-choice-label,
+.light .portion-review-save-note {
+  color: var(--warn) !important;
+}
+
+.light .portion-review-choice-value,
+.light .portion-review-unit,
+.light .portion-review-total-label {
+  color: var(--t3) !important;
+}
+
+.light .portion-review-secondary-action {
+  color: var(--t2) !important;
+  border-color: var(--border-default) !important;
+}
+
+.light .portion-review-item .gold-text,
+.light .portion-review-total-calories {
+  color: var(--gold-600) !important;
+}
+
+.light .portion-review-total-protein {
+  color: var(--err) !important;
+}
+
+.light .portion-review-total-carbs {
+  color: var(--info) !important;
+}
+
+.light .portion-review-total-fat {
+  color: var(--plum) !important;
+}
+
+.light .portion-review-total-fiber,
+.light .portion-review-fiber {
+  color: var(--ok) !important;
+}
+
+.light .portion-review-sugar {
+  color: var(--warn) !important;
+}
+
 /* ─── Status Indicators ─── */
 .status-dot {
   width: 10px;

@@ -76,7 +76,7 @@ function PortionStepperButton({
       }}
       whileTap={reduceMotion ? undefined : { scale: 0.88 }}
       transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-      className="w-11 h-11 flex items-center justify-center glass rounded-lg text-stone-400 hover:text-stone-200 transition-colors select-none touch-none"
+      className="portion-review-stepper flex items-center justify-center glass rounded-lg text-stone-400 hover:text-stone-200 transition-colors select-none touch-none"
       aria-label={label}
     >
       {children}
@@ -392,7 +392,7 @@ export default function ParsedFoodList({
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="space-y-2 pb-64"
+        className="portion-review-list space-y-2"
       >
         {/* Item count header — Cancel moved to save bar only */}
         <div className="px-1">
@@ -420,6 +420,7 @@ export default function ParsedFoodList({
 
         <AnimatePresence>
           {items.map((item, index) => {
+            const itemName = item.name_localized || item.food_name;
             const naturalPortion = canUseNaturalPortionDisplay({
               unit: item.unit,
               grams: item.grams,
@@ -436,7 +437,7 @@ export default function ParsedFoodList({
                 type: 'spring', stiffness: 420, damping: 32,
                 delay: Math.min(index * 0.045, 0.35),
               }}
-              className={`glass p-3${!item.portion_explicit ? ' border-l-2 border-amber-500/40' : ''}`}
+              className={`portion-review-item glass${!item.portion_explicit ? ' border-l-2 border-amber-500/40' : ''}`}
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
@@ -456,8 +457,8 @@ export default function ParsedFoodList({
                         />
                       );
                     })()}
-                    <p className="text-stone-100 text-sm font-medium truncate">
-                      {item.name_localized || item.food_name}
+                    <p className="text-stone-100 text-base font-medium truncate">
+                      {itemName}
                     </p>
                   </div>
                   {item.name_localized && item.name_localized !== item.food_name && (
@@ -510,14 +511,15 @@ export default function ParsedFoodList({
                 </div>
                 <button
                   onClick={() => removeItem(index)}
-                  className="p-1.5 text-stone-600 hover:text-red-400 transition-colors flex-shrink-0"
+                  className="portion-review-remove text-stone-600 hover:text-red-400 transition-colors flex-shrink-0"
+                  aria-label={t('food.remove_item_aria', { name: itemName })}
                 >
-                  <X size={14} />
+                  <X size={16} />
                 </button>
               </div>
 
               {/* Quantity adjuster — preserves volume and natural units; grams stay internal. */}
-              <div className="flex items-center gap-2 mt-2">
+              <div className="portion-review-quantity mt-2">
                 {(() => {
                   const vol = isVolumeUnit(item.unit);
                   const natural = naturalPortion;
@@ -560,7 +562,7 @@ export default function ParsedFoodList({
                       >
                         <Minus size={16} />
                       </PortionStepperButton>
-                      <div className="flex items-center gap-1">
+                      <div className="portion-review-amount-group">
                         <div className="relative">
                           <input
                             ref={(node) => { amountInputRefs.current[index] = node; }}
@@ -595,7 +597,7 @@ export default function ParsedFoodList({
                                 e.currentTarget.blur();
                               }
                             }}
-                            className={`input-dark text-center text-sm w-20 py-2 ${rolling ? 'text-transparent' : ''}`}
+                            className={`portion-review-amount input-dark text-center ${rolling ? 'text-transparent' : ''}`}
                             min={minDisplay}
                             aria-label={t('food.amount_input_aria_with_unit', { unit: displayUnit })}
                             max={maxDisplay}
@@ -604,7 +606,7 @@ export default function ParsedFoodList({
                           {rolling && (
                             <span
                               aria-hidden
-                              className="absolute inset-0 flex items-center justify-center text-sm text-stone-100 pointer-events-none"
+                              className="absolute inset-0 flex items-center justify-center text-xl font-semibold text-stone-100 pointer-events-none"
                             >
                               <AnimatedValue
                               value={displayVal}
@@ -616,7 +618,12 @@ export default function ParsedFoodList({
                             </span>
                           )}
                         </div>
-                        <span className="text-stone-500 text-xs">{displayUnit}</span>
+                        <span className="portion-review-unit text-stone-500">{displayUnit}</span>
+                        {!humanUnit && (
+                          <span className="portion-review-mass-hint text-stone-600">
+                            {item.quantity} {item.unit}
+                          </span>
+                        )}
                       </div>
                       <PortionStepperButton
                         delta={gramStep}
@@ -628,37 +635,31 @@ export default function ParsedFoodList({
                       >
                         <Plus size={16} />
                       </PortionStepperButton>
-                      {/* Mass items keep the original parsed unit as a secondary hint. */}
-                      {!humanUnit && (
-                        <span className="text-stone-600 text-xs ml-auto">
-                          {item.quantity} {item.unit}
-                        </span>
-                      )}
                     </>
                   );
                 })()}
               </div>
 
               {item.portion_explicit === false && (
-                <div className="mt-3 rounded-xl border border-amber-500/20 bg-amber-500/[0.06] p-2.5 space-y-2">
-                  <p className="text-amber-200/80 text-[11px] leading-snug">
+                <div className="portion-review-estimate mt-3 rounded-xl border space-y-2">
+                  <p className="portion-review-estimate-copy leading-snug">
                     {hasInlinePortionClarification
                       ? clarificationQuestion
                       : t('food.estimated_portion_help')}
                   </p>
-                  <div className="grid grid-cols-3 gap-1.5">
+                  <div className="grid grid-cols-3 gap-2">
                     {getPortionSizeOptions(item.grams).map(option => (
                       <button
                         key={option.size}
                         type="button"
                         onClick={() => setGrams(index, option.grams)}
                         disabled={logging}
-                        className="min-h-12 rounded-lg border border-amber-500/20 bg-black/10 px-1.5 py-1.5 text-center hover:bg-amber-500/10 disabled:opacity-40 transition-colors"
+                        className="portion-review-choice rounded-lg border px-1.5 text-center disabled:opacity-40 transition-colors"
                       >
-                        <span className="block text-amber-200 text-[11px] font-medium">
+                        <span className="portion-review-choice-label block">
                           {t(`food.portion_${option.size}`)}
                         </span>
-                        <span className="block text-stone-500 text-[10px] mt-0.5">
+                        <span className="portion-review-choice-value block text-stone-500 mt-0.5">
                           {isVolumeUnit(item.unit) || naturalPortion
                             ? getPortionDisplayAmount(
                                 option.grams,
@@ -679,12 +680,12 @@ export default function ParsedFoodList({
                       </button>
                     ))}
                   </div>
-                  <div className={`grid gap-1.5 ${onTakePhoto ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                  <div className={`grid gap-2 ${onTakePhoto ? 'grid-cols-2' : 'grid-cols-1'}`}>
                     <button
                       type="button"
                       onClick={() => focusAmountInput(index)}
                       disabled={logging}
-                      className="min-h-10 rounded-lg border border-white/[0.08] px-2 py-2 text-stone-300 text-[11px] flex items-center justify-center gap-1.5 hover:bg-white/[0.04] disabled:opacity-40 transition-colors"
+                      className="portion-review-secondary-action rounded-lg border border-white/[0.08] px-2 text-stone-300 flex items-center justify-center gap-1.5 hover:bg-white/[0.04] disabled:opacity-40 transition-colors"
                     >
                       <PencilLine size={13} />
                       {t('food.enter_amount')}
@@ -694,7 +695,7 @@ export default function ParsedFoodList({
                         type="button"
                         onClick={onTakePhoto}
                         disabled={logging}
-                        className="min-h-10 rounded-lg border border-white/[0.08] px-2 py-2 text-stone-300 text-[11px] flex items-center justify-center gap-1.5 hover:bg-white/[0.04] disabled:opacity-40 transition-colors"
+                        className="portion-review-secondary-action rounded-lg border border-white/[0.08] px-2 text-stone-300 flex items-center justify-center gap-1.5 hover:bg-white/[0.04] disabled:opacity-40 transition-colors"
                       >
                         <Camera size={13} />
                         {t('food.take_photo')}
@@ -705,13 +706,13 @@ export default function ParsedFoodList({
               )}
 
               {/* Macros */}
-              <div className="flex gap-3 mt-2 text-xs text-stone-400">
+              <div className="portion-review-item-macros mt-2 text-stone-400">
                 <span className="gold-text font-medium">{item.calories} kcal</span>
                 <span>P: {item.protein_g}g</span>
                 <span>C: {item.carbs_g}g</span>
                 <span>F: {item.fat_g}g</span>
-                {item.fiber_g > 0 && <span className="text-green-400">Fb: {item.fiber_g}g</span>}
-                {(item.sugar_g ?? 0) > 0 && <span className="text-orange-400">S: {item.sugar_g}g</span>}
+                {item.fiber_g > 0 && <span className="portion-review-fiber text-green-400">Fb: {item.fiber_g}g</span>}
+                {(item.sugar_g ?? 0) > 0 && <span className="portion-review-sugar text-orange-400">S: {item.sugar_g}g</span>}
               </div>
 
               {item.user_stated_nutrients && (() => {
@@ -824,46 +825,46 @@ export default function ParsedFoodList({
         initial={{ y: 100, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-        className="fixed bottom-24 left-0 right-0 z-50 px-4"
+        className="portion-review-save-shell fixed bottom-24 left-0 right-0 z-50"
       >
-        <div className="max-w-md mx-auto glass-elevated p-4 rounded-2xl border border-[#D4A853]/20 shadow-[0_-4px_24px_rgba(212,168,83,0.15)]">
+        <div className="portion-review-save max-w-md mx-auto glass-elevated rounded-2xl border border-[#D4A853]/20 shadow-[0_-4px_24px_rgba(212,168,83,0.15)]">
           {/* Macro summary row — totals roll (W5) as steppers adjust portions */}
           <div className="grid grid-cols-5 gap-1 text-center mb-3">
             <div>
-              <p className="text-sm font-bold gold-text">
+              <p className="portion-review-total-value portion-review-total-calories font-bold gold-text">
                 <AnimatedValue value={Math.round(totalCalories)} duration={220} grouped={false} />
               </p>
-              <p className="text-[10px] text-stone-500">kcal</p>
+              <p className="portion-review-total-label text-stone-500">kcal</p>
             </div>
             <div>
-              <p className="text-sm font-bold" style={{ color: MACRO_COLORS.protein }}>
+              <p className="portion-review-total-value portion-review-total-protein font-bold" style={{ color: MACRO_COLORS.protein }}>
                 <AnimatedValue value={Math.round(totalProtein)} duration={220} grouped={false} />g
               </p>
-              <p className="text-[10px] text-stone-500">Protein</p>
+              <p className="portion-review-total-label text-stone-500">Protein</p>
             </div>
             <div>
-              <p className="text-sm font-bold" style={{ color: MACRO_COLORS.carbs }}>
+              <p className="portion-review-total-value portion-review-total-carbs font-bold" style={{ color: MACRO_COLORS.carbs }}>
                 <AnimatedValue value={Math.round(totalCarbs)} duration={220} grouped={false} />g
               </p>
-              <p className="text-[10px] text-stone-500">Carbs</p>
+              <p className="portion-review-total-label text-stone-500">Carbs</p>
             </div>
             <div>
-              <p className="text-sm font-bold" style={{ color: MACRO_COLORS.fat }}>
+              <p className="portion-review-total-value portion-review-total-fat font-bold" style={{ color: MACRO_COLORS.fat }}>
                 <AnimatedValue value={Math.round(totalFat)} duration={220} grouped={false} />g
               </p>
-              <p className="text-[10px] text-stone-500">Fat</p>
+              <p className="portion-review-total-label text-stone-500">Fat</p>
             </div>
             <div>
-              <p className="text-sm font-bold" style={{ color: MACRO_COLORS.fiber }}>
+              <p className="portion-review-total-value portion-review-total-fiber font-bold" style={{ color: MACRO_COLORS.fiber }}>
                 <AnimatedValue value={Math.round(totalFiber)} duration={220} grouped={false} />g
               </p>
-              <p className="text-[10px] text-stone-500">Fiber</p>
+              <p className="portion-review-total-label text-stone-500">Fiber</p>
             </div>
           </div>
 
           {/* Soft warning for estimated portions — non-blocking */}
           {unresolvedPortions > 0 && (
-            <p className="text-amber-400/70 text-[10px] text-center mb-2">
+            <p className="portion-review-save-note text-center mb-2">
               {t('food.estimated_portion_count', { n: String(unresolvedPortions) })}
             </p>
           )}
