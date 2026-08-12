@@ -171,6 +171,9 @@ export function startVoiceSession({
         completeFromLatest();
         return;
       }
+      // Some implementations fire `end` from stop() before returning. That
+      // terminal path already cleared everything, so do not create a new timer.
+      if (!active) return;
       // Safari/Chrome occasionally omit onend after stop. Preserve the live
       // interim transcript and release the UI even when that happens.
       stopFallback = setTimeout(completeFromLatest, STOP_FALLBACK_MS);

@@ -187,6 +187,7 @@ export default function ParsedFoodList({
   const [typingIndex, setTypingIndex] = useState<number | null>(null);
   const [amountDrafts, setAmountDrafts] = useState<Record<number, string>>({});
   const amountInputRefs = useRef<Record<number, HTMLInputElement | null>>({});
+  const skipBlurCommitRef = useRef<Set<number>>(new Set());
   const touchedRef = useRef<number | null>(null);
   /** Display value at the moment a row is first stepper-touched — seeds the roll. */
   const [touchSeed, setTouchSeed] = useState(0);
@@ -504,13 +505,17 @@ export default function ParsedFoodList({
                               beginAmountEdit(index, displayVal);
                               e.currentTarget.select();
                             }}
-                            onBlur={() => commitAmountDraft(index, displayVal, gramsPerDisplayUnit, vol)}
+                            onBlur={() => {
+                              if (skipBlurCommitRef.current.delete(index)) return;
+                              commitAmountDraft(index, displayVal, gramsPerDisplayUnit, vol);
+                            }}
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') {
                                 e.preventDefault();
                                 e.currentTarget.blur();
                               } else if (e.key === 'Escape') {
                                 e.preventDefault();
+                                skipBlurCommitRef.current.add(index);
                                 discardAmountDraft(index);
                                 e.currentTarget.blur();
                               }

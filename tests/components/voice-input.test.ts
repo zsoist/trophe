@@ -15,6 +15,7 @@ class FakeRecognition implements SpeechRecognitionLike {
   onend: (() => void) | null = null;
   handlersAttachedAtStart = false;
   stopCalled = false;
+  endSynchronouslyOnStop = false;
   abortCalled = false;
   startError: Error | null = null;
 
@@ -25,6 +26,7 @@ class FakeRecognition implements SpeechRecognitionLike {
 
   stop() {
     this.stopCalled = true;
+    if (this.endSynchronouslyOnStop) this.emitEnd();
   }
 
   abort() {
@@ -100,6 +102,20 @@ describe('voice input session', () => {
     expect(recognition.stopCalled).toBe(true);
     expect(state.completions).toEqual(['protein bar with thirteen grams protein']);
     expect(state.errors).toEqual([]);
+  });
+
+  it('leaves no fallback timer when Stop emits end synchronously', () => {
+    const recognition = new FakeRecognition();
+    recognition.endSynchronouslyOnStop = true;
+    const state = makeCallbacks();
+    const session = startVoiceSession({ recognition, language: 'en-US', ...state.callbacks });
+
+    recognition.emitResult([{ transcript: 'ajiaco for dinner', isFinal: false }]);
+    session.stop();
+
+    expect(state.completions).toEqual(['ajiaco for dinner']);
+    expect(session.active).toBe(false);
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   it('recovers when recognition start throws synchronously', () => {
