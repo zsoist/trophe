@@ -13,6 +13,7 @@ import {
   assertSupabaseAffectedRow,
   buildLocalPlaywrightEnv,
   buildLocalThemePerformanceEnv,
+  cleanupFixtureResources,
   formatLocalE2EError,
   localE2ECachePath,
   parseSupabaseStatusEnv,
@@ -195,16 +196,18 @@ export async function runLocalAuthenticatedE2E({ executeWithDisposableRoles } = 
           }
         },
         cleanup: async () => {
-          await retryLocalE2EOperation(
-            () => service.from('client_profiles').update({ coach_id: null }).eq('user_id', clientId).select('user_id'),
-            'client relationship cleanup',
-            { validateResult: (result, operation) => assertSupabaseAffectedRow(result, operation, clientId, 'user_id') },
-          );
-          await retryLocalE2EOperation(
-            () => service.from('organizations').delete().eq('id', organization.id).select('id'),
-            'organization cleanup',
-            { validateResult: (result, operation) => assertSupabaseAffectedRow(result, operation, organization.id) },
-          );
+          await cleanupFixtureResources({
+            relationshipCleanup: () => retryLocalE2EOperation(
+              () => service.from('client_profiles').update({ coach_id: null }).eq('user_id', clientId).select('user_id'),
+              'client relationship cleanup',
+              { validateResult: (result, operation) => assertSupabaseAffectedRow(result, operation, clientId, 'user_id') },
+            ),
+            organizationCleanup: () => retryLocalE2EOperation(
+              () => service.from('organizations').delete().eq('id', organization.id).select('id'),
+              'organization cleanup',
+              { validateResult: (result, operation) => assertSupabaseAffectedRow(result, operation, organization.id) },
+            ),
+          });
         },
       });
     },

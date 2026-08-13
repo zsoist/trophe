@@ -16,6 +16,7 @@ import {
   resolveSupabaseCli,
   withDisposableUsers,
   withFixtureCleanup,
+  cleanupFixtureResources,
 } from '../../scripts/test/local-auth-e2e-core.mjs';
 
 describe('local authenticated E2E harness', () => {
@@ -197,6 +198,55 @@ describe('local authenticated E2E harness', () => {
       cleanup: async () => { events.push('cleanup'); },
     })).rejects.toThrow('measurement failed');
     expect(events).toEqual(['callback', 'cleanup']);
+  });
+
+  it('preserves a callback error while attempting both fixture cleanups and retaining cleanup evidence', async () => {
+    const events: string[] = [];
+    try {
+      await withFixtureCleanup({
+        execute: async () => {
+          events.push('callback');
+          throw new Error('workload failed');
+        },
+        cleanup: () => cleanupFixtureResources({
+          relationshipCleanup: async () => {
+            events.push('relationship');
+            throw new Error('relationship cleanup failed');
+          },
+          organizationCleanup: async () => {
+            events.push('organization');
+            throw new Error('organization cleanup failed');
+          },
+        }),
+      });
+      throw new Error('expected fixture failure');
+    } catch (error) {
+      expect(error).toBeInstanceOf(AggregateError);
+      expect((error as AggregateError).errors.map((item) => (item as Error).message)).toEqual([
+        'workload failed',
+        'relationship cleanup failed',
+        'organization cleanup failed',
+      ]);
+    }
+    expect(events).toEqual(['callback', 'relationship', 'organization']);
+  });
+
+  it('surfaces cleanup failure after a successful callback while still attempting both cleanups', async () => {
+    const events: string[] = [];
+    await expect(withFixtureCleanup({
+      execute: async () => {
+        events.push('callback');
+        return 'report';
+      },
+      cleanup: () => cleanupFixtureResources({
+        relationshipCleanup: async () => {
+          events.push('relationship');
+          throw new Error('relationship cleanup failed');
+        },
+        organizationCleanup: async () => { events.push('organization'); },
+      }),
+    })).rejects.toThrow('relationship cleanup failed');
+    expect(events).toEqual(['callback', 'relationship', 'organization']);
   });
 
 

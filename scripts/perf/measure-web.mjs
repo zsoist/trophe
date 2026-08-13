@@ -396,7 +396,13 @@ export async function measureThemeRoute({ browser, baseUrl, route, credentialPre
       ...toggleRequestCounts,
       providerRemountCount,
     });
-    if (!result.ok) throw new Error(`Theme performance failure for ${route}: ${result.failures.join(', ')}`);
+    if (!result.ok) {
+      throw new Error(
+        `Theme performance failure for ${route}: ${result.failures.join(', ')}; `
+        + `baseline median=${result.baselineNavigation.medianMs}ms p95=${result.baselineNavigation.p95Ms}ms; `
+        + `post-toggle median=${result.postToggleNavigation.medianMs}ms p95=${result.postToggleNavigation.p95Ms}ms`,
+      );
+    }
     return result;
   } finally {
     await context.close();

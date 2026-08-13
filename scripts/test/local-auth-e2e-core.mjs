@@ -100,11 +100,42 @@ export async function retryLocalE2EOperation(operationFn, operation, {
 
 /** Executes a fixture workload while guaranteeing its verified cleanup runs. */
 export async function withFixtureCleanup({ execute, cleanup }) {
+  let result;
+  let workloadError;
   try {
-    return await execute();
-  } finally {
-    await cleanup();
+    result = await execute();
+  } catch (error) {
+    workloadError = error;
   }
+  let cleanupError;
+  try {
+    await cleanup();
+  } catch (error) {
+    cleanupError = error;
+  }
+  if (workloadError && cleanupError) {
+    throw new AggregateError([workloadError, ...(cleanupError instanceof AggregateError ? cleanupError.errors : [cleanupError])], 'fixture workload and cleanup failed', { cause: workloadError });
+  }
+  if (workloadError) throw workloadError;
+  if (cleanupError) throw cleanupError;
+  return result;
+}
+
+/** Runs both cleanup operations even when either one fails. */
+export async function cleanupFixtureResources({ relationshipCleanup, organizationCleanup }) {
+  const errors = [];
+  try {
+    await relationshipCleanup();
+  } catch (error) {
+    errors.push(error);
+  }
+  try {
+    await organizationCleanup();
+  } catch (error) {
+    errors.push(error);
+  }
+  if (errors.length === 1) throw errors[0];
+  if (errors.length > 1) throw new AggregateError(errors, 'fixture cleanup failed');
 }
 
 export function parseSupabaseStatusEnv(raw) {
