@@ -101,8 +101,10 @@ test('public identity and login links meet the minimum target size in both theme
       const box = await link.boundingBox();
 
       expect(box, `${target.path}: ${target.name} should have a measurable target`).not.toBeNull();
-      expect.soft(box!.width, `${target.path}: ${target.name} should be at least 44px wide`).toBeGreaterThanOrEqual(44);
-      expect.soft(box!.height, `${target.path}: ${target.name} should be at least 44px tall`).toBeGreaterThanOrEqual(44);
+      // Chromium can report an authored 44px CSS target a few millionths of a
+      // pixel short after device-pixel rounding (for example 43.999992px).
+      expect.soft(box!.width, `${target.path}: ${target.name} should be at least 44px wide`).toBeGreaterThanOrEqual(43.99);
+      expect.soft(box!.height, `${target.path}: ${target.name} should be at least 44px tall`).toBeGreaterThanOrEqual(43.99);
     }
   }
 });
