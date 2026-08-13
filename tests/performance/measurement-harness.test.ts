@@ -2,18 +2,25 @@ import { describe, expect, it } from 'vitest';
 import {
   calculateCls,
   calculateReport,
+  calculateThemePerformanceReport,
   collectSample,
   createTransferAccumulator,
+  MAX_THEME_NAVIGATION_REGRESSION_RATIO,
   isReadOnlyMethod,
   MAX_SETTLE_MS,
   measureUrl,
   parseCliArgs,
   runMeasurements,
+  runThemeMeasurements,
   sanitizeFailureUrl,
   SETTLE_QUIET_MS,
   VIEWPORTS,
   writeReport,
 } from '../../scripts/perf/measure-web.mjs';
+import {
+  isPaidProviderRoute,
+  parseCanaryConfig,
+} from '../../scripts/ops/canary-theme-readonly.mjs';
 
 const samples = [
   {
@@ -105,6 +112,104 @@ function createCleanupFixture({
 }
 
 describe('web performance measurement harness', () => {
+  it('summarizes twenty CSS-only theme toggles and rejects navigation, data, provider, and navigation-regression failures', () => {
+    const report = calculateThemePerformanceReport({
+      route: '/dashboard',
+      baselineNavigationMs: 1_000,
+      toggleDurationsMs: Array.from({ length: 20 }, (_, index) => 10 + index),
+      navigationCount: 0,
+      supabaseRefetchCount: 0,
+      providerRemountCount: 0,
+    });
+
+    expect(report).toMatchObject({
+      route: '/dashboard',
+      toggleCount: 20,
+      medianMs: 19.5,
+      p95Ms: 28,
+      navigationRegressionRatio: 0,
+      navigationRegressionMeasurement: 'separate_page_reload_excluded_from_toggle_navigation_count',
+      ok: true,
+    });
+    expect(MAX_THEME_NAVIGATION_REGRESSION_RATIO).toBe(0.05);
+    expect(calculateThemePerformanceReport({
+      route: '/dashboard',
+      baselineNavigationMs: 1_000,
+      navigationRegressionMs: 1_050,
+      toggleDurationsMs: Array(20).fill(10),
+      navigationCount: 0,
+      supabaseRefetchCount: 0,
+      providerRemountCount: 0,
+    }).ok).toBe(true);
+    expect(calculateThemePerformanceReport({
+      route: '/dashboard',
+      baselineNavigationMs: 1_000,
+      toggleDurationsMs: Array(20).fill(10),
+      navigationCount: 1,
+      supabaseRefetchCount: 1,
+      providerRemountCount: 1,
+      navigationRegressionMs: 1_051,
+    }).failures).toEqual([
+      'navigation_detected',
+      'supabase_refetch_detected',
+      'provider_remount_detected',
+      'navigation_regression_exceeded',
+    ]);
+  });
+
+  it('requires every theme-canary role credential and blocks paid-provider route families', () => {
+    expect(isPaidProviderRoute('https://trophe.app/api/ai/meal-suggest')).toBe(true);
+    expect(isPaidProviderRoute('https://trophe.app/api/food/parse')).toBe(true);
+    expect(isPaidProviderRoute('https://trophe.app/api/food/recipe-analyze')).toBe(true);
+    expect(isPaidProviderRoute('https://trophe.app/api/coach/shopping-list')).toBe(true);
+    expect(isPaidProviderRoute('https://trophe.app/api/coach/meal-plan-macros')).toBe(true);
+    expect(isPaidProviderRoute('https://api.openai.com/v1/responses')).toBe(true);
+    expect(isPaidProviderRoute('https://api.anthropic.com/v1/messages')).toBe(true);
+    expect(isPaidProviderRoute('https://generativelanguage.googleapis.com/v1/models')).toBe(true);
+    expect(isPaidProviderRoute('https://api.voyageai.com/v1/embeddings')).toBe(true);
+    expect(isPaidProviderRoute('https://api.openai.com.attacker.test/v1/responses')).toBe(false);
+    expect(isPaidProviderRoute('https://project.supabase.co/rest/v1/profiles')).toBe(false);
+    expect(isPaidProviderRoute('https://trophe.app/api/food/local-search')).toBe(false);
+    expect(isPaidProviderRoute('https://trophe.app/dashboard')).toBe(false);
+
+    expect(() => parseCanaryConfig({
+      PLAYWRIGHT_BASE_URL: 'https://trophe.app',
+      THEME_CANARY_CLIENT_EMAIL: 'client@example.test',
+      THEME_CANARY_CLIENT_PASSWORD: 'client-password',
+    })).toThrow('THEME_CANARY_COACH_EMAIL');
+    expect(parseCanaryConfig({
+      PLAYWRIGHT_BASE_URL: 'https://trophe.app',
+      THEME_CANARY_CLIENT_EMAIL: 'client@example.test',
+      THEME_CANARY_CLIENT_PASSWORD: 'client-password',
+      THEME_CANARY_COACH_EMAIL: 'coach@example.test',
+      THEME_CANARY_COACH_PASSWORD: 'coach-password',
+      THEME_CANARY_ADMIN_EMAIL: 'admin@example.test',
+      THEME_CANARY_ADMIN_PASSWORD: 'admin-password',
+      THEME_CANARY_SUPER_EMAIL: 'super@example.test',
+      THEME_CANARY_SUPER_PASSWORD: 'super-password',
+    })).toMatchObject({
+      baseUrl: 'https://trophe.app/',
+      roles: expect.objectContaining({
+        client: expect.objectContaining({ route: '/dashboard' }),
+        coach: expect.objectContaining({ route: '/coach' }),
+        admin: expect.objectContaining({ route: '/admin/orgs' }),
+        super: expect.objectContaining({ route: '/super' }),
+      }),
+    });
+  });
+
+  it('rejects missing local theme-measurement credentials before starting a browser or network request', async () => {
+    let browserCreated = false;
+    await expect(runThemeMeasurements({
+      env: { PLAYWRIGHT_BASE_URL: 'http://127.0.0.1:3300' },
+      browserFactory: async () => {
+        browserCreated = true;
+        throw new Error('browser must not be created');
+      },
+    })).rejects.toThrow('THEME_PERF_CLIENT_EMAIL');
+    expect(browserCreated).toBe(false);
+  });
+
   it('collects mobile before desktop with the committed viewports', () => {
     expect(VIEWPORTS).toEqual([
       { name: 'mobile', width: 390, height: 844 },

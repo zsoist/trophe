@@ -41,6 +41,7 @@
     "rag:ingest": "tsx scripts/rag/ingest-document.ts",
     "food:readiness": "tsx scripts/ops/check-food-readiness.ts",
     "canary:prod": "bash scripts/ops/canary-readonly.sh",
+    "canary:theme": "node scripts/ops/canary-theme-readonly.mjs",
     "verify": "npm run typecheck && npm run lint && npm test && npm run build",
     "verify:bounded": "node scripts/ci/verify-release.mjs",
     "db:bootstrap": "bash scripts/db/bootstrap-local.sh",

@@ -1,0 +1,189 @@
+#!/usr/bin/env node
+
+import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+
+const PAID_PROVIDER_HOSTS = new Set([
+  'api.openai.com',
+  'api.anthropic.com',
+  'generativelanguage.googleapis.com',
+  'api.voyageai.com',
+]);
+const PAID_APP_PATHS = new Set([
+  '/api/food/parse',
+  '/api/food/recipe-analyze',
+  '/api/coach/shopping-list',
+  '/api/coach/meal-plan-macros',
+]);
+const ROLE_CONFIG = [
+  ['client', '/dashboard'],
+  ['coach', '/coach'],
+  ['admin', '/admin/orgs'],
+  ['super', '/super'],
+];
+
+function validBaseUrl(raw) {
+  let url;
+  try {
+    url = new URL(raw);
+  } catch {
+    throw new Error('PLAYWRIGHT_BASE_URL must be an absolute http(s) URL');
+  }
+  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) {
+    throw new Error('PLAYWRIGHT_BASE_URL must be an absolute credential-free http(s) URL');
+  }
+  url.search = '';
+  url.hash = '';
+  return url.toString();
+}
+
+function roleEnvName(role) {
+  return `THEME_CANARY_${role.toUpperCase()}`;
+}
+
+/** @param {Record<string, string | undefined>} env */
+export function parseCanaryConfig(env = process.env) {
+  const baseUrl = validBaseUrl(env.PLAYWRIGHT_BASE_URL ?? env.BASE_URL ?? 'https://trophe.app');
+  const roles = {};
+  for (const [role, route] of ROLE_CONFIG) {
+    const prefix = roleEnvName(role);
+    const email = env[`${prefix}_EMAIL`];
+    const password = env[`${prefix}_PASSWORD`];
+    if (!email) throw new Error(`${prefix}_EMAIL is required`);
+    if (!password) throw new Error(`${prefix}_PASSWORD is required`);
+    roles[role] = { route, email, password };
+  }
+  return { baseUrl, roles };
+}
+
+export function isPaidProviderRoute(rawUrl) {
+  let url;
+  try {
+    url = new URL(rawUrl);
+  } catch {
+    return false;
+  }
+  return PAID_PROVIDER_HOSTS.has(url.hostname)
+    || url.pathname.startsWith('/api/ai/')
+    || PAID_APP_PATHS.has(url.pathname);
+}
+
+function isAuthenticationRequest(rawUrl) {
+  try {
+    return new URL(rawUrl).pathname.startsWith('/auth/v1/token');
+  } catch {
+    return false;
+  }
+}
+
+function isReadOnlyMethod(method) {
+  return method === 'GET' || method === 'HEAD' || method === 'OPTIONS';
+}
+
+function pageUrl(baseUrl, pathname) {
+  return new URL(pathname, baseUrl).toString();
+}
+
+async function assertPageHealth(page, route) {
+  const health = await page.evaluate(() => {
+    const visible = (element) => {
+      const style = getComputedStyle(element);
+      return style.visibility !== 'hidden' && style.display !== 'none' && element.getClientRects().length > 0;
+    };
+    const controlName = (element) => element.getAttribute('aria-label')?.trim()
+      || element.getAttribute('title')?.trim()
+      || element.innerText?.trim()
+      || element.textContent?.trim()
+      || element.getAttribute('placeholder')?.trim()
+      || '';
+    const controls = Array.from(document.querySelectorAll('a[href],button,input,select,textarea,[role="button"],[role="link"],[role="tab"]'))
+      .filter(visible)
+      .map((element) => {
+        const rect = element.getBoundingClientRect();
+        return { name: controlName(element), left: rect.left, right: rect.right };
+      });
+    return {
+      bodyWidth: document.body.getBoundingClientRect().width,
+      bodyHeight: document.body.getBoundingClientRect().height,
+      bodyText: document.body.innerText.trim(),
+      overflow: document.documentElement.scrollWidth - window.innerWidth,
+      unnamedControls: controls.filter((control) => !control.name).length,
+      offscreenControls: controls.filter((control) => control.left < -1 || control.right > window.innerWidth + 1).length,
+    };
+  });
+  if (health.bodyWidth <= 1 || health.bodyHeight <= 1 || /^(loading|loading…|please wait)[.!…\s]*$/i.test(health.bodyText)) {
+    throw new Error(`${route} rendered a blank or loading-only page`);
+  }
+  if (health.overflow > 1) throw new Error(`${route} has ${health.overflow}px horizontal overflow`);
+  if (health.unnamedControls > 0) throw new Error(`${route} has ${health.unnamedControls} unnamed interactive controls`);
+  if (health.offscreenControls > 0) throw new Error(`${route} has ${health.offscreenControls} offscreen interactive controls`);
+}
+
+async function login(page, baseUrl, role) {
+  await page.goto(pageUrl(baseUrl, '/login'), { waitUntil: 'domcontentloaded', timeout: 30_000 });
+  await page.getByPlaceholder('Email').fill(role.email);
+  await page.getByPlaceholder('Password').fill(role.password);
+  await page.locator('form').getByRole('button', { name: 'Log in' }).click();
+  await page.waitForURL((url) => !url.pathname.startsWith('/login'), { timeout: 30_000 });
+}
+
+async function visitRole({ browser, baseUrl, name, role }) {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
+  const page = await context.newPage();
+  const failures = [];
+  let authenticationAllowed = true;
+  page.on('console', (message) => {
+    if (message.type() === 'error') failures.push(`console error on ${name}`);
+  });
+  page.on('pageerror', () => failures.push(`page error on ${name}`));
+  await page.route('**/*', async (route) => {
+    const request = route.request();
+    if (isPaidProviderRoute(request.url())) {
+      failures.push(`paid route blocked on ${name}`);
+      await route.abort('blockedbyclient');
+      return;
+    }
+    if (!isReadOnlyMethod(request.method()) && !(authenticationAllowed && isAuthenticationRequest(request.url()))) {
+      failures.push(`non-read-only ${request.method()} blocked on ${name}`);
+      await route.abort('blockedbyclient');
+      return;
+    }
+    await route.continue();
+  });
+  try {
+    await login(page, baseUrl, role);
+    authenticationAllowed = false;
+    await page.goto(pageUrl(baseUrl, role.route), { waitUntil: 'load', timeout: 30_000 });
+    await assertPageHealth(page, role.route);
+    const toggle = page.getByRole('button', { name: 'Toggle color theme' });
+    await toggle.click();
+    await page.waitForFunction(() => document.documentElement.classList.contains('light') || document.documentElement.classList.contains('dark'));
+    await assertPageHealth(page, role.route);
+    if (failures.length > 0) throw new Error(failures.join('; '));
+  } finally {
+    await context.close();
+  }
+}
+
+export async function runCanary(config = parseCanaryConfig()) {
+  const { chromium } = await import('@playwright/test');
+  const browser = await chromium.launch({ headless: true });
+  try {
+    for (const [name] of ROLE_CONFIG) {
+      await visitRole({ browser, baseUrl: config.baseUrl, name, role: config.roles[name] });
+    }
+  } finally {
+    await browser.close();
+  }
+}
+
+const executedDirectly = process.argv[1]
+  && import.meta.url === pathToFileURL(resolve(process.argv[1])).href;
+if (executedDirectly) {
+  runCanary().then(() => {
+    process.stdout.write('canary:theme PASS - read-only role and theme checks green\n');
+  }).catch((error) => {
+    process.stderr.write(`canary:theme FAIL - ${error.message}\n`);
+    process.exitCode = 1;
+  });
+}

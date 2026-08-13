@@ -10,6 +10,8 @@ export const VIEWPORTS = [
 ];
 export const SETTLE_QUIET_MS = 1_000;
 export const MAX_SETTLE_MS = 5_000;
+export const THEME_TOGGLE_COUNT = 20;
+export const MAX_THEME_NAVIGATION_REGRESSION_RATIO = 0.05;
 
 const METRICS = [
   'ttfb',
@@ -41,6 +43,68 @@ function median(values) {
   return values.length % 2 === 0
     ? (values[middle - 1] + values[middle]) / 2
     : values[middle];
+}
+
+export function percentile(values, percentileValue) {
+  if (values.length === 0) return null;
+  const sorted = [...values].filter(Number.isFinite).sort((left, right) => left - right);
+  if (sorted.length === 0) return null;
+  const rank = Math.ceil((percentileValue / 100) * sorted.length) - 1;
+  return sorted[Math.max(0, Math.min(sorted.length - 1, rank))];
+}
+
+/**
+ * Converts one route's twenty CSS-only toggle observations into an auditable
+ * release gate. The counter values are collected independently of timing so a
+ * fast toggle cannot hide a route reload or data-provider side effect.
+ */
+export function calculateThemePerformanceReport({
+  route,
+  baselineNavigationMs,
+  navigationRegressionMs = baselineNavigationMs,
+  toggleDurationsMs,
+  navigationCount,
+  supabaseRefetchCount,
+  providerRemountCount,
+}) {
+  if (!Array.isArray(toggleDurationsMs) || toggleDurationsMs.length !== THEME_TOGGLE_COUNT) {
+    throw new Error(`Theme measurement requires exactly ${THEME_TOGGLE_COUNT} toggles`);
+  }
+  if (!Number.isFinite(baselineNavigationMs) || baselineNavigationMs <= 0) {
+    throw new Error('Theme measurement requires a positive baseline navigation duration');
+  }
+  if (!Number.isFinite(navigationRegressionMs) || navigationRegressionMs < 0) {
+    throw new Error('Theme measurement requires a non-negative post-toggle navigation duration');
+  }
+  const sortedDurations = [...toggleDurationsMs].sort((left, right) => left - right);
+  if (sortedDurations.some((value) => !Number.isFinite(value) || value < 0)) {
+    throw new Error('Theme toggle durations must be finite non-negative numbers');
+  }
+  const navigationRegressionRatio = (navigationRegressionMs - baselineNavigationMs) / baselineNavigationMs;
+  const failures = [];
+  if (navigationCount !== 0) failures.push('navigation_detected');
+  if (supabaseRefetchCount !== 0) failures.push('supabase_refetch_detected');
+  if (providerRemountCount !== 0) failures.push('provider_remount_detected');
+  if (navigationRegressionRatio > MAX_THEME_NAVIGATION_REGRESSION_RATIO) {
+    failures.push('navigation_regression_exceeded');
+  }
+
+  return {
+    route,
+    toggleCount: toggleDurationsMs.length,
+    medianMs: median(sortedDurations),
+    p95Ms: percentile(sortedDurations, 95),
+    baselineNavigationMs,
+    navigationRegressionMs,
+    navigationRegressionRatio,
+    navigationRegressionMeasurement: 'separate_page_reload_excluded_from_toggle_navigation_count',
+    navigationCount,
+    supabaseRefetchCount,
+    providerRemountCount,
+    providerRemountDetection: 'app_root_identity_proxy',
+    failures,
+    ok: failures.length === 0,
+  };
 }
 
 function metricSummary(samples, reducer) {
@@ -197,6 +261,137 @@ function installMetricObservers() {
 async function defaultBrowserFactory() {
   const { chromium } = await import('@playwright/test');
   return chromium.launch({ headless: true });
+}
+
+const THEME_ROUTES = [
+  { name: 'login', route: '/login' },
+  { name: 'dashboard', route: '/dashboard', credentialPrefix: 'CLIENT' },
+  { name: 'coach', route: '/coach', credentialPrefix: 'COACH' },
+  { name: 'super', route: '/super', credentialPrefix: 'SUPER' },
+];
+
+function joinUrl(baseUrl, pathname) {
+  return new URL(pathname, baseUrl).toString();
+}
+
+function navigationDuration(page) {
+  return page.evaluate(() => {
+    const entry = performance.getEntriesByType('navigation')[0];
+    return entry ? entry.loadEventEnd - entry.startTime : performance.now();
+  });
+}
+
+function rootIdentity(page) {
+  return page.evaluate(() => {
+    const root = document.body.firstElementChild;
+    if (!root) throw new Error('Theme route did not render an application root');
+    const marker = '__tropheThemeMeasurementRootId';
+    const element = /** @type {HTMLElement & Record<string, string>} */ (root);
+    element[marker] ??= crypto.randomUUID();
+    return element[marker];
+  });
+}
+
+function isSupabaseRequest(url) {
+  const parsed = new URL(url);
+  return parsed.hostname.includes('supabase') || parsed.pathname.startsWith('/rest/v1/');
+}
+
+function themeCredential(credentialPrefix, env) {
+  const email = env[`THEME_PERF_${credentialPrefix}_EMAIL`] ?? env[`E2E_${credentialPrefix}_EMAIL`];
+  const password = env[`THEME_PERF_${credentialPrefix}_PASSWORD`] ?? env[`E2E_${credentialPrefix}_PASSWORD`];
+  if (!email || !password) {
+    throw new Error(`Theme performance measurement requires THEME_PERF_${credentialPrefix}_EMAIL and THEME_PERF_${credentialPrefix}_PASSWORD`);
+  }
+  return { email, password };
+}
+
+async function loginForThemeMeasurement(page, baseUrl, credentialPrefix, env) {
+  const { email, password } = themeCredential(credentialPrefix, env);
+  await page.goto(joinUrl(baseUrl, '/login'), { waitUntil: 'domcontentloaded', timeout: 30_000 });
+  await page.getByPlaceholder('Email').fill(email);
+  await page.getByPlaceholder('Password').fill(password);
+  await page.locator('form').getByRole('button', { name: 'Log in' }).click();
+  await page.waitForURL((url) => !url.pathname.startsWith('/login'), { timeout: 30_000 });
+}
+
+/** Measure one authenticated or public route without allowing the toggle to navigate or fetch. */
+/** @param {{ browser: any, baseUrl: string, route: string, credentialPrefix?: string, env?: Record<string, string | undefined> }} options */
+export async function measureThemeRoute({ browser, baseUrl, route, credentialPrefix, env = process.env }) {
+  const context = await browser.newContext({ serviceWorkers: 'block' });
+  try {
+    const page = await context.newPage();
+    if (credentialPrefix) await loginForThemeMeasurement(page, baseUrl, credentialPrefix, env);
+    let toggleNavigationCount = 0;
+    let supabaseRefetchCount = 0;
+    page.on('request', (request) => {
+      if (request.isNavigationRequest() && request.resourceType() === 'document') toggleNavigationCount += 1;
+      if (isSupabaseRequest(request.url())) supabaseRefetchCount += 1;
+    });
+    await page.goto(joinUrl(baseUrl, route), { waitUntil: 'load', timeout: 30_000 });
+    const baselineNavigationMs = await navigationDuration(page);
+    // React does not expose provider mount counts to browser automation. The
+    // stable app-root identity is a conservative proxy that catches route-tree
+    // replacement; the report labels this limitation rather than overstating it.
+    const initialRoot = await rootIdentity(page);
+    toggleNavigationCount = 0;
+    supabaseRefetchCount = 0;
+
+    const toggle = page.getByRole('button', { name: 'Toggle color theme' });
+    const toggleDurationsMs = [];
+    for (let index = 0; index < THEME_TOGGLE_COUNT; index += 1) {
+      const before = await page.evaluate(() => performance.now());
+      const priorMode = await page.locator('html').evaluate((element) => element.classList.contains('light') ? 'light' : 'dark');
+      await toggle.click();
+      await page.locator('html').waitFor({ state: 'attached' });
+      await page.waitForFunction((mode) => !document.documentElement.classList.contains(mode), priorMode);
+      toggleDurationsMs.push((await page.evaluate(() => performance.now())) - before);
+    }
+    const rootAfterToggles = await rootIdentity(page);
+    const providerRemountCount = initialRoot === rootAfterToggles ? 0 : 1;
+
+    const toggleRequestCounts = {
+      navigationCount: toggleNavigationCount,
+      supabaseRefetchCount,
+    };
+
+    await page.reload({ waitUntil: 'load', timeout: 30_000 });
+    const navigationRegressionMs = await navigationDuration(page);
+    const result = calculateThemePerformanceReport({
+      route,
+      baselineNavigationMs,
+      navigationRegressionMs,
+      toggleDurationsMs,
+      ...toggleRequestCounts,
+      providerRemountCount,
+    });
+    if (!result.ok) throw new Error(`Theme performance failure for ${route}: ${result.failures.join(', ')}`);
+    return result;
+  } finally {
+    await context.close();
+  }
+}
+
+/** @param {{ baseUrl?: string, browserFactory?: typeof defaultBrowserFactory, env?: Record<string, string | undefined> }} options */
+export async function runThemeMeasurements({
+  baseUrl = process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:3300',
+  browserFactory = defaultBrowserFactory,
+  env = process.env,
+} = {}) {
+  const normalizedBaseUrl = validatedUrl(baseUrl);
+  for (const { credentialPrefix } of THEME_ROUTES) {
+    if (credentialPrefix) themeCredential(credentialPrefix, env);
+  }
+  const browser = await browserFactory();
+  try {
+    const routes = [];
+    for (const config of THEME_ROUTES) {
+      routes.push(await measureThemeRoute({ browser, baseUrl: normalizedBaseUrl, ...config, env }));
+    }
+    return { baseUrl: normalizedBaseUrl, routes };
+  } finally {
+    await browser.close();
+  }
 }
 
 export function isReadOnlyMethod(method) {
@@ -536,6 +731,12 @@ export async function writeReport(output, report) {
 }
 
 export async function main(argv = process.argv.slice(2)) {
+  if (argv.length === 0 || argv[0] === '--theme') {
+    if (argv.length > 1) throw new Error('usage: perf:measure [--theme] or perf:measure --url <http(s) URL> [--samples 1-10] [--output docs/quality/performance-<target>.json]');
+    const report = await runThemeMeasurements();
+    process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+    return report;
+  }
   const options = parseCliArgs(argv);
   const report = await runMeasurements(options);
   await writeReport(options.output, report);
