@@ -310,6 +310,7 @@ describe('coach operational routes and modal library contract', () => {
 
     expect(pulses.length).toBeGreaterThan(0);
     expect(pulses.every((pulse) => pulse.getAttribute('data-motion-animate') === 'false')).toBe(true);
+    expect(view.container.querySelector('[data-loading-skeleton]')).toBeTruthy();
   });
 
   it('keeps every repeating coach motion element static when reduced motion is requested', () => {
@@ -322,6 +323,48 @@ describe('coach operational routes and modal library contract', () => {
     const perpetualMotion = files.flatMap(repeatingMotionViolations);
 
     expect(perpetualMotion).toEqual([]);
+  });
+
+  it('keeps SmartNote suggestion hit areas at their full 44px size throughout motion', () => {
+    const smartNotes = source('components/coach/SmartNoteSuggestions.tsx');
+    expect(smartNotes).toMatch(/minHeight:\s*44/);
+    expect(smartNotes).toMatch(/initial=\{\{ opacity: 0, y: 4 \}\}/);
+    expect(smartNotes).not.toMatch(/(?:scale:\s*0\.9|hover:scale|active:scale)/);
+  });
+
+  it('keeps the plan phase selector labelled and at a 44px touch target', () => {
+    const planEditor = source('app/coach/client/[id]/plan/page.tsx');
+    expect(planEditor).toMatch(/<label[^>]*htmlFor=["']coaching-phase["'][^>]*>\s*Coaching Phase\s*<\/label>/);
+    expect(planEditor).toMatch(/<select[\s\S]*?id=["']coaching-phase["'][\s\S]*?minHeight:\s*44/);
+    expect(planEditor).toMatch(/focus-visible:ring-2/);
+  });
+
+  it('names every desktop and mobile meal-plan field and picker by day and meal', () => {
+    const planEditor = source('app/coach/client/[id]/plan/page.tsx');
+    expect(planEditor).toMatch(/aria-label=\{`\$\{DAY_LABELS\[day\]\} \$\{SLOT_LABELS\[slot\]\}`\}/);
+    expect(planEditor).toMatch(/aria-label=\{`Suggest a meal for \$\{DAY_LABELS\[day\]\} \$\{SLOT_LABELS\[slot\]\}`\}/);
+    expect(planEditor).toMatch(/aria-label=\{`\$\{DAY_LABELS\[activeDay\]\} \$\{SLOT_LABELS\[slot\]\}`\}/);
+    expect(planEditor).toMatch(/aria-label=\{`Suggest a meal for \$\{DAY_LABELS\[activeDay\]\} \$\{SLOT_LABELS\[slot\]\}`\}/);
+  });
+
+  it('gives the wrapped questionnaire required label a 44px target and focus treatment', () => {
+    const questionnaires = source('app/coach/questionnaires/page.tsx');
+    expect(questionnaires).toMatch(/<label className="row-i min-h-11 min-w-11[^\"]*focus-within:ring-2/);
+  });
+
+  it('names and sizes the memory workspace back link as a 44px control', () => {
+    const memory = source('app/coach/client/[id]/memory/page.tsx');
+    expect(memory).toMatch(/aria-label=["']Back to client workspace["']/);
+    expect(memory).toMatch(/min-h-11/);
+    expect(memory).toMatch(/min-w-11/);
+    expect(memory).toMatch(/focus-visible:ring-2/);
+  });
+
+  it('keeps Export Summary at a 44px target with a visible focus ring', () => {
+    const summary = source('components/summary/CoachingSummary.tsx');
+    expect(summary).toMatch(/Export Summary/);
+    expect(summary).toMatch(/min-h-11/);
+    expect(summary).toMatch(/focus-visible:ring-2/);
   });
 
   it('keeps every actual mobile text control at 16px without contradictory inline or utility overrides', () => {

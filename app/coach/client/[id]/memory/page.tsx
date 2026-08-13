@@ -227,7 +227,11 @@ export default function ClientMemoryPage() {
       {/* Header */}
       <div className="sticky top-0 z-10 bg-[var(--canvas)]/90 backdrop-blur border-b border-[var(--border-strong)] px-4 py-3">
         <div className="max-w-2xl mx-auto flex items-center gap-3">
-          <Link href={`/coach/client/${clientId}`} className="text-[var(--content-muted)] hover:text-[var(--content-primary)]">
+          <Link
+            href={`/coach/client/${clientId}`}
+            aria-label="Back to client workspace"
+            className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg text-[var(--content-muted)] hover:text-[var(--content-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+          >
             <ArrowLeft size={20} />
           </Link>
           <div className="flex-1">

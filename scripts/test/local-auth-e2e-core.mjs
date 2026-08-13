@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 const REQUIRED_STATUS_KEYS = [
   'API_URL',
   'ANON_KEY',
@@ -15,6 +17,86 @@ const PAID_CAPABILITY_KEYS = [
   'TROPHE_ALLOW_PAID_AI',
   'VOYAGE_API_KEY',
 ];
+
+/**
+ * Resolves the optional, platform-native Supabase CLI package directly. The
+ * npm JavaScript shim can hang after printing `status`, so local E2E must not
+ * execute it.
+ *
+ * @param {{platform?: string, arch?: string, resolve?: (specifier: string) => string}} options
+ */
+export function resolveSupabaseCli(options = {}) {
+  const platform = options.platform ?? process.platform;
+  const arch = options.arch ?? process.arch;
+  const resolve = options.resolve ?? ((specifier) => import.meta.resolve(specifier));
+  const packageName = `@supabase/cli-${platform}-${arch}`;
+  try {
+    const packageJsonUrl = resolve(`${packageName}/package.json`);
+    const packageJsonPath = packageJsonUrl.startsWith('file:')
+      ? new URL(packageJsonUrl).pathname
+      : packageJsonUrl;
+    return packageJsonPath.replace(/package\.json$/, 'bin/supabase');
+  } catch (error) {
+    throw new Error(`No native Supabase CLI package is installed for ${platform}-${arch} (${packageName}). Install the matching optional dependency.`, { cause: error });
+  }
+}
+
+export function localE2ECachePath(projectRoot = process.cwd()) {
+  return path.join(path.resolve(projectRoot), '.next-e2e.nosync');
+}
+
+export function formatLocalE2EError(error) {
+  const message = error instanceof Error ? error.message : String(error);
+  return message
+    .replace(/\bhttps?:\/\/\S+/gi, '[url]')
+    .replace(/\b(password|token|apikey|api_key|authorization)=\S+/gi, '$1=[redacted]');
+}
+
+export function assertSupabaseOperation(result, operation) {
+  if (result?.error) {
+    throw new Error(`local E2E ${operation} failed: ${result.error.message}`);
+  }
+}
+
+export function assertSupabaseAffectedRow(result, operation, id, key = 'id') {
+  assertSupabaseOperation(result, operation);
+  if (!Array.isArray(result?.data) || !result.data.some((row) => row?.[key] === id)) {
+    throw new Error(`local E2E ${operation} failed: expected row ${id} was not affected`);
+  }
+}
+
+export function assertAuthUserAbsent(result, operation, id) {
+  if (result?.error && !/user not found/i.test(result.error.message)) {
+    throw new Error(`local E2E ${operation} failed: ${result.error.message}`);
+  }
+  if (result?.data?.user?.id === id) {
+    throw new Error(`local E2E ${operation} failed: user ${id} is still present`);
+  }
+}
+
+export async function retryLocalE2EOperation(operationFn, operation, {
+  attempts = 8,
+  retryDelay = defaultCleanupRetryDelay,
+  validateResult = assertSupabaseOperation,
+} = {}) {
+  let terminalError;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      const result = await operationFn();
+      validateResult(result, operation);
+      return result;
+    } catch (error) {
+      terminalError = error;
+      if (attempt < attempts) await retryDelay(attempt);
+    }
+  }
+  const message = terminalError instanceof Error ? terminalError.message : String(terminalError);
+  throw new Error(
+    message.startsWith(`local E2E ${operation} failed:`)
+      ? message
+      : `local E2E ${operation} failed: ${message}`,
+  );
+}
 
 export function parseSupabaseStatusEnv(raw) {
   const parsed = {};
@@ -111,7 +193,7 @@ export async function withDisposableUsers({
   admin,
   users,
   execute,
-  cleanupAttempts = 5,
+  cleanupAttempts = 8,
   cleanupRetryDelay = defaultCleanupRetryDelay,
 }) {
   const createdIds = [];

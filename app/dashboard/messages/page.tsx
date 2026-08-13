@@ -53,7 +53,7 @@ export default function ClientMessagesPage() {
         </div>
 
         {loading ? (
-          <div className="ds-sub" style={{ textAlign: 'center', padding: 24 }}>Loading…</div>
+          <div role="status" data-loading-state className="ds-sub" style={{ textAlign: 'center', padding: 24 }}>Loading…</div>
         ) : !coachId ? (
           <div className="card p-8 text-center">
             <Icon name="i-message" size={28} style={{ color: 'var(--content-disabled)', margin: '0 auto 10px' }} />

@@ -178,6 +178,7 @@ export function Pills<T extends string>({
           tabIndex={tabs ? (value === o.v ? 0 : -1) : undefined}
           style={{
             minHeight: 44,
+            minWidth: tabs ? undefined : 44,
             padding: small ? "3px 8px" : "4px 10px",
             borderRadius: 6,
             border: "none",

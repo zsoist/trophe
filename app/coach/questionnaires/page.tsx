@@ -140,7 +140,7 @@ export default function QuestionnaireBuilderPage() {
                   <select className="text-base" value={q.kind} onChange={(e) => setQ(i, { kind: e.target.value as Kind })} style={{ ...input }}>
                     {(['text', 'boolean', 'scale'] as Kind[]).map((k) => <option key={k} value={k}>{KIND_LABEL[k]}</option>)}
                   </select>
-                  <label className="row-i" style={{ gap: 4, fontSize: 12, color: 'var(--content-secondary)', cursor: 'pointer' }}>
+                  <label className="row-i min-h-11 min-w-11 focus-within:outline-none focus-within:ring-2 focus-within:ring-[var(--focus-ring)]" style={{ gap: 4, fontSize: 12, color: 'var(--content-secondary)', cursor: 'pointer' }}>
                     <input type="checkbox" checked={q.required} onChange={(e) => setQ(i, { required: e.target.checked })} /> required
                   </label>
                 </div>

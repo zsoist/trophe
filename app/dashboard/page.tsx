@@ -1071,6 +1071,7 @@ export default function DashboardPage() {
               />
               <motion.button
                 className="btn-gold min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                aria-label={t('coach_msg.send')}
                 whileTap={reducedMotion ? undefined : { scale: 0.93 }}
                 onClick={sendCoachMessage}
                 disabled={sendingMsg || !coachMessage.trim()}

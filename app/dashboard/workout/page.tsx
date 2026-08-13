@@ -849,10 +849,13 @@ export default function WorkoutPage() {
                 {startTime === 0 ? t('workout.ready') : <ElapsedTimer startTime={startTime} />}
               </div>
             )}
-            <Link href="/dashboard/workout/history">
-              <button className="p-2 rounded-xl transition-colors min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" style={{ background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)' }}>
-                <History size={18} className="text-[var(--content-secondary)]" />
-              </button>
+            <Link
+              href="/dashboard/workout/history"
+              aria-label="Workout history"
+              className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+              style={{ background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)' }}
+            >
+              <History size={18} className="text-[var(--content-secondary)]" />
             </Link>
           </div>
         </div>

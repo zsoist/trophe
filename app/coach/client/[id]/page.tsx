@@ -1159,9 +1159,11 @@ export default function ClientDetailPage() {
               />
               <Link
                 href={`/coach/client/${clientId}/plan`}
+                className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                 style={{
                   display: 'flex',
                   alignItems: 'center',
+                  justifyContent: 'center',
                   gap: 4,
                   padding: '4px 8px',
                   borderRadius: 8,
@@ -1175,6 +1177,8 @@ export default function ClientDetailPage() {
                   letterSpacing: '.06em',
                   textTransform: 'uppercase',
                   whiteSpace: 'nowrap',
+                  minHeight: 44,
+                  minWidth: 44,
                 }}
               >
                 <LayoutList size={11} />

@@ -226,6 +226,7 @@ describe("admin and super-admin theme and accessibility contract", () => {
     const superUi = source("components/super/ui.tsx");
 
     expect(costs).toContain("data-admin-costs-reflow");
+    expect(costs).toMatch(/role="status"[\s\S]*?data-loading-state/);
     expect(costs).toContain("AI Reliability");
     expect(costs).toContain("Latency Percentiles");
     expect(costs).toContain("Optimization Notes");

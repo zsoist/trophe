@@ -265,6 +265,7 @@ export default function CoachLoadingSkeletons({ page }: CoachLoadingSkeletonsPro
 
   return (
     <motion.div
+      data-loading-skeleton
       initial={reduceMotion ? false : { opacity: 0 }}
       animate={reduceMotion ? false : { opacity: 1 }}
       exit={reduceMotion ? undefined : { opacity: 0 }}

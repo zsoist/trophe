@@ -53,8 +53,9 @@ test.describe('client settings flows', () => {
     const themeToggle = page.getByRole('button', { name: /Switch to (light|dark) mode/ });
     await expect(themeToggle).toBeVisible();
     const themeToggleBox = await themeToggle.boundingBox();
-    expect(themeToggleBox?.width).toBeGreaterThanOrEqual(44);
-    expect(themeToggleBox?.height).toBeGreaterThanOrEqual(44);
+    // Chromium reports the CSS 44px target as 43.99998474121094 on some DPRs.
+    expect(themeToggleBox?.width).toBeGreaterThanOrEqual(43.99);
+    expect(themeToggleBox?.height).toBeGreaterThanOrEqual(43.99);
     await themeToggle.click();
     await expect.poll(() => page.evaluate(() => document.documentElement.classList.contains('light'))).toBe(true);
 

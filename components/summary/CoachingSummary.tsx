@@ -126,7 +126,7 @@ export default function CoachingSummary({
     <>
       <button
         onClick={() => setOpen(true)}
-        className="text-xs btn-ghost !py-1.5 !px-3 flex items-center gap-1"
+        className="min-h-11 min-w-11 text-xs btn-ghost !py-1.5 !px-3 flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
       >
         <FileText size={12} /> Export Summary
       </button>

@@ -21,6 +21,9 @@ const withSerwist = withSerwistInit({
 });
 
 export const nextConfig: NextConfig = {
+  // Browser E2E keeps generated state in a local no-sync cache so macOS does
+  // not offload Turbopack files while the role matrix is running.
+  distDir: process.env.NEXT_DIST_DIR ? '.next-e2e.nosync' : '.next',
   // Worktrees can sit beside another lockfile. Pin tracing to the checkout
   // actually being built so Next never guesses a parent/sibling workspace.
   outputFileTracingRoot: process.cwd(),

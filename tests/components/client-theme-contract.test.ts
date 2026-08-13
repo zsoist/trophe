@@ -102,7 +102,7 @@ describe('client core theme and accessibility contract', () => {
   });
 
   it('reserves the bottom navigation safe area on every progress page root', () => {
-    const roots = source('app/dashboard/progress/page.tsx').match(/<div className="min-h-screen[^"]*"/g) ?? [];
+    const roots = source('app/dashboard/progress/page.tsx').match(/<div(?:\s+[^>]*)?\sclassName="min-h-screen[^"]*"/g) ?? [];
     const unsafeRoots = roots.filter((root) => !/pb-\[calc\([^\]]*env\(safe-area-inset-bottom\)/.test(root));
 
     expect(roots).toHaveLength(2);

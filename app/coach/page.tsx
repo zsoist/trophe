@@ -854,7 +854,7 @@ export default function CoachDashboard() {
           <div className="flex items-center gap-3">
             <Link
               href="/dashboard"
-              className="text-[var(--content-secondary)] hover:text-[var(--content-primary)] text-xs flex items-center gap-1.5 transition-colors"
+              className="min-h-11 min-w-11 px-2 text-[var(--content-secondary)] hover:text-[var(--content-primary)] text-xs inline-flex items-center justify-center gap-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             >
               <RefreshCw size={12} />
               Client View
@@ -1337,8 +1337,8 @@ export default function CoachDashboard() {
                       <div className="flex items-center gap-1 shrink-0">
                         <Link
                           href={`/coach/client/${client.clientProfile.user_id}`}
-                          className="p-2 rounded-lg hover:bg-[var(--surface-hover)] text-[var(--content-secondary)] hover:text-[var(--content-primary)] transition-colors"
-                          title="View"
+                          aria-label={`View ${client.profile.full_name}`}
+                          className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg hover:bg-[var(--surface-hover)] text-[var(--content-secondary)] hover:text-[var(--content-primary)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                         >
                           <Eye size={16} />
                         </Link>

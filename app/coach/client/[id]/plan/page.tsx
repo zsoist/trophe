@@ -675,15 +675,18 @@ export default function PlanEditorPage() {
         <div className="card" style={{ padding: 16, marginBottom: 16 }}>
           {/* Phase selector */}
           <div className="row-b" style={{ marginBottom: 12 }}>
-            <span style={{ fontSize: 12, color: 'var(--content-muted)' }}>Coaching Phase</span>
+            <label htmlFor="coaching-phase" style={{ fontSize: 12, color: 'var(--content-muted)' }}>Coaching Phase</label>
             <select
+              id="coaching-phase"
               value={phase}
               onChange={(e) => setPhase(e.target.value)}
+              className="min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
               style={{
                 background: 'var(--surface-1)',
                 border: '1px solid var(--border-default)',
                 borderRadius: 8,
                 padding: '4px 8px',
+                minHeight: 44,
                 color: 'var(--content-primary)',
                 fontSize: 16,
                 fontFamily: 'var(--font-mono)',
@@ -821,6 +824,7 @@ export default function PlanEditorPage() {
                     <td key={day} style={{ verticalAlign: 'top' }}>
                       <div style={{ position: 'relative' }}>
                         <textarea
+                          aria-label={`${DAY_LABELS[day]} ${SLOT_LABELS[slot]}`}
                           value={mealGrid[`${day}-${slot}`] ?? ''}
                           onChange={(e) => setMealCell(day, slot, e.target.value)}
                           onBlur={(e) => saveMealCell(day, slot, e.target.value)}
@@ -834,6 +838,7 @@ export default function PlanEditorPage() {
                           }}
                         />
                         <button className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                          aria-label={`Suggest a meal for ${DAY_LABELS[day]} ${SLOT_LABELS[slot]}`}
                           onClick={() => setPicker({ day, slot })}
                           title="AI: suggest a meal for this slot"
                           style={{
@@ -894,6 +899,7 @@ export default function PlanEditorPage() {
                 </span>
                 <div className="row-i" style={{ gap: 10 }}>
                   <button
+                    aria-label={`Suggest a meal for ${DAY_LABELS[activeDay]} ${SLOT_LABELS[slot]}`}
                     onClick={() => setPicker({ day: activeDay, slot })}
                     title="AI: suggest a meal for this slot"
                     className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] row-i"
@@ -923,6 +929,7 @@ export default function PlanEditorPage() {
                 </div>
               </div>
               <textarea
+                aria-label={`${DAY_LABELS[activeDay]} ${SLOT_LABELS[slot]}`}
                 value={mealGrid[`${activeDay}-${slot}`] ?? ''}
                 onChange={(e) => setMealCell(activeDay, slot, e.target.value)}
                 onBlur={(e) => saveMealCell(activeDay, slot, e.target.value)}

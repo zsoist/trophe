@@ -210,10 +210,11 @@ export default function RecipeAnalyzerModal({
                   </div>
 
                   <div className="flex items-center gap-3">
-                    <label className="text-xs text-[var(--content-muted)] uppercase tracking-wider">
+                    <label htmlFor="recipe-servings-yielded" className="text-xs text-[var(--content-muted)] uppercase tracking-wider">
                       Servings yielded
                     </label>
                     <input
+                      id="recipe-servings-yielded"
                       type="number"
                       min={1}
                       max={20}

@@ -153,7 +153,7 @@ export default function CostDashboard() {
           </div>
         </header>
         {loading ? (
-          <div className={cardClass}>Loading…</div>
+          <div role="status" data-loading-state className={cardClass}>Loading…</div>
         ) : !summary || !summary.totalCalls ? (
           <div className={cardClass}>
             No API usage data yet. Costs will appear once users start parsing

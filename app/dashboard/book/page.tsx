@@ -178,7 +178,7 @@ export default function BookPage() {
         </div>
 
         {loading ? (
-          <div className="ds-sub" style={{ textAlign: 'center', padding: 24 }}>Loading…</div>
+          <div role="status" data-loading-state className="ds-sub" style={{ textAlign: 'center', padding: 24 }}>Loading…</div>
         ) : !coachId ? (
           <div className="card p-8 text-center ds-sub">Booking unlocks once a coach is assigned to you.</div>
         ) : (

@@ -53,14 +53,15 @@ export default memo(function SmartNoteSuggestions({
           return (
             <motion.button
               key={`${s.text}-${i}`}
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.04, duration: 0.2 }}
               onClick={() => onSelect?.(s.text)}
-              className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs text-[var(--content-secondary)] transition-all hover:scale-105 active:scale-95 cursor-pointer"
+              className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs text-[var(--content-secondary)] transition-colors cursor-pointer"
               style={{
                 backgroundColor: style.bg,
                 border: `1px solid ${style.border}`,
+                minHeight: 44,
               }}
             >
               <Icon name={s.icon} size={13} className="flex-shrink-0" aria-hidden />

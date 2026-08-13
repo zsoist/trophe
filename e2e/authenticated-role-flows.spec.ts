@@ -1,4 +1,5 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
+import { loginAs } from './helpers/auth';
 
 const clientEmail = process.env.E2E_CLIENT_EMAIL;
 const clientPassword = process.env.E2E_CLIENT_PASSWORD;
@@ -7,19 +8,11 @@ const coachPassword = process.env.E2E_COACH_PASSWORD;
 const adminEmail = process.env.E2E_ADMIN_EMAIL;
 const adminPassword = process.env.E2E_ADMIN_PASSWORD;
 
-async function login(page: Page, email: string, password: string, path = '/login') {
-  await page.goto(path);
-  await page.getByPlaceholder('Email').fill(email);
-  await page.getByPlaceholder('Password').fill(password);
-  await page.locator('form').getByRole('button', { name: 'Log in' }).click();
-  await page.waitForURL((url) => !url.pathname.startsWith('/login'));
-}
-
 test.describe('authenticated role flows', () => {
   test.skip(!clientEmail || !clientPassword, 'Set E2E_CLIENT_EMAIL/E2E_CLIENT_PASSWORD to run client auth flow');
 
   test('client can reach dashboard and is denied admin pages', async ({ page }) => {
-    await login(page, clientEmail!, clientPassword!);
+    await loginAs(page, 'client');
     await expect(page).toHaveURL(/\/(dashboard|onboarding|coach)/);
 
     await page.goto('/admin/orgs');
@@ -31,7 +24,7 @@ test.describe('coach role flows', () => {
   test.skip(!coachEmail || !coachPassword, 'Set E2E_COACH_EMAIL/E2E_COACH_PASSWORD to run coach auth flow');
 
   test('coach can reach coach dashboard and is denied admin pages', async ({ page }) => {
-    await login(page, coachEmail!, coachPassword!);
+    await loginAs(page, 'coach');
     await expect(page).toHaveURL(/\/coach|\/dashboard/);
 
     await page.goto('/admin/orgs');
@@ -39,7 +32,7 @@ test.describe('coach role flows', () => {
   });
 
   test('coach login preserves a safe requested destination', async ({ page }) => {
-    await login(page, coachEmail!, coachPassword!, '/login?redirectTo=%2Fdashboard%2Flog');
+    await loginAs(page, 'coach', '/login?redirectTo=%2Fdashboard%2Flog');
     await expect(page).toHaveURL(/\/dashboard\/log/);
   });
 });
@@ -48,7 +41,7 @@ test.describe('admin role flows', () => {
   test.skip(!adminEmail || !adminPassword, 'Set E2E_ADMIN_EMAIL/E2E_ADMIN_PASSWORD to run admin auth flow');
 
   test('admin can view organization dashboard', async ({ page }) => {
-    await login(page, adminEmail!, adminPassword!);
+    await loginAs(page, 'admin');
     await page.goto('/admin/orgs');
 
     await expect(page.getByRole('heading', { name: 'Organizations' })).toBeVisible();

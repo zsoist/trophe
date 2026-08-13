@@ -148,6 +148,11 @@ function inventory(patterns: readonly RegExp[], files: readonly string[] = OWNED
 }
 
 describe('client secondary theme and accessibility contract', () => {
+  it('marks booking, messages, and progress loading surfaces for screenshot rejection', () => {
+    expect(source('app/dashboard/book/page.tsx')).toMatch(/role="status"[^>]*data-loading-state/);
+    expect(source('app/dashboard/messages/page.tsx')).toMatch(/role="status"[^>]*data-loading-state/);
+    expect(source('app/dashboard/progress/page.tsx')).toMatch(/data-loading-skeleton/);
+  });
   it('contains no dark-only surface, content, border, or legacy-token recipes', () => {
     const forbidden = [
       /bg-stone-(?:800|900|950)(?:\/[\d.]+)?/g,
@@ -187,6 +192,12 @@ describe('client secondary theme and accessibility contract', () => {
 
     expect(controls.length).toBeGreaterThan(0);
     expect(undersized.map(({ file, element }) => `${file}: ${element.slice(0, 120)}`)).toEqual([]);
+  });
+
+  it('associates the recipe servings spinbutton with its visible label', () => {
+    const recipeAnalyzer = source('components/food/RecipeAnalyzerModal.tsx');
+    expect(recipeAnalyzer).toMatch(/<label\s+htmlFor="recipe-servings-yielded"[^>]*>\s*Servings yielded/);
+    expect(recipeAnalyzer).toMatch(/<input\s+id="recipe-servings-yielded"\s+type="number"/);
   });
 
   it('gives every owned sheet and modal semantic, safe-area, focus, close, and motion treatment', () => {
@@ -308,6 +319,7 @@ describe('client secondary theme and accessibility contract', () => {
       .find((button) => (button.match(/<button\b/g) ?? []).length > 1);
 
     expect(nestedNativeButton).toBeUndefined();
+    expect(workout).toMatch(/<Link\s+href="\/dashboard\/workout\/history"\s+aria-label="Workout history"[\s\S]*?min-h-11[\s\S]*?min-w-11/);
     expect(workout).toMatch(/aria-label=\{`Toggle .* exercise`\}/);
     expect(workout).toMatch(/aria-label=\{`Report pain for .*`\}/);
     expect(workout).toMatch(/aria-label=\{`Remove .*`\}/);
