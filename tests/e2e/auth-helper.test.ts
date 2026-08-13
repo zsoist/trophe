@@ -18,5 +18,7 @@ describe('isPaidRequest', () => {
     expect(isPaidRequest('https://api.anthropic.com/v1/messages')).toBe(true);
     expect(isPaidRequest('https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent')).toBe(true);
     expect(isPaidRequest('https://api.voyageai.com/v1/embeddings')).toBe(true);
+    expect(isPaidRequest('https://api.deepseek.com/chat/completions')).toBe(true);
+    expect(isPaidRequest('https://api.mistral.ai/v1/chat/completions')).toBe(true);
   });
 });

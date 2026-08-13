@@ -23,6 +23,8 @@ export function isPaidRequest(url: string): boolean {
     'api.anthropic.com',
     'generativelanguage.googleapis.com',
     'api.voyageai.com',
+    'api.deepseek.com',
+    'api.mistral.ai',
   ]).has(parsed.hostname);
 }
 

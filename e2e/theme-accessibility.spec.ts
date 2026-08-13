@@ -171,6 +171,10 @@ test.describe('public theme, motion, and stale-session recovery', () => {
   });
 
   test('invalid refresh state shows login without a reload loop and valid local sign-in remains possible', async ({ page }) => {
+    test.skip(
+      !process.env.E2E_CLIENT_EMAIL || !process.env.E2E_CLIENT_PASSWORD,
+      'The disposable local-auth runner must supply client credentials for the sign-in recovery check',
+    );
     const assertNoPaidRequests = await blockPaidRequests(page);
     let documentRequests = 0;
     page.on('request', (request) => { if (request.isNavigationRequest() && request.resourceType() === 'document') documentRequests += 1; });
