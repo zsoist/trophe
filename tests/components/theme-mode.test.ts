@@ -80,6 +80,16 @@ describe('theme mode contracts', () => {
     expect(localStorage.setItem).toHaveBeenCalledWith('trophe_theme_mode', 'dark');
   });
 
+  it('records one provider mount and does not treat a theme toggle as a provider remount', () => {
+    render(React.createElement(ThemeModeProvider, null, React.createElement(ThemeModeToggle)));
+    const initialMountCount = Number(document.documentElement.dataset.tropheThemeProviderMounts);
+    expect(initialMountCount).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Toggle color theme' }));
+
+    expect(Number(document.documentElement.dataset.tropheThemeProviderMounts)).toBe(initialMountCount);
+  });
+
   it('keeps the toggle target at least 44px', () => {
     const source = readFileSync(join(process.cwd(), 'components/shared/ThemeMode.tsx'), 'utf8');
     expect(source).toContain('min-h-11 min-w-11');

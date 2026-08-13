@@ -159,6 +159,19 @@ export function buildLocalPlaywrightEnv(baseEnv, status, credentials) {
   return env;
 }
 
+/** Maps disposable local client/coach/super-admin roles to the perf harness. */
+export function buildLocalThemePerformanceEnv(baseEnv, credentials) {
+  return {
+    ...baseEnv,
+    THEME_PERF_CLIENT_EMAIL: credentials.client.email,
+    THEME_PERF_CLIENT_PASSWORD: credentials.client.password,
+    THEME_PERF_COACH_EMAIL: credentials.coach.email,
+    THEME_PERF_COACH_PASSWORD: credentials.coach.password,
+    THEME_PERF_SUPER_EMAIL: credentials.admin.email,
+    THEME_PERF_SUPER_PASSWORD: credentials.admin.password,
+  };
+}
+
 export function localAppOrigin(port) {
   if (!Number.isInteger(port) || port < 1024 || port > 65_535) {
     throw new Error('Local app port must be an integer from 1024 through 65535');

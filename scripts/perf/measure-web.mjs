@@ -53,6 +53,13 @@ export function percentile(values, percentileValue) {
   return sorted[Math.max(0, Math.min(sorted.length - 1, rank))];
 }
 
+export function summarizeNavigationDistribution(values) {
+  if (!Array.isArray(values) || values.length === 0 || values.some((value) => !Number.isFinite(value) || value <= 0)) {
+    throw new Error('Navigation samples must be finite positive durations');
+  }
+  return { medianMs: median(values), p95Ms: percentile(values, 95) };
+}
+
 /**
  * Converts one route's twenty CSS-only toggle observations into an auditable
  * release gate. The counter values are collected independently of timing so a
@@ -61,7 +68,7 @@ export function percentile(values, percentileValue) {
 export function calculateThemePerformanceReport({
   route,
   baselineNavigationMs,
-  navigationRegressionMs = baselineNavigationMs,
+  postToggleNavigationMs = baselineNavigationMs,
   toggleDurationsMs,
   navigationCount,
   supabaseRefetchCount,
@@ -70,22 +77,22 @@ export function calculateThemePerformanceReport({
   if (!Array.isArray(toggleDurationsMs) || toggleDurationsMs.length !== THEME_TOGGLE_COUNT) {
     throw new Error(`Theme measurement requires exactly ${THEME_TOGGLE_COUNT} toggles`);
   }
-  if (!Number.isFinite(baselineNavigationMs) || baselineNavigationMs <= 0) {
-    throw new Error('Theme measurement requires a positive baseline navigation duration');
-  }
-  if (!Number.isFinite(navigationRegressionMs) || navigationRegressionMs < 0) {
-    throw new Error('Theme measurement requires a non-negative post-toggle navigation duration');
-  }
+  const baselineSamples = Array.isArray(baselineNavigationMs) ? baselineNavigationMs : [baselineNavigationMs];
+  const postToggleSamples = Array.isArray(postToggleNavigationMs) ? postToggleNavigationMs : [postToggleNavigationMs];
+  const baselineNavigation = summarizeNavigationDistribution(baselineSamples);
+  const postToggleNavigation = summarizeNavigationDistribution(postToggleSamples);
   const sortedDurations = [...toggleDurationsMs].sort((left, right) => left - right);
   if (sortedDurations.some((value) => !Number.isFinite(value) || value < 0)) {
     throw new Error('Theme toggle durations must be finite non-negative numbers');
   }
-  const navigationRegressionRatio = (navigationRegressionMs - baselineNavigationMs) / baselineNavigationMs;
+  const navigationRegressionRatio = (postToggleNavigation.medianMs - baselineNavigation.medianMs) / baselineNavigation.medianMs;
+  const navigationP95RegressionRatio = (postToggleNavigation.p95Ms - baselineNavigation.p95Ms) / baselineNavigation.p95Ms;
   const failures = [];
   if (navigationCount !== 0) failures.push('navigation_detected');
   if (supabaseRefetchCount !== 0) failures.push('supabase_refetch_detected');
   if (providerRemountCount !== 0) failures.push('provider_remount_detected');
-  if (navigationRegressionRatio > MAX_THEME_NAVIGATION_REGRESSION_RATIO) {
+  if (navigationRegressionRatio > MAX_THEME_NAVIGATION_REGRESSION_RATIO
+    || navigationP95RegressionRatio > MAX_THEME_NAVIGATION_REGRESSION_RATIO) {
     failures.push('navigation_regression_exceeded');
   }
 
@@ -94,14 +101,17 @@ export function calculateThemePerformanceReport({
     toggleCount: toggleDurationsMs.length,
     medianMs: median(sortedDurations),
     p95Ms: percentile(sortedDurations, 95),
-    baselineNavigationMs,
-    navigationRegressionMs,
+    baselineNavigation,
+    postToggleNavigation,
+    baselineNavigationMs: baselineNavigation.medianMs,
+    navigationRegressionMs: postToggleNavigation.medianMs,
     navigationRegressionRatio,
+    navigationP95RegressionRatio,
     navigationRegressionMeasurement: 'separate_page_reload_excluded_from_toggle_navigation_count',
     navigationCount,
     supabaseRefetchCount,
     providerRemountCount,
-    providerRemountDetection: 'app_root_identity_proxy',
+    providerRemountDetection: 'document_element_mount_counter',
     failures,
     ok: failures.length === 0,
   };
@@ -281,14 +291,46 @@ function navigationDuration(page) {
   });
 }
 
-function rootIdentity(page) {
+async function navigationDistribution(page, sampleCount = 5) {
+  const samples = [await navigationDuration(page)];
+  for (let index = 1; index < sampleCount; index += 1) {
+    await page.reload({ waitUntil: 'load', timeout: 30_000 });
+    samples.push(await navigationDuration(page));
+  }
+  return samples;
+}
+
+function providerMountCount(page) {
   return page.evaluate(() => {
-    const root = document.body.firstElementChild;
-    if (!root) throw new Error('Theme route did not render an application root');
-    const marker = '__tropheThemeMeasurementRootId';
-    const element = /** @type {HTMLElement & Record<string, string>} */ (root);
-    element[marker] ??= crypto.randomUUID();
-    return element[marker];
+    const count = Number(document.documentElement.dataset.tropheThemeProviderMounts ?? '0');
+    if (!Number.isInteger(count) || count < 1) throw new Error('Theme provider mount signal is unavailable');
+    return count;
+  });
+}
+
+function toggleInPage(page) {
+  return page.evaluate(async () => {
+    const toggle = document.querySelector('button[aria-label="Toggle color theme"]');
+    if (!(toggle instanceof HTMLButtonElement)) throw new Error('Theme toggle is unavailable');
+    const root = document.documentElement;
+    const before = root.classList.contains('light') ? 'light' : 'dark';
+    const startedAt = performance.now();
+    return new Promise((resolve, reject) => {
+      const timeout = window.setTimeout(() => {
+        observer.disconnect();
+        reject(new Error('Theme class did not change within 1000ms'));
+      }, 1_000);
+      const observer = new MutationObserver(() => {
+        const current = root.classList.contains('light') ? 'light' : 'dark';
+        if (current !== before) {
+          window.clearTimeout(timeout);
+          observer.disconnect();
+          resolve({ mode: current, durationMs: performance.now() - startedAt });
+        }
+      });
+      observer.observe(root, { attributes: true, attributeFilter: ['class'] });
+      toggle.click();
+    });
   });
 }
 
@@ -329,38 +371,27 @@ export async function measureThemeRoute({ browser, baseUrl, route, credentialPre
       if (isSupabaseRequest(request.url())) supabaseRefetchCount += 1;
     });
     await page.goto(joinUrl(baseUrl, route), { waitUntil: 'load', timeout: 30_000 });
-    const baselineNavigationMs = await navigationDuration(page);
-    // React does not expose provider mount counts to browser automation. The
-    // stable app-root identity is a conservative proxy that catches route-tree
-    // replacement; the report labels this limitation rather than overstating it.
-    const initialRoot = await rootIdentity(page);
+    const baselineNavigationMs = await navigationDistribution(page);
+    const initialProviderMountCount = await providerMountCount(page);
     toggleNavigationCount = 0;
     supabaseRefetchCount = 0;
 
-    const toggle = page.getByRole('button', { name: 'Toggle color theme' });
     const toggleDurationsMs = [];
     for (let index = 0; index < THEME_TOGGLE_COUNT; index += 1) {
-      const before = await page.evaluate(() => performance.now());
-      const priorMode = await page.locator('html').evaluate((element) => element.classList.contains('light') ? 'light' : 'dark');
-      await toggle.click();
-      await page.locator('html').waitFor({ state: 'attached' });
-      await page.waitForFunction((mode) => !document.documentElement.classList.contains(mode), priorMode);
-      toggleDurationsMs.push((await page.evaluate(() => performance.now())) - before);
+      toggleDurationsMs.push((await toggleInPage(page)).durationMs);
     }
-    const rootAfterToggles = await rootIdentity(page);
-    const providerRemountCount = initialRoot === rootAfterToggles ? 0 : 1;
+    const providerRemountCount = (await providerMountCount(page)) - initialProviderMountCount;
 
     const toggleRequestCounts = {
       navigationCount: toggleNavigationCount,
       supabaseRefetchCount,
     };
 
-    await page.reload({ waitUntil: 'load', timeout: 30_000 });
-    const navigationRegressionMs = await navigationDuration(page);
+    const postToggleNavigationMs = await navigationDistribution(page);
     const result = calculateThemePerformanceReport({
       route,
       baselineNavigationMs,
-      navigationRegressionMs,
+      postToggleNavigationMs,
       toggleDurationsMs,
       ...toggleRequestCounts,
       providerRemountCount,

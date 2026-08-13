@@ -7,6 +7,7 @@ import {
   assertAuthUserAbsent,
   buildLocalDevEnv,
   buildLocalPlaywrightEnv,
+  buildLocalThemePerformanceEnv,
   formatLocalE2EError,
   localE2ECachePath,
   localAppOrigin,
@@ -153,6 +154,19 @@ describe('local authenticated E2E harness', () => {
       NEXT_PUBLIC_APP_URL: 'http://127.0.0.1:3300',
       AI_PAID_TOOL_APPROVAL: '',
       TROPHE_ALLOW_PAID_AI: '',
+      OPENAI_API_KEY: '',
+    });
+  });
+
+  it('maps disposable client, coach, and super-admin roles to the zero-paid theme measurement contract', () => {
+    expect(buildLocalThemePerformanceEnv({ OPENAI_API_KEY: '' }, {
+      client: { email: 'client@test.invalid', password: 'client-password' },
+      coach: { email: 'coach@test.invalid', password: 'coach-password' },
+      admin: { email: 'super@test.invalid', password: 'super-password' },
+    })).toMatchObject({
+      THEME_PERF_CLIENT_EMAIL: 'client@test.invalid',
+      THEME_PERF_COACH_EMAIL: 'coach@test.invalid',
+      THEME_PERF_SUPER_EMAIL: 'super@test.invalid',
       OPENAI_API_KEY: '',
     });
   });

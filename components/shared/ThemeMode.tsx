@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useCallback, useContext, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { Sun, Moon } from 'lucide-react';
 import {
   applyThemeMode,
@@ -46,6 +46,12 @@ export function ThemeModeProvider({ children }: { children: React.ReactNode }) {
     persistTheme(next);
     applyThemeMode(next, document);
   }, [mode]);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const previous = Number(root.dataset.tropheThemeProviderMounts ?? '0');
+    root.dataset.tropheThemeProviderMounts = String(Number.isFinite(previous) ? previous + 1 : 1);
+  }, []);
 
   return (
     <ThemeModeContext.Provider value={{ mode, toggleMode }}>

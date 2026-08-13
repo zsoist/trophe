@@ -8,7 +8,7 @@
     "prebuild": "node scripts/build/prepare-next-build.mjs",
     "build": "next build --webpack",
     "start": "next start",
-    "perf:measure": "node scripts/perf/measure-web.mjs",
+    "perf:measure": "node scripts/perf/run-local-theme-measurements.mjs",
     "perf:budget": "node scripts/perf/check-build-budgets.mjs",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",

@@ -13,6 +13,7 @@ import {
   runMeasurements,
   runThemeMeasurements,
   sanitizeFailureUrl,
+  summarizeNavigationDistribution,
   SETTLE_QUIET_MS,
   VIEWPORTS,
   writeReport,
@@ -115,11 +116,12 @@ describe('web performance measurement harness', () => {
   it('summarizes twenty CSS-only theme toggles and rejects navigation, data, provider, and navigation-regression failures', () => {
     const report = calculateThemePerformanceReport({
       route: '/dashboard',
-      baselineNavigationMs: 1_000,
       toggleDurationsMs: Array.from({ length: 20 }, (_, index) => 10 + index),
       navigationCount: 0,
       supabaseRefetchCount: 0,
       providerRemountCount: 0,
+      baselineNavigationMs: [900, 1_000, 1_100],
+      postToggleNavigationMs: [945, 1_050, 1_155],
     });
 
     expect(report).toMatchObject({
@@ -127,7 +129,7 @@ describe('web performance measurement harness', () => {
       toggleCount: 20,
       medianMs: 19.5,
       p95Ms: 28,
-      navigationRegressionRatio: 0,
+      navigationRegressionRatio: 0.05,
       navigationRegressionMeasurement: 'separate_page_reload_excluded_from_toggle_navigation_count',
       ok: true,
     });
@@ -135,7 +137,7 @@ describe('web performance measurement harness', () => {
     expect(calculateThemePerformanceReport({
       route: '/dashboard',
       baselineNavigationMs: 1_000,
-      navigationRegressionMs: 1_050,
+      postToggleNavigationMs: 1_050,
       toggleDurationsMs: Array(20).fill(10),
       navigationCount: 0,
       supabaseRefetchCount: 0,
@@ -148,13 +150,32 @@ describe('web performance measurement harness', () => {
       navigationCount: 1,
       supabaseRefetchCount: 1,
       providerRemountCount: 1,
-      navigationRegressionMs: 1_051,
+      postToggleNavigationMs: 1_051,
     }).failures).toEqual([
       'navigation_detected',
       'supabase_refetch_detected',
       'provider_remount_detected',
       'navigation_regression_exceeded',
     ]);
+  });
+
+  it('compares median and p95 navigation distributions instead of a single reload', () => {
+    expect(summarizeNavigationDistribution([900, 1_000, 1_100])).toEqual({ medianMs: 1_000, p95Ms: 1_100 });
+    expect(calculateThemePerformanceReport({
+      route: '/login',
+      baselineNavigationMs: [900, 1_000, 1_100],
+      postToggleNavigationMs: [945, 1_050, 1_155],
+      toggleDurationsMs: Array(20).fill(5),
+      navigationCount: 0,
+      supabaseRefetchCount: 0,
+      providerRemountCount: 0,
+    })).toMatchObject({
+      baselineNavigation: { medianMs: 1_000, p95Ms: 1_100 },
+      postToggleNavigation: { medianMs: 1_050, p95Ms: 1_155 },
+      navigationRegressionRatio: 0.05,
+      navigationP95RegressionRatio: 0.05,
+      ok: true,
+    });
   });
 
   it('requires every theme-canary role credential and blocks paid-provider route families', () => {
@@ -167,6 +188,10 @@ describe('web performance measurement harness', () => {
     expect(isPaidProviderRoute('https://api.anthropic.com/v1/messages')).toBe(true);
     expect(isPaidProviderRoute('https://generativelanguage.googleapis.com/v1/models')).toBe(true);
     expect(isPaidProviderRoute('https://api.voyageai.com/v1/embeddings')).toBe(true);
+    expect(isPaidProviderRoute('https://api.deepseek.com/v1/chat/completions')).toBe(true);
+    expect(isPaidProviderRoute('https://api.mistral.ai/v1/chat/completions')).toBe(true);
+    expect(isPaidProviderRoute('https://trophe.app/api/food/parse/')).toBe(true);
+    expect(isPaidProviderRoute('https://trophe.app/api/coach/shopping-list/')).toBe(true);
     expect(isPaidProviderRoute('https://api.openai.com.attacker.test/v1/responses')).toBe(false);
     expect(isPaidProviderRoute('https://project.supabase.co/rest/v1/profiles')).toBe(false);
     expect(isPaidProviderRoute('https://trophe.app/api/food/local-search')).toBe(false);
@@ -190,10 +215,10 @@ describe('web performance measurement harness', () => {
     })).toMatchObject({
       baseUrl: 'https://trophe.app/',
       roles: expect.objectContaining({
-        client: expect.objectContaining({ route: '/dashboard' }),
-        coach: expect.objectContaining({ route: '/coach' }),
-        admin: expect.objectContaining({ route: '/admin/orgs' }),
-        super: expect.objectContaining({ route: '/super' }),
+        client: expect.objectContaining({ route: '/dashboard', loadedState: /good (morning|afternoon|evening|night)|today/i }),
+        coach: expect.objectContaining({ route: '/coach', loadedState: /client|roster/i }),
+        admin: expect.objectContaining({ route: '/admin/orgs', loadedState: /organization/i }),
+        super: expect.objectContaining({ route: '/super', loadedState: /command center|overview/i }),
       }),
     });
   });

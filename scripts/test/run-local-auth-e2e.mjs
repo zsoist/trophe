@@ -12,6 +12,7 @@ import {
   assertAuthUserAbsent,
   assertSupabaseAffectedRow,
   buildLocalPlaywrightEnv,
+  buildLocalThemePerformanceEnv,
   formatLocalE2EError,
   localE2ECachePath,
   parseSupabaseStatusEnv,
@@ -108,7 +109,11 @@ function adminAdapter(service) {
   };
 }
 
-export async function runLocalAuthenticatedE2E() {
+/**
+ * Runs a zero-paid local role fixture. The default remains the authenticated
+ * Playwright suite; callers may provide a disposable-role callback instead.
+ */
+export async function runLocalAuthenticatedE2E({ executeWithDisposableRoles } = {}) {
   const status = localStatus();
   const service = createClient(status.API_URL, status.SERVICE_ROLE_KEY, {
     auth: { autoRefreshToken: false, persistSession: false },
@@ -169,6 +174,13 @@ export async function runLocalAuthenticatedE2E() {
       if (organizationError || !organization) throw new Error('local E2E organization provisioning failed');
       childEnv.E2E_TEST_ORG_ID = organization.id;
       childEnv.E2E_TEST_ORG_SLUG = organizationSlug;
+
+      if (executeWithDisposableRoles) {
+        return executeWithDisposableRoles({
+          status,
+          env: buildLocalThemePerformanceEnv(childEnv, credentials),
+        });
+      }
 
       const playwrightBin = path.resolve('node_modules/@playwright/test/cli.js');
       try {
