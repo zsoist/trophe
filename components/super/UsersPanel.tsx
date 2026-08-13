@@ -3,7 +3,7 @@
 /**
  * Users panel — full account roster: sign-in recency, logging volume,
  * attributable AI spend. Filter by role/activity, sort any column,
- * click a row for the per-user drill-down drawer.
+ * use a dedicated action for the per-user drill-down drawer.
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -92,16 +92,30 @@ export default function UsersPanel() {
   const [selected, setSelected] = useState<UserRow | null>(null);
   const [detail, setDetail] = useState<Detail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   // Snapshot the clock once per mount — recency buckets don't need live ticking,
   // and calling Date.now() during render violates react-hooks/purity.
   const [now] = useState(() => Date.now());
 
-  useEffect(() => {
-    fetch("/api/super/users")
-      .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
-      .then((d) => setUsers(d.users ?? []))
-      .finally(() => setLoading(false));
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await fetch("/api/super/users");
+      if (!response.ok) throw new Error("Unable to load users.");
+      const data = await response.json();
+      setUsers(data.users ?? []);
+      setError(null);
+    } catch {
+      setUsers([]);
+      setError("Unable to load users.");
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   const openDetail = useCallback(async (u: UserRow) => {
     setSelected(u);
@@ -151,6 +165,21 @@ export default function UsersPanel() {
 
   return (
     <div>
+      {error && (
+        <div
+          role="alert"
+          className="mb-3 rounded border border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] p-3 text-sm text-[var(--status-danger-fg)]"
+        >
+          {error}{" "}
+          <button
+            type="button"
+            onClick={() => void load()}
+            className="ml-2 min-h-11 rounded px-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+          >
+            Retry
+          </button>
+        </div>
+      )}
       {/* KPI strip — honest loading placeholders (roster joins auth.users with
           4 LATERAL aggregates; first paint can lag a second or two) */}
       <div
@@ -196,7 +225,7 @@ export default function UsersPanel() {
         title={`ACCOUNTS · ${filtered.length}`}
         meta={
           <span className="ds-sub" style={{ fontSize: 12, fontFamily: MONO }}>
-            click a row for detail
+            use View details for detail
           </span>
         }
       >
@@ -254,15 +283,14 @@ export default function UsersPanel() {
                 >
                   Joined
                 </Th>
+                <Th>Actions</Th>
               </tr>
             </thead>
             <tbody>
               {filtered.map((u) => (
                 <tr
                   key={u.id}
-                  onClick={() => openDetail(u)}
                   style={{
-                    cursor: "pointer",
                     background:
                       selected?.id === u.id
                         ? "var(--surface-active)"
@@ -316,6 +344,15 @@ export default function UsersPanel() {
                   </Td>
                   <Td right mono dim>
                     {new Date(u.created_at).toLocaleDateString()}
+                  </Td>
+                  <Td>
+                    <button
+                      type="button"
+                      onClick={() => openDetail(u)}
+                      className="min-h-11 whitespace-nowrap rounded px-2 text-xs text-[var(--action-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                    >
+                      View details
+                    </button>
                   </Td>
                 </tr>
               ))}

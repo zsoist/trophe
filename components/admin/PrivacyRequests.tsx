@@ -80,10 +80,10 @@ export default function PrivacyRequests() {
 
   const statusClass = (status: string) => {
     if (status === "completed")
-      return "border-[var(--status-success-border)] bg-[var(--status-success-surface)] text-[var(--status-success-fg)]";
+      return "border-[var(--status-success-border)] bg-[var(--status-success-bg)] text-[var(--status-success-fg)]";
     if (status === "rejected" || status === "failed")
-      return "border-[var(--status-danger-border)] bg-[var(--status-danger-surface)] text-[var(--status-danger-fg)]";
-    return "border-[var(--status-info-border)] bg-[var(--status-info-surface)] text-[var(--status-info-fg)]";
+      return "border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] text-[var(--status-danger-fg)]";
+    return "border-[var(--status-info-border)] bg-[var(--status-info-bg)] text-[var(--status-info-fg)]";
   };
 
   return (

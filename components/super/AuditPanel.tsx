@@ -64,11 +64,20 @@ export default function AuditPanel() {
     id: string;
     text: string;
   } | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(() => {
+    setLoading(true);
     return fetch("/api/super/audit")
       .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
-      .then(setData)
+      .then((value) => {
+        setData(value);
+        setError(null);
+      })
+      .catch(() => {
+        setData(null);
+        setError("Unable to load audit data.");
+      })
       .finally(() => setLoading(false));
   }, []);
   useEffect(() => {
@@ -131,6 +140,21 @@ export default function AuditPanel() {
 
   return (
     <div>
+      {error && (
+        <div
+          role="alert"
+          className="mb-3 rounded border border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] p-3 text-sm text-[var(--status-danger-fg)]"
+        >
+          {error}{" "}
+          <button
+            type="button"
+            onClick={load}
+            className="ml-2 min-h-11 rounded px-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+          >
+            Retry
+          </button>
+        </div>
+      )}
       <div
         style={{
           display: "grid",
@@ -249,7 +273,7 @@ export default function AuditPanel() {
                           cursor: busy === d.id ? "wait" : "pointer",
                           marginRight: 4,
                           background: danger
-                            ? "var(--status-danger-surface)"
+                            ? "var(--status-danger-bg)"
                             : "var(--surface-2)",
                           border: `1px solid ${danger ? "var(--status-danger-border)" : "var(--border-default)"}`,
                           color: danger ? "var(--status-danger-fg)" : GOLD,

@@ -179,7 +179,7 @@ export default function CostDashboard() {
             </section>
             {(summary.totalCost / period > dailyBudget ||
               summary.budget?.overBudget) && (
-              <section className="mt-4 rounded-xl border border-[var(--status-danger-border)] bg-[var(--status-danger-surface)] p-4 text-sm text-[var(--status-danger-fg)]">
+              <section className="mt-4 rounded-xl border border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] p-4 text-sm text-[var(--status-danger-fg)]">
                 {summary.budget?.overBudget
                   ? `Projected monthly AI spend ($${summary.budget.projectedMonthlyCost.toFixed(2)}) exceeds $${summary.budget.monthlyBudgetUsd.toFixed(2)} budget`
                   : `Daily average ($${(summary.totalCost / period).toFixed(3)}) exceeds $${dailyBudget}/day budget`}
@@ -213,6 +213,9 @@ export default function CostDashboard() {
               <p className="mt-2 text-xs text-[var(--content-muted)]">
                 Red dashed Budget reference: ${dailyBudget}/day.
               </p>
+              <ul className="sr-only" aria-label="Daily API cost values">
+                {summary.byDay.slice(-Math.min(period, 30)).map((day) => <li key={`${day.date}-summary`}>{day.date}: ${day.cost.toFixed(4)} ({day.calls} calls)</li>)}
+              </ul>
             </section>
             <section className={`${cardClass} mt-4`}>
               <h2 className="mb-3 text-sm font-semibold">AI Reliability</h2>

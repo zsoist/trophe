@@ -108,7 +108,7 @@ export default async function AdminOrgsPage() {
                     Subscription
                   </dt>
                   <dd className="mt-1">
-                    <span className="rounded-full border border-[var(--status-info-border)] bg-[var(--status-info-surface)] px-2 py-1 text-xs text-[var(--status-info-fg)]">
+                    <span className="rounded-full border border-[var(--status-info-border)] bg-[var(--status-info-bg)] px-2 py-1 text-xs text-[var(--status-info-fg)]">
                       {org.subscription_status}
                     </span>
                   </dd>

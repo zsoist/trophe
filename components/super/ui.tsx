@@ -315,40 +315,49 @@ export function ColumnChart({
 }) {
   const max = Math.max(...points.map((p) => p.value), 0.0001);
   return (
-    <div
-      role="img"
-      aria-label="Operations data chart"
-      style={{
-        display: "flex",
-        alignItems: "flex-end",
-        gap: 2,
-        height,
-        marginTop: 4,
-      }}
-    >
-      {points.map((p) => (
-        <div
-          key={p.label}
-          className="motion-reduce:transition-none"
-          title={`${p.label} — ${format(p.value)}`}
-          style={{
-            flex: 1,
-            minWidth: 2,
-            borderRadius: "2px 2px 0 0",
-            height: `${Math.max(2, (p.value / max) * 100)}%`,
-            background: "var(--data-calories)",
-            opacity: p.value === 0 ? 0.12 : 0.55,
-            transition: "opacity .15s",
-          }}
-          onMouseEnter={(e) => {
-            (e.target as HTMLElement).style.opacity = "1";
-          }}
-          onMouseLeave={(e) => {
-            (e.target as HTMLElement).style.opacity =
-              p.value === 0 ? "0.12" : "0.55";
-          }}
-        />
-      ))}
+    <div>
+      <div
+        role="img"
+        aria-label="Operations data chart"
+        style={{
+          display: "flex",
+          alignItems: "flex-end",
+          gap: 2,
+          height,
+          marginTop: 4,
+        }}
+      >
+        {points.map((p) => (
+          <div
+            key={p.label}
+            className="motion-reduce:transition-none"
+            title={`${p.label} — ${format(p.value)}`}
+            style={{
+              flex: 1,
+              minWidth: 2,
+              borderRadius: "2px 2px 0 0",
+              height: `${Math.max(2, (p.value / max) * 100)}%`,
+              background: "var(--data-calories)",
+              opacity: p.value === 0 ? 0.12 : 0.55,
+              transition: "opacity .15s",
+            }}
+            onMouseEnter={(e) => {
+              (e.target as HTMLElement).style.opacity = "1";
+            }}
+            onMouseLeave={(e) => {
+              (e.target as HTMLElement).style.opacity =
+                p.value === 0 ? "0.12" : "0.55";
+            }}
+          />
+        ))}
+      </div>
+      <ul className="sr-only" aria-label="Chart values">
+        {points.map((p) => (
+          <li key={`${p.label}-summary`}>
+            {p.label}: {format(p.value)}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
@@ -373,7 +382,7 @@ export function StatusChip({ status }: { status: string }) {
             ? "var(--content-muted)"
             : "var(--status-warning-fg)",
         background: failed
-          ? "var(--status-danger-surface)"
+          ? "var(--status-danger-bg)"
           : ok
             ? "var(--surface-2)"
             : "var(--surface-active)",
@@ -428,7 +437,7 @@ export function Th({
 }) {
   return (
     <th
-      onClick={onClick}
+      aria-sort={onClick ? (active ? "descending" : "none") : undefined}
       style={{
         textAlign: right ? "right" : "left",
         padding: "6px 8px",
@@ -447,8 +456,25 @@ export function Th({
         background: "var(--canvas)",
       }}
     >
-      {children}
-      {active ? " ↓" : ""}
+      {onClick ? (
+        <button
+          type="button"
+          onClick={onClick}
+          className="min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+          style={{
+            background: "none",
+            border: 0,
+            color: "inherit",
+            font: "inherit",
+            cursor: "pointer",
+          }}
+        >
+          {children}
+          {active ? " ↓" : ""}
+        </button>
+      ) : (
+        children
+      )}
     </th>
   );
 }

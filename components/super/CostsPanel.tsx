@@ -93,6 +93,7 @@ export default function CostsPanel() {
   const [model, setModel] = useState("");
   const [task, setTask] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const reqSeq = useRef(0);
 
   const load = useCallback(async () => {
@@ -102,12 +103,22 @@ export default function CostsPanel() {
     if (provider) q.set("provider", provider);
     if (model) q.set("model", model);
     if (task) q.set("task", task);
-    const res = await fetch(`/api/super/costs?${q}`);
-    // Ignore a stale response: a slow earlier filter must not overwrite the
-    // newer one (the 7d aggregate can outrun a later 24h click).
-    if (seq !== reqSeq.current) return;
-    if (res.ok) setData(await res.json());
-    setLoading(false);
+    try {
+      const res = await fetch(`/api/super/costs?${q}`);
+      // Ignore a stale response: a slow earlier filter must not overwrite the
+      // newer one (the 7d aggregate can outrun a later 24h click).
+      if (seq !== reqSeq.current) return;
+      if (!res.ok) throw new Error(`Unable to load costs (${res.status})`);
+      setData(await res.json());
+      setError(null);
+    } catch {
+      if (seq === reqSeq.current) {
+        setData(null);
+        setError("Unable to load costs.");
+      }
+    } finally {
+      if (seq === reqSeq.current) setLoading(false);
+    }
   }, [win, groupBy, provider, model, task]);
 
   useEffect(() => {
@@ -133,6 +144,21 @@ export default function CostsPanel() {
 
   return (
     <div>
+      {error && (
+        <div
+          role="alert"
+          className="mb-3 rounded border border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] p-3 text-sm text-[var(--status-danger-fg)]"
+        >
+          {error}{" "}
+          <button
+            type="button"
+            onClick={load}
+            className="ml-2 min-h-11 rounded px-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+          >
+            Retry
+          </button>
+        </div>
+      )}
       {/* Filter bar */}
       <div
         style={{

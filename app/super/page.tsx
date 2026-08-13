@@ -147,12 +147,18 @@ export default function SuperCommandCenter() {
   }, []);
 
   const load = useCallback(async () => {
-    const res = await fetch("/api/super/overview");
-    if (!res.ok) {
-      setError(`${res.status} — super_admin required`);
-      return;
+    try {
+      const res = await fetch("/api/super/overview");
+      if (!res.ok) throw new Error(`${res.status} — super_admin required`);
+      setData(await res.json());
+      setError(null);
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Unable to load operations overview",
+      );
     }
-    setData(await res.json());
   }, []);
 
   useEffect(() => {
@@ -169,7 +175,14 @@ export default function SuperCommandCenter() {
         className="min-h-screen flex items-center justify-center ds-sub"
         style={{ background: "var(--canvas)", fontFamily: MONO }}
       >
-        {error}
+        <div role="alert">{error}</div>
+        <button
+          type="button"
+          onClick={load}
+          className="ml-3 min-h-11 rounded border border-[var(--border-default)] px-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+        >
+          Retry
+        </button>
       </div>
     );
   }
@@ -525,7 +538,7 @@ function OverviewSection({ data }: { data: Overview | null }) {
                     marginBottom: 8,
                     padding: "8px 10px",
                     borderRadius: 10,
-                    background: "var(--status-danger-surface)",
+                    background: "var(--status-danger-bg)",
                     border: "1px solid var(--status-danger-border)",
                   }}
                 >

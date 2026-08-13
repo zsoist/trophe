@@ -67,6 +67,7 @@ export default function RunsPanel({
   const [offset, setOffset] = useState(0);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -78,13 +79,21 @@ export default function RunsPanel({
     if (status) q.set("status", status);
     if (task) q.set("task", task);
     if (model) q.set("model", model);
-    const res = await fetch(`/api/super/runs?${q}`);
-    if (res.ok) {
-      const d = await res.json();
-      setRows(d.rows ?? []);
-      setTotal(d.total ?? 0);
+    try {
+      const res = await fetch(`/api/super/runs?${q}`);
+      if (res.ok) {
+        const d = await res.json();
+        setRows(d.rows ?? []);
+        setTotal(d.total ?? 0);
+        setError(null);
+      } else throw new Error();
+    } catch {
+      setRows([]);
+      setTotal(0);
+      setError("Unable to load runs.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [win, status, task, model, offset]);
 
   useEffect(() => {
@@ -97,6 +106,21 @@ export default function RunsPanel({
 
   return (
     <div>
+      {error && (
+        <div
+          role="alert"
+          className="mb-3 rounded border border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] p-3 text-sm text-[var(--status-danger-fg)]"
+        >
+          {error}{" "}
+          <button
+            type="button"
+            onClick={load}
+            className="ml-2 min-h-11 rounded px-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+          >
+            Retry
+          </button>
+        </div>
+      )}
       <div
         style={{
           display: "flex",
@@ -196,18 +220,13 @@ export default function RunsPanel({
                 <Th right>Tok in/out</Th>
                 <Th right>Cache</Th>
                 <Th right>Latency</Th>
+                <Th>Details</Th>
               </tr>
             </thead>
             <tbody>
               {rows.map((r) => (
                 <Fragment key={r.id}>
-                  <tr
-                    onClick={() => setExpanded(expanded === r.id ? null : r.id)}
-                    style={{
-                      cursor:
-                        r.error || r.fallback_from ? "pointer" : "default",
-                    }}
-                  >
+                  <tr>
                     <Td mono dim>
                       {new Date(r.created_at).toLocaleTimeString()}{" "}
                       <span style={{ opacity: 0.6 }}>
@@ -234,15 +253,32 @@ export default function RunsPanel({
                     <Td right mono>
                       {fmtMs(r.latency_ms)}
                     </Td>
+                    <Td>
+                      {(r.error || r.fallback_from) && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExpanded(expanded === r.id ? null : r.id)
+                          }
+                          aria-expanded={expanded === r.id}
+                          aria-controls={`run-detail-${r.id}`}
+                          className="min-h-11 whitespace-nowrap rounded px-2 text-xs text-[var(--action-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                        >
+                          {expanded === r.id
+                            ? "Collapse details"
+                            : "Expand details"}
+                        </button>
+                      )}
+                    </Td>
                   </tr>
                   {expanded === r.id && (r.error || r.fallback_from) && (
-                    <tr>
+                    <tr id={`run-detail-${r.id}`}>
                       <Td
-                        colSpan={8}
+                        colSpan={9}
                         style={{
                           maxWidth: "none",
                           whiteSpace: "normal",
-                          background: "var(--status-danger-surface)",
+                          background: "var(--status-danger-bg)",
                         }}
                       >
                         {r.fallback_from && (
