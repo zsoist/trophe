@@ -9,7 +9,7 @@ import { submitSignup, resendConfirmation, fetchDeps } from '@/lib/auth/signup-c
 import { authCallbackErrorNotice, confirmedLoginNotice } from '@/lib/auth/auth-messages';
 import { recoverInvalidBrowserSession } from '@/lib/auth/recover-browser-session';
 import { ThemeModeProvider, ThemeModeToggle } from '@/components/shared/ThemeMode';
-import { Button, IconButton } from '@/components/ui';
+import { Button, IconButton } from '@/components/ui/Button';
 
 const clearInvalidLocalSession = () => supabase.auth.signOut({ scope: 'local' });
 
