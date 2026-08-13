@@ -1,8 +1,8 @@
 'use client';
 
-import { Suspense, useEffect, useState, useCallback } from 'react';
+import { Suspense, useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import {
   Plus,
   Trash2,
@@ -33,6 +33,7 @@ import type {
 } from '@/lib/types';
 import { CoachNav } from '@/components/coach/CoachNav';
 import CoachLoadingSkeletons from '@/components/coach/CoachLoadingSkeletons';
+import { useDialogFocus } from '@/components/shared/useDialogFocus';
 import ProgramBuilder, { type BuilderClient } from '@/components/coach/ProgramBuilder';
 import { BotNav } from '@/components/ui/BotNav';
 import { Icon, ConfirmSheet } from '@/components/ui';
@@ -120,6 +121,11 @@ function TemplatesPageInner() {
   const [showBuilder, setShowBuilder] = useState(false);
   const [builderInitialClient, setBuilderInitialClient] = useState<string | null>(null);
   const [clients, setClients] = useState<BuilderClient[]>([]);
+  const formDialogRef = useRef<HTMLDivElement | null>(null);
+  const builderDialogRef = useRef<HTMLDivElement | null>(null);
+  const reducedMotion = useReducedMotion();
+  useDialogFocus(showForm, () => { setShowForm(false); resetForm(); }, formDialogRef);
+  useDialogFocus(showBuilder, () => { setShowBuilder(false); setBuilderInitialClient(null); }, builderDialogRef);
 
   const loadClients = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -424,22 +430,22 @@ function TemplatesPageInner() {
   // ── Render ──
 
   return (
-    <div className="min-h-screen pb-20 px-4 py-6 sm:px-6 lg:px-8" style={{ background: 'var(--bg,#0a0a0a)' }}>
+    <div data-coach-mobile-workspace className="min-h-screen min-w-0 pb-20 px-4 py-6 sm:px-6 lg:px-8" style={{ background: 'var(--canvas)' }}>
       <div className="max-w-5xl mx-auto">
         <CoachNav active="/coach/templates" />
 
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
+          initial={reducedMotion ? false : { opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
         >
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-stone-100">
+              <h1 className="text-2xl sm:text-3xl font-bold text-[var(--content-primary)]">
                 Workout Templates
               </h1>
-              <p className="text-stone-500 text-sm mt-1">
+              <p className="text-[var(--content-secondary)] text-sm mt-1">
                 {templates.length} template{templates.length !== 1 ? 's' : ''}
               </p>
             </div>
@@ -448,7 +454,7 @@ function TemplatesPageInner() {
                 resetForm();
                 setShowForm(true);
               }}
-              className="btn-gold flex items-center gap-2 text-sm"
+              className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] btn-gold flex items-center gap-2 text-sm"
             >
               <Plus size={16} /> New Template
             </button>
@@ -459,9 +465,9 @@ function TemplatesPageInner() {
             <CoachLoadingSkeletons page="templates" />
           ) : templates.length === 0 ? (
             <div className="text-center py-20">
-              <LayoutTemplate size={48} className="mx-auto text-stone-700 mb-4" />
-              <p className="text-stone-500">No templates created yet</p>
-              <p className="text-stone-600 text-sm mt-1">
+              <LayoutTemplate size={48} className="mx-auto text-[var(--content-muted)] mb-4" />
+              <p className="text-[var(--content-secondary)]">No templates created yet</p>
+              <p className="text-[var(--content-muted)] text-sm mt-1">
                 Create workout routines and assign them to clients
               </p>
             </div>
@@ -485,17 +491,17 @@ function TemplatesPageInner() {
                       className="p-4 sm:p-5 flex items-center gap-3 cursor-pointer"
                       onClick={() => setExpandedId(isExpanded ? null : template.id)}
                     >
-                      <Dumbbell size={18} className="text-[#D4A853] shrink-0" />
+                      <Dumbbell size={18} className="text-[var(--action-primary)] shrink-0" />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <h3 className="font-semibold text-stone-100">{template.name}</h3>
+                          <h3 className="font-semibold text-[var(--content-primary)]">{template.name}</h3>
                           {template.day_label && (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#D4A853]/10 text-[#D4A853] font-medium">
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-[var(--surface-active)] text-[var(--action-primary)] font-medium">
                               {template.day_label}
                             </span>
                           )}
                           <span
-                            className={`text-[10px] px-2 py-0.5 rounded-full border font-bold ${
+                            className={`text-xs px-2 py-0.5 rounded-full border font-bold ${
                               difficultyColors[template.difficulty] || difficultyColors.intermediate
                             }`}
                           >
@@ -503,11 +509,11 @@ function TemplatesPageInner() {
                           </span>
                         </div>
                         {template.description && (
-                          <p className="text-xs text-stone-500 mt-0.5 truncate">
+                          <p className="text-xs text-[var(--content-secondary)] mt-0.5 truncate">
                             {template.description}
                           </p>
                         )}
-                        <div className="flex items-center gap-3 mt-1.5 text-xs text-stone-500">
+                        <div className="flex items-center gap-3 mt-1.5 text-xs text-[var(--content-secondary)]">
                           <span>
                             {exercises.length} exercise{exercises.length !== 1 ? 's' : ''}
                           </span>
@@ -527,7 +533,7 @@ function TemplatesPageInner() {
                             e.stopPropagation();
                             openEdit(template);
                           }}
-                          className="p-2 rounded-lg hover:bg-white/5 text-stone-400 hover:text-[#D4A853] transition-colors"
+                          className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] p-2 rounded-lg hover:bg-[var(--surface-2)] text-[var(--content-secondary)] hover:text-[var(--action-primary)] transition-colors"
                           title={t('coach.templates.edit')}
                         >
                           <Pencil size={15} />
@@ -537,7 +543,7 @@ function TemplatesPageInner() {
                             e.stopPropagation();
                             openBuilder();
                           }}
-                          className="p-2 rounded-lg hover:bg-white/5 text-stone-400 hover:text-[#D4A853] transition-colors"
+                          className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] p-2 rounded-lg hover:bg-[var(--surface-2)] text-[var(--content-secondary)] hover:text-[var(--action-primary)] transition-colors"
                           title={t('coach.templates.assignToProgram')}
                         >
                           <UserPlus size={15} />
@@ -547,22 +553,22 @@ function TemplatesPageInner() {
                             e.stopPropagation();
                             deleteTemplate(template.id);
                           }}
-                          className="p-2 rounded-lg hover:bg-red-500/10 text-stone-500 hover:text-red-400 transition-colors"
+                          className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] p-2 rounded-lg hover:bg-red-500/10 text-[var(--content-secondary)] hover:text-red-400 transition-colors"
                           title={t('coach.templates.delete')}
                         >
                           <Trash2 size={15} />
                         </button>
                         {isExpanded ? (
-                          <ChevronUp size={16} className="text-stone-500" />
+                          <ChevronUp size={16} className="text-[var(--content-secondary)]" />
                         ) : (
-                          <ChevronDown size={16} className="text-stone-500" />
+                          <ChevronDown size={16} className="text-[var(--content-secondary)]" />
                         )}
                       </div>
                     </div>
 
                     {/* Expanded exercise list */}
                     {isExpanded && exercises.length > 0 && (
-                      <div className="px-4 sm:px-5 pb-4 border-t border-white/5">
+                      <div className="px-4 sm:px-5 pb-4 border-t border-[var(--border-subtle)]">
                         <div className="mt-3 space-y-2">
                           {exercises.map((ex, ei) => {
                             const exInfo = exerciseLibrary.find(
@@ -571,21 +577,21 @@ function TemplatesPageInner() {
                             return (
                               <div
                                 key={ei}
-                                className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03]"
+                                className="flex items-center gap-3 p-3 rounded-xl bg-[var(--surface-2)]"
                               >
-                                <span className="text-xs text-stone-600 w-5 text-center font-mono">
+                                <span className="text-xs text-[var(--content-muted)] w-5 text-center font-mono">
                                   {ei + 1}
                                 </span>
                                 <div className="flex-1 min-w-0">
-                                  <span className="text-sm font-medium text-stone-200">
+                                  <span className="text-sm font-medium text-[var(--content-primary)]">
                                     {exInfo?.name || ex.exercise_id}
                                   </span>
-                                  <div className="flex items-center gap-3 mt-0.5 text-xs text-stone-500">
+                                  <div className="flex items-center gap-3 mt-0.5 text-xs text-[var(--content-secondary)]">
                                     <span>{ex.target_sets} sets</span>
                                     <span>{ex.target_reps} reps</span>
                                     {ex.target_rpe && <span>RPE {ex.target_rpe}</span>}
                                     {ex.notes && (
-                                      <span className="text-stone-600 truncate">{ex.notes}</span>
+                                      <span className="text-[var(--content-muted)] truncate">{ex.notes}</span>
                                     )}
                                   </div>
                                 </div>
@@ -626,19 +632,24 @@ function TemplatesPageInner() {
 
         {/* ─── Create Template Modal ─── */}
         {showForm && (
-          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[var(--surface-overlay)] backdrop-blur-sm p-4">
             <motion.div
-              initial={{ opacity: 0, y: 40 }}
+              ref={formDialogRef}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="template-dialog-title"
+              initial={reducedMotion ? false : { opacity: 0, y: 40 }}
               animate={{ opacity: 1, y: 0 }}
-              className="glass-elevated p-5 w-full max-w-xl max-h-[85vh] overflow-y-auto"
+              className="glass-elevated safe-bottom p-5 w-full max-w-xl max-h-[85vh] overflow-y-auto"
             >
               <div className="flex items-center justify-between mb-5">
-                <h3 className="font-semibold text-stone-100 text-lg">
+                <h3 id="template-dialog-title" className="font-semibold text-[var(--content-primary)] text-lg">
                   {editingTemplateId ? t('coach.templates.editTitle') : 'New Template'}
                 </h3>
                 <button
                   onClick={() => { setShowForm(false); resetForm(); }}
-                  className="text-stone-500 hover:text-stone-300"
+                  aria-label="Close template editor"
+                  className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] text-[var(--content-secondary)] hover:text-[var(--content-primary)]"
                 >
                   <X size={18} />
                 </button>
@@ -647,49 +658,49 @@ function TemplatesPageInner() {
               <div className="space-y-4">
                 {/* Name */}
                 <div>
-                  <label className="text-xs text-stone-500 mb-1 block">Template Name *</label>
+                  <label className="text-xs text-[var(--content-secondary)] mb-1 block">Template Name *</label>
                   <input
                     value={formName}
                     onChange={(e) => setFormName(e.target.value)}
                     placeholder="e.g. Upper Body Hypertrophy"
-                    className="input-dark"
+                    className="text-base input-dark"
                   />
                 </div>
 
                 {/* Description + Day Label */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs text-stone-500 mb-1 block">Description</label>
+                    <label className="text-xs text-[var(--content-secondary)] mb-1 block">Description</label>
                     <input
                       value={formDesc}
                       onChange={(e) => setFormDesc(e.target.value)}
                       placeholder="Brief description"
-                      className="input-dark"
+                      className="text-base input-dark"
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-stone-500 mb-1 block">Day Label</label>
+                    <label className="text-xs text-[var(--content-secondary)] mb-1 block">Day Label</label>
                     <input
                       value={formDayLabel}
                       onChange={(e) => setFormDayLabel(e.target.value)}
                       placeholder="e.g. Push A"
-                      className="input-dark"
+                      className="text-base input-dark"
                     />
                   </div>
                 </div>
 
                 {/* Difficulty */}
                 <div>
-                  <label className="text-xs text-stone-500 mb-1 block">Difficulty</label>
+                  <label className="text-xs text-[var(--content-secondary)] mb-1 block">Difficulty</label>
                   <div className="flex gap-2">
                     {difficultyOptions.map((d) => (
                       <button
                         key={d}
                         onClick={() => setFormDifficulty(d)}
-                        className={`flex-1 py-2 rounded-xl text-xs font-medium border transition-all ${
+                        className={`min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] flex-1 py-2 rounded-xl text-xs font-medium border transition-all ${
                           formDifficulty === d
                             ? difficultyColors[d]
-                            : 'border-white/5 text-stone-500 hover:bg-white/5'
+                            : 'border-[var(--border-subtle)] text-[var(--content-secondary)] hover:bg-[var(--surface-2)]'
                         }`}
                       >
                         {d}
@@ -700,16 +711,16 @@ function TemplatesPageInner() {
 
                 {/* Target Muscles */}
                 <div>
-                  <label className="text-xs text-stone-500 mb-2 block">Target Muscles</label>
+                  <label className="text-xs text-[var(--content-secondary)] mb-2 block">Target Muscles</label>
                   <div className="flex flex-wrap gap-1.5">
                     {muscleOptions.map((m) => (
                       <button
                         key={m}
                         onClick={() => toggleMuscle(m)}
-                        className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                        className={`min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
                           formTargetMuscles.includes(m)
-                            ? 'bg-[#D4A853]/15 text-[#D4A853] border border-[#D4A853]/30'
-                            : 'bg-white/[0.03] text-stone-500 border border-white/5 hover:bg-white/5'
+                            ? 'bg-[var(--surface-active)] text-[var(--action-primary)] border border-[var(--action-primary)]'
+                            : 'bg-[var(--surface-2)] text-[var(--content-secondary)] border border-[var(--border-subtle)] hover:bg-[var(--surface-2)]'
                         }`}
                       >
                         {muscleLabels[m]}
@@ -721,7 +732,7 @@ function TemplatesPageInner() {
                 {/* Exercises */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <label className="text-xs text-stone-500">
+                    <label className="text-xs text-[var(--content-secondary)]">
                       Exercises ({formExercises.length})
                     </label>
                   </div>
@@ -731,31 +742,34 @@ function TemplatesPageInner() {
                       {formExercises.map((ex, idx) => (
                         <div
                           key={idx}
-                          className="p-3 rounded-xl bg-white/[0.03] space-y-2"
+                          className="p-3 rounded-xl bg-[var(--surface-2)] space-y-2"
                         >
                           <div className="flex items-center gap-2">
-                            <GripVertical size={14} className="text-stone-700 shrink-0" />
-                            <span className="text-sm font-medium text-stone-200 flex-1 truncate">
+                            <GripVertical size={14} className="text-[var(--content-muted)] shrink-0" />
+                            <span className="text-sm font-medium text-[var(--content-primary)] flex-1 truncate">
                               {ex._name || ex.exercise_id}
                             </span>
                             <div className="flex items-center gap-0.5 shrink-0">
                               <button
                                 onClick={() => moveExercise(idx, 'up')}
+                                aria-label={`Move ${ex._name || 'exercise'} up`}
                                 disabled={idx === 0}
-                                className="p-1 text-stone-600 hover:text-stone-300 disabled:opacity-20 transition-colors"
+                                className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] p-1 text-[var(--content-muted)] hover:text-[var(--content-primary)] disabled:opacity-20 transition-colors"
                               >
                                 <ArrowUp size={12} />
                               </button>
                               <button
                                 onClick={() => moveExercise(idx, 'down')}
+                                aria-label={`Move ${ex._name || 'exercise'} down`}
                                 disabled={idx === formExercises.length - 1}
-                                className="p-1 text-stone-600 hover:text-stone-300 disabled:opacity-20 transition-colors"
+                                className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] p-1 text-[var(--content-muted)] hover:text-[var(--content-primary)] disabled:opacity-20 transition-colors"
                               >
                                 <ArrowDown size={12} />
                               </button>
                               <button
                                 onClick={() => removeExercise(idx)}
-                                className="p-1 text-stone-600 hover:text-red-400 transition-colors"
+                                aria-label={`Remove ${ex._name || 'exercise'}`}
+                                className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] p-1 text-[var(--content-muted)] hover:text-red-400 transition-colors"
                               >
                                 <Trash2 size={12} />
                               </button>
@@ -763,7 +777,7 @@ function TemplatesPageInner() {
                           </div>
                           <div className="grid grid-cols-3 gap-2">
                             <div>
-                              <label className="text-[10px] text-stone-600 mb-0.5 block">Sets</label>
+                              <label className="text-xs text-[var(--content-muted)] mb-0.5 block">Sets</label>
                               <input
                                 type="number"
                                 min={1}
@@ -771,20 +785,20 @@ function TemplatesPageInner() {
                                 onChange={(e) =>
                                   updateExercise(idx, 'target_sets', parseInt(e.target.value) || 1)
                                 }
-                                className="input-dark !py-1.5 text-sm text-center"
+                                className="input-dark !py-1.5 text-base text-center"
                               />
                             </div>
                             <div>
-                              <label className="text-[10px] text-stone-600 mb-0.5 block">Reps</label>
+                              <label className="text-xs text-[var(--content-muted)] mb-0.5 block">Reps</label>
                               <input
                                 value={ex.target_reps}
                                 onChange={(e) => updateExercise(idx, 'target_reps', e.target.value)}
                                 placeholder="8-12"
-                                className="input-dark !py-1.5 text-sm text-center"
+                                className="input-dark !py-1.5 text-base text-center"
                               />
                             </div>
                             <div>
-                              <label className="text-[10px] text-stone-600 mb-0.5 block">RPE</label>
+                              <label className="text-xs text-[var(--content-muted)] mb-0.5 block">RPE</label>
                               <input
                                 type="number"
                                 min={1}
@@ -798,7 +812,7 @@ function TemplatesPageInner() {
                                   )
                                 }
                                 placeholder="-"
-                                className="input-dark !py-1.5 text-sm text-center"
+                                className="input-dark !py-1.5 text-base text-center"
                               />
                             </div>
                           </div>
@@ -806,7 +820,7 @@ function TemplatesPageInner() {
                             value={ex.notes || ''}
                             onChange={(e) => updateExercise(idx, 'notes', e.target.value)}
                             placeholder="Notes (optional)"
-                            className="input-dark !py-1.5 text-sm"
+                            className="input-dark !py-1.5 text-base"
                           />
                         </div>
                       ))}
@@ -819,13 +833,13 @@ function TemplatesPageInner() {
                       <div className="relative flex-1">
                         <Search
                           size={14}
-                          className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-600"
+                          className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--content-muted)]"
                         />
                         <input
                           value={exerciseQuery}
                           onChange={(e) => searchExercises(e.target.value)}
                           placeholder="Search exercises to add..."
-                          className="input-dark !pl-9 text-sm"
+                          className="input-dark !pl-9 text-base"
                         />
                       </div>
                     </div>
@@ -836,12 +850,12 @@ function TemplatesPageInner() {
                           <button
                             key={ex.id}
                             onClick={() => addExerciseToForm(ex)}
-                            className="w-full text-left px-4 py-2.5 hover:bg-white/5 transition-colors flex items-center gap-3 border-b border-white/5 last:border-0"
+                            className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] w-full text-left px-4 py-2.5 hover:bg-[var(--surface-2)] transition-colors flex items-center gap-3 border-b border-[var(--border-subtle)] last:border-0"
                           >
-                            <Dumbbell size={14} className="text-stone-600 shrink-0" />
+                            <Dumbbell size={14} className="text-[var(--content-muted)] shrink-0" />
                             <div>
-                              <div className="text-sm text-stone-200">{ex.name}</div>
-                              <div className="text-[10px] text-stone-500 capitalize">
+                              <div className="text-sm text-[var(--content-primary)]">{ex.name}</div>
+                              <div className="text-xs text-[var(--content-secondary)] capitalize">
                                 {muscleLabels[ex.muscle_group] || ex.muscle_group}
                                 {ex.equipment && ` \u00B7 ${ex.equipment}`}
                               </div>
@@ -854,21 +868,22 @@ function TemplatesPageInner() {
                 </div>
 
                 {/* Shared toggle */}
-                <div className="flex items-center justify-between p-3 rounded-xl bg-white/[0.03]">
+                <div className="flex items-center justify-between p-3 rounded-xl bg-[var(--surface-2)]">
                   <div>
-                    <span className="text-sm text-stone-200">Share with clients</span>
-                    <p className="text-[10px] text-stone-600 mt-0.5">
+                    <span className="text-sm text-[var(--content-primary)]">Share with clients</span>
+                    <p className="text-xs text-[var(--content-muted)] mt-0.5">
                       Visible to assigned clients
                     </p>
                   </div>
                   <button
                     onClick={() => setFormShared(!formShared)}
-                    className={`w-11 h-6 rounded-full transition-all ${
-                      formShared ? 'bg-[#D4A853]' : 'bg-stone-700'
+                    aria-label={formShared ? 'Stop sharing with clients' : 'Share with clients'}
+                    className={`min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] w-11 h-6 rounded-full transition-all ${
+                      formShared ? 'bg-[var(--action-primary)]' : 'bg-[var(--surface-2)]'
                     }`}
                   >
                     <div
-                      className={`w-5 h-5 rounded-full bg-white shadow-sm transition-transform ${
+                      className={`w-5 h-5 rounded-full bg-[var(--surface-1)] shadow-sm transition-transform ${
                         formShared ? 'translate-x-5.5' : 'translate-x-0.5'
                       }`}
                     />
@@ -879,7 +894,7 @@ function TemplatesPageInner() {
                 <button
                   onClick={saveTemplate}
                   disabled={saving || updateTemplate.isPending || !formName.trim()}
-                  className="btn-gold w-full flex items-center justify-center gap-2 disabled:opacity-40"
+                  className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] btn-gold w-full flex items-center justify-center gap-2 disabled:opacity-40"
                 >
                   <Save size={16} />
                   {saving || updateTemplate.isPending
@@ -895,23 +910,28 @@ function TemplatesPageInner() {
 
         {/* ─── Program Builder Modal (real assignment via trpc workouts.program.assign) ─── */}
         {showBuilder && (
-          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[var(--surface-overlay)] backdrop-blur-sm p-4">
             <motion.div
-              initial={{ opacity: 0, y: 40 }}
+              ref={builderDialogRef}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="program-builder-dialog-title"
+              initial={reducedMotion ? false : { opacity: 0, y: 40 }}
               animate={{ opacity: 1, y: 0 }}
-              className="glass-elevated p-5 w-full max-w-xl max-h-[85vh] overflow-y-auto"
+              className="glass-elevated safe-bottom p-5 w-full max-w-xl max-h-[85vh] overflow-y-auto"
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-stone-100">{t('coach.builder.modalTitle')}</h3>
+                <h3 id="program-builder-dialog-title" className="font-semibold text-[var(--content-primary)]">{t('coach.builder.modalTitle')}</h3>
                 <button
                   onClick={() => { setShowBuilder(false); setBuilderInitialClient(null); }}
-                  className="text-stone-500 hover:text-stone-300"
+                  aria-label="Close program builder"
+                  className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] text-[var(--content-secondary)] hover:text-[var(--content-primary)]"
                 >
                   <X size={18} />
                 </button>
               </div>
               {clients.length === 0 ? (
-                <p className="text-stone-600 text-sm text-center py-6">
+                <p className="text-[var(--content-muted)] text-sm text-center py-6">
                   {t('coach.builder.noClients')}
                 </p>
               ) : (

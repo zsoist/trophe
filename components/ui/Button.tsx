@@ -2,29 +2,40 @@
 
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
-/**
- * Button primitives. Two variants:
- *   - BtnGold: primary gold-gradient (canonical CTA)
- *   - BtnGhost: outlined neutral (secondary)
- *
- * Wraps the existing `.btn-gold` / `.btn-ghost` from globals.css. Phase 0.5
- * doesn't change the visual recipe — just adds the React surface so screens
- * compose typed components instead of stringifying class names.
- */
+export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 
-type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
+export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
   size?: 'sm' | 'md' | 'lg';
   fullWidth?: boolean;
   children?: ReactNode;
 };
 
-const sizeClass = {
-  sm: 'px-3 py-2 text-xs',
-  md: 'px-6 py-3 text-sm',
-  lg: 'px-8 py-3.5 text-base',
+export type IconButtonProps = Omit<ButtonProps, 'aria-label' | 'size'> & {
+  'aria-label': string;
 };
 
-export function BtnGold({
+const sizeClass = {
+  sm: 'px-3 text-xs',
+  md: 'px-4 text-sm',
+  lg: 'px-6 text-base',
+};
+
+const variantClass: Record<ButtonVariant, string> = {
+  primary: 'bg-[var(--action-primary)] text-[var(--action-on-primary)] hover:bg-[var(--action-primary-hover)]',
+  secondary: 'bg-[var(--action-secondary)] text-[var(--content-primary)] hover:bg-[var(--surface-hover)] border border-[var(--border-default)]',
+  ghost: 'bg-transparent text-[var(--content-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--content-primary)] border border-[var(--border-default)]',
+  danger: 'bg-[var(--status-danger-fg)] text-[var(--content-inverse)] hover:opacity-90',
+};
+
+const sharedButtonClass = [
+  'inline-flex min-h-11 items-center justify-center rounded-xl font-semibold transition-colors',
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--canvas)]',
+  'disabled:cursor-not-allowed disabled:opacity-50',
+].join(' ');
+
+export function Button({
+  variant = 'primary',
   size = 'md',
   fullWidth,
   className = '',
@@ -34,10 +45,10 @@ export function BtnGold({
   return (
     <button
       className={[
-        'btn-gold',
+        sharedButtonClass,
         sizeClass[size],
+        variantClass[variant],
         fullWidth ? 'w-full' : '',
-        'disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none',
         className,
       ].join(' ')}
       {...rest}
@@ -47,20 +58,17 @@ export function BtnGold({
   );
 }
 
-export function BtnGhost({
-  size = 'md',
-  fullWidth,
-  className = '',
-  children,
-  ...rest
-}: ButtonProps) {
+/**
+ * An icon-only control. The accessible name is intentionally required so an
+ * icon never becomes an unlabeled touch target for assistive technology.
+ */
+export function IconButton({ variant = 'ghost', className = '', children, ...rest }: IconButtonProps) {
   return (
     <button
       className={[
-        'btn-ghost',
-        sizeClass[size],
-        fullWidth ? 'w-full' : '',
-        'disabled:opacity-50 disabled:cursor-not-allowed',
+        sharedButtonClass,
+        'min-w-11 px-0',
+        variantClass[variant],
         className,
       ].join(' ')}
       {...rest}
@@ -68,4 +76,13 @@ export function BtnGhost({
       {children}
     </button>
   );
+}
+
+/** Backward-compatible named variants for incremental route migration. */
+export function BtnGold(props: Omit<ButtonProps, 'variant'>) {
+  return <Button variant="primary" {...props} />;
+}
+
+export function BtnGhost(props: Omit<ButtonProps, 'variant'>) {
+  return <Button variant="ghost" {...props} />;
 }

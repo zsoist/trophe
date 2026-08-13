@@ -81,7 +81,7 @@ export default class ErrorBoundary extends Component<Props, State> {
       return (
         <div
           className="min-h-screen flex items-center justify-center p-6"
-          style={{ background: 'var(--bg,#0a0a0a)' }}
+          style={{ background: 'var(--canvas)' }}
         >
           <div
             className="max-w-sm w-full text-center"
@@ -91,7 +91,7 @@ export default class ErrorBoundary extends Component<Props, State> {
               WebkitBackdropFilter: 'blur(20px)',
               border: '1px solid rgba(128,128,128,.1)',
               borderRadius: '20px',
-              boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+              boxShadow: '0 8px 32px var(--surface-overlay)',
               padding: '2.5rem 2rem',
             }}
           >
@@ -120,7 +120,7 @@ export default class ErrorBoundary extends Component<Props, State> {
               </svg>
             </div>
 
-            <h1 style={{ fontSize: 18, fontWeight: 700, color: 'var(--t1,#FAFAF9)', marginBottom: 6 }}>
+            <h1 style={{ fontSize: 18, fontWeight: 700, color: 'var(--content-primary)', marginBottom: 6 }}>
               Something went wrong
             </h1>
 
@@ -161,7 +161,7 @@ export default class ErrorBoundary extends Component<Props, State> {
                       onClick={this.handleCopy}
                       style={{
                         fontSize: 10, color: copied ? 'var(--ok,#65D387)' : 'var(--t4)',
-                        background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.07)',
+                        background: 'var(--border-subtle)', border: '1px solid var(--border-subtle)',
                         borderRadius: 6, padding: '3px 8px', cursor: 'pointer',
                       }}
                     >
@@ -203,7 +203,7 @@ export default class ErrorBoundary extends Component<Props, State> {
                   flex: 1, padding: '12px', borderRadius: 12,
                   fontSize: 13, fontWeight: 700, cursor: 'pointer',
                   background: 'linear-gradient(135deg, #B8923E, #D4A853)',
-                  color: '#0a0a0a', border: 'none',
+                  color: 'var(--action-on-primary)', border: 'none',
                 }}
               >
                 Try Again

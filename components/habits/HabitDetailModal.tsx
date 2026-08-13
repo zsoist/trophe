@@ -1,9 +1,11 @@
 'use client';
 
-import { motion, AnimatePresence } from 'framer-motion';
+import { useRef } from 'react';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { X } from 'lucide-react';
 import type { Habit, ClientHabit, HabitCheckin, Language, CoreLanguage } from '@/lib/types';
 import { localDateStr } from '@/lib/utils/dates';
+import { useDialogFocus } from '@/components/shared/useDialogFocus';
 
 interface HabitDetailModalProps {
   open: boolean;
@@ -67,11 +69,15 @@ export default function HabitDetailModal({
   checkins,
   language,
 }: HabitDetailModalProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const reducedMotion = useReducedMotion();
+  useDialogFocus(open, onClose, dialogRef);
   if (!habit || !clientHabit) return null;
 
   const currentStreak = clientHabit.current_streak ?? 0;
   const bestStreak = clientHabit.best_streak ?? 0;
   const cycleDays = habit.cycle_days ?? 14;
+  const streakPercent = Math.min((currentStreak / cycleDays) * 100, 100);
   const category = habit.category ?? 'nutrition';
   const educationText = CATEGORY_EDUCATION[category]?.[language as CoreLanguage] ?? CATEGORY_EDUCATION[category]?.en ?? '';
 
@@ -116,29 +122,32 @@ export default function HabitDetailModal({
     <AnimatePresence>
       {open && (
         <motion.div
-          initial={{ opacity: 0 }}
+          initial={{ opacity: reducedMotion ? 1 : 0 }}
           animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm"
+          exit={{ opacity: reducedMotion ? 1 : 0 }}
+          className="fixed inset-0 z-50 flex items-end justify-center bg-[var(--surface-overlay)]/90 backdrop-blur-sm"
           onClick={onClose}
         >
           <motion.div
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '100%' }}
-            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="glass-elevated w-full max-w-md max-h-[85vh] overflow-y-auto p-6 pb-8 rounded-t-3xl"
+            ref={dialogRef}
+            initial={reducedMotion ? { opacity: 1 } : { y: '100%' }}
+            animate={reducedMotion ? { opacity: 1 } : { y: 0 }}
+            exit={reducedMotion ? { opacity: 1 } : { y: '100%' }}
+            transition={reducedMotion ? { duration: 0 } : { type: 'spring', damping: 25, stiffness: 300 }}
+            role="dialog" aria-modal="true" aria-labelledby="habit-detail-title"
+            className="glass-elevated w-full max-w-md max-h-[85vh] overflow-y-auto p-6 pb-[calc(2rem+env(safe-area-inset-bottom))] rounded-t-3xl"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Handle bar */}
             <div className="flex justify-center mb-4">
-              <div className="w-10 h-1 rounded-full bg-white/10" />
+              <div className="w-10 h-1 rounded-full bg-[var(--surface-2)]" />
             </div>
 
             {/* Close button */}
             <button
               onClick={onClose}
-              className="absolute top-4 right-4 p-2 text-stone-500 hover:text-stone-300 transition-colors"
+              aria-label="Close habit details"
+              className="absolute top-4 right-4 min-h-11 min-w-11 inline-flex items-center justify-center text-[var(--content-muted)] hover:text-[var(--content-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] transition-colors"
             >
               <X size={20} />
             </button>
@@ -147,14 +156,14 @@ export default function HabitDetailModal({
             <div className="flex items-center gap-3 mb-5">
               <span className="text-4xl">{habit.emoji}</span>
               <div>
-                <h2 className="text-xl font-bold text-stone-100">{getHabitName(habit, language)}</h2>
-                <p className="text-stone-500 text-xs capitalize">{category} &middot; {habit.difficulty}</p>
+                <h2 id="habit-detail-title" className="text-xl font-bold text-[var(--content-primary)]">{getHabitName(habit, language)}</h2>
+                <p className="text-[var(--content-muted)] text-xs capitalize">{category} &middot; {habit.difficulty}</p>
               </div>
             </div>
 
             {/* Description */}
             {getHabitDescription(habit, language) && (
-              <p className="text-stone-400 text-sm mb-5 leading-relaxed">
+              <p className="text-[var(--content-muted)] text-sm mb-5 leading-relaxed">
                 {getHabitDescription(habit, language)}
               </p>
             )}
@@ -163,53 +172,56 @@ export default function HabitDetailModal({
             <div className="grid grid-cols-2 gap-3 mb-5">
               <div className="glass p-4 text-center">
                 <p className="text-2xl font-bold gold-text">{currentStreak}</p>
-                <p className="text-[10px] text-stone-500 uppercase tracking-wider mt-1">Current Streak</p>
+                <p className="text-xs text-[var(--content-muted)] uppercase tracking-wider mt-1">Current Streak</p>
               </div>
               <div className="glass p-4 text-center">
-                <p className="text-2xl font-bold text-stone-100">{bestStreak}</p>
-                <p className="text-[10px] text-stone-500 uppercase tracking-wider mt-1">Best Streak</p>
+                <p className="text-2xl font-bold text-[var(--content-primary)]">{bestStreak}</p>
+                <p className="text-xs text-[var(--content-muted)] uppercase tracking-wider mt-1">Best Streak</p>
               </div>
             </div>
 
             {/* Streak comparison bar */}
             <div className="mb-5">
-              <div className="flex items-center justify-between text-[10px] text-stone-500 mb-1">
+              <div className="flex items-center justify-between text-xs text-[var(--content-muted)] mb-1">
                 <span>Current vs Best</span>
                 <span>{bestStreak > 0 ? Math.round((currentStreak / bestStreak) * 100) : 0}%</span>
               </div>
               <div className="streak-bar h-3 relative">
                 {/* Best streak marker */}
                 <div
-                  className="absolute top-0 h-full border-r-2 border-stone-500/50"
+                  className="absolute top-0 h-full border-r-2 border-[var(--border-default)]"
                   style={{ left: `${Math.min((bestStreak / cycleDays) * 100, 100)}%` }}
                 />
                 <motion.div
                   className="streak-fill h-full"
-                  initial={{ width: 0 }}
-                  animate={{ width: `${Math.min((currentStreak / cycleDays) * 100, 100)}%` }}
-                  transition={{ duration: 0.8, delay: 0.2 }}
+                  style={{ width: reducedMotion ? `${streakPercent}%` : undefined }}
+                  initial={reducedMotion ? false : { width: 0 }}
+                  animate={reducedMotion ? false : { width: `${streakPercent}%` }}
+                  transition={reducedMotion ? { duration: 0 } : { duration: 0.8, delay: 0.2 }}
                 />
               </div>
             </div>
 
             {/* 14-Day Calendar Grid */}
             <div className="mb-5">
-              <p className="text-stone-500 text-xs mb-2 uppercase tracking-wider font-semibold">14-Day History</p>
+              <p className="text-[var(--content-muted)] text-xs mb-2 uppercase tracking-wider font-semibold">14-Day History</p>
               <div className="grid grid-cols-7 gap-2">
                 {days.map((day) => (
                   <div
                     key={day.date}
+                    role="img"
                     className={`aspect-square rounded-lg flex flex-col items-center justify-center ${
-                      day.status === 'completed'
-                        ? 'bg-green-500/20 border border-green-500/30'
-                        : day.status === 'missed'
-                        ? 'bg-red-500/15 border border-red-500/20'
-                        : 'bg-white/[0.03] border border-white/5'
-                    }`}
+                       day.status === 'completed'
+                         ? 'bg-[var(--status-success-bg)] border border-[var(--status-success-border)]'
+                         : day.status === 'missed'
+                         ? 'bg-[var(--status-danger-bg)] border border-[var(--status-danger-border)]'
+                         : 'bg-[var(--surface-2)] border border-[var(--border-subtle)]'
+                     }`}
+                     aria-label={`${day.date}: ${day.status}${day.mood ? `, ${day.mood}` : ''}`}
                   >
-                    <span className="text-[10px] text-stone-400 leading-none">{day.dayNum}</span>
+                    <span className="text-xs text-[var(--content-muted)] leading-none">{day.dayNum}</span>
                     {day.mood && (
-                      <span className="text-[10px] leading-none mt-0.5">{MOOD_EMOJI[day.mood] ?? ''}</span>
+                      <span className="text-xs leading-none mt-0.5">{MOOD_EMOJI[day.mood] ?? ''}</span>
                     )}
                   </div>
                 ))}
@@ -219,7 +231,7 @@ export default function HabitDetailModal({
             {/* Mood History (last 7 with mood) */}
             {checkins.filter((c) => c.mood).length > 0 && (
               <div className="mb-5">
-                <p className="text-stone-500 text-xs mb-2 uppercase tracking-wider font-semibold">Mood Log</p>
+                <p className="text-[var(--content-muted)] text-xs mb-2 uppercase tracking-wider font-semibold">Mood Log</p>
                 <div className="flex gap-2 overflow-x-auto pb-1">
                   {checkins
                     .filter((c) => c.mood)
@@ -230,7 +242,7 @@ export default function HabitDetailModal({
                         className="glass flex-shrink-0 px-3 py-2 flex flex-col items-center gap-0.5"
                       >
                         <span className="text-sm">{MOOD_EMOJI[c.mood!] ?? ''}</span>
-                        <span className="text-[9px] text-stone-500">
+                        <span className="text-xs text-[var(--content-muted)]">
                           {new Date(c.checked_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                         </span>
                       </div>
@@ -242,10 +254,10 @@ export default function HabitDetailModal({
             {/* Why this habit? */}
             {educationText && (
               <div className="glass p-4">
-                <p className="text-stone-400 text-xs font-semibold uppercase tracking-wider mb-2">
+                <p className="text-[var(--content-muted)] text-xs font-semibold uppercase tracking-wider mb-2">
                   Why this habit?
                 </p>
-                <p className="text-stone-300 text-sm leading-relaxed">{educationText}</p>
+                <p className="text-[var(--content-primary)] text-sm leading-relaxed">{educationText}</p>
               </div>
             )}
           </motion.div>

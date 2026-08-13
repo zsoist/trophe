@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { motion, useReducedMotion } from 'framer-motion';
 import type { ReactNode } from 'react';
 
 /**
@@ -12,8 +11,8 @@ import type { ReactNode } from 'react';
  * Next's pathname → the parent screen doesn't manage active state itself,
  * which keeps the nav stable across server/client transitions.
  *
- * The active tab carries a sliding gold indicator (framer `layoutId`) and
- * a subtle icon pop on change — both disabled under prefers-reduced-motion.
+ * Active state uses color and opacity only, so it stays calm for people who
+ * prefer reduced motion and never shifts the navigation target under a finger.
  */
 
 export interface BotNavRoute {
@@ -31,15 +30,14 @@ interface BotNavProps {
 
 export function BotNav({ routes, className = '' }: BotNavProps) {
   const pathname = usePathname();
-  const reducedMotion = useReducedMotion();
   return (
     <nav
       className={[
         'fixed bottom-0 left-0 right-0 z-[var(--z-nav,30)]',
         'flex justify-around items-center',
-        'px-3.5 pt-2.5 pb-4 safe-bottom',
-        'bg-[rgba(10,10,10,0.95)] backdrop-blur',
-        'border-t border-white/[0.06]',
+        'px-2 pt-1.5 safe-bottom sm:px-3.5',
+        'bg-[var(--surface-overlay)]/95 text-[var(--content-secondary)] backdrop-blur',
+        'border-t border-[var(--border-default)] shadow-[var(--shadow-medium)]',
         className,
       ].join(' ')}
       aria-label="Primary"
@@ -58,41 +56,33 @@ export function BotNav({ routes, className = '' }: BotNavProps) {
             href={route.href}
             aria-current={active ? 'page' : undefined}
             className={[
-              'relative flex flex-col items-center gap-0.5 px-2',
-              'text-[10px] uppercase tracking-[0.05em]',
-              active ? 'bnav-active' : 'bnav-dim',
+              'relative flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl px-1',
+              'text-xs uppercase tracking-[0.05em]',
+              'transition-colors motion-reduce:transition-none',
+              active
+                ? 'bg-[var(--surface-active)] text-[var(--action-primary)]'
+                : 'text-[var(--content-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--content-secondary)]',
             ].join(' ')}
           >
-            {/* Sliding gold active indicator */}
-            {active && (
-              <motion.span
-                layoutId="bnav-active-indicator"
-                transition={
-                  reducedMotion
-                    ? { duration: 0 }
-                    : { type: 'spring', stiffness: 400, damping: 32 }
-                }
-                className="absolute -top-[11px] h-[2px] w-9 rounded-full"
-                style={{
-                  background:
-                    'linear-gradient(90deg, transparent, var(--gold-300,#D4A853), transparent)',
-                }}
-                aria-hidden
-              />
-            )}
-            <motion.span
-              className="text-[16px] leading-none"
-              initial={false}
-              animate={
-                active && !reducedMotion ? { scale: [1, 1.18, 1] } : { scale: 1 }
-              }
-              transition={{ duration: 0.3, type: 'tween', ease: 'easeOut' }}
+            <span
+              className={[
+                'absolute top-0 h-0.5 w-9 rounded-full bg-[var(--action-primary)]',
+                'transition-opacity motion-reduce:transition-none',
+                active ? 'opacity-100' : 'opacity-0',
+              ].join(' ')}
+              aria-hidden="true"
+            />
+            <span
+              className={[
+                'text-[16px] leading-none transition-opacity motion-reduce:transition-none',
+                active ? 'opacity-100' : 'opacity-75',
+              ].join(' ')}
             >
               {route.icon}
-            </motion.span>
+            </span>
             <span className="font-medium">{route.label}</span>
             {route.badge !== undefined && (
-              <span className="absolute -top-1 right-1 min-w-[16px] h-[16px] px-1 inline-flex items-center justify-center rounded-full bg-[var(--color-danger)] text-white text-[10px] font-semibold">
+              <span className="absolute right-1 top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--status-danger-fg)] px-1 text-xs font-semibold text-[var(--content-inverse)]">
                 {route.badge}
               </span>
             )}

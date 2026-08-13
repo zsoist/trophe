@@ -15,8 +15,9 @@
  */
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import {
   Dumbbell, Plus, Minus, Clock, Trophy, X, AlertTriangle,
   ChevronDown, ChevronUp, History, Play, Square, Camera, Timer,
@@ -38,6 +39,20 @@ import ExercisePicker from '@/components/workout/ExercisePicker';
 import RecentSessionCard from '@/components/workout/RecentSessionCard';
 import ExerciseInfoSheet from '@/components/workout/ExerciseInfoSheet';
 import PlateCalculator from '@/components/workout/PlateCalculator';
+
+const focusableSelector = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+function trapFocus(event: ReactKeyboardEvent<HTMLElement>, container: HTMLElement | null) {
+  if (event.key !== 'Tab' || !container) return;
+  const items = Array.from(container.querySelectorAll<HTMLElement>(focusableSelector));
+  const first = items[0]; const last = items.at(-1);
+  if (!first || !last) { event.preventDefault(); container.focus(); return; }
+  if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+  else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+}
+function restoreCompletionFocus(returnTarget: HTMLElement | null, fallback: HTMLElement | null) {
+  if (returnTarget?.isConnected) returnTarget.focus();
+  else fallback?.focus();
+}
 import { muscleColor } from '@/components/workout/muscle-groups';
 import { useWeightUnit, kgToDisplay, displayToKg } from '@/lib/workout/units';
 import { getRestTarget, setRestTarget as persistRestTarget, REST_CHOICES } from '@/lib/workout/rest-targets';
@@ -135,11 +150,11 @@ function RestChip({ startedAt, targetS, onDismiss }: { startedAt: number; target
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, scale: 0.9 }}
       onClick={onDismiss}
-      className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium"
+      className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
       style={{
-        background: ready ? 'color-mix(in srgb, var(--accent, #D4A853) 18%, transparent)' : 'rgba(255,255,255,0.06)',
-        color: ready ? 'var(--accent, #D4A853)' : '#a8a29e',
-        border: ready ? '1px solid color-mix(in srgb, var(--accent, #D4A853) 35%, transparent)' : '1px solid rgba(255,255,255,0.08)',
+        background: ready ? 'color-mix(in srgb, var(--action-primary) 18%, transparent)' : 'color-mix(in srgb, var(--content-primary) 8%, transparent)',
+        color: ready ? 'var(--action-primary)' : 'var(--content-secondary)',
+        border: ready ? '1px solid color-mix(in srgb, var(--action-primary) 35%, transparent)' : '1px solid color-mix(in srgb, var(--content-primary) 8%, transparent)',
         animation: ready ? 'pulse 1.6s ease-in-out infinite' : undefined,
       }}
       title="Rest since last set — tap to dismiss"
@@ -158,6 +173,7 @@ export default function WorkoutPage() {
   const clientNav = useClientNav();
   const router = useRouter();
   const { t, lang } = useI18n();
+  const reducedMotion = useReducedMotion();
 
   // View mode
   const [mode, setMode] = useState<'landing' | 'freestyle' | 'guided'>('landing');
@@ -202,6 +218,23 @@ export default function WorkoutPage() {
   // Session-complete celebration (volume/sets/PRs/minutes) — shown over the
   // landing after finish; dismissing it is the only way it clears.
   const [finishSummary, setFinishSummary] = useState<{ volume: number; sets: number; prs: number; minutes: number } | null>(null);
+  const finishDialogRef = useRef<HTMLDivElement>(null);
+  const finishReturnFocusRef = useRef<HTMLElement | null>(null);
+  const landingFocusRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!finishSummary) return;
+    const fallbackFocus = landingFocusRef.current;
+    const frame = requestAnimationFrame(() => finishDialogRef.current?.focus());
+    const closeOnEscape = (event: KeyboardEvent) => event.key === 'Escape' && setFinishSummary(null);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener('keydown', closeOnEscape);
+      restoreCompletionFocus(finishReturnFocusRef.current, fallbackFocus);
+      finishReturnFocusRef.current = null;
+    };
+  }, [finishSummary]);
 
   // ── Coach program (tRPC; provider mounted in app/dashboard/layout.tsx) ──
   const programQuery = trpc.workouts.program.mine.useQuery(undefined, {
@@ -690,6 +723,7 @@ export default function WorkoutPage() {
       if (userId) await refreshRecents(userId);
 
       // Reset + celebrate
+      finishReturnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
       setMode('landing');
       setActiveExercises([]);
       setPainFlags([]);
@@ -763,7 +797,7 @@ export default function WorkoutPage() {
   // ═══ GUIDED MODE (full-screen takeover) ═══
   if (mode === 'guided' && guidedTemplate && userId) {
     return (
-      <div className="min-h-screen pb-28" style={{ background: 'var(--bg,#0a0a0a)' }}>
+      <div className="min-h-screen pb-28" style={{ background: 'var(--canvas)' }}>
         <GuidedSession
           userId={userId}
           programName={programData?.program.name ?? 'Program'}
@@ -781,7 +815,7 @@ export default function WorkoutPage() {
   const todayHero = todaySummaries[0] ?? null;
 
   return (
-    <div className="min-h-screen pb-28" style={{ background: 'var(--bg,#0a0a0a)' }}>
+    <div className="min-h-screen pb-28" style={{ background: 'var(--canvas)' }}>
       {/* Header */}
       <div className="sticky top-0 z-40 glass-elevated px-4 py-3">
         <div className="max-w-md lg:max-w-2xl mx-auto flex items-center justify-between">
@@ -798,8 +832,8 @@ export default function WorkoutPage() {
             {/* kg/lb display toggle — storage stays kg */}
             <button
               onClick={() => setUnit(unit === 'kg' ? 'lb' : 'kg')}
-              className="px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wide transition-colors"
-              style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--t3)', border: '1px solid rgba(255,255,255,0.08)' }}
+              className="px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wide transition-colors min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+              style={{ background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)', color: 'var(--content-secondary)', border: '1px solid color-mix(in srgb, var(--content-primary) 8%, transparent)' }}
               aria-label="kg / lb"
             >
               {unit}
@@ -808,17 +842,20 @@ export default function WorkoutPage() {
               <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold tabular-nums"
                 style={
                   startTime === 0
-                    ? { background: 'rgba(255,255,255,0.05)', color: 'var(--t3)', border: '1px solid rgba(255,255,255,0.08)' }
-                    : { background: 'color-mix(in srgb, var(--accent, #D4A853) 15%, transparent)', color: 'var(--accent, #D4A853)', border: '1px solid color-mix(in srgb, var(--accent, #D4A853) 28%, transparent)' }
+                    ? { background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)', color: 'var(--content-secondary)', border: '1px solid color-mix(in srgb, var(--content-primary) 8%, transparent)' }
+                    : { background: 'color-mix(in srgb, var(--action-primary) 15%, transparent)', color: 'var(--action-primary)', border: '1px solid color-mix(in srgb, var(--action-primary) 28%, transparent)' }
                 }>
                 <Clock size={12} />
                 {startTime === 0 ? t('workout.ready') : <ElapsedTimer startTime={startTime} />}
               </div>
             )}
-            <Link href="/dashboard/workout/history">
-              <button className="p-2 rounded-xl transition-colors" style={{ background: 'rgba(255,255,255,0.06)' }}>
-                <History size={18} className="text-stone-400" />
-              </button>
+            <Link
+              href="/dashboard/workout/history"
+              aria-label="Workout history"
+              className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+              style={{ background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)' }}
+            >
+              <History size={18} className="text-[var(--content-secondary)]" />
             </Link>
           </div>
         </div>
@@ -827,7 +864,7 @@ export default function WorkoutPage() {
       <div className="max-w-md lg:max-w-2xl mx-auto px-4 pt-4">
         {/* ═══ LANDING ═══ */}
         {mode === 'landing' && (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
+          <motion.div ref={landingFocusRef} data-testid="workout-landing-focus" tabIndex={-1} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-3 outline-none">
 
             {/* ── Hero: program-aware entry state ── */}
             {programQuery.isLoading ? (
@@ -840,29 +877,30 @@ export default function WorkoutPage() {
                   template={todayHero}
                   alsoToday={todaySummaries.slice(1)}
                   onStart={startGuided}
-                  starting={false}
+                  starting={!userId}
                 />
                 {/* Secondary: freestyle + cardio */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                   <button
                     onClick={startFreestyle}
-                    className="card"
+                    disabled={!userId}
+                    className="card min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                     style={{ padding: '11px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}
                   >
                     <Dumbbell size={14} className="gold-text" />
-                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--t2)' }}>{t('workout.freestyle')}</span>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--content-secondary)' }}>{t('workout.freestyle')}</span>
                   </button>
                   <button
                     onClick={() => setShowCardio(v => !v)}
-                    className="card"
+                    className="card min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                     style={{
                       padding: '11px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-                      border: showCardio ? '1px solid color-mix(in srgb, var(--accent, #D4A853) 40%, transparent)' : undefined,
-                      background: showCardio ? 'color-mix(in srgb, var(--accent, #D4A853) 7%, transparent)' : undefined,
+                      border: showCardio ? '1px solid color-mix(in srgb, var(--action-primary) 40%, transparent)' : undefined,
+                      background: showCardio ? 'color-mix(in srgb, var(--action-primary) 7%, transparent)' : undefined,
                     }}
                   >
                     <Play size={14} className="gold-text" />
-                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--t2)' }}>{t('workout.cardio')}</span>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--content-secondary)' }}>{t('workout.cardio')}</span>
                   </button>
                 </div>
               </>
@@ -874,18 +912,19 @@ export default function WorkoutPage() {
                   nextWeekday={nextScheduled?.weekday ?? null}
                   nextTemplateName={nextScheduled?.templateName ?? null}
                   onTrainAnyway={startFreestyle}
+                  disabled={!userId}
                 />
                 <button
                   onClick={() => setShowCardio(v => !v)}
-                  className="card w-full"
+                  className="card w-full min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                   style={{
                     padding: '11px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-                    border: showCardio ? '1px solid color-mix(in srgb, var(--accent, #D4A853) 40%, transparent)' : undefined,
-                    background: showCardio ? 'color-mix(in srgb, var(--accent, #D4A853) 7%, transparent)' : undefined,
+                    border: showCardio ? '1px solid color-mix(in srgb, var(--action-primary) 40%, transparent)' : undefined,
+                    background: showCardio ? 'color-mix(in srgb, var(--action-primary) 7%, transparent)' : undefined,
                   }}
                 >
                   <Play size={14} className="gold-text" />
-                  <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--t2)' }}>{t('workout.log_cardio')}</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--content-secondary)' }}>{t('workout.log_cardio')}</span>
                 </button>
               </>
             ) : (
@@ -896,28 +935,29 @@ export default function WorkoutPage() {
                   <motion.button
                     whileTap={{ scale: 0.96 }}
                     onClick={startFreestyle}
-                    className="card"
+                    disabled={!userId}
+                    className="card min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                     style={{ padding: '20px 12px', textAlign: 'center', cursor: 'pointer' }}
                   >
                     <Dumbbell size={28} className="gold-text mx-auto" />
-                    <div style={{ fontSize: 13, fontWeight: 700, marginTop: 8, color: 'var(--t1)', letterSpacing: '-.01em' }}>{t('workout.strength')}</div>
-                    <div className="ds-sub" style={{ fontSize: 9, marginTop: 3 }}>{t('workout.strength_sub')}</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, marginTop: 8, color: 'var(--content-primary)', letterSpacing: '-.01em' }}>{t('workout.strength')}</div>
+                    <div className="ds-sub" style={{ fontSize: 12, marginTop: 3 }}>{t('workout.strength_sub')}</div>
                   </motion.button>
 
                   {/* Cardio */}
                   <motion.button
                     whileTap={{ scale: 0.96 }}
                     onClick={() => setShowCardio(v => !v)}
-                    className="card"
+                    className="card min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                     style={{
                       padding: '20px 12px', textAlign: 'center', cursor: 'pointer',
-                      border: showCardio ? '1px solid color-mix(in srgb, var(--accent, #D4A853) 40%, transparent)' : undefined,
-                      background: showCardio ? 'color-mix(in srgb, var(--accent, #D4A853) 7%, transparent)' : undefined,
+                      border: showCardio ? '1px solid color-mix(in srgb, var(--action-primary) 40%, transparent)' : undefined,
+                      background: showCardio ? 'color-mix(in srgb, var(--action-primary) 7%, transparent)' : undefined,
                     }}
                   >
                     <Play size={28} className="gold-text mx-auto" />
-                    <div style={{ fontSize: 13, fontWeight: 700, marginTop: 8, color: 'var(--t1)', letterSpacing: '-.01em' }}>{t('workout.cardio')}</div>
-                    <div className="ds-sub" style={{ fontSize: 9, marginTop: 3 }}>{t('workout.cardio_sub')}</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, marginTop: 8, color: 'var(--content-primary)', letterSpacing: '-.01em' }}>{t('workout.cardio')}</div>
+                    <div className="ds-sub" style={{ fontSize: 12, marginTop: 3 }}>{t('workout.cardio_sub')}</div>
                   </motion.button>
                 </div>
 
@@ -926,10 +966,10 @@ export default function WorkoutPage() {
                   <div style={{
                     display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px',
                     borderRadius: 12, cursor: 'pointer',
-                    background: 'rgba(255,255,255,.02)', border: '1px dashed rgba(255,255,255,.08)',
+                    background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)', border: '1px dashed color-mix(in srgb, var(--content-primary) 8%, transparent)',
                   }}>
-                    <MessageCircle size={12} style={{ color: 'var(--t4)', flexShrink: 0 }} />
-                    <span style={{ fontSize: 11, color: 'var(--t4)' }}>
+                    <MessageCircle size={12} style={{ color: 'var(--content-muted)', flexShrink: 0 }} />
+                    <span style={{ fontSize: 12, color: 'var(--content-muted)' }}>
                       {t('workout.no_program_hint')}
                     </span>
                   </div>
@@ -950,19 +990,19 @@ export default function WorkoutPage() {
                   <div className="glass p-4 rounded-2xl space-y-4">
                     {/* Type chips */}
                     <div>
-                      <p className="ds-sub mb-2" style={{ fontSize: 10 }}>{t('workout.cardio_type')}</p>
+                      <p className="ds-sub mb-2" style={{ fontSize: 12 }}>{t('workout.cardio_type')}</p>
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                         {(['walk', 'run', 'cycle', 'hiit', 'swim', 'other'] as const).map(type => (
                           <button
                             key={type}
                             onClick={() => setCardioType(type)}
                             style={{
-                              padding: '5px 12px', borderRadius: 20, fontSize: 11, fontWeight: 600,
+                              padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600,
                               cursor: 'pointer', transition: 'all .15s',
-                              background: cardioType === type ? 'color-mix(in srgb, var(--accent, #D4A853) 20%, transparent)' : 'rgba(255,255,255,.04)',
-                              border: cardioType === type ? '1px solid color-mix(in srgb, var(--accent, #D4A853) 50%, transparent)' : '1px solid rgba(255,255,255,.06)',
-                              color: cardioType === type ? 'var(--accent, #D4A853)' : 'var(--t3)',
-                            }}
+                              background: cardioType === type ? 'color-mix(in srgb, var(--action-primary) 20%, transparent)' : 'color-mix(in srgb, var(--content-primary) 8%, transparent)',
+                              border: cardioType === type ? '1px solid color-mix(in srgb, var(--action-primary) 50%, transparent)' : '1px solid color-mix(in srgb, var(--content-primary) 8%, transparent)',
+                              color: cardioType === type ? 'var(--action-primary)' : 'var(--content-secondary)',
+                            }} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                           >
                             {t(`workout.cardio_${type}`)}
                           </button>
@@ -972,26 +1012,26 @@ export default function WorkoutPage() {
 
                     {/* Duration stepper */}
                     <div>
-                      <p className="ds-sub mb-2" style={{ fontSize: 10 }}>{t('workout.cardio_duration')}</p>
+                      <p className="ds-sub mb-2" style={{ fontSize: 12 }}>{t('workout.cardio_duration')}</p>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                         <button
                           onClick={() => setCardioDuration(v => Math.max(5, v - 5))}
                           style={{
-                            width: 38, height: 38, borderRadius: 12, border: '1px solid rgba(255,255,255,.1)',
-                            background: 'rgba(255,255,255,.04)', fontSize: 18, color: 'var(--t2)', cursor: 'pointer',
-                          }}
+                            width: 38, height: 38, borderRadius: 12, border: '1px solid color-mix(in srgb, var(--content-primary) 8%, transparent)',
+                            background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)', fontSize: 18, color: 'var(--content-secondary)', cursor: 'pointer',
+                          }} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                         >
                           <Minus size={16} className="mx-auto" />
                         </button>
-                        <span style={{ fontSize: 22, fontWeight: 800, color: 'var(--t1)', fontFamily: 'var(--font-mono)', minWidth: 60, textAlign: 'center' }}>
-                          {cardioDuration}<span style={{ fontSize: 13, color: 'var(--t4)', fontWeight: 400 }}>min</span>
+                        <span style={{ fontSize: 22, fontWeight: 800, color: 'var(--content-primary)', fontFamily: 'var(--font-mono)', minWidth: 60, textAlign: 'center' }}>
+                          {cardioDuration}<span style={{ fontSize: 13, color: 'var(--content-muted)', fontWeight: 400 }}>min</span>
                         </span>
                         <button
                           onClick={() => setCardioDuration(v => v + 5)}
                           style={{
-                            width: 38, height: 38, borderRadius: 12, border: '1px solid rgba(255,255,255,.1)',
-                            background: 'rgba(255,255,255,.04)', fontSize: 18, color: 'var(--t2)', cursor: 'pointer',
-                          }}
+                            width: 38, height: 38, borderRadius: 12, border: '1px solid color-mix(in srgb, var(--content-primary) 8%, transparent)',
+                            background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)', fontSize: 18, color: 'var(--content-secondary)', cursor: 'pointer',
+                          }} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                         >
                           <Plus size={16} className="mx-auto" />
                         </button>
@@ -1002,12 +1042,12 @@ export default function WorkoutPage() {
                               key={m}
                               onClick={() => setCardioDuration(m)}
                               style={{
-                                padding: '4px 8px', borderRadius: 8, fontSize: 10, fontWeight: 600,
+                                padding: '4px 8px', borderRadius: 8, fontSize: 12, fontWeight: 600,
                                 cursor: 'pointer',
-                                background: cardioDuration === m ? 'color-mix(in srgb, var(--accent, #D4A853) 20%, transparent)' : 'rgba(255,255,255,.04)',
-                                border: cardioDuration === m ? '1px solid color-mix(in srgb, var(--accent, #D4A853) 40%, transparent)' : '1px solid rgba(255,255,255,.06)',
-                                color: cardioDuration === m ? 'var(--accent, #D4A853)' : 'var(--t4)',
-                              }}
+                                background: cardioDuration === m ? 'color-mix(in srgb, var(--action-primary) 20%, transparent)' : 'color-mix(in srgb, var(--content-primary) 8%, transparent)',
+                                border: cardioDuration === m ? '1px solid color-mix(in srgb, var(--action-primary) 40%, transparent)' : '1px solid color-mix(in srgb, var(--content-primary) 8%, transparent)',
+                                color: cardioDuration === m ? 'var(--action-primary)' : 'var(--content-muted)',
+                              }} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                             >{m}</button>
                           ))}
                         </div>
@@ -1017,7 +1057,7 @@ export default function WorkoutPage() {
                     {/* Distance (optional) */}
                     {(cardioType === 'run' || cardioType === 'walk' || cardioType === 'cycle') && (
                       <div>
-                        <p className="ds-sub mb-2" style={{ fontSize: 10 }}>{t('workout.cardio_distance')}</p>
+                        <p className="ds-sub mb-2" style={{ fontSize: 12 }}>{t('workout.cardio_distance')}</p>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <input
                             type="number"
@@ -1027,19 +1067,19 @@ export default function WorkoutPage() {
                             placeholder="0.0"
                             style={{
                               width: 80, padding: '8px 10px', borderRadius: 10, textAlign: 'center',
-                              background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.1)',
-                              color: 'var(--t1)', fontSize: 15, fontFamily: 'var(--font-mono)', outline: 'none',
-                            }}
+                              background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--content-primary) 8%, transparent)',
+                              color: 'var(--content-primary)', fontSize: 16, fontFamily: 'var(--font-mono)', outline: 'none',
+                            }} className="text-base"
                           />
-                          <span style={{ fontSize: 12, color: 'var(--t4)' }}>km</span>
+                          <span style={{ fontSize: 12, color: 'var(--content-muted)' }}>km</span>
                         </div>
                       </div>
                     )}
 
                     <button
-                      className="btn-gold w-full py-3"
+                      className="btn-gold w-full py-3 min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                       onClick={logCardio}
-                      disabled={savingCardio}
+                      disabled={savingCardio || !userId}
                     >
                       <Play size={14} className="inline mr-2" />
                       {savingCardio ? t('workout.custom_saving') : `${t('workout.cardio_log')} · ${t(`workout.cardio_${cardioType}`)}`}
@@ -1053,9 +1093,9 @@ export default function WorkoutPage() {
             {recentSessions.length > 0 && (
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, marginTop: 4 }}>
-                  <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '.06em' }}>{t('workout.recent')}</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--content-secondary)', textTransform: 'uppercase', letterSpacing: '.06em' }}>{t('workout.recent')}</span>
                   <Link href="/dashboard/workout/history">
-                    <span style={{ fontSize: 10, color: 'var(--accent, #D4A853)', cursor: 'pointer' }}>{t('workout.see_all')}</span>
+                    <span style={{ fontSize: 12, color: 'var(--action-primary)', cursor: 'pointer' }}>{t('workout.see_all')}</span>
                   </Link>
                 </div>
                 <div className="grid gap-2 lg:grid-cols-2">
@@ -1068,9 +1108,9 @@ export default function WorkoutPage() {
 
             {recentSessions.length === 0 && (
               <div className="glass p-5 text-center">
-                <Trophy size={20} className="text-stone-600 mx-auto mb-2" />
-                <p className="text-sm text-stone-400 font-medium">{t('workout.no_workouts')}</p>
-                <p className="text-xs text-stone-600 mt-1">
+                <Trophy size={20} className="text-[var(--content-muted)] mx-auto mb-2" />
+                <p className="text-sm text-[var(--content-secondary)] font-medium">{t('workout.no_workouts')}</p>
+                <p className="text-xs text-[var(--content-muted)] mt-1">
                   {hasProgram && todayHero ? t('workout.start_today_hint') : t('workout.no_workouts_sub')}
                 </p>
               </div>
@@ -1086,7 +1126,7 @@ export default function WorkoutPage() {
                 <Link key={link.href} href={link.href}>
                   <div className="card" style={{ padding: '12px 6px', textAlign: 'center', cursor: 'pointer' }}>
                     {link.icon}
-                    <div style={{ fontSize: 10, fontWeight: 600, marginTop: 5, color: 'var(--t2)' }}>{link.label}</div>
+                    <div style={{ fontSize: 12, fontWeight: 600, marginTop: 5, color: 'var(--content-secondary)' }}>{link.label}</div>
                   </div>
                 </Link>
               ))}
@@ -1102,7 +1142,7 @@ export default function WorkoutPage() {
               type="text"
               value={sessionName}
               onChange={(e) => setSessionName(e.target.value)}
-              className="input-dark text-center font-semibold"
+              className="input-dark text-center font-semibold text-base"
               placeholder={t('workout.session_name')}
             />
 
@@ -1122,27 +1162,30 @@ export default function WorkoutPage() {
                     {/* Superset badge — shown on every exercise in a chain */}
                     {supersetGroupFor(activeExercises, exIndex) !== null && (
                       <div className="flex items-center gap-1.5 px-3 pt-2 -mb-1">
-                        <Link2 size={11} style={{ color: 'var(--accent, #D4A853)' }} />
-                        <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--accent, #D4A853)' }}>
+                        <Link2 size={11} style={{ color: 'var(--action-primary)' }} />
+                        <span className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--action-primary)' }}>
                           {t('workout.superset')} {supersetLabelFor(activeExercises, exIndex)}
                         </span>
                       </div>
                     )}
 
                     {/* Exercise header */}
-                    <button
-                      onClick={() => toggleCollapse(exIndex)}
-                      className="w-full flex items-center gap-3 p-3"
-                    >
-                      <div className="w-1.5 h-10 rounded-full shrink-0" style={{ background: mgColor }} />
-                      <div className="flex-1 text-left min-w-0">
-                        <p className="text-sm font-semibold text-stone-200 truncate">
+                    <div className="flex items-center gap-1 p-3">
+                      <button
+                        onClick={() => toggleCollapse(exIndex)}
+                        aria-label={`Toggle ${getExerciseName(ae.exercise)} exercise`}
+                        aria-expanded={!ae.collapsed}
+                        className="flex min-h-11 min-w-11 flex-1 items-center gap-3 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                      >
+                        <div className="w-1.5 h-10 rounded-full shrink-0" style={{ background: mgColor }} />
+                        <div className="flex-1 text-left min-w-0">
+                        <p className="text-sm font-semibold text-[var(--content-primary)] truncate">
                           {getExerciseName(ae.exercise)}
                         </p>
-                        <p className="text-xs text-stone-500">
+                        <p className="text-xs text-[var(--content-muted)]">
                           {ae.sets.length} {ae.sets.length === 1 ? 'set' : 'sets'}
                           {ae.lastSets && ae.lastSets.length > 0 && (
-                            <span className="ml-1.5 text-stone-600">
+                            <span className="ml-1.5 text-[var(--content-muted)]">
                               · last {ae.lastSets.slice(0, 3).map(ls => `${ls.weight_kg !== null ? kgToDisplay(ls.weight_kg, unit) : '–'}×${ls.reps ?? '–'}`).join(' ')}
                             </span>
                           )}
@@ -1152,19 +1195,21 @@ export default function WorkoutPage() {
                               animate={{ scale: 1, rotate: 0 }}
                               transition={{ type: 'spring', stiffness: 500, damping: 12 }}
                               className="ml-1.5 inline-block font-semibold"
-                              style={{ color: 'var(--accent, #D4A853)' }}
+                              style={{ color: 'var(--action-primary)' }}
                             >
                               <Trophy size={10} className="inline" /> PR
                             </motion.span>
                           )}
                         </p>
-                      </div>
+                        </div>
+                        {ae.collapsed ? <ChevronDown size={16} className="text-[var(--content-muted)]" /> : <ChevronUp size={16} className="text-[var(--content-muted)]" />}
+                      </button>
                       <div className="flex items-center gap-1">
                         {/* Rest target — tap to cycle 60/90/120/150/180s (persists) */}
                         <button
                           onClick={(e) => { e.stopPropagation(); cycleRestTarget(ae.exercise); }}
-                          className="px-1.5 py-1 rounded-lg text-[10px] font-bold tabular-nums transition-colors"
-                          style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--t4)', fontFamily: 'var(--font-mono)' }}
+                          className="px-1.5 py-1 rounded-lg text-xs font-bold tabular-nums transition-colors min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                          style={{ background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)', color: 'var(--content-muted)', fontFamily: 'var(--font-mono)' }}
                           aria-label={t('workout.rest_target')}
                           title={t('workout.rest_target')}
                         >
@@ -1176,10 +1221,10 @@ export default function WorkoutPage() {
                           <button
                             onClick={(e) => { e.stopPropagation(); toggleSupersetLink(exIndex); }}
                             disabled={syncingSupersets}
-                            className="p-1.5 rounded-lg transition-colors"
+                            className="p-1.5 rounded-lg transition-colors min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                             style={{
-                              background: ae.linkedBelow ? 'color-mix(in srgb, var(--accent, #D4A853) 16%, transparent)' : 'rgba(255,255,255,0.05)',
-                              color: ae.linkedBelow ? 'var(--accent, #D4A853)' : '#78716c',
+                              background: ae.linkedBelow ? 'color-mix(in srgb, var(--action-primary) 16%, transparent)' : 'color-mix(in srgb, var(--content-primary) 8%, transparent)',
+                              color: ae.linkedBelow ? 'var(--action-primary)' : 'var(--content-muted)',
                               opacity: syncingSupersets ? 0.5 : 1,
                             }}
                             aria-label={ae.linkedBelow ? t('workout.superset_unlink') : t('workout.superset_link')}
@@ -1198,41 +1243,42 @@ export default function WorkoutPage() {
                               const target = typedKg ?? ae.lastSets?.[0]?.weight_kg ?? prRecords[ae.exercise.id] ?? 60;
                               setPlateCalcKg(target);
                             }}
-                            className="p-1.5 rounded-lg transition-colors"
-                            style={{ background: 'rgba(255,255,255,0.05)' }}
+                            className="p-1.5 rounded-lg transition-colors min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                            style={{ background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)' }}
                             aria-label={t('workout.plate_title')}
                             title={t('workout.plate_title')}
                           >
-                            <Calculator size={14} className="text-stone-500" />
+                            <Calculator size={14} className="text-[var(--content-muted)]" />
                           </button>
                         )}
                         {/* Exercise info sheet */}
                         <button
                           onClick={(e) => { e.stopPropagation(); setInfoExercise(ae.exercise); }}
-                          className="p-1.5 rounded-lg transition-colors"
-                          style={{ background: 'rgba(255,255,255,0.05)' }}
+                          className="p-1.5 rounded-lg transition-colors min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                          style={{ background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)' }}
                           aria-label={t('workout.info_title')}
                           title={t('workout.info_title')}
                         >
-                          <Info size={14} className="text-stone-500" />
+                          <Info size={14} className="text-[var(--content-muted)]" />
                         </button>
                         <button
                           onClick={(e) => { e.stopPropagation(); setPainModalExerciseId(ae.exercise.id); }}
-                          className="p-1.5 rounded-lg transition-colors"
-                          style={{ background: 'rgba(239,68,68,0.1)' }}
+                          aria-label={`Report pain for ${getExerciseName(ae.exercise)}`}
+                          className="p-1.5 rounded-lg transition-colors min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                          style={{ background: 'var(--status-danger-bg)' }}
                         >
-                          <AlertTriangle size={14} className="text-red-400" />
+                          <AlertTriangle size={14} className="text-[var(--status-danger-fg)]" />
                         </button>
                         <button
                           onClick={(e) => { e.stopPropagation(); removeExercise(exIndex); }}
-                          className="p-1.5 rounded-lg transition-colors"
-                          style={{ background: 'rgba(255,255,255,0.05)' }}
+                          aria-label={`Remove ${getExerciseName(ae.exercise)}`}
+                          className="p-1.5 rounded-lg transition-colors min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                          style={{ background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)' }}
                         >
-                          <X size={14} className="text-stone-500" />
+                          <X size={14} className="text-[var(--content-muted)]" />
                         </button>
-                        {ae.collapsed ? <ChevronDown size={16} className="text-stone-500" /> : <ChevronUp size={16} className="text-stone-500" />}
                       </div>
-                    </button>
+                    </div>
 
                     {/* Sets */}
                     <AnimatePresence>
@@ -1244,7 +1290,7 @@ export default function WorkoutPage() {
                           className="overflow-hidden"
                         >
                           {/* Column headers */}
-                          <div className="flex items-center gap-1 px-3 pb-1 text-[10px] text-stone-600 uppercase tracking-wider">
+                          <div className="flex items-center gap-1 px-3 pb-1 text-xs text-[var(--content-muted)] uppercase tracking-wider">
                             <div className="w-7 text-center">#</div>
                             <div className="flex-1 text-center">{unit}</div>
                             <div className="flex-1 text-center">reps</div>
@@ -1257,7 +1303,7 @@ export default function WorkoutPage() {
                           {/* Set rows */}
                           {ae.sets.map((set, setIndex) => (
                             <div key={set.id} className="flex items-center gap-1 px-3 py-1">
-                              <div className="w-7 text-center text-xs text-stone-500 font-medium">
+                              <div className="w-7 text-center text-xs text-[var(--content-muted)] font-medium">
                                 {set.set_number}
                               </div>
 
@@ -1272,11 +1318,11 @@ export default function WorkoutPage() {
                                     ? String(kgToDisplay(ae.lastSets[setIndex].weight_kg as number, unit))
                                     : '0'
                                 }
-                                className="flex-1 min-w-0 text-center text-sm py-2 rounded-lg outline-none transition-colors"
+                                className="flex-1 min-w-0 text-center text-sm py-2 rounded-lg outline-none transition-colors text-base"
                                 style={{
-                                  background: set.is_pr ? 'color-mix(in srgb, var(--accent, #D4A853) 15%, transparent)' : 'rgba(255,255,255,0.04)',
-                                  border: set.is_pr ? '1px solid color-mix(in srgb, var(--accent, #D4A853) 30%, transparent)' : '1px solid transparent',
-                                  color: set.is_pr ? 'var(--accent, #D4A853)' : '#f5f5f4',
+                                  background: set.is_pr ? 'color-mix(in srgb, var(--action-primary) 15%, transparent)' : 'color-mix(in srgb, var(--content-primary) 8%, transparent)',
+                                  border: set.is_pr ? '1px solid color-mix(in srgb, var(--action-primary) 30%, transparent)' : '1px solid transparent',
+                                  color: set.is_pr ? 'var(--action-primary)' : 'var(--content-primary)',
                                   opacity: set.completed && !set.is_pr ? 0.65 : 1,
                                 }}
                               />
@@ -1288,8 +1334,8 @@ export default function WorkoutPage() {
                                 disabled={set.completed}
                                 onChange={(e) => updateSet(exIndex, setIndex, 'reps', e.target.value)}
                                 placeholder={ae.lastSets?.[setIndex]?.reps?.toString() ?? '0'}
-                                className="flex-1 min-w-0 text-center text-sm py-2 rounded-lg outline-none"
-                                style={{ background: 'rgba(255,255,255,0.04)', color: '#f5f5f4', opacity: set.completed ? 0.65 : 1 }}
+                                className="flex-1 min-w-0 text-center text-sm py-2 rounded-lg outline-none text-base"
+                                style={{ background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)', color: 'var(--content-primary)', opacity: set.completed ? 0.65 : 1 }}
                               />
 
                               <input
@@ -1304,17 +1350,17 @@ export default function WorkoutPage() {
                                   }
                                 }}
                                 placeholder="-"
-                                className="w-10 text-center text-sm py-2 rounded-lg outline-none"
-                                style={{ background: 'rgba(255,255,255,0.04)', color: '#a8a29e', opacity: set.completed ? 0.65 : 1 }}
+                                className="w-10 text-center text-sm py-2 rounded-lg outline-none text-base"
+                                style={{ background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)', color: 'var(--content-secondary)', opacity: set.completed ? 0.65 : 1 }}
                               />
 
                               <button
                                 onClick={() => updateSet(exIndex, setIndex, 'is_warmup', !set.is_warmup)}
                                 disabled={set.completed}
-                                className="w-7 h-9 flex items-center justify-center rounded-lg text-[10px] font-bold transition-colors"
+                                className="w-7 h-9 flex items-center justify-center rounded-lg text-xs font-bold transition-colors min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                                 style={{
-                                  background: set.is_warmup ? 'rgba(251,191,36,0.15)' : 'rgba(255,255,255,0.04)',
-                                  color: set.is_warmup ? '#fbbf24' : '#78716c',
+                                  background: set.is_warmup ? 'var(--status-warning-bg)' : 'color-mix(in srgb, var(--content-primary) 8%, transparent)',
+                                  color: set.is_warmup ? 'var(--status-warning-fg)' : 'var(--content-muted)',
                                 }}
                               >
                                 W
@@ -1325,15 +1371,15 @@ export default function WorkoutPage() {
                                 onClick={() => completeFreestyleSet(exIndex, setIndex)}
                                 disabled={set.saving}
                                 aria-label={set.completed ? 'Undo set' : 'Complete set'}
-                                className="w-9 h-9 flex items-center justify-center rounded-lg transition-colors"
+                                className="w-9 h-9 flex items-center justify-center rounded-lg transition-colors min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                                 style={{
                                   background: set.completed
-                                    ? (set.is_pr ? 'color-mix(in srgb, var(--accent, #D4A853) 22%, transparent)' : 'rgba(34,197,94,.16)')
-                                    : 'rgba(255,255,255,0.05)',
+                                    ? (set.is_pr ? 'color-mix(in srgb, var(--action-primary) 22%, transparent)' : 'var(--status-success-bg)')
+                                    : 'color-mix(in srgb, var(--content-primary) 8%, transparent)',
                                   border: set.completed
-                                    ? (set.is_pr ? '1px solid color-mix(in srgb, var(--accent, #D4A853) 45%, transparent)' : '1px solid rgba(34,197,94,.3)')
-                                    : '1px solid rgba(255,255,255,.09)',
-                                  color: set.completed ? (set.is_pr ? 'var(--accent, #D4A853)' : '#4ade80') : '#78716c',
+                                    ? (set.is_pr ? '1px solid color-mix(in srgb, var(--action-primary) 45%, transparent)' : '1px solid var(--status-success-border)')
+                                    : '1px solid color-mix(in srgb, var(--content-primary) 8%, transparent)',
+                                  color: set.completed ? (set.is_pr ? 'var(--action-primary)' : 'var(--status-success-fg)') : 'var(--content-muted)',
                                   opacity: set.saving ? 0.5 : 1,
                                 }}
                               >
@@ -1342,9 +1388,9 @@ export default function WorkoutPage() {
 
                               <button
                                 onClick={() => removeSet(exIndex, setIndex)}
-                                className="w-5 flex items-center justify-center"
+                                className="w-5 flex items-center justify-center min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                               >
-                                <Minus size={12} className="text-stone-600" />
+                                <Minus size={12} className="text-[var(--content-muted)]" />
                               </button>
                             </div>
                           ))}
@@ -1353,8 +1399,8 @@ export default function WorkoutPage() {
                           <div className="px-3 py-2">
                             <button
                               onClick={() => addSet(exIndex)}
-                              className="w-full py-1.5 rounded-lg text-xs font-medium flex items-center justify-center gap-1 transition-colors"
-                              style={{ background: 'rgba(255,255,255,0.04)', color: '#a8a29e' }}
+                              className="w-full py-1.5 rounded-lg text-xs font-medium flex items-center justify-center gap-1 transition-colors min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                              style={{ background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)', color: 'var(--content-secondary)' }}
                             >
                               <Plus size={12} />
                               {t('workout.add_set')}
@@ -1372,8 +1418,8 @@ export default function WorkoutPage() {
             <motion.button
               whileTap={{ scale: 0.98 }}
               onClick={() => setShowPicker(true)}
-              className="w-full py-3 rounded-2xl flex items-center justify-center gap-2 text-sm font-semibold gold-text transition-colors"
-              style={{ border: '1px dashed color-mix(in srgb, var(--accent, #D4A853) 30%, transparent)', background: 'color-mix(in srgb, var(--accent, #D4A853) 5%, transparent)' }}
+              className="w-full py-3 rounded-2xl flex items-center justify-center gap-2 text-sm font-semibold gold-text transition-colors min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+              style={{ border: '1px dashed color-mix(in srgb, var(--action-primary) 30%, transparent)', background: 'color-mix(in srgb, var(--action-primary) 5%, transparent)' }}
             >
               <Plus size={18} />
               {t('workout.add_exercise')}
@@ -1382,11 +1428,11 @@ export default function WorkoutPage() {
             {/* Pain flags summary */}
             {painFlags.length > 0 && (
               <div className="glass p-3">
-                <p className="text-xs text-red-400 font-medium mb-2 flex items-center gap-1">
+                <p className="text-xs text-[var(--status-danger-fg)] font-medium mb-2 flex items-center gap-1">
                   <AlertTriangle size={12} /> {painFlags.length} {t('workout.pain_recorded')}
                 </p>
                 {painFlags.map((pf, i) => (
-                  <p key={i} className="text-xs text-stone-500">
+                  <p key={i} className="text-xs text-[var(--content-muted)]">
                     {pf.body_part} — {t('workout.pain_severity')} {pf.severity}/5
                   </p>
                 ))}
@@ -1398,11 +1444,11 @@ export default function WorkoutPage() {
               whileTap={{ scale: 0.98 }}
               onClick={finishWorkout}
               disabled={saving}
-              className="w-full py-4 rounded-2xl flex items-center justify-center gap-2 text-base font-bold transition-all"
+              className="w-full py-4 rounded-2xl flex items-center justify-center gap-2 text-base font-bold transition-all min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
               style={{
-                background: saving ? 'rgba(239,68,68,0.1)' : 'rgba(239,68,68,0.15)',
-                color: '#fca5a5',
-                border: '1px solid rgba(239,68,68,0.2)',
+                background: saving ? 'var(--status-danger-bg)' : 'var(--status-danger-bg)',
+                color: 'var(--status-danger-fg)',
+                border: '1px solid var(--status-danger-border)',
               }}
             >
               <Square size={18} />
@@ -1465,23 +1511,29 @@ export default function WorkoutPage() {
         {finishSummary && (
           <motion.div
             className="fixed inset-0 flex items-center justify-center px-6"
-            style={{ zIndex: 60, background: 'rgba(0,0,0,.72)', backdropFilter: 'blur(6px)' }}
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            style={{ zIndex: 60, background: 'var(--surface-overlay)', backdropFilter: 'blur(6px)' }}
+            initial={reducedMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={reducedMotion ? undefined : { opacity: 0 }}
             onClick={() => setFinishSummary(null)}
           >
             <motion.div
-              className="card-g w-full max-w-sm text-center"
-              style={{ padding: '26px 22px' }}
-              initial={{ scale: 0.9, y: 16 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0 }}
+              ref={finishDialogRef}
+              role="dialog"
+              aria-modal="true"
+              aria-label={t('workout.summary_title')}
+              tabIndex={-1}
+              onKeyDown={(event) => trapFocus(event, finishDialogRef.current)}
+              className="card-g safe-bottom w-full max-w-sm text-center outline-none"
+              style={{ padding: '26px 22px calc(5rem + env(safe-area-inset-bottom))' }}
+              initial={reducedMotion ? false : { scale: 0.9, y: 16 }} animate={{ scale: 1, y: 0 }} exit={reducedMotion ? undefined : { scale: 0.95, opacity: 0 }}
               transition={{ type: 'spring', stiffness: 360, damping: 26 }}
               onClick={(e) => e.stopPropagation()}
             >
               <div className="eye" style={{ color: 'var(--accent)', marginBottom: 6 }}>
                 {t('workout.summary_title')}
               </div>
-              <div className="display-lg" style={{ fontSize: 44, lineHeight: '48px', color: 'var(--t1)' }}>
+              <div className="display-lg" style={{ fontSize: 44, lineHeight: '48px', color: 'var(--content-primary)' }}>
                 <AnimatedValue value={kgToDisplay(finishSummary.volume, unit)} />
-                <span style={{ fontFamily: 'var(--font-mono)', fontStyle: 'normal', fontSize: 13, color: 'var(--t4)', marginLeft: 4 }}>{unit}</span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontStyle: 'normal', fontSize: 13, color: 'var(--content-muted)', marginLeft: 4 }}>{unit}</span>
               </div>
               <div className="eye-d" style={{ marginTop: 2, marginBottom: 16 }}>{t('workout.summary_volume')}</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 18 }}>
@@ -1490,8 +1542,8 @@ export default function WorkoutPage() {
                   { v: finishSummary.prs, l: t('workout.summary_prs'), accent: finishSummary.prs > 0 },
                   { v: finishSummary.minutes, l: t('workout.summary_minutes'), accent: false },
                 ].map((s) => (
-                  <div key={s.l} style={{ padding: '10px 6px', borderRadius: 12, background: s.accent ? 'var(--accent-soft)' : 'rgba(255,255,255,.03)', border: `1px solid ${s.accent ? 'var(--accent)' : 'var(--line)'}` }}>
-                    <div style={{ fontSize: 20, fontWeight: 700, fontFamily: 'var(--font-mono)', color: s.accent ? 'var(--accent)' : 'var(--t1)' }}>
+                  <div key={s.l} style={{ padding: '10px 6px', borderRadius: 12, background: s.accent ? 'var(--accent-soft)' : 'color-mix(in srgb, var(--content-primary) 8%, transparent)', border: `1px solid ${s.accent ? 'var(--accent)' : 'var(--border-default)'}` }}>
+                    <div style={{ fontSize: 20, fontWeight: 700, fontFamily: 'var(--font-mono)', color: s.accent ? 'var(--accent)' : 'var(--content-primary)' }}>
                       <AnimatedValue value={s.v} />
                     </div>
                     <div className="eye-d" style={{ marginTop: 2 }}>{s.l}</div>
@@ -1503,7 +1555,7 @@ export default function WorkoutPage() {
                   {t('workout.summary_pr_line')}
                 </div>
               )}
-              <button className="btn-gold w-full" style={{ fontSize: 13, padding: '11px' }} onClick={() => setFinishSummary(null)}>
+              <button className="btn-gold w-full min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" style={{ fontSize: 13, padding: '11px' }} onClick={() => setFinishSummary(null)}>
                 {t('workout.summary_done')}
               </button>
             </motion.div>

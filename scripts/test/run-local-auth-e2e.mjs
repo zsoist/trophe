@@ -2,14 +2,24 @@
 
 import { spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createClient } from '@supabase/supabase-js';
 import {
   assertLoopbackDatabaseUrl,
   assertLoopbackSupabaseUrl,
+  assertAuthUserAbsent,
+  assertSupabaseAffectedRow,
   buildLocalPlaywrightEnv,
+  buildLocalThemePerformanceEnv,
+  cleanupFixtureResources,
+  formatLocalE2EError,
+  localE2ECachePath,
   parseSupabaseStatusEnv,
+  retryLocalE2EOperation,
+  resolveSupabaseCli,
+  withFixtureCleanup,
   withDisposableUsers,
 } from './local-auth-e2e-core.mjs';
 
@@ -18,10 +28,11 @@ const TEST_SPECS = [
   'e2e/microphone-flows.spec.ts',
   'e2e/settings-flows.spec.ts',
   'e2e/authenticated-role-flows.spec.ts',
+  'e2e/theme-accessibility.spec.ts',
 ];
 
 function localStatus() {
-  const supabaseBin = path.resolve('node_modules/.bin/supabase');
+  const supabaseBin = resolveSupabaseCli();
   const result = spawnSync(supabaseBin, ['status', '-o', 'env'], {
     encoding: 'utf8',
     env: process.env,
@@ -91,11 +102,20 @@ function adminAdapter(service) {
     async deleteUser(id) {
       const { error } = await service.auth.admin.deleteUser(id);
       if (error) throw new Error('local E2E user cleanup failed');
+      assertAuthUserAbsent(
+        await service.auth.admin.getUserById(id),
+        'user cleanup',
+        id,
+      );
     },
   };
 }
 
-export async function runLocalAuthenticatedE2E() {
+/**
+ * Runs a zero-paid local role fixture. The default remains the authenticated
+ * Playwright suite; callers may provide a disposable-role callback instead.
+ */
+export async function runLocalAuthenticatedE2E({ executeWithDisposableRoles } = {}) {
   const status = localStatus();
   const service = createClient(status.API_URL, status.SERVICE_ROLE_KEY, {
     auth: { autoRefreshToken: false, persistSession: false },
@@ -113,6 +133,12 @@ export async function runLocalAuthenticatedE2E() {
   const userIds = new Map();
   const disposableAdmin = adminAdapter(service);
   const childEnv = buildLocalPlaywrightEnv(process.env, status, credentials);
+  const nextDistDir = localE2ECachePath(process.cwd());
+  if (existsSync(nextDistDir)) {
+    throw new Error(`refusing to replace existing local E2E Next cache path: ${nextDistDir}`);
+  }
+  mkdirSync(nextDistDir);
+  childEnv.NEXT_DIST_DIR = 'local-e2e';
 
   return withDisposableUsers({
     admin: {
@@ -128,26 +154,65 @@ export async function runLocalAuthenticatedE2E() {
       const clientId = userIds.get('client');
       const coachId = userIds.get('coach');
       if (!clientId || !coachId) throw new Error('local E2E relationship users are unavailable');
+      childEnv.E2E_CLIENT_ID = clientId;
       const { error: linkError } = await service
         .from('client_profiles')
         .update({ coach_id: coachId })
         .eq('user_id', clientId);
       if (linkError) throw new Error('local E2E coach relationship provisioning failed');
 
-      const playwrightBin = path.resolve('node_modules/@playwright/test/cli.js');
-      try {
-        const result = spawnSync(
-          process.execPath,
-          [playwrightBin, 'test', '--workers=1', ...TEST_SPECS],
+      const organizationSlug = `codex-local-matrix-${randomUUID()}`;
+      const { data: organization, error: organizationError } = await service
+        .from('organizations')
+        .insert({
+          name: 'Codex local matrix organization',
+          slug: organizationSlug,
+          owner_id: coachId,
+          plan: 'free',
+          subscription_status: 'not_configured',
+        })
+        .select('id')
+        .maybeSingle();
+      if (organizationError || !organization) throw new Error('local E2E organization provisioning failed');
+      childEnv.E2E_TEST_ORG_ID = organization.id;
+      childEnv.E2E_TEST_ORG_SLUG = organizationSlug;
+
+      return withFixtureCleanup({
+        execute: async () => {
+          if (executeWithDisposableRoles) {
+            return executeWithDisposableRoles({
+              status,
+              env: buildLocalThemePerformanceEnv(childEnv, credentials),
+            });
+          }
+          const playwrightBin = path.resolve('node_modules/@playwright/test/cli.js');
+          const result = spawnSync(
+            process.execPath,
+            [playwrightBin, 'test', '--workers=1', ...TEST_SPECS],
           { stdio: 'inherit', env: childEnv },
         );
-        if (result.error || result.status !== 0) {
-          throw new Error(`authenticated E2E failed with status ${result.status ?? 1}`);
-        }
-      } finally {
-        await service.from('client_profiles').update({ coach_id: null }).eq('user_id', clientId);
-      }
+          if (result.error || result.status !== 0) {
+            throw new Error(`authenticated E2E failed with status ${result.status ?? 1}`);
+          }
+        },
+        cleanup: async () => {
+          await cleanupFixtureResources({
+            relationshipCleanup: () => retryLocalE2EOperation(
+              () => service.from('client_profiles').update({ coach_id: null }).eq('user_id', clientId).select('user_id'),
+              'client relationship cleanup',
+              { validateResult: (result, operation) => assertSupabaseAffectedRow(result, operation, clientId, 'user_id') },
+            ),
+            organizationCleanup: () => retryLocalE2EOperation(
+              () => service.from('organizations').delete().eq('id', organization.id).select('id'),
+              'organization cleanup',
+              { validateResult: (result, operation) => assertSupabaseAffectedRow(result, operation, organization.id) },
+            ),
+          });
+        },
+      });
     },
+  }).finally(() => {
+    rmSync(nextDistDir, { recursive: true, force: true });
   });
 }
 
@@ -159,8 +224,8 @@ if (import.meta.url === entrypoint) {
     .then(() => {
       process.stdout.write('Authenticated local E2E passed; disposable users removed.\n');
     })
-    .catch(() => {
-      process.stderr.write('Authenticated local E2E failed; cleanup attempted.\n');
+    .catch((error) => {
+      process.stderr.write(`Authenticated local E2E failed; cleanup attempted: ${formatLocalE2EError(error)}\n`);
       process.exitCode = 1;
     });
 }

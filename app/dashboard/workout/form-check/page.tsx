@@ -84,7 +84,7 @@ export default function FormCheckPage() {
   // ─── Recording phase: fullscreen camera ───
   if (phase === 'recording') {
     return (
-      <div className="fixed inset-0 bg-[#0a0a0a] z-50 flex flex-col">
+      <div className="fixed inset-0 z-50 flex flex-col bg-[var(--canvas)]">
         <FormCheck
           exercise={selectedExercise}
           side={selectedSide}
@@ -96,16 +96,17 @@ export default function FormCheckPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] pb-28">
+    <div className="min-h-screen bg-[var(--canvas)] pb-[calc(7rem+env(safe-area-inset-bottom))]">
       {/* Header */}
       <div className="sticky top-0 z-40 glass-elevated px-4 py-3">
         <div className="max-w-md mx-auto flex items-center gap-3">
           <button
+            aria-label="Back to workout"
             onClick={() => router.push('/dashboard/workout')}
-            className="p-2 rounded-xl"
-            style={{ background: 'rgba(255,255,255,0.06)' }}
+            className="p-2 rounded-xl min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+            style={{ background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)' }}
           >
-            <ArrowLeft size={20} className="text-stone-400" />
+            <ArrowLeft size={20} className="text-[var(--content-secondary)]" />
           </button>
           <div className="flex items-center gap-2">
             <Camera size={20} className="gold-text" />
@@ -127,8 +128,8 @@ export default function FormCheckPage() {
             >
               {/* Intro card */}
               <div className="glass p-4">
-                <p className="text-sm text-stone-300 mb-1 font-medium">AI Form Check</p>
-                <p className="text-xs text-stone-500 leading-relaxed">
+                <p className="text-sm text-[var(--content-secondary)] mb-1 font-medium">AI Form Check</p>
+                <p className="text-xs text-[var(--content-muted)] leading-relaxed">
                   Analiza tu forma en tiempo real usando la camara. Selecciona un ejercicio,
                   posicionate de perfil y graba tus repeticiones. El sistema comparara tus
                   angulos contra la referencia ideal.
@@ -137,17 +138,17 @@ export default function FormCheckPage() {
 
               {/* Exercise selector */}
               <div className="glass p-4">
-                <label className="text-xs text-stone-500 uppercase tracking-wider mb-2 block">
+                <label className="text-xs text-[var(--content-muted)] uppercase tracking-wider mb-2 block">
                   Ejercicio
                 </label>
                 <div className="relative">
                   <select
                     value={selectedExercise}
                     onChange={(e) => setSelectedExercise(e.target.value)}
-                    className="w-full py-3 px-4 rounded-xl text-sm font-medium text-stone-200 appearance-none cursor-pointer"
+                    className="w-full py-3 px-4 rounded-xl text-sm font-medium text-[var(--content-primary)] appearance-none cursor-pointer text-base"
                     style={{
-                      background: 'rgba(255,255,255,0.06)',
-                      border: '1px solid rgba(255,255,255,0.08)',
+                      background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)',
+                      border: '1px solid color-mix(in srgb, var(--content-primary) 8%, transparent)',
                     }}
                   >
                     {EXERCISES.map((ex) => (
@@ -158,14 +159,14 @@ export default function FormCheckPage() {
                   </select>
                   <ChevronDown
                     size={16}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-500 pointer-events-none"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--content-muted)] pointer-events-none"
                   />
                 </div>
               </div>
 
               {/* Side selector */}
               <div className="glass p-4">
-                <label className="text-xs text-stone-500 uppercase tracking-wider mb-2 block">
+                <label className="text-xs text-[var(--content-muted)] uppercase tracking-wider mb-2 block">
                   Lado
                 </label>
                 <div className="flex gap-2">
@@ -173,17 +174,17 @@ export default function FormCheckPage() {
                     <button
                       key={s}
                       onClick={() => setSelectedSide(s)}
-                      className="flex-1 py-3 rounded-xl text-sm font-semibold transition-all"
+                      className="flex-1 py-3 rounded-xl text-sm font-semibold transition-all min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                       style={{
                         background:
                           selectedSide === s
-                            ? 'color-mix(in srgb, var(--accent, #D4A853) 15%, transparent)'
-                            : 'rgba(255,255,255,0.05)',
-                        color: selectedSide === s ? 'var(--accent, #D4A853)' : '#a8a29e',
+                            ? 'color-mix(in srgb, var(--action-primary) 15%, transparent)'
+                            : 'color-mix(in srgb, var(--content-primary) 8%, transparent)',
+                        color: selectedSide === s ? 'var(--action-primary)' : 'var(--content-secondary)',
                         border:
                           selectedSide === s
-                            ? '1px solid color-mix(in srgb, var(--accent, #D4A853) 30%, transparent)'
-                            : '1px solid rgba(255,255,255,0.06)',
+                            ? '1px solid color-mix(in srgb, var(--action-primary) 30%, transparent)'
+                            : '1px solid color-mix(in srgb, var(--content-primary) 8%, transparent)',
                       }}
                     >
                       {s === 'right' ? 'Derecho' : 'Izquierdo'}
@@ -194,8 +195,8 @@ export default function FormCheckPage() {
 
               {/* Tips */}
               <div className="glass p-4">
-                <p className="text-xs text-stone-500 uppercase tracking-wider mb-2">Tips</p>
-                <ul className="space-y-1.5 text-xs text-stone-400">
+                <p className="text-xs text-[var(--content-muted)] uppercase tracking-wider mb-2">Tips</p>
+                <ul className="space-y-1.5 text-xs text-[var(--content-secondary)]">
                   <li className="flex gap-2">
                     <span className="gold-text shrink-0">1.</span>
                     Posicionate de perfil a la camara
@@ -219,7 +220,7 @@ export default function FormCheckPage() {
               <motion.button
                 whileTap={{ scale: 0.97 }}
                 onClick={() => setPhase('recording')}
-                className="w-full py-4 rounded-2xl flex items-center justify-center gap-3 text-base font-bold btn-gold"
+                className="w-full py-4 rounded-2xl flex items-center justify-center gap-3 text-base font-bold btn-gold min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
               >
                 <Camera size={20} />
                 Iniciar Form Check
@@ -243,11 +244,11 @@ export default function FormCheckPage() {
                 <motion.button
                   whileTap={{ scale: 0.97 }}
                   onClick={handleTryAgain}
-                  className="flex-1 py-3.5 rounded-2xl flex items-center justify-center gap-2 text-sm font-semibold"
+                  className="flex-1 py-3.5 rounded-2xl flex items-center justify-center gap-2 text-sm font-semibold min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                   style={{
-                    background: 'rgba(255,255,255,0.06)',
-                    color: '#a8a29e',
-                    border: '1px solid rgba(255,255,255,0.08)',
+                    background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)',
+                    color: 'var(--content-secondary)',
+                    border: '1px solid color-mix(in srgb, var(--content-primary) 8%, transparent)',
                   }}
                 >
                   <RotateCcw size={16} />
@@ -257,7 +258,7 @@ export default function FormCheckPage() {
                   whileTap={{ scale: 0.97 }}
                   onClick={handleSaveResults}
                   disabled={saving || saved}
-                  className="flex-1 py-3.5 rounded-2xl flex items-center justify-center gap-2 text-sm font-semibold btn-gold disabled:opacity-60"
+                  className="flex-1 py-3.5 rounded-2xl flex items-center justify-center gap-2 text-sm font-semibold btn-gold disabled:opacity-60 min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                 >
                   <Save size={16} />
                   {saved ? '¡Guardado!' : saving ? 'Guardando…' : 'Guardar'}

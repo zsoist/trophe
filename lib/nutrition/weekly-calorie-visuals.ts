@@ -1,7 +1,7 @@
-const EMPTY_BAR = 'rgba(255,255,255,0.04)';
-const NEUTRAL_BAR = '#6b7280';
-const TARGET_BAR = 'var(--accent, #D4A853)';
-const OVER_TARGET_BAR = '#ef4444';
+const EMPTY_BAR = 'var(--surface-2)';
+const NEUTRAL_BAR = 'var(--data-neutral)';
+const TARGET_BAR = 'var(--data-calories)';
+const OVER_TARGET_BAR = 'var(--status-danger-fg)';
 
 function hasCalorieTarget(targetCalories: number): boolean {
   return Number.isFinite(targetCalories) && targetCalories > 0;

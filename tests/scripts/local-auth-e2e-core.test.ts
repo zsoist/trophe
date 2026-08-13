@@ -1,15 +1,56 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   assertLoopbackDatabaseUrl,
   assertLoopbackSupabaseUrl,
+  assertSupabaseOperation,
+  assertSupabaseAffectedRow,
+  assertAuthUserAbsent,
   buildLocalDevEnv,
   buildLocalPlaywrightEnv,
+  buildLocalThemePerformanceEnv,
+  formatLocalE2EError,
+  localE2ECachePath,
   localAppOrigin,
   parseSupabaseStatusEnv,
+  retryLocalE2EOperation,
+  resolveSupabaseCli,
   withDisposableUsers,
+  withFixtureCleanup,
+  cleanupFixtureResources,
 } from '../../scripts/test/local-auth-e2e-core.mjs';
 
 describe('local authenticated E2E harness', () => {
+  const originalNextDistDir = process.env.NEXT_DIST_DIR;
+
+  afterEach(() => {
+    if (originalNextDistDir === undefined) delete process.env.NEXT_DIST_DIR;
+    else process.env.NEXT_DIST_DIR = originalNextDistDir;
+    vi.resetModules();
+  });
+
+  it('uses the local no-sync E2E cache whenever the local E2E cache is enabled', async () => {
+    process.env.NEXT_DIST_DIR = '/tmp/trophe-next-e2e-cache';
+    vi.resetModules();
+    const { nextConfig } = await import('../../next.config');
+
+    expect(nextConfig.distDir).toBe('.next-e2e.nosync');
+  });
+
+  it('uses only the exact no-sync cache path under the project root', () => {
+    expect(localE2ECachePath('/workspace/trophe')).toBe('/workspace/trophe/.next-e2e.nosync');
+  });
+
+  it('resolves the installed native CLI package without falling back to the npm shim', () => {
+    const resolver = (specifier: string) => `/tmp/${specifier}/package.json`;
+    expect(resolveSupabaseCli({ platform: 'darwin', arch: 'arm64', resolve: resolver }))
+      .toBe('/tmp/@supabase/cli-darwin-arm64/package.json/bin/supabase');
+    expect(() => resolveSupabaseCli({
+      platform: 'plan9',
+      arch: 'mips',
+      resolve: () => { throw new Error('missing'); },
+    })).toThrow(/No native Supabase CLI package/);
+  });
+
   it('parses the exact quoted Supabase status variables needed by the runner', () => {
     expect(parseSupabaseStatusEnv([
       'API_URL="http://127.0.0.1:54321"',
@@ -119,6 +160,96 @@ describe('local authenticated E2E harness', () => {
     });
   });
 
+  it('maps disposable client, coach, and super-admin roles to the zero-paid theme measurement contract', () => {
+    expect(buildLocalThemePerformanceEnv({ OPENAI_API_KEY: '' }, {
+      client: { email: 'client@test.invalid', password: 'client-password' },
+      coach: { email: 'coach@test.invalid', password: 'coach-password' },
+      admin: { email: 'super@test.invalid', password: 'super-password' },
+    })).toMatchObject({
+      THEME_PERF_CLIENT_EMAIL: 'client@test.invalid',
+      THEME_PERF_COACH_EMAIL: 'coach@test.invalid',
+      THEME_PERF_SUPER_EMAIL: 'super@test.invalid',
+      OPENAI_API_KEY: '',
+    });
+  });
+
+  it('cleans relationship and organization fixtures after a callback and preserves its returned value', async () => {
+    const events: string[] = [];
+    await expect(withFixtureCleanup({
+      execute: async () => {
+        events.push('callback');
+        return 'measurement-report';
+      },
+      cleanup: async () => {
+        events.push('relationship-cleanup');
+        events.push('organization-cleanup');
+      },
+    })).resolves.toBe('measurement-report');
+    expect(events).toEqual(['callback', 'relationship-cleanup', 'organization-cleanup']);
+  });
+
+  it('cleans fixtures after a callback error while preserving the callback error', async () => {
+    const events: string[] = [];
+    await expect(withFixtureCleanup({
+      execute: async () => {
+        events.push('callback');
+        throw new Error('measurement failed');
+      },
+      cleanup: async () => { events.push('cleanup'); },
+    })).rejects.toThrow('measurement failed');
+    expect(events).toEqual(['callback', 'cleanup']);
+  });
+
+  it('preserves a callback error while attempting both fixture cleanups and retaining cleanup evidence', async () => {
+    const events: string[] = [];
+    try {
+      await withFixtureCleanup({
+        execute: async () => {
+          events.push('callback');
+          throw new Error('workload failed');
+        },
+        cleanup: () => cleanupFixtureResources({
+          relationshipCleanup: async () => {
+            events.push('relationship');
+            throw new Error('relationship cleanup failed');
+          },
+          organizationCleanup: async () => {
+            events.push('organization');
+            throw new Error('organization cleanup failed');
+          },
+        }),
+      });
+      throw new Error('expected fixture failure');
+    } catch (error) {
+      expect(error).toBeInstanceOf(AggregateError);
+      expect((error as AggregateError).errors.map((item) => (item as Error).message)).toEqual([
+        'workload failed',
+        'relationship cleanup failed',
+        'organization cleanup failed',
+      ]);
+    }
+    expect(events).toEqual(['callback', 'relationship', 'organization']);
+  });
+
+  it('surfaces cleanup failure after a successful callback while still attempting both cleanups', async () => {
+    const events: string[] = [];
+    await expect(withFixtureCleanup({
+      execute: async () => {
+        events.push('callback');
+        return 'report';
+      },
+      cleanup: () => cleanupFixtureResources({
+        relationshipCleanup: async () => {
+          events.push('relationship');
+          throw new Error('relationship cleanup failed');
+        },
+        organizationCleanup: async () => { events.push('organization'); },
+      }),
+    })).rejects.toThrow('relationship cleanup failed');
+    expect(events).toEqual(['callback', 'relationship', 'organization']);
+  });
+
+
   it.each([0, 80, 65_536, 3_000.5, Number.NaN])(
     'rejects unsafe local app port %s',
     (port) => {
@@ -128,6 +259,50 @@ describe('local authenticated E2E harness', () => {
 
   it('uses an explicit loopback origin for the selected local app port', () => {
     expect(localAppOrigin(3000)).toBe('http://127.0.0.1:3000');
+  });
+
+  it('reports the local runner failure cause without exposing credentials or URLs', () => {
+    expect(formatLocalE2EError(new Error('cleanup failed for https://user:secret@127.0.0.1:54321?apikey=secret-token password=hunter2')))
+      .toBe('cleanup failed for [url] password=[redacted]');
+  });
+
+  it('propagates relationship cleanup errors instead of silently leaving disposable fixtures', () => {
+    expect(() => assertSupabaseOperation({ error: { message: 'foreign key constraint' } }, 'organization cleanup'))
+      .toThrow('local E2E organization cleanup failed: foreign key constraint');
+    expect(() => assertSupabaseOperation({ error: null }, 'organization cleanup')).not.toThrow();
+  });
+
+  it('rejects a successful-looking cleanup response that did not affect its exact row', () => {
+    expect(() => assertSupabaseAffectedRow({ data: [] }, 'organization cleanup', 'org-1'))
+      .toThrow('local E2E organization cleanup failed: expected row org-1 was not affected');
+    expect(() => assertSupabaseAffectedRow({ data: [{ id: 'org-1' }] }, 'organization cleanup', 'org-1')).not.toThrow();
+  });
+
+  it('rejects an auth cleanup response while its exact user is still present', () => {
+    expect(() => assertAuthUserAbsent({ data: { user: { id: 'user-1' } }, error: null }, 'user cleanup', 'user-1'))
+      .toThrow('local E2E user cleanup failed: user user-1 is still present');
+    expect(() => assertAuthUserAbsent({ data: { user: null }, error: null }, 'user cleanup', 'user-1')).not.toThrow();
+    expect(() => assertAuthUserAbsent({ data: { user: null }, error: { message: 'User not found' } }, 'user cleanup', 'user-1')).not.toThrow();
+  });
+
+  it('retries a transient local Supabase teardown operation before succeeding', async () => {
+    let attempts = 0;
+    await expect(retryLocalE2EOperation(async () => {
+      attempts += 1;
+      if (attempts < 3) throw new TypeError('fetch failed');
+      return { error: null };
+    }, 'client relationship cleanup', { retryDelay: async () => {} })).resolves.toEqual({ error: null });
+    expect(attempts).toBe(3);
+  });
+
+  it('preserves the terminal local Supabase teardown cause after bounded retries', async () => {
+    let attempts = 0;
+    await expect(retryLocalE2EOperation(async () => {
+      attempts += 1;
+      return { error: { message: 'connection reset' } };
+    }, 'organization cleanup', { attempts: 2, retryDelay: async () => {} }))
+      .rejects.toThrow('local E2E organization cleanup failed: connection reset');
+    expect(attempts).toBe(2);
   });
 
   it('deletes every created user in reverse order when browser execution fails', async () => {
@@ -199,6 +374,21 @@ describe('local authenticated E2E harness', () => {
     expect(attempts).toEqual(['client-id', 'client-id', 'client-id']);
   });
 
+  it('propagates a cleanup failure after successful browser execution', async () => {
+    const admin = {
+      async createUser() { return { id: 'client-id' }; },
+      async provisionProfile() {},
+      async deleteUser() { throw new Error('auth cleanup unavailable'); },
+    };
+
+    await expect(withDisposableUsers({
+      admin,
+      users: [{ email: 'client@test.invalid', password: 'one', role: 'client' }],
+      execute: async () => 'browser passed',
+      cleanupAttempts: 1,
+    })).rejects.toThrow('auth cleanup unavailable');
+  });
+
   it('allows slower local auth shutdowns to settle before declaring cleanup failed', async () => {
     const attempts: number[] = [];
     const delays: number[] = [];
@@ -209,7 +399,7 @@ describe('local authenticated E2E harness', () => {
       async provisionProfile() {},
       async deleteUser() {
         attempts.push(attempts.length + 1);
-        if (attempts.length < 5) throw new Error('auth session is still closing');
+        if (attempts.length < 8) throw new Error('auth session is still closing');
       },
     };
 
@@ -222,7 +412,7 @@ describe('local authenticated E2E harness', () => {
       },
     })).resolves.toBe('passed');
 
-    expect(attempts).toEqual([1, 2, 3, 4, 5]);
-    expect(delays).toEqual([1, 2, 3, 4]);
+    expect(attempts).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+    expect(delays).toEqual([1, 2, 3, 4, 5, 6, 7]);
   });
 });

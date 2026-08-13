@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Plus, Trash2, GripVertical, Copy } from 'lucide-react';
 import type { MealSlot } from '@/components/meals/MealSlotCard';
 import type { MealType } from '@/lib/types';
@@ -27,6 +27,7 @@ export default function MealSlotConfig({ slots: initialSlots, onSave, onClose }:
   const [editingEmoji, setEditingEmoji] = useState<string | null>(null);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const reducedMotion = useReducedMotion();
 
   // Touch drag state (mobile)
   const touchRef = useRef<{ startY: number; fromIndex: number; slotHeight: number } | null>(null);
@@ -138,32 +139,36 @@ export default function MealSlotConfig({ slots: initialSlots, onSave, onClose }:
 
   return (
     <motion.div
-      initial={{ opacity: 0 }}
+      initial={{ opacity: reducedMotion ? 1 : 0 }}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 bg-black/60 flex items-end justify-center"
+      exit={{ opacity: reducedMotion ? 1 : 0 }}
+      transition={{ duration: reducedMotion ? 0 : 0.15 }}
+      className="fixed inset-0 z-50 bg-[var(--surface-overlay)] flex items-end justify-center"
       onClick={onClose}
     >
       <motion.div
-        initial={{ y: '100%' }}
-        animate={{ y: 0 }}
-        exit={{ y: '100%' }}
-        transition={{ type: 'spring', damping: 25 }}
-        className="w-full max-w-md bg-stone-900 rounded-t-2xl p-4 pb-20 max-h-[85vh] overflow-y-auto"
+        initial={reducedMotion ? { opacity: 0 } : { y: '100%' }}
+        animate={reducedMotion ? { opacity: 1 } : { y: 0 }}
+        exit={reducedMotion ? { opacity: 0 } : { y: '100%' }}
+        transition={reducedMotion ? { duration: 0 } : { type: 'spring', damping: 25 }}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Customize meals"
+        className="w-full max-w-md bg-[var(--surface-1)] rounded-t-2xl p-4 pb-[calc(5rem+env(safe-area-inset-bottom))] max-h-[85vh] overflow-y-auto"
         onClick={e => e.stopPropagation()}
       >
         {/* Header — iOS-style top bar */}
         <div className="flex items-center justify-between mb-4">
-          <button onClick={onClose} className="text-stone-500 hover:text-stone-300 text-sm">
+          <button onClick={onClose} className="min-h-11 min-w-11 text-[var(--content-muted)] hover:text-[var(--content-secondary)] text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
             Cancel
           </button>
           <div>
-            <h2 className="text-stone-100 font-semibold text-sm">Customize Meals</h2>
-            <p className="text-stone-600 text-xs text-center">Drag to reorder</p>
+            <h2 className="text-[var(--content-primary)] font-semibold text-sm">Customize Meals</h2>
+            <p className="text-[var(--content-muted)] text-xs text-center">Drag to reorder</p>
           </div>
           <button
             onClick={() => { onSave(slots); onClose(); }}
-            className="gold-text font-semibold text-sm"
+            className="min-h-11 min-w-11 gold-text font-semibold text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
           >
             Save
           </button>
@@ -191,21 +196,28 @@ export default function MealSlotConfig({ slots: initialSlots, onSave, onClose }:
               {/* Top row: grip + emoji + label + duplicate + delete */}
               <div className="flex items-center gap-2 mb-2">
                 {/* Drag handle — touch events for mobile */}
-                <div
-                  className="text-stone-600 flex-shrink-0 cursor-grab active:cursor-grabbing touch-none p-1"
+                <button
+                  type="button"
+                  className="min-h-11 min-w-11 text-[var(--content-muted)] flex-shrink-0 cursor-grab active:cursor-grabbing touch-none p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                   onTouchStart={e => handleTouchStart(e, index)}
                   onTouchMove={handleTouchMove}
                   onTouchEnd={handleTouchEnd}
-                  aria-label={`Drag to reorder ${slot.label}`}
-                  role="button"
+                  onKeyDown={(event) => {
+                    if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
+                    event.preventDefault();
+                    const target = index + (event.key === 'ArrowUp' ? -1 : 1);
+                    if (target >= 0 && target < slots.length) reorder(index, target);
+                  }}
+                  aria-label={`Reorder ${slot.label}`}
                 >
                   <GripVertical size={18} />
-                </div>
+                </button>
 
                 {/* Emoji picker */}
                 <button
                   onClick={() => setEditingEmoji(editingEmoji === slot.id ? null : slot.id)}
-                  className="text-2xl hover:scale-110 transition-transform flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-lg bg-white/[0.05]"
+                  aria-label={`Choose icon for ${slot.label}`}
+                  className="text-2xl hover:scale-110 transition-transform flex-shrink-0 min-w-11 min-h-11 flex items-center justify-center rounded-lg bg-[var(--surface-2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                 >
                   {slot.emoji}
                 </button>
@@ -215,7 +227,7 @@ export default function MealSlotConfig({ slots: initialSlots, onSave, onClose }:
                   type="text"
                   value={slot.label}
                   onChange={e => updateSlot(slot.id, { label: e.target.value })}
-                  className="input-dark flex-1 text-sm py-2 min-w-0"
+                  className="input-dark flex-1 text-base sm:text-sm py-2 min-w-0"
                   maxLength={20}
                   placeholder="Meal name"
                 />
@@ -224,7 +236,8 @@ export default function MealSlotConfig({ slots: initialSlots, onSave, onClose }:
                 <button
                   onClick={() => duplicateSlot(slot)}
                   disabled={slots.length >= 8}
-                  className="text-stone-600 hover:text-[#D4A853] disabled:opacity-20 p-1.5 flex-shrink-0"
+                  aria-label={`Duplicate ${slot.label}`}
+                  className="text-[var(--content-muted)] hover:text-[#D4A853] disabled:opacity-20 min-w-11 min-h-11 p-1.5 flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                   title="Duplicate slot"
                 >
                   <Copy size={14} />
@@ -234,7 +247,8 @@ export default function MealSlotConfig({ slots: initialSlots, onSave, onClose }:
                 <button
                   onClick={() => removeSlot(slot.id)}
                   disabled={slots.length <= 2}
-                  className="text-stone-600 hover:text-red-400 disabled:opacity-20 p-1.5 flex-shrink-0"
+                  aria-label={`Remove ${slot.label}`}
+                  className="text-[var(--content-muted)] hover:text-red-400 disabled:opacity-20 min-w-11 min-h-11 p-1.5 flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                   title="Remove slot"
                 >
                   <Trash2 size={14} />
@@ -246,7 +260,7 @@ export default function MealSlotConfig({ slots: initialSlots, onSave, onClose }:
                 <select
                   value={slot.mealType}
                   onChange={e => updateSlot(slot.id, { mealType: e.target.value as MealType })}
-                  className="input-dark text-xs py-1.5 flex-1"
+                  className="input-dark text-base sm:text-sm py-1.5 flex-1"
                 >
                   {MEAL_TYPES.map(mt => (
                     <option key={mt.value} value={mt.value}>{mt.label}</option>
@@ -258,16 +272,18 @@ export default function MealSlotConfig({ slots: initialSlots, onSave, onClose }:
               <AnimatePresence>
                 {editingEmoji === slot.id && (
                   <motion.div
-                    initial={{ opacity: 0, height: 0 }}
+                    initial={reducedMotion ? { opacity: 0 } : { opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
+                    exit={reducedMotion ? { opacity: 0 } : { opacity: 0, height: 0 }}
+                    transition={{ duration: reducedMotion ? 0 : 0.15 }}
                     className="mt-2 glass-elevated p-2 rounded-lg grid grid-cols-8 gap-1.5 overflow-hidden"
                   >
                     {EMOJI_OPTIONS.map(emoji => (
                       <button
                         key={emoji}
                         onClick={() => { updateSlot(slot.id, { emoji }); setEditingEmoji(null); }}
-                        className="text-xl hover:scale-125 transition-transform p-1 rounded-lg hover:bg-white/[0.1] flex items-center justify-center"
+                        aria-label={`Select ${emoji} for ${slot.label}`}
+                        className="text-xl hover:scale-125 transition-transform min-w-11 min-h-11 p-1 rounded-lg hover:bg-[var(--surface-hover)] flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                       >
                         {emoji}
                       </button>
@@ -283,7 +299,7 @@ export default function MealSlotConfig({ slots: initialSlots, onSave, onClose }:
         {slots.length < 8 && (
           <button
             onClick={addSlot}
-            className="w-full glass p-3 text-stone-500 hover:text-stone-300 text-sm flex items-center justify-center gap-2 transition-colors mb-2"
+            className="min-h-11 w-full glass p-3 text-[var(--content-muted)] hover:text-[var(--content-secondary)] text-sm flex items-center justify-center gap-2 transition-colors mb-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
           >
             <Plus size={14} />
             Add Meal Slot

@@ -1,7 +1,8 @@
 'use client';
 
-import { memo, useState, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { memo, useState, useCallback, useEffect, useRef } from 'react';
+import type { KeyboardEvent } from 'react';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { X, Check, ChevronDown } from 'lucide-react';
 
 interface Client {
@@ -32,6 +33,10 @@ export default memo(function BatchHabitAssign({
   const [clientState, setClientState] = useState<Client[]>(initialClients);
   const [selectedHabitId, setSelectedHabitId] = useState<string>(habits[0]?.id ?? '');
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const previousFocus = useRef<HTMLElement | null>(null);
+  const reduceMotion = useReducedMotion();
 
   const selectedCount = clientState.filter((c) => c.selected).length;
   const selectedHabit = habits.find((h) => h.id === selectedHabitId);
@@ -53,72 +58,128 @@ export default memo(function BatchHabitAssign({
     onAssign(selectedHabitId, selectedIds);
   }, [selectedHabitId, selectedCount, clientState, onAssign]);
 
+  useEffect(() => {
+    previousFocus.current = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+    closeRef.current?.focus();
+
+    const handleDocumentKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.defaultPrevented || event.key !== 'Escape' || !dialogRef.current?.contains(document.activeElement)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      onClose();
+    };
+
+    document.addEventListener('keydown', handleDocumentKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleDocumentKeyDown);
+      if (previousFocus.current?.isConnected) previousFocus.current.focus();
+    };
+  }, [onClose]);
+
+  const containFocus = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'Tab' || !dialogRef.current) return;
+    const controls = Array.from(dialogRef.current.querySelectorAll<HTMLElement>(
+      'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
+    ));
+    if (controls.length === 0) {
+      event.preventDefault();
+      dialogRef.current.focus();
+      return;
+    }
+    const first = controls[0];
+    const last = controls[controls.length - 1];
+    if (event.shiftKey && (document.activeElement === first || document.activeElement === dialogRef.current)) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
+
   return (
     <AnimatePresence>
       <motion.div
-        initial={{ opacity: 0 }}
+        initial={reduceMotion ? false : { opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+        className="fixed inset-0 z-50 flex items-end justify-center bg-[var(--canvas)]/80 p-4 backdrop-blur-sm sm:items-center"
         onClick={(e) => {
           if (e.target === e.currentTarget) onClose();
         }}
       >
         <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: 16 }}
+          ref={dialogRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="batch-habit-title"
+          tabIndex={-1}
+          onKeyDown={containFocus}
+          initial={reduceMotion ? false : { opacity: 0, scale: 0.95, y: 16 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 16 }}
-          transition={{ duration: 0.3, type: 'spring', stiffness: 300, damping: 30 }}
-          className="w-full max-w-md bg-stone-900 border border-white/[0.08] rounded-2xl shadow-2xl overflow-hidden"
+          transition={reduceMotion ? { duration: 0 } : { duration: 0.3, type: 'spring', stiffness: 300, damping: 30 }}
+          className="safe-bottom max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-2xl border border-[var(--border-default)] bg-[var(--surface-overlay)] shadow-[var(--shadow-high)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
-            <h2 className="text-stone-200 text-sm font-semibold">Assign Habit</h2>
+          <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-5 py-4">
+            <h2 id="batch-habit-title" className="text-sm font-semibold text-[var(--content-primary)]">Assign Habit</h2>
             <button
+              ref={closeRef}
+              aria-label="Close habit assignment"
               onClick={onClose}
-              className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-white/[0.06] transition-colors"
+              className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-[var(--content-muted)] transition-colors hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             >
-              <X size={16} className="text-stone-400" />
+              <X aria-hidden="true" size={18} />
             </button>
           </div>
 
           <div className="px-5 py-4 space-y-4">
             {/* Habit selector */}
             <div>
-              <label className="text-stone-400 text-[10px] uppercase tracking-wider font-medium block mb-1.5">
+              <span className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-[var(--content-muted)]">
                 Habit
-              </label>
+              </span>
               <div className="relative">
                 <button
                   onClick={() => setDropdownOpen(!dropdownOpen)}
-                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-stone-200 text-sm hover:bg-white/[0.06] transition-colors"
+                  aria-expanded={dropdownOpen}
+                  aria-haspopup="listbox"
+                  className="flex min-h-11 w-full items-center justify-between rounded-xl border border-[var(--border-default)] bg-[var(--surface-1)] px-3 py-2.5 text-sm text-[var(--content-primary)] transition-colors hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                 >
                   <span>
                     {selectedHabit ? `${selectedHabit.emoji} ${selectedHabit.name}` : 'Select habit...'}
                   </span>
                   <ChevronDown
                     size={14}
-                    className={`text-stone-400 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`}
+                    aria-hidden="true"
+                    className={`text-[var(--content-muted)] transition-transform ${dropdownOpen ? 'rotate-180' : ''}`}
                   />
                 </button>
 
                 <AnimatePresence>
                   {dropdownOpen && (
                     <motion.div
-                      initial={{ opacity: 0, y: -4 }}
+                      role="listbox"
+                      aria-label="Habit options"
+                      initial={reduceMotion ? false : { opacity: 0, y: -4 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -4 }}
-                      className="absolute top-full left-0 right-0 mt-1 z-10 bg-stone-800 border border-white/[0.08] rounded-xl overflow-hidden shadow-xl max-h-40 overflow-y-auto"
+                      className="absolute left-0 right-0 top-full z-10 mt-1 max-h-40 overflow-y-auto rounded-xl border border-[var(--border-default)] bg-[var(--surface-overlay)] shadow-[var(--shadow-high)]"
                     >
                       {habits.map((habit) => (
                         <button
                           key={habit.id}
+                          role="option"
+                          aria-selected={habit.id === selectedHabitId}
                           onClick={() => {
                             setSelectedHabitId(habit.id);
                             setDropdownOpen(false);
                           }}
-                          className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 hover:bg-white/[0.06] transition-colors ${
-                            habit.id === selectedHabitId ? 'bg-white/[0.04] text-[#D4A853]' : 'text-stone-300'
+                          className={`flex min-h-11 w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--focus-ring)] ${
+                            habit.id === selectedHabitId ? 'bg-[var(--surface-active)] text-[var(--action-primary)]' : 'text-[var(--content-secondary)]'
                           }`}
                         >
                           <span>{habit.emoji}</span>
@@ -134,39 +195,39 @@ export default memo(function BatchHabitAssign({
             {/* Client list */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="text-stone-400 text-[10px] uppercase tracking-wider font-medium">
+                <span className="text-xs font-medium uppercase tracking-wider text-[var(--content-muted)]">
                   Clients ({selectedCount}/{clientState.length})
-                </label>
+                </span>
                 <button
                   onClick={toggleAll}
-                  className="text-[10px] text-[#D4A853] hover:text-[#e0be6e] transition-colors"
+                  className="min-h-11 rounded-lg px-2 text-xs text-[var(--action-primary)] transition-colors hover:text-[var(--action-primary-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                 >
                   {clientState.every((c) => c.selected) ? 'Deselect all' : 'Select all'}
                 </button>
               </div>
 
-              <div className="max-h-48 overflow-y-auto space-y-1 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent pr-1">
+              <div className="max-h-48 space-y-1 overflow-y-auto pr-1">
                 {clientState.map((client, i) => (
                   <motion.button
                     key={client.id}
-                    initial={{ opacity: 0, x: -8 }}
+                    initial={reduceMotion ? false : { opacity: 0, x: -8 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: i * 0.02 }}
                     onClick={() => toggleClient(client.id)}
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
-                      client.selected ? 'bg-[#D4A853]/10' : 'hover:bg-white/[0.03]'
+                    className={`flex min-h-11 w-full items-center gap-3 rounded-lg px-3 py-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] ${
+                      client.selected ? 'bg-[var(--surface-active)]' : 'hover:bg-[var(--surface-hover)]'
                     }`}
                   >
                     <div
-                      className={`w-4 h-4 rounded flex items-center justify-center flex-shrink-0 transition-colors ${
+                      className={`flex h-4 w-4 flex-shrink-0 items-center justify-center rounded transition-colors ${
                         client.selected
-                          ? 'bg-[#D4A853] border-[#D4A853]'
-                          : 'border border-white/20 bg-transparent'
+                          ? 'border border-[var(--action-primary)] bg-[var(--action-primary)]'
+                          : 'border border-[var(--border-strong)] bg-transparent'
                       }`}
                     >
-                      {client.selected && <Check size={10} className="text-stone-900" />}
+                      {client.selected && <Check aria-hidden="true" size={10} className="text-[var(--action-on-primary)]" />}
                     </div>
-                    <span className="text-stone-200 text-sm">{client.name}</span>
+                    <span className="text-sm text-[var(--content-primary)]">{client.name}</span>
                   </motion.button>
                 ))}
               </div>
@@ -174,21 +235,17 @@ export default memo(function BatchHabitAssign({
           </div>
 
           {/* Footer */}
-          <div className="px-5 py-4 border-t border-white/[0.06] flex gap-3">
+          <div className="flex gap-3 border-t border-[var(--border-subtle)] px-5 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
             <button
               onClick={onClose}
-              className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-stone-400 bg-white/[0.04] hover:bg-white/[0.08] transition-colors"
+              className="min-h-11 flex-1 rounded-xl bg-[var(--action-secondary)] px-4 py-2.5 text-sm font-medium text-[var(--content-secondary)] transition-colors hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             >
               Cancel
             </button>
             <button
               onClick={handleAssign}
               disabled={selectedCount === 0 || !selectedHabitId}
-              className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-              style={{
-                backgroundColor: selectedCount > 0 ? '#D4A853' : 'rgba(212,168,83,0.3)',
-                color: '#1c1917',
-              }}
+              className="min-h-11 flex-1 rounded-xl bg-[var(--action-primary)] px-4 py-2.5 text-sm font-semibold text-[var(--action-on-primary)] transition-colors hover:bg-[var(--action-primary-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-30"
             >
               Assign to {selectedCount} client{selectedCount !== 1 ? 's' : ''}
             </button>

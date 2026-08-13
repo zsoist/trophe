@@ -68,26 +68,26 @@ export function Panel({
   return (
     <div
       className={`relative rounded-2xl border border-dashed p-1.5 mb-4 transition-colors ${
-        on ? 'border-[#D4A853]/40' : 'border-white/15'
+        on ? 'border-[var(--action-primary)]/40' : 'border-[var(--border-subtle)]'
       }`}
     >
       <button
         type="button"
         onClick={() => toggle(id)}
-        className="w-full min-h-[44px] flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] transition-colors"
+        className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] w-full min-h-[44px] flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-[var(--surface-hover)] hover:bg-[var(--surface-hover)] transition-colors"
         aria-pressed={on}
         title={on ? t('coach.customize.shownTapToHide') : t('coach.customize.hiddenTapToShow')}
       >
         <span
           className={`text-xs font-semibold tracking-wide ${
-            on ? 'text-[#D4A853]' : 'text-stone-500'
+            on ? 'text-[var(--action-primary)]' : 'text-[var(--content-muted)]'
           }`}
         >
           {title}
         </span>
         <span
-          className={`flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider ${
-            on ? 'text-[#D4A853]' : 'text-stone-500'
+          className={`flex items-center gap-1.5 text-xs font-mono uppercase tracking-wider ${
+            on ? 'text-[var(--action-primary)]' : 'text-[var(--content-muted)]'
           }`}
         >
           {on ? t('coach.customize.shown') : t('coach.customize.hidden')}

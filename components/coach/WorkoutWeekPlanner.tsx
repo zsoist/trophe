@@ -57,14 +57,14 @@ export default memo(function WorkoutWeekPlanner({
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="bg-white/[0.04] border border-white/[0.06] rounded-xl p-4"
+      className="bg-[var(--surface-hover)] border border-[var(--border-subtle)] rounded-xl p-4"
     >
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider flex items-center gap-2">
-          <Dumbbell size={14} className="text-[#D4A853]" />
+        <h3 className="text-[var(--content-secondary)] text-xs font-semibold uppercase tracking-wider flex items-center gap-2">
+          <Dumbbell size={14} className="text-[var(--action-primary)]" />
           Week Planner
         </h3>
-        <span className="text-stone-500 text-[10px]">{activeDays}/7 training days</span>
+        <span className="text-[var(--content-muted)] text-xs">{activeDays}/7 training days</span>
       </div>
 
       <div className="grid grid-cols-7 gap-1.5">
@@ -80,15 +80,15 @@ export default memo(function WorkoutWeekPlanner({
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.04, duration: 0.3 }}
                 onClick={() => toggleDropdown(slot.day)}
-                className={`w-full rounded-xl p-2 transition-colors border text-center ${
+                className={`min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] w-full rounded-xl p-2 transition-colors border text-center ${
                   slot.template
-                    ? 'bg-[#D4A853]/10 border-[#D4A853]/20 hover:bg-[#D4A853]/15'
-                    : 'bg-white/[0.02] border-white/[0.06] hover:bg-white/[0.05]'
+                    ? 'bg-[var(--action-primary)]/10 border-[var(--action-primary)]/20 hover:bg-[var(--action-primary)]/15'
+                    : 'bg-[var(--surface-hover)] border-[var(--border-subtle)] hover:bg-[var(--surface-hover)]'
                 }`}
               >
                 <p
-                  className={`text-[10px] font-semibold mb-1 ${
-                    slot.template ? 'text-[#D4A853]' : 'text-stone-500'
+                  className={`text-xs font-semibold mb-1 ${
+                    slot.template ? 'text-[var(--action-primary)]' : 'text-[var(--content-muted)]'
                   }`}
                 >
                   {abbr}
@@ -99,23 +99,23 @@ export default memo(function WorkoutWeekPlanner({
                     <Dumbbell
                       size={16}
                       className="mx-auto mb-1"
-                      style={{ color: '#D4A853' }}
+                      style={{ color: 'var(--action-primary)' }}
                     />
-                    <p className="text-stone-300 text-[9px] leading-tight truncate">
+                    <p className="text-[var(--content-secondary)] text-xs leading-tight truncate">
                       {slot.template.name}
                     </p>
-                    <p className="text-stone-600 text-[8px]">
+                    <p className="text-[var(--content-muted)] text-xs">
                       {slot.template.exerciseCount} ex
                     </p>
                   </>
                 ) : (
                   <>
-                    <Moon size={16} className="mx-auto mb-1 text-stone-700" />
-                    <p className="text-stone-600 text-[9px]">Rest</p>
+                    <Moon size={16} className="mx-auto mb-1 text-[var(--content-muted)]" />
+                    <p className="text-[var(--content-muted)] text-xs">Rest</p>
                   </>
                 )}
 
-                <ChevronDown size={10} className="mx-auto mt-1 text-stone-600" />
+                <ChevronDown size={10} className="mx-auto mt-1 text-[var(--content-muted)]" />
               </motion.button>
 
               {/* Dropdown */}
@@ -126,22 +126,22 @@ export default memo(function WorkoutWeekPlanner({
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -4, scale: 0.95 }}
                     transition={{ duration: 0.15 }}
-                    className="absolute z-30 top-full mt-1 left-1/2 -translate-x-1/2 w-40 bg-stone-950 border border-white/[0.1] rounded-lg shadow-xl overflow-hidden"
+                    className="absolute z-30 top-full mt-1 left-1/2 -translate-x-1/2 w-40 bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded-lg shadow-xl overflow-hidden"
                   >
                     {/* Rest day option */}
                     <button
                       type="button"
                       onClick={() => handleAssign(slot.day, null)}
-                      className="w-full flex items-center gap-2 px-3 py-2 hover:bg-white/[0.05] transition-colors text-left"
+                      className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] w-full flex items-center gap-2 px-3 py-2 hover:bg-[var(--surface-hover)] transition-colors text-left"
                     >
-                      <Moon size={12} className="text-stone-500" />
-                      <span className="text-stone-400 text-xs">Rest Day</span>
+                      <Moon size={12} className="text-[var(--content-muted)]" />
+                      <span className="text-[var(--content-secondary)] text-xs">Rest Day</span>
                       {!slot.template && (
-                        <X size={10} className="ml-auto text-stone-600" />
+                        <X size={10} className="ml-auto text-[var(--content-muted)]" />
                       )}
                     </button>
 
-                    <div className="border-t border-white/[0.06]" />
+                    <div className="border-t border-[var(--border-subtle)]" />
 
                     {/* Templates */}
                     <div className="max-h-[120px] overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
@@ -150,12 +150,12 @@ export default memo(function WorkoutWeekPlanner({
                           key={tpl.id}
                           type="button"
                           onClick={() => handleAssign(slot.day, tpl.id)}
-                          className="w-full flex items-center gap-2 px-3 py-2 hover:bg-white/[0.05] transition-colors text-left"
+                          className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] w-full flex items-center gap-2 px-3 py-2 hover:bg-[var(--surface-hover)] transition-colors text-left"
                         >
-                          <Dumbbell size={12} className="text-[#D4A853] flex-shrink-0" />
+                          <Dumbbell size={12} className="text-[var(--action-primary)] flex-shrink-0" />
                           <div className="flex-1 min-w-0">
-                            <p className="text-stone-300 text-xs truncate">{tpl.name}</p>
-                            <p className="text-stone-600 text-[9px]">{tpl.exerciseCount} exercises</p>
+                            <p className="text-[var(--content-secondary)] text-xs truncate">{tpl.name}</p>
+                            <p className="text-[var(--content-muted)] text-xs">{tpl.exerciseCount} exercises</p>
                           </div>
                         </button>
                       ))}

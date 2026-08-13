@@ -15,6 +15,7 @@
 
 # next.js
 /.next/
+/.next-e2e.nosync
 /out/
 /public/sw.js
 /public/swe-worker-*.js

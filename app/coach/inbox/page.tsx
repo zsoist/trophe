@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
 import { Icon } from '@/components/ui';
@@ -48,6 +48,7 @@ type InboxFilter = 'all' | 'unread' | 'stale';
 export default function CoachInboxPage() {
   const { t } = useI18n();
   const router = useRouter();
+  const reducedMotion = useReducedMotion();
   const [clients, setClients] = useState<ClientActivity[]>([]);
   const [loading, setLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
@@ -160,27 +161,29 @@ export default function CoachInboxPage() {
   });
 
   return (
-    <div className="min-h-screen pb-20" style={{ background: 'var(--bg,#0a0a0a)' }}>
+    <div data-coach-mobile-workspace className="min-h-screen min-w-0 pb-20" style={{ background: 'var(--canvas)' }}>
       <motion.div
-        initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
+        initial={reducedMotion ? false : { opacity: 0, y: 16 }} animate={reducedMotion ? undefined : { opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
-        className="max-w-md lg:max-w-2xl mx-auto px-4 pt-3"
+        className="max-w-md lg:max-w-2xl mx-auto min-w-0 px-4 pt-3"
       >
         {/* ── Header ── */}
         <div className="row-b mb-3">
           <div>
             <div className="eye mb-1">Inbox</div>
-            <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-.02em', color: 'var(--t1)' }}>
+            <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-.02em', color: 'var(--content-primary)' }}>
               {loading ? '…' : unread > 0 ? `${unread} need attention` : 'All caught up'}
             </div>
           </div>
           <button
             onClick={() => setShowFilters((v) => !v)}
+            aria-label={t('coach.inbox.filter')}
+            className="min-h-11 min-w-11 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)]"
             aria-expanded={showFilters}
             title={t('coach.inbox.filter')}
             style={{
               background: 'none', border: 'none', cursor: 'pointer',
-              color: filter !== 'all' || showFilters ? 'var(--gold-300,#D4A853)' : 'var(--t3)',
+              color: filter !== 'all' || showFilters ? 'var(--action-primary)' : 'var(--content-secondary)',
               minWidth: 44, minHeight: 44,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}
@@ -200,10 +203,10 @@ export default function CoachInboxPage() {
               <button
                 key={f.key}
                 onClick={() => setFilter(f.key)}
-                className={`text-xs font-medium px-3 rounded-full border transition-all min-h-[44px] ${
+                className={`min-h-11 rounded-full border px-3 text-xs font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)] ${
                   filter === f.key
-                    ? 'border-[#D4A853]/40 bg-[#D4A853]/10 text-[#D4A853]'
-                    : 'border-white/10 text-stone-400 hover:border-white/20 hover:text-stone-300'
+                    ? 'border-[var(--border-strong)] bg-[var(--surface-active)] text-[var(--action-primary)]'
+                    : 'border-[var(--border-default)] text-[var(--content-secondary)] hover:border-[var(--border-strong)] hover:text-[var(--content-primary)]'
                 }`}
               >
                 {f.label}
@@ -220,13 +223,13 @@ export default function CoachInboxPage() {
           </div>
         ) : clients.length === 0 ? (
           <div className="card p-8 text-center">
-            <Icon name="i-users" size={32} style={{ color: 'var(--t5)', margin: '0 auto 12px' }} />
-            <div style={{ fontSize: 13, color: 'var(--t3)' }}>No clients assigned yet</div>
+            <Icon name="i-users" size={32} style={{ color: 'var(--content-muted)', margin: '0 auto 12px' }} />
+            <div style={{ fontSize: 13, color: 'var(--content-secondary)' }}>No clients assigned yet</div>
           </div>
         ) : visibleClients.length === 0 ? (
           <div className="card p-8 text-center">
-            <Icon name="i-filter" size={32} style={{ color: 'var(--t5)', margin: '0 auto 12px' }} />
-            <div style={{ fontSize: 13, color: 'var(--t3)' }}>
+            <Icon name="i-filter" size={32} style={{ color: 'var(--content-muted)', margin: '0 auto 12px' }} />
+            <div style={{ fontSize: 13, color: 'var(--content-secondary)' }}>
               {filter === 'unread' ? t('coach.inbox.noUnread') : t('coach.inbox.nobodyQuiet')}
             </div>
           </div>
@@ -237,16 +240,20 @@ export default function CoachInboxPage() {
               return (
                 <motion.div
                   key={c.id}
-                  initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                  initial={reducedMotion ? false : { opacity: 0, y: 8 }} animate={reducedMotion ? undefined : { opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.04 }}
                 >
-                  <Link href={`/coach/inbox/${c.id}`} style={{ textDecoration: 'none' }}>
+                  <Link
+                    href={`/coach/inbox/${c.id}`}
+                    className="flex min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                    style={{ textDecoration: 'none' }}
+                  >
                     <div className={urgent ? 'card' : 'card'}
                       style={{
                         padding: '10px 12px',
                         display: 'flex', gap: 10, alignItems: 'flex-start',
                         opacity: urgent ? 1 : 0.6,
-                        borderLeft: urgent ? '2px solid var(--gold-300,#D4A853)' : '1px solid var(--line)',
+                        borderLeft: urgent ? '2px solid var(--action-primary)' : '1px solid var(--border-default)',
                       }}>
                       {/* Avatar with online dot */}
                       <div style={{ position: 'relative', flexShrink: 0 }}>
@@ -266,14 +273,14 @@ export default function CoachInboxPage() {
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div className="row-b" style={{ marginBottom: 2 }}>
-                          <span style={{ fontSize: 11, fontWeight: urgent ? 700 : 600, color: 'var(--t1)' }}>
+                          <span style={{ fontSize: 12, fontWeight: urgent ? 700 : 600, color: 'var(--content-primary)' }}>
                             {c.full_name ?? 'Unnamed client'}
                           </span>
-                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--t4)' }}>
+                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--content-muted)' }}>
                             {relativeTime(c.last_log_date)}
                           </span>
                         </div>
-                        <div style={{ fontSize: 11, color: urgent ? 'var(--t2)' : 'var(--t4)', lineHeight: 1.4 }} className="truncate">
+                        <div style={{ fontSize: 12, color: urgent ? 'var(--content-secondary)' : 'var(--content-muted)', lineHeight: 1.4 }} className="truncate">
                           {c.lastMessage
                             ? `${c.lastMessage.slice(0, 64)}${c.lastMessage.length > 64 ? '…' : ''}`
                             : c.days_since_log === 0 ? 'Logged today'
@@ -286,8 +293,8 @@ export default function CoachInboxPage() {
                       {c.unreadCount > 0 && (
                         <div style={{
                           minWidth: 18, height: 18, borderRadius: 9, padding: '0 5px',
-                          background: 'var(--gold-300,#D4A853)', color: '#0a0a0a',
-                          fontSize: 10, fontWeight: 700, fontFamily: 'var(--font-mono)',
+                          background: 'var(--action-primary)', color: 'var(--action-on-primary)',
+                          fontSize: 12, fontWeight: 700, fontFamily: 'var(--font-mono)',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                           flexShrink: 0, alignSelf: 'center',
                         }}>

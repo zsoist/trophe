@@ -15,10 +15,10 @@ interface MealQualityTimelineProps {
 }
 
 const GRADE_STYLES: Record<Meal['grade'], { bg: string; text: string; emoji: string }> = {
-  A: { bg: 'rgba(74, 222, 128, 0.2)', text: '#4ade80', emoji: '\u{1F929}' },
-  B: { bg: 'rgba(212, 168, 83, 0.2)', text: '#D4A853', emoji: '\u{1F60A}' },
-  C: { bg: 'rgba(251, 191, 36, 0.2)', text: '#fbbf24', emoji: '\u{1F610}' },
-  D: { bg: 'rgba(248, 113, 113, 0.2)', text: '#f87171', emoji: '\u{1F615}' },
+  A: { bg: 'var(--status-success-bg)', text: 'var(--status-success-fg)', emoji: '\u{1F929}' },
+  B: { bg: 'var(--status-warning-bg)', text: 'var(--action-primary)', emoji: '\u{1F60A}' },
+  C: { bg: 'var(--status-warning-bg)', text: 'var(--status-warning-fg)', emoji: '\u{1F610}' },
+  D: { bg: 'var(--status-danger-bg)', text: 'var(--status-danger-fg)', emoji: '\u{1F615}' },
 };
 
 export default memo(function MealQualityTimeline({ meals }: MealQualityTimelineProps) {
@@ -29,9 +29,9 @@ export default memo(function MealQualityTimeline({ meals }: MealQualityTimelineP
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="bg-white/[0.04] border border-white/[0.06] rounded-xl p-4"
+      className="bg-[var(--surface-hover)] border border-[var(--border-subtle)] rounded-xl p-4"
     >
-      <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider mb-3">
+      <h3 className="text-[var(--content-secondary)] text-xs font-semibold uppercase tracking-wider mb-3">
         Meal Quality
       </h3>
 
@@ -51,7 +51,7 @@ export default memo(function MealQualityTimeline({ meals }: MealQualityTimelineP
             >
               {/* Connector line */}
               {i > 0 && (
-                <div className="absolute left-0 top-1/2 w-3 h-px bg-white/10 -translate-x-3" />
+                <div className="absolute left-0 top-1/2 w-3 h-px bg-[var(--surface-hover)] -translate-x-3" />
               )}
 
               {/* Emoji */}
@@ -59,20 +59,20 @@ export default memo(function MealQualityTimeline({ meals }: MealQualityTimelineP
 
               {/* Grade badge */}
               <div
-                className="px-2 py-0.5 rounded-full text-[10px] font-bold"
+                className="px-2 py-0.5 rounded-full text-xs font-bold"
                 style={{ backgroundColor: style.bg, color: style.text }}
               >
                 {meal.grade}
               </div>
 
               {/* Meal name */}
-              <span className="text-stone-400 text-[10px] text-center leading-tight">
+              <span className="text-[var(--content-secondary)] text-xs text-center leading-tight">
                 {meal.name}
               </span>
 
               {/* Time */}
               {meal.time && (
-                <span className="text-stone-600 text-[9px]">{meal.time}</span>
+                <span className="text-[var(--content-muted)] text-xs">{meal.time}</span>
               )}
             </motion.div>
           );
@@ -80,7 +80,7 @@ export default memo(function MealQualityTimeline({ meals }: MealQualityTimelineP
       </div>
 
       {meals.length === 0 && (
-        <p className="text-stone-500 text-xs text-center py-4">No meals logged today</p>
+        <p className="text-[var(--content-muted)] text-xs text-center py-4">No meals logged today</p>
       )}
     </motion.div>
   );

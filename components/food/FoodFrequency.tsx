@@ -28,7 +28,7 @@ interface FoodFrequencyProps {
   days?: number;
 }
 
-const RANK_COLORS = ['#D4A853', '#a8a29e', '#92754a'];
+const RANK_COLORS = ['#D4A853', 'var(--content-secondary)', '#92754a'];
 const BAR_COLOR   = 'rgba(168,162,158,0.35)';
 
 export default function FoodFrequency({ userId, days = 30 }: FoodFrequencyProps) {
@@ -111,9 +111,9 @@ export default function FoodFrequency({ userId, days = 30 }: FoodFrequencyProps)
   if (loading) {
     return (
       <div className="glass p-5">
-        <div className="h-3 w-28 rounded bg-stone-800/60 animate-pulse mb-3" />
+        <div className="h-3 w-28 rounded bg-[var(--surface-2)] animate-pulse mb-3" />
         {[1,2,3].map(i => (
-          <div key={i} className="h-14 w-full rounded-xl bg-stone-800/40 animate-pulse mb-2" />
+          <div key={i} className="h-14 w-full rounded-xl bg-[var(--surface-2)] animate-pulse mb-2" />
         ))}
       </div>
     );
@@ -122,10 +122,10 @@ export default function FoodFrequency({ userId, days = 30 }: FoodFrequencyProps)
   if (foods.length === 0) {
     return (
       <div className="glass p-5">
-        <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider mb-3 flex items-center gap-2">
+        <h3 className="text-[var(--content-secondary)] text-xs font-semibold uppercase tracking-wider mb-3 flex items-center gap-2">
           <Icon name="i-trophy" size={14} /> {t('analytics.top_foods')}
         </h3>
-        <p className="text-stone-500 text-sm text-center py-3">No food data yet</p>
+        <p className="text-[var(--content-muted)] text-sm text-center py-3">No food data yet</p>
       </div>
     );
   }
@@ -143,18 +143,18 @@ export default function FoodFrequency({ userId, days = 30 }: FoodFrequencyProps)
       {/* Accordion header */}
       <button
         onClick={() => setExpanded(e => !e)}
-        className="w-full flex items-center justify-between"
+        className="w-full flex items-center justify-between min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
       >
-        <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider flex items-center gap-2">
+        <h3 className="text-[var(--content-secondary)] text-xs font-semibold uppercase tracking-wider flex items-center gap-2">
           <Icon name="i-trophy" size={14} className="text-[var(--gold-300)]" />
           Top Foods
-          <span className="text-stone-600 font-normal normal-case tracking-normal">
+          <span className="text-[var(--content-muted)] font-normal normal-case tracking-normal">
             · {days}d
           </span>
         </h3>
         {expanded
-          ? <ChevronUp size={14} className="text-stone-500" />
-          : <ChevronDown size={14} className="text-stone-500" />}
+          ? <ChevronUp size={14} className="text-[var(--content-muted)]" />
+          : <ChevronDown size={14} className="text-[var(--content-muted)]" />}
       </button>
 
       <AnimatePresence>
@@ -184,11 +184,11 @@ export default function FoodFrequency({ userId, days = 30 }: FoodFrequencyProps)
                     {/* Row */}
                     <button
                       onClick={() => setSelected(isOpen ? null : food)}
-                      className="w-full px-3 py-2.5 flex items-center gap-3 hover:bg-white/[0.03] transition-colors rounded-xl text-left"
+                      className="w-full px-3 py-2.5 flex items-center gap-3 hover:bg-[var(--surface-2)] transition-colors rounded-xl text-left min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                     >
                       {/* Rank badge */}
                       <span
-                        className="text-[10px] font-bold w-5 text-center shrink-0"
+                        className="text-xs font-bold w-5 text-center shrink-0"
                         style={{ color: rankColor }}
                       >
                         {i < 3 ? `#${i + 1}` : `${i + 1}`}
@@ -197,15 +197,15 @@ export default function FoodFrequency({ userId, days = 30 }: FoodFrequencyProps)
                       {/* Name + bar */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between mb-1">
-                          <span className="text-stone-200 text-xs font-medium truncate">
+                          <span className="text-[var(--content-primary)] text-xs font-medium truncate">
                             {food.food_name}
                           </span>
-                          <span className="text-stone-500 text-[10px] shrink-0 ml-2">
+                          <span className="text-[var(--content-muted)] text-xs shrink-0 ml-2">
                             {food.count}× · {food.avgCalories} kcal
                           </span>
                         </div>
 
-                        <div className="relative h-1.5 rounded-full bg-white/[0.04] overflow-hidden">
+                        <div className="relative h-1.5 rounded-full bg-[var(--surface-2)] overflow-hidden">
                           <motion.div
                             className="absolute top-0 left-0 h-full rounded-full"
                             style={{ backgroundColor: i < 3 ? rankColor : BAR_COLOR }}
@@ -215,7 +215,7 @@ export default function FoodFrequency({ userId, days = 30 }: FoodFrequencyProps)
                           />
                         </div>
 
-                        <p className="text-stone-600 text-[10px] mt-0.5">
+                        <p className="text-[var(--content-muted)] text-xs mt-0.5">
                           {perWeek}× / week
                         </p>
                       </div>
@@ -223,7 +223,7 @@ export default function FoodFrequency({ userId, days = 30 }: FoodFrequencyProps)
                       {/* Expand chevron */}
                       <ChevronDown
                         size={11}
-                        className="text-stone-600 shrink-0 transition-transform"
+                        className="text-[var(--content-muted)] shrink-0 transition-transform"
                         style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
                       />
                     </button>
@@ -239,33 +239,33 @@ export default function FoodFrequency({ userId, days = 30 }: FoodFrequencyProps)
                           style={{ overflow: 'hidden' }}
                         >
                           <div className="px-3 pb-3">
-                            <div className="rounded-lg bg-white/[0.03] border border-white/[0.06] p-3">
+                            <div className="rounded-lg bg-[var(--surface-2)] border border-[var(--border-default)] p-3">
                               {/* Macro grid */}
                               <div className="grid grid-cols-4 gap-2 text-center mb-2.5">
                                 <div>
                                   <p className="font-bold text-sm" style={{ color: MACRO_COLORS.calories }}>{food.avgCalories}</p>
-                                  <p className="text-stone-500 text-[10px] mt-0.5">kcal</p>
+                                  <p className="text-[var(--content-muted)] text-xs mt-0.5">kcal</p>
                                 </div>
                                 <div>
                                   <p className="font-bold text-sm" style={{ color: MACRO_COLORS.protein }}>{food.avgProtein}g</p>
-                                  <p className="text-stone-500 text-[10px] mt-0.5">protein</p>
+                                  <p className="text-[var(--content-muted)] text-xs mt-0.5">protein</p>
                                 </div>
                                 <div>
                                   <p className="font-bold text-sm" style={{ color: MACRO_COLORS.carbs }}>{food.avgCarbs}g</p>
-                                  <p className="text-stone-500 text-[10px] mt-0.5">carbs</p>
+                                  <p className="text-[var(--content-muted)] text-xs mt-0.5">carbs</p>
                                 </div>
                                 <div>
                                   <p className="font-bold text-sm" style={{ color: MACRO_COLORS.fat }}>{food.avgFat}g</p>
-                                  <p className="text-stone-500 text-[10px] mt-0.5">fat</p>
+                                  <p className="text-[var(--content-muted)] text-xs mt-0.5">fat</p>
                                 </div>
                               </div>
 
                               {/* Totals + frequency */}
-                              <div className="flex items-center justify-between border-t border-white/[0.05] pt-2">
-                                <span className="text-stone-600 text-[10px]">
+                              <div className="flex items-center justify-between border-t border-[var(--border-default)] pt-2">
+                                <span className="text-[var(--content-muted)] text-xs">
                                   Logged {food.count}× over {days}d
                                 </span>
-                                <span className="text-[var(--gold-300)] text-[10px] font-medium">
+                                <span className="text-[var(--gold-300)] text-xs font-medium">
                                   {Math.round(food.totalCalories).toLocaleString()} kcal total
                                 </span>
                               </div>

@@ -15,19 +15,19 @@ export default function ProgressPhotos() {
       className="glass p-5 mb-4"
       style={{ borderColor: 'rgba(212, 168, 83, 0.2)', borderWidth: 1 }}
     >
-      <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider mb-4 flex items-center gap-2">
+      <h3 className="text-[var(--content-primary)] text-xs font-semibold uppercase tracking-wider mb-4 flex items-center gap-2">
         <Camera size={14} className="text-[#D4A853]" />
         {t('progressphotos.title')}
       </h3>
 
-      <div className="flex flex-col items-center justify-center py-8 rounded-xl border-2 border-dashed border-white/10 bg-white/[0.02]">
+      <div className="flex flex-col items-center justify-center py-8 rounded-xl border-2 border-dashed border-[var(--border-subtle)] bg-[var(--surface-2)]">
         <div className="w-14 h-14 rounded-full bg-[#D4A853]/10 flex items-center justify-center mb-3 text-[#D4A853]">
           <Icon name="i-camera" size={26} />
         </div>
-        <p className="text-stone-300 text-sm font-medium mb-1">
+        <p className="text-[var(--content-primary)] text-sm font-medium mb-1">
           {t('progressphotos.upload_first')}
         </p>
-        <p className="text-stone-600 text-xs text-center max-w-[260px] leading-relaxed">
+        <p className="text-[var(--content-muted)] text-xs text-center max-w-[260px] leading-relaxed">
           {t('progressphotos.description')}
         </p>
         <button

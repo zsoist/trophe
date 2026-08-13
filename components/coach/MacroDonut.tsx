@@ -15,9 +15,9 @@ interface MacroDonutProps {
 }
 
 const COLORS = {
-  protein: '#ef4444', // Red
-  carbs: '#3b82f6',   // Blue
-  fat: '#a855f7',     // Purple
+  protein: 'var(--status-danger-fg)', // Red
+  carbs: 'var(--data-carbs)',   // Blue
+  fat: 'var(--data-fat)',     // Purple
 };
 
 const SIZE = 160;
@@ -99,7 +99,7 @@ export default function MacroDonut({ protein, carbs, fat }: MacroDonutProps) {
             cy={SIZE / 2}
             r={RADIUS}
             fill="none"
-            stroke="rgba(255,255,255,0.04)"
+            stroke="var(--border-subtle)"
             strokeWidth={STROKE_WIDTH}
           />
 
@@ -139,22 +139,22 @@ export default function MacroDonut({ protein, carbs, fat }: MacroDonutProps) {
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.15 }}
             >
-              <div className="text-2xl font-bold text-stone-100">
+              <div className="text-2xl font-bold text-[var(--content-primary)]">
                 {segments.find((s) => s.key === hovered)?.pct}%
               </div>
-              <div className="text-[10px] text-stone-400 capitalize">{hovered}</div>
+              <div className="text-xs text-[var(--content-secondary)] capitalize">{hovered}</div>
             </motion.div>
           ) : (
             <>
               <motion.span
-                className="text-2xl font-bold text-stone-100"
+                className="text-2xl font-bold text-[var(--content-primary)]"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.8 }}
               >
                 {Math.round(totalCal)}
               </motion.span>
-              <span className="text-[10px] text-stone-500 uppercase tracking-wider">kcal</span>
+              <span className="text-xs text-[var(--content-muted)] uppercase tracking-wider">kcal</span>
             </>
           )}
         </div>
@@ -175,11 +175,11 @@ export default function MacroDonut({ protein, carbs, fat }: MacroDonutProps) {
                 className="w-2 h-2 rounded-full inline-block"
                 style={{ backgroundColor: seg.color }}
               />
-              <span className="text-[11px] text-stone-400">{seg.label}</span>
+              <span className="text-xs text-[var(--content-secondary)]">{seg.label}</span>
             </div>
-            <div className="text-xs text-stone-200 font-semibold">
+            <div className="text-xs text-[var(--content-primary)] font-semibold">
               {Math.round(seg.grams)}g
-              <span className="text-stone-500 font-normal ml-1">
+              <span className="text-[var(--content-muted)] font-normal ml-1">
                 ({seg.pct}%)
               </span>
             </div>

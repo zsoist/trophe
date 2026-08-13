@@ -32,7 +32,7 @@ export function Fab({
       className={[
         'w-11 h-11 rounded-full',
         'flex items-center justify-center',
-        'text-[#0a0a0a] text-xl font-light leading-none',
+        'text-[var(--action-on-primary)] text-xl font-light leading-none',
         'fab-shadow',
         'transition-transform active:scale-95 hover:scale-105',
         'disabled:opacity-40 disabled:cursor-not-allowed',

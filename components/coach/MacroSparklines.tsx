@@ -15,7 +15,7 @@ interface MacroSparklinesProps {
 
 export default memo(function MacroSparklines({
   data,
-  color = '#D4A853',
+  color = 'var(--action-primary)',
 }: MacroSparklinesProps) {
   if (data.length < 2) return null;
 

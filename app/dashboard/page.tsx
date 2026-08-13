@@ -1,6 +1,6 @@
 'use client';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Icon, AnimatedValue } from '@/components/ui';
 import { BotNav } from '@/components/ui/BotNav';
@@ -13,6 +13,7 @@ import type { ClientProfile, ClientHabit, HabitCheckin, FoodLogEntry, WaterLogEn
 import WeeklyCheckin from '@/components/summary/WeeklyCheckin';
 import { DashboardSkeleton } from '@/components/shared/Skeleton';
 import HabitDetailModal from '@/components/habits/HabitDetailModal';
+import { useThemeMode } from '@/components/shared/ThemeMode';
 import { localToday } from '../../lib/utils/dates';
 
 // ─── Greeting (no emojis — handoff spec) ───────────────────────
@@ -41,7 +42,7 @@ function CompactRing({ value, target, overGoal }: { value: number; target: numbe
   return (
     <div style={{ position: 'relative', width: 88, height: 88, flexShrink: 0 }}>
       <svg width={88} height={88} style={{ transform: 'rotate(-90deg)' }}>
-        <circle cx={44} cy={44} r={r} fill="none" stroke="rgba(255,255,255,.05)" strokeWidth={7} />
+        <circle cx={44} cy={44} r={r} fill="none" stroke="var(--border-subtle)" strokeWidth={7} />
         <motion.circle
           cx={44} cy={44} r={r}
           fill="none" stroke={strokeColor}
@@ -86,7 +87,7 @@ function MacroLine({
   const pct = target > 0 ? Math.min(value / target, 1) : 0;
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: warn ? '#f59e0b' : 'var(--t4)', width: 16, fontWeight: warn ? 700 : 400 }}>{label}</span>
+      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: warn ? '#f59e0b' : 'var(--content-muted)', width: 16, fontWeight: warn ? 700 : 400 }}>{label}</span>
       <div className="mb-track" style={{ flex: 1 }}>
         <motion.div
           className="mb-fill"
@@ -96,7 +97,7 @@ function MacroLine({
           transition={{ duration: 0.6, delay: 0.3 }}
         />
       </div>
-      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: warn ? '#f59e0b' : 'var(--t3)', width: 38, textAlign: 'right' }}>
+      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: warn ? '#f59e0b' : 'var(--content-secondary)', width: 38, textAlign: 'right' }}>
         {Math.round(value)}{unit}
       </span>
     </div>
@@ -136,7 +137,7 @@ function CelebrationModal({ streakDays, cycleDays, completionPct, habitName, bes
   return (
     <motion.div
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface-overlay)] backdrop-blur-sm p-4"
       onClick={onDismiss}
     >
       {CONFETTI_PARTICLES.map((p, i) => (
@@ -155,20 +156,20 @@ function CelebrationModal({ streakDays, cycleDays, completionPct, habitName, bes
         <h2 className="text-2xl font-bold gold-text mb-2" style={{ fontFamily: 'var(--font-serif)' }}>
           Habit Mastered!
         </h2>
-        <p className="text-stone-400 text-sm mb-6">
+        <p className="text-[var(--content-secondary)] text-sm mb-6">
           You completed the {cycleDays}-day cycle
-          {habitName && <> for <span className="text-stone-200 font-medium">{habitName}</span></>}
+          {habitName && <> for <span className="text-[var(--content-primary)] font-medium">{habitName}</span></>}
         </p>
         <div className="grid grid-cols-3 gap-3 mb-6">
           {[['Days', streakDays], ['Completion', `${Math.min(completionPct, 100)}%`], ['Best', bestStreak ?? '—']].map(([l, v]) => (
             <div key={String(l)} className="glass p-3 rounded-xl">
-              <div className="text-lg font-bold text-stone-100">{v}</div>
-              <div className="text-[10px] text-stone-500 uppercase tracking-wider">{l}</div>
+              <div className="text-lg font-bold text-[var(--content-primary)]">{v}</div>
+              <div className="text-xs text-[var(--content-muted)] uppercase tracking-wider">{l}</div>
             </div>
           ))}
         </div>
-        <p className="text-stone-500 text-xs mb-6">Your coach will assign your next challenge</p>
-        <button onClick={onDismiss} className="btn-gold w-full text-sm py-3">Continue</button>
+        <p className="text-[var(--content-muted)] text-xs mb-6">Your coach will assign your next challenge</p>
+        <button onClick={onDismiss} className="btn-gold min-h-11 min-w-11 w-full text-sm py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">Continue</button>
       </motion.div>
     </motion.div>
   );
@@ -196,8 +197,6 @@ export default function DashboardPage() {
   const [celebrationChecked, setCelebrationChecked] = useState(false);
   const [addingWater, setAddingWater]       = useState(false);
   const [waterSize, setWaterSize]           = useState<150|250|330|500>(250);
-  const [theme, setTheme]                   = useState<'dark' | 'light'>('dark');
-  const [themeFlash, setThemeFlash]         = useState(false);
   const [coachMessage, setCoachMessage]     = useState('');
   const [sendingMsg, setSendingMsg]         = useState(false);
   const [msgSent, setMsgSent]              = useState(false);
@@ -209,33 +208,9 @@ export default function DashboardPage() {
   const [coachName, setCoachName]           = useState<string | null>(null);
   const [splashTick, setSplashTick]         = useState(0);
   const reducedMotion = useReducedMotion();
+  const { mode: theme, toggleMode: toggleTheme } = useThemeMode();
 
   const today = localToday();
-
-  // ─── Theme toggle ──────────────────────────────────────────────
-  const toggleTheme = useCallback(() => {
-    setTheme(prev => {
-      const next = prev === 'dark' ? 'light' : 'dark';
-      document.documentElement.classList.toggle('light', next === 'light');
-      localStorage.setItem('trophe-theme', next);
-      return next;
-    });
-    // WOAH flash
-    setThemeFlash(true);
-    setTimeout(() => setThemeFlash(false), 500);
-  }, []);
-
-  // ─── Load saved theme ─────────────────────────────────────────
-  const themeLoaded = useRef(false);
-  useEffect(() => {
-    if (themeLoaded.current) return;
-    themeLoaded.current = true;
-    const saved = localStorage.getItem('trophe-theme') as 'dark' | 'light' | null;
-    if (saved) {
-      setTheme(saved);
-      document.documentElement.classList.toggle('light', saved === 'light');
-    }
-  }, []);
 
   // ─── Derived totals ───────────────────────────────────────────
   const totalCalories = foodLog.reduce((s, f) => s + (f.calories ?? 0), 0);
@@ -485,26 +460,7 @@ export default function DashboardPage() {
 
   // ─── RENDER ───────────────────────────────────────────────────
   return (
-    <div className="min-h-screen pb-20" style={{ background: 'var(--bg,#0a0a0a)' }}>
-
-      {/* ── Theme switch WOAH flash ── */}
-      <AnimatePresence>
-        {themeFlash && (
-          <motion.div
-            key="theme-flash"
-            initial={{ opacity: 0.7 }}
-            animate={{ opacity: 0 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.5, ease: 'easeOut' }}
-            style={{
-              position: 'fixed', inset: 0, zIndex: 9999, pointerEvents: 'none',
-              background: theme === 'light'
-                ? 'radial-gradient(ellipse at 50% 30%, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0) 70%)'
-                : 'radial-gradient(ellipse at 50% 30%, rgba(10,10,10,0.95) 0%, rgba(10,10,10,0) 70%)',
-            }}
-          />
-        )}
-      </AnimatePresence>
+    <div className="min-h-screen pb-[calc(5rem+env(safe-area-inset-bottom))]" style={{ background: 'var(--canvas)' }}>
 
       {/* ── Celebration modal ── */}
       <AnimatePresence>
@@ -532,7 +488,7 @@ export default function DashboardPage() {
           <div className="row-i" style={{ gap: 10 }}>
             <div className="av-lg">{firstName?.[0]?.toUpperCase() ?? 'N'}</div>
             <div>
-              <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-.01em', color: 'var(--t1,#FAFAF9)', display: 'flex', alignItems: 'baseline', gap: 5 }}>
+              <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-.01em', color: 'var(--content-primary)', display: 'flex', alignItems: 'baseline', gap: 5 }}>
                 <span>{greeting}{firstName ? ',' : ''}</span>
                 {firstName && (
                   isLatinText(firstName) ? (
@@ -552,9 +508,9 @@ export default function DashboardPage() {
             {userProfile?.role === 'super_admin' && (
               <a href="/super" title="Super Command Center" style={{
                 display: 'flex', alignItems: 'center', gap: 4,
-                padding: '5px 10px', borderRadius: 17, textDecoration: 'none',
+                padding: '5px 10px', minHeight: 44, minWidth: 44, borderRadius: 17, textDecoration: 'none',
                 background: 'rgba(212,168,83,.12)', border: '1px solid rgba(212,168,83,.35)',
-                color: 'var(--gold-300,#D4A853)', fontSize: 10,
+                color: 'var(--gold-300,#D4A853)', fontSize: 12,
                 fontFamily: 'var(--font-mono)', fontWeight: 700, letterSpacing: '.05em',
               }}>
                 ⌘ SUPER
@@ -566,26 +522,28 @@ export default function DashboardPage() {
                 {streakDays}d
               </span>
             )}
-            {/* Theme toggle — WOAH animation */}
+            {/* Theme mode is shared across all authenticated layouts. */}
             <motion.button
               onClick={toggleTheme}
-              whileTap={{ scale: 0.8 }}
+              whileTap={reducedMotion ? undefined : { scale: 0.8 }}
               style={{
-                width: 34, height: 34, borderRadius: 17,
+                width: 44, height: 44, borderRadius: 22,
                 background: theme === 'dark' ? 'rgba(212,168,83,.08)' : 'rgba(212,168,83,.15)',
                 border: `1px solid ${theme === 'dark' ? 'rgba(212,168,83,.2)' : 'rgba(212,168,83,.4)'}`,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 cursor: 'pointer', flexShrink: 0,
               }}
               aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              aria-pressed={theme === 'dark'}
+              className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             >
               <AnimatePresence mode="wait">
                 <motion.span
                   key={theme}
-                  initial={{ rotate: -90, scale: 0, opacity: 0 }}
+                  initial={reducedMotion ? false : { rotate: -90, scale: 0, opacity: 0 }}
                   animate={{ rotate: 0, scale: 1, opacity: 1 }}
-                  exit={{ rotate: 90, scale: 0, opacity: 0 }}
-                  transition={{ duration: 0.25, type: 'spring', stiffness: 300, damping: 18 }}
+                  exit={reducedMotion ? undefined : { rotate: 90, scale: 0, opacity: 0 }}
+                  transition={reducedMotion ? { duration: 0 } : { duration: 0.25, type: 'spring', stiffness: 300, damping: 18 }}
                   style={{ display: 'flex', color: 'var(--gold-300,#D4A853)' }}
                 >
                   <Icon name={theme === 'dark' ? 'i-sun' : 'i-moon'} size={15} />
@@ -605,7 +563,7 @@ export default function DashboardPage() {
                 check_in:    { bg: 'rgba(96,165,250,.08)',  border: 'rgba(96,165,250,.3)',  fg: '#93c5fd' },
                 progression: { bg: 'rgba(74,222,128,.08)',  border: 'rgba(74,222,128,.3)',  fg: '#86efac' },
                 concern:     { bg: 'rgba(248,113,113,.10)', border: 'rgba(248,113,113,.35)', fg: '#fca5a5' },
-                general:     { bg: 'rgba(255,255,255,.04)', border: 'var(--line)',          fg: 'var(--t2)' },
+                general:     { bg: 'var(--surface-2)', border: 'var(--border-default)',              fg: 'var(--content-primary)' },
               };
               const c = palette[n.session_type ?? 'general'] ?? palette.general;
               return (
@@ -613,10 +571,10 @@ export default function DashboardPage() {
                   padding: '10px 12px', borderRadius: 12,
                   background: c.bg, border: `1px solid ${c.border}`,
                 }}>
-                  <div style={{ fontSize: 9, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '.08em', color: c.fg, marginBottom: 3 }}>
+                  <div style={{ fontSize: 12, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '.08em', color: c.fg, marginBottom: 3 }}>
                     {coachName ? `Coach ${coachName}` : 'Your coach'}{n.session_type && n.session_type !== 'general' ? ` · ${n.session_type.replace('_', '-')}` : ''}
                   </div>
-                  <div style={{ fontSize: 12, color: 'var(--t1)', lineHeight: 1.5 }}>{n.note}</div>
+                  <div style={{ fontSize: 12, color: 'var(--content-primary)', lineHeight: 1.5 }}>{n.note}</div>
                 </div>
               );
             })}
@@ -625,21 +583,21 @@ export default function DashboardPage() {
 
         {/* ══ 1b2 · Intake interview CTA ══ */}
         {intakePending && (
-          <a href="/dashboard/intake" style={{ textDecoration: 'none' }}>
+          <a href="/dashboard/intake" className="block min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" style={{ textDecoration: 'none' }}>
             <div className="card" style={{
               padding: '11px 14px', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 10,
               border: '1px solid rgba(212,168,83,.3)', background: 'rgba(212,168,83,.06)',
             }}>
               <Icon name="i-edit" size={16} style={{ color: 'var(--gold-300,#D4A853)', flexShrink: 0 }} />
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--t1)' }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--content-primary)' }}>
                   {intakePending === 'quarterly' ? 'Seasonal check-in with your coach' : 'Twelve questions before we start'}
                 </div>
-                <div className="ds-sub" style={{ fontSize: 10 }}>
+                <div className="ds-sub" style={{ fontSize: 12 }}>
                   {intakePending === 'quarterly' ? 'Things change — tell your coach what moved' : '~5 minutes · shapes your whole plan'}
                 </div>
               </div>
-              <Icon name="i-chev-r" size={14} style={{ color: 'var(--t4)' }} />
+              <Icon name="i-chev-r" size={14} style={{ color: 'var(--content-muted)' }} />
             </div>
           </a>
         )}
@@ -647,7 +605,7 @@ export default function DashboardPage() {
         {/* ══ 1c · Today's plan from the coach (meal_plan_entries) ══ */}
         {todayPlan.length > 0 && (
           <div className="card" style={{ padding: '12px 14px', marginBottom: 14 }}>
-            <div style={{ fontSize: 9, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '.08em', color: 'var(--gold-300,#D4A853)', marginBottom: 8 }}>
+            <div style={{ fontSize: 12, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '.08em', color: 'var(--gold-300,#D4A853)', marginBottom: 8 }}>
               Today&apos;s plan
             </div>
             {todayPlan.map((row) => {
@@ -656,10 +614,10 @@ export default function DashboardPage() {
               };
               return (
                 <div key={row.meal_slot} style={{ display: 'flex', gap: 8, marginBottom: 6 }}>
-                  <span style={{ fontSize: 10, color: 'var(--t3)', width: 64, flexShrink: 0, paddingTop: 1 }}>
+                  <span style={{ fontSize: 12, color: 'var(--content-secondary)', width: 64, flexShrink: 0, paddingTop: 1 }}>
                     {slotLabels[row.meal_slot] ?? row.meal_slot}
                   </span>
-                  <span style={{ fontSize: 12, color: 'var(--t1)', lineHeight: 1.45 }}>{row.description}</span>
+                  <span style={{ fontSize: 12, color: 'var(--content-primary)', lineHeight: 1.45 }}>{row.description}</span>
                 </div>
               );
             })}
@@ -698,7 +656,7 @@ export default function DashboardPage() {
                 <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 700, color: 'var(--gold-300,#D4A853)', lineHeight: 1 }}>
                   {targetCalories > 0 ? Math.round((totalCalories / targetCalories) * 100) : 0}
                 </span>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--t4)', marginTop: 1 }}>%</span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--content-muted)', marginTop: 1 }}>%</span>
               </div>
             </div>
             )}
@@ -709,12 +667,12 @@ export default function DashboardPage() {
                 <>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 2 }}>
                     {/* Serif hero numeral + RAF count-up */}
-                    <span className="display-lg" style={{ fontSize: 32, lineHeight: '32px', color: 'var(--t1,#FAFAF9)' }}>
+                    <span className="display-lg" style={{ fontSize: 32, lineHeight: '32px', color: 'var(--content-primary)' }}>
                       <AnimatedValue value={Math.round(totalCalories)} />
                     </span>
-                    <span style={{ fontSize: 11, color: 'var(--t4)', fontFamily: 'var(--font-mono)' }}>kcal</span>
+                    <span style={{ fontSize: 12, color: 'var(--content-muted)', fontFamily: 'var(--font-mono)' }}>kcal</span>
                   </div>
-                  <div style={{ fontSize: 10, color: 'var(--t4)', marginBottom: 10 }}>
+                  <div style={{ fontSize: 12, color: 'var(--content-muted)', marginBottom: 10 }}>
                     {remaining > 0
                       ? <><span style={{ color: 'var(--gold-300,#D4A853)', fontWeight: 600 }}>{remaining.toLocaleString()}</span> remaining of {targetCalories.toLocaleString()}</>
                       : <span style={{ color: 'var(--ok,#65D387)', fontWeight: 600 }}>Goal reached</span>
@@ -746,37 +704,42 @@ export default function DashboardPage() {
             initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.12 }}
             className="card p-3 mb-3"
-            style={{ cursor: 'pointer' }}
-            onClick={() => setShowHabitModal(true)}
           >
-            <div className="row-b mb-2">
-              <div className="row-i" style={{ gap: 8 }}>
-                <Icon name={habitIconName(activeHabit.habit.emoji)} size={14}
-                  style={{ color: 'var(--info,#7DA3D9)', flexShrink: 0 }} />
-                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--t1)' }}>
-                  {activeHabit.habit.name_en}
+            <button
+              type="button"
+              aria-label={`View ${activeHabit.habit.name_en} details`}
+              onClick={() => setShowHabitModal(true)}
+              className="min-h-11 w-full cursor-pointer border-0 bg-transparent p-0 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+            >
+              <div className="row-b mb-2">
+                <div className="row-i" style={{ gap: 8 }}>
+                  <Icon name={habitIconName(activeHabit.habit.emoji)} size={14}
+                    style={{ color: 'var(--info,#7DA3D9)', flexShrink: 0 }} />
+                  <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--content-primary)' }}>
+                    {activeHabit.habit.name_en}
+                  </span>
+                </div>
+                <span className="eye" style={{ fontSize: 12 }}>
+                  {Math.round(streakPct)}%
                 </span>
               </div>
-              <span className="eye" style={{ fontSize: 9 }}>
-                {Math.round(streakPct)}%
-              </span>
-            </div>
 
-            {/* streak bar */}
-            <div className="mb-track mb-2">
-              <motion.div
-                className="mb-fill"
-                style={{ background: 'linear-gradient(90deg,var(--gold-400,#B8923E),var(--gold-200,#E8C078))' }}
-                initial={{ width: 0 }} animate={{ width: `${streakPct}%` }}
-                transition={{ duration: 0.8, delay: 0.3 }}
-              />
-            </div>
+              {/* streak bar */}
+              <div className="mb-track mb-2">
+                <motion.div
+                  className="mb-fill"
+                  style={{ background: 'linear-gradient(90deg,var(--gold-400,#B8923E),var(--gold-200,#E8C078))' }}
+                  initial={{ width: 0 }} animate={{ width: `${streakPct}%` }}
+                  transition={{ duration: 0.8, delay: 0.3 }}
+                />
+              </div>
+            </button>
 
             {/* buttons */}
             {todayCheckin ? (
               <div style={{
-                fontSize: 10, textAlign: 'center', padding: '6px 0',
-                color: todayCheckin.completed ? 'var(--ok,#65D387)' : 'var(--t4)',
+                fontSize: 12, textAlign: 'center', padding: '6px 0',
+                color: todayCheckin.completed ? 'var(--ok,#65D387)' : 'var(--content-muted)',
               }}>
                 <Icon name={todayCheckin.completed ? 'i-check' : 'i-x'} size={10}
                   style={{ verticalAlign: -1, marginRight: 3 }} />
@@ -811,8 +774,8 @@ export default function DashboardPage() {
           >
             <p className="ds-sub">No active habit · ask your coach</p>
             <button
-              className="btn-ghost"
-              style={{ marginTop: 10, fontSize: 12, padding: '10px 16px', minHeight: 40 }}
+              className="btn-ghost focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+              style={{ marginTop: 10, fontSize: 12, padding: '10px 16px', minHeight: 44, minWidth: 44 }}
               onClick={() =>
                 document.getElementById('coach-message-box')?.scrollIntoView({
                   behavior: reducedMotion ? 'auto' : 'smooth',
@@ -836,18 +799,19 @@ export default function DashboardPage() {
           <div className="row-b mb-2.5">
             <div className="row-i" style={{ gap: 6 }}>
               <Icon name="i-drop" size={13} style={{ color: 'var(--info,#7DA3D9)' }} />
-              <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--t1)' }}>{t('water.title')}</span>
-              <span style={{ fontSize: 9, color: 'var(--info,#7DA3D9)', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--content-primary)' }}>{t('water.title')}</span>
+              <span style={{ fontSize: 12, color: 'var(--info,#7DA3D9)', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
                 {totalWater}ml
               </span>
             </div>
             <div className="row-i" style={{ gap: 5 }}>
-              <span style={{ fontSize: 9, color: 'var(--t4)', fontFamily: 'var(--font-mono)' }}>
+              <span style={{ fontSize: 12, color: 'var(--content-muted)', fontFamily: 'var(--font-mono)' }}>
                 {waterGlasses}/{targetGlasses}
               </span>
               {waterLog.length > 0 && (
                 <button onClick={removeLastWater} aria-label="Undo last water"
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--t5)', padding: 6, margin: -4, display: 'flex' }}>
+                  className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--content-muted)', minWidth: 44, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Icon name="i-x" size={12} />
                 </button>
               )}
@@ -862,24 +826,27 @@ export default function DashboardPage() {
                 <motion.button
                   key={i}
                   onClick={() => filled ? undefined : addWater()}
-                  whileTap={!filled ? { scale: 1.25 } : {}}
-                  style={{ background: 'none', border: 'none', cursor: filled ? 'default' : 'pointer', padding: 0 }}
+                  whileTap={!filled && !reducedMotion ? { scale: 1.25 } : undefined}
+                  aria-label={`Log water cup ${i + 1}`}
+                  aria-pressed={filled}
+                  className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                  style={{ background: 'none', border: 'none', cursor: filled ? 'default' : 'pointer', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                   disabled={addingWater}
                 >
                   <motion.div
                     initial={false}
-                    animate={{ scale: filled ? [1, 1.3, 1] : 1, opacity: filled ? 1 : 0.3 }}
-                    transition={{ duration: 0.35, type: 'tween', ease: 'easeOut' }}
+                    animate={{ scale: filled && !reducedMotion ? [1, 1.3, 1] : 1, opacity: filled ? 1 : 0.3 }}
+                    transition={{ duration: reducedMotion ? 0 : 0.35, type: 'tween', ease: 'easeOut' }}
                     style={{
                       width: 24, height: 24, borderRadius: 6, position: 'relative',
                       background: filled
                         ? 'linear-gradient(180deg, rgba(125,163,217,.7) 0%, rgba(59,130,246,.8) 100%)'
-                        : 'rgba(255,255,255,.05)',
-                      border: `1px solid ${filled ? 'rgba(125,163,217,.5)' : 'rgba(255,255,255,.07)'}`,
+                        : 'var(--border-subtle)',
+                      border: `1px solid ${filled ? 'rgba(125,163,217,.5)' : 'var(--border-subtle)'}`,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}
                   >
-                    <Icon name="i-drop" size={11} style={{ color: filled ? '#fff' : 'var(--t5)' }} />
+                    <Icon name="i-drop" size={11} style={{ color: filled ? 'var(--content-inverse)' : 'var(--content-muted)' }} />
                     {/* One-shot splash ring on the just-filled glass */}
                     {filled && i === waterGlasses - 1 && splashTick > 0 && !reducedMotion && (
                       <span
@@ -904,11 +871,13 @@ export default function DashboardPage() {
               <button
                 key={ml}
                 onClick={() => setWaterSize(ml)}
+                aria-pressed={waterSize === ml}
+                className="min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                 style={{
-                  flex: 1, padding: '5px 2px', borderRadius: 8, fontSize: 9, cursor: 'pointer', fontWeight: 600,
-                  background: waterSize === ml ? 'rgba(125,163,217,.18)' : 'rgba(255,255,255,.04)',
-                  border: `1px solid ${waterSize === ml ? 'rgba(125,163,217,.45)' : 'rgba(255,255,255,.07)'}`,
-                  color: waterSize === ml ? 'var(--info,#7DA3D9)' : 'var(--t4)',
+                  flex: 1, minWidth: 44, padding: '5px 2px', borderRadius: 8, fontSize: 12, cursor: 'pointer', fontWeight: 600,
+                  background: waterSize === ml ? 'rgba(125,163,217,.18)' : 'var(--surface-2)',
+                  border: `1px solid ${waterSize === ml ? 'rgba(125,163,217,.45)' : 'var(--border-subtle)'}`,
+                  color: waterSize === ml ? 'var(--info,#7DA3D9)' : 'var(--content-muted)',
                   transition: 'all .15s',
                 }}
               >
@@ -916,9 +885,9 @@ export default function DashboardPage() {
               </button>
             ))}
             <motion.button
-              className="btn-gold"
-              whileTap={{ scale: 0.95 }}
-              style={{ flex: 2, padding: '5px 10px', fontSize: 10, borderRadius: 8 }}
+              className="btn-gold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+              whileTap={reducedMotion ? undefined : { scale: 0.95 }}
+              style={{ flex: 2, minHeight: 44, minWidth: 44, padding: '5px 10px', fontSize: 12, borderRadius: 8 }}
               onClick={() => addWater(waterSize)}
               disabled={addingWater}
             >
@@ -937,26 +906,26 @@ export default function DashboardPage() {
           {/* Primary: Food + Workout — large 50/50 */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
             <motion.button
-              className="card"
-              whileTap={{ scale: 0.96 }}
+              className="card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+              whileTap={reducedMotion ? undefined : { scale: 0.96 }}
               style={{ padding: '18px 12px', textAlign: 'center', cursor: 'pointer', minHeight: 84 }}
               onClick={() => router.push('/dashboard/log')}
             >
               <Icon name="i-bowl" size={26} style={{ color: 'var(--gold-300,#D4A853)' }} />
-              <div style={{ fontSize: 13, fontWeight: 700, marginTop: 7, color: 'var(--t1)', letterSpacing: '-.01em' }}>{t('home.food')}</div>
-              <div className="ds-sub" style={{ marginTop: 3, fontSize: 9 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, marginTop: 7, color: 'var(--content-primary)', letterSpacing: '-.01em' }}>{t('home.food')}</div>
+              <div className="ds-sub" style={{ marginTop: 3, fontSize: 12 }}>
                 {foodLog.length > 0 ? `${foodLog.length} ${t('home.entries_n')}` : t('home.log_a_meal')}
               </div>
             </motion.button>
             <motion.button
-              className="card"
-              whileTap={{ scale: 0.96 }}
+              className="card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+              whileTap={reducedMotion ? undefined : { scale: 0.96 }}
               style={{ padding: '18px 12px', textAlign: 'center', cursor: 'pointer', minHeight: 84 }}
               onClick={() => router.push('/dashboard/workout')}
             >
               <Icon name="i-dumbbell" size={26} style={{ color: 'var(--gold-300,#D4A853)' }} />
-              <div style={{ fontSize: 13, fontWeight: 700, marginTop: 7, color: 'var(--t1)', letterSpacing: '-.01em' }}>{t('home.workout')}</div>
-              <div className="ds-sub" style={{ marginTop: 3, fontSize: 9 }}>{t('home.log_session')}</div>
+              <div style={{ fontSize: 13, fontWeight: 700, marginTop: 7, color: 'var(--content-primary)', letterSpacing: '-.01em' }}>{t('home.workout')}</div>
+              <div className="ds-sub" style={{ marginTop: 3, fontSize: 12 }}>{t('home.log_session')}</div>
             </motion.button>
           </div>
 
@@ -970,15 +939,15 @@ export default function DashboardPage() {
             ] as const).map(a => (
               <motion.button
                 key={a.labelKey}
-                className="card"
-                whileTap={{ scale: 0.94 }}
-                style={{ padding: '11px 4px 9px', textAlign: 'center', cursor: 'pointer' }}
+                className="card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                whileTap={reducedMotion ? undefined : { scale: 0.94 }}
+                style={{ minWidth: 44, minHeight: 44, padding: '11px 4px 9px', textAlign: 'center', cursor: 'pointer' }}
                 onClick={a.action}
               >
                 <Icon name={a.icon as Parameters<typeof Icon>[0]['name']} size={17}
                   style={{ color: 'var(--gold-300,#D4A853)' }} />
-                <div style={{ fontSize: 10, fontWeight: 600, marginTop: 5, color: 'var(--t2)' }}>{t(a.labelKey)}</div>
-                {a.sub && <div className="ds-sub" style={{ fontSize: 8, marginTop: 1 }}>{a.sub}</div>}
+                <div style={{ fontSize: 12, fontWeight: 600, marginTop: 5, color: 'var(--content-primary)' }}>{t(a.labelKey)}</div>
+                {a.sub && <div className="ds-sub" style={{ fontSize: 12, marginTop: 1 }}>{a.sub}</div>}
               </motion.button>
             ))}
           </div>
@@ -991,7 +960,7 @@ export default function DashboardPage() {
           let text = '';
           let color = 'var(--gold-300,#D4A853)';
           if (foodLog.length === 0) {
-            icon = 'i-leaf'; text = t('insight.log_first'); color = 'var(--t3)';
+            icon = 'i-leaf'; text = t('insight.log_first'); color = 'var(--content-secondary)';
           } else if (totalSugar > 30) {
             icon = 'i-flame'; text = t('insight.sugar_high', { n: Math.round(totalSugar) }); color = '#f59e0b';
           } else if (targetProtein > 0 && (totalProtein / targetProtein) < 0.3) {
@@ -1026,11 +995,11 @@ export default function DashboardPage() {
               style={{
                 padding: '10px 14px', marginBottom: 12,
                 display: 'flex', alignItems: 'center', gap: 10,
-                background: 'rgba(255,255,255,.025)',
+                background: 'var(--surface-2)',
               }}
             >
               <Icon name={icon} size={13} style={{ color, flexShrink: 0 }} />
-              <span style={{ fontSize: 11, color: 'var(--t3)', flex: 1 }}>{text}</span>
+              <span style={{ fontSize: 12, color: 'var(--content-secondary)', flex: 1 }}>{text}</span>
             </motion.div>
           );
         })()}
@@ -1040,7 +1009,7 @@ export default function DashboardPage() {
           initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.32 }}
           className="card mb-3"
-          style={{ padding: '12px 14px', background: 'rgba(255,255,255,.025)' }}
+          style={{ padding: '12px 14px', background: 'var(--surface-2)' }}
         >
           <div className="row-i mb-2.5" style={{ gap: 8 }}>
             {/* Coach avatar */}
@@ -1053,19 +1022,19 @@ export default function DashboardPage() {
               <Icon name="i-user" size={14} style={{ color: 'var(--gold-300,#D4A853)' }} />
             </div>
             <div>
-              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--t1)' }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--content-primary)' }}>
                 {coachName ? `${t('coach_msg.coach_prefix')} ${coachName}` : t('coach_msg.your_coach')}
                 {' '}
-                <a href="/dashboard/messages" style={{ color: 'var(--gold-300,#D4A853)', fontSize: 9, fontFamily: 'var(--font-mono)', textDecoration: 'none' }}>
+                <a href="/dashboard/messages" className="inline-flex min-h-11 min-w-11 items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" style={{ color: 'var(--gold-300,#D4A853)', fontSize: 12, fontFamily: 'var(--font-mono)', textDecoration: 'none' }}>
                   · open chat →
                 </a>
                 {' '}
-                <a href="/dashboard/book" style={{ color: 'var(--gold-300,#D4A853)', fontSize: 9, fontFamily: 'var(--font-mono)', textDecoration: 'none' }}>
+                <a href="/dashboard/book" className="inline-flex min-h-11 min-w-11 items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" style={{ color: 'var(--gold-300,#D4A853)', fontSize: 12, fontFamily: 'var(--font-mono)', textDecoration: 'none' }}>
                   · book session →
                 </a>
               </div>
               {latestCoachNote && (
-                <div style={{ fontSize: 9, color: 'var(--t4)', marginTop: 1, lineHeight: 1.4, maxWidth: 220 }} className="truncate">
+                <div style={{ fontSize: 12, color: 'var(--content-muted)', marginTop: 1, lineHeight: 1.4, maxWidth: 220 }} className="truncate">
                   {latestCoachNote.slice(0, 60)}{latestCoachNote.length > 60 ? '…' : ''}
                 </div>
               )}
@@ -1075,7 +1044,7 @@ export default function DashboardPage() {
           {msgSent ? (
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-              style={{ textAlign: 'center', padding: '8px 0', fontSize: 11, color: 'var(--ok,#65D387)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}
+              style={{ textAlign: 'center', padding: '8px 0', fontSize: 12, color: 'var(--ok,#65D387)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}
             >
               <Icon name="i-check" size={12} />
               {t('coach_msg.sent_confirm')}
@@ -1083,7 +1052,7 @@ export default function DashboardPage() {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {msgError && (
-              <div style={{ fontSize: 10, color: 'var(--err,#E87A6E)', textAlign: 'center' }}>
+              <div style={{ fontSize: 12, color: 'var(--err,#E87A6E)', textAlign: 'center' }}>
                 {t('coach_msg.send_failed')}
               </div>
             )}
@@ -1093,18 +1062,20 @@ export default function DashboardPage() {
                 onChange={e => setCoachMessage(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && sendCoachMessage()}
                 placeholder={t('coach_msg.placeholder')}
+                className="min-h-11 text-base sm:text-sm"
                 style={{
-                  flex: 1, background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.08)',
-                  borderRadius: 10, padding: '7px 10px', fontSize: 11, color: 'var(--t1)',
+                  flex: 1, background: 'var(--surface-1)', border: '1px solid var(--border-subtle)',
+                  borderRadius: 10, padding: '7px 10px', color: 'var(--content-primary)',
                   outline: 'none',
                 }}
               />
               <motion.button
-                className="btn-gold"
-                whileTap={{ scale: 0.93 }}
+                className="btn-gold min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                aria-label={t('coach_msg.send')}
+                whileTap={reducedMotion ? undefined : { scale: 0.93 }}
                 onClick={sendCoachMessage}
                 disabled={sendingMsg || !coachMessage.trim()}
-                style={{ padding: '7px 12px', fontSize: 10, borderRadius: 10, flexShrink: 0 }}
+                style={{ padding: '7px 12px', fontSize: 12, borderRadius: 10, flexShrink: 0 }}
               >
                 <Icon name="i-send" size={11} />
               </motion.button>

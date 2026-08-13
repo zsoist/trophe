@@ -99,9 +99,9 @@ const stepBtn: React.CSSProperties = {
   width: 28,
   height: 28,
   borderRadius: 8,
-  border: '1px solid var(--line)',
-  background: 'rgba(255,255,255,.04)',
-  color: 'var(--t2)',
+  border: '1px solid var(--border-default)',
+  background: 'var(--border-subtle)',
+  color: 'var(--content-secondary)',
   cursor: 'pointer',
   fontSize: 16,
   display: 'flex',
@@ -516,7 +516,7 @@ export default function PlanEditorPage() {
     return (
       <div
         className="min-h-screen flex items-center justify-center"
-        style={{ background: 'var(--bg,#0a0a0a)' }}
+        style={{ background: 'var(--canvas)' }}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
           <div
@@ -524,7 +524,7 @@ export default function PlanEditorPage() {
               width: 36,
               height: 36,
               borderRadius: '50%',
-              border: '2px solid var(--line)',
+              border: '2px solid var(--border-default)',
               borderTopColor: 'var(--gold-300,#D4A853)',
               animation: 'spin 0.8s linear infinite',
             }}
@@ -539,23 +539,27 @@ export default function PlanEditorPage() {
     return (
       <div
         className="min-h-screen flex items-center justify-center px-4"
-        style={{ background: 'var(--bg,#0a0a0a)' }}
+        style={{ background: 'var(--canvas)' }}
       >
         <div className="card" style={{ padding: 24, textAlign: 'center', maxWidth: 320 }}>
           <Lock size={28} style={{ color: 'var(--gold-300,#D4A853)', margin: '0 auto 8px', display: 'block' }} aria-hidden />
-          <div style={{ fontSize: 14, color: 'var(--t2)', marginBottom: 16 }}>
+          <div style={{ fontSize: 14, color: 'var(--content-secondary)', marginBottom: 16 }}>
             Coach access required
           </div>
           <button
+            data-coach-primary-action
+            data-icon-only
+            aria-label="Back to client workspace"
             onClick={() => router.back()}
+            className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             style={{
               background: 'var(--gold-300,#D4A853)',
-              color: '#0a0a0a',
+              color: 'var(--action-on-primary)',
               border: 'none',
               borderRadius: 10,
               padding: '10px 20px',
               fontFamily: 'var(--font-mono)',
-              fontSize: 11,
+              fontSize: 12,
               fontWeight: 700,
               cursor: 'pointer',
               textTransform: 'uppercase',
@@ -573,22 +577,22 @@ export default function PlanEditorPage() {
     return (
       <div
         className="min-h-screen flex items-center justify-center px-4"
-        style={{ background: 'var(--bg,#0a0a0a)' }}
+        style={{ background: 'var(--canvas)' }}
       >
         <div className="card" style={{ padding: 24, textAlign: 'center', maxWidth: 340 }}>
-          <div role="alert" style={{ fontSize: 13, color: 'var(--t2)', marginBottom: 16 }}>
+          <div role="alert" style={{ fontSize: 13, color: 'var(--content-secondary)', marginBottom: 16 }}>
             {loadError}
           </div>
-          <button
+          <button className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             onClick={loadData}
             style={{
               background: 'var(--gold-300,#D4A853)',
-              color: '#0a0a0a',
+              color: 'var(--action-on-primary)',
               border: 'none',
               borderRadius: 10,
               padding: '10px 20px',
               fontFamily: 'var(--font-mono)',
-              fontSize: 11,
+              fontSize: 12,
               fontWeight: 700,
               cursor: 'pointer',
               textTransform: 'uppercase',
@@ -623,13 +627,14 @@ export default function PlanEditorPage() {
   return (
     <div
       className="min-h-screen"
-      style={{ background: 'var(--bg,#0a0a0a)', paddingBottom: 40 }}
+      style={{ background: 'var(--canvas)', paddingBottom: 40 }}
     >
       {/* Spin keyframe injected inline — works without global CSS changes */}
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
 
       <motion.div
-        className="max-w-md lg:max-w-5xl mx-auto px-4 pt-3"
+        data-coach-mobile-workspace
+        className="max-w-md lg:max-w-5xl mx-auto grid grid-cols-1 px-4 pt-3"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
@@ -637,8 +642,12 @@ export default function PlanEditorPage() {
         {/* ── Header ── */}
         <div className="row-b" style={{ marginBottom: 16 }}>
           <button
+            data-coach-primary-action
+            data-icon-only
+            aria-label="Back to client workspace"
             onClick={() => router.back()}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--t3)' }}
+            className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--content-muted)' }}
           >
             <Icon name="i-chev-l" size={16} />
           </button>
@@ -652,7 +661,7 @@ export default function PlanEditorPage() {
             {initials(profileName)}
           </div>
           <div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--t1)' }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--content-primary)' }}>
               {profileName ?? '—'}
             </div>
             <div className="ds-sub">{profileEmail ?? '—'}</div>
@@ -666,17 +675,20 @@ export default function PlanEditorPage() {
         <div className="card" style={{ padding: 16, marginBottom: 16 }}>
           {/* Phase selector */}
           <div className="row-b" style={{ marginBottom: 12 }}>
-            <span style={{ fontSize: 11, color: 'var(--t3)' }}>Coaching Phase</span>
+            <label htmlFor="coaching-phase" style={{ fontSize: 12, color: 'var(--content-muted)' }}>Coaching Phase</label>
             <select
+              id="coaching-phase"
               value={phase}
               onChange={(e) => setPhase(e.target.value)}
+              className="min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
               style={{
-                background: 'var(--surface,#141414)',
-                border: '1px solid var(--line)',
+                background: 'var(--surface-1)',
+                border: '1px solid var(--border-default)',
                 borderRadius: 8,
                 padding: '4px 8px',
-                color: 'var(--t1)',
-                fontSize: 11,
+                minHeight: 44,
+                color: 'var(--content-primary)',
+                fontSize: 16,
                 fontFamily: 'var(--font-mono)',
               }}
             >
@@ -687,8 +699,8 @@ export default function PlanEditorPage() {
           </div>
 
           {/* Calories — derived from macros (P/C 4 kcal/g, fat 9), never typed */}
-          <div className="row-b" style={{ marginBottom: 12, paddingBottom: 10, borderBottom: '1px solid var(--line)' }}>
-            <span style={{ fontSize: 11, color: 'var(--t2)' }} title="Auto-computed: protein ×4 + carbs ×4 + fat ×9">
+          <div className="row-b" style={{ marginBottom: 12, paddingBottom: 10, borderBottom: '1px solid var(--border-default)' }}>
+            <span style={{ fontSize: 12, color: 'var(--content-secondary)' }} title="Auto-computed: protein ×4 + carbs ×4 + fat ×9">
               Calories (auto)
             </span>
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 16, fontWeight: 700, color: 'var(--gold-300,#D4A853)' }}>
@@ -700,12 +712,12 @@ export default function PlanEditorPage() {
           <button
             onClick={suggestFromBodyComp}
             disabled={suggesting}
-            className="row-i"
+            className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] row-i"
             style={{
               gap: 6, marginBottom: 10, padding: '7px 10px', borderRadius: 8, width: '100%',
               justifyContent: 'center', cursor: suggesting ? 'not-allowed' : 'pointer',
               background: 'rgba(212,168,83,.1)', border: '1px solid rgba(212,168,83,.25)',
-              color: 'var(--gold-300,#D4A853)', fontSize: 10, fontFamily: 'var(--font-mono)',
+              color: 'var(--gold-300,#D4A853)', fontSize: 12, fontFamily: 'var(--font-mono)',
               fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase',
             }}
           >
@@ -713,22 +725,22 @@ export default function PlanEditorPage() {
             {suggesting ? 'Computing…' : 'Suggest from body comp'}
           </button>
           {suggestMsg && (
-            <div style={{ fontSize: 10, color: 'var(--t3)', marginBottom: 10, textAlign: 'center' }}>{suggestMsg}</div>
+            <div style={{ fontSize: 12, color: 'var(--content-muted)', marginBottom: 10, textAlign: 'center' }}>{suggestMsg}</div>
           )}
 
           {/* Macro stepper rows */}
           {macroFields.map((f) => (
             <div key={f.key} className="row-b" style={{ marginBottom: 10 }}>
-              <span style={{ fontSize: 11, color: 'var(--t2)', width: 60 }}>{f.label}</span>
+              <span style={{ fontSize: 12, color: 'var(--content-secondary)', width: 60 }}>{f.label}</span>
               <div className="row-i" style={{ gap: 6 }}>
-                <button style={stepBtn} onClick={() => step(f.key, -f.stepSize)}>
+                <button className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" style={stepBtn} onClick={() => step(f.key, -f.stepSize)}>
                   −
                 </button>
                 <span
                   style={{
                     fontFamily: 'var(--font-mono)',
                     fontSize: 14,
-                    color: 'var(--t1)',
+                    color: 'var(--content-primary)',
                     minWidth: 64,
                     textAlign: 'center',
                   }}
@@ -736,7 +748,7 @@ export default function PlanEditorPage() {
                   {targets[f.key]}
                   {f.unit}
                 </span>
-                <button style={stepBtn} onClick={() => step(f.key, f.stepSize)}>
+                <button className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" style={stepBtn} onClick={() => step(f.key, f.stepSize)}>
                   +
                 </button>
               </div>
@@ -749,16 +761,16 @@ export default function PlanEditorPage() {
            <span className="eye">WEEKLY MEAL PLAN</span>
           <div className="row-i" style={{ gap: 12 }}>
             {mealSaving && (
-              <span style={{ fontSize: 10, color: 'var(--t3)', fontFamily: 'var(--font-mono)' }}>saving…</span>
+              <span style={{ fontSize: 12, color: 'var(--content-muted)', fontFamily: 'var(--font-mono)' }}>saving…</span>
             )}
             <button
               onClick={() => setShowMacros(true)}
               title="Count this week's plan into macros per day vs target"
-              className="row-i"
+              className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] row-i"
               style={{
                 gap: 5, padding: '5px 10px', borderRadius: 8, cursor: 'pointer',
                 background: 'rgba(212,168,83,.12)', border: '1px solid rgba(212,168,83,.3)',
-                color: 'var(--gold-300,#D4A853)', fontSize: 10, fontFamily: 'var(--font-mono)',
+                color: 'var(--gold-300,#D4A853)', fontSize: 12, fontFamily: 'var(--font-mono)',
                 fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase',
               }}
             >
@@ -768,11 +780,11 @@ export default function PlanEditorPage() {
             <button
               onClick={() => setShowShopping(true)}
               title="Generate a shopping list from this week's plan"
-              className="row-i"
+              className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] row-i"
               style={{
                 gap: 5, padding: '5px 10px', borderRadius: 8, cursor: 'pointer',
                 background: 'rgba(212,168,83,.12)', border: '1px solid rgba(212,168,83,.3)',
-                color: 'var(--gold-300,#D4A853)', fontSize: 10, fontFamily: 'var(--font-mono)',
+                color: 'var(--gold-300,#D4A853)', fontSize: 12, fontFamily: 'var(--font-mono)',
                 fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase',
               }}
             >
@@ -784,7 +796,7 @@ export default function PlanEditorPage() {
          {mealSaveError && (
            <div
              role="alert"
-             style={{ color: 'var(--err,#E87A6E)', fontSize: 11, marginBottom: 8 }}
+             style={{ color: 'var(--err,#E87A6E)', fontSize: 12, marginBottom: 8 }}
            >
              {mealSaveError}
            </div>
@@ -796,7 +808,7 @@ export default function PlanEditorPage() {
               <tr>
                 <th style={{ width: 90 }} />
                 {DAY_LABELS.map((d) => (
-                  <th key={d} style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--t3)', fontWeight: 700, paddingBottom: 2 }}>
+                  <th key={d} style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--content-muted)', fontWeight: 700, paddingBottom: 2 }}>
                     {d}
                   </th>
                 ))}
@@ -805,26 +817,28 @@ export default function PlanEditorPage() {
             <tbody>
               {MEAL_SLOTS.map((slot) => (
                 <tr key={slot}>
-                  <td style={{ fontSize: 10, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '.05em', verticalAlign: 'top', paddingTop: 8 }}>
+                  <td style={{ fontSize: 12, color: 'var(--content-muted)', textTransform: 'uppercase', letterSpacing: '.05em', verticalAlign: 'top', paddingTop: 8 }}>
                     {SLOT_LABELS[slot]}
                   </td>
                   {DAY_LABELS.map((_, day) => (
                     <td key={day} style={{ verticalAlign: 'top' }}>
                       <div style={{ position: 'relative' }}>
                         <textarea
+                          aria-label={`${DAY_LABELS[day]} ${SLOT_LABELS[slot]}`}
                           value={mealGrid[`${day}-${slot}`] ?? ''}
                           onChange={(e) => setMealCell(day, slot, e.target.value)}
                           onBlur={(e) => saveMealCell(day, slot, e.target.value)}
                           rows={2}
                           style={{
                             width: '100%', minWidth: 96,
-                            background: 'var(--surface,#141414)',
-                            border: '1px solid var(--line)', borderRadius: 8,
-                            padding: '6px 20px 6px 8px', color: 'var(--t1)', fontSize: 11,
+                            background: 'var(--surface-1)',
+                            border: '1px solid var(--border-default)', borderRadius: 8,
+                            padding: '6px 20px 6px 8px', color: 'var(--content-primary)', fontSize: 16,
                             resize: 'vertical', fontFamily: 'inherit',
                           }}
                         />
-                        <button
+                        <button className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                          aria-label={`Suggest a meal for ${DAY_LABELS[day]} ${SLOT_LABELS[slot]}`}
                           onClick={() => setPicker({ day, slot })}
                           title="AI: suggest a meal for this slot"
                           style={{
@@ -841,19 +855,19 @@ export default function PlanEditorPage() {
               ))}
             </tbody>
           </table>
-          <div className="ds-sub" style={{ fontSize: 9, marginTop: 4 }}>
+          <div className="ds-sub" style={{ fontSize: 12, marginTop: 4 }}>
             Cells save on blur · use the mobile view&apos;s &quot;→ all week&quot; to repeat a meal
           </div>
         </div>
 
         {/* Mobile: per-day editor with slot copy */}
-        <div className="lg:hidden card" style={{ padding: 12, marginBottom: 16 }}>
+        <div className="lg:hidden card grid grid-cols-1" style={{ padding: 12, marginBottom: 16 }}>
           {/* Day selector */}
           <div style={{ display: 'flex', gap: 4, marginBottom: 12 }}>
             {DAY_LABELS.map((d, i) => {
               const dayHasContent = MEAL_SLOTS.some((s) => (mealGrid[`${i}-${s}`] ?? '').trim());
               return (
-                <button
+                <button className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                   key={d}
                   onClick={() => setActiveDay(i)}
                   style={{
@@ -861,10 +875,10 @@ export default function PlanEditorPage() {
                     padding: '6px 0',
                     borderRadius: 8,
                     border: '1px solid',
-                    borderColor: activeDay === i ? 'var(--gold-300,#D4A853)' : 'var(--line)',
+                    borderColor: activeDay === i ? 'var(--gold-300,#D4A853)' : 'var(--border-default)',
                     background: activeDay === i ? 'rgba(212,168,83,.12)' : 'transparent',
-                    color: activeDay === i ? 'var(--gold-300,#D4A853)' : dayHasContent ? 'var(--t1)' : 'var(--t4)',
-                    fontSize: 10,
+                    color: activeDay === i ? 'var(--gold-300,#D4A853)' : dayHasContent ? 'var(--content-primary)' : 'var(--content-muted)',
+                    fontSize: 12,
                     fontFamily: 'var(--font-mono)',
                     fontWeight: 700,
                     cursor: 'pointer',
@@ -880,23 +894,24 @@ export default function PlanEditorPage() {
           {MEAL_SLOTS.map((slot) => (
             <div key={slot} style={{ marginBottom: 10 }}>
               <div className="row-b" style={{ marginBottom: 4 }}>
-                <span style={{ fontSize: 10, color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '.06em' }}>
+                <span style={{ fontSize: 12, color: 'var(--content-muted)', textTransform: 'uppercase', letterSpacing: '.06em' }}>
                   {SLOT_LABELS[slot]}
                 </span>
                 <div className="row-i" style={{ gap: 10 }}>
                   <button
+                    aria-label={`Suggest a meal for ${DAY_LABELS[activeDay]} ${SLOT_LABELS[slot]}`}
                     onClick={() => setPicker({ day: activeDay, slot })}
                     title="AI: suggest a meal for this slot"
-                    className="row-i"
+                    className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] row-i"
                     style={{
                       background: 'none', border: 'none', cursor: 'pointer', gap: 3,
-                      color: 'var(--gold-300,#D4A853)', fontSize: 10, fontFamily: 'var(--font-mono)',
+                      color: 'var(--gold-300,#D4A853)', fontSize: 12, fontFamily: 'var(--font-mono)',
                     }}
                   >
                     <Icon name="i-sparkle" size={11} style={{ color: 'var(--gold-300,#D4A853)' }} />
                     AI
                   </button>
-                  <button
+                  <button className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                     onClick={() => copySlotToWeek(slot)}
                     disabled={!(mealGrid[`${activeDay}-${slot}`] ?? '').trim()}
                     title="Copy this meal to every day of the week"
@@ -904,8 +919,8 @@ export default function PlanEditorPage() {
                       background: 'none',
                       border: 'none',
                       cursor: 'pointer',
-                      color: 'var(--t4)',
-                      fontSize: 10,
+                      color: 'var(--content-muted)',
+                      fontSize: 12,
                       fontFamily: 'var(--font-mono)',
                     }}
                   >
@@ -914,6 +929,7 @@ export default function PlanEditorPage() {
                 </div>
               </div>
               <textarea
+                aria-label={`${DAY_LABELS[activeDay]} ${SLOT_LABELS[slot]}`}
                 value={mealGrid[`${activeDay}-${slot}`] ?? ''}
                 onChange={(e) => setMealCell(activeDay, slot, e.target.value)}
                 onBlur={(e) => saveMealCell(activeDay, slot, e.target.value)}
@@ -921,12 +937,12 @@ export default function PlanEditorPage() {
                 rows={2}
                 style={{
                   width: '100%',
-                  background: 'var(--surface,#141414)',
-                  border: '1px solid var(--line)',
+                  background: 'var(--surface-1)',
+                  border: '1px solid var(--border-default)',
                   borderRadius: 8,
                   padding: '8px 10px',
-                  color: 'var(--t1)',
-                  fontSize: 12,
+                  color: 'var(--content-primary)',
+                  fontSize: 16,
                   resize: 'vertical',
                   fontFamily: 'inherit',
                 }}
@@ -942,7 +958,7 @@ export default function PlanEditorPage() {
          {habitActionError && (
            <div
              role="alert"
-             style={{ color: 'var(--err,#E87A6E)', fontSize: 11, marginBottom: 8 }}
+             style={{ color: 'var(--err,#E87A6E)', fontSize: 12, marginBottom: 8 }}
            >
              {habitActionError}
            </div>
@@ -957,7 +973,7 @@ export default function PlanEditorPage() {
               <div className="row-i" style={{ gap: 8 }}>
                 <span style={{ fontSize: 18 }}>{ch.habit.emoji}</span>
                 <div>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--t1)' }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--content-primary)' }}>
                     {ch.habit.name_en}
                   </div>
                   <div className="ds-sub">
@@ -965,14 +981,14 @@ export default function PlanEditorPage() {
                   </div>
                 </div>
               </div>
-               <button
+               <button className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                  onClick={() => removeHabit(ch.id)}
                  disabled={habitActionPending !== null}
                  style={{
                    background: 'none',
                    border: 'none',
                    cursor: habitActionPending ? 'not-allowed' : 'pointer',
-                   color: 'var(--t4)',
+                   color: 'var(--content-muted)',
                   padding: 4,
                 }}
                 title="Remove habit"
@@ -1008,7 +1024,7 @@ export default function PlanEditorPage() {
                 }}
               >
                 {availableToAdd.map((h) => (
-                   <button
+                   <button className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                      key={h.id}
                      onClick={() => addHabit(h.id)}
                      disabled={habitActionPending !== null}
@@ -1018,7 +1034,7 @@ export default function PlanEditorPage() {
                       gap: 8,
                       padding: 8,
                       background: 'transparent',
-                      border: '1px solid var(--line)',
+                      border: '1px solid var(--border-default)',
                       borderRadius: 8,
                        cursor: habitActionPending ? 'not-allowed' : 'pointer',
                       textAlign: 'left',
@@ -1026,7 +1042,7 @@ export default function PlanEditorPage() {
                     }}
                   >
                     <span style={{ fontSize: 16 }}>{h.emoji}</span>
-                    <span style={{ fontSize: 12, color: 'var(--t1)', flex: 1 }}>
+                    <span style={{ fontSize: 12, color: 'var(--content-primary)', flex: 1 }}>
                       {h.name_en}
                     </span>
                     <Icon name="i-plus" size={12} style={{ color: 'var(--gold-300,#D4A853)' }} />
@@ -1043,7 +1059,7 @@ export default function PlanEditorPage() {
              role="alert"
              style={{
                color: 'var(--err,#E87A6E)',
-               fontSize: 11,
+               fontSize: 12,
                marginBottom: 8,
                textAlign: 'center',
              }}
@@ -1051,16 +1067,16 @@ export default function PlanEditorPage() {
              {saveError}
            </div>
          )}
-         <button
+         <button className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
           onClick={handleSave}
           disabled={saving}
           style={{
             width: '100%',
             padding: '14px',
             borderRadius: 12,
-            background: saved ? 'rgba(34,197,94,.15)' : 'var(--gold-300,#D4A853)',
-            color: saved ? 'rgb(34,197,94)' : '#0a0a0a',
-            border: saved ? '1px solid rgba(34,197,94,.3)' : 'none',
+            background: saved ? 'var(--status-success-bg)' : 'var(--action-primary)',
+            color: saved ? 'var(--status-success-fg)' : 'var(--action-on-primary)',
+            border: saved ? '1px solid var(--status-success-border)' : 'none',
             fontFamily: 'var(--font-mono)',
             fontSize: 12,
             letterSpacing: '.1em',
@@ -1073,6 +1089,7 @@ export default function PlanEditorPage() {
           {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save Plan'}
         </button>
       </motion.div>
+      <span data-coach-mobile-workspace-end className="sr-only" />
 
       {/* AI meal-suggest / recipe-analyze picker, scoped to the chosen cell */}
       {picker && (

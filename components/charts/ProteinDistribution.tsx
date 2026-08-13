@@ -24,19 +24,19 @@ interface MacroTab {
 }
 
 const MACRO_TABS: MacroTab[] = [
-  { key: 'protein',  label: 'Protein',   labelKey: 'general.protein',  icon: 'i-dumbbell', color: '#f87171', unit: 'g',    field: 'protein_g'  },
-  { key: 'calories', label: 'Calories',  labelKey: 'general.calories', icon: 'i-flame',    color: '#fb923c', unit: 'kcal', field: 'calories'   },
-  { key: 'carbs',    label: 'Carbs',     labelKey: 'general.carbs',    icon: 'i-zap',      color: '#60a5fa', unit: 'g',    field: 'carbs_g'    },
-  { key: 'fat',      label: 'Fat',       labelKey: 'general.fat',      icon: 'i-drop',     color: '#c084fc', unit: 'g',    field: 'fat_g'      },
+  { key: 'protein',  label: 'Protein',   labelKey: 'general.protein',  icon: 'i-dumbbell', color: 'var(--data-protein)', unit: 'g',    field: 'protein_g'  },
+  { key: 'calories', label: 'Calories',  labelKey: 'general.calories', icon: 'i-flame',    color: 'var(--data-calories)', unit: 'kcal', field: 'calories'   },
+  { key: 'carbs',    label: 'Carbs',     labelKey: 'general.carbs',    icon: 'i-zap',      color: 'var(--data-carbs)', unit: 'g',    field: 'carbs_g'    },
+  { key: 'fat',      label: 'Fat',       labelKey: 'general.fat',      icon: 'i-drop',     color: 'var(--data-fat)', unit: 'g',    field: 'fat_g'      },
 ];
 
 const MEAL_COLORS: Record<string, string> = {
-  breakfast:    '#f59e0b',
-  lunch:        '#22c55e',
-  dinner:       '#3b82f6',
-  snack:        '#78716c',
-  pre_workout:  '#a855f7',
-  post_workout: '#ec4899',
+  breakfast:    'var(--data-calories)',
+  lunch:        'var(--data-protein)',
+  dinner:       'var(--data-carbs)',
+  snack:        'var(--data-neutral)',
+  pre_workout:  'var(--data-fat)',
+  post_workout: 'var(--data-fiber)',
 };
 
 export default memo(function ProteinDistribution({ entries }: ProteinDistributionProps) {
@@ -84,7 +84,7 @@ export default memo(function ProteinDistribution({ entries }: ProteinDistributio
         onClick={() => setExpanded(e => !e)}
         className="w-full flex items-center justify-between mb-2"
       >
-        <span className="text-stone-300 text-xs font-semibold uppercase tracking-wider">
+        <span className="text-[var(--content-primary)] text-xs font-semibold uppercase tracking-wider">
           {t('analytics.nutrition_per_meal')}
         </span>
         <div className="flex items-center gap-2">
@@ -92,8 +92,8 @@ export default memo(function ProteinDistribution({ entries }: ProteinDistributio
             {fmt(total)}{tab.unit}
           </span>
           {expanded
-            ? <ChevronUp size={13} className="text-stone-500" />
-            : <ChevronDown size={13} className="text-stone-500" />}
+            ? <ChevronUp size={13} className="text-[var(--content-muted)]" />
+            : <ChevronDown size={13} className="text-[var(--content-muted)]" />}
         </div>
       </button>
 
@@ -112,12 +112,12 @@ export default memo(function ProteinDistribution({ entries }: ProteinDistributio
                 <button
                   key={tab.key}
                   onClick={() => setMacro(tab.key)}
-                  className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-[10px] font-medium border transition-all ${
+                  className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-medium border transition-all ${
                     macro === tab.key
-                      ? 'bg-white/5 border-white/10'
-                      : 'border-transparent text-stone-600 hover:text-stone-400'
+                      ? 'bg-[var(--surface-2)] border-[var(--border-subtle)]'
+                      : 'border-transparent text-[var(--content-muted)] hover:text-[var(--content-muted)]'
                   }`}
-                  style={macro === tab.key ? { color: tab.color, borderColor: `${tab.color}33` } : {}}
+                  style={macro === tab.key ? { color: tab.color, borderColor: tab.color } : {}}
                 >
                   <Icon name={tab.icon} size={10} />
                   {t(tab.labelKey)}
@@ -126,18 +126,18 @@ export default memo(function ProteinDistribution({ entries }: ProteinDistributio
             </div>
 
             {/* Bars */}
-            <div className="space-y-2">
+            <div role="img" aria-label={`${t('analytics.nutrition_per_meal')} chart`} className="space-y-2">
               {meals
                 .sort(([, a], [, b]) => b - a)
                 .map(([meal, val], i) => {
                   const pct   = maxVal > 0 ? (val / maxVal) * 100 : 0;
-                  const color = MEAL_COLORS[meal] || '#78716c';
+                  const color = MEAL_COLORS[meal] || 'var(--data-neutral)';
                   return (
                     <div key={meal} className="flex items-center gap-2">
-                      <span className="text-[10px] text-stone-500 w-16 text-right truncate shrink-0">
+                      <span className="text-xs text-[var(--content-muted)] w-16 text-right truncate shrink-0">
                         {getMealName(meal)}
                       </span>
-                      <div className="flex-1 h-2.5 bg-white/[0.05] rounded-full overflow-hidden">
+                      <div className="flex-1 h-2.5 bg-[var(--surface-2)] rounded-full overflow-hidden">
                         <motion.div
                           initial={{ width: 0 }}
                           animate={{ width: `${pct}%` }}
@@ -146,13 +146,16 @@ export default memo(function ProteinDistribution({ entries }: ProteinDistributio
                           style={{ backgroundColor: color }}
                         />
                       </div>
-                      <span className="text-[10px] text-stone-400 w-12 text-right font-medium shrink-0">
+                      <span className="text-xs text-[var(--content-muted)] w-12 text-right font-medium shrink-0">
                         {fmt(val)}{tab.unit}
                       </span>
                     </div>
                   );
-                })}
+              })}
             </div>
+            <ul className="sr-only" aria-label="Meal distribution values">
+              {meals.map(([meal, val]) => <li key={meal}>{getMealName(meal)}: {fmt(val)}{tab.unit}</li>)}
+            </ul>
           </motion.div>
         )}
       </AnimatePresence>

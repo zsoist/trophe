@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { Icon } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
@@ -42,6 +43,15 @@ const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
+const focusableSelector = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+function trapFocus(event: ReactKeyboardEvent<HTMLElement>, container: HTMLElement | null) {
+  if (event.key !== 'Tab' || !container) return;
+  const items = Array.from(container.querySelectorAll<HTMLElement>(focusableSelector));
+  const first = items[0]; const last = items.at(-1);
+  if (!first || !last) { event.preventDefault(); container.focus(); return; }
+  if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+  else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+}
 
 export default function CalendarView({
   selectedDate,
@@ -55,8 +65,22 @@ export default function CalendarView({
   const [monthDir, setMonthDir] = useState(0);
   const [dayData, setDayData] = useState<Record<string, DaySummary>>({});
   const [streak, setStreak] = useState<Set<string>>(new Set());
+  const reducedMotion = useReducedMotion();
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   const todayISO = useMemo(() => getTodayISO(), []);
+
+  useEffect(() => {
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const frame = requestAnimationFrame(() => dialogRef.current?.focus());
+    const closeOnEscape = (event: KeyboardEvent) => event.key === 'Escape' && onClose();
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener('keydown', closeOnEscape);
+      previousFocus?.focus();
+    };
+  }, [onClose]);
 
   // Compute month boundaries
   const monthStart = useMemo(
@@ -157,9 +181,9 @@ export default function CalendarView({
   }
 
   function getDayBorderColor(entries: number): string {
-    if (entries >= 5) return 'border-green-500/60';
-    if (entries >= 3) return 'border-[#D4A853]/50';
-    if (entries >= 1) return 'border-stone-600/50';
+    if (entries >= 5) return 'border-[var(--status-success-border)]';
+    if (entries >= 3) return 'border-[var(--border-focus)]/50';
+    if (entries >= 1) return 'border-[var(--border-default)]';
     return 'border-transparent';
   }
 
@@ -177,30 +201,37 @@ export default function CalendarView({
 
   return (
     <motion.div
-      initial={{ opacity: 0 }}
+      initial={reducedMotion ? false : { opacity: 0 }}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 bg-black/60 flex items-end justify-center"
+      exit={reducedMotion ? undefined : { opacity: 0 }}
+      className="fixed inset-0 z-50 bg-[var(--surface-overlay)] flex items-end justify-center"
       onClick={onClose}
     >
       <motion.div
-        initial={{ y: '100%' }}
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Food log calendar"
+        tabIndex={-1}
+        onKeyDown={(event) => trapFocus(event, dialogRef.current)}
+        initial={reducedMotion ? false : { y: '100%' }}
         animate={{ y: 0 }}
-        exit={{ y: '100%' }}
+        exit={reducedMotion ? undefined : { y: '100%' }}
         transition={{ type: 'spring', damping: 30, stiffness: 300 }}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md max-h-[85vh] bg-stone-950 border-t border-white/[0.06] rounded-t-2xl overflow-hidden flex flex-col safe-bottom"
+        className="w-full max-w-md max-h-[85vh] bg-[var(--surface-1)] border-t border-[var(--border-default)] rounded-t-2xl overflow-hidden flex flex-col safe-bottom pb-[calc(5rem+env(safe-area-inset-bottom))] outline-none"
       >
         {/* Handle */}
         <div className="flex justify-center pt-3 pb-1">
-          <div className="w-10 h-1 rounded-full bg-white/10" />
+          <div className="w-10 h-1 rounded-full bg-[var(--surface-2)]" />
         </div>
 
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-2">
           <button
             onClick={goPrevMonth}
-            className="p-1.5 text-stone-400 hover:text-stone-200 transition-colors rounded-lg hover:bg-white/[0.04]"
+            aria-label="Previous month"
+            className="p-1.5 text-[var(--content-secondary)] hover:text-[var(--content-primary)] transition-colors rounded-lg hover:bg-[var(--surface-2)] min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
           >
             <ChevronLeft size={18} />
           </button>
@@ -214,8 +245,8 @@ export default function CalendarView({
                 initial="enter"
                 animate="center"
                 exit="exit"
-                transition={{ duration: 0.2 }}
-                className="text-stone-200 font-semibold text-base whitespace-nowrap"
+                transition={{ duration: reducedMotion ? 0 : 0.2 }}
+                className="text-[var(--content-primary)] font-semibold text-base whitespace-nowrap"
               >
                 {MONTH_NAMES[viewMonth]} {viewYear}
               </motion.h2>
@@ -224,14 +255,16 @@ export default function CalendarView({
 
           <button
             onClick={goNextMonth}
-            className="p-1.5 text-stone-400 hover:text-stone-200 transition-colors rounded-lg hover:bg-white/[0.04]"
+            aria-label="Next month"
+            className="p-1.5 text-[var(--content-secondary)] hover:text-[var(--content-primary)] transition-colors rounded-lg hover:bg-[var(--surface-2)] min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
           >
             <ChevronRight size={18} />
           </button>
 
           <button
             onClick={onClose}
-            className="p-1.5 ml-2 text-stone-500 hover:text-stone-200 transition-colors"
+            aria-label="Close calendar"
+            className="p-1.5 ml-2 text-[var(--content-muted)] hover:text-[var(--content-primary)] transition-colors min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
           >
             <X size={18} />
           </button>
@@ -240,7 +273,7 @@ export default function CalendarView({
         {/* Weekday headers */}
         <div className="grid grid-cols-7 px-4 pt-1 pb-2">
           {WEEKDAYS.map((d, i) => (
-            <div key={i} className="text-center text-[10px] text-stone-600 font-medium">
+            <div key={i} className="text-center text-xs text-[var(--content-muted)] font-medium">
               {d}
             </div>
           ))}
@@ -271,23 +304,25 @@ export default function CalendarView({
             return (
               <motion.button
                 key={dateStr}
-                initial={{ opacity: 0 }}
+                aria-label={`Select ${dateStr}${entries > 0 ? `, ${entries} food entries` : ''}`}
+                aria-pressed={isSelected}
+                initial={reducedMotion ? false : { opacity: 0 }}
                 animate={{ opacity: 1 }}
-                transition={{ delay: i * 0.008 }}
+                transition={{ delay: reducedMotion ? 0 : i * 0.008 }}
                 disabled={isFuture}
                 onClick={() => handleSelect(dateStr)}
-                className={`relative aspect-square flex flex-col items-center justify-center rounded-lg border transition-all text-xs
+                className={`relative aspect-square min-h-11 min-w-11 flex flex-col items-center justify-center rounded-lg border text-xs transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]
                   ${isFuture ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer active:scale-95'}
-                  ${isSelected ? 'bg-[#D4A853] border-[#D4A853] text-stone-950' : ''}
-                  ${!isSelected && isCurrentDay ? 'ring-1 ring-[#D4A853]/60' : ''}
+                  ${isSelected ? 'bg-[var(--action-primary)] border-[var(--border-focus)] text-[var(--action-on-primary)]' : ''}
+                  ${!isSelected && isCurrentDay ? 'ring-1 ring-[var(--focus-ring)]' : ''}
                   ${!isSelected ? getDayBorderColor(entries) : ''}
-                  ${!isSelected ? 'hover:bg-white/[0.04]' : ''}
+                  ${!isSelected ? 'hover:bg-[var(--surface-2)]' : ''}
                 `}
               >
                 {/* Calorie intensity background */}
                 {!isSelected && intensity > 0 && (
                   <div
-                    className="absolute inset-0 rounded-lg bg-[#D4A853]"
+                    className="absolute inset-0 rounded-lg bg-[var(--action-primary)]"
                     style={{ opacity: intensity * 0.12 }}
                   />
                 )}
@@ -296,12 +331,12 @@ export default function CalendarView({
                 <span
                   className={`relative z-10 font-medium ${
                     isSelected
-                      ? 'text-stone-950'
+                      ? 'text-[var(--action-on-primary)]'
                       : isCurrentDay
-                        ? 'text-[#D4A853]'
+                        ? 'text-[var(--action-primary)]'
                         : entries > 0
-                          ? 'text-stone-200'
-                          : 'text-stone-500'
+                          ? 'text-[var(--content-primary)]'
+                          : 'text-[var(--content-muted)]'
                   }`}
                 >
                   {dayNum}
@@ -313,7 +348,7 @@ export default function CalendarView({
                     name="i-flame"
                     size={9}
                     className="absolute -top-0.5 -right-0.5"
-                    style={{ color: 'var(--gold-300,#D4A853)' }}
+                    style={{ color: 'var(--action-primary)' }}
                     aria-hidden
                   />
                 )}
@@ -323,17 +358,17 @@ export default function CalendarView({
         </div>
 
         {/* Bottom summary */}
-        <div className="glass-elevated px-4 py-3 flex items-center justify-between text-xs border-t border-white/[0.04]">
+        <div className="glass-elevated px-4 py-3 flex items-center justify-between text-xs border-t border-[var(--border-default)]">
           <div className="flex items-center gap-3">
-            <span className="text-stone-400">
-              <span className="text-stone-200 font-medium">{daysLogged}</span> days logged
+            <span className="text-[var(--content-secondary)]">
+              <span className="text-[var(--content-primary)] font-medium">{daysLogged}</span> days logged
             </span>
-            <span className="text-stone-600">|</span>
-            <span className="text-stone-400">
-              avg <span className="text-stone-200 font-medium">{avgCalories}</span> kcal
+            <span className="text-[var(--content-muted)]">|</span>
+            <span className="text-[var(--content-secondary)]">
+              avg <span className="text-[var(--content-primary)] font-medium">{avgCalories}</span> kcal
             </span>
           </div>
-          <span className={`font-semibold ${consistency >= 80 ? 'text-green-400' : consistency >= 50 ? 'text-[#D4A853]' : 'text-stone-500'}`}>
+          <span className={`font-semibold ${consistency >= 80 ? 'text-[var(--status-success-fg)]' : consistency >= 50 ? 'text-[var(--action-primary)]' : 'text-[var(--content-muted)]'}`}>
             {consistency}%
           </span>
         </div>

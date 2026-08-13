@@ -51,28 +51,28 @@ export default function CoachThreadPage() {
 
   if (authError) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg,#0a0a0a)' }}>
+      <div data-coach-mobile-workspace className="min-h-screen min-w-0 flex items-center justify-center" style={{ background: 'var(--canvas)' }}>
         <div className="ds-sub">Coach access required</div>
       </div>
     );
   }
 
   return (
-    <div style={{ background: 'var(--bg,#0a0a0a)', height: '100dvh', display: 'flex', flexDirection: 'column' }}>
-      <div className="max-w-md lg:max-w-2xl mx-auto px-4 pt-3 w-full" style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, paddingBottom: 12 }}>
+    <div data-coach-mobile-workspace className="min-w-0" style={{ background: 'var(--canvas)', height: '100dvh', display: 'flex', flexDirection: 'column' }}>
+      <div className="max-w-md lg:max-w-2xl mx-auto min-w-0 px-4 pt-3 w-full" style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, paddingBottom: 12 }}>
         {/* Header with client context */}
         <div className="row-b" style={{ marginBottom: 8 }}>
-          <button onClick={() => router.back()} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--t3)' }}>
+          <button aria-label="Back to inbox" onClick={() => router.back()} className="min-h-11 min-w-11 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)]" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--content-secondary)' }}>
             <Icon name="i-chev-l" size={16} />
           </button>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--t1)' }}>{clientName ?? '…'}</div>
-            <div className="ds-sub" style={{ fontSize: 9 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--content-primary)' }}>{clientName ?? '…'}</div>
+            <div className="ds-sub" style={{ fontSize: 12 }}>
               {phase ?? ''}{lastCheckin ? ` · last check-in ${lastCheckin}` : ''}
             </div>
           </div>
-          <Link href={`/coach/client/${clientId}`} title="Open client profile"
-            style={{ color: 'var(--gold-300,#D4A853)', display: 'flex' }}>
+          <Link href={`/coach/client/${clientId}`} title="Open client profile" aria-label="Open client profile"
+            className="min-h-11 min-w-11 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)]" style={{ color: 'var(--action-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Icon name="i-user" size={16} />
           </Link>
         </div>

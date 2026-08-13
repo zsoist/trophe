@@ -60,9 +60,9 @@ export default memo(function ClientFoodHeatmap({ data }: ClientFoodHeatmapProps)
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="bg-white/[0.04] border border-white/[0.06] rounded-xl p-4"
+      className="bg-[var(--surface-hover)] border border-[var(--border-subtle)] rounded-xl p-4"
     >
-      <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider mb-3">
+      <h3 className="text-[var(--content-secondary)] text-xs font-semibold uppercase tracking-wider mb-3">
         Food Logging Activity
       </h3>
 
@@ -75,7 +75,7 @@ export default memo(function ClientFoodHeatmap({ data }: ClientFoodHeatmapProps)
                 key={i}
                 x={0}
                 y={i * (cellSize + gap) + cellSize / 2 + 3}
-                fill="#78716c"
+                fill="var(--content-muted)"
                 fontSize={8}
                 fontFamily="monospace"
               >
@@ -117,11 +117,11 @@ export default memo(function ClientFoodHeatmap({ data }: ClientFoodHeatmapProps)
             className="fixed z-50 pointer-events-none"
             style={{ left: hoveredCell.x - 20, top: hoveredCell.y - 36 }}
           >
-            <div className="bg-stone-900 border border-white/10 rounded-md px-2 py-1 shadow-xl">
-              <p className="text-stone-300 text-[9px] font-medium">
+            <div className="bg-[var(--surface-2)] border border-[var(--border-subtle)] rounded-md px-2 py-1 shadow-xl">
+              <p className="text-[var(--content-secondary)] text-xs font-medium">
                 {hoveredCell.count} meal{hoveredCell.count !== 1 ? 's' : ''}
               </p>
-              <p className="text-stone-500 text-[8px]">{hoveredCell.date}</p>
+              <p className="text-[var(--content-muted)] text-xs">{hoveredCell.date}</p>
             </div>
           </div>
         )}
@@ -129,7 +129,7 @@ export default memo(function ClientFoodHeatmap({ data }: ClientFoodHeatmapProps)
 
       {/* Legend */}
       <div className="flex items-center gap-1.5 mt-3 justify-end">
-        <span className="text-stone-600 text-[9px]">Less</span>
+        <span className="text-[var(--content-muted)] text-xs">Less</span>
         {[0, 1, 2, 3, 4, 5].map((v) => (
           <div
             key={v}
@@ -137,7 +137,7 @@ export default memo(function ClientFoodHeatmap({ data }: ClientFoodHeatmapProps)
             style={{ backgroundColor: getIntensityColor(v) }}
           />
         ))}
-        <span className="text-stone-600 text-[9px]">More</span>
+        <span className="text-[var(--content-muted)] text-xs">More</span>
       </div>
     </motion.div>
   );

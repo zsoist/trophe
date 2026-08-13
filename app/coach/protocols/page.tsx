@@ -1,9 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/components/shared/Toast';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import {
   Plus,
   Trash2,
@@ -19,6 +19,7 @@ import { supabase } from '@/lib/supabase';
 import type { SupplementProtocol, SupplementItem, Profile, ClientProfile } from '@/lib/types';
 import { CoachNav } from '@/components/coach/CoachNav';
 import CoachLoadingSkeletons from '@/components/coach/CoachLoadingSkeletons';
+import { useDialogFocus } from '@/components/shared/useDialogFocus';
 import ProtocolTemplateLibrary from '@/components/coach/ProtocolTemplateLibrary';
 import { BotNav } from '@/components/ui/BotNav';
 import { Icon, ConfirmSheet } from '@/components/ui';
@@ -43,7 +44,7 @@ const evidenceColors: Record<string, string> = {
   A: 'bg-green-500/15 text-green-400 border-green-500/20',
   B: 'bg-blue-500/15 text-blue-400 border-blue-500/20',
   C: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/20',
-  D: 'bg-stone-700/30 text-stone-400 border-stone-600/20',
+  D: 'bg-[var(--surface-2)]/30 text-[var(--content-secondary)] border-[var(--border-default)]/20',
 };
 
 const evidenceLabels: Record<string, string> = {
@@ -87,6 +88,11 @@ export default function ProtocolsPage() {
   const [assigningProtocolId, setAssigningProtocolId] = useState<string | null>(null);
   const [clients, setClients] = useState<(ClientProfile & { profile?: Profile })[]>([]);
   const [loadingClients, setLoadingClients] = useState(false);
+  const formDialogRef = useRef<HTMLDivElement | null>(null);
+  const assignDialogRef = useRef<HTMLDivElement | null>(null);
+  const reducedMotion = useReducedMotion();
+  useDialogFocus(showForm, () => setShowForm(false), formDialogRef);
+  useDialogFocus(assigningProtocolId !== null, () => setAssigningProtocolId(null), assignDialogRef);
 
   const loadProtocols = useCallback(async () => {
     try {
@@ -246,26 +252,26 @@ export default function ProtocolsPage() {
   }
 
   return (
-    <div className="min-h-screen pb-20 px-4 py-6 sm:px-6 lg:px-8" style={{ background: 'var(--bg,#0a0a0a)' }}>
+    <div data-coach-mobile-workspace className="min-h-screen min-w-0 pb-20 px-4 py-6 sm:px-6 lg:px-8" style={{ background: 'var(--canvas)' }}>
       <div className="max-w-5xl mx-auto">
         <CoachNav active="/coach/protocols" />
 
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
+          initial={reducedMotion ? false : { opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
         >
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-stone-100">Supplement Protocols</h1>
-              <p className="text-stone-500 text-sm mt-1">
+              <h1 className="text-2xl sm:text-3xl font-bold text-[var(--content-primary)]">Supplement Protocols</h1>
+              <p className="text-[var(--content-secondary)] text-sm mt-1">
                 {protocols.length} protocol{protocols.length !== 1 ? 's' : ''}
               </p>
             </div>
             <button
               onClick={() => { resetForm(); setShowForm(true); }}
-              className="btn-gold flex items-center gap-2 text-sm"
+              className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] btn-gold flex items-center gap-2 text-sm"
             >
               <Plus size={16} /> New Protocol
             </button>
@@ -293,8 +299,8 @@ export default function ProtocolsPage() {
             <CoachLoadingSkeletons page="protocols" />
           ) : protocols.length === 0 ? (
             <div className="text-center py-20">
-              <FlaskConical size={48} className="mx-auto text-stone-700 mb-4" />
-              <p className="text-stone-500">No protocols created yet</p>
+              <FlaskConical size={48} className="mx-auto text-[var(--content-muted)] mb-4" />
+              <p className="text-[var(--content-secondary)]">No protocols created yet</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -315,13 +321,13 @@ export default function ProtocolsPage() {
                       className="p-4 sm:p-5 flex items-center gap-3 cursor-pointer"
                       onClick={() => setExpandedId(isExpanded ? null : protocol.id)}
                     >
-                      <Pill size={18} className="text-[#D4A853] shrink-0" />
+                      <Pill size={18} className="text-[var(--action-primary)] shrink-0" />
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-stone-100">{protocol.name}</h3>
+                        <h3 className="font-semibold text-[var(--content-primary)]">{protocol.name}</h3>
                         {protocol.description && (
-                          <p className="text-xs text-stone-500 mt-0.5 truncate">{protocol.description}</p>
+                          <p className="text-xs text-[var(--content-secondary)] mt-0.5 truncate">{protocol.description}</p>
                         )}
-                        <div className="flex items-center gap-3 mt-1.5 text-xs text-stone-500">
+                        <div className="flex items-center gap-3 mt-1.5 text-xs text-[var(--content-secondary)]">
                           <span>{supplements.length} supplement{supplements.length !== 1 ? 's' : ''}</span>
                           {protocol.goal && <span>Goal: {protocol.goal}</span>}
                         </div>
@@ -329,42 +335,43 @@ export default function ProtocolsPage() {
                       <div className="flex items-center gap-1.5 shrink-0">
                         <button
                           onClick={(e) => { e.stopPropagation(); openAssign(protocol.id); }}
-                          className="p-2 rounded-lg hover:bg-white/5 text-stone-400 hover:text-[#D4A853] transition-colors"
+                          className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] p-2 rounded-lg hover:bg-[var(--surface-2)] text-[var(--content-secondary)] hover:text-[var(--action-primary)] transition-colors"
                           title="Assign to client"
                         >
                           <UserPlus size={15} />
                         </button>
                         <button
                           onClick={(e) => { e.stopPropagation(); deleteProtocol(protocol.id); }}
-                          className="p-2 rounded-lg hover:bg-red-500/10 text-stone-500 hover:text-red-400 transition-colors"
+                          aria-label={`Delete ${protocol.name}`}
+                          className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] p-2 rounded-lg hover:bg-red-500/10 text-[var(--content-secondary)] hover:text-red-400 transition-colors"
                         >
                           <Trash2 size={15} />
                         </button>
-                        {isExpanded ? <ChevronUp size={16} className="text-stone-500" /> : <ChevronDown size={16} className="text-stone-500" />}
+                        {isExpanded ? <ChevronUp size={16} className="text-[var(--content-secondary)]" /> : <ChevronDown size={16} className="text-[var(--content-secondary)]" />}
                       </div>
                     </div>
 
                     {/* Expanded supplement list */}
                     {isExpanded && supplements.length > 0 && (
-                      <div className="px-4 sm:px-5 pb-4 border-t border-white/5">
+                      <div className="px-4 sm:px-5 pb-4 border-t border-[var(--border-subtle)]">
                         <div className="mt-3 space-y-2">
                           {supplements.map((supp, si) => (
-                            <div key={si} className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03]">
+                            <div key={si} className="flex items-center gap-3 p-3 rounded-xl bg-[var(--surface-2)]">
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2">
-                                  <span className="text-sm font-medium text-stone-200">{supp.name}</span>
+                                  <span className="text-sm font-medium text-[var(--content-primary)]">{supp.name}</span>
                                   {supp.evidence_level && (
-                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${evidenceColors[supp.evidence_level]}`}>
+                                    <span className={`text-xs font-bold px-1.5 py-0.5 rounded border ${evidenceColors[supp.evidence_level]}`}>
                                       {supp.evidence_level}
                                     </span>
                                   )}
                                 </div>
-                                <div className="flex items-center gap-3 mt-0.5 text-xs text-stone-500">
+                                <div className="flex items-center gap-3 mt-0.5 text-xs text-[var(--content-secondary)]">
                                   <span>{supp.dose}</span>
                                   <span className="capitalize">{supp.timing}</span>
                                 </div>
                                 {supp.notes && (
-                                  <p className="text-[11px] text-stone-600 mt-1">{supp.notes}</p>
+                                  <p className="text-xs text-[var(--content-muted)] mt-1">{supp.notes}</p>
                                 )}
                               </div>
                             </div>
@@ -372,10 +379,10 @@ export default function ProtocolsPage() {
                         </div>
 
                         {/* Evidence legend */}
-                        <div className="flex items-center gap-3 mt-3 pt-3 border-t border-white/5">
+                        <div className="flex items-center gap-3 mt-3 pt-3 border-t border-[var(--border-subtle)]">
                           {(['A', 'B', 'C', 'D'] as const).map((level) => (
-                            <span key={level} className="text-[10px] text-stone-600">
-                              <span className={`inline-block w-3 h-3 rounded text-center text-[8px] font-bold mr-0.5 ${evidenceColors[level]}`}>{level}</span>
+                            <span key={level} className="text-xs text-[var(--content-muted)]">
+                              <span className={`inline-block w-3 h-3 rounded text-center text-xs font-bold mr-0.5 ${evidenceColors[level]}`}>{level}</span>
                               {' '}{evidenceLabels[level]}
                             </span>
                           ))}
@@ -404,15 +411,19 @@ export default function ProtocolsPage() {
 
         {/* ─── Create Protocol Modal ─── */}
         {showForm && (
-          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[var(--surface-overlay)] backdrop-blur-sm p-4">
             <motion.div
-              initial={{ opacity: 0, y: 40 }}
+              ref={formDialogRef}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="protocol-dialog-title"
+              initial={reducedMotion ? false : { opacity: 0, y: 40 }}
               animate={{ opacity: 1, y: 0 }}
-              className="glass-elevated p-5 w-full max-w-xl max-h-[85vh] overflow-y-auto"
+              className="glass-elevated safe-bottom p-5 w-full max-w-xl max-h-[85vh] overflow-y-auto"
             >
               <div className="flex items-center justify-between mb-5">
-                <h3 className="font-semibold text-stone-100 text-lg">New Protocol</h3>
-                <button onClick={() => setShowForm(false)} className="text-stone-500 hover:text-stone-300">
+                <h3 id="protocol-dialog-title" className="font-semibold text-[var(--content-primary)] text-lg">New Protocol</h3>
+                <button onClick={() => setShowForm(false)} aria-label="Close protocol editor" className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] text-[var(--content-secondary)] hover:text-[var(--content-primary)]">
                   <X size={18} />
                 </button>
               </div>
@@ -420,33 +431,33 @@ export default function ProtocolsPage() {
               <div className="space-y-4">
                 {/* Name */}
                 <div>
-                  <label className="text-xs text-stone-500 mb-1 block">Protocol Name *</label>
+                  <label className="text-xs text-[var(--content-secondary)] mb-1 block">Protocol Name *</label>
                   <input
                     value={formName}
                     onChange={(e) => setFormName(e.target.value)}
                     placeholder="e.g. Muscle Recovery Stack"
-                    className="input-dark"
+                    className="text-base input-dark"
                   />
                 </div>
 
                 {/* Description + Goal */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs text-stone-500 mb-1 block">Description</label>
+                    <label className="text-xs text-[var(--content-secondary)] mb-1 block">Description</label>
                     <input
                       value={formDesc}
                       onChange={(e) => setFormDesc(e.target.value)}
                       placeholder="Brief description"
-                      className="input-dark"
+                      className="text-base input-dark"
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-stone-500 mb-1 block">Goal</label>
+                    <label className="text-xs text-[var(--content-secondary)] mb-1 block">Goal</label>
                     <input
                       value={formGoal}
                       onChange={(e) => setFormGoal(e.target.value)}
                       placeholder="e.g. Recovery"
-                      className="input-dark"
+                      className="text-base input-dark"
                     />
                   </div>
                 </div>
@@ -454,28 +465,29 @@ export default function ProtocolsPage() {
                 {/* Supplements */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <label className="text-xs text-stone-500">Supplements</label>
+                    <label className="text-xs text-[var(--content-secondary)]">Supplements</label>
                     <button
                       onClick={addSupplement}
-                      className="text-xs text-[#D4A853] hover:text-[#E8C878] flex items-center gap-1 transition-colors"
+                      className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] text-xs text-[var(--action-primary)] hover:text-[var(--action-primary-hover)] flex items-center gap-1 transition-colors"
                     >
                       <Plus size={12} /> Add Row
                     </button>
                   </div>
                   <div className="space-y-3">
                     {formSupplements.map((supp, idx) => (
-                      <div key={idx} className="p-3 rounded-xl bg-white/[0.03] space-y-2">
+                      <div key={idx} className="p-3 rounded-xl bg-[var(--surface-2)] space-y-2">
                         <div className="flex items-center gap-2">
                           <input
                             value={supp.name}
                             onChange={(e) => updateSupplement(idx, 'name', e.target.value)}
                             placeholder="Supplement name"
-                            className="input-dark flex-1 !py-2 text-sm"
+                            className="input-dark flex-1 !py-2 text-base"
                           />
                           {formSupplements.length > 1 && (
                             <button
                               onClick={() => removeSupplement(idx)}
-                              className="p-1.5 text-stone-600 hover:text-red-400 transition-colors"
+                              aria-label={`Remove supplement ${idx + 1}`}
+                              className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] p-1.5 text-[var(--content-muted)] hover:text-red-400 transition-colors"
                             >
                               <Trash2 size={14} />
                             </button>
@@ -486,24 +498,24 @@ export default function ProtocolsPage() {
                             value={supp.dose}
                             onChange={(e) => updateSupplement(idx, 'dose', e.target.value)}
                             placeholder="Dose (e.g. 5g)"
-                            className="input-dark !py-2 text-sm"
+                            className="input-dark !py-2 text-base"
                           />
                           <select
                             value={supp.timing}
                             onChange={(e) => updateSupplement(idx, 'timing', e.target.value)}
-                            className="input-dark !py-2 text-sm capitalize"
+                            className="input-dark !py-2 text-base capitalize"
                           >
                             {timingOptions.map((t) => (
-                              <option key={t} value={t} className="bg-stone-900 capitalize">{t}</option>
+                              <option key={t} value={t} className="bg-[var(--surface-1)] capitalize">{t}</option>
                             ))}
                           </select>
                           <select
                             value={supp.evidence_level || 'B'}
                             onChange={(e) => updateSupplement(idx, 'evidence_level', e.target.value)}
-                            className="input-dark !py-2 text-sm"
+                            className="input-dark !py-2 text-base"
                           >
                             {(['A', 'B', 'C', 'D'] as const).map((l) => (
-                              <option key={l} value={l} className="bg-stone-900">Evidence {l}</option>
+                              <option key={l} value={l} className="bg-[var(--surface-1)]">Evidence {l}</option>
                             ))}
                           </select>
                         </div>
@@ -511,7 +523,7 @@ export default function ProtocolsPage() {
                           value={supp.notes || ''}
                           onChange={(e) => updateSupplement(idx, 'notes', e.target.value)}
                           placeholder="Notes (optional)"
-                          className="input-dark !py-2 text-sm"
+                          className="input-dark !py-2 text-base"
                         />
                       </div>
                     ))}
@@ -522,7 +534,7 @@ export default function ProtocolsPage() {
                 <button
                   onClick={saveProtocol}
                   disabled={saving || !formName.trim()}
-                  className="btn-gold w-full flex items-center justify-center gap-2 disabled:opacity-40"
+                  className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] btn-gold w-full flex items-center justify-center gap-2 disabled:opacity-40"
                 >
                   <Save size={16} />
                   {saving ? 'Saving...' : 'Create Protocol'}
@@ -534,36 +546,40 @@ export default function ProtocolsPage() {
 
         {/* ─── Assign to Client Modal ─── */}
         {assigningProtocolId && (
-          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[var(--surface-overlay)] backdrop-blur-sm p-4">
             <motion.div
-              initial={{ opacity: 0, y: 40 }}
+              ref={assignDialogRef}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="assign-protocol-dialog-title"
+              initial={reducedMotion ? false : { opacity: 0, y: 40 }}
               animate={{ opacity: 1, y: 0 }}
-              className="glass-elevated p-5 w-full max-w-md max-h-[70vh] overflow-y-auto"
+              className="glass-elevated safe-bottom p-5 w-full max-w-md max-h-[70vh] overflow-y-auto"
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-stone-100">Assign to Client</h3>
-                <button onClick={() => setAssigningProtocolId(null)} className="text-stone-500 hover:text-stone-300">
+                <h3 id="assign-protocol-dialog-title" className="font-semibold text-[var(--content-primary)]">Assign to Client</h3>
+                <button onClick={() => setAssigningProtocolId(null)} aria-label="Close client assignment" className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] text-[var(--content-secondary)] hover:text-[var(--content-primary)]">
                   <X size={18} />
                 </button>
               </div>
               {loadingClients ? (
-                <p className="text-stone-500 text-sm text-center py-6">Loading clients...</p>
+                <p className="text-[var(--content-secondary)] text-sm text-center py-6">Loading clients...</p>
               ) : clients.length === 0 ? (
-                <p className="text-stone-600 text-sm text-center py-6">No clients assigned to you</p>
+                <p className="text-[var(--content-muted)] text-sm text-center py-6">No clients assigned to you</p>
               ) : (
                 <div className="space-y-2">
                   {clients.map((client) => (
                     <button
                       key={client.user_id}
                       onClick={() => assignToClient(client.user_id)}
-                      className="w-full text-left p-3 rounded-xl hover:bg-white/5 transition-colors flex items-center gap-3"
+                      className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] w-full text-left p-3 rounded-xl hover:bg-[var(--surface-2)] transition-colors flex items-center gap-3"
                     >
-                      <div className="w-8 h-8 rounded-full bg-[#D4A853]/10 flex items-center justify-center text-[#D4A853] text-sm font-semibold">
+                      <div className="w-8 h-8 rounded-full bg-[var(--surface-active)] flex items-center justify-center text-[var(--action-primary)] text-sm font-semibold">
                         {client.profile?.full_name?.charAt(0) || '?'}
                       </div>
                       <div>
-                        <div className="text-sm font-medium text-stone-200">{client.profile?.full_name || 'Unknown'}</div>
-                        <div className="text-xs text-stone-500">{client.profile?.email}</div>
+                        <div className="text-sm font-medium text-[var(--content-primary)]">{client.profile?.full_name || 'Unknown'}</div>
+                        <div className="text-xs text-[var(--content-secondary)]">{client.profile?.email}</div>
                       </div>
                     </button>
                   ))}

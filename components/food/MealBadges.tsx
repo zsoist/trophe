@@ -26,19 +26,19 @@ interface Badge {
 }
 
 const RARITY_COLOR: Record<string, string> = {
-  common:    '#78716c',
+  common:    'var(--content-muted)',
   rare:      '#7DA3D9',
   legendary: '#D4A853',
 };
 const RARITY_BG: Record<string, string> = {
   common:    'rgba(120,113,108,.12)',
   rare:      'rgba(125,163,217,.12)',
-  legendary: 'rgba(212,168,83,.12)',
+  legendary: 'var(--action-secondary)',
 };
 const RARITY_BORDER: Record<string, string> = {
   common:    'rgba(120,113,108,.25)',
   rare:      'rgba(125,163,217,.25)',
-  legendary: 'rgba(212,168,83,.3)',
+  legendary: 'var(--action-secondary)',
 };
 
 function loadEarnedBadges(): Set<string> {
@@ -56,7 +56,7 @@ function XpRing({ pct, color, size = 40 }: { pct: number; color: string; size?: 
   const C = 2 * Math.PI * r;
   return (
     <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
-      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="rgba(255,255,255,.06)" strokeWidth={4} />
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="color-mix(in srgb, var(--content-primary) 8%, transparent)" strokeWidth={4} />
       <motion.circle
         cx={size/2} cy={size/2} r={r} fill="none" stroke={color}
         strokeWidth={4} strokeLinecap="round"
@@ -226,17 +226,17 @@ export default function MealBadges({ todayLog, streak, targets }: MealBadgesProp
         </div>
       )}
       {/* Header */}
-      <button onClick={() => setExpanded(!expanded)} className="flex items-center justify-between w-full">
+      <button onClick={() => setExpanded(!expanded)} className="flex items-center justify-between w-full min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
         <div className="flex items-center gap-2">
-          <Icon name="i-trophy" size={14} style={{ color: 'var(--gold-300,#D4A853)' }} />
-          <span className="text-stone-300 text-xs font-semibold">{t('badge.achievements')}</span>
-          <span className="text-stone-600 text-[10px]">{earnedCount}/{badges.length}</span>
+          <Icon name="i-trophy" size={14} style={{ color: 'var(--action-primary)' }} />
+          <span className="text-[var(--content-secondary)] text-xs font-semibold">{t('badge.achievements')}</span>
+          <span className="text-[var(--content-muted)] text-xs">{earnedCount}/{badges.length}</span>
         </div>
         <div className="flex items-center gap-2">
           {/* XP badge */}
           <span style={{
-            fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 8,
-            background: 'rgba(212,168,83,.1)', border: '1px solid rgba(212,168,83,.25)', color: 'var(--gold-300,#D4A853)',
+            fontSize: 12, fontWeight: 700, padding: '2px 6px', borderRadius: 8,
+            background: 'var(--action-secondary)', border: '1px solid var(--action-secondary)', color: 'var(--action-primary)',
             fontFamily: 'var(--font-mono)',
           }}>
             {totalXp} XP
@@ -249,7 +249,7 @@ export default function MealBadges({ todayLog, streak, targets }: MealBadgesProp
               </span>
             ))}
           </div>
-          {expanded ? <ChevronUp size={12} className="text-stone-500 ml-0.5" /> : <ChevronDown size={12} className="text-stone-500 ml-0.5" />}
+          {expanded ? <ChevronUp size={12} className="text-[var(--content-muted)] ml-0.5" /> : <ChevronDown size={12} className="text-[var(--content-muted)] ml-0.5" />}
         </div>
       </button>
 
@@ -263,7 +263,7 @@ export default function MealBadges({ todayLog, streak, targets }: MealBadgesProp
             className={`mt-2 px-3 py-2 rounded-xl flex items-center gap-2${
               newBadgeData?.rarity === 'legendary' && !reducedMotion ? ' celebration-glow' : ''
             }`}
-            style={{ background: 'rgba(212,168,83,.1)', border: '1px solid rgba(212,168,83,.3)' }}
+            style={{ background: 'var(--action-secondary)', border: '1px solid var(--action-secondary)' }}
           >
             {/* W9: one-shot gold scale-flash behind the sparkle */}
             <span style={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
@@ -273,13 +273,13 @@ export default function MealBadges({ todayLog, streak, targets }: MealBadgesProp
                   className="confetti-burst"
                   style={{
                     position: 'absolute', inset: -6, borderRadius: '50%',
-                    background: 'radial-gradient(circle, rgba(212,168,83,.45), transparent 70%)',
+                    background: 'radial-gradient(circle, var(--action-secondary), transparent 70%)',
                   }}
                 />
               )}
-              <Icon name="i-sparkle" size={13} style={{ color: 'var(--gold-300,#D4A853)' }} />
+              <Icon name="i-sparkle" size={13} style={{ color: 'var(--action-primary)' }} />
             </span>
-            <span style={{ fontSize: 11, color: 'var(--t2)', fontWeight: 600 }}>
+            <span style={{ fontSize: 12, color: 'var(--content-secondary)', fontWeight: 600 }}>
               {newBadgeData?.name} unlocked! +{newBadgeData?.xp} XP
             </span>
           </motion.div>
@@ -309,8 +309,8 @@ export default function MealBadges({ todayLog, streak, targets }: MealBadgesProp
                       : { delay: i * 0.04, duration: 0.25 }
                     }
                     style={{
-                      background: badge.earned ? RARITY_BG[badge.rarity] : 'rgba(255,255,255,.02)',
-                      border: `1px solid ${badge.earned ? RARITY_BORDER[badge.rarity] : 'rgba(255,255,255,.05)'}`,
+                      background: badge.earned ? RARITY_BG[badge.rarity] : 'color-mix(in srgb, var(--content-primary) 8%, transparent)',
+                      border: `1px solid ${badge.earned ? RARITY_BORDER[badge.rarity] : 'color-mix(in srgb, var(--content-primary) 8%, transparent)'}`,
                       borderRadius: 12, padding: '8px 4px',
                       opacity: badge.earned ? 1 : 0.45,
                       display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
@@ -334,16 +334,16 @@ export default function MealBadges({ todayLog, streak, targets }: MealBadgesProp
                       </div>
                     </div>
 
-                    <p style={{ fontSize: 10, color: badge.earned ? 'var(--t2)' : 'var(--t5)', fontWeight: 600, textAlign: 'center', lineHeight: 1.2 }}>
+                    <p style={{ fontSize: 12, color: badge.earned ? 'var(--content-secondary)' : 'var(--content-disabled)', fontWeight: 600, textAlign: 'center', lineHeight: 1.2 }}>
                       {badge.name}
                     </p>
                     {badge.progressLabel && !badge.earned && (
-                      <p style={{ fontSize: 10, color: 'var(--t5)', fontFamily: 'var(--font-mono)' }}>
+                      <p style={{ fontSize: 12, color: 'var(--content-disabled)', fontFamily: 'var(--font-mono)' }}>
                         {badge.progressLabel}
                       </p>
                     )}
                     {badge.earned && (
-                      <span style={{ fontSize: 10, color, fontWeight: 700 }}>+{badge.xp}XP</span>
+                      <span style={{ fontSize: 12, color, fontWeight: 700 }}>+{badge.xp}XP</span>
                     )}
                   </motion.div>
                 );
@@ -351,14 +351,14 @@ export default function MealBadges({ todayLog, streak, targets }: MealBadgesProp
             </div>
 
             {/* XP total bar */}
-            <div className="mt-3 pt-2.5" style={{ borderTop: '1px solid rgba(255,255,255,.05)' }}>
+            <div className="mt-3 pt-2.5" style={{ borderTop: '1px solid color-mix(in srgb, var(--content-primary) 8%, transparent)' }}>
               <div className="flex items-center justify-between mb-1.5">
-                <span style={{ fontSize: 9, color: 'var(--t4)' }}>{t('badge.total_xp')}</span>
-                <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--gold-300,#D4A853)', fontFamily: 'var(--font-mono)' }}>
+                <span style={{ fontSize: 12, color: 'var(--content-muted)' }}>{t('badge.total_xp')}</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--action-primary)', fontFamily: 'var(--font-mono)' }}>
                   {totalXp} / {badges.reduce((s, b) => s + b.xp, 0)} XP
                 </span>
               </div>
-              <div style={{ height: 5, borderRadius: 3, background: 'rgba(255,255,255,.05)', overflow: 'hidden' }}>
+              <div style={{ height: 5, borderRadius: 3, background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)', overflow: 'hidden' }}>
                 <motion.div
                   style={{
                     height: '100%', borderRadius: 3,

@@ -21,7 +21,7 @@ interface PoseOverlayProps {
 
 const POINT_RADIUS = 6;
 const LINE_WIDTH = 3;
-const USER_COLOR = '#22c55e';
+const USER_COLOR = 'var(--status-success-fg)';
 const REFERENCE_COLOR = '#f97316';
 const LABEL_FONT = '600 12px system-ui, -apple-system, sans-serif';
 const BADGE_FONT = '700 14px system-ui, -apple-system, sans-serif';
@@ -59,7 +59,7 @@ function drawSkeleton(
     ctx.arc(pt.x * w, pt.y * h, POINT_RADIUS, 0, Math.PI * 2);
     ctx.fillStyle = color;
     ctx.fill();
-    ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+    ctx.strokeStyle = 'var(--surface-overlay)';
     ctx.lineWidth = 1.5;
     ctx.stroke();
   }
@@ -79,12 +79,12 @@ function drawAngleLabel(
   const bw = metrics.width + pad * 2;
   const bh = 18;
 
-  ctx.fillStyle = 'rgba(0,0,0,0.7)';
+  ctx.fillStyle = 'var(--surface-overlay)';
   ctx.beginPath();
   if (ctx.roundRect) { ctx.roundRect(x - bw / 2, y - bh / 2, bw, bh, 4); } else { ctx.rect(x - bw / 2, y - bh / 2, bw, bh); }
   ctx.fill();
 
-  ctx.fillStyle = '#f5f5f4';
+  ctx.fillStyle = 'var(--content-primary)';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(text, x, y);

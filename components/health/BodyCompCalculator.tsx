@@ -14,17 +14,17 @@ interface ZoneInfo {
 
 function getZone(bf: number, sex: CalcSex): ZoneInfo {
   if (sex === 'male') {
-    if (bf < 10) return { label: 'Athletic', color: '#22c55e', bgColor: 'rgba(34,197,94,0.15)' };
-    if (bf < 20) return { label: 'Fit', color: 'var(--accent, #D4A853)', bgColor: 'var(--accent-soft, rgba(212,168,83,0.15))' };
-    if (bf < 25) return { label: 'Average', color: '#3b82f6', bgColor: 'rgba(59,130,246,0.15)' };
-    if (bf < 30) return { label: 'Above Average', color: '#f59e0b', bgColor: 'rgba(245,158,11,0.15)' };
-    return { label: 'High', color: '#ef4444', bgColor: 'rgba(239,68,68,0.15)' };
+    if (bf < 10) return { label: 'Athletic', color: 'var(--status-success-fg)', bgColor: 'var(--status-success-bg)' };
+    if (bf < 20) return { label: 'Fit', color: 'var(--action-primary)', bgColor: 'var(--accent-soft, rgba(212,168,83,0.15))' };
+    if (bf < 25) return { label: 'Average', color: 'var(--status-info-fg)', bgColor: 'var(--status-info-bg)' };
+    if (bf < 30) return { label: 'Above Average', color: 'var(--status-warning-fg)', bgColor: 'var(--status-warning-bg)' };
+    return { label: 'High', color: 'var(--status-danger-fg)', bgColor: 'var(--status-danger-bg)' };
   } else {
-    if (bf < 18) return { label: 'Athletic', color: '#22c55e', bgColor: 'rgba(34,197,94,0.15)' };
-    if (bf < 25) return { label: 'Fit', color: 'var(--accent, #D4A853)', bgColor: 'var(--accent-soft, rgba(212,168,83,0.15))' };
-    if (bf < 32) return { label: 'Average', color: '#3b82f6', bgColor: 'rgba(59,130,246,0.15)' };
-    if (bf < 38) return { label: 'Above Average', color: '#f59e0b', bgColor: 'rgba(245,158,11,0.15)' };
-    return { label: 'High', color: '#ef4444', bgColor: 'rgba(239,68,68,0.15)' };
+    if (bf < 18) return { label: 'Athletic', color: 'var(--status-success-fg)', bgColor: 'var(--status-success-bg)' };
+    if (bf < 25) return { label: 'Fit', color: 'var(--action-primary)', bgColor: 'var(--accent-soft, rgba(212,168,83,0.15))' };
+    if (bf < 32) return { label: 'Average', color: 'var(--status-info-fg)', bgColor: 'var(--status-info-bg)' };
+    if (bf < 38) return { label: 'Above Average', color: 'var(--status-warning-fg)', bgColor: 'var(--status-warning-bg)' };
+    return { label: 'High', color: 'var(--status-danger-fg)', bgColor: 'var(--status-danger-bg)' };
   }
 }
 
@@ -44,18 +44,18 @@ function GaugeArc({ value, sex }: { value: number; sex: CalcSex }) {
   // Zone boundaries for the arc background
   const zones = sex === 'male'
     ? [
-        { end: 10, color: '#22c55e' },
-        { end: 20, color: 'var(--accent, #D4A853)' },
-        { end: 25, color: '#3b82f6' },
-        { end: 30, color: '#f59e0b' },
-        { end: 45, color: '#ef4444' },
+        { end: 10, color: 'var(--status-success-fg)' },
+        { end: 20, color: 'var(--action-primary)' },
+        { end: 25, color: 'var(--status-info-fg)' },
+        { end: 30, color: 'var(--status-warning-fg)' },
+        { end: 45, color: 'var(--status-danger-fg)' },
       ]
     : [
-        { end: 18, color: '#22c55e' },
-        { end: 25, color: 'var(--accent, #D4A853)' },
-        { end: 32, color: '#3b82f6' },
-        { end: 38, color: '#f59e0b' },
-        { end: 45, color: '#ef4444' },
+        { end: 18, color: 'var(--status-success-fg)' },
+        { end: 25, color: 'var(--action-primary)' },
+        { end: 32, color: 'var(--status-info-fg)' },
+        { end: 38, color: 'var(--status-warning-fg)' },
+        { end: 45, color: 'var(--status-danger-fg)' },
       ];
 
   function arcPath(startPct: number, endPct: number) {
@@ -110,13 +110,13 @@ function GaugeArc({ value, sex }: { value: number; sex: CalcSex }) {
         <circle cx={cx} cy={cy} r={4} fill={zone.color} />
 
         {/* Labels */}
-        <text x={cx - r - 5} y={cy + 16} fill="#78716c" fontSize="9" textAnchor="end">{minBf}%</text>
-        <text x={cx + r + 5} y={cy + 16} fill="#78716c" fontSize="9" textAnchor="start">{maxBf}%</text>
+        <text x={cx - r - 5} y={cy + 16} fill="var(--content-muted)" fontSize="12" textAnchor="end">{minBf}%</text>
+        <text x={cx + r + 5} y={cy + 16} fill="var(--content-muted)" fontSize="12" textAnchor="start">{maxBf}%</text>
       </svg>
 
       {/* Value display */}
       <div className="flex flex-col items-center -mt-8">
-        <span className="text-2xl font-bold text-stone-100">{value.toFixed(1)}%</span>
+        <span className="text-2xl font-bold text-[var(--content-primary)]">{value.toFixed(1)}%</span>
         <span
           className="text-xs font-medium px-2.5 py-0.5 rounded-full mt-1"
           style={{ color: zone.color, backgroundColor: zone.bgColor }}
@@ -165,8 +165,8 @@ export default function BodyCompCalculator({ sex: initialSex }: { sex?: CalcSex 
       className="glass p-5 mb-4"
       style={{ borderColor: 'var(--accent-soft, rgba(212,168,83,0.15))', borderWidth: 1 }}
     >
-      <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider mb-4 flex items-center gap-2">
-        <Calculator size={14} style={{ color: 'var(--accent, #D4A853)' }} />
+      <h3 className="text-[var(--content-secondary)] text-xs font-semibold uppercase tracking-wider mb-4 flex items-center gap-2">
+        <Calculator size={14} style={{ color: 'var(--action-primary)' }} />
         Body Fat Estimate (Navy Method)
       </h3>
 
@@ -176,10 +176,10 @@ export default function BodyCompCalculator({ sex: initialSex }: { sex?: CalcSex 
           <button
             key={s}
             onClick={() => { setSex(s); setResult(null); }}
-            className={`flex-1 py-2 rounded-xl text-sm font-medium border transition-all ${
+            className={`flex-1 min-h-11 min-w-11 py-2 rounded-xl text-sm font-medium border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] ${
               sex === s
-                ? 'accent-chip-active bg-white/5'
-                : 'border-white/5 text-stone-400'
+                ? 'accent-chip-active bg-[var(--surface-2)]'
+                : 'border-[var(--border-default)] text-[var(--content-secondary)]'
             }`}
           >
             {s === 'male' ? 'Male' : 'Female'}
@@ -190,48 +190,48 @@ export default function BodyCompCalculator({ sex: initialSex }: { sex?: CalcSex 
       {/* Input fields */}
       <div className={`grid ${sex === 'female' ? 'grid-cols-2' : 'grid-cols-3'} gap-2 mb-3`}>
         <div>
-          <label className="text-stone-500 text-[10px] uppercase tracking-wider">Waist (cm)</label>
+          <label className="text-[var(--content-muted)] text-xs uppercase tracking-wider">Waist (cm)</label>
           <input
             type="number"
             step="0.5"
             value={waist}
             onChange={(e) => setWaist(e.target.value)}
-            className="input-dark text-sm mt-1"
+            className="input-dark text-sm mt-1 text-base"
             placeholder="85"
           />
         </div>
         <div>
-          <label className="text-stone-500 text-[10px] uppercase tracking-wider">Neck (cm)</label>
+          <label className="text-[var(--content-muted)] text-xs uppercase tracking-wider">Neck (cm)</label>
           <input
             type="number"
             step="0.5"
             value={neck}
             onChange={(e) => setNeck(e.target.value)}
-            className="input-dark text-sm mt-1"
+            className="input-dark text-sm mt-1 text-base"
             placeholder="38"
           />
         </div>
         {sex === 'female' && (
           <div>
-            <label className="text-stone-500 text-[10px] uppercase tracking-wider">Hip (cm)</label>
+            <label className="text-[var(--content-muted)] text-xs uppercase tracking-wider">Hip (cm)</label>
             <input
               type="number"
               step="0.5"
               value={hip}
               onChange={(e) => setHip(e.target.value)}
-              className="input-dark text-sm mt-1"
+              className="input-dark text-sm mt-1 text-base"
               placeholder="95"
             />
           </div>
         )}
         <div>
-          <label className="text-stone-500 text-[10px] uppercase tracking-wider">Height (cm)</label>
+          <label className="text-[var(--content-muted)] text-xs uppercase tracking-wider">Height (cm)</label>
           <input
             type="number"
             step="0.5"
             value={height}
             onChange={(e) => setHeight(e.target.value)}
-            className="input-dark text-sm mt-1"
+            className="input-dark text-sm mt-1 text-base"
             placeholder="175"
           />
         </div>
@@ -240,7 +240,7 @@ export default function BodyCompCalculator({ sex: initialSex }: { sex?: CalcSex 
       <button
         onClick={calculate}
         disabled={!waist || !neck || !height || (sex === 'female' && !hip)}
-        className="btn-gold w-full text-sm py-2.5 mb-4 disabled:opacity-40"
+        className="btn-gold w-full text-sm py-2.5 mb-4 disabled:opacity-40 min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
       >
         Calculate
       </button>
@@ -253,7 +253,7 @@ export default function BodyCompCalculator({ sex: initialSex }: { sex?: CalcSex 
           transition={{ duration: 0.3 }}
         >
           <GaugeArc value={result} sex={sex} />
-          <p className="text-stone-600 text-[10px] text-center mt-3">
+          <p className="text-[var(--content-muted)] text-xs text-center mt-3">
             This is an estimate. For accurate measurement, consult your coach.
           </p>
         </motion.div>

@@ -128,7 +128,7 @@ export default function SupplementCompliance({ clientId }: { clientId: string })
 
   if (loading) {
     return (
-      <div className="text-center py-6 text-stone-600 text-sm">
+      <div className="text-center py-6 text-[var(--content-muted)] text-sm">
         Loading supplements...
       </div>
     );
@@ -137,8 +137,8 @@ export default function SupplementCompliance({ clientId }: { clientId: string })
   if (rows.length === 0) {
     return (
       <div className="text-center py-6">
-        <Pill size={24} className="mx-auto text-stone-700 mb-2" />
-        <p className="text-stone-600 text-sm">No supplement protocol assigned</p>
+        <Pill size={24} className="mx-auto text-[var(--content-muted)] mb-2" />
+        <p className="text-[var(--content-muted)] text-sm">No supplement protocol assigned</p>
       </div>
     );
   }
@@ -151,11 +151,11 @@ export default function SupplementCompliance({ clientId }: { clientId: string })
       <div className="grid gap-1 mb-2" style={{ gridTemplateColumns: '1fr repeat(7, 32px) 48px' }}>
         <div />
         {dayLabels.map((d) => (
-          <div key={d} className="text-center text-[9px] font-medium text-stone-600 uppercase">
+          <div key={d} className="text-center text-xs font-medium text-[var(--content-muted)] uppercase">
             {d}
           </div>
         ))}
-        <div className="text-center text-[9px] font-medium text-stone-600 uppercase">%</div>
+        <div className="text-center text-xs font-medium text-[var(--content-muted)] uppercase">%</div>
       </div>
 
       {/* Supplement rows */}
@@ -170,7 +170,7 @@ export default function SupplementCompliance({ clientId }: { clientId: string })
             style={{ gridTemplateColumns: '1fr repeat(7, 32px) 48px' }}
           >
             {/* Supplement name */}
-            <div className="text-xs text-stone-300 truncate pr-2" title={row.name}>
+            <div className="text-xs text-[var(--content-secondary)] truncate pr-2" title={row.name}>
               {row.name}
             </div>
 
@@ -180,16 +180,16 @@ export default function SupplementCompliance({ clientId }: { clientId: string })
                 key={i}
                 className={`aspect-square rounded-md flex items-center justify-center transition-colors ${
                   status === 'taken'
-                    ? 'bg-green-500/15 border border-green-500/25'
+                    ? 'bg-[var(--status-success-bg)] border border-[var(--status-success-border)]'
                     : status === 'missed'
-                    ? 'bg-red-500/10 border border-red-500/20'
-                    : 'bg-white/[0.02] border border-white/5'
+                    ? 'bg-[var(--status-danger-bg)] border border-[var(--status-danger-border)]'
+                    : 'bg-[var(--surface-2)] border border-[var(--border-default)]'
                 }`}
               >
                 {status === 'taken' ? (
-                  <CheckCircle2 size={12} className="text-green-400" />
+                  <CheckCircle2 size={12} className="text-[var(--status-success-fg)]" />
                 ) : status === 'missed' ? (
-                  <XCircle size={10} className="text-red-400/60" />
+                  <XCircle size={10} className="text-[var(--status-danger-fg)] opacity-60" />
                 ) : null}
               </div>
             ))}
@@ -197,10 +197,10 @@ export default function SupplementCompliance({ clientId }: { clientId: string })
             {/* Compliance percentage */}
             <div className={`text-center text-xs font-semibold ${
               row.compliance >= 80
-                ? 'text-green-400'
+                ? 'text-[var(--status-success-fg)]'
                 : row.compliance >= 50
-                ? 'text-yellow-400'
-                : 'text-red-400'
+                ? 'text-[var(--status-warning-fg)]'
+                : 'text-[var(--status-danger-fg)]'
             }`}>
               {row.compliance}%
             </div>

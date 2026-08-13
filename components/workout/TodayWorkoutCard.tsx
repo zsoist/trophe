@@ -145,7 +145,7 @@ export default function TodayWorkoutCard({ userId }: { userId: string | null }) 
               <Icon name="i-dumbbell" size={11} />
               {t('workout.home_title')}
             </span>
-            <ChevronRight size={14} style={{ color: 'var(--t4)' }} />
+            <ChevronRight size={14} style={{ color: 'var(--content-muted)' }} />
           </div>
 
           {state.kind === 'trained' && (
@@ -157,26 +157,26 @@ export default function TodayWorkoutCard({ userId }: { userId: string | null }) 
                 }}>
                   <Icon name="i-check" size={11} style={{ color: 'var(--accent)' }} />
                 </span>
-                <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--t1)' }}>
+                <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--content-primary)' }}>
                   {t('workout.home_done')}{state.templateName ? ` · ${state.templateName}` : ''}
                 </span>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
                 <div>
-                  <div style={{ fontSize: 18, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--t1)' }}>
+                  <div style={{ fontSize: 18, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--content-primary)' }}>
                     <AnimatedValue value={state.volumeKg ?? 0} />
-                    <span style={{ fontSize: 9, color: 'var(--t4)', marginLeft: 2 }}>kg</span>
+                    <span style={{ fontSize: 12, color: 'var(--content-muted)', marginLeft: 2 }}>kg</span>
                   </div>
                   <div className="eye-d">{t('workout.home_volume')}</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: 18, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--t1)' }}>
+                  <div style={{ fontSize: 18, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--content-primary)' }}>
                     <AnimatedValue value={state.sets ?? 0} />
                   </div>
                   <div className="eye-d">{t('workout.home_sets')}</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: 18, fontWeight: 700, fontFamily: 'var(--font-mono)', color: (state.prs ?? 0) > 0 ? 'var(--accent)' : 'var(--t1)' }}>
+                  <div style={{ fontSize: 18, fontWeight: 700, fontFamily: 'var(--font-mono)', color: (state.prs ?? 0) > 0 ? 'var(--accent)' : 'var(--content-primary)' }}>
                     <AnimatedValue value={state.prs ?? 0} />
                   </div>
                   <div className="eye-d">{t('workout.home_prs')}</div>
@@ -187,10 +187,10 @@ export default function TodayWorkoutCard({ userId }: { userId: string | null }) 
 
           {state.kind === 'assigned' && (
             <div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--t1)', marginBottom: 2 }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--content-primary)', marginBottom: 2 }}>
                 {state.templateName}
               </div>
-              <div className="ds-sub" style={{ fontSize: 11, marginBottom: 10 }}>
+              <div className="ds-sub" style={{ fontSize: 12, marginBottom: 10 }}>
                 {state.programName}
                 {state.exerciseCount ? ` · ${state.exerciseCount} ${t('workout.exercises')}` : ''}
                 {state.difficulty && DIFF_KEY[state.difficulty] ? ` · ${t(DIFF_KEY[state.difficulty])}` : ''}
@@ -209,7 +209,7 @@ export default function TodayWorkoutCard({ userId }: { userId: string | null }) 
             <div className="ds-sub" style={{ fontSize: 12 }}>
               {t('workout.home_rest')}
               {state.nextWeekday != null && (
-                <span style={{ color: 'var(--t2)' }}>
+                <span style={{ color: 'var(--content-secondary)' }}>
                   {' '}· {t('workout.next_session')} {t(WEEKDAY_KEYS[state.nextWeekday])}
                 </span>
               )}
@@ -223,7 +223,7 @@ export default function TodayWorkoutCard({ userId }: { userId: string | null }) 
                   ? `${state.weekSessions} ${t('workout.home_week_sessions')}`
                   : t('workout.home_quickstart_hint')}
               </span>
-              <span className="btn-ghost" style={{ fontSize: 11, padding: '7px 12px' }}>
+              <span className="btn-ghost" style={{ fontSize: 12, padding: '7px 12px' }}>
                 {t('workout.home_train')}
               </span>
             </div>

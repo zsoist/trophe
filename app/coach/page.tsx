@@ -26,7 +26,6 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
 import Avatar from '@/components/shared/Avatar';
-import { ThemeModeToggle } from '@/components/shared/ThemeMode';
 import ShortcutsModal from '@/components/shared/ShortcutsModal';
 import DashboardGreeting from '@/components/coach/DashboardGreeting';
 import WeeklyPulseCards from '@/components/coach/WeeklyPulseCards';
@@ -142,8 +141,10 @@ function QuickActionsDropdown({
   return (
     <div ref={ref} className="relative">
       <button
+        data-coach-primary-action
+        data-icon-only
         onClick={() => setOpen(!open)}
-        className="p-2 rounded-lg hover:bg-white/5 text-stone-400 hover:text-stone-200 transition-colors"
+        className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] min-h-11 min-w-11 p-2 rounded-lg hover:bg-[var(--surface-hover)] text-[var(--content-secondary)] hover:text-[var(--content-primary)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
         title="More actions"
       >
         <MoreHorizontal size={16} />
@@ -155,38 +156,39 @@ function QuickActionsDropdown({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: -4 }}
             transition={{ duration: 0.15 }}
-            className="absolute right-0 top-full mt-1 z-50 w-48 rounded-xl border border-white/10 bg-stone-900/95 backdrop-blur-xl shadow-xl overflow-hidden"
+            className="absolute right-0 top-full mt-1 z-50 w-48 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-2)] backdrop-blur-xl shadow-xl overflow-hidden"
           >
             <Link
               href={`/coach/client/${clientId}`}
-              className="flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-stone-300 hover:bg-white/5 hover:text-stone-100 transition-colors"
+              className="flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-[var(--content-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--content-primary)] transition-colors"
               onClick={() => setOpen(false)}
             >
-              <Eye size={14} className="text-stone-500" />
+              <Eye size={14} className="text-[var(--content-muted)]" />
               View Profile
             </Link>
             <button
+              data-coach-primary-action
               onClick={() => { onAddNote(clientId); setOpen(false); }}
-              className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-stone-300 hover:bg-white/5 hover:text-stone-100 transition-colors"
+              className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] min-h-11 w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-[var(--content-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--content-primary)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             >
-              <StickyNote size={14} className="text-stone-500" />
+              <StickyNote size={14} className="text-[var(--content-muted)]" />
               Add Note
             </button>
             <Link
               href={`/coach/client/${clientId}?assign=1`}
-              className="flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-stone-300 hover:bg-white/5 hover:text-stone-100 transition-colors"
+              className="flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-[var(--content-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--content-primary)] transition-colors"
               onClick={() => setOpen(false)}
             >
-              <Dumbbell size={14} className="text-stone-500" />
+              <Dumbbell size={14} className="text-[var(--content-muted)]" />
               Assign Habit
             </Link>
             {/* Real action (was a "Coming soon" toast): open the 1:1 thread */}
             <Link
               href={`/coach/inbox/${clientId}`}
-              className="flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-stone-300 hover:bg-white/5 hover:text-stone-100 transition-colors border-t border-white/5"
+              className="flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-[var(--content-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--content-primary)] transition-colors border-t border-[var(--border-subtle)]"
               onClick={() => setOpen(false)}
             >
-              <Bell size={14} className="text-stone-500" />
+              <Bell size={14} className="text-[var(--content-muted)]" />
               Send Reminder
             </Link>
           </motion.div>
@@ -209,7 +211,8 @@ function ActivityBarChart({ data }: { data: number[] }) {
   const gap = (w - barW * 7) / 8;
 
   return (
-    <svg viewBox={`0 0 ${w} ${h + 20}`} className="w-full" preserveAspectRatio="xMidYMid meet">
+    <svg role="img" aria-describedby="activity-chart-summary" viewBox={`0 0 ${w} ${h + 20}`} className="w-full" preserveAspectRatio="xMidYMid meet">
+      <title>Client activity this week</title>
       {/* Grid lines */}
       {[0, 0.5, 1].map((pct) => (
         <line
@@ -218,7 +221,7 @@ function ActivityBarChart({ data }: { data: number[] }) {
           y1={h * (1 - pct)}
           x2={w}
           y2={h * (1 - pct)}
-          stroke="rgba(255,255,255,0.04)"
+          stroke="var(--border-subtle)"
           strokeWidth="1"
         />
       ))}
@@ -235,7 +238,7 @@ function ActivityBarChart({ data }: { data: number[] }) {
               width={barW}
               height={h - 10}
               rx={4}
-              fill="rgba(255,255,255,0.03)"
+              fill="var(--border-subtle)"
             />
             {/* Bar fill */}
             <motion.rect
@@ -245,7 +248,7 @@ function ActivityBarChart({ data }: { data: number[] }) {
               x={x}
               width={barW}
               rx={4}
-              fill="#D4A853"
+              fill="var(--data-calories)"
               opacity={val > 0 ? 0.7 : 0.15}
             />
             {/* Value label */}
@@ -254,8 +257,8 @@ function ActivityBarChart({ data }: { data: number[] }) {
                 x={x + barW / 2}
                 y={y - 3}
                 textAnchor="middle"
-                fill="#D4A853"
-                fontSize="9"
+                fill="var(--data-calories)"
+                fontSize="12"
                 fontWeight="600"
               >
                 {val}
@@ -266,8 +269,8 @@ function ActivityBarChart({ data }: { data: number[] }) {
               x={x + barW / 2}
               y={h + 14}
               textAnchor="middle"
-              fill="#78716c"
-              fontSize="9"
+              fill="var(--data-neutral)"
+              fontSize="12"
             >
               {days[i]}
             </text>
@@ -844,15 +847,14 @@ export default function CoachDashboard() {
   };
 
   return (
-    <div className="min-h-screen px-4 py-6 sm:px-6 lg:px-8" style={{ background: 'var(--bg,#0a0a0a)' }}>
+    <div className="min-h-screen px-4 py-6 sm:px-6 lg:px-8" style={{ background: 'var(--canvas)' }}>
       <div className="max-w-5xl mx-auto">
         <div className="flex items-center justify-between mb-2">
           <div /> {/* spacer */}
           <div className="flex items-center gap-3">
-            <ThemeModeToggle />
             <Link
               href="/dashboard"
-              className="text-stone-400 hover:text-stone-200 text-xs flex items-center gap-1.5 transition-colors"
+              className="min-h-11 min-w-11 px-2 text-[var(--content-secondary)] hover:text-[var(--content-primary)] text-xs inline-flex items-center justify-center gap-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             >
               <RefreshCw size={12} />
               Client View
@@ -862,7 +864,7 @@ export default function CoachDashboard() {
                 await supabase.auth.signOut();
                 router.push('/login');
               }}
-              className="text-stone-500 hover:text-stone-300 text-xs flex items-center gap-1.5 transition-colors"
+              className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] text-[var(--content-muted)] hover:text-[var(--content-secondary)] text-xs flex items-center gap-1.5 transition-colors"
             >
               <LogOut size={14} />
               Log out
@@ -877,7 +879,7 @@ export default function CoachDashboard() {
             <button
               onClick={toggleLargeText}
               title="Toggle larger text"
-              className={`text-xs flex items-center gap-1 transition-colors ${largeText ? 'text-[#D4A853]' : 'text-stone-500 hover:text-stone-300'}`}
+              className={`min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] text-xs flex items-center gap-1 transition-colors ${largeText ? 'text-[#D4A853]' : 'text-[var(--content-muted)] hover:text-[var(--content-secondary)]'}`}
             >
               Aa
             </button>
@@ -924,40 +926,40 @@ export default function CoachDashboard() {
           <Panel id="business" title={t('coach.panel.business')}>
           {!loading && (
             <div className="glass p-5 mb-6">
-              <h2 className="font-semibold text-stone-200 mb-3 text-sm" title="Bookings counted by when they were made; completed by session date.">
+              <h2 className="font-semibold text-[var(--content-primary)] mb-3 text-sm" title="Bookings counted by when they were made; completed by session date.">
                 Business · {new Date().toLocaleDateString([], { month: 'long' })}
               </h2>
               <div className="grid grid-cols-3 gap-3 mb-1">
-                <div className="text-center p-3 rounded-xl bg-white/[0.03] border border-white/[0.06]">
-                  <div className="text-xl font-bold text-stone-100 font-mono">{biz.bookedThisMonth}</div>
-                  <div className="text-[10px] text-stone-500 uppercase tracking-wider">Booked</div>
-                  <div className={`text-[10px] font-mono mt-0.5 ${biz.bookedThisMonth >= biz.bookedLastMonth ? 'text-green-400' : 'text-red-400'}`}>
+                <div className="text-center p-3 rounded-xl bg-[var(--surface-hover)] border border-[var(--border-subtle)]">
+                  <div className="text-xl font-bold text-[var(--content-primary)] font-mono">{biz.bookedThisMonth}</div>
+                  <div className="text-xs text-[var(--content-muted)] uppercase tracking-wider">Booked</div>
+                  <div className={`text-xs font-mono mt-0.5 ${biz.bookedThisMonth >= biz.bookedLastMonth ? 'text-[var(--status-success-fg)]' : 'text-[var(--status-danger-fg)]'}`}>
                     {biz.bookedLastMonth === 0 ? '—' : `${biz.bookedThisMonth >= biz.bookedLastMonth ? '+' : ''}${biz.bookedThisMonth - biz.bookedLastMonth} vs last`}
                   </div>
                 </div>
-                <div className="text-center p-3 rounded-xl bg-white/[0.03] border border-white/[0.06]">
-                  <div className="text-xl font-bold text-stone-100 font-mono">{biz.completedThisMonth}</div>
-                  <div className="text-[10px] text-stone-500 uppercase tracking-wider">Sessions done</div>
+                <div className="text-center p-3 rounded-xl bg-[var(--surface-hover)] border border-[var(--border-subtle)]">
+                  <div className="text-xl font-bold text-[var(--content-primary)] font-mono">{biz.completedThisMonth}</div>
+                  <div className="text-xs text-[var(--content-muted)] uppercase tracking-wider">Sessions done</div>
                 </div>
-                <div className="text-center p-3 rounded-xl bg-white/[0.03] border border-white/[0.06]">
-                  <div className="text-xl font-bold text-stone-100 font-mono">{clients.length}</div>
-                  <div className="text-[10px] text-stone-500 uppercase tracking-wider">Active clients</div>
-                  <div className="text-[10px] font-mono mt-0.5 text-stone-500">
+                <div className="text-center p-3 rounded-xl bg-[var(--surface-hover)] border border-[var(--border-subtle)]">
+                  <div className="text-xl font-bold text-[var(--content-primary)] font-mono">{clients.length}</div>
+                  <div className="text-xs text-[var(--content-muted)] uppercase tracking-wider">Active clients</div>
+                  <div className="text-xs font-mono mt-0.5 text-[var(--content-muted)]">
                     {clients.length >= 100 ? 'at capacity' : clients.length >= 70 ? 'nearly full' : 'room to grow'}
                   </div>
                 </div>
               </div>
 
               {contactDue.length > 0 && (
-                <div className="mt-3 pt-3 border-t border-white/[0.06]">
-                  <div className="text-[10px] text-stone-500 uppercase tracking-wider mb-2">
+                <div className="mt-3 pt-3 border-t border-[var(--border-subtle)]">
+                  <div className="text-xs text-[var(--content-muted)] uppercase tracking-wider mb-2">
                     Reach out — past their cadence
                   </div>
                   {contactDue.slice(0, 5).map(({ c, cadence, overdueDays }) => (
                     <Link key={c.profile.id} href={`/coach/inbox/${c.profile.id}`}
-                      className="flex items-center justify-between py-1.5 hover:bg-white/[0.03] rounded-lg px-2 -mx-2 transition-colors">
-                      <span className="text-xs text-stone-300">{c.profile.full_name}</span>
-                      <span className="text-[10px] font-mono text-amber-400/90">
+                      className="flex items-center justify-between py-1.5 hover:bg-[var(--surface-hover)] rounded-lg px-2 -mx-2 transition-colors">
+                      <span className="text-xs text-[var(--content-secondary)]">{c.profile.full_name}</span>
+                      <span className="text-xs font-mono text-[var(--status-warning-fg)]">
                         {overdueDays}d past {cadence}d rhythm
                       </span>
                     </Link>
@@ -978,39 +980,39 @@ export default function CoachDashboard() {
               className="glass gold-border p-5 mb-6"
             >
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-sm font-semibold text-stone-200 flex items-center gap-2">
+                <h2 className="text-sm font-semibold text-[var(--content-primary)] flex items-center gap-2">
                   <Calendar size={16} className="text-[#D4A853]" />
                   Weekly Summary
                 </h2>
-                <span className="text-xs text-stone-500">{weekLabel}</span>
+                <span className="text-xs text-[var(--content-muted)]">{weekLabel}</span>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
                 <div className="text-center">
-                  <div className="text-xl font-bold text-stone-100">{totalCheckins}</div>
-                  <div className="text-[10px] text-stone-500 uppercase tracking-wider">Active This Week</div>
+                  <div className="text-xl font-bold text-[var(--content-primary)]">{totalCheckins}</div>
+                  <div className="text-xs text-[var(--content-muted)] uppercase tracking-wider">Active This Week</div>
                 </div>
                 <div className="text-center">
                   <div className="text-xl font-bold text-[#D4A853]">{avgStreakPct}%</div>
-                  <div className="text-[10px] text-stone-500 uppercase tracking-wider">Avg. Streak</div>
+                  <div className="text-xs text-[var(--content-muted)] uppercase tracking-wider">Avg. Streak</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-xl font-bold text-green-400">{clients.filter((c) => c.readyForProgression).length}</div>
-                  <div className="text-[10px] text-stone-500 uppercase tracking-wider">Ready to Progress</div>
+                  <div className="text-xl font-bold text-[var(--status-success-fg)]">{clients.filter((c) => c.readyForProgression).length}</div>
+                  <div className="text-xs text-[var(--content-muted)] uppercase tracking-wider">Ready to Progress</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-xl font-bold text-red-400">{needsAttention.length}</div>
-                  <div className="text-[10px] text-stone-500 uppercase tracking-wider">Need Attention</div>
+                  <div className="text-xl font-bold text-[var(--status-danger-fg)]">{needsAttention.length}</div>
+                  <div className="text-xs text-[var(--content-muted)] uppercase tracking-wider">Need Attention</div>
                 </div>
               </div>
               {needsAttention.length > 0 && (
-                <div className="mt-3 pt-3 border-t border-white/5">
-                  <p className="text-xs text-stone-500 mb-2">Needs attention:</p>
+                <div className="mt-3 pt-3 border-t border-[var(--border-subtle)]">
+                  <p className="text-xs text-[var(--content-muted)] mb-2">Needs attention:</p>
                   <div className="flex flex-wrap gap-1.5">
                     {needsAttention.slice(0, 5).map((c) => (
                       <Link
                         key={c.profile.id}
                         href={`/coach/client/${c.clientProfile.user_id}`}
-                        className="text-[11px] px-2.5 py-1 rounded-full bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-colors"
+                        className="text-xs px-2.5 py-1 rounded-full bg-[var(--status-danger-bg)] text-[var(--status-danger-fg)] border border-[var(--status-danger-border)] hover:bg-[var(--status-danger-bg)] transition-colors"
                       >
                         {c.profile.full_name} ({c.daysSinceCheckin === 999 ? 'never' : `${c.daysSinceCheckin}d`})
                       </Link>
@@ -1026,20 +1028,20 @@ export default function CoachDashboard() {
           <Panel id="summaryBar" title={t('coach.panel.summaryBar')}>
           <div className="grid grid-cols-3 gap-3 mb-6">
             <div className="glass p-4 text-center">
-              <div className="text-2xl font-bold text-stone-100">{clients.length}</div>
-              <div className="text-xs text-stone-500 flex items-center justify-center gap-1">
+              <div className="text-2xl font-bold text-[var(--content-primary)]">{clients.length}</div>
+              <div className="text-xs text-[var(--content-muted)] flex items-center justify-center gap-1">
                 <Users size={12} /> Total
               </div>
             </div>
             <div className="glass p-4 text-center">
-              <div className="text-2xl font-bold text-green-400">{onTrack}</div>
-              <div className="text-xs text-stone-500 flex items-center justify-center gap-1">
+              <div className="text-2xl font-bold text-[var(--status-success-fg)]">{onTrack}</div>
+              <div className="text-xs text-[var(--content-muted)] flex items-center justify-center gap-1">
                 <CheckCircle2 size={12} /> On Track
               </div>
             </div>
             <div className="glass p-4 text-center">
-              <div className="text-2xl font-bold text-red-400">{atRisk}</div>
-              <div className="text-xs text-stone-500 flex items-center justify-center gap-1">
+              <div className="text-2xl font-bold text-[var(--status-danger-fg)]">{atRisk}</div>
+              <div className="text-xs text-[var(--content-muted)] flex items-center justify-center gap-1">
                 <AlertTriangle size={12} /> At Risk
               </div>
             </div>
@@ -1068,16 +1070,18 @@ export default function CoachDashboard() {
           {!loading && clients.length > 0 && (
             <div className="flex gap-2 mb-4 flex-wrap items-start">
               <button
+                data-coach-primary-action
                 onClick={() => setShowBatchAssign(true)}
-                className="text-xs px-3 py-1.5 rounded-lg border border-[#D4A853]/30 text-[#D4A853] hover:bg-[#D4A853]/10 transition-colors"
+                className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] min-h-11 text-xs px-3 py-1.5 rounded-lg border border-[#D4A853]/30 text-[#D4A853] hover:bg-[#D4A853]/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
               >
                 Batch Assign Habit
               </button>
               <Panel id="compareClients" title={t('coach.panel.compareClients')}>
                 {clients.length >= 2 && (
                   <button
+                    data-coach-primary-action
                     onClick={() => setShowComparison(true)}
-                    className="text-xs px-3 py-1.5 rounded-lg border border-white/10 text-stone-400 hover:text-stone-200 hover:border-white/20 transition-colors"
+                    className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] min-h-11 text-xs px-3 py-1.5 rounded-lg border border-[var(--border-subtle)] text-[var(--content-secondary)] hover:text-[var(--content-primary)] hover:border-[var(--border-subtle)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                   >
                     Compare Clients
                   </button>
@@ -1088,14 +1092,14 @@ export default function CoachDashboard() {
 
           {/* ═══ Search + Filter Pills (Feature 6) ═══ */}
           <div className="relative mb-3">
-            <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-500" />
+            <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--content-muted)]" />
             <input
               ref={searchInputRef}
               type="text"
               placeholder="Search clients..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="input-dark"
+              className="input-dark text-base"
               style={{ paddingLeft: 40 }}
             />
           </div>
@@ -1109,17 +1113,18 @@ export default function CoachDashboard() {
               { key: 'inactive' as FilterStatus, label: 'Inactive', count: countInactive },
             ]).map((f) => (
               <button
+                data-coach-primary-action
                 key={f.key}
                 onClick={() => setFilter(f.key)}
-                className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border transition-all whitespace-nowrap ${
+                className={`min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] min-h-11 flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] ${
                   filter === f.key
                     ? 'border-[#D4A853]/40 bg-[#D4A853]/10 text-[#D4A853]'
-                    : 'border-white/10 text-stone-400 hover:border-white/20 hover:text-stone-300'
+                    : 'border-[var(--border-subtle)] text-[var(--content-secondary)] hover:border-[var(--border-subtle)] hover:text-[var(--content-secondary)]'
                 }`}
               >
                 {f.label}
-                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                  filter === f.key ? 'bg-[#D4A853]/20' : 'bg-white/5'
+                <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${
+                  filter === f.key ? 'bg-[#D4A853]/20' : 'bg-[var(--surface-hover)]'
                 }`}>
                   {f.count}
                 </span>
@@ -1136,12 +1141,12 @@ export default function CoachDashboard() {
                 transition={{ delay: 0.15 }}
                 className="glass p-5 mb-6"
               >
-                <h2 className="text-sm font-semibold text-stone-200 flex items-center gap-2 mb-3">
+                <h2 className="text-sm font-semibold text-[var(--content-primary)] flex items-center gap-2 mb-3">
                   <BarChart3 size={16} className="text-[#D4A853]" />
                   Client Activity This Week
                 </h2>
                 <ActivityBarChart data={weeklyActivity} />
-                <p className="text-[10px] text-stone-600 text-center mt-2">
+                <p id="activity-chart-summary" className="text-xs text-[var(--content-muted)] text-center mt-2">
                   Total check-ins across all clients per day
                 </p>
               </motion.div>
@@ -1157,10 +1162,10 @@ export default function CoachDashboard() {
               transition={{ delay: 0.1 }}
               className="mb-6"
             >
-              <h2 className="text-sm font-semibold text-stone-300 flex items-center gap-2 mb-3">
-                <UserPlus size={14} className="text-amber-400" />
+              <h2 className="text-sm font-semibold text-[var(--content-secondary)] flex items-center gap-2 mb-3">
+                <UserPlus size={14} className="text-[var(--status-warning-fg)]" />
                 Pending Onboarding
-                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400">
+                <span className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-[var(--status-warning-bg)] text-[var(--status-warning-fg)]">
                   {filteredOnboarding.length}
                 </span>
               </h2>
@@ -1173,17 +1178,17 @@ export default function CoachDashboard() {
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, scale: 0.95 }}
                       transition={{ delay: i * 0.03 }}
-                      className="glass p-4 border border-amber-500/20"
+                      className="glass p-4 border border-[var(--status-warning-border)]"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-400 text-sm font-bold shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-[var(--status-warning-bg)] flex items-center justify-center text-[var(--status-warning-fg)] text-sm font-bold shrink-0">
                           {client.profile.full_name.charAt(0).toUpperCase()}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-stone-100 text-sm truncate">
+                          <h3 className="font-semibold text-[var(--content-primary)] text-sm truncate">
                             {client.profile.full_name}
                           </h3>
-                          <div className="flex items-center gap-2 text-xs text-stone-500">
+                          <div className="flex items-center gap-2 text-xs text-[var(--content-muted)]">
                             <span>{client.profile.email}</span>
                             <span className="flex items-center gap-1">
                               <Clock size={10} />
@@ -1211,8 +1216,8 @@ export default function CoachDashboard() {
             <CoachLoadingSkeletons page="dashboard" />
           ) : filtered.length === 0 && filteredOnboarding.length === 0 ? (
             <div className="text-center py-20">
-              <LayoutGrid size={48} className="mx-auto text-stone-700 mb-4" />
-              <p className="text-stone-500">
+              <LayoutGrid size={48} className="mx-auto text-[var(--content-disabled)] mb-4" />
+              <p className="text-[var(--content-muted)]">
                 {clients.length === 0 ? 'No clients assigned yet' : 'No clients match your search'}
               </p>
             </div>
@@ -1233,17 +1238,17 @@ export default function CoachDashboard() {
                       {/* Avatar with status */}
                       <div className="relative pt-0.5">
                         <Avatar name={client.profile.full_name} size={32} />
-                        <span className={`status-dot ${client.status} absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 border-2 border-stone-900`} style={{ borderRadius: '50%' }} />
+                        <span className={`status-dot ${client.status} absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 border-2 border-[var(--border-default)]`} style={{ borderRadius: '50%' }} />
                       </div>
 
                       {/* Main info */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="font-semibold text-stone-100 truncate">
+                          <h3 className="font-semibold text-[var(--content-primary)] truncate">
                             {client.profile.full_name}
                           </h3>
                           {client.readyForProgression && (
-                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#D4A853]/15 text-[#D4A853] whitespace-nowrap">
+                            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-[#D4A853]/15 text-[#D4A853] whitespace-nowrap">
                               Ready for Progression
                             </span>
                           )}
@@ -1252,7 +1257,7 @@ export default function CoachDashboard() {
                         {/* Habit info */}
                         {client.activeHabit?.habit ? (
                           <div className="mt-1.5">
-                            <div className="flex items-center gap-1.5 text-sm text-stone-400">
+                            <div className="flex items-center gap-1.5 text-sm text-[var(--content-secondary)]">
                               <span>{client.activeHabit.habit.emoji}</span>
                               <span>{client.activeHabit.habit.name_en}</span>
                             </div>
@@ -1271,17 +1276,17 @@ export default function CoachDashboard() {
                                   }}
                                 />
                               </div>
-                              <span className="text-xs text-stone-500 whitespace-nowrap">
+                              <span className="text-xs text-[var(--content-muted)] whitespace-nowrap">
                                 {client.activeHabit.current_streak}/{client.activeHabit.habit.cycle_days || 21}d
                               </span>
                             </div>
                           </div>
                         ) : (
-                          <p className="text-xs text-stone-600 mt-1">No active habit</p>
+                          <p className="text-xs text-[var(--content-muted)] mt-1">No active habit</p>
                         )}
 
                         {/* Mood + last activity */}
-                        <div className="flex items-center gap-4 mt-2 text-xs text-stone-500">
+                        <div className="flex items-center gap-4 mt-2 text-xs text-[var(--content-muted)]">
                           {client.moodAvg !== null && (
                             <span>
                               Mood: {client.moodAvg.toFixed(1)}/5
@@ -1311,14 +1316,14 @@ export default function CoachDashboard() {
                                   value={inlineNoteText}
                                   onChange={(e) => setInlineNoteText(e.target.value)}
                                   placeholder="Quick note..."
-                                  className="input-dark flex-1 !py-2 text-sm"
+                                  className="input-dark text-base flex-1 !py-2"
                                   autoFocus
                                   onKeyDown={(e) => { if (e.key === 'Enter') saveInlineNote(); if (e.key === 'Escape') setInlineNoteId(null); }}
                                 />
                                 <button
                                   onClick={saveInlineNote}
                                   disabled={savingNote || !inlineNoteText.trim()}
-                                  className="btn-gold !py-2 !px-3 text-xs disabled:opacity-40"
+                                  className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] btn-gold !py-2 !px-3 text-xs disabled:opacity-40"
                                 >
                                   {savingNote ? '...' : 'Save'}
                                 </button>
@@ -1332,14 +1337,14 @@ export default function CoachDashboard() {
                       <div className="flex items-center gap-1 shrink-0">
                         <Link
                           href={`/coach/client/${client.clientProfile.user_id}`}
-                          className="p-2 rounded-lg hover:bg-white/5 text-stone-400 hover:text-stone-200 transition-colors"
-                          title="View"
+                          aria-label={`View ${client.profile.full_name}`}
+                          className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg hover:bg-[var(--surface-hover)] text-[var(--content-secondary)] hover:text-[var(--content-primary)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                         >
                           <Eye size={16} />
                         </Link>
                         {client.readyForProgression && (
                           <button
-                            className="p-2 rounded-lg hover:bg-[#D4A853]/10 text-[#D4A853] transition-colors"
+                            className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] p-2 rounded-lg hover:bg-[#D4A853]/10 text-[#D4A853] transition-colors"
                             title="Progress to next habit"
                           >
                             <ArrowUpRight size={16} />
@@ -1407,7 +1412,7 @@ export default function CoachDashboard() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[var(--surface-overlay)] backdrop-blur-sm"
             onClick={() => setShowComparison(false)}
           >
             <motion.div
@@ -1424,13 +1429,13 @@ export default function CoachDashboard() {
                   { value: compareB, set: setCompareB, exclude: compareA, label: t('coach.compare.clientB') },
                 ] as const).map((picker) => (
                   <div key={picker.label}>
-                    <label className="text-[10px] text-stone-500 uppercase tracking-wider mb-1 block">
+                    <label className="text-xs text-[var(--content-muted)] uppercase tracking-wider mb-1 block">
                       {picker.label}
                     </label>
                     <select
                       value={picker.value}
                       onChange={(e) => picker.set(e.target.value)}
-                      className="input-dark w-full text-xs !py-2"
+                      className="input-dark text-base w-full !py-2"
                     >
                       {clients
                         .filter((c) => c.clientProfile.user_id !== picker.exclude)
@@ -1450,7 +1455,7 @@ export default function CoachDashboard() {
                 if (!cardA || !cardB) return null;
                 if (compareLoading && (!compareActuals[compareA] || !compareActuals[compareB])) {
                   return (
-                    <div className="bg-white/[0.04] border border-white/[0.06] rounded-xl p-8 text-center text-stone-500 text-xs">
+                    <div className="bg-[var(--surface-hover)] border border-[var(--border-subtle)] rounded-xl p-8 text-center text-[var(--content-muted)] text-xs">
                       {t('coach.compare.loading')}
                     </div>
                   );
@@ -1476,11 +1481,11 @@ export default function CoachDashboard() {
                       clientA={{ name: cardA.profile.full_name, macros: actualA, targets: targetsA }}
                       clientB={{ name: cardB.profile.full_name, macros: actualB, targets: targetsB }}
                     />
-                    <p className="text-[10px] text-stone-600 text-center mt-2">
+                    <p className="text-xs text-[var(--content-muted)] text-center mt-2">
                       {t('coach.compare.footnote')}
                     </p>
                     {noTargets && (
-                      <p className="text-[10px] text-amber-400/80 text-center mt-1">
+                      <p className="text-xs text-[var(--status-warning-fg)] text-center mt-1">
                         {t('coach.compare.noTargets')}
                       </p>
                     )}
@@ -1489,7 +1494,7 @@ export default function CoachDashboard() {
               })()}
               <button
                 onClick={() => setShowComparison(false)}
-                className="mt-3 w-full text-center text-xs text-stone-500 hover:text-stone-300 transition-colors py-2"
+                className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] mt-3 w-full text-center text-xs text-[var(--content-muted)] hover:text-[var(--content-secondary)] transition-colors py-2"
               >
                 Close
               </button>
@@ -1502,7 +1507,7 @@ export default function CoachDashboard() {
       <div className="fixed bottom-4 right-4 z-30">
         <button
           onClick={() => setShowShortcuts(true)}
-          className="text-[11px] text-stone-600 hover:text-stone-400 transition-colors px-3 py-1.5 rounded-lg bg-stone-900/80 backdrop-blur-sm border border-stone-800/50"
+          className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] text-xs text-[var(--content-muted)] hover:text-[var(--content-secondary)] transition-colors px-3 py-1.5 rounded-lg bg-[var(--surface-2)] backdrop-blur-sm border border-[var(--border-default)]"
         >
           Press <kbd className="font-mono text-[#D4A853] mx-0.5">?</kbd> for shortcuts
         </button>

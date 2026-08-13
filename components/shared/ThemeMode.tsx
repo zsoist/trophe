@@ -1,7 +1,13 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { Sun, Moon } from 'lucide-react';
+import {
+  applyThemeMode,
+  resolveInitialTheme,
+  THEME_STORAGE_KEY,
+  type ThemeMode,
+} from '@/lib/theme';
 
 // PERF: no framer-motion here — this provider wraps every page and the icon
 // swap is a 200ms CSS animation (.theme-icon-in in globals.css).
@@ -9,8 +15,6 @@ import { Sun, Moon } from 'lucide-react';
 // ═══════════════════════════════════════════════
 // Theme Mode Context
 // ═══════════════════════════════════════════════
-
-type ThemeMode = 'dark' | 'light';
 
 interface ThemeModeContextValue {
   mode: ThemeMode;
@@ -31,24 +35,22 @@ export function useThemeMode() {
 // ═══════════════════════════════════════════════
 
 export function ThemeModeProvider({ children }: { children: React.ReactNode }) {
-  const [mode, setMode] = useState<ThemeMode>('dark');
-
-  // Read from localStorage on mount and apply
-  useEffect(() => {
-    const stored = localStorage.getItem('trophe_theme_mode') as ThemeMode | null;
-    const initial = stored === 'light' ? 'light' : 'dark';
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setMode(initial);
-    applyModeClass(initial);
-  }, []);
+  const [mode, setMode] = useState<ThemeMode>(() => {
+    if (typeof document === 'undefined') return 'dark';
+    return resolveInitialTheme(readStoredTheme(), document.documentElement.className);
+  });
 
   const toggleMode = useCallback(() => {
-    setMode((prev) => {
-      const next = prev === 'dark' ? 'light' : 'dark';
-      localStorage.setItem('trophe_theme_mode', next);
-      applyModeClass(next);
-      return next;
-    });
+    const next = mode === 'dark' ? 'light' : 'dark';
+    setMode(next);
+    persistTheme(next);
+    applyThemeMode(next, document);
+  }, [mode]);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const previous = Number(root.dataset.tropheThemeProviderMounts ?? '0');
+    root.dataset.tropheThemeProviderMounts = String(Number.isFinite(previous) ? previous + 1 : 1);
   }, []);
 
   return (
@@ -58,14 +60,19 @@ export function ThemeModeProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-function applyModeClass(mode: ThemeMode) {
-  const html = document.documentElement;
-  if (mode === 'light') {
-    html.classList.remove('dark');
-    html.classList.add('light');
-  } else {
-    html.classList.remove('light');
-    html.classList.add('dark');
+function readStoredTheme(): string | null {
+  try {
+    return localStorage.getItem(THEME_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function persistTheme(mode: ThemeMode) {
+  try {
+    localStorage.setItem(THEME_STORAGE_KEY, mode);
+  } catch {
+    // Theme changes still apply when storage is unavailable.
   }
 }
 
@@ -74,24 +81,29 @@ function applyModeClass(mode: ThemeMode) {
 // ═══════════════════════════════════════════════
 
 export function ThemeModeToggle({ className = '' }: { className?: string }) {
-  const { mode, toggleMode } = useThemeMode();
+  const { toggleMode } = useThemeMode();
 
   return (
     <button
       onClick={toggleMode}
-      className={`relative w-9 h-9 rounded-xl border border-white/10 dark:border-white/10 light:border-stone-200 flex items-center justify-center transition-colors hover:bg-white/5 dark:hover:bg-white/5 ${className}`}
-      title={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-      aria-label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+      className={`relative min-h-11 min-w-11 rounded-xl border border-[var(--border-default)] flex items-center justify-center transition-colors hover:bg-[var(--bg-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-primary)] ${className}`}
+      title="Toggle color theme"
+      aria-label="Toggle color theme"
     >
-      {mode === 'dark' ? (
-        <div key="moon" className="theme-icon-in">
-          <Moon size={16} className="text-stone-400" />
-        </div>
-      ) : (
-        <div key="sun" className="theme-icon-in">
-          <Sun size={16} className="text-amber-500" />
-        </div>
-      )}
+      <div
+        data-theme-icon="dark"
+        aria-hidden="true"
+        className="theme-icon-in [.light_&]:hidden"
+      >
+        <Moon size={16} className="text-[var(--content-muted)]" />
+      </div>
+      <div
+        data-theme-icon="light"
+        aria-hidden="true"
+        className="theme-icon-in hidden [.light_&]:block"
+      >
+        <Sun size={16} className="text-amber-500" />
+      </div>
     </button>
   );
 }

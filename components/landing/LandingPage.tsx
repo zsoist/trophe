@@ -5,6 +5,7 @@ import {
   ChevronRight, Globe, ArrowRight,
 } from 'lucide-react';
 import LanguageLinks from '@/components/landing/LanguageLinks';
+import { StandaloneThemeModeToggle } from '@/components/shared/StandaloneThemeModeToggle';
 import type { LandingLang } from '@/lib/landing-language';
 
 /* ═══════════════════════════════════════════════════════
@@ -119,14 +120,14 @@ function AppPreview() {
   return (
     <div className="relative mx-auto w-[280px] sm:w-[320px]">
       {/* Phone frame */}
-      <div className="rounded-[2rem] border-2 border-stone-700/40 bg-stone-950 p-2 shadow-2xl shadow-black/40">
+      <div className="rounded-[2rem] border-2 border-[var(--border-default)] bg-[var(--surface-2)] p-2 shadow-2xl shadow-black/40">
         {/* Screen */}
-        <div className="rounded-[1.5rem] overflow-hidden bg-stone-950">
+        <div className="rounded-[1.5rem] overflow-hidden bg-[var(--surface-2)]">
           {/* Status bar */}
-          <div className="flex justify-between items-center px-5 pt-3 pb-1 text-[9px] text-stone-500">
+          <div className="flex justify-between items-center px-5 pt-3 pb-1 text-xs text-[var(--content-muted)]">
             <span>9:41</span>
             <div className="flex gap-1 items-center">
-              <div className="w-3 h-2 border border-stone-600 rounded-sm relative">
+              <div className="w-3 h-2 border border-[var(--border-default)] rounded-sm relative">
                 <div className="absolute inset-0.5 bg-green-500 rounded-xs" />
               </div>
             </div>
@@ -134,14 +135,14 @@ function AppPreview() {
 
           {/* App header */}
           <div className="px-4 pt-2 pb-3">
-            <p className="text-[10px] text-stone-500 tracking-wider uppercase">Today</p>
+            <p className="text-xs text-[var(--content-muted)] tracking-wider uppercase">Today</p>
             <div className="flex items-baseline justify-between mt-1">
-              <p className="text-stone-200 text-sm font-semibold">Monday, Jun 9</p>
+              <p className="text-[var(--content-primary)] text-sm font-semibold">Monday, Jun 9</p>
             </div>
           </div>
 
           {/* Macro bar */}
-          <div className="mx-3 rounded-xl bg-stone-900/80 border border-stone-800/40 p-3 mb-3">
+          <div className="mx-3 rounded-xl bg-[var(--surface-2)] border border-[var(--border-default)] p-3 mb-3">
             <div className="grid grid-cols-5 gap-1 text-center">
               {[
                 { v: '1,847', l: 'kcal', c: 'text-[#D4A853]' },
@@ -152,96 +153,96 @@ function AppPreview() {
               ].map((m) => (
                 <div key={m.l}>
                   <p className={`text-xs font-bold ${m.c}`}>{m.v}</p>
-                  <p className="text-[7px] text-stone-600 mt-0.5">{m.l}</p>
+                  <p className="text-xs text-[var(--content-muted)] mt-0.5">{m.l}</p>
                 </div>
               ))}
             </div>
             {/* Progress bar — with a slow premium sheen */}
-            <div className="mt-2 h-1 bg-stone-800 rounded-full overflow-hidden relative">
+            <div className="mt-2 h-1 bg-[var(--surface-2)] rounded-full overflow-hidden relative">
               <div className="h-full bg-gradient-to-r from-[#D4A853] to-[#E8C078] rounded-full" style={{ width: '72%' }} />
               <span aria-hidden className="mock-sheen" />
             </div>
-            <p className="text-[8px] text-stone-600 mt-1 text-right">72% of daily target</p>
+            <p className="text-xs text-[var(--content-muted)] mt-1 text-right">72% of daily target</p>
           </div>
 
           {/* Meal cards */}
           <div className="px-3 space-y-2 pb-3">
             {/* Logged meal */}
-            <div className="rounded-xl bg-stone-900/60 border border-stone-800/30 p-3">
+            <div className="rounded-xl bg-[var(--surface-2)] border border-[var(--border-default)] p-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px]">&#9728;&#65039;</span>
-                  <span className="text-stone-200 text-xs font-medium">Breakfast</span>
+                  <span className="text-xs">&#9728;&#65039;</span>
+                  <span className="text-[var(--content-primary)] text-xs font-medium">Breakfast</span>
                 </div>
-                <span className="text-[#D4A853] text-[10px] font-semibold">487 kcal</span>
+                <span className="text-[#D4A853] text-xs font-semibold">487 kcal</span>
               </div>
               <div className="mt-1.5 space-y-1">
-                <div className="flex justify-between text-[10px]">
-                  <span className="text-stone-400">Greek yogurt with honey</span>
-                  <span className="text-stone-500">220 kcal</span>
+                <div className="flex justify-between text-xs">
+                  <span className="text-[var(--content-muted)]">Greek yogurt with honey</span>
+                  <span className="text-[var(--content-muted)]">220 kcal</span>
                 </div>
-                <div className="flex justify-between text-[10px]">
-                  <span className="text-stone-400">Granola mix (45g)</span>
-                  <span className="text-stone-500">185 kcal</span>
+                <div className="flex justify-between text-xs">
+                  <span className="text-[var(--content-muted)]">Granola mix (45g)</span>
+                  <span className="text-[var(--content-muted)]">185 kcal</span>
                 </div>
-                <div className="flex justify-between text-[10px]">
-                  <span className="text-stone-400">Banana</span>
-                  <span className="text-stone-500">82 kcal</span>
+                <div className="flex justify-between text-xs">
+                  <span className="text-[var(--content-muted)]">Banana</span>
+                  <span className="text-[var(--content-muted)]">82 kcal</span>
                 </div>
               </div>
             </div>
 
             {/* Logged meal 2 */}
-            <div className="rounded-xl bg-stone-900/60 border border-stone-800/30 p-3">
+            <div className="rounded-xl bg-[var(--surface-2)] border border-[var(--border-default)] p-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px]">&#127860;</span>
-                  <span className="text-stone-200 text-xs font-medium">Lunch</span>
+                  <span className="text-xs">&#127860;</span>
+                  <span className="text-[var(--content-primary)] text-xs font-medium">Lunch</span>
                 </div>
-                <span className="text-[#D4A853] text-[10px] font-semibold">724 kcal</span>
+                <span className="text-[#D4A853] text-xs font-semibold">724 kcal</span>
               </div>
               <div className="mt-1.5 space-y-1">
-                <div className="flex justify-between text-[10px]">
-                  <span className="text-stone-400">Grilled chicken breast</span>
-                  <span className="text-stone-500">312 kcal</span>
+                <div className="flex justify-between text-xs">
+                  <span className="text-[var(--content-muted)]">Grilled chicken breast</span>
+                  <span className="text-[var(--content-muted)]">312 kcal</span>
                 </div>
-                <div className="flex justify-between text-[10px]">
-                  <span className="text-stone-400">Brown rice (180g)</span>
-                  <span className="text-stone-500">234 kcal</span>
+                <div className="flex justify-between text-xs">
+                  <span className="text-[var(--content-muted)]">Brown rice (180g)</span>
+                  <span className="text-[var(--content-muted)]">234 kcal</span>
                 </div>
-                <div className="flex justify-between text-[10px]">
-                  <span className="text-stone-400">Mixed salad + olive oil</span>
-                  <span className="text-stone-500">178 kcal</span>
+                <div className="flex justify-between text-xs">
+                  <span className="text-[var(--content-muted)]">Mixed salad + olive oil</span>
+                  <span className="text-[var(--content-muted)]">178 kcal</span>
                 </div>
               </div>
             </div>
 
             {/* Upcoming meal */}
-            <div className="rounded-xl bg-stone-900/30 border border-dashed border-stone-800/30 p-3 opacity-50">
+            <div className="rounded-xl bg-[var(--surface-2)] border border-dashed border-[var(--border-default)] p-3 opacity-50">
               <div className="flex items-center gap-2">
-                <span className="text-[10px]">&#127769;</span>
-                <span className="text-stone-400 text-xs">Dinner — Tap to log</span>
+                <span className="text-xs">&#127769;</span>
+                <span className="text-[var(--content-muted)] text-xs">Dinner — Tap to log</span>
               </div>
             </div>
           </div>
 
           {/* Bottom nav hint */}
-          <div className="flex justify-around py-2 border-t border-stone-800/30 text-stone-600">
+          <div className="flex justify-around py-2 border-t border-[var(--border-default)] text-[var(--content-muted)]">
             <div className="text-center">
-              <div className="w-4 h-4 mx-auto mb-0.5 rounded bg-stone-800/40" />
-              <span className="text-[7px]">Home</span>
+              <div className="w-4 h-4 mx-auto mb-0.5 rounded bg-[var(--surface-2)]" />
+              <span className="text-xs">Home</span>
             </div>
             <div className="text-center">
               <div className="mock-log-tab w-4 h-4 mx-auto mb-0.5 rounded bg-[#D4A853]/20 border border-[#D4A853]/30" />
-              <span className="text-[7px] text-[#D4A853]">Log</span>
+              <span className="text-xs text-[#D4A853]">Log</span>
             </div>
             <div className="text-center">
-              <div className="w-4 h-4 mx-auto mb-0.5 rounded bg-stone-800/40" />
-              <span className="text-[7px]">Progress</span>
+              <div className="w-4 h-4 mx-auto mb-0.5 rounded bg-[var(--surface-2)]" />
+              <span className="text-xs">Progress</span>
             </div>
             <div className="text-center">
-              <div className="w-4 h-4 mx-auto mb-0.5 rounded bg-stone-800/40" />
-              <span className="text-[7px]">Me</span>
+              <div className="w-4 h-4 mx-auto mb-0.5 rounded bg-[var(--surface-2)]" />
+              <span className="text-xs">Me</span>
             </div>
           </div>
         </div>
@@ -258,13 +259,13 @@ export default function LandingPage({ lang }: { lang: LandingLang }) {
 
   return (
     <div
-      className="min-h-screen bg-stone-950 overflow-x-hidden"
+      className="min-h-screen overflow-x-hidden bg-[var(--canvas)] text-[var(--content-primary)]"
       data-landing-lang
       lang={lang}
     >
       {/* ─── Navbar ─── */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-stone-950/80 backdrop-blur-xl border-b border-white/[0.04]">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+      <nav className="fixed left-0 right-0 top-0 z-50 border-b border-[var(--border-subtle)] bg-[var(--surface-overlay)]/95 backdrop-blur-xl">
+        <div className="mx-auto flex min-h-16 max-w-6xl items-center justify-between gap-2 px-3 sm:px-6">
           {/* Logo */}
           <span className="font-serif italic text-[#D4A853] text-xl tracking-tight select-none" aria-label="trophē">
             trophē
@@ -273,18 +274,21 @@ export default function LandingPage({ lang }: { lang: LandingLang }) {
           {/* Right side */}
           <div className="flex items-center gap-2 sm:gap-3">
             {/* Language */}
-            <LanguageLinks current={lang} />
+            <div className="[&_nav]:border-[var(--border-default)] [&_nav]:bg-[var(--surface-2)] [&_a]:inline-flex [&_a]:min-h-11 [&_a]:min-w-11 [&_a]:items-center [&_a]:justify-center [&_a]:text-xs [&_a]:text-[var(--content-muted)]">
+              <LanguageLinks current={lang} />
+            </div>
+            <StandaloneThemeModeToggle />
             <Link
               href="/login"
               prefetch={false}
-              className="text-stone-400 hover:text-stone-200 text-xs font-medium transition-colors no-underline hidden sm:inline"
+              className="hidden min-h-11 min-w-11 items-center justify-center px-2 text-sm font-medium text-[var(--content-secondary)] transition-colors hover:text-[var(--content-primary)] no-underline sm:inline-flex"
             >
               Log in
             </Link>
             <Link
               href="/login?mode=signup"
               prefetch={false}
-              className="btn-gold text-xs !py-2 !px-4 !rounded-lg no-underline"
+              className="btn-gold inline-flex min-h-11 items-center rounded-lg px-3 text-center text-xs no-underline sm:px-4"
             >
               {t.cta}
             </Link>
@@ -305,14 +309,14 @@ export default function LandingPage({ lang }: { lang: LandingLang }) {
             {/* Left — Copy */}
             <div className="flex-1 text-center lg:text-left">
               {/* Eyebrow */}
-              <p className="text-[10px] sm:text-xs tracking-[0.2em] uppercase text-[#D4A853]/70 mb-6">
+              <p className="mb-6 text-xs uppercase tracking-[0.2em] text-[var(--action-primary)]">
                 {t.hero_tag}
               </p>
 
               {/* Headline — serif display moment on the accent line (Latin-only
                   per design rule; Greek falls back to the sans weight) */}
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.08] mb-6">
-                <span className="text-stone-100">{t.hero_h1}</span>
+                <span className="text-[var(--content-primary)]">{t.hero_h1}</span>
                 <br />
                 <span
                   className={lang !== 'el' ? 'display-hero text-[#D4A853]' : 'text-[#D4A853]'}
@@ -322,7 +326,7 @@ export default function LandingPage({ lang }: { lang: LandingLang }) {
               </h1>
 
               {/* Subline */}
-              <p className="text-stone-400 text-base sm:text-lg max-w-xl mx-auto lg:mx-0 leading-relaxed mb-10">
+              <p className="mx-auto mb-10 max-w-xl text-base leading-relaxed text-[var(--content-secondary)] sm:text-lg lg:mx-0">
                 {t.hero_sub}
               </p>
 
@@ -358,10 +362,10 @@ export default function LandingPage({ lang }: { lang: LandingLang }) {
       <section className="px-6 py-16 sm:py-24">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-12 sm:mb-16">
-            <p className="text-[10px] tracking-[0.2em] uppercase text-[#D4A853]/60 mb-3">
+            <p className="mb-3 text-xs uppercase tracking-[0.2em] text-[var(--action-primary)]">
               {t.features_tag}
             </p>
-            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-stone-100 tracking-tight">
+            <h2 className="text-2xl font-bold tracking-tight text-[var(--content-primary)] sm:text-3xl lg:text-4xl">
               {t.features_title}
             </h2>
           </div>
@@ -372,11 +376,11 @@ export default function LandingPage({ lang }: { lang: LandingLang }) {
                 key={f.title.en}
                 className="glass scroll-reveal p-5 sm:p-6 group hover:border-[rgba(212,168,83,0.12)] transition-all duration-300"
               >
-                <div className={`w-10 h-10 rounded-xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center mb-4 ${f.color}`}>
+                <div className={`mb-4 flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-2)] ${f.color}`}>
                   <f.icon size={20} />
                 </div>
-                <h3 className="text-stone-100 text-sm font-semibold mb-2">{f.title[lang]}</h3>
-                <p className="text-stone-500 text-xs leading-relaxed">{f.desc[lang]}</p>
+                <h3 className="mb-2 text-sm font-semibold text-[var(--content-primary)]">{f.title[lang]}</h3>
+                <p className="text-sm leading-relaxed text-[var(--content-muted)]">{f.desc[lang]}</p>
               </div>
             ))}
           </div>
@@ -384,13 +388,13 @@ export default function LandingPage({ lang }: { lang: LandingLang }) {
       </section>
 
       {/* ─── How It Works ─── */}
-      <section className="px-6 py-16 sm:py-24 border-t border-white/[0.04]">
+      <section className="border-t border-[var(--border-subtle)] px-6 py-16 sm:py-24">
         <div className="max-w-3xl mx-auto">
           <div className="text-center mb-12">
-            <p className="text-[10px] tracking-[0.2em] uppercase text-[#D4A853]/60 mb-3">
+            <p className="mb-3 text-xs uppercase tracking-[0.2em] text-[var(--action-primary)]">
               {t.how_tag}
             </p>
-            <h2 className="text-2xl sm:text-3xl font-bold text-stone-100 tracking-tight">
+            <h2 className="text-2xl font-bold tracking-tight text-[var(--content-primary)] sm:text-3xl">
               {t.how_title}
             </h2>
           </div>
@@ -405,8 +409,8 @@ export default function LandingPage({ lang }: { lang: LandingLang }) {
                   <span className="text-sm font-bold text-[#D4A853]">{step.n}</span>
                 </div>
                 <div className="pt-1">
-                  <h3 className="text-stone-100 text-base font-semibold mb-1">{step.title[lang]}</h3>
-                  <p className="text-stone-500 text-sm leading-relaxed">{step.desc[lang]}</p>
+                  <h3 className="mb-1 text-base font-semibold text-[var(--content-primary)]">{step.title[lang]}</h3>
+                  <p className="text-sm leading-relaxed text-[var(--content-muted)]">{step.desc[lang]}</p>
                 </div>
               </div>
             ))}
@@ -415,16 +419,16 @@ export default function LandingPage({ lang }: { lang: LandingLang }) {
       </section>
 
       {/* ─── Coming Soon ─── */}
-      <section className="px-6 py-16 sm:py-24 border-t border-white/[0.04]">
+      <section className="border-t border-[var(--border-subtle)] px-6 py-16 sm:py-24">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-12">
-            <p className="text-[10px] tracking-[0.2em] uppercase text-[#D4A853]/60 mb-3">
+            <p className="mb-3 text-xs uppercase tracking-[0.2em] text-[var(--action-primary)]">
               {t.coming_tag}
             </p>
-            <h2 className="text-2xl sm:text-3xl font-bold text-stone-100 tracking-tight mb-3">
+            <h2 className="mb-3 text-2xl font-bold tracking-tight text-[var(--content-primary)] sm:text-3xl">
               {t.coming_title}
             </h2>
-            <p className="text-stone-500 text-sm max-w-lg mx-auto">
+            <p className="mx-auto max-w-lg text-sm text-[var(--content-muted)]">
               {t.coming_sub}
             </p>
           </div>
@@ -437,17 +441,17 @@ export default function LandingPage({ lang }: { lang: LandingLang }) {
               >
                 {/* Coming soon badge */}
                 <div className="absolute top-3 right-3">
-                  <span className="text-[8px] tracking-widest uppercase px-2 py-0.5 rounded-full bg-[#D4A853]/10 text-[#D4A853]/60 border border-[#D4A853]/15">
+                  <span className="rounded-full border border-[var(--border-focus)] bg-[var(--surface-2)] px-2 py-0.5 text-xs uppercase tracking-widest text-[var(--action-primary)]">
                     {t.coming_tag}
                   </span>
                 </div>
                 <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-white/[0.02] border border-white/[0.04] flex items-center justify-center text-stone-600 flex-shrink-0">
+                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-2)] text-[var(--content-muted)]">
                     <item.icon size={20} />
                   </div>
                   <div>
-                    <h3 className="text-stone-300 text-sm font-semibold mb-1">{item.title[lang]}</h3>
-                    <p className="text-stone-600 text-xs leading-relaxed">{item.desc[lang]}</p>
+                    <h3 className="mb-1 text-sm font-semibold text-[var(--content-secondary)]">{item.title[lang]}</h3>
+                    <p className="text-sm leading-relaxed text-[var(--content-muted)]">{item.desc[lang]}</p>
                   </div>
                 </div>
               </div>
@@ -457,17 +461,17 @@ export default function LandingPage({ lang }: { lang: LandingLang }) {
       </section>
 
       {/* ─── Evidence / Numbers Bar — premium band ─── */}
-      <section className="px-6 py-14 border-t border-white/[0.04]">
+      <section className="border-t border-[var(--border-subtle)] px-6 py-14">
         <div className="max-w-4xl mx-auto">
           <div className="evidence-band scroll-reveal">
-            <p className="text-[10px] tracking-[0.2em] uppercase text-[#D4A853]/50 mb-5 text-center">
+            <p className="mb-5 text-center text-xs uppercase tracking-[0.2em] text-[var(--action-primary)]">
               {t.numbers_tag}
             </p>
             <div className="flex flex-wrap justify-center gap-2.5">
               {evidenceSources.map((source) => (
                 <span
                   key={source}
-                  className="text-[11px] sm:text-xs text-stone-400 px-3.5 py-1.5 rounded-full border border-white/[0.06] bg-white/[0.02]"
+                  className="rounded-full border border-[var(--border-default)] bg-[var(--surface-1)] px-3.5 py-1.5 text-xs text-[var(--content-secondary)]"
                 >
                   {source}
                 </span>
@@ -478,13 +482,13 @@ export default function LandingPage({ lang }: { lang: LandingLang }) {
       </section>
 
       {/* ─── Bottom CTA ─── */}
-      <section className="px-6 py-20 sm:py-28 border-t border-white/[0.04]">
+      <section className="border-t border-[var(--border-subtle)] px-6 py-20 sm:py-28">
         <div className="max-w-xl mx-auto text-center">
           <div className="scroll-reveal">
-            <h2 className="text-3xl sm:text-4xl font-bold text-stone-100 tracking-tight mb-4">
+            <h2 className="mb-4 text-3xl font-bold tracking-tight text-[var(--content-primary)] sm:text-4xl">
               {t.bottom_h2}
             </h2>
-            <p className="text-stone-500 mb-10 text-sm sm:text-base">
+            <p className="mb-10 text-sm text-[var(--content-muted)] sm:text-base">
               {t.bottom_sub}
             </p>
             <Link
@@ -495,7 +499,7 @@ export default function LandingPage({ lang }: { lang: LandingLang }) {
               {t.bottom_cta}
               <ChevronRight size={18} className="group-hover:translate-x-0.5 transition-transform" />
             </Link>
-            <p className="font-[system-ui] text-stone-700 text-[10px] tracking-wider uppercase mt-8">
+            <p className="mt-8 font-[system-ui] text-xs uppercase tracking-wider text-[var(--content-muted)]">
               <Globe size={10} className="inline mr-1 -mt-px" />
               English · Español · Ελληνικά
             </p>
@@ -504,18 +508,18 @@ export default function LandingPage({ lang }: { lang: LandingLang }) {
       </section>
 
       {/* ─── Footer ─── */}
-      <footer className="border-t border-white/[0.04] py-8 px-6">
+      <footer className="border-t border-[var(--border-subtle)] bg-[var(--canvas-subtle)] px-6 py-8">
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <span className="font-serif italic text-[#D4A853] text-base select-none">trophē</span>
           <div className="flex items-center gap-5">
-            <Link href="/pricing" prefetch={false} className="text-stone-500 hover:text-stone-300 text-[11px] transition-colors no-underline">
+            <Link href="/pricing" prefetch={false} className="inline-flex min-h-11 items-center text-sm text-[var(--content-muted)] transition-colors hover:text-[var(--content-primary)] no-underline">
               Pricing
             </Link>
-            <a href="/trust" className="text-stone-500 hover:text-stone-300 text-[11px] transition-colors">
+            <a href="/trust" className="inline-flex min-h-11 items-center text-sm text-[var(--content-muted)] transition-colors hover:text-[var(--content-primary)]">
               Trust &amp; Data Protection
             </a>
           </div>
-          <p className="font-[system-ui] text-stone-700 text-[10px]">
+          <p className="font-[system-ui] text-xs text-[var(--content-muted)]">
             &copy; 2026 Trophē
           </p>
         </div>

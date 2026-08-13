@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { X, ArrowRight } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { FoodLogEntry } from '@/lib/types';
@@ -21,6 +21,7 @@ interface DayComparisonProps {
 export default function DayComparison({ userId, currentDate, currentLog, compareDate, onClose }: DayComparisonProps) {
   const [compareLog, setCompareLog] = useState<FoodLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const reducedMotion = useReducedMotion();
 
   useEffect(() => {
     const load = async () => {
@@ -61,7 +62,7 @@ export default function DayComparison({ userId, currentDate, currentLog, compare
     const diff = ((a - b) / b * 100);
     if (Math.abs(diff) < 1) return null;
     return (
-      <span className={`text-[9px] ${diff > 0 ? 'text-green-400' : 'text-red-400'}`}>
+      <span className={`text-xs ${diff > 0 ? 'text-green-400' : 'text-red-400'}`}>
         {diff > 0 ? '+' : ''}{Math.round(diff)}%
       </span>
     );
@@ -69,46 +70,50 @@ export default function DayComparison({ userId, currentDate, currentLog, compare
 
   return (
     <motion.div
-      initial={{ opacity: 0 }}
+      initial={{ opacity: reducedMotion ? 1 : 0 }}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 bg-black/60 flex items-end justify-center"
+      exit={{ opacity: reducedMotion ? 1 : 0 }}
+      transition={{ duration: reducedMotion ? 0 : 0.15 }}
+      className="fixed inset-0 z-50 bg-[var(--surface-overlay)] flex items-end justify-center"
       onClick={onClose}
     >
       <motion.div
-        initial={{ y: '100%' }}
-        animate={{ y: 0 }}
-        exit={{ y: '100%' }}
-        transition={{ type: 'spring', damping: 25 }}
-        className="w-full max-w-md bg-stone-900 rounded-t-2xl p-4 max-h-[70vh] overflow-y-auto"
+        initial={reducedMotion ? { opacity: 0 } : { y: '100%' }}
+        animate={reducedMotion ? { opacity: 1 } : { y: 0 }}
+        exit={reducedMotion ? { opacity: 0 } : { y: '100%' }}
+        transition={reducedMotion ? { duration: 0 } : { type: 'spring', damping: 25 }}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Day comparison"
+        className="w-full max-w-md bg-[var(--surface-1)] rounded-t-2xl p-4 pb-[calc(5rem+env(safe-area-inset-bottom))] max-h-[70vh] overflow-y-auto"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-stone-100 font-semibold text-sm">Day Comparison</h2>
-          <button onClick={onClose} className="text-stone-500 hover:text-stone-300">
+          <h2 className="text-[var(--content-primary)] font-semibold text-sm">Day Comparison</h2>
+          <button onClick={onClose} aria-label="Close day comparison" className="min-h-11 min-w-11 text-[var(--content-muted)] hover:text-[var(--content-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
             <X size={18} />
           </button>
         </div>
 
         {loading ? (
-          <p className="text-stone-500 text-sm text-center py-8">Loading...</p>
+          <p className="text-[var(--content-muted)] text-sm text-center py-8">Loading...</p>
         ) : (
           <>
             {/* Date headers */}
             <div className="grid grid-cols-[1fr_24px_1fr] gap-2 mb-3">
               <div className="text-center">
-                <p className="text-stone-300 text-xs font-medium">{formatDate(currentDate)}</p>
+                <p className="text-[var(--content-secondary)] text-xs font-medium">{formatDate(currentDate)}</p>
                 {current.score && (
-                  <span className={`text-[10px] ${current.score.color}`}>{current.score.label} ({current.score.score})</span>
+                  <span className={`text-xs ${current.score.color}`}>{current.score.label} ({current.score.score})</span>
                 )}
               </div>
               <div className="flex items-center justify-center">
-                <ArrowRight size={12} className="text-stone-600" />
+                <ArrowRight size={12} className="text-[var(--content-muted)]" />
               </div>
               <div className="text-center">
-                <p className="text-stone-300 text-xs font-medium">{formatDate(compareDate)}</p>
+                <p className="text-[var(--content-secondary)] text-xs font-medium">{formatDate(compareDate)}</p>
                 {compare.score && (
-                  <span className={`text-[10px] ${compare.score.color}`}>{compare.score.label} ({compare.score.score})</span>
+                  <span className={`text-xs ${compare.score.color}`}>{compare.score.label} ({compare.score.score})</span>
                 )}
               </div>
             </div>
@@ -120,14 +125,14 @@ export default function DayComparison({ userId, currentDate, currentLog, compare
               { label: 'Carbs', a: current.carbs, b: compare.carbs, unit: 'g', color: MACRO_COLORS.carbs },
               { label: 'Fat', a: current.fat, b: compare.fat, unit: 'g', color: MACRO_COLORS.fat },
               { label: 'Fiber', a: current.fiber, b: compare.fiber, unit: 'g', color: MACRO_COLORS.fiber },
-              { label: 'Items', a: current.items, b: compare.items, unit: '', color: 'var(--t2, #D6D3D1)' },
+              { label: 'Items', a: current.items, b: compare.items, unit: '', color: 'var(--content-primary)' },
             ].map(row => (
-              <div key={row.label} className="grid grid-cols-[1fr_80px_1fr] gap-2 py-1.5 border-b border-white/[0.05]">
+              <div key={row.label} className="grid grid-cols-[1fr_80px_1fr] gap-2 py-1.5 border-b border-[var(--border-subtle)]">
                 <p className="text-sm text-right font-medium" style={{ color: row.color }}>
                   {Math.round(row.a)}{row.unit}
                 </p>
                 <div className="text-center">
-                  <p className="text-[10px] text-stone-500">{row.label}</p>
+                  <p className="text-xs text-[var(--content-muted)]">{row.label}</p>
                   <DiffBadge a={row.a} b={row.b} />
                 </div>
                 <p className="text-sm font-medium" style={{ color: row.color }}>
@@ -139,15 +144,15 @@ export default function DayComparison({ userId, currentDate, currentLog, compare
             {/* Food lists */}
             <div className="grid grid-cols-2 gap-3 mt-4">
               <div>
-                <p className="text-[10px] text-stone-500 mb-1">Foods ({current.items})</p>
+                <p className="text-xs text-[var(--content-muted)] mb-1">Foods ({current.items})</p>
                 {currentLog.slice(0, 8).map((e, i) => (
-                  <p key={i} className="text-[10px] text-stone-400 truncate">{e.food_name}</p>
+                  <p key={i} className="text-xs text-[var(--content-secondary)] truncate">{e.food_name}</p>
                 ))}
               </div>
               <div>
-                <p className="text-[10px] text-stone-500 mb-1">Foods ({compare.items})</p>
+                <p className="text-xs text-[var(--content-muted)] mb-1">Foods ({compare.items})</p>
                 {compareLog.slice(0, 8).map((e, i) => (
-                  <p key={i} className="text-[10px] text-stone-400 truncate">{e.food_name}</p>
+                  <p key={i} className="text-xs text-[var(--content-secondary)] truncate">{e.food_name}</p>
                 ))}
               </div>
             </div>

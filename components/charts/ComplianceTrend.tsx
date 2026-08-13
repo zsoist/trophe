@@ -81,7 +81,7 @@ export default function ComplianceTrend({ clientHabitId, startDate, checkins: ex
   const pct = activeDays > 0 ? Math.round((completedCount / activeDays) * 100) : 0;
 
   return (
-    <div>
+    <div role="img" aria-label={`Habit compliance: ${completedCount} of ${activeDays || 14} days, ${pct}%`} style={{ color: 'var(--data-neutral)' }}>
       <div className="grid grid-cols-7 gap-1.5 mb-2">
         {days.map((day, i) => (
           <motion.div
@@ -91,18 +91,21 @@ export default function ComplianceTrend({ clientHabitId, startDate, checkins: ex
             transition={{ delay: i * 0.03, duration: 0.2 }}
             className={`aspect-square rounded-md w-full ${
               day.status === 'completed'
-                ? 'bg-green-500/30 border border-green-500/40'
+                ? 'bg-[var(--status-success-bg)] border border-[var(--status-success-border)]'
                 : day.status === 'missed'
-                ? 'bg-red-500/20 border border-red-500/30'
-                : 'bg-white/[0.03] border border-white/5'
+                ? 'bg-[var(--status-danger-bg)] border border-[var(--status-danger-border)]'
+                : 'bg-[var(--surface-2)] border border-[var(--border-subtle)]'
             }`}
             title={`${day.date}: ${day.status}`}
           />
         ))}
       </div>
-      <p className="text-xs text-stone-500 text-center">
-        <span className="text-stone-300 font-medium">{completedCount}/{activeDays || 14}</span> days ({pct}%)
+      <p className="text-xs text-[var(--content-muted)] text-center">
+        <span className="text-[var(--content-primary)] font-medium">{completedCount}/{activeDays || 14}</span> days ({pct}%)
       </p>
+      <ul className="sr-only" aria-label="Habit compliance values">
+        {days.map((day) => <li key={day.date}>{day.date}: {day.status}</li>)}
+      </ul>
     </div>
   );
 }

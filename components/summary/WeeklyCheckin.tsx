@@ -118,11 +118,11 @@ export default function WeeklyCheckin({ userId, coachId }: WeeklyCheckinProps) {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <ClipboardCheck size={18} style={{ color: 'var(--accent, #D4A853)' }} />
-            <h3 className="text-sm font-semibold text-stone-100">{t('checkin.title')}</h3>
+            <h3 className="text-sm font-semibold text-[var(--content-primary)]">{t('checkin.title')}</h3>
           </div>
           <button
             onClick={() => setDismissed(true)}
-            className="text-stone-600 hover:text-stone-400 transition-colors"
+            className="text-[var(--content-muted)] hover:text-[var(--content-muted)] transition-colors"
           >
             <X size={16} />
           </button>
@@ -149,12 +149,12 @@ export default function WeeklyCheckin({ userId, coachId }: WeeklyCheckinProps) {
                 transition={{ duration: 0.5, delay: 0.1, ease: 'easeOut' }}
               />
             </svg>
-            <p className="text-stone-300 text-sm font-medium">{t('checkin.submitted')}</p>
-            <p className="text-stone-500 text-xs mt-1">{t('checkin.coach_review')}</p>
+            <p className="text-[var(--content-primary)] text-sm font-medium">{t('checkin.submitted')}</p>
+            <p className="text-[var(--content-muted)] text-xs mt-1">{t('checkin.coach_review')}</p>
           </motion.div>
         ) : (
           <>
-            <p className="text-stone-500 text-xs mb-4">
+            <p className="text-[var(--content-muted)] text-xs mb-4">
               {t('checkin.instructions')}
             </p>
 
@@ -162,8 +162,8 @@ export default function WeeklyCheckin({ userId, coachId }: WeeklyCheckinProps) {
               {QUESTIONS.map((q) => (
                 <div key={q.key}>
                   <div className="flex items-center justify-between mb-1.5">
-                    <p className="text-xs text-stone-400">{t(q.labelKey)}</p>
-                    <span className="text-[9px] text-stone-600 font-mono">{t('checkin.scale_hint')}</span>
+                    <p className="text-xs text-[var(--content-muted)]">{t(q.labelKey)}</p>
+                    <span className="text-xs text-[var(--content-muted)] font-mono">{t('checkin.scale_hint')}</span>
                   </div>
                   <div className="flex gap-1.5">
                     {[1, 2, 3, 4, 5].map((val) => {
@@ -176,8 +176,8 @@ export default function WeeklyCheckin({ userId, coachId }: WeeklyCheckinProps) {
                           aria-pressed={selected}
                           className="flex-1 py-2 rounded-lg text-center text-sm font-bold transition-all"
                           style={{
-                            background: selected ? 'var(--accent-soft, rgba(212,168,83,.15))' : 'rgba(255,255,255,.03)',
-                            border: `1px solid ${selected ? 'var(--accent, #D4A853)' : 'rgba(255,255,255,.05)'}`,
+                            background: selected ? 'var(--accent-soft, rgba(212,168,83,.15))' : 'var(--border-subtle)',
+                            border: `1px solid ${selected ? 'var(--accent, #D4A853)' : 'var(--border-subtle)'}`,
                             color: selected ? 'var(--accent, #D4A853)' : 'var(--t3)',
                           }}
                         >

@@ -769,14 +769,14 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
           transition={{ type: 'spring', damping: 10, stiffness: 200, delay: 0.1 }}
         >
           {/* Gold, not green — success joins the celebration grammar (W1) */}
-          <CheckCircle2 size={48} style={{ color: 'var(--gold-300, #D4A853)' }} />
+          <CheckCircle2 size={48} style={{ color: 'var(--action-primary)' }} />
         </motion.div>
         <motion.p
           initial={{ opacity: 0, y: 5 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
           className="font-medium text-sm"
-          style={{ color: 'var(--gold-300, #D4A853)' }}
+          style={{ color: 'var(--action-primary)' }}
         >
           {t('food.logged_toast', { n: String(successCount) })}
         </motion.p>
@@ -804,20 +804,20 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
         />
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-start gap-2">
-            <HelpCircle size={16} className="text-amber-400 flex-shrink-0 mt-0.5" />
+            <HelpCircle size={16} className="text-[var(--status-warning-fg)] flex-shrink-0 mt-0.5" />
             <div>
-              <p className="text-stone-300 text-sm font-medium">{t('food.quick_question')}</p>
-              <p className="text-stone-400 text-xs mt-1 leading-relaxed">{questionText}</p>
+              <p className="text-[var(--content-secondary)] text-sm font-medium">{t('food.quick_question')}</p>
+              <p className="text-[var(--content-secondary)] text-xs mt-1 leading-relaxed">{questionText}</p>
             </div>
           </div>
           <button
             onClick={cancelQuestion}
-            className="text-stone-600 hover:text-stone-300 text-xs flex-shrink-0"
+            className="text-[var(--content-muted)] hover:text-[var(--content-secondary)] text-xs flex-shrink-0 min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
           >
             {t('general.cancel')}
           </button>
         </div>
-        <p className="text-stone-600 text-[11px] italic truncate">“{questionOriginalText}”</p>
+        <p className="text-[var(--content-muted)] text-xs italic truncate">“{questionOriginalText}”</p>
         {isPortionQuestion && (
           <div className="grid grid-cols-3 gap-1.5">
             {(['small', 'medium', 'large'] as const).map(size => (
@@ -825,7 +825,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
                 key={size}
                 type="button"
                 onClick={() => submitQuestionChoice(t(`food.portion_answer_${size}`))}
-                className="min-h-11 rounded-lg border border-amber-500/20 bg-amber-500/[0.06] text-amber-200 text-xs hover:bg-amber-500/10 transition-colors"
+                className="rounded-lg border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] text-[var(--status-warning-fg)] text-xs hover:bg-[var(--status-warning-bg)] transition-colors min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
               >
                 {t(`food.portion_${size}`)}
               </button>
@@ -844,14 +844,14 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
               }
             }}
             placeholder={t('food.answer_placeholder')}
-            className="input-dark flex-1 text-sm py-2"
+            className="input-dark flex-1 text-sm py-2 text-base"
             aria-label="Answer the clarification question"
             autoFocus
           />
           <button
             onClick={submitQuestionAnswer}
             disabled={!questionAnswer.trim()}
-            className="btn-gold px-4 text-sm flex items-center gap-1"
+            className="btn-gold px-4 text-sm flex items-center gap-1 min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             aria-label="Submit answer"
           >
             <Send size={14} />
@@ -860,7 +860,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          className="min-h-10 w-full rounded-lg border border-white/[0.08] text-stone-300 text-xs flex items-center justify-center gap-1.5 hover:bg-white/[0.04] transition-colors"
+          className="min-h-10 w-full rounded-lg border border-[var(--border-default)] text-[var(--content-secondary)] text-xs flex items-center justify-center gap-1.5 hover:bg-[var(--surface-2)] transition-colors min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
         >
           <Camera size={14} />
           {t('food.take_photo')}
@@ -878,9 +878,9 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
-            className="mb-2 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20"
+            className="mb-2 px-3 py-2 rounded-lg bg-[var(--status-danger-bg)] border border-[var(--status-danger-border)]"
           >
-            <p className="text-red-400 text-xs text-center">{error}</p>
+            <p className="text-[var(--status-danger-fg)] text-xs text-center">{error}</p>
           </motion.div>
         )}
         {/* F14 + W11: photo settles with a final beam pass when results land */}
@@ -917,8 +917,8 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
         className="glass p-4 space-y-3"
       >
         <div className="flex items-center justify-between">
-          <span className="text-stone-300 text-sm font-medium">{t('food.quick_add')}</span>
-          <button onClick={() => setMode('idle')} className="text-stone-600 hover:text-stone-300 text-xs">
+          <span className="text-[var(--content-secondary)] text-sm font-medium">{t('food.quick_add')}</span>
+          <button onClick={() => setMode('idle')} className="text-[var(--content-muted)] hover:text-[var(--content-secondary)] text-xs min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
             {t('general.cancel')}
           </button>
         </div>
@@ -927,17 +927,17 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
           value={manualName}
           onChange={(e) => setManualName(e.target.value)}
           placeholder="Food name (optional)"
-          className="input-dark w-full text-sm py-2"
+          className="input-dark w-full text-sm py-2 text-base"
           maxLength={200}
         />
         <div className="grid grid-cols-4 gap-2">
           <div>
-            <label className="text-[10px] text-stone-500 mb-0.5 block">kcal *</label>
+            <label className="text-xs text-[var(--content-muted)] mb-0.5 block">kcal *</label>
             <input
               type="number"
               value={manualCal}
               onChange={(e) => setManualCal(e.target.value)}
-              className="input-dark w-full text-sm py-2 text-center"
+              className="input-dark w-full text-sm py-2 text-center text-base"
               placeholder="300"
               min={1}
               max={10000}
@@ -947,12 +947,12 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
             />
           </div>
           <div>
-            <label className="text-[10px] text-stone-500 mb-0.5 block">Protein</label>
+            <label className="text-xs text-[var(--content-muted)] mb-0.5 block">Protein</label>
             <input
               type="number"
               value={manualProtein}
               onChange={(e) => setManualProtein(e.target.value)}
-              className="input-dark w-full text-sm py-2 text-center"
+              className="input-dark w-full text-sm py-2 text-center text-base"
               placeholder="0"
               min={0}
               max={1000}
@@ -961,12 +961,12 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
             />
           </div>
           <div>
-            <label className="text-[10px] text-stone-500 mb-0.5 block">Carbs</label>
+            <label className="text-xs text-[var(--content-muted)] mb-0.5 block">Carbs</label>
             <input
               type="number"
               value={manualCarbs}
               onChange={(e) => setManualCarbs(e.target.value)}
-              className="input-dark w-full text-sm py-2 text-center"
+              className="input-dark w-full text-sm py-2 text-center text-base"
               placeholder="0"
               min={0}
               max={1000}
@@ -975,12 +975,12 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
             />
           </div>
           <div>
-            <label className="text-[10px] text-stone-500 mb-0.5 block">Fat</label>
+            <label className="text-xs text-[var(--content-muted)] mb-0.5 block">Fat</label>
             <input
               type="number"
               value={manualFat}
               onChange={(e) => setManualFat(e.target.value)}
-              className="input-dark w-full text-sm py-2 text-center"
+              className="input-dark w-full text-sm py-2 text-center text-base"
               placeholder="0"
               min={0}
               max={1000}
@@ -992,7 +992,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
         {error && (
           <p
             role="alert"
-            className="text-red-400 text-xs text-center"
+            className="text-[var(--status-danger-fg)] text-xs text-center"
           >
             {error}
           </p>
@@ -1001,7 +1001,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
           onClick={handleManualEntry}
           disabled={logging || !manualCal}
           whileTap={{ scale: 0.97 }}
-          className="btn-gold w-full py-2.5 text-sm font-semibold flex items-center justify-center gap-2"
+          className="btn-gold w-full py-2.5 text-sm font-semibold flex items-center justify-center gap-2 min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
         >
           <Plus size={14} />
           {logging ? '...' : t('food.quick_add')}
@@ -1034,15 +1034,15 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
             }}
             onPaste={handlePaste}
             placeholder={voiceActive ? t('food.speak_meal') : t('food.quick_placeholder')}
-            className="input-dark w-full resize-none text-sm min-h-[52px] py-3"
+            className="input-dark w-full resize-none text-sm min-h-[52px] py-3 text-base"
             rows={2}
             disabled={mode !== 'idle'}
           />
           {/* Live character counter — the server refuses (not truncates) >500 chars */}
           {text.length >= 350 && (
             <span
-              className={`absolute bottom-1.5 right-2 text-[10px] tabular-nums pointer-events-none ${
-                text.length >= MAX_PARSE_INPUT ? 'text-amber-400' : 'text-stone-600'
+              className={`absolute bottom-1.5 right-2 text-xs tabular-nums pointer-events-none ${
+                text.length >= MAX_PARSE_INPUT ? 'text-[var(--status-warning-fg)]' : 'text-[var(--content-muted)]'
               }`}
             >
               {text.length}/{MAX_PARSE_INPUT}
@@ -1059,7 +1059,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
         <button
           onClick={() => handleParseText()}
           disabled={!text.trim() || mode !== 'idle'}
-          className="btn-gold px-4 text-sm flex items-center gap-1 self-end"
+          className="btn-gold px-4 text-sm flex items-center gap-1 self-end min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
         >
           {mode === 'parsing' || mode === 'photo_analyzing' ? (
             <Loader2 size={14} className="animate-spin" />
@@ -1074,7 +1074,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
         <button
           onClick={() => fileInputRef.current?.click()}
           disabled={mode !== 'idle'}
-          className="flex items-center gap-1.5 text-stone-500 hover:gold-text text-xs transition-colors py-1"
+          className="flex items-center gap-1.5 text-[var(--content-muted)] hover:gold-text text-xs transition-colors py-1 min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
           aria-label="Take or upload a food photo"
         >
           <Camera size={14} />
@@ -1083,7 +1083,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
         <button
           onClick={voiceActive ? stopVoiceInput : startVoiceInput}
           disabled={mode !== 'idle' && !voiceActive}
-          className={`min-h-11 min-w-11 px-2 rounded-lg flex items-center justify-center gap-1.5 text-xs transition-colors ${voiceActive ? 'text-red-400 bg-red-500/10' : 'text-stone-500 hover:gold-text hover:bg-white/[0.04]'}`}
+          className={`min-h-11 min-w-11 px-2 rounded-lg flex items-center justify-center gap-1.5 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] ${voiceActive ? 'text-[var(--status-danger-fg)] bg-[var(--status-danger-bg)]' : 'text-[var(--content-muted)] hover:gold-text hover:bg-[var(--surface-2)]'}`}
           aria-label={voiceActive ? t('food.voice_stop_aria') : t('food.voice_start_aria')}
           aria-pressed={voiceActive}
         >
@@ -1092,14 +1092,14 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
         </button>
         <button
           onClick={() => setMode('manual_entry')}
-          className="flex items-center gap-1.5 text-stone-500 hover:gold-text text-xs transition-colors py-1"
+          className="flex items-center gap-1.5 text-[var(--content-muted)] hover:gold-text text-xs transition-colors py-1 min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
         >
           <Plus size={14} />
           Custom
         </button>
         <button
           onClick={() => setShowBarcode(true)}
-          className="flex items-center gap-1.5 text-stone-500 hover:gold-text text-xs transition-colors py-1 ml-auto"
+          className="flex items-center gap-1.5 text-[var(--content-muted)] hover:gold-text text-xs transition-colors py-1 ml-auto min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
           aria-label="Scan a barcode"
         >
           <Barcode size={14} />
@@ -1129,8 +1129,8 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
           >
             <PhotoScanCard src={photoPreview} state="scanning" />
             <div className="flex items-center justify-center gap-2">
-              <Loader2 size={14} className="animate-spin" style={{ color: 'var(--accent, #D4A853)' }} />
-              <span className="text-stone-400 text-sm">{t('food.photo_analyzing')}</span>
+              <Loader2 size={14} className="animate-spin" style={{ color: 'var(--action-primary)' }} />
+              <span className="text-[var(--content-secondary)] text-sm">{t('food.photo_analyzing')}</span>
             </div>
           </motion.div>
         )}
@@ -1157,7 +1157,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
                   animate={{ opacity: 1, y: 0 }}
                   exit={reducedMotion ? { opacity: 1 } : { opacity: 0, y: -3 }}
                   transition={{ duration: reducedMotion ? 0 : 0.22, ease: 'easeOut' }}
-                  className="text-stone-400 text-[11px]"
+                  className="text-[var(--content-secondary)] text-xs"
                   style={{ fontFamily: 'var(--font-mono)' }}
                 >
                   {t(PARSE_STAGE_KEYS[slowParse ? 3 : parseStage])}
@@ -1200,9 +1200,9 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
               animate={reducedMotion ? undefined : { scale: [1, 1.2, 1] }}
               transition={reducedMotion ? undefined : { repeat: Infinity, duration: 1.5 }}
             >
-              <Mic size={20} className="text-red-400" />
+              <Mic size={20} className="text-[var(--status-danger-fg)]" />
             </motion.div>
-            <span className="text-stone-400 text-sm">
+            <span className="text-[var(--content-secondary)] text-sm">
               {t(mode === 'requesting'
                 ? 'food.voice_requesting'
                 : mode === 'transcribing'
@@ -1220,19 +1220,19 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="glass p-4 space-y-2 border border-amber-500/20"
+            className="glass p-4 space-y-2 border border-[var(--status-warning-border)]"
           >
             <div className="flex items-center justify-between">
-              <p className="text-amber-400 text-xs font-semibold">{t('food.voice_permission_title')}</p>
+              <p className="text-[var(--status-warning-fg)] text-xs font-semibold">{t('food.voice_permission_title')}</p>
               <button
                 onClick={() => setMicDeniedHelp(false)}
-                className="min-h-11 min-w-11 rounded-lg text-stone-600 hover:text-stone-300 flex items-center justify-center"
+                className="min-h-11 min-w-11 rounded-lg text-[var(--content-muted)] hover:text-[var(--content-secondary)] flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                 aria-label={t('food.voice_permission_dismiss_aria')}
               >
                 <X size={14} />
               </button>
             </div>
-            <p className="text-stone-400 text-xs leading-relaxed">
+            <p className="text-[var(--content-secondary)] text-xs leading-relaxed">
               {/iPhone|iPad/.test(navigator.userAgent)
                 ? t('food.voice_permission_ios')
                 : /Android/.test(navigator.userAgent)
@@ -1241,7 +1241,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
             </p>
             <button
               onClick={() => { setMicDeniedHelp(false); startVoiceInput(); }}
-              className="min-h-11 px-3 rounded-lg text-amber-400 hover:text-amber-300 text-xs font-medium transition-colors"
+              className="px-3 rounded-lg text-[var(--status-warning-fg)] text-xs font-medium transition-colors min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             >
               {t('food.voice_permission_retry')}
             </button>
@@ -1258,12 +1258,12 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
             exit={{ opacity: 0 }}
             className="space-y-2"
           >
-            <p className="text-red-400 text-xs text-center">{error}</p>
+            <p className="text-[var(--status-danger-fg)] text-xs text-center">{error}</p>
             <div className="flex items-center justify-center gap-3">
               <button
                 onClick={handleRetry}
                 disabled={retryAfterS > 0}
-                className="text-stone-400 hover:gold-text text-xs flex items-center gap-1 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                className="text-[var(--content-secondary)] hover:gold-text text-xs flex items-center gap-1 transition-colors disabled:opacity-40 disabled:cursor-not-allowed min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
               >
                 <RotateCcw size={12} />
                 {retryAfterS > 0 ? t('food.retry_in', { n: retryAfterS }) : t('food.retry')}
@@ -1271,7 +1271,7 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
               {retryCount >= 2 && (
                 <button
                   onClick={() => { setError(null); setMode('manual_entry'); }}
-                  className="text-stone-400 hover:gold-text text-xs flex items-center gap-1 transition-colors"
+                  className="text-[var(--content-secondary)] hover:gold-text text-xs flex items-center gap-1 transition-colors min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                 >
                   <Plus size={12} />
                   {t('food.manual_entry')}

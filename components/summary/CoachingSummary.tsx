@@ -126,14 +126,14 @@ export default function CoachingSummary({
     <>
       <button
         onClick={() => setOpen(true)}
-        className="text-xs btn-ghost !py-1.5 !px-3 flex items-center gap-1"
+        className="min-h-11 min-w-11 text-xs btn-ghost !py-1.5 !px-3 flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
       >
         <FileText size={12} /> Export Summary
       </button>
 
       <AnimatePresence>
         {open && (
-          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[var(--surface-overlay)] backdrop-blur-sm p-4">
             <motion.div
               initial={{ opacity: 0, y: 40 }}
               animate={{ opacity: 1, y: 0 }}
@@ -141,19 +141,19 @@ export default function CoachingSummary({
               className="glass-elevated p-5 w-full max-w-lg max-h-[80vh] flex flex-col"
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-stone-100 flex items-center gap-2">
+                <h3 className="font-semibold text-[var(--content-primary)] flex items-center gap-2">
                   <FileText size={16} className="text-[#D4A853]" />
                   Coaching Summary
                 </h3>
                 <button
                   onClick={() => setOpen(false)}
-                  className="text-stone-500 hover:text-stone-300"
+                  className="text-[var(--content-muted)] hover:text-[var(--content-primary)]"
                 >
                   <X size={18} />
                 </button>
               </div>
 
-              <pre className="flex-1 overflow-y-auto text-xs text-stone-300 bg-stone-900/80 rounded-xl p-4 font-mono whitespace-pre-wrap leading-relaxed mb-4">
+              <pre className="flex-1 overflow-y-auto text-xs text-[var(--content-primary)] bg-[var(--surface-2)] rounded-xl p-4 font-mono whitespace-pre-wrap leading-relaxed mb-4">
                 {generateSummary()}
               </pre>
 

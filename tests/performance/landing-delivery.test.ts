@@ -62,6 +62,21 @@ describe('landing-page delivery budget', () => {
     }
   });
 
+  it('keeps the public theme control independent from the app-wide context provider', () => {
+    const landing = readFileSync(join(root, 'components/landing/LandingPage.tsx'), 'utf8');
+    const themeControl = readFileSync(
+      join(root, 'components/shared/StandaloneThemeModeToggle.tsx'),
+      'utf8',
+    );
+
+    expect(landing).toContain('components/shared/StandaloneThemeModeToggle');
+    expect(landing).toMatch(/<StandaloneThemeModeToggle\b/);
+    expect(landing).not.toContain('components/shared/ThemeMode');
+    expect(landing).not.toMatch(/<ThemeModeProvider\b/);
+    expect(landing).not.toMatch(/<ThemeModeToggle\b/);
+    expect(themeControl).not.toContain('lucide-react');
+  });
+
   it('does not hide above-the-fold content behind entrance animations', () => {
     const source = readFileSync(join(root, 'components/landing/LandingPage.tsx'), 'utf8');
     const hero = source.slice(source.indexOf('{/* ─── Hero ─── */}'), source.indexOf('{/* ─── Features'));

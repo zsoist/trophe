@@ -12,6 +12,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Paperclip, Mic, X, Play, Pause, Square } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -28,6 +29,16 @@ import {
   type AudioRecordingSession,
   type RecordingError,
 } from '@/lib/microphone/recording-session';
+
+const focusableSelector = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+function trapFocus(event: ReactKeyboardEvent<HTMLElement>, container: HTMLElement | null) {
+  if (event.key !== 'Tab' || !container) return;
+  const items = Array.from(container.querySelectorAll<HTMLElement>(focusableSelector));
+  const first = items[0]; const last = items.at(-1);
+  if (!first || !last) { event.preventDefault(); container.focus(); return; }
+  if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+  else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+}
 
 export interface ChatMessage {
   id: string;
@@ -128,11 +139,11 @@ function ImageBubble({ m, onOpen }: { m: ChatMessage; onOpen: (url: string) => v
     <button
       onClick={() => displayUrl && onOpen(displayUrl)}
       style={{
-        display: 'block', padding: 0, border: 'none', background: 'rgba(255,255,255,.04)',
+        display: 'block', padding: 0, border: 'none', background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)',
         borderRadius: 12, overflow: 'hidden', cursor: displayUrl ? 'pointer' : 'default',
         width: 216, height: Math.min(280, Math.round(216 * ratio)),
       }}
-      aria-label="attachment"
+      aria-label="attachment" className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
     >
       {displayUrl ? (
         <motion.img
@@ -181,21 +192,21 @@ function AudioBubble({ m, mine }: { m: ChatMessage; mine: boolean }) {
         aria-label={playing ? t('chat.pause_voice') : t('chat.play_voice')}
         style={{
           width: 44, height: 44, borderRadius: '50%', border: 'none', flexShrink: 0,
-          background: mine ? 'var(--accent, #D4A853)' : 'rgba(255,255,255,.1)',
-          color: mine ? '#0a0a0a' : 'var(--t1)', cursor: 'pointer',
+          background: mine ? 'var(--action-primary)' : 'color-mix(in srgb, var(--content-primary) 8%, transparent)',
+          color: mine ? 'var(--action-on-primary)' : 'var(--content-primary)', cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}
+        }} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
       >
         {playing ? <Pause size={13} /> : <Play size={13} style={{ marginLeft: 2 }} />}
       </button>
       <div style={{ flex: 1 }}>
-        <div style={{ height: 4, borderRadius: 2, background: 'rgba(255,255,255,.1)', overflow: 'hidden' }}>
+        <div style={{ height: 4, borderRadius: 2, background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)', overflow: 'hidden' }}>
           <div style={{
             width: `${progress * 100}%`, height: '100%', borderRadius: 2,
-            background: 'var(--accent, #D4A853)', transition: 'width .2s linear',
+            background: 'var(--action-primary)', transition: 'width .2s linear',
           }} />
         </div>
-        <div style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--t4)', marginTop: 4 }}>
+        <div style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--content-muted)', marginTop: 4 }}>
           {fmtDuration(duration)}
         </div>
       </div>
@@ -230,6 +241,22 @@ export default function ChatThread({ coachId, clientId, viewerRole, counterpartN
   const fileRef = useRef<HTMLInputElement>(null);
   const recordingSessionRef = useRef<AudioRecordingSession | null>(null);
   const recordTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lightboxRef = useRef<HTMLDivElement>(null);
+  const lightboxReturnFocusRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!lightbox) return;
+    lightboxReturnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const frame = requestAnimationFrame(() => lightboxRef.current?.focus());
+    const closeOnEscape = (event: KeyboardEvent) => event.key === 'Escape' && setLightbox(null);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener('keydown', closeOnEscape);
+      lightboxReturnFocusRef.current?.focus();
+      lightboxReturnFocusRef.current = null;
+    };
+  }, [lightbox]);
   const ownedPreviewUrlsRef = useRef(new Set<string>());
 
   const createPreviewUrl = useCallback((blob: Blob) => {
@@ -548,8 +575,8 @@ export default function ChatThread({ coachId, clientId, viewerRole, counterpartN
               {newDay && (
                 <div style={{ textAlign: 'center', margin: '12px 0 6px' }}>
                   <span style={{
-                    fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--t4)',
-                    background: 'rgba(255,255,255,.04)', border: '1px solid var(--line)',
+                    fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--content-muted)',
+                    background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)', border: '1px solid var(--border-default)',
                     borderRadius: 10, padding: '3px 10px', letterSpacing: '.06em', textTransform: 'uppercase',
                   }}>
                     {dayLabel(m.created_at, t)}
@@ -567,18 +594,18 @@ export default function ChatThread({ coachId, clientId, viewerRole, counterpartN
                   borderRadius: 14,
                   borderTopRightRadius: mine && grouped ? 5 : 14,
                   borderTopLeftRadius: !mine && grouped ? 5 : 14,
-                  background: mine ? 'var(--accent-soft, rgba(212,168,83,.14))' : 'rgba(255,255,255,.05)',
-                  border: `1px solid ${mine ? 'color-mix(in srgb, var(--accent, #D4A853) 25%, transparent)' : 'var(--line)'}`,
+                  background: mine ? 'var(--accent-soft, var(--action-secondary))' : 'color-mix(in srgb, var(--content-primary) 8%, transparent)',
+                  border: `1px solid ${mine ? 'color-mix(in srgb, var(--action-primary) 25%, transparent)' : 'var(--border-default)'}`,
                 }}>
                   {hasImage && <ImageBubble m={m} onOpen={setLightbox} />}
                   {hasAudio && <AudioBubble m={m} mine={mine} />}
                   {m.body && (
-                    <div style={{ fontSize: 12.5, color: 'var(--t1)', lineHeight: 1.45, whiteSpace: 'pre-wrap', wordBreak: 'break-word', marginTop: hasImage || hasAudio ? 6 : 0 }}>
+                    <div style={{ fontSize: 12.5, color: 'var(--content-primary)', lineHeight: 1.45, whiteSpace: 'pre-wrap', wordBreak: 'break-word', marginTop: hasImage || hasAudio ? 6 : 0 }}>
                       {m.body}
                     </div>
                   )}
                   {!grouped && (
-                    <div style={{ fontSize: 8, fontFamily: 'var(--font-mono)', color: 'var(--t4)', marginTop: 3, textAlign: mine ? 'right' : 'left', padding: hasImage && !m.body ? '0 6px 3px' : 0 }}>
+                    <div style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--content-muted)', marginTop: 3, textAlign: mine ? 'right' : 'left', padding: hasImage && !m.body ? '0 6px 3px' : 0 }}>
                       {timeLabel(m.created_at)}
                     </div>
                   )}
@@ -592,7 +619,7 @@ export default function ChatThread({ coachId, clientId, viewerRole, counterpartN
 
       {/* Upload error */}
       {uploadError && (
-        <div style={{ fontSize: 11, color: 'var(--err,#E87A6E)', padding: '4px 2px' }}>{uploadError}</div>
+        <div style={{ fontSize: 12, color: 'var(--status-danger-fg)', padding: '4px 2px' }}>{uploadError}</div>
       )}
 
       {/* Pending attachment chip */}
@@ -605,20 +632,20 @@ export default function ChatThread({ coachId, clientId, viewerRole, counterpartN
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0' }}>
               {pending.kind === 'image' ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={pending.previewUrl} alt="" style={{ width: 44, height: 44, borderRadius: 10, objectFit: 'cover', border: '1px solid var(--accent, #D4A853)' }} />
+                <img src={pending.previewUrl} alt="" style={{ width: 44, height: 44, borderRadius: 10, objectFit: 'cover', border: '1px solid var(--action-primary)' }} />
               ) : (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderRadius: 10, background: 'var(--accent-soft)', border: '1px solid var(--accent)', fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--accent)' }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderRadius: 10, background: 'var(--accent-soft)', border: '1px solid var(--accent)', fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--accent)' }}>
                   <Mic size={12} />
                   {fmtDuration(pending.meta.duration_s)}
                 </span>
               )}
-              <span className="ds-sub" style={{ flex: 1, fontSize: 10 }}>
+              <span className="ds-sub" style={{ flex: 1, fontSize: 12 }}>
                 {pending.kind === 'image' ? t('chat.photo_ready') : t('chat.voice_ready')}
               </span>
               <button
                 onClick={() => setPending(null)}
                 aria-label={t('chat.remove_attachment')}
-                style={{ width: 44, height: 44, background: 'rgba(255,255,255,.05)', border: '1px solid var(--line)', borderRadius: 8, cursor: 'pointer', color: 'var(--t3)', lineHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                style={{ width: 44, height: 44, background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)', border: '1px solid var(--border-default)', borderRadius: 8, cursor: 'pointer', color: 'var(--content-secondary)', lineHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
               >
                 <X size={12} />
               </button>
@@ -628,7 +655,7 @@ export default function ChatThread({ coachId, clientId, viewerRole, counterpartN
       </AnimatePresence>
 
       {/* Composer */}
-      <div style={{ display: 'flex', gap: 6, paddingTop: 8, borderTop: '1px solid var(--line)' }}>
+      <div style={{ display: 'flex', gap: 6, paddingTop: 8, borderTop: '1px solid var(--border-default)' }}>
         <input ref={fileRef} type="file" accept="image/*" onChange={onPickFile} style={{ display: 'none' }} />
 
         {recording ? (
@@ -637,14 +664,14 @@ export default function ChatThread({ coachId, clientId, viewerRole, counterpartN
             <motion.span
               animate={reducedMotion ? undefined : { opacity: [1, 0.25, 1] }}
               transition={reducedMotion ? undefined : { duration: 1.1, repeat: Infinity }}
-              style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--err,#E87A6E)', flexShrink: 0 }}
+              style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--status-danger-fg)', flexShrink: 0 }}
             />
-            <span style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--t1)', flex: 1 }}>
+            <span style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--content-primary)', flex: 1 }}>
               {recordingStarted ? `${t('chat.recording')} ${fmtDuration(recordSecs)}` : t('chat.requesting_mic')}
             </span>
             <button
               onClick={() => stopRecording(true)}
-              style={{ minHeight: 44, padding: '0 8px', background: 'none', border: 'none', color: 'var(--t3)', fontSize: 11, cursor: 'pointer' }}
+              style={{ minHeight: 44, padding: '0 8px', background: 'none', border: 'none', color: 'var(--content-secondary)', fontSize: 12, cursor: 'pointer' }} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             >
               {t('general.cancel')}
             </button>
@@ -654,9 +681,9 @@ export default function ChatThread({ coachId, clientId, viewerRole, counterpartN
               aria-label={t('chat.stop_recording')}
               style={{
                 width: 44, height: 44, borderRadius: 10, border: 'none', cursor: recordingStarted ? 'pointer' : 'default',
-                background: 'var(--accent, #D4A853)', color: '#0a0a0a',
+                background: 'var(--action-primary)', color: 'var(--action-on-primary)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}
+              }} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             >
               <Square size={13} />
             </button>
@@ -667,10 +694,10 @@ export default function ChatThread({ coachId, clientId, viewerRole, counterpartN
               onClick={() => fileRef.current?.click()}
               aria-label={t('chat.attach_photo')}
               style={{
-                width: 44, height: 44, borderRadius: 12, border: '1px solid var(--line)', flexShrink: 0,
-                background: 'rgba(255,255,255,.03)', color: 'var(--t3)', cursor: 'pointer',
+                width: 44, height: 44, borderRadius: 12, border: '1px solid var(--border-default)', flexShrink: 0,
+                background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)', color: 'var(--content-secondary)', cursor: 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', alignSelf: 'flex-end',
-              }}
+              }} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             >
               <Paperclip size={15} />
             </button>
@@ -678,10 +705,10 @@ export default function ChatThread({ coachId, clientId, viewerRole, counterpartN
               onClick={startRecording}
               aria-label={t('chat.record_voice')}
               style={{
-                width: 44, height: 44, borderRadius: 12, border: '1px solid var(--line)', flexShrink: 0,
-                background: 'rgba(255,255,255,.03)', color: 'var(--t3)', cursor: 'pointer',
+                width: 44, height: 44, borderRadius: 12, border: '1px solid var(--border-default)', flexShrink: 0,
+                background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)', color: 'var(--content-secondary)', cursor: 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', alignSelf: 'flex-end',
-              }}
+              }} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             >
               <Mic size={15} />
             </button>
@@ -700,15 +727,15 @@ export default function ChatThread({ coachId, clientId, viewerRole, counterpartN
               rows={1}
               style={{
                 flex: 1,
-                background: 'var(--surface,#141414)',
-                border: '1px solid var(--line)',
+                background: 'var(--surface-1)',
+                border: '1px solid var(--border-default)',
                 borderRadius: 12,
                 padding: '9px 12px',
-                color: 'var(--t1)',
-                fontSize: 13,
+                color: 'var(--content-primary)',
+                fontSize: 16,
                 resize: 'none',
                 fontFamily: 'inherit',
-              }}
+              }} className="text-base"
             />
             <button
               onClick={send}
@@ -716,12 +743,12 @@ export default function ChatThread({ coachId, clientId, viewerRole, counterpartN
               aria-label={t('chat.send')}
               style={{
                 width: 44, height: 44, borderRadius: 12, border: 'none',
-                background: canSend ? 'var(--accent, #D4A853)' : 'rgba(255,255,255,.06)',
-                color: canSend ? '#0a0a0a' : 'var(--t4)',
+                background: canSend ? 'var(--action-primary)' : 'color-mix(in srgb, var(--content-primary) 8%, transparent)',
+                color: canSend ? 'var(--action-on-primary)' : 'var(--content-muted)',
                 cursor: canSend ? 'pointer' : 'default',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 flexShrink: 0, alignSelf: 'flex-end',
-              }}
+              }} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             >
               <Icon name="i-send" size={15} />
             </button>
@@ -733,15 +760,26 @@ export default function ChatThread({ coachId, clientId, viewerRole, counterpartN
       <AnimatePresence>
         {lightbox && (
           <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            ref={lightboxRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Image preview"
+            tabIndex={-1}
+            onKeyDown={(event) => trapFocus(event, lightboxRef.current)}
+            className="safe-bottom pb-[calc(5rem+env(safe-area-inset-bottom))] outline-none"
+            initial={reducedMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={reducedMotion ? undefined : { opacity: 0 }}
             onClick={() => setLightbox(null)}
             style={{
-              position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(0,0,0,.88)',
+              position: 'fixed', inset: 0, zIndex: 60, background: 'var(--surface-overlay)',
               display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 18, cursor: 'zoom-out',
             }}
           >
+            <button type="button" aria-label="Close image preview" onClick={() => setLightbox(null)} className="absolute right-4 top-4 z-10 min-h-11 min-w-11 rounded-xl bg-[var(--surface-1)] text-[var(--content-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
+              <X size={20} />
+            </button>
             <motion.img
-              initial={{ scale: 0.92 }} animate={{ scale: 1 }}
+              data-theme-exempt="media-canvas"
+              initial={reducedMotion ? false : { scale: 0.92 }} animate={{ scale: 1 }}
               src={lightbox}
               alt=""
               style={{ maxWidth: '100%', maxHeight: '100%', borderRadius: 14, objectFit: 'contain' }}

@@ -49,7 +49,7 @@ export function SkeletonRing({
             cy={size / 2}
             r={radius}
             fill="none"
-            stroke="rgba(255,255,255,0.06)"
+            stroke="var(--border-subtle)"
             strokeWidth={6}
           />
           <circle
@@ -57,7 +57,7 @@ export function SkeletonRing({
             cy={size / 2}
             r={radius}
             fill="none"
-            stroke="rgba(212,168,83,0.1)"
+            stroke="var(--data-neutral)"
             strokeWidth={6}
             strokeDasharray={`${2 * Math.PI * radius * 0.3} ${2 * Math.PI * radius * 0.7}`}
           />
@@ -75,8 +75,7 @@ export function SkeletonCard({ className = '' }: { className?: string }) {
     <div
       className={`glass p-5 ${className}`}
       style={{
-        backgroundImage:
-          'linear-gradient(135deg, rgba(26,26,26,0.7) 0%, rgba(212,168,83,0.02) 50%, rgba(26,26,26,0.7) 100%)',
+        backgroundImage: 'none',
       }}
     >
       <div className="flex items-center gap-3 mb-4">
@@ -99,7 +98,7 @@ export function SkeletonCard({ className = '' }: { className?: string }) {
 // Full-page skeleton for the dashboard loading state
 export function DashboardSkeleton() {
   return (
-    <div className="min-h-screen bg-stone-950 pb-24">
+    <div className="min-h-screen bg-[var(--surface-2)] pb-24">
       <div className="max-w-md mx-auto px-4 pt-12">
         {/* Greeting skeleton */}
         <div className="mb-6 space-y-2">
@@ -154,7 +153,7 @@ export function DashboardSkeleton() {
 // Full-page skeleton for coach dashboard
 export function CoachSkeleton() {
   return (
-    <div className="min-h-screen bg-stone-950 px-4 py-6 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-[var(--surface-2)] px-4 py-6 sm:px-6 lg:px-8">
       <div className="max-w-5xl mx-auto">
         {/* Nav skeleton */}
         <div className={`glass mb-8 h-12 ${shimmerClass()}`} />

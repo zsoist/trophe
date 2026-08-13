@@ -4,6 +4,7 @@ import "./globals.css";
 import ErrorBoundary from "@/components/shared/ErrorBoundary";
 import DocumentLanguage from "@/components/shared/DocumentLanguage";
 import { Analytics } from "@vercel/analytics/react";
+import { THEME_COLOR } from "@/lib/theme";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -62,7 +63,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   // viewport-fit=cover ensures content reaches the notch/home-indicator areas
   viewportFit: "cover",
-  themeColor: "#D4A853",
+  themeColor: THEME_COLOR.dark,
 };
 
 export default function RootLayout({
@@ -79,7 +80,7 @@ export default function RootLayout({
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){var p=location.pathname.split('/')[1];document.documentElement.lang=p==='es'||p==='el'?p:'en';try{var m=localStorage.getItem('trophe_theme_mode');var c=m==='light'?'light':'dark';document.documentElement.classList.add(c);}catch(e){document.documentElement.classList.add('dark');}})();`,
+            __html: `(function(){var r=document.documentElement,p=location.pathname.split('/')[1],m,c;r.lang=p==='es'||p==='el'?p:'en';try{m=localStorage.getItem('trophe_theme_mode')}catch(e){}c=m==='light'||m==='dark'?m:'dark';r.classList.remove('dark','light');r.classList.add(c);r.style.colorScheme=c;var t=document.querySelector('meta[name="theme-color"]');if(t)t.setAttribute('content',c==='light'?'#FAFAF9':'#0A0A0A')}())`,
           }}
         />
       </head>

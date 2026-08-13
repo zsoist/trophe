@@ -55,11 +55,11 @@ const STANDARD_BLOCKS = [
 ];
 
 const FACT_TYPE_COLORS: Record<string, string> = {
-  allergy: 'bg-[rgba(232,122,110,.10)] text-[var(--err,#E87A6E)] border-[rgba(232,122,110,.3)]',
-  goal: 'bg-[rgba(125,163,217,.10)] text-[var(--info,#7DA3D9)] border-[rgba(125,163,217,.3)]',
-  preference: 'bg-[rgba(184,157,217,.10)] text-[var(--plum,#B89DD9)] border-[rgba(184,157,217,.3)]',
-  event: 'bg-[rgba(232,184,110,.10)] text-[var(--warn,#E8B86E)] border-[rgba(232,184,110,.3)]',
-  observation: 'bg-white/[0.03] text-[var(--t3,#A8A29E)] border-white/10',
+  allergy: 'bg-[var(--status-danger-bg)] text-[var(--status-danger-fg)] border-[var(--status-danger-border)]',
+  goal: 'bg-[var(--status-info-bg)] text-[var(--status-info-fg)] border-[var(--status-info-border)]',
+  preference: 'bg-[var(--status-info-bg)] text-[var(--status-info-fg)] border-[var(--status-info-border)]',
+  event: 'bg-[var(--status-warning-bg)] text-[var(--status-warning-fg)] border-[var(--status-warning-border)]',
+  observation: 'bg-[var(--surface-hover)] text-[var(--content-muted)] border-[var(--border-subtle)]',
 };
 
 const FACT_TYPE_LABELS: Record<string, string> = {
@@ -216,27 +216,33 @@ export default function ClientMemoryPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[var(--bg,#0a0a0a)] flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--canvas)] flex items-center justify-center">
         <div className="w-6 h-6 border-2 border-[#D4A853] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[var(--bg,#0a0a0a)] text-[var(--t1,#FAFAF9)]">
+    <div className="min-h-screen bg-[var(--canvas)] text-[var(--content-primary)]">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-[var(--bg,#0a0a0a)]/90 backdrop-blur border-b border-[var(--line-2)] px-4 py-3">
+      <div className="sticky top-0 z-10 bg-[var(--canvas)]/90 backdrop-blur border-b border-[var(--border-strong)] px-4 py-3">
         <div className="max-w-2xl mx-auto flex items-center gap-3">
-          <Link href={`/coach/client/${clientId}`} className="text-[var(--t3)] hover:text-[var(--t1)]">
+          <Link
+            href={`/coach/client/${clientId}`}
+            aria-label="Back to client workspace"
+            className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg text-[var(--content-muted)] hover:text-[var(--content-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+          >
             <ArrowLeft size={20} />
           </Link>
           <div className="flex-1">
-            <h1 className="font-semibold text-[var(--t1)]">AI Memory</h1>
-            <p className="text-xs text-[var(--t4)]">Facts extracted from conversations</p>
+            <h1 className="font-semibold text-[var(--content-primary)]">AI Memory</h1>
+            <p className="text-xs text-[var(--content-muted)]">Facts extracted from conversations</p>
           </div>
           <button
+            data-coach-primary-action
+            data-icon-only
             onClick={() => void loadData()}
-            className="p-2 text-[var(--t3)] hover:text-[var(--t1)] rounded-lg hover:bg-white/5 transition-colors"
+            className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] min-h-11 min-w-11 p-2 text-[var(--content-muted)] hover:text-[var(--content-primary)] rounded-lg hover:bg-[var(--surface-hover)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             title="Refresh"
           >
             <RefreshCw size={16} />
@@ -244,25 +250,25 @@ export default function ClientMemoryPage() {
         </div>
       </div>
 
-      <div className="max-w-2xl mx-auto px-4 py-6">
+      <div data-coach-mobile-workspace className="max-w-2xl mx-auto grid grid-cols-1 px-4 py-6">
         {/* Tab selector */}
         <div className="flex gap-1 mb-6 glass p-1">
           <button
             onClick={() => setActiveTab('blocks')}
-            className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+            className={`min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
               activeTab === 'blocks'
-                ? 'bg-[#D4A853] text-[#0a0a0a]'
-                : 'text-[var(--t3)] hover:text-[var(--t1)]'
+                ? 'bg-[var(--action-primary)] text-[var(--action-on-primary)]'
+                : 'text-[var(--content-muted)] hover:text-[var(--content-primary)]'
             }`}
           >
             Coach Blocks ({blocks.length})
           </button>
           <button
             onClick={() => setActiveTab('memory')}
-            className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+            className={`min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
               activeTab === 'memory'
-                ? 'bg-[#D4A853] text-[#0a0a0a]'
-                : 'text-[var(--t3)] hover:text-[var(--t1)]'
+                ? 'bg-[var(--action-primary)] text-[var(--action-on-primary)]'
+                : 'text-[var(--content-muted)] hover:text-[var(--content-primary)]'
             }`}
           >
             AI Memory ({chunks.length})
@@ -270,7 +276,7 @@ export default function ClientMemoryPage() {
         </div>
 
         {error && (
-          <div className="mb-4 p-3 bg-[rgba(232,122,110,.08)] border border-[rgba(232,122,110,.3)] rounded-lg text-[var(--err,#E87A6E)] text-sm">
+          <div role="alert" className="mb-4 rounded-lg border border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] p-3 text-sm text-[var(--status-danger-fg)]">
             {error}
           </div>
         )}
@@ -278,7 +284,7 @@ export default function ClientMemoryPage() {
         {/* ── Coach Blocks Tab ─────────────────────────────────────── */}
         {activeTab === 'blocks' && (
           <div className="space-y-4">
-            <p className="text-sm text-[var(--t4)]">
+            <p className="text-sm text-[var(--content-muted)]">
               These blocks are injected into the AI system prompt for every interaction with this client. Keep them accurate.
             </p>
 
@@ -292,18 +298,18 @@ export default function ClientMemoryPage() {
                   className="glass overflow-hidden"
                 >
                   {/* Block header */}
-                  <div className="flex items-center gap-2 px-4 py-3 border-b border-[var(--line-2)]">
-                    <span className="font-medium text-sm text-[var(--t1)] flex-1">{def.displayName}</span>
+                  <div className="flex items-center gap-2 px-4 py-3 border-b border-[var(--border-strong)]">
+                    <span className="font-medium text-sm text-[var(--content-primary)] flex-1">{def.displayName}</span>
                     {existing && (
-                      <span className="text-xs text-[var(--t5)]">v{existing.version}</span>
+                      <span className="text-xs text-[var(--content-disabled)]">v{existing.version}</span>
                     )}
                     {existing && (
                       <button
                         onClick={() => void toggleVisibility(existing)}
-                        className={`p-1.5 rounded transition-colors ${
+                        className={`min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] p-1.5 rounded transition-colors ${
                           existing.visible_to_client
                             ? 'text-[#D4A853] hover:text-[var(--gold-200,#E8C078)]'
-                            : 'text-[var(--t5)] hover:text-[var(--t3)]'
+                            : 'text-[var(--content-disabled)] hover:text-[var(--content-muted)]'
                         }`}
                         title={existing.visible_to_client ? 'Visible to client' : 'Hidden from client'}
                       >
@@ -312,8 +318,9 @@ export default function ClientMemoryPage() {
                     )}
                     {!isEditing && (
                       <button
+                        aria-label={`Edit ${def.displayName}`}
                         onClick={() => startEdit(existing ?? { block_label: def.label, content: '' })}
-                        className="p-1.5 text-[var(--t5)] hover:text-[var(--t1)] rounded transition-colors"
+                        className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] min-h-11 min-w-11 p-1.5 text-[var(--content-disabled)] hover:text-[var(--content-primary)] rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                       >
                         <Pencil size={14} />
                       </button>
@@ -328,20 +335,20 @@ export default function ClientMemoryPage() {
                         onChange={(e) => setEditDraft(e.target.value)}
                         placeholder={def.placeholder}
                         rows={6}
-                        className="input-dark w-full text-sm resize-none"
+                        className="input-dark text-base w-full resize-none"
                         autoFocus
                       />
                       <div className="flex gap-2 justify-end">
                         <button
                           onClick={cancelEdit}
-                          className="px-3 py-1.5 text-sm text-[var(--t3)] hover:text-[var(--t1)] rounded-lg hover:bg-white/5 transition-colors flex items-center gap-1.5"
+                          className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] px-3 py-1.5 text-sm text-[var(--content-muted)] hover:text-[var(--content-primary)] rounded-lg hover:bg-[var(--surface-hover)] transition-colors flex items-center gap-1.5"
                         >
                           <X size={14} /> Cancel
                         </button>
                         <button
                           onClick={() => void saveBlock(def.label)}
                           disabled={saving}
-                          className="px-3 py-1.5 text-sm bg-[#D4A853] text-[#0a0a0a] font-medium rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1.5 disabled:opacity-50"
+                          className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] px-3 py-1.5 text-sm bg-[var(--action-primary)] text-[var(--action-on-primary)] font-medium rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1.5 disabled:opacity-50"
                         >
                           <Save size={14} />
                           {saving ? 'Saving...' : 'Save'}
@@ -351,11 +358,11 @@ export default function ClientMemoryPage() {
                   ) : (
                     <div className="px-4 py-3">
                       {existing?.content ? (
-                        <p className="text-sm text-[var(--t2)] whitespace-pre-wrap leading-relaxed">{existing.content}</p>
+                        <p className="text-sm text-[var(--content-secondary)] whitespace-pre-wrap leading-relaxed">{existing.content}</p>
                       ) : (
                         <button
                           onClick={() => startEdit({ block_label: def.label, content: '' })}
-                          className="text-sm text-[var(--t5)] hover:text-[var(--t3)] flex items-center gap-1.5 py-1 transition-colors"
+                          className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] text-sm text-[var(--content-disabled)] hover:text-[var(--content-muted)] flex items-center gap-1.5 py-1 transition-colors"
                         >
                           <Plus size={14} /> Add {def.displayName.toLowerCase()}
                         </button>
@@ -371,12 +378,12 @@ export default function ClientMemoryPage() {
         {/* ── AI Memory Tab ────────────────────────────────────────── */}
         {activeTab === 'memory' && (
           <div className="space-y-3">
-            <p className="text-sm text-[var(--t4)]">
+            <p className="text-sm text-[var(--content-muted)]">
               Facts automatically extracted from your client&apos;s conversations. Review and remove inaccurate ones.
             </p>
 
             {chunks.length === 0 ? (
-              <div className="text-center py-12 text-[var(--t5)]">
+              <div className="text-center py-12 text-[var(--content-disabled)]">
                 <p className="text-sm">No memory facts yet.</p>
                 <p className="text-xs mt-1">Facts are extracted automatically as your client chats with the AI.</p>
               </div>
@@ -388,13 +395,13 @@ export default function ClientMemoryPage() {
 
                 return (
                   <div key={type} className="space-y-2">
-                    <h3 className="text-xs font-semibold text-[var(--t4)] uppercase tracking-wider px-1">
+                    <h3 className="text-xs font-semibold text-[var(--content-muted)] uppercase tracking-wider px-1">
                       {FACT_TYPE_LABELS[type]} ({typeChunks.length})
                     </h3>
                     {typeChunks.map((chunk) => (
                       <div
                         key={chunk.id}
-                        className={`flex items-start gap-3 p-3 rounded-xl border ${FACT_TYPE_COLORS[chunk.fact_type] ?? 'bg-white/[0.03] border-white/10'}`}
+                        className={`flex items-start gap-3 p-3 rounded-xl border ${FACT_TYPE_COLORS[chunk.fact_type] ?? 'bg-[var(--surface-hover)] border-[var(--border-subtle)]'}`}
                       >
                         <div className="flex-1 min-w-0">
                           <p className="text-sm leading-relaxed">{chunk.fact_text}</p>
@@ -411,7 +418,7 @@ export default function ClientMemoryPage() {
                         </div>
                         <button
                           onClick={() => void deleteChunk(chunk.id)}
-                          className="p-1.5 opacity-40 hover:opacity-100 transition-opacity rounded"
+                          className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] p-1.5 opacity-40 hover:opacity-100 transition-opacity rounded"
                           title="Remove this memory"
                         >
                           <Trash2 size={14} />
@@ -425,6 +432,7 @@ export default function ClientMemoryPage() {
           </div>
         )}
       </div>
+      <span data-coach-mobile-workspace-end className="sr-only" />
     </div>
   );
 }

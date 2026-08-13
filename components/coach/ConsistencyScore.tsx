@@ -16,10 +16,10 @@ interface ConsistencyScoreProps {
 }
 
 function getScoreColor(score: number): string {
-  if (score >= 80) return '#4ade80';
-  if (score >= 60) return '#D4A853';
-  if (score >= 40) return '#fbbf24';
-  return '#f87171';
+  if (score >= 80) return 'var(--status-success-fg)';
+  if (score >= 60) return 'var(--action-primary)';
+  if (score >= 40) return 'var(--status-warning-fg)';
+  return 'var(--status-danger-fg)';
 }
 
 export default memo(function ConsistencyScore({
@@ -65,9 +65,9 @@ export default memo(function ConsistencyScore({
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.5 }}
-      className="bg-white/[0.04] border border-white/[0.06] rounded-xl p-5 flex flex-col items-center"
+      className="bg-[var(--surface-hover)] border border-[var(--border-subtle)] rounded-xl p-5 flex flex-col items-center"
     >
-      <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider mb-3 self-start">
+      <h3 className="text-[var(--content-secondary)] text-xs font-semibold uppercase tracking-wider mb-3 self-start">
         Consistency Score
       </h3>
 
@@ -78,7 +78,7 @@ export default memo(function ConsistencyScore({
             cy={cy}
             r={r}
             fill="none"
-            stroke="rgba(255,255,255,0.06)"
+            stroke="var(--border-subtle)"
             strokeWidth={10}
           />
           <motion.circle
@@ -105,7 +105,7 @@ export default memo(function ConsistencyScore({
           >
             {animatedScore}
           </span>
-          <span className="text-stone-500 text-[10px]">/ 100</span>
+          <span className="text-[var(--content-muted)] text-xs">/ 100</span>
         </div>
       </div>
 
@@ -119,8 +119,8 @@ export default memo(function ConsistencyScore({
           { label: 'Habits', value: `${Math.round(habitAdherence)}%`, weight: hasMealScore ? '30%' : '43%' },
         ].map((item) => (
           <div key={item.label} className="text-center">
-            <p className="text-stone-200 text-xs font-medium tabular-nums">{item.value}</p>
-            <p className="text-stone-600 text-[9px]">
+            <p className="text-[var(--content-primary)] text-xs font-medium tabular-nums">{item.value}</p>
+            <p className="text-[var(--content-muted)] text-xs">
               {item.label} ({item.weight})
             </p>
           </div>

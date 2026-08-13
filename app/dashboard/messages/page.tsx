@@ -40,24 +40,24 @@ export default function ClientMessagesPage() {
   useEffect(() => { load(); }, [load]);
 
   return (
-    <div style={{ background: 'var(--bg,#0a0a0a)', height: '100dvh', display: 'flex', flexDirection: 'column' }}>
+    <div className="pb-[calc(5rem+env(safe-area-inset-bottom))]" style={{ background: 'var(--canvas)', minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
       <div className="max-w-md lg:max-w-2xl mx-auto px-4 pt-3 w-full" style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, paddingBottom: 12 }}>
         <div className="row-b" style={{ marginBottom: 8 }}>
-          <button onClick={() => router.back()} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--t3)' }}>
+          <button aria-label="Back to dashboard" className="min-h-11 min-w-11 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" onClick={() => router.back()} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--content-secondary)' }}>
             <Icon name="i-chev-l" size={16} />
           </button>
-          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--t1)' }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--content-primary)' }}>
             {coachName ? `Coach ${coachName.split(' ')[0]}` : 'Your coach'}
           </div>
           <div style={{ width: 16 }} />
         </div>
 
         {loading ? (
-          <div className="ds-sub" style={{ textAlign: 'center', padding: 24 }}>Loading…</div>
+          <div role="status" data-loading-state className="ds-sub" style={{ textAlign: 'center', padding: 24 }}>Loading…</div>
         ) : !coachId ? (
           <div className="card p-8 text-center">
-            <Icon name="i-message" size={28} style={{ color: 'var(--t5)', margin: '0 auto 10px' }} />
-            <div style={{ fontSize: 13, color: 'var(--t3)' }}>
+            <Icon name="i-message" size={28} style={{ color: 'var(--content-disabled)', margin: '0 auto 10px' }} />
+            <div style={{ fontSize: 13, color: 'var(--content-secondary)' }}>
               No coach assigned yet. Messaging unlocks once a coach takes you on.
             </div>
           </div>

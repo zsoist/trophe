@@ -23,12 +23,12 @@ export default memo(function ProteinDistributionAnalyzer({
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        className="bg-white/[0.04] border border-white/[0.06] rounded-xl p-4"
+        className="bg-[var(--surface-hover)] border border-[var(--border-subtle)] rounded-xl p-4"
       >
-        <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider mb-3">
+        <h3 className="text-[var(--content-secondary)] text-xs font-semibold uppercase tracking-wider mb-3">
           Protein Distribution
         </h3>
-        <p className="text-stone-500 text-xs text-center py-4">No meal data</p>
+        <p className="text-[var(--content-muted)] text-xs text-center py-4">No meal data</p>
       </motion.div>
     );
   }
@@ -39,13 +39,13 @@ export default memo(function ProteinDistributionAnalyzer({
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="bg-white/[0.04] border border-white/[0.06] rounded-xl p-4"
+      className="bg-[var(--surface-hover)] border border-[var(--border-subtle)] rounded-xl p-4"
     >
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider">
+        <h3 className="text-[var(--content-secondary)] text-xs font-semibold uppercase tracking-wider">
           Protein Distribution
         </h3>
-        <span className="text-stone-500 text-[10px] tabular-nums">
+        <span className="text-[var(--content-muted)] text-xs tabular-nums">
           Total: {totalProtein}g
         </span>
       </div>
@@ -54,7 +54,7 @@ export default memo(function ProteinDistributionAnalyzer({
         {meals.map((meal, i) => {
           const pct = totalProtein > 0 ? (meal.protein / totalProtein) * 100 : 0;
           const isOverloaded = pct > 50;
-          const barColor = isOverloaded ? '#f87171' : '#D4A853';
+          const barColor = isOverloaded ? 'var(--status-danger-fg)' : 'var(--action-primary)';
           const barFraction = maxProtein > 0 ? meal.protein / maxProtein : 0;
 
           return (
@@ -65,22 +65,22 @@ export default memo(function ProteinDistributionAnalyzer({
               transition={{ delay: i * 0.06, duration: 0.3 }}
             >
               <div className="flex items-center justify-between mb-1">
-                <span className="text-stone-300 text-xs">{meal.name}</span>
+                <span className="text-[var(--content-secondary)] text-xs">{meal.name}</span>
                 <div className="flex items-center gap-2">
-                  <span className="text-stone-400 text-[10px] tabular-nums">
+                  <span className="text-[var(--content-secondary)] text-xs tabular-nums">
                     {meal.protein}g
                   </span>
-                  <span className="text-stone-500 text-[10px] tabular-nums">
+                  <span className="text-[var(--content-muted)] text-xs tabular-nums">
                     ({Math.round(pct)}%)
                   </span>
                   {isOverloaded && (
-                    <span className="text-[9px] text-red-400 font-medium">
+                    <span className="text-xs text-red-400 font-medium">
                       Overloaded
                     </span>
                   )}
                 </div>
               </div>
-              <div className="relative h-3 bg-white/[0.04] rounded-full overflow-hidden">
+              <div className="relative h-3 bg-[var(--surface-hover)] rounded-full overflow-hidden">
                 <motion.div
                   className="absolute inset-y-0 left-0 rounded-full"
                   style={{ backgroundColor: barColor }}
@@ -91,7 +91,7 @@ export default memo(function ProteinDistributionAnalyzer({
                 {/* Ideal target line */}
                 {idealPerMeal > 0 && (
                   <div
-                    className="absolute top-0 bottom-0 w-px bg-white/20"
+                    className="absolute top-0 bottom-0 w-px bg-[var(--surface-hover)]"
                     style={{ left: `${(idealPerMeal / maxProtein) * 100}%` }}
                   />
                 )}
@@ -104,8 +104,8 @@ export default memo(function ProteinDistributionAnalyzer({
       {/* Legend */}
       <div className="flex items-center gap-3 mt-3">
         <div className="flex items-center gap-1">
-          <div className="w-4 h-px bg-white/20" />
-          <span className="text-stone-600 text-[9px]">Equal distribution target</span>
+          <div className="w-4 h-px bg-[var(--surface-hover)]" />
+          <span className="text-[var(--content-muted)] text-xs">Equal distribution target</span>
         </div>
       </div>
     </motion.div>

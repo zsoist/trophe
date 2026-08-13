@@ -10,6 +10,8 @@ describe('login critical-path delivery', () => {
 
     expect(login).not.toContain("from 'framer-motion'");
     expect(login).not.toMatch(/<motion\./);
+    expect(login).toContain("from '@/components/ui/Button'");
+    expect(login).not.toContain("from '@/components/ui'");
   });
 
   it('keeps the form visible while progressively enhancing entrance motion', () => {

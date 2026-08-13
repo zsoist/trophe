@@ -30,7 +30,7 @@ function VolumeChart({ sessions }: { sessions: SessionWithSets[] }) {
 
   return (
     <div className="glass p-4 mb-4">
-      <p className="text-xs text-stone-500 uppercase tracking-wider mb-3">Total Volume (last {last10.length})</p>
+      <p className="text-xs text-[var(--content-muted)] uppercase tracking-wider mb-3">Total Volume (last {last10.length})</p>
       <div className="flex items-end gap-1 h-20">
         {volumes.map((vol, i) => (
           <motion.div
@@ -40,21 +40,21 @@ function VolumeChart({ sessions }: { sessions: SessionWithSets[] }) {
             transition={{ delay: i * 0.05, duration: 0.4 }}
             className="flex-1 rounded-t-md relative group"
             style={{
-              background: `linear-gradient(to top, color-mix(in srgb, var(--accent, #D4A853) 30%, transparent), color-mix(in srgb, var(--accent, #D4A853) 60%, transparent))`,
+              background: `linear-gradient(to top, color-mix(in srgb, var(--action-primary) 30%, transparent), color-mix(in srgb, var(--action-primary) 60%, transparent))`,
               minHeight: '3px',
             }}
           >
-            <div className="absolute -top-5 left-1/2 -translate-x-1/2 text-[9px] text-stone-500 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+            <div className="absolute -top-5 left-1/2 -translate-x-1/2 text-xs text-[var(--content-muted)] opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
               {vol > 1000 ? `${(vol / 1000).toFixed(1)}k` : vol}
             </div>
           </motion.div>
         ))}
       </div>
       <div className="flex justify-between mt-1">
-        <span className="text-[9px] text-stone-600">
+        <span className="text-xs text-[var(--content-muted)]">
           {last10[0]?.session_date?.slice(5) || ''}
         </span>
-        <span className="text-[9px] text-stone-600">
+        <span className="text-xs text-[var(--content-muted)]">
           {last10[last10.length - 1]?.session_date?.slice(5) || ''}
         </span>
       </div>
@@ -124,26 +124,26 @@ function SessionCard({
       {/* Card header */}
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full p-4 flex items-start gap-3"
+        className="w-full p-4 flex items-start gap-3 min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
       >
         <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-          style={{ background: 'color-mix(in srgb, var(--accent, #D4A853) 10%, transparent)' }}>
+          style={{ background: 'color-mix(in srgb, var(--action-primary) 10%, transparent)' }}>
           <Dumbbell size={18} className="gold-text" />
         </div>
 
         <div className="flex-1 text-left min-w-0">
           <div className="flex items-center gap-2">
-            <p className="text-sm font-semibold text-stone-200 truncate">
+            <p className="text-sm font-semibold text-[var(--content-primary)] truncate">
               {session.name || 'Workout'}
             </p>
             {prCount > 0 && (
-              <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold"
-                style={{ background: 'color-mix(in srgb, var(--accent, #D4A853) 15%, transparent)', color: 'var(--accent, #D4A853)' }}>
+              <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs font-bold"
+                style={{ background: 'color-mix(in srgb, var(--action-primary) 15%, transparent)', color: 'var(--action-primary)' }}>
                 <Trophy size={9} /> {prCount}
               </span>
             )}
           </div>
-          <div className="flex items-center gap-3 mt-0.5 text-xs text-stone-500">
+          <div className="flex items-center gap-3 mt-0.5 text-xs text-[var(--content-muted)]">
             <span className="flex items-center gap-1">
               <Calendar size={10} />
               {formatDate(session.session_date)}
@@ -162,8 +162,8 @@ function SessionCard({
           <p className="text-sm font-semibold gold-text">
             {totalVolume > 1000 ? `${(totalVolume / 1000).toFixed(1)}k` : totalVolume}
           </p>
-          <p className="text-[10px] text-stone-600">kg vol</p>
-          {expanded ? <ChevronUp size={14} className="text-stone-500 mt-1" /> : <ChevronDown size={14} className="text-stone-500 mt-1" />}
+          <p className="text-xs text-[var(--content-muted)]">kg vol</p>
+          {expanded ? <ChevronUp size={14} className="text-[var(--content-muted)] mt-1" /> : <ChevronDown size={14} className="text-[var(--content-muted)] mt-1" />}
         </div>
       </button>
 
@@ -179,7 +179,7 @@ function SessionCard({
             <div className="px-4 pb-4 space-y-3">
               {grouped.map(({ exercise, sets }) => (
                 <div key={exercise.id}>
-                  <p className="text-xs font-medium text-stone-400 mb-1">
+                  <p className="text-xs font-medium text-[var(--content-secondary)] mb-1">
                     {getExerciseName(exercise)}
                   </p>
                   <div className="space-y-0.5">
@@ -188,19 +188,19 @@ function SessionCard({
                         key={set.id}
                         className="flex items-center gap-2 text-xs py-0.5"
                       >
-                        <span className="w-5 text-stone-600 text-right">{set.set_number}</span>
+                        <span className="w-5 text-[var(--content-muted)] text-right">{set.set_number}</span>
                         {set.is_warmup && (
-                          <span className="text-[9px] text-amber-400 font-medium">W</span>
+                          <span className="text-xs text-[var(--content-secondary)] font-medium">W</span>
                         )}
-                        <span className={set.is_pr ? 'text-yellow-400 font-semibold' : 'text-stone-300'}>
+                        <span className={set.is_pr ? 'text-[var(--action-primary)] font-semibold' : 'text-[var(--content-secondary)]'}>
                           {set.weight_kg || 0}kg
                         </span>
-                        <span className="text-stone-500">x</span>
-                        <span className="text-stone-300">{set.reps || 0}</span>
+                        <span className="text-[var(--content-muted)]">x</span>
+                        <span className="text-[var(--content-secondary)]">{set.reps || 0}</span>
                         {set.rpe && (
-                          <span className="text-stone-600">@{set.rpe}</span>
+                          <span className="text-[var(--content-muted)]">@{set.rpe}</span>
                         )}
-                        {set.is_pr && <Trophy size={10} className="text-yellow-400" />}
+                        {set.is_pr && <Trophy size={10} className="text-[var(--action-primary)]" />}
                       </div>
                     ))}
                   </div>
@@ -209,10 +209,10 @@ function SessionCard({
 
               {/* Pain flags */}
               {session.pain_flags && session.pain_flags.length > 0 && (
-                <div className="pt-2 border-t" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
-                  <p className="text-xs text-red-400 mb-1">Pain Flags</p>
+                <div className="pt-2 border-t" style={{ borderColor: 'color-mix(in srgb, var(--content-primary) 8%, transparent)' }}>
+                  <p className="text-xs text-[var(--status-danger-fg)] mb-1">Pain Flags</p>
                   {session.pain_flags.map((pf, i) => (
-                    <p key={i} className="text-xs text-stone-500">
+                    <p key={i} className="text-xs text-[var(--content-muted)]">
                       {pf.body_part} — severity {pf.severity}/5
                       {pf.notes && ` — ${pf.notes}`}
                     </p>
@@ -226,8 +226,8 @@ function SessionCard({
                 onClick={() => {
                   router.push(`/dashboard/workout?repeat=${session.id}`);
                 }}
-                className="w-full py-2 rounded-xl text-xs font-medium flex items-center justify-center gap-1.5 transition-colors"
-                style={{ background: 'color-mix(in srgb, var(--accent, #D4A853) 10%, transparent)', color: 'var(--accent, #D4A853)', border: '1px solid color-mix(in srgb, var(--accent, #D4A853) 20%, transparent)' }}
+                className="w-full py-2 rounded-xl text-xs font-medium flex items-center justify-center gap-1.5 transition-colors min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                style={{ background: 'color-mix(in srgb, var(--action-primary) 10%, transparent)', color: 'var(--action-primary)', border: '1px solid color-mix(in srgb, var(--action-primary) 20%, transparent)' }}
               >
                 <RotateCcw size={12} />
                 {t('workout.repeat')}
@@ -289,13 +289,13 @@ export default function WorkoutHistoryPage() {
   }, [router]);
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] pb-28">
+    <div className="min-h-screen bg-[var(--canvas)] pb-28">
       {/* Header */}
       <div className="sticky top-0 z-40 glass-elevated px-4 py-3">
         <div className="max-w-md mx-auto flex items-center gap-3">
           <Link href="/dashboard/workout">
-            <button className="p-2 rounded-xl transition-colors" style={{ background: 'rgba(255,255,255,0.06)' }}>
-              <ArrowLeft size={18} className="text-stone-400" />
+            <button aria-label="Back to workout" className="p-2 rounded-xl transition-colors min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" style={{ background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)' }}>
+              <ArrowLeft size={18} className="text-[var(--content-secondary)]" />
             </button>
           </Link>
           <h1 className="text-lg font-bold">{t('workout.history')}</h1>
@@ -305,7 +305,7 @@ export default function WorkoutHistoryPage() {
       <div className="max-w-md mx-auto px-4 pt-4">
         {loading && (
           <div className="flex items-center justify-center py-16">
-            <div className="w-6 h-6 border-2 border-stone-700 border-t-[var(--accent,#D4A853)] rounded-full animate-spin" />
+            <div className="w-6 h-6 border-2 border-[var(--border-default)] border-t-[var(--action-primary)] rounded-full animate-spin" />
           </div>
         )}
 
@@ -315,10 +315,10 @@ export default function WorkoutHistoryPage() {
             animate={{ opacity: 1, y: 0 }}
             className="text-center py-16"
           >
-            <Dumbbell size={48} className="text-stone-700 mx-auto mb-4" />
-            <p className="text-stone-500 text-sm">{t('workout.no_sessions')}</p>
+            <Dumbbell size={48} className="text-[var(--content-muted)] mx-auto mb-4" />
+            <p className="text-[var(--content-muted)] text-sm">{t('workout.no_sessions')}</p>
             <Link href="/dashboard/workout">
-              <button className="btn-gold mt-4 text-sm px-6 py-2">
+              <button className="btn-gold mt-4 text-sm px-6 py-2 min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
                 {t('workout.start')}
               </button>
             </Link>

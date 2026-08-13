@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { Icon, BrandWordmark, AnimatedValue } from '@/components/ui';
+import { Icon, BrandWordmark, AnimatedValue, Button } from '@/components/ui';
+import { ThemeModeToggle } from '@/components/shared/ThemeMode';
 import type { IconName } from '@/components/ui';
 import { MACRO_COLORS } from '@/lib/macro-colors';
 import { calculateFullProfile, calculateBMR, calculateTDEE, calculateTargetCalories, GOAL_DESCRIPTIONS, ACTIVITY_DESCRIPTIONS } from '@/lib/food/nutrition-engine';
@@ -114,7 +115,8 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-6 py-12" style={{ background: 'var(--bg-primary, #0a0a0a)' }}>
+    <main className="relative flex min-h-screen flex-col items-center justify-center overflow-x-hidden bg-[var(--canvas)] px-6 py-20 text-[var(--content-primary)]">
+      <div className="fixed right-4 top-4 z-20"><ThemeModeToggle /></div>
       {/* Progress dots + percentage */}
       <div className="flex flex-col items-center gap-2 mb-10">
         <div className="flex gap-2">
@@ -122,7 +124,7 @@ export default function OnboardingPage() {
             <div
               key={i}
               className={`h-1.5 rounded-full transition-all duration-500 ${
-                i === stepIdx ? 'w-8 bg-[#D4A853]' : i < stepIdx ? 'w-4 bg-[#D4A853]/40' : 'w-4 bg-[var(--bg-4,#242424)]'
+                i === stepIdx ? 'w-8 bg-[var(--action-primary)]' : i < stepIdx ? 'w-4 bg-[var(--border-focus)]' : 'w-4 bg-[var(--surface-3)]'
               }`}
             />
           ))}
@@ -158,10 +160,10 @@ export default function OnboardingPage() {
                   Trusted by Precision Nutrition certified coaches
                 </p>
                 <div className="pt-6">
-                  <button onClick={next} className="btn-gold text-lg px-10 py-4 inline-flex items-center gap-2">
+                  <Button onClick={next} size="lg" className="gap-2">
                     Let&apos;s go
                     <ArrowRight size={18} />
-                  </button>
+                  </Button>
                 </div>
               </div>
             )}
@@ -175,23 +177,26 @@ export default function OnboardingPage() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block body-md mb-1.5" style={{ color: 'var(--t3)' }}>Age</label>
+                    <label htmlFor="onboarding-age" className="block body-md mb-1.5" style={{ color: 'var(--t3)' }}>Age</label>
                     <input
+                      id="onboarding-age"
                       type="number" value={age} onChange={(e) => setAge(+e.target.value)}
                       className="input-dark" min={14} max={80}
                     />
                   </div>
                   <div>
-                    <label className="block body-md mb-2" style={{ color: 'var(--t3)' }}>Sex</label>
-                    <div className="flex gap-2">
+                    <span id="onboarding-sex" className="block body-md mb-2" style={{ color: 'var(--t3)' }}>Sex</span>
+                    <div className="flex gap-2" role="group" aria-labelledby="onboarding-sex">
                       {(['male', 'female'] as Sex[]).map((s) => (
                         <button
+                          type="button"
                           key={s}
+                          aria-pressed={sex === s}
                           onClick={() => setSex(s)}
-                          className={`flex-1 py-2.5 rounded-xl border text-sm font-medium transition-all ${
+                          className={`min-h-11 flex-1 rounded-xl border text-sm font-medium transition-all ${
                             sex === s
-                              ? 'border-[#D4A853] bg-[rgba(212,168,83,0.08)] text-[var(--t1)]'
-                              : 'border-[var(--line-2)] text-[var(--t4)] hover:border-[var(--t5)]'
+                              ? 'border-[var(--border-focus)] bg-[var(--surface-active)] text-[var(--content-primary)]'
+                              : 'border-[var(--border-default)] text-[var(--content-muted)] hover:bg-[var(--surface-hover)]'
                           }`}
                         >
                           {s === 'male' ? 'Male' : 'Female'}
@@ -202,8 +207,9 @@ export default function OnboardingPage() {
                 </div>
 
                 <div>
-                  <label className="block body-md mb-1.5" style={{ color: 'var(--t3)' }}>Height (cm): {heightCm}</label>
+                  <label htmlFor="onboarding-height" className="block body-md mb-1.5" style={{ color: 'var(--t3)' }}>Height (cm): {heightCm}</label>
                   <input
+                    id="onboarding-height"
                     type="range" min={140} max={220} value={heightCm}
                     onChange={(e) => setHeightCm(+e.target.value)}
                     className="w-full accent-[#D4A853]"
@@ -212,8 +218,9 @@ export default function OnboardingPage() {
                 </div>
 
                 <div>
-                  <label className="block body-md mb-1.5" style={{ color: 'var(--t3)' }}>Weight (kg): {weightKg}</label>
+                  <label htmlFor="onboarding-weight" className="block body-md mb-1.5" style={{ color: 'var(--t3)' }}>Weight (kg): {weightKg}</label>
                   <input
+                    id="onboarding-weight"
                     type="range" min={40} max={160} value={weightKg}
                     onChange={(e) => setWeightKg(+e.target.value)}
                     className="w-full accent-[#D4A853]"
@@ -238,12 +245,14 @@ export default function OnboardingPage() {
                     const previewCals = calculateTargetCalories(previewTdee, g);
                     return (
                       <button
+                        type="button"
                         key={g}
+                        aria-pressed={goal === g}
                         onClick={() => setGoal(g)}
                         className={`w-full p-4 rounded-xl border text-left transition-all ${
                           goal === g
-                            ? 'border-[#D4A853] bg-[rgba(212,168,83,0.08)] gold-glow'
-                            : 'border-[var(--line-2)] hover:border-[var(--t5)]'
+                            ? 'border-[var(--border-focus)] bg-[var(--surface-active)] gold-glow'
+                            : 'border-[var(--border-default)] hover:bg-[var(--surface-hover)]'
                         }`}
                       >
                         <div className="flex items-center justify-between">
@@ -285,12 +294,14 @@ export default function OnboardingPage() {
                     const d = ACTIVITY_DESCRIPTIONS[a];
                     return (
                       <button
+                        type="button"
                         key={a}
+                        aria-pressed={activity === a}
                         onClick={() => setActivity(a)}
                         className={`w-full p-4 rounded-xl border text-left transition-all ${
                           activity === a
-                            ? 'border-[#D4A853] bg-[rgba(212,168,83,0.08)] gold-glow'
-                            : 'border-[var(--line-2)] hover:border-[var(--t5)]'
+                            ? 'border-[var(--border-focus)] bg-[var(--surface-active)] gold-glow'
+                            : 'border-[var(--border-default)] hover:bg-[var(--surface-hover)]'
                         }`}
                       >
                         <span className={`font-medium ${activity === a ? 'text-[var(--t1)]' : 'text-[var(--t2)]'}`}>
@@ -313,7 +324,7 @@ export default function OnboardingPage() {
 
                 <div className="glass-elevated p-6 space-y-4 gold-border">
                   <div className="text-center">
-                    <p className="label-sm" style={{ color: 'var(--t4)' }}>Daily Target</p>
+                    <p className="label-sm" style={{ color: 'var(--t4)', fontSize: 12 }}>Daily Target</p>
                     {/* Serif hero numeral + count-up */}
                     <p className="display-xl mt-1" style={{ color: 'var(--gold-300,#D4A853)' }}>
                       <AnimatedValue value={profile.calories} grouped={false} />
@@ -350,7 +361,7 @@ export default function OnboardingPage() {
                         background: 'rgba(212,168,83,.08)',
                         border: '1px solid rgba(212,168,83,.2)',
                         color: 'var(--t3)',
-                        fontSize: 11,
+                        fontSize: 12,
                       }}
                     >
                       Protein and fat were adjusted to fit your calorie target. Your coach can review these starting targets.
@@ -405,23 +416,23 @@ export default function OnboardingPage() {
       )}
       <div className="flex gap-4 mt-8 w-full max-w-md">
         {stepIdx > 0 && (
-          <button onClick={back} className="btn-ghost flex-1 inline-flex items-center justify-center gap-2">
+          <Button type="button" variant="secondary" onClick={back} className="flex-1 gap-2">
             <ArrowLeft size={16} />
             Back
-          </button>
+          </Button>
         )}
         {step !== 'welcome' && step !== 'plan' && (
-          <button onClick={next} className="btn-gold flex-1 inline-flex items-center justify-center gap-2">
+          <Button type="button" onClick={next} className="flex-1 gap-2">
             Next
             <ArrowRight size={16} />
-          </button>
+          </Button>
         )}
         {step === 'plan' && (
-          <button onClick={finish} disabled={loading} className="btn-gold flex-1 disabled:opacity-50">
+          <Button type="button" onClick={finish} disabled={loading} className="flex-1">
             {loading ? 'Saving...' : 'Start my journey'}
-          </button>
+          </Button>
         )}
       </div>
-    </div>
+    </main>
   );
 }

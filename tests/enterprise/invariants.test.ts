@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { join, relative } from 'node:path';
 
 const root = process.cwd();
@@ -316,7 +317,13 @@ describe('enterprise hardening invariants', () => {
   });
 
   it('does not commit shared tester passwords or live API keys', () => {
-    const trackedTextFiles = walk(root)
+    const trackedTextFiles = execFileSync('git', ['ls-files', '-z'], {
+      cwd: root,
+      encoding: 'utf8',
+    })
+      .split('\0')
+      .filter(Boolean)
+      .map((file) => join(root, file))
       .filter((file) => !file.includes('/tests/_guard_fixtures/'))
       .filter((file) => file !== __filename)
       .filter((file) => /\.(ts|tsx|js|md|sql|json|yml|yaml)$/.test(file));

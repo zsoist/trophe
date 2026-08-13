@@ -31,7 +31,7 @@ function ScoreGauge({ score, color }: { score: number; color: string }) {
           cy={cy}
           r={r}
           fill="none"
-          stroke="rgba(255,255,255,0.06)"
+          stroke="color-mix(in srgb, var(--content-primary) 8%, transparent)"
           strokeWidth={strokeWidth}
           strokeLinecap="round"
           strokeDasharray={`${arcLength} ${gapLength}`}
@@ -51,7 +51,7 @@ function ScoreGauge({ score, color }: { score: number; color: string }) {
               y1={cy + inner * Math.sin(rad)}
               x2={cx + outer * Math.cos(rad)}
               y2={cy + outer * Math.sin(rad)}
-              stroke="rgba(255,255,255,0.15)"
+              stroke="color-mix(in srgb, var(--content-primary) 8%, transparent)"
               strokeWidth="1"
             />
           );
@@ -95,7 +95,7 @@ function ScoreGauge({ score, color }: { score: number; color: string }) {
                 transition={{ delay: 1 }}
               />
               <circle cx={cx} cy={cy} r="4" fill={color} />
-              <circle cx={cx} cy={cy} r="2" fill="#1a1a1a" />
+              <circle cx={cx} cy={cy} r="2" fill="var(--surface-1)" />
             </>
           );
         })()}
@@ -106,7 +106,7 @@ function ScoreGauge({ score, color }: { score: number; color: string }) {
           y={cy - 6}
           textAnchor="middle"
           dominantBaseline="middle"
-          fill="#f5f5f4"
+          fill="var(--content-primary)"
           fontSize="22"
           fontWeight="bold"
         >
@@ -117,15 +117,15 @@ function ScoreGauge({ score, color }: { score: number; color: string }) {
           y={cy + 10}
           textAnchor="middle"
           dominantBaseline="middle"
-          fill="#78716c"
-          fontSize="9"
+          fill="var(--content-muted)"
+          fontSize="12"
         >
           / 100
         </text>
 
         {/* Arc labels */}
-        <text x="18" y="95" fill="#57534e" fontSize="8">0</text>
-        <text x="125" y="95" fill="#57534e" fontSize="8">100</text>
+        <text x="18" y="95" fill="var(--content-muted)" fontSize="12">0</text>
+        <text x="125" y="95" fill="var(--content-muted)" fontSize="12">100</text>
       </svg>
     </div>
   );
@@ -136,19 +136,19 @@ function RepRow({ rep }: { rep: RepScore }) {
   const [expanded, setExpanded] = useState(false);
 
   const angleDiffColor = (diffPct: number) => {
-    if (diffPct <= 3) return '#22c55e';
-    if (diffPct <= 8) return 'var(--accent, #D4A853)';
-    if (diffPct <= 16) return '#f59e0b';
-    if (diffPct <= 25) return '#f97316';
-    return '#ef4444';
+    if (diffPct <= 3) return 'var(--status-success-fg)';
+    if (diffPct <= 8) return 'var(--action-primary)';
+    if (diffPct <= 16) return 'var(--status-warning-fg)';
+    if (diffPct <= 25) return 'var(--status-warning-fg)';
+    return 'var(--status-danger-fg)';
   };
 
   return (
     <div className="overflow-hidden">
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center gap-3 py-2.5 px-3 rounded-xl transition-colors"
-        style={{ background: 'rgba(255,255,255,0.03)' }}
+        className="w-full flex items-center gap-3 py-2.5 px-3 rounded-xl transition-colors min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+        style={{ background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)' }}
       >
         <div
           className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
@@ -157,7 +157,7 @@ function RepRow({ rep }: { rep: RepScore }) {
           {rep.rep}
         </div>
         <div className="flex-1 text-left min-w-0">
-          <p className="text-sm text-stone-200 font-medium truncate">
+          <p className="text-sm text-[var(--content-primary)] font-medium truncate">
             {rep.segmentType === 'descent' ? 'Descenso' : 'Ascenso'}
           </p>
           <p className="text-xs" style={{ color: rep.assessmentColor }}>
@@ -171,9 +171,9 @@ function RepRow({ rep }: { rep: RepScore }) {
           {rep.score}
         </span>
         {expanded ? (
-          <ChevronUp size={14} className="text-stone-500 shrink-0" />
+          <ChevronUp size={14} className="text-[var(--content-muted)] shrink-0" />
         ) : (
-          <ChevronDown size={14} className="text-stone-500 shrink-0" />
+          <ChevronDown size={14} className="text-[var(--content-muted)] shrink-0" />
         )}
       </button>
 
@@ -194,11 +194,11 @@ function RepRow({ rep }: { rep: RepScore }) {
                 <div
                   key={label}
                   className="flex items-center justify-between px-3 py-2 rounded-lg"
-                  style={{ background: 'rgba(255,255,255,0.03)' }}
+                  style={{ background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)' }}
                 >
-                  <span className="text-xs text-stone-400">{label}</span>
+                  <span className="text-xs text-[var(--content-secondary)]">{label}</span>
                   <div className="flex items-center gap-3 text-xs tabular-nums">
-                    <span className="text-stone-500">
+                    <span className="text-[var(--content-muted)]">
                       {data.avg.toFixed(1)}° / {data.refAvg.toFixed(1)}°
                     </span>
                     <span
@@ -231,7 +231,7 @@ export default function FormScore({ result, exerciseName }: FormScoreProps) {
       <div className="glass p-5">
         <div className="flex items-center gap-2 mb-3">
           <Target size={18} className="gold-text" />
-          <h3 className="text-base font-semibold text-stone-200">{exerciseName}</h3>
+          <h3 className="text-base font-semibold text-[var(--content-primary)]">{exerciseName}</h3>
         </div>
 
         <div className="flex flex-col items-center">
@@ -245,7 +245,7 @@ export default function FormScore({ result, exerciseName }: FormScoreProps) {
           >
             {result.overallAssessment}
           </motion.p>
-          <p className="text-xs text-stone-500 mt-1">
+          <p className="text-xs text-[var(--content-muted)] mt-1">
             {result.repsAnalyzed} {result.repsAnalyzed === 1 ? 'rep analizada' : 'reps analizadas'}
           </p>
         </div>
@@ -260,8 +260,8 @@ export default function FormScore({ result, exerciseName }: FormScoreProps) {
           className="glass p-4"
         >
           <div className="flex items-center gap-2 mb-3">
-            <TrendingUp size={16} className="text-stone-400" />
-            <h4 className="text-sm font-semibold text-stone-300">Detalle por rep</h4>
+            <TrendingUp size={16} className="text-[var(--content-secondary)]" />
+            <h4 className="text-sm font-semibold text-[var(--content-secondary)]">Detalle por rep</h4>
           </div>
 
           <div className="space-y-1">

@@ -379,8 +379,8 @@ export default function FormCheck({ exercise, side, onComplete, onBack }: FormCh
     <div className="relative w-full h-full flex flex-col">
       {/* Header bar */}
       <div className="flex items-center justify-between px-4 py-3 z-10">
-        <button onClick={onBack} className="p-2 rounded-xl" style={{ background: 'rgba(255,255,255,0.06)' }}>
-          <ArrowLeft size={20} className="text-stone-300" />
+        <button onClick={onBack} className="p-2 rounded-xl min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" style={{ background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)' }}>
+          <ArrowLeft size={20} className="text-[var(--content-secondary)]" />
         </button>
 
         <div className="flex items-center gap-2">
@@ -389,14 +389,14 @@ export default function FormCheck({ exercise, side, onComplete, onBack }: FormCh
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
-              style={{ background: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.3)' }}
+              style={{ background: 'var(--status-danger-bg)', border: '1px solid var(--status-danger-border)' }}
             >
               <motion.div
                 animate={{ opacity: [1, 0.3, 1] }}
                 transition={{ repeat: Infinity, duration: 1.2 }}
-                className="w-2 h-2 rounded-full bg-red-400"
+                className="w-2 h-2 rounded-full bg-[var(--status-danger-fg)]"
               />
-              <span className="text-xs font-medium text-red-300">REC</span>
+              <span className="text-xs font-medium text-[var(--status-danger-fg)]">REC</span>
             </motion.div>
           )}
         </div>
@@ -404,8 +404,8 @@ export default function FormCheck({ exercise, side, onComplete, onBack }: FormCh
         {state === 'recording' && (
           <button
             onClick={finishRecording}
-            className="px-4 py-2 rounded-xl text-sm font-semibold"
-            style={{ background: 'color-mix(in srgb, var(--accent, #D4A853) 20%, transparent)', color: 'var(--accent, #D4A853)', border: '1px solid color-mix(in srgb, var(--accent, #D4A853) 30%, transparent)' }}
+            className="px-4 py-2 rounded-xl text-sm font-semibold min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+            style={{ background: 'color-mix(in srgb, var(--action-primary) 20%, transparent)', color: 'var(--action-primary)', border: '1px solid color-mix(in srgb, var(--action-primary) 30%, transparent)' }}
           >
             Finalizar
           </button>
@@ -415,7 +415,7 @@ export default function FormCheck({ exercise, side, onComplete, onBack }: FormCh
       </div>
 
       {/* Camera feed + overlay */}
-      <div className="relative flex-1 overflow-hidden bg-black">
+      <div data-theme-exempt="media-canvas" className="relative flex-1 overflow-hidden bg-[var(--surface-overlay)]">
         <video
           ref={videoRef}
           playsInline
@@ -454,8 +454,8 @@ export default function FormCheck({ exercise, side, onComplete, onBack }: FormCh
               >
                 <Loader2 size={40} className="gold-text" />
               </motion.div>
-              <p className="text-sm text-stone-400 mt-4">{loadingMessage}</p>
-              <p className="text-xs text-stone-600 mt-1">Primera carga ~10-15s</p>
+              <p className="text-sm text-[var(--content-secondary)] mt-4">{loadingMessage}</p>
+              <p className="text-xs text-[var(--content-muted)] mt-1">Primera carga ~10-15s</p>
             </motion.div>
           )}
         </AnimatePresence>
@@ -470,12 +470,12 @@ export default function FormCheck({ exercise, side, onComplete, onBack }: FormCh
               className="absolute inset-0 flex flex-col items-center justify-center z-20 px-8"
               style={{ background: 'rgba(10,10,10,0.95)' }}
             >
-              <AlertCircle size={40} className="text-red-400 mb-4" />
-              <p className="text-sm text-stone-300 text-center mb-4">{error}</p>
+              <AlertCircle size={40} className="text-[var(--status-danger-fg)] mb-4" />
+              <p className="text-sm text-[var(--content-secondary)] text-center mb-4">{error}</p>
               <button
                 onClick={onBack}
-                className="px-6 py-2.5 rounded-xl text-sm font-semibold"
-                style={{ background: 'rgba(255,255,255,0.06)', color: '#a8a29e' }}
+                className="px-6 py-2.5 rounded-xl text-sm font-semibold min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                style={{ background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)', color: 'var(--content-secondary)' }}
               >
                 Volver
               </button>
@@ -495,26 +495,26 @@ export default function FormCheck({ exercise, side, onComplete, onBack }: FormCh
           >
             <div className="text-center">
               <p className="text-2xl font-bold gold-text tabular-nums">{repCount}</p>
-              <p className="text-[10px] text-stone-500 uppercase tracking-wider">Reps</p>
+              <p className="text-xs text-[var(--content-muted)] uppercase tracking-wider">Reps</p>
             </div>
-            <div className="w-px h-8 bg-stone-800" />
+            <div className="w-px h-8 bg-[var(--surface-2)]" />
             <div className="text-center">
-              <p className="text-2xl font-bold text-stone-200 tabular-nums">
+              <p className="text-2xl font-bold text-[var(--content-primary)] tabular-nums">
                 {currentAngles && currentAngles.kneeAngle !== null
                   ? `${Math.round(currentAngles.kneeAngle)}°`
                   : '--'}
               </p>
-              <p className="text-[10px] text-stone-500 uppercase tracking-wider">Rodilla</p>
+              <p className="text-xs text-[var(--content-muted)] uppercase tracking-wider">Rodilla</p>
             </div>
-            <div className="w-px h-8 bg-stone-800" />
+            <div className="w-px h-8 bg-[var(--surface-2)]" />
             <div className="text-center min-w-0">
               <p
                 className="text-xs font-semibold truncate capitalize"
-                style={{ color: currentAssessmentColor || '#78716c' }}
+                style={{ color: currentAssessmentColor || 'var(--content-muted)' }}
               >
                 {currentAssessment || '--'}
               </p>
-              <p className="text-[10px] text-stone-500 uppercase tracking-wider">Estado</p>
+              <p className="text-xs text-[var(--content-muted)] uppercase tracking-wider">Estado</p>
             </div>
           </motion.div>
         )}
@@ -526,7 +526,7 @@ export default function FormCheck({ exercise, side, onComplete, onBack }: FormCh
             animate={{ opacity: 1, scale: 1 }}
             whileTap={{ scale: 0.95 }}
             onClick={startRecording}
-            className="w-full py-4 rounded-2xl flex items-center justify-center gap-3 text-base font-bold btn-gold"
+            className="w-full py-4 rounded-2xl flex items-center justify-center gap-3 text-base font-bold btn-gold min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
           >
             <CircleDot size={20} />
             Iniciar grabacion

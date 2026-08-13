@@ -28,7 +28,6 @@ import MealPhotoGallery from '@/components/meals/MealPhotoGallery';
 import DayComparison from '@/components/progress/DayComparison';
 import CoachFoodRecs from '@/components/food/CoachFoodRecs';
 import RecipeAnalyzerModal from '@/components/food/RecipeAnalyzerModal';
-import { useTheme } from '@/components/shared/ThemePicker';
 import { localToday, localDateStr } from '../../../lib/utils/dates';
 import {
   CLIENT_VIEW_PANELS,
@@ -168,12 +167,12 @@ function SectionDivider({ label }: { label: string }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 20, marginBottom: 10 }}>
       <span style={{
-        fontSize: 10, fontWeight: 700, color: 'var(--t4)',
+        fontSize: 12, fontWeight: 700, color: 'var(--content-muted)',
         letterSpacing: '0.12em', textTransform: 'uppercase', flexShrink: 0,
       }}>
         {label}
       </span>
-      <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,.06)' }} />
+      <div style={{ flex: 1, height: 1, background: 'var(--border-subtle)' }} />
     </div>
   );
 }
@@ -233,7 +232,7 @@ function SealedBanner({ date, label }: { date: string; label: string }) {
           transition={{ duration: 0.6, delay: 0.15, ease: 'easeOut' }}
         />
       </svg>
-      <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--gold-300,#D4A853)' }}>{label}</p>
+      <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--gold-300,#D4A853)' }}>{label}</p>
     </motion.div>
   );
 }
@@ -367,7 +366,6 @@ export default function FoodLogPage() {
   const [weekData, setWeekData] = useState<{ date: string; calories: number; entries: number }[]>([]);
 
   // Apply theme
-  useTheme();
 
   const isToday = selectedDate === today;
   const defaultSlots = getLocalizedSlots(t);
@@ -948,7 +946,7 @@ export default function FoodLogPage() {
   // Loading skeleton while auth + data resolve
   if (pageLoading) {
     return (
-      <div className="min-h-screen pb-24" style={{ background: 'var(--bg,#0a0a0a)' }}>
+      <div className="min-h-screen pb-24" style={{ background: 'var(--canvas)' }}>
         <div className="max-w-md mx-auto px-4 pt-12">
           {/* Branded skeletons — gold transform-only sheen, no opacity pulse */}
           <div className="space-y-3">
@@ -974,16 +972,16 @@ export default function FoodLogPage() {
     return (
       <div
         className="min-h-screen flex items-center justify-center px-4 pb-24"
-        style={{ background: 'var(--bg,#0a0a0a)' }}
+        style={{ background: 'var(--canvas)' }}
       >
         <div className="glass w-full max-w-sm p-6 text-center">
-          <p role="alert" className="mb-4 text-sm leading-relaxed text-stone-300">
+          <p role="alert" className="mb-4 text-sm leading-relaxed text-[var(--content-secondary)]">
             {t('food.log_load_failed')}
           </p>
           <button
             type="button"
             onClick={() => void loadTodayLog()}
-            className="btn-gold w-full rounded-xl py-3 text-sm font-semibold"
+            className="btn-gold min-h-11 min-w-11 w-full rounded-xl py-3 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
           >
             {t('food.retry')}
           </button>
@@ -994,7 +992,7 @@ export default function FoodLogPage() {
   }
 
   return (
-    <div className="min-h-screen pb-24" style={{ background: 'var(--bg,#0a0a0a)' }}>
+    <div className="min-h-screen pb-[calc(6rem+env(safe-area-inset-bottom))]" style={{ background: 'var(--canvas)' }}>
       <AnimatePresence>
         {mutationError && (
           <motion.div
@@ -1002,7 +1000,7 @@ export default function FoodLogPage() {
             initial={{ opacity: 0, y: -12 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -12 }}
-            className="fixed left-4 right-4 top-4 z-[var(--z-toast,70)] mx-auto max-w-sm rounded-xl border border-red-500/20 bg-red-950/95 px-4 py-3 text-center text-sm text-red-200 shadow-lg"
+            className="fixed left-4 right-4 top-4 z-[var(--z-toast,70)] mx-auto max-w-sm rounded-xl border border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] px-4 py-3 text-center text-sm text-[var(--status-danger-fg)] shadow-lg"
           >
             {mutationError}
           </motion.div>
@@ -1016,8 +1014,9 @@ export default function FoodLogPage() {
       >
         {/* ── Date navigation ── */}
         <div className="row-b mb-3" style={{ marginTop: 8 }}>
-          <button onClick={() => handleDateChange(localDateStr(new Date(new Date(selectedDate + 'T12:00:00').getTime() - 86400000)))}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--t3)', padding: '6px' }}>
+          <button aria-label="Previous day" onClick={() => handleDateChange(localDateStr(new Date(new Date(selectedDate + 'T12:00:00').getTime() - 86400000)))}
+            className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--content-secondary)', padding: '6px' }}>
             <Icon name="i-chev-l" size={16} />
           </button>
 
@@ -1025,6 +1024,8 @@ export default function FoodLogPage() {
           <motion.button
             whileTap={{ scale: 0.95 }}
             onClick={() => setShowCalendar(true)}
+            aria-label={isToday ? 'Today' : `Select date ${selectedDate}`}
+            className="min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             style={{
               background: 'rgba(212,168,83,.07)',
               border: '1px solid rgba(212,168,83,.18)',
@@ -1034,11 +1035,11 @@ export default function FoodLogPage() {
             }}
           >
             <Icon name="i-calendar" size={12} style={{ color: 'var(--gold-300,#D4A853)' }} />
-            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--t1)' }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--content-primary)' }}>
               {isToday ? t('log.today') : new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
             </span>
             {!isToday && (
-              <span style={{ fontSize: 9, color: 'var(--t5)', fontFamily: 'var(--font-mono)' }}>
+              <span style={{ fontSize: 12, color: 'var(--content-muted)', fontFamily: 'var(--font-mono)' }}>
                 {new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short' })}
               </span>
             )}
@@ -1062,7 +1063,7 @@ export default function FoodLogPage() {
                 >
                   <Icon name="i-flame" size={11} />
                 </motion.span>
-                <span style={{ fontSize: 10, fontWeight: 700, fontFamily: 'var(--font-mono)' }} aria-hidden>
+                <span style={{ fontSize: 12, fontWeight: 700, fontFamily: 'var(--font-mono)' }} aria-hidden>
                   <AnimatedValue
                     key={emberIgnite ? `ember-roll-${emberIgnite.key}` : 'ember-idle'}
                     value={streak}
@@ -1091,8 +1092,9 @@ export default function FoodLogPage() {
             )}
           </motion.button>
 
-          <button onClick={() => handleDateChange(localDateStr(new Date(new Date(selectedDate + 'T12:00:00').getTime() + 86400000)))}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--t3)', padding: '6px' }}>
+          <button aria-label="Next day" onClick={() => handleDateChange(localDateStr(new Date(new Date(selectedDate + 'T12:00:00').getTime() + 86400000)))}
+            className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--content-secondary)', padding: '6px' }}>
             <Icon name="i-chev-r" size={16} />
           </button>
         </div>
@@ -1105,14 +1107,14 @@ export default function FoodLogPage() {
               const dayNum  = new Date(d.date + 'T12:00:00').getDate();
               const active  = d.date === selectedDate;
               return (
-                <button key={d.date} onClick={() => handleDateChange(d.date)} style={{
-                  textAlign: 'center', padding: '4px 2px', borderRadius: 6, fontSize: 10, cursor: 'pointer', border: 'none',
-                  background: active ? 'rgba(212,168,83,.12)' : 'rgba(255,255,255,.03)',
-                  outline: active ? '1px solid rgba(212,168,83,.5)' : '1px solid var(--line)',
-                  color: active ? 'var(--gold-300,#D4A853)' : d.entries > 0 ? 'var(--t2)' : 'var(--t5)',
+                <button key={d.date} aria-label={`Select ${d.date}`} onClick={() => handleDateChange(d.date)} className="min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" style={{
+                  textAlign: 'center', padding: '4px 2px', borderRadius: 6, fontSize: 12, cursor: 'pointer', border: 'none',
+                  background: active ? 'rgba(212,168,83,.12)' : 'var(--surface-2)',
+                  outline: active ? '1px solid rgba(212,168,83,.5)' : '1px solid var(--border-default)',
+                  color: active ? 'var(--gold-300,#D4A853)' : d.entries > 0 ? 'var(--content-primary)' : 'var(--content-muted)',
                 }}>
                   <div>{dayAbbr}</div>
-                  <div style={{ fontWeight: 700, fontSize: 10 }}>{dayNum}</div>
+                  <div style={{ fontWeight: 700, fontSize: 12 }}>{dayNum}</div>
                 </button>
               );
             })}
@@ -1138,12 +1140,12 @@ export default function FoodLogPage() {
                       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 700, color: m.color, lineHeight: 1.1 }}>
                         <AnimatedValue value={m.val} grouped={false} />
                       </div>
-                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--t4)', marginTop: 1, lineHeight: 1.2 }}>{m.unit}</div>
-                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--t4)', letterSpacing: '.04em', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.label}</div>
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--content-muted)', marginTop: 1, lineHeight: 1.2 }}>{m.unit}</div>
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--content-muted)', letterSpacing: '.04em', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.label}</div>
                     </>
                   );
                   return (
-                    <div key={m.key} style={{ position: 'relative', borderRight: mIdx < cells.length - 1 ? '1px solid rgba(255,255,255,.04)' : 'none' }}>
+                    <div key={m.key} style={{ position: 'relative', borderRight: mIdx < cells.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
                       {/* W3: one-shot coral glow ring when a protein-heavy log lands */}
                       {isProtein && proteinGlowTick > 0 && !reducedMotion && (
                         <motion.span
@@ -1181,7 +1183,7 @@ export default function FoodLogPage() {
                             style={{
                               position: 'absolute', top: -6, left: 0, right: 0,
                               textAlign: 'center', pointerEvents: 'none', zIndex: 1,
-                              fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 700,
+                              fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700,
                               color: MACRO_COLORS[r.macro],
                             }}
                           >
@@ -1203,7 +1205,7 @@ export default function FoodLogPage() {
           {/* RecipeAnalyzerModal was fully built but unreachable — this is its door */}
           <button
             onClick={() => setShowRecipeModal(true)}
-            className="glass flex items-center gap-1.5 px-2.5 py-1 text-stone-400 hover:gold-text text-[11px] transition-colors"
+            className="glass min-h-11 min-w-11 flex items-center gap-1.5 px-2.5 py-1 text-[var(--content-secondary)] hover:gold-text text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             style={{ borderRadius: 999 }}
             aria-label={t('food.analyze_recipe_aria')}
           >
@@ -1223,7 +1225,7 @@ export default function FoodLogPage() {
           <div className="mb-3">
             <div className="flex items-center gap-1.5 mb-1.5">
               <Star size={10} className="gold-text" />
-              <span className="text-stone-500 text-[10px]">{t('food.favorites')}</span>
+              <span className="text-[var(--content-muted)] text-xs">{t('food.favorites')}</span>
             </div>
             <div className="flex gap-1.5 overflow-x-auto scrollbar-hide pb-1">
               {favorites.slice(0, 8).map((fav) => (
@@ -1233,7 +1235,7 @@ export default function FoodLogPage() {
                     const nextSlot = slots.find(s => grouped[s.id].length === 0 && !skippedSlots.has(s.id));
                     if (nextSlot) logFavorite(fav, nextSlot.mealType);
                   }}
-                  className="flex-shrink-0 px-2.5 py-1 rounded-full bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.08] text-stone-300 text-[11px] transition-colors"
+                  className="min-h-11 min-w-11 flex-shrink-0 px-2.5 py-1 rounded-full bg-[var(--surface-2)] hover:bg-[var(--surface-hover)] border border-[var(--border-subtle)] text-[var(--content-secondary)] text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                 >
                   {fav.food_name}{showCalories ? ` · ${fav.calories}` : ''}
                 </button>
@@ -1502,7 +1504,7 @@ export default function FoodLogPage() {
             {kcalPillActive && (
               <>
                 {proteinPillActive && (
-                  <span aria-hidden style={{ width: 1, alignSelf: 'stretch', background: 'rgba(255,255,255,.14)' }} />
+                  <span aria-hidden style={{ width: 1, alignSelf: 'stretch', background: 'var(--border-subtle)' }} />
                 )}
                 <span
                   className={
@@ -1534,15 +1536,15 @@ export default function FoodLogPage() {
             className={`fixed ${dayPillVisible ? 'bottom-32' : 'bottom-20'} left-4 right-4 z-[var(--z-toast,70)] flex justify-center`}
           >
             <div className="glass-elevated px-4 py-3 rounded-xl flex items-center gap-3 shadow-lg max-w-sm">
-              <span className="text-stone-300 text-sm flex-1">
+              <span className="text-[var(--content-secondary)] text-sm flex-1">
                 {t('food.entry_deleted')}
               </span>
               <button
                 onClick={undoDelete}
-                className="gold-text text-sm font-semibold flex items-center gap-1.5"
+                className="gold-text min-h-11 min-w-11 text-sm font-semibold flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
               >
                 {reducedMotion ? (
-                  <span className="text-stone-500 text-xs tabular-nums">(5s)</span>
+                  <span className="text-[var(--content-muted)] text-xs tabular-nums">(5s)</span>
                 ) : (
                   <svg
                     width={16} height={16} viewBox="0 0 16 16" aria-hidden
@@ -1583,18 +1585,18 @@ export default function FoodLogPage() {
             } left-4 right-4 z-[var(--z-toast,70)] flex justify-center`}
           >
             <div className="glass-elevated px-4 py-3 rounded-xl flex items-center gap-3 shadow-lg max-w-sm">
-              <span className="text-stone-300 text-sm flex-1">
+              <span className="text-[var(--content-secondary)] text-sm flex-1">
                 {pendingBatch.ids.length === 1
                   ? t('log.batch_logged_one')
                   : t('log.batch_logged', { n: pendingBatch.ids.length })}
               </span>
               <button
                 onClick={() => void undoBatch()}
-                className="gold-text text-sm font-semibold flex items-center gap-1.5"
+                className="gold-text min-h-11 min-w-11 text-sm font-semibold flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                 aria-label={t('log.batch_undo_aria', { n: pendingBatch.ids.length })}
               >
                 {reducedMotion ? (
-                  <span className="text-stone-500 text-xs tabular-nums">(10s)</span>
+                  <span className="text-[var(--content-muted)] text-xs tabular-nums">(10s)</span>
                 ) : (
                   <svg
                     width={16} height={16} viewBox="0 0 16 16" aria-hidden

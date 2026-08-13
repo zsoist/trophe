@@ -1,19 +1,31 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   calculateCls,
   calculateReport,
+  calculateThemePerformanceReport,
+  calculatePostToggleNavigationNoninferiority,
   collectSample,
   createTransferAccumulator,
+  MAX_THEME_NAVIGATION_REGRESSION_RATIO,
   isReadOnlyMethod,
   MAX_SETTLE_MS,
   measureUrl,
   parseCliArgs,
   runMeasurements,
+  runThemeMeasurements,
   sanitizeFailureUrl,
+  summarizeNavigationDistribution,
   SETTLE_QUIET_MS,
   VIEWPORTS,
   writeReport,
 } from '../../scripts/perf/measure-web.mjs';
+import {
+  isAllowedAuthenticationRequest,
+  isPaidProviderRoute,
+  parseCanaryConfig,
+} from '../../scripts/ops/canary-theme-readonly.mjs';
 
 const samples = [
   {
@@ -105,6 +117,253 @@ function createCleanupFixture({
 }
 
 describe('web performance measurement harness', () => {
+  it('summarizes twenty CSS-only theme toggles and rejects navigation, data, provider, and navigation-regression failures', () => {
+    const report = calculateThemePerformanceReport({
+      route: '/dashboard',
+      toggleDurationsMs: Array.from({ length: 20 }, (_, index) => 10 + index),
+      navigationCount: 0,
+      supabaseRefetchCount: 0,
+      providerRemountCount: 0,
+      baselineNavigationMs: [900, 1_000, 1_100],
+      postToggleNavigationMs: [945, 1_050, 1_155],
+    });
+
+    expect(report).toMatchObject({
+      route: '/dashboard',
+      toggleCount: 20,
+      medianMs: 19.5,
+      p95Ms: 28,
+      navigationRegressionRatio: 0.05,
+      navigationRegressionMeasurement: 'paired_navigation_control_page',
+      ok: true,
+    });
+    expect(MAX_THEME_NAVIGATION_REGRESSION_RATIO).toBe(0.05);
+    expect(calculateThemePerformanceReport({
+      route: '/dashboard',
+      baselineNavigationMs: 1_000,
+      postToggleNavigationMs: 1_050,
+      toggleDurationsMs: Array(20).fill(10),
+      navigationCount: 0,
+      supabaseRefetchCount: 0,
+      providerRemountCount: 0,
+    }).ok).toBe(true);
+    expect(calculateThemePerformanceReport({
+      route: '/dashboard',
+      baselineNavigationMs: 1_000,
+      toggleDurationsMs: Array(20).fill(10),
+      navigationCount: 1,
+      supabaseRefetchCount: 1,
+      providerRemountCount: 1,
+      postToggleNavigationMs: 1_051,
+    }).failures).toEqual([
+      'navigation_detected',
+      'supabase_refetch_detected',
+      'provider_remount_detected',
+      'navigation_regression_exceeded',
+    ]);
+  });
+
+  it('compares median and p95 navigation distributions instead of a single reload', () => {
+    expect(summarizeNavigationDistribution([900, 1_000, 1_100])).toEqual({ medianMs: 1_000, p95Ms: 1_100 });
+    expect(calculateThemePerformanceReport({
+      route: '/login',
+      baselineNavigationMs: [900, 1_000, 1_100],
+      postToggleNavigationMs: [945, 1_050, 1_155],
+      toggleDurationsMs: Array(20).fill(5),
+      navigationCount: 0,
+      supabaseRefetchCount: 0,
+      providerRemountCount: 0,
+    })).toMatchObject({
+      baselineNavigation: { medianMs: 1_000, p95Ms: 1_100 },
+      postToggleNavigation: { medianMs: 1_050, p95Ms: 1_155 },
+      navigationRegressionRatio: 0.05,
+      navigationP95RegressionRatio: 0.05,
+      ok: true,
+    });
+
+    expect(calculateThemePerformanceReport({
+      route: '/coach',
+      baselineNavigationMs: [80, 88, 125],
+      postToggleNavigationMs: [90, 98, 124],
+      toggleDurationsMs: Array(20).fill(5),
+      navigationCount: 0,
+      supabaseRefetchCount: 0,
+      providerRemountCount: 0,
+    }).ok).toBe(false);
+  });
+
+  it('gates paired navigation regression ratios instead of unrelated distribution tails', () => {
+    const report = calculateThemePerformanceReport({
+      route: '/login',
+      baselineNavigationMs: [10, 100, 1_000],
+      postToggleNavigationMs: [10.5, 105, 1_050],
+      toggleDurationsMs: Array(20).fill(1),
+      navigationCount: 0,
+      supabaseRefetchCount: 0,
+      providerRemountCount: 0,
+    });
+
+    expect(report.navigationRegressionDistribution).toEqual({
+      medianRatio: 0.05,
+      p95Ratio: 0.05,
+    });
+    expect(report.ok).toBe(true);
+  });
+
+  it('keeps raw p95 as diagnostic evidence when the matched control-adjusted upper bound passes', () => {
+    const report = calculateThemePerformanceReport({
+      route: '/login',
+      baselineNavigationMs: [10, 10, 10],
+      postToggleNavigationMs: [10, 10, 20],
+      toggleDurationsMs: Array(20).fill(1),
+      navigationCount: 0,
+      supabaseRefetchCount: 0,
+      providerRemountCount: 0,
+      matchedNavigationRegression: {
+        estimatedRegressionRatio: 0.01,
+        upperConfidenceBoundRatio: 0.04,
+        ok: true,
+      },
+    });
+
+    expect(report.navigationP95RegressionRatio).toBe(1);
+    expect(report.navigationRegressionMeasurement).toBe('post_toggle_matched_control_noninferiority');
+    expect(report.ok).toBe(true);
+  });
+
+  it('keeps failed navigation distributions in the operator-visible error evidence', () => {
+    const source = readFileSync(
+      join(process.cwd(), 'scripts/perf/measure-web.mjs'),
+      'utf8',
+    );
+
+    expect(source).toContain('baseline median=');
+    expect(source).toContain('post-toggle median=');
+    expect(source).toContain('matched estimate=');
+    expect(source).toContain('upper95=');
+  });
+
+  it('compares post-toggle navigation with a paired warmed control page', () => {
+    const source = readFileSync(
+      join(process.cwd(), 'scripts/perf/measure-web.mjs'),
+      'utf8',
+    );
+
+    expect(source).toContain('post_toggle_matched_control_noninferiority');
+    expect(source).toContain('controlPage');
+    expect(source).toContain('calculatePostToggleNavigationNoninferiority');
+    expect(source).toContain('NAVIGATION_SAMPLE_COUNT = 200');
+    expect(source).toContain('upperConfidenceBoundRatio');
+    expect(source).toContain('seedStableThemeStorage');
+    expect(source).toContain('waitForPostToggleQuiet');
+    expect(source).toContain('POST_TOGGLE_QUIET_MS = 1_000');
+    expect(source).not.toContain('NAVIGATION_CPU_THROTTLE_RATE');
+    expect(source).not.toContain("Emulation.setCPUThrottlingRate");
+    expect(source).not.toContain('NAVIGATION_CONTROL_LATENCY_MS');
+    expect(source).not.toContain('controlled_document_latency_');
+    expect(source).toContain('postToggleNetworkQuiet');
+    expect(source).not.toContain('const baselineNavigationMs = await navigationDistribution(page)');
+  });
+
+  it('uses a predeclared post-only matched-control non-inferiority gate', () => {
+    const stable = calculatePostToggleNavigationNoninferiority({
+      treatmentNavigationMs: Array(200).fill(100),
+      controlNavigationMs: Array(200).fill(100),
+    });
+    const regression = calculatePostToggleNavigationNoninferiority({
+      treatmentNavigationMs: Array(200).fill(110),
+      controlNavigationMs: Array(200).fill(100),
+    });
+    const inconclusive = calculatePostToggleNavigationNoninferiority({
+      treatmentNavigationMs: [...Array(199).fill(100), 10_000],
+      controlNavigationMs: Array(200).fill(100),
+    });
+
+    expect(stable).toMatchObject({
+      estimatedRegressionRatio: 0,
+      upperConfidenceBoundRatio: 0,
+      sampleCount: 200,
+      confidence: 0.95,
+      status: 'navigation_noninferior',
+      ok: true,
+    });
+    expect(regression.estimatedRegressionRatio).toBeCloseTo(0.1, 10);
+    expect(regression.upperConfidenceBoundRatio).toBeCloseTo(0.1, 10);
+    expect(regression.status).toBe('navigation_regressed');
+    expect(regression.ok).toBe(false);
+    expect(inconclusive.estimatedRegressionRatio).toBeLessThan(0.05);
+    expect(inconclusive.upperConfidenceBoundRatio).toBeGreaterThan(0.05);
+    expect(inconclusive.status).toBe('navigation_inconclusive');
+  });
+
+  it('requires every theme-canary role credential and blocks paid-provider route families', () => {
+    expect(isPaidProviderRoute('https://trophe.app/api/ai/meal-suggest')).toBe(true);
+    expect(isPaidProviderRoute('https://trophe.app/api/food/parse')).toBe(true);
+    expect(isPaidProviderRoute('https://trophe.app/api/food/recipe-analyze')).toBe(true);
+    expect(isPaidProviderRoute('https://trophe.app/api/coach/shopping-list')).toBe(true);
+    expect(isPaidProviderRoute('https://trophe.app/api/coach/meal-plan-macros')).toBe(true);
+    expect(isPaidProviderRoute('https://api.openai.com/v1/responses')).toBe(true);
+    expect(isPaidProviderRoute('https://api.anthropic.com/v1/messages')).toBe(true);
+    expect(isPaidProviderRoute('https://generativelanguage.googleapis.com/v1/models')).toBe(true);
+    expect(isPaidProviderRoute('https://api.voyageai.com/v1/embeddings')).toBe(true);
+    expect(isPaidProviderRoute('https://api.deepseek.com/v1/chat/completions')).toBe(true);
+    expect(isPaidProviderRoute('https://api.mistral.ai/v1/chat/completions')).toBe(true);
+    expect(isPaidProviderRoute('https://trophe.app/api/food/parse/')).toBe(true);
+    expect(isPaidProviderRoute('https://trophe.app/api/coach/shopping-list/')).toBe(true);
+    expect(isPaidProviderRoute('https://api.openai.com.attacker.test/v1/responses')).toBe(false);
+    expect(isPaidProviderRoute('https://project.supabase.co/rest/v1/profiles')).toBe(false);
+    expect(isPaidProviderRoute('https://trophe.app/api/food/local-search')).toBe(false);
+    expect(isPaidProviderRoute('https://trophe.app/dashboard')).toBe(false);
+
+    expect(() => parseCanaryConfig({
+      PLAYWRIGHT_BASE_URL: 'https://trophe.app',
+      THEME_CANARY_SUPABASE_URL: 'https://project.supabase.co',
+      THEME_CANARY_CLIENT_EMAIL: 'client@example.test',
+      THEME_CANARY_CLIENT_PASSWORD: 'client-password',
+    })).toThrow('THEME_CANARY_COACH_EMAIL');
+    expect(parseCanaryConfig({
+      PLAYWRIGHT_BASE_URL: 'https://trophe.app',
+      THEME_CANARY_SUPABASE_URL: 'https://project.supabase.co',
+      THEME_CANARY_CLIENT_EMAIL: 'client@example.test',
+      THEME_CANARY_CLIENT_PASSWORD: 'client-password',
+      THEME_CANARY_COACH_EMAIL: 'coach@example.test',
+      THEME_CANARY_COACH_PASSWORD: 'coach-password',
+      THEME_CANARY_ADMIN_EMAIL: 'admin@example.test',
+      THEME_CANARY_ADMIN_PASSWORD: 'admin-password',
+      THEME_CANARY_SUPER_EMAIL: 'super@example.test',
+      THEME_CANARY_SUPER_PASSWORD: 'super-password',
+    })).toMatchObject({
+      baseUrl: 'https://trophe.app/',
+      supabaseAuthOrigin: 'https://project.supabase.co',
+      roles: expect.objectContaining({
+        client: expect.objectContaining({ route: '/dashboard', loadedState: /good (morning|afternoon|evening|night)|today/i }),
+        coach: expect.objectContaining({ route: '/coach', loadedState: /client|roster/i }),
+        admin: expect.objectContaining({ route: '/admin/orgs', loadedState: /organization/i }),
+        super: expect.objectContaining({ route: '/super', loadedState: /command center|overview/i }),
+      }),
+    });
+  });
+
+  it('allows only POST auth-token requests to the configured Supabase origin', () => {
+    const supabaseAuthOrigin = 'https://project.supabase.co';
+    expect(isAllowedAuthenticationRequest('POST', 'https://project.supabase.co/auth/v1/token?grant_type=password', supabaseAuthOrigin)).toBe(true);
+    expect(isAllowedAuthenticationRequest('GET', 'https://project.supabase.co/auth/v1/token', supabaseAuthOrigin)).toBe(false);
+    expect(isAllowedAuthenticationRequest('POST', 'https://attacker.test/auth/v1/token', supabaseAuthOrigin)).toBe(false);
+    expect(isAllowedAuthenticationRequest('POST', 'https://project.supabase.co/auth/v1/token/other', supabaseAuthOrigin)).toBe(false);
+  });
+
+  it('rejects missing local theme-measurement credentials before starting a browser or network request', async () => {
+    let browserCreated = false;
+    await expect(runThemeMeasurements({
+      env: { PLAYWRIGHT_BASE_URL: 'http://127.0.0.1:3300' },
+      browserFactory: async () => {
+        browserCreated = true;
+        throw new Error('browser must not be created');
+      },
+    })).rejects.toThrow('THEME_PERF_CLIENT_EMAIL');
+    expect(browserCreated).toBe(false);
+  });
+
   it('collects mobile before desktop with the committed viewports', () => {
     expect(VIEWPORTS).toEqual([
       { name: 'mobile', width: 390, height: 844 },

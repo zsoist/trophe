@@ -78,31 +78,31 @@ export default function RecentSessionCard({
       <motion.button
         whileTap={{ scale: 0.98 }}
         onClick={toggle}
-        className="w-full text-left"
+        className="w-full text-left min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
         style={{ padding: '11px 14px', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', background: 'transparent', border: 'none' }}
       >
         <div style={{
           width: 32, height: 32, borderRadius: 10, flexShrink: 0,
-          background: 'color-mix(in srgb, var(--accent, #D4A853) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--accent, #D4A853) 20%, transparent)',
+          background: 'color-mix(in srgb, var(--action-primary) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--action-primary) 20%, transparent)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
           <Dumbbell size={14} className="gold-text" />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--t1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--content-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {session.name ?? t('workout.title')}
           </div>
-          <div style={{ fontSize: 10, color: 'var(--t4)', marginTop: 1 }}>{label}</div>
+          <div style={{ fontSize: 12, color: 'var(--content-muted)', marginTop: 1 }}>{label}</div>
         </div>
         {session.duration_minutes && (
-          <span style={{ fontSize: 10, color: 'var(--t4)', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
+          <span style={{ fontSize: 12, color: 'var(--content-muted)', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
             <Clock size={9} className="inline mr-1" />
             {session.duration_minutes}m
           </span>
         )}
         {expanded
-          ? <ChevronUp size={13} style={{ color: 'var(--t4)', flexShrink: 0 }} />
-          : <ChevronDown size={13} style={{ color: 'var(--t4)', flexShrink: 0 }} />}
+          ? <ChevronUp size={13} style={{ color: 'var(--content-muted)', flexShrink: 0 }} />
+          : <ChevronDown size={13} style={{ color: 'var(--content-muted)', flexShrink: 0 }} />}
       </motion.button>
 
       <AnimatePresence initial={false}>
@@ -114,12 +114,12 @@ export default function RecentSessionCard({
             transition={{ duration: 0.22, ease: 'easeInOut' }}
             style={{ overflow: 'hidden' }}
           >
-            <div style={{ padding: '0 14px 12px', borderTop: '1px solid rgba(255,255,255,.05)' }}>
+            <div style={{ padding: '0 14px 12px', borderTop: '1px solid color-mix(in srgb, var(--content-primary) 8%, transparent)' }}>
               {loadingSets && (
-                <p style={{ fontSize: 11, color: 'var(--t4)', padding: '10px 0' }}>{t('chat.loading')}</p>
+                <p style={{ fontSize: 12, color: 'var(--content-muted)', padding: '10px 0' }}>{t('chat.loading')}</p>
               )}
               {!loadingSets && sets !== null && sets.length === 0 && (
-                <p style={{ fontSize: 11, color: 'var(--t4)', padding: '10px 0' }}>
+                <p style={{ fontSize: 12, color: 'var(--content-muted)', padding: '10px 0' }}>
                   {session.notes ?? t('workout.no_sets_cardio')}
                 </p>
               )}
@@ -127,17 +127,17 @@ export default function RecentSessionCard({
                 <div key={gi} style={{ paddingTop: 10 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
                     <div style={{ width: 3, height: 12, borderRadius: 2, background: muscleColor(g.muscle) }} />
-                    <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--t2)' }}>{g.name}</span>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--content-secondary)' }}>{g.name}</span>
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                     {g.rows.map((r) => (
                       <span
                         key={r.id}
                         style={{
-                          fontSize: 10, fontFamily: 'var(--font-mono)', padding: '2px 7px', borderRadius: 8,
-                          background: r.is_pr ? 'color-mix(in srgb, var(--accent, #D4A853) 14%, transparent)' : 'rgba(255,255,255,.04)',
-                          border: r.is_pr ? '1px solid color-mix(in srgb, var(--accent, #D4A853) 35%, transparent)' : '1px solid rgba(255,255,255,.06)',
-                          color: r.is_pr ? 'var(--accent, #D4A853)' : 'var(--t3)',
+                          fontSize: 12, fontFamily: 'var(--font-mono)', padding: '2px 7px', borderRadius: 8,
+                          background: r.is_pr ? 'color-mix(in srgb, var(--action-primary) 14%, transparent)' : 'color-mix(in srgb, var(--content-primary) 8%, transparent)',
+                          border: r.is_pr ? '1px solid color-mix(in srgb, var(--action-primary) 35%, transparent)' : '1px solid color-mix(in srgb, var(--content-primary) 8%, transparent)',
+                          color: r.is_pr ? 'var(--action-primary)' : 'var(--content-secondary)',
                         }}
                       >
                         {r.is_warmup ? 'W ' : ''}{kgToDisplay(r.weight_kg ?? 0, unit)}{unit}×{r.reps ?? 0}
@@ -149,7 +149,7 @@ export default function RecentSessionCard({
               ))}
               {!loadingSets && sets !== null && (
                 <Link href="/dashboard/workout/history">
-                  <span style={{ display: 'inline-block', marginTop: 10, fontSize: 10, color: 'var(--accent, #D4A853)', cursor: 'pointer' }}>
+                  <span style={{ display: 'inline-block', marginTop: 10, fontSize: 12, color: 'var(--action-primary)', cursor: 'pointer' }}>
                     {t('workout.view_full_history')}
                   </span>
                 </Link>

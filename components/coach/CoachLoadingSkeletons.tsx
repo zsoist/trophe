@@ -1,6 +1,6 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 
 // ═══════════════════════════════════════════════
 // τροφή — Coach Loading Skeletons (Wave 4)
@@ -12,18 +12,18 @@ interface CoachLoadingSkeletonsProps {
 }
 
 function Pulse({ className = '', style }: { className?: string; style?: React.CSSProperties }) {
+  const reduceMotion = useReducedMotion();
   return (
     <motion.div
       className={`rounded-lg ${className}`}
       style={{
-        background: 'linear-gradient(90deg, rgba(120,113,108,0.08) 0%, rgba(212,168,83,0.06) 50%, rgba(120,113,108,0.08) 100%)',
+        background: 'linear-gradient(90deg, var(--border-subtle) 0%, var(--status-warning-bg) 50%, var(--border-subtle) 100%)',
         backgroundSize: '200% 100%',
         ...style,
       }}
-      animate={{
-        backgroundPosition: ['200% 0', '-200% 0'],
-      }}
-      transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+      initial={reduceMotion ? false : undefined}
+      animate={reduceMotion ? false : { backgroundPosition: ['200% 0', '-200% 0'] }}
+      transition={reduceMotion ? { duration: 0 } : { duration: 2, repeat: Number.POSITIVE_INFINITY, ease: 'linear' }}
     />
   );
 }
@@ -33,8 +33,8 @@ function GlassBox({ children, className = '' }: { children: React.ReactNode; cla
     <div
       className={`rounded-2xl p-5 ${className}`}
       style={{
-        background: 'rgba(255,255,255,0.03)',
-        border: '1px solid rgba(255,255,255,0.04)',
+        background: 'var(--border-subtle)',
+        border: '1px solid var(--border-subtle)',
       }}
     >
       {children}
@@ -205,7 +205,7 @@ function FoodsSkeleton() {
         <div
           key={i}
           className="flex items-center gap-3 py-3"
-          style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}
+          style={{ borderBottom: '1px solid var(--border-subtle)' }}
         >
           <Pulse className="w-10 h-10 rounded-lg flex-shrink-0" />
           <div className="flex-1 space-y-1.5">
@@ -260,14 +260,16 @@ const SKELETON_MAP = {
 };
 
 export default function CoachLoadingSkeletons({ page }: CoachLoadingSkeletonsProps) {
+  const reduceMotion = useReducedMotion();
   const SkeletonComponent = SKELETON_MAP[page];
 
   return (
     <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.3 }}
+      data-loading-skeleton
+      initial={reduceMotion ? false : { opacity: 0 }}
+      animate={reduceMotion ? false : { opacity: 1 }}
+      exit={reduceMotion ? undefined : { opacity: 0 }}
+      transition={reduceMotion ? { duration: 0 } : { duration: 0.3 }}
       className="min-h-[400px]"
     >
       <SkeletonComponent />

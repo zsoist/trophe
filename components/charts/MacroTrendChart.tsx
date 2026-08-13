@@ -23,10 +23,10 @@ interface MacroTrendChartProps {
 type MacroKey = 'calories' | 'protein_g' | 'carbs_g' | 'fat_g';
 
 const LINES: { key: MacroKey; label: string; color: string; axis: 'left' | 'right' }[] = [
-  { key: 'calories', label: 'Calories', color: '#D4A853', axis: 'left' },
-  { key: 'protein_g', label: 'Protein', color: '#f87171', axis: 'right' },
-  { key: 'carbs_g', label: 'Carbs', color: '#60a5fa', axis: 'right' },
-  { key: 'fat_g', label: 'Fat', color: '#a78bfa', axis: 'right' },
+  { key: 'calories', label: 'Calories', color: 'var(--data-calories)', axis: 'left' },
+  { key: 'protein_g', label: 'Protein', color: 'var(--data-protein)', axis: 'right' },
+  { key: 'carbs_g', label: 'Carbs', color: 'var(--data-carbs)', axis: 'right' },
+  { key: 'fat_g', label: 'Fat', color: 'var(--data-fat)', axis: 'right' },
 ];
 
 const VB_W = 400;
@@ -42,10 +42,10 @@ const PERIODS: { label: string; value: Period }[] = [
   { label: '90d', value: 90 },
 ];
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export default function MacroTrendChart({ userId, days: _days = 30 }: MacroTrendChartProps) {
+export default function MacroTrendChart({ userId, days: initialDays = 30 }: MacroTrendChartProps) {
   const { t } = useI18n();
-  const [period, setPeriod] = useState<Period>(30);
+  const defaultPeriod: Period = initialDays === 7 || initialDays === 90 ? initialDays : 30;
+  const [period, setPeriod] = useState<Period>(defaultPeriod);
   const days = period;
   const [data, setData] = useState<DayAggregate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -129,7 +129,7 @@ export default function MacroTrendChart({ userId, days: _days = 30 }: MacroTrend
   if (loading) {
     return (
       <div className="glass p-5 mb-4">
-        <div className="text-stone-500 text-sm text-center py-8 animate-pulse">
+        <div className="text-[var(--content-muted)] text-sm text-center py-8 animate-pulse">
           Loading trend data...
         </div>
       </div>
@@ -186,13 +186,13 @@ export default function MacroTrendChart({ userId, days: _days = 30 }: MacroTrend
         onClick={() => setExpanded(!expanded)}
         className="w-full flex items-center justify-between mb-3"
       >
-        <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider flex items-center gap-2">
+        <h3 className="text-[var(--content-primary)] text-xs font-semibold uppercase tracking-wider flex items-center gap-2">
           <TrendingUp size={14} /> {t('analytics.trends')} · {days}d
         </h3>
         {expanded ? (
-          <ChevronUp size={14} className="text-stone-500" />
+          <ChevronUp size={14} className="text-[var(--content-muted)]" />
         ) : (
-          <ChevronDown size={14} className="text-stone-500" />
+          <ChevronDown size={14} className="text-[var(--content-muted)]" />
         )}
       </button>
 
@@ -211,10 +211,10 @@ export default function MacroTrendChart({ userId, days: _days = 30 }: MacroTrend
                 <button
                   key={p.value}
                   onClick={() => { setPeriod(p.value); setHoverIdx(null); setLoading(true); }}
-                  className={`flex-1 py-1.5 rounded-lg text-[10px] font-semibold border transition-all ${
+                  className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
                     period === p.value
-                      ? 'bg-white/[0.06] border-white/10 text-stone-200'
-                      : 'border-transparent text-stone-600 hover:text-stone-400'
+                      ? 'bg-[var(--surface-2)] border-[var(--border-subtle)] text-[var(--content-primary)]'
+                      : 'border-transparent text-[var(--content-muted)] hover:text-[var(--content-muted)]'
                   }`}
                 >
                   {p.label}
@@ -228,10 +228,10 @@ export default function MacroTrendChart({ userId, days: _days = 30 }: MacroTrend
                 <button
                   key={line.key}
                   onClick={() => toggle(line.key)}
-                  className={`text-[10px] px-2.5 py-1 rounded-full border transition-all ${
+                  className={`text-xs px-2.5 py-1 rounded-full border transition-all ${
                     visible[line.key]
-                      ? 'border-white/10 bg-white/5'
-                      : 'border-white/5 bg-transparent opacity-40'
+                      ? 'border-[var(--border-subtle)] bg-[var(--surface-2)]'
+                      : 'border-[var(--border-subtle)] bg-transparent opacity-40'
                   }`}
                   style={{ color: line.color }}
                 >
@@ -247,6 +247,8 @@ export default function MacroTrendChart({ userId, days: _days = 30 }: MacroTrend
                 className="w-full max-w-full overflow-visible"
                 onMouseLeave={() => setHoverIdx(null)}
                 onTouchEnd={() => setHoverIdx(null)}
+                role="img"
+                aria-label="Macro trend chart"
               >
                 {/* Grid lines */}
                 {[0.25, 0.5, 0.75].map((pct) => (
@@ -256,7 +258,7 @@ export default function MacroTrendChart({ userId, days: _days = 30 }: MacroTrend
                     y1={PAD.top + PLOT_H * (1 - pct)}
                     x2={VB_W - PAD.right}
                     y2={PAD.top + PLOT_H * (1 - pct)}
-                    stroke="rgba(255,255,255,0.04)"
+                    stroke="var(--border-subtle)"
                     strokeWidth={0.5}
                   />
                 ))}
@@ -269,7 +271,7 @@ export default function MacroTrendChart({ userId, days: _days = 30 }: MacroTrend
                       x={PAD.left - 4}
                       y={yForValue(tick, 'left') + 3}
                       textAnchor="end"
-                      fill="#D4A853"
+                      fill="var(--data-calories)"
                       fontSize={7}
                       opacity={0.5}
                     >
@@ -285,7 +287,7 @@ export default function MacroTrendChart({ userId, days: _days = 30 }: MacroTrend
                       x={VB_W - PAD.right + 4}
                       y={yForValue(tick, 'right') + 3}
                       textAnchor="start"
-                      fill="#78716c"
+                      fill="var(--content-muted)"
                       fontSize={7}
                       opacity={0.5}
                     >
@@ -302,7 +304,7 @@ export default function MacroTrendChart({ userId, days: _days = 30 }: MacroTrend
                       x={xForIdx(i)}
                       y={VB_H - 4}
                       textAnchor="middle"
-                      fill="#78716c"
+                      fill="var(--content-muted)"
                       fontSize={7}
                     >
                       {formatDate(d.date)}
@@ -317,7 +319,7 @@ export default function MacroTrendChart({ userId, days: _days = 30 }: MacroTrend
                     y1={yForValue(targetCalories, 'left')}
                     x2={VB_W - PAD.right}
                     y2={yForValue(targetCalories, 'left')}
-                    stroke="#D4A853"
+                    stroke="var(--data-calories)"
                     strokeWidth={0.8}
                     strokeDasharray="4 3"
                     opacity={0.4}
@@ -370,7 +372,7 @@ export default function MacroTrendChart({ userId, days: _days = 30 }: MacroTrend
                       y1={PAD.top}
                       x2={xForIdx(hoverIdx)}
                       y2={PAD.top + PLOT_H}
-                      stroke="rgba(255,255,255,0.1)"
+                      stroke="var(--border-subtle)"
                       strokeWidth={0.5}
                     />
                     {LINES.map((line) => {
@@ -399,6 +401,13 @@ export default function MacroTrendChart({ userId, days: _days = 30 }: MacroTrend
                 )}
               </svg>
             </div>
+            <ul className="sr-only" aria-label="Macro trend values">
+              {data.map((day) => (
+                <li key={day.date}>
+                  {formatDate(day.date)}: {LINES.filter(line => visible[line.key]).map(line => `${line.label} ${Math.round(day[line.key])}${line.key === 'calories' ? ' kcal' : 'g'}`).join(', ')}
+                </li>
+              ))}
+            </ul>
           </motion.div>
         )}
       </AnimatePresence>

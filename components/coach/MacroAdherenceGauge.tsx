@@ -52,9 +52,9 @@ export default memo(function MacroAdherenceGauge({
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.5 }}
-      className="bg-white/[0.04] border border-white/[0.06] rounded-xl p-5 flex flex-col items-center"
+      className="bg-[var(--surface-hover)] border border-[var(--border-subtle)] rounded-xl p-5 flex flex-col items-center"
     >
-      <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider mb-3 self-start">
+      <h3 className="text-[var(--content-secondary)] text-xs font-semibold uppercase tracking-wider mb-3 self-start">
         Macro Adherence
       </h3>
 
@@ -66,7 +66,7 @@ export default memo(function MacroAdherenceGauge({
             cy={cy}
             r={innerR}
             fill="none"
-            stroke="rgba(255,255,255,0.06)"
+            stroke="var(--border-subtle)"
             strokeWidth={strokeWidth}
           />
           {/* Inner ring: calories (gold) */}
@@ -75,7 +75,7 @@ export default memo(function MacroAdherenceGauge({
             cy={cy}
             r={innerR}
             fill="none"
-            stroke="#D4A853"
+            stroke="var(--action-primary)"
             strokeWidth={strokeWidth}
             strokeLinecap="round"
             strokeDasharray={innerCirc}
@@ -92,7 +92,7 @@ export default memo(function MacroAdherenceGauge({
             cy={cy}
             r={outerR}
             fill="none"
-            stroke="rgba(255,255,255,0.06)"
+            stroke="var(--border-subtle)"
             strokeWidth={strokeWidth}
           />
           {/* Outer ring: protein (red) */}
@@ -101,7 +101,7 @@ export default memo(function MacroAdherenceGauge({
             cy={cy}
             r={outerR}
             fill="none"
-            stroke="#f87171"
+            stroke="var(--status-danger-fg)"
             strokeWidth={strokeWidth}
             strokeLinecap="round"
             strokeDasharray={outerCirc}
@@ -116,28 +116,28 @@ export default memo(function MacroAdherenceGauge({
         {/* Center text */}
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <motion.span
-            className="text-stone-100 text-2xl font-bold tabular-nums"
+            className="text-[var(--content-primary)] text-2xl font-bold tabular-nums"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.5 }}
           >
             {avgPct}%
           </motion.span>
-          <span className="text-stone-500 text-[10px]">today</span>
+          <span className="text-[var(--content-muted)] text-xs">today</span>
         </div>
       </div>
 
       {/* Legend */}
       <div className="flex items-center gap-4 mt-3">
         <div className="flex items-center gap-1.5">
-          <div className="w-2 h-2 rounded-full bg-[#D4A853]" />
-          <span className="text-stone-400 text-[10px]">
+          <div className="w-2 h-2 rounded-full bg-[var(--action-primary)]" />
+          <span className="text-[var(--content-secondary)] text-xs">
             Cal {consumed.calories}/{targets.calories}
           </span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="w-2 h-2 rounded-full bg-[#f87171]" />
-          <span className="text-stone-400 text-[10px]">
+          <div className="w-2 h-2 rounded-full bg-[var(--status-danger-fg)]" />
+          <span className="text-[var(--content-secondary)] text-xs">
             Prot {consumed.protein}g/{targets.protein}g
           </span>
         </div>

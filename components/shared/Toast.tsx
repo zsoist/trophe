@@ -40,27 +40,9 @@ export function useToast(): ToastContextType {
 // ═══════════════════════════════════════════════
 
 const toastConfig: Record<ToastType, { icon: typeof CheckCircle2; bg: string; border: string; text: string; bar: string }> = {
-  success: {
-    icon: CheckCircle2,
-    bg: 'rgba(22, 101, 52, 0.15)',
-    border: 'rgba(34, 197, 94, 0.3)',
-    text: '#4ade80',
-    bar: '#22c55e',
-  },
-  error: {
-    icon: AlertCircle,
-    bg: 'rgba(127, 29, 29, 0.15)',
-    border: 'rgba(239, 68, 68, 0.3)',
-    text: '#f87171',
-    bar: '#ef4444',
-  },
-  info: {
-    icon: Info,
-    bg: 'rgba(120, 90, 40, 0.15)',
-    border: 'rgba(212, 168, 83, 0.3)',
-    text: '#D4A853',
-    bar: '#D4A853',
-  },
+  success: { icon: CheckCircle2, bg: 'var(--status-success-bg)', border: 'var(--status-success-border)', text: 'var(--status-success-fg)', bar: 'var(--status-success-fg)' },
+  error: { icon: AlertCircle, bg: 'var(--status-danger-bg)', border: 'var(--status-danger-border)', text: 'var(--status-danger-fg)', bar: 'var(--status-danger-fg)' },
+  info: { icon: Info, bg: 'var(--status-info-bg)', border: 'var(--status-info-border)', text: 'var(--status-info-fg)', bar: 'var(--status-info-fg)' },
 };
 
 function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string) => void }) {
@@ -70,18 +52,21 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string)
   return (
     <div
       className="toast-in relative overflow-hidden rounded-2xl backdrop-blur-xl pointer-events-auto"
+      role={toast.type === 'error' ? 'alert' : 'status'}
+      aria-live={toast.type === 'error' ? 'assertive' : 'polite'}
       style={{
         background: config.bg,
         border: `1px solid ${config.border}`,
-        boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+        boxShadow: 'var(--shadow-medium)',
       }}
     >
       <div className="flex items-center gap-3 px-4 py-3">
         <Icon size={18} style={{ color: config.text, flexShrink: 0 }} />
-        <span className="text-sm font-medium text-stone-100 flex-1">{toast.message}</span>
+        <span className="text-sm font-medium text-[var(--content-primary)] flex-1">{toast.message}</span>
         <button
           onClick={() => onDismiss(toast.id)}
-          className="text-stone-500 hover:text-stone-300 transition-colors flex-shrink-0"
+          aria-label="Dismiss notification"
+          className="min-h-11 min-w-11 -my-2 inline-flex items-center justify-center text-[var(--content-muted)] hover:text-[var(--content-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] transition-colors flex-shrink-0"
         >
           <X size={14} />
         </button>
@@ -126,7 +111,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={contextValue}>
       {children}
       {/* Toast container - fixed at top center */}
-      <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[var(--z-toast,70)] flex flex-col gap-2 w-[min(90vw,400px)] pointer-events-none">
+      <div className="fixed top-[max(1rem,env(safe-area-inset-top))] left-1/2 -translate-x-1/2 z-[var(--z-toast,70)] flex flex-col gap-2 w-[min(90vw,400px)] pointer-events-none">
         {toasts.map((t) => (
           <ToastItem key={t.id} toast={t} onDismiss={dismiss} />
         ))}

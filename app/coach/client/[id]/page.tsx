@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, type CSSProperties } from 'react';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { motion } from 'framer-motion';
@@ -13,7 +13,6 @@ import {
   Send,
   Pause,
   ChevronRight,
-  X,
   FileText,
   Pill,
   Pencil,
@@ -44,6 +43,7 @@ import MealPatternView from '@/components/coach/MealPatternView';
 import CoachInsightPanel from '@/components/coach/CoachInsightPanel';
 import ClientWorkoutsPanel from '@/components/coach/ClientWorkoutsPanel';
 import ClientViewSettings from '@/components/coach/ClientViewSettings';
+import { AssignHabitDialog } from '@/components/coach/AssignHabitDialog';
 import { PanelPrefsProvider, Panel } from '@/components/coach/PanelGate';
 import CustomizePanelsBar from '@/components/coach/CustomizePanelsBar';
 import {
@@ -74,8 +74,8 @@ const ClientAnalyticsPanels = dynamic(() => import('@/components/coach/ClientAna
       className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2"
       role="status"
     >
-      <div className="h-48 animate-pulse rounded-2xl bg-stone-900/60" />
-      <div className="h-48 animate-pulse rounded-2xl bg-stone-900/60" />
+      <div className="h-48 animate-pulse rounded-2xl bg-[var(--surface-2)]" />
+      <div className="h-48 animate-pulse rounded-2xl bg-[var(--surface-2)]" />
     </div>
   ),
 });
@@ -152,22 +152,28 @@ function StreakCalendar({ checkins, startDate }: { checkins: HabitCheckin[]; sta
   }
 
   return (
-    <div className="grid grid-cols-7 gap-1.5">
-      {days.map((day) => (
+    <div>
+      <div className="grid grid-cols-7 gap-1.5">
+        {days.map((day) => (
         <div
           key={day.date}
-          className={`aspect-square rounded-lg flex items-center justify-center text-[10px] font-medium ${
+          aria-label={`${day.date}: ${day.status}`}
+          className={`aspect-square rounded-lg flex items-center justify-center text-xs font-medium ${
             day.status === 'completed'
               ? 'bg-[#D4A853]/20 text-[#D4A853] border border-[#D4A853]/30'
               : day.status === 'missed'
-              ? 'bg-red-500/10 text-red-400 border border-red-500/20'
-              : 'bg-white/[0.03] text-stone-600 border border-white/5'
+              ? 'bg-[var(--status-danger-bg)] text-[var(--status-danger-fg)] border border-[var(--status-danger-border)]'
+              : 'bg-[var(--surface-hover)] text-[var(--content-muted)] border border-[var(--border-subtle)]'
           }`}
           title={`${day.date}: ${day.status}`}
         >
-          {new Date(day.date).getDate()}
+          <span aria-hidden="true">{day.status === 'completed' ? '✓' : day.status === 'missed' ? '×' : '·'} {new Date(day.date).getDate()}</span>
         </div>
-      ))}
+        ))}
+      </div>
+      <div className="mt-2 flex flex-wrap gap-3 text-xs text-[var(--content-muted)]" aria-label="Check-in status legend">
+        <span>✓ Completed</span><span>× Missed</span><span>· No check-in</span>
+      </div>
     </div>
   );
 }
@@ -966,21 +972,21 @@ export default function ClientDetailPage() {
     return (
       <div className="min-h-screen px-4 py-6">
         <div className="max-w-5xl mx-auto space-y-4">
-          <div className="h-10 w-48 rounded bg-stone-800/60 animate-pulse" />
+          <div className="h-10 w-48 rounded bg-[var(--surface-2)] animate-pulse" />
           <div className="glass p-5 space-y-3">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-stone-800/60 animate-pulse" />
+              <div className="w-12 h-12 rounded-full bg-[var(--surface-2)] animate-pulse" />
               <div className="space-y-2 flex-1">
-                <div className="h-5 w-32 rounded bg-stone-800/60 animate-pulse" />
-                <div className="h-3 w-48 rounded bg-stone-800/40 animate-pulse" />
+                <div className="h-5 w-32 rounded bg-[var(--surface-2)] animate-pulse" />
+                <div className="h-3 w-48 rounded bg-[var(--surface-2)] animate-pulse" />
               </div>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             {[0, 1, 2, 3].map((i) => (
               <div key={i} className="glass p-4 space-y-2">
-                <div className="h-6 w-12 rounded bg-stone-800/60 animate-pulse" />
-                <div className="h-3 w-16 rounded bg-stone-800/40 animate-pulse" />
+                <div className="h-6 w-12 rounded bg-[var(--surface-2)] animate-pulse" />
+                <div className="h-3 w-16 rounded bg-[var(--surface-2)] animate-pulse" />
               </div>
             ))}
           </div>
@@ -991,7 +997,7 @@ export default function ClientDetailPage() {
 
   if (!profile || !clientProfile) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-stone-500">
+      <div className="min-h-screen flex items-center justify-center text-[var(--content-muted)]">
         Client not found
       </div>
     );
@@ -1003,7 +1009,15 @@ export default function ClientDetailPage() {
   };
 
   return (
-    <div className="min-h-screen px-4 py-6 sm:px-6 lg:px-8" style={{ background: 'var(--bg,#0a0a0a)' }}>
+    <div
+      data-coach-workspace-root
+      className="min-h-screen px-4 py-6 sm:px-6 lg:px-8"
+      style={{
+        background: 'var(--canvas)',
+        '--coach-action-height': '84px',
+        paddingBottom: 'calc(var(--coach-action-height) + env(safe-area-inset-bottom))',
+      } as CSSProperties}
+    >
       <div className="max-w-4xl mx-auto">
         <PanelPrefsProvider
           value={{ prefs: detailOverrides, editMode: panelEditMode, toggle: togglePanel, visible: panelVisible }}
@@ -1016,8 +1030,9 @@ export default function ClientDetailPage() {
           {/* ─── Handoff Screen 05 header ─── */}
           {/* Back row */}
           <div className="row-b mb-3">
-            <button onClick={() => router.back()}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--t3)' }}>
+            <button data-coach-primary-action data-icon-only aria-label="Back to coach roster" onClick={() => router.back()}
+              className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--content-muted)' }}>
               <Icon name="i-chev-l" size={16} />
             </button>
             <span className="eye-d">Client</span>
@@ -1032,7 +1047,7 @@ export default function ClientDetailPage() {
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 12 }}>
             <div className="av-lg">{profile.full_name?.[0]?.toUpperCase() ?? '?'}</div>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-.02em', color: 'var(--t1)' }}>
+              <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-.02em', color: 'var(--content-primary)' }}>
                 {profile.full_name}
               </div>
               <div className="ds-sub">
@@ -1046,9 +1061,11 @@ export default function ClientDetailPage() {
               />
               <Link
                 href={`/coach/client/${clientId}/plan`}
+                className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                 style={{
                   display: 'flex',
                   alignItems: 'center',
+                  justifyContent: 'center',
                   gap: 4,
                   padding: '4px 8px',
                   borderRadius: 8,
@@ -1056,18 +1073,20 @@ export default function ClientDetailPage() {
                   background: 'rgba(212,168,83,.08)',
                   color: 'var(--gold-300,#D4A853)',
                   textDecoration: 'none',
-                  fontSize: 10,
+                  fontSize: 12,
                   fontFamily: 'var(--font-mono)',
                   fontWeight: 700,
                   letterSpacing: '.06em',
                   textTransform: 'uppercase',
                   whiteSpace: 'nowrap',
+                  minHeight: 44,
+                  minWidth: 44,
                 }}
               >
                 <LayoutList size={11} />
                 Plan
               </Link>
-              <span className="tag tag-g" style={{ fontSize: 8 }}>{clientProfile.coaching_phase}</span>
+              <span className="tag tag-g" style={{ fontSize: 12 }}>{clientProfile.coaching_phase}</span>
             </div>
           </div>
 
@@ -1075,8 +1094,8 @@ export default function ClientDetailPage() {
           <Panel id="assessment" title={t('coach.panel.assessment')}>
             <div className="glass p-4 mb-4">
               <div className="flex items-center justify-between mb-2">
-                <h2 className="font-semibold text-stone-200 text-sm">Assessment</h2>
-                <span className="text-[10px] text-stone-500 font-mono">
+                <h2 className="font-semibold text-[var(--content-primary)] text-sm">Assessment</h2>
+                <span className="text-xs text-[var(--content-muted)] font-mono">
                   {assessmentSaved ? '✓ saved' : 'interview notes — visible only to you'}
                 </span>
               </div>
@@ -1086,7 +1105,7 @@ export default function ClientDetailPage() {
                 onBlur={saveAssessment}
                 placeholder="Who is this client? Interview summary, context, what you agreed…"
                 rows={3}
-                className="input-dark w-full text-sm"
+                className="input-dark text-base w-full"
                 style={{ resize: 'vertical' }}
               />
             </div>
@@ -1097,21 +1116,22 @@ export default function ClientDetailPage() {
             {intake && intake.length > 0 && (
               <div className="glass p-4 mb-4">
                 <button
+                  data-coach-primary-action
                   onClick={() => setIntakeOpen((v) => !v)}
-                  className="w-full flex items-center justify-between"
+                  className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] min-h-11 w-full flex items-center justify-between focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                   style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
                 >
-                  <h2 className="font-semibold text-stone-200 text-sm">
-                    Intake interview <span className="text-stone-500 font-normal">({intake.length} answers)</span>
+                  <h2 className="font-semibold text-[var(--content-primary)] text-sm">
+                    Intake interview <span className="text-[var(--content-muted)] font-normal">({intake.length} answers)</span>
                   </h2>
-                  <span className="text-stone-500 text-xs font-mono">{intakeOpen ? '−' : '+'}</span>
+                  <span className="text-[var(--content-muted)] text-xs font-mono">{intakeOpen ? '−' : '+'}</span>
                 </button>
                 {intakeOpen && (
                   <div className="mt-3 space-y-3">
                     {intake.map((row, i) => (
                       <div key={i}>
-                        <div className="text-[10px] text-stone-500 mb-0.5 leading-snug">{row.prompt}</div>
-                        <div className="text-xs text-stone-200 leading-relaxed">{row.answer}</div>
+                        <div className="text-xs text-[var(--content-muted)] mb-0.5 leading-snug">{row.prompt}</div>
+                        <div className="text-xs text-[var(--content-primary)] leading-relaxed">{row.answer}</div>
                       </div>
                     ))}
                   </div>
@@ -1124,13 +1144,13 @@ export default function ClientDetailPage() {
           <div className="card-g p-4 mb-4">
             {/* ─── Macro Targets ─── */}
             {editingMacros ? (
-              <div id="macro-editor" className="mt-4 p-4 rounded-xl bg-white/[0.03] border border-[#D4A853]/20 space-y-3">
+              <div id="macro-editor" className="mt-4 p-4 rounded-xl bg-[var(--surface-hover)] border border-[#D4A853]/20 space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="text-xs font-semibold text-[#D4A853] uppercase tracking-wider">Edit Macro Targets</h3>
                   <div className="flex gap-1.5">
                     <button
                       onClick={recalcMacros}
-                      className="text-xs text-stone-400 hover:text-[#D4A853] flex items-center gap-1 px-2 py-1 rounded-lg border border-white/5 hover:border-[#D4A853]/30 transition-all"
+                      className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] text-xs text-[var(--content-secondary)] hover:text-[#D4A853] flex items-center gap-1 px-2 py-1 rounded-lg border border-[var(--border-subtle)] hover:border-[#D4A853]/30 transition-all"
                       title="Recalculate from client stats"
                     >
                       <Calculator size={12} />
@@ -1140,11 +1160,11 @@ export default function ClientDetailPage() {
                 </div>
                 {/* Goal selector */}
                 <div>
-                  <label className="text-[10px] text-stone-500 mb-1 block">Goal</label>
+                  <label className="text-xs text-[var(--content-muted)] mb-1 block">Goal</label>
                   <select
                     value={macroForm.goal}
                     onChange={e => setMacroForm(prev => ({ ...prev, goal: e.target.value }))}
-                    className="input-dark w-full text-sm py-2"
+                    className="input-dark text-base w-full py-2"
                   >
                     <option value="">Not set</option>
                     {Object.entries(goalLabels).map(([val, label]) => (
@@ -1163,16 +1183,16 @@ export default function ClientDetailPage() {
                     ['target_water_ml', 'Water', 'ml'],
                   ] as const).map(([key, label, unit]) => (
                     <div key={key}>
-                      <label className="text-[10px] text-stone-500 mb-0.5 block">{label}</label>
+                      <label className="text-xs text-[var(--content-muted)] mb-0.5 block">{label}</label>
                       <div className="relative">
                         <input
                           type="number"
                           value={macroForm[key] || ''}
                           onChange={e => setMacroForm(prev => ({ ...prev, [key]: parseInt(e.target.value) || 0 }))}
-                          className="input-dark w-full text-sm py-2 text-center pr-6"
+                          className="input-dark text-base w-full py-2 text-center pr-6"
                           placeholder="0"
                         />
-                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-stone-600">{unit}</span>
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-[var(--content-muted)]">{unit}</span>
                       </div>
                     </div>
                   ))}
@@ -1180,16 +1200,18 @@ export default function ClientDetailPage() {
                 {/* Save / Cancel */}
                 <div className="flex gap-2 pt-1">
                   <button
+                    data-coach-primary-action
                     onClick={saveMacros}
                     disabled={savingMacros}
-                    className="btn-gold flex-1 py-2 text-sm flex items-center justify-center gap-1.5"
+                    className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] btn-gold min-h-11 flex-1 py-2 text-sm flex items-center justify-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                   >
                     <Check size={14} />
                     {savingMacros ? 'Saving...' : 'Save Targets'}
                   </button>
                   <button
+                    data-coach-primary-action
                     onClick={() => setEditingMacros(false)}
-                    className="btn-ghost flex-1 py-2 text-sm"
+                    className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] btn-ghost min-h-11 flex-1 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                   >
                     Cancel
                   </button>
@@ -1199,39 +1221,40 @@ export default function ClientDetailPage() {
               <div className="mt-4">
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                   <div>
-                    <div className="text-xs text-stone-500">Goal</div>
-                    <div className="text-sm font-medium text-stone-200">
+                    <div className="text-xs text-[var(--content-muted)]">Goal</div>
+                    <div className="text-sm font-medium text-[var(--content-primary)]">
                       {clientProfile.goal ? goalLabels[clientProfile.goal] || clientProfile.goal : '---'}
                     </div>
                   </div>
                   <div>
-                    <div className="text-xs text-stone-500">Calories</div>
-                    <div className="text-sm font-medium text-stone-200">
+                    <div className="text-xs text-[var(--content-muted)]">Calories</div>
+                    <div className="text-sm font-medium text-[var(--content-primary)]">
                       {clientProfile.target_calories || '---'} kcal
                     </div>
                   </div>
                   <div>
-                    <div className="text-xs text-stone-500">Protein</div>
-                    <div className="text-sm font-medium text-stone-200">
+                    <div className="text-xs text-[var(--content-muted)]">Protein</div>
+                    <div className="text-sm font-medium text-[var(--content-primary)]">
                       {clientProfile.target_protein_g || '---'}g
                     </div>
                   </div>
                   <div>
-                    <div className="text-xs text-stone-500">Carbs / Fat</div>
-                    <div className="text-sm font-medium text-stone-200">
+                    <div className="text-xs text-[var(--content-muted)]">Carbs / Fat</div>
+                    <div className="text-sm font-medium text-[var(--content-primary)]">
                       {clientProfile.target_carbs_g || '---'}g / {clientProfile.target_fat_g || '---'}g
                     </div>
                   </div>
                   <div>
-                    <div className="text-xs text-stone-500">Weight</div>
-                    <div className="text-sm font-medium text-stone-200">
+                    <div className="text-xs text-[var(--content-muted)]">Weight</div>
+                    <div className="text-sm font-medium text-[var(--content-primary)]">
                       {clientProfile.weight_kg || '---'} kg
                     </div>
                   </div>
                 </div>
                 <button
+                  data-coach-primary-action
                   onClick={startEditingMacros}
-                  className="mt-3 text-xs text-stone-500 hover:text-[#D4A853] flex items-center gap-1.5 transition-colors"
+                  className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] min-h-11 mt-3 text-xs text-[var(--content-muted)] hover:text-[#D4A853] flex items-center gap-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                 >
                   <Pencil size={12} />
                   Edit macro targets
@@ -1242,7 +1265,7 @@ export default function ClientDetailPage() {
             {/* ─── Wave 2+3: Header Analytics ─── */}
             <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="glass p-4">
-                <p className="text-[10px] font-semibold text-stone-500 uppercase tracking-wider mb-2">Today&apos;s Adherence</p>
+                <p className="text-xs font-semibold text-[var(--content-muted)] uppercase tracking-wider mb-2">Today&apos;s Adherence</p>
                 {hasTargets ? (
                   <MacroAdherenceGauge
                     consumed={{ calories: Math.round(todayTotals.calories), protein: Math.round(todayTotals.protein) }}
@@ -1250,7 +1273,7 @@ export default function ClientDetailPage() {
                   />
                 ) : (
                   <div className="text-center py-4">
-                    <p className="text-stone-600 text-xs mb-3">
+                    <p className="text-[var(--content-muted)] text-xs mb-3">
                       {t('coach.detail.noTargetsAdherence')}
                     </p>
                     <button
@@ -1260,7 +1283,7 @@ export default function ClientDetailPage() {
                           document.getElementById('macro-editor')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                         });
                       }}
-                      className="btn-gold !py-2 !px-4 text-xs"
+                      className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] btn-gold !py-2 !px-4 text-xs"
                     >
                       {t('coach.detail.setTargets')}
                     </button>
@@ -1268,7 +1291,7 @@ export default function ClientDetailPage() {
                 )}
               </div>
               <div className="glass p-4">
-                <p className="text-[10px] font-semibold text-stone-500 uppercase tracking-wider mb-2">P / C / F Split</p>
+                <p className="text-xs font-semibold text-[var(--content-muted)] uppercase tracking-wider mb-2">P / C / F Split</p>
                 <MacroDonut
                   protein={Math.round(todayTotals.protein)}
                   carbs={Math.round(todayTotals.carbs)}
@@ -1281,13 +1304,13 @@ export default function ClientDetailPage() {
             <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Panel id="healthScore" title={t('coach.panel.healthScore')}>
                 <div className="glass p-4 flex flex-col items-center justify-center h-full">
-                  <p className="text-[10px] font-semibold text-stone-500 uppercase tracking-wider mb-2">Health Score</p>
+                  <p className="text-xs font-semibold text-[var(--content-muted)] uppercase tracking-wider mb-2">Health Score</p>
                   <ClientHealthScore score={healthScore} label="Overall" />
                 </div>
               </Panel>
               <Panel id="consistencyScore" title={t('coach.panel.consistencyScore')}>
                 <div className="glass p-4">
-                  <p className="text-[10px] font-semibold text-stone-500 uppercase tracking-wider mb-2">{t('coach.detail.consistency28d')}</p>
+                  <p className="text-xs font-semibold text-[var(--content-muted)] uppercase tracking-wider mb-2">{t('coach.detail.consistency28d')}</p>
                   <ConsistencyScore
                     daysLogged={consistencyData.daysLogged}
                     totalDays={consistencyData.totalDays}
@@ -1300,14 +1323,14 @@ export default function ClientDetailPage() {
 
             <div className="mt-3">
               <div className="glass p-4">
-                <p className="text-[10px] font-semibold text-stone-500 uppercase tracking-wider mb-2">7-Day Macro Trends</p>
+                <p className="text-xs font-semibold text-[var(--content-muted)] uppercase tracking-wider mb-2">7-Day Macro Trends</p>
                 <div className="space-y-2">
                   <div>
-                    <span className="text-[10px] text-stone-500">Calories</span>
+                    <span className="text-xs text-[var(--content-muted)]">Calories</span>
                     <MacroSparklines data={macroSparklineData.calories} color="#D4A853" />
                   </div>
                   <div>
-                    <span className="text-[10px] text-stone-500">Protein</span>
+                    <span className="text-xs text-[var(--content-muted)]">Protein</span>
                     <MacroSparklines data={macroSparklineData.protein} color="#ef4444" />
                   </div>
                 </div>
@@ -1330,26 +1353,27 @@ export default function ClientDetailPage() {
                 <Icon name="i-target" size={28} className="text-[#D4A853] flex-shrink-0" />
                 <div className="flex-1">
                   <h3 className="font-bold text-[#D4A853] text-lg">Ready for Progression!</h3>
-                  <p className="text-stone-400 text-xs mt-0.5">
+                  <p className="text-[var(--content-secondary)] text-xs mt-0.5">
                     {profile?.full_name} completed the {activeHabit.habit.cycle_days}-day cycle for {activeHabit.habit.name_en}
                   </p>
                 </div>
               </div>
               {suggestedNextHabit ? (
-                <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/5">
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-[var(--surface-hover)] border border-[var(--border-subtle)]">
                   <span className="text-xl">{suggestedNextHabit.emoji}</span>
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-stone-200">
+                    <div className="text-sm font-medium text-[var(--content-primary)]">
                       Suggested next: {suggestedNextHabit.name_en}
                     </div>
-                    <div className="text-xs text-stone-500">
+                    <div className="text-xs text-[var(--content-muted)]">
                       {suggestedNextHabit.cycle_days}d cycle - {suggestedNextHabit.difficulty}
                     </div>
                   </div>
                   <button
+                    data-coach-primary-action
                     onClick={assignNextHabit}
                     disabled={assigningNext}
-                    className="btn-gold !py-2 !px-4 text-xs flex items-center gap-1.5 whitespace-nowrap"
+                    className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] btn-gold min-h-11 !py-2 !px-4 text-xs flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                   >
                     <ChevronRight size={14} />
                     {assigningNext ? 'Assigning...' : 'Assign Next'}
@@ -1358,7 +1382,7 @@ export default function ClientDetailPage() {
               ) : (
                 <button
                   onClick={loadTemplates}
-                  className="btn-gold w-full text-sm py-2.5 flex items-center justify-center gap-2"
+                  className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] btn-gold w-full text-sm py-2.5 flex items-center justify-center gap-2"
                 >
                   <Plus size={14} /> Choose Next Habit Manually
                 </button>
@@ -1369,22 +1393,22 @@ export default function ClientDetailPage() {
           {/* ─── Active Habit ─── */}
           <div className="glass p-5 mb-4">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="font-semibold text-stone-200 flex items-center gap-2">
+              <h2 className="font-semibold text-[var(--content-primary)] flex items-center gap-2">
                 <Flame size={16} className="text-[#D4A853]" />
                 Active Habit
               </h2>
               <div className="flex gap-1.5">
                 {activeHabit && (
                   <>
-                    <button onClick={progressHabit} className="text-xs btn-gold !py-1.5 !px-3 flex items-center gap-1">
+                    <button onClick={progressHabit} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] text-xs btn-gold !py-1.5 !px-3 flex items-center gap-1">
                       <ChevronRight size={12} /> Progress
                     </button>
-                    <button onClick={pauseHabit} className="text-xs btn-ghost !py-1.5 !px-3 flex items-center gap-1">
+                    <button onClick={pauseHabit} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] text-xs btn-ghost !py-1.5 !px-3 flex items-center gap-1">
                       <Pause size={12} /> Pause
                     </button>
                   </>
                 )}
-                <button onClick={loadTemplates} className="text-xs btn-ghost !py-1.5 !px-3 flex items-center gap-1">
+                <button onClick={loadTemplates} className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] text-xs btn-ghost !py-1.5 !px-3 flex items-center gap-1">
                   <Plus size={12} /> Assign
                 </button>
               </div>
@@ -1395,13 +1419,13 @@ export default function ClientDetailPage() {
                 <div className="flex items-center gap-2 mb-3">
                   <span className="text-2xl">{activeHabit.habit.emoji}</span>
                   <div>
-                    <div className="font-medium text-stone-100">{activeHabit.habit.name_en}</div>
-                    <div className="text-xs text-stone-500">
+                    <div className="font-medium text-[var(--content-primary)]">{activeHabit.habit.name_en}</div>
+                    <div className="text-xs text-[var(--content-muted)]">
                       Day {activeHabit.current_streak} of {activeHabit.habit.cycle_days}
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-4 mb-4 text-xs text-stone-400">
+                <div className="flex items-center gap-4 mb-4 text-xs text-[var(--content-secondary)]">
                   <span className="flex items-center gap-1"><Flame size={12} className="text-orange-400" /> Streak: {activeHabit.current_streak}</span>
                   <span className="flex items-center gap-1"><Trophy size={12} className="text-[#D4A853]" /> Best: {activeHabit.best_streak}</span>
                   <span className="flex items-center gap-1"><Calendar size={12} /> Total: {activeHabit.total_completions}</span>
@@ -1413,7 +1437,7 @@ export default function ClientDetailPage() {
                 />
               </div>
             ) : (
-              <p className="text-stone-600 text-sm text-center py-4">No active habit assigned</p>
+              <p className="text-[var(--content-muted)] text-sm text-center py-4">No active habit assigned</p>
             )}
           </div>
           </Panel>
@@ -1421,7 +1445,7 @@ export default function ClientDetailPage() {
           {/* ─── Supplement Compliance (Feature 9) ─── */}
           <Panel id="supplementCompliance" title={t('coach.panel.supplementCompliance')}>
             <div className="glass p-5 mb-4">
-              <h2 className="font-semibold text-stone-200 mb-4 flex items-center gap-2">
+              <h2 className="font-semibold text-[var(--content-primary)] mb-4 flex items-center gap-2">
                 <Pill size={16} className="text-[#D4A853]" />
                 Supplement Compliance (This Week)
               </h2>
@@ -1433,15 +1457,15 @@ export default function ClientDetailPage() {
           <Panel id="moodTrend" title={t('coach.panel.moodTrend')}>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
               <div className="glass p-5">
-                <h2 className="font-semibold text-stone-200 mb-3 text-sm">Mood Trend</h2>
+                <h2 className="font-semibold text-[var(--content-primary)] mb-3 text-sm">Mood Trend</h2>
                 {moodData.length > 0 ? (
                   <MoodTrend moods={moodData} />
                 ) : (
-                  <p className="text-stone-600 text-sm text-center py-4">No mood data from check-ins yet</p>
+                  <p className="text-[var(--content-muted)] text-sm text-center py-4">No mood data from check-ins yet</p>
                 )}
               </div>
               <div className="glass p-5">
-                <h2 className="font-semibold text-stone-200 mb-3 text-sm">Behavioral Signals</h2>
+                <h2 className="font-semibold text-[var(--content-primary)] mb-3 text-sm">Behavioral Signals</h2>
                 <BehavioralSignals signals={behavioralSignals} />
               </div>
             </div>
@@ -1450,7 +1474,7 @@ export default function ClientDetailPage() {
           <Panel id="roadmap" title={t('coach.panel.roadmap')}>
             {roadmapHabits.length > 0 && (
               <div className="glass p-5 mb-4">
-                <h2 className="font-semibold text-stone-200 mb-3 text-sm">Coaching Roadmap</h2>
+                <h2 className="font-semibold text-[var(--content-primary)] mb-3 text-sm">Coaching Roadmap</h2>
                 <CoachingRoadmap habits={roadmapHabits} />
               </div>
             )}
@@ -1459,7 +1483,7 @@ export default function ClientDetailPage() {
           {/* ─── Food Log (Pattern + Daily views) ─── */}
           <Panel id="recentFood" title={t('coach.panel.recentFood')}>
             <div className="glass p-5 mb-4">
-              <h2 className="font-semibold text-stone-200 mb-4 flex items-center gap-2">
+              <h2 className="font-semibold text-[var(--content-primary)] mb-4 flex items-center gap-2">
                 <Calendar size={16} className="text-[#D4A853]" />
                 Recent Food Log
               </h2>
@@ -1489,7 +1513,7 @@ export default function ClientDetailPage() {
           {/* ─── Weight / Body Composition + coach-set Custom Goal ─── */}
           <Panel id="weightChart" title={t('coach.panel.weightChart')}>
           <div className="glass p-5 mb-4">
-            <h2 className="font-semibold text-stone-200 mb-4 flex items-center gap-2">
+            <h2 className="font-semibold text-[var(--content-primary)] mb-4 flex items-center gap-2">
               <TrendingUp size={16} className="text-[#D4A853]" />
               Weight &amp; Body Composition (30d)
             </h2>
@@ -1504,8 +1528,8 @@ export default function ClientDetailPage() {
                   (weight → blood markers → habits). Coach sets a custom goal
                   and can mark a deliberate stabilization phase instead. */}
               <div className="flex items-center justify-between mb-3">
-                <h2 className="font-semibold text-stone-200 text-sm">Custom Goal</h2>
-                <span className="text-[10px] text-stone-500 font-mono">{goalSaved ? '✓ saved' : ''}</span>
+                <h2 className="font-semibold text-[var(--content-primary)] text-sm">Custom Goal</h2>
+                <span className="text-xs text-[var(--content-muted)] font-mono">{goalSaved ? '✓ saved' : ''}</span>
               </div>
               <div className="space-y-2">
                 <input
@@ -1513,7 +1537,7 @@ export default function ClientDetailPage() {
                   onChange={(e) => setGoalForm((g) => ({ ...g, title: e.target.value }))}
                   onBlur={saveCustomGoal}
                   placeholder="Goal title (e.g. Lower LDL, −4 kg, daily fruit)"
-                  className="input-dark w-full text-sm py-2"
+                  className="input-dark text-base w-full py-2"
                 />
                 <div className="grid grid-cols-2 gap-2">
                   <input
@@ -1521,22 +1545,22 @@ export default function ClientDetailPage() {
                     onChange={(e) => setGoalForm((g) => ({ ...g, metric: e.target.value }))}
                     onBlur={saveCustomGoal}
                     placeholder="Metric (kg, mg/dL…)"
-                    className="input-dark w-full text-sm py-2"
+                    className="input-dark text-base w-full py-2"
                   />
                   <input
                     value={goalForm.window}
                     onChange={(e) => setGoalForm((g) => ({ ...g, window: e.target.value }))}
                     onBlur={saveCustomGoal}
                     placeholder="Window (8 weeks…)"
-                    className="input-dark w-full text-sm py-2"
+                    className="input-dark text-base w-full py-2"
                   />
                 </div>
                 <button
                   onClick={toggleStabilization}
-                  className={`w-full text-xs py-2 rounded-lg border transition-all ${
+                  className={`min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] w-full text-xs py-2 rounded-lg border transition-all ${
                     stabilization
-                      ? 'border-sky-400/40 bg-sky-400/10 text-sky-300'
-                      : 'border-white/10 text-stone-500 hover:text-stone-300'
+                      ? 'border-[var(--status-info-border)] bg-[var(--status-info-bg)] text-[var(--status-info-fg)]'
+                      : 'border-[var(--border-subtle)] text-[var(--content-muted)] hover:text-[var(--content-secondary)]'
                   }`}
                   title="Mark a deliberate stabilization phase (replaces automatic plateau detection)"
                 >
@@ -1545,10 +1569,10 @@ export default function ClientDetailPage() {
                 {/* Graduation — Michael: clients are "free to go, book when ready" */}
                 <button
                   onClick={toggleGraduated}
-                  className={`w-full text-xs py-2 rounded-lg border transition-all ${
+                  className={`min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] w-full text-xs py-2 rounded-lg border transition-all ${
                     graduated
-                      ? 'border-emerald-400/40 bg-emerald-400/10 text-emerald-300'
-                      : 'border-white/10 text-stone-500 hover:text-stone-300'
+                      ? 'border-[var(--status-success-border)] bg-[var(--status-success-bg)] text-[var(--status-success-fg)]'
+                      : 'border-[var(--border-subtle)] text-[var(--content-muted)] hover:text-[var(--content-secondary)]'
                   }`}
                   title="Client graduated — drops off the needs-attention lists; set an expected return month to track churn"
                 >
@@ -1556,11 +1580,11 @@ export default function ClientDetailPage() {
                 </button>
                 {graduated && (
                   <div className="flex items-center justify-between pt-1">
-                    <span className="text-[10px] text-stone-500 uppercase tracking-wider">Expected back</span>
+                    <span className="text-xs text-[var(--content-muted)] uppercase tracking-wider">Expected back</span>
                     <select
                       value={returnMonth ?? ''}
                       onChange={(e) => saveReturnMonth(e.target.value ? Number(e.target.value) : null)}
-                      className="input-dark text-[11px] py-1 px-2"
+                      className="input-dark text-base py-1 px-2"
                     >
                       <option value="">—</option>
                       {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map((m, i) => (
@@ -1571,15 +1595,15 @@ export default function ClientDetailPage() {
                 )}
                 {/* P4: contact rhythm — drives the "reach out" list on the dashboard */}
                 <div className="flex items-center justify-between pt-1">
-                  <span className="text-[10px] text-stone-500 uppercase tracking-wider">Contact rhythm</span>
+                  <span className="text-xs text-[var(--content-muted)] uppercase tracking-wider">Contact rhythm</span>
                   <div className="flex gap-1">
                     {[7, 14, 30, 90].map((d) => (
                       <button key={d}
                         onClick={() => saveCadence(d)}
-                        className={`text-[10px] font-mono px-2 py-1 rounded-lg border transition-all ${
+                        className={`min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] text-xs font-mono px-2 py-1 rounded-lg border transition-all ${
                           cadence === d
                             ? 'border-[#D4A853]/50 bg-[#D4A853]/10 text-[#D4A853]'
-                            : 'border-white/10 text-stone-500 hover:text-stone-300'
+                            : 'border-[var(--border-subtle)] text-[var(--content-muted)] hover:text-[var(--content-secondary)]'
                         }`}>
                         {d === 7 ? 'weekly' : d === 14 ? '2 weeks' : d === 30 ? 'monthly' : 'quarterly'}
                       </button>
@@ -1598,15 +1622,15 @@ export default function ClientDetailPage() {
 
           {/* ─── Coach Notes ─── */}
           <div className="glass p-5 mb-4">
-            <h2 className="font-semibold text-stone-200 mb-4">Coach Notes</h2>
+            <h2 className="font-semibold text-[var(--content-primary)] mb-4">Coach Notes</h2>
 
             {/* Add note form */}
             <div className="mb-4">
               {/* Template selector */}
               <div className="mb-3">
                 <div className="flex items-center gap-2 mb-2">
-                  <FileText size={12} className="text-stone-500" />
-                  <span className="text-[10px] font-medium text-stone-500 uppercase tracking-wider">Template</span>
+                  <FileText size={12} className="text-[var(--content-muted)]" />
+                  <span className="text-xs font-medium text-[var(--content-muted)] uppercase tracking-wider">Template</span>
                 </div>
                 <div className="flex gap-1.5 flex-wrap">
                   {COACHING_TEMPLATES.map((tmpl) => (
@@ -1616,7 +1640,7 @@ export default function ClientDetailPage() {
                         setNewNote(tmpl.text);
                         setNoteType(tmpl.type);
                       }}
-                      className="text-[11px] px-2.5 py-1.5 rounded-lg border border-white/5 text-stone-400 hover:border-[#D4A853]/30 hover:text-[#D4A853] hover:bg-[#D4A853]/5 transition-all"
+                      className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] text-xs px-2.5 py-1.5 rounded-lg border border-[var(--border-subtle)] text-[var(--content-secondary)] hover:border-[#D4A853]/30 hover:text-[#D4A853] hover:bg-[#D4A853]/5 transition-all"
                     >
                       {tmpl.label}
                     </button>
@@ -1629,10 +1653,10 @@ export default function ClientDetailPage() {
                   <button
                     key={t}
                     onClick={() => setNoteType(t)}
-                    className={`text-xs px-2.5 py-1 rounded-full border transition-all ${
+                    className={`min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] text-xs px-2.5 py-1 rounded-full border transition-all ${
                       noteType === t
                         ? 'border-[#D4A853]/40 bg-[#D4A853]/10 text-[#D4A853]'
-                        : 'border-stone-800 text-stone-500 hover:border-stone-700'
+                        : 'border-[var(--border-default)] text-[var(--content-muted)] hover:border-[var(--border-default)]'
                     }`}
                   >
                     {sessionLabels[t]}
@@ -1644,13 +1668,14 @@ export default function ClientDetailPage() {
                   value={newNote}
                   onChange={(e) => setNewNote(e.target.value)}
                   placeholder="Write a coaching note or select a template..."
-                  className="input-dark flex-1 min-h-[60px] resize-none text-sm"
+                  className="input-dark text-base flex-1 min-h-[60px] resize-none"
                   rows={3}
                 />
                 <button
+                  aria-label="Save coach note"
                   onClick={saveNote}
                   disabled={savingNote || !newNote.trim()}
-                  className="btn-gold self-end !p-3 disabled:opacity-40"
+                  className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] btn-gold self-end !p-3 disabled:opacity-40"
                 >
                   <Send size={16} />
                 </button>
@@ -1659,7 +1684,7 @@ export default function ClientDetailPage() {
 
             {/* Smart suggestions feed the composer above (was a standalone card) */}
             <div className="mb-4">
-              <p className="text-[10px] font-semibold text-stone-500 uppercase tracking-wider mb-2">{t('coach.detail.smartSuggestions')}</p>
+              <p className="text-xs font-semibold text-[var(--content-muted)] uppercase tracking-wider mb-2">{t('coach.detail.smartSuggestions')}</p>
               <SmartNoteSuggestions
                 suggestions={noteSuggestions}
                 onSelect={(text) => setNewNote(text)}
@@ -1669,19 +1694,19 @@ export default function ClientDetailPage() {
             {/* Notes list */}
             <div className="space-y-2 max-h-64 overflow-y-auto">
               {notes.length === 0 ? (
-                <p className="text-stone-600 text-sm text-center py-2">No notes yet</p>
+                <p className="text-[var(--content-muted)] text-sm text-center py-2">No notes yet</p>
               ) : (
                 notes.map((note) => (
-                  <div key={note.id} className="p-3 rounded-xl bg-white/[0.03] text-sm">
+                  <div key={note.id} className="p-3 rounded-xl bg-[var(--surface-hover)] text-sm">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-white/5 text-stone-400">
+                      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-[var(--surface-hover)] text-[var(--content-secondary)]">
                         {note.session_type ? sessionLabels[note.session_type] : 'Note'}
                       </span>
-                      <span className="text-[10px] text-stone-600">
+                      <span className="text-xs text-[var(--content-muted)]">
                         {formatDate(note.created_at)}
                       </span>
                     </div>
-                    <p className="text-stone-300 whitespace-pre-wrap">{note.note}</p>
+                    <p className="text-[var(--content-secondary)] whitespace-pre-wrap">{note.note}</p>
                   </div>
                 ))
               )}
@@ -1698,7 +1723,7 @@ export default function ClientDetailPage() {
           {/* ─── Activity Timeline ─── */}
           <Panel id="activityTimeline" title={t('coach.panel.activityTimeline')}>
             <div className="glass p-5 mb-4">
-              <h2 className="font-semibold text-stone-200 mb-4 flex items-center gap-2">
+              <h2 className="font-semibold text-[var(--content-primary)] mb-4 flex items-center gap-2">
                 <Calendar size={16} className="text-[#D4A853]" />
                 Activity Timeline
               </h2>
@@ -1715,13 +1740,13 @@ export default function ClientDetailPage() {
                  CalorieCyclingPlanner + RecoveryScore removed (hardcoded inputs). ─── */}
           <Panel id="smartTools" title={t('coach.panel.smartTools')}>
             <div className="glass p-5 mb-4">
-              <h2 className="font-semibold text-stone-200 mb-4 flex items-center gap-2">
+              <h2 className="font-semibold text-[var(--content-primary)] mb-4 flex items-center gap-2">
                 <Calculator size={16} className="text-[#D4A853]" />
                 Smart Tools
               </h2>
               {hasTargets ? (
                 <div>
-                  <h3 className="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-2">Auto Macro Optimizer</h3>
+                  <h3 className="text-xs font-semibold text-[var(--content-secondary)] uppercase tracking-wider mb-2">Auto Macro Optimizer</h3>
                   <AutoMacroOptimizer
                     current={autoMacroData.current}
                     recommended={autoMacroData.recommended}
@@ -1729,7 +1754,7 @@ export default function ClientDetailPage() {
                   />
                 </div>
               ) : (
-                <p className="text-stone-600 text-sm text-center py-4">
+                <p className="text-[var(--content-muted)] text-sm text-center py-4">
                   {t('coach.detail.setTargetsOptimizer')}
                 </p>
               )}
@@ -1740,24 +1765,24 @@ export default function ClientDetailPage() {
           <Panel id="habitHistory" title={t('coach.panel.habitHistory')}>
             {pastHabits.length > 0 && (
               <div className="glass p-5 mb-4">
-                <h2 className="font-semibold text-stone-200 mb-3">Habit History</h2>
+                <h2 className="font-semibold text-[var(--content-primary)] mb-3">Habit History</h2>
                 <div className="space-y-2">
                   {pastHabits.map((h) => (
-                    <div key={h.id} className="flex items-center justify-between p-3 rounded-xl bg-white/[0.03] text-sm">
+                    <div key={h.id} className="flex items-center justify-between p-3 rounded-xl bg-[var(--surface-hover)] text-sm">
                       <div className="flex items-center gap-2">
                         <span>{h.habit?.emoji}</span>
-                        <span className="text-stone-300">{h.habit?.name_en}</span>
+                        <span className="text-[var(--content-secondary)]">{h.habit?.name_en}</span>
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="text-xs text-stone-500">
+                        <span className="text-xs text-[var(--content-muted)]">
                           {h.total_completions} days | Best: {h.best_streak}
                         </span>
-                        <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
                           h.status === 'completed'
-                            ? 'bg-green-500/10 text-green-400'
+                            ? 'bg-[var(--status-success-bg)] text-[var(--status-success-fg)]'
                             : h.status === 'paused'
-                            ? 'bg-yellow-500/10 text-yellow-400'
-                            : 'bg-stone-800 text-stone-500'
+                            ? 'bg-[var(--status-warning-bg)] text-[var(--status-warning-fg)]'
+                            : 'bg-[var(--surface-2)] text-[var(--content-muted)]'
                         }`}>
                           {h.status}
                         </span>
@@ -1771,8 +1796,12 @@ export default function ClientDetailPage() {
         </motion.div>
         </PanelPrefsProvider>
 
-        {/* ─── Quick Actions Bar (floating bottom) ─── */}
-        <QuickActionsBar
+        {/* ─── Quick Actions Bar (non-overlapping sticky action region) ─── */}
+        <div
+          data-coach-action-tray
+          className="sticky bottom-[calc(1rem+env(safe-area-inset-bottom))] z-30 flex min-h-[var(--coach-action-height)] items-end justify-center [&>div]:!static [&>div]:!translate-x-0"
+        >
+          <QuickActionsBar
           onAssignHabit={loadTemplates}
           onSetMacros={() => {
             startEditingMacros();
@@ -1831,56 +1860,15 @@ export default function ClientDetailPage() {
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
           }}
-        />
+          />
+        </div>
 
-        {/* ─── Assign Habit Modal ─── */}
         {showAssign && (
-          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-            <motion.div
-              initial={{ opacity: 0, y: 40 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="glass-elevated p-5 w-full max-w-md max-h-[70vh] overflow-y-auto"
-            >
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-stone-100">Assign Habit</h3>
-                <button onClick={() => setShowAssign(false)} className="text-stone-500 hover:text-stone-300">
-                  <X size={18} />
-                </button>
-              </div>
-              <div className="space-y-2">
-                {habitTemplates.length === 0 ? (
-                  <p className="text-stone-600 text-sm text-center py-4">No habit templates found</p>
-                ) : (
-                  habitTemplates.map((habit) => (
-                    <button
-                      key={habit.id}
-                      onClick={() => assignHabit(habit)}
-                      className="w-full text-left p-3 rounded-xl hover:bg-white/5 transition-colors flex items-center gap-3"
-                    >
-                      <span className="text-xl">{habit.emoji}</span>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium text-stone-200">{habit.name_en}</div>
-                        <div className="text-xs text-stone-500 flex items-center gap-2">
-                          <span className="capitalize">{habit.category}</span>
-                          <span>-</span>
-                          <span>{habit.cycle_days}d cycle</span>
-                        </div>
-                      </div>
-                      <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
-                        habit.difficulty === 'beginner'
-                          ? 'bg-green-500/10 text-green-400'
-                          : habit.difficulty === 'intermediate'
-                          ? 'bg-yellow-500/10 text-yellow-400'
-                          : 'bg-red-500/10 text-red-400'
-                      }`}>
-                        {habit.difficulty}
-                      </span>
-                    </button>
-                  ))
-                )}
-              </div>
-            </motion.div>
-          </div>
+          <AssignHabitDialog
+            habits={habitTemplates}
+            onAssign={(habit) => assignHabit(habit as Habit)}
+            onClose={() => setShowAssign(false)}
+          />
         )}
       </div>
     </div>

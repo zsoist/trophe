@@ -26,7 +26,7 @@ function ClientsSkeleton() {
       {/* Pulse cards row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="bg-white/[0.04] border border-white/[0.06] rounded-xl p-4 flex flex-col items-center gap-2">
+          <div key={i} className="bg-[var(--surface-hover)] border border-[var(--border-subtle)] rounded-xl p-4 flex flex-col items-center gap-2">
             <Pulse className="w-9 h-9 rounded-lg" />
             <Pulse className="w-12 h-5" />
             <Pulse className="w-16 h-2" />
@@ -39,7 +39,7 @@ function ClientsSkeleton() {
 
       {/* Client cards */}
       {[0, 1, 2, 3, 4].map((i) => (
-        <div key={i} className="bg-white/[0.04] border border-white/[0.06] rounded-xl p-4">
+        <div key={i} className="bg-[var(--surface-hover)] border border-[var(--border-subtle)] rounded-xl p-4">
           <div className="flex items-center gap-3 mb-3">
             <Pulse className="w-10 h-10 rounded-full" />
             <div className="flex-1 space-y-2">
@@ -67,7 +67,7 @@ function HabitsSkeleton() {
       {/* Habit cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {[0, 1, 2, 3, 4, 5].map((i) => (
-          <div key={i} className="bg-white/[0.04] border border-white/[0.06] rounded-xl p-4">
+          <div key={i} className="bg-[var(--surface-hover)] border border-[var(--border-subtle)] rounded-xl p-4">
             <div className="flex items-center gap-3 mb-3">
               <Pulse className="w-10 h-10 rounded-lg" />
               <div className="flex-1 space-y-2">
@@ -99,7 +99,7 @@ function ProtocolsSkeleton() {
 
       {/* Protocol cards */}
       {[0, 1, 2].map((i) => (
-        <div key={i} className="bg-white/[0.04] border border-white/[0.06] rounded-xl p-5">
+        <div key={i} className="bg-[var(--surface-hover)] border border-[var(--border-subtle)] rounded-xl p-5">
           <div className="flex items-center justify-between mb-4">
             <div className="space-y-2">
               <Pulse className="w-36 h-4" />
@@ -126,7 +126,7 @@ function DetailSkeleton() {
   return (
     <div className="space-y-4">
       {/* Profile header */}
-      <div className="bg-white/[0.04] border border-white/[0.06] rounded-xl p-5">
+      <div className="bg-[var(--surface-hover)] border border-[var(--border-subtle)] rounded-xl p-5">
         <div className="flex items-center gap-4 mb-4">
           <Pulse className="w-14 h-14 rounded-full" />
           <div className="flex-1 space-y-2">
@@ -146,12 +146,12 @@ function DetailSkeleton() {
       </div>
 
       {/* Macro chart placeholder */}
-      <div className="bg-white/[0.04] border border-white/[0.06] rounded-xl p-5 flex items-center justify-center">
+      <div className="bg-[var(--surface-hover)] border border-[var(--border-subtle)] rounded-xl p-5 flex items-center justify-center">
         <Pulse className="w-40 h-40 rounded-full" />
       </div>
 
       {/* Activity feed placeholder */}
-      <div className="bg-white/[0.04] border border-white/[0.06] rounded-xl p-5 space-y-3">
+      <div className="bg-[var(--surface-hover)] border border-[var(--border-subtle)] rounded-xl p-5 space-y-3">
         <Pulse className="w-24 h-3" />
         {[0, 1, 2, 3].map((i) => (
           <div key={i} className="flex items-center gap-3">

@@ -52,10 +52,10 @@ export default function MealPhotoGallery({ userId }: MealPhotoGalleryProps) {
         >
           <div className="flex items-center gap-2">
             <ImageIcon size={14} className="gold-text" />
-            <span className="text-stone-300 text-xs font-medium">Photo Gallery</span>
-            <span className="text-stone-600 text-[10px]">({photos.length})</span>
+            <span className="text-[var(--content-primary)] text-xs font-medium">Photo Gallery</span>
+            <span className="text-[var(--content-muted)] text-xs">({photos.length})</span>
           </div>
-          {expanded ? <ChevronUp size={12} className="text-stone-500" /> : <ChevronDown size={12} className="text-stone-500" />}
+          {expanded ? <ChevronUp size={12} className="text-[var(--content-muted)]" /> : <ChevronDown size={12} className="text-[var(--content-muted)]" />}
         </button>
 
         <AnimatePresence>
@@ -73,7 +73,7 @@ export default function MealPhotoGallery({ userId }: MealPhotoGalleryProps) {
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: i * 0.03 }}
                   onClick={() => setSelected(photo)}
-                  className="aspect-square rounded-lg overflow-hidden border border-white/[0.05] hover:border-[#D4A853]/30 transition-colors"
+                  className="aspect-square rounded-lg overflow-hidden border border-[var(--border-subtle)] hover:border-[#D4A853]/30 transition-colors"
                 >
                   <img
                     src={photo.photo_url}
@@ -95,7 +95,7 @@ export default function MealPhotoGallery({ userId }: MealPhotoGalleryProps) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-4"
+            className="fixed inset-0 z-50 bg-[var(--surface-overlay)] flex flex-col items-center justify-center p-4"
             onClick={() => setSelected(null)}
           >
             <button
@@ -104,7 +104,7 @@ export default function MealPhotoGallery({ userId }: MealPhotoGalleryProps) {
                 e.stopPropagation();
                 setSelected(null);
               }}
-              className="absolute top-4 right-4 text-white/50 hover:text-white"
+              className="absolute top-4 right-4 text-[var(--content-muted)] hover:text-[var(--content-primary)]"
             >
               <X size={24} />
             </button>
@@ -114,8 +114,8 @@ export default function MealPhotoGallery({ userId }: MealPhotoGalleryProps) {
               className="max-w-full max-h-[70vh] rounded-xl object-contain"
             />
             <div className="mt-3 text-center">
-              <p className="text-white text-sm font-medium">{selected.food_name}</p>
-              <p className="text-white/50 text-xs">{selected.logged_date} · {selected.calories} kcal</p>
+              <p className="text-[var(--content-primary)] text-sm font-medium">{selected.food_name}</p>
+              <p className="text-[var(--content-muted)] text-xs">{selected.logged_date} · {selected.calories} kcal</p>
             </div>
           </motion.div>
         )}

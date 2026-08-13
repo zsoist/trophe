@@ -89,13 +89,13 @@ export default function ClientWorkoutsPanel({ clientId }: { clientId: string }) 
   return (
     <div className="glass p-5 mb-4">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="font-semibold text-stone-200 flex items-center gap-2">
-          <Dumbbell size={16} className="text-[#D4A853]" />
+        <h2 className="font-semibold text-[var(--content-primary)] flex items-center gap-2">
+          <Dumbbell size={16} className="text-[var(--action-primary)]" />
           {t('coach.workouts.title')}
         </h2>
         <Link
           href={`/coach/templates?client=${clientId}`}
-          className="min-h-[44px] -my-2 flex items-center gap-1 text-xs text-[#D4A853] hover:text-[#e8c06a] transition-colors"
+          className="min-h-11 -my-2 flex items-center gap-1 text-xs text-[var(--action-primary)] hover:text-[var(--action-primary-hover)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
         >
           {program ? t('coach.workouts.assignEdit') : t('coach.workouts.assign')}
           <ChevronRight size={13} />
@@ -105,11 +105,11 @@ export default function ClientWorkoutsPanel({ clientId }: { clientId: string }) 
       {loading ? (
         <div className="space-y-2">
           {[0, 1, 2].map((i) => (
-            <div key={i} className="h-10 rounded-xl bg-white/[0.04] animate-pulse" />
+            <div key={i} className="h-10 rounded-xl bg-[var(--surface-hover)] animate-pulse" />
           ))}
         </div>
       ) : failed ? (
-        <p className="text-stone-500 text-sm text-center py-4">
+        <p className="text-[var(--content-muted)] text-sm text-center py-4">
           {t('coach.workouts.loadError')}
         </p>
       ) : (
@@ -118,8 +118,8 @@ export default function ClientWorkoutsPanel({ clientId }: { clientId: string }) 
           {program ? (
             <div className="mb-4">
               <div className="flex items-center justify-between mb-2">
-                <div className="text-sm font-medium text-stone-100">{program.program.name}</div>
-                <span className="text-[10px] text-stone-500 font-mono">
+                <div className="text-sm font-medium text-[var(--content-primary)]">{program.program.name}</div>
+                <span className="text-xs text-[var(--content-muted)] font-mono">
                   {t('coach.workouts.assigned')}{' '}
                   {formatDate(
                     (program.program.startsOn ??
@@ -134,47 +134,47 @@ export default function ClientWorkoutsPanel({ clientId }: { clientId: string }) 
                     key={chip.weekday}
                     className={`rounded-lg p-1.5 text-center border ${
                       chip.templates.length > 0
-                        ? 'bg-[#D4A853]/10 border-[#D4A853]/20'
-                        : 'bg-white/[0.02] border-white/[0.06]'
+                        ? 'bg-[var(--action-primary)]/10 border-[var(--action-primary)]/20'
+                        : 'bg-[var(--surface-hover)] border-[var(--border-subtle)]'
                     }`}
                     title={chip.templates.length > 0 ? chip.templates.join(' + ') : t('coach.workouts.restDay')}
                   >
                     <div
-                      className={`text-[9px] font-semibold mb-0.5 ${
-                        chip.templates.length > 0 ? 'text-[#D4A853]' : 'text-stone-600'
+                      className={`text-xs font-semibold mb-0.5 ${
+                        chip.templates.length > 0 ? 'text-[var(--action-primary)]' : 'text-[var(--content-muted)]'
                       }`}
                     >
                       {chip.label}
                     </div>
                     {chip.templates.length > 0 ? (
-                      <div className="text-[8px] text-stone-400 leading-tight truncate">
+                      <div className="text-xs text-[var(--content-secondary)] leading-tight truncate">
                         {chip.templates.join(' + ')}
                       </div>
                     ) : (
-                      <Moon size={10} className="mx-auto text-stone-700" />
+                      <Moon size={10} className="mx-auto text-[var(--content-muted)]" />
                     )}
                   </div>
                 ))}
               </div>
               {program.program.notes && (
-                <p className="text-[11px] text-stone-500 mt-2 leading-snug">
+                <p className="text-xs text-[var(--content-muted)] mt-2 leading-snug">
                   {program.program.notes}
                 </p>
               )}
             </div>
           ) : (
-            <p className="text-stone-600 text-sm text-center py-3 mb-3">
+            <p className="text-[var(--content-muted)] text-sm text-center py-3 mb-3">
               {t('coach.workouts.noProgram')}
             </p>
           )}
 
           {/* ── Recent sessions ── */}
           <div className="mb-4">
-            <p className="text-[10px] font-semibold text-stone-500 uppercase tracking-wider mb-2">
+            <p className="text-xs font-semibold text-[var(--content-muted)] uppercase tracking-wider mb-2">
               {t('coach.workouts.recentSessions')}
             </p>
             {recentSessions.length === 0 ? (
-              <p className="text-stone-600 text-sm text-center py-3">{t('coach.workouts.noSessions')}</p>
+              <p className="text-[var(--content-muted)] text-sm text-center py-3">{t('coach.workouts.noSessions')}</p>
             ) : (
               <div className="space-y-1.5">
                 {recentSessions.map((s) => {
@@ -183,13 +183,13 @@ export default function ClientWorkoutsPanel({ clientId }: { clientId: string }) 
                   return (
                     <div
                       key={s.id}
-                      className="flex items-center gap-3 p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.05]"
+                      className="flex items-center gap-3 p-2.5 rounded-xl bg-[var(--surface-hover)] border border-[var(--border-subtle)]"
                     >
                       <div className="flex-1 min-w-0">
-                        <div className="text-xs font-medium text-stone-200 truncate">
+                        <div className="text-xs font-medium text-[var(--content-primary)] truncate">
                           {s.name || t('coach.workouts.workout')}
                         </div>
-                        <div className="text-[10px] text-stone-500">
+                        <div className="text-xs text-[var(--content-muted)]">
                           {formatDate(s.sessionDate)}
                           {s.durationMinutes ? ` · ${s.durationMinutes} ${t('coach.workouts.min')}` : ''}
                           {` · ${agg.count} ${agg.count !== 1 ? t('coach.workouts.sets') : t('coach.workouts.set')}`}
@@ -197,7 +197,7 @@ export default function ClientWorkoutsPanel({ clientId }: { clientId: string }) 
                       </div>
                       {agg.prs > 0 && (
                         <span
-                          className="flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full bg-[#D4A853]/15 text-[#D4A853] border border-[#D4A853]/30 shrink-0"
+                          className="flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-full bg-[var(--action-primary)]/15 text-[var(--action-primary)] border border-[var(--action-primary)]/30 shrink-0"
                           title={`${agg.prs} ${t('coach.workouts.personalRecords')}`}
                         >
                           <Trophy size={10} />
@@ -206,7 +206,7 @@ export default function ClientWorkoutsPanel({ clientId }: { clientId: string }) 
                       )}
                       {painFlags.length > 0 && (
                         <span
-                          className="flex items-center gap-1 text-amber-400 shrink-0 text-[10px] font-medium"
+                          className="flex items-center gap-1 text-amber-400 shrink-0 text-xs font-medium"
                           title={`${t('coach.workouts.painFlags')}: ${painFlags
                             .map((pf) => `${pf.body_part} (${pf.severity}/10)`)
                             .join(', ')}`}

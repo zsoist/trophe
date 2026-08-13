@@ -50,14 +50,14 @@ export default function CoachInsightPanel({ clientId }: { clientId: string }) {
   }
 
   return (
-    <section className="bg-white/[0.04] border border-[#D4A853]/20 rounded-xl p-4" aria-labelledby="coach-insight-title">
+    <section className="bg-[var(--surface-hover)] border border-[#D4A853]/20 rounded-xl p-4" aria-labelledby="coach-insight-title">
       <div className="flex items-start gap-3 mb-4">
         <div className="p-2 rounded-lg bg-[#D4A853]/10 text-[#D4A853]"><Bot size={18} /></div>
         <div className="flex-1">
-          <h2 id="coach-insight-title" className="text-stone-100 text-sm font-semibold">Trophe Coach Insight</h2>
-          <p className="text-stone-500 text-xs mt-0.5">Grounded in approved coach blocks, client memory, and permission-aware knowledge.</p>
+          <h2 id="coach-insight-title" className="text-[var(--content-primary)] text-sm font-semibold">Trophe Coach Insight</h2>
+          <p className="text-[var(--content-muted)] text-xs mt-0.5">Grounded in approved coach blocks, client memory, and permission-aware knowledge.</p>
         </div>
-        <ShieldCheck size={16} className="text-emerald-400" aria-label="Permission-aware" />
+        <ShieldCheck size={16} className="text-[var(--status-success-fg)]" aria-label="Permission-aware" />
       </div>
 
       <label htmlFor="coach-insight-question" className="sr-only">Question about this client</label>
@@ -69,37 +69,37 @@ export default function CoachInsightPanel({ clientId }: { clientId: string }) {
           placeholder="Ask about patterns, adherence, risks, or the next coaching action..."
           rows={3}
           maxLength={8_000}
-          className="flex-1 resize-none rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-sm text-stone-200 placeholder:text-stone-600 focus:border-[#D4A853]/60 focus:outline-none"
+          className="flex-1 resize-none rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-2)] px-3 py-2 text-base text-[var(--content-primary)] placeholder:text-[var(--content-muted)] focus:border-[var(--border-focus)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
         />
         <button
           type="button"
           onClick={() => void generateInsight()}
           disabled={!question.trim() || loading}
-          className="self-end rounded-lg bg-[#D4A853] p-2.5 text-stone-950 transition-colors hover:bg-[#e2bb6d] disabled:cursor-not-allowed disabled:opacity-40"
+          className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] self-end rounded-lg bg-[var(--action-primary)] p-2.5 text-[var(--action-on-primary)] transition-colors hover:bg-[var(--action-primary-hover)] disabled:cursor-not-allowed disabled:opacity-40"
           aria-label="Generate coach insight"
         >
           {loading ? <LoaderCircle size={18} className="animate-spin" /> : <Send size={18} />}
         </button>
       </div>
 
-      {error && <p role="alert" className="mt-3 rounded-lg border border-red-500/20 bg-red-500/5 p-3 text-xs text-red-300">{error}</p>}
+      {error && <p role="alert" className="mt-3 rounded-lg border border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] p-3 text-xs text-[var(--status-danger-fg)]">{error}</p>}
 
       {insight?.insight && (
         <div className="mt-4 space-y-3" aria-live="polite">
-          <p className="whitespace-pre-wrap text-sm leading-relaxed text-stone-300">{insight.insight}</p>
+          <p className="whitespace-pre-wrap text-sm leading-relaxed text-[var(--content-secondary)]">{insight.insight}</p>
           {insight.groundingStatus === 'verified' && (
-            <p className="text-xs text-emerald-300">Grounding verified against cited knowledge.</p>
+            <p className="text-xs text-[var(--status-success-fg)]">Grounding verified against cited knowledge.</p>
           )}
           {insight.groundingStatus === 'uncited' && (
-            <p className="text-xs text-amber-300" role="alert">
+            <p className="text-xs text-[var(--status-warning-fg)]" role="alert">
               Knowledge was retrieved, but the response did not cite it directly. Review sources before acting.
             </p>
           )}
-          <div className="flex flex-wrap items-center gap-2 border-t border-white/5 pt-3 text-[11px] text-stone-500">
+          <div className="flex flex-wrap items-center gap-2 border-t border-[var(--border-subtle)] pt-3 text-xs text-[var(--content-muted)]">
             <BookOpen size={13} />
             {insight.citations?.length
               ? insight.citations.map((citation) => (
-                <span key={citation.chunkId} title={`${citation.documentId} · ${new Date(citation.createdAt).toLocaleString()}`} className="rounded-full bg-white/5 px-2 py-1">
+                <span key={citation.chunkId} title={`${citation.documentId} · ${new Date(citation.createdAt).toLocaleString()}`} className="rounded-full bg-[var(--surface-hover)] px-2 py-1">
                   {citation.source}
                 </span>
               ))
