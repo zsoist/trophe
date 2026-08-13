@@ -22,7 +22,7 @@ const rules = [
   },
   {
     name: 'arbitrary dark neutral hex presentation',
-    pattern: /(?:bg|text|border|outline|ring|fill|stroke)-\[[^\]\n]*#[\da-f]{3,8}[^\]\n]*\]|(?:background(?:Color)?|color|fill|stroke|border(?:Color)?)\s*:\s*["'`][^"'`\n]*#[\da-f]{3,8}[^"'`\n]*["'`]|(?:fill|stroke|color)=["'][^"'\n]*#[\da-f]{3,8}[^"'\n]*["']/gi,
+    pattern: /(?:bg|text|border|outline|ring|fill|stroke)-\[[^\]\n]*#[\da-f]{3,8}[^\]\n]*\]|(?:background(?:Color)?|color|fill|stroke|border(?:Color)?)\s*:\s*(?:[^,\n}]*?var\([^\)\n]*#[\da-f]{3,8}[^\)\n]*\)|(?:[^(),\n}]|\([^\)\n]*\))*#[\da-f]{3,8})|(?:fill|stroke|color)=["'][^"'\n]*#[\da-f]{3,8}[^"'\n]*["']/gi,
   },
   {
     name: 'functional text below 12px',

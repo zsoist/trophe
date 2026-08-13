@@ -85,6 +85,7 @@ describe('theme inventory guard', () => {
       'components/Chart.tsx': "export const view = <svg><path fill=\"#0a0a0a\" /></svg>;\n",
       'components/Fallback.tsx': "export const view = <div style={{ background: 'var(--bg,#0a0a0a)', color: 'var(--surface, #141414)' }}>Bad fallback</div>;\n",
       'components/Unlisted.tsx': "export const view = <div style={{ background: '#121212' }}>Bad unlisted neutral</div>;\n",
+      'components/Conditional.tsx': "export const view = <button style={{ color: saved ? 'rgb(34,197,94)' : '#0a0a0a' }}>Save</button>;\n",
     }));
 
     expect(result.status).toBe(1);
@@ -93,11 +94,19 @@ describe('theme inventory guard', () => {
     expect(result.stderr).toContain('components/Chart.tsx:1:');
     expect(result.stderr).toContain('components/Fallback.tsx:1:');
     expect(result.stderr).toContain('components/Unlisted.tsx:1:');
+    expect(result.stderr).toContain('components/Conditional.tsx:1:');
     expect(result.stderr).toContain('arbitrary dark neutral hex presentation');
   });
 
   it('accepts a clean source tree', () => {
     const result = run(fixture({ 'app/clean.tsx': "export const clean = <p className=\"text-[var(--content-primary)]\">Ready</p>;\n" }));
+    expect(result.status).toBe(0);
+  });
+
+  it('permits non-neutral brand and data paint in presentation expressions', () => {
+    const result = run(fixture({
+      'components/Brand.tsx': "export const view = <button style={{ color: saved ? 'rgb(34,197,94)' : '#D4A853', background: '#ef4444' }}>Save</button>;\n",
+    }));
     expect(result.status).toBe(0);
   });
 
