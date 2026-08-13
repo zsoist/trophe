@@ -5,8 +5,8 @@ import {
   ChevronRight, Globe, ArrowRight,
 } from 'lucide-react';
 import LanguageLinks from '@/components/landing/LanguageLinks';
+import { StandaloneThemeModeToggle } from '@/components/shared/StandaloneThemeModeToggle';
 import type { LandingLang } from '@/lib/landing-language';
-import { ThemeModeProvider, ThemeModeToggle } from '@/components/shared/ThemeMode';
 
 /* ═══════════════════════════════════════════════════════
    τροφή Landing Page
@@ -258,7 +258,6 @@ export default function LandingPage({ lang }: { lang: LandingLang }) {
   const t = copy[lang];
 
   return (
-    <ThemeModeProvider>
     <div
       className="min-h-screen overflow-x-hidden bg-[var(--canvas)] text-[var(--content-primary)]"
       data-landing-lang
@@ -278,7 +277,7 @@ export default function LandingPage({ lang }: { lang: LandingLang }) {
             <div className="[&_nav]:border-[var(--border-default)] [&_nav]:bg-[var(--surface-2)] [&_a]:inline-flex [&_a]:min-h-11 [&_a]:min-w-11 [&_a]:items-center [&_a]:justify-center [&_a]:text-xs [&_a]:text-[var(--content-muted)]">
               <LanguageLinks current={lang} />
             </div>
-            <ThemeModeToggle />
+            <StandaloneThemeModeToggle />
             <Link
               href="/login"
               prefetch={false}
@@ -526,6 +525,5 @@ export default function LandingPage({ lang }: { lang: LandingLang }) {
         </div>
       </footer>
     </div>
-    </ThemeModeProvider>
   );
 }
