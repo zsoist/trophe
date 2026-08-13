@@ -86,6 +86,8 @@ describe('theme inventory guard', () => {
       'components/Fallback.tsx': "export const view = <div style={{ background: 'var(--bg,#0a0a0a)', color: 'var(--surface, #141414)' }}>Bad fallback</div>;\n",
       'components/Unlisted.tsx': "export const view = <div style={{ background: '#121212' }}>Bad unlisted neutral</div>;\n",
       'components/Conditional.tsx': "export const view = <button style={{ color: saved ? 'rgb(34,197,94)' : '#0a0a0a' }}>Save</button>;\n",
+      'components/JsxFill.tsx': "export const view = <svg><path fill={'#0a0a0a'} /></svg>;\n",
+      'components/JsxStroke.tsx': "export const view = <svg><path stroke={isDark ? '#0a0a0a' : '#D4A853'} /></svg>;\n",
     }));
 
     expect(result.status).toBe(1);
@@ -95,6 +97,8 @@ describe('theme inventory guard', () => {
     expect(result.stderr).toContain('components/Fallback.tsx:1:');
     expect(result.stderr).toContain('components/Unlisted.tsx:1:');
     expect(result.stderr).toContain('components/Conditional.tsx:1:');
+    expect(result.stderr).toContain('components/JsxFill.tsx:1:');
+    expect(result.stderr).toContain('components/JsxStroke.tsx:1:');
     expect(result.stderr).toContain('arbitrary dark neutral hex presentation');
   });
 
@@ -106,6 +110,7 @@ describe('theme inventory guard', () => {
   it('permits non-neutral brand and data paint in presentation expressions', () => {
     const result = run(fixture({
       'components/Brand.tsx': "export const view = <button style={{ color: saved ? 'rgb(34,197,94)' : '#D4A853', background: '#ef4444' }}>Save</button>;\n",
+      'components/BrandSvg.tsx': "export const view = <svg><path stroke={isDark ? '#D4A853' : '#ef4444'} /></svg>;\n",
     }));
     expect(result.status).toBe(0);
   });
