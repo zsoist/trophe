@@ -680,7 +680,7 @@ export default function PlanEditorPage() {
               value={phase}
               onChange={(e) => setPhase(e.target.value)}
               style={{
-                background: 'var(--surface,#141414)',
+                background: 'var(--surface-1)',
                 border: '1px solid var(--border-default)',
                 borderRadius: 8,
                 padding: '4px 8px',
@@ -827,7 +827,7 @@ export default function PlanEditorPage() {
                           rows={2}
                           style={{
                             width: '100%', minWidth: 96,
-                            background: 'var(--surface,#141414)',
+                            background: 'var(--surface-1)',
                             border: '1px solid var(--border-default)', borderRadius: 8,
                             padding: '6px 20px 6px 8px', color: 'var(--content-primary)', fontSize: 16,
                             resize: 'vertical', fontFamily: 'inherit',
@@ -930,7 +930,7 @@ export default function PlanEditorPage() {
                 rows={2}
                 style={{
                   width: '100%',
-                  background: 'var(--surface,#141414)',
+                  background: 'var(--surface-1)',
                   border: '1px solid var(--border-default)',
                   borderRadius: 8,
                   padding: '8px 10px',

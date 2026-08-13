@@ -61,15 +61,21 @@ describe('theme inventory guard', () => {
     expect(result.stderr).toContain('components/Label.tsx:1:');
   });
 
-  it('permits dark media paint only at an explicit media-canvas boundary', () => {
+  it('permits dark media paint only at an explicit marker on a real media boundary', () => {
     const result = run(fixture({
-      'components/MediaPanel.tsx': "export const view = <div data-theme-exempt=\"media-canvas\" className=\"bg-black\"><video /></div>;\n",
-      'components/FormCheck.tsx': "export const view = <div className=\"bg-black\"><video /></div>;\n",
+      'components/VideoPanel.tsx': "export const view = <div data-theme-exempt=\"media-canvas\" className=\"bg-black\"><video /></div>;\n",
+      'components/CanvasPanel.tsx': "export const view = <div data-theme-exempt=\"media-canvas\" className=\"bg-black\"><canvas /></div>;\n",
+      'components/ImagePanel.tsx': "export const view = <div data-theme-exempt=\"media-canvas\" className=\"bg-black\"><img alt=\"Preview\" /></div>;\n",
+      'components/MarkedGeneric.tsx': "export const view = <div data-theme-exempt=\"media-canvas\" className=\"bg-black\"><p>Controls</p></div>;\n",
+      'components/UnmarkedVideo.tsx': "export const view = <video className=\"bg-black\" />;\n",
     }));
 
     expect(result.status).toBe(1);
-    expect(result.stderr).not.toContain('components/MediaPanel.tsx');
-    expect(result.stderr).toContain('components/FormCheck.tsx:1:');
+    expect(result.stderr).not.toContain('components/VideoPanel.tsx');
+    expect(result.stderr).not.toContain('components/CanvasPanel.tsx');
+    expect(result.stderr).not.toContain('components/ImagePanel.tsx');
+    expect(result.stderr).toContain('components/MarkedGeneric.tsx:1:');
+    expect(result.stderr).toContain('components/UnmarkedVideo.tsx:1:');
   });
 
   it('rejects arbitrary neutral hex paint in utility, inline style, and SVG presentation', () => {
@@ -77,12 +83,16 @@ describe('theme inventory guard', () => {
       'app/utility.tsx': "export const view = <p className=\"text-[#000]\">Bad utility</p>;\n",
       'components/Inline.tsx': "export const view = <div style={{ background: '#1a1a1a' }}>Bad inline</div>;\n",
       'components/Chart.tsx': "export const view = <svg><path fill=\"#0a0a0a\" /></svg>;\n",
+      'components/Fallback.tsx': "export const view = <div style={{ background: 'var(--bg,#0a0a0a)', color: 'var(--surface, #141414)' }}>Bad fallback</div>;\n",
+      'components/Unlisted.tsx': "export const view = <div style={{ background: '#121212' }}>Bad unlisted neutral</div>;\n",
     }));
 
     expect(result.status).toBe(1);
     expect(result.stderr).toContain('app/utility.tsx:1:');
     expect(result.stderr).toContain('components/Inline.tsx:1:');
     expect(result.stderr).toContain('components/Chart.tsx:1:');
+    expect(result.stderr).toContain('components/Fallback.tsx:1:');
+    expect(result.stderr).toContain('components/Unlisted.tsx:1:');
     expect(result.stderr).toContain('arbitrary dark neutral hex presentation');
   });
 

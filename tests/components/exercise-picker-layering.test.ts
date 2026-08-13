@@ -19,7 +19,8 @@ describe('mobile exercise picker layering', () => {
     expect(pickerSource).toContain('role="dialog"');
     expect(pickerSource).toContain('aria-modal="true"');
     expect(pickerSource).toContain('z-[var(--z-modal,60)]');
-    expect(pickerSource).toContain("background: '#0a0a0a'");
+    expect(pickerSource).toContain("background: 'var(--canvas)'");
+    expect(pickerSource).not.toContain("background: '#0a0a0a'");
   });
 
   it('locks and restores document scrolling while the picker is open', () => {

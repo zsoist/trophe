@@ -22,7 +22,7 @@ const rules = [
   },
   {
     name: 'arbitrary dark neutral hex presentation',
-    pattern: /(?:bg|text|border|outline|ring|fill|stroke)-\[#(?:000|000000|fff|ffffff|0a0a0a|111111|141414|1a1a1a|1c1c1c|222222|242424|2a2a2a|333333|44403c|57534e|78716c|a8a29e|d6d3d1|e7e5e4|f5f5f4|fafaf9)\]|(?:background(?:Color)?|color|fill|stroke|border(?:Color)?):\s*["']#(?:000|000000|fff|ffffff|0a0a0a|111111|141414|1a1a1a|1c1c1c|222222|242424|2a2a2a|333333|44403c|57534e|78716c|a8a29e|d6d3d1|e7e5e4|f5f5f4|fafaf9)["']|(?:fill|stroke|color)=["']#(?:000|000000|fff|ffffff|0a0a0a|111111|141414|1a1a1a|1c1c1c|222222|242424|2a2a2a|333333|44403c|57534e|78716c|a8a29e|d6d3d1|e7e5e4|f5f5f4|fafaf9)["']/gi,
+    pattern: /(?:bg|text|border|outline|ring|fill|stroke)-\[[^\]\n]*#[\da-f]{3,8}[^\]\n]*\]|(?:background(?:Color)?|color|fill|stroke|border(?:Color)?)\s*:\s*["'`][^"'`\n]*#[\da-f]{3,8}[^"'`\n]*["'`]|(?:fill|stroke|color)=["'][^"'\n]*#[\da-f]{3,8}[^"'\n]*["']/gi,
   },
   {
     name: 'functional text below 12px',
@@ -62,8 +62,28 @@ function isRedundantChartTick(filePath, source, index) {
 function isExplicitMediaCanvas(source, index) {
   const tagStart = source.lastIndexOf('<', index);
   const tagEnd = source.indexOf('>', tagStart);
-  return tagStart !== -1 && tagStart < index && index <= tagEnd
-    && /\bdata-theme-exempt\s*=\s*["']media-canvas["']/.test(source.slice(tagStart, tagEnd));
+  if (tagStart === -1 || tagStart >= index || index > tagEnd) return false;
+
+  const openingTag = source.slice(tagStart, tagEnd + 1);
+  if (!/\bdata-theme-exempt\s*=\s*["']media-canvas["']/.test(openingTag)) return false;
+  const tagName = openingTag.match(/^<\s*([a-z][\w.-]*)\b/i)?.[1];
+  if (!tagName) return false;
+  if (/^(?:video|canvas|img)$/i.test(tagName)) return true;
+
+  const closeTagStart = source.indexOf(`</${tagName}`, tagEnd + 1);
+  return closeTagStart !== -1 && /<(?:video|canvas|img)\b/i.test(source.slice(tagEnd + 1, closeTagStart));
+}
+
+function isDarkOrLightNeutralHex(token) {
+  return [...token.matchAll(/#([\da-f]{8}|[\da-f]{6}|[\da-f]{4}|[\da-f]{3})\b/gi)].some((match) => {
+    const value = match[1];
+    const hex = value.length <= 4
+      ? value.slice(0, 3).split('').map((channel) => channel.repeat(2)).join('')
+      : value.slice(0, 6);
+    const channels = [0, 2, 4].map((offset) => Number.parseInt(hex.slice(offset, offset + 2), 16));
+    const spread = Math.max(...channels) - Math.min(...channels);
+    return spread <= 18 && (Math.max(...channels) <= 48 || Math.min(...channels) >= 224);
+  });
 }
 
 function isAllowed(rule, filePath, source, index) {
@@ -87,6 +107,7 @@ for (const root of sourceRoots) {
       rule.pattern.lastIndex = 0;
       for (const match of source.matchAll(rule.pattern)) {
         const index = match.index ?? 0;
+        if (rule.name === 'arbitrary dark neutral hex presentation' && !isDarkOrLightNeutralHex(match[0])) continue;
         if (isAllowed(rule, filePath, source, index)) continue;
         const { line, column } = lineAndColumn(source, index);
         violations.push({

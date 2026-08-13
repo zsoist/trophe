@@ -81,7 +81,7 @@ export default class ErrorBoundary extends Component<Props, State> {
       return (
         <div
           className="min-h-screen flex items-center justify-center p-6"
-          style={{ background: 'var(--bg,#0a0a0a)' }}
+          style={{ background: 'var(--canvas)' }}
         >
           <div
             className="max-w-sm w-full text-center"
@@ -120,7 +120,7 @@ export default class ErrorBoundary extends Component<Props, State> {
               </svg>
             </div>
 
-            <h1 style={{ fontSize: 18, fontWeight: 700, color: 'var(--t1,#FAFAF9)', marginBottom: 6 }}>
+            <h1 style={{ fontSize: 18, fontWeight: 700, color: 'var(--content-primary)', marginBottom: 6 }}>
               Something went wrong
             </h1>
 
