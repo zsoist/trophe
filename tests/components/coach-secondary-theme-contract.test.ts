@@ -8,6 +8,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ts from 'typescript';
 
 const motionPreference = vi.hoisted(() => ({ reduced: true }));
+const getFeedbackUser = vi.hoisted(() => vi.fn().mockResolvedValue({ data: { user: null } }));
+
+vi.mock('@/lib/supabase', () => ({
+  supabase: { auth: { getUser: getFeedbackUser } },
+}));
 
 vi.mock('framer-motion', async () => {
   const ReactModule = await import('react');
@@ -47,7 +52,10 @@ import MacroRollupModal from '@/components/coach/MacroRollupModal';
 import MealSuggestPicker from '@/components/coach/MealSuggestPicker';
 import QuickActionsBar from '@/components/coach/QuickActionsBar';
 import ShoppingListModal from '@/components/coach/ShoppingListModal';
-import { useCoachDialogFocus } from '@/components/coach/useCoachDialogFocus';
+import HabitDetailModal from '@/components/habits/HabitDetailModal';
+import FeedbackWidget from '@/components/shared/FeedbackWidget';
+import { useDialogFocus } from '@/components/shared/useDialogFocus';
+import ShortcutsModal from '@/components/shared/ShortcutsModal';
 import { Trophy } from 'lucide-react';
 
 const ROUTE_SOURCES = [
@@ -149,7 +157,7 @@ function RouteDialogHarness({ renderUtility }: { renderUtility: (onClose: () => 
   const [open, setOpen] = React.useState(false);
   const [utilityOpen, setUtilityOpen] = React.useState(false);
   const ref = React.useRef<HTMLDivElement>(null);
-  useCoachDialogFocus(open, () => setOpen(false), ref);
+  useDialogFocus(open, () => setOpen(false), ref);
   return React.createElement(React.Fragment, null,
     React.createElement('button', { onClick: () => setOpen(true) }, 'Open route dialog'),
     open && React.createElement('div', { ref, role: 'dialog', 'aria-label': 'Underlying route dialog', tabIndex: -1 },
@@ -187,6 +195,30 @@ const batchProps = {
   habits: [{ id: 'habit-1', name: 'Daily walk', emoji: 'walk' }],
   onAssign: vi.fn(),
   onClose: vi.fn(),
+};
+
+const today = new Date();
+const todayLocalDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+const habitDetailProps = {
+  open: true,
+  onClose: vi.fn(),
+  habit: {
+    id: 'habit-1', created_by: null, name_en: 'Drink water', name_es: null, name_el: null,
+    description_en: null, description_es: null, description_el: null, emoji: '💧', category: 'hydration' as const,
+    difficulty: 'beginner' as const, target_value: null, target_unit: null, cycle_days: 14,
+    suggested_order: null, is_template: false, created_at: '2026-01-01T00:00:00.000Z',
+  },
+  clientHabit: {
+    id: 'client-habit-1', client_id: 'client-1', habit_id: 'habit-1', assigned_by: null, status: 'active' as const,
+    started_at: '2026-01-01T00:00:00.000Z', completed_at: null, current_streak: 3, best_streak: 5,
+    total_completions: 3, sequence_number: 1, coach_note: null, created_at: '2026-01-01T00:00:00.000Z',
+  },
+  checkins: [{
+    id: 'checkin-1', client_habit_id: 'client-habit-1', user_id: 'client-1', checked_date: todayLocalDate,
+    completed: true, value: null, note: null, mood: 'good' as const, created_at: '2026-08-12T00:00:00.000Z',
+  }],
+  language: 'en' as const,
 };
 
 beforeEach(() => {
@@ -359,8 +391,8 @@ describe('coach operational routes and modal library contract', () => {
         !/aria-modal="true"/.test(value) && `${file}: missing modal semantics`,
         !/aria-(?:label|labelledby)=/.test(value) && `${file}: missing dialog name`,
         !/(?:safe-bottom|env\(safe-area-inset-bottom\))/.test(value) && `${file}: missing safe-area reserve`,
-        !(/useCoachDialogFocus/.test(value) || /(?:Escape)/.test(value)) && `${file}: missing Escape behavior`,
-        !(/useCoachDialogFocus/.test(value) || /(?:previousFocus|returnFocus|ReturnFocus)/.test(value)) && `${file}: missing focus restoration`,
+        !(/useDialogFocus/.test(value) || /(?:Escape)/.test(value)) && `${file}: missing Escape behavior`,
+        !(/useDialogFocus/.test(value) || /(?:previousFocus|returnFocus|ReturnFocus)/.test(value)) && `${file}: missing focus restoration`,
         !/(?:useReducedMotion|motion-reduce:)/.test(value) && `${file}: missing reduced-motion behavior`,
       ].filter(Boolean) as string[];
     });
@@ -388,6 +420,96 @@ describe('coach operational routes and modal library contract', () => {
     view.unmount();
     expect(document.activeElement).toBe(outside);
     outside.remove();
+  });
+
+  it('traps focus and restores it in the actual feedback overlay', async () => {
+    const outside = document.createElement('button');
+    outside.textContent = 'Outside feedback';
+    document.body.appendChild(outside);
+    const view = render(React.createElement(FeedbackWidget));
+    try {
+      const trigger = screen.getByRole('button', { name: 'Feedback' });
+      trigger.focus();
+      fireEvent.click(trigger);
+      const dialog = await screen.findByRole('dialog', { name: 'Help shape Trophē' });
+      const close = screen.getByRole('button', { name: 'Close feedback' });
+      const submit = screen.getByRole('button', { name: 'Send feedback' });
+
+      await waitFor(() => expect(document.activeElement).toBe(close));
+      fireEvent.keyDown(close, { key: 'Tab', shiftKey: true });
+      expect(document.activeElement).toBe(submit);
+      fireEvent.keyDown(submit, { key: 'Tab' });
+      expect(document.activeElement).toBe(close);
+      fireEvent.keyDown(document, { key: 'Escape' });
+      await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Help shape Trophē' })).toBeNull());
+      expect(document.activeElement).toBe(trigger);
+      expect(dialog.isConnected).toBe(false);
+    } finally {
+      view.unmount();
+      outside.remove();
+    }
+  });
+
+  it('traps focus, closes, and restores it in the actual keyboard-shortcuts overlay', async () => {
+    function ShortcutsHarness() {
+      const [open, setOpen] = React.useState(true);
+      return open ? React.createElement(ShortcutsModal, { onClose: () => setOpen(false) }) : null;
+    }
+
+    const outside = document.createElement('button');
+    outside.textContent = 'Outside shortcuts';
+    document.body.appendChild(outside);
+    outside.focus();
+    const view = render(React.createElement(ShortcutsHarness));
+    try {
+      const dialog = screen.getByRole('dialog', { name: 'Keyboard Shortcuts' });
+      const close = screen.getByRole('button', { name: 'Close keyboard shortcuts' });
+
+      await waitFor(() => expect(document.activeElement).toBe(close));
+      fireEvent.keyDown(close, { key: 'Tab' });
+      expect(document.activeElement).toBe(close);
+      fireEvent.keyDown(close, { key: 'Tab', shiftKey: true });
+      expect(document.activeElement).toBe(close);
+      fireEvent.keyDown(document, { key: 'Escape' });
+      await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Keyboard Shortcuts' })).toBeNull());
+      expect(document.activeElement).toBe(outside);
+      expect(dialog.isConnected).toBe(false);
+    } finally {
+      view.unmount();
+      outside.remove();
+    }
+  });
+
+  it('lets the actual feedback overlay consume Escape before the underlying shortcuts dialog', async () => {
+    const shortcutsClose = vi.fn();
+    const view = render(React.createElement(React.Fragment, null,
+      React.createElement(FeedbackWidget),
+      React.createElement(ShortcutsModal, { onClose: shortcutsClose }),
+    ));
+    try {
+      const trigger = screen.getByRole('button', { name: 'Feedback' });
+      trigger.focus();
+      fireEvent.click(trigger);
+      await screen.findByRole('dialog', { name: 'Help shape Trophē' });
+      fireEvent.keyDown(document, { key: 'Escape' });
+
+      await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Help shape Trophē' })).toBeNull());
+      expect(screen.getByRole('dialog', { name: 'Keyboard Shortcuts' })).toBeTruthy();
+      expect(shortcutsClose).not.toHaveBeenCalled();
+      expect(document.activeElement).toBe(trigger);
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it('renders semantic Habit Detail day values and retains the reduced-motion streak percentage', () => {
+    const view = render(React.createElement(HabitDetailModal, habitDetailProps));
+    const fill = view.container.querySelector<HTMLElement>('.streak-fill');
+
+    expect(screen.getByRole('img', { name: /completed, good/ })).toBeTruthy();
+    expect(fill?.getAttribute('data-motion-initial')).toBe('false');
+    expect(fill?.getAttribute('data-motion-animate')).toBe('false');
+    expect(fill?.style.width).toBe(`${(3 / 14) * 100}%`);
   });
 
   it('removes batch-assignment entrance transforms when reduced motion is requested', () => {
@@ -532,7 +654,7 @@ describe('coach operational routes and modal library contract', () => {
     const violations = routes.flatMap((file) => {
       const value = source(file);
       return [
-        !/useCoachDialogFocus\(/.test(value) && `${file}: does not call shared dialog hook`,
+        !/useDialogFocus\(/.test(value) && `${file}: does not call shared dialog hook`,
         /requestAnimationFrame\(/.test(value) && `${file}: delayed dialog focus`,
       ].filter(Boolean);
     });

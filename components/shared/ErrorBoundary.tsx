@@ -203,7 +203,7 @@ export default class ErrorBoundary extends Component<Props, State> {
                   flex: 1, padding: '12px', borderRadius: 12,
                   fontSize: 13, fontWeight: 700, cursor: 'pointer',
                   background: 'linear-gradient(135deg, #B8923E, #D4A853)',
-                  color: '#0a0a0a', border: 'none',
+                  color: 'var(--action-on-primary)', border: 'none',
                 }}
               >
                 Try Again

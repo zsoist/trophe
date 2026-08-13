@@ -3,7 +3,7 @@
 import { useRef } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { X, Keyboard } from 'lucide-react';
-import { useCoachDialogFocus } from '@/components/coach/useCoachDialogFocus';
+import { useDialogFocus } from '@/components/shared/useDialogFocus';
 
 // ═══════════════════════════════════════════════
 // Keyboard Shortcuts Modal
@@ -25,7 +25,7 @@ const shortcuts: Shortcut[] = [
 export default function ShortcutsModal({ onClose }: { onClose: () => void }) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const reducedMotion = useReducedMotion();
-  useCoachDialogFocus(true, onClose, dialogRef);
+  useDialogFocus(true, onClose, dialogRef);
 
   return (
     <motion.div

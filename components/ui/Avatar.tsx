@@ -39,7 +39,7 @@ export function Avatar({
       title={name}
       className={[
         'inline-flex items-center justify-center rounded-full flex-shrink-0',
-        'font-bold text-[#000]',
+        'font-bold text-[var(--action-on-primary)]',
         sizeClass[size],
         className,
       ].join(' ')}

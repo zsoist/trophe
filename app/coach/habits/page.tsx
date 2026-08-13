@@ -15,7 +15,7 @@ import { supabase } from '@/lib/supabase';
 import type { Habit, HabitCategory, HabitDifficulty } from '@/lib/types';
 import { CoachNav } from '@/components/coach/CoachNav';
 import CoachLoadingSkeletons from '@/components/coach/CoachLoadingSkeletons';
-import { useCoachDialogFocus } from '@/components/coach/useCoachDialogFocus';
+import { useDialogFocus } from '@/components/shared/useDialogFocus';
 import { BotNav } from '@/components/ui/BotNav';
 import { Icon, ConfirmSheet } from '@/components/ui';
 import { useI18n } from '@/lib/i18n';
@@ -83,7 +83,7 @@ export default function HabitsPage() {
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const reducedMotion = useReducedMotion();
-  useCoachDialogFocus(showForm, () => setShowForm(false), dialogRef);
+  useDialogFocus(showForm, () => setShowForm(false), dialogRef);
 
   const loadData = useCallback(async () => {
     try {

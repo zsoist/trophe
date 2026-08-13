@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { X, Sparkles, Loader2, ChefHat } from 'lucide-react';
 import type { RecipeAnalyzeOutput } from '@/agents/schemas/recipe-analyze';
-import { useCoachDialogFocus } from '@/components/coach/useCoachDialogFocus';
+import { useDialogFocus } from '@/components/shared/useDialogFocus';
 
 /**
  * Coach-facing AI helper for the meal-plan editor (Daily Nutrafit "AI saves me
@@ -138,7 +138,7 @@ export default function MealSuggestPicker({ isOpen, slotLabel, slotFraction, tar
     onPick(`${recipe.recipe_name} (~${r(recipe.per_serving.calories)} kcal/serving)`);
   }
 
-  useCoachDialogFocus(isOpen, onClose, dialogRef);
+  useDialogFocus(isOpen, onClose, dialogRef);
   useEffect(() => {
     if (!isOpen) return;
     const previousOverflow = document.body.style.overflow;

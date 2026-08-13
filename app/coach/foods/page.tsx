@@ -18,7 +18,7 @@ import type { CustomFood } from '@/lib/types';
 import { CoachNav } from '@/components/coach/CoachNav';
 import CoachLoadingSkeletons from '@/components/coach/CoachLoadingSkeletons';
 import { FoodSharingSwitch } from '@/components/coach/FoodSharingSwitch';
-import { useCoachDialogFocus } from '@/components/coach/useCoachDialogFocus';
+import { useDialogFocus } from '@/components/shared/useDialogFocus';
 import { BotNav } from '@/components/ui/BotNav';
 import { Icon, ConfirmSheet } from '@/components/ui';
 import { useI18n } from '@/lib/i18n';
@@ -80,7 +80,7 @@ export default function FoodsPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const reducedMotion = useReducedMotion();
-  useCoachDialogFocus(showForm, () => setShowForm(false), dialogRef);
+  useDialogFocus(showForm, () => setShowForm(false), dialogRef);
 
   const loadFoods = useCallback(async () => {
     try {

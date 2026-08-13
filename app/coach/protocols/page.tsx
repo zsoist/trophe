@@ -19,7 +19,7 @@ import { supabase } from '@/lib/supabase';
 import type { SupplementProtocol, SupplementItem, Profile, ClientProfile } from '@/lib/types';
 import { CoachNav } from '@/components/coach/CoachNav';
 import CoachLoadingSkeletons from '@/components/coach/CoachLoadingSkeletons';
-import { useCoachDialogFocus } from '@/components/coach/useCoachDialogFocus';
+import { useDialogFocus } from '@/components/shared/useDialogFocus';
 import ProtocolTemplateLibrary from '@/components/coach/ProtocolTemplateLibrary';
 import { BotNav } from '@/components/ui/BotNav';
 import { Icon, ConfirmSheet } from '@/components/ui';
@@ -91,8 +91,8 @@ export default function ProtocolsPage() {
   const formDialogRef = useRef<HTMLDivElement | null>(null);
   const assignDialogRef = useRef<HTMLDivElement | null>(null);
   const reducedMotion = useReducedMotion();
-  useCoachDialogFocus(showForm, () => setShowForm(false), formDialogRef);
-  useCoachDialogFocus(assigningProtocolId !== null, () => setAssigningProtocolId(null), assignDialogRef);
+  useDialogFocus(showForm, () => setShowForm(false), formDialogRef);
+  useDialogFocus(assigningProtocolId !== null, () => setAssigningProtocolId(null), assignDialogRef);
 
   const loadProtocols = useCallback(async () => {
     try {

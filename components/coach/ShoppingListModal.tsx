@@ -6,7 +6,7 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import type { LucideIcon } from 'lucide-react';
 import { X, ShoppingCart, Loader2, Copy, Check, Carrot, Beef, Milk, Wheat, Archive, Snowflake, Croissant, ShoppingBasket } from 'lucide-react';
 import type { AggregatedItem } from '@/lib/food/shopping-list';
-import { useCoachDialogFocus } from '@/components/coach/useCoachDialogFocus';
+import { useDialogFocus } from '@/components/shared/useDialogFocus';
 
 /**
  * Coach shopping-list modal (Daily Nutrafit "Shopping Lists"). Calls
@@ -88,7 +88,7 @@ export default function ShoppingListModal({ isOpen, clientId, clientName, onClos
   }, [clientId]);
 
   // Generate on open; lock scroll.
-  useCoachDialogFocus(isOpen, onClose, dialogRef);
+  useDialogFocus(isOpen, onClose, dialogRef);
   useEffect(() => {
     if (!isOpen) return;
     generate();

@@ -554,7 +554,7 @@ export default function PlanEditorPage() {
             className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             style={{
               background: 'var(--gold-300,#D4A853)',
-              color: '#0a0a0a',
+              color: 'var(--action-on-primary)',
               border: 'none',
               borderRadius: 10,
               padding: '10px 20px',
@@ -587,7 +587,7 @@ export default function PlanEditorPage() {
             onClick={loadData}
             style={{
               background: 'var(--gold-300,#D4A853)',
-              color: '#0a0a0a',
+              color: 'var(--action-on-primary)',
               border: 'none',
               borderRadius: 10,
               padding: '10px 20px',

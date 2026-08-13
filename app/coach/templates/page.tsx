@@ -33,7 +33,7 @@ import type {
 } from '@/lib/types';
 import { CoachNav } from '@/components/coach/CoachNav';
 import CoachLoadingSkeletons from '@/components/coach/CoachLoadingSkeletons';
-import { useCoachDialogFocus } from '@/components/coach/useCoachDialogFocus';
+import { useDialogFocus } from '@/components/shared/useDialogFocus';
 import ProgramBuilder, { type BuilderClient } from '@/components/coach/ProgramBuilder';
 import { BotNav } from '@/components/ui/BotNav';
 import { Icon, ConfirmSheet } from '@/components/ui';
@@ -124,8 +124,8 @@ function TemplatesPageInner() {
   const formDialogRef = useRef<HTMLDivElement | null>(null);
   const builderDialogRef = useRef<HTMLDivElement | null>(null);
   const reducedMotion = useReducedMotion();
-  useCoachDialogFocus(showForm, () => { setShowForm(false); resetForm(); }, formDialogRef);
-  useCoachDialogFocus(showBuilder, () => { setShowBuilder(false); setBuilderInitialClient(null); }, builderDialogRef);
+  useDialogFocus(showForm, () => { setShowForm(false); resetForm(); }, formDialogRef);
+  useDialogFocus(showBuilder, () => { setShowBuilder(false); setBuilderInitialClient(null); }, builderDialogRef);
 
   const loadClients = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();

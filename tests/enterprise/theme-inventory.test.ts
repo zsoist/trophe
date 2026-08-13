@@ -61,15 +61,29 @@ describe('theme inventory guard', () => {
     expect(result.stderr).toContain('components/Label.tsx:1:');
   });
 
-  it('permits a named media canvas but rejects the same dark presentation outside its canvas wrapper', () => {
+  it('permits dark media paint only at an explicit media-canvas boundary', () => {
     const result = run(fixture({
-      'components/FormCheck.tsx': "export const view = <div className=\"media-canvas bg-black\"><video /></div>;\n",
-      'components/CameraPanel.tsx': "export const view = <div className=\"bg-black\"><p>Controls</p></div>;\n",
+      'components/MediaPanel.tsx': "export const view = <div data-theme-exempt=\"media-canvas\" className=\"bg-black\"><video /></div>;\n",
+      'components/FormCheck.tsx': "export const view = <div className=\"bg-black\"><video /></div>;\n",
     }));
 
     expect(result.status).toBe(1);
-    expect(result.stderr).not.toContain('components/FormCheck.tsx');
-    expect(result.stderr).toContain('components/CameraPanel.tsx:1:');
+    expect(result.stderr).not.toContain('components/MediaPanel.tsx');
+    expect(result.stderr).toContain('components/FormCheck.tsx:1:');
+  });
+
+  it('rejects arbitrary neutral hex paint in utility, inline style, and SVG presentation', () => {
+    const result = run(fixture({
+      'app/utility.tsx': "export const view = <p className=\"text-[#000]\">Bad utility</p>;\n",
+      'components/Inline.tsx': "export const view = <div style={{ background: '#1a1a1a' }}>Bad inline</div>;\n",
+      'components/Chart.tsx': "export const view = <svg><path fill=\"#0a0a0a\" /></svg>;\n",
+    }));
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('app/utility.tsx:1:');
+    expect(result.stderr).toContain('components/Inline.tsx:1:');
+    expect(result.stderr).toContain('components/Chart.tsx:1:');
+    expect(result.stderr).toContain('arbitrary dark neutral hex presentation');
   });
 
   it('accepts a clean source tree', () => {
@@ -110,10 +124,41 @@ describe('shared theme and overlay contracts', () => {
   it('gives every task-owned sheet dialog focus containment and topmost-safe Escape handling', () => {
     for (const file of ['components/shared/FeedbackWidget.tsx', 'components/shared/ShortcutsModal.tsx', 'components/habits/HabitDetailModal.tsx', 'components/progress/CustomizeSheet.tsx']) {
       const content = source(file);
-      expect(content).toContain('useCoachDialogFocus');
+      expect(content).toContain('useDialogFocus');
       expect(content).toContain('safe-area-inset-bottom');
     }
     expect(source('components/progress/CustomizeSheet.tsx')).toMatch(/<motion\.div\s+ref=\{dialogRef\}\s+role="dialog"/);
+  });
+
+  it('keeps shared dialog focus infrastructure out of the coach feature boundary', () => {
+    expect(() => readFileSync(path.join(repoRoot, 'components/shared/useDialogFocus.ts'), 'utf8')).not.toThrow();
+    expect(() => readFileSync(path.join(repoRoot, 'components/coach/useCoachDialogFocus.ts'), 'utf8')).toThrow();
+    const consumerSources = [
+      'components/shared/FeedbackWidget.tsx',
+      'components/shared/ShortcutsModal.tsx',
+      'components/habits/HabitDetailModal.tsx',
+      'components/progress/CustomizeSheet.tsx',
+    ].map(source).join('\n');
+    expect(consumerSources).toContain("@/components/shared/useDialogFocus");
+    expect(consumerSources).not.toContain("@/components/coach/useCoachDialogFocus");
+  });
+
+  it('keeps feedback controls reachable above bottom navigation and visible on keyboard focus', () => {
+    const feedback = source('components/shared/FeedbackWidget.tsx');
+    expect(feedback).toContain('minHeight: 44');
+    expect(feedback).toContain('max(calc(5rem + env(safe-area-inset-bottom)), 18px)');
+    expect(feedback).toContain('focus-visible:ring-[var(--focus-ring)]');
+  });
+
+  it('keeps Habit Detail history semantic and disables the streak fill animation when motion is reduced', () => {
+    const habitDetail = source('components/habits/HabitDetailModal.tsx');
+    expect(habitDetail).toContain('bg-[var(--status-success-bg)]');
+    expect(habitDetail).toContain('bg-[var(--status-danger-bg)]');
+    expect(habitDetail).toContain('role="img"');
+    expect(habitDetail).toContain('aria-label={`${day.date}: ${day.status}${day.mood ? `, ${day.mood}` : \'\'}`}');
+    expect(habitDetail).toContain('initial={reducedMotion ? false : { width: 0 }}');
+    expect(habitDetail).toContain('animate={reducedMotion ? false : { width:');
+    expect(habitDetail).toContain('style={{ width: reducedMotion ? `${streakPercent}%` : undefined }}');
   });
 
   it('uses semantic data roles and accessible value equivalents in every task-owned chart', () => {

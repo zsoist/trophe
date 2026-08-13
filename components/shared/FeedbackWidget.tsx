@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { X, MessageSquarePlus, Loader2, Check } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { useCoachDialogFocus } from '@/components/coach/useCoachDialogFocus';
+import { useDialogFocus } from '@/components/shared/useDialogFocus';
 
 /**
  * Beta feedback widget (Daily Nutrafit Step 4).
@@ -69,7 +69,7 @@ export default function FeedbackWidget() {
     return () => { document.body.style.overflow = prev; };
   }, [open]);
 
-  useCoachDialogFocus(open, close, dialogRef);
+  useDialogFocus(open, close, dialogRef);
 
   async function submit() {
     const rows = PROMPTS
@@ -106,10 +106,11 @@ export default function FeedbackWidget() {
       <button
         onClick={() => setOpen(true)}
         title="Send beta feedback"
+        className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
         style={{
-          position: 'fixed', right: 18, bottom: 18, zIndex: 9000,
+          position: 'fixed', right: 18, bottom: 'max(calc(5rem + env(safe-area-inset-bottom)), 18px)', zIndex: 9000,
           display: 'flex', alignItems: 'center', gap: 8,
-          padding: '10px 14px', borderRadius: 999,
+          minHeight: 44, padding: '10px 14px', borderRadius: 999,
           background: 'var(--action-primary)', color: 'var(--action-on-primary)',
           border: 'none', cursor: 'pointer',
           fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700,
@@ -191,8 +192,9 @@ export default function FeedbackWidget() {
                   <button
                     onClick={submit}
                     disabled={submitting}
+                    className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                     style={{
-                      width: '100%', padding: 13, borderRadius: 12,
+                      width: '100%', minHeight: 44, padding: 13, borderRadius: 12,
                       background: 'var(--action-primary)', color: 'var(--action-on-primary)', border: 'none',
                       fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700,
                       letterSpacing: '.08em', textTransform: 'uppercase',

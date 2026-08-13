@@ -21,6 +21,10 @@ const rules = [
     pattern: /(?:bg|text|border|outline|ring|fill|stroke)-\[(?:rgba?|hsla?)\(\s*(?:255\s*,\s*255\s*,\s*255|0\s*,\s*0\s*,\s*0|#(?:fff|ffffff|000|000000))[^\]]*\)\]|(?:rgba?|hsla?)\(\s*(?:255\s*,\s*255\s*,\s*255|0\s*,\s*0\s*,\s*0|#(?:fff|ffffff|000|000000))[^)]*\)/gi,
   },
   {
+    name: 'arbitrary dark neutral hex presentation',
+    pattern: /(?:bg|text|border|outline|ring|fill|stroke)-\[#(?:000|000000|fff|ffffff|0a0a0a|111111|141414|1a1a1a|1c1c1c|222222|242424|2a2a2a|333333|44403c|57534e|78716c|a8a29e|d6d3d1|e7e5e4|f5f5f4|fafaf9)\]|(?:background(?:Color)?|color|fill|stroke|border(?:Color)?):\s*["']#(?:000|000000|fff|ffffff|0a0a0a|111111|141414|1a1a1a|1c1c1c|222222|242424|2a2a2a|333333|44403c|57534e|78716c|a8a29e|d6d3d1|e7e5e4|f5f5f4|fafaf9)["']|(?:fill|stroke|color)=["']#(?:000|000000|fff|ffffff|0a0a0a|111111|141414|1a1a1a|1c1c1c|222222|242424|2a2a2a|333333|44403c|57534e|78716c|a8a29e|d6d3d1|e7e5e4|f5f5f4|fafaf9)["']/gi,
+  },
+  {
     name: 'functional text below 12px',
     pattern: /text-\[(?:[0-9]|1[01])(?:\.\d+)?px\]/g,
   },
@@ -55,21 +59,16 @@ function isRedundantChartTick(filePath, source, index) {
   return isInsideSvg && hasAccessibleEquivalent;
 }
 
-function isNamedMediaCanvas(filePath, source, index) {
-  const fileName = path.basename(filePath);
-  if (!/(FormCheck|ProgressPhotos|MealPhotoGallery|Camera|Barcode)/.test(fileName)) return false;
-
-  const wrapperStart = source.lastIndexOf('<div', index);
-  const wrapperEnd = source.indexOf('>', wrapperStart);
-  const isMediaWrapper = wrapperStart !== -1 && wrapperStart < index && index <= wrapperEnd && /(?:media-canvas|camera-canvas|preview-canvas)/.test(source.slice(wrapperStart, wrapperEnd));
-  const canvasStart = Math.max(source.lastIndexOf('<canvas', index), source.lastIndexOf('<video', index), source.lastIndexOf('<img', index));
-  const tagEnd = source.indexOf('>', canvasStart);
-  return isMediaWrapper || (canvasStart !== -1 && index <= tagEnd);
+function isExplicitMediaCanvas(source, index) {
+  const tagStart = source.lastIndexOf('<', index);
+  const tagEnd = source.indexOf('>', tagStart);
+  return tagStart !== -1 && tagStart < index && index <= tagEnd
+    && /\bdata-theme-exempt\s*=\s*["']media-canvas["']/.test(source.slice(tagStart, tagEnd));
 }
 
 function isAllowed(rule, filePath, source, index) {
   if (rule.name === 'functional text below 12px') return isRedundantChartTick(filePath, source, index);
-  if (rule.name === 'dark-only utility' || rule.name === 'arbitrary white/black rgba presentation') return isNamedMediaCanvas(filePath, source, index);
+  if (rule.name === 'dark-only utility' || rule.name === 'arbitrary white/black rgba presentation' || rule.name === 'arbitrary dark neutral hex presentation') return isExplicitMediaCanvas(source, index);
   return false;
 }
 
@@ -82,6 +81,7 @@ for (const root of sourceRoots) {
   for (const filePath of collectSourceFiles(absoluteRoot)) {
     const source = fs.readFileSync(filePath, 'utf8');
     const relativePath = path.relative(repoRoot, filePath);
+    if (relativePath === 'app/manifest.ts') continue;
 
     for (const rule of rules) {
       rule.pattern.lastIndex = 0;
@@ -104,7 +104,7 @@ for (const root of sourceRoots) {
 violations.sort((a, b) => a.path.localeCompare(b.path) || a.line - b.line || a.column - b.column || a.category.localeCompare(b.category));
 
 if (violations.length === 0) {
-  console.log('Theme inventory passed: no dark-only, arbitrary white/black rgba, or functional text below 12px utilities found.');
+  console.log('Theme inventory passed: no dark-only, arbitrary white/black rgba or neutral hex, or functional text below 12px utilities found.');
   process.exit(0);
 }
 

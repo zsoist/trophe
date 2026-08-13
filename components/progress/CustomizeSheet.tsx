@@ -16,7 +16,7 @@ import { Eye, EyeOff, ChevronUp, ChevronDown, Lock, RotateCcw } from 'lucide-rea
 import { useI18n } from '@/lib/i18n';
 import { useAppearance } from '@/components/shared/AppearanceProvider';
 import { DEFAULT_APPEARANCE, isProgressPanelOn, orderedPanels } from '@/lib/appearance';
-import { useCoachDialogFocus } from '@/components/coach/useCoachDialogFocus';
+import { useDialogFocus } from '@/components/shared/useDialogFocus';
 
 interface Props {
   open: boolean;
@@ -30,7 +30,7 @@ export default function CustomizeSheet({ open, onClose, coachGates }: Props) {
   const { prefs, setPrefs } = useAppearance();
   const reducedMotion = useReducedMotion();
   const dialogRef = useRef<HTMLDivElement>(null);
-  useCoachDialogFocus(open, onClose, dialogRef);
+  useDialogFocus(open, onClose, dialogRef);
 
   const panels = orderedPanels(prefs);
 

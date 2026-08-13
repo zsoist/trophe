@@ -5,7 +5,7 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { X } from 'lucide-react';
 import type { Habit, ClientHabit, HabitCheckin, Language, CoreLanguage } from '@/lib/types';
 import { localDateStr } from '@/lib/utils/dates';
-import { useCoachDialogFocus } from '@/components/coach/useCoachDialogFocus';
+import { useDialogFocus } from '@/components/shared/useDialogFocus';
 
 interface HabitDetailModalProps {
   open: boolean;
@@ -71,12 +71,13 @@ export default function HabitDetailModal({
 }: HabitDetailModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const reducedMotion = useReducedMotion();
-  useCoachDialogFocus(open, onClose, dialogRef);
+  useDialogFocus(open, onClose, dialogRef);
   if (!habit || !clientHabit) return null;
 
   const currentStreak = clientHabit.current_streak ?? 0;
   const bestStreak = clientHabit.best_streak ?? 0;
   const cycleDays = habit.cycle_days ?? 14;
+  const streakPercent = Math.min((currentStreak / cycleDays) * 100, 100);
   const category = habit.category ?? 'nutrition';
   const educationText = CATEGORY_EDUCATION[category]?.[language as CoreLanguage] ?? CATEGORY_EDUCATION[category]?.en ?? '';
 
@@ -193,9 +194,10 @@ export default function HabitDetailModal({
                 />
                 <motion.div
                   className="streak-fill h-full"
-                  initial={{ width: 0 }}
-                  animate={{ width: `${Math.min((currentStreak / cycleDays) * 100, 100)}%` }}
-                  transition={{ duration: 0.8, delay: 0.2 }}
+                  style={{ width: reducedMotion ? `${streakPercent}%` : undefined }}
+                  initial={reducedMotion ? false : { width: 0 }}
+                  animate={reducedMotion ? false : { width: `${streakPercent}%` }}
+                  transition={reducedMotion ? { duration: 0 } : { duration: 0.8, delay: 0.2 }}
                 />
               </div>
             </div>
@@ -207,13 +209,15 @@ export default function HabitDetailModal({
                 {days.map((day) => (
                   <div
                     key={day.date}
+                    role="img"
                     className={`aspect-square rounded-lg flex flex-col items-center justify-center ${
-                      day.status === 'completed'
-                        ? 'bg-green-500/20 border border-green-500/30'
-                        : day.status === 'missed'
-                        ? 'bg-red-500/15 border border-red-500/20'
-                        : 'bg-[var(--surface-2)] border border-[var(--border-subtle)]'
-                    }`}
+                       day.status === 'completed'
+                         ? 'bg-[var(--status-success-bg)] border border-[var(--status-success-border)]'
+                         : day.status === 'missed'
+                         ? 'bg-[var(--status-danger-bg)] border border-[var(--status-danger-border)]'
+                         : 'bg-[var(--surface-2)] border border-[var(--border-subtle)]'
+                     }`}
+                     aria-label={`${day.date}: ${day.status}${day.mood ? `, ${day.mood}` : ''}`}
                   >
                     <span className="text-xs text-[var(--content-muted)] leading-none">{day.dayNum}</span>
                     {day.mood && (

@@ -95,7 +95,7 @@ function ScoreGauge({ score, color }: { score: number; color: string }) {
                 transition={{ delay: 1 }}
               />
               <circle cx={cx} cy={cy} r="4" fill={color} />
-              <circle cx={cx} cy={cy} r="2" fill="#1a1a1a" />
+              <circle cx={cx} cy={cy} r="2" fill="var(--surface-1)" />
             </>
           );
         })()}

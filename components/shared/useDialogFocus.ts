@@ -5,8 +5,8 @@ import type { RefObject } from 'react';
 
 const FOCUSABLE = 'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-/** Owns focus, keyboard containment, and Escape for coach route dialogs. */
-export function useCoachDialogFocus(open: boolean, onClose: () => void, dialogRef: RefObject<HTMLDivElement | null>) {
+/** Owns focus, keyboard containment, and Escape for every application dialog. */
+export function useDialogFocus(open: boolean, onClose: () => void, dialogRef: RefObject<HTMLDivElement | null>) {
   const previousFocus = useRef<HTMLElement | null>(null);
   const latestClose = useRef(onClose);
   useEffect(() => { latestClose.current = onClose; }, [onClose]);

@@ -253,7 +253,7 @@ export default function ClientMemoryPage() {
             onClick={() => setActiveTab('blocks')}
             className={`min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
               activeTab === 'blocks'
-                ? 'bg-[#D4A853] text-[#0a0a0a]'
+                ? 'bg-[var(--action-primary)] text-[var(--action-on-primary)]'
                 : 'text-[var(--content-muted)] hover:text-[var(--content-primary)]'
             }`}
           >
@@ -263,7 +263,7 @@ export default function ClientMemoryPage() {
             onClick={() => setActiveTab('memory')}
             className={`min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
               activeTab === 'memory'
-                ? 'bg-[#D4A853] text-[#0a0a0a]'
+                ? 'bg-[var(--action-primary)] text-[var(--action-on-primary)]'
                 : 'text-[var(--content-muted)] hover:text-[var(--content-primary)]'
             }`}
           >
@@ -344,7 +344,7 @@ export default function ClientMemoryPage() {
                         <button
                           onClick={() => void saveBlock(def.label)}
                           disabled={saving}
-                          className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] px-3 py-1.5 text-sm bg-[#D4A853] text-[#0a0a0a] font-medium rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1.5 disabled:opacity-50"
+                          className="min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] px-3 py-1.5 text-sm bg-[var(--action-primary)] text-[var(--action-on-primary)] font-medium rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1.5 disabled:opacity-50"
                         >
                           <Save size={14} />
                           {saving ? 'Saving...' : 'Save'}

@@ -75,7 +75,7 @@ export default memo(function ClientFoodHeatmap({ data }: ClientFoodHeatmapProps)
                 key={i}
                 x={0}
                 y={i * (cellSize + gap) + cellSize / 2 + 3}
-                fill="#78716c"
+                fill="var(--content-muted)"
                 fontSize={8}
                 fontFamily="monospace"
               >

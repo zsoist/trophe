@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { X, Calculator, Loader2 } from 'lucide-react';
-import { useCoachDialogFocus } from '@/components/coach/useCoachDialogFocus';
+import { useDialogFocus } from '@/components/shared/useDialogFocus';
 
 /**
  * Per-day meal-plan macro rollup (coach). Calls /api/coach/meal-plan-macros,
@@ -67,7 +67,7 @@ export default function MacroRollupModal({ isOpen, clientId, clientName, onClose
     } finally { setLoading(false); }
   }, [clientId]);
 
-  useCoachDialogFocus(isOpen, onClose, dialogRef);
+  useDialogFocus(isOpen, onClose, dialogRef);
   useEffect(() => {
     if (!isOpen) return;
     generate();
