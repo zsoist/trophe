@@ -46,6 +46,7 @@ function roleEnvName(role) {
 /** @param {Record<string, string | undefined>} env */
 export function parseCanaryConfig(env = process.env) {
   const baseUrl = validBaseUrl(env.PLAYWRIGHT_BASE_URL ?? env.BASE_URL ?? 'https://trophe.app');
+  const supabaseAuthOrigin = validBaseUrl(env.THEME_CANARY_SUPABASE_URL ?? env.NEXT_PUBLIC_SUPABASE_URL ?? '');
   const roles = {};
   for (const [role, route, loadedState] of ROLE_CONFIG) {
     const prefix = roleEnvName(role);
@@ -55,7 +56,7 @@ export function parseCanaryConfig(env = process.env) {
     if (!password) throw new Error(`${prefix}_PASSWORD is required`);
     roles[role] = { route, loadedState, email, password };
   }
-  return { baseUrl, roles };
+  return { baseUrl, supabaseAuthOrigin: new URL(supabaseAuthOrigin).origin, roles };
 }
 
 export function isPaidProviderRoute(rawUrl) {
@@ -71,9 +72,12 @@ export function isPaidProviderRoute(rawUrl) {
     || PAID_APP_PATHS.has(pathname);
 }
 
-function isAuthenticationRequest(rawUrl) {
+export function isAllowedAuthenticationRequest(method, rawUrl, supabaseAuthOrigin) {
   try {
-    return new URL(rawUrl).pathname.startsWith('/auth/v1/token');
+    const url = new URL(rawUrl);
+    return method === 'POST'
+      && url.origin === supabaseAuthOrigin
+      && url.pathname === '/auth/v1/token';
   } catch {
     return false;
   }
@@ -155,7 +159,7 @@ async function login(page, baseUrl, role) {
   await page.waitForURL((url) => !url.pathname.startsWith('/login'), { timeout: 30_000 });
 }
 
-async function visitRole({ browser, baseUrl, name, role }) {
+async function visitRole({ browser, baseUrl, supabaseAuthOrigin, name, role }) {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
   const page = await context.newPage();
   const failures = [];
@@ -171,7 +175,8 @@ async function visitRole({ browser, baseUrl, name, role }) {
       await route.abort('blockedbyclient');
       return;
     }
-    if (!isReadOnlyMethod(request.method()) && !(authenticationAllowed && isAuthenticationRequest(request.url()))) {
+    if (!isReadOnlyMethod(request.method()) && !(authenticationAllowed
+      && isAllowedAuthenticationRequest(request.method(), request.url(), supabaseAuthOrigin))) {
       failures.push(`non-read-only ${request.method()} blocked on ${name}`);
       await route.abort('blockedbyclient');
       return;
@@ -198,7 +203,7 @@ export async function runCanary(config = parseCanaryConfig()) {
   const browser = await chromium.launch({ headless: true });
   try {
     for (const [name] of ROLE_CONFIG) {
-      await visitRole({ browser, baseUrl: config.baseUrl, name, role: config.roles[name] });
+      await visitRole({ browser, baseUrl: config.baseUrl, supabaseAuthOrigin: config.supabaseAuthOrigin, name, role: config.roles[name] });
     }
   } finally {
     await browser.close();

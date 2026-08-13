@@ -15,6 +15,7 @@ import {
   retryLocalE2EOperation,
   resolveSupabaseCli,
   withDisposableUsers,
+  withFixtureCleanup,
 } from '../../scripts/test/local-auth-e2e-core.mjs';
 
 describe('local authenticated E2E harness', () => {
@@ -169,6 +170,33 @@ describe('local authenticated E2E harness', () => {
       THEME_PERF_SUPER_EMAIL: 'super@test.invalid',
       OPENAI_API_KEY: '',
     });
+  });
+
+  it('cleans relationship and organization fixtures after a callback and preserves its returned value', async () => {
+    const events: string[] = [];
+    await expect(withFixtureCleanup({
+      execute: async () => {
+        events.push('callback');
+        return 'measurement-report';
+      },
+      cleanup: async () => {
+        events.push('relationship-cleanup');
+        events.push('organization-cleanup');
+      },
+    })).resolves.toBe('measurement-report');
+    expect(events).toEqual(['callback', 'relationship-cleanup', 'organization-cleanup']);
+  });
+
+  it('cleans fixtures after a callback error while preserving the callback error', async () => {
+    const events: string[] = [];
+    await expect(withFixtureCleanup({
+      execute: async () => {
+        events.push('callback');
+        throw new Error('measurement failed');
+      },
+      cleanup: async () => { events.push('cleanup'); },
+    })).rejects.toThrow('measurement failed');
+    expect(events).toEqual(['callback', 'cleanup']);
   });
 
 

@@ -98,6 +98,15 @@ export async function retryLocalE2EOperation(operationFn, operation, {
   );
 }
 
+/** Executes a fixture workload while guaranteeing its verified cleanup runs. */
+export async function withFixtureCleanup({ execute, cleanup }) {
+  try {
+    return await execute();
+  } finally {
+    await cleanup();
+  }
+}
+
 export function parseSupabaseStatusEnv(raw) {
   const parsed = {};
   for (const line of String(raw).split(/\r?\n/)) {

@@ -19,6 +19,7 @@ import {
   writeReport,
 } from '../../scripts/perf/measure-web.mjs';
 import {
+  isAllowedAuthenticationRequest,
   isPaidProviderRoute,
   parseCanaryConfig,
 } from '../../scripts/ops/canary-theme-readonly.mjs';
@@ -199,11 +200,13 @@ describe('web performance measurement harness', () => {
 
     expect(() => parseCanaryConfig({
       PLAYWRIGHT_BASE_URL: 'https://trophe.app',
+      THEME_CANARY_SUPABASE_URL: 'https://project.supabase.co',
       THEME_CANARY_CLIENT_EMAIL: 'client@example.test',
       THEME_CANARY_CLIENT_PASSWORD: 'client-password',
     })).toThrow('THEME_CANARY_COACH_EMAIL');
     expect(parseCanaryConfig({
       PLAYWRIGHT_BASE_URL: 'https://trophe.app',
+      THEME_CANARY_SUPABASE_URL: 'https://project.supabase.co',
       THEME_CANARY_CLIENT_EMAIL: 'client@example.test',
       THEME_CANARY_CLIENT_PASSWORD: 'client-password',
       THEME_CANARY_COACH_EMAIL: 'coach@example.test',
@@ -214,6 +217,7 @@ describe('web performance measurement harness', () => {
       THEME_CANARY_SUPER_PASSWORD: 'super-password',
     })).toMatchObject({
       baseUrl: 'https://trophe.app/',
+      supabaseAuthOrigin: 'https://project.supabase.co',
       roles: expect.objectContaining({
         client: expect.objectContaining({ route: '/dashboard', loadedState: /good (morning|afternoon|evening|night)|today/i }),
         coach: expect.objectContaining({ route: '/coach', loadedState: /client|roster/i }),
@@ -221,6 +225,14 @@ describe('web performance measurement harness', () => {
         super: expect.objectContaining({ route: '/super', loadedState: /command center|overview/i }),
       }),
     });
+  });
+
+  it('allows only POST auth-token requests to the configured Supabase origin', () => {
+    const supabaseAuthOrigin = 'https://project.supabase.co';
+    expect(isAllowedAuthenticationRequest('POST', 'https://project.supabase.co/auth/v1/token?grant_type=password', supabaseAuthOrigin)).toBe(true);
+    expect(isAllowedAuthenticationRequest('GET', 'https://project.supabase.co/auth/v1/token', supabaseAuthOrigin)).toBe(false);
+    expect(isAllowedAuthenticationRequest('POST', 'https://attacker.test/auth/v1/token', supabaseAuthOrigin)).toBe(false);
+    expect(isAllowedAuthenticationRequest('POST', 'https://project.supabase.co/auth/v1/token/other', supabaseAuthOrigin)).toBe(false);
   });
 
   it('rejects missing local theme-measurement credentials before starting a browser or network request', async () => {

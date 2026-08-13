@@ -18,6 +18,7 @@ import {
   parseSupabaseStatusEnv,
   retryLocalE2EOperation,
   resolveSupabaseCli,
+  withFixtureCleanup,
   withDisposableUsers,
 } from './local-auth-e2e-core.mjs';
 
@@ -175,35 +176,37 @@ export async function runLocalAuthenticatedE2E({ executeWithDisposableRoles } = 
       childEnv.E2E_TEST_ORG_ID = organization.id;
       childEnv.E2E_TEST_ORG_SLUG = organizationSlug;
 
-      if (executeWithDisposableRoles) {
-        return executeWithDisposableRoles({
-          status,
-          env: buildLocalThemePerformanceEnv(childEnv, credentials),
-        });
-      }
-
-      const playwrightBin = path.resolve('node_modules/@playwright/test/cli.js');
-      try {
-        const result = spawnSync(
-          process.execPath,
-          [playwrightBin, 'test', '--workers=1', ...TEST_SPECS],
+      return withFixtureCleanup({
+        execute: async () => {
+          if (executeWithDisposableRoles) {
+            return executeWithDisposableRoles({
+              status,
+              env: buildLocalThemePerformanceEnv(childEnv, credentials),
+            });
+          }
+          const playwrightBin = path.resolve('node_modules/@playwright/test/cli.js');
+          const result = spawnSync(
+            process.execPath,
+            [playwrightBin, 'test', '--workers=1', ...TEST_SPECS],
           { stdio: 'inherit', env: childEnv },
         );
-        if (result.error || result.status !== 0) {
-          throw new Error(`authenticated E2E failed with status ${result.status ?? 1}`);
-        }
-      } finally {
-        await retryLocalE2EOperation(
-          () => service.from('client_profiles').update({ coach_id: null }).eq('user_id', clientId).select('user_id'),
-          'client relationship cleanup',
-          { validateResult: (result, operation) => assertSupabaseAffectedRow(result, operation, clientId, 'user_id') },
-        );
-        await retryLocalE2EOperation(
-          () => service.from('organizations').delete().eq('id', organization.id).select('id'),
-          'organization cleanup',
-          { validateResult: (result, operation) => assertSupabaseAffectedRow(result, operation, organization.id) },
-        );
-      }
+          if (result.error || result.status !== 0) {
+            throw new Error(`authenticated E2E failed with status ${result.status ?? 1}`);
+          }
+        },
+        cleanup: async () => {
+          await retryLocalE2EOperation(
+            () => service.from('client_profiles').update({ coach_id: null }).eq('user_id', clientId).select('user_id'),
+            'client relationship cleanup',
+            { validateResult: (result, operation) => assertSupabaseAffectedRow(result, operation, clientId, 'user_id') },
+          );
+          await retryLocalE2EOperation(
+            () => service.from('organizations').delete().eq('id', organization.id).select('id'),
+            'organization cleanup',
+            { validateResult: (result, operation) => assertSupabaseAffectedRow(result, operation, organization.id) },
+          );
+        },
+      });
     },
   }).finally(() => {
     rmSync(nextDistDir, { recursive: true, force: true });
