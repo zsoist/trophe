@@ -181,12 +181,14 @@ export function RestDayCard({
   nextWeekday,
   nextTemplateName,
   onTrainAnyway,
+  disabled = false,
 }: {
   programName: string;
   /** 0=Sunday … 6=Saturday, or null when the program has no other days. */
   nextWeekday: number | null;
   nextTemplateName: string | null;
   onTrainAnyway: () => void;
+  disabled?: boolean;
 }) {
   const { t } = useI18n();
   const todayIdx = new Date().getDay();
@@ -249,6 +251,7 @@ export function RestDayCard({
 
       <button
         onClick={onTrainAnyway}
+        disabled={disabled}
         className="btn-ghost w-full min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
         style={{
           marginTop: 12, padding: '11px', fontSize: 12, fontWeight: 600, borderRadius: 12,

@@ -877,12 +877,13 @@ export default function WorkoutPage() {
                   template={todayHero}
                   alsoToday={todaySummaries.slice(1)}
                   onStart={startGuided}
-                  starting={false}
+                  starting={!userId}
                 />
                 {/* Secondary: freestyle + cardio */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                   <button
                     onClick={startFreestyle}
+                    disabled={!userId}
                     className="card min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                     style={{ padding: '11px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}
                   >
@@ -911,6 +912,7 @@ export default function WorkoutPage() {
                   nextWeekday={nextScheduled?.weekday ?? null}
                   nextTemplateName={nextScheduled?.templateName ?? null}
                   onTrainAnyway={startFreestyle}
+                  disabled={!userId}
                 />
                 <button
                   onClick={() => setShowCardio(v => !v)}
@@ -933,6 +935,7 @@ export default function WorkoutPage() {
                   <motion.button
                     whileTap={{ scale: 0.96 }}
                     onClick={startFreestyle}
+                    disabled={!userId}
                     className="card min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                     style={{ padding: '20px 12px', textAlign: 'center', cursor: 'pointer' }}
                   >
@@ -1076,7 +1079,7 @@ export default function WorkoutPage() {
                     <button
                       className="btn-gold w-full py-3 min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                       onClick={logCardio}
-                      disabled={savingCardio}
+                      disabled={savingCardio || !userId}
                     >
                       <Play size={14} className="inline mr-2" />
                       {savingCardio ? t('workout.custom_saving') : `${t('workout.cardio_log')} · ${t(`workout.cardio_${cardioType}`)}`}

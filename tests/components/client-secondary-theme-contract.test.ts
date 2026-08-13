@@ -7,6 +7,9 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const motionPreference = vi.hoisted(() => ({ reduced: true }));
+const authHarness = vi.hoisted(() => ({ getUser: vi.fn() }));
+const authenticatedUser = { data: { user: { id: 'user-1' } } };
+authHarness.getUser.mockResolvedValue(authenticatedUser);
 
 vi.mock('framer-motion', async () => {
   const ReactModule = await import('react');
@@ -58,7 +61,7 @@ vi.mock('@/lib/supabase', () => {
     query.then = (resolve: (value: typeof result) => unknown) => Promise.resolve(result).then(resolve);
     return query;
   });
-  return { supabase: { auth: { getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'user-1' } } }) }, from } };
+  return { supabase: { auth: { getUser: authHarness.getUser }, from } };
 });
 
 import ExercisePicker from '@/components/workout/ExercisePicker';
@@ -139,6 +142,7 @@ const source = (file: string) => readFileSync(join(process.cwd(), file), 'utf8')
 afterEach(() => {
   cleanup();
   motionPreference.reduced = true;
+  authHarness.getUser.mockReset().mockResolvedValue(authenticatedUser);
 });
 
 function inventory(patterns: readonly RegExp[], files: readonly string[] = OWNED_SOURCES) {
@@ -148,6 +152,24 @@ function inventory(patterns: readonly RegExp[], files: readonly string[] = OWNED
 }
 
 describe('client secondary theme and accessibility contract', () => {
+  it('keeps workout persistence actions disabled until authentication initialization finishes', async () => {
+    let resolveUser!: (value: { data: { user: { id: string } } }) => void;
+    authHarness.getUser.mockReturnValueOnce(new Promise((resolve) => { resolveUser = resolve; }));
+    render(React.createElement(WorkoutPage));
+
+    const start = screen.getByRole('button', { name: /workout\.strength/ });
+    expect(start.hasAttribute('disabled')).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: /workout\.cardio/ }));
+    const logCardio = screen.getByRole('button', { name: /workout\.cardio_log/ });
+    expect(logCardio.hasAttribute('disabled')).toBe(true);
+
+    resolveUser(authenticatedUser);
+    await waitFor(() => expect(start.hasAttribute('disabled')).toBe(false));
+    expect(logCardio.hasAttribute('disabled')).toBe(false);
+    fireEvent.click(start);
+    expect(await screen.findByRole('button', { name: 'workout.add_exercise' })).toBeTruthy();
+  });
+
   it('marks booking, messages, and progress loading surfaces for screenshot rejection', () => {
     expect(source('app/dashboard/book/page.tsx')).toMatch(/role="status"[^>]*data-loading-state/);
     expect(source('app/dashboard/messages/page.tsx')).toMatch(/role="status"[^>]*data-loading-state/);
