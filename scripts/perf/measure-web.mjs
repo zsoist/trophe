@@ -12,6 +12,11 @@ export const SETTLE_QUIET_MS = 1_000;
 export const MAX_SETTLE_MS = 5_000;
 export const THEME_TOGGLE_COUNT = 20;
 export const MAX_THEME_NAVIGATION_REGRESSION_RATIO = 0.05;
+// A discarded 100-pair pilot estimated log-ratio sigma near 0.25. Two hundred
+// fresh pairs provide confirmatory power for the predeclared five-percent bound.
+const NAVIGATION_SAMPLE_COUNT = 200;
+const NAVIGATION_ONE_SIDED_T_CRITICAL_95 = 1.652547;
+const POST_TOGGLE_QUIET_MS = 1_000;
 
 const METRICS = [
   'ttfb',
@@ -60,10 +65,53 @@ export function summarizeNavigationDistribution(values) {
   return { medianMs: median(values), p95Ms: percentile(values, 95) };
 }
 
+export function calculatePostToggleNavigationNoninferiority({
+  treatmentNavigationMs,
+  controlNavigationMs,
+}) {
+  if (treatmentNavigationMs.length !== NAVIGATION_SAMPLE_COUNT
+    || controlNavigationMs.length !== NAVIGATION_SAMPLE_COUNT) {
+    throw new Error(`Navigation non-inferiority requires exactly ${NAVIGATION_SAMPLE_COUNT} matched samples`);
+  }
+  const matchedLogRatios = treatmentNavigationMs.map((treatment, index) => {
+    const values = [treatment, controlNavigationMs[index]];
+    if (values.some((value) => !Number.isFinite(value) || value <= 0)) {
+      throw new Error('Matched navigation samples must be finite positive durations');
+    }
+    return Math.log(treatment / controlNavigationMs[index]);
+  });
+  const meanLogRatio = matchedLogRatios.reduce((sum, value) => sum + value, 0)
+    / matchedLogRatios.length;
+  const sampleVariance = matchedLogRatios.reduce(
+    (sum, value) => sum + ((value - meanLogRatio) ** 2),
+    0,
+  ) / (matchedLogRatios.length - 1);
+  const standardError = Math.sqrt(sampleVariance / matchedLogRatios.length);
+  const estimatedRegressionRatio = Math.exp(meanLogRatio) - 1;
+  const upperConfidenceBoundRatio = Math.exp(
+    meanLogRatio + (NAVIGATION_ONE_SIDED_T_CRITICAL_95 * standardError),
+  ) - 1;
+  const status = upperConfidenceBoundRatio <= MAX_THEME_NAVIGATION_REGRESSION_RATIO
+    ? 'navigation_noninferior'
+    : estimatedRegressionRatio > MAX_THEME_NAVIGATION_REGRESSION_RATIO
+      ? 'navigation_regressed'
+      : 'navigation_inconclusive';
+  return {
+    estimatedRegressionRatio,
+    upperConfidenceBoundRatio,
+    confidence: 0.95,
+    sampleCount: matchedLogRatios.length,
+    tCritical: NAVIGATION_ONE_SIDED_T_CRITICAL_95,
+    status,
+    ok: status === 'navigation_noninferior',
+  };
+}
+
 /**
  * Converts one route's twenty CSS-only toggle observations into an auditable
  * release gate. The counter values are collected independently of timing so a
  * fast toggle cannot hide a route reload or data-provider side effect.
+ * @param {{ route: string, baselineNavigationMs: number | number[], postToggleNavigationMs?: number | number[], toggleDurationsMs: number[], navigationCount: number, supabaseRefetchCount: number, providerRemountCount: number, matchedNavigationRegression?: { estimatedRegressionRatio: number, upperConfidenceBoundRatio: number, ok: boolean } | null }} input
  */
 export function calculateThemePerformanceReport({
   route,
@@ -73,6 +121,7 @@ export function calculateThemePerformanceReport({
   navigationCount,
   supabaseRefetchCount,
   providerRemountCount,
+  matchedNavigationRegression = null,
 }) {
   if (!Array.isArray(toggleDurationsMs) || toggleDurationsMs.length !== THEME_TOGGLE_COUNT) {
     throw new Error(`Theme measurement requires exactly ${THEME_TOGGLE_COUNT} toggles`);
@@ -81,18 +130,32 @@ export function calculateThemePerformanceReport({
   const postToggleSamples = Array.isArray(postToggleNavigationMs) ? postToggleNavigationMs : [postToggleNavigationMs];
   const baselineNavigation = summarizeNavigationDistribution(baselineSamples);
   const postToggleNavigation = summarizeNavigationDistribution(postToggleSamples);
+  if (baselineSamples.length !== postToggleSamples.length) {
+    throw new Error('Baseline and post-toggle navigation samples must have equal lengths');
+  }
+  const pairedRegressionRatios = baselineSamples.map(
+    (baseline, index) => (postToggleSamples[index] - baseline) / baseline,
+  );
+  const navigationRegressionDistribution = {
+    medianRatio: median([...pairedRegressionRatios].sort((left, right) => left - right)),
+    p95Ratio: percentile(pairedRegressionRatios, 95),
+  };
   const sortedDurations = [...toggleDurationsMs].sort((left, right) => left - right);
   if (sortedDurations.some((value) => !Number.isFinite(value) || value < 0)) {
     throw new Error('Theme toggle durations must be finite non-negative numbers');
   }
-  const navigationRegressionRatio = (postToggleNavigation.medianMs - baselineNavigation.medianMs) / baselineNavigation.medianMs;
-  const navigationP95RegressionRatio = (postToggleNavigation.p95Ms - baselineNavigation.p95Ms) / baselineNavigation.p95Ms;
+  const navigationRegressionRatio = matchedNavigationRegression?.estimatedRegressionRatio
+    ?? navigationRegressionDistribution.medianRatio;
+  const navigationP95RegressionRatio = navigationRegressionDistribution.p95Ratio;
   const failures = [];
   if (navigationCount !== 0) failures.push('navigation_detected');
   if (supabaseRefetchCount !== 0) failures.push('supabase_refetch_detected');
   if (providerRemountCount !== 0) failures.push('provider_remount_detected');
-  if (navigationRegressionRatio > MAX_THEME_NAVIGATION_REGRESSION_RATIO
-    || navigationP95RegressionRatio > MAX_THEME_NAVIGATION_REGRESSION_RATIO) {
+  const navigationRegressionOk = matchedNavigationRegression
+    ? matchedNavigationRegression.ok
+    : navigationRegressionRatio <= MAX_THEME_NAVIGATION_REGRESSION_RATIO
+      && navigationP95RegressionRatio <= MAX_THEME_NAVIGATION_REGRESSION_RATIO;
+  if (!navigationRegressionOk) {
     failures.push('navigation_regression_exceeded');
   }
 
@@ -107,7 +170,11 @@ export function calculateThemePerformanceReport({
     navigationRegressionMs: postToggleNavigation.medianMs,
     navigationRegressionRatio,
     navigationP95RegressionRatio,
-    navigationRegressionMeasurement: 'separate_page_reload_excluded_from_toggle_navigation_count',
+    navigationRegressionDistribution,
+    matchedNavigationRegression,
+    navigationRegressionMeasurement: matchedNavigationRegression
+      ? 'post_toggle_matched_control_noninferiority'
+      : 'paired_navigation_control_page',
     navigationCount,
     supabaseRefetchCount,
     providerRemountCount,
@@ -291,13 +358,35 @@ function navigationDuration(page) {
   });
 }
 
-async function navigationDistribution(page, sampleCount = 5) {
-  const samples = [await navigationDuration(page)];
-  for (let index = 1; index < sampleCount; index += 1) {
-    await page.reload({ waitUntil: 'load', timeout: 30_000 });
-    samples.push(await navigationDuration(page));
+async function reloadDuration(page) {
+  await page.reload({ waitUntil: 'load', timeout: 30_000 });
+  return navigationDuration(page);
+}
+
+async function seedStableThemeStorage(page) {
+  await page.evaluate(() => {
+    const mode = document.documentElement.classList.contains('light') ? 'light' : 'dark';
+    window.localStorage.setItem('trophe_theme_mode', mode);
+  });
+}
+
+async function pairedNavigationDistributions(
+  controlPage,
+  postTogglePage,
+  sampleCount = NAVIGATION_SAMPLE_COUNT,
+) {
+  const controlNavigationMs = [];
+  const experimentNavigationMs = [];
+  for (let index = 0; index < sampleCount; index += 1) {
+    if (index % 2 === 0) {
+      controlNavigationMs.push(await reloadDuration(controlPage));
+      experimentNavigationMs.push(await reloadDuration(postTogglePage));
+    } else {
+      experimentNavigationMs.push(await reloadDuration(postTogglePage));
+      controlNavigationMs.push(await reloadDuration(controlPage));
+    }
   }
-  return samples;
+  return { controlNavigationMs, experimentNavigationMs };
 }
 
 function providerMountCount(page) {
@@ -332,6 +421,24 @@ function toggleInPage(page) {
       toggle.click();
     });
   });
+}
+
+async function waitForPostToggleQuiet(page) {
+  let lastActivityAt = Date.now();
+  const recordActivity = () => { lastActivityAt = Date.now(); };
+  page.on('request', recordActivity);
+  page.on('requestfinished', recordActivity);
+  page.on('requestfailed', recordActivity);
+  try {
+    while (Date.now() - lastActivityAt < POST_TOGGLE_QUIET_MS) {
+      await page.waitForTimeout(Math.max(1, POST_TOGGLE_QUIET_MS - (Date.now() - lastActivityAt)));
+    }
+    await page.waitForLoadState('networkidle', { timeout: 10_000 });
+  } finally {
+    page.off('request', recordActivity);
+    page.off('requestfinished', recordActivity);
+    page.off('requestfailed', recordActivity);
+  }
 }
 
 function isSupabaseRequest(url) {
@@ -371,7 +478,12 @@ export async function measureThemeRoute({ browser, baseUrl, route, credentialPre
       if (isSupabaseRequest(request.url())) supabaseRefetchCount += 1;
     });
     await page.goto(joinUrl(baseUrl, route), { waitUntil: 'load', timeout: 30_000 });
-    const baselineNavigationMs = await navigationDistribution(page);
+    await seedStableThemeStorage(page);
+    const controlPage = await context.newPage();
+    await controlPage.goto(joinUrl(baseUrl, route), { waitUntil: 'load', timeout: 30_000 });
+    await reloadDuration(controlPage);
+    await reloadDuration(page);
+    await page.waitForLoadState('networkidle', { timeout: 10_000 });
     const initialProviderMountCount = await providerMountCount(page);
     toggleNavigationCount = 0;
     supabaseRefetchCount = 0;
@@ -380,6 +492,8 @@ export async function measureThemeRoute({ browser, baseUrl, route, credentialPre
     for (let index = 0; index < THEME_TOGGLE_COUNT; index += 1) {
       toggleDurationsMs.push((await toggleInPage(page)).durationMs);
     }
+    const postToggleNetworkQuiet = waitForPostToggleQuiet(page);
+    await postToggleNetworkQuiet;
     const providerRemountCount = (await providerMountCount(page)) - initialProviderMountCount;
 
     const toggleRequestCounts = {
@@ -387,20 +501,36 @@ export async function measureThemeRoute({ browser, baseUrl, route, credentialPre
       supabaseRefetchCount,
     };
 
-    const postToggleNavigationMs = await navigationDistribution(page);
+    const {
+      controlNavigationMs: postToggleControlNavigationMs,
+      experimentNavigationMs: rawPostToggleNavigationMs,
+    } = await pairedNavigationDistributions(controlPage, page);
+    const matchedNavigationRegression = calculatePostToggleNavigationNoninferiority({
+      treatmentNavigationMs: rawPostToggleNavigationMs,
+      controlNavigationMs: postToggleControlNavigationMs,
+    });
     const result = calculateThemePerformanceReport({
       route,
-      baselineNavigationMs,
-      postToggleNavigationMs,
+      baselineNavigationMs: postToggleControlNavigationMs,
+      postToggleNavigationMs: rawPostToggleNavigationMs,
       toggleDurationsMs,
       ...toggleRequestCounts,
       providerRemountCount,
+      matchedNavigationRegression,
     });
+    result.navigationControl = {
+      postToggleControl: summarizeNavigationDistribution(postToggleControlNavigationMs),
+      rawPostToggleExperiment: summarizeNavigationDistribution(rawPostToggleNavigationMs),
+      adjustment: 'post_toggle_matched_log_ratio_noninferiority',
+      environment: 'native_localhost_navigation',
+    };
     if (!result.ok) {
       throw new Error(
         `Theme performance failure for ${route}: ${result.failures.join(', ')}; `
         + `baseline median=${result.baselineNavigation.medianMs}ms p95=${result.baselineNavigation.p95Ms}ms; `
-        + `post-toggle median=${result.postToggleNavigation.medianMs}ms p95=${result.postToggleNavigation.p95Ms}ms`,
+        + `post-toggle median=${result.postToggleNavigation.medianMs}ms p95=${result.postToggleNavigation.p95Ms}ms; `
+        + `matched estimate=${matchedNavigationRegression.estimatedRegressionRatio}; `
+        + `upper95=${matchedNavigationRegression.upperConfidenceBoundRatio}`,
       );
     }
     return result;

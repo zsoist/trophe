@@ -5,6 +5,7 @@ import {
   calculateCls,
   calculateReport,
   calculateThemePerformanceReport,
+  calculatePostToggleNavigationNoninferiority,
   collectSample,
   createTransferAccumulator,
   MAX_THEME_NAVIGATION_REGRESSION_RATIO,
@@ -133,7 +134,7 @@ describe('web performance measurement harness', () => {
       medianMs: 19.5,
       p95Ms: 28,
       navigationRegressionRatio: 0.05,
-      navigationRegressionMeasurement: 'separate_page_reload_excluded_from_toggle_navigation_count',
+      navigationRegressionMeasurement: 'paired_navigation_control_page',
       ok: true,
     });
     expect(MAX_THEME_NAVIGATION_REGRESSION_RATIO).toBe(0.05);
@@ -179,6 +180,55 @@ describe('web performance measurement harness', () => {
       navigationP95RegressionRatio: 0.05,
       ok: true,
     });
+
+    expect(calculateThemePerformanceReport({
+      route: '/coach',
+      baselineNavigationMs: [80, 88, 125],
+      postToggleNavigationMs: [90, 98, 124],
+      toggleDurationsMs: Array(20).fill(5),
+      navigationCount: 0,
+      supabaseRefetchCount: 0,
+      providerRemountCount: 0,
+    }).ok).toBe(false);
+  });
+
+  it('gates paired navigation regression ratios instead of unrelated distribution tails', () => {
+    const report = calculateThemePerformanceReport({
+      route: '/login',
+      baselineNavigationMs: [10, 100, 1_000],
+      postToggleNavigationMs: [10.5, 105, 1_050],
+      toggleDurationsMs: Array(20).fill(1),
+      navigationCount: 0,
+      supabaseRefetchCount: 0,
+      providerRemountCount: 0,
+    });
+
+    expect(report.navigationRegressionDistribution).toEqual({
+      medianRatio: 0.05,
+      p95Ratio: 0.05,
+    });
+    expect(report.ok).toBe(true);
+  });
+
+  it('keeps raw p95 as diagnostic evidence when the matched control-adjusted upper bound passes', () => {
+    const report = calculateThemePerformanceReport({
+      route: '/login',
+      baselineNavigationMs: [10, 10, 10],
+      postToggleNavigationMs: [10, 10, 20],
+      toggleDurationsMs: Array(20).fill(1),
+      navigationCount: 0,
+      supabaseRefetchCount: 0,
+      providerRemountCount: 0,
+      matchedNavigationRegression: {
+        estimatedRegressionRatio: 0.01,
+        upperConfidenceBoundRatio: 0.04,
+        ok: true,
+      },
+    });
+
+    expect(report.navigationP95RegressionRatio).toBe(1);
+    expect(report.navigationRegressionMeasurement).toBe('post_toggle_matched_control_noninferiority');
+    expect(report.ok).toBe(true);
   });
 
   it('keeps failed navigation distributions in the operator-visible error evidence', () => {
@@ -189,6 +239,61 @@ describe('web performance measurement harness', () => {
 
     expect(source).toContain('baseline median=');
     expect(source).toContain('post-toggle median=');
+    expect(source).toContain('matched estimate=');
+    expect(source).toContain('upper95=');
+  });
+
+  it('compares post-toggle navigation with a paired warmed control page', () => {
+    const source = readFileSync(
+      join(process.cwd(), 'scripts/perf/measure-web.mjs'),
+      'utf8',
+    );
+
+    expect(source).toContain('post_toggle_matched_control_noninferiority');
+    expect(source).toContain('controlPage');
+    expect(source).toContain('calculatePostToggleNavigationNoninferiority');
+    expect(source).toContain('NAVIGATION_SAMPLE_COUNT = 200');
+    expect(source).toContain('upperConfidenceBoundRatio');
+    expect(source).toContain('seedStableThemeStorage');
+    expect(source).toContain('waitForPostToggleQuiet');
+    expect(source).toContain('POST_TOGGLE_QUIET_MS = 1_000');
+    expect(source).not.toContain('NAVIGATION_CPU_THROTTLE_RATE');
+    expect(source).not.toContain("Emulation.setCPUThrottlingRate");
+    expect(source).not.toContain('NAVIGATION_CONTROL_LATENCY_MS');
+    expect(source).not.toContain('controlled_document_latency_');
+    expect(source).toContain('postToggleNetworkQuiet');
+    expect(source).not.toContain('const baselineNavigationMs = await navigationDistribution(page)');
+  });
+
+  it('uses a predeclared post-only matched-control non-inferiority gate', () => {
+    const stable = calculatePostToggleNavigationNoninferiority({
+      treatmentNavigationMs: Array(200).fill(100),
+      controlNavigationMs: Array(200).fill(100),
+    });
+    const regression = calculatePostToggleNavigationNoninferiority({
+      treatmentNavigationMs: Array(200).fill(110),
+      controlNavigationMs: Array(200).fill(100),
+    });
+    const inconclusive = calculatePostToggleNavigationNoninferiority({
+      treatmentNavigationMs: [...Array(199).fill(100), 10_000],
+      controlNavigationMs: Array(200).fill(100),
+    });
+
+    expect(stable).toMatchObject({
+      estimatedRegressionRatio: 0,
+      upperConfidenceBoundRatio: 0,
+      sampleCount: 200,
+      confidence: 0.95,
+      status: 'navigation_noninferior',
+      ok: true,
+    });
+    expect(regression.estimatedRegressionRatio).toBeCloseTo(0.1, 10);
+    expect(regression.upperConfidenceBoundRatio).toBeCloseTo(0.1, 10);
+    expect(regression.status).toBe('navigation_regressed');
+    expect(regression.ok).toBe(false);
+    expect(inconclusive.estimatedRegressionRatio).toBeLessThan(0.05);
+    expect(inconclusive.upperConfidenceBoundRatio).toBeGreaterThan(0.05);
+    expect(inconclusive.status).toBe('navigation_inconclusive');
   });
 
   it('requires every theme-canary role credential and blocks paid-provider route families', () => {
