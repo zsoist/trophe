@@ -57,7 +57,7 @@ export function BotNav({ routes, className = '' }: BotNavProps) {
             aria-current={active ? 'page' : undefined}
             className={[
               'relative flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl px-1',
-              'text-[10px] uppercase tracking-[0.05em]',
+              'text-xs uppercase tracking-[0.05em]',
               'transition-colors motion-reduce:transition-none',
               active
                 ? 'bg-[var(--surface-active)] text-[var(--action-primary)]'
@@ -82,7 +82,7 @@ export function BotNav({ routes, className = '' }: BotNavProps) {
             </span>
             <span className="font-medium">{route.label}</span>
             {route.badge !== undefined && (
-              <span className="absolute right-1 top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--status-danger-fg)] px-1 text-[10px] font-semibold text-[var(--content-inverse)]">
+              <span className="absolute right-1 top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--status-danger-fg)] px-1 text-xs font-semibold text-[var(--content-inverse)]">
                 {route.badge}
               </span>
             )}

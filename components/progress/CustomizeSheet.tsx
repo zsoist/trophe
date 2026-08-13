@@ -10,11 +10,13 @@
  * closed: user customization never overrides coach permission.
  */
 
+import { useRef } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Eye, EyeOff, ChevronUp, ChevronDown, Lock, RotateCcw } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { useAppearance } from '@/components/shared/AppearanceProvider';
 import { DEFAULT_APPEARANCE, isProgressPanelOn, orderedPanels } from '@/lib/appearance';
+import { useCoachDialogFocus } from '@/components/coach/useCoachDialogFocus';
 
 interface Props {
   open: boolean;
@@ -27,6 +29,8 @@ export default function CustomizeSheet({ open, onClose, coachGates }: Props) {
   const { t } = useI18n();
   const { prefs, setPrefs } = useAppearance();
   const reducedMotion = useReducedMotion();
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useCoachDialogFocus(open, onClose, dialogRef);
 
   const panels = orderedPanels(prefs);
 
@@ -53,12 +57,13 @@ export default function CustomizeSheet({ open, onClose, coachGates }: Props) {
         <>
           <motion.div
             className="fixed inset-0 z-40"
-            style={{ background: 'rgba(0,0,0,.55)', backdropFilter: 'blur(2px)' }}
+            style={{ background: 'var(--surface-overlay)', backdropFilter: 'blur(2px)' }}
             initial={{ opacity: reducedMotion ? 1 : 0 }} animate={{ opacity: 1 }} exit={{ opacity: reducedMotion ? 1 : 0 }}
             transition={{ duration: reducedMotion ? 0 : 0.15 }}
             onClick={onClose}
           />
           <motion.div
+            ref={dialogRef}
             role="dialog"
             aria-modal="true"
             aria-label={t('progress.customize_title')}

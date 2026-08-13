@@ -96,7 +96,7 @@ export function Tabs<T extends string>({
                 {opt.badge !== undefined && (
                   <span
                     className={[
-                      'min-w-[16px] h-[16px] px-1 inline-flex items-center justify-center rounded-full text-[10px]',
+                      'min-w-[16px] h-[16px] px-1 inline-flex items-center justify-center rounded-full text-xs',
                       active
                         ? 'bg-[var(--action-primary)] text-[var(--action-on-primary)]'
                         : 'bg-[var(--surface-3)] text-[var(--content-muted)]',

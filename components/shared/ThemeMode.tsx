@@ -89,7 +89,7 @@ export function ThemeModeToggle({ className = '' }: { className?: string }) {
         aria-hidden="true"
         className="theme-icon-in [.light_&]:hidden"
       >
-        <Moon size={16} className="text-stone-400" />
+        <Moon size={16} className="text-[var(--content-muted)]" />
       </div>
       <div
         data-theme-icon="light"

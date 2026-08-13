@@ -35,11 +35,11 @@ interface MacroTab {
 }
 
 const MACRO_TABS: MacroTab[] = [
-  { key: 'calories', label: 'kcal',    labelKey: 'general.calories', icon: 'i-flame',    color: '#fb923c', unit: 'kcal', field: 'calories'   },
-  { key: 'protein',  label: 'Protein', labelKey: 'general.protein',  icon: 'i-dumbbell', color: '#f87171', unit: 'g',    field: 'protein_g'  },
-  { key: 'carbs',    label: 'Carbs',   labelKey: 'general.carbs',    icon: 'i-zap',      color: '#60a5fa', unit: 'g',    field: 'carbs_g'    },
-  { key: 'fat',      label: 'Fat',     labelKey: 'general.fat',      icon: 'i-drop',     color: '#c084fc', unit: 'g',    field: 'fat_g'      },
-  { key: 'fiber',    label: 'Fiber',   labelKey: 'general.fiber',    icon: 'i-leaf',     color: '#34d399', unit: 'g',    field: 'fiber_g'    },
+  { key: 'calories', label: 'kcal',    labelKey: 'general.calories', icon: 'i-flame',    color: 'var(--data-calories)', unit: 'kcal', field: 'calories'   },
+  { key: 'protein',  label: 'Protein', labelKey: 'general.protein',  icon: 'i-dumbbell', color: 'var(--data-protein)', unit: 'g',    field: 'protein_g'  },
+  { key: 'carbs',    label: 'Carbs',   labelKey: 'general.carbs',    icon: 'i-zap',      color: 'var(--data-carbs)', unit: 'g',    field: 'carbs_g'    },
+  { key: 'fat',      label: 'Fat',     labelKey: 'general.fat',      icon: 'i-drop',     color: 'var(--data-fat)', unit: 'g',    field: 'fat_g'      },
+  { key: 'fiber',    label: 'Fiber',   labelKey: 'general.fiber',    icon: 'i-leaf',     color: 'var(--data-fiber)', unit: 'g',    field: 'fiber_g'    },
 ];
 
 const DAY_LABELS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
@@ -188,13 +188,13 @@ export default function DayPatterns({ userId }: DayPatternsProps) {
         onClick={() => setExpanded(e => !e)}
         className="w-full flex items-center justify-between"
       >
-        <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider flex items-center gap-2">
+        <h3 className="text-[var(--content-primary)] text-xs font-semibold uppercase tracking-wider flex items-center gap-2">
           <Icon name="i-bars" size={14} className="text-[var(--gold-300)]" />
           {t('analytics.day_patterns')}
         </h3>
         {expanded
-          ? <ChevronUp size={14} className="text-stone-500" />
-          : <ChevronDown size={14} className="text-stone-500" />}
+          ? <ChevronUp size={14} className="text-[var(--content-muted)]" />
+          : <ChevronDown size={14} className="text-[var(--content-muted)]" />}
       </button>
 
       <AnimatePresence>
@@ -214,10 +214,10 @@ export default function DayPatterns({ userId }: DayPatternsProps) {
                   <button
                     key={p}
                     onClick={() => setPeriod(p)}
-                    className={`flex-1 py-1.5 rounded-lg text-[10px] font-medium border transition-all ${
+                    className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-all ${
                       period === p
-                        ? 'bg-white/5 border-white/10 text-stone-200'
-                        : 'border-transparent text-stone-600 hover:text-stone-400'
+                        ? 'bg-[var(--surface-2)] border-[var(--border-subtle)] text-[var(--content-primary)]'
+                        : 'border-transparent text-[var(--content-muted)] hover:text-[var(--content-muted)]'
                     }`}
                   >
                     {p === '7d' ? t('patterns.7days') : p === '30d' ? t('patterns.30days') : t('patterns.custom')}
@@ -235,7 +235,7 @@ export default function DayPatterns({ userId }: DayPatternsProps) {
                     className="flex gap-2 overflow-hidden"
                   >
                     <div className="flex-1">
-                      <p className="text-[9px] text-stone-600 mb-1">{t('general.from')}</p>
+                      <p className="text-xs text-[var(--content-muted)] mb-1">{t('general.from')}</p>
                       <input
                         type="date"
                         value={customFrom}
@@ -244,7 +244,7 @@ export default function DayPatterns({ userId }: DayPatternsProps) {
                       />
                     </div>
                     <div className="flex-1">
-                      <p className="text-[9px] text-stone-600 mb-1">{t('general.to')}</p>
+                      <p className="text-xs text-[var(--content-muted)] mb-1">{t('general.to')}</p>
                       <input
                         type="date"
                         value={customTo}
@@ -262,12 +262,12 @@ export default function DayPatterns({ userId }: DayPatternsProps) {
                   <button
                     key={tab.key}
                     onClick={() => setMacro(tab.key)}
-                    className={`flex-1 flex items-center justify-center gap-0.5 py-1.5 rounded-lg text-[9px] font-medium border transition-all ${
+                    className={`flex-1 flex items-center justify-center gap-0.5 py-1.5 rounded-lg text-xs font-medium border transition-all ${
                       macro === tab.key
-                        ? 'bg-white/5 border-white/10'
-                        : 'border-transparent text-stone-600 hover:text-stone-400'
+                        ? 'bg-[var(--surface-2)] border-[var(--border-subtle)]'
+                        : 'border-transparent text-[var(--content-muted)] hover:text-[var(--content-muted)]'
                     }`}
-                    style={macro === tab.key ? { color: tab.color, borderColor: `${tab.color}33` } : {}}
+                    style={macro === tab.key ? { color: tab.color, borderColor: tab.color } : {}}
                   >
                     <Icon name={tab.icon} size={9} />
                     <span className="hidden sm:inline ml-0.5">{t(tab.labelKey)}</span>
@@ -279,13 +279,13 @@ export default function DayPatterns({ userId }: DayPatternsProps) {
             {/* Chart area */}
             {loading ? (
               <div className="h-24 flex items-center justify-center">
-                <p className="text-stone-600 text-xs animate-pulse">{t('general.loading')}</p>
+                <p className="text-[var(--content-muted)] text-xs animate-pulse">{t('general.loading')}</p>
               </div>
             ) : overallAvg === 0 ? (
               <div className="text-center py-6">
-                <Calendar size={28} className="text-stone-700 mx-auto mb-2" />
-                <p className="text-stone-500 text-sm">{t('patterns.no_data')}</p>
-                <p className="text-stone-600 text-xs mt-1">{t('patterns.log_more')}</p>
+                <Calendar size={28} className="text-[var(--content-muted)] mx-auto mb-2" />
+                <p className="text-[var(--content-muted)] text-sm">{t('patterns.no_data')}</p>
+                <p className="text-[var(--content-muted)] text-xs mt-1">{t('patterns.log_more')}</p>
               </div>
             ) : (
               <>
@@ -295,32 +295,30 @@ export default function DayPatterns({ userId }: DayPatternsProps) {
                   <div
                     className="absolute left-0 right-0 border-t border-dashed pointer-events-none z-10"
                     style={{
-                      borderColor: 'var(--t4,#78716c)',
+                      borderColor: 'var(--border-strong)',
                       opacity: 0.35,
                       bottom: `calc(22px + ${(overallAvg / maxAvg) * 80}px)`,
                     }}
                   >
                     <span
-                      className="absolute right-0 text-[8px] translate-y-[-100%] pr-0.5"
-                      style={{ color: 'var(--t5,#57534e)' }}
+                      className="absolute right-0 text-xs translate-y-[-100%] pr-0.5"
+                      style={{ color: 'var(--content-muted)' }}
                     >
                       {t('analytics.avg')} {fmtVal(overallAvg)}{tab.unit}
                     </span>
                   </div>
 
-                  <div className="flex items-end gap-1.5 h-[102px]">
+                  <div
+                    role="img"
+                    aria-label={`${t('analytics.day_patterns')} ${t(tab.labelKey)} chart`}
+                    className="flex items-end gap-1.5 h-[102px]"
+                  >
                     {ordered.map((day, i) => {
                       const isWeekend = day.dayIndex === 0 || day.dayIndex === 6;
                       const isHigh    = day.avg > overallAvg * 1.2;
                       const pct       = day.avg > 0 ? Math.max((day.avg / maxAvg) * 80, 4) : 3;
 
-                      const barColor = day.avg === 0
-                        ? 'var(--line-2,rgba(255,255,255,0.10))'
-                        : isHigh
-                        ? `linear-gradient(180deg, ${tab.color}, ${tab.color}88)`
-                        : isWeekend
-                        ? `linear-gradient(180deg, ${tab.color}88, ${tab.color}44)`
-                        : `linear-gradient(180deg, ${tab.color}cc, ${tab.color}66)`;
+                      const barColor = day.avg === 0 ? 'var(--surface-2)' : tab.color;
 
                       // Mon-first ordered array: index 0=Mon(dayIndex=1)...index 5=Sat(dayIndex=6), index 6=Sun(dayIndex=0)
                       // ordered = dayData.slice(1) + dayData[0], so ordered[i].dayIndex is correct
@@ -336,7 +334,7 @@ export default function DayPatterns({ userId }: DayPatternsProps) {
                                 transition={{ delay: 0.3 + i * 0.04 }}
                                 style={{
                                   fontSize: 8,
-                                  color: isHigh ? tab.color : 'var(--t4,#78716c)',
+                                  color: isHigh ? tab.color : 'var(--content-muted)',
                                   fontWeight: isHigh ? 700 : 400,
                                   lineHeight: 1,
                                 }}
@@ -358,7 +356,7 @@ export default function DayPatterns({ userId }: DayPatternsProps) {
                           <span style={{
                             fontSize: 9,
                             fontWeight: isWeekend ? 600 : 400,
-                            color: isWeekend ? tab.color : 'var(--t4,#78716c)',
+                            color: isWeekend ? tab.color : 'var(--content-muted)',
                           }}>
                             {t(shortLabelKey)}
                           </span>
@@ -367,21 +365,26 @@ export default function DayPatterns({ userId }: DayPatternsProps) {
                     })}
                   </div>
                 </div>
+                <ul className="sr-only" aria-label="Day pattern chart values">
+                  {ordered.map(day => (
+                    <li key={day.dayIndex}>{t(DAY_LABELS_I18N[day.dayIndex])}: {fmtVal(day.avg)}{tab.unit}</li>
+                  ))}
+                </ul>
 
                 {/* Weekday vs Weekend stats */}
                 {(weekdayAvg > 0 || weekendAvg > 0) && (
                   <div className="grid grid-cols-2 gap-2 mt-3">
-                    <div className="rounded-xl p-2.5 text-center" style={{ background: `${tab.color}11`, border: `1px solid ${tab.color}22` }}>
-                      <p className="text-[11px] font-bold" style={{ color: tab.color }}>
+                    <div className="rounded-xl p-2.5 text-center" style={{ background: `color-mix(in srgb, ${tab.color} 10%, transparent)`, border: `1px solid color-mix(in srgb, ${tab.color} 20%, transparent)` }}>
+                      <p className="text-xs font-bold" style={{ color: tab.color }}>
                         {weekdayAvg > 0 ? `${fmtVal(weekdayAvg)}${tab.unit}` : '—'}
                       </p>
-                      <p className="text-[9px] mt-0.5 text-stone-500">{t('patterns.weekday_avg')}</p>
+                      <p className="text-xs mt-0.5 text-[var(--content-muted)]">{t('patterns.weekday_avg')}</p>
                     </div>
-                    <div className="rounded-xl p-2.5 text-center" style={{ background: `${tab.color}11`, border: `1px solid ${tab.color}22` }}>
-                      <p className="text-[11px] font-bold" style={{ color: tab.color }}>
+                    <div className="rounded-xl p-2.5 text-center" style={{ background: `color-mix(in srgb, ${tab.color} 10%, transparent)`, border: `1px solid color-mix(in srgb, ${tab.color} 20%, transparent)` }}>
+                      <p className="text-xs font-bold" style={{ color: tab.color }}>
                         {weekendAvg > 0 ? `${fmtVal(weekendAvg)}${tab.unit}` : '—'}
                       </p>
-                      <p className="text-[9px] mt-0.5 text-stone-500">{t('patterns.weekend_avg')}</p>
+                      <p className="text-xs mt-0.5 text-[var(--content-muted)]">{t('patterns.weekend_avg')}</p>
                     </div>
                   </div>
                 )}
@@ -390,18 +393,18 @@ export default function DayPatterns({ userId }: DayPatternsProps) {
                 {highestDay && lowestDay && highestDay.dayLabel !== lowestDay.dayLabel && (
                   <div
                     className="rounded-xl p-3 mt-2"
-                    style={{ background: 'var(--line,rgba(255,255,255,0.05))', border: '1px solid var(--line-2,rgba(255,255,255,0.08))' }}
+                    style={{ background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}
                   >
                     <div className="flex items-center justify-between text-xs">
                       <div>
-                        <span className="text-stone-500">{t('patterns.peak')}: </span>
+                        <span className="text-[var(--content-muted)]">{t('patterns.peak')}: </span>
                         <span className="font-semibold" style={{ color: tab.color }}>{t(DAY_LABELS_I18N[highestDay.dayIndex])}</span>
-                        <span className="text-stone-600"> · {fmtVal(highestDay.avg)}{tab.unit}</span>
+                        <span className="text-[var(--content-muted)]"> · {fmtVal(highestDay.avg)}{tab.unit}</span>
                       </div>
                       <div>
-                        <span className="text-stone-500">{t('patterns.low')}: </span>
-                        <span className="font-semibold text-stone-400">{t(DAY_LABELS_I18N[lowestDay.dayIndex])}</span>
-                        <span className="text-stone-600"> · {fmtVal(lowestDay.avg)}{tab.unit}</span>
+                        <span className="text-[var(--content-muted)]">{t('patterns.low')}: </span>
+                        <span className="font-semibold text-[var(--content-muted)]">{t(DAY_LABELS_I18N[lowestDay.dayIndex])}</span>
+                        <span className="text-[var(--content-muted)]"> · {fmtVal(lowestDay.avg)}{tab.unit}</span>
                       </div>
                     </div>
                   </div>
@@ -411,10 +414,10 @@ export default function DayPatterns({ userId }: DayPatternsProps) {
                 {insight && (
                   <div
                     className="flex items-start gap-2 pt-2 mt-2 border-t"
-                    style={{ borderColor: 'var(--line,rgba(255,255,255,0.05))' }}
+                    style={{ borderColor: 'var(--border-subtle)' }}
                   >
                     <TrendingUp size={12} className="mt-0.5 shrink-0" style={{ color: tab.color }} />
-                    <p className="text-xs text-stone-400">{insight}</p>
+                    <p className="text-xs text-[var(--content-muted)]">{insight}</p>
                   </div>
                 )}
               </>

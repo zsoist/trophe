@@ -110,10 +110,10 @@ export default function DailyInsights({ entries, targets, showCalories = false }
       >
         <div className="flex items-center gap-2">
           <Lightbulb size={14} className="gold-text" />
-          <span className="text-stone-300 text-xs font-medium">{t('insights.title')}</span>
-          <span className="text-stone-600 text-[10px]">({insights.length})</span>
+          <span className="text-[var(--content-primary)] text-xs font-medium">{t('insights.title')}</span>
+          <span className="text-[var(--content-muted)] text-xs">({insights.length})</span>
         </div>
-        {expanded ? <ChevronUp size={12} className="text-stone-500" /> : <ChevronDown size={12} className="text-stone-500" />}
+        {expanded ? <ChevronUp size={12} className="text-[var(--content-muted)]" /> : <ChevronDown size={12} className="text-[var(--content-muted)]" />}
       </button>
 
       <AnimatePresence>
@@ -130,7 +130,7 @@ export default function DailyInsights({ entries, targets, showCalories = false }
                 initial={{ opacity: 0, x: -5 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: i * 0.1 }}
-                className="text-stone-400 text-xs leading-relaxed pl-6"
+                className="text-[var(--content-muted)] text-xs leading-relaxed pl-6"
               >
                 {insight}
               </motion.p>

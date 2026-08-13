@@ -34,7 +34,7 @@ export function AppHeader(_props: AppHeaderProps) {
           ) : null}
           <div className="min-w-0 flex-1">
             {eyebrow ? (
-              <p className="truncate text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--action-primary)]">
+              <p className="truncate text-xs font-semibold uppercase tracking-[0.16em] text-[var(--action-primary)]">
                 {eyebrow}
               </p>
             ) : null}

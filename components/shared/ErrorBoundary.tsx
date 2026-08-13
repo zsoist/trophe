@@ -91,7 +91,7 @@ export default class ErrorBoundary extends Component<Props, State> {
               WebkitBackdropFilter: 'blur(20px)',
               border: '1px solid rgba(128,128,128,.1)',
               borderRadius: '20px',
-              boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+              boxShadow: '0 8px 32px var(--surface-overlay)',
               padding: '2.5rem 2rem',
             }}
           >
@@ -161,7 +161,7 @@ export default class ErrorBoundary extends Component<Props, State> {
                       onClick={this.handleCopy}
                       style={{
                         fontSize: 10, color: copied ? 'var(--ok,#65D387)' : 'var(--t4)',
-                        background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.07)',
+                        background: 'var(--border-subtle)', border: '1px solid var(--border-subtle)',
                         borderRadius: 6, padding: '3px 8px', cursor: 'pointer',
                       }}
                     >

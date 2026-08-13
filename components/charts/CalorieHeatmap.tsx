@@ -25,12 +25,8 @@ const GAP = 2;
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 function getIntensity(calories: number): string {
-  if (calories === 0) return 'rgba(255, 255, 255, 0.04)';
-  if (calories < 500) return 'rgba(212, 168, 83, 0.15)';
-  if (calories < 1000) return 'rgba(212, 168, 83, 0.30)';
-  if (calories < 1500) return 'rgba(212, 168, 83, 0.50)';
-  if (calories < 2000) return 'rgba(212, 168, 83, 0.70)';
-  return 'rgba(212, 168, 83, 0.90)';
+  if (calories === 0) return 'var(--border-subtle)';
+  return 'var(--data-calories)';
 }
 
 export default function CalorieHeatmap({ userId, weeks = 18 }: CalorieHeatmapProps) {
@@ -114,8 +110,8 @@ export default function CalorieHeatmap({ userId, weeks = 18 }: CalorieHeatmapPro
     return (
       <div className="glass p-4">
         <div className="animate-pulse space-y-2">
-          <div className="h-3 bg-white/[0.05] rounded w-1/3" />
-          <div className="h-20 bg-white/[0.03] rounded" />
+          <div className="h-3 bg-[var(--surface-2)] rounded w-1/3" />
+          <div className="h-20 bg-[var(--surface-2)] rounded" />
         </div>
       </div>
     );
@@ -151,10 +147,10 @@ export default function CalorieHeatmap({ userId, weeks = 18 }: CalorieHeatmapPro
         onClick={() => setExpanded(e => !e)}
         className="w-full flex items-center justify-between mb-3"
       >
-        <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider flex items-center gap-2">
+        <h3 className="text-[var(--content-primary)] text-xs font-semibold uppercase tracking-wider flex items-center gap-2">
           <span style={{ fontSize: 12 }}>&#9632;&#9632;&#9632;</span> {t('analytics.logging_activity')}
         </h3>
-        {expanded ? <ChevronUp size={14} className="text-stone-500" /> : <ChevronDown size={14} className="text-stone-500" />}
+        {expanded ? <ChevronUp size={14} className="text-[var(--content-muted)]" /> : <ChevronDown size={14} className="text-[var(--content-muted)]" />}
       </button>
 
       <AnimatePresence>
@@ -174,7 +170,7 @@ export default function CalorieHeatmap({ userId, weeks = 18 }: CalorieHeatmapPro
           { label: t('heatmap.avg_calories'),   val: avgCal > 0 ? `${avgCal}` : '—', sub: t('heatmap.on_logged_days') },
           { label: t('heatmap.current_streak'), val: `${streak}d`, sub: streak > 0 ? t('heatmap.keep_going') : t('heatmap.start_today') },
         ].map(s => (
-          <div key={s.label} style={{ padding: '6px 4px', borderRadius: 8, background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.05)' }}>
+          <div key={s.label} style={{ padding: '6px 4px', borderRadius: 8, background: 'var(--border-subtle)', border: '1px solid var(--border-subtle)' }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--gold-300,#D4A853)', fontFamily: 'var(--font-mono)' }}>{s.val}</div>
             <div style={{ fontSize: 9, color: 'var(--t3)', marginTop: 1, lineHeight: 1.2 }}>{s.label}</div>
             <div style={{ fontSize: 8, color: 'var(--t5)', marginTop: 1 }}>{s.sub}</div>
@@ -189,6 +185,8 @@ export default function CalorieHeatmap({ userId, weeks = 18 }: CalorieHeatmapPro
 
       <div className="pb-1">
         <svg
+          role="img"
+          aria-label={`${t('analytics.logging_activity')}: ${activeDays} ${t('heatmap.days_logged')}, ${avgCal} kcal ${t('heatmap.avg_calories')}`}
           viewBox={`0 0 ${svgWidth} ${svgHeight}`}
           style={{ width: '100%', height: 'auto', display: 'block' }}
           className="overflow-visible"
@@ -199,7 +197,7 @@ export default function CalorieHeatmap({ userId, weeks = 18 }: CalorieHeatmapPro
               key={`month-${i}`}
               x={labelOffset + m.col * (CELL_SIZE + GAP)}
               y={10}
-              fill="#78716c"
+              fill="var(--content-muted)"
               fontSize={8}
             >
               {m.label}
@@ -212,7 +210,7 @@ export default function CalorieHeatmap({ userId, weeks = 18 }: CalorieHeatmapPro
               key={`day-${row}`}
               x={0}
               y={monthBarHeight + row * (CELL_SIZE + GAP) + CELL_SIZE - 2}
-              fill="#57534e"
+              fill="var(--content-muted)"
               fontSize={7}
             >
               {DAY_LABELS[row]}
@@ -249,15 +247,15 @@ export default function CalorieHeatmap({ userId, weeks = 18 }: CalorieHeatmapPro
                 width={80}
                 height={22}
                 rx={4}
-                fill="rgba(28, 25, 23, 0.95)"
-                stroke="rgba(255,255,255,0.1)"
+                fill="var(--surface-overlay)"
+                stroke="var(--border-subtle)"
                 strokeWidth={0.5}
               />
               <text
                 x={labelOffset + tooltip.col * (CELL_SIZE + GAP) + 10}
                 y={monthBarHeight + tooltip.row * (CELL_SIZE + GAP) - 14}
                 textAnchor="middle"
-                fill="#d6d3d1"
+                fill="var(--content-primary)"
                 fontSize={8}
               >
                 {tooltip.date} &middot; {Math.round(tooltip.calories)} kcal &middot; {tooltip.entries} entries
@@ -265,10 +263,13 @@ export default function CalorieHeatmap({ userId, weeks = 18 }: CalorieHeatmapPro
             </g>
           )}
         </svg>
+        <ul className="sr-only" aria-label={`${t('analytics.logging_activity')} values`}>
+          {cells.map((cell) => <li key={cell.date}>{cell.date}: {Math.round(cell.calories)} kcal, {cell.entries} entries</li>)}
+        </ul>
       </div>
 
       {/* Legend */}
-      <div className="flex items-center justify-center gap-1.5 mt-3 text-stone-500 text-[10px]">
+      <div className="flex items-center justify-center gap-1.5 mt-3 text-[var(--content-muted)] text-xs">
         <span style={{ fontSize: 9, color: 'var(--t5)' }}>{t('heatmap.legend_min')}</span>
         {[0, 500, 1000, 1500, 2000].map((cal) => (
           <div

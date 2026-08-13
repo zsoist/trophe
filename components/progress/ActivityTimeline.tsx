@@ -63,7 +63,7 @@ export default function ActivityTimeline({ checkins, notes, measurements, habits
       title: 'Coach note',
       description: n.note.length > 80 ? n.note.slice(0, 80) + '...' : n.note,
       badge: n.session_type ? sessionLabels[n.session_type] : undefined,
-      badgeColor: n.session_type === 'concern' ? 'text-red-400 bg-red-500/10' : 'text-stone-400 bg-white/5',
+      badgeColor: n.session_type === 'concern' ? 'text-red-400 bg-red-500/10' : 'text-[var(--content-muted)] bg-[var(--surface-2)]',
     });
   });
 
@@ -111,7 +111,7 @@ export default function ActivityTimeline({ checkins, notes, measurements, habits
 
   if (display.length === 0) {
     return (
-      <div className="text-stone-600 text-sm text-center py-6">
+      <div className="text-[var(--content-muted)] text-sm text-center py-6">
         No activity yet
       </div>
     );
@@ -125,28 +125,28 @@ export default function ActivityTimeline({ checkins, notes, measurements, habits
           initial={{ opacity: 0, x: -8 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: i * 0.03 }}
-          className="flex items-start gap-3 py-2 px-2 rounded-lg hover:bg-white/[0.02] transition-colors"
+          className="flex items-start gap-3 py-2 px-2 rounded-lg hover:bg-[var(--surface-2)] transition-colors"
         >
           {/* Icon */}
-          <div className="w-6 h-6 rounded-full bg-white/[0.05] flex items-center justify-center flex-shrink-0 mt-0.5">
+          <div className="w-6 h-6 rounded-full bg-[var(--surface-2)] flex items-center justify-center flex-shrink-0 mt-0.5">
             {item.icon}
           </div>
 
           {/* Content */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-stone-200">{item.title}</span>
+              <span className="text-xs font-medium text-[var(--content-primary)]">{item.title}</span>
               {item.badge && (
-                <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded-full ${item.badgeColor || 'text-stone-400 bg-white/5'}`}>
+                <span className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${item.badgeColor || 'text-[var(--content-muted)] bg-[var(--surface-2)]'}`}>
                   {item.badge}
                 </span>
               )}
             </div>
-            <p className="text-[11px] text-stone-500 truncate">{item.description}</p>
+            <p className="text-xs text-[var(--content-muted)] truncate">{item.description}</p>
           </div>
 
           {/* Timestamp */}
-          <span className="text-[10px] text-stone-600 whitespace-nowrap flex-shrink-0">
+          <span className="text-xs text-[var(--content-muted)] whitespace-nowrap flex-shrink-0">
             {formatDateShort(item.date)}
           </span>
         </motion.div>

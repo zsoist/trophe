@@ -25,11 +25,11 @@ export function InstallCard() {
 
   return (
     <div
-      role="dialog"
+      role="region"
       aria-label="Install Trophē"
       style={{
         position: "fixed",
-        bottom: "env(safe-area-inset-bottom, 0px)",
+        bottom: "env(safe-area-inset-bottom)",
         left: 0,
         right: 0,
         zIndex: 9999,
@@ -42,13 +42,11 @@ export function InstallCard() {
           maxWidth: 480,
           margin: "0 auto",
           borderRadius: 18,
-          border: "1px solid rgba(212,168,83,0.22)",
-          background:
-            "linear-gradient(135deg, rgba(20,16,8,0.97) 0%, rgba(12,10,5,0.98) 100%)",
+          border: "1px solid var(--border-focus)",
+          background: "var(--surface-1)",
           backdropFilter: "blur(24px)",
           WebkitBackdropFilter: "blur(24px)",
-          boxShadow:
-            "0 24px 64px -12px rgba(0,0,0,0.7), 0 0 0 1px rgba(212,168,83,0.08) inset",
+          boxShadow: "var(--shadow-high)",
           padding: "20px",
           pointerEvents: "auto",
           display: "flex",
@@ -64,8 +62,8 @@ export function InstallCard() {
             width: 48,
             height: 48,
             borderRadius: 12,
-            background: "rgba(212,168,83,0.1)",
-            border: "1px solid rgba(212,168,83,0.2)",
+            background: "var(--surface-2)",
+            border: "1px solid var(--border-default)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -78,8 +76,8 @@ export function InstallCard() {
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
           >
-            <rect x="3" y="5" width="18" height="3" rx="1.5" fill="#D4A853" />
-            <rect x="9" y="5" width="6" height="15" rx="1.5" fill="#D4A853" />
+            <rect x="3" y="5" width="18" height="3" rx="1.5" fill="var(--action-primary)" />
+            <rect x="9" y="5" width="6" height="15" rx="1.5" fill="var(--action-primary)" />
           </svg>
         </div>
 
@@ -89,7 +87,7 @@ export function InstallCard() {
             style={{
               fontSize: 14,
               fontWeight: 600,
-              color: "#FAFAF9",
+              color: "var(--content-primary)",
               marginBottom: 4,
               letterSpacing: "-0.01em",
             }}
@@ -98,14 +96,14 @@ export function InstallCard() {
           </p>
 
           {isIOS ? (
-            <p style={{ fontSize: 12, color: "#A8A29E", lineHeight: 1.5 }}>
+            <p style={{ fontSize: 12, color: "var(--content-secondary)", lineHeight: 1.5 }}>
               Tap{" "}
               <span
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
                   gap: 2,
-                  color: "#D4A853",
+                  color: "var(--action-primary)",
                   fontWeight: 500,
                 }}
               >
@@ -115,7 +113,7 @@ export function InstallCard() {
                   height="11"
                   viewBox="0 0 24 24"
                   fill="none"
-                  stroke="#D4A853"
+                  stroke="var(--action-primary)"
                   strokeWidth="2.5"
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -127,16 +125,16 @@ export function InstallCard() {
                 Share
               </span>{" "}
               then{" "}
-              <span style={{ color: "#D4A853", fontWeight: 500 }}>
+              <span style={{ color: "var(--action-primary)", fontWeight: 500 }}>
                 Add to Home Screen
               </span>{" "}
               for the full app experience. · Προσθέστε στην αρχική οθόνη
             </p>
           ) : (
-            <p style={{ fontSize: 12, color: "#A8A29E", lineHeight: 1.5 }}>
+            <p style={{ fontSize: 12, color: "var(--content-secondary)", lineHeight: 1.5 }}>
               Install for offline access & faster loading.
               <br />
-              <span style={{ color: "#78716C", fontSize: 11 }}>
+              <span style={{ color: "var(--content-muted)", fontSize: 12 }}>
                 Εγκατάσταση για offline πρόσβαση
               </span>
             </p>
@@ -156,11 +154,11 @@ export function InstallCard() {
             <button
               onClick={triggerInstall}
               style={{
-                padding: "8px 16px",
+                minHeight: 44, padding: "8px 16px",
                 borderRadius: 10,
                 border: "none",
-                background: "linear-gradient(135deg, #D4A853, #E8C078)",
-                color: "#0a0a0a",
+                background: "var(--action-primary)",
+                color: "var(--action-on-primary)",
                 fontSize: 12,
                 fontWeight: 600,
                 cursor: "pointer",
@@ -175,11 +173,11 @@ export function InstallCard() {
             onClick={dismiss}
             aria-label="Dismiss install prompt"
             style={{
-              padding: "7px 12px",
+              minHeight: 44, padding: "7px 12px",
               borderRadius: 10,
-              border: "1px solid rgba(255,255,255,0.08)",
+              border: "1px solid var(--border-subtle)",
               background: "transparent",
-              color: "#78716C",
+              color: "var(--content-secondary)",
               fontSize: 12,
               cursor: "pointer",
               letterSpacing: "0.01em",

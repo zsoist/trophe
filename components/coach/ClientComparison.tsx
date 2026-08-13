@@ -201,7 +201,7 @@ export default memo(function ClientComparison({ clientA, clientB }: ClientCompar
               y={p.y}
               textAnchor="middle"
               dominantBaseline="middle"
-              className="fill-stone-500"
+              className="fill-[var(--data-neutral)]"
               fontSize="12"
             >
               {AXIS_LABELS[i]}

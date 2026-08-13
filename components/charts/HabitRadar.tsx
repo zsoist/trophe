@@ -129,10 +129,10 @@ export default function HabitRadar({ userId }: HabitRadarProps) {
         animate={{ opacity: 1, y: 0 }}
         className="glass p-5 mb-4"
       >
-        <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider mb-4">
+        <h3 className="text-[var(--content-primary)] text-xs font-semibold uppercase tracking-wider mb-4">
           Habit Balance
         </h3>
-        <div className="text-center py-8 text-stone-500 text-sm animate-pulse">
+        <div className="text-center py-8 text-[var(--content-muted)] text-sm animate-pulse">
           Loading...
         </div>
       </motion.div>
@@ -147,7 +147,7 @@ export default function HabitRadar({ userId }: HabitRadarProps) {
       animate={{ opacity: 1, y: 0 }}
       className="glass p-5 mb-4"
     >
-      <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider mb-4">
+      <h3 className="text-[var(--content-primary)] text-xs font-semibold uppercase tracking-wider mb-4">
         Habit Balance
       </h3>
 
@@ -158,6 +158,8 @@ export default function HabitRadar({ userId }: HabitRadarProps) {
             height={size}
             className="mx-auto opacity-30"
             viewBox={`0 0 ${size} ${size}`}
+            role="img"
+            aria-label="Habit balance chart: no habit data yet"
           >
             {/* Empty grid */}
             {Array.from({ length: levels }).map((_, l) => {
@@ -171,7 +173,7 @@ export default function HabitRadar({ userId }: HabitRadarProps) {
                   key={l}
                   points={pts}
                   fill="none"
-                  stroke="rgb(68, 64, 60)"
+                  stroke="var(--border-subtle)"
                   strokeWidth={0.5}
                 />
               );
@@ -186,13 +188,13 @@ export default function HabitRadar({ userId }: HabitRadarProps) {
                   y1={cy}
                   x2={pt.x}
                   y2={pt.y}
-                  stroke="rgb(68, 64, 60)"
+                  stroke="var(--border-subtle)"
                   strokeWidth={0.5}
                 />
               );
             })}
           </svg>
-          <p className="text-stone-500 text-sm mt-2">
+          <p className="text-[var(--content-muted)] text-sm mt-2">
             Complete habits to see your balance
           </p>
         </div>
@@ -203,6 +205,8 @@ export default function HabitRadar({ userId }: HabitRadarProps) {
             height={size}
             viewBox={`0 0 ${size} ${size}`}
             className="mx-auto"
+            role="img"
+            aria-label="Habit balance chart"
           >
             {/* Concentric grid rings */}
             {Array.from({ length: levels }).map((_, l) => {
@@ -216,7 +220,7 @@ export default function HabitRadar({ userId }: HabitRadarProps) {
                   key={l}
                   points={pts}
                   fill="none"
-                  stroke="rgb(68, 64, 60)"
+                  stroke="var(--border-subtle)"
                   strokeWidth={0.5}
                 />
               );
@@ -232,7 +236,7 @@ export default function HabitRadar({ userId }: HabitRadarProps) {
                   y1={cy}
                   x2={pt.x}
                   y2={pt.y}
-                  stroke="rgb(68, 64, 60)"
+                  stroke="var(--border-subtle)"
                   strokeWidth={0.5}
                 />
               );
@@ -241,8 +245,8 @@ export default function HabitRadar({ userId }: HabitRadarProps) {
             {/* Data polygon */}
             <motion.polygon
               points={getPolygonPoints(values)}
-              fill="var(--accent-soft, rgba(212,168,83,.19))"
-              stroke="var(--accent, #D4A853)"
+              fill="var(--surface-2)"
+              stroke="var(--data-calories)"
               strokeWidth={2}
               strokeLinejoin="round"
               initial={{ opacity: 0, scale: 0 }}
@@ -260,8 +264,8 @@ export default function HabitRadar({ userId }: HabitRadarProps) {
                   cx={pt.x}
                   cy={pt.y}
                   r={3.5}
-                  fill="var(--accent, #D4A853)"
-                  stroke="#0a0a0a"
+                  fill="var(--data-calories)"
+                  stroke="var(--surface-1)"
                   strokeWidth={2}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
@@ -280,7 +284,7 @@ export default function HabitRadar({ userId }: HabitRadarProps) {
                   y={pt.y}
                   textAnchor="middle"
                   dominantBaseline="middle"
-                  fill="#a8a29e"
+                  fill="var(--content-muted)"
                   fontSize={10}
                   fontWeight={500}
                 >
@@ -289,28 +293,29 @@ export default function HabitRadar({ userId }: HabitRadarProps) {
               );
             })}
           </svg>
+          <ul className="sr-only" aria-label="Habit balance values">
+            {CATEGORIES.map((cat) => <li key={cat.key}>{cat.label}: {scores[cat.key] || 0}%</li>)}
+          </ul>
 
           {/* Score summary */}
           <div className="grid grid-cols-3 gap-2 mt-3 w-full">
             {CATEGORIES.map((cat) => (
               <div
                 key={cat.key}
-                className="text-center p-2 rounded-lg bg-white/[0.02]"
+                className="text-center p-2 rounded-lg bg-[var(--surface-2)]"
               >
                 <div
                   className="text-sm font-semibold"
                   style={{
                     color:
                       (scores[cat.key] || 0) >= 75
-                        ? 'var(--accent, #D4A853)'
-                        : (scores[cat.key] || 0) >= 50
-                        ? '#a8a29e'
-                        : '#78716c',
+                        ? 'var(--data-calories)'
+                        : 'var(--data-neutral)',
                   }}
                 >
                   {scores[cat.key] || 0}%
                 </div>
-                <div className="text-[9px] text-stone-500 uppercase tracking-wider">
+                <div className="text-xs text-[var(--content-muted)] uppercase tracking-wider">
                   {cat.label}
                 </div>
               </div>

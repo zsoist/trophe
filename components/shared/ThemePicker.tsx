@@ -27,7 +27,7 @@ export default function ThemePicker({ onClose }: ThemePickerProps) {
       animate={{ opacity: 1 }}
       exit={{ opacity: reducedMotion ? 1 : 0 }}
       transition={{ duration: reducedMotion ? 0 : 0.15 }}
-      className="fixed inset-0 z-50 bg-black/60 flex items-end justify-center"
+      className="fixed inset-0 z-50 bg-[var(--surface-overlay)] flex items-end justify-center"
       onClick={onClose}
     >
       <motion.div
@@ -77,7 +77,7 @@ export default function ThemePicker({ onClose }: ThemePickerProps) {
                 className="w-8 h-8 rounded-full mx-auto mb-1.5 flex items-center justify-center"
                 style={{ backgroundColor: theme.value }}
               >
-                {prefs.accent === theme.id && <Check size={14} className="text-black" />}
+                {prefs.accent === theme.id && <Check size={14} className="text-[var(--content-inverse)]" />}
               </div>
               <p className="text-xs text-[var(--content-secondary)] text-center">{t(theme.labelKey)}</p>
             </button>

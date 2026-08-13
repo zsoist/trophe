@@ -48,7 +48,7 @@ type DemoStat =
 // Feature chip
 function Chip({ icon: Icon, label, color = '#D4A853' }: { icon: React.ComponentType<{ size?: number; className?: string }>; label: string; color?: string }) {
   return (
-    <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium" style={{ background: `${color}15`, color, border: `1px solid ${color}25` }}>
+    <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium" style={{ background: `${color}15`, color, border: `1px solid ${color}25` }}>
       <Icon size={12} />
       {label}
     </div>
@@ -59,11 +59,11 @@ function Chip({ icon: Icon, label, color = '#D4A853' }: { icon: React.ComponentT
 function ProgressBar({ label, value, max, color }: { label: string; value: number; max: number; color: string }) {
   return (
     <div className="space-y-1">
-      <div className="flex justify-between text-[10px]">
-        <span className="text-stone-400">{label}</span>
+      <div className="flex justify-between text-xs">
+        <span className="text-[var(--content-muted)]">{label}</span>
         <span style={{ color }} className="font-bold">{value}/{max}</span>
       </div>
-      <div className="h-1.5 bg-white/[0.05] rounded-full overflow-hidden">
+      <div className="h-1.5 bg-[var(--surface-2)] rounded-full overflow-hidden">
         <motion.div
           initial={{ width: 0 }}
           whileInView={{ width: `${(value / max) * 100}%` }}
@@ -94,11 +94,11 @@ function Section({ icon: Icon, title, subtitle, children, defaultOpen = false }:
             <Icon size={20} className="gold-text" />
           </div>
           <div className="text-left">
-            <h3 className="text-sm font-bold text-stone-100">{title}</h3>
-            <p className="text-[10px] text-stone-500 uppercase tracking-wider">{subtitle}</p>
+            <h3 className="text-sm font-bold text-[var(--content-primary)]">{title}</h3>
+            <p className="text-xs text-[var(--content-muted)] uppercase tracking-wider">{subtitle}</p>
           </div>
         </div>
-        {open ? <ChevronUp size={16} className="text-stone-500" /> : <ChevronDown size={16} className="text-stone-500" />}
+        {open ? <ChevronUp size={16} className="text-[var(--content-muted)]" /> : <ChevronDown size={16} className="text-[var(--content-muted)]" />}
       </button>
       {open && (
         <motion.div
@@ -200,31 +200,31 @@ export default function DemoPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-stone-950">
+    <div className="min-h-screen bg-[var(--surface-2)]">
       <div className="max-w-lg mx-auto px-4 pt-6 pb-24">
 
         {/* ═══ HEADER ═══ */}
         <div className="flex items-center gap-3 mb-6">
           <Link href="/">
-            <button className="p-2 rounded-xl" style={{ background: 'rgba(255,255,255,0.06)' }}>
-              <ArrowLeft size={18} className="text-stone-400" />
+            <button className="p-2 rounded-xl" style={{ background: 'var(--border-subtle)' }}>
+              <ArrowLeft size={18} className="text-[var(--content-muted)]" />
             </button>
           </Link>
           <div className="flex-1">
-            <h1 className="text-2xl font-bold text-stone-100 font-serif">τροφή</h1>
-            <p className="text-[10px] text-[#D4A853] tracking-widest uppercase">Precision Nutrition Coaching</p>
+            <h1 className="text-2xl font-bold text-[var(--content-primary)] font-serif">τροφή</h1>
+            <p className="text-xs text-[#D4A853] tracking-widest uppercase">Precision Nutrition Coaching</p>
           </div>
           {/* Language toggle */}
-          <div className="flex rounded-full p-0.5" style={{ background: 'rgba(255,255,255,0.06)' }}>
+          <div className="flex rounded-full p-0.5" style={{ background: 'var(--border-subtle)' }}>
             <button
               onClick={() => setLang('en')}
-              className={`px-3 py-1.5 rounded-full text-[10px] font-semibold transition-all duration-300 ${lang === 'en' ? 'bg-[#D4A853] text-stone-950' : 'text-stone-500'}`}
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-300 ${lang === 'en' ? 'bg-[#D4A853] text-[var(--content-inverse)]' : 'text-[var(--content-muted)]'}`}
             >
               🇬🇧 EN
             </button>
             <button
               onClick={() => setLang('el')}
-              className={`px-3 py-1.5 rounded-full text-[10px] font-semibold transition-all duration-300 ${lang === 'el' ? 'bg-[#D4A853] text-stone-950' : 'text-stone-500'}`}
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-300 ${lang === 'el' ? 'bg-[#D4A853] text-[var(--content-inverse)]' : 'text-[var(--content-muted)]'}`}
             >
               🇬🇷 EL
             </button>
@@ -247,12 +247,12 @@ export default function DemoPage() {
           <div className="relative">
             <div className="flex items-center gap-2 mb-2">
               <Sparkles size={14} className="gold-text" />
-              <span className="text-[10px] text-[#D4A853] uppercase tracking-wider font-bold">{t.demoLabel}</span>
+              <span className="text-xs text-[#D4A853] uppercase tracking-wider font-bold">{t.demoLabel}</span>
             </div>
-            <h2 className="text-xl font-bold text-stone-100 mb-2 leading-tight">
+            <h2 className="text-xl font-bold text-[var(--content-primary)] mb-2 leading-tight">
               {t.heroTitle}
             </h2>
-            <p className="text-xs text-stone-400 leading-relaxed">
+            <p className="text-xs text-[var(--content-muted)] leading-relaxed">
               {t.heroDesc}
             </p>
           </div>
@@ -264,11 +264,11 @@ export default function DemoPage() {
             <div key={stat.label} className="glass p-3 text-center">
               <stat.icon size={14} className="gold-text mx-auto mb-1" />
               {'text' in stat ? (
-                <p className="text-[10px] font-bold gold-text mt-1">{stat.label}</p>
+                <p className="text-xs font-bold gold-text mt-1">{stat.label}</p>
               ) : (
                 <>
                   <p className="text-lg font-bold gold-text"><Counter value={stat.n} suffix={stat.suffix} /></p>
-                  <p className="text-[8px] text-stone-500 uppercase">{stat.label}</p>
+                  <p className="text-xs text-[var(--content-muted)] uppercase">{stat.label}</p>
                 </>
               )}
             </div>
@@ -278,29 +278,29 @@ export default function DemoPage() {
         {/* ═══ DEMO ACCESS ═══ */}
         <motion.div {...fade(0.15)} className="glass p-4 mb-6">
           <div className="space-y-2 mb-3">
-            <div className="flex items-center justify-between p-2.5 rounded-lg" style={{ background: 'rgba(255,255,255,0.04)' }}>
+            <div className="flex items-center justify-between p-2.5 rounded-lg" style={{ background: 'var(--border-subtle)' }}>
               <div className="flex items-center gap-2">
                 <div className="w-7 h-7 rounded-full bg-[#D4A853]/20 flex items-center justify-center">
                   <Users size={12} className="gold-text" />
                 </div>
                 <div>
-                  <p className="text-[9px] text-stone-500">Coach</p>
-                  <p className="text-xs text-stone-200 font-medium">Request coach demo access</p>
+                  <p className="text-xs text-[var(--content-muted)]">Coach</p>
+                  <p className="text-xs text-[var(--content-primary)] font-medium">Request coach demo access</p>
                 </div>
               </div>
-              <code className="text-[10px] text-stone-500 bg-white/[0.04] px-2 py-0.5 rounded">managed access</code>
+              <code className="text-xs text-[var(--content-muted)] bg-[var(--surface-2)] px-2 py-0.5 rounded">managed access</code>
             </div>
-            <div className="flex items-center justify-between p-2.5 rounded-lg" style={{ background: 'rgba(255,255,255,0.04)' }}>
+            <div className="flex items-center justify-between p-2.5 rounded-lg" style={{ background: 'var(--border-subtle)' }}>
               <div className="flex items-center gap-2">
                 <div className="w-7 h-7 rounded-full bg-green-500/20 flex items-center justify-center">
                   <Heart size={12} className="text-green-400" />
                 </div>
                 <div>
-                  <p className="text-[9px] text-stone-500">Client (Nikos)</p>
-                  <p className="text-xs text-stone-200 font-medium">Request client demo access</p>
+                  <p className="text-xs text-[var(--content-muted)]">Client (Nikos)</p>
+                  <p className="text-xs text-[var(--content-primary)] font-medium">Request client demo access</p>
                 </div>
               </div>
-              <code className="text-[10px] text-stone-500 bg-white/[0.04] px-2 py-0.5 rounded">managed access</code>
+              <code className="text-xs text-[var(--content-muted)] bg-[var(--surface-2)] px-2 py-0.5 rounded">managed access</code>
             </div>
           </div>
           <Link href="/login" className="btn-gold block w-full py-3 text-sm text-center font-bold no-underline">
@@ -310,12 +310,12 @@ export default function DemoPage() {
 
         {/* ═══ NARRATIVE: THE PROBLEM ═══ */}
         <motion.div {...fade(0.1)} className="mb-6">
-          <p className="text-xs text-stone-500 uppercase tracking-wider mb-2 px-1">{t.problemLabel}</p>
+          <p className="text-xs text-[var(--content-muted)] uppercase tracking-wider mb-2 px-1">{t.problemLabel}</p>
           <div className="glass p-4 space-y-2">
             {t.problems.map((problem, i) => (
               <motion.div key={i} {...fade(i * 0.05)} className="flex items-start gap-2">
                 <span className="text-red-400 text-xs mt-0.5">✗</span>
-                <p className="text-xs text-stone-400">{problem}</p>
+                <p className="text-xs text-[var(--content-muted)]">{problem}</p>
               </motion.div>
             ))}
           </div>
@@ -323,12 +323,12 @@ export default function DemoPage() {
 
         {/* ═══ NARRATIVE: THE SOLUTION ═══ */}
         <motion.div {...fade(0.1)} className="mb-6">
-          <p className="text-xs text-stone-500 uppercase tracking-wider mb-2 px-1">{t.solutionLabel}</p>
+          <p className="text-xs text-[var(--content-muted)] uppercase tracking-wider mb-2 px-1">{t.solutionLabel}</p>
           <div className="glass-elevated p-4 border border-[#D4A853]/10 space-y-2">
             {t.solutions.map((solution, i) => (
               <motion.div key={i} {...fade(i * 0.05)} className="flex items-start gap-2">
                 <CheckCircle2 size={14} className="text-green-400 flex-shrink-0 mt-0.5" />
-                <p className="text-xs text-stone-300">{solution}</p>
+                <p className="text-xs text-[var(--content-primary)]">{solution}</p>
               </motion.div>
             ))}
           </div>
@@ -336,7 +336,7 @@ export default function DemoPage() {
 
         {/* ═══ FEATURE GRID ═══ */}
         <motion.div {...fade(0.1)} className="mb-6">
-          <p className="text-xs text-stone-500 uppercase tracking-wider mb-3 px-1">{t.featuresLabel}</p>
+          <p className="text-xs text-[var(--content-muted)] uppercase tracking-wider mb-3 px-1">{t.featuresLabel}</p>
           <div className="flex flex-wrap gap-1.5">
             <Chip icon={Utensils} label="NLP Food Parse" />
             <Chip icon={Camera} label="Photo Analysis" />
@@ -362,7 +362,7 @@ export default function DemoPage() {
         </motion.div>
 
         {/* ═══ CAPABILITY DEEP DIVES ═══ */}
-        <p className="text-xs text-stone-500 uppercase tracking-wider mb-3 px-1">{t.deepDiveLabel}</p>
+        <p className="text-xs text-[var(--content-muted)] uppercase tracking-wider mb-3 px-1">{t.deepDiveLabel}</p>
 
         <Section icon={Brain} title="Scientific Foundation" subtitle="Evidence-based methodology" defaultOpen>
           <DetailBlock
@@ -386,9 +386,9 @@ export default function DemoPage() {
               { icon: '📋', label: 'Paste' },
               { icon: '✏️', label: 'Manual' },
             ].map(m => (
-              <div key={m.label} className="text-center p-2 rounded-lg" style={{ background: 'rgba(255,255,255,0.03)' }}>
+              <div key={m.label} className="text-center p-2 rounded-lg" style={{ background: 'var(--border-subtle)' }}>
                 <span className="text-lg block">{m.icon}</span>
-                <span className="text-[8px] text-stone-500">{m.label}</span>
+                <span className="text-xs text-[var(--content-muted)]">{m.label}</span>
               </div>
             ))}
           </div>
@@ -402,7 +402,7 @@ export default function DemoPage() {
             <Wifi size={16} className="text-green-400" />
             <div>
               <p className="text-xs text-green-300 font-medium">100% Client-Side</p>
-              <p className="text-[10px] text-stone-500">Video never leaves device. Zero API cost. Works offline.</p>
+              <p className="text-xs text-[var(--content-muted)]">Video never leaves device. Zero API cost. Works offline.</p>
             </div>
           </div>
           <DetailBlock title="33 Body Landmarks" body="MediaPipe Pose via WebAssembly. 30+ FPS desktop, 25 FPS mobile. Knee angle, torso inclination, neck inclination." />
@@ -415,7 +415,7 @@ export default function DemoPage() {
           <DetailBlock title="10 PN Habits" body="Eat slowly, 80% full, protein every meal, vegetables, smart carbs, healthy fats, hydration, sleep, meal prep, mindful eating." />
           <div className="flex flex-wrap gap-1">
             {['🐢 Eat Slowly', '🥩 Protein', '🥦 Vegetables', '💧 Hydration', '😴 Sleep', '🧘 Mindful'].map(h => (
-              <span key={h} className="text-[10px] px-2 py-1 rounded-full bg-white/[0.05] text-stone-400">{h}</span>
+              <span key={h} className="text-xs px-2 py-1 rounded-full bg-[var(--surface-2)] text-[var(--content-muted)]">{h}</span>
             ))}
           </div>
         </Section>
@@ -442,16 +442,16 @@ export default function DemoPage() {
 
         {/* ═══ COMPETITIVE EDGE ═══ */}
         <motion.div {...fade(0.1)} className="mb-6">
-          <p className="text-xs text-stone-500 uppercase tracking-wider mb-3 px-1">{t.bundlesLabel}</p>
+          <p className="text-xs text-[var(--content-muted)] uppercase tracking-wider mb-3 px-1">{t.bundlesLabel}</p>
           <div className="glass p-4">
-            <p className="text-[11px] text-stone-400 mb-3">{t.bundlesDesc}</p>
+            <p className="text-xs text-[var(--content-muted)] mb-3">{t.bundlesDesc}</p>
             <div className="space-y-2">
               {t.bundles.map((row, i) => (
-                <div key={i} className="flex items-start gap-2 py-1.5 border-b border-white/[0.04] last:border-0">
+                <div key={i} className="flex items-start gap-2 py-1.5 border-b border-[var(--border-subtle)] last:border-0">
                   <CheckCircle2 size={12} className="text-green-400 flex-shrink-0 mt-0.5" />
                   <div className="flex-1">
-                    <p className="text-[11px] text-stone-200">{row.feature}</p>
-                    <p className="text-[9px] text-stone-600">Replaces: {row.alt}</p>
+                    <p className="text-xs text-[var(--content-primary)]">{row.feature}</p>
+                    <p className="text-xs text-[var(--content-muted)]">Replaces: {row.alt}</p>
                   </div>
                 </div>
               ))}
@@ -463,9 +463,9 @@ export default function DemoPage() {
         <motion.div {...fade(0.1)} className="glass p-4 mb-8">
           <div className="flex items-center gap-2 mb-2">
             <Target size={14} className="gold-text" />
-            <span className="text-xs text-stone-300 font-bold">{t.businessLabel}</span>
+            <span className="text-xs text-[var(--content-primary)] font-bold">{t.businessLabel}</span>
           </div>
-          <p className="text-xs text-stone-400 leading-relaxed">
+          <p className="text-xs text-[var(--content-muted)] leading-relaxed">
             {t.businessDesc}
           </p>
         </motion.div>
@@ -480,7 +480,7 @@ export default function DemoPage() {
               {t.enterBtn}
             </button>
           </Link>
-          <p className="text-[10px] text-stone-600 mt-3 font-mono">
+          <p className="text-xs text-[var(--content-muted)] mt-3 font-mono">
             Demo credentials are issued individually.
           </p>
         </motion.div>
@@ -492,8 +492,8 @@ export default function DemoPage() {
 function DetailBlock({ title, body }: { title: string; body: string }) {
   return (
     <div>
-      <h4 className="text-xs font-semibold text-stone-200 mb-0.5">{title}</h4>
-      <p className="text-[11px] text-stone-400 leading-relaxed whitespace-pre-line">{body}</p>
+      <h4 className="text-xs font-semibold text-[var(--content-primary)] mb-0.5">{title}</h4>
+      <p className="text-xs text-[var(--content-muted)] leading-relaxed whitespace-pre-line">{body}</p>
     </div>
   );
 }

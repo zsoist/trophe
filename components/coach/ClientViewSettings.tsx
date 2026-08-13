@@ -137,7 +137,7 @@ export default function ClientViewSettings({ clientId }: { clientId: string }) {
                   }`}
                 >
                   <span
-                    className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${
+                    className={`absolute top-0.5 w-4 h-4 rounded-full bg-[var(--surface-2)] shadow-sm transition-transform ${
                       on ? 'translate-x-[18px]' : 'translate-x-0.5'
                     }`}
                   />

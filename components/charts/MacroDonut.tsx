@@ -69,9 +69,9 @@ export default function MacroDonut({
 
   // Colors
   const colors = {
-    protein: '#3b82f6',
-    carbs: '#f59e0b',
-    fat: '#f43f5e',
+    protein: 'var(--data-protein)',
+    carbs: 'var(--data-carbs)',
+    fat: 'var(--data-fat)',
   };
 
   // Actual arcs
@@ -102,9 +102,9 @@ export default function MacroDonut({
   return (
     <div className="flex flex-col items-center">
       <div className="relative" style={{ width: size, height: size }}>
-        <svg width={size} height={size}>
+        <svg width={size} height={size} role="img" aria-label="Macro distribution chart">
           {/* Background ring */}
-          <circle cx={cx} cy={cy} r={outerR} fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth={14} />
+          <circle cx={cx} cy={cy} r={outerR} fill="none" stroke="var(--border-subtle)" strokeWidth={14} />
 
           {/* Target distribution (faded outer ring) */}
           {targetTotal > 0 && (
@@ -187,10 +187,16 @@ export default function MacroDonut({
 
         {/* Center text */}
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-2xl font-bold text-stone-100">{Math.round(calories)}</span>
-          <span className="text-[10px] text-stone-500 uppercase tracking-wider">kcal</span>
+          <span className="text-2xl font-bold text-[var(--content-primary)]">{Math.round(calories)}</span>
+          <span className="text-xs text-[var(--content-muted)] uppercase tracking-wider">kcal</span>
         </div>
       </div>
+      <ul className="sr-only" aria-label="Macro distribution values">
+        <li>Calories: {Math.round(calories)} kcal</li>
+        {macros.map((macro) => (
+          <li key={macro.label}>{macro.label}: {Math.round(macro.grams)}g ({Math.round(macro.pct)}%), target {Math.round(macro.target)}g</li>
+        ))}
+      </ul>
 
       {/* Legend */}
       <div className="flex gap-4 mt-3">
@@ -201,11 +207,11 @@ export default function MacroDonut({
                 className="w-2 h-2 rounded-full inline-block"
                 style={{ backgroundColor: m.color }}
               />
-              <span className="text-[11px] text-stone-400">{m.label}</span>
+              <span className="text-xs text-[var(--content-muted)]">{m.label}</span>
             </div>
-            <div className="text-xs text-stone-200 font-semibold">
+            <div className="text-xs text-[var(--content-primary)] font-semibold">
               {Math.round(m.grams)}g
-              <span className="text-stone-500 font-normal ml-1">
+              <span className="text-[var(--content-muted)] font-normal ml-1">
                 ({Math.round(m.pct)}%)
               </span>
             </div>

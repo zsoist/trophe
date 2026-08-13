@@ -5,7 +5,6 @@ import { motion } from 'framer-motion';
 import { BarChart3 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { localDateStr } from '@/lib/utils/dates';
-import { MACRO_COLORS } from '@/lib/macro-colors';
 import {
   weeklyCalorieBarColor,
   weeklyCalorieTargetY,
@@ -94,7 +93,7 @@ export default function WeeklyMacroChart({
   if (loading) {
     return (
       <div className="glass p-5 mb-4">
-        <div className="text-stone-500 text-sm text-center py-8 animate-pulse">
+        <div className="text-[var(--content-muted)] text-sm text-center py-8 animate-pulse">
           Loading weekly data...
         </div>
       </div>
@@ -131,7 +130,7 @@ export default function WeeklyMacroChart({
       transition={{ delay: 0.2 }}
       className="glass p-5 mb-4"
     >
-      <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider mb-4 flex items-center gap-2">
+      <h3 className="text-[var(--content-primary)] text-xs font-semibold uppercase tracking-wider mb-4 flex items-center gap-2">
         <BarChart3 size={14} /> Weekly Calories
       </h3>
 
@@ -142,6 +141,8 @@ export default function WeeklyMacroChart({
           height={chartHeight + 28}
           viewBox={`0 0 ${totalWidth + 20} ${chartHeight + 28}`}
           className="overflow-visible"
+          role="img"
+          aria-label="Weekly calorie chart"
         >
           {/* A zero target means "not configured", so render no threshold. */}
           {targetY !== null && (
@@ -151,7 +152,7 @@ export default function WeeklyMacroChart({
                 y1={targetY}
                 x2={totalWidth + 20}
                 y2={targetY}
-                stroke="var(--accent, #D4A853)"
+                stroke="var(--data-calories)"
                 strokeWidth={1}
                 strokeDasharray="4 3"
                 opacity={0.5}
@@ -160,7 +161,7 @@ export default function WeeklyMacroChart({
                 x={totalWidth + 18}
                 y={targetY - 4}
                 textAnchor="end"
-                fill="var(--accent, #D4A853)"
+                fill="var(--data-calories)"
                 fontSize={8}
                 opacity={0.6}
               >
@@ -197,7 +198,7 @@ export default function WeeklyMacroChart({
                     x={x + barWidth / 2}
                     y={y - 4}
                     textAnchor="middle"
-                    fill="#a8a29e"
+                    fill="var(--content-muted)"
                     fontSize={8}
                   >
                     {Math.round(day.calories)}
@@ -208,7 +209,7 @@ export default function WeeklyMacroChart({
                   x={x + barWidth / 2}
                   y={chartHeight + 14}
                   textAnchor="middle"
-                  fill={isToday ? 'var(--accent, #D4A853)' : '#78716c'}
+                  fill={isToday ? 'var(--data-calories)' : 'var(--content-muted)'}
                   fontSize={9}
                   fontWeight={isToday ? 600 : 400}
                 >
@@ -216,35 +217,38 @@ export default function WeeklyMacroChart({
                 </text>
                 {/* Today dot */}
                 {isToday && (
-                  <circle cx={x + barWidth / 2} cy={chartHeight + 22} r={2} fill="var(--accent, #D4A853)" />
+                  <circle cx={x + barWidth / 2} cy={chartHeight + 22} r={2} fill="var(--data-calories)" />
                 )}
               </g>
             );
           })}
         </svg>
       </div>
+      <ul className="sr-only" aria-label="Weekly calorie values">
+        {weekData.map(day => <li key={day.date}>{day.dayLabel}: {Math.round(day.calories)} kcal, {Math.round(day.protein_g)}g protein, {Math.round(day.carbs_g)}g carbs, {Math.round(day.fat_g)}g fat</li>)}
+      </ul>
 
       {/* Weekly Averages */}
-      <div className="border-t border-white/5 pt-3">
-        <p className="text-stone-500 text-[10px] uppercase tracking-wider mb-2">
+      <div className="border-t border-[var(--border-subtle)] pt-3">
+        <p className="text-[var(--content-muted)] text-xs uppercase tracking-wider mb-2">
           7-Day Average
         </p>
         <div className="grid grid-cols-4 gap-3 text-center">
           <div>
-            <p className="gold-text font-bold text-sm">{avgCalories}</p>
-            <p className="text-stone-600 text-[10px]">kcal</p>
+            <p className="font-bold text-sm text-[var(--data-calories)]">{avgCalories}</p>
+            <p className="text-[var(--content-muted)] text-xs">kcal</p>
           </div>
           <div>
-            <p className="font-bold text-sm" style={{ color: MACRO_COLORS.protein }}>{avgProtein}g</p>
-            <p className="text-stone-500 text-[10px]">Protein</p>
+            <p className="font-bold text-sm text-[var(--data-protein)]">{avgProtein}g</p>
+            <p className="text-[var(--content-muted)] text-xs">Protein</p>
           </div>
           <div>
-            <p className="font-bold text-sm" style={{ color: MACRO_COLORS.carbs }}>{avgCarbs}g</p>
-            <p className="text-stone-500 text-[10px]">Carbs</p>
+            <p className="font-bold text-sm text-[var(--data-carbs)]">{avgCarbs}g</p>
+            <p className="text-[var(--content-muted)] text-xs">Carbs</p>
           </div>
           <div>
-            <p className="font-bold text-sm" style={{ color: MACRO_COLORS.fat }}>{avgFat}g</p>
-            <p className="text-stone-500 text-[10px]">Fat</p>
+            <p className="font-bold text-sm text-[var(--data-fat)]">{avgFat}g</p>
+            <p className="text-[var(--content-muted)] text-xs">Fat</p>
           </div>
         </div>
       </div>

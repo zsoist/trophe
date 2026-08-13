@@ -120,14 +120,14 @@ function AppPreview() {
   return (
     <div className="relative mx-auto w-[280px] sm:w-[320px]">
       {/* Phone frame */}
-      <div className="rounded-[2rem] border-2 border-stone-700/40 bg-stone-950 p-2 shadow-2xl shadow-black/40">
+      <div className="rounded-[2rem] border-2 border-[var(--border-default)] bg-[var(--surface-2)] p-2 shadow-2xl shadow-black/40">
         {/* Screen */}
-        <div className="rounded-[1.5rem] overflow-hidden bg-stone-950">
+        <div className="rounded-[1.5rem] overflow-hidden bg-[var(--surface-2)]">
           {/* Status bar */}
-          <div className="flex justify-between items-center px-5 pt-3 pb-1 text-[9px] text-stone-500">
+          <div className="flex justify-between items-center px-5 pt-3 pb-1 text-xs text-[var(--content-muted)]">
             <span>9:41</span>
             <div className="flex gap-1 items-center">
-              <div className="w-3 h-2 border border-stone-600 rounded-sm relative">
+              <div className="w-3 h-2 border border-[var(--border-default)] rounded-sm relative">
                 <div className="absolute inset-0.5 bg-green-500 rounded-xs" />
               </div>
             </div>
@@ -135,14 +135,14 @@ function AppPreview() {
 
           {/* App header */}
           <div className="px-4 pt-2 pb-3">
-            <p className="text-[10px] text-stone-500 tracking-wider uppercase">Today</p>
+            <p className="text-xs text-[var(--content-muted)] tracking-wider uppercase">Today</p>
             <div className="flex items-baseline justify-between mt-1">
-              <p className="text-stone-200 text-sm font-semibold">Monday, Jun 9</p>
+              <p className="text-[var(--content-primary)] text-sm font-semibold">Monday, Jun 9</p>
             </div>
           </div>
 
           {/* Macro bar */}
-          <div className="mx-3 rounded-xl bg-stone-900/80 border border-stone-800/40 p-3 mb-3">
+          <div className="mx-3 rounded-xl bg-[var(--surface-2)] border border-[var(--border-default)] p-3 mb-3">
             <div className="grid grid-cols-5 gap-1 text-center">
               {[
                 { v: '1,847', l: 'kcal', c: 'text-[#D4A853]' },
@@ -153,96 +153,96 @@ function AppPreview() {
               ].map((m) => (
                 <div key={m.l}>
                   <p className={`text-xs font-bold ${m.c}`}>{m.v}</p>
-                  <p className="text-[7px] text-stone-600 mt-0.5">{m.l}</p>
+                  <p className="text-xs text-[var(--content-muted)] mt-0.5">{m.l}</p>
                 </div>
               ))}
             </div>
             {/* Progress bar — with a slow premium sheen */}
-            <div className="mt-2 h-1 bg-stone-800 rounded-full overflow-hidden relative">
+            <div className="mt-2 h-1 bg-[var(--surface-2)] rounded-full overflow-hidden relative">
               <div className="h-full bg-gradient-to-r from-[#D4A853] to-[#E8C078] rounded-full" style={{ width: '72%' }} />
               <span aria-hidden className="mock-sheen" />
             </div>
-            <p className="text-[8px] text-stone-600 mt-1 text-right">72% of daily target</p>
+            <p className="text-xs text-[var(--content-muted)] mt-1 text-right">72% of daily target</p>
           </div>
 
           {/* Meal cards */}
           <div className="px-3 space-y-2 pb-3">
             {/* Logged meal */}
-            <div className="rounded-xl bg-stone-900/60 border border-stone-800/30 p-3">
+            <div className="rounded-xl bg-[var(--surface-2)] border border-[var(--border-default)] p-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px]">&#9728;&#65039;</span>
-                  <span className="text-stone-200 text-xs font-medium">Breakfast</span>
+                  <span className="text-xs">&#9728;&#65039;</span>
+                  <span className="text-[var(--content-primary)] text-xs font-medium">Breakfast</span>
                 </div>
-                <span className="text-[#D4A853] text-[10px] font-semibold">487 kcal</span>
+                <span className="text-[#D4A853] text-xs font-semibold">487 kcal</span>
               </div>
               <div className="mt-1.5 space-y-1">
-                <div className="flex justify-between text-[10px]">
-                  <span className="text-stone-400">Greek yogurt with honey</span>
-                  <span className="text-stone-500">220 kcal</span>
+                <div className="flex justify-between text-xs">
+                  <span className="text-[var(--content-muted)]">Greek yogurt with honey</span>
+                  <span className="text-[var(--content-muted)]">220 kcal</span>
                 </div>
-                <div className="flex justify-between text-[10px]">
-                  <span className="text-stone-400">Granola mix (45g)</span>
-                  <span className="text-stone-500">185 kcal</span>
+                <div className="flex justify-between text-xs">
+                  <span className="text-[var(--content-muted)]">Granola mix (45g)</span>
+                  <span className="text-[var(--content-muted)]">185 kcal</span>
                 </div>
-                <div className="flex justify-between text-[10px]">
-                  <span className="text-stone-400">Banana</span>
-                  <span className="text-stone-500">82 kcal</span>
+                <div className="flex justify-between text-xs">
+                  <span className="text-[var(--content-muted)]">Banana</span>
+                  <span className="text-[var(--content-muted)]">82 kcal</span>
                 </div>
               </div>
             </div>
 
             {/* Logged meal 2 */}
-            <div className="rounded-xl bg-stone-900/60 border border-stone-800/30 p-3">
+            <div className="rounded-xl bg-[var(--surface-2)] border border-[var(--border-default)] p-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px]">&#127860;</span>
-                  <span className="text-stone-200 text-xs font-medium">Lunch</span>
+                  <span className="text-xs">&#127860;</span>
+                  <span className="text-[var(--content-primary)] text-xs font-medium">Lunch</span>
                 </div>
-                <span className="text-[#D4A853] text-[10px] font-semibold">724 kcal</span>
+                <span className="text-[#D4A853] text-xs font-semibold">724 kcal</span>
               </div>
               <div className="mt-1.5 space-y-1">
-                <div className="flex justify-between text-[10px]">
-                  <span className="text-stone-400">Grilled chicken breast</span>
-                  <span className="text-stone-500">312 kcal</span>
+                <div className="flex justify-between text-xs">
+                  <span className="text-[var(--content-muted)]">Grilled chicken breast</span>
+                  <span className="text-[var(--content-muted)]">312 kcal</span>
                 </div>
-                <div className="flex justify-between text-[10px]">
-                  <span className="text-stone-400">Brown rice (180g)</span>
-                  <span className="text-stone-500">234 kcal</span>
+                <div className="flex justify-between text-xs">
+                  <span className="text-[var(--content-muted)]">Brown rice (180g)</span>
+                  <span className="text-[var(--content-muted)]">234 kcal</span>
                 </div>
-                <div className="flex justify-between text-[10px]">
-                  <span className="text-stone-400">Mixed salad + olive oil</span>
-                  <span className="text-stone-500">178 kcal</span>
+                <div className="flex justify-between text-xs">
+                  <span className="text-[var(--content-muted)]">Mixed salad + olive oil</span>
+                  <span className="text-[var(--content-muted)]">178 kcal</span>
                 </div>
               </div>
             </div>
 
             {/* Upcoming meal */}
-            <div className="rounded-xl bg-stone-900/30 border border-dashed border-stone-800/30 p-3 opacity-50">
+            <div className="rounded-xl bg-[var(--surface-2)] border border-dashed border-[var(--border-default)] p-3 opacity-50">
               <div className="flex items-center gap-2">
-                <span className="text-[10px]">&#127769;</span>
-                <span className="text-stone-400 text-xs">Dinner — Tap to log</span>
+                <span className="text-xs">&#127769;</span>
+                <span className="text-[var(--content-muted)] text-xs">Dinner — Tap to log</span>
               </div>
             </div>
           </div>
 
           {/* Bottom nav hint */}
-          <div className="flex justify-around py-2 border-t border-stone-800/30 text-stone-600">
+          <div className="flex justify-around py-2 border-t border-[var(--border-default)] text-[var(--content-muted)]">
             <div className="text-center">
-              <div className="w-4 h-4 mx-auto mb-0.5 rounded bg-stone-800/40" />
-              <span className="text-[7px]">Home</span>
+              <div className="w-4 h-4 mx-auto mb-0.5 rounded bg-[var(--surface-2)]" />
+              <span className="text-xs">Home</span>
             </div>
             <div className="text-center">
               <div className="mock-log-tab w-4 h-4 mx-auto mb-0.5 rounded bg-[#D4A853]/20 border border-[#D4A853]/30" />
-              <span className="text-[7px] text-[#D4A853]">Log</span>
+              <span className="text-xs text-[#D4A853]">Log</span>
             </div>
             <div className="text-center">
-              <div className="w-4 h-4 mx-auto mb-0.5 rounded bg-stone-800/40" />
-              <span className="text-[7px]">Progress</span>
+              <div className="w-4 h-4 mx-auto mb-0.5 rounded bg-[var(--surface-2)]" />
+              <span className="text-xs">Progress</span>
             </div>
             <div className="text-center">
-              <div className="w-4 h-4 mx-auto mb-0.5 rounded bg-stone-800/40" />
-              <span className="text-[7px]">Me</span>
+              <div className="w-4 h-4 mx-auto mb-0.5 rounded bg-[var(--surface-2)]" />
+              <span className="text-xs">Me</span>
             </div>
           </div>
         </div>

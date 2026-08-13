@@ -74,7 +74,7 @@ export default function DayComparison({ userId, currentDate, currentLog, compare
       animate={{ opacity: 1 }}
       exit={{ opacity: reducedMotion ? 1 : 0 }}
       transition={{ duration: reducedMotion ? 0 : 0.15 }}
-      className="fixed inset-0 z-50 bg-black/60 flex items-end justify-center"
+      className="fixed inset-0 z-50 bg-[var(--surface-overlay)] flex items-end justify-center"
       onClick={onClose}
     >
       <motion.div

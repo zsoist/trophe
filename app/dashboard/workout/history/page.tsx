@@ -305,7 +305,7 @@ export default function WorkoutHistoryPage() {
       <div className="max-w-md mx-auto px-4 pt-4">
         {loading && (
           <div className="flex items-center justify-center py-16">
-            <div className="w-6 h-6 border-2 border-stone-700 border-t-[var(--action-primary)] rounded-full animate-spin" />
+            <div className="w-6 h-6 border-2 border-[var(--border-default)] border-t-[var(--action-primary)] rounded-full animate-spin" />
           </div>
         )}
 

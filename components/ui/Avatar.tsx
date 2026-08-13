@@ -23,7 +23,7 @@ function initialsOf(name: string): string {
 }
 
 const sizeClass = {
-  sm: 'w-6 h-6 text-[10px]',
+  sm: 'w-6 h-6 text-xs',
   lg: 'w-8 h-8 text-[13px]',
 };
 

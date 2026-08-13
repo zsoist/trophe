@@ -21,7 +21,7 @@ const variantClass: Record<TagVariant, string> = {
   warning: 'tag tag-y',
   success: 'tag tag-gn',
   neutral:
-    'tag border-white/10 bg-white/[0.04] text-[var(--text-secondary)]',
+    'tag border-[var(--border-subtle)] bg-[var(--surface-2)] text-[var(--text-secondary)]',
 };
 
 export function Tag({

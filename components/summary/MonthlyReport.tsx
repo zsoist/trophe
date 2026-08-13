@@ -264,11 +264,11 @@ export default function MonthlyReport({ userId, targets, showCalories = false }:
         onClick={() => setExpanded(e => !e)}
         className="w-full flex items-center justify-between mb-3"
       >
-        <h3 className="text-stone-300 text-xs font-semibold uppercase tracking-wider flex items-center gap-2">
+        <h3 className="text-[var(--content-primary)] text-xs font-semibold uppercase tracking-wider flex items-center gap-2">
           <FileText size={14} /> {t('analytics.report')}
-          {stats && <span className="text-stone-500 font-normal normal-case tracking-normal">{stats.label}</span>}
+          {stats && <span className="text-[var(--content-muted)] font-normal normal-case tracking-normal">{stats.label}</span>}
         </h3>
-        {expanded ? <ChevronUp size={14} className="text-stone-500" /> : <ChevronDown size={14} className="text-stone-500" />}
+        {expanded ? <ChevronUp size={14} className="text-[var(--content-muted)]" /> : <ChevronDown size={14} className="text-[var(--content-muted)]" />}
       </button>
 
       <AnimatePresence>
@@ -286,7 +286,7 @@ export default function MonthlyReport({ userId, targets, showCalories = false }:
                 <button
                   key={p.key}
                   onClick={() => setPeriod(p.key)}
-                  className={`flex-1 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
+                  className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all ${
                     period === p.key
                       ? 'bg-[#D4A853]/15 text-[#D4A853] border border-[#D4A853]/30'
                       : 'border border-[var(--line)] text-[var(--t4)] hover:text-[var(--t2)]'
@@ -307,7 +307,7 @@ export default function MonthlyReport({ userId, targets, showCalories = false }:
                   className="flex gap-2 mb-4 overflow-hidden"
                 >
                   <div className="flex-1">
-                    <label className="text-[10px] text-[var(--t5)] uppercase tracking-wider block mb-1">{t('general.from')}</label>
+                    <label className="text-xs text-[var(--t5)] uppercase tracking-wider block mb-1">{t('general.from')}</label>
                     <input
                       type="date"
                       value={customFrom}
@@ -317,7 +317,7 @@ export default function MonthlyReport({ userId, targets, showCalories = false }:
                     />
                   </div>
                   <div className="flex-1">
-                    <label className="text-[10px] text-[var(--t5)] uppercase tracking-wider block mb-1">{t('general.to')}</label>
+                    <label className="text-xs text-[var(--t5)] uppercase tracking-wider block mb-1">{t('general.to')}</label>
                     <input
                       type="date"
                       value={customTo}
@@ -358,7 +358,7 @@ export default function MonthlyReport({ userId, targets, showCalories = false }:
                     <p className="text-[var(--t2)] text-sm font-semibold mb-1">
                       {t('report.consistency_pct', { n: stats.consistency })}
                     </p>
-                    <p className="text-[var(--t4)] text-[11px] leading-relaxed">
+                    <p className="text-[var(--t4)] text-xs leading-relaxed">
                       {gradeInsight(stats.grade, stats.consistency, stats.daysHitProtein, stats.daysLogged, t)}
                     </p>
                   </div>
@@ -448,7 +448,7 @@ export default function MonthlyReport({ userId, targets, showCalories = false }:
                 {/* Trend vs previous period */}
                 {stats.prevConsistency !== null && (
                   <div className="mt-3 p-3 rounded-xl border border-[var(--line)] bg-[var(--bg-1)]">
-                    <p className="text-[10px] text-[var(--t5)] uppercase tracking-wider mb-1.5">{t('report.vs_period')}</p>
+                    <p className="text-xs text-[var(--t5)] uppercase tracking-wider mb-1.5">{t('report.vs_period')}</p>
                     <div className="flex items-center gap-3">
                       <span className="text-[var(--t3)] text-xs flex items-center gap-1">
                         {t('report.consistency')} {renderTrendIcon(stats.consistency, stats.prevConsistency)}
@@ -481,8 +481,8 @@ function HitBar({ label, value, total, color, format }: { label: string; value: 
   return (
     <div>
       <div className="flex items-center justify-between mb-1">
-        <span className="text-[10px] text-[var(--t4)]">{label}</span>
-        <span className="text-[10px] text-[var(--t3)]">{format}</span>
+        <span className="text-xs text-[var(--t4)]">{label}</span>
+        <span className="text-xs text-[var(--t3)]">{format}</span>
       </div>
       <div className="h-1.5 rounded-full bg-[var(--line-2)]">
         <motion.div
@@ -500,7 +500,7 @@ function HitBar({ label, value, total, color, format }: { label: string; value: 
 function renderTrendIcon(current: number, prev: number | null) {
   if (prev === null) return null;
   const diff = current - prev;
-  if (Math.abs(diff) < 3) return <Minus size={10} className="text-stone-500" />;
+  if (Math.abs(diff) < 3) return <Minus size={10} className="text-[var(--content-muted)]" />;
   if (diff > 0) return <TrendingUp size={10} className="text-green-400" />;
   return <TrendingDown size={10} className="text-red-400" />;
 }
@@ -512,14 +512,14 @@ function MetricCard({ label, value, sub, icon, trend, explain }: {
     <div className="glass-elevated p-3 rounded-xl">
       <div className="flex items-center gap-1 mb-1">
         {icon}
-        <span className="text-[var(--t5)] text-[10px] uppercase tracking-wider">{label}</span>
+        <span className="text-[var(--t5)] text-xs uppercase tracking-wider">{label}</span>
         {trend && <span className="ml-auto">{trend}</span>}
       </div>
       <p className="text-[var(--t1)] text-base font-bold leading-tight">
         {value}
         {sub && <span className="text-[var(--t5)] text-xs font-normal ml-1">{sub}</span>}
       </p>
-      {explain && <p className="text-[var(--t5)] text-[10px] mt-0.5">{explain}</p>}
+      {explain && <p className="text-[var(--t5)] text-xs mt-0.5">{explain}</p>}
     </div>
   );
 }

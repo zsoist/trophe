@@ -1,7 +1,9 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { useRef } from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
 import { X, Keyboard } from 'lucide-react';
+import { useCoachDialogFocus } from '@/components/coach/useCoachDialogFocus';
 
 // ═══════════════════════════════════════════════
 // Keyboard Shortcuts Modal
@@ -21,30 +23,39 @@ const shortcuts: Shortcut[] = [
 ];
 
 export default function ShortcutsModal({ onClose }: { onClose: () => void }) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const reducedMotion = useReducedMotion();
+  useCoachDialogFocus(true, onClose, dialogRef);
+
   return (
     <motion.div
-      initial={{ opacity: 0 }}
+      initial={{ opacity: reducedMotion ? 1 : 0 }}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      exit={{ opacity: reducedMotion ? 1 : 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface-overlay)] backdrop-blur-sm p-4"
       onClick={onClose}
     >
       <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
+        ref={dialogRef}
+        initial={reducedMotion ? { opacity: 1 } : { scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
-        transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-        className="glass-elevated p-6 max-w-sm w-full"
+        exit={reducedMotion ? { opacity: 1 } : { scale: 0.9, opacity: 0 }}
+        transition={reducedMotion ? { duration: 0 } : { type: 'spring', stiffness: 400, damping: 30 }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="shortcuts-title"
+        className="glass-elevated p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] max-w-sm w-full"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2">
-            <Keyboard size={18} className="text-[#D4A853]" />
-            <h2 className="text-lg font-semibold text-stone-100">Keyboard Shortcuts</h2>
+            <Keyboard size={18} className="text-[var(--action-primary)]" />
+            <h2 id="shortcuts-title" className="text-lg font-semibold text-[var(--content-primary)]">Keyboard Shortcuts</h2>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-white/5 text-stone-400 hover:text-stone-200 transition-colors"
+            aria-label="Close keyboard shortcuts"
+            className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg text-[var(--content-muted)] hover:bg-[var(--surface-hover)] hover:text-[var(--content-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] transition-colors"
           >
             <X size={16} />
           </button>
@@ -54,17 +65,17 @@ export default function ShortcutsModal({ onClose }: { onClose: () => void }) {
           {shortcuts.map((s) => (
             <div
               key={s.key}
-              className="flex items-center justify-between py-2.5 px-3 rounded-xl hover:bg-white/[0.03] transition-colors"
+              className="flex items-center justify-between py-2.5 px-3 rounded-xl hover:bg-[var(--surface-hover)] transition-colors"
             >
-              <span className="text-sm text-stone-300">{s.description}</span>
-              <kbd className="px-2.5 py-1 text-xs font-mono font-medium rounded-lg bg-stone-800/80 text-[#D4A853] border border-stone-700/50 min-w-[32px] text-center">
+              <span className="text-sm text-[var(--content-secondary)]">{s.description}</span>
+              <kbd className="px-2.5 py-1 text-xs font-mono font-medium rounded-lg bg-[var(--surface-2)] text-[var(--action-primary)] border border-[var(--border-default)] min-w-[32px] text-center">
                 {s.key}
               </kbd>
             </div>
           ))}
         </div>
 
-        <p className="text-[11px] text-stone-600 mt-4 text-center">
+        <p className="text-xs text-[var(--content-muted)] mt-4 text-center">
           Shortcuts are active when no input is focused
         </p>
       </motion.div>

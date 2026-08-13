@@ -104,7 +104,7 @@ export default function ExerciseComparison({ exerciseId, userId }: ExerciseCompa
     if (current < previous) {
       return <TrendingDown size={12} className="text-red-400" />;
     }
-    return <Minus size={12} className="text-stone-600" />;
+    return <Minus size={12} className="text-[var(--content-muted)]" />;
   }
 
   function cellColor(current: number, previous: number | undefined): string {
@@ -160,16 +160,16 @@ export default function ExerciseComparison({ exerciseId, userId }: ExerciseCompa
   if (loading) {
     return (
       <div className="animate-pulse space-y-2">
-        <div className="h-8 bg-stone-800/50 rounded" />
-        <div className="h-8 bg-stone-800/50 rounded" />
-        <div className="h-8 bg-stone-800/50 rounded" />
+        <div className="h-8 bg-[var(--surface-2)] rounded" />
+        <div className="h-8 bg-[var(--surface-2)] rounded" />
+        <div className="h-8 bg-[var(--surface-2)] rounded" />
       </div>
     );
   }
 
   if (summaries.length === 0) {
     return (
-      <p className="text-stone-600 text-sm text-center py-4">
+      <p className="text-[var(--content-muted)] text-sm text-center py-4">
         {t('exercisecompare.no_sessions')}
       </p>
     );
@@ -185,7 +185,7 @@ export default function ExerciseComparison({ exerciseId, userId }: ExerciseCompa
       <div className="overflow-x-auto -mx-2">
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-xs text-stone-500 border-b border-white/5">
+            <tr className="text-xs text-[var(--content-muted)] border-b border-[var(--border-subtle)]">
               <th className="text-left py-2 px-2 font-medium">{t('exercisecompare.date')}</th>
               <th className="text-center py-2 px-2 font-medium">{t('exercisecompare.sets')}</th>
               <th className="text-center py-2 px-2 font-medium">{t('exercisecompare.best_wt')}</th>
@@ -199,15 +199,15 @@ export default function ExerciseComparison({ exerciseId, userId }: ExerciseCompa
               return (
                 <tr
                   key={s.date}
-                  className="border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors"
+                  className="border-b border-[var(--border-subtle)] hover:bg-[var(--surface-2)] transition-colors"
                 >
-                  <td className="py-2.5 px-2 text-stone-300 whitespace-nowrap">{s.date}</td>
-                  <td className="py-2.5 px-2 text-center text-stone-300">{s.sets}</td>
+                  <td className="py-2.5 px-2 text-[var(--content-primary)] whitespace-nowrap">{s.date}</td>
+                  <td className="py-2.5 px-2 text-center text-[var(--content-primary)]">{s.sets}</td>
                   <td
                     className={`py-2.5 px-2 text-center font-medium ${cellColor(
                       s.bestWeight,
                       prev?.bestWeight
-                    )} text-stone-300`}
+                    )} text-[var(--content-primary)]`}
                   >
                     <span className="inline-flex items-center gap-1">
                       {s.bestWeight}kg
@@ -218,7 +218,7 @@ export default function ExerciseComparison({ exerciseId, userId }: ExerciseCompa
                     className={`py-2.5 px-2 text-center ${cellColor(
                       s.totalReps,
                       prev?.totalReps
-                    )} text-stone-300`}
+                    )} text-[var(--content-primary)]`}
                   >
                     <span className="inline-flex items-center gap-1">
                       {s.totalReps}
@@ -229,7 +229,7 @@ export default function ExerciseComparison({ exerciseId, userId }: ExerciseCompa
                     className={`py-2.5 px-2 text-center ${cellColor(
                       s.volume,
                       prev?.volume
-                    )} text-stone-300`}
+                    )} text-[var(--content-primary)]`}
                   >
                     <span className="inline-flex items-center gap-1">
                       {s.volume.toLocaleString()}
@@ -245,8 +245,8 @@ export default function ExerciseComparison({ exerciseId, userId }: ExerciseCompa
 
       {/* Mini weight trend line */}
       {weightChart && (
-        <div className="mt-3 pt-3 border-t border-white/5">
-          <p className="text-[10px] text-stone-600 mb-1">{t('exercisecompare.best_weight_trend')}</p>
+        <div className="mt-3 pt-3 border-t border-[var(--border-subtle)]">
+          <p className="text-xs text-[var(--content-muted)] mb-1">{t('exercisecompare.best_weight_trend')}</p>
           {weightChart}
         </div>
       )}

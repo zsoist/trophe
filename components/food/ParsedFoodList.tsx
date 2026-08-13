@@ -546,13 +546,13 @@ export default function ParsedFoodList({
                     return (
                       <div className="flex items-center gap-1.5 mt-1">
                         {item.brand && (
-                          <span className="text-xs px-1.5 py-0.5 rounded-md bg-[var(--surface-2)] border border-stone-700/50 text-[var(--content-secondary)] truncate max-w-[140px]">
+                          <span className="text-xs px-1.5 py-0.5 rounded-md bg-[var(--surface-2)] border border-[var(--border-default)] text-[var(--content-secondary)] truncate max-w-[140px]">
                             {item.brand}
                           </span>
                         )}
                         {chip && (
                           <span
-                            className="text-xs px-1.5 py-0.5 rounded-md bg-[var(--surface-2)] border border-stone-700/50 uppercase tracking-wide"
+                            className="text-xs px-1.5 py-0.5 rounded-md bg-[var(--surface-2)] border border-[var(--border-default)] uppercase tracking-wide"
                             style={{ color: chip.color, fontFamily: 'var(--font-mono)' }}
                           >
                             {t(chip.labelKey)}

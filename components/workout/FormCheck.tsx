@@ -415,7 +415,7 @@ export default function FormCheck({ exercise, side, onComplete, onBack }: FormCh
       </div>
 
       {/* Camera feed + overlay */}
-      <div data-theme-exempt="media-canvas" className="relative flex-1 overflow-hidden bg-black">
+      <div data-theme-exempt="media-canvas" className="relative flex-1 overflow-hidden bg-[var(--surface-overlay)]">
         <video
           ref={videoRef}
           playsInline

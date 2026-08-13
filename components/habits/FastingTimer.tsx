@@ -50,11 +50,11 @@ export default function FastingTimer({ todayLog }: FastingTimerProps) {
     >
       <div className="flex items-center gap-2 mb-2">
         <Utensils size={12} className="gold-text" />
-        <span className="text-stone-300 text-xs font-medium">Eating Window</span>
+        <span className="text-[var(--content-primary)] text-xs font-medium">Eating Window</span>
       </div>
 
       {/* Simple visual bar */}
-      <div className="relative h-5 bg-white/[0.03] rounded-full overflow-hidden mb-2">
+      <div className="relative h-5 bg-[var(--surface-2)] rounded-full overflow-hidden mb-2">
         {/* 24h scale, eating window highlighted */}
         <motion.div
           initial={{ width: 0 }}
@@ -75,15 +75,15 @@ export default function FastingTimer({ todayLog }: FastingTimerProps) {
       </div>
 
       {/* Times */}
-      <div className="flex items-center justify-between text-[10px]">
-        <span className="text-stone-400">
-          First meal: <span className="text-stone-200">{formatTime(window.first)}</span>
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-[var(--content-muted)]">
+          First meal: <span className="text-[var(--content-primary)]">{formatTime(window.first)}</span>
         </span>
         <span className="gold-text font-bold">
           {durationH}h {durationM}m window
         </span>
-        <span className="text-stone-400">
-          Last: <span className="text-stone-200">{formatTime(window.last)}</span>
+        <span className="text-[var(--content-muted)]">
+          Last: <span className="text-[var(--content-primary)]">{formatTime(window.last)}</span>
         </span>
       </div>
     </motion.div>
