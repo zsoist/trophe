@@ -174,6 +174,10 @@ describe('verification release runner', () => {
 
     await runReleaseVerification(cwd, {
       steps: [['test', 'ignored', [], 1]],
+      dependencyHealthProbeImpl: async () => ({
+        status: 'healthy',
+        datalessFileCount: 0,
+      }),
       runStepImpl: async () => rawStep,
       publishSummaryImpl: async (_path: string, summary: unknown) => {
         publishedSummary = summary;
