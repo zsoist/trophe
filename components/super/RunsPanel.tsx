@@ -86,6 +86,7 @@ export default function RunsPanel({
       if (request !== requestSequence.current) return;
       if (res.ok) {
         const d = await res.json();
+        if (request !== requestSequence.current) return;
         setRows(d.rows ?? []);
         setTotal(d.total ?? 0);
         setError(null);

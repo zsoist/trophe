@@ -528,11 +528,31 @@ describe("admin and super-admin theme and accessibility contract", () => {
     expect(screen.queryByText("stale-task")).toBeNull();
   });
 
-  it("keeps newer run results when an earlier filter request fails late", async () => {
-    const oldRequest = deferred<{ ok: boolean; json: () => Promise<unknown> }>();
-    const newRequest = deferred<{ ok: boolean; json: () => Promise<unknown> }>();
+  it("keeps newer run results when an older response JSON resolves late", async () => {
+    const oldJson = deferred<unknown>();
+    const newRow = {
+      id: "new-run",
+      task: "new-task",
+      provider: null,
+      model: "test",
+      status: "completed",
+      cost: 0,
+      tokens_in: 0,
+      tokens_out: 0,
+      cache_read: 0,
+      latency_ms: null,
+      fallback_from: null,
+      error: null,
+      user_id: null,
+      created_at: new Date().toISOString(),
+    };
     const fetchMock = vi.fn((url: string) =>
-      url.includes("window=24h") ? oldRequest.promise : newRequest.promise,
+      url.includes("window=24h")
+        ? Promise.resolve({ ok: true, json: () => oldJson.promise })
+        : Promise.resolve({
+            ok: true,
+            json: async () => ({ rows: [newRow], total: 1 }),
+          }),
     );
     vi.stubGlobal("fetch", fetchMock);
     render(React.createElement(RunsPanel));
@@ -540,34 +560,14 @@ describe("admin and super-admin theme and accessibility contract", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     fireEvent.click(screen.getByRole("button", { name: "7D" }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-    newRequest.resolve({
-      ok: true,
-      json: async () => ({
-        rows: [
-          {
-            id: "new-run",
-            task: "new-task",
-            provider: null,
-            model: "test",
-            status: "completed",
-            cost: 0,
-            tokens_in: 0,
-            tokens_out: 0,
-            cache_read: 0,
-            latency_ms: null,
-            fallback_from: null,
-            error: null,
-            user_id: null,
-            created_at: new Date().toISOString(),
-          },
-        ],
-        total: 1,
-      }),
-    });
     await waitFor(() => screen.getByText("new-task"));
-    oldRequest.resolve({ ok: false, json: async () => ({}) });
-    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+    oldJson.resolve({
+      rows: [{ ...newRow, id: "old-run", task: "old-task" }],
+      total: 1,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
     expect(screen.getByText("new-task")).not.toBeNull();
+    expect(screen.queryByText("old-task")).toBeNull();
   });
 
   it("keeps the GDPR queue and offers a retry after a safe action fails", async () => {
