@@ -65,6 +65,11 @@ export default function AuditPanel() {
     text: string;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<{
+    id: string;
+    action: string;
+    reason?: string;
+  } | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -88,6 +93,7 @@ export default function AuditPanel() {
   const act = useCallback(
     async (requestId: string, action: string, reason?: string) => {
       setBusy(requestId);
+      setActionError(null);
       try {
         const res = await fetch("/api/super/data-requests", {
           method: "POST",
@@ -95,6 +101,11 @@ export default function AuditPanel() {
           body: JSON.stringify({ requestId, action, reason }),
         });
         const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(
+            body.error ?? `Unable to ${action.replace(/_/g, " ")}.`,
+          );
+        }
         if (action === "erasure_dry_run" && body.result) {
           const lines = Object.entries(
             body.result.counts as Record<string, number>,
@@ -106,15 +117,12 @@ export default function AuditPanel() {
             id: requestId,
             text: [...lines, ...errs].join("\n") || "nothing to erase",
           });
-        } else if (!res.ok) {
-          setDryRunReport({
-            id: requestId,
-            text: `FAILED (${res.status}): ${body.error ?? JSON.stringify(body.result?.errors ?? body)}`,
-          });
         } else {
           setDryRunReport(null);
         }
         await load();
+      } catch {
+        setActionError({ id: requestId, action, reason });
       } finally {
         setBusy(null);
       }
@@ -153,6 +161,38 @@ export default function AuditPanel() {
           >
             Retry
           </button>
+        </div>
+      )}
+      {actionError && (
+        <div
+          role="alert"
+          className="mb-3 rounded border border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] p-3 text-sm text-[var(--status-danger-fg)]"
+        >
+          Unable to {actionError.action.replace(/_/g, " ")}.{" "}
+          {actionError.action === "start" ||
+          actionError.action === "erasure_dry_run" ? (
+            <button
+              type="button"
+              onClick={() =>
+                void act(
+                  actionError.id,
+                  actionError.action,
+                  actionError.reason,
+                )
+              }
+              className="ml-2 min-h-11 rounded px-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+            >
+              Retry action
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setActionError(null)}
+              className="ml-2 min-h-11 rounded px-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+            >
+              Dismiss
+            </button>
+          )}
         </div>
       )}
       <div

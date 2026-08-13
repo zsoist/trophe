@@ -6,7 +6,7 @@
  * use a dedicated action for the per-user drill-down drawer.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Panel,
   Pills,
@@ -91,8 +91,11 @@ export default function UsersPanel() {
   const [sortKey, setSortKey] = useState<SortKey>("last_sign_in_at");
   const [selected, setSelected] = useState<UserRow | null>(null);
   const [detail, setDetail] = useState<Detail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const detailRequest = useRef(0);
   // Snapshot the clock once per mount — recency buckets don't need live ticking,
   // and calling Date.now() during render violates react-hooks/purity.
   const [now] = useState(() => Date.now());
@@ -118,10 +121,30 @@ export default function UsersPanel() {
   }, [load]);
 
   const openDetail = useCallback(async (u: UserRow) => {
+    const request = ++detailRequest.current;
     setSelected(u);
     setDetail(null);
-    const res = await fetch(`/api/super/users?userId=${u.id}`);
-    if (res.ok) setDetail(await res.json());
+    setDetailError(null);
+    setDetailLoading(true);
+    try {
+      const response = await fetch(`/api/super/users?userId=${u.id}`);
+      if (!response.ok) throw new Error("Unable to load user detail.");
+      const data = await response.json();
+      if (request === detailRequest.current) setDetail(data);
+    } catch {
+      if (request === detailRequest.current)
+        setDetailError("Unable to load user detail.");
+    } finally {
+      if (request === detailRequest.current) setDetailLoading(false);
+    }
+  }, []);
+
+  const closeDetail = useCallback(() => {
+    detailRequest.current += 1;
+    setSelected(null);
+    setDetail(null);
+    setDetailError(null);
+    setDetailLoading(false);
   }, []);
 
   const filtered = useMemo(() => {
@@ -367,10 +390,7 @@ export default function UsersPanel() {
           title={`DETAIL · ${selected.full_name ?? selected.email ?? selected.id.slice(0, 8)}`}
           meta={
             <button
-              onClick={() => {
-                setSelected(null);
-                setDetail(null);
-              }}
+              onClick={closeDetail}
               className="min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
               style={{
                 background: "none",
@@ -385,7 +405,21 @@ export default function UsersPanel() {
             </button>
           }
         >
-          {!detail ? (
+          {detailError ? (
+            <div
+              role="alert"
+              className="rounded border border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] p-3 text-sm text-[var(--status-danger-fg)]"
+            >
+              {detailError}{" "}
+              <button
+                type="button"
+                onClick={() => void openDetail(selected)}
+                className="ml-2 min-h-11 rounded px-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+              >
+                Retry
+              </button>
+            </div>
+          ) : detailLoading || !detail ? (
             <Empty label="loading…" />
           ) : (
             <div className="lg:grid lg:grid-cols-2 lg:gap-4">

@@ -57,6 +57,38 @@ const globalStyles = source("app/globals.css");
 const darkThemeTokens = globalStyles.match(/:root\s*\{([\s\S]*?)\n\}/)?.[1] ?? "";
 const lightThemeTokens = globalStyles.match(/\.light\s*\{([\s\S]*?)\n\}/)?.[1] ?? "";
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
+
+const rosterUser = (id: string, name: string) => ({
+  id,
+  email: `${id}@example.com`,
+  full_name: name,
+  role: "client",
+  created_at: new Date().toISOString(),
+  last_sign_in_at: null,
+  logs_total: 0,
+  logs_30d: 0,
+  last_log_at: null,
+  ai_cost_30d: 0,
+  ai_runs_30d: 0,
+  messages_30d: 0,
+  workouts_30d: 0,
+});
+
+const userDetail = (task: string) => ({
+  recentLogs: [],
+  recentRuns: [],
+  spendByTask: [{ task, cost: 0.1, runs: 1 }],
+});
+
 describe("admin and super-admin theme and accessibility contract", () => {
   it("uses semantic roles instead of dark-only, white-alpha, or raw rgba recipes", () => {
     const forbidden = [
@@ -436,5 +468,143 @@ describe("admin and super-admin theme and accessibility contract", () => {
 
     expect(screen.queryByRole("alert")).toBeNull();
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("recovers a rejected user detail request for the selected user", async () => {
+    const user = rosterUser("user-1", "A User");
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ users: [user] }) })
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => userDetail("recovered-task"),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+    const { default: UsersPanel } = await import(
+      "@/components/super/UsersPanel"
+    );
+    render(React.createElement(UsersPanel));
+
+    await waitFor(() => screen.getByRole("button", { name: "View details" }));
+    fireEvent.click(screen.getByRole("button", { name: "View details" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("alert").textContent).toContain("detail"),
+    );
+    expect(screen.getByText(/DETAIL · A User/)).not.toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await waitFor(() => screen.getByText("recovered-task"));
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("keeps the most recently selected user detail when an earlier request resolves late", async () => {
+    const first = deferred<{ ok: boolean; json: () => Promise<unknown> }>();
+    const second = deferred<{ ok: boolean; json: () => Promise<unknown> }>();
+    const users = [rosterUser("user-a", "A User"), rosterUser("user-b", "B User")];
+    const fetchMock = vi.fn((url: string) => {
+      if (url === "/api/super/users")
+        return Promise.resolve({ ok: true, json: async () => ({ users }) });
+      if (url.includes("userId=user-a")) return first.promise;
+      return second.promise;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { default: UsersPanel } = await import(
+      "@/components/super/UsersPanel"
+    );
+    render(React.createElement(UsersPanel));
+
+    await waitFor(() =>
+      expect(screen.getAllByRole("button", { name: "View details" })).toHaveLength(2),
+    );
+    fireEvent.click(screen.getAllByRole("button", { name: "View details" })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "View details" })[1]);
+    second.resolve({ ok: true, json: async () => userDetail("newest-task") });
+    await waitFor(() => screen.getByText("newest-task"));
+    first.resolve({ ok: true, json: async () => userDetail("stale-task") });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(screen.getByText(/DETAIL · B User/)).not.toBeNull();
+    expect(screen.getByText("newest-task")).not.toBeNull();
+    expect(screen.queryByText("stale-task")).toBeNull();
+  });
+
+  it("keeps newer run results when an earlier filter request fails late", async () => {
+    const oldRequest = deferred<{ ok: boolean; json: () => Promise<unknown> }>();
+    const newRequest = deferred<{ ok: boolean; json: () => Promise<unknown> }>();
+    const fetchMock = vi.fn((url: string) =>
+      url.includes("window=24h") ? oldRequest.promise : newRequest.promise,
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(React.createElement(RunsPanel));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole("button", { name: "7D" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    newRequest.resolve({
+      ok: true,
+      json: async () => ({
+        rows: [
+          {
+            id: "new-run",
+            task: "new-task",
+            provider: null,
+            model: "test",
+            status: "completed",
+            cost: 0,
+            tokens_in: 0,
+            tokens_out: 0,
+            cache_read: 0,
+            latency_ms: null,
+            fallback_from: null,
+            error: null,
+            user_id: null,
+            created_at: new Date().toISOString(),
+          },
+        ],
+        total: 1,
+      }),
+    });
+    await waitFor(() => screen.getByText("new-task"));
+    oldRequest.resolve({ ok: false, json: async () => ({}) });
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+    expect(screen.getByText("new-task")).not.toBeNull();
+  });
+
+  it("keeps the GDPR queue and offers a retry after a safe action fails", async () => {
+    const auditData = {
+      events: [],
+      actionFacets: [],
+      dataRequests: [
+        {
+          id: "request-1",
+          user_name: "Queue User",
+          request_type: "export",
+          status: "pending",
+          requested_at: new Date().toISOString(),
+          due_at: null,
+          completed_at: null,
+        },
+      ],
+      corrections: { n: 0, last_at: null },
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => auditData })
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValueOnce({ ok: true, json: async () => ({}) })
+      .mockResolvedValueOnce({ ok: true, json: async () => auditData });
+    vi.stubGlobal("fetch", fetchMock);
+    const { default: AuditPanel } = await import(
+      "@/components/super/AuditPanel"
+    );
+    render(React.createElement(AuditPanel));
+
+    await waitFor(() => screen.getByRole("button", { name: "start" }));
+    fireEvent.click(screen.getByRole("button", { name: "start" }));
+    await waitFor(() => screen.getByRole("alert"));
+    expect(screen.getByText("Queue User")).not.toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Retry action" }));
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+    expect(fetchMock).toHaveBeenCalledTimes(4);
   });
 });

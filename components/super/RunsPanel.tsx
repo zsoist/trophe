@@ -5,7 +5,7 @@
  * pagination, and expandable full error messages.
  */
 
-import { Fragment, useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import {
   Panel,
   Pills,
@@ -68,8 +68,10 @@ export default function RunsPanel({
   const [expanded, setExpanded] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const requestSequence = useRef(0);
 
   const load = useCallback(async () => {
+    const request = ++requestSequence.current;
     setLoading(true);
     const q = new URLSearchParams({
       window: win,
@@ -81,6 +83,7 @@ export default function RunsPanel({
     if (model) q.set("model", model);
     try {
       const res = await fetch(`/api/super/runs?${q}`);
+      if (request !== requestSequence.current) return;
       if (res.ok) {
         const d = await res.json();
         setRows(d.rows ?? []);
@@ -88,11 +91,12 @@ export default function RunsPanel({
         setError(null);
       } else throw new Error();
     } catch {
+      if (request !== requestSequence.current) return;
       setRows([]);
       setTotal(0);
       setError("Unable to load runs.");
     } finally {
-      setLoading(false);
+      if (request === requestSequence.current) setLoading(false);
     }
   }, [win, status, task, model, offset]);
 
