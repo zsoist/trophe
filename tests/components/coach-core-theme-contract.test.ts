@@ -207,14 +207,16 @@ describe('coach roster and client workspace theme contract', () => {
   });
 
   it('renders Assign Habit as a reduced-motion, focus-contained, restorable dialog', async () => {
-    const clientPageModule = await import('@/app/coach/client/[id]/page');
-    expect(clientPageModule.AssignHabitDialog).toBeTypeOf('function');
+    const clientPage = source('app/coach/client/[id]/page.tsx');
+    expect(clientPage).not.toContain('export function AssignHabitDialog');
+    const assignHabitModule = await import('@/components/coach/AssignHabitDialog');
+    expect(assignHabitModule.AssignHabitDialog).toBeTypeOf('function');
 
     const outside = document.createElement('button');
     document.body.appendChild(outside);
     outside.focus();
     const onClose = vi.fn();
-    const view = render(React.createElement(clientPageModule.AssignHabitDialog, {
+    const view = render(React.createElement(assignHabitModule.AssignHabitDialog, {
       habits: [{ id: 'habit-1', name_en: 'Daily walk', emoji: 'walk', category: 'movement', cycle_days: 14, difficulty: 'beginner' }],
       onAssign: vi.fn(), onClose,
     }));
