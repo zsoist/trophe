@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   calculateCls,
@@ -177,6 +179,16 @@ describe('web performance measurement harness', () => {
       navigationP95RegressionRatio: 0.05,
       ok: true,
     });
+  });
+
+  it('keeps failed navigation distributions in the operator-visible error evidence', () => {
+    const source = readFileSync(
+      join(process.cwd(), 'scripts/perf/measure-web.mjs'),
+      'utf8',
+    );
+
+    expect(source).toContain('baseline median=');
+    expect(source).toContain('post-toggle median=');
   });
 
   it('requires every theme-canary role credential and blocks paid-provider route families', () => {
