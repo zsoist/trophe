@@ -43,7 +43,7 @@ async function stopProcess(processRef) {
 }
 
 export async function runLocalThemeMeasurements() {
-  if (hasExplicitCredentials(process.env)) return measureMain();
+  if (hasExplicitCredentials(process.env) || process.argv.slice(2).length > 0) return measureMain();
   return runLocalAuthenticatedE2E({
     executeWithDisposableRoles: async ({ env }) => {
       const childEnv = { ...env, PLAYWRIGHT_BASE_URL: LOCAL_ORIGIN, SERWIST_SUPPRESS_TURBOPACK_WARNING: '1' };
