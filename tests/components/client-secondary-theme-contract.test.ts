@@ -296,9 +296,10 @@ describe('client secondary theme and accessibility contract', () => {
     render(React.createElement(WorkoutPage));
 
     const completeWorkout = async (keepOutsideFocus: boolean) => {
-      await waitFor(() => expect(screen.getByRole('button', { name: /workout\.strength/ })).toBeTruthy());
+      const start = await screen.findByRole('button', { name: /workout\.strength/ });
+      await waitFor(() => expect(start.hasAttribute('disabled')).toBe(false));
       if (keepOutsideFocus) outside.focus();
-      fireEvent.click(screen.getByRole('button', { name: /workout\.strength/ }));
+      fireEvent.click(start);
       fireEvent.click(await screen.findByRole('button', { name: 'workout.add_exercise' }));
       const pickButtons = await screen.findAllByRole('button', { name: 'workout.add_exercise' });
       fireEvent.click(pickButtons.at(-1)!);
