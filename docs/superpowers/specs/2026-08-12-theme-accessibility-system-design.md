@@ -1,8 +1,10 @@
 # Trophē Theme, Accessibility, and Responsive-System Design
 
-**Date:** 2026-08-12  
-**Status:** Approved design direction; written specification awaiting user review  
-**Owner:** Trophē product engineering  
+**Date:** 2026-08-12
+
+**Status:** Approved design direction; written specification awaiting user review
+
+**Owner:** Trophē product engineering
 **Target:** All public, authentication, onboarding, client, coach, admin, and super-admin surfaces
 
 ## 1. Outcome
