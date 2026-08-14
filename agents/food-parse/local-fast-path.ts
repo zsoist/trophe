@@ -64,6 +64,9 @@ const FOOD_ALIASES = new Map<string, string>([
   ['french fries', 'french fries'],
 ]);
 
+const GENERIC_COOKED_STEAK_PATTERN =
+  /^(?:(?:a|one)\s+)?(?:(?:big|large)\s+(?:portion\s+of\s+)?)?(?:(?:grilled|cooked)\s+)?(?:beef\s+)?steak(?:\s+(?:big|large)(?:\s+portion)?)?(?:\s+only)?$/i;
+
 const UNIT_ALIASES = new Map<string, string>([
   ['g', 'g'],
   ['gram', 'g'],
@@ -157,8 +160,16 @@ function parseSegment(segment: Segment): LocalFoodCandidate | null {
   remainder = remainder
     .replace(/^(?:of\s+|a\s+|an\s+|the\s+|some\s+)/, '')
     .trim();
-  const foodName = FOOD_ALIASES.get(remainder);
+  const genericCookedSteak = GENERIC_COOKED_STEAK_PATTERN.test(remainder);
+  const foodName = genericCookedSteak
+    ? 'beef steak grilled'
+    : FOOD_ALIASES.get(remainder);
   if (!foodName) return null;
+
+  // A steak is a countable whole item, not a universal 100 g "serving".
+  // `lookupFood` resolves the evidence-backed 200 g common piece weight in
+  // production. Exact metric input ("100 g steak") remains untouched.
+  if (genericCookedSteak && !unitMatch) unit = 'piece';
 
   // "coffee with milk" needs a modest, reviewable splash rather than a full
   // 240 ml serving. It remains implicit and therefore receives a range and a
@@ -174,7 +185,10 @@ function parseSegment(segment: Segment): LocalFoodCandidate | null {
     nameLocalized: remainder,
     quantity,
     unit,
-    portionExplicit: quantityWasExplicit,
+    // A numeric piece count (for example, "1 steak") is explicit, but the
+    // piece-to-gram mass is still estimated. Only an explicit unit makes the
+    // portion mass exact enough to suppress the review range/clarification.
+    portionExplicit: quantityWasExplicit && (!genericCookedSteak || unitMatch !== null),
   };
 }
 

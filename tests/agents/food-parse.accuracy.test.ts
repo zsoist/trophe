@@ -392,7 +392,7 @@ const GOLDENS: GoldenCase[] = [
     },
   },
 
-  // ── Latin / Colombian (5 cases) ───────────────────────────────────
+  // ── Latin / Colombian + Nik generic-steak regression (7 cases) ───
   {
     // 1 cup black beans: 172g × 132/100 = 227.04 kcal
     description: '1 cup black beans (lat-01)',
@@ -430,6 +430,24 @@ const GOLDENS: GoldenCase[] = [
     expected: {
       matchNameIncludes: 'beef',
       macros: { kcal: 250, protein: 25.9, carb: 0, fat: 15.4 },
+    },
+  },
+  {
+    // Explicit grams use the representative CoFID cooked sirloin record exactly.
+    description: '100g generic cooked steak uses the canonical whole-steak row (nik-steak-01)',
+    input: { foodName: 'beef steak grilled', unit: 'g', qty: 100 },
+    expected: {
+      matchNameIncludes: 'sirloin steak',
+      macros: { kcal: 213, protein: 24.8, carb: 0, fat: 12.6 },
+    },
+  },
+  {
+    // One whole steak is a reviewed 200g piece, not the universal 100g fallback.
+    description: '1 generic cooked steak is a 200g whole piece (nik-steak-02)',
+    input: { foodName: 'beef steak grilled', unit: 'piece', qty: 1 },
+    expected: {
+      matchNameIncludes: 'sirloin steak',
+      macros: { kcal: 426, protein: 49.6, carb: 0, fat: 25.2 },
     },
   },
   {

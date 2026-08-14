@@ -45,7 +45,7 @@ agents/
       regression.ts          # layer 3: golden-set comparison (549-set ~90% / 700-set 76.7% median-of-3)
   prompts/          # versioned prompt templates (git-diffable)
     food-parse.v3.md
-    food-parse.v8.md                 # production default
+    food-parse.v9.md                 # production default
     recipe-analyze.v1.md
   schemas/          # input/output TypeScript types per agent
 ```

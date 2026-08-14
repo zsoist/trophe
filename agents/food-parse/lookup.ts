@@ -1013,6 +1013,9 @@ async function resolveUnit(
  * (e.g. "banana" for "plátano maduro" which should be "plantain").
  * These overrides fix the search query before BM25/vector lookup.
  */
+const GENERIC_COOKED_STEAK_CANONICAL =
+  'Beef, sirloin steak, grilled medium-rare, lean and fat';
+
 const FOOD_NAME_CORRECTIONS: Record<string, string> = {
   // ── Greek cooked-dish vs raw-ingredient disambiguation (probe-verified 2026-06-13) ──
   // In Greek context these names mean the COOKED dish, not the raw legume. Lookup
@@ -1164,9 +1167,10 @@ const FOOD_NAME_CORRECTIONS: Record<string, string> = {
   'κιμάς μοσχαρίσιος': 'ground beef 80 lean 20 fat cooked pan-browned',
   'κιμας μοσχαρισιος': 'ground veal cooked',
   'κιμας': 'ground beef 80 lean 20 fat cooked pan-browned',
-  'carne de res': 'beef steak grilled',
-  'steak': 'beef steak grilled',
-  'carne': 'beef steak grilled',
+  'carne de res': GENERIC_COOKED_STEAK_CANONICAL,
+  'steak': GENERIC_COOKED_STEAK_CANONICAL,
+  'beef steak grilled': GENERIC_COOKED_STEAK_CANONICAL,
+  'carne': GENERIC_COOKED_STEAK_CANONICAL,
   'carne asada': 'carne asada grilled beef',
   'carne a la plancha': 'carne asada grilled beef',
 

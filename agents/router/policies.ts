@@ -72,7 +72,7 @@ export const taskPolicies: Record<TaskName, RoutingPolicy> = {
     // headroom while halving the p99 decode ceiling vs 2048. (latency plan A1)
     maxTokens: 1024,
     fallbackOnTimeout: true,
-    timeoutMs: 15_000, maxInputChars: 12_000, maxCostUsd: 0.02, promptVersion: 'food-parse-v8-luna',
+    timeoutMs: 15_000, maxInputChars: 12_000, maxCostUsd: 0.02, promptVersion: 'food-parse-v9-luna',
   },
   recipe_analyze: {
     provider: 'openai',
@@ -193,7 +193,7 @@ export const taskFallbacks: Partial<Record<TaskName, RoutingPolicy>> = {
     latencyClass: 'fast',
     cacheSystem: true,
     maxTokens: 1024,
-    timeoutMs: 25_000, maxInputChars: 12_000, maxCostUsd: 0.02, promptVersion: 'food-parse-v8-haiku-fallback',
+    timeoutMs: 25_000, maxInputChars: 12_000, maxCostUsd: 0.02, promptVersion: 'food-parse-v9-haiku-fallback',
   },
   recipe_analyze: {
     provider: 'anthropic',

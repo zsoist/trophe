@@ -20,7 +20,7 @@ describe('GET /api/health', () => {
       model: 'gpt-5.6-luna',
       fallbackProvider: 'anthropic',
       fallbackModel: 'claude-haiku-4-5-20251001',
-      promptVersion: 'food-parse-v8-luna',
+      promptVersion: 'food-parse-v9-luna',
     });
     expect(body).not.toHaveProperty('env');
     expect(body).not.toHaveProperty('tables');

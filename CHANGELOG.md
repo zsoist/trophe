@@ -4,6 +4,18 @@ All notable changes to Trophē are logged here. Format follows [Keep a Changelog
 
 ---
 
+## [Generic steak parser hotfix] — 2026-08-14
+
+### Changed
+- Generic English steak text now resolves through a deterministic, lab-verified cooked sirloin reference instead of drifting among tied beef records or resembling ground beef.
+- Whole-steak text uses a reviewable 200 g estimate, while explicit gram inputs remain exact and continue to show their stated mass.
+- Food parsing now uses the versioned v9 prompt with explicit cooked-steak versus ground-beef guidance.
+
+### Fixed
+- `steak`, `beef steak`, and `big portion of beef steak only` now stay on the zero-provider database path and return representative cooked-steak protein values.
+- Numeric piece counts such as `1 steak` remain visibly estimated instead of being mislabeled as an exact gram portion.
+- Added real database lookup, unit-conversion, negative-food-boundary, prompt, and end-to-end parser regressions for Nik's reported inputs.
+
 ## [Production microphone experience] — 2026-08-12
 
 ### Added
