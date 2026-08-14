@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 describe('food extraction brand fidelity', () => {
   const prompt = readFileSync(
-    join(process.cwd(), 'agents/prompts/food-parse.v8.md'),
+    join(process.cwd(), 'agents/prompts/food-parse.v9.md'),
     'utf8',
   );
 

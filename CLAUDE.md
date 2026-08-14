@@ -78,7 +78,7 @@ v0.3-overhaul merged to main 2026-05-03. Nutrition accuracy work ongoing June 20
 
 ### What IS running in production (on Supabase Postgres)
 - Auth (cookie-based @supabase/ssr), 30+ tables, RLS, food logging, coach dashboard, workouts, supplements, habits
-- AI food-parse v8 (GPT-5.6 Luna → Haiku 4.5 via `/api/food/parse`) with CoT dual-path arbitration and explicit nutrition-label facts
+- AI food-parse v9 (GPT-5.6 Luna → Haiku 4.5 via `/api/food/parse`) with CoT dual-path arbitration, explicit nutrition-label facts, and cooked-steak/ground-beef separation
 - 8-language support: EN/ES/EL/FR core + overlay DE/IT/PT/NL
 - Deterministic food lookup: 42,952 foods + 8,608 unit conversions + 293 recipes + 6,580 aliases
 - Composite dish decomposition: 210+ cached recipes + LLM decompose-on-miss pipeline
@@ -118,13 +118,13 @@ agents/
   clients/anthropic.ts + google.ts   # thin API wrappers
   observability/langfuse.ts + otel.ts
   memory/read.ts + write.ts + coach-blocks.ts
-  food-parse/index.v4.ts             # v4 architecture, v8 prompt: LLM extract → DB lookup → CoT + label arbitration
+  food-parse/index.v4.ts             # v4 architecture, v9 prompt: LLM extract → DB lookup → CoT + label arbitration
   food-parse/lookup.ts               # pgvector + pg_trgm hybrid retrieval + COMMON_PIECE_WEIGHTS
   food-parse/decompose.ts            # dish_recipes cache + LLM decomposition + getPieceWeight()
   recipe-analyze/index.ts
   insights/wearable-summary.ts
   evals/run-all.ts + datasets/       # 210-case enterprise benchmark
-  prompts/food-parse.v8.md           # production default; ALWAYS bump version on prompt changes
+  prompts/food-parse.v9.md           # production default; ALWAYS bump version on prompt changes
   schemas/                           # input/output types per agent
 ```
 
@@ -270,7 +270,7 @@ Public signup always forces `role = 'client'`. Invite token required for elevate
 
 1. **LLM router** (`agents/router/index.ts`) selects model per task — do NOT hardcode models in agents.
 2. **v6 dual-path architecture**: LLM extracts `{food_name, qty, unit}` AND `{per_100g_kcal, per_100g_protein, ...}` CoT estimates. `lookup.ts` fetches DB macros. `arbitrateDbVsCoT()` in `index.v4.ts` picks the best source.
-3. **Arbitration rules**: Explicit portion + food-specific conversion → DB wins. Estimates agree <30% → DB wins. Diverge >30% → LLM grams + DB per-100g ratios. High-confidence DB (≥0.85) → DB macros. v8 applies only explicitly named user label facts after portion resolution and rejects physically or metabolically impossible claims.
+3. **Arbitration rules**: Explicit portion + food-specific conversion → DB wins. Estimates agree <30% → DB wins. Diverge >30% → LLM grams + DB per-100g ratios. High-confidence DB (≥0.85) → DB macros. v8+ applies only explicitly named user label facts after portion resolution and rejects physically or metabolically impossible claims.
 4. **Prompt versioning**: prompts live in `agents/prompts/<agent>.v<N>.md`. NEVER edit in place — copy to `vN+1.md`, update import in agent `index.ts`, ship. Keeps rollback to a one-line revert.
 5. **Prompt caching**: `cacheSystem: true` in `anthropic.ts` wraps system block with `cache_control: ephemeral`. Prefix must be ≥2048 tokens. ~70% cost reduction on burst calls.
 6. **Every `run()` returns `telemetry`** — routes must pass it to `logAPIUsage`.

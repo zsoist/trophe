@@ -69,6 +69,35 @@ describe('local food parse fast path', () => {
   });
 
   it.each([
+    ['steak', 1, 'piece', false],
+    ['1 steak', 1, 'piece', false],
+    ['beef steak', 1, 'piece', false],
+    ['big portion of beef steak only', 1, 'piece', false],
+    ['100 g steak', 100, 'g', true],
+  ] as const)(
+    'normalizes generic cooked steak without confusing it with 80/20 ground beef: %s',
+    (text, quantity, unit, portionExplicit) => {
+      expect(extractLocalFoodCandidates(text)).toEqual([
+        expect.objectContaining({
+          foodName: 'beef steak grilled',
+          quantity,
+          unit,
+          portionExplicit,
+        }),
+      ]);
+    },
+  );
+
+  it.each([
+    'tuna steak',
+    'pork steak',
+    'ground beef steak',
+    'ribeye steak',
+  ])('does not broaden generic beef-steak handling to a different food: %s', (text) => {
+    expect(extractLocalFoodCandidates(text)).toBeNull();
+  });
+
+  it.each([
     'mac and cheese',
     'peanut butter and jelly',
     'fish and chips',
@@ -120,4 +149,38 @@ describe('local food parse fast path', () => {
     });
     expect(result.output?.items[0].food_name).toMatch(/french/i);
   });
+
+  it.each([
+    ['big portion of beef steak only', 200, 49.6, false],
+    ['100 g steak', 100, 24.8, true],
+  ] as const)(
+    'resolves generic steak through the real database without provider transport: %s',
+    async (text, expectedGrams, expectedProtein, portionExplicit) => {
+      const beforeTransportAttempt = vi.fn(() => {
+        throw new Error('paid provider transport must not run');
+      });
+
+      const result = await run({ text, language: 'en' }, { beforeTransportAttempt });
+
+      expect(beforeTransportAttempt).not.toHaveBeenCalled();
+      expect(result.ok).toBe(true);
+      expect(result.output?.items).toEqual([
+        expect.objectContaining({
+          food_name: 'Beef, sirloin steak, grilled medium-rare, lean and fat',
+          grams: expectedGrams,
+          protein_g: expectedProtein,
+          source: 'local_db',
+          db_source: 'cofid',
+          portion_explicit: portionExplicit,
+        }),
+      ]);
+      expect(result.telemetry).toMatchObject({
+        tokensIn: 0,
+        tokensOut: 0,
+        costUsd: 0,
+        dbHits: 1,
+        dbMisses: 0,
+      });
+    },
+  );
 });

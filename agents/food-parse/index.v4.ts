@@ -56,11 +56,11 @@ export const FOOD_PARSE_VERSION = 'v4';
 // ── Prompt ───────────────────────────────────────────────────────────────────
 // v5 prompt adds CoT macro estimation alongside food identification.
 // Set FOOD_PARSE_PROMPT_VERSION=v4 to revert to identification-only mode.
-const promptVersion = process.env.FOOD_PARSE_PROMPT_VERSION ?? 'v8';
+const promptVersion = process.env.FOOD_PARSE_PROMPT_VERSION ?? 'v9';
 const PROMPT_PATH = join(process.cwd(), `agents/prompts/food-parse.${promptVersion}.md`);
 const PROMPT_TEMPLATE = readFileSync(PROMPT_PATH, 'utf-8');
-const COT_ENABLED = ['v5', 'v6', 'v7', 'v8'].includes(promptVersion);
-const PER_100G_ENABLED = ['v6', 'v7', 'v8'].includes(promptVersion);
+const COT_ENABLED = ['v5', 'v6', 'v7', 'v8', 'v9'].includes(promptVersion);
+const PER_100G_ENABLED = ['v6', 'v7', 'v8', 'v9'].includes(promptVersion);
 
 // ── V4/V5 LLM output schema ──────────────────────────────────────────────────
 export interface V4Candidate {
