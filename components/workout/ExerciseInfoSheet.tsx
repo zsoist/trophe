@@ -13,7 +13,7 @@ import { Dumbbell, Trophy, X } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
 import type { Exercise } from '@/lib/types';
-import { muscleColor, muscleLabelKey } from './muscle-groups';
+import { muscleColor, muscleLabelKey, exerciseDisplayName } from './muscle-groups';
 import { kgToDisplay, useWeightUnit } from '@/lib/workout/units';
 
 interface HistoryEntry {
@@ -51,8 +51,7 @@ export default function ExerciseInfoSheet({
   // synchronously (react-hooks/set-state-in-effect).
   const [history, setHistory] = useState<HistoryEntry[] | null>(userId ? null : []);
 
-  const name = lang === 'es' && exercise.name_es ? exercise.name_es
-    : lang === 'el' && exercise.name_el ? exercise.name_el : exercise.name;
+  const name = exerciseDisplayName(exercise, lang);
   const cue = lang === 'es' && exercise.instructions_es ? exercise.instructions_es
     : lang === 'el' && exercise.instructions_el ? exercise.instructions_el
     : exercise.instructions ?? null;

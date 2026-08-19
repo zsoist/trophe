@@ -26,7 +26,7 @@ import { useI18n } from '@/lib/i18n';
 import type { Exercise, PainFlag, TemplateExercise } from '@/lib/types';
 import PainFlagModal from './PainFlagModal';
 import ExerciseInfoSheet from './ExerciseInfoSheet';
-import { muscleColor } from './muscle-groups';
+import { muscleColor, exerciseDisplayName } from './muscle-groups';
 import { useWeightUnit, kgToDisplay, displayToKg } from '@/lib/workout/units';
 import { getRestTarget } from '@/lib/workout/rest-targets';
 import {
@@ -371,7 +371,8 @@ export default function GuidedSession({
     const weight = typedWeight ?? resolveFloat('', set.ghost?.weight_kg);
     const reps = resolveInt(set.reps, set.ghost?.reps);
     const rpe = resolveFloat(set.rpe, set.ghost?.rpe);
-    const isPr = !set.is_warmup && weight !== null && weight > (prMapRef.current[exId] ?? 0);
+    // Compound lifts only — isolation PRs are noise (Nik feedback 2026-08-19).
+    const isPr = Boolean(exercise.info?.isCompound) && !set.is_warmup && weight !== null && weight > (prMapRef.current[exId] ?? 0);
 
     patchSet(exIdx, set.id, { saving: true });
     const sessionId = await ensureSession();
@@ -519,9 +520,8 @@ export default function GuidedSession({
   const localizedName = (ex: GuidedExercise): string => {
     const info = ex.info;
     if (!info) return 'Exercise';
-    if (lang === 'es' && info.nameEs) return info.nameEs;
-    if (lang === 'el' && info.nameEl) return info.nameEl;
-    return info.name;
+    // Exercise names stay English for Greek users (see exerciseDisplayName).
+    return exerciseDisplayName({ name: info.name, name_es: info.nameEs }, lang);
   };
 
   // ═══ Finish screen ═════════════════════════════════════════════════════

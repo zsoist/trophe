@@ -13,7 +13,7 @@ import { ChevronDown, ChevronUp, Clock, Dumbbell, Trophy } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
 import type { WorkoutSession } from '@/lib/types';
-import { muscleColor } from './muscle-groups';
+import { muscleColor, exerciseDisplayName } from './muscle-groups';
 import { kgToDisplay, useWeightUnit } from '@/lib/workout/units';
 
 interface ExpandedSetRow {
@@ -63,10 +63,8 @@ export default function RecentSessionCard({
     if (!sets) return [];
     const map = new Map<string, { name: string; muscle: string; rows: ExpandedSetRow[] }>();
     for (const s of sets) {
-      const name =
-        lang === 'es' && s.exercise?.name_es ? s.exercise.name_es
-        : lang === 'el' && s.exercise?.name_el ? s.exercise.name_el
-        : s.exercise?.name ?? 'Exercise';
+      // Exercise names stay English for Greek users (see exerciseDisplayName).
+      const name = s.exercise ? exerciseDisplayName(s.exercise, lang) : 'Exercise';
       if (!map.has(s.exercise_id)) map.set(s.exercise_id, { name, muscle: s.exercise?.muscle_group ?? '', rows: [] });
       map.get(s.exercise_id)!.rows.push(s);
     }

@@ -4,6 +4,21 @@
 // ═══════════════════════════════════════════════
 
 export const pt: Record<string, string> = {
+  'workout.repeat_last': 'Repetir último treino',
+  'workout.quick_start': 'Início rápido',
+  'workout.split_push': 'Push',
+  'workout.split_pull': 'Pull',
+  'workout.split_legs': 'Pernas',
+  'workout.split_upper': 'Parte superior',
+  'workout.split_chest_tri': 'Peito e tríceps',
+  'workout.split_back_bi': 'Costas e bíceps',
+  'workout.split_full': 'Corpo inteiro',
+  'workout.quick_done': 'Marcar feito — sem detalhes',
+  'workout.quick_done_short': 'Feito',
+  'workout.save_routine': 'Salvar como rotina',
+  'workout.routine_saved': 'Rotina salva',
+  'workout.my_routines': 'Minhas rotinas',
+  'workout.message_coach': 'Coach',
   'nav.switch_client': 'Visão de cliente',
   'nav.switch_coach': 'Visão de coach',
   // ── App ──

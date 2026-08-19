@@ -20,15 +20,15 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import {
   Dumbbell, Plus, Minus, Clock, Trophy, X, AlertTriangle,
-  ChevronDown, ChevronUp, History, Play, Square, Camera, Timer,
-  Calculator, Info, Link2, BarChart3, Check, MessageCircle,
+  ChevronDown, ChevronUp, ChevronRight, History, Play, Square, Camera, Timer,
+  Calculator, Info, Link2, BarChart3, Check, MessageCircle, RotateCcw, BookmarkPlus,
 } from 'lucide-react';
 import { BotNav } from '@/components/ui/BotNav';
 import { AnimatedValue } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
 import { useClientNav } from '@/lib/useClientNav';
-import type { Exercise, PainFlag, WorkoutSession, TemplateExercise } from '@/lib/types';
+import type { Exercise, PainFlag, WorkoutSession, TemplateExercise, MuscleGroup } from '@/lib/types';
 import Link from 'next/link';
 import { localToday } from '../../../lib/utils/dates';
 import { trpc } from '@/lib/trpc/client';
@@ -53,7 +53,7 @@ function restoreCompletionFocus(returnTarget: HTMLElement | null, fallback: HTML
   if (returnTarget?.isConnected) returnTarget.focus();
   else fallback?.focus();
 }
-import { muscleColor } from '@/components/workout/muscle-groups';
+import { muscleColor, exerciseDisplayName, WORKOUT_SPLITS } from '@/components/workout/muscle-groups';
 import { useWeightUnit, kgToDisplay, displayToKg } from '@/lib/workout/units';
 import { getRestTarget, setRestTarget as persistRestTarget, REST_CHOICES } from '@/lib/workout/rest-targets';
 import { supersetGroupFor, supersetLabelFor } from '@/lib/workout/supersets';
@@ -192,6 +192,8 @@ export default function WorkoutPage() {
   const [recentExerciseIds, setRecentExerciseIds] = useState<string[]>([]);
   const [activeExercises, setActiveExercises] = useState<ActiveExercise[]>([]);
   const [showPicker, setShowPicker] = useState(false);
+  // Split quick-start: pre-filter the picker to these muscle groups (null = all).
+  const [presetMuscles, setPresetMuscles] = useState<MuscleGroup[] | null>(null);
   const [painFlags, setPainFlags] = useState<PainFlag[]>([]);
   const [painModalExerciseId, setPainModalExerciseId] = useState<string | null>(null);
   const [prRecords, setPrRecords] = useState<Record<string, number>>({});
@@ -203,6 +205,12 @@ export default function WorkoutPage() {
   const [cardioDistance, setCardioDistance] = useState('');
   const [savingCardio, setSavingCardio] = useState(false);
   const [recentSessions, setRecentSessions] = useState<WorkoutSession[]>([]);
+  // Self-authored routines (workout_templates owned by the user) — Nik: "save
+  // my plan, then just pick it and go".
+  type MyRoutine = { id: string; name: string; difficulty: string | null; exercises: TemplateExercise[] };
+  const [myRoutines, setMyRoutines] = useState<MyRoutine[]>([]);
+  const [savingRoutine, setSavingRoutine] = useState(false);
+  const [routineSaved, setRoutineSaved] = useState(false);
 
   // UI state
   const [saving, setSaving] = useState(false);
@@ -245,9 +253,17 @@ export default function WorkoutPage() {
 
   const exerciseInfoMap = useMemo(() => {
     const map: Record<string, GuidedExerciseInfo> = {};
+    // Base layer: the full client-side library, so SELF-AUTHORED routines
+    // (saved from freestyle) resolve names/equipment without a program.
+    for (const ex of exercises) {
+      map[ex.id] = {
+        id: ex.id, name: ex.name, nameEs: ex.name_es, nameEl: ex.name_el,
+        muscleGroup: ex.muscle_group, equipment: ex.equipment, isCompound: ex.is_compound,
+      };
+    }
     for (const e of programData?.exercises ?? []) map[e.id] = e as GuidedExerciseInfo;
     return map;
-  }, [programData]);
+  }, [programData, exercises]);
 
   // Weekday of the user's LOCAL calendar day (0=Sunday … 6=Saturday).
   const todayWeekday = new Date(localToday() + 'T12:00:00').getDay();
@@ -312,8 +328,93 @@ export default function WorkoutPage() {
     setActiveExercises([]);
     setPainFlags([]);
     setRestStartedAt(null);
+    setPresetMuscles(null);
+    setRoutineSaved(false);
     setStartTime(0); // clock starts on the first completed set, not on entry
     setMode('freestyle');
+  };
+
+  /**
+   * Split quick-start (Nik: "select today's workout, name it 'chest and
+   * triceps', then give me the options"): names the session after the split,
+   * pre-filters the picker to the split's muscle groups, and opens it —
+   * suggestions from the user's own history surface first inside the picker.
+   */
+  const startSplit = (split: (typeof WORKOUT_SPLITS)[number]) => {
+    if (!userId) return;
+    setSessionName(t(`workout.split_${split.key}`));
+    sessionPromiseRef.current = null;
+    sessionIdRef.current = null;
+    setActiveExercises([]);
+    setPainFlags([]);
+    setRestStartedAt(null);
+    setPresetMuscles(split.muscles.length > 0 ? split.muscles : null);
+    setStartTime(0);
+    setMode('freestyle');
+    setShowPicker(true);
+  };
+
+  const refreshMyRoutines = useCallback(async (uid: string) => {
+    const { data } = await supabase
+      .from('workout_templates')
+      .select('id, name, difficulty, exercises')
+      .eq('created_by', uid)
+      .order('created_at', { ascending: false })
+      .limit(8);
+    if (data) {
+      setMyRoutines(
+        (data as { id: string; name: string; difficulty: string | null; exercises: unknown }[]).map((r) => ({
+          ...r,
+          exercises: ((r.exercises as TemplateExercise[] | null) ?? []).filter((e) => e && typeof e.exercise_id === 'string'),
+        })),
+      );
+    }
+  }, []);
+
+  /** Save the current freestyle exercise list as a reusable personal routine. */
+  const saveAsRoutine = async () => {
+    if (!userId || savingRoutine || activeExercises.length === 0) return;
+    setSavingRoutine(true);
+    const templateExercises: TemplateExercise[] = activeExercises.map((ae) => {
+      const reps = ae.sets
+        .map((s) => parseInt(s.reps, 10))
+        .filter((n) => !isNaN(n) && n > 0);
+      const lo = reps.length ? Math.min(...reps) : 8;
+      const hi = reps.length ? Math.max(...reps) : 12;
+      return {
+        exercise_id: ae.exercise.id,
+        target_sets: Math.max(1, ae.sets.length),
+        target_reps: lo === hi ? String(lo) : `${lo}-${hi}`,
+      };
+    });
+    const { error } = await supabase.from('workout_templates').insert({
+      created_by: userId,
+      name: sessionName || `Workout — ${localToday()}`,
+      exercises: templateExercises,
+      difficulty: 'intermediate',
+      shared: false,
+    });
+    setSavingRoutine(false);
+    if (error) {
+      window.alert(t('workout.save_failed'));
+      return;
+    }
+    setRoutineSaved(true);
+    void refreshMyRoutines(userId);
+    if (typeof navigator !== 'undefined') navigator.vibrate?.(6);
+  };
+
+  /** One-tap start of a saved personal routine (guided flow, ghosts included). */
+  const startRoutine = (routine: MyRoutine) => {
+    if (routine.exercises.length === 0) return;
+    setGuidedTemplate({
+      id: routine.id,
+      name: routine.name,
+      dayLabel: null,
+      difficulty: routine.difficulty,
+      exercises: routine.exercises,
+    });
+    setMode('guided');
   };
 
   /** Repeat a past session: same exercises + that session's values as ghosts. */
@@ -359,6 +460,7 @@ export default function WorkoutPage() {
     setActiveExercises(prefilled);
     setPainFlags([]);
     setRestStartedAt(null);
+    setPresetMuscles(null);
     setStartTime(0); // clock starts on the first completed set, not on entry
     setMode('freestyle');
     void loadPRs(uid, Array.from(byExercise.keys()));
@@ -380,6 +482,7 @@ export default function WorkoutPage() {
           .order('created_at', { ascending: false })
           .limit(120),
         refreshRecents(user.id),
+        refreshMyRoutines(user.id),
       ]);
       if (exercisesRes.data) setExercises(exercisesRes.data);
       // De-dupe most-recent-first into a stable "recently used" list.
@@ -514,11 +617,12 @@ export default function WorkoutPage() {
       if (set.completed) return prev; // completed sets are locked (uncheck to edit)
 
       // Auto-detect PR — typed value is in the DISPLAY unit; PR baselines are kg.
+      // PRs count only on COMPOUND lifts (Nik: no one cares about a curl PR).
       if (field === 'weight_kg' && typeof value === 'string' && !set.is_warmup) {
         const w = parseFloat(value);
         const wKg = isNaN(w) ? NaN : displayToKg(w, unit);
         const prevMax = prRecords[updated[exIndex].exercise.id] || 0;
-        set.is_pr = !isNaN(wKg) && wKg > 0 && wKg > prevMax;
+        set.is_pr = Boolean(updated[exIndex].exercise.is_compound) && !isNaN(wKg) && wKg > 0 && wKg > prevMax;
       }
 
       updated[exIndex] = { ...updated[exIndex], sets: [...updated[exIndex].sets] };
@@ -579,7 +683,8 @@ export default function WorkoutPage() {
       ? (isNaN(parseInt(set.reps, 10)) ? null : parseInt(set.reps, 10))
       : ghost?.reps ?? null;
     const rpe = set.rpe.trim() !== '' && !isNaN(parseFloat(set.rpe)) ? parseFloat(set.rpe) : null;
-    const isPr = !set.is_warmup && weight !== null && weight > (prRecords[ae.exercise.id] ?? 0);
+    // Compound lifts only — isolation PRs are noise (Nik feedback 2026-08-19).
+    const isPr = Boolean(ae.exercise.is_compound) && !set.is_warmup && weight !== null && weight > (prRecords[ae.exercise.id] ?? 0);
     return {
       exercise_id: ae.exercise.id,
       set_number: set.set_number,
@@ -656,6 +761,42 @@ export default function WorkoutPage() {
     }
     setRestChipTarget(restTargets[ae.exercise.id] ?? getRestTarget(ae.exercise.id, ae.exercise.is_compound));
     setRestStartedAt(Date.now());
+  };
+
+  /**
+   * Quick-done: log the exercise as DONE without kg/reps detail (Nik: "for
+   * triceps no one cares about the kilos — just let me say I did it").
+   * Persists one null-valued set so the session records the exercise, then
+   * collapses the card. Skips exercises that already have a completed set.
+   */
+  const quickDoneExercise = async (exIndex: number) => {
+    const ae = activeExercises[exIndex];
+    if (!ae || ae.sets.some((s) => s.saving)) return;
+    if (ae.sets.some((s) => s.completed)) {
+      // Already has logged detail — just collapse it.
+      setActiveExercises((prev) => prev.map((x, i) => (i === exIndex ? { ...x, collapsed: true } : x)));
+      return;
+    }
+    const sessionId = await ensureSession();
+    if (!sessionId) { window.alert(t('workout.save_failed')); return; }
+    const dbId = await insertWorkoutSet(sessionId, {
+      exercise_id: ae.exercise.id,
+      set_number: 1,
+      weight_kg: null,
+      reps: null,
+      rpe: null,
+      is_warmup: false,
+      is_pr: false,
+      superset_group: supersetGroupFor(activeExercises, exIndex),
+    });
+    if (!dbId) { window.alert(t('workout.save_failed')); return; }
+    setStartTime((s) => s || Date.now());
+    setActiveExercises((prev) => prev.map((x, i) => {
+      if (i !== exIndex) return x;
+      const done: LocalSet = { ...blankSet(1), completed: true, dbId };
+      return { ...x, collapsed: true, sets: [done] };
+    }));
+    if (typeof navigator !== 'undefined') navigator.vibrate?.(6);
   };
 
   // ─── Finish freestyle workout ───
@@ -769,11 +910,8 @@ export default function WorkoutPage() {
     }
   };
 
-  const getExerciseName = (ex: Exercise) => {
-    if (lang === 'es' && ex.name_es) return ex.name_es;
-    if (lang === 'el' && ex.name_el) return ex.name_el;
-    return ex.name;
-  };
+  // Exercise names stay English for Greek users (see exerciseDisplayName).
+  const getExerciseName = (ex: Exercise) => exerciseDisplayName(ex, lang);
 
   // ─── Guided mode start / exit ───
   const startGuided = (summary: TodayTemplateSummary) => {
@@ -977,6 +1115,83 @@ export default function WorkoutPage() {
               </>
             )}
 
+            {/* ── Quick start: repeat-last + split chips (Nik: "very very fast
+                recording", "name it chest & triceps and give me options") ── */}
+            <div>
+              {recentSessions.length > 0 && userId && (
+                <motion.button
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => void startRepeat(recentSessions[0].id, userId)}
+                  className="card w-full min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                  style={{
+                    padding: '12px 14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10,
+                    border: '1px solid color-mix(in srgb, var(--action-primary) 30%, transparent)',
+                    background: 'color-mix(in srgb, var(--action-primary) 7%, transparent)',
+                    marginBottom: 8,
+                  }}
+                >
+                  <RotateCcw size={15} className="gold-text" style={{ flexShrink: 0 }} />
+                  <span style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+                    <span style={{ display: 'block', fontSize: 13, fontWeight: 700, color: 'var(--content-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {t('workout.repeat_last')}
+                    </span>
+                    <span style={{ display: 'block', fontSize: 12, color: 'var(--content-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {recentSessions[0].name ?? t('workout.title')}
+                    </span>
+                  </span>
+                  <ChevronRight size={15} style={{ color: 'var(--content-muted)', flexShrink: 0 }} />
+                </motion.button>
+              )}
+              <p className="text-xs font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'var(--content-muted)' }}>
+                {t('workout.quick_start')}
+              </p>
+              <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-1 px-1 pb-1">
+                {WORKOUT_SPLITS.map((split) => (
+                  <button
+                    key={split.key}
+                    onClick={() => startSplit(split)}
+                    disabled={!userId}
+                    className="shrink-0 px-3 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                    style={{
+                      background: 'color-mix(in srgb, var(--content-primary) 6%, transparent)',
+                      border: '1px solid color-mix(in srgb, var(--content-primary) 10%, transparent)',
+                      color: 'var(--content-secondary)',
+                    }}
+                  >
+                    {t(`workout.split_${split.key}`)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* ── My routines: one-tap start of saved personal plans ── */}
+            {myRoutines.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'var(--content-muted)' }}>
+                  {t('workout.my_routines')}
+                </p>
+                <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-1 px-1 pb-1">
+                  {myRoutines.map((r) => (
+                    <button
+                      key={r.id}
+                      onClick={() => startRoutine(r)}
+                      className="shrink-0 rounded-xl px-3.5 py-2.5 text-left transition-colors min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                      style={{
+                        background: 'color-mix(in srgb, var(--action-primary) 7%, transparent)',
+                        border: '1px solid color-mix(in srgb, var(--action-primary) 24%, transparent)',
+                        maxWidth: 200,
+                      }}
+                    >
+                      <span className="block text-sm font-bold truncate" style={{ color: 'var(--content-primary)' }}>{r.name}</span>
+                      <span className="block text-xs" style={{ color: 'var(--content-muted)' }}>
+                        {r.exercises.length} {t('workout.picker_count')}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* ── Cardio quick-log panel (expandable) ── */}
             <AnimatePresence>
               {showCardio && (
@@ -1117,11 +1332,14 @@ export default function WorkoutPage() {
             )}
 
             {/* ── Quick links: History · Stats · Form Check (utilities last) ── */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
               {[
                 { href: '/dashboard/workout/history', icon: <History size={16} className="gold-text mx-auto" />, label: t('workout.history') },
                 { href: '/dashboard/workout/stats', icon: <BarChart3 size={16} className="gold-text mx-auto" />, label: t('workout.stats') },
                 { href: '/dashboard/workout/form-check', icon: <Camera size={16} className="gold-text mx-auto" />, label: t('workout.form_check') },
+                // Nik: "I really like that you can text your coach directly —
+                // add it in the workout section too."
+                { href: '/dashboard/messages', icon: <MessageCircle size={16} className="gold-text mx-auto" />, label: t('workout.message_coach') },
               ].map((link) => (
                 <Link key={link.href} href={link.href}>
                   <div className="card" style={{ padding: '12px 6px', textAlign: 'center', cursor: 'pointer' }}>
@@ -1137,14 +1355,31 @@ export default function WorkoutPage() {
         {/* ═══ FREESTYLE SESSION ═══ */}
         {inFreestyle && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-            {/* Session name */}
-            <input
-              type="text"
-              value={sessionName}
-              onChange={(e) => setSessionName(e.target.value)}
-              className="input-dark text-center font-semibold text-base"
-              placeholder={t('workout.session_name')}
-            />
+            {/* Session name + save-as-routine (Nik: "save my plan, reuse it") */}
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={sessionName}
+                onChange={(e) => setSessionName(e.target.value)}
+                className="input-dark text-center font-semibold text-base flex-1 min-w-0"
+                placeholder={t('workout.session_name')}
+              />
+              <button
+                onClick={() => void saveAsRoutine()}
+                disabled={savingRoutine || routineSaved || activeExercises.length === 0}
+                className="shrink-0 p-2.5 rounded-xl transition-colors min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                style={{
+                  background: routineSaved ? 'color-mix(in srgb, var(--action-primary) 16%, transparent)' : 'color-mix(in srgb, var(--content-primary) 8%, transparent)',
+                  border: routineSaved ? '1px solid color-mix(in srgb, var(--action-primary) 40%, transparent)' : '1px solid color-mix(in srgb, var(--content-primary) 10%, transparent)',
+                  color: routineSaved ? 'var(--action-primary)' : 'var(--content-muted)',
+                  opacity: activeExercises.length === 0 ? 0.4 : 1,
+                }}
+                aria-label={routineSaved ? t('workout.routine_saved') : t('workout.save_routine')}
+                title={routineSaved ? t('workout.routine_saved') : t('workout.save_routine')}
+              >
+                {routineSaved ? <Check size={16} /> : <BookmarkPlus size={16} />}
+              </button>
+            </div>
 
             {/* Exercises */}
             <AnimatePresence mode="popLayout">
@@ -1205,6 +1440,24 @@ export default function WorkoutPage() {
                         {ae.collapsed ? <ChevronDown size={16} className="text-[var(--content-muted)]" /> : <ChevronUp size={16} className="text-[var(--content-muted)]" />}
                       </button>
                       <div className="flex items-center gap-1">
+                        {/* Quick-done: log the exercise with NO kg/reps detail
+                            (Nik: accessories don't need numbers — one tap, done). */}
+                        {!ae.sets.some((s) => s.completed) && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); void quickDoneExercise(exIndex); }}
+                            className="px-2 py-1 rounded-lg text-xs font-bold transition-colors min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                            style={{
+                              background: 'color-mix(in srgb, var(--action-primary) 10%, transparent)',
+                              border: '1px solid color-mix(in srgb, var(--action-primary) 28%, transparent)',
+                              color: 'var(--action-primary)',
+                            }}
+                            aria-label={t('workout.quick_done')}
+                            title={t('workout.quick_done')}
+                          >
+                            <Check size={12} className="inline mr-0.5" style={{ verticalAlign: -1 }} />
+                            {t('workout.quick_done_short')}
+                          </button>
+                        )}
                         {/* Rest target — tap to cycle 60/90/120/150/180s (persists) */}
                         <button
                           onClick={(e) => { e.stopPropagation(); cycleRestTarget(ae.exercise); }}
@@ -1469,6 +1722,7 @@ export default function WorkoutPage() {
             lang={lang}
             onCustomCreated={(ex) => setExercises((prev) => [...prev, ex])}
             onInfo={(ex) => { setShowPicker(false); setInfoExercise(ex); }}
+            presetMuscles={presetMuscles}
           />
         )}
       </AnimatePresence>
