@@ -17,7 +17,7 @@ import { Dumbbell, Info, Plus, Search, X } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
 import type { Exercise, MuscleGroup } from '@/lib/types';
-import { MUSCLE_GROUPS, muscleColor, muscleLabelKey } from './muscle-groups';
+import { MUSCLE_GROUPS, muscleColor, muscleLabelKey, exerciseDisplayName } from './muscle-groups';
 
 const subscribeToClient = () => () => {};
 const getClientSnapshot = () => true;
@@ -238,6 +238,7 @@ export default function ExercisePicker({
   lang,
   onCustomCreated,
   onInfo,
+  presetMuscles,
 }: {
   exercises: Exercise[];
   recentIds: string[];
@@ -246,6 +247,8 @@ export default function ExercisePicker({
   lang: string;
   onCustomCreated?: (ex: Exercise) => void;
   onInfo?: (ex: Exercise) => void;
+  /** Split quick-start: limit browsing to these muscle groups (user can still search or tap All). */
+  presetMuscles?: MuscleGroup[] | null;
 }) {
   const [search, setSearch] = useState('');
   const [filterMuscle, setFilterMuscle] = useState<MuscleGroup | 'all'>('all');
@@ -291,29 +294,42 @@ export default function ExercisePicker({
     if (canUseDom) inputRef.current?.focus();
   }, [canUseDom]);
 
-  const nameOf = (ex: Exercise) =>
-    lang === 'es' && ex.name_es ? ex.name_es : lang === 'el' && ex.name_el ? ex.name_el : ex.name;
+  const nameOf = (ex: Exercise) => exerciseDisplayName(ex, lang);
 
   const q = search.trim().toLowerCase();
   const browsing = q === '' && filterMuscle === 'all';
+  // Split quick-start narrows the browse view to the split's muscles; an
+  // explicit search or muscle-chip tap overrides it (never a hard wall).
+  const preset = browsing && presetMuscles && presetMuscles.length > 0 ? new Set<string>(presetMuscles) : null;
 
   const filtered = exercises.filter((ex) => {
     const matchesSearch = q === '' || nameOf(ex).toLowerCase().includes(q) || (ex.equipment ?? '').toLowerCase().includes(q);
     const matchesMuscle = filterMuscle === 'all' || ex.muscle_group === filterMuscle;
-    return matchesSearch && matchesMuscle;
+    const matchesPreset = !preset || preset.has(ex.muscle_group);
+    return matchesSearch && matchesMuscle && matchesPreset;
   });
 
   const pick = (ex: Exercise) => { onSelect(ex); onClose(); };
 
-  // Recent quick-add — only while browsing (no search, no muscle filter).
+  // Recent quick-add — only while browsing. Under a split preset this becomes
+  // "from your history for THIS split" (Nik: same exercises every time — make
+  // re-adding them instant).
   const recentExercises = browsing
-    ? recentIds.map((id) => exercises.find((e) => e.id === id)).filter((e): e is Exercise => Boolean(e)).slice(0, 8)
+    ? recentIds
+        .map((id) => exercises.find((e) => e.id === id))
+        .filter((e): e is Exercise => Boolean(e))
+        .filter((e) => !preset || preset.has(e.muscle_group))
+        .slice(0, 10)
     : [];
 
   // Sectioned by muscle group (in canonical order) so the list reads as
   // structure, not an undifferentiated scroll. Flat when searching/filtering.
+  // Under a preset, only the split's groups remain (in split order).
+  const sectionGroups = preset
+    ? MUSCLE_GROUPS.filter((mg) => preset.has(mg.key))
+    : MUSCLE_GROUPS;
   const sections = browsing
-    ? MUSCLE_GROUPS.map((mg) => ({ mg, items: filtered.filter((e) => e.muscle_group === mg.key) })).filter((s) => s.items.length > 0)
+    ? sectionGroups.map((mg) => ({ mg, items: filtered.filter((e) => e.muscle_group === mg.key) })).filter((s) => s.items.length > 0)
     : [{ mg: null as (typeof MUSCLE_GROUPS)[number] | null, items: filtered }];
 
   if (!canUseDom) return null;

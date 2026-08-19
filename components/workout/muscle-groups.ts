@@ -34,3 +34,28 @@ export function muscleLabel(group: string | null | undefined): string {
 export function muscleLabelKey(group: string | null | undefined): string {
   return group ? `workout.muscle_${group}` : 'workout.muscle_full_body';
 }
+
+/**
+ * Display name for an exercise. Gym exercise names deliberately stay in
+ * ENGLISH for Greek users (Nik, 2026-08-19: "skull crushers" etc. read weird
+ * transliterated — Greek gyms use the English terms). Spanish keeps its
+ * localized names; form cues/instructions remain fully translated everywhere.
+ */
+export function exerciseDisplayName(
+  ex: { name: string; name_es?: string | null },
+  lang: string,
+): string {
+  if (lang === 'es' && ex.name_es) return ex.name_es;
+  return ex.name;
+}
+
+/** Split presets for the quick-start flow ("chest & triceps day" → suggested list). */
+export const WORKOUT_SPLITS: { key: string; muscles: MuscleGroup[] }[] = [
+  { key: 'push', muscles: ['chest', 'shoulders', 'triceps'] },
+  { key: 'pull', muscles: ['back', 'biceps', 'forearms'] },
+  { key: 'legs', muscles: ['quads', 'hamstrings', 'glutes', 'calves'] },
+  { key: 'upper', muscles: ['chest', 'back', 'shoulders', 'biceps', 'triceps'] },
+  { key: 'chest_tri', muscles: ['chest', 'triceps'] },
+  { key: 'back_bi', muscles: ['back', 'biceps'] },
+  { key: 'full', muscles: [] }, // empty = no filter
+];
