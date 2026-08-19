@@ -83,6 +83,21 @@ export default function RootLayout({
             __html: `(function(){var r=document.documentElement,p=location.pathname.split('/')[1],m,c;r.lang=p==='es'||p==='el'?p:'en';try{m=localStorage.getItem('trophe_theme_mode')}catch(e){}c=m==='light'||m==='dark'?m:'dark';r.classList.remove('dark','light');r.classList.add(c);r.style.colorScheme=c;var t=document.querySelector('meta[name="theme-color"]');if(t)t.setAttribute('content',c==='light'?'#FAFAF9':'#0A0A0A')}())`,
           }}
         />
+        {/*
+          Service-worker kill switch (transitional, 2026-07-12). The prior
+          caching worker caused ~1-minute loads on iOS Safari. app/sw.ts now
+          self-destructs, but Safari's PASSIVE sw-update check is unreliable, so
+          a stuck worker could otherwise survive. This inline head script runs on
+          EVERY page (including the logged-out landing), before React, and
+          actively unregisters any worker + purges Cache Storage — healing the
+          device on its next visit regardless of the SW lifecycle. No-op once no
+          worker is registered. Remove after the fleet has healed.
+        */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(function(rs){rs.forEach(function(r){r.unregister();});}).catch(function(){});}if(self.caches&&caches.keys){caches.keys().then(function(ks){ks.forEach(function(k){caches.delete(k);});}).catch(function(){});}}catch(e){}})();`,
+          }}
+        />
       </head>
       <body
         className="min-h-full font-sans antialiased"
