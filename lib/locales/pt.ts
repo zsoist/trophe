@@ -4,6 +4,8 @@
 // ═══════════════════════════════════════════════
 
 export const pt: Record<string, string> = {
+  'nav.switch_client': 'Visão de cliente',
+  'nav.switch_coach': 'Visão de coach',
   // ── App ──
   'app.name': 'Trophē',
   'app.tagline': 'Um hábito. Duas semanas. Transforma.',

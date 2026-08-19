@@ -516,6 +516,19 @@ export default function DashboardPage() {
                 ⌘ SUPER
               </a>
             )}
+            {/* Dedicated client⇄coach switcher — dual-role users (Nik, Michael)
+                flip back to the coach dashboard; CoachNav links here. */}
+            {userProfile?.role === 'coach' && (
+              <a href="/coach" title={t('nav.switch_coach')} style={{
+                display: 'flex', alignItems: 'center', gap: 4,
+                padding: '5px 10px', minHeight: 44, minWidth: 44, borderRadius: 17, textDecoration: 'none',
+                background: 'rgba(212,168,83,.12)', border: '1px solid rgba(212,168,83,.35)',
+                color: 'var(--gold-300,#D4A853)', fontSize: 12,
+                fontFamily: 'var(--font-mono)', fontWeight: 700, letterSpacing: '.05em',
+              }}>
+                {t('nav.switch_coach')}
+              </a>
+            )}
             {streakDays > 0 && (
               <span className="tag tag-g">
                 <Icon name="i-flame" size={9} />

@@ -12,8 +12,10 @@ import {
   LayoutGrid,
   ClipboardList,
   MoreHorizontal,
+  ArrowLeftRight,
 } from 'lucide-react';
 import { IconButton } from '@/components/ui';
+import { useI18n } from '@/lib/i18n';
 
 export const coachNav = [
   { label: 'Clients', href: '/coach', icon: Users },
@@ -27,6 +29,7 @@ export const coachNav = [
 ];
 
 export function CoachNav({ active }: { active: string }) {
+  const { t } = useI18n();
   const [moreOpen, setMoreOpen] = useState(false);
   const disclosureRef = useRef<HTMLDivElement>(null);
   const primary = coachNav.slice(0, 4);
@@ -82,7 +85,16 @@ export function CoachNav({ active }: { active: string }) {
       <div className="hidden flex-wrap items-center gap-1 md:flex">
         {secondary.map(renderLink)}
       </div>
-      <div ref={disclosureRef} className="relative ml-auto md:hidden">
+      {/* Dedicated coach⇄client switcher — coaches who are also clients (Nik,
+          Michael) flip to their own client dashboard; BotNav there links back. */}
+      <Link
+        href="/dashboard"
+        className="ml-auto flex min-h-11 items-center gap-2 whitespace-nowrap rounded-xl px-3 text-sm font-semibold transition-colors motion-reduce:transition-none text-[var(--action-primary)] border border-[color-mix(in_srgb,var(--action-primary)_35%,transparent)] bg-[color-mix(in_srgb,var(--action-primary)_10%,transparent)] hover:bg-[color-mix(in_srgb,var(--action-primary)_16%,transparent)]"
+      >
+        <ArrowLeftRight size={15} aria-hidden="true" />
+        {t('nav.switch_client')}
+      </Link>
+      <div ref={disclosureRef} className="relative md:hidden">
         <IconButton
           aria-label="More coach destinations"
           aria-expanded={moreOpen}
