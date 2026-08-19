@@ -69,6 +69,8 @@ const translations: Record<string, Record<CoreLanguage, string>> = {
   'onboard.coach_assign': { en: 'Your coach will assign your first habit', es: 'Tu coach te asignará tu primer hábito', el: 'Ο coach σου θα ορίσει την πρώτη συνήθεια' },
 
   // ── Navigation ──
+  'nav.switch_client': { en: 'Client view', es: 'Vista cliente', el: 'Προβολή πελάτη' },
+  'nav.switch_coach': { en: 'Coach view', es: 'Vista coach', el: 'Προβολή προπονητή' },
   'nav.home': { en: 'Home', es: 'Inicio', el: 'Αρχική' },
   'nav.log': { en: 'Log', es: 'Registro', el: 'Καταγραφή' },
   'nav.track': { en: 'Track', es: 'Registro', el: 'Καταγραφή' },

@@ -1,4 +1,6 @@
 export const de: Record<string, string> = {
+  'nav.switch_client': 'Kundenansicht',
+  'nav.switch_coach': 'Coach-Ansicht',
   // ── App ──
   'app.name': 'Trophē',
   'app.tagline': 'Eine Gewohnheit. Zwei Wochen. Verwandlung.',
