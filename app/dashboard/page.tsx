@@ -13,23 +13,8 @@ import type { ClientProfile, ClientHabit, HabitCheckin, FoodLogEntry, WaterLogEn
 import WeeklyCheckin from '@/components/summary/WeeklyCheckin';
 import { DashboardSkeleton } from '@/components/shared/Skeleton';
 import HabitDetailModal from '@/components/habits/HabitDetailModal';
-import { useThemeMode } from '@/components/shared/ThemeMode';
 import { localToday } from '../../lib/utils/dates';
-
-// ─── Greeting (no emojis — handoff spec) ───────────────────────
-function getTimeGreeting(): string {
-  const h = new Date().getHours();
-  if (h < 12) return 'good_morning';
-  if (h < 17) return 'good_afternoon';
-  if (h < 21) return 'good_evening';
-  return 'good_night';
-}
-
-// Serif display is Latin-only (Instrument Serif has no Greek glyphs) —
-// only style the name in serif when it's safely renderable.
-function isLatinText(s: string): boolean {
-  return /^[A-Za-zÀ-ɏ'’ -]+$/.test(s);
-}
+import DashboardGreeting from '@/components/summary/DashboardGreeting';
 
 // ─── 88px calorie hero ring ─────────────────────────────────────
 function CompactRing({ value, target, overGoal }: { value: number; target: number; overGoal?: boolean }) {
@@ -208,7 +193,6 @@ export default function DashboardPage() {
   const [coachName, setCoachName]           = useState<string | null>(null);
   const [splashTick, setSplashTick]         = useState(0);
   const reducedMotion = useReducedMotion();
-  const { mode: theme, toggleMode: toggleTheme } = useThemeMode();
 
   const today = localToday();
 
@@ -445,12 +429,10 @@ export default function DashboardPage() {
 
   // ─── Derived display values ───────────────────────────────────
   const firstName   = userProfile?.full_name?.split(' ')[0] ?? null;
-  const greeting    = t(`dash.${getTimeGreeting()}`);
   const remaining   = Math.max(targetCalories - Math.round(totalCalories), 0);
   const waterGlasses    = Math.floor(totalWater / 250);
   const targetGlasses   = Math.ceil(targetWater / 250);
   const completionPct   = cycleDays > 0 ? Math.round(((activeHabit?.total_completions ?? 0) / cycleDays) * 100) : 0;
-  const dateLabel = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
 
   // ─── Dismiss celebration ──────────────────────────────────────
   const dismissCelebration = () => {
@@ -484,87 +466,13 @@ export default function DashboardPage() {
         )}
 
         {/* ══ 1 · Greeting row ══════════════════════════════════ */}
-        <div className="row-b mb-3">
-          <div className="row-i" style={{ gap: 10 }}>
-            <div className="av-lg">{firstName?.[0]?.toUpperCase() ?? 'N'}</div>
-            <div>
-              <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-.01em', color: 'var(--content-primary)', display: 'flex', alignItems: 'baseline', gap: 5 }}>
-                <span>{greeting}{firstName ? ',' : ''}</span>
-                {firstName && (
-                  isLatinText(firstName) ? (
-                    // Serif hero moment — Instrument Serif italic, Latin names only
-                    <span className="display-lg" style={{ fontSize: 21, lineHeight: '24px', color: 'var(--gold-300,#D4A853)' }}>
-                      {firstName}
-                    </span>
-                  ) : (
-                    <span>{firstName}</span>
-                  )
-                )}
-              </div>
-              <div className="ds-sub">{dateLabel}</div>
-            </div>
-          </div>
-          <div className="row-i" style={{ gap: 8 }}>
-            {userProfile?.role === 'super_admin' && (
-              <a href="/super" title="Super Command Center" style={{
-                display: 'flex', alignItems: 'center', gap: 4,
-                padding: '5px 10px', minHeight: 44, minWidth: 44, borderRadius: 17, textDecoration: 'none',
-                background: 'rgba(212,168,83,.12)', border: '1px solid rgba(212,168,83,.35)',
-                color: 'var(--gold-300,#D4A853)', fontSize: 12,
-                fontFamily: 'var(--font-mono)', fontWeight: 700, letterSpacing: '.05em',
-              }}>
-                ⌘ SUPER
-              </a>
-            )}
-            {/* Dedicated client⇄coach switcher — dual-role users (Nik, Michael)
-                flip back to the coach dashboard; CoachNav links here. */}
-            {userProfile?.role === 'coach' && (
-              <a href="/coach" title={t('nav.switch_coach')} style={{
-                display: 'flex', alignItems: 'center', gap: 4,
-                padding: '5px 10px', minHeight: 44, minWidth: 44, borderRadius: 17, textDecoration: 'none',
-                background: 'rgba(212,168,83,.12)', border: '1px solid rgba(212,168,83,.35)',
-                color: 'var(--gold-300,#D4A853)', fontSize: 12,
-                fontFamily: 'var(--font-mono)', fontWeight: 700, letterSpacing: '.05em',
-              }}>
-                {t('nav.switch_coach')}
-              </a>
-            )}
-            {streakDays > 0 && (
-              <span className="tag tag-g">
-                <Icon name="i-flame" size={9} />
-                {streakDays}d
-              </span>
-            )}
-            {/* Theme mode is shared across all authenticated layouts. */}
-            <motion.button
-              onClick={toggleTheme}
-              whileTap={reducedMotion ? undefined : { scale: 0.8 }}
-              style={{
-                width: 44, height: 44, borderRadius: 22,
-                background: theme === 'dark' ? 'rgba(212,168,83,.08)' : 'rgba(212,168,83,.15)',
-                border: `1px solid ${theme === 'dark' ? 'rgba(212,168,83,.2)' : 'rgba(212,168,83,.4)'}`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer', flexShrink: 0,
-              }}
-              aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-              aria-pressed={theme === 'dark'}
-              className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-            >
-              <AnimatePresence mode="wait">
-                <motion.span
-                  key={theme}
-                  initial={reducedMotion ? false : { rotate: -90, scale: 0, opacity: 0 }}
-                  animate={{ rotate: 0, scale: 1, opacity: 1 }}
-                  exit={reducedMotion ? undefined : { rotate: 90, scale: 0, opacity: 0 }}
-                  transition={reducedMotion ? { duration: 0 } : { duration: 0.25, type: 'spring', stiffness: 300, damping: 18 }}
-                  style={{ display: 'flex', color: 'var(--gold-300,#D4A853)' }}
-                >
-                  <Icon name={theme === 'dark' ? 'i-sun' : 'i-moon'} size={15} />
-                </motion.span>
-              </AnimatePresence>
-            </motion.button>
-          </div>
-        </div>
+        <DashboardGreeting
+          firstName={firstName}
+          role={userProfile?.role ?? null}
+          hour={new Date().getHours()}
+          date={new Date()}
+          streakDays={streakDays}
+        />
 
         {/* ══ 1b · Coach messages — pinned first (Michael 2026-06-12).
                Colors by note type: check-in blue · progression green ·
