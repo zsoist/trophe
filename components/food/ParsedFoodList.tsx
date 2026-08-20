@@ -8,6 +8,7 @@ import { useI18n } from '@/lib/i18n';
 import { MACRO_COLORS } from '@/lib/macro-colors';
 import { AnimatedValue } from '@/components/ui/AnimatedValue';
 import { ProvenanceRing, resolveTier, type ProvenanceTier } from '@/components/food/ProvenanceRing';
+import { selectFoodDisplayName } from '@/lib/food/display-name';
 import {
   canUseNaturalPortionDisplay,
   formatNaturalPortionUnit,
@@ -476,7 +477,7 @@ export default function ParsedFoodList({
 
         <AnimatePresence>
           {reviewedItems.map((item, index) => {
-            const itemName = item.name_localized || item.food_name;
+            const itemName = selectFoodDisplayName(item);
             const naturalPortion = canUseNaturalPortionDisplay({
               unit: item.unit,
               grams: item.grams,
@@ -517,9 +518,6 @@ export default function ParsedFoodList({
                       {itemName}
                     </p>
                   </div>
-                  {item.name_localized && item.name_localized !== item.food_name && (
-                    <p className="text-[var(--content-muted)] text-xs mt-0.5">{item.food_name}</p>
-                  )}
                   {/* W4: tap-to-explain — one-line plain-language provenance caption.
                       i18n keys logged to docs/superpowers/i18n-todo-w4.md. */}
                   <AnimatePresence initial={false}>

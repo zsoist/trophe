@@ -91,7 +91,8 @@ test.describe('food parser error states', () => {
     await page.getByPlaceholder(/What did you eat/).fill('100g feta');
     await page.getByPlaceholder(/What did you eat/).press('Enter');
 
-    await expect(page.getByText('Φέτα', { exact: true })).toBeVisible();
+    await expect(page.getByText('Feta cheese', { exact: true })).toBeVisible();
+    await expect(page.getByText('Φέτα', { exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Log All (1)' })).toBeVisible();
 
     const grams = page.locator('input[type="number"]').first();

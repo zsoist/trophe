@@ -45,6 +45,11 @@ describe('Nik English repair safety', () => {
     expect(() => parseRepairArguments(['--mapping', './mapping.json'])).toThrow(/user-id or --email/i);
     expect(() => parseRepairArguments(['--email', 'nik@example.test', '--mapping', './mapping.json']))
       .toThrow(/absolute/i);
+    expect(() => parseRepairArguments([
+      '--email', 'nik@example.test',
+      '--mapping', '/tmp/nik-mapping.json',
+      '--apply',
+    ])).toThrow(/backup-dir/i);
   });
 
   it('defaults to a zero-mutation dry run', async () => {
@@ -111,5 +116,28 @@ describe('Nik English repair safety', () => {
       apply: true,
       backupDirectory: await mkdtemp(join(tmpdir(), 'nik-repair-')),
     })).rejects.toThrow(/meal-1.*exactly once/i);
+  });
+
+  it('restores every completed write when a later exact-row update fails', async () => {
+    const db = adapter();
+    db.updateMealPlanEntry
+      .mockResolvedValueOnce(['meal-1'])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce(['meal-1']);
+
+    await expect(runEnglishRepair({
+      adapter: db,
+      selector: { userId: mapping.userId },
+      mapping,
+      apply: true,
+      backupDirectory: await mkdtemp(join(tmpdir(), 'nik-repair-')),
+    })).rejects.toThrow(/meal-2.*exactly once/i);
+
+    expect(db.updateMealPlanEntry).toHaveBeenLastCalledWith({
+      rowId: 'meal-1',
+      userId: mapping.userId,
+      description: 'Greek breakfast',
+    });
+    expect(db.updateProfileLanguage).not.toHaveBeenCalled();
   });
 });

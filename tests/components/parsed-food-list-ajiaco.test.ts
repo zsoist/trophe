@@ -128,6 +128,18 @@ function renderAjiaco(onConfirm = vi.fn()) {
 }
 
 describe('ajiaco soup portion review', () => {
+  it('shows the canonical English food name without repeating a localized alias', () => {
+    render(React.createElement(ParsedFoodList, {
+      items: [{ ...AJIACO, raw_text: 'custom beans', food_name: 'Beans', name_localized: 'frijoles' }],
+      onConfirm: vi.fn(),
+      onCancel: vi.fn(),
+      logging: false,
+    }));
+
+    expect(screen.getByText('Beans')).toBeTruthy();
+    expect(screen.queryByText('frijoles')).toBeNull();
+  });
+
   it('offers bowl-sized choices and confirms the selected small bowl amount', () => {
     const onConfirm = renderAjiaco();
     const input = screen.getByRole('spinbutton', { name: 'Amount in bowl' }) as HTMLInputElement;

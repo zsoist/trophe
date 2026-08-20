@@ -36,17 +36,17 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('portion gram equivalence translations', () => {
+describe('English beta portion gram equivalence', () => {
   it.each([
     ['en', '1 serving ≈ 550 g'],
-    ['es', '1 ración ≈ 550 g'],
-    ['el', '1 μερίδα ≈ 550 γρ.'],
-    ['fr', '1 portion ≈ 550 g'],
-    ['de', '1 Portion ≈ 550 g'],
-    ['it', '1 porzione ≈ 550 g'],
-    ['pt', '1 dose ≈ 550 g'],
-    ['nl', '1 portie ≈ 550 g'],
-  ] satisfies Array<[Language, string]>)('renders a real gram anchor in %s', async (lang, expected) => {
+    ['es', '1 serving ≈ 550 g'],
+    ['el', '1 serving ≈ 550 g'],
+    ['fr', '1 serving ≈ 550 g'],
+    ['de', '1 serving ≈ 550 g'],
+    ['it', '1 serving ≈ 550 g'],
+    ['pt', '1 serving ≈ 550 g'],
+    ['nl', '1 serving ≈ 550 g'],
+  ] satisfies Array<[Language, string]>)('keeps a real English gram anchor when stale locale %s is requested', async (lang, expected) => {
     render(React.createElement(
       TestI18nProvider,
       { defaultLang: lang },

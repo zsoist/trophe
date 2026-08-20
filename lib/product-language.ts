@@ -1,6 +1,7 @@
 export const ENGLISH_BETA_LANGUAGE = 'en' as const;
 
-export function normalizeProductLanguage(_candidate: unknown): 'en' {
+export function normalizeProductLanguage(candidate: unknown): 'en' {
+  void candidate;
   return ENGLISH_BETA_LANGUAGE;
 }
 

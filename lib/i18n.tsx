@@ -1266,7 +1266,7 @@ const I18nContext = createContext<I18nContextType>({
   t: (key: string) => key,
 });
 
-export function I18nProvider({ children, defaultLang = 'en' }: { children: ReactNode; defaultLang?: Language }) {
+export function I18nProvider({ children }: { children: ReactNode; defaultLang?: Language }) {
   // Initialize with defaultLang so server and client first render match (fixes hydration mismatch).
   // Read localStorage only after mount in useEffect — localStorage is unavailable on the server.
   const [lang, setLangState] = useState<Language>('en');
@@ -1275,9 +1275,7 @@ export function I18nProvider({ children, defaultLang = 'en' }: { children: React
 
   useEffect(() => {
     localStorage.setItem('trophe_lang', 'en');
-    setLangState('en');
     document.documentElement.lang = 'en';
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Lazy-load the overlay dictionary the first time an overlay language is active.
@@ -1292,7 +1290,7 @@ export function I18nProvider({ children, defaultLang = 'en' }: { children: React
     return () => { cancelled = true; };
   }, [lang]);
 
-  const setLang = useCallback((_newLang: Language) => {
+  const setLang = useCallback(() => {
     setLangState('en');
     if (typeof window !== 'undefined') {
       localStorage.setItem('trophe_lang', 'en');

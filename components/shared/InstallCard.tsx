@@ -6,7 +6,7 @@ import { useInstallPrompt } from "@/hooks/useInstallPrompt";
 const subscribeHydration = () => () => {};
 
 /**
- * Premium install prompt card — dark + gold, bilingual (EN/EL).
+ * Premium English-beta install prompt card.
  *
  * Android/Desktop: captures beforeinstallprompt → native dialog.
  * iOS Safari: shows "Share → Add to Home Screen" instructions.
@@ -54,7 +54,7 @@ export function InstallCard() {
           gap: 16,
         }}
       >
-        {/* τ icon */}
+        {/* Brand icon */}
         <div
           aria-hidden
           style={{
@@ -128,15 +128,11 @@ export function InstallCard() {
               <span style={{ color: "var(--action-primary)", fontWeight: 500 }}>
                 Add to Home Screen
               </span>{" "}
-              for the full app experience. · Προσθέστε στην αρχική οθόνη
+              for the full app experience.
             </p>
           ) : (
             <p style={{ fontSize: 12, color: "var(--content-secondary)", lineHeight: 1.5 }}>
-              Install for offline access & faster loading.
-              <br />
-              <span style={{ color: "var(--content-muted)", fontSize: 12 }}>
-                Εγκατάσταση για offline πρόσβαση
-              </span>
+              Install for offline access and faster loading.
             </p>
           )}
         </div>

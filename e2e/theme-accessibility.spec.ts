@@ -6,6 +6,7 @@ const themes: ThemeMode[] = ['light', 'dark'];
 const clientId = process.env.E2E_CLIENT_ID;
 const testOrganizationId = process.env.E2E_TEST_ORG_ID;
 const testOrganizationSlug = process.env.E2E_TEST_ORG_SLUG;
+const clientFirstName = process.env.E2E_CLIENT_FIRST_NAME;
 
 const clientRoutes = [
   ['/dashboard', 'dashboard'], ['/dashboard/log', 'meal log'], ['/dashboard/progress', 'progress'],
@@ -206,7 +207,61 @@ test.describe('authenticated role route matrix', () => {
     assertNoPaidRequests();
   });
 
+  test('photo review returns editable English Bandeja Paisa components without a paid request', async ({ page }, testInfo) => {
+    const mockedPhotoPath = new Set(['/api/ai/photo-analyze']);
+    const assertNoPaidRequests = await blockPaidRequests(page, { mockedAppPaths: mockedPhotoPath });
+    await loginAs(page, 'client');
+    await page.route('**/api/ai/photo-analyze', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          foods: [{
+            name: 'Beans', estimated_grams: 120, estimated_calories: 152,
+            estimated_protein_g: 10.4, estimated_carbs_g: 27.4, estimated_fat_g: 0.6,
+            estimated_fiber_g: 7.7, estimated_sugar_g: 0.4, confidence: 0.4,
+            source: 'ai_estimate', needs_confirmation: true,
+            accuracy_note: 'Confirm the visible beans and adjust the portion.',
+          }],
+        }),
+      });
+    });
+    await page.goto('/dashboard/log');
+    await page.getByRole('button', { name: 'Log Breakfast' }).click();
+    const fileChooser = page.waitForEvent('filechooser');
+    await page.getByRole('button', { name: 'Take or upload a food photo' }).click();
+    await (await fileChooser).setFiles('public/apple-touch-icon.png');
+    await expect(page.getByText('Beans', { exact: true })).toBeVisible();
+    await expect(page.getByText(/confirm the visible beans/i)).toBeVisible();
+    await expect(page.getByText(/frijoles/i)).toHaveCount(0);
+    await assertNamedInteractiveControls(page);
+    await assertMinimumTargets(page, 44);
+    await capture(page, testInfo, 'nik-bandeja-photo-review');
+    assertNoPaidRequests();
+  });
+
   for (const mode of themes) {
+    test(`Nik feedback dashboard is coherent English with honest sugar in ${mode}`, async ({ page }, testInfo) => {
+      test.skip(!clientFirstName, 'The disposable local-auth runner must supply Nik feedback fixture data');
+      const assertNoPaidRequests = await prepare(page, 'client');
+      await setTheme(page, mode);
+      await page.goto('/dashboard');
+      await expect(page.getByText(new RegExp(`Good (morning|afternoon|evening), ${clientFirstName},`, 'i'))).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Toggle color theme' })).toHaveCount(1);
+      await expect(page.getByText('Total sugar', { exact: true })).toBeVisible();
+      await expect(page.getByText('Not available', { exact: true })).toBeVisible();
+      await expect(page.getByRole('heading', { name: "Today's note" })).toBeVisible();
+      await expect(page.getByText('Beans, rice, avocado, and grilled beef', { exact: true })).toBeVisible();
+      const dashboardText = await page.locator('body').innerText();
+      expect(dashboardText).not.toMatch(/[\u0370-\u03ff]/u);
+      await assertTheme(page, mode);
+      await assertNamedInteractiveControls(page);
+      await assertMinimumTargets(page, 44);
+      await assertNoPageOverflow(page);
+      await capture(page, testInfo, `nik-dashboard-${mode}`);
+      assertNoPaidRequests();
+    });
+
     test(`reduced motion removes recipe modal movement in ${mode}`, async ({ page }) => {
       const assertNoPaidRequests = await prepare(page, 'client');
       await page.emulateMedia({ reducedMotion: 'reduce' });

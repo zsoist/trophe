@@ -35,11 +35,15 @@ export function parseRepairArguments(argv) {
   const mappingPath = values.get('--mapping');
   if (!mappingPath) throw new Error('--mapping is required');
   if (!isAbsolute(mappingPath)) throw new Error('--mapping must be an absolute path');
+  const backupDirectory = values.get('--backup-dir');
+  if (apply && !backupDirectory) {
+    throw new Error('--backup-dir is required with --apply');
+  }
 
   return {
     selector: userId ? { userId } : { email },
     mappingPath,
-    backupDirectory: values.get('--backup-dir'),
+    backupDirectory,
     apply,
   };
 }
@@ -122,34 +126,69 @@ export async function runEnglishRepair({
     mode: 0o600,
   });
 
-  const updatedProfileIds = await adapter.updateProfileLanguage(profile.id, 'en');
-  if (!Array.isArray(updatedProfileIds) || updatedProfileIds.length !== 1 || updatedProfileIds[0] !== profile.id) {
-    throw new Error(`Profile ${profile.id} must update exactly once`);
-  }
-
   const updatedMealPlanIds = [];
-  for (const entry of mapping.entries) {
-    const ids = await adapter.updateMealPlanEntry({
-      rowId: entry.id,
-      userId: profile.id,
-      description: entry.description.trim(),
-    });
-    if (!Array.isArray(ids) || ids.length !== 1 || ids[0] !== entry.id) {
-      throw new Error(`Meal-plan row ${entry.id} must update exactly once`);
+  let profileUpdated = false;
+  try {
+    for (const entry of mapping.entries) {
+      const ids = await adapter.updateMealPlanEntry({
+        rowId: entry.id,
+        userId: profile.id,
+        description: entry.description.trim(),
+      });
+      if (!Array.isArray(ids) || ids.length !== 1 || ids[0] !== entry.id) {
+        throw new Error(`Meal-plan row ${entry.id} must update exactly once`);
+      }
+      updatedMealPlanIds.push(entry.id);
     }
-    updatedMealPlanIds.push(entry.id);
+
+    const updatedProfileIds = await adapter.updateProfileLanguage(profile.id, 'en');
+    if (!Array.isArray(updatedProfileIds) || updatedProfileIds.length !== 1 || updatedProfileIds[0] !== profile.id) {
+      throw new Error(`Profile ${profile.id} must update exactly once`);
+    }
+    profileUpdated = true;
+
+    const verifiedProfile = await adapter.verifyProfile(profile.id);
+    const verifiedEntries = await adapter.verifyMealPlanEntries(profile.id);
+    verifyApplied(verifiedProfile, verifiedEntries, mapping);
+
+    return {
+      mode: 'applied',
+      backupPath,
+      updatedProfileIds,
+      updatedMealPlanIds,
+      verifiedProfile,
+      verifiedEntries,
+    };
+  } catch (error) {
+    const rollbackErrors = [];
+    for (const rowId of [...updatedMealPlanIds].reverse()) {
+      const original = currentRows.find((row) => row.id === rowId);
+      try {
+        const ids = await adapter.updateMealPlanEntry({
+          rowId,
+          userId: profile.id,
+          description: original.description,
+        });
+        if (!Array.isArray(ids) || ids.length !== 1 || ids[0] !== rowId) {
+          throw new Error(`Rollback for meal-plan row ${rowId} did not affect exactly one row`);
+        }
+      } catch (rollbackError) {
+        rollbackErrors.push(rollbackError);
+      }
+    }
+    if (profileUpdated) {
+      try {
+        const ids = await adapter.updateProfileLanguage(profile.id, profile.language);
+        if (!Array.isArray(ids) || ids.length !== 1 || ids[0] !== profile.id) {
+          throw new Error(`Rollback for profile ${profile.id} did not affect exactly one row`);
+        }
+      } catch (rollbackError) {
+        rollbackErrors.push(rollbackError);
+      }
+    }
+    if (rollbackErrors.length) {
+      throw new AggregateError([error, ...rollbackErrors], 'Nik English repair failed and rollback was incomplete');
+    }
+    throw error;
   }
-
-  const verifiedProfile = await adapter.verifyProfile(profile.id);
-  const verifiedEntries = await adapter.verifyMealPlanEntries(profile.id);
-  verifyApplied(verifiedProfile, verifiedEntries, mapping);
-
-  return {
-    mode: 'applied',
-    backupPath,
-    updatedProfileIds,
-    updatedMealPlanIds,
-    verifiedProfile,
-    verifiedEntries,
-  };
 }

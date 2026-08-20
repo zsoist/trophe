@@ -1,5 +1,4 @@
 import { readFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
 import { createClient } from '@supabase/supabase-js';
 import { parseRepairArguments, runEnglishRepair } from './repair-nik-english-core.mjs';
@@ -86,7 +85,7 @@ export async function main(argv = process.argv.slice(2)) {
     selector: args.selector,
     mapping,
     apply: args.apply,
-    backupDirectory: args.backupDirectory ?? tmpdir(),
+    backupDirectory: args.backupDirectory,
   });
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
 }
