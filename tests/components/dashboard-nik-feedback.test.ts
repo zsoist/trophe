@@ -7,15 +7,13 @@ import DashboardGreeting from '@/components/summary/DashboardGreeting';
 
 describe('Nik dashboard greeting', () => {
   it('renders one plain English greeting and a quiet coach-view action', () => {
-    render(
-      <DashboardGreeting
-        firstName="Nik"
-        role="coach"
-        hour={15}
-        date={new Date('2026-08-19T15:04:00-05:00')}
-        streakDays={0}
-      />,
-    );
+    render(React.createElement(DashboardGreeting, {
+      firstName: 'Nik',
+      role: 'coach',
+      hour: 15,
+      date: new Date('2026-08-19T15:04:00-05:00'),
+      streakDays: 0,
+    }));
 
     expect(screen.getByText('Good afternoon, Nik,')).toBeTruthy();
     expect(screen.getAllByText(/Nik/)).toHaveLength(1);
