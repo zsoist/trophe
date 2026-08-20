@@ -40,6 +40,7 @@
     "rag:readiness": "tsx scripts/ops/check-rag-readiness.ts",
     "rag:ingest": "tsx scripts/rag/ingest-document.ts",
     "food:readiness": "tsx scripts/ops/check-food-readiness.ts",
+    "ops:repair-nik-english": "node scripts/ops/repair-nik-english.mjs",
     "canary:prod": "bash scripts/ops/canary-readonly.sh",
     "canary:theme": "node scripts/ops/canary-theme-readonly.mjs",
     "verify": "npm run typecheck && npm run lint && npm test && npm run build",
