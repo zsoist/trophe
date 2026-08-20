@@ -10,9 +10,12 @@ export type PhotoAnalysisFood = {
   estimated_protein_g: number;
   estimated_carbs_g: number;
   estimated_fat_g: number;
+  estimated_fiber_g: number;
+  estimated_sugar_g: number;
   confidence: number;
   source: 'ai_estimate';
   accuracy_note: string;
+  needs_confirmation?: boolean;
 };
 
 const DEFAULT_ACCURACY_NOTE =
@@ -38,6 +41,8 @@ export function normalizePhotoAnalysisFoods(input: unknown): PhotoAnalysisFood[]
     if (!boundedNumber(food.estimated_protein_g, 0, 1_000)) return [];
     if (!boundedNumber(food.estimated_carbs_g, 0, 1_000)) return [];
     if (!boundedNumber(food.estimated_fat_g, 0, 1_000)) return [];
+    if (!boundedNumber(food.estimated_fiber_g, 0, 1_000)) return [];
+    if (!boundedNumber(food.estimated_sugar_g, 0, 1_000)) return [];
     if (!boundedNumber(food.confidence, 0, 1)) return [];
 
     const macroMass = food.estimated_protein_g
@@ -56,9 +61,12 @@ export function normalizePhotoAnalysisFoods(input: unknown): PhotoAnalysisFood[]
       estimated_protein_g: food.estimated_protein_g,
       estimated_carbs_g: food.estimated_carbs_g,
       estimated_fat_g: food.estimated_fat_g,
+      estimated_fiber_g: food.estimated_fiber_g,
+      estimated_sugar_g: food.estimated_sugar_g,
       confidence: Math.min(food.confidence, 0.75),
       source: 'ai_estimate' as const,
       accuracy_note: accuracyNote || DEFAULT_ACCURACY_NOTE,
+      ...(food.needs_confirmation === true ? { needs_confirmation: true } : {}),
     }];
   });
 }
@@ -76,8 +84,8 @@ export function photoAnalysisToParsedItems(input: unknown): ParsedFoodItem[] {
       protein_g: Math.round(food.estimated_protein_g * 10) / 10,
       carbs_g: Math.round(food.estimated_carbs_g * 10) / 10,
       fat_g: Math.round(food.estimated_fat_g * 10) / 10,
-      fiber_g: 0,
-      sugar_g: 0,
+      fiber_g: Math.round(food.estimated_fiber_g * 10) / 10,
+      sugar_g: Math.round(food.estimated_sugar_g * 10) / 10,
       confidence: food.confidence,
       source: 'ai_estimate' as const,
       food_state: 'prepared' as const,
