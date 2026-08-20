@@ -31,6 +31,7 @@ import {
   type TranscriptionClientError,
 } from '@/lib/microphone/transcription-client';
 import type { TranscriptionLocale } from '@/agents/schemas/transcribe';
+import { buildReviewedFoodLogEntries } from '@/lib/food/reviewed-log-entry';
 
 interface QuickFoodInputProps {
   userId: string;
@@ -602,34 +603,13 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
       // 'natural_language' for the text path (CHECK constraint allows it) —
       // collapsing everything to 'custom' erased the AI provenance the
       // flywheel and coach views depend on.
-      const dbSource = inputSource === 'photo' ? 'photo_ai' : 'natural_language';
-      const entries = items.map(item => ({
-        user_id: userId,
-        logged_date: date,
-        meal_type: mealType,
-        // What the user SAW (localized name / raw input), not the verbose
-        // English DB name — the coach reads the same string back in meal views.
-        food_name: item.name_localized || item.raw_text || item.food_name,
-        quantity: item.quantity,
-        unit: item.unit,
-        calories: item.calories,
-        protein_g: item.protein_g,
-        carbs_g: item.carbs_g,
-        fat_g: item.fat_g,
-        fiber_g: item.fiber_g,
-        sugar_g: item.sugar_g ?? null,
-        parse_confidence: item.confidence ?? null,
-        qty_input: item.quantity,
-        qty_input_unit: item.unit,
-        // Persist resolved grams — without this, MealSlotCard's grams editor
-        // never renders and food.log.edit's deterministic per-100g recompute
-        // path is unreachable (existing.qtyG always null). B2B: a coach must be
-        // able to correct a client's portion by grams.
-        qty_g: Number.isFinite(item.grams) ? item.grams : null,
-        food_id: item.db_food_id ?? null,
-        llm_recognized: item.source !== 'ai_estimate',
-        source: dbSource,
-      }));
+      const entries = buildReviewedFoodLogEntries({
+        userId,
+        date,
+        mealType,
+        inputSource,
+        items,
+      });
 
       const { data: inserted, error: dbError } = await supabase
         .from('food_log')
