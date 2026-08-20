@@ -7,6 +7,9 @@ import {
   type PhotoAnalysisFood,
 } from '@/lib/food/photo-analysis';
 import { safeErrorMetadata } from '@/lib/security/safe-error-log';
+import { groundKnownDishComponents } from '@/lib/food/photo-grounding';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 interface PhotoAnalyzeRequest {
   imageBase64: string;
@@ -19,6 +22,7 @@ const PHOTO_ANALYZE_TOOL = {
   input_schema: {
     type: 'object' as const,
     properties: {
+      dish_name: { type: 'string' as const },
       foods: {
         type: 'array' as const,
         items: {
@@ -30,6 +34,8 @@ const PHOTO_ANALYZE_TOOL = {
             estimated_protein_g: { type: 'number' as const },
             estimated_carbs_g: { type: 'number' as const },
             estimated_fat_g: { type: 'number' as const },
+            estimated_fiber_g: { type: 'number' as const },
+            estimated_sugar_g: { type: 'number' as const },
             confidence: { type: 'number' as const },
             source: { type: 'string' as const, enum: ['ai_estimate'] },
             accuracy_note: { type: 'string' as const },
@@ -41,6 +47,8 @@ const PHOTO_ANALYZE_TOOL = {
             'estimated_protein_g',
             'estimated_carbs_g',
             'estimated_fat_g',
+            'estimated_fiber_g',
+            'estimated_sugar_g',
             'confidence',
             'source',
             'accuracy_note',
@@ -48,9 +56,14 @@ const PHOTO_ANALYZE_TOOL = {
         },
       },
     },
-    required: ['foods'],
+    required: ['dish_name', 'foods'],
   },
 };
+
+const PHOTO_ANALYZE_PROMPT = readFileSync(
+  join(process.cwd(), 'agents/prompts/photo-analyze.v1.md'),
+  'utf8',
+).trim();
 
 function validateInput(body: unknown): { valid: true; data: PhotoAnalyzeRequest } | { valid: false; error: string } {
   if (!body || typeof body !== 'object') {
@@ -104,10 +117,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const prompt = 'Analyze this food photo conservatively and return structured nutrition estimates.';
     const result = await executeAiTask({
       task: 'photo_analyze',
-      prompt,
+      prompt: PHOTO_ANALYZE_PROMPT,
       context: { userId: guard.userId, requestId: request.headers.get('x-request-id') ?? undefined },
       invoke: ({ policy, signal }) => invokeAnthropicJson({
         signal,
@@ -128,7 +140,7 @@ export async function POST(request: NextRequest) {
               },
               {
                 type: 'text',
-                text: 'Analyze this food photo. Identify visible food items and make a conservative rough portion and macro estimate only. estimated_grams must be your estimated edible portion weight, not derived from calories. Photo-only portion estimation is uncertain unless a scale, label, or known container is visible. Do not imply precision. source must be "ai_estimate". confidence is 0 to 1 and should be below 0.75 unless portion size is visually anchored. accuracy_note should briefly say what makes the estimate uncertain.',
+                text: PHOTO_ANALYZE_PROMPT,
               },
             ],
           },
@@ -139,14 +151,14 @@ export async function POST(request: NextRequest) {
       }),
     });
     const data = result.output as {
-      content?: Array<{ type?: string; name?: string; input?: { foods?: unknown } }>;
+      content?: Array<{ type?: string; name?: string; input?: { dish_name?: unknown; foods?: unknown } }>;
     };
 
     const toolUse = data?.content?.find((c: { type?: string; name?: string }) =>
       c.type === 'tool_use' && c.name === 'submit_food_photo_analysis',
     );
     const candidateFoods = toolUse?.input?.foods;
-    const foods = normalizePhotoAnalysisFoods(candidateFoods);
+    const normalizedFoods = normalizePhotoAnalysisFoods(candidateFoods);
     const candidateCount = Array.isArray(candidateFoods) ? candidateFoods.length : 0;
 
     if (candidateCount === 0) {
@@ -159,7 +171,7 @@ export async function POST(request: NextRequest) {
 
     // Per-item plausibility: drop only the implausible items and keep the rest.
     // One bad estimate on a 4-item plate must not throw away the other three.
-    if (foods.length === 0) {
+    if (normalizedFoods.length === 0) {
       console.error(
         `Photo nutrition estimate failed plausibility validation (all ${candidateCount} item(s) implausible)`,
       );
@@ -168,11 +180,16 @@ export async function POST(request: NextRequest) {
         { status: 502 },
       );
     }
-    if (foods.length !== candidateCount) {
+    if (normalizedFoods.length !== candidateCount) {
       console.warn(
-        `[photo-analyze] dropped ${candidateCount - foods.length}/${candidateCount} item(s) that failed plausibility validation`,
+        `[photo-analyze] dropped ${candidateCount - normalizedFoods.length}/${candidateCount} item(s) that failed plausibility validation`,
       );
     }
+
+    const dishName = typeof toolUse?.input?.dish_name === 'string'
+      ? toolUse.input.dish_name
+      : null;
+    const foods = groundKnownDishComponents({ dishName, foods: normalizedFoods });
 
     return NextResponse.json({
       foods: foods satisfies PhotoAnalysisFood[],

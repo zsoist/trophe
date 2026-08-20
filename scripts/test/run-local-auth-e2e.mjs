@@ -16,6 +16,8 @@ import {
   cleanupFixtureResources,
   formatLocalE2EError,
   localE2ECachePath,
+  localE2EDisplayName,
+  localE2EDateKey,
   parseSupabaseStatusEnv,
   retryLocalE2EOperation,
   resolveSupabaseCli,
@@ -61,7 +63,7 @@ function adminAdapter(service) {
         password: user.password,
         email_confirm: true,
         user_metadata: {
-          full_name: `Codex E2E ${user.role}`,
+          full_name: localE2EDisplayName(user.role),
           local_e2e: true,
         },
       });
@@ -72,7 +74,7 @@ function adminAdapter(service) {
     async provisionProfile(id, user) {
       const { error: profileError } = await service.from('profiles').upsert({
         id,
-        full_name: `Codex E2E ${user.role}`,
+        full_name: localE2EDisplayName(user.role),
         email: user.email,
         role: user.role,
         language: 'en',
@@ -161,6 +163,36 @@ export async function runLocalAuthenticatedE2E({ executeWithDisposableRoles } = 
         .eq('user_id', clientId);
       if (linkError) throw new Error('local E2E coach relationship provisioning failed');
 
+      const now = new Date();
+      const jsDay = now.getDay();
+      const dayOfWeek = jsDay === 0 ? 6 : jsDay - 1;
+      const loggedDate = localE2EDateKey(now);
+      const { error: nutritionFixtureError } = await service.from('food_log').insert({
+        user_id: clientId,
+        logged_date: loggedDate,
+        meal_type: 'lunch',
+        food_name: 'Beans',
+        quantity: 1,
+        unit: 'serving',
+        calories: 230,
+        protein_g: 14,
+        carbs_g: 40,
+        fat_g: 1,
+        fiber_g: 13,
+        sugar_g: null,
+        source: 'natural_language',
+      });
+      if (nutritionFixtureError) throw new Error('local E2E nutrition fixture provisioning failed');
+
+      const { error: mealPlanFixtureError } = await service.from('meal_plan_entries').insert({
+        client_id: clientId,
+        coach_id: coachId,
+        day_of_week: dayOfWeek,
+        meal_slot: 'lunch',
+        description: 'Beans, rice, avocado, and grilled beef',
+      });
+      if (mealPlanFixtureError) throw new Error('local E2E meal-plan fixture provisioning failed');
+
       const organizationSlug = `codex-local-matrix-${randomUUID()}`;
       const { data: organization, error: organizationError } = await service
         .from('organizations')
@@ -176,6 +208,7 @@ export async function runLocalAuthenticatedE2E({ executeWithDisposableRoles } = 
       if (organizationError || !organization) throw new Error('local E2E organization provisioning failed');
       childEnv.E2E_TEST_ORG_ID = organization.id;
       childEnv.E2E_TEST_ORG_SLUG = organizationSlug;
+      childEnv.E2E_CLIENT_FIRST_NAME = localE2EDisplayName('client');
 
       return withFixtureCleanup({
         execute: async () => {

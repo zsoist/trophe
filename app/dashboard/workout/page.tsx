@@ -1006,7 +1006,13 @@ export default function WorkoutPage() {
 
             {/* ── Hero: program-aware entry state ── */}
             {programQuery.isLoading ? (
-              <div className="card" style={{ height: 150, animation: 'pulse 1.5s infinite' }} />
+              <div
+                role="status"
+                aria-label="Loading workout program"
+                data-loading-skeleton
+                className="card"
+                style={{ height: 150, animation: reducedMotion ? undefined : 'pulse 1.5s infinite' }}
+              />
             ) : hasProgram && todayHero ? (
               /* State A — training day */
               <>
@@ -1145,7 +1151,7 @@ export default function WorkoutPage() {
               <p className="text-xs font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'var(--content-muted)' }}>
                 {t('workout.quick_start')}
               </p>
-              <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-1 px-1 pb-1">
+              <div className="flex flex-wrap gap-2 pb-1">
                 {WORKOUT_SPLITS.map((split) => (
                   <button
                     key={split.key}

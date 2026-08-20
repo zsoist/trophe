@@ -18,7 +18,8 @@ describe('service-worker delivery budget', () => {
     expect(offline).not.toMatch(/<script\b/i);
     expect(offline).not.toMatch(/\son\w+\s*=/i);
     expect(offline).not.toMatch(/<link\b[^>]+rel=["'](?:stylesheet|preload)/i);
-    expect(offline).toContain('lang="el"');
+    expect(offline).toContain('<html lang="en">');
+    expect(offline).not.toMatch(/[\u0370-\u03ff]/u);
   });
 
   it('ships a self-destructing worker — no runtime caching, unregisters + purges', () => {

@@ -14,7 +14,7 @@ async function login(page: Page) {
 test.describe('client settings flows', () => {
   test.skip(!email || !password, 'Set E2E_CLIENT_EMAIL/E2E_CLIENT_PASSWORD');
 
-  test('profile language, metric labels, weight unit, and logout remain usable', async ({ page }) => {
+  test('English-beta profile, metric labels, weight unit, and logout remain usable', async ({ page }) => {
     await page.addInitScript(() => window.localStorage.setItem('trophe_weight_unit', 'kg'));
     await login(page);
 
@@ -22,12 +22,9 @@ test.describe('client settings flows', () => {
     await expect(page.getByText('Height (cm)', { exact: true })).toBeVisible();
     await expect(page.getByText('Weight (kg)', { exact: true })).toBeVisible();
 
-    await page.getByRole('button', { name: /ES Español/ }).click();
-    await expect(page.getByRole('heading', { name: 'Idioma' })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Guardar Perfil/ })).toBeVisible();
-
-    await page.getByRole('button', { name: /EN English/ }).click();
-    await expect(page.getByRole('heading', { name: 'Language' })).toBeVisible();
+    await expect(page.getByText('English beta', { exact: true })).toBeVisible();
+    await expect(page.getByText('More languages will return after the English experience is stable.')).toBeVisible();
+    await expect(page.getByText(/Español|Idioma|Guardar Perfil/)).toHaveCount(0);
 
     await page.goto('/dashboard/workout');
     const unitToggle = page.getByRole('button', { name: 'kg / lb' });
@@ -50,7 +47,7 @@ test.describe('client settings flows', () => {
     await login(page);
 
     await page.goto('/dashboard');
-    const themeToggle = page.getByRole('button', { name: /Switch to (light|dark) mode/ });
+    const themeToggle = page.getByRole('button', { name: 'Toggle color theme' });
     await expect(themeToggle).toBeVisible();
     const themeToggleBox = await themeToggle.boundingBox();
     // Chromium reports the CSS 44px target as 43.99998474121094 on some DPRs.

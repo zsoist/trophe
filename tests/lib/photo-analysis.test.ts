@@ -11,6 +11,8 @@ const validFood = {
   estimated_protein_g: 42,
   estimated_carbs_g: 55,
   estimated_fat_g: 12,
+  estimated_fiber_g: 6,
+  estimated_sugar_g: 3,
   confidence: 0.92,
   source: 'ai_estimate',
   accuracy_note: 'Portion estimated from the plate.',
@@ -51,6 +53,8 @@ describe('photo analysis normalization', () => {
       source: 'ai_estimate',
       portion_explicit: false,
       confidence: 0.75,
+      fiber_g: 6,
+      sugar_g: 3,
     });
   });
 });

@@ -13,23 +13,10 @@ import type { ClientProfile, ClientHabit, HabitCheckin, FoodLogEntry, WaterLogEn
 import WeeklyCheckin from '@/components/summary/WeeklyCheckin';
 import { DashboardSkeleton } from '@/components/shared/Skeleton';
 import HabitDetailModal from '@/components/habits/HabitDetailModal';
-import { useThemeMode } from '@/components/shared/ThemeMode';
 import { localToday } from '../../lib/utils/dates';
-
-// ─── Greeting (no emojis — handoff spec) ───────────────────────
-function getTimeGreeting(): string {
-  const h = new Date().getHours();
-  if (h < 12) return 'good_morning';
-  if (h < 17) return 'good_afternoon';
-  if (h < 21) return 'good_evening';
-  return 'good_night';
-}
-
-// Serif display is Latin-only (Instrument Serif has no Greek glyphs) —
-// only style the name in serif when it's safely renderable.
-function isLatinText(s: string): boolean {
-  return /^[A-Za-zÀ-ɏ'’ -]+$/.test(s);
-}
+import DashboardGreeting from '@/components/summary/DashboardGreeting';
+import TodayNutritionNote from '@/components/summary/TodayNutritionNote';
+import { buildDailyNutritionNote, summarizeSugar } from '@/lib/nutrition/daily-summary';
 
 // ─── 88px calorie hero ring ─────────────────────────────────────
 function CompactRing({ value, target, overGoal }: { value: number; target: number; overGoal?: boolean }) {
@@ -208,7 +195,6 @@ export default function DashboardPage() {
   const [coachName, setCoachName]           = useState<string | null>(null);
   const [splashTick, setSplashTick]         = useState(0);
   const reducedMotion = useReducedMotion();
-  const { mode: theme, toggleMode: toggleTheme } = useThemeMode();
 
   const today = localToday();
 
@@ -217,7 +203,7 @@ export default function DashboardPage() {
   const totalProtein  = foodLog.reduce((s, f) => s + (f.protein_g ?? 0), 0);
   const totalCarbs    = foodLog.reduce((s, f) => s + (f.carbs_g ?? 0), 0);
   const totalFat      = foodLog.reduce((s, f) => s + (f.fat_g ?? 0), 0);
-  const totalSugar    = foodLog.reduce((s, f) => s + (f.sugar_g ?? 0), 0);
+  const sugarSummary  = summarizeSugar(foodLog);
   const totalWater    = waterLog.reduce((s, w) => s + w.amount_ml, 0);
 
   const targetCalories = clientProfile?.target_calories ?? 2000;
@@ -225,6 +211,12 @@ export default function DashboardPage() {
   const targetCarbs    = clientProfile?.target_carbs_g ?? 200;
   const targetFat      = clientProfile?.target_fat_g ?? 65;
   const targetWater    = clientProfile?.target_water_ml ?? 2500;
+  const dailyNutritionNote = buildDailyNutritionNote({
+    entries: foodLog,
+    targetProteinG: targetProtein,
+    waterMl: totalWater,
+    hour: new Date().getHours(),
+  });
 
   const streakDays = activeHabit?.current_streak ?? 0;
   const cycleDays  = activeHabit?.habit?.cycle_days ?? 14;
@@ -236,7 +228,6 @@ export default function DashboardPage() {
     (clientProfile as (ClientProfile & { client_view_prefs?: unknown }) | null)?.client_view_prefs,
   );
   const showCalories     = isPanelVisible(CLIENT_VIEW_PANELS, viewPrefs, 'showCalories');
-  const showSmartInsight = isPanelVisible(CLIENT_VIEW_PANELS, viewPrefs, 'smartInsight');
   const showWeeklyCheckin = isPanelVisible(CLIENT_VIEW_PANELS, viewPrefs, 'weeklyCheckin');
 
   // ─── Load data ───────────────────────────────────────────────
@@ -445,12 +436,10 @@ export default function DashboardPage() {
 
   // ─── Derived display values ───────────────────────────────────
   const firstName   = userProfile?.full_name?.split(' ')[0] ?? null;
-  const greeting    = t(`dash.${getTimeGreeting()}`);
   const remaining   = Math.max(targetCalories - Math.round(totalCalories), 0);
   const waterGlasses    = Math.floor(totalWater / 250);
   const targetGlasses   = Math.ceil(targetWater / 250);
   const completionPct   = cycleDays > 0 ? Math.round(((activeHabit?.total_completions ?? 0) / cycleDays) * 100) : 0;
-  const dateLabel = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
 
   // ─── Dismiss celebration ──────────────────────────────────────
   const dismissCelebration = () => {
@@ -484,87 +473,13 @@ export default function DashboardPage() {
         )}
 
         {/* ══ 1 · Greeting row ══════════════════════════════════ */}
-        <div className="row-b mb-3">
-          <div className="row-i" style={{ gap: 10 }}>
-            <div className="av-lg">{firstName?.[0]?.toUpperCase() ?? 'N'}</div>
-            <div>
-              <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-.01em', color: 'var(--content-primary)', display: 'flex', alignItems: 'baseline', gap: 5 }}>
-                <span>{greeting}{firstName ? ',' : ''}</span>
-                {firstName && (
-                  isLatinText(firstName) ? (
-                    // Serif hero moment — Instrument Serif italic, Latin names only
-                    <span className="display-lg" style={{ fontSize: 21, lineHeight: '24px', color: 'var(--gold-300,#D4A853)' }}>
-                      {firstName}
-                    </span>
-                  ) : (
-                    <span>{firstName}</span>
-                  )
-                )}
-              </div>
-              <div className="ds-sub">{dateLabel}</div>
-            </div>
-          </div>
-          <div className="row-i" style={{ gap: 8 }}>
-            {userProfile?.role === 'super_admin' && (
-              <a href="/super" title="Super Command Center" style={{
-                display: 'flex', alignItems: 'center', gap: 4,
-                padding: '5px 10px', minHeight: 44, minWidth: 44, borderRadius: 17, textDecoration: 'none',
-                background: 'rgba(212,168,83,.12)', border: '1px solid rgba(212,168,83,.35)',
-                color: 'var(--gold-300,#D4A853)', fontSize: 12,
-                fontFamily: 'var(--font-mono)', fontWeight: 700, letterSpacing: '.05em',
-              }}>
-                ⌘ SUPER
-              </a>
-            )}
-            {/* Dedicated client⇄coach switcher — dual-role users (Nik, Michael)
-                flip back to the coach dashboard; CoachNav links here. */}
-            {userProfile?.role === 'coach' && (
-              <a href="/coach" title={t('nav.switch_coach')} style={{
-                display: 'flex', alignItems: 'center', gap: 4,
-                padding: '5px 10px', minHeight: 44, minWidth: 44, borderRadius: 17, textDecoration: 'none',
-                background: 'rgba(212,168,83,.12)', border: '1px solid rgba(212,168,83,.35)',
-                color: 'var(--gold-300,#D4A853)', fontSize: 12,
-                fontFamily: 'var(--font-mono)', fontWeight: 700, letterSpacing: '.05em',
-              }}>
-                {t('nav.switch_coach')}
-              </a>
-            )}
-            {streakDays > 0 && (
-              <span className="tag tag-g">
-                <Icon name="i-flame" size={9} />
-                {streakDays}d
-              </span>
-            )}
-            {/* Theme mode is shared across all authenticated layouts. */}
-            <motion.button
-              onClick={toggleTheme}
-              whileTap={reducedMotion ? undefined : { scale: 0.8 }}
-              style={{
-                width: 44, height: 44, borderRadius: 22,
-                background: theme === 'dark' ? 'rgba(212,168,83,.08)' : 'rgba(212,168,83,.15)',
-                border: `1px solid ${theme === 'dark' ? 'rgba(212,168,83,.2)' : 'rgba(212,168,83,.4)'}`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer', flexShrink: 0,
-              }}
-              aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-              aria-pressed={theme === 'dark'}
-              className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-            >
-              <AnimatePresence mode="wait">
-                <motion.span
-                  key={theme}
-                  initial={reducedMotion ? false : { rotate: -90, scale: 0, opacity: 0 }}
-                  animate={{ rotate: 0, scale: 1, opacity: 1 }}
-                  exit={reducedMotion ? undefined : { rotate: 90, scale: 0, opacity: 0 }}
-                  transition={reducedMotion ? { duration: 0 } : { duration: 0.25, type: 'spring', stiffness: 300, damping: 18 }}
-                  style={{ display: 'flex', color: 'var(--gold-300,#D4A853)' }}
-                >
-                  <Icon name={theme === 'dark' ? 'i-sun' : 'i-moon'} size={15} />
-                </motion.span>
-              </AnimatePresence>
-            </motion.button>
-          </div>
-        </div>
+        <DashboardGreeting
+          firstName={firstName}
+          role={userProfile?.role ?? null}
+          hour={new Date().getHours()}
+          date={new Date()}
+          streakDays={streakDays}
+        />
 
         {/* ══ 1b · Coach messages — pinned first (Michael 2026-06-12).
                Colors by note type: check-in blue · progression green ·
@@ -699,11 +614,21 @@ export default function DashboardPage() {
                 <MacroLine label="P" value={totalProtein} target={targetProtein} color="var(--err,#E87A6E)" />
                 <MacroLine label="C" value={totalCarbs}   target={targetCarbs}   color="var(--info,#7DA3D9)" />
                 <MacroLine label="F" value={totalFat}     target={targetFat}     color="var(--plum,#B89DD9)" />
-                <MacroLine label="S" value={totalSugar}   target={25}            color={totalSugar > 25 ? '#f59e0b' : 'var(--ok,#65D387)'} unit="g" warn={totalSugar > 25} />
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, paddingTop: 2 }}>
+                  <span style={{ color: 'var(--content-muted)', fontSize: 12 }}>Total sugar</span>
+                  <span style={{ color: 'var(--content-secondary)', fontFamily: 'var(--font-mono)', fontSize: 12, textAlign: 'right' }}>
+                    {sugarSummary.totalGrams === null ? 'Not available' : `${sugarSummary.totalGrams}g`}
+                    {sugarSummary.completeness === 'partial' && (
+                      <span style={{ color: 'var(--status-warning-fg)', marginLeft: 6 }}>Incomplete</span>
+                    )}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
         </motion.div>
+
+        <TodayNutritionNote note={dailyNutritionNote} />
 
         {/* ══ 2b · Today's training — workout finally lives on home ══ */}
         <TodayWorkoutCard userId={userId} />
@@ -966,56 +891,6 @@ export default function DashboardPage() {
           </div>
         </motion.div>
 
-        {/* ══ 6 · Smart insight strip (coach-toggleable; calorie phrasing
-               only when showCalories — protein-first otherwise) ══ */}
-        {showSmartInsight && (() => {
-          let icon: Parameters<typeof Icon>[0]['name'] = 'i-zap';
-          let text = '';
-          let color = 'var(--gold-300,#D4A853)';
-          if (foodLog.length === 0) {
-            icon = 'i-leaf'; text = t('insight.log_first'); color = 'var(--content-secondary)';
-          } else if (totalSugar > 30) {
-            icon = 'i-flame'; text = t('insight.sugar_high', { n: Math.round(totalSugar) }); color = '#f59e0b';
-          } else if (targetProtein > 0 && (totalProtein / targetProtein) < 0.3) {
-            icon = 'i-dumbbell';
-            text = t('insight.protein_low', { n: Math.round(Math.max(targetProtein - totalProtein, 0)) }); color = 'var(--err,#E87A6E)';
-          } else if (totalWater < 500) {
-            icon = 'i-drop'; text = t('insight.hydration_low'); color = 'var(--info,#7DA3D9)';
-          } else if (showCalories && targetCalories > 0 && totalCalories >= targetCalories) {
-            icon = 'i-target'; text = t('insight.goal_reached'); color = 'var(--ok,#65D387)';
-          } else if (showCalories && targetCalories > 0 && (totalCalories / targetCalories) > 0.8) {
-            icon = 'i-check';
-            text = t('insight.almost_there', { n: remaining.toLocaleString() }); color = 'var(--ok,#65D387)';
-          } else if (showCalories) {
-            icon = 'i-zap';
-            const pct = targetCalories > 0 ? Math.round((totalCalories / targetCalories) * 100) : 0;
-            text = t('insight.pct_logged', { n: pct }); color = 'var(--gold-300,#D4A853)';
-          } else if (targetProtein > 0 && totalProtein >= targetProtein) {
-            // Protein-first fallbacks — no calorie numbers for clients.
-            icon = 'i-target'; text = t('insight.protein_hit'); color = 'var(--ok,#65D387)';
-          } else if (targetProtein > 0) {
-            icon = 'i-dumbbell';
-            text = t('insight.protein_progress', { n: Math.round(totalProtein), target: Math.round(targetProtein) });
-            color = 'var(--gold-300,#D4A853)';
-          } else {
-            icon = 'i-check'; text = t('insight.keep_logging'); color = 'var(--ok,#65D387)';
-          }
-          return (
-            <motion.div
-              initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.28 }}
-              className="card"
-              style={{
-                padding: '10px 14px', marginBottom: 12,
-                display: 'flex', alignItems: 'center', gap: 10,
-                background: 'var(--surface-2)',
-              }}
-            >
-              <Icon name={icon} size={13} style={{ color, flexShrink: 0 }} />
-              <span style={{ fontSize: 12, color: 'var(--content-secondary)', flex: 1 }}>{text}</span>
-            </motion.div>
-          );
-        })()}
         {/* ══ 7 · Coach message box ════════════════════════════ */}
         <motion.div
           id="coach-message-box"

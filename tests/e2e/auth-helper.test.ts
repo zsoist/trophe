@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { isPaidRequest } from '../../e2e/helpers/auth';
+import { isPaidRequest, shouldBlockPaidRequest } from '../../e2e/helpers/auth';
 
 describe('isPaidRequest', () => {
   it('blocks paid application and provider endpoints without blocking local Supabase REST', () => {
@@ -20,5 +20,12 @@ describe('isPaidRequest', () => {
     expect(isPaidRequest('https://api.voyageai.com/v1/embeddings')).toBe(true);
     expect(isPaidRequest('https://api.deepseek.com/chat/completions')).toBe(true);
     expect(isPaidRequest('https://api.mistral.ai/v1/chat/completions')).toBe(true);
+  });
+
+  it('allows only an explicitly mocked local app path while provider hosts stay blocked', () => {
+    const allow = new Set(['/api/ai/photo-analyze']);
+    expect(shouldBlockPaidRequest('http://127.0.0.1:3300/api/ai/photo-analyze', allow)).toBe(false);
+    expect(shouldBlockPaidRequest('http://127.0.0.1:3300/api/ai/conversation', allow)).toBe(true);
+    expect(shouldBlockPaidRequest('https://api.anthropic.com/v1/messages', allow)).toBe(true);
   });
 });

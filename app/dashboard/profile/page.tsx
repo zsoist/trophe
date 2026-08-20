@@ -10,7 +10,7 @@ import {
   nutritionProfileInputIssue,
   ACTIVITY_DESCRIPTIONS,
 } from '@/lib/food/nutrition-engine';
-import type { ClientProfile, Profile, Sex, ActivityLevel, Goal, Language } from '@/lib/types';
+import type { ClientProfile, Profile, Sex, ActivityLevel, Goal } from '@/lib/types';
 import { BotNav } from '@/components/ui/BotNav';
 import { Icon } from '@/components/ui';
 import { useThemeMode } from '@/components/shared/ThemeMode';
@@ -38,17 +38,6 @@ const GOAL_ICONS: Record<Goal, string> = {
   recomp: 'i-zap', endurance: 'i-shoe', health: 'i-heart',
 };
 // Text labels only — no emoji flags (house image rule).
-const LANG_OPTIONS: { value: Language; code: string; native: string }[] = [
-  { value: 'en', code: 'EN', native: 'English' },
-  { value: 'es', code: 'ES', native: 'Español' },
-  { value: 'el', code: 'EL', native: 'Ελληνικά' },
-  { value: 'fr', code: 'FR', native: 'Français' },
-  { value: 'de', code: 'DE', native: 'Deutsch' },
-  { value: 'it', code: 'IT', native: 'Italiano' },
-  { value: 'pt', code: 'PT', native: 'Português' },
-  { value: 'nl', code: 'NL', native: 'Nederlands' },
-];
-
 const SECTIONS = [
   { id: 'account', labelKey: 'settings.nav_account' },
   { id: 'body', labelKey: 'settings.nav_body' },
@@ -91,7 +80,7 @@ export default function ProfilePage() {
 
   const { mode, toggleMode } = useThemeMode();
   const { prefs, setPrefs } = useAppearance();
-  const { t, lang, setLang } = useI18n();
+  const { t, lang } = useI18n();
   const clientNav = useClientNav();
 
   // Form state
@@ -101,12 +90,6 @@ export default function ProfilePage() {
   const [weightKg, setWeightKg] = useState('');
   const [activity, setActivity] = useState<ActivityLevel>('moderate');
   const [goal, setGoal] = useState<Goal>('maintenance');
-  const [language, setLanguage] = useState<Language>('en');
-
-  const handleLangChange = (l: Language) => {
-    setLanguage(l);
-    setLang(l);
-  };
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -134,7 +117,6 @@ export default function ProfilePage() {
       }
 
       setProfile(profRes.data);
-      setLanguage(profRes.data.language || 'en');
       const cp = cpRes.data;
       setClientProfile(cp);
       setAge(cp.age?.toString() ?? '');
@@ -225,7 +207,7 @@ export default function ProfilePage() {
 
       const languageResult = await supabase
         .from('profiles')
-        .update({ language })
+        .update({ language: 'en' })
         .eq('id', profile.id)
         .select('id')
         .maybeSingle();
@@ -234,7 +216,7 @@ export default function ProfilePage() {
         return;
       }
 
-      setProfile((prev) => (prev ? { ...prev, language } : prev));
+      setProfile((prev) => (prev ? { ...prev, language: 'en' } : prev));
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch {
@@ -598,29 +580,11 @@ export default function ProfilePage() {
 
         {/* ─── Language ─── */}
         <SectionCard id="language" title={t('general.language')} icon={<Globe size={14} />} delay={0.15}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            {LANG_OPTIONS.map((l) => {
-              const on = language === l.value;
-              return (
-                <button
-                  key={l.value}
-                  onClick={() => handleLangChange(l.value)}
-                  aria-pressed={on}
-                  className={`min-h-11 py-2.5 px-3 rounded-xl text-sm border transition-all text-left flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] ${
-                    on ? 'accent-chip-active bg-[var(--surface-2)]' : 'border-[var(--border-subtle)] text-[var(--content-secondary)]'
-                  }`}
-                >
-                  <span style={{
-                    fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700,
-                    padding: '2px 6px', borderRadius: 6,
-                    background: on ? 'var(--accent-soft)' : 'var(--surface-2)',
-                  }}>
-                    {l.code}
-                  </span>
-                  <span className="text-xs font-medium">{l.native}</span>
-                </button>
-              );
-            })}
+          <div className="rounded-xl border border-[var(--border-default)] bg-[var(--surface-2)] px-4 py-3">
+            <div className="text-sm font-semibold text-[var(--content-primary)]">English beta</div>
+            <p className="mt-1 text-xs leading-relaxed text-[var(--content-secondary)]">
+              More languages will return after the English experience is stable.
+            </p>
           </div>
         </SectionCard>
 

@@ -31,6 +31,7 @@ import {
   type TranscriptionClientError,
 } from '@/lib/microphone/transcription-client';
 import type { TranscriptionLocale } from '@/agents/schemas/transcribe';
+import { buildReviewedFoodLogEntries } from '@/lib/food/reviewed-log-entry';
 
 interface QuickFoodInputProps {
   userId: string;
@@ -602,34 +603,13 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
       // 'natural_language' for the text path (CHECK constraint allows it) —
       // collapsing everything to 'custom' erased the AI provenance the
       // flywheel and coach views depend on.
-      const dbSource = inputSource === 'photo' ? 'photo_ai' : 'natural_language';
-      const entries = items.map(item => ({
-        user_id: userId,
-        logged_date: date,
-        meal_type: mealType,
-        // What the user SAW (localized name / raw input), not the verbose
-        // English DB name — the coach reads the same string back in meal views.
-        food_name: item.name_localized || item.raw_text || item.food_name,
-        quantity: item.quantity,
-        unit: item.unit,
-        calories: item.calories,
-        protein_g: item.protein_g,
-        carbs_g: item.carbs_g,
-        fat_g: item.fat_g,
-        fiber_g: item.fiber_g,
-        sugar_g: item.sugar_g ?? null,
-        parse_confidence: item.confidence ?? null,
-        qty_input: item.quantity,
-        qty_input_unit: item.unit,
-        // Persist resolved grams — without this, MealSlotCard's grams editor
-        // never renders and food.log.edit's deterministic per-100g recompute
-        // path is unreachable (existing.qtyG always null). B2B: a coach must be
-        // able to correct a client's portion by grams.
-        qty_g: Number.isFinite(item.grams) ? item.grams : null,
-        food_id: item.db_food_id ?? null,
-        llm_recognized: item.source !== 'ai_estimate',
-        source: dbSource,
-      }));
+      const entries = buildReviewedFoodLogEntries({
+        userId,
+        date,
+        mealType,
+        inputSource,
+        items,
+      });
 
       const { data: inserted, error: dbError } = await supabase
         .from('food_log')
@@ -1289,62 +1269,89 @@ export default function QuickFoodInput({ userId, mealType, date, onLogged, showC
 
 const MAX_UPLOAD_BASE64_LENGTH = Math.ceil((5 * 1024 * 1024) / 3) * 4;
 
-// Resize image and return a JPEG base64 payload guaranteed to fit the API cap.
-async function resizeAndEncode(file: File, maxDim: number): Promise<string> {
+type DecodedImage = {
+  source: CanvasImageSource;
+  width: number;
+  height: number;
+  release: () => void;
+};
+
+async function decodeUploadImage(file: File): Promise<DecodedImage> {
+  // `createImageBitmap(file)` avoids the extra FileReader -> data URL -> Image
+  // round-trip. That legacy path can stall on memory-constrained mobile WebKit
+  // and Chromium even for small images, leaving the review UI spinning before
+  // the request is sent.
+  if (typeof createImageBitmap === 'function') {
+    try {
+      const bitmap = await createImageBitmap(file);
+      return {
+        source: bitmap,
+        width: bitmap.width,
+        height: bitmap.height,
+        release: () => bitmap.close(),
+      };
+    } catch {
+      // Older browsers and uncommon codecs still get the compatible fallback.
+    }
+  }
+
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Image could not be read'));
     reader.onload = () => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let { width, height } = img;
-
-        if (width > maxDim || height > maxDim) {
-          if (width > height) {
-            height = Math.round((height * maxDim) / width);
-            width = maxDim;
-          } else {
-            width = Math.round((width * maxDim) / height);
-            height = maxDim;
-          }
-        }
-
-        const encode = (quality: number) => {
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          if (!ctx) throw new Error('Image compression is unavailable in this browser');
-          ctx.drawImage(img, 0, 0, width, height);
-          return canvas.toDataURL('image/jpeg', quality).split(',')[1];
-        };
-
-        try {
-          for (const quality of [0.85, 0.72, 0.6, 0.48]) {
-            const base64 = encode(quality);
-            if (base64.length <= MAX_UPLOAD_BASE64_LENGTH) {
-              resolve(base64);
-              return;
-            }
-          }
-
-          while (Math.max(width, height) > 640) {
-            width = Math.round(width * 0.75);
-            height = Math.round(height * 0.75);
-            const base64 = encode(0.48);
-            if (base64.length <= MAX_UPLOAD_BASE64_LENGTH) {
-              resolve(base64);
-              return;
-            }
-          }
-          reject(new Error('Image could not be compressed below 5MB'));
-        } catch (error) {
-          reject(error);
-        }
-      };
-      img.onerror = reject;
-      img.src = reader.result as string;
+      const image = new Image();
+      image.onerror = () => reject(new Error('Image could not be decoded'));
+      image.onload = () => resolve({
+        source: image,
+        width: image.naturalWidth || image.width,
+        height: image.naturalHeight || image.height,
+        release: () => undefined,
+      });
+      image.src = reader.result as string;
     };
-    reader.onerror = reject;
     reader.readAsDataURL(file);
   });
+}
+
+// Resize image and return a JPEG base64 payload guaranteed to fit the API cap.
+async function resizeAndEncode(file: File, maxDim: number): Promise<string> {
+  const decoded = await decodeUploadImage(file);
+  const canvas = document.createElement('canvas');
+  let { width, height } = decoded;
+
+  try {
+    if (width > maxDim || height > maxDim) {
+      if (width > height) {
+        height = Math.round((height * maxDim) / width);
+        width = maxDim;
+      } else {
+        width = Math.round((width * maxDim) / height);
+        height = maxDim;
+      }
+    }
+
+    const encode = (quality: number) => {
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Image compression is unavailable in this browser');
+      ctx.drawImage(decoded.source, 0, 0, width, height);
+      return canvas.toDataURL('image/jpeg', quality).split(',')[1];
+    };
+
+    for (const quality of [0.85, 0.72, 0.6, 0.48]) {
+      const base64 = encode(quality);
+      if (base64.length <= MAX_UPLOAD_BASE64_LENGTH) return base64;
+    }
+
+    while (Math.max(width, height) > 640) {
+      width = Math.round(width * 0.75);
+      height = Math.round(height * 0.75);
+      const base64 = encode(0.48);
+      if (base64.length <= MAX_UPLOAD_BASE64_LENGTH) return base64;
+    }
+    throw new Error('Image could not be compressed below 5MB');
+  } finally {
+    decoded.release();
+  }
 }

@@ -17,10 +17,21 @@ import {
   withDisposableUsers,
   withFixtureCleanup,
   cleanupFixtureResources,
+  localE2EDisplayName,
+  localE2EDateKey,
 } from '../../scripts/test/local-auth-e2e-core.mjs';
 
 describe('local authenticated E2E harness', () => {
   const originalNextDistDir = process.env.NEXT_DIST_DIR;
+
+  it('provisions the client fixture as Nik for the feedback acceptance flow', () => {
+    expect(localE2EDisplayName('client')).toBe('Nik');
+    expect(localE2EDisplayName('coach')).toBe('Codex E2E coach');
+  });
+
+  it('seeds nutrition against the same local calendar day as the client dashboard', () => {
+    expect(localE2EDateKey(new Date(2026, 7, 20, 23, 30))).toBe('2026-08-20');
+  });
 
   afterEach(() => {
     if (originalNextDistDir === undefined) delete process.env.NEXT_DIST_DIR;

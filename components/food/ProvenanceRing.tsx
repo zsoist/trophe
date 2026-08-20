@@ -111,7 +111,7 @@ export function ProvenanceRing({
       aria-label={ariaLabel}
       aria-expanded={expanded}
       className="inline-flex items-center justify-center flex-shrink-0 rounded-full focus:outline-none focus-visible:ring-1 focus-visible:ring-stone-500 min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-      style={{ width: size, height: size, padding: 0, background: 'transparent', border: 'none', cursor: 'pointer' }}
+      style={{ width: size, height: size, minWidth: 45, minHeight: 45, padding: 0, background: 'transparent', border: 'none', cursor: 'pointer' }}
     >
       {svg}
     </button>

@@ -28,6 +28,17 @@ export function isPaidRequest(url: string): boolean {
   ]).has(parsed.hostname);
 }
 
+export function shouldBlockPaidRequest(
+  url: string,
+  mockedAppPaths: ReadonlySet<string> = new Set(),
+): boolean {
+  if (!isPaidRequest(url)) return false;
+  const parsed = new URL(url);
+  const loopback = parsed.hostname === '127.0.0.1' || parsed.hostname === 'localhost' || parsed.hostname === '::1';
+  if (loopback && mockedAppPaths.has(parsed.pathname)) return false;
+  return true;
+}
+
 export async function loginAs(page: Page, role: Role, path = '/login'): Promise<void> {
   const [email, password] = credentials[role];
   if (!email || !password) throw new Error(`Missing disposable local ${role} E2E credentials`);
@@ -46,12 +57,16 @@ export async function setTheme(page: Page, mode: ThemeMode): Promise<void> {
 }
 
 /** Abort and make every attempted paid AI request an assertion failure. */
-export async function blockPaidRequests(page: Page): Promise<() => void> {
+export async function blockPaidRequests(
+  page: Page,
+  options: { mockedAppPaths?: ReadonlySet<string> } = {},
+): Promise<() => void> {
+  const mockedAppPaths = options.mockedAppPaths ?? new Set<string>();
   const attempted: string[] = [];
   page.on('request', (request) => {
-    if (isPaidRequest(request.url())) attempted.push(`${request.method()} ${request.url()}`);
+    if (shouldBlockPaidRequest(request.url(), mockedAppPaths)) attempted.push(`${request.method()} ${request.url()}`);
   });
-  await page.route((url) => isPaidRequest(url.toString()), async (route) => {
+  await page.route((url) => shouldBlockPaidRequest(url.toString(), mockedAppPaths), async (route) => {
     await route.abort('blockedbyclient');
   });
   return () => expect(attempted, `paid AI or food-parse routes were requested:\n${attempted.join('\n')}`).toEqual([]);

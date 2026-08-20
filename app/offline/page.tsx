@@ -1,7 +1,7 @@
 /**
  * Online-accessible branded recovery page. The service worker uses the
  * self-contained public/offline.html for cold offline navigation failures.
- * Bilingual: English primary, Greek secondary.
+ * English-only recovery copy while the beta language is stabilized.
  * Dark premium aesthetic, no external dependencies.
  *
  * Note: the retry button is extracted into a client component so the page
@@ -38,7 +38,7 @@ export default function OfflinePage() {
       />
 
       <div style={{ position: "relative", maxWidth: 400, width: "100%", textAlign: "center" }}>
-        {/* τ mark */}
+        {/* Trophē mark */}
         <div
           style={{
             width: 72,
@@ -52,7 +52,7 @@ export default function OfflinePage() {
             margin: "0 auto 32px",
           }}
         >
-          {/* Inline τ SVG */}
+          {/* Inline brand mark */}
           <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
             <rect x="6" y="9" width="24" height="4" rx="2" fill="#D4A853" />
             <rect x="14" y="9" width="8" height="20" rx="2" fill="#D4A853" />
@@ -87,18 +87,6 @@ export default function OfflinePage() {
         >
           You&rsquo;re offline
         </h1>
-
-        {/* Greek subtitle */}
-        <p
-          style={{
-            fontSize: 14,
-            color: "var(--content-muted)",
-            marginBottom: 24,
-            letterSpacing: "0.02em",
-          }}
-        >
-          Είστε εκτός σύνδεσης
-        </p>
 
         {/* Body copy */}
         <p
