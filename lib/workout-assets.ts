@@ -8,18 +8,20 @@ export interface ResolvedWorkoutAsset {
 }
 
 const exerciseAssets: Array<{ matches: RegExp; slug: string }> = [
-  { matches: /\b(?:barbell\s+)?bench\s+press\b/, slug: 'bench-press' },
-  { matches: /\bincline\b.*\bpress\b/, slug: 'incline-press' },
-  { matches: /\b(?:overhead|shoulder|military)\b.*\bpress\b/, slug: 'overhead-press' },
-  { matches: /\b(?:pec\s+deck|chest\s+fly\s+machine)\b/, slug: 'pec-deck' },
-  { matches: /\b(?:cable\s+(?:cross(?:over)?|fly)|chest\s+cable\s+fly)\b/, slug: 'cable-fly' },
-  { matches: /\b(?:pull\s*up|chin\s*up)\b/, slug: 'pull-up' },
-  { matches: /\b(?:deadlift|romanian\s+deadlift|rdl)\b/, slug: 'deadlift' },
-  { matches: /\b(?:squat|front\s+squat|goblet\s+squat)\b/, slug: 'squat' },
-  { matches: /\b(?:dip|chest\s+dips|triceps\s+dips)\b/, slug: 'dip' },
-  { matches: /\b(?:row|rowing)\b/, slug: 'row' },
-  { matches: /\b(?:biceps?\s+)?curl\b/, slug: 'curl' },
-  { matches: /\b(?:triceps?\s+(?:extension|pushdown)|skull\s*crusher)\b/, slug: 'triceps-extension' },
+  // Keep aliases exact and most-specific first: similar names often use materially
+  // different equipment or technique and must fall back to honest anatomy art.
+  { matches: /^(?:incline dumbbell press|dumbbell incline press)$/, slug: 'incline-press' },
+  { matches: /^(?:barbell bench press|bench press)$/, slug: 'bench-press' },
+  { matches: /^(?:standing overhead barbell press|barbell overhead press|overhead press)$/, slug: 'overhead-press' },
+  { matches: /^(?:pec deck machine|pec deck|chest fly machine)$/, slug: 'pec-deck' },
+  { matches: /^(?:standing cable chest fly|cable chest fly|cable fly)$/, slug: 'cable-fly' },
+  { matches: /^pull ups?$/, slug: 'pull-up' },
+  { matches: /^(?:conventional deadlift|barbell deadlift|deadlift)$/, slug: 'deadlift' },
+  { matches: /^(?:barbell back squat|back squat|barbell squat|squat)$/, slug: 'squat' },
+  { matches: /^(?:parallel bar chest dips?|chest dips?|dips?)$/, slug: 'dip' },
+  { matches: /^seated cable row$/, slug: 'row' },
+  { matches: /^(?:standing dumbbell biceps curl|dumbbell biceps curl|dumbbell curl)$/, slug: 'curl' },
+  { matches: /^(?:cable triceps rope extension|triceps rope extension|rope triceps pushdown|triceps pushdown|tricep pushdown)$/, slug: 'triceps-extension' },
 ];
 
 type AnatomyGroup = BodyAreaId | 'biceps' | 'triceps' | 'forearms' | 'quads' | 'hamstrings' | 'glutes' | 'calves';

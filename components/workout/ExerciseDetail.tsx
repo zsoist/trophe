@@ -18,6 +18,7 @@ export interface ExerciseDetailProps {
   userId: string | null;
   onAdd?: (exercise: Exercise) => void;
   isAdded?: boolean;
+  alternateAction?: { label: string; onClick: () => void };
   className?: string;
 }
 
@@ -53,7 +54,7 @@ function GuidanceBlock({ title, items, empty }: { title: string; items: string[]
   );
 }
 
-export function ExerciseDetail({ exercise, userId, onAdd, isAdded = false, className = '' }: ExerciseDetailProps) {
+export function ExerciseDetail({ exercise, userId, onAdd, isAdded = false, alternateAction, className = '' }: ExerciseDetailProps) {
   const { t, lang } = useI18n();
   const [unit] = useWeightUnit();
   const [pr, setPr] = useState<number | null>(null);
@@ -172,12 +173,21 @@ export function ExerciseDetail({ exercise, userId, onAdd, isAdded = false, class
         </section>
       </div>
 
-      {onAdd ? (
+      {onAdd || alternateAction ? (
         <div className="sticky bottom-0 z-10 mt-5 border-t border-[var(--border-subtle)] bg-[var(--canvas)]/95 px-1 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl">
-          <button type="button" disabled={isAdded} aria-label={isAdded ? t('workout.exercise_added_named', { name }) : t('workout.picker_add_named', { name })} onClick={() => onAdd(exercise)} className="btn-gold inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl px-4 font-semibold disabled:cursor-default disabled:opacity-70">
-            {isAdded ? <Check size={18} aria-hidden="true" /> : <Plus size={18} aria-hidden="true" />}
-            {isAdded ? t('workout.exercise_added') : t('workout.picker_add')}
-          </button>
+          {onAdd ? (
+            <button type="button" disabled={isAdded} aria-label={isAdded ? t('workout.exercise_added_named', { name }) : t('workout.picker_add_named', { name })} onClick={() => onAdd(exercise)} className="btn-gold inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl px-4 font-semibold disabled:cursor-default disabled:opacity-70">
+              {isAdded ? <Check size={18} aria-hidden="true" /> : <Plus size={18} aria-hidden="true" />}
+              {isAdded ? t('workout.exercise_added') : t('workout.picker_add')}
+            </button>
+          ) : (
+            <div>
+              <p className="mb-2 text-center text-xs leading-5 text-[var(--content-muted)]">{t('workout.exercise_requires_strength_draft')}</p>
+              <button type="button" onClick={alternateAction?.onClick} className="btn-gold inline-flex min-h-12 w-full items-center justify-center rounded-xl px-4 font-semibold">
+                {alternateAction?.label}
+              </button>
+            </div>
+          )}
         </div>
       ) : null}
     </article>

@@ -8,14 +8,18 @@ import { useWorkoutWorkspace } from '@/components/workout/workspace/WorkoutWorks
 import { useI18n } from '@/lib/i18n';
 import { supabase } from '@/lib/supabase';
 import type { Exercise } from '@/lib/types';
-import { WORKOUT_ROUTES } from '@/lib/workout/workspace-routes';
+import { WORKOUT_ROUTES, workoutRouteForStage } from '@/lib/workout/workspace-routes';
 
 export function RoutedExerciseDetail({ exercise, userId }: { exercise: Exercise; userId: string | null }) {
   const router = useRouter();
   const workspace = useWorkoutWorkspace();
   const { t } = useI18n();
-  const added = workspace.state.draft?.kind === 'strength'
+  const acceptsExercises = (workspace.state.stage === 'draft' || workspace.state.stage === 'review')
+    && workspace.state.draft?.kind === 'strength';
+  const added = acceptsExercises
+    && workspace.state.draft?.kind === 'strength'
     && workspace.state.draft.exercises.some((item) => item.exerciseId === exercise.id);
+  const canCreate = workspace.state.stage === 'home';
   return (
     <main className="px-4 py-5">
       <Link href={WORKOUT_ROUTES.exercises} className="mb-4 inline-flex min-h-11 items-center text-sm font-medium text-[var(--content-secondary)]">← {t('workout.back_exercises')}</Link>
@@ -23,9 +27,19 @@ export function RoutedExerciseDetail({ exercise, userId }: { exercise: Exercise;
         exercise={exercise}
         userId={userId}
         isAdded={added}
-        onAdd={() => {
-          workspace.addDraftExercise(exercise.id);
-          router.push(WORKOUT_ROUTES.build);
+        onAdd={acceptsExercises ? () => {
+            workspace.addDraftExercise(exercise.id);
+            router.push(WORKOUT_ROUTES.build);
+          } : undefined}
+        alternateAction={acceptsExercises ? undefined : {
+          label: canCreate ? t('workout.create_strength_draft') : t('workout.resume_current_workout'),
+          onClick: () => {
+            if (canCreate) {
+              workspace.createDraft({ name: t('workout.strength'), kind: 'strength' });
+              return;
+            }
+            router.push(workoutRouteForStage(workspace.state.stage));
+          },
         }}
       />
     </main>

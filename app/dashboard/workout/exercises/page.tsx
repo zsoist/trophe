@@ -3,17 +3,36 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ExercisePicker from '@/components/workout/ExercisePicker';
+import { ExerciseRouteGate } from '@/components/workout/ExerciseRouteGate';
 import { useWorkoutWorkspace } from '@/components/workout/workspace/WorkoutWorkspaceProvider';
 import { useI18n } from '@/lib/i18n';
 import { supabase } from '@/lib/supabase';
 import type { Exercise } from '@/lib/types';
-import { WORKOUT_ROUTES } from '@/lib/workout/workspace-routes';
+import { WORKOUT_ROUTES, workoutRouteForStage } from '@/lib/workout/workspace-routes';
 
 export function ExerciseBrowser({ initialExercises = [], initialRecentIds = [] }: { initialExercises?: Exercise[]; initialRecentIds?: string[] }) {
   const router = useRouter();
   const workspace = useWorkoutWorkspace();
-  const { lang } = useI18n();
+  const { lang, t } = useI18n();
   const [exercises, setExercises] = useState(initialExercises);
+  const acceptsExercises = (workspace.state.stage === 'draft' || workspace.state.stage === 'review')
+    && workspace.state.draft?.kind === 'strength';
+
+  if (!acceptsExercises) {
+    const canCreate = workspace.state.stage === 'home';
+    return (
+      <ExerciseRouteGate
+        actionLabel={canCreate ? t('workout.create_strength_draft') : t('workout.resume_current_workout')}
+        onAction={() => {
+          if (canCreate) {
+            workspace.createDraft({ name: t('workout.strength'), kind: 'strength' });
+            return;
+          }
+          router.push(workoutRouteForStage(workspace.state.stage));
+        }}
+      />
+    );
+  }
 
   return (
     <ExercisePicker
