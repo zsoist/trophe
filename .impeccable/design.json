@@ -1,0 +1,258 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-24T18:16:58Z",
+  "title": "Design System: Personal Best",
+  "extensions": {
+    "colorMeta": {
+      "performance-canvas": {
+        "role": "neutral",
+        "displayName": "Obsidian Canvas",
+        "tonalRamp": ["oklch(15% 0.008 145)", "oklch(25% 0.008 145)", "oklch(35% 0.008 145)", "oklch(45% 0.008 145)", "oklch(58% 0.008 145)", "oklch(70% 0.008 145)", "oklch(83% 0.008 145)", "oklch(95% 0.008 145)"]
+      },
+      "performance-surface": {
+        "role": "neutral",
+        "displayName": "Graphite Surface",
+        "tonalRamp": ["oklch(15% 0.008 145)", "oklch(25% 0.008 145)", "oklch(35% 0.008 145)", "oklch(45% 0.008 145)", "oklch(58% 0.008 145)", "oklch(70% 0.008 145)", "oklch(83% 0.008 145)", "oklch(95% 0.008 145)"]
+      },
+      "performance-surface-raised": {
+        "role": "neutral",
+        "displayName": "Raised Graphite",
+        "tonalRamp": ["oklch(15% 0.008 145)", "oklch(25% 0.008 145)", "oklch(35% 0.008 145)", "oklch(45% 0.008 145)", "oklch(58% 0.008 145)", "oklch(70% 0.008 145)", "oklch(83% 0.008 145)", "oklch(95% 0.008 145)"]
+      },
+      "performance-rail": {
+        "role": "neutral",
+        "displayName": "Dark Performance Rail",
+        "tonalRamp": ["oklch(15% 0.008 145)", "oklch(25% 0.008 145)", "oklch(35% 0.008 145)", "oklch(45% 0.008 145)", "oklch(58% 0.008 145)", "oklch(70% 0.008 145)", "oklch(83% 0.008 145)", "oklch(95% 0.008 145)"]
+      },
+      "performance-ink": {
+        "role": "neutral",
+        "displayName": "Evidence Ink",
+        "tonalRamp": ["oklch(15% 0.008 145)", "oklch(25% 0.008 145)", "oklch(35% 0.008 145)", "oklch(45% 0.008 145)", "oklch(58% 0.008 145)", "oklch(70% 0.008 145)", "oklch(83% 0.008 145)", "oklch(95% 0.008 145)"]
+      },
+      "performance-muted": {
+        "role": "neutral",
+        "displayName": "Muted Evidence",
+        "tonalRamp": ["oklch(15% 0.008 145)", "oklch(25% 0.008 145)", "oklch(35% 0.008 145)", "oklch(45% 0.008 145)", "oklch(58% 0.008 145)", "oklch(70% 0.008 145)", "oklch(83% 0.008 145)", "oklch(95% 0.008 145)"]
+      },
+      "performance-gold": {
+        "role": "primary",
+        "displayName": "Trophē Gold",
+        "tonalRamp": ["oklch(15% 0.08 80)", "oklch(25% 0.10 80)", "oklch(35% 0.12 80)", "oklch(45% 0.14 80)", "oklch(58% 0.15 80)", "oklch(70% 0.14 80)", "oklch(83% 0.10 80)", "oklch(95% 0.04 80)"]
+      },
+      "performance-coral": {
+        "role": "secondary",
+        "displayName": "Protein Coral",
+        "tonalRamp": ["oklch(15% 0.10 15)", "oklch(25% 0.14 15)", "oklch(35% 0.17 15)", "oklch(45% 0.19 15)", "oklch(58% 0.20 15)", "oklch(70% 0.17 15)", "oklch(83% 0.11 15)", "oklch(95% 0.04 15)"]
+      },
+      "performance-lime": {
+        "role": "secondary",
+        "displayName": "Strength Lime",
+        "tonalRamp": ["oklch(15% 0.08 125)", "oklch(25% 0.12 125)", "oklch(35% 0.16 125)", "oklch(45% 0.19 125)", "oklch(58% 0.21 125)", "oklch(70% 0.19 125)", "oklch(83% 0.13 125)", "oklch(95% 0.05 125)"]
+      },
+      "performance-cyan": {
+        "role": "secondary",
+        "displayName": "Evidence Cyan",
+        "tonalRamp": ["oklch(15% 0.07 210)", "oklch(25% 0.10 210)", "oklch(35% 0.13 210)", "oklch(45% 0.15 210)", "oklch(58% 0.16 210)", "oklch(70% 0.14 210)", "oklch(83% 0.10 210)", "oklch(95% 0.04 210)"]
+      },
+      "performance-orange": {
+        "role": "tertiary",
+        "displayName": "Evidence Orange",
+        "tonalRamp": ["oklch(15% 0.09 50)", "oklch(25% 0.13 50)", "oklch(35% 0.16 50)", "oklch(45% 0.18 50)", "oklch(58% 0.19 50)", "oklch(70% 0.17 50)", "oklch(83% 0.11 50)", "oklch(95% 0.04 50)"]
+      },
+      "performance-violet": {
+        "role": "tertiary",
+        "displayName": "Fat Violet",
+        "tonalRamp": ["oklch(15% 0.08 300)", "oklch(25% 0.11 300)", "oklch(35% 0.14 300)", "oklch(45% 0.16 300)", "oklch(58% 0.17 300)", "oklch(70% 0.15 300)", "oklch(83% 0.10 300)", "oklch(95% 0.04 300)"]
+      },
+      "performance-canvas-light": {
+        "role": "neutral",
+        "displayName": "Warm Paper Canvas",
+        "tonalRamp": ["oklch(15% 0.02 85)", "oklch(25% 0.025 85)", "oklch(35% 0.03 85)", "oklch(45% 0.032 85)", "oklch(58% 0.03 85)", "oklch(70% 0.025 85)", "oklch(83% 0.018 85)", "oklch(95% 0.012 85)"]
+      },
+      "performance-surface-light": {
+        "role": "neutral",
+        "displayName": "Paper Surface",
+        "tonalRamp": ["oklch(15% 0.02 85)", "oklch(25% 0.025 85)", "oklch(35% 0.03 85)", "oklch(45% 0.032 85)", "oklch(58% 0.03 85)", "oklch(70% 0.025 85)", "oklch(83% 0.018 85)", "oklch(95% 0.012 85)"]
+      },
+      "performance-surface-raised-light": {
+        "role": "neutral",
+        "displayName": "Raised Paper",
+        "tonalRamp": ["oklch(15% 0.02 85)", "oklch(25% 0.025 85)", "oklch(35% 0.03 85)", "oklch(45% 0.032 85)", "oklch(58% 0.03 85)", "oklch(70% 0.025 85)", "oklch(83% 0.018 85)", "oklch(95% 0.012 85)"]
+      },
+      "performance-rail-light": {
+        "role": "neutral",
+        "displayName": "Light Performance Rail",
+        "tonalRamp": ["oklch(15% 0.02 85)", "oklch(25% 0.025 85)", "oklch(35% 0.03 85)", "oklch(45% 0.032 85)", "oklch(58% 0.03 85)", "oklch(70% 0.025 85)", "oklch(83% 0.018 85)", "oklch(95% 0.012 85)"]
+      },
+      "performance-ink-light": {
+        "role": "neutral",
+        "displayName": "Dark Evidence Ink",
+        "tonalRamp": ["oklch(15% 0.012 70)", "oklch(25% 0.012 70)", "oklch(35% 0.012 70)", "oklch(45% 0.012 70)", "oklch(58% 0.012 70)", "oklch(70% 0.012 70)", "oklch(83% 0.010 70)", "oklch(95% 0.006 70)"]
+      },
+      "performance-muted-light": {
+        "role": "neutral",
+        "displayName": "Muted Dark Evidence",
+        "tonalRamp": ["oklch(15% 0.012 70)", "oklch(25% 0.012 70)", "oklch(35% 0.012 70)", "oklch(45% 0.012 70)", "oklch(58% 0.012 70)", "oklch(70% 0.012 70)", "oklch(83% 0.010 70)", "oklch(95% 0.006 70)"]
+      },
+      "performance-gold-light": {
+        "role": "primary",
+        "displayName": "Accessible Trophē Gold",
+        "tonalRamp": ["oklch(15% 0.08 80)", "oklch(25% 0.10 80)", "oklch(35% 0.12 80)", "oklch(45% 0.14 80)", "oklch(58% 0.15 80)", "oklch(70% 0.14 80)", "oklch(83% 0.10 80)", "oklch(95% 0.04 80)"]
+      },
+      "performance-coral-light": {
+        "role": "secondary",
+        "displayName": "Accessible Protein Coral",
+        "tonalRamp": ["oklch(15% 0.10 15)", "oklch(25% 0.14 15)", "oklch(35% 0.17 15)", "oklch(45% 0.19 15)", "oklch(58% 0.20 15)", "oklch(70% 0.17 15)", "oklch(83% 0.11 15)", "oklch(95% 0.04 15)"]
+      },
+      "performance-lime-light": {
+        "role": "secondary",
+        "displayName": "Accessible Strength Lime",
+        "tonalRamp": ["oklch(15% 0.08 125)", "oklch(25% 0.12 125)", "oklch(35% 0.16 125)", "oklch(45% 0.19 125)", "oklch(58% 0.21 125)", "oklch(70% 0.19 125)", "oklch(83% 0.13 125)", "oklch(95% 0.05 125)"]
+      },
+      "performance-cyan-light": {
+        "role": "secondary",
+        "displayName": "Accessible Evidence Cyan",
+        "tonalRamp": ["oklch(15% 0.07 210)", "oklch(25% 0.10 210)", "oklch(35% 0.13 210)", "oklch(45% 0.15 210)", "oklch(58% 0.16 210)", "oklch(70% 0.14 210)", "oklch(83% 0.10 210)", "oklch(95% 0.04 210)"]
+      },
+      "performance-orange-light": {
+        "role": "tertiary",
+        "displayName": "Accessible Evidence Orange",
+        "tonalRamp": ["oklch(15% 0.09 50)", "oklch(25% 0.13 50)", "oklch(35% 0.16 50)", "oklch(45% 0.18 50)", "oklch(58% 0.19 50)", "oklch(70% 0.17 50)", "oklch(83% 0.11 50)", "oklch(95% 0.04 50)"]
+      },
+      "performance-violet-light": {
+        "role": "tertiary",
+        "displayName": "Accessible Fat Violet",
+        "tonalRamp": ["oklch(15% 0.08 300)", "oklch(25% 0.11 300)", "oklch(35% 0.14 300)", "oklch(45% 0.16 300)", "oklch(58% 0.17 300)", "oklch(70% 0.15 300)", "oklch(83% 0.10 300)", "oklch(95% 0.04 300)"]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Brand Display", "purpose": "Italic Latin brand-scale copy and numerals only." },
+      "headline": { "displayName": "Performance Headline", "purpose": "Compact section and page headings." },
+      "title": { "displayName": "Evidence Title", "purpose": "Rows, cards, and exercise names." },
+      "body": { "displayName": "Coaching Body", "purpose": "Instructions, notes, and conversational status copy." },
+      "label": { "displayName": "Timing Label", "purpose": "Uppercase eyebrows, metrics, and tabular evidence." }
+    },
+    "shadows": [
+      { "name": "low", "value": "0 1px 2px rgba(0, 0, 0, 0.4)", "purpose": "Tight grounding for small raised controls in dark mode." },
+      { "name": "medium", "value": "0 8px 24px -8px rgba(0, 0, 0, 0.5)", "purpose": "Floating navigation and raised performance surfaces." },
+      { "name": "high", "value": "0 16px 48px -12px rgba(0, 0, 0, 0.6)", "purpose": "Modals, menus, and overlay hierarchy." },
+      { "name": "gold-action", "value": "0 4px 16px rgba(212, 168, 83, 0.3)", "purpose": "Primary-action hover feedback only." }
+    ],
+    "motion": [
+      { "name": "route-lateral", "value": "240ms cubic-bezier(0.22, 1, 0.36, 1)", "purpose": "Directional client-route movement with subtle opacity and scale." },
+      { "name": "movement-image", "value": "280ms cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Small anatomical-image zoom on hover-capable devices." },
+      { "name": "disclosure", "value": "180ms ease-out", "purpose": "Chevron rotation and compact disclosure state." },
+      { "name": "reduced-motion", "value": "0ms", "purpose": "Removes route and control animation when reduced motion is requested." }
+    ],
+    "breakpoints": [
+      { "name": "compact", "value": "360px" },
+      { "name": "centered-nav", "value": "640px" },
+      { "name": "desktop-flow", "value": "1024px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Gold Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The decisive action for logging or confirming progress.",
+      "html": "<button class=\"ds-btn-primary\" type=\"button\">START TRAINING</button>",
+      "css": ".ds-btn-primary { min-height: 44px; padding: 12px 24px; border: 0; border-radius: 12px; background: linear-gradient(135deg, #B8923E, var(--performance-gold, #D4A853)); color: #070806; font: 600 14px/1 Inter, system-ui, sans-serif; cursor: pointer; transition: transform 200ms ease, box-shadow 200ms ease, background 200ms ease; } .ds-btn-primary:hover { background: linear-gradient(135deg, var(--performance-gold, #D4A853), #E8C078); transform: translateY(-1px); box-shadow: 0 4px 16px rgba(212, 168, 83, 0.3); } .ds-btn-primary:focus-visible { outline: 2px solid #E8C078; outline-offset: 2px; } .ds-btn-primary:active { transform: translateY(0); }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "A secondary action that preserves the evidence hierarchy.",
+      "html": "<button class=\"ds-btn-ghost\" type=\"button\">SKIP</button>",
+      "css": ".ds-btn-ghost { min-height: 44px; padding: 12px 24px; border: 1px solid var(--border-default, #333333); border-radius: 12px; background: transparent; color: var(--content-secondary, #D6D3D1); font: 500 14px/1 Inter, system-ui, sans-serif; cursor: pointer; transition: color 200ms ease, background 200ms ease, border-color 200ms ease; } .ds-btn-ghost:hover { border-color: var(--border-strong, #57534E); background: var(--surface-hover, #222222); color: var(--content-primary, #FAFAF9); } .ds-btn-ghost:focus-visible { outline: 2px solid var(--focus-ring, #E8C078); outline-offset: 2px; } .ds-btn-ghost:active { background: var(--surface-active, #2A2A2A); }"
+    },
+    {
+      "name": "Daily Macro Strip",
+      "kind": "custom",
+      "refersTo": "daily-macro-strip",
+      "description": "A four-cell evidence rail for honest daily nutrition values.",
+      "html": "<div class=\"ds-macro-strip\" role=\"group\" aria-label=\"Today's nutrition\"><div class=\"ds-macro-cell\"><span>Protein</span><strong class=\"ds-coral\">14g</strong></div><div class=\"ds-macro-cell\"><span>Carbs</span><strong class=\"ds-cyan\">40g</strong></div><div class=\"ds-macro-cell\"><span>Fat</span><strong class=\"ds-violet\">1g</strong></div><div class=\"ds-macro-cell\"><span>Sugar</span><strong class=\"ds-orange ds-wrap\">Not available</strong></div></div>",
+      "css": ".ds-macro-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); overflow: hidden; border: 1px solid var(--performance-rail, rgba(245,247,242,.14)); border-radius: 14px; background: var(--performance-surface, #151717); color: var(--performance-ink, #F5F7F2); font-family: Inter, system-ui, sans-serif; } .ds-macro-cell { min-width: 0; padding: 11px 9px 10px; border-right: 1px solid var(--performance-rail, rgba(245,247,242,.14)); } .ds-macro-cell:last-child { border-right: 0; } .ds-macro-cell span { display: block; overflow: hidden; color: var(--performance-muted, #A9AEAA); font-size: 11px; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; } .ds-macro-cell strong { display: block; margin-top: 4px; overflow: hidden; font: 500 13px/1.2 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; } .ds-macro-cell .ds-wrap { font-size: 11px; white-space: normal; } .ds-coral { color: var(--performance-coral, #FF6573); } .ds-cyan { color: var(--performance-cyan, #42D7FF); } .ds-violet { color: var(--performance-violet, #9567F2); } .ds-orange { color: var(--performance-orange, #FF7A1A); }"
+    },
+    {
+      "name": "Active Performance Row",
+      "kind": "custom",
+      "refersTo": "performance-result-row",
+      "description": "A split-sheet row with a cyan state rail and tabular metric.",
+      "html": "<div class=\"ds-result-row\"><div class=\"ds-result-copy\"><strong>Bench press</strong><span>3 sets · Barbell</span></div><span class=\"ds-result-metric\">80 KG × 5</span></div>",
+      "css": ".ds-result-row { display: flex; min-height: 72px; align-items: center; gap: 12px; padding: 12px 14px; border-bottom: 1px solid var(--performance-rail, rgba(245,247,242,.14)); background: var(--performance-surface, #151717); box-shadow: inset 3px 0 0 var(--performance-cyan, #42D7FF); color: var(--performance-ink, #F5F7F2); font-family: Inter, system-ui, sans-serif; } .ds-result-copy { min-width: 0; flex: 1; } .ds-result-copy strong, .ds-result-copy span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .ds-result-copy strong { font-size: 15px; line-height: 1.25; } .ds-result-copy span { margin-top: 3px; color: var(--performance-muted, #A9AEAA); font-size: 12px; } .ds-result-metric { color: var(--performance-ink, #F5F7F2); font: 500 12px/1.2 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; }"
+    },
+    {
+      "name": "Strength Workout Mode",
+      "kind": "card",
+      "refersTo": "workout-mode-card",
+      "description": "The visual training-intent entry built from anatomical imagery and lime illumination.",
+      "html": "<button class=\"ds-workout-mode\" type=\"button\"><svg class=\"ds-anatomy\" viewBox=\"0 0 120 150\" aria-hidden=\"true\"><circle cx=\"60\" cy=\"24\" r=\"13\"/><path d=\"M43 42 Q60 34 77 42 L83 84 73 92 69 137 56 137 52 96 48 137 35 137 39 91 30 82Z\"/></svg><span class=\"ds-workout-scrim\"></span><span class=\"ds-workout-copy\"><strong>Strength</strong><small>Weights · sets · PRs</small></span></button>",
+      "css": ".ds-workout-mode { position: relative; width: 100%; min-height: 168px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--performance-lime, #B7F10A) 28%, transparent); border-radius: 16px; background: radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--performance-lime, #B7F10A) 25%, transparent), #050606 62%); color: var(--performance-lime, #B7F10A); cursor: pointer; text-align: left; isolation: isolate; } .ds-anatomy { position: absolute; inset: 2px 25% 0; width: 50%; height: 96%; fill: #2B3330; stroke: color-mix(in srgb, var(--performance-cyan, #42D7FF) 75%, white); stroke-width: 2; transition: transform 280ms cubic-bezier(.16,1,.3,1); } .ds-workout-scrim { position: absolute; inset: 0; background: linear-gradient(180deg, transparent 24%, rgba(2,3,3,.9) 100%); } .ds-workout-copy { position: absolute; right: 14px; bottom: 14px; left: 14px; } .ds-workout-copy strong, .ds-workout-copy small { display: block; } .ds-workout-copy strong { font: 700 17px/1.15 Inter, system-ui, sans-serif; letter-spacing: -.025em; } .ds-workout-copy small { margin-top: 4px; color: rgba(255,255,255,.76); font: 400 11px/1.25 Inter, system-ui, sans-serif; } .ds-workout-mode:hover .ds-anatomy { transform: scale(1.035); } .ds-workout-mode:focus-visible { outline: 2px solid var(--focus-ring, #E8C078); outline-offset: 2px; } .ds-workout-mode:active { filter: brightness(.94); }"
+    },
+    {
+      "name": "Session Exercise Identity",
+      "kind": "custom",
+      "refersTo": "session-exercise-identity",
+      "description": "The compact image-first identity row above a set logging grid.",
+      "html": "<button class=\"ds-exercise-identity\" type=\"button\" aria-expanded=\"false\"><span class=\"ds-exercise-visual\"><svg viewBox=\"0 0 68 60\" aria-hidden=\"true\"><circle cx=\"34\" cy=\"12\" r=\"7\"/><path d=\"M24 22 Q34 17 44 22 L48 41 41 44 39 57 31 57 29 45 27 57 19 57 21 42 16 39Z\"/></svg></span><span class=\"ds-exercise-copy\"><strong>Bench press</strong><small>3 sets · Barbell</small><small class=\"ds-exercise-last\">Last 80kg × 5</small></span><svg class=\"ds-chevron\" viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"m6 9 6 6 6-6\"/></svg></button>",
+      "css": ".ds-exercise-identity { display: flex; min-height: 80px; width: 100%; align-items: center; gap: 12px; padding: 10px; border: 0; border-bottom: 1px solid var(--performance-rail, rgba(245,247,242,.14)); background: var(--performance-surface, #151717); color: var(--performance-ink, #F5F7F2); cursor: pointer; text-align: left; } .ds-exercise-visual { display: block; width: 68px; height: 60px; flex: none; overflow: hidden; border-radius: 11px; background: #070806; } .ds-exercise-visual svg { width: 100%; height: 100%; fill: #29312E; stroke: var(--performance-cyan, #42D7FF); stroke-width: 1.5; } .ds-exercise-copy { min-width: 0; flex: 1; font-family: Inter, system-ui, sans-serif; } .ds-exercise-copy strong, .ds-exercise-copy small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .ds-exercise-copy strong { font-size: 15px; line-height: 1.2; } .ds-exercise-copy small { margin-top: 3px; color: var(--performance-muted, #A9AEAA); font-size: 11px; } .ds-exercise-copy .ds-exercise-last { color: var(--performance-cyan, #42D7FF); } .ds-chevron { width: 18px; height: 18px; fill: none; stroke: var(--performance-muted, #A9AEAA); stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; } .ds-exercise-identity:hover { background: var(--surface-hover, #222222); } .ds-exercise-identity:focus-visible { outline: 2px solid var(--focus-ring, #E8C078); outline-offset: 2px; } .ds-exercise-identity:active { background: var(--surface-active, #2A2A2A); }"
+    },
+    {
+      "name": "Coach Conversation Header",
+      "kind": "custom",
+      "refersTo": "coach-conversation-header",
+      "description": "Persistent coach identity and private-line status above a conversation.",
+      "html": "<header class=\"ds-coach-header\"><button type=\"button\" aria-label=\"Back\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"m15 18-6-6 6-6\"/></svg></button><span class=\"ds-coach-avatar\">C</span><span class=\"ds-coach-copy\"><strong>Coach Codex</strong><small><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z\"/><path d=\"m9 12 2 2 4-4\"/></svg>Private coach line</small></span></header>",
+      "css": ".ds-coach-header { display: flex; min-height: 68px; align-items: center; gap: 10px; border-bottom: 1px solid var(--performance-rail, rgba(245,247,242,.14)); background: color-mix(in srgb, var(--performance-canvas, #070806) 96%, transparent); color: var(--performance-ink, #F5F7F2); font-family: Inter, system-ui, sans-serif; backdrop-filter: blur(18px); } .ds-coach-header > button { display: grid; min-width: 44px; min-height: 44px; place-items: center; border: 0; border-radius: 12px; background: var(--performance-surface, #151717); color: var(--performance-muted, #A9AEAA); cursor: pointer; } .ds-coach-header > button svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; } .ds-coach-header > button:hover { color: var(--performance-ink, #F5F7F2); } .ds-coach-header > button:focus-visible { outline: 2px solid var(--focus-ring, #E8C078); outline-offset: 2px; } .ds-coach-avatar { display: grid; width: 42px; height: 42px; place-items: center; border: 1px solid color-mix(in srgb, var(--performance-gold, #D4A853) 45%, transparent); border-radius: 13px; background: color-mix(in srgb, var(--performance-gold, #D4A853) 14%, var(--performance-surface, #151717)); color: var(--performance-gold, #D4A853); font: 750 14px/1 'JetBrains Mono', ui-monospace, monospace; } .ds-coach-copy strong, .ds-coach-copy small { display: flex; align-items: center; } .ds-coach-copy strong { font-size: 15px; line-height: 1.2; } .ds-coach-copy small { gap: 4px; margin-top: 3px; color: var(--performance-muted, #A9AEAA); font-size: 11px; } .ds-coach-copy small svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; }"
+    },
+    {
+      "name": "Chat Composer Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "A restrained message field that keeps the coach thread visually dominant.",
+      "html": "<label class=\"ds-chat-field\"><span class=\"ds-sr-only\">Message your coach</span><input type=\"text\" placeholder=\"Message...\"><button type=\"button\" aria-label=\"Send message\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"m22 2-7 20-4-9-9-4Z\"/><path d=\"M22 2 11 13\"/></svg></button></label>",
+      "css": ".ds-chat-field { display: flex; align-items: center; gap: 8px; color: var(--performance-ink, #F5F7F2); } .ds-chat-field input { min-height: 44px; min-width: 0; flex: 1; padding: 12px 16px; border: 1px solid var(--border-default, #333333); border-radius: 12px; outline: none; background: var(--performance-surface, #151717); color: var(--performance-ink, #F5F7F2); font: 400 16px/1.25 Inter, system-ui, sans-serif; transition: border-color 200ms ease, box-shadow 200ms ease; } .ds-chat-field input::placeholder { color: var(--performance-muted, #A9AEAA); } .ds-chat-field input:hover { border-color: var(--border-strong, #57534E); } .ds-chat-field input:focus { border-color: var(--performance-gold, #D4A853); box-shadow: 0 0 0 3px rgba(212,168,83,.1); } .ds-chat-field button { display: grid; width: 44px; height: 44px; place-items: center; border: 0; border-radius: 12px; background: var(--performance-surface, #151717); color: var(--performance-muted, #A9AEAA); cursor: pointer; } .ds-chat-field button:hover { color: var(--performance-gold, #D4A853); } .ds-chat-field button:focus-visible { outline: 2px solid var(--focus-ring, #E8C078); outline-offset: 2px; } .ds-chat-field button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.7; } .ds-sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }"
+    },
+    {
+      "name": "Floating Bottom Navigation",
+      "kind": "nav",
+      "refersTo": "navigation-bottom",
+      "description": "The stable five-slot client navigation with a gold active rail.",
+      "html": "<nav class=\"ds-bottom-nav\" aria-label=\"Primary\"><a class=\"ds-nav-item ds-nav-active\" href=\"#\" aria-current=\"page\"><span class=\"ds-active-rail\"></span><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"m3 11 9-8 9 8v9a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z\"/></svg><span>Home</span></a><a class=\"ds-nav-item\" href=\"#\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M4 4h16v16H4z\"/><path d=\"M4 16h16\"/></svg><span>Log</span></a><a class=\"ds-nav-item\" href=\"#\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M6 7v10M3 9v6m15-8v10m3-8v6M6 12h12\"/></svg><span>Workout</span></a><a class=\"ds-nav-item\" href=\"#\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M3 20h18M5 16l4-5 4 3 6-8\"/></svg><span>Progress</span></a><a class=\"ds-nav-item\" href=\"#\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"8\" r=\"4\"/><path d=\"M4 21a8 8 0 0 1 16 0\"/></svg><span>Me</span></a></nav>",
+      "css": ".ds-bottom-nav { display: flex; min-height: 56px; overflow: hidden; border: 1px solid var(--border-default, #333333); border-radius: 24px; background: color-mix(in srgb, var(--surface-overlay, #1A1A1A) 95%, transparent); box-shadow: var(--shadow-medium, 0 8px 24px -8px rgba(0,0,0,.5)); color: var(--performance-muted, #A9AEAA); font-family: Inter, system-ui, sans-serif; backdrop-filter: blur(12px); } .ds-nav-item { position: relative; display: flex; min-height: 56px; min-width: 0; flex: 1; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border-radius: 12px; color: var(--performance-muted, #A9AEAA); font-size: 10px; font-weight: 500; letter-spacing: .05em; text-decoration: none; text-transform: uppercase; transition: color 150ms ease, background 150ms ease; } .ds-nav-item svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.7; opacity: .75; } .ds-nav-item:hover { background: var(--surface-hover, #222222); color: var(--content-secondary, #D6D3D1); } .ds-nav-item:focus-visible { outline: 2px solid var(--focus-ring, #E8C078); outline-offset: -3px; } .ds-nav-active { background: var(--surface-active, #2A2A2A); color: var(--performance-gold, #D4A853); } .ds-nav-active svg { opacity: 1; } .ds-active-rail { position: absolute; top: 0; width: 36px; height: 2px; border-radius: 999px; background: var(--performance-gold, #D4A853); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Personal Best",
+    "overview": "Personal Best is a compact athlete evidence board inspired by race timing boards, split sheets, and premium coaching dossiers; it refuses generic glass-card SaaS. Its visual thesis is dense but calm: the interface reads as a sequence of measured facts, coach cues, and clear next actions, organized by disciplined rails instead of ornamental containers.\n\nThe material world is obsidian/graphite; Trophē gold for identity and primary actions; lime, cyan, coral, violet as performance channels; disciplined rails; tabular/mono evidence; anatomical workout imagery. In use, Nik opens a compact coach-led day, reads honest nutrition evidence, enters a visual progressive workout flow, and can reach a clearly identified private coach conversation.",
+    "keyCharacteristics": [
+      "Compact, coach-led information hierarchy.",
+      "Evidence rows and split-sheet dividers with tabular metrics.",
+      "Anatomical workout imagery anchored in black fields.",
+      "Theme-aware contrast with identical hierarchy in light and dark.",
+      "A stable floating five-slot navigation rail."
+    ],
+    "rules": [
+      { "name": "The Channel Integrity Rule", "body": "Gold identifies Trophē and primary intent; lime, cyan, coral, violet, and orange encode performance meaning and are never sprayed across unrelated decoration.", "section": "colors" },
+      { "name": "The Evidence Type Rule", "body": "Measurements, ratios, dates, and channel values use the mono voice with tabular numerals; conversational coaching copy remains in Inter.", "section": "typography" },
+      { "name": "The Evidence-First Rule", "body": "Identity, greeting, plan, honest nutrition evidence, training intent, and coach access appear in that reading order; visual density must never hide the next useful fact.", "section": "layout" },
+      { "name": "The Rail-Before-Shadow Rule", "body": "Use tonal separation and a disciplined one-pixel rail before adding elevation; shadows indicate floating context, not generic card decoration.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do keep the finish premium, fast, legible in light/dark, user-friendly, non-generic, production credible.",
+      "Do state unavailable or incomplete evidence honestly instead of fabricating a complete metric.",
+      "Do use anatomical workout imagery to make training intent immediately scannable.",
+      "Do preserve 44px minimum touch targets, visible focus, safe areas, and reduced-motion behavior.",
+      "Do keep gold rare enough to preserve identity and action priority."
+    ],
+    "donts": [
+      "Don't turn the client app into generic glass-card SaaS.",
+      "Don't use performance channels as interchangeable decoration or allow them to compete with Trophē gold.",
+      "Don't widen compact client flows into sprawling desktop dashboards.",
+      "Don't hide the coach's identity or blur the distinction between private conversation and generic messaging.",
+      "Don't replace evidence rails and tabular values with soft ornamental cards or vague summaries."
+    ]
+  }
+}
