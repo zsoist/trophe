@@ -74,11 +74,13 @@ function parseState(value: unknown): WorkoutWorkspaceState | null {
   const hasDraft = value.draft !== null;
   const hasSession = typeof value.sessionId === 'string' && value.sessionId.trim().length > 0;
   const hasClock = value.clock !== null;
+  const clockIsRunning = hasClock && (value.clock as LiveClock).runningSince !== null;
   const validStage = value.stage === 'home'
     ? !hasDraft && !hasSession && !hasClock
     : value.stage === 'draft' || value.stage === 'review'
       ? hasDraft && !hasSession && !hasClock
-      : hasDraft && hasSession && hasClock;
+      : hasDraft && hasSession && hasClock
+        && (value.stage === 'live' ? clockIsRunning : !clockIsRunning);
   if (!validStage) return null;
   return {
     stage: value.stage as WorkoutStage,

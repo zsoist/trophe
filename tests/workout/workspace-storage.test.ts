@@ -67,4 +67,35 @@ describe('workout workspace recovery', () => {
     expect(loadWorkspaceState(storage, 'nik')).toBeNull();
     expect(storage.getItem(workspaceStorageKey('nik'))).toBeNull();
   });
+
+  it.each([
+    ['live', { runningSince: null, accumulatedMs: 0 }],
+    ['paused', { runningSince: 1, accumulatedMs: 0 }],
+    ['finishing', { runningSince: 1, accumulatedMs: 0 }],
+    ['completed', { runningSince: 1, accumulatedMs: 0 }],
+  ])('rejects %s recovery with the wrong clock mode', (stage, clock) => {
+    const storage = new MapStorage();
+    storage.setItem(workspaceStorageKey('nik'), JSON.stringify({
+      version: 2,
+      stage,
+      draft: { version: 2, name: 'Legs', kind: 'strength', updatedAt: 0, exercises: [] },
+      sessionId: 'session-1',
+      clock,
+    }));
+    expect(loadWorkspaceState(storage, 'nik')).toBeNull();
+    expect(storage.getItem(workspaceStorageKey('nik'))).toBeNull();
+  });
+
+  it('accepts reducer-compatible running and paused clock modes', () => {
+    const storage = new MapStorage();
+    const draft = { version: 2, name: 'Legs', kind: 'strength', updatedAt: 0, exercises: [] };
+    storage.setItem(workspaceStorageKey('nik'), JSON.stringify({
+      version: 2, stage: 'live', draft, sessionId: 'session-1', clock: { runningSince: 1, accumulatedMs: 0 },
+    }));
+    expect(loadWorkspaceState(storage, 'nik')?.stage).toBe('live');
+    storage.setItem(workspaceStorageKey('nik'), JSON.stringify({
+      version: 2, stage: 'paused', draft, sessionId: 'session-1', clock: { runningSince: null, accumulatedMs: 1 },
+    }));
+    expect(loadWorkspaceState(storage, 'nik')?.stage).toBe('paused');
+  });
 });
