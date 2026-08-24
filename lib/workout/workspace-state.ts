@@ -59,7 +59,7 @@ export type WorkoutWorkspaceEvent =
   | { type: 'live.started'; payload: { sessionId: string; now: number } }
   | { type: 'live.paused'; payload: { now: number } }
   | { type: 'live.resumed'; payload: { now: number } }
-  | { type: 'live.finishing' }
+  | { type: 'live.finishing'; payload: { now: number } }
   | { type: 'live.completed' }
   | { type: 'completed.acknowledged' };
 
@@ -119,7 +119,11 @@ export function workoutWorkspaceReducer(
       return { ...state, stage: 'live', clock: { ...requireClock(state), runningSince: event.payload.now } };
     case 'live.finishing':
       if (state.stage !== 'live' && state.stage !== 'paused') throw new Error(`Cannot finish from ${state.stage}`);
-      return { ...state, stage: 'finishing' };
+      return {
+        ...state,
+        stage: 'finishing',
+        clock: state.clock && { runningSince: null, accumulatedMs: elapsedActiveMs(state.clock, event.payload.now) },
+      };
     case 'live.completed':
       if (state.stage !== 'finishing') throw new Error(`Cannot complete from ${state.stage}`);
       return { ...state, stage: 'completed' };

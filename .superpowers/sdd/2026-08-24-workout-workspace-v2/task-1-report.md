@@ -22,3 +22,24 @@
 ## Concerns
 
 - The brief did not define the full event surface or default values for empty cardio/strength drafts. Defaults are conservative (`walk`, zero duration, empty strength exercises) and can be adjusted if downstream task contracts specify otherwise.
+
+## Fix round 1
+
+### RED
+
+Command: `npx vitest run tests/workout/workspace-state.test.ts`
+
+Result: 1 failed, 3 passed. The new terminal-recovery regression expected 15,000 ms at finishing, but received 69,000 ms because the running clock was not frozen.
+
+### GREEN
+
+Commands and results:
+
+- `npx vitest run tests/workout/workspace-state.test.ts` — 4 tests passed.
+- `npx tsc --noEmit` — passed.
+- `npx eslint lib/workout/workspace-state.ts tests/workout/workspace-state.test.ts` — passed.
+
+### Fix files changed
+
+- `lib/workout/workspace-state.ts`: `live.finishing` now requires `{ now }` and snapshots active time with `runningSince: null` before entering finishing.
+- `tests/workout/workspace-state.test.ts`: verifies draft/session/clock recovery across live, paused, resumed, finishing, and completed; confirms elapsed time is frozen and only acknowledgement clears recovery.
