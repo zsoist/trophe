@@ -6,6 +6,39 @@
 
 import type { MuscleGroup } from '@/lib/types';
 
+export type WorkoutBodyArea =
+  | 'chest'
+  | 'back'
+  | 'shoulders'
+  | 'arms'
+  | 'legs'
+  | 'core'
+  | 'full_body'
+  | 'cardio';
+
+/**
+ * The exercise library is intentionally introduced through eight familiar
+ * body areas. Arms and legs progressively reveal their specific muscles only
+ * after the user has expressed intent, keeping the first decision lightweight.
+ */
+export const WORKOUT_BODY_AREAS: {
+  key: WorkoutBodyArea;
+  muscles: MuscleGroup[];
+}[] = [
+  { key: 'chest', muscles: ['chest'] },
+  { key: 'back', muscles: ['back'] },
+  { key: 'shoulders', muscles: ['shoulders'] },
+  { key: 'arms', muscles: ['biceps', 'triceps', 'forearms'] },
+  { key: 'legs', muscles: ['quads', 'hamstrings', 'glutes', 'calves'] },
+  { key: 'core', muscles: ['core'] },
+  { key: 'full_body', muscles: ['full_body'] },
+  { key: 'cardio', muscles: ['cardio'] },
+];
+
+export function bodyAreaLabelKey(area: WorkoutBodyArea): string {
+  return `workout.body_area_${area}`;
+}
+
 export const MUSCLE_GROUPS: { key: MuscleGroup; label: string; color: string }[] = [
   { key: 'chest', label: 'Chest', color: '#ef4444' },
   { key: 'back', label: 'Back', color: '#3b82f6' },
