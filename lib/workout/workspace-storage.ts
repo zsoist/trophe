@@ -71,11 +71,45 @@ function parseState(value: unknown): WorkoutWorkspaceState | null {
     || (value.draft !== null && !isDraft(value.draft))
     || (value.sessionId !== null && typeof value.sessionId !== 'string')
     || (value.clock !== null && !isClock(value.clock))) return null;
+  const hasDraft = value.draft !== null;
+  const hasSession = typeof value.sessionId === 'string' && value.sessionId.trim().length > 0;
+  const hasClock = value.clock !== null;
+  const validStage = value.stage === 'home'
+    ? !hasDraft && !hasSession && !hasClock
+    : value.stage === 'draft' || value.stage === 'review'
+      ? hasDraft && !hasSession && !hasClock
+      : hasDraft && hasSession && hasClock;
+  if (!validStage) return null;
   return {
     stage: value.stage as WorkoutStage,
     draft: value.draft as WorkoutDraft | null,
     sessionId: value.sessionId as string | null,
     clock: value.clock as LiveClock | null,
+  };
+}
+
+function persistDraft(draft: WorkoutDraft | null): WorkoutDraft | null {
+  if (!draft) return null;
+  if (draft.kind === 'strength') {
+    return {
+      version: WORKOUT_DRAFT_VERSION,
+      name: draft.name,
+      ...(draft.templateKey === undefined ? {} : { templateKey: draft.templateKey }),
+      updatedAt: draft.updatedAt,
+      kind: 'strength',
+      exercises: draft.exercises.map(({ exerciseId, targetSets, targetReps }) => ({ exerciseId, targetSets, targetReps })),
+    };
+  }
+  return {
+    version: WORKOUT_DRAFT_VERSION,
+    name: draft.name,
+    ...(draft.templateKey === undefined ? {} : { templateKey: draft.templateKey }),
+    updatedAt: draft.updatedAt,
+    kind: 'cardio',
+    activity: draft.activity,
+    durationMinutes: draft.durationMinutes,
+    distanceKm: draft.distanceKm,
+    effort: draft.effort,
   };
 }
 
@@ -94,7 +128,13 @@ export function loadWorkspaceState(storage: WorkspaceStorage, userId: string): W
 }
 
 export function saveWorkspaceState(storage: WorkspaceStorage, userId: string, state: WorkoutWorkspaceState): void {
-  const payload: PersistedWorkspaceState = { version: WORKOUT_DRAFT_VERSION, ...state };
+  const payload: PersistedWorkspaceState = {
+    version: WORKOUT_DRAFT_VERSION,
+    stage: state.stage,
+    draft: persistDraft(state.draft),
+    sessionId: state.sessionId,
+    clock: state.clock && { runningSince: state.clock.runningSince, accumulatedMs: state.clock.accumulatedMs },
+  };
   storage.setItem(workspaceStorageKey(userId), JSON.stringify(payload));
 }
 

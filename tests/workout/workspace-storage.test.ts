@@ -43,4 +43,28 @@ describe('workout workspace recovery', () => {
     clearWorkspaceState(storage, 'nik');
     expect(loadWorkspaceState(storage, 'nik')).toBeNull();
   });
+
+  it('persists only the approved recovery fields', () => {
+    const storage = new MapStorage();
+    const state = workoutWorkspaceReducer(createInitialWorkspaceState(), {
+      type: 'draft.created', payload: { name: 'Legs', kind: 'strength' },
+    });
+    (state.draft as typeof state.draft & { user?: unknown; exerciseRows?: unknown }).user = { id: 'secret' };
+    (state.draft as typeof state.draft & { user?: unknown; exerciseRows?: unknown }).exerciseRows = [{ id: 'row' }];
+    saveWorkspaceState(storage, 'nik', state);
+    const stored = JSON.parse(storage.getItem(workspaceStorageKey('nik')) ?? '{}');
+    expect(stored.draft.user).toBeUndefined();
+    expect(stored.draft.exerciseRows).toBeUndefined();
+  });
+
+  it.each([
+    ['live', null, 'session-1', { runningSince: 1, accumulatedMs: 0 }],
+    ['paused', { version: 2, name: 'Legs', kind: 'strength', updatedAt: 0, exercises: [] }, null, null],
+    ['completed', { version: 2, name: 'Legs', kind: 'strength', updatedAt: 0, exercises: [] }, 'session-1', null],
+  ])('rejects impossible %s recovery combinations', (stage, draft, sessionId, clock) => {
+    const storage = new MapStorage();
+    storage.setItem(workspaceStorageKey('nik'), JSON.stringify({ version: 2, stage, draft, sessionId, clock }));
+    expect(loadWorkspaceState(storage, 'nik')).toBeNull();
+    expect(storage.getItem(workspaceStorageKey('nik'))).toBeNull();
+  });
 });
