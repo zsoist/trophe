@@ -41,6 +41,23 @@ export interface LiveClock {
   accumulatedMs: number;
 }
 
+export interface LiveStartStructureExercise {
+  exerciseId: string;
+  targetSets: number;
+  targetReps: string;
+  supersetGroup: number | null;
+}
+
+export interface LiveStartRequestEnvelope {
+  idempotencyKey: string;
+  draftFingerprint: string;
+  sessionDate: string;
+  name: string;
+  templateId: string | null;
+  kind: WorkoutKind;
+  liveStructure: LiveStartStructureExercise[];
+}
+
 export interface WorkoutWorkspaceState {
   stage: WorkoutStage;
   draft: WorkoutDraft | null;
@@ -50,6 +67,8 @@ export interface WorkoutWorkspaceState {
   finishingFrom?: 'live' | 'paused' | null;
   /** Persisted before a create request so an ambiguous response can be retried safely. */
   clientRequestId: string | null;
+  /** Complete immutable live-start request persisted before transport. */
+  startRequest?: LiveStartRequestEnvelope | null;
 }
 
 export const WORKOUT_DRAFT_VERSION = 2 as const;
@@ -67,6 +86,7 @@ export type WorkoutWorkspaceEvent =
   | { type: 'draft.updated'; payload: { draft: WorkoutDraft } }
   | { type: 'draft.reviewed' }
   | { type: 'request.keyed'; payload: { clientRequestId: string } }
+  | { type: 'request.prepared'; payload: { startRequest: LiveStartRequestEnvelope } }
   | { type: 'live.started'; payload: { sessionId: string; now: number } }
   | { type: 'live.draftUpdated'; payload: { draft: WorkoutDraft } }
   | { type: 'live.paused'; payload: { now: number } }
@@ -85,7 +105,7 @@ export function createEmptyDraft(kind: WorkoutKind = 'strength', name = '', temp
 }
 
 export function createInitialWorkspaceState(): WorkoutWorkspaceState {
-  return { stage: 'home', draft: null, sessionId: null, clock: null, finishingFrom: null, clientRequestId: null };
+  return { stage: 'home', draft: null, sessionId: null, clock: null, finishingFrom: null, clientRequestId: null, startRequest: null };
 }
 
 export function elapsedActiveMs(clock: LiveClock | null, now: number): number {
@@ -110,7 +130,7 @@ export function workoutWorkspaceReducer(
   switch (event.type) {
     case 'draft.created':
       if (state.stage !== 'home') throw new Error(`Cannot create a draft from ${state.stage}`);
-      return { stage: 'draft', draft: createEmptyDraft(event.payload.kind, event.payload.name, event.payload.templateKey, event.payload.updatedAt ?? 0, event.payload.templateId), sessionId: null, clock: null, finishingFrom: null, clientRequestId: null };
+      return { stage: 'draft', draft: createEmptyDraft(event.payload.kind, event.payload.name, event.payload.templateKey, event.payload.updatedAt ?? 0, event.payload.templateId), sessionId: null, clock: null, finishingFrom: null, clientRequestId: null, startRequest: null };
     case 'draft.updated':
       if (state.stage !== 'draft' && state.stage !== 'review') throw new Error(`Cannot update a draft from ${state.stage}`);
       return { ...state, draft: event.payload.draft };
@@ -123,6 +143,17 @@ export function workoutWorkspaceReducer(
       if (state.stage !== 'draft' && state.stage !== 'review') throw new Error(`Cannot key a request from ${state.stage}`);
       if (!event.payload.clientRequestId.trim()) throw new Error('A client request id is required');
       return { ...state, clientRequestId: event.payload.clientRequestId };
+    case 'request.prepared':
+      requireDraft(state);
+      if (state.stage !== 'draft' && state.stage !== 'review') throw new Error(`Cannot prepare a request from ${state.stage}`);
+      if (!event.payload.startRequest.idempotencyKey.trim() || !event.payload.startRequest.draftFingerprint.trim()) {
+        throw new Error('A complete client request is required');
+      }
+      return {
+        ...state,
+        clientRequestId: event.payload.startRequest.idempotencyKey,
+        startRequest: event.payload.startRequest,
+      };
     case 'live.started':
       if (!event.payload.sessionId.trim()) throw new Error('A session id is required');
       requireDraft(state);

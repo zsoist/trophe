@@ -60,4 +60,11 @@ describe('ExerciseSetLogger', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'Complete set' }).hasAttribute('disabled')).toBe(false));
     expect(screen.queryByRole('button', { name: 'Undo set' })).toBeNull();
   });
+
+  it('disables edits and conflicting structure controls behind the mutation barrier', () => {
+    render(<ExerciseSetLogger disabled exercise={{ id: 'bench', name: 'Bench Press' }} setNumber={1} unit="kg" onComplete={vi.fn()} />);
+    expect((screen.getByLabelText('Weight in kg') as HTMLInputElement).disabled).toBe(true);
+    expect(screen.getByRole('button', { name: 'Complete set' }).hasAttribute('disabled')).toBe(true);
+    expect(screen.getByRole('button', { name: 'More exercise options' }).hasAttribute('disabled')).toBe(true);
+  });
 });

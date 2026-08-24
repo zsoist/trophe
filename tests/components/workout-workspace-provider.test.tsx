@@ -5,16 +5,20 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const { startLiveSession, discardEmptyLiveSession } = vi.hoisted(() => ({ startLiveSession: vi.fn(), discardEmptyLiveSession: vi.fn() }));
+const dateHarness = vi.hoisted(() => ({ today: '2026-08-24' }));
 
 vi.mock('@/lib/workout/live-session', () => ({ startLiveSession, discardEmptyLiveSession }));
 vi.mock('@/lib/supabase', () => ({
   supabase: { auth: { getUser: vi.fn() } },
 }));
+vi.mock('@/lib/utils/dates', () => ({ localToday: () => dateHarness.today }));
 
 import {
   WorkoutWorkspaceProvider,
   useWorkoutWorkspace,
 } from '@/components/workout/workspace/WorkoutWorkspaceProvider';
+import { saveWorkspaceState } from '@/lib/workout/workspace-storage';
+import { createInitialWorkspaceState, workoutWorkspaceReducer } from '@/lib/workout/workspace-state';
 
 class MemoryStorage {
   private readonly values = new Map<string, string>();
@@ -77,6 +81,7 @@ afterEach(() => {
   cleanup();
   startLiveSession.mockReset();
   discardEmptyLiveSession.mockReset();
+  dateHarness.today = '2026-08-24';
 });
 
 describe('WorkoutWorkspaceProvider', () => {
@@ -97,6 +102,7 @@ describe('WorkoutWorkspaceProvider', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'Start live workout' })).toBeTruthy());
 
     fireEvent.click(screen.getByRole('button', { name: 'Create Push draft' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add Bench Press' }));
     fireEvent.click(screen.getByRole('button', { name: 'Start live workout' }));
 
     await waitFor(() => expect(startLiveSession).toHaveBeenCalledTimes(1));
@@ -152,6 +158,7 @@ describe('WorkoutWorkspaceProvider', () => {
     render(<ProviderHarness userId="nik" />);
     await waitFor(() => expect(screen.getByRole('button', { name: 'Create Push draft' })).toBeTruthy());
     fireEvent.click(screen.getByRole('button', { name: 'Create Push draft' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add Bench Press' }));
     fireEvent.click(screen.getByRole('button', { name: 'Start live workout' }));
     await waitFor(() => expect(screen.getByText('Live')).toBeTruthy());
     fireEvent.click(screen.getByRole('button', { name: 'Pause workout' }));
@@ -167,6 +174,7 @@ describe('WorkoutWorkspaceProvider', () => {
     render(<ProviderHarness userId="nik" storage={storage} />);
     await waitFor(() => expect(screen.getByRole('button', { name: 'Create Push draft' })).toBeTruthy());
     fireEvent.click(screen.getByRole('button', { name: 'Create Push draft' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add Bench Press' }));
     fireEvent.click(screen.getByRole('button', { name: 'Start live workout' }));
     await waitFor(() => expect(screen.getByText('Live')).toBeTruthy());
     fireEvent.click(screen.getByRole('button', { name: 'Request finish' }));
@@ -178,23 +186,50 @@ describe('WorkoutWorkspaceProvider', () => {
     await waitFor(() => expect(storage.getItem('trophe:workout-workspace:nik')).toBeNull());
   });
 
-  it('persists one request key before start and reuses it after an ambiguous failure', async () => {
+  it('persists the complete start envelope before send and replays its original date', async () => {
     const storage = new MemoryStorage();
-    const seen: string[] = [];
-    startLiveSession.mockImplementation(async ({ idempotencyKey }: { idempotencyKey: string }) => {
+    const seen: Array<{ idempotencyKey: string; sessionDate: string; draftFingerprint: string }> = [];
+    startLiveSession.mockImplementation(async (request: { idempotencyKey: string; sessionDate: string; draftFingerprint: string }) => {
       const recovered = JSON.parse(storage.getItem('trophe:workout-workspace:nik') ?? '{}');
-      expect(recovered.clientRequestId).toBe(idempotencyKey);
-      seen.push(idempotencyKey);
+      expect(recovered.startRequest).toEqual(request);
+      seen.push(request);
       return { ok: false };
     });
     render(<ProviderHarness userId="nik" storage={storage} />);
     await waitFor(() => expect(screen.getByRole('button', { name: 'Create Push draft' })).toBeTruthy());
     fireEvent.click(screen.getByRole('button', { name: 'Create Push draft' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add Bench Press' }));
     fireEvent.click(screen.getByRole('button', { name: 'Start live workout' }));
     await waitFor(() => expect(startLiveSession).toHaveBeenCalledTimes(1));
+    dateHarness.today = '2026-08-25';
     fireEvent.click(screen.getByRole('button', { name: 'Start live workout' }));
     await waitFor(() => expect(startLiveSession).toHaveBeenCalledTimes(2));
-    expect(seen[0]).toMatch(/^[0-9a-f-]{36}$/i);
-    expect(seen[1]).toBe(seen[0]);
+    expect(seen[0].idempotencyKey).toMatch(/^[0-9a-f-]{36}$/i);
+    expect(seen[0].sessionDate).toBe('2026-08-24');
+    expect(seen[1]).toEqual(seen[0]);
+  });
+
+  it('coordinates the same recovered draft across two stale providers', async () => {
+    const storage = new MemoryStorage();
+    let draft = workoutWorkspaceReducer(createInitialWorkspaceState(), {
+      type: 'draft.created', payload: { name: 'Push', kind: 'strength', updatedAt: 10 },
+    });
+    draft = workoutWorkspaceReducer(draft, { type: 'draft.updated', payload: { draft: {
+      ...draft.draft!, exercises: [{ exerciseId: '11111111-1111-4111-8111-111111111111', targetSets: 3, targetReps: '8' }],
+    } as never } });
+    saveWorkspaceState(storage, 'nik', draft);
+    startLiveSession.mockResolvedValue({ ok: false });
+
+    render(<>
+      <ProviderHarness userId="nik" storage={storage} />
+      <ProviderHarness userId="nik" storage={storage} />
+    </>);
+    const starts = await screen.findAllByRole('button', { name: 'Start live workout' });
+    fireEvent.click(starts[0]);
+    await waitFor(() => expect(startLiveSession).toHaveBeenCalledTimes(1));
+    fireEvent.click(starts[1]);
+    await waitFor(() => expect(startLiveSession).toHaveBeenCalledTimes(2));
+
+    expect(startLiveSession.mock.calls[1][0]).toEqual(startLiveSession.mock.calls[0][0]);
   });
 });

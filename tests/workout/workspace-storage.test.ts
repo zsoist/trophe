@@ -78,6 +78,28 @@ describe('workout workspace recovery', () => {
     expect(loadWorkspaceState(storage, 'nik')).toBeNull();
   });
 
+  it('strictly persists a complete immutable live start envelope', () => {
+    const storage = new MapStorage();
+    let state = workoutWorkspaceReducer(createInitialWorkspaceState(), {
+      type: 'draft.created', payload: { name: 'Upper', kind: 'strength', updatedAt: 10 },
+    });
+    const startRequest = {
+      idempotencyKey: '11111111-1111-4111-8111-111111111111',
+      draftFingerprint: 'draft:upper:10',
+      sessionDate: '2026-08-24',
+      name: 'Upper', templateId: null, kind: 'strength' as const,
+      liveStructure: [{ exerciseId: 'bench', targetSets: 3, targetReps: '8', supersetGroup: null }],
+    };
+    state = workoutWorkspaceReducer(state, { type: 'request.prepared', payload: { startRequest } });
+    saveWorkspaceState(storage, 'nik', state);
+    expect(loadWorkspaceState(storage, 'nik')?.startRequest).toEqual(startRequest);
+
+    const stored = JSON.parse(storage.getItem(workspaceStorageKey('nik')) ?? '{}');
+    stored.startRequest.sessionDate = 'tomorrow';
+    storage.setItem(workspaceStorageKey('nik'), JSON.stringify(stored));
+    expect(loadWorkspaceState(storage, 'nik')).toBeNull();
+  });
+
   it.each([
     ['live', null, 'session-1', { runningSince: 1, accumulatedMs: 0 }],
     ['paused', { version: 2, name: 'Legs', kind: 'strength', updatedAt: 0, exercises: [] }, null, null],

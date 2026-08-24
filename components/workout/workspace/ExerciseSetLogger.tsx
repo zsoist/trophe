@@ -26,6 +26,7 @@ interface ExerciseSetLoggerProps {
   initialValue?: Partial<SetLoggerValue>;
   initialSetId?: string | null;
   restTargetSeconds?: number;
+  disabled?: boolean;
   onComplete(value: SetLoggerValue): Promise<string | null>;
   onUndo?: (setId: string) => Promise<boolean>;
   onTechnique?: () => void;
@@ -48,6 +49,7 @@ export function ExerciseSetLogger({
   initialValue,
   initialSetId = null,
   restTargetSeconds = 90,
+  disabled = false,
   onComplete,
   onUndo,
   onTechnique,
@@ -74,7 +76,7 @@ export function ExerciseSetLogger({
   }, [setId]);
 
   const toggleComplete = async () => {
-    if (saving) return;
+    if (saving || disabled) return;
     setSaving(true);
     try {
       if (setId) {
@@ -111,6 +113,7 @@ export function ExerciseSetLogger({
           type="button"
           aria-expanded={moreOpen}
           aria-label={t('workout.more_exercise_options')}
+          disabled={disabled}
           onClick={() => setMoreOpen((open) => !open)}
           className="inline-flex min-h-11 items-center gap-1 rounded-xl px-3 text-sm text-[var(--content-secondary)]"
         >
@@ -121,24 +124,24 @@ export function ExerciseSetLogger({
       <div className="grid grid-cols-2 gap-3">
         <label className="text-sm font-medium text-[var(--content-secondary)]">
           {t('workout.weight_in_unit', { unit })}
-          <input type="number" min="0" step="any" inputMode="decimal" disabled={completed} aria-label={t('workout.weight_in_unit', { unit })} value={weight} onChange={(event) => setWeight(event.target.value)} className="input-dark mt-1 min-h-12 w-full text-base" />
+          <input type="number" min="0" step="any" inputMode="decimal" disabled={completed || disabled} aria-label={t('workout.weight_in_unit', { unit })} value={weight} onChange={(event) => setWeight(event.target.value)} className="input-dark mt-1 min-h-12 w-full text-base" />
         </label>
         <label className="text-sm font-medium text-[var(--content-secondary)]">
           {t('workout.reps')}
-          <input type="number" min="1" step="1" inputMode="numeric" disabled={completed} aria-label={t('workout.reps')} value={reps} onChange={(event) => setReps(event.target.value)} className="input-dark mt-1 min-h-12 w-full text-base" />
+          <input type="number" min="1" step="1" inputMode="numeric" disabled={completed || disabled} aria-label={t('workout.reps')} value={reps} onChange={(event) => setReps(event.target.value)} className="input-dark mt-1 min-h-12 w-full text-base" />
         </label>
       </div>
       <div className="mt-3 grid grid-cols-[minmax(0,1fr)_minmax(9rem,1.4fr)] gap-3">
         <label className="text-sm font-medium text-[var(--content-secondary)]">
           {t('workout.rpe_optional')}
-          <input type="number" min="1" max="10" step="0.5" inputMode="decimal" disabled={completed} aria-label={t('workout.rpe_optional')} value={rpe} onChange={(event) => setRpe(event.target.value)} className="input-dark mt-1 min-h-12 w-full text-base" />
+          <input type="number" min="1" max="10" step="0.5" inputMode="decimal" disabled={completed || disabled} aria-label={t('workout.rpe_optional')} value={rpe} onChange={(event) => setRpe(event.target.value)} className="input-dark mt-1 min-h-12 w-full text-base" />
         </label>
-        <button type="button" disabled={saving} onClick={() => void toggleComplete()} className="btn-gold mt-6 inline-flex min-h-12 items-center justify-center gap-2 rounded-xl disabled:opacity-50">
+        <button type="button" disabled={saving || disabled} onClick={() => void toggleComplete()} className="btn-gold mt-6 inline-flex min-h-12 items-center justify-center gap-2 rounded-xl disabled:opacity-50">
           <Check size={17} aria-hidden="true" />{saving ? t('workout.saving') : completed ? t('workout.undo_set') : t('workout.complete_set')}
         </button>
       </div>
       <label className="mt-3 inline-flex min-h-11 items-center gap-2 text-sm text-[var(--content-secondary)]">
-        <input type="checkbox" disabled={completed} checked={isWarmup} onChange={(event) => setIsWarmup(event.target.checked)} />
+        <input type="checkbox" disabled={completed || disabled} checked={isWarmup} onChange={(event) => setIsWarmup(event.target.checked)} />
         {t('workout.warmup')}
       </label>
 
@@ -150,12 +153,12 @@ export function ExerciseSetLogger({
 
       {moreOpen ? (
         <div className="mt-3 grid grid-cols-2 gap-2 border-t border-[var(--border-subtle)] pt-3">
-          <button type="button" onClick={onTechnique} className="btn-ghost inline-flex min-h-11 items-center gap-2 rounded-xl px-3"><Info size={16} aria-hidden="true" />{t('workout.info_technique')}</button>
-          <button type="button" onClick={onPain} className="btn-ghost inline-flex min-h-11 items-center gap-2 rounded-xl px-3"><AlertTriangle size={16} aria-hidden="true" />{t('workout.report_pain')}</button>
-          {exercise.equipment === 'barbell' ? <button type="button" onClick={() => onPlateCalculator?.(parsedNumber(weight))} className="btn-ghost inline-flex min-h-11 items-center gap-2 rounded-xl px-3"><Calculator size={16} aria-hidden="true" />{t('workout.plate_title')}</button> : null}
-          <button type="button" onClick={onSuperset} className="btn-ghost inline-flex min-h-11 items-center gap-2 rounded-xl px-3"><Link2 size={16} aria-hidden="true" />{t('workout.superset_link')}</button>
+          <button type="button" disabled={disabled} onClick={onTechnique} className="btn-ghost inline-flex min-h-11 items-center gap-2 rounded-xl px-3"><Info size={16} aria-hidden="true" />{t('workout.info_technique')}</button>
+          <button type="button" disabled={disabled} onClick={onPain} className="btn-ghost inline-flex min-h-11 items-center gap-2 rounded-xl px-3"><AlertTriangle size={16} aria-hidden="true" />{t('workout.report_pain')}</button>
+          {exercise.equipment === 'barbell' ? <button type="button" disabled={disabled} onClick={() => onPlateCalculator?.(parsedNumber(weight))} className="btn-ghost inline-flex min-h-11 items-center gap-2 rounded-xl px-3"><Calculator size={16} aria-hidden="true" />{t('workout.plate_title')}</button> : null}
+          <button type="button" disabled={disabled} onClick={onSuperset} className="btn-ghost inline-flex min-h-11 items-center gap-2 rounded-xl px-3"><Link2 size={16} aria-hidden="true" />{t('workout.superset_link')}</button>
           <div className="col-span-2 mt-1 border-t border-[var(--status-danger-border)] pt-2">
-            <button type="button" onClick={onRemove} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[var(--status-danger-bg)] px-3 text-[var(--status-danger-fg)]"><Trash2 size={16} aria-hidden="true" />{t('workout.remove_exercise')}</button>
+            <button type="button" disabled={disabled} onClick={onRemove} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[var(--status-danger-bg)] px-3 text-[var(--status-danger-fg)]"><Trash2 size={16} aria-hidden="true" />{t('workout.remove_exercise')}</button>
           </div>
         </div>
       ) : null}

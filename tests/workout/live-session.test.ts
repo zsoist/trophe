@@ -5,6 +5,8 @@ const persistence = vi.hoisted(() => ({
   createWorkoutSession: vi.fn(),
   startWorkoutSessionAtomic: vi.fn(),
   saveRetrospectiveWorkoutAtomic: vi.fn(),
+  saveLiveWorkoutSetAtomic: vi.fn(),
+  finishLiveWorkoutSessionAtomic: vi.fn(),
   updateLiveWorkoutStructureAtomic: vi.fn(),
   insertWorkoutSet: vi.fn(),
   insertWorkoutSets: vi.fn(),
@@ -13,9 +15,10 @@ const persistence = vi.hoisted(() => ({
   deleteEmptyWorkoutSession: vi.fn(),
   finishWorkoutSession: vi.fn(),
   loadWorkoutSessionSets: vi.fn(),
+  loadWorkoutSessionStructure: vi.fn(),
   loadPrMap: vi.fn(),
   loadWorkoutSessionPainFlags: vi.fn(),
-  updateWorkoutSessionPainFlags: vi.fn(),
+  appendWorkoutSessionPainFlag: vi.fn(),
   updateWorkoutSupersetGroups: vi.fn(),
   deleteWorkoutSets: vi.fn(),
 }));
@@ -27,9 +30,10 @@ import {
   discardEmptyLiveSession,
   finishLiveSession,
   loadLiveSessionSets,
+  loadLiveStructure,
   loadLivePrMap,
   loadLivePainFlags,
-  saveLivePainFlags,
+  appendLivePainFlag,
   updateLiveSupersets,
   removeLiveExerciseSets,
   recoverLiveExtraRows,
@@ -40,6 +44,7 @@ import {
   uncompleteLiveSet,
   updateLiveStructure,
   validateRetrospectiveWorkoutInput,
+  validateLiveCardioMetrics,
 } from '@/lib/workout/live-session';
 
 const idempotencyKey = '11111111-1111-4111-8111-111111111111';
@@ -68,35 +73,37 @@ describe('live workout persistence boundary', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('completes sets against the provider-owned session without creating another session', async () => {
-    persistence.insertWorkoutSet.mockResolvedValueOnce('set-1').mockResolvedValueOnce('set-2');
+    persistence.saveLiveWorkoutSetAtomic.mockResolvedValueOnce('set-1').mockResolvedValueOnce('set-2');
 
     await expect(completeLiveSet({ sessionId: 'session-1', exerciseId: 'bench', setNumber: 1, weightKg: 60, reps: 8 })).resolves.toEqual({ ok: true, setId: 'set-1' });
     await expect(completeLiveSet({ sessionId: 'session-1', exerciseId: 'bench', setNumber: 2, weightKg: 60, reps: 8 })).resolves.toEqual({ ok: true, setId: 'set-2' });
 
     expect(persistence.createWorkoutSession).not.toHaveBeenCalled();
-    expect(persistence.insertWorkoutSet).toHaveBeenNthCalledWith(1, 'session-1', {
-      exercise_id: 'bench', set_number: 1, weight_kg: 60, reps: 8, rpe: null,
-      is_warmup: false, is_pr: false, superset_group: null,
+    expect(persistence.saveLiveWorkoutSetAtomic).toHaveBeenNthCalledWith(1, {
+      sessionId: 'session-1', exerciseId: 'bench', setNumber: 1, weightKg: 60, reps: 8, rpe: null,
+      isWarmup: false, isPr: false, supersetGroup: null,
     });
-    expect(persistence.insertWorkoutSet).toHaveBeenCalledTimes(2);
+    expect(persistence.saveLiveWorkoutSetAtomic).toHaveBeenCalledTimes(2);
   });
 
   it('fails invalid live values closed before touching persistence', async () => {
     await expect(completeLiveSet({ sessionId: 'session-1', exerciseId: 'bench', setNumber: 0, weightKg: -1, reps: 8 })).resolves.toEqual({ ok: false });
     await expect(completeLiveSet({ sessionId: 'session-1', exerciseId: 'bench', setNumber: 1, weightKg: 60, reps: 8, rpe: 11 })).resolves.toEqual({ ok: false });
-    expect(persistence.insertWorkoutSet).not.toHaveBeenCalled();
+    await expect(completeLiveSet({ sessionId: 'session-1', exerciseId: 'bench', setNumber: 1, weightKg: 60, reps: null })).resolves.toEqual({ ok: false });
+    await expect(completeLiveSet({ sessionId: 'session-1', exerciseId: 'bench', setNumber: 1, weightKg: Number.POSITIVE_INFINITY, reps: 8 })).resolves.toEqual({ ok: false });
+    expect(persistence.saveLiveWorkoutSetAtomic).not.toHaveBeenCalled();
   });
 
   it('fails a thrown live insert closed instead of escaping the saving boundary', async () => {
-    persistence.insertWorkoutSet.mockRejectedValue(new Error('offline'));
+    persistence.saveLiveWorkoutSetAtomic.mockRejectedValue(new Error('offline'));
     await expect(completeLiveSet({ sessionId: 'session-1', exerciseId: 'bench', setNumber: 1, weightKg: 60, reps: 8 })).resolves.toEqual({ ok: false });
   });
 
   it('uncompletes and reloads sets through verified helpers', async () => {
     persistence.deleteWorkoutSet.mockResolvedValue(true);
-    persistence.loadWorkoutSessionSets.mockResolvedValue([{ id: 'set-1', exercise_id: 'bench' }]);
+    persistence.loadWorkoutSessionSets.mockResolvedValue({ ok: true, sets: [{ id: 'set-1', exercise_id: 'bench' }] });
     await expect(uncompleteLiveSet('set-1')).resolves.toBe(true);
-    await expect(loadLiveSessionSets('session-1')).resolves.toEqual([{ id: 'set-1', exercise_id: 'bench' }]);
+    await expect(loadLiveSessionSets('session-1')).resolves.toEqual({ ok: true, sets: [{ id: 'set-1', exercise_id: 'bench' }] });
   });
 
   it('loads PR baselines and durable pain flags through the live boundary', async () => {
@@ -106,26 +113,26 @@ describe('live workout persistence boundary', () => {
     await expect(loadLivePainFlags('session-1')).resolves.toEqual({ ok: true, flags: [{ exercise_id: 'bench', body_part: 'shoulder', severity: 2 }] });
   });
 
-  it('verifies pain, superset, and removed-exercise writes before the UI changes', async () => {
+  it('atomically appends pain by mutation id before the UI changes', async () => {
     const flags = [{ exercise_id: 'bench', body_part: 'shoulder', severity: 2 }];
-    persistence.updateWorkoutSessionPainFlags.mockResolvedValue(true);
+    persistence.appendWorkoutSessionPainFlag.mockResolvedValue({ ok: true, flags });
     persistence.updateWorkoutSupersetGroups.mockResolvedValue(true);
     persistence.deleteWorkoutSets.mockResolvedValue(true);
-    await expect(saveLivePainFlags('session-1', flags)).resolves.toBe(true);
+    await expect(appendLivePainFlag('session-1', idempotencyKey, flags[0])).resolves.toEqual({ ok: true, flags });
     await expect(updateLiveSupersets([{ id: 'set-1', superset_group: 1 }])).resolves.toBe(true);
     await expect(removeLiveExerciseSets(['set-1'])).resolves.toBe(true);
-    expect(persistence.updateWorkoutSessionPainFlags).toHaveBeenCalledWith('session-1', flags);
+    expect(persistence.appendWorkoutSessionPainFlag).toHaveBeenCalledWith('session-1', idempotencyKey, flags[0]);
   });
 
   it('fails secondary live writes closed when the transport throws', async () => {
     persistence.deleteWorkoutSet.mockRejectedValue(new Error('offline'));
-    persistence.updateWorkoutSessionPainFlags.mockRejectedValue(new Error('offline'));
+    persistence.appendWorkoutSessionPainFlag.mockRejectedValue(new Error('offline'));
     persistence.updateWorkoutSupersetGroups.mockRejectedValue(new Error('offline'));
     persistence.deleteWorkoutSets.mockRejectedValue(new Error('offline'));
     persistence.deleteEmptyWorkoutSession.mockRejectedValue(new Error('offline'));
 
     await expect(uncompleteLiveSet('set-1')).resolves.toBe(false);
-    await expect(saveLivePainFlags('session-1', [])).resolves.toBe(false);
+    await expect(appendLivePainFlag('session-1', idempotencyKey, { exercise_id: 'bench', body_part: 'shoulder', severity: 2 })).resolves.toEqual({ ok: false });
     await expect(updateLiveSupersets([{ id: 'set-1', superset_group: 1 }])).resolves.toBe(false);
     await expect(removeLiveExerciseSets(['set-1'])).resolves.toBe(false);
     await expect(discardEmptyLiveSession('session-1')).resolves.toBe(false);
@@ -135,7 +142,7 @@ describe('live workout persistence boundary', () => {
     persistence.loadWorkoutSessionSets.mockRejectedValue(new Error('offline'));
     persistence.loadWorkoutSessionPainFlags.mockRejectedValue(new Error('offline'));
     persistence.loadPrMap.mockRejectedValue(new Error('offline'));
-    await expect(loadLiveSessionSets('session-1')).resolves.toEqual([]);
+    await expect(loadLiveSessionSets('session-1')).resolves.toEqual({ ok: false });
     await expect(loadLivePainFlags('session-1')).resolves.toEqual({ ok: false });
     await expect(loadLivePrMap('nik', ['bench'])).resolves.toEqual({});
   });
@@ -160,7 +167,7 @@ describe('live workout persistence boundary', () => {
 
   it('does not clear recovery when finish verification fails', async () => {
     const onVerified = vi.fn();
-    persistence.finishWorkoutSession.mockResolvedValue(false);
+    persistence.finishLiveWorkoutSessionAtomic.mockResolvedValue(false);
 
     const result = await finishLiveSession({
       sessionId: 'session-1', name: 'Push', durationMinutes: 42,
@@ -173,14 +180,14 @@ describe('live workout persistence boundary', () => {
 
   it('does not clear recovery when finish verification throws', async () => {
     const onVerified = vi.fn();
-    persistence.finishWorkoutSession.mockRejectedValue(new Error('offline'));
+    persistence.finishLiveWorkoutSessionAtomic.mockRejectedValue(new Error('offline'));
     await expect(finishLiveSession({ sessionId: 'session-1', name: 'Push', durationMinutes: 42, painFlags: [] }, onVerified)).resolves.toEqual({ ok: false });
     expect(onVerified).not.toHaveBeenCalled();
   });
 
   it('clears recovery only after the final session write is verified', async () => {
     const onVerified = vi.fn();
-    persistence.finishWorkoutSession.mockResolvedValue(true);
+    persistence.finishLiveWorkoutSessionAtomic.mockResolvedValue(true);
     await expect(finishLiveSession({
       sessionId: 'session-1', name: 'Push', durationMinutes: 42,
       painFlags: [], templateId: null,
@@ -194,13 +201,22 @@ describe('live workout persistence boundary', () => {
     await expect(discardEmptyLiveSession('session-1')).resolves.toBe(true);
   });
 
-  it('reuses a client request key for idempotent live start', async () => {
+  it('replays the complete canonical live start envelope', async () => {
     persistence.startWorkoutSessionAtomic.mockResolvedValue('session-live');
-    const input = { idempotencyKey, name: 'Push', templateId: null };
+    const input = {
+      idempotencyKey,
+      draftFingerprint: 'draft:push:1',
+      sessionDate: '2026-08-24',
+      name: 'Push', templateId: null, kind: 'strength' as const,
+      liveStructure: [{ exerciseId: 'bench', targetSets: 2, targetReps: '8', supersetGroup: null }],
+    };
     await expect(startLiveSession(input)).resolves.toEqual({ ok: true, sessionId: 'session-live' });
     await expect(startLiveSession(input)).resolves.toEqual({ ok: true, sessionId: 'session-live' });
     expect(persistence.startWorkoutSessionAtomic).toHaveBeenCalledTimes(2);
-    expect(persistence.startWorkoutSessionAtomic).toHaveBeenCalledWith(input);
+    expect(persistence.startWorkoutSessionAtomic).toHaveBeenCalledWith({
+      ...input,
+      liveStructure: [{ exercise_id: 'bench', target_sets: 2, target_reps: '8', superset_group: null }],
+    });
   });
 
   it('creates retrospective cardio through one idempotent transactional RPC', async () => {
@@ -255,15 +271,36 @@ describe('live workout persistence boundary', () => {
   });
 
   it('persists live structure changes in one atomic boundary', async () => {
-    persistence.updateLiveWorkoutStructureAtomic.mockResolvedValue(true);
+    persistence.updateLiveWorkoutStructureAtomic.mockResolvedValue({ ok: true, version: 2, structure: [
+      { exercise_id: 'bench', target_sets: 3, target_reps: '8', superset_group: 1 },
+      { exercise_id: 'row', target_sets: 3, target_reps: '8', superset_group: 1 },
+    ] });
     await expect(updateLiveStructure('session-1', [
-      { exerciseId: 'bench', supersetGroup: 1 },
-      { exerciseId: 'row', supersetGroup: 1 },
-    ], 'curl')).resolves.toBe(true);
-    expect(persistence.updateLiveWorkoutStructureAtomic).toHaveBeenCalledWith('session-1', [
-      { exercise_id: 'bench', superset_group: 1 },
-      { exercise_id: 'row', superset_group: 1 },
+      { exerciseId: 'bench', targetSets: 3, targetReps: '8', supersetGroup: 1 },
+      { exerciseId: 'row', targetSets: 3, targetReps: '8', supersetGroup: 1 },
+    ], 1, 'curl')).resolves.toMatchObject({ ok: true, version: 2 });
+    expect(persistence.updateLiveWorkoutStructureAtomic).toHaveBeenCalledWith('session-1', 1, [
+      { exercise_id: 'bench', target_sets: 3, target_reps: '8', superset_group: 1 },
+      { exercise_id: 'row', target_sets: 3, target_reps: '8', superset_group: 1 },
     ], 'curl');
+  });
+
+  it('loads canonical server structure fail closed', async () => {
+    persistence.loadWorkoutSessionStructure.mockResolvedValueOnce({ ok: true, version: 3, structure: [
+      { exercise_id: 'bench', target_sets: 2, target_reps: '8', superset_group: null },
+    ] }).mockRejectedValueOnce(new Error('offline'));
+    await expect(loadLiveStructure('session-1')).resolves.toMatchObject({ ok: true, version: 3 });
+    await expect(loadLiveStructure('session-1')).resolves.toEqual({ ok: false });
+  });
+
+  it.each([
+    [{ distanceKm: -1, effort: null }, false],
+    [{ distanceKm: Number.NaN, effort: 5 }, false],
+    [{ distanceKm: 5, effort: 0 }, false],
+    [{ distanceKm: 5, effort: 11 }, false],
+    [{ distanceKm: 0, effort: 7 }, true],
+  ])('validates live cardio metrics at the domain boundary', (metrics, expected) => {
+    expect(validateLiveCardioMetrics(metrics)).toBe(expected);
   });
 
   it('removes a live exercise while preserving and normalizing surviving superset chains', () => {

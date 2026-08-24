@@ -10,6 +10,7 @@ vi.mock('@/lib/i18n', () => ({ useI18n: () => ({ t: (key: string) => ({
   'workout.pause': 'Pause', 'workout.resume': 'Resume', 'workout.finish': 'Finish workout',
   'workout.log_completed': 'Log completed workout', 'workout.save_completed_question': 'Save completed workout?',
   'workout.save_workout': 'Save workout', 'workout.keep_editing': 'Keep editing', 'workout.saving': 'Saving…',
+  'workout.invalid_cardio_metrics': 'Enter a valid distance and effort from 1 to 10.',
 }[key] ?? key) }) }));
 
 import { LiveCardio } from '@/components/workout/workspace/LiveCardio';
@@ -50,5 +51,17 @@ describe('LiveCardio', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save workout' }));
     expect(onSave).toHaveBeenCalledTimes(1);
     expect(onSave).toHaveBeenCalledWith({ durationMinutes: 30, distanceKm: 5, effort: 7 });
+  });
+
+  it('retains invalid cardio input and shows feedback before a live finish', () => {
+    const onFinish = vi.fn();
+    render(<LiveCardio draft={runDraft} mode="live" onFinish={onFinish} />);
+    fireEvent.change(screen.getByLabelText('Distance optional'), { target: { value: '-1' } });
+    fireEvent.change(screen.getByLabelText('Effort'), { target: { value: '11' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Finish workout' }));
+    expect(screen.getByRole('alert').textContent).toContain('valid distance');
+    expect((screen.getByLabelText('Distance optional') as HTMLInputElement).value).toBe('-1');
+    expect((screen.getByLabelText('Effort') as HTMLInputElement).value).toBe('11');
+    expect(onFinish).not.toHaveBeenCalled();
   });
 });

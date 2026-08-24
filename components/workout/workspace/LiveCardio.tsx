@@ -37,12 +37,25 @@ export function LiveCardio({ draft, mode, paused = false, elapsedMs = 0, saving 
   const [distance, setDistance] = useState(draft.distanceKm === null ? '' : String(draft.distanceKm));
   const [effort, setEffort] = useState(draft.effort === null ? '' : String(draft.effort));
   const [confirming, setConfirming] = useState(false);
+  const [validationError, setValidationError] = useState(false);
 
   const values = (nextDistance = distance, nextEffort = effort): CardioLogValues => ({
     durationMinutes: mode === 'live' ? Math.floor(elapsedMs / 60_000) : Math.max(0, Number(duration) || 0),
     distanceKm: numberOrNull(nextDistance),
     effort: numberOrNull(nextEffort),
   });
+
+  const validValues = (candidate: CardioLogValues): boolean => (
+    (mode === 'live' || (Number.isFinite(candidate.durationMinutes) && candidate.durationMinutes > 0))
+    && (candidate.distanceKm === null || (Number.isFinite(candidate.distanceKm) && candidate.distanceKm >= 0))
+    && (candidate.effort === null || (Number.isFinite(candidate.effort) && candidate.effort >= 1 && candidate.effort <= 10))
+  );
+
+  const validate = (candidate: CardioLogValues): boolean => {
+    const valid = validValues(candidate);
+    setValidationError(!valid);
+    return valid;
+  };
 
   return (
     <section className="space-y-4 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-4">
@@ -56,17 +69,19 @@ export function LiveCardio({ draft, mode, paused = false, elapsedMs = 0, saving 
         <p className="text-3xl font-bold tabular-nums text-[var(--content-primary)]" aria-label={t('workout.active_duration')}>{Math.floor(elapsedMs / 60_000)}:{String(Math.floor(elapsedMs / 1_000) % 60).padStart(2, '0')}</p>
       )}
       <div className="grid grid-cols-2 gap-3">
-        <label className="text-sm font-medium text-[var(--content-secondary)]">{t('workout.distance_optional')}<input type="number" min="0" step="any" inputMode="decimal" disabled={disabled} aria-label={t('workout.distance_optional')} value={distance} onChange={(event) => { const next = event.target.value; setDistance(next); onChange?.(values(next, effort)); }} className="input-dark mt-1 min-h-12 w-full text-base" /></label>
-        <label className="text-sm font-medium text-[var(--content-secondary)]">{t('workout.effort')}<input type="number" min="1" max="10" step="1" inputMode="numeric" disabled={disabled} aria-label={t('workout.effort')} value={effort} onChange={(event) => { const next = event.target.value; setEffort(next); onChange?.(values(distance, next)); }} className="input-dark mt-1 min-h-12 w-full text-base" /></label>
+        <label className="text-sm font-medium text-[var(--content-secondary)]">{t('workout.distance_optional')}<input type="number" min="0" step="any" inputMode="decimal" disabled={disabled} aria-label={t('workout.distance_optional')} value={distance} onChange={(event) => { const next = event.target.value; setDistance(next); setValidationError(false); onChange?.(values(next, effort)); }} className="input-dark mt-1 min-h-12 w-full text-base" /></label>
+        <label className="text-sm font-medium text-[var(--content-secondary)]">{t('workout.effort')}<input type="number" min="1" max="10" step="1" inputMode="numeric" disabled={disabled} aria-label={t('workout.effort')} value={effort} onChange={(event) => { const next = event.target.value; setEffort(next); setValidationError(false); onChange?.(values(distance, next)); }} className="input-dark mt-1 min-h-12 w-full text-base" /></label>
       </div>
+
+      {validationError ? <p role="alert" className="text-sm text-[var(--status-danger-fg)]">{t('workout.invalid_cardio_metrics')}</p> : null}
 
       {mode === 'live' ? (
         <div className="grid grid-cols-2 gap-3">
           <button type="button" disabled={disabled} onClick={paused ? onResume : onPause} className="btn-ghost inline-flex min-h-12 items-center justify-center gap-2 rounded-xl disabled:opacity-50">{paused ? <Play size={17} aria-hidden="true" /> : <Pause size={17} aria-hidden="true" />}{t(paused ? 'workout.resume' : 'workout.pause')}</button>
-          <button type="button" disabled={disabled} onClick={() => onFinish?.(values())} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[var(--status-danger-bg)] font-semibold text-[var(--status-danger-fg)] disabled:opacity-50"><Square size={17} aria-hidden="true" />{t('workout.finish')}</button>
+          <button type="button" disabled={disabled} onClick={() => { const candidate = values(); if (validate(candidate)) onFinish?.(candidate); }} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[var(--status-danger-bg)] font-semibold text-[var(--status-danger-fg)] disabled:opacity-50"><Square size={17} aria-hidden="true" />{t('workout.finish')}</button>
         </div>
       ) : (
-        <button type="button" disabled={saving || Number(duration) <= 0} onClick={() => setConfirming(true)} className="btn-gold min-h-12 w-full rounded-xl disabled:opacity-50">{t('workout.log_completed')}</button>
+        <button type="button" disabled={saving} onClick={() => { if (validate(values())) setConfirming(true); }} className="btn-gold min-h-12 w-full rounded-xl disabled:opacity-50">{t('workout.log_completed')}</button>
       )}
 
       {confirming ? (
@@ -74,7 +89,7 @@ export function LiveCardio({ draft, mode, paused = false, elapsedMs = 0, saving 
           <div className="glass-elevated safe-bottom w-full max-w-sm rounded-t-3xl p-5 sm:rounded-3xl" onClick={(event) => event.stopPropagation()}>
             <h3 className="text-lg font-bold text-[var(--content-primary)]">{t('workout.save_completed_question')}</h3>
             <div className="mt-5 space-y-3">
-              <button type="button" disabled={saving} onClick={() => void onSaveRetrospective?.(values())} className="btn-gold min-h-12 w-full rounded-xl disabled:opacity-50">{saving ? t('workout.saving') : t('workout.save_workout')}</button>
+              <button type="button" disabled={saving} onClick={() => { const candidate = values(); if (validate(candidate)) void onSaveRetrospective?.(candidate); }} className="btn-gold min-h-12 w-full rounded-xl disabled:opacity-50">{saving ? t('workout.saving') : t('workout.save_workout')}</button>
               <button type="button" disabled={saving} onClick={() => setConfirming(false)} className="btn-ghost min-h-12 w-full rounded-xl">{t('workout.keep_editing')}</button>
             </div>
           </div>

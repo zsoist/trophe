@@ -29,12 +29,13 @@ export default function PainFlagModal({
   onClose,
 }: {
   exerciseId: string;
-  onSave: (flag: PainFlag) => boolean | void | Promise<boolean | void>;
+  onSave: (flag: PainFlag, mutationId: string) => boolean | void | Promise<boolean | void>;
   onClose: () => void;
 }) {
   const { t } = useI18n();
   const reducedMotion = useReducedMotion();
   const dialogRef = useRef<HTMLDivElement>(null);
+  const mutationIdRef = useRef(globalThis.crypto.randomUUID());
   const [bodyPart, setBodyPart] = useState('');
   const [severity, setSeverity] = useState(1);
   const [notes, setNotes] = useState('');
@@ -63,7 +64,7 @@ export default function PainFlagModal({
         body_part: bodyPart.trim(),
         severity,
         notes: notes.trim() || undefined,
-      });
+      }, mutationIdRef.current);
       if (result === false) {
         setSaveError(true);
         return;

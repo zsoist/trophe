@@ -92,7 +92,11 @@ const expectations: Expectation[] = [
         ('private', 'is_coach_of'),
         ('public', 'memory_decay_salience'),
         ('public', 'hybrid_search_knowledge'),
-        ('public', 'prevent_audit_log_mutation')
+        ('public', 'prevent_audit_log_mutation'),
+        ('public', 'save_live_workout_set'),
+        ('public', 'append_live_pain_flag'),
+        ('public', 'finish_live_workout_session'),
+        ('public', 'update_live_workout_structure')
       )
       ORDER BY 1;
     `,
@@ -105,6 +109,10 @@ const expectations: Expectation[] = [
       'public.memory_decay_salience',
       'public.hybrid_search_knowledge',
       'public.prevent_audit_log_mutation',
+      'public.save_live_workout_set',
+      'public.append_live_pain_flag',
+      'public.finish_live_workout_session',
+      'public.update_live_workout_structure',
     ],
   },
   {
@@ -124,7 +132,8 @@ const expectations: Expectation[] = [
           'idx_mc_embedding',
           'idx_wd_user_type_recorded',
           'idx_kc_fts',
-          'idx_kc_embedding'
+          'idx_kc_embedding',
+          'workout_sets_session_exercise_number_unique'
         )
       ORDER BY indexname;
     `,
@@ -140,6 +149,7 @@ const expectations: Expectation[] = [
       'idx_org_members_org',
       'idx_org_members_user',
       'idx_wd_user_type_recorded',
+      'workout_sets_session_exercise_number_unique',
     ],
   },
 ];
@@ -175,6 +185,41 @@ withPool(config, async (pool) => {
   }
 
   report.embedding_columns = embeddingColumns.rows.map((row) => `${row.table_name}:${row.udt_name}`);
+
+  const workoutConsistencyColumns = await pool.query<{ column_name: string }>(`
+    SELECT column_name
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'workout_sessions'
+      AND column_name IN (
+        'live_structure', 'live_structure_version',
+        'client_draft_fingerprint', 'pain_mutation_ids'
+      )
+    ORDER BY column_name;
+  `);
+  const expectedWorkoutColumns = [
+    'client_draft_fingerprint', 'live_structure',
+    'live_structure_version', 'pain_mutation_ids',
+  ];
+  if (workoutConsistencyColumns.rows.map((row) => row.column_name).join(',') !== expectedWorkoutColumns.join(',')) {
+    throw new Error('live workout consistency columns are missing');
+  }
+  report.workout_consistency_columns = expectedWorkoutColumns;
+
+  const workoutRpcSignatures = await pool.query<{ available: boolean }>(`
+    SELECT bool_and(signature IS NOT NULL) AS available
+    FROM unnest(ARRAY[
+      to_regprocedure('public.start_workout_session(uuid,text,date,text,uuid,text,jsonb)'),
+      to_regprocedure('public.save_live_workout_set(uuid,uuid,integer,real,integer,real,boolean,boolean,integer)'),
+      to_regprocedure('public.append_live_pain_flag(uuid,uuid,jsonb)'),
+      to_regprocedure('public.finish_live_workout_session(uuid,text,integer,uuid,text)'),
+      to_regprocedure('public.update_live_workout_structure(uuid,integer,jsonb,uuid)')
+    ]) AS rpc(signature);
+  `);
+  if (workoutRpcSignatures.rows[0]?.available !== true) {
+    throw new Error('live workout consistency RPC signatures are missing');
+  }
+  report.workout_consistency_rpcs = ['available'];
 
   const governedRunColumns = await pool.query<{ column_name: string }>(`
     SELECT column_name

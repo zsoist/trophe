@@ -533,6 +533,13 @@
       "when": 1787598000000,
       "tag": "0075_workout_session_atomicity",
       "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1787612452000,
+      "tag": "0076_live_workout_consistency",
+      "breakpoints": true
     }
   ]
 }

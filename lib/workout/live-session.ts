@@ -1,19 +1,21 @@
 import {
   deleteEmptyWorkoutSession,
   deleteWorkoutSet,
-  finishWorkoutSession,
-  insertWorkoutSet,
+  appendWorkoutSessionPainFlag,
+  finishLiveWorkoutSessionAtomic,
   loadWorkoutSessionSets,
+  loadWorkoutSessionStructure,
   loadPrMap,
   loadWorkoutSessionPainFlags,
   saveRetrospectiveWorkoutAtomic,
+  saveLiveWorkoutSetAtomic,
   startWorkoutSessionAtomic,
-  updateWorkoutSessionPainFlags,
   updateLiveWorkoutStructureAtomic,
   updateWorkoutSupersetGroups,
   deleteWorkoutSets,
   type CompletedSetInput,
   type PersistedWorkoutSet,
+  type LiveStructureMutationResult,
   type SupersetGroupUpdate,
 } from '@/components/workout/workout-persistence';
 import type { PainFlag } from '@/lib/types';
@@ -39,6 +41,7 @@ export interface FinishLiveSessionInput {
   painFlags: PainFlag[];
   templateId?: string | null;
   notes?: string | null;
+  cardioMetrics?: { distanceKm: number | null; effort: number | null };
 }
 
 export interface RetrospectiveWorkoutInput {
@@ -51,12 +54,18 @@ export interface RetrospectiveWorkoutInput {
 
 export interface StartLiveSessionInput {
   idempotencyKey: string;
+  draftFingerprint: string;
+  sessionDate: string;
   name: string;
   templateId?: string | null;
+  kind: 'strength' | 'cardio';
+  liveStructure: LiveStructureExercise[];
 }
 
 export interface LiveStructureExercise {
   exerciseId: string;
+  targetSets: number;
+  targetReps: string;
   supersetGroup: number | null;
 }
 
@@ -68,22 +77,23 @@ function validSet(input: CompleteLiveSetInput): boolean {
   return Boolean(input.sessionId.trim() && input.exerciseId.trim())
     && Number.isInteger(input.setNumber) && input.setNumber > 0
     && finiteOrNull(input.weightKg) && (input.weightKg === null || input.weightKg >= 0)
-    && finiteOrNull(input.reps) && (input.reps === null || (Number.isInteger(input.reps) && input.reps > 0))
+    && typeof input.reps === 'number' && Number.isInteger(input.reps) && input.reps > 0
     && finiteOrNull(input.rpe) && (input.rpe === null || input.rpe === undefined || (input.rpe >= 1 && input.rpe <= 10));
 }
 
 export async function completeLiveSet(input: CompleteLiveSetInput): Promise<{ ok: true; setId: string } | { ok: false }> {
   if (!validSet(input)) return { ok: false };
   try {
-    const setId = await insertWorkoutSet(input.sessionId, {
-      exercise_id: input.exerciseId,
-      set_number: input.setNumber,
-      weight_kg: input.weightKg,
-      reps: input.reps,
+    const setId = await saveLiveWorkoutSetAtomic({
+      sessionId: input.sessionId,
+      exerciseId: input.exerciseId,
+      setNumber: input.setNumber,
+      weightKg: input.weightKg,
+      reps: input.reps as number,
       rpe: input.rpe ?? null,
-      is_warmup: input.isWarmup ?? false,
-      is_pr: input.isPr ?? false,
-      superset_group: input.supersetGroup ?? null,
+      isWarmup: input.isWarmup ?? false,
+      isPr: input.isPr ?? false,
+      supersetGroup: input.supersetGroup ?? null,
     });
     return setId ? { ok: true, setId } : { ok: false };
   } catch {
@@ -96,9 +106,11 @@ export async function uncompleteLiveSet(setId: string): Promise<boolean> {
   try { return await deleteWorkoutSet(setId); } catch { return false; }
 }
 
-export async function loadLiveSessionSets(sessionId: string): Promise<PersistedWorkoutSet[]> {
-  if (!sessionId.trim()) return [];
-  try { return await loadWorkoutSessionSets(sessionId); } catch { return []; }
+export type LiveSetLoadResult = { ok: true; sets: PersistedWorkoutSet[] } | { ok: false };
+
+export async function loadLiveSessionSets(sessionId: string): Promise<LiveSetLoadResult> {
+  if (!sessionId.trim()) return { ok: false };
+  try { return await loadWorkoutSessionSets(sessionId); } catch { return { ok: false }; }
 }
 
 export async function loadLivePrMap(userId: string, exerciseIds: string[]): Promise<Record<string, number>> {
@@ -113,9 +125,20 @@ export async function loadLivePainFlags(sessionId: string): Promise<LivePainFlag
   try { return await loadWorkoutSessionPainFlags(sessionId); } catch { return { ok: false }; }
 }
 
-export async function saveLivePainFlags(sessionId: string, flags: PainFlag[]): Promise<boolean> {
-  if (!sessionId.trim()) return false;
-  try { return await updateWorkoutSessionPainFlags(sessionId, flags); } catch { return false; }
+export async function appendLivePainFlag(
+  sessionId: string,
+  mutationId: string,
+  flag: PainFlag,
+): Promise<LivePainFlagLoadResult> {
+  if (!sessionId.trim() || !mutationId.trim()) return { ok: false };
+  try { return await appendWorkoutSessionPainFlag(sessionId, mutationId, flag); } catch { return { ok: false }; }
+}
+
+export type LiveStructureLoadResult = LiveStructureMutationResult;
+
+export async function loadLiveStructure(sessionId: string): Promise<LiveStructureLoadResult> {
+  if (!sessionId.trim()) return { ok: false };
+  try { return await loadWorkoutSessionStructure(sessionId); } catch { return { ok: false }; }
 }
 
 export async function updateLiveSupersets(updates: SupersetGroupUpdate[]): Promise<boolean> {
@@ -168,17 +191,17 @@ export async function finishLiveSession(
   input: FinishLiveSessionInput,
   onVerified?: () => void,
 ): Promise<{ ok: boolean }> {
-  if (!input.sessionId.trim() || !input.name.trim() || !Number.isFinite(input.durationMinutes) || input.durationMinutes < 0) {
+  if (!input.sessionId.trim() || !input.name.trim() || !Number.isFinite(input.durationMinutes) || input.durationMinutes < 0
+    || (input.cardioMetrics !== undefined && !validateLiveCardioMetrics(input.cardioMetrics))) {
     return { ok: false };
   }
   let ok = false;
   try {
-    ok = await finishWorkoutSession(input.sessionId, {
+    ok = await finishLiveWorkoutSessionAtomic(input.sessionId, {
       name: input.name.trim(),
-      duration_minutes: Math.round(input.durationMinutes),
-      pain_flags: input.painFlags,
-      template_id: input.templateId ?? null,
-      ...(input.notes === undefined ? {} : { notes: input.notes }),
+      durationMinutes: Math.round(input.durationMinutes),
+      templateId: input.templateId ?? null,
+      notes: input.notes ?? null,
     });
   } catch {
     return { ok: false };
@@ -194,12 +217,22 @@ export async function discardEmptyLiveSession(sessionId: string): Promise<boolea
 }
 
 export async function startLiveSession(input: StartLiveSessionInput): Promise<{ ok: true; sessionId: string } | { ok: false }> {
-  if (!input.idempotencyKey.trim() || !input.name.trim()) return { ok: false };
+  if (!input.idempotencyKey.trim() || !input.draftFingerprint.trim() || !/^\d{4}-\d{2}-\d{2}$/.test(input.sessionDate)
+    || !input.name.trim() || (input.kind === 'strength' ? input.liveStructure.length === 0 : input.liveStructure.length !== 0)) return { ok: false };
   try {
     const sessionId = await startWorkoutSessionAtomic({
       idempotencyKey: input.idempotencyKey,
+      draftFingerprint: input.draftFingerprint,
+      sessionDate: input.sessionDate,
       name: input.name.trim(),
       templateId: input.templateId ?? null,
+      kind: input.kind,
+      liveStructure: input.liveStructure.map((exercise) => ({
+        exercise_id: exercise.exerciseId,
+        target_sets: exercise.targetSets,
+        target_reps: exercise.targetReps,
+        superset_group: exercise.supersetGroup,
+      })),
     });
     return sessionId ? { ok: true, sessionId } : { ok: false };
   } catch {
@@ -233,19 +266,33 @@ export function validateRetrospectiveWorkoutInput(input: RetrospectiveWorkoutInp
 export async function updateLiveStructure(
   sessionId: string,
   exercises: LiveStructureExercise[],
+  expectedVersion: number,
   removeExerciseId?: string | null,
-): Promise<boolean> {
+): Promise<LiveStructureMutationResult> {
   if (!sessionId.trim() || exercises.some((exercise) => !exercise.exerciseId.trim()
-    || (exercise.supersetGroup !== null && (!Number.isInteger(exercise.supersetGroup) || exercise.supersetGroup <= 0)))) return false;
+    || !Number.isInteger(exercise.targetSets) || exercise.targetSets <= 0 || !exercise.targetReps.trim()
+    || (exercise.supersetGroup !== null && (!Number.isInteger(exercise.supersetGroup) || exercise.supersetGroup <= 0)))
+    || !Number.isInteger(expectedVersion) || expectedVersion < 0) return { ok: false };
   try {
     return await updateLiveWorkoutStructureAtomic(
       sessionId,
-      exercises.map((exercise) => ({ exercise_id: exercise.exerciseId, superset_group: exercise.supersetGroup })),
+      expectedVersion,
+      exercises.map((exercise) => ({
+        exercise_id: exercise.exerciseId,
+        target_sets: exercise.targetSets,
+        target_reps: exercise.targetReps,
+        superset_group: exercise.supersetGroup,
+      })),
       removeExerciseId ?? null,
     );
   } catch {
-    return false;
+    return { ok: false };
   }
+}
+
+export function validateLiveCardioMetrics(input: { distanceKm: number | null; effort: number | null }): boolean {
+  return (input.distanceKm === null || (Number.isFinite(input.distanceKm) && input.distanceKm >= 0))
+    && (input.effort === null || (Number.isFinite(input.effort) && input.effort >= 1 && input.effort <= 10));
 }
 
 export function removeAndNormalizeLiveExercises(exercises: DraftExercise[], removeExerciseId: string): DraftExercise[] {

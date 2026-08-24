@@ -21,7 +21,7 @@ afterEach(cleanup);
 
 describe('PainFlagModal durable save', () => {
   it('retains input and stays open with retry feedback when save fails', async () => {
-    const onSave = vi.fn().mockResolvedValue(false);
+    const onSave = vi.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(true);
     const onClose = vi.fn();
     render(<PainFlagModal exerciseId="bench" onSave={onSave} onClose={onClose} />);
     fireEvent.change(screen.getByPlaceholderText('Body part'), { target: { value: 'Shoulder' } });
@@ -31,6 +31,10 @@ describe('PainFlagModal durable save', () => {
     expect((screen.getByPlaceholderText('Body part') as HTMLInputElement).value).toBe('Shoulder');
     expect((screen.getByPlaceholderText('Notes') as HTMLTextAreaElement).value).toBe('Pinch');
     expect(onClose).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await vi.waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0][1]).toMatch(/^[0-9a-f-]{36}$/i);
+    expect(onSave.mock.calls[1][1]).toBe(onSave.mock.calls[0][1]);
   });
 
   it('closes only after a verified save', async () => {

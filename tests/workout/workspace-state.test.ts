@@ -26,6 +26,22 @@ describe('workout workspace state', () => {
     expect(state.clientRequestId).toBe('11111111-1111-4111-8111-111111111111');
   });
 
+  it('freezes the complete canonical start request before the network call', () => {
+    let state = workoutWorkspaceReducer(createInitialWorkspaceState(), {
+      type: 'draft.created', payload: { name: 'Push', kind: 'strength', updatedAt: 10 },
+    });
+    const startRequest = {
+      idempotencyKey: '11111111-1111-4111-8111-111111111111',
+      draftFingerprint: 'draft:push:10',
+      sessionDate: '2026-08-24',
+      name: 'Push', templateId: null, kind: 'strength' as const,
+      liveStructure: [{ exerciseId: 'bench', targetSets: 3, targetReps: '8', supersetGroup: null }],
+    };
+    state = workoutWorkspaceReducer(state, { type: 'request.prepared', payload: { startRequest } });
+    expect(state.startRequest).toEqual(startRequest);
+    expect(state.clientRequestId).toBe(startRequest.idempotencyKey);
+  });
+
   it('updates recoverable live cardio metrics and strength structure', () => {
     let cardio = workoutWorkspaceReducer(createInitialWorkspaceState(), { type: 'draft.created', payload: { name: 'Run', kind: 'cardio' } });
     cardio = workoutWorkspaceReducer(cardio, { type: 'live.started', payload: { sessionId: 'session-1', now: 1 } });

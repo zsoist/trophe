@@ -325,3 +325,185 @@ Focused tests:
 
 - Repository-wide lint still reports the existing 46 warnings outside the Task 7 changed paths; it has zero errors. Task 7 changed-file lint is clean.
 - The two separately ledgered minor rest-timer/undo items were intentionally not touched in this review round.
+
+---
+
+# Task 7 review fix round 2 — replay-safe live consistency
+
+## Outcome
+
+All round-2 Critical and Important findings are addressed. Live set reads now fail closed, logical set completion is unique and exact-retry idempotent, canonical live structure is session-owned and versioned, start identity is a complete pre-transport envelope plus a per-user draft fingerprint, and pain additions are atomic/idempotent without a stale full-array overwrite. The provider and UI serialize conflicting mutations and retain visible recovery paths. Live and retrospective numeric validation now holds at both the TypeScript domain boundary and SQL boundary.
+
+## Mandatory migration workflow and Supabase security
+
+Commands:
+
+```sh
+node_modules/.bin/supabase --version
+# 2.110.0
+
+node_modules/.bin/supabase migration new --help
+# pass
+
+node_modules/.bin/supabase migration new live_workout_consistency
+# created supabase/migrations/20260824230052_live_workout_consistency.sql
+```
+
+The generated skeleton was moved/adapted to the next canonical migration, `drizzle/0076_live_workout_consistency.sql`; no duplicate Supabase migration remains. The Drizzle journal advances exactly once at index 76.
+
+Migration 0076 adds:
+
+- session-owned `live_structure` plus `live_structure_version` CAS state;
+- complete live start request/fingerprint identity and a per-user unique draft hash;
+- one unique logical set row per `(session_id, exercise_id, set_number)` plus an exact request fingerprint;
+- atomic pain mutation IDs;
+- authenticated-only `start_workout_session`, `save_live_workout_set`, `update_live_workout_structure`, `append_live_pain_flag`, `finish_live_workout_session`, and strict `save_retrospective_workout` RPCs;
+- a direct-write trigger that rejects late sets outside the canonical live structure.
+
+All new/replaced functions are `SECURITY INVOKER`, use `SET search_path = ''`, derive ownership from `auth.uid()`, explicitly revoke EXECUTE from PUBLIC/anon/service_role, and grant only authenticated. No service-role or client bypass exists.
+
+Canonical local application and probes:
+
+```sh
+npm run db:bootstrap
+```
+
+Result:
+
+```text
+[run-migrations] ✅ all migrations applied
+Verified DB schema, policies, functions, and index inventory.
+==> Bootstrap complete.
+```
+
+This also verified that a manually present schema with the 0076 journal row absent is safely reapplied and journaled. The legacy bootstrap branch now stamps only the verified <=0074 baseline, runs the canonical migrator for 0075+, and probes the required RPC signatures, columns, and unique index. A reachable database with missing consistency RPCs fails the runtime suite instead of skipping.
+
+## RED evidence
+
+Database/guard suite before 0076:
+
+```sh
+npx vitest run tests/db/live-workout-consistency-contract.test.ts \
+  tests/db/bootstrap-workout-migration-guard.test.ts \
+  tests/db/live-workout-consistency.test.ts \
+  tests/db/migration-journal.test.ts
+```
+
+Failures covered the missing canonical migration, journal/verification probes, committed-response-loss set retry, authoritative pre-set structure/removal, cross-tab pain merging, and strict retrospective JSON types.
+
+Domain/provider suite before implementation:
+
+```sh
+npx vitest run tests/workout/workout-persistence.test.ts \
+  tests/workout/live-session.test.ts \
+  tests/workout/workspace-state.test.ts \
+  tests/workout/workspace-storage.test.ts \
+  tests/components/workout-workspace-provider.test.tsx
+```
+
+Result: 22 failed / 78, demonstrating absent discriminated set recovery, idempotent set/structure/pain APIs, complete start envelope replay, and validation.
+
+UI RED suite:
+
+```sh
+npx vitest run tests/components/live-workout.test.tsx \
+  tests/components/live-cardio.test.tsx \
+  tests/components/pain-flag-modal.test.tsx \
+  tests/components/exercise-set-logger.test.tsx
+```
+
+Result: 13 failed / 22 before fail-closed recovery, serialized controls, stable pain mutation IDs, and retained cardio validation feedback.
+
+## GREEN evidence
+
+Database contract/runtime/security/concurrency/rollback/journal:
+
+```sh
+npx vitest run tests/db/live-workout-consistency-contract.test.ts \
+  tests/db/bootstrap-workout-migration-guard.test.ts \
+  tests/db/live-workout-consistency.test.ts \
+  tests/db/workout-session-atomicity.test.ts \
+  tests/db/workout-session-atomicity-contract.test.ts \
+  tests/db/migration-journal.test.ts
+```
+
+Result: 6 files passed, 21 tests passed. Runtime probes cover two-tab start coalescing with the original date, exact set replay after committed response loss, conflicting set rejection, pre-set structure recovery, late insert rejection after removal (RPC and direct insert), concurrent pain additions plus replay, finish without stale pain overwrite, strict JSON type/presence rejection, transaction rollback, RLS ownership, invoker rights, and role grants.
+
+Affected workout UI/domain/provider/regression suite:
+
+```sh
+npx vitest run tests/components/exercise-set-logger.test.tsx tests/components/finish-workout-dialog.test.tsx tests/components/live-cardio.test.tsx tests/components/live-workout-page.test.tsx tests/components/live-workout.test.tsx tests/components/pain-flag-modal.test.tsx tests/components/retrospective-workout-logger.test.tsx tests/components/workout-builder.test.tsx tests/components/workout-entry-panel.test.ts tests/components/workout-home-data-flows.test.tsx tests/components/workout-home-v2.test.tsx tests/components/workout-review-page.test.tsx tests/components/workout-review.test.tsx tests/components/workout-workspace-navigation.test.tsx tests/components/workout-workspace-provider.test.tsx tests/i18n/workout-workspace-copy.test.ts tests/lib/workout-supersets.test.ts tests/lib/workout-units.test.ts tests/workout/live-session.test.ts tests/workout/workout-history-order.test.ts tests/workout/workout-persistence.test.ts tests/workout/workout-summary-accuracy.test.ts tests/workout/workout-superset-persistence.test.ts tests/workout/workout-write-verification.test.ts tests/workout/workspace-state.test.ts tests/workout/workspace-storage.test.ts
+```
+
+Result: 26 files passed, 163 tests passed.
+
+Additional gates:
+
+```sh
+npm run typecheck
+# pass (standard tsc --noEmit, including Next route types)
+
+npm run lint
+# exit 0: 0 errors, 46 pre-existing repository warnings
+
+npx eslint <Task 7 changed TypeScript/TSX test paths>
+# Task 7 paths clean; scripts/db/verify.ts is repository-ignored
+
+git diff --check
+# pass
+```
+
+## Files in round 2
+
+Persistence/schema/runtime:
+
+- `drizzle/0076_live_workout_consistency.sql`
+- `drizzle/meta/_journal.json`
+- `components/workout/workout-persistence.ts`
+- `lib/workout/live-session.ts`
+- `scripts/db/bootstrap-local.sh`
+- `scripts/db/verify.ts`
+
+Recoverable workspace/UI:
+
+- `components/workout/PainFlagModal.tsx`
+- `components/workout/workspace/ExerciseSetLogger.tsx`
+- `components/workout/workspace/LiveCardio.tsx`
+- `components/workout/workspace/LiveWorkout.tsx`
+- `components/workout/workspace/WorkoutWorkspaceProvider.tsx`
+- `lib/i18n.tsx`
+- `lib/workout/workspace-state.ts`
+- `lib/workout/workspace-storage.ts`
+
+Focused tests:
+
+- `tests/db/bootstrap-workout-migration-guard.test.ts`
+- `tests/db/live-workout-consistency-contract.test.ts`
+- `tests/db/live-workout-consistency.test.ts`
+- `tests/db/workout-session-atomicity.test.ts`
+- `tests/components/exercise-set-logger.test.tsx`
+- `tests/components/live-cardio.test.tsx`
+- `tests/components/live-workout.test.tsx`
+- `tests/components/pain-flag-modal.test.tsx`
+- `tests/components/workout-workspace-provider.test.tsx`
+- `tests/workout/live-session.test.ts`
+- `tests/workout/workout-persistence.test.ts`
+- `tests/workout/workout-write-verification.test.ts`
+- `tests/workout/workspace-state.test.ts`
+- `tests/workout/workspace-storage.test.ts`
+
+## Self-review
+
+- Confirmed set recovery never maps an unverified read to `[]`; finish remains blocked until sets, pain, and canonical structure all load successfully.
+- Confirmed an exact committed-set retry returns the original row ID and a changed payload for the same logical set is rejected. A database unique index prevents duplicate logical sets even across tabs.
+- Confirmed structure changes use a row lock plus expected-version CAS; server state is updated before set deletion/group normalization so the direct-write trigger rejects removed exercises and future sets must use the canonical group.
+- Confirmed the provider persists every start RPC argument before transport, reuses the same envelope after date change, re-reads shared storage for stale tabs, and the database fingerprint coalesces distinct tab UUIDs.
+- Confirmed pain retries reuse one modal mutation UUID, concurrent append RPCs serialize, exact replay is a no-op, and finish never writes a stale pain array.
+- Confirmed live set/cardio and retrospective strength/cardio validation rejects non-finite, negative, non-integral, missing, string-coerced, or out-of-range values before durable writes; SQL independently enforces exact JSON types and rolls back invalid requests.
+- Confirmed pending/failed mutations block finish/discard and conflicting controls; failure feedback remains visible, set/structure recovery is explicitly retryable, and pain/cardio input remains present.
+- Confirmed standard typecheck, lint, local canonical migration application, runtime RLS/security/concurrency tests, and diff checks pass.
+
+## Concerns
+
+- Repository-wide lint still reports the existing warnings outside Task 7; there are zero errors and changed Task 7 application paths are clean.
+- The separately ledgered rest-timer reset and undo idempotency issues remain intentionally out of scope and untouched.

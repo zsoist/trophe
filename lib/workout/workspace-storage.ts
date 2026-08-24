@@ -2,6 +2,7 @@ import type {
   CardioDraft,
   DraftExercise,
   LiveClock,
+  LiveStartRequestEnvelope,
   WorkoutDraft,
   WorkoutStage,
   WorkoutWorkspaceState,
@@ -69,20 +70,51 @@ function isClock(value: unknown): value is LiveClock {
     && typeof value.accumulatedMs === 'number' && Number.isFinite(value.accumulatedMs);
 }
 
+function isIsoDate(value: unknown): value is string {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
+
+function isStartRequest(value: unknown): value is LiveStartRequestEnvelope {
+  if (!isRecord(value) || !hasOnlyKeys(value, [
+    'idempotencyKey', 'draftFingerprint', 'sessionDate', 'name',
+    'templateId', 'kind', 'liveStructure',
+  ])) return false;
+  if (normalizeUuid(value.idempotencyKey as string) === null
+    || typeof value.draftFingerprint !== 'string' || !value.draftFingerprint.trim()
+    || !isIsoDate(value.sessionDate)
+    || typeof value.name !== 'string' || !value.name.trim()
+    || (value.templateId !== null && normalizeUuid(value.templateId as string) === null)
+    || (value.kind !== 'strength' && value.kind !== 'cardio')
+    || !Array.isArray(value.liveStructure)) return false;
+  const validStructure = value.liveStructure.every((item) => isRecord(item)
+    && hasOnlyKeys(item, ['exerciseId', 'targetSets', 'targetReps', 'supersetGroup'])
+    && typeof item.exerciseId === 'string' && item.exerciseId.trim().length > 0
+    && typeof item.targetSets === 'number' && Number.isInteger(item.targetSets) && item.targetSets > 0
+    && typeof item.targetReps === 'string' && item.targetReps.trim().length > 0
+    && (item.supersetGroup === null || (typeof item.supersetGroup === 'number' && Number.isInteger(item.supersetGroup) && item.supersetGroup > 0)));
+  return validStructure
+    && (value.kind === 'strength' ? value.liveStructure.length > 0 : value.liveStructure.length === 0);
+}
+
 function parseState(value: unknown): WorkoutWorkspaceState | null {
   if (!isRecord(value) || value.version !== WORKOUT_DRAFT_VERSION
-    || !hasOnlyKeys(value, ['version', 'stage', 'draft', 'sessionId', 'clock', 'finishingFrom', 'clientRequestId'])
+    || !hasOnlyKeys(value, ['version', 'stage', 'draft', 'sessionId', 'clock', 'finishingFrom', 'clientRequestId', 'startRequest'])
     || !WORKOUT_STAGES.includes(value.stage as WorkoutStage)
     || (value.draft !== null && !isDraft(value.draft))
     || (value.sessionId !== null && typeof value.sessionId !== 'string')
     || (value.clock !== null && !isClock(value.clock))
     || (value.finishingFrom !== undefined && value.finishingFrom !== null && value.finishingFrom !== 'live' && value.finishingFrom !== 'paused')
-    || (value.clientRequestId !== undefined && value.clientRequestId !== null && normalizeUuid(value.clientRequestId as string) === null)) return null;
+    || (value.clientRequestId !== undefined && value.clientRequestId !== null && normalizeUuid(value.clientRequestId as string) === null)
+    || (value.startRequest !== undefined && value.startRequest !== null && !isStartRequest(value.startRequest))) return null;
   const hasDraft = value.draft !== null;
   const hasSession = typeof value.sessionId === 'string' && value.sessionId.trim().length > 0;
   const hasClock = value.clock !== null;
   const clockIsRunning = hasClock && (value.clock as LiveClock).runningSince !== null;
   const finishingFrom = value.finishingFrom ?? null;
+  const startRequest = (value.startRequest as LiveStartRequestEnvelope | null | undefined) ?? null;
+  if (startRequest && value.clientRequestId !== startRequest.idempotencyKey) return null;
   const validStage = value.stage === 'home'
     ? !hasDraft && !hasSession && !hasClock && finishingFrom === null
     : value.stage === 'draft' || value.stage === 'review'
@@ -99,6 +131,7 @@ function parseState(value: unknown): WorkoutWorkspaceState | null {
     clock: value.clock as LiveClock | null,
     finishingFrom,
     clientRequestId: (value.clientRequestId as string | null | undefined) ?? null,
+    startRequest,
   };
 }
 
@@ -159,6 +192,7 @@ export function saveWorkspaceState(storage: WorkspaceStorage, userId: string, st
     clock: state.clock && { runningSince: state.clock.runningSince, accumulatedMs: state.clock.accumulatedMs },
     finishingFrom: state.finishingFrom ?? null,
     clientRequestId: state.clientRequestId,
+    startRequest: state.startRequest ?? null,
   };
   storage.setItem(workspaceStorageKey(userId), JSON.stringify(payload));
 }

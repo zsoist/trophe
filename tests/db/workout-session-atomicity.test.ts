@@ -60,8 +60,12 @@ async function asCommittedUser<T>(userId: string, fn: (client: pg.PoolClient) =>
 
 async function start(client: pg.PoolClient, key: string, name = 'Push') {
   return client.query<{ id: string }>(`
-    SELECT public.start_workout_session($1::uuid, $2::date, $3::text, NULL::uuid) AS id
-  `, [key, '2026-08-24', name]);
+    SELECT public.start_workout_session(
+      $1::uuid, $2::text, $3::date, $4::text, NULL::uuid, 'strength'::text, $5::jsonb
+    ) AS id
+  `, [key, `runtime:${key}:${name}`, '2026-08-24', name, JSON.stringify([{
+    exercise_id: IDS.exerciseA, target_sets: 3, target_reps: '8', superset_group: null,
+  }])]);
 }
 
 async function retrospective(client: pg.PoolClient, key: string, sets: unknown[]) {
@@ -76,12 +80,14 @@ async function retrospective(client: pg.PoolClient, key: string, sets: unknown[]
 beforeAll(async () => {
   try {
     await pool.query('select 1');
-    const migration = await pool.query(`SELECT to_regprocedure('public.start_workout_session(uuid,date,text,uuid)') AS fn`);
-    dbAvailable = migration.rows[0]?.fn !== null;
   } catch {
     return;
   }
-  if (!dbAvailable) return;
+  const migration = await pool.query(`SELECT to_regprocedure('public.start_workout_session(uuid,text,date,text,uuid,text,jsonb)') AS fn`);
+  if (migration.rows[0]?.fn === null) {
+    throw new Error('reachable database is missing live workout consistency RPCs; run npm run db:bootstrap');
+  }
+  dbAvailable = true;
 
   await asOwner(`
     INSERT INTO auth.users (id, email) VALUES
@@ -132,8 +138,9 @@ describe('workout atomic RPC security and behavior', () => {
     `, [[
       'discard_empty_workout_session', 'save_retrospective_workout',
       'start_workout_session', 'update_live_workout_structure',
+      'save_live_workout_set', 'append_live_pain_flag', 'finish_live_workout_session',
     ]]);
-    expect(result.rows).toHaveLength(4);
+    expect(result.rows).toHaveLength(7);
     for (const row of result.rows) {
       expect(row).toMatchObject({ prosecdef: false, authenticated: true, anon: false, service_role: false });
     }
@@ -174,6 +181,7 @@ describe('workout atomic RPC security and behavior', () => {
       const invalidSets = [{
         exercise_id: 'a7000000-0000-4000-8000-000000000099', set_number: 1,
         weight_kg: 60, reps: 8, rpe: 8, is_warmup: false, is_pr: false,
+        superset_group: null,
       }];
       await client.query('SAVEPOINT invalid_history');
       await expect(retrospective(client, IDS.historyKey, invalidSets)).rejects.toMatchObject({ code: '23503' });
@@ -189,16 +197,6 @@ describe('workout atomic RPC security and behavior', () => {
       expect(retry.rows[0].id).toBe(saved.rows[0].id);
       expect((await client.query(`SELECT count(*)::integer AS count FROM public.workout_sets WHERE session_id = $1`, [saved.rows[0].id])).rows[0].count).toBe(2);
 
-      expect((await client.query(`
-        SELECT public.update_live_workout_structure(
-          $1::uuid,
-          $2::jsonb,
-          $3::uuid
-        ) AS updated
-      `, [saved.rows[0].id, JSON.stringify([{ exercise_id: IDS.exerciseB, superset_group: null }]), IDS.exerciseA])).rows[0].updated).toBe(true);
-      expect((await client.query(`SELECT exercise_id, superset_group FROM public.workout_sets WHERE session_id = $1`, [saved.rows[0].id])).rows).toEqual([
-        { exercise_id: IDS.exerciseB, superset_group: null },
-      ]);
       expect((await client.query(`SELECT public.discard_empty_workout_session($1::uuid) AS discarded`, [saved.rows[0].id])).rows[0].discarded).toBe(false);
     });
   });

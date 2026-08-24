@@ -8,6 +8,8 @@ import {
   workoutWorkspaceReducer,
   type DraftExercise,
   type CardioDraft,
+  type LiveStartRequestEnvelope,
+  type WorkoutDraft,
   type WorkoutKind,
   type WorkoutWorkspaceState,
 } from '@/lib/workout/workspace-state';
@@ -18,6 +20,8 @@ import {
   type WorkspaceStorage,
 } from '@/lib/workout/workspace-storage';
 import { normalizeUuid } from '@/lib/workout/uuid';
+import { supersetGroupFor } from '@/lib/workout/supersets';
+import { localToday } from '@/lib/utils/dates';
 
 export interface WorkoutWorkspaceContextValue {
   state: WorkoutWorkspaceState;
@@ -87,6 +91,55 @@ function templateWorkspaceState(input: WorkoutDraftTemplateInput): WorkoutWorksp
 
 function browserStorage(): WorkspaceStorage | null {
   return typeof window === 'undefined' ? null : window.localStorage;
+}
+
+function draftFingerprint(draft: WorkoutDraft): string {
+  return JSON.stringify(draft.kind === 'strength'
+    ? {
+      version: draft.version,
+      kind: draft.kind,
+      updatedAt: draft.updatedAt,
+      name: draft.name.trim(),
+      templateKey: draft.templateKey ?? null,
+      templateId: normalizeUuid(draft.templateId),
+      exercises: draft.exercises.map((exercise, index) => ({
+        exerciseId: exercise.exerciseId,
+        targetSets: exercise.targetSets,
+        targetReps: exercise.targetReps,
+        supersetGroup: supersetGroupFor(draft.exercises, index),
+      })),
+    }
+    : {
+      version: draft.version,
+      kind: draft.kind,
+      updatedAt: draft.updatedAt,
+      name: draft.name.trim(),
+      templateKey: draft.templateKey ?? null,
+      templateId: normalizeUuid(draft.templateId),
+      activity: draft.activity,
+      durationMinutes: draft.durationMinutes,
+      distanceKm: draft.distanceKm,
+      effort: draft.effort,
+    });
+}
+
+function createLiveStartRequest(draft: WorkoutDraft, idempotencyKey: string): LiveStartRequestEnvelope {
+  return {
+    idempotencyKey,
+    draftFingerprint: draftFingerprint(draft),
+    sessionDate: localToday(),
+    name: draft.name.trim(),
+    templateId: normalizeUuid(draft.templateId),
+    kind: draft.kind,
+    liveStructure: draft.kind === 'strength'
+      ? draft.exercises.map((exercise, index) => ({
+        exerciseId: exercise.exerciseId,
+        targetSets: exercise.targetSets,
+        targetReps: exercise.targetReps,
+        supersetGroup: supersetGroupFor(draft.exercises, index),
+      }))
+      : [],
+  };
 }
 
 export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutWorkspaceProviderProps) {
@@ -247,20 +300,40 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
     return clientRequestId;
   }, [ownerId, resolvedStorage, state]);
 
+  const ensureLiveStartRequest = useCallback((): LiveStartRequestEnvelope | null => {
+    if (!ownerId || !state.draft || (state.stage !== 'draft' && state.stage !== 'review')) return null;
+    if (state.startRequest) return state.startRequest;
+
+    const fingerprint = draftFingerprint(state.draft);
+    const recovered = resolvedStorage ? loadWorkspaceState(resolvedStorage, ownerId) : null;
+    const recoveredRequest = recovered?.startRequest;
+    const request = recoveredRequest?.draftFingerprint === fingerprint
+      ? recoveredRequest
+      : createLiveStartRequest(
+        state.draft,
+        clientRequestIdRef.current ?? state.clientRequestId ?? globalThis.crypto.randomUUID(),
+      );
+    const preparedState = workoutWorkspaceReducer(state, { type: 'request.prepared', payload: { startRequest: request } });
+    clientRequestIdRef.current = request.idempotencyKey;
+    // Persist the immutable envelope before transport so ambiguous responses and stale tabs replay it exactly.
+    if (resolvedStorage) saveWorkspaceState(resolvedStorage, ownerId, preparedState);
+    setState((current) => (current.stage === 'draft' || current.stage === 'review') && current.draft
+      ? workoutWorkspaceReducer(current, { type: 'request.prepared', payload: { startRequest: request } })
+      : current);
+    return request;
+  }, [ownerId, resolvedStorage, state]);
+
   const startLive = useCallback(async (): Promise<boolean> => {
     if (state.stage === 'live' || state.stage === 'paused' || state.stage === 'finishing' || state.stage === 'completed') {
       return Boolean(state.sessionId);
     }
     if (!ownerId || !state.draft || !state.draft.name.trim() || (state.stage !== 'draft' && state.stage !== 'review')) return false;
+    if (state.draft.kind === 'strength' && state.draft.exercises.length === 0) return false;
     if (startPromiseRef.current) return startPromiseRef.current;
-    const idempotencyKey = ensureClientRequestId();
-    if (!idempotencyKey) return false;
+    const request = ensureLiveStartRequest();
+    if (!request) return false;
 
-    const pending = startLiveSession({
-      idempotencyKey,
-      name: state.draft.name.trim(),
-      templateId: normalizeUuid(state.draft.templateId),
-    })
+    const pending = startLiveSession(request)
       .then((result) => {
         const normalizedSessionId = result.ok ? result.sessionId.trim() : '';
         if (!normalizedSessionId) return false;
@@ -272,7 +345,7 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
       .finally(() => { startPromiseRef.current = null; });
     startPromiseRef.current = pending;
     return pending;
-  }, [ensureClientRequestId, ownerId, state]);
+  }, [ensureLiveStartRequest, ownerId, state]);
 
   const pause = useCallback((now = Date.now()) => {
     setState((current) => current.stage === 'live'
