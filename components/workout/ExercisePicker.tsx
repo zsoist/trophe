@@ -10,13 +10,14 @@
  */
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
+import type { KeyboardEvent as ReactKeyboardEvent, ReactNode, RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { ArrowLeft, Check, ChevronDown, ChevronRight, Dumbbell, Info, Plus, Search, X } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
 import type { Exercise, MuscleGroup } from '@/lib/types';
+import { resolveWorkoutAsset } from '@/lib/workout-assets';
 import {
   MUSCLE_GROUPS,
   WORKOUT_BODY_AREAS,
@@ -39,6 +40,55 @@ function trapFocus(event: ReactKeyboardEvent<HTMLElement>, container: HTMLElemen
   if (!first || !last) { event.preventDefault(); container.focus(); return; }
   if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
   else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+}
+
+function PickerFrame({
+  presentation,
+  pickerRef,
+  reducedMotion,
+  label,
+  children,
+}: {
+  presentation: 'dialog' | 'page';
+  pickerRef: RefObject<HTMLDivElement | null>;
+  reducedMotion: boolean | null;
+  label: string;
+  children: ReactNode;
+}) {
+  if (presentation === 'dialog') {
+    return (
+      <motion.div
+        ref={pickerRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={label}
+        tabIndex={-1}
+        onKeyDown={(event) => trapFocus(event, pickerRef.current)}
+        initial={reducedMotion ? false : { opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={reducedMotion ? undefined : { opacity: 0 }}
+        className="fixed inset-0 z-[var(--z-modal,60)] flex flex-col safe-bottom bg-[var(--canvas)] outline-none"
+        style={{ isolation: 'isolate' }}
+      >
+        {children}
+      </motion.div>
+    );
+  }
+
+  return (
+    <motion.div
+      ref={pickerRef}
+      aria-label={label}
+      tabIndex={-1}
+      initial={reducedMotion ? false : { opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={reducedMotion ? undefined : { opacity: 0 }}
+      className="flex min-h-[calc(100dvh-8rem)] flex-col bg-[var(--canvas)] outline-none"
+      style={{ isolation: 'isolate' }}
+    >
+      {children}
+    </motion.div>
+  );
 }
 
 // ─── Custom Exercise Modal ───
@@ -204,6 +254,7 @@ function ExerciseRow({
 }) {
   const color = muscleColor(ex.muscle_group);
   const { t } = useI18n();
+  const asset = resolveWorkoutAsset({ exerciseName: ex.name, muscleGroup: ex.muscle_group });
   const meta = [
     ex.equipment ? ex.equipment.charAt(0).toUpperCase() + ex.equipment.slice(1) : null,
     ex.is_compound ? t('workout.compound') : null,
@@ -214,7 +265,12 @@ function ExerciseRow({
     >
       <div className="flex min-w-0 flex-1 items-center gap-3">
         <span className="exercise-row__visual" style={{ borderColor: color }}>
-          <MovementVisual exerciseName={ex.name} alt={`${name} movement illustration`} />
+          <MovementVisual
+            asset={asset}
+            alt={asset.kind === 'technique'
+              ? `${name} technique`
+              : `${t(muscleLabelKey(ex.muscle_group))} muscles worked for ${name}`}
+          />
         </span>
         <span className="flex-1 min-w-0">
           <span className="block truncate text-sm font-semibold text-[var(--content-primary)]">{name}</span>
@@ -313,6 +369,9 @@ export default function ExercisePicker({
   onCustomCreated,
   onInfo,
   presetMuscles,
+  presentation = 'dialog',
+  onAddToDraft,
+  onReturnToBuild,
 }: {
   exercises: Exercise[];
   recentIds: string[];
@@ -323,6 +382,9 @@ export default function ExercisePicker({
   onInfo?: (ex: Exercise) => void;
   /** Split quick-start: limit browsing to these muscle groups (user can still search or tap All). */
   presetMuscles?: MuscleGroup[] | null;
+  presentation?: 'dialog' | 'page';
+  onAddToDraft?: (exerciseId: string) => void;
+  onReturnToBuild?: () => void;
 }) {
   const [search, setSearch] = useState('');
   const [selectedAreaKey, setSelectedAreaKey] = useState<WorkoutBodyArea | null>(null);
@@ -352,6 +414,7 @@ export default function ExercisePicker({
   }, [showCustomModal]);
 
   useEffect(() => {
+    if (presentation !== 'dialog') return;
     const previousOverflow = document.body.style.overflow;
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -366,7 +429,7 @@ export default function ExercisePicker({
       document.removeEventListener('keydown', handleKeyDown);
       previousFocus?.focus();
     };
-  }, []);
+  }, [presentation]);
 
   useEffect(() => {
     if (!canUseDom) return;
@@ -412,7 +475,15 @@ export default function ExercisePicker({
       return nameOf(a).localeCompare(nameOf(b));
     });
 
-  const pick = (ex: Exercise) => { onSelect(ex); onClose(); };
+  const pick = (ex: Exercise) => {
+    if (presentation === 'page' && onAddToDraft && onReturnToBuild) {
+      onAddToDraft(ex.id);
+      onReturnToBuild();
+      return;
+    }
+    onSelect(ex);
+    onClose();
+  };
 
   const preset = presetMuscles && presetMuscles.length > 0 ? new Set<MuscleGroup>(presetMuscles) : null;
   const recentExercises = isLanding
@@ -445,19 +516,12 @@ export default function ExercisePicker({
 
   if (!canUseDom) return null;
 
-  return createPortal(
-    <motion.div
-      ref={pickerRef}
-      tabIndex={-1}
-      onKeyDown={(event) => trapFocus(event, pickerRef.current)}
-      initial={reducedMotion ? false : { opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={reducedMotion ? undefined : { opacity: 0 }}
-      role="dialog"
-      aria-modal="true"
-      aria-label={t('workout.add_exercise')}
-      className="fixed inset-0 z-[var(--z-modal,60)] flex flex-col safe-bottom outline-none"
-      style={{ background: 'var(--canvas)', isolation: 'isolate' }}
+  const picker = (
+    <PickerFrame
+      presentation={presentation}
+      pickerRef={pickerRef}
+      reducedMotion={reducedMotion}
+      label={t('workout.add_exercise')}
     >
       <div className="sticky top-0 z-10 border-b border-[var(--border-subtle)] bg-[var(--surface-overlay)]/95 backdrop-blur-xl">
         <div className="mx-auto w-full max-w-3xl px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))]">
@@ -670,13 +734,14 @@ export default function ExercisePicker({
           <CustomExerciseModal
             onSave={(ex) => {
               if (onCustomCreated) onCustomCreated(ex);
-              onSelect(ex);
+              pick(ex);
             }}
             onClose={() => setShowCustomModal(false)}
           />
         )}
       </AnimatePresence>
-    </motion.div>,
-    document.body,
+    </PickerFrame>
   );
+
+  return presentation === 'dialog' ? createPortal(picker, document.body) : picker;
 }

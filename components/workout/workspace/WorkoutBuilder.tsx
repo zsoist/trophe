@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react';
 import { useWorkoutWorkspace } from '@/components/workout/workspace/WorkoutWorkspaceProvider';
@@ -25,7 +25,6 @@ export function WorkoutBuilder({ exercises, onSavePlan }: WorkoutBuilderProps) {
   const { t } = useI18n();
   const workspace = useWorkoutWorkspace();
   const draft = workspace.state.draft;
-  const [showExercises, setShowExercises] = useState(false);
   const mainRef = useRef<HTMLElement>(null);
   const names = new Map(exercises.map((exercise) => [exercise.id, exercise.name]));
 
@@ -88,14 +87,7 @@ export function WorkoutBuilder({ exercises, onSavePlan }: WorkoutBuilderProps) {
             );
           })}
 
-          <button type="button" onClick={() => setShowExercises((open) => !open)} aria-expanded={showExercises} className="btn-ghost inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl"><Plus size={17} aria-hidden="true" />{t('workout.add_exercise')}</button>
-          {showExercises ? (
-            <div aria-label={t('workout.add_exercise')} className="grid grid-cols-1 gap-2 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-3 sm:grid-cols-2">
-              {exercises.filter((exercise) => !draft.exercises.some((item) => item.exerciseId === exercise.id)).map((exercise) => (
-                <button key={exercise.id} type="button" onClick={() => workspace.addDraftExercise(exercise.id)} className="min-h-11 rounded-xl bg-[var(--surface-raised)] px-3 text-left text-sm font-medium text-[var(--content-primary)]">{exercise.name}</button>
-              ))}
-            </div>
-          ) : null}
+          <button type="button" onClick={() => router.push(WORKOUT_ROUTES.exercises)} className="btn-ghost inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl"><Plus size={17} aria-hidden="true" />{t('workout.add_exercise')}</button>
         </section>
       ) : (
         <section className="grid grid-cols-1 gap-4 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-4 sm:grid-cols-2">

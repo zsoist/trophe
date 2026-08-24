@@ -367,7 +367,7 @@ describe('client secondary theme and accessibility contract', () => {
     outside.remove();
   });
 
-  it('routes Home → Build → Review and moves focus to each destination workspace', async () => {
+  it('routes Home → Build → the addressable exercise browser', async () => {
     renderRoutedWorkoutJourney();
 
     expect((await screen.findByLabelText('Workout URL')).textContent).toBe('/dashboard/workout');
@@ -376,12 +376,8 @@ describe('client secondary theme and accessibility contract', () => {
     expect(document.activeElement).toBe(screen.getByRole('main', { name: 'workout.workspace_build_title' }));
 
     fireEvent.click(screen.getByRole('button', { name: 'workout.add_exercise' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Test squat' }));
-    fireEvent.click(screen.getByRole('button', { name: 'workout.review_workout' }));
-
-    await waitFor(() => expect(screen.getByLabelText('Workout URL').textContent).toBe('/dashboard/workout/review'));
-    expect(document.activeElement).toBe(screen.getByRole('main', { name: 'workout.workspace_review_title' }));
-    expect(screen.getByLabelText('Workspace stage').textContent).toBe('review');
+    await waitFor(() => expect(screen.getByLabelText('Workout URL').textContent).toBe('/dashboard/workout/exercises'));
+    expect(screen.getByLabelText('Workspace stage').textContent).toBe('draft');
   });
 
   it('renders a static reduced-motion barcode laser and retains the normal sweep branch', async () => {

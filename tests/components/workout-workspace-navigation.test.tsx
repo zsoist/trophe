@@ -33,6 +33,7 @@ vi.mock('@/lib/i18n', () => ({
         'workout.workspace_status_paused': paused,
         'workout.back_home': backHome,
         'workout.workspace_live_title': liveTitle,
+        'workout.workspace_exercises_title': 'Exercises',
         'workout.workspace_status_live': live,
         'workout.workspace_status_label': String(params?.status ?? ''),
       };
@@ -75,6 +76,13 @@ describe('workout workspace navigation', () => {
     expect(screen.getByRole('heading', { name: 'Live Workout' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Workout Home' }).getAttribute('href')).toBe(WORKOUT_ROUTES.home);
     expect(screen.getByText('Live')).toBeTruthy();
+  });
+
+  it('keeps the Exercises workspace title on an addressable exercise detail route', () => {
+    pathname = '/dashboard/workout/exercises/bench';
+    render(<WorkoutWorkspaceHeader stage="draft" />);
+
+    expect(screen.getByRole('heading', { name: 'Exercises' })).toBeTruthy();
   });
 
   it.each([

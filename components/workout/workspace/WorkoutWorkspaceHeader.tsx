@@ -25,7 +25,10 @@ function statusKeyForStage(stage: WorkoutStage): string {
 function WorkoutWorkspaceHeaderContent({ stage }: { stage: WorkoutStage }) {
   const pathname = usePathname();
   const { t } = useI18n();
-  const title = t(titleKeys[pathname] ?? 'workout.title');
+  const titleKey = pathname.startsWith(`${WORKOUT_ROUTES.exercises}/`)
+    ? 'workout.workspace_exercises_title'
+    : titleKeys[pathname] ?? 'workout.title';
+  const title = t(titleKey);
   const status = t(statusKeyForStage(stage));
 
   return (

@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Exercise } from '@/lib/types';
 
 vi.mock('next/image', () => ({
-  default: (props: Record<string, unknown>) => React.createElement('img', props),
+  default: ({ priority: _priority, ...props }: Record<string, unknown>) => React.createElement('img', props),
 }));
 
 vi.mock('framer-motion', async () => {
@@ -30,6 +30,8 @@ vi.mock('@/lib/i18n', () => ({
       'workout.custom_cancel': 'Close',
       'workout.compound': 'Compound',
       'workout.info_cue': 'Technique',
+      'workout.info_technique': 'Technique',
+      'workout.info_muscles_worked': 'Muscles worked',
       'workout.info_pr': 'Personal best',
       'workout.info_last': 'Recent results',
       'workout.info_no_history': 'No history yet',
@@ -75,5 +77,29 @@ describe('ExerciseInfoSheet', () => {
     expect(screen.getByRole('img', { name: 'Bench Press technique' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Technique' })).toBeTruthy();
     expect(screen.getByText(/Plant your feet/)).toBeTruthy();
+  });
+
+  it('labels fallback anatomy as muscles worked instead of technique', () => {
+    const exercise = {
+      id: 'machine-press',
+      name: 'Iso-Lateral Machine Press',
+      name_es: null,
+      name_el: null,
+      muscle_group: 'chest',
+      secondary_muscles: ['triceps'],
+      equipment: 'machine',
+      is_compound: true,
+      instructions: 'Press the handles with control.',
+      instructions_es: null,
+      instructions_el: null,
+      is_template: true,
+      created_by: null,
+      created_at: '2026-08-24T00:00:00.000Z',
+    } as Exercise;
+
+    render(React.createElement(ExerciseInfoSheet, { exercise, userId: null, onClose: vi.fn() }));
+
+    expect(screen.getByText('Muscles worked')).toBeTruthy();
+    expect(screen.queryByRole('img', { name: /technique/i })).toBeNull();
   });
 });

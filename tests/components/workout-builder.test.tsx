@@ -77,6 +77,16 @@ describe('WorkoutBuilder', () => {
     expect(screen.getByText('Add an exercise to review this workout.')).toBeTruthy();
   });
 
+  it('opens the routed exercise browser from a strength draft', () => {
+    workspace.state.draft = pushDraft;
+    render(<WorkoutBuilder exercises={exercises} onSavePlan={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add Exercise' }));
+
+    expect(push).toHaveBeenCalledWith('/dashboard/workout/exercises');
+    expect(screen.queryByRole('button', { name: 'Shoulder Press' })).toBeNull();
+  });
+
   it('renders cardio fields instead of strength set fields', () => {
     workspace.state.draft = cardioDraft;
     render(<WorkoutBuilder exercises={exercises} onSavePlan={vi.fn()} />);
