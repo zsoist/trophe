@@ -34,7 +34,19 @@ describe('client shell layout', () => {
 
   it('keeps one shell-owned nav at the safe-area edge', () => {
     const css = readFileSync('app/globals.css', 'utf8');
-    expect(css).toContain('bottom: env(safe-area-inset-bottom)');
-    expect(css).not.toContain('bottom: max(0.5rem, env(safe-area-inset-bottom))');
+    expect(css).toContain('bottom: 0');
+    expect(css).toContain('--client-shell-nav-base-height: 3.875rem');
+    expect(css).toContain('--client-shell-nav-min-bottom-padding: 1rem');
+    expect(css).toContain('max(env(safe-area-inset-bottom, 0px), var(--client-shell-nav-min-bottom-padding))');
+
+    const rem = 16;
+    const navBaseHeight = 3.875 * rem;
+    const minimumBottomPadding = rem;
+    const contentBuffer = 0.5 * rem;
+    const navHeight = (safeAreaInset: number) => navBaseHeight + Math.max(safeAreaInset, minimumBottomPadding);
+    const contentClearance = (safeAreaInset: number) => navHeight(safeAreaInset) + contentBuffer;
+
+    expect(contentClearance(34)).toBe(104);
+    expect(contentClearance(34)).toBe(navHeight(34) + 8);
   });
 });

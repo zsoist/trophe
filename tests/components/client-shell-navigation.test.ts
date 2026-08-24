@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 let pathname = '/dashboard';
 export const mockPathname = (value: string) => { pathname = value; };
@@ -25,12 +25,18 @@ describe('client shell navigation ownership', () => {
     { href: '/dashboard/workout', label: 'Workout', icon: React.createElement('span', null, 'W') },
   ];
 
+  afterEach(() => {
+    cleanup();
+    mockRouterReplace.mockClear();
+    mockPathname('/dashboard');
+  });
+
   it('suppresses page-local navigation when the dashboard shell owns it', () => {
     render(React.createElement(ClientShellNavigationProvider, { value: true }, React.createElement(BotNav, { routes })));
     expect(screen.queryByRole('navigation', { name: 'Primary' })).toBeNull();
   });
 
-  it('reselects the active Workout tab and returns to Workout Home', async () => {
+  it('reselects the active Workout tab and returns to Workout Home', () => {
     mockPathname('/dashboard/workout/live');
     render(React.createElement(BotNav, {
       routes: clientRoutes,
@@ -40,5 +46,26 @@ describe('client shell navigation ownership', () => {
     fireEvent.click(screen.getByRole('link', { name: /Workout/i }));
 
     expect(mockRouterReplace).toHaveBeenCalledWith('/dashboard/workout');
+  });
+
+  it.each([
+    ['Ctrl', { ctrlKey: true }],
+    ['Cmd', { metaKey: true }],
+    ['Alt', { altKey: true }],
+    ['Shift', { shiftKey: true }],
+    ['middle', { button: 1 }],
+  ])('preserves native link behavior for a %s activation', (_name, eventInit) => {
+    mockPathname('/dashboard/workout/live');
+    render(React.createElement(BotNav, {
+      routes: clientRoutes,
+      onActiveRouteSelect: mockRouterReplace,
+    }));
+
+    const workoutLink = screen.getByRole('link', { name: /Workout/i });
+    workoutLink.setAttribute('target', '_blank');
+    const result = fireEvent.click(workoutLink, eventInit);
+
+    expect(result).toBe(true);
+    expect(mockRouterReplace).not.toHaveBeenCalled();
   });
 });

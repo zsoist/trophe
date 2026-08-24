@@ -1284,23 +1284,33 @@ body {
 }
 
 .client-shell {
+  --client-shell-nav-base-height: 3.875rem;
+  --client-shell-nav-min-bottom-padding: 1rem;
   min-height: 100dvh;
   background: var(--canvas);
 }
 
 .client-shell__content {
   min-height: calc(100dvh - 3.5rem);
-  padding-bottom: calc(4.875rem + env(safe-area-inset-bottom) + 0.5rem);
+  padding-bottom: calc(
+    var(--client-shell-nav-base-height) +
+    max(env(safe-area-inset-bottom, 0px), var(--client-shell-nav-min-bottom-padding)) +
+    0.5rem
+  );
   transform-origin: 50% 35%;
 }
 
 .client-shell__nav {
   left: max(0.75rem, env(safe-area-inset-left));
   right: max(0.75rem, env(safe-area-inset-right));
-  bottom: env(safe-area-inset-bottom);
+  bottom: 0;
   overflow: hidden;
   border: 1px solid var(--border-default);
   border-radius: 1.5rem;
+}
+
+.client-shell__nav.safe-bottom {
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), var(--client-shell-nav-min-bottom-padding));
 }
 
 .dashboard-greeting {
