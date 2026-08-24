@@ -301,8 +301,8 @@ describe('client secondary theme and accessibility contract', () => {
       if (keepOutsideFocus) outside.focus();
       fireEvent.click(start);
       fireEvent.click(await screen.findByRole('button', { name: 'workout.add_exercise' }));
-      const pickButtons = await screen.findAllByRole('button', { name: 'workout.add_exercise' });
-      fireEvent.click(pickButtons.at(-1)!);
+      fireEvent.click(await screen.findByRole('button', { name: /workout\.body_area_legs/ }));
+      fireEvent.click(await screen.findByRole('button', { name: 'workout.picker_add_named' }));
       const weight = (await screen.findAllByRole('spinbutton'))[0];
       fireEvent.change(weight, { target: { value: '40' } });
       const finish = screen.getByRole('button', { name: 'workout.finish' });

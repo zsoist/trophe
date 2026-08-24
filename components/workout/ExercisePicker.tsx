@@ -13,11 +13,19 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { Dumbbell, Info, Plus, Search, X } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Dumbbell, Info, Plus, Search, X } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
 import type { Exercise, MuscleGroup } from '@/lib/types';
-import { MUSCLE_GROUPS, muscleColor, muscleLabelKey, exerciseDisplayName } from './muscle-groups';
+import {
+  MUSCLE_GROUPS,
+  WORKOUT_BODY_AREAS,
+  bodyAreaLabelKey,
+  muscleColor,
+  muscleLabelKey,
+  exerciseDisplayName,
+  type WorkoutBodyArea,
+} from './muscle-groups';
 
 const subscribeToClient = () => () => {};
 const getClientSnapshot = () => true;
@@ -181,7 +189,7 @@ export function CustomExerciseModal({
 }
 
 // ─── Exercise row ───
-/** One dense, tappable exercise row — muscle dot + name + equipment meta + info. */
+/** One exercise, one explicit Add action, with details kept separate. */
 function ExerciseRow({
   ex,
   name,
@@ -200,32 +208,33 @@ function ExerciseRow({
     ex.is_compound ? t('workout.compound') : null,
   ].filter(Boolean).join(' · ');
   return (
-    <motion.div
-      whileTap={{ scale: 0.97 }}
-      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors"
-      style={{ background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--content-primary) 8%, transparent)' }}
+    <div
+      className="w-full min-h-[68px] flex items-center gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3 py-2.5 text-left transition-colors hover:border-[var(--border-default)] hover:bg-[var(--surface-hover)] motion-reduce:transition-none"
     >
-      <button onClick={onPick} className="flex-1 min-w-0 flex items-center gap-3 text-left min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
-        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: color, boxShadow: `0 0 8px ${color}66` }} />
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: color }} />
         <span className="flex-1 min-w-0">
-          <span className="block text-sm font-semibold truncate" style={{ color: 'var(--content-primary)' }}>{name}</span>
-          {meta && <span className="block text-xs truncate" style={{ color: 'var(--content-muted)' }}>{meta}</span>}
+          <span className="block truncate text-sm font-semibold text-[var(--content-primary)]">{name}</span>
+          {meta && <span className="mt-0.5 block truncate text-xs text-[var(--content-muted)]">{meta}</span>}
         </span>
-      </button>
+      </div>
       {onInfo && (
         <button
           onClick={() => onInfo(ex)}
-          aria-label={t('workout.info_title')}
-          className="p-1.5 rounded-lg shrink-0 transition-colors min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-          style={{ color: 'var(--content-muted)' }}
+          aria-label={t('workout.picker_info_named', { name })}
+          className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg text-[var(--content-muted)] transition-colors hover:bg-[var(--surface-active)] hover:text-[var(--content-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] motion-reduce:transition-none"
         >
-          <Info size={15} />
+          <Info size={18} />
         </button>
       )}
-      <button onClick={onPick} aria-label={t('workout.add_exercise')} className="shrink-0 p-1 min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
-        <Plus size={16} style={{ color: 'var(--content-muted)' }} />
+      <button
+        onClick={onPick}
+        aria-label={t('workout.picker_add_named', { name })}
+        className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg bg-[var(--action-secondary)] px-3 text-sm font-semibold text-[var(--content-primary)] transition-colors hover:bg-[var(--surface-active)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] motion-reduce:transition-none"
+      >
+        {t('workout.picker_add')}
       </button>
-    </motion.div>
+    </div>
   );
 }
 
@@ -251,9 +260,13 @@ export default function ExercisePicker({
   presetMuscles?: MuscleGroup[] | null;
 }) {
   const [search, setSearch] = useState('');
+  const [selectedAreaKey, setSelectedAreaKey] = useState<WorkoutBodyArea | null>(null);
   const [filterMuscle, setFilterMuscle] = useState<MuscleGroup | 'all'>('all');
+  const [equipmentFilter, setEquipmentFilter] = useState('all');
   const [showCustomModal, setShowCustomModal] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const firstAreaRef = useRef<HTMLButtonElement>(null);
+  const resultHeadingRef = useRef<HTMLHeadingElement>(null);
   const pickerRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
   const showCustomModalRef = useRef(showCustomModal);
@@ -291,46 +304,79 @@ export default function ExercisePicker({
   }, []);
 
   useEffect(() => {
-    if (canUseDom) inputRef.current?.focus();
+    if (!canUseDom) return;
+    const frame = requestAnimationFrame(() => firstAreaRef.current?.focus());
+    return () => cancelAnimationFrame(frame);
   }, [canUseDom]);
 
   const nameOf = (ex: Exercise) => exerciseDisplayName(ex, lang);
 
   const q = search.trim().toLowerCase();
-  const browsing = q === '' && filterMuscle === 'all';
-  // Split quick-start narrows the browse view to the split's muscles; an
-  // explicit search or muscle-chip tap overrides it (never a hard wall).
-  const preset = browsing && presetMuscles && presetMuscles.length > 0 ? new Set<string>(presetMuscles) : null;
+  const selectedArea = WORKOUT_BODY_AREAS.find((area) => area.key === selectedAreaKey) ?? null;
+  const isLanding = q === '' && selectedArea === null;
+  const recentRank = new Map(recentIds.map((id, index) => [id, index]));
+  const matchesSearch = (ex: Exercise) => [
+    nameOf(ex),
+    ex.name,
+    ex.name_es,
+    ex.name_el,
+    ex.equipment,
+  ].some((value) => value?.toLowerCase().includes(q));
 
-  const filtered = exercises.filter((ex) => {
-    const matchesSearch = q === '' || nameOf(ex).toLowerCase().includes(q) || (ex.equipment ?? '').toLowerCase().includes(q);
-    const matchesMuscle = filterMuscle === 'all' || ex.muscle_group === filterMuscle;
-    const matchesPreset = !preset || preset.has(ex.muscle_group);
-    return matchesSearch && matchesMuscle && matchesPreset;
-  });
+  const areaPool = q !== ''
+    ? exercises.filter(matchesSearch)
+    : selectedArea
+      ? exercises.filter((ex) => selectedArea.muscles.includes(ex.muscle_group))
+      : [];
+  const musclePool = filterMuscle === 'all'
+    ? areaPool
+    : areaPool.filter((ex) => ex.muscle_group === filterMuscle);
+  const equipmentOptions = Array.from(new Set(musclePool.map((ex) => ex.equipment).filter((value): value is string => Boolean(value)))).sort();
+  const filtered = musclePool
+    .filter((ex) => equipmentFilter === 'all' || ex.equipment === equipmentFilter)
+    .sort((a, b) => {
+      if (q) {
+        const aStarts = nameOf(a).toLowerCase().startsWith(q) ? 0 : 1;
+        const bStarts = nameOf(b).toLowerCase().startsWith(q) ? 0 : 1;
+        if (aStarts !== bStarts) return aStarts - bStarts;
+      }
+      const aRecent = recentRank.get(a.id) ?? Number.MAX_SAFE_INTEGER;
+      const bRecent = recentRank.get(b.id) ?? Number.MAX_SAFE_INTEGER;
+      if (aRecent !== bRecent) return aRecent - bRecent;
+      if (a.is_compound !== b.is_compound) return a.is_compound ? -1 : 1;
+      return nameOf(a).localeCompare(nameOf(b));
+    });
 
   const pick = (ex: Exercise) => { onSelect(ex); onClose(); };
 
-  // Recent quick-add — only while browsing. Under a split preset this becomes
-  // "from your history for THIS split" (Nik: same exercises every time — make
-  // re-adding them instant).
-  const recentExercises = browsing
+  const preset = presetMuscles && presetMuscles.length > 0 ? new Set<MuscleGroup>(presetMuscles) : null;
+  const recentExercises = isLanding
     ? recentIds
         .map((id) => exercises.find((e) => e.id === id))
         .filter((e): e is Exercise => Boolean(e))
         .filter((e) => !preset || preset.has(e.muscle_group))
-        .slice(0, 10)
+        .slice(0, 6)
     : [];
+  const orderedAreas = [...WORKOUT_BODY_AREAS].sort((a, b) => {
+    if (!preset) return 0;
+    const aSuggested = a.muscles.some((muscle) => preset.has(muscle));
+    const bSuggested = b.muscles.some((muscle) => preset.has(muscle));
+    return Number(bSuggested) - Number(aSuggested);
+  });
 
-  // Sectioned by muscle group (in canonical order) so the list reads as
-  // structure, not an undifferentiated scroll. Flat when searching/filtering.
-  // Under a preset, only the split's groups remain (in split order).
-  const sectionGroups = preset
-    ? MUSCLE_GROUPS.filter((mg) => preset.has(mg.key))
-    : MUSCLE_GROUPS;
-  const sections = browsing
-    ? sectionGroups.map((mg) => ({ mg, items: filtered.filter((e) => e.muscle_group === mg.key) })).filter((s) => s.items.length > 0)
-    : [{ mg: null as (typeof MUSCLE_GROUPS)[number] | null, items: filtered }];
+  const chooseArea = (area: WorkoutBodyArea) => {
+    setSelectedAreaKey(area);
+    setFilterMuscle('all');
+    setEquipmentFilter('all');
+    requestAnimationFrame(() => resultHeadingRef.current?.focus());
+  };
+
+  const returnToAreas = () => {
+    setSelectedAreaKey(null);
+    setFilterMuscle('all');
+    setEquipmentFilter('all');
+    requestAnimationFrame(() => firstAreaRef.current?.focus());
+  };
 
   if (!canUseDom) return null;
 
@@ -345,124 +391,214 @@ export default function ExercisePicker({
       role="dialog"
       aria-modal="true"
       aria-label={t('workout.add_exercise')}
-      className="fixed inset-0 z-[var(--z-modal,60)] flex flex-col safe-bottom pb-[calc(5rem+env(safe-area-inset-bottom))] outline-none"
+      className="fixed inset-0 z-[var(--z-modal,60)] flex flex-col safe-bottom outline-none"
       style={{ background: 'var(--canvas)', isolation: 'isolate' }}
     >
-      {/* Sticky header: close · search · live count */}
-      <div className="sticky top-0 z-10 glass-elevated">
-        <div className="max-w-md lg:max-w-2xl mx-auto px-4 pt-3 pb-2">
+      <div className="sticky top-0 z-10 border-b border-[var(--border-subtle)] bg-[var(--surface-overlay)]/95 backdrop-blur-xl">
+        <div className="mx-auto w-full max-w-3xl px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))]">
           <div className="flex items-center gap-3">
-            <button onClick={onClose} aria-label={t('workout.custom_cancel')} className="p-2 rounded-xl transition-colors min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" style={{ background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)' }}>
+            <button onClick={onClose} aria-label={t('workout.picker_close')} className="flex min-h-11 min-w-11 items-center justify-center rounded-xl bg-[var(--action-secondary)] text-[var(--content-secondary)] transition-colors hover:bg-[var(--surface-active)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] motion-reduce:transition-none">
               <X size={20} style={{ color: 'var(--content-secondary)' }} />
             </button>
-            <div className="relative flex-1">
-              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--content-muted)' }} />
-              <input
-                ref={inputRef}
-                type="text"
-                placeholder={t('workout.search_exercises')}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="input-dark pl-10 text-base"
-              />
-            </div>
+            <h2 className="text-base font-semibold text-[var(--content-primary)]">{t('workout.picker_title')}</h2>
           </div>
-
-          {/* Muscle filter chips */}
-          <div className="mt-2.5 -mx-1 px-1 overflow-x-auto scrollbar-hide">
-            <div className="flex gap-2">
+          <div className="relative mt-3">
+            <Search size={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--content-muted)]" />
+            <input
+              ref={inputRef}
+              type="search"
+              aria-label={t('workout.search_exercises')}
+              placeholder={t('workout.search_exercises')}
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value);
+                setEquipmentFilter('all');
+              }}
+              className="input-dark min-h-12 pl-10 pr-11 text-base"
+            />
+            {search && (
               <button
-                onClick={() => setFilterMuscle('all')}
-                className="shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-all min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-                style={{
-                  background: filterMuscle === 'all' ? 'color-mix(in srgb, var(--action-primary) 20%, transparent)' : 'color-mix(in srgb, var(--content-primary) 8%, transparent)',
-                  color: filterMuscle === 'all' ? 'var(--action-primary)' : 'var(--content-secondary)',
-                  border: filterMuscle === 'all' ? '1px solid color-mix(in srgb, var(--action-primary) 32%, transparent)' : '1px solid color-mix(in srgb, var(--content-primary) 8%, transparent)',
+                type="button"
+                onClick={() => {
+                  setSearch('');
+                  setEquipmentFilter('all');
+                  inputRef.current?.focus();
                 }}
+                aria-label={t('workout.picker_clear_search')}
+                className="absolute right-0 top-1/2 flex min-h-11 min-w-11 -translate-y-1/2 items-center justify-center rounded-lg text-[var(--content-muted)] hover:text-[var(--content-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
               >
-                {t('workout.all')}
+                <X size={17} />
               </button>
-              {MUSCLE_GROUPS.map((mg) => (
-                <button
-                  key={mg.key}
-                  onClick={() => setFilterMuscle(filterMuscle === mg.key ? 'all' : mg.key)}
-                  className="shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-all whitespace-nowrap min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-                  style={{
-                    background: filterMuscle === mg.key ? `${mg.color}22` : 'color-mix(in srgb, var(--content-primary) 8%, transparent)',
-                    color: filterMuscle === mg.key ? mg.color : 'var(--content-secondary)',
-                    border: filterMuscle === mg.key ? `1px solid ${mg.color}55` : '1px solid color-mix(in srgb, var(--content-primary) 8%, transparent)',
-                  }}
-                >
-                  {t(muscleLabelKey(mg.key))}
-                </button>
-              ))}
-            </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Scroll body — width-constrained so rows never sprawl edge-to-edge */}
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-md lg:max-w-2xl mx-auto px-4 pt-3 pb-28">
-          {/* Recent quick-add */}
-          {recentExercises.length > 0 && (
-            <div className="mb-4">
-              <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--content-muted)' }}>
-                {t('workout.picker_recent')}
-              </p>
-              <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-1 px-1">
-                {recentExercises.map((ex) => (
-                  <button
-                    key={ex.id}
-                    onClick={() => pick(ex)}
-                    className="shrink-0 flex items-center gap-2 px-3 py-2 rounded-xl transition-colors min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-                    style={{ background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--content-primary) 8%, transparent)' }}
-                  >
-                    <span className="w-2 h-2 rounded-full" style={{ background: muscleColor(ex.muscle_group) }} />
-                    <span className="text-xs font-semibold whitespace-nowrap" style={{ color: 'var(--content-secondary)' }}>{nameOf(ex)}</span>
-                  </button>
-                ))}
+        <div className="mx-auto w-full max-w-3xl px-4 pb-[calc(2rem+env(safe-area-inset-bottom))] pt-6">
+          {isLanding ? (
+            <>
+              <div className="max-w-xl">
+                <h1 className="text-2xl font-semibold tracking-[-0.02em] text-[var(--content-primary)] sm:text-3xl">
+                  {t('workout.picker_choose_area')}
+                </h1>
+                <p className="mt-2 text-sm leading-6 text-[var(--content-secondary)]">
+                  {t('workout.picker_choose_area_hint')}
+                </p>
               </div>
-            </div>
-          )}
 
-          {/* Result count */}
-          <p className="text-xs mb-2" style={{ color: 'var(--content-muted)' }}>
-            {filtered.length} {t('workout.picker_count')}
-          </p>
+              <div role="group" aria-label={t('workout.picker_choose_area')} className="mt-6 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+                {orderedAreas.map((area, index) => {
+                  const count = exercises.filter((ex) => area.muscles.includes(ex.muscle_group)).length;
+                  const label = t(bodyAreaLabelKey(area.key));
+                  return (
+                    <button
+                      key={area.key}
+                      ref={index === 0 ? firstAreaRef : undefined}
+                      type="button"
+                      onClick={() => chooseArea(area.key)}
+                      className="group flex min-h-[76px] items-center justify-between rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-1)] px-4 py-3 text-left transition-[background-color,border-color] hover:border-[var(--border-strong)] hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] motion-reduce:transition-none"
+                    >
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold text-[var(--content-primary)]">{label}</span>
+                        <span className="mt-1 block text-xs tabular-nums text-[var(--content-muted)]">{t('workout.picker_options', { n: count })}</span>
+                      </span>
+                      <ChevronRight size={18} className="shrink-0 text-[var(--content-muted)] transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" />
+                    </button>
+                  );
+                })}
+              </div>
 
-          {filtered.length === 0 && (
-            <p className="text-center py-10 text-sm" style={{ color: 'var(--content-muted)' }}>{t('workout.picker_none')}</p>
-          )}
+              {recentExercises.length > 0 && (
+                <section aria-label={t('workout.picker_recent')} className="mt-8">
+                  <h2 className="text-sm font-semibold text-[var(--content-secondary)]">{t('workout.picker_recent')}</h2>
+                  <div className="-mx-1 mt-3 flex gap-2 overflow-x-auto px-1 pb-1 scrollbar-hide">
+                    {recentExercises.map((ex) => {
+                      const name = nameOf(ex);
+                      return (
+                        <button
+                          key={ex.id}
+                          onClick={() => pick(ex)}
+                          aria-label={t('workout.picker_add_named', { name })}
+                          className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3 text-sm font-medium text-[var(--content-secondary)] transition-colors hover:border-[var(--border-default)] hover:text-[var(--content-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] motion-reduce:transition-none"
+                        >
+                          <span className="h-2 w-2 rounded-full" style={{ background: muscleColor(ex.muscle_group) }} />
+                          {name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
+              )}
+            </>
+          ) : (
+            <>
+              <div className="flex items-start gap-3">
+                {selectedArea && !q && (
+                  <button
+                    type="button"
+                    onClick={returnToAreas}
+                    aria-label={t('workout.picker_back_areas')}
+                    className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl text-[var(--content-secondary)] transition-colors hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] motion-reduce:transition-none"
+                  >
+                    <ArrowLeft size={20} />
+                  </button>
+                )}
+                <div className="min-w-0 flex-1 pt-1.5">
+                  <h1
+                    ref={resultHeadingRef}
+                    tabIndex={-1}
+                    className="text-xl font-semibold tracking-[-0.02em] text-[var(--content-primary)] outline-none sm:text-2xl"
+                  >
+                    {q
+                      ? t('workout.picker_search_results')
+                      : t('workout.picker_result_title', { area: t(bodyAreaLabelKey(selectedArea!.key)) })}
+                  </h1>
+                  <p aria-live="polite" className="mt-1 text-sm tabular-nums text-[var(--content-muted)]">
+                    {t('workout.picker_result_count', { n: filtered.length })}
+                  </p>
+                </div>
+              </div>
 
-          {/* Sectioned, 2-col on desktop */}
-          {sections.map((section) => (
-            <div key={section.mg?.key ?? 'flat'} className="mb-4">
-              {section.mg && (
-                <div className="flex items-center gap-2 mb-2 sticky top-0 py-1">
-                  <span className="w-2.5 h-2.5 rounded-full" style={{ background: section.mg.color }} />
-                  <span className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--content-secondary)' }}>
-                    {t(muscleLabelKey(section.mg.key))}
-                  </span>
-                  <span className="text-xs" style={{ color: 'var(--content-disabled)' }}>{section.items.length}</span>
+              {selectedArea && !q && selectedArea.muscles.length > 1 && (
+                <div className="-mx-1 mt-5 flex gap-2 overflow-x-auto px-1 pb-1 scrollbar-hide" role="group" aria-label={t('workout.picker_muscle_filter')}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFilterMuscle('all');
+                      setEquipmentFilter('all');
+                    }}
+                    aria-pressed={filterMuscle === 'all'}
+                    className="min-h-11 shrink-0 rounded-full border px-3 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] motion-reduce:transition-none"
+                    style={{
+                      background: filterMuscle === 'all' ? 'color-mix(in srgb, var(--action-primary) 14%, transparent)' : 'var(--surface-1)',
+                      borderColor: filterMuscle === 'all' ? 'var(--border-focus)' : 'var(--border-subtle)',
+                      color: filterMuscle === 'all' ? 'var(--action-primary)' : 'var(--content-secondary)',
+                    }}
+                  >
+                    {t('workout.picker_all_area', { area: t(bodyAreaLabelKey(selectedArea.key)) })}
+                  </button>
+                  {selectedArea.muscles.map((muscle) => (
+                    <button
+                      key={muscle}
+                      type="button"
+                      onClick={() => {
+                        setFilterMuscle(muscle);
+                        setEquipmentFilter('all');
+                      }}
+                      aria-pressed={filterMuscle === muscle}
+                      className="min-h-11 shrink-0 rounded-full border px-3 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] motion-reduce:transition-none"
+                      style={{
+                        background: filterMuscle === muscle ? 'color-mix(in srgb, var(--action-primary) 14%, transparent)' : 'var(--surface-1)',
+                        borderColor: filterMuscle === muscle ? 'var(--border-focus)' : 'var(--border-subtle)',
+                        color: filterMuscle === muscle ? 'var(--action-primary)' : 'var(--content-secondary)',
+                      }}
+                    >
+                      {t(muscleLabelKey(muscle))}
+                    </button>
+                  ))}
                 </div>
               )}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-1.5">
-                {section.items.map((ex) => (
-                  <ExerciseRow key={ex.id} ex={ex} name={nameOf(ex)} onPick={() => pick(ex)} onInfo={onInfo} />
-                ))}
-              </div>
-            </div>
-          ))}
 
-          {/* Create custom — subtle footer, not competing with the list */}
+              {equipmentOptions.length > 1 && (
+                <label className="mt-4 flex items-center justify-between gap-3 text-sm font-medium text-[var(--content-secondary)]">
+                  {t('workout.picker_equipment')}
+                  <select
+                    value={equipmentFilter}
+                    onChange={(event) => setEquipmentFilter(event.target.value)}
+                    className="input-dark min-h-11 w-auto max-w-[65%] text-base"
+                  >
+                    <option value="all">{t('workout.picker_all_equipment')}</option>
+                    {equipmentOptions.map((equipment) => (
+                      <option key={equipment} value={equipment}>{equipment.charAt(0).toUpperCase() + equipment.slice(1)}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
+
+              {filtered.length === 0 ? (
+                <div className="py-16 text-center">
+                  <Dumbbell size={28} className="mx-auto text-[var(--content-muted)]" />
+                  <p className="mt-3 text-sm font-medium text-[var(--content-secondary)]">{t('workout.picker_none')}</p>
+                  <p className="mt-1 text-sm text-[var(--content-muted)]">{t('workout.picker_none_hint')}</p>
+                </div>
+              ) : (
+                <div className="mt-5 grid grid-cols-1 gap-2 lg:grid-cols-2">
+                  {filtered.map((ex) => (
+                    <ExerciseRow key={ex.id} ex={ex} name={nameOf(ex)} onPick={() => pick(ex)} onInfo={onInfo} />
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+
           <button
             onClick={() => setShowCustomModal(true)}
-            className="w-full mt-2 py-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-colors min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-            style={{ border: '1px dashed color-mix(in srgb, var(--action-primary) 30%, transparent)', background: 'color-mix(in srgb, var(--action-primary) 5%, transparent)', color: 'var(--action-primary)' }}
+            aria-label={t('workout.picker_custom')}
+            className="mt-8 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-[var(--border-default)] bg-transparent px-4 text-sm font-semibold text-[var(--action-primary)] transition-colors hover:border-[var(--border-focus)] hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] motion-reduce:transition-none"
           >
             <Plus size={16} />
-            {t('workout.picker_custom')}
+            <span><span className="font-normal text-[var(--content-muted)]">{t('workout.picker_custom_hint')} </span>{t('workout.picker_custom')}</span>
           </button>
         </div>
       </div>
