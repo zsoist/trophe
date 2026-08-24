@@ -10,6 +10,8 @@ const keys = [
   'workout.workspace_review_title', 'workout.workspace_live_title', 'workout.workspace_exercises_title',
   'workout.workspace_back', 'workout.workspace_status_draft', 'workout.workspace_status_live',
   'workout.workspace_status_paused', 'workout.workspace_status_label',
+  'workout.repeat_replace_title', 'workout.repeat_replace_message',
+  'workout.repeat_replace_confirm', 'workout.repeat_replace_cancel',
 ] as const;
 
 describe('workout workspace copy coverage', () => {

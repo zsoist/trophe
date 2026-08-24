@@ -23,6 +23,7 @@ export interface WorkoutWorkspaceContextValue {
   state: WorkoutWorkspaceState;
   createDraft(input: { name: string; kind: WorkoutKind; templateKey?: string; templateId?: string | null }): void;
   createDraftFromTemplate(input: WorkoutDraftTemplateInput): void;
+  replaceDraftFromTemplate(input: WorkoutDraftTemplateInput): void;
   updateDraftName(name: string): void;
   updateCardioDraft(patch: Partial<Pick<CardioDraft, 'activity' | 'durationMinutes' | 'distanceKm' | 'effort'>>): void;
   addDraftExercise(exerciseId: string): void;
@@ -54,6 +55,29 @@ interface WorkoutWorkspaceProviderProps {
 }
 
 const WorkoutWorkspaceContext = createContext<WorkoutWorkspaceContextValue | null>(null);
+
+function templateWorkspaceState(input: WorkoutDraftTemplateInput): WorkoutWorkspaceState {
+  const created = workoutWorkspaceReducer(createInitialWorkspaceState(), {
+    type: 'draft.created',
+    payload: {
+      name: input.name,
+      kind: 'strength',
+      templateKey: input.templateKey,
+      templateId: normalizeUuid(input.templateId),
+      updatedAt: Date.now(),
+    },
+  });
+  if (!created.draft || created.draft.kind !== 'strength') return created;
+  return workoutWorkspaceReducer(created, {
+    type: 'draft.updated',
+    payload: {
+      draft: {
+        ...created.draft,
+        exercises: input.exercises.map((exercise) => ({ ...exercise })),
+      },
+    },
+  });
+}
 
 function browserStorage(): WorkspaceStorage | null {
   return typeof window === 'undefined' ? null : window.localStorage;
@@ -112,29 +136,13 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
   }, []);
 
   const createDraftFromTemplate = useCallback((input: WorkoutDraftTemplateInput) => {
-    setState((current) => {
-      if (current.stage !== 'home') return current;
-      const created = workoutWorkspaceReducer(current, {
-        type: 'draft.created',
-        payload: {
-          name: input.name,
-          kind: 'strength',
-          templateKey: input.templateKey,
-          templateId: normalizeUuid(input.templateId),
-          updatedAt: Date.now(),
-        },
-      });
-      if (!created.draft || created.draft.kind !== 'strength') return created;
-      return workoutWorkspaceReducer(created, {
-        type: 'draft.updated',
-        payload: {
-          draft: {
-            ...created.draft,
-            exercises: input.exercises.map((exercise) => ({ ...exercise })),
-          },
-        },
-      });
-    });
+    setState((current) => current.stage === 'home' ? templateWorkspaceState(input) : current);
+  }, []);
+
+  const replaceDraftFromTemplate = useCallback((input: WorkoutDraftTemplateInput) => {
+    setState((current) => (current.stage === 'draft' || current.stage === 'review') && current.draft
+      ? templateWorkspaceState(input)
+      : current);
   }, []);
 
   const updateDraftName = useCallback((name: string) => {
@@ -248,6 +256,7 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
     state,
     createDraft,
     createDraftFromTemplate,
+    replaceDraftFromTemplate,
     updateDraftName,
     updateCardioDraft,
     addDraftExercise,
@@ -261,7 +270,7 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
     requestFinish,
     acknowledgeCompleted,
     discardDraft,
-  }), [acknowledgeCompleted, addDraftExercise, createDraft, createDraftFromTemplate, discardDraft, goToReview, pause, removeDraftExercise, reorderDraftExercise, requestFinish, resume, startLive, state, updateCardioDraft, updateDraftExercise, updateDraftName]);
+  }), [acknowledgeCompleted, addDraftExercise, createDraft, createDraftFromTemplate, discardDraft, goToReview, pause, removeDraftExercise, reorderDraftExercise, replaceDraftFromTemplate, requestFinish, resume, startLive, state, updateCardioDraft, updateDraftExercise, updateDraftName]);
 
   if (loading || ownerId === undefined) {
     return <div role="status" aria-label="Loading workout workspace" className="min-h-24 animate-pulse rounded-xl bg-[var(--surface-subtle)]" />;

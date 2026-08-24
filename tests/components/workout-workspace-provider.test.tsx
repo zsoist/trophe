@@ -54,6 +54,12 @@ function WorkspaceControls() {
       <button onClick={() => workspace.goToReview()}>Review draft</button>
       <button onClick={() => workspace.updateDraftName('Push A')}>Rename draft</button>
       <button onClick={() => workspace.reorderDraftExercise('shoulder-press', 'up')}>Move Shoulder Press up</button>
+      <button onClick={() => workspace.replaceDraftFromTemplate({
+        templateKey: 'repeat:22222222-2222-4222-8222-222222222222',
+        templateId: null,
+        name: 'Repeated pull',
+        exercises: [{ exerciseId: 'row', targetSets: 3, targetReps: '10' }],
+      })}>Replace with repeated draft</button>
       <button onClick={() => void workspace.startLive()}>Start live workout</button>
       {workspace.state.draft?.kind === 'strength' ? (
         <output>{workspace.state.draft.name}:{workspace.state.draft.exercises.map((exercise) => `${exercise.exerciseId}-${exercise.targetSets}x${exercise.targetReps}`).join(',')}</output>
@@ -115,5 +121,23 @@ describe('WorkoutWorkspaceProvider', () => {
 
     await waitFor(() => expect(screen.getByText('Live')).toBeTruthy());
     expect(createWorkoutSession).toHaveBeenCalledWith('nik', 'Push', null);
+  });
+
+  it.each([
+    ['draft', false],
+    ['review', true],
+  ] as const)('explicitly replaces a current %s with the requested local draft without a session write', async (_stage, review) => {
+    render(<ProviderHarness userId="nik" />);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Create Push draft' })).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'Create Push draft' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add Bench Press' }));
+    if (review) fireEvent.click(screen.getByRole('button', { name: 'Review draft' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Replace with repeated draft' }));
+
+    expect(screen.getByText('Draft · Not started')).toBeTruthy();
+    expect(screen.getByText('Repeated pull:row-3x10')).toBeTruthy();
+    expect(screen.queryByText(/bench-press/)).toBeNull();
+    expect(createWorkoutSession).not.toHaveBeenCalled();
   });
 });

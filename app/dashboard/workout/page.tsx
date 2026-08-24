@@ -3,13 +3,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { WorkoutHome, type WorkoutHomeProgram, type WorkoutHomeTemplate } from '@/components/workout/workspace/WorkoutHome';
-import { useWorkoutWorkspace } from '@/components/workout/workspace/WorkoutWorkspaceProvider';
+import { useWorkoutWorkspace, type WorkoutDraftTemplateInput } from '@/components/workout/workspace/WorkoutWorkspaceProvider';
 import { supabase } from '@/lib/supabase';
+import { useI18n } from '@/lib/i18n';
 import { trpc } from '@/lib/trpc/client';
 import type { Exercise, TemplateExercise, WorkoutSession } from '@/lib/types';
 import { localToday } from '@/lib/utils/dates';
 import { normalizeUuid } from '@/lib/workout/uuid';
-import { WORKOUT_ROUTES } from '@/lib/workout/workspace-routes';
+import { WORKOUT_ROUTES, workoutRouteForStage } from '@/lib/workout/workspace-routes';
+import type { WorkoutDraft } from '@/lib/workout/workspace-state';
 
 interface StoredRoutine {
   id: string;
@@ -52,10 +54,18 @@ function repeatedExercises(rows: RepeatedSetRow[]) {
   });
 }
 
+function hasMeaningfulDraft(draft: WorkoutDraft): boolean {
+  if (draft.name.trim()) return true;
+  return draft.kind === 'strength'
+    ? draft.exercises.length > 0
+    : draft.durationMinutes > 0 || draft.distanceKm !== null || draft.effort !== null;
+}
+
 export default function WorkoutPage() {
   const router = useRouter();
+  const { t } = useI18n();
   const searchParams = useSearchParams();
-  const { createDraftFromTemplate } = useWorkoutWorkspace();
+  const { state: workspaceState, createDraftFromTemplate, replaceDraftFromTemplate } = useWorkoutWorkspace();
   const handledRepeat = useRef<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [loadingLibrary, setLoadingLibrary] = useState(true);
@@ -63,6 +73,7 @@ export default function WorkoutPage() {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [recents, setRecents] = useState<WorkoutSession[]>([]);
   const [storedRoutines, setStoredRoutines] = useState<StoredRoutine[]>([]);
+  const [pendingRepeat, setPendingRepeat] = useState<WorkoutDraftTemplateInput | null>(null);
   const programQuery = trpc.workouts.program.mine.useQuery(undefined, { staleTime: 60_000, retry: 1 });
   const repeatId = searchParams.get('repeat');
 
@@ -129,18 +140,36 @@ export default function WorkoutPage() {
         return;
       }
 
-      createDraftFromTemplate({
+      const repeatedTemplate: WorkoutDraftTemplateInput = {
         templateKey: `repeat:${sessionResult.data.id}`,
         templateId: sessionResult.data.template_id,
         name: sessionResult.data.name ?? 'Workout',
         exercises: repeatedExercises((setsResult.data as unknown as RepeatedSetRow[] | null) ?? []),
-      });
+      };
+      if ((workspaceState.stage === 'draft' || workspaceState.stage === 'review')
+        && workspaceState.draft && hasMeaningfulDraft(workspaceState.draft)) {
+        setPendingRepeat(repeatedTemplate);
+        return;
+      }
+      createDraftFromTemplate(repeatedTemplate);
       router.push(WORKOUT_ROUTES.build);
     }
 
     void loadRepeatedWorkout();
     return () => { active = false; };
-  }, [createDraftFromTemplate, repeatId, router]);
+  }, [createDraftFromTemplate, repeatId, router, workspaceState.draft, workspaceState.stage]);
+
+  const confirmRepeatReplacement = () => {
+    if (!pendingRepeat || (workspaceState.stage !== 'draft' && workspaceState.stage !== 'review')) return;
+    replaceDraftFromTemplate(pendingRepeat);
+    setPendingRepeat(null);
+    router.push(WORKOUT_ROUTES.build);
+  };
+
+  const cancelRepeatReplacement = () => {
+    setPendingRepeat(null);
+    router.push(workoutRouteForStage(workspaceState.stage));
+  };
 
   const resolvedExerciseById = useMemo(() => {
     const resolved = new Map<string, ResolvedExerciseMetadata>();
@@ -193,6 +222,21 @@ export default function WorkoutPage() {
   }, [programQuery.data, todayWeekday, toTemplate]);
 
   const routines = useMemo(() => storedRoutines.map((routine) => toTemplate(routine)), [storedRoutines, toTemplate]);
+
+  if (pendingRepeat) {
+    return (
+      <main className="mx-auto max-w-2xl px-4 py-6">
+        <section aria-labelledby="repeat-replace-title" aria-describedby="repeat-replace-message" className="rounded-2xl border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] p-5">
+          <h2 id="repeat-replace-title" className="text-lg font-bold text-[var(--content-primary)]">{t('workout.repeat_replace_title')}</h2>
+          <p id="repeat-replace-message" className="mt-2 text-sm leading-6 text-[var(--content-secondary)]">{t('workout.repeat_replace_message')}</p>
+          <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <button type="button" onClick={confirmRepeatReplacement} className="btn-gold min-h-11 rounded-xl px-4">{t('workout.repeat_replace_confirm')}</button>
+            <button type="button" onClick={cancelRepeatReplacement} className="btn-ghost min-h-11 rounded-xl px-4">{t('workout.repeat_replace_cancel')}</button>
+          </div>
+        </section>
+      </main>
+    );
+  }
 
   return (
     <WorkoutHome

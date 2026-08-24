@@ -36,6 +36,10 @@ vi.mock('@/lib/i18n', () => ({
     'workout.review_today': 'Review today’s workout',
     'workout.exercise_count': `${params?.n} exercises`,
     'workout.est_sets': `${params?.n} sets`,
+    'workout.repeat_replace_title': 'Replace current draft?',
+    'workout.repeat_replace_message': 'You have an unfinished workout. Replace it with this repeated workout?',
+    'workout.repeat_replace_confirm': 'Replace draft',
+    'workout.repeat_replace_cancel': 'Keep current draft',
   }[key] ?? key) }),
 }));
 vi.mock('@/lib/supabase', () => ({
@@ -84,6 +88,9 @@ import { WorkoutWorkspaceProvider, useWorkoutWorkspace } from '@/components/work
 
 class MemoryStorage {
   private readonly values = new Map<string, string>();
+  constructor(initialState?: unknown) {
+    if (initialState) this.values.set(`trophe:workout-workspace:${user.id}`, JSON.stringify(initialState));
+  }
   getItem(key: string) { return this.values.get(key) ?? null; }
   setItem(key: string, value: string) { this.values.set(key, value); }
   removeItem(key: string) { this.values.delete(key); }
@@ -94,13 +101,31 @@ function DraftProbe() {
   return <output aria-label="Draft state">{JSON.stringify(state)}</output>;
 }
 
-function renderPage() {
+function renderPage(initialState?: unknown) {
   return render(
-    <WorkoutWorkspaceProvider userId={user.id} storage={new MemoryStorage()}>
+    <WorkoutWorkspaceProvider userId={user.id} storage={new MemoryStorage(initialState)}>
       <WorkoutPage />
       <DraftProbe />
     </WorkoutWorkspaceProvider>,
   );
+}
+
+function recoveredWorkspace(stage: 'draft' | 'review') {
+  return {
+    version: 2,
+    stage,
+    draft: {
+      version: 2,
+      kind: 'strength',
+      name: 'Unfinished legs',
+      templateKey: 'split:legs',
+      templateId: null,
+      updatedAt: 1,
+      exercises: [{ exerciseId: 'old-squat', exerciseName: 'Old Squat', muscleGroup: 'quads', targetSets: 5, targetReps: '5' }],
+    },
+    sessionId: null,
+    clock: null,
+  };
 }
 
 afterEach(() => {
@@ -136,6 +161,42 @@ describe('Workout home data flows', () => {
       table: 'workout_sessions',
       filters: expect.arrayContaining([['id', repeatedSessionId], ['user_id', user.id]]),
     }));
+    expect(harness.createWorkoutSession).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['draft', '/dashboard/workout/build'],
+    ['review', '/dashboard/workout/review'],
+  ] as const)('keeps a recovered %s when repeat replacement is cancelled and routes back predictably', async (stage, route) => {
+    harness.repeatId = repeatedSessionId;
+    renderPage(recoveredWorkspace(stage));
+
+    expect(await screen.findByRole('heading', { name: 'Replace current draft?' })).toBeTruthy();
+    expect(harness.push).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Keep current draft' }));
+
+    await waitFor(() => expect(harness.push).toHaveBeenCalledWith(route));
+    const state = JSON.parse(screen.getByLabelText('Draft state').textContent ?? '{}');
+    expect(state.stage).toBe(stage);
+    expect(state.draft.name).toBe('Unfinished legs');
+    expect(state.draft.exercises[0].exerciseId).toBe('old-squat');
+    expect(harness.createWorkoutSession).not.toHaveBeenCalled();
+  });
+
+  it.each(['draft', 'review'] as const)('replaces a recovered %s only after confirmation, then routes the historical draft to Build', async (stage) => {
+    harness.repeatId = repeatedSessionId;
+    renderPage(recoveredWorkspace(stage));
+
+    expect(await screen.findByText('You have an unfinished workout. Replace it with this repeated workout?')).toBeTruthy();
+    expect(screen.getByLabelText('Draft state').textContent).toContain('Unfinished legs');
+    fireEvent.click(screen.getByRole('button', { name: 'Replace draft' }));
+
+    await waitFor(() => expect(harness.push).toHaveBeenCalledWith('/dashboard/workout/build'));
+    const state = JSON.parse(screen.getByLabelText('Draft state').textContent ?? '{}');
+    expect(state.stage).toBe('draft');
+    expect(state.draft.name).toBe('Repeated push');
+    expect(state.draft.exercises[0].exerciseId).toBe(customExerciseId);
+    expect(JSON.stringify(state)).not.toContain('old-squat');
     expect(harness.createWorkoutSession).not.toHaveBeenCalled();
   });
 
