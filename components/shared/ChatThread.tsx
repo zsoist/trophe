@@ -549,16 +549,16 @@ export default function ChatThread({ coachId, clientId, viewerRole, counterpartN
   const canSend = (draft.trim().length > 0 || pending !== null) && !sending && !recording;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+    <div className="chat-thread" style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
       {counterpartName && (
         <div className="eye" style={{ marginBottom: 8 }}>{counterpartName}</div>
       )}
 
       {/* Messages */}
-      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2, paddingBottom: 8, minHeight: 0 }}>
+      <div className="chat-thread__messages" style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2, paddingBottom: 8, minHeight: 0 }}>
         {loading && <div className="ds-sub" style={{ textAlign: 'center', padding: 16 }}>{t('chat.loading')}</div>}
         {!loading && msgs.length === 0 && (
-          <div className="ds-sub" style={{ textAlign: 'center', padding: 24 }}>
+          <div className="chat-thread__empty">
             {t('chat.empty')}
           </div>
         )}
@@ -588,8 +588,8 @@ export default function ChatThread({ coachId, clientId, viewerRole, counterpartN
                 justifyContent: mine ? 'flex-end' : 'flex-start',
                 marginTop: grouped && !newDay ? 0 : 10,
               }}>
-                <div style={{
-                  maxWidth: '78%',
+                <div className="chat-message-bubble" style={{
+                  maxWidth: '84%',
                   padding: hasImage && !m.body ? 4 : '8px 11px',
                   borderRadius: 14,
                   borderTopRightRadius: mine && grouped ? 5 : 14,
@@ -600,7 +600,7 @@ export default function ChatThread({ coachId, clientId, viewerRole, counterpartN
                   {hasImage && <ImageBubble m={m} onOpen={setLightbox} />}
                   {hasAudio && <AudioBubble m={m} mine={mine} />}
                   {m.body && (
-                    <div style={{ fontSize: 12.5, color: 'var(--content-primary)', lineHeight: 1.45, whiteSpace: 'pre-wrap', wordBreak: 'break-word', marginTop: hasImage || hasAudio ? 6 : 0 }}>
+                    <div style={{ fontSize: 14, color: 'var(--content-primary)', lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word', marginTop: hasImage || hasAudio ? 6 : 0 }}>
                       {m.body}
                     </div>
                   )}
@@ -655,7 +655,7 @@ export default function ChatThread({ coachId, clientId, viewerRole, counterpartN
       </AnimatePresence>
 
       {/* Composer */}
-      <div style={{ display: 'flex', gap: 6, paddingTop: 8, borderTop: '1px solid var(--border-default)' }}>
+      <div className="chat-composer" style={{ display: 'flex', gap: 6, paddingTop: 8, borderTop: '1px solid var(--border-default)' }}>
         <input ref={fileRef} type="file" accept="image/*" onChange={onPickFile} style={{ display: 'none' }} />
 
         {recording ? (

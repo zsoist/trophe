@@ -160,6 +160,7 @@ describe('muscle-group-first exercise picker', () => {
     for (const area of ['Chest', 'Back', 'Shoulders', 'Arms', 'Legs', 'Core', 'Full body', 'Cardio']) {
       expect(within(areaGroup).getByRole('button', { name: new RegExp(`^${area}`) })).toBeTruthy();
     }
+    expect(within(areaGroup).getAllByRole('img')).toHaveLength(8);
     expect(screen.queryByText('Bench Press')).toBeNull();
     expect(screen.queryByText(/13 exercises|178 exercises/)).toBeNull();
     await waitFor(() => expect(document.activeElement).toBe(within(areaGroup).getByRole('button', { name: /^Chest/ })));
@@ -207,12 +208,11 @@ describe('muscle-group-first exercise picker', () => {
 
   it('offers equipment filtering only after a body-area choice', () => {
     renderPicker();
-    expect(screen.queryByRole('combobox', { name: 'Equipment' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Equipment/ })).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: /^Chest/ }));
-    fireEvent.change(screen.getByRole('combobox', { name: 'Equipment' }), {
-      target: { value: 'cable' },
-    });
+    fireEvent.click(screen.getByRole('button', { name: 'Equipment, All equipment' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Cable' }));
     expect(screen.getByText('Cable Fly')).toBeTruthy();
     expect(screen.queryByText('Bench Press')).toBeNull();
   });

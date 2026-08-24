@@ -29,17 +29,17 @@ export function InstallCard() {
       aria-label="Install Trophē"
       style={{
         position: "fixed",
-        bottom: "env(safe-area-inset-bottom)",
+        bottom: "calc(5.75rem + env(safe-area-inset-bottom))",
         left: 0,
         right: 0,
         zIndex: 9999,
-        padding: "0 16px 16px",
+        padding: "0 10px 6px",
         pointerEvents: "none",
       }}
     >
       <div
         style={{
-          maxWidth: 480,
+          maxWidth: 390,
           margin: "0 auto",
           borderRadius: 18,
           border: "1px solid var(--border-focus)",
@@ -47,11 +47,11 @@ export function InstallCard() {
           backdropFilter: "blur(24px)",
           WebkitBackdropFilter: "blur(24px)",
           boxShadow: "var(--shadow-high)",
-          padding: "20px",
+          padding: "12px",
           pointerEvents: "auto",
           display: "flex",
           alignItems: "flex-start",
-          gap: 16,
+          gap: 10,
         }}
       >
         {/* Brand icon */}
@@ -59,8 +59,8 @@ export function InstallCard() {
           aria-hidden
           style={{
             flexShrink: 0,
-            width: 48,
-            height: 48,
+            width: 40,
+            height: 40,
             borderRadius: 12,
             background: "var(--surface-2)",
             border: "1px solid var(--border-default)",
@@ -85,7 +85,7 @@ export function InstallCard() {
         <div style={{ flex: 1, minWidth: 0 }}>
           <p
             style={{
-              fontSize: 14,
+              fontSize: 13,
               fontWeight: 600,
               color: "var(--content-primary)",
               marginBottom: 4,

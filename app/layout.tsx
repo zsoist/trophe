@@ -42,6 +42,13 @@ const jetbrainsMono = JetBrains_Mono({
   preload: false,
 });
 
+const designContract = `THESIS: Personal Best turns the client app into an athlete evidence board and refuses generic glassy card stacks.
+OWN-WORLD: Obsidian and graphite, Trophē gold, signal lime/cyan/coral/violet, disciplined rails, tabular metrics, and movement imagery.
+STORY: Nik sees honest nutrition, starts by training intent, logs clear sets, and reaches his coach without mixed-language friction.
+FIRST VIEWPORT: Compact identity header, greeting and evidence first; visual Strength/Cardio entry; collapsed Quick Start; one stable floating navigation with lateral page motion.
+FORM: Personal Best, option 1, seed a0799fb1.
+FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance`;
+
 export const metadata: Metadata = {
   title: "τροφή — Precision Nutrition Coaching",
   description: "One habit. Two weeks. Transform. Evidence-based nutrition coaching platform.",
@@ -103,6 +110,12 @@ export default function RootLayout({
         className="min-h-full font-sans antialiased"
         style={{ background: "var(--bg-primary)", color: "var(--text-primary)" }}
       >
+        <template
+          data-impeccable-contract="a0799fb1"
+          dangerouslySetInnerHTML={{
+            __html: `<!--${designContract}-->`,
+          }}
+        />
         <DocumentLanguage />
         <ErrorBoundary>{children}</ErrorBoundary>
         {process.env.NODE_ENV === "production" && <Analytics />}

@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
+import { useClientShellNavigationOwner } from '@/components/shared/ClientShellContext';
 
 /**
  * Bottom tab bar for client + coach apps.
@@ -30,6 +31,8 @@ interface BotNavProps {
 
 export function BotNav({ routes, className = '' }: BotNavProps) {
   const pathname = usePathname();
+  const shellOwnsNavigation = useClientShellNavigationOwner();
+  if (shellOwnsNavigation) return null;
   return (
     <nav
       className={[

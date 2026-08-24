@@ -15,6 +15,7 @@ import { useI18n } from '@/lib/i18n';
 import type { Exercise } from '@/lib/types';
 import { muscleColor, muscleLabelKey, exerciseDisplayName } from './muscle-groups';
 import { kgToDisplay, useWeightUnit } from '@/lib/workout/units';
+import { MovementVisual } from './MovementVisual';
 
 interface HistoryEntry {
   date: string;
@@ -132,7 +133,7 @@ export default function ExerciseInfoSheet({
         animate={{ y: 0, opacity: 1 }}
         exit={reducedMotion ? undefined : { y: 80, opacity: 0 }}
         transition={{ type: 'spring', damping: 28, stiffness: 320 }}
-        className="glass-elevated safe-bottom w-full max-w-md rounded-t-3xl px-5 pt-4 pb-[calc(5rem+env(safe-area-inset-bottom))] outline-none"
+        className="glass-elevated safe-bottom max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-t-3xl px-5 pt-4 pb-[calc(5rem+env(safe-area-inset-bottom))] outline-none"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Grab handle + close */}
@@ -141,6 +142,10 @@ export default function ExerciseInfoSheet({
           <button onClick={onClose} aria-label={t('workout.custom_cancel')} className="p-1.5 rounded-lg min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" style={{ background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)' }}>
             <X size={16} style={{ color: 'var(--content-secondary)' }} />
           </button>
+        </div>
+
+        <div className="exercise-info-visual">
+          <MovementVisual exerciseName={exercise.name} alt={`${name} technique`} priority />
         </div>
 
         {/* Name + equipment */}
@@ -172,9 +177,9 @@ export default function ExerciseInfoSheet({
         {/* Form cue */}
         {cue && (
           <div className="mb-4 p-3 rounded-xl" style={{ background: 'color-mix(in srgb, var(--action-primary) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--action-primary) 18%, transparent)' }}>
-            <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--action-primary)' }}>
+            <h4 className="text-sm font-semibold mb-1" style={{ color: 'var(--action-primary)' }}>
               {t('workout.info_cue')}
-            </p>
+            </h4>
             <p className="text-sm leading-relaxed" style={{ color: 'var(--content-secondary)' }}>{cue}</p>
           </div>
         )}
