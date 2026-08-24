@@ -39,7 +39,9 @@ export function WorkoutBuilder({ exercises, onSavePlan }: WorkoutBuilderProps) {
     );
   }
 
-  const canReview = draft.kind === 'strength' ? draft.exercises.length > 0 : draft.durationMinutes > 0;
+  const hasName = draft.name.trim().length > 0;
+  const hasContent = draft.kind === 'strength' ? draft.exercises.length > 0 : draft.durationMinutes > 0;
+  const canReview = hasName && hasContent;
   const review = () => {
     if (!canReview) return;
     workspace.goToReview();
@@ -112,9 +114,10 @@ export function WorkoutBuilder({ exercises, onSavePlan }: WorkoutBuilderProps) {
         </section>
       )}
 
-      {!canReview ? <p className="text-sm text-[var(--content-secondary)]">{t(draft.kind === 'strength' ? 'workout.empty_strength_hint' : 'workout.empty_cardio_hint')}</p> : null}
+      {!hasName ? <p role="alert" className="text-sm text-[var(--status-danger-fg)]">{t('workout.name_required')}</p> : null}
+      {!hasContent ? <p className="text-sm text-[var(--content-secondary)]">{t(draft.kind === 'strength' ? 'workout.empty_strength_hint' : 'workout.empty_cardio_hint')}</p> : null}
       <div className="grid grid-cols-2 gap-3">
-        <button type="button" onClick={() => onSavePlan(draft)} className="btn-ghost min-h-11 rounded-xl">{t('workout.save_plan')}</button>
+        <button type="button" disabled={!hasName} onClick={() => onSavePlan(draft)} className="btn-ghost min-h-11 rounded-xl disabled:opacity-40">{t('workout.save_plan')}</button>
         <button type="button" disabled={!canReview} onClick={review} className="btn-gold min-h-11 rounded-xl disabled:opacity-40">{t('workout.review_workout')}</button>
       </div>
     </main>

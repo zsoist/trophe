@@ -1,15 +1,15 @@
 import {
-  createWorkoutSession,
   deleteEmptyWorkoutSession,
-  deleteWorkoutSession,
   deleteWorkoutSet,
   finishWorkoutSession,
   insertWorkoutSet,
-  insertWorkoutSets,
   loadWorkoutSessionSets,
   loadPrMap,
   loadWorkoutSessionPainFlags,
+  saveRetrospectiveWorkoutAtomic,
+  startWorkoutSessionAtomic,
   updateWorkoutSessionPainFlags,
+  updateLiveWorkoutStructureAtomic,
   updateWorkoutSupersetGroups,
   deleteWorkoutSets,
   type CompletedSetInput,
@@ -18,6 +18,7 @@ import {
 } from '@/components/workout/workout-persistence';
 import type { PainFlag } from '@/lib/types';
 import type { DraftExercise, WorkoutDraft } from '@/lib/workout/workspace-state';
+import { supersetGroupFor } from '@/lib/workout/supersets';
 
 export interface CompleteLiveSetInput {
   sessionId: string;
@@ -41,11 +42,22 @@ export interface FinishLiveSessionInput {
 }
 
 export interface RetrospectiveWorkoutInput {
-  userId: string;
+  idempotencyKey: string;
   draft: WorkoutDraft;
   sets: CompletedSetInput[];
   durationMinutes?: number;
   painFlags?: PainFlag[];
+}
+
+export interface StartLiveSessionInput {
+  idempotencyKey: string;
+  name: string;
+  templateId?: string | null;
+}
+
+export interface LiveStructureExercise {
+  exerciseId: string;
+  supersetGroup: number | null;
 }
 
 function finiteOrNull(value: number | null | undefined): value is number | null | undefined {
@@ -94,9 +106,11 @@ export async function loadLivePrMap(userId: string, exerciseIds: string[]): Prom
   try { return await loadPrMap(userId, exerciseIds); } catch { return {}; }
 }
 
-export async function loadLivePainFlags(sessionId: string): Promise<PainFlag[]> {
-  if (!sessionId.trim()) return [];
-  try { return await loadWorkoutSessionPainFlags(sessionId); } catch { return []; }
+export type LivePainFlagLoadResult = { ok: true; flags: PainFlag[] } | { ok: false };
+
+export async function loadLivePainFlags(sessionId: string): Promise<LivePainFlagLoadResult> {
+  if (!sessionId.trim()) return { ok: false };
+  try { return await loadWorkoutSessionPainFlags(sessionId); } catch { return { ok: false }; }
 }
 
 export async function saveLivePainFlags(sessionId: string, flags: PainFlag[]): Promise<boolean> {
@@ -154,14 +168,14 @@ export async function finishLiveSession(
   input: FinishLiveSessionInput,
   onVerified?: () => void,
 ): Promise<{ ok: boolean }> {
-  if (!input.sessionId.trim() || !input.name.trim() || !Number.isFinite(input.durationMinutes) || input.durationMinutes < 1) {
+  if (!input.sessionId.trim() || !input.name.trim() || !Number.isFinite(input.durationMinutes) || input.durationMinutes < 0) {
     return { ok: false };
   }
   let ok = false;
   try {
     ok = await finishWorkoutSession(input.sessionId, {
       name: input.name.trim(),
-      duration_minutes: Math.max(1, Math.round(input.durationMinutes)),
+      duration_minutes: Math.round(input.durationMinutes),
       pain_flags: input.painFlags,
       template_id: input.templateId ?? null,
       ...(input.notes === undefined ? {} : { notes: input.notes }),
@@ -179,41 +193,95 @@ export async function discardEmptyLiveSession(sessionId: string): Promise<boolea
   try { return await deleteEmptyWorkoutSession(sessionId); } catch { return false; }
 }
 
-function cardioNotes(draft: Extract<WorkoutDraft, { kind: 'cardio' }>): string {
-  return [
-    `Activity: ${draft.activity}`,
-    ...(draft.distanceKm === null ? [] : [`Distance: ${draft.distanceKm} km`]),
-    ...(draft.effort === null ? [] : [`Effort: ${draft.effort}/10`]),
-  ].join(' · ');
+export async function startLiveSession(input: StartLiveSessionInput): Promise<{ ok: true; sessionId: string } | { ok: false }> {
+  if (!input.idempotencyKey.trim() || !input.name.trim()) return { ok: false };
+  try {
+    const sessionId = await startWorkoutSessionAtomic({
+      idempotencyKey: input.idempotencyKey,
+      name: input.name.trim(),
+      templateId: input.templateId ?? null,
+    });
+    return sessionId ? { ok: true, sessionId } : { ok: false };
+  } catch {
+    return { ok: false };
+  }
+}
+
+function validRetrospectiveSet(set: CompletedSetInput): boolean {
+  return Boolean(set.exercise_id.trim())
+    && Number.isInteger(set.set_number) && set.set_number > 0
+    && (set.weight_kg === null || (Number.isFinite(set.weight_kg) && set.weight_kg >= 0))
+    && set.reps !== null && Number.isInteger(set.reps) && set.reps > 0
+    && (set.rpe === null || (Number.isFinite(set.rpe) && set.rpe >= 1 && set.rpe <= 10))
+    && (set.superset_group === undefined || set.superset_group === null
+      || (Number.isInteger(set.superset_group) && set.superset_group > 0));
+}
+
+export function validateRetrospectiveWorkoutInput(input: RetrospectiveWorkoutInput): boolean {
+  const duration = input.durationMinutes ?? (input.draft.kind === 'cardio' ? input.draft.durationMinutes : Number.NaN);
+  if (!input.idempotencyKey.trim() || !input.draft.name.trim() || !Number.isFinite(duration) || duration <= 0) return false;
+  if (input.draft.kind === 'strength') {
+    if (input.sets.length === 0 || !input.sets.every(validRetrospectiveSet)) return false;
+    const setKeys = input.sets.map((set) => `${set.exercise_id}:${set.set_number}`);
+    return new Set(setKeys).size === setKeys.length;
+  }
+  return input.sets.length === 0
+    && (input.draft.distanceKm === null || (Number.isFinite(input.draft.distanceKm) && input.draft.distanceKm >= 0))
+    && (input.draft.effort === null || (Number.isFinite(input.draft.effort) && input.draft.effort >= 1 && input.draft.effort <= 10));
+}
+
+export async function updateLiveStructure(
+  sessionId: string,
+  exercises: LiveStructureExercise[],
+  removeExerciseId?: string | null,
+): Promise<boolean> {
+  if (!sessionId.trim() || exercises.some((exercise) => !exercise.exerciseId.trim()
+    || (exercise.supersetGroup !== null && (!Number.isInteger(exercise.supersetGroup) || exercise.supersetGroup <= 0)))) return false;
+  try {
+    return await updateLiveWorkoutStructureAtomic(
+      sessionId,
+      exercises.map((exercise) => ({ exercise_id: exercise.exerciseId, superset_group: exercise.supersetGroup })),
+      removeExerciseId ?? null,
+    );
+  } catch {
+    return false;
+  }
+}
+
+export function removeAndNormalizeLiveExercises(exercises: DraftExercise[], removeExerciseId: string): DraftExercise[] {
+  const oldGroupById = new Map(exercises.map((exercise, index) => [
+    exercise.exerciseId,
+    supersetGroupFor(exercises, index),
+  ]));
+  const remaining = exercises.filter((exercise) => exercise.exerciseId !== removeExerciseId);
+  return remaining.map((exercise, index) => {
+    const next = remaining[index + 1];
+    const group = oldGroupById.get(exercise.exerciseId) ?? null;
+    const linkedBelow = Boolean(next && group !== null && oldGroupById.get(next.exerciseId) === group);
+    return { ...exercise, linkedBelow };
+  });
 }
 
 export async function saveRetrospectiveWorkout(input: RetrospectiveWorkoutInput): Promise<{ ok: true; sessionId: string } | { ok: false }> {
-  if (!input.userId.trim() || !input.draft.name.trim()) return { ok: false };
-  if (input.draft.kind === 'strength' && input.sets.length === 0) return { ok: false };
-  if (input.draft.kind === 'cardio' && input.draft.durationMinutes <= 0) return { ok: false };
+  if (!validateRetrospectiveWorkoutInput(input)) return { ok: false };
 
-  let sessionId: string | null = null;
   try {
-    sessionId = await createWorkoutSession(input.userId, input.draft.name.trim(), input.draft.templateId ?? null);
-    if (!sessionId) return { ok: false };
-
-    const inserted = input.draft.kind === 'strength'
-      ? await insertWorkoutSets(sessionId, input.sets)
-      : true;
-    const finished = inserted && await finishWorkoutSession(sessionId, {
+    const durationMinutes = Math.round(input.durationMinutes ?? (input.draft.kind === 'cardio' ? input.draft.durationMinutes : 0));
+    const sessionId = await saveRetrospectiveWorkoutAtomic({
+      idempotencyKey: input.idempotencyKey,
+      kind: input.draft.kind,
       name: input.draft.name.trim(),
-      duration_minutes: Math.max(1, Math.round(input.durationMinutes ?? (input.draft.kind === 'cardio' ? input.draft.durationMinutes : 1))),
-      pain_flags: input.painFlags ?? [],
-      template_id: input.draft.templateId ?? null,
-      ...(input.draft.kind === 'cardio' ? { notes: cardioNotes(input.draft) } : {}),
+      templateId: input.draft.templateId ?? null,
+      durationMinutes,
+      painFlags: input.painFlags ?? [],
+      activity: input.draft.kind === 'cardio' ? input.draft.activity : null,
+      distanceKm: input.draft.kind === 'cardio' ? input.draft.distanceKm : null,
+      effort: input.draft.kind === 'cardio' ? input.draft.effort : null,
+      sets: input.draft.kind === 'strength' ? input.sets : [],
     });
-
-    if (finished) return { ok: true, sessionId };
+    if (!sessionId) return { ok: false };
+    return { ok: true, sessionId };
   } catch {
-    // The best-effort verified rollback below also covers thrown transports.
+    return { ok: false };
   }
-  if (sessionId) {
-    try { await deleteWorkoutSession(sessionId); } catch { /* recovery remains fail-closed */ }
-  }
-  return { ok: false };
 }

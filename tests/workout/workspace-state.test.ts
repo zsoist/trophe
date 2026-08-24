@@ -14,6 +14,31 @@ describe('workout workspace state', () => {
     expect(state.stage).toBe('draft');
     expect(state.sessionId).toBeNull();
     expect(state.clock).toBeNull();
+    expect(state.clientRequestId).toBeNull();
+  });
+
+  it('persists an idempotency key before the live request and carries it into recovery', () => {
+    let state = workoutWorkspaceReducer(createInitialWorkspaceState(), {
+      type: 'draft.created', payload: { name: 'Push', kind: 'strength' },
+    });
+    state = workoutWorkspaceReducer(state, { type: 'request.keyed', payload: { clientRequestId: '11111111-1111-4111-8111-111111111111' } });
+    state = workoutWorkspaceReducer(state, { type: 'live.started', payload: { sessionId: 'session-1', now: 1 } });
+    expect(state.clientRequestId).toBe('11111111-1111-4111-8111-111111111111');
+  });
+
+  it('updates recoverable live cardio metrics and strength structure', () => {
+    let cardio = workoutWorkspaceReducer(createInitialWorkspaceState(), { type: 'draft.created', payload: { name: 'Run', kind: 'cardio' } });
+    cardio = workoutWorkspaceReducer(cardio, { type: 'live.started', payload: { sessionId: 'session-1', now: 1 } });
+    cardio = workoutWorkspaceReducer(cardio, { type: 'live.draftUpdated', payload: { draft: { ...cardio.draft!, distanceKm: 5, effort: 7 } as never } });
+    expect(cardio.draft).toMatchObject({ distanceKm: 5, effort: 7 });
+
+    let strength = workoutWorkspaceReducer(createInitialWorkspaceState(), { type: 'draft.created', payload: { name: 'Upper', kind: 'strength' } });
+    strength = workoutWorkspaceReducer(strength, { type: 'draft.updated', payload: { draft: { ...strength.draft!, exercises: [
+      { exerciseId: 'bench', targetSets: 1, targetReps: '8', linkedBelow: true },
+      { exerciseId: 'row', targetSets: 1, targetReps: '8' },
+    ] } as never } });
+    strength = workoutWorkspaceReducer(strength, { type: 'live.started', payload: { sessionId: 'session-2', now: 1 } });
+    expect((strength.draft as { exercises: Array<{ linkedBelow?: boolean }> }).exercises[0].linkedBelow).toBe(true);
   });
 
   it('starts, pauses, and resumes active time without counting paused time', () => {

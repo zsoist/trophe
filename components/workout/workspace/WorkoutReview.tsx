@@ -36,7 +36,9 @@ export function WorkoutReview({ exercises, onSavePlan, onLogCompleted }: Workout
     );
   }
 
-  const valid = draft.kind === 'strength' ? draft.exercises.length > 0 : draft.durationMinutes > 0;
+  const hasName = draft.name.trim().length > 0;
+  const hasContent = draft.kind === 'strength' ? draft.exercises.length > 0 : draft.durationMinutes > 0;
+  const valid = hasName && hasContent;
   const startLive = async () => {
     if (!valid || starting) return;
     setStarting(true);
@@ -82,14 +84,15 @@ export function WorkoutReview({ exercises, onSavePlan, onLogCompleted }: Workout
         </section>
       )}
 
-      {!valid ? <p className="text-sm text-[var(--content-secondary)]">{t(draft.kind === 'strength' ? 'workout.empty_strength_hint' : 'workout.empty_cardio_hint')}</p> : null}
+      {!hasName ? <p role="alert" className="text-sm text-[var(--status-danger-fg)]">{t('workout.name_required')}</p> : null}
+      {!hasContent ? <p className="text-sm text-[var(--content-secondary)]">{t(draft.kind === 'strength' ? 'workout.empty_strength_hint' : 'workout.empty_cardio_hint')}</p> : null}
       {startError ? <p role="alert" className="rounded-xl border border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] p-3 text-sm text-[var(--status-danger-fg)]">{t('workout.start_live_failed')}</p> : null}
 
       <section className="space-y-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-4">
         <p className="text-sm leading-6 text-[var(--content-secondary)]">{t('workout.start_live_explanation')}</p>
         <button type="button" disabled={!valid || starting} onClick={() => void startLive()} className="btn-gold inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl disabled:opacity-40"><Play size={17} aria-hidden="true" />{t('workout.start_live')}</button>
         <button type="button" disabled={!valid} onClick={() => onLogCompleted(draft)} className="btn-ghost inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl disabled:opacity-40"><ClipboardCheck size={17} aria-hidden="true" />{t('workout.log_completed')}</button>
-        <button type="button" onClick={() => onSavePlan(draft)} className="btn-ghost inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl"><Save size={17} aria-hidden="true" />{t('workout.save_plan')}</button>
+        <button type="button" disabled={!hasName} onClick={() => onSavePlan(draft)} className="btn-ghost inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl disabled:opacity-40"><Save size={17} aria-hidden="true" />{t('workout.save_plan')}</button>
       </section>
     </main>
   );

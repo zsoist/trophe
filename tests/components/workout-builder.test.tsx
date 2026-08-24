@@ -26,6 +26,7 @@ vi.mock('@/lib/i18n', () => ({ useI18n: () => ({ lang: 'en', t: (key: string, pa
   'workout.move_named_up': `Move ${params?.name} up`, 'workout.move_named_down': `Move ${params?.name} down`,
   'workout.remove_named': `Remove ${params?.name}`, 'workout.target_sets_named': `Target sets for ${params?.name}`,
   'workout.target_reps_named': `Target reps for ${params?.name}`,
+  'workout.name_required': 'Enter a workout name.',
 }[key] ?? key) }) }));
 
 import { WorkoutBuilder } from '@/components/workout/workspace/WorkoutBuilder';
@@ -75,6 +76,14 @@ describe('WorkoutBuilder', () => {
 
     expect(screen.getByRole('button', { name: 'Review workout' }).hasAttribute('disabled')).toBe(true);
     expect(screen.getByText('Add an exercise to review this workout.')).toBeTruthy();
+  });
+
+  it('blocks Build and Save Plan for an empty workout name with visible validation', () => {
+    workspace.state.draft = { ...pushDraft, name: '   ' };
+    render(<WorkoutBuilder exercises={exercises} onSavePlan={vi.fn()} />);
+    expect(screen.getByRole('button', { name: 'Review workout' }).hasAttribute('disabled')).toBe(true);
+    expect(screen.getByRole('button', { name: 'Save plan' }).hasAttribute('disabled')).toBe(true);
+    expect(screen.getByRole('alert').textContent).toBe('Enter a workout name.');
   });
 
   it('opens the routed exercise browser from a strength draft', () => {

@@ -21,6 +21,7 @@ vi.mock('@/lib/i18n', () => ({ useI18n: () => ({ t: (key: string, params?: Recor
   'workout.effort_summary': `Effort ${params?.effort}/10`, 'workout.empty_strength_hint': 'Add an exercise to review this workout.',
   'workout.empty_cardio_hint': 'Add a duration to review this workout.',
   'workout.start_live_failed': 'Workout could not start. Try again.',
+  'workout.name_required': 'Enter a workout name.',
 }[key] ?? key) }) }));
 
 import { WorkoutReview } from '@/components/workout/workspace/WorkoutReview';
@@ -67,6 +68,15 @@ describe('WorkoutReview', () => {
     expect(screen.getByText('5 km')).toBeTruthy();
     expect(screen.getByText('Effort 7/10')).toBeTruthy();
     expect(screen.queryByText(/sets/)).toBeNull();
+  });
+
+  it('blocks every persistence decision when the workout name is empty', () => {
+    workspace.state.draft = { ...pushDraft, name: '   ' };
+    render(<WorkoutReview exercises={[{ id: 'bench', name: 'Bench Press' }]} onSavePlan={vi.fn()} onLogCompleted={vi.fn()} />);
+    expect(screen.getByRole('button', { name: 'Start live workout' }).hasAttribute('disabled')).toBe(true);
+    expect(screen.getByRole('button', { name: 'Log completed workout' }).hasAttribute('disabled')).toBe(true);
+    expect(screen.getByRole('button', { name: 'Save plan' }).hasAttribute('disabled')).toBe(true);
+    expect(screen.getByRole('alert').textContent).toBe('Enter a workout name.');
   });
 
   it('shows a recoverable error and re-enables start when the provider returns false', async () => {

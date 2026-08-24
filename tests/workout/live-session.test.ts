@@ -3,6 +3,9 @@ import type { WorkoutDraft } from '@/lib/workout/workspace-state';
 
 const persistence = vi.hoisted(() => ({
   createWorkoutSession: vi.fn(),
+  startWorkoutSessionAtomic: vi.fn(),
+  saveRetrospectiveWorkoutAtomic: vi.fn(),
+  updateLiveWorkoutStructureAtomic: vi.fn(),
   insertWorkoutSet: vi.fn(),
   insertWorkoutSets: vi.fn(),
   deleteWorkoutSet: vi.fn(),
@@ -31,9 +34,15 @@ import {
   removeLiveExerciseSets,
   recoverLiveExtraRows,
   recoverLiveSupersetLinks,
+  removeAndNormalizeLiveExercises,
   saveRetrospectiveWorkout,
+  startLiveSession,
   uncompleteLiveSet,
+  updateLiveStructure,
+  validateRetrospectiveWorkoutInput,
 } from '@/lib/workout/live-session';
+
+const idempotencyKey = '11111111-1111-4111-8111-111111111111';
 
 const strengthDraft: WorkoutDraft = {
   version: 2,
@@ -92,9 +101,9 @@ describe('live workout persistence boundary', () => {
 
   it('loads PR baselines and durable pain flags through the live boundary', async () => {
     persistence.loadPrMap.mockResolvedValue({ bench: 100 });
-    persistence.loadWorkoutSessionPainFlags.mockResolvedValue([{ exercise_id: 'bench', body_part: 'shoulder', severity: 2 }]);
+    persistence.loadWorkoutSessionPainFlags.mockResolvedValue({ ok: true, flags: [{ exercise_id: 'bench', body_part: 'shoulder', severity: 2 }] });
     await expect(loadLivePrMap('nik', ['bench'])).resolves.toEqual({ bench: 100 });
-    await expect(loadLivePainFlags('session-1')).resolves.toEqual([{ exercise_id: 'bench', body_part: 'shoulder', severity: 2 }]);
+    await expect(loadLivePainFlags('session-1')).resolves.toEqual({ ok: true, flags: [{ exercise_id: 'bench', body_part: 'shoulder', severity: 2 }] });
   });
 
   it('verifies pain, superset, and removed-exercise writes before the UI changes', async () => {
@@ -127,7 +136,7 @@ describe('live workout persistence boundary', () => {
     persistence.loadWorkoutSessionPainFlags.mockRejectedValue(new Error('offline'));
     persistence.loadPrMap.mockRejectedValue(new Error('offline'));
     await expect(loadLiveSessionSets('session-1')).resolves.toEqual([]);
-    await expect(loadLivePainFlags('session-1')).resolves.toEqual([]);
+    await expect(loadLivePainFlags('session-1')).resolves.toEqual({ ok: false });
     await expect(loadLivePrMap('nik', ['bench'])).resolves.toEqual({});
   });
 
@@ -185,49 +194,88 @@ describe('live workout persistence boundary', () => {
     await expect(discardEmptyLiveSession('session-1')).resolves.toBe(true);
   });
 
-  it('creates retrospective cardio only after save and persists its details', async () => {
-    persistence.createWorkoutSession.mockResolvedValue('session-cardio');
-    persistence.finishWorkoutSession.mockResolvedValue(true);
-
-    await expect(saveRetrospectiveWorkout({ userId: 'nik', draft: cardioDraft, sets: [] })).resolves.toEqual({ ok: true, sessionId: 'session-cardio' });
-
-    expect(persistence.createWorkoutSession).toHaveBeenCalledTimes(1);
-    expect(persistence.createWorkoutSession).toHaveBeenCalledWith('nik', 'Morning run', null);
-    expect(persistence.finishWorkoutSession).toHaveBeenCalledWith('session-cardio', {
-      name: 'Morning run', duration_minutes: 30, pain_flags: [], template_id: null,
-      notes: 'Activity: run · Distance: 5 km · Effort: 7/10',
-    });
+  it('reuses a client request key for idempotent live start', async () => {
+    persistence.startWorkoutSessionAtomic.mockResolvedValue('session-live');
+    const input = { idempotencyKey, name: 'Push', templateId: null };
+    await expect(startLiveSession(input)).resolves.toEqual({ ok: true, sessionId: 'session-live' });
+    await expect(startLiveSession(input)).resolves.toEqual({ ok: true, sessionId: 'session-live' });
+    expect(persistence.startWorkoutSessionAtomic).toHaveBeenCalledTimes(2);
+    expect(persistence.startWorkoutSessionAtomic).toHaveBeenCalledWith(input);
   });
 
-  it('rolls back a failed retrospective strength save so it cannot leak an empty session', async () => {
-    persistence.createWorkoutSession.mockResolvedValue('session-strength');
-    persistence.insertWorkoutSets.mockResolvedValue(false);
-    persistence.deleteWorkoutSession.mockResolvedValue(true);
+  it('creates retrospective cardio through one idempotent transactional RPC', async () => {
+    persistence.saveRetrospectiveWorkoutAtomic.mockResolvedValue('session-cardio');
+
+    await expect(saveRetrospectiveWorkout({ idempotencyKey, draft: cardioDraft, sets: [] })).resolves.toEqual({ ok: true, sessionId: 'session-cardio' });
+
+    expect(persistence.saveRetrospectiveWorkoutAtomic).toHaveBeenCalledTimes(1);
+    expect(persistence.createWorkoutSession).not.toHaveBeenCalled();
+    expect(persistence.insertWorkoutSets).not.toHaveBeenCalled();
+    expect(persistence.finishWorkoutSession).not.toHaveBeenCalled();
+  });
+
+  it('fails an atomic retrospective strength RPC without client-side partial cleanup', async () => {
+    persistence.saveRetrospectiveWorkoutAtomic.mockResolvedValue(null);
 
     const result = await saveRetrospectiveWorkout({
-      userId: 'nik', draft: strengthDraft,
+      idempotencyKey, draft: strengthDraft, durationMinutes: 30,
       sets: [{ exercise_id: 'bench', set_number: 1, weight_kg: 60, reps: 8, rpe: null, is_warmup: false, is_pr: false }],
     });
 
     expect(result).toEqual({ ok: false });
-    expect(persistence.createWorkoutSession).toHaveBeenCalledTimes(1);
-    expect(persistence.finishWorkoutSession).not.toHaveBeenCalled();
-    expect(persistence.deleteWorkoutSession).toHaveBeenCalledWith('session-strength');
+    expect(persistence.saveRetrospectiveWorkoutAtomic).toHaveBeenCalledTimes(1);
+    expect(persistence.deleteWorkoutSession).not.toHaveBeenCalled();
   });
 
-  it('attempts rollback when a retrospective write throws', async () => {
-    persistence.createWorkoutSession.mockResolvedValue('session-strength');
-    persistence.insertWorkoutSets.mockRejectedValue(new Error('offline'));
-    persistence.deleteWorkoutSession.mockResolvedValue(true);
+  it('returns false when the atomic retrospective transport throws', async () => {
+    persistence.saveRetrospectiveWorkoutAtomic.mockRejectedValue(new Error('offline'));
     await expect(saveRetrospectiveWorkout({
-      userId: 'nik', draft: strengthDraft,
+      idempotencyKey, draft: strengthDraft, durationMinutes: 30,
       sets: [{ exercise_id: 'bench', set_number: 1, weight_kg: 60, reps: 8, rpe: null, is_warmup: false, is_pr: false }],
     })).resolves.toEqual({ ok: false });
-    expect(persistence.deleteWorkoutSession).toHaveBeenCalledWith('session-strength');
   });
 
   it('refuses empty retrospective strength before creating a history row', async () => {
-    await expect(saveRetrospectiveWorkout({ userId: 'nik', draft: strengthDraft, sets: [] })).resolves.toEqual({ ok: false });
-    expect(persistence.createWorkoutSession).not.toHaveBeenCalled();
+    await expect(saveRetrospectiveWorkout({ idempotencyKey, draft: strengthDraft, sets: [], durationMinutes: 30 })).resolves.toEqual({ ok: false });
+    expect(persistence.saveRetrospectiveWorkoutAtomic).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [{ ...strengthDraft, name: '   ' }, [{ exercise_id: 'bench', set_number: 1, weight_kg: 1, reps: 1, rpe: null, is_warmup: false, is_pr: false }], 30],
+    [strengthDraft, [{ exercise_id: 'bench', set_number: 1, weight_kg: Number.NaN, reps: 8, rpe: null, is_warmup: false, is_pr: false }], 30],
+    [strengthDraft, [{ exercise_id: 'bench', set_number: 1, weight_kg: -1, reps: 8, rpe: null, is_warmup: false, is_pr: false }], 30],
+    [strengthDraft, [{ exercise_id: 'bench', set_number: 0, weight_kg: 1, reps: 8, rpe: null, is_warmup: false, is_pr: false }], 30],
+    [strengthDraft, [{ exercise_id: 'bench', set_number: 1, weight_kg: 1, reps: 0, rpe: null, is_warmup: false, is_pr: false }], 30],
+    [strengthDraft, [{ exercise_id: 'bench', set_number: 1, weight_kg: 1, reps: 8, rpe: 11, is_warmup: false, is_pr: false }], 30],
+    [cardioDraft, [], 0],
+    [{ ...cardioDraft, distanceKm: -1 }, [], 30],
+    [{ ...cardioDraft, effort: Number.POSITIVE_INFINITY }, [], 30],
+  ] as const)('rejects invalid retrospective numbers before the RPC', (draft, sets, durationMinutes) => {
+    expect(validateRetrospectiveWorkoutInput({ idempotencyKey, draft: draft as WorkoutDraft, sets: sets as never, durationMinutes })).toBe(false);
+  });
+
+  it('persists live structure changes in one atomic boundary', async () => {
+    persistence.updateLiveWorkoutStructureAtomic.mockResolvedValue(true);
+    await expect(updateLiveStructure('session-1', [
+      { exerciseId: 'bench', supersetGroup: 1 },
+      { exerciseId: 'row', supersetGroup: 1 },
+    ], 'curl')).resolves.toBe(true);
+    expect(persistence.updateLiveWorkoutStructureAtomic).toHaveBeenCalledWith('session-1', [
+      { exercise_id: 'bench', superset_group: 1 },
+      { exercise_id: 'row', superset_group: 1 },
+    ], 'curl');
+  });
+
+  it('removes a live exercise while preserving and normalizing surviving superset chains', () => {
+    expect(removeAndNormalizeLiveExercises([
+      { exerciseId: 'bench', targetSets: 1, targetReps: '8', linkedBelow: true },
+      { exerciseId: 'row', targetSets: 1, targetReps: '8', linkedBelow: true },
+      { exerciseId: 'curl', targetSets: 1, targetReps: '8' },
+      { exerciseId: 'press', targetSets: 1, targetReps: '8' },
+    ], 'row')).toEqual([
+      { exerciseId: 'bench', targetSets: 1, targetReps: '8', linkedBelow: true },
+      { exerciseId: 'curl', targetSets: 1, targetReps: '8', linkedBelow: false },
+      { exerciseId: 'press', targetSets: 1, targetReps: '8', linkedBelow: false },
+    ]);
   });
 });

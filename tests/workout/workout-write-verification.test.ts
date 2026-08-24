@@ -113,7 +113,9 @@ describe('workout mutation verification', () => {
     expect(guided).toContain('if (!finished)');
     expect(review).toContain('onLogCompleted(draft)');
     expect(review).toContain('await workspace.startLive()');
-    expect(provider).toContain('createWorkoutSession(ownerId, state.draft.name');
+    expect(provider).toContain('const idempotencyKey = ensureClientRequestId()');
+    expect(provider).toContain('const pending = startLiveSession({');
+    expect(provider).toContain('saveWorkspaceState(resolvedStorage, ownerId, keyedState)');
     expect(review).not.toContain('finishWorkoutSession');
   });
 });

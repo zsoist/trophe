@@ -526,6 +526,13 @@
       "when": 1785364464632,
       "tag": "0074_secure_dedupe_backup",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1787598000000,
+      "tag": "0075_workout_session_atomicity",
+      "breakpoints": true
     }
   ]
 }

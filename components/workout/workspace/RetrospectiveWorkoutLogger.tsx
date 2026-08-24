@@ -16,13 +16,14 @@ import type { WorkoutDraft } from '@/lib/workout/workspace-state';
 
 interface RetrospectiveWorkoutLoggerProps {
   userId: string;
+  idempotencyKey: string;
   draft: WorkoutDraft;
   exercises: Exercise[];
   onSaved(): void;
   onCancel(): void;
 }
 
-export function RetrospectiveWorkoutLogger({ userId, draft, exercises, onSaved, onCancel }: RetrospectiveWorkoutLoggerProps) {
+export function RetrospectiveWorkoutLogger({ userId, idempotencyKey, draft, exercises, onSaved, onCancel }: RetrospectiveWorkoutLoggerProps) {
   const { t } = useI18n();
   const [unit] = useWeightUnit();
   const [completed, setCompleted] = useState<Record<string, SetLoggerValue>>({});
@@ -56,7 +57,7 @@ export function RetrospectiveWorkoutLogger({ userId, draft, exercises, onSaved, 
     setSaving(true);
     setSaveError(false);
     const result = await saveRetrospectiveWorkout({
-      userId,
+      idempotencyKey,
       draft: { ...draft, durationMinutes: values.durationMinutes, distanceKm: values.distanceKm, effort: values.effort },
       sets: [],
     });
@@ -101,7 +102,7 @@ export function RetrospectiveWorkoutLogger({ userId, draft, exercises, onSaved, 
     if (saving || resolvedSets.length === 0) return;
     setSaving(true);
     setSaveError(false);
-    const result = await saveRetrospectiveWorkout({ userId, draft, sets: resolvedSets, durationMinutes, painFlags });
+    const result = await saveRetrospectiveWorkout({ idempotencyKey, draft, sets: resolvedSets, durationMinutes, painFlags });
     setSaving(false);
     if (result.ok) onSaved();
     else setSaveError(true);

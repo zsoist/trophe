@@ -7,24 +7,32 @@ import type { WorkoutWorkspaceState } from '@/lib/workout/workspace-state';
 
 const harness = vi.hoisted(() => ({
   requestFinish: vi.fn(), cancelFinish: vi.fn(), completeFinish: vi.fn(), discardLive: vi.fn(),
+  updateLiveCardioDraft: vi.fn(), commitLiveStrengthStructure: vi.fn(),
   finishLiveSession: vi.fn(), loadLiveSessionSets: vi.fn(),
   completeLiveSet: vi.fn(), loadLivePrMap: vi.fn(), loadLivePainFlags: vi.fn(),
   saveLivePainFlags: vi.fn(), updateLiveSupersets: vi.fn(), removeLiveExerciseSets: vi.fn(),
+  updateLiveStructure: vi.fn(), removeAndNormalizeLiveExercises: vi.fn(),
 }));
 
 const liveState: WorkoutWorkspaceState = {
   stage: 'live', sessionId: 'session-1', clock: { runningSince: Date.now(), accumulatedMs: 0 },
+  clientRequestId: '11111111-1111-4111-8111-111111111111',
   draft: { version: 2, kind: 'strength', name: 'Push', updatedAt: 1, exercises: [{ exerciseId: 'bench', exerciseName: 'Bench Press', targetSets: 1, targetReps: '8' }] },
 };
 let workspace = { state: liveState, pause: vi.fn(), resume: vi.fn(), ...harness };
 
 vi.mock('@/components/workout/workspace/WorkoutWorkspaceProvider', () => ({ useWorkoutWorkspace: () => workspace }));
 vi.mock('@/components/workout/ExerciseInfoSheet', () => ({ default: () => null }));
-vi.mock('@/components/workout/PainFlagModal', () => ({ default: () => null }));
+vi.mock('@/components/workout/PainFlagModal', () => ({ default: ({ onSave }: { onSave: (flag: { exercise_id: string; body_part: string; severity: number }) => Promise<boolean> }) => <button type="button" onClick={() => void onSave({ exercise_id: 'bench', body_part: 'shoulder', severity: 2 })}>Save pain note</button> }));
 vi.mock('@/components/workout/PlateCalculator', () => ({ default: () => null }));
 vi.mock('@/components/workout/workspace/ExerciseSetLogger', () => ({
-  ExerciseSetLogger: ({ exercise, onComplete }: { exercise: { name: string }; onComplete: (value: { weight: number; reps: number; rpe: number | null; isWarmup: boolean }) => Promise<string | null> }) => (
-    <button type="button" onClick={() => void onComplete({ weight: 60, reps: 8, rpe: null, isWarmup: false })}>Complete {exercise.name}</button>
+  ExerciseSetLogger: ({ exercise, onComplete, onSuperset, onRemove, onPain }: { exercise: { name: string }; onComplete: (value: { weight: number; reps: number; rpe: number | null; isWarmup: boolean }) => Promise<string | null>; onSuperset?: () => void; onRemove?: () => void; onPain?: () => void }) => (
+    <div>
+      <button type="button" onClick={() => void onComplete({ weight: 60, reps: 8, rpe: null, isWarmup: false })}>Complete {exercise.name}</button>
+      <button type="button" onClick={onSuperset}>Superset {exercise.name}</button>
+      <button type="button" onClick={onRemove}>Remove {exercise.name}</button>
+      <button type="button" onClick={onPain}>Pain {exercise.name}</button>
+    </div>
   ),
 }));
 vi.mock('@/lib/workout/live-session', () => ({
@@ -36,6 +44,7 @@ vi.mock('@/lib/workout/live-session', () => ({
   recoverLiveSupersetLinks: vi.fn(() => []),
   saveLivePainFlags: harness.saveLivePainFlags, updateLiveSupersets: harness.updateLiveSupersets,
   removeLiveExerciseSets: harness.removeLiveExerciseSets,
+  updateLiveStructure: harness.updateLiveStructure, removeAndNormalizeLiveExercises: harness.removeAndNormalizeLiveExercises,
 }));
 vi.mock('@/lib/workout/units', () => ({ useWeightUnit: () => ['kg', vi.fn()], displayToKg: (value: number) => value, kgToDisplay: (value: number) => value }));
 vi.mock('@/lib/i18n', () => ({ useI18n: () => ({ t: (key: string) => ({
@@ -45,25 +54,32 @@ vi.mock('@/lib/i18n', () => ({ useI18n: () => ({ t: (key: string) => ({
   'workout.finish_completed_sets': '0 completed sets', 'workout.finish_pending_sets': '1 pending sets',
   'workout.finish_pain_notes': '0 pain notes', 'workout.finish_prs': '0 PRs', 'workout.saving': 'Saving…',
   'workout.pause': 'Pause', 'workout.resume': 'Resume', 'workout.add_set': 'Add set',
+  'workout.distance_optional': 'Distance optional', 'workout.effort': 'Effort',
   'workout.save_failed': 'Save failed',
+  'workout.mutation_failed': 'A workout change could not be saved. Retry that change before finishing.',
+  'workout.recovery_failed': 'Workout recovery could not be verified.', 'workout.retry_recovery': 'Retry recovery',
 }[key] ?? key) }) }));
 
 import { LiveWorkout } from '@/components/workout/workspace/LiveWorkout';
 
 beforeEach(() => {
   harness.loadLivePrMap.mockResolvedValue({});
-  harness.loadLivePainFlags.mockResolvedValue([]);
+  harness.loadLivePainFlags.mockResolvedValue({ ok: true, flags: [] });
   harness.saveLivePainFlags.mockResolvedValue(true);
   harness.updateLiveSupersets.mockResolvedValue(true);
   harness.removeLiveExerciseSets.mockResolvedValue(true);
+  harness.updateLiveStructure.mockResolvedValue(true);
+  harness.removeAndNormalizeLiveExercises.mockImplementation((items: Array<{ exerciseId: string }>, removeId: string) => items.filter((item) => item.exerciseId !== removeId).map((item) => ({ ...item, linkedBelow: false })));
 });
 afterEach(() => { cleanup(); vi.clearAllMocks(); workspace = { state: liveState, pause: vi.fn(), resume: vi.fn(), ...harness }; });
 
 describe('LiveWorkout', () => {
-  it('requires confirmation before finishing', () => {
+  it('requires confirmation before finishing', async () => {
     harness.loadLiveSessionSets.mockResolvedValue([]);
     render(<LiveWorkout exercises={[]} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Finish workout' }));
+    const finish = screen.getByRole('button', { name: 'Finish workout' });
+    await vi.waitFor(() => expect(finish.hasAttribute('disabled')).toBe(false));
+    fireEvent.click(finish);
     expect(harness.finishLiveSession).not.toHaveBeenCalled();
     expect(harness.requestFinish).toHaveBeenCalledTimes(1);
     expect(screen.getByRole('dialog', { name: 'Finish workout?' })).toBeTruthy();
@@ -79,7 +95,7 @@ describe('LiveWorkout', () => {
 
   it('uses the pre-session kilogram baseline to persist compound PRs', async () => {
     harness.loadLiveSessionSets.mockResolvedValue([]);
-    harness.loadLivePainFlags.mockResolvedValue([]);
+    harness.loadLivePainFlags.mockResolvedValue({ ok: true, flags: [] });
     harness.loadLivePrMap.mockResolvedValue({ bench: 50 });
     harness.completeLiveSet.mockResolvedValue({ ok: true, setId: 'set-1' });
     render(<LiveWorkout userId="nik" exercises={[{
@@ -88,5 +104,109 @@ describe('LiveWorkout', () => {
     }]} />);
     fireEvent.click(await screen.findByRole('button', { name: 'Complete Bench Press' }));
     await vi.waitFor(() => expect(harness.completeLiveSet).toHaveBeenCalledWith(expect.objectContaining({ weightKg: 60, isPr: true })));
+  });
+
+  it('blocks finish while a set write is pending and after a failed write until retry succeeds', async () => {
+    harness.loadLiveSessionSets.mockResolvedValue([]);
+    let resolveWrite!: (value: { ok: false }) => void;
+    harness.completeLiveSet.mockReturnValueOnce(new Promise((resolve) => { resolveWrite = resolve; }));
+    render(<LiveWorkout exercises={[]} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Complete Bench Press' }));
+    expect(screen.getByRole('button', { name: 'Finish workout' }).hasAttribute('disabled')).toBe(true);
+    resolveWrite({ ok: false });
+    expect((await screen.findByRole('alert')).textContent).toContain('could not be saved');
+    expect(screen.getByRole('button', { name: 'Finish workout' }).hasAttribute('disabled')).toBe(true);
+
+    harness.completeLiveSet.mockResolvedValueOnce({ ok: true, setId: 'set-1' });
+    fireEvent.click(screen.getByRole('button', { name: 'Complete Bench Press' }));
+    await vi.waitFor(() => expect(screen.getByRole('button', { name: 'Finish workout' }).hasAttribute('disabled')).toBe(false));
+  });
+
+  it('never replaces pain flags after an unverified read and offers recovery retry', async () => {
+    harness.loadLiveSessionSets.mockResolvedValue([]);
+    harness.loadLivePainFlags.mockResolvedValueOnce({ ok: false }).mockResolvedValueOnce({ ok: true, flags: [] });
+    render(<LiveWorkout exercises={[]} />);
+    expect((await screen.findByRole('alert')).textContent).toContain('recovery could not be verified');
+    expect(screen.getByRole('button', { name: 'Finish workout' }).hasAttribute('disabled')).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Retry recovery' }));
+    await vi.waitFor(() => expect(screen.queryByText('Workout recovery could not be verified.')).toBeNull());
+  });
+
+  it('keeps a failed pain write retryable and inside the finish barrier', async () => {
+    harness.loadLiveSessionSets.mockResolvedValue([]);
+    let resolvePain!: (saved: boolean) => void;
+    harness.saveLivePainFlags.mockReturnValueOnce(new Promise((resolve) => { resolvePain = resolve; }));
+    render(<LiveWorkout exercises={[]} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Pain Bench Press' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save pain note' }));
+    expect(screen.getByRole('button', { name: 'Finish workout' }).hasAttribute('disabled')).toBe(true);
+    resolvePain(false);
+    expect((await screen.findByRole('alert')).textContent).toContain('could not be saved');
+    expect(screen.getByRole('button', { name: 'Save pain note' })).toBeTruthy();
+
+    harness.saveLivePainFlags.mockResolvedValueOnce(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Save pain note' }));
+    await vi.waitFor(() => expect(screen.getByRole('button', { name: 'Finish workout' }).hasAttribute('disabled')).toBe(false));
+  });
+
+  it('stores live cardio edits in the recoverable draft and offers discard for an immediate empty finish', async () => {
+    workspace = { ...workspace, state: {
+      ...liveState,
+      draft: { version: 2, kind: 'cardio', name: 'Run', updatedAt: 1, activity: 'run', durationMinutes: 30, distanceKm: null, effort: null },
+      clock: { runningSince: Date.now(), accumulatedMs: 0 },
+    } };
+    harness.loadLiveSessionSets.mockResolvedValue([]);
+    render(<LiveWorkout exercises={[]} />);
+    fireEvent.change(await screen.findByLabelText('Distance optional'), { target: { value: '4.2' } });
+    expect(harness.updateLiveCardioDraft).toHaveBeenCalledWith({ distanceKm: 4.2, effort: null });
+    fireEvent.change(screen.getByLabelText('Distance optional'), { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Finish workout' }));
+    expect(await screen.findByRole('button', { name: 'Discard empty workout' })).toBeTruthy();
+  });
+
+  it('persists superset links before sets exist and commits verified removals to recovery', async () => {
+    workspace = { ...workspace, state: {
+      ...liveState,
+      draft: { version: 2, kind: 'strength', name: 'Upper', updatedAt: 1, exercises: [
+        { exerciseId: 'bench', exerciseName: 'Bench Press', targetSets: 1, targetReps: '8' },
+        { exerciseId: 'row', exerciseName: 'Row', targetSets: 1, targetReps: '8' },
+      ] },
+    } };
+    harness.loadLiveSessionSets.mockResolvedValue([]);
+    render(<LiveWorkout exercises={[]} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Superset Bench Press' }));
+    await vi.waitFor(() => expect(harness.updateLiveStructure).toHaveBeenCalledWith('session-1', [
+      { exerciseId: 'bench', supersetGroup: 1 }, { exerciseId: 'row', supersetGroup: 1 },
+    ]));
+    await vi.waitFor(() => expect(harness.commitLiveStrengthStructure).toHaveBeenCalledWith(expect.arrayContaining([
+      expect.objectContaining({ exerciseId: 'bench', linkedBelow: true }),
+    ])));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Bench Press' }));
+    await vi.waitFor(() => expect(harness.updateLiveStructure).toHaveBeenCalledWith('session-1', [
+      { exerciseId: 'row', supersetGroup: null },
+    ], 'bench'));
+    await vi.waitFor(() => expect(harness.commitLiveStrengthStructure).toHaveBeenLastCalledWith([
+      expect.objectContaining({ exerciseId: 'row', linkedBelow: false }),
+    ]));
+  });
+
+  it('retains live structure and blocks finish when a superset write fails', async () => {
+    workspace = { ...workspace, state: {
+      ...liveState,
+      draft: { version: 2, kind: 'strength', name: 'Upper', updatedAt: 1, exercises: [
+        { exerciseId: 'bench', exerciseName: 'Bench Press', targetSets: 1, targetReps: '8', linkedBelow: false },
+        { exerciseId: 'row', exerciseName: 'Row', targetSets: 1, targetReps: '8', linkedBelow: false },
+      ] },
+    } };
+    harness.loadLiveSessionSets.mockResolvedValue([]);
+    harness.updateLiveStructure.mockResolvedValueOnce(false);
+    render(<LiveWorkout exercises={[]} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Superset Bench Press' }));
+    expect((await screen.findByRole('alert')).textContent).toContain('could not be saved');
+    expect(harness.commitLiveStrengthStructure).not.toHaveBeenCalledWith(expect.arrayContaining([
+      expect.objectContaining({ exerciseId: 'bench', linkedBelow: true }),
+    ]));
+    expect(screen.getByRole('button', { name: 'Finish workout' }).hasAttribute('disabled')).toBe(true);
   });
 });

@@ -9,6 +9,8 @@ export interface DraftExercise {
   muscleGroup?: MuscleGroup;
   targetSets: number;
   targetReps: string;
+  /** True when this exercise is linked to the next exercise in the live order. */
+  linkedBelow?: boolean;
 }
 
 interface WorkoutDraftBase {
@@ -46,6 +48,8 @@ export interface WorkoutWorkspaceState {
   clock: LiveClock | null;
   /** Clock mode to restore when a guarded finish is cancelled. */
   finishingFrom?: 'live' | 'paused' | null;
+  /** Persisted before a create request so an ambiguous response can be retried safely. */
+  clientRequestId: string | null;
 }
 
 export const WORKOUT_DRAFT_VERSION = 2 as const;
@@ -62,7 +66,9 @@ export type WorkoutWorkspaceEvent =
   | { type: 'draft.created'; payload: DraftCreatedPayload }
   | { type: 'draft.updated'; payload: { draft: WorkoutDraft } }
   | { type: 'draft.reviewed' }
+  | { type: 'request.keyed'; payload: { clientRequestId: string } }
   | { type: 'live.started'; payload: { sessionId: string; now: number } }
+  | { type: 'live.draftUpdated'; payload: { draft: WorkoutDraft } }
   | { type: 'live.paused'; payload: { now: number } }
   | { type: 'live.resumed'; payload: { now: number } }
   | { type: 'live.finishing'; payload: { now: number } }
@@ -79,7 +85,7 @@ export function createEmptyDraft(kind: WorkoutKind = 'strength', name = '', temp
 }
 
 export function createInitialWorkspaceState(): WorkoutWorkspaceState {
-  return { stage: 'home', draft: null, sessionId: null, clock: null, finishingFrom: null };
+  return { stage: 'home', draft: null, sessionId: null, clock: null, finishingFrom: null, clientRequestId: null };
 }
 
 export function elapsedActiveMs(clock: LiveClock | null, now: number): number {
@@ -104,7 +110,7 @@ export function workoutWorkspaceReducer(
   switch (event.type) {
     case 'draft.created':
       if (state.stage !== 'home') throw new Error(`Cannot create a draft from ${state.stage}`);
-      return { stage: 'draft', draft: createEmptyDraft(event.payload.kind, event.payload.name, event.payload.templateKey, event.payload.updatedAt ?? 0, event.payload.templateId), sessionId: null, clock: null, finishingFrom: null };
+      return { stage: 'draft', draft: createEmptyDraft(event.payload.kind, event.payload.name, event.payload.templateKey, event.payload.updatedAt ?? 0, event.payload.templateId), sessionId: null, clock: null, finishingFrom: null, clientRequestId: null };
     case 'draft.updated':
       if (state.stage !== 'draft' && state.stage !== 'review') throw new Error(`Cannot update a draft from ${state.stage}`);
       return { ...state, draft: event.payload.draft };
@@ -112,11 +118,20 @@ export function workoutWorkspaceReducer(
       requireDraft(state);
       if (state.stage !== 'draft') throw new Error(`Cannot review a draft from ${state.stage}`);
       return { ...state, stage: 'review' };
+    case 'request.keyed':
+      requireDraft(state);
+      if (state.stage !== 'draft' && state.stage !== 'review') throw new Error(`Cannot key a request from ${state.stage}`);
+      if (!event.payload.clientRequestId.trim()) throw new Error('A client request id is required');
+      return { ...state, clientRequestId: event.payload.clientRequestId };
     case 'live.started':
       if (!event.payload.sessionId.trim()) throw new Error('A session id is required');
       requireDraft(state);
       if (state.stage !== 'draft' && state.stage !== 'review') throw new Error(`Cannot start live workout from ${state.stage}`);
       return { ...state, stage: 'live', sessionId: event.payload.sessionId, clock: { runningSince: event.payload.now, accumulatedMs: 0 }, finishingFrom: null };
+    case 'live.draftUpdated':
+      requireDraft(state);
+      if (state.stage !== 'live' && state.stage !== 'paused') throw new Error(`Cannot update a live draft from ${state.stage}`);
+      return { ...state, draft: event.payload.draft };
     case 'live.paused': {
       if (state.stage !== 'live') throw new Error(`Cannot pause from ${state.stage}`);
       const clock = requireClock(state);

@@ -4,9 +4,9 @@ import React from 'react';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const { createWorkoutSession, push } = vi.hoisted(() => ({ createWorkoutSession: vi.fn(), push: vi.fn() }));
+const { startLiveSession, push } = vi.hoisted(() => ({ startLiveSession: vi.fn(), push: vi.fn() }));
 
-vi.mock('@/components/workout/workout-persistence', () => ({ createWorkoutSession }));
+vi.mock('@/lib/workout/live-session', () => ({ startLiveSession, discardEmptyLiveSession: vi.fn() }));
 vi.mock('@/lib/supabase', () => ({ supabase: { auth: { getUser: vi.fn() } } }));
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push }) }));
 vi.mock('@/lib/i18n', () => ({
@@ -96,7 +96,7 @@ function RoutedWorkspace(props: { program: WorkoutHomeProgram | null; programLoa
   return <WorkoutHome {...props} exercises={exercises} recents={[]} routines={[]} />;
 }
 
-afterEach(() => { cleanup(); createWorkoutSession.mockReset(); push.mockReset(); });
+afterEach(() => { cleanup(); startLiveSession.mockReset(); push.mockReset(); });
 
 describe('WorkoutHome', () => {
   it('previews Push without starting or opening the exercise picker', async () => {
@@ -107,7 +107,7 @@ describe('WorkoutHome', () => {
     expect(screen.getByRole('heading', { name: 'Push' })).toBeTruthy();
     expect(screen.getByText('Chest · Shoulders · Triceps')).toBeTruthy();
     expect(screen.getByText('3 exercises')).toBeTruthy();
-    expect(createWorkoutSession).not.toHaveBeenCalled();
+    expect(startLiveSession).not.toHaveBeenCalled();
     expect(screen.queryByRole('dialog', { name: 'Add exercise' })).toBeNull();
   });
 
@@ -120,11 +120,11 @@ describe('WorkoutHome', () => {
     expect(await screen.findByText('Draft · Not started')).toBeTruthy();
     expect(screen.getByDisplayValue('Push')).toBeTruthy();
     expect(screen.getByText('Bench Press')).toBeTruthy();
-    expect(createWorkoutSession).not.toHaveBeenCalled();
+    expect(startLiveSession).not.toHaveBeenCalled();
   });
 
   it('takes Preview Push through review and starts live without persisting the built-in key as template_id', async () => {
-    createWorkoutSession.mockResolvedValue('session-push');
+    startLiveSession.mockResolvedValue({ ok: true, sessionId: 'session-push' });
     render(<WorkoutHomeHarness />);
     await waitFor(() => expect(screen.getByRole('button', { name: 'Preview Push' }).hasAttribute('disabled')).toBe(false));
 
@@ -133,8 +133,8 @@ describe('WorkoutHome', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Review workout' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Start live workout' }));
 
-    await waitFor(() => expect(createWorkoutSession).toHaveBeenCalledTimes(1));
-    expect(createWorkoutSession).toHaveBeenCalledWith('nik', 'Push', null);
+    await waitFor(() => expect(startLiveSession).toHaveBeenCalledTimes(1));
+    expect(startLiveSession).toHaveBeenCalledWith(expect.objectContaining({ name: 'Push', templateId: null }));
   });
 
   it('turns a coach program into a reviewable draft instead of auto-starting guided mode', async () => {
@@ -144,7 +144,7 @@ describe('WorkoutHome', () => {
 
     expect(await screen.findByRole('heading', { name: 'Review workout' })).toBeTruthy();
     expect(screen.getByText('Coach Push')).toBeTruthy();
-    expect(createWorkoutSession).not.toHaveBeenCalled();
+    expect(startLiveSession).not.toHaveBeenCalled();
   });
 
   it('keeps coach-resolved exercise metadata through review when the client library cannot resolve the id', async () => {
@@ -182,7 +182,7 @@ describe('WorkoutHome', () => {
     expect(screen.getByLabelText('Activity')).toBeTruthy();
     expect(screen.getByLabelText('Duration in minutes')).toBeTruthy();
     expect(screen.getByLabelText('Distance optional')).toBeTruthy();
-    expect(createWorkoutSession).not.toHaveBeenCalled();
+    expect(startLiveSession).not.toHaveBeenCalled();
   });
 
   it('keeps a deterministic browse surface during program errors', async () => {

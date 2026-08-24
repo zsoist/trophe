@@ -15,6 +15,7 @@ export interface FinishWorkoutSummary {
 interface FinishWorkoutDialogProps {
   summary: FinishWorkoutSummary;
   saving?: boolean;
+  blocked?: boolean;
   error?: boolean;
   isEmpty?: boolean;
   onKeepTraining(): void;
@@ -24,7 +25,7 @@ interface FinishWorkoutDialogProps {
 
 const focusable = 'button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
-export function FinishWorkoutDialog({ summary, saving = false, error = false, isEmpty, onKeepTraining, onSaveAndFinish, onDiscardEmpty }: FinishWorkoutDialogProps) {
+export function FinishWorkoutDialog({ summary, saving = false, blocked = false, error = false, isEmpty, onKeepTraining, onSaveAndFinish, onDiscardEmpty }: FinishWorkoutDialogProps) {
   const { t } = useI18n();
   const dialogRef = useRef<HTMLDivElement>(null);
   const empty = isEmpty ?? (summary.durationMinutes === 0 && summary.completedSets === 0 && summary.pendingSets === 0);
@@ -60,9 +61,9 @@ export function FinishWorkoutDialog({ summary, saving = false, error = false, is
         {error ? <p role="alert" className="mt-3 inline-flex items-center gap-2 rounded-xl bg-[var(--status-danger-bg)] p-3 text-sm text-[var(--status-danger-fg)]"><AlertTriangle size={16} aria-hidden="true" />{t('workout.save_failed')}</p> : null}
         <div className="mt-5 space-y-3">
           {empty ? (
-            <button type="button" disabled={saving} onClick={onDiscardEmpty} className="min-h-12 w-full rounded-xl bg-[var(--status-danger-bg)] px-4 font-semibold text-[var(--status-danger-fg)] disabled:opacity-50">{saving ? t('workout.saving') : t('workout.discard_empty')}</button>
+            <button type="button" disabled={saving || blocked} onClick={onDiscardEmpty} className="min-h-12 w-full rounded-xl bg-[var(--status-danger-bg)] px-4 font-semibold text-[var(--status-danger-fg)] disabled:opacity-50">{saving ? t('workout.saving') : t('workout.discard_empty')}</button>
           ) : (
-            <button type="button" disabled={saving} onClick={onSaveAndFinish} className="btn-gold min-h-12 w-full rounded-xl px-4 disabled:opacity-50">{saving ? t('workout.saving') : t('workout.save_and_finish')}</button>
+            <button type="button" disabled={saving || blocked} onClick={onSaveAndFinish} className="btn-gold min-h-12 w-full rounded-xl px-4 disabled:opacity-50">{saving ? t('workout.saving') : t('workout.save_and_finish')}</button>
           )}
           <button type="button" disabled={saving} onClick={onKeepTraining} className="btn-ghost min-h-12 w-full rounded-xl px-4 disabled:opacity-50">{t('workout.keep_training')}</button>
         </div>

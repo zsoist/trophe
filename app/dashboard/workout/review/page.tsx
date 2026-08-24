@@ -18,7 +18,7 @@ export default function WorkoutReviewPage() {
   const [exercises, setExercises] = useState<WorkoutExerciseOption[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   const [planSaved, setPlanSaved] = useState(false);
-  const [retrospectiveDraft, setRetrospectiveDraft] = useState<WorkoutDraft | null>(null);
+  const [retrospective, setRetrospective] = useState<{ draft: WorkoutDraft; idempotencyKey: string } | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -33,15 +33,16 @@ export default function WorkoutReviewPage() {
     return () => { active = false; };
   }, []);
 
-  if (retrospectiveDraft) {
+  if (retrospective) {
     return (
       <main className="mx-auto max-w-2xl space-y-4 px-4 py-5">
         {userId ? (
           <RetrospectiveWorkoutLogger
             userId={userId}
-            draft={retrospectiveDraft}
+            idempotencyKey={retrospective.idempotencyKey}
+            draft={retrospective.draft}
             exercises={exercises as Parameters<typeof RetrospectiveWorkoutLogger>[0]['exercises']}
-            onCancel={() => setRetrospectiveDraft(null)}
+            onCancel={() => setRetrospective(null)}
             onSaved={() => {
               workspace.discardDraft();
               router.push(WORKOUT_ROUTES.home);
@@ -54,7 +55,10 @@ export default function WorkoutReviewPage() {
 
   return (
     <>
-      <WorkoutReview exercises={exercises} onSavePlan={() => setPlanSaved(true)} onLogCompleted={setRetrospectiveDraft} />
+      <WorkoutReview exercises={exercises} onSavePlan={() => setPlanSaved(true)} onLogCompleted={(draft) => {
+        const idempotencyKey = workspace.ensureClientRequestId();
+        if (idempotencyKey) setRetrospective({ draft, idempotencyKey });
+      }} />
       {planSaved ? (
         <p role="status" className="mx-auto max-w-2xl px-4 text-sm text-[var(--status-success-fg)]">
           {t('workout.plan_saved_locally')}

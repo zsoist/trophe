@@ -17,12 +17,12 @@ import {
   loadLivePainFlags,
   loadLivePrMap,
   loadLiveSessionSets,
+  removeAndNormalizeLiveExercises,
   recoverLiveExtraRows,
   recoverLiveSupersetLinks,
-  removeLiveExerciseSets,
   saveLivePainFlags,
   uncompleteLiveSet,
-  updateLiveSupersets,
+  updateLiveStructure,
 } from '@/lib/workout/live-session';
 import { elapsedActiveMs } from '@/lib/workout/workspace-state';
 import { getRestTarget } from '@/lib/workout/rest-targets';
@@ -57,10 +57,8 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
   const [persistedSets, setPersistedSets] = useState<PersistedWorkoutSet[]>([]);
   const [recoveryLoaded, setRecoveryLoaded] = useState(false);
   const [extraRows, setExtraRows] = useState<LoggerRow[]>([]);
-  const [hiddenExercises, setHiddenExercises] = useState<string[]>([]);
   const [painFlags, setPainFlags] = useState<PainFlag[]>([]);
   const [prMap, setPrMap] = useState<Record<string, number>>({});
-  const [linkedBelow, setLinkedBelow] = useState<string[]>([]);
   const [painExerciseId, setPainExerciseId] = useState<string | null>(null);
   const [infoExercise, setInfoExercise] = useState<Exercise | null>(null);
   const [plateWeightKg, setPlateWeightKg] = useState<number | null>(null);
@@ -68,6 +66,10 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
   const [savingFinish, setSavingFinish] = useState(false);
   const [finishError, setFinishError] = useState(false);
   const [cardioValues, setCardioValues] = useState<CardioLogValues | null>(null);
+  const [pendingMutations, setPendingMutations] = useState(0);
+  const [failedMutations, setFailedMutations] = useState<Set<string>>(() => new Set());
+  const [recoveryError, setRecoveryError] = useState(false);
+  const [recoveryAttempt, setRecoveryAttempt] = useState(0);
 
   const draft = state.draft;
   const sessionId = state.sessionId;
@@ -78,46 +80,81 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
     return () => window.clearInterval(interval);
   }, [state.clock?.runningSince]);
 
+  const strengthDraftExercises = draft?.kind === 'strength' ? draft.exercises : null;
+  const commitLiveStrengthStructure = workspace.commitLiveStrengthStructure;
+
   useEffect(() => {
     let active = true;
     if (!sessionId) return;
     void Promise.all([
       loadLiveSessionSets(sessionId),
       loadLivePainFlags(sessionId),
-      userId && draft?.kind === 'strength' ? loadLivePrMap(userId, draft.exercises.map((exercise) => exercise.exerciseId)) : Promise.resolve({}),
-    ]).then(([sets, flags, records]) => {
+      userId && strengthDraftExercises ? loadLivePrMap(userId, strengthDraftExercises.map((exercise) => exercise.exerciseId)) : Promise.resolve({}),
+    ]).then(([sets, painResult, records]) => {
       if (!active) return;
       setPersistedSets(sets);
-      if (draft?.kind === 'strength') {
-        setExtraRows(recoverLiveExtraRows(draft.exercises, sets));
-        setLinkedBelow(recoverLiveSupersetLinks(
-          draft.exercises.map((exercise) => exercise.exerciseId),
-          sets,
-        ));
+      if (strengthDraftExercises) {
+        setExtraRows(recoverLiveExtraRows(strengthDraftExercises, sets));
+        if (strengthDraftExercises.every((exercise) => exercise.linkedBelow === undefined)) {
+          const recoveredLinks = new Set(recoverLiveSupersetLinks(
+            strengthDraftExercises.map((exercise) => exercise.exerciseId),
+            sets,
+          ));
+          commitLiveStrengthStructure(strengthDraftExercises.map((exercise) => ({
+            ...exercise,
+            linkedBelow: recoveredLinks.has(exercise.exerciseId),
+          })));
+        }
       }
-      setPainFlags(flags);
+      if (painResult.ok) setPainFlags(painResult.flags);
+      else setRecoveryError(true);
       setPrMap(records);
       setRecoveryLoaded(true);
     });
     return () => { active = false; };
-  }, [draft, sessionId, userId]);
+  }, [commitLiveStrengthStructure, recoveryAttempt, sessionId, strengthDraftExercises, userId]);
+
+  const runMutation = async <T,>(
+    key: string,
+    operation: () => Promise<T>,
+    verified: (value: T) => boolean,
+  ): Promise<T | null> => {
+    setFailedMutations((current) => {
+      const next = new Set(current);
+      next.delete(key);
+      return next;
+    });
+    setPendingMutations((current) => current + 1);
+    try {
+      const result = await operation();
+      if (verified(result)) return result;
+    } catch {
+      // The shared recovery state below retains the failed mutation for retry.
+    } finally {
+      setPendingMutations((current) => Math.max(0, current - 1));
+    }
+    setFailedMutations((current) => new Set(current).add(key));
+    return null;
+  };
 
   const exerciseById = useMemo(() => new Map(exercises.map((exercise) => [exercise.id, exercise])), [exercises]);
   const rows = useMemo(() => {
     if (!draft || draft.kind !== 'strength') return [];
     const planned = draft.exercises.flatMap((exercise) => Array.from({ length: exercise.targetSets }, (_, index) => ({ exerciseId: exercise.exerciseId, setNumber: index + 1 })));
-    return [...planned, ...extraRows].filter((row) => !hiddenExercises.includes(row.exerciseId));
-  }, [draft, extraRows, hiddenExercises]);
+    return [...planned, ...extraRows];
+  }, [draft, extraRows]);
   const completedSets = persistedSets.length;
   const prCount = persistedSets.filter((set) => set.is_pr).length;
   const elapsedMs = elapsedActiveMs(state.clock, now);
-  const durationMinutes = elapsedMs <= 0 ? 0 : Math.max(1, Math.round(elapsedMs / 60_000));
+  const durationMinutes = Math.max(0, Math.floor(elapsedMs / 60_000));
+  const mutationBlocked = pendingMutations > 0 || failedMutations.size > 0 || recoveryError || !recoveryLoaded;
 
   if (!draft || !sessionId || (state.stage !== 'live' && state.stage !== 'paused' && state.stage !== 'finishing')) {
     return <main className="mx-auto max-w-2xl px-4 py-8"><p className="text-[var(--content-secondary)]">{t('workout.no_live_session')}</p></main>;
   }
 
   const requestFinish = (values?: CardioLogValues) => {
+    if (mutationBlocked) return;
     if (values) setCardioValues(values);
     setFinishRequested(true);
     setFinishError(false);
@@ -131,7 +168,7 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
   };
 
   const saveAndFinish = async () => {
-    if (savingFinish) return;
+    if (savingFinish || mutationBlocked) return;
     setSavingFinish(true);
     setFinishError(false);
     const currentCardio = draft.kind === 'cardio'
@@ -140,7 +177,7 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
     const result = await finishLiveSession({
       sessionId,
       name: draft.name,
-      durationMinutes: currentCardio?.durationMinutes ?? Math.max(1, durationMinutes),
+      durationMinutes: currentCardio?.durationMinutes ?? durationMinutes,
       painFlags,
       templateId: draft.templateId ?? null,
       ...(draft.kind === 'cardio' && currentCardio ? { notes: cardioNotes(draft.activity, currentCardio) } : {}),
@@ -150,7 +187,7 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
   };
 
   const discardEmpty = async () => {
-    if (savingFinish) return;
+    if (savingFinish || mutationBlocked) return;
     setSavingFinish(true);
     setFinishError(false);
     const deleted = await workspace.discardLive();
@@ -160,8 +197,18 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
 
   if (draft.kind === 'cardio') {
     const liveCardioValues = cardioValues ?? { durationMinutes, distanceKm: draft.distanceKm, effort: draft.effort };
+    const cardioIsEmpty = liveCardioValues.durationMinutes <= 0
+      && (liveCardioValues.distanceKm === null || liveCardioValues.distanceKm === 0)
+      && liveCardioValues.effort === null;
     return (
       <main className="mx-auto max-w-2xl space-y-4 px-4 py-5">
+        {recoveryError ? (
+          <div role="alert" className="rounded-xl bg-[var(--status-danger-bg)] p-3 text-sm text-[var(--status-danger-fg)]">
+            <p>{t('workout.recovery_failed')}</p>
+            <button type="button" onClick={() => { setRecoveryLoaded(false); setRecoveryError(false); setRecoveryAttempt((current) => current + 1); }} className="mt-2 min-h-11 underline">{t('workout.retry_recovery')}</button>
+          </div>
+        ) : null}
+        {failedMutations.size > 0 ? <p role="alert" className="rounded-xl bg-[var(--status-danger-bg)] p-3 text-sm text-[var(--status-danger-fg)]">{t('workout.mutation_failed')}</p> : null}
         <LiveCardio
           draft={draft}
           mode="live"
@@ -169,17 +216,23 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
           elapsedMs={elapsedMs}
           onPause={workspace.pause}
           onResume={workspace.resume}
-          onChange={setCardioValues}
+          disabled={mutationBlocked}
+          onChange={(values) => {
+            setCardioValues(values);
+            workspace.updateLiveCardioDraft({ distanceKm: values.distanceKm, effort: values.effort });
+          }}
           onFinish={requestFinish}
         />
         {(finishRequested || state.stage === 'finishing') ? (
           <FinishWorkoutDialog
             summary={{ durationMinutes: liveCardioValues.durationMinutes, completedSets: 0, pendingSets: 0, painNotes: painFlags.length, prs: 0 }}
-            isEmpty={false}
+            isEmpty={cardioIsEmpty}
             saving={savingFinish}
+            blocked={mutationBlocked}
             error={finishError}
             onKeepTraining={cancelFinish}
             onSaveAndFinish={() => void saveAndFinish()}
+            onDiscardEmpty={() => void discardEmpty()}
           />
         ) : null}
       </main>
@@ -193,28 +246,43 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
 
   const supersetGroup = (exerciseId: string): number | null => {
     const index = draft.exercises.findIndex((exercise) => exercise.exerciseId === exerciseId);
-    return supersetGroupFor(draft.exercises.map((exercise) => ({ linkedBelow: linkedBelow.includes(exercise.exerciseId) })), index);
+    return supersetGroupFor(draft.exercises, index);
   };
+
+  const structureFor = (draftExercises: typeof draft.exercises) => draftExercises.map((exercise, index) => ({
+    exerciseId: exercise.exerciseId,
+    supersetGroup: supersetGroupFor(draftExercises, index),
+  }));
 
   const toggleSuperset = async (exerciseId: string) => {
     const index = draft.exercises.findIndex((exercise) => exercise.exerciseId === exerciseId);
     if (index < 0 || index >= draft.exercises.length - 1) return;
-    const nextLinks = linkedBelow.includes(exerciseId)
-      ? linkedBelow.filter((id) => id !== exerciseId)
-      : [...linkedBelow, exerciseId];
-    const linkModel = draft.exercises.map((exercise) => ({ linkedBelow: nextLinks.includes(exercise.exerciseId) }));
-    const updates = persistedSets.map((set) => ({
-      id: set.id,
-      superset_group: supersetGroupFor(linkModel, draft.exercises.findIndex((exercise) => exercise.exerciseId === set.exercise_id)),
-    }));
-    if (await updateLiveSupersets(updates)) setLinkedBelow(nextLinks);
+    const nextExercises = draft.exercises.map((exercise, exerciseIndex) => exerciseIndex === index
+      ? { ...exercise, linkedBelow: !exercise.linkedBelow }
+      : { ...exercise, linkedBelow: Boolean(exercise.linkedBelow) });
+    const structure = structureFor(nextExercises);
+    const saved = await runMutation(
+      `superset:${exerciseId}`,
+      () => updateLiveStructure(sessionId, structure),
+      Boolean,
+    );
+    if (!saved) return;
+    const groupByExercise = new Map(structure.map((exercise) => [exercise.exerciseId, exercise.supersetGroup]));
+    setPersistedSets((current) => current.map((set) => ({ ...set, superset_group: groupByExercise.get(set.exercise_id) ?? null })));
+    workspace.commitLiveStrengthStructure(nextExercises);
   };
 
   const removeExercise = async (exerciseId: string) => {
-    const ids = persistedSets.filter((set) => set.exercise_id === exerciseId).map((set) => set.id);
-    if (!await removeLiveExerciseSets(ids)) return;
+    const nextExercises = removeAndNormalizeLiveExercises(draft.exercises, exerciseId);
+    const saved = await runMutation(
+      `remove:${exerciseId}`,
+      () => updateLiveStructure(sessionId, structureFor(nextExercises), exerciseId),
+      Boolean,
+    );
+    if (!saved) return;
     setPersistedSets((current) => current.filter((set) => set.exercise_id !== exerciseId));
-    setHiddenExercises((current) => [...current, exerciseId]);
+    setExtraRows((current) => current.filter((row) => row.exerciseId !== exerciseId));
+    workspace.commitLiveStrengthStructure(nextExercises);
   };
 
   const finishOpen = finishRequested || state.stage === 'finishing';
@@ -253,8 +321,12 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
               onComplete={async (value: SetLoggerValue) => {
                 const weightKg = value.weight === null ? null : displayToKg(value.weight, unit);
                 const isPr = Boolean(resolved.is_compound) && !value.isWarmup && weightKg !== null && weightKg > (prMap[row.exerciseId] ?? 0);
-                const result = await completeLiveSet({ sessionId, exerciseId: row.exerciseId, setNumber: row.setNumber, weightKg, reps: value.reps, rpe: value.rpe, isWarmup: value.isWarmup, isPr, supersetGroup: supersetGroup(row.exerciseId) });
-                if (!result.ok) return null;
+                const result = await runMutation(
+                  `set:${row.exerciseId}:${row.setNumber}`,
+                  () => completeLiveSet({ sessionId, exerciseId: row.exerciseId, setNumber: row.setNumber, weightKg, reps: value.reps, rpe: value.rpe, isWarmup: value.isWarmup, isPr, supersetGroup: supersetGroup(row.exerciseId) }),
+                  (candidate) => candidate.ok,
+                );
+                if (!result?.ok) return null;
                 setPersistedSets((current) => [...current.filter((set) => !(set.exercise_id === row.exerciseId && set.set_number === row.setNumber)), {
                   id: result.setId, session_id: sessionId, exercise_id: row.exerciseId, set_number: row.setNumber,
                   weight_kg: weightKg, reps: value.reps, rpe: value.rpe, is_warmup: value.isWarmup,
@@ -264,9 +336,9 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
                 return result.setId;
               }}
               onUndo={async (setId) => {
-                const removed = await uncompleteLiveSet(setId);
+                const removed = await runMutation(`set:${row.exerciseId}:${row.setNumber}`, () => uncompleteLiveSet(setId), Boolean);
                 if (removed) setPersistedSets((current) => current.filter((set) => set.id !== setId));
-                return removed;
+                return Boolean(removed);
               }}
               onTechnique={() => exercise && setInfoExercise(exercise)}
               onPain={() => setPainExerciseId(row.exerciseId)}
@@ -278,17 +350,26 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
         })}
       </div>
 
-      {draft.exercises.filter((exercise) => !hiddenExercises.includes(exercise.exerciseId)).map((exercise) => (
+      {draft.exercises.map((exercise) => (
         <button key={exercise.exerciseId} type="button" onClick={() => addSet(exercise.exerciseId)} className="btn-ghost inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl"><Plus size={17} aria-hidden="true" />{t('workout.add_set')}</button>
       ))}
 
-      <button type="button" onClick={() => requestFinish()} disabled={savingFinish} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[var(--status-danger-bg)] font-semibold text-[var(--status-danger-fg)] disabled:opacity-50"><Square size={17} aria-hidden="true" />{t('workout.finish')}</button>
+      {recoveryError ? (
+        <div role="alert" className="rounded-xl bg-[var(--status-danger-bg)] p-3 text-sm text-[var(--status-danger-fg)]">
+          <p>{t('workout.recovery_failed')}</p>
+          <button type="button" onClick={() => { setRecoveryLoaded(false); setRecoveryError(false); setRecoveryAttempt((current) => current + 1); }} className="mt-2 min-h-11 underline">{t('workout.retry_recovery')}</button>
+        </div>
+      ) : null}
+      {failedMutations.size > 0 ? <p role="alert" className="rounded-xl bg-[var(--status-danger-bg)] p-3 text-sm text-[var(--status-danger-fg)]">{t('workout.mutation_failed')}</p> : null}
+
+      <button type="button" onClick={() => requestFinish()} disabled={savingFinish || mutationBlocked} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[var(--status-danger-bg)] font-semibold text-[var(--status-danger-fg)] disabled:opacity-50"><Square size={17} aria-hidden="true" />{t('workout.finish')}</button>
 
       {finishOpen ? (
         <FinishWorkoutDialog
           summary={{ durationMinutes, completedSets, pendingSets: Math.max(0, rows.length - completedSets), painNotes: painFlags.length, prs: prCount }}
           isEmpty={completedSets === 0}
           saving={savingFinish}
+          blocked={mutationBlocked}
           error={finishError}
           onKeepTraining={cancelFinish}
           onSaveAndFinish={() => void saveAndFinish()}
@@ -296,9 +377,12 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
         />
       ) : null}
 
-      {painExerciseId ? <PainFlagModal exerciseId={painExerciseId} onSave={(flag) => {
+      {painExerciseId ? <PainFlagModal exerciseId={painExerciseId} onSave={async (flag) => {
         const next = [...painFlags, flag];
-        void saveLivePainFlags(sessionId, next).then((saved) => { if (saved) setPainFlags(next); });
+        const saved = await runMutation('pain', () => saveLivePainFlags(sessionId, next), Boolean);
+        if (!saved) return false;
+        setPainFlags(next);
+        return true;
       }} onClose={() => setPainExerciseId(null)} /> : null}
       {infoExercise ? <ExerciseInfoSheet exercise={infoExercise} userId={userId} onClose={() => setInfoExercise(null)} /> : null}
       {plateWeightKg !== null ? <PlateCalculator weightKg={plateWeightKg} unit={unit} onClose={() => setPlateWeightKg(null)} /> : null}

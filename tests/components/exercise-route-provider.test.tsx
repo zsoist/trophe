@@ -160,6 +160,7 @@ function strengthState(exercises: string[] = []): WorkoutWorkspaceState {
     },
     sessionId: null,
     clock: null,
+    clientRequestId: null,
   };
 }
 
@@ -177,6 +178,7 @@ const cardioState: WorkoutWorkspaceState = {
   },
   sessionId: null,
   clock: null,
+  clientRequestId: null,
 };
 
 const liveState: WorkoutWorkspaceState = {

@@ -34,12 +34,13 @@ function hasOnlyKeys(value: Record<string, unknown>, keys: readonly string[]): b
 }
 
 function isDraftExercise(value: unknown): value is DraftExercise {
-  if (!isRecord(value) || !hasOnlyKeys(value, ['exerciseId', 'exerciseName', 'muscleGroup', 'targetSets', 'targetReps'])) return false;
+  if (!isRecord(value) || !hasOnlyKeys(value, ['exerciseId', 'exerciseName', 'muscleGroup', 'targetSets', 'targetReps', 'linkedBelow'])) return false;
   return typeof value.exerciseId === 'string'
     && (value.exerciseName === undefined || typeof value.exerciseName === 'string')
     && (value.muscleGroup === undefined || typeof value.muscleGroup === 'string')
     && typeof value.targetSets === 'number' && Number.isFinite(value.targetSets)
-    && typeof value.targetReps === 'string';
+    && typeof value.targetReps === 'string'
+    && (value.linkedBelow === undefined || typeof value.linkedBelow === 'boolean');
 }
 
 function isDraft(value: unknown): value is WorkoutDraft {
@@ -70,12 +71,13 @@ function isClock(value: unknown): value is LiveClock {
 
 function parseState(value: unknown): WorkoutWorkspaceState | null {
   if (!isRecord(value) || value.version !== WORKOUT_DRAFT_VERSION
-    || !hasOnlyKeys(value, ['version', 'stage', 'draft', 'sessionId', 'clock', 'finishingFrom'])
+    || !hasOnlyKeys(value, ['version', 'stage', 'draft', 'sessionId', 'clock', 'finishingFrom', 'clientRequestId'])
     || !WORKOUT_STAGES.includes(value.stage as WorkoutStage)
     || (value.draft !== null && !isDraft(value.draft))
     || (value.sessionId !== null && typeof value.sessionId !== 'string')
     || (value.clock !== null && !isClock(value.clock))
-    || (value.finishingFrom !== undefined && value.finishingFrom !== null && value.finishingFrom !== 'live' && value.finishingFrom !== 'paused')) return null;
+    || (value.finishingFrom !== undefined && value.finishingFrom !== null && value.finishingFrom !== 'live' && value.finishingFrom !== 'paused')
+    || (value.clientRequestId !== undefined && value.clientRequestId !== null && normalizeUuid(value.clientRequestId as string) === null)) return null;
   const hasDraft = value.draft !== null;
   const hasSession = typeof value.sessionId === 'string' && value.sessionId.trim().length > 0;
   const hasClock = value.clock !== null;
@@ -96,6 +98,7 @@ function parseState(value: unknown): WorkoutWorkspaceState | null {
     sessionId: value.sessionId as string | null,
     clock: value.clock as LiveClock | null,
     finishingFrom,
+    clientRequestId: (value.clientRequestId as string | null | undefined) ?? null,
   };
 }
 
@@ -109,12 +112,13 @@ function persistDraft(draft: WorkoutDraft | null): WorkoutDraft | null {
       ...(draft.templateId === undefined ? {} : { templateId: draft.templateId }),
       updatedAt: draft.updatedAt,
       kind: 'strength',
-      exercises: draft.exercises.map(({ exerciseId, exerciseName, muscleGroup, targetSets, targetReps }) => ({
+      exercises: draft.exercises.map(({ exerciseId, exerciseName, muscleGroup, targetSets, targetReps, linkedBelow }) => ({
         exerciseId,
         ...(exerciseName === undefined ? {} : { exerciseName }),
         ...(muscleGroup === undefined ? {} : { muscleGroup }),
         targetSets,
         targetReps,
+        ...(linkedBelow === undefined ? {} : { linkedBelow }),
       })),
     };
   }
@@ -154,6 +158,7 @@ export function saveWorkspaceState(storage: WorkspaceStorage, userId: string, st
     sessionId: state.sessionId,
     clock: state.clock && { runningSince: state.clock.runningSince, accumulatedMs: state.clock.accumulatedMs },
     finishingFrom: state.finishingFrom ?? null,
+    clientRequestId: state.clientRequestId,
   };
   storage.setItem(workspaceStorageKey(userId), JSON.stringify(payload));
 }

@@ -697,6 +697,9 @@ const translations: Record<string, Record<CoreLanguage, string>> = {
   'workout.review_today': { en: 'Review today’s workout', es: 'Revisar el entrenamiento de hoy', el: 'Έλεγχος σημερινής προπόνησης' },
   'workout.start_live': { en: 'Start live workout', es: 'Iniciar entrenamiento en vivo', el: 'Έναρξη ζωντανής προπόνησης' },
   'workout.start_live_failed': { en: 'Workout could not start. Try again.', es: 'No se pudo iniciar el entrenamiento. Inténtalo de nuevo.', el: 'Η προπόνηση δεν μπόρεσε να ξεκινήσει. Δοκίμασε ξανά.' },
+  'workout.mutation_failed': { en: 'A workout change could not be saved. Retry that change before finishing.', es: 'No se pudo guardar un cambio. Reinténtalo antes de finalizar.', el: 'Μια αλλαγή δεν αποθηκεύτηκε. Δοκιμάστε ξανά πριν την ολοκλήρωση.' },
+  'workout.recovery_failed': { en: 'Workout recovery could not be verified.', es: 'No se pudo verificar la recuperación del entrenamiento.', el: 'Δεν ήταν δυνατή η επαλήθευση της ανάκτησης προπόνησης.' },
+  'workout.retry_recovery': { en: 'Retry recovery', es: 'Reintentar recuperación', el: 'Επανάληψη ανάκτησης' },
   'workout.log_completed': { en: 'Log completed workout', es: 'Registrar entrenamiento completado', el: 'Καταγραφή ολοκληρωμένης προπόνησης' },
   'workout.save_plan': { en: 'Save plan', es: 'Guardar plan', el: 'Αποθήκευση πλάνου' },
   'workout.pause': { en: 'Pause', es: 'Pausar', el: 'Παύση' },
@@ -704,6 +707,7 @@ const translations: Record<string, Record<CoreLanguage, string>> = {
   'workout.finish_confirmation': { en: 'Finish this workout?', es: '¿Finalizar este entrenamiento?', el: 'Ολοκλήρωση αυτής της προπόνησης;' },
   'workout.start_live_explanation': { en: 'Starting live starts the active timer and creates your workout session.', es: 'Iniciar en vivo activa el cronómetro y crea tu sesión de entrenamiento.', el: 'Η ζωντανή έναρξη ενεργοποιεί το χρονόμετρο και δημιουργεί τη συνεδρία προπόνησης.' },
   'workout.name': { en: 'Workout name', es: 'Nombre del entrenamiento', el: 'Όνομα προπόνησης' },
+  'workout.name_required': { en: 'Enter a workout name.', es: 'Ingresa un nombre para el entrenamiento.', el: 'Εισαγάγετε όνομα προπόνησης.' },
   'workout.activity': { en: 'Activity', es: 'Actividad', el: 'Δραστηριότητα' },
   'workout.duration_minutes': { en: 'Duration in minutes', es: 'Duración en minutos', el: 'Διάρκεια σε λεπτά' },
   'workout.distance_optional': { en: 'Distance optional', es: 'Distancia opcional', el: 'Απόσταση προαιρετικά' },
@@ -1362,6 +1366,8 @@ const translations: Record<string, Record<CoreLanguage, string>> = {
   'painflag.notes_placeholder': { en: 'Notes (optional)', es: 'Notas (opcional)', el: 'Σημειώσεις (προαιρετικά)' },
   'painflag.cancel':            { en: 'Cancel', es: 'Cancelar', el: 'Ακύρωση' },
   'painflag.save':              { en: 'Save Flag', es: 'Guardar', el: 'Αποθήκευση' },
+  'painflag.saving':            { en: 'Saving…', es: 'Guardando…', el: 'Αποθήκευση…' },
+  'painflag.save_failed':       { en: 'Pain note could not be saved. Try again.', es: 'No se pudo guardar la nota de dolor. Inténtalo de nuevo.', el: 'Η σημείωση πόνου δεν αποθηκεύτηκε. Δοκιμάστε ξανά.' },
 
   // ── Progress photos (i18n) ──
   'progressphotos.title':        { en: 'Progress Photos', es: 'Fotos de Progreso', el: 'Φωτογραφίες Προόδου' },

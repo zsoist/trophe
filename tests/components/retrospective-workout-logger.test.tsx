@@ -32,6 +32,7 @@ const strengthSuperset: WorkoutDraft = { version: 2, kind: 'strength', name: 'Up
 ] };
 const bench = { id: 'bench', name: 'Bench Press', name_es: null, name_el: null, muscle_group: 'chest' as const, secondary_muscles: null, equipment: 'barbell', is_compound: true, is_template: true, created_by: null, created_at: '' };
 const row = { ...bench, id: 'row', name: 'Row', muscle_group: 'back' as const };
+const idempotencyKey = '11111111-1111-4111-8111-111111111111';
 
 beforeEach(() => { live.loadLivePrMap.mockResolvedValue({ bench: 50 }); live.saveRetrospectiveWorkout.mockResolvedValue({ ok: true, sessionId: 'session-1' }); });
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
@@ -39,7 +40,7 @@ afterEach(() => { cleanup(); vi.clearAllMocks(); });
 describe('RetrospectiveWorkoutLogger', () => {
   it('does not create retrospective cardio until the final save confirmation', async () => {
     const onSaved = vi.fn();
-    render(<RetrospectiveWorkoutLogger userId="nik" draft={cardio} exercises={[]} onSaved={onSaved} onCancel={vi.fn()} />);
+    render(<RetrospectiveWorkoutLogger userId="nik" idempotencyKey={idempotencyKey} draft={cardio} exercises={[]} onSaved={onSaved} onCancel={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: 'Log completed workout' }));
     expect(screen.getByRole('dialog', { name: 'Save completed workout?' })).toBeTruthy();
     expect(live.saveRetrospectiveWorkout).not.toHaveBeenCalled();
@@ -49,7 +50,7 @@ describe('RetrospectiveWorkoutLogger', () => {
   });
 
   it('collects strength sets locally and creates one durable session only after confirmation', async () => {
-    render(<RetrospectiveWorkoutLogger userId="nik" draft={strength} exercises={[bench]} onSaved={vi.fn()} onCancel={vi.fn()} />);
+    render(<RetrospectiveWorkoutLogger userId="nik" idempotencyKey={idempotencyKey} draft={strength} exercises={[bench]} onSaved={vi.fn()} onCancel={vi.fn()} />);
     fireEvent.change(await screen.findByLabelText('Weight in kg'), { target: { value: '60' } });
     fireEvent.change(screen.getByLabelText('Reps'), { target: { value: '8' } });
     fireEvent.click(screen.getByRole('button', { name: 'Complete set' }));
@@ -57,13 +58,13 @@ describe('RetrospectiveWorkoutLogger', () => {
     expect(live.saveRetrospectiveWorkout).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Save workout' }));
     await vi.waitFor(() => expect(live.saveRetrospectiveWorkout).toHaveBeenCalledWith(expect.objectContaining({
-      userId: 'nik',
+      idempotencyKey,
       sets: [expect.objectContaining({ exercise_id: 'bench', set_number: 1, weight_kg: 60, reps: 8, is_pr: true })],
     })));
   });
 
   it('preserves adjacent superset groups in confirmed retrospective strength sets', async () => {
-    render(<RetrospectiveWorkoutLogger userId="nik" draft={strengthSuperset} exercises={[bench, row]} onSaved={vi.fn()} onCancel={vi.fn()} />);
+    render(<RetrospectiveWorkoutLogger userId="nik" idempotencyKey={idempotencyKey} draft={strengthSuperset} exercises={[bench, row]} onSaved={vi.fn()} onCancel={vi.fn()} />);
     const moreButtons = await screen.findAllByRole('button', { name: 'More exercise options' });
     fireEvent.click(moreButtons[0]);
     fireEvent.click(screen.getByRole('button', { name: 'workout.superset_link' }));

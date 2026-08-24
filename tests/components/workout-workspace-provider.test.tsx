@@ -4,10 +4,9 @@ import React from 'react';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const { createWorkoutSession, discardEmptyLiveSession } = vi.hoisted(() => ({ createWorkoutSession: vi.fn(), discardEmptyLiveSession: vi.fn() }));
+const { startLiveSession, discardEmptyLiveSession } = vi.hoisted(() => ({ startLiveSession: vi.fn(), discardEmptyLiveSession: vi.fn() }));
 
-vi.mock('@/components/workout/workout-persistence', () => ({ createWorkoutSession }));
-vi.mock('@/lib/workout/live-session', () => ({ discardEmptyLiveSession }));
+vi.mock('@/lib/workout/live-session', () => ({ startLiveSession, discardEmptyLiveSession }));
 vi.mock('@/lib/supabase', () => ({
   supabase: { auth: { getUser: vi.fn() } },
 }));
@@ -76,7 +75,7 @@ function WorkspaceControls() {
 
 afterEach(() => {
   cleanup();
-  createWorkoutSession.mockReset();
+  startLiveSession.mockReset();
   discardEmptyLiveSession.mockReset();
 });
 
@@ -88,20 +87,20 @@ describe('WorkoutWorkspaceProvider', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Create Push draft' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add Bench Press' }));
 
-    expect(createWorkoutSession).not.toHaveBeenCalled();
+    expect(startLiveSession).not.toHaveBeenCalled();
     expect(screen.getByText('Draft · Not started')).toBeTruthy();
   });
 
   it('creates one session only after explicit live start', async () => {
-    createWorkoutSession.mockResolvedValue('session-1');
+    startLiveSession.mockResolvedValue({ ok: true, sessionId: 'session-1' });
     render(<ProviderHarness userId="nik" />);
     await waitFor(() => expect(screen.getByRole('button', { name: 'Start live workout' })).toBeTruthy());
 
     fireEvent.click(screen.getByRole('button', { name: 'Create Push draft' }));
     fireEvent.click(screen.getByRole('button', { name: 'Start live workout' }));
 
-    await waitFor(() => expect(createWorkoutSession).toHaveBeenCalledTimes(1));
-    expect(createWorkoutSession).toHaveBeenCalledWith('nik', 'Push', null);
+    await waitFor(() => expect(startLiveSession).toHaveBeenCalledTimes(1));
+    expect(startLiveSession).toHaveBeenCalledWith(expect.objectContaining({ name: 'Push', templateId: null }));
     expect(screen.getByText('Live')).toBeTruthy();
   });
 
@@ -114,11 +113,11 @@ describe('WorkoutWorkspaceProvider', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Move Shoulder Press up' }));
 
     expect(screen.getByText('Push A:shoulder-press-3x8-10,bench-press-4x6-8')).toBeTruthy();
-    expect(createWorkoutSession).not.toHaveBeenCalled();
+    expect(startLiveSession).not.toHaveBeenCalled();
   });
 
   it('persists a built-in split without sending its local template key as a database UUID', async () => {
-    createWorkoutSession.mockResolvedValue('session-push');
+    startLiveSession.mockResolvedValue({ ok: true, sessionId: 'session-push' });
     render(<ProviderHarness userId="nik" />);
     await waitFor(() => expect(screen.getByRole('button', { name: 'Create built-in Push draft' })).toBeTruthy());
 
@@ -127,7 +126,7 @@ describe('WorkoutWorkspaceProvider', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Start live workout' }));
 
     await waitFor(() => expect(screen.getByText('Live')).toBeTruthy());
-    expect(createWorkoutSession).toHaveBeenCalledWith('nik', 'Push', null);
+    expect(startLiveSession).toHaveBeenCalledWith(expect.objectContaining({ name: 'Push', templateId: null }));
   });
 
   it.each([
@@ -145,11 +144,11 @@ describe('WorkoutWorkspaceProvider', () => {
     expect(screen.getByText('Draft · Not started')).toBeTruthy();
     expect(screen.getByText('Repeated pull:row-3x10')).toBeTruthy();
     expect(screen.queryByText(/bench-press/)).toBeNull();
-    expect(createWorkoutSession).not.toHaveBeenCalled();
+    expect(startLiveSession).not.toHaveBeenCalled();
   });
 
   it('returns a finishing workout to its paused origin when the user keeps training', async () => {
-    createWorkoutSession.mockResolvedValue('session-1');
+    startLiveSession.mockResolvedValue({ ok: true, sessionId: 'session-1' });
     render(<ProviderHarness userId="nik" />);
     await waitFor(() => expect(screen.getByRole('button', { name: 'Create Push draft' })).toBeTruthy());
     fireEvent.click(screen.getByRole('button', { name: 'Create Push draft' }));
@@ -163,7 +162,7 @@ describe('WorkoutWorkspaceProvider', () => {
 
   it('keeps recovery when empty-session deletion is unverified and clears it after verified deletion', async () => {
     const storage = new MemoryStorage();
-    createWorkoutSession.mockResolvedValue('session-1');
+    startLiveSession.mockResolvedValue({ ok: true, sessionId: 'session-1' });
     discardEmptyLiveSession.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
     render(<ProviderHarness userId="nik" storage={storage} />);
     await waitFor(() => expect(screen.getByRole('button', { name: 'Create Push draft' })).toBeTruthy());
@@ -177,5 +176,25 @@ describe('WorkoutWorkspaceProvider', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Discard empty workout' }));
     await waitFor(() => expect(storage.getItem('trophe:workout-workspace:nik')).toBeNull());
+  });
+
+  it('persists one request key before start and reuses it after an ambiguous failure', async () => {
+    const storage = new MemoryStorage();
+    const seen: string[] = [];
+    startLiveSession.mockImplementation(async ({ idempotencyKey }: { idempotencyKey: string }) => {
+      const recovered = JSON.parse(storage.getItem('trophe:workout-workspace:nik') ?? '{}');
+      expect(recovered.clientRequestId).toBe(idempotencyKey);
+      seen.push(idempotencyKey);
+      return { ok: false };
+    });
+    render(<ProviderHarness userId="nik" storage={storage} />);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Create Push draft' })).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'Create Push draft' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Start live workout' }));
+    await waitFor(() => expect(startLiveSession).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole('button', { name: 'Start live workout' }));
+    await waitFor(() => expect(startLiveSession).toHaveBeenCalledTimes(2));
+    expect(seen[0]).toMatch(/^[0-9a-f-]{36}$/i);
+    expect(seen[1]).toBe(seen[0]);
   });
 });

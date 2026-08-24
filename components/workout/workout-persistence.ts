@@ -38,6 +38,75 @@ export interface PersistedWorkoutSet extends CompletedSetInput {
   created_at?: string;
 }
 
+export interface AtomicSessionStartInput {
+  idempotencyKey: string;
+  sessionDate?: string;
+  name: string;
+  templateId?: string | null;
+}
+
+export interface AtomicRetrospectiveWorkoutInput {
+  idempotencyKey: string;
+  sessionDate?: string;
+  kind: 'strength' | 'cardio';
+  name: string;
+  templateId?: string | null;
+  durationMinutes: number;
+  painFlags: PainFlag[];
+  activity: string | null;
+  distanceKm: number | null;
+  effort: number | null;
+  sets: CompletedSetInput[];
+}
+
+export interface LiveExerciseStructureInput {
+  exercise_id: string;
+  superset_group: number | null;
+}
+
+/** Idempotent live-session start. The RPC derives the owner from auth.uid(). */
+export async function startWorkoutSessionAtomic(input: AtomicSessionStartInput): Promise<string | null> {
+  const { data, error } = await supabase.rpc('start_workout_session', {
+    p_idempotency_key: input.idempotencyKey,
+    p_session_date: input.sessionDate ?? localToday(),
+    p_name: input.name,
+    p_template_id: input.templateId ?? null,
+  });
+  return error || typeof data !== 'string' || !data.trim() ? null : data;
+}
+
+/** One transactional create + set insert + finish boundary for completed history. */
+export async function saveRetrospectiveWorkoutAtomic(input: AtomicRetrospectiveWorkoutInput): Promise<string | null> {
+  const { data, error } = await supabase.rpc('save_retrospective_workout', {
+    p_idempotency_key: input.idempotencyKey,
+    p_session_date: input.sessionDate ?? localToday(),
+    p_kind: input.kind,
+    p_name: input.name,
+    p_template_id: input.templateId ?? null,
+    p_duration_minutes: input.durationMinutes,
+    p_pain_flags: input.painFlags,
+    p_activity: input.activity,
+    p_distance_km: input.distanceKm,
+    p_effort: input.effort,
+    p_sets: input.sets,
+  });
+  return error || typeof data !== 'string' || !data.trim() ? null : data;
+}
+
+/** Atomically deletes removed rows and applies normalized superset groups. */
+export async function updateLiveWorkoutStructureAtomic(
+  sessionId: string,
+  exercises: LiveExerciseStructureInput[],
+  removeExerciseId?: string | null,
+): Promise<boolean> {
+  const { data, error } = await supabase.rpc('update_live_workout_structure', {
+    p_session_id: sessionId,
+    p_exercises: exercises,
+    p_remove_exercise_id: removeExerciseId ?? null,
+  });
+  return !error && data === true;
+}
+
 export async function updateWorkoutSupersetGroups(
   updates: SupersetGroupUpdate[],
 ): Promise<boolean> {
@@ -197,13 +266,8 @@ export async function deleteWorkoutSession(sessionId: string): Promise<boolean> 
 /** Discard only after the database confirms the owned session has no sets. */
 export async function deleteEmptyWorkoutSession(sessionId: string): Promise<boolean> {
   if (!sessionId.trim()) return false;
-  const { data: sets, error } = await supabase
-    .from('workout_sets')
-    .select('id')
-    .eq('session_id', sessionId)
-    .limit(1);
-  if (error || !sets || sets.length > 0) return false;
-  return deleteWorkoutSession(sessionId);
+  const { data, error } = await supabase.rpc('discard_empty_workout_session', { p_session_id: sessionId });
+  return !error && data === true;
 }
 
 /** Reload immediately persisted live sets after a crash or refresh. */
@@ -218,14 +282,17 @@ export async function loadWorkoutSessionSets(sessionId: string): Promise<Persist
 }
 
 /** Recovery-safe pain flags are written to the session as soon as they change. */
-export async function loadWorkoutSessionPainFlags(sessionId: string): Promise<PainFlag[]> {
-  if (!sessionId.trim()) return [];
+export type PainFlagLoadResult = { ok: true; flags: PainFlag[] } | { ok: false };
+
+export async function loadWorkoutSessionPainFlags(sessionId: string): Promise<PainFlagLoadResult> {
+  if (!sessionId.trim()) return { ok: false };
   const { data, error } = await supabase
     .from('workout_sessions')
     .select('pain_flags')
     .eq('id', sessionId)
     .maybeSingle();
-  return error ? [] : ((data?.pain_flags as PainFlag[] | null) ?? []);
+  if (error || !data) return { ok: false };
+  return { ok: true, flags: (data.pain_flags as PainFlag[] | null) ?? [] };
 }
 
 export async function updateWorkoutSessionPainFlags(sessionId: string, painFlags: PainFlag[]): Promise<boolean> {

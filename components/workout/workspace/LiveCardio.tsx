@@ -17,6 +17,7 @@ interface LiveCardioProps {
   paused?: boolean;
   elapsedMs?: number;
   saving?: boolean;
+  disabled?: boolean;
   onPause?: () => void;
   onResume?: () => void;
   onFinish?: (values: CardioLogValues) => void;
@@ -30,19 +31,18 @@ function numberOrNull(value: string): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-export function LiveCardio({ draft, mode, paused = false, elapsedMs = 0, saving = false, onPause, onResume, onFinish, onChange, onSaveRetrospective }: LiveCardioProps) {
+export function LiveCardio({ draft, mode, paused = false, elapsedMs = 0, saving = false, disabled = false, onPause, onResume, onFinish, onChange, onSaveRetrospective }: LiveCardioProps) {
   const { t } = useI18n();
   const [duration, setDuration] = useState(String(draft.durationMinutes));
   const [distance, setDistance] = useState(draft.distanceKm === null ? '' : String(draft.distanceKm));
   const [effort, setEffort] = useState(draft.effort === null ? '' : String(draft.effort));
   const [confirming, setConfirming] = useState(false);
 
-  const values = (): CardioLogValues => ({
-    durationMinutes: mode === 'live' ? Math.max(1, Math.round(elapsedMs / 60_000)) : Math.max(0, Number(duration) || 0),
-    distanceKm: numberOrNull(distance),
-    effort: numberOrNull(effort),
+  const values = (nextDistance = distance, nextEffort = effort): CardioLogValues => ({
+    durationMinutes: mode === 'live' ? Math.floor(elapsedMs / 60_000) : Math.max(0, Number(duration) || 0),
+    distanceKm: numberOrNull(nextDistance),
+    effort: numberOrNull(nextEffort),
   });
-  const notify = () => onChange?.(values());
 
   return (
     <section className="space-y-4 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-4">
@@ -56,14 +56,14 @@ export function LiveCardio({ draft, mode, paused = false, elapsedMs = 0, saving 
         <p className="text-3xl font-bold tabular-nums text-[var(--content-primary)]" aria-label={t('workout.active_duration')}>{Math.floor(elapsedMs / 60_000)}:{String(Math.floor(elapsedMs / 1_000) % 60).padStart(2, '0')}</p>
       )}
       <div className="grid grid-cols-2 gap-3">
-        <label className="text-sm font-medium text-[var(--content-secondary)]">{t('workout.distance_optional')}<input type="number" min="0" step="any" inputMode="decimal" aria-label={t('workout.distance_optional')} value={distance} onChange={(event) => { setDistance(event.target.value); queueMicrotask(notify); }} className="input-dark mt-1 min-h-12 w-full text-base" /></label>
-        <label className="text-sm font-medium text-[var(--content-secondary)]">{t('workout.effort')}<input type="number" min="1" max="10" step="1" inputMode="numeric" aria-label={t('workout.effort')} value={effort} onChange={(event) => { setEffort(event.target.value); queueMicrotask(notify); }} className="input-dark mt-1 min-h-12 w-full text-base" /></label>
+        <label className="text-sm font-medium text-[var(--content-secondary)]">{t('workout.distance_optional')}<input type="number" min="0" step="any" inputMode="decimal" disabled={disabled} aria-label={t('workout.distance_optional')} value={distance} onChange={(event) => { const next = event.target.value; setDistance(next); onChange?.(values(next, effort)); }} className="input-dark mt-1 min-h-12 w-full text-base" /></label>
+        <label className="text-sm font-medium text-[var(--content-secondary)]">{t('workout.effort')}<input type="number" min="1" max="10" step="1" inputMode="numeric" disabled={disabled} aria-label={t('workout.effort')} value={effort} onChange={(event) => { const next = event.target.value; setEffort(next); onChange?.(values(distance, next)); }} className="input-dark mt-1 min-h-12 w-full text-base" /></label>
       </div>
 
       {mode === 'live' ? (
         <div className="grid grid-cols-2 gap-3">
-          <button type="button" onClick={paused ? onResume : onPause} className="btn-ghost inline-flex min-h-12 items-center justify-center gap-2 rounded-xl">{paused ? <Play size={17} aria-hidden="true" /> : <Pause size={17} aria-hidden="true" />}{t(paused ? 'workout.resume' : 'workout.pause')}</button>
-          <button type="button" onClick={() => onFinish?.(values())} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[var(--status-danger-bg)] font-semibold text-[var(--status-danger-fg)]"><Square size={17} aria-hidden="true" />{t('workout.finish')}</button>
+          <button type="button" disabled={disabled} onClick={paused ? onResume : onPause} className="btn-ghost inline-flex min-h-12 items-center justify-center gap-2 rounded-xl disabled:opacity-50">{paused ? <Play size={17} aria-hidden="true" /> : <Pause size={17} aria-hidden="true" />}{t(paused ? 'workout.resume' : 'workout.pause')}</button>
+          <button type="button" disabled={disabled} onClick={() => onFinish?.(values())} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[var(--status-danger-bg)] font-semibold text-[var(--status-danger-fg)] disabled:opacity-50"><Square size={17} aria-hidden="true" />{t('workout.finish')}</button>
         </div>
       ) : (
         <button type="button" disabled={saving || Number(duration) <= 0} onClick={() => setConfirming(true)} className="btn-gold min-h-12 w-full rounded-xl disabled:opacity-50">{t('workout.log_completed')}</button>

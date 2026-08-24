@@ -1,9 +1,8 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { createWorkoutSession } from '@/components/workout/workout-persistence';
 import { supabase } from '@/lib/supabase';
-import { discardEmptyLiveSession } from '@/lib/workout/live-session';
+import { discardEmptyLiveSession, startLiveSession } from '@/lib/workout/live-session';
 import {
   createInitialWorkspaceState,
   workoutWorkspaceReducer,
@@ -27,6 +26,9 @@ export interface WorkoutWorkspaceContextValue {
   replaceDraftFromTemplate(input: WorkoutDraftTemplateInput): void;
   updateDraftName(name: string): void;
   updateCardioDraft(patch: Partial<Pick<CardioDraft, 'activity' | 'durationMinutes' | 'distanceKm' | 'effort'>>): void;
+  updateLiveCardioDraft(patch: Partial<Pick<CardioDraft, 'activity' | 'distanceKm' | 'effort'>>): void;
+  commitLiveStrengthStructure(exercises: DraftExercise[]): void;
+  ensureClientRequestId(): string | null;
   addDraftExercise(exerciseId: string): void;
   removeDraftExercise(exerciseId: string): void;
   updateDraftExercise(exerciseId: string, patch: Partial<Pick<DraftExercise, 'targetSets' | 'targetReps'>>): void;
@@ -92,6 +94,7 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
   const [ownerId, setOwnerId] = useState<string | null | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const startPromiseRef = useRef<Promise<boolean> | null>(null);
+  const clientRequestIdRef = useRef<string | null>(null);
   const skipNextPersistRef = useRef(false);
   const resolvedStorage = storage ?? browserStorage();
 
@@ -106,9 +109,11 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
       if (!active) return;
 
       setOwnerId(resolvedUserId);
-      setState(resolvedUserId && resolvedStorage
+      const recovered = resolvedUserId && resolvedStorage
         ? loadWorkspaceState(resolvedStorage, resolvedUserId) ?? createInitialWorkspaceState()
-        : createInitialWorkspaceState());
+        : createInitialWorkspaceState();
+      clientRequestIdRef.current = recovered.clientRequestId;
+      setState(recovered);
       setLoading(false);
     }
 
@@ -134,16 +139,19 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
   }, []);
 
   const createDraft = useCallback((input: { name: string; kind: WorkoutKind; templateKey?: string; templateId?: string | null }) => {
+    clientRequestIdRef.current = null;
     setState((current) => current.stage === 'home'
       ? workoutWorkspaceReducer(current, { type: 'draft.created', payload: { ...input, templateId: normalizeUuid(input.templateId), updatedAt: Date.now() } })
       : current);
   }, []);
 
   const createDraftFromTemplate = useCallback((input: WorkoutDraftTemplateInput) => {
+    clientRequestIdRef.current = null;
     setState((current) => current.stage === 'home' ? templateWorkspaceState(input) : current);
   }, []);
 
   const replaceDraftFromTemplate = useCallback((input: WorkoutDraftTemplateInput) => {
+    clientRequestIdRef.current = null;
     setState((current) => (current.stage === 'draft' || current.stage === 'review') && current.draft
       ? templateWorkspaceState(input)
       : current);
@@ -158,6 +166,26 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
       ? draft
       : { ...draft, ...patch, updatedAt: Date.now() });
   }, [updateDraft]);
+
+  const updateLiveCardioDraft = useCallback((patch: Partial<Pick<CardioDraft, 'activity' | 'distanceKm' | 'effort'>>) => {
+    setState((current) => {
+      if ((current.stage !== 'live' && current.stage !== 'paused') || current.draft?.kind !== 'cardio') return current;
+      return workoutWorkspaceReducer(current, {
+        type: 'live.draftUpdated',
+        payload: { draft: { ...current.draft, ...patch, updatedAt: Date.now() } },
+      });
+    });
+  }, []);
+
+  const commitLiveStrengthStructure = useCallback((exercises: DraftExercise[]) => {
+    setState((current) => {
+      if ((current.stage !== 'live' && current.stage !== 'paused') || current.draft?.kind !== 'strength') return current;
+      return workoutWorkspaceReducer(current, {
+        type: 'live.draftUpdated',
+        payload: { draft: { ...current.draft, exercises: exercises.map((exercise) => ({ ...exercise })), updatedAt: Date.now() } },
+      });
+    });
+  }, []);
 
   const addDraftExercise = useCallback((exerciseId: string) => {
     updateDraft((draft) => {
@@ -204,16 +232,37 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
       : current);
   }, []);
 
+  const ensureClientRequestId = useCallback((): string | null => {
+    if (!ownerId || !state.draft || (state.stage !== 'draft' && state.stage !== 'review')) return state.clientRequestId;
+    const existing = clientRequestIdRef.current ?? state.clientRequestId;
+    if (existing) return existing;
+    const clientRequestId = globalThis.crypto.randomUUID();
+    const keyedState = workoutWorkspaceReducer(state, { type: 'request.keyed', payload: { clientRequestId } });
+    clientRequestIdRef.current = clientRequestId;
+    // This write intentionally precedes the network request. It is the retry key after an ambiguous response.
+    if (resolvedStorage) saveWorkspaceState(resolvedStorage, ownerId, keyedState);
+    setState((current) => (current.stage === 'draft' || current.stage === 'review') && current.draft
+      ? workoutWorkspaceReducer(current, { type: 'request.keyed', payload: { clientRequestId } })
+      : current);
+    return clientRequestId;
+  }, [ownerId, resolvedStorage, state]);
+
   const startLive = useCallback(async (): Promise<boolean> => {
     if (state.stage === 'live' || state.stage === 'paused' || state.stage === 'finishing' || state.stage === 'completed') {
       return Boolean(state.sessionId);
     }
-    if (!ownerId || !state.draft || (state.stage !== 'draft' && state.stage !== 'review')) return false;
+    if (!ownerId || !state.draft || !state.draft.name.trim() || (state.stage !== 'draft' && state.stage !== 'review')) return false;
     if (startPromiseRef.current) return startPromiseRef.current;
+    const idempotencyKey = ensureClientRequestId();
+    if (!idempotencyKey) return false;
 
-    const pending = createWorkoutSession(ownerId, state.draft.name, normalizeUuid(state.draft.templateId))
-      .then((sessionId) => {
-        const normalizedSessionId = sessionId?.trim();
+    const pending = startLiveSession({
+      idempotencyKey,
+      name: state.draft.name.trim(),
+      templateId: normalizeUuid(state.draft.templateId),
+    })
+      .then((result) => {
+        const normalizedSessionId = result.ok ? result.sessionId.trim() : '';
         if (!normalizedSessionId) return false;
         setState((latest) => (latest.stage === 'draft' || latest.stage === 'review') && latest.draft && !latest.sessionId
           ? workoutWorkspaceReducer(latest, { type: 'live.started', payload: { sessionId: normalizedSessionId, now: Date.now() } })
@@ -223,7 +272,7 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
       .finally(() => { startPromiseRef.current = null; });
     startPromiseRef.current = pending;
     return pending;
-  }, [ownerId, state]);
+  }, [ensureClientRequestId, ownerId, state]);
 
   const pause = useCallback((now = Date.now()) => {
     setState((current) => current.stage === 'live'
@@ -250,6 +299,7 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
   }, []);
 
   const resetWorkspace = useCallback(() => {
+    clientRequestIdRef.current = null;
     skipNextPersistRef.current = true;
     setState(createInitialWorkspaceState());
   }, []);
@@ -291,6 +341,9 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
     replaceDraftFromTemplate,
     updateDraftName,
     updateCardioDraft,
+    updateLiveCardioDraft,
+    commitLiveStrengthStructure,
+    ensureClientRequestId,
     addDraftExercise,
     removeDraftExercise,
     updateDraftExercise,
@@ -305,7 +358,7 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
     discardLive,
     acknowledgeCompleted,
     discardDraft,
-  }), [acknowledgeCompleted, addDraftExercise, cancelFinish, completeFinish, createDraft, createDraftFromTemplate, discardDraft, discardLive, goToReview, pause, removeDraftExercise, reorderDraftExercise, replaceDraftFromTemplate, requestFinish, resume, startLive, state, updateCardioDraft, updateDraftExercise, updateDraftName]);
+  }), [acknowledgeCompleted, addDraftExercise, cancelFinish, commitLiveStrengthStructure, completeFinish, createDraft, createDraftFromTemplate, discardDraft, discardLive, ensureClientRequestId, goToReview, pause, removeDraftExercise, reorderDraftExercise, replaceDraftFromTemplate, requestFinish, resume, startLive, state, updateCardioDraft, updateDraftExercise, updateDraftName, updateLiveCardioDraft]);
 
   if (loading || ownerId === undefined) {
     return <div role="status" aria-label="Loading workout workspace" className="min-h-24 animate-pulse rounded-xl bg-[var(--surface-subtle)]" />;

@@ -29,7 +29,7 @@ export default function PainFlagModal({
   onClose,
 }: {
   exerciseId: string;
-  onSave: (flag: PainFlag) => void;
+  onSave: (flag: PainFlag) => boolean | void | Promise<boolean | void>;
   onClose: () => void;
 }) {
   const { t } = useI18n();
@@ -38,18 +38,43 @@ export default function PainFlagModal({
   const [bodyPart, setBodyPart] = useState('');
   const [severity, setSeverity] = useState(1);
   const [notes, setNotes] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState(false);
 
   useEffect(() => {
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const frame = requestAnimationFrame(() => dialogRef.current?.focus());
-    const closeOnEscape = (event: KeyboardEvent) => event.key === 'Escape' && onClose();
+    const closeOnEscape = (event: KeyboardEvent) => event.key === 'Escape' && !saving && onClose();
     document.addEventListener('keydown', closeOnEscape);
     return () => {
       cancelAnimationFrame(frame);
       document.removeEventListener('keydown', closeOnEscape);
       previousFocus?.focus();
     };
-  }, [onClose]);
+  }, [onClose, saving]);
+
+  const save = async () => {
+    if (!bodyPart.trim() || saving) return;
+    setSaving(true);
+    setSaveError(false);
+    try {
+      const result = await onSave({
+        exercise_id: exerciseId,
+        body_part: bodyPart.trim(),
+        severity,
+        notes: notes.trim() || undefined,
+      });
+      if (result === false) {
+        setSaveError(true);
+        return;
+      }
+      onClose();
+    } catch {
+      setSaveError(true);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <motion.div
@@ -58,7 +83,7 @@ export default function PainFlagModal({
       exit={reducedMotion ? undefined : { opacity: 0 }}
       className="fixed inset-0 z-50 flex items-center justify-center px-4"
       style={{ background: 'var(--surface-overlay)' }}
-      onClick={onClose}
+      onClick={() => { if (!saving) onClose(); }}
     >
       <motion.div
         ref={dialogRef}
@@ -120,30 +145,23 @@ export default function PainFlagModal({
         />
 
         <div className="flex gap-2">
-          <button onClick={onClose} className="btn-ghost flex-1 text-sm py-2 min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
+          <button disabled={saving} onClick={onClose} className="btn-ghost flex-1 text-sm py-2 min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:opacity-50">
             {t('painflag.cancel')}
           </button>
           <button
-            onClick={() => {
-              if (!bodyPart.trim()) return;
-              onSave({
-                exercise_id: exerciseId,
-                body_part: bodyPart.trim(),
-                severity,
-                notes: notes.trim() || undefined,
-              });
-              onClose();
-            }}
-            className="flex-1 py-2 rounded-xl text-sm font-semibold min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+            disabled={saving}
+            onClick={() => void save()}
+            className="flex-1 py-2 rounded-xl text-sm font-semibold min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:opacity-50"
             style={{
               background: 'var(--status-danger-bg)',
               color: 'var(--status-danger-fg)',
               border: '1px solid var(--status-danger-border)',
             }}
           >
-            {t('painflag.save')}
+            {saving ? t('painflag.saving') : t('painflag.save')}
           </button>
         </div>
+        {saveError ? <p role="alert" className="mt-3 text-sm text-[var(--status-danger-fg)]">{t('painflag.save_failed')}</p> : null}
       </motion.div>
     </motion.div>
   );
