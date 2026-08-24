@@ -62,4 +62,18 @@ describe('workout workspace state', () => {
     expect(state.sessionId).toBeNull();
     expect(state.clock).toBeNull();
   });
+
+  it.each(['live', 'paused'] as const)('cancels finishing back to the originating %s clock mode', (origin) => {
+    let state = workoutWorkspaceReducer(createInitialWorkspaceState(), {
+      type: 'draft.created', payload: { name: 'Push', kind: 'strength' },
+    });
+    state = workoutWorkspaceReducer(state, { type: 'live.started', payload: { sessionId: 'session-1', now: 1_000 } });
+    if (origin === 'paused') state = workoutWorkspaceReducer(state, { type: 'live.paused', payload: { now: 11_000 } });
+    state = workoutWorkspaceReducer(state, { type: 'live.finishing', payload: { now: 21_000 } });
+    expect(state.finishingFrom).toBe(origin);
+    state = workoutWorkspaceReducer(state, { type: 'live.finishCancelled', payload: { now: 31_000 } });
+    expect(state.stage).toBe(origin);
+    expect(state.clock?.runningSince === null).toBe(origin === 'paused');
+    expect(state.finishingFrom).toBeNull();
+  });
 });

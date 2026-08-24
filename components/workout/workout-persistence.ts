@@ -3,8 +3,8 @@
  * and the freestyle logger (app/dashboard/workout/page.tsx).
  *
  * Contract:
- *   - The workout_sessions row is created LAZILY at the first completed set,
- *     never on "Start" (the old flow leaked empty sessions on abandon).
+ *   - Guided/freestyle callers may create lazily; the recoverable workspace
+ *     creates exactly once on explicit live start and verifies empty discard.
  *   - Every completed set is INSERTed immediately, so a crash/refresh loses
  *     at most the set currently being typed.
  *   - Finish = one UPDATE with name/duration/pain_flags/template_id.
@@ -29,6 +29,13 @@ export interface CompletedSetInput {
 export interface SupersetGroupUpdate {
   id: string;
   superset_group: number | null;
+}
+
+export interface PersistedWorkoutSet extends CompletedSetInput {
+  id: string;
+  session_id: string;
+  notes: string | null;
+  created_at?: string;
 }
 
 export async function updateWorkoutSupersetGroups(
@@ -100,7 +107,7 @@ export function buildLastSetsMap(rows: GhostHistoryRow[]): Record<string, GhostS
   return map;
 }
 
-/** Create the session row. Call lazily at the FIRST completed set. */
+/** Create one session row at the owning flow's explicit persistence boundary. */
 export async function createWorkoutSession(
   userId: string,
   name: string,
@@ -176,6 +183,61 @@ export async function deleteWorkoutSets(setIds: string[]): Promise<boolean> {
   return !error && data?.length === uniqueIds.length;
 }
 
+/** Delete an empty/aborted session and verify that exactly one owned row changed. */
+export async function deleteWorkoutSession(sessionId: string): Promise<boolean> {
+  if (!sessionId.trim()) return false;
+  const { data, error } = await supabase
+    .from('workout_sessions')
+    .delete()
+    .eq('id', sessionId)
+    .select('id');
+  return !error && data?.length === 1;
+}
+
+/** Discard only after the database confirms the owned session has no sets. */
+export async function deleteEmptyWorkoutSession(sessionId: string): Promise<boolean> {
+  if (!sessionId.trim()) return false;
+  const { data: sets, error } = await supabase
+    .from('workout_sets')
+    .select('id')
+    .eq('session_id', sessionId)
+    .limit(1);
+  if (error || !sets || sets.length > 0) return false;
+  return deleteWorkoutSession(sessionId);
+}
+
+/** Reload immediately persisted live sets after a crash or refresh. */
+export async function loadWorkoutSessionSets(sessionId: string): Promise<PersistedWorkoutSet[]> {
+  if (!sessionId.trim()) return [];
+  const { data, error } = await supabase
+    .from('workout_sets')
+    .select('id, session_id, exercise_id, set_number, weight_kg, reps, rpe, is_warmup, is_pr, superset_group, notes, created_at')
+    .eq('session_id', sessionId)
+    .order('set_number');
+  return error ? [] : (data as PersistedWorkoutSet[] | null) ?? [];
+}
+
+/** Recovery-safe pain flags are written to the session as soon as they change. */
+export async function loadWorkoutSessionPainFlags(sessionId: string): Promise<PainFlag[]> {
+  if (!sessionId.trim()) return [];
+  const { data, error } = await supabase
+    .from('workout_sessions')
+    .select('pain_flags')
+    .eq('id', sessionId)
+    .maybeSingle();
+  return error ? [] : ((data?.pain_flags as PainFlag[] | null) ?? []);
+}
+
+export async function updateWorkoutSessionPainFlags(sessionId: string, painFlags: PainFlag[]): Promise<boolean> {
+  if (!sessionId.trim()) return false;
+  const { data, error } = await supabase
+    .from('workout_sessions')
+    .update({ pain_flags: painFlags })
+    .eq('id', sessionId)
+    .select('id');
+  return !error && data?.length === 1;
+}
+
 /** Final session UPDATE (name = template/session name, duration, flags, FK). */
 export async function finishWorkoutSession(
   sessionId: string,
@@ -184,6 +246,7 @@ export async function finishWorkoutSession(
     duration_minutes: number;
     pain_flags: PainFlag[];
     template_id?: string | null;
+    notes?: string | null;
   },
 ): Promise<boolean> {
   const { data, error } = await supabase

@@ -116,8 +116,8 @@ vi.mock('@/lib/i18n', () => ({
   }),
 }));
 
-import { ExerciseBrowser } from '@/app/dashboard/workout/exercises/page';
-import { RoutedExerciseDetail } from '@/app/dashboard/workout/exercises/[id]/page';
+import { ExerciseBrowser } from '@/components/workout/workspace/ExerciseBrowser';
+import { RoutedExerciseDetail } from '@/components/workout/workspace/RoutedExerciseDetail';
 import {
   WorkoutWorkspaceProvider,
   useWorkoutWorkspace,

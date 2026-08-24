@@ -98,4 +98,18 @@ describe('workout workspace recovery', () => {
     }));
     expect(loadWorkspaceState(storage, 'nik')?.stage).toBe('paused');
   });
+
+  it('persists and validates the finishing origin discriminator', () => {
+    const storage = new MapStorage();
+    let state = workoutWorkspaceReducer(createInitialWorkspaceState(), { type: 'draft.created', payload: { name: 'Legs', kind: 'strength' } });
+    state = workoutWorkspaceReducer(state, { type: 'live.started', payload: { sessionId: 'session-1', now: 1 } });
+    state = workoutWorkspaceReducer(state, { type: 'live.finishing', payload: { now: 2 } });
+    saveWorkspaceState(storage, 'nik', state);
+    expect(loadWorkspaceState(storage, 'nik')?.finishingFrom).toBe('live');
+
+    const stored = JSON.parse(storage.getItem(workspaceStorageKey('nik')) ?? '{}');
+    stored.finishingFrom = 'draft';
+    storage.setItem(workspaceStorageKey('nik'), JSON.stringify(stored));
+    expect(loadWorkspaceState(storage, 'nik')).toBeNull();
+  });
 });

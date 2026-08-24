@@ -1,57 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import ExercisePicker from '@/components/workout/ExercisePicker';
-import { ExerciseRouteGate } from '@/components/workout/ExerciseRouteGate';
-import { useWorkoutWorkspace } from '@/components/workout/workspace/WorkoutWorkspaceProvider';
+import { ExerciseBrowser } from '@/components/workout/workspace/ExerciseBrowser';
 import { useI18n } from '@/lib/i18n';
 import { supabase } from '@/lib/supabase';
 import type { Exercise } from '@/lib/types';
-import { WORKOUT_ROUTES, workoutRouteForStage } from '@/lib/workout/workspace-routes';
-
-export function ExerciseBrowser({ initialExercises = [], initialRecentIds = [] }: { initialExercises?: Exercise[]; initialRecentIds?: string[] }) {
-  const router = useRouter();
-  const workspace = useWorkoutWorkspace();
-  const { lang, t } = useI18n();
-  const [exercises, setExercises] = useState(initialExercises);
-  const acceptsExercises = (workspace.state.stage === 'draft' || workspace.state.stage === 'review')
-    && workspace.state.draft?.kind === 'strength';
-
-  if (!acceptsExercises) {
-    const canCreate = workspace.state.stage === 'home';
-    return (
-      <ExerciseRouteGate
-        actionLabel={canCreate ? t('workout.create_strength_draft') : t('workout.resume_current_workout')}
-        onAction={() => {
-          if (canCreate) {
-            workspace.createDraft({ name: t('workout.strength'), kind: 'strength' });
-            return;
-          }
-          router.push(workoutRouteForStage(workspace.state.stage));
-        }}
-      />
-    );
-  }
-
-  return (
-    <ExercisePicker
-      presentation="page"
-      exercises={exercises}
-      recentIds={initialRecentIds}
-      lang={lang}
-      onSelect={() => undefined}
-      onClose={() => router.push(WORKOUT_ROUTES.build)}
-      onAddToDraft={workspace.addDraftExercise}
-      onReturnToBuild={() => router.push(WORKOUT_ROUTES.build)}
-      addedExerciseIds={workspace.state.draft?.kind === 'strength'
-        ? workspace.state.draft.exercises.map(({ exerciseId }) => exerciseId)
-        : []}
-      onCustomCreated={(exercise) => setExercises((current) => [...current, exercise])}
-      onInfo={(exercise) => router.push(`${WORKOUT_ROUTES.exercises}/${encodeURIComponent(exercise.id)}`)}
-    />
-  );
-}
 
 export default function ExerciseBrowserPage() {
   const { t } = useI18n();

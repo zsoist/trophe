@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createWorkoutSession } from '@/components/workout/workout-persistence';
 import { supabase } from '@/lib/supabase';
+import { discardEmptyLiveSession } from '@/lib/workout/live-session';
 import {
   createInitialWorkspaceState,
   workoutWorkspaceReducer,
@@ -35,6 +36,9 @@ export interface WorkoutWorkspaceContextValue {
   pause(now?: number): void;
   resume(now?: number): void;
   requestFinish(): void;
+  cancelFinish(now?: number): void;
+  completeFinish(): void;
+  discardLive(): Promise<boolean>;
   acknowledgeCompleted(): void;
   discardDraft(): void;
 }
@@ -239,10 +243,38 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
       : current);
   }, []);
 
+  const cancelFinish = useCallback((now = Date.now()) => {
+    setState((current) => current.stage === 'finishing'
+      ? workoutWorkspaceReducer(current, { type: 'live.finishCancelled', payload: { now } })
+      : current);
+  }, []);
+
   const resetWorkspace = useCallback(() => {
     skipNextPersistRef.current = true;
     setState(createInitialWorkspaceState());
   }, []);
+
+  const completeFinish = useCallback(() => {
+    skipNextPersistRef.current = true;
+    setState((current) => current.stage === 'finishing'
+      ? workoutWorkspaceReducer(
+        workoutWorkspaceReducer(current, { type: 'live.completed' }),
+        { type: 'completed.acknowledged' },
+      )
+      : current);
+  }, []);
+
+  const discardLive = useCallback(async (): Promise<boolean> => {
+    const sessionId = state.stage === 'finishing' ? state.sessionId : null;
+    if (!sessionId) return false;
+    const deleted = await discardEmptyLiveSession(sessionId);
+    if (!deleted) return false;
+    skipNextPersistRef.current = true;
+    setState((current) => current.stage === 'finishing' && current.sessionId === sessionId
+      ? workoutWorkspaceReducer(current, { type: 'live.discarded' })
+      : current);
+    return true;
+  }, [state.sessionId, state.stage]);
 
   const acknowledgeCompleted = useCallback(() => {
     if (state.stage === 'completed') resetWorkspace();
@@ -268,9 +300,12 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
     pause,
     resume,
     requestFinish,
+    cancelFinish,
+    completeFinish,
+    discardLive,
     acknowledgeCompleted,
     discardDraft,
-  }), [acknowledgeCompleted, addDraftExercise, createDraft, createDraftFromTemplate, discardDraft, goToReview, pause, removeDraftExercise, reorderDraftExercise, replaceDraftFromTemplate, requestFinish, resume, startLive, state, updateCardioDraft, updateDraftExercise, updateDraftName]);
+  }), [acknowledgeCompleted, addDraftExercise, cancelFinish, completeFinish, createDraft, createDraftFromTemplate, discardDraft, discardLive, goToReview, pause, removeDraftExercise, reorderDraftExercise, replaceDraftFromTemplate, requestFinish, resume, startLive, state, updateCardioDraft, updateDraftExercise, updateDraftName]);
 
   if (loading || ownerId === undefined) {
     return <div role="status" aria-label="Loading workout workspace" className="min-h-24 animate-pulse rounded-xl bg-[var(--surface-subtle)]" />;

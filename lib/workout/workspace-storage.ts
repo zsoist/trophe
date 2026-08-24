@@ -70,27 +70,32 @@ function isClock(value: unknown): value is LiveClock {
 
 function parseState(value: unknown): WorkoutWorkspaceState | null {
   if (!isRecord(value) || value.version !== WORKOUT_DRAFT_VERSION
-    || !hasOnlyKeys(value, ['version', 'stage', 'draft', 'sessionId', 'clock'])
+    || !hasOnlyKeys(value, ['version', 'stage', 'draft', 'sessionId', 'clock', 'finishingFrom'])
     || !WORKOUT_STAGES.includes(value.stage as WorkoutStage)
     || (value.draft !== null && !isDraft(value.draft))
     || (value.sessionId !== null && typeof value.sessionId !== 'string')
-    || (value.clock !== null && !isClock(value.clock))) return null;
+    || (value.clock !== null && !isClock(value.clock))
+    || (value.finishingFrom !== undefined && value.finishingFrom !== null && value.finishingFrom !== 'live' && value.finishingFrom !== 'paused')) return null;
   const hasDraft = value.draft !== null;
   const hasSession = typeof value.sessionId === 'string' && value.sessionId.trim().length > 0;
   const hasClock = value.clock !== null;
   const clockIsRunning = hasClock && (value.clock as LiveClock).runningSince !== null;
+  const finishingFrom = value.finishingFrom ?? null;
   const validStage = value.stage === 'home'
-    ? !hasDraft && !hasSession && !hasClock
+    ? !hasDraft && !hasSession && !hasClock && finishingFrom === null
     : value.stage === 'draft' || value.stage === 'review'
-      ? hasDraft && !hasSession && !hasClock
+      ? hasDraft && !hasSession && !hasClock && finishingFrom === null
       : hasDraft && hasSession && hasClock
-        && (value.stage === 'live' ? clockIsRunning : !clockIsRunning);
+        && (value.stage === 'live' ? clockIsRunning && finishingFrom === null
+          : value.stage === 'finishing' ? !clockIsRunning && (finishingFrom === 'live' || finishingFrom === 'paused')
+            : !clockIsRunning && finishingFrom === null);
   if (!validStage) return null;
   return {
     stage: value.stage as WorkoutStage,
     draft: value.draft as WorkoutDraft | null,
     sessionId: value.sessionId as string | null,
     clock: value.clock as LiveClock | null,
+    finishingFrom,
   };
 }
 
@@ -148,6 +153,7 @@ export function saveWorkspaceState(storage: WorkspaceStorage, userId: string, st
     draft: persistDraft(state.draft),
     sessionId: state.sessionId,
     clock: state.clock && { runningSince: state.clock.runningSince, accumulatedMs: state.clock.accumulatedMs },
+    finishingFrom: state.finishingFrom ?? null,
   };
   storage.setItem(workspaceStorageKey(userId), JSON.stringify(payload));
 }

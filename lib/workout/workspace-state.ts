@@ -44,6 +44,8 @@ export interface WorkoutWorkspaceState {
   draft: WorkoutDraft | null;
   sessionId: string | null;
   clock: LiveClock | null;
+  /** Clock mode to restore when a guarded finish is cancelled. */
+  finishingFrom?: 'live' | 'paused' | null;
 }
 
 export const WORKOUT_DRAFT_VERSION = 2 as const;
@@ -64,7 +66,9 @@ export type WorkoutWorkspaceEvent =
   | { type: 'live.paused'; payload: { now: number } }
   | { type: 'live.resumed'; payload: { now: number } }
   | { type: 'live.finishing'; payload: { now: number } }
+  | { type: 'live.finishCancelled'; payload: { now: number } }
   | { type: 'live.completed' }
+  | { type: 'live.discarded' }
   | { type: 'completed.acknowledged' };
 
 export function createEmptyDraft(kind: WorkoutKind = 'strength', name = '', templateKey?: string, updatedAt = 0, templateId?: string | null): WorkoutDraft {
@@ -75,7 +79,7 @@ export function createEmptyDraft(kind: WorkoutKind = 'strength', name = '', temp
 }
 
 export function createInitialWorkspaceState(): WorkoutWorkspaceState {
-  return { stage: 'home', draft: null, sessionId: null, clock: null };
+  return { stage: 'home', draft: null, sessionId: null, clock: null, finishingFrom: null };
 }
 
 export function elapsedActiveMs(clock: LiveClock | null, now: number): number {
@@ -100,7 +104,7 @@ export function workoutWorkspaceReducer(
   switch (event.type) {
     case 'draft.created':
       if (state.stage !== 'home') throw new Error(`Cannot create a draft from ${state.stage}`);
-      return { stage: 'draft', draft: createEmptyDraft(event.payload.kind, event.payload.name, event.payload.templateKey, event.payload.updatedAt ?? 0, event.payload.templateId), sessionId: null, clock: null };
+      return { stage: 'draft', draft: createEmptyDraft(event.payload.kind, event.payload.name, event.payload.templateKey, event.payload.updatedAt ?? 0, event.payload.templateId), sessionId: null, clock: null, finishingFrom: null };
     case 'draft.updated':
       if (state.stage !== 'draft' && state.stage !== 'review') throw new Error(`Cannot update a draft from ${state.stage}`);
       return { ...state, draft: event.payload.draft };
@@ -112,25 +116,41 @@ export function workoutWorkspaceReducer(
       if (!event.payload.sessionId.trim()) throw new Error('A session id is required');
       requireDraft(state);
       if (state.stage !== 'draft' && state.stage !== 'review') throw new Error(`Cannot start live workout from ${state.stage}`);
-      return { ...state, stage: 'live', sessionId: event.payload.sessionId, clock: { runningSince: event.payload.now, accumulatedMs: 0 } };
+      return { ...state, stage: 'live', sessionId: event.payload.sessionId, clock: { runningSince: event.payload.now, accumulatedMs: 0 }, finishingFrom: null };
     case 'live.paused': {
       if (state.stage !== 'live') throw new Error(`Cannot pause from ${state.stage}`);
       const clock = requireClock(state);
-      return { ...state, stage: 'paused', clock: { runningSince: null, accumulatedMs: elapsedActiveMs(clock, event.payload.now) } };
+      return { ...state, stage: 'paused', clock: { runningSince: null, accumulatedMs: elapsedActiveMs(clock, event.payload.now) }, finishingFrom: null };
     }
     case 'live.resumed':
       if (state.stage !== 'paused') throw new Error(`Cannot resume from ${state.stage}`);
-      return { ...state, stage: 'live', clock: { ...requireClock(state), runningSince: event.payload.now } };
+      return { ...state, stage: 'live', clock: { ...requireClock(state), runningSince: event.payload.now }, finishingFrom: null };
     case 'live.finishing':
       if (state.stage !== 'live' && state.stage !== 'paused') throw new Error(`Cannot finish from ${state.stage}`);
       return {
         ...state,
         stage: 'finishing',
         clock: state.clock && { runningSince: null, accumulatedMs: elapsedActiveMs(state.clock, event.payload.now) },
+        finishingFrom: state.stage,
       };
+    case 'live.finishCancelled': {
+      if (state.stage !== 'finishing' || (state.finishingFrom !== 'live' && state.finishingFrom !== 'paused')) {
+        throw new Error(`Cannot cancel finish from ${state.stage}`);
+      }
+      const origin = state.finishingFrom;
+      return {
+        ...state,
+        stage: origin,
+        clock: { ...requireClock(state), runningSince: origin === 'live' ? event.payload.now : null },
+        finishingFrom: null,
+      };
+    }
     case 'live.completed':
       if (state.stage !== 'finishing') throw new Error(`Cannot complete from ${state.stage}`);
-      return { ...state, stage: 'completed' };
+      return { ...state, stage: 'completed', finishingFrom: null };
+    case 'live.discarded':
+      if (state.stage !== 'finishing') throw new Error(`Cannot discard from ${state.stage}`);
+      return createInitialWorkspaceState();
     case 'completed.acknowledged':
       if (state.stage !== 'completed') throw new Error(`Cannot acknowledge completion from ${state.stage}`);
       return createInitialWorkspaceState();

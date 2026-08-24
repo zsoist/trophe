@@ -4,9 +4,10 @@ import React from 'react';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const { createWorkoutSession } = vi.hoisted(() => ({ createWorkoutSession: vi.fn() }));
+const { createWorkoutSession, discardEmptyLiveSession } = vi.hoisted(() => ({ createWorkoutSession: vi.fn(), discardEmptyLiveSession: vi.fn() }));
 
 vi.mock('@/components/workout/workout-persistence', () => ({ createWorkoutSession }));
+vi.mock('@/lib/workout/live-session', () => ({ discardEmptyLiveSession }));
 vi.mock('@/lib/supabase', () => ({
   supabase: { auth: { getUser: vi.fn() } },
 }));
@@ -24,9 +25,9 @@ class MemoryStorage {
   removeItem(key: string) { this.values.delete(key); }
 }
 
-function ProviderHarness({ userId }: { userId: string }) {
+function ProviderHarness({ userId, storage = new MemoryStorage() }: { userId: string; storage?: MemoryStorage }) {
   return (
-    <WorkoutWorkspaceProvider userId={userId} storage={new MemoryStorage()}>
+    <WorkoutWorkspaceProvider userId={userId} storage={storage}>
       <WorkspaceControls />
     </WorkoutWorkspaceProvider>
   );
@@ -61,6 +62,11 @@ function WorkspaceControls() {
         exercises: [{ exerciseId: 'row', targetSets: 3, targetReps: '10' }],
       })}>Replace with repeated draft</button>
       <button onClick={() => void workspace.startLive()}>Start live workout</button>
+      <button onClick={() => workspace.pause(11_000)}>Pause workout</button>
+      <button onClick={() => workspace.requestFinish()}>Request finish</button>
+      <button onClick={() => workspace.cancelFinish(31_000)}>Keep training</button>
+      <button onClick={() => workspace.completeFinish()}>Complete verified finish</button>
+      <button onClick={() => void workspace.discardLive()}>Discard empty workout</button>
       {workspace.state.draft?.kind === 'strength' ? (
         <output>{workspace.state.draft.name}:{workspace.state.draft.exercises.map((exercise) => `${exercise.exerciseId}-${exercise.targetSets}x${exercise.targetReps}`).join(',')}</output>
       ) : null}
@@ -71,6 +77,7 @@ function WorkspaceControls() {
 afterEach(() => {
   cleanup();
   createWorkoutSession.mockReset();
+  discardEmptyLiveSession.mockReset();
 });
 
 describe('WorkoutWorkspaceProvider', () => {
@@ -139,5 +146,36 @@ describe('WorkoutWorkspaceProvider', () => {
     expect(screen.getByText('Repeated pull:row-3x10')).toBeTruthy();
     expect(screen.queryByText(/bench-press/)).toBeNull();
     expect(createWorkoutSession).not.toHaveBeenCalled();
+  });
+
+  it('returns a finishing workout to its paused origin when the user keeps training', async () => {
+    createWorkoutSession.mockResolvedValue('session-1');
+    render(<ProviderHarness userId="nik" />);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Create Push draft' })).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'Create Push draft' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Start live workout' }));
+    await waitFor(() => expect(screen.getByText('Live')).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'Pause workout' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Request finish' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Keep training' }));
+    expect(screen.getByText('paused')).toBeTruthy();
+  });
+
+  it('keeps recovery when empty-session deletion is unverified and clears it after verified deletion', async () => {
+    const storage = new MemoryStorage();
+    createWorkoutSession.mockResolvedValue('session-1');
+    discardEmptyLiveSession.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    render(<ProviderHarness userId="nik" storage={storage} />);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Create Push draft' })).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'Create Push draft' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Start live workout' }));
+    await waitFor(() => expect(screen.getByText('Live')).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'Request finish' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Discard empty workout' }));
+    await waitFor(() => expect(discardEmptyLiveSession).toHaveBeenCalledTimes(1));
+    expect(storage.getItem('trophe:workout-workspace:nik')).not.toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Discard empty workout' }));
+    await waitFor(() => expect(storage.getItem('trophe:workout-workspace:nik')).toBeNull());
   });
 });
