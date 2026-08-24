@@ -94,14 +94,27 @@ export interface DraftExercise {
   targetReps: string;
 }
 
-export interface WorkoutDraft {
+interface WorkoutDraftBase {
   version: 2;
   name: string;
-  kind: WorkoutKind;
   templateKey?: string;
-  exercises: DraftExercise[];
   updatedAt: number;
 }
+
+export interface StrengthDraft extends WorkoutDraftBase {
+  kind: 'strength';
+  exercises: DraftExercise[];
+}
+
+export interface CardioDraft extends WorkoutDraftBase {
+  kind: 'cardio';
+  activity: 'walk' | 'run' | 'cycle' | 'hiit' | 'swim' | 'other';
+  durationMinutes: number;
+  distanceKm: number | null;
+  effort: number | null;
+}
+
+export type WorkoutDraft = StrengthDraft | CardioDraft;
 
 export interface LiveClock {
   runningSince: number | null;
@@ -541,17 +554,15 @@ git commit -m "feat(workout): route exercise discovery and detail"
 
 **Interfaces:**
 - Consumes: provider state/actions and existing CRUD helpers.
-- Produces: `startLiveSession`, `completeLiveSet`, `finishLiveSession`, labeled set logger, pause/resume, confirmation.
+- Produces: `completeLiveSet`, `finishLiveSession`, labeled set logger, pause/resume, confirmation. Explicit session creation remains owned by the Task 3 provider boundary.
 
 - [ ] **Step 1: Write persistence-boundary failing tests**
 
 ```ts
-it('creates one session at explicit start and never again per completed set', async () => {
-  createWorkoutSession.mockResolvedValue('session-1');
-  const live = await startLiveSession({ userId: 'nik', draft: pushDraft, now: 1_000 });
-  await completeLiveSet({ sessionId: live.sessionId, exerciseId: 'bench', setNumber: 1, weightKg: 60, reps: 8 });
-  await completeLiveSet({ sessionId: live.sessionId, exerciseId: 'bench', setNumber: 2, weightKg: 60, reps: 8 });
-  expect(createWorkoutSession).toHaveBeenCalledTimes(1);
+it('completes sets against the provider-owned session without creating another session', async () => {
+  await completeLiveSet({ sessionId: 'session-1', exerciseId: 'bench', setNumber: 1, weightKg: 60, reps: 8 });
+  await completeLiveSet({ sessionId: 'session-1', exerciseId: 'bench', setNumber: 2, weightKg: 60, reps: 8 });
+  expect(createWorkoutSession).not.toHaveBeenCalled();
   expect(insertWorkoutSet).toHaveBeenCalledTimes(2);
 });
 
@@ -932,12 +943,14 @@ Run: `npm run canary:prod && npm run canary:theme`
 
 Expected: authentication entry, Workout Home, static assets, theme tokens, and read-only production probes pass without new errors.
 
-- [ ] **Step 9: Mark the spec implemented and commit docs**
+- [ ] **Step 9: Mark the spec implementation-complete before merge**
 
 ```bash
 git add docs/superpowers/specs/2026-08-24-workout-workspace-v2-design.md DESIGN.md
 git commit -m "docs(workout): record workspace v2 release"
 ```
+
+Record the verified release-candidate SHA and local/CI evidence in the spec before the final PR merge. Record the resulting production deployment URL, deployed SHA, and canary evidence in the goal completion report; do not create an unreviewed code commit on main after deployment.
 
 - [ ] **Step 10: Complete the goal only after production evidence is fresh**
 
