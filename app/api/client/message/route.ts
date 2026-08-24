@@ -13,12 +13,55 @@ const bodySchema = z.object({
   message: z.string().trim().min(1).max(2000),
 }).strict();
 
+function bearerToken(req: NextRequest): string {
+  const auth = req.headers.get('Authorization') ?? '';
+  return auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
+}
+
+export async function GET(req: NextRequest) {
+  const admin = createSupabaseServiceClient();
+  const token = bearerToken(req);
+  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const { data: { user }, error: authError } = await admin.auth.getUser(token);
+  if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const { data: clientProfile, error: assignmentError } = await admin
+    .from('client_profiles')
+    .select('coach_id')
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  if (assignmentError) {
+    console.error('[client-coach] assignment lookup failed', safeErrorMetadata(assignmentError));
+    return NextResponse.json({ error: 'Coach identity is temporarily unavailable.' }, { status: 503 });
+  }
+  if (!clientProfile?.coach_id) {
+    return NextResponse.json({ coachName: null }, { headers: { 'Cache-Control': 'private, no-store' } });
+  }
+
+  const { data: coach, error: coachError } = await admin
+    .from('profiles')
+    .select('full_name')
+    .eq('id', clientProfile.coach_id)
+    .maybeSingle();
+
+  if (coachError) {
+    console.error('[client-coach] identity lookup failed', safeErrorMetadata(coachError));
+    return NextResponse.json({ error: 'Coach identity is temporarily unavailable.' }, { status: 503 });
+  }
+
+  return NextResponse.json(
+    { coachName: coach?.full_name?.trim() || null },
+    { headers: { 'Cache-Control': 'private, no-store' } },
+  );
+}
+
 export async function POST(req: NextRequest) {
   const admin = createSupabaseServiceClient();
 
   // Auth check via Bearer token
-  const auth = req.headers.get('Authorization') ?? '';
-  const token = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
+  const token = bearerToken(req);
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const { data: { user }, error: authErr } = await admin.auth.getUser(token);
   if (authErr || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

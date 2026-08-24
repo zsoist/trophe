@@ -20,14 +20,12 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import {
   Dumbbell, Plus, Minus, Clock, Trophy, X, AlertTriangle,
-  ChevronDown, ChevronUp, ChevronRight, History, Play, Square, Camera, Timer,
+  ChevronRight, History, Play, Square, Camera, Timer,
   Calculator, Info, Link2, BarChart3, Check, MessageCircle, RotateCcw, BookmarkPlus,
 } from 'lucide-react';
-import { BotNav } from '@/components/ui/BotNav';
 import { AnimatedValue } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
-import { useClientNav } from '@/lib/useClientNav';
 import type { Exercise, PainFlag, WorkoutSession, TemplateExercise, MuscleGroup } from '@/lib/types';
 import Link from 'next/link';
 import { localToday } from '../../../lib/utils/dates';
@@ -39,6 +37,8 @@ import ExercisePicker from '@/components/workout/ExercisePicker';
 import RecentSessionCard from '@/components/workout/RecentSessionCard';
 import ExerciseInfoSheet from '@/components/workout/ExerciseInfoSheet';
 import PlateCalculator from '@/components/workout/PlateCalculator';
+import WorkoutEntryPanel from '@/components/workout/WorkoutEntryPanel';
+import SessionExerciseIdentity from '@/components/workout/SessionExerciseIdentity';
 
 const focusableSelector = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
 function trapFocus(event: ReactKeyboardEvent<HTMLElement>, container: HTMLElement | null) {
@@ -53,7 +53,7 @@ function restoreCompletionFocus(returnTarget: HTMLElement | null, fallback: HTML
   if (returnTarget?.isConnected) returnTarget.focus();
   else fallback?.focus();
 }
-import { muscleColor, exerciseDisplayName, WORKOUT_SPLITS } from '@/components/workout/muscle-groups';
+import { exerciseDisplayName, WORKOUT_SPLITS } from '@/components/workout/muscle-groups';
 import { useWeightUnit, kgToDisplay, displayToKg } from '@/lib/workout/units';
 import { getRestTarget, setRestTarget as persistRestTarget, REST_CHOICES } from '@/lib/workout/rest-targets';
 import { supersetGroupFor, supersetLabelFor } from '@/lib/workout/supersets';
@@ -170,7 +170,6 @@ function RestChip({ startedAt, targetS, onDismiss }: { startedAt: number; target
 // Main Workout Page
 // ═══════════════════════════════════════════════
 export default function WorkoutPage() {
-  const clientNav = useClientNav();
   const router = useRouter();
   const { t, lang } = useI18n();
   const reducedMotion = useReducedMotion();
@@ -935,7 +934,7 @@ export default function WorkoutPage() {
   // ═══ GUIDED MODE (full-screen takeover) ═══
   if (mode === 'guided' && guidedTemplate && userId) {
     return (
-      <div className="min-h-screen pb-28" style={{ background: 'var(--canvas)' }}>
+      <div className="min-h-screen pb-4" style={{ background: 'var(--canvas)' }}>
         <GuidedSession
           userId={userId}
           programName={programData?.program.name ?? 'Program'}
@@ -943,7 +942,6 @@ export default function WorkoutPage() {
           exerciseInfo={exerciseInfoMap}
           onExit={exitGuided}
         />
-        <BotNav routes={clientNav} />
       </div>
     );
   }
@@ -953,9 +951,9 @@ export default function WorkoutPage() {
   const todayHero = todaySummaries[0] ?? null;
 
   return (
-    <div className="min-h-screen pb-28" style={{ background: 'var(--canvas)' }}>
+    <div className="min-h-screen pb-4" style={{ background: 'var(--canvas)' }}>
       {/* Header */}
-      <div className="sticky top-0 z-40 glass-elevated px-4 py-3">
+      <header className="workout-page-header">
         <div className="max-w-md lg:max-w-2xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Dumbbell size={22} className="gold-text" />
@@ -997,12 +995,12 @@ export default function WorkoutPage() {
             </Link>
           </div>
         </div>
-      </div>
+      </header>
 
       <div className="max-w-md lg:max-w-2xl mx-auto px-4 pt-4">
         {/* ═══ LANDING ═══ */}
         {mode === 'landing' && (
-          <motion.div ref={landingFocusRef} data-testid="workout-landing-focus" tabIndex={-1} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-3 outline-none">
+          <motion.div ref={landingFocusRef} data-testid="workout-landing-focus" tabIndex={-1} initial={false} className="space-y-3 outline-none">
 
             {/* ── Hero: program-aware entry state ── */}
             {programQuery.isLoading ? (
@@ -1023,30 +1021,15 @@ export default function WorkoutPage() {
                   onStart={startGuided}
                   starting={!userId}
                 />
-                {/* Secondary: freestyle + cardio */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                  <button
-                    onClick={startFreestyle}
-                    disabled={!userId}
-                    className="card min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-                    style={{ padding: '11px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}
-                  >
-                    <Dumbbell size={14} className="gold-text" />
-                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--content-secondary)' }}>{t('workout.freestyle')}</span>
-                  </button>
-                  <button
-                    onClick={() => setShowCardio(v => !v)}
-                    className="card min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-                    style={{
-                      padding: '11px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-                      border: showCardio ? '1px solid color-mix(in srgb, var(--action-primary) 40%, transparent)' : undefined,
-                      background: showCardio ? 'color-mix(in srgb, var(--action-primary) 7%, transparent)' : undefined,
-                    }}
-                  >
-                    <Play size={14} className="gold-text" />
-                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--content-secondary)' }}>{t('workout.cardio')}</span>
-                  </button>
-                </div>
+                <WorkoutEntryPanel
+                  disabled={!userId}
+                  onStrength={startFreestyle}
+                  onCardio={() => setShowCardio((open) => !open)}
+                  onSplit={(key) => {
+                    const split = WORKOUT_SPLITS.find((candidate) => candidate.key === key);
+                    if (split) startSplit(split);
+                  }}
+                />
               </>
             ) : hasProgram ? (
               /* State B — rest day */
@@ -1058,52 +1041,28 @@ export default function WorkoutPage() {
                   onTrainAnyway={startFreestyle}
                   disabled={!userId}
                 />
-                <button
-                  onClick={() => setShowCardio(v => !v)}
-                  className="card w-full min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-                  style={{
-                    padding: '11px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-                    border: showCardio ? '1px solid color-mix(in srgb, var(--action-primary) 40%, transparent)' : undefined,
-                    background: showCardio ? 'color-mix(in srgb, var(--action-primary) 7%, transparent)' : undefined,
+                <WorkoutEntryPanel
+                  disabled={!userId}
+                  onStrength={startFreestyle}
+                  onCardio={() => setShowCardio((open) => !open)}
+                  onSplit={(key) => {
+                    const split = WORKOUT_SPLITS.find((candidate) => candidate.key === key);
+                    if (split) startSplit(split);
                   }}
-                >
-                  <Play size={14} className="gold-text" />
-                  <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--content-secondary)' }}>{t('workout.log_cardio')}</span>
-                </button>
+                />
               </>
             ) : (
               /* State C — no program: freestyle quick-start (legacy) */
               <>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                  {/* Strength */}
-                  <motion.button
-                    whileTap={{ scale: 0.96 }}
-                    onClick={startFreestyle}
-                    disabled={!userId}
-                    className="card min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-                    style={{ padding: '20px 12px', textAlign: 'center', cursor: 'pointer' }}
-                  >
-                    <Dumbbell size={28} className="gold-text mx-auto" />
-                    <div style={{ fontSize: 13, fontWeight: 700, marginTop: 8, color: 'var(--content-primary)', letterSpacing: '-.01em' }}>{t('workout.strength')}</div>
-                    <div className="ds-sub" style={{ fontSize: 12, marginTop: 3 }}>{t('workout.strength_sub')}</div>
-                  </motion.button>
-
-                  {/* Cardio */}
-                  <motion.button
-                    whileTap={{ scale: 0.96 }}
-                    onClick={() => setShowCardio(v => !v)}
-                    className="card min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-                    style={{
-                      padding: '20px 12px', textAlign: 'center', cursor: 'pointer',
-                      border: showCardio ? '1px solid color-mix(in srgb, var(--action-primary) 40%, transparent)' : undefined,
-                      background: showCardio ? 'color-mix(in srgb, var(--action-primary) 7%, transparent)' : undefined,
-                    }}
-                  >
-                    <Play size={28} className="gold-text mx-auto" />
-                    <div style={{ fontSize: 13, fontWeight: 700, marginTop: 8, color: 'var(--content-primary)', letterSpacing: '-.01em' }}>{t('workout.cardio')}</div>
-                    <div className="ds-sub" style={{ fontSize: 12, marginTop: 3 }}>{t('workout.cardio_sub')}</div>
-                  </motion.button>
-                </div>
+                <WorkoutEntryPanel
+                  disabled={!userId}
+                  onStrength={startFreestyle}
+                  onCardio={() => setShowCardio((open) => !open)}
+                  onSplit={(key) => {
+                    const split = WORKOUT_SPLITS.find((candidate) => candidate.key === key);
+                    if (split) startSplit(split);
+                  }}
+                />
 
                 {/* Subtle coach hint */}
                 <Link href="/dashboard/messages">
@@ -1148,26 +1107,6 @@ export default function WorkoutPage() {
                   <ChevronRight size={15} style={{ color: 'var(--content-muted)', flexShrink: 0 }} />
                 </motion.button>
               )}
-              <p className="text-xs font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'var(--content-muted)' }}>
-                {t('workout.quick_start')}
-              </p>
-              <div className="flex flex-wrap gap-2 pb-1">
-                {WORKOUT_SPLITS.map((split) => (
-                  <button
-                    key={split.key}
-                    onClick={() => startSplit(split)}
-                    disabled={!userId}
-                    className="shrink-0 px-3 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-                    style={{
-                      background: 'color-mix(in srgb, var(--content-primary) 6%, transparent)',
-                      border: '1px solid color-mix(in srgb, var(--content-primary) 10%, transparent)',
-                      color: 'var(--content-secondary)',
-                    }}
-                  >
-                    {t(`workout.split_${split.key}`)}
-                  </button>
-                ))}
-              </div>
             </div>
 
             {/* ── My routines: one-tap start of saved personal plans ── */}
@@ -1390,7 +1329,6 @@ export default function WorkoutPage() {
             {/* Exercises */}
             <AnimatePresence mode="popLayout">
               {activeExercises.map((ae, exIndex) => {
-                const mgColor = muscleColor(ae.exercise.muscle_group);
                 return (
                   <motion.div
                     key={ae.exercise.id}
@@ -1398,7 +1336,7 @@ export default function WorkoutPage() {
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.95 }}
-                    className="glass overflow-hidden"
+                    className="session-exercise-card overflow-hidden"
                   >
                     {/* Superset badge — shown on every exercise in a chain */}
                     {supersetGroupFor(activeExercises, exIndex) !== null && (
@@ -1411,41 +1349,19 @@ export default function WorkoutPage() {
                     )}
 
                     {/* Exercise header */}
-                    <div className="flex items-center gap-1 p-3">
-                      <button
-                        onClick={() => toggleCollapse(exIndex)}
-                        aria-label={`Toggle ${getExerciseName(ae.exercise)} exercise`}
-                        aria-expanded={!ae.collapsed}
-                        className="flex min-h-11 min-w-11 flex-1 items-center gap-3 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-                      >
-                        <div className="w-1.5 h-10 rounded-full shrink-0" style={{ background: mgColor }} />
-                        <div className="flex-1 text-left min-w-0">
-                        <p className="text-sm font-semibold text-[var(--content-primary)] truncate">
-                          {getExerciseName(ae.exercise)}
-                        </p>
-                        <p className="text-xs text-[var(--content-muted)]">
-                          {ae.sets.length} {ae.sets.length === 1 ? 'set' : 'sets'}
-                          {ae.lastSets && ae.lastSets.length > 0 && (
-                            <span className="ml-1.5 text-[var(--content-muted)]">
-                              · last {ae.lastSets.slice(0, 3).map(ls => `${ls.weight_kg !== null ? kgToDisplay(ls.weight_kg, unit) : '–'}×${ls.reps ?? '–'}`).join(' ')}
-                            </span>
-                          )}
-                          {ae.sets.some((s) => s.is_pr) && (
-                            <motion.span
-                              initial={{ scale: 0, rotate: -20 }}
-                              animate={{ scale: 1, rotate: 0 }}
-                              transition={{ type: 'spring', stiffness: 500, damping: 12 }}
-                              className="ml-1.5 inline-block font-semibold"
-                              style={{ color: 'var(--action-primary)' }}
-                            >
-                              <Trophy size={10} className="inline" /> PR
-                            </motion.span>
-                          )}
-                        </p>
-                        </div>
-                        {ae.collapsed ? <ChevronDown size={16} className="text-[var(--content-muted)]" /> : <ChevronUp size={16} className="text-[var(--content-muted)]" />}
-                      </button>
-                      <div className="flex items-center gap-1">
+                    <div>
+                      <SessionExerciseIdentity
+                        name={getExerciseName(ae.exercise)}
+                        exerciseName={ae.exercise.name}
+                        equipment={ae.exercise.equipment}
+                        setCount={ae.sets.length}
+                        lastPerformance={ae.lastSets?.[0]
+                          ? `${ae.lastSets[0].weight_kg !== null ? `${kgToDisplay(ae.lastSets[0].weight_kg, unit)}${unit}` : '—'} × ${ae.lastSets[0].reps ?? '—'}`
+                          : null}
+                        expanded={!ae.collapsed}
+                        onToggle={() => toggleCollapse(exIndex)}
+                      />
+                      <div className="session-exercise-tools">
                         {/* Quick-done: log the exercise with NO kg/reps detail
                             (Nik: accessories don't need numbers — one tap, done). */}
                         {!ae.sets.some((s) => s.completed) && (
@@ -1549,7 +1465,7 @@ export default function WorkoutPage() {
                           className="overflow-hidden"
                         >
                           {/* Column headers */}
-                          <div className="flex items-center gap-1 px-3 pb-1 text-xs text-[var(--content-muted)] uppercase tracking-wider">
+                          <div className="session-set-grid session-set-grid--header px-3 pb-1 text-xs text-[var(--content-muted)] uppercase tracking-wider">
                             <div className="w-7 text-center">#</div>
                             <div className="flex-1 text-center">{unit}</div>
                             <div className="flex-1 text-center">reps</div>
@@ -1561,7 +1477,7 @@ export default function WorkoutPage() {
 
                           {/* Set rows */}
                           {ae.sets.map((set, setIndex) => (
-                            <div key={set.id} className="flex items-center gap-1 px-3 py-1">
+                            <div key={set.id} className="session-set-grid px-3 py-1.5">
                               <div className="w-7 text-center text-xs text-[var(--content-muted)] font-medium">
                                 {set.set_number}
                               </div>
@@ -1569,6 +1485,7 @@ export default function WorkoutPage() {
                               <input
                                 type="number"
                                 inputMode="decimal"
+                                aria-label={`${getExerciseName(ae.exercise)} set ${set.set_number} weight in ${unit}`}
                                 value={set.weight_kg}
                                 disabled={set.completed}
                                 onChange={(e) => updateSet(exIndex, setIndex, 'weight_kg', e.target.value)}
@@ -1589,6 +1506,7 @@ export default function WorkoutPage() {
                               <input
                                 type="number"
                                 inputMode="numeric"
+                                aria-label={`${getExerciseName(ae.exercise)} set ${set.set_number} reps`}
                                 value={set.reps}
                                 disabled={set.completed}
                                 onChange={(e) => updateSet(exIndex, setIndex, 'reps', e.target.value)}
@@ -1600,6 +1518,7 @@ export default function WorkoutPage() {
                               <input
                                 type="number"
                                 inputMode="decimal"
+                                aria-label={`${getExerciseName(ae.exercise)} set ${set.set_number} RPE from 1 to 10`}
                                 value={set.rpe}
                                 disabled={set.completed}
                                 onChange={(e) => {
@@ -1616,6 +1535,7 @@ export default function WorkoutPage() {
                               <button
                                 onClick={() => updateSet(exIndex, setIndex, 'is_warmup', !set.is_warmup)}
                                 disabled={set.completed}
+                                aria-label={`${set.is_warmup ? 'Remove warm-up status from' : 'Mark as warm-up'} ${getExerciseName(ae.exercise)} set ${set.set_number}`}
                                 className="w-7 h-9 flex items-center justify-center rounded-lg text-xs font-bold transition-colors min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                                 style={{
                                   background: set.is_warmup ? 'var(--status-warning-bg)' : 'color-mix(in srgb, var(--content-primary) 8%, transparent)',
@@ -1647,6 +1567,7 @@ export default function WorkoutPage() {
 
                               <button
                                 onClick={() => removeSet(exIndex, setIndex)}
+                                aria-label={`Remove ${getExerciseName(ae.exercise)} set ${set.set_number}`}
                                 className="w-5 flex items-center justify-center min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                               >
                                 <Minus size={12} className="text-[var(--content-muted)]" />
@@ -1823,7 +1744,6 @@ export default function WorkoutPage() {
         )}
       </AnimatePresence>
 
-      <BotNav routes={clientNav} />
     </div>
   );
 }

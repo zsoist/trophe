@@ -13,7 +13,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { ArrowLeft, ChevronRight, Dumbbell, Info, Plus, Search, X } from 'lucide-react';
+import { ArrowLeft, Check, ChevronDown, ChevronRight, Dumbbell, Info, Plus, Search, X } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
 import type { Exercise, MuscleGroup } from '@/lib/types';
@@ -26,6 +26,7 @@ import {
   exerciseDisplayName,
   type WorkoutBodyArea,
 } from './muscle-groups';
+import { MovementVisual } from './MovementVisual';
 
 const subscribeToClient = () => () => {};
 const getClientSnapshot = () => true;
@@ -212,7 +213,9 @@ function ExerciseRow({
       className="w-full min-h-[68px] flex items-center gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3 py-2.5 text-left transition-colors hover:border-[var(--border-default)] hover:bg-[var(--surface-hover)] motion-reduce:transition-none"
     >
       <div className="flex min-w-0 flex-1 items-center gap-3">
-        <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: color }} />
+        <span className="exercise-row__visual" style={{ borderColor: color }}>
+          <MovementVisual exerciseName={ex.name} alt={`${name} movement illustration`} />
+        </span>
         <span className="flex-1 min-w-0">
           <span className="block truncate text-sm font-semibold text-[var(--content-primary)]">{name}</span>
           {meta && <span className="mt-0.5 block truncate text-xs text-[var(--content-muted)]">{meta}</span>}
@@ -234,6 +237,68 @@ function ExerciseRow({
       >
         {t('workout.picker_add')}
       </button>
+    </div>
+  );
+}
+
+function EquipmentFilter({
+  value,
+  options,
+  onChange,
+  label,
+  allLabel,
+}: {
+  value: string;
+  options: string[];
+  onChange: (value: string) => void;
+  label: string;
+  allLabel: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const selectedLabel = value === 'all'
+    ? allLabel
+    : value.charAt(0).toUpperCase() + value.slice(1);
+
+  return (
+    <div className="equipment-filter">
+      <span className="equipment-filter__label">{label}</span>
+      <div className="equipment-filter__control">
+        <button
+          type="button"
+          aria-label={`${label}, ${selectedLabel}`}
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          onClick={() => setOpen((current) => !current)}
+          className="equipment-filter__trigger"
+        >
+          <span>{selectedLabel}</span>
+          <ChevronDown size={17} aria-hidden="true" />
+        </button>
+        {open ? (
+          <div role="listbox" aria-label={label} className="equipment-filter__menu">
+            {['all', ...options].map((option) => {
+              const optionLabel = option === 'all'
+                ? allLabel
+                : option.charAt(0).toUpperCase() + option.slice(1);
+              return (
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={value === option}
+                  key={option}
+                  onClick={() => {
+                    onChange(option);
+                    setOpen(false);
+                  }}
+                >
+                  <span>{optionLabel}</span>
+                  {value === option ? <Check size={16} aria-hidden="true" /> : null}
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -457,12 +522,14 @@ export default function ExercisePicker({
                       ref={index === 0 ? firstAreaRef : undefined}
                       type="button"
                       onClick={() => chooseArea(area.key)}
-                      className="group flex min-h-[76px] items-center justify-between rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-1)] px-4 py-3 text-left transition-[background-color,border-color] hover:border-[var(--border-strong)] hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] motion-reduce:transition-none"
+                      className="exercise-area-card group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                     >
-                      <span className="min-w-0">
+                      <span className="exercise-area-card__copy">
                         <span className="block text-sm font-semibold text-[var(--content-primary)]">{label}</span>
                         <span className="mt-1 block text-xs tabular-nums text-[var(--content-muted)]">{t('workout.picker_options', { n: count })}</span>
                       </span>
+                      <MovementVisual bodyArea={area.key} alt={`${label} training illustration`} />
+                      <span className="exercise-area-card__scrim" aria-hidden="true" />
                       <ChevronRight size={18} className="shrink-0 text-[var(--content-muted)] transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" />
                     </button>
                   );
@@ -561,19 +628,13 @@ export default function ExercisePicker({
               )}
 
               {equipmentOptions.length > 1 && (
-                <label className="mt-4 flex items-center justify-between gap-3 text-sm font-medium text-[var(--content-secondary)]">
-                  {t('workout.picker_equipment')}
-                  <select
-                    value={equipmentFilter}
-                    onChange={(event) => setEquipmentFilter(event.target.value)}
-                    className="input-dark min-h-11 w-auto max-w-[65%] text-base"
-                  >
-                    <option value="all">{t('workout.picker_all_equipment')}</option>
-                    {equipmentOptions.map((equipment) => (
-                      <option key={equipment} value={equipment}>{equipment.charAt(0).toUpperCase() + equipment.slice(1)}</option>
-                    ))}
-                  </select>
-                </label>
+                <EquipmentFilter
+                  value={equipmentFilter}
+                  options={equipmentOptions}
+                  onChange={setEquipmentFilter}
+                  label={t('workout.picker_equipment')}
+                  allLabel={t('workout.picker_all_equipment')}
+                />
               )}
 
               {filtered.length === 0 ? (

@@ -1,5 +1,4 @@
 import { Icon } from '@/components/ui';
-import { getEnglishGreeting } from '@/lib/product-language';
 
 interface DashboardGreetingProps {
   firstName: string | null;
@@ -16,7 +15,7 @@ export default function DashboardGreeting({
   date,
   streakDays,
 }: DashboardGreetingProps) {
-  const greeting = getEnglishGreeting(hour);
+  void hour;
   const dateLabel = date.toLocaleDateString('en-US', {
     weekday: 'long',
     month: 'short',
@@ -24,24 +23,16 @@ export default function DashboardGreeting({
   });
 
   return (
-    <div className="row-b mb-3">
+    <div className="dashboard-greeting">
       <div className="row-i" style={{ gap: 10, minWidth: 0 }}>
         <div className="av-lg" aria-hidden="true">
           {firstName?.[0]?.toUpperCase() ?? 'N'}
         </div>
         <div style={{ minWidth: 0 }}>
-          <div
-            style={{
-              color: 'var(--content-primary)',
-              fontSize: 15,
-              fontWeight: 700,
-              letterSpacing: '-.01em',
-              lineHeight: 1.35,
-            }}
-          >
-            {greeting}{firstName ? `, ${firstName}` : ''},
-          </div>
-          <div className="ds-sub">{dateLabel}</div>
+          <h1 className="dashboard-greeting__title">
+            Ready when you are{firstName ? `, ${firstName}` : ''}
+          </h1>
+          <p className="dashboard-greeting__date">{dateLabel}</p>
         </div>
       </div>
 

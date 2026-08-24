@@ -2,12 +2,10 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { Icon, AnimatedValue } from '@/components/ui';
-import { BotNav } from '@/components/ui/BotNav';
+import { Icon } from '@/components/ui';
 import TodayWorkoutCard from '@/components/workout/TodayWorkoutCard';
 import { supabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
-import { useClientNav } from '@/lib/useClientNav';
 import { CLIENT_VIEW_PANELS, isPanelVisible, parseClientViewPrefs } from '@/lib/display-prefs';
 import type { ClientProfile, ClientHabit, HabitCheckin, FoodLogEntry, WaterLogEntry, Mood, Profile } from '@/lib/types';
 import WeeklyCheckin from '@/components/summary/WeeklyCheckin';
@@ -17,79 +15,8 @@ import { localToday } from '../../lib/utils/dates';
 import DashboardGreeting from '@/components/summary/DashboardGreeting';
 import TodayNutritionNote from '@/components/summary/TodayNutritionNote';
 import { buildDailyNutritionNote, summarizeSugar } from '@/lib/nutrition/daily-summary';
-
-// ─── 88px calorie hero ring ─────────────────────────────────────
-function CompactRing({ value, target, overGoal }: { value: number; target: number; overGoal?: boolean }) {
-  const reducedMotion = useReducedMotion();
-  const r = 37;
-  const C = 2 * Math.PI * r;
-  const pct = target > 0 ? Math.min(value / target, 1) : 0;
-  const goalHit = target > 0 && value >= target;
-  const strokeColor = overGoal ? 'var(--err,#E87A6E)' : 'var(--gold-300,#D4A853)';
-  return (
-    <div style={{ position: 'relative', width: 88, height: 88, flexShrink: 0 }}>
-      <svg width={88} height={88} style={{ transform: 'rotate(-90deg)' }}>
-        <circle cx={44} cy={44} r={r} fill="none" stroke="var(--border-subtle)" strokeWidth={7} />
-        <motion.circle
-          cx={44} cy={44} r={r}
-          fill="none" stroke={strokeColor}
-          strokeWidth={7} strokeLinecap="round"
-          strokeDasharray={C}
-          initial={{ strokeDashoffset: C }}
-          animate={{ strokeDashoffset: C * (1 - pct) }}
-          transition={{ type: 'spring', stiffness: 36, damping: 14, delay: 0.25 }}
-        />
-      </svg>
-      {/* One-shot gold sweep when the daily target is reached (transform/opacity only) */}
-      {goalHit && !reducedMotion && (
-        <motion.div
-          aria-hidden
-          style={{
-            position: 'absolute', inset: 0, borderRadius: '50%',
-            overflow: 'hidden', pointerEvents: 'none',
-          }}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: [0, 1, 0] }}
-          transition={{ duration: 1.2, delay: 0.9, times: [0, 0.35, 1], type: 'tween', ease: 'easeInOut' }}
-        >
-          <motion.div
-            style={{
-              position: 'absolute', inset: -12,
-              background: 'linear-gradient(115deg, transparent 32%, rgba(212,168,83,.5) 50%, transparent 68%)',
-            }}
-            initial={{ x: '-100%' }}
-            animate={{ x: '100%' }}
-            transition={{ duration: 1.2, delay: 0.9, type: 'tween', ease: 'easeInOut' }}
-          />
-        </motion.div>
-      )}
-    </div>
-  );
-}
-
-// ─── Inline macro progress bar ───────────────────────────────────
-function MacroLine({
-  label, value, target, color, unit = 'g', warn,
-}: { label: string; value: number; target: number; color: string; unit?: string; warn?: boolean }) {
-  const pct = target > 0 ? Math.min(value / target, 1) : 0;
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: warn ? '#f59e0b' : 'var(--content-muted)', width: 16, fontWeight: warn ? 700 : 400 }}>{label}</span>
-      <div className="mb-track" style={{ flex: 1 }}>
-        <motion.div
-          className="mb-fill"
-          style={{ background: color }}
-          initial={{ width: 0 }}
-          animate={{ width: `${pct * 100}%` }}
-          transition={{ duration: 0.6, delay: 0.3 }}
-        />
-      </div>
-      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: warn ? '#f59e0b' : 'var(--content-secondary)', width: 38, textAlign: 'right' }}>
-        {Math.round(value)}{unit}
-      </span>
-    </div>
-  );
-}
+import DailyMacroStrip from '@/components/nutrition/DailyMacroStrip';
+import { PerformanceSection } from '@/components/client/PerformanceSection';
 
 // ─── Habit → SVG icon mapping ────────────────────────────────────
 function habitIconName(emoji?: string): Parameters<typeof Icon>[0]['name'] {
@@ -168,7 +95,6 @@ function CelebrationModal({ streakDays, cycleDays, completionPct, habitName, bes
 export default function DashboardPage() {
   const router = useRouter();
   const { t } = useI18n();
-  const clientNav = useClientNav();
   const [loading, setLoading]               = useState(true);
   const [clientProfile, setClientProfile]   = useState<ClientProfile | null>(null);
   const [activeHabit, setActiveHabit]       = useState<ClientHabit | null>(null);
@@ -199,17 +125,13 @@ export default function DashboardPage() {
   const today = localToday();
 
   // ─── Derived totals ───────────────────────────────────────────
-  const totalCalories = foodLog.reduce((s, f) => s + (f.calories ?? 0), 0);
   const totalProtein  = foodLog.reduce((s, f) => s + (f.protein_g ?? 0), 0);
   const totalCarbs    = foodLog.reduce((s, f) => s + (f.carbs_g ?? 0), 0);
   const totalFat      = foodLog.reduce((s, f) => s + (f.fat_g ?? 0), 0);
   const sugarSummary  = summarizeSugar(foodLog);
   const totalWater    = waterLog.reduce((s, w) => s + w.amount_ml, 0);
 
-  const targetCalories = clientProfile?.target_calories ?? 2000;
   const targetProtein  = clientProfile?.target_protein_g ?? 150;
-  const targetCarbs    = clientProfile?.target_carbs_g ?? 200;
-  const targetFat      = clientProfile?.target_fat_g ?? 65;
   const targetWater    = clientProfile?.target_water_ml ?? 2500;
   const dailyNutritionNote = buildDailyNutritionNote({
     entries: foodLog,
@@ -227,7 +149,6 @@ export default function DashboardPage() {
   const viewPrefs = parseClientViewPrefs(
     (clientProfile as (ClientProfile & { client_view_prefs?: unknown }) | null)?.client_view_prefs,
   );
-  const showCalories     = isPanelVisible(CLIENT_VIEW_PANELS, viewPrefs, 'showCalories');
   const showWeeklyCheckin = isPanelVisible(CLIENT_VIEW_PANELS, viewPrefs, 'weeklyCheckin');
 
   // ─── Load data ───────────────────────────────────────────────
@@ -436,7 +357,6 @@ export default function DashboardPage() {
 
   // ─── Derived display values ───────────────────────────────────
   const firstName   = userProfile?.full_name?.split(' ')[0] ?? null;
-  const remaining   = Math.max(targetCalories - Math.round(totalCalories), 0);
   const waterGlasses    = Math.floor(totalWater / 250);
   const targetGlasses   = Math.ceil(targetWater / 250);
   const completionPct   = cycleDays > 0 ? Math.round(((activeHabit?.total_completions ?? 0) / cycleDays) * 100) : 0;
@@ -463,8 +383,7 @@ export default function DashboardPage() {
       </AnimatePresence>
 
       <motion.div
-        initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35 }}
+        initial={false}
         className="max-w-md lg:max-w-4xl mx-auto px-4 pt-3"
       >
         {/* ── Weekly check-in (Sunday, unobtrusive; coach can hide it) ── */}
@@ -552,81 +471,15 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* ══ 2 · Today macro hero card ════════════════════════ */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.07 }}
-          className="card-g mb-3"
-          style={{
-            background: 'linear-gradient(135deg, rgba(212,168,83,.13) 0%, rgba(212,168,83,.03) 100%)',
-            border: '1px solid rgba(212,168,83,.3)',
-            padding: '16px',
-            position: 'relative', overflow: 'hidden',
-          }}
-        >
-          {/* subtle corner glow */}
-          <div style={{
-            position: 'absolute', top: -20, right: -20, width: 100, height: 100,
-            background: 'radial-gradient(circle, rgba(212,168,83,.15) 0%, transparent 70%)',
-            pointerEvents: 'none',
-          }} />
-
-          <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-            {/* 88px ring — calories hidden unless the coach enables showCalories */}
-            {showCalories && (
-            <div style={{ position: 'relative', flexShrink: 0 }}>
-              <CompactRing value={totalCalories} target={targetCalories} overGoal={totalCalories > targetCalories} />
-              {/* center percentage */}
-              <div style={{
-                position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                flexDirection: 'column',
-              }}>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 700, color: 'var(--gold-300,#D4A853)', lineHeight: 1 }}>
-                  {targetCalories > 0 ? Math.round((totalCalories / targetCalories) * 100) : 0}
-                </span>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--content-muted)', marginTop: 1 }}>%</span>
-              </div>
-            </div>
-            )}
-
-            {/* Right: hero number + macro bars */}
-            <div style={{ flex: 1, minWidth: 0 }}>
-              {showCalories ? (
-                <>
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 2 }}>
-                    {/* Serif hero numeral + RAF count-up */}
-                    <span className="display-lg" style={{ fontSize: 32, lineHeight: '32px', color: 'var(--content-primary)' }}>
-                      <AnimatedValue value={Math.round(totalCalories)} />
-                    </span>
-                    <span style={{ fontSize: 12, color: 'var(--content-muted)', fontFamily: 'var(--font-mono)' }}>kcal</span>
-                  </div>
-                  <div style={{ fontSize: 12, color: 'var(--content-muted)', marginBottom: 10 }}>
-                    {remaining > 0
-                      ? <><span style={{ color: 'var(--gold-300,#D4A853)', fontWeight: 600 }}>{remaining.toLocaleString()}</span> remaining of {targetCalories.toLocaleString()}</>
-                      : <span style={{ color: 'var(--ok,#65D387)', fontWeight: 600 }}>Goal reached</span>
-                    }
-                  </div>
-                </>
-              ) : (
-                <div className="eye" style={{ marginBottom: 10 }}>Today</div>
-              )}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <MacroLine label="P" value={totalProtein} target={targetProtein} color="var(--err,#E87A6E)" />
-                <MacroLine label="C" value={totalCarbs}   target={targetCarbs}   color="var(--info,#7DA3D9)" />
-                <MacroLine label="F" value={totalFat}     target={targetFat}     color="var(--plum,#B89DD9)" />
-                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, paddingTop: 2 }}>
-                  <span style={{ color: 'var(--content-muted)', fontSize: 12 }}>Total sugar</span>
-                  <span style={{ color: 'var(--content-secondary)', fontFamily: 'var(--font-mono)', fontSize: 12, textAlign: 'right' }}>
-                    {sugarSummary.totalGrams === null ? 'Not available' : `${sugarSummary.totalGrams}g`}
-                    {sugarSummary.completeness === 'partial' && (
-                      <span style={{ color: 'var(--status-warning-fg)', marginLeft: 6 }}>Incomplete</span>
-                    )}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </motion.div>
+        <PerformanceSection title="Today" className="home-today-section">
+          <DailyMacroStrip
+            protein={totalProtein}
+            carbs={totalCarbs}
+            fat={totalFat}
+            sugar={sugarSummary.totalGrams}
+            sugarCompleteness={sugarSummary.completeness}
+          />
+        </PerformanceSection>
 
         <TodayNutritionNote note={dailyNutritionNote} />
 
@@ -984,8 +837,6 @@ export default function DashboardPage() {
         language={userProfile?.language ?? 'en'}
       />
 
-      {/* ── Bottom nav (4-tab, handoff spec) ── */}
-      <BotNav routes={clientNav} />
     </div>
   );
 }

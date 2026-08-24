@@ -246,9 +246,9 @@ test.describe('authenticated role route matrix', () => {
       const assertNoPaidRequests = await prepare(page, 'client');
       await setTheme(page, mode);
       await page.goto('/dashboard');
-      await expect(page.getByText(new RegExp(`Good (morning|afternoon|evening), ${clientFirstName},`, 'i'))).toBeVisible();
+      await expect(page.getByText(new RegExp(`Ready when you are, ${clientFirstName}`, 'i'))).toBeVisible();
       await expect(page.getByRole('button', { name: 'Toggle color theme' })).toHaveCount(1);
-      await expect(page.getByText('Total sugar', { exact: true })).toBeVisible();
+      await expect(page.getByText('Sugar', { exact: true })).toBeVisible();
       await expect(page.getByText('Not available', { exact: true })).toBeVisible();
       await expect(page.getByRole('heading', { name: "Today's note" })).toBeVisible();
       await expect(page.getByText('Beans, rice, avocado, and grilled beef', { exact: true })).toBeVisible();

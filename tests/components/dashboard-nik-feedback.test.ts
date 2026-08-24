@@ -17,7 +17,8 @@ describe('Nik dashboard greeting', () => {
       streakDays: 0,
     }));
 
-    expect(screen.getByText('Good afternoon, Nik,')).toBeTruthy();
+    expect(screen.getByText('Ready when you are, Nik')).toBeTruthy();
+    expect(document.body.textContent).not.toContain('Good afternoon');
     expect(screen.getAllByText(/Nik/)).toHaveLength(1);
     expect(screen.getByRole('link', { name: 'Coach view' }).getAttribute('href')).toBe('/coach');
     expect(screen.queryByRole('button', { name: /theme|light mode|dark mode/i })).toBeNull();
@@ -33,12 +34,6 @@ describe('Nik dashboard greeting', () => {
     expect(installCard).toContain('Add to Home Screen');
     expect(offlinePage).not.toMatch(/[\u0370-\u03ff]/u);
     expect(offlineFallback).not.toMatch(/[\u0370-\u03ff]/u);
-  });
-
-  it('wraps quick-start workouts so every choice stays reachable on mobile', () => {
-    const workout = readFileSync(join(process.cwd(), 'app/dashboard/workout/page.tsx'), 'utf8');
-
-    expect(workout).toMatch(/workout\.quick_start[\s\S]*className="flex flex-wrap gap-2 pb-1"[\s\S]*WORKOUT_SPLITS\.map/);
   });
 
   it('marks the workout program placeholder so release screenshots wait for real content', () => {

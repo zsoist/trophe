@@ -1,0 +1,11 @@
+{
+  "prompt": "Create composition option 2 for the already chosen Personal Best visual world of Trophē, a premium nutrition and strength coaching mobile web app. High-fidelity portrait app screen at 390x844 proportions, no phone frame. Keep the world fixed: deep obsidian, graphite performance surfaces, Trophē timing gold, signal lime, electric cyan, white; race timing boards and athlete result cards; humanist sans with monospaced numerals; real exercise imagery only where it orients. Vary topology toward COACH-LED START. First viewport structure: tiny safe-area row with Trophē and coach message indicator; compact greeting 'Ready when you are, Daniel' with date; one horizontal coach cue; a large Today's Push Plan region occupying about 35% of the viewport with exercise preview, duration, readiness and a single Start training button; below, four body-area silhouette buttons in one horizontal rail; a compressed Recent section with two rows; floating five-tab bottom navigation. The whole first viewport must fit without scroll collision. No corporate CLIENT eyebrow, no redundant page header, no huge blank top, no duplicate sticky bars. Apple-level spacing and tap targets, but a distinct race-results visual identity. Avoid generic bento cards, excessive rounded containers, gradients everywhere, tiny copy, invented medical claims, device chrome.",
+  "approved": true,
+  "approval": "Delegated by the user with ‘Todo aprobado. No pares hasta que termines.’ Selected for the strongest balance of coach presence, one dominant action, body-area orientation, and compact recent evidence.",
+  "non_literal": [
+    "Use the real five destinations: Home, Log, Workout, Progress, Me.",
+    "Do not ship the decorative Race Day label.",
+    "Use real coach and workout data; the render's names and numbers are synthetic composition data.",
+    "Use the existing Trophē wordmark and accessible application typography rather than rasterized display text."
+  ]
+}

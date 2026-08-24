@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { Icon } from '@/components/ui';
 import ChatThread from '@/components/shared/ChatThread';
+import CoachConversationHeader from '@/components/messages/CoachConversationHeader';
 
 export default function ClientMessagesPage() {
   const router = useRouter();
@@ -30,9 +31,17 @@ export default function ClientMessagesPage() {
 
     if (cp?.coach_id) {
       setCoachId(cp.coach_id);
-      const { data: coach } = await supabase
-        .from('profiles').select('full_name').eq('id', cp.coach_id).maybeSingle();
-      setCoachName(coach?.full_name ?? null);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        const response = await fetch('/api/client/message', {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+          cache: 'no-store',
+        });
+        if (response.ok) {
+          const identity = await response.json() as { coachName?: string | null };
+          setCoachName(identity.coachName ?? null);
+        }
+      }
     }
     setLoading(false);
   }, [router]);
@@ -40,17 +49,9 @@ export default function ClientMessagesPage() {
   useEffect(() => { load(); }, [load]);
 
   return (
-    <div className="pb-[calc(5rem+env(safe-area-inset-bottom))]" style={{ background: 'var(--canvas)', minHeight: '100dvh', display: 'flex', flexDirection: 'column' }}>
-      <div className="max-w-md lg:max-w-2xl mx-auto px-4 pt-3 w-full" style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, paddingBottom: 12 }}>
-        <div className="row-b" style={{ marginBottom: 8 }}>
-          <button aria-label="Back to dashboard" className="min-h-11 min-w-11 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" onClick={() => router.back()} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--content-secondary)' }}>
-            <Icon name="i-chev-l" size={16} />
-          </button>
-          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--content-primary)' }}>
-            {coachName ? `Coach ${coachName.split(' ')[0]}` : 'Your coach'}
-          </div>
-          <div style={{ width: 16 }} />
-        </div>
+    <div className="client-chat-page">
+      <div className="client-chat-page__inner">
+        <CoachConversationHeader coachName={coachName} onBack={() => router.back()} />
 
         {loading ? (
           <div role="status" data-loading-state className="ds-sub" style={{ textAlign: 'center', padding: 24 }}>Loading…</div>
@@ -62,7 +63,7 @@ export default function ClientMessagesPage() {
             </div>
           </div>
         ) : (
-          <div style={{ flex: 1, minHeight: 0 }}>
+          <div className="client-chat-page__thread">
             <ChatThread coachId={coachId} clientId={clientId!} viewerRole="client" />
           </div>
         )}

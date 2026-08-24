@@ -9,16 +9,21 @@ import { NextRequest } from 'next/server';
 const mocks = vi.hoisted(() => {
   const getUser = vi.fn();
   const maybeSingle = vi.fn();
+  const profileMaybeSingle = vi.fn();
   const insert = vi.fn();
   const from = vi.fn((table: string) => {
     if (table === 'client_profiles') {
       return { select: () => ({ eq: () => ({ maybeSingle }) }) };
+    }
+    if (table === 'profiles') {
+      return { select: () => ({ eq: () => ({ maybeSingle: profileMaybeSingle }) }) };
     }
     return { insert };
   });
   return {
     getUser,
     maybeSingle,
+    profileMaybeSingle,
     insert,
     from,
     consumeRateLimit: vi.fn(),
@@ -35,7 +40,7 @@ vi.mock('@/lib/security/durable-rate-limit', () => ({
   consumeRateLimit: mocks.consumeRateLimit,
 }));
 
-import { POST } from '@/app/api/client/message/route';
+import { GET, POST } from '@/app/api/client/message/route';
 
 function request(body: unknown, token = 'valid-token') {
   return new NextRequest('http://localhost/api/client/message', {
@@ -128,5 +133,31 @@ describe('POST /api/client/message', () => {
     expect(body).toEqual({ error: 'Message could not be sent — please try again.' });
     expect(JSON.stringify(body)).not.toContain('private row-level policy detail');
     log.mockRestore();
+  });
+});
+
+describe('GET /api/client/message', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.getUser.mockResolvedValue({ data: { user: { id: 'client-1' } }, error: null });
+    mocks.maybeSingle.mockResolvedValue({ data: { coach_id: 'coach-1' }, error: null });
+    mocks.profileMaybeSingle.mockResolvedValue({ data: { full_name: 'Michael Kavdas' }, error: null });
+  });
+
+  it('returns only the assigned coach identity to an authenticated client', async () => {
+    const response = await GET(new NextRequest('http://localhost/api/client/message', {
+      headers: { Authorization: 'Bearer valid-token' },
+    }));
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ coachName: 'Michael Kavdas' });
+    expect(response.headers.get('Cache-Control')).toBe('private, no-store');
+    expect(mocks.from).toHaveBeenCalledWith('profiles');
+  });
+
+  it('does not expose any coach identity without a valid bearer token', async () => {
+    const response = await GET(new NextRequest('http://localhost/api/client/message'));
+    expect(response.status).toBe(401);
+    expect(mocks.from).not.toHaveBeenCalled();
   });
 });

@@ -2,15 +2,13 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { motion, AnimatePresence, useReducedMotion, useAnimationControls } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Undo2, Star, ChefHat, Zap } from 'lucide-react';
 import { Icon, AnimatedValue, Stagger, StaggerItem } from '@/components/ui';
 import { MACRO_COLORS } from '@/lib/macro-colors';
 import { supabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
-import { useClientNav } from '@/lib/useClientNav';
 import type { FoodLogEntry, MealType } from '@/lib/types';
-import { BotNav } from '@/components/ui/BotNav';
 import MealSlotCard, { type MealSlot } from '@/components/meals/MealSlotCard';
 import DailyInsights from '@/components/summary/DailyInsights';
 import MealBadges from '@/components/food/MealBadges';
@@ -35,6 +33,8 @@ import {
   parseClientViewPrefs,
   type ClientViewPanelId,
 } from '@/lib/display-prefs';
+import DailyMacroStrip from '@/components/nutrition/DailyMacroStrip';
+import { summarizeSugar } from '@/lib/nutrition/daily-summary';
 
 const DEFAULT_MEAL_SLOTS: MealSlot[] = [
   { id: 'breakfast', mealType: 'breakfast', label: 'Breakfast', icon: 'i-sun', order: 0 },
@@ -294,7 +294,6 @@ function ProteinSealCheck({ date }: { date: string }) {
 
 export default function FoodLogPage() {
   const { t } = useI18n();
-  const clientNav = useClientNav();
   const router = useRouter();
   const [userId, setUserId] = useState<string | null>(null);
   const [pageLoading, setPageLoading] = useState(true);
@@ -316,14 +315,9 @@ export default function FoodLogPage() {
   const [pendingBatch, setPendingBatch] = useState<{ ids: string[]; key: number } | null>(null);
   const batchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // W3: macro impact ribbons — floating deltas when totals change after a
-  // log/edit/delete refetch, plus a one-shot protein-cell pop for protein-heavy logs.
+  // Macro changes also drive the compact narrative date pill.
   const reducedMotion = useReducedMotion();
-  const [ribbons, setRibbons] = useState<Array<{ id: number; macro: 'calories' | 'protein' | 'carbs' | 'fat' | 'sugar'; delta: number }>>([]);
-  const ribbonIdRef = useRef(0);
   const prevTotalsRef = useRef<{ date: string; calories: number; protein: number; carbs: number; fat: number; sugar: number } | null>(null);
-  const proteinPopControls = useAnimationControls();
-  const [proteinGlowTick, setProteinGlowTick] = useState(0);
 
   // W6: narrative day pill — expands ~2.5s with the protein delta after a totals change
   const [pillDelta, setPillDelta] = useState<{ value: number; key: number } | null>(null);
@@ -376,6 +370,7 @@ export default function FoodLogPage() {
   const totalCarbs = todayLog.reduce((s, f) => s + (f.carbs_g ?? 0), 0);
   const totalFat = todayLog.reduce((s, f) => s + (f.fat_g ?? 0), 0);
   const totalSugar = todayLog.reduce((s, f) => s + (f.sugar_g ?? 0), 0);
+  const sugarSummary = summarizeSugar(todayLog);
 
   const grouped = groupBySlot(todayLog, slots);
   const filledCount = slots.filter(s => grouped[s.id].length > 0 || skippedSlots.has(s.id)).length;
@@ -383,9 +378,8 @@ export default function FoodLogPage() {
   // F7: Remaining budget
   const remainingCal = targets.calories - totalCalories;
 
-  // W3: diff totals against the previous render's totals (same day only) and
-  // float mono deltas off the affected macro summary cells. Protein-heavy logs
-  // (protein kcal >40% of the just-logged kcal) additionally pop the protein cell.
+  // Diff totals against the previous render so the date pill can briefly explain
+  // the latest protein change without animating every metric independently.
   useEffect(() => {
     if (pageLoading) return;
     const totals = {
@@ -398,18 +392,6 @@ export default function FoodLogPage() {
     // First load or date navigation — reset the baseline silently.
     if (!prev || prev.date !== selectedDate) return;
 
-    const changes: Array<{ macro: 'calories' | 'protein' | 'carbs' | 'fat' | 'sugar'; delta: number }> = [];
-    if (showCalories) {
-      const d = Math.round(totals.calories - prev.calories);
-      if (d !== 0) changes.push({ macro: 'calories', delta: d });
-    }
-    (['protein', 'carbs', 'fat', 'sugar'] as const).forEach(m => {
-      const d = Math.round(totals[m] - prev[m]);
-      if (d !== 0) changes.push({ macro: m, delta: d });
-    });
-    if (changes.length === 0) return;
-
-    // W6: protein delta expands the narrative day pill for ~2.5s, then it contracts.
     const dPill = Math.round(totals.protein - prev.protein);
     if (dPill !== 0 && targets.protein_g > 0) {
       if (pillDeltaTimerRef.current) clearTimeout(pillDeltaTimerRef.current);
@@ -417,21 +399,7 @@ export default function FoodLogPage() {
       pillDeltaTimerRef.current = setTimeout(() => setPillDelta(null), 2500);
     }
 
-    const spawned = changes.map(c => ({ id: ++ribbonIdRef.current, ...c }));
-    setRibbons(cur => [...cur, ...spawned].slice(-5)); // ≤5 concurrent
-    const ids = new Set(spawned.map(s => s.id));
-    window.setTimeout(() => setRibbons(cur => cur.filter(r => !ids.has(r.id))), 760);
-
-    const dP = totals.protein - prev.protein;
-    const dCal = totals.calories - prev.calories;
-    if (!reducedMotion && dP > 0 && dCal > 0 && (dP * 4) / dCal > 0.4) {
-      void proteinPopControls.start({
-        scale: [1, 1.18, 1],
-        transition: { duration: 0.5, ease: 'easeOut' },
-      });
-      setProteinGlowTick(tk => tk + 1);
-    }
-  }, [pageLoading, selectedDate, totalCalories, totalProtein, totalCarbs, totalFat, totalSugar, showCalories, reducedMotion, proteinPopControls, targets.protein_g]);
+  }, [pageLoading, selectedDate, totalCalories, totalProtein, totalCarbs, totalFat, totalSugar, targets.protein_g]);
 
   const handleDateChange = useCallback((date: string) => {
     loadRequestRef.current += 1;
@@ -963,7 +931,6 @@ export default function FoodLogPage() {
             ))}
           </div>
         </div>
-        <BotNav routes={clientNav} />
       </div>
     );
   }
@@ -986,7 +953,6 @@ export default function FoodLogPage() {
             {t('food.retry')}
           </button>
         </div>
-        <BotNav routes={clientNav} />
       </div>
     );
   }
@@ -1007,10 +973,8 @@ export default function FoodLogPage() {
         )}
       </AnimatePresence>
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="max-w-md mx-auto px-4 pt-12"
+        initial={false}
+        className="max-w-md mx-auto px-4 pt-3"
       >
         {/* ── Date navigation ── */}
         <div className="row-b mb-3" style={{ marginTop: 8 }}>
@@ -1121,82 +1085,15 @@ export default function FoodLogPage() {
           </div>
         )}
 
-        {/* ── Macro summary card (kcal column gated by coach pref) ── */}
-        <div className="card mb-3" style={{ padding: '10px 8px' }}>
-          {(() => {
-            const cells = [
-              { key: 'calories' as const, label: t('general.calories'), unit: 'kcal', val: Math.round(totalCalories), color: 'var(--gold-300,#D4A853)' },
-              { key: 'protein' as const,  label: t('general.protein'),  unit: 'g',    val: Math.round(totalProtein),  color: 'var(--err,#E87A6E)' },
-              { key: 'carbs' as const,    label: t('general.carbs'),    unit: 'g',    val: Math.round(totalCarbs),    color: 'var(--info,#7DA3D9)' },
-              { key: 'fat' as const,      label: t('general.fat'),      unit: 'g',    val: Math.round(totalFat),      color: 'var(--plum,#B89DD9)' },
-              { key: 'sugar' as const,    label: t('general.sugar'),    unit: 'g',    val: Math.round(totalSugar),    color: totalSugar > 25 ? '#f59e0b' : 'var(--warn,#E8B86E)' },
-            ].filter(m => showCalories || m.unit !== 'kcal');
-            return (
-              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cells.length},1fr)`, gap: 3, textAlign: 'center' }}>
-                {cells.map((m, mIdx) => {
-                  const isProtein = m.key === 'protein';
-                  const cellBody = (
-                    <>
-                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 700, color: m.color, lineHeight: 1.1 }}>
-                        <AnimatedValue value={m.val} grouped={false} />
-                      </div>
-                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--content-muted)', marginTop: 1, lineHeight: 1.2 }}>{m.unit}</div>
-                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--content-muted)', letterSpacing: '.04em', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.label}</div>
-                    </>
-                  );
-                  return (
-                    <div key={m.key} style={{ position: 'relative', borderRight: mIdx < cells.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
-                      {/* W3: one-shot coral glow ring when a protein-heavy log lands */}
-                      {isProtein && proteinGlowTick > 0 && !reducedMotion && (
-                        <motion.span
-                          key={`protein-glow-${proteinGlowTick}`}
-                          aria-hidden
-                          style={{
-                            position: 'absolute', inset: -3, borderRadius: 8, pointerEvents: 'none',
-                            border: '1px solid rgba(232,122,110,.8)',
-                            boxShadow: '0 0 16px rgba(232,122,110,.4)',
-                          }}
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: [0, 1, 0] }}
-                          transition={{ duration: 1.4, times: [0, 0.35, 1], type: 'tween', ease: 'easeInOut' }}
-                        />
-                      )}
-                      {/* W3: protein cell pops (scale) on protein-heavy logs — controls
-                          keep the AnimatedValue mounted so the count never resets */}
-                      {isProtein ? (
-                        <motion.div animate={proteinPopControls} style={{ transformOrigin: 'center' }}>
-                          {cellBody}
-                        </motion.div>
-                      ) : cellBody}
-                      {/* W3: floating mono deltas rising off the affected cell */}
-                      <AnimatePresence>
-                        {ribbons.filter(r => r.macro === m.key).map(r => (
-                          <motion.span
-                            key={r.id}
-                            aria-hidden
-                            initial={{ opacity: 0, y: 0 }}
-                            animate={reducedMotion
-                              ? { opacity: [0, 1, 0], y: 0 }
-                              : { opacity: [0, 1, 0], y: -14 }}
-                            exit={{ opacity: 0 }}
-                            transition={{ duration: 0.7, times: [0, 0.3, 1], ease: 'easeOut' }}
-                            style={{
-                              position: 'absolute', top: -6, left: 0, right: 0,
-                              textAlign: 'center', pointerEvents: 'none', zIndex: 1,
-                              fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700,
-                              color: MACRO_COLORS[r.macro],
-                            }}
-                          >
-                            {r.delta > 0 ? '+' : ''}{r.delta}{m.unit === 'kcal' ? '' : 'g'}
-                          </motion.span>
-                        ))}
-                      </AnimatePresence>
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          })()}
+        <div className="mb-3">
+          <DailyMacroStrip
+            protein={totalProtein}
+            carbs={totalCarbs}
+            fat={totalFat}
+            sugar={sugarSummary.totalGrams}
+            sugarCompleteness={sugarSummary.completeness}
+            label={isToday ? "Today's nutrition" : `Nutrition for ${selectedDate}`}
+          />
         </div>
 
         {/* ── Meals section header + recipe analyzer entry point ── */}
@@ -1696,7 +1593,6 @@ export default function FoodLogPage() {
         />
       )}
 
-      <BotNav routes={clientNav} />
     </div>
   );
 }

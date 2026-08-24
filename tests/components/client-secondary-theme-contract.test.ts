@@ -157,9 +157,9 @@ describe('client secondary theme and accessibility contract', () => {
     authHarness.getUser.mockReturnValueOnce(new Promise((resolve) => { resolveUser = resolve; }));
     render(React.createElement(WorkoutPage));
 
-    const start = screen.getByRole('button', { name: /workout\.strength/ });
+    const start = screen.getByRole('button', { name: 'Start strength workout' });
     expect(start.hasAttribute('disabled')).toBe(true);
-    fireEvent.click(screen.getByRole('button', { name: /workout\.cardio/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Log cardio workout' }));
     const logCardio = screen.getByRole('button', { name: /workout\.cardio_log/ });
     expect(logCardio.hasAttribute('disabled')).toBe(true);
 
@@ -296,7 +296,7 @@ describe('client secondary theme and accessibility contract', () => {
     render(React.createElement(WorkoutPage));
 
     const completeWorkout = async (keepOutsideFocus: boolean) => {
-      const start = await screen.findByRole('button', { name: /workout\.strength/ });
+      const start = await screen.findByRole('button', { name: 'Start strength workout' });
       await waitFor(() => expect(start.hasAttribute('disabled')).toBe(false));
       if (keepOutsideFocus) outside.focus();
       fireEvent.click(start);
@@ -343,7 +343,8 @@ describe('client secondary theme and accessibility contract', () => {
 
     expect(nestedNativeButton).toBeUndefined();
     expect(workout).toMatch(/<Link\s+href="\/dashboard\/workout\/history"\s+aria-label="Workout history"[\s\S]*?min-h-11[\s\S]*?min-w-11/);
-    expect(workout).toMatch(/aria-label=\{`Toggle .* exercise`\}/);
+    expect(workout).toContain('<SessionExerciseIdentity');
+    expect(source('components/workout/SessionExerciseIdentity.tsx')).toContain("aria-label={`${expanded ? 'Collapse' : 'Expand'} ${name}`}");
     expect(workout).toMatch(/aria-label=\{`Report pain for .*`\}/);
     expect(workout).toMatch(/aria-label=\{`Remove .*`\}/);
     expect(source('app/dashboard/checkin/page.tsx').match(/aria-label="Back to dashboard"/g)?.length).toBeGreaterThanOrEqual(3);
