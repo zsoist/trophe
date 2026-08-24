@@ -6,6 +6,10 @@ const keys = [
   'workout.templates', 'workout.preview', 'workout.draft_not_started', 'workout.review_workout',
   'workout.start_live', 'workout.log_completed', 'workout.save_plan', 'workout.pause', 'workout.resume',
   'workout.report_pain', 'workout.finish_confirmation',
+  'workout.start_live_failed', 'workout.workspace_home_title', 'workout.workspace_build_title',
+  'workout.workspace_review_title', 'workout.workspace_live_title', 'workout.workspace_exercises_title',
+  'workout.workspace_back', 'workout.workspace_status_draft', 'workout.workspace_status_live',
+  'workout.workspace_status_paused', 'workout.workspace_status_label',
 ] as const;
 
 describe('workout workspace copy coverage', () => {

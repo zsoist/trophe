@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react';
 import { useWorkoutWorkspace } from '@/components/workout/workspace/WorkoutWorkspaceProvider';
@@ -26,11 +26,14 @@ export function WorkoutBuilder({ exercises, onSavePlan }: WorkoutBuilderProps) {
   const workspace = useWorkoutWorkspace();
   const draft = workspace.state.draft;
   const [showExercises, setShowExercises] = useState(false);
+  const mainRef = useRef<HTMLElement>(null);
   const names = new Map(exercises.map((exercise) => [exercise.id, exercise.name]));
+
+  useEffect(() => { mainRef.current?.focus(); }, []);
 
   if (!draft) {
     return (
-      <main className="mx-auto max-w-2xl px-4 py-8 text-center">
+      <main ref={mainRef} tabIndex={-1} aria-label={t('workout.workspace_build_title')} className="mx-auto max-w-2xl px-4 py-8 text-center focus:outline-none">
         <p className="text-[var(--content-secondary)]">{t('workout.no_draft')}</p>
         <button type="button" className="btn-gold mt-4 min-h-11 rounded-xl px-4" onClick={() => router.push(WORKOUT_ROUTES.home)}>{t('workout.back_home')}</button>
       </main>
@@ -45,7 +48,7 @@ export function WorkoutBuilder({ exercises, onSavePlan }: WorkoutBuilderProps) {
   };
 
   return (
-    <main className="mx-auto max-w-2xl space-y-5 px-4 py-5">
+    <main ref={mainRef} tabIndex={-1} aria-label={t('workout.workspace_build_title')} className="mx-auto max-w-2xl space-y-5 px-4 py-5 focus:outline-none">
       <p className="inline-flex rounded-full bg-[var(--surface-subtle)] px-3 py-1 text-xs font-semibold text-[var(--content-secondary)]">
         {t('workout.draft_not_started')}
       </p>
@@ -62,7 +65,7 @@ export function WorkoutBuilder({ exercises, onSavePlan }: WorkoutBuilderProps) {
       {draft.kind === 'strength' ? (
         <section className="space-y-3">
           {draft.exercises.map((draftExercise, index) => {
-            const name = names.get(draftExercise.exerciseId) ?? draftExercise.exerciseId;
+            const name = draftExercise.exerciseName ?? names.get(draftExercise.exerciseId) ?? draftExercise.exerciseId;
             return (
               <article key={draftExercise.exerciseId} className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-4">
                 <div className="flex items-center gap-2">

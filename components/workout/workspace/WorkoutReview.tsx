@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ClipboardCheck, Play, Save } from 'lucide-react';
 import { useWorkoutWorkspace } from '@/components/workout/workspace/WorkoutWorkspaceProvider';
@@ -21,11 +21,15 @@ export function WorkoutReview({ exercises, onSavePlan, onLogCompleted }: Workout
   const workspace = useWorkoutWorkspace();
   const draft = workspace.state.draft;
   const [starting, setStarting] = useState(false);
+  const [startError, setStartError] = useState(false);
+  const mainRef = useRef<HTMLElement>(null);
   const names = new Map(exercises.map((exercise) => [exercise.id, exercise.name]));
+
+  useEffect(() => { mainRef.current?.focus(); }, []);
 
   if (!draft) {
     return (
-      <main className="mx-auto max-w-2xl px-4 py-8 text-center">
+      <main ref={mainRef} tabIndex={-1} aria-label={t('workout.workspace_review_title')} className="mx-auto max-w-2xl px-4 py-8 text-center focus:outline-none">
         <p className="text-[var(--content-secondary)]">{t('workout.no_draft')}</p>
         <button type="button" className="btn-gold mt-4 min-h-11 rounded-xl px-4" onClick={() => router.push(WORKOUT_ROUTES.home)}>{t('workout.back_home')}</button>
       </main>
@@ -36,13 +40,21 @@ export function WorkoutReview({ exercises, onSavePlan, onLogCompleted }: Workout
   const startLive = async () => {
     if (!valid || starting) return;
     setStarting(true);
-    const started = await workspace.startLive();
-    setStarting(false);
+    setStartError(false);
+    let started = false;
+    try {
+      started = await workspace.startLive();
+      if (!started) setStartError(true);
+    } catch {
+      setStartError(true);
+    } finally {
+      setStarting(false);
+    }
     if (started) router.push(WORKOUT_ROUTES.live);
   };
 
   return (
-    <main className="mx-auto max-w-2xl space-y-5 px-4 py-5">
+    <main ref={mainRef} tabIndex={-1} aria-label={t('workout.workspace_review_title')} className="mx-auto max-w-2xl space-y-5 px-4 py-5 focus:outline-none">
       <div>
         <p className="text-xs font-semibold uppercase tracking-wide text-[var(--action-primary)]">{t('workout.draft_not_started')}</p>
         <h2 className="mt-1 text-2xl font-bold text-[var(--content-primary)]">{t('workout.review_title')}</h2>
@@ -55,7 +67,7 @@ export function WorkoutReview({ exercises, onSavePlan, onLogCompleted }: Workout
           <ul className="space-y-3">
             {draft.exercises.map((exercise) => (
               <li key={exercise.exerciseId} className="flex items-center justify-between gap-3 border-t border-[var(--border-subtle)] pt-3 first:border-0 first:pt-0">
-                <span className="font-medium text-[var(--content-primary)]">{names.get(exercise.exerciseId) ?? exercise.exerciseId}</span>
+                <span className="font-medium text-[var(--content-primary)]">{exercise.exerciseName ?? names.get(exercise.exerciseId) ?? exercise.exerciseId}</span>
                 <span className="text-sm text-[var(--content-secondary)]">{t('workout.sets_reps_summary', { sets: exercise.targetSets, reps: exercise.targetReps })}</span>
               </li>
             ))}
@@ -71,6 +83,7 @@ export function WorkoutReview({ exercises, onSavePlan, onLogCompleted }: Workout
       )}
 
       {!valid ? <p className="text-sm text-[var(--content-secondary)]">{t(draft.kind === 'strength' ? 'workout.empty_strength_hint' : 'workout.empty_cardio_hint')}</p> : null}
+      {startError ? <p role="alert" className="rounded-xl border border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] p-3 text-sm text-[var(--status-danger-fg)]">{t('workout.start_live_failed')}</p> : null}
 
       <section className="space-y-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-4">
         <p className="text-sm leading-6 text-[var(--content-secondary)]">{t('workout.start_live_explanation')}</p>

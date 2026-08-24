@@ -7,6 +7,7 @@ import type {
   WorkoutWorkspaceState,
 } from '@/lib/workout/workspace-state';
 import { WORKOUT_DRAFT_VERSION } from '@/lib/workout/workspace-state';
+import { normalizeUuid } from '@/lib/workout/uuid';
 
 export interface WorkspaceStorage {
   getItem(key: string): string | null;
@@ -33,8 +34,10 @@ function hasOnlyKeys(value: Record<string, unknown>, keys: readonly string[]): b
 }
 
 function isDraftExercise(value: unknown): value is DraftExercise {
-  if (!isRecord(value) || !hasOnlyKeys(value, ['exerciseId', 'targetSets', 'targetReps'])) return false;
+  if (!isRecord(value) || !hasOnlyKeys(value, ['exerciseId', 'exerciseName', 'muscleGroup', 'targetSets', 'targetReps'])) return false;
   return typeof value.exerciseId === 'string'
+    && (value.exerciseName === undefined || typeof value.exerciseName === 'string')
+    && (value.muscleGroup === undefined || typeof value.muscleGroup === 'string')
     && typeof value.targetSets === 'number' && Number.isFinite(value.targetSets)
     && typeof value.targetReps === 'string';
 }
@@ -43,9 +46,10 @@ function isDraft(value: unknown): value is WorkoutDraft {
   if (!isRecord(value) || value.version !== WORKOUT_DRAFT_VERSION
     || typeof value.name !== 'string' || typeof value.updatedAt !== 'number' || !Number.isFinite(value.updatedAt)
     || !hasOnlyKeys(value, value.kind === 'strength'
-      ? ['version', 'name', 'templateKey', 'updatedAt', 'kind', 'exercises']
-      : ['version', 'name', 'templateKey', 'updatedAt', 'kind', 'activity', 'durationMinutes', 'distanceKm', 'effort'])) return false;
+      ? ['version', 'name', 'templateKey', 'templateId', 'updatedAt', 'kind', 'exercises']
+      : ['version', 'name', 'templateKey', 'templateId', 'updatedAt', 'kind', 'activity', 'durationMinutes', 'distanceKm', 'effort'])) return false;
   if (value.templateKey !== undefined && typeof value.templateKey !== 'string') return false;
+  if (value.templateId !== undefined && value.templateId !== null && normalizeUuid(value.templateId as string) === null) return false;
   if (value.kind === 'strength') {
     return Array.isArray(value.exercises) && value.exercises.every(isDraftExercise);
   }
@@ -97,15 +101,23 @@ function persistDraft(draft: WorkoutDraft | null): WorkoutDraft | null {
       version: WORKOUT_DRAFT_VERSION,
       name: draft.name,
       ...(draft.templateKey === undefined ? {} : { templateKey: draft.templateKey }),
+      ...(draft.templateId === undefined ? {} : { templateId: draft.templateId }),
       updatedAt: draft.updatedAt,
       kind: 'strength',
-      exercises: draft.exercises.map(({ exerciseId, targetSets, targetReps }) => ({ exerciseId, targetSets, targetReps })),
+      exercises: draft.exercises.map(({ exerciseId, exerciseName, muscleGroup, targetSets, targetReps }) => ({
+        exerciseId,
+        ...(exerciseName === undefined ? {} : { exerciseName }),
+        ...(muscleGroup === undefined ? {} : { muscleGroup }),
+        targetSets,
+        targetReps,
+      })),
     };
   }
   return {
     version: WORKOUT_DRAFT_VERSION,
     name: draft.name,
     ...(draft.templateKey === undefined ? {} : { templateKey: draft.templateKey }),
+    ...(draft.templateId === undefined ? {} : { templateId: draft.templateId }),
     updatedAt: draft.updatedAt,
     kind: 'cardio',
     activity: draft.activity,

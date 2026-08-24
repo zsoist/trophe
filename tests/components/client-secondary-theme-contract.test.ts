@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 const motionPreference = vi.hoisted(() => ({ reduced: true }));
 const authHarness = vi.hoisted(() => ({ getUser: vi.fn() }));
 const workoutPersistence = vi.hoisted(() => ({ createWorkoutSession: vi.fn().mockResolvedValue('session-1') }));
+const workoutNavigation = vi.hoisted(() => ({ pathname: '/dashboard/workout', push: vi.fn() }));
 const authenticatedUser = { data: { user: { id: 'user-1' } } };
 authHarness.getUser.mockResolvedValue(authenticatedUser);
 
@@ -30,7 +31,11 @@ vi.mock('framer-motion', async () => {
 });
 
 vi.mock('@/lib/i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
-vi.mock('next/navigation', () => ({ usePathname: () => '/dashboard/workout', useRouter: () => ({ push: vi.fn() }) }));
+vi.mock('next/navigation', () => ({
+  usePathname: () => workoutNavigation.pathname,
+  useRouter: () => ({ push: workoutNavigation.push }),
+  useSearchParams: () => new URLSearchParams(),
+}));
 vi.mock('next/link', () => ({ default: ({ children, href }: { children: React.ReactNode; href: string }) => React.createElement('a', { href }, children) }));
 vi.mock('@/lib/useClientNav', () => ({ useClientNav: () => [] }));
 vi.mock('@/lib/trpc/client', () => ({
@@ -69,6 +74,9 @@ import ExercisePicker from '@/components/workout/ExercisePicker';
 import BarcodeLookupModal from '@/components/food/BarcodeLookupModal';
 import WorkoutPage from '@/app/dashboard/workout/page';
 import { WorkoutWorkspaceProvider, useWorkoutWorkspace } from '@/components/workout/workspace/WorkoutWorkspaceProvider';
+import { WorkoutHome } from '@/components/workout/workspace/WorkoutHome';
+import { WorkoutBuilder } from '@/components/workout/workspace/WorkoutBuilder';
+import { WorkoutReview } from '@/components/workout/workspace/WorkoutReview';
 
 class MemoryStorage {
   private readonly values = new Map<string, string>();
@@ -92,6 +100,43 @@ function renderWorkoutPage() {
     Provider,
     { userId: 'user-1', storage: new MemoryStorage() },
     React.createElement(React.Fragment, null, React.createElement(WorkoutPage), React.createElement(WorkspaceStageProbe)),
+  ));
+}
+
+const routeExercise = {
+  id: 'exercise-1', name: 'Test squat', name_es: null, name_el: null,
+  muscle_group: 'quads' as const, secondary_muscles: null, equipment: 'barbell',
+  is_compound: true, is_template: true, created_by: null, created_at: '',
+};
+
+function RoutedWorkoutJourney() {
+  const [route, setRoute] = React.useState('/dashboard/workout');
+  const { state } = useWorkoutWorkspace();
+  React.useEffect(() => {
+    workoutNavigation.push.mockImplementation((next: string) => setRoute(next));
+  }, []);
+
+  return React.createElement(React.Fragment, null,
+    React.createElement('output', { 'aria-label': 'Workout URL' }, route),
+    route === '/dashboard/workout/build'
+      ? React.createElement(WorkoutBuilder, { exercises: [{ id: routeExercise.id, name: routeExercise.name }], onSavePlan: vi.fn() })
+      : route === '/dashboard/workout/review'
+        ? React.createElement(WorkoutReview, { exercises: [{ id: routeExercise.id, name: routeExercise.name }], onSavePlan: vi.fn(), onLogCompleted: vi.fn() })
+        : React.createElement(WorkoutHome, { exercises: [routeExercise], program: null, recents: [], routines: [], disabled: false }),
+    React.createElement('output', { 'aria-label': 'Workspace stage' }, state.stage),
+  );
+}
+
+function renderRoutedWorkoutJourney() {
+  const Provider = WorkoutWorkspaceProvider as React.ComponentType<{
+    userId: string;
+    storage: MemoryStorage;
+    children?: React.ReactNode;
+  }>;
+  return render(React.createElement(
+    Provider,
+    { userId: 'user-1', storage: new MemoryStorage() },
+    React.createElement(RoutedWorkoutJourney),
   ));
 }
 
@@ -173,6 +218,8 @@ afterEach(() => {
   motionPreference.reduced = true;
   authHarness.getUser.mockReset().mockResolvedValue(authenticatedUser);
   workoutPersistence.createWorkoutSession.mockClear();
+  workoutNavigation.pathname = '/dashboard/workout';
+  workoutNavigation.push.mockReset();
 });
 
 function inventory(patterns: readonly RegExp[], files: readonly string[] = OWNED_SOURCES) {
@@ -320,20 +367,21 @@ describe('client secondary theme and accessibility contract', () => {
     outside.remove();
   });
 
-  it('keeps draft entry focus connected while routing without a legacy modal takeover', async () => {
-    const outside = document.createElement('button');
-    document.body.appendChild(outside);
-    renderWorkoutPage();
+  it('routes Home → Build → Review and moves focus to each destination workspace', async () => {
+    renderRoutedWorkoutJourney();
 
-    const start = await screen.findByRole('button', { name: 'workout.build_strength' });
-    await waitFor(() => expect(start.hasAttribute('disabled')).toBe(false));
-    start.focus();
-    fireEvent.click(start);
+    expect((await screen.findByLabelText('Workout URL')).textContent).toBe('/dashboard/workout');
+    fireEvent.click(await screen.findByRole('button', { name: 'workout.build_strength' }));
+    await waitFor(() => expect(screen.getByLabelText('Workout URL').textContent).toBe('/dashboard/workout/build'));
+    expect(document.activeElement).toBe(screen.getByRole('main', { name: 'workout.workspace_build_title' }));
 
-    await waitFor(() => expect(screen.getByLabelText('Workspace stage').textContent).toBe('draft'));
-    expect(document.activeElement).toBe(start);
-    expect(screen.queryByRole('dialog')).toBeNull();
-    outside.remove();
+    fireEvent.click(screen.getByRole('button', { name: 'workout.add_exercise' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Test squat' }));
+    fireEvent.click(screen.getByRole('button', { name: 'workout.review_workout' }));
+
+    await waitFor(() => expect(screen.getByLabelText('Workout URL').textContent).toBe('/dashboard/workout/review'));
+    expect(document.activeElement).toBe(screen.getByRole('main', { name: 'workout.workspace_review_title' }));
+    expect(screen.getByLabelText('Workspace stage').textContent).toBe('review');
   });
 
   it('renders a static reduced-motion barcode laser and retains the normal sweep branch', async () => {

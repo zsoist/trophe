@@ -17,10 +17,11 @@ import {
   saveWorkspaceState,
   type WorkspaceStorage,
 } from '@/lib/workout/workspace-storage';
+import { normalizeUuid } from '@/lib/workout/uuid';
 
 export interface WorkoutWorkspaceContextValue {
   state: WorkoutWorkspaceState;
-  createDraft(input: { name: string; kind: WorkoutKind; templateKey?: string }): void;
+  createDraft(input: { name: string; kind: WorkoutKind; templateKey?: string; templateId?: string | null }): void;
   createDraftFromTemplate(input: WorkoutDraftTemplateInput): void;
   updateDraftName(name: string): void;
   updateCardioDraft(patch: Partial<Pick<CardioDraft, 'activity' | 'durationMinutes' | 'distanceKm' | 'effort'>>): void;
@@ -38,7 +39,8 @@ export interface WorkoutWorkspaceContextValue {
 }
 
 export interface WorkoutDraftTemplateInput {
-  templateId: string;
+  templateKey: string;
+  templateId?: string | null;
   name: string;
   exercises: DraftExercise[];
 }
@@ -103,9 +105,9 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
     });
   }, []);
 
-  const createDraft = useCallback((input: { name: string; kind: WorkoutKind; templateKey?: string }) => {
+  const createDraft = useCallback((input: { name: string; kind: WorkoutKind; templateKey?: string; templateId?: string | null }) => {
     setState((current) => current.stage === 'home'
-      ? workoutWorkspaceReducer(current, { type: 'draft.created', payload: { ...input, updatedAt: Date.now() } })
+      ? workoutWorkspaceReducer(current, { type: 'draft.created', payload: { ...input, templateId: normalizeUuid(input.templateId), updatedAt: Date.now() } })
       : current);
   }, []);
 
@@ -114,7 +116,13 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
       if (current.stage !== 'home') return current;
       const created = workoutWorkspaceReducer(current, {
         type: 'draft.created',
-        payload: { name: input.name, kind: 'strength', templateKey: input.templateId, updatedAt: Date.now() },
+        payload: {
+          name: input.name,
+          kind: 'strength',
+          templateKey: input.templateKey,
+          templateId: normalizeUuid(input.templateId),
+          updatedAt: Date.now(),
+        },
       });
       if (!created.draft || created.draft.kind !== 'strength') return created;
       return workoutWorkspaceReducer(created, {
@@ -191,7 +199,7 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
     if (!ownerId || !state.draft || (state.stage !== 'draft' && state.stage !== 'review')) return false;
     if (startPromiseRef.current) return startPromiseRef.current;
 
-    const pending = createWorkoutSession(ownerId, state.draft.name, state.draft.templateKey ?? null)
+    const pending = createWorkoutSession(ownerId, state.draft.name, normalizeUuid(state.draft.templateId))
       .then((sessionId) => {
         const normalizedSessionId = sessionId?.trim();
         if (!normalizedSessionId) return false;

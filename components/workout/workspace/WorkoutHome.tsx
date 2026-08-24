@@ -40,10 +40,17 @@ function splitTemplate(key: string, exercises: Exercise[], name: string): Workou
     ? exercises
     : exercises.filter((exercise) => split.muscles.includes(exercise.muscle_group));
   return {
-    templateId: `split:${split.key}`,
+    templateKey: `split:${split.key}`,
+    templateId: null,
     name,
     muscleSummary: split.muscles.length === 0 ? ['full_body'] : split.muscles,
-    exercises: matches.slice(0, 6).map((exercise) => ({ exerciseId: exercise.id, targetSets: 3, targetReps: '8-12' })),
+    exercises: matches.slice(0, 6).map((exercise) => ({
+      exerciseId: exercise.id,
+      exerciseName: exercise.name,
+      muscleGroup: exercise.muscle_group,
+      targetSets: 3,
+      targetReps: '8-12',
+    })),
   };
 }
 
@@ -127,7 +134,7 @@ export function WorkoutHome({
           <p className="mt-1 text-sm text-[var(--content-secondary)]">{t('workout.exercise_count', { n: preview.exercises.length })}</p>
           {preview.exercises.length > 0 ? (
             <ul className="mt-3 space-y-1 text-sm text-[var(--content-primary)]">
-              {preview.exercises.map((exercise) => <li key={exercise.exerciseId}>{exerciseNames.get(exercise.exerciseId) ?? exercise.exerciseId}</li>)}
+              {preview.exercises.map((exercise) => <li key={exercise.exerciseId}>{exercise.exerciseName ?? exerciseNames.get(exercise.exerciseId) ?? exercise.exerciseId}</li>)}
             </ul>
           ) : null}
           <div className="mt-4 flex gap-2">
@@ -146,7 +153,7 @@ export function WorkoutHome({
           <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-[var(--content-secondary)]">{t('workout.my_routines')}</h2>
           <div className="flex gap-2 overflow-x-auto pb-1">
             {routines.map((routine) => (
-              <button key={routine.templateId} type="button" onClick={() => setPreview(routine)} className="min-h-11 shrink-0 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-4 text-sm font-medium">
+              <button key={routine.templateKey} type="button" onClick={() => setPreview(routine)} className="min-h-11 shrink-0 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-4 text-sm font-medium">
                 {routine.name}
               </button>
             ))}

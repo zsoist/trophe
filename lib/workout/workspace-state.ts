@@ -1,10 +1,12 @@
-import type { Exercise } from '@/lib/types';
+import type { Exercise, MuscleGroup } from '@/lib/types';
 
 export type WorkoutStage = 'home' | 'draft' | 'review' | 'live' | 'paused' | 'finishing' | 'completed';
 export type WorkoutKind = 'strength' | 'cardio';
 
 export interface DraftExercise {
   exerciseId: string;
+  exerciseName?: string;
+  muscleGroup?: MuscleGroup;
   targetSets: number;
   targetReps: string;
 }
@@ -13,6 +15,7 @@ interface WorkoutDraftBase {
   version: 2;
   name: string;
   templateKey?: string;
+  templateId?: string | null;
   updatedAt: number;
 }
 
@@ -49,6 +52,7 @@ type DraftCreatedPayload = {
   name: string;
   kind: WorkoutKind;
   templateKey?: string;
+  templateId?: string | null;
   updatedAt?: number;
 };
 
@@ -63,11 +67,11 @@ export type WorkoutWorkspaceEvent =
   | { type: 'live.completed' }
   | { type: 'completed.acknowledged' };
 
-export function createEmptyDraft(kind: WorkoutKind = 'strength', name = '', templateKey?: string, updatedAt = 0): WorkoutDraft {
+export function createEmptyDraft(kind: WorkoutKind = 'strength', name = '', templateKey?: string, updatedAt = 0, templateId?: string | null): WorkoutDraft {
   if (kind === 'cardio') {
-    return { version: WORKOUT_DRAFT_VERSION, name, kind, templateKey, updatedAt, activity: 'walk', durationMinutes: 0, distanceKm: null, effort: null };
+    return { version: WORKOUT_DRAFT_VERSION, name, kind, templateKey, templateId, updatedAt, activity: 'walk', durationMinutes: 0, distanceKm: null, effort: null };
   }
-  return { version: WORKOUT_DRAFT_VERSION, name, kind, templateKey, updatedAt, exercises: [] };
+  return { version: WORKOUT_DRAFT_VERSION, name, kind, templateKey, templateId, updatedAt, exercises: [] };
 }
 
 export function createInitialWorkspaceState(): WorkoutWorkspaceState {
@@ -96,7 +100,7 @@ export function workoutWorkspaceReducer(
   switch (event.type) {
     case 'draft.created':
       if (state.stage !== 'home') throw new Error(`Cannot create a draft from ${state.stage}`);
-      return { stage: 'draft', draft: createEmptyDraft(event.payload.kind, event.payload.name, event.payload.templateKey, event.payload.updatedAt ?? 0), sessionId: null, clock: null };
+      return { stage: 'draft', draft: createEmptyDraft(event.payload.kind, event.payload.name, event.payload.templateKey, event.payload.updatedAt ?? 0, event.payload.templateId), sessionId: null, clock: null };
     case 'draft.updated':
       if (state.stage !== 'draft' && state.stage !== 'review') throw new Error(`Cannot update a draft from ${state.stage}`);
       return { ...state, draft: event.payload.draft };

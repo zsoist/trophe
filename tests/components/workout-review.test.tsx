@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import React from 'react';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { WorkoutDraft } from '@/lib/workout/workspace-state';
 
@@ -20,6 +20,7 @@ vi.mock('@/lib/i18n', () => ({ useI18n: () => ({ t: (key: string, params?: Recor
   'workout.duration_summary': `${params?.minutes} minutes`, 'workout.distance_summary': `${params?.distance} km`,
   'workout.effort_summary': `Effort ${params?.effort}/10`, 'workout.empty_strength_hint': 'Add an exercise to review this workout.',
   'workout.empty_cardio_hint': 'Add a duration to review this workout.',
+  'workout.start_live_failed': 'Workout could not start. Try again.',
 }[key] ?? key) }) }));
 
 import { WorkoutReview } from '@/components/workout/workspace/WorkoutReview';
@@ -66,5 +67,29 @@ describe('WorkoutReview', () => {
     expect(screen.getByText('5 km')).toBeTruthy();
     expect(screen.getByText('Effort 7/10')).toBeTruthy();
     expect(screen.queryByText(/sets/)).toBeNull();
+  });
+
+  it('shows a recoverable error and re-enables start when the provider returns false', async () => {
+    workspace.state.draft = pushDraft;
+    workspace.startLive.mockResolvedValue(false);
+    render(<WorkoutReview exercises={[{ id: 'bench', name: 'Bench Press' }]} onSavePlan={vi.fn()} onLogCompleted={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start live workout' }));
+
+    expect((await screen.findByRole('alert')).textContent).toBe('Workout could not start. Try again.');
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Start live workout' }).hasAttribute('disabled')).toBe(false));
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it('shows the same recoverable error and re-enables start when the provider rejects', async () => {
+    workspace.state.draft = pushDraft;
+    workspace.startLive.mockRejectedValue(new Error('network unavailable'));
+    render(<WorkoutReview exercises={[{ id: 'bench', name: 'Bench Press' }]} onSavePlan={vi.fn()} onLogCompleted={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start live workout' }));
+
+    expect((await screen.findByRole('alert')).textContent).toBe('Workout could not start. Try again.');
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Start live workout' }).hasAttribute('disabled')).toBe(false));
+    expect(push).not.toHaveBeenCalled();
   });
 });

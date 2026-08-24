@@ -36,7 +36,8 @@ const RECOVERY_TIP_KEYS = [
 const TIP_KEY_OF_DAY = RECOVERY_TIP_KEYS[Math.floor(Date.now() / 86400000) % RECOVERY_TIP_KEYS.length];
 
 export interface TodayTemplateSummary {
-  templateId: string;
+  templateKey: string;
+  templateId?: string | null;
   name: string;
   exercises: DraftExercise[];
   muscleSummary: MuscleGroup[];
@@ -134,7 +135,7 @@ export function TodayProgramCard({
         <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
           {alsoToday.map((t2) => (
             <button
-              key={t2.templateId}
+              key={t2.templateKey}
               onClick={() => onReview(t2)}
               disabled={disabled}
               style={{

@@ -40,6 +40,7 @@ vi.mock('@/lib/i18n', () => ({
     'workout.review_title': 'Review workout', 'workout.start_live': 'Start live workout',
     'workout.log_completed': 'Log completed workout',
     'workout.start_live_explanation': 'Starting live starts the active timer and creates your workout session.',
+    'workout.start_live_failed': 'Workout could not start. Try again.',
     'workout.program_load_failed': 'Your workout program could not be loaded.',
   }[key] ?? key) }),
 }));
@@ -66,7 +67,8 @@ const exercises: Exercise[] = [
 const coachProgram: WorkoutHomeProgram = {
   programName: 'Strength Base',
   todayTemplate: {
-    templateId: 'coach-push', name: 'Coach Push', muscleSummary: ['chest', 'shoulders', 'triceps'],
+    templateKey: 'template:11111111-1111-4111-8111-111111111111',
+    templateId: '11111111-1111-4111-8111-111111111111', name: 'Coach Push', muscleSummary: ['chest', 'shoulders', 'triceps'],
     exercises: [
       { exerciseId: 'bench', targetSets: 4, targetReps: '6-8' },
       { exerciseId: 'press', targetSets: 3, targetReps: '8-10' },
@@ -121,6 +123,20 @@ describe('WorkoutHome', () => {
     expect(createWorkoutSession).not.toHaveBeenCalled();
   });
 
+  it('takes Preview Push through review and starts live without persisting the built-in key as template_id', async () => {
+    createWorkoutSession.mockResolvedValue('session-push');
+    render(<WorkoutHomeHarness />);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Preview Push' }).hasAttribute('disabled')).toBe(false));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Preview Push' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Use this template' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Review workout' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Start live workout' }));
+
+    await waitFor(() => expect(createWorkoutSession).toHaveBeenCalledTimes(1));
+    expect(createWorkoutSession).toHaveBeenCalledWith('nik', 'Push', null);
+  });
+
   it('turns a coach program into a reviewable draft instead of auto-starting guided mode', async () => {
     render(<WorkoutHomeHarness program={coachProgram} />);
     await waitFor(() => expect(screen.getByRole('button', { name: 'Review today’s workout' }).hasAttribute('disabled')).toBe(false));
@@ -129,6 +145,33 @@ describe('WorkoutHome', () => {
     expect(await screen.findByRole('heading', { name: 'Review workout' })).toBeTruthy();
     expect(screen.getByText('Coach Push')).toBeTruthy();
     expect(createWorkoutSession).not.toHaveBeenCalled();
+  });
+
+  it('keeps coach-resolved exercise metadata through review when the client library cannot resolve the id', async () => {
+    const customProgram: WorkoutHomeProgram = {
+      programName: 'Custom block',
+      todayTemplate: {
+        templateKey: 'template:22222222-2222-4222-8222-222222222222',
+        templateId: '22222222-2222-4222-8222-222222222222',
+        name: 'Coach custom day',
+        muscleSummary: ['chest'],
+        exercises: [{
+          exerciseId: '33333333-3333-4333-8333-333333333333',
+          exerciseName: 'Coach Tempo Press',
+          muscleGroup: 'chest',
+          targetSets: 3,
+          targetReps: '10',
+        }],
+      },
+      alsoToday: [],
+    };
+    render(<WorkoutHomeHarness program={customProgram} />);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Review today’s workout' }).hasAttribute('disabled')).toBe(false));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Review today’s workout' }));
+
+    expect(await screen.findByText('Coach Tempo Press')).toBeTruthy();
+    expect(screen.queryByText('33333333-3333-4333-8333-333333333333')).toBeNull();
   });
 
   it('builds cardio as an editable draft', async () => {
