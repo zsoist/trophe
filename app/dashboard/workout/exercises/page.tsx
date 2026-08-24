@@ -44,6 +44,9 @@ export function ExerciseBrowser({ initialExercises = [], initialRecentIds = [] }
       onClose={() => router.push(WORKOUT_ROUTES.build)}
       onAddToDraft={workspace.addDraftExercise}
       onReturnToBuild={() => router.push(WORKOUT_ROUTES.build)}
+      addedExerciseIds={workspace.state.draft?.kind === 'strength'
+        ? workspace.state.draft.exercises.map(({ exerciseId }) => exerciseId)
+        : []}
       onCustomCreated={(exercise) => setExercises((current) => [...current, exercise])}
       onInfo={(exercise) => router.push(`${WORKOUT_ROUTES.exercises}/${encodeURIComponent(exercise.id)}`)}
     />

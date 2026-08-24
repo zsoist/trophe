@@ -11,17 +11,17 @@ const exerciseAssets: Array<{ matches: RegExp; slug: string }> = [
   // Keep aliases exact and most-specific first: similar names often use materially
   // different equipment or technique and must fall back to honest anatomy art.
   { matches: /^(?:incline dumbbell press|dumbbell incline press)$/, slug: 'incline-press' },
-  { matches: /^(?:barbell bench press|bench press)$/, slug: 'bench-press' },
-  { matches: /^(?:standing overhead barbell press|barbell overhead press|overhead press)$/, slug: 'overhead-press' },
-  { matches: /^(?:pec deck machine|pec deck|chest fly machine)$/, slug: 'pec-deck' },
-  { matches: /^(?:standing cable chest fly|cable chest fly|cable fly)$/, slug: 'cable-fly' },
+  { matches: /^barbell bench press$/, slug: 'bench-press' },
+  { matches: /^(?:standing overhead barbell press|standing barbell overhead press)$/, slug: 'overhead-press' },
+  { matches: /^(?:pec deck machine|pec deck)$/, slug: 'pec-deck' },
+  { matches: /^standing cable chest fly$/, slug: 'cable-fly' },
   { matches: /^pull ups?$/, slug: 'pull-up' },
-  { matches: /^(?:conventional deadlift|barbell deadlift|deadlift)$/, slug: 'deadlift' },
-  { matches: /^(?:barbell back squat|back squat|barbell squat|squat)$/, slug: 'squat' },
-  { matches: /^(?:parallel bar chest dips?|chest dips?|dips?)$/, slug: 'dip' },
+  { matches: /^(?:conventional barbell deadlift|barbell conventional deadlift)$/, slug: 'deadlift' },
+  { matches: /^(?:barbell back squat|back squat)$/, slug: 'squat' },
+  { matches: /^(?:parallel bar chest dips?|chest dips?)$/, slug: 'dip' },
   { matches: /^seated cable row$/, slug: 'row' },
-  { matches: /^(?:standing dumbbell biceps curl|dumbbell biceps curl|dumbbell curl)$/, slug: 'curl' },
-  { matches: /^(?:cable triceps rope extension|triceps rope extension|rope triceps pushdown|triceps pushdown|tricep pushdown)$/, slug: 'triceps-extension' },
+  { matches: /^standing dumbbell biceps curl$/, slug: 'curl' },
+  { matches: /^(?:cable triceps rope extension|cable rope triceps extension|rope triceps pushdown)$/, slug: 'triceps-extension' },
 ];
 
 type AnatomyGroup = BodyAreaId | 'biceps' | 'triceps' | 'forearms' | 'quads' | 'hamstrings' | 'glutes' | 'calves';

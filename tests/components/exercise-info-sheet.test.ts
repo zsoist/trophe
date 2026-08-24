@@ -6,7 +6,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Exercise } from '@/lib/types';
 
 vi.mock('next/image', () => ({
-  default: ({ priority: _priority, ...props }: Record<string, unknown>) => React.createElement('img', props),
+  default: (props: Record<string, unknown>) => {
+    const imageProps = { ...props };
+    delete imageProps.priority;
+    return React.createElement('img', imageProps);
+  },
 }));
 
 vi.mock('framer-motion', async () => {
@@ -57,7 +61,7 @@ describe('ExerciseInfoSheet', () => {
   it('leads with the movement visual and practical technique guidance', () => {
     const exercise = {
       id: 'bench',
-      name: 'Bench Press',
+      name: 'Barbell Bench Press',
       name_es: null,
       name_el: null,
       muscle_group: 'chest',
@@ -74,7 +78,7 @@ describe('ExerciseInfoSheet', () => {
 
     render(React.createElement(ExerciseInfoSheet, { exercise, userId: null, onClose: vi.fn() }));
 
-    expect(screen.getByRole('img', { name: 'Bench Press technique' })).toBeTruthy();
+    expect(screen.getByRole('img', { name: 'Barbell Bench Press technique' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Technique' })).toBeTruthy();
     expect(screen.getByText(/Plant your feet/)).toBeTruthy();
   });

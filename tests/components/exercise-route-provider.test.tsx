@@ -232,6 +232,35 @@ describe('exercise routes with the real workout workspace provider', () => {
     expect(createWorkoutSession).not.toHaveBeenCalled();
   });
 
+  it('shows an already-added browser row as disabled and stays on the browser route', async () => {
+    renderWithWorkspace(<ExerciseBrowser initialExercises={[bench]} />, strengthState(['bench']));
+    await screen.findByRole('heading', { name: 'What are you training?' });
+
+    fireEvent.click(screen.getByRole('button', { name: /^Chest/ }));
+    const added = screen.getByRole('button', { name: 'Bench Press added' });
+    expect(added.textContent).toContain('Added');
+    expect(added.hasAttribute('disabled')).toBe(true);
+    fireEvent.click(added);
+
+    expect(screen.getByTestId('workspace-state').textContent).toBe('draft:strength:bench');
+    expect(push).not.toHaveBeenCalled();
+    expect(createWorkoutSession).not.toHaveBeenCalled();
+  });
+
+  it('shows an already-added recent shortcut as disabled and stays on the browser route', async () => {
+    renderWithWorkspace(<ExerciseBrowser initialExercises={[bench]} initialRecentIds={['bench']} />, strengthState(['bench']));
+    await screen.findByRole('heading', { name: 'What are you training?' });
+
+    const added = screen.getByRole('button', { name: 'Bench Press added' });
+    expect(added.textContent).toContain('Added');
+    expect(added.hasAttribute('disabled')).toBe(true);
+    fireEvent.click(added);
+
+    expect(screen.getByTestId('workspace-state').textContent).toBe('draft:strength:bench');
+    expect(push).not.toHaveBeenCalled();
+    expect(createWorkoutSession).not.toHaveBeenCalled();
+  });
+
   it('creates a strength draft before exposing browser Add actions on a direct route', async () => {
     renderWithWorkspace(<ExerciseBrowser initialExercises={[bench]} />);
 

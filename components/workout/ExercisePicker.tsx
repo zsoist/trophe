@@ -244,11 +244,13 @@ export function CustomExerciseModal({
 function ExerciseRow({
   ex,
   name,
+  isAdded,
   onPick,
   onInfo,
 }: {
   ex: Exercise;
   name: string;
+  isAdded: boolean;
   onPick: () => void;
   onInfo?: (ex: Exercise) => void;
 }) {
@@ -288,10 +290,12 @@ function ExerciseRow({
       )}
       <button
         onClick={onPick}
-        aria-label={t('workout.picker_add_named', { name })}
-        className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg bg-[var(--action-secondary)] px-3 text-sm font-semibold text-[var(--content-primary)] transition-colors hover:bg-[var(--surface-active)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] motion-reduce:transition-none"
+        disabled={isAdded}
+        aria-label={isAdded ? t('workout.exercise_added_named', { name }) : t('workout.picker_add_named', { name })}
+        className="inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-[var(--action-secondary)] px-3 text-sm font-semibold text-[var(--content-primary)] transition-colors hover:bg-[var(--surface-active)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-default disabled:opacity-70 motion-reduce:transition-none"
       >
-        {t('workout.picker_add')}
+        {isAdded ? <Check size={16} aria-hidden="true" /> : null}
+        {isAdded ? t('workout.exercise_added') : t('workout.picker_add')}
       </button>
     </div>
   );
@@ -372,6 +376,7 @@ export default function ExercisePicker({
   presentation = 'dialog',
   onAddToDraft,
   onReturnToBuild,
+  addedExerciseIds = [],
 }: {
   exercises: Exercise[];
   recentIds: string[];
@@ -385,6 +390,7 @@ export default function ExercisePicker({
   presentation?: 'dialog' | 'page';
   onAddToDraft?: (exerciseId: string) => void;
   onReturnToBuild?: () => void;
+  addedExerciseIds?: string[];
 }) {
   const [search, setSearch] = useState('');
   const [selectedAreaKey, setSelectedAreaKey] = useState<WorkoutBodyArea | null>(null);
@@ -438,6 +444,7 @@ export default function ExercisePicker({
   }, [canUseDom]);
 
   const nameOf = (ex: Exercise) => exerciseDisplayName(ex, lang);
+  const addedIds = new Set(addedExerciseIds);
 
   const q = search.trim().toLowerCase();
   const selectedArea = WORKOUT_BODY_AREAS.find((area) => area.key === selectedAreaKey) ?? null;
@@ -476,6 +483,7 @@ export default function ExercisePicker({
     });
 
   const pick = (ex: Exercise) => {
+    if (addedIds.has(ex.id)) return;
     if (presentation === 'page' && onAddToDraft && onReturnToBuild) {
       onAddToDraft(ex.id);
       onReturnToBuild();
@@ -606,15 +614,20 @@ export default function ExercisePicker({
                   <div className="-mx-1 mt-3 flex gap-2 overflow-x-auto px-1 pb-1 scrollbar-hide">
                     {recentExercises.map((ex) => {
                       const name = nameOf(ex);
+                      const isAdded = addedIds.has(ex.id);
                       return (
                         <button
                           key={ex.id}
                           onClick={() => pick(ex)}
-                          aria-label={t('workout.picker_add_named', { name })}
-                          className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3 text-sm font-medium text-[var(--content-secondary)] transition-colors hover:border-[var(--border-default)] hover:text-[var(--content-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] motion-reduce:transition-none"
+                          disabled={isAdded}
+                          aria-label={isAdded ? t('workout.exercise_added_named', { name }) : t('workout.picker_add_named', { name })}
+                          className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3 text-sm font-medium text-[var(--content-secondary)] transition-colors hover:border-[var(--border-default)] hover:text-[var(--content-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-default disabled:opacity-70 motion-reduce:transition-none"
                         >
-                          <span className="h-2 w-2 rounded-full" style={{ background: muscleColor(ex.muscle_group) }} />
+                          {isAdded
+                            ? <Check size={15} aria-hidden="true" />
+                            : <span className="h-2 w-2 rounded-full" style={{ background: muscleColor(ex.muscle_group) }} />}
                           {name}
+                          {isAdded ? <span>{t('workout.exercise_added')}</span> : null}
                         </button>
                       );
                     })}
@@ -710,7 +723,7 @@ export default function ExercisePicker({
               ) : (
                 <div className="mt-5 grid grid-cols-1 gap-2 lg:grid-cols-2">
                   {filtered.map((ex) => (
-                    <ExerciseRow key={ex.id} ex={ex} name={nameOf(ex)} onPick={() => pick(ex)} onInfo={onInfo} />
+                    <ExerciseRow key={ex.id} ex={ex} name={nameOf(ex)} isAdded={addedIds.has(ex.id)} onPick={() => pick(ex)} onInfo={onInfo} />
                   ))}
                 </div>
               )}
