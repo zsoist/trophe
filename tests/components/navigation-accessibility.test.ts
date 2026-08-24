@@ -20,6 +20,7 @@ vi.mock('next/link', () => ({
 vi.mock('next/navigation', () => ({
   redirect: vi.fn(),
   usePathname: () => '/dashboard',
+  useRouter: () => ({ replace: vi.fn() }),
 }));
 
 vi.mock('@/components/shared/Providers', () => ({

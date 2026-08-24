@@ -27,9 +27,11 @@ export interface BotNavRoute {
 interface BotNavProps {
   routes: BotNavRoute[];
   className?: string;
+  /** Handles an active tab being selected again instead of treating it as a no-op. */
+  onActiveRouteSelect?: (href: string) => void;
 }
 
-export function BotNav({ routes, className = '' }: BotNavProps) {
+export function BotNav({ routes, className = '', onActiveRouteSelect }: BotNavProps) {
   const pathname = usePathname();
   const shellOwnsNavigation = useClientShellNavigationOwner();
   if (shellOwnsNavigation) return null;
@@ -58,6 +60,12 @@ export function BotNav({ routes, className = '' }: BotNavProps) {
             key={route.href}
             href={route.href}
             aria-current={active ? 'page' : undefined}
+            onClick={(event) => {
+              if (!active || !onActiveRouteSelect) return;
+
+              event.preventDefault();
+              onActiveRouteSelect(route.href);
+            }}
             className={[
               'relative flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl px-1',
               'text-xs uppercase tracking-[0.05em]',

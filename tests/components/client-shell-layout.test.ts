@@ -1,10 +1,14 @@
 // @vitest-environment jsdom
 
 import React from 'react';
+import { readFileSync } from 'node:fs';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('next/navigation', () => ({ usePathname: () => '/dashboard' }));
+vi.mock('next/navigation', () => ({
+  usePathname: () => '/dashboard',
+  useRouter: () => ({ replace: vi.fn() }),
+}));
 vi.mock('next/link', () => ({ default: ({ children, href, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => React.createElement('a', { ...props, href }, children) }));
 vi.mock('framer-motion', async () => {
   return {
@@ -26,5 +30,11 @@ describe('client shell layout', () => {
     expect(screen.getAllByRole('navigation', { name: 'Primary' })).toHaveLength(1);
     expect(screen.getByText('Dashboard content').closest('.client-shell__content')).toBeTruthy();
     expect(screen.getByRole('navigation', { name: 'Primary' }).className).toContain('client-shell__nav');
+  });
+
+  it('keeps one shell-owned nav at the safe-area edge', () => {
+    const css = readFileSync('app/globals.css', 'utf8');
+    expect(css).toContain('bottom: env(safe-area-inset-bottom)');
+    expect(css).not.toContain('bottom: max(0.5rem, env(safe-area-inset-bottom))');
   });
 });

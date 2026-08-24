@@ -1,10 +1,17 @@
 // @vitest-environment jsdom
 
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('next/navigation', () => ({ usePathname: () => '/dashboard' }));
+let pathname = '/dashboard';
+export const mockPathname = (value: string) => { pathname = value; };
+export const mockRouterReplace = vi.fn();
+
+vi.mock('next/navigation', () => ({
+  usePathname: () => pathname,
+  useRouter: () => ({ replace: mockRouterReplace }),
+}));
 vi.mock('next/link', () => ({ default: ({ children, href, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => React.createElement('a', { ...props, href }, children) }));
 
 import { BotNav } from '@/components/ui/BotNav';
@@ -13,8 +20,25 @@ import { ClientShellNavigationProvider } from '@/components/shared/ClientShellCo
 describe('client shell navigation ownership', () => {
   const routes = [{ href: '/dashboard', label: 'Home', icon: React.createElement('span', null, 'H') }];
 
+  const clientRoutes = [
+    ...routes,
+    { href: '/dashboard/workout', label: 'Workout', icon: React.createElement('span', null, 'W') },
+  ];
+
   it('suppresses page-local navigation when the dashboard shell owns it', () => {
     render(React.createElement(ClientShellNavigationProvider, { value: true }, React.createElement(BotNav, { routes })));
     expect(screen.queryByRole('navigation', { name: 'Primary' })).toBeNull();
+  });
+
+  it('reselects the active Workout tab and returns to Workout Home', async () => {
+    mockPathname('/dashboard/workout/live');
+    render(React.createElement(BotNav, {
+      routes: clientRoutes,
+      onActiveRouteSelect: mockRouterReplace,
+    }));
+
+    fireEvent.click(screen.getByRole('link', { name: /Workout/i }));
+
+    expect(mockRouterReplace).toHaveBeenCalledWith('/dashboard/workout');
   });
 });
