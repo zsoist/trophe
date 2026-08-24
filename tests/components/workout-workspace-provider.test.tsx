@@ -39,7 +39,19 @@ function WorkspaceControls() {
       <p>{workspace.state.stage === 'draft' ? 'Draft · Not started' : workspace.state.stage === 'live' ? 'Live' : workspace.state.stage}</p>
       <button onClick={() => workspace.createDraft({ name: 'Push', kind: 'strength' })}>Create Push draft</button>
       <button onClick={() => workspace.addDraftExercise('bench-press')}>Add Bench Press</button>
+      <button onClick={() => workspace.createDraftFromTemplate({
+        templateId: 'push-template', name: 'Coach Push',
+        exercises: [
+          { exerciseId: 'bench-press', targetSets: 4, targetReps: '6-8' },
+          { exerciseId: 'shoulder-press', targetSets: 3, targetReps: '8-10' },
+        ],
+      })}>Create coach draft</button>
+      <button onClick={() => workspace.updateDraftName('Push A')}>Rename draft</button>
+      <button onClick={() => workspace.reorderDraftExercise('shoulder-press', 'up')}>Move Shoulder Press up</button>
       <button onClick={() => void workspace.startLive()}>Start live workout</button>
+      {workspace.state.draft?.kind === 'strength' ? (
+        <output>{workspace.state.draft.name}:{workspace.state.draft.exercises.map((exercise) => `${exercise.exerciseId}-${exercise.targetSets}x${exercise.targetReps}`).join(',')}</output>
+      ) : null}
     </>
   );
 }
@@ -72,5 +84,17 @@ describe('WorkoutWorkspaceProvider', () => {
     await waitFor(() => expect(createWorkoutSession).toHaveBeenCalledTimes(1));
     expect(createWorkoutSession).toHaveBeenCalledWith('nik', 'Push', null);
     expect(screen.getByText('Live')).toBeTruthy();
+  });
+
+  it('creates and edits a populated template draft without persistence writes', async () => {
+    render(<ProviderHarness userId="nik" />);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Create coach draft' })).toBeTruthy());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create coach draft' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Rename draft' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Move Shoulder Press up' }));
+
+    expect(screen.getByText('Push A:shoulder-press-3x8-10,bench-press-4x6-8')).toBeTruthy();
+    expect(createWorkoutSession).not.toHaveBeenCalled();
   });
 });

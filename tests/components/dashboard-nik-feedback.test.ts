@@ -37,8 +37,10 @@ describe('Nik dashboard greeting', () => {
   });
 
   it('marks the workout program placeholder so release screenshots wait for real content', () => {
-    const workout = readFileSync(join(process.cwd(), 'app/dashboard/workout/page.tsx'), 'utf8');
+    const route = readFileSync(join(process.cwd(), 'app/dashboard/workout/page.tsx'), 'utf8');
+    const home = readFileSync(join(process.cwd(), 'components/workout/workspace/WorkoutHome.tsx'), 'utf8');
 
-    expect(workout).toMatch(/programQuery\.isLoading[\s\S]*data-loading-skeleton/);
+    expect(route).toContain('programLoading={programQuery.isLoading}');
+    expect(home).toMatch(/programLoading[\s\S]*data-loading-skeleton/);
   });
 });

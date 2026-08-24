@@ -7,6 +7,7 @@ import {
   createInitialWorkspaceState,
   workoutWorkspaceReducer,
   type DraftExercise,
+  type CardioDraft,
   type WorkoutKind,
   type WorkoutWorkspaceState,
 } from '@/lib/workout/workspace-state';
@@ -20,9 +21,13 @@ import {
 export interface WorkoutWorkspaceContextValue {
   state: WorkoutWorkspaceState;
   createDraft(input: { name: string; kind: WorkoutKind; templateKey?: string }): void;
+  createDraftFromTemplate(input: WorkoutDraftTemplateInput): void;
+  updateDraftName(name: string): void;
+  updateCardioDraft(patch: Partial<Pick<CardioDraft, 'activity' | 'durationMinutes' | 'distanceKm' | 'effort'>>): void;
   addDraftExercise(exerciseId: string): void;
   removeDraftExercise(exerciseId: string): void;
   updateDraftExercise(exerciseId: string, patch: Partial<Pick<DraftExercise, 'targetSets' | 'targetReps'>>): void;
+  reorderDraftExercise(exerciseId: string, direction: 'up' | 'down'): void;
   goToReview(): void;
   startLive(): Promise<boolean>;
   pause(now?: number): void;
@@ -30,6 +35,12 @@ export interface WorkoutWorkspaceContextValue {
   requestFinish(): void;
   acknowledgeCompleted(): void;
   discardDraft(): void;
+}
+
+export interface WorkoutDraftTemplateInput {
+  templateId: string;
+  name: string;
+  exercises: DraftExercise[];
 }
 
 interface WorkoutWorkspaceProviderProps {
@@ -98,6 +109,36 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
       : current);
   }, []);
 
+  const createDraftFromTemplate = useCallback((input: WorkoutDraftTemplateInput) => {
+    setState((current) => {
+      if (current.stage !== 'home') return current;
+      const created = workoutWorkspaceReducer(current, {
+        type: 'draft.created',
+        payload: { name: input.name, kind: 'strength', templateKey: input.templateId, updatedAt: Date.now() },
+      });
+      if (!created.draft || created.draft.kind !== 'strength') return created;
+      return workoutWorkspaceReducer(created, {
+        type: 'draft.updated',
+        payload: {
+          draft: {
+            ...created.draft,
+            exercises: input.exercises.map((exercise) => ({ ...exercise })),
+          },
+        },
+      });
+    });
+  }, []);
+
+  const updateDraftName = useCallback((name: string) => {
+    updateDraft((draft) => ({ ...draft, name, updatedAt: Date.now() }));
+  }, [updateDraft]);
+
+  const updateCardioDraft = useCallback((patch: Partial<Pick<CardioDraft, 'activity' | 'durationMinutes' | 'distanceKm' | 'effort'>>) => {
+    updateDraft((draft) => draft.kind !== 'cardio'
+      ? draft
+      : { ...draft, ...patch, updatedAt: Date.now() });
+  }, [updateDraft]);
+
   const addDraftExercise = useCallback((exerciseId: string) => {
     updateDraft((draft) => {
       if (draft.kind !== 'strength' || draft.exercises.some((exercise) => exercise.exerciseId === exerciseId)) return draft;
@@ -123,6 +164,18 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
         updatedAt: Date.now(),
         exercises: draft.exercises.map((exercise) => exercise.exerciseId === exerciseId ? { ...exercise, ...patch } : exercise),
       });
+  }, [updateDraft]);
+
+  const reorderDraftExercise = useCallback((exerciseId: string, direction: 'up' | 'down') => {
+    updateDraft((draft) => {
+      if (draft.kind !== 'strength') return draft;
+      const index = draft.exercises.findIndex((exercise) => exercise.exerciseId === exerciseId);
+      const nextIndex = direction === 'up' ? index - 1 : index + 1;
+      if (index < 0 || nextIndex < 0 || nextIndex >= draft.exercises.length) return draft;
+      const exercises = [...draft.exercises];
+      [exercises[index], exercises[nextIndex]] = [exercises[nextIndex], exercises[index]];
+      return { ...draft, exercises, updatedAt: Date.now() };
+    });
   }, [updateDraft]);
 
   const goToReview = useCallback(() => {
@@ -186,9 +239,13 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
   const value = useMemo<WorkoutWorkspaceContextValue>(() => ({
     state,
     createDraft,
+    createDraftFromTemplate,
+    updateDraftName,
+    updateCardioDraft,
     addDraftExercise,
     removeDraftExercise,
     updateDraftExercise,
+    reorderDraftExercise,
     goToReview,
     startLive,
     pause,
@@ -196,7 +253,7 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
     requestFinish,
     acknowledgeCompleted,
     discardDraft,
-  }), [acknowledgeCompleted, addDraftExercise, createDraft, discardDraft, goToReview, pause, removeDraftExercise, requestFinish, resume, startLive, state, updateDraftExercise]);
+  }), [acknowledgeCompleted, addDraftExercise, createDraft, createDraftFromTemplate, discardDraft, goToReview, pause, removeDraftExercise, reorderDraftExercise, requestFinish, resume, startLive, state, updateCardioDraft, updateDraftExercise, updateDraftName]);
 
   if (loading || ownerId === undefined) {
     return <div role="status" aria-label="Loading workout workspace" className="min-h-24 animate-pulse rounded-xl bg-[var(--surface-subtle)]" />;

@@ -1,0 +1,22 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { describe, expect, it } from 'vitest';
+
+const keys = [
+  'workout.templates', 'workout.preview', 'workout.draft_not_started', 'workout.review_workout',
+  'workout.start_live', 'workout.log_completed', 'workout.save_plan', 'workout.pause', 'workout.resume',
+  'workout.report_pain', 'workout.finish_confirmation',
+] as const;
+
+describe('workout workspace copy coverage', () => {
+  it('defines every workspace state in every supported locale', () => {
+    const core = readFileSync(join(process.cwd(), 'lib/i18n.tsx'), 'utf8');
+    for (const key of keys) {
+      expect(core).toContain(`'${key}':`);
+      for (const locale of ['de', 'fr', 'it', 'nl', 'pt']) {
+        const overlay = readFileSync(join(process.cwd(), `lib/locales/${locale}.ts`), 'utf8');
+        expect(overlay).toContain(`'${key}':`);
+      }
+    }
+  });
+});

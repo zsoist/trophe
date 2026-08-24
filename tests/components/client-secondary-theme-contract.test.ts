@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const motionPreference = vi.hoisted(() => ({ reduced: true }));
 const authHarness = vi.hoisted(() => ({ getUser: vi.fn() }));
+const workoutPersistence = vi.hoisted(() => ({ createWorkoutSession: vi.fn().mockResolvedValue('session-1') }));
 const authenticatedUser = { data: { user: { id: 'user-1' } } };
 authHarness.getUser.mockResolvedValue(authenticatedUser);
 
@@ -37,7 +38,7 @@ vi.mock('@/lib/trpc/client', () => ({
 }));
 vi.mock('@/lib/workout/units', () => ({ useWeightUnit: () => ['kg', vi.fn()], kgToDisplay: (value: number) => value, displayToKg: (value: number) => value }));
 vi.mock('@/components/workout/workout-persistence', () => ({
-  createWorkoutSession: vi.fn().mockResolvedValue('session-1'),
+  createWorkoutSession: workoutPersistence.createWorkoutSession,
   deleteWorkoutSet: vi.fn(), deleteWorkoutSets: vi.fn(),
   finishWorkoutSession: vi.fn().mockResolvedValue(true),
   insertWorkoutSet: vi.fn().mockResolvedValue('set-1'),
@@ -67,6 +68,32 @@ vi.mock('@/lib/supabase', () => {
 import ExercisePicker from '@/components/workout/ExercisePicker';
 import BarcodeLookupModal from '@/components/food/BarcodeLookupModal';
 import WorkoutPage from '@/app/dashboard/workout/page';
+import { WorkoutWorkspaceProvider, useWorkoutWorkspace } from '@/components/workout/workspace/WorkoutWorkspaceProvider';
+
+class MemoryStorage {
+  private readonly values = new Map<string, string>();
+  getItem(key: string) { return this.values.get(key) ?? null; }
+  setItem(key: string, value: string) { this.values.set(key, value); }
+  removeItem(key: string) { this.values.delete(key); }
+}
+
+function WorkspaceStageProbe() {
+  const { state } = useWorkoutWorkspace();
+  return React.createElement('output', { 'aria-label': 'Workspace stage' }, state.stage);
+}
+
+function renderWorkoutPage() {
+  const Provider = WorkoutWorkspaceProvider as React.ComponentType<{
+    userId: string;
+    storage: MemoryStorage;
+    children?: React.ReactNode;
+  }>;
+  return render(React.createElement(
+    Provider,
+    { userId: 'user-1', storage: new MemoryStorage() },
+    React.createElement(React.Fragment, null, React.createElement(WorkoutPage), React.createElement(WorkspaceStageProbe)),
+  ));
+}
 
 const ROUTE_SOURCES = [
   'app/dashboard/book/page.tsx',
@@ -75,6 +102,8 @@ const ROUTE_SOURCES = [
   'app/dashboard/messages/page.tsx',
   'app/dashboard/supplements/page.tsx',
   'app/dashboard/workout/page.tsx',
+  'app/dashboard/workout/build/page.tsx',
+  'app/dashboard/workout/review/page.tsx',
   'app/dashboard/workout/history/page.tsx',
   'app/dashboard/workout/stats/page.tsx',
   'app/dashboard/workout/form-check/page.tsx',
@@ -104,10 +133,12 @@ const PRESENTATION_SOURCES = [
   'components/workout/RecentSessionCard.tsx',
   'components/workout/TodayProgramCard.tsx',
   'components/workout/TodayWorkoutCard.tsx',
+  'components/workout/workspace/WorkoutHome.tsx',
+  'components/workout/workspace/WorkoutBuilder.tsx',
+  'components/workout/workspace/WorkoutReview.tsx',
   'components/shared/ChatThread.tsx',
   'components/shared/CalendarView.tsx',
   'components/shared/ChatThread.tsx',
-  'app/dashboard/workout/page.tsx',
 ] as const;
 
 const OWNED_SOURCES = [...ROUTE_SOURCES, ...PRESENTATION_SOURCES] as const;
@@ -121,7 +152,6 @@ const OVERLAY_SOURCES = [
   'components/workout/PlateCalculator.tsx',
   'components/shared/CalendarView.tsx',
   'components/shared/ChatThread.tsx',
-  'app/dashboard/workout/page.tsx',
 ] as const;
 
 const EXPECTED_DIALOG_ROOTS: Record<(typeof OVERLAY_SOURCES)[number], number> = {
@@ -134,7 +164,6 @@ const EXPECTED_DIALOG_ROOTS: Record<(typeof OVERLAY_SOURCES)[number], number> = 
   'components/workout/PlateCalculator.tsx': 1,
   'components/shared/CalendarView.tsx': 1,
   'components/shared/ChatThread.tsx': 1,
-  'app/dashboard/workout/page.tsx': 1,
 };
 
 const source = (file: string) => readFileSync(join(process.cwd(), file), 'utf8');
@@ -143,6 +172,7 @@ afterEach(() => {
   cleanup();
   motionPreference.reduced = true;
   authHarness.getUser.mockReset().mockResolvedValue(authenticatedUser);
+  workoutPersistence.createWorkoutSession.mockClear();
 });
 
 function inventory(patterns: readonly RegExp[], files: readonly string[] = OWNED_SOURCES) {
@@ -155,19 +185,19 @@ describe('client secondary theme and accessibility contract', () => {
   it('keeps workout persistence actions disabled until authentication initialization finishes', async () => {
     let resolveUser!: (value: { data: { user: { id: string } } }) => void;
     authHarness.getUser.mockReturnValueOnce(new Promise((resolve) => { resolveUser = resolve; }));
-    render(React.createElement(WorkoutPage));
+    renderWorkoutPage();
 
-    const start = screen.getByRole('button', { name: 'Start strength workout' });
+    const start = await screen.findByRole('button', { name: 'workout.build_strength' });
     expect(start.hasAttribute('disabled')).toBe(true);
-    fireEvent.click(screen.getByRole('button', { name: 'Log cardio workout' }));
-    const logCardio = screen.getByRole('button', { name: /workout\.cardio_log/ });
-    expect(logCardio.hasAttribute('disabled')).toBe(true);
+    const cardio = screen.getByRole('button', { name: 'workout.build_cardio' });
+    expect(cardio.hasAttribute('disabled')).toBe(true);
 
     resolveUser(authenticatedUser);
     await waitFor(() => expect(start.hasAttribute('disabled')).toBe(false));
-    expect(logCardio.hasAttribute('disabled')).toBe(false);
+    expect(cardio.hasAttribute('disabled')).toBe(false);
     fireEvent.click(start);
-    expect(await screen.findByRole('button', { name: 'workout.add_exercise' })).toBeTruthy();
+    await waitFor(() => expect(screen.getByLabelText('Workspace stage').textContent).toBe('draft'));
+    expect(workoutPersistence.createWorkoutSession).not.toHaveBeenCalled();
   });
 
   it('marks booking, messages, and progress loading surfaces for screenshot rejection', () => {
@@ -290,33 +320,19 @@ describe('client secondary theme and accessibility contract', () => {
     outside.remove();
   });
 
-  it('restores real workout completion focus to a connected trigger or mounted landing fallback', async () => {
+  it('keeps draft entry focus connected while routing without a legacy modal takeover', async () => {
     const outside = document.createElement('button');
     document.body.appendChild(outside);
-    render(React.createElement(WorkoutPage));
+    renderWorkoutPage();
 
-    const completeWorkout = async (keepOutsideFocus: boolean) => {
-      const start = await screen.findByRole('button', { name: 'Start strength workout' });
-      await waitFor(() => expect(start.hasAttribute('disabled')).toBe(false));
-      if (keepOutsideFocus) outside.focus();
-      fireEvent.click(start);
-      fireEvent.click(await screen.findByRole('button', { name: 'workout.add_exercise' }));
-      fireEvent.click(await screen.findByRole('button', { name: /workout\.body_area_legs/ }));
-      fireEvent.click(await screen.findByRole('button', { name: 'workout.picker_add_named' }));
-      const weight = (await screen.findAllByRole('spinbutton'))[0];
-      fireEvent.change(weight, { target: { value: '40' } });
-      const finish = screen.getByRole('button', { name: 'workout.finish' });
-      if (!keepOutsideFocus) finish.focus();
-      fireEvent.click(finish);
-      await screen.findByRole('dialog', { name: 'workout.summary_title' });
-      fireEvent.click(screen.getByRole('button', { name: 'workout.summary_done' }));
-      await waitFor(() => expect(screen.queryByRole('dialog', { name: 'workout.summary_title' })).toBeNull());
-    };
+    const start = await screen.findByRole('button', { name: 'workout.build_strength' });
+    await waitFor(() => expect(start.hasAttribute('disabled')).toBe(false));
+    start.focus();
+    fireEvent.click(start);
 
-    await completeWorkout(true);
-    expect(document.activeElement).toBe(outside);
-    await completeWorkout(false);
-    expect(document.activeElement).toBe(screen.getByTestId('workout-landing-focus'));
+    await waitFor(() => expect(screen.getByLabelText('Workspace stage').textContent).toBe('draft'));
+    expect(document.activeElement).toBe(start);
+    expect(screen.queryByRole('dialog')).toBeNull();
     outside.remove();
   });
 
@@ -337,16 +353,16 @@ describe('client secondary theme and accessibility contract', () => {
   });
 
   it('keeps exercise toolbar controls outside the collapse button and names owned icon controls', () => {
-    const workout = source('app/dashboard/workout/page.tsx');
-    const nestedNativeButton = (workout.match(/<button\b[\s\S]*?<\/button>/g) ?? [])
+    const home = source('components/workout/workspace/WorkoutHome.tsx');
+    const builder = source('components/workout/workspace/WorkoutBuilder.tsx');
+    const nestedNativeButton = ([home, builder].join('\n').match(/<button\b[\s\S]*?<\/button>/g) ?? [])
       .find((button) => (button.match(/<button\b/g) ?? []).length > 1);
 
     expect(nestedNativeButton).toBeUndefined();
-    expect(workout).toMatch(/<Link\s+href="\/dashboard\/workout\/history"\s+aria-label="Workout history"[\s\S]*?min-h-11[\s\S]*?min-w-11/);
-    expect(workout).toContain('<SessionExerciseIdentity');
-    expect(source('components/workout/SessionExerciseIdentity.tsx')).toContain("aria-label={`${expanded ? 'Collapse' : 'Expand'} ${name}`}");
-    expect(workout).toMatch(/aria-label=\{`Report pain for .*`\}/);
-    expect(workout).toMatch(/aria-label=\{`Remove .*`\}/);
+    expect(home).toMatch(/<Link href="\/dashboard\/workout\/history"[^>]*className="[^"]*min-h-11[^"]*focus-visible:/);
+    expect(builder).toContain("aria-label={t('workout.move_named_up', { name })}");
+    expect(builder).toContain("aria-label={t('workout.move_named_down', { name })}");
+    expect(builder).toContain("aria-label={t('workout.remove_named', { name })}");
     expect(source('app/dashboard/checkin/page.tsx').match(/aria-label="Back to dashboard"/g)?.length).toBeGreaterThanOrEqual(3);
     expect(source('app/dashboard/intake/page.tsx')).toContain('aria-label="Exit intake"');
   });

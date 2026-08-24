@@ -11,12 +11,15 @@ vi.mock('next/image', () => ({
 
 vi.mock('@/lib/i18n', () => ({
   useI18n: () => ({
-    t: (key: string) => ({
+    t: (key: string, params?: Record<string, string | number>) => ({
       'workout.strength': 'Strength',
-      'workout.strength_sub': 'Weights · sets · PRs',
+      'workout.strength_sub': 'Build sets and rep targets',
       'workout.cardio': 'Cardio',
-      'workout.cardio_sub': 'Run · cycle · HIIT',
-      'workout.quick_start': 'Quick start',
+      'workout.cardio_sub': 'Plan time, distance, and effort',
+      'workout.build_strength': 'Build strength workout',
+      'workout.build_cardio': 'Build cardio workout',
+      'workout.templates': 'Workout templates',
+      'workout.preview_named': `Preview ${params?.name}`,
       'workout.split_push': 'Push',
       'workout.split_pull': 'Pull',
       'workout.split_legs': 'Legs',
@@ -31,33 +34,20 @@ vi.mock('@/lib/i18n', () => ({
 afterEach(cleanup);
 
 describe('WorkoutEntryPanel', () => {
-  it('starts with two clear training modes and keeps split presets collapsed', () => {
-    render(React.createElement(WorkoutEntryPanel, {
-      disabled: false,
-      onStrength: vi.fn(),
-      onCardio: vi.fn(),
-      onSplit: vi.fn(),
-    }));
+  it('offers restrained draft-first strength and cardio choices', () => {
+    render(React.createElement(WorkoutEntryPanel, { disabled: false, onStrength: vi.fn(), onCardio: vi.fn(), onSplit: vi.fn() }));
 
-    expect(screen.getByRole('button', { name: /Start strength workout/i })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /Log cardio workout/i })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Quick start', expanded: false })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Push' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Build strength workout' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Build cardio workout' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Workout templates' })).toBeTruthy();
   });
 
-  it('reveals split presets only after the user asks for them', () => {
+  it('previews a split instead of starting it', () => {
     const onSplit = vi.fn();
-    render(React.createElement(WorkoutEntryPanel, {
-      disabled: false,
-      onStrength: vi.fn(),
-      onCardio: vi.fn(),
-      onSplit,
-    }));
+    render(React.createElement(WorkoutEntryPanel, { disabled: false, onStrength: vi.fn(), onCardio: vi.fn(), onSplit }));
 
-    fireEvent.click(screen.getByRole('button', { name: 'Quick start' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Push' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Preview Push' }));
 
-    expect(screen.getByRole('button', { name: 'Quick start', expanded: true })).toBeTruthy();
     expect(onSplit).toHaveBeenCalledWith('push');
   });
 });

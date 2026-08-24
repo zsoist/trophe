@@ -6,8 +6,8 @@ const pickerSource = readFileSync(
   join(process.cwd(), 'components/workout/ExercisePicker.tsx'),
   'utf8',
 );
-const workoutSource = readFileSync(
-  join(process.cwd(), 'app/dashboard/workout/page.tsx'),
+const builderSource = readFileSync(
+  join(process.cwd(), 'components/workout/workspace/WorkoutBuilder.tsx'),
   'utf8',
 );
 
@@ -30,9 +30,9 @@ describe('mobile exercise picker layering', () => {
     );
   });
 
-  it('closes the picker before opening exercise information', () => {
-    expect(workoutSource).toContain(
-      'onInfo={(ex) => { setShowPicker(false); setInfoExercise(ex); }}',
-    );
+  it('keeps draft exercise selection inline so it cannot collide with a modal information sheet', () => {
+    expect(builderSource).toContain("aria-label={t('workout.add_exercise')}");
+    expect(builderSource).not.toContain('<ExercisePicker');
+    expect(builderSource).not.toContain('role="dialog"');
   });
 });

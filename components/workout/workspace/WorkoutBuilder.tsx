@@ -1,0 +1,127 @@
+'use client';
+
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react';
+import { useWorkoutWorkspace } from '@/components/workout/workspace/WorkoutWorkspaceProvider';
+import { useI18n } from '@/lib/i18n';
+import type { WorkoutDraft } from '@/lib/workout/workspace-state';
+import { WORKOUT_ROUTES } from '@/lib/workout/workspace-routes';
+
+export interface WorkoutExerciseOption {
+  id: string;
+  name: string;
+}
+
+interface WorkoutBuilderProps {
+  exercises: WorkoutExerciseOption[];
+  onSavePlan: (draft: WorkoutDraft) => void;
+}
+
+const cardioActivities = ['walk', 'run', 'cycle', 'hiit', 'swim', 'other'] as const;
+
+export function WorkoutBuilder({ exercises, onSavePlan }: WorkoutBuilderProps) {
+  const router = useRouter();
+  const { t } = useI18n();
+  const workspace = useWorkoutWorkspace();
+  const draft = workspace.state.draft;
+  const [showExercises, setShowExercises] = useState(false);
+  const names = new Map(exercises.map((exercise) => [exercise.id, exercise.name]));
+
+  if (!draft) {
+    return (
+      <main className="mx-auto max-w-2xl px-4 py-8 text-center">
+        <p className="text-[var(--content-secondary)]">{t('workout.no_draft')}</p>
+        <button type="button" className="btn-gold mt-4 min-h-11 rounded-xl px-4" onClick={() => router.push(WORKOUT_ROUTES.home)}>{t('workout.back_home')}</button>
+      </main>
+    );
+  }
+
+  const canReview = draft.kind === 'strength' ? draft.exercises.length > 0 : draft.durationMinutes > 0;
+  const review = () => {
+    if (!canReview) return;
+    workspace.goToReview();
+    router.push(WORKOUT_ROUTES.review);
+  };
+
+  return (
+    <main className="mx-auto max-w-2xl space-y-5 px-4 py-5">
+      <p className="inline-flex rounded-full bg-[var(--surface-subtle)] px-3 py-1 text-xs font-semibold text-[var(--content-secondary)]">
+        {t('workout.draft_not_started')}
+      </p>
+
+      <label className="block text-sm font-medium text-[var(--content-secondary)]">
+        {t('workout.name')}
+        <input
+          value={draft.name}
+          onChange={(event) => workspace.updateDraftName(event.target.value)}
+          className="mt-1 min-h-11 w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-3 text-base text-[var(--content-primary)]"
+        />
+      </label>
+
+      {draft.kind === 'strength' ? (
+        <section className="space-y-3">
+          {draft.exercises.map((draftExercise, index) => {
+            const name = names.get(draftExercise.exerciseId) ?? draftExercise.exerciseId;
+            return (
+              <article key={draftExercise.exerciseId} className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-4">
+                <div className="flex items-center gap-2">
+                  <h2 className="min-w-0 flex-1 truncate font-semibold text-[var(--content-primary)]">{name}</h2>
+                  <button type="button" disabled={index === 0} aria-label={t('workout.move_named_up', { name })} onClick={() => workspace.reorderDraftExercise(draftExercise.exerciseId, 'up')} className="inline-flex min-h-11 min-w-11 items-center justify-center disabled:opacity-30"><ChevronUp size={18} aria-hidden="true" /></button>
+                  <button type="button" disabled={index === draft.exercises.length - 1} aria-label={t('workout.move_named_down', { name })} onClick={() => workspace.reorderDraftExercise(draftExercise.exerciseId, 'down')} className="inline-flex min-h-11 min-w-11 items-center justify-center disabled:opacity-30"><ChevronDown size={18} aria-hidden="true" /></button>
+                  <button type="button" aria-label={t('workout.remove_named', { name })} onClick={() => workspace.removeDraftExercise(draftExercise.exerciseId)} className="inline-flex min-h-11 min-w-11 items-center justify-center text-[var(--status-danger-fg)]"><Trash2 size={17} aria-hidden="true" /></button>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <label className="text-xs text-[var(--content-secondary)]">
+                    {t('workout.target_sets')}
+                    <input type="number" min={1} aria-label={t('workout.target_sets_named', { name })} value={draftExercise.targetSets} onChange={(event) => workspace.updateDraftExercise(draftExercise.exerciseId, { targetSets: Math.max(1, Number(event.target.value) || 1) })} className="mt-1 min-h-11 w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-3 text-base text-[var(--content-primary)]" />
+                  </label>
+                  <label className="text-xs text-[var(--content-secondary)]">
+                    {t('workout.target_reps')}
+                    <input aria-label={t('workout.target_reps_named', { name })} value={draftExercise.targetReps} onChange={(event) => workspace.updateDraftExercise(draftExercise.exerciseId, { targetReps: event.target.value })} className="mt-1 min-h-11 w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-3 text-base text-[var(--content-primary)]" />
+                  </label>
+                </div>
+              </article>
+            );
+          })}
+
+          <button type="button" onClick={() => setShowExercises((open) => !open)} aria-expanded={showExercises} className="btn-ghost inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl"><Plus size={17} aria-hidden="true" />{t('workout.add_exercise')}</button>
+          {showExercises ? (
+            <div aria-label={t('workout.add_exercise')} className="grid grid-cols-1 gap-2 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-3 sm:grid-cols-2">
+              {exercises.filter((exercise) => !draft.exercises.some((item) => item.exerciseId === exercise.id)).map((exercise) => (
+                <button key={exercise.id} type="button" onClick={() => workspace.addDraftExercise(exercise.id)} className="min-h-11 rounded-xl bg-[var(--surface-raised)] px-3 text-left text-sm font-medium text-[var(--content-primary)]">{exercise.name}</button>
+              ))}
+            </div>
+          ) : null}
+        </section>
+      ) : (
+        <section className="grid grid-cols-1 gap-4 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-4 sm:grid-cols-2">
+          <label className="text-sm text-[var(--content-secondary)]">
+            {t('workout.activity')}
+            <select aria-label={t('workout.activity')} value={draft.activity} onChange={(event) => workspace.updateCardioDraft({ activity: event.target.value as typeof draft.activity })} className="mt-1 min-h-11 w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-3 text-base text-[var(--content-primary)]">
+              {cardioActivities.map((activity) => <option key={activity} value={activity}>{t(`workout.cardio_${activity}`)}</option>)}
+            </select>
+          </label>
+          <label className="text-sm text-[var(--content-secondary)]">
+            {t('workout.duration_minutes')}
+            <input aria-label={t('workout.duration_minutes')} type="number" min={0} value={draft.durationMinutes} onChange={(event) => workspace.updateCardioDraft({ durationMinutes: Math.max(0, Number(event.target.value) || 0) })} className="mt-1 min-h-11 w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-3 text-base text-[var(--content-primary)]" />
+          </label>
+          <label className="text-sm text-[var(--content-secondary)]">
+            {t('workout.distance_optional')}
+            <input aria-label={t('workout.distance_optional')} type="number" min={0} step="0.1" value={draft.distanceKm ?? ''} onChange={(event) => workspace.updateCardioDraft({ distanceKm: event.target.value === '' ? null : Math.max(0, Number(event.target.value)) })} className="mt-1 min-h-11 w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-3 text-base text-[var(--content-primary)]" />
+          </label>
+          <label className="text-sm text-[var(--content-secondary)]">
+            {t('workout.effort')}
+            <input aria-label={t('workout.effort')} type="number" min={1} max={10} value={draft.effort ?? ''} onChange={(event) => workspace.updateCardioDraft({ effort: event.target.value === '' ? null : Math.min(10, Math.max(1, Number(event.target.value))) })} className="mt-1 min-h-11 w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] px-3 text-base text-[var(--content-primary)]" />
+          </label>
+        </section>
+      )}
+
+      {!canReview ? <p className="text-sm text-[var(--content-secondary)]">{t(draft.kind === 'strength' ? 'workout.empty_strength_hint' : 'workout.empty_cardio_hint')}</p> : null}
+      <div className="grid grid-cols-2 gap-3">
+        <button type="button" onClick={() => onSavePlan(draft)} className="btn-ghost min-h-11 rounded-xl">{t('workout.save_plan')}</button>
+        <button type="button" disabled={!canReview} onClick={review} className="btn-gold min-h-11 rounded-xl disabled:opacity-40">{t('workout.review_workout')}</button>
+      </div>
+    </main>
+  );
+}
