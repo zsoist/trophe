@@ -307,19 +307,20 @@ Closing the exercise picker returns to the previous draft without starting, fini
 
 ## 15. Implementation Record
 
-**Verified code release candidate:** `ba88cf7f18a7b4307c3b6dcdd5bd136b8f74614b`
+**Verified code release candidate:** `fc31099a0572490dd39480d72cb4e5868cc25b70`
 **Local verification date:** 2026-08-25
 
 - Static gates: `git diff --check`, TypeScript, and ESLint all exited 0; ESLint reported 45 existing warnings and 0 errors.
-- Focused workout, exercise, client-shell, navigation, and live-workout suites: 29 files and 259 tests passed.
-- Full Vitest suite with Node local-storage support: 256 files and 1,925 tests passed; 1 file and 46 tests were intentionally skipped.
+- Focused gates passed 98 plan/save UI tests, 102 live/DB tests, 161 navigation/recovery tests, and the final 32 narrow-geometry/modal/navigation tests.
+- Full Vitest suite with Node local-storage support: 261 files and 1,983 tests passed; 1 file and 46 tests were intentionally skipped.
+- `db:verify` passed. Local Postgres migration/bootstrap probes covered the lossless duplicate-session abort, schema parity, function grants/search paths, and a two-connection terminal delete race.
 - Production build: Next.js 16.2.12 compiled successfully and generated 70 static pages using documented non-secret local Supabase placeholders.
 - Performance, theme, paid-AI, and workout-asset guards passed. The deterministic asset check covered 20 alpha WebPs totaling 778,430 runtime bytes.
-- Authenticated mobile Playwright: the scoped Workout Workspace V2 suite passed 10/10 and removed its disposable users. The journey made no paid-provider requests.
+- Authenticated Playwright: the exact Workout Workspace V2 suite passed 20/20 across mobile and desktop projects and removed its disposable users. The journeys made no paid-provider requests.
 - Repository-wide authenticated Playwright: 76/76 tests passed across mobile and desktop projects. The optional PWA offer remained visible without blocking the mobile voice composer, and the restored Workout Home unit control persisted kg-to-lb and lb-to-kg changes across reloads.
-- Visual evidence: Home, Preview, Build, Browser, Detail, Review, Live, Paused, Pain, Plate, Finish, and Completed were captured and inspected at a 390×844 CSS viewport in light and dark themes (1,170×2,532 device-pixel images).
-- Impeccable detector: no findings in the changed workout surfaces or release-evidence spec.
+- Visual evidence: 80 original-resolution captures cover Home, Preview, Build, Browser, Detail, Review, Live, Paused, Pain, Plate, Finish, Completed, and responsive 320/375/390/430 layouts in light and dark. The retained local evidence root is `/tmp/trophe-task11-evidence.IbxaNZ`.
+- Impeccable: original-resolution inspection accepted the changed workout surfaces. The mechanical scan found no changed-line issue; its nonzero result is the existing whole-file `app/globals.css` warning/advisory inventory outside this release diff.
 
-The scoped runner forwards explicit Playwright specs and options verbatim while preserving the existing default matrix when no arguments are supplied. The final fix round also moved the install offer into document flow so it cannot overlay core interaction, and restored the persisted kg/lb control exclusively on Workout Home without crowding nested workspace headers.
+The final recovery contract retains Completed until explicit acknowledgement, routes active and terminal stages to their dominant Continue/Summary action, preserves route-aware Back separately from Workout Home, and keeps draft edits intact. Saved plans now use awaited owner-scoped persistence; failed set payloads survive retry/refresh; terminal mutation is database-protected; cardio recovery stores structured facts; and Build/Review show movement, muscle, and equipment evidence. The scoped runner forwards explicit Playwright specs and options verbatim while preserving the existing default matrix when no arguments are supplied. The final visual pass also keeps the install offer in document flow, restores the persisted kg/lb control exclusively on Workout Home, prevents bottom-navigation collisions at 320–390 px, and removes inherited page-height geometry from Pain and Plate dialogs.
 
 CI, pull-request review, production deployment, and post-deploy canary evidence are not part of this local record and remain required before production promotion.
