@@ -35,6 +35,9 @@ const IDS = {
   keyTerminalUpdates: 'a7100000-0000-4000-8000-000000000023',
   keyLiveUpdates: 'a7100000-0000-4000-8000-000000000024',
   keyTerminalAuthority: 'a7100000-0000-4000-8000-000000000025',
+  template: 'a7100000-0000-4000-8000-000000000026',
+  templateArchive: 'a7100000-0000-4000-8000-000000000027',
+  keyTemplateArchive: 'a7100000-0000-4000-8000-000000000028',
 };
 
 type LiveStructure = Array<{
@@ -79,12 +82,13 @@ async function start(
   key: string,
   draftFingerprint = 'draft:shared',
   sessionDate = '2026-08-24',
+  templateId: string | null = null,
 ) {
   return client.query<{ id: string }>(`
     SELECT public.start_workout_session(
-      $1::uuid, $2::text, $3::date, 'Push'::text, NULL::uuid, 'strength'::text, $4::jsonb
+      $1::uuid, $2::text, $3::date, 'Push'::text, $5::uuid, 'strength'::text, $4::jsonb
     ) AS id
-  `, [key, draftFingerprint, sessionDate, JSON.stringify(initialStructure)]);
+  `, [key, draftFingerprint, sessionDate, JSON.stringify(initialStructure), templateId]);
 }
 
 beforeAll(async () => {
@@ -130,6 +134,13 @@ beforeAll(async () => {
       ($2, 'Consistency Row', 'back', true)
     ON CONFLICT (id) DO NOTHING
   `, [IDS.exerciseA, IDS.exerciseB]);
+  await pool.query(`
+    INSERT INTO public.workout_templates (id, created_by, name, exercises, shared)
+    VALUES
+      ($1, $3, 'Terminal provenance', '[]'::jsonb, false),
+      ($2, $3, 'Archived terminal provenance', '[]'::jsonb, false)
+    ON CONFLICT (id) DO NOTHING
+  `, [IDS.template, IDS.templateArchive, IDS.user]);
 });
 
 beforeEach((context) => {
@@ -139,6 +150,7 @@ beforeEach((context) => {
 afterAll(async () => {
   if (dbReachable) {
     await pool.query(`DELETE FROM public.workout_sessions WHERE user_id = $1`, [IDS.user]);
+    await pool.query(`DELETE FROM public.workout_templates WHERE id IN ($1, $2)`, [IDS.template, IDS.templateArchive]);
     await pool.query(`DELETE FROM public.exercises WHERE id IN ($1, $2)`, [IDS.exerciseA, IDS.exerciseB]);
     await pool.query(`DELETE FROM public.profiles WHERE id = $1`, [IDS.user]);
     await pool.query(`DELETE FROM auth.users WHERE id = $1`, [IDS.user]);
@@ -485,13 +497,21 @@ describe('live workout transactional consistency', () => {
 
   it('cannot clear database terminal authority to reopen a completed workout', async () => {
     await asUser(async (client) => {
-      const sessionId = (await start(client, IDS.keyTerminalAuthority, 'draft:terminal-authority')).rows[0].id;
+      const sessionId = (await start(client, IDS.keyTerminalAuthority, 'draft:terminal-authority', '2026-08-24', IDS.template)).rows[0].id;
+      const provenance = await client.query<{ template_id: string | null }>(
+        `SELECT template_id FROM public.workout_sessions WHERE id = $1`,
+        [sessionId],
+      );
+      expect(provenance.rows[0].template_id).toBe(IDS.template);
       const saved = await client.query<{ id: string }>(`
         SELECT public.save_live_workout_set($1::uuid, $2::uuid, 1, 60::real, 8, 8::real, false, false, 1) AS id
       `, [sessionId, IDS.exerciseA]);
-      await client.query(`SELECT public.finish_live_workout_session($1::uuid, 'Push', 20, NULL::uuid, NULL::text, NULL::real, NULL::real)`, [sessionId]);
+      await client.query(`SELECT public.finish_live_workout_session($1::uuid, 'Push', 20, $2::uuid, NULL::text, NULL::real, NULL::real)`, [sessionId, IDS.template]);
 
       const authorityAssignments = [
+        `id = 'a7100000-0000-4000-8000-000000000097'::uuid`,
+        `created_at = created_at + interval '1 second'`,
+        `template_id = NULL`,
         'duration_minutes = NULL', 'completed_at = NULL', `session_date = '2026-08-23'`,
         `name = 'Changed'`, `notes = 'changed'`, `pain_flags = '[{"body_part":"knee"}]'::jsonb`,
         `client_idempotency_key = 'a7100000-0000-4000-8000-000000000099'::uuid`,
@@ -503,7 +523,7 @@ describe('live workout transactional consistency', () => {
       ];
       for (let index = 0; index < authorityAssignments.length; index += 1) {
         await client.query(`SAVEPOINT reopen_terminal_${index}`);
-        await expect(client.query(`UPDATE public.workout_sessions SET ${authorityAssignments[index]} WHERE id = $1`, [sessionId]))
+        await expect(client.query(`UPDATE public.workout_sessions SET ${authorityAssignments[index]} WHERE id = $1`, [sessionId]), authorityAssignments[index])
           .rejects.toMatchObject({ code: '22023' });
         await client.query(`ROLLBACK TO SAVEPOINT reopen_terminal_${index}`);
       }
@@ -520,6 +540,39 @@ describe('live workout transactional consistency', () => {
       `, [sessionId]);
       expect(preserved.rows[0]).toMatchObject({ duration_minutes: 20, reps: 8 });
       expect(preserved.rows[0].completed_at).not.toBeNull();
+    });
+  });
+
+  it('allows only the foreign-key archival action to clear terminal template provenance', async () => {
+    await asUser(async (client) => {
+      const sessionId = (await start(
+        client,
+        IDS.keyTemplateArchive,
+        'draft:template-archive',
+        '2026-08-24',
+        IDS.templateArchive,
+      )).rows[0].id;
+      await client.query(`
+        SELECT public.finish_live_workout_session(
+          $1::uuid, 'Push', 20, $2::uuid, NULL::text, NULL::real, NULL::real
+        )
+      `, [sessionId, IDS.templateArchive]);
+      const before = await client.query<{ id: string; created_at: Date; template_id: string | null }>(`
+        SELECT id, created_at, template_id FROM public.workout_sessions WHERE id = $1
+      `, [sessionId]);
+      expect(before.rows[0].template_id).toBe(IDS.templateArchive);
+
+      await client.query('RESET ROLE');
+      await client.query(`DELETE FROM public.workout_templates WHERE id = $1`, [IDS.templateArchive]);
+
+      const after = await client.query<{ id: string; created_at: Date; template_id: string | null }>(`
+        SELECT id, created_at, template_id FROM public.workout_sessions WHERE id = $1
+      `, [sessionId]);
+      expect(after.rows[0]).toEqual({
+        id: before.rows[0].id,
+        created_at: before.rows[0].created_at,
+        template_id: null,
+      });
     });
   });
 

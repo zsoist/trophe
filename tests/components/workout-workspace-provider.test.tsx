@@ -132,7 +132,8 @@ describe('WorkoutWorkspaceProvider', () => {
 
   it('creates one session only after explicit live start', async () => {
     startLiveSession.mockResolvedValue({ ok: true, sessionId: 'session-1' });
-    render(<ProviderHarness userId="nik" />);
+    const storage = new MemoryStorage();
+    render(<ProviderHarness userId="nik" storage={storage} />);
     await waitFor(() => expect(screen.getByRole('button', { name: 'Start live workout' })).toBeTruthy());
 
     fireEvent.click(screen.getByRole('button', { name: 'Create Push draft' }));
@@ -142,6 +143,9 @@ describe('WorkoutWorkspaceProvider', () => {
     await waitFor(() => expect(startLiveSession).toHaveBeenCalledTimes(1));
     expect(startLiveSession).toHaveBeenCalledWith(expect.objectContaining({ name: 'Push', templateId: null }));
     expect(screen.getByText('Live')).toBeTruthy();
+    await waitFor(() => expect(JSON.parse(storage.getItem('trophe:workout-workspace:nik') ?? '{}')).toMatchObject({
+      stage: 'live', sessionId: 'session-1', startRequest: null, clientRequestId: null,
+    }));
   });
 
   it('creates and edits a populated template draft without persistence writes', async () => {

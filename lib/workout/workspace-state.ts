@@ -247,7 +247,17 @@ export function workoutWorkspaceReducer(
       requireDraft(state);
       if (state.stage !== 'draft' && state.stage !== 'review') throw new Error(`Cannot start live workout from ${state.stage}`);
       if (state.retrospectiveRequest) throw new Error('Cannot start live workout while a retrospective save is pending');
-      return { ...state, stage: 'live', sessionId: event.payload.sessionId, clock: { runningSince: event.payload.now, accumulatedMs: 0 }, finishingFrom: null };
+      return {
+        ...state,
+        stage: 'live',
+        sessionId: event.payload.sessionId,
+        clock: { runningSince: event.payload.now, accumulatedMs: 0 },
+        finishingFrom: null,
+        // Acceptance is the only safe point to retire the immutable retry
+        // envelope. Ambiguous failures remain byte-for-byte replayable.
+        clientRequestId: null,
+        startRequest: null,
+      };
     case 'live.draftUpdated':
       requireDraft(state);
       if (state.stage !== 'live' && state.stage !== 'paused') throw new Error(`Cannot update a live draft from ${state.stage}`);

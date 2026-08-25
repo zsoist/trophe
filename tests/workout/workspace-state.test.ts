@@ -34,13 +34,34 @@ describe('workout workspace state', () => {
     expect(reopened.draft).toEqual(state.draft);
   });
 
-  it('persists an idempotency key before the live request and carries it into recovery', () => {
+  it('retires a keyed request after the server accepts the live session', () => {
     let state = workoutWorkspaceReducer(createInitialWorkspaceState(), {
       type: 'draft.created', payload: { name: 'Push', kind: 'strength' },
     });
     state = workoutWorkspaceReducer(state, { type: 'request.keyed', payload: { clientRequestId: '11111111-1111-4111-8111-111111111111' } });
     state = workoutWorkspaceReducer(state, { type: 'live.started', payload: { sessionId: 'session-1', now: 1 } });
-    expect(state.clientRequestId).toBe('11111111-1111-4111-8111-111111111111');
+    expect(state.clientRequestId).toBeNull();
+  });
+
+  it('clears the accepted live start envelope only after the canonical session is accepted', () => {
+    let state = workoutWorkspaceReducer(createInitialWorkspaceState(), {
+      type: 'draft.created', payload: { name: 'Push', kind: 'strength' },
+    });
+    const startRequest = {
+      idempotencyKey: '11111111-1111-4111-8111-111111111111',
+      draftFingerprint: 'draft:push', sessionDate: '2026-08-25', name: 'Push',
+      templateId: null, kind: 'strength' as const, liveStructure: [],
+    };
+    state = workoutWorkspaceReducer(state, { type: 'request.prepared', payload: { startRequest } });
+    expect(state.startRequest).toEqual(startRequest);
+
+    const accepted = workoutWorkspaceReducer(state, {
+      type: 'live.started', payload: { sessionId: 'canonical-session', now: 1 },
+    });
+
+    expect(accepted).toMatchObject({
+      stage: 'live', sessionId: 'canonical-session', startRequest: null, clientRequestId: null,
+    });
   });
 
   it('freezes the complete canonical start request before the network call', () => {
