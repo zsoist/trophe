@@ -547,6 +547,13 @@
       "when": 1787615081000,
       "tag": "0077_live_workout_rollout_safety",
       "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1787691600000,
+      "tag": "0078_terminal_workout_set_updates",
+      "breakpoints": true
     }
   ]
 }

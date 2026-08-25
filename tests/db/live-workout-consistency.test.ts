@@ -32,6 +32,8 @@ const IDS = {
   keyDirectDelete: 'a7100000-0000-4000-8000-000000000020',
   keyCardio: 'a7100000-0000-4000-8000-000000000021',
   keyRollingCardio: 'a7100000-0000-4000-8000-000000000022',
+  keyTerminalUpdates: 'a7100000-0000-4000-8000-000000000023',
+  keyLiveUpdates: 'a7100000-0000-4000-8000-000000000024',
 };
 
 type LiveStructure = Array<{
@@ -453,6 +455,51 @@ describe('live workout transactional consistency', () => {
       await expect(client.query(`DELETE FROM public.workout_sets WHERE id = $1`, [saved.rows[0].id]))
         .rejects.toMatchObject({ code: '22023' });
       await client.query('ROLLBACK TO SAVEPOINT direct_delete');
+    });
+  });
+
+  it('rejects every set-column update after completion and preserves the row', async () => {
+    await asUser(async (client) => {
+      const sessionId = (await start(client, IDS.keyTerminalUpdates, 'draft:terminal-updates')).rows[0].id;
+      const saved = await client.query<{ id: string }>(`
+        SELECT public.save_live_workout_set($1::uuid, $2::uuid, 1, 60::real, 8, 8::real, false, false, 1) AS id
+      `, [sessionId, IDS.exerciseA]);
+      await client.query(`SELECT public.finish_live_workout_session($1::uuid, 'Push', 20, NULL::uuid, NULL::text, NULL::real, NULL::real)`, [sessionId]);
+      const assignments = [
+        'id = id', 'session_id = session_id', 'exercise_id = exercise_id', 'set_number = 2',
+        'weight_kg = 99', 'reps = 12', 'rpe = 9', 'is_warmup = true', 'is_pr = true',
+        'superset_group = 1', `notes = 'changed'`, `client_request = '{"changed":true}'::jsonb`,
+        `created_at = created_at + interval '1 second'`,
+      ];
+      for (let index = 0; index < assignments.length; index += 1) {
+        await client.query(`SAVEPOINT terminal_column_${index}`);
+        await expect(client.query(`UPDATE public.workout_sets SET ${assignments[index]} WHERE id = $1`, [saved.rows[0].id]))
+          .rejects.toMatchObject({ code: '22023' });
+        await client.query(`ROLLBACK TO SAVEPOINT terminal_column_${index}`);
+      }
+      const preserved = await client.query(`SELECT weight_kg, reps, rpe, is_warmup, is_pr, notes FROM public.workout_sets WHERE id = $1`, [saved.rows[0].id]);
+      expect(preserved.rows[0]).toMatchObject({ weight_kg: 60, reps: 8, rpe: 8, is_warmup: false, is_pr: false, notes: null });
+    });
+  });
+
+  it('allows the same complete set-column update surface while the session is live', async () => {
+    await asUser(async (client) => {
+      const sessionId = (await start(client, IDS.keyLiveUpdates, 'draft:live-updates')).rows[0].id;
+      const saved = await client.query<{ id: string }>(`
+        SELECT public.save_live_workout_set($1::uuid, $2::uuid, 1, 60::real, 8, 8::real, false, false, 1) AS id
+      `, [sessionId, IDS.exerciseA]);
+      const assignments = [
+        'id = id', 'session_id = session_id', 'exercise_id = exercise_id', 'set_number = 2',
+        'weight_kg = 99', 'reps = 12', 'rpe = 9', 'is_warmup = true', 'is_pr = true',
+        'superset_group = 1', `notes = 'changed'`, `client_request = '{"changed":true}'::jsonb`,
+        `created_at = created_at + interval '1 second'`,
+      ];
+      for (let index = 0; index < assignments.length; index += 1) {
+        await client.query(`SAVEPOINT live_column_${index}`);
+        const result = await client.query(`UPDATE public.workout_sets SET ${assignments[index]} WHERE id = $1`, [saved.rows[0].id]);
+        expect(result.rowCount).toBe(1);
+        await client.query(`ROLLBACK TO SAVEPOINT live_column_${index}`);
+      }
     });
   });
 
