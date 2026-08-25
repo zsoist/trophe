@@ -24,14 +24,15 @@ let workspace = { state: liveState, pause: vi.fn(), resume: vi.fn(), ...harness 
 vi.mock('@/components/workout/workspace/WorkoutWorkspaceProvider', () => ({ useWorkoutWorkspace: () => workspace }));
 vi.mock('@/components/workout/ExerciseInfoSheet', () => ({ default: () => null }));
 vi.mock('@/components/workout/PainFlagModal', () => ({ default: ({ onSave }: { onSave: (flag: { exercise_id: string; body_part: string; severity: number }, mutationId: string) => Promise<boolean> }) => <button type="button" onClick={() => void onSave({ exercise_id: 'bench', body_part: 'shoulder', severity: 2 }, '33333333-3333-4333-8333-333333333333')}>Save pain note</button> }));
-vi.mock('@/components/workout/PlateCalculator', () => ({ default: () => null }));
+vi.mock('framer-motion', () => ({ motion: { div: ({ children, initial: _initial, animate: _animate, exit: _exit, transition: _transition, ...props }: React.HTMLAttributes<HTMLDivElement> & { initial?: unknown; animate?: unknown; exit?: unknown; transition?: unknown }) => { void _initial; void _animate; void _exit; void _transition; return <div {...props}>{children}</div>; } }, useReducedMotion: () => true }));
 vi.mock('@/components/workout/workspace/ExerciseSetLogger', () => ({
-  ExerciseSetLogger: ({ exercise, disabled, onComplete, onSuperset, onRemove, onPain }: { exercise: { name: string }; disabled?: boolean; onComplete: (value: { weight: number; reps: number; rpe: number | null; isWarmup: boolean }) => Promise<string | null>; onSuperset?: () => void; onRemove?: () => void; onPain?: () => void }) => (
+  ExerciseSetLogger: ({ exercise, disabled, onComplete, onSuperset, onRemove, onPain, onPlateCalculator }: { exercise: { name: string }; disabled?: boolean; onComplete: (value: { weight: number; reps: number; rpe: number | null; isWarmup: boolean }) => Promise<string | null>; onSuperset?: () => void; onRemove?: () => void; onPain?: () => void; onPlateCalculator?: (weight: number) => void }) => (
     <div>
       <button type="button" disabled={disabled} onClick={() => void onComplete({ weight: 60, reps: 8, rpe: null, isWarmup: false })}>Complete {exercise.name}</button>
       <button type="button" disabled={disabled} onClick={onSuperset}>Superset {exercise.name}</button>
       <button type="button" disabled={disabled} onClick={onRemove}>Remove {exercise.name}</button>
       <button type="button" disabled={disabled} onClick={onPain}>Pain {exercise.name}</button>
+      <button type="button" disabled={disabled} onClick={() => onPlateCalculator?.(100)}>Plate {exercise.name}</button>
     </div>
   ),
 }));
@@ -56,6 +57,12 @@ vi.mock('@/lib/i18n', () => ({ useI18n: () => ({ t: (key: string) => ({
   'workout.save_failed': 'Save failed',
   'workout.mutation_failed': 'A workout change could not be saved. Retry that change before finishing.',
   'workout.recovery_failed': 'Workout recovery could not be verified.', 'workout.retry_recovery': 'Retry recovery',
+  'workout.plate_title': 'Plate calculator', 'workout.plate_total_label': 'Total weight', 'workout.plate_bar_label': 'Bar weight',
+  'workout.plate_inventory_label': 'Available plates per side', 'workout.plate_inventory_help': 'Use semicolons.',
+  'workout.plate_left_side': 'Left side', 'workout.plate_right_side': 'Right side', 'workout.plate_per_side': 'Plates are listed per side',
+  'workout.plate_exact': 'Exact load', 'workout.plate_nearest': 'Nearest achievable load', 'workout.plate_impossible': 'No achievable load',
+  'workout.warmup_title': 'Warm-up ramp', 'workout.warmup_explanation': 'Suggestions based on your working weight.', 'workout.warmup_no_ramp': 'No ramp available.',
+  'workout.add_warmup_sets': 'Add warm-up sets', 'workout.add_warmup_sets_saving': 'Adding warm-up sets…', 'workout.add_warmup_sets_failed': 'Warm-up sets could not be added. Retry.', 'workout.custom_cancel': 'Close',
 }[key] ?? key) }) }));
 
 import { LiveWorkout } from '@/components/workout/workspace/LiveWorkout';
@@ -116,6 +123,28 @@ describe('LiveWorkout', () => {
     }]} />);
     fireEvent.click(await screen.findByRole('button', { name: 'Complete Bench Press' }));
     await vi.waitFor(() => expect(harness.completeLiveSet).toHaveBeenCalledWith(expect.objectContaining({ weightKg: 60, isPr: true })));
+  });
+
+  it('uses the real plate calculator callback, retains identities for an exact retry, and blocks finish while it is pending', async () => {
+    harness.completeLiveSet.mockResolvedValueOnce({ ok: true, setId: 'warmup-1' }).mockResolvedValueOnce({ ok: false }).mockResolvedValue({ ok: true, setId: 'warmup-retry' });
+    render(<LiveWorkout exercises={[{
+      id: 'bench', name: 'Bench Press', name_es: null, name_el: null, muscle_group: 'chest', secondary_muscles: null,
+      equipment: 'barbell', is_compound: true, is_template: true, created_by: null, created_at: '',
+    }]} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Plate Bench Press' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add warm-up sets' }));
+    expect(screen.getByRole('button', { name: 'Finish workout' }).hasAttribute('disabled')).toBe(true);
+    await screen.findAllByRole('alert');
+    const firstAttempt = harness.completeLiveSet.mock.calls.map(([input]) => input.setNumber);
+    expect(firstAttempt).toEqual([1, 2]);
+    fireEvent.change(screen.getByLabelText('Total weight (kg)'), { target: { value: '120' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add warm-up sets' }));
+    await vi.waitFor(() => expect(screen.getByRole('button', { name: 'Add warm-up sets' })).toBeTruthy());
+    expect(harness.completeLiveSet.mock.calls).toHaveLength(2);
+    fireEvent.change(screen.getByLabelText('Total weight (kg)'), { target: { value: '100' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add warm-up sets' }));
+    await vi.waitFor(() => expect(harness.completeLiveSet.mock.calls.length).toBeGreaterThan(2));
+    expect(harness.completeLiveSet.mock.calls[2][0].setNumber).toBe(1);
   });
 
   it('blocks finish while a set write is pending and after a failed write until retry succeeds', async () => {

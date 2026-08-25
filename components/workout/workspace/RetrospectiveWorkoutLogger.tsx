@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import ExerciseInfoSheet from '@/components/workout/ExerciseInfoSheet';
 import PainFlagModal from '@/components/workout/PainFlagModal';
 import PlateCalculator from '@/components/workout/PlateCalculator';
@@ -23,6 +23,12 @@ interface RetrospectiveWorkoutLoggerProps {
   onCancel(): void;
 }
 
+interface RetrospectiveLoggerRow {
+  id: string;
+  exerciseId: string;
+  setNumber: number;
+}
+
 export function RetrospectiveWorkoutLogger({ userId, idempotencyKey, draft, exercises, onSaved, onCancel }: RetrospectiveWorkoutLoggerProps) {
   const { t } = useI18n();
   const [unit] = useWeightUnit();
@@ -35,7 +41,8 @@ export function RetrospectiveWorkoutLogger({ userId, idempotencyKey, draft, exer
   const [painExerciseId, setPainExerciseId] = useState<string | null>(null);
   const [infoExercise, setInfoExercise] = useState<Exercise | null>(null);
   const [plateContext, setPlateContext] = useState<{ exerciseId: string; weightKg: number } | null>(null);
-  const [warmupRows, setWarmupRows] = useState<Array<{ exerciseId: string; setNumber: number }>>([]);
+  const [warmupRows, setWarmupRows] = useState<Array<{ id: string; exerciseId: string }>>([]);
+  const warmupSequence = useRef(0);
   const [confirming, setConfirming] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(false);
@@ -77,32 +84,33 @@ export function RetrospectiveWorkoutLogger({ userId, idempotencyKey, draft, exer
     );
   }
 
-  const rows = draft.exercises.flatMap((exercise) => {
-    const warmupCount = warmupRows.filter((row) => row.exerciseId === exercise.exerciseId).length;
+  const rows: RetrospectiveLoggerRow[] = draft.exercises.flatMap((exercise) => {
+    const warmups = warmupRows.filter((row) => row.exerciseId === exercise.exerciseId);
+    const warmupCount = warmups.length;
     return [
-      ...Array.from({ length: warmupCount }, (_, index) => ({ exerciseId: exercise.exerciseId, setNumber: index + 1 })),
-      ...Array.from({ length: exercise.targetSets }, (_, index) => ({ exerciseId: exercise.exerciseId, setNumber: warmupCount + index + 1 })),
+      ...warmups.map((row, index) => ({ ...row, setNumber: index + 1 })),
+      ...Array.from({ length: exercise.targetSets }, (_, index) => ({ id: `planned:${exercise.exerciseId}:${index + 1}`, exerciseId: exercise.exerciseId, setNumber: warmupCount + index + 1 })),
     ];
   });
-  const keyFor = (exerciseId: string, setNumber: number) => `${exerciseId}:${setNumber}`;
-  const resolvedSets: CompletedSetInput[] = Object.entries(completed).map(([key, value]) => {
-    const [exerciseId, rawSetNumber] = key.split(':');
-    const exercise = exerciseById.get(exerciseId);
-    const exerciseIndex = draft.exercises.findIndex((candidate) => candidate.exerciseId === exerciseId);
+  const resolvedSets: CompletedSetInput[] = rows.flatMap((row) => {
+    const value = completed[row.id];
+    if (!value) return [];
+    const exercise = exerciseById.get(row.exerciseId);
+    const exerciseIndex = draft.exercises.findIndex((candidate) => candidate.exerciseId === row.exerciseId);
     const weightKg = value.weight === null ? null : displayToKg(value.weight, unit);
-    return {
-      exercise_id: exerciseId,
-      set_number: Number(rawSetNumber),
+    return [{
+      exercise_id: row.exerciseId,
+      set_number: row.setNumber,
       weight_kg: weightKg,
       reps: value.reps,
       rpe: value.rpe,
       is_warmup: value.isWarmup,
-      is_pr: Boolean(exercise?.is_compound) && !value.isWarmup && weightKg !== null && weightKg > (prMap[exerciseId] ?? 0),
+      is_pr: Boolean(exercise?.is_compound) && !value.isWarmup && weightKg !== null && weightKg > (prMap[row.exerciseId] ?? 0),
       superset_group: supersetGroupFor(
         draft.exercises.map((candidate) => ({ linkedBelow: linkedBelow.includes(candidate.exerciseId) })),
         exerciseIndex,
       ),
-    };
+    }];
   }).sort((a, b) => a.exercise_id.localeCompare(b.exercise_id) || a.set_number - b.set_number);
 
   const saveStrength = async () => {
@@ -125,15 +133,15 @@ export function RetrospectiveWorkoutLogger({ userId, idempotencyKey, draft, exer
         const draftExercise = draft.exercises.find((exercise) => exercise.exerciseId === row.exerciseId);
         const exercise = exerciseById.get(row.exerciseId);
         const resolved = exercise ?? { id: row.exerciseId, name: draftExercise?.exerciseName ?? row.exerciseId, is_compound: false, equipment: null };
-        const key = keyFor(row.exerciseId, row.setNumber);
         return (
           <ExerciseSetLogger
-            key={key}
+            key={row.id}
             exercise={{ id: resolved.id, name: resolved.name, isCompound: resolved.is_compound, equipment: resolved.equipment }}
             setNumber={row.setNumber}
             unit={unit}
-            onComplete={async (value) => { setCompleted((current) => ({ ...current, [key]: value })); return `retrospective:${key}`; }}
-            onUndo={async () => { setCompleted((current) => { const next = { ...current }; delete next[key]; return next; }); return true; }}
+            initialValue={completed[row.id]}
+            onComplete={async (value) => { setCompleted((current) => ({ ...current, [row.id]: value })); return `retrospective:${row.id}`; }}
+            onUndo={async () => { setCompleted((current) => { const next = { ...current }; delete next[row.id]; return next; }); return true; }}
             onTechnique={() => exercise && setInfoExercise(exercise)}
             onPain={() => setPainExerciseId(row.exerciseId)}
             onPlateCalculator={(weight) => weight !== null && setPlateContext({ exerciseId: row.exerciseId, weightKg: displayToKg(weight, unit) })}
@@ -166,19 +174,12 @@ export function RetrospectiveWorkoutLogger({ userId, idempotencyKey, draft, exer
       {painExerciseId ? <PainFlagModal exerciseId={painExerciseId} exerciseName={exerciseById.get(painExerciseId)?.name ?? draft.exercises.find((exercise) => exercise.exerciseId === painExerciseId)?.exerciseName ?? t('painflag.current_exercise')} suggestedBodyPart={exerciseById.get(painExerciseId)?.muscle_group ?? ''} onSave={(flag) => setPainFlags((current) => [...current, flag])} onClose={() => setPainExerciseId(null)} /> : null}
       {infoExercise ? <ExerciseInfoSheet exercise={infoExercise} userId={userId} onClose={() => setInfoExercise(null)} /> : null}
       {plateContext ? <PlateCalculator weightKg={plateContext.weightKg} unit={unit} exerciseContext={{ exerciseId: plateContext.exerciseId, mode: 'draft' }} onAddWarmupSets={async (sets) => {
-        const existingWarmups = warmupRows.filter((row) => row.exerciseId === plateContext.exerciseId).length;
-        const next = sets.map((_, index) => ({ exerciseId: plateContext.exerciseId, setNumber: existingWarmups + index + 1 }));
+        const next = sets.map(() => ({ id: `warmup:${plateContext.exerciseId}:${warmupSequence.current++}`, exerciseId: plateContext.exerciseId }));
         setWarmupRows((current) => [...current, ...next]);
         setCompleted((current) => {
-          const renumbered: Record<string, SetLoggerValue> = {};
-          for (const [key, value] of Object.entries(current)) {
-            const [exerciseId, rawSetNumber] = key.split(':');
-            const setNumber = Number(rawSetNumber);
-            const nextNumber = exerciseId === plateContext.exerciseId && setNumber > existingWarmups ? setNumber + sets.length : setNumber;
-            renumbered[keyFor(exerciseId, nextNumber)] = value;
-          }
-          for (const [index, row] of next.entries()) renumbered[keyFor(row.exerciseId, row.setNumber)] = { weight: sets[index].weight, reps: sets[index].reps, rpe: null, isWarmup: true };
-          return renumbered;
+          const nextCompleted = { ...current };
+          for (const [index, row] of next.entries()) nextCompleted[row.id] = { weight: sets[index].weight, reps: sets[index].reps, rpe: null, isWarmup: true };
+          return nextCompleted;
         });
         return true;
       }} onClose={() => setPlateContext(null)} /> : null}

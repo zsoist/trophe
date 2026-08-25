@@ -97,6 +97,8 @@ describe('RetrospectiveWorkoutLogger', () => {
   it('inserts a retrospective exercise warm-up block before that exercise working rows', async () => {
     render(<RetrospectiveWorkoutLogger userId="nik" idempotencyKey={idempotencyKey} draft={strengthSuperset} exercises={[bench, row]} onSaved={vi.fn()} onCancel={vi.fn()} />);
     fireEvent.change((await screen.findAllByLabelText('Weight in kg'))[0], { target: { value: '80' } });
+    fireEvent.change(screen.getAllByLabelText('Reps')[0], { target: { value: '8' } });
+    fireEvent.click(screen.getAllByRole('button', { name: 'Complete set' })[0]);
     const moreButtons = await screen.findAllByRole('button', { name: 'More exercise options' });
     fireEvent.click(moreButtons[0]);
     fireEvent.click(screen.getByRole('button', { name: 'workout.plate_title' }));
@@ -107,6 +109,8 @@ describe('RetrospectiveWorkoutLogger', () => {
       expect(names.at(-1)).toBe('Row');
       expect(names.slice(0, -1)).toEqual(names.slice(0, -1).map(() => 'Bench Press'));
     });
+    const workingArticle = screen.getAllByRole('article').at(-2)!;
+    expect((workingArticle.querySelector('input[aria-label="Weight in kg"]') as HTMLInputElement).value).toBe('80');
     fireEvent.click(screen.getByRole('button', { name: 'Save completed workout' }));
     fireEvent.click(screen.getByRole('button', { name: 'Save workout' }));
     await vi.waitFor(() => expect(live.saveRetrospectiveWorkout).toHaveBeenCalledWith(expect.objectContaining({

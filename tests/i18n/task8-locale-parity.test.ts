@@ -20,4 +20,14 @@ describe('Task 8 overlay locale parity', () => {
       for (const key of task8Keys) expect(locale[key]).toMatch(/\S/);
     }
   });
+
+  it('never exposes raw muscle-group or generic database tokens as anatomical suggestions', () => {
+    for (const locale of [fr, de, italian, pt, nl]) {
+      expect(locale['painflag.region_biceps']).not.toBe('biceps');
+      expect(locale['painflag.region_quads']).not.toBe('quads');
+      expect(locale['painflag.region_glutes']).not.toBe('glutes');
+      expect(locale['painflag.region_forearms']).not.toBe('forearms');
+      expect(locale['painflag.region_prompt']).not.toMatch(/^(full_body|cardio)$/);
+    }
+  });
 });

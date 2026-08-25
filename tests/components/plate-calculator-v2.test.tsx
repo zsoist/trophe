@@ -63,4 +63,36 @@ describe('PlateCalculator', () => {
     expect((await screen.findByRole('alert')).textContent).toBe('Warm-up sets could not be added. Retry.');
     expect((screen.getByLabelText('Total weight (kg)') as HTMLInputElement).value).toBe('80');
   });
+
+  it('keeps sequential decimal-comma typing intact and blocks every close path while insertion is pending', () => {
+    let resolveInsert!: (value: boolean) => void;
+    const onClose = vi.fn();
+    render(<PlateCalculator weightKg={100} unit="kg" onClose={onClose} exerciseContext={{ exerciseId: 'bench', mode: 'live' }} onAddWarmupSets={() => new Promise<boolean>((resolve) => { resolveInsert = resolve; })} />);
+    const total = screen.getByLabelText('Total weight (kg)');
+    fireEvent.change(total, { target: { value: '80,' } });
+    fireEvent.change(total, { target: { value: '80,5' } });
+    expect((total as HTMLInputElement).value).toBe('80,5');
+    fireEvent.click(screen.getByRole('button', { name: 'Add warm-up sets' }));
+    expect((screen.getByLabelText('Total weight (kg)') as HTMLInputElement).disabled).toBe(true);
+    expect((screen.getByLabelText('Bar weight (kg)') as HTMLInputElement).disabled).toBe(true);
+    expect((screen.getByLabelText('Available plates per side') as HTMLInputElement).disabled).toBe(true);
+    expect(screen.getByRole('button', { name: 'Adding warm-up sets…' }).hasAttribute('disabled')).toBe(true);
+    fireEvent.keyDown(document, { key: 'Escape' });
+    fireEvent.click(document.querySelector('.fixed')!);
+    expect(onClose).not.toHaveBeenCalled();
+    resolveInsert(true);
+  });
+
+  it('treats bar-only equal and above-bar loads as achievable, but below-bar loads as impossible', () => {
+    render(<PlateCalculator weightKg={21} unit="kg" />);
+    fireEvent.change(screen.getByLabelText('Bar weight (kg)'), { target: { value: '20' } });
+    fireEvent.change(screen.getByLabelText('Available plates per side'), { target: { value: '' } });
+    expect(screen.getByText(/Nearest achievable load/)).toBeTruthy();
+    cleanup();
+    render(<PlateCalculator weightKg={20} unit="kg" />);
+    expect(screen.getByText(/Exact load/)).toBeTruthy();
+    cleanup();
+    render(<PlateCalculator weightKg={19} unit="kg" />);
+    expect(screen.getByText(/No achievable load/)).toBeTruthy();
+  });
 });

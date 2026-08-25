@@ -35,9 +35,9 @@ interface LiveWorkoutProps {
   userId?: string | null;
 }
 
-interface LoggerRow {
+interface ExtraLoggerRow {
+  id: string;
   exerciseId: string;
-  setNumber: number;
 }
 
 function cardioNotes(activity: string, values: CardioLogValues): string {
@@ -56,7 +56,8 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
   const [now, setNow] = useState(0);
   const [persistedSets, setPersistedSets] = useState<PersistedWorkoutSet[]>([]);
   const [recoveryLoaded, setRecoveryLoaded] = useState(false);
-  const [extraRows, setExtraRows] = useState<LoggerRow[]>([]);
+  const [extraRows, setExtraRows] = useState<ExtraLoggerRow[]>([]);
+  const extraSequence = useRef(0);
   const [painFlags, setPainFlags] = useState<PainFlag[]>([]);
   const [prMap, setPrMap] = useState<Record<string, number>>({});
   const [painExerciseId, setPainExerciseId] = useState<string | null>(null);
@@ -117,7 +118,7 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
           targetReps: exercise.target_reps,
           linkedBelow: exercise.superset_group !== null && structure[index + 1]?.superset_group === exercise.superset_group,
         }));
-        setExtraRows(recoverLiveExtraRows(canonicalExercises, setResult.sets));
+        setExtraRows(recoverLiveExtraRows(canonicalExercises, setResult.sets).map((row) => ({ id: `recovered-extra:${row.exerciseId}:${row.setNumber}`, exerciseId: row.exerciseId })));
         setStructureVersion(structureResult.version);
         const currentShape = strengthDraftExercises.map((exercise) => ({
           exerciseId: exercise.exerciseId,
@@ -174,11 +175,15 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
   const rows = useMemo(() => {
     if (!draft || draft.kind !== 'strength') return [];
     return draft.exercises.flatMap((exercise) => {
-      const recoveredWarmups = persistedSets.filter((set) => set.exercise_id === exercise.exerciseId && set.is_warmup).length;
+      const persistedWarmups = persistedSets.filter((set) => set.exercise_id === exercise.exerciseId && set.is_warmup).sort((a, b) => a.set_number - b.set_number);
+      const recoveredWarmups = persistedWarmups.length;
       const warmupCount = Math.max(warmupCounts[exercise.exerciseId] ?? 0, recoveredWarmups);
-      const warmups = Array.from({ length: warmupCount }, (_, index) => ({ exerciseId: exercise.exerciseId, setNumber: index + 1 }));
-      const planned = Array.from({ length: exercise.targetSets }, (_, index) => ({ exerciseId: exercise.exerciseId, setNumber: warmupCount + index + 1 }));
-      const extras = extraRows.filter((row) => row.exerciseId === exercise.exerciseId && row.setNumber > warmupCount + exercise.targetSets);
+      const warmups = Array.from({ length: warmupCount }, (_, index) => {
+        const persisted = persistedWarmups[index];
+        return { id: persisted ? `persisted:${persisted.id}` : `warmup:${exercise.exerciseId}:${index + 1}`, exerciseId: exercise.exerciseId, setNumber: index + 1 };
+      });
+      const planned = Array.from({ length: exercise.targetSets }, (_, index) => ({ id: `planned:${exercise.exerciseId}:${index + 1}`, exerciseId: exercise.exerciseId, setNumber: warmupCount + index + 1 }));
+      const extras = extraRows.filter((row) => row.exerciseId === exercise.exerciseId).map((row, index) => ({ ...row, setNumber: warmupCount + exercise.targetSets + index + 1 }));
       return [...warmups, ...planned, ...extras];
     });
   }, [draft, extraRows, persistedSets, warmupCounts]);
@@ -280,8 +285,7 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
   }
 
   const addSet = (exerciseId: string) => {
-    const max = rows.filter((row) => row.exerciseId === exerciseId).reduce((highest, row) => Math.max(highest, row.setNumber), 0);
-    setExtraRows((current) => [...current, { exerciseId, setNumber: max + 1 }]);
+    setExtraRows((current) => [...current, { id: `extra:${exerciseId}:${extraSequence.current++}`, exerciseId }]);
   };
 
   const supersetGroup = (exerciseId: string): number | null => {
@@ -357,7 +361,7 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
           const persisted = persistedSets.find((set) => set.exercise_id === row.exerciseId && set.set_number === row.setNumber);
           return (
             <ExerciseSetLogger
-              key={`${row.exerciseId}:${row.setNumber}:${persisted?.id ?? 'draft'}`}
+              key={row.id}
               exercise={{ id: resolved.id, name: resolved.name, isCompound: resolved.is_compound, equipment: resolved.equipment }}
               setNumber={row.setNumber}
               unit={unit}

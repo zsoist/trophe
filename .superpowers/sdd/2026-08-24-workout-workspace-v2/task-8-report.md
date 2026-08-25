@@ -84,3 +84,14 @@ Verification: overlay coverage + Task 8 parity + live/retrospective/Task 7 regre
 RED/GREEN evidence: the new retrospective placement test first failed with `Bench, Row, Bench, Bench`; it passes after exercise-local prefix construction. The new anatomical-token test first failed because `biceps` was shown raw; it passes after localized token mapping.
 
 Verification: overlay coverage, parity, focused Task 8, and affected Task 7 commands passed (8 files, 71 tests); `npm run typecheck` passed; full `npm run lint` exited 0 with 46 existing warnings and no errors; `git diff --check` passed.
+
+## Fix rounds 4–5
+
+- Logger rows now use stable local identities (`planned`, `extra`, `warmup`, or persisted set id); logical `setNumber` is derived solely for UI/persistence ordering. Prefixing warm-ups therefore retains typed and completed working-row state instead of transferring it to warm-up row 1.
+- Live extra rows are retained by stable identity and reindexed after the warm-up prefix, so they are not filtered out when their former number collides with the shifted planned range.
+- Retrospective completion values are keyed by stable row identity and resolved against each row’s current logical number at final save.
+- Added real PlateCalculator consumer coverage for live insertion, finish barrier blocking, changed-ramp rejection, and exact retry identity reuse; component coverage now includes sequential decimal-comma input, pending close/input locks, bar-only states, and allocation-bound output.
+
+RED/GREEN evidence: retrospective working value preservation initially failed after insertion (`''` instead of `80` for the shifted working row); it passes with stable row identities. The existing live calculator regression exercises the real callback and confirms its first retry reuses logical set `1` after a partial write.
+
+Verification: focused Task 8/Task 7 suite passed (8 files, 76 tests); `npm run typecheck` passed; scoped ESLint and `git diff --check` passed.
