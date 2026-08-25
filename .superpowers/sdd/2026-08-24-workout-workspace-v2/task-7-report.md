@@ -667,3 +667,82 @@ Focused tests:
 - Repository-wide lint retains 46 warnings outside this Task 7 change; there are zero lint errors and changed Task 7 application/test paths are clean.
 - The full suite has the three unchanged-path failures recorded above; the final scoped Task 7 suite and database runtime suite are green.
 - The separately ledgered rest-timer reset and undo idempotency issues remain intentionally out of scope and untouched.
+
+---
+
+# Task 7 review fix round 4 — independent live-start identity resolution
+
+## Outcome
+
+The remaining start-identity collision is fixed. After a conflicting insert, the seven-argument live-start RPC now locks every row matched by either request key or draft fingerprint in deterministic UUID order, resolves the two identities independently, and rejects the request with `22023` when they point to different sessions. The ambiguity check runs before terminal or replay handling. Exact same-row replay and distinct-tab same-fingerprint coalescing remain intact.
+
+Current Supabase changelog and Database Functions guidance were rechecked before the SQL change. No current breaking change affects this Postgres function fix; the function remains `SECURITY INVOKER`, schema-qualified with an empty search path, authenticated-only, and ownership-scoped through `auth.uid()`/RLS.
+
+## RED evidence
+
+The runtime regression creates active session A with key/fingerprint A and completed session B with key/fingerprint B, verifies exact replay of A, then submits key A with fingerprint B:
+
+```sh
+npx vitest run tests/db/live-workout-consistency.test.ts
+```
+
+Result before the SQL fix: 1 failed / 10 tests. The mixed-identity promise resolved to active session A instead of rejecting, exactly reproducing the reviewer’s database case.
+
+## GREEN evidence
+
+Immediate runtime verification after applying the updated canonical 0077 SQL under `psql -v ON_ERROR_STOP=1 -1`:
+
+```sh
+npx vitest run tests/db/live-workout-consistency.test.ts
+```
+
+Result: 1 file passed, 10 tests passed. The new regression verifies both exact same-row success and mixed-row rejection.
+
+Final 0075/0076/0077 runtime, security, contract, bootstrap-guard, and journal suite:
+
+```sh
+npx vitest run tests/db/workout-session-atomicity-contract.test.ts \
+  tests/db/workout-session-atomicity.test.ts \
+  tests/db/live-workout-consistency-contract.test.ts \
+  tests/db/live-workout-consistency.test.ts \
+  tests/db/live-workout-rollout-safety-contract.test.ts \
+  tests/db/bootstrap-workout-migration-guard.test.ts \
+  tests/db/migration-journal.test.ts
+```
+
+Result: 7 files passed, 28 tests passed.
+
+Final gates:
+
+```sh
+npm run db:verify
+# Verified DB schema, policies, functions, and index inventory.
+
+npm run typecheck
+# pass
+
+npm run lint
+# exit 0: 0 errors, 46 repository warnings
+
+git diff --check
+# pass
+```
+
+## Files in round 4
+
+- `drizzle/0077_live_workout_rollout_safety.sql`
+- `tests/db/live-workout-consistency.test.ts`
+- `.superpowers/sdd/2026-08-24-workout-workspace-v2/task-7-report.md`
+
+## Self-review
+
+- Confirmed the old key-preferred `ORDER BY ... LIMIT 1` path is gone.
+- Confirmed both candidate rows are locked in stable UUID order before identity comparison, avoiding inconsistent target choice and cross-request lock-order inversion.
+- Confirmed a differing key-session ID and fingerprint-session ID raises before inspecting terminal state or replay content.
+- Confirmed one matching identity still follows the existing request/fingerprint checks, both identities matching one row preserve exact replay, and existing same-fingerprint tab coalescing remains covered.
+- Confirmed the progress ledger was not modified or staged.
+
+## Concerns
+
+- Repository-wide lint retains the same 46 warnings outside this Task 7 change; there are zero errors.
+- The separately ledgered rest-timer reset and undo idempotency issues remain out of scope and untouched.

@@ -24,6 +24,8 @@ const IDS = {
   keyTerminal: 'a7100000-0000-4000-8000-000000000014',
   keyLegacy: 'a7100000-0000-4000-8000-000000000015',
   keyOldClient: 'a7100000-0000-4000-8000-000000000016',
+  keyIdentityA: 'a7100000-0000-4000-8000-000000000017',
+  keyIdentityB: 'a7100000-0000-4000-8000-000000000018',
 };
 
 type LiveStructure = Array<{
@@ -300,6 +302,23 @@ describe('live workout transactional consistency', () => {
       await client.query('SAVEPOINT stale_start');
       await expect(start(client, IDS.keyTerminal, 'draft:terminal')).rejects.toMatchObject({ code: '22023' });
       await client.query('ROLLBACK TO SAVEPOINT stale_start');
+    });
+  });
+
+  it('rejects mixed key/fingerprint identity while preserving exact same-row replay', async () => {
+    await asUser(async (client) => {
+      const activeA = await start(client, IDS.keyIdentityA, 'draft:identity-a');
+      const completedB = await start(client, IDS.keyIdentityB, 'draft:identity-b');
+      await client.query(`
+        SELECT public.finish_live_workout_session($1::uuid, 'Push', 20, NULL::uuid, NULL::text)
+      `, [completedB.rows[0].id]);
+
+      const exactReplay = await start(client, IDS.keyIdentityA, 'draft:identity-a');
+      expect(exactReplay.rows[0].id).toBe(activeA.rows[0].id);
+
+      await client.query('SAVEPOINT mixed_identity');
+      await expect(start(client, IDS.keyIdentityA, 'draft:identity-b')).rejects.toMatchObject({ code: '22023' });
+      await client.query('ROLLBACK TO SAVEPOINT mixed_identity');
     });
   });
 

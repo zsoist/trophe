@@ -149,6 +149,9 @@ DECLARE
   v_existing_fingerprint text;
   v_existing_request jsonb;
   v_existing_duration integer;
+  v_key_session_id uuid;
+  v_fingerprint_session_id uuid;
+  v_candidate record;
   v_request jsonb;
   v_structure_item jsonb;
 BEGIN
@@ -225,21 +228,45 @@ BEGIN
     RETURN v_session_id;
   END IF;
 
-  SELECT id, client_idempotency_key, client_draft_fingerprint, client_request, duration_minutes
-    INTO v_session_id, v_existing_key, v_existing_fingerprint, v_existing_request, v_existing_duration
+  -- Lock every possible identity match in a stable order before choosing a
+  -- replay target. A request key and a draft fingerprint must never be allowed
+  -- to resolve to different sessions.
+  FOR v_candidate IN
+    SELECT id, client_idempotency_key, client_draft_hash
     FROM public.workout_sessions
     WHERE user_id = v_user_id
       AND (
         client_idempotency_key = p_idempotency_key
         OR client_draft_hash = pg_catalog.md5(p_draft_fingerprint)
       )
-    ORDER BY (client_idempotency_key = p_idempotency_key) DESC
-    LIMIT 1
-    FOR UPDATE;
+    ORDER BY id
+    FOR UPDATE
+  LOOP
+    IF v_candidate.client_idempotency_key = p_idempotency_key THEN
+      v_key_session_id := v_candidate.id;
+    END IF;
+    IF v_candidate.client_draft_hash = pg_catalog.md5(p_draft_fingerprint) THEN
+      v_fingerprint_session_id := v_candidate.id;
+    END IF;
+  END LOOP;
+
+  IF v_key_session_id IS NOT NULL
+     AND v_fingerprint_session_id IS NOT NULL
+     AND v_key_session_id IS DISTINCT FROM v_fingerprint_session_id THEN
+    RAISE EXCEPTION 'The live request identity is ambiguous' USING ERRCODE = '22023';
+  END IF;
+
+  v_session_id := COALESCE(v_key_session_id, v_fingerprint_session_id);
 
   IF v_session_id IS NULL THEN
     RAISE EXCEPTION 'The live request could not be resolved' USING ERRCODE = '40001';
   END IF;
+
+  SELECT client_idempotency_key, client_draft_fingerprint, client_request, duration_minutes
+    INTO v_existing_key, v_existing_fingerprint, v_existing_request, v_existing_duration
+    FROM public.workout_sessions
+    WHERE id = v_session_id;
+
   IF v_existing_duration IS NOT NULL THEN
     RAISE EXCEPTION 'The live workout is already complete' USING ERRCODE = '22023';
   END IF;
