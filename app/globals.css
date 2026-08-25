@@ -100,6 +100,7 @@
   --err:   #E87A6E;
   --info:  #7DA3D9;
   --plum:  #B89DD9;
+  --workout-visual-surface: #1a1a1a;
 
   /* Radius */
   --r-sm:   6px;
@@ -236,6 +237,7 @@
   --border-default: #d6d3d1;
   --border-light: #a8a29e;
   --scrollbar-thumb: #d6d3d1;
+  --workout-visual-surface: #f8f6f2;
   --scrollbar-hover: #a8a29e;
   --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.08);
 
@@ -1988,7 +1990,7 @@ body {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  background: #070806;
+  background: var(--workout-visual-surface);
 }
 
 @media (min-width: 640px) {

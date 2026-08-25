@@ -2,7 +2,7 @@ export type BodyAreaId = 'chest' | 'shoulders' | 'arms' | 'back' | 'legs' | 'cor
 
 export interface ResolvedWorkoutAsset {
   src: string;
-  kind: 'technique' | 'anatomy';
+  kind: 'technique' | 'anatomy' | 'cardio';
   fit: 'contain';
   background: 'neutral';
 }
@@ -50,7 +50,7 @@ export function resolveWorkoutAsset({
   const named = exerciseAssets.find(({ matches }) => matches.test(normalizedName));
   if (named) {
     return {
-      src: `/workout/exercises/${named.slug}.webp`,
+      src: `/workout-v2/exercises/${named.slug}.webp`,
       kind: 'technique',
       fit: 'contain',
       background: 'neutral',
@@ -59,8 +59,8 @@ export function resolveWorkoutAsset({
 
   const fallback = anatomyArea(muscleGroup ?? bodyArea);
   return {
-    src: `/workout/body-areas/${fallback}.webp`,
-    kind: 'anatomy',
+    src: `/workout-v2/body-areas/${fallback}.webp`,
+    kind: fallback === 'cardio' ? 'cardio' : 'anatomy',
     fit: 'contain',
     background: 'neutral',
   };

@@ -4,7 +4,7 @@ import { resolveWorkoutAsset } from '@/lib/workout-assets';
 describe('resolveWorkoutAsset', () => {
   it('uses a named movement asset when the library has one', () => {
     expect(resolveWorkoutAsset({ exerciseName: 'Barbell Bench Press', bodyArea: 'chest' })).toEqual({
-      src: '/workout/exercises/bench-press.webp',
+      src: '/workout-v2/exercises/bench-press.webp',
       kind: 'technique',
       fit: 'contain',
       background: 'neutral',
@@ -12,8 +12,8 @@ describe('resolveWorkoutAsset', () => {
   });
 
   it('normalizes punctuation and common exercise naming variants', () => {
-    expect(resolveWorkoutAsset({ exerciseName: 'Pull-Up', bodyArea: 'back' }).src).toBe('/workout/exercises/pull-up.webp');
-    expect(resolveWorkoutAsset({ exerciseName: 'Pec Deck Machine', bodyArea: 'chest' }).src).toBe('/workout/exercises/pec-deck.webp');
+    expect(resolveWorkoutAsset({ exerciseName: 'Pull-Up', bodyArea: 'back' }).src).toBe('/workout-v2/exercises/pull-up.webp');
+    expect(resolveWorkoutAsset({ exerciseName: 'Pec Deck Machine', bodyArea: 'chest' }).src).toBe('/workout-v2/exercises/pec-deck.webp');
   });
 
   it.each([
@@ -31,7 +31,7 @@ describe('resolveWorkoutAsset', () => {
     ['Rope Triceps Pushdown', 'triceps', 'triceps-extension'],
   ] as const)('maps the represented %s technique exactly', (exerciseName, muscleGroup, slug) => {
     expect(resolveWorkoutAsset({ exerciseName, muscleGroup })).toMatchObject({
-      src: `/workout/exercises/${slug}.webp`,
+      src: `/workout-v2/exercises/${slug}.webp`,
       kind: 'technique',
     });
   });
@@ -78,7 +78,7 @@ describe('resolveWorkoutAsset', () => {
     ['Triceps Pushdown', 'triceps', 'arms'],
   ] as const)('labels unsupported near-name %s artwork as anatomy', (exerciseName, muscleGroup, areaSlug) => {
     expect(resolveWorkoutAsset({ exerciseName, muscleGroup })).toEqual({
-      src: `/workout/body-areas/${areaSlug}.webp`,
+      src: `/workout-v2/body-areas/${areaSlug}.webp`,
       kind: 'anatomy',
       fit: 'contain',
       background: 'neutral',
@@ -87,7 +87,7 @@ describe('resolveWorkoutAsset', () => {
 
   it('falls back to the body area for long-tail and custom exercises', () => {
     expect(resolveWorkoutAsset({ exerciseName: 'Nick custom press', bodyArea: 'chest' })).toEqual({
-      src: '/workout/body-areas/chest.webp',
+      src: '/workout-v2/body-areas/chest.webp',
       kind: 'anatomy',
       fit: 'contain',
       background: 'neutral',
@@ -96,7 +96,7 @@ describe('resolveWorkoutAsset', () => {
 
   it('uses full body when no body area is known', () => {
     expect(resolveWorkoutAsset({ exerciseName: 'Unknown movement' })).toEqual({
-      src: '/workout/body-areas/full-body.webp',
+      src: '/workout-v2/body-areas/full-body.webp',
       kind: 'anatomy',
       fit: 'contain',
       background: 'neutral',

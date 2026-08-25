@@ -29,12 +29,12 @@ export function MovementVisual({
     <Image
       src={asset.src}
       alt={alt}
-      width={asset.kind === 'technique' ? 480 : 320}
-      height={asset.kind === 'technique' ? 426 : 320}
+      width={asset.kind === 'technique' ? 1280 : 640}
+      height={asset.kind === 'technique' ? 853 : 960}
       sizes={sizes}
       priority={priority}
       data-visual-kind={asset.kind}
-      style={{ objectFit: asset.fit, backgroundColor: 'var(--surface-subtle)' }}
+      style={{ objectFit: asset.fit, objectPosition: 'center', backgroundColor: 'var(--workout-visual-surface)' }}
       className={`movement-visual ${className}`}
     />
   );

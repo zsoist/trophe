@@ -17,7 +17,7 @@ vi.mock('next/image', () => ({
 afterEach(cleanup);
 
 describe('Personal Best primitives', () => {
-  it('renders movement-specific art with useful alternative text', () => {
+  it('uses the honest anatomy fallback for an ambiguous movement name', () => {
     render(React.createElement(MovementVisual, {
       exerciseName: 'Bench Press',
       bodyArea: 'chest',
@@ -25,7 +25,7 @@ describe('Personal Best primitives', () => {
     }));
 
     expect(screen.getByRole('img', { name: 'Bench press movement' }).getAttribute('src'))
-      .toBe('/workout/exercises/bench-press.webp');
+      .toBe('/workout-v2/body-areas/chest.webp');
   });
 
   it('falls back to body-area orientation for a custom movement', () => {
@@ -36,7 +36,7 @@ describe('Personal Best primitives', () => {
     }));
 
     expect(screen.getByRole('img', { name: 'Chest area' }).getAttribute('src'))
-      .toBe('/workout/body-areas/chest.webp');
+      .toBe('/workout-v2/body-areas/chest.webp');
   });
 
   it('groups dense evidence under one semantic section instead of separate cards', () => {

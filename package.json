@@ -18,6 +18,8 @@
     "test:e2e:local-signup": "node scripts/test/run-local-signup-e2e.mjs",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "assets:workout:optimize": "node scripts/visual/optimize-workout-assets.mjs",
+    "assets:workout:check": "node scripts/visual/optimize-workout-assets.mjs --check",
     "test:e2e": "playwright test",
     "test:e2e:install": "playwright install --with-deps chromium",
     "evals": "tsx agents/evals/run-all.ts",

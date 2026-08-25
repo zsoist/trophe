@@ -1,0 +1,485 @@
+{
+  "version": 1,
+  "assets": {
+    "chest": {
+      "kind": "anatomy",
+      "src": "workout-v2/body-areas/chest.webp",
+      "source": {
+        "path": "workout-v2/masters/sources/chest.png",
+        "width": 1024,
+        "height": 1536
+      },
+      "master": {
+        "path": "workout-v2/masters/chest.png",
+        "width": 2160,
+        "height": 3240,
+        "upscaled": true
+      },
+      "display": {
+        "width": 640,
+        "height": 960,
+        "quality": 84
+      },
+      "safeMarginPct": 12,
+      "generatorMode": "built-in-imagegen",
+      "promptSummary": "Full adult anatomical figure, warm-white clinical studio, full figure inside frame and restrained muscle-region highlights.",
+      "fallbackLabel": "anatomy"
+    },
+    "back": {
+      "kind": "anatomy",
+      "src": "workout-v2/body-areas/back.webp",
+      "source": {
+        "path": "workout-v2/masters/sources/back.png",
+        "width": 1024,
+        "height": 1536
+      },
+      "master": {
+        "path": "workout-v2/masters/back.png",
+        "width": 2160,
+        "height": 3240,
+        "upscaled": true
+      },
+      "display": {
+        "width": 640,
+        "height": 960,
+        "quality": 84
+      },
+      "safeMarginPct": 12,
+      "generatorMode": "built-in-imagegen",
+      "promptSummary": "Full adult anatomical figure, warm-white clinical studio, full figure inside frame and restrained muscle-region highlights.",
+      "fallbackLabel": "anatomy"
+    },
+    "shoulders": {
+      "kind": "anatomy",
+      "src": "workout-v2/body-areas/shoulders.webp",
+      "source": {
+        "path": "workout-v2/masters/sources/shoulders.png",
+        "width": 1024,
+        "height": 1536
+      },
+      "master": {
+        "path": "workout-v2/masters/shoulders.png",
+        "width": 2160,
+        "height": 3240,
+        "upscaled": true
+      },
+      "display": {
+        "width": 640,
+        "height": 960,
+        "quality": 84
+      },
+      "safeMarginPct": 12,
+      "generatorMode": "built-in-imagegen",
+      "promptSummary": "Full adult anatomical figure, warm-white clinical studio, full figure inside frame and restrained muscle-region highlights.",
+      "fallbackLabel": "anatomy"
+    },
+    "arms": {
+      "kind": "anatomy",
+      "src": "workout-v2/body-areas/arms.webp",
+      "source": {
+        "path": "workout-v2/masters/sources/arms.png",
+        "width": 1024,
+        "height": 1536
+      },
+      "master": {
+        "path": "workout-v2/masters/arms.png",
+        "width": 2160,
+        "height": 3240,
+        "upscaled": true
+      },
+      "display": {
+        "width": 640,
+        "height": 960,
+        "quality": 84
+      },
+      "safeMarginPct": 12,
+      "generatorMode": "built-in-imagegen",
+      "promptSummary": "Full adult anatomical figure, warm-white clinical studio, full figure inside frame and restrained muscle-region highlights.",
+      "fallbackLabel": "anatomy"
+    },
+    "legs": {
+      "kind": "anatomy",
+      "src": "workout-v2/body-areas/legs.webp",
+      "source": {
+        "path": "workout-v2/masters/sources/legs.png",
+        "width": 1024,
+        "height": 1536
+      },
+      "master": {
+        "path": "workout-v2/masters/legs.png",
+        "width": 2160,
+        "height": 3240,
+        "upscaled": true
+      },
+      "display": {
+        "width": 640,
+        "height": 960,
+        "quality": 84
+      },
+      "safeMarginPct": 12,
+      "generatorMode": "built-in-imagegen",
+      "promptSummary": "Full adult anatomical figure, warm-white clinical studio, full figure inside frame and restrained muscle-region highlights.",
+      "fallbackLabel": "anatomy"
+    },
+    "core": {
+      "kind": "anatomy",
+      "src": "workout-v2/body-areas/core.webp",
+      "source": {
+        "path": "workout-v2/masters/sources/core.png",
+        "width": 1024,
+        "height": 1536
+      },
+      "master": {
+        "path": "workout-v2/masters/core.png",
+        "width": 2160,
+        "height": 3240,
+        "upscaled": true
+      },
+      "display": {
+        "width": 640,
+        "height": 960,
+        "quality": 84
+      },
+      "safeMarginPct": 12,
+      "generatorMode": "built-in-imagegen",
+      "promptSummary": "Full adult anatomical figure, warm-white clinical studio, full figure inside frame and restrained muscle-region highlights.",
+      "fallbackLabel": "anatomy"
+    },
+    "full-body": {
+      "kind": "anatomy",
+      "src": "workout-v2/body-areas/full-body.webp",
+      "source": {
+        "path": "workout-v2/masters/sources/full-body.png",
+        "width": 1024,
+        "height": 1536
+      },
+      "master": {
+        "path": "workout-v2/masters/full-body.png",
+        "width": 2160,
+        "height": 3240,
+        "upscaled": true
+      },
+      "display": {
+        "width": 640,
+        "height": 960,
+        "quality": 84
+      },
+      "safeMarginPct": 12,
+      "generatorMode": "built-in-imagegen",
+      "promptSummary": "Full adult anatomical figure, warm-white clinical studio, full figure inside frame and restrained muscle-region highlights.",
+      "fallbackLabel": "anatomy"
+    },
+    "cardio": {
+      "kind": "cardio",
+      "src": "workout-v2/body-areas/cardio.webp",
+      "source": {
+        "path": "workout-v2/masters/sources/cardio.png",
+        "width": 1122,
+        "height": 1402
+      },
+      "master": {
+        "path": "workout-v2/masters/cardio.png",
+        "width": 2160,
+        "height": 3240,
+        "upscaled": true
+      },
+      "display": {
+        "width": 640,
+        "height": 960,
+        "quality": 84
+      },
+      "safeMarginPct": 12,
+      "generatorMode": "built-in-imagegen",
+      "promptSummary": "Recognizable running figure, warm-white studio and non-diagnostic cardio emphasis.",
+      "fallbackLabel": "anatomy"
+    },
+    "bench-press": {
+      "kind": "technique",
+      "src": "workout-v2/exercises/bench-press.webp",
+      "source": {
+        "path": "workout-v2/masters/sources/bench-press.png",
+        "width": 1536,
+        "height": 1024
+      },
+      "master": {
+        "path": "workout-v2/masters/bench-press.png",
+        "width": 3240,
+        "height": 2160,
+        "upscaled": true
+      },
+      "display": {
+        "width": 1280,
+        "height": 853,
+        "quality": 86
+      },
+      "safeMarginPct": 10,
+      "generatorMode": "built-in-imagegen",
+      "promptSummary": "Canonical exercise midpoint with complete athlete and required equipment on a warm-white studio field.",
+      "fallbackLabel": "anatomy"
+    },
+    "incline-press": {
+      "kind": "technique",
+      "src": "workout-v2/exercises/incline-press.webp",
+      "source": {
+        "path": "workout-v2/masters/sources/incline-press.png",
+        "width": 1536,
+        "height": 1024
+      },
+      "master": {
+        "path": "workout-v2/masters/incline-press.png",
+        "width": 3240,
+        "height": 2160,
+        "upscaled": true
+      },
+      "display": {
+        "width": 1280,
+        "height": 853,
+        "quality": 86
+      },
+      "safeMarginPct": 10,
+      "generatorMode": "built-in-imagegen",
+      "promptSummary": "Canonical exercise midpoint with complete athlete and required equipment on a warm-white studio field.",
+      "fallbackLabel": "anatomy"
+    },
+    "overhead-press": {
+      "kind": "technique",
+      "src": "workout-v2/exercises/overhead-press.webp",
+      "source": {
+        "path": "workout-v2/masters/sources/overhead-press.png",
+        "width": 1536,
+        "height": 1024
+      },
+      "master": {
+        "path": "workout-v2/masters/overhead-press.png",
+        "width": 3240,
+        "height": 2160,
+        "upscaled": true
+      },
+      "display": {
+        "width": 1280,
+        "height": 853,
+        "quality": 86
+      },
+      "safeMarginPct": 10,
+      "generatorMode": "built-in-imagegen",
+      "promptSummary": "Canonical exercise midpoint with complete athlete and required equipment on a warm-white studio field.",
+      "fallbackLabel": "anatomy"
+    },
+    "pec-deck": {
+      "kind": "technique",
+      "src": "workout-v2/exercises/pec-deck.webp",
+      "source": {
+        "path": "workout-v2/masters/sources/pec-deck.png",
+        "width": 1536,
+        "height": 1024
+      },
+      "master": {
+        "path": "workout-v2/masters/pec-deck.png",
+        "width": 3240,
+        "height": 2160,
+        "upscaled": true
+      },
+      "display": {
+        "width": 1280,
+        "height": 853,
+        "quality": 86
+      },
+      "safeMarginPct": 10,
+      "generatorMode": "built-in-imagegen",
+      "promptSummary": "Canonical exercise midpoint with complete athlete and required equipment on a warm-white studio field.",
+      "fallbackLabel": "anatomy"
+    },
+    "cable-fly": {
+      "kind": "technique",
+      "src": "workout-v2/exercises/cable-fly.webp",
+      "source": {
+        "path": "workout-v2/masters/sources/cable-fly.png",
+        "width": 1536,
+        "height": 1024
+      },
+      "master": {
+        "path": "workout-v2/masters/cable-fly.png",
+        "width": 3240,
+        "height": 2160,
+        "upscaled": true
+      },
+      "display": {
+        "width": 1280,
+        "height": 853,
+        "quality": 86
+      },
+      "safeMarginPct": 10,
+      "generatorMode": "built-in-imagegen",
+      "promptSummary": "Canonical exercise midpoint with complete athlete and required equipment on a warm-white studio field.",
+      "fallbackLabel": "anatomy"
+    },
+    "pull-up": {
+      "kind": "technique",
+      "src": "workout-v2/exercises/pull-up.webp",
+      "source": {
+        "path": "workout-v2/masters/sources/pull-up.png",
+        "width": 1536,
+        "height": 1024
+      },
+      "master": {
+        "path": "workout-v2/masters/pull-up.png",
+        "width": 3240,
+        "height": 2160,
+        "upscaled": true
+      },
+      "display": {
+        "width": 1280,
+        "height": 853,
+        "quality": 86
+      },
+      "safeMarginPct": 10,
+      "generatorMode": "built-in-imagegen",
+      "promptSummary": "Canonical exercise midpoint with complete athlete and required equipment on a warm-white studio field.",
+      "fallbackLabel": "anatomy"
+    },
+    "deadlift": {
+      "kind": "technique",
+      "src": "workout-v2/exercises/deadlift.webp",
+      "source": {
+        "path": "workout-v2/masters/sources/deadlift.png",
+        "width": 1536,
+        "height": 1024
+      },
+      "master": {
+        "path": "workout-v2/masters/deadlift.png",
+        "width": 3240,
+        "height": 2160,
+        "upscaled": true
+      },
+      "display": {
+        "width": 1280,
+        "height": 853,
+        "quality": 86
+      },
+      "safeMarginPct": 10,
+      "generatorMode": "built-in-imagegen",
+      "promptSummary": "Canonical exercise midpoint with complete athlete and required equipment on a warm-white studio field.",
+      "fallbackLabel": "anatomy"
+    },
+    "squat": {
+      "kind": "technique",
+      "src": "workout-v2/exercises/squat.webp",
+      "source": {
+        "path": "workout-v2/masters/sources/squat.png",
+        "width": 1536,
+        "height": 1024
+      },
+      "master": {
+        "path": "workout-v2/masters/squat.png",
+        "width": 3240,
+        "height": 2160,
+        "upscaled": true
+      },
+      "display": {
+        "width": 1280,
+        "height": 853,
+        "quality": 86
+      },
+      "safeMarginPct": 10,
+      "generatorMode": "built-in-imagegen",
+      "promptSummary": "Canonical exercise midpoint with complete athlete and required equipment on a warm-white studio field.",
+      "fallbackLabel": "anatomy"
+    },
+    "dip": {
+      "kind": "technique",
+      "src": "workout-v2/exercises/dip.webp",
+      "source": {
+        "path": "workout-v2/masters/sources/dip.png",
+        "width": 1536,
+        "height": 1024
+      },
+      "master": {
+        "path": "workout-v2/masters/dip.png",
+        "width": 3240,
+        "height": 2160,
+        "upscaled": true
+      },
+      "display": {
+        "width": 1280,
+        "height": 853,
+        "quality": 86
+      },
+      "safeMarginPct": 10,
+      "generatorMode": "built-in-imagegen",
+      "promptSummary": "Canonical exercise midpoint with complete athlete and required equipment on a warm-white studio field.",
+      "fallbackLabel": "anatomy"
+    },
+    "row": {
+      "kind": "technique",
+      "src": "workout-v2/exercises/row.webp",
+      "source": {
+        "path": "workout-v2/masters/sources/row.png",
+        "width": 1536,
+        "height": 1024
+      },
+      "master": {
+        "path": "workout-v2/masters/row.png",
+        "width": 3240,
+        "height": 2160,
+        "upscaled": true
+      },
+      "display": {
+        "width": 1280,
+        "height": 853,
+        "quality": 86
+      },
+      "safeMarginPct": 10,
+      "generatorMode": "built-in-imagegen",
+      "promptSummary": "Canonical exercise midpoint with complete athlete and required equipment on a warm-white studio field.",
+      "fallbackLabel": "anatomy"
+    },
+    "curl": {
+      "kind": "technique",
+      "src": "workout-v2/exercises/curl.webp",
+      "source": {
+        "path": "workout-v2/masters/sources/curl.png",
+        "width": 1536,
+        "height": 1024
+      },
+      "master": {
+        "path": "workout-v2/masters/curl.png",
+        "width": 3240,
+        "height": 2160,
+        "upscaled": true
+      },
+      "display": {
+        "width": 1280,
+        "height": 853,
+        "quality": 86
+      },
+      "safeMarginPct": 10,
+      "generatorMode": "built-in-imagegen",
+      "promptSummary": "Canonical exercise midpoint with complete athlete and required equipment on a warm-white studio field.",
+      "fallbackLabel": "anatomy"
+    },
+    "triceps-extension": {
+      "kind": "technique",
+      "src": "workout-v2/exercises/triceps-extension.webp",
+      "source": {
+        "path": "workout-v2/masters/sources/triceps-extension.png",
+        "width": 1536,
+        "height": 1024
+      },
+      "master": {
+        "path": "workout-v2/masters/triceps-extension.png",
+        "width": 3240,
+        "height": 2160,
+        "upscaled": true
+      },
+      "display": {
+        "width": 1280,
+        "height": 853,
+        "quality": 86
+      },
+      "safeMarginPct": 10,
+      "generatorMode": "built-in-imagegen",
+      "promptSummary": "Canonical exercise midpoint with complete athlete and required equipment on a warm-white studio field.",
+      "fallbackLabel": "anatomy"
+    }
+  }
+}
