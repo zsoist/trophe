@@ -11,7 +11,10 @@ const checkOnly = process.argv.includes('--check');
 const verifyIdempotence = process.argv.includes('--verify-idempotence');
 const maxDerivativeBytes = 450_000;
 const maxPublicPayloadBytes = 2 * 1024 * 1024;
-const canvasPaddingPct = 12;
+// The foreground is centred after cropping. Its maximum extent is derived from
+// this measured canvas contract: (100 - 2 × 10) = 80% of the master edge.
+const canvasPaddingPct = 10;
+const foregroundMaxExtent = (100 - (canvasPaddingPct * 2)) / 100;
 
 // Accepted, checked-in source allow-list. Generation never reads outside assets/workout-v2.
 const assets = [
@@ -105,7 +108,7 @@ async function createEntry(slug, kind, folder) {
   const settings = detailsFor(kind);
   const cropped = await sharp(source.rgba, { raw: { width: source.info.width, height: source.info.height, channels: 4 } })
     .extract({ left: source.bounds.left, top: source.bounds.top, width: source.bounds.width, height: source.bounds.height })
-    .resize({ width: Math.floor(settings.master.width * 0.8), height: Math.floor(settings.master.height * 0.8), fit: 'inside', kernel: sharp.kernel.lanczos3 })
+    .resize({ width: Math.floor(settings.master.width * foregroundMaxExtent), height: Math.floor(settings.master.height * foregroundMaxExtent), fit: 'inside', kernel: sharp.kernel.lanczos3 })
     .sharpen({ sigma: 0.7, m1: 0.6, m2: 1.2, x1: 2, y2: 10, y3: 20 })
     .webp({ quality: 94, alphaQuality: 100, effort: 6, smartSubsample: true })
     .toBuffer();
@@ -126,19 +129,25 @@ async function inspectedEntry(slug, kind, folder, knownSourceMargin) {
   const sourcePath = join(assetRoot, 'sources', `${slug}.png`);
   const masterPath = join(assetRoot, 'masters', `${slug}.webp`);
   const displayPath = join(publicRoot, folder, `${slug}.webp`);
-  const [sourceMeta, masterMeta, displayMeta, sourceHash, masterHash, displayHash] = await Promise.all([
+  const [sourceMeta, masterMeta, displayMeta, sourceHash, masterHash, displayHash, masterRaw, displayRaw] = await Promise.all([
     sharp(sourcePath).metadata(), sharp(masterPath).metadata(), sharp(displayPath).metadata(),
     hashFile(sourcePath), hashFile(masterPath), hashFile(displayPath),
+    sharp(masterPath).ensureAlpha().raw().toBuffer({ resolveWithObject: true }),
+    sharp(displayPath).ensureAlpha().raw().toBuffer({ resolveWithObject: true }),
   ]);
   const sourceMarginPct = knownSourceMargin ?? (await foregroundFromSource(sourcePath, kind)).bounds.marginPct;
-  const displayRaw = await sharp(displayPath).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  const masterMarginPct = alphaBounds(masterRaw.data, masterRaw.info.width, masterRaw.info.height, masterRaw.info.channels).marginPct;
   const displayMarginPct = alphaBounds(displayRaw.data, displayRaw.info.width, displayRaw.info.height, displayRaw.info.channels).marginPct;
   const settings = detailsFor(kind);
   return {
     kind,
     src: publicSrc(folder, slug),
     source: { path: relative(sourcePath), width: sourceMeta.width, height: sourceMeta.height, sha256: sourceHash, safeMarginPct: Number(sourceMarginPct.toFixed(2)) },
-    master: { path: relative(masterPath), width: masterMeta.width, height: masterMeta.height, upscaled: true, sha256: masterHash, canvasPaddingPct, format: 'webp' },
+    master: {
+      path: relative(masterPath), width: masterMeta.width, height: masterMeta.height,
+      upscaled: true, sha256: masterHash, canvasPaddingPct, format: 'webp',
+      hasAlpha: masterMeta.hasAlpha === true, safeMarginPct: Number(masterMarginPct.toFixed(2)),
+    },
     display: { width: displayMeta.width, height: displayMeta.height, quality: settings.quality, hasAlpha: displayMeta.hasAlpha === true, sha256: displayHash, safeMarginPct: Number(displayMarginPct.toFixed(2)) },
     safeMarginPct: Number(displayMarginPct.toFixed(2)),
     generatorMode: 'built-in-imagegen',
@@ -164,9 +173,9 @@ async function validateManifest() {
   for (const [slug, kind, folder] of assets) {
     const entry = actual.assets[slug]; const details = detailsFor(kind);
     if (!entry || entry.src !== publicSrc(folder, slug) || entry.kind !== kind || entry.generatorMode !== 'built-in-imagegen' || entry.promptSummary !== promptSummaries[kind]) throw new Error(`${slug}: manifest config drift`);
-    if (entry.master.width !== details.master.width || entry.master.height !== details.master.height || entry.master.format !== 'webp') throw new Error(`${slug}: master dimensions or format drift`);
+    if (entry.master.width !== details.master.width || entry.master.height !== details.master.height || entry.master.format !== 'webp' || entry.master.hasAlpha !== true) throw new Error(`${slug}: master dimensions, format, or alpha drift`);
     if (entry.display.width !== details.display.width || entry.display.height !== details.display.height || entry.display.hasAlpha !== true) throw new Error(`${slug}: display dimensions or alpha drift`);
-    if (entry.safeMarginPct < 8 || entry.master.canvasPaddingPct < 10 || entry.display.safeMarginPct < 8) throw new Error(`${slug}: output safety margin is below threshold`);
+    if (entry.safeMarginPct < 8 || entry.master.canvasPaddingPct !== canvasPaddingPct || entry.master.safeMarginPct < 8 || entry.display.safeMarginPct < 8) throw new Error(`${slug}: output safety margin is below threshold`);
     const displayPath = join(repoRoot, 'public', entry.src.slice(1)); const displayStat = await stat(displayPath); payloadBytes += displayStat.size;
     if (displayStat.size >= maxDerivativeBytes) throw new Error(`${slug}: display derivative exceeds ${maxDerivativeBytes} bytes`);
   }

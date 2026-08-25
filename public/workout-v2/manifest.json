@@ -17,8 +17,10 @@
         "height": 3240,
         "upscaled": true,
         "sha256": "26d50a870a319db2d46544f6db066d5b8655dcdd15b08fe26d58064a7f3851b8",
-        "canvasPaddingPct": 12,
-        "format": "webp"
+        "canvasPaddingPct": 10,
+        "format": "webp",
+        "hasAlpha": true,
+        "safeMarginPct": 10
       },
       "display": {
         "width": 640,
@@ -49,8 +51,10 @@
         "height": 3240,
         "upscaled": true,
         "sha256": "d8cd14f3ddac2c8f5172f70952c5d1723f6cd4b8fa5a185fb6cd11b172a987bd",
-        "canvasPaddingPct": 12,
-        "format": "webp"
+        "canvasPaddingPct": 10,
+        "format": "webp",
+        "hasAlpha": true,
+        "safeMarginPct": 10
       },
       "display": {
         "width": 640,
@@ -81,8 +85,10 @@
         "height": 3240,
         "upscaled": true,
         "sha256": "0605e4558143695d574786cc1d45e159374619a0223ef663d6cdbae3815a5647",
-        "canvasPaddingPct": 12,
-        "format": "webp"
+        "canvasPaddingPct": 10,
+        "format": "webp",
+        "hasAlpha": true,
+        "safeMarginPct": 10
       },
       "display": {
         "width": 640,
@@ -113,8 +119,10 @@
         "height": 3240,
         "upscaled": true,
         "sha256": "e877542b9a402c69f262d5c9bd2e799ed9c191de4f6270eec4cf86f4ffc7cd1e",
-        "canvasPaddingPct": 12,
-        "format": "webp"
+        "canvasPaddingPct": 10,
+        "format": "webp",
+        "hasAlpha": true,
+        "safeMarginPct": 10
       },
       "display": {
         "width": 640,
@@ -145,8 +153,10 @@
         "height": 3240,
         "upscaled": true,
         "sha256": "d3ee60d80c2a37d96477b5ed87b72243caeca88bf5b813acefac883ba11b27d3",
-        "canvasPaddingPct": 12,
-        "format": "webp"
+        "canvasPaddingPct": 10,
+        "format": "webp",
+        "hasAlpha": true,
+        "safeMarginPct": 10
       },
       "display": {
         "width": 640,
@@ -177,8 +187,10 @@
         "height": 3240,
         "upscaled": true,
         "sha256": "5a44e3554548d587ab791cfe252c7780b56770b69aa507bb7a8038f51d9b974e",
-        "canvasPaddingPct": 12,
-        "format": "webp"
+        "canvasPaddingPct": 10,
+        "format": "webp",
+        "hasAlpha": true,
+        "safeMarginPct": 10
       },
       "display": {
         "width": 640,
@@ -209,8 +221,10 @@
         "height": 3240,
         "upscaled": true,
         "sha256": "3f202e6ddcd49de52193e9e1dc649475572bc5679c1edced17ffb4ac5bfa9292",
-        "canvasPaddingPct": 12,
-        "format": "webp"
+        "canvasPaddingPct": 10,
+        "format": "webp",
+        "hasAlpha": true,
+        "safeMarginPct": 10
       },
       "display": {
         "width": 640,
@@ -241,8 +255,10 @@
         "height": 3240,
         "upscaled": true,
         "sha256": "421e490278e25c84ac3413e44aa05f9d0eb167dcd02250a342749f9892c1cf03",
-        "canvasPaddingPct": 12,
-        "format": "webp"
+        "canvasPaddingPct": 10,
+        "format": "webp",
+        "hasAlpha": true,
+        "safeMarginPct": 10
       },
       "display": {
         "width": 640,
@@ -273,8 +289,10 @@
         "height": 2160,
         "upscaled": true,
         "sha256": "566ef480b2bd936a99172ada1bbc688d0d9a32dd0b9d220b52ebfba387f0a7ba",
-        "canvasPaddingPct": 12,
-        "format": "webp"
+        "canvasPaddingPct": 10,
+        "format": "webp",
+        "hasAlpha": true,
+        "safeMarginPct": 10
       },
       "display": {
         "width": 1280,
@@ -305,8 +323,10 @@
         "height": 2160,
         "upscaled": true,
         "sha256": "7ad693afeffd8b1f802b605d19b2472843fc7808220e934a999ff6dc62ddbc74",
-        "canvasPaddingPct": 12,
-        "format": "webp"
+        "canvasPaddingPct": 10,
+        "format": "webp",
+        "hasAlpha": true,
+        "safeMarginPct": 10
       },
       "display": {
         "width": 1280,
@@ -337,8 +357,10 @@
         "height": 2160,
         "upscaled": true,
         "sha256": "5254e282e506f3db064ff0bd39744f9d8e1575478cc2b2c3bc08da93e1a69c05",
-        "canvasPaddingPct": 12,
-        "format": "webp"
+        "canvasPaddingPct": 10,
+        "format": "webp",
+        "hasAlpha": true,
+        "safeMarginPct": 10
       },
       "display": {
         "width": 1280,
@@ -369,8 +391,10 @@
         "height": 2160,
         "upscaled": true,
         "sha256": "e4c9d7cfbeb32e4acf046158dadca64581fdb92e70669621c4a3625f191ce959",
-        "canvasPaddingPct": 12,
-        "format": "webp"
+        "canvasPaddingPct": 10,
+        "format": "webp",
+        "hasAlpha": true,
+        "safeMarginPct": 10
       },
       "display": {
         "width": 1280,
@@ -401,8 +425,10 @@
         "height": 2160,
         "upscaled": true,
         "sha256": "4ee4dd3ffce20f62edecc75200d960a4d12078a37c9627ef4fea9fae8ee03c38",
-        "canvasPaddingPct": 12,
-        "format": "webp"
+        "canvasPaddingPct": 10,
+        "format": "webp",
+        "hasAlpha": true,
+        "safeMarginPct": 10
       },
       "display": {
         "width": 1280,
@@ -433,8 +459,10 @@
         "height": 2160,
         "upscaled": true,
         "sha256": "bc21e3d5d10b3ef4ff3173742ab55cc3678974b103c24546839f797eca851cfc",
-        "canvasPaddingPct": 12,
-        "format": "webp"
+        "canvasPaddingPct": 10,
+        "format": "webp",
+        "hasAlpha": true,
+        "safeMarginPct": 10
       },
       "display": {
         "width": 1280,
@@ -465,8 +493,10 @@
         "height": 2160,
         "upscaled": true,
         "sha256": "72246feb124488fce63ab76031eecf33cc42db356ba270da04ff7f259079e0aa",
-        "canvasPaddingPct": 12,
-        "format": "webp"
+        "canvasPaddingPct": 10,
+        "format": "webp",
+        "hasAlpha": true,
+        "safeMarginPct": 10
       },
       "display": {
         "width": 1280,
@@ -497,8 +527,10 @@
         "height": 2160,
         "upscaled": true,
         "sha256": "32b0da5a119525c92718027caaafe8cdda0c7fc08d01b1900a6bbae073659e8d",
-        "canvasPaddingPct": 12,
-        "format": "webp"
+        "canvasPaddingPct": 10,
+        "format": "webp",
+        "hasAlpha": true,
+        "safeMarginPct": 10
       },
       "display": {
         "width": 1280,
@@ -529,8 +561,10 @@
         "height": 2160,
         "upscaled": true,
         "sha256": "49889b6537094f6e1fe164fd8aa0f1c8c9ad263975c0be1d2dab392b0b4eb6dd",
-        "canvasPaddingPct": 12,
-        "format": "webp"
+        "canvasPaddingPct": 10,
+        "format": "webp",
+        "hasAlpha": true,
+        "safeMarginPct": 10
       },
       "display": {
         "width": 1280,
@@ -561,8 +595,10 @@
         "height": 2160,
         "upscaled": true,
         "sha256": "af384359a00bd58f0c2cd11705a9d481c5f674551ad31921b5af1a3d62d35236",
-        "canvasPaddingPct": 12,
-        "format": "webp"
+        "canvasPaddingPct": 10,
+        "format": "webp",
+        "hasAlpha": true,
+        "safeMarginPct": 10
       },
       "display": {
         "width": 1280,
@@ -593,8 +629,10 @@
         "height": 2160,
         "upscaled": true,
         "sha256": "ee71ffca4e73d7303ad49f3cf8c18d7ab305f73df28cf460832c3c3337450b0d",
-        "canvasPaddingPct": 12,
-        "format": "webp"
+        "canvasPaddingPct": 10,
+        "format": "webp",
+        "hasAlpha": true,
+        "safeMarginPct": 10
       },
       "display": {
         "width": 1280,
@@ -625,8 +663,10 @@
         "height": 2160,
         "upscaled": true,
         "sha256": "2479b3c44d0ca8ea11ab7cd79fa9eb662fb854c6fdc7dffb77d3ad9829a9d655",
-        "canvasPaddingPct": 12,
-        "format": "webp"
+        "canvasPaddingPct": 10,
+        "format": "webp",
+        "hasAlpha": true,
+        "safeMarginPct": 10
       },
       "display": {
         "width": 1280,

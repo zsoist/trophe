@@ -29,6 +29,12 @@ Representative post-processing inspection covered the chest anatomy WebP, squat 
 
 - Replaced the accepted canonical `chest` and `squat` sources; both were re-inspected at original detail. Chest now keeps the primary chest region distinct with real frame margin; squat includes the athlete, complete rack, and bar endpoints.
 - Moved the 20 accepted original PNGs to `assets/workout-v2/sources/` and the 20 high-resolution 2160×3240 / 3240×2160 masters to `assets/workout-v2/masters/` as high-quality alpha WebPs. `public/workout-v2/` now contains only the 20 runtime WebPs and manifest; `.vercelignore` excludes the build-only directory.
-- The optimizer reads only those checked-in originals. It deterministically removes the warm studio matte, pads an alpha canvas by 12%, records separate source/output margins, decodes every image, verifies alpha/opaque content/dimensions/size, recomputes the full manifest, and validates SHA-256 hashes for source/master/display. It also has an explicit two-pass byte-idempotence probe.
-- Actual sizes: source PNGs 32,737,079 bytes; high-resolution master WebPs 5,194,800 bytes; public runtime payload including manifest 777,330 bytes (under the 2 MiB deployment cap).
+- The optimizer reads only those checked-in originals. It deterministically removes the warm studio matte, derives a 10% alpha-canvas edge margin, records separate source/master/display margins, raw-decodes every master and display, verifies alpha/opaque content/dimensions/size, recomputes the full manifest, and validates SHA-256 hashes for source/master/display. It also has an explicit two-pass byte-idempotence probe.
+- Actual sizes: source PNGs 32,737,079 bytes; high-resolution master WebPs 5,194,800 bytes; public runtime payload including manifest 778,430 bytes (under the 2 MiB deployment cap).
 - Composite inspection passed on light and graphite-dark surfaces for the replacement chest and squat plus cable fly: all retain the complete subject/equipment while the dark graphite field is visibly exposed through alpha.
+
+## Fix round 2 — measured master-margin contract
+
+- The master canvas contract is now stated accurately: the optimizer derives its foreground extent from a 10% edge-margin target (`(100 - 2 × 10)% = 80%`) instead of declaring 12% while rendering a constrained 80% foreground.
+- Each manifest master records `hasAlpha` and its pixel-measured `safeMarginPct`; the optimizer check raw-decodes every master and recomputes those measurements before comparing the complete manifest, dimensions, config strings, and hashes.
+- The quality suite independently raw-decodes every master, verifies alpha and an at-least-8% measured edge margin, and checks that the measured result agrees with the manifest. This keeps the manifest from becoming a declaration the test merely trusts.

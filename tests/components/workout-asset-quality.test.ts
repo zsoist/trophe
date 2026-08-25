@@ -11,7 +11,16 @@ const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
     kind: 'anatomy' | 'technique' | 'cardio';
     src: `/${string}`;
     source: { path: `assets/${string}`; width: number; height: number; sha256: string; safeMarginPct: number };
-    master: { path: `assets/${string}`; width: number; height: number; upscaled: boolean; sha256: string; canvasPaddingPct: number };
+    master: {
+      path: `assets/${string}`;
+      width: number;
+      height: number;
+      upscaled: boolean;
+      sha256: string;
+      canvasPaddingPct: number;
+      hasAlpha: true;
+      safeMarginPct: number;
+    };
     display: { width: number; height: number; sha256: string; hasAlpha: true };
     safeMarginPct: number;
     fallbackLabel: 'anatomy';
@@ -38,7 +47,9 @@ describe('workout V2 asset quality', () => {
     expect(entry.master.upscaled).toBe(true);
     expect(entry.master.path).toMatch(/^assets\/workout-v2\/masters\//);
     expect(entry.master.sha256).toMatch(/^[a-f0-9]{64}$/);
-    expect(entry.master.canvasPaddingPct).toBeGreaterThanOrEqual(10);
+    expect(entry.master.canvasPaddingPct).toBe(10);
+    expect(entry.master.hasAlpha).toBe(true);
+    expect(entry.master.safeMarginPct).toBeGreaterThanOrEqual(8);
     expect(entry.display.hasAlpha).toBe(true);
     expect(entry.display.sha256).toMatch(/^[a-f0-9]{64}$/);
     expect(entry.safeMarginPct).toBeGreaterThanOrEqual(8);
@@ -47,6 +58,26 @@ describe('workout V2 asset quality', () => {
     expect(statSync(displayPath).size).toBeLessThan(450_000);
     expect(statSync(join(repoRoot, entry.source.path)).isFile()).toBe(true);
     expect(statSync(join(repoRoot, entry.master.path)).isFile()).toBe(true);
+    const masterPath = join(repoRoot, entry.master.path);
+    const masterMetadata = await sharp(masterPath).metadata();
+    expect(masterMetadata.hasAlpha).toBe(true);
+    const masterRaw = await sharp(masterPath).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    let masterLeft = masterRaw.info.width; let masterTop = masterRaw.info.height; let masterRight = -1; let masterBottom = -1;
+    for (let y = 0; y < masterRaw.info.height; y += 1) for (let x = 0; x < masterRaw.info.width; x += 1) {
+      if (masterRaw.data[(y * masterRaw.info.width + x) * masterRaw.info.channels + 3] > 24) {
+        masterLeft = Math.min(masterLeft, x); masterRight = Math.max(masterRight, x);
+        masterTop = Math.min(masterTop, y); masterBottom = Math.max(masterBottom, y);
+      }
+    }
+    expect(masterRight).toBeGreaterThanOrEqual(masterLeft);
+    const masterMeasuredMarginPct = Math.min(
+      masterLeft / masterRaw.info.width,
+      (masterRaw.info.width - 1 - masterRight) / masterRaw.info.width,
+      masterTop / masterRaw.info.height,
+      (masterRaw.info.height - 1 - masterBottom) / masterRaw.info.height,
+    ) * 100;
+    expect(masterMeasuredMarginPct).toBeGreaterThanOrEqual(8);
+    expect(entry.master.safeMarginPct).toBeCloseTo(masterMeasuredMarginPct, 2);
     const metadata = await sharp(displayPath).metadata();
     expect(metadata.hasAlpha).toBe(true);
     const { data, info } = await sharp(displayPath).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
