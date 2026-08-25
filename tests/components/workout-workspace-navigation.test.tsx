@@ -78,6 +78,15 @@ describe('workout workspace navigation', () => {
     expect(screen.getByText('Live')).toBeTruthy();
   });
 
+  it('does not repeat home controls on the workspace landing route', () => {
+    pathname = WORKOUT_ROUTES.home;
+    render(<WorkoutWorkspaceHeader stage="home" />);
+
+    expect(screen.queryByRole('link', { name: /Back/i })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Workout Home' })).toBeNull();
+    expect(screen.getByRole('heading', { name: 'Workout Home' })).toBeTruthy();
+  });
+
   it('keeps the Exercises workspace title on an addressable exercise detail route', () => {
     pathname = '/dashboard/workout/exercises/bench';
     render(<WorkoutWorkspaceHeader stage="draft" />);

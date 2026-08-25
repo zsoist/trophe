@@ -73,7 +73,7 @@ export function WorkoutBuilder({ exercises, onSavePlan }: WorkoutBuilderProps) {
                   <h2 className="min-w-0 flex-1 truncate font-semibold text-[var(--content-primary)]">{name}</h2>
                   <button type="button" disabled={index === 0} aria-label={t('workout.move_named_up', { name })} onClick={() => workspace.reorderDraftExercise(draftExercise.exerciseId, 'up')} className="inline-flex min-h-11 min-w-11 items-center justify-center disabled:opacity-30"><ChevronUp size={18} aria-hidden="true" /></button>
                   <button type="button" disabled={index === draft.exercises.length - 1} aria-label={t('workout.move_named_down', { name })} onClick={() => workspace.reorderDraftExercise(draftExercise.exerciseId, 'down')} className="inline-flex min-h-11 min-w-11 items-center justify-center disabled:opacity-30"><ChevronDown size={18} aria-hidden="true" /></button>
-                  <button type="button" aria-label={t('workout.remove_named', { name })} onClick={() => workspace.removeDraftExercise(draftExercise.exerciseId)} className="inline-flex min-h-11 min-w-11 items-center justify-center text-[var(--status-danger-fg)]"><Trash2 size={17} aria-hidden="true" /></button>
+                  <button type="button" aria-label={t('workout.remove_named', { name })} onClick={() => workspace.removeDraftExercise(draftExercise.exerciseId)} className="inline-flex min-h-11 items-center justify-center gap-1 rounded-xl px-2 text-xs font-semibold text-[var(--status-danger-fg)]"><Trash2 size={17} aria-hidden="true" />{t('workout.remove_exercise')}</button>
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-3">
                   <label className="text-xs text-[var(--content-secondary)]">

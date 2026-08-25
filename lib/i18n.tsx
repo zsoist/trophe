@@ -699,6 +699,7 @@ export const translations: Record<string, Record<CoreLanguage, string>> = {
   'workout.start_live_failed': { en: 'Workout could not start. Try again.', es: 'No se pudo iniciar el entrenamiento. Inténtalo de nuevo.', el: 'Η προπόνηση δεν μπόρεσε να ξεκινήσει. Δοκίμασε ξανά.' },
   'workout.mutation_failed': { en: 'A workout change could not be saved. Retry that change before finishing.', es: 'No se pudo guardar un cambio. Reinténtalo antes de finalizar.', el: 'Μια αλλαγή δεν αποθηκεύτηκε. Δοκιμάστε ξανά πριν την ολοκλήρωση.' },
   'workout.recovery_failed': { en: 'Workout recovery could not be verified.', es: 'No se pudo verificar la recuperación del entrenamiento.', el: 'Δεν ήταν δυνατή η επαλήθευση της ανάκτησης προπόνησης.' },
+  'workout.info_history_failed': { en: 'Recent sessions could not be loaded. Try again later.', es: 'No se pudieron cargar las sesiones recientes. Inténtalo más tarde.', el: 'Δεν ήταν δυνατή η φόρτωση των πρόσφατων προπονήσεων. Δοκιμάστε ξανά αργότερα.' },
   'workout.retry_recovery': { en: 'Retry recovery', es: 'Reintentar recuperación', el: 'Επανάληψη ανάκτησης' },
   'workout.invalid_cardio_metrics': { en: 'Enter a positive duration, a non-negative distance, and effort from 1 to 10.', es: 'Ingresa una duración positiva, una distancia no negativa y un esfuerzo de 1 a 10.', el: 'Εισαγάγετε θετική διάρκεια, μη αρνητική απόσταση και προσπάθεια από 1 έως 10.' },
   'workout.log_completed': { en: 'Log completed workout', es: 'Registrar entrenamiento completado', el: 'Καταγραφή ολοκληρωμένης προπόνησης' },

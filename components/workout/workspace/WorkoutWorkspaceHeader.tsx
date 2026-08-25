@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ChevronLeft, Dumbbell } from 'lucide-react';
+import { ChevronLeft, Dumbbell, House } from 'lucide-react';
 import { useWorkoutWorkspace } from '@/components/workout/workspace/WorkoutWorkspaceProvider';
 import { useI18n } from '@/lib/i18n';
 import { WORKOUT_ROUTES } from '@/lib/workout/workspace-routes';
@@ -30,17 +30,25 @@ function WorkoutWorkspaceHeaderContent({ stage }: { stage: WorkoutStage }) {
     : titleKeys[pathname] ?? 'workout.title';
   const title = t(titleKey);
   const status = t(statusKeyForStage(stage));
+  const isHome = pathname === WORKOUT_ROUTES.home;
 
   return (
-    <header className="flex items-center gap-3 border-b border-[var(--border-subtle)] px-4 py-3">
-      <Link href={WORKOUT_ROUTES.home} aria-label={t('workout.back_home')} className="inline-flex min-h-11 items-center gap-1">
-        <ChevronLeft size={18} strokeWidth={2} aria-hidden="true" />
-        <span>{t('workout.workspace_back')}</span>
-      </Link>
-      <Dumbbell size={18} strokeWidth={2} aria-hidden="true" />
-      <h1 className="text-base font-semibold">{title}</h1>
-      <Link href={WORKOUT_ROUTES.home} className="ml-auto text-sm font-medium">{t('workout.workspace_home_title')}</Link>
-      <span className="rounded-full bg-[var(--surface-subtle)] px-2 py-1 text-xs font-semibold" aria-label={t('workout.workspace_status_label', { status })}>{status}</span>
+    <header className="flex min-h-16 items-center gap-2 border-b border-[var(--workout-rail)] px-3 py-2 min-[375px]:gap-3 min-[375px]:px-4">
+      {!isHome && (
+        <Link href={WORKOUT_ROUTES.home} aria-label={t('workout.back_home')} className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-1 rounded-xl text-sm font-medium hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] min-[375px]:px-2">
+          <ChevronLeft size={18} strokeWidth={2} aria-hidden="true" />
+          <span className="hidden min-[375px]:inline">{t('workout.workspace_back')}</span>
+        </Link>
+      )}
+      <Dumbbell className="hidden shrink-0 min-[375px]:block" size={18} strokeWidth={2} aria-hidden="true" />
+      <h1 className="min-w-0 flex-1 truncate text-base font-semibold">{title}</h1>
+      {!isHome && (
+        <Link href={WORKOUT_ROUTES.home} aria-label={t('workout.workspace_home_title')} className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-1 rounded-xl text-sm font-medium hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] min-[375px]:px-2">
+          <House size={17} strokeWidth={2} aria-hidden="true" />
+          <span className="hidden min-[430px]:inline">{t('workout.workspace_home_title')}</span>
+        </Link>
+      )}
+      <span className="shrink-0 rounded-full border border-[var(--workout-rail)] bg-[var(--surface-subtle)] px-2 py-1 text-xs font-semibold" aria-label={t('workout.workspace_status_label', { status })}>{status}</span>
     </header>
   );
 }

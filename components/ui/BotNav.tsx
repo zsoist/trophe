@@ -76,7 +76,7 @@ export function BotNav({ routes, className = '', onActiveRouteSelect }: BotNavPr
               onActiveRouteSelect(route.href);
             }}
             className={[
-              'relative flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl px-1',
+              'relative flex min-h-14 min-w-11 flex-1 basis-0 flex-col items-center justify-center gap-0.5 rounded-xl px-1',
               'text-xs uppercase tracking-[0.05em]',
               'transition-colors motion-reduce:transition-none',
               active
@@ -94,7 +94,7 @@ export function BotNav({ routes, className = '', onActiveRouteSelect }: BotNavPr
             />
             <span
               className={[
-                'text-[16px] leading-none transition-opacity motion-reduce:transition-none',
+                'text-base leading-none transition-opacity motion-reduce:transition-none',
                 active ? 'opacity-100' : 'opacity-75',
               ].join(' ')}
             >

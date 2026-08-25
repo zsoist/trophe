@@ -67,13 +67,13 @@ export function ExerciseSetLogger({
   const [saving, setSaving] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [restElapsed, setRestElapsed] = useState(0);
+  const [restStartedAt, setRestStartedAt] = useState<number | null>(null);
 
   useEffect(() => {
-    if (!setId) return;
-    const startedAt = Date.now();
-    const timer = window.setInterval(() => setRestElapsed(Math.floor((Date.now() - startedAt) / 1000)), 1_000);
+    if (!setId || restStartedAt === null) return;
+    const timer = window.setInterval(() => setRestElapsed(Math.floor((Date.now() - restStartedAt) / 1000)), 1_000);
     return () => window.clearInterval(timer);
-  }, [setId]);
+  }, [restStartedAt, setId]);
 
   const toggleComplete = async () => {
     if (saving || disabled) return;
@@ -83,6 +83,7 @@ export function ExerciseSetLogger({
         const removed = onUndo ? await onUndo(setId) : false;
         if (removed) {
           setSetId(null);
+          setRestStartedAt(null);
           setRestElapsed(0);
         }
         return;
@@ -93,7 +94,10 @@ export function ExerciseSetLogger({
         rpe: parsedNumber(rpe),
         isWarmup,
       });
-      if (savedId) setSetId(savedId);
+      if (savedId) {
+        setSetId(savedId);
+        setRestStartedAt(Date.now());
+      }
     } catch {
       // The row remains editable and retryable.
     } finally {
@@ -145,7 +149,7 @@ export function ExerciseSetLogger({
         {t('workout.warmup')}
       </label>
 
-      {completed ? (
+      {completed && restStartedAt !== null ? (
         <p role="status" className="mt-2 rounded-xl bg-[var(--status-success-bg)] px-3 py-2 text-sm text-[var(--status-success-fg)]">
           {t('workout.resting')} · {restElapsed}s / {restTargetSeconds}s
         </p>

@@ -100,7 +100,7 @@
   --err:   #E87A6E;
   --info:  #7DA3D9;
   --plum:  #B89DD9;
-  --workout-visual-surface: #1a1a1a;
+  --workout-visual-surface: var(--workout-surface-raised);
 
   /* Radius */
   --r-sm:   6px;
@@ -208,6 +208,19 @@
   --performance-orange: #FF7A1A;
   --performance-violet: #9567F2;
 
+  /* Workout Workspace V2 — one explicit, theme-safe material contract. */
+  --workout-canvas: var(--performance-canvas);
+  --workout-surface: var(--performance-surface);
+  --workout-surface-raised: var(--performance-surface-raised);
+  --workout-surface-subtle: var(--surface-2);
+  --workout-rail: var(--performance-rail);
+  --workout-shadow: rgba(0, 0, 0, 0.52);
+  --workout-motion-duration: 220ms;
+  --workout-motion-ease: cubic-bezier(.16, 1, .3, 1);
+  --surface-raised: var(--workout-surface);
+  --surface-subtle: var(--workout-surface-subtle);
+  --performance-shadow: var(--workout-shadow);
+
   /* Existing component primitives now resolve through the semantic roles. */
   --bg: var(--canvas);
   --bg-1: var(--canvas-subtle);
@@ -237,7 +250,7 @@
   --border-default: #d6d3d1;
   --border-light: #a8a29e;
   --scrollbar-thumb: #d6d3d1;
-  --workout-visual-surface: #f8f6f2;
+  --workout-visual-surface: var(--workout-surface-raised);
   --scrollbar-hover: #a8a29e;
   --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.08);
 
@@ -327,6 +340,16 @@
   --performance-cyan: #007A99;
   --performance-orange: #B94C00;
   --performance-violet: #6544B8;
+
+  --workout-canvas: var(--performance-canvas);
+  --workout-surface: var(--performance-surface);
+  --workout-surface-raised: var(--performance-surface-raised);
+  --workout-surface-subtle: var(--surface-2);
+  --workout-rail: var(--performance-rail);
+  --workout-shadow: rgba(28, 25, 23, 0.16);
+  --surface-raised: var(--workout-surface);
+  --surface-subtle: var(--workout-surface-subtle);
+  --performance-shadow: var(--workout-shadow);
 
   /* Existing component primitives now resolve through the semantic roles. */
   --bg: var(--canvas);
@@ -1288,8 +1311,10 @@ body {
 .client-shell {
   --client-shell-nav-base-height: 3.875rem;
   --client-shell-nav-min-bottom-padding: 1rem;
+  --client-shell-content-buffer: 0.625rem;
   min-height: 100dvh;
   background: var(--canvas);
+  overflow-x: clip;
 }
 
 .client-shell__content {
@@ -1297,7 +1322,7 @@ body {
   padding-bottom: calc(
     var(--client-shell-nav-base-height) +
     max(env(safe-area-inset-bottom, 0px), var(--client-shell-nav-min-bottom-padding)) +
-    0.5rem
+    var(--client-shell-content-buffer)
   );
   transform-origin: 50% 35%;
 }
@@ -1405,6 +1430,28 @@ body {
   gap: 0.65rem;
 }
 
+.workout-workspace {
+  min-width: 0;
+  overflow-x: clip;
+  background: var(--workout-canvas);
+  color: var(--content-primary);
+  font-family: var(--font-ui), var(--font-sans), system-ui, sans-serif;
+}
+
+.workout-workspace :where(button, a, input, select, textarea) {
+  transition-duration: var(--workout-motion-duration);
+  transition-timing-function: var(--workout-motion-ease);
+}
+
+.workout-workspace :where(input, textarea) {
+  caret-color: var(--action-primary);
+}
+
+.workout-workspace ::selection {
+  background: color-mix(in srgb, var(--action-primary) 30%, transparent);
+  color: var(--content-primary);
+}
+
 .workout-page-header {
   padding: 0.7rem 1rem 0.25rem;
   background: var(--canvas);
@@ -1424,7 +1471,7 @@ body {
   border-radius: 1rem;
   background: var(--performance-surface);
   box-shadow: 0 10px 28px -20px var(--performance-shadow);
-  color: white;
+  color: var(--content-primary);
   cursor: pointer;
   isolation: isolate;
   text-align: left;
@@ -1450,7 +1497,7 @@ body {
   position: absolute;
   inset: 0;
   z-index: 0;
-  transition: transform 280ms cubic-bezier(.16, 1, .3, 1);
+  transition: transform var(--workout-motion-duration) var(--workout-motion-ease);
 }
 
 .workout-mode-card__scrim {
@@ -1487,12 +1534,12 @@ body {
 }
 
 .workout-mode-card--strength {
-  background: radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--performance-lime) 25%, transparent), #050606 62%);
+  background: radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--performance-lime) 18%, var(--workout-surface-raised)), var(--workout-surface) 72%);
   color: var(--performance-lime);
 }
 
 .workout-mode-card--cardio {
-  background: radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--performance-coral) 28%, transparent), #050606 62%);
+  background: radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--performance-coral) 18%, var(--workout-surface-raised)), var(--workout-surface) 72%);
   color: var(--performance-coral);
 }
 
@@ -1585,7 +1632,7 @@ body {
   overflow: hidden;
   border: 1px solid;
   border-radius: 0.75rem;
-  background: #070806;
+  background: var(--workout-visual-surface);
 }
 
 .equipment-filter {
@@ -1660,7 +1707,7 @@ body {
   margin-bottom: 0.9rem;
   overflow: hidden;
   border-radius: 0.9rem;
-  background: #070806;
+  background: var(--workout-visual-surface);
 }
 
 .session-exercise-identity {
@@ -1691,7 +1738,7 @@ body {
   flex: none;
   overflow: hidden;
   border-radius: 0.7rem;
-  background: #070806;
+  background: var(--workout-visual-surface);
 }
 
 .session-exercise-identity__copy { min-width: 0; flex: 1; }
@@ -1878,6 +1925,14 @@ body {
 @media (max-width: 360px) {
   .daily-macro-strip__cell { padding-inline: 0.4rem; }
   .daily-macro-strip__value { font-size: 0.76rem; }
+  .client-shell__nav { left: 0.25rem; right: 0.25rem; padding-inline: 0.25rem; }
+  .client-shell__nav a { padding-inline: 0; font-size: 0.6875rem; letter-spacing: 0; }
+  .workout-workspace > header { gap: 0.4rem; padding-inline: 0.75rem; }
+  .workout-workspace > header h1 { max-width: 7.5rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .workout-workspace main { padding-inline: 0.75rem; }
+  .workout-workspace .grid-cols-2 { gap: 0.5rem; }
+  .equipment-filter { align-items: stretch; flex-direction: column; }
+  .equipment-filter__control { width: 100%; min-width: 0; }
 }
 
 .performance-section {
@@ -2072,6 +2127,19 @@ input, textarea, select {
   animation: mockSheen 4.5s ease-in-out infinite;
 }
 @media (prefers-reduced-motion: reduce) {
+  .workout-workspace,
+  .workout-workspace *,
+  .workout-workspace *::before,
+  .workout-workspace *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .workout-workspace .movement-visual,
+  .workout-workspace [data-motion-translate] {
+    transform: none !important;
+  }
+
   .mock-log-tab, .mock-sheen { animation: none; }
 }
 

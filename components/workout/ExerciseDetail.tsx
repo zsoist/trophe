@@ -59,6 +59,7 @@ export function ExerciseDetail({ exercise, userId, onAdd, isAdded = false, alter
   const [unit] = useWeightUnit();
   const [pr, setPr] = useState<number | null>(null);
   const [history, setHistory] = useState<HistoryEntry[] | null>(userId ? null : []);
+  const [historyError, setHistoryError] = useState(false);
   const name = exerciseDisplayName(exercise, lang);
   const instructions = lang === 'es' && exercise.instructions_es ? exercise.instructions_es
     : lang === 'el' && exercise.instructions_el ? exercise.instructions_el
@@ -74,7 +75,7 @@ export function ExerciseDetail({ exercise, userId, onAdd, isAdded = false, alter
     let active = true;
     void (async () => {
       // The authenticated browser client and joined user filter preserve workout_sets RLS.
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('workout_sets')
         .select('weight_kg, reps, is_warmup, workout_sessions!inner(user_id, session_date)')
         .eq('exercise_id', exercise.id)
@@ -83,6 +84,11 @@ export function ExerciseDetail({ exercise, userId, onAdd, isAdded = false, alter
         .order('created_at', { ascending: false })
         .limit(120);
       if (!active) return;
+      if (error) {
+        setHistoryError(true);
+        setHistory([]);
+        return;
+      }
 
       type Row = { weight_kg: number | null; reps: number | null; workout_sessions: { session_date: string } };
       const rows = ((data as unknown as Row[]) ?? []);
@@ -94,6 +100,7 @@ export function ExerciseDetail({ exercise, userId, onAdd, isAdded = false, alter
         byDate.set(date, [...(byDate.get(date) ?? []), row]);
       }
       setPr(best > 0 ? best : null);
+      setHistoryError(false);
       setHistory([...byDate.entries()]
         .sort(([a], [b]) => b.localeCompare(a))
         .slice(0, 3)
@@ -162,7 +169,8 @@ export function ExerciseDetail({ exercise, userId, onAdd, isAdded = false, alter
         <section className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-4">
           <h2 className="text-sm font-semibold text-[var(--content-primary)]">{t('workout.info_last')}</h2>
           {history === null ? <p className="mt-3 text-sm text-[var(--content-muted)]">{t('chat.loading')}</p> : null}
-          {history !== null && history.length === 0 ? <p className="mt-3 flex items-center gap-2 text-sm text-[var(--content-muted)]"><Dumbbell size={14} aria-hidden="true" />{t('workout.info_no_history')}</p> : null}
+          {historyError ? <p role="alert" className="mt-3 text-sm text-[var(--status-danger-fg)]">{t('workout.info_history_failed')}</p> : null}
+          {!historyError && history !== null && history.length === 0 ? <p className="mt-3 flex items-center gap-2 text-sm text-[var(--content-muted)]"><Dumbbell size={14} aria-hidden="true" />{t('workout.info_no_history')}</p> : null}
           {history?.map((entry) => (
             <div key={entry.date} className="mt-3 flex items-center justify-between gap-2 border-t border-[var(--border-subtle)] pt-3 text-xs text-[var(--content-secondary)]">
               <span>{new Date(`${entry.date}T00:00:00`).toLocaleDateString(lang === 'es' ? 'es' : lang === 'el' ? 'el' : 'en-US', { month: 'short', day: 'numeric' })}</span>

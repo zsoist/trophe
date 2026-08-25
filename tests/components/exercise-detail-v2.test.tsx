@@ -6,7 +6,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Exercise } from '@/lib/types';
 
 vi.mock('next/image', () => ({
-  default: ({ priority: _priority, ...props }: Record<string, unknown>) => React.createElement('img', props),
+  default: (props: Record<string, unknown>) => {
+    const imageProps = { ...props };
+    delete imageProps.priority;
+    return React.createElement('img', imageProps);
+  },
 }));
 
 vi.mock('framer-motion', async () => {
@@ -43,6 +47,7 @@ vi.mock('@/lib/i18n', () => ({
       'workout.info_pr': 'Personal best',
       'workout.info_last': 'Recent sessions',
       'workout.info_no_history': 'No history yet',
+      'workout.info_history_failed': 'Recent sessions could not be loaded. Try again later.',
       'workout.picker_add_named': `Add ${params?.name ?? ''}`,
       'workout.exercise_added_named': `${params?.name ?? ''} added`,
       'workout.muscle_chest': 'Chest',
@@ -61,6 +66,8 @@ vi.mock('@/lib/supabase', () => ({
 }));
 
 import ExerciseInfoSheet from '@/components/workout/ExerciseInfoSheet';
+import { ExerciseDetail } from '@/components/workout/ExerciseDetail';
+import { supabase } from '@/lib/supabase';
 
 const machinePress = {
   id: 'machine-press',
@@ -91,6 +98,22 @@ describe('full exercise detail', () => {
       expect(screen.getByRole('heading', { name: heading })).toBeTruthy();
     }
     expect(screen.getByText('No exercise-specific safety note is available.')).toBeTruthy();
+  });
+
+  it('distinguishes a recoverable history error from an empty history', async () => {
+    const result = Promise.resolve({ data: null, error: { message: 'offline' } });
+    const query = Object.assign(result, {
+      select: vi.fn(), eq: vi.fn(), order: vi.fn(), limit: vi.fn(),
+    });
+    query.select.mockReturnValue(query);
+    query.eq.mockReturnValue(query);
+    query.order.mockReturnValue(query);
+    query.limit.mockReturnValue(query);
+    vi.mocked(supabase.from).mockReturnValue(query as never);
+
+    render(<ExerciseDetail exercise={machinePress} userId="user-1" />);
+    expect((await screen.findByRole('alert')).textContent).toBe('Recent sessions could not be loaded. Try again later.');
+    expect(screen.queryByText('No history yet')).toBeNull();
   });
 
   it('uses a sticky Add action and switches to Added after the draft accepts it', () => {

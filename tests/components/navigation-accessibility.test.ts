@@ -59,6 +59,7 @@ describe('authenticated navigation accessibility', () => {
     expect(navigation.className).toContain('safe-bottom');
     screen.getAllByRole('link').forEach((link) => {
       expect(link.className).toContain('min-h-14');
+      expect(link.className).toContain('min-w-11');
     });
     const animatedElements = Array.from(navigation.querySelectorAll<HTMLElement>('[class*="transition"]'));
     expect(animatedElements.length).toBeGreaterThan(0);

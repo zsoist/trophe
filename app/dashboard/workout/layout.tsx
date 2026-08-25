@@ -5,8 +5,10 @@ import { WorkoutWorkspaceProvider } from '@/components/workout/workspace/Workout
 export default function WorkoutLayout({ children }: { children: ReactNode }) {
   return (
     <WorkoutWorkspaceProvider>
-      <WorkoutWorkspaceHeader />
-      {children}
+      <div className="workout-workspace">
+        <WorkoutWorkspaceHeader />
+        {children}
+      </div>
     </WorkoutWorkspaceProvider>
   );
 }

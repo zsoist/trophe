@@ -54,6 +54,21 @@ describe('ExerciseSetLogger', () => {
     expect(screen.getByText(/90s/)).toBeTruthy();
   });
 
+  it('does not start a fresh rest timer for a recovered completed set', () => {
+    render(<ExerciseSetLogger exercise={{ id: 'bench', name: 'Bench Press' }} setNumber={1} unit="kg" initialSetId="persisted-set" initialValue={{ weight: 60, reps: 8, rpe: 7, isWarmup: false }} onComplete={vi.fn()} />);
+    expect(screen.getByRole('button', { name: 'Undo set' })).toBeTruthy();
+    expect(screen.queryByText(/Resting/)).toBeNull();
+  });
+
+  it('restores completed values for editing after undo', async () => {
+    render(<ExerciseSetLogger exercise={{ id: 'bench', name: 'Bench Press' }} setNumber={1} unit="kg" initialSetId="persisted-set" initialValue={{ weight: 60, reps: 8, rpe: 7, isWarmup: false }} onComplete={vi.fn()} onUndo={vi.fn().mockResolvedValue(true)} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Undo set' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Complete set' })).toBeTruthy());
+    expect((screen.getByLabelText('Weight in kg') as HTMLInputElement).value).toBe('60');
+    expect((screen.getByLabelText('Reps') as HTMLInputElement).value).toBe('8');
+    expect((screen.getByLabelText('RPE optional') as HTMLInputElement).value).toBe('7');
+  });
+
   it('re-enables completion when persistence rejects', async () => {
     render(<ExerciseSetLogger exercise={{ id: 'bench', name: 'Bench Press' }} setNumber={1} unit="kg" onComplete={vi.fn().mockRejectedValue(new Error('offline'))} />);
     fireEvent.click(screen.getByRole('button', { name: 'Complete set' }));
