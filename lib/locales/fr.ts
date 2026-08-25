@@ -18,6 +18,8 @@ export const fr: Record<string, string> = {
   'workout.workspace_status_paused': 'En pause',
   'workout.workspace_status_completed': 'Terminé',
   'workout.workspace_status_label': 'Statut de l’entraînement : {status}',
+  'workout.weight_unit_label': 'Unité de poids : {unit}',
+  'workout.weight_unit_switch': 'Passer en {unit}',
   'workout.repeat_replace_title': 'Remplacer le brouillon actuel ?',
   'workout.repeat_replace_message': 'Tu as un entraînement inachevé. Le remplacer par cet entraînement répété ?',
   'workout.repeat_replace_confirm': 'Remplacer le brouillon',

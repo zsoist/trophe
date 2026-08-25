@@ -1,11 +1,21 @@
 // @vitest-environment jsdom
 
 import React from 'react';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { WORKOUT_ROUTES, workoutRouteForStage } from '@/lib/workout/workspace-routes';
 
 let pathname: string = WORKOUT_ROUTES.live;
+const storageValues = new Map<string, string>();
+Object.defineProperty(window, 'localStorage', {
+  configurable: true,
+  value: {
+    getItem: (key: string) => storageValues.get(key) ?? null,
+    setItem: (key: string, value: string) => storageValues.set(key, value),
+    removeItem: (key: string) => storageValues.delete(key),
+    clear: () => storageValues.clear(),
+  },
+});
 
 const locale = vi.hoisted(() => ({
   language: 'en',
@@ -37,6 +47,8 @@ vi.mock('@/lib/i18n', () => ({
         'workout.workspace_status_live': live,
         'workout.workspace_status_draft': 'Draft',
         'workout.workspace_status_label': String(params?.status ?? ''),
+        'workout.weight_unit_label': `Weight unit: ${String(params?.unit ?? '')}`,
+        'workout.weight_unit_switch': `Switch to ${String(params?.unit ?? '')}`,
       };
       return values[key] ?? key;
     },
@@ -51,6 +63,7 @@ import { WorkoutWorkspaceHeader } from '@/components/workout/workspace/WorkoutWo
 afterEach(() => {
   cleanup();
   locale.language = 'en';
+  window.localStorage.removeItem('trophe_weight_unit');
 });
 
 describe('workout workspace navigation', () => {
@@ -88,6 +101,20 @@ describe('workout workspace navigation', () => {
     expect(screen.getByRole('heading', { name: 'Workout Home' })).toBeTruthy();
     expect(screen.queryByText('Draft')).toBeNull();
     expect(screen.queryByLabelText('Draft')).toBeNull();
+  });
+
+  it('exposes and persists the weight-unit preference on Workout Home', async () => {
+    pathname = WORKOUT_ROUTES.home;
+    window.localStorage.setItem('trophe_weight_unit', 'kg');
+    render(<WorkoutWorkspaceHeader stage="home" />);
+
+    const toggle = screen.getByRole('button', { name: 'Weight unit: kg' });
+    expect(toggle.textContent).toBe('kg');
+    expect(toggle.getAttribute('title')).toBe('Switch to lb');
+    fireEvent.click(toggle);
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Weight unit: lb' }).textContent).toBe('lb'));
+    expect(window.localStorage.getItem('trophe_weight_unit')).toBe('lb');
   });
 
   it('shows a preserved draft status on Build instead of leaking it onto Home', () => {

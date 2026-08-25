@@ -18,6 +18,8 @@ export const nl: Record<string, string> = {
   'workout.workspace_status_paused': 'Gepauzeerd',
   'workout.workspace_status_completed': 'Voltooid',
   'workout.workspace_status_label': 'Trainingsstatus: {status}',
+  'workout.weight_unit_label': 'Gewichtseenheid: {unit}',
+  'workout.weight_unit_switch': 'Wisselen naar {unit}',
   'workout.repeat_replace_title': 'Huidig concept vervangen?',
   'workout.repeat_replace_message': 'Je hebt een onafgemaakte training. Wil je die vervangen door deze herhaalde training?',
   'workout.repeat_replace_confirm': 'Concept vervangen',

@@ -18,6 +18,8 @@ export const it: Record<string, string> = {
   'workout.workspace_status_paused': 'In pausa',
   'workout.workspace_status_completed': 'Completato',
   'workout.workspace_status_label': 'Stato allenamento: {status}',
+  'workout.weight_unit_label': 'Unità di peso: {unit}',
+  'workout.weight_unit_switch': 'Passa a {unit}',
   'workout.repeat_replace_title': 'Sostituire la bozza attuale?',
   'workout.repeat_replace_message': 'Hai un allenamento non terminato. Vuoi sostituirlo con questo allenamento ripetuto?',
   'workout.repeat_replace_confirm': 'Sostituisci bozza',

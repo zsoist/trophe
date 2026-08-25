@@ -28,13 +28,7 @@ export function InstallCard() {
       role="region"
       aria-label="Install Trophē"
       style={{
-        position: "fixed",
-        bottom: "calc(5.75rem + env(safe-area-inset-bottom))",
-        left: 0,
-        right: 0,
-        zIndex: 9999,
-        padding: "0 10px 6px",
-        pointerEvents: "none",
+        padding: "10px 10px 0",
       }}
     >
       <div
@@ -48,7 +42,6 @@ export function InstallCard() {
           WebkitBackdropFilter: "blur(24px)",
           boxShadow: "var(--shadow-high)",
           padding: "12px",
-          pointerEvents: "auto",
           display: "flex",
           alignItems: "flex-start",
           gap: 10,

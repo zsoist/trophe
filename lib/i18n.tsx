@@ -737,6 +737,8 @@ export const translations: Record<string, Record<CoreLanguage, string>> = {
   'workout.workspace_status_paused': { en: 'Paused', es: 'Pausado', el: 'Σε παύση' },
   'workout.workspace_status_completed': { en: 'Completed', es: 'Completado', el: 'Ολοκληρώθηκε' },
   'workout.workspace_status_label': { en: 'Workout status: {status}', es: 'Estado del entrenamiento: {status}', el: 'Κατάσταση προπόνησης: {status}' },
+  'workout.weight_unit_label': { en: 'Weight unit: {unit}', es: 'Unidad de peso: {unit}', el: 'Μονάδα βάρους: {unit}' },
+  'workout.weight_unit_switch': { en: 'Switch to {unit}', es: 'Cambiar a {unit}', el: 'Αλλαγή σε {unit}' },
   'workout.repeat_replace_title': { en: 'Replace current draft?', es: '¿Reemplazar el borrador actual?', el: 'Αντικατάσταση τρέχοντος πρόχειρου;' },
   'workout.repeat_replace_message': { en: 'You have an unfinished workout. Replace it with this repeated workout?', es: 'Tienes un entrenamiento sin terminar. ¿Quieres reemplazarlo con este entrenamiento repetido?', el: 'Έχεις μια ημιτελή προπόνηση. Θέλεις να την αντικαταστήσεις με αυτή την επανάληψη;' },
   'workout.repeat_replace_confirm': { en: 'Replace draft', es: 'Reemplazar borrador', el: 'Αντικατάσταση πρόχειρου' },

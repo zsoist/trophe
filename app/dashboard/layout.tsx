@@ -20,10 +20,10 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         <AppHeader title="Trophē" eyebrow="Client" />
         <ClientShell>
           <div id="main-content" tabIndex={-1} className="outline-none">
+            <InstallCard />
             {children}
           </div>
         </ClientShell>
-        <InstallCard />
       </TRPCProvider>
     </Providers>
   );

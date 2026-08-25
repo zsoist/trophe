@@ -23,6 +23,8 @@ export const pt: Record<string, string> = {
   'workout.workspace_status_paused': 'Em pausa',
   'workout.workspace_status_completed': 'Concluído',
   'workout.workspace_status_label': 'Estado do treino: {status}',
+  'workout.weight_unit_label': 'Unidade de peso: {unit}',
+  'workout.weight_unit_switch': 'Mudar para {unit}',
   'workout.repeat_replace_title': 'Substituir o rascunho atual?',
   'workout.repeat_replace_message': 'Tens um treino por terminar. Queres substituí-lo por este treino repetido?',
   'workout.repeat_replace_confirm': 'Substituir rascunho',

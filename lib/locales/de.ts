@@ -18,6 +18,8 @@ export const de: Record<string, string> = {
   'workout.workspace_status_paused': 'Pausiert',
   'workout.workspace_status_completed': 'Abgeschlossen',
   'workout.workspace_status_label': 'Trainingsstatus: {status}',
+  'workout.weight_unit_label': 'Gewichtseinheit: {unit}',
+  'workout.weight_unit_switch': 'Zu {unit} wechseln',
   'workout.repeat_replace_title': 'Aktuellen Entwurf ersetzen?',
   'workout.repeat_replace_message': 'Du hast ein nicht abgeschlossenes Training. Möchtest du es durch dieses wiederholte Training ersetzen?',
   'workout.repeat_replace_confirm': 'Entwurf ersetzen',

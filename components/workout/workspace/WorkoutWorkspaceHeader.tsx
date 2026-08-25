@@ -6,6 +6,7 @@ import { useLayoutEffect } from 'react';
 import { ChevronLeft, Dumbbell, House } from 'lucide-react';
 import { useWorkoutWorkspace } from '@/components/workout/workspace/WorkoutWorkspaceProvider';
 import { useI18n } from '@/lib/i18n';
+import { useWeightUnit } from '@/lib/workout/units';
 import { applyPendingWorkoutScrollReset, resetWorkoutScroll, WORKOUT_ROUTES } from '@/lib/workout/workspace-routes';
 import type { WorkoutStage } from '@/lib/workout/workspace-state';
 
@@ -28,6 +29,8 @@ function statusKeyForStage(stage: WorkoutStage): string | null {
 function WorkoutWorkspaceHeaderContent({ stage }: { stage: WorkoutStage }) {
   const pathname = usePathname();
   const { t } = useI18n();
+  const [unit, setUnit] = useWeightUnit();
+  const nextUnit = unit === 'kg' ? 'lb' : 'kg';
   const titleKey = pathname.startsWith(`${WORKOUT_ROUTES.exercises}/`)
     ? 'workout.workspace_exercises_title'
     : titleKeys[pathname] ?? 'workout.title';
@@ -50,6 +53,17 @@ function WorkoutWorkspaceHeaderContent({ stage }: { stage: WorkoutStage }) {
       )}
       <Dumbbell className="hidden shrink-0 min-[375px]:block" size={18} strokeWidth={2} aria-hidden="true" />
       <h1 className="min-w-0 flex-1 truncate text-base font-semibold">{title}</h1>
+      {isHome && (
+        <button
+          type="button"
+          onClick={() => setUnit(nextUnit)}
+          aria-label={t('workout.weight_unit_label', { unit })}
+          title={t('workout.weight_unit_switch', { unit: nextUnit })}
+          className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl border border-[var(--workout-rail)] bg-[var(--surface-subtle)] px-2 font-mono text-xs font-semibold lowercase tabular-nums text-[var(--content-primary)] hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+        >
+          {unit}
+        </button>
+      )}
       {!isHome && (
         <Link href={WORKOUT_ROUTES.home} onClick={resetWorkoutScroll} aria-label={t('workout.workspace_home_title')} className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-1 rounded-xl text-sm font-medium hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] min-[375px]:px-2">
           <House size={17} strokeWidth={2} aria-hidden="true" />

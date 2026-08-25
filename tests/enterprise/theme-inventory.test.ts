@@ -124,11 +124,12 @@ describe('theme inventory guard', () => {
 describe('shared theme and overlay contracts', () => {
   const source = (file: string) => readFileSync(path.join(repoRoot, file), 'utf8');
 
-  it('keeps the install prompt a semantic safe-area region with reachable actions', () => {
+  it('keeps the install prompt a semantic non-blocking region with reachable actions', () => {
     const install = source('components/shared/InstallCard.tsx');
     expect(install).toContain('role="region"');
-    expect(install).toContain('env(safe-area-inset-bottom)');
     expect(install).toContain('minHeight: 44');
+    expect(install).not.toContain('position: "fixed"');
+    expect(install).not.toContain('zIndex: 9999');
     expect(install).not.toMatch(/#[0-9a-f]{3,8}|rgba\(|linear-gradient\(/i);
   });
 
