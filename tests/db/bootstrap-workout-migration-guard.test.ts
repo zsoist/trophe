@@ -17,6 +17,9 @@ describe('legacy database bootstrap workout migration guard', () => {
     expect(verify).toContain('save_live_workout_set');
     expect(verify).toContain('append_live_pain_flag');
     expect(verify).toContain('live_structure_version');
+    expect(verify).toContain('live_finish_request');
+    expect(verify).toContain('resume_legacy_live_workout_session');
+    expect(verify).toContain('start_workout_session(uuid,date,text,uuid)');
     expect(verify).toContain('workout_sets_session_exercise_number_unique');
   });
 });

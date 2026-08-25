@@ -232,4 +232,16 @@ describe('WorkoutWorkspaceProvider', () => {
 
     expect(startLiveSession.mock.calls[1][0]).toEqual(startLiveSession.mock.calls[0][0]);
   });
+
+  it('does not revive a completed session when a stale tab start is rejected', async () => {
+    startLiveSession.mockResolvedValue({ ok: false });
+    render(<ProviderHarness userId="nik" />);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Create Push draft' })).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'Create Push draft' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add Bench Press' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Start live workout' }));
+    await waitFor(() => expect(startLiveSession).toHaveBeenCalledTimes(1));
+    expect(screen.getByText('Draft · Not started')).toBeTruthy();
+    expect(screen.queryByText('Live')).toBeNull();
+  });
 });

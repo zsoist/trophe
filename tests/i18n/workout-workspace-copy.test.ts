@@ -12,6 +12,7 @@ const keys = [
   'workout.workspace_status_paused', 'workout.workspace_status_label',
   'workout.repeat_replace_title', 'workout.repeat_replace_message',
   'workout.repeat_replace_confirm', 'workout.repeat_replace_cancel',
+  'workout.invalid_cardio_metrics',
 ] as const;
 
 describe('workout workspace copy coverage', () => {
@@ -24,5 +25,13 @@ describe('workout workspace copy coverage', () => {
         expect(overlay).toContain(`'${key}':`);
       }
     }
+  });
+
+  it('explains every cardio boundary required before saving', () => {
+    const core = readFileSync(join(process.cwd(), 'lib/i18n.tsx'), 'utf8');
+    const line = core.split('\n').find((candidate) => candidate.includes("'workout.invalid_cardio_metrics':")) ?? '';
+    expect(line.toLowerCase()).toContain('positive duration');
+    expect(line.toLowerCase()).toContain('distance');
+    expect(line).toContain('1 to 10');
   });
 });

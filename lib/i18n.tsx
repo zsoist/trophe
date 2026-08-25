@@ -700,7 +700,7 @@ const translations: Record<string, Record<CoreLanguage, string>> = {
   'workout.mutation_failed': { en: 'A workout change could not be saved. Retry that change before finishing.', es: 'No se pudo guardar un cambio. Reinténtalo antes de finalizar.', el: 'Μια αλλαγή δεν αποθηκεύτηκε. Δοκιμάστε ξανά πριν την ολοκλήρωση.' },
   'workout.recovery_failed': { en: 'Workout recovery could not be verified.', es: 'No se pudo verificar la recuperación del entrenamiento.', el: 'Δεν ήταν δυνατή η επαλήθευση της ανάκτησης προπόνησης.' },
   'workout.retry_recovery': { en: 'Retry recovery', es: 'Reintentar recuperación', el: 'Επανάληψη ανάκτησης' },
-  'workout.invalid_cardio_metrics': { en: 'Enter a non-negative distance and effort from 1 to 10.', es: 'Ingresa una distancia no negativa y un esfuerzo de 1 a 10.', el: 'Εισαγάγετε μη αρνητική απόσταση και προσπάθεια από 1 έως 10.' },
+  'workout.invalid_cardio_metrics': { en: 'Enter a positive duration, a non-negative distance, and effort from 1 to 10.', es: 'Ingresa una duración positiva, una distancia no negativa y un esfuerzo de 1 a 10.', el: 'Εισαγάγετε θετική διάρκεια, μη αρνητική απόσταση και προσπάθεια από 1 έως 10.' },
   'workout.log_completed': { en: 'Log completed workout', es: 'Registrar entrenamiento completado', el: 'Καταγραφή ολοκληρωμένης προπόνησης' },
   'workout.save_plan': { en: 'Save plan', es: 'Guardar plan', el: 'Αποθήκευση πλάνου' },
   'workout.pause': { en: 'Pause', es: 'Pausar', el: 'Παύση' },

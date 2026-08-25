@@ -87,10 +87,16 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
   useEffect(() => {
     let active = true;
     if (!sessionId) return;
+    const recoveredStructure = strengthDraftExercises?.map((exercise, index) => ({
+      exerciseId: exercise.exerciseId,
+      targetSets: exercise.targetSets,
+      targetReps: exercise.targetReps,
+      supersetGroup: supersetGroupFor(strengthDraftExercises, index),
+    })) ?? [];
     void Promise.all([
       loadLiveSessionSets(sessionId),
       loadLivePainFlags(sessionId),
-      strengthDraftExercises ? loadLiveStructure(sessionId) : Promise.resolve({ ok: true as const, version: 0, structure: [] }),
+      loadLiveStructure(sessionId, draft?.kind, recoveredStructure),
       userId && strengthDraftExercises ? loadLivePrMap(userId, strengthDraftExercises.map((exercise) => exercise.exerciseId)) : Promise.resolve({}),
     ]).then(([setResult, painResult, structureResult, records]) => {
       if (!active) return;
@@ -137,7 +143,7 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
       setRecoveryLoaded(false);
     });
     return () => { active = false; };
-  }, [commitLiveStrengthStructure, recoveryAttempt, sessionId, strengthDraftExercises, userId]);
+  }, [commitLiveStrengthStructure, draft?.kind, recoveryAttempt, sessionId, strengthDraftExercises, userId]);
 
   const runMutation = async <T,>(
     key: string,
@@ -396,7 +402,7 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
       {failedMutations.size > 0 ? (
         <div role="alert" className="rounded-xl bg-[var(--status-danger-bg)] p-3 text-sm text-[var(--status-danger-fg)]">
           <p>{t('workout.mutation_failed')}</p>
-          <button type="button" onClick={() => { setFailedMutations(new Set()); setRecoveryError(false); setRecoveryAttempt((current) => current + 1); }} className="mt-2 min-h-11 underline">{t('workout.retry_recovery')}</button>
+          <button type="button" onClick={() => { setRecoveryLoaded(false); setFailedMutations(new Set()); setRecoveryError(false); setRecoveryAttempt((current) => current + 1); }} className="mt-2 min-h-11 underline">{t('workout.retry_recovery')}</button>
         </div>
       ) : null}
 

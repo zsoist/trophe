@@ -507,3 +507,163 @@ Focused tests:
 
 - Repository-wide lint still reports the existing warnings outside Task 7; there are zero errors and changed Task 7 application paths are clean.
 - The separately ledgered rest-timer reset and undo idempotency issues remain intentionally out of scope and untouched.
+
+---
+
+# Task 7 review fix round 3 — replay-safe finish and rollout safety
+
+## Outcome
+
+All round-3 Critical, Important, and Minor findings are addressed. Exact live-finish retries now verify and return the original completed result, while conflicting retries fail. Recovery retry enters a blocking state before clearing mutation errors. Active pre-0076 live sessions can be upgraded once from the recovered draft, and the old start RPC overload remains available during rolling deployment. Terminal sessions cannot accept direct late set inserts or be revived by stale start requests. Runtime live-set validation now rejects invalid booleans and superset groups, and cardio validation copy names every required boundary in all supported locales.
+
+## Mandatory migration workflow and security
+
+Supabase guidance rechecked for this round:
+
+- Database Functions recommends `SECURITY INVOKER` and explicit function execution grants: https://supabase.com/docs/guides/database/functions
+- Local migrations documents the `supabase migration new` workflow: https://supabase.com/docs/guides/local-development/database-migrations
+
+Commands:
+
+```sh
+node_modules/.bin/supabase --version
+# 2.110.0
+
+node_modules/.bin/supabase migration new --help
+# pass
+
+node_modules/.bin/supabase migration new live_workout_rollout_safety
+# created supabase/migrations/20260824234441_live_workout_rollout_safety.sql
+```
+
+The generated skeleton was moved/adapted into the next canonical Drizzle migration, `drizzle/0077_live_workout_rollout_safety.sql`; no duplicate Supabase migration remains. The Drizzle journal advances exactly once at index 77 (`1787615081000`).
+
+Migration 0077 adds a durable canonical finish envelope (including the final durable pain snapshot), exact replay/conflict handling, terminal locking in the direct set trigger, terminal conflict handling in live start, a temporary old-signature start overload with its original optional template argument, and a one-time guarded legacy structure-resume RPC. It also makes retrospective set insertion non-terminal until every row is inserted so terminal enforcement does not weaken transactional history saves.
+
+All created/replaced RPCs are schema-qualified `SECURITY INVOKER` functions with `SET search_path = ''`; ownership is derived from `auth.uid()` and underlying RLS. EXECUTE is explicitly revoked from PUBLIC, `anon`, and `service_role`, then granted only to `authenticated`.
+
+Canonical application and verification:
+
+```sh
+npm run db:bootstrap
+```
+
+Result:
+
+```text
+[run-migrations] ✅ all migrations applied
+Verified DB schema, policies, functions, and index inventory.
+==> Bootstrap complete.
+```
+
+The local journal then reported 78 entries with max `created_at = 1787615081000`. After the final finish-envelope/default-argument adjustment, the canonical SQL reapplied cleanly under `psql -v ON_ERROR_STOP=1 -1`, recreating all six functions and grants without error.
+
+## RED evidence
+
+Initial round-3 focused command:
+
+```sh
+npx vitest run tests/db/live-workout-rollout-safety-contract.test.ts \
+  tests/db/live-workout-consistency.test.ts \
+  tests/components/live-workout.test.tsx \
+  tests/workout/live-session.test.ts \
+  tests/i18n/workout-workspace-copy.test.ts \
+  tests/components/workout-workspace-provider.test.tsx
+```
+
+Result: 9 failures / 74 tests. The failures demonstrated that exact finish replay returned false, direct terminal inserts succeeded, legacy resume and 0077 were absent, failed-mutation retry briefly enabled Finish, runtime boolean/group validation reached persistence, legacy structure load failed instead of bootstrapping, and cardio validation/localized overlay copy omitted required boundaries.
+
+A repository regression run later exposed five related overlay-locale coverage failures for Task 7 live/recovery/error keys. Those five locale suites were made green with real German, French, Italian, Dutch, and Portuguese strings rather than fallback copy.
+
+## GREEN evidence
+
+Final 0075/0076/0077 contract, runtime, security, concurrency, rolling-deploy, journal, domain, UI, provider, and locale command:
+
+```sh
+npx vitest run tests/db/workout-session-atomicity-contract.test.ts \
+  tests/db/workout-session-atomicity.test.ts \
+  tests/db/live-workout-consistency-contract.test.ts \
+  tests/db/live-workout-consistency.test.ts \
+  tests/db/live-workout-rollout-safety-contract.test.ts \
+  tests/db/bootstrap-workout-migration-guard.test.ts \
+  tests/db/migration-journal.test.ts \
+  tests/workout/workout-persistence.test.ts \
+  tests/workout/live-session.test.ts \
+  tests/components/live-workout.test.tsx \
+  tests/components/workout-workspace-provider.test.tsx \
+  tests/i18n/workout-workspace-copy.test.ts \
+  tests/lib/overlay-locale-coverage.test.ts
+```
+
+Result: 13 files passed, 104 tests passed. Runtime probes include exact committed-finish replay with durable pain snapshot, conflicting finish rejection, direct late-set rejection, terminal stale-start rejection, active legacy bootstrap, completed legacy rejection, four-argument and defaulted three-argument old-client start replay, invoker/RLS/grant checks, and concurrency/rollback coverage from 0075/0076.
+
+Final gates:
+
+```sh
+npm run db:verify
+# Verified DB schema, policies, functions, and index inventory.
+
+npm run typecheck
+# pass
+
+npm run lint
+# exit 0: 0 errors, 46 repository warnings
+
+git diff --check
+# pass
+```
+
+Repository-wide Vitest evidence:
+
+```sh
+npm test
+```
+
+Result: 247 test files passed, 1 skipped; 1829 tests passed, 46 skipped. Three tests in two unchanged, unrelated areas failed: two super-admin theme tests because their jsdom environment had no `localStorage`, and one personal-best asset test expected `/workout/exercises/bench-press.webp` while the resolver returned `/workout/body-areas/chest.webp`. The Task 7 locale failures discovered by the first full run are resolved.
+
+## Files in round 3
+
+Persistence/schema/runtime:
+
+- `drizzle/0077_live_workout_rollout_safety.sql`
+- `drizzle/meta/_journal.json`
+- `components/workout/workout-persistence.ts`
+- `lib/workout/live-session.ts`
+- `scripts/db/verify.ts`
+
+Recovery/UI/localization:
+
+- `components/workout/workspace/LiveWorkout.tsx`
+- `lib/i18n.tsx`
+- `lib/locales/de.ts`
+- `lib/locales/fr.ts`
+- `lib/locales/it.ts`
+- `lib/locales/nl.ts`
+- `lib/locales/pt.ts`
+
+Focused tests:
+
+- `tests/db/live-workout-rollout-safety-contract.test.ts`
+- `tests/db/live-workout-consistency.test.ts`
+- `tests/db/workout-session-atomicity.test.ts`
+- `tests/db/bootstrap-workout-migration-guard.test.ts`
+- `tests/components/live-workout.test.tsx`
+- `tests/components/workout-workspace-provider.test.tsx`
+- `tests/workout/live-session.test.ts`
+- `tests/workout/workout-persistence.test.ts`
+- `tests/i18n/workout-workspace-copy.test.ts`
+
+## Self-review
+
+- Confirmed the finish RPC locks the owned session, stores the complete canonical finish envelope plus durable pain snapshot on first completion, returns true for an exact terminal replay, and raises `22023` for conflicting replay.
+- Confirmed the direct set trigger locks the session and checks terminal state before structure checks; the new and compatibility start functions lock conflict rows and reject terminal reuse.
+- Confirmed legacy classification requires `duration_minutes IS NULL`, `client_request.mode = live`, and null structure. The resume RPC rechecks ownership/active state under a row lock, validates recovered structure against persisted sets, and never revives a completed row.
+- Confirmed failed-mutation retry sets `recoveryLoaded = false` before clearing errors, so Finish/discard and all mutation controls remain disabled until sets, pain, and structure all verify.
+- Confirmed `isWarmup`/`isPr` require runtime booleans, `supersetGroup` is null or a positive integer, and the localized cardio message explicitly names positive duration, non-negative distance, and effort 1–10.
+- Confirmed local migration application, journal/guard probes, authenticated-only invoker execution, standard typecheck/lint, 104 focused tests, and diff checks from the final tree. The progress ledger was not modified or staged.
+
+## Concerns
+
+- Repository-wide lint retains 46 warnings outside this Task 7 change; there are zero lint errors and changed Task 7 application/test paths are clean.
+- The full suite has the three unchanged-path failures recorded above; the final scoped Task 7 suite and database runtime suite are green.
+- The separately ledgered rest-timer reset and undo idempotency issues remain intentionally out of scope and untouched.

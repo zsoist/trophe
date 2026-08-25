@@ -14,6 +14,7 @@ import {
   loadWorkoutSessionPainFlags,
   loadWorkoutSessionSets,
   loadWorkoutSessionStructure,
+  resumeLegacyLiveWorkoutStructureAtomic,
   saveRetrospectiveWorkoutAtomic,
   saveLiveWorkoutSetAtomic,
   startWorkoutSessionAtomic,
@@ -121,5 +122,46 @@ describe('workout persistence live-session helpers', () => {
     db.eq.mockReturnValueOnce({ maybeSingle: db.maybeSingle });
     db.maybeSingle.mockResolvedValueOnce({ data: { live_structure: structure, live_structure_version: 4 }, error: null });
     await expect(loadWorkoutSessionStructure('session-1')).resolves.toEqual({ ok: true, structure, version: 4 });
+  });
+
+  it('classifies only active live rows as legacy and bootstraps through the guarded RPC', async () => {
+    db.eq.mockReturnValueOnce({ maybeSingle: db.maybeSingle });
+    db.maybeSingle.mockResolvedValueOnce({
+      data: {
+        live_structure: null,
+        live_structure_version: 0,
+        duration_minutes: null,
+        client_request: { mode: 'live' },
+      },
+      error: null,
+    });
+    await expect(loadWorkoutSessionStructure('session-1')).resolves.toEqual({ ok: false, legacy: true });
+
+    const structure = [{ exercise_id: 'bench', target_sets: 3, target_reps: '8', superset_group: null }];
+    db.rpc.mockResolvedValueOnce({ data: { version: 0, structure }, error: null });
+    await expect(resumeLegacyLiveWorkoutStructureAtomic('session-1', 'strength', structure)).resolves.toEqual({
+      ok: true,
+      version: 0,
+      structure,
+    });
+    expect(db.rpc).toHaveBeenCalledWith('resume_legacy_live_workout_session', {
+      p_session_id: 'session-1',
+      p_kind: 'strength',
+      p_live_structure: structure,
+    });
+  });
+
+  it('never classifies a completed null-structure row as resumable legacy state', async () => {
+    db.eq.mockReturnValueOnce({ maybeSingle: db.maybeSingle });
+    db.maybeSingle.mockResolvedValueOnce({
+      data: {
+        live_structure: null,
+        live_structure_version: 0,
+        duration_minutes: 20,
+        client_request: { mode: 'live' },
+      },
+      error: null,
+    });
+    await expect(loadWorkoutSessionStructure('session-1')).resolves.toEqual({ ok: false });
   });
 });

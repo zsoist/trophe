@@ -74,7 +74,9 @@ export type LiveStructureMutationResult =
   | { ok: false };
 
 export type WorkoutSetLoadResult = { ok: true; sets: PersistedWorkoutSet[] } | { ok: false };
-export type LiveStructureLoadResult = LiveStructureMutationResult;
+export type LiveStructureLoadResult =
+  | { ok: true; version: number; structure: LiveExerciseStructureInput[] }
+  | { ok: false; legacy?: true };
 
 export interface AtomicLiveSetInput {
   sessionId: string;
@@ -359,16 +361,47 @@ export async function loadWorkoutSessionStructure(sessionId: string): Promise<Li
   if (!sessionId.trim()) return { ok: false };
   const { data, error } = await supabase
     .from('workout_sessions')
-    .select('live_structure, live_structure_version')
+    .select('live_structure, live_structure_version, duration_minutes, client_request')
     .eq('id', sessionId)
     .maybeSingle();
-  if (error || !data || !Array.isArray(data.live_structure) || !Number.isInteger(data.live_structure_version)) {
+  if (error || !data) return { ok: false };
+  if (data.live_structure === null) {
+    const request = data.client_request;
+    const isLegacyActiveLive = data.duration_minutes === null
+      && request !== null
+      && typeof request === 'object'
+      && !Array.isArray(request)
+      && (request as { mode?: unknown }).mode === 'live';
+    return isLegacyActiveLive ? { ok: false, legacy: true } : { ok: false };
+  }
+  if (!Array.isArray(data.live_structure) || !Number.isInteger(data.live_structure_version)) {
     return { ok: false };
   }
   return {
     ok: true,
     structure: data.live_structure as LiveExerciseStructureInput[],
     version: data.live_structure_version as number,
+  };
+}
+
+/** One-time, owner-scoped upgrade of an active pre-0076 live session. */
+export async function resumeLegacyLiveWorkoutStructureAtomic(
+  sessionId: string,
+  kind: 'strength' | 'cardio',
+  exercises: LiveExerciseStructureInput[],
+): Promise<LiveStructureMutationResult> {
+  const { data, error } = await supabase.rpc('resume_legacy_live_workout_session', {
+    p_session_id: sessionId,
+    p_kind: kind,
+    p_live_structure: exercises,
+  });
+  if (error || !data || typeof data !== 'object') return { ok: false };
+  const result = data as { version?: unknown; structure?: unknown };
+  if (!Number.isInteger(result.version) || !Array.isArray(result.structure)) return { ok: false };
+  return {
+    ok: true,
+    version: result.version as number,
+    structure: result.structure as LiveExerciseStructureInput[],
   };
 }
 

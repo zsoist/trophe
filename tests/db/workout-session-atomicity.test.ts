@@ -139,8 +139,9 @@ describe('workout atomic RPC security and behavior', () => {
       'discard_empty_workout_session', 'save_retrospective_workout',
       'start_workout_session', 'update_live_workout_structure',
       'save_live_workout_set', 'append_live_pain_flag', 'finish_live_workout_session',
+      'resume_legacy_live_workout_session',
     ]]);
-    expect(result.rows).toHaveLength(7);
+    expect(result.rows).toHaveLength(9);
     for (const row of result.rows) {
       expect(row).toMatchObject({ prosecdef: false, authenticated: true, anon: false, service_role: false });
     }

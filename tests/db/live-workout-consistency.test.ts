@@ -20,6 +20,10 @@ const IDS = {
   keySet: 'a7100000-0000-4000-8000-000000000010',
   keyStructure: 'a7100000-0000-4000-8000-000000000011',
   keyPain: 'a7100000-0000-4000-8000-000000000012',
+  keyFinish: 'a7100000-0000-4000-8000-000000000013',
+  keyTerminal: 'a7100000-0000-4000-8000-000000000014',
+  keyLegacy: 'a7100000-0000-4000-8000-000000000015',
+  keyOldClient: 'a7100000-0000-4000-8000-000000000016',
 };
 
 type LiveStructure = Array<{
@@ -83,10 +87,21 @@ beforeAll(async () => {
   const migration = await pool.query(`
     SELECT to_regprocedure(
       'public.save_live_workout_set(uuid,uuid,integer,real,integer,real,boolean,boolean,integer)'
-    ) AS fn
+    ) AS consistency_fn,
+    to_regprocedure(
+      'public.resume_legacy_live_workout_session(uuid,text,jsonb)'
+    ) AS rollout_fn,
+    EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'workout_sessions'
+        AND column_name = 'live_finish_request'
+    ) AS finish_state
   `);
-  if (migration.rows[0]?.fn === null) {
-    throw new Error('Reachable database is missing the live workout consistency migration');
+  if (migration.rows[0]?.consistency_fn === null
+      || migration.rows[0]?.rollout_fn === null
+      || migration.rows[0]?.finish_state !== true) {
+    throw new Error('Reachable database is missing the live workout consistency/rollout migrations');
   }
 
   await pool.query(`
@@ -239,6 +254,91 @@ describe('live workout transactional consistency', () => {
       `, [key, JSON.stringify([invalidSet])])).rejects.toMatchObject({ code: '22023' });
       await client.query('ROLLBACK TO SAVEPOINT invalid_json');
       expect((await client.query(`SELECT count(*)::integer AS count FROM public.workout_sessions WHERE client_idempotency_key = $1`, [key])).rows[0].count).toBe(0);
+    });
+  });
+
+  it('replays an exactly committed finish and rejects a conflicting replay', async () => {
+    await asUser(async (client) => {
+      const sessionId = (await start(client, IDS.keyFinish, 'draft:finish-replay')).rows[0].id;
+      const first = await client.query<{ finished: boolean }>(`
+        SELECT public.finish_live_workout_session($1::uuid, 'Push', 20, NULL::uuid, 'done') AS finished
+      `, [sessionId]);
+      expect(first.rows[0].finished).toBe(true);
+      const replay = await client.query<{ finished: boolean }>(`
+        SELECT public.finish_live_workout_session($1::uuid, 'Push', 20, NULL::uuid, 'done') AS finished
+      `, [sessionId]);
+      expect(replay.rows[0].finished).toBe(true);
+      const envelope = await client.query<{ pain_flags: unknown }>(`
+        SELECT live_finish_request->'pain_flags' AS pain_flags
+        FROM public.workout_sessions WHERE id = $1
+      `, [sessionId]);
+      expect(envelope.rows[0].pain_flags).toEqual([]);
+
+      await client.query('SAVEPOINT conflicting_finish');
+      await expect(client.query(`
+        SELECT public.finish_live_workout_session($1::uuid, 'Push', 21, NULL::uuid, 'done')
+      `, [sessionId])).rejects.toMatchObject({ code: '22023' });
+      await client.query('ROLLBACK TO SAVEPOINT conflicting_finish');
+    });
+  });
+
+  it('rejects direct set inserts and stale-tab starts after the session is terminal', async () => {
+    await asUser(async (client) => {
+      const sessionId = (await start(client, IDS.keyTerminal, 'draft:terminal')).rows[0].id;
+      await client.query(`
+        SELECT public.finish_live_workout_session($1::uuid, 'Push', 20, NULL::uuid, NULL::text)
+      `, [sessionId]);
+
+      await client.query('SAVEPOINT late_set');
+      await expect(client.query(`
+        INSERT INTO public.workout_sets (
+          session_id, exercise_id, set_number, weight_kg, reps, rpe, is_warmup, is_pr, superset_group
+        ) VALUES ($1, $2, 1, 60, 8, 8, false, false, 1)
+      `, [sessionId, IDS.exerciseA])).rejects.toMatchObject({ code: '22023' });
+      await client.query('ROLLBACK TO SAVEPOINT late_set');
+
+      await client.query('SAVEPOINT stale_start');
+      await expect(start(client, IDS.keyTerminal, 'draft:terminal')).rejects.toMatchObject({ code: '22023' });
+      await client.query('ROLLBACK TO SAVEPOINT stale_start');
+    });
+  });
+
+  it('bootstraps only owned active legacy sessions and preserves the old start overload', async () => {
+    await asUser(async (client) => {
+      const legacy = await client.query<{ id: string }>(`
+        INSERT INTO public.workout_sessions (
+          user_id, session_date, name, pain_flags, client_idempotency_key, client_request
+        ) VALUES (
+          auth.uid(), '2026-08-24', 'Legacy Push', '[]'::jsonb, $1,
+          jsonb_build_object('mode', 'live', 'session_date', '2026-08-24', 'name', 'Legacy Push', 'template_id', NULL)
+        ) RETURNING id
+      `, [IDS.keyLegacy]);
+      const resumed = await client.query<{ result: { version: number; structure: LiveStructure } }>(`
+        SELECT public.resume_legacy_live_workout_session(
+          $1::uuid, 'strength'::text, $2::jsonb
+        ) AS result
+      `, [legacy.rows[0].id, JSON.stringify(initialStructure)]);
+      expect(resumed.rows[0].result).toEqual({ version: 0, structure: initialStructure });
+
+      await client.query(`UPDATE public.workout_sessions SET duration_minutes = 10 WHERE id = $1`, [legacy.rows[0].id]);
+      await client.query('SAVEPOINT completed_resume');
+      await expect(client.query(`
+        SELECT public.resume_legacy_live_workout_session($1::uuid, 'strength'::text, $2::jsonb)
+      `, [legacy.rows[0].id, JSON.stringify(initialStructure)])).rejects.toMatchObject({ code: '22023' });
+      await client.query('ROLLBACK TO SAVEPOINT completed_resume');
+
+      const oldStart = await client.query<{ id: string }>(`
+        SELECT public.start_workout_session($1::uuid, '2026-08-24'::date, 'Old client', NULL::uuid) AS id
+      `, [IDS.keyOldClient]);
+      const oldRetry = await client.query<{ id: string }>(`
+        SELECT public.start_workout_session($1::uuid, '2026-08-24'::date, 'Old client', NULL::uuid) AS id
+      `, [IDS.keyOldClient]);
+      expect(oldRetry.rows[0].id).toBe(oldStart.rows[0].id);
+      const oldDefaultRetry = await client.query<{ id: string }>(`
+        SELECT public.start_workout_session($1::uuid, '2026-08-24'::date, 'Old client') AS id
+      `, [IDS.keyOldClient]);
+      expect(oldDefaultRetry.rows[0].id).toBe(oldStart.rows[0].id);
+      expect((await client.query(`SELECT live_structure FROM public.workout_sessions WHERE id = $1`, [oldStart.rows[0].id])).rows[0].live_structure).toBeNull();
     });
   });
 });

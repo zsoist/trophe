@@ -16,6 +16,7 @@ const persistence = vi.hoisted(() => ({
   finishWorkoutSession: vi.fn(),
   loadWorkoutSessionSets: vi.fn(),
   loadWorkoutSessionStructure: vi.fn(),
+  resumeLegacyLiveWorkoutStructureAtomic: vi.fn(),
   loadPrMap: vi.fn(),
   loadWorkoutSessionPainFlags: vi.fn(),
   appendWorkoutSessionPainFlag: vi.fn(),
@@ -91,6 +92,10 @@ describe('live workout persistence boundary', () => {
     await expect(completeLiveSet({ sessionId: 'session-1', exerciseId: 'bench', setNumber: 1, weightKg: 60, reps: 8, rpe: 11 })).resolves.toEqual({ ok: false });
     await expect(completeLiveSet({ sessionId: 'session-1', exerciseId: 'bench', setNumber: 1, weightKg: 60, reps: null })).resolves.toEqual({ ok: false });
     await expect(completeLiveSet({ sessionId: 'session-1', exerciseId: 'bench', setNumber: 1, weightKg: Number.POSITIVE_INFINITY, reps: 8 })).resolves.toEqual({ ok: false });
+    await expect(completeLiveSet({ sessionId: 'session-1', exerciseId: 'bench', setNumber: 1, weightKg: 60, reps: 8, isWarmup: 'false' as never })).resolves.toEqual({ ok: false });
+    await expect(completeLiveSet({ sessionId: 'session-1', exerciseId: 'bench', setNumber: 1, weightKg: 60, reps: 8, isPr: 1 as never })).resolves.toEqual({ ok: false });
+    await expect(completeLiveSet({ sessionId: 'session-1', exerciseId: 'bench', setNumber: 1, weightKg: 60, reps: 8, supersetGroup: 0 })).resolves.toEqual({ ok: false });
+    await expect(completeLiveSet({ sessionId: 'session-1', exerciseId: 'bench', setNumber: 1, weightKg: 60, reps: 8, supersetGroup: 1.5 })).resolves.toEqual({ ok: false });
     expect(persistence.saveLiveWorkoutSetAtomic).not.toHaveBeenCalled();
   });
 
@@ -291,6 +296,24 @@ describe('live workout persistence boundary', () => {
     ] }).mockRejectedValueOnce(new Error('offline'));
     await expect(loadLiveStructure('session-1')).resolves.toMatchObject({ ok: true, version: 3 });
     await expect(loadLiveStructure('session-1')).resolves.toEqual({ ok: false });
+  });
+
+  it('bootstraps a verified legacy active session from its recovered draft', async () => {
+    persistence.loadWorkoutSessionStructure.mockResolvedValue({ ok: false, legacy: true });
+    persistence.resumeLegacyLiveWorkoutStructureAtomic.mockResolvedValue({ ok: true, version: 0, structure: [
+      { exercise_id: 'bench', target_sets: 2, target_reps: '8', superset_group: null },
+    ] });
+    const loadWithLegacyDraft = loadLiveStructure as unknown as (
+      sessionId: string,
+      kind: 'strength',
+      exercises: Array<{ exerciseId: string; targetSets: number; targetReps: string; supersetGroup: number | null }>,
+    ) => Promise<unknown>;
+    await expect(loadWithLegacyDraft('session-1', 'strength', [
+      { exerciseId: 'bench', targetSets: 2, targetReps: '8', supersetGroup: null },
+    ])).resolves.toMatchObject({ ok: true, version: 0 });
+    expect(persistence.resumeLegacyLiveWorkoutStructureAtomic).toHaveBeenCalledWith('session-1', 'strength', [
+      { exercise_id: 'bench', target_sets: 2, target_reps: '8', superset_group: null },
+    ]);
   });
 
   it.each([

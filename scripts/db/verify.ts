@@ -96,7 +96,8 @@ const expectations: Expectation[] = [
         ('public', 'save_live_workout_set'),
         ('public', 'append_live_pain_flag'),
         ('public', 'finish_live_workout_session'),
-        ('public', 'update_live_workout_structure')
+        ('public', 'update_live_workout_structure'),
+        ('public', 'resume_legacy_live_workout_session')
       )
       ORDER BY 1;
     `,
@@ -112,6 +113,7 @@ const expectations: Expectation[] = [
       'public.save_live_workout_set',
       'public.append_live_pain_flag',
       'public.finish_live_workout_session',
+      'public.resume_legacy_live_workout_session',
       'public.update_live_workout_structure',
     ],
   },
@@ -193,12 +195,12 @@ withPool(config, async (pool) => {
       AND table_name = 'workout_sessions'
       AND column_name IN (
         'live_structure', 'live_structure_version',
-        'client_draft_fingerprint', 'pain_mutation_ids'
+        'client_draft_fingerprint', 'pain_mutation_ids', 'live_finish_request'
       )
     ORDER BY column_name;
   `);
   const expectedWorkoutColumns = [
-    'client_draft_fingerprint', 'live_structure',
+    'client_draft_fingerprint', 'live_finish_request', 'live_structure',
     'live_structure_version', 'pain_mutation_ids',
   ];
   if (workoutConsistencyColumns.rows.map((row) => row.column_name).join(',') !== expectedWorkoutColumns.join(',')) {
@@ -210,10 +212,12 @@ withPool(config, async (pool) => {
     SELECT bool_and(signature IS NOT NULL) AS available
     FROM unnest(ARRAY[
       to_regprocedure('public.start_workout_session(uuid,text,date,text,uuid,text,jsonb)'),
+      to_regprocedure('public.start_workout_session(uuid,date,text,uuid)'),
       to_regprocedure('public.save_live_workout_set(uuid,uuid,integer,real,integer,real,boolean,boolean,integer)'),
       to_regprocedure('public.append_live_pain_flag(uuid,uuid,jsonb)'),
       to_regprocedure('public.finish_live_workout_session(uuid,text,integer,uuid,text)'),
-      to_regprocedure('public.update_live_workout_structure(uuid,integer,jsonb,uuid)')
+      to_regprocedure('public.update_live_workout_structure(uuid,integer,jsonb,uuid)'),
+      to_regprocedure('public.resume_legacy_live_workout_session(uuid,text,jsonb)')
     ]) AS rpc(signature);
   `);
   if (workoutRpcSignatures.rows[0]?.available !== true) {

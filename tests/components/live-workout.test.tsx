@@ -91,6 +91,21 @@ describe('LiveWorkout', () => {
     expect(harness.cancelFinish).toHaveBeenCalledTimes(1);
   });
 
+  it('clears finishing recovery after an exact committed finish replay is verified', async () => {
+    workspace = { ...workspace, state: { ...liveState, stage: 'finishing', finishingFrom: 'live', clock: { runningSince: null, accumulatedMs: 60_000 } } };
+    harness.loadLiveSessionSets.mockResolvedValue({ ok: true, sets: [{
+      id: 'set-1', session_id: 'session-1', exercise_id: 'bench', set_number: 1,
+      weight_kg: 60, reps: 8, rpe: null, is_warmup: false, is_pr: false, superset_group: null, notes: null,
+    }] });
+    harness.finishLiveSession.mockImplementation(async (_input: unknown, onVerified: () => void) => {
+      onVerified();
+      return { ok: true };
+    });
+    render(<LiveWorkout exercises={[]} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Save and finish' }));
+    await vi.waitFor(() => expect(harness.completeFinish).toHaveBeenCalledTimes(1));
+  });
+
   it('uses the pre-session kilogram baseline to persist compound PRs', async () => {
     harness.loadLivePainFlags.mockResolvedValue({ ok: true, flags: [] });
     harness.loadLivePrMap.mockResolvedValue({ bench: 50 });
@@ -114,7 +129,13 @@ describe('LiveWorkout', () => {
     expect(screen.getByRole('button', { name: 'Finish workout' }).hasAttribute('disabled')).toBe(true);
 
     harness.completeLiveSet.mockResolvedValueOnce({ ok: true, setId: 'set-1' });
+    let resolveRecovery!: (value: { ok: true; sets: [] }) => void;
+    harness.loadLiveSessionSets.mockReturnValueOnce(new Promise((resolve) => { resolveRecovery = resolve; }));
     fireEvent.click(screen.getByRole('button', { name: 'Retry recovery' }));
+    expect(screen.getByRole('button', { name: 'Finish workout' }).hasAttribute('disabled')).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Finish workout' }));
+    expect(harness.requestFinish).not.toHaveBeenCalled();
+    resolveRecovery({ ok: true, sets: [] });
     await vi.waitFor(() => expect(screen.getByRole('button', { name: 'Complete Bench Press' }).hasAttribute('disabled')).toBe(false));
     fireEvent.click(screen.getByRole('button', { name: 'Complete Bench Press' }));
     await vi.waitFor(() => expect(screen.getByRole('button', { name: 'Finish workout' }).hasAttribute('disabled')).toBe(false));

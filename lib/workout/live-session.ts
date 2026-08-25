@@ -5,6 +5,7 @@ import {
   finishLiveWorkoutSessionAtomic,
   loadWorkoutSessionSets,
   loadWorkoutSessionStructure,
+  resumeLegacyLiveWorkoutStructureAtomic,
   loadPrMap,
   loadWorkoutSessionPainFlags,
   saveRetrospectiveWorkoutAtomic,
@@ -78,7 +79,11 @@ function validSet(input: CompleteLiveSetInput): boolean {
     && Number.isInteger(input.setNumber) && input.setNumber > 0
     && finiteOrNull(input.weightKg) && (input.weightKg === null || input.weightKg >= 0)
     && typeof input.reps === 'number' && Number.isInteger(input.reps) && input.reps > 0
-    && finiteOrNull(input.rpe) && (input.rpe === null || input.rpe === undefined || (input.rpe >= 1 && input.rpe <= 10));
+    && finiteOrNull(input.rpe) && (input.rpe === null || input.rpe === undefined || (input.rpe >= 1 && input.rpe <= 10))
+    && (input.isWarmup === undefined || typeof input.isWarmup === 'boolean')
+    && (input.isPr === undefined || typeof input.isPr === 'boolean')
+    && (input.supersetGroup === undefined || input.supersetGroup === null
+      || (Number.isInteger(input.supersetGroup) && input.supersetGroup > 0));
 }
 
 export async function completeLiveSet(input: CompleteLiveSetInput): Promise<{ ok: true; setId: string } | { ok: false }> {
@@ -136,9 +141,28 @@ export async function appendLivePainFlag(
 
 export type LiveStructureLoadResult = LiveStructureMutationResult;
 
-export async function loadLiveStructure(sessionId: string): Promise<LiveStructureLoadResult> {
+export async function loadLiveStructure(
+  sessionId: string,
+  kind?: 'strength' | 'cardio',
+  exercises: LiveStructureExercise[] = [],
+): Promise<LiveStructureLoadResult> {
   if (!sessionId.trim()) return { ok: false };
-  try { return await loadWorkoutSessionStructure(sessionId); } catch { return { ok: false }; }
+  try {
+    const loaded = await loadWorkoutSessionStructure(sessionId);
+    if (loaded.ok || !loaded.legacy || !kind) return loaded;
+    return await resumeLegacyLiveWorkoutStructureAtomic(
+      sessionId,
+      kind,
+      exercises.map((exercise) => ({
+        exercise_id: exercise.exerciseId,
+        target_sets: exercise.targetSets,
+        target_reps: exercise.targetReps,
+        superset_group: exercise.supersetGroup,
+      })),
+    );
+  } catch {
+    return { ok: false };
+  }
 }
 
 export async function updateLiveSupersets(updates: SupersetGroupUpdate[]): Promise<boolean> {
