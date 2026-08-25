@@ -1,25 +1,21 @@
 'use client';
 
-/**
- * Plate calculator bottom-sheet (Strong-style) — greedy per-side breakdown
- * for barbell lifts, plus a 40/60/80% warm-up ramp. Pure UI; weights arrive
- * in kg (storage unit) and render in the user's display unit.
- */
-
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { X } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
+import { buildWarmupRamp, calculatePlateLoad, type WarmupSet } from '@/lib/workout/plates';
 import { kgToDisplay, type WeightUnit } from '@/lib/workout/units';
 
-/** Standard bar + plate sets per unit (values in the DISPLAY unit). */
 const RACKS: Record<WeightUnit, { bar: number; plates: number[] }> = {
   kg: { bar: 20, plates: [25, 20, 15, 10, 5, 2.5, 1.25] },
   lb: { bar: 45, plates: [45, 35, 25, 10, 5, 2.5] },
 };
-
 const focusableSelector = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+export type PlateExerciseContext = { exerciseId: string; mode: 'draft' | 'live' };
+const noop = () => undefined;
+
 function trapFocus(event: ReactKeyboardEvent<HTMLElement>, container: HTMLElement | null) {
   if (event.key !== 'Tab' || !container) return;
   const items = Array.from(container.querySelectorAll<HTMLElement>(focusableSelector));
@@ -29,156 +25,71 @@ function trapFocus(event: ReactKeyboardEvent<HTMLElement>, container: HTMLElemen
   else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
 }
 
-/** Greedy per-side plate breakdown in the display unit. */
-export function platesPerSide(totalDisplay: number, unit: WeightUnit): { plate: number; count: number }[] | null {
-  const { bar, plates } = RACKS[unit];
-  if (totalDisplay < bar) return null;
-  let perSide = (totalDisplay - bar) / 2;
-  const out: { plate: number; count: number }[] = [];
-  for (const p of plates) {
-    const n = Math.floor((perSide + 1e-9) / p);
-    if (n > 0) {
-      out.push({ plate: p, count: n });
-      perSide -= n * p;
-    }
-  }
-  return out;
-}
+function parseInventory(value: string): number[] { return value.split(/[\s,]+/).map(Number).filter((plate) => Number.isFinite(plate) && plate > 0); }
+function inputNumber(value: string): number { const parsed = Number(value); return Number.isFinite(parsed) ? Math.max(0, parsed) : 0; }
 
-/** Warm-up ramp: 40%×10, 60%×6, 80%×3 rounded to the smallest plate step. */
-function warmupRamp(workKg: number, unit: WeightUnit): { pct: number; reps: number; display: number }[] {
-  const step = unit === 'lb' ? 5 : 2.5;
-  return [
-    { pct: 40, reps: 10 },
-    { pct: 60, reps: 6 },
-    { pct: 80, reps: 3 },
-  ].map(({ pct, reps }) => {
-    const raw = kgToDisplay(workKg * (pct / 100), unit);
-    return { pct, reps, display: Math.max(step, Math.round(raw / step) * step) };
-  });
-}
-
-export default function PlateCalculator({
-  weightKg,
-  unit,
-  onClose,
-}: {
+export default function PlateCalculator({ weightKg, unit, onClose = noop, exerciseContext, onAddWarmupSets }: {
   weightKg: number;
   unit: WeightUnit;
-  onClose: () => void;
+  onClose?: () => void;
+  exerciseContext?: PlateExerciseContext;
+  onAddWarmupSets?: (sets: WarmupSet[], context: PlateExerciseContext) => void;
 }) {
   const { t } = useI18n();
   const reducedMotion = useReducedMotion();
   const dialogRef = useRef<HTMLDivElement>(null);
-  const total = kgToDisplay(weightKg, unit);
-  const breakdown = platesPerSide(total, unit);
-  const { bar } = RACKS[unit];
-  const ramp = warmupRamp(weightKg, unit);
+  const defaults = RACKS[unit];
+  const [total, setTotal] = useState(() => kgToDisplay(weightKg, unit));
+  const [bar, setBar] = useState(defaults.bar);
+  const [inventoryText, setInventoryText] = useState(() => defaults.plates.join(', '));
+  const plates = useMemo(() => parseInventory(inventoryText), [inventoryText]);
+  const load = useMemo(() => calculatePlateLoad({ total, bar, plates }), [total, bar, plates]);
+  const warmupRamp = useMemo(() => buildWarmupRamp({ workingWeight: total, bar, plates, unit }), [total, bar, plates, unit]);
+  const canInsertWarmups = Boolean(exerciseContext && onAddWarmupSets);
+  const impossible = total < bar || (total > bar && (!plates.length || load.achievedTotal <= bar));
 
   useEffect(() => {
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const frame = requestAnimationFrame(() => dialogRef.current?.focus());
     const closeOnEscape = (event: KeyboardEvent) => event.key === 'Escape' && onClose();
     document.addEventListener('keydown', closeOnEscape);
-    return () => {
-      cancelAnimationFrame(frame);
-      document.removeEventListener('keydown', closeOnEscape);
-      previousFocus?.focus();
-    };
+    return () => { cancelAnimationFrame(frame); document.removeEventListener('keydown', closeOnEscape); previousFocus?.focus(); };
   }, [onClose]);
 
+  const stack = (side: 'left' | 'right') => (
+    <section aria-label={side === 'left' ? t('workout.plate_left_side') : t('workout.plate_right_side')} className="min-w-0 flex-1 rounded-xl bg-[var(--surface-subtle)] p-3">
+      <h4 className="text-xs font-semibold text-[var(--content-secondary)]">{side === 'left' ? t('workout.plate_left_side') : t('workout.plate_right_side')}</h4>
+      <div className="mt-2 flex min-h-16 items-end justify-center gap-1">
+        {load.perSide.map((plate, index) => <div key={`${side}-${plate}-${index}`} className="flex w-7 items-center justify-center rounded-sm border border-[var(--action-primary)] bg-[var(--surface-raised)] px-0.5 text-[10px] font-bold text-[var(--content-primary)]" style={{ height: Math.max(34, Math.min(82, plate * (unit === 'lb' ? 1.6 : 3.2))) }}>{plate}</div>)}
+        {!load.perSide.length ? <span className="text-xs text-[var(--content-muted)]">—</span> : null}
+      </div>
+    </section>
+  );
+
   return (
-    <motion.div
-      initial={reducedMotion ? false : { opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={reducedMotion ? undefined : { opacity: 0 }}
-      className="fixed inset-0 z-[var(--z-modal,60)] flex items-end justify-center"
-      style={{ background: 'var(--surface-overlay)' }}
-      onClick={onClose}
-    >
-      <motion.div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-label={t('workout.plate_title')}
-        tabIndex={-1}
-        onKeyDown={(event) => trapFocus(event, dialogRef.current)}
-        initial={reducedMotion ? false : { y: 80, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        exit={reducedMotion ? undefined : { y: 80, opacity: 0 }}
-        transition={{ type: 'spring', damping: 28, stiffness: 320 }}
-        className="glass-elevated safe-bottom w-full max-w-md rounded-t-3xl px-5 pt-4 pb-[calc(5rem+env(safe-area-inset-bottom))] outline-none"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-base font-bold" style={{ color: 'var(--content-primary)' }}>{t('workout.plate_title')}</h3>
-          <button onClick={onClose} aria-label={t('workout.custom_cancel')} className="p-1.5 rounded-lg min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" style={{ background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)' }}>
-            <X size={16} style={{ color: 'var(--content-secondary)' }} />
-          </button>
+    <motion.div initial={reducedMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={reducedMotion ? undefined : { opacity: 0 }} className="fixed inset-0 z-[var(--z-modal,60)] flex items-end justify-center" style={{ background: 'var(--surface-overlay)' }} onClick={onClose}>
+      <motion.div ref={dialogRef} role="dialog" aria-modal="true" aria-label={t('workout.plate_title')} tabIndex={-1} onKeyDown={(event) => trapFocus(event, dialogRef.current)} initial={reducedMotion ? false : { y: 80, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={reducedMotion ? undefined : { y: 80, opacity: 0 }} transition={{ type: 'spring', damping: 28, stiffness: 320 }} className="glass-elevated safe-bottom w-full max-w-md rounded-t-3xl px-5 pt-4 pb-[calc(5rem+env(safe-area-inset-bottom))] outline-none" onClick={(event) => event.stopPropagation()}>
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-base font-bold text-[var(--content-primary)]">{t('workout.plate_title')}</h3>
+          <button type="button" onClick={onClose} aria-label={t('workout.custom_cancel')} className="min-h-11 min-w-11 rounded-lg bg-[var(--surface-subtle)] p-1.5 text-[var(--content-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"><X size={16} aria-hidden="true" /></button>
         </div>
-
-        {/* Target */}
-        <div className="text-center mb-4">
-          <span className="text-3xl font-extrabold tabular-nums" style={{ color: 'var(--action-primary)', fontFamily: 'var(--font-mono)' }}>
-            {total}
-          </span>
-          <span className="text-sm ml-1" style={{ color: 'var(--content-muted)' }}>{unit}</span>
-          <p className="text-xs mt-1" style={{ color: 'var(--content-muted)' }}>
-            {t('workout.plate_bar')}: {bar} {unit}
-          </p>
+        <div className="grid grid-cols-2 gap-3">
+          <label className="text-xs font-semibold text-[var(--content-secondary)]">{t('workout.plate_total_label')}<input aria-label={t('workout.plate_total_label')} type="number" min="0" inputMode="decimal" value={total} onChange={(event) => setTotal(inputNumber(event.target.value))} className="input-dark mt-1 min-h-11 w-full text-base" /></label>
+          <label className="text-xs font-semibold text-[var(--content-secondary)]">{t('workout.plate_bar_label')}<input aria-label={t('workout.plate_bar_label')} type="number" min="0" inputMode="decimal" value={bar} onChange={(event) => setBar(inputNumber(event.target.value))} className="input-dark mt-1 min-h-11 w-full text-base" /></label>
         </div>
-
-        {breakdown === null ? (
-          <p className="text-center text-xs py-4" style={{ color: 'var(--content-muted)' }}>{t('workout.plate_below_bar')}</p>
-        ) : (
-          <>
-            <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--content-muted)' }}>
-              {t('workout.plate_per_side')}
-            </p>
-            {breakdown.length === 0 ? (
-              <p className="text-xs pb-3" style={{ color: 'var(--content-secondary)' }}>{t('workout.plate_bar_only')}</p>
-            ) : (
-              <div className="flex items-end gap-1.5 justify-center pb-4">
-                {breakdown.flatMap(({ plate, count }) =>
-                  Array.from({ length: count }, (_, i) => (
-                    <div key={`${plate}-${i}`} className="flex flex-col items-center gap-1">
-                      <div
-                        className="rounded-md flex items-center justify-center font-bold tabular-nums"
-                        style={{
-                          width: 30,
-                          height: Math.max(34, Math.min(88, plate * (unit === 'lb' ? 1.6 : 3.2))),
-                          fontSize: 12,
-                          background: 'color-mix(in srgb, var(--action-primary) 16%, transparent)',
-                          border: '1px solid color-mix(in srgb, var(--action-primary) 38%, transparent)',
-                          color: 'var(--action-primary)',
-                          fontFamily: 'var(--font-mono)',
-                        }}
-                      >
-                        {plate}
-                      </div>
-                    </div>
-                  )),
-                )}
-              </div>
-            )}
-          </>
-        )}
-
-        {/* Warm-up ramp */}
-        <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--content-muted)' }}>
-          {t('workout.warmup_title')}
-        </p>
-        <div className="grid grid-cols-3 gap-2">
-          {ramp.map((r) => (
-            <div key={r.pct} className="rounded-xl p-2.5 text-center" style={{ background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--content-primary) 8%, transparent)' }}>
-              <div className="text-xs font-semibold" style={{ color: 'var(--content-muted)' }}>{r.pct}%</div>
-              <div className="text-sm font-bold tabular-nums mt-0.5" style={{ color: 'var(--content-primary)', fontFamily: 'var(--font-mono)' }}>
-                {r.display}{unit}
-              </div>
-              <div className="text-xs" style={{ color: 'var(--content-muted)' }}>× {r.reps}</div>
-            </div>
-          ))}
+        <label className="mt-3 block text-xs font-semibold text-[var(--content-secondary)]">{t('workout.plate_inventory_label')}<input aria-label={t('workout.plate_inventory_label')} value={inventoryText} onChange={(event) => setInventoryText(event.target.value)} className="input-dark mt-1 min-h-11 w-full text-base" /></label>
+        <p className="mt-1 text-xs text-[var(--content-muted)]">{unit}</p>
+        <div className="mt-4 rounded-xl border border-[var(--border-subtle)] p-3">
+          <p className="text-center text-sm font-semibold text-[var(--content-primary)]">{impossible ? t('workout.plate_impossible') : load.exact ? t('workout.plate_exact') : t('workout.plate_nearest')}{!impossible ? ` · ${load.achievedTotal} ${unit}` : ''}</p>
+          <p className="mt-1 text-center text-xs text-[var(--content-muted)]">{t('workout.plate_per_side')}</p>
+          <div className="mt-3 flex gap-3">{stack('left')}{stack('right')}</div>
         </div>
+        <section className="mt-5" aria-labelledby="warmup-title">
+          <h4 id="warmup-title" className="text-sm font-semibold text-[var(--content-primary)]">{t('workout.warmup_title')}</h4>
+          <p className="mt-1 text-xs text-[var(--content-muted)]">{t('workout.warmup_explanation')}</p>
+          <div className="mt-2 grid grid-cols-3 gap-2">{warmupRamp.map((set) => <div key={set.percentage} className="rounded-xl bg-[var(--surface-subtle)] p-2 text-center"><div className="text-xs font-semibold text-[var(--content-secondary)]">{set.percentage}%</div><div className="mt-0.5 text-sm font-bold tabular-nums text-[var(--content-primary)]">{set.weight} {unit}</div><div className="text-xs text-[var(--content-muted)]">× {set.reps}</div></div>)}</div>
+          {canInsertWarmups ? <button type="button" onClick={() => onAddWarmupSets?.(warmupRamp, exerciseContext!)} className="btn-ghost mt-3 min-h-11 w-full rounded-xl text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">{t('workout.add_warmup_sets')}</button> : null}
+        </section>
       </motion.div>
     </motion.div>
   );
