@@ -7,7 +7,7 @@ import { ExerciseRouteGate } from '@/components/workout/ExerciseRouteGate';
 import { useWorkoutWorkspace } from '@/components/workout/workspace/WorkoutWorkspaceProvider';
 import { useI18n } from '@/lib/i18n';
 import type { Exercise } from '@/lib/types';
-import { WORKOUT_ROUTES, workoutRouteForStage } from '@/lib/workout/workspace-routes';
+import { pushWorkoutRoute, WORKOUT_ROUTES, workoutRouteForStage } from '@/lib/workout/workspace-routes';
 
 export function ExerciseBrowser({ initialExercises = [], initialRecentIds = [] }: { initialExercises?: Exercise[]; initialRecentIds?: string[] }) {
   const router = useRouter();
@@ -40,9 +40,9 @@ export function ExerciseBrowser({ initialExercises = [], initialRecentIds = [] }
       recentIds={initialRecentIds}
       lang={lang}
       onSelect={() => undefined}
-      onClose={() => router.push(WORKOUT_ROUTES.build)}
+      onClose={() => pushWorkoutRoute(router, WORKOUT_ROUTES.build)}
       onAddToDraft={workspace.addDraftExercise}
-      onReturnToBuild={() => router.push(WORKOUT_ROUTES.build)}
+      onReturnToBuild={() => pushWorkoutRoute(router, WORKOUT_ROUTES.build)}
       addedExerciseIds={workspace.state.draft?.kind === 'strength'
         ? workspace.state.draft.exercises.map(({ exerciseId }) => exerciseId)
         : []}

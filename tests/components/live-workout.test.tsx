@@ -7,6 +7,7 @@ import type { WorkoutWorkspaceState } from '@/lib/workout/workspace-state';
 
 const harness = vi.hoisted(() => ({
   requestFinish: vi.fn(), cancelFinish: vi.fn(), completeFinish: vi.fn(), discardLive: vi.fn(),
+  acknowledgeCompleted: vi.fn(),
   updateLiveCardioDraft: vi.fn(), commitLiveStrengthStructure: vi.fn(),
   finishLiveSession: vi.fn(), loadLiveSessionSets: vi.fn(),
   completeLiveSet: vi.fn(), loadLivePrMap: vi.fn(), loadLivePainFlags: vi.fn(),
@@ -55,6 +56,8 @@ vi.mock('@/lib/i18n', () => ({ useI18n: () => ({ t: (key: string) => ({
   'workout.pause': 'Pause', 'workout.resume': 'Resume', 'workout.add_set': 'Add set',
   'workout.distance_optional': 'Distance optional', 'workout.effort': 'Effort',
   'workout.save_failed': 'Save failed',
+  'workout.completed_title': 'Workout complete', 'workout.completed_message': 'Your workout is saved.',
+  'workout.completed_done': 'Done', 'workout.history': 'History',
   'workout.mutation_failed': 'A workout change could not be saved. Retry that change before finishing.',
   'workout.recovery_failed': 'Workout recovery could not be verified.', 'workout.retry_recovery': 'Retry recovery',
   'workout.plate_title': 'Plate calculator', 'workout.plate_total_label': 'Total weight', 'workout.plate_bar_label': 'Bar weight',
@@ -81,6 +84,15 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.clearAllMocks(); workspace = { state: liveState, pause: vi.fn(), resume: vi.fn(), ...harness }; });
 
 describe('LiveWorkout', () => {
+  it('shows the verified completion summary until the user acknowledges it', () => {
+    workspace = { ...workspace, state: { ...liveState, stage: 'completed', clock: { runningSince: null, accumulatedMs: 60_000 } } };
+    render(<LiveWorkout exercises={[]} />);
+    expect(screen.getByRole('heading', { name: 'Workout complete' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Finish workout' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+    expect(harness.acknowledgeCompleted).toHaveBeenCalledTimes(1);
+  });
+
   it('requires confirmation before finishing', async () => {
     render(<LiveWorkout exercises={[]} />);
     const finish = screen.getByRole('button', { name: 'Finish workout' });

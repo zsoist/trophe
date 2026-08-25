@@ -152,6 +152,13 @@ afterEach(() => {
 });
 
 describe('muscle-group-first exercise picker', () => {
+  it('moves focus without scrolling routed workout chrome out of view', () => {
+    const focus = vi.spyOn(HTMLElement.prototype, 'focus');
+    renderPicker({ presentation: 'page' });
+
+    expect(focus).toHaveBeenCalledWith({ preventScroll: true });
+  });
+
   it('adds a routed exercise to the draft and returns to Build without modal close semantics', () => {
     const addDraftExercise = vi.fn();
     const returnToBuild = vi.fn();

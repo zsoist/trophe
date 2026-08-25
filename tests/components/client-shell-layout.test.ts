@@ -23,8 +23,14 @@ vi.mock('@/lib/trpc/provider', () => ({ TRPCProvider: ({ children }: { children:
 vi.mock('@/components/shared/InstallCard', () => ({ InstallCard: () => null }));
 
 import DashboardLayout from '@/app/dashboard/layout';
+import { routeTransitionKey } from '@/components/shared/ClientRouteTransition';
 
 describe('client shell layout', () => {
+  it('keeps nested routes inside one animated tab surface', () => {
+    expect(routeTransitionKey('/dashboard/workout/build')).toBe(routeTransitionKey('/dashboard/workout/exercises'));
+    expect(routeTransitionKey('/dashboard/workout')).not.toBe(routeTransitionKey('/dashboard/progress'));
+  });
+
   it('owns one stable primary navigation outside the animated page content', () => {
     render(React.createElement(DashboardLayout, null, React.createElement('p', null, 'Dashboard content')));
     expect(screen.getAllByRole('navigation', { name: 'Primary' })).toHaveLength(1);

@@ -33,4 +33,12 @@ describe('live workout route', () => {
     render(<LiveWorkoutPage />);
     await vi.waitFor(() => expect(harness.replace).toHaveBeenCalledWith('/dashboard/workout/review'));
   });
+
+  it('keeps the verified completed state on the live route for its summary', async () => {
+    harness.stage = 'completed';
+    harness.getUser.mockResolvedValue({ data: { user: { id: 'nik' } } });
+    render(<LiveWorkoutPage />);
+    expect(await screen.findByText('Live logger nik 1')).toBeTruthy();
+    expect(harness.replace).not.toHaveBeenCalled();
+  });
 });

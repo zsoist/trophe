@@ -15,7 +15,7 @@ export default function LiveWorkoutPage() {
   const { state } = useWorkoutWorkspace();
   const [userId, setUserId] = useState<string | null>(null);
   const [exercises, setExercises] = useState<Exercise[]>([]);
-  const active = state.stage === 'live' || state.stage === 'paused' || state.stage === 'finishing';
+  const active = state.stage === 'live' || state.stage === 'paused' || state.stage === 'finishing' || state.stage === 'completed';
 
   useEffect(() => {
     if (!active) router.replace(workoutRouteForStage(state.stage));

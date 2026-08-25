@@ -439,7 +439,7 @@ export default function ExercisePicker({
 
   useEffect(() => {
     if (!canUseDom) return;
-    const frame = requestAnimationFrame(() => firstAreaRef.current?.focus());
+    const frame = requestAnimationFrame(() => firstAreaRef.current?.focus({ preventScroll: true }));
     return () => cancelAnimationFrame(frame);
   }, [canUseDom]);
 
@@ -512,14 +512,14 @@ export default function ExercisePicker({
     setSelectedAreaKey(area);
     setFilterMuscle('all');
     setEquipmentFilter('all');
-    requestAnimationFrame(() => resultHeadingRef.current?.focus());
+    requestAnimationFrame(() => resultHeadingRef.current?.focus({ preventScroll: true }));
   };
 
   const returnToAreas = () => {
     setSelectedAreaKey(null);
     setFilterMuscle('all');
     setEquipmentFilter('all');
-    requestAnimationFrame(() => firstAreaRef.current?.focus());
+    requestAnimationFrame(() => firstAreaRef.current?.focus({ preventScroll: true }));
   };
 
   if (!canUseDom) return null;

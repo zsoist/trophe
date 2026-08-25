@@ -69,6 +69,7 @@ function WorkspaceControls() {
       <button onClick={() => workspace.requestFinish()}>Request finish</button>
       <button onClick={() => workspace.cancelFinish(31_000)}>Keep training</button>
       <button onClick={() => workspace.completeFinish()}>Complete verified finish</button>
+      <button onClick={() => workspace.acknowledgeCompleted()}>Acknowledge completed summary</button>
       <button onClick={() => void workspace.discardLive()}>Discard empty workout</button>
       {workspace.state.draft?.kind === 'strength' ? (
         <output>{workspace.state.draft.name}:{workspace.state.draft.exercises.map((exercise) => `${exercise.exerciseId}-${exercise.targetSets}x${exercise.targetReps}`).join(',')}</output>
@@ -184,6 +185,22 @@ describe('WorkoutWorkspaceProvider', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Discard empty workout' }));
     await waitFor(() => expect(storage.getItem('trophe:workout-workspace:nik')).toBeNull());
+  });
+
+  it('keeps the verified completed state visible until the summary is acknowledged', async () => {
+    startLiveSession.mockResolvedValue({ ok: true, sessionId: 'session-1' });
+    render(<ProviderHarness userId="nik" />);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Create Push draft' })).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'Create Push draft' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add Bench Press' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Start live workout' }));
+    await waitFor(() => expect(screen.getByText('Live')).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'Request finish' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Complete verified finish' }));
+
+    expect(screen.getByText('completed')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Acknowledge completed summary' }));
+    expect(screen.getByText('home')).toBeTruthy();
   });
 
   it('persists the complete start envelope before send and replays its original date', async () => {

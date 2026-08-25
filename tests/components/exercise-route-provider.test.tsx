@@ -222,6 +222,21 @@ afterEach(() => {
 });
 
 describe('exercise routes with the real workout workspace provider', () => {
+  it('returns from the routed browser at the top of the workout workspace', async () => {
+    const originalUserAgent = window.navigator.userAgent;
+    Object.defineProperty(window.navigator, 'userAgent', { configurable: true, value: 'Mobile Safari' });
+    const scrollTo = vi.fn();
+    vi.stubGlobal('scrollTo', scrollTo);
+    renderWithWorkspace(<ExerciseBrowser initialExercises={[bench]} />, strengthState());
+    await screen.findByRole('heading', { name: 'What are you training?' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'workout.picker_close' }));
+
+    expect(scrollTo).toHaveBeenCalledWith({ top: 0, left: 0, behavior: 'auto' });
+    expect(push).toHaveBeenCalledWith('/dashboard/workout/build');
+    Object.defineProperty(window.navigator, 'userAgent', { configurable: true, value: originalUserAgent });
+  });
+
   it('adds from the browser to a strength draft and returns to Build without creating a session', async () => {
     renderWithWorkspace(<ExerciseBrowser initialExercises={[bench]} />, strengthState());
     await screen.findByRole('heading', { name: 'What are you training?' });

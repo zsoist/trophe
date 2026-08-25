@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Pause, Play, Plus, Square } from 'lucide-react';
+import Link from 'next/link';
+import { CheckCircle2, Pause, Play, Plus, Square } from 'lucide-react';
 import ExerciseInfoSheet from '@/components/workout/ExerciseInfoSheet';
 import PainFlagModal from '@/components/workout/PainFlagModal';
 import PlateCalculator from '@/components/workout/PlateCalculator';
@@ -193,8 +194,31 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
   const durationMinutes = Math.max(0, Math.floor(elapsedMs / 60_000));
   const mutationBlocked = pendingMutations > 0 || failedMutations.size > 0 || recoveryError || !recoveryLoaded;
 
-  if (!draft || !sessionId || (state.stage !== 'live' && state.stage !== 'paused' && state.stage !== 'finishing')) {
+  if (!draft || !sessionId || (state.stage !== 'live' && state.stage !== 'paused' && state.stage !== 'finishing' && state.stage !== 'completed')) {
     return <main className="mx-auto max-w-2xl px-4 py-8"><p className="text-[var(--content-secondary)]">{t('workout.no_live_session')}</p></main>;
+  }
+
+  if (state.stage === 'completed') {
+    return (
+      <main aria-labelledby="workout-completed-title" className="mx-auto max-w-2xl px-4 py-8">
+        <section className="rounded-2xl border border-[var(--status-success-border)] bg-[var(--surface-raised)] p-5 text-center">
+          <CheckCircle2 aria-hidden="true" className="mx-auto text-[var(--status-success-fg)]" size={36} strokeWidth={1.8} />
+          <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-[var(--status-success-fg)]">{t('workout.completed_saved')}</p>
+          <h2 id="workout-completed-title" className="mt-1 text-2xl font-bold text-[var(--content-primary)]">{t('workout.completed_title')}</h2>
+          <p className="mt-2 text-sm leading-6 text-[var(--content-secondary)]">{t('workout.completed_message')}</p>
+          <dl className="mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-[var(--workout-rail)] bg-[var(--workout-rail)] text-left text-sm">
+            <div className="bg-[var(--surface-subtle)] p-3"><dt className="text-[var(--content-muted)]">{t('workout.completed_duration')}</dt><dd className="mt-1 font-mono font-semibold tabular-nums text-[var(--content-primary)]">{durationMinutes} min</dd></div>
+            <div className="bg-[var(--surface-subtle)] p-3"><dt className="text-[var(--content-muted)]">{t('workout.completed_sets')}</dt><dd className="mt-1 font-mono font-semibold tabular-nums text-[var(--content-primary)]">{completedSets}</dd></div>
+            <div className="bg-[var(--surface-subtle)] p-3"><dt className="text-[var(--content-muted)]">{t('workout.completed_pain')}</dt><dd className="mt-1 font-mono font-semibold tabular-nums text-[var(--content-primary)]">{painFlags.length}</dd></div>
+            <div className="bg-[var(--surface-subtle)] p-3"><dt className="text-[var(--content-muted)]">{t('workout.completed_prs')}</dt><dd className="mt-1 font-mono font-semibold tabular-nums text-[var(--content-primary)]">{prCount}</dd></div>
+          </dl>
+          <div className="mt-5 grid grid-cols-2 gap-3">
+            <Link href="/dashboard/workout/history" className="btn-ghost inline-flex min-h-11 items-center justify-center rounded-xl px-4">{t('workout.history')}</Link>
+            <button type="button" onClick={workspace.acknowledgeCompleted} className="btn-gold min-h-11 rounded-xl px-4">{t('workout.completed_done')}</button>
+          </div>
+        </section>
+      </main>
+    );
   }
 
   const requestFinish = (values?: CardioLogValues) => {

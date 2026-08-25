@@ -20,7 +20,8 @@ const titleKeys: Record<string, string> = {
 function statusKeyForStage(stage: WorkoutStage): string | null {
   if (stage === 'home') return null;
   if (stage === 'paused') return 'workout.workspace_status_paused';
-  if (stage === 'live' || stage === 'finishing' || stage === 'completed') return 'workout.workspace_status_live';
+  if (stage === 'completed') return 'workout.workspace_status_completed';
+  if (stage === 'live' || stage === 'finishing') return 'workout.workspace_status_live';
   return 'workout.workspace_status_draft';
 }
 

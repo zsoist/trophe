@@ -380,10 +380,7 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
   const completeFinish = useCallback(() => {
     skipNextPersistRef.current = true;
     setState((current) => current.stage === 'finishing'
-      ? workoutWorkspaceReducer(
-        workoutWorkspaceReducer(current, { type: 'live.completed' }),
-        { type: 'completed.acknowledged' },
-      )
+      ? workoutWorkspaceReducer(current, { type: 'live.completed' })
       : current);
   }, []);
 
