@@ -1,8 +1,8 @@
 # Workout Workspace V2 — Product and Interaction Design
 
-**Date:** 2026-08-24  
-**Status:** Approved direction  
-**Owner:** Trophē client experience  
+**Date:** 2026-08-24
+**Status:** Implemented — local release candidate verified; production promotion pending
+**Owner:** Trophē client experience
 **Source:** Nik production feedback and mobile screenshots from 2026-08-24
 
 ## 1. Outcome
@@ -304,3 +304,21 @@ Closing the exercise picker returns to the previous draft without starting, fini
 4. Merge only after full CI and review.
 5. Deploy to production with smoke tests for authentication, Workout Home, Build, Live, persistence, and history.
 6. Run canary monitoring and retain a direct rollback path to the previous workout page.
+
+## 15. Implementation Record
+
+**Verified code release candidate:** `7e011f673d8d593c1b9fc0b5b9c7a2240590d9ed`
+**Local verification date:** 2026-08-25
+
+- Static gates: `git diff --check`, TypeScript, and ESLint all exited 0; ESLint reported 45 existing warnings and 0 errors.
+- Focused workout, exercise, client-shell, navigation, and live-workout suites: 29 files and 259 tests passed.
+- Full Vitest suite with Node local-storage support: 256 files and 1,923 tests passed; 1 file and 46 tests were intentionally skipped.
+- Production build: Next.js 16.2.12 compiled successfully and generated 70 static pages using documented non-secret local Supabase placeholders.
+- Performance, theme, paid-AI, and workout-asset guards passed. The deterministic asset check covered 20 alpha WebPs totaling 778,430 runtime bytes.
+- Authenticated mobile Playwright: the scoped Workout Workspace V2 suite passed 10/10 and removed its disposable users. The journey made no paid-provider requests.
+- Visual evidence: Home, Preview, Build, Browser, Detail, Review, Live, Paused, Pain, Plate, Finish, and Completed were captured and inspected at a 390×844 CSS viewport in light and dark themes (1,170×2,532 device-pixel images).
+- Impeccable detector: no findings in the changed workout surfaces or release-evidence spec.
+
+The default repository-wide authenticated Playwright matrix was also sampled while diagnosing the scoped runner. It passed 73/76; three failures outside this workout scope remain in the microphone/PWA prompt and settings unit-control flows. The scoped runner now forwards explicit Playwright specs and options verbatim, while preserving the existing default matrix when no arguments are supplied.
+
+CI, pull-request review, production deployment, and post-deploy canary evidence are not part of this local record and remain required before production promotion.
