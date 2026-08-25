@@ -40,6 +40,16 @@ describe('WorkoutEntryPanel', () => {
     expect(screen.getByRole('button', { name: 'Build strength workout' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Build cardio workout' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Workout templates' })).toBeTruthy();
+    const artwork = screen.getAllByRole('img');
+    expect(artwork).toHaveLength(2);
+    expect(artwork.map((image) => image.getAttribute('src'))).toEqual([
+      '/workout-v2/body-areas/full-body.webp',
+      '/workout-v2/body-areas/cardio.webp',
+    ]);
+    artwork.forEach((image) => {
+      expect(image.className).toContain('movement-visual');
+      expect(image.getAttribute('style')).toContain('object-fit: contain');
+    });
   });
 
   it('previews a split instead of starting it', () => {

@@ -69,7 +69,7 @@ export default function WorkoutPage() {
   const handledRepeat = useRef<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [loadingLibrary, setLoadingLibrary] = useState(true);
-  const [loadError, setLoadError] = useState(false);
+  const [supportError, setSupportError] = useState(false);
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [recents, setRecents] = useState<WorkoutSession[]>([]);
   const [storedRoutines, setStoredRoutines] = useState<StoredRoutine[]>([]);
@@ -95,7 +95,7 @@ export default function WorkoutPage() {
       ]);
       if (!active) return;
 
-      setLoadError(Boolean(exerciseResult.error || recentResult.error || routineResult.error));
+      setSupportError(Boolean(exerciseResult.error || recentResult.error || routineResult.error));
       setExercises((exerciseResult.data as Exercise[] | null) ?? []);
       setRecents((recentResult.data as WorkoutSession[] | null) ?? []);
       setStoredRoutines(((routineResult.data as { id: string; name: string; exercises: unknown }[] | null) ?? []).map((routine) => ({
@@ -126,7 +126,7 @@ export default function WorkoutPage() {
         .maybeSingle();
       if (!active) return;
       if (sessionResult.error || !sessionResult.data) {
-        setLoadError(true);
+        setSupportError(true);
         return;
       }
       const setsResult = await supabase
@@ -136,7 +136,7 @@ export default function WorkoutPage() {
         .order('set_number');
       if (!active) return;
       if (setsResult.error) {
-        setLoadError(true);
+        setSupportError(true);
         return;
       }
 
@@ -243,7 +243,8 @@ export default function WorkoutPage() {
       exercises={exercises}
       program={program}
       programLoading={programQuery.isLoading}
-      programError={Boolean(programQuery.error || loadError)}
+      programError={Boolean(programQuery.error)}
+      supportError={supportError}
       recents={recents}
       routines={routines}
       disabled={!userId || loadingLibrary}

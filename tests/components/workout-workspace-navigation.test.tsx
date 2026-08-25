@@ -85,6 +85,8 @@ describe('workout workspace navigation', () => {
     expect(screen.queryByRole('link', { name: /Back/i })).toBeNull();
     expect(screen.queryByRole('link', { name: 'Workout Home' })).toBeNull();
     expect(screen.getByRole('heading', { name: 'Workout Home' })).toBeTruthy();
+    expect(screen.queryByText('workout.workspace_status_draft')).toBeNull();
+    expect(screen.queryByLabelText(/Workout status/i)).toBeNull();
   });
 
   it('keeps the Exercises workspace title on an addressable exercise detail route', () => {

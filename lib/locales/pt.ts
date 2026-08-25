@@ -88,6 +88,8 @@ export const pt: Record<string, string> = {
   'workout.back_home': 'Voltar ao início dos treinos',
   'workout.loading_program': 'A carregar programa',
   'workout.program_load_failed': 'Não foi possível carregar o programa. Ainda podes criar um treino.',
+  'workout.info_history_failed': 'Não foi possível carregar as sessões recentes. Tenta novamente mais tarde.',
+  'workout.support_data_load_failed': 'Não foi possível carregar parte do histórico ou das rotinas guardadas. O programa do coach continua disponível.',
   'workout.sets_reps_summary': '{sets} séries · {reps} repetições',
   'workout.duration_summary': '{minutes} minutos',
   'workout.distance_summary': '{distance} km',

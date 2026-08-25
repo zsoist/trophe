@@ -70,6 +70,20 @@ describe('WorkoutBuilder', () => {
     expect(onSavePlan).toHaveBeenCalledWith(pushDraft);
   });
 
+  it('keeps 44px reorder controls and labeled removal in a separate narrow-screen action rail', () => {
+    workspace.state.draft = pushDraft;
+    render(<WorkoutBuilder exercises={exercises} onSavePlan={vi.fn()} />);
+
+    const moveUp = screen.getByRole('button', { name: 'Move Bench Press up' });
+    const moveDown = screen.getByRole('button', { name: 'Move Bench Press down' });
+    const remove = screen.getByRole('button', { name: 'Remove Bench Press' });
+    expect(moveUp.className).toContain('min-w-11');
+    expect(moveDown.className).toContain('min-w-11');
+    expect(remove.textContent).toContain('Remove exercise');
+    expect(remove.parentElement?.className).toContain('border-t');
+    expect(screen.getByRole('heading', { name: 'Bench Press' }).parentElement).not.toBe(remove.parentElement);
+  });
+
   it('disables Review for an empty strength draft and teaches the next action', () => {
     workspace.state.draft = { ...pushDraft, exercises: [] };
     render(<WorkoutBuilder exercises={exercises} onSavePlan={vi.fn()} />);

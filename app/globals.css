@@ -300,7 +300,7 @@
   --border-default: #D6D3D1;
   --border-strong: #A8A29E;
   --border-focus: #7C5C19;
-  --action-primary: #8B6E2B;
+  --action-primary: #765A1D;
   --action-primary-hover: #5A4719;
   --action-on-primary: #FFFFFF;
   --action-secondary: #E7E5E4;
@@ -334,7 +334,7 @@
   --performance-rail: rgba(28, 25, 23, 0.14);
   --performance-ink: #171512;
   --performance-muted: #615D55;
-  --performance-gold: #8B6E2B;
+  --performance-gold: #765A1D;
   --performance-coral: #B4233C;
   --performance-lime: #517900;
   --performance-cyan: #007A99;
@@ -1431,6 +1431,7 @@ body {
 }
 
 .workout-workspace {
+  min-height: calc(100dvh - 4rem - env(safe-area-inset-top, 0px));
   min-width: 0;
   overflow-x: clip;
   background: var(--workout-canvas);

@@ -64,13 +64,13 @@ export function LiveCardio({ draft, mode, paused = false, elapsedMs = 0, saving 
         <h2 className="mt-1 text-xl font-bold text-[var(--content-primary)]">{draft.name}</h2>
       </div>
       {mode === 'retrospective' ? (
-        <label className="block text-sm font-medium text-[var(--content-secondary)]">{t('workout.duration_minutes')}<input type="number" min="1" aria-label={t('workout.duration_minutes')} value={duration} onChange={(event) => setDuration(event.target.value)} className="input-dark mt-1 min-h-12 w-full text-base" /></label>
+        <label className="block text-sm font-medium text-[var(--content-secondary)]">{t('workout.duration_minutes')}<input type="number" min="1" aria-label={t('workout.duration_minutes')} value={duration} onChange={(event) => setDuration(event.target.value)} className="input-dark mt-1 min-h-12 w-full font-mono text-base tabular-nums" /></label>
       ) : (
-        <p className="text-3xl font-bold tabular-nums text-[var(--content-primary)]" aria-label={t('workout.active_duration')}>{Math.floor(elapsedMs / 60_000)}:{String(Math.floor(elapsedMs / 1_000) % 60).padStart(2, '0')}</p>
+        <p className="font-mono text-3xl font-bold tabular-nums text-[var(--content-primary)]" aria-label={t('workout.active_duration')}>{Math.floor(elapsedMs / 60_000)}:{String(Math.floor(elapsedMs / 1_000) % 60).padStart(2, '0')}</p>
       )}
       <div className="grid grid-cols-2 gap-3">
-        <label className="text-sm font-medium text-[var(--content-secondary)]">{t('workout.distance_optional')}<input type="number" min="0" step="any" inputMode="decimal" disabled={disabled} aria-label={t('workout.distance_optional')} value={distance} onChange={(event) => { const next = event.target.value; setDistance(next); setValidationError(false); onChange?.(values(next, effort)); }} className="input-dark mt-1 min-h-12 w-full text-base" /></label>
-        <label className="text-sm font-medium text-[var(--content-secondary)]">{t('workout.effort')}<input type="number" min="1" max="10" step="1" inputMode="numeric" disabled={disabled} aria-label={t('workout.effort')} value={effort} onChange={(event) => { const next = event.target.value; setEffort(next); setValidationError(false); onChange?.(values(distance, next)); }} className="input-dark mt-1 min-h-12 w-full text-base" /></label>
+        <label className="text-sm font-medium text-[var(--content-secondary)]">{t('workout.distance_optional')}<input type="number" min="0" step="any" inputMode="decimal" disabled={disabled} aria-label={t('workout.distance_optional')} value={distance} onChange={(event) => { const next = event.target.value; setDistance(next); setValidationError(false); onChange?.(values(next, effort)); }} className="input-dark mt-1 min-h-12 w-full font-mono text-base tabular-nums" /></label>
+        <label className="text-sm font-medium text-[var(--content-secondary)]">{t('workout.effort')}<input type="number" min="1" max="10" step="1" inputMode="numeric" disabled={disabled} aria-label={t('workout.effort')} value={effort} onChange={(event) => { const next = event.target.value; setEffort(next); setValidationError(false); onChange?.(values(distance, next)); }} className="input-dark mt-1 min-h-12 w-full font-mono text-base tabular-nums" /></label>
       </div>
 
       {validationError ? <p role="alert" className="text-sm text-[var(--status-danger-fg)]">{t('workout.invalid_cardio_metrics')}</p> : null}

@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 const harness = vi.hoisted(() => ({
   repeatId: '',
   programData: null as unknown,
+  failureTable: '' as string,
   push: vi.fn(),
   createWorkoutSession: vi.fn(),
   queries: [] as Array<{ table: string; filters: Array<[string, unknown]> }>,
@@ -69,6 +70,7 @@ vi.mock('@/lib/supabase', () => ({
             error: null,
           };
         }
+        if (table === harness.failureTable) return { data: [], error: new Error(`${table} unavailable`) };
         return { data: [], error: null };
       };
       const query: Record<string, unknown> = {};
@@ -132,6 +134,7 @@ afterEach(() => {
   cleanup();
   harness.repeatId = '';
   harness.programData = null;
+  harness.failureTable = '';
   harness.push.mockReset();
   harness.createWorkoutSession.mockReset();
   harness.queries.length = 0;
@@ -225,5 +228,23 @@ describe('Workout home data flows', () => {
     });
     expect(state.draft.templateId).toBe(templateId);
     expect(harness.createWorkoutSession).not.toHaveBeenCalled();
+  });
+
+  it('keeps a valid coach program visible when recent support data fails', async () => {
+    harness.failureTable = 'workout_sessions';
+    harness.programData = {
+      program: { name: 'Coach block' },
+      exercises: [{ id: customExerciseId, name: 'Coach Tempo Press', nameEs: null, nameEl: null, muscleGroup: 'chest', equipment: 'barbell', isCompound: true }],
+      days: [{
+        id: 'day-1', weekday: 1, sort: 0,
+        template: { id: templateId, name: 'Coach custom day', exercises: [{ exercise_id: customExerciseId, target_sets: 3, target_reps: '10' }] },
+      }],
+    };
+
+    renderPage();
+
+    expect(await screen.findByRole('button', { name: 'Review today’s workout' })).toBeTruthy();
+    expect(screen.getByRole('alert').textContent).toContain('workout.support_data_load_failed');
+    expect(screen.queryByText('workout.program_load_failed')).toBeNull();
   });
 });

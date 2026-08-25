@@ -83,6 +83,8 @@ export const nl: Record<string, string> = {
   'workout.back_home': 'Terug naar Trainingshome',
   'workout.loading_program': 'Trainingsprogramma laden',
   'workout.program_load_failed': 'Je programma kon niet worden geladen. Je kunt nog steeds een training samenstellen.',
+  'workout.info_history_failed': 'Recente sessies konden niet worden geladen. Probeer het later opnieuw.',
+  'workout.support_data_load_failed': 'Een deel van je geschiedenis of opgeslagen routines kon niet worden geladen. Het programma van je coach blijft beschikbaar.',
   'workout.sets_reps_summary': '{sets} sets · {reps} herhalingen',
   'workout.duration_summary': '{minutes} minuten',
   'workout.distance_summary': '{distance} km',

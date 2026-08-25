@@ -1,4 +1,4 @@
-import { expect, test, type Page, type TestInfo } from '@playwright/test';
+import { expect, test, type Locator, type Page, type TestInfo } from '@playwright/test';
 import { assertMinimumTargets, assertNamedInteractiveControls, assertNoPageOverflow, assertTheme } from './helpers/accessibility';
 import { blockPaidRequests, loginAs, setTheme, type ThemeMode } from './helpers/auth';
 
@@ -19,9 +19,21 @@ async function assertWorkoutSurface(page: Page, theme: ThemeMode) {
   await expect(nav).toHaveCSS('bottom', '0px');
 }
 
-async function dismissInstallPrompt(page: Page) {
-  const dismiss = page.getByRole('button', { name: 'Dismiss install prompt' });
-  if (await dismiss.isVisible()) await dismiss.click();
+function currentWorkspace(page: Page): Locator {
+  return page.locator('.client-shell__content').getByRole('main');
+}
+
+async function waitForRouteSettled(page: Page, pathname: string) {
+  await expect(page).toHaveURL(new RegExp(`${pathname.replaceAll('/', '\\/')}$`));
+  await expect(page.locator('.client-shell__content')).toHaveCount(1);
+}
+
+async function waitForWorkoutHomeSettled(page: Page) {
+  await waitForRouteSettled(page, '/dashboard/workout');
+  await expect(page.getByRole('button', { name: 'Preview Push' })).toBeEnabled();
+  await expect.poll(async () => page.locator('.workout-mode-card img').evaluateAll((images) => images.length === 2 && images.every((image) => (image as HTMLImageElement).complete && (image as HTMLImageElement).naturalWidth > 0)), {
+    message: 'premium workout mode artwork must be decoded before capture',
+  }).toBe(true);
 }
 
 async function captureWorkout(page: Page, testInfo: TestInfo, name: string) {
@@ -36,6 +48,11 @@ async function captureWorkout(page: Page, testInfo: TestInfo, name: string) {
 
 test.describe('Workout Workspace V2', () => {
   test.skip(!process.env.E2E_CLIENT_EMAIL || !process.env.E2E_CLIENT_PASSWORD, 'Local-auth runner supplies the disposable client account');
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem('trophe_pwa_install_dismissed', String(Date.now()));
+    });
+  });
 
   for (const theme of ['light', 'dark'] as const) {
     test(`${theme}: draft to pause and guarded finish`, async ({ page }, testInfo) => {
@@ -43,15 +60,18 @@ test.describe('Workout Workspace V2', () => {
       await loginAs(page, 'client');
       await setTheme(page, theme);
       await page.goto('/dashboard/workout');
-      await dismissInstallPrompt(page);
+      await waitForWorkoutHomeSettled(page);
       await page.getByRole('button', { name: 'Preview Push' }).click();
       await page.getByRole('button', { name: 'Use this template' }).click();
-      await expect(page.getByText('Draft · Not started')).toBeVisible();
-      await page.getByRole('button', { name: 'Review workout' }).click();
-      await page.getByRole('button', { name: 'Start live workout' }).click();
-      await page.getByRole('main').last().getByRole('button', { name: 'Pause' }).click();
+      await waitForRouteSettled(page, '/dashboard/workout/build');
+      await expect(currentWorkspace(page).getByText('Draft · Not started')).toBeVisible();
+      await currentWorkspace(page).getByRole('button', { name: 'Review workout' }).click();
+      await waitForRouteSettled(page, '/dashboard/workout/review');
+      await currentWorkspace(page).getByRole('button', { name: 'Start live workout' }).click();
+      await waitForRouteSettled(page, '/dashboard/workout/live');
+      await currentWorkspace(page).getByRole('button', { name: 'Pause' }).click();
       await expect(page.getByText('Paused')).toBeVisible();
-      await page.getByRole('button', { name: 'Finish Workout' }).click();
+      await currentWorkspace(page).getByRole('button', { name: 'Finish Workout' }).click();
       await expect(page.getByRole('dialog', { name: 'Finish workout?' })).toBeVisible();
       await assertWorkoutSurface(page, theme);
       await captureWorkout(page, testInfo, `${theme}-guarded-finish.png`);
@@ -67,9 +87,17 @@ test.describe('Workout Workspace V2', () => {
         await loginAs(page, 'client');
         await setTheme(page, theme);
         await page.goto('/dashboard/workout');
-        await dismissInstallPrompt(page);
+        await waitForWorkoutHomeSettled(page);
         await assertWorkoutSurface(page, theme);
         await captureWorkout(page, testInfo, `${theme}-${viewport.width}x${viewport.height}.png`);
+        if (viewport.width === 320) {
+          await page.getByRole('button', { name: 'Preview Push' }).click();
+          await page.getByRole('button', { name: 'Use this template' }).click();
+          await waitForRouteSettled(page, '/dashboard/workout/build');
+          await expect(currentWorkspace(page).getByText('Draft · Not started')).toBeVisible();
+          await assertWorkoutSurface(page, theme);
+          await captureWorkout(page, testInfo, `${theme}-${viewport.width}x${viewport.height}-build.png`);
+        }
         assertNoPaidRequests();
       });
     }

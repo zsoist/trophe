@@ -1,8 +1,8 @@
 'use client';
 
-import { Activity, Dumbbell } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
 import { WORKOUT_SPLITS } from '@/components/workout/muscle-groups';
+import { MovementVisual } from '@/components/workout/MovementVisual';
 
 interface WorkoutEntryPanelProps {
   disabled: boolean;
@@ -16,17 +16,20 @@ export default function WorkoutEntryPanel({ disabled, onStrength, onCardio, onSp
 
   return (
     <section className="space-y-5" aria-label={t('workout.build_choices')}>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="workout-entry-panel__modes">
         <button
           type="button"
           disabled={disabled}
           onClick={onStrength}
           aria-label={t('workout.build_strength')}
-          className="min-h-36 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:opacity-50"
+          className="workout-mode-card workout-mode-card--strength focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
         >
-          <Dumbbell className="mb-7 text-[var(--action-primary)]" size={24} aria-hidden="true" />
-          <strong className="block text-base text-[var(--content-primary)]">{t('workout.strength')}</strong>
-          <small className="mt-1 block text-sm leading-5 text-[var(--content-secondary)]">{t('workout.strength_sub')}</small>
+          <MovementVisual bodyArea="full-body" alt={t('workout.strength')} priority sizes="(max-width: 640px) 50vw, 320px" />
+          <span className="workout-mode-card__scrim" aria-hidden="true" />
+          <span className="workout-mode-card__copy">
+            <strong>{t('workout.strength')}</strong>
+            <small>{t('workout.strength_sub')}</small>
+          </span>
         </button>
 
         <button
@@ -34,11 +37,14 @@ export default function WorkoutEntryPanel({ disabled, onStrength, onCardio, onSp
           disabled={disabled}
           onClick={onCardio}
           aria-label={t('workout.build_cardio')}
-          className="min-h-36 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:opacity-50"
+          className="workout-mode-card workout-mode-card--cardio focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
         >
-          <Activity className="mb-7 text-[var(--status-info-fg)]" size={24} aria-hidden="true" />
-          <strong className="block text-base text-[var(--content-primary)]">{t('workout.cardio')}</strong>
-          <small className="mt-1 block text-sm leading-5 text-[var(--content-secondary)]">{t('workout.cardio_sub')}</small>
+          <MovementVisual bodyArea="cardio" alt={t('workout.cardio')} priority sizes="(max-width: 640px) 50vw, 320px" />
+          <span className="workout-mode-card__scrim" aria-hidden="true" />
+          <span className="workout-mode-card__copy">
+            <strong>{t('workout.cardio')}</strong>
+            <small>{t('workout.cardio_sub')}</small>
+          </span>
         </button>
       </div>
 

@@ -128,17 +128,17 @@ export function ExerciseSetLogger({
       <div className="grid grid-cols-2 gap-3">
         <label className="text-sm font-medium text-[var(--content-secondary)]">
           {t('workout.weight_in_unit', { unit })}
-          <input type="number" min="0" step="any" inputMode="decimal" disabled={completed || disabled} aria-label={t('workout.weight_in_unit', { unit })} value={weight} onChange={(event) => setWeight(event.target.value)} className="input-dark mt-1 min-h-12 w-full text-base" />
+          <input type="number" min="0" step="any" inputMode="decimal" disabled={completed || disabled} aria-label={t('workout.weight_in_unit', { unit })} value={weight} onChange={(event) => setWeight(event.target.value)} className="input-dark mt-1 min-h-12 w-full font-mono text-base tabular-nums" />
         </label>
         <label className="text-sm font-medium text-[var(--content-secondary)]">
           {t('workout.reps')}
-          <input type="number" min="1" step="1" inputMode="numeric" disabled={completed || disabled} aria-label={t('workout.reps')} value={reps} onChange={(event) => setReps(event.target.value)} className="input-dark mt-1 min-h-12 w-full text-base" />
+          <input type="number" min="1" step="1" inputMode="numeric" disabled={completed || disabled} aria-label={t('workout.reps')} value={reps} onChange={(event) => setReps(event.target.value)} className="input-dark mt-1 min-h-12 w-full font-mono text-base tabular-nums" />
         </label>
       </div>
       <div className="mt-3 grid grid-cols-[minmax(0,1fr)_minmax(9rem,1.4fr)] gap-3">
         <label className="text-sm font-medium text-[var(--content-secondary)]">
           {t('workout.rpe_optional')}
-          <input type="number" min="1" max="10" step="0.5" inputMode="decimal" disabled={completed || disabled} aria-label={t('workout.rpe_optional')} value={rpe} onChange={(event) => setRpe(event.target.value)} className="input-dark mt-1 min-h-12 w-full text-base" />
+          <input type="number" min="1" max="10" step="0.5" inputMode="decimal" disabled={completed || disabled} aria-label={t('workout.rpe_optional')} value={rpe} onChange={(event) => setRpe(event.target.value)} className="input-dark mt-1 min-h-12 w-full font-mono text-base tabular-nums" />
         </label>
         <button type="button" disabled={saving || disabled} onClick={() => void toggleComplete()} className="btn-gold mt-6 inline-flex min-h-12 items-center justify-center gap-2 rounded-xl disabled:opacity-50">
           <Check size={17} aria-hidden="true" />{saving ? t('workout.saving') : completed ? t('workout.undo_set') : t('workout.complete_set')}
@@ -151,7 +151,7 @@ export function ExerciseSetLogger({
 
       {completed && restStartedAt !== null ? (
         <p role="status" className="mt-2 rounded-xl bg-[var(--status-success-bg)] px-3 py-2 text-sm text-[var(--status-success-fg)]">
-          {t('workout.resting')} · {restElapsed}s / {restTargetSeconds}s
+          {t('workout.resting')} · <span className="font-mono tabular-nums">{restElapsed}s / {restTargetSeconds}s</span>
         </p>
       ) : null}
 

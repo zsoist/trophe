@@ -16,7 +16,8 @@ const titleKeys: Record<string, string> = {
   [WORKOUT_ROUTES.exercises]: 'workout.workspace_exercises_title',
 };
 
-function statusKeyForStage(stage: WorkoutStage): string {
+function statusKeyForStage(stage: WorkoutStage): string | null {
+  if (stage === 'home') return null;
   if (stage === 'paused') return 'workout.workspace_status_paused';
   if (stage === 'live' || stage === 'finishing' || stage === 'completed') return 'workout.workspace_status_live';
   return 'workout.workspace_status_draft';
@@ -29,7 +30,8 @@ function WorkoutWorkspaceHeaderContent({ stage }: { stage: WorkoutStage }) {
     ? 'workout.workspace_exercises_title'
     : titleKeys[pathname] ?? 'workout.title';
   const title = t(titleKey);
-  const status = t(statusKeyForStage(stage));
+  const statusKey = statusKeyForStage(stage);
+  const status = statusKey ? t(statusKey) : null;
   const isHome = pathname === WORKOUT_ROUTES.home;
 
   return (
@@ -48,7 +50,7 @@ function WorkoutWorkspaceHeaderContent({ stage }: { stage: WorkoutStage }) {
           <span className="hidden min-[430px]:inline">{t('workout.workspace_home_title')}</span>
         </Link>
       )}
-      <span className="shrink-0 rounded-full border border-[var(--workout-rail)] bg-[var(--surface-subtle)] px-2 py-1 text-xs font-semibold" aria-label={t('workout.workspace_status_label', { status })}>{status}</span>
+      {status ? <span className="shrink-0 rounded-full border border-[var(--workout-rail)] bg-[var(--surface-subtle)] px-2 py-1 text-xs font-semibold" aria-label={t('workout.workspace_status_label', { status })}>{status}</span> : null}
     </header>
   );
 }

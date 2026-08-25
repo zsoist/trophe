@@ -35,6 +35,11 @@ describe('PlateCalculator', () => {
     expect(screen.getByLabelText('Bar weight (kg)')).toBeTruthy();
     expect(screen.getByLabelText('Available plates per side')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Add warm-up sets' })).toBeNull();
+    expect(screen.getByText('Left side').className).toContain('text-xs');
+    const plate = screen.getAllByText('25')[0];
+    expect(plate.className).toContain('text-xs');
+    expect(plate.className).toContain('font-mono');
+    expect(screen.getByLabelText('Total weight (kg)').className).toContain('font-mono');
   });
 
   it('makes every load input editable and only offers verified warm-up insertion with exercise context', async () => {

@@ -341,7 +341,7 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
       <section className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] p-3">
         <div>
           <h2 className="font-bold text-[var(--content-primary)]">{draft.name}</h2>
-          <p className="text-sm tabular-nums text-[var(--content-secondary)]">{Math.floor(elapsedMs / 60_000)}:{String(Math.floor(elapsedMs / 1_000) % 60).padStart(2, '0')}</p>
+          <p className="font-mono text-sm tabular-nums text-[var(--content-secondary)]">{Math.floor(elapsedMs / 60_000)}:{String(Math.floor(elapsedMs / 1_000) % 60).padStart(2, '0')}</p>
         </div>
         <button type="button" onClick={() => { if (state.stage === 'paused') workspace.resume(); else workspace.pause(); }} className="btn-ghost inline-flex min-h-11 items-center gap-2 rounded-xl px-4">
           {state.stage === 'paused' ? <Play size={17} aria-hidden="true" /> : <Pause size={17} aria-hidden="true" />}{t(state.stage === 'paused' ? 'workout.resume' : 'workout.pause')}

@@ -83,6 +83,8 @@ export const de: Record<string, string> = {
   'workout.back_home': 'Zurück zur Trainingsstartseite',
   'workout.loading_program': 'Trainingsprogramm wird geladen',
   'workout.program_load_failed': 'Dein Trainingsprogramm konnte nicht geladen werden. Du kannst trotzdem ein Training erstellen.',
+  'workout.info_history_failed': 'Die letzten Einheiten konnten nicht geladen werden. Versuch es später erneut.',
+  'workout.support_data_load_failed': 'Ein Teil des Verlaufs oder der gespeicherten Routinen konnte nicht geladen werden. Dein Coach-Programm bleibt verfügbar.',
   'workout.sets_reps_summary': '{sets} Sätze · {reps} Wiederholungen',
   'workout.duration_summary': '{minutes} Minuten',
   'workout.distance_summary': '{distance} km',
