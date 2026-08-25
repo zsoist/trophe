@@ -1,684 +1,906 @@
 {
-  "version": 2,
+  "version": 3,
+  "sourceContract": "native-vector-4k-v1",
   "assets": {
     "chest": {
       "kind": "anatomy",
       "src": "/workout-v2/body-areas/chest.webp",
       "source": {
-        "path": "assets/workout-v2/sources/chest.png",
-        "width": 1024,
-        "height": 1536,
-        "sha256": "ddf30e7a1ee3064dbe0026df0dbc1378fd1c1b2d1b92dbe15719716ac9cf5613",
-        "safeMarginPct": 13.41
+        "path": "assets/workout-v2/sources/chest.svg",
+        "type": "vector",
+        "format": "svg",
+        "scalable": true,
+        "width": 2160,
+        "height": 3840,
+        "sha256": "06c5b57a3122c84482d5c45828ee09ce9eea5b75f020bcda9e5d3ce8398380a9",
+        "safeMarginPct": 10,
+        "subjectSafeMarginPct": 11.25
       },
       "master": {
         "path": "assets/workout-v2/masters/chest.webp",
         "width": 2160,
-        "height": 3240,
-        "upscaled": true,
-        "sha256": "26d50a870a319db2d46544f6db066d5b8655dcdd15b08fe26d58064a7f3851b8",
+        "height": 3840,
+        "upscaled": false,
+        "sha256": "6e555dd236af2fbd65539ebf87bca7426bda6d1b500f6fef9c8cbc1c2c5ded98",
         "canvasPaddingPct": 10,
         "format": "webp",
         "hasAlpha": true,
-        "safeMarginPct": 10
+        "safeMarginPct": 9.81,
+        "subjectSafeMarginPct": 11.25
       },
       "display": {
-        "width": 640,
+        "width": 540,
         "height": 960,
-        "quality": 84,
+        "quality": 82,
         "hasAlpha": true,
-        "sha256": "2adb63d36c050d5702c5e38c78ccf54616c5d33dfd59102384de2b9d9329c560",
-        "safeMarginPct": 10
+        "sha256": "63dd84b0b975888517ffab43ed876307fae1ffa22e3dc668e4e00681c3b7d553",
+        "safeMarginPct": 9.81,
+        "subjectSafeMarginPct": 11.25
       },
-      "safeMarginPct": 10,
-      "generatorMode": "built-in-imagegen",
-      "promptSummary": "Full adult anatomical figure, warm-white clinical studio, full figure inside frame and restrained muscle-region highlights.",
+      "safeMarginPct": 9.81,
+      "generatorMode": "repo-native-svg",
+      "background": "warm-neutral-vector-plate",
+      "semanticMuscles": [
+        "pectoralis major",
+        "pectoralis minor"
+      ],
       "fallbackLabel": "anatomy"
     },
     "back": {
       "kind": "anatomy",
       "src": "/workout-v2/body-areas/back.webp",
       "source": {
-        "path": "assets/workout-v2/sources/back.png",
-        "width": 1024,
-        "height": 1536,
-        "sha256": "fe2d2c7bbd62554fbddf4070a1b62ad27fdc80f35a4f243c368e28b1ce40629a",
-        "safeMarginPct": 1.56
+        "path": "assets/workout-v2/sources/back.svg",
+        "type": "vector",
+        "format": "svg",
+        "scalable": true,
+        "width": 2160,
+        "height": 3840,
+        "sha256": "cd9a6d5016183aef1e39497016687fd2e5761a73d4929ad0dc62d4339582e48e",
+        "safeMarginPct": 10,
+        "subjectSafeMarginPct": 11.25
       },
       "master": {
         "path": "assets/workout-v2/masters/back.webp",
         "width": 2160,
-        "height": 3240,
-        "upscaled": true,
-        "sha256": "d8cd14f3ddac2c8f5172f70952c5d1723f6cd4b8fa5a185fb6cd11b172a987bd",
+        "height": 3840,
+        "upscaled": false,
+        "sha256": "0d2d9ae2e5a9ca82bc03f54bf13e9ab4a11c108eacd255537c63c45f64183e4b",
         "canvasPaddingPct": 10,
         "format": "webp",
         "hasAlpha": true,
-        "safeMarginPct": 10
+        "safeMarginPct": 9.81,
+        "subjectSafeMarginPct": 11.25
       },
       "display": {
-        "width": 640,
+        "width": 540,
         "height": 960,
-        "quality": 84,
+        "quality": 82,
         "hasAlpha": true,
-        "sha256": "53a35d964272b9738ce75435405431d8c3a30bee2ff2b5e27d6949cd5c4507c8",
-        "safeMarginPct": 10
+        "sha256": "79defe7d8136946b38b5a28a4f319de5db1d9defe5a0587613428436187be8b4",
+        "safeMarginPct": 9.81,
+        "subjectSafeMarginPct": 11.25
       },
-      "safeMarginPct": 10,
-      "generatorMode": "built-in-imagegen",
-      "promptSummary": "Full adult anatomical figure, warm-white clinical studio, full figure inside frame and restrained muscle-region highlights.",
+      "safeMarginPct": 9.81,
+      "generatorMode": "repo-native-svg",
+      "background": "warm-neutral-vector-plate",
+      "semanticMuscles": [
+        "trapezius",
+        "latissimus dorsi",
+        "rhomboids"
+      ],
       "fallbackLabel": "anatomy"
     },
     "shoulders": {
       "kind": "anatomy",
       "src": "/workout-v2/body-areas/shoulders.webp",
       "source": {
-        "path": "assets/workout-v2/sources/shoulders.png",
-        "width": 1024,
-        "height": 1536,
-        "sha256": "c8be3750dfd60e16a42cad4568e8987a665bbf0594d2d7f515af3312256d831c",
-        "safeMarginPct": 3.13
+        "path": "assets/workout-v2/sources/shoulders.svg",
+        "type": "vector",
+        "format": "svg",
+        "scalable": true,
+        "width": 2160,
+        "height": 3840,
+        "sha256": "b4d99b177ceecbf341621cd2cf23f06fb932b8e5193696423af01d934a876862",
+        "safeMarginPct": 10,
+        "subjectSafeMarginPct": 11.25
       },
       "master": {
         "path": "assets/workout-v2/masters/shoulders.webp",
         "width": 2160,
-        "height": 3240,
-        "upscaled": true,
-        "sha256": "0605e4558143695d574786cc1d45e159374619a0223ef663d6cdbae3815a5647",
+        "height": 3840,
+        "upscaled": false,
+        "sha256": "29327616ae391b34db3d8fe459e7f51bfb64d5e1278493049b9eb2baad9cb6ca",
         "canvasPaddingPct": 10,
         "format": "webp",
         "hasAlpha": true,
-        "safeMarginPct": 10
+        "safeMarginPct": 9.81,
+        "subjectSafeMarginPct": 11.25
       },
       "display": {
-        "width": 640,
+        "width": 540,
         "height": 960,
-        "quality": 84,
+        "quality": 82,
         "hasAlpha": true,
-        "sha256": "a3d78deff01aa2e8792b5644a0d218c58df7df21e82f2b8723039869a0d003e7",
-        "safeMarginPct": 10
+        "sha256": "b09bcc705787d3b532c4894f285aae2a72a8cea9cd388aa984b4a8e11589349e",
+        "safeMarginPct": 9.81,
+        "subjectSafeMarginPct": 11.25
       },
-      "safeMarginPct": 10,
-      "generatorMode": "built-in-imagegen",
-      "promptSummary": "Full adult anatomical figure, warm-white clinical studio, full figure inside frame and restrained muscle-region highlights.",
+      "safeMarginPct": 9.81,
+      "generatorMode": "repo-native-svg",
+      "background": "warm-neutral-vector-plate",
+      "semanticMuscles": [
+        "anterior deltoid",
+        "lateral deltoid",
+        "posterior deltoid"
+      ],
       "fallbackLabel": "anatomy"
     },
     "arms": {
       "kind": "anatomy",
       "src": "/workout-v2/body-areas/arms.webp",
       "source": {
-        "path": "assets/workout-v2/sources/arms.png",
-        "width": 1024,
-        "height": 1536,
-        "sha256": "e5d79760fc4210998ae83614d5c7b8db7b26f3b5d4777ca1e65b126731c7b799",
-        "safeMarginPct": 5.47
+        "path": "assets/workout-v2/sources/arms.svg",
+        "type": "vector",
+        "format": "svg",
+        "scalable": true,
+        "width": 2160,
+        "height": 3840,
+        "sha256": "e393f2779fc4446335dfb64352f48368948977e05de9cb2263c9606e6b0e1343",
+        "safeMarginPct": 10,
+        "subjectSafeMarginPct": 11.25
       },
       "master": {
         "path": "assets/workout-v2/masters/arms.webp",
         "width": 2160,
-        "height": 3240,
-        "upscaled": true,
-        "sha256": "e877542b9a402c69f262d5c9bd2e799ed9c191de4f6270eec4cf86f4ffc7cd1e",
+        "height": 3840,
+        "upscaled": false,
+        "sha256": "52238df2a5703bbbc177b761674466a98751f986998ddb84885c9c4661cd371e",
         "canvasPaddingPct": 10,
         "format": "webp",
         "hasAlpha": true,
-        "safeMarginPct": 10
+        "safeMarginPct": 9.81,
+        "subjectSafeMarginPct": 11.25
       },
       "display": {
-        "width": 640,
+        "width": 540,
         "height": 960,
-        "quality": 84,
+        "quality": 82,
         "hasAlpha": true,
-        "sha256": "e0e9dd4fd72f7751767f9860fa00c73d3428ed8b12178fb5e6ac79579505a2fa",
-        "safeMarginPct": 10
+        "sha256": "e997000086f25b3088505d8abceaaca9ee7b8b367c69153b5952b6d9543a4107",
+        "safeMarginPct": 9.81,
+        "subjectSafeMarginPct": 11.25
       },
-      "safeMarginPct": 10,
-      "generatorMode": "built-in-imagegen",
-      "promptSummary": "Full adult anatomical figure, warm-white clinical studio, full figure inside frame and restrained muscle-region highlights.",
+      "safeMarginPct": 9.81,
+      "generatorMode": "repo-native-svg",
+      "background": "warm-neutral-vector-plate",
+      "semanticMuscles": [
+        "biceps brachii",
+        "triceps brachii",
+        "forearm flexors"
+      ],
       "fallbackLabel": "anatomy"
     },
     "legs": {
       "kind": "anatomy",
       "src": "/workout-v2/body-areas/legs.webp",
       "source": {
-        "path": "assets/workout-v2/sources/legs.png",
-        "width": 1024,
-        "height": 1536,
-        "sha256": "c1bb433a82979d0977daa2fbe57fb5b77565bc0cd7167cf6fe46d76a83e1a101",
-        "safeMarginPct": 1.63
+        "path": "assets/workout-v2/sources/legs.svg",
+        "type": "vector",
+        "format": "svg",
+        "scalable": true,
+        "width": 2160,
+        "height": 3840,
+        "sha256": "b4cd334ed2ceaf06840404535d5891f2255fbd36ad172c12f2985124bd59e4ed",
+        "safeMarginPct": 10,
+        "subjectSafeMarginPct": 11.25
       },
       "master": {
         "path": "assets/workout-v2/masters/legs.webp",
         "width": 2160,
-        "height": 3240,
-        "upscaled": true,
-        "sha256": "d3ee60d80c2a37d96477b5ed87b72243caeca88bf5b813acefac883ba11b27d3",
+        "height": 3840,
+        "upscaled": false,
+        "sha256": "d52d158048b000806352e63c172d51d07e3bfc69204a0b4bd645db74580d7578",
         "canvasPaddingPct": 10,
         "format": "webp",
         "hasAlpha": true,
-        "safeMarginPct": 10
+        "safeMarginPct": 9.81,
+        "subjectSafeMarginPct": 11.25
       },
       "display": {
-        "width": 640,
+        "width": 540,
         "height": 960,
-        "quality": 84,
+        "quality": 82,
         "hasAlpha": true,
-        "sha256": "4a6d07e21ecf03983480f7717db3b1b87957b87e2ddd3560a065186244f2f125",
-        "safeMarginPct": 10
+        "sha256": "830f4694355b64e402bb540b13af52cd01a7c895c8a7a93a2745058ec38a2f94",
+        "safeMarginPct": 9.81,
+        "subjectSafeMarginPct": 11.25
       },
-      "safeMarginPct": 10,
-      "generatorMode": "built-in-imagegen",
-      "promptSummary": "Full adult anatomical figure, warm-white clinical studio, full figure inside frame and restrained muscle-region highlights.",
+      "safeMarginPct": 9.81,
+      "generatorMode": "repo-native-svg",
+      "background": "warm-neutral-vector-plate",
+      "semanticMuscles": [
+        "quadriceps",
+        "hamstrings",
+        "gluteus maximus",
+        "gastrocnemius"
+      ],
       "fallbackLabel": "anatomy"
     },
     "core": {
       "kind": "anatomy",
       "src": "/workout-v2/body-areas/core.webp",
       "source": {
-        "path": "assets/workout-v2/sources/core.png",
-        "width": 1024,
-        "height": 1536,
-        "sha256": "3c703b6ee8282e18ed6ecf69a9c6af5b0eaadc63567a2babc861848817c42a22",
-        "safeMarginPct": 3.78
+        "path": "assets/workout-v2/sources/core.svg",
+        "type": "vector",
+        "format": "svg",
+        "scalable": true,
+        "width": 2160,
+        "height": 3840,
+        "sha256": "8dafd4c80a579ab182a662152ffe8c8e385f0844a406bc77ef514bbf8ca9b3d7",
+        "safeMarginPct": 10,
+        "subjectSafeMarginPct": 11.25
       },
       "master": {
         "path": "assets/workout-v2/masters/core.webp",
         "width": 2160,
-        "height": 3240,
-        "upscaled": true,
-        "sha256": "5a44e3554548d587ab791cfe252c7780b56770b69aa507bb7a8038f51d9b974e",
+        "height": 3840,
+        "upscaled": false,
+        "sha256": "8a26487b04bc767d1b8cb6589676785c373a2d879f87fc64af20a5f07819cd28",
         "canvasPaddingPct": 10,
         "format": "webp",
         "hasAlpha": true,
-        "safeMarginPct": 10
+        "safeMarginPct": 9.81,
+        "subjectSafeMarginPct": 11.25
       },
       "display": {
-        "width": 640,
+        "width": 540,
         "height": 960,
-        "quality": 84,
+        "quality": 82,
         "hasAlpha": true,
-        "sha256": "2e139c08c4ef45585c868915ea4083ed7dc677c91752790ead744f2ae7df2d0b",
-        "safeMarginPct": 10
+        "sha256": "3bf789994d45140bb1d9696148e9094a0dc35c15aa50b2f91dfbfd63c6274d47",
+        "safeMarginPct": 9.81,
+        "subjectSafeMarginPct": 11.25
       },
-      "safeMarginPct": 10,
-      "generatorMode": "built-in-imagegen",
-      "promptSummary": "Full adult anatomical figure, warm-white clinical studio, full figure inside frame and restrained muscle-region highlights.",
+      "safeMarginPct": 9.81,
+      "generatorMode": "repo-native-svg",
+      "background": "warm-neutral-vector-plate",
+      "semanticMuscles": [
+        "rectus abdominis",
+        "external obliques",
+        "transverse abdominis"
+      ],
       "fallbackLabel": "anatomy"
     },
     "full-body": {
       "kind": "anatomy",
       "src": "/workout-v2/body-areas/full-body.webp",
       "source": {
-        "path": "assets/workout-v2/sources/full-body.png",
-        "width": 1024,
-        "height": 1536,
-        "sha256": "226354820207d54eb0e57f4c16631d5137643934741ca08799f198c3e161d3cc",
-        "safeMarginPct": 2.34
+        "path": "assets/workout-v2/sources/full-body.svg",
+        "type": "vector",
+        "format": "svg",
+        "scalable": true,
+        "width": 2160,
+        "height": 3840,
+        "sha256": "2f0e1d985c34de3a2adebbe93fc5bcc364f95caacc5fcc3d705244954aa45cd6",
+        "safeMarginPct": 10,
+        "subjectSafeMarginPct": 11.25
       },
       "master": {
         "path": "assets/workout-v2/masters/full-body.webp",
         "width": 2160,
-        "height": 3240,
-        "upscaled": true,
-        "sha256": "3f202e6ddcd49de52193e9e1dc649475572bc5679c1edced17ffb4ac5bfa9292",
+        "height": 3840,
+        "upscaled": false,
+        "sha256": "76f94982509ec7fb23f55a16f7d4167fdcc1851795a84e1bafabd02fff0f827b",
         "canvasPaddingPct": 10,
         "format": "webp",
         "hasAlpha": true,
-        "safeMarginPct": 10
+        "safeMarginPct": 9.81,
+        "subjectSafeMarginPct": 11.25
       },
       "display": {
-        "width": 640,
+        "width": 540,
         "height": 960,
-        "quality": 84,
+        "quality": 82,
         "hasAlpha": true,
-        "sha256": "d7a63feabe5e975b0d4f5447c1b5d6c3d8834fd4efd592307f79c5dc4d14b3f1",
-        "safeMarginPct": 10
+        "sha256": "aa7f78b7eab797a17722d98c2abf4bbc303a5c94f7b186ccb1a592b8fb4eea28",
+        "safeMarginPct": 9.81,
+        "subjectSafeMarginPct": 11.25
       },
-      "safeMarginPct": 10,
-      "generatorMode": "built-in-imagegen",
-      "promptSummary": "Full adult anatomical figure, warm-white clinical studio, full figure inside frame and restrained muscle-region highlights.",
+      "safeMarginPct": 9.81,
+      "generatorMode": "repo-native-svg",
+      "background": "warm-neutral-vector-plate",
+      "semanticMuscles": [
+        "pectorals",
+        "deltoids",
+        "core",
+        "quadriceps",
+        "latissimus dorsi"
+      ],
       "fallbackLabel": "anatomy"
     },
     "cardio": {
       "kind": "cardio",
       "src": "/workout-v2/body-areas/cardio.webp",
       "source": {
-        "path": "assets/workout-v2/sources/cardio.png",
-        "width": 1122,
-        "height": 1402,
-        "sha256": "afd00e1e81ed0b1c6fe9ba7d3d2aa634c93294b56062d26f03940520ccffd5fa",
-        "safeMarginPct": 8.13
+        "path": "assets/workout-v2/sources/cardio.svg",
+        "type": "vector",
+        "format": "svg",
+        "scalable": true,
+        "width": 2160,
+        "height": 3840,
+        "sha256": "e442c660afedc405c335cd69f3fec52e42d39ca14bd35b75c0c884198c12abb7",
+        "safeMarginPct": 10,
+        "subjectSafeMarginPct": 11.25
       },
       "master": {
         "path": "assets/workout-v2/masters/cardio.webp",
         "width": 2160,
-        "height": 3240,
-        "upscaled": true,
-        "sha256": "421e490278e25c84ac3413e44aa05f9d0eb167dcd02250a342749f9892c1cf03",
+        "height": 3840,
+        "upscaled": false,
+        "sha256": "6a08adf181435a984a9f039451b841c0363bb42baa135670fb6d43a9345af01d",
         "canvasPaddingPct": 10,
         "format": "webp",
         "hasAlpha": true,
-        "safeMarginPct": 10
+        "safeMarginPct": 9.81,
+        "subjectSafeMarginPct": 11.25
       },
       "display": {
-        "width": 640,
+        "width": 540,
         "height": 960,
-        "quality": 84,
+        "quality": 82,
         "hasAlpha": true,
-        "sha256": "4df469bad9a0ab27c99e6035166f027d28f10bbb12e74361a91f5d9439501454",
-        "safeMarginPct": 10
+        "sha256": "f454be54287893b8cafffc776dc17c23c4caf52d0ddef80f27f33f1ed75d8670",
+        "safeMarginPct": 9.81,
+        "subjectSafeMarginPct": 11.25
       },
-      "safeMarginPct": 10,
-      "generatorMode": "built-in-imagegen",
-      "promptSummary": "Recognizable running figure, warm-white studio and non-diagnostic cardio emphasis.",
+      "safeMarginPct": 9.81,
+      "generatorMode": "repo-native-svg",
+      "background": "warm-neutral-vector-plate",
+      "semanticMuscles": [
+        "heart",
+        "lungs",
+        "gluteals",
+        "quadriceps",
+        "gastrocnemius"
+      ],
       "fallbackLabel": "anatomy"
     },
     "bench-press": {
       "kind": "technique",
       "src": "/workout-v2/exercises/bench-press.webp",
       "source": {
-        "path": "assets/workout-v2/sources/bench-press.png",
-        "width": 1536,
-        "height": 1024,
-        "sha256": "31e70a5d5c7f61a8737119010b24d2d7087725e928c232ae296655606fa2a35a",
-        "safeMarginPct": 4.3
+        "path": "assets/workout-v2/sources/bench-press.svg",
+        "type": "vector",
+        "format": "svg",
+        "scalable": true,
+        "width": 3840,
+        "height": 2160,
+        "sha256": "330c4129732a62eb95b834bb173a7c303d6569be019795e0de7001bca2c40434",
+        "safeMarginPct": 10,
+        "subjectSafeMarginPct": 11.25
       },
       "master": {
         "path": "assets/workout-v2/masters/bench-press.webp",
-        "width": 3240,
+        "width": 3840,
         "height": 2160,
-        "upscaled": true,
-        "sha256": "566ef480b2bd936a99172ada1bbc688d0d9a32dd0b9d220b52ebfba387f0a7ba",
+        "upscaled": false,
+        "sha256": "a48ef293aa346c875173f587c2acf95c19247a322e13b79d32759e2e9aee39ce",
         "canvasPaddingPct": 10,
         "format": "webp",
         "hasAlpha": true,
-        "safeMarginPct": 10
+        "safeMarginPct": 9.77,
+        "subjectSafeMarginPct": 11.25
       },
       "display": {
-        "width": 1280,
-        "height": 853,
-        "quality": 86,
+        "width": 960,
+        "height": 540,
+        "quality": 84,
         "hasAlpha": true,
-        "sha256": "05775b27e39fe4a80456ae3236a43ac1cd1c311a6be1a7e58b713f06ab07f845",
-        "safeMarginPct": 9.96
+        "sha256": "0d64af989af0b7f7ccdd0a05325877b6b8c83c95fce8b80e3935c338b2186a75",
+        "safeMarginPct": 9.63,
+        "subjectSafeMarginPct": 11.25
       },
-      "safeMarginPct": 9.96,
-      "generatorMode": "built-in-imagegen",
-      "promptSummary": "Canonical exercise midpoint with complete athlete and required equipment on a warm-white studio field.",
+      "safeMarginPct": 9.63,
+      "generatorMode": "repo-native-svg",
+      "background": "warm-neutral-vector-plate",
+      "semanticMuscles": [
+        "pectoralis major",
+        "triceps brachii",
+        "anterior deltoid"
+      ],
       "fallbackLabel": "anatomy"
     },
     "incline-press": {
       "kind": "technique",
       "src": "/workout-v2/exercises/incline-press.webp",
       "source": {
-        "path": "assets/workout-v2/sources/incline-press.png",
-        "width": 1536,
-        "height": 1024,
-        "sha256": "0c794645e0fcf01b0364391349fd4262222f96671cd6ac2f3ed9daf1c5036304",
-        "safeMarginPct": 3.81
+        "path": "assets/workout-v2/sources/incline-press.svg",
+        "type": "vector",
+        "format": "svg",
+        "scalable": true,
+        "width": 3840,
+        "height": 2160,
+        "sha256": "d054ff8529c3fa08f7bcfdf65190dde4887cc945efd3ba1a93e8b6900a55c4b2",
+        "safeMarginPct": 10,
+        "subjectSafeMarginPct": 11.25
       },
       "master": {
         "path": "assets/workout-v2/masters/incline-press.webp",
-        "width": 3240,
+        "width": 3840,
         "height": 2160,
-        "upscaled": true,
-        "sha256": "7ad693afeffd8b1f802b605d19b2472843fc7808220e934a999ff6dc62ddbc74",
+        "upscaled": false,
+        "sha256": "2e17e891d64163a7831f5b034974303f2df213bebe7fb14491d6b3e82bb03448",
         "canvasPaddingPct": 10,
         "format": "webp",
         "hasAlpha": true,
-        "safeMarginPct": 10
+        "safeMarginPct": 9.77,
+        "subjectSafeMarginPct": 11.25
       },
       "display": {
-        "width": 1280,
-        "height": 853,
-        "quality": 86,
+        "width": 960,
+        "height": 540,
+        "quality": 84,
         "hasAlpha": true,
-        "sha256": "68500909483ed346f28744f63a5538e2da95618371c899f79e2504b16f7cf7e0",
-        "safeMarginPct": 9.96
+        "sha256": "fb02338a8ba14cf3120ae9d9c1c4c59b94b1295a4ae5555ab30a828f0788d351",
+        "safeMarginPct": 9.63,
+        "subjectSafeMarginPct": 11.25
       },
-      "safeMarginPct": 9.96,
-      "generatorMode": "built-in-imagegen",
-      "promptSummary": "Canonical exercise midpoint with complete athlete and required equipment on a warm-white studio field.",
+      "safeMarginPct": 9.63,
+      "generatorMode": "repo-native-svg",
+      "background": "warm-neutral-vector-plate",
+      "semanticMuscles": [
+        "clavicular pectoralis",
+        "triceps brachii",
+        "anterior deltoid"
+      ],
       "fallbackLabel": "anatomy"
     },
     "overhead-press": {
       "kind": "technique",
       "src": "/workout-v2/exercises/overhead-press.webp",
       "source": {
-        "path": "assets/workout-v2/sources/overhead-press.png",
-        "width": 1536,
-        "height": 1024,
-        "sha256": "173d9dbfc9ccaebb835de81404b41e7c80a08b245f6f560a6491064d7b1685f9",
-        "safeMarginPct": 5.18
+        "path": "assets/workout-v2/sources/overhead-press.svg",
+        "type": "vector",
+        "format": "svg",
+        "scalable": true,
+        "width": 3840,
+        "height": 2160,
+        "sha256": "414258bee7d8b2c9afd9900f64491bffb5a2b7715426b0ffc56be49e42bb6b8d",
+        "safeMarginPct": 10,
+        "subjectSafeMarginPct": 11.25
       },
       "master": {
         "path": "assets/workout-v2/masters/overhead-press.webp",
-        "width": 3240,
+        "width": 3840,
         "height": 2160,
-        "upscaled": true,
-        "sha256": "5254e282e506f3db064ff0bd39744f9d8e1575478cc2b2c3bc08da93e1a69c05",
+        "upscaled": false,
+        "sha256": "ffd175f5ac78ffba67c25132d9680b4e8178ca4b238265ffa8e5d0654c3accfa",
         "canvasPaddingPct": 10,
         "format": "webp",
         "hasAlpha": true,
-        "safeMarginPct": 10
+        "safeMarginPct": 9.77,
+        "subjectSafeMarginPct": 11.25
       },
       "display": {
-        "width": 1280,
-        "height": 853,
-        "quality": 86,
+        "width": 960,
+        "height": 540,
+        "quality": 84,
         "hasAlpha": true,
-        "sha256": "82631a2515ec0837d261537c0bf760c74f991cfbe86a8bc4fae156367a2c5f3c",
-        "safeMarginPct": 9.96
+        "sha256": "e7a55765fc97df11eb02f7203385f5ff1acf1bcceb821be14a7f71ad236a973e",
+        "safeMarginPct": 9.63,
+        "subjectSafeMarginPct": 11.25
       },
-      "safeMarginPct": 9.96,
-      "generatorMode": "built-in-imagegen",
-      "promptSummary": "Canonical exercise midpoint with complete athlete and required equipment on a warm-white studio field.",
+      "safeMarginPct": 9.63,
+      "generatorMode": "repo-native-svg",
+      "background": "warm-neutral-vector-plate",
+      "semanticMuscles": [
+        "deltoids",
+        "triceps brachii",
+        "upper trapezius"
+      ],
       "fallbackLabel": "anatomy"
     },
     "pec-deck": {
       "kind": "technique",
       "src": "/workout-v2/exercises/pec-deck.webp",
       "source": {
-        "path": "assets/workout-v2/sources/pec-deck.png",
-        "width": 1536,
-        "height": 1024,
-        "sha256": "5cb0ceebead0f926e2e4e52ff7adce08d59e481eaa145fcb6f5018afe65517dd",
-        "safeMarginPct": 1.66
+        "path": "assets/workout-v2/sources/pec-deck.svg",
+        "type": "vector",
+        "format": "svg",
+        "scalable": true,
+        "width": 3840,
+        "height": 2160,
+        "sha256": "d1f23f80a4f92b7a30b6e0489be26b63d43819678772d05f134a94047ae08f92",
+        "safeMarginPct": 10,
+        "subjectSafeMarginPct": 11.25
       },
       "master": {
         "path": "assets/workout-v2/masters/pec-deck.webp",
-        "width": 3240,
+        "width": 3840,
         "height": 2160,
-        "upscaled": true,
-        "sha256": "e4c9d7cfbeb32e4acf046158dadca64581fdb92e70669621c4a3625f191ce959",
+        "upscaled": false,
+        "sha256": "38c843a587325b7f543fd58b6f475fb6059173a6c0a38e543e878bba298e3b0b",
         "canvasPaddingPct": 10,
         "format": "webp",
         "hasAlpha": true,
-        "safeMarginPct": 10
+        "safeMarginPct": 9.77,
+        "subjectSafeMarginPct": 11.25
       },
       "display": {
-        "width": 1280,
-        "height": 853,
-        "quality": 86,
+        "width": 960,
+        "height": 540,
+        "quality": 84,
         "hasAlpha": true,
-        "sha256": "795b6860fff3943c9dc80694e48e5ed35538b13ee0cc0ecfb0009a8355a026db",
-        "safeMarginPct": 9.96
+        "sha256": "17848f479f23b6828529de0b5c5d14fee19e579c705d67900b38d491e25087b3",
+        "safeMarginPct": 9.63,
+        "subjectSafeMarginPct": 11.25
       },
-      "safeMarginPct": 9.96,
-      "generatorMode": "built-in-imagegen",
-      "promptSummary": "Canonical exercise midpoint with complete athlete and required equipment on a warm-white studio field.",
+      "safeMarginPct": 9.63,
+      "generatorMode": "repo-native-svg",
+      "background": "warm-neutral-vector-plate",
+      "semanticMuscles": [
+        "pectoralis major",
+        "anterior deltoid"
+      ],
       "fallbackLabel": "anatomy"
     },
     "cable-fly": {
       "kind": "technique",
       "src": "/workout-v2/exercises/cable-fly.webp",
       "source": {
-        "path": "assets/workout-v2/sources/cable-fly.png",
-        "width": 1536,
-        "height": 1024,
-        "sha256": "c35c9f6ea9be15a8dc1f5d7f44bd3091390cff8681968430424e5f2ef23a52d5",
-        "safeMarginPct": 0
+        "path": "assets/workout-v2/sources/cable-fly.svg",
+        "type": "vector",
+        "format": "svg",
+        "scalable": true,
+        "width": 3840,
+        "height": 2160,
+        "sha256": "1aceb3dc702fd2601e405bd1dc6ec89759b8802b52001229376d12459400d57b",
+        "safeMarginPct": 10,
+        "subjectSafeMarginPct": 11.25
       },
       "master": {
         "path": "assets/workout-v2/masters/cable-fly.webp",
-        "width": 3240,
+        "width": 3840,
         "height": 2160,
-        "upscaled": true,
-        "sha256": "4ee4dd3ffce20f62edecc75200d960a4d12078a37c9627ef4fea9fae8ee03c38",
+        "upscaled": false,
+        "sha256": "aec4cee90cca75f310d5d224968040d06bd8447210057b071ce199521888d160",
         "canvasPaddingPct": 10,
         "format": "webp",
         "hasAlpha": true,
-        "safeMarginPct": 10
+        "safeMarginPct": 9.77,
+        "subjectSafeMarginPct": 11.25
       },
       "display": {
-        "width": 1280,
-        "height": 853,
-        "quality": 86,
+        "width": 960,
+        "height": 540,
+        "quality": 84,
         "hasAlpha": true,
-        "sha256": "e38595bf358cea75647818854b7b9beca31e1fc23ec0a2a0967e25b6fe8e785c",
-        "safeMarginPct": 10
+        "sha256": "2d50f0d9e0691692662a74bdb09be5849cd1a953712bd90933349cc1559b22f7",
+        "safeMarginPct": 9.63,
+        "subjectSafeMarginPct": 11.25
       },
-      "safeMarginPct": 10,
-      "generatorMode": "built-in-imagegen",
-      "promptSummary": "Canonical exercise midpoint with complete athlete and required equipment on a warm-white studio field.",
+      "safeMarginPct": 9.63,
+      "generatorMode": "repo-native-svg",
+      "background": "warm-neutral-vector-plate",
+      "semanticMuscles": [
+        "pectoralis major",
+        "anterior deltoid"
+      ],
       "fallbackLabel": "anatomy"
     },
     "pull-up": {
       "kind": "technique",
       "src": "/workout-v2/exercises/pull-up.webp",
       "source": {
-        "path": "assets/workout-v2/sources/pull-up.png",
-        "width": 1536,
-        "height": 1024,
-        "sha256": "f2619fc71e21aa7cfcfa7d51f3e3fe0b30a92975e64ca3b4bd3565687668ecb8",
-        "safeMarginPct": 0.98
+        "path": "assets/workout-v2/sources/pull-up.svg",
+        "type": "vector",
+        "format": "svg",
+        "scalable": true,
+        "width": 3840,
+        "height": 2160,
+        "sha256": "8409763f3b3f0af146d60a3664e3e131a3e2b4641821d33bbc40cc8ffe2f2570",
+        "safeMarginPct": 10,
+        "subjectSafeMarginPct": 11.25
       },
       "master": {
         "path": "assets/workout-v2/masters/pull-up.webp",
-        "width": 3240,
+        "width": 3840,
         "height": 2160,
-        "upscaled": true,
-        "sha256": "bc21e3d5d10b3ef4ff3173742ab55cc3678974b103c24546839f797eca851cfc",
+        "upscaled": false,
+        "sha256": "29e68f709e839e805faab58b01fc04882b64cb9809dcddd09364e69dcfaef987",
         "canvasPaddingPct": 10,
         "format": "webp",
         "hasAlpha": true,
-        "safeMarginPct": 10
+        "safeMarginPct": 9.77,
+        "subjectSafeMarginPct": 11.25
       },
       "display": {
-        "width": 1280,
-        "height": 853,
-        "quality": 86,
+        "width": 960,
+        "height": 540,
+        "quality": 84,
         "hasAlpha": true,
-        "sha256": "a1e26f95d015036afef44879eed10047033f15f9dec3fcd2bc217e0978697f0e",
-        "safeMarginPct": 9.96
+        "sha256": "ac744edf902de3582d14f81fce7568960b66cc139e38347e5b1bfea5a14cf9d1",
+        "safeMarginPct": 9.63,
+        "subjectSafeMarginPct": 11.25
       },
-      "safeMarginPct": 9.96,
-      "generatorMode": "built-in-imagegen",
-      "promptSummary": "Canonical exercise midpoint with complete athlete and required equipment on a warm-white studio field.",
+      "safeMarginPct": 9.63,
+      "generatorMode": "repo-native-svg",
+      "background": "warm-neutral-vector-plate",
+      "semanticMuscles": [
+        "latissimus dorsi",
+        "biceps brachii",
+        "lower trapezius"
+      ],
       "fallbackLabel": "anatomy"
     },
     "deadlift": {
       "kind": "technique",
       "src": "/workout-v2/exercises/deadlift.webp",
       "source": {
-        "path": "assets/workout-v2/sources/deadlift.png",
-        "width": 1536,
-        "height": 1024,
-        "sha256": "e876ef68758c7b60a6a2f0a456e2331454682f346611627cad8cdd71ccf6f92f",
-        "safeMarginPct": 9.57
+        "path": "assets/workout-v2/sources/deadlift.svg",
+        "type": "vector",
+        "format": "svg",
+        "scalable": true,
+        "width": 3840,
+        "height": 2160,
+        "sha256": "5401e1741191100ce6796506ba4dc6764201dc460cacbe07e779caebdd063a98",
+        "safeMarginPct": 10,
+        "subjectSafeMarginPct": 11.25
       },
       "master": {
         "path": "assets/workout-v2/masters/deadlift.webp",
-        "width": 3240,
+        "width": 3840,
         "height": 2160,
-        "upscaled": true,
-        "sha256": "72246feb124488fce63ab76031eecf33cc42db356ba270da04ff7f259079e0aa",
+        "upscaled": false,
+        "sha256": "1c97741e28dcba4f5c141c36d22fec5eaa3f3ff920f1128b276b5aae14da93b8",
         "canvasPaddingPct": 10,
         "format": "webp",
         "hasAlpha": true,
-        "safeMarginPct": 10
+        "safeMarginPct": 9.77,
+        "subjectSafeMarginPct": 11.25
       },
       "display": {
-        "width": 1280,
-        "height": 853,
-        "quality": 86,
+        "width": 960,
+        "height": 540,
+        "quality": 84,
         "hasAlpha": true,
-        "sha256": "8e5b60aea280fd520604fdfb72b9bdafc367ba3f9516e5a014bb5c99cfc4496e",
-        "safeMarginPct": 9.96
+        "sha256": "7c6432af1cff8e787c91a4e1ee68e3e334177bf6fad196a0a8e4d53562752ed0",
+        "safeMarginPct": 9.63,
+        "subjectSafeMarginPct": 11.25
       },
-      "safeMarginPct": 9.96,
-      "generatorMode": "built-in-imagegen",
-      "promptSummary": "Canonical exercise midpoint with complete athlete and required equipment on a warm-white studio field.",
+      "safeMarginPct": 9.63,
+      "generatorMode": "repo-native-svg",
+      "background": "warm-neutral-vector-plate",
+      "semanticMuscles": [
+        "gluteus maximus",
+        "hamstrings",
+        "erector spinae",
+        "trapezius"
+      ],
       "fallbackLabel": "anatomy"
     },
     "squat": {
       "kind": "technique",
       "src": "/workout-v2/exercises/squat.webp",
       "source": {
-        "path": "assets/workout-v2/sources/squat.png",
-        "width": 1536,
-        "height": 1024,
-        "sha256": "1ab2d26fda01cbb76cdc784df9aa9db21e2baee61809108af95139bacd31ff04",
-        "safeMarginPct": 0.98
+        "path": "assets/workout-v2/sources/squat.svg",
+        "type": "vector",
+        "format": "svg",
+        "scalable": true,
+        "width": 3840,
+        "height": 2160,
+        "sha256": "544ef4d660e2d43b14bb831c8cc545501ab2af2f88cd16a8f01b4b17aa2f08b6",
+        "safeMarginPct": 10,
+        "subjectSafeMarginPct": 11.25
       },
       "master": {
         "path": "assets/workout-v2/masters/squat.webp",
-        "width": 3240,
+        "width": 3840,
         "height": 2160,
-        "upscaled": true,
-        "sha256": "32b0da5a119525c92718027caaafe8cdda0c7fc08d01b1900a6bbae073659e8d",
+        "upscaled": false,
+        "sha256": "04686b242b54d910eae29554a609896c1759b56885dbc0766377fdcee54547e7",
         "canvasPaddingPct": 10,
         "format": "webp",
         "hasAlpha": true,
-        "safeMarginPct": 10
+        "safeMarginPct": 9.77,
+        "subjectSafeMarginPct": 11.25
       },
       "display": {
-        "width": 1280,
-        "height": 853,
-        "quality": 86,
+        "width": 960,
+        "height": 540,
+        "quality": 84,
         "hasAlpha": true,
-        "sha256": "1af7ea483d7b6821ac861fd48c519746d751d159989d331e90a89c6c5cf300a1",
-        "safeMarginPct": 9.96
+        "sha256": "dac3d2fa4c208c11972d74b41990fa2d74db6ef37df9ef4cca5c95b950484d41",
+        "safeMarginPct": 9.63,
+        "subjectSafeMarginPct": 11.25
       },
-      "safeMarginPct": 9.96,
-      "generatorMode": "built-in-imagegen",
-      "promptSummary": "Canonical exercise midpoint with complete athlete and required equipment on a warm-white studio field.",
+      "safeMarginPct": 9.63,
+      "generatorMode": "repo-native-svg",
+      "background": "warm-neutral-vector-plate",
+      "semanticMuscles": [
+        "quadriceps",
+        "gluteus maximus",
+        "adductors"
+      ],
       "fallbackLabel": "anatomy"
     },
     "dip": {
       "kind": "technique",
       "src": "/workout-v2/exercises/dip.webp",
       "source": {
-        "path": "assets/workout-v2/sources/dip.png",
-        "width": 1536,
-        "height": 1024,
-        "sha256": "c2430361b18927680b92896a5a7c424ee7ed7cc2aaf96123cd27ed984fe4145a",
-        "safeMarginPct": 3.61
+        "path": "assets/workout-v2/sources/dip.svg",
+        "type": "vector",
+        "format": "svg",
+        "scalable": true,
+        "width": 3840,
+        "height": 2160,
+        "sha256": "9e854c47107a1cbb70fe1336f711f463eaffc46b5e35d951e8a8f42fc273fd0e",
+        "safeMarginPct": 10,
+        "subjectSafeMarginPct": 11.25
       },
       "master": {
         "path": "assets/workout-v2/masters/dip.webp",
-        "width": 3240,
+        "width": 3840,
         "height": 2160,
-        "upscaled": true,
-        "sha256": "49889b6537094f6e1fe164fd8aa0f1c8c9ad263975c0be1d2dab392b0b4eb6dd",
+        "upscaled": false,
+        "sha256": "1cd7858e14ebf76ea7d67986f71534ff04ad4edd1b0291e24291183e21f49620",
         "canvasPaddingPct": 10,
         "format": "webp",
         "hasAlpha": true,
-        "safeMarginPct": 10
+        "safeMarginPct": 9.77,
+        "subjectSafeMarginPct": 11.25
       },
       "display": {
-        "width": 1280,
-        "height": 853,
-        "quality": 86,
+        "width": 960,
+        "height": 540,
+        "quality": 84,
         "hasAlpha": true,
-        "sha256": "c75d699eac2f9408ab9507148f0451faca1a9258db832ea81544cff45a04059d",
-        "safeMarginPct": 9.96
+        "sha256": "19d45cc73f3fb99c17788a3b0352f4691c3cc94a10cd57b87e2e2435e96c12ab",
+        "safeMarginPct": 9.63,
+        "subjectSafeMarginPct": 11.25
       },
-      "safeMarginPct": 9.96,
-      "generatorMode": "built-in-imagegen",
-      "promptSummary": "Canonical exercise midpoint with complete athlete and required equipment on a warm-white studio field.",
+      "safeMarginPct": 9.63,
+      "generatorMode": "repo-native-svg",
+      "background": "warm-neutral-vector-plate",
+      "semanticMuscles": [
+        "pectoralis major",
+        "triceps brachii",
+        "anterior deltoid"
+      ],
       "fallbackLabel": "anatomy"
     },
     "row": {
       "kind": "technique",
       "src": "/workout-v2/exercises/row.webp",
       "source": {
-        "path": "assets/workout-v2/sources/row.png",
-        "width": 1536,
-        "height": 1024,
-        "sha256": "e375e995d3e55ee487cb18ddecb6dc1366ac9cfa9d1c301077e8ed6f0c339784",
-        "safeMarginPct": 1.86
+        "path": "assets/workout-v2/sources/row.svg",
+        "type": "vector",
+        "format": "svg",
+        "scalable": true,
+        "width": 3840,
+        "height": 2160,
+        "sha256": "5ce58d3c7bf62f425149536cd025d91e8a07f4153be297015a08f2f66ea9586e",
+        "safeMarginPct": 10,
+        "subjectSafeMarginPct": 11.25
       },
       "master": {
         "path": "assets/workout-v2/masters/row.webp",
-        "width": 3240,
+        "width": 3840,
         "height": 2160,
-        "upscaled": true,
-        "sha256": "af384359a00bd58f0c2cd11705a9d481c5f674551ad31921b5af1a3d62d35236",
+        "upscaled": false,
+        "sha256": "e13518e2741e321929174f7f87a612d45458f99c2b0673f8a29b0515fe42d9d3",
         "canvasPaddingPct": 10,
         "format": "webp",
         "hasAlpha": true,
-        "safeMarginPct": 10
+        "safeMarginPct": 9.77,
+        "subjectSafeMarginPct": 11.25
       },
       "display": {
-        "width": 1280,
-        "height": 853,
-        "quality": 86,
+        "width": 960,
+        "height": 540,
+        "quality": 84,
         "hasAlpha": true,
-        "sha256": "bc00a9cc39a7ff74fc769bab584398138a61d8704531a1d214582b88bb6ec9e8",
-        "safeMarginPct": 9.96
+        "sha256": "afd3780bc0659b30c29d8d3eca1a8777cf88dd8e756038098216e043675ef89b",
+        "safeMarginPct": 9.63,
+        "subjectSafeMarginPct": 11.25
       },
-      "safeMarginPct": 9.96,
-      "generatorMode": "built-in-imagegen",
-      "promptSummary": "Canonical exercise midpoint with complete athlete and required equipment on a warm-white studio field.",
+      "safeMarginPct": 9.63,
+      "generatorMode": "repo-native-svg",
+      "background": "warm-neutral-vector-plate",
+      "semanticMuscles": [
+        "latissimus dorsi",
+        "rhomboids",
+        "biceps brachii"
+      ],
       "fallbackLabel": "anatomy"
     },
     "curl": {
       "kind": "technique",
       "src": "/workout-v2/exercises/curl.webp",
       "source": {
-        "path": "assets/workout-v2/sources/curl.png",
-        "width": 1536,
-        "height": 1024,
-        "sha256": "ef2b2e982b769c5841af7f2ac1d4c4c844cf881e3e92fde40966d799512ffa6d",
-        "safeMarginPct": 2.05
+        "path": "assets/workout-v2/sources/curl.svg",
+        "type": "vector",
+        "format": "svg",
+        "scalable": true,
+        "width": 3840,
+        "height": 2160,
+        "sha256": "54dde26d2b1996809601b05090e6ed33557dbce503fa5a98c15882028b0b3e26",
+        "safeMarginPct": 10,
+        "subjectSafeMarginPct": 11.25
       },
       "master": {
         "path": "assets/workout-v2/masters/curl.webp",
-        "width": 3240,
+        "width": 3840,
         "height": 2160,
-        "upscaled": true,
-        "sha256": "ee71ffca4e73d7303ad49f3cf8c18d7ab305f73df28cf460832c3c3337450b0d",
+        "upscaled": false,
+        "sha256": "8ef4e9bf699817af7b1aaec9585d1a3792b8c5dd29489ccba735b03ca4495c34",
         "canvasPaddingPct": 10,
         "format": "webp",
         "hasAlpha": true,
-        "safeMarginPct": 10
+        "safeMarginPct": 9.77,
+        "subjectSafeMarginPct": 11.25
       },
       "display": {
-        "width": 1280,
-        "height": 853,
-        "quality": 86,
+        "width": 960,
+        "height": 540,
+        "quality": 84,
         "hasAlpha": true,
-        "sha256": "6c8705db4d292171fc9e90ac323fc71227ace72bc397c59a9fc48bfe65a87f6f",
-        "safeMarginPct": 9.96
+        "sha256": "796e6db2180384f2abff7b4d8518b7da8c30c154e5c5dcf46d8b8ef7ce64904d",
+        "safeMarginPct": 9.63,
+        "subjectSafeMarginPct": 11.25
       },
-      "safeMarginPct": 9.96,
-      "generatorMode": "built-in-imagegen",
-      "promptSummary": "Canonical exercise midpoint with complete athlete and required equipment on a warm-white studio field.",
+      "safeMarginPct": 9.63,
+      "generatorMode": "repo-native-svg",
+      "background": "warm-neutral-vector-plate",
+      "semanticMuscles": [
+        "biceps brachii",
+        "brachialis",
+        "forearm flexors"
+      ],
       "fallbackLabel": "anatomy"
     },
     "triceps-extension": {
       "kind": "technique",
       "src": "/workout-v2/exercises/triceps-extension.webp",
       "source": {
-        "path": "assets/workout-v2/sources/triceps-extension.png",
-        "width": 1536,
-        "height": 1024,
-        "sha256": "4b61242f610ceb3dce5ae09d5aff8e0acb28700577e3e27229dab378068dc394",
-        "safeMarginPct": 3.13
+        "path": "assets/workout-v2/sources/triceps-extension.svg",
+        "type": "vector",
+        "format": "svg",
+        "scalable": true,
+        "width": 3840,
+        "height": 2160,
+        "sha256": "6584d5a1723af5f1bccd09e16963a0bf41cc310ba72bcc10c8ef972f66765d04",
+        "safeMarginPct": 10,
+        "subjectSafeMarginPct": 11.25
       },
       "master": {
         "path": "assets/workout-v2/masters/triceps-extension.webp",
-        "width": 3240,
+        "width": 3840,
         "height": 2160,
-        "upscaled": true,
-        "sha256": "2479b3c44d0ca8ea11ab7cd79fa9eb662fb854c6fdc7dffb77d3ad9829a9d655",
+        "upscaled": false,
+        "sha256": "9818a210d363e3a318cc79722ac6b70199f4aee919b0c623503e98e9a96f3246",
         "canvasPaddingPct": 10,
         "format": "webp",
         "hasAlpha": true,
-        "safeMarginPct": 10
+        "safeMarginPct": 9.77,
+        "subjectSafeMarginPct": 11.25
       },
       "display": {
-        "width": 1280,
-        "height": 853,
-        "quality": 86,
+        "width": 960,
+        "height": 540,
+        "quality": 84,
         "hasAlpha": true,
-        "sha256": "0c54bd1ca97171f5941dfa5e6a3890fc12901c0765267ccdb1916a241b683eba",
-        "safeMarginPct": 9.96
+        "sha256": "47a88d68fd723a18f7b7e2b3fabc9f3e68c784267eb24f54ebb5bcf0b0adc9b4",
+        "safeMarginPct": 9.63,
+        "subjectSafeMarginPct": 11.25
       },
-      "safeMarginPct": 9.96,
-      "generatorMode": "built-in-imagegen",
-      "promptSummary": "Canonical exercise midpoint with complete athlete and required equipment on a warm-white studio field.",
+      "safeMarginPct": 9.63,
+      "generatorMode": "repo-native-svg",
+      "background": "warm-neutral-vector-plate",
+      "semanticMuscles": [
+        "triceps brachii"
+      ],
       "fallbackLabel": "anatomy"
     }
   }
