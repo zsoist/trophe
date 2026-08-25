@@ -30,7 +30,7 @@ describe('plate loading', () => {
 
   it('never returns an advertised load above the 2,000 kg allocation bound', () => {
     const load = calculatePlateLoad({ total: 2_000, bar: 100, plates: [100, 99.99, 75, 50, 25, 20, 10, 5, 2.5, 1.25, 1, 0.5] });
-    expect(load.achievedTotal).toBeLessThanOrEqual(2_000);
+    expect(load).toMatchObject({ exact: true, achievedTotal: 2_000, perSide: [100, 100, 100, 100, 100, 100, 100, 100, 100, 50] });
   });
 
   it('omits unsafe low-load warm-ups and reports actual achieved percentages', () => {

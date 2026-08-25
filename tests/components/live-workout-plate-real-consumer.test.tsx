@@ -51,3 +51,15 @@ it('runs the real logger and calculator controls to persist kilogram warm-up pay
     { setNumber: 1, weightKg: 40 }, { setNumber: 2, weightKg: 60 }, { setNumber: 3, weightKg: 80 },
   ]);
 });
+
+it('refreshes three warm-ups and one shifted working set as exactly four real logger rows', async () => {
+  api.loadLiveSessionSets.mockResolvedValueOnce({ ok: true, sets: [
+    { id: 'warmup-1', session_id: 'session-real', exercise_id: 'bench', set_number: 1, weight_kg: 40, reps: 10, rpe: null, is_warmup: true, is_pr: false, superset_group: null, notes: null },
+    { id: 'warmup-2', session_id: 'session-real', exercise_id: 'bench', set_number: 2, weight_kg: 60, reps: 6, rpe: null, is_warmup: true, is_pr: false, superset_group: null, notes: null },
+    { id: 'warmup-3', session_id: 'session-real', exercise_id: 'bench', set_number: 3, weight_kg: 80, reps: 3, rpe: null, is_warmup: true, is_pr: false, superset_group: null, notes: null },
+    { id: 'work-4', session_id: 'session-real', exercise_id: 'bench', set_number: 4, weight_kg: 100, reps: 8, rpe: null, is_warmup: false, is_pr: false, superset_group: null, notes: null },
+  ] });
+  render(<LiveWorkout exercises={[{ id: 'bench', name: 'Bench Press', name_es: null, name_el: null, muscle_group: 'chest', secondary_muscles: null, equipment: 'barbell', is_compound: true, is_template: true, created_by: null, created_at: '' }]} />);
+  await vi.waitFor(() => expect(screen.getAllByRole('article')).toHaveLength(4));
+  expect(screen.getAllByText(/Set [1-4]/).map((item) => item.textContent)).toEqual(['Set 1', 'Set 2', 'Set 3', 'Set 4']);
+});

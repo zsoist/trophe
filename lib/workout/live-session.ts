@@ -196,12 +196,19 @@ export function recoverLiveExtraRows(
 ): Array<{ exerciseId: string; setNumber: number }> {
   const targetByExercise = new Map(exercises.map((exercise) => [exercise.exerciseId, exercise.targetSets]));
   const exerciseOrder = new Map(exercises.map((exercise, index) => [exercise.exerciseId, index]));
+  const warmupCountByExercise = new Map<string, number>();
+  for (const set of sets) {
+    if (set.is_warmup && targetByExercise.has(set.exercise_id)) {
+      warmupCountByExercise.set(set.exercise_id, (warmupCountByExercise.get(set.exercise_id) ?? 0) + 1);
+    }
+  }
   const seen = new Set<string>();
 
   return sets.flatMap((set) => {
     const targetSets = targetByExercise.get(set.exercise_id);
     const key = `${set.exercise_id}:${set.set_number}`;
-    if (targetSets === undefined || set.set_number <= targetSets || seen.has(key)) return [];
+    const firstExtraSetNumber = (warmupCountByExercise.get(set.exercise_id) ?? 0) + (targetSets ?? 0) + 1;
+    if (targetSets === undefined || set.is_warmup || set.set_number < firstExtraSetNumber || seen.has(key)) return [];
     seen.add(key);
     return [{ exerciseId: set.exercise_id, setNumber: set.set_number }];
   }).sort((left, right) => (

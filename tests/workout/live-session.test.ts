@@ -170,6 +170,14 @@ describe('live workout persistence boundary', () => {
     )).toEqual([{ exerciseId: 'bench', setNumber: 2 }]);
   });
 
+  it('does not invent extras when a persisted warm-up prefix shifts the working range', () => {
+    const set = (id: string, setNumber: number, isWarmup: boolean) => ({ id, session_id: 'session-1', exercise_id: 'bench', set_number: setNumber, weight_kg: 60, reps: 8, rpe: null, is_warmup: isWarmup, is_pr: false, superset_group: null, notes: null });
+    expect(recoverLiveExtraRows(
+      [{ exerciseId: 'bench', targetSets: 1, targetReps: '8' }],
+      [set('warmup-1', 1, true), set('warmup-2', 2, true), set('warmup-3', 3, true), set('work-4', 4, false), set('extra-5', 5, false)],
+    )).toEqual([{ exerciseId: 'bench', setNumber: 5 }]);
+  });
+
   it('does not clear recovery when finish verification fails', async () => {
     const onVerified = vi.fn();
     persistence.finishLiveWorkoutSessionAtomic.mockResolvedValue(false);

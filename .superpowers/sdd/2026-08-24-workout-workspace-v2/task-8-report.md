@@ -95,3 +95,13 @@ Verification: overlay coverage, parity, focused Task 8, and affected Task 7 comm
 RED/GREEN evidence: retrospective working value preservation initially failed after insertion (`''` instead of `80` for the shifted working row); it passes with stable row identities. The existing live calculator regression exercises the real callback and confirms its first retry reuses logical set `1` after a partial write.
 
 Verification: focused Task 8/Task 7 suite passed (9 files, 77 tests); `npm run typecheck` passed; scoped ESLint and `git diff --check` passed.
+
+## Final fix round 5
+
+- Refresh recovery now counts each exercise’s persisted warm-up prefix before determining the first genuine extra row. A target of one with warm-ups 1–3 and working set 4 reconstructs four rows, while a genuine set 5 remains an extra.
+- The real live consumer suite also verifies this recovered row order. The locale matrix now checks all eight dictionaries for concrete biceps/quads/glutes/forearms mappings and the full-body/cardio generic prompt, with no raw-token fallback.
+- Boundary plate allocation coverage now asserts the exact 2,000 kg load composition rather than only an upper bound.
+
+RED/GREEN evidence: recovery initially returned phantom extras 2–4 for a warm-up-prefixed working set; it now returns only genuine extra set 5. The eight-locale token matrix initially caught English raw `forearms`/`glutes`; it now uses anatomical-region copy.
+
+Final verification: focused Task 8 + affected Task 7 command passed (9 files, 80 tests); `npm run typecheck` passed; full `npm run lint` exited 0 with 46 pre-existing warnings and no errors; `git diff --check` passed.

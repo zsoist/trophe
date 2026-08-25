@@ -4,6 +4,7 @@ import { de } from '@/lib/locales/de';
 import { it as italian } from '@/lib/locales/it';
 import { pt } from '@/lib/locales/pt';
 import { nl } from '@/lib/locales/nl';
+import { translations } from '@/lib/i18n';
 
 const task8Keys = [
   'workout.plate_total_label', 'workout.plate_bar_label', 'workout.plate_inventory_label', 'workout.plate_inventory_help',
@@ -29,5 +30,17 @@ describe('Task 8 overlay locale parity', () => {
       expect(locale['painflag.region_forearms']).not.toBe('forearms');
       expect(locale['painflag.region_prompt']).not.toMatch(/^(full_body|cardio)$/);
     }
+  });
+
+  it('maps anatomical and generic Task 8 tokens in all eight locale dictionaries', () => {
+    const keys = ['painflag.region_biceps', 'painflag.region_quads', 'painflag.region_glutes', 'painflag.region_forearms', 'painflag.region_prompt'] as const;
+    const raw = new Set(['biceps', 'quads', 'glutes', 'forearms', 'full_body', 'cardio']);
+    const locales: Array<Record<string, string>> = [
+      Object.fromEntries(keys.map((key) => [key, translations[key].en])),
+      Object.fromEntries(keys.map((key) => [key, translations[key].es])),
+      Object.fromEntries(keys.map((key) => [key, translations[key].el])),
+      de, fr, italian, nl, pt,
+    ];
+    for (const locale of locales) for (const key of keys) expect(raw.has(locale[key].toLowerCase())).toBe(false);
   });
 });

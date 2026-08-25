@@ -31,7 +31,7 @@ function isOverlayLang(lang: Language): lang is OverlayLang {
 }
 
 // ─── Translation Dictionary ───
-const translations: Record<string, Record<CoreLanguage, string>> = {
+export const translations: Record<string, Record<CoreLanguage, string>> = {
   // ── App ──
   'app.name': { en: 'Trophē', es: 'Trophē', el: 'τροφή' },
   'app.tagline': { en: 'One habit. Two weeks. Transform.', es: 'Un hábito. Dos semanas. Transforma.', el: 'Μία συνήθεια. Δύο εβδομάδες. Μεταμόρφωση.' },
@@ -1386,10 +1386,10 @@ const translations: Record<string, Record<CoreLanguage, string>> = {
   'painflag.region_core': { en: 'Core', es: 'Core', el: 'Κορμός' },
   'painflag.region_biceps': { en: 'Biceps area', es: 'Zona de bíceps', el: 'Περιοχή δικεφάλου' },
   'painflag.region_triceps': { en: 'Triceps area', es: 'Zona de tríceps', el: 'Περιοχή τρικεφάλου' },
-  'painflag.region_forearms': { en: 'Forearms', es: 'Antebrazos', el: 'Πήχεις' },
+  'painflag.region_forearms': { en: 'Forearm area', es: 'Zona del antebrazo', el: 'Περιοχή πήχη' },
   'painflag.region_quads': { en: 'Front thigh', es: 'Parte frontal del muslo', el: 'Μπροστινό μέρος μηρού' },
   'painflag.region_hamstrings': { en: 'Back thigh', es: 'Parte posterior del muslo', el: 'Πίσω μέρος μηρού' },
-  'painflag.region_glutes': { en: 'Glutes', es: 'Glúteos', el: 'Γλουτοί' },
+  'painflag.region_glutes': { en: 'Gluteal area', es: 'Zona de glúteos', el: 'Περιοχή γλουτών' },
   'painflag.region_calves': { en: 'Calves', es: 'Pantorrillas', el: 'Γάμπες' },
   'painflag.region_prompt': { en: 'Choose a body region', es: 'Elige una región del cuerpo', el: 'Επίλεξε περιοχή σώματος' },
   'painflag.body_part_label':   { en: 'Body region', es: 'Región del cuerpo', el: 'Περιοχή σώματος' },
