@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  ArrowLeft, ChevronDown, ChevronUp, Clock, Dumbbell,
+  ChevronDown, ChevronUp, Clock, Dumbbell,
   RotateCcw, Trophy, Calendar
 } from 'lucide-react';
 import { BotNav } from '@/components/ui/BotNav';
@@ -307,18 +307,6 @@ export default function WorkoutHistoryPage() {
 
   return (
     <div className="min-h-screen bg-[var(--canvas)] pb-28">
-      {/* Header */}
-      <div className="sticky top-0 z-40 glass-elevated px-4 py-3">
-        <div className="max-w-md mx-auto flex items-center gap-3">
-          <Link href="/dashboard/workout">
-            <button aria-label="Back to workout" className="p-2 rounded-xl transition-colors min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]" style={{ background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)' }}>
-              <ArrowLeft size={18} className="text-[var(--content-secondary)]" />
-            </button>
-          </Link>
-          <h1 className="text-lg font-bold">{t('workout.history')}</h1>
-        </div>
-      </div>
-
       <div className="max-w-md mx-auto px-4 pt-4">
         {loading && (
           <div className="flex items-center justify-center py-16">

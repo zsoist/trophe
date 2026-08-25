@@ -7,7 +7,6 @@ import {
   BarChart3,
   Trophy,
   TrendingUp,
-  ArrowLeft,
   ChevronDown,
   Clock,
   Activity,
@@ -445,19 +444,6 @@ export default function WorkoutStatsPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
         >
-          <div className="flex items-center gap-3 mb-6">
-            <Link
-              href="/dashboard/workout"
-              className="p-2 rounded-xl hover:bg-[var(--surface-2)] text-[var(--content-secondary)] hover:text-[var(--content-primary)] transition-colors"
-            >
-              <ArrowLeft size={18} />
-            </Link>
-            <div>
-              <h1 className="text-2xl font-bold text-[var(--content-primary)]">Workout Analytics</h1>
-              <p className="text-[var(--content-muted)] text-sm">Performance overview</p>
-            </div>
-          </div>
-
           {loading ? (
             <div className="space-y-4">
               {[1, 2, 3].map((i) => (

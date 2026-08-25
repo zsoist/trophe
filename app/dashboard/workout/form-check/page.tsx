@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Camera, RotateCcw, Save, ChevronDown } from 'lucide-react';
+import { Camera, RotateCcw, Save, ChevronDown } from 'lucide-react';
 import { BotNav } from '@/components/ui/BotNav';
 import { Icon } from '@/components/ui';
 import FormCheck from '@/components/workout/FormCheck';
@@ -97,24 +97,6 @@ export default function FormCheckPage() {
 
   return (
     <div className="min-h-screen bg-[var(--canvas)] pb-[calc(7rem+env(safe-area-inset-bottom))]">
-      {/* Header */}
-      <div className="sticky top-0 z-40 glass-elevated px-4 py-3">
-        <div className="max-w-md mx-auto flex items-center gap-3">
-          <button
-            aria-label="Back to workout"
-            onClick={() => router.push('/dashboard/workout')}
-            className="p-2 rounded-xl min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-            style={{ background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)' }}
-          >
-            <ArrowLeft size={20} className="text-[var(--content-secondary)]" />
-          </button>
-          <div className="flex items-center gap-2">
-            <Camera size={20} className="gold-text" />
-            <h1 className="text-lg font-bold">Form Check</h1>
-          </div>
-        </div>
-      </div>
-
       <div className="max-w-md mx-auto px-4 pt-4">
         <AnimatePresence mode="wait">
           {/* ─── Setup Phase ─── */}

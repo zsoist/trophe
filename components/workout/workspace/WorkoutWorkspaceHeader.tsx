@@ -16,6 +16,9 @@ const titleKeys: Record<string, string> = {
   [WORKOUT_ROUTES.review]: 'workout.workspace_review_title',
   [WORKOUT_ROUTES.live]: 'workout.workspace_live_title',
   [WORKOUT_ROUTES.exercises]: 'workout.workspace_exercises_title',
+  '/dashboard/workout/history': 'workout.history',
+  '/dashboard/workout/stats': 'workout.stats',
+  '/dashboard/workout/form-check': 'workout.form_check',
 };
 
 function statusKeyForStage(stage: WorkoutStage): string | null {

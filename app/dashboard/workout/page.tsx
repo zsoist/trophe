@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { WorkoutHome, type WorkoutHomeProgram, type WorkoutHomeTemplate } from '@/components/workout/workspace/WorkoutHome';
-import { useWorkoutWorkspace, type WorkoutDraftTemplateInput } from '@/components/workout/workspace/WorkoutWorkspaceProvider';
+import { useWorkoutWorkspace, type CardioHistoryDraftInput, type WorkoutDraftTemplateInput } from '@/components/workout/workspace/WorkoutWorkspaceProvider';
 import { supabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
 import { trpc } from '@/lib/trpc/client';
@@ -31,6 +31,10 @@ interface RepeatedSetRow {
   is_warmup: boolean;
   exercise: { id: string; name: string; muscle_group: Exercise['muscle_group'] } | Array<{ id: string; name: string; muscle_group: Exercise['muscle_group'] }> | null;
 }
+
+type PendingRepeat =
+  | { kind: 'strength'; input: WorkoutDraftTemplateInput }
+  | { kind: 'cardio'; input: CardioHistoryDraftInput };
 
 function repeatedExercises(rows: RepeatedSetRow[]) {
   const grouped = new Map<string, RepeatedSetRow[]>();
@@ -65,7 +69,13 @@ export default function WorkoutPage() {
   const router = useRouter();
   const { t } = useI18n();
   const searchParams = useSearchParams();
-  const { state: workspaceState, createDraftFromTemplate, replaceDraftFromTemplate } = useWorkoutWorkspace();
+  const {
+    state: workspaceState,
+    createDraftFromTemplate,
+    replaceDraftFromTemplate,
+    createCardioDraftFromHistory,
+    replaceCardioDraftFromHistory,
+  } = useWorkoutWorkspace();
   const handledRepeat = useRef<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [loadingLibrary, setLoadingLibrary] = useState(true);
@@ -73,7 +83,7 @@ export default function WorkoutPage() {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [recents, setRecents] = useState<WorkoutSession[]>([]);
   const [storedRoutines, setStoredRoutines] = useState<StoredRoutine[]>([]);
-  const [pendingRepeat, setPendingRepeat] = useState<WorkoutDraftTemplateInput | null>(null);
+  const [pendingRepeat, setPendingRepeat] = useState<PendingRepeat | null>(null);
   const programQuery = trpc.workouts.program.mine.useQuery(undefined, { staleTime: 60_000, retry: 1 });
   const repeatId = searchParams.get('repeat');
 
@@ -112,11 +122,10 @@ export default function WorkoutPage() {
   useEffect(() => {
     const normalizedRepeatId = normalizeUuid(repeatId);
     if (!normalizedRepeatId || handledRepeat.current === normalizedRepeatId) return;
-    if (workspaceState.startRequest) {
+    if (workspaceState.startRequest || workspaceState.retrospectiveRequest) {
       router.replace(workoutRouteForStage(workspaceState.stage));
       return;
     }
-    handledRepeat.current = normalizedRepeatId;
     let active = true;
 
     async function loadRepeatedWorkout() {
@@ -124,15 +133,45 @@ export default function WorkoutPage() {
       if (!active || !user) return;
       const sessionResult = await supabase
         .from('workout_sessions')
-        .select('id, name, template_id')
+        .select('id, name, template_id, workout_kind, duration_minutes, cardio_activity, cardio_distance_km, cardio_effort')
         .eq('id', normalizedRepeatId!)
         .eq('user_id', user.id)
         .maybeSingle();
       if (!active) return;
       if (sessionResult.error || !sessionResult.data) {
+        handledRepeat.current = normalizedRepeatId;
         setSupportError(true);
         return;
       }
+      if (sessionResult.data.workout_kind === 'cardio') {
+        const activity = sessionResult.data.cardio_activity;
+        if (!activity || !['walk', 'run', 'cycle', 'hiit', 'swim', 'other'].includes(activity)
+          || !sessionResult.data.duration_minutes || sessionResult.data.duration_minutes <= 0) {
+          handledRepeat.current = normalizedRepeatId;
+          setSupportError(true);
+          return;
+        }
+        const cardioInput: CardioHistoryDraftInput = {
+          templateKey: `repeat:${sessionResult.data.id}`,
+          templateId: sessionResult.data.template_id,
+          name: sessionResult.data.name ?? t('workout.title'),
+          activity: activity as CardioHistoryDraftInput['activity'],
+          durationMinutes: sessionResult.data.duration_minutes,
+          distanceKm: sessionResult.data.cardio_distance_km,
+          effort: sessionResult.data.cardio_effort,
+        };
+        if ((workspaceState.stage === 'draft' || workspaceState.stage === 'review')
+          && workspaceState.draft && hasMeaningfulDraft(workspaceState.draft)) {
+          handledRepeat.current = normalizedRepeatId;
+          setPendingRepeat({ kind: 'cardio', input: cardioInput });
+          return;
+        }
+        handledRepeat.current = normalizedRepeatId;
+        createCardioDraftFromHistory(cardioInput);
+        router.push(WORKOUT_ROUTES.review);
+        return;
+      }
+
       const setsResult = await supabase
         .from('workout_sets')
         .select('exercise_id, set_number, reps, is_warmup, exercise:exercises(id, name, muscle_group)')
@@ -140,6 +179,7 @@ export default function WorkoutPage() {
         .order('set_number');
       if (!active) return;
       if (setsResult.error) {
+        handledRepeat.current = normalizedRepeatId;
         setSupportError(true);
         return;
       }
@@ -152,22 +192,25 @@ export default function WorkoutPage() {
       };
       if ((workspaceState.stage === 'draft' || workspaceState.stage === 'review')
         && workspaceState.draft && hasMeaningfulDraft(workspaceState.draft)) {
-        setPendingRepeat(repeatedTemplate);
+        handledRepeat.current = normalizedRepeatId;
+        setPendingRepeat({ kind: 'strength', input: repeatedTemplate });
         return;
       }
+      handledRepeat.current = normalizedRepeatId;
       createDraftFromTemplate(repeatedTemplate);
       router.push(WORKOUT_ROUTES.build);
     }
 
     void loadRepeatedWorkout();
     return () => { active = false; };
-  }, [createDraftFromTemplate, repeatId, router, t, workspaceState.draft, workspaceState.stage, workspaceState.startRequest]);
+  }, [createCardioDraftFromHistory, createDraftFromTemplate, repeatId, router, t, workspaceState.draft, workspaceState.retrospectiveRequest, workspaceState.stage, workspaceState.startRequest]);
 
   const confirmRepeatReplacement = () => {
-    if (!pendingRepeat || workspaceState.startRequest || (workspaceState.stage !== 'draft' && workspaceState.stage !== 'review')) return;
-    replaceDraftFromTemplate(pendingRepeat);
+    if (!pendingRepeat || workspaceState.startRequest || workspaceState.retrospectiveRequest || (workspaceState.stage !== 'draft' && workspaceState.stage !== 'review')) return;
+    if (pendingRepeat.kind === 'cardio') replaceCardioDraftFromHistory(pendingRepeat.input);
+    else replaceDraftFromTemplate(pendingRepeat.input);
     setPendingRepeat(null);
-    router.push(WORKOUT_ROUTES.build);
+    router.push(pendingRepeat.kind === 'cardio' ? WORKOUT_ROUTES.review : WORKOUT_ROUTES.build);
   };
 
   const cancelRepeatReplacement = () => {
@@ -227,7 +270,7 @@ export default function WorkoutPage() {
 
   const routines = useMemo(() => storedRoutines.map((routine) => toTemplate(routine)), [storedRoutines, toTemplate]);
 
-  if (pendingRepeat && !workspaceState.startRequest) {
+  if (pendingRepeat && !workspaceState.startRequest && !workspaceState.retrospectiveRequest) {
     return (
       <main className="mx-auto max-w-2xl px-4 py-6">
         <section aria-labelledby="repeat-replace-title" aria-describedby="repeat-replace-message" className="rounded-2xl border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] p-5">

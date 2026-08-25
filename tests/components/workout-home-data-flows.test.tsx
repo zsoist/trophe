@@ -8,6 +8,7 @@ const harness = vi.hoisted(() => ({
   repeatId: '',
   programData: null as unknown,
   failureTable: '' as string,
+  repeatedKind: 'strength' as 'strength' | 'cardio',
   push: vi.fn(),
   replace: vi.fn(),
   createWorkoutSession: vi.fn(),
@@ -58,13 +59,18 @@ vi.mock('@/lib/supabase', () => ({
               user_id: harness.userId,
               name: 'Repeated push',
               template_id: null,
+              workout_kind: harness.repeatedKind,
+              duration_minutes: harness.repeatedKind === 'cardio' ? 36 : 30,
+              cardio_activity: harness.repeatedKind === 'cardio' ? 'run' : null,
+              cardio_distance_km: harness.repeatedKind === 'cardio' ? 6.2 : null,
+              cardio_effort: harness.repeatedKind === 'cardio' ? 7 : null,
             },
             error: null,
           };
         }
-        if (table === 'workout_sets') {
-          return {
-            data: [
+      if (table === 'workout_sets') {
+        return {
+            data: harness.repeatedKind === 'cardio' ? [] : [
               { exercise_id: harness.customExerciseId, set_number: 1, reps: 8, is_warmup: false, exercise: { id: harness.customExerciseId, name: 'Tempo Press', muscle_group: 'chest' } },
               { exercise_id: harness.customExerciseId, set_number: 2, reps: 10, is_warmup: false, exercise: { id: harness.customExerciseId, name: 'Tempo Press', muscle_group: 'chest' } },
             ],
@@ -136,6 +142,7 @@ afterEach(() => {
   harness.repeatId = '';
   harness.programData = null;
   harness.failureTable = '';
+  harness.repeatedKind = 'strength';
   harness.push.mockReset();
   harness.replace.mockReset();
   harness.createWorkoutSession.mockReset();
@@ -169,6 +176,27 @@ describe('Workout home data flows', () => {
     expect(harness.push).not.toHaveBeenCalled();
   });
 
+  it('keeps an ambiguous retrospective envelope immutable when a repeat link targets Home', async () => {
+    harness.repeatId = repeatedSessionId;
+    const payload = {
+      sessionDate: '2026-08-24', kind: 'strength', name: 'Unfinished legs', templateId: null,
+      durationMinutes: 30, painFlags: [], activity: null, distanceKm: null, effort: null,
+      sets: [{ exercise_id: 'old-squat', set_number: 1, weight_kg: 80, reps: 5, rpe: null, is_warmup: false, is_pr: false, superset_group: null }],
+    };
+    const initialState = {
+      ...recoveredWorkspace('review'), clientRequestId: null, startRequest: null,
+      retrospectiveRequest: {
+        idempotencyKey: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+        payloadFingerprint: JSON.stringify(payload), ...payload,
+      },
+    };
+    renderPage(initialState);
+
+    await waitFor(() => expect(harness.replace).toHaveBeenCalledWith('/dashboard/workout/review'));
+    expect(harness.queries.filter((query) => query.table === 'workout_sessions' && query.filters.some(([key]) => key === 'id'))).toHaveLength(0);
+    expect(screen.queryByRole('heading', { name: 'Replace current draft?' })).toBeNull();
+  });
+
   it('loads only the signed-in user’s repeated session into a local Build draft without creating a session', async () => {
     harness.repeatId = repeatedSessionId;
     renderPage();
@@ -193,6 +221,23 @@ describe('Workout home data flows', () => {
       filters: expect.arrayContaining([['id', repeatedSessionId], ['user_id', user.id]]),
     }));
     expect(harness.createWorkoutSession).not.toHaveBeenCalled();
+  });
+
+  it('repeats structured cardio into Review without creating an empty strength draft', async () => {
+    harness.repeatId = repeatedSessionId;
+    harness.repeatedKind = 'cardio';
+    renderPage();
+
+    await waitFor(() => expect(harness.push).toHaveBeenCalledWith('/dashboard/workout/review'));
+    const state = JSON.parse(screen.getByLabelText('Draft state').textContent ?? '{}');
+    expect(state).toMatchObject({
+      stage: 'review',
+      draft: {
+        kind: 'cardio', name: 'Repeated push', activity: 'run', durationMinutes: 36,
+        distanceKm: 6.2, effort: 7,
+      },
+    });
+    expect(JSON.stringify(state)).not.toContain('exercises');
   });
 
   it.each([

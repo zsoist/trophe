@@ -44,6 +44,9 @@ vi.mock('@/lib/i18n', () => ({
         'workout.back_home': backHome,
         'workout.workspace_live_title': liveTitle,
         'workout.workspace_exercises_title': 'Exercises',
+        'workout.history': 'History',
+        'workout.stats': 'Stats',
+        'workout.form_check': 'Form Check',
         'workout.workspace_status_live': live,
         'workout.workspace_status_draft': 'Draft',
         'workout.workspace_status_label': String(params?.status ?? ''),
@@ -149,6 +152,17 @@ describe('workout workspace navigation', () => {
     render(<WorkoutWorkspaceHeader stage="draft" />);
 
     expect(screen.getByRole('heading', { name: 'Exercises' })).toBeTruthy();
+  });
+
+  it.each([
+    ['/dashboard/workout/history', 'History'],
+    ['/dashboard/workout/stats', 'Stats'],
+    ['/dashboard/workout/form-check', 'Form Check'],
+  ])('owns the single canonical support-page heading for %s', (route, title) => {
+    pathname = route;
+    render(<WorkoutWorkspaceHeader stage="home" />);
+    expect(screen.getAllByRole('heading', { name: title })).toHaveLength(1);
+    expect(screen.getByRole('link', { name: 'Back' }).getAttribute('href')).toBe(WORKOUT_ROUTES.home);
   });
 
   it.each([

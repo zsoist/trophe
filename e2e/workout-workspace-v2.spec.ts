@@ -323,6 +323,8 @@ test.describe('Workout Workspace V2', () => {
       await expect(page.getByRole('heading', { name: 'Workout complete' })).toBeVisible();
       await page.getByRole('link', { name: 'History' }).click();
       await waitForRouteSettled(page, '/dashboard/workout/history');
+      await expect(page.getByRole('heading', { name: 'History', exact: true })).toHaveCount(1);
+      await assertCanonicalWorkoutChrome(page, 'History');
       await page.getByRole('navigation', { name: 'Primary' }).getByRole('link', { name: 'Workout' }).click();
       await waitForRouteSettled(page, '/dashboard/workout');
       await expect(page.getByRole('button', { name: 'View workout summary' })).toBeVisible();
@@ -335,6 +337,64 @@ test.describe('Workout Workspace V2', () => {
       assertNoPaidRequests();
     });
   }
+
+  test('retrospective cardio survives a committed lost response and repeats into Review', async ({ page }) => {
+    const workoutName = `E2E retrospective cardio ${Date.now().toString(36)}`;
+    await page.setViewportSize({ width: 390, height: 844 });
+    const assertNoPaidRequests = await blockPaidRequests(page);
+    await loginAs(page, 'client');
+    await setTheme(page, 'light');
+    await page.goto('/dashboard/workout');
+    await waitForWorkoutHomeSettled(page);
+    await currentWorkspace(page).getByRole('button', { name: 'Build cardio workout' }).click();
+    await waitForWorkoutBuildAtTop(page);
+    await currentWorkspace(page).getByRole('textbox', { name: 'Workout name' }).fill(workoutName);
+    await currentWorkspace(page).getByRole('spinbutton', { name: 'Duration in minutes' }).fill('36');
+    await currentWorkspace(page).getByRole('spinbutton', { name: 'Distance optional' }).fill('6.2');
+    await currentWorkspace(page).getByRole('spinbutton', { name: 'Effort' }).fill('7');
+    await currentWorkspace(page).getByRole('button', { name: 'Review workout' }).click();
+    await waitForRouteSettled(page, '/dashboard/workout/review');
+    await currentWorkspace(page).getByRole('button', { name: 'Log completed workout' }).click();
+
+    let committedResponseLost = false;
+    await page.route('**/rest/v1/rpc/save_retrospective_workout', async (route) => {
+      if (committedResponseLost) {
+        await route.continue();
+        return;
+      }
+      const response = await route.fetch();
+      expect(response.ok()).toBe(true);
+      committedResponseLost = true;
+      await route.abort('failed');
+    });
+    await currentWorkspace(page).getByRole('button', { name: 'Log completed workout' }).click();
+    await page.getByRole('dialog', { name: 'Save completed workout?' }).getByRole('button', { name: 'Save workout' }).click();
+    await expect.poll(() => committedResponseLost).toBe(true);
+    await expect(page.getByRole('heading', { name: 'Completed workout awaiting confirmation' })).toBeVisible();
+
+    await page.reload();
+    await expect(page.getByRole('heading', { name: 'Completed workout awaiting confirmation' })).toBeVisible();
+    await page.getByRole('button', { name: 'Retry same save' }).click();
+    await expect(page.getByRole('heading', { name: 'Workout complete' })).toBeVisible();
+    await expect(page.getByText('36 min')).toBeVisible();
+    await expect(page.getByText('Workout recovery could not be verified.')).toHaveCount(0);
+    await page.reload();
+    await expect(page.getByRole('heading', { name: 'Workout complete' })).toBeVisible();
+    await expect(page.getByText('Workout recovery could not be verified.')).toHaveCount(0);
+
+    await page.getByRole('link', { name: 'History' }).click();
+    await waitForRouteSettled(page, '/dashboard/workout/history');
+    const sessionCard = page.locator('.glass').filter({ hasText: workoutName }).first();
+    await sessionCard.getByRole('button').first().click();
+    await sessionCard.getByRole('button', { name: 'Repeat' }).click();
+    await waitForRouteSettled(page, '/dashboard/workout/review');
+    await expect(currentWorkspace(page).getByText(workoutName, { exact: true })).toBeVisible();
+    await expect(currentWorkspace(page).getByText('36 minutes')).toBeVisible();
+    await expect(currentWorkspace(page).getByText('6.2 km')).toBeVisible();
+    await expect(currentWorkspace(page).getByText('Effort 7/10')).toBeVisible();
+    await expect(currentWorkspace(page).locator('details')).toHaveCount(0);
+    assertNoPaidRequests();
+  });
 
   for (const theme of ['light', 'dark'] as const) {
     for (const viewport of viewports) {
@@ -367,6 +427,21 @@ test.describe('Workout Workspace V2', () => {
           await assertWorkoutSurface(page, theme);
           await captureWorkout(page, testInfo, `${theme}-${viewport.width}x${viewport.height}-review.png`);
           await assertControlClearsBottomNav(page, currentWorkspace(page).getByRole('button', { name: 'Start live workout' }));
+        }
+        if (viewport.width === 320 || viewport.width === 390) {
+          for (const [route, title, slug] of [
+            ['/dashboard/workout/history', 'History', 'history'],
+            ['/dashboard/workout/stats', 'Stats', 'stats'],
+            ['/dashboard/workout/form-check', 'Form Check', 'form-check'],
+          ] as const) {
+            await page.goto(route);
+            await waitForRouteSettled(page, route);
+            await waitForWorkoutRouteAtTop(page, `${title} support route must open at the top`);
+            await expect(page.getByRole('heading', { name: title, exact: true })).toHaveCount(1);
+            await assertCanonicalWorkoutChrome(page, title);
+            await assertWorkoutSurface(page, theme);
+            await captureWorkout(page, testInfo, `${theme}-${viewport.width}x${viewport.height}-${slug}.png`, { atTop: true });
+          }
         }
         assertNoPaidRequests();
       });
