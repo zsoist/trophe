@@ -96,7 +96,7 @@ describe('RetrospectiveWorkoutLogger', () => {
 
   it('inserts a retrospective exercise warm-up block before that exercise working rows', async () => {
     render(<RetrospectiveWorkoutLogger userId="nik" idempotencyKey={idempotencyKey} draft={strengthSuperset} exercises={[bench, row]} onSaved={vi.fn()} onCancel={vi.fn()} />);
-    fireEvent.change((await screen.findAllByLabelText('Weight in kg'))[0], { target: { value: '80' } });
+    fireEvent.change((await screen.findAllByLabelText('Weight in kg'))[0], { target: { value: '100' } });
     fireEvent.change(screen.getAllByLabelText('Reps')[0], { target: { value: '8' } });
     fireEvent.click(screen.getAllByRole('button', { name: 'Complete set' })[0]);
     const moreButtons = await screen.findAllByRole('button', { name: 'More exercise options' });
@@ -110,13 +110,21 @@ describe('RetrospectiveWorkoutLogger', () => {
       expect(names.slice(0, -1)).toEqual(names.slice(0, -1).map(() => 'Bench Press'));
     });
     const workingArticle = screen.getAllByRole('article').at(-2)!;
-    expect((workingArticle.querySelector('input[aria-label="Weight in kg"]') as HTMLInputElement).value).toBe('80');
+    expect((workingArticle.querySelector('input[aria-label="Weight in kg"]') as HTMLInputElement).value).toBe('100');
+    await vi.waitFor(() => expect(screen.getByRole('button', { name: 'workout.add_warmup_sets' })).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'workout.add_warmup_sets' }));
+    await vi.waitFor(() => expect(screen.getAllByRole('article')).toHaveLength(8));
     fireEvent.click(screen.getByRole('button', { name: 'Save completed workout' }));
     fireEvent.click(screen.getByRole('button', { name: 'Save workout' }));
     await vi.waitFor(() => expect(live.saveRetrospectiveWorkout).toHaveBeenCalledWith(expect.objectContaining({
       sets: expect.arrayContaining([
-        expect.objectContaining({ exercise_id: 'bench', set_number: 1, is_warmup: true }),
-        expect.objectContaining({ exercise_id: 'bench', set_number: 2, is_warmup: true }),
+        expect.objectContaining({ exercise_id: 'bench', set_number: 1, weight_kg: 40, reps: 10, is_warmup: true }),
+        expect.objectContaining({ exercise_id: 'bench', set_number: 2, weight_kg: 60, reps: 6, is_warmup: true }),
+        expect.objectContaining({ exercise_id: 'bench', set_number: 3, weight_kg: 80, reps: 3, is_warmup: true }),
+        expect.objectContaining({ exercise_id: 'bench', set_number: 4, weight_kg: 40, reps: 10, is_warmup: true }),
+        expect.objectContaining({ exercise_id: 'bench', set_number: 5, weight_kg: 60, reps: 6, is_warmup: true }),
+        expect.objectContaining({ exercise_id: 'bench', set_number: 6, weight_kg: 80, reps: 3, is_warmup: true }),
+        expect.objectContaining({ exercise_id: 'bench', set_number: 7, weight_kg: 100, reps: 8, is_warmup: false }),
       ]),
     })));
   });
