@@ -86,7 +86,7 @@ function WorkoutWorkspaceHeaderContent({ stage, onBack, backDisabled = false }: 
 function ConnectedWorkoutWorkspaceHeader() {
   const { state, returnToDraft } = useWorkoutWorkspace();
   const pathname = usePathname();
-  return <WorkoutWorkspaceHeaderContent stage={state.stage} onBack={pathname === WORKOUT_ROUTES.review ? returnToDraft : undefined} backDisabled={pathname === WORKOUT_ROUTES.review && Boolean(state.startRequest)} />;
+  return <WorkoutWorkspaceHeaderContent stage={state.stage} onBack={pathname === WORKOUT_ROUTES.review ? returnToDraft : undefined} backDisabled={pathname === WORKOUT_ROUTES.review && Boolean(state.startRequest || state.retrospectiveRequest)} />;
 }
 
 export function WorkoutWorkspaceHeader({ stage }: { stage?: WorkoutStage }) {

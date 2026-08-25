@@ -18,7 +18,7 @@ export interface ExerciseDetailProps {
   userId: string | null;
   onAdd?: (exercise: Exercise) => void;
   isAdded?: boolean;
-  alternateAction?: { label: string; onClick: () => void };
+  alternateAction?: { label: string; message?: string; onClick: () => void };
   className?: string;
 }
 
@@ -202,7 +202,7 @@ export function ExerciseDetail({ exercise, userId, onAdd, isAdded = false, alter
             </button>
           ) : (
             <div>
-              <p className="mb-2 text-center text-xs leading-5 text-[var(--content-muted)]">{t('workout.exercise_requires_strength_draft')}</p>
+              <p className="mb-2 text-center text-xs leading-5 text-[var(--content-muted)]">{alternateAction?.message ?? t('workout.exercise_requires_strength_draft')}</p>
               <button type="button" onClick={alternateAction?.onClick} className="btn-gold inline-flex min-h-12 w-full items-center justify-center rounded-xl px-4 font-semibold">
                 {alternateAction?.label}
               </button>

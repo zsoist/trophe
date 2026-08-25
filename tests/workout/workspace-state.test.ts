@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   createInitialWorkspaceState,
   elapsedActiveMs,
+  retrospectivePayloadFingerprint,
   workoutWorkspaceReducer,
 } from '@/lib/workout/workspace-state';
 
@@ -58,6 +59,42 @@ describe('workout workspace state', () => {
     expect(state.clientRequestId).toBe(startRequest.idempotencyKey);
     expect(() => workoutWorkspaceReducer(state, { type: 'draft.updated', payload: { draft: { ...state.draft!, name: 'Edited' } as never } })).toThrow(/pending/i);
     expect(() => workoutWorkspaceReducer(state, { type: 'draft.reviewed' })).toThrow(/pending/i);
+  });
+
+  it('freezes an exact retrospective envelope and reconciles canonical success into Completed', () => {
+    let state = workoutWorkspaceReducer(createInitialWorkspaceState(), {
+      type: 'draft.created', payload: { name: 'Push', kind: 'strength', updatedAt: 10 },
+    });
+    state = workoutWorkspaceReducer(state, { type: 'draft.updated', payload: { draft: {
+      ...state.draft!, exercises: [{ exerciseId: 'bench', targetSets: 3, targetReps: '8' }],
+    } as never } });
+    state = workoutWorkspaceReducer(state, { type: 'draft.reviewed' });
+    const payload = {
+      sessionDate: '2026-08-24', kind: 'strength' as const, name: 'Push', templateId: null,
+      durationMinutes: 30, painFlags: [], activity: null, distanceKm: null, effort: null,
+      sets: [{ exercise_id: 'bench', set_number: 1, weight_kg: 60, reps: 8, rpe: 8, is_warmup: false, is_pr: false, superset_group: null }],
+    };
+    const retrospectiveRequest = {
+      idempotencyKey: '22222222-2222-4222-8222-222222222222',
+      payloadFingerprint: retrospectivePayloadFingerprint(payload),
+      ...payload,
+    };
+    state = workoutWorkspaceReducer(state, { type: 'retrospective.prepared', payload: { retrospectiveRequest } });
+
+    expect(state.retrospectiveRequest).toEqual(retrospectiveRequest);
+    expect(state.clientRequestId).toBeNull();
+    expect(() => workoutWorkspaceReducer(state, { type: 'draft.updated', payload: { draft: { ...state.draft!, name: 'Changed' } as never } })).toThrow(/pending/i);
+    expect(() => workoutWorkspaceReducer(state, { type: 'request.keyed', payload: { clientRequestId: retrospectiveRequest.idempotencyKey } })).toThrow(/retrospective/i);
+    expect(() => workoutWorkspaceReducer(state, { type: 'live.started', payload: { sessionId: 'wrong-live-session', now: 1 } })).toThrow(/retrospective/i);
+
+    state = workoutWorkspaceReducer(state, { type: 'retrospective.saved', payload: { sessionId: 'canonical-session' } });
+    expect(state).toMatchObject({
+      stage: 'completed',
+      sessionId: 'canonical-session',
+      clock: { runningSince: null, accumulatedMs: 1_800_000 },
+      retrospectiveRequest: null,
+      clientRequestId: null,
+    });
   });
 
   it('updates recoverable live cardio metrics and strength structure', () => {

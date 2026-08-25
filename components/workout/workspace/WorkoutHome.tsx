@@ -149,6 +149,25 @@ export function WorkoutHome({
     );
   }
 
+  if (hasDraft && workspace.state.retrospectiveRequest && workspace.state.draft) {
+    return (
+      <main className="mx-auto max-w-2xl px-4 py-5">
+        <section className="rounded-2xl border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] p-5">
+          <p className="text-sm leading-6 text-[var(--content-primary)]">{t('workout.retrospective_request_locked')}</p>
+          <h2 className="mt-1 text-xl font-semibold text-[var(--content-primary)]">{workspace.state.draft.name}</h2>
+          <button
+            type="button"
+            disabled={workspace.retrospectiveSaving}
+            onClick={() => void workspace.retryRetrospective().then((ok) => { if (ok) pushWorkoutRoute(router, WORKOUT_ROUTES.live); })}
+            className="btn-gold mt-4 min-h-11 w-full rounded-xl px-4 font-semibold disabled:opacity-50"
+          >
+            {workspace.retrospectiveSaving ? t('workout.saving') : t('workout.retry_same_save')}
+          </button>
+        </section>
+      </main>
+    );
+  }
+
   if (hasDraft && workspace.state.startRequest && workspace.state.draft) {
     return (
       <main className="mx-auto max-w-2xl px-4 py-5">

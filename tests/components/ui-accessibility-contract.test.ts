@@ -4,7 +4,7 @@ import React from 'react';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ConfirmSheet } from '@/components/ui/ConfirmSheet';
 import { Tabs } from '@/components/ui/Tabs';
 import type { TabOption } from '@/components/ui/Tabs';
@@ -245,5 +245,29 @@ describe('accessible UI primitive contract', () => {
     }));
     expect(document.activeElement).toBe(opener);
     opener.remove();
+  });
+
+  it('submits an async confirmation once per settlement and permits retry after rejection', async () => {
+    let rejectFirst!: (reason: Error) => void;
+    const onConfirm = vi.fn()
+      .mockImplementationOnce(() => new Promise<void>((_resolve, reject) => { rejectFirst = reject; }))
+      .mockResolvedValueOnce(undefined);
+    render(React.createElement(ConfirmSheet, {
+      open: true,
+      title: 'Remove Bench Press',
+      onConfirm,
+      onCancel: vi.fn(),
+    }));
+
+    const confirm = screen.getByRole('button', { name: 'Confirm' });
+    fireEvent.click(confirm);
+    fireEvent.click(confirm);
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+    expect(confirm.hasAttribute('disabled')).toBe(true);
+
+    rejectFirst(new Error('offline'));
+    await waitFor(() => expect(confirm.hasAttribute('disabled')).toBe(false));
+    fireEvent.click(confirm);
+    await waitFor(() => expect(onConfirm).toHaveBeenCalledTimes(2));
   });
 });

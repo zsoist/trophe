@@ -15,6 +15,8 @@ const IDS = {
   liveKey: 'a7000000-0000-4000-8000-000000000005',
   historyKey: 'a7000000-0000-4000-8000-000000000006',
   concurrentKey: 'a7000000-0000-4000-8000-000000000008',
+  retrospectiveCollisionKey: 'a7000000-0000-4000-8000-000000000009',
+  laterLiveKey: 'a7000000-0000-4000-8000-000000000010',
 };
 
 let dbAvailable = false;
@@ -200,6 +202,33 @@ describe('workout atomic RPC security and behavior', () => {
       expect((await client.query(`SELECT count(*)::integer AS count FROM public.workout_sets WHERE session_id = $1`, [saved.rows[0].id])).rows[0].count).toBe(2);
 
       expect((await client.query(`SELECT public.discard_empty_workout_session($1::uuid) AS discarded`, [saved.rows[0].id])).rows[0].discarded).toBe(false);
+    });
+  });
+
+  it('reconciles a lost retrospective response and cannot reuse its key for a live start', async () => {
+    await asUser(IDS.userA, async (client) => {
+      const sets = [{
+        exercise_id: IDS.exerciseA, set_number: 1, weight_kg: 60, reps: 8,
+        rpe: 8, is_warmup: false, is_pr: false, superset_group: null,
+      }];
+      const committed = await retrospective(client, IDS.retrospectiveCollisionKey, sets);
+
+      // A response can disappear after commit. Replaying the immutable request
+      // must reconcile to the same canonical completed session.
+      const retry = await retrospective(client, IDS.retrospectiveCollisionKey, sets);
+      expect(retry.rows[0].id).toBe(committed.rows[0].id);
+      expect((await client.query(`
+        SELECT count(*)::integer AS count
+        FROM public.workout_sessions
+        WHERE user_id = $1 AND client_idempotency_key = $2
+      `, [IDS.userA, IDS.retrospectiveCollisionKey])).rows[0].count).toBe(1);
+
+      await client.query('SAVEPOINT retrospective_key_collision');
+      await expect(start(client, IDS.retrospectiveCollisionKey, 'Later live')).rejects.toMatchObject({ code: '22023' });
+      await client.query('ROLLBACK TO SAVEPOINT retrospective_key_collision');
+
+      const laterLive = await start(client, IDS.laterLiveKey, 'Later live');
+      expect(laterLive.rows[0].id).not.toBe(committed.rows[0].id);
     });
   });
 

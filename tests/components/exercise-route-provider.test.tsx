@@ -59,6 +59,8 @@ vi.mock('@/lib/i18n', () => ({
         'workout.exercise_requires_strength_draft': 'Exercises can only be added to a strength draft.',
         'workout.create_strength_draft': 'Create strength draft',
         'workout.resume_current_workout': 'Resume current workout',
+        'workout.start_request_locked': 'This workout start is waiting for confirmation. Retry the same start before editing exercises.',
+        'workout.retry_same_start': 'Retry same start',
         'workout.back_exercises': 'Back to exercises',
         'workout.add_exercise': 'Add exercise',
         'workout.search_exercises': 'Search all exercises',
@@ -166,6 +168,23 @@ function strengthState(exercises: string[] = []): WorkoutWorkspaceState {
 
 function reviewState(exercises: string[] = []): WorkoutWorkspaceState {
   return { ...strengthState(exercises), stage: 'review' };
+}
+
+function pendingStartState(exercises: string[] = ['bench']): WorkoutWorkspaceState {
+  const state = reviewState(exercises);
+  return {
+    ...state,
+    clientRequestId: '11111111-1111-4111-8111-111111111111',
+    startRequest: {
+      idempotencyKey: '11111111-1111-4111-8111-111111111111',
+      draftFingerprint: 'pending-push',
+      sessionDate: '2026-08-24',
+      name: 'Push',
+      templateId: null,
+      kind: 'strength',
+      liveStructure: exercises.map((exerciseId) => ({ exerciseId, targetSets: 3, targetReps: '8-12', supersetGroup: null })),
+    },
+  };
 }
 
 const cardioState: WorkoutWorkspaceState = {
@@ -358,6 +377,30 @@ describe('exercise routes with the real workout workspace provider', () => {
     await waitFor(() => expect(screen.getByTestId('workspace-state').textContent).toBe('review:strength:bench'));
     expect(push).toHaveBeenCalledWith('/dashboard/workout/review');
     expect(createWorkoutSession).not.toHaveBeenCalled();
+  });
+
+  it('blocks browser mutations for a recovered pending start and routes Retry to immutable Review', async () => {
+    renderWithWorkspace(<ExerciseBrowser initialExercises={[bench]} />, pendingStartState(['bench']));
+
+    expect(await screen.findByText('This workout start is waiting for confirmation. Retry the same start before editing exercises.')).toBeTruthy();
+    expect(screen.queryByRole('searchbox', { name: 'Search all exercises' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Add Bench Press' })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry same start' }));
+    expect(push).toHaveBeenCalledWith('/dashboard/workout/review');
+    expect(screen.getByTestId('workspace-state').textContent).toBe('review:strength:bench');
+  });
+
+  it('blocks detail Add for a recovered pending start and never navigates as if it mutated', async () => {
+    renderWithWorkspace(<RoutedExerciseDetail exercise={bench} userId={null} />, pendingStartState());
+
+    expect(await screen.findByText('This workout start is waiting for confirmation. Retry the same start before editing exercises.')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Add Bench Press' })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry same start' }));
+    expect(push).toHaveBeenCalledTimes(1);
+    expect(push).toHaveBeenCalledWith('/dashboard/workout/review');
+    expect(screen.getByTestId('workspace-state').textContent).toBe('review:strength:bench');
   });
 
   it('keeps the routed detail action disabled when the exercise is already added', async () => {

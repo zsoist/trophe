@@ -1,4 +1,4 @@
-import type { Exercise, MuscleGroup } from '@/lib/types';
+import type { Exercise, MuscleGroup, PainFlag } from '@/lib/types';
 
 export type WorkoutStage = 'home' | 'draft' | 'review' | 'live' | 'paused' | 'finishing' | 'completed';
 export type WorkoutKind = 'strength' | 'cardio';
@@ -58,6 +58,37 @@ export interface LiveStartRequestEnvelope {
   liveStructure: LiveStartStructureExercise[];
 }
 
+export interface RetrospectiveSetEnvelope {
+  exercise_id: string;
+  set_number: number;
+  weight_kg: number | null;
+  reps: number;
+  rpe: number | null;
+  is_warmup: boolean;
+  is_pr: boolean;
+  superset_group: number | null;
+}
+
+/** Exact completed-workout request persisted before its transport begins. */
+export interface RetrospectiveSaveRequestEnvelope {
+  idempotencyKey: string;
+  payloadFingerprint: string;
+  sessionDate: string;
+  kind: WorkoutKind;
+  name: string;
+  templateId: string | null;
+  durationMinutes: number;
+  painFlags: PainFlag[];
+  activity: CardioDraft['activity'] | null;
+  distanceKm: number | null;
+  effort: number | null;
+  sets: RetrospectiveSetEnvelope[];
+}
+
+export function retrospectivePayloadFingerprint(payload: Omit<RetrospectiveSaveRequestEnvelope, 'idempotencyKey' | 'payloadFingerprint'>): string {
+  return JSON.stringify(payload);
+}
+
 export interface WorkoutWorkspaceState {
   stage: WorkoutStage;
   draft: WorkoutDraft | null;
@@ -69,6 +100,8 @@ export interface WorkoutWorkspaceState {
   clientRequestId: string | null;
   /** Complete immutable live-start request persisted before transport. */
   startRequest?: LiveStartRequestEnvelope | null;
+  /** Complete immutable retrospective-save request persisted before transport. */
+  retrospectiveRequest?: RetrospectiveSaveRequestEnvelope | null;
 }
 
 export const WORKOUT_DRAFT_VERSION = 2 as const;
@@ -88,6 +121,8 @@ export type WorkoutWorkspaceEvent =
   | { type: 'draft.reopened' }
   | { type: 'request.keyed'; payload: { clientRequestId: string } }
   | { type: 'request.prepared'; payload: { startRequest: LiveStartRequestEnvelope } }
+  | { type: 'retrospective.prepared'; payload: { retrospectiveRequest: RetrospectiveSaveRequestEnvelope } }
+  | { type: 'retrospective.saved'; payload: { sessionId: string } }
   | { type: 'live.started'; payload: { sessionId: string; now: number } }
   | { type: 'live.draftUpdated'; payload: { draft: WorkoutDraft } }
   | { type: 'live.paused'; payload: { now: number } }
@@ -106,7 +141,7 @@ export function createEmptyDraft(kind: WorkoutKind = 'strength', name = '', temp
 }
 
 export function createInitialWorkspaceState(): WorkoutWorkspaceState {
-  return { stage: 'home', draft: null, sessionId: null, clock: null, finishingFrom: null, clientRequestId: null, startRequest: null };
+  return { stage: 'home', draft: null, sessionId: null, clock: null, finishingFrom: null, clientRequestId: null, startRequest: null, retrospectiveRequest: null };
 }
 
 export function elapsedActiveMs(clock: LiveClock | null, now: number): number {
@@ -140,29 +175,31 @@ export function workoutWorkspaceReducer(
   switch (event.type) {
     case 'draft.created':
       if (state.stage !== 'home') throw new Error(`Cannot create a draft from ${state.stage}`);
-      return { stage: 'draft', draft: createEmptyDraft(event.payload.kind, event.payload.name, event.payload.templateKey, event.payload.updatedAt ?? 0, event.payload.templateId), sessionId: null, clock: null, finishingFrom: null, clientRequestId: null, startRequest: null };
+      return { stage: 'draft', draft: createEmptyDraft(event.payload.kind, event.payload.name, event.payload.templateKey, event.payload.updatedAt ?? 0, event.payload.templateId), sessionId: null, clock: null, finishingFrom: null, clientRequestId: null, startRequest: null, retrospectiveRequest: null };
     case 'draft.updated':
       if (state.stage !== 'draft' && state.stage !== 'review') throw new Error(`Cannot update a draft from ${state.stage}`);
-      if (state.startRequest) throw new Error('Cannot update a draft while its start request is pending');
+      if (state.startRequest || state.retrospectiveRequest) throw new Error('Cannot update a draft while its request is pending');
       return { ...state, draft: event.payload.draft };
     case 'draft.reviewed':
       requireDraft(state);
       if (state.stage !== 'draft') throw new Error(`Cannot review a draft from ${state.stage}`);
-      if (state.startRequest) throw new Error('Cannot review a draft while its start request is pending');
+      if (state.startRequest || state.retrospectiveRequest) throw new Error('Cannot review a draft while its request is pending');
       return { ...state, stage: 'review' };
     case 'draft.reopened':
       requireDraft(state);
       if (state.stage !== 'review') throw new Error(`Cannot reopen a draft from ${state.stage}`);
-      if (state.startRequest) throw new Error('Cannot reopen a draft while its start request is pending');
+      if (state.startRequest || state.retrospectiveRequest) throw new Error('Cannot reopen a draft while its request is pending');
       return { ...state, stage: 'draft' };
     case 'request.keyed':
       requireDraft(state);
       if (state.stage !== 'draft' && state.stage !== 'review') throw new Error(`Cannot key a request from ${state.stage}`);
+      if (state.retrospectiveRequest) throw new Error('Cannot key a live start while a retrospective save is pending');
       if (!event.payload.clientRequestId.trim()) throw new Error('A client request id is required');
       return { ...state, clientRequestId: event.payload.clientRequestId };
     case 'request.prepared':
       requireDraft(state);
       if (state.stage !== 'draft' && state.stage !== 'review') throw new Error(`Cannot prepare a request from ${state.stage}`);
+      if (state.retrospectiveRequest) throw new Error('Cannot prepare a live start while a retrospective save is pending');
       if (!event.payload.startRequest.idempotencyKey.trim() || !event.payload.startRequest.draftFingerprint.trim()) {
         throw new Error('A complete client request is required');
       }
@@ -174,10 +211,38 @@ export function workoutWorkspaceReducer(
         clientRequestId: event.payload.startRequest.idempotencyKey,
         startRequest: event.payload.startRequest,
       };
+    case 'retrospective.prepared': {
+      requireDraft(state);
+      if (state.stage !== 'draft' && state.stage !== 'review') throw new Error(`Cannot prepare retrospective save from ${state.stage}`);
+      if (state.startRequest) throw new Error('Cannot prepare retrospective save while a live start is pending');
+      const request = event.payload.retrospectiveRequest;
+      if (!request.idempotencyKey.trim() || !request.payloadFingerprint.trim()) throw new Error('A complete retrospective request is required');
+      if (state.retrospectiveRequest && JSON.stringify(state.retrospectiveRequest) !== JSON.stringify(request)) {
+        throw new Error('Cannot replace a pending retrospective request');
+      }
+      return { ...state, clientRequestId: null, retrospectiveRequest: request };
+    }
+    case 'retrospective.saved': {
+      requireDraft(state);
+      if ((state.stage !== 'draft' && state.stage !== 'review') || !state.retrospectiveRequest) {
+        throw new Error(`Cannot reconcile retrospective save from ${state.stage}`);
+      }
+      if (!event.payload.sessionId.trim()) throw new Error('A session id is required');
+      return {
+        ...state,
+        stage: 'completed',
+        sessionId: event.payload.sessionId,
+        clock: { runningSince: null, accumulatedMs: state.retrospectiveRequest.durationMinutes * 60_000 },
+        clientRequestId: null,
+        startRequest: null,
+        retrospectiveRequest: null,
+      };
+    }
     case 'live.started':
       if (!event.payload.sessionId.trim()) throw new Error('A session id is required');
       requireDraft(state);
       if (state.stage !== 'draft' && state.stage !== 'review') throw new Error(`Cannot start live workout from ${state.stage}`);
+      if (state.retrospectiveRequest) throw new Error('Cannot start live workout while a retrospective save is pending');
       return { ...state, stage: 'live', sessionId: event.payload.sessionId, clock: { runningSince: event.payload.now, accumulatedMs: 0 }, finishingFrom: null };
     case 'live.draftUpdated':
       requireDraft(state);

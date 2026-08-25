@@ -3,13 +3,21 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useI18n } from '@/lib/i18n';
-import { discardEmptyLiveSession, startLiveSession } from '@/lib/workout/live-session';
+import {
+  discardEmptyLiveSession,
+  savePreparedRetrospectiveWorkout,
+  startLiveSession,
+  validateRetrospectiveWorkoutInput,
+  type RetrospectiveWorkoutInput,
+} from '@/lib/workout/live-session';
 import {
   createInitialWorkspaceState,
   workoutWorkspaceReducer,
   type DraftExercise,
   type CardioDraft,
   type LiveStartRequestEnvelope,
+  retrospectivePayloadFingerprint,
+  type RetrospectiveSaveRequestEnvelope,
   type WorkoutDraft,
   type WorkoutKind,
   type WorkoutWorkspaceState,
@@ -43,6 +51,9 @@ export interface WorkoutWorkspaceContextValue {
   goToReview(): void;
   returnToDraft(): void;
   startLive(): Promise<boolean>;
+  saveRetrospective(input: Omit<RetrospectiveWorkoutInput, 'idempotencyKey'>): Promise<boolean>;
+  retryRetrospective(): Promise<boolean>;
+  retrospectiveSaving: boolean;
   pause(now?: number): void;
   resume(now?: number): void;
   requestFinish(): void;
@@ -146,12 +157,45 @@ function createLiveStartRequest(draft: WorkoutDraft, idempotencyKey: string): Li
   };
 }
 
+function createRetrospectiveRequest(
+  input: Omit<RetrospectiveWorkoutInput, 'idempotencyKey'>,
+  idempotencyKey: string,
+): RetrospectiveSaveRequestEnvelope {
+  const durationMinutes = Math.round(input.durationMinutes ?? (input.draft.kind === 'cardio' ? input.draft.durationMinutes : 0));
+  const payload = {
+    sessionDate: localToday(),
+    kind: input.draft.kind,
+    name: input.draft.name.trim(),
+    templateId: normalizeUuid(input.draft.templateId),
+    durationMinutes,
+    painFlags: (input.painFlags ?? []).map((flag) => ({ ...flag })),
+    activity: input.draft.kind === 'cardio' ? input.draft.activity : null,
+    distanceKm: input.draft.kind === 'cardio' ? input.draft.distanceKm : null,
+    effort: input.draft.kind === 'cardio' ? input.draft.effort : null,
+    sets: input.draft.kind === 'strength'
+      ? input.sets.map((set) => ({
+        exercise_id: set.exercise_id,
+        set_number: set.set_number,
+        weight_kg: set.weight_kg,
+        reps: set.reps as number,
+        rpe: set.rpe,
+        is_warmup: set.is_warmup,
+        is_pr: set.is_pr,
+        superset_group: set.superset_group ?? null,
+      }))
+      : [],
+  };
+  return { idempotencyKey, payloadFingerprint: retrospectivePayloadFingerprint(payload), ...payload };
+}
+
 export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutWorkspaceProviderProps) {
   const { t } = useI18n();
   const [state, setState] = useState<WorkoutWorkspaceState>(createInitialWorkspaceState);
   const [ownerId, setOwnerId] = useState<string | null | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const startPromiseRef = useRef<Promise<boolean> | null>(null);
+  const retrospectivePromiseRef = useRef<Promise<boolean> | null>(null);
+  const [retrospectiveSaving, setRetrospectiveSaving] = useState(false);
   const clientRequestIdRef = useRef<string | null>(null);
   const skipNextPersistRef = useRef(false);
   const resolvedStorage = storage ?? browserStorage();
@@ -191,7 +235,7 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
 
   const updateDraft = useCallback((updater: (draft: NonNullable<WorkoutWorkspaceState['draft']>) => NonNullable<WorkoutWorkspaceState['draft']>) => {
     setState((current) => {
-      if ((current.stage !== 'draft' && current.stage !== 'review') || !current.draft || current.startRequest) return current;
+      if ((current.stage !== 'draft' && current.stage !== 'review') || !current.draft || current.startRequest || current.retrospectiveRequest) return current;
       return workoutWorkspaceReducer(current, { type: 'draft.updated', payload: { draft: updater(current.draft) } });
     });
   }, []);
@@ -210,7 +254,7 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
 
   const replaceDraft = useCallback((input: { name: string; kind: WorkoutKind; templateKey?: string; templateId?: string | null }) => {
     setState((current) => {
-      if ((current.stage !== 'draft' && current.stage !== 'review') || !current.draft || current.startRequest) return current;
+      if ((current.stage !== 'draft' && current.stage !== 'review') || !current.draft || current.startRequest || current.retrospectiveRequest) return current;
       clientRequestIdRef.current = null;
       return workoutWorkspaceReducer(createInitialWorkspaceState(), {
         type: 'draft.created',
@@ -221,7 +265,7 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
 
   const replaceDraftFromTemplate = useCallback((input: WorkoutDraftTemplateInput) => {
     setState((current) => {
-      if ((current.stage !== 'draft' && current.stage !== 'review') || !current.draft || current.startRequest) return current;
+      if ((current.stage !== 'draft' && current.stage !== 'review') || !current.draft || current.startRequest || current.retrospectiveRequest) return current;
       clientRequestIdRef.current = null;
       return templateWorkspaceState(input);
     });
@@ -299,19 +343,19 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
   }, [updateDraft]);
 
   const goToReview = useCallback(() => {
-    setState((current) => current.stage === 'draft' && !current.startRequest
+    setState((current) => current.stage === 'draft' && !current.startRequest && !current.retrospectiveRequest
       ? workoutWorkspaceReducer(current, { type: 'draft.reviewed' })
       : current);
   }, []);
 
   const returnToDraft = useCallback(() => {
-    setState((current) => current.stage === 'review' && !current.startRequest
+    setState((current) => current.stage === 'review' && !current.startRequest && !current.retrospectiveRequest
       ? workoutWorkspaceReducer(current, { type: 'draft.reopened' })
       : current);
   }, []);
 
   const ensureClientRequestId = useCallback((): string | null => {
-    if (!ownerId || !state.draft || (state.stage !== 'draft' && state.stage !== 'review')) return state.clientRequestId;
+    if (!ownerId || !state.draft || state.retrospectiveRequest || (state.stage !== 'draft' && state.stage !== 'review')) return state.clientRequestId;
     const existing = clientRequestIdRef.current ?? state.clientRequestId;
     if (existing) return existing;
     const clientRequestId = globalThis.crypto.randomUUID();
@@ -326,7 +370,7 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
   }, [ownerId, resolvedStorage, state]);
 
   const ensureLiveStartRequest = useCallback((): LiveStartRequestEnvelope | null => {
-    if (!ownerId || !state.draft || (state.stage !== 'draft' && state.stage !== 'review')) return null;
+    if (!ownerId || !state.draft || state.retrospectiveRequest || (state.stage !== 'draft' && state.stage !== 'review')) return null;
     if (state.startRequest) return state.startRequest;
 
     const fingerprint = draftFingerprint(state.draft);
@@ -352,7 +396,7 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
     if (state.stage === 'live' || state.stage === 'paused' || state.stage === 'finishing' || state.stage === 'completed') {
       return Boolean(state.sessionId);
     }
-    if (!ownerId || !state.draft || !state.draft.name.trim() || (state.stage !== 'draft' && state.stage !== 'review')) return false;
+    if (!ownerId || !state.draft || state.retrospectiveRequest || !state.draft.name.trim() || (state.stage !== 'draft' && state.stage !== 'review')) return false;
     if (state.draft.kind === 'strength' && state.draft.exercises.length === 0) return false;
     if (startPromiseRef.current) return startPromiseRef.current;
     const request = ensureLiveStartRequest();
@@ -371,6 +415,53 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
     startPromiseRef.current = pending;
     return pending;
   }, [ensureLiveStartRequest, ownerId, state]);
+
+  const executeRetrospective = useCallback((request: RetrospectiveSaveRequestEnvelope): Promise<boolean> => {
+    if (retrospectivePromiseRef.current) return retrospectivePromiseRef.current;
+    setRetrospectiveSaving(true);
+    const pending = savePreparedRetrospectiveWorkout(request)
+      .then((result) => {
+        const sessionId = result.ok ? result.sessionId.trim() : '';
+        if (!sessionId) return false;
+        clientRequestIdRef.current = null;
+        setState((current) => current.retrospectiveRequest?.idempotencyKey === request.idempotencyKey
+          ? workoutWorkspaceReducer(current, { type: 'retrospective.saved', payload: { sessionId } })
+          : current);
+        return true;
+      })
+      .finally(() => {
+        retrospectivePromiseRef.current = null;
+        setRetrospectiveSaving(false);
+      });
+    retrospectivePromiseRef.current = pending;
+    return pending;
+  }, []);
+
+  const saveRetrospective = useCallback(async (input: Omit<RetrospectiveWorkoutInput, 'idempotencyKey'>): Promise<boolean> => {
+    if (!ownerId || !state.draft || (state.stage !== 'draft' && state.stage !== 'review') || state.startRequest) return false;
+    if (state.retrospectiveRequest) return executeRetrospective(state.retrospectiveRequest);
+    if (!validateRetrospectiveWorkoutInput({ ...input, idempotencyKey: 'validation-key' })) return false;
+    const firstKey = globalThis.crypto.randomUUID();
+    const retrospectiveKey = firstKey === state.clientRequestId ? globalThis.crypto.randomUUID() : firstKey;
+    // Never bind a retrospective payload to a key previously prepared for a
+    // live start. A pathological UUID source fails closed rather than reusing it.
+    if (retrospectiveKey === state.clientRequestId) return false;
+    const request = createRetrospectiveRequest(input, retrospectiveKey);
+    const preparedState = workoutWorkspaceReducer(state, { type: 'retrospective.prepared', payload: { retrospectiveRequest: request } });
+    clientRequestIdRef.current = null;
+    if (resolvedStorage) saveWorkspaceState(resolvedStorage, ownerId, preparedState);
+    setState((current) => (current.stage === 'draft' || current.stage === 'review') && current.draft && !current.startRequest
+      ? workoutWorkspaceReducer(current, { type: 'retrospective.prepared', payload: { retrospectiveRequest: request } })
+      : current);
+    return executeRetrospective(request);
+  }, [executeRetrospective, ownerId, resolvedStorage, state]);
+
+  const retryRetrospective = useCallback(async (): Promise<boolean> => {
+    if (!ownerId) return false;
+    const recoveredRequest = state.retrospectiveRequest
+      ?? (resolvedStorage ? loadWorkspaceState(resolvedStorage, ownerId)?.retrospectiveRequest : null);
+    return recoveredRequest ? executeRetrospective(recoveredRequest) : false;
+  }, [executeRetrospective, ownerId, resolvedStorage, state.retrospectiveRequest]);
 
   const pause = useCallback((now = Date.now()) => {
     setState((current) => current.stage === 'live'
@@ -425,8 +516,8 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
   }, [resetWorkspace, state.stage]);
 
   const discardDraft = useCallback(() => {
-    if ((state.stage === 'draft' || state.stage === 'review') && !state.startRequest) resetWorkspace();
-  }, [resetWorkspace, state.stage, state.startRequest]);
+    if ((state.stage === 'draft' || state.stage === 'review') && !state.startRequest && !state.retrospectiveRequest) resetWorkspace();
+  }, [resetWorkspace, state.retrospectiveRequest, state.stage, state.startRequest]);
 
   const value = useMemo<WorkoutWorkspaceContextValue>(() => ({
     ready: !loading && ownerId !== undefined,
@@ -447,6 +538,9 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
     goToReview,
     returnToDraft,
     startLive,
+    saveRetrospective,
+    retryRetrospective,
+    retrospectiveSaving,
     pause,
     resume,
     requestFinish,
@@ -455,7 +549,7 @@ export function WorkoutWorkspaceProvider({ children, userId, storage }: WorkoutW
     discardLive,
     acknowledgeCompleted,
     discardDraft,
-  }), [acknowledgeCompleted, addDraftExercise, cancelFinish, commitLiveStrengthStructure, completeFinish, createDraft, createDraftFromTemplate, discardDraft, discardLive, ensureClientRequestId, goToReview, loading, ownerId, pause, removeDraftExercise, reorderDraftExercise, replaceDraft, replaceDraftFromTemplate, requestFinish, resume, returnToDraft, startLive, state, updateCardioDraft, updateDraftExercise, updateDraftName, updateLiveCardioDraft]);
+  }), [acknowledgeCompleted, addDraftExercise, cancelFinish, commitLiveStrengthStructure, completeFinish, createDraft, createDraftFromTemplate, discardDraft, discardLive, ensureClientRequestId, goToReview, loading, ownerId, pause, removeDraftExercise, reorderDraftExercise, replaceDraft, replaceDraftFromTemplate, requestFinish, resume, retrospectiveSaving, retryRetrospective, returnToDraft, saveRetrospective, startLive, state, updateCardioDraft, updateDraftExercise, updateDraftName, updateLiveCardioDraft]);
 
   if (loading || ownerId === undefined) {
     return <div role="status" aria-label={t('workout.loading_workspace')} className="min-h-24 animate-pulse rounded-xl bg-[var(--surface-subtle)]" />;

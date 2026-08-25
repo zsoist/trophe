@@ -20,7 +20,7 @@ import {
   type SupersetGroupUpdate,
 } from '@/components/workout/workout-persistence';
 import type { PainFlag } from '@/lib/types';
-import type { DraftExercise, WorkoutDraft } from '@/lib/workout/workspace-state';
+import { retrospectivePayloadFingerprint, type DraftExercise, type RetrospectiveSaveRequestEnvelope, type WorkoutDraft } from '@/lib/workout/workspace-state';
 import { supersetGroupFor } from '@/lib/workout/supersets';
 
 export interface CompleteLiveSetInput {
@@ -450,6 +450,30 @@ export async function saveRetrospectiveWorkout(input: RetrospectiveWorkoutInput)
     });
     if (!sessionId) return { ok: false };
     return { ok: true, sessionId };
+  } catch {
+    return { ok: false };
+  }
+}
+
+/** Replays an already-prepared retrospective request without re-deriving data. */
+export async function savePreparedRetrospectiveWorkout(input: RetrospectiveSaveRequestEnvelope): Promise<{ ok: true; sessionId: string } | { ok: false }> {
+  const { idempotencyKey, payloadFingerprint, ...payload } = input;
+  if (retrospectivePayloadFingerprint(payload) !== payloadFingerprint) return { ok: false };
+  try {
+    const sessionId = await saveRetrospectiveWorkoutAtomic({
+      idempotencyKey,
+      sessionDate: input.sessionDate,
+      kind: input.kind,
+      name: input.name,
+      templateId: input.templateId,
+      durationMinutes: input.durationMinutes,
+      painFlags: input.painFlags,
+      activity: input.activity,
+      distanceKm: input.distanceKm,
+      effort: input.effort,
+      sets: input.sets,
+    });
+    return sessionId ? { ok: true, sessionId } : { ok: false };
   } catch {
     return { ok: false };
   }

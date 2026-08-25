@@ -4,10 +4,17 @@ import React from 'react';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const { startLiveSession, discardEmptyLiveSession } = vi.hoisted(() => ({ startLiveSession: vi.fn(), discardEmptyLiveSession: vi.fn() }));
+const { startLiveSession, discardEmptyLiveSession, savePreparedRetrospectiveWorkout } = vi.hoisted(() => ({
+  startLiveSession: vi.fn(),
+  discardEmptyLiveSession: vi.fn(),
+  savePreparedRetrospectiveWorkout: vi.fn(),
+}));
 const dateHarness = vi.hoisted(() => ({ today: '2026-08-24' }));
 
-vi.mock('@/lib/workout/live-session', () => ({ startLiveSession, discardEmptyLiveSession }));
+vi.mock('@/lib/workout/live-session', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/workout/live-session')>();
+  return { ...actual, startLiveSession, discardEmptyLiveSession, savePreparedRetrospectiveWorkout };
+});
 vi.mock('@/lib/supabase', () => ({
   supabase: { auth: { getUser: vi.fn() } },
 }));
@@ -66,6 +73,16 @@ function WorkspaceControls() {
         exercises: [{ exerciseId: 'row', targetSets: 3, targetReps: '10' }],
       })}>Replace with repeated draft</button>
       <button onClick={() => void workspace.startLive()}>Start live workout</button>
+      <button onClick={() => {
+        if (!workspace.state.draft) return;
+        void workspace.saveRetrospective({
+          draft: workspace.state.draft,
+          durationMinutes: 30,
+          painFlags: [],
+          sets: [{ exercise_id: 'bench-press', set_number: 1, weight_kg: 60, reps: 8, rpe: 8, is_warmup: false, is_pr: false, superset_group: null }],
+        });
+      }}>Save retrospective workout</button>
+      <button onClick={() => void workspace.retryRetrospective()}>Retry retrospective workout</button>
       <button onClick={() => workspace.pause(11_000)}>Pause workout</button>
       <button onClick={() => workspace.requestFinish()}>Request finish</button>
       <button onClick={() => workspace.cancelFinish(31_000)}>Keep training</button>
@@ -83,6 +100,7 @@ afterEach(() => {
   cleanup();
   startLiveSession.mockReset();
   discardEmptyLiveSession.mockReset();
+  savePreparedRetrospectiveWorkout.mockReset();
   dateHarness.today = '2026-08-24';
 });
 
@@ -251,6 +269,66 @@ describe('WorkoutWorkspaceProvider', () => {
     expect(seen[0].idempotencyKey).toMatch(/^[0-9a-f-]{36}$/i);
     expect(seen[0].sessionDate).toBe('2026-08-24');
     expect(seen[1]).toEqual(seen[0]);
+  });
+
+  it('persists and replays the exact retrospective envelope after a lost response', async () => {
+    const storage = new MemoryStorage();
+    const seen: unknown[] = [];
+    savePreparedRetrospectiveWorkout
+      .mockImplementationOnce(async (request) => {
+        const recovered = JSON.parse(storage.getItem('trophe:workout-workspace:nik') ?? '{}');
+        expect(recovered.retrospectiveRequest).toEqual(request);
+        seen.push(request);
+        return { ok: false };
+      })
+      .mockImplementationOnce(async (request) => {
+        seen.push(request);
+        return { ok: true, sessionId: 'canonical-history-session' };
+      });
+    const mounted = render(<ProviderHarness userId="nik" storage={storage} />);
+    await screen.findByRole('button', { name: 'Create Push draft' });
+    fireEvent.click(screen.getByRole('button', { name: 'Create Push draft' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add Bench Press' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Review draft' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save retrospective workout' }));
+    await waitFor(() => expect(savePreparedRetrospectiveWorkout).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Rename draft' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Return to draft' }));
+    expect(screen.getByText('Push:bench-press-3x8-12')).toBeTruthy();
+    expect(JSON.parse(storage.getItem('trophe:workout-workspace:nik') ?? '{}').retrospectiveRequest).toEqual(seen[0]);
+
+    mounted.unmount();
+    render(<ProviderHarness userId="nik" storage={storage} />);
+    expect(await screen.findByText('review')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry retrospective workout' }));
+    await waitFor(() => expect(savePreparedRetrospectiveWorkout).toHaveBeenCalledTimes(2));
+    expect(seen[1]).toEqual(seen[0]);
+    expect(await screen.findByText('completed')).toBeTruthy();
+    expect(JSON.parse(storage.getItem('trophe:workout-workspace:nik') ?? '{}')).toMatchObject({
+      stage: 'completed',
+      sessionId: 'canonical-history-session',
+      retrospectiveRequest: null,
+    });
+  });
+
+  it('never reuses a retrospective key for a later live start', async () => {
+    savePreparedRetrospectiveWorkout.mockResolvedValue({ ok: true, sessionId: 'history-session' });
+    startLiveSession.mockResolvedValue({ ok: true, sessionId: 'live-session' });
+    render(<ProviderHarness userId="nik" />);
+    await screen.findByRole('button', { name: 'Create Push draft' });
+    fireEvent.click(screen.getByRole('button', { name: 'Create Push draft' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add Bench Press' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Review draft' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save retrospective workout' }));
+    await screen.findByText('completed');
+    const retrospectiveKey = savePreparedRetrospectiveWorkout.mock.calls[0][0].idempotencyKey;
+    fireEvent.click(screen.getByRole('button', { name: 'Acknowledge completed summary' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Create Push draft' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add Bench Press' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Start live workout' }));
+    await waitFor(() => expect(startLiveSession).toHaveBeenCalledTimes(1));
+    expect(startLiveSession.mock.calls[0][0].idempotencyKey).not.toBe(retrospectiveKey);
   });
 
   it('coordinates the same recovered draft across two stale providers', async () => {

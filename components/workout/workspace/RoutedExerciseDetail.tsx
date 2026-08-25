@@ -13,8 +13,12 @@ export function RoutedExerciseDetail({ exercise, userId }: { exercise: Exercise;
   const router = useRouter();
   const workspace = useWorkoutWorkspace();
   const { t } = useI18n();
+  const startLocked = Boolean(workspace.state.startRequest);
+  const retrospectiveLocked = Boolean(workspace.state.retrospectiveRequest);
   const acceptsExercises = (workspace.state.stage === 'draft' || workspace.state.stage === 'review')
-    && workspace.state.draft?.kind === 'strength';
+    && workspace.state.draft?.kind === 'strength'
+    && !startLocked
+    && !retrospectiveLocked;
   const added = acceptsExercises
     && workspace.state.draft?.kind === 'strength'
     && workspace.state.draft.exercises.some((item) => item.exerciseId === exercise.id);
@@ -31,8 +35,17 @@ export function RoutedExerciseDetail({ exercise, userId }: { exercise: Exercise;
           router.push(workspace.state.stage === 'review' ? WORKOUT_ROUTES.review : WORKOUT_ROUTES.build);
         } : undefined}
         alternateAction={acceptsExercises ? undefined : {
-          label: canCreate ? t('workout.create_strength_draft') : t('workout.resume_current_workout'),
+          label: retrospectiveLocked ? t('workout.retry_same_save') : startLocked ? t('workout.retry_same_start') : canCreate ? t('workout.create_strength_draft') : t('workout.resume_current_workout'),
+          message: retrospectiveLocked ? t('workout.retrospective_request_locked') : startLocked ? t('workout.start_request_locked') : undefined,
           onClick: () => {
+            if (startLocked || retrospectiveLocked) {
+              if (retrospectiveLocked) {
+                void workspace.retryRetrospective().then((ok) => router.push(ok ? WORKOUT_ROUTES.live : WORKOUT_ROUTES.review));
+              } else {
+                router.push(WORKOUT_ROUTES.review);
+              }
+              return;
+            }
             if (canCreate) {
               workspace.createDraft({ name: t('workout.strength'), kind: 'strength' });
               return;

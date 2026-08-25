@@ -3,11 +3,13 @@ import type {
   DraftExercise,
   LiveClock,
   LiveStartRequestEnvelope,
+  RetrospectiveSaveRequestEnvelope,
   WorkoutDraft,
   WorkoutStage,
   WorkoutWorkspaceState,
 } from '@/lib/workout/workspace-state';
 import { WORKOUT_DRAFT_VERSION } from '@/lib/workout/workspace-state';
+import { retrospectivePayloadFingerprint } from '@/lib/workout/workspace-state';
 import { normalizeUuid } from '@/lib/workout/uuid';
 
 export interface WorkspaceStorage {
@@ -98,23 +100,70 @@ function isStartRequest(value: unknown): value is LiveStartRequestEnvelope {
     && (value.kind === 'strength' ? value.liveStructure.length > 0 : value.liveStructure.length === 0);
 }
 
+function isPainFlag(value: unknown): boolean {
+  return isRecord(value)
+    && hasOnlyKeys(value, ['exercise_id', 'body_part', 'severity', 'notes'])
+    && typeof value.exercise_id === 'string' && value.exercise_id.trim().length > 0
+    && typeof value.body_part === 'string' && value.body_part.trim().length > 0
+    && typeof value.severity === 'number' && Number.isInteger(value.severity) && value.severity >= 1 && value.severity <= 5
+    && (value.notes === undefined || typeof value.notes === 'string');
+}
+
+function isRetrospectiveRequest(value: unknown): value is RetrospectiveSaveRequestEnvelope {
+  if (!isRecord(value) || !hasOnlyKeys(value, [
+    'idempotencyKey', 'payloadFingerprint', 'sessionDate', 'kind', 'name', 'templateId',
+    'durationMinutes', 'painFlags', 'activity', 'distanceKm', 'effort', 'sets',
+  ])) return false;
+  if (normalizeUuid(value.idempotencyKey as string) === null
+    || typeof value.payloadFingerprint !== 'string' || !value.payloadFingerprint.trim()
+    || !isIsoDate(value.sessionDate)
+    || (value.kind !== 'strength' && value.kind !== 'cardio')
+    || typeof value.name !== 'string' || !value.name.trim()
+    || (value.templateId !== null && normalizeUuid(value.templateId as string) === null)
+    || typeof value.durationMinutes !== 'number' || !Number.isInteger(value.durationMinutes) || value.durationMinutes <= 0
+    || !Array.isArray(value.painFlags) || !value.painFlags.every(isPainFlag)
+    || !Array.isArray(value.sets)) return false;
+  const validSets = value.sets.every((set) => isRecord(set)
+    && hasOnlyKeys(set, ['exercise_id', 'set_number', 'weight_kg', 'reps', 'rpe', 'is_warmup', 'is_pr', 'superset_group'])
+    && typeof set.exercise_id === 'string' && set.exercise_id.trim().length > 0
+    && typeof set.set_number === 'number' && Number.isInteger(set.set_number) && set.set_number > 0
+    && (set.weight_kg === null || (typeof set.weight_kg === 'number' && Number.isFinite(set.weight_kg) && set.weight_kg >= 0))
+    && typeof set.reps === 'number' && Number.isInteger(set.reps) && set.reps > 0
+    && (set.rpe === null || (typeof set.rpe === 'number' && Number.isFinite(set.rpe) && set.rpe >= 1 && set.rpe <= 10))
+    && typeof set.is_warmup === 'boolean' && typeof set.is_pr === 'boolean'
+    && (set.superset_group === null || (typeof set.superset_group === 'number' && Number.isInteger(set.superset_group) && set.superset_group > 0)));
+  const activityValid = value.kind === 'cardio'
+    ? CARDIO_ACTIVITIES.includes(value.activity as CardioDraft['activity']) && value.sets.length === 0
+    : value.activity === null && value.distanceKm === null && value.effort === null && value.sets.length > 0;
+  if (!validSets || !activityValid
+    || (value.distanceKm !== null && (typeof value.distanceKm !== 'number' || !Number.isFinite(value.distanceKm) || value.distanceKm < 0))
+    || (value.effort !== null && (typeof value.effort !== 'number' || !Number.isFinite(value.effort) || value.effort < 1 || value.effort > 10))) return false;
+  const { idempotencyKey: _idempotencyKey, payloadFingerprint, ...payload } = value;
+  void _idempotencyKey;
+  return retrospectivePayloadFingerprint(payload as Omit<RetrospectiveSaveRequestEnvelope, 'idempotencyKey' | 'payloadFingerprint'>) === payloadFingerprint;
+}
+
 function parseState(value: unknown): WorkoutWorkspaceState | null {
   if (!isRecord(value) || value.version !== WORKOUT_DRAFT_VERSION
-    || !hasOnlyKeys(value, ['version', 'stage', 'draft', 'sessionId', 'clock', 'finishingFrom', 'clientRequestId', 'startRequest'])
+    || !hasOnlyKeys(value, ['version', 'stage', 'draft', 'sessionId', 'clock', 'finishingFrom', 'clientRequestId', 'startRequest', 'retrospectiveRequest'])
     || !WORKOUT_STAGES.includes(value.stage as WorkoutStage)
     || (value.draft !== null && !isDraft(value.draft))
     || (value.sessionId !== null && (typeof value.sessionId !== 'string' || value.sessionId !== value.sessionId.trim() || !value.sessionId))
     || (value.clock !== null && !isClock(value.clock))
     || (value.finishingFrom !== undefined && value.finishingFrom !== null && value.finishingFrom !== 'live' && value.finishingFrom !== 'paused')
     || (value.clientRequestId !== undefined && value.clientRequestId !== null && normalizeUuid(value.clientRequestId as string) === null)
-    || (value.startRequest !== undefined && value.startRequest !== null && !isStartRequest(value.startRequest))) return null;
+    || (value.startRequest !== undefined && value.startRequest !== null && !isStartRequest(value.startRequest))
+    || (value.retrospectiveRequest !== undefined && value.retrospectiveRequest !== null && !isRetrospectiveRequest(value.retrospectiveRequest))) return null;
   const hasDraft = value.draft !== null;
   const hasSession = typeof value.sessionId === 'string' && value.sessionId.trim().length > 0;
   const hasClock = value.clock !== null;
   const clockIsRunning = hasClock && (value.clock as LiveClock).runningSince !== null;
   const finishingFrom = value.finishingFrom ?? null;
   const startRequest = (value.startRequest as LiveStartRequestEnvelope | null | undefined) ?? null;
+  const retrospectiveRequest = (value.retrospectiveRequest as RetrospectiveSaveRequestEnvelope | null | undefined) ?? null;
   if (startRequest && value.clientRequestId !== startRequest.idempotencyKey) return null;
+  if (startRequest && retrospectiveRequest) return null;
+  if (retrospectiveRequest && value.clientRequestId === retrospectiveRequest.idempotencyKey) return null;
   const validStage = value.stage === 'home'
     ? !hasDraft && !hasSession && !hasClock && finishingFrom === null
     : value.stage === 'draft' || value.stage === 'review'
@@ -124,6 +173,7 @@ function parseState(value: unknown): WorkoutWorkspaceState | null {
           : value.stage === 'finishing' ? !clockIsRunning && (finishingFrom === 'live' || finishingFrom === 'paused')
             : !clockIsRunning && finishingFrom === null);
   if (!validStage) return null;
+  if (retrospectiveRequest && value.stage !== 'draft' && value.stage !== 'review') return null;
   return {
     stage: value.stage as WorkoutStage,
     draft: value.draft as WorkoutDraft | null,
@@ -132,6 +182,7 @@ function parseState(value: unknown): WorkoutWorkspaceState | null {
     finishingFrom,
     clientRequestId: (value.clientRequestId as string | null | undefined) ?? null,
     startRequest,
+    retrospectiveRequest,
   };
 }
 
@@ -175,14 +226,24 @@ export function loadWorkspaceState(storage: WorkspaceStorage, userId: string): W
   if (raw === null) return null;
   try {
     const parsed: unknown = JSON.parse(raw);
-    // Recover drafts written by the former controlled input while it briefly
-    // persisted an empty reps prescription. Preserve the rest of the draft and
-    // normalize only that unsafe transient value.
+    // Recover drafts written by former controlled inputs while they briefly
+    // persisted an empty reps prescription or a finite positive fractional set
+    // target. Preserve the rest of the workspace and normalize only those known
+    // legacy values. Half targets round up (`2.5 -> 3`) deterministically.
     if (isRecord(parsed) && isRecord(parsed.draft) && parsed.draft.kind === 'strength' && Array.isArray(parsed.draft.exercises)) {
-      parsed.draft.exercises = parsed.draft.exercises.map((exercise) => isRecord(exercise)
-        && typeof exercise.targetReps === 'string' && !exercise.targetReps.trim()
-        ? { ...exercise, targetReps: '8-12' }
-        : exercise);
+      parsed.draft.exercises = parsed.draft.exercises.map((exercise) => {
+        if (!isRecord(exercise)) return exercise;
+        const targetReps = typeof exercise.targetReps === 'string' && !exercise.targetReps.trim()
+          ? '8-12'
+          : exercise.targetReps;
+        const targetSets = typeof exercise.targetSets === 'number'
+          && Number.isFinite(exercise.targetSets)
+          && exercise.targetSets > 0
+          && !Number.isInteger(exercise.targetSets)
+          ? Math.max(1, Math.round(exercise.targetSets))
+          : exercise.targetSets;
+        return { ...exercise, targetReps, targetSets };
+      });
     }
     const state = parseState(parsed);
     if (state) return state;
@@ -203,6 +264,7 @@ export function saveWorkspaceState(storage: WorkspaceStorage, userId: string, st
     finishingFrom: state.finishingFrom ?? null,
     clientRequestId: state.clientRequestId,
     startRequest: state.startRequest ?? null,
+    retrospectiveRequest: state.retrospectiveRequest ?? null,
   };
   storage.setItem(workspaceStorageKey(userId), JSON.stringify(payload));
 }

@@ -9,17 +9,16 @@ import { ExerciseSetLogger, type SetLoggerValue } from '@/components/workout/wor
 import { LiveCardio, type CardioLogValues } from '@/components/workout/workspace/LiveCardio';
 import { useI18n } from '@/lib/i18n';
 import type { Exercise, PainFlag } from '@/lib/types';
-import { loadLivePrMap, saveRetrospectiveWorkout } from '@/lib/workout/live-session';
+import { loadLivePrMap, type RetrospectiveWorkoutInput } from '@/lib/workout/live-session';
 import { supersetGroupFor } from '@/lib/workout/supersets';
 import { displayToKg, useWeightUnit } from '@/lib/workout/units';
 import type { WorkoutDraft } from '@/lib/workout/workspace-state';
 
 interface RetrospectiveWorkoutLoggerProps {
   userId: string;
-  idempotencyKey: string;
   draft: WorkoutDraft;
   exercises: Exercise[];
-  onSaved(): void;
+  onSaveRequest(input: Omit<RetrospectiveWorkoutInput, 'idempotencyKey'>): Promise<boolean>;
   onCancel(): void;
 }
 
@@ -29,7 +28,7 @@ interface RetrospectiveLoggerRow {
   setNumber: number;
 }
 
-export function RetrospectiveWorkoutLogger({ userId, idempotencyKey, draft, exercises, onSaved, onCancel }: RetrospectiveWorkoutLoggerProps) {
+export function RetrospectiveWorkoutLogger({ userId, draft, exercises, onSaveRequest, onCancel }: RetrospectiveWorkoutLoggerProps) {
   const { t } = useI18n();
   const [unit] = useWeightUnit();
   const [completed, setCompleted] = useState<Record<string, SetLoggerValue>>({});
@@ -64,14 +63,12 @@ export function RetrospectiveWorkoutLogger({ userId, idempotencyKey, draft, exer
     if (draft.kind !== 'cardio' || saving) return;
     setSaving(true);
     setSaveError(false);
-    const result = await saveRetrospectiveWorkout({
-      idempotencyKey,
+    const saved = await onSaveRequest({
       draft: { ...draft, durationMinutes: values.durationMinutes, distanceKm: values.distanceKm, effort: values.effort },
       sets: [],
     });
     setSaving(false);
-    if (result.ok) onSaved();
-    else setSaveError(true);
+    if (!saved) setSaveError(true);
   };
 
   if (draft.kind === 'cardio') {
@@ -117,10 +114,9 @@ export function RetrospectiveWorkoutLogger({ userId, idempotencyKey, draft, exer
     if (saving || resolvedSets.length === 0) return;
     setSaving(true);
     setSaveError(false);
-    const result = await saveRetrospectiveWorkout({ idempotencyKey, draft, sets: resolvedSets, durationMinutes, painFlags });
+    const saved = await onSaveRequest({ draft, sets: resolvedSets, durationMinutes, painFlags });
     setSaving(false);
-    if (result.ok) onSaved();
-    else setSaveError(true);
+    if (!saved) setSaveError(true);
   };
 
   return (

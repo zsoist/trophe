@@ -14,11 +14,30 @@ export function ExerciseBrowser({ initialExercises = [], initialRecentIds = [] }
   const workspace = useWorkoutWorkspace();
   const { lang, t } = useI18n();
   const [exercises, setExercises] = useState(initialExercises);
+  const startLocked = Boolean(workspace.state.startRequest);
+  const retrospectiveLocked = Boolean(workspace.state.retrospectiveRequest);
   const acceptsExercises = (workspace.state.stage === 'draft' || workspace.state.stage === 'review')
-    && workspace.state.draft?.kind === 'strength';
+    && workspace.state.draft?.kind === 'strength'
+    && !startLocked
+    && !retrospectiveLocked;
   const parentRoute = workspace.state.stage === 'review' ? WORKOUT_ROUTES.review : WORKOUT_ROUTES.build;
 
   if (!acceptsExercises) {
+    if (startLocked || retrospectiveLocked) {
+      return (
+        <ExerciseRouteGate
+          actionLabel={t(retrospectiveLocked ? 'workout.retry_same_save' : 'workout.retry_same_start')}
+          message={t(retrospectiveLocked ? 'workout.retrospective_request_locked' : 'workout.start_request_locked')}
+          onAction={() => {
+            if (retrospectiveLocked) {
+              void workspace.retryRetrospective().then((ok) => router.push(ok ? WORKOUT_ROUTES.live : WORKOUT_ROUTES.review));
+              return;
+            }
+            router.push(WORKOUT_ROUTES.review);
+          }}
+        />
+      );
+    }
     const canCreate = workspace.state.stage === 'home';
     return (
       <ExerciseRouteGate

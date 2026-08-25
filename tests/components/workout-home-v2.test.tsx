@@ -4,9 +4,16 @@ import React from 'react';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const { startLiveSession, push } = vi.hoisted(() => ({ startLiveSession: vi.fn(), push: vi.fn() }));
+const { startLiveSession, savePreparedRetrospectiveWorkout, push } = vi.hoisted(() => ({
+  startLiveSession: vi.fn(), savePreparedRetrospectiveWorkout: vi.fn(), push: vi.fn(),
+}));
 
-vi.mock('@/lib/workout/live-session', () => ({ startLiveSession, discardEmptyLiveSession: vi.fn() }));
+vi.mock('@/lib/workout/live-session', () => ({
+  startLiveSession,
+  savePreparedRetrospectiveWorkout,
+  discardEmptyLiveSession: vi.fn(),
+  validateRetrospectiveWorkoutInput: vi.fn(() => true),
+}));
 vi.mock('@/lib/supabase', () => ({ supabase: { auth: { getUser: vi.fn() } } }));
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push }) }));
 vi.mock('framer-motion', () => ({
@@ -50,6 +57,8 @@ vi.mock('@/lib/i18n', () => ({
     'workout.continue_active': 'Continue workout', 'workout.view_completed_summary': 'View workout summary',
     'workout.draft_waiting': 'You have a workout in progress.',
     'workout.start_request_locked': 'This exact start request is waiting for a safe retry.',
+    'workout.retrospective_request_locked': 'This exact completed workout is waiting for a safe retry.',
+    'workout.retry_same_save': 'Retry same save', 'workout.saving': 'Saving…',
     'workout.continue_editing': 'Continue editing', 'workout.continue_review': 'Continue review',
     'workout.replace_choice_title': 'Replace this draft?',
     'workout.replace_choice_message': `Replace ${params?.current} with ${params?.next}? Your current draft will be removed.`,
@@ -63,7 +72,7 @@ import { WorkoutBuilder } from '@/components/workout/workspace/WorkoutBuilder';
 import { WorkoutReview } from '@/components/workout/workspace/WorkoutReview';
 import type { Exercise } from '@/lib/types';
 import { saveWorkspaceState } from '@/lib/workout/workspace-storage';
-import type { WorkoutStage, WorkoutWorkspaceState } from '@/lib/workout/workspace-state';
+import { retrospectivePayloadFingerprint, type WorkoutStage, type WorkoutWorkspaceState } from '@/lib/workout/workspace-state';
 
 class MemoryStorage {
   private readonly values = new Map<string, string>();
@@ -114,7 +123,7 @@ function RoutedWorkspace(props: { program: WorkoutHomeProgram | null; programLoa
   return <WorkoutHome {...props} exercises={exercises} recents={[]} routines={[]} />;
 }
 
-afterEach(() => { cleanup(); startLiveSession.mockReset(); push.mockReset(); });
+afterEach(() => { cleanup(); startLiveSession.mockReset(); savePreparedRetrospectiveWorkout.mockReset(); push.mockReset(); });
 
 describe('WorkoutHome', () => {
   it.each([
@@ -194,6 +203,33 @@ describe('WorkoutHome', () => {
     expect(screen.queryByRole('button', { name: 'Preview Pull' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Continue review' }));
     expect(push).toHaveBeenCalledWith('/dashboard/workout/review');
+  });
+
+  it('offers only an exact retrospective retry while an ambiguous save is pending', async () => {
+    savePreparedRetrospectiveWorkout.mockResolvedValue({ ok: true, sessionId: 'canonical-history' });
+    const payload = {
+      sessionDate: '2026-08-24', kind: 'strength' as const, name: 'Push', templateId: null,
+      durationMinutes: 30, painFlags: [], activity: null, distanceKm: null, effort: null,
+      sets: [{ exercise_id: 'bench', set_number: 1, weight_kg: 60, reps: 8, rpe: 8, is_warmup: false, is_pr: false, superset_group: null }],
+    };
+    const initialState: WorkoutWorkspaceState = {
+      stage: 'review', sessionId: null, clock: null, clientRequestId: null, startRequest: null,
+      retrospectiveRequest: {
+        idempotencyKey: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+        payloadFingerprint: retrospectivePayloadFingerprint(payload),
+        ...payload,
+      },
+      draft: { version: 2, name: 'Push', kind: 'strength', updatedAt: 1, exercises: [{ exerciseId: 'bench', targetSets: 3, targetReps: '8' }] },
+    };
+    const request = initialState.retrospectiveRequest!;
+    render(<WorkoutHomeHarness initialState={initialState} forceHome />);
+
+    expect(await screen.findByText('This exact completed workout is waiting for a safe retry.')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Build strength workout' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Preview Pull' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry same save' }));
+    await waitFor(() => expect(savePreparedRetrospectiveWorkout).toHaveBeenCalledWith(request));
+    expect(push).toHaveBeenCalledWith('/dashboard/workout/live');
   });
 
   it('replaces an existing routine with the named coach plan before entering Review', async () => {

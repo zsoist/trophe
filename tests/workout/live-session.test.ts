@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { WorkoutDraft } from '@/lib/workout/workspace-state';
+import { retrospectivePayloadFingerprint, type RetrospectiveSaveRequestEnvelope, type WorkoutDraft } from '@/lib/workout/workspace-state';
 
 const persistence = vi.hoisted(() => ({
   createWorkoutSession: vi.fn(),
@@ -42,6 +42,7 @@ import {
   recoverLiveSupersetLinks,
   removeAndNormalizeLiveExercises,
   saveRetrospectiveWorkout,
+  savePreparedRetrospectiveWorkout,
   startLiveSession,
   uncompleteLiveSet,
   updateLiveStructure,
@@ -280,6 +281,36 @@ describe('live workout persistence boundary', () => {
     expect(persistence.createWorkoutSession).not.toHaveBeenCalled();
     expect(persistence.insertWorkoutSets).not.toHaveBeenCalled();
     expect(persistence.finishWorkoutSession).not.toHaveBeenCalled();
+  });
+
+  it('replays one prepared retrospective envelope without deriving any payload fields', async () => {
+    persistence.saveRetrospectiveWorkoutAtomic.mockResolvedValue('session-history');
+    const payload = {
+      sessionDate: '2026-08-24',
+      kind: 'strength' as const,
+      name: 'Upper',
+      templateId: null,
+      durationMinutes: 30,
+      painFlags: [],
+      activity: null,
+      distanceKm: null,
+      effort: null,
+      sets: [{
+        exercise_id: 'bench', set_number: 1, weight_kg: 60, reps: 8, rpe: 8,
+        is_warmup: false, is_pr: false, superset_group: null,
+      }],
+    };
+    const request: RetrospectiveSaveRequestEnvelope = {
+      idempotencyKey,
+      payloadFingerprint: retrospectivePayloadFingerprint(payload),
+      ...payload,
+    };
+
+    await expect(savePreparedRetrospectiveWorkout(request)).resolves.toEqual({ ok: true, sessionId: 'session-history' });
+    expect(persistence.saveRetrospectiveWorkoutAtomic).toHaveBeenCalledWith({ idempotencyKey, ...payload });
+
+    await expect(savePreparedRetrospectiveWorkout({ ...request, durationMinutes: 31 })).resolves.toEqual({ ok: false });
+    expect(persistence.saveRetrospectiveWorkoutAtomic).toHaveBeenCalledTimes(1);
   });
 
   it('fails an atomic retrospective strength RPC without client-side partial cleanup', async () => {

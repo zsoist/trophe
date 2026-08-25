@@ -3,7 +3,7 @@
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { AlertTriangle } from 'lucide-react';
-import { useEffect, useId, useRef } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import { useI18n } from '@/lib/i18n';
 import { Button } from './Button';
@@ -60,13 +60,31 @@ export function ConfirmSheet({
   const { t } = useI18n();
   const dialogRef = useRef<HTMLDivElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
+  const confirmInFlightRef = useRef(false);
+  const [confirmInFlight, setConfirmInFlight] = useState(false);
   const titleId = useId();
   const descriptionId = useId();
   const confirmText = confirmLabel ?? t('confirm.confirm');
   const cancelText = cancelLabel ?? t('confirm.cancel');
+  const busy = loading || confirmInFlight;
+
+  async function handleConfirm() {
+    if (confirmInFlightRef.current || loading) return;
+    confirmInFlightRef.current = true;
+    setConfirmInFlight(true);
+    try {
+      await onConfirm();
+    } catch {
+      // Consumers own error presentation. Releasing the guard permits an
+      // intentional retry without producing an unhandled rejection.
+    } finally {
+      confirmInFlightRef.current = false;
+      setConfirmInFlight(false);
+    }
+  }
 
   function onDialogKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (event.key === 'Escape' && !loading) {
+    if (event.key === 'Escape' && !busy) {
       event.preventDefault();
       onCancel();
       return;
@@ -124,7 +142,7 @@ export function ConfirmSheet({
           animate={{ opacity: 1 }}
           exit={reducedMotion ? undefined : { opacity: 0 }}
           className="fixed inset-0 z-[var(--z-sheet,50)] flex items-end sm:items-center justify-center bg-[var(--canvas)]/80 backdrop-blur-sm"
-          onClick={loading ? undefined : onCancel}
+          onClick={busy ? undefined : onCancel}
         >
           <motion.div
             initial={reducedMotion ? { opacity: 0 } : { y: '100%', opacity: 0 }}
@@ -193,18 +211,18 @@ export function ConfirmSheet({
                 <Button
                   variant="ghost"
                   onClick={onCancel}
-                  disabled={loading}
+                  disabled={busy}
                   className="flex-1 text-[13px]"
                 >
                   {cancelText}
                 </Button>
                 <Button
                   variant={danger ? 'danger' : 'primary'}
-                  onClick={() => void onConfirm()}
-                  disabled={loading}
+                  onClick={() => void handleConfirm()}
+                  disabled={busy}
                   className="flex-1 gap-2 text-[13px]"
                 >
-                  {loading && (
+                  {busy && (
                     <span
                       aria-hidden
                       className="animate-spin inline-block"

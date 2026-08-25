@@ -21,13 +21,13 @@ export default function WorkoutBuildPage() {
 
   useEffect(() => {
     if (!workspace.ready) return;
-    if (workspace.state.startRequest && (workspace.state.stage === 'draft' || workspace.state.stage === 'review')) {
+    if ((workspace.state.startRequest || workspace.state.retrospectiveRequest) && (workspace.state.stage === 'draft' || workspace.state.stage === 'review')) {
       router.replace(WORKOUT_ROUTES.review);
       return;
     }
     if (workspace.state.stage === 'draft' || workspace.state.stage === 'review') return;
     router.replace(workoutRouteForStage(workspace.state.stage));
-  }, [router, workspace.ready, workspace.state.stage, workspace.state.startRequest]);
+  }, [router, workspace.ready, workspace.state.retrospectiveRequest, workspace.state.stage, workspace.state.startRequest]);
 
   useEffect(() => {
     let active = true;
@@ -65,7 +65,7 @@ export default function WorkoutBuildPage() {
     }
   };
 
-  if (!workspace.ready || workspace.state.startRequest || (workspace.state.stage !== 'draft' && workspace.state.stage !== 'review')) {
+  if (!workspace.ready || workspace.state.startRequest || workspace.state.retrospectiveRequest || (workspace.state.stage !== 'draft' && workspace.state.stage !== 'review')) {
     return <main role="status" aria-label={t('workout.loading_build')} className="mx-auto min-h-24 max-w-2xl animate-pulse rounded-xl bg-[var(--surface-subtle)]" />;
   }
 

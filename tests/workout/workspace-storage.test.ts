@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { clearWorkspaceState, loadWorkspaceState, saveWorkspaceState, workspaceStorageKey } from '@/lib/workout/workspace-storage';
-import { createInitialWorkspaceState, workoutWorkspaceReducer } from '@/lib/workout/workspace-state';
+import { createInitialWorkspaceState, retrospectivePayloadFingerprint, workoutWorkspaceReducer } from '@/lib/workout/workspace-state';
 
 class MapStorage {
   private readonly values = new Map<string, string>();
@@ -100,6 +100,31 @@ describe('workout workspace recovery', () => {
     expect(loadWorkspaceState(storage, 'nik')).toBeNull();
   });
 
+  it('strictly persists the exact retrospective request and rejects payload drift', () => {
+    const storage = new MapStorage();
+    let state = workoutWorkspaceReducer(createInitialWorkspaceState(), {
+      type: 'draft.created', payload: { name: 'Upper', kind: 'strength', updatedAt: 10 },
+    });
+    const payload = {
+      sessionDate: '2026-08-24', kind: 'strength' as const, name: 'Upper', templateId: null,
+      durationMinutes: 30, painFlags: [], activity: null, distanceKm: null, effort: null,
+      sets: [{ exercise_id: 'bench', set_number: 1, weight_kg: 60, reps: 8, rpe: null, is_warmup: false, is_pr: false, superset_group: null }],
+    };
+    const retrospectiveRequest = {
+      idempotencyKey: '22222222-2222-4222-8222-222222222222',
+      payloadFingerprint: retrospectivePayloadFingerprint(payload),
+      ...payload,
+    };
+    state = workoutWorkspaceReducer(state, { type: 'retrospective.prepared', payload: { retrospectiveRequest } });
+    saveWorkspaceState(storage, 'nik', state);
+    expect(loadWorkspaceState(storage, 'nik')?.retrospectiveRequest).toEqual(retrospectiveRequest);
+
+    const stored = JSON.parse(storage.getItem(workspaceStorageKey('nik')) ?? '{}');
+    stored.retrospectiveRequest.sets[0].reps = 10;
+    storage.setItem(workspaceStorageKey('nik'), JSON.stringify(stored));
+    expect(loadWorkspaceState(storage, 'nik')).toBeNull();
+  });
+
   it.each([
     ['live', null, 'session-1', { runningSince: 1, accumulatedMs: 0 }],
     ['paused', { version: 2, name: 'Legs', kind: 'strength', updatedAt: 0, exercises: [] }, null, null],
@@ -158,7 +183,6 @@ describe('workout workspace recovery', () => {
 
   it.each([
     ['zero target sets', { draft: { exercises: [{ exerciseId: 'bench', targetSets: 0, targetReps: '8' }] } }],
-    ['fractional target sets', { draft: { exercises: [{ exerciseId: 'bench', targetSets: 2.5, targetReps: '8' }] } }],
     ['negative accumulated clock', { clock: { runningSince: null, accumulatedMs: -1 } }],
     ['untrimmed session id', { sessionId: ' session-1 ' }],
   ])('rejects invalid recovery values: %s', (_name, patch) => {
@@ -179,6 +203,33 @@ describe('workout workspace recovery', () => {
 
     expect(loadWorkspaceState(storage, 'nik')).toBeNull();
     expect(storage.getItem(workspaceStorageKey('nik'))).toBeNull();
+  });
+
+  it.each([
+    ['draft', null, null, null],
+    ['review', null, null, null],
+    ['live', 'session-1', { runningSince: 1, accumulatedMs: 0 }, null],
+    ['paused', 'session-1', { runningSince: null, accumulatedMs: 1000 }, null],
+    ['finishing', 'session-1', { runningSince: null, accumulatedMs: 1000 }, 'paused'],
+    ['completed', 'session-1', { runningSince: null, accumulatedMs: 1000 }, null],
+  ] as const)('normalizes a legacy fractional target in recoverable %s without losing the workspace', (stage, sessionId, clock, finishingFrom) => {
+    const storage = new MapStorage();
+    storage.setItem(workspaceStorageKey('nik'), JSON.stringify({
+      version: 2,
+      stage,
+      draft: { version: 2, name: 'Push', kind: 'strength', updatedAt: 0, exercises: [{ exerciseId: 'bench', targetSets: 2.5, targetReps: '8' }] },
+      sessionId,
+      clock,
+      finishingFrom,
+      clientRequestId: null,
+      startRequest: null,
+    }));
+
+    expect(loadWorkspaceState(storage, 'nik')).toMatchObject({
+      stage,
+      draft: { exercises: [{ exerciseId: 'bench', targetSets: 3, targetReps: '8' }] },
+    });
+    expect(storage.getItem(workspaceStorageKey('nik'))).not.toBeNull();
   });
 
   it('normalizes the former blank-reps transient without discarding the recoverable workspace', () => {
