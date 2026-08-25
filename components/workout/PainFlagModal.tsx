@@ -29,21 +29,25 @@ export default function PainFlagModal({ exerciseId, exerciseName = exerciseId, s
   const { t } = useI18n();
   const reducedMotion = useReducedMotion();
   const dialogRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
   const mutationIdRef = useRef(globalThis.crypto.randomUUID());
   const titleId = useId();
   const [bodyPart, setBodyPart] = useState(suggestedBodyPart);
   const [severity, setSeverity] = useState(1);
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
   const [saveError, setSaveError] = useState(false);
+
+  useEffect(() => { onCloseRef.current = onClose; savingRef.current = saving; });
 
   useEffect(() => {
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const frame = requestAnimationFrame(() => dialogRef.current?.focus());
-    const closeOnEscape = (event: KeyboardEvent) => event.key === 'Escape' && !saving && onClose();
+    const closeOnEscape = (event: KeyboardEvent) => event.key === 'Escape' && !savingRef.current && onCloseRef.current();
     document.addEventListener('keydown', closeOnEscape);
     return () => { cancelAnimationFrame(frame); document.removeEventListener('keydown', closeOnEscape); previousFocus?.focus(); };
-  }, [onClose, saving]);
+  }, []);
 
   const save = async () => {
     if (!bodyPart.trim() || saving) return;
@@ -51,12 +55,12 @@ export default function PainFlagModal({ exerciseId, exerciseName = exerciseId, s
     try {
       const result = await onSave({ exercise_id: exerciseId, body_part: bodyPart.trim(), severity, notes: notes.trim() || undefined }, mutationIdRef.current);
       if (result === false) { setSaveError(true); return; }
-      onClose();
+      onCloseRef.current();
     } catch { setSaveError(true); } finally { setSaving(false); }
   };
 
   return (
-    <motion.div initial={reducedMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={reducedMotion ? undefined : { opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: 'var(--surface-overlay)' }} onClick={() => { if (!saving) onClose(); }}>
+    <motion.div initial={reducedMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={reducedMotion ? undefined : { opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: 'var(--surface-overlay)' }} onClick={() => { if (!saving) onCloseRef.current(); }}>
       <motion.div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} onKeyDown={(event) => trapFocus(event, dialogRef.current)} initial={reducedMotion ? false : { scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={reducedMotion ? undefined : { scale: 0.9, opacity: 0 }} className="glass-elevated safe-bottom w-full max-w-sm p-6 pb-[calc(5rem+env(safe-area-inset-bottom))] outline-none" onClick={(event) => event.stopPropagation()}>
         <div className="flex items-center gap-2"><AlertTriangle size={20} className="text-[var(--status-danger-fg)]" /><h3 id={titleId} className="text-lg font-semibold text-[var(--content-primary)]">{t('painflag.title')}</h3></div>
         <p className="mt-1 text-sm text-[var(--content-secondary)]"><span className="font-medium">{t('painflag.exercise')}:</span> {exerciseName}</p>
@@ -66,7 +70,7 @@ export default function PainFlagModal({ exerciseId, exerciseName = exerciseId, s
         </div></fieldset>
         <label className="mt-4 block text-sm font-medium text-[var(--content-secondary)]">{t('painflag.notes_label')}<textarea aria-label={t('painflag.notes_label')} placeholder={t('painflag.notes_placeholder')} value={notes} onChange={(event) => setNotes(event.target.value)} className="input-dark mt-1 h-20 resize-none text-base" /></label>
         <p className="mt-2 text-xs text-[var(--content-secondary)]">{t('painflag.coach_disclosure')}</p>
-        <div className="mt-4 flex gap-2"><button type="button" disabled={saving} onClick={onClose} className="btn-ghost min-h-11 min-w-11 flex-1 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:opacity-50">{t('painflag.cancel')}</button><button type="button" disabled={saving} onClick={() => void save()} className="min-h-11 min-w-11 flex-1 rounded-xl border border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] py-2 text-sm font-semibold text-[var(--status-danger-fg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:opacity-50">{saving ? t('painflag.saving') : t('painflag.save')}</button></div>
+        <div className="mt-4 flex gap-2"><button type="button" disabled={saving} onClick={() => onCloseRef.current()} className="btn-ghost min-h-11 min-w-11 flex-1 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:opacity-50">{t('painflag.cancel')}</button><button type="button" disabled={saving} onClick={() => void save()} className="min-h-11 min-w-11 flex-1 rounded-xl border border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] py-2 text-sm font-semibold text-[var(--status-danger-fg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:opacity-50">{saving ? t('painflag.saving') : t('painflag.save')}</button></div>
         {saveError ? <p role="alert" className="mt-3 text-sm text-[var(--status-danger-fg)]">{t('painflag.save_failed')}</p> : null}
       </motion.div>
     </motion.div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pause, Play, Plus, Square } from 'lucide-react';
 import ExerciseInfoSheet from '@/components/workout/ExerciseInfoSheet';
 import PainFlagModal from '@/components/workout/PainFlagModal';
@@ -61,7 +61,8 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
   const [prMap, setPrMap] = useState<Record<string, number>>({});
   const [painExerciseId, setPainExerciseId] = useState<string | null>(null);
   const [infoExercise, setInfoExercise] = useState<Exercise | null>(null);
-  const [plateWeightKg, setPlateWeightKg] = useState<number | null>(null);
+  const [plateContext, setPlateContext] = useState<{ exerciseId: string; weightKg: number } | null>(null);
+  const warmupNumbersRef = useRef(new Map<string, number[]>());
   const [finishRequested, setFinishRequested] = useState(false);
   const [savingFinish, setSavingFinish] = useState(false);
   const [finishError, setFinishError] = useState(false);
@@ -381,7 +382,7 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
               }}
               onTechnique={() => exercise && setInfoExercise(exercise)}
               onPain={() => setPainExerciseId(row.exerciseId)}
-              onPlateCalculator={(displayWeight) => setPlateWeightKg(displayWeight === null ? null : displayToKg(displayWeight, unit))}
+              onPlateCalculator={(displayWeight) => displayWeight !== null && setPlateContext({ exerciseId: row.exerciseId, weightKg: displayToKg(displayWeight, unit) })}
               onSuperset={() => void toggleSuperset(row.exerciseId)}
               onRemove={() => void removeExercise(row.exerciseId)}
             />
@@ -421,14 +422,28 @@ export function LiveWorkout({ exercises, userId = null }: LiveWorkoutProps) {
         />
       ) : null}
 
-      {painExerciseId ? <PainFlagModal exerciseId={painExerciseId} onSave={async (flag, mutationId) => {
+      {painExerciseId ? <PainFlagModal exerciseId={painExerciseId} exerciseName={exerciseById.get(painExerciseId)?.name ?? draft.exercises.find((exercise) => exercise.exerciseId === painExerciseId)?.exerciseName ?? t('painflag.current_exercise')} suggestedBodyPart={exerciseById.get(painExerciseId)?.muscle_group ?? ''} onSave={async (flag, mutationId) => {
         const saved = await runMutation('pain', () => appendLivePainFlag(sessionId, mutationId, flag), (candidate) => candidate.ok);
         if (!saved?.ok) return false;
         setPainFlags(saved.flags);
         return true;
       }} onClose={() => setPainExerciseId(null)} /> : null}
       {infoExercise ? <ExerciseInfoSheet exercise={infoExercise} userId={userId} onClose={() => setInfoExercise(null)} /> : null}
-      {plateWeightKg !== null ? <PlateCalculator weightKg={plateWeightKg} unit={unit} onClose={() => setPlateWeightKg(null)} /> : null}
+      {plateContext ? <PlateCalculator weightKg={plateContext.weightKg} unit={unit} exerciseContext={{ exerciseId: plateContext.exerciseId, mode: 'live' }} onAddWarmupSets={async (sets) => {
+        const key = `${plateContext.exerciseId}:${sets.map((set) => `${set.weight}:${set.reps}`).join(',')}`;
+        const numbers = warmupNumbersRef.current.get(key) ?? sets.map((_, index) => rows.filter((row) => row.exerciseId === plateContext.exerciseId).reduce((max, row) => Math.max(max, row.setNumber), 0) + index + 1);
+        warmupNumbersRef.current.set(key, numbers);
+        const saved: PersistedWorkoutSet[] = [];
+        for (let index = 0; index < sets.length; index += 1) {
+          const set = sets[index]; const setNumber = numbers[index];
+          const result = await runMutation(`set:${plateContext.exerciseId}:${setNumber}`, () => completeLiveSet({ sessionId, exerciseId: plateContext.exerciseId, setNumber, weightKg: displayToKg(set.weight, unit), reps: set.reps, rpe: null, isWarmup: true, isPr: false, supersetGroup: supersetGroup(plateContext.exerciseId) }), (candidate) => candidate.ok);
+          if (!result?.ok) return false;
+          saved.push({ id: result.setId, session_id: sessionId, exercise_id: plateContext.exerciseId, set_number: setNumber, weight_kg: displayToKg(set.weight, unit), reps: set.reps, rpe: null, is_warmup: true, is_pr: false, superset_group: supersetGroup(plateContext.exerciseId), notes: null });
+        }
+        setPersistedSets((current) => [...current.filter((item) => !saved.some((set) => set.exercise_id === item.exercise_id && set.set_number === item.set_number)), ...saved]);
+        setExtraRows((current) => [...current, ...numbers.filter((setNumber) => !rows.some((row) => row.exerciseId === plateContext.exerciseId && row.setNumber === setNumber)).map((setNumber) => ({ exerciseId: plateContext.exerciseId, setNumber }))]);
+        return true;
+      }} onClose={() => setPlateContext(null)} /> : null}
     </main>
   );
 }

@@ -34,7 +34,8 @@ export function RetrospectiveWorkoutLogger({ userId, idempotencyKey, draft, exer
   const [painFlags, setPainFlags] = useState<PainFlag[]>([]);
   const [painExerciseId, setPainExerciseId] = useState<string | null>(null);
   const [infoExercise, setInfoExercise] = useState<Exercise | null>(null);
-  const [plateWeightKg, setPlateWeightKg] = useState<number | null>(null);
+  const [plateContext, setPlateContext] = useState<{ exerciseId: string; weightKg: number } | null>(null);
+  const [warmupRows, setWarmupRows] = useState<Array<{ exerciseId: string; setNumber: number }>>([]);
   const [confirming, setConfirming] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(false);
@@ -76,7 +77,7 @@ export function RetrospectiveWorkoutLogger({ userId, idempotencyKey, draft, exer
     );
   }
 
-  const rows = draft.exercises.flatMap((exercise) => Array.from({ length: exercise.targetSets }, (_, index) => ({ exerciseId: exercise.exerciseId, setNumber: index + 1 })));
+  const rows = [...draft.exercises.flatMap((exercise) => Array.from({ length: exercise.targetSets }, (_, index) => ({ exerciseId: exercise.exerciseId, setNumber: index + 1 }))), ...warmupRows];
   const keyFor = (exerciseId: string, setNumber: number) => `${exerciseId}:${setNumber}`;
   const resolvedSets: CompletedSetInput[] = Object.entries(completed).map(([key, value]) => {
     const [exerciseId, rawSetNumber] = key.split(':');
@@ -129,7 +130,7 @@ export function RetrospectiveWorkoutLogger({ userId, idempotencyKey, draft, exer
             onUndo={async () => { setCompleted((current) => { const next = { ...current }; delete next[key]; return next; }); return true; }}
             onTechnique={() => exercise && setInfoExercise(exercise)}
             onPain={() => setPainExerciseId(row.exerciseId)}
-            onPlateCalculator={(weight) => setPlateWeightKg(weight === null ? null : displayToKg(weight, unit))}
+            onPlateCalculator={(weight) => weight !== null && setPlateContext({ exerciseId: row.exerciseId, weightKg: displayToKg(weight, unit) })}
             onSuperset={() => {
               const index = draft.exercises.findIndex((candidate) => candidate.exerciseId === row.exerciseId);
               if (index < 0 || index >= draft.exercises.length - 1) return;
@@ -156,9 +157,15 @@ export function RetrospectiveWorkoutLogger({ userId, idempotencyKey, draft, exer
         </div>
       ) : null}
 
-      {painExerciseId ? <PainFlagModal exerciseId={painExerciseId} onSave={(flag) => setPainFlags((current) => [...current, flag])} onClose={() => setPainExerciseId(null)} /> : null}
+      {painExerciseId ? <PainFlagModal exerciseId={painExerciseId} exerciseName={exerciseById.get(painExerciseId)?.name ?? draft.exercises.find((exercise) => exercise.exerciseId === painExerciseId)?.exerciseName ?? t('painflag.current_exercise')} suggestedBodyPart={exerciseById.get(painExerciseId)?.muscle_group ?? ''} onSave={(flag) => setPainFlags((current) => [...current, flag])} onClose={() => setPainExerciseId(null)} /> : null}
       {infoExercise ? <ExerciseInfoSheet exercise={infoExercise} userId={userId} onClose={() => setInfoExercise(null)} /> : null}
-      {plateWeightKg !== null ? <PlateCalculator weightKg={plateWeightKg} unit={unit} onClose={() => setPlateWeightKg(null)} /> : null}
+      {plateContext ? <PlateCalculator weightKg={plateContext.weightKg} unit={unit} exerciseContext={{ exerciseId: plateContext.exerciseId, mode: 'draft' }} onAddWarmupSets={async (sets) => {
+        const base = rows.filter((row) => row.exerciseId === plateContext.exerciseId).reduce((max, row) => Math.max(max, row.setNumber), 0);
+        const next = sets.map((set, index) => ({ exerciseId: plateContext.exerciseId, setNumber: base + index + 1 }));
+        setWarmupRows((current) => [...current, ...next]);
+        setCompleted((current) => ({ ...current, ...Object.fromEntries(next.map((row, index) => [`${row.exerciseId}:${row.setNumber}`, { weight: sets[index].weight, reps: sets[index].reps, rpe: null, isWarmup: true }])) }));
+        return true;
+      }} onClose={() => setPlateContext(null)} /> : null}
     </section>
   );
 }

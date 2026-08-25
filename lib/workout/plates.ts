@@ -1,69 +1,77 @@
 import type { WeightUnit } from '@/lib/workout/units';
 
-export type PlateLoadInput = { total: number; bar: number; /** Plate denominations available for each side. */ plates: number[] };
-export type PlateLoad = { exact: boolean; /** One mirrored side's ordered stack. */ perSide: number[]; achievedTotal: number };
-export type WarmupSet = { percentage: number; reps: number; weight: number };
+export type PlateLoadInput = { total: number; bar: number; plates: number[] };
+export type PlateLoad = { exact: boolean; perSide: number[]; achievedTotal: number };
+export type WarmupSet = { percentage: number; achievedPercentage: number; reps: number; weight: number };
 export type WarmupRampInput = { workingWeight: number; bar: number; plates: number[]; unit: WeightUnit };
 
+const SCALE = 100;
+const MAX_TOTAL = 2_000;
+const MAX_BAR = 100;
+const MAX_DENOMINATION = 100;
+const MAX_DENOMINATIONS = 12;
+const MAX_PLATES_PER_SIDE = 32;
+const MAX_SIDE_TICKS = (MAX_TOTAL * SCALE) / 2;
 const EPSILON = 1e-6;
 
-function decimalScale(values: number[]): number {
-  const decimals = values.reduce((largest, value) => {
-    const text = value.toString().toLowerCase();
-    const exponent = text.indexOf('e');
-    if (exponent >= 0) return Math.max(largest, Number(text.slice(exponent + 1)) * -1);
-    const point = text.indexOf('.');
-    return Math.max(largest, point >= 0 ? text.length - point - 1 : 0);
-  }, 0);
-  return 10 ** Math.min(3, Math.max(0, decimals));
-}
-
 function normalizedPlates(plates: number[]): number[] {
-  return [...new Set(plates.filter((plate) => Number.isFinite(plate) && plate > 0))].sort((a, b) => b - a);
+  if (plates.length > MAX_DENOMINATIONS) return [];
+  return [...new Set(plates.filter((plate) => Number.isFinite(plate) && plate > 0 && plate <= MAX_DENOMINATION).map((plate) => Math.round(plate * SCALE) / SCALE))].sort((a, b) => b - a);
 }
 
-/** Finds the heaviest safe (never above target) symmetric loading. */
-export function calculatePlateLoad({ total, bar, plates }: PlateLoadInput): PlateLoad {
-  if (!Number.isFinite(total) || !Number.isFinite(bar) || total < bar || bar < 0) return { exact: false, perSide: [], achievedTotal: 0 };
-  const available = normalizedPlates(plates);
-  const targetPerSide = (total - bar) / 2;
-  if (Math.abs(targetPerSide) < EPSILON) return { exact: true, perSide: [], achievedTotal: bar };
-  if (available.length === 0) return { exact: false, perSide: [], achievedTotal: bar };
+function invalid(input: PlateLoadInput): boolean {
+  return !Number.isFinite(input.total) || !Number.isFinite(input.bar) || input.total < 0 || input.total > MAX_TOTAL || input.bar < 0 || input.bar > MAX_BAR;
+}
 
-  const scale = decimalScale([targetPerSide, bar, ...available]);
-  const targetTicks = Math.max(0, Math.floor(targetPerSide * scale + EPSILON));
-  const plateTicks = available.map((plate) => Math.round(plate * scale)).filter((plate) => plate > 0);
-  const reachable = new Uint8Array(targetTicks + 1);
-  const previous = new Int32Array(targetTicks + 1).fill(-1);
-  reachable[0] = 1;
-  for (let current = 0; current <= targetTicks; current += 1) {
-    if (!reachable[current]) continue;
+/**
+ * Bounded rack search. Its memory is fixed by realistic rack limits, never by
+ * a typed target, and evaluates both lower and higher achievable totals.
+ */
+export function calculatePlateLoad(input: PlateLoadInput): PlateLoad {
+  if (invalid(input)) return { exact: false, perSide: [], achievedTotal: 0 };
+  const plates = normalizedPlates(input.plates);
+  const barTicks = Math.round(input.bar * SCALE);
+  const totalTicks = Math.round(input.total * SCALE);
+  if (!plates.length || totalTicks <= barTicks) return { exact: totalTicks === barTicks, perSide: [], achievedTotal: input.bar };
+
+  const plateTicks = plates.map((plate) => Math.round(plate * SCALE));
+  const seen = new Uint8Array(MAX_SIDE_TICKS + 1);
+  const count = new Uint8Array(MAX_SIDE_TICKS + 1);
+  const previous = new Int32Array(MAX_SIDE_TICKS + 1).fill(-1);
+  const queue = [0];
+  seen[0] = 1;
+  for (let cursor = 0; cursor < queue.length; cursor += 1) {
+    const current = queue[cursor];
+    if (count[current] >= MAX_PLATES_PER_SIDE) continue;
     for (let index = 0; index < plateTicks.length; index += 1) {
       const next = current + plateTicks[index];
-      if (next <= targetTicks && !reachable[next]) { reachable[next] = 1; previous[next] = index; }
+      if (next <= MAX_SIDE_TICKS && !seen[next]) { seen[next] = 1; count[next] = count[current] + 1; previous[next] = index; queue.push(next); }
     }
   }
-  let achievedTicks = targetTicks;
-  while (achievedTicks > 0 && !reachable[achievedTicks]) achievedTicks -= 1;
-  const perSide: number[] = [];
-  for (let current = achievedTicks; current > 0;) {
-    const index = previous[current];
-    if (index < 0) break;
-    perSide.push(available[index]);
-    current -= plateTicks[index];
+  let bestSide = 0;
+  let bestDistance = Math.abs(barTicks - totalTicks);
+  for (let side = 1; side <= MAX_SIDE_TICKS; side += 1) {
+    if (!seen[side]) continue;
+    const achieved = barTicks + side * 2;
+    const distance = Math.abs(achieved - totalTicks);
+    if (distance < bestDistance || (distance === bestDistance && achieved < barTicks + bestSide * 2)) { bestSide = side; bestDistance = distance; }
   }
-  const achievedTotal = Math.round((bar + (achievedTicks / scale) * 2) * scale) / scale;
-  return { exact: Math.abs(achievedTotal - total) < EPSILON, perSide: perSide.sort((a, b) => b - a), achievedTotal };
+  const perSide: number[] = [];
+  for (let current = bestSide; current > 0;) { const index = previous[current]; if (index < 0) break; perSide.push(plates[index]); current -= plateTicks[index]; }
+  const achievedTotal = Math.round((barTicks + bestSide * 2)) / SCALE;
+  return { exact: Math.abs(achievedTotal - input.total) < EPSILON, perSide: perSide.sort((a, b) => b - a), achievedTotal };
 }
 
-/** Alias that makes nearest-load intent explicit at call sites. */
 export function nearestPlateLoad(input: PlateLoadInput): PlateLoad { return calculatePlateLoad(input); }
 
-/** Builds conservative 40/60/80% warm-up suggestions for the chosen rack. */
+/** Returns only unique, non-increasing-load suggestions that can be inserted safely. */
 export function buildWarmupRamp({ workingWeight, bar, plates }: WarmupRampInput): WarmupSet[] {
-  return [{ percentage: 40, reps: 10 }, { percentage: 60, reps: 6 }, { percentage: 80, reps: 3 }].map(({ percentage, reps }) => {
-    const target = workingWeight * (percentage / 100);
-    const weight = target < bar ? bar : nearestPlateLoad({ total: target, bar, plates }).achievedTotal;
-    return { percentage, reps, weight };
+  if (!Number.isFinite(workingWeight) || workingWeight <= bar || invalid({ total: workingWeight, bar, plates })) return [];
+  const seenWeights = new Set<number>();
+  return [{ percentage: 40, reps: 10 }, { percentage: 60, reps: 6 }, { percentage: 80, reps: 3 }].flatMap(({ percentage, reps }) => {
+    const load = nearestPlateLoad({ total: workingWeight * (percentage / 100), bar, plates });
+    if (load.achievedTotal <= 0 || load.achievedTotal > workingWeight || seenWeights.has(load.achievedTotal)) return [];
+    seenWeights.add(load.achievedTotal);
+    return [{ percentage, achievedPercentage: Math.round((load.achievedTotal / workingWeight) * 1000) / 10, reps, weight: load.achievedTotal }];
   });
 }
