@@ -526,6 +526,55 @@
       "when": 1785364464632,
       "tag": "0074_secure_dedupe_backup",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1787598000000,
+      "tag": "0075_workout_session_atomicity",
+      "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1787612452000,
+      "tag": "0076_live_workout_consistency",
+      "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1787615081000,
+      "tag": "0077_live_workout_rollout_safety",
+      "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1787691600000,
+      "tag": "0078_terminal_workout_set_updates",
+      "breakpoints": true
+    },
+    {
+      "idx": 79,
+      "version": "7",
+      "when": 1787695200000,
+      "tag": "0079_workout_terminal_authority",
+      "breakpoints": true
+    },
+    {
+      "idx": 80,
+      "version": "7",
+      "when": 1787698800000,
+      "tag": "0080_workout_terminal_parent_identity",
+      "breakpoints": true
+    },
+    {
+      "idx": 81,
+      "version": "7",
+      "when": 1787702400000,
+      "tag": "0081_workout_terminal_delete_guard",
+      "breakpoints": true
     }
   ]
 }

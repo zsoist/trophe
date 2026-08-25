@@ -1,9 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Camera, RotateCcw, Save, ChevronDown } from 'lucide-react';
+import { Camera, RotateCcw, Save, ChevronDown } from 'lucide-react';
 import { BotNav } from '@/components/ui/BotNav';
 import { Icon } from '@/components/ui';
 import FormCheck from '@/components/workout/FormCheck';
@@ -11,23 +10,22 @@ import FormScore from '@/components/workout/FormScore';
 import { EXERCISE_REFERENCES } from '@/lib/fitness/exercise-references';
 import type { FormAnalysisResult } from '@/lib/fitness/form-analysis';
 import { supabase } from '@/lib/supabase';
+import { useI18n } from '@/lib/i18n';
 
 type Phase = 'setup' | 'recording' | 'results';
 
-const EXERCISES = Object.entries(EXERCISE_REFERENCES).map(([key, ref]) => ({
-  key,
-  name: ref.nameEs,
-}));
+const EXERCISES = Object.keys(EXERCISE_REFERENCES);
 
 export default function FormCheckPage() {
-  const router = useRouter();
+  const { t } = useI18n();
   const [phase, setPhase] = useState<Phase>('setup');
-  const [selectedExercise, setSelectedExercise] = useState(EXERCISES[0]?.key || '');
+  const [selectedExercise, setSelectedExercise] = useState(EXERCISES[0] || '');
   const [selectedSide, setSelectedSide] = useState<'right' | 'left'>('right');
   const [result, setResult] = useState<FormAnalysisResult | null>(null);
+  const [saveError, setSaveError] = useState(false);
 
   const exerciseRef = EXERCISE_REFERENCES[selectedExercise];
-  const exerciseName = exerciseRef?.nameEs || selectedExercise;
+  const exerciseName = t(`formCheck.exercise.${selectedExercise}`);
 
   const handleComplete = (analysisResult: FormAnalysisResult) => {
     setResult(analysisResult);
@@ -45,10 +43,11 @@ export default function FormCheckPage() {
   const handleSaveResults = async () => {
     if (!result || saving || saved) return;
     setSaving(true);
+    setSaveError(false);
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setSaving(false); return; }
+      if (!user) { setSaveError(true); return; }
 
       // Look up the exercise row by its English reference name. The exercises
       // table's column is `name` (there is no name_en column — the old query
@@ -73,9 +72,10 @@ export default function FormCheckPage() {
         analyzed_at: new Date().toISOString(),
       });
 
-      if (!error) setSaved(true);
+      if (error) setSaveError(true);
+      else setSaved(true);
     } catch {
-      // Non-critical — results visible on screen
+      setSaveError(true);
     } finally {
       setSaving(false);
     }
@@ -97,24 +97,6 @@ export default function FormCheckPage() {
 
   return (
     <div className="min-h-screen bg-[var(--canvas)] pb-[calc(7rem+env(safe-area-inset-bottom))]">
-      {/* Header */}
-      <div className="sticky top-0 z-40 glass-elevated px-4 py-3">
-        <div className="max-w-md mx-auto flex items-center gap-3">
-          <button
-            aria-label="Back to workout"
-            onClick={() => router.push('/dashboard/workout')}
-            className="p-2 rounded-xl min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-            style={{ background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)' }}
-          >
-            <ArrowLeft size={20} className="text-[var(--content-secondary)]" />
-          </button>
-          <div className="flex items-center gap-2">
-            <Camera size={20} className="gold-text" />
-            <h1 className="text-lg font-bold">Form Check</h1>
-          </div>
-        </div>
-      </div>
-
       <div className="max-w-md mx-auto px-4 pt-4">
         <AnimatePresence mode="wait">
           {/* ─── Setup Phase ─── */}
@@ -128,18 +110,15 @@ export default function FormCheckPage() {
             >
               {/* Intro card */}
               <div className="glass p-4">
-                <p className="text-sm text-[var(--content-secondary)] mb-1 font-medium">AI Form Check</p>
-                <p className="text-xs text-[var(--content-muted)] leading-relaxed">
-                  Analiza tu forma en tiempo real usando la camara. Selecciona un ejercicio,
-                  posicionate de perfil y graba tus repeticiones. El sistema comparara tus
-                  angulos contra la referencia ideal.
-                </p>
+                <p className="text-sm text-[var(--content-secondary)] mb-1 font-medium">{t('formCheck.title')}</p>
+                <p className="text-xs text-[var(--content-muted)] leading-relaxed">{t('formCheck.intro')}</p>
+                <p className="mt-2 text-xs text-[var(--content-muted)] leading-relaxed">{t('formCheck.privacy')}</p>
               </div>
 
               {/* Exercise selector */}
               <div className="glass p-4">
                 <label className="text-xs text-[var(--content-muted)] uppercase tracking-wider mb-2 block">
-                  Ejercicio
+                  {t('formCheck.exercise')}
                 </label>
                 <div className="relative">
                   <select
@@ -151,9 +130,9 @@ export default function FormCheckPage() {
                       border: '1px solid color-mix(in srgb, var(--content-primary) 8%, transparent)',
                     }}
                   >
-                    {EXERCISES.map((ex) => (
-                      <option key={ex.key} value={ex.key}>
-                        {ex.name}
+                    {EXERCISES.map((exerciseKey) => (
+                      <option key={exerciseKey} value={exerciseKey}>
+                        {t(`formCheck.exercise.${exerciseKey}`)}
                       </option>
                     ))}
                   </select>
@@ -167,7 +146,7 @@ export default function FormCheckPage() {
               {/* Side selector */}
               <div className="glass p-4">
                 <label className="text-xs text-[var(--content-muted)] uppercase tracking-wider mb-2 block">
-                  Lado
+                  {t('formCheck.side')}
                 </label>
                 <div className="flex gap-2">
                   {(['right', 'left'] as const).map((s) => (
@@ -187,7 +166,7 @@ export default function FormCheckPage() {
                             : '1px solid color-mix(in srgb, var(--content-primary) 8%, transparent)',
                       }}
                     >
-                      {s === 'right' ? 'Derecho' : 'Izquierdo'}
+                      {t(s === 'right' ? 'formCheck.right' : 'formCheck.left')}
                     </button>
                   ))}
                 </div>
@@ -195,23 +174,23 @@ export default function FormCheckPage() {
 
               {/* Tips */}
               <div className="glass p-4">
-                <p className="text-xs text-[var(--content-muted)] uppercase tracking-wider mb-2">Tips</p>
+                <p className="text-xs text-[var(--content-muted)] uppercase tracking-wider mb-2">{t('formCheck.tips')}</p>
                 <ul className="space-y-1.5 text-xs text-[var(--content-secondary)]">
                   <li className="flex gap-2">
                     <span className="gold-text shrink-0">1.</span>
-                    Posicionate de perfil a la camara
+                    {t('formCheck.tip_profile')}
                   </li>
                   <li className="flex gap-2">
                     <span className="gold-text shrink-0">2.</span>
-                    Asegurate de que todo tu cuerpo sea visible
+                    {t('formCheck.tip_full_body')}
                   </li>
                   <li className="flex gap-2">
                     <span className="gold-text shrink-0">3.</span>
-                    Buena iluminacion mejora la deteccion
+                    {t('formCheck.tip_light')}
                   </li>
                   <li className="flex gap-2">
                     <span className="gold-text shrink-0">4.</span>
-                    Haz al menos 3 reps para mejor analisis
+                    {t('formCheck.tip_reps')}
                   </li>
                 </ul>
               </div>
@@ -223,7 +202,7 @@ export default function FormCheckPage() {
                 className="w-full py-4 rounded-2xl flex items-center justify-center gap-3 text-base font-bold btn-gold min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
               >
                 <Camera size={20} />
-                Iniciar Form Check
+                {t('formCheck.start')}
               </motion.button>
             </motion.div>
           )}
@@ -252,7 +231,7 @@ export default function FormCheckPage() {
                   }}
                 >
                   <RotateCcw size={16} />
-                  Intentar de nuevo
+                  {t('formCheck.try_again')}
                 </motion.button>
                 <motion.button
                   whileTap={{ scale: 0.97 }}
@@ -261,19 +240,20 @@ export default function FormCheckPage() {
                   className="flex-1 py-3.5 rounded-2xl flex items-center justify-center gap-2 text-sm font-semibold btn-gold disabled:opacity-60 min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                 >
                   <Save size={16} />
-                  {saved ? '¡Guardado!' : saving ? 'Guardando…' : 'Guardar'}
+                  {saved ? t('formCheck.saved') : saving ? t('formCheck.saving') : t('formCheck.save')}
                 </motion.button>
               </div>
+              {saveError ? <p role="alert" className="rounded-xl bg-[var(--status-danger-bg)] p-3 text-sm text-[var(--status-danger-fg)]">{t('formCheck.save_error')}</p> : null}
             </motion.div>
           )}
         </AnimatePresence>
       </div>
 
       <BotNav routes={[
-        { href: '/dashboard',          label: 'Home',     icon: <Icon name="i-home"  size={18} /> },
-        { href: '/dashboard/log',      label: 'Log',      icon: <Icon name="i-book"  size={18} /> },
-        { href: '/dashboard/progress', label: 'Progress', icon: <Icon name="i-chart" size={18} /> },
-        { href: '/dashboard/profile',  label: 'Me',       icon: <Icon name="i-user"  size={18} /> },
+        { href: '/dashboard',          label: t('nav.home'),     icon: <Icon name="i-home"  size={18} /> },
+        { href: '/dashboard/log',      label: t('nav.log'),      icon: <Icon name="i-book"  size={18} /> },
+        { href: '/dashboard/progress', label: t('nav.progress'), icon: <Icon name="i-chart" size={18} /> },
+        { href: '/dashboard/profile',  label: t('nav.me'),       icon: <Icon name="i-user"  size={18} /> },
       ]} />
     </div>
   );

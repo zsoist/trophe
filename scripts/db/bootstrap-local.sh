@@ -153,13 +153,20 @@ history_count="$(psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -t
 profiles_exists="$(psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -tAc "SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'profiles'")"
 
 if [ "$history_count" = "0" ] && [ -n "$profiles_exists" ]; then
-  echo "   - existing schema detected without migration history; backfilling journal"
+  echo "   - existing legacy schema detected; backfilling only the verified 0074 baseline"
   while IFS='|' read -r tag created_at; do
     file="drizzle/${tag}.sql"
     hash="$(shasum -a 256 "$file" | awk '{print $1}')"
     psql -v ON_ERROR_STOP=1 -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" \
       -c "INSERT INTO drizzle.__drizzle_migrations (hash, created_at) VALUES ('${hash}', ${created_at});" >/dev/null
-  done < <(node -e 'const j=require("./drizzle/meta/_journal.json"); for (const e of j.entries) console.log(`${e.tag}|${e.when}`)')
+  done < <(node -e 'const j=require("./drizzle/meta/_journal.json"); for (const e of j.entries.filter((entry) => entry.idx <= 74)) console.log(`${e.tag}|${e.when}`)')
+
+  # Workout consistency migrations are intentionally applied, never stamped.
+  # Their schema/RPC/index effects are probed by scripts/db/verify.ts below.
+  echo "   - running drizzle-orm migrator for post-0074 migrations"
+  DIRECT_URL="postgresql://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}" \
+  DATABASE_URL="postgresql://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}" \
+    "$TSX_BIN" scripts/db/run-migrations.ts
 else
   # Fresh DB or partially-migrated DB: apply pending migrations via the
   # drizzle-orm migrator (not drizzle-kit CLI, which swallows errors in CI).

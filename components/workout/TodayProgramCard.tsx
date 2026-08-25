@@ -4,24 +4,18 @@
  * Landing hero cards for the client workout page.
  *
  *   TodayProgramCard — coach program assigned AND today has a template:
- *     program name, template name/dayLabel, exercise + set counts,
- *     difficulty chip, big "Start workout" CTA into guided mode.
+ *     program name, template name, exercise + set counts, and a
+ *     "Review today's workout" CTA into the draft review boundary.
  *
  *   RestDayCard — program assigned, nothing scheduled today:
  *     next scheduled day + recovery tip + "Train anyway" (freestyle).
  */
 
 import { motion } from 'framer-motion';
-import { CalendarDays, ChevronRight, Dumbbell, Moon, Play } from 'lucide-react';
+import { CalendarDays, ChevronRight, ClipboardCheck, Dumbbell, Moon } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
-import type { TemplateExercise } from '@/lib/types';
-
-// `label` is an i18n key — resolved with t() at render.
-const DIFFICULTY_STYLE: Record<string, { bg: string; border: string; fg: string; label: string }> = {
-  beginner:     { bg: 'var(--status-success-bg)', border: 'var(--status-success-border)', fg: 'var(--status-success-fg)', label: 'workout.difficulty_beginner' },
-  intermediate: { bg: 'color-mix(in srgb, var(--action-primary) 12%, transparent)',  border: 'color-mix(in srgb, var(--action-primary) 30%, transparent)',  fg: 'var(--action-primary)', label: 'workout.difficulty_intermediate' },
-  advanced:     { bg: 'var(--status-danger-bg)', border: 'var(--status-danger-border)', fg: 'var(--status-danger-fg)', label: 'workout.difficulty_advanced' },
-};
+import type { MuscleGroup } from '@/lib/types';
+import type { DraftExercise } from '@/lib/workout/workspace-state';
 
 const WEEKDAY_KEYS = [
   'general.weekday_sunday', 'general.weekday_monday', 'general.weekday_tuesday',
@@ -42,31 +36,30 @@ const RECOVERY_TIP_KEYS = [
 const TIP_KEY_OF_DAY = RECOVERY_TIP_KEYS[Math.floor(Date.now() / 86400000) % RECOVERY_TIP_KEYS.length];
 
 export interface TodayTemplateSummary {
-  templateId: string;
+  templateKey: string;
+  templateId?: string | null;
   name: string;
-  dayLabel: string | null;
-  difficulty: string | null;
-  exercises: TemplateExercise[];
+  exercises: DraftExercise[];
+  muscleSummary: MuscleGroup[];
 }
 
 export function TodayProgramCard({
   programName,
   template,
   alsoToday,
-  onStart,
-  starting,
+  onReview,
+  disabled = false,
 }: {
   programName: string;
   template: TodayTemplateSummary;
   /** Extra templates scheduled for the same weekday (sort > 0). */
   alsoToday: TodayTemplateSummary[];
-  onStart: (t: TodayTemplateSummary) => void;
-  starting: boolean;
+  onReview: (template: TodayTemplateSummary) => void;
+  disabled?: boolean;
 }) {
   const { t } = useI18n();
-  const diff = DIFFICULTY_STYLE[template.difficulty ?? 'intermediate'] ?? DIFFICULTY_STYLE.intermediate;
   const exerciseCount = template.exercises.length;
-  const totalSets = template.exercises.reduce((s, e) => s + (e.target_sets || 0), 0);
+  const totalSets = template.exercises.reduce((sum, exercise) => sum + exercise.targetSets, 0);
 
   return (
     <motion.div
@@ -101,23 +94,13 @@ export function TodayProgramCard({
         </span>
       </div>
 
-      {/* Template name + day label */}
+      {/* Template name */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 19, fontWeight: 800, letterSpacing: '-.02em', color: 'var(--content-primary)', lineHeight: 1.15 }}>
             {template.name}
           </div>
-          {template.dayLabel && (
-            <div style={{ fontSize: 12, color: 'var(--content-secondary)', marginTop: 2 }}>{template.dayLabel}</div>
-          )}
         </div>
-        <span style={{
-          flexShrink: 0, padding: '3px 9px', borderRadius: 20, fontSize: 12, fontWeight: 700,
-          background: diff.bg, border: `1px solid ${diff.border}`, color: diff.fg,
-          textTransform: 'uppercase', letterSpacing: '.05em',
-        }}>
-          {t(diff.label)}
-        </span>
       </div>
 
       {/* Counts row */}
@@ -134,17 +117,17 @@ export function TodayProgramCard({
       {/* CTA */}
       <motion.button
         whileTap={{ scale: 0.97 }}
-        onClick={() => onStart(template)}
-        disabled={starting}
+        onClick={() => onReview(template)}
+        disabled={disabled}
         className="btn-gold w-full min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
         style={{
           padding: '14px', fontSize: 14, fontWeight: 800, borderRadius: 14,
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-          opacity: starting ? 0.7 : 1,
+          opacity: disabled ? 0.7 : 1,
         }}
       >
-        <Play size={16} />
-        {starting ? t('workout.loading') : t('workout.start_workout')}
+        <ClipboardCheck size={16} />
+        {t('workout.review_today')}
       </motion.button>
 
       {/* Second session scheduled today */}
@@ -152,9 +135,9 @@ export function TodayProgramCard({
         <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
           {alsoToday.map((t2) => (
             <button
-              key={t2.templateId}
-              onClick={() => onStart(t2)}
-              disabled={starting}
+              key={t2.templateKey}
+              onClick={() => onReview(t2)}
+              disabled={disabled}
               style={{
                 display: 'flex', alignItems: 'center', gap: 8, width: '100%',
                 padding: '9px 12px', borderRadius: 12, cursor: 'pointer', textAlign: 'left',

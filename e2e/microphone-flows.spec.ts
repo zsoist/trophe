@@ -149,7 +149,9 @@ test.describe('production microphone flows', () => {
     await installFakeRecorder(page);
     await login(page);
     await page.goto('/dashboard/messages');
-    await dismissInstallPrompt(page);
+    if (testInfo.project.name === 'mobile-chromium') {
+      await expect(page.getByRole('region', { name: 'Install Trophē' })).toBeVisible();
+    }
 
     await page.getByRole('button', { name: 'Record voice note' }).click();
     await expect(page.getByRole('button', { name: 'Stop and attach' })).toBeEnabled();

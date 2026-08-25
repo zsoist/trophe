@@ -95,19 +95,27 @@ describe('workout mutation verification', () => {
     })).resolves.toBe(false);
   });
 
-  it('blocks completion UI when verified persistence fails', () => {
+  it('keeps verified completion in live flows and draft review behind explicit boundaries', () => {
     const guided = readFileSync(
       join(process.cwd(), 'components/workout/GuidedSession.tsx'),
       'utf8',
     );
-    const freestyle = readFileSync(
-      join(process.cwd(), 'app/dashboard/workout/page.tsx'),
+    const review = readFileSync(
+      join(process.cwd(), 'components/workout/workspace/WorkoutReview.tsx'),
+      'utf8',
+    );
+    const provider = readFileSync(
+      join(process.cwd(), 'components/workout/workspace/WorkoutWorkspaceProvider.tsx'),
       'utf8',
     );
 
     expect(guided).toContain('if (!deleted)');
     expect(guided).toContain('if (!finished)');
-    expect(freestyle).toContain('if (!inserted || !finished)');
-    expect(freestyle).toContain("window.alert(t('workout.save_failed'))");
+    expect(review).toContain('onLogCompleted(draft)');
+    expect(review).toContain('await workspace.startLive()');
+    expect(provider).toContain('const request = ensureLiveStartRequest()');
+    expect(provider).toContain('const pending = startLiveSession(request)');
+    expect(provider).toContain('saveWorkspaceState(resolvedStorage, ownerId, preparedState)');
+    expect(review).not.toContain('finishWorkoutSession');
   });
 });

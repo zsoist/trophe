@@ -20,6 +20,7 @@ import {
   localE2EDateKey,
   parseSupabaseStatusEnv,
   retryLocalE2EOperation,
+  resolveLocalPlaywrightArgs,
   resolveSupabaseCli,
   withFixtureCleanup,
   withDisposableUsers,
@@ -53,6 +54,12 @@ function credential(role) {
     password: `${randomUUID()}Aa1!`,
     role,
   };
+}
+
+/** Deletes fixture-owned rows whose legacy foreign keys intentionally do not cascade. */
+export async function cleanupUserOwnedRows(service, userId) {
+  const { error } = await service.from('workout_templates').delete().eq('created_by', userId);
+  if (error) throw new Error('local E2E owned rows cleanup failed');
 }
 
 function adminAdapter(service) {
@@ -102,6 +109,7 @@ function adminAdapter(service) {
     },
 
     async deleteUser(id) {
+      await cleanupUserOwnedRows(service, id);
       const { error } = await service.auth.admin.deleteUser(id);
       if (error) throw new Error('local E2E user cleanup failed');
       assertAuthUserAbsent(
@@ -117,7 +125,7 @@ function adminAdapter(service) {
  * Runs a zero-paid local role fixture. The default remains the authenticated
  * Playwright suite; callers may provide a disposable-role callback instead.
  */
-export async function runLocalAuthenticatedE2E({ executeWithDisposableRoles } = {}) {
+export async function runLocalAuthenticatedE2E({ executeWithDisposableRoles, playwrightArgs = TEST_SPECS } = {}) {
   const status = localStatus();
   const service = createClient(status.API_URL, status.SERVICE_ROLE_KEY, {
     auth: { autoRefreshToken: false, persistSession: false },
@@ -221,7 +229,7 @@ export async function runLocalAuthenticatedE2E({ executeWithDisposableRoles } = 
           const playwrightBin = path.resolve('node_modules/@playwright/test/cli.js');
           const result = spawnSync(
             process.execPath,
-            [playwrightBin, 'test', '--workers=1', ...TEST_SPECS],
+            [playwrightBin, 'test', '--workers=1', ...playwrightArgs],
           { stdio: 'inherit', env: childEnv },
         );
           if (result.error || result.status !== 0) {
@@ -253,7 +261,9 @@ const entrypoint = process.argv[1]
   ? pathToFileURL(path.resolve(process.argv[1])).href
   : '';
 if (import.meta.url === entrypoint) {
-  runLocalAuthenticatedE2E()
+  runLocalAuthenticatedE2E({
+    playwrightArgs: resolveLocalPlaywrightArgs(process.argv.slice(2), TEST_SPECS),
+  })
     .then(() => {
       process.stdout.write('Authenticated local E2E passed; disposable users removed.\n');
     })

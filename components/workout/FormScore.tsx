@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, ChevronUp, Target, TrendingUp } from 'lucide-react';
-import type { FormAnalysisResult, RepScore } from '@/lib/fitness/form-analysis';
+import { formAssessmentKey, type FormAnalysisResult, type RepScore } from '@/lib/fitness/form-analysis';
+import { useI18n } from '@/lib/i18n';
 
 interface FormScoreProps {
   result: FormAnalysisResult;
@@ -133,6 +134,7 @@ function ScoreGauge({ score, color }: { score: number; color: string }) {
 
 // ─── Rep Detail Row ───
 function RepRow({ rep }: { rep: RepScore }) {
+  const { t } = useI18n();
   const [expanded, setExpanded] = useState(false);
 
   const angleDiffColor = (diffPct: number) => {
@@ -158,10 +160,10 @@ function RepRow({ rep }: { rep: RepScore }) {
         </div>
         <div className="flex-1 text-left min-w-0">
           <p className="text-sm text-[var(--content-primary)] font-medium truncate">
-            {rep.segmentType === 'descent' ? 'Descenso' : 'Ascenso'}
+            {t(rep.segmentType === 'descent' ? 'formCheck.descent' : 'formCheck.ascent')}
           </p>
           <p className="text-xs" style={{ color: rep.assessmentColor }}>
-            {rep.assessment}
+            {t(formAssessmentKey(rep.assessment))}
           </p>
         </div>
         <span
@@ -187,9 +189,9 @@ function RepRow({ rep }: { rep: RepScore }) {
           >
             <div className="px-3 pb-3 pt-1 space-y-1.5">
               {[
-                { label: 'Rodilla', data: rep.angles.knee },
-                { label: 'Torso', data: rep.angles.torso },
-                { label: 'Cuello', data: rep.angles.neck },
+                { label: t('formCheck.knee'), data: rep.angles.knee },
+                { label: t('formCheck.torso'), data: rep.angles.torso },
+                { label: t('formCheck.neck'), data: rep.angles.neck },
               ].map(({ label, data }) => (
                 <div
                   key={label}
@@ -220,6 +222,7 @@ function RepRow({ rep }: { rep: RepScore }) {
 
 // ─── Main Component ───
 export default function FormScore({ result, exerciseName }: FormScoreProps) {
+  const { t } = useI18n();
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -243,10 +246,10 @@ export default function FormScore({ result, exerciseName }: FormScoreProps) {
             className="text-sm font-semibold mt-1 capitalize"
             style={{ color: result.assessmentColor }}
           >
-            {result.overallAssessment}
+            {t(formAssessmentKey(result.overallAssessment))}
           </motion.p>
           <p className="text-xs text-[var(--content-muted)] mt-1">
-            {result.repsAnalyzed} {result.repsAnalyzed === 1 ? 'rep analizada' : 'reps analizadas'}
+            {t('formCheck.reps_analyzed', { n: result.repsAnalyzed })}
           </p>
         </div>
       </div>
@@ -261,7 +264,7 @@ export default function FormScore({ result, exerciseName }: FormScoreProps) {
         >
           <div className="flex items-center gap-2 mb-3">
             <TrendingUp size={16} className="text-[var(--content-secondary)]" />
-            <h4 className="text-sm font-semibold text-[var(--content-secondary)]">Detalle por rep</h4>
+            <h4 className="text-sm font-semibold text-[var(--content-secondary)]">{t('formCheck.rep_detail')}</h4>
           </div>
 
           <div className="space-y-1">

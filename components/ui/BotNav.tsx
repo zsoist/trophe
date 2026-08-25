@@ -27,9 +27,11 @@ export interface BotNavRoute {
 interface BotNavProps {
   routes: BotNavRoute[];
   className?: string;
+  /** Handles an active tab being selected again instead of treating it as a no-op. */
+  onActiveRouteSelect?: (href: string) => void;
 }
 
-export function BotNav({ routes, className = '' }: BotNavProps) {
+export function BotNav({ routes, className = '', onActiveRouteSelect }: BotNavProps) {
   const pathname = usePathname();
   const shellOwnsNavigation = useClientShellNavigationOwner();
   if (shellOwnsNavigation) return null;
@@ -57,9 +59,25 @@ export function BotNav({ routes, className = '' }: BotNavProps) {
           <Link
             key={route.href}
             href={route.href}
+            aria-label={route.label}
             aria-current={active ? 'page' : undefined}
+            onClick={(event) => {
+              if (
+                !active ||
+                !onActiveRouteSelect ||
+                event.defaultPrevented ||
+                event.button !== 0 ||
+                event.metaKey ||
+                event.ctrlKey ||
+                event.altKey ||
+                event.shiftKey
+              ) return;
+
+              event.preventDefault();
+              onActiveRouteSelect(route.href);
+            }}
             className={[
-              'relative flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl px-1',
+              'relative flex min-h-12 min-w-11 flex-1 basis-0 flex-col items-center justify-center gap-0.5 rounded-xl px-1 min-[430px]:min-h-14',
               'text-xs uppercase tracking-[0.05em]',
               'transition-colors motion-reduce:transition-none',
               active
@@ -68,6 +86,7 @@ export function BotNav({ routes, className = '' }: BotNavProps) {
             ].join(' ')}
           >
             <span
+              data-bot-nav-icon
               className={[
                 'absolute top-0 h-0.5 w-9 rounded-full bg-[var(--action-primary)]',
                 'transition-opacity motion-reduce:transition-none',
@@ -77,13 +96,14 @@ export function BotNav({ routes, className = '' }: BotNavProps) {
             />
             <span
               className={[
-                'text-[16px] leading-none transition-opacity motion-reduce:transition-none',
+                'text-base leading-none transition-opacity motion-reduce:transition-none',
                 active ? 'opacity-100' : 'opacity-75',
               ].join(' ')}
+              aria-hidden="true"
             >
               {route.icon}
             </span>
-            <span className="font-medium">{route.label}</span>
+            <span data-bot-nav-label className="hidden font-medium min-[430px]:inline">{route.label}</span>
             {route.badge !== undefined && (
               <span className="absolute right-1 top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--status-danger-fg)] px-1 text-xs font-semibold text-[var(--content-inverse)]">
                 {route.badge}

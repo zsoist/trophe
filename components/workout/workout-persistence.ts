@@ -3,8 +3,8 @@
  * and the freestyle logger (app/dashboard/workout/page.tsx).
  *
  * Contract:
- *   - The workout_sessions row is created LAZILY at the first completed set,
- *     never on "Start" (the old flow leaked empty sessions on abandon).
+ *   - Guided/freestyle callers may create lazily; the recoverable workspace
+ *     creates exactly once on explicit live start and verifies empty discard.
  *   - Every completed set is INSERTed immediately, so a crash/refresh loses
  *     at most the set currently being typed.
  *   - Finish = one UPDATE with name/duration/pain_flags/template_id.
@@ -29,6 +29,174 @@ export interface CompletedSetInput {
 export interface SupersetGroupUpdate {
   id: string;
   superset_group: number | null;
+}
+
+export interface PersistedWorkoutSet extends CompletedSetInput {
+  id: string;
+  session_id: string;
+  notes: string | null;
+  created_at?: string;
+}
+
+export interface AtomicSessionStartInput {
+  idempotencyKey: string;
+  draftFingerprint: string;
+  sessionDate: string;
+  name: string;
+  templateId?: string | null;
+  kind: 'strength' | 'cardio';
+  liveStructure: LiveExerciseStructureInput[];
+}
+
+export interface AtomicRetrospectiveWorkoutInput {
+  idempotencyKey: string;
+  sessionDate?: string;
+  kind: 'strength' | 'cardio';
+  name: string;
+  templateId?: string | null;
+  durationMinutes: number;
+  painFlags: PainFlag[];
+  activity: string | null;
+  distanceKm: number | null;
+  effort: number | null;
+  sets: CompletedSetInput[];
+}
+
+export interface LiveExerciseStructureInput {
+  exercise_id: string;
+  target_sets: number;
+  target_reps: string;
+  superset_group: number | null;
+}
+
+export type LiveStructureMutationResult =
+  | { ok: true; version: number; structure: LiveExerciseStructureInput[] }
+  | { ok: false };
+
+export type WorkoutSetLoadResult = { ok: true; sets: PersistedWorkoutSet[] } | { ok: false };
+export type LiveStructureLoadResult =
+  | { ok: true; version: number; structure: LiveExerciseStructureInput[] }
+  | { ok: false; legacy?: true };
+
+export interface AtomicLiveSetInput {
+  sessionId: string;
+  exerciseId: string;
+  setNumber: number;
+  weightKg: number | null;
+  reps: number;
+  rpe: number | null;
+  isWarmup: boolean;
+  isPr: boolean;
+  supersetGroup: number | null;
+}
+
+/** Idempotent live-session start. The RPC derives the owner from auth.uid(). */
+export async function startWorkoutSessionAtomic(input: AtomicSessionStartInput): Promise<string | null> {
+  const { data, error } = await supabase.rpc('start_workout_session', {
+    p_idempotency_key: input.idempotencyKey,
+    p_draft_fingerprint: input.draftFingerprint,
+    p_session_date: input.sessionDate,
+    p_name: input.name,
+    p_template_id: input.templateId ?? null,
+    p_kind: input.kind,
+    p_live_structure: input.liveStructure,
+  });
+  return error || typeof data !== 'string' || !data.trim() ? null : data;
+}
+
+/** One transactional create + set insert + finish boundary for completed history. */
+export async function saveRetrospectiveWorkoutAtomic(input: AtomicRetrospectiveWorkoutInput): Promise<string | null> {
+  const { data, error } = await supabase.rpc('save_retrospective_workout', {
+    p_idempotency_key: input.idempotencyKey,
+    p_session_date: input.sessionDate ?? localToday(),
+    p_kind: input.kind,
+    p_name: input.name,
+    p_template_id: input.templateId ?? null,
+    p_duration_minutes: input.durationMinutes,
+    p_pain_flags: input.painFlags,
+    p_activity: input.activity,
+    p_distance_km: input.distanceKm,
+    p_effort: input.effort,
+    p_sets: input.sets.map((set) => ({ ...set, superset_group: set.superset_group ?? null })),
+  });
+  return error || typeof data !== 'string' || !data.trim() ? null : data;
+}
+
+/** Atomically deletes removed rows and applies normalized superset groups. */
+export async function updateLiveWorkoutStructureAtomic(
+  sessionId: string,
+  expectedVersion: number,
+  exercises: LiveExerciseStructureInput[],
+  removeExerciseId?: string | null,
+): Promise<LiveStructureMutationResult> {
+  const { data, error } = await supabase.rpc('update_live_workout_structure', {
+    p_session_id: sessionId,
+    p_expected_version: expectedVersion,
+    p_exercises: exercises,
+    p_remove_exercise_id: removeExerciseId ?? null,
+  });
+  if (error || !data || typeof data !== 'object') return { ok: false };
+  const result = data as { version?: unknown; structure?: unknown };
+  if (!Number.isInteger(result.version) || !Array.isArray(result.structure)) return { ok: false };
+  return { ok: true, version: result.version as number, structure: result.structure as LiveExerciseStructureInput[] };
+}
+
+export async function saveLiveWorkoutSetAtomic(input: AtomicLiveSetInput): Promise<string | null> {
+  const { data, error } = await supabase.rpc('save_live_workout_set', {
+    p_session_id: input.sessionId,
+    p_exercise_id: input.exerciseId,
+    p_set_number: input.setNumber,
+    p_weight_kg: input.weightKg,
+    p_reps: input.reps,
+    p_rpe: input.rpe,
+    p_is_warmup: input.isWarmup,
+    p_is_pr: input.isPr,
+    p_superset_group: input.supersetGroup,
+  });
+  return error || typeof data !== 'string' || !data.trim() ? null : data;
+}
+
+export async function appendWorkoutSessionPainFlag(
+  sessionId: string,
+  mutationId: string,
+  flag: PainFlag,
+): Promise<PainFlagLoadResult> {
+  const { data, error } = await supabase.rpc('append_live_pain_flag', {
+    p_session_id: sessionId,
+    p_mutation_id: mutationId,
+    p_flag: flag,
+  });
+  return error || !Array.isArray(data) ? { ok: false } : { ok: true, flags: data as PainFlag[] };
+}
+
+export async function finishLiveWorkoutSessionAtomic(
+  sessionId: string,
+  input: {
+    name: string;
+    durationMinutes: number;
+    templateId?: string | null;
+    cardio?: { activity: string; distanceKm: number | null; effort: number | null } | null;
+  },
+): Promise<boolean> {
+  const { data, error } = await supabase.rpc('finish_live_workout_session', {
+    p_session_id: sessionId,
+    p_name: input.name,
+    p_duration_minutes: input.durationMinutes,
+    p_template_id: input.templateId ?? null,
+    p_cardio_activity: input.cardio?.activity ?? null,
+    p_cardio_distance_km: input.cardio?.distanceKm ?? null,
+    p_cardio_effort: input.cardio?.effort ?? null,
+  });
+  return !error && data === true;
+}
+
+/** Delete a live set only while its owner session is still active. */
+export async function deleteLiveWorkoutSetAtomic(sessionId: string, setId: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc('delete_live_workout_set', {
+    p_session_id: sessionId,
+    p_set_id: setId,
+  });
+  return !error && data === true;
 }
 
 export async function updateWorkoutSupersetGroups(
@@ -100,7 +268,7 @@ export function buildLastSetsMap(rows: GhostHistoryRow[]): Record<string, GhostS
   return map;
 }
 
-/** Create the session row. Call lazily at the FIRST completed set. */
+/** Create one session row at the owning flow's explicit persistence boundary. */
 export async function createWorkoutSession(
   userId: string,
   name: string,
@@ -176,6 +344,107 @@ export async function deleteWorkoutSets(setIds: string[]): Promise<boolean> {
   return !error && data?.length === uniqueIds.length;
 }
 
+/** Delete an empty/aborted session and verify that exactly one owned row changed. */
+export async function deleteWorkoutSession(sessionId: string): Promise<boolean> {
+  if (!sessionId.trim()) return false;
+  const { data, error } = await supabase
+    .from('workout_sessions')
+    .delete()
+    .eq('id', sessionId)
+    .select('id');
+  return !error && data?.length === 1;
+}
+
+/** Discard only after the database confirms the owned session has no sets. */
+export async function deleteEmptyWorkoutSession(sessionId: string): Promise<boolean> {
+  if (!sessionId.trim()) return false;
+  const { data, error } = await supabase.rpc('discard_empty_workout_session', { p_session_id: sessionId });
+  return !error && data === true;
+}
+
+/** Reload immediately persisted live sets after a crash or refresh. */
+export async function loadWorkoutSessionSets(sessionId: string): Promise<WorkoutSetLoadResult> {
+  if (!sessionId.trim()) return { ok: false };
+  const { data, error } = await supabase
+    .from('workout_sets')
+    .select('id, session_id, exercise_id, set_number, weight_kg, reps, rpe, is_warmup, is_pr, superset_group, notes, created_at')
+    .eq('session_id', sessionId)
+    .order('set_number');
+  return error ? { ok: false } : { ok: true, sets: (data as PersistedWorkoutSet[] | null) ?? [] };
+}
+
+export async function loadWorkoutSessionStructure(sessionId: string): Promise<LiveStructureLoadResult> {
+  if (!sessionId.trim()) return { ok: false };
+  const { data, error } = await supabase
+    .from('workout_sessions')
+    .select('live_structure, live_structure_version, duration_minutes, client_request')
+    .eq('id', sessionId)
+    .maybeSingle();
+  if (error || !data) return { ok: false };
+  if (data.live_structure === null) {
+    const request = data.client_request;
+    const isLegacyActiveLive = data.duration_minutes === null
+      && request !== null
+      && typeof request === 'object'
+      && !Array.isArray(request)
+      && (request as { mode?: unknown }).mode === 'live';
+    return isLegacyActiveLive ? { ok: false, legacy: true } : { ok: false };
+  }
+  if (!Array.isArray(data.live_structure) || !Number.isInteger(data.live_structure_version)) {
+    return { ok: false };
+  }
+  return {
+    ok: true,
+    structure: data.live_structure as LiveExerciseStructureInput[],
+    version: data.live_structure_version as number,
+  };
+}
+
+/** One-time, owner-scoped upgrade of an active pre-0076 live session. */
+export async function resumeLegacyLiveWorkoutStructureAtomic(
+  sessionId: string,
+  kind: 'strength' | 'cardio',
+  exercises: LiveExerciseStructureInput[],
+): Promise<LiveStructureMutationResult> {
+  const { data, error } = await supabase.rpc('resume_legacy_live_workout_session', {
+    p_session_id: sessionId,
+    p_kind: kind,
+    p_live_structure: exercises,
+  });
+  if (error || !data || typeof data !== 'object') return { ok: false };
+  const result = data as { version?: unknown; structure?: unknown };
+  if (!Number.isInteger(result.version) || !Array.isArray(result.structure)) return { ok: false };
+  return {
+    ok: true,
+    version: result.version as number,
+    structure: result.structure as LiveExerciseStructureInput[],
+  };
+}
+
+/** Recovery-safe pain flags are written to the session as soon as they change. */
+export type PainFlagLoadResult = { ok: true; flags: PainFlag[] } | { ok: false };
+
+export async function loadWorkoutSessionPainFlags(sessionId: string): Promise<PainFlagLoadResult> {
+  if (!sessionId.trim()) return { ok: false };
+  const { data, error } = await supabase
+    .from('workout_sessions')
+    .select('pain_flags')
+    .eq('id', sessionId)
+    .maybeSingle();
+  if (error || !data) return { ok: false };
+  return { ok: true, flags: (data.pain_flags as PainFlag[] | null) ?? [] };
+}
+
+export async function updateWorkoutSessionPainFlags(sessionId: string, painFlags: PainFlag[]): Promise<boolean> {
+  if (!sessionId.trim()) return false;
+  const { data, error } = await supabase
+    .from('workout_sessions')
+    .update({ pain_flags: painFlags })
+    .eq('id', sessionId)
+    .select('id');
+  return !error && data?.length === 1;
+}
+
 /** Final session UPDATE (name = template/session name, duration, flags, FK). */
 export async function finishWorkoutSession(
   sessionId: string,
@@ -184,6 +453,7 @@ export async function finishWorkoutSession(
     duration_minutes: number;
     pain_flags: PainFlag[];
     template_id?: string | null;
+    notes?: string | null;
   },
 ): Promise<boolean> {
   const { data, error } = await supabase

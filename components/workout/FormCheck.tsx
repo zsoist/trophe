@@ -15,6 +15,7 @@ import {
   compareSegmentToReference,
   classifyDifference,
   scoreFormAnalysis,
+  formAssessmentKey,
   ALPHA_POINTS,
   ALPHA_ANGLE,
   type PosePoints,
@@ -24,6 +25,7 @@ import {
   type FormAnalysisResult,
 } from '@/lib/fitness/form-analysis';
 import { EXERCISE_REFERENCES } from '@/lib/fitness/exercise-references';
+import { useI18n } from '@/lib/i18n';
 
 interface FormCheckProps {
   exercise: string;
@@ -35,6 +37,7 @@ interface FormCheckProps {
 type LoadingState = 'init' | 'loading_model' | 'requesting_camera' | 'ready' | 'recording' | 'error';
 
 export default function FormCheck({ exercise, side, onComplete, onBack }: FormCheckProps) {
+  const { t } = useI18n();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const poseLandmarkerRef = useRef<PoseLandmarker | null>(null);
@@ -43,8 +46,8 @@ export default function FormCheck({ exercise, side, onComplete, onBack }: FormCh
   const lastTimestampRef = useRef<number>(-1);
 
   const [state, setState] = useState<LoadingState>('init');
-  const [error, setError] = useState<string>('');
-  const [loadingMessage, setLoadingMessage] = useState('Iniciando...');
+  const [errorKey, setErrorKey] = useState('formCheck.init_error');
+  const [loadingKey, setLoadingKey] = useState('formCheck.loading_model');
 
   // Detection state
   const [currentPosePoints, setCurrentPosePoints] = useState<PosePoints | null>(null);
@@ -78,7 +81,7 @@ export default function FormCheck({ exercise, side, onComplete, onBack }: FormCh
     async function init() {
       try {
         setState('loading_model');
-        setLoadingMessage('Cargando modelo de poses...');
+        setLoadingKey('formCheck.loading_model');
 
         const { PoseLandmarker, FilesetResolver } = await import('@mediapipe/tasks-vision');
 
@@ -104,7 +107,7 @@ export default function FormCheck({ exercise, side, onComplete, onBack }: FormCh
 
         // Request camera
         setState('requesting_camera');
-        setLoadingMessage('Solicitando acceso a la camara...');
+        setLoadingKey('formCheck.requesting_camera');
 
         let stream: MediaStream;
         try {
@@ -148,16 +151,16 @@ export default function FormCheck({ exercise, side, onComplete, onBack }: FormCh
         if (cancelled) return;
         console.error('FormCheck init error:', error);
         setState('error');
-        const message = error instanceof Error ? error.message : 'Unknown initialization error';
-        const name = error instanceof Error ? error.name : 'UnknownError';
+        const message = error instanceof Error ? error.message : '';
+        const name = error instanceof Error ? error.name : '';
         if (name === 'NotAllowedError') {
-          setError('Acceso a la camara denegado. Permite el acceso en la configuracion del navegador.');
+          setErrorKey('formCheck.camera_denied');
         } else if (name === 'NotFoundError' || name === 'NotReadableError') {
-          setError('No se encontro una camara disponible. Verifica que tu dispositivo tiene camara.');
+          setErrorKey('formCheck.camera_unavailable');
         } else if (message.includes('wasm') || message.includes('fetch')) {
-          setError('Error cargando el modelo de IA. Verifica tu conexion a internet e intenta de nuevo.');
+          setErrorKey('formCheck.model_error');
         } else {
-          setError(message || 'Error al inicializar. Intenta recargar la pagina.');
+          setErrorKey('formCheck.init_error');
         }
       }
     }
@@ -396,7 +399,7 @@ export default function FormCheck({ exercise, side, onComplete, onBack }: FormCh
                 transition={{ repeat: Infinity, duration: 1.2 }}
                 className="w-2 h-2 rounded-full bg-[var(--status-danger-fg)]"
               />
-              <span className="text-xs font-medium text-[var(--status-danger-fg)]">REC</span>
+              <span className="text-xs font-medium text-[var(--status-danger-fg)]">{t('formCheck.recording')}</span>
             </motion.div>
           )}
         </div>
@@ -407,7 +410,7 @@ export default function FormCheck({ exercise, side, onComplete, onBack }: FormCh
             className="px-4 py-2 rounded-xl text-sm font-semibold min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
             style={{ background: 'color-mix(in srgb, var(--action-primary) 20%, transparent)', color: 'var(--action-primary)', border: '1px solid color-mix(in srgb, var(--action-primary) 30%, transparent)' }}
           >
-            Finalizar
+            {t('formCheck.finish')}
           </button>
         )}
 
@@ -432,7 +435,7 @@ export default function FormCheck({ exercise, side, onComplete, onBack }: FormCh
           canvasRef={canvasRef}
           posePoints={currentPosePoints}
           angles={currentAngles}
-          assessment={currentAssessment}
+          assessment={currentAssessment ? t(formAssessmentKey(currentAssessment)) : ''}
           assessmentColor={currentAssessmentColor}
           width={videoSize.width}
           height={videoSize.height}
@@ -454,8 +457,8 @@ export default function FormCheck({ exercise, side, onComplete, onBack }: FormCh
               >
                 <Loader2 size={40} className="gold-text" />
               </motion.div>
-              <p className="text-sm text-[var(--content-secondary)] mt-4">{loadingMessage}</p>
-              <p className="text-xs text-[var(--content-muted)] mt-1">Primera carga ~10-15s</p>
+              <p className="text-sm text-[var(--content-secondary)] mt-4">{t(loadingKey)}</p>
+              <p className="text-xs text-[var(--content-muted)] mt-1">{t('formCheck.first_load')}</p>
             </motion.div>
           )}
         </AnimatePresence>
@@ -471,13 +474,13 @@ export default function FormCheck({ exercise, side, onComplete, onBack }: FormCh
               style={{ background: 'rgba(10,10,10,0.95)' }}
             >
               <AlertCircle size={40} className="text-[var(--status-danger-fg)] mb-4" />
-              <p className="text-sm text-[var(--content-secondary)] text-center mb-4">{error}</p>
+              <p className="text-sm text-[var(--content-secondary)] text-center mb-4">{t(errorKey)}</p>
               <button
                 onClick={onBack}
                 className="px-6 py-2.5 rounded-xl text-sm font-semibold min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
                 style={{ background: 'color-mix(in srgb, var(--content-primary) 8%, transparent)', color: 'var(--content-secondary)' }}
               >
-                Volver
+                {t('formCheck.back')}
               </button>
             </motion.div>
           )}
@@ -495,7 +498,7 @@ export default function FormCheck({ exercise, side, onComplete, onBack }: FormCh
           >
             <div className="text-center">
               <p className="text-2xl font-bold gold-text tabular-nums">{repCount}</p>
-              <p className="text-xs text-[var(--content-muted)] uppercase tracking-wider">Reps</p>
+              <p className="text-xs text-[var(--content-muted)] uppercase tracking-wider">{t('formCheck.reps')}</p>
             </div>
             <div className="w-px h-8 bg-[var(--surface-2)]" />
             <div className="text-center">
@@ -504,7 +507,7 @@ export default function FormCheck({ exercise, side, onComplete, onBack }: FormCh
                   ? `${Math.round(currentAngles.kneeAngle)}°`
                   : '--'}
               </p>
-              <p className="text-xs text-[var(--content-muted)] uppercase tracking-wider">Rodilla</p>
+              <p className="text-xs text-[var(--content-muted)] uppercase tracking-wider">{t('formCheck.knee')}</p>
             </div>
             <div className="w-px h-8 bg-[var(--surface-2)]" />
             <div className="text-center min-w-0">
@@ -512,9 +515,9 @@ export default function FormCheck({ exercise, side, onComplete, onBack }: FormCh
                 className="text-xs font-semibold truncate capitalize"
                 style={{ color: currentAssessmentColor || 'var(--content-muted)' }}
               >
-                {currentAssessment || '--'}
+                {currentAssessment ? t(formAssessmentKey(currentAssessment)) : '--'}
               </p>
-              <p className="text-xs text-[var(--content-muted)] uppercase tracking-wider">Estado</p>
+              <p className="text-xs text-[var(--content-muted)] uppercase tracking-wider">{t('formCheck.status')}</p>
             </div>
           </motion.div>
         )}
@@ -529,7 +532,7 @@ export default function FormCheck({ exercise, side, onComplete, onBack }: FormCh
             className="w-full py-4 rounded-2xl flex items-center justify-center gap-3 text-base font-bold btn-gold min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
           >
             <CircleDot size={20} />
-            Iniciar grabacion
+            {t('formCheck.start_recording')}
           </motion.button>
         )}
       </div>

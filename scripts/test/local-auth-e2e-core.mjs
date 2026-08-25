@@ -45,6 +45,14 @@ export function localE2ECachePath(projectRoot = process.cwd()) {
   return path.join(path.resolve(projectRoot), '.next-e2e.nosync');
 }
 
+/**
+ * Uses the repository's authenticated matrix when no CLI selection is given,
+ * while forwarding an explicit Playwright selection and its options verbatim.
+ */
+export function resolveLocalPlaywrightArgs(argv = [], defaults = []) {
+  return [...(argv.length > 0 ? argv : defaults)];
+}
+
 export function formatLocalE2EError(error) {
   const message = error instanceof Error ? error.message : String(error);
   return message

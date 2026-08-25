@@ -1,38 +1,103 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+// @vitest-environment jsdom
 
-const pickerSource = readFileSync(
-  join(process.cwd(), 'components/workout/ExercisePicker.tsx'),
-  'utf8',
-);
-const workoutSource = readFileSync(
-  join(process.cwd(), 'app/dashboard/workout/page.tsx'),
-  'utf8',
-);
+import React from 'react';
+import { cleanup, render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-describe('mobile exercise picker layering', () => {
-  it('renders the picker as an accessible body-level modal', () => {
-    expect(pickerSource).toContain("import { createPortal } from 'react-dom'");
-    expect(pickerSource).toContain('return createPortal(');
-    expect(pickerSource).toContain('document.body');
-    expect(pickerSource).toContain('role="dialog"');
-    expect(pickerSource).toContain('aria-modal="true"');
-    expect(pickerSource).toContain('z-[var(--z-modal,60)]');
-    expect(pickerSource).toContain("background: 'var(--canvas)'");
-    expect(pickerSource).not.toContain("background: '#0a0a0a'");
+vi.mock('next/image', () => ({
+  default: ({ priority: _priority, ...props }: Record<string, unknown>) => React.createElement('img', props),
+}));
+
+vi.mock('framer-motion', async () => {
+  const ReactModule = await import('react');
+  const ignored = new Set(['animate', 'exit', 'initial', 'layout', 'transition', 'whileTap']);
+  const element = (tag: string) => ReactModule.forwardRef<HTMLElement, Record<string, unknown>>(
+    ({ children, ...props }, ref) => ReactModule.createElement(tag, {
+      ...Object.fromEntries(Object.entries(props).filter(([key]) => !ignored.has(key))),
+      ref,
+    }, children as React.ReactNode),
+  );
+  return {
+    AnimatePresence: ({ children }: { children: React.ReactNode }) => children,
+    motion: { button: element('button'), div: element('div'), p: element('p') },
+    useReducedMotion: () => true,
+  };
+});
+
+vi.mock('@/lib/supabase', () => ({ supabase: { auth: { getUser: vi.fn() }, from: vi.fn() } }));
+vi.mock('@/lib/i18n', () => ({
+  useI18n: () => ({
+    lang: 'en',
+    t: (key: string) => ({
+      'workout.add_exercise': 'Add exercise',
+      'workout.picker_close': 'Close exercise picker',
+      'workout.picker_title': 'Add exercise',
+      'workout.search_exercises': 'Search exercises',
+      'workout.picker_choose_area': 'What are you training?',
+      'workout.picker_choose_area_hint': 'Choose a body area.',
+      'workout.picker_recent': 'Recent',
+      'workout.picker_custom': 'Create custom exercise',
+      'workout.picker_custom_hint': "Can't find it?",
+      'workout.body_area_chest': 'Chest',
+      'workout.body_area_back': 'Back',
+      'workout.body_area_shoulders': 'Shoulders',
+      'workout.body_area_arms': 'Arms',
+      'workout.body_area_legs': 'Legs',
+      'workout.body_area_core': 'Core',
+      'workout.body_area_full_body': 'Full body',
+      'workout.body_area_cardio': 'Cardio',
+    }[key] ?? key),
+  }),
+}));
+
+import ExercisePicker from '@/components/workout/ExercisePicker';
+
+function renderPicker(presentation: 'dialog' | 'page' = 'dialog') {
+  return render(React.createElement(ExercisePicker, {
+    presentation,
+    exercises: [],
+    recentIds: [],
+    onSelect: vi.fn(),
+    onClose: vi.fn(),
+    lang: 'en',
+  }));
+}
+
+beforeEach(() => {
+  vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => { callback(0); return 1; });
+  vi.stubGlobal('cancelAnimationFrame', vi.fn());
+  document.body.style.overflow = '';
+});
+
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+  document.body.style.overflow = '';
+});
+
+describe('exercise picker presentation layering', () => {
+  it('renders dialog presentation as an accessible body-level modal', () => {
+    const { container } = renderPicker();
+    const dialog = screen.getByRole('dialog', { name: 'Add exercise' });
+
+    expect(dialog.getAttribute('aria-modal')).toBe('true');
+    expect(document.body.contains(dialog)).toBe(true);
+    expect(container.contains(dialog)).toBe(false);
   });
 
-  it('locks and restores document scrolling while the picker is open', () => {
-    expect(pickerSource).toContain("document.body.style.overflow = 'hidden'");
-    expect(pickerSource).toContain(
-      'document.body.style.overflow = previousOverflow',
-    );
+  it('locks scrolling only while dialog presentation is mounted', () => {
+    const view = renderPicker();
+    expect(document.body.style.overflow).toBe('hidden');
+
+    view.unmount();
+    expect(document.body.style.overflow).toBe('');
   });
 
-  it('closes the picker before opening exercise information', () => {
-    expect(workoutSource).toContain(
-      'onInfo={(ex) => { setShowPicker(false); setInfoExercise(ex); }}',
-    );
+  it('renders route presentation inline without modal or scroll-lock semantics', () => {
+    const { container } = renderPicker('page');
+
+    expect(screen.queryByRole('dialog', { name: 'Add exercise' })).toBeNull();
+    expect(container.textContent).toContain('What are you training?');
+    expect(document.body.style.overflow).toBe('');
   });
 });

@@ -19,6 +19,10 @@ function routeIndex(pathname: string): number {
   return nested >= 0 ? nested : 0;
 }
 
+export function routeTransitionKey(pathname: string): string {
+  return routeOrder[routeIndex(pathname)];
+}
+
 export function ClientRouteTransition({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const reduceMotion = useReducedMotion();
@@ -29,7 +33,7 @@ export function ClientRouteTransition({ children }: { children: ReactNode }) {
   return (
     <AnimatePresence mode="popLayout" initial={false} custom={direction}>
       <motion.div
-        key={pathname}
+        key={routeTransitionKey(pathname)}
         className="client-shell__content"
         custom={direction}
         initial={reduceMotion ? false : { opacity: 0.72, x: direction * 28, scale: 0.992 }}

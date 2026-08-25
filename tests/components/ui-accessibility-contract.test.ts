@@ -4,7 +4,7 @@ import React from 'react';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ConfirmSheet } from '@/components/ui/ConfirmSheet';
 import { Tabs } from '@/components/ui/Tabs';
 import type { TabOption } from '@/components/ui/Tabs';
@@ -90,7 +90,7 @@ describe('accessible UI primitive contract', () => {
     expect(sheetSource).toContain('aria-labelledby');
     expect(sheetSource).toContain('aria-describedby');
     expect(sheetSource).toContain("event.key === 'Escape'");
-    expect(sheetSource).toContain('dialogRef.current?.focus()');
+    expect(sheetSource).toContain('getFocusableElements(dialog)[0]');
     expect(sheetSource).toContain('activeElement?.focus()');
   });
 
@@ -222,13 +222,11 @@ describe('accessible UI primitive contract', () => {
       }),
     ));
 
-    const dialog = screen.getByRole('alertdialog');
+    expect(screen.getByRole('alertdialog')).toBeTruthy();
     const cancel = screen.getByRole('button', { name: 'Cancel' });
     const confirm = screen.getByRole('button', { name: 'Confirm' });
-    expect(document.activeElement).toBe(dialog);
-
-    fireEvent.keyDown(dialog, { key: 'Tab' });
     expect(document.activeElement).toBe(cancel);
+
     fireEvent.keyDown(cancel, { key: 'Tab', shiftKey: true });
     expect(document.activeElement).toBe(confirm);
     fireEvent.keyDown(confirm, { key: 'Tab' });
@@ -245,5 +243,29 @@ describe('accessible UI primitive contract', () => {
     }));
     expect(document.activeElement).toBe(opener);
     opener.remove();
+  });
+
+  it('submits an async confirmation once per settlement and permits retry after rejection', async () => {
+    let rejectFirst!: (reason: Error) => void;
+    const onConfirm = vi.fn()
+      .mockImplementationOnce(() => new Promise<void>((_resolve, reject) => { rejectFirst = reject; }))
+      .mockResolvedValueOnce(undefined);
+    render(React.createElement(ConfirmSheet, {
+      open: true,
+      title: 'Remove Bench Press',
+      onConfirm,
+      onCancel: vi.fn(),
+    }));
+
+    const confirm = screen.getByRole('button', { name: 'Confirm' });
+    fireEvent.click(confirm);
+    fireEvent.click(confirm);
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+    expect(confirm.hasAttribute('disabled')).toBe(true);
+
+    rejectFirst(new Error('offline'));
+    await waitFor(() => expect(confirm.hasAttribute('disabled')).toBe(false));
+    fireEvent.click(confirm);
+    await waitFor(() => expect(onConfirm).toHaveBeenCalledTimes(2));
   });
 });

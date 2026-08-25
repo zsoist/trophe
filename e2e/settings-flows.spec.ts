@@ -15,7 +15,11 @@ test.describe('client settings flows', () => {
   test.skip(!email || !password, 'Set E2E_CLIENT_EMAIL/E2E_CLIENT_PASSWORD');
 
   test('English-beta profile, metric labels, weight unit, and logout remain usable', async ({ page }) => {
-    await page.addInitScript(() => window.localStorage.setItem('trophe_weight_unit', 'kg'));
+    await page.addInitScript(() => {
+      if (window.localStorage.getItem('trophe_weight_unit') === null) {
+        window.localStorage.setItem('trophe_weight_unit', 'kg');
+      }
+    });
     await login(page);
 
     await page.goto('/dashboard/profile');
@@ -27,13 +31,22 @@ test.describe('client settings flows', () => {
     await expect(page.getByText(/Español|Idioma|Guardar Perfil/)).toHaveCount(0);
 
     await page.goto('/dashboard/workout');
-    const unitToggle = page.getByRole('button', { name: 'kg / lb' });
+    let unitToggle = page.getByRole('button', { name: 'Weight unit: kg' });
     await expect(unitToggle).toHaveText('kg');
     await unitToggle.click();
+    unitToggle = page.getByRole('button', { name: 'Weight unit: lb' });
     await expect(unitToggle).toHaveText('lb');
     await expect.poll(() => page.evaluate(() => window.localStorage.getItem('trophe_weight_unit'))).toBe('lb');
+
+    await page.reload();
+    unitToggle = page.getByRole('button', { name: 'Weight unit: lb' });
+    await expect(unitToggle).toHaveText('lb');
     await unitToggle.click();
+    unitToggle = page.getByRole('button', { name: 'Weight unit: kg' });
     await expect(unitToggle).toHaveText('kg');
+    await expect.poll(() => page.evaluate(() => window.localStorage.getItem('trophe_weight_unit'))).toBe('kg');
+    await page.reload();
+    await expect(page.getByRole('button', { name: 'Weight unit: kg' })).toHaveText('kg');
 
     await page.goto('/dashboard/profile');
     const dismissInstallPrompt = page.getByRole('button', { name: 'Dismiss install prompt' });

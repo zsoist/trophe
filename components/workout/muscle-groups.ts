@@ -40,23 +40,23 @@ export function bodyAreaLabelKey(area: WorkoutBodyArea): string {
 }
 
 export const MUSCLE_GROUPS: { key: MuscleGroup; label: string; color: string }[] = [
-  { key: 'chest', label: 'Chest', color: '#ef4444' },
-  { key: 'back', label: 'Back', color: '#3b82f6' },
-  { key: 'shoulders', label: 'Shoulders', color: '#f59e0b' },
-  { key: 'biceps', label: 'Biceps', color: '#10b981' },
-  { key: 'triceps', label: 'Triceps', color: '#8b5cf6' },
-  { key: 'forearms', label: 'Forearms', color: '#ec4899' },
-  { key: 'quads', label: 'Quads', color: '#06b6d4' },
-  { key: 'hamstrings', label: 'Hamstrings', color: '#f97316' },
-  { key: 'glutes', label: 'Glutes', color: '#14b8a6' },
-  { key: 'calves', label: 'Calves', color: '#a855f7' },
-  { key: 'core', label: 'Core', color: '#eab308' },
-  { key: 'full_body', label: 'Full Body', color: '#D4A853' },
-  { key: 'cardio', label: 'Cardio', color: '#ef4444' },
+  { key: 'chest', label: 'Chest', color: 'var(--performance-coral)' },
+  { key: 'back', label: 'Back', color: 'var(--performance-lime)' },
+  { key: 'shoulders', label: 'Shoulders', color: 'var(--performance-orange)' },
+  { key: 'biceps', label: 'Biceps', color: 'var(--performance-cyan)' },
+  { key: 'triceps', label: 'Triceps', color: 'var(--performance-violet)' },
+  { key: 'forearms', label: 'Forearms', color: 'var(--performance-cyan)' },
+  { key: 'quads', label: 'Quads', color: 'var(--performance-lime)' },
+  { key: 'hamstrings', label: 'Hamstrings', color: 'var(--performance-orange)' },
+  { key: 'glutes', label: 'Glutes', color: 'var(--performance-violet)' },
+  { key: 'calves', label: 'Calves', color: 'var(--performance-cyan)' },
+  { key: 'core', label: 'Core', color: 'var(--performance-violet)' },
+  { key: 'full_body', label: 'Full Body', color: 'var(--performance-gold)' },
+  { key: 'cardio', label: 'Cardio', color: 'var(--performance-coral)' },
 ];
 
 export function muscleColor(group: string | null | undefined): string {
-  return MUSCLE_GROUPS.find((m) => m.key === group)?.color ?? '#666';
+  return MUSCLE_GROUPS.find((m) => m.key === group)?.color ?? 'var(--content-muted)';
 }
 
 export function muscleLabel(group: string | null | undefined): string {

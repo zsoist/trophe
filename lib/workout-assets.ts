@@ -1,25 +1,38 @@
 export type BodyAreaId = 'chest' | 'shoulders' | 'arms' | 'back' | 'legs' | 'core' | 'full-body' | 'full_body' | 'cardio';
 
-interface WorkoutAsset {
+export interface ResolvedWorkoutAsset {
   src: string;
-  altKey: string;
-  kind: 'exercise' | 'body-area';
+  kind: 'technique' | 'anatomy' | 'cardio';
+  fit: 'contain';
+  background: 'neutral';
+  alpha: true;
 }
 
-const exerciseAssets: Array<{ matches: RegExp; slug: string; altKey: string }> = [
-  { matches: /\b(?:barbell\s+)?bench\s+press\b/, slug: 'bench-press', altKey: 'bench_press' },
-  { matches: /\bincline\b.*\bpress\b/, slug: 'incline-press', altKey: 'incline_press' },
-  { matches: /\b(?:overhead|shoulder|military)\b.*\bpress\b/, slug: 'overhead-press', altKey: 'overhead_press' },
-  { matches: /\b(?:pec\s+deck|chest\s+fly\s+machine)\b/, slug: 'pec-deck', altKey: 'pec_deck' },
-  { matches: /\b(?:cable\s+(?:cross(?:over)?|fly)|chest\s+cable\s+fly)\b/, slug: 'cable-fly', altKey: 'cable_fly' },
-  { matches: /\b(?:pull\s*up|chin\s*up)\b/, slug: 'pull-up', altKey: 'pull_up' },
-  { matches: /\b(?:deadlift|romanian\s+deadlift|rdl)\b/, slug: 'deadlift', altKey: 'deadlift' },
-  { matches: /\b(?:squat|front\s+squat|goblet\s+squat)\b/, slug: 'squat', altKey: 'squat' },
-  { matches: /\b(?:dip|chest\s+dips|triceps\s+dips)\b/, slug: 'dip', altKey: 'dip' },
-  { matches: /\b(?:row|rowing)\b/, slug: 'row', altKey: 'row' },
-  { matches: /\b(?:biceps?\s+)?curl\b/, slug: 'curl', altKey: 'curl' },
-  { matches: /\b(?:triceps?\s+(?:extension|pushdown)|skull\s*crusher)\b/, slug: 'triceps-extension', altKey: 'triceps_extension' },
+const exerciseAssets: Array<{ matches: RegExp; slug: string }> = [
+  // Keep aliases exact and most-specific first: similar names often use materially
+  // different equipment or technique and must fall back to honest anatomy art.
+  { matches: /^(?:incline dumbbell press|dumbbell incline press)$/, slug: 'incline-press' },
+  { matches: /^barbell bench press$/, slug: 'bench-press' },
+  { matches: /^(?:standing overhead barbell press|standing barbell overhead press)$/, slug: 'overhead-press' },
+  { matches: /^(?:pec deck machine|pec deck)$/, slug: 'pec-deck' },
+  { matches: /^standing cable chest fly$/, slug: 'cable-fly' },
+  { matches: /^pull ups?$/, slug: 'pull-up' },
+  { matches: /^(?:conventional barbell deadlift|barbell conventional deadlift)$/, slug: 'deadlift' },
+  { matches: /^(?:barbell back squat|back squat)$/, slug: 'squat' },
+  { matches: /^(?:parallel bar chest dips?|chest dips?)$/, slug: 'dip' },
+  { matches: /^seated cable row$/, slug: 'row' },
+  { matches: /^standing dumbbell biceps curl$/, slug: 'curl' },
+  { matches: /^(?:cable triceps rope extension|cable rope triceps extension|rope triceps pushdown)$/, slug: 'triceps-extension' },
 ];
+
+type AnatomyGroup = BodyAreaId | 'biceps' | 'triceps' | 'forearms' | 'quads' | 'hamstrings' | 'glutes' | 'calves';
+
+function anatomyArea(group?: AnatomyGroup | null): Exclude<BodyAreaId, 'full_body'> {
+  if (group === 'biceps' || group === 'triceps' || group === 'forearms') return 'arms';
+  if (group === 'quads' || group === 'hamstrings' || group === 'glutes' || group === 'calves') return 'legs';
+  if (group === 'full_body') return 'full-body';
+  return group ?? 'full-body';
+}
 
 function normalize(value: string): string {
   return value.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
@@ -28,24 +41,30 @@ function normalize(value: string): string {
 export function resolveWorkoutAsset({
   exerciseName,
   bodyArea,
+  muscleGroup,
 }: {
   exerciseName?: string | null;
   bodyArea?: BodyAreaId | null;
-}): WorkoutAsset {
+  muscleGroup?: AnatomyGroup | null;
+}): ResolvedWorkoutAsset {
   const normalizedName = normalize(exerciseName ?? '');
   const named = exerciseAssets.find(({ matches }) => matches.test(normalizedName));
   if (named) {
     return {
-      src: `/workout/exercises/${named.slug}.webp`,
-      altKey: `workout.visual.${named.altKey}`,
-      kind: 'exercise',
+      src: `/workout-v2/exercises/${named.slug}.webp`,
+      kind: 'technique',
+      fit: 'contain',
+      background: 'neutral',
+      alpha: true,
     };
   }
 
-  const fallback = bodyArea === 'full_body' ? 'full-body' : bodyArea ?? 'full-body';
+  const fallback = anatomyArea(muscleGroup ?? bodyArea);
   return {
-    src: `/workout/body-areas/${fallback}.webp`,
-    altKey: `workout.body_area.${fallback.replace('-', '_')}`,
-    kind: 'body-area',
+    src: `/workout-v2/body-areas/${fallback}.webp`,
+    kind: fallback === 'cardio' ? 'cardio' : 'anatomy',
+    fit: 'contain',
+    background: 'neutral',
+    alpha: true,
   };
 }

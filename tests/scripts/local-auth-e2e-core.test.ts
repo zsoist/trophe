@@ -13,6 +13,7 @@ import {
   localAppOrigin,
   parseSupabaseStatusEnv,
   retryLocalE2EOperation,
+  resolveLocalPlaywrightArgs,
   resolveSupabaseCli,
   withDisposableUsers,
   withFixtureCleanup,
@@ -49,6 +50,22 @@ describe('local authenticated E2E harness', () => {
 
   it('uses only the exact no-sync cache path under the project root', () => {
     expect(localE2ECachePath('/workspace/trophe')).toBe('/workspace/trophe/.next-e2e.nosync');
+  });
+
+  it('forwards explicit Playwright specs and options verbatim while preserving the default suite', () => {
+    const defaults = ['e2e/default-a.spec.ts', 'e2e/default-b.spec.ts'];
+    expect(resolveLocalPlaywrightArgs([], defaults)).toEqual(defaults);
+    expect(resolveLocalPlaywrightArgs([
+      'e2e/workout-workspace-v2.spec.ts',
+      '--project=mobile-chromium',
+      '--grep',
+      'dark',
+    ], defaults)).toEqual([
+      'e2e/workout-workspace-v2.spec.ts',
+      '--project=mobile-chromium',
+      '--grep',
+      'dark',
+    ]);
   });
 
   it('resolves the installed native CLI package without falling back to the npm shim', () => {

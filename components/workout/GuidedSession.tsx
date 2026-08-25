@@ -979,6 +979,8 @@ export default function GuidedSession({
         {painModalExerciseId && (
           <PainFlagModal
             exerciseId={painModalExerciseId}
+            exerciseName={exName}
+            suggestedBodyPart={ex.info?.muscleGroup ?? ''}
             onSave={(flag) => setPainFlags((prev) => [...prev, flag])}
             onClose={() => setPainModalExerciseId(null)}
           />

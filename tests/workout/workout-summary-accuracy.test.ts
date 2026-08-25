@@ -15,18 +15,15 @@ describe('workout completion summaries', () => {
     expect(finish).toContain('.filter((s) => s.completed && !s.is_warmup)');
   });
 
-  it('converts freestyle summary volume to the preferred display unit', () => {
-    const source = readFileSync(
-      join(process.cwd(), 'app/dashboard/workout/page.tsx'),
+  it('does not fabricate completion totals while a workout is still a draft', () => {
+    const review = readFileSync(
+      join(process.cwd(), 'components/workout/workspace/WorkoutReview.tsx'),
       'utf8',
     );
-    const start = source.indexOf('{/* ── Session-complete celebration');
-    const finish = source.slice(start);
 
-    expect(finish).toContain(
-      'value={kgToDisplay(finishSummary.volume, unit)}',
-    );
-    expect(finish).toContain('>{unit}</span>');
-    expect(finish).not.toContain('>kg</span>');
+    expect(review).toContain("t('workout.draft_not_started')");
+    expect(review).toContain("t('workout.log_completed')");
+    expect(review).not.toContain('finishSummary');
+    expect(review).not.toContain('kgToDisplay');
   });
 });

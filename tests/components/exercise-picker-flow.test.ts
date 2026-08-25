@@ -152,6 +152,31 @@ afterEach(() => {
 });
 
 describe('muscle-group-first exercise picker', () => {
+  it('moves focus without scrolling routed workout chrome out of view', () => {
+    const focus = vi.spyOn(HTMLElement.prototype, 'focus');
+    renderPicker({ presentation: 'page' });
+
+    expect(focus).toHaveBeenCalledWith({ preventScroll: true });
+  });
+
+  it('adds a routed exercise to the draft and returns to Build without modal close semantics', () => {
+    const addDraftExercise = vi.fn();
+    const returnToBuild = vi.fn();
+    const { onClose, onSelect } = renderPicker({
+      presentation: 'page',
+      onAddToDraft: addDraftExercise,
+      onReturnToBuild: returnToBuild,
+    } as never);
+
+    fireEvent.click(screen.getByRole('button', { name: /^Chest/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add Bench Press' }));
+
+    expect(addDraftExercise).toHaveBeenCalledWith('bench');
+    expect(returnToBuild).toHaveBeenCalledTimes(1);
+    expect(onSelect).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
   it('opens on eight body-area choices instead of the full exercise catalogue', async () => {
     renderPicker();
 

@@ -9,7 +9,7 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    include: ['tests/**/*.test.ts', 'lib/**/*.test.ts', 'agents/**/*.test.ts'],
+    include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx', 'lib/**/*.test.ts', 'agents/**/*.test.ts'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],
