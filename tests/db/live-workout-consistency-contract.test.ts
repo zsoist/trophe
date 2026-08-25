@@ -22,6 +22,15 @@ describe('live workout consistency migration contract', () => {
     expect(sql).toMatch(/unique[\s\S]*session_id[\s\S]*exercise_id[\s\S]*set_number/i);
   });
 
+  it('aborts on legacy duplicates without deleting or rewriting either row', () => {
+    if (!existsSync(migrationPath)) return;
+    const sql = migration();
+    const preIndex = sql.slice(0, sql.indexOf('CREATE UNIQUE INDEX IF NOT EXISTS workout_sets_session_exercise_number_unique'));
+    expect(preIndex).toMatch(/duplicate logical workout sets/i);
+    expect(preIndex).toMatch(/raise exception/i);
+    expect(preIndex).not.toMatch(/delete\s+from\s+public\.workout_sets/i);
+  });
+
   it('keeps every live mutation RPC invoker-owned and authenticated-only', () => {
     if (!existsSync(migrationPath)) return;
     const sql = migration();

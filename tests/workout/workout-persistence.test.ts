@@ -8,6 +8,7 @@ vi.mock('@/lib/supabase', () => ({ supabase: { from: db.from, rpc: db.rpc } }));
 
 import {
   deleteEmptyWorkoutSession,
+  deleteLiveWorkoutSetAtomic,
   deleteWorkoutSession,
   appendWorkoutSessionPainFlag,
   finishLiveWorkoutSessionAtomic,
@@ -58,6 +59,16 @@ describe('workout persistence live-session helpers', () => {
     db.rpc.mockResolvedValueOnce({ data: false, error: null });
     await expect(deleteEmptyWorkoutSession('session-1')).resolves.toBe(false);
     expect(db.rpc).toHaveBeenCalledWith('discard_empty_workout_session', { p_session_id: 'session-1' });
+    expect(db.from).not.toHaveBeenCalled();
+  });
+
+  it('undoes a live set only through the owner/session-locking RPC', async () => {
+    db.rpc.mockResolvedValueOnce({ data: true, error: null });
+    await expect(deleteLiveWorkoutSetAtomic('session-1', 'set-1')).resolves.toBe(true);
+    expect(db.rpc).toHaveBeenCalledWith('delete_live_workout_set', {
+      p_session_id: 'session-1',
+      p_set_id: 'set-1',
+    });
     expect(db.from).not.toHaveBeenCalled();
   });
 
@@ -113,8 +124,14 @@ describe('workout persistence live-session helpers', () => {
       exercise_id: 'bench', body_part: 'shoulder', severity: 2,
     })).resolves.toMatchObject({ ok: true, flags: [{ body_part: 'shoulder' }] });
     await expect(finishLiveWorkoutSessionAtomic('session-1', {
-      name: 'Push', durationMinutes: 20, templateId: null, notes: null,
+      name: 'Run', durationMinutes: 20, templateId: null,
+      cardio: { activity: 'run', distanceKm: 4.2, effort: 7 },
     })).resolves.toBe(true);
+    expect(db.rpc).toHaveBeenLastCalledWith('finish_live_workout_session', {
+      p_session_id: 'session-1', p_name: 'Run', p_duration_minutes: 20,
+      p_template_id: null, p_cardio_activity: 'run', p_cardio_distance_km: 4.2,
+      p_cardio_effort: 7,
+    });
   });
 
   it('loads canonical structure and version without trusting local storage', async () => {

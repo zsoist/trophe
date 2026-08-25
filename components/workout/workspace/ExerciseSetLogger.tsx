@@ -25,6 +25,7 @@ interface ExerciseSetLoggerProps {
   unit: WeightUnit;
   initialValue?: Partial<SetLoggerValue>;
   initialSetId?: string | null;
+  initialCompletedAt?: string | null;
   restTargetSeconds?: number;
   disabled?: boolean;
   onComplete(value: SetLoggerValue): Promise<string | null>;
@@ -48,6 +49,7 @@ export function ExerciseSetLogger({
   unit,
   initialValue,
   initialSetId = null,
+  initialCompletedAt = null,
   restTargetSeconds = 90,
   disabled = false,
   onComplete,
@@ -66,8 +68,17 @@ export function ExerciseSetLogger({
   const [setId, setSetId] = useState<string | null>(initialSetId);
   const [saving, setSaving] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
-  const [restElapsed, setRestElapsed] = useState(0);
-  const [restStartedAt, setRestStartedAt] = useState<number | null>(null);
+  const recoveredRestStartedAt = initialSetId && initialCompletedAt
+    ? Date.parse(initialCompletedAt)
+    : Number.NaN;
+  const [restStartedAt, setRestStartedAt] = useState<number | null>(
+    Number.isFinite(recoveredRestStartedAt) ? recoveredRestStartedAt : null,
+  );
+  const [restElapsed, setRestElapsed] = useState(() => (
+    Number.isFinite(recoveredRestStartedAt)
+      ? Math.max(0, Math.floor((Date.now() - recoveredRestStartedAt) / 1_000))
+      : 0
+  ));
 
   useEffect(() => {
     if (!setId || restStartedAt === null) return;

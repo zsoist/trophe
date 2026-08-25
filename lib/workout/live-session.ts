@@ -1,6 +1,6 @@
 import {
   deleteEmptyWorkoutSession,
-  deleteWorkoutSet,
+  deleteLiveWorkoutSetAtomic,
   appendWorkoutSessionPainFlag,
   finishLiveWorkoutSessionAtomic,
   loadWorkoutSessionSets,
@@ -41,8 +41,7 @@ export interface FinishLiveSessionInput {
   durationMinutes: number;
   painFlags: PainFlag[];
   templateId?: string | null;
-  notes?: string | null;
-  cardioMetrics?: { distanceKm: number | null; effort: number | null };
+  cardio?: { activity: string; distanceKm: number | null; effort: number | null };
 }
 
 export interface RetrospectiveWorkoutInput {
@@ -106,9 +105,101 @@ export async function completeLiveSet(input: CompleteLiveSetInput): Promise<{ ok
   }
 }
 
-export async function uncompleteLiveSet(setId: string): Promise<boolean> {
-  if (!setId.trim()) return false;
-  try { return await deleteWorkoutSet(setId); } catch { return false; }
+export async function uncompleteLiveSet(sessionId: string, setId: string): Promise<boolean> {
+  if (!sessionId.trim() || !setId.trim()) return false;
+  try { return await deleteLiveWorkoutSetAtomic(sessionId, setId); } catch { return false; }
+}
+
+const pendingSetStorageVersion = 1;
+
+function pendingSetStorage(storage?: Storage): Storage | null {
+  if (storage) return storage;
+  try {
+    return typeof window === 'undefined' ? null : window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+function pendingSetStorageKey(sessionId: string): string {
+  return `trophe:live-workout:${sessionId}:pending-sets:v${pendingSetStorageVersion}`;
+}
+
+function pendingSetLogicalKey(input: CompleteLiveSetInput): string {
+  return `${input.exerciseId}:${input.setNumber}`;
+}
+
+export function loadPendingLiveSets(sessionId: string, storage?: Storage): CompleteLiveSetInput[] {
+  if (!sessionId.trim()) return [];
+  const target = pendingSetStorage(storage);
+  if (!target) return [];
+  try {
+    const raw = target.getItem(pendingSetStorageKey(sessionId));
+    if (!raw) return [];
+    const value: unknown = JSON.parse(raw);
+    if (!Array.isArray(value)) return [];
+    return value.filter((candidate): candidate is CompleteLiveSetInput => {
+      if (!candidate || typeof candidate !== 'object') return false;
+      const input = candidate as CompleteLiveSetInput;
+      return input.sessionId === sessionId && validSet(input);
+    });
+  } catch {
+    return [];
+  }
+}
+
+export function persistPendingLiveSet(input: CompleteLiveSetInput, storage?: Storage): boolean {
+  if (!validSet(input)) return false;
+  const target = pendingSetStorage(storage);
+  if (!target) return false;
+  try {
+    const existing = loadPendingLiveSets(input.sessionId, target);
+    const key = pendingSetLogicalKey(input);
+    const next = [...existing.filter((entry) => pendingSetLogicalKey(entry) !== key), input];
+    target.setItem(pendingSetStorageKey(input.sessionId), JSON.stringify(next));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function removePendingLiveSet(input: CompleteLiveSetInput, storage?: Storage): boolean {
+  const target = pendingSetStorage(storage);
+  if (!target) return false;
+  try {
+    const key = pendingSetLogicalKey(input);
+    const next = loadPendingLiveSets(input.sessionId, target)
+      .filter((entry) => pendingSetLogicalKey(entry) !== key);
+    if (next.length === 0) target.removeItem(pendingSetStorageKey(input.sessionId));
+    else target.setItem(pendingSetStorageKey(input.sessionId), JSON.stringify(next));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function replayPendingLiveSets(
+  sessionId: string,
+  persist: (input: CompleteLiveSetInput) => Promise<{ ok: true; setId: string } | { ok: false }> = completeLiveSet,
+  storage?: Storage,
+): Promise<{
+  saved: Array<{ input: CompleteLiveSetInput; setId: string }>;
+  failed: CompleteLiveSetInput[];
+}> {
+  const pending = loadPendingLiveSets(sessionId, storage);
+  const saved: Array<{ input: CompleteLiveSetInput; setId: string }> = [];
+  const failed: CompleteLiveSetInput[] = [];
+  for (const input of pending) {
+    let result: { ok: true; setId: string } | { ok: false } = { ok: false };
+    try { result = await persist(input); } catch { /* retain the exact envelope */ }
+    if (result.ok) {
+      saved.push({ input, setId: result.setId });
+      removePendingLiveSet(input, storage);
+    } else {
+      failed.push(input);
+    }
+  }
+  return { saved, failed };
 }
 
 export type LiveSetLoadResult = { ok: true; sets: PersistedWorkoutSet[] } | { ok: false };
@@ -223,7 +314,7 @@ export async function finishLiveSession(
   onVerified?: () => void,
 ): Promise<{ ok: boolean }> {
   if (!input.sessionId.trim() || !input.name.trim() || !Number.isFinite(input.durationMinutes) || input.durationMinutes < 0
-    || (input.cardioMetrics !== undefined && !validateLiveCardioMetrics(input.cardioMetrics))) {
+    || (input.cardio !== undefined && (!input.cardio.activity.trim() || !validateLiveCardioMetrics(input.cardio)))) {
     return { ok: false };
   }
   let ok = false;
@@ -232,7 +323,7 @@ export async function finishLiveSession(
       name: input.name.trim(),
       durationMinutes: Math.round(input.durationMinutes),
       templateId: input.templateId ?? null,
-      notes: input.notes ?? null,
+      cardio: input.cardio ?? null,
     });
   } catch {
     return { ok: false };

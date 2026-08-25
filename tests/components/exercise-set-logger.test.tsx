@@ -60,6 +60,14 @@ describe('ExerciseSetLogger', () => {
     expect(screen.queryByText(/Resting/)).toBeNull();
   });
 
+  it('restores the original rest context and elapsed clock immediately', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-08-25T12:00:30.000Z'));
+    render(<ExerciseSetLogger exercise={{ id: 'bench', name: 'Bench Press' }} setNumber={1} unit="kg" initialSetId="persisted-set" initialCompletedAt="2026-08-25T12:00:00.000Z" initialValue={{ weight: 60, reps: 8, rpe: 7, isWarmup: false }} restTargetSeconds={90} onComplete={vi.fn()} />);
+    expect(screen.getByText(/30s \/ 90s/)).toBeTruthy();
+    vi.useRealTimers();
+  });
+
   it('restores completed values for editing after undo', async () => {
     render(<ExerciseSetLogger exercise={{ id: 'bench', name: 'Bench Press' }} setNumber={1} unit="kg" initialSetId="persisted-set" initialValue={{ weight: 60, reps: 8, rpe: 7, isWarmup: false }} onComplete={vi.fn()} onUndo={vi.fn().mockResolvedValue(true)} />);
     fireEvent.click(screen.getByRole('button', { name: 'Undo set' }));

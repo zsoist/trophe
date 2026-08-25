@@ -1,5 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import pg from 'pg';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL
@@ -26,6 +28,10 @@ const IDS = {
   keyOldClient: 'a7100000-0000-4000-8000-000000000016',
   keyIdentityA: 'a7100000-0000-4000-8000-000000000017',
   keyIdentityB: 'a7100000-0000-4000-8000-000000000018',
+  keyDeleteRace: 'a7100000-0000-4000-8000-000000000019',
+  keyDirectDelete: 'a7100000-0000-4000-8000-000000000020',
+  keyCardio: 'a7100000-0000-4000-8000-000000000021',
+  keyRollingCardio: 'a7100000-0000-4000-8000-000000000022',
 };
 
 type LiveStructure = Array<{
@@ -138,6 +144,84 @@ afterAll(async () => {
 });
 
 describe('live workout transactional consistency', () => {
+  it('migrates an already-terminal legacy cardio row before validating structured shape', async () => {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(`
+        ALTER TABLE public.workout_sessions
+          DROP CONSTRAINT IF EXISTS workout_sessions_workout_kind_check,
+          DROP CONSTRAINT IF EXISTS workout_sessions_cardio_activity_check,
+          DROP CONSTRAINT IF EXISTS workout_sessions_cardio_distance_check,
+          DROP CONSTRAINT IF EXISTS workout_sessions_cardio_effort_check,
+          DROP CONSTRAINT IF EXISTS workout_sessions_cardio_shape_check
+      `);
+      const inserted = await client.query<{ id: string }>(`
+        INSERT INTO public.workout_sessions (
+          user_id, session_date, name, duration_minutes, notes,
+          pain_flags, client_idempotency_key, client_request,
+          workout_kind, live_finish_request
+        ) VALUES (
+          $1, '2026-08-24', 'Legacy cardio', 20, 'legacy localized summary',
+          '[]'::jsonb, $2, jsonb_build_object('mode', 'live', 'kind', 'cardio'),
+          NULL, NULL
+        ) RETURNING id
+      `, [IDS.user, IDS.keyRollingCardio]);
+      await client.query(readFileSync(join(process.cwd(), 'drizzle/0077_live_workout_rollout_safety.sql'), 'utf8'));
+      const migrated = await client.query(`
+        SELECT workout_kind, live_finish_request ? 'notes' AS compatibility_envelope
+        FROM public.workout_sessions WHERE id = $1
+      `, [inserted.rows[0].id]);
+      expect(migrated.rows[0]).toEqual({ workout_kind: 'cardio', compatibility_envelope: true });
+      const constraints = await client.query<{ count: number }>(`
+        SELECT count(*)::integer AS count
+        FROM pg_catalog.pg_constraint
+        WHERE conrelid = 'public.workout_sessions'::regclass
+          AND conname LIKE 'workout_sessions_cardio_%_check'
+          AND convalidated
+      `);
+      expect(constraints.rows[0].count).toBe(4);
+      await client.query('ROLLBACK');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  });
+
+  it('keeps live mutation functions invoker-safe, path-locked, and authenticated-only', async () => {
+    const functions = await pool.query<{
+      signature: string;
+      security_definer: boolean;
+      config: string[] | null;
+      authenticated_execute: boolean;
+      anon_execute: boolean;
+      service_execute: boolean;
+    }>(`
+      SELECT p.oid::regprocedure::text AS signature,
+        p.prosecdef AS security_definer,
+        p.proconfig AS config,
+        has_function_privilege('authenticated', p.oid, 'EXECUTE') AS authenticated_execute,
+        has_function_privilege('anon', p.oid, 'EXECUTE') AS anon_execute,
+        has_function_privilege('service_role', p.oid, 'EXECUTE') AS service_execute
+      FROM pg_catalog.pg_proc AS p
+      WHERE p.oid IN (
+        'public.delete_live_workout_set(uuid,uuid)'::regprocedure,
+        'public.finish_live_workout_session(uuid,text,integer,uuid,text,real,real)'::regprocedure
+      )
+      ORDER BY signature
+    `);
+    expect(functions.rows).toHaveLength(2);
+    for (const fn of functions.rows) {
+      expect(fn.security_definer).toBe(false);
+      expect(fn.config).toContain('search_path=""');
+      expect(fn.authenticated_execute).toBe(true);
+      expect(fn.anon_execute).toBe(false);
+      expect(fn.service_execute).toBe(false);
+    }
+  });
+
   it('coalesces distinct tab request IDs by logical draft and preserves the first request date', async () => {
     const first = await asUser((client) => start(client, IDS.keyA, 'draft:two-tabs', '2026-08-24'), true);
     const second = await asUser((client) => start(client, IDS.keyB, 'draft:two-tabs', '2026-08-25'), true);
@@ -302,6 +386,92 @@ describe('live workout transactional consistency', () => {
       await client.query('SAVEPOINT stale_start');
       await expect(start(client, IDS.keyTerminal, 'draft:terminal')).rejects.toMatchObject({ code: '22023' });
       await client.query('ROLLBACK TO SAVEPOINT stale_start');
+    });
+  });
+
+  it('serializes a terminal finish ahead of undo across two connections', async () => {
+    const started = await asUser(async (client) => {
+      const sessionId = (await start(client, IDS.keyDeleteRace, 'draft:delete-race')).rows[0].id;
+      const saved = await client.query<{ id: string }>(`
+        SELECT public.save_live_workout_set(
+          $1::uuid, $2::uuid, 1, 60::real, 8, 8::real, false, false, 1
+        ) AS id
+      `, [sessionId, IDS.exerciseA]);
+      return { sessionId, setId: saved.rows[0].id };
+    }, true);
+
+    const finisher = await pool.connect();
+    const undoer = await pool.connect();
+    try {
+      await finisher.query('BEGIN');
+      await switchUser(finisher);
+      await finisher.query(`
+        SELECT public.finish_live_workout_session(
+          $1::uuid, 'Push', 20, NULL::uuid,
+          NULL::text, NULL::real, NULL::real
+        )
+      `, [started.sessionId]);
+
+      await undoer.query('BEGIN');
+      await switchUser(undoer);
+      let settled = false;
+      const pendingUndo = undoer.query(`
+        SELECT public.delete_live_workout_set($1::uuid, $2::uuid)
+      `, [started.sessionId, started.setId]).finally(() => { settled = true; });
+      await new Promise((resolve) => setTimeout(resolve, 40));
+      expect(settled).toBe(false);
+
+      await finisher.query('COMMIT');
+      await expect(pendingUndo).rejects.toMatchObject({ code: '22023' });
+      await undoer.query('ROLLBACK');
+    } finally {
+      await finisher.query('ROLLBACK').catch(() => undefined);
+      await undoer.query('ROLLBACK').catch(() => undefined);
+      finisher.release();
+      undoer.release();
+    }
+
+    const remaining = await pool.query(`SELECT id FROM public.workout_sets WHERE id = $1`, [started.setId]);
+    expect(remaining.rowCount).toBe(1);
+  });
+
+  it('rejects direct set deletion after terminal completion', async () => {
+    await asUser(async (client) => {
+      const sessionId = (await start(client, IDS.keyDirectDelete, 'draft:direct-delete')).rows[0].id;
+      const saved = await client.query<{ id: string }>(`
+        SELECT public.save_live_workout_set(
+          $1::uuid, $2::uuid, 1, 60::real, 8, 8::real, false, false, 1
+        ) AS id
+      `, [sessionId, IDS.exerciseA]);
+      await client.query(`
+        SELECT public.finish_live_workout_session(
+          $1::uuid, 'Push', 20, NULL::uuid,
+          NULL::text, NULL::real, NULL::real
+        )
+      `, [sessionId]);
+      await client.query('SAVEPOINT direct_delete');
+      await expect(client.query(`DELETE FROM public.workout_sets WHERE id = $1`, [saved.rows[0].id]))
+        .rejects.toMatchObject({ code: '22023' });
+      await client.query('ROLLBACK TO SAVEPOINT direct_delete');
+    });
+  });
+
+  it('stores retrospective cardio facts in typed columns without English notes', async () => {
+    await asUser(async (client) => {
+      const saved = await client.query<{ id: string }>(`
+        SELECT public.save_retrospective_workout(
+          $1::uuid, '2026-08-25'::date, 'cardio', 'Morning run', NULL::uuid,
+          31, '[]'::jsonb, 'run', 5.25::real, 7::real, '[]'::jsonb
+        ) AS id
+      `, [IDS.keyCardio]);
+      const row = await client.query(`
+        SELECT workout_kind, cardio_activity, cardio_distance_km, cardio_effort, notes
+        FROM public.workout_sessions WHERE id = $1
+      `, [saved.rows[0].id]);
+      expect(row.rows[0]).toEqual({
+        workout_kind: 'cardio', cardio_activity: 'run',
+        cardio_distance_km: 5.25, cardio_effort: 7, notes: null,
+      });
     });
   });
 

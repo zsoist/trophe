@@ -11,6 +11,7 @@ const persistence = vi.hoisted(() => ({
   insertWorkoutSet: vi.fn(),
   insertWorkoutSets: vi.fn(),
   deleteWorkoutSet: vi.fn(),
+  deleteLiveWorkoutSetAtomic: vi.fn(),
   deleteWorkoutSession: vi.fn(),
   deleteEmptyWorkoutSession: vi.fn(),
   finishWorkoutSession: vi.fn(),
@@ -46,6 +47,9 @@ import {
   updateLiveStructure,
   validateRetrospectiveWorkoutInput,
   validateLiveCardioMetrics,
+  loadPendingLiveSets,
+  persistPendingLiveSet,
+  replayPendingLiveSets,
 } from '@/lib/workout/live-session';
 
 const idempotencyKey = '11111111-1111-4111-8111-111111111111';
@@ -104,11 +108,12 @@ describe('live workout persistence boundary', () => {
     await expect(completeLiveSet({ sessionId: 'session-1', exerciseId: 'bench', setNumber: 1, weightKg: 60, reps: 8 })).resolves.toEqual({ ok: false });
   });
 
-  it('uncompletes and reloads sets through verified helpers', async () => {
-    persistence.deleteWorkoutSet.mockResolvedValue(true);
+  it('uncompletes an active set through the session-locking RPC and reloads sets', async () => {
+    persistence.deleteLiveWorkoutSetAtomic.mockResolvedValue(true);
     persistence.loadWorkoutSessionSets.mockResolvedValue({ ok: true, sets: [{ id: 'set-1', exercise_id: 'bench' }] });
-    await expect(uncompleteLiveSet('set-1')).resolves.toBe(true);
+    await expect(uncompleteLiveSet('session-1', 'set-1')).resolves.toBe(true);
     await expect(loadLiveSessionSets('session-1')).resolves.toEqual({ ok: true, sets: [{ id: 'set-1', exercise_id: 'bench' }] });
+    expect(persistence.deleteLiveWorkoutSetAtomic).toHaveBeenCalledWith('session-1', 'set-1');
   });
 
   it('loads PR baselines and durable pain flags through the live boundary', async () => {
@@ -130,17 +135,51 @@ describe('live workout persistence boundary', () => {
   });
 
   it('fails secondary live writes closed when the transport throws', async () => {
-    persistence.deleteWorkoutSet.mockRejectedValue(new Error('offline'));
+    persistence.deleteLiveWorkoutSetAtomic.mockRejectedValue(new Error('offline'));
     persistence.appendWorkoutSessionPainFlag.mockRejectedValue(new Error('offline'));
     persistence.updateWorkoutSupersetGroups.mockRejectedValue(new Error('offline'));
     persistence.deleteWorkoutSets.mockRejectedValue(new Error('offline'));
     persistence.deleteEmptyWorkoutSession.mockRejectedValue(new Error('offline'));
 
-    await expect(uncompleteLiveSet('set-1')).resolves.toBe(false);
+    await expect(uncompleteLiveSet('session-1', 'set-1')).resolves.toBe(false);
     await expect(appendLivePainFlag('session-1', idempotencyKey, { exercise_id: 'bench', body_part: 'shoulder', severity: 2 })).resolves.toEqual({ ok: false });
     await expect(updateLiveSupersets([{ id: 'set-1', superset_group: 1 }])).resolves.toBe(false);
     await expect(removeLiveExerciseSets(['set-1'])).resolves.toBe(false);
     await expect(discardEmptyLiveSession('session-1')).resolves.toBe(false);
+  });
+
+  it('retains the exact failed set envelope across refresh and replays it once', async () => {
+    const values = new Map<string, string>();
+    const storage: Storage = {
+      get length() { return values.size; },
+      clear: () => values.clear(),
+      getItem: (key) => values.get(key) ?? null,
+      key: (index) => [...values.keys()][index] ?? null,
+      removeItem: (key) => { values.delete(key); },
+      setItem: (key, value) => { values.set(key, value); },
+    };
+    const pending = {
+      sessionId: 'session-1', exerciseId: 'bench', setNumber: 2,
+      weightKg: 62.5, reps: 7, rpe: 8.5, isWarmup: false, isPr: true,
+      supersetGroup: 1,
+    };
+
+    expect(persistPendingLiveSet(pending, storage)).toBe(true);
+    expect(loadPendingLiveSets('session-1', storage)).toEqual([pending]);
+
+    const persist = vi.fn().mockResolvedValueOnce({ ok: false }).mockResolvedValueOnce({ ok: true, setId: 'set-2' });
+    await expect(replayPendingLiveSets('session-1', persist, storage)).resolves.toEqual({
+      saved: [], failed: [pending],
+    });
+    expect(persist).toHaveBeenCalledTimes(1);
+    expect(persist).toHaveBeenLastCalledWith(pending);
+    expect(loadPendingLiveSets('session-1', storage)).toEqual([pending]);
+
+    await expect(replayPendingLiveSets('session-1', persist, storage)).resolves.toEqual({
+      saved: [{ input: pending, setId: 'set-2' }], failed: [],
+    });
+    expect(persist).toHaveBeenCalledTimes(2);
+    expect(loadPendingLiveSets('session-1', storage)).toEqual([]);
   });
 
   it('returns safe recovery defaults when live reads throw', async () => {

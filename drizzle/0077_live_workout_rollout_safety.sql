@@ -1,9 +1,13 @@
 ALTER TABLE public.workout_sessions
-  ADD COLUMN IF NOT EXISTS live_finish_request jsonb;
+  ADD COLUMN IF NOT EXISTS live_finish_request jsonb,
+  ADD COLUMN IF NOT EXISTS workout_kind text,
+  ADD COLUMN IF NOT EXISTS cardio_activity text,
+  ADD COLUMN IF NOT EXISTS cardio_distance_km real,
+  ADD COLUMN IF NOT EXISTS cardio_effort real;
 
 -- A deploy can land after the old finish RPC committed but before its response
--- reached the client. Reconstruct the exact durable finish envelope for those
--- already-terminal live requests so the replacement RPC can verify the replay.
+-- reached the client. Reconstruct that durable compatibility envelope before
+-- validating the structured-cardio shape constraint.
 UPDATE public.workout_sessions
 SET live_finish_request = jsonb_build_object(
   'name', btrim(name),
@@ -15,6 +19,69 @@ SET live_finish_request = jsonb_build_object(
 WHERE duration_minutes IS NOT NULL
   AND live_finish_request IS NULL
   AND client_request->>'mode' = 'live';
+
+-- Backfill only already-structured request facts. Historical localized notes
+-- are presentation text and are deliberately never parsed into clinical data.
+UPDATE public.workout_sessions
+SET workout_kind = client_request->>'kind'
+WHERE workout_kind IS NULL
+  AND client_request->>'kind' IN ('strength', 'cardio');
+
+UPDATE public.workout_sessions
+SET cardio_activity = CASE
+      WHEN client_request->>'activity' IN ('walk', 'run', 'cycle', 'hiit', 'swim', 'other')
+        THEN client_request->>'activity'
+      ELSE NULL
+    END,
+    cardio_distance_km = CASE
+      WHEN jsonb_typeof(client_request->'distance_km') = 'number'
+        THEN (client_request->>'distance_km')::real
+      ELSE NULL
+    END,
+    cardio_effort = CASE
+      WHEN jsonb_typeof(client_request->'effort') = 'number'
+        THEN (client_request->>'effort')::real
+      ELSE NULL
+    END
+WHERE workout_kind = 'cardio'
+  AND client_request->>'mode' = 'retrospective';
+
+DO $migration$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_constraint WHERE conname = 'workout_sessions_workout_kind_check' AND conrelid = 'public.workout_sessions'::regclass) THEN
+    ALTER TABLE public.workout_sessions ADD CONSTRAINT workout_sessions_workout_kind_check
+      CHECK (workout_kind IS NULL OR workout_kind IN ('strength', 'cardio')) NOT VALID;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_constraint WHERE conname = 'workout_sessions_cardio_activity_check' AND conrelid = 'public.workout_sessions'::regclass) THEN
+    ALTER TABLE public.workout_sessions ADD CONSTRAINT workout_sessions_cardio_activity_check
+      CHECK (cardio_activity IS NULL OR cardio_activity IN ('walk', 'run', 'cycle', 'hiit', 'swim', 'other')) NOT VALID;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_constraint WHERE conname = 'workout_sessions_cardio_distance_check' AND conrelid = 'public.workout_sessions'::regclass) THEN
+    ALTER TABLE public.workout_sessions ADD CONSTRAINT workout_sessions_cardio_distance_check
+      CHECK (cardio_distance_km IS NULL OR (cardio_distance_km >= 0 AND cardio_distance_km::text NOT IN ('NaN', 'Infinity', '-Infinity'))) NOT VALID;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_constraint WHERE conname = 'workout_sessions_cardio_effort_check' AND conrelid = 'public.workout_sessions'::regclass) THEN
+    ALTER TABLE public.workout_sessions ADD CONSTRAINT workout_sessions_cardio_effort_check
+      CHECK (cardio_effort IS NULL OR (cardio_effort >= 1 AND cardio_effort <= 10 AND cardio_effort::text NOT IN ('NaN', 'Infinity', '-Infinity'))) NOT VALID;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_constraint WHERE conname = 'workout_sessions_cardio_shape_check' AND conrelid = 'public.workout_sessions'::regclass) THEN
+    ALTER TABLE public.workout_sessions ADD CONSTRAINT workout_sessions_cardio_shape_check
+      CHECK (
+        workout_kind IS NULL
+        OR (workout_kind = 'strength' AND cardio_activity IS NULL AND cardio_distance_km IS NULL AND cardio_effort IS NULL)
+        OR (workout_kind = 'cardio' AND (
+          duration_minutes IS NULL OR cardio_activity IS NOT NULL OR live_finish_request ? 'notes'
+        ))
+      ) NOT VALID;
+  END IF;
+END;
+$migration$;
+
+ALTER TABLE public.workout_sessions VALIDATE CONSTRAINT workout_sessions_workout_kind_check;
+ALTER TABLE public.workout_sessions VALIDATE CONSTRAINT workout_sessions_cardio_activity_check;
+ALTER TABLE public.workout_sessions VALIDATE CONSTRAINT workout_sessions_cardio_distance_check;
+ALTER TABLE public.workout_sessions VALIDATE CONSTRAINT workout_sessions_cardio_effort_check;
+ALTER TABLE public.workout_sessions VALIDATE CONSTRAINT workout_sessions_cardio_shape_check;
 
 CREATE OR REPLACE FUNCTION public.enforce_live_workout_set_structure()
 RETURNS trigger
@@ -128,6 +195,167 @@ BEGIN
 END;
 $function$;
 
+CREATE OR REPLACE FUNCTION public.enforce_live_workout_set_delete()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = ''
+AS $function$
+DECLARE
+  v_duration integer;
+BEGIN
+  SELECT duration_minutes
+    INTO v_duration
+    FROM public.workout_sessions
+    WHERE id = OLD.session_id
+    FOR UPDATE;
+
+  -- Parent removal can cascade after the session row is already unavailable.
+  IF NOT FOUND THEN
+    RETURN OLD;
+  END IF;
+  IF v_duration IS NOT NULL THEN
+    RAISE EXCEPTION 'Cannot delete a set from a completed workout' USING ERRCODE = '22023';
+  END IF;
+  RETURN OLD;
+END;
+$function$;
+
+DROP TRIGGER IF EXISTS workout_sets_terminal_delete_guard ON public.workout_sets;
+CREATE TRIGGER workout_sets_terminal_delete_guard
+  BEFORE DELETE ON public.workout_sets
+  FOR EACH ROW
+  EXECUTE FUNCTION public.enforce_live_workout_set_delete();
+
+CREATE OR REPLACE FUNCTION public.delete_live_workout_set(
+  p_session_id uuid,
+  p_set_id uuid
+)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = ''
+AS $function$
+DECLARE
+  v_user_id uuid := (SELECT auth.uid());
+  v_duration integer;
+BEGIN
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'Authentication required' USING ERRCODE = '42501';
+  END IF;
+  IF p_session_id IS NULL OR p_set_id IS NULL THEN
+    RAISE EXCEPTION 'A workout session and set are required' USING ERRCODE = '22023';
+  END IF;
+
+  SELECT duration_minutes
+    INTO v_duration
+    FROM public.workout_sessions
+    WHERE id = p_session_id AND user_id = v_user_id
+    FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RETURN false;
+  END IF;
+  IF v_duration IS NOT NULL THEN
+    RAISE EXCEPTION 'Cannot delete a set from a completed workout' USING ERRCODE = '22023';
+  END IF;
+
+  DELETE FROM public.workout_sets
+    WHERE id = p_set_id AND session_id = p_session_id;
+  RETURN true;
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.finish_live_workout_session(
+  p_session_id uuid,
+  p_name text,
+  p_duration_minutes integer,
+  p_template_id uuid,
+  p_cardio_activity text,
+  p_cardio_distance_km real,
+  p_cardio_effort real
+)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = ''
+AS $function$
+DECLARE
+  v_user_id uuid := (SELECT auth.uid());
+  v_duration integer;
+  v_kind text;
+  v_pain_flags jsonb;
+  v_existing_request jsonb;
+  v_request jsonb;
+BEGIN
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'Authentication required' USING ERRCODE = '42501';
+  END IF;
+  IF p_session_id IS NULL OR btrim(COALESCE(p_name, '')) = ''
+     OR p_duration_minutes IS NULL OR p_duration_minutes < 0 THEN
+    RAISE EXCEPTION 'Invalid live workout finish request' USING ERRCODE = '22023';
+  END IF;
+
+  SELECT duration_minutes, workout_kind, pain_flags, live_finish_request
+    INTO v_duration, v_kind, v_pain_flags, v_existing_request
+    FROM public.workout_sessions
+    WHERE id = p_session_id AND user_id = v_user_id
+    FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RETURN false;
+  END IF;
+  IF v_kind = 'cardio' THEN
+    IF p_cardio_activity IS NULL
+       OR p_cardio_activity NOT IN ('walk', 'run', 'cycle', 'hiit', 'swim', 'other')
+       OR (p_cardio_distance_km IS NOT NULL AND (
+         p_cardio_distance_km < 0 OR p_cardio_distance_km::text IN ('NaN', 'Infinity', '-Infinity')
+       ))
+       OR (p_cardio_effort IS NOT NULL AND (
+         p_cardio_effort < 1 OR p_cardio_effort > 10 OR p_cardio_effort::text IN ('NaN', 'Infinity', '-Infinity')
+       )) THEN
+      RAISE EXCEPTION 'Invalid live cardio metrics' USING ERRCODE = '22023';
+    END IF;
+  ELSIF v_kind = 'strength' THEN
+    IF p_cardio_activity IS NOT NULL OR p_cardio_distance_km IS NOT NULL OR p_cardio_effort IS NOT NULL THEN
+      RAISE EXCEPTION 'Strength workout cannot contain cardio metrics' USING ERRCODE = '22023';
+    END IF;
+  ELSE
+    RAISE EXCEPTION 'Workout kind is unavailable' USING ERRCODE = '22023';
+  END IF;
+
+  v_request := jsonb_build_object(
+    'name', btrim(p_name),
+    'duration_minutes', p_duration_minutes,
+    'template_id', p_template_id,
+    'workout_kind', v_kind,
+    'cardio_activity', p_cardio_activity,
+    'cardio_distance_km', p_cardio_distance_km,
+    'cardio_effort', p_cardio_effort,
+    'pain_flags', COALESCE(v_pain_flags, '[]'::jsonb)
+  );
+  IF v_duration IS NOT NULL THEN
+    IF v_existing_request IS NOT DISTINCT FROM v_request THEN
+      RETURN true;
+    END IF;
+    RAISE EXCEPTION 'The finish request conflicts with the completed workout' USING ERRCODE = '22023';
+  END IF;
+
+  UPDATE public.workout_sessions
+    SET name = btrim(p_name),
+        duration_minutes = p_duration_minutes,
+        template_id = p_template_id,
+        notes = NULL,
+        cardio_activity = p_cardio_activity,
+        cardio_distance_km = p_cardio_distance_km,
+        cardio_effort = p_cardio_effort,
+        live_finish_request = v_request
+    WHERE id = p_session_id AND user_id = v_user_id;
+
+  RETURN true;
+END;
+$function$;
+
 CREATE OR REPLACE FUNCTION public.start_workout_session(
   p_idempotency_key uuid,
   p_draft_fingerprint text,
@@ -216,10 +444,10 @@ BEGIN
   INSERT INTO public.workout_sessions (
     user_id, session_date, name, template_id, pain_flags,
     client_idempotency_key, client_request, client_draft_fingerprint,
-    live_structure, live_structure_version
+    live_structure, live_structure_version, workout_kind
   ) VALUES (
     v_user_id, p_session_date, btrim(p_name), p_template_id, '[]'::jsonb,
-    p_idempotency_key, v_request, p_draft_fingerprint, p_live_structure, 0
+    p_idempotency_key, v_request, p_draft_fingerprint, p_live_structure, 0, p_kind
   )
   ON CONFLICT DO NOTHING
   RETURNING id INTO v_session_id;
@@ -453,7 +681,8 @@ BEGIN
 
   UPDATE public.workout_sessions
     SET live_structure = p_live_structure,
-        live_structure_version = 0
+        live_structure_version = 0,
+        workout_kind = p_kind
     WHERE id = p_session_id AND user_id = v_user_id;
 
   RETURN jsonb_build_object('version', 0, 'structure', p_live_structure);
@@ -485,7 +714,6 @@ DECLARE
   v_existing_duration integer;
   v_request jsonb;
   v_set jsonb;
-  v_notes text;
 BEGIN
   IF v_user_id IS NULL THEN
     RAISE EXCEPTION 'Authentication required' USING ERRCODE = '42501';
@@ -561,22 +789,18 @@ BEGIN
     'effort', p_effort, 'sets', COALESCE(p_sets, '[]'::jsonb)
   );
 
-  IF p_kind = 'cardio' THEN
-    v_notes := concat_ws(
-      ' · ', 'Activity: ' || p_activity,
-      CASE WHEN p_distance_km IS NULL THEN NULL ELSE 'Distance: ' || p_distance_km || ' km' END,
-      CASE WHEN p_effort IS NULL THEN NULL ELSE 'Effort: ' || p_effort || '/10' END
-    );
-  END IF;
-
   -- Keep the new row non-terminal until every set is inserted. The trigger can
   -- therefore enforce terminal authority without weakening atomic history saves.
   INSERT INTO public.workout_sessions (
     user_id, session_date, name, template_id, duration_minutes, notes,
-    pain_flags, client_idempotency_key, client_request
+    pain_flags, client_idempotency_key, client_request, workout_kind,
+    cardio_activity, cardio_distance_km, cardio_effort
   ) VALUES (
-    v_user_id, p_session_date, btrim(p_name), p_template_id, NULL, v_notes,
-    COALESCE(p_pain_flags, '[]'::jsonb), p_idempotency_key, v_request
+    v_user_id, p_session_date, btrim(p_name), p_template_id, NULL, NULL,
+    COALESCE(p_pain_flags, '[]'::jsonb), p_idempotency_key, v_request, p_kind,
+    CASE WHEN p_kind = 'cardio' THEN p_activity ELSE NULL END,
+    CASE WHEN p_kind = 'cardio' THEN p_distance_km ELSE NULL END,
+    CASE WHEN p_kind = 'cardio' THEN p_effort ELSE NULL END
   )
   ON CONFLICT (user_id, client_idempotency_key)
     WHERE client_idempotency_key IS NOT NULL
@@ -632,6 +856,14 @@ REVOKE EXECUTE ON FUNCTION public.finish_live_workout_session(uuid, text, intege
 REVOKE EXECUTE ON FUNCTION public.finish_live_workout_session(uuid, text, integer, uuid, text) FROM anon, service_role;
 GRANT EXECUTE ON FUNCTION public.finish_live_workout_session(uuid, text, integer, uuid, text) TO authenticated;
 
+REVOKE EXECUTE ON FUNCTION public.finish_live_workout_session(uuid, text, integer, uuid, text, real, real) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.finish_live_workout_session(uuid, text, integer, uuid, text, real, real) FROM anon, service_role;
+GRANT EXECUTE ON FUNCTION public.finish_live_workout_session(uuid, text, integer, uuid, text, real, real) TO authenticated;
+
+REVOKE EXECUTE ON FUNCTION public.delete_live_workout_set(uuid, uuid) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.delete_live_workout_set(uuid, uuid) FROM anon, service_role;
+GRANT EXECUTE ON FUNCTION public.delete_live_workout_set(uuid, uuid) TO authenticated;
+
 REVOKE EXECUTE ON FUNCTION public.save_retrospective_workout(uuid, date, text, text, uuid, integer, jsonb, text, real, real, jsonb) FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION public.save_retrospective_workout(uuid, date, text, text, uuid, integer, jsonb, text, real, real, jsonb) FROM anon, service_role;
 GRANT EXECUTE ON FUNCTION public.save_retrospective_workout(uuid, date, text, text, uuid, integer, jsonb, text, real, real, jsonb) TO authenticated;
@@ -642,3 +874,6 @@ GRANT EXECUTE ON FUNCTION public.resume_legacy_live_workout_session(uuid, text, 
 
 REVOKE EXECUTE ON FUNCTION public.enforce_live_workout_set_structure() FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION public.enforce_live_workout_set_structure() FROM anon, authenticated, service_role;
+
+REVOKE EXECUTE ON FUNCTION public.enforce_live_workout_set_delete() FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.enforce_live_workout_set_delete() FROM anon, authenticated, service_role;

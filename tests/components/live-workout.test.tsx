@@ -13,6 +13,7 @@ const harness = vi.hoisted(() => ({
   completeLiveSet: vi.fn(), loadLivePrMap: vi.fn(), loadLivePainFlags: vi.fn(),
   appendLivePainFlag: vi.fn(), loadLiveStructure: vi.fn(),
   updateLiveStructure: vi.fn(), removeAndNormalizeLiveExercises: vi.fn(),
+  persistPendingLiveSet: vi.fn(), removePendingLiveSet: vi.fn(), replayPendingLiveSets: vi.fn(),
 }));
 
 const liveState: WorkoutWorkspaceState = {
@@ -45,13 +46,16 @@ vi.mock('@/lib/workout/live-session', () => ({
   recoverLiveExtraRows: vi.fn(() => []),
   appendLivePainFlag: harness.appendLivePainFlag, loadLiveStructure: harness.loadLiveStructure,
   updateLiveStructure: harness.updateLiveStructure, removeAndNormalizeLiveExercises: harness.removeAndNormalizeLiveExercises,
+  persistPendingLiveSet: harness.persistPendingLiveSet,
+  removePendingLiveSet: harness.removePendingLiveSet,
+  replayPendingLiveSets: harness.replayPendingLiveSets,
 }));
 vi.mock('@/lib/workout/units', () => ({ useWeightUnit: () => ['kg', vi.fn()], displayToKg: (value: number) => value, kgToDisplay: (value: number) => value }));
-vi.mock('@/lib/i18n', () => ({ useI18n: () => ({ t: (key: string) => ({
+vi.mock('@/lib/i18n', () => ({ useI18n: () => ({ t: (key: string, params?: Record<string, unknown>) => ({
   'workout.finish': 'Finish workout', 'workout.finish_question': 'Finish workout?',
   'workout.keep_training': 'Keep training', 'workout.save_and_finish': 'Save and finish',
   'workout.discard_empty': 'Discard empty workout', 'workout.finish_duration': 'Duration 1 min',
-  'workout.finish_completed_sets': '0 completed sets', 'workout.finish_pending_sets': '1 pending sets',
+  'workout.finish_pending_sets': '1 pending sets',
   'workout.finish_pain_notes': '0 pain notes', 'workout.finish_prs': '0 PRs', 'workout.saving': 'Saving…',
   'workout.pause': 'Pause', 'workout.resume': 'Resume', 'workout.add_set': 'Add set',
   'workout.distance_optional': 'Distance optional', 'workout.effort': 'Effort',
@@ -60,6 +64,8 @@ vi.mock('@/lib/i18n', () => ({ useI18n: () => ({ t: (key: string) => ({
   'workout.completed_done': 'Done', 'workout.history': 'History',
   'workout.mutation_failed': 'A workout change could not be saved. Retry that change before finishing.',
   'workout.recovery_failed': 'Workout recovery could not be verified.', 'workout.retry_recovery': 'Retry recovery',
+  'workout.remove_named': `Remove ${String(params?.name ?? '')}`, 'workout.finish_completed_sets': `${String(params?.n ?? 0)} completed sets`,
+  'workout.remove_exercise': 'Remove exercise', 'workout.cancel': 'Cancel',
   'workout.plate_title': 'Plate calculator', 'workout.plate_total_label': 'Total weight', 'workout.plate_bar_label': 'Bar weight',
   'workout.plate_inventory_label': 'Available plates per side', 'workout.plate_inventory_help': 'Use semicolons.',
   'workout.plate_left_side': 'Left side', 'workout.plate_right_side': 'Right side', 'workout.plate_per_side': 'Plates are listed per side',
@@ -79,6 +85,9 @@ beforeEach(() => {
   ] });
   harness.appendLivePainFlag.mockResolvedValue({ ok: true, flags: [{ exercise_id: 'bench', body_part: 'shoulder', severity: 2 }] });
   harness.updateLiveStructure.mockResolvedValue({ ok: true, version: 1, structure: [] });
+  harness.persistPendingLiveSet.mockReturnValue(true);
+  harness.removePendingLiveSet.mockReturnValue(true);
+  harness.replayPendingLiveSets.mockResolvedValue({ saved: [], failed: [] });
   harness.removeAndNormalizeLiveExercises.mockImplementation((items: Array<{ exerciseId: string }>, removeId: string) => items.filter((item) => item.exerciseId !== removeId).map((item) => ({ ...item, linkedBelow: false })));
 });
 afterEach(() => { cleanup(); vi.clearAllMocks(); workspace = { state: liveState, pause: vi.fn(), resume: vi.fn(), ...harness }; });
@@ -245,12 +254,35 @@ describe('LiveWorkout', () => {
     ])));
 
     fireEvent.click(screen.getByRole('button', { name: 'Remove Bench Press' }));
+    expect(screen.getByRole('dialog', { name: 'Remove Bench Press' })).toBeTruthy();
+    expect(screen.getByText('0 completed sets')).toBeTruthy();
+    expect(harness.updateLiveStructure).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(harness.updateLiveStructure).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Bench Press' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Remove exercise' }));
     await vi.waitFor(() => expect(harness.updateLiveStructure).toHaveBeenCalledWith('session-1', [
       { exerciseId: 'row', targetSets: 1, targetReps: '8', supersetGroup: null },
     ], 1, 'bench'));
     await vi.waitFor(() => expect(harness.commitLiveStrengthStructure).toHaveBeenLastCalledWith([
       expect.objectContaining({ exerciseId: 'row', linkedBelow: false }),
     ]));
+    expect(harness.updateLiveStructure).toHaveBeenCalledTimes(2);
+  });
+
+  it('names the exercise and saved-set count before one destructive removal', async () => {
+    harness.loadLiveSessionSets.mockResolvedValue({ ok: true, sets: [{
+      id: 'set-1', session_id: 'session-1', exercise_id: 'bench', set_number: 1,
+      weight_kg: 60, reps: 8, rpe: null, is_warmup: false, is_pr: false,
+      superset_group: null, notes: null, created_at: '2026-08-25T12:00:00.000Z',
+    }] });
+    render(<LiveWorkout exercises={[]} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove Bench Press' }));
+    expect(screen.getByRole('dialog', { name: 'Remove Bench Press' })).toBeTruthy();
+    expect(screen.getByText('1 completed sets')).toBeTruthy();
+    expect(harness.updateLiveStructure).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Remove exercise' }));
+    await vi.waitFor(() => expect(harness.updateLiveStructure).toHaveBeenCalledTimes(1));
   });
 
   it('retains live structure and blocks finish when a superset write fails', async () => {

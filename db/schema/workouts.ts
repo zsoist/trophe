@@ -78,15 +78,38 @@ export const workoutSessions = pgTable('workout_sessions', {
   durationMinutes: integer('duration_minutes'),
   notes: text(),
   painFlags: jsonb('pain_flags').default([]),
+  clientIdempotencyKey: uuid('client_idempotency_key'),
+  clientRequest: jsonb('client_request'),
+  liveStructure: jsonb('live_structure'),
+  liveStructureVersion: integer('live_structure_version').default(0).notNull(),
+  clientDraftFingerprint: text('client_draft_fingerprint'),
+  clientDraftHash: text('client_draft_hash').generatedAlwaysAs(sql`pg_catalog.md5(client_draft_fingerprint)`),
+  painMutationIds: uuid('pain_mutation_ids').array().default(sql`'{}'::uuid[]`).notNull(),
+  liveFinishRequest: jsonb('live_finish_request'),
+  workoutKind: text('workout_kind'),
+  cardioActivity: text('cardio_activity'),
+  cardioDistanceKm: real('cardio_distance_km'),
+  cardioEffort: real('cardio_effort'),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
 }, (table) => [
   index('idx_workout_sessions_user').using('btree', table.userId.asc().nullsLast().op('uuid_ops'), table.sessionDate.asc().nullsLast().op('date_ops')),
+  uniqueIndex('workout_sessions_user_id_client_idempotency_key_unique')
+    .using('btree', table.userId.asc().nullsLast().op('uuid_ops'), table.clientIdempotencyKey.asc().nullsLast().op('uuid_ops'))
+    .where(sql`client_idempotency_key IS NOT NULL`),
+  uniqueIndex('workout_sessions_user_draft_hash_unique')
+    .using('btree', table.userId.asc().nullsLast().op('uuid_ops'), table.clientDraftHash.asc().nullsLast().op('text_ops'))
+    .where(sql`client_draft_hash IS NOT NULL`),
   foreignKey({ columns: [table.userId], foreignColumns: [profiles.id], name: 'workout_sessions_user_id_fkey' }).onDelete('cascade'),
   // Migration 0049: template_id finally gets its FK (was a bare uuid, never written).
   foreignKey({ columns: [table.templateId], foreignColumns: [workoutTemplates.id], name: 'workout_sessions_template_id_fkey' }).onDelete('set null'),
   pgPolicy('Users manage own sessions', { as: 'permissive', for: 'all', to: ['authenticated'],
     using: sql`(user_id = auth.uid())`, withCheck: sql`(user_id = auth.uid())` }),
   pgPolicy('Coaches view client sessions', { as: 'permissive', for: 'select', to: ['authenticated'], using: sql`private.is_coach_of(user_id)` }),
+  check('workout_sessions_workout_kind_check', sql`workout_kind IS NULL OR workout_kind IN ('strength', 'cardio')`),
+  check('workout_sessions_cardio_activity_check', sql`cardio_activity IS NULL OR cardio_activity IN ('walk', 'run', 'cycle', 'hiit', 'swim', 'other')`),
+  check('workout_sessions_cardio_distance_check', sql`cardio_distance_km IS NULL OR (cardio_distance_km >= 0 AND cardio_distance_km::text NOT IN ('NaN', 'Infinity', '-Infinity'))`),
+  check('workout_sessions_cardio_effort_check', sql`cardio_effort IS NULL OR (cardio_effort >= 1 AND cardio_effort <= 10 AND cardio_effort::text NOT IN ('NaN', 'Infinity', '-Infinity'))`),
+  check('workout_sessions_cardio_shape_check', sql`workout_kind IS NULL OR (workout_kind = 'strength' AND cardio_activity IS NULL AND cardio_distance_km IS NULL AND cardio_effort IS NULL) OR (workout_kind = 'cardio' AND (duration_minutes IS NULL OR cardio_activity IS NOT NULL OR live_finish_request ? 'notes'))`),
 ]);
 
 /** Individual sets within a workout session. */
@@ -103,10 +126,12 @@ export const workoutSets = pgTable('workout_sets', {
   // Migration 0056: sets sharing a group id within a session form a superset.
   supersetGroup: integer('superset_group'),
   notes: text(),
+  clientRequest: jsonb('client_request'),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).defaultNow(),
 }, (table) => [
   index('idx_workout_sets_exercise').using('btree', table.exerciseId.asc().nullsLast().op('uuid_ops')),
   index('idx_workout_sets_session').using('btree', table.sessionId.asc().nullsLast().op('uuid_ops')),
+  uniqueIndex('workout_sets_session_exercise_number_unique').using('btree', table.sessionId.asc().nullsLast().op('uuid_ops'), table.exerciseId.asc().nullsLast().op('uuid_ops'), table.setNumber.asc().nullsLast().op('int4_ops')),
   foreignKey({ columns: [table.exerciseId], foreignColumns: [exercises.id], name: 'workout_sets_exercise_id_fkey' }),
   foreignKey({ columns: [table.sessionId], foreignColumns: [workoutSessions.id], name: 'workout_sets_session_id_fkey' }).onDelete('cascade'),
   pgPolicy('Users manage own sets', { as: 'permissive', for: 'all', to: ['authenticated'],

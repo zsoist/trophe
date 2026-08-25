@@ -96,6 +96,7 @@ const expectations: Expectation[] = [
         ('public', 'save_live_workout_set'),
         ('public', 'append_live_pain_flag'),
         ('public', 'finish_live_workout_session'),
+        ('public', 'delete_live_workout_set'),
         ('public', 'update_live_workout_structure'),
         ('public', 'resume_legacy_live_workout_session')
       )
@@ -113,6 +114,7 @@ const expectations: Expectation[] = [
       'public.save_live_workout_set',
       'public.append_live_pain_flag',
       'public.finish_live_workout_session',
+      'public.delete_live_workout_set',
       'public.resume_legacy_live_workout_session',
       'public.update_live_workout_structure',
     ],
@@ -195,13 +197,15 @@ withPool(config, async (pool) => {
       AND table_name = 'workout_sessions'
       AND column_name IN (
         'live_structure', 'live_structure_version',
-        'client_draft_fingerprint', 'pain_mutation_ids', 'live_finish_request'
+        'client_draft_fingerprint', 'pain_mutation_ids', 'live_finish_request',
+        'workout_kind', 'cardio_activity', 'cardio_distance_km', 'cardio_effort'
       )
     ORDER BY column_name;
   `);
   const expectedWorkoutColumns = [
+    'cardio_activity', 'cardio_distance_km', 'cardio_effort',
     'client_draft_fingerprint', 'live_finish_request', 'live_structure',
-    'live_structure_version', 'pain_mutation_ids',
+    'live_structure_version', 'pain_mutation_ids', 'workout_kind',
   ];
   if (workoutConsistencyColumns.rows.map((row) => row.column_name).join(',') !== expectedWorkoutColumns.join(',')) {
     throw new Error('live workout consistency columns are missing');
@@ -216,6 +220,8 @@ withPool(config, async (pool) => {
       to_regprocedure('public.save_live_workout_set(uuid,uuid,integer,real,integer,real,boolean,boolean,integer)'),
       to_regprocedure('public.append_live_pain_flag(uuid,uuid,jsonb)'),
       to_regprocedure('public.finish_live_workout_session(uuid,text,integer,uuid,text)'),
+      to_regprocedure('public.finish_live_workout_session(uuid,text,integer,uuid,text,real,real)'),
+      to_regprocedure('public.delete_live_workout_set(uuid,uuid)'),
       to_regprocedure('public.update_live_workout_structure(uuid,integer,jsonb,uuid)'),
       to_regprocedure('public.resume_legacy_live_workout_session(uuid,text,jsonb)')
     ]) AS rpc(signature);
@@ -224,6 +230,35 @@ withPool(config, async (pool) => {
     throw new Error('live workout consistency RPC signatures are missing');
   }
   report.workout_consistency_rpcs = ['available'];
+
+  const workoutFunctionSecurity = await pool.query<{
+    security_definer: boolean;
+    config: string[] | null;
+    authenticated_execute: boolean;
+    anon_execute: boolean;
+    service_execute: boolean;
+  }>(`
+    SELECT p.prosecdef AS security_definer,
+      p.proconfig AS config,
+      has_function_privilege('authenticated', p.oid, 'EXECUTE') AS authenticated_execute,
+      has_function_privilege('anon', p.oid, 'EXECUTE') AS anon_execute,
+      has_function_privilege('service_role', p.oid, 'EXECUTE') AS service_execute
+    FROM pg_catalog.pg_proc AS p
+    WHERE p.oid IN (
+      'public.delete_live_workout_set(uuid,uuid)'::regprocedure,
+      'public.finish_live_workout_session(uuid,text,integer,uuid,text,real,real)'::regprocedure
+    );
+  `);
+  if (workoutFunctionSecurity.rowCount !== 2 || workoutFunctionSecurity.rows.some((fn) => (
+    fn.security_definer
+    || !fn.config?.includes('search_path=""')
+    || !fn.authenticated_execute
+    || fn.anon_execute
+    || fn.service_execute
+  ))) {
+    throw new Error('live workout mutation function security is unsafe');
+  }
+  report.workout_function_security = ['security invoker', 'empty search_path', 'authenticated only'];
 
   const governedRunColumns = await pool.query<{ column_name: string }>(`
     SELECT column_name

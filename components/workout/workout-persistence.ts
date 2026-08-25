@@ -171,14 +171,30 @@ export async function appendWorkoutSessionPainFlag(
 
 export async function finishLiveWorkoutSessionAtomic(
   sessionId: string,
-  input: { name: string; durationMinutes: number; templateId?: string | null; notes?: string | null },
+  input: {
+    name: string;
+    durationMinutes: number;
+    templateId?: string | null;
+    cardio?: { activity: string; distanceKm: number | null; effort: number | null } | null;
+  },
 ): Promise<boolean> {
   const { data, error } = await supabase.rpc('finish_live_workout_session', {
     p_session_id: sessionId,
     p_name: input.name,
     p_duration_minutes: input.durationMinutes,
     p_template_id: input.templateId ?? null,
-    p_notes: input.notes ?? null,
+    p_cardio_activity: input.cardio?.activity ?? null,
+    p_cardio_distance_km: input.cardio?.distanceKm ?? null,
+    p_cardio_effort: input.cardio?.effort ?? null,
+  });
+  return !error && data === true;
+}
+
+/** Delete a live set only while its owner session is still active. */
+export async function deleteLiveWorkoutSetAtomic(sessionId: string, setId: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc('delete_live_workout_set', {
+    p_session_id: sessionId,
+    p_set_id: setId,
   });
   return !error && data === true;
 }

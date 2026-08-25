@@ -9,20 +9,31 @@ ALTER TABLE public.workout_sessions
 ALTER TABLE public.workout_sets
   ADD COLUMN IF NOT EXISTS client_request jsonb;
 
--- A set number is one logical row. Keep the earliest legacy row before adding
--- the invariant so retries cannot create a second completed set.
-WITH ranked AS (
-  SELECT id,
-    row_number() OVER (
-      PARTITION BY session_id, exercise_id, set_number
-      ORDER BY created_at NULLS LAST, id
-    ) AS position
-  FROM public.workout_sets
-)
-DELETE FROM public.workout_sets AS workout_set
-USING ranked
-WHERE workout_set.id = ranked.id
-  AND ranked.position > 1;
+-- Duplicate logical workout sets require an explicit operator decision. Abort
+-- losslessly and report their scale; a schema migration must never guess which
+-- user's set is authoritative or silently discard either payload.
+DO $migration$
+DECLARE
+  v_duplicate_groups bigint;
+  v_extra_rows bigint;
+BEGIN
+  SELECT count(*), COALESCE(sum(row_count - 1), 0)
+    INTO v_duplicate_groups, v_extra_rows
+    FROM (
+      SELECT count(*) AS row_count
+      FROM public.workout_sets
+      GROUP BY session_id, exercise_id, set_number
+      HAVING count(*) > 1
+    ) AS duplicates;
+
+  IF v_duplicate_groups > 0 THEN
+    RAISE EXCEPTION 'Duplicate logical workout sets detected; migration aborted without modifying rows'
+      USING ERRCODE = '23505',
+        DETAIL = pg_catalog.format('%s duplicate groups contain %s extra rows', v_duplicate_groups, v_extra_rows),
+        HINT = 'Export and reconcile the reported logical sets, then rerun this migration.';
+  END IF;
+END;
+$migration$;
 
 CREATE UNIQUE INDEX IF NOT EXISTS workout_sets_session_exercise_number_unique
   ON public.workout_sets (session_id, exercise_id, set_number);
