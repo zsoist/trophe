@@ -77,7 +77,7 @@ export function BotNav({ routes, className = '', onActiveRouteSelect }: BotNavPr
               onActiveRouteSelect(route.href);
             }}
             className={[
-              'relative flex min-h-14 min-w-11 flex-1 basis-0 flex-col items-center justify-center gap-0.5 rounded-xl px-1',
+              'relative flex min-h-12 min-w-11 flex-1 basis-0 flex-col items-center justify-center gap-0.5 rounded-xl px-1 min-[430px]:min-h-14',
               'text-xs uppercase tracking-[0.05em]',
               'transition-colors motion-reduce:transition-none',
               active
@@ -103,7 +103,7 @@ export function BotNav({ routes, className = '', onActiveRouteSelect }: BotNavPr
             >
               {route.icon}
             </span>
-            <span data-bot-nav-label className="hidden font-medium min-[341px]:inline">{route.label}</span>
+            <span data-bot-nav-label className="hidden font-medium min-[430px]:inline">{route.label}</span>
             {route.badge !== undefined && (
               <span className="absolute right-1 top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--status-danger-fg)] px-1 text-xs font-semibold text-[var(--content-inverse)]">
                 {route.badge}

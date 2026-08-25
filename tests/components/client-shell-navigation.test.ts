@@ -48,14 +48,15 @@ describe('client shell navigation ownership', () => {
     expect(mockRouterReplace).toHaveBeenCalledWith('/dashboard/workout');
   });
 
-  it('uses an accessible icon-only label mode below the strict 320px breakpoint', () => {
+  it('uses an accessible icon-only label mode on narrow phones', () => {
     render(React.createElement(BotNav, { routes: clientRoutes }));
 
     for (const label of ['Home', 'Workout']) {
       const link = screen.getByRole('link', { name: label });
       expect(link.getAttribute('aria-label')).toBe(label);
-      expect(link.querySelector('[data-bot-nav-label]')?.className).toContain('min-[341px]:inline');
+      expect(link.querySelector('[data-bot-nav-label]')?.className).toContain('min-[430px]:inline');
       expect(link.querySelector('[data-bot-nav-icon]')).toBeTruthy();
+      expect(link.className).toContain('min-h-12');
     }
   });
 

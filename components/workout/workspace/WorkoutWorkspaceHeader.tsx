@@ -49,11 +49,11 @@ function WorkoutWorkspaceHeaderContent({ stage, onBack }: { stage: WorkoutStage;
       {!isHome && (
         <Link href={backHref} onClick={() => { onBack?.(); resetWorkoutScroll(); }} aria-label={t('workout.workspace_back')} className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-1 rounded-xl text-sm font-medium hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] min-[375px]:px-2">
           <ChevronLeft size={18} strokeWidth={2} aria-hidden="true" />
-          <span className="hidden min-[375px]:inline">{t('workout.workspace_back')}</span>
+          <span className="hidden min-[430px]:inline">{t('workout.workspace_back')}</span>
         </Link>
       )}
-      <Dumbbell className="hidden shrink-0 min-[375px]:block" size={18} strokeWidth={2} aria-hidden="true" />
-      <h1 className="min-w-0 flex-1 truncate text-base font-semibold">{title}</h1>
+      <Dumbbell className="hidden shrink-0 min-[430px]:block" size={18} strokeWidth={2} aria-hidden="true" />
+      <h1 className="min-w-0 flex-1 truncate text-sm font-semibold min-[375px]:text-base">{title}</h1>
       {isHome && (
         <button
           type="button"

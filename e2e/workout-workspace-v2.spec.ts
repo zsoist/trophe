@@ -18,7 +18,7 @@ async function assertWorkoutSurface(page: Page, theme: ThemeMode) {
   await expect(nav).toBeVisible();
   await expect(nav).toHaveCSS('bottom', '0px');
   const viewport = page.viewportSize();
-  if (viewport?.width === 320) {
+  if (viewport && viewport.width <= 390) {
     const labels = nav.locator('[data-bot-nav-label]');
     await expect(labels.first()).toBeHidden();
     const icons = await nav.locator('[data-bot-nav-icon]').evaluateAll((elements) => elements.map((element) => {
@@ -89,6 +89,17 @@ async function assertCanonicalWorkoutChrome(page: Page, workspaceTitle: string) 
     expect(target!.top).toBeGreaterThanOrEqual(0);
     expect(target!.bottom).toBeLessThanOrEqual(geometry.viewportHeight);
   }
+}
+
+async function assertControlClearsBottomNav(page: Page, control: Locator) {
+  await control.scrollIntoViewIfNeeded();
+  const [controlBox, navBox] = await Promise.all([
+    control.boundingBox(),
+    page.getByRole('navigation', { name: 'Primary' }).boundingBox(),
+  ]);
+  expect(controlBox).not.toBeNull();
+  expect(navBox).not.toBeNull();
+  expect(controlBox!.y + controlBox!.height).toBeLessThanOrEqual(navBox!.y - 4);
 }
 
 async function waitForWorkoutBuildAtTop(page: Page) {
@@ -314,12 +325,15 @@ test.describe('Workout Workspace V2', () => {
           await expect(currentWorkspace(page).getByText('Draft · Not started')).toBeVisible();
           await assertWorkoutSurface(page, theme);
           await captureWorkout(page, testInfo, `${theme}-${viewport.width}x${viewport.height}-build.png`);
-          await currentWorkspace(page).getByRole('button', { name: 'Review workout' }).click();
+          const reviewWorkout = currentWorkspace(page).getByRole('button', { name: 'Review workout' });
+          await assertControlClearsBottomNav(page, reviewWorkout);
+          await reviewWorkout.click();
           await waitForRouteSettled(page, '/dashboard/workout/review');
           await waitForWorkoutRouteAtTop(page, `${viewport.width}px Review must keep the canonical chrome visible`);
           await assertCanonicalWorkoutChrome(page, 'Review Workout');
           await assertWorkoutSurface(page, theme);
           await captureWorkout(page, testInfo, `${theme}-${viewport.width}x${viewport.height}-review.png`);
+          await assertControlClearsBottomNav(page, currentWorkspace(page).getByRole('button', { name: 'Start live workout' }));
         }
         assertNoPaidRequests();
       });

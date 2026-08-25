@@ -102,6 +102,15 @@ describe('workout workspace navigation', () => {
     expect(screen.getByText('Draft')).toBeTruthy();
   });
 
+  it('keeps complete workspace titles compact on the narrowest phones', () => {
+    pathname = WORKOUT_ROUTES.review;
+    render(<WorkoutWorkspaceHeader stage="review" />);
+
+    const title = screen.getByRole('heading', { name: 'Review Workout' });
+    expect(title.className).toContain('text-sm');
+    expect(title.className).toContain('min-[375px]:text-base');
+  });
+
   it('does not repeat home controls on the workspace landing route', () => {
     pathname = WORKOUT_ROUTES.home;
     render(<WorkoutWorkspaceHeader stage="draft" />);

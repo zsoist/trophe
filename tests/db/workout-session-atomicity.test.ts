@@ -141,7 +141,8 @@ describe('workout atomic RPC security and behavior', () => {
       'save_live_workout_set', 'append_live_pain_flag', 'finish_live_workout_session',
       'resume_legacy_live_workout_session',
     ]]);
-    expect(result.rows).toHaveLength(9);
+    // Two start and two finish overloads remain callable during the rolling deploy window.
+    expect(result.rows).toHaveLength(10);
     for (const row of result.rows) {
       expect(row).toMatchObject({ prosecdef: false, authenticated: true, anon: false, service_role: false });
     }

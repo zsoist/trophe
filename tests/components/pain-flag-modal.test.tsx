@@ -35,6 +35,8 @@ describe('PainFlagModal durable save', () => {
     expect(screen.getByRole('radio', { name: '4' })).toBeTruthy();
     expect(screen.getByRole('radio', { name: '5 Stop' })).toBeTruthy();
     expect(screen.getByText('This note is shared with your coach.')).toBeTruthy();
+    expect(screen.getByRole('dialog').className).toContain('workout-dialog');
+    expect(screen.getByRole('dialog').className).toContain('max-h-[calc(100dvh-2rem)]');
 
     fireEvent.change(screen.getByLabelText('Body region'), { target: { value: 'Elbow' } });
     expect((screen.getByLabelText('Body region') as HTMLInputElement).value).toBe('Elbow');

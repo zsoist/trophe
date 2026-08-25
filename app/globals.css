@@ -1439,6 +1439,11 @@ body {
   font-family: var(--font-ui), var(--font-sans), system-ui, sans-serif;
 }
 
+/* Workspace dialogs inherit the token scope without inheriting page-height geometry. */
+.workout-workspace.workout-dialog {
+  min-height: 0;
+}
+
 .workout-workspace :where(button, a, input, select, textarea) {
   transition-duration: var(--workout-motion-duration);
   transition-timing-function: var(--workout-motion-ease);
